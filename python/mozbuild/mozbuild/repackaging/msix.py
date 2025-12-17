@@ -358,6 +358,9 @@ def repackage_msix(
         "aurora",
         "nightly",
         "unofficial",
+        "nightly-enterprise",
+        "beta-enterprise",
+        "release-enterprise",
     ):
         raise Exception(f"channel is unrecognized: {channel}")
 
@@ -471,7 +474,8 @@ def repackage_msix(
 
     # TODO: Bug 1721922: localize this description via Fluent.
     lines = []
-    for _, f in unpack_finder.find("**/chrome/en-US/locale/branding/brand.properties"):
+    # TODO: Hack en-US -> '*' for Enterprise repacks
+    for _, f in unpack_finder.find("**/chrome/*/locale/branding/brand.properties"):
         lines.extend(
             line
             for line in f.open().read().decode("utf-8").splitlines()

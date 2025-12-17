@@ -613,3 +613,8 @@ msi_display_name
 The human-readable product name for the MSI installer (e.g. ``Firefox Nightly``,
 ``Firefox Beta``, ``Firefox``). Used by downstream signing tasks to construct
 the Authenticode comment embedded in the installer signature.
+
+msix_identity_name
+==================
+
+Similar to msi_display_name but for MSIX packaging.

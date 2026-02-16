@@ -16,6 +16,10 @@
 #  include <Carbon/Carbon.h>
 #endif
 
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/browser/extensions/felt/felt.h"
+#endif
+
 using namespace mozilla;
 
 static void ReadString(nsINIParser& parser, const char* section,
@@ -95,15 +99,32 @@ static nsresult ParseConsoleUrlFromDistribution(XREAppData& aAppData,
   return rv;
 }
 
-nsresult XRE_ParseEnterpriseServerURL(XREAppData& aAppData) {
-  nsCString serverUrl;
-  nsresult rv = ParseConsoleUrlFromDistribution(aAppData, serverUrl);
-  NS_ENSURE_SUCCESS(rv, rv);
+nsresult XRE_ParseEnterpriseServerURL(XREAppData& aAppData,
+                                      const char* aServerUrl) {
+  nsCString serverUrl(aServerUrl);
+  if (!serverUrl.Length()) {
+    nsresult rv = ParseConsoleUrlFromDistribution(aAppData, serverUrl);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+
   if (serverUrl.Last() != '/') {
     serverUrl.Append('/');
   }
-  serverUrl.Append("api/browser/crash-reports/submit");
-  aAppData.crashReporterURL = serverUrl.get();
+
+  nsCString crashReporterUrl(serverUrl);
+  crashReporterUrl.Append("api/browser/crash-reports/submit");
+  aAppData.crashReporterURL = crashReporterUrl.get();
+
+  if (is_felt_ui()) {
+    nsCString updateUrl(serverUrl);
+    nsCString ausUpdateParams(aAppData.updateURL);
+    ausUpdateParams.Replace(0, ausUpdateParams.FindChar('%'), "");
+    updateUrl.Append("api/browser/updates/");
+    updateUrl.Append(ausUpdateParams);
+    aAppData.updateURL = updateUrl.get();
+  } else {
+    aAppData.updateURL = "";
+  }
 
   return NS_OK;
 }

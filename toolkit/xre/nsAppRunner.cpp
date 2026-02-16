@@ -5768,6 +5768,17 @@ nsresult XREMain::XRE_mainRun() {
     // files can't override JS engine start-up prefs.
     mDirProvider.FinishInitializingUserPrefs();
 
+#if defined(MOZ_ENTERPRISE)
+    {
+      nsAutoCString consoleAddress;
+      rv =
+          Preferences::GetCString("enterprise.console.address", consoleAddress);
+      if (NS_SUCCEEDED(rv)) {
+        XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get());
+      }
+    }
+#endif
+
     // Now that the profiler, directory services, and prefs have been
     // initialized we can find the download directory, where the profiler can
     // write profiles when user stops the profiler using POSIX signal handling.

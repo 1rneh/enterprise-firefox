@@ -67,6 +67,13 @@ function notifyFirefoxReady() {
   Services.obs.notifyObservers(null, "felt-firefox-window-ready");
 }
 
+const topics = [
+  "felt-firefox-exiting",
+  "felt-firefox-restarting",
+  "felt-extension-ready",
+  "felt-firefox-logout",
+];
+
 /**
  * Manages the SSO login and launching Firefox
  */
@@ -183,6 +190,12 @@ export class FeltProcessParent extends JSProcessActorParent {
     };
   }
 
+  actorCreated() {
+    topics.forEach(topic => {
+      Services.obs.addObserver(this.browserObserver, topic);
+    })
+  }
+
   sanitizePrefs(prefs) {
     let sanitized = [];
     prefs?.forEach(pref => {
@@ -262,24 +275,6 @@ export class FeltProcessParent extends JSProcessActorParent {
     gFeltFirefoxReadyNotified = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
 
-    const observerTopics = [
-      "felt-firefox-exiting",
-      "felt-firefox-restarting",
-      "felt-extension-ready",
-      "felt-firefox-logout",
-    ];
-
-    observerTopics.forEach(aTopic => {
-      const num = Array.from(Services.obs.enumerateObservers(aTopic)).length;
-      if (num !== 0) {
-        console.debug(
-          `FeltExtension: ParentProcess: observerTopics[${aTopic}]: ${num} INCORRECT TOO MANY`
-        );
-        throw new Error(`Too many observers: ${aTopic}:${num}`);
-      }
-      Services.obs.addObserver(this.browserObserver, aTopic);
-    });
-
     this.firefox = this.startFirefoxProcess();
     this.firefox
       .then(async () => {
@@ -328,10 +323,6 @@ export class FeltProcessParent extends JSProcessActorParent {
           console.debug(
             `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
           );
-
-          observerTopics.forEach(aTopic => {
-            Services.obs.removeObserver(this.browserObserver, aTopic);
-          });
 
           if (!this.restartReported && !this.logoutReported) {
             if (this.proc.exitCode === 0) {
@@ -656,6 +647,12 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
     console.error(`FeltExtension: loggedInUserInfo not set`);
     return lazy.FeltCommon.ENTERPRISE_PROFILE;
+  }
+
+  didDestroy() {
+    topics.forEach(topic => {
+      Services.obs.removeObserver(this.browserObserver, topic);
+    })
   }
 }
 

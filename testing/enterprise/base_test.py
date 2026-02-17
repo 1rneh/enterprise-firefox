@@ -139,10 +139,13 @@ class EnterpriseTestsBase(MarionetteTestCase):
         self._child_driver = Marionette(host="127.0.0.1", port=new_marionette_port)
         self._child_driver.start_session(capabilities)
 
+    def get_driver(self, env):
+        return self._driver if env == Environment.FELT else self._child_driver
+
     def get_logged_in_user_info(self, env):
         self._logger.info(f"Getting logged in user info in {env.name}.")
 
-        driver = self._driver if env == Environment.FELT else self._child_driver
+        driver = self.get_driver(env)
 
         driver.set_context("chrome")
         try:

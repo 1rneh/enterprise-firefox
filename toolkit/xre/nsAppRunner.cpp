@@ -4691,7 +4691,8 @@ enum struct ShouldNotProcessUpdatesReason {
   DevToolsLaunching,
   NotAnUpdatingTask,
   OtherInstanceRunning,
-  FirstStartup
+  FirstStartup,
+  FeltOnlyUpdates,
 };
 
 const char* ShouldNotProcessUpdatesReasonAsString(
@@ -4703,6 +4704,8 @@ const char* ShouldNotProcessUpdatesReasonAsString(
       return "NotAnUpdatingTask";
     case ShouldNotProcessUpdatesReason::OtherInstanceRunning:
       return "OtherInstanceRunning";
+    case ShouldNotProcessUpdatesReason::FeltOnlyUpdates:
+      return "FeltOnlyUpdates";
     default:
       MOZ_CRASH("impossible value for ShouldNotProcessUpdatesReason");
   }
@@ -4717,6 +4720,14 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
     NS_WARNING("ShouldNotProcessUpdates(): FirstStartup");
     return Some(ShouldNotProcessUpdatesReason::FirstStartup);
   }
+
+#  if defined(MOZ_ENTERPRISE)
+  // Don't process updates when launching a Browser from FELT, only Felt should
+  // perform that step
+  if (!is_felt_ui()) {
+    return Some(ShouldNotProcessUpdatesReason::FeltOnlyUpdates);
+  }
+#  endif
 
   // Do not process updates if we're launching devtools, as evidenced by
   // "--chrome ..." with the browser toolbox chrome document URL.

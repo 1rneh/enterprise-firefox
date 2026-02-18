@@ -337,7 +337,8 @@ document.addEventListener(
         #unified-extensions-button,
         #library-button,
         #split-view-button,
-        #smartwindow-ask-button
+        #smartwindow-ask-button,
+        #enterprise-badge-toolbar-button
       `);
       if (!element) {
         return;
@@ -433,6 +434,10 @@ document.addEventListener(
           if (isLikeLeftClick) {
             AIWindowUI.toggleSidebar(window);
           }
+          break;
+        
+        case "enterprise-badge-toolbar-button":
+          EnterpriseHandler.openPanel(element, event);
           break;
 
         default:

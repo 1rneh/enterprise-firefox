@@ -15,6 +15,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
+  Updates: "resource:///modules/enterprise/Updates.sys.mjs",
 });
 
 // Will at least make move forward marionette
@@ -330,6 +331,7 @@ window.addEventListener(
   "load",
   () => {
     ErrorReport.init();
+    lazy.Updates.init(document, ErrorReport);
     setupMarionetteEnvironment();
     setupPopupNotifications();
     setupContextMenu();

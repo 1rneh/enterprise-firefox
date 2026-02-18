@@ -5,12 +5,14 @@
 ### FELT (Firefox Enterprise Launcher Tool) SSO Login
 
 felt-window-title = { -brand-short-name } — Login
+
 felt-sso-title = Sign in
 felt-sso-input-email =
     .description = Use your organizational-issued email
     .label = Work email
 felt-sso-continue-btn =
     .label = Continue
+
 felt-pending-action-notification = Please wait while { -brand-short-name } starts…
 felt-powered-by =
     Powered by { -vendor-short-name }
@@ -26,3 +28,14 @@ felt-browser-error-connection = Unable to connect to the console. Please contact
 ## Network error details.
 
 felt-error-network = Unknown network error
+
+## Updates messages and related errors messages
+
+felt-updates-title = Good morning
+felt-updates-checking = Checking for updates…
+felt-updates-application = Applying updates…
+felt-updates-uptodate = { -brand-short-name } is up to date
+felt-updates-error-messages = An error occurred while applying updates…
+felt-error-contact-admin = Please contact your administrator.
+felt-error-unsupported-system-contact-admin = Your current system does not support this new version. Please contact your administrator.
+felt-error-checking-failed-contact-admin = Unexpected failure while checking for an update. Please contact your administrator.

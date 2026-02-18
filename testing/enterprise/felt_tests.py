@@ -215,6 +215,42 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             })
             contentType = "application/json"
 
+        # /api/browser/updates/FirefoxEnterprise/149.0a1/20260218134117/Linux_x86_64-gcc3/en-US/default/Linux%25206.17.0-8-generic%2520(GTK%25203.24.50%252Clibpulse%252017.0.0)/ISET%3ASSE4_2%2CMEM%3A85823/default/default/update.xml?force=1"
+        elif path.startswith("/api/browser/updates"):
+            # Versions are important, they need to be equal or higher than the
+            # curernt binary otherwise no update will be downloaded
+            display_version = self.server.serve_updates_version["application_version"][
+                0
+            ]
+            app_version = self.server.serve_updates_version["application_version"][0]
+            platform_version = self.server.serve_updates_version["platform_version"][0]
+            # BuildID also needs to be different, fake it as newer
+            build_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            # Hash is not verified client side? At least we can put what we want
+            hash_value = "ecee0f4b9f0af06cfa3a89c328e4cbb7dd075a0d411ef1b968a072a7995a0753dd96d3d541f0781ab95fdb61e3df7252a9379fc620f2b660ecaed582f2c5246d"
+
+            # Producing this requires:
+            # $ mach build && mach package
+            # then extract the tar somewhere, you have firefox/
+            # make a firefox.work/ next to firefox/ and copy what you want from firefox/ to firefox.work/
+            # then, e.g. to package only "application.ini"
+            # $ ~/.mozbuild/mar-tools/mar -V 149.0a1 -H enterprise-tests -C "./firefox.work/" -c output.mar "application.ini"
+            complete_mar = os.path.join(
+                os.path.dirname(__file__), os.path.basename("complete.mar")
+            )
+            if self.server.serve_updates and os.path.isfile(complete_mar):
+                size = os.stat(complete_mar).st_size
+                m = f"""<?xml version="1.0"?>
+<updates>
+    <update type="minor" displayVersion="{display_version}" appVersion="{app_version}" platformVersion="{platform_version}" buildID="{build_id}">
+        <patch type="complete" URL="http://localhost:{self.server.console_port}/downloads/complete.mar" hashFunction="sha512" hashValue="{hash_value}" size="{size}"/>
+    </update>
+</updates>"""
+            else:
+                m = """<?xml version="1.0"?><updates></updates>"""
+
+            contentType = "text/xml"
+
         elif path == "/sso/callback":
             policy_access_token = self.server.policy_access_token.value
             policy_refresh_token = self.server.policy_refresh_token.value
@@ -271,12 +307,26 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     content = file.read()
 
                 self.send_response(200, "Success")
-                self.send_header("Content-type", "application/x-xpinstall")
                 self.send_header("Content-Length", len(content))
+                if path.endswith(".xpi"):
+                    self.send_header("Content-Type", "application/x-xpinstall")
+                if path.endswith(".mar"):
+                    self.send_header("Content-Type", "application/octet-stream")
                 self.end_headers()
 
-                self.wfile.write(bytes(content))
-                return
+                # Make MAR download slow so tests can have time to show progress
+                if path.endswith(".mar"):
+                    chunk_size = int(len(content) / 10)
+                    print(f"Total size {len(content)} => {chunk_size}")
+                    for i in range(0, len(content), chunk_size):
+                        print(f"Sending {chunk_size}")
+                        chunk = content[i : i + chunk_size]
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                        time.sleep(1)
+                else:
+                    self.wfile.write(bytes(content))
+            return
 
         if m is not None:
             self.reply(m, contentType=contentType)
@@ -310,10 +360,41 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             self.check_auth()
             m = json.dumps(None)
 
+        elif path.startswith("/api/browser/updates"):
+            self.server.serve_updates = not self.server.serve_updates
+            payload = self.rfile.read(int(self.headers.get("Content-Length"))).decode(
+                "utf-8"
+            )
+            self.server.serve_updates_version = urllib.parse.parse_qs(payload)
+            print(
+                f"Server Updates: {self.server.serve_updates} => {self.server.serve_updates_version}"
+            )
+            # Reply something so that we get 200
+            m = json.dumps(None)
+
         if m is not None:
             self.reply(m, contentType="application/json")
         else:
             self.not_found(path)
+
+    def do_HEAD(self):
+        print("HEAD", self.path)
+
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if path.startswith("/downloads/"):
+            filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
+            if os.path.isfile(filename):
+                self.send_response(200, "Success")
+                self.send_header("Content-Length", os.stat(filename).st_size)
+                if path.endswith(".xpi"):
+                    self.send_header("Content-Type", "application/x-xpinstall")
+                if path.endswith(".mar"):
+                    self.send_header("Content-Type", "application/octet-stream")
+                self.end_headers()
+                return
+
+        self.not_found(path)
 
 
 def serve(
@@ -345,6 +426,8 @@ def serve(
         httpd.policy_access_token = policy_access_token
     if policy_refresh_token:
         httpd.policy_refresh_token = policy_refresh_token
+    httpd.serve_updates = False
+    httpd.serve_updates_version = ""
     """
     TODO: Behavior is not yet clearly defined
     if device_posture_reply_forbidden is not None:
@@ -481,8 +564,10 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.sso_httpd.join()
         self._logger.info("All stopped")
 
-        self._logger.info(f"Removing browser profile at {self._child_profile_path}")
-        shutil.rmtree(self._child_profile_path, ignore_errors=True)
+        # If the test never started a child browser, this would not exists
+        if hasattr(self, "_child_profile_path"):
+            self._logger.info(f"Removing browser profile at {self._child_profile_path}")
+            shutil.rmtree(self._child_profile_path, ignore_errors=True)
 
     def set_string_pref(self, pref_name, pref_value):
         self._logger.info(f"Setting {pref_name} to {pref_value}")
@@ -536,6 +621,9 @@ class FeltTestsBase(EnterpriseTestsBase):
             self._child_wait,
             self._child_longwait,
         )
+
+    def find_elem(self, e):
+        return self._driver.find_element(By.CSS_SELECTOR, e)
 
     def find_elem_by_id(self, e):
         return self._driver.find_element(By.ID, e)

@@ -4,9 +4,14 @@
 
 const IS_TESTING_ENVIRONMENT = "enterprise.is_testing";
 const IS_BLOCKING_SHUTDOWN = "enterprise.felt_tests.is_blocking_shutdown";
+const IS_UPDATES_TESTING = "enterprise.felt_tests.is_updates_testing";
 
 export const isTesting = () => {
   return Services.prefs.getBoolPref(IS_TESTING_ENVIRONMENT, false);
+};
+
+export const isUpdatesTesting = () => {
+  return Services.prefs.getBoolPref(IS_UPDATES_TESTING, false);
 };
 
 export const isBlockingShutdown = () => {

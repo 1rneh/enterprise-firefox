@@ -77,6 +77,8 @@ export const Updates = {
     this._appUpdater = new lazy.AppUpdater();
     this._updaterCallback = this.appUpdaterCallback.bind(this);
     this._appUpdater.addListener(this._updaterCallback);
+    Services.obs.addObserver(this, "update-staged");
+    Services.obs.addObserver(this, "update-downloaded");
   },
 
   forceUpdateCheck() {
@@ -263,10 +265,30 @@ export const Updates = {
   },
 
   observe(subject, topic, state) {
+    // We would coerce subject
+    //   update = subject && subject.QueryInterface(Ci.nsIUpdate);
+    // but it looks like any notifyObserver() that triggers this anyway
+    // passes us a "state" directly?
     switch (topic) {
       case "xpcom-shutdown":
+        Services.obs.removeObserver(this, "update-staged");
+        Services.obs.removeObserver(this, "update-downloaded");
         Services.obs.removeObserver(this, "xpcom-shutdown");
         break;
+      case "update-staged":
+      case "update-downloaded": {
+        // states from toolkit/mozapps/update/nsIUpdateService.idl#189-191
+        switch (state) {
+          case "applied":
+          case "applied-service":
+          case "succeeded":
+            Services.felt?.sendUpdateReady();
+            break;
+          default:
+            break;
+        }
+        break;
+      }
       default:
         break;
     }

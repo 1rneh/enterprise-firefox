@@ -48,6 +48,9 @@ interface nsIFelt : nsISupports {
   void sendRestartForced();
 
   [must_use]
+  void sendUpdateReady();
+
+  [must_use]
   void sendTokens();
 
   [must_use]

@@ -42,6 +42,8 @@ subsuite = "enterprise"
 
 ["test_felt_browser_updates_errors.py"]
 
+["test_felt_browser_updates_forward.py"]
+
 ["test_felt_device_posture.py"]
 
 ["test_firefox_start.py"]

@@ -389,6 +389,10 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): RestartForced");
                                     utils::notify_observers("felt-restart-forced".to_string());
                                 },
+                                Ok(FeltMessage::UpdateReady) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): UpdateReady");
+                                    utils::notify_observers("felt-update-ready".to_string());
+                                },
                                 Ok(FeltMessage::Tokens((access_token, refresh_token, expires_at))) => {
                                     if let Ok(mut tokens) = TOKENS.write() {
                                         *tokens = Tokens {access_token, refresh_token, expires_at};

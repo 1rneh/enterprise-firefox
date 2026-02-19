@@ -5,6 +5,7 @@
 const IS_TESTING_ENVIRONMENT = "enterprise.is_testing";
 const IS_BLOCKING_SHUTDOWN = "enterprise.felt_tests.is_blocking_shutdown";
 const IS_UPDATES_TESTING = "enterprise.felt_tests.is_updates_testing";
+const SHOULD_NOT_CLOSE_WINDOW = "enterprise.felt_tests.should_not_close_window";
 
 export const isTesting = () => {
   return Services.prefs.getBoolPref(IS_TESTING_ENVIRONMENT, false);
@@ -16,6 +17,10 @@ export const isUpdatesTesting = () => {
 
 export const isBlockingShutdown = () => {
   return Services.prefs.getBoolPref(IS_BLOCKING_SHUTDOWN, false);
+};
+
+export const shouldNotCloseWindow = () => {
+  return Services.prefs.getBoolPref(SHOULD_NOT_CLOSE_WINDOW, false);
 };
 
 export const EnterpriseCommon = {

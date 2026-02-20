@@ -4,7 +4,10 @@
 
 /* global pref */
 
-pref("enterprise.console.address", "https://console.enterfox.eu");
+pref(
+  "enterprise.console.address",
+  "https://stage.fx-enterprise.nonprod.webservices.mozgcp.net"
+);
 
 pref("browser.profiles.enabled", false);
 pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");

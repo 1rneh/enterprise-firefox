@@ -275,6 +275,22 @@ def verify_task_graph_symbol_enterprise(
                                 expected_symbol="sample/enterfox/en-US",
                             )
 
+                        if "stageMozGCP" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks MSI",
+                                task.label,
+                                "repackage-enterprise-repack-msi",
+                                symbol=symbol,
+                                expected_symbol="sample/stageMozGCP/en-US",
+                            )
+                            task_matcher_exception_generator(
+                                "repacks MSI signed",
+                                task.label,
+                                "repackage-signing-enterprise-repack-msi",
+                                symbol=symbol,
+                                expected_symbol="sample/stageMozGCP/en-US",
+                            )
+
                 if "macosx64" in task.label:
                     if "enterprise-repack-mac-" in task.label:
                         task_matcher_exception_generator(
@@ -324,6 +340,22 @@ def verify_task_graph_symbol_enterprise(
                                 expected_symbol="sample/enterfox/en-US",
                             )
 
+                        if "stageMozGCP" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks mac signing",
+                                task.label,
+                                "enterprise-repack-mac-signing",
+                                symbol=symbol,
+                                expected_symbol="sample/stageMozGCP/en-US",
+                            )
+                            task_matcher_exception_generator(
+                                "repacks mac notarization",
+                                task.label,
+                                "enterprise-repack-mac-notarization",
+                                symbol=symbol,
+                                expected_symbol="sample/stageMozGCP/en-US",
+                            )
+
                     if "build-mac-" in task.label:
                         task_matcher_exception_generator(
                             "builds mac signing",
@@ -366,6 +398,15 @@ def verify_task_graph_symbol_enterprise(
                                 "repackage-enterprise-repack-deb",
                                 symbol=symbol,
                                 expected_symbol="sample/enterfox/en-US",
+                            )
+
+                        if "stageMozGCP" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks deb package",
+                                task.label,
+                                "repackage-enterprise-repack-deb",
+                                symbol=symbol,
+                                expected_symbol="sample/stageMozGCP/en-US",
                             )
 
 

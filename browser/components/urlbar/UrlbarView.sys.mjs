@@ -944,12 +944,6 @@ export class UrlbarView {
       // noticeable on Mac. Use `openPopup()` with x and y coords instead. See
       // bug 1831760 and bug 1710459.
       let rect = getBoundsWithoutFlushing(anchor);
-      rect = this.window.windowUtils.toScreenRectInCSSUnits(
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height
-      );
       this.resultMenu.openPopup(null, {
         x: rect.x,
         y: rect.y + rect.height,
@@ -2109,12 +2103,6 @@ export class UrlbarView {
     item._content.id = item.id + "-inner";
 
     if (result.isNovaSuggestion) {
-      item.toggleAttribute("nova", true);
-      item.toggleAttribute("rich-suggestion", true);
-      item.setAttribute(
-        "type",
-        lazy.UrlbarUtils.searchEngagementTelemetryType(result)
-      );
       this.#updateRowContentForNova(item, result);
       return;
     }
@@ -2625,6 +2613,14 @@ export class UrlbarView {
   }
 
   #updateRowContentForNova(item, result) {
+    item.toggleAttribute("nova", true);
+    item.toggleAttribute("rich-suggestion", true);
+    item.setAttribute(
+      "type",
+      lazy.UrlbarUtils.searchEngagementTelemetryType(result)
+    );
+    item.toggleAttribute("sponsored", result.payload.isSponsored);
+
     this.#setRowSelectable(item, true);
 
     let favicon = item._elements.get("favicon");
@@ -3933,7 +3929,9 @@ export class UrlbarView {
       return;
     }
 
-    this.window.top.addEventListener("mouseup", this);
+    // Attaching the event listener to the window so we can capture `mouseup`
+    // outside of the panel when the mouse is dragged.
+    this.panel.ownerGlobal.addEventListener("mouseup", this);
 
     // Select the element and open a speculative connection unless it's a
     // button. Buttons are special in the two ways listed below. Some buttons
@@ -3974,13 +3972,19 @@ export class UrlbarView {
       return;
     }
 
-    this.window.top.removeEventListener("mouseup", this);
+    this.panel.ownerGlobal.removeEventListener("mouseup", this);
 
+    // Since the listener must be on the window use `event.composedPath()`
+    // instead of `event.target` to handle shadow DOM encapsulation while
+    // `event.target` may be retargeted to a shadow host.
+    const eventTarget = event.composedPath()[0];
     // When mouseup outside of browser, as the target will not be element,
     // ignore it.
     let element =
-      event.target.nodeType === event.target.ELEMENT_NODE
-        ? this.#getClosestSelectableElement(event.target, { byMouse: true })
+      eventTarget.nodeType === eventTarget.ELEMENT_NODE
+        ? this.#getClosestSelectableElement(eventTarget, {
+            byMouse: true,
+          })
         : null;
     if (element) {
       this.input.pickElement(element, event);

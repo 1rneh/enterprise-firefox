@@ -108,6 +108,7 @@ class IPProtectionWidget {
       onBeforeCreated,
       onCreated,
       onDestroyed,
+      disallowSubView: true, // Bug 2016480 - Keeps the VPN panel as standard panel for the Overflow menu
     };
     lazy.CustomizableUI.createWidget(item);
 
@@ -302,6 +303,7 @@ class IPProtectionWidget {
     await Promise.resolve();
     let moved = !!lazy.CustomizableUI.getPlacementOfWidget(widgetId);
     if (!moved) {
+      Glean.ipprotection.removedFromToolbar.record();
       lazy.IPPProxyManager.stop();
     }
   }

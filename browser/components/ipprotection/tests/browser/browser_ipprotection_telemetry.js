@@ -281,3 +281,36 @@ add_task(async function toggle_off_on_shutdown() {
     "IP Protection widget should be added back to the navbar"
   );
 });
+
+/**
+ * Tests that the removed_from_toolbar event is recorded when the widget
+ * is removed from the toolbar.
+ */
+add_task(async function removed_from_toolbar() {
+  Services.fog.testResetFOG();
+
+  let start = CustomizableUI.getPlacementOfWidget(IPProtectionWidget.WIDGET_ID);
+  Assert.ok(start, "IP Protection widget should be in the toolbar");
+
+  CustomizableUI.removeWidgetFromArea(IPProtectionWidget.WIDGET_ID);
+
+  // Wait for the async onWidgetRemoved handler to complete
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  let events = Glean.ipprotection.removedFromToolbar.testGetValue();
+  Assert.equal(
+    events.length,
+    1,
+    "should have recorded a removed_from_toolbar event"
+  );
+  Assert.equal(events[0].category, "ipprotection");
+  Assert.equal(events[0].name, "removed_from_toolbar");
+
+  Services.fog.testResetFOG();
+
+  CustomizableUI.addWidgetToArea(
+    IPProtectionWidget.WIDGET_ID,
+    start.area,
+    start.position
+  );
+});

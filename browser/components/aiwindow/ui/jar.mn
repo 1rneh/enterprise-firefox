@@ -20,6 +20,7 @@ browser.jar:
   content/browser/aiwindow/components/ai-window.mjs                 (components/ai-window/ai-window.mjs)
   content/browser/aiwindow/components/ai-window.css                 (components/ai-window/ai-window.css)
   content/browser/aiwindow/ai-window-content.css                    (content/ai-window-content.css)
+  content/browser/aiwindow/ai-window-shared.css                     (content/ai-window-shared.css)
   content/browser/aiwindow/ai-window-overrides.css                  (content/ai-window-overrides.css)
   content/browser/aiwindow/components/input-cta.css                 (components/input-cta/input-cta.css)
   content/browser/aiwindow/components/input-cta.mjs                 (components/input-cta/input-cta.mjs)
@@ -50,3 +51,5 @@ browser.jar:
   content/browser/aiwindow/components/website-chip-container.css    (components/website-chip-container/website-chip-container.css)
   content/browser/aiwindow/components/smartwindow-prompts.mjs       (components/smartwindow-prompts/smartwindow-prompts.mjs)
   content/browser/aiwindow/components/smartwindow-prompts.css       (components/smartwindow-prompts/smartwindow-prompts.css)
+  content/browser/aiwindow/components/smartwindow-footer.mjs        (components/smartwindow-footer/smartwindow-footer.mjs)
+  content/browser/aiwindow/components/smartwindow-footer.css        (components/smartwindow-footer/smartwindow-footer.css)

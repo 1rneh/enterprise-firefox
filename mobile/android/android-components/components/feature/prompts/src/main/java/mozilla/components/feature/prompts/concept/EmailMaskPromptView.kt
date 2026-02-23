@@ -18,11 +18,20 @@ interface EmailMaskPromptView : ToggleablePrompt {
      * Interface to allow a class to listen to email mask event events.
      */
     interface Listener {
+
+        /**
+         * Whether to show the email mask CFR.
+         */
+        fun shouldShowEmailMaskCfr(): Boolean
+
+        /**
+         * Called when the email mask CFR is dismissed.
+         */
+        fun onEmailMaskCfrDismissed()
+
         /**
          * Called when a user clicks on the email mask prompt.
-         *
-         * @param generatedFor The website for which the address is generated.
          */
-        fun onEmailMaskPromptClick(generatedFor: String)
+        fun onEmailMaskPromptClick()
     }
 }

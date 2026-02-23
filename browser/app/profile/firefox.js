@@ -911,11 +911,8 @@ pref("browser.search.serpMetricsRecordedCounter", 0);
 // days
 pref("browser.search.widget.removeAfterDaysUnused", 120);
 
-#ifdef NIGHTLY_BUILD
+// Feature gate for searchbar based on urlbar code.
 pref("browser.search.widget.new", true);
-#else
-pref("browser.search.widget.new", false);
-#endif
 
 // The number of times the search function in the URL bar has been used,
 // capped at 100.
@@ -3005,9 +3002,6 @@ pref("devtools.toolbox.alwaysOnTop", true);
 // - "parent-process" will restrict debugging to the parent process
 //   All privileged javascript, documents and workers running in the parent process.
 pref("devtools.browsertoolbox.scope", "parent-process");
-
-// This preference will enable watching top-level targets from the server side.
-pref("devtools.target-switching.server.enabled", true);
 
 // Controls the hability to debug popups from the same DevTools
 // of the original tab the popups are coming from

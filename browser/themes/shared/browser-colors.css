@@ -2,12 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-:root {
-  --toolbox-bgcolor: -moz-headerbar;
-  --toolbox-textcolor: -moz-headerbartext;
-  --toolbox-bgcolor-inactive: -moz-headerbarinactive;
-  --toolbox-textcolor-inactive: -moz-headerbarinactivetext;
+@import url("chrome://global/skin/design-system/toolbar.css");
 
+:root {
   &:where([customtitlebar]) {
     --toolbox-bgcolor: ActiveCaption;
     --toolbox-textcolor: CaptionText;
@@ -55,11 +52,6 @@
     --tabs-navbar-separator-color: light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3));
     --attention-dot-color: light-dark(#2ac3a2, #54ffbd);
 
-    --toolbox-bgcolor: var(--lwt-accent-color);
-    --toolbox-bgcolor-inactive: var(--lwt-accent-color-inactive, var(--lwt-accent-color));
-    --toolbox-textcolor: var(--lwt-text-color, currentColor);
-    --toolbox-textcolor-inactive: var(--lwt-text-color, currentColor);
-
     @media not (prefers-contrast) {
       --focus-outline-color: light-dark(#0061e0, #00ddff);
     }
@@ -102,10 +94,6 @@
     --tab-selected-textcolor: light-dark(rgb(21, 20, 26), rgb(255, 255, 255));
     --tabs-navbar-separator-style: none;
 
-    --toolbox-bgcolor: light-dark(rgb(234, 234, 237), rgb(28, 27, 34));
-    --toolbox-textcolor: light-dark(rgb(21, 20, 26), rgb(251, 251, 254));
-    --toolbox-bgcolor-inactive: var(--toolbox-bgcolor);
-    --toolbox-textcolor-inactive: var(--toolbox-textcolor);
     &:where([customtitlebar]) {
       --toolbox-bgcolor-inactive: light-dark(rgb(235, 235, 239), rgb(31, 30, 37));
     }

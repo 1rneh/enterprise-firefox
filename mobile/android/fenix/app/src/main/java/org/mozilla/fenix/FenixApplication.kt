@@ -6,6 +6,7 @@ package org.mozilla.fenix
 
 import android.annotation.SuppressLint
 import android.app.ActivityManager
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -65,7 +66,7 @@ import mozilla.components.support.base.log.sink.AndroidLogSink
 import mozilla.components.support.ktx.android.arch.lifecycle.addObservers
 import mozilla.components.support.ktx.android.content.isMainProcess
 import mozilla.components.support.ktx.android.content.runOnlyInMainProcess
-import mozilla.components.support.locale.LocaleAwareApplication
+import mozilla.components.support.locale.LocaleManager
 import mozilla.components.support.remotesettings.GlobalRemoteSettingsDependencyProvider
 import mozilla.components.support.rusthttp.RustHttpConfig
 import mozilla.components.support.utils.BrowsersCache
@@ -94,6 +95,7 @@ import org.mozilla.fenix.components.metrics.MozillaProductDetector
 import org.mozilla.fenix.components.startMetricsIfEnabled
 import org.mozilla.fenix.experiments.NimbusGeckoPrefHandler
 import org.mozilla.fenix.experiments.maybeFetchExperiments
+import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.containsQueryParameters
 import org.mozilla.fenix.ext.isCustomEngine
@@ -138,7 +140,7 @@ private const val BYTES_TO_MEGABYTES_CONVERSION = 1024.0 * 1024.0
  * Installs [CrashReporter], initializes [Glean] in fenix builds and setup [Megazord] in the main process.
  */
 @Suppress("Registered", "TooManyFunctions", "LargeClass")
-open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider {
+open class FenixApplication : Application(), Provider, ThemeProvider {
     init {
         // [TIMER] Record startup timestamp as early as reasonable with some degree of consistency.
         //
@@ -163,6 +165,16 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
     override fun onCreate() {
         super.onCreate()
         initializeFenixProcess()
+    }
+
+    override fun attachBaseContext(base: Context) {
+        // Sets the locale information. Other threads do not have locale aware needs
+        if (base.isMainProcess()) {
+            val localeAwareContext = LocaleManager.updateResources(base)
+            super.attachBaseContext(localeAwareContext)
+        } else {
+            super.attachBaseContext(base)
+        }
     }
 
     /**
@@ -587,12 +599,24 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
         }
     }
 
+    /**
+     * Sets up LeakCanary based on different build variant implementations.
+     *
+     * Only [ReleaseChannel.Debug] activates LeakCanary. Other variants are no-op.
+     */
     protected open fun setupLeakCanary() {
-        // no-op, LeakCanary is disabled by default
+        // The specific LeakCanarySetup implementation used will be determined based on build variant.
+        (LeakCanarySetup as LeakCanarySetupInterface).setup(application = application, components = components)
     }
 
+    /**
+     * Updates LeakCanary based on different build variant implementations.
+     *
+     * Only [ReleaseChannel.Debug] updates LeakCanary. Other variants are no-op.
+     */
     open fun updateLeakCanaryState(isEnabled: Boolean) {
-        // no-op, LeakCanary is disabled by default
+        // The specific LeakCanarySetup implementation used will be determined based on build variant.
+        (LeakCanarySetup as LeakCanarySetupInterface).updateState(isEnabled = isEnabled, components = components)
     }
 
     private fun setupPush() {
@@ -1133,10 +1157,12 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
             // will initialize the engine and create an additional GeckoRuntime from the Gecko
             // child process, causing a crash.
 
-            // There's a strict mode violation in A-Cs LocaleAwareApplication which
-            // reads from shared prefs: https://github.com/mozilla-mobile/android-components/issues/8816
+            // There's a strict mode violation in A-Cs LocaleManager which
+            // reads from shared prefs: Bug 1793169
             components.strictMode.allowViolation(StrictMode::allowThreadDiskReads) {
                 super.onConfigurationChanged(config)
+                // Update locale on main process
+                LocaleManager.updateResources(this)
             }
         } else {
             super.onConfigurationChanged(config)

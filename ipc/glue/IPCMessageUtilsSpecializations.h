@@ -773,8 +773,6 @@ struct ParamTraits<mozilla::net::LinkHeader> {
   static void Write(MessageWriter* aWriter, const paramType& aParam) {
     static_assert(sizeof(paramType) == kExpectedSizeOfParamType,
                   "All members of should be written below.");
-    // Bug 1860565: `aParam.mAnchor` is not written.
-
     WriteParam(aWriter, aParam.mHref);
     WriteParam(aWriter, aParam.mRel);
     WriteParam(aWriter, aParam.mTitle);
@@ -793,8 +791,6 @@ struct ParamTraits<mozilla::net::LinkHeader> {
   static bool Read(MessageReader* aReader, paramType* aResult) {
     static_assert(sizeof(paramType) == kExpectedSizeOfParamType,
                   "All members of should be handled below.");
-    // Bug 1860565: `aParam.mAnchor` is not handled.
-
     if (!ReadParam(aReader, &aResult->mHref)) {
       return false;
     }

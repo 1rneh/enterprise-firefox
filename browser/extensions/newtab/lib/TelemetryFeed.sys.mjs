@@ -300,7 +300,11 @@ export class TelemetryFeed {
 
     this._gleanSessionInitialized = true;
 
-    if (!this.privatePingEnabled || !this.trainhopClickOnlyEnabled) {
+    if (
+      !this.privatePingEnabled ||
+      !this.trainhopClickOnlyEnabled ||
+      this.sovEnabled()
+    ) {
       this.gleanSessionType = GleanSessionType.PrivateGleanSession;
       return;
     }
@@ -332,7 +336,7 @@ export class TelemetryFeed {
     this.#eventBuffer = [];
 
     for (const { eventName, eventData, callback } of events) {
-      callback();
+      callback?.();
       if (recordToContentPing && this.privatePingEnabled) {
         this.newtabContentPing.recordEvent(eventName, eventData);
       }
@@ -353,7 +357,7 @@ export class TelemetryFeed {
     if (this.gleanSessionType === GleanSessionType.NormalGleanSession) {
       this.#eventBuffer.push({ eventName, eventData, callback });
     } else {
-      callback();
+      callback?.();
       if (this.privatePingEnabled) {
         this.newtabContentPing.recordEvent(eventName, eventData);
       }
@@ -814,8 +818,7 @@ export class TelemetryFeed {
             frecency_boosted,
             frecency_boosted_has_exposure: this.frecencyBoostedHasExposure(),
           };
-          // In SOV mode, we only record to newtab-content ping, not to newtab ping
-          this.recordOrQueueEvent("topSitesImpression", eventData, () => {});
+          this.recordOrQueueEvent("topSitesImpression", eventData);
         } else {
           Glean.topsites.impression.record({
             advertiser_name,
@@ -834,9 +837,6 @@ export class TelemetryFeed {
       ].add(1);
       if (session) {
         if (this.sovEnabled()) {
-          if (this.trainhopClickOnlyEnabled) {
-            this.transitionToPrivateSession();
-          }
           const eventData = {
             advertiser_name,
             tile_id,
@@ -846,8 +846,7 @@ export class TelemetryFeed {
             frecency_boosted,
             frecency_boosted_has_exposure: this.frecencyBoostedHasExposure(),
           };
-          // In SOV mode, we only record to newtab-content ping, not to newtab ping
-          this.recordOrQueueEvent("topSitesClick", eventData, () => {});
+          this.recordOrQueueEvent("topSitesClick", eventData);
         } else {
           Glean.topsites.click.record({
             advertiser_name,
@@ -864,7 +863,7 @@ export class TelemetryFeed {
       return;
     }
 
-    if (this.sovEnabled()) {
+    if (!this.sovEnabled()) {
       Glean.topSites.pingType.set(pingType);
       Glean.topSites.position.set(legacyTelemetryPosition);
       Glean.topSites.source.set(source);
@@ -2160,20 +2159,12 @@ export class TelemetryFeed {
         const { position, advertiser_name, tile_id, isSponsoredTopSite } =
           datum;
         if (this.sovEnabled() && isSponsoredTopSite) {
-          if (this.trainhopClickOnlyEnabled) {
-            this.transitionToPrivateSession();
-          }
-          this.recordOrQueueEvent(
-            "topSitesDismiss",
-            {
-              advertiser_name,
-              tile_id,
-              is_sponsored: !!isSponsoredTopSite,
-              position,
-            },
-            // when sovEnbaled is true, only record to private ping, so callback is empty
-            () => {}
-          );
+          this.recordOrQueueEvent("topSitesDismiss", {
+            advertiser_name,
+            tile_id,
+            is_sponsored: !!isSponsoredTopSite,
+            position,
+          });
         } else {
           Glean.topsites.dismiss.record({
             advertiser_name,

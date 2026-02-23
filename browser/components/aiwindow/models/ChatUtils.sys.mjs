@@ -70,7 +70,7 @@ export async function getCurrentTabMetadata(depsOverride) {
  * messages list.
  *
  * @param {object} [depsOverride]
- * @returns {Promise<{role: string, content: string}>}
+ * @returns {Promise<{url, title, description, locale, timezone, isoTimestamp, todayDate, hasTabInfo}>}
  */
 export async function constructRealTimeInfoInjectionMessage(depsOverride) {
   const { url, title, description } = await getCurrentTabMetadata(depsOverride);
@@ -201,4 +201,53 @@ export function detectTokens(content, regexPattern, key) {
     });
   }
   return matches;
+}
+
+/** Internal URL schemes that should not be cited. */
+const INTERNAL_SCHEMES = [
+  "chrome://",
+  "about:",
+  "resource://",
+  "moz-extension://",
+];
+
+/**
+ * Check if a URL uses an internal scheme.
+ *
+ * @param {string} url - URL to check
+ * @returns {boolean} True if URL is internal
+ */
+function isInternalUrl(url) {
+  return INTERNAL_SCHEMES.some(scheme => url.startsWith(scheme));
+}
+
+/**
+ * Extract valid external URLs from a list of sources.
+ * Filters out internal schemes and deduplicates.
+ *
+ * @param {Array<object>} sources - Array of source objects with url field
+ * @returns {Array<string>} Unique valid external URLs
+ */
+export function extractValidUrls(sources) {
+  if (!Array.isArray(sources)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const urls = [];
+
+  for (const source of sources) {
+    if (!source.url || typeof source.url !== "string") {
+      continue;
+    }
+    if (isInternalUrl(source.url)) {
+      continue;
+    }
+    if (!seen.has(source.url)) {
+      seen.add(source.url);
+      urls.push(source.url);
+    }
+  }
+
+  return urls;
 }

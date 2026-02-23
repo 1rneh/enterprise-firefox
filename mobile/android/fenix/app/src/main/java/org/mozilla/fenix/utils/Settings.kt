@@ -307,12 +307,6 @@ class Settings(
     val showHomepageRecentlyVisitedSectionToggle: Boolean
         get() = !enableHomepageSearchBar
 
-    /**
-     * Indicates whether or not the homepage should use edge to edge background
-     */
-    val enableHomepageEdgeToEdgeBackgroundFeature: Boolean
-        get() = FxNimbus.features.homescreenEdgeToEdgeBackground.value().enabled
-
     var numberOfAppLaunches by intPreference(
         appContext.getPreferenceKey(R.string.pref_key_times_app_opened),
         default = 0,
@@ -2510,6 +2504,14 @@ class Settings(
      */
     var isEmailMaskSuggestionEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_email_mask_suggestion),
+        default = true,
+    )
+
+    /**
+     * Indicates if the email mask CFR should be shown.
+     */
+    var shouldShowEmailMaskCfr by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_should_show_email_mask_cfr),
         default = true,
     )
 

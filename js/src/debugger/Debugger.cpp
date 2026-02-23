@@ -3361,7 +3361,6 @@ static bool UpdateExecutionObservabilityOfScriptsInZone(
   // BaselineScripts. This must be done as a separate phase as we can only
   // discard the BaselineScript on scripts that have no IonScript.
   for (size_t i = 0; i < scripts.length(); i++) {
-    MOZ_ASSERT_IF(scripts[i]->isDebuggee(), observing);
     if (!scripts[i]->jitScript()->icScript()->active()) {
       FinishDiscardBaselineScript(gcx, scripts[i]);
     }
@@ -3622,7 +3621,7 @@ bool Debugger::updateObservesCoverageOnDebuggees(JSContext* cx,
   // If any frame on the stack belongs to the debuggee, then we cannot update
   // the ScriptCounts, because this would imply to invalidate a Debugger.Frame
   // to recompile it with/without ScriptCount support.
-  for (FrameIter iter(cx); !iter.done(); ++iter) {
+  for (AllFramesIter iter(cx); !iter.done(); ++iter) {
     if (obs.shouldMarkAsDebuggee(iter)) {
       JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_DEBUG_NOT_IDLE);

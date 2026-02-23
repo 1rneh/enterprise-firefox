@@ -479,7 +479,8 @@ class PointerEventHandler final {
    * content preventDefault on pointerdown
    */
   static void PostHandlePointerEventsPreventDefault(
-      WidgetPointerEvent* aPointerEvent, WidgetGUIEvent* aMouseOrTouchEvent);
+      PresShell* aPresShell, WidgetPointerEvent* aPointerEvent,
+      WidgetGUIEvent* aMouseOrTouchEvent);
 
   /**
    * Dispatch a pointer event for aMouseOrTouchEvent to aEventTargetContent.

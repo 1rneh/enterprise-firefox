@@ -1,5 +1,10 @@
 [DEFAULT]
-prefs = ["browser.newtab.preload=false"]
+prefs = [
+  "browser.newtab.preload=false",
+  "browser.search.suggest.enabled=false",
+  "browser.urlbar.suggest.searches=false",
+  "browser.smartwindow.endpoint=http://localhost:0/v1"
+]
 support-files = [
   "head.js",
   "test_chat_search_button.html",
@@ -21,6 +26,8 @@ support-files = [
 ["browser_aichat_content_message_event.js"]
 
 ["browser_aichat_message.js"]
+
+["browser_aichat_open_link.js"]
 
 ["browser_aiwindow_account_auth.js"]
 
@@ -71,6 +78,10 @@ support-files = [
 ["browser_sidebar_aiwindow.js"]
 
 ["browser_smartwindow_content.js"]
+
+["browser_smartwindow_footer.js"]
+
+["browser_smartwindow_history_commands.js"]
 
 ["browser_smartwindow_init.js"]
 

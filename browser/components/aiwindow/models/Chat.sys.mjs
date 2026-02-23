@@ -16,6 +16,11 @@ import {
   RunSearch,
   getUserMemories,
 } from "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs";
+import { extractValidUrls } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
+import {
+  extractMarkdownLinks,
+  validateCitedUrls,
+} from "moz-src:///browser/components/aiwindow/models/CitationParser.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -48,7 +53,7 @@ Object.assign(Chat, {
    * Stream assistant output with tool-call support.
    * Yields assistant text chunks as they arrive. If the model issues tool calls,
    * we execute them locally, append results to the conversation, and continue
-   * streaming the model’s follow-up answer. Repeats until no more tool calls.
+   * streaming the model's follow-up answer. Repeats until no more tool calls.
    *
    * @param {ChatConversation} conversation
    * @param {openAIEngine} engineInstance
@@ -57,8 +62,6 @@ Object.assign(Chat, {
    * @yields {string} Assistant text chunks
    */
   async *fetchWithHistory(conversation, engineInstance, context = {}) {
-    // Note FXA token fetching disabled for now - this is still in progress
-    // We can flip this switch on when more realiable
     const fxAccountToken = await openAIEngine.getFxAccountToken();
 
     const toolRoleOpts = new ToolRoleOpts(this.modelId);
@@ -66,7 +69,9 @@ Object.assign(Chat, {
     const config = engineInstance.getConfig(engineInstance.feature);
     const inferenceParams = config?.parameters || {};
 
-    // Helper to run the model once (streaming) on current convo
+    const allAllowedUrls = new Set();
+    let fullResponseText = "";
+
     const streamModelResponse = () =>
       engineInstance.runWithGenerator({
         streamOptions: { enabled: true },
@@ -77,19 +82,16 @@ Object.assign(Chat, {
         ...inferenceParams,
       });
 
-    // Keep calling until the model finishes without requesting tools
     while (true) {
       let pendingToolCalls = null;
 
-      // 1) First pass: stream tokens; capture any toolCalls
       try {
         for await (const chunk of streamModelResponse()) {
-          // Stream assistant text to the UI
           if (chunk?.text) {
+            fullResponseText += chunk.text;
             yield chunk.text;
           }
 
-          // Capture tool calls (do not echo raw tool plumbing to the user)
           if (chunk?.toolCalls?.length) {
             pendingToolCalls = chunk.toolCalls;
           }
@@ -99,17 +101,12 @@ Object.assign(Chat, {
         throw err;
       }
 
-      // 2) Watch for tool calls; if none, we are done
       if (!pendingToolCalls || pendingToolCalls.length === 0) {
+        this._validateCitations(fullResponseText, allAllowedUrls);
         return;
       }
 
-      // 3) Build the assistant tool_calls message exactly as expected by the API
-      //
       // @todo Bug 2006159 - Implement parallel tool calling
-      // Temporarily only include the first tool call due to quality issue
-      // with subsequent tool call responses, will include all later once above
-      // ticket is resolved.
       const tool_calls = pendingToolCalls.slice(0, 1).map(toolCall => ({
         id: toolCall.id,
         type: "function",
@@ -120,14 +117,11 @@ Object.assign(Chat, {
       }));
       conversation.addAssistantMessage("function", { tool_calls });
 
-      // Persist conversation state before executing tools
       lazy.AIWindow.chatStore?.updateConversation(conversation).catch(() => {});
 
-      // 4) Execute each tool locally and create a tool message with the result
-      // TODO: Temporarily only execute the first tool call, will run all later
       for (const toolCall of pendingToolCalls) {
         const { id, function: functionSpec } = toolCall;
-        const name = functionSpec?.name || "";
+        const toolName = functionSpec?.name || "";
         let toolParams = {};
 
         try {
@@ -143,38 +137,40 @@ Object.assign(Chat, {
           continue;
         }
 
-        if (name === "run_search") {
+        if (toolName === "run_search") {
           yield { searching: true, query: toolParams.query };
         }
 
         let result, searchHandoffBrowser;
         try {
-          // Call the appropriate tool by name
-          const toolFunc = this.toolMap[name];
+          const toolFunc = this.toolMap[toolName];
           if (typeof toolFunc !== "function") {
-            throw new Error(`No such tool: ${name}`);
+            throw new Error(`No such tool: ${toolName}`);
           }
 
           const hasParams = toolParams && !!Object.keys(toolParams).length;
           const params = hasParams ? toolParams : undefined;
 
-          if (name === "run_search") {
+          if (toolName === "run_search") {
             if (!context.browsingContext) {
               console.error(
                 "run_search: No browsingContext provided, aborting search handoff"
               );
               return;
             }
-            // Save the browser element before the tool call navigates the page,
-            // which invalidates the original browsingContext.
             searchHandoffBrowser = context.browsingContext.embedderElement;
             result = await toolFunc(params ?? {}, context);
           } else {
             result = await (hasParams ? toolFunc(params) : toolFunc());
           }
 
-          // Create special tool call log message to show in the UI log panel
-          const content = { tool_call_id: id, body: result, name };
+          this._collectAllowedUrlsFromToolCall(
+            toolName,
+            result,
+            allAllowedUrls
+          );
+
+          const content = { tool_call_id: id, body: result, name: toolName };
           conversation.addToolCallMessage(content, currentTurn, toolRoleOpts);
         } catch (e) {
           result = { error: `Tool execution failed: ${String(e)}` };
@@ -182,16 +178,11 @@ Object.assign(Chat, {
           conversation.addToolCallMessage(content, currentTurn, toolRoleOpts);
         }
 
-        // Persist after each tool result
         lazy.AIWindow.chatStore
           ?.updateConversation(conversation)
           .catch(() => {});
 
-        // run_search navigates away from the AI page; hand off to the sidebar
-        // to continue streaming after the search results are captured. Uses the
-        // pre-captured browser element since browsingContext is stale after
-        // navigation; ownerGlobal gives us the chrome window.
-        if (name === "run_search") {
+        if (toolName === "run_search") {
           const win = searchHandoffBrowser?.ownerGlobal;
           if (!win || win.closed) {
             console.error(
@@ -200,17 +191,14 @@ Object.assign(Chat, {
             return;
           }
 
-          // Re-look up the tab; it could have been closed during the
-          // async tool call.
           const searchHandoffTab =
             win.gBrowser.getTabForBrowser(searchHandoffBrowser);
           if (!searchHandoffTab) {
             console.error(
-              "run_search: Original tab no longer exists, aborting search handoff to avoid interfering with existing conversation"
+              "run_search: Original tab no longer exists, aborting search handoff"
             );
             return;
           }
-
           if (!searchHandoffTab.selected) {
             win.gBrowser.selectedTab = searchHandoffTab;
           }
@@ -219,9 +207,76 @@ Object.assign(Chat, {
           return;
         }
 
-        // Bug 	2006159 - Implement parallel tool calling, remove after implemented
+        // @todo Bug 2006159 - Implement parallel tool calling
         break;
       }
     }
+  },
+
+  /**
+   * Collect allowed URLs from tool results for citation validation.
+   *
+   * @param {string} toolName - Name of the tool
+   * @param {*} result - Tool result
+   * @param {Set<string>} allAllowedUrls - Set to add URLs to
+   */
+  _collectAllowedUrlsFromToolCall(toolName, result, allAllowedUrls) {
+    if (toolName === "get_open_tabs" && Array.isArray(result)) {
+      for (const url of extractValidUrls(result)) {
+        allAllowedUrls.add(url);
+      }
+    } else if (toolName === "search_browsing_history") {
+      let parsed = result;
+      if (typeof result === "string") {
+        try {
+          parsed = JSON.parse(result);
+        } catch {
+          return;
+        }
+      }
+      if (parsed?.results && Array.isArray(parsed.results)) {
+        for (const url of extractValidUrls(parsed.results)) {
+          allAllowedUrls.add(url);
+        }
+      }
+    }
+  },
+
+  /**
+   * Validate citations in the response against allowed URLs.
+   *
+   * @param {string} responseText - Full response text
+   * @param {Set<string>} allAllowedUrls - Set of allowed URLs
+   */
+  _validateCitations(responseText, allAllowedUrls) {
+    if (!responseText) {
+      return null;
+    }
+
+    const links = extractMarkdownLinks(responseText);
+    if (links.length === 0) {
+      return null;
+    }
+
+    const citedUrls = links.map(link => link.url);
+
+    if (allAllowedUrls.size === 0) {
+      console.warn(
+        `Citation validation: 0 valid, ${citedUrls.length} invalid ` +
+          `(no tool sources provided)`
+      );
+      return null;
+    }
+
+    const validation = validateCitedUrls(citedUrls, [...allAllowedUrls]);
+
+    if (validation.invalid.length) {
+      console.warn(
+        `Citation validation: ${validation.valid.length} valid, ` +
+          `${validation.invalid.length} invalid (rate: ${(validation.validationRate * 100).toFixed(1)}%)`
+      );
+    }
+
+    return validation;
   },
 });

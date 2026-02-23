@@ -54,7 +54,6 @@
 @RESPATH@/fonts/*
 #endif
 @RESPATH@/hyphenation/*
-@RESPATH@/browser/@PREF_DIR@/firefox-l10n.js
 #ifdef HAVE_MAKENSISU
 @BINPATH@/uninstall/helper.exe
 #endif

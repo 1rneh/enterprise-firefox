@@ -44,6 +44,7 @@ import org.mozilla.fenix.autofill.AutofillConfirmActivity
 import org.mozilla.fenix.autofill.AutofillSearchActivity
 import org.mozilla.fenix.autofill.AutofillUnlockActivity
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeMiddleware
+import org.mozilla.fenix.browser.relay.ErrorMessages
 import org.mozilla.fenix.browser.relay.RelayFeatureIntegration
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppState
@@ -375,8 +376,12 @@ class Components(private val context: Context) {
         )
     }
 
+    val termsOfUsePromptRepository by lazyMonitored {
+        DefaultTermsOfUsePromptRepository(settings)
+    }
+
     val termsOfUseManager by lazyMonitored {
-        TermsOfUseManager(DefaultTermsOfUsePromptRepository(settings))
+        TermsOfUseManager(termsOfUsePromptRepository)
     }
 
     val settingsIndexer by lazyMonitored {
@@ -393,11 +398,14 @@ class Components(private val context: Context) {
 
     val relayFeatureIntegration by lazyMonitored {
         RelayFeatureIntegration(
-            context = context,
             engine = core.engine,
             accountManager = backgroundServices.accountManager,
             store = relayEligibilityStore,
             appStore = appStore,
+            errorMessages = ErrorMessages(
+                maxMasksReached = context.getString(R.string.email_masks_max_free_tier_reached),
+                errorRetrievingMasks = context.getString(R.string.email_masks_error_retrieving_masks),
+            ),
         )
     }
 

@@ -1577,7 +1577,7 @@ DSImage.defaultProps = {
   // Additional classnames to append to component
   optimize: true,
   // Measure parent container to request exact sizes
-  alt_text: null,
+  alt_text: "",
   windowObj: window,
   // Added to support unit tests
   sizes: []

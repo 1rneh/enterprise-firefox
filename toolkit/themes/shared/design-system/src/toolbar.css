@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :root {
+  /* Toolbar */
   --toolbar-start-end-padding: 8px;
 
   --toolbarbutton-outer-padding: 2px;
@@ -41,6 +42,12 @@
   --toolbar-bgcolor: color-mix(in srgb, -moz-dialog 85%, var(--color-white));
   --toolbar-color: -moz-dialogtext;
   --toolbarseparator-color: color-mix(in srgb, currentColor 60%, transparent);
+
+  /* Toolbox */
+  --toolbox-bgcolor: -moz-headerbar;
+  --toolbox-textcolor: -moz-headerbartext;
+  --toolbox-bgcolor-inactive: -moz-headerbarinactive;
+  --toolbox-textcolor-inactive: -moz-headerbarinactivetext;
 
   /* Override some toolbar colors when not under prefers-contrast.
    *
@@ -89,6 +96,11 @@
       var(--toolbarbutton-icon-fill-attention-text-light),
       var(--toolbarbutton-icon-fill-attention-text-dark)
     );
+
+    --toolbox-bgcolor: var(--lwt-accent-color);
+    --toolbox-bgcolor-inactive: var(--lwt-accent-color-inactive, var(--lwt-accent-color));
+    --toolbox-textcolor: var(--lwt-text-color, currentColor);
+    --toolbox-textcolor-inactive: var(--lwt-text-color, currentColor);
   }
 }
 
@@ -111,5 +123,10 @@
     --toolbarbutton-icon-fill: light-dark(var(--color-gray-70), var(--color-gray-05));
     --toolbarbutton-icon-fill-attention: light-dark(var(--color-blue-60), var(--color-cyan-30));
     --toolbarbutton-icon-fill-attention-text: light-dark(var(--color-gray-20), var(--color-gray-90));
+
+    --toolbox-bgcolor: light-dark(rgb(234, 234, 237), rgb(28, 27, 34));
+    --toolbox-textcolor: light-dark(rgb(21, 20, 26), rgb(251, 251, 254));
+    --toolbox-bgcolor-inactive: var(--toolbox-bgcolor);
+    --toolbox-textcolor-inactive: var(--toolbox-textcolor);
   }
 }

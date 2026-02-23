@@ -1468,6 +1468,19 @@ void ViewTransition::Setup() {
                         &ViewTransition::MaybeScheduleUpdateCallback));
 }
 
+void ViewTransition::FinishDone() {
+  if (mPhase != Phase::PendingDone) {
+    return;
+  }
+  // https://drafts.csswg.org/css-view-transitions-1/#handle-transition-frame
+  // step 4.2: Clear view transition transition.
+  ClearActiveTransition(false);
+  // 4.3: Resolve transition's finished promise.
+  if (Promise* finished = GetFinished(IgnoreErrors())) {
+    finished->MaybeResolveWithUndefined();
+  }
+}
+
 // https://drafts.csswg.org/css-view-transitions-1/#handle-transition-frame
 void ViewTransition::HandleFrame() {
   // Steps 1-3: Steps 1-3: Compute active animations.
@@ -1478,13 +1491,11 @@ void ViewTransition::HandleFrame() {
     AUTO_PROFILER_TERMINATING_FLOW_MARKER("ViewTransition::HandleFrameFinish",
                                           LAYOUT, Flow::FromPointer(this));
     // 4.1: Set transition's phase to "done".
-    mPhase = Phase::Done;
-    // 4.2: Clear view transition transition.
-    ClearActiveTransition(false);
-    // 4.3: Resolve transition's finished promise.
-    if (Promise* finished = GetFinished(IgnoreErrors())) {
-      finished->MaybeResolveWithUndefined();
-    }
+    // NOTE: pending-done + async task per
+    // https://github.com/w3c/csswg-drafts/issues/12442
+    mPhase = Phase::PendingDone;
+    mDocument->Dispatch(NewRunnableMethod("ViewTransition::FinishDone", this,
+                                          &ViewTransition::FinishDone));
     return;
   }
 

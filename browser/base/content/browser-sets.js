@@ -237,8 +237,7 @@ document.addEventListener(
             AIWindow.launchWindow(gBrowser.selectedBrowser, true);
             break;
           case "Tools:ChatsHistory":
-            // @todo Bug 2006543
-            // Implement opening the chat history view
+            FirefoxViewHandler.openTab("chats");
             break;
           case "Tools:Sanitize":
             Sanitizer.showUI(window);

@@ -205,6 +205,19 @@ add_task(async function () {
     popover.firstChild.getElementsByTagName("dd")[1].innerText
   );
 
+  info("Navigate to a fragment");
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async function () {
+    content.location.hash = "#1";
+  });
+
+  table = doc.querySelector("table");
+  tBodyRows = table.tBodies[0].rows;
+
+  Assert.stringContains(
+    tBodyRows[0].cells[2].getAttribute("class"),
+    "same-document-nav"
+  );
+
   info("Closing the tab.");
   await BrowserTestUtils.removeTab(tab);
 });

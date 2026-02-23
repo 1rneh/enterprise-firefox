@@ -374,6 +374,7 @@ void WeakMap<K, V, AP>::traceWeakEdgesDuringSweeping(JSTracer* trc) {
 
   mozilla::Maybe<Enum> e;
   e.emplace(*this);
+  bool removedEntries = false;
   for (; !e->empty(); e->popFront()) {
 #ifdef DEBUG
     K prior = e->front().key();
@@ -383,17 +384,19 @@ void WeakMap<K, V, AP>::traceWeakEdgesDuringSweeping(JSTracer* trc) {
       keyKindBarrier(e->front().key());
     } else {
       e->removeFront();
+      removedEntries = true;
     }
   }
 
   // TODO: Shrink nurseryKeys storage?
 
   {
-    // Destroy the iterator with lock held as this may shrink the table.
-    //
-    // Bug 2014486: Investigate not taking the lock when we don't need to
-    // shrink.
-    gc::AutoLockSweepingLock lock(trc->runtime());
+    // Destroy the iterator, taking the lock if we removed any entries as this
+    // may result in shrinking the table.
+    mozilla::Maybe<gc::AutoLockSweepingLock> lock;
+    if (removedEntries) {
+      lock.emplace(trc->runtime());
+    }
     e.reset();
   }
 

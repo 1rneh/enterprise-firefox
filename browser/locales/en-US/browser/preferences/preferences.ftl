@@ -856,6 +856,9 @@ network-proxy-connection-settings2 =
 
 ## Home Section
 
+home-section =
+    .heading = Home and startup
+
 home-new-windows-tabs-header = New Windows and Tabs
 
 home-new-windows-tabs-description2 = Choose what you see when you open your homepage, new windows, and new tabs.
@@ -1697,7 +1700,7 @@ address-moz-box-item =
 history-group =
     .label = History
 
-history-remember-option-all =
+history-remember-option-all2 =
     .label = Remember history
 history-remember-option-never2 =
     .label = Never remember history

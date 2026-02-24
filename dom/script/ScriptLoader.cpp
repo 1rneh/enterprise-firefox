@@ -1192,6 +1192,18 @@ void ScriptLoader::TryUseCache(ReferrerPolicy aReferrerPolicy,
     return;
   }
 
+  if (!cacheResult.mCompleteValue->IsSRIMetadataReusableBy(
+          aRequest->mIntegrity)) {
+    mCache->Evict(key);
+    aRequest->NoCacheEntryFound(aReferrerPolicy, aFetchOptions, aURI);
+    LOG(
+        ("ScriptLoader (%p): Created LoadedScript (%p) for "
+         "ScriptLoadRequest(%p) because of SRI metadata mismatch %s",
+         this, aRequest->getLoadedScript(), aRequest,
+         aRequest->URI()->GetSpecOrDefault().get()));
+    return;
+  }
+
   if (cacheResult.mCompleteValue->IsDirty()) {
     // The cache entry needs revalidation.
     // Fetch from necko and validate in ScriptLoader::OnStreamComplete.
@@ -3386,6 +3398,12 @@ ScriptLoader::CacheBehavior ScriptLoader::GetCacheBehavior(
   auto cacheResult = mCache->Lookup(*this, key,
                                     /* aSyncLoad = */ true);
   if (cacheResult.mState == CachedSubResourceState::Complete) {
+    if (!cacheResult.mCompleteValue->IsSRIMetadataReusableBy(
+            aRequest->mIntegrity)) {
+      mCache->Evict(key);
+      return CacheBehavior::Insert;
+    }
+
     return CacheBehavior::DoNothing;
   }
 
@@ -3426,6 +3444,7 @@ void ScriptLoader::TryCacheRequest(ScriptLoadRequest* aRequest) {
 
   LoadedScript* loadedScript = aRequest->getLoadedScript();
   if (cacheBehavior == CacheBehavior::Insert) {
+    loadedScript->SetSRIMetadata(aRequest->mIntegrity);
     auto loadData = MakeRefPtr<ScriptLoadData>(this, aRequest, loadedScript);
     loadedScript->ConvertToCachedStencil();
     if (loadedScript->mFetchCount == 0) {
@@ -4245,6 +4264,8 @@ nsresult ScriptLoader::OnStreamComplete(
                             aRequest->FetchOptions(), aRequest->URI());
           auto cacheResult = mCache->Lookup(*this, key, /* aSyncLoad = */ true);
           if (cacheResult.mState == CachedSubResourceState::Complete &&
+              cacheResult.mCompleteValue->IsSRIMetadataReusableBy(
+                  aRequest->mIntegrity) &&
               cacheResult.mCompleteValue->CacheEntryId() == id) {
             cacheResult.mCompleteValue->UnsetDirty();
             // This keeps the request as "fetching" state.

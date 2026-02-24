@@ -34,7 +34,6 @@ ScriptHashKey::ScriptHashKey(
       mKind(aRequest->mKind),
       mCORSMode(aFetchOptions->mCORSMode),
       mReferrerPolicy(aReferrerPolicy),
-      mSRIMetadata(aRequest->mIntegrity),
       mNonce(aFetchOptions->mNonce) {
   if (mKind == JS::loader::ScriptKind::eClassic) {
     if (aRequest->GetScriptLoadContext()->HasScriptElement()) {
@@ -79,11 +78,6 @@ bool ScriptHashKey::KeyEquals(const ScriptHashKey& aKey) const {
   }
 
   if (mReferrerPolicy != aKey.mReferrerPolicy) {
-    return false;
-  }
-
-  if (!mSRIMetadata.CanTrustBeDelegatedTo(aKey.mSRIMetadata) ||
-      !aKey.mSRIMetadata.CanTrustBeDelegatedTo(mSRIMetadata)) {
     return false;
   }
 

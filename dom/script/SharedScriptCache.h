@@ -20,7 +20,6 @@
 #include "mozilla/ThreadSafety.h"            // MOZ_GUARDED_BY
 #include "mozilla/WeakPtr.h"                 // SupportsWeakPtr
 #include "mozilla/dom/CacheExpirationTime.h"  // CacheExpirationTime
-#include "mozilla/dom/SRIMetadata.h"          // mozilla::dom::SRIMetadata
 #include "nsIMemoryReporter.h"  // nsIMemoryReporter, NS_DECL_NSIMEMORYREPORTER
 #include "nsIObserver.h"        // nsIObserver
 #include "nsIPrincipal.h"       // nsIPrincipal
@@ -46,7 +45,6 @@ class ScriptHashKey : public PLDHashEntryHdr {
         mKind(aKey.mKind),
         mCORSMode(aKey.mCORSMode),
         mReferrerPolicy(aKey.mReferrerPolicy),
-        mSRIMetadata(aKey.mSRIMetadata),
         mNonce(aKey.mNonce),
         mHintCharset(aKey.mHintCharset) {
     MOZ_COUNT_CTOR(ScriptHashKey);
@@ -62,7 +60,6 @@ class ScriptHashKey : public PLDHashEntryHdr {
         mKind(std::move(aKey.mKind)),
         mCORSMode(std::move(aKey.mCORSMode)),
         mReferrerPolicy(std::move(aKey.mReferrerPolicy)),
-        mSRIMetadata(std::move(aKey.mSRIMetadata)),
         mNonce(std::move(aKey.mNonce)),
         mHintCharset(std::move(aKey.mHintCharset)) {
     MOZ_COUNT_CTOR(ScriptHashKey);
@@ -122,7 +119,6 @@ class ScriptHashKey : public PLDHashEntryHdr {
   const CORSMode mCORSMode;
   const mozilla::dom::ReferrerPolicy mReferrerPolicy;
 
-  const SRIMetadata mSRIMetadata;
   const nsString mNonce;
 
   // charset attribute for classic script.

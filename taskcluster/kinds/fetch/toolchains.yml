@@ -100,6 +100,13 @@ gcc-14.2.0:
         strip-components: 1
         add-prefix: gcc-source/
 
+sixgill:
+    description: Sixgill GCC static analysis plugin source code
+    fetch:
+        type: git
+        repo: https://github.com/mozilla-spidermonkey/sixgill
+        revision: f8ace7cffffe9fd2b35a53a8260199c85f685336
+
 gmp-6.1.0:
     description: GMP 6.1.0 source code
     fetch:
@@ -210,13 +217,16 @@ nsis-3.07-win:
         strip-components: 1
         add-prefix: nsis/
 
-upx-3.95-win:
-    description: upx 3.95 for windows
+upx:
+    description: upx 5.1.0 source
     fetch:
         type: static-url
-        url: https://hg.mozilla.org/mozilla-build/raw-file/3b8c537ca3c879551956ad47ca9f089583f647c5/upx-3.95-win64.zip
-        sha256: 5c076f87ba64d82f11513f4af0ceb07246a3540aa3c72ca3ffc2d53971fa56e3
-        size: 462820
+        url: https://github.com/upx/upx/releases/download/v5.1.0/upx-5.1.0-src.tar.xz
+        sha256: 9f7a810b8a810b1ca2c5cb01ffcf23066e3fb8a51ddc406ea05bdd5d37d0b8bd
+        size: 1406744
+        artifact-name: upx-src.tar.zst
+        strip-components: 1
+        add-prefix: upx/
 
 wine:
     description: wine source code

@@ -57,6 +57,8 @@ support-files = [
 
 ["browser_aiwindow_smartbar_focus.js"]
 
+["browser_aiwindow_smartbar_interactions.js"]
+
 ["browser_aiwindow_smartbar_mentions.js"]
 
 ["browser_aiwindow_switcher.js"]
@@ -98,3 +100,5 @@ support-files = [
 ["browser_smartwindow_tab_move.js"]
 
 ["browser_smartwindow_tab_switching.js"]
+
+["browser_smartwindow_telemetry.js"]

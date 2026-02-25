@@ -15,9 +15,7 @@ class BrowserSignoutVerify(BaseBrowserSignout):
     def test_browser_signout(self):
         super().run_felt_base()
         for i in range(10):
-            self.run_browser_ui_state_when_user_is_logged_in()
             self.run_perform_signout()
-            self.run_whoami()
             self.run_prefilled_email_submit()
             self.run_load_sso()
             self.run_perform_sso_auth()

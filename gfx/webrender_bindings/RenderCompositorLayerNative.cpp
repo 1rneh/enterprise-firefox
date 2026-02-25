@@ -541,7 +541,12 @@ void RenderCompositorLayerNativeOGL::BindSwapChain(
       int right = std::clamp((int)rect.max.x, 0, size.width);
       int bottom = std::clamp((int)rect.max.y, 0, size.height);
 
-      return gfx::IntRect(left, top, right, bottom);
+      int width = right - left;
+      int height = bottom - top;
+      MOZ_RELEASE_ASSERT(width >= 0);
+      MOZ_RELEASE_ASSERT(height >= 0);
+
+      return gfx::IntRect(left, top, width, height);
     }
 
     return gfx::IntRect(0, 0, size.width, size.height);

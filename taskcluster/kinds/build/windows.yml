@@ -254,10 +254,11 @@ win64-enterprise/debug:
             - linux64-nasm
             - linux64-node
             - linux64-cbindgen
-            - linux64-sccache
             - linux64-dump_syms
-            - linux64-wine
+            - linux64-sccache
+            - linux64-upx
             - linux64-winchecksec
+            - linux64-wine
             - nsis
             - sysroot-x86_64-linux-gnu
             - sysroot-wasm32-wasi
@@ -265,8 +266,6 @@ win64-enterprise/debug:
             - dxc-x86_64-pc-windows-msvc
             - onnxruntime-x86_64-windows-msvc
             - winappsdk-x86_64-pc-windows-msvc
-        fetch:
-            - upx-3.95-win
 
 win64-non-unified/plain:
     description: "Win64 Hybrid Plain"
@@ -511,10 +510,11 @@ win64-enterprise-shippable/opt:
             - linux64-nasm
             - linux64-node
             - linux64-cbindgen
-            - linux64-sccache
             - linux64-dump_syms
-            - linux64-wine
+            - linux64-sccache
+            - linux64-upx
             - linux64-winchecksec
+            - linux64-wine
             - nsis
             - sysroot-x86_64-linux-gnu
             - sysroot-wasm32-wasi
@@ -522,8 +522,6 @@ win64-enterprise-shippable/opt:
             - dxc-x86_64-pc-windows-msvc
             - onnxruntime-x86_64-windows-msvc
             - winappsdk-x86_64-pc-windows-msvc
-        fetch:
-            - upx-3.95-win
 
 win64-enterprise/opt:
     description: "Win64 Enterprise Opt"
@@ -566,10 +564,11 @@ win64-enterprise/opt:
             - linux64-nasm
             - linux64-node
             - linux64-cbindgen
-            - linux64-sccache
             - linux64-dump_syms
-            - linux64-wine
+            - linux64-sccache
+            - linux64-upx
             - linux64-winchecksec
+            - linux64-wine
             - nsis
             - sysroot-x86_64-linux-gnu
             - sysroot-wasm32-wasi
@@ -577,8 +576,6 @@ win64-enterprise/opt:
             - dxc-x86_64-pc-windows-msvc
             - onnxruntime-x86_64-windows-msvc
             - winappsdk-x86_64-pc-windows-msvc
-        fetch:
-            - upx-3.95-win
 
 win64-plain/opt:
     description: "Win64 Opt Plain"

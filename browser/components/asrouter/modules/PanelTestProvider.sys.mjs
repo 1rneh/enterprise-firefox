@@ -2014,7 +2014,7 @@ const MESSAGES = () => [
       },
       body: "Body",
       image_url:
-        "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/a3c640c8-7594-4bb2-bc18-8b4744f3aaf2.gif",
+        "chrome://browser/content/asrouter/assets/fox-with-profiles.svg",
       launch_url: "https://mozilla.org",
       requireInteraction: true,
       actions: [
@@ -2045,7 +2045,7 @@ const MESSAGES = () => [
       title: "Launch action on toast click and on action button click",
       body: "Body",
       image_url:
-        "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/a3c640c8-7594-4bb2-bc18-8b4744f3aaf2.gif",
+        "chrome://browser/content/asrouter/assets/fox-with-profiles.svg",
       launch_action: {
         type: "OPEN_URL",
         data: { args: "https://mozilla.org", where: "window" },
@@ -2087,7 +2087,7 @@ const MESSAGES = () => [
         string_id: "mr2022-background-update-toast-text",
       },
       image_url:
-        "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/673d2808-e5d8-41b9-957e-f60d53233b97.png",
+        "chrome://browser/content/asrouter/assets/fox-with-profiles.svg",
       requireInteraction: true,
       actions: [
         {

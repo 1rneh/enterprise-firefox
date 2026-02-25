@@ -26,13 +26,15 @@ function Diagram({ rows, entriesByKey }) {
       createElement(
         "tr",
         {},
-        row.map(({ age, key }) => {
+        row.map(({ age, key, sameDocNav }) => {
           const id = `entry-info-container-${ctr++}`;
+          const className = sameDocNav ? "same-document-nav" : "";
           return key
             ? createElement(
                 "td",
                 {
                   colSpan: age,
+                  className,
                 },
                 Localized(
                   {

@@ -48,7 +48,12 @@ class IPProtectionInfobarManagerClass {
   handleEvent(event) {
     if (event.type === "IPPProxyManager:UsageChanged") {
       const usage = event.detail.usage;
-      if (!usage || !usage.max || !usage.remaining || !usage.reset) {
+      if (
+        !usage ||
+        usage.max == null ||
+        usage.remaining == null ||
+        !usage.reset
+      ) {
         return;
       }
 

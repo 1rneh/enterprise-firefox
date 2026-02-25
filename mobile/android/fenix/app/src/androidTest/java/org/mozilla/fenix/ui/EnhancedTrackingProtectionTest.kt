@@ -378,12 +378,15 @@ class EnhancedTrackingProtectionTest : TestSetup() {
             // browsing a basic page to allow GV to load on a fresh run
         }.enterURLAndEnterToBrowser(genericWebPage.url) {
             waitForPageToLoad()
+            verifyPageContent(genericWebPage.content)
         }
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(trackingPage.url) {
+            waitForPageToLoad()
             verifyTrackingProtectionWebContent("social not blocked")
             verifyTrackingProtectionWebContent("ads not blocked")
             verifyTrackingProtectionWebContent("analytics not blocked")
+            verifyTrackingProtectionWebContent("Cryptomining blocked")
         }.openSiteSecuritySheet {
         }.openDetails {
             verifyCrossSiteCookiesBlocked(true)

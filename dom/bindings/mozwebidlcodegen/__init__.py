@@ -7,7 +7,6 @@
 
 import errno
 import hashlib
-import json
 import logging
 import os
 import sys
@@ -19,6 +18,7 @@ from mach.mixin.logging import LoggingMixin
 from mozbuild.makeutil import Makefile
 from mozbuild.pythonutil import iter_modules_in_path
 from mozbuild.util import FileAvoidWrite, cpu_count
+from mozfile import json
 
 # There are various imports in this file in functions to avoid adding
 # dependencies to config.status. See bug 949875.
@@ -207,7 +207,6 @@ class WebIDLCodegenManager(LoggingMixin):
         "GeneratedEventList.h",
         "PrototypeList.h",
         "RegisterBindings.h",
-        "RegisterShadowRealmBindings.h",
         "RegisterWorkerBindings.h",
         "RegisterWorkerDebuggerBindings.h",
         "RegisterWorkletBindings.h",
@@ -220,7 +219,6 @@ class WebIDLCodegenManager(LoggingMixin):
     GLOBAL_DEFINE_FILES = {
         "BindingNames.cpp",
         "RegisterBindings.cpp",
-        "RegisterShadowRealmBindings.cpp",
         "RegisterWorkerBindings.cpp",
         "RegisterWorkerDebuggerBindings.cpp",
         "RegisterWorkletBindings.cpp",
@@ -246,7 +244,8 @@ class WebIDLCodegenManager(LoggingMixin):
 
         config_path refers to a WebIDL config file (e.g. Bindings.conf).
         inputs is a 4-tuple describing the input .webidl files and how to
-        process them. Members are:
+        process them. Members are::
+
             (set(.webidl files), set(basenames of exported files),
                 set(basenames of generated events files),
                 set(example interface names))

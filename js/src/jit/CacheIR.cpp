@@ -1336,12 +1336,6 @@ static bool IsWindowProxyForScriptGlobal(JSScript* script, JSObject* obj) {
 
   JSObject* window = ToWindowIfWindowProxy(obj);
 
-  // Ion relies on the WindowProxy's group changing (and the group getting
-  // marked as having unknown properties) on navigation. If we ever stop
-  // transplanting same-compartment WindowProxies, this assert will fail and we
-  // need to fix that code.
-  MOZ_ASSERT(window == &obj->nonCCWGlobal());
-
   // This must be a WindowProxy for a global in this compartment. Else it would
   // be a cross-compartment wrapper and IsWindowProxy returns false for
   // those.
@@ -6061,11 +6055,14 @@ AttachDecision OptimizeSpreadCallIRGenerator::tryAttachArray() {
   }
 
   // The value must be a packed array.
-  if (!val_.isObject()) {
+  if (!OptimizeGetIterator(val_, cx_)) {
     return AttachDecision::NoAction;
   }
-  Rooted<JSObject*> obj(cx_, &val_.toObject());
-  if (!IsArrayWithDefaultIterator<MustBePacked::Yes>(obj, cx_)) {
+  ArrayObject* arr = &val_.toObject().as<ArrayObject>();
+
+  // Don't optimize array objects from a different realm because GuardFuse only
+  // checks the current realm's fuse.
+  if (cx_->realm() != arr->realm()) {
     return AttachDecision::NoAction;
   }
 
@@ -6073,13 +6070,11 @@ AttachDecision OptimizeSpreadCallIRGenerator::tryAttachArray() {
   ObjOperandId objId = writer.guardToObject(valId);
 
   // Guard the object is a packed array with Array.prototype as proto.
-  MOZ_ASSERT(obj->is<ArrayObject>());
-  writer.guardShape(objId, obj->shape());
+  writer.guardShape(objId, arr->shape());
   writer.guardArrayIsPacked(objId);
 
-  // Ensure Array.prototype[@@iterator] and %ArrayIteratorPrototype%.next
-  // haven't been mutated.
-  writer.guardFuse(RealmFuses::FuseIndex::OptimizeGetIteratorFuse);
+  // Guard on the other conditions listed in OptimizeGetIteratorForArray.
+  writer.guardFuse(RealmFuses::FuseIndex::OptimizeGetIteratorBytecodeFuse);
 
   writer.loadObjectResult(objId);
   writer.returnFromIC();
@@ -16961,11 +16956,14 @@ AttachDecision OptimizeGetIteratorIRGenerator::tryAttachArray() {
   }
 
   // The value must be a packed array.
-  if (!val_.isObject()) {
+  if (!OptimizeGetIterator(val_, cx_)) {
     return AttachDecision::NoAction;
   }
-  Rooted<JSObject*> obj(cx_, &val_.toObject());
-  if (!IsArrayWithDefaultIterator<MustBePacked::Yes>(obj, cx_)) {
+  ArrayObject* arr = &val_.toObject().as<ArrayObject>();
+
+  // Don't optimize array objects from a different realm because GuardFuse only
+  // checks the current realm's fuse.
+  if (cx_->realm() != arr->realm()) {
     return AttachDecision::NoAction;
   }
 
@@ -16973,14 +16971,11 @@ AttachDecision OptimizeGetIteratorIRGenerator::tryAttachArray() {
   ObjOperandId objId = writer.guardToObject(valId);
 
   // Guard the object is a packed array with Array.prototype as proto.
-  MOZ_ASSERT(obj->is<ArrayObject>());
-  writer.guardShape(objId, obj->shape());
+  writer.guardShape(objId, arr->shape());
   writer.guardArrayIsPacked(objId);
 
-  // Guard on Array.prototype[@@iterator] and %ArrayIteratorPrototype%.next.
-  // This fuse also ensures the prototype chain for Array Iterator is
-  // maintained and that no return method is added.
-  writer.guardFuse(RealmFuses::FuseIndex::OptimizeGetIteratorFuse);
+  // Guard on the other conditions listed in OptimizeGetIteratorForArray.
+  writer.guardFuse(RealmFuses::FuseIndex::OptimizeGetIteratorBytecodeFuse);
 
   writer.loadBooleanResult(true);
   writer.returnFromIC();

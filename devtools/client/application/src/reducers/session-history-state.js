@@ -188,7 +188,7 @@ function createRows(sessionHistory, entriesByKey) {
       for (let count = entries.length; count > size; count--) {
         entries.push(Diagram.EMPTY);
       }
-      let previous = {};
+      let previous = Diagram.EMPTY;
       let newEntry = null;
       while (entries.length) {
         const entry = entries.shift();
@@ -198,6 +198,8 @@ function createRows(sessionHistory, entriesByKey) {
           newEntry = {
             age: 1,
             key: key(entry.ID),
+            sameDocNav:
+              previous !== Diagram.EMPTY && entry.sharesDocumentWith(previous),
           };
           const parent = entry.parent?.navigationId;
           const extra = {};

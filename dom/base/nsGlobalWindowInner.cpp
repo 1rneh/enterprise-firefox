@@ -2694,6 +2694,7 @@ bool nsGlobalWindowInner::SynthesizeMouseEvent(
 bool nsGlobalWindowInner::SynthesizeTouchEvent(
     const nsAString& aType, const nsTArray<SynthesizeTouchEventData>& aTouches,
     const int32_t aModifiers, const SynthesizeTouchEventOptions& aOptions,
+    const Optional<OwningNonNull<VoidFunction>>& aCallback,
     mozilla::ErrorResult& aError) {
   nsIDocShell* docShell = GetDocShell();
   RefPtr<PresShell> presShell = docShell ? docShell->GetPresShell() : nullptr;
@@ -2716,7 +2717,8 @@ bool nsGlobalWindowInner::SynthesizeTouchEvent(
   }
 
   auto result = nsContentUtils::SynthesizeTouchEvent(
-      presContext, widget, offset, aType, aTouches, aModifiers, aOptions);
+      presContext, widget, offset, aType, aTouches, aModifiers, aOptions,
+      aCallback);
   if (result.isErr()) {
     aError.Throw(result.unwrapErr());
     return false;
@@ -7421,7 +7423,7 @@ int16_t nsGlobalWindowInner::Orientation(CallerType aCallerType) {
   uint16_t screenAngle = Screen()->GetOrientationAngle();
   if (nsIGlobalObject::ShouldResistFingerprinting(
           aCallerType, RFPTarget::ScreenOrientation)) {
-    CSSIntSize size = mBrowsingContext->GetTopInnerSizeForRFP();
+    CSSIntSize size = mBrowsingContext->TopInnerSizeSpoofedForRFP();
     screenAngle = nsRFPService::ViewportSizeToAngle(size.width, size.height);
   }
   int16_t angle = AssertedCast<int16_t>(screenAngle);

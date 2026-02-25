@@ -119,3 +119,42 @@ fxa-signout-dialog-body-aiwindow = Synced data will remain in your account. Your
 ## Smart Window Toggle Button (in-page)
 
 smartwindow-switch-to-smart-window = Switch to Smart Window
+
+## Fullpage Footer Actions
+
+smartwindow-footer-chats =
+    .tooltiptext = Chats
+    .aria-label = Chats
+    .label = Chats
+
+smartwindow-footer-history =
+    .tooltiptext = History
+    .aria-label = History
+    .label = History
+
+## FirefoxView Chats
+## Chats in this context refers to chats saved from the Smart Window Assistant
+
+firefoxview-chats-nav = Chats
+  .title = Chats
+firefoxview-chats-header = Chats
+
+firefoxview-chat-context-delete = Delete from Chats
+    .accesskey = D
+
+# Placeholder for the input field to search in open tabs ("search" is a verb).
+firefoxview-search-text-box-chats =
+  .placeholder = Search chats
+
+## Variables:
+##   $date (string) - Date to be formatted based on locale
+
+firefoxview-chat-date-today = Today - { DATETIME($date, dateStyle: "full") }
+firefoxview-chat-date-yesterday = Yesterday - { DATETIME($date, dateStyle: "full") }
+firefoxview-chat-date-this-month = { DATETIME($date, dateStyle: "full") }
+firefoxview-chat-date-prev-month = { DATETIME($date, month: "long", year: "numeric") }
+
+## Message displayed in Firefox View when the user has no chat data
+
+firefoxview-chats-empty-header = Get back to your chats
+firefoxview-chats-empty-description = As you use Smart Window, your chats will be saved here.

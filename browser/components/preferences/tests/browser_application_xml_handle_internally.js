@@ -18,7 +18,11 @@ add_task(async function applicationXmlHandleInternally() {
     HandlerService.remove(mimeInfo);
   });
 
+  let appHandlerInitialized = TestUtils.topicObserved("app-handler-loaded");
+
   await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
+
+  await appHandlerInitialized;
 
   let win = gBrowser.selectedBrowser.contentWindow;
 

@@ -32,6 +32,14 @@
   padding: 4px;
 }
 
+#diagram-container td.same-document-nav {
+  border-inline-start-style: dotted;
+}
+
+#diagram-container td:has(+ td.same-document-nav) {
+  border-inline-end-style: dotted;
+}
+
 #diagram-container td button {
   border: 0 solid;
   overflow: hidden;

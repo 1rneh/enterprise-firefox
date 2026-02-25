@@ -490,8 +490,9 @@ export class IPProtectionPanel {
    */
   destroy() {
     if (this.panel) {
+      const doc = this.panel.ownerDocument;
       this.panel.remove();
-      this.#removePanelListeners(this.panel.ownerDocument);
+      this.#removePanelListeners(doc);
       this.panel = null;
       if (this.state.error) {
         this.setState({
@@ -658,7 +659,7 @@ export class IPProtectionPanel {
       return {
         max: Number(lazy.IPPProxyManager.usageInfo.max),
         remaining: Number(lazy.IPPProxyManager.usageInfo.remaining),
-        reset: lazy.IPPProxyManager.usageInfo.resets,
+        reset: lazy.IPPProxyManager.usageInfo.reset,
       };
     }
 
@@ -766,7 +767,12 @@ export class IPProtectionPanel {
       this.setState({ bandwidthWarning: false });
     } else if (event.type == "IPPProxyManager:UsageChanged") {
       const usage = event.detail.usage;
-      if (!usage || !usage.max || !usage.remaining || !usage.reset) {
+      if (
+        !usage ||
+        usage.max == null ||
+        usage.remaining == null ||
+        !usage.reset
+      ) {
         return;
       }
 

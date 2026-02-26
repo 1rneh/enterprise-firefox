@@ -7,7 +7,6 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
-  PREFS: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
@@ -264,11 +263,6 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   sendPrefsToFirefox() {
-    Services.felt.sendStringPreference(
-      lazy.PREFS.CONSOLE_ADDRESS,
-      lazy.ConsoleClient.consoleBaseURI
-    );
-
     // Enables remote policy polling
     Services.felt.sendBoolPreference(
       "browser.policies.live_polling.enabled",

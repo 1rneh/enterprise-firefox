@@ -11406,6 +11406,16 @@
   mirror: always
   rust: true
 
+# Whether to use lspace/rspace values for the spacing around an embellished
+# operator inside MathML elements that use the same layout algorithm as the mrow
+# element, or that generate an anonymous <mrow> box (mrow, math, mstyle, msqrt,
+# mphantom, ...).
+- name: mathml.lspace_rspace_for_child_spacing_during_mrow_layout.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 #---------------------------------------------------------------------------
 # Prefs starting with "media."
 #---------------------------------------------------------------------------
@@ -14856,7 +14866,11 @@
 
 - name: network.proxy.detect_system_proxy_changes
   type: RelaxedAtomicBool
+#ifdef XP_WIN
+  value: @IS_EARLY_BETA_OR_EARLIER@
+#else
   value: false
+#endif
   mirror: always
 
 # If all non-direct proxies have failed, we retry all of them in case they

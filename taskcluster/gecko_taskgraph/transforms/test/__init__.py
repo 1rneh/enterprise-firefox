@@ -28,6 +28,7 @@ from voluptuous import Any, Exclusive, Optional, Required
 from gecko_taskgraph.optimize.schema import OptimizationSchema
 from gecko_taskgraph.transforms.job import job_description_schema
 from gecko_taskgraph.transforms.job.run_task import run_task_schema
+from gecko_taskgraph.transforms.test import linux_perf_platform_restrictions
 from gecko_taskgraph.transforms.test.other import get_mobile_project
 from gecko_taskgraph.util.chunking import manifest_loaders
 
@@ -469,6 +470,10 @@ def define_tags(config, tasks):
             tags.setdefault("test-variant", variant)
 
         yield task
+
+
+# Apply platform restrictions for tests failing on Ubuntu 24.04.
+transforms.add(linux_perf_platform_restrictions.restrict_failing_tests_to_1804)
 
 
 @transforms.add

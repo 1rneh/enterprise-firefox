@@ -2292,6 +2292,7 @@ class nsPrefBranch final : public nsIPrefBranch,
                            public nsIObserver,
                            public nsSupportsWeakReference {
   friend class mozilla::PreferenceServiceReporter;
+  friend class mozilla::Preferences;
 
  public:
   NS_DECL_ISUPPORTS
@@ -2328,6 +2329,7 @@ class nsPrefBranch final : public nsIPrefBranch,
                                      const uint32_t aLength);
 
   void RemoveExpiredCallback(PrefCallback* aCallback);
+  static void SweepExpiredWeakObservers();
 
   PrefName GetPrefName(const char* aPrefName) const {
     return GetPrefName(nsDependentCString(aPrefName));
@@ -3078,18 +3080,17 @@ size_t nsPrefBranch::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
 }
 
 void nsPrefBranch::FreeObserverList() {
-  // We need to prevent anyone from modifying mObservers while we're iterating
-  // over it. In particular, some clients will call RemoveObserver() when
-  // they're removed and destructed via the iterator; we set
-  // mFreeingObserverList to keep those calls from touching mObservers.
+  // Clearing mObservers may release the last strong reference to observers,
+  // whose destructors may call RemoveObserver() re-entrantly. We set
+  // mFreeingObserverList to suppress those calls, both to avoid modifying
+  // mObservers during Clear() and to avoid redundant UnregisterCallback walks
+  // (the bulk removal is already handled by UnregisterCallbacksForBranch).
   mFreeingObserverList = true;
-  for (auto iter = mObservers.Iter(); !iter.Done(); iter.Next()) {
-    auto callback = iter.UserData();
-    Preferences::UnregisterCallback(nsPrefBranch::NotifyObserver,
-                                    callback->GetDomain(), callback,
-                                    Preferences::PrefixMatch);
-    iter.Remove();
-  }
+
+  // Remove all callback nodes for this branch in a single pass through the
+  // global callback list, instead of one pass per observer.
+  Preferences::UnregisterCallbacksForBranch(this);
+  mObservers.Clear();
 
   nsCOMPtr<nsIObserverService> observerService = services::GetObserverService();
   if (observerService) {
@@ -3101,6 +3102,9 @@ void nsPrefBranch::FreeObserverList() {
 
 void nsPrefBranch::RemoveExpiredCallback(PrefCallback* aCallback) {
   MOZ_ASSERT(aCallback->IsExpired());
+  Preferences::UnregisterCallback(nsPrefBranch::NotifyObserver,
+                                  aCallback->GetDomain(), aCallback,
+                                  Preferences::PrefixMatch);
   mObservers.Remove(aCallback);
 }
 
@@ -3138,6 +3142,27 @@ nsPrefBranch::PrefName nsPrefBranch::GetPrefName(
   }
 
   return PrefName(mPrefRoot + aPrefName);
+}
+
+// static
+void nsPrefBranch::SweepExpiredWeakObservers() {
+  MOZ_ASSERT(!gCallbacksInProgress);
+
+  CallbackNode* prev_node = nullptr;
+  CallbackNode* node = gFirstCallback;
+
+  while (node) {
+    if (node->Func() == nsPrefBranch::NotifyObserver) {
+      auto* pCallback = static_cast<PrefCallback*>(node->Data());
+      if (pCallback->IsExpired()) {
+        pCallback->GetPrefBranch()->mObservers.Remove(pCallback);
+        node = pref_RemoveCallbackNode(node, prev_node);
+        continue;
+      }
+    }
+    prev_node = node;
+    node = node->Next();
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -3540,6 +3565,15 @@ void Preferences::AddSizeOfIncludingThis(MallocSizeOf aMallocSizeOf,
           ->SizeOfIncludingThis(aMallocSizeOf);
 }
 
+/* static */
+uint32_t Preferences::GetCallbackCount() {
+  uint32_t count = 0;
+  for (CallbackNode* node = gFirstCallback; node; node = node->Next()) {
+    count++;
+  }
+  return count;
+}
+
 class PreferenceServiceReporter final : public nsIMemoryReporter {
   ~PreferenceServiceReporter() = default;
 
@@ -3894,7 +3928,10 @@ already_AddRefed<Preferences> Preferences::GetInstanceForService() {
 }
 
 /* static */
-bool Preferences::IsServiceAvailable() { return !!sPreferences; }
+bool Preferences::IsServiceAvailable() {
+  MOZ_ASSERT(NS_IsMainThread());
+  return !!sPreferences;
+}
 
 /* static */
 bool Preferences::InitStaticMembers() {
@@ -3915,6 +3952,7 @@ bool Preferences::InitStaticMembers() {
 
 /* static */
 void Preferences::Shutdown() {
+  MOZ_ASSERT(NS_IsMainThread());
   if (!sShutdown) {
     sShutdown = true;  // Don't create the singleton instance after here.
     sPreferences = nullptr;
@@ -4083,6 +4121,7 @@ void Preferences::InitializeUserPrefs() {
 
 /* static */
 void Preferences::FinishInitializingUserPrefs() {
+  MOZ_ASSERT(NS_IsMainThread());
   sPreferences->NotifyServiceObservers(NS_PREFSERVICE_READ_TOPIC_ID);
 }
 
@@ -5603,6 +5642,7 @@ nsresult Preferences::AddWeakObserver(nsIObserver* aObserver,
 /* static */
 nsresult Preferences::RemoveObserver(nsIObserver* aObserver,
                                      const nsACString& aPref) {
+  MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aObserver);
   if (sShutdown) {
     MOZ_ASSERT(!sPreferences);
@@ -5654,6 +5694,7 @@ nsresult Preferences::AddWeakObservers(nsIObserver* aObserver,
 /* static */
 nsresult Preferences::RemoveObservers(nsIObserver* aObserver,
                                       const char* const* aPrefs) {
+  MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aObserver);
   if (sShutdown) {
     MOZ_ASSERT(!sPreferences);
@@ -5674,9 +5715,30 @@ nsresult Preferences::RegisterCallbackImpl(PrefChangedFunc aCallback,
                                            T& aPrefNode, void* aData,
                                            MatchKind aMatchKind,
                                            bool aIsPriority) {
+  MOZ_ASSERT(NS_IsMainThread());
   NS_ENSURE_ARG(aCallback);
 
   NS_ENSURE_TRUE(InitStaticMembers(), NS_ERROR_NOT_AVAILABLE);
+
+  // Periodically sweep expired weak observer callbacks to prevent unbounded
+  // growth of the callback list.
+  static constexpr uint32_t kSweepInterval = 512;
+  static uint32_t sRegistrationsSinceSweep = 0;
+  static bool sSweepDispatched = false;
+  if (++sRegistrationsSinceSweep >= kSweepInterval && !sSweepDispatched) {
+    sSweepDispatched = true;
+    NS_DispatchToMainThreadQueue(
+        NS_NewRunnableFunction("SweepExpiredWeakObservers",
+                               [] {
+                                 sSweepDispatched = false;
+                                 sRegistrationsSinceSweep = 0;
+                                 MOZ_ASSERT(!gCallbacksInProgress);
+                                 if (!sShutdown) {
+                                   nsPrefBranch::SweepExpiredWeakObservers();
+                                 }
+                               }),
+        EventQueuePriority::Idle);
+  }
 
   auto node = new CallbackNode(aPrefNode, aCallback, aData, aMatchKind);
 
@@ -5750,6 +5812,7 @@ template <typename T>
 nsresult Preferences::UnregisterCallbackImpl(PrefChangedFunc aCallback,
                                              T& aPrefNode, void* aData,
                                              MatchKind aMatchKind) {
+  MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aCallback);
   if (sShutdown) {
     MOZ_ASSERT(!sPreferences);
@@ -5796,6 +5859,34 @@ nsresult Preferences::UnregisterCallbacks(PrefChangedFunc aCallback,
                                           const char* const* aPrefs,
                                           void* aData, MatchKind aMatchKind) {
   return UnregisterCallbackImpl(aCallback, aPrefs, aData, aMatchKind);
+}
+
+/* static */
+void Preferences::UnregisterCallbacksForBranch(nsPrefBranch* aBranch) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (sShutdown || !sPreferences) {
+    return;
+  }
+
+  CallbackNode* node = gFirstCallback;
+  CallbackNode* prev_node = nullptr;
+
+  while (node) {
+    if (node->Func() == nsPrefBranch::NotifyObserver &&
+        static_cast<PrefCallback*>(node->Data())->GetPrefBranch() == aBranch) {
+      if (gCallbacksInProgress) {
+        node->ClearFunc();
+        gShouldCleanupDeadNodes = true;
+        prev_node = node;
+        node = node->Next();
+      } else {
+        node = pref_RemoveCallbackNode(node, prev_node);
+      }
+    } else {
+      prev_node = node;
+      node = node->Next();
+    }
+  }
 }
 
 template <typename T>

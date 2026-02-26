@@ -287,6 +287,17 @@ def coverage_report(
     artifact_paths = _download_coverage_artifacts(
         task_id, suite, platform, cache_dir, suites_to_ignore
     )
+    if not artifact_paths:
+        target = (
+            f"{branch}@{revision}"
+            if branch and revision
+            else "the latest mozilla-central push"
+        )
+        print(
+            f"No code coverage artifacts found for {target}. "
+            "Ensure coverage tasks were scheduled in the push."
+        )
+        return 1
 
     grcov_path = grcov or bootstrap_toolchain("grcov/grcov")
     if not grcov_path:

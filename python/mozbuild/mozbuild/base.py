@@ -938,7 +938,9 @@ class MachCommandBase(MozbuildObject):
     without having to change everything that inherits from it.
     """
 
-    def __init__(self, context, virtualenv_name=None, metrics=None, no_auto_log=False):
+    def __init__(
+        self, context, virtualenv_name=None, metrics_path=None, no_auto_log=False
+    ):
         # Attempt to discover topobjdir through environment detection, as it is
         # more reliable than mozconfig when cwd is inside an objdir.
         topsrcdir = context.topdir
@@ -991,7 +993,8 @@ class MachCommandBase(MozbuildObject):
         )
 
         self._mach_context = context
-        self.metrics = metrics
+        self._metrics_path = metrics_path
+        self._metrics = None
 
         # Incur mozconfig processing so we have unified error handling for
         # errors. Otherwise, the exceptions could bubble back to mach's error
@@ -1042,6 +1045,14 @@ class MachCommandBase(MozbuildObject):
                     "Log will not be kept for this command: {error}.",
                 )
                 self.logfile = None
+
+    @property
+    def metrics(self):
+        if self._metrics is None and self._metrics_path:
+            if self._mach_context._telemetry_init_done is not None:
+                self._mach_context._telemetry_init_done.wait()
+            self._metrics = self._mach_context.telemetry.metrics(self._metrics_path)
+        return self._metrics
 
     def _sub_mach(self, argv):
         return subprocess.call(

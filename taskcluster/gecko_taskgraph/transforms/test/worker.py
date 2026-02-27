@@ -99,6 +99,12 @@ WINDOWS_WORKER_TYPES = {
     "windows11-aarch64-24h2": {
         "virtual": "win11-a64-24h2",
     },
+    "windows11-aarch64-24h2-devedition": {
+        "virtual": "win11-a64-24h2",
+    },
+    "windows11-aarch64-24h2-shippable": {
+        "virtual": "win11-a64-24h2",
+    },
 }
 
 # os x worker types keyed by test-platform

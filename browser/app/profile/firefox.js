@@ -829,6 +829,9 @@ pref("browser.urlbar.suggest.sports", true);
 // urlbar searches.
 pref("browser.urlbar.lastUrlbarSearchSeconds", 0);
 
+// Feature gate pref for Nova UI in the urlbar.
+pref("browser.urlbar.nova.featureGate", false);
+
 pref("browser.altClickSave", false);
 
 // Number of milliseconds to wait for the http headers (and thus
@@ -2341,9 +2344,6 @@ pref("identity.fxaccounts.autoconfig.uri", "");
 
 // URL for help link about Send Tab.
 pref("identity.sendtabpromo.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/send-tab");
-
-// Whether synced tabs should be loaded using the moz-remote-image: protocol.
-pref("identity.tabs.remoteSVGIconDecoding", false);
 
 // URLs for promo links to mobile browsers. Note that consumers are expected to
 // append a value for utm_campaign.

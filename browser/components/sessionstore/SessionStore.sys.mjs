@@ -6656,6 +6656,10 @@ var SessionStoreInternal = {
       window.gCustomizeMode.setTab(tab);
     }
 
+    if (tabData.canonicalUrl) {
+      tab.canonicalUrl = tabData.canonicalUrl;
+    }
+
     // Update tab label and icon to show something
     // while we wait for the messages to be processed.
     this.updateTabLabelAndIcon(tab, tabData);

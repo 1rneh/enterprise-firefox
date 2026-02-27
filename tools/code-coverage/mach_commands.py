@@ -6,7 +6,7 @@ import json
 import os
 import time
 import warnings
-from functools import lru_cache
+from functools import cache
 
 from mach.decorators import Command, CommandArgument
 from mozbuild.artifact_cache import ArtifactCache
@@ -18,7 +18,7 @@ ALL_STATUSES = FINISHED_STATUSES | {"unscheduled", "pending", "running"}
 STATUS_VALUE = {"exception": 1, "failed": 2, "completed": 3}
 
 
-@lru_cache(maxsize=None)
+@cache
 def _tc_client(service):
     return get_taskcluster_client(service)
 
@@ -58,7 +58,7 @@ def _get_tasks_in_group(group_id):
     return tasks
 
 
-@lru_cache(maxsize=None)
+@cache
 def _artifact_cache(cache_dir):
     return ArtifactCache(cache_dir)
 

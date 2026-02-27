@@ -23,7 +23,6 @@ import os
 from datetime import datetime
 
 import jsone
-from mozbuild.util import memoize
 from taskgraph.util.copy import deepcopy
 from taskgraph.util.schema import resolve_keyed_by
 from taskgraph.util.taskcluster import get_artifact_prefix
@@ -460,7 +459,7 @@ get_balrog_server_scope = functools.partial(
     alias_to_scope_map=BALROG_SERVER_SCOPES,
 )
 
-cached_load_yaml = memoize(load_yaml)
+cached_load_yaml = functools.cache(load_yaml)
 
 
 # release_config {{{1

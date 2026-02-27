@@ -331,6 +331,16 @@ windows11-64-24h2-nightlyasrelease/opt:
         - browsertime
 
 # windows11-64-aarch64
+windows11-aarch64-24h2-shippable/opt:
+    build-platform: win64-aarch64-shippable/opt
+    test-sets:
+        - windows-aarch64-tests
+
+windows11-aarch64-24h2-devedition/opt:
+    build-platform: win64-aarch64-devedition/opt
+    test-sets:
+        - windows-aarch64-tests
+
 windows11-aarch64-24h2/opt:
     build-platform: win64-aarch64/opt
     test-sets:

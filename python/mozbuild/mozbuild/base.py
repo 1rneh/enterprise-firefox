@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import errno
+import functools
 import io
 import json
 import logging
@@ -35,8 +36,6 @@ from .util import (
     construct_log_filename,
     cpu_count,
     is_running_under_coding_agent,
-    memoize,
-    memoized_property,
 )
 
 try:
@@ -301,7 +300,7 @@ class MozbuildObject(ProcessExecutionMixin):
         self._virtualenv_manager = command_site_manager
 
     @staticmethod
-    @memoize
+    @functools.cache
     def get_base_mozconfig_info(topsrcdir, path, env_mozconfig):
         # env_mozconfig is only useful for unittests, which change the value of
         # the environment variable, which has an impact on autodetection (when
@@ -445,7 +444,7 @@ class MozbuildObject(ProcessExecutionMixin):
 
         return platform_name, bits + "bit"
 
-    @memoized_property
+    @functools.cached_property
     def repository(self):
         """Get a `mozversioncontrol.Repository` object for the
         top source directory."""

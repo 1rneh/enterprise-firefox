@@ -3,5 +3,8 @@
 # marionette unit tests
 ["include:unit/unit-tests.toml"]
 
+# enterprise tests
+["include:enterprise-tests.toml"]
+
 # integration tests
 ["include:integration-tests.toml"]

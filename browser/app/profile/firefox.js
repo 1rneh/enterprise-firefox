@@ -693,6 +693,10 @@ pref("browser.urlbar.merino.timeoutMs", 200);
 // Comma-separated list of providers to request from Merino
 pref("browser.urlbar.merino.providers", "");
 
+// Merino endpoint prefs to be used for weather widgets
+pref("browser.urlbar.merino.weather.reportEndpointURL", "https://merino.services.mozilla.com/api/v1/suggest");
+pref("browser.urlbar.merino.weather.hourlyEndpointURL", "https://merino.services.mozilla.com/api/v1/weather/hourly-forecasts");
+
 // Comma-separated list of client variants to send to Merino
 pref("browser.urlbar.merino.clientVariants", "");
 
@@ -1917,7 +1921,7 @@ pref("browser.newtabpage.activity-stream.unifiedAds.ohttp.enabled", false);
 // Weather widget for newtab
 pref("browser.newtabpage.activity-stream.showWeather", true);
 pref("browser.newtabpage.activity-stream.weather.query", "");
-pref("browser.newtabpage.activity-stream.weather.display", "simple");
+pref("browser.newtabpage.activity-stream.weather.display", "detailed");
 
 pref("browser.newtabpage.activity-stream.images.smart", true);
 
@@ -2287,6 +2291,7 @@ pref("browser.smartwindow.showThemesNotice", true);
 pref("browser.smartwindow.firstrun.modelChoice", "");
 pref("browser.smartwindow.model", "");
 pref("browser.smartwindow.preferences.endpoint", "");
+pref("browser.smartwindow.firstrun.explainerURL", "https://www.firefox.com/en-US/smart-window/?v=product");
 
 // Smart Window Logging
 pref("browser.smartwindow.chatHistory.loglevel", "Error");
@@ -2797,10 +2802,6 @@ pref("browser.migrate.preferences-entrypoint.enabled", true);
 // "enabled"        - user opted in to the feature.
 // "disabled"       - user opted out of the feature.
 pref("signon.firefoxRelay.feature", "available");
-// Should Firefox show Relay to all browsers, or only those signed-in to FxA?
-// Keep it hidden from about:config for now.
-// pref("signon.firefoxRelay.showToAllBrowsers", false);
-pref("signon.firefoxRelay.firstOfferVersionFallback", "control");
 pref("signon.management.page.breach-alerts.enabled", true);
 pref("signon.management.page.vulnerable-passwords.enabled", true);
 pref("signon.management.page.sort", "name");
@@ -3022,7 +3023,6 @@ pref("devtools.inspector.enabled", true);
 // What was the last active sidebar in the inspector
 pref("devtools.inspector.selectedSidebar", "layoutview");
 pref("devtools.inspector.activeSidebar", "layoutview");
-pref("devtools.inspector.remote", false);
 
 // Enable the 3 pane mode in the inspector
 pref("devtools.inspector.three-pane-enabled", true);
@@ -3511,6 +3511,7 @@ pref("browser.backup.enabled", true);
 pref("browser.backup.scheduled.enabled", false);
 
 // Prefs to control visibility and usability of the create backup and restore from backup features.
+// Currently, backup and restore is only enabled on Windows devices
 #ifdef XP_WIN
   pref("browser.backup.archive.enabled", true);
   pref("browser.backup.restore.enabled", true);
@@ -3542,6 +3543,7 @@ pref("browser.backup.scheduled.user-disabled", false);
 // How many milliseconds to wait for tab state to flush before continuing the
 // backup process.
 pref("browser.backup.tab-flush-timeout", 5000);
+pref("browser.backup.enabled_on.profiles", "{}");
 
 #ifdef NIGHTLY_BUILD
   // Pref to enable the new profiles

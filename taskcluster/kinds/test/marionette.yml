@@ -134,3 +134,6 @@ marionette-enterprise:
                     - marionette/prod_config.py
                     - marionette/enterprise_config.py
                     - remove_executables.py
+        extra-options:
+            - --subsuite=enterprise
+            - --test-manifest=enterprise-tests.toml

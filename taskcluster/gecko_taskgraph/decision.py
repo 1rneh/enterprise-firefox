@@ -120,24 +120,10 @@ PER_PROJECT_PARAMETERS = {
     "enterprise-firefox": {
         "target_tasks_method": "enterprise_firefox_with_tests_tasks",
         "release_product": "firefox-enterprise",
-        "release_partners": ["sample", "enterfox"],
+        "release_partners": ["sample"],
         "release_partner_config": {
             "repackage-deb": {
                 "sample": {
-                    "gcpEU": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "linux64-aarch64-enterprise-shippable",
-                        ],
-                    },
-                    "enterfox": {
-                        "locales": ["en-US"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "linux64-aarch64-enterprise-shippable",
-                        ],
-                    },
                     "stageMozGCP": {
                         "locales": ["en-US", "fr"],
                         "platforms": [
@@ -156,18 +142,6 @@ PER_PROJECT_PARAMETERS = {
             },
             "repackage-msi": {
                 "sample": {
-                    "gcpEU": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                    "enterfox": {
-                        "locales": ["en-US"],
-                        "platforms": [
-                            "win64-enterprise-shippable",
-                        ],
-                    },
                     "stageMozGCP": {
                         "locales": ["en-US", "fr"],
                         "platforms": [
@@ -184,24 +158,6 @@ PER_PROJECT_PARAMETERS = {
             },
             "enterprise-repack-repackage": {
                 "sample": {
-                    "gcpEU": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "linux64-aarch64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                    "enterfox": {
-                        "locales": ["en-US"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "linux64-aarch64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
                     "stageMozGCP": {
                         "locales": ["en-US", "fr"],
                         "platforms": [
@@ -224,22 +180,6 @@ PER_PROJECT_PARAMETERS = {
             },
             "enterprise-repack-mac-signing": {
                 "sample": {
-                    "gcpEU": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                    "enterfox": {
-                        "locales": ["en-US"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
                     "stageMozGCP": {
                         "locales": ["en-US", "fr"],
                         "platforms": [
@@ -260,22 +200,6 @@ PER_PROJECT_PARAMETERS = {
             },
             "enterprise-repack-mac-notarization": {
                 "sample": {
-                    "gcpEU": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                    "enterfox": {
-                        "locales": ["en-US"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
                     "stageMozGCP": {
                         "locales": ["en-US", "fr"],
                         "platforms": [

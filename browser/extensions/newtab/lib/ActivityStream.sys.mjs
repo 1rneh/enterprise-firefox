@@ -457,7 +457,24 @@ export const PREFS_CONFIG = new Map([
     {
       title:
         "Toggle the weather widget to include a text summary of the current conditions",
-      value: "simple",
+      value: "detailed",
+    },
+  ],
+  [
+    "weather.reportEndpoint",
+    {
+      title:
+        "Temporary measure for trainhopping. This adds the Merino endpoint for the weather report",
+      value: "https://merino.services.mozilla.com/api/v1/suggest",
+    },
+  ],
+  [
+    "weather.hourlyEndpoint",
+    {
+      title:
+        "Temporary measure for trainhopping. This adds the Merino endpoint for the hourly forecasts to display in Weather Forecast widget",
+      value:
+        "https://merino.services.mozilla.com/api/v1/weather/hourly-forecasts",
     },
   ],
   [
@@ -1151,6 +1168,13 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.feedback.enabled",
+    {
+      title: "Enables the feedback link in the widgets container",
+      value: false,
+    },
+  ],
+  [
     "improvesearch.noDefaultSearchTile",
     {
       title: "Remove tiles that are the same as the default search",
@@ -1451,6 +1475,14 @@ export const PREFS_CONFIG = new Map([
       title:
         "Set to the activation window variant if in activation window mode, otherwise the empty string.",
       value: "",
+    },
+  ],
+  [
+    "selfLoading.enabled",
+    {
+      title:
+        "Communicates to AboutNewTabChild whether or not it should load the classic scripts or do nothing.",
+      value: false,
     },
   ],
 ]);

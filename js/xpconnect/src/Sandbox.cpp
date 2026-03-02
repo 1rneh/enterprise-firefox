@@ -385,7 +385,7 @@ static bool SandboxCreateStorage(JSContext* cx, JS::HandleObject obj) {
 // script's realm. This method is used to retain this historic behaviour.
 //
 // See bug 2017797 for discussion about this behaviour.
-static bool LegacyShouldCloneIntoWindow(JSObject* obj) {
+static bool LegacyShouldCloneIntoWindow(JS::Handle<JSObject*> obj) {
   return IS_INSTANCE_OF(Blob, obj) || IS_INSTANCE_OF(Directory, obj) ||
          IS_INSTANCE_OF(FileList, obj) || IS_INSTANCE_OF(FormData, obj) ||
          IS_INSTANCE_OF(ImageBitmap, obj) || IS_INSTANCE_OF(VideoFrame, obj) ||
@@ -429,10 +429,14 @@ static bool SandboxStructuredClone(JSContext* cx, unsigned argc, Value* vp) {
   // See the comment on LegacyShouldCloneIntoWindow for details.
   if (IsWebExtensionContentScriptSandbox(global->GetGlobalJSObject()) &&
       StaticPrefs::extensions_webextensions_legacyStructuredCloneBehavior() &&
-      args[0].isObject() && LegacyShouldCloneIntoWindow(&args[0].toObject())) {
-    if (nsGlobalWindowInner* window =
-            SandboxWindowOrNull(global->GetGlobalJSObject(), cx)) {
-      global = window;
+      args[0].isObject()) {
+    JS::Rooted<JSObject*> obj(cx, &args[0].toObject());
+    if (LegacyShouldCloneIntoWindow(obj)) {
+      RefPtr<nsGlobalWindowInner> window =
+          SandboxWindowOrNull(global->GetGlobalJSObject(), cx);
+      if (window) {
+        global = window;
+      }
     }
   }
 
@@ -1335,6 +1339,14 @@ nsresult xpc::CreateSandboxObject(JSContext* cx, MutableHandleValue vp,
     creationOptions.setNewCompartmentInSystemZone();
   }
 
+  bool freezeBuiltins = isSystemPrincipal;
+  if (options.freezeBuiltins.isSome()) {
+    freezeBuiltins = options.freezeBuiltins.value();
+  }
+  if (freezeBuiltins) {
+    creationOptions.setFreezeBuiltins(true);
+  }
+
   if (options.alwaysUseFdlibm) {
     creationOptions.setAlwaysUseFdlibm(true);
   }
@@ -1785,6 +1797,28 @@ bool OptionsBase::ParseBoolean(const char* name, bool* prop) {
 }
 
 /*
+ * Helper that tries to get an optional bool property from the options object.
+ */
+bool OptionsBase::ParseOptionalBoolean(const char* name, Maybe<bool>& prop) {
+  RootedValue value(mCx);
+  bool found;
+  bool ok = ParseValue(name, &value, &found);
+  NS_ENSURE_TRUE(ok, false);
+
+  if (!found) {
+    return true;
+  }
+
+  if (!value.isBoolean()) {
+    JS_ReportErrorASCII(mCx, "Expected a boolean value for property %s", name);
+    return false;
+  }
+
+  prop = Some(value.toBoolean());
+  return true;
+}
+
+/*
  * Helper that tries to get an object property from the options object.
  */
 bool OptionsBase::ParseObject(const char* name, MutableHandleObject prop) {
@@ -1993,6 +2027,7 @@ bool SandboxOptions::Parse() {
                                 sandboxContentSecurityPolicy) &&
             ParseString("sandboxName", sandboxName) &&
             ParseObject("sameZoneAs", &sameZoneAs) &&
+            ParseOptionalBoolean("freezeBuiltins", freezeBuiltins) &&
             ParseBoolean("freshCompartment", &freshCompartment) &&
             ParseBoolean("freshZone", &freshZone) &&
             ParseBoolean("invisibleToDebugger", &invisibleToDebugger) &&

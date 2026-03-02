@@ -1854,12 +1854,14 @@ let gFileMenu = {
     }
     this.updateUserContextUIVisibility();
     this.updateImportCommandEnabledState();
-    this.updateTabCloseCountState();
-    if (AppConstants.platform == "macosx") {
-      SharingUtils.updateShareURLMenuItem(
-        gBrowser.selectedBrowser,
-        document.getElementById("menu_savePage")
-      );
+    if (typeof gBrowser != "undefined") {
+      this.updateTabCloseCountState();
+      if (AppConstants.platform == "macosx") {
+        SharingUtils.updateShareURLMenuItem(
+          gBrowser.selectedBrowser,
+          document.getElementById("menu_savePage")
+        );
+      }
     }
     PrintUtils.updatePrintSetupMenuHiddenState();
 

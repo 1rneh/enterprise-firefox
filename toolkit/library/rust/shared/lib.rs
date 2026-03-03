@@ -32,6 +32,7 @@ extern crate felt;
 extern crate fog_control;
 extern crate gecko_profiler;
 extern crate gkrust_utils;
+extern crate harfbuzz_glue;
 extern crate http_sfv;
 extern crate idna_glue;
 extern crate ipdl_utils;

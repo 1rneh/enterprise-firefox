@@ -400,6 +400,7 @@ impl ReportCrash {
     }
 
     /// Restart the program.
+    #[cfg_attr(feature = "enterprise", allow(unused))]
     fn restart_process(&self) {
         self.config.restart_process();
     }
@@ -540,6 +541,7 @@ impl ReportCrash {
     }
 
     /// Restart the application and send the crash report.
+    #[cfg_attr(feature = "enterprise", allow(unused))]
     pub fn restart(&self) {
         // Get the program restarted before sending the report.
         self.restart_process();
@@ -551,6 +553,12 @@ impl ReportCrash {
     pub fn quit(&self) {
         let result = self.try_send();
         self.close_window(result.is_some());
+    }
+
+    #[cfg(feature = "enterprise")]
+    /// Quit without sending a crash report
+    pub fn just_quit(&self) {
+        self.close_window(false);
     }
 
     fn close_window(&self, report_sent: bool) {

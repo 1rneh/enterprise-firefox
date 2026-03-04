@@ -134,6 +134,8 @@ extern crate midir_impl;
 #[cfg(target_os = "windows")]
 extern crate detect_win32k_conflicts;
 #[cfg(target_os = "windows")]
+extern crate shell_windows;
+#[cfg(target_os = "windows")]
 extern crate widget_windows;
 
 extern crate origin_trials_ffi;
@@ -143,6 +145,7 @@ extern crate dap_ffi;
 extern crate data_encoding_ffi;
 
 extern crate binary_http;
+extern crate happy_eyeballs_glue;
 extern crate mls_gk;
 extern crate oblivious_http;
 

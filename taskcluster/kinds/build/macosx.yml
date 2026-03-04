@@ -211,7 +211,9 @@ macosx64-enterprise-shippable/opt:
     description: "MacOS X aarch64 Enterprise Shippable Cross-compile"
     use-pgo: macosx64-aarch64-shippable/opt
     index:
-        job-name: macosx64-enterprise-shippable-opt
+        product: firefox
+        job-name: macosx64-enterprise-opt
+        type: shippable
     attributes:
         shippable: true
         enable-build-signing: true

@@ -1585,6 +1585,9 @@ static Result<Ok, PreXULSkeletonUIError> ValidateCmdlineArguments(
   int profileArgIndex = approvedArguments.length() - 1;
 #endif
 
+#if defined(MOZ_ENTERPRISE)
+  bool hasFeltFlag = false;
+#endif
   for (int i = 1; i < argc; ++i) {
     const char* flag = NormalizeFlag(argv[i]);
     if (!flag) {
@@ -1601,6 +1604,12 @@ static Result<Ok, PreXULSkeletonUIError> ValidateCmdlineArguments(
       // must be a flag.
       continue;
     }
+
+#if defined(MOZ_ENTERPRISE)
+    if (!_stricmp(flag, "felt")) {
+      hasFeltFlag = true;
+    }
+#endif
 
     bool approved = false;
     for (const char* approvedArg : approvedArguments) {
@@ -1625,6 +1634,18 @@ static Result<Ok, PreXULSkeletonUIError> ValidateCmdlineArguments(
       return Err(PreXULSkeletonUIError::Cmdline);
     }
   }
+
+  // When starting FELT, disable the PreXULSkeletonUI. Checking with
+  // is_felt_browser() is not doable here because this symbol is defined in
+  // libxul however the present code runs in firefox.exe. Hence checking the
+  // existence of "-felt" as is_felt_browser() would be doing, so
+  // PreXULSkeletonUI is kept for normal browser, just disabled for FELT
+  // window.
+#if defined(MOZ_ENTERPRISE)
+  if (!hasFeltFlag) {
+    return Err(PreXULSkeletonUIError::Cmdline);
+  }
+#endif
 
   return Ok();
 }

@@ -3,6 +3,7 @@ clippy:
     description: Lint rust
     include:
         - browser/extensions/felt/rust/
+        - browser/components/shell/rust/shell_windows/
         - build/workspace-hack/
         - browser/app/nmhproxy/
         - dom/base/fragmentdirectives/

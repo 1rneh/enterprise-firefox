@@ -100,6 +100,11 @@ git = "https://github.com/mozilla/ipc-channel"
 rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
 replace-with = "vendored-sources"
 
+[source."git+https://github.com/mozilla/happy-eyeballs?branch=main"]
+git = "https://github.com/mozilla/happy-eyeballs"
+branch = "main"
+replace-with = "vendored-sources"
+
 [source."git+https://github.com/mozilla/memtest?rev=ad681ba425beb0aeba95f03e671432b4be932174"]
 git = "https://github.com/mozilla/memtest"
 rev = "ad681ba425beb0aeba95f03e671432b4be932174"

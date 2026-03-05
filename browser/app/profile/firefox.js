@@ -2345,9 +2345,6 @@ pref("identity.fxaccounts.autoconfig.uri", "");
 // URL for help link about Send Tab.
 pref("identity.sendtabpromo.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/send-tab");
 
-// Whether synced tabs should be loaded using the moz-remote-image: protocol.
-pref("identity.tabs.remoteSVGIconDecoding", false);
-
 // URLs for promo links to mobile browsers. Note that consumers are expected to
 // append a value for utm_campaign.
 pref("identity.mobilepromo.android", "https://www.mozilla.org/firefox/android/?utm_source=firefox-browser&utm_medium=firefox-browser&utm_campaign=");
@@ -2956,11 +2953,7 @@ pref("browser.toolbars.bookmarks.showOtherBookmarks", true);
 
 // Felt Privacy pref to control simplified private browsing UI
 pref("browser.privatebrowsing.felt-privacy-v1", false);
-#if defined(NIGHTLY_BUILD)
-  pref("security.certerrors.felt-privacy-v1", true);
-#else
-  pref("security.certerrors.felt-privacy-v1", false);
-#endif
+pref("security.certerrors.felt-privacy-v1", true);
 
 
 // Prefs to control the Firefox Account toolbar menu.

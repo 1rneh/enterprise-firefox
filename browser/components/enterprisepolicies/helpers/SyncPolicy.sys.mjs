@@ -60,9 +60,9 @@ export const SyncPolicy = {
    * @property {boolean} [Addresses] Whether syncing addresses should be enabled
    * @property {boolean} [Bookmarks] Whether syncing bookmarks should be enabled
    * @property {boolean} [History] Whether syncing history should be enabled
-   * @property {boolean} [OpenTabs] Whether syncing openTabs should be enabled
+   * @property {boolean} [OpenTabs] Whether syncing open tabs should be enabled
    * @property {boolean} [Passwords] Whether syncing passwords should be enabled
-   * @property {boolean} [PaymentMethods] Whether syncing paymentMethods should be enabled
+   * @property {boolean} [PaymentMethods] Whether syncing payment methods should be enabled
    * @property {boolean} [Settings] Whether syncing settings should be enabled
    * @property {boolean} [Locked] Whether to lock the customized sync settings
    */

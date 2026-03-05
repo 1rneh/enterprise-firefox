@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setInterval: "resource://gre/modules/Timer.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
 });
 
 // This is the file that will be searched for in the
@@ -390,9 +391,11 @@ EnterprisePoliciesManager.prototype = {
 
   async _restart() {
     DisallowedFeatures = {};
+    SitePolicies = [];
 
     Services.ppmm.sharedData.delete("EnterprisePolicies:Status");
     Services.ppmm.sharedData.delete("EnterprisePolicies:DisallowedFeatures");
+    Services.ppmm.sharedData.delete("EnterprisePolicies:SitePolicies");
 
     this._status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = undefined;
@@ -550,6 +553,18 @@ EnterprisePoliciesManager.prototype = {
     this.messageDisallowedFeatures(neededOnContentProcess);
   },
 
+  updateSitePolicies(policies) {
+    SitePolicies = policies;
+
+    let clonable = policies.map(policy => ({
+      match: policy.match.patterns.map(p => p.pattern),
+      exceptions: policy.exceptions.patterns.map(p => p.pattern),
+      features: policy.features,
+    }));
+
+    Services.ppmm.sharedData.set("EnterprisePolicies:SitePolicies", clonable);
+  },
+
   // ------------------------------
   // public nsIEnterprisePolicies members
   // ------------------------------
@@ -567,8 +582,17 @@ EnterprisePoliciesManager.prototype = {
     return this._status;
   },
 
-  isAllowed: function BG_sanitize(feature) {
+  isAllowed(feature) {
     return !(feature in DisallowedFeatures);
+  },
+
+  isAllowedForURI(feature, uri) {
+    return lazy.SitePolicyUtils.isAllowedForURI(
+      this,
+      SitePolicies,
+      feature,
+      uri
+    );
   },
 
   getActivePolicies() {
@@ -699,6 +723,7 @@ EnterprisePoliciesManager.prototype = {
 };
 
 let DisallowedFeatures = {};
+let SitePolicies = [];
 let SupportMenu = null;
 let ExtensionPolicies = null;
 let ExtensionSettings = null;

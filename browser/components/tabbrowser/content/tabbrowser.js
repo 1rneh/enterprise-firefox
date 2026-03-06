@@ -3995,7 +3995,11 @@
       }
 
       let lazyBrowserURI;
-      if (createLazyBrowser && uriString != "about:blank") {
+      if (
+        createLazyBrowser &&
+        uriString != "about:blank" &&
+        uriString != "about:opentabs"
+      ) {
         lazyBrowserURI = aURIObject;
         uriString = "about:blank";
       }
@@ -10307,9 +10311,14 @@ var TabContextMenu = {
     let contextSeparateSplitView = document.getElementById(
       "context_separateSplitView"
     );
+    let contextReverseSplitView = document.getElementById(
+      "context_reverseSplitView"
+    );
     let hasSplitViewTab = this.contextTabs.some(tab => tab.splitview);
     contextMoveTabToNewSplitView.hidden = !splitViewEnabled || hasSplitViewTab;
     contextSeparateSplitView.hidden = !splitViewEnabled || !hasSplitViewTab;
+    contextReverseSplitView.hidden =
+      !splitViewEnabled || !hasSplitViewTab || this.multiselected;
     if (splitViewEnabled) {
       contextMoveTabToNewSplitView.removeAttribute("data-l10n-id");
       contextMoveTabToNewSplitView.setAttribute(
@@ -10783,14 +10792,34 @@ var TabContextMenu = {
   },
 
   addTabsToSavedGroup(groupId) {
+    let seen = new Set();
+    let tabs = [];
+    for (let tab of this.contextTabs) {
+      if (tab.splitview) {
+        for (let splitTab of tab.splitview.tabs) {
+          if (!seen.has(splitTab)) {
+            seen.add(splitTab);
+            tabs.push(splitTab);
+          }
+        }
+      } else if (!seen.has(tab)) {
+        seen.add(tab);
+        tabs.push(tab);
+      }
+    }
     SessionStore.addTabsToSavedGroup(
       groupId,
-      this.contextTabs,
+      tabs,
       gBrowser.TabMetrics.userTriggeredContext(
         gBrowser.TabMetrics.METRIC_SOURCE.TAB_MENU
       )
     );
-    this.closeContextTabs();
+    gBrowser.removeTabs(tabs, {
+      animate: true,
+      ...gBrowser.TabMetrics.userTriggeredContext(
+        gBrowser.TabMetrics.METRIC_SOURCE.TAB_STRIP
+      ),
+    });
   },
 
   ungroupTabs() {
@@ -10850,6 +10879,10 @@ var TabContextMenu = {
     splitviews.forEach(splitview =>
       gBrowser.unsplitTabs(splitview, "menu_separate")
     );
+  },
+
+  reverseSplitView() {
+    this.contextTab.splitview?.reverseTabs("menu");
   },
 
   addNewBadge(menuItem) {

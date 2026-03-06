@@ -6,6 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   ASRouter: "resource:///modules/asrouter/ASRouter.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   IPPEnrollAndEntitleManager:
@@ -293,7 +294,13 @@ export class IPProtectionPanel {
   }
 
   async #startProxy() {
-    const { started, error } = await lazy.IPPProxyManager.start(true);
+    const win = this.#window.get();
+    const inPrivateBrowsing =
+      !!win && lazy.PrivateBrowsingUtils.isWindowPrivate(win);
+    const { started, error } = await lazy.IPPProxyManager.start(
+      true,
+      inPrivateBrowsing
+    );
     if (!started) {
       const errorMessage =
         error == ERRORS.NETWORK ? ERRORS.NETWORK : ERRORS.GENERIC;
@@ -788,11 +795,13 @@ export class IPProtectionPanel {
       const principal = win?.gBrowser.contentPrincipal;
 
       lazy.IPPExceptionsManager.setExclusion(principal, false);
+      Glean.ipprotection.exclusionToggled.record({ excluded: false });
     } else if (event.type == "IPProtection:UserDisableVPNForSite") {
       const win = event.target.ownerGlobal;
       const principal = win?.gBrowser.contentPrincipal;
 
       lazy.IPPExceptionsManager.setExclusion(principal, true);
+      Glean.ipprotection.exclusionToggled.record({ excluded: true });
     } else if (event.type == "IPProtection:DismissBandwidthWarning") {
       // Store the dismissed threshold level
       this.#lastBandwidthWarningMessageDismissed = event.detail.threshold;

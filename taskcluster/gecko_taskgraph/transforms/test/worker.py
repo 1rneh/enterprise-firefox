@@ -236,6 +236,7 @@ def set_enterprise_bypass_env(config, tasks):
         env["MOZ_BYPASS_FELT"] = "1"
         yield task
 
+
 @transforms.add
 def hide_cmd_exe_window_on_windows(config, tasks):
     for task in tasks:

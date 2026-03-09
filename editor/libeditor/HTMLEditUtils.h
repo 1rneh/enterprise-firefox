@@ -806,6 +806,45 @@ class HTMLEditUtils final {
       Element** aFollowingBlockBoundaryElement = nullptr);
 
   /**
+   * Return true if aContent is a <br> element which is following the current
+   * block boundary.
+   *
+   * @param aAncestorLimiter    [optional] If set, this stops scanning the DOM
+   *                            when it reaches the element boundary.  If this
+   *                            is an inline editing host, the result may be
+   *                            changed.
+   * @param aFollowingBlockBoundaryElement
+   *                            [out][optional] If aContent is followed by a
+   *                            block boundary, this will be set to the block
+   *                            element without add-ref.
+   */
+  [[nodiscard]] static bool IsBRElementFollowingCurrentBlockBoundary(
+      const nsIContent& aContent, const Element* aAncestorLimiter = nullptr,
+      Element** aPrecedingBlockBoundaryElement = nullptr) {
+    const auto* const brElement = dom::HTMLBRElement::FromNode(aContent);
+    return brElement &&
+           IsBRElementFollowingCurrentBlockBoundary(
+               *brElement, aAncestorLimiter, aPrecedingBlockBoundaryElement);
+  }
+
+  /**
+   * Return true if aBRElement is following the current block boundary.
+   *
+   * @param aAncestorLimiter    [optional] If set, this stops scanning the DOM
+   *                            when it reaches the element boundary.  If this
+   *                            is an inline editing host, the result may be
+   *                            changed.
+   * @param aFollowingBlockBoundaryElement
+   *                            [out][optional] If aBRElement is followed by a
+   *                            block boundary, this will be set to the block
+   *                            element without add-ref.
+   */
+  [[nodiscard]] static bool IsBRElementFollowingCurrentBlockBoundary(
+      const dom::HTMLBRElement& aBRElement,
+      const Element* aAncestorLimiter = nullptr,
+      Element** aPrecedingBlockBoundaryElement = nullptr);
+
+  /**
    * Return true if aContent is a <br> element and it's followed by a block
    * boundary which is not of the current block.
    *
@@ -1070,6 +1109,28 @@ class HTMLEditUtils final {
           SkipWhiteSpaceStyleCheck::No,
       const Element* aAncestorLimiter = nullptr,
       Element** aFollowingBlockBoundaryElement = nullptr);
+
+  /**
+   * Return true if the character at aPoint is a preformatted linefeed and
+   * follows the current block boundary.
+   *
+   * @param aAncestorLimiter    [optional] If set, this stops scanning the DOM
+   *                            when it reaches the element boundary.  If this
+   *                            is an inline editing host, the result may be
+   *                            changed.
+   * @param aPrecedingBlockBoundaryElement
+   *                            [out][optional] If the linefeed is following
+   *                            current block boundary, this will be set to the
+   *                            block element without add-ref.
+   */
+  template <typename EditorDOMPointType>
+  [[nodiscard]] static bool
+  IsPreformattedLineBreakFollowingCurrentBlockBoundary(
+      const EditorDOMPointType& aPoint,
+      SkipWhiteSpaceStyleCheck aSkipWhiteSpaceStyleCheck =
+          SkipWhiteSpaceStyleCheck::No,
+      const Element* aAncestorLimiter = nullptr,
+      Element** aPrecedingBlockBoundaryElement = nullptr);
 
   /**
    * Return true if the character at aPoint is a preformatted linefeed and
@@ -2323,6 +2384,7 @@ class HTMLEditUtils final {
         break;
       }
       if (element->GetChildCount() > 1) {
+        // FIXME: We should check whether the each other children is empty.
         for (const nsIContent* child = element->GetFirstChild(); child;
              child = child->GetNextSibling()) {
           if (child == lastEmptyContent || child->IsComment()) {

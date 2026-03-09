@@ -1557,10 +1557,9 @@ struct StyleAnimation {
   StyleAnimationIterationCount mIterationCount{1.0f};
   StyleAnimationComposition mComposition = StyleAnimationComposition::Replace;
   StyleAnimationTimeline mTimeline = StyleAnimationTimeline::Auto();
-  StyleAnimationRangeStart mRangeStart{StyleTimelineRangeName::Normal,
-                                       LengthPercentage::FromPercentage(0.0f)};
-  StyleAnimationRangeEnd mRangeEnd{StyleTimelineRangeName::Normal,
-                                   LengthPercentage::FromPercentage(1.0f)};
+  StyleAnimationRangeStart mRangeStart =
+      StyleAnimationRangeStart::DefaultStart();
+  StyleAnimationRangeEnd mRangeEnd = StyleAnimationRangeEnd::DefaultEnd();
 };
 
 struct StyleScrollTimeline {
@@ -1707,6 +1706,8 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleDisplay {
   // 'none', 'all', or a list of one or more `<dashed-ident>` identifiers that
   // may identify anchor positioning anchor elements.
   mozilla::StyleScopedName mAnchorScope;
+
+  mozilla::StyleScopedName mTimelineScope;
 
   mozilla::Maybe<mozilla::WindowButtonType> GetWindowButtonType() const {
     if (MOZ_LIKELY(mDefaultAppearance == mozilla::StyleAppearance::None)) {
@@ -2095,11 +2096,12 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleUIReset {
   const mozilla::StyleAnimationTimeline& GetTimeline(uint32_t aIndex) const {
     return mAnimations[aIndex % mAnimationTimelineCount].GetTimeline();
   }
-  const mozilla::StyleAnimationRangeStart& GetRangeStart(
+  const mozilla::StyleAnimationRangeStart& GetAnimationRangeStart(
       uint32_t aIndex) const {
     return mAnimations[aIndex % mAnimationRangeStartCount].GetRangeStart();
   }
-  const mozilla::StyleAnimationRangeEnd& GetRangeEnd(uint32_t aIndex) const {
+  const mozilla::StyleAnimationRangeEnd& GetAnimationRangeEnd(
+      uint32_t aIndex) const {
     return mAnimations[aIndex % mAnimationRangeEndCount].GetRangeEnd();
   }
 
@@ -2152,8 +2154,6 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleUIReset {
 
   mozilla::StyleViewTransitionName mViewTransitionName;
   mozilla::StyleViewTransitionClass mViewTransitionClass;
-
-  mozilla::StyleScopedName mTimelineScope;
 };
 
 struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleUI {

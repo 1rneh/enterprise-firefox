@@ -1482,6 +1482,13 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "nova.enabled",
+    {
+      title: "Boolean flag to enable Nova",
+      value: false,
+    },
+  ],
+  [
     "selfLoading.enabled",
     {
       title:

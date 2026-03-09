@@ -54,14 +54,19 @@ pub extern "C" fn felt_init() {
     let found_felt_ui_env = has_env("MOZ_FELT_UI");
     let bypass_env = has_env("MOZ_BYPASS_FELT");
 
+    // There may be a -chrome ... being passed on the CLI, e.g. for jsdebugger
+    // in this case, it is not expected the FELT UI is shown, not the browser UI
+    let force_chrome = arg_matches("chrome");
+    trace!("felt_init(): force_chrome={}", force_chrome);
+
     let felt_ui_requested = arg_matches("feltui") || found_felt_ui_env;
-    let is_felt_browser = arg_matches("felt");
+    let is_felt_browser = arg_matches("felt") && !force_chrome;
 
     if is_felt_browser && felt_ui_requested {
         panic!("Cannot have both -feltUI and -felt args");
     }
 
-    let is_felt_ui = !is_felt_browser && !bypass_env;
+    let is_felt_ui = !is_felt_browser && !bypass_env && !force_chrome;
     trace!("felt_init(): is_felt_ui={}", is_felt_ui);
     IS_FELT_UI.store(is_felt_ui, Ordering::Relaxed);
 

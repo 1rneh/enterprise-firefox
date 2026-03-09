@@ -15,6 +15,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
 
+const PROCESS_START_REASON = {
+  INITIAL_START: "initial-start",
+  RESTART: "restart",
+  CRASH: "crash",
+};
+
 // Import the shared pending URLs queue
 import {
   gFeltPendingURLs,
@@ -162,7 +168,9 @@ export class FeltProcessParent extends JSProcessActorParent {
                     console.debug(
                       `FeltExtension: ParentProcess: Starting new Firefox`
                     );
-                    gFeltProcessParentInstance.startFirefox();
+                    gFeltProcessParentInstance.startFirefox(
+                      PROCESS_START_REASON.RESTART
+                    );
                   } else {
                     console.debug(
                       `FeltExtension: ParentProcess: Restart disabled, sending normal exit to restore FELT UI`
@@ -283,7 +291,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
   }
 
-  async startFirefox(ssoCollectedCookies = []) {
+  async startFirefox(startReason, ssoCollectedCookies = []) {
     this.restartReported = false;
     this.logoutReported = false;
     this.exitReported = false;
@@ -291,7 +299,18 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.extensionReady = false;
     resetFeltFirefoxWindowReady();
     gFeltFirefoxReadyNotified = false;
-    Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
+
+    // There is no message being sent to the message listener on restart phases
+    // whether it is a requested restart from the browser or from a crash.
+    // However in those cases there would have been a start message being sent
+    // making us trying to close a Felt window that was not re-opened.
+    // Since there is no message sent on browser process exit in both cases,
+    // then make sure to also not send a matching starting message.
+    if (startReason === PROCESS_START_REASON.INITIAL_START) {
+      Services.cpmm.sendAsyncMessage("FeltParent:TransitionFeltToBackground", {
+        startReason,
+      });
+    }
 
     if (!gObserversRegistered) {
       kBrowserObserverTopics.forEach(aTopic => {
@@ -392,7 +411,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       Services.cpmm.sendAsyncMessage("FeltParent:FirefoxAbnormalExit", {});
     } else {
       console.debug("Trying to restart Firefox again.");
-      this.startFirefox([]);
+      this.startFirefox(PROCESS_START_REASON.CRASH);
     }
   }
 
@@ -647,7 +666,10 @@ export class FeltProcessParent extends JSProcessActorParent {
             throw new Error("Not enough cookies!!");
           }
 
-          this.startFirefox(ssoCollectedCookies);
+          this.startFirefox(
+            PROCESS_START_REASON.INITIAL_START,
+            ssoCollectedCookies
+          );
         }
         break;
 

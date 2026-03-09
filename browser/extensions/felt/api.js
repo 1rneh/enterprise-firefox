@@ -189,7 +189,10 @@ this.felt = class extends ExtensionAPI {
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxLogoutExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
-      Services.ppmm.addMessageListener("FeltParent:FirefoxStarting", this);
+      Services.ppmm.addMessageListener(
+        "FeltParent:TransitionFeltToBackground",
+        this
+      );
     } else if (Services.felt.isFeltBrowser()) {
       // In the real Firefox, register observer to handle URLs
       Services.obs.addObserver(this.urlObserver, "felt-open-url");
@@ -239,7 +242,7 @@ this.felt = class extends ExtensionAPI {
         break;
       }
 
-      case "FeltParent:FirefoxStarting": {
+      case "FeltParent:TransitionFeltToBackground": {
         Services.startup.enterLastWindowClosingSurvivalArea();
         this.closeWindow();
         const success = Services.felt.makeBackgroundProcess(true);

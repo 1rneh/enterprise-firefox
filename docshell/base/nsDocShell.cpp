@@ -3743,8 +3743,12 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
         break;
       case NS_ERROR_BLOCKED_BY_POLICY:
         // Page blocked by policy
-        error = "blockedByPolicy";
+#if defined(MOZ_ENTERPRISE)
+        error = "blockedByPolicyEnterprise";
         enterpriseErrorDescriptionID = "blockedByPolicyEnterprise";
+#else
+        error = "blockedByPolicy";
+#endif
         break;
       case NS_ERROR_DOM_COOP_FAILED:
         error = "blockedByCOOP";

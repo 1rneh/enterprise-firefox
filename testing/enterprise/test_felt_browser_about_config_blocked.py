@@ -32,7 +32,7 @@ class BrowserAboutConfigBlocked(FeltTests):
             assert False, "about:config should have been blocked in Firefox"
         except UnknownException as ex:
             assert ex.message.startswith(
-                "Reached error page: about:neterror?e=blockedByPolicy&u=about%3Aconfig"
+                "Reached error page: about:neterror?e=blockedByPolicyEnterprise&u=about%3Aconfig"
             ), "about:config is blocked in Firefox"
 
     def run_change_about_config_policy(self):

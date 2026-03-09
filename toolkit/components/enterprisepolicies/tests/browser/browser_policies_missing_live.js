@@ -96,6 +96,7 @@ add_task(async function check_all_policies_are_live() {
     "SearchSuggestEnabled",
     "SecurityDevices",
     "ShowHomeButton",
+    "SitePolicies",
     "SkipTermsOfUse",
     "SSLVersionMax",
     "SSLVersionMin",

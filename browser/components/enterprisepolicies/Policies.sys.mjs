@@ -1915,6 +1915,11 @@ export var Policies = {
           "browser.ai.control.linkPreviewKeyPoints",
         ],
         [
+          "SmartWindow",
+          ["browser.smartwindow.enabled"],
+          "browser.ai.control.smartWindow",
+        ],
+        [
           "TabGroups",
           ["browser.tabs.groups.smart.userEnabled"],
           "browser.ai.control.smartTabGroups",

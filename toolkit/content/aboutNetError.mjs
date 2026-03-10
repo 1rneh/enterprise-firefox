@@ -63,6 +63,7 @@ const KNOWN_ERROR_TITLE_IDS = new Set([
   "corruptedContentErrorv2-title",
   "sslv3Used-title",
   "inadequateSecurityError-title",
+  "blocked-by-policy-title",
   "blocked-by-policy-title-enterprise",
   "blocked-by-corp-headers-title",
   "clockSkewError-title",
@@ -310,6 +311,7 @@ function initTitleAndBodyIds(baseURL, isTRROnlyFailure) {
       bodyTitleId = "general-body-title";
       tryAgain.hidden = true;
       break;
+    case "blockedByPolicyEnterprise":
     case "blockedByPolicy": {
       pageTitleId = "neterror-blocked-by-policy-page-title-enterprise";
       bodyTitleId = "blocked-by-policy-title-enterprise";

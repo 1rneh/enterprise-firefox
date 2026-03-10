@@ -7,11 +7,6 @@
  * These include NS_ERROR_* codes and URL parameter error codes.
  */
 
-const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
-  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
-});
-
 export const HTTPS_UPGRADES_MDN_DOCS =
   "https://developer.mozilla.org/docs/Web/Security/HTTPS-Only_Mode";
 export const COOP_MDN_DOCS =
@@ -328,18 +323,32 @@ export const NET_ERRORS = [
       dataL10nId: "fp-neterror-offline-intro",
       dataL10nArgs: { hostname: null },
     },
-    descriptionParts: lazy.AppConstants.MOZ_ENTERPRISE
-      ? [
-          [
-            [
-              {
-                tag: "p",
-                dataL10nId: "neterror-blocked-by-policy-contact-admin",
-              },
-            ],
-          ],
-        ]
-      : [],
+    descriptionParts: [],
+    buttons: {
+      showTryAgain: false,
+      showGoBack: false,
+    },
+    hasNoUserFix: true,
+  },
+  {
+    id: "blockedByPolicyEnterprise",
+    errorCode: "blockedByPolicyEnterprise",
+    category: "blocked",
+    bodyTitleL10nId: "blocked-by-policy-title-enterprise",
+    introContent: {
+      dataL10nId: "fp-neterror-offline-intro",
+      dataL10nArgs: { hostname: null },
+    },
+    descriptionParts: [
+      {
+        tag: "p",
+        dataL10nId: "neterror-blocked-by-policy-contact-admin",
+      },
+    ],
+    customNetError: {
+      titleL10nId: "blocked-by-policy-title-enterprise",
+      whatCanYouDoL10nId: "neterror-blocked-by-policy-contact-admin",
+    },
     buttons: {
       showTryAgain: false,
       showGoBack: false,

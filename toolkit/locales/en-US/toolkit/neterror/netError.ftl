@@ -7,6 +7,7 @@
 neterror-page-title = Problem loading page
 certerror-page-title = Warning: Potential Security Risk Ahead
 certerror-sts-page-title = Did Not Connect: Potential Security Issue
+neterror-blocked-by-policy-page-title = Blocked Page
 neterror-captive-portal-page-title = Log in to network
 neterror-dns-not-found-title = Server Not Found
 neterror-malformed-uri-page-title = Invalid URL

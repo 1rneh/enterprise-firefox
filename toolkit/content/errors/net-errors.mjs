@@ -7,11 +7,6 @@
  * These include NS_ERROR_* codes and URL parameter error codes.
  */
 
-const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
-  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
-});
-
 export const HTTPS_UPGRADES_MDN_DOCS =
   "https://developer.mozilla.org/docs/Web/Security/HTTPS-Only_Mode";
 export const COOP_MDN_DOCS =
@@ -323,23 +318,21 @@ export const NET_ERRORS = [
     id: "blockedByPolicy",
     errorCode: "blockedByPolicy",
     category: "blocked",
-    bodyTitleL10nId: "neterror-blocked-by-policy-page-title",
+    bodyTitleL10nId: "blocked-by-policy-title-enterprise",
     introContent: {
       dataL10nId: "fp-neterror-offline-intro",
       dataL10nArgs: { hostname: null },
     },
-    descriptionParts: lazy.AppConstants.MOZ_ENTERPRISE
-      ? [
-          [
-            [
-              {
-                tag: "p",
-                dataL10nId: "neterror-blocked-by-policy-contact-admin",
-              },
-            ],
-          ],
-        ]
-      : [],
+    descriptionParts: [
+      {
+        tag: "p",
+        dataL10nId: "neterror-blocked-by-policy-contact-admin",
+      },
+    ],
+    customNetError: {
+      titleL10nId: "blocked-by-policy-title-enterprise",
+      whatCanYouDoL10nId: "neterror-blocked-by-policy-contact-admin",
+    },
     buttons: {
       showTryAgain: false,
       showGoBack: false,

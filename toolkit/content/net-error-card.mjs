@@ -172,7 +172,7 @@ export class NetErrorCard extends MozLitElement {
 
     const titles = {
       net: "neterror-page-title",
-      blocked: "neterror-blocked-by-policy-page-title",
+      blocked: "neterror-blocked-by-policy-page-title-enterprise",
     };
     document.l10n.setAttributes(
       document.querySelector("title"),

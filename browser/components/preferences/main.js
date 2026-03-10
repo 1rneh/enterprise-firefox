@@ -98,6 +98,7 @@ Preferences.addAll([
   { id: "browser.ai.control.smartTabGroups", type: "string" },
   { id: "browser.ai.control.linkPreviewKeyPoints", type: "string" },
   { id: "browser.ai.control.sidebarChatbot", type: "string" },
+  { id: "browser.ai.control.smartWindow", type: "string" },
 
   /* Tab preferences
   Preferences:
@@ -1973,6 +1974,10 @@ Preferences.addSetting({
   id: "aiControlSidebarChatbot",
   pref: "browser.ai.control.sidebarChatbot",
 });
+Preferences.addSetting({
+  id: "aiControlSmartWindow",
+  pref: "browser.ai.control.smartWindow",
+});
 
 // "Interaction" tabs settings
 Preferences.addSetting({
@@ -3414,8 +3419,7 @@ SettingGroupManager.registerGroups({
   ipprotection: {
     l10nId: "ip-protection-description",
     headingLevel: 2,
-    // TODO: Replace support url with finalized link (Bug 1993266)
-    supportPage: "ip-protection",
+    supportPage: "built-in-vpn",
     items: [
       {
         id: "ipProtectionNotOptedInSection",

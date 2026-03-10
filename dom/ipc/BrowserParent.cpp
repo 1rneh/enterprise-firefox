@@ -254,7 +254,8 @@ class RequestingAccessKeyEventData {
   static int32_t sBrowserParentCount;
 };
 int32_t RequestingAccessKeyEventData::sBrowserParentCount = 0;
-Maybe<RequestingAccessKeyEventData::Data> RequestingAccessKeyEventData::sData;
+constinit Maybe<RequestingAccessKeyEventData::Data>
+    RequestingAccessKeyEventData::sData;
 
 namespace dom {
 
@@ -3369,6 +3370,15 @@ void BrowserParent::UpdateFocusFromBrowsingContext() {
          bp));
     IMEStateManager::OnFocusMovedBetweenBrowsers(old, bp);
   }
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvPerformHapticFeedback(
+    mozilla::HapticFeedbackType aType) {
+  nsCOMPtr<nsIWidget> widget = GetTopLevelWidget();
+  if (widget) {
+    widget->PerformHapticFeedback(aType);
+  }
+  return IPC_OK();
 }
 
 /* static */

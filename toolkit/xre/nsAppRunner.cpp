@@ -308,6 +308,14 @@ constexpr nsLiteralCString kStartupTokenNames[] = {
 };
 #endif
 
+// Keep this synchronized with the value of the same name in
+// devtools/client/framework/browser-toolbox/Launcher.sys.mjs.  Or, for bonus
+// points, lift this value to nsIXulRuntime or similar, so that it can be
+// accessed in both locations.  (The prefs service isn't available at this
+// point so the simplest manner of sharing the value is not available to us.)
+const char* BROWSER_TOOLBOX_WINDOW_URL =
+    "chrome://devtools/content/framework/browser-toolbox/window.html";
+
 int gArgc;
 char** gArgv;
 
@@ -4711,6 +4719,12 @@ const char* ShouldNotProcessUpdatesReasonAsString(
   }
 }
 
+bool IsLaunchingBrowserDevtools() {
+  const char* chromeParam = nullptr;
+  return (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) &&
+         (strcmp(chromeParam, BROWSER_TOOLBOX_WINDOW_URL) == 0);
+}
+
 Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
     nsXREDirProvider& aDirProvider) {
   // Don't process updates when launched from the installer.
@@ -4731,21 +4745,9 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
 
   // Do not process updates if we're launching devtools, as evidenced by
   // "--chrome ..." with the browser toolbox chrome document URL.
-
-  // Keep this synchronized with the value of the same name in
-  // devtools/client/framework/browser-toolbox/Launcher.sys.mjs.  Or, for bonus
-  // points, lift this value to nsIXulRuntime or similar, so that it can be
-  // accessed in both locations.  (The prefs service isn't available at this
-  // point so the simplest manner of sharing the value is not available to us.)
-  const char* BROWSER_TOOLBOX_WINDOW_URL =
-      "chrome://devtools/content/framework/browser-toolbox/window.html";
-
-  const char* chromeParam = nullptr;
-  if (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) {
-    if (!chromeParam || !strcmp(BROWSER_TOOLBOX_WINDOW_URL, chromeParam)) {
-      NS_WARNING("ShouldNotProcessUpdates(): DevToolsLaunching");
-      return Some(ShouldNotProcessUpdatesReason::DevToolsLaunching);
-    }
+  if (IsLaunchingBrowserDevtools()) {
+    NS_WARNING("ShouldNotProcessUpdates(): DevToolsLaunching");
+    return Some(ShouldNotProcessUpdatesReason::DevToolsLaunching);
   }
 
 #  ifdef MOZ_BACKGROUNDTASKS
@@ -6143,12 +6145,12 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 #  endif
 
     const bool requestedHeadless = RequestedHeadlessMode();
-
     // Allow standalone launch for automated testing and development
     allowStandaloneLaunch =
         allowStandaloneLaunch || EnvHasValue("MOZ_AUTOMATION") ||
         PR_GetEnv("MOZ_RUN_GTEST") || requestedHeadless ||
-        CheckArgExists("marionette") || CheckArgExists("remote-debugging-port");
+        CheckArgExists("marionette") ||
+        CheckArgExists("remote-debugging-port") || IsLaunchingBrowserDevtools();
 
     if (!allowStandaloneLaunch && !is_felt_ui() && !is_felt_browser()) {
       Output(true,

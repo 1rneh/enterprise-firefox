@@ -402,7 +402,8 @@ renaming_overrides_prefixing = true
 "nsFontFaceRuleContainer" = "nsFontFaceRuleContainer"
 "MediumFeaturesChangedResult" = "MediumFeaturesChangedResult"
 "FontSizePrefs" = "FontSizePrefs"
-"nsCSSFontDesc" = "nsCSSFontDesc"
+"FontFaceDescriptorId" = "FontFaceDescriptorId"
+"CounterStyleDescriptorId" = "CounterStyleDescriptorId"
 "nsresult" = "nsresult"
 "gfxFontFeature" = "gfxFontFeature"
 "gfxFontFeatureValueSet" = "gfxFontFeatureValueSet"
@@ -1288,8 +1289,8 @@ renaming_overrides_prefixing = true
   inline Span<const mozilla::StyleAtom> AsSpan() const;
 """
 
-"PropertyTypedValueResult" = """
-  StylePropertyTypedValueResult(StylePropertyTypedValueResult&& other)
+"PropertyTypedValue" = """
+  StylePropertyTypedValue(StylePropertyTypedValue&& other)
       : tag(other.tag) {
     switch (tag) {
       case Tag::None:
@@ -1304,16 +1305,15 @@ renaming_overrides_prefixing = true
     }
   }
 
-  StylePropertyTypedValueResult& operator=(
-      StylePropertyTypedValueResult&& other) {
+  StylePropertyTypedValue& operator=(StylePropertyTypedValue&& other) {
     if (this != &other) {
-      this->~StylePropertyTypedValueResult();
-      new (this) StylePropertyTypedValueResult(std::move(other));
+      this->~StylePropertyTypedValue();
+      new (this) StylePropertyTypedValue(std::move(other));
     }
     return *this;
   }
 
-  StyleStrong<StyleLockedDeclarationBlock> ExtractUnsupported() && {
+  StyleUnsupportedValue ExtractUnsupported() && {
     MOZ_DIAGNOSTIC_ASSERT(IsUnsupported());
     return std::move(unsupported._0);
   }

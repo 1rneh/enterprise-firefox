@@ -833,12 +833,7 @@ workers:
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
-        win11-64-24h2(|-gpu|-large|-webgpu):
-            provisioner: '{trust-domain}-t'
-            implementation: generic-worker
-            os: windows
-            worker-type: '{alias}'
-        win11-64-24h2-source:
+        win11-64-24h2(|-gpu|-source|-large|-webgpu|-privileged):
             provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows

@@ -258,8 +258,12 @@ nsresult XRE_ParseAppData(nsIFile* aINIFile, mozilla::XREAppData& aAppData);
  *
  * @param aAppData The nsXREAppData structure on which to set the
  * crashReporterURL.
+ *
+ * @param aServerUrl Enterprise console address, if empty read from
+ * distribution.ini
  */
-nsresult XRE_ParseEnterpriseServerURL(mozilla::XREAppData& aAppData);
+nsresult XRE_ParseEnterpriseServerURL(mozilla::XREAppData& aAppData,
+                                      const char* aServerUrl = "");
 #endif
 
 const char* XRE_GeckoProcessTypeToString(GeckoProcessType aProcessType);

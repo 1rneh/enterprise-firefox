@@ -724,6 +724,32 @@ nsDependentCSubstring RemoteTypePrefix(const nsACString& aContentProcessType) {
   return StringHead(aContentProcessType, equalIdx);
 }
 
+static bool IsRemoteTypeJitDisabled(const nsACString& aContentProcessType) {
+  if (!StringEndsWith(aContentProcessType, DISABLE_JIT_REMOTE_TYPE_SUFFIX)) {
+    return false;
+  }
+
+  auto remoteTypePrefix = RemoteTypePrefix(aContentProcessType);
+  if (remoteTypePrefix != FISSION_WEB_REMOTE_TYPE &&
+      remoteTypePrefix != SERVICEWORKER_REMOTE_TYPE &&
+      remoteTypePrefix != WITH_COOP_COEP_REMOTE_TYPE) {
+    return false;
+  }
+
+  auto suffixStart =
+      aContentProcessType.Length() - DISABLE_JIT_REMOTE_TYPE_SUFFIX.Length();
+  if (suffixStart > 0) {
+    char priorChar = aContentProcessType[suffixStart - 1];
+    if (priorChar != '&' && priorChar != '^') {
+      return false;
+    }
+  } else {
+    return false;
+  }
+
+  return true;
+}
+
 bool IsWebRemoteType(const nsACString& aContentProcessType) {
   // Note: matches webIsolated, web, and webCOOP+COEP types.
   return StringBeginsWith(aContentProcessType, DEFAULT_REMOTE_TYPE);
@@ -918,6 +944,7 @@ UniqueContentParentKeepAlive ContentParent::GetUsedBrowserProcess(
   if (aRemoteType != FILE_REMOTE_TYPE &&
       aRemoteType != PRIVILEGEDABOUT_REMOTE_TYPE &&
       aRemoteType != EXTENSION_REMOTE_TYPE &&  // Bug 1638119
+      !IsRemoteTypeJitDisabled(aRemoteType) &&
       (preallocated = PreallocatedProcessManager::Take(aRemoteType))) {
     MOZ_DIAGNOSTIC_ASSERT(preallocated->GetRemoteType() ==
                           PREALLOC_REMOTE_TYPE);
@@ -2105,7 +2132,8 @@ void ContentParent::MaybeBeginShutDown(bool aImmediate,
   bool immediate =
       aImmediate || IsDead() ||
       AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed) ||
-      StaticPrefs::dom_ipc_processReuse_unusedGraceMs() == 0;
+      StaticPrefs::dom_ipc_processReuse_unusedGraceMs() == 0 ||
+      IsRemoteTypeJitDisabled(mRemoteType);
 
   // Clean up any scheduled idle task unless we schedule a new one.
   auto cancelIdleTask = MakeScopeExit([&] {
@@ -2423,6 +2451,7 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   Preferences::AddStrongObserver(this, "");
 
   geckoargs::sSafeMode.Put(gSafeMode, extraArgs);
+  geckoargs::sDisableJit.Put(IsRemoteTypeJitDisabled(mRemoteType), extraArgs);
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   if (IsContentSandboxEnabled()) {

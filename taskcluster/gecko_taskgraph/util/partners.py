@@ -625,7 +625,6 @@ ENTERPRISE_REPACKS = {
     "sample": {
         "stageMozGCP": {
             "locales": ["en-US", "fr"],
-            "public": True,
         },
         "prodMozGCP": {
             "locales": ["en-US", "fr"],

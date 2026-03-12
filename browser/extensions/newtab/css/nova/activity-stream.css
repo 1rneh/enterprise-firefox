@@ -1981,7 +1981,7 @@ main section {
 .home-section .widgets-section h2 {
   font-size: inherit;
   margin-block-start: 0;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 .home-section .settings-widgets,
 .home-section .settings-toggles {
@@ -2829,7 +2829,7 @@ main section {
 }
 .weatherOptIn dialog .weatherOptInContent h3 {
   font-size: var(--button-font-size);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block: 0 var(--space-medium);
 }
 .weatherOptIn dialog .weatherOptInContent moz-button-group {
@@ -3501,7 +3501,7 @@ dialog:dir(rtl)::after {
 }
 .card-outer .card-title {
   font-size: inherit;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   line-height: 19px;
   margin: 0 0 var(--space-xxsmall);
   word-wrap: break-word;
@@ -3661,7 +3661,7 @@ dialog:dir(rtl)::after {
 }
 .collapsible-section .section-title {
   font-size: var(--font-size-large);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   color: var(--newtab-text-primary-color);
 }
 .collapsible-section .section-title.grey-title {
@@ -3826,6 +3826,9 @@ dialog:dir(rtl)::after {
   color: var(--newtab-text-primary-color);
   z-index: 3;
 }
+.discoverystream-admin .personalization-data {
+  padding-block-end: var(--space-xlarge);
+}
 .discoverystream-admin.collapsed {
   display: none;
 }
@@ -3842,6 +3845,91 @@ dialog:dir(rtl)::after {
 .discoverystream-admin .toggle-wrapper {
   margin-block: var(--space-large);
   width: 200px;
+}
+.discoverystream-admin .inferred-personalization-overrides {
+  margin-block: var(--space-large);
+}
+.discoverystream-admin .inferred-overrides-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-medium);
+}
+.discoverystream-admin .inferred-overrides-title {
+  margin: 0;
+}
+.discoverystream-admin .inferred-overrides-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-medium);
+}
+.discoverystream-admin .inferred-overrides-actions .button {
+  margin: 0;
+}
+.discoverystream-admin .inferred-overrides-toggle-row td:first-child {
+  font-weight: var(--font-weight-bold);
+}
+.discoverystream-admin .inferred-overrides-last-refreshed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-small);
+  font-size: var(--font-size-small);
+  margin-block: var(--space-small) var(--space-medium);
+  padding-inline-start: var(--space-small);
+}
+.discoverystream-admin .inferred-overrides-last-refreshed-label {
+  font-weight: var(--font-weight-bold);
+}
+.discoverystream-admin .inferred-vectors-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-xlarge);
+  margin-block-start: var(--space-xlarge);
+}
+.discoverystream-admin .inferred-vector-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-small);
+}
+.discoverystream-admin .inferred-vector-panel {
+  border: 1px solid var(--border-color);
+  padding: var(--space-small);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.discoverystream-admin .inferred-vector-panel pre {
+  margin-block-start: 0;
+  flex: 1;
+  overflow: auto;
+}
+.discoverystream-admin .inferred-vector-title {
+  font-weight: var(--font-weight-bold);
+}
+.discoverystream-admin .inferred-overrides-table-header td {
+  font-weight: var(--font-weight-bold);
+}
+.discoverystream-admin .inferred-score-col {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+  padding-inline: 0;
+}
+.discoverystream-admin .inferred-overrides-toggle-row td {
+  vertical-align: middle;
+}
+.discoverystream-admin .inferred-override-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-medium);
+}
+.discoverystream-admin .inferred-override-slider {
+  width: 160px;
+}
+.discoverystream-admin .inferred-override-value {
+  min-width: 2ch;
+  text-align: end;
 }
 .discoverystream-admin .details-section {
   margin-block: var(--space-large);
@@ -4067,7 +4155,7 @@ dialog:dir(rtl)::after {
 .ds-layout .section-title span {
   color: var(--newtab-contextual-text-primary-color);
   font-size: var(--font-size-large);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 .lightWallpaper .ds-header,
 .lightWallpaper .ds-layout .section-title span {
@@ -4605,7 +4693,7 @@ dialog:dir(rtl)::after {
 }
 .newtab-widget-timer-notification-title-wrapper h3 {
   font-size: var(--button-font-size);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block: 0;
 }
 
@@ -5393,7 +5481,7 @@ hr {
   margin-block: var(--space-small) var(--space-medium);
 }
 .ds-section-wrapper .ds-section .section-title {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   font-size: var(--font-size-xlarge);
   color: var(--newtab-contextual-text-primary-color);
   margin-block: 0;
@@ -5750,7 +5838,7 @@ hr {
   .ds-section-grid.ds-card-grid .col-1-large.ds-card.sections-card-ui .meta .title {
     -webkit-line-clamp: 3;
     font-size: var(--font-size-large);
-    font-weight: var(--heading-font-weight);
+    font-weight: var(--font-weight-heading);
     margin-block: 0 var(--space-small);
   }
   .ds-section-grid.ds-card-grid .col-1-large.ds-card.sections-card-ui .meta .excerpt {
@@ -6071,7 +6159,7 @@ hr {
   .ds-section-grid.ds-card-grid .col-2-large.ds-card.sections-card-ui .meta .title {
     -webkit-line-clamp: 3;
     font-size: var(--font-size-large);
-    font-weight: var(--heading-font-weight);
+    font-weight: var(--font-weight-heading);
     margin-block: 0 var(--space-small);
   }
   .ds-section-grid.ds-card-grid .col-2-large.ds-card.sections-card-ui .meta .excerpt {
@@ -6410,7 +6498,7 @@ hr {
   .ds-section-grid.ds-card-grid .col-3-large.ds-card.sections-card-ui .meta .title {
     -webkit-line-clamp: 3;
     font-size: var(--font-size-large);
-    font-weight: var(--heading-font-weight);
+    font-weight: var(--font-weight-heading);
     margin-block: 0 var(--space-small);
   }
   .ds-section-grid.ds-card-grid .col-3-large.ds-card.sections-card-ui .meta .excerpt {
@@ -6747,7 +6835,7 @@ hr {
   .ds-section-grid.ds-card-grid .col-4-large.ds-card.sections-card-ui .meta .title {
     -webkit-line-clamp: 3;
     font-size: var(--font-size-large);
-    font-weight: var(--heading-font-weight);
+    font-weight: var(--font-weight-heading);
     margin-block: 0 var(--space-small);
   }
   .ds-section-grid.ds-card-grid .col-4-large.ds-card.sections-card-ui .meta .excerpt {
@@ -6824,7 +6912,7 @@ hr {
 }
 .ds-highlights .section .section-list .card-outer .card-title {
   font-size: var(--font-size-small);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   line-height: 20px;
   max-height: 20px;
 }
@@ -6917,7 +7005,7 @@ hr {
 }
 .ds-navigation.ds-navigation-new-topics .ds-navigation-header {
   font-size: var(--font-size-small);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   display: inline-block;
   margin-block-end: var(--space-small);
 }
@@ -7366,7 +7454,7 @@ hr {
   -webkit-line-clamp: 3;
   line-height: normal;
   margin-block: 0;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 .ds-card .meta .excerpt {
   font-size: var(--font-size-small);
@@ -7460,7 +7548,7 @@ hr {
 .ds-card.ds-card-cta-button.variant-a .cta-header, .ds-card.ds-card-cta-button.variant-b .cta-header {
   background: var(--button-background-color);
   font-size: var(--font-size-root);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   text-align: end;
   padding: var(--space-xsmall) var(--space-large);
   color: var(--newtab-text-primary-color);
@@ -7526,7 +7614,7 @@ hr {
   -webkit-line-clamp: 3;
   font-size: var(--font-size-root);
   margin-block-end: var(--space-small);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 .ds-card-grid .sections-card-ui .meta .excerpt {
   -webkit-line-clamp: 3;
@@ -7930,7 +8018,7 @@ hr {
 }
 .section-empty-state h2 {
   font-size: inherit;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin: 0;
 }
 .section-empty-state p {
@@ -8216,7 +8304,7 @@ hr {
   padding: 0;
 }
 .download-firefox-feature-highlight .feature-highlight .feature-highlight-modal .title {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block: var(--space-small);
 }
 .download-firefox-feature-highlight .feature-highlight .feature-highlight-modal .subtitle {
@@ -8285,7 +8373,7 @@ hr {
   font-size: var(--font-size-small);
 }
 .follow-section-button-highlight .follow-section-button-highlight-copy .title {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block-end: var(--space-xsmall);
 }
 
@@ -8326,7 +8414,7 @@ hr {
   inset-block-end: calc(var(--arrow-size) - var(--space-xxsmall));
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal .title {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block: var(--space-medium);
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal .subtitle {
@@ -8390,7 +8478,7 @@ hr {
   font-size: var(--font-size-small);
 }
 .shortcut-feature-highlight .shortcut-feature-highlight-copy .title {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block-end: var(--space-xsmall);
   text-align: inherit;
 }
@@ -8434,7 +8522,7 @@ hr {
 .topic-selection-container .title {
   text-align: center;
   font-size: var(--font-size-xlarge);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block-end: var(--space-small);
 }
 .topic-selection-container .subtitle {
@@ -8706,7 +8794,7 @@ hr {
 .promo-card-wrapper .promo-card-title {
   display: block;
   font-size: var(--font-size-medium);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block: var(--space-medium);
 }
 .promo-card-wrapper .promo-card-title::before {
@@ -8895,7 +8983,7 @@ hr {
 }
 .personalized-card-wrapper .personalized-card-inner h2 {
   font-size: var(--font-size-xxlarge);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 .personalized-card-wrapper .personalized-card-inner .personalized-card-link {
   color: var(--link-color);

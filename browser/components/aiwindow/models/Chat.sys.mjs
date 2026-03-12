@@ -59,15 +59,32 @@ Object.assign(Chat, {
    * @param {openAIEngine} engineInstance
    * @param {object} [context]
    * @param {BrowsingContext} [context.browsingContext]
-   * @yields {string} Assistant text chunks
    */
-  async *fetchWithHistory(conversation, engineInstance, context = {}) {
+  async fetchWithHistory(conversation, engineInstance, context = {}) {
     const fxAccountToken = await openAIEngine.getFxAccountToken();
+    if (!fxAccountToken) {
+      console.error("fetchWithHistory Account Token null or undefined");
+      const fxaError = new Error("FxA token unavailable");
+      fxaError.error = 4; // ACCOUNT_ERROR: triggers FxA sign-in prompt in the UI
+      throw fxaError;
+    }
 
     const toolRoleOpts = new ToolRoleOpts(this.modelId);
     const currentTurn = conversation.currentTurnIndex();
     const config = engineInstance.getConfig(engineInstance.feature);
     const inferenceParams = config?.parameters || {};
+
+    /**
+     * For the first turn only, we use exactly what the user typed as the `run_search` search query.
+     * To make that work, we use a different tool definition for the first turn vs. all subsequent turns.
+     */
+    let chatToolsConfig = structuredClone(toolsConfig);
+    let isVerbatimQuery = true;
+    if (currentTurn > 0) {
+      chatToolsConfig =
+        RunSearch.setGeneratedSearchQueryDescription(chatToolsConfig);
+      isVerbatimQuery = false;
+    }
 
     const allAllowedUrls = new Set();
     let fullResponseText = "";
@@ -77,7 +94,7 @@ Object.assign(Chat, {
         streamOptions: { enabled: true },
         fxAccountToken,
         tool_choice: "auto",
-        tools: toolsConfig,
+        tools: chatToolsConfig,
         args: conversation.getMessagesInOpenAiFormat(),
         ...inferenceParams,
       });
@@ -86,16 +103,11 @@ Object.assign(Chat, {
       let pendingToolCalls = null;
 
       try {
-        for await (const chunk of streamModelResponse()) {
-          if (chunk?.text) {
-            fullResponseText += chunk.text;
-            yield chunk.text;
-          }
-
-          if (chunk?.toolCalls?.length) {
-            pendingToolCalls = chunk.toolCalls;
-          }
-        }
+        const response = await conversation.receiveResponse(
+          streamModelResponse()
+        );
+        fullResponseText = response.fullResponseText;
+        pendingToolCalls = response.pendingToolCalls;
       } catch (err) {
         console.error("fetchWithHistory streaming error:", err);
         throw err;
@@ -137,8 +149,13 @@ Object.assign(Chat, {
           continue;
         }
 
-        if (toolName === "run_search") {
-          yield { searching: true, query: toolParams.query };
+        // Make sure we aren't using a generated query when we shouldn't be
+        if (
+          toolName === "run_search" &&
+          isVerbatimQuery &&
+          toolParams.hasOwnProperty("query")
+        ) {
+          delete toolParams.query;
         }
 
         let result, searchHandoffBrowser;

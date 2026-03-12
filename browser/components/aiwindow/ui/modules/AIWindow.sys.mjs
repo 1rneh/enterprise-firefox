@@ -29,6 +29,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AIWindowMenu:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowMenu.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  HomePage: "resource:///modules/HomePage.sys.mjs",
   AIWindowUI:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
   ChatStore:
@@ -176,11 +177,16 @@ export const AIWindow = {
     return false;
   },
 
-  _reconcileNewTabPages(win, previousNewTabURL) {
+  _reconcileNewTabPages(win, newTabPref, homePagePref) {
     const newTabURI = Services.io.newURI(win.BROWSER_NEW_TAB_URL);
-    const oldTabURI = Services.io.newURI(previousNewTabURL);
     const aboutNewTabURI = Services.io.newURI("about:newtab");
     const aboutHomeURI = Services.io.newURI("about:home");
+
+    const newTabPrefURI = Services.io.newURI(newTabPref);
+    const homePagePrefURIs = lazy.HomePage.parseCustomHomepageURLs(
+      homePagePref
+    ).map(url => Services.io.newURI(url));
+
     const triggeringPrincipal =
       Services.scriptSecurityManager.getSystemPrincipal();
 
@@ -193,9 +199,10 @@ export const AIWindow = {
       const currentURI = browser.currentURI;
 
       if (
-        currentURI.equalsExceptRef(oldTabURI) ||
+        currentURI.equalsExceptRef(newTabPrefURI) ||
         currentURI.equalsExceptRef(aboutNewTabURI) ||
-        currentURI.equalsExceptRef(aboutHomeURI)
+        currentURI.equalsExceptRef(aboutHomeURI) ||
+        homePagePrefURIs.some(uri => currentURI.equalsExceptRef(uri))
       ) {
         if (this._hasActiveChatInBrowser(browser)) {
           continue;
@@ -573,14 +580,22 @@ export const AIWindow = {
     if (isActive != isTogglingToAIWindow) {
       lazy.NewTabPagePreloading.removePreloadedBrowser(win);
 
-      const previousNewTabURL = win.BROWSER_NEW_TAB_URL;
+      const newTabPref = win.BROWSER_NEW_TAB_URL;
+      const homePagePref = Services.prefs.getStringPref(
+        "browser.startup.homepage",
+        ""
+      );
 
       win.document.documentElement.toggleAttribute("ai-window");
 
-      this._reconcileNewTabPages(win, previousNewTabURL);
+      this._reconcileNewTabPages(win, newTabPref, homePagePref);
       this._updateToolbarButtonPositions(win, { isToggling: true });
       this._initializeAskButtonOnToolbox(win);
-      Services.obs.notifyObservers(win, "ai-window-state-changed");
+      Services.obs.notifyObservers(
+        win,
+        "ai-window-state-changed",
+        isTogglingToAIWindow ? "smart" : "classic"
+      );
 
       if (isTogglingToAIWindow) {
         if (!this._aiWindowTabStateManagers.has(win)) {
@@ -635,32 +650,52 @@ export const AIWindow = {
   },
 
   async launchWindow(browser, openNewWindow = false) {
-    // Early return when Smart Window is blocked from AI Control
-    if (this.isBlocked) {
+    try {
+      // Early return when Smart Window is blocked from AI Control
+      if (this.isBlocked) {
+        return false;
+      }
+
+      // if browser.smartwindow.enabled is false
+      // set the pref explicitly true
+      if (!this.isAllowed) {
+        Services.prefs.setBoolPref(PREF_SMARTWINDOW_ENABLED, true);
+      }
+
+      if (!browser && !openNewWindow) {
+        return false;
+      }
+
+      if (!openNewWindow) {
+        return this._authorizeAndToggleWindow(browser.ownerGlobal);
+      }
+
+      const isAuthorized = await lazy.AIWindowAccountAuth.canAccessAIWindow();
+      const windowPromise = lazy.BrowserWindowTracker.promiseOpenWindow({
+        aiWindow: isAuthorized,
+        openerWindow: browser?.ownerGlobal,
+      });
+
+      return this._authorizeAndToggleWindow(await windowPromise);
+    } catch (e) {
+      console.error("Error launching AI window:", e);
       return false;
     }
+  },
 
-    // if browser.smartwindow.enabled is false
-    // set the pref explicitly true
-    if (!this.isAllowed) {
-      Services.prefs.setBoolPref(PREF_SMARTWINDOW_ENABLED, true);
-    }
-
-    if (!browser && !openNewWindow) {
+  /**
+   * Launches the FxA sign-in auth flow for the given browser.
+   *
+   * @param {Browser} browser
+   * @returns {Promise<boolean>} Whether the user signed in successfully
+   */
+  async launchSignInFlow(browser) {
+    try {
+      return await lazy.AIWindowAccountAuth.promptSignIn(browser);
+    } catch (e) {
+      console.error("Error launching sign-in flow:", e);
       return false;
     }
-
-    if (!openNewWindow) {
-      return this._authorizeAndToggleWindow(browser.ownerGlobal);
-    }
-
-    const isAuthorized = await lazy.AIWindowAccountAuth.canAccessAIWindow();
-    const windowPromise = lazy.BrowserWindowTracker.promiseOpenWindow({
-      aiWindow: isAuthorized,
-      openerWindow: browser?.ownerGlobal,
-    });
-
-    return this._authorizeAndToggleWindow(await windowPromise);
   },
 
   /**
@@ -692,6 +727,10 @@ export const AIWindow = {
     const isImmersiveView = this.shouldUseImmersiveView(currentURI);
 
     root.toggleAttribute("hide-ai-sidebar", isImmersiveView);
+
+    if (isImmersiveView) {
+      lazy.AIWindowUI.closeSidebar(win);
+    }
 
     /* sets attr only for first run for css reasons */
     const isFirstRun = currentURI.equalsExceptRef(FIRSTRUN_URI);

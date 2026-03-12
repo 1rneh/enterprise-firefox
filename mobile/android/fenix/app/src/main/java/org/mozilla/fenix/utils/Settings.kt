@@ -298,6 +298,16 @@ class Settings(
         get() = FxNimbus.features.homescreen.value().sectionsEnabled
 
     /**
+     * Indicates if the privacy report homepage section settings should be visible.
+     * Controlled by secret settings toggle.
+     */
+    val showPrivacyReportSectionToggle: Boolean
+        get() = preferences.getBoolean(
+            appContext.getPreferenceKey(R.string.pref_key_enable_privacy_report),
+            false,
+        )
+
+    /**
      * Indicates if the recent tabs homepage section settings should be visible
      */
     val showHomepageRecentTabsSectionToggle: Boolean
@@ -2571,7 +2581,7 @@ class Settings(
      */
     var shakeGestureEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_shake_gesture_enabled),
-        default = Config.channel.isDebug,
+        default = Config.channel.isNightlyOrDebug,
     )
 
     /**
@@ -2599,6 +2609,14 @@ class Settings(
     val shakeToSummarizeToolbarInteractionCount = counterPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_summarize_highlight_toolbar_interaction_count),
         maxCount = 1,
+    )
+
+    /**
+     * Tracks if the user has been shown the shake to summarize toolbar CFR
+     */
+    var shakeToSummarizeToolbarCfrShown by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_summarize_toolbar_cfr_shown),
+        default = false,
     )
 
     /**

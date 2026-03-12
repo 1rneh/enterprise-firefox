@@ -1450,7 +1450,11 @@ bool GCMarker::processMainThreadBuffers(SliceBudget& budget) {
   }
 
   if (!grayMainThreadBuffer_.ref().empty()) {
-    AutoSetMarkColor autoSetGray(*this, MarkColor::Gray);
+    // Allow pushing gray marking even if there is still black marking
+    // work. This reduces the amount of handshaking between the main thread and
+    // the marking thread.
+    AutoSetMarkColor autoSetGray(*this, MarkColor::Gray,
+                                 AllowGrayMarkingBeforeEndOfBlackMarking::Yes);
     if (!processMainThreadBuffer(grayMainThreadBuffer_.ref(), budget)) {
       return false;
     }
@@ -1465,6 +1469,13 @@ bool GCMarker::processMainThreadBuffer(MainThreadBuffer& buffer,
                                        SliceBudget& budget) {
   while (!buffer.empty()) {
     JS::GCCellPtr cell = buffer.popCopy();
+
+    MOZ_ASSERT(cell.asCell()->isMarkedAtLeast(markColor()));
+    if (markColor() == MarkColor::Gray && cell.asCell()->isMarkedBlack()) {
+      // We subsequently marked this black so we can skip marking it gray.
+      continue;
+    }
+
     if (cell.is<JSObject>()) {
       JSObject* obj = &cell.as<JSObject>();
       const JSClass* clasp = obj->getClass();
@@ -2445,13 +2456,16 @@ static void ClearEphemeronEdges(JSRuntime* rt) {
 void GCMarker::stop() {
   MOZ_ASSERT(isDrained());
   MOZ_ASSERT(markColor() == MarkColor::Black);
-  MOZ_ASSERT(!haveSwappedStacks);
 
   if (state == NotActive) {
+    MOZ_ASSERT(!haveSwappedStacks);
     return;
   }
   state = NotActive;
 
+  if (haveSwappedStacks) {
+    swapMarkStacks();
+  }
   otherStack.clearAndFreeStack();
   ClearEphemeronEdges(runtime());
   unmarkGrayStack.clearAndFree();
@@ -2459,6 +2473,11 @@ void GCMarker::stop() {
 
 void GCMarker::reset() {
   state = NotActive;
+
+  setMarkColor(MarkColor::Black);
+  if (haveSwappedStacks) {
+    swapMarkStacks();
+  }
 
   stack.clearAndResetCapacity();
   otherStack.clearAndFreeStack();
@@ -2470,8 +2489,6 @@ void GCMarker::reset() {
 #endif
 
   MOZ_ASSERT(isDrained());
-
-  setMarkColor(MarkColor::Black);
   MOZ_ASSERT(!haveSwappedStacks);
 
   unmarkGrayStack.clearAndFree();
@@ -2482,17 +2499,19 @@ void GCMarker::setMarkColor(gc::MarkColor newColor) {
     return;
   }
 
-  // We don't support gray marking while there is black marking work to do.
-  MOZ_ASSERT(!hasBlackEntries());
-
   markColor_ = newColor;
 
   // Switch stacks. We only need to do this if there are any stack entries (as
-  // empty stacks are interchangeable) or to swtich back to the original stack.
-  if (!isDrained() || haveSwappedStacks) {
-    stack.swap(otherStack);
-    haveSwappedStacks = !haveSwappedStacks;
+  // empty stacks are interchangeable) or to switch back to the original stack.
+  if (!isMarkStackEmpty() ||
+      (haveSwappedStacks && newColor == MarkColor::Black)) {
+    swapMarkStacks();
   }
+}
+
+void GCMarker::swapMarkStacks() {
+  stack.swap(otherStack);
+  haveSwappedStacks = !haveSwappedStacks;
 }
 
 bool GCMarker::hasEntries(MarkColor color) const {

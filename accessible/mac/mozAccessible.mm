@@ -26,6 +26,7 @@
 #include "RootAccessible.h"
 #include "mozilla/a11y/PDocAccessible.h"
 #include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/Document.h"
 #include "OuterDocAccessible.h"
 #include "nsIAccessibleAnnouncementEvent.h"
 #include "nsChildView.h"
@@ -158,6 +159,12 @@ using namespace mozilla::a11y;
                                                     (moxARIASetSize)) {
     GroupPos groupPos = mGeckoAccessible->GroupPosition();
     return groupPos.setSize == 0;
+  }
+
+  if (selector == @selector(moxARIABrailleRoleDescription)) {
+    NSString* brailleRoleDescription =
+        utils::GetAccAttr(self, nsGkAtoms::aria_brailleroledescription);
+    return [brailleRoleDescription length] == 0;
   }
 
   if (selector == @selector(moxExpanded)) {
@@ -743,6 +750,10 @@ static bool ProvidesTitle(const Accessible* aAccessible, nsString& aName) {
 - (NSNumber*)moxARIASetSize {
   GroupPos groupPos = mGeckoAccessible->GroupPosition();
   return @(groupPos.setSize);
+}
+
+- (NSString*)moxARIABrailleRoleDescription {
+  return utils::GetAccAttr(self, nsGkAtoms::aria_brailleroledescription);
 }
 
 - (NSString*)moxARIARelevant {

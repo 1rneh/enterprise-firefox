@@ -22,7 +22,6 @@ import mozilla.components.service.fxrelay.EmailMask
 import mozilla.components.service.fxrelay.FxRelay
 import mozilla.components.service.fxrelay.MaskSource
 import mozilla.components.service.fxrelay.RelayAccountDetails
-import mozilla.components.support.test.mock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -128,7 +127,13 @@ class RelayFeatureTest {
             val feature = createFeature()
             feature.start()
 
-            accountManager.observers.first().onProfileUpdated(mock())
+            val fakeProfile = Profile(
+                uid = "testUID",
+                email = "test@example.com",
+                avatar = null,
+                displayName = null,
+            )
+            accountManager.observers.first().onProfileUpdated(fakeProfile)
 
             assertEquals(Ineligible.FirefoxAccountNotLoggedIn, store.state.eligibilityState)
         }
@@ -281,6 +286,7 @@ class RelayFeatureTest {
         store = store,
         mainDispatcher = testDispatcher,
         fxRelayFactory = { fakeFxRelay },
+        extractHostUrl = { it },
     )
 
     private fun createRelayAttachedClient() = AttachedClient(
@@ -357,7 +363,7 @@ class RelayFeatureTest {
     ) : FxRelay {
         override suspend fun fetchEmailMasks() = emailMasks
         override suspend fun fetchAccountDetails() = accountDetails
-        override suspend fun createEmailMask(generatedFor: String, description: String) =
+        override suspend fun createEmailMask(generatedForHostUrl: String, descriptionHostUrl: String) =
             createdMask
     }
 }

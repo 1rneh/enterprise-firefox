@@ -305,10 +305,10 @@ static RangeBehaviour GetRangeBehaviour(
                     : aRange->GetCrossShadowBoundaryRange()->StartRef();
     const Maybe<int32_t> withCrossShadowBoundaryOrder =
         aIsSetStart
-            ? nsContentUtils::ComparePoints<TreeKind::Flat>(
+            ? nsContentUtils::ComparePoints<TreeKind::FlatForSelection>(
                   aNewBoundaryInFlat.ref(),
                   otherSideExistingCrossShadowBoundaryBoundaryInFlat.AsRaw())
-            : nsContentUtils::ComparePoints<TreeKind::Flat>(
+            : nsContentUtils::ComparePoints<TreeKind::FlatForSelection>(
                   otherSideExistingCrossShadowBoundaryBoundaryInFlat.AsRaw(),
                   aNewBoundaryInFlat.ref());
     if (withCrossShadowBoundaryOrder && *withCrossShadowBoundaryOrder != 1) {
@@ -891,15 +891,19 @@ int16_t nsRange::ComparePoint(const nsINode& aContainer, uint32_t aOffset,
 
   MOZ_ASSERT(point.IsSetAndValid());
 
-  if (Maybe<int32_t> order = nsContentUtils::ComparePoints(
-          point, aAllowCrossShadowBoundary ? MayCrossShadowBoundaryStartRef()
-                                           : StartRef());
+  if (Maybe<int32_t> order =
+          nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+              point, aAllowCrossShadowBoundary
+                         ? MayCrossShadowBoundaryStartRef()
+                         : StartRef());
       order && *order <= 0) {
     return int16_t(*order);
   }
-  if (Maybe<int32_t> order = nsContentUtils::ComparePoints(
-          aAllowCrossShadowBoundary ? MayCrossShadowBoundaryEndRef() : EndRef(),
-          point);
+  if (Maybe<int32_t> order =
+          nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+              aAllowCrossShadowBoundary ? MayCrossShadowBoundaryEndRef()
+                                        : EndRef(),
+              point);
       order && *order == -1) {
     return 1;
   }
@@ -929,11 +933,14 @@ bool nsRange::IntersectsNode(nsINode& aNode, ErrorResult& aRv) {
     return false;
   }
 
-  const Maybe<int32_t> startOrder = nsContentUtils::ComparePoints(
-      mStart, RawRangeBoundary(parent, aNode.AsContent(), *nodeIndex + 1u));
+  const Maybe<int32_t> startOrder =
+      nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+          mStart, RawRangeBoundary(parent, aNode.AsContent(), *nodeIndex + 1u));
   if (startOrder && (*startOrder < 0)) {
-    const Maybe<int32_t> endOrder = nsContentUtils::ComparePoints(
-        RawRangeBoundary(parent, aNode.GetPreviousSibling(), *nodeIndex), mEnd);
+    const Maybe<int32_t> endOrder =
+        nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+            RawRangeBoundary(parent, aNode.GetPreviousSibling(), *nodeIndex),
+            mEnd);
     return endOrder && (*endOrder < 0);
   }
 
@@ -1824,10 +1831,8 @@ void nsRange::CutContents(DocumentFragment** aFragment,
 
   // `GetCommonAncestorContainer()` above ensures the range is positioned, hence
   // there have to be valid offsets. Fix them in startRef/endRef right now.
-  const uint32_t startOffset =
-      *startRef.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
-  const uint32_t endOffset =
-      *endRef.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
+  (void)startRef.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
+  (void)endRef.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
 
   if (retval) {
     // For extractContents(), abort early if there's a doctype (bug 719533).
@@ -1836,19 +1841,30 @@ void nsRange::CutContents(DocumentFragment** aFragment,
     nsCOMPtr<Document> commonAncestorDocument =
         do_QueryInterface(commonAncestor);
     if (commonAncestorDocument) {
-      RefPtr<DocumentType> doctype = commonAncestorDocument->GetDoctype();
-
-      // `GetCommonAncestorContainer()` above ensured the range is positioned.
-      // Hence, start and end are both set and valid. If available, `doctype`
-      // has a common ancestor with start and end, hence both have to be
-      // comparable to it.
-      if (doctype &&
-          *nsContentUtils::ComparePointsWithIndices(
-              startRef.GetContainer(), startOffset, doctype, 0) < 0 &&
-          *nsContentUtils::ComparePointsWithIndices(
-              doctype, 0, endRef.GetContainer(), endOffset) < 0) {
-        aRv.ThrowHierarchyRequestError("Start or end position isn't valid.");
-        return;
+      if (const DocumentType* const doctype =
+              commonAncestorDocument->GetDoctype()) {
+        // `GetCommonAncestorContainer()` above ensured the range is positioned.
+        // Hence, start and end are both set and valid. If available, `doctype`
+        // has a common ancestor with start and end, hence both have to be
+        // comparable to it.
+        const RawRangeBoundary startRefInDOM =
+            startRef.AsRaw().AsRangeBoundaryInDOMTree();
+        const RawRangeBoundary endRefInDOM =
+            endRef.AsRaw().AsRangeBoundaryInDOMTree();
+        const ConstRawRangeBoundary startOfDocType(
+            doctype, 0u, RangeBoundarySetBy::Offset, TreeKind::DOM);
+        // When we fail to convert the point in a flattened tree to a point in
+        // the DOM, it's in a shadow which cannot appear before the DocType
+        // node.
+        if (startRefInDOM.IsSet() &&
+            *nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+                startRefInDOM, startOfDocType) < 0 &&
+            (!endRefInDOM.IsSet() ||
+             *nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+                 startOfDocType, endRefInDOM) < 0)) {
+          aRv.ThrowHierarchyRequestError("Start or end position isn't valid.");
+          return;
+        }
       }
     }
   }
@@ -2158,7 +2174,8 @@ int16_t nsRange::CompareBoundaryPoints(uint16_t aHow,
   }
 
   const Maybe<int32_t> order =
-      nsContentUtils::ComparePoints(ourBoundary, otherBoundary);
+      nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+          ourBoundary, otherBoundary);
 
   // `this` and `aOtherRange` share the same root and ourBoundary, otherBoundary
   // correspond to some of their boundaries. Hence, ourBoundary and
@@ -3227,7 +3244,7 @@ void nsRange::CreateOrUpdateCrossShadowBoundaryRangeIfNeeded(
 
   MOZ_ASSERT(aStartBoundary.IsSetAndValid() && aEndBoundary.IsSetAndValid());
   MOZ_ASSERT(aStartBoundary.GetTreeKind() == aEndBoundary.GetTreeKind());
-  MOZ_ASSERT(aStartBoundary.GetTreeKind() == TreeKind::Flat);
+  MOZ_ASSERT(aStartBoundary.GetTreeKind() == TreeKind::FlatForSelection);
 
   nsINode* startNode = aStartBoundary.GetContainer();
   nsINode* endNode = aEndBoundary.GetContainer();

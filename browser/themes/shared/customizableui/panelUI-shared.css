@@ -619,7 +619,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
     height: 16px;
     -moz-context-properties: fill;
     fill: var(--warning-icon-bgcolor);
-    margin-inline-start: 10px;
+    margin-inline-start: var(--space-medium);
   }
 }
 
@@ -942,7 +942,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
 
 #fxa-menu-header-description {
   color: var(--text-color-deemphasized);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   text-wrap: wrap;
 }
 
@@ -1190,16 +1190,11 @@ panelview .toolbarbutton-1,
   &[shortcut]::after {
     content: attr(shortcut);
     display: flex;
+    margin-inline-start: var(--space-medium);
   }
 
   &[shortcut]:not([disabled])::after {
     color: var(--text-color-deemphasized);
-  }
-
-  &[shortcut]::after,
-  .widget-overflow-list .subviewbutton-nav::after,
-  .PanelUI-subView .subviewbutton-nav::after {
-    margin-inline-start: 10px;
   }
 
   &[checked] {
@@ -1355,6 +1350,7 @@ panelview .toolbarbutton-1,
     fill: currentColor;
     fill-opacity: 0.6;
     display: flex;
+    margin-inline-start: var(--space-medium);
   }
 
   &:-moz-locale-dir(rtl)::after {
@@ -1882,7 +1878,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   .protections-popup-message-title {
     display: grid;
     font-size: 1.3em;
-    font-weight: var(--heading-font-weight);
+    font-weight: var(--font-weight-heading);
     line-height: 1.4em;
     margin: 14px 0 0;
     grid-column-start: 1;
@@ -1965,7 +1961,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 
 .PanelUI-profiler-description-title {
   font-size: 1.3em;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block: 2px;
 }
 
@@ -2111,7 +2107,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 }
 
 #reset-pbm-panel-header > description {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 
 #reset-pbm-panel-checkbox {

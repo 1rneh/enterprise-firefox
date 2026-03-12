@@ -135,6 +135,7 @@ Preferences.addAll([
   { id: "browser.ctrlTab.sortByRecentlyUsed", type: "bool" },
   { id: "browser.tabs.hoverPreview.enabled", type: "bool" },
   { id: "browser.tabs.hoverPreview.showThumbnails", type: "bool" },
+  { id: "browser.tabs.dragDrop.createGroup.enabled", type: "bool" },
   { id: "browser.tabs.groups.enabled", type: "bool" },
   { id: "browser.tabs.groups.smart.userEnabled", type: "bool" },
   { id: "browser.tabs.groups.smart.enabled", type: "bool" },
@@ -2031,6 +2032,10 @@ Preferences.addSetting({
     );
   },
 });
+Preferences.addSetting({
+  id: "tabGroupDragToCreate",
+  pref: "browser.tabs.dragDrop.createGroup.enabled",
+});
 if (AppConstants.platform === "win") {
   /**
    * browser.taskbar.previews.enable - bool
@@ -3447,7 +3452,6 @@ SettingGroupManager.registerGroups({
       },
       {
         id: "ipProtectionExceptions",
-        l10nId: "ip-protection-site-exceptions",
         control: "moz-fieldset",
         controlAttrs: {
           ".headingLevel": 3,
@@ -3477,6 +3481,11 @@ SettingGroupManager.registerGroups({
         ],
       },
       {
+        id: "ipProtectionBandwidthSection",
+        control: "moz-box-item",
+        items: [{ id: "ipProtectionBandwidth", control: "bandwidth-usage" }],
+      },
+      {
         id: "ipProtectionLinks",
         control: "moz-box-link",
         l10nId: "ip-protection-vpn-upgrade-link",
@@ -3484,7 +3493,6 @@ SettingGroupManager.registerGroups({
           href: "https://www.mozilla.org/products/vpn/",
         },
       },
-      { id: "ipProtectionBandwidth", control: "bandwidth-usage" },
     ],
   },
   cookiesAndSiteData: {
@@ -4291,6 +4299,10 @@ SettingGroupManager.registerGroups({
           {
             id: "tabGroupSuggestions",
             l10nId: "settings-tabs-show-group-and-tab-suggestions",
+          },
+          {
+            id: "tabGroupDragToCreate",
+            l10nId: "settings-tabs-drag-to-create-tab-groups",
           },
           {
             id: "showTabsInTaskbar",

@@ -307,6 +307,8 @@ settings-tabs-show-image-in-preview =
     .label = Show an image preview when you hover on a tab
     .accessKey = h
 
+settings-tabs-drag-to-create-tab-groups =
+    .label = Drag tabs together to create tab groups
 
 browser-layout-header2 =
     .label = Browser Layout
@@ -2250,14 +2252,14 @@ preferences-doh-radio-default =
 
 preferences-doh-radio-custom =
     .label = Custom
-    .description = Always use secure DNS with control over your provider and fallback behavior.
+    .description = Always use secure DNS with control over your provider and fallback behavior
 
 preferences-doh-radio-off =
     .label = Off
     .description = Use your default DNS resolver
 
 preferences-doh-fallback-label =
-    .label = Always warn me if secure DNS isn’t available.
+    .label = Always warn me if secure DNS isn’t available
 
 preferences-doh-status-item-off =
     .message = DNS over HTTPS is off

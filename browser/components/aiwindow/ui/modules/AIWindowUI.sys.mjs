@@ -14,6 +14,7 @@ export const AIWindowUI = {
   SPLITTER_ID: "ai-window-splitter",
   BROWSER_ID: "ai-window-browser",
   STACK_CLASS: "ai-window-browser-stack",
+  AI_WINDOW_ELEMENT_TIMEOUT: 1500,
 
   /**
    * @param {Window} win
@@ -62,6 +63,7 @@ export const AIWindowUI = {
     browser.setAttribute("disablefullscreen", "true");
     browser.setAttribute("tooltip", "aHTMLTooltip");
     browser.setAttribute("src", AIWINDOW_URL);
+    browser.setAttribute("type", "content");
     stack.appendChild(browser);
     return browser;
   },
@@ -75,13 +77,13 @@ export const AIWindowUI = {
     if (!nodes) {
       return false;
     }
-    return !nodes.box.hidden;
+    return !nodes.box.collapsed;
   },
 
   _showSidebarElements(box, splitter) {
-    box.hidden = false;
-    splitter.hidden = false;
-    box.parentElement.hidden = false;
+    box.collapsed = false;
+    splitter.collapsed = false;
+    box.parentElement.collapsed = false;
   },
 
   /**
@@ -109,7 +111,7 @@ export const AIWindowUI = {
    * @param {Window} win
    * @param {ChatConversation} conversation The conversation to open in the sidebar
    */
-  openSidebar(win, conversation) {
+  async openSidebar(win, conversation) {
     const nodes = this._getSidebarElements(win);
     if (!nodes) {
       return;
@@ -127,14 +129,42 @@ export const AIWindowUI = {
       aiBrowser.removeAttribute("data-conversation-id");
     }
 
-    const contentDoc = aiBrowser.contentDocument;
-    if (contentDoc && aiBrowser.contentWindow) {
-      contentDoc.dispatchEvent(
-        new aiBrowser.contentWindow.CustomEvent("OpenConversation", {
-          detail: conversation,
-        })
-      );
+    if (!aiBrowser.contentDocument || !aiBrowser.contentWindow) {
+      return;
     }
+
+    const aiWindowElement = await this.getAiWindowElement(win, aiBrowser);
+    if (!aiWindowElement) {
+      return;
+    }
+
+    if (conversation) {
+      aiWindowElement.openConversation(conversation);
+      return;
+    }
+
+    aiWindowElement.onCreateNewChatClick();
+  },
+
+  /**
+   * Gets the ai-window element from the sidebar browser. Polls until the
+   * custom element is defined or the timeout is reached.
+   *
+   * @param {Window} win
+   * @param {XULElement} aiBrowser
+   *
+   * @returns {Promise<AIWindow>} The sidebar AIWindow component
+   */
+  async getAiWindowElement(win, aiBrowser) {
+    const deadline = Date.now() + AIWindowUI.AI_WINDOW_ELEMENT_TIMEOUT;
+    while (Date.now() < deadline) {
+      const el = aiBrowser.contentDocument?.querySelector("ai-window:defined");
+      if (el) {
+        return el;
+      }
+      await new Promise(resolve => win.setTimeout(resolve, 50));
+    }
+    return null;
   },
 
   /**
@@ -148,12 +178,8 @@ export const AIWindowUI = {
     }
     const { box, splitter } = this._getSidebarElements(win);
 
-    // @todo Bug2012536
-    // Test behavior of hidden vs collapsed with the intent that
-    // the document doesn't get unloaded so that the document isn't
-    // constantly being reloaded as result of tab switches
-    box.hidden = true;
-    splitter.hidden = true;
+    box.collapsed = true;
+    splitter.collapsed = true;
     this._setAskButtonStyle(win, false);
 
     // Dispatch event to notify tab state manager that sidebar was toggled
@@ -180,9 +206,9 @@ export const AIWindowUI = {
     }
     const { chromeDoc, box, splitter } = nodes;
 
-    if (!box.hidden) {
-      box.hidden = true;
-      splitter.hidden = true;
+    if (!box.collapsed) {
+      box.collapsed = true;
+      splitter.collapsed = true;
       this._setAskButtonStyle(win, false);
 
       // Dispatch event to notify tab state manager that sidebar was toggled
@@ -284,6 +310,21 @@ export const AIWindowUI = {
   },
 
   /**
+   * Triggers updating the starter prompts in the sidebar window if it
+   * is already opened.
+   *
+   * @param {Window} win
+   */
+  updateStarterPrompts(win) {
+    const sidebarAiWindow = this._getSidebarAiWindow(win);
+    if (!sidebarAiWindow) {
+      return;
+    }
+
+    sidebarAiWindow.loadStarterPrompts(true);
+  },
+
+  /**
    * Gets the sidebar instance of the ai-window component
    *
    * @param {Window} win
@@ -296,6 +337,6 @@ export const AIWindowUI = {
     }
 
     const aiWindowBrowser = win.document.getElementById(this.BROWSER_ID);
-    return aiWindowBrowser?.contentDocument?.querySelector("ai-window");
+    return aiWindowBrowser?.contentDocument?.querySelector("ai-window:defined");
   },
 };

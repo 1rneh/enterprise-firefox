@@ -666,12 +666,6 @@ def get_enterprise_partner_configs(parameters):
         "repackage-msi": make_enterprise_repack([
             "win64-enterprise-shippable",
         ]),
-        "enterprise-repack": make_enterprise_repack([
-            "linux64-enterprise-shippable",
-            "linux64-aarch64-enterprise-shippable",
-            "macosx64-enterprise-shippable",
-            "win64-enterprise-shippable",
-        ]),
         "enterprise-repack-repackage": make_enterprise_repack([
             "linux64-enterprise-shippable",
             "linux64-aarch64-enterprise-shippable",

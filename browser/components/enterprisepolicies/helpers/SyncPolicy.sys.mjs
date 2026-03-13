@@ -132,10 +132,8 @@ export const SyncPolicy = {
       lazy.log.debug(`Unsetting ${pref}`);
       unsetAndUnlockPref(pref);
     }
-
-    // We don't have a way yet to restore the pre-policy sync
-    // state (Bug 2017719). So for now we fallback to sync enabled.
-    this.connectSync();
+    // We don't have a way yet to restore the pre-policy
+    // sync state (Bug 2017719)
   },
 
   /**

@@ -1004,7 +1004,6 @@ impl<'a> SceneBuilder<'a> {
                             info.stacking_context.clip_chain_id,
                             info.stacking_context.raster_space,
                             info.stacking_context.flags,
-                            info.ref_frame_offset,
                         );
 
                         let new_context = BuildContext {
@@ -1546,7 +1545,6 @@ impl<'a> SceneBuilder<'a> {
                     &info.color,
                     item.glyphs(),
                     info.glyph_options,
-                    info.ref_frame_offset,
                 );
             }
             DisplayItem::Rectangle(ref info) => {
@@ -2212,7 +2210,6 @@ impl<'a> SceneBuilder<'a> {
         clip_chain_id: Option<api::ClipChainId>,
         requested_raster_space: RasterSpace,
         flags: StackingContextFlags,
-        subregion_offset: LayoutVector2D,
     ) -> StackingContextInfo {
         profile_scope!("push_stacking_context");
 
@@ -2242,7 +2239,6 @@ impl<'a> SceneBuilder<'a> {
                 clip_chain_id,
                 requested_raster_space,
                 flags,
-                LayoutVector2D::zero(),
             );
             info.pop_stacking_context = true;
             self.extra_stacking_context_stack.push(info);
@@ -2375,7 +2371,22 @@ impl<'a> SceneBuilder<'a> {
         // to an off-screen surface.
         if let Some(clip_chain_id) = clip_chain_id {
             if self.clip_tree_builder.clip_chain_has_complex_clips(clip_chain_id, &self.interners) {
-                blit_reason |= BlitReason::CLIP;
+                // At the root level, if all complex clips are fixed-position
+                // rounded rectangles, we can skip the intermediate surface.
+                // The clips will be promoted to compositor clips on the tile
+                // cache slices, which applies them once to the composited
+                // surface — equivalent to the intermediate surface approach.
+                // This allows tile cache barriers to fire normally, enabling
+                // proper picture caching with multiple slices.
+                if !self.sc_stack.is_empty() ||
+                   !self.clip_tree_builder.clip_chain_complex_clips_are_promotable(
+                       clip_chain_id,
+                       &self.interners,
+                       &self.spatial_tree,
+                   )
+                {
+                    blit_reason |= BlitReason::CLIP;
+                }
             }
         }
 
@@ -2459,7 +2470,6 @@ impl<'a> SceneBuilder<'a> {
                 context_3d,
                 flags,
                 raster_space: new_space,
-                subregion_offset,
             });
         }
 
@@ -2695,7 +2705,6 @@ impl<'a> SceneBuilder<'a> {
         let has_filters = stacking_context.composite_ops.has_valid_filters();
 
         let spatial_node_context_offset =
-            stacking_context.subregion_offset +
             self.current_external_scroll_offset(stacking_context.spatial_node_index);
         source = self.wrap_prim_with_filters(
             source,
@@ -3605,9 +3614,8 @@ impl<'a> SceneBuilder<'a> {
         text_color: &ColorF,
         glyph_range: ItemRange<GlyphInstance>,
         glyph_options: Option<GlyphOptions>,
-        ref_frame_offset: LayoutVector2D,
     ) {
-        let offset = self.current_external_scroll_offset(spatial_node_index) + ref_frame_offset;
+        let offset = self.current_external_scroll_offset(spatial_node_index);
 
         let text_run = {
             let shared_key = self.fonts.instance_keys.map_key(font_instance_key);
@@ -3671,7 +3679,6 @@ impl<'a> SceneBuilder<'a> {
                 font,
                 shadow: false,
                 requested_raster_space,
-                reference_frame_offset: ref_frame_offset,
             }
         };
 
@@ -4569,9 +4576,6 @@ struct FlattenedStackingContext {
 
     /// Requested raster space for this stacking context
     raster_space: RasterSpace,
-
-    /// Offset to be applied to any filter sub-regions
-    subregion_offset: LayoutVector2D,
 }
 
 impl FlattenedStackingContext {

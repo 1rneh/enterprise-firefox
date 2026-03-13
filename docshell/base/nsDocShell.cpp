@@ -6976,10 +6976,10 @@ nsresult nsDocShell::CreateAboutBlankDocumentViewer(
         if (!csp) {
           csp = new nsCSPContext();
           policyContainerToInherit->SetCSP(csp);
-        };
-        nsresult rv = csp->SetRequestContextWithDocument(blankDoc);
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          return rv;
+          nsresult rv = csp->SetRequestContextWithDocument(blankDoc);
+          if (NS_WARN_IF(NS_FAILED(rv))) {
+            return rv;
+          }
         }
       }
 
@@ -7023,6 +7023,14 @@ nsresult nsDocShell::CreateAboutBlankDocumentViewer(
         }
         rv = Embed(viewer, aActor, true, nullptr, mCurrentURI);
         NS_ENSURE_SUCCESS(rv, rv);
+
+        if (nsIContentSecurityPolicy* csp =
+                PolicyContainer::GetCSP(blankDoc->GetPolicyContainer())) {
+          // We do this here rather than earlier where we inherit
+          // aPolicyContainer so that the client source uses the parent's URI as
+          // self (bug 2021482).
+          MOZ_TRY(csp->SetRequestContextWithDocument(blankDoc));
+        }
 
         SetCurrentURI(blankDoc->GetDocumentURI(), nullptr,
                       /* aFireLocationChange */ true,

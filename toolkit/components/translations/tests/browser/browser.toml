@@ -61,7 +61,21 @@ skip-if = [
 
 ["browser_about_translations_swap_languages_button_explicit.js"]
 
+["browser_about_translations_telemetry_clear_source_text_button.js"]
+
+["browser_about_translations_telemetry_copy_button.js"]
+
+["browser_about_translations_telemetry_feature_blocked_info_message.js"]
+
 ["browser_about_translations_telemetry_open.js"]
+
+["browser_about_translations_telemetry_standalone_messages.js"]
+
+["browser_about_translations_telemetry_swap_button.js"]
+
+["browser_about_translations_telemetry_translation_request.js"]
+
+["browser_about_translations_telemetry_unsupported_language_message.js"]
 
 ["browser_about_translations_translate_error.js"]
 

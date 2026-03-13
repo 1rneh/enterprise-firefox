@@ -22,8 +22,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.python.envs.plugin)
     alias(libs.plugins.protobuf.plugin)
-    id 'org.mozilla.nimbus-gradle-plugin'
     id 'ApkSizePlugin'
+    id 'org.mozilla.conventions.zip-test-reports'
+    id 'org.mozilla.nimbus-gradle-plugin'
 }
 
 apply plugin: 'com.android.application'
@@ -538,6 +539,7 @@ nimbus {
 }
 
 dependencies {
+    implementation project('longfox')
     implementation project(':components:browser-engine-gecko')
     implementation project(':components:compose-awesomebar')
     implementation project(':components:compose-base')
@@ -713,6 +715,7 @@ dependencies {
     testImplementation libs.mozilla.glean.forUnitTests
     testImplementation libs.robolectric
 
+    androidTestImplementation project(':components:support-android-test')
     androidTestImplementation libs.androidx.benchmark.junit4
     // We need a version constraint due to AGP silently trying to downgrade the version otherwise.
     // https://issuetracker.google.com/issues/349628366
@@ -738,6 +741,14 @@ dependencies {
     androidTestImplementation libs.leakcanary.instrumentation
     androidTestImplementation libs.mockk.android
     androidTestImplementation libs.mockwebserver
+    androidTestImplementation libs.okhttp
+    androidTestRuntimeOnly libs.okio
+    constraints {
+        // Various AndroidX dependencies pull in 1.1.1 transitively; OkHttp 5 requires 1.2.0.
+        implementation(libs.androidx.startup.runtime)
+        // okhttp is test-only; prevents older releases being resolved on the main classpath.
+        implementation(libs.okio)
+    }
 
     androidTestUtil libs.androidx.test.orchestrator
 

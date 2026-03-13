@@ -133,17 +133,16 @@ TextDirectiveCreator::ExtendRangeToWordBoundaries(AbstractRange* aRange) {
   }
   RangeBoundary startPoint = TextDirectiveUtil::FindNextNonWhitespacePosition<
       TextScanDirection::Right>(aRange->StartRef());
-  startPoint =
-      TextDirectiveUtil::FindWordBoundary<TextScanDirection::Left>(startPoint);
+  startPoint = TextDirectiveUtil::FindWordBoundary<TextScanDirection::Left>(
+      startPoint, TextDirectiveUtil::BreakOnPunctuation::Yes);
 
   RangeBoundary endPoint =
       TextDirectiveUtil::FindNextNonWhitespacePosition<TextScanDirection::Left>(
           aRange->EndRef());
-  endPoint =
-      TextDirectiveUtil::FindWordBoundary<TextScanDirection::Right>(endPoint);
+  endPoint = TextDirectiveUtil::FindWordBoundary<TextScanDirection::Right>(
+      endPoint, TextDirectiveUtil::BreakOnPunctuation::Yes);
 #if MOZ_DIAGNOSTIC_ASSERT_ENABLED
-  auto cmp = nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-      startPoint, endPoint);
+  auto cmp = nsContentUtils::ComparePoints(startPoint, endPoint);
   MOZ_DIAGNOSTIC_ASSERT(
       cmp && *cmp != 1,
       "The new end point must not be before the start point.");
@@ -458,8 +457,8 @@ TextDirectiveCreator::FindAllMatchingRanges(const nsString& aSearchQuery,
       break;
     }
     searchStart = searchResult->StartRef();
-    if (auto cmp = nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-            searchStart, aSearchEnd, &mNodeIndexCache);
+    if (auto cmp = nsContentUtils::ComparePoints(searchStart, aSearchEnd,
+                                                 &mNodeIndexCache);
         !cmp || *cmp != -1) {
       // this means hitting a bug in nsFind which apparently does not stop
       // exactly where it is told to. There are cases where it might
@@ -475,8 +474,8 @@ TextDirectiveCreator::FindAllMatchingRanges(const nsString& aSearchQuery,
         TextDirectiveUtil::MoveToNextBoundaryPoint(searchStart);
     MOZ_DIAGNOSTIC_ASSERT(newSearchStart != searchStart);
     searchStart = newSearchStart;
-    if (auto cmp = nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-            searchStart, aSearchEnd, &mNodeIndexCache);
+    if (auto cmp = nsContentUtils::ComparePoints(searchStart, aSearchEnd,
+                                                 &mNodeIndexCache);
         !cmp || *cmp != -1) {
       break;
     }
@@ -563,8 +562,8 @@ RangeBasedTextDirectiveCreator::FindAllMatchingCandidates() {
   auto searchEnd =
       TextDirectiveUtil::FindNextNonWhitespacePosition<TextScanDirection::Left>(
           mRange->EndRef());
-  searchEnd =
-      TextDirectiveUtil::FindWordBoundary<TextScanDirection::Left>(searchEnd);
+  searchEnd = TextDirectiveUtil::FindWordBoundary<TextScanDirection::Left>(
+      searchEnd, TextDirectiveUtil::BreakOnPunctuation::No);
 
   const nsTArray<RefPtr<AbstractRange>> endContentRanges =
       MOZ_TRY(FindAllMatchingRanges(mLastWordOfEndContent, mRange->StartRef(),

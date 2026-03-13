@@ -14,6 +14,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Log: "chrome://remote/content/shared/Log.sys.mjs",
   NavigableManager: "chrome://remote/content/shared/NavigableManager.sys.mjs",
   pprint: "chrome://remote/content/shared/Format.sys.mjs",
+  RootMessageHandler:
+    "chrome://remote/content/shared/messagehandler/RootMessageHandler.sys.mjs",
   TabManager: "chrome://remote/content/shared/TabManager.sys.mjs",
   UserContextManager:
     "chrome://remote/content/shared/UserContextManager.sys.mjs",
@@ -233,8 +235,8 @@ class EmulationModule extends RootBiDiModule {
       callback: this.#applyGeolocationOverride.bind(this),
       category: "geolocation-override",
       contextIds,
-      hasGlobalOverride: false,
       resetValue: null,
+      supportsGlobalOverride: false,
       userContextIds,
       value: coordinates,
     });
@@ -297,8 +299,8 @@ class EmulationModule extends RootBiDiModule {
       callback: this.#setLocaleForBrowsingContext.bind(this),
       category: "locale-override",
       contextIds,
-      hasGlobalOverride: false,
       resetValue: "",
+      supportsGlobalOverride: false,
       userContextIds,
       value: locale,
     });
@@ -342,6 +344,18 @@ class EmulationModule extends RootBiDiModule {
         conditions => conditions.type === NetworkConditionsType.Offline,
         lazy.pprint`Expected "networkConditions.type" to be "offline", got ${networkConditions.type}`
       )(networkConditions);
+
+      if (networkConditions.type === NetworkConditionsType.Offline) {
+        // For offline network conditions, some requests need to be blocked from
+        // the beforeRequestSent handler.
+        await this.messageHandler.handleCommand({
+          moduleName: "network",
+          commandName: "_startListeningForNetworkConditionsOffline",
+          destination: {
+            type: lazy.RootMessageHandler.type,
+          },
+        });
+      }
     }
 
     await this.#applyEmulationParameters({
@@ -349,8 +363,8 @@ class EmulationModule extends RootBiDiModule {
       callback: setNetworkConditionsForBrowsingContext,
       category: "network-conditions",
       contextIds,
-      hasGlobalOverride: true,
       resetValue: null,
+      supportsGlobalOverride: true,
       userContextIds,
       value: networkConditions,
     });
@@ -437,8 +451,8 @@ class EmulationModule extends RootBiDiModule {
       callback: setScreenOrientationOverrideForBrowsingContext,
       category: "screen-orientation-override",
       contextIds,
-      hasGlobalOverride: false,
       resetValue: null,
+      supportsGlobalOverride: false,
       userContextIds,
       value: orientationOverride,
     });
@@ -505,8 +519,8 @@ class EmulationModule extends RootBiDiModule {
       callback: setScreenSettingsOverrideForBrowsingContext,
       category: "screen-settings-override",
       contextIds,
-      hasGlobalOverride: false,
       resetValue: null,
+      supportsGlobalOverride: false,
       userContextIds,
       value: screenArea,
     });
@@ -571,8 +585,8 @@ class EmulationModule extends RootBiDiModule {
       callback: this.#setTimezoneOverrideForBrowsingContext.bind(this),
       category: "timezone-override",
       contextIds,
-      hasGlobalOverride: false,
       resetValue: "",
+      supportsGlobalOverride: false,
       userContextIds,
       value: timezone,
     });
@@ -625,8 +639,8 @@ class EmulationModule extends RootBiDiModule {
       callback: setUserAgentOverrideForBrowsingContext,
       category: "user-agent-override",
       contextIds,
-      hasGlobalOverride: true,
       resetValue: "",
+      supportsGlobalOverride: true,
       userContextIds,
       value: userAgent,
     });
@@ -641,8 +655,8 @@ class EmulationModule extends RootBiDiModule {
    * @param {Function} options.callback
    * @param {string} options.category
    * @param {Array<string>|null} options.contextIds
-   * @param {boolean} options.hasGlobalOverride
    * @param {*} options.resetValue
+   * @param {boolean} options.supportsGlobalOverride
    * @param {Array<string>|null} options.userContextIds
    * @param {*} options.value
    */
@@ -652,8 +666,8 @@ class EmulationModule extends RootBiDiModule {
       callback,
       category,
       contextIds,
-      hasGlobalOverride,
       resetValue,
+      supportsGlobalOverride,
       userContextIds,
       value,
     } = options;
@@ -664,13 +678,12 @@ class EmulationModule extends RootBiDiModule {
     const { navigables, userContexts } = this.#getEmulationTargets(
       contextIds,
       userContextIds,
-      { hasContextOverride, hasGlobalOverride, hasUserContextOverride }
+      { hasContextOverride, hasUserContextOverride, supportsGlobalOverride }
     );
 
     const sessionDataItems = this.#generateSessionDataUpdate({
       category,
       hasContextOverride,
-      hasGlobalOverride: true,
       navigables,
       resetValue,
       userContexts,
@@ -773,7 +786,6 @@ class EmulationModule extends RootBiDiModule {
     const {
       category,
       hasContextOverride,
-      hasGlobalOverride,
       hasUserContextOverride,
       navigables,
       resetValue,
@@ -813,7 +825,7 @@ class EmulationModule extends RootBiDiModule {
           )
         );
       }
-    } else if (hasGlobalOverride) {
+    } else {
       sessionDataItems.push(
         ...this.messageHandler.sessionData.generateSessionDataItemUpdate(
           "_configuration",
@@ -850,18 +862,18 @@ class EmulationModule extends RootBiDiModule {
    * @param {object=} options
    * @param {boolean} options.hasContextOverride
    *     Whether the contextIds parameter was present or omitted.
-   * @param {boolean} options.hasGlobalOverride
-   *     Allow global emulation if no contextIds or userContextIds are provided.
    * @param {boolean} options.hasUserContextOverride
    *     Whether the userContextIds parameter was present or omitted.
+   * @param {boolean} options.supportsGlobalOverride
+   *     Allow global emulation if no contextIds or userContextIds are provided.
    *
    * @returns {EmulationTargets}
    */
   #getEmulationTargets(contextIds, userContextIds, options = {}) {
     const {
       hasContextOverride,
-      hasGlobalOverride = false,
       hasUserContextOverride,
+      supportsGlobalOverride,
     } = options;
     if (hasContextOverride && hasUserContextOverride) {
       throw new lazy.error.InvalidArgumentError(
@@ -924,7 +936,7 @@ class EmulationModule extends RootBiDiModule {
           }
         );
       }
-    } else if (hasGlobalOverride) {
+    } else if (supportsGlobalOverride) {
       lazy.TabManager.getBrowsers().forEach(browser =>
         navigables.add(browser.browsingContext)
       );

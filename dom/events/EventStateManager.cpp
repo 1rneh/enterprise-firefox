@@ -158,7 +158,7 @@ static TimeStamp gLastCursorUpdateTime;
 static TimeStamp gTypingStartTime;
 static TimeStamp gTypingEndTime;
 static int32_t gTypingInteractionKeyPresses = 0;
-MOZ_RUNINIT static dom::InteractionData gTypingInteraction = {};
+constinit static dom::InteractionData gTypingInteraction = {};
 
 static inline int32_t RoundDown(double aDouble) {
   return (aDouble > 0) ? static_cast<int32_t>(floor(aDouble))
@@ -3632,17 +3632,15 @@ void EventStateManager::DoScrollText(
     actualDevPixelScrollAmount.y = 0;
   }
 
-  ScrollSnapFlags snapFlags = ScrollSnapFlags::Disabled;
+  ScrollSnapFlags snapFlags = ScrollSnapFlags::IntendedDirection;
   mozilla::ScrollOrigin origin = mozilla::ScrollOrigin::NotSpecified;
   switch (aEvent->mDeltaMode) {
     case WheelEvent_Binding::DOM_DELTA_LINE:
       origin = mozilla::ScrollOrigin::MouseWheel;
-      snapFlags = ScrollSnapFlags::IntendedDirection;
       break;
     case WheelEvent_Binding::DOM_DELTA_PAGE:
       origin = mozilla::ScrollOrigin::Pages;
-      snapFlags = ScrollSnapFlags::IntendedDirection |
-                  ScrollSnapFlags::IntendedEndPosition;
+      snapFlags |= ScrollSnapFlags::IntendedEndPosition;
       break;
     case WheelEvent_Binding::DOM_DELTA_PIXEL:
       origin = mozilla::ScrollOrigin::Pixels;

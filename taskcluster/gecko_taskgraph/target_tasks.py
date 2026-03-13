@@ -763,6 +763,10 @@ def target_tasks_custom_car_perf_testing(full_task_graph, parameters, graph_conf
         if "network-bench" in try_name and "linux" not in platform:
             return False
 
+        # Bug 2014270 - Disable speedometer2 on production branches
+        if "speedometer2" in try_name:
+            return False
+
         # Desktop and Android selection for CaR
         if accept_raptor_desktop_build(platform):
             if "browsertime" in try_name and "custom-car" in try_name:
@@ -826,6 +830,10 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
         if "tp7" in try_name:
             return False
 
+        # Bug 2014270 - Disable speedometer2 on production branches
+        if "speedometer2" in try_name:
+            return False
+
         # Bug 1867669 - Temporarily disable all live site tests
         if "live" in try_name and "sheriffed" not in try_name:
             return False
@@ -859,7 +867,7 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
                 if "-fis" in try_name:
                     return False
                 if "linux" in platform:
-                    if "speedometer" in try_name:
+                    if "speedometer3" in try_name:
                         return True
                 if "safari" and "benchmark" in try_name:
                     if "jetstream2" in try_name and "safari" in try_name:
@@ -920,7 +928,7 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
                     return True
                 if "fenix" in try_name:
                     return False
-                if "speedometer" in try_name:
+                if "speedometer3" in try_name:
                     return True
                 if "motionmark" in try_name and "1-3" in try_name:
                     if "chrome-m" in try_name:
@@ -944,8 +952,11 @@ def target_tasks_geckoview_perftest(full_task_graph, parameters, graph_config):
 
         if accept_raptor_android_build(platform):
             try_name = attributes.get("raptor_try_name")
+            # Bug 2014270 - Disable speedometer2 on production branches
+            if "speedometer2" in try_name:
+                return False
             if "geckoview" in try_name and "browsertime" in try_name:
-                if "hw-s24" in platform and "speedometer" not in try_name:
+                if "hw-s24" in platform and "speedometer3" not in try_name:
                     return False
                 if "live" in try_name and "cnn-amp" not in try_name:
                     return False
@@ -984,7 +995,7 @@ def target_tasks_speedometer_tests(full_task_graph, parameters, graph_config):
         if accept_raptor_desktop_build(platform):
             if (
                 "browsertime" in try_name
-                and "speedometer" in try_name
+                and "speedometer3" in try_name
                 and "chrome" in try_name
             ):
                 return True
@@ -993,7 +1004,7 @@ def target_tasks_speedometer_tests(full_task_graph, parameters, graph_config):
                 return False
             if (
                 "browsertime" in try_name
-                and "speedometer" in try_name
+                and "speedometer3" in try_name
                 and "chrome-m" in try_name
             ):
                 if "-nofis" not in try_name:
@@ -1375,6 +1386,10 @@ def target_tasks_daily_beta_perf(full_task_graph, parameters, graph_config):
         if not platform:
             return False
 
+        # Bug 2014270 - Disable speedometer2 on production branches
+        if "speedometer2" in try_name:
+            return False
+
         # Select beta tasks for awsy
         if "awsy" in try_name:
             if accept_awsy_task(try_name, platform):
@@ -1448,6 +1463,10 @@ def target_tasks_weekly_release_perf(full_task_graph, parameters, graph_config):
         if attributes.get("unittest_suite") not in ("raptor", "awsy"):
             return False
         if not platform:
+            return False
+
+        # Bug 2014270 - Disable speedometer2 on production branches
+        if "speedometer2" in try_name:
             return False
 
         # Select release tasks for awsy

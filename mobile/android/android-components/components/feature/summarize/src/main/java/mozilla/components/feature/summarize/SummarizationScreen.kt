@@ -14,9 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -37,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.compose.base.theme.AcornTheme
+import mozilla.components.concept.llm.LlmProvider
 import mozilla.components.feature.summarize.settings.SettingsAppBar
 import mozilla.components.feature.summarize.settings.SummarizeSettingsContent
 import mozilla.components.feature.summarize.settings.SummarizeSettingsState
@@ -46,8 +45,8 @@ import mozilla.components.feature.summarize.ui.DownloadError
 import mozilla.components.feature.summarize.ui.InfoError
 import mozilla.components.feature.summarize.ui.OffDeviceSummarizationConsent
 import mozilla.components.feature.summarize.ui.OnDeviceSummarizationConsent
-import mozilla.components.feature.summarize.ui.SummarizedContent
 import mozilla.components.feature.summarize.ui.SummarizingContent
+import mozilla.components.feature.summarize.ui.SummaryContentLoaded
 import mozilla.components.feature.summarize.ui.gradient.summaryLoadingGradient
 
 /**
@@ -121,10 +120,9 @@ private fun SummarizationScreen(
             is SummarizationState.Summarizing -> SummarizingContent(
                 modifier = Modifier.height(252.dp),
             )
-            is SummarizationState.Summarized -> SummarizedContent(
+            is SummarizationState.Summarized -> SummaryContentLoaded(
+                info = state.info,
                 text = state.text,
-                modifier = Modifier.verticalScroll(rememberScrollState())
-                    .padding(bottom = 16.dp),
                 onSettingsClicked = { store.dispatch(SettingsClicked) },
             )
             is SummarizationState.Settings -> {
@@ -207,10 +205,11 @@ private val previewSummarizedText = """
 """.trimIndent()
 
 private class SummarizationStatePreviewProvider : PreviewParameterProvider<SummarizationState> {
+    val info = LlmProvider.Info(R.string.mozac_summarize_fake_llm_name)
     override val values: Sequence<SummarizationState> = sequenceOf(
-        SummarizationState.Summarizing(),
-        SummarizationState.Summarized(text = previewSummarizedText),
-        SummarizationState.Settings(summarizedText = previewSummarizedText),
+        SummarizationState.Summarizing(info = info),
+        SummarizationState.Summarized(info = info, text = previewSummarizedText),
+        SummarizationState.Settings(info = info, summarizedText = previewSummarizedText),
         SummarizationState.Error(SummarizationError.ContentTooLong),
         SummarizationState.ShakeConsentRequired,
         SummarizationState.ShakeConsentWithDownloadRequired,

@@ -14,6 +14,7 @@ import {
   ChatStore,
   MESSAGE_ROLE,
 } from "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs";
+import { truncateUntrustedMetadata } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -28,6 +29,29 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // PageDataService:
   //   "moz-src:///browser/components/pagedata/PageDataService.sys.mjs",
 });
+
+// Important! Changing or removing this value requires a security review.
+//
+// Hard code a reasonable working limit for how many tabs that a language model can retrieve.
+// The metadata from each tab contains untrusted text content that we limit (for instance
+// with truncation) in order to treat this information as trusted.
+//
+// We also make this limited in a non-configurable way so that it reduces the risk
+// of exfiltration for private data. While most users only have a few tabs open at a time,
+// some users can have thousands of tabs open at once.
+const MAX_TABS = 15;
+
+// Important! Changing or removing this value requires a security review.
+//
+// Hard code a reasonable working limit for how many history results that a language model
+// can retrieve. The metadata from each of these history items contains untrusted text
+// content that we limit (for instance with truncation) in order to treat this information
+// as trusted.
+//
+// We also make this limited in a non-configurable way so that it reduces the risk
+// of exfiltration for private data. A language model that can make arbitrary requests
+// through prompt injection could leak the contents of a user's entire history.
+const MAX_HISTORY_RESULTS = 15;
 
 const GET_OPEN_TABS = "get_open_tabs";
 const SEARCH_BROWSING_HISTORY = "search_browsing_history";
@@ -90,9 +114,8 @@ export const toolsConfig = [
     function: {
       name: GET_OPEN_TABS,
       description:
-        "Access the user's browser and return a list of most recently browsed tabs. " +
-        "Each tab is represented by a JSON with the page's url, title and description " +
-        "if available. Default to return maximum 15 tabs.",
+        `Access the user's browser and return up to ${MAX_TABS} currently open tabs, ` +
+        "ordered by most recently viewed.",
       parameters: {
         type: "object",
         properties: {},
@@ -177,8 +200,7 @@ export const toolsConfig = [
  * Ignores config pages (about:xxx).
  * TODO: Ignores chat-only pages (FE to implement isSidebarMode flag).
  *
- * @param {number} n
- *  Maximum number of tabs to return. Defaults to 15.
+ * @param {object} _params
  * @param {object} _secProps
  * @returns {Promise<Array<object>>}
  *  A promise resolving to an array of tab metadata objects, each containing:
@@ -186,9 +208,9 @@ export const toolsConfig = [
  *  - title {string}: The tab's title
  *  - description {string}: Optional description (empty string if not available)
  *  - lastAccessed {number}: Last accessed timestamp in milliseconds
- *  Tabs are sorted by most recently accessed and limited to the first n results.
+ *  Tabs are sorted by most recently accessed and limited to MAX_TABS results.
  */
-export async function getOpenTabs(n = 15, _secProps) {
+export async function getOpenTabs(_params, _secProps) {
   const tabs = [];
 
   for (const win of lazy.BrowserWindowTracker.orderedWindows) {
@@ -205,7 +227,7 @@ export async function getOpenTabs(n = 15, _secProps) {
         if (url && !url.startsWith("about:")) {
           tabs.push({
             url,
-            title,
+            title: truncateUntrustedMetadata(title),
             lastAccessed: tab.lastAccessed,
           });
         }
@@ -215,7 +237,7 @@ export async function getOpenTabs(n = 15, _secProps) {
 
   tabs.sort((a, b) => b.lastAccessed - a.lastAccessed);
 
-  const topTabs = tabs.slice(0, n);
+  const topTabs = tabs.slice(0, MAX_TABS);
 
   return Promise.all(
     topTabs.map(async ({ url, title, lastAccessed }) => {
@@ -246,8 +268,6 @@ export async function getOpenTabs(n = 15, _secProps) {
  * - searchTerm: ""        - string used for search
  * - startTs: null         - local ISO timestamp lower bound, or null
  * - endTs: null           - local ISO timestamp upper bound, or null
- * - historyLimit: 15      - max number of results
- *
  * Detailed behavior and implementation are in SearchBrowsingHistory.sys.mjs.
  *
  * @param {object} toolParams
@@ -259,8 +279,6 @@ export async function getOpenTabs(n = 15, _secProps) {
  *  Optional local ISO-8601 start timestamp (e.g. "2025-11-07T09:00:00").
  * @param {string|null} toolParams.endTs
  *  Optional local ISO-8601 end timestamp (e.g. "2025-11-07T09:00:00").
- * @param {number} toolParams.historyLimit
- *  Maximum number of history results to return.
  * @param {object} _secProps
  * @returns {Promise<object>}
  *  A promise resolving to an object with the search term and history results.
@@ -270,18 +288,13 @@ export async function getOpenTabs(n = 15, _secProps) {
 export async function searchBrowsingHistory(toolParams, _secProps) {
   const params = toolParams && typeof toolParams === "object" ? toolParams : {};
 
-  const {
-    searchTerm = "",
-    startTs = null,
-    endTs = null,
-    historyLimit = 15,
-  } = params;
+  const { searchTerm = "", startTs = null, endTs = null } = params;
 
   return implSearchBrowsingHistory({
     searchTerm,
     startTs,
     endTs,
-    historyLimit,
+    historyLimit: MAX_HISTORY_RESULTS,
   });
 }
 
@@ -703,7 +716,7 @@ export class GetPageContent {
         targetTab.linkedBrowser.browsingContext?.currentWindowContext;
 
       if (!currentWindowContext) {
-        return `Cannot access content from "${targetTab.label}" at ${url}.`;
+        return `Cannot access content from "${truncateUntrustedMetadata(targetTab.label)}" at ${url}.`;
         // Stripped message "The tab may still be loading or is not accessible." to not confuse the LLM
       }
 
@@ -714,7 +727,7 @@ export class GetPageContent {
       return GetPageContent.#runExtraction(
         pageExtractor,
         GetPageContent.DEFAULT_MODE,
-        `"${targetTab.label}" (${url})`
+        `"${truncateUntrustedMetadata(targetTab.label)}" (${url})`
       );
     } catch (error) {
       // Bug 2006425 - Decide on the strategy for error handling in tool calls

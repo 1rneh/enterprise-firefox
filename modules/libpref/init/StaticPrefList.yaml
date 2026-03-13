@@ -3764,12 +3764,6 @@
   value: false
   mirror: always
 
-# Enable ParentNode.moveBefore().
-- name: dom.movebefore.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Enable mutiple import maps.
 - name: dom.multiple_import_maps.enabled
   type: bool
@@ -9559,6 +9553,13 @@
   mirror: always
   set_spidermonkey_pref: always
 
+# Support for the Wide Arithmetic proposal (i64.add/sub128, i64.mul_wide_s/u)
+- name: javascript.options.wasm_wide_arithmetic
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: always
+
 # Support for pretenuring allocations based on their allocation site.
 - name: javascript.options.site_based_pretenuring
   type: bool
@@ -14853,6 +14854,14 @@
 - name: network.lna.benchmarking-is-local
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# When true, block LNA requests from insecure contexts (http:// origins that
+# are not localhost or .local). Uses IsPotentiallyTrustworthyOrigin to
+# determine if the origin is trustworthy.
+- name: network.lna.block_insecure_contexts
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 

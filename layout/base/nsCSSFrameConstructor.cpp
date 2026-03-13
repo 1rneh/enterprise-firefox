@@ -5715,8 +5715,7 @@ nsIFrame* nsCSSFrameConstructor::FindSiblingInternal(
     }
   }
 
-  MOZ_ASSERT(aIter.ParentNode()->IsContent());
-  return getFarPseudo(aIter.ParentNode()->AsContent());
+  return getFarPseudo(aIter.Parent());
 }
 
 nsIFrame* nsCSSFrameConstructor::AdjustSiblingFrame(
@@ -5770,7 +5769,7 @@ nsIFrame* nsCSSFrameConstructor::FindSibling(
   // Our siblings (if any) do not have a frame to guide us. The frame for the
   // target content should be inserted whereever a frame for the container would
   // be inserted. This is needed when inserting into display: contents nodes.
-  const nsIContent* current = aIter.ParentNode()->AsContent();
+  const nsIContent* current = aIter.Parent();
   while (IsDisplayContents(current)) {
     const nsIContent* parent = current->GetFlattenedTreeParent();
     MOZ_ASSERT(parent, "No display: contents on the root");
@@ -5803,7 +5802,7 @@ nsIFrame* nsCSSFrameConstructor::GetInsertionPrevSibling(
     iter.Seek(aChild);
   } else {
     // Prime the iterator for the call to FindPreviousSibling.
-    (void)iter.GetNextChild();
+    iter.GetNextChild();
     MOZ_ASSERT(aChild->GetProperty(nsGkAtoms::restylableAnonymousNode),
                "Someone passed native anonymous content directly into frame "
                "construction.  Stop doing that!");
@@ -6677,7 +6676,7 @@ static bool AllChildListsAreEffectivelyEmpty(nsIFrame* aFrame) {
     // We have some existing frame, usually that would be considered as making
     // this list nonempty. But let's make an exception for the synthetic
     // colgroup that tables have, since that gets created unconditionally.
-    if (listID == FrameChildListID::ColGroup) {
+    if (listID == FrameChildListID::Principal && aFrame->IsTableFrame()) {
       if (nsIFrame* f = list.OnlyChild(); f && IsSyntheticColGroup(f)) {
         continue;
       }
@@ -6710,21 +6709,6 @@ static bool IsOnlyMeaningfulChildOfWrapperPseudo(nsIFrame* aFrame,
     if (!wrapper->PrincipalChildList().OnlyChild()) {
       return false;
     }
-    // Similarly we can't remove the table if there's still a non-anonymous col
-    // group (unless aFrame _is_ the non-anonymous colgroup).
-    if (aFrame->IsTableColGroupFrame()) {
-      return aParent->PrincipalChildList().IsEmpty() &&
-             IsOnlyNonWhitespaceFrameInList(
-                 aParent->GetChildList(FrameChildListID::ColGroup), aFrame);
-    }
-    const auto& colGroupList =
-        aParent->GetChildList(FrameChildListID::ColGroup);
-    if (!colGroupList.IsEmpty()) {
-      nsIFrame* f = colGroupList.OnlyChild();
-      if (!f || !IsSyntheticColGroup(f)) {
-        return false;
-      }
-    }
   }
   if (aFrame->IsTableCaption()) {
     MOZ_ASSERT(aParent->IsTableWrapperFrame());
@@ -6736,7 +6720,6 @@ static bool IsOnlyMeaningfulChildOfWrapperPseudo(nsIFrame* aFrame,
            // frame.
            AllChildListsAreEffectivelyEmpty(table);
   }
-  MOZ_ASSERT(!aFrame->IsTableColGroupFrame());
   return IsOnlyNonWhitespaceFrameInList(aParent->PrincipalChildList(), aFrame);
 }
 

@@ -49,7 +49,7 @@ export const SyncPolicy = {
    *
    * @returns {boolean} Whether sync is currently enabled.
    */
-  isCurrentSyncEnabled() {
+  isSyncCurrentlyEnabled() {
     return lazy.Weave.Status.checkSetup() == SYNC_STATUS_OK;
   },
 
@@ -92,11 +92,11 @@ export const SyncPolicy = {
     } = params;
 
     if (isIgnoringUserPreferences) {
-      const isCurrentSyncEnabled = this.isCurrentSyncEnabled();
-      if (shouldEnableSync && !isCurrentSyncEnabled) {
+      const isSyncCurrentlyEnabled = this.isSyncCurrentlyEnabled();
+      if (shouldEnableSync && !isSyncCurrentlyEnabled) {
         lazy.log.debug("Enable Sync");
         await this.connectSync(manager);
-      } else if (shouldEnableSync === false && isCurrentSyncEnabled) {
+      } else if (shouldEnableSync === false && isSyncCurrentlyEnabled) {
         lazy.log.debug("Disable Sync");
         await this.disconnectSync(manager);
       }

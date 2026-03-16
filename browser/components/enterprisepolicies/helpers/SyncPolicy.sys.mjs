@@ -57,7 +57,7 @@ export const SyncPolicy = {
    * @typedef {object} SyncPolicyParams
    * @property {boolean} [Enabled] Whether the feature sync should be enabled
    * @property {boolean} [Locked] Whether to lock the customized sync settings, hence
-   *                              the user modifications/preferences are not overridden.
+   *                              the user modifications/preferences will be overridden.
    *
    * // Per-engine sync configuration
    * @property {boolean} [Addons] Whether syncing addons should be enabled

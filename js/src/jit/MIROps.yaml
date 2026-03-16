@@ -122,6 +122,8 @@
 #   - attribute not specified (default): no code generated, congruentTo(foo) returns
 #     false
 #   - if_operands_equal: congruentTo(foo) will return congruentIfOperandsEqual(foo)
+#   - if_operands_equal_ignore_arguments: congruentTo(foo) will return congruentIfOperandsEqual(foo), but ignore any arguments
+#   - if_operands_and_arguments_equal: congruentTo(foo) will return congruentIfOperandsEqual(foo) and all arguments are equal
 #   - custom: custom C++ implementation
 #
 # alias_set
@@ -587,7 +589,7 @@
   arguments:
     argno: size_t
   result_type: Value
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   generate_lir: true
   lir_temps: 1
@@ -675,7 +677,7 @@
   result_type: Object
   movable: true
   guard: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   # The flags are packed with the length in a fixed private slot.
   alias_set: custom
   generate_lir: true
@@ -829,7 +831,7 @@
     trap: wasm::Trap
     trapSiteDesc: wasm::TrapSiteDesc
   type_policy: none
-  congruent_to: if_operands_equal
+  congruent_to: if_operands_equal_ignore_arguments
   alias_set: none
   guard: true
   clone: true
@@ -844,7 +846,7 @@
     trapSiteDesc: wasm::TrapSiteDesc
   type_policy: none
   result_type: Int32
-  congruent_to: if_operands_equal
+  congruent_to: if_operands_equal_ignore_arguments
   alias_set: none
   guard: true
   clone: true
@@ -861,7 +863,7 @@
     wideningOp: wasm::FieldWideningOp
   type_policy: none
   result_type: Int32
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: none
   generate_lir: true
 
@@ -1184,7 +1186,7 @@
     lowerCase: bool
   result_type: String
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: none
   generate_lir: true
   lir_temps: 2
@@ -2253,7 +2255,7 @@
   result_type: Object
   guard: true
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   might_alias: custom
   folds_to: custom
@@ -2267,7 +2269,7 @@
     shape: Shape*
   result_type: Boolean
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   generate_lir: true
 
@@ -2277,7 +2279,7 @@
   result_type: None
   guard: true
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   generate_lir: true
 
@@ -2363,7 +2365,7 @@
   guard: true
   movable: true
   alias_set: custom
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   generate_lir: true
   lir_temps: 1
 
@@ -2471,7 +2473,7 @@
   # DCE this instruction.
   guard: true
   possibly_calls: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   generate_lir: true
   lir_temps: 4
@@ -2542,7 +2544,7 @@
   # Bails when non-native or accessor properties are encountered, so we can't
   # DCE this instruction.
   guard: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   possibly_calls: true
   generate_lir: true
@@ -2553,7 +2555,7 @@
     idStr: String
   arguments:
     shape: Shape*
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   result_type: Boolean
   alias_set: custom
   generate_lir: true
@@ -2637,7 +2639,7 @@
   result_type: Object
   guard: true
   movable: true
-  congruent_to: if_operands_equal
+  congruent_to: if_operands_and_arguments_equal
   alias_set: none
   generate_lir: true
   lir_result_type: none
@@ -2651,7 +2653,7 @@
   result_type: Object
   movable: true
   value_hash: custom
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: none
   generate_lir: true
 
@@ -2706,7 +2708,7 @@
   result_type: Object
   guard: true
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   generate_lir: true
   lir_result_type: none
@@ -2745,7 +2747,7 @@
   result_type: String
   guard: true
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   folds_to: custom
   alias_set: none
   generate_lir: true
@@ -3064,7 +3066,7 @@
   result_type: Value
   guard: true
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   generate_lir: true
   lir_result_type: none
@@ -3623,7 +3625,7 @@
     fallible: bool
   result_type: Object
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   # Can't use |AliasSet::None| because the target changes on navigation.
   # TODO: Investigate using a narrower or a custom alias set.
   alias_set: custom
@@ -3651,7 +3653,7 @@
   guard: true
   movable: true
   possibly_calls: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: custom
   generate_lir: true
   lir_result_type: none
@@ -3702,7 +3704,7 @@
   result_type: Int32
   guard: true
   movable: true
-  congruent_to: if_operands_equal
+  congruent_to: if_operands_and_arguments_equal
   folds_to: custom
   alias_set: none
   generate_lir: true
@@ -4223,7 +4225,7 @@
   arguments:
     trapSiteDesc: wasm::TrapSiteDesc
   result_type: Int32
-  congruent_to: if_operands_equal
+  congruent_to: if_operands_equal_ignore_arguments
   type_policy: none
   generate_lir: true
   lir_result_type: none
@@ -4432,7 +4434,7 @@
   type_policy: none
   result_type: Simd128
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: none
   clone: true
 
@@ -4461,7 +4463,7 @@
   type_policy: none
   result_type: Simd128
   movable: true
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
   alias_set: none
   clone: true
   generate_lir: true
@@ -4533,7 +4535,7 @@
   wasm_ref_type: wasm::MaybeRefType(destType)
   guard: true
   alias_set: none
-  congruent_to: custom
+  congruent_to: if_operands_and_arguments_equal
 
 - name: WasmRefConvertAnyExtern
   gen_boilerplate: false

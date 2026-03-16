@@ -90,10 +90,10 @@ use style::parser::{Parse, ParserContext};
 use style::properties::LonghandIdSet;
 use style::properties::{
     animated_properties::{AnimationValue, AnimationValueMap},
-    parse_one_declaration_into, parse_style_attribute, ComputedValues, CountedUnknownProperty,
-    CSSWideKeyword, Importance, LonghandId, NonCustomPropertyId, OwnedPropertyDeclarationId,
-    PropertyDeclarationBlock, PropertyDeclarationId, PropertyDeclarationIdSet, PropertyId,
-    ShorthandId, SourcePropertyDeclaration, StyleBuilder,
+    parse_one_declaration_into, parse_style_attribute, CSSWideKeyword, ComputedValues,
+    CountedUnknownProperty, Importance, LonghandId, NonCustomPropertyId,
+    OwnedPropertyDeclarationId, PropertyDeclarationBlock, PropertyDeclarationId,
+    PropertyDeclarationIdSet, PropertyId, ShorthandId, SourcePropertyDeclaration, StyleBuilder,
 };
 use style::properties_and_values::registry::PropertyRegistration;
 use style::rule_cache::RuleCacheConditions;
@@ -155,7 +155,8 @@ use style::values::specified::svg_path::PathCommand;
 use style::values::specified::{AbsoluteLength, NoCalcLength};
 use style::values::{specified, AtomIdent, CustomIdent, KeyframesName};
 use style_traits::{
-    CssWriter, NumericValue, ParseError, ParsingMode, SpecifiedValueInfo, ToCss, ToTyped, TypedValue, UnitValue,
+    CssWriter, NumericValue, ParseError, ParsingMode, SpecifiedValueInfo, ToCss, ToTyped,
+    TypedValue, UnitValue,
 };
 use thin_vec::ThinVec as nsTArray;
 use to_shmem::SharedMemoryBuilder;
@@ -1429,11 +1430,10 @@ pub unsafe extern "C" fn Servo_Property_GetCSSValuesForProperty(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn Servo_Property_GetCSSWideKeywords(
-    result: &mut nsTArray<nsString>,
-) {
-    CSSWideKeyword::collect_completion_keywords(
-        &mut |list| result.extend(list.iter().map(|k| nsString::from(&**k))));
+pub unsafe extern "C" fn Servo_Property_GetCSSWideKeywords(result: &mut nsTArray<nsString>) {
+    CSSWideKeyword::collect_completion_keywords(&mut |list| {
+        result.extend(list.iter().map(|k| nsString::from(&**k)))
+    });
 }
 
 #[no_mangle]
@@ -4666,7 +4666,7 @@ pub extern "C" fn Servo_ComputedValues_GetMatchingDeclarations(
     values: &ComputedValues,
     rules: &mut nsTArray<MatchingDeclarationBlock>,
 ) {
-    use style::rule_tree::CascadeLevel;
+    use style::rule_tree::CascadeOrigin;
     let rule_node = match values.rules {
         Some(ref r) => r,
         None => return,
@@ -4685,21 +4685,15 @@ pub extern "C" fn Servo_ComputedValues_GetMatchingDeclarations(
             continue;
         };
 
-        let origin = match node.cascade_level() {
-            CascadeLevel::UANormal | CascadeLevel::UAImportant => {
-                MatchingDeclarationBlockOrigin::UserAgent
-            },
-            CascadeLevel::UserNormal | CascadeLevel::UserImportant => {
-                MatchingDeclarationBlockOrigin::User
-            },
-            CascadeLevel::AuthorNormal { .. } | CascadeLevel::AuthorImportant { .. } => {
-                MatchingDeclarationBlockOrigin::Author
-            },
-            CascadeLevel::PositionFallback => MatchingDeclarationBlockOrigin::PositionFallback,
-            CascadeLevel::PresHints => MatchingDeclarationBlockOrigin::PresHints,
-            CascadeLevel::Animations => MatchingDeclarationBlockOrigin::Animations,
-            CascadeLevel::Transitions => MatchingDeclarationBlockOrigin::Transitions,
-            CascadeLevel::SMILOverride => MatchingDeclarationBlockOrigin::SMIL,
+        let origin = match node.cascade_level().origin() {
+            CascadeOrigin::UA => MatchingDeclarationBlockOrigin::UserAgent,
+            CascadeOrigin::User => MatchingDeclarationBlockOrigin::User,
+            CascadeOrigin::Author => MatchingDeclarationBlockOrigin::Author,
+            CascadeOrigin::PositionFallback => MatchingDeclarationBlockOrigin::PositionFallback,
+            CascadeOrigin::PresHints => MatchingDeclarationBlockOrigin::PresHints,
+            CascadeOrigin::Animations => MatchingDeclarationBlockOrigin::Animations,
+            CascadeOrigin::Transitions => MatchingDeclarationBlockOrigin::Transitions,
+            CascadeOrigin::SMILOverride => MatchingDeclarationBlockOrigin::SMIL,
         };
 
         rules.push(MatchingDeclarationBlock {
@@ -5304,7 +5298,7 @@ pub unsafe extern "C" fn Servo_DeclarationBlock_GetPropertyTypedValue(
     let property_id = get_property_id_from_property!(property, false);
 
     *result = read_locked_arc(declarations, |decls: &PropertyDeclarationBlock| {
-        let typed_value = decls.property_value_to_typed(&property_id);
+        let typed_value = decls.property_value_to_typed_value(&property_id);
 
         match typed_value {
             Err(()) => PropertyTypedValue::None,
@@ -5598,7 +5592,7 @@ pub unsafe extern "C" fn Servo_NumericDeclaration_GetValue(
     declaration: &NumericDeclaration,
     result: *mut NumericValueResult,
 ) {
-    *result = match declaration.to_typed() {
+    *result = match declaration.to_typed_value() {
         Some(TypedValue::Numeric(numeric)) => NumericValueResult::Numeric(numeric),
         _ => NumericValueResult::Unsupported,
     };

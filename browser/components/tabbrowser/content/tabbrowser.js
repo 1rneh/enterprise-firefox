@@ -777,7 +777,7 @@
       }
 
       for (const tab of unchangedRemoteness) {
-        reloadBrowser(tab, reloadFlags);
+        reloadBrowser(tab);
       }
 
       function reloadBrowser(tab) {
@@ -1493,6 +1493,7 @@
 
       let profileIdentifier =
         SelectableProfileService?.isEnabled &&
+        SelectableProfileService.getCachedProfileCount() > 1 &&
         SelectableProfileService.currentProfile?.name.replace(/\0/g, "");
       // Note that empty/falsy bits get filtered below.
 
@@ -3622,17 +3623,6 @@
       }
       this.setIsSplitViewActive(true, tabs);
       this.tabpanels.splitViewPanels = panels;
-    }
-
-    /**
-     * Hide the list of tabs <browsers> that are part of a split view.
-     *
-     * @param {MozTabbrowserTab[]} tabs
-     */
-    hideSplitViewPanels(tabs) {
-      for (const tab of tabs) {
-        this.tabpanels.removePanelFromSplitView(tab.linkedPanel);
-      }
     }
 
     /**

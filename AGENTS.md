@@ -44,11 +44,9 @@ You can find the review identifier by inspecting the commit log with:
 - Our style guide forbids the use of emoji.
 
 ## Workflow
-- After making code changes, ensure the code is formatted by using `./mach format`, linted by using `./mach lint`, and build it using `./mach build`. If there are no errors, you can use `mach run` to ensure the browser still runs. Occasionally run `./mach clang-format -p path/to/modifiedfile path/to/othermodifiedfile` to format C++, `./mach lint --fix path/to/file` for most other files.
+- After making code changes, ensure the code is formatted by using `./mach format`, linted by using `./mach lint`, and build it using `./mach build`. If there are no errors, you can use `mach run` to ensure the browser still runs. If you want to format specific files, use `./mach format path/to/modifiedfile path/to/othermodifiedfile`.
 - You can run tests by using `./mach test --auto`. Once you are satisfied with the tests you run locally, use `mach try auto` to run tests in CI
 - Ask if you should run a test. If you do, you probably want to run the test with `--headless`
 - Do not perform commits yourself, ever
-- It's better to just run `./mach build` without subdirectory, the build system is well optimized
-- Always build normally, never use subdirectories, e.g. `./mach build` is the only command to run
-- Never build with a subdirectory. Always simply do `./mach build`
-- The only exception is for Android and Desktop front-end-only changes, in which case you can use the special `./mach build faster` to skip all C++/Rust compilation.
+- When doing Android and Desktop front-end-only changes, use the special `./mach build faster` to skip all C++/Rust compilation.
+- Conversely, for C++/Rust only changes you can use the special `./mach build binaries` to skip all front-end-related tasks.

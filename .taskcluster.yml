@@ -412,6 +412,7 @@ tasks:
                       $if: >
                         eventType in ["action", "cron"]
                         || (eventType == "push" && shortRef == "enterprise-release")
+                        || (eventType == "push" && project == "enterprise-firefox-try")
                         || (isPullRequest && eventAction in ["opened", "reopened", "synchronize"])
                       then:
                           $let:

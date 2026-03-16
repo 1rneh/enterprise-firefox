@@ -7,6 +7,7 @@
 #include "nsDocShell.h"
 
 #include <algorithm>
+#include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/dom/HTMLFormElement.h"
 
 #ifdef XP_WIN
@@ -1257,6 +1258,11 @@ nsDocShell::FirePageHideNotification(bool aIsUnload) {
 
 void nsDocShell::FirePageHideNotificationInternal(
     bool aIsUnload, bool aSkipCheckingDynEntries) {
+  {
+    nsAutoMicroTask mt;
+    SetOngoingNavigation(Nothing());
+  }
+
   if (mDocumentViewer && !mFiredUnloadEvent) {
     // Keep an explicit reference since calling PageHide could release
     // mDocumentViewer
@@ -14766,6 +14772,10 @@ bool nsDocShell::GetIsAttemptingToNavigate() {
       // hence a navigation.
       return true;
     }
+  }
+
+  if (mOngoingNavigation == Some(OngoingNavigation::NavigationID)) {
+    return true;
   }
 
   return mCheckingSessionHistory;

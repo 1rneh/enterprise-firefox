@@ -1095,6 +1095,7 @@ pref("browser.tabs.hoverPreview.showThumbnails", true);
 
 pref("browser.tabs.groups.enabled", true);
 pref("browser.tabs.groups.hoverPreview.enabled", true);
+pref("browser.tabs.groups.alternateMenu", false);
 
 pref("browser.tabs.groups.smart.enabled", true);
 
@@ -2265,6 +2266,7 @@ pref("sidebar.backupState", "{}");
 pref("sidebar.expandOnHover", true);
 pref("sidebar.old-sidebar.has-used", false);
 pref("sidebar.new-sidebar.has-used", false);
+pref("sidebar.history.sortOption", "date");
 
 pref("sidebar.notification.badge.aichat", false);
 

@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <utility>
 
 #include "builtin/Math.h"
@@ -48,7 +49,6 @@ using namespace js::jit;
 using JS::ToInt32;
 
 using mozilla::IsFloat32Representable;
-using mozilla::IsPowerOfTwo;
 using mozilla::NumbersAreIdentical;
 
 NON_GC_POINTER_TYPE_ASSERTIONS_GENERATED
@@ -442,7 +442,7 @@ static MMul* EvaluateExactReciprocal(TempAllocator& alloc, MDiv* ins) {
   }
 
   // check if rhs is a power of two or zero
-  if (num != 0 && !mozilla::IsPowerOfTwo(mozilla::Abs(num))) {
+  if (num != 0 && !std::has_single_bit(mozilla::Abs(num))) {
     return nullptr;
   }
 
@@ -4047,7 +4047,7 @@ void MMod::analyzeEdgeCasesForward() {
 
   if (rhs()->isConstant()) {
     int32_t n = rhs()->toConstant()->toInt32();
-    if (n > 0 && !IsPowerOfTwo(uint32_t(n))) {
+    if (n > 0 && !std::has_single_bit(uint32_t(n))) {
       canBePowerOfTwoDivisor_ = false;
     }
   }
@@ -4326,14 +4326,6 @@ AliasSet MInArgumentsObjectArg::getAliasSet() const {
 AliasSet MArgumentsObjectLength::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
                         AliasSet::DynamicSlot);
-}
-
-bool MGuardArgumentsObjectFlags::congruentTo(const MDefinition* ins) const {
-  if (!ins->isGuardArgumentsObjectFlags() ||
-      ins->toGuardArgumentsObjectFlags()->flags() != flags()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
 }
 
 AliasSet MGuardArgumentsObjectFlags::getAliasSet() const {
@@ -6289,16 +6281,6 @@ AliasSet MCreateThis::getAliasSet() const {
   return AliasSet::Load(AliasSet::Any);
 }
 
-bool MGetArgumentsObjectArg::congruentTo(const MDefinition* ins) const {
-  if (!ins->isGetArgumentsObjectArg()) {
-    return false;
-  }
-  if (ins->toGetArgumentsObjectArg()->argno() != argno()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
-}
-
 AliasSet MGetArgumentsObjectArg::getAliasSet() const {
   return AliasSet::Load(AliasSet::Any);
 }
@@ -6733,18 +6715,11 @@ MDefinition* MClz::foldsTo(TempAllocator& alloc) {
   if (num()->isConstant()) {
     MConstant* c = num()->toConstant();
     if (type() == MIRType::Int32) {
-      int32_t n = c->toInt32();
-      if (n == 0) {
-        return MConstant::NewInt32(alloc, 32);
-      }
-      return MConstant::NewInt32(alloc, mozilla::CountLeadingZeroes32(n));
+      uint32_t n = uint32_t(c->toInt32());
+      return MConstant::NewInt32(alloc, std::countl_zero(n));
     }
-    int64_t n = c->toInt64();
-    if (n == 0) {
-      return MConstant::NewInt64(alloc, int64_t(64));
-    }
-    return MConstant::NewInt64(alloc,
-                               int64_t(mozilla::CountLeadingZeroes64(n)));
+    uint64_t n = uint64_t(c->toInt64());
+    return MConstant::NewInt64(alloc, int64_t(std::countl_zero(n)));
   }
 
   return this;
@@ -6754,18 +6729,11 @@ MDefinition* MCtz::foldsTo(TempAllocator& alloc) {
   if (num()->isConstant()) {
     MConstant* c = num()->toConstant();
     if (type() == MIRType::Int32) {
-      int32_t n = num()->toConstant()->toInt32();
-      if (n == 0) {
-        return MConstant::NewInt32(alloc, 32);
-      }
-      return MConstant::NewInt32(alloc, mozilla::CountTrailingZeroes32(n));
+      uint32_t n = uint32_t(num()->toConstant()->toInt32());
+      return MConstant::NewInt32(alloc, std::countr_zero(n));
     }
-    int64_t n = c->toInt64();
-    if (n == 0) {
-      return MConstant::NewInt64(alloc, int64_t(64));
-    }
-    return MConstant::NewInt64(alloc,
-                               int64_t(mozilla::CountTrailingZeroes64(n)));
+    uint64_t n = uint64_t(c->toInt64());
+    return MConstant::NewInt64(alloc, std::countr_zero(n));
   }
 
   return this;
@@ -6775,11 +6743,11 @@ MDefinition* MPopcnt::foldsTo(TempAllocator& alloc) {
   if (num()->isConstant()) {
     MConstant* c = num()->toConstant();
     if (type() == MIRType::Int32) {
-      int32_t n = num()->toConstant()->toInt32();
-      return MConstant::NewInt32(alloc, mozilla::CountPopulation32(n));
+      uint32_t n = uint32_t(num()->toConstant()->toInt32());
+      return MConstant::NewInt32(alloc, std::popcount(n));
     }
-    int64_t n = c->toInt64();
-    return MConstant::NewInt64(alloc, int64_t(mozilla::CountPopulation64(n)));
+    uint64_t n = uint64_t(c->toInt64());
+    return MConstant::NewInt64(alloc, int64_t(std::popcount(n)));
   }
 
   return this;
@@ -7214,11 +7182,6 @@ MDefinition* MGuardShape::foldsTo(TempAllocator& alloc) {
   return this;
 }
 
-bool MGuardShape::congruentTo(const MDefinition* ins) const {
-  return congruentIfOperandsEqual(ins) &&
-         shape() == ins->toGuardShape()->shape();
-}
-
 AliasSet MGuardShape::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields);
 }
@@ -7275,16 +7238,6 @@ AliasSet MGuardShapeListToOffset::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields);
 }
 
-bool MHasShape::congruentTo(const MDefinition* ins) const {
-  if (!ins->isHasShape()) {
-    return false;
-  }
-  if (shape() != ins->toHasShape()->shape()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
-}
-
 AliasSet MHasShape::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields);
 }
@@ -7332,16 +7285,6 @@ MDefinition::AliasType MGuardShape::mightAlias(const MDefinition* store) const {
   return MInstruction::mightAlias(store);
 }
 
-bool MGuardFuse::congruentTo(const MDefinition* ins) const {
-  if (!ins->isGuardFuse()) {
-    return false;
-  }
-  if (fuseIndex() != ins->toGuardFuse()->fuseIndex()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
-}
-
 AliasSet MGuardFuse::getAliasSet() const {
   // The alias set below reflects the set of operations which could cause a fuse
   // to be popped, and therefore MGuardFuse aliases with.
@@ -7372,12 +7315,6 @@ AliasSet MLoadDynamicSlotFromOffset::getAliasSet() const {
 
 AliasSet MGuardGlobalGeneration::getAliasSet() const {
   return AliasSet::Load(AliasSet::GlobalGenerationCounter);
-}
-
-bool MGuardGlobalGeneration::congruentTo(const MDefinition* ins) const {
-  return ins->isGuardGlobalGeneration() &&
-         ins->toGuardGlobalGeneration()->expected() == expected() &&
-         ins->toGuardGlobalGeneration()->generationAddr() == generationAddr();
 }
 
 MDefinition* MGuardIsNotProxy::foldsTo(TempAllocator& alloc) {
@@ -7437,44 +7374,14 @@ MDefinition* MMegamorphicLoadSlotByValuePermissive::foldsTo(
   return result;
 }
 
-bool MMegamorphicLoadSlot::congruentTo(const MDefinition* ins) const {
-  if (!ins->isMegamorphicLoadSlot()) {
-    return false;
-  }
-  if (ins->toMegamorphicLoadSlot()->name() != name()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
-}
-
 AliasSet MMegamorphicLoadSlot::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
                         AliasSet::DynamicSlot);
 }
 
-bool MSmallObjectVariableKeyHasProp::congruentTo(const MDefinition* ins) const {
-  if (!ins->isSmallObjectVariableKeyHasProp()) {
-    return false;
-  }
-  if (ins->toSmallObjectVariableKeyHasProp()->shape() != shape()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
-}
-
 AliasSet MSmallObjectVariableKeyHasProp::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
                         AliasSet::DynamicSlot);
-}
-
-bool MMegamorphicHasProp::congruentTo(const MDefinition* ins) const {
-  if (!ins->isMegamorphicHasProp()) {
-    return false;
-  }
-  if (ins->toMegamorphicHasProp()->hasOwn() != hasOwn()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
 }
 
 AliasSet MMegamorphicHasProp::getAliasSet() const {
@@ -7488,28 +7395,8 @@ HashNumber MNurseryObject::valueHash() const {
   return hash;
 }
 
-bool MNurseryObject::congruentTo(const MDefinition* ins) const {
-  if (!ins->isNurseryObject()) {
-    return false;
-  }
-  return nurseryObjectIndex() == ins->toNurseryObject()->nurseryObjectIndex();
-}
-
 AliasSet MGuardFunctionIsNonBuiltinCtor::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields);
-}
-
-bool MGuardFunctionKind::congruentTo(const MDefinition* ins) const {
-  if (!ins->isGuardFunctionKind()) {
-    return false;
-  }
-  if (expected() != ins->toGuardFunctionKind()->expected()) {
-    return false;
-  }
-  if (bailOnEquality() != ins->toGuardFunctionKind()->bailOnEquality()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
 }
 
 AliasSet MGuardFunctionKind::getAliasSet() const {
@@ -7533,16 +7420,6 @@ AliasSet MGuardFunctionScript::getAliasSet() const {
   // See IRGenerator::emitCalleeGuard.
   MOZ_ASSERT_IF(flags_.isSelfHostedOrIntrinsic(), flags_.isLambda());
   return AliasSet::None();
-}
-
-bool MGuardSpecificAtom::congruentTo(const MDefinition* ins) const {
-  if (!ins->isGuardSpecificAtom()) {
-    return false;
-  }
-  if (atom() != ins->toGuardSpecificAtom()->atom()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
 }
 
 MDefinition* MGuardStringToIndex::foldsTo(TempAllocator& alloc) {
@@ -7608,17 +7485,6 @@ AliasSet MLoadDOMExpandoValue::getAliasSet() const {
 
 AliasSet MLoadDOMExpandoValueIgnoreGeneration::getAliasSet() const {
   return AliasSet::Load(AliasSet::DOMProxyExpando);
-}
-
-bool MGuardDOMExpandoMissingOrGuardShape::congruentTo(
-    const MDefinition* ins) const {
-  if (!ins->isGuardDOMExpandoMissingOrGuardShape()) {
-    return false;
-  }
-  if (shape() != ins->toGuardDOMExpandoMissingOrGuardShape()->shape()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
 }
 
 AliasSet MGuardDOMExpandoMissingOrGuardShape::getAliasSet() const {
@@ -7862,32 +7728,8 @@ AliasSet MLoadWrapperTarget::getAliasSet() const {
   return AliasSet::Load(AliasSet::Any);
 }
 
-bool MLoadWrapperTarget::congruentTo(const MDefinition* ins) const {
-  if (!ins->isLoadWrapperTarget()) {
-    return false;
-  }
-  if (ins->toLoadWrapperTarget()->fallible() != fallible()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
-}
-
 AliasSet MGuardHasGetterSetter::getAliasSet() const {
   return AliasSet::Load(AliasSet::ObjectFields);
-}
-
-bool MGuardHasGetterSetter::congruentTo(const MDefinition* ins) const {
-  if (!ins->isGuardHasGetterSetter()) {
-    return false;
-  }
-  if (ins->toGuardHasGetterSetter()->propId() != propId()) {
-    return false;
-  }
-  if (ins->toGuardHasGetterSetter()->getterSetterValue() !=
-      getterSetterValue()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
 }
 
 AliasSet MGuardIsExtensible::getAliasSet() const {
@@ -8431,16 +8273,6 @@ MDefinition* MToIntegerIndex::foldsTo(TempAllocator& alloc) {
   }
 
   return this;
-}
-
-bool MInt32ToStringWithBase::congruentTo(const MDefinition* ins) const {
-  if (!ins->isInt32ToStringWithBase()) {
-    return false;
-  }
-  if (ins->toInt32ToStringWithBase()->lowerCase() != lowerCase()) {
-    return false;
-  }
-  return congruentIfOperandsEqual(ins);
 }
 
 // Returns `false` if it can be proven that (1) both `mtyA` and `mtyB` are

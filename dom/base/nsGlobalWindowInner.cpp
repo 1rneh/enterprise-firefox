@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -2300,12 +2298,12 @@ MOZ_CAN_RUN_SCRIPT static bool IsDeferredLoadEmptyFrame(Element& aEmbedder) {
       MOZ_ASSERT_UNREACHABLE();
       return false;
     case EmptyFrameLibrary::ZE:
-      if (StaticPrefs::dom_about_blank_ze_hack_require_zcomponents() &&
-          !property.mZComponents.WasPassed()) {
+      if (!property.mZE_Init.WasPassed()) {
         return false;
       }
       // No use counter at least for now.
-      aEmbedder.OwnerDoc()->WarnOnceAbout(Document::eOldZECompatHack);
+      aEmbedder.OwnerDoc()->WarnOnceAbout(
+          DeprecatedOperations::eOldZECompatHack);
       return true;
     case EmptyFrameLibrary::CKEditor:
       const auto* version = [&]() -> const CkEditorVersion* {

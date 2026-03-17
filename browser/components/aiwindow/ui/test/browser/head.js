@@ -66,8 +66,13 @@ async function openAIWindowWithSidebar() {
     win.gBrowser.selectedBrowser,
     "about:blank"
   );
-  await BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser);
-  AIWindowUI.toggleSidebar(win);
+  await BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser, {
+    wantLoad: "about:blank",
+  });
+  if (!AIWindowUI.isSidebarOpen(win)) {
+    info("Opening sidebar");
+    AIWindowUI.toggleSidebar(win);
+  }
   const sidebarBrowser = win.document.getElementById("ai-window-browser");
   await BrowserTestUtils.waitForCondition(
     () => sidebarBrowser.contentDocument?.querySelector("ai-window:defined"),
@@ -82,6 +87,26 @@ function promiseNavigateAndLoad(browser, url) {
   });
   BrowserTestUtils.startLoadingURIString(browser, url);
   return loaded;
+}
+
+async function getPromptButtons(browser) {
+  const aiWindow = await TestUtils.waitForCondition(
+    () => browser.contentDocument?.querySelector("ai-window"),
+    "Wait for ai-window element"
+  );
+  const promptsEl = await TestUtils.waitForCondition(
+    () => aiWindow.shadowRoot.querySelector("smartwindow-prompts"),
+    "Wait for smartwindow-prompts element"
+  );
+  return promptsEl.shadowRoot.querySelectorAll(".sw-prompt-button");
+}
+
+async function getConversationId(browser) {
+  const aiWindow = await TestUtils.waitForCondition(
+    () => browser.contentDocument?.querySelector("ai-window"),
+    "Wait for ai-window element"
+  );
+  return aiWindow.conversationId.toString();
 }
 
 /**
@@ -271,7 +296,13 @@ function startMockOpenAI({
     };
 
     const sendSSE = obj => {
-      response.write(`data: ${JSON.stringify(obj)}\n\n`);
+      // Encode data so special §followup:§-type tokens preserves utf-8
+      response.write(
+        Array.from(
+          new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`),
+          b => String.fromCharCode(b)
+        ).join("")
+      );
     };
 
     if (wantsStream && toolCall && askedForTools && !hasToolResult) {

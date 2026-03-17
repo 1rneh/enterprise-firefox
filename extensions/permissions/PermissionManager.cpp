@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -2444,6 +2442,11 @@ nsresult PermissionManager::RemovePermissionEntries(
   Vector<std::tuple<nsCOMPtr<nsIPrincipal>, nsCString, nsCString>, 10> array;
   for (const PermissionHashKey& entry : mPermissionTable) {
     for (const auto& permEntry : entry.GetPermissions()) {
+      // Never remove default (builtin) permissions.
+      if (permEntry.mID == cIDPermissionIsDefault) {
+        continue;
+      }
+
       // Depending on whether the principal is needed in the condition check, we
       // may already check the condition here, to avoid needing to compute the
       // principal if the condition is true.
@@ -3073,12 +3076,9 @@ NS_IMETHODIMP PermissionManager::Observe(nsISupports* aSubject,
 
 nsresult PermissionManager::RemoveAllModifiedSince(int64_t aModificationTime) {
   ENSURE_NOT_CHILD_PROCESS;
-  // Skip remove calls for default permissions to avoid
-  // creating UNKNOWN_ACTION overrides in AddInternal
   return RemovePermissionEntries(
       [aModificationTime](const PermissionEntry& aPermEntry) {
-        return aModificationTime <= aPermEntry.mModificationTime &&
-               aPermEntry.mID != cIDPermissionIsDefault;
+        return aModificationTime <= aPermEntry.mModificationTime;
       });
 }
 
@@ -3086,8 +3086,7 @@ nsresult PermissionManager::RemoveAllForPrivateBrowsing() {
   ENSURE_NOT_CHILD_PROCESS;
   return RemovePermissionEntries([](const PermissionEntry& aPermEntry,
                                     const nsCOMPtr<nsIPrincipal>& aPrincipal) {
-    return aPrincipal->GetIsInPrivateBrowsing() &&
-           aPermEntry.mID != cIDPermissionIsDefault;
+    return aPrincipal->GetIsInPrivateBrowsing();
   });
 }
 
@@ -3134,6 +3133,10 @@ nsresult PermissionManager::RemovePermissionsWithAttributes(
     }
 
     for (const auto& permEntry : entry.GetPermissions()) {
+      // Never remove default (builtin) permissions.
+      if (permEntry.mID == cIDPermissionIsDefault) {
+        continue;
+      }
       if (aTypeExceptions.Contains(mTypeArray[permEntry.mType])) {
         continue;
       }

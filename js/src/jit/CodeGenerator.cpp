@@ -12795,7 +12795,7 @@ void CodeGenerator::visitInt32ToStringWithBase(LInt32ToStringWithBase* lir) {
   Register temp0 = ToRegister(lir->temp0());
   Register temp1 = ToRegister(lir->temp1());
 
-  bool lowerCase = lir->mir()->lowerCase();
+  bool lowerCase = lir->mir()->stringCase() == StringCase::Lower;
 
   using Fn = JSLinearString* (*)(JSContext*, int32_t, int32_t, bool);
   if (base.is<Register>()) {
@@ -20971,7 +20971,7 @@ void CodeGenerator::visitAssertClass(LAssertClass* ins) {
 }
 
 void CodeGenerator::visitAssertShape(LAssertShape* ins) {
-  Register obj = ToRegister(ins->input());
+  Register obj = ToRegister(ins->object());
 
   Label success;
   masm.branchTestObjShapeNoSpectreMitigations(Assembler::Equal, obj,

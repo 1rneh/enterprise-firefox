@@ -1032,8 +1032,10 @@
   <!--
     Customize Home
 
-    Header text for jumping back into the recent tab in customize the home screen
+    Title for the customize home screen section with privacy report.
   -->
+  <string name="customize_toggle_privacy_report">Hlášení o soukromí</string>
+  <!-- Header text for jumping back into the recent tab in customize the home screen -->
   <string name="customize_toggle_jump_back_in">Návrat zpět</string>
   <!-- Title for the customize home screen section with bookmarks. -->
   <string name="customize_toggle_bookmarks">Záložky</string>
@@ -1201,7 +1203,7 @@
   <!-- Text shown when user enters empty device name -->
   <string name="empty_device_name_error">Název zařízení nemůže být prázdný.</string>
   <!-- Label indicating that sync is in progress -->
-  <string name="sync_syncing_in_progress">Probíhá synchronizace…</string>
+  <string name="sync_syncing_in_progress">Synchronizace…</string>
   <!-- Label summary indicating that sync failed. %s is the date stamp showing last time it succeeded. -->
   <string name="sync_failed_summary">Synchronizace selhala. Poslední úspěch: %s</string>
   <!-- Label summary showing never synced -->
@@ -4118,7 +4120,7 @@
     %2$s is the string terms_of_use_prompt_link_terms_of_use (Terms of Use) that is a link to the terms of use
     %3$s is the string terms_of_use_prompt_link_privacy_notice (Privacy Notice) that is a link to the privacy notice
   -->
-  <string name="terms_of_use_prompt_message_1">Zavedli jsme pro %1$s dokument %2$s a aktualizovali jsme naše %3$s.</string>
+  <string name="terms_of_use_prompt_message_1">Zavedli jsme %2$s aplikace %1$s a aktualizovali jsme naše %3$s.</string>
   <!--
     Second part of the terms of use pop up prompt
     %1$s is the string terms_of_use_prompt_link_learn_more (Learn more) that is a link to a website with more information about the terms of use

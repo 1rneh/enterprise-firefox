@@ -24,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/FxAccountsWebChannel.sys.mjs",
 });
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "ROOT_URL",
@@ -159,6 +161,9 @@ export var FxAccountsConfig = {
       addAccountIdentifiers = false,
     }
   ) {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return null;
+    }
     await this.ensureConfigured();
     const url = new URL(path, lazy.ROOT_URL);
     this.ensureHTTPS(url.protocol);

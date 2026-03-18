@@ -247,7 +247,11 @@ pref("lightweightThemes.getMoreURL", "https://addons.mozilla.org/%LOCALE%/firefo
 // UI tour experience.
 pref("browser.uitour.enabled", true);
 pref("browser.uitour.loglevel", "Error");
+#ifdef MOZ_ENTERPRISE
+pref("browser.uitour.url", "");
+#else
 pref("browser.uitour.url", "https://www.mozilla.org/%LOCALE%/firefox/%VERSION%/tour/");
+#endif
 // How long to show a Hearbeat survey (two hours, in seconds)
 pref("browser.uitour.surveyDuration", 7200);
 
@@ -667,8 +671,8 @@ pref("browser.urlbar.keepPanelOpenDuringImeComposition", false);
 pref("browser.urlbar.groupLabels.enabled", true);
 
 // The Merino endpoint URL, not including parameters.
-#ifdef NIGHTLY_BUILD
-pref("browser.urlbar.merino.endpointURL", "https://prod.merino.prod.webservices.mozgcp.net/api/v1/suggest");
+#ifdef MOZ_ENTERPRISE
+pref("browser.urlbar.merino.endpointURL", "");
 #else
 pref("browser.urlbar.merino.endpointURL", "https://merino.services.mozilla.com/api/v1/suggest");
 #endif
@@ -1566,17 +1570,29 @@ pref("browser.zoom.full", true);
 pref("browser.zoom.updateBackgroundTabs", true);
 
 // The breakpad report server to link to in about:crashes
+#ifdef MOZ_ENTERPRISE
+pref("breakpad.reportURL", "");
+#else
 pref("breakpad.reportURL", "https://crash-stats.mozilla.org/report/index/");
+#endif
 
 // URL for "Learn More" for DataCollection
+#ifdef MOZ_ENTERPRISE
+pref("toolkit.datacollection.infoURL", "");
+#else
 pref("toolkit.datacollection.infoURL",
      "https://www.mozilla.org/legal/privacy/firefox.html");
+#endif
 
 // base URL for web-based support pages
 pref("app.support.baseURL", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/");
 
 // base url for web-based feedback pages
+#ifdef MOZ_ENTERPRISE
+pref("app.feedback.baseURL", "");
+#else
 pref("app.feedback.baseURL", "https://ideas.mozilla.org/");
+#endif
 
 pref("security.certerrors.permanentOverride", true);
 pref("security.certerrors.mitm.priming.enabled", true);
@@ -1847,11 +1863,19 @@ pref("browser.topsites.component.enabled", false);
 pref("browser.topsites.useRemoteSetting", true);
 // Fetch sponsored Top Sites from Mozilla Tiles Service (Contile)
 pref("browser.topsites.contile.enabled", true);
+#ifdef MOZ_ENTERPRISE
+pref("browser.topsites.contile.endpoint", "");
+#else
 pref("browser.topsites.contile.endpoint", "https://contile.services.mozilla.com/v1/tiles");
+#endif
 
 // The base URL for the Quick Suggest anonymizing proxy. To make a request to
 // the proxy, include a campaign ID in the path.
+#ifdef MOZ_ENTERPRISE
+pref("browser.partnerlink.attributionURL", "");
+#else
 pref("browser.partnerlink.attributionURL", "https://topsites.services.mozilla.com/cid/");
+#endif
 pref("browser.partnerlink.campaign.topsites", "amzn_2020_a1");
 
 // Activates preloading of the new tab url.
@@ -1905,9 +1929,15 @@ pref("browser.newtabpage.activity-stream.search.useHandoffComponent", true);
 pref("browser.newtabpage.activity-stream.externalComponents.enabled", true);
 
 // Mozilla Ad Routing Service (MARS) unified ads service
+#ifdef MOZ_ENTERPRISE
+pref("browser.newtabpage.activity-stream.unifiedAds.tiles.enabled", false);
+pref("browser.newtabpage.activity-stream.unifiedAds.spocs.enabled", false);
+pref("browser.newtabpage.activity-stream.unifiedAds.endpoint", "");
+#else
 pref("browser.newtabpage.activity-stream.unifiedAds.tiles.enabled", true);
 pref("browser.newtabpage.activity-stream.unifiedAds.spocs.enabled", true);
 pref("browser.newtabpage.activity-stream.unifiedAds.endpoint", "https://ads.mozilla.org/");
+#endif
 pref("browser.newtabpage.activity-stream.unifiedAds.adsFeed.enabled", false);
 #ifdef NIGHTLY_BUILD
 pref("browser.newtabpage.activity-stream.unifiedAds.ohttp.enabled", true);
@@ -1964,7 +1994,11 @@ pref("browser.newtabpage.activity-stream.newNewtabExperience.colors", "#004CA4,#
 #endif
 
 // The remote FxA root content URL for the Activity Stream firstrun page.
+#ifdef MOZ_ENTERPRISE
+pref("browser.newtabpage.activity-stream.fxaccounts.endpoint", "");
+#else
 pref("browser.newtabpage.activity-stream.fxaccounts.endpoint", "https://accounts.firefox.com/");
+#endif
 
 // The pref that controls if the search shortcuts experiment is on
 pref("browser.newtabpage.activity-stream.improvesearch.topSiteSearchShortcuts", true);
@@ -2074,7 +2108,11 @@ pref("browser.newtabpage.activity-stream.discoverystream.sections.contextualAds.
 // List of locales for contextual ads.
 pref("browser.newtabpage.activity-stream.discoverystream.sections.contextualAds.locale-config", "en-US,en-GB,en-CA");
 
+#ifdef MOZ_ENTERPRISE
+pref("browser.newtabpage.activity-stream.discoverystream.merino-provider.endpoint", "");
+#else
 pref("browser.newtabpage.activity-stream.discoverystream.merino-provider.endpoint", "merino.services.mozilla.com");
+#endif
 pref("browser.newtabpage.activity-stream.discoverystream.merino-provider.ohttp.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.ohttp.relayURL", "https://mozilla-ohttp.fastly-edge.com/");
 pref("browser.newtabpage.activity-stream.discoverystream.ohttp.configURL", "https://prod.ohttp-gateway.prod.webservices.mozgcp.net/ohttp-configs");
@@ -2316,25 +2354,49 @@ pref("browser.uiCustomization.state", "");
 pref("identity.fxaccounts.enabled", true);
 
 // The remote FxA root content URL. Must use HTTPS.
+#ifdef MOZ_ENTERPRISE
+pref("identity.fxaccounts.remote.root", "");
+#else
 pref("identity.fxaccounts.remote.root", "https://accounts.firefox.com/");
+#endif
 
 // The value of the context query parameter passed in fxa requests.
 pref("identity.fxaccounts.contextParam", "oauth_webchannel_v1");
 
 // The remote URL of the FxA Profile Server
+#ifdef MOZ_ENTERPRISE
+pref("identity.fxaccounts.remote.profile.uri", "");
+#else
 pref("identity.fxaccounts.remote.profile.uri", "https://profile.accounts.firefox.com/v1");
+#endif
 
 // The remote URL of the FxA OAuth Server
+#ifdef MOZ_ENTERPRISE
+pref("identity.fxaccounts.remote.oauth.uri", "");
+#else
 pref("identity.fxaccounts.remote.oauth.uri", "https://oauth.accounts.firefox.com/v1");
+#endif
 
 // Whether FxA pairing using QR codes is enabled.
+#ifdef MOZ_ENTERPRISE
+pref("identity.fxaccounts.pairing.enabled", false);
+#else
 pref("identity.fxaccounts.pairing.enabled", true);
+#endif
 
 // The remote URI of the FxA pairing server
+#ifdef MOZ_ENTERPRISE
+pref("identity.fxaccounts.remote.pairing.uri", "");
+#else
 pref("identity.fxaccounts.remote.pairing.uri", "wss://channelserver.services.mozilla.com");
+#endif
 
 // Token server used by the FxA Sync identity.
+#ifdef MOZ_ENTERPRISE
+pref("identity.sync.tokenserver.uri", "");
+#else
 pref("identity.sync.tokenserver.uri", "https://token.services.mozilla.com/1.0/sync/1.5");
+#endif
 
 // Auto-config URL for FxA self-hosters, makes an HTTP request to
 // [identity.fxaccounts.autoconfig.uri]/.well-known/fxa-client-configuration
@@ -2347,8 +2409,13 @@ pref("identity.sendtabpromo.url", "https://support.mozilla.org/1/firefox/%VERSIO
 
 // URLs for promo links to mobile browsers. Note that consumers are expected to
 // append a value for utm_campaign.
+#ifdef MOZ_ENTERPRISE
+pref("identity.mobilepromo.android", "");
+pref("identity.mobilepromo.ios", "");
+#else
 pref("identity.mobilepromo.android", "https://www.mozilla.org/firefox/android/?utm_source=firefox-browser&utm_medium=firefox-browser&utm_campaign=");
 pref("identity.mobilepromo.ios", "https://www.mozilla.org/firefox/ios/?utm_source=firefox-browser&utm_medium=firefox-browser&utm_campaign=");
+#endif
 
 // How often should we try to fetch missed FxA commands on sync (in seconds).
 // Default is 24 hours.
@@ -2594,6 +2661,22 @@ pref("browser.promo.cookiebanners.enabled", false);
 pref("browser.contentblocking.report.hide_vpn_banner", false);
 pref("browser.contentblocking.report.vpn_sub_id", "sub_HrfCZF7VPHzZkA");
 
+#ifdef MOZ_ENTERPRISE
+pref("browser.contentblocking.report.monitor.url", "");
+pref("browser.contentblocking.report.monitor.how_it_works.url", "");
+pref("browser.contentblocking.report.monitor.sign_in_url", "");
+pref("browser.contentblocking.report.monitor.preferences_url", "");
+pref("browser.contentblocking.report.monitor.home_page_url", "");
+pref("browser.contentblocking.report.manage_devices.url", "");
+pref("browser.contentblocking.report.endpoint_url", "");
+pref("browser.contentblocking.report.proxy_extension.url", "");
+pref("browser.contentblocking.report.mobile-ios.url", "");
+pref("browser.contentblocking.report.mobile-android.url", "");
+pref("browser.contentblocking.report.vpn.url", "");
+pref("browser.contentblocking.report.vpn-promo.url", "");
+pref("browser.contentblocking.report.vpn-android.url", "");
+pref("browser.contentblocking.report.vpn-ios.url", "");
+#else
 pref("browser.contentblocking.report.monitor.url", "https://monitor.firefox.com/?entrypoint=protection_report_monitor&utm_source=about-protections");
 pref("browser.contentblocking.report.monitor.how_it_works.url", "https://monitor.firefox.com/about");
 pref("browser.contentblocking.report.monitor.sign_in_url", "https://monitor.firefox.com/oauth/init?entrypoint=protection_report_monitor&utm_source=about-protections&email=");
@@ -2608,6 +2691,7 @@ pref("browser.contentblocking.report.vpn.url", "https://vpn.mozilla.org/?utm_sou
 pref("browser.contentblocking.report.vpn-promo.url", "https://vpn.mozilla.org/?utm_source=firefox-browser&utm_medium=firefox-browser&utm_campaign=about-protections-top-promo");
 pref("browser.contentblocking.report.vpn-android.url", "https://play.google.com/store/apps/details?id=org.mozilla.firefox.vpn&referrer=utm_source%3Dfirefox-browser%26utm_medium%3Dfirefox-browser%26utm_campaign%3Dabout-protections-mobile-vpn%26anid%3D--");
 pref("browser.contentblocking.report.vpn-ios.url", "https://apps.apple.com/us/app/firefox-private-network-vpn/id1489407738");
+#endif
 
 // Protection Report's SUMO urls
 pref("browser.contentblocking.report.lockwise.how_it_works.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/password-manager-report");
@@ -2811,8 +2895,12 @@ pref("extensions.formautofill.creditCards.os-auth.locked.enabled", false);
 // The utm_creative value is appended within the code (specific to the location on
 // where it is clicked). Be sure that if these two prefs are updated, that
 // the utm_creative param be last.
+#ifdef MOZ_ENTERPRISE
+pref("signon.management.page.breachAlertUrl", "");
+#else
 pref("signon.management.page.breachAlertUrl",
      "https://monitor.firefox.com/breach-details/");
+#endif
 pref("signon.passwordEditCapture.enabled", true);
 pref("signon.relatedRealms.enabled", false);
 pref("signon.showAutoCompleteFooter", true);
@@ -2871,13 +2959,21 @@ pref("doh-rollout.clearModeOnShutdown", false);
 pref("network.trr_ui.fallback_was_checked", true);
 
 // Normandy client preferences
+#ifdef MOZ_ENTERPRISE
+pref("app.normandy.api_url", "");
+#else
 pref("app.normandy.api_url", "https://normandy.cdn.mozilla.net/api/v1");
+#endif
 pref("app.normandy.dev_mode", false);
 pref("app.normandy.enabled", true);
 pref("app.normandy.first_run", true);
 pref("app.normandy.logging.level", 50); // Warn
 pref("app.normandy.run_interval_seconds", 21600); // 6 hours
+#ifdef MOZ_ENTERPRISE
+pref("app.normandy.shieldLearnMoreUrl", "");
+#else
 pref("app.normandy.shieldLearnMoreUrl", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/shield");
+#endif
 pref("app.normandy.last_seen_buildid", "");
 pref("app.normandy.onsync_skew_sec", 600);
 #ifdef MOZ_DATA_REPORTING
@@ -2914,7 +3010,11 @@ pref("app.normandy.onsync_skew_sec", 600);
 
 // Coverage ping is disabled by default.
 pref("toolkit.coverage.enabled", false);
+#ifdef MOZ_ENTERPRISE
+pref("toolkit.coverage.endpoint.base", "");
+#else
 pref("toolkit.coverage.endpoint.base", "https://coverage.mozilla.org");
+#endif
 
 // Discovery prefs
 pref("browser.discovery.enabled", true);
@@ -3595,7 +3695,11 @@ pref("browser.ipProtection.features.siteExceptions", true);
 // Pref to show confirmation hints for site exceptions
 pref("browser.ipProtection.siteExceptionsHintsEnabled", true);
 pref("browser.ipProtection.log", false);
+#ifdef MOZ_ENTERPRISE
+pref("browser.ipProtection.guardian.endpoint", "");
+#else
 pref("browser.ipProtection.guardian.endpoint", "https://vpn.mozilla.org/");
+#endif
 pref("browser.ipProtection.added", false);
 // Pref to track whether the user has upgraded to Mozilla VPN
 pref("browser.ipProtection.hasUpgraded", false);

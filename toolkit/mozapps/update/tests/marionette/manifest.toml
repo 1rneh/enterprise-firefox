@@ -2,6 +2,6 @@
 
 ["test_no_window_update_restart.py"]
 run-if = [
-  "os == 'mac'",
+  "os == 'mac' && !enterprise", # Bug 2019348 - Test is failing and there is a "profile missing" window visible
 ]
 reason = "Test of a mac only feature"

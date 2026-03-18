@@ -117,6 +117,10 @@ impl FeltXPCOM {
         self.send(FeltMessage::RestartForced)
     }
 
+    fn SendUpdateReady(&self) -> nserror::nsresult {
+        self.send(FeltMessage::UpdateReady)
+    }
+
     fn SendTokens(&self) -> nserror::nsresult {
         if self.is_felt_browser {
             let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");

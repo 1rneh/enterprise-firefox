@@ -61,6 +61,7 @@ pub enum FeltMessage {
     Restarting,
     LogoutShutdown,
     Exiting,
+    UpdateReady,
 }
 
-pub const FELT_IPC_VERSION: u32 = 5;
+pub const FELT_IPC_VERSION: u32 = 6;

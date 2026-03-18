@@ -22,6 +22,16 @@ subsuite = "enterprise"
 
 ["test_felt_browser_new_window_from_cli.py"]
 
+["test_felt_browser_rapid_new_tabs_from_cli.py"]
+run-if = [
+  "os == 'mac'",
+]
+
+["test_felt_browser_rapid_new_windows_from_cli.py"]
+run-if = [
+  "os == 'mac'",
+]
+
 ["test_felt_browser_restart_is_quit.py"]
 
 ["test_felt_browser_restart_works.py"]
@@ -35,6 +45,14 @@ subsuite = "enterprise"
 ["test_felt_browser_signout_verify.py"]
 
 ["test_felt_browser_starts.py"]
+
+["test_felt_browser_updates_apply.py"]
+
+["test_felt_browser_updates_basic.py"]
+
+["test_felt_browser_updates_errors.py"]
+
+["test_felt_browser_updates_forward.py"]
 
 ["test_felt_device_posture.py"]
 

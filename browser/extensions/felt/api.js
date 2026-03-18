@@ -9,11 +9,14 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  UpdateListener: "resource://gre/modules/UpdateListener.sys.mjs",
   FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   isBlockingShutdown: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  shouldNotCloseWindow:
+    "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 this.felt = class extends ExtensionAPI {
@@ -168,6 +171,14 @@ this.felt = class extends ExtensionAPI {
     },
   };
 
+  updateObserver = {
+    observe(aSubject, aTopic, _aData) {
+      if (aTopic === "felt-update-ready") {
+        lazy.UpdateListener.showRestartNotification("", /* dismissed */ true);
+      }
+    },
+  };
+
   async onStartup() {
     if (Services.felt.isFeltUI()) {
       Services.prefs.setBoolPref("identity.fxaccounts.enabled", false);
@@ -178,10 +189,14 @@ this.felt = class extends ExtensionAPI {
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxLogoutExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
-      Services.ppmm.addMessageListener("FeltParent:FirefoxStarting", this);
+      Services.ppmm.addMessageListener(
+        "FeltParent:TransitionFeltToBackground",
+        this
+      );
     } else if (Services.felt.isFeltBrowser()) {
       // In the real Firefox, register observer to handle URLs
       Services.obs.addObserver(this.urlObserver, "felt-open-url");
+      Services.obs.addObserver(this.updateObserver, "felt-update-ready");
       // Notify that extension is ready to receive URLs
       try {
         Services.felt.sendExtensionReady();
@@ -206,7 +221,7 @@ this.felt = class extends ExtensionAPI {
           Services.startup.quit(
             Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
           );
-        } else {
+        } else if (!this._win) {
           Services.felt.makeBackgroundProcess(false);
           this.showWindow();
         }
@@ -227,7 +242,7 @@ this.felt = class extends ExtensionAPI {
         break;
       }
 
-      case "FeltParent:FirefoxStarting": {
+      case "FeltParent:TransitionFeltToBackground": {
         Services.startup.enterLastWindowClosingSurvivalArea();
         this.closeWindow();
         const success = Services.felt.makeBackgroundProcess(true);
@@ -257,6 +272,11 @@ this.felt = class extends ExtensionAPI {
 
   closeWindow() {
     console.debug(`FeltExtension: closeWindow: this._win=${this._win}`);
+    if (lazy.shouldNotCloseWindow()) {
+      // Some tests needs to run code on FELT while Browser is running, and
+      // this requires the window to be kept alive.
+      return;
+    }
     Services.ww.unregisterNotification(this._winObserver);
     this._win.close();
     this._win = null;
@@ -298,6 +318,7 @@ this.felt = class extends ExtensionAPI {
 
     if (Services.felt.isFeltBrowser()) {
       Services.obs.removeObserver(this.urlObserver, "felt-open-url");
+      Services.obs.removeObserver(this.updateObserver, "felt-update-ready");
     }
 
     Services.ppmm.removeMessageListener("FeltChild:Loaded", this);

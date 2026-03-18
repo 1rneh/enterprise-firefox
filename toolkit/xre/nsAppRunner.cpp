@@ -308,6 +308,14 @@ constexpr nsLiteralCString kStartupTokenNames[] = {
 };
 #endif
 
+// Keep this synchronized with the value of the same name in
+// devtools/client/framework/browser-toolbox/Launcher.sys.mjs.  Or, for bonus
+// points, lift this value to nsIXulRuntime or similar, so that it can be
+// accessed in both locations.  (The prefs service isn't available at this
+// point so the simplest manner of sharing the value is not available to us.)
+const char* BROWSER_TOOLBOX_WINDOW_URL =
+    "chrome://devtools/content/framework/browser-toolbox/window.html";
+
 int gArgc;
 char** gArgv;
 
@@ -4453,6 +4461,13 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 #endif
 
 #ifdef XP_MACOSX
+#  ifdef MOZ_ENTERPRISE
+  // Suppress dock icon before NSApp initialization. The dock icon will be
+  // restored after the remoting check. Remoting clients (processes that just
+  // forward a URL to an existing instance) exit before restoration, preventing
+  // transient dock icon flash on rapid link clicks (bug 2002462).
+  SuppressMacDockIcon();
+#  endif
   // Set up ability to respond to system (Apple) events. This must occur before
   // ProcessUpdates to ensure that links clicked in external applications aren't
   // lost when updates are pending.
@@ -4691,7 +4706,8 @@ enum struct ShouldNotProcessUpdatesReason {
   DevToolsLaunching,
   NotAnUpdatingTask,
   OtherInstanceRunning,
-  FirstStartup
+  FirstStartup,
+  FeltOnlyUpdates,
 };
 
 const char* ShouldNotProcessUpdatesReasonAsString(
@@ -4703,9 +4719,17 @@ const char* ShouldNotProcessUpdatesReasonAsString(
       return "NotAnUpdatingTask";
     case ShouldNotProcessUpdatesReason::OtherInstanceRunning:
       return "OtherInstanceRunning";
+    case ShouldNotProcessUpdatesReason::FeltOnlyUpdates:
+      return "FeltOnlyUpdates";
     default:
       MOZ_CRASH("impossible value for ShouldNotProcessUpdatesReason");
   }
+}
+
+bool IsLaunchingBrowserDevtools() {
+  const char* chromeParam = nullptr;
+  return (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) &&
+         (strcmp(chromeParam, BROWSER_TOOLBOX_WINDOW_URL) == 0);
 }
 
 Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
@@ -4718,23 +4742,19 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
     return Some(ShouldNotProcessUpdatesReason::FirstStartup);
   }
 
+#  if defined(MOZ_ENTERPRISE)
+  // Don't process updates when launching a Browser from FELT, only Felt should
+  // perform that step
+  if (!is_felt_ui()) {
+    return Some(ShouldNotProcessUpdatesReason::FeltOnlyUpdates);
+  }
+#  endif
+
   // Do not process updates if we're launching devtools, as evidenced by
   // "--chrome ..." with the browser toolbox chrome document URL.
-
-  // Keep this synchronized with the value of the same name in
-  // devtools/client/framework/browser-toolbox/Launcher.sys.mjs.  Or, for bonus
-  // points, lift this value to nsIXulRuntime or similar, so that it can be
-  // accessed in both locations.  (The prefs service isn't available at this
-  // point so the simplest manner of sharing the value is not available to us.)
-  const char* BROWSER_TOOLBOX_WINDOW_URL =
-      "chrome://devtools/content/framework/browser-toolbox/window.html";
-
-  const char* chromeParam = nullptr;
-  if (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) {
-    if (!chromeParam || !strcmp(BROWSER_TOOLBOX_WINDOW_URL, chromeParam)) {
-      NS_WARNING("ShouldNotProcessUpdates(): DevToolsLaunching");
-      return Some(ShouldNotProcessUpdatesReason::DevToolsLaunching);
-    }
+  if (IsLaunchingBrowserDevtools()) {
+    NS_WARNING("ShouldNotProcessUpdates(): DevToolsLaunching");
+    return Some(ShouldNotProcessUpdatesReason::DevToolsLaunching);
   }
 
 #  ifdef MOZ_BACKGROUNDTASKS
@@ -5204,6 +5224,11 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
     }
   }
 #endif /* MOZ_HAS_REMOTE */
+
+#if defined(XP_MACOSX) && defined(MOZ_ENTERPRISE)
+  // Not a remoting client — restore the dock icon for the main process.
+  RestoreMacDockIcon();
+#endif
 
 #if defined(MOZ_UPDATER) && !defined(MOZ_WIDGET_ANDROID)
 #  ifdef XP_WIN
@@ -5757,6 +5782,17 @@ nsresult XREMain::XRE_mainRun() {
     // files can't override JS engine start-up prefs.
     mDirProvider.FinishInitializingUserPrefs();
 
+#if defined(MOZ_ENTERPRISE)
+    {
+      nsAutoCString consoleAddress;
+      rv =
+          Preferences::GetCString("enterprise.console.address", consoleAddress);
+      if (NS_SUCCEEDED(rv)) {
+        XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get());
+      }
+    }
+#endif
+
     // Now that the profiler, directory services, and prefs have been
     // initialized we can find the download directory, where the profiler can
     // write profiles when user stops the profiler using POSIX signal handling.
@@ -6121,12 +6157,12 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 #  endif
 
     const bool requestedHeadless = RequestedHeadlessMode();
-
     // Allow standalone launch for automated testing and development
     allowStandaloneLaunch =
         allowStandaloneLaunch || EnvHasValue("MOZ_AUTOMATION") ||
         PR_GetEnv("MOZ_RUN_GTEST") || requestedHeadless ||
-        CheckArgExists("marionette") || CheckArgExists("remote-debugging-port");
+        CheckArgExists("marionette") ||
+        CheckArgExists("remote-debugging-port") || IsLaunchingBrowserDevtools();
 
     if (!allowStandaloneLaunch && !is_felt_ui() && !is_felt_browser()) {
       Output(true,

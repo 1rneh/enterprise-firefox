@@ -267,6 +267,94 @@ add_task(async function test_IPPProxyManager_unpause_on_available() {
 });
 
 /**
+ * Tests that turning off the VPN refreshes usage and transitions to PAUSED
+ * when bandwidth quota is exceeded.
+ */
+add_task(async function test_IPPProxyManager_update_usage_on_stop() {
+  const sandbox = sinon.createSandbox();
+  IPPProxyManager.reset();
+  setupService({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+  });
+
+  IPProtectionService.updateState();
+  Assert.equal(
+    IPProtectionService.state,
+    IPProtectionStates.READY,
+    "Should be in READY state"
+  );
+
+  // Open panel and click the button to turn VPN on
+  let content = await openPanel();
+  let statusCard = content.statusCardEl;
+  let actionButton = statusCard.actionButtonEl;
+
+  Assert.ok(actionButton, "Turn on button should be shown");
+
+  actionButton.click();
+  await waitForProxyState(IPPProxyStates.ACTIVE);
+
+  Assert.equal(
+    IPPProxyManager.state,
+    IPPProxyStates.ACTIVE,
+    "IPPProxyManager state should be ACTIVE after clicking turn on"
+  );
+
+  // Set usage to half
+  const used = BigInt(2684354560).toString(); // 2.5 GB
+  const quotaHalfUsage = makeUsage("5368709120", used);
+  setupService({
+    usageInfo: quotaHalfUsage,
+  });
+
+  // Turn off VPN via the panel button
+  const usageChangePromise = BrowserTestUtils.waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:UsageChanged"
+  );
+  actionButton.click();
+  await waitForProxyState(IPPProxyStates.READY);
+  await usageChangePromise;
+
+  const statusBoxEl = statusCard.statusBoxEl;
+  const bandwidthEl = statusBoxEl.shadowRoot
+    .querySelector(`slot[name="bandwidth"]`)
+    .assignedElements()[0];
+  await bandwidthEl.updateComplete;
+
+  Assert.equal(
+    bandwidthEl.remaining,
+    used,
+    "Bandwidth element should show the updated remaining bandwidth"
+  );
+
+  // Start the VPN again
+  actionButton.click();
+  await waitForProxyState(IPPProxyStates.ACTIVE);
+
+  // Set usage to exceed the bandwidth quota while active
+  const quotaExceededUsage = makeUsage("5368709120", "0");
+  setupService({
+    usageInfo: quotaExceededUsage,
+  });
+
+  // Turn off VPN via the panel button
+  actionButton.click();
+  await waitForProxyState(IPPProxyStates.PAUSED);
+
+  Assert.equal(
+    IPPProxyManager.state,
+    IPPProxyStates.PAUSED,
+    "IPPProxyManager state should be PAUSED after stopping with exceeded quota"
+  );
+
+  await closePanel();
+  sandbox.restore();
+  cleanupService();
+});
+
+/**
  * Tests that re-opening the panel when the IPPProxyManager state is ACTIVE does not reset the state (Bug 2021236).
  */
 add_task(async function test_IPPProxyManager_active_shown() {
@@ -316,5 +404,129 @@ add_task(async function test_IPPProxyManager_active_shown() {
 
   await closePanel();
   sandbox.restore();
+  cleanupService();
+});
+
+/**
+ * Tests that the paused modal isn't shown when quota is exceeded during activation.
+ */
+add_task(async function test_IPPProxyManager_paused_on_activation() {
+  IPPProxyManager.reset();
+
+  setupService({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+  });
+  IPProtectionService.updateState();
+
+  let content = await openPanel();
+
+  let statusCard = content.statusCardEl;
+  let actionButton = statusCard.actionButtonEl;
+
+  Assert.ok(actionButton, "Turn on button should be shown");
+
+  // Pause the service
+  const quotaExceededUsage = makeUsage("5368709120", "0");
+  setupService({
+    proxyPass: {
+      status: 429,
+      error: "quota_exceeded",
+      pass: null,
+      usage: quotaExceededUsage,
+    },
+  });
+
+  actionButton.click();
+
+  await waitForProxyState(IPPProxyStates.PAUSED);
+  Assert.equal(
+    IPPProxyManager.state,
+    IPPProxyStates.PAUSED,
+    "IPPProxyManager state should be paused after quota is exceeded"
+  );
+
+  Assert.ok(!window.gDialogBox?.isOpen, "Paused dialog is not shown");
+
+  await closePanel();
+  cleanupService();
+});
+
+/**
+ * Tests that calling rotateProxyPass when quota is exceeded moves to PAUSED state,
+ * not ERROR state (Bug 2022865).
+ */
+add_task(async function test_IPPProxyManager_rotateProxyPass_when_paused() {
+  IPPProxyManager.reset();
+
+  setupService({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+  });
+  IPProtectionService.updateState();
+
+  let content = await openPanel();
+
+  let statusCard = content.statusCardEl;
+  let actionButton = statusCard.actionButtonEl;
+
+  Assert.ok(actionButton, "Turn on button should be shown");
+
+  actionButton.click();
+
+  await waitForProxyState(IPPProxyStates.ACTIVE);
+
+  Assert.equal(
+    IPPProxyManager.state,
+    IPPProxyStates.ACTIVE,
+    "IPPProxyManager state should be active after clicking turn on"
+  );
+
+  // Simulate quota exceeded response from fetchProxyPass
+  const quotaExceededUsage = makeUsage("5368709120", "0");
+  setupService({
+    proxyPass: {
+      status: 429,
+      error: "quota_exceeded",
+      pass: null,
+      usage: quotaExceededUsage,
+    },
+  });
+
+  await IPPProxyManager.rotateProxyPass();
+
+  await waitForProxyState(IPPProxyStates.PAUSED);
+  Assert.equal(
+    IPPProxyManager.state,
+    IPPProxyStates.PAUSED,
+    "rotateProxyPass with exceeded quota should move to PAUSED, not ERROR"
+  );
+
+  // Check that the paused dialog is shown
+  await TestUtils.waitForCondition(
+    () => window.gDialogBox.isOpen,
+    "Wait for the dialog to exist"
+  );
+  Assert.ok(window.gDialogBox.isOpen, "Dialog exists and is open");
+
+  // Close the dialog
+  await TestUtils.waitForCondition(
+    () =>
+      window.gDialogBox.dialog._frame.contentDocument.getElementById(
+        "titleContainer"
+      ),
+    "Wait for the dialog to load"
+  );
+  let dialogDoc = window.gDialogBox.dialog._frame.contentDocument;
+  dialogDoc
+    .getElementById("commonDialog")
+    .shadowRoot.querySelector("button[dlgtype='accept']")
+    .click();
+  await TestUtils.waitForCondition(
+    () => !window.gDialogBox.isOpen,
+    "Wait for the dialog to not exist"
+  );
+
+  await closePanel();
   cleanupService();
 });

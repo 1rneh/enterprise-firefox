@@ -155,20 +155,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/api/browser/hacks/default":
             # Browser prefs that can be applied live
             m = json.dumps({
-                "prefs": felt_consts.live_prefs
-                + [
-                    [
-                        "identity.sync.tokenserver.uri",
-                        "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5",
-                    ]
-                ]
-            })
-            contentType = "application/json"
-        elif path == "/api/browser/hacks/startup":
-            # Browser prefs that needs to be set in the prefs.js file
-            m = json.dumps({
-                "prefs": felt_consts.userjs_prefs + [["marionette.port", 0]],
-            })
+                "prefs": felt_consts.config_prefs + [["marionette.port", 0]]})
             contentType = "application/json"
 
         elif path == "/api/browser/policies":

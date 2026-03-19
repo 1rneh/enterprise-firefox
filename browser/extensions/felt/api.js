@@ -174,7 +174,14 @@ this.felt = class extends ExtensionAPI {
   updateObserver = {
     observe(aSubject, aTopic, _aData) {
       if (aTopic === "felt-update-ready") {
-        lazy.UpdateListener.showRestartNotification("", /* dismissed */ true);
+        // Directly call showUpdateNotification to bypass other instance update
+        // checking
+        lazy.UpdateListener.showUpdateNotification(
+          "restart",
+          () => lazy.UpdateListener.requestRestart(),
+          true,
+          { dismissed: true }
+        );
       }
     },
   };

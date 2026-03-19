@@ -54,7 +54,7 @@ export const EnterpriseEndpoints = {
     }
 
     for (const pref of BASE_CONSOLE_URI_PREFS) {
-      defaultBranch.setStringPref(pref, consoleBaseURI);
+      defaultBranch.setStringPref(pref, consoleBaseURI.href);
     }
   },
 };

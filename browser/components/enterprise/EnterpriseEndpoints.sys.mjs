@@ -16,7 +16,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
   });
 });
 
-const RELATIVE_CONSOLE_ENDPOINT_PREFS = [
+export const RELATIVE_CONSOLE_ENDPOINT_PREFS = [
   {
     pref: "security.certerrors.mitm.priming.endpoint",
     path: "api/misc/mitm/",
@@ -35,14 +35,14 @@ const RELATIVE_CONSOLE_ENDPOINT_PREFS = [
   },
 ];
 
-const BASE_CONSOLE_URI_PREFS = new Set([
+export const BASE_CONSOLE_URI_PREFS = new Set([
   "browser.ipProtection.guardian.endpoint",
   "identity.fxaccounts.remote.root",
 ]);
 
 export const EnterpriseEndpoints = {
   init() {
-    lazy.log.log("Setting enterprise endpoints");
+    lazy.log.info("Setting and locking enterprise endpoints");
 
     const consoleBaseURI = lazy.ConsoleClient.consoleBaseURI;
 

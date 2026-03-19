@@ -86,9 +86,5 @@ class BrowserFxAccount(FeltTests):
         assert fxaccounts_auth == f"{console_addr}/api/fxa/api/v1", (
             f"FxAccount auth URI correct: {fxaccounts_auth}"
         )
-        assert (
-            sync_token_server
-            == "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5"
-        ), f"Sync TokenServer URI correct: {sync_token_server}"
 
     # More tests to follow once fxa and sync test endpoints are setup

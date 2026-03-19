@@ -21,7 +21,6 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 // See https://github.com/mozilla/enterprise-firefox/commit/937f94b78c4c759f3b2a06c8ac52c5accb688c31
 // We are replacing some here. But we need to take a look at the missing ones to avoid breakage.
 
-
 export const RELATIVE_CONSOLE_ENDPOINT_PREFS = [
   {
     pref: "security.certerrors.mitm.priming.endpoint",

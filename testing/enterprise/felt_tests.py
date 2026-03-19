@@ -155,7 +155,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/api/browser/hacks/default":
             # Browser prefs that can be applied live
             m = json.dumps({
-                "prefs": felt_consts.config_prefs + [["marionette.port", 0]]})
+                "prefs": felt_consts.config_prefs + [["marionette.port", 0]]
+            })
             contentType = "application/json"
 
         elif path == "/api/browser/policies":

@@ -51,10 +51,12 @@ export const EnterpriseEndpoints = {
     for (const { pref, path } of RELATIVE_CONSOLE_ENDPOINT_PREFS) {
       const url = new URL(path, consoleBaseURI).href;
       defaultBranch.setStringPref(pref, url);
+      Services.prefs.lockPref(pref);
     }
 
     for (const pref of BASE_CONSOLE_URI_PREFS) {
       defaultBranch.setStringPref(pref, consoleBaseURI.href);
+      Services.prefs.lockPref(pref);
     }
   },
 };

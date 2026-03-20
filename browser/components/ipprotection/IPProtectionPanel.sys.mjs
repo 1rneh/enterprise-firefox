@@ -352,10 +352,6 @@ export class IPProtectionPanel {
       this.initiatedUpgrade = false;
     }
 
-    if (!this.state.unauthenticated) {
-      lazy.IPPProxyManager.refreshUsage();
-    }
-
     this.#updateSiteData();
 
     this.setState({
@@ -491,10 +487,6 @@ export class IPProtectionPanel {
   } = {}) {
     let window = this.#window.get();
     let browser = window.gBrowser;
-
-    if (lazy.IPPSignInWatcher.isSignedIn) {
-      return true;
-    }
 
     // Close the panel if the user will need to sign in.
     this.close();

@@ -111,10 +111,6 @@ export class AIWindow extends MozLitElement {
   #conversation = null;
   #memoriesButton = null;
   #memoriesToggled = null;
-
-  get #memoriesIconShown() {
-    return this.memoriesConversationPref || this.memoriesHistoryPref;
-  }
   #visibilityChangeHandler;
   #starters = [];
   #smartbarResizeObserver = null;
@@ -137,6 +133,10 @@ export class AIWindow extends MozLitElement {
    */
   get #hostBrowser() {
     return window.browsingContext?.embedderElement || null;
+  }
+
+  get #memoriesIconShown() {
+    return this.memoriesConversationPref || this.memoriesHistoryPref;
   }
 
   #detectModeFromContext() {
@@ -280,6 +280,10 @@ export class AIWindow extends MozLitElement {
       "chat-conversation:message-update",
       this.#onMessageUpdate
     );
+    this.#conversation.on(
+      "chat-conversation:message-complete",
+      this.#onMessageComplete
+    );
   }
 
   #removeConversationListeners() {
@@ -291,11 +295,23 @@ export class AIWindow extends MozLitElement {
       "chat-conversation:message-update",
       this.#onMessageUpdate
     );
+    this.#conversation.off(
+      "chat-conversation:message-complete",
+      this.#onMessageComplete
+    );
   }
 
-  #onMessageUpdate = (event, message) => {
+  #onMessageUpdate = (_event, message) => {
     this.#dispatchMessageToChatContent(message);
   };
+
+  onMemoriesApplied() {
+    Glean.smartWindow.memoryApplied.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+    });
+  }
 
   /**
    * Gets the conversation id from data-conversation-id attribute
@@ -540,7 +556,7 @@ export class AIWindow extends MozLitElement {
       return;
     }
 
-    if (this.#conversation?.messages?.length) {
+    if (this.#conversation?.messageCount) {
       return;
     }
 
@@ -763,9 +779,7 @@ export class AIWindow extends MozLitElement {
    * @private
    */
   #handleSmartbarCommit = event => {
-    Glean.smartWindow.chatSubmit.record({
-      chat_id: this.conversationId,
-    });
+    Glean.smartWindow.chatSubmit.record({ chat_id: this.conversationId });
 
     lazy.log.debug(
       "chatId[%s]: %s",
@@ -869,9 +883,20 @@ export class AIWindow extends MozLitElement {
     );
   }
 
-  #handleMemoriesToggle = event => {
+  #handleMemoriesToggle = async event => {
+    let memoriesCount = 0;
+    try {
+      const memories = await lazy.MemoriesManager.getAllMemories();
+      memoriesCount = memories.length;
+    } catch (e) {
+      console.error("Failed to count memories", e);
+    }
+
     Glean.smartWindow.memoriesToggle.record({
+      location: this.mode,
       chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+      memories: memoriesCount,
       toggle: event.detail.pressed,
     });
 
@@ -905,7 +930,7 @@ export class AIWindow extends MozLitElement {
     Glean.smartWindow.quickPromptDisplayed.record({
       location: this.mode,
       chat_id: this.conversationId,
-      message_seq: this.#conversation.messages.length,
+      message_seq: this.#conversation?.messageCount ?? 0,
       prompts,
     });
   };
@@ -921,10 +946,18 @@ export class AIWindow extends MozLitElement {
     Glean.smartWindow.quickPromptClicked.record({
       location: this.mode,
       chat_id: this.conversationId,
-      message_seq: this.#conversation.messages.length,
+      message_seq: this.#conversation?.messageCount ?? 0,
       starter,
     });
     this.submitChatMessage(text);
+  }
+
+  onOpenLink() {
+    Glean.smartWindow.linkClick.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+    });
   }
 
   /**
@@ -1076,14 +1109,9 @@ export class AIWindow extends MozLitElement {
           formattedPrompt,
           pageUrl,
           engineInstance,
-          userOpts
+          userOpts,
+          skipUserDispatch
         );
-
-        if (!skipUserDispatch) {
-          this.#dispatchMessageToChatContent(
-            this.#conversation.messages.at(-1)
-          );
-        }
 
         // @todo
         // fill out these assistant message flags
@@ -1096,17 +1124,24 @@ export class AIWindow extends MozLitElement {
       await lazy.Chat.fetchWithHistory(this.#conversation, engineInstance, {
         inputText,
         browsingContext: this.#getBrowsingContext(),
+        telemetry: {
+          location: this.mode,
+        },
       });
-
-      const lastMsg = this.#conversation.messages.at(-1);
-      const followupCount = lastMsg?.tokens?.followup?.length;
-      if (followupCount) {
-        this.onQuickPromptDisplayed(followupCount);
-      }
     } catch (e) {
       this.showSearchingIndicator(false, null);
       this.#handleError(e);
       this.requestUpdate?.();
+    }
+  };
+
+  #onMessageComplete = (_event, msg) => {
+    const followupCount = msg?.tokens?.followup?.length;
+    if (followupCount) {
+      this.onQuickPromptDisplayed(followupCount);
+    }
+    if (msg?.memoriesApplied?.length) {
+      this.onMemoriesApplied();
     }
   };
 
@@ -1270,7 +1305,7 @@ export class AIWindow extends MozLitElement {
    * @param {ChatConversation} conversation
    */
   openConversation(conversation) {
-    if (conversation?.messages?.length) {
+    if (conversation?.messageCount) {
       this.#swapConversation(conversation);
 
       this.#syncHistoryState();
@@ -1279,7 +1314,7 @@ export class AIWindow extends MozLitElement {
         document.title = this.#conversation.title;
       }
       this.#updateTabFavicon();
-      this.hostBrowser?.setAttribute(
+      this.#hostBrowser?.setAttribute(
         "data-conversation-id",
         this.#conversation.id
       );
@@ -1406,6 +1441,11 @@ export class AIWindow extends MozLitElement {
         break;
 
       case "retry-without-memories":
+        Glean.smartWindow.retryNoMemories.record({
+          location: this.mode,
+          chat_id: this.conversationId,
+          message_seq: this.#conversation?.messageCount ?? 0,
+        });
         this.#retryFromAssistantMessageId(messageId, false);
         break;
 
@@ -1415,6 +1455,16 @@ export class AIWindow extends MozLitElement {
 
       case "remove-applied-memory":
         this.#removeAppliedMemory(messageId, memory);
+        break;
+
+      case "toggle-applied-memories":
+        if (data.open) {
+          Glean.smartWindow.memoryAppliedClick.record({
+            location: this.mode,
+            chat_id: this.conversationId,
+            message_seq: this.#conversation?.messageCount ?? 0,
+          });
+        }
         break;
     }
   }
@@ -1485,7 +1535,10 @@ export class AIWindow extends MozLitElement {
   async #removeAppliedMemory(messageId, memory) {
     try {
       const memoryId = memory.id;
-      const deleted = await lazy.MemoriesManager.hardDeleteMemoryById(memoryId);
+      const deleted = await lazy.MemoriesManager.hardDeleteMemoryById(
+        memoryId,
+        "assistant"
+      );
       if (!deleted) {
         console.warn("hardDeleteMemory returned false", memoryId);
       }

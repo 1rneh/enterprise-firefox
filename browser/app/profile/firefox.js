@@ -2622,6 +2622,13 @@ pref("browser.contentblocking.report.monitor.enabled", false);
 // Disable Protections report's Proxy card by default.
 pref("browser.contentblocking.report.proxy.enabled", false);
 
+// Enable Protections report's Privacy Metrics card on Nightly only.
+#ifdef NIGHTLY_BUILD
+  pref("browser.contentblocking.report.privacy_metrics.enabled", true);
+#else
+  pref("browser.contentblocking.report.privacy_metrics.enabled", false);
+#endif
+
 // Disable the mobile promotion by default.
 pref("browser.contentblocking.report.show_mobile_app", true);
 
@@ -3518,8 +3525,8 @@ pref("browser.places.interactions.enabled", true);
 // If the user has seen the Firefox View feature tour this value reflects
 // the id of the last screen they saw and whether they completed the tour
 pref("browser.firefox-view.feature-tour", "{\"screen\":\"FIREFOX_VIEW_SPOTLIGHT\",\"complete\":false}");
-// Number of times the user visited about:firefoxview
-pref("browser.firefox-view.view-count", 0);
+// Number of times the user visited about:firefoxview via the button/hidden tab in the past 30 days
+pref("browser.firefox-view.button-clicks", "{\"count\":0,\"lastCountTime\":\"\"}");
 // Maximum number of rows to show on the "History" page (0 = unlimited).
 pref("browser.firefox-view.max-history-rows", 0);
 // Enables virtual list functionality in Firefox View.

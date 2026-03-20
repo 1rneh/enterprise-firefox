@@ -136,6 +136,10 @@ export class AIChatContent extends MozLitElement {
     this.addEventListener("remove-applied-memory", event => {
       this.#dispatchAction("remove-applied-memory", event.detail);
     });
+
+    this.addEventListener("toggle-applied-memories", event => {
+      this.#dispatchAction("toggle-applied-memories", event.detail);
+    });
   }
 
   #getAssistantMessageBody(messageId) {
@@ -293,7 +297,7 @@ export class AIChatContent extends MozLitElement {
       content,
       memoriesApplied,
       webSearchQueries,
-      followUpSuggestions,
+      followUpSuggestions = [],
     } = event.detail;
 
     if (typeof content.body !== "string" || !content.body) {

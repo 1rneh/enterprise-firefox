@@ -429,7 +429,7 @@ impl ReportCrash {
         let crash_ui = ReportCrashUI::new(
             &*self.settings.borrow(),
             self.config.clone(),
-            logic_remote_queue,
+            logic_remote_queue.clone(),
         );
 
         // Set the UI remote queue.
@@ -444,6 +444,15 @@ impl ReportCrash {
         }
         let logic_panic_handler = PanicHandler(Arc::downgrade(&crash_ui_async_task));
         self.ui = Some(crash_ui_async_task);
+
+        #[cfg(feature = "enterprise")]
+        // Set up logic thread to immediately send the report
+        // Normally we might do this asynchronously because it blocks,
+        // but with policy_auto_submit, the UI is intentionally not interactive until after the send completes,
+        // so we won't need the logic thread to be unblocked.
+        if self.config.policy_auto_submit {
+            logic_remote_queue.push(|s| { s.try_send(); });
+        }
 
         // Spawn a separate thread to handle all interactions with `self`. This prevents blocking
         // the UI for any reason.

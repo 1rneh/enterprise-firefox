@@ -18,7 +18,7 @@ import {
   CONVERSATION_STATUS,
   MESSAGE_ROLE,
   SYSTEM_PROMPT_TYPE,
-} from "./ChatConstants.sys.mjs";
+} from "./AIWindowConstants.sys.mjs";
 import {
   AssistantRoleOpts,
   ChatMessage,
@@ -42,6 +42,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
 });
 
+ChromeUtils.defineLazyGetter(lazy, "console", function () {
+  return console.createInstance({
+    prefix: "ChatConversation",
+  });
+});
+
 const CHAT_ROLES = [MESSAGE_ROLE.USER, MESSAGE_ROLE.ASSISTANT];
 
 /**
@@ -57,6 +63,7 @@ export class ChatConversation extends EventEmitter {
   updatedDate;
   status;
   securityProperties;
+  /** @type {ChatMessage[]} */
   #messages;
   #minNextOrdinal = 0;
   activeBranchTipMessageId;
@@ -133,8 +140,10 @@ export class ChatConversation extends EventEmitter {
 
     let pendingToolCalls = null;
     let fullResponseText = "";
+    let usage = null;
 
     for await (const chunk of stream) {
+      usage = chunk?.usage;
       if (chunk.text) {
         fullResponseText += chunk.text;
         this.handleChunk(chunk.text, currentMessage, parserState);
@@ -165,7 +174,7 @@ export class ChatConversation extends EventEmitter {
     await lazy.ChatStore.updateConversation(this);
     this.emit("chat-conversation:message-complete", currentMessage);
 
-    return { pendingToolCalls, fullResponseText };
+    return { pendingToolCalls, fullResponseText, usage };
   }
 
   #getCurrentAssistantResponse() {
@@ -261,6 +270,26 @@ export class ChatConversation extends EventEmitter {
     const newMessage = new ChatMessage(messageData);
 
     this.messages.push(newMessage);
+  }
+
+  /**
+   * Gets any URL mentioned in the conversation. These URLs have heightened security
+   * permissions as they have been explicitly added to the conversation by the user.
+   *
+   * @returns {Set<string>}
+   */
+  getAllMentionURLs() {
+    /** @type {Set<string>} */
+    const mentionUrls = new Set();
+    for (const message of this.#messages) {
+      const { contextMentions } = message.content;
+      if (contextMentions) {
+        for (const { url } of contextMentions) {
+          mentionUrls.add(url);
+        }
+      }
+    }
+    return mentionUrls;
   }
 
   /**
@@ -412,12 +441,18 @@ export class ChatConversation extends EventEmitter {
     }
 
     if (userOpts?.memoriesEnabled) {
-      const memoriesContext = await this.getMemoriesContext(
-        prompt,
-        engineInstance
-      );
-      if (memoriesContext) {
-        userContext.memoriesContext = memoriesContext;
+      try {
+        const memoriesContext = await this.getMemoriesContext(
+          prompt,
+          engineInstance
+        );
+        if (memoriesContext) {
+          userContext.memoriesContext = memoriesContext;
+        }
+      } catch (memoriesContextError) {
+        lazy.console.error(
+          `Failed to generate memories context message: ${memoriesContextError}`
+        );
       }
     }
 

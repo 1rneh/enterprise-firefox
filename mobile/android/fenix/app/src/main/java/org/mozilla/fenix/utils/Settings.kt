@@ -202,7 +202,9 @@ class Settings(
     var showPocketRecommendationsFeature by lazyFeatureFlagBooleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_pocket_homescreen_recommendations),
         featureFlag = ContentRecommendationsFeatureHelper.isContentRecommendationsFeatureEnabled(appContext),
-        defaultValue = { homescreenSections[HomeScreenSection.POCKET] == true },
+        defaultValue = {
+            homescreenSections[HomeScreenSection.POCKET] == true && !privateModeAndStoriesEntryPointEnabled
+        },
     )
 
     /**
@@ -269,14 +271,6 @@ class Settings(
      */
     val showFirefoxJpGuideDefaultSite: Boolean
         get() = FxNimbus.features.firefoxJpGuideDefaultSite.value().enabled
-
-    /**
-     * Indicates whether or not the homepage header should be shown.
-     */
-    var showHomepageHeader by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_enable_homepage_header),
-        default = { homescreenSections[HomeScreenSection.HEADER] == true },
-    )
 
     /**
      * Indicates whether or not top sites should be shown on the home screen.
@@ -2570,23 +2564,6 @@ class Settings(
     )
 
     /**
-     * User controlled pref that indicates if the user has the Shake to Summarize feature enabled (not to be confused with [shakeToSummarizeFeatureFlagEnabled]
-     * which controls the feature flag itself)
-     */
-    var shakeToSummarizeFeatureUserPreference by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_summarize_feature_enabled),
-        default = Config.channel.isNightlyOrDebug,
-    )
-
-    /**
-     * Indicates whether the shake gesture should be used to activate page summaries.
-     */
-    var shakeGestureEnabled by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_shake_gesture_enabled),
-        default = Config.channel.isNightlyOrDebug,
-    )
-
-    /**
      * Tracks how many times the summarize menu item has been shown.
      * Used to control highlight/badge visibility for feature discovery.
      */
@@ -2910,6 +2887,14 @@ class Settings(
     var tabSearchEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_tab_search),
         default = { DefaultTabManagementFeatureHelper.tabSearchEnabled },
+    )
+
+    /**
+     * Whether the private mode and stories entry point experiment is enabled.
+     */
+    var privateModeAndStoriesEntryPointEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_private_mode_and_stories_entry_point),
+        default = { FxNimbus.features.privateModeAndStoriesEntryPoint.value().enabled },
     )
 
     /**

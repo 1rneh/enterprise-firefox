@@ -219,7 +219,7 @@ export const AIWindow = {
         currentURI.equalsExceptRef(aboutHomeURI) ||
         homePagePrefURIs.some(uri => currentURI.equalsExceptRef(uri))
       ) {
-        if (this._hasActiveChatInBrowser(browser)) {
+        if (this.hasActiveChatInBrowser(browser)) {
           continue;
         }
         browser.loadURI(newTabURI, { triggeringPrincipal });
@@ -227,8 +227,9 @@ export const AIWindow = {
     }
   },
 
-  _hasActiveChatInBrowser(browser) {
-    const aiWindowElement = browser.contentDocument?.querySelector("ai-window");
+  hasActiveChatInBrowser(browser) {
+    const aiWindowElement =
+      browser?.contentDocument?.querySelector("ai-window");
     if (!aiWindowElement) {
       return false;
     }
@@ -649,7 +650,9 @@ export const AIWindow = {
         }
 
         if (lazy.hasFirstrunCompleted) {
-          lazy.AIWindowUI.openSidebar(win);
+          this._aiWindowTabStateManagers
+            .get(win)
+            ?.openSidebarForReturningUser();
         }
 
         lazy.MemoriesSchedulers.maybeRunAndSchedule();

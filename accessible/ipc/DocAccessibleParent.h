@@ -11,6 +11,7 @@
 #include "mozilla/dom/BrowserBridgeParent.h"
 #include "nsClassHashtable.h"
 #include "nsHashKeys.h"
+#include "nsIMemoryReporter.h"
 #include "nsISupportsImpl.h"
 
 namespace mozilla {
@@ -293,6 +294,10 @@ class DocAccessibleParent : public RemoteAccessible,
   static DocAccessibleParent* GetFrom(dom::BrowsingContext* aBrowsingContext);
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) override;
+
+#ifdef MOZ_ENABLE_SKIA_PDF
+  mozilla::ipc::IPCResult RecvPrinting();
+#endif
 
  private:
   ~DocAccessibleParent();

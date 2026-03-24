@@ -6307,7 +6307,7 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
       }
       nsContentUtils::ReportToConsole(
           nsIScriptError::warningFlag, "DOM"_ns, GetExtantDocument(),
-          nsContentUtils::eDOM_PROPERTIES, "UnknownProtocolNavigationPrevented",
+          PropertiesFile::DOM_PROPERTIES, "UnknownProtocolNavigationPrevented",
           params);
     }
   }
@@ -9693,7 +9693,7 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
         if (popupBlocked) {
           nsAutoString message;
           nsresult rv = nsContentUtils::GetLocalizedString(
-              nsContentUtils::eDOM_PROPERTIES,
+              PropertiesFile::DOM_PROPERTIES,
               "ExternalProtocolFrameBlockedNoUserActivation", message);
           if (NS_SUCCEEDED(rv)) {
             nsContentUtils::ReportToConsoleByWindowID(

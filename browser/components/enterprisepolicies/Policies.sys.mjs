@@ -116,7 +116,6 @@ export var Policies = {
     },
   },
 
-<<<<<<< HEAD
   AccessConnector: {
     onBeforeAddons(manager, param) {
       const locked = param.Locked ?? true;

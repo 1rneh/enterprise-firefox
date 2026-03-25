@@ -116,7 +116,7 @@ marionette-enterprise:
     suite:
         name: marionette-enterprise
     attributes:
-        required_checks: true
+        code-review: true
     run-on-projects: built-projects
     tier: 1
     max-run-time:

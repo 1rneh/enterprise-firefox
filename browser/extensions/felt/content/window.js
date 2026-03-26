@@ -290,6 +290,7 @@ async function connectToConsole(email) {
   );
 
   ErrorReport.reset();
+  document.querySelector(".felt-updates-message").classList.add("is-hidden");
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
   document.querySelector(".felt-login__sso").classList.remove("is-hidden");
 

@@ -493,7 +493,6 @@ fn error_dialog() {
     .unwrap();
 }
 
-#[cfg(not(feature = "enterprise"))]
 #[test]
 fn error_dialog_restart() {
     let mut config = Config::default();
@@ -579,7 +578,6 @@ fn auto_submit() {
     test.assert_files().submitted();
 }
 
-#[cfg(not(feature = "enterprise"))]
 #[test]
 fn restart() {
     let mut test = GuiTest::new();
@@ -604,7 +602,6 @@ fn restart() {
     ran_process.assert_one();
 }
 
-#[cfg(not(feature = "enterprise"))]
 #[test]
 fn no_restart_with_windows_error_reporting() {
     let mut test = GuiTest::new();

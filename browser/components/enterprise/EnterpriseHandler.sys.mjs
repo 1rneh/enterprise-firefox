@@ -79,9 +79,9 @@ export const EnterpriseHandler = {
       window.PanelUI.showSubView("panelUI-lockdown-mode", button, event);
     });
 
-    window.gBrowser.addTabsProgressListener({
-      onLocationChange(browser, _webProgress, _request, location) {
-        if (browser !== window.gBrowser.selectedBrowser) {
+    window.gBrowser.addProgressListener({
+      onLocationChange(webProgress, _request, location) {
+        if (!webProgress.isTopLevel) {
           return;
         }
         let isLockedDown = false;

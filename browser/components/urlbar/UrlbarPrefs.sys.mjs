@@ -87,11 +87,6 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // 30 days since user input it as the default.
   ["autoFill.adaptiveHistory.useCountThreshold", [0.47, "float"]],
 
-  // Affects the frecency threshold of the autofill algorithm.  The threshold is
-  // the mean of all origin frecencies plus one standard deviation multiplied by
-  // this value.  See UrlbarProviderPlaces.
-  ["autoFill.stddevMultiplier", [0.0, "float"]],
-
   // Feature gate pref for clipboard suggestions in the urlbar.
   ["clipboard.featureGate", false],
 

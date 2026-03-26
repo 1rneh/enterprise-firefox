@@ -14,8 +14,6 @@
 
 #import "MOXAccessibleBase.h"
 
-@class mozRootAccessible;
-
 /**
  * All mozAccessibles are either abstract objects (that correspond to XUL
  * widgets, HTML frames, etc) or are attached to a certain view; for example

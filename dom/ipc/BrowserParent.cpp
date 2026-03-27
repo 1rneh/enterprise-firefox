@@ -581,7 +581,7 @@ ParentShowInfo BrowserParent::GetShowInfo() {
     mFrameElement->GetAttr(nsGkAtoms::name, name);
   }
   return ParentShowInfo(name, false, IsTransparent(), mDPI, mRounding,
-                        mDefaultScale.scale);
+                        mDefaultScale.scale, mDesktopToDeviceScale.scale);
 }
 
 already_AddRefed<nsIPrincipal> BrowserParent::GetContentPrincipal() const {
@@ -2994,11 +2994,6 @@ mozilla::ipc::IPCResult BrowserParent::RecvOnLocationChange(
   browsingContext->SetCurrentRemoteURI(aLocation);
 
   nsCOMPtr<nsIBrowser> browser = GetBrowser();
-  if (!mozilla::SessionHistoryInParent() && browser) {
-    (void)browser->UpdateWebNavigationForLocationChange(
-        aCanGoBack, aCanGoBackIgnoringUserInteraction, aCanGoForward);
-  }
-
   if (aLocationChangeData.isSome()) {
     if (!browsingContext->IsTopContent()) {
       return IPC_FAIL(this,
@@ -3566,6 +3561,8 @@ void BrowserParent::TryCacheDPIAndScale() {
   mRounding = widget ? widget->RoundsWidgetCoordinatesTo() : 1;
   mDefaultScale =
       widget ? widget->GetDefaultScale() : nsIWidget::GetFallbackDefaultScale();
+  mDesktopToDeviceScale = widget ? widget->GetDesktopToDeviceScale()
+                                 : DesktopToLayoutDeviceScale(1.0);
 
   if (mDefaultScale != oldDefaultScale) {
     // The change of the default scale factor will affect the child dimensions
@@ -3711,7 +3708,8 @@ void BrowserParent::NotifyResolutionChanged() {
   // We don't want to send that value to content. Just send -1 for it too in
   // that case.
   (void)SendUIResolutionChanged(mDPI, mRounding,
-                                mDPI < 0 ? -1.0 : mDefaultScale.scale);
+                                mDPI < 0 ? -1.0 : mDefaultScale.scale,
+                                mDesktopToDeviceScale.scale);
 }
 
 void BrowserParent::NotifyTransparencyChanged() {
@@ -3725,12 +3723,6 @@ bool BrowserParent::CanCancelContentJS(
     nsIURI* aNavigationURI) const {
   // Pre-checking if we can cancel content js in the parent is only
   // supported when session history in the parent is enabled.
-  if (!mozilla::SessionHistoryInParent()) {
-    // If session history in the parent isn't enabled, this check will
-    // be fully done in BrowserChild::CanCancelContentJS
-    return true;
-  }
-
   nsCOMPtr<nsISHistory> history = mBrowsingContext->GetSessionHistory();
 
   if (!history) {

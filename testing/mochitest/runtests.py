@@ -1472,19 +1472,20 @@ class MochitestDesktop:
             raise RuntimeError("Error: Unable to start DoH server")
 
     def startServers(self, options, debuggerInfo, public=None):
-        port_checks = [
-            (options.httpPort, "HTTP test server"),
-            (options.sslPort, "ssltunnel"),
-            (options.webSocketPort, "WebSocket server"),
+        port_attrs = [
+            ("httpPort", "HTTP test server"),
+            ("sslPort", "ssltunnel"),
+            ("webSocketPort", "WebSocket server"),
         ]
-        for port, name in port_checks:
-            if _port_in_use(int(port)) and not _wait_for_port_available(int(port)):
-                self.log.error(
-                    f"{name} failed to bind to port {port}. "
-                    f"Another process may already be using it "
-                    f"(check: {_port_diagnostic_hint(int(port))})."
+        for attr, name in port_attrs:
+            port = int(getattr(options, attr))
+            if _port_in_use(port):
+                new_port = self.findFreePort(socket.SOCK_STREAM)
+                self.log.info(
+                    f"{name} port {port} already in use, "
+                    f"falling back to port {new_port}"
                 )
-                return False
+                setattr(options, attr, str(new_port))
 
         # start servers and set ports
         # TODO: pass these values, don't set on `self`
@@ -2916,12 +2917,16 @@ toolbar#nav-bar {
                 marionette_args.get("port", 2828) if marionette_args else 2828
             )
             if _port_in_use(marionette_port):
-                self.log.error(
-                    f"Marionette port {marionette_port} is already in use. "
-                    "Another Firefox instance may already be running "
-                    f"(check: {_port_diagnostic_hint(marionette_port)})."
+                new_port = self.findFreePort(socket.SOCK_STREAM)
+                self.log.info(
+                    f"Marionette port {marionette_port} already in use, "
+                    f"falling back to port {new_port}"
                 )
-                return 1, f"port {marionette_port} already in use"
+                marionette_port = new_port
+                if marionette_args is None:
+                    marionette_args = {}
+                marionette_args["port"] = new_port
+                self.profile.set_preferences({"marionette.port": new_port})
 
             # start the runner
             try:
@@ -3134,7 +3139,13 @@ toolbar#nav-bar {
         options.manifestFile = None
         # When runByManifest is true, runTests already sets profilePath
         # appropriately for each manifest (from profile-path key, or None).
-        if not options.runByManifest:
+        # restartAfterFailure and restartBetweenTests loop within runMochitests
+        # and need a fresh profile for each browser restart.
+        if (
+            not options.runByManifest
+            or options.restartAfterFailure
+            or options.restartBetweenTests
+        ):
             options.profilePath = None
 
     def initializeVirtualAudioDevices(self):
@@ -3345,7 +3356,10 @@ toolbar#nav-bar {
                     )
                     bisection_log = 1
 
-            result = self.doTests(options, testsToRun, manifestToFilter)
+            if options.restartBetweenTests:
+                result = self.doTests(options, testsToRun[:1], manifestToFilter)
+            else:
+                result = self.doTests(options, testsToRun, manifestToFilter)
             if result == TBPL_RETRY:  # terminate task
                 return result
 
@@ -3364,6 +3378,10 @@ toolbar#nav-bar {
                     testsToRun = testsToRun[firstFail + 1 :]
                     if testsToRun == []:
                         status = -1
+            elif options.restartBetweenTests:
+                testsToRun = testsToRun[1:]
+                if not testsToRun:
+                    status = -1
             else:
                 status = -1
 
@@ -3548,15 +3566,7 @@ toolbar#nav-bar {
             "http3": options.useHttp3Server,
             "http2": options.useHttp2Server,
             "inc_origin_init": os.environ.get("MOZ_ENABLE_INC_ORIGIN_INIT") == "1",
-            # Until the test harness can understand default pref values,
-            # (https://bugzilla.mozilla.org/show_bug.cgi?id=1577912) this value
-            # should by synchronized with the default pref value indicated in
-            # StaticPrefList.yaml.
-            #
-            # Currently for automation, the pref defaults to true (but can be
-            # overridden with --setpref).
-            "sessionHistoryInParent": not options.disable_fission
-            or not self.extraPrefs.get("fission.disableSessionHistoryInParent"),
+            "sessionHistoryInParent": True,
             "socketprocess_e10s": self.extraPrefs.get("network.process.enabled", False),
             "socketprocess_networking": self.extraPrefs.get(
                 "network.http.network_access_on_socket_process.enabled", False
@@ -3666,17 +3676,6 @@ toolbar#nav-bar {
                     f"The following extra environment variables will be set:\n  {env_list}"
                 )
 
-            self.parseAndCreateTestsDirs(m)
-
-            profilePath = list(self.profile_path_by_manifest[m])[0]
-            if profilePath:
-                options.profilePath = os.path.expanduser(profilePath.strip())
-                self.log.info(
-                    f"The following profile path will be set:\n  {options.profilePath}"
-                )
-            else:
-                options.profilePath = None
-
             # If we are using --run-by-manifest, we should not use the profile path (if) provided
             # by the user, since we need to create a new directory for each run. We would face
             # problems if we use the directory provided by the user.
@@ -3773,8 +3772,27 @@ toolbar#nav-bar {
     def doTests(self, options, testsToFilter=None, manifestToFilter=None):
         # A call to initializeLooping method is required in case of --run-by-dir or --bisect-chunk
         # since we need to initialize variables for each loop.
-        if options.bisectChunk or options.runByManifest:
+        if (
+            options.bisectChunk
+            or options.runByManifest
+            or options.restartAfterFailure
+            or options.restartBetweenTests
+        ):
             self.initializeLooping(options)
+
+        # Set up manifest-level test-directories and profile-path.
+        # In restart modes this runs on each iteration, ensuring a clean
+        # slate after cleanup() removed the previous directories.
+        if manifestToFilter:
+            self.parseAndCreateTestsDirs(manifestToFilter)
+            profilePath = list(self.profile_path_by_manifest[manifestToFilter])[0]
+            if profilePath:
+                options.profilePath = os.path.expanduser(profilePath.strip())
+                self.log.info(
+                    f"The following profile path will be set:\n  {options.profilePath}"
+                )
+            else:
+                options.profilePath = None
 
         # get debugger info, a dict of:
         # {'path': path to the debugger (string),

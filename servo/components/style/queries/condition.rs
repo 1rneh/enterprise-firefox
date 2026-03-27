@@ -403,9 +403,14 @@ impl StyleFeaturePlain {
         ctx: &computed::Context,
         current_value: Option<&ComputedRegisteredValue>,
     ) -> bool {
-        let substituted = match custom_properties::substitute(
+        let substitution_functions = custom_properties::ComputedSubstitutionFunctions::new(
+            Some(ctx.inherited_custom_properties().clone()),
+            None,
+        );
+        // FIXME(bug2026241): `attribute_tainted` should be used.
+        let custom_properties::SubstitutionResult { css, .. } = match custom_properties::substitute(
             &value,
-            ctx.inherited_custom_properties(),
+            &substitution_functions,
             stylist,
             ctx,
             // FIXME: do we need to pass a real AttributeTracker for the query?
@@ -416,11 +421,11 @@ impl StyleFeaturePlain {
         };
         if registration.is_universal() {
             return match current_value {
-                Some(v) => v.as_universal().is_some_and(|v| v.css == substituted),
-                None => substituted.is_empty(),
+                Some(v) => v.as_universal().is_some_and(|v| v.css == css),
+                None => css.is_empty(),
             };
         }
-        let mut input = cssparser::ParserInput::new(&substituted);
+        let mut input = cssparser::ParserInput::new(&css);
         let mut parser = Parser::new(&mut input);
         let computed = SpecifiedRegisteredValue::compute(
             &mut parser,
@@ -855,9 +860,16 @@ impl QueryCondition {
         }
 
         // Substitute var() functions if possible.
-        let substituted = match custom_properties::substitute(
+        let substitution_functions = custom_properties::ComputedSubstitutionFunctions::new(
+            Some(context.inherited_custom_properties().clone()),
+            None,
+        );
+        let custom_properties::SubstitutionResult {
+            css,
+            attribute_tainted,
+        } = match custom_properties::substitute(
             &value,
-            context.inherited_custom_properties(),
+            &substitution_functions,
             stylist,
             context,
             // FIXME: do we need to pass a real AttributeTracker for the query?
@@ -868,17 +880,21 @@ impl QueryCondition {
         };
 
         // Re-parse the result as a query-condition, and evaluate it.
+        let mut parsing_mode = ParsingMode::DEFAULT;
+        if attribute_tainted {
+            parsing_mode.insert(ParsingMode::DISALLOW_URLS);
+        }
         let parser_context = ParserContext::new(
             Origin::Author,
             url_data,
             Some(CssRuleType::Container),
-            ParsingMode::DEFAULT,
+            parsing_mode,
             QuirksMode::NoQuirks,
             /* namespaces = */ Default::default(),
             /* error_reporter = */ None,
             /* use_counters = */ None,
         );
-        let mut input = ParserInput::new(&substituted);
+        let mut input = ParserInput::new(&css);
         let result = match Self::parse(
             &parser_context,
             &mut Parser::new(&mut input),

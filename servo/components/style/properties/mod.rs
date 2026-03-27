@@ -22,7 +22,7 @@ pub mod generated {
 }
 
 use crate::applicable_declarations::RevertKind;
-use crate::custom_properties::{self, ComputedCustomProperties};
+use crate::custom_properties::{self, ComputedSubstitutionFunctions, SubstitutionResult};
 use crate::derives::*;
 use crate::dom::AttributeTracker;
 #[cfg(feature = "gecko")]
@@ -1452,7 +1452,7 @@ impl UnparsedValue {
     fn substitute_variables<'cache>(
         &self,
         longhand_id: LonghandId,
-        custom_properties: &ComputedCustomProperties,
+        substitution_functions: &ComputedSubstitutionFunctions,
         stylist: &Stylist,
         computed_context: &computed::Context,
         shorthand_cache: &'cache mut ShorthandsWithPropertyReferencesCache,
@@ -1486,9 +1486,12 @@ impl UnparsedValue {
             }
         }
 
-        let css = match custom_properties::substitute(
+        let SubstitutionResult {
+            css,
+            attribute_tainted,
+        } = match custom_properties::substitute(
             &self.variable_value,
-            custom_properties,
+            substitution_functions,
             stylist,
             computed_context,
             attribute_tracker,
@@ -1507,11 +1510,15 @@ impl UnparsedValue {
         // whether you want to do this!
         //
         // FIXME(emilio): ParsingMode is slightly fishy...
+        let mut parsing_mode = ParsingMode::DEFAULT;
+        if attribute_tainted {
+            parsing_mode.insert(ParsingMode::DISALLOW_URLS);
+        }
         let context = ParserContext::new(
             Origin::Author,
             &self.variable_value.url_data,
             None,
-            ParsingMode::DEFAULT,
+            parsing_mode,
             computed_context.quirks_mode,
             /* namespaces = */ Default::default(),
             None,

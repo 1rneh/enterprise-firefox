@@ -10,12 +10,15 @@ import {
   openAIEngine,
   renderPrompt,
   MODEL_FEATURES,
+  DEFAULT_ENGINE_ID,
+  SERVICE_TYPES,
+  PURPOSES,
 } from "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs";
 
 import { MESSAGE_ROLE } from "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs";
 
 import { MemoriesManager } from "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs";
-import { truncateUntrustedMetadata } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
+import { sanitizeUntrustedContent } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
 
 // Max number of memories to include in prompts
 const MAX_NUM_MEMORIES = 8;
@@ -178,7 +181,7 @@ export async function generateConversationStartersSidebar(
     // Format current tab (first in context or empty)
     const currentTab = contextTabs.length
       ? formatJson({
-          title: truncateUntrustedMetadata(contextTabs[0].title),
+          title: sanitizeUntrustedContent(contextTabs[0].title),
           url: contextTabs[0].url,
         })
       : "No current tab";
@@ -191,7 +194,7 @@ export async function generateConversationStartersSidebar(
           ? "Only current tab is open"
           : formatJson(
               contextTabs.slice(1).map(t => ({
-                title: truncateUntrustedMetadata(t.title),
+                title: sanitizeUntrustedContent(t.title),
                 url: t.url,
               }))
             );
@@ -201,7 +204,10 @@ export async function generateConversationStartersSidebar(
 
     // Build engine and load prompt
     const engineInstance = await openAIEngine.build(
-      MODEL_FEATURES.CONVERSATION_SUGGESTIONS_SIDEBAR_STARTER
+      MODEL_FEATURES.CONVERSATION_SUGGESTIONS_SIDEBAR_STARTER,
+      DEFAULT_ENGINE_ID,
+      SERVICE_TYPES.AI,
+      PURPOSES.CONVERSATION_STARTERS_SIDEBAR
     );
 
     const conversationStarterSystemPrompt = await engineInstance.loadPrompt(
@@ -282,14 +288,17 @@ export async function generateFollowupPrompts(
     const currentTabStr =
       currentTab && Object.keys(currentTab).length
         ? formatJson({
-            title: truncateUntrustedMetadata(currentTab.title),
+            title: sanitizeUntrustedContent(currentTab.title),
             url: currentTab.url,
           })
         : "No tab";
 
     // Build engine and load prompt
     const engineInstance = await openAIEngine.build(
-      MODEL_FEATURES.CONVERSATION_SUGGESTIONS_FOLLOWUP
+      MODEL_FEATURES.CONVERSATION_SUGGESTIONS_FOLLOWUP,
+      DEFAULT_ENGINE_ID,
+      SERVICE_TYPES.AI,
+      PURPOSES.CONVERSATION_STARTERS_SIDEBAR // no dedicated purpose for followup prompts, not currently used
     );
 
     const conversationFollowupPrompt = await engineInstance.loadPrompt(

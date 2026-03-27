@@ -22,6 +22,7 @@ import mozilla.components.lib.integrity.googleplay.GooglePlayIntegrityClient
 import mozilla.components.lib.integrity.googleplay.GoogleProjectNumber
 import mozilla.components.lib.integrity.googleplay.IntegrityManagerProvider
 import mozilla.components.lib.integrity.googleplay.TokenProviderFactory
+import mozilla.components.lib.llm.mlpa.MlpaTokenStorage
 import mozilla.components.lib.publicsuffixlist.PublicSuffixList
 import mozilla.components.service.fxrelay.eligibility.RelayEligibilityStore
 import mozilla.components.service.fxrelay.eligibility.middlewares.ClearLastUsedMiddleware
@@ -329,6 +330,7 @@ class Components(private val context: Context) {
                 ReviewPromptMiddleware(
                     shouldUseNewTriggerCriteria = { settings.newReviewPromptTriggerCriteriaEnabled },
                     shouldShowCustomPrompt = { settings.customReviewPromptUiEnabled && settings.isTelemetryEnabled },
+                    disableCustomPrompt = { settings.customReviewPromptUiEnabled = false },
                     createJexlHelper = nimbus::createJexlHelper,
                     nimbusEventStore = nimbus.events,
                 ).also {
@@ -413,6 +415,7 @@ class Components(private val context: Context) {
     val llm: Llm by lazyMonitored {
         Llm(
             client = core.client,
+            storage = MlpaTokenStorage.sharedPrefs(context),
             fxaTokenProvider = backgroundServices.accountManager.accessTokenProvider,
             integrityClient = integrityClient,
             userIdProvider = clientUUID,

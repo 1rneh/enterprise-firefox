@@ -2338,7 +2338,7 @@ export class UrlbarInput extends HTMLElement {
     }
     this.selectionStart = -1;
 
-    this.window.openTrustedLinkIn(url, where);
+    this.window.openTrustedLinkIn(url, where, { inBackground: true });
   }
 
   /**
@@ -4402,7 +4402,7 @@ export class UrlbarInput extends HTMLElement {
     contextMenu.addEventListener("popupshowing", () => {
       let browser = this.window.gBrowser?.selectedBrowser;
       if (browser) {
-        lazy.SharingUtils.updateShareURLMenuItem(browser, separator);
+        lazy.SharingUtils.updateShareURLMenuItem(browser, null, separator);
       }
     });
   }

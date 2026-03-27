@@ -11,11 +11,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   IPProtectionPanel:
     "moz-src:///browser/components/ipprotection/IPProtectionPanel.sys.mjs",
   IPProtectionService:
-    "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtectionToolbarButton:
     "moz-src:///browser/components/ipprotection/IPProtectionToolbarButton.sys.mjs",
   IPPProxyManager:
-    "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   requestIdleCallback: "resource://gre/modules/Timer.sys.mjs",
   cancelIdleCallback: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -97,7 +97,7 @@ class IPProtectionWidget {
     const onDestroyed = this.#onDestroyed.bind(this);
     const item = {
       id: IPProtectionWidget.WIDGET_ID,
-      l10nId: "ipprotection-button",
+      l10nId: "enterprise-access-connector-button",
       type: "view",
       viewId: IPProtectionWidget.PANEL_ID,
       onViewShowing,

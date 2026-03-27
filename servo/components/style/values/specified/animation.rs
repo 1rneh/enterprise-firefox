@@ -178,6 +178,7 @@ impl Parse for AnimationDuration {
 #[derive(
     Copy, Clone, Debug, MallocSizeOf, PartialEq, Parse, SpecifiedValueInfo, ToCss, ToShmem, ToTyped,
 )]
+#[typed_value(derive_fields)]
 pub enum AnimationIterationCount {
     /// A `<number>` value.
     Number(NonNegativeNumber),
@@ -216,6 +217,7 @@ impl AnimationIterationCount {
 )]
 #[value_info(other_values = "none")]
 #[repr(C)]
+#[typed_value(derive_fields)]
 pub struct AnimationName(pub KeyframesName);
 
 impl AnimationName {
@@ -781,6 +783,7 @@ impl ViewTransitionName {
 #[derive(
     Clone,
     Debug,
+    Default,
     Eq,
     Hash,
     PartialEq,
@@ -809,6 +812,11 @@ impl ViewTransitionClassList {
     /// Returns whether this is the `none` value.
     pub fn is_none(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Iterates over the contained custom idents.
+    pub fn iter(&self) -> impl Iterator<Item = &CustomIdent> {
+        self.0.iter()
     }
 }
 

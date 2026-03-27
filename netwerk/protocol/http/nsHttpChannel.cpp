@@ -489,6 +489,7 @@ nsHttpChannel::nsHttpChannel() : HttpAsyncAborter<nsHttpChannel>(this) {
 }
 
 nsHttpChannel::~nsHttpChannel() {
+  MOZ_ASSERT(NS_IsMainThread(), "Must be released on main thread");
   PROFILER_MARKER("~nsHttpChannel", NETWORK, {}, TerminatingFlowMarker,
                   Flow::FromPointer(this));
   LOG(("Destroying nsHttpChannel [this=%p, nsIChannel=%p]\n", this,
@@ -508,7 +509,6 @@ nsHttpChannel::~nsHttpChannel() {
     MOZ_ASSERT(NS_SUCCEEDED(rv));
   }
 
-  ReleaseMainThreadOnlyReferences();
   if (gHttpHandler) {
     gHttpHandler->RemoveHttpChannel(mChannelId);
   }
@@ -516,36 +516,6 @@ nsHttpChannel::~nsHttpChannel() {
   if (mDictDecompress && mUsingDictionary) {
     mDictDecompress->UseCompleted();
   }
-}
-
-void nsHttpChannel::ReleaseMainThreadOnlyReferences() {
-  if (NS_IsMainThread()) {
-    // Already on main thread, let dtor to
-    // take care of releasing references
-    return;
-  }
-
-  nsTArray<nsCOMPtr<nsISupports>> arrayToRelease;
-  arrayToRelease.AppendElement(mAuthProvider.forget());
-  arrayToRelease.AppendElement(mRedirectChannel.forget());
-  arrayToRelease.AppendElement(mPreflightChannel.forget());
-  arrayToRelease.AppendElement(mDNSPrefetch.forget());
-
-  MOZ_DIAGNOSTIC_ASSERT(
-      !mEarlyHintObserver,
-      "Early hint observer should have been released in ReleaseListeners()");
-  arrayToRelease.AppendElement(mEarlyHintObserver.forget());
-  MOZ_DIAGNOSTIC_ASSERT(
-      !mChannelClassifier,
-      "Channel classifier should have been released in ReleaseListeners()");
-  arrayToRelease.AppendElement(
-      mChannelClassifier.forget().downcast<nsIURIClassifierCallback>());
-  MOZ_DIAGNOSTIC_ASSERT(
-      !mWarningReporter,
-      "Warning reporter should have been released in ReleaseListeners()");
-  arrayToRelease.AppendElement(mWarningReporter.forget());
-
-  NS_DispatchToMainThread(new ProxyReleaseRunnable(std::move(arrayToRelease)));
 }
 
 nsresult nsHttpChannel::Init(nsIURI* uri, uint32_t caps, nsProxyInfo* proxyInfo,
@@ -5107,7 +5077,7 @@ nsresult nsHttpChannel::OpenCacheEntryInternal(bool isHttps) {
   }
 
   if (mPostID) {
-    mCacheIdExtension.Append(nsPrintfCString("%d", mPostID));
+    mCacheIdExtension.AppendInt(mPostID);
   }
   if (LoadIsTRRServiceChannel()) {
     mCacheIdExtension.Append("TRR");
@@ -6174,7 +6144,7 @@ void nsHttpChannel::CloseCacheEntry(bool doomOnFailure) {
   if (LoadInitedCacheEntry()) {
     MOZ_ASSERT(mResponseHead, "oops");
     if (NS_FAILED(mStatus) && doomOnFailure && LoadCacheEntryIsWriteOnly() &&
-        !mResponseHead->IsResumable()) {
+        (!mResponseHead || !mResponseHead->IsResumable())) {
       doom = true;
     }
   } else if (LoadCacheEntryIsWriteOnly()) {
@@ -7228,7 +7198,29 @@ NS_IMETHODIMP nsHttpChannel::ConnectionRestartable(bool aRestartable) {
 //-----------------------------------------------------------------------------
 
 NS_IMPL_ADDREF_INHERITED(nsHttpChannel, HttpBaseChannel)
-NS_IMPL_RELEASE_INHERITED(nsHttpChannel, HttpBaseChannel)
+bool nsHttpChannel::DispatchRelease() {
+  if (NS_IsMainThread()) {
+    return false;
+  }
+
+  NS_DispatchToMainThread(
+      NewNonOwningRunnableMethod("net::nsHttpChannel::Release", this,
+                                 &nsHttpChannel::Release),
+      NS_DISPATCH_NORMAL);
+
+  return true;
+}
+
+NS_IMETHODIMP_(MozExternalRefCountType)
+nsHttpChannel::Release() {
+  nsrefcnt count = mRefCnt - 1;
+  if (DispatchRelease()) {
+    // Redispatched to the main thread.
+    return count;
+  }
+
+  NS_IMPL_RELEASE_INHERITED_GUTS(nsHttpChannel, HttpBaseChannel);
+}
 
 NS_INTERFACE_MAP_BEGIN(nsHttpChannel)
   NS_INTERFACE_MAP_ENTRY(nsIRequest)
@@ -7440,7 +7432,8 @@ nsresult nsHttpChannel::CancelInternal(nsresult status) {
 
   // We don't want the content process to see any header values
   // when the request is blocked by ORB
-  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref) {
+  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref &&
+      mResponseHead) {
     mResponseHead->ClearHeaders();
   }
 
@@ -7708,6 +7701,10 @@ nsHttpChannel::GetSecurityInfo(nsITransportSecurityInfo** securityInfo) {
 // any error.
 NS_IMETHODIMP
 nsHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
+  // doContentSecurityCheck and OnOpeningRequest fire observers that may
+  // spin nested event loops; hold a strong ref to this.
+  RefPtr<nsHttpChannel> self(this);
+
   AUTO_PROFILER_FLOW_MARKER("nsHttpChannel::AsyncOpen", NETWORK,
                             Flow::FromPointer(this));
   nsCOMPtr<nsIStreamListener> listener = aListener;
@@ -9585,7 +9582,7 @@ nsresult nsHttpChannel::ContinueOnStartRequest1(nsresult result) {
   if (mAPIRedirectTo && !mCanceled) {
     nsAutoCString redirectToSpec;
     mAPIRedirectTo->first()->GetAsciiSpec(redirectToSpec);
-    LOG(("  redirectTo called with uri=%s", redirectToSpec.BeginReading()));
+    LOG(("  redirectTo called with uri=%s", redirectToSpec.get()));
 
     MOZ_ASSERT(!LoadOnStartRequestCalled());
     PushRedirectAsyncFunc(&nsHttpChannel::ContinueOnStartRequest2);
@@ -9759,7 +9756,7 @@ nsresult nsHttpChannel::LogConsoleError(const char* aTag) {
 
   nsAutoString errorText;
   nsresult rv = nsContentUtils::GetLocalizedString(
-      nsContentUtils::eNECKO_PROPERTIES, aTag, errorText);
+      PropertiesFile::NECKO_PROPERTIES, aTag, errorText);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIScriptError> error(do_CreateInstance(NS_SCRIPTERROR_CONTRACTID));
@@ -10581,7 +10578,13 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
           LOG(("  but range request setup failed rv=0x%08" PRIx32
                ", failing load",
                static_cast<uint32_t>(rv)));
+          aStatus = NS_ERROR_NET_INTERRUPT;
         }
+
+        // Range-request recovery failed. Restore mResponseHead so that
+        // it's available to late callers of Cancel (such as the ORB
+        // async JS-validation callback)
+        mResponseHead = std::move(mCachedResponseHead);
       }
     }
   }
@@ -10692,7 +10695,8 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
 
   RemoveAsNonTailRequest();
 
-  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref) {
+  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref &&
+      mResponseHead) {
     mResponseHead->ClearHeaders();
   }
   // If a preferred alt-data type was set, this signals the consumer is

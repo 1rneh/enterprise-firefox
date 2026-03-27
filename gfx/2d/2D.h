@@ -1193,6 +1193,7 @@ class FTUserFontData final
   explicit FTUserFontData(const char* aFilename) : mFilename(aFilename) {}
 
   const uint8_t* FontData() const { return mFontData; }
+  uint32_t FontDataLength() const { return mLength; }
 
   already_AddRefed<mozilla::gfx::SharedFTFace> CloneFace(
       int aFaceIndex = 0) override;
@@ -1449,6 +1450,13 @@ class DrawTarget : public external::AtomicRefCounted<DrawTarget> {
   virtual void Link(const char* aLocalDest, const char* aURI,
                     const Rect& aRect) {}
   virtual void Destination(const char* aDestination, const Point& aPoint) {}
+
+  /**
+   * Associate subsequent calls to other methods with a specific accessibility
+   * node. This is used to generate tagged PDF output. Specifying an id of (0,
+   * 0) disassociates subsequent calls from any accessibility node.
+   */
+  virtual void AccessibleId(uint64_t aBrowsingContextId, uint64_t aAccId) {}
 
   /**
    * Returns a SourceSurface which is a snapshot of the current contents of the

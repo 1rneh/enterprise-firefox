@@ -235,9 +235,7 @@ EndpointsList ReportingHeader::ProcessReportingEndpointsListFromResponse(
     return {};
   }
 
-  // No other browsers seem to do this, even though it's defined in
-  // specification
-  if (NS_WARN_IF(!IsSecureURI(uri))) {
+  if (!IsSecureURI(uri)) {
     return {};
   }
 
@@ -385,12 +383,18 @@ ReportingHeader::ParseReportToHeader(nsIHttpChannel* aChannel, nsIURI* aURI,
   JS::Rooted<JS::Value> jsonValue(cx);
   bool ok = JS_ParseJSON(cx, json.BeginReading(), json.Length(), &jsonValue);
   if (!ok) {
+    // Drop error in favor of logging a generic message, because the error
+    // message's column numbers are confusing due to the prepended characters
+    // above, and a user cannot do much about it anyway (bug 2020662).
+    JS_ClearPendingException(cx);
     LogToConsoleInvalidJSON(aChannel, aURI);
     return nullptr;
   }
 
   dom::ReportingHeaderValue data;
   if (!data.Init(cx, jsonValue)) {
+    // Ignore error in favor of generic message to avoid logspam (bug 2020662).
+    JS_ClearPendingException(cx);
     LogToConsoleInvalidJSON(aChannel, aURI);
     return nullptr;
   }
@@ -616,7 +620,7 @@ void ReportingHeader::LogToConsoleInternal(nsIHttpChannel* aChannel,
 
   nsAutoString localizedMsg;
   rv = nsContentUtils::FormatLocalizedString(
-      nsContentUtils::eSECURITY_PROPERTIES, aMsg, aParams, localizedMsg);
+      PropertiesFile::SECURITY_PROPERTIES, aMsg, aParams, localizedMsg);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }

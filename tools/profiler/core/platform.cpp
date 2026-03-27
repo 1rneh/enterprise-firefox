@@ -856,8 +856,8 @@ class CorePS {
 #endif
 #ifdef USE_LUL_STACKWALK
     delete sInstance->mLul;
-    delete mMaybeBandwidthCounter;
 #endif
+    delete mMaybeBandwidthCounter;
   }
 
  public:
@@ -1622,8 +1622,8 @@ class ActivePS {
     }
     JSContext* jsContext = mainThread->mJSContext;
 
-    // Always gather source metadata (filename), but only gather actual source
-    // text if the JS sources feature is enabled.
+    // Always gather source metadata (filename, sourceMapURL), but only gather
+    // actual source text if the JS sources feature is enabled.
     js::ProfilerJSSources threadSources = js::GetProfilerScriptSources(
         JS_GetRuntime(jsContext), gatherSourceText);
 
@@ -3998,7 +3998,7 @@ locked_profiler_stream_json_for_this_process(
       for (java::GeckoJavaSampler::ThreadInfo::LocalRef& threadInfo :
            javaThreads) {
         ProfiledThreadData threadData(ThreadRegistrationInfo{
-            threadInfo->GetName()->ToCString().BeginReading(),
+            threadInfo->GetName()->ToCString().get(),
             ProfilerThreadId::FromNumber(threadInfo->GetId()), false,
             CorePS::ProcessStartTime()});
 
@@ -4465,6 +4465,9 @@ class SamplerThread {
         std::move(mPostSamplingCallbackList), std::move(aCallback));
   }
 
+  SamplerThread(const SamplerThread&) = delete;
+  void operator=(const SamplerThread&) = delete;
+
  private:
   void SpyOnUnregisteredThreads();
 
@@ -4587,9 +4590,6 @@ class SamplerThread {
   // Unregistered threads that have been found, and are being spied on.
   using SpiedThreads = AutoTArray<SpiedThread, 128>;
   SpiedThreads mSpiedThreads;
-
-  SamplerThread(const SamplerThread&) = delete;
-  void operator=(const SamplerThread&) = delete;
 };
 
 namespace geckoprofiler::markers {
@@ -6384,8 +6384,9 @@ WriteProfileToJSONWriter(SpliceableChunkedJSONWriter& aWriter,
 
 void profiler_set_process_name(const nsACString& aProcessName,
                                const nsACString* aETLDplus1) {
-  LOG("profiler_set_process_name(\"%s\", \"%s\")", aProcessName.Data(),
-      aETLDplus1 ? aETLDplus1->Data() : "<none>");
+  LOG("profiler_set_process_name(\"%s\", \"%s\")",
+      PromiseFlatCString(aProcessName).get(),
+      aETLDplus1 ? PromiseFlatCString(*aETLDplus1).get() : "<none>");
   PSAutoLock lock;
   CorePS::SetProcessName(lock, aProcessName);
   if (aETLDplus1) {

@@ -425,6 +425,7 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
         queueIncrementNumberOfAppLaunches(queue)
         queueRestoreLocale(queue)
         queueStorageMaintenance(queue)
+        queueIntegrityClientWarmUp(queue)
         queueNimbusFetchInForeground(queue)
         queueSetAutofillMetrics(queue)
         queueDownloadWallpapers(queue)
@@ -552,6 +553,18 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
         components.core.historyStorage.registerStorageMaintenanceWorker()
         components.core.passwordsStorage.registerStorageMaintenanceWorker()
         components.core.autofillStorage.registerStorageMaintenanceWorker()
+    }
+
+    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
+    private fun queueIntegrityClientWarmUp(queue: RunWhenReadyQueue) {
+        if (!Config.channel.isReleased) {
+            return
+        }
+        runOnVisualCompleteness(queue) {
+            GlobalScope.launch(IO) {
+                components.integrityClient.warmUp()
+            }
+        }
     }
 
     @OptIn(DelicateCoroutinesApi::class, ExperimentalAndroidComponentsApi::class) // GlobalScope usage

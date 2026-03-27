@@ -49,6 +49,8 @@ function median(numbers) {
  * Opens a new tab in the foreground.
  *
  * @param {string} url
+ * @param {string} message
+ * @param {Window} [win=window]
  */
 async function addTab(url, message, win = window) {
   logAction(url);
@@ -3380,7 +3382,7 @@ class SelectTranslationsTestUtils {
     );
     SharedTranslationsTestUtils._assertL10nId(
       unsupportedLanguageMessageBar,
-      "select-translations-panel-unsupported-language-message-known"
+      "select-translations-panel-unsupported-language-message-known-2"
     );
     SharedTranslationsTestUtils._assertHasFocus(tryAnotherSourceMenuList);
     SharedTranslationsTestUtils._assertTabIndexOrder([

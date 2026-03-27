@@ -124,6 +124,24 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
+#define STATIC_ASSERT_CONSTANT_EQ(c_) \
+  static_assert(Node_Binding::c_ == nsINode::c_);
+
+STATIC_ASSERT_CONSTANT_EQ(ELEMENT_NODE);
+STATIC_ASSERT_CONSTANT_EQ(ATTRIBUTE_NODE);
+STATIC_ASSERT_CONSTANT_EQ(TEXT_NODE);
+STATIC_ASSERT_CONSTANT_EQ(CDATA_SECTION_NODE);
+STATIC_ASSERT_CONSTANT_EQ(ENTITY_REFERENCE_NODE);
+STATIC_ASSERT_CONSTANT_EQ(ENTITY_NODE);
+STATIC_ASSERT_CONSTANT_EQ(PROCESSING_INSTRUCTION_NODE);
+STATIC_ASSERT_CONSTANT_EQ(COMMENT_NODE);
+STATIC_ASSERT_CONSTANT_EQ(DOCUMENT_NODE);
+STATIC_ASSERT_CONSTANT_EQ(DOCUMENT_TYPE_NODE);
+STATIC_ASSERT_CONSTANT_EQ(DOCUMENT_FRAGMENT_NODE);
+STATIC_ASSERT_CONSTANT_EQ(NOTATION_NODE);
+
+#undef STATIC_ASSERT_CONSTANT_EQ
+
 static bool ShouldUseNACScope(const nsINode* aNode) {
   return aNode->IsInNativeAnonymousSubtree();
 }
@@ -535,12 +553,8 @@ bool nsINode::IsSelected(const uint32_t aStartOffset, const uint32_t aEndOffset,
   return false;
 }
 
-Element* nsINode::GetAnonymousRootElementOfTextEditor(
-    TextEditor** aTextEditor) {
-  if (aTextEditor) {
-    *aTextEditor = nullptr;
-  }
-  RefPtr<TextControlElement> textControlElement;
+Element* nsINode::GetAnonymousRootElementOfTextEditor() {
+  TextControlElement* textControlElement = nullptr;
   if (IsInNativeAnonymousSubtree()) {
     textControlElement = TextControlElement::FromNodeOrNull(
         GetClosestNativeAnonymousSubtreeRootParentOrHost());
@@ -550,20 +564,7 @@ Element* nsINode::GetAnonymousRootElementOfTextEditor(
   if (!textControlElement) {
     return nullptr;
   }
-  RefPtr<TextEditor> textEditor = textControlElement->GetTextEditor();
-  if (!textEditor) {
-    // The found `TextControlElement` may be an input element which is not a
-    // text control element.  In this case, such element must not be in a
-    // native anonymous tree of a `TextEditor` so this node is not in any
-    // `TextEditor`.
-    return nullptr;
-  }
-
-  Element* rootElement = textEditor->GetRoot();
-  if (aTextEditor) {
-    textEditor.forget(aTextEditor);
-  }
-  return rootElement;
+  return textControlElement->GetTextEditorRoot();
 }
 
 void nsINode::QueueDevtoolsAnonymousEvent(bool aIsRemove) {

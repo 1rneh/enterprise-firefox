@@ -15,7 +15,9 @@ import {
   getFailedCertificatesAsPEMString,
   handleNSSFailure,
   recordSecurityUITelemetry,
+  getFilePath,
   gOffline,
+  gNoConnectivity,
   retryThis,
   VPN_ACTIVE,
 } from "chrome://global/content/aboutNetErrorHelpers.mjs";
@@ -72,7 +74,11 @@ export class NetErrorCard extends MozLitElement {
   };
 
   static getCustomErrorID(defaultCode) {
-    if (gOffline) {
+    // gNoConnectivity is only true when there's no network connectivity,
+    // regardless of whether "Work Offline" mode is enabled. NS_ERROR_OFFLINE
+    // is the error ID for real connectivity loss, while netOffline is the
+    // error code for when "Work Offline" mode is enabled.
+    if (gNoConnectivity) {
       return "NS_ERROR_OFFLINE";
     }
     if (defaultCode === "proxyConnectFailure" && VPN_ACTIVE) {
@@ -88,14 +94,12 @@ export class NetErrorCard extends MozLitElement {
 
     initializeRegistry();
 
-    let errorInfo;
+    let errorInfo = { errorCodeString: "" };
     try {
       errorInfo = gIsCertError
         ? document.getFailedCertSecurityInfo()
         : document.getNetErrorInfo();
-    } catch {
-      return false;
-    }
+    } catch {}
 
     const id = NetErrorCard.getCustomErrorID(
       errorInfo.errorCodeString || gErrorCode
@@ -186,6 +190,19 @@ export class NetErrorCard extends MozLitElement {
         "securityUiCerterror",
         "loadAboutcerterror",
         this.errorInfo
+      );
+    }
+
+    // nssFailure2 are TLS errors which are tracked by load_abouttlserror
+    if (!gIsCertError && gErrorCode !== "nssFailure2" && !isCaptive()) {
+      let neterrorInfo = Object.assign({}, this.errorInfo);
+      if (!neterrorInfo.errorCodeString) {
+        neterrorInfo.errorCodeString = gErrorCode;
+      }
+      recordSecurityUITelemetry(
+        "securityUiNeterror",
+        "loadAboutneterror",
+        neterrorInfo
       );
     }
 
@@ -310,9 +327,13 @@ export class NetErrorCard extends MozLitElement {
   }
 
   getErrorInfo() {
-    return gIsCertError
-      ? document.getFailedCertSecurityInfo()
-      : document.getNetErrorInfo();
+    try {
+      return gIsCertError
+        ? document.getFailedCertSecurityInfo()
+        : document.getNetErrorInfo();
+    } catch {
+      return { errorCodeString: gErrorCode };
+    }
   }
 
   getErrorConfig() {
@@ -325,6 +346,7 @@ export class NetErrorCard extends MozLitElement {
       cssClass: getCSSClass(),
       domainMismatchNames: this.domainMismatchNames,
       offline: gOffline,
+      filePath: getFilePath(),
     });
 
     if (errorConfig.customNetError) {
@@ -599,6 +621,7 @@ export class NetErrorCard extends MozLitElement {
       whyDidThisHappenL10nArgs: customNetError.whyDidThisHappenL10nArgs,
       whatCanYouDoL10nId: customNetError.whatCanYouDoL10nId,
       whatCanYouDoL10nArgs: customNetError.whatCanYouDoL10nArgs,
+      whatCanYouDoItems: customNetError.whatCanYouDoItems,
       learnMoreL10nId: customNetError.learnMoreL10nId,
       learnMoreSupportPage: customNetError.learnMoreSupportPage,
       buttons: {
@@ -656,6 +679,7 @@ export class NetErrorCard extends MozLitElement {
       whyDidThisHappenL10nArgs,
       whatCanYouDoL10nId,
       whatCanYouDoL10nArgs,
+      whatCanYouDoItems,
       learnMoreL10nId,
       learnMoreSupportPage,
       buttons = {},
@@ -675,6 +699,25 @@ export class NetErrorCard extends MozLitElement {
       learnMoreHref = baseURL + learnMoreSupportPage;
     }
 
+    let whatCanYouDoSection = null;
+    if (whatCanYouDoItems?.length) {
+      whatCanYouDoSection = html`<div>
+        <h3 data-l10n-id="fp-certerror-what-can-you-do"></h3>
+        <ul class="what-can-you-do-list">
+          ${whatCanYouDoItems.map(id => html`<li data-l10n-id=${id}></li>`)}
+        </ul>
+      </div>`;
+    } else if (whatCanYouDoL10nId) {
+      whatCanYouDoSection = html`<div>
+        <h3 data-l10n-id="fp-certerror-what-can-you-do"></h3>
+        <p
+          id="whatCanYouDo"
+          data-l10n-id=${whatCanYouDoL10nId}
+          data-l10n-args=${JSON.stringify(whatCanYouDoL10nArgs)}
+        ></p>
+      </div>`;
+    }
+
     const content = html`
       ${whyDangerousL10nId
         ? html`<div>
@@ -685,16 +728,7 @@ export class NetErrorCard extends MozLitElement {
             ></p>
           </div>`
         : null}
-      ${whatCanYouDoL10nId
-        ? html`<div>
-            <h3 data-l10n-id="fp-certerror-what-can-you-do"></h3>
-            <p
-              id="whatCanYouDo"
-              data-l10n-id=${whatCanYouDoL10nId}
-              data-l10n-args=${JSON.stringify(whatCanYouDoL10nArgs)}
-            ></p>
-          </div>`
-        : null}
+      ${whatCanYouDoSection}
       ${whyDidThisHappenL10nId
         ? html`<div>
             <h3 data-l10n-id="fp-certerror-what-can-you-do"></h3>

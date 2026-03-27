@@ -3,12 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "RemoteVideoDecoder.h"
 
+#include "AOMDecoder.h"
+#include "DAV1DDecoder.h"
 #include "mozilla/layers/ImageDataSerializer.h"
-
-#ifdef MOZ_AV1
-#  include "AOMDecoder.h"
-#  include "DAV1DDecoder.h"
-#endif
 #ifdef XP_WIN
 #  include "WMFDecoderModule.h"
 #endif
@@ -34,18 +31,18 @@ using namespace layers;  // for PlanarYCbCrData and BufferRecycleBin
 using namespace ipc;
 using namespace gfx;
 
-layers::TextureForwarder* KnowsCompositorVideo::GetTextureForwarder() {
-  auto* vbc = VideoBridgeChild::GetSingleton();
+RefPtr<layers::TextureForwarder> KnowsCompositorVideo::GetTextureForwarder() {
+  auto vbc = VideoBridgeChild::GetSingleton();
   return (vbc && vbc->CanSend()) ? vbc : nullptr;
 }
 layers::LayersIPCActor* KnowsCompositorVideo::GetLayersIPCActor() {
-  return GetTextureForwarder();
+  return GetTextureForwarder().get();
 }
 
 /* static */ already_AddRefed<KnowsCompositorVideo>
 KnowsCompositorVideo::TryCreateForIdentifier(
     const layers::TextureFactoryIdentifier& aIdentifier) {
-  VideoBridgeChild* child = VideoBridgeChild::GetSingleton();
+  auto child = VideoBridgeChild::GetSingleton();
   if (!child) {
     return nullptr;
   }

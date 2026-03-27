@@ -1050,7 +1050,7 @@ nsresult ExternalResourceMap::AddExternalResource(nsIURI* aURI,
 
     rv = aViewer->Init(nullptr, LayoutDeviceIntRect(), nullptr);
     if (NS_SUCCEEDED(rv)) {
-      rv = aViewer->Open(nullptr, nullptr);
+      rv = aViewer->Open();
     }
 
     if (NS_FAILED(rv)) {
@@ -1285,7 +1285,7 @@ ExternalResourceMap::LoadgroupCallbacks::GetInterface(const nsIID& aIID,
 
 ExternalResourceMap::ExternalResource::~ExternalResource() {
   if (mViewer) {
-    mViewer->Close(nullptr);
+    mViewer->Close();
     mViewer->Destroy();
   }
 }
@@ -2614,6 +2614,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOnloadBlocker)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLazyLoadObserver)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAutoSizeImageObserver)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mElementsObservedForLastRememberedSize)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDOMImplementation)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mImageMaps)
@@ -2737,6 +2738,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSecurityInfo)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDisplayDocument)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mLazyLoadObserver)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mAutoSizeImageObserver)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mElementsObservedForLastRememberedSize);
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFontFaceSet)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mReadyForIdle)
@@ -3421,7 +3423,7 @@ static void WarnIfSandboxIneffective(nsIDocShell* aDocShell,
       !(aSandboxFlags & SANDBOXED_TOPLEVEL_NAVIGATION_USER_ACTIVATION)) {
     nsContentUtils::ReportToConsole(
         nsIScriptError::warningFlag, "Iframe Sandbox"_ns,
-        aDocShell->GetDocument(), nsContentUtils::eSECURITY_PROPERTIES,
+        aDocShell->GetDocument(), PropertiesFile::SECURITY_PROPERTIES,
         "BothAllowTopNavigationAndUserActivationPresent");
   }
   // If the document is sandboxed (via the HTML5 iframe sandbox
@@ -3465,7 +3467,7 @@ static void WarnIfSandboxIneffective(nsIDocShell* aDocShell,
     parentChannel->GetURI(getter_AddRefs(iframeUri));
     nsContentUtils::ReportToConsole(
         nsIScriptError::warningFlag, "Iframe Sandbox"_ns, parentDocument,
-        nsContentUtils::eSECURITY_PROPERTIES,
+        PropertiesFile::SECURITY_PROPERTIES,
         "BothAllowScriptsAndSameOriginPresent", nsTArray<nsString>(),
         SourceLocation(iframeUri.get()));
   }
@@ -3768,7 +3770,7 @@ void Document::SendToConsole(nsCOMArray<nsISecurityConsoleMessage>& aMessages) {
 
     nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
                                     NS_ConvertUTF16toUTF8(category), this,
-                                    nsContentUtils::eSECURITY_PROPERTIES,
+                                    PropertiesFile::SECURITY_PROPERTIES,
                                     NS_ConvertUTF16toUTF8(messageTag).get());
   }
 }
@@ -5748,7 +5750,7 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
       // We have rejected the event due to it not being performed in an
       // input-driven context therefore, we report the error to the console.
       nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns,
-                                      this, nsContentUtils::eDOM_PROPERTIES,
+                                      this, PropertiesFile::DOM_PROPERTIES,
                                       "ExecCommandCutCopyDeniedNotInputDriven");
       return false;
     }
@@ -5758,7 +5760,7 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
         // We rejected the command because it was not performed with a valid
         // user activation; therefore, we report the error to the console.
         nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns,
-                                        this, nsContentUtils::eDOM_PROPERTIES,
+                                        this, PropertiesFile::DOM_PROPERTIES,
                                         "ExecCommandPasteDeniedNotInputDriven");
       }
       return false;
@@ -7703,7 +7705,7 @@ bool Document::RemoveFromBFCacheSync() {
     removed = true;
   }
 
-  if (mozilla::SessionHistoryInParent() && XRE_IsContentProcess()) {
+  if (XRE_IsContentProcess()) {
     if (BrowsingContext* bc = GetBrowsingContext()) {
       if (bc->IsInBFCache()) {
         ContentChild* cc = ContentChild::GetSingleton();
@@ -10647,7 +10649,7 @@ void Document::WriteCommon(const nsAString& aText, bool aNewlineTerminate,
       // Instead of implying a call to document.open(), ignore the call.
       nsContentUtils::ReportToConsole(
           nsIScriptError::warningFlag, "DOM Events"_ns, this,
-          nsContentUtils::eDOM_PROPERTIES, "DocumentWriteIgnored");
+          PropertiesFile::DOM_PROPERTIES, "DocumentWriteIgnored");
       return;
     }
     // The spec doesn't tell us to ignore opens from here, but we need to
@@ -10664,7 +10666,7 @@ void Document::WriteCommon(const nsAString& aText, bool aNewlineTerminate,
       // Instead of implying a call to document.open(), ignore the call.
       nsContentUtils::ReportToConsole(
           nsIScriptError::warningFlag, "DOM Events"_ns, this,
-          nsContentUtils::eDOM_PROPERTIES, "DocumentWriteIgnored");
+          PropertiesFile::DOM_PROPERTIES, "DocumentWriteIgnored");
       return;
     }
 
@@ -12075,16 +12077,13 @@ bool Document::CanSavePresentation(nsIRequest* aNewRequest,
         aBFCacheCombo |= BFCacheStatus::UNLOAD_LISTENER;
         ret = false;
       }
-      if (manager->HasBeforeUnloadListeners()) {
-        if (!mozilla::SessionHistoryInParent() ||
-            !StaticPrefs::
-                docshell_shistory_bfcache_ship_allow_beforeunload_listeners()) {
-          MOZ_LOG(
-              gPageCacheLog, mozilla::LogLevel::Verbose,
-              ("Save of %s blocked due to beforeUnload handlers", uri.get()));
-          aBFCacheCombo |= BFCacheStatus::BEFOREUNLOAD_LISTENER;
-          ret = false;
-        }
+      if (manager->HasBeforeUnloadListeners() &&
+          !StaticPrefs::
+              docshell_shistory_bfcache_ship_allow_beforeunload_listeners()) {
+        MOZ_LOG(gPageCacheLog, mozilla::LogLevel::Verbose,
+                ("Save of %s blocked due to beforeUnload handlers", uri.get()));
+        aBFCacheCombo |= BFCacheStatus::BEFOREUNLOAD_LISTENER;
+        ret = false;
       }
     }
   }
@@ -14438,7 +14437,7 @@ void Document::WarnOnceAbout(
   uint32_t flags =
       asError ? nsIScriptError::errorFlag : nsIScriptError::warningFlag;
   nsContentUtils::ReportToConsole(
-      flags, "DOM Core"_ns, this, nsContentUtils::eDOM_PROPERTIES,
+      flags, "DOM Core"_ns, this, PropertiesFile::DOM_PROPERTIES,
       kDeprecationWarnings[static_cast<size_t>(aOperation)], aParams);
 }
 
@@ -14457,7 +14456,7 @@ void Document::WarnOnceAbout(
   uint32_t flags =
       asError ? nsIScriptError::errorFlag : nsIScriptError::warningFlag;
   nsContentUtils::ReportToConsole(flags, "DOM Core"_ns, this,
-                                  nsContentUtils::eDOM_PROPERTIES,
+                                  PropertiesFile::DOM_PROPERTIES,
                                   kDocumentWarnings[aWarning], aParams);
 }
 
@@ -14651,6 +14650,31 @@ void Document::DoUpdateSVGUseElementShadowTrees() {
 void Document::NotifyMediaFeatureValuesChanged() {
   for (RefPtr<HTMLImageElement> imageElement : mResponsiveContent) {
     imageElement->MediaFeatureValuesChanged();
+  }
+}
+
+void Document::ObserveAutoSizesImage(HTMLImageElement& aElement) {
+  auto* window = GetInnerWindow();
+  if (!window) {
+    // do not observe size changes if document is not attached to a window
+    return;
+  }
+  if (!mAutoSizeImageObserver) {
+    mAutoSizeImageObserver =
+        new ResizeObserver(window, this, [](const auto& aEntries) {
+          for (const auto& entry : aEntries) {
+            auto* element = HTMLImageElement::FromNode(entry->Target());
+            MOZ_ASSERT(element);
+            element->MaybeRecomputeAutoSizes(true);
+          }
+        });
+  }
+  mAutoSizeImageObserver->Observe(aElement, ResizeObserverOptions());
+}
+
+void Document::UnobserveAutoSizesImage(HTMLImageElement& aElement) {
+  if (mAutoSizeImageObserver) {
+    mAutoSizeImageObserver->Unobserve(aElement);
   }
 }
 
@@ -17095,19 +17119,23 @@ void Document::Reveal() {
 
   // Step 3, Let transition be the result of resolving inbound cross-document
   // view-transition for document.
-  // TODO
+  Maybe<RefPtr<ViewTransition>> vt =
+      ResolveInboundCrossDocumentViewTransition();
 
-  // Step 4
+  // Step 4, Fire pagereveal.
   PageRevealEventInit init;
-  // init.mViewTransition = TODO
+  init.mViewTransition = vt.valueOr(nullptr);
 
   RefPtr<PageRevealEvent> event =
       PageRevealEvent::Constructor(win, u"pagereveal"_ns, init);
   event->SetTrusted(true);
   win->DispatchEvent(*event);
 
-  // Step 5, If transition is not null, then:
-  // TODO
+  // Step 5, If transition is not null, then: Activate transition.
+  if (vt.isSome()) {
+    nsAutoMicroTask mt;
+    vt.ref()->Activate();
+  }
 }
 
 void Document::MaybeActiveMediaComponents() {
@@ -18264,6 +18292,16 @@ nsAutoSyncOperation::nsAutoSyncOperation(Document* aDoc,
     ccjs->EnterSyncOperation();
   }
   if (aDoc) {
+    // Record the current time as a fallback for any in-flight event timing
+    // entry. This sync operation is about to provide visual feedback to the
+    // user (e.g. a modal dialog or sync XHR), so this time acts as the
+    // effective processingEnd rather than waiting for the next paint.
+    // https://github.com/w3c/event-timing/issues/154
+    if (nsPIDOMWindowInner* inner = aDoc->GetInnerWindow()) {
+      if (Performance* perf = inner->GetPerformance()) {
+        perf->RecordModalFallbackTime();
+      }
+    }
     mBrowsingContext = aDoc->GetBrowsingContext();
     if (InputTaskManager::CanSuspendInputEvent()) {
       if (auto* bcg = aDoc->GetDocGroup()->GetBrowsingContextGroup()) {
@@ -18398,7 +18436,7 @@ void Document::ReportHasScrollLinkedEffect(
     // Report to console just once.
     nsContentUtils::ReportToConsole(
         nsIScriptError::warningFlag, "Async Pan/Zoom"_ns, this,
-        nsContentUtils::eLAYOUT_PROPERTIES, "ScrollLinkedEffectFound3");
+        PropertiesFile::LAYOUT_PROPERTIES, "ScrollLinkedEffectFound3");
   }
 
   mLastScrollLinkedEffectDetectionTime = aTimeStamp;
@@ -18418,19 +18456,6 @@ void Document::SetSHEntryHasUserInteraction(bool aHasInteraction) {
     // Setting has user interaction on a discarded browsing context has
     // no effect.
     (void)topWc->SetSHEntryHasUserInteraction(aHasInteraction);
-  }
-
-  // For when SHIP is not enabled, we need to get the current entry
-  // directly from the docshell.
-  nsIDocShell* docShell = GetDocShell();
-  if (docShell) {
-    nsCOMPtr<nsISHEntry> currentEntry;
-    bool oshe;
-    nsresult rv =
-        docShell->GetCurrentSHEntry(getter_AddRefs(currentEntry), &oshe);
-    if (!NS_WARN_IF(NS_FAILED(rv)) && currentEntry) {
-      currentEntry->SetHasUserInteraction(aHasInteraction);
-    }
   }
 }
 
@@ -19266,6 +19291,85 @@ void Document::EnsureViewTransitionOperationsHappen() {
   MaybeScheduleRenderingPhases({RenderingPhase::ViewTransitionOperations});
 }
 
+Maybe<nsTArray<RefPtr<nsAtom>>> Document::ResolveViewTransitionRule() {
+  // Step 1. Skip if hidden
+  if (Hidden()) {
+    return Nothing();
+  }
+
+  // Step 2. Let matchingRule be the last '@view-transition' rule in document
+  RefPtr<StyleViewTransitionRule> matchingRule =
+      EnsureStyleSet().GetLastViewTransitionRule();
+
+  // Step 3. Skip if no rule
+  if (!matchingRule) {
+    return Nothing();
+  }
+
+  // Step 4. Skip if navigation: none;
+  const StyleNavigationType nav =
+      Servo_ViewTransitionRule_GetNavigationDescriptor(matchingRule);
+  if (nav == StyleNavigationType::None) {
+    return Nothing();
+  }
+
+  // Step 5. Assert navigation: auto;
+  MOZ_ASSERT(nav == StyleNavigationType::Auto);
+
+  // Step 6-9. Return matchingRule's types descriptor
+  AutoTArray<nsAtom*, 8> atoms;
+  Servo_ViewTransitionRule_GetTypes(matchingRule, &atoms);
+  ViewTransition::TypeList types;
+  types.AppendElements(atoms);
+
+  return Some(std::move(types));
+}
+
+Maybe<RefPtr<ViewTransition>>
+Document::ResolveInboundCrossDocumentViewTransition() {
+  // Step 1, 2. Assert fully active and revealed.
+  MOZ_ASSERT(IsFullyActive());
+  MOZ_ASSERT(mHasBeenRevealed);
+
+  // TODO Step 3. Update opt-in state for outbound transitions.
+  // XXX Maybe we don't need that flag and can just check the rule directly.
+
+  // Step 4. Let inboundViewTransitionParams be document's inbound params.
+  // Step 6. Set document's inbound params to null.
+  auto inboundParams = std::move(mInboundViewTransitionParams);
+
+  // Step 5. If inboundViewTransitionParams is null, return null.
+  if (!inboundParams) {
+    return Nothing();
+  }
+
+  // Step 7. If active view transition is not null, return null.
+  if (mActiveViewTransition) {
+    return Nothing();
+  }
+
+  // Step 8. Let resolvedRule be the result of resolving the @view-transition
+  // rule for document.
+  auto resolvedRule = ResolveViewTransitionRule();
+
+  // Step 9. If resolvedRule is skip transition, then return null.
+  if (resolvedRule.isNothing()) {
+    return Nothing();
+  }
+
+  // Steps 10-14. Set active view transition to a new ViewTransition ...
+  mActiveViewTransition = ViewTransition::CreateCrossDocument(
+      *this, std::move(inboundParams), resolvedRule.extract());
+
+  // Step 15. Return transition.
+  return Some(mActiveViewTransition);
+}
+
+void Document::SetInboundViewTransitionParams(
+    UniquePtr<ViewTransitionParams> aParams) {
+  mInboundViewTransitionParams = std::move(aParams);
+}
+
 Selection* Document::GetSelection(ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> window = GetInnerWindow();
   if (!window) {
@@ -19482,7 +19586,7 @@ Document::CreatePermissionGrantPromise(nsPIDOMWindowInner* aInnerWindow,
             nsContentUtils::ReportToConsole(
                 nsIScriptError::errorFlag,
                 nsLiteralCString("requestStorageAccess"), self,
-                nsContentUtils::eDOM_PROPERTIES,
+                PropertiesFile::DOM_PROPERTIES,
                 "RequestStorageAccessUserGesture");
             p->Reject(false, __func__);
             return;
@@ -19762,7 +19866,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
     // Report an error to the console for this case
     nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
                                     nsLiteralCString("requestStorageAccess"),
-                                    this, nsContentUtils::eDOM_PROPERTIES,
+                                    this, PropertiesFile::DOM_PROPERTIES,
                                     "RequestStorageAccessUserGesture");
     ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithNotAllowedError(

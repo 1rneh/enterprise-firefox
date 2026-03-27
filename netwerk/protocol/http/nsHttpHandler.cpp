@@ -217,9 +217,7 @@ already_AddRefed<nsHttpHandler> nsHttpHandler::GetInstance() {
 static nsCString ImageAcceptHeader() {
   nsCString mimeTypes;
 
-#ifdef MOZ_AV1
   mimeTypes.Append("image/avif,");
-#endif
 
 #ifdef MOZ_JXL
   if (mozilla::StaticPrefs::image_jxl_enabled()) {
@@ -244,9 +242,7 @@ static nsCString DocumentAcceptHeader() {
 
   // we also insert all of the image formats before */* when the pref is set
   if (mozilla::StaticPrefs::network_http_accept_include_images()) {
-#ifdef MOZ_AV1
     mimeTypes.Append("image/avif,");
-#endif
 
 #ifdef MOZ_JXL
     if (mozilla::StaticPrefs::image_jxl_enabled()) {
@@ -2583,6 +2579,22 @@ nsresult nsHttpHandler::SpeculativeConnectInternal(
                                             EchConfigEnabled());
 }
 
+nsresult nsHttpHandler::SpeculativeConnect(nsHttpConnectionInfo* ci,
+                                           nsIInterfaceRequestor* callbacks,
+                                           uint32_t caps,
+                                           SpeculativeTransaction* aTrans) {
+  if (mDebugObservations) {
+    nsCOMPtr<nsIObserverService> obsService = services::GetObserverService();
+    if (obsService) {
+      nsPrintfCString debugHashKey("%s", ci->HashKey().get());
+      obsService->NotifyObservers(nullptr, "speculative-connect-request",
+                                  NS_ConvertUTF8toUTF16(debugHashKey).get());
+    }
+  }
+  RefPtr<nsHttpConnectionInfo> clone = ci->Clone();
+  return mConnMgr->SpeculativeConnect(clone, callbacks, caps, aTrans);
+}
+
 NS_IMETHODIMP
 nsHttpHandler::SpeculativeConnect(nsIURI* aURI, nsIPrincipal* aPrincipal,
                                   nsIInterfaceRequestor* aCallbacks,
@@ -2819,13 +2831,13 @@ void nsHttpHandler::ExcludeHttp2OrHttp3Internal(
   MOZ_ASSERT_IF(!nsIOService::UseSocketProcess(), OnSocketThread());
 
   if (ci->IsHttp3()) {
-    if (!mExcludedHttp3Origins.Contains(ci->GetRoutedHost())) {
+    {
       MutexAutoLock lock(mHttpExclusionLock);
       mExcludedHttp3Origins.Insert(ci->GetRoutedHost());
     }
     mConnMgr->ExcludeHttp3(ci);
   } else {
-    if (!mExcludedHttp2Origins.Contains(ci->GetOrigin())) {
+    {
       MutexAutoLock lock(mHttpExclusionLock);
       mExcludedHttp2Origins.Insert(ci->GetOrigin());
     }

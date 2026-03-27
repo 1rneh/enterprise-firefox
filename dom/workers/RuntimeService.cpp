@@ -153,14 +153,6 @@ Atomic<RuntimeService*> gRuntimeService(nullptr);
 // Only true during the call to Init.
 bool gRuntimeServiceDuringInit = false;
 
-class LiteralRebindingCString : public nsDependentCString {
- public:
-  template <int N>
-  void RebindLiteral(const char (&aStr)[N]) {
-    Rebind(aStr, N - 1);
-  }
-};
-
 template <typename T>
 struct PrefTraits;
 
@@ -1263,7 +1255,7 @@ bool RuntimeService::RegisterWorker(WorkerPrivate& aWorkerPrivate) {
       // Worker spawn gets queued due to hitting max workers per domain
       // limit so let's log a warning.
       WorkerPrivate::ReportErrorToConsole(nsIScriptError::warningFlag, "DOM"_ns,
-                                          nsContentUtils::eDOM_PROPERTIES,
+                                          PropertiesFile::DOM_PROPERTIES,
                                           "HittingMaxWorkersPerDomain2"_ns);
 
       if (isServiceWorker) {
@@ -1292,6 +1284,8 @@ bool RuntimeService::RegisterWorker(WorkerPrivate& aWorkerPrivate) {
     }
   } else {
     if (!mNavigatorPropertiesLoaded) {
+      MutexAutoLock lock(mMutex);
+
       if (NS_FAILED(Navigator::GetAppVersion(
               mNavigatorProperties.mAppVersion, aWorkerPrivate.GetDocument(),
               false /* aUsePrefOverriddenValue */)) ||
@@ -1718,7 +1712,7 @@ void RuntimeService::CrashIfHanging() {
   msg.Append(activeStats.mMessage);
 
   // This string will be leaked.
-  MOZ_CRASH_UNSAFE(strdup(msg.BeginReading()));
+  MOZ_CRASH_UNSAFE(strdup(msg.get()));
 }
 
 // This spins the event loop until all workers are finished and their threads
@@ -1957,11 +1951,13 @@ void RuntimeService::UpdateAllWorkerContextOptions() {
 void RuntimeService::UpdateAppVersionOverridePreference(
     const nsAString& aValue) {
   AssertIsOnMainThread();
+  MutexAutoLock lock(mMutex);
   mNavigatorProperties.mAppVersionOverridden = aValue;
 }
 
 void RuntimeService::UpdatePlatformOverridePreference(const nsAString& aValue) {
   AssertIsOnMainThread();
+  MutexAutoLock lock(mMutex);
   mNavigatorProperties.mPlatformOverridden = aValue;
 }
 
@@ -1969,7 +1965,10 @@ void RuntimeService::UpdateAllWorkerLanguages(
     const nsTArray<nsString>& aLanguages) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  mNavigatorProperties.mLanguages = aLanguages.Clone();
+  {
+    MutexAutoLock lock(mMutex);
+    mNavigatorProperties.mLanguages = aLanguages.Clone();
+  }
   BroadcastAllWorkers(
       [&aLanguages](auto& worker) { worker.UpdateLanguages(aLanguages); });
 }

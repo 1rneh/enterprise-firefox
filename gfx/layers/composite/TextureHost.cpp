@@ -261,17 +261,19 @@ already_AddRefed<TextureHost> CreateBackendIndependentTextureHost(
       switch (data.type()) {
         case MemoryOrShmem::TShmem: {
           const ipc::Shmem& shmem = data.get_Shmem();
-          const BufferDescriptor& desc = bufferDesc.desc();
           if (!shmem.IsReadable()) {
-            // We failed to map the shmem so we can't verify its size. This
-            // should not be a fatal error, so just create the texture with
-            // nothing backing it.
-            result = new ShmemTextureHost(shmem, desc, aDeallocator, aFlags);
-            break;
+            // We failed to map the shmem so we can't verify its size.
+            // Attempting to construct a ShmemTextureHost with it will succeed,
+            // but the resulting object will have a null shmem and can't ever be
+            // locked or mapped -- it's not useful at all. We just return
+            // nullptr instead.
+            gfxCriticalError() << "Failed texture host with unmappable shmem.";
+            return nullptr;
           }
 
           size_t bufSize = shmem.Size<char>();
           Maybe<size_t> reqSize;
+          const BufferDescriptor& desc = bufferDesc.desc();
           switch (desc.type()) {
             case BufferDescriptor::TYCbCrDescriptor: {
               const YCbCrDescriptor& ycbcr = desc.get_YCbCrDescriptor();
@@ -462,7 +464,15 @@ BufferTextureHost::BufferTextureHost(const BufferDescriptor& aDesc,
       MOZ_ASSERT(gfx::IntRect(gfx::IntPoint(), ycbcr.ySize())
                      .Contains(ycbcr.display()));
       mSize = ycbcr.display().Size();
-      mFormat = gfx::SurfaceFormat::YUV420;
+      if (ycbcr.colorDepth() == gfx::ColorDepth::COLOR_8) {
+        mFormat = gfx::SurfaceFormat::YUV420;
+      } else if (ycbcr.colorDepth() == gfx::ColorDepth::COLOR_10) {
+        mFormat = gfx::SurfaceFormat::YUV420P10;
+      } else {
+        // we should probably do better for the other depths
+        // but UNKNOWN seems good enough.
+        mFormat = gfx::SurfaceFormat::UNKNOWN;
+      }
       break;
     }
     case BufferDescriptor::TRGBDescriptor: {
@@ -493,6 +503,10 @@ BufferTextureHost::~BufferTextureHost() = default;
 
 void BufferTextureHost::DeallocateDeviceData() {}
 
+bool BufferTextureHost::IsYCbCr() const {
+  return mDescriptor.type() == BufferDescriptor::TYCbCrDescriptor;
+}
+
 void BufferTextureHost::CreateRenderTexture(
     const wr::ExternalImageId& aExternalImageId) {
   MOZ_ASSERT(mExternalImageId.isSome());
@@ -512,7 +526,7 @@ void BufferTextureHost::CreateRenderTexture(
 }
 
 uint32_t BufferTextureHost::NumSubTextures() {
-  if (GetFormat() == gfx::SurfaceFormat::YUV420) {
+  if (IsYCbCr()) {
     return 3;
   }
 
@@ -536,7 +550,7 @@ void BufferTextureHost::PushResourceUpdates(
                                           wr::ImageBufferKind::TextureRect)
                                     : wr::ExternalImageType::Buffer();
 
-  if (GetFormat() != gfx::SurfaceFormat::YUV420) {
+  if (!IsYCbCr()) {
     MOZ_ASSERT(aImageKeys.length() == 1);
 
     auto stride =
@@ -579,7 +593,7 @@ void BufferTextureHost::PushDisplayItems(wr::DisplayListBuilder& aBuilder,
       aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE);
   bool useExternalSurface =
       aFlags.contains(PushDisplayItemFlag::SUPPORTS_EXTERNAL_BUFFER_TEXTURES);
-  if (GetFormat() != gfx::SurfaceFormat::YUV420) {
+  if (!IsYCbCr()) {
     MOZ_ASSERT(aImageKeys.length() == 1);
     aBuilder.PushImage(aBounds, aClip, true, false, aFilter, aImageKeys[0],
                        !(mFlags & TextureFlags::NON_PREMULTIPLIED),
@@ -638,7 +652,7 @@ void BufferTextureHost::UnbindTextureSource() {
 gfx::SurfaceFormat BufferTextureHost::GetFormat() const { return mFormat; }
 
 gfx::YUVColorSpace BufferTextureHost::GetYUVColorSpace() const {
-  if (mFormat == gfx::SurfaceFormat::YUV420) {
+  if (IsYCbCr()) {
     const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
     return desc.yUVColorSpace();
   }
@@ -646,7 +660,7 @@ gfx::YUVColorSpace BufferTextureHost::GetYUVColorSpace() const {
 }
 
 gfx::ColorDepth BufferTextureHost::GetColorDepth() const {
-  if (mFormat == gfx::SurfaceFormat::YUV420) {
+  if (IsYCbCr()) {
     const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
     return desc.colorDepth();
   }
@@ -654,7 +668,7 @@ gfx::ColorDepth BufferTextureHost::GetColorDepth() const {
 }
 
 gfx::ColorRange BufferTextureHost::GetColorRange() const {
-  if (mFormat == gfx::SurfaceFormat::YUV420) {
+  if (IsYCbCr()) {
     const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
     return desc.colorRange();
   }
@@ -662,7 +676,7 @@ gfx::ColorRange BufferTextureHost::GetColorRange() const {
 }
 
 gfx::ChromaSubsampling BufferTextureHost::GetChromaSubsampling() const {
-  if (mFormat == gfx::SurfaceFormat::YUV420) {
+  if (IsYCbCr()) {
     const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
     return desc.chromaSubsampling();
   }
@@ -693,8 +707,35 @@ uint8_t* BufferTextureHost::GetCrChannel() {
   return nullptr;
 }
 
+uint16_t* BufferTextureHost::GetYChannel16() {
+  if (mFormat == gfx::SurfaceFormat::YUV420P10) {
+    const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
+    return ImageDataSerializer::GetYChannel(GetBuffer16(), desc);
+  }
+  MOZ_ASSERT_UNREACHABLE("Unexpected to be called!");
+  return nullptr;
+}
+
+uint16_t* BufferTextureHost::GetCbChannel16() {
+  if (mFormat == gfx::SurfaceFormat::YUV420P10) {
+    const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
+    return ImageDataSerializer::GetCbChannel(GetBuffer16(), desc);
+  }
+  MOZ_ASSERT_UNREACHABLE("Unexpected to be called!");
+  return nullptr;
+}
+
+uint16_t* BufferTextureHost::GetCrChannel16() {
+  if (mFormat == gfx::SurfaceFormat::YUV420P10) {
+    const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
+    return ImageDataSerializer::GetCrChannel(GetBuffer16(), desc);
+  }
+  MOZ_ASSERT_UNREACHABLE("Unexpected to be called!");
+  return nullptr;
+}
+
 int32_t BufferTextureHost::GetYStride() const {
-  if (mFormat == gfx::SurfaceFormat::YUV420) {
+  if (IsYCbCr()) {
     const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
     return desc.yStride();
   }
@@ -702,7 +743,7 @@ int32_t BufferTextureHost::GetYStride() const {
 }
 
 int32_t BufferTextureHost::GetCbCrStride() const {
-  if (mFormat == gfx::SurfaceFormat::YUV420) {
+  if (IsYCbCr()) {
     const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
     return desc.cbCrStride();
   }
@@ -716,7 +757,10 @@ already_AddRefed<gfx::DataSourceSurface> BufferTextureHost::GetAsSurface(
     NS_WARNING("BufferTextureHost: unsupported format!");
     return nullptr;
   }
-  if (mFormat == gfx::SurfaceFormat::YUV420) {
+  if (!GetBuffer()) {
+    return nullptr;
+  }
+  if (IsYCbCr()) {
     result = ImageDataSerializer::DataSourceSurfaceFromYCbCrDescriptor(
         GetBuffer(), mDescriptor.get_YCbCrDescriptor(), aSurface);
     if (NS_WARN_IF(!result)) {
@@ -728,8 +772,28 @@ already_AddRefed<gfx::DataSourceSurface> BufferTextureHost::GetAsSurface(
     if (stride.isNothing()) {
       return nullptr;
     }
+
+    struct Closure {
+      RefPtr<nsISerialEventTarget> mEventTarget;
+      RefPtr<Runnable> mRunnable;
+    };
+
+    RefPtr<nsISerialEventTarget> eventTarget = CompositorThread();
+    RefPtr<Runnable> runnable =
+        NS_NewRunnableFunction("BufferTextureHost::GetAsSurface::Runnable",
+                               [self = RefPtr{this}]() {});
+
+    Closure* closure = new Closure{eventTarget.forget(), runnable.forget()};
+
+    auto destroyedCallback = [](void* aClosure) mutable {
+      auto* closure = static_cast<Closure*>(aClosure);
+      closure->mEventTarget->Dispatch(closure->mRunnable.forget());
+      delete closure;
+    };
+
     result = gfx::Factory::CreateWrappingDataSourceSurface(
-        GetBuffer(), stride.value(), mSize, mFormat);
+        GetBuffer(), stride.value(), mSize, mFormat, destroyedCallback,
+        closure);
   }
   return result.forget();
 }
@@ -782,6 +846,10 @@ uint8_t* ShmemTextureHost::GetBuffer() const {
   return mShmem ? mShmem->get<uint8_t>() : nullptr;
 }
 
+uint16_t* ShmemTextureHost::GetBuffer16() const {
+  return mShmem ? mShmem->get<uint16_t>() : nullptr;
+}
+
 size_t ShmemTextureHost::GetBufferSize() const {
   return mShmem ? mShmem->Size<uint8_t>() : 0;
 }
@@ -811,6 +879,9 @@ void MemoryTextureHost::DeallocateSharedData() {
 void MemoryTextureHost::ForgetSharedData() { mBuffer = nullptr; }
 
 uint8_t* MemoryTextureHost::GetBuffer() const { return mBuffer; }
+uint16_t* MemoryTextureHost::GetBuffer16() const {
+  return reinterpret_cast<uint16_t*>(mBuffer);
+}
 
 size_t MemoryTextureHost::GetBufferSize() const {
   // MemoryTextureHost just trusts that the buffer size is large enough to read

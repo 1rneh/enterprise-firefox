@@ -9,7 +9,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CryptoUtils: "moz-src:///services/crypto/modules/utils.sys.mjs",
 });
 
-import { MESSAGE_ROLE } from "./ChatConstants.sys.mjs";
+import { MESSAGE_ROLE } from "./AIWindowConstants.sys.mjs";
 import { ChatConversation } from "./ChatConversation.sys.mjs";
 import { ChatMessage, ChatHistoryResult } from "./ChatMessage.sys.mjs";
 
@@ -41,6 +41,9 @@ export function parseConversationRow(row) {
     createdDate: row.getResultByName("created_date"),
     updatedDate: row.getResultByName("updated_date"),
     status: row.getResultByName("status"),
+    securityProperties: parseJSONOrNull(
+      row.getResultByName("security_properties")
+    ),
   });
 }
 

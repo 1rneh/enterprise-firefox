@@ -316,6 +316,12 @@ PTextureParent* ImageBridgeParent::AllocPTextureParent(
     const SurfaceDescriptor& aSharedData, ReadLockDescriptor& aReadLock,
     const LayersBackend& aLayersBackend, const TextureFlags& aFlags,
     const uint64_t& aSerial, const wr::MaybeExternalImageId& aExternalImageId) {
+  if (aExternalImageId.isSome()) {
+    uint32_t ns = static_cast<uint32_t>(wr::AsUint64(*aExternalImageId) >> 32);
+    if (ns == 0) {
+      return nullptr;
+    }
+  }
   return TextureHost::CreateIPDLActor(this, aSharedData, std::move(aReadLock),
                                       aLayersBackend, aFlags, mContentId,
                                       aSerial, aExternalImageId);
@@ -338,7 +344,7 @@ bool ImageBridgeParent::DeallocPMediaSystemResourceManagerParent(
 }
 
 void ImageBridgeParent::SendAsyncMessage(
-    const nsTArray<AsyncParentMessageData>& aMessage) {
+    Span<const AsyncParentMessageData> aMessage) {
   (void)SendParentAsyncMessages(aMessage);
 }
 
@@ -440,7 +446,8 @@ void ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
   }
 
   uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
-  mPendingAsyncMessage.push_back(OpNotifyNotUsed(textureId, aTransactionId));
+  mPendingAsyncMessage.AppendElement(
+      OpNotifyNotUsed(textureId, aTransactionId));
 
   if (!IsAboutToSendAsyncMessages()) {
     SendPendingAsyncMessages();

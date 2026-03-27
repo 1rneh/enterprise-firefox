@@ -4,16 +4,27 @@
 
 package mozilla.components.feature.summarize
 
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,7 +37,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
@@ -48,6 +61,8 @@ import mozilla.components.feature.summarize.ui.OnDeviceSummarizationConsent
 import mozilla.components.feature.summarize.ui.SummarizingContent
 import mozilla.components.feature.summarize.ui.SummaryContentLoaded
 import mozilla.components.feature.summarize.ui.gradient.summaryLoadingGradient
+import mozilla.components.ui.richtext.ir.RichDocument
+import mozilla.components.ui.richtext.parsing.Parser
 
 /**
  * The corner ration of the handle shape
@@ -88,59 +103,102 @@ private fun SummarizationScreen(
 ) {
     val state by store.stateFlow.collectAsStateWithLifecycle()
 
-    SummarizationScreenScaffold(
-        modifier = modifier
-            .thenConditional(Modifier.summaryLoadingGradient()) {
-                state is SummarizationState.Summarizing
-            }
-            .nestedScroll(rememberNestedScrollInteropConnection()),
-        color = if (state is SummarizationState.Summarizing) {
-            Color.Transparent
-        } else {
-            MaterialTheme.colorScheme.surface
-        },
+    ApplyHaptics(state)
+
+    val loadingAlpha by animateFloatAsState(
+        targetValue = if (state.isLoading) 1f else 0f,
+        animationSpec = if (state.isLoading) snap() else state.tween,
+        label = "gradientAlpha",
+    )
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        when (val state = state) {
-            is SummarizationState.Inert -> Unit
-            is SummarizationState.ShakeConsentRequired,
+        SummarizationScreenScaffold(
+            modifier = modifier
+                .thenConditional(Modifier.summaryLoadingGradient(loadingAlpha)) {
+                    loadingAlpha > 0
+                }
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
+                .nestedScroll(rememberNestedScrollInteropConnection()),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 1f - loadingAlpha),
+        ) {
+            handleSummarizationState(store, settingsStore)
+        }
+    }
+}
+
+@Composable
+private fun handleSummarizationState(
+    store: SummarizationStore,
+    settingsStore: SummarizeSettingsStore? = null,
+) {
+    val state by store.stateFlow.collectAsStateWithLifecycle()
+
+    when (val state = state) {
+        is SummarizationState.Inert -> Unit
+        is SummarizationState.ShakeConsentRequired,
             -> {
-                OffDeviceSummarizationConsent(
-                    dispatchAction = {
-                        store.dispatch(it)
-                    },
-                )
-            }
-            is SummarizationState.ShakeConsentWithDownloadRequired -> {
-                OnDeviceSummarizationConsent(
-                    dispatchAction = {
-                        store.dispatch(it)
-                    },
-                )
-            }
-            is SummarizationState.Summarizing -> SummarizingContent(
+            OffDeviceSummarizationConsent(
+                dispatchAction = {
+                    store.dispatch(it)
+                },
+            )
+        }
+
+        is SummarizationState.ShakeConsentWithDownloadRequired -> {
+            OnDeviceSummarizationConsent(
+                dispatchAction = {
+                    store.dispatch(it)
+                },
+            )
+        }
+
+        is SummarizationState.Loading -> {
+            SummarizingContent(
                 modifier = Modifier.height(252.dp),
             )
-            is SummarizationState.Summarized -> SummaryContentLoaded(
-                info = state.info,
-                text = state.text,
-                onSettingsClicked = { store.dispatch(SettingsClicked) },
-            )
-            is SummarizationState.Settings -> {
-                SettingsAppBar(onBackClicked = { store.dispatch(SettingsBackClicked) })
+        }
 
-                if (settingsStore != null) {
-                    SummarizeSettingsContent(store = settingsStore)
-                }
-            }
-            is SummarizationState.Error -> {
-                if (state.error is SummarizationError.DownloadFailed) {
-                    DownloadError()
-                } else {
-                    InfoError()
-                }
-            }
+        is SummarizationState.Summarizing -> SummaryContentLoaded(
+            info = state.info,
+            document = state.document,
+            onSettingsClicked = { store.dispatch(SettingsClicked) },
+        )
 
-            else -> Unit
+        is SummarizationState.Summarized -> SummaryContentLoaded(
+            info = state.info,
+            document = state.document,
+            onSettingsClicked = { store.dispatch(SettingsClicked) },
+        )
+
+        is SummarizationState.Settings -> {
+            SettingsAppBar(onBackClicked = { store.dispatch(SettingsBackClicked) })
+
+            if (settingsStore != null) {
+                SummarizeSettingsContent(store = settingsStore)
+            }
+        }
+
+        is SummarizationState.Error -> {
+            if (state.error is SummarizationError.DownloadFailed) {
+                DownloadError()
+            } else {
+                InfoError()
+            }
+        }
+
+        else -> Unit
+    }
+}
+
+@Composable
+private fun ApplyHaptics(state: SummarizationState) {
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(state) {
+        if (state.isSummarized) {
+            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
         }
     }
 }
@@ -154,16 +212,19 @@ private fun SummarizationScreenScaffold(
     Surface(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         color = color,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight(align = Alignment.Bottom)
             .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             .then(modifier)
-            .widthIn(max = AcornTheme.layout.size.containerMaxWidth)
-            .fillMaxWidth(),
+            .widthIn(max = AcornTheme.layout.size.containerMaxWidth),
     ) {
         Column(
             modifier = Modifier
-                .padding(horizontal = AcornTheme.layout.space.static200)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .padding(horizontal = AcornTheme.layout.space.static200),
         ) {
             DragHandle(modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(AcornTheme.layout.space.static200))
@@ -206,10 +267,11 @@ private val previewSummarizedText = """
 
 private class SummarizationStatePreviewProvider : PreviewParameterProvider<SummarizationState> {
     val info = LlmProvider.Info(R.string.mozac_summarize_fake_llm_name)
+    val parser = Parser()
     override val values: Sequence<SummarizationState> = sequenceOf(
         SummarizationState.Summarizing(info = info),
-        SummarizationState.Summarized(info = info, text = previewSummarizedText),
-        SummarizationState.Settings(info = info, summarizedText = previewSummarizedText),
+        SummarizationState.Summarized(info = info, document = parser.parse(previewSummarizedText)),
+        SummarizationState.Settings(info = info, document = RichDocument(listOf())),
         SummarizationState.Error(SummarizationError.ContentTooLong),
         SummarizationState.ShakeConsentRequired,
         SummarizationState.ShakeConsentWithDownloadRequired,
@@ -231,12 +293,18 @@ private fun SummarizationScreenPreview(
             ),
             settingsStore = SummarizeSettingsStore(
                 initialState = SummarizeSettingsState(
-                    summarizePagesEnabled = true,
-                    shakeToSummarizeEnabled = true,
+                    isFeatureEnabled = true,
+                    isGestureEnabled = true,
                 ),
                 reducer = ::summarizeSettingsReducer,
                 middleware = listOf(),
             ),
         )
     }
+}
+
+private val SummarizationState.tween: AnimationSpec<Float> get() = if (isSummarizing) {
+    tween(durationMillis = 3000)
+} else {
+    snap()
 }

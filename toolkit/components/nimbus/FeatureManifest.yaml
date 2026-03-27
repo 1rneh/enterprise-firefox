@@ -1908,12 +1908,6 @@ pocketNewtab:
         pref: browser.newtabpage.activity-stream.weather.locationSearchEnabled
       description: >-
         Turns on and off location search for newtab weather widget
-    discoveryStreamConfig:
-      description: A JSON blob of discovery stream configuration.
-      type: string
-      setPref:
-        branch: user
-        pref: "browser.newtabpage.activity-stream.discoverystream.config"
     spocsEndpoint:
       description: The URL for the spocs endpoint.
       type: string
@@ -2966,6 +2960,12 @@ networking:
       setPref:
         branch: default
         pref: "network.http.http3.cc_algorithm"
+    http3SlowStartAlgorithm:
+      description: The slow start algorithm with which to configure neqo. Use 0 for Classic, 1 for HyStart++.
+      type: int
+      setPref:
+        branch: default
+        pref: "network.http.http3.slow_start_algorithm"
     enableOffMainThreadStreamDecompression:
       description: Whether to enable decompression of network streams off-main-thread
       type: boolean
@@ -5540,6 +5540,20 @@ webApps:
         pref: browser.taskbarTabs.enabled
       description: >-
         Controls whether web apps can be installed and accessed.
+
+defaultWindowsLaunchOnLogin:
+  description: >-
+    Controls whether or not new Windows users get defaulted to launch on login
+  owner: drubino@mozilla.com
+  hasExposure: true
+  exposureDescription: >-
+    Exposure event is triggered if Windows policy allows launch on login.
+  variables:
+    enabled:
+      type: boolean
+      description: >-
+        If true, and allowed by Windows policy, a new user will be defaulted
+        to have Firefox launched when they log on.
 
 passwordManager:
   description: Password manager related prefs

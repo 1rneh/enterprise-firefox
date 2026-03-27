@@ -48,6 +48,11 @@
 #  include "ScaledFontDWrite.h"
 #endif
 
+#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+#  include "mozilla/a11y/PdfStructTreeBuilder.h"
+#  include "skia/include/docs/SkPDFDocument.h"
+#endif
+
 namespace mozilla {
 
 void RefPtrTraits<SkSurface>::Release(SkSurface* aSurface) {
@@ -1820,6 +1825,44 @@ static inline SkPixelGeometry GetSkPixelGeometry() {
   }
 }
 
+static Maybe<SkSurfaceProps> sSurfaceProps;
+
+static const SkSurfaceProps& GetSkSurfaceProps() {
+  if (!sSurfaceProps ||
+      sSurfaceProps->pixelGeometry() != GetSkPixelGeometry()) {
+    DrawTargetSkia::UpdateSurfaceProps();
+  }
+  return *sSurfaceProps;
+}
+
+void DrawTargetSkia::UpdateSurfaceProps() {
+  // Default to no enhanced contrast.
+  SkScalar contrast = 0;
+
+#ifdef XP_DARWIN
+  // Default to sRGB gamma.
+  SkScalar gamma = 0;
+#else
+  // Default to linear gamma.
+  SkScalar gamma = SK_Scalar1;
+#endif
+
+#if defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_ANDROID)
+  int32_t gammaVal = StaticPrefs::gfx_font_rendering_freetype_gamma();
+  int32_t contrastVal =
+      StaticPrefs::gfx_font_rendering_freetype_enhanced_contrast();
+  if (gammaVal >= 0) {
+    gamma = SkScalar(std::min(gammaVal, 400)) / 100;
+  }
+  if (contrastVal > 0) {
+    contrast = SkScalar(std::min(contrastVal, 100)) / 100;
+  }
+#endif
+
+  sSurfaceProps =
+      Some(SkSurfaceProps(0, GetSkPixelGeometry(), contrast, gamma));
+}
+
 template <typename T>
 [[nodiscard]] static already_AddRefed<T> AsRefPtr(sk_sp<T>&& aSkPtr) {
   return already_AddRefed<T>(aSkPtr.release());
@@ -1842,7 +1885,7 @@ bool DrawTargetSkia::Init(const IntSize& aSize, SurfaceFormat aFormat) {
   if (stride.isNothing() || size_t(stride.value()) < info.minRowBytes64()) {
     return false;
   }
-  SkSurfaceProps props(0, GetSkPixelGeometry());
+  const SkSurfaceProps& props = GetSkSurfaceProps();
 
   if (aFormat == SurfaceFormat::A8) {
     // Skia does not fully allocate the last row according to stride.
@@ -1913,7 +1956,7 @@ bool DrawTargetSkia::Init(unsigned char* aData, const IntSize& aSize,
     return false;
   }
 
-  SkSurfaceProps props(0, GetSkPixelGeometry());
+  const SkSurfaceProps& props = GetSkSurfaceProps();
   mSurface = AsRefPtr(SkSurfaces::WrapPixels(info, aData, aStride, &props));
   if (!mSurface) {
     return false;
@@ -1947,7 +1990,7 @@ bool DrawTargetSkia::Init(RefPtr<DataSourceSurface>&& aSurface) {
     return false;
   }
 
-  SkSurfaceProps props(0, GetSkPixelGeometry());
+  const SkSurfaceProps& props = GetSkSurfaceProps();
   mSurface = AsRefPtr(SkSurfaces::WrapPixels(
       MakeSkiaImageInfo(size, format), map->GetData(), map->GetStride(),
       DrawTargetSkia::ReleaseMappedSkSurface, map, &props));
@@ -2203,6 +2246,15 @@ void DrawTargetSkia::DetachAllSnapshots() {
 void DrawTargetSkia::MarkChanged() {
   DetachAllSnapshots();
   mIsClear = false;
+}
+
+void DrawTargetSkia::AccessibleId(uint64_t aBrowsingContextId,
+                                  uint64_t aAccId) {
+#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+  int pdfId =
+      mozilla::a11y::PdfStructTreeBuilder::GetPdfId(aBrowsingContextId, aAccId);
+  SkPDF::SetNodeId(mCanvas, pdfId);
+#endif
 }
 
 }  // namespace mozilla::gfx

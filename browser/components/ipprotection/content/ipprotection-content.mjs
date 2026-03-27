@@ -7,8 +7,14 @@ import { html, ifDefined } from "chrome://global/content/vendor/lit.all.mjs";
 import {
   BANDWIDTH,
   LINKS,
-  ERRORS,
 } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
+
+const { ERRORS } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
+);
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/ipprotection/ipprotection-message-bar.mjs";
@@ -49,7 +55,6 @@ export default class IPProtectionContentElement extends MozLitElement {
 
     this.state = {};
 
-    this.keyListener = this.#keyListener.bind(this);
     this.messageBarListener = this.#messageBarListener.bind(this);
     this.statusCardListener = this.#statusCardListener.bind(this);
     this._showMessageBar = false;
@@ -59,7 +64,6 @@ export default class IPProtectionContentElement extends MozLitElement {
   connectedCallback() {
     super.connectedCallback();
     this.dispatchEvent(new CustomEvent("IPProtection:Init", { bubbles: true }));
-    this.addEventListener("keydown", this.keyListener, { capture: true });
     this.addEventListener(
       "ipprotection-status-card:user-toggled-on",
       this.#statusCardListener
@@ -77,7 +81,6 @@ export default class IPProtectionContentElement extends MozLitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
 
-    this.removeEventListener("keydown", this.keyListener, { capture: true });
     this.removeEventListener(
       "ipprotection-status-card:user-toggled-on",
       this.#statusCardListener
@@ -132,32 +135,6 @@ export default class IPProtectionContentElement extends MozLitElement {
       this.unauthenticatedEl?.focus();
     } else {
       this.statusCardEl?.focus();
-    }
-  }
-
-  #keyListener(event) {
-    let keyCode = event.code;
-    switch (keyCode) {
-      case "Tab":
-      case "ArrowUp":
-      // Intentional fall-through
-      case "ArrowDown": {
-        event.stopPropagation();
-        event.preventDefault();
-
-        let isForward =
-          (keyCode == "Tab" && !event.shiftKey) || keyCode == "ArrowDown";
-        let direction = isForward
-          ? Services.focus.MOVEFOCUS_FORWARD
-          : Services.focus.MOVEFOCUS_BACKWARD;
-        Services.focus.moveFocus(
-          window,
-          null,
-          direction,
-          Services.focus.FLAG_BYKEY
-        );
-        break;
-      }
     }
   }
 
@@ -239,7 +216,7 @@ export default class IPProtectionContentElement extends MozLitElement {
     let messageLinkL10nArgs;
     let messageType = "info";
 
-    if (this.state.bandwidthWarning) {
+    if (this.state.bandwidthWarning && this.state.bandwidthUsage) {
       messageId = "ipprotection-message-bandwidth-warning";
       messageType = "warning";
       const bandwidthRemaining =
@@ -451,19 +428,35 @@ export default class IPProtectionContentElement extends MozLitElement {
   }
 
   render() {
-    if (
-      (this.state.onboardingMessage || this.state.bandwidthWarning) &&
-      !this._messageDismissed
-    ) {
-      this._showMessageBar = true;
-    } else if (!this.state.onboardingMessage && !this.state.bandwidthWarning) {
-      // Remove the message bar if we can no longer render messages before they were dismissed
-      this._showMessageBar = false;
+    let content;
+    if (AppConstants.MOZ_ENTERPRISE) {
+      content =
+        (this.state?.siteData?.isInclusion ?? false)
+          ? html`<div
+              data-l10n-id="enterprise-access-connector-info-active"
+            ></div>`
+          : null;
+    } else {
+      if (
+        (this.state.onboardingMessage || this.state.bandwidthWarning) &&
+        !this._messageDismissed &&
+        !this.state.unauthenticated
+      ) {
+        this._showMessageBar = true;
+      } else if (
+        !this.state.onboardingMessage &&
+        !this.state.bandwidthWarning
+      ) {
+        // Remove the message bar if we can no longer render messages before they were dismissed
+        this._showMessageBar = false;
+      }
+
+      const messageBar = this._showMessageBar
+        ? this.messageBarTemplate()
+        : null;
+
+      content = html`${messageBar}${this.mainContentTemplate()}`;
     }
-
-    const messageBar = this._showMessageBar ? this.messageBarTemplate() : null;
-
-    let content = html`${messageBar}${this.mainContentTemplate()}`;
 
     // TODO: Conditionally render post-upgrade subview within #ipprotection-content-wrapper - Bug 1973813
     return html`
@@ -471,7 +464,9 @@ export default class IPProtectionContentElement extends MozLitElement {
         rel="stylesheet"
         href="chrome://browser/content/ipprotection/ipprotection-content.css"
       />
-      <div id="ipprotection-content-wrapper">${content}</div>
+      ${content
+        ? html`<div id="ipprotection-content-wrapper">${content}</div>`
+        : null}
     `;
   }
 }

@@ -16,7 +16,7 @@
     "about:privatebrowsing":
       "chrome://browser/skin/privatebrowsing/favicon.svg",
     "chrome://browser/content/aiwindow/aiWindow.html":
-      "chrome://global/skin/icons/highlights.svg",
+      "chrome://browser/skin/smart-window-simplified.svg",
   };
 
   const {
@@ -3554,63 +3554,10 @@
     }
 
     /**
-     * Removes all tabs from a split view wrapper. This also removes the split view wrapper component
-     *
-     * @param {MozTabSplitViewWrapper} [splitView]
-     *   The split view to remove.
-     * @param {string} [trigger]
-     *   The trigger method for ending the split view. Used for telemetry.
-     *   Valid values: "menu_separate", "icon_separate", "icon_close", "tab_close", "footer_separate".
-     */
-    unsplitTabs(splitview, trigger = null) {
-      if (!splitview) {
-        return;
-      }
-
-      // Record telemetry for split view end
-      if (trigger) {
-        const tab_layout = this.tabContainer.verticalMode
-          ? "vertical"
-          : "horizontal";
-
-        Glean.splitview.end.record({
-          tab_layout,
-          trigger,
-        });
-      }
-
-      // If the split view has about:opentabs open, remove that tab
-      // otherwise unsplit the tabs
-      let aboutOpenTabs = splitview.tabs.filter(
-        tab => tab?.linkedBrowser?.currentURI?.spec === "about:opentabs"
-      );
-
-      if (!aboutOpenTabs.length) {
-        gBrowser.setIsSplitViewActive(false, splitview.tabs);
-
-        for (let i = splitview.tabs.length - 1; i >= 0; i--) {
-          this.#handleTabMove(splitview.tabs[i], () =>
-            gBrowser.tabContainer.insertBefore(
-              splitview.tabs[i],
-              splitview.nextElementSibling
-            )
-          );
-        }
-
-        splitview.remove();
-      } else {
-        aboutOpenTabs.forEach(aboutOpenTab => {
-          // Note: removeTab triggers #observeTabChanges in tabsplitview.js,
-          // which will call unsplitTabs() again.
-          gBrowser.removeTab(aboutOpenTab);
-        });
-      }
-    }
-
-    /**
      * Show the list of tabs <browsers> that are part of a split view.
      *
      * @param {MozTabbrowserTab[]} tabs
+     * @param {boolean} isActive
      */
     showSplitViewPanels(tabs) {
       const panels = [];
@@ -3621,22 +3568,10 @@
           tab.linkedBrowser.docShellIsActive = true;
           panels.push(tab.linkedPanel);
         }
+        const panelEl = document.getElementById(tab.linkedPanel);
+        panelEl?.classList.toggle("split-view-panel-active", true);
       }
-      this.setIsSplitViewActive(true, tabs);
       this.tabpanels.splitViewPanels = panels;
-    }
-
-    /**
-     * Toggle split view active attribute
-     *
-     * @param {boolean} isActive
-     * @param {MozTabbrowserTab[]} tabs
-     */
-    setIsSplitViewActive(isActive, tabs) {
-      for (const tab of tabs) {
-        this.tabpanels.setSplitViewPanelActive(isActive, tab.linkedPanel);
-      }
-      this.tabpanels.setSplitViewActive(!!gBrowser.selectedTab.splitview);
     }
 
     /**
@@ -3989,10 +3924,6 @@
         selectTab && container.ownerGlobal.gBrowser.selectedTab;
       let newTabs = [];
 
-      if (typeof elementIndex == "number") {
-        tabIndex = this.#elementIndexToTabIndex(elementIndex);
-      }
-
       // When tabs are adopted across windows, they exit the tab split of the
       // source window, moved to the new window, and finally moved into a split
       // view in the new window. Although the splitViewId stays effectively the
@@ -4002,11 +3933,14 @@
       for (let tab of container.tabs) {
         tab.removedByAdoption = true;
         let adoptedTab = this.adoptTab(tab, {
-          tabIndex,
           selectTab: tab === oldSelectedTab,
+          tabIndex,
+          elementIndex,
         });
         adoptedTab.addedByAdoption = true;
         newTabs.push(adoptedTab);
+        // Put next tab after current one.
+        elementIndex = undefined;
         tabIndex = adoptedTab._tPos + 1;
       }
 
@@ -7330,6 +7264,11 @@
       }
     }
 
+    /** public API to the below private method */
+    handleTabMove(element, moveActionCallback, metricsContext) {
+      this.#handleTabMove(element, moveActionCallback, metricsContext);
+    }
+
     /**
      * @param {MozTabbrowserTab|MozTabbrowserTabGroup|MozTabSplitViewWrapper} element
      * @param {function():void} moveActionCallback
@@ -7337,7 +7276,8 @@
      */
     #handleTabMove(element, moveActionCallback, metricsContext) {
       let tabs;
-      if (this.isTab(element) && element.splitview) {
+      // TODO bug 2024173: consider removing element.splitview check.
+      if (this.isTab(element) && element.splitview?.shouldMoveAllTabsAtOnce) {
         tabs = element.splitview.tabs;
       } else if (this.isTab(element)) {
         tabs = [element];
@@ -7364,8 +7304,8 @@
         this.selectedTab.focus();
       }
 
-      // When a tab group with multiple tabs is moved forwards, emit TabMove in
-      // the reverse order, so that the index in previousTabState values are
+      // When multiple tabs are moved forwards (tab group, split view), reverse
+      // the order of TabMove, so that the index in previousTabState values are
       // still accurate until the event is dispatched. If we were to start with
       // the front tab, then logically that tab moves, and all following tabs
       // would shift, which would invalidate the index in previousTabState.
@@ -10621,6 +10561,7 @@ var TabContextMenu = {
 
     SharingUtils.updateShareURLMenuItem(
       this.contextTab.linkedBrowser,
+      this.multiselected ? this.contextTabs.map(t => t.linkedBrowser) : null,
       document.getElementById("context_moveTabOptions")
     );
   },
@@ -10938,9 +10879,7 @@ var TabContextMenu = {
     const splitviews = new Set(
       this.contextTabs.map(tab => tab.splitview).filter(Boolean)
     );
-    splitviews.forEach(splitview =>
-      gBrowser.unsplitTabs(splitview, "menu_separate")
-    );
+    splitviews.forEach(splitview => splitview.unsplitTabs("menu_separate"));
   },
 
   reverseSplitView() {

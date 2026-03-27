@@ -35,14 +35,9 @@ git = "https://github.com/franziskuskiefer/cose-rust"
 rev = "43c22248d136c8b38fe42ea709d08da6355cf04b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/rspirv?rev=89ce4d0e64c91b0635f617409dc57cb031749a39"]
-git = "https://github.com/gfx-rs/rspirv"
-rev = "89ce4d0e64c91b0635f617409dc57cb031749a39"
-replace-with = "vendored-sources"
-
-[source."git+https://github.com/gfx-rs/wgpu?rev=43f48b43ee8b31289f65c3d6c80444897fa1c80e"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=805c372733f17e249b7fc4271330bbb8070e0bfb"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "43f48b43ee8b31289f65c3d6c80444897fa1c80e"
+rev = "805c372733f17e249b7fc4271330bbb8070e0bfb"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/allocator-api2?rev=ad5f3d56a5a4519eff52af4ff85293431466ef5c"]
@@ -80,6 +75,11 @@ git = "https://github.com/jfkthame/mapped_hyph.git"
 rev = "eff105f6ad7ec9b79816cfc1985a28e5340ad14b"
 replace-with = "vendored-sources"
 
+[source."git+https://github.com/kinetiknz/mio?rev=5e8b202db39facecc343170f50a07916640a607c"]
+git = "https://github.com/kinetiknz/mio"
+rev = "5e8b202db39facecc343170f50a07916640a607c"
+replace-with = "vendored-sources"
+
 [source."git+https://github.com/mozilla/audioipc?rev=0339c4732ceadbc5f54898b77498c33fff0f3f90"]
 git = "https://github.com/mozilla/audioipc"
 rev = "0339c4732ceadbc5f54898b77498c33fff0f3f90"
@@ -90,9 +90,9 @@ git = "https://github.com/mozilla/cubeb-coreaudio-rs"
 rev = "5b689a7f90086e07c271ad1cf79325ee06112ab6"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=9cebfcceb073e9dd10cfb275a7590bca58d4c251"]
+[source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=a1936adf8e0fb0637b48436f92f833c8c48a0fee"]
 git = "https://github.com/mozilla/cubeb-pulse-rs"
-rev = "9cebfcceb073e9dd10cfb275a7590bca58d4c251"
+rev = "a1936adf8e0fb0637b48436f92f833c8c48a0fee"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
@@ -100,9 +100,9 @@ git = "https://github.com/mozilla/ipc-channel"
 rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.2.0"]
+[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.3.0"]
 git = "https://github.com/mozilla/happy-eyeballs"
-tag = "v0.2.0"
+tag = "v0.3.0"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/memtest?rev=ad681ba425beb0aeba95f03e671432b4be932174"]
@@ -120,9 +120,9 @@ git = "https://github.com/mozilla/mp4parse-rust"
 rev = "f2d96807b8becf7485f035b393575fcfc76cec4c"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/neqo?tag=v0.23.1"]
+[source."git+https://github.com/mozilla/neqo?tag=v0.24.1"]
 git = "https://github.com/mozilla/neqo"
-tag = "v0.23.1"
+tag = "v0.24.1"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/rust-lang/rust-bindgen?rev=9366e0af8da529c958b4cd4fcbe492d951c86f5c"]

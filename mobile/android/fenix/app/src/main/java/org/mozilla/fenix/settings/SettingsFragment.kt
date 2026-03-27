@@ -73,6 +73,7 @@ import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
 import org.mozilla.fenix.utils.Settings
 import kotlin.system.exitProcess
+import mozilla.components.ui.icons.R as iconsR
 import org.mozilla.fenix.GleanMetrics.Settings as SettingsMetrics
 
 /**
@@ -183,6 +184,10 @@ class SettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment 
         findPreference<Preference>(
             getPreferenceKey(R.string.pref_key_page_summaries),
         )?.isVisible = components.settings.shakeToSummarizeFeatureFlagEnabled
+
+        findPreference<Preference>(
+            getPreferenceKey(R.string.pref_key_ai_controls),
+        )?.isVisible = requireContext().settings().aiControlsFeatureFlagEnabled
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -234,7 +239,7 @@ class SettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment 
             showToolbarWithIconButton(
                 title = toolbarTitle,
                 contentDescription = getString(R.string.settings_search_button_content_description),
-                iconResId = R.drawable.ic_search,
+                iconResId = iconsR.drawable.mozac_ic_search_24,
                 onClick = {
                     SettingsSearch.opened.record()
                     findNavController().navigate(R.id.action_settingsFragment_to_settingsSearchFragment)
@@ -397,6 +402,10 @@ class SettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment 
 
             resources.getString(R.string.pref_key_page_summaries) -> {
                 SettingsFragmentDirections.actionSettingsFragmentToPageSummariesSettingsFragment()
+            }
+
+            resources.getString(R.string.pref_key_ai_controls) -> {
+                SettingsFragmentDirections.actionSettingsFragmentToAiControlsFragment()
             }
 
             // Privacy and security preferences

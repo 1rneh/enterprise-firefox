@@ -64,6 +64,7 @@
 #include "mozilla/SmallPointerArray.h"
 #include "mozilla/ToString.h"
 #include "mozilla/WritingModes.h"
+#include "mozilla/dom/RustTypes.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/CompositorHitTestInfo.h"
 #include "mozilla/gfx/MatrixFwd.h"
@@ -2216,7 +2217,7 @@ class nsIFrame : public nsQueryFrame {
   void ComputePreserve3DChildrenOverflow(
       mozilla::OverflowAreas& aOverflowAreas);
 
-  void RecomputePerspectiveChildrenOverflow(const nsIFrame* aStartFrame);
+  bool RecomputePerspectiveChildrenOverflow(const nsIFrame* aStartFrame);
 
   /**
    * Returns whether z-index applies to this frame.
@@ -3955,14 +3956,14 @@ class nsIFrame : public nsQueryFrame {
    * the overflow areas changed.
    */
   bool FinishAndStoreOverflow(mozilla::OverflowAreas& aOverflowAreas,
-                              nsSize aNewSize, nsSize* aOldSize = nullptr,
+                              nsSize aNewSize,
                               const nsStyleDisplay* aStyleDisplay = nullptr);
 
   bool FinishAndStoreOverflow(ReflowOutput* aMetrics,
                               const nsStyleDisplay* aStyleDisplay = nullptr) {
     return FinishAndStoreOverflow(aMetrics->mOverflowAreas,
                                   nsSize(aMetrics->Width(), aMetrics->Height()),
-                                  nullptr, aStyleDisplay);
+                                  aStyleDisplay);
   }
 
   /**

@@ -349,6 +349,9 @@
 
           <hbox id="page-action-buttons" context="pageActionContextMenu" align="center" urlbar-slot="page-actions">
             <toolbartabstop/>
+#ifdef MOZ_ENTERPRISE
+#include ../../components/enterprise/content/enterprise-urlbar-actions.inc.xhtml
+#endif
             <hbox id="contextual-feature-recommendation" role="button" hidden="true">
               <hbox id="cfr-label-container">
                 <label id="cfr-label"/>
@@ -487,13 +490,16 @@
     <toolbarbutton id="taskbar-tabs-audio" class="toolbarbutton-1 chromeclass-toolbar-additional"
                     removable="false" overflows="false"/>
 
-    <toolbarbutton id="smartwindow-ask-button"
-                    class="toolbarbutton-1 chromeclass-toolbar-additional"
-                    data-l10n-id="smartwindow-ask-button"
-                    hidden="true"
-                    overflows="false"
-                    removable="false">
-    </toolbarbutton>
+    <toolbaritem id="smartwindow-ask-button"
+                 class="chromeclass-toolbar-additional"
+                 hidden="true"
+                 overflows="false"
+                 removable="false">
+      <toolbarbutton id="smartwindow-ask-button-inner"
+                      class="toolbarbutton-1"
+                      data-l10n-id="smartwindow-ask-button">
+      </toolbarbutton>
+    </toolbaritem>
 
     <toolbarbutton id="nav-bar-overflow-button"
                    class="toolbarbutton-1 chromeclass-toolbar-additional"

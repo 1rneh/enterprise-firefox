@@ -518,9 +518,9 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     return GetFrom(docShell);
   }
 
-  mozilla::ipc::IPCResult RecvUIResolutionChanged(const float& aDpi,
-                                                  const int32_t& aRounding,
-                                                  const double& aScale);
+  mozilla::ipc::IPCResult RecvUIResolutionChanged(
+      const float& aDpi, const int32_t& aRounding, const double& aScale,
+      const double& aDesktopToDeviceScale);
 
   mozilla::ipc::IPCResult RecvTransparencyChanged(const bool& aIsTransparent);
 
@@ -762,6 +762,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   mozilla::ipc::IPCResult RecvReleaseAllPointerCapture();
 
   mozilla::ipc::IPCResult RecvReleasePointerLock();
+
+#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+  mozilla::ipc::IPCResult RecvRequestDocAccessibleForPrint();
+#endif
 
  private:
   void HandleDoubleTap(const CSSPoint& aPoint, const Modifiers& aModifiers,

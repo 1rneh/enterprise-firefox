@@ -42,15 +42,20 @@ class OpenVRControllerManifestManager {
     return mManifest.Get(static_cast<uint32_t>(aType), aPath);
   }
 
+  OpenVRControllerManifestManager(const OpenVRControllerManifestManager&) =
+      delete;
+  const OpenVRControllerManifestManager& operator=(
+      const OpenVRControllerManifestManager&) = delete;
+
  private:
   ~OpenVRControllerManifestManager() {
-    if (!mAction.IsEmpty() && remove(mAction.BeginReading()) != 0) {
+    if (!mAction.IsEmpty() && remove(mAction.get()) != 0) {
       MOZ_ASSERT(false, "Delete controller action file failed.");
     }
     mAction = "";
 
     for (const auto& path : mManifest.Values()) {
-      if (!path.IsEmpty() && remove(path.BeginReading()) != 0) {
+      if (!path.IsEmpty() && remove(path.get()) != 0) {
         MOZ_ASSERT(false, "Delete controller manifest file failed.");
       }
     }
@@ -59,11 +64,6 @@ class OpenVRControllerManifestManager {
 
   nsCString mAction;
   nsTHashMap<nsUint32HashKey, nsCString> mManifest;
-  OpenVRControllerManifestManager(const OpenVRControllerManifestManager&) =
-      delete;
-
-  const OpenVRControllerManifestManager& operator=(
-      const OpenVRControllerManifestManager&) = delete;
 };
 
 StaticRefPtr<OpenVRControllerManifestManager> sOpenVRControllerManifestManager;

@@ -33,18 +33,22 @@ const hourlyForecasts = [
     epoch_date_time: 1000000000,
     temperature: { c: 18, f: 64 },
     icon_id: 5,
+    summary: "Partly Cloudy",
     date_time: "2024-01-15T14:00:00",
+    url: "https://example.com/forecast",
   },
   {
     epoch_date_time: 1000003600,
     temperature: { c: 17, f: 62 },
     icon_id: 6,
+    summary: "Mostly Cloudy",
     date_time: "2024-01-15T15:00:00",
   },
   {
     epoch_date_time: 1000007200,
     temperature: { c: 16, f: 61 },
     icon_id: 7,
+    summary: "Cloudy",
     date_time: "2024-01-15T16:00:00",
   },
 ];
@@ -176,6 +180,12 @@ describe("<WeatherForecast>", () => {
   describe("context menu", () => {
     it("should render context menu with correct panel items", () => {
       assert.ok(wrapper.find(".weather-forecast-context-menu-button").exists());
+      assert.equal(
+        wrapper
+          .find(".weather-forecast-context-menu-button")
+          .prop("data-l10n-id"),
+        "newtab-menu-section-tooltip"
+      );
       assert.ok(wrapper.find("#weather-forecast-context-menu").exists());
 
       assert.ok(
@@ -499,6 +509,14 @@ describe("<WeatherForecast>", () => {
       });
     });
 
+    it("should render aria-label with summary for each weather icon", () => {
+      const items = wrapper.find(".forecast-row-items li");
+      items.forEach((item, index) => {
+        const icon = item.find(".weather-icon");
+        assert.equal(icon.prop("aria-label"), hourlyForecasts[index].summary);
+      });
+    });
+
     it("should render an empty list when hourlyForecasts is empty", () => {
       const noHourlyState = {
         ...mockState,
@@ -655,6 +673,24 @@ describe("<WeatherForecast>", () => {
       assert.equal(action.data.widget_source, "widget");
       assert.equal(action.data.user_action, "provider_link_click");
       assert.equal(action.data.widget_size, "medium");
+    });
+
+    it("should render .full-forecast as an anchor with the forecast URL", () => {
+      const link = wrapper.find("a.full-forecast");
+      assert.ok(link.exists());
+      assert.equal(link.prop("href"), hourlyForecasts[0].url);
+    });
+
+    it("should dispatch WIDGETS_USER_EVENT with provider_link_click when .full-forecast is clicked", () => {
+      const link = wrapper.find("a.full-forecast");
+      link.props().onClick();
+
+      assert.ok(dispatch.calledOnce);
+      const [action] = dispatch.getCall(0).args;
+      assert.equal(action.type, at.WIDGETS_USER_EVENT);
+      assert.equal(action.data.widget_name, "weather");
+      assert.equal(action.data.widget_source, "widget");
+      assert.equal(action.data.user_action, "provider_link_click");
     });
   });
 });

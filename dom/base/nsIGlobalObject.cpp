@@ -140,14 +140,6 @@ void nsIGlobalObject::UnlinkObjectsInGlobal() {
 
 void nsIGlobalObject::TraverseObjectsInGlobal(
     nsCycleCollectionTraversalCallback& cb) {
-  // Currently we only store BlobImpl objects off the the main-thread and they
-  // are not CCed.
-  if (!mHostObjectURIs.IsEmpty() && NS_IsMainThread()) {
-    for (uint32_t index = 0; index < mHostObjectURIs.Length(); ++index) {
-      BlobURLProtocolHandler::Traverse(mHostObjectURIs[index], cb);
-    }
-  }
-
   nsIGlobalObject* tmp = this;
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mReportBuffer)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mReportingObservers)
@@ -515,9 +507,8 @@ bool nsIGlobalObject::IsRFPTargetActive(const nsAString& aTargetName,
 }
 
 void nsIGlobalObject::ReportToConsole(
-    uint32_t aErrorFlags, const nsCString& aCategory,
-    nsContentUtils::PropertiesFile aFile, const nsCString& aMessageName,
-    const nsTArray<nsString>& aParams,
+    uint32_t aErrorFlags, const nsCString& aCategory, PropertiesFile aFile,
+    const nsCString& aMessageName, const nsTArray<nsString>& aParams,
     const mozilla::SourceLocation& aLocation) {
   // We pass nullptr for the document because nsGlobalWindowInner handles the
   // case where it should be non-null.  We also expect the worker impl to

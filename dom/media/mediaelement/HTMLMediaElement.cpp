@@ -70,6 +70,7 @@
 #include "mozilla/dom/AudioTrackList.h"
 #include "mozilla/dom/BlobURLProtocolHandler.h"
 #include "mozilla/dom/ContentMediaController.h"
+#include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/ElementInlines.h"
 #include "mozilla/dom/FeaturePolicyUtils.h"
@@ -476,7 +477,7 @@ class HTMLMediaElement::MediaControlKeyListener final
   }
 
   void HandleMediaKey(MediaControlKey aKey,
-                      Maybe<SeekDetails> aDetails) override {
+                      const MediaControlActionParams& aParams) override {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
     MEDIACONTROL_LOG("HandleEvent '%s'", GetEnumString(aKey).get());
@@ -492,22 +493,32 @@ class HTMLMediaElement::MediaControlKeyListener final
         StopIfNeeded();
         break;
       case MediaControlKey::Seekto:
-        MOZ_ASSERT(aDetails->mAbsolute);
-        if (aDetails->mAbsolute->mFastSeek) {
-          Owner()->FastSeek(aDetails->mAbsolute->mSeekTime, IgnoreErrors());
+        MOZ_ASSERT(aParams.mAbsolute);
+        if (aParams.mAbsolute->mFastSeek) {
+          Owner()->FastSeek(aParams.mAbsolute->mSeekTime, IgnoreErrors());
         } else {
-          Owner()->SetCurrentTime(aDetails->mAbsolute->mSeekTime);
+          Owner()->SetCurrentTime(aParams.mAbsolute->mSeekTime);
         }
         break;
       case MediaControlKey::Seekforward:
-        MOZ_ASSERT(aDetails->mRelativeSeekOffset);
+        MOZ_ASSERT(aParams.mRelativeSeekOffset);
         Owner()->SetCurrentTime(Owner()->CurrentTime() +
-                                aDetails->mRelativeSeekOffset.value());
+                                aParams.mRelativeSeekOffset.value());
         break;
       case MediaControlKey::Seekbackward:
-        MOZ_ASSERT(aDetails->mRelativeSeekOffset);
+        MOZ_ASSERT(aParams.mRelativeSeekOffset);
         Owner()->SetCurrentTime(Owner()->CurrentTime() -
-                                aDetails->mRelativeSeekOffset.value());
+                                aParams.mRelativeSeekOffset.value());
+        break;
+      case MediaControlKey::Setvolume:
+        MOZ_ASSERT(aParams.mVolume);
+        Owner()->SetVolume(aParams.mVolume.value(), IgnoreErrors());
+        break;
+      case MediaControlKey::Mute:
+        Owner()->SetMuted(true);
+        break;
+      case MediaControlKey::Unmute:
+        Owner()->SetMuted(false);
         break;
       default:
         MOZ_ASSERT_UNREACHABLE(
@@ -1566,7 +1577,7 @@ void HTMLMediaElement::ReportToConsole(
     uint32_t aErrorFlags, const char* aMsg,
     const nsTArray<nsString>& aParams) const {
   nsContentUtils::ReportToConsole(aErrorFlags, "Media"_ns, OwnerDoc(),
-                                  nsContentUtils::eDOM_PROPERTIES, aMsg,
+                                  PropertiesFile::DOM_PROPERTIES, aMsg,
                                   aParams);
 }
 
@@ -2077,30 +2088,21 @@ class HTMLMediaElement::ErrorSink {
   void ReportErrorProbe(uint16_t aErrorCode,
                         const Maybe<MediaResult>& aResult) {
     MOZ_ASSERT(IsValidErrorCode(aErrorCode));
-    auto getErrorType = [&]() {
+    auto getErrorTypeLabel = [&]() {
       if (aErrorCode == MEDIA_ERR_ABORTED) {
-        return "AbortError"_ns;
+        return "abort_error"_ns;
       }
       if (aErrorCode == MEDIA_ERR_NETWORK) {
-        return "NetworkError"_ns;
+        return "network_error"_ns;
       }
       if (aErrorCode == MEDIA_ERR_DECODE) {
-        return "DecodeErr"_ns;
+        return "decode_error"_ns;
       }
-      return "SrcNotSupportedErr"_ns;
+      return "not_supported_error"_ns;
     };
-
-    glean::media::ErrorExtra extraData;
-    extraData.errorType = Some(getErrorType());
-    if (aResult) {
-      extraData.errorName = Some(aResult->ErrorName());
-    }
-    nsAutoString keySystem;
-    if (mOwner->mMediaKeys) {
-      mOwner->mMediaKeys->GetKeySystem(keySystem);
-      extraData.keySystem = Some(NS_ConvertUTF16toUTF8(keySystem));
-    }
-    glean::media::error.Record(Some(extraData));
+    nsCString encryptedLabel =
+        mOwner->mMediaKeys ? "encrypted"_ns : "non_encrypted"_ns;
+    glean::media::error.Get(getErrorTypeLabel(), encryptedLabel).Add();
   }
 
   // Media elememt's life cycle would be longer than error sink, so we use the
@@ -5350,14 +5352,9 @@ void HTMLMediaElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
       if (aValue) {
         nsCOMPtr<nsIURI> uri;
         NewURIFromString(srcVal.String(), getter_AddRefs(uri));
-        if (uri && IsMediaSourceURI(uri)) {
-          nsresult rv = NS_GetSourceForMediaSourceURI(
-              uri, getter_AddRefs(mSrcMediaSource));
-          if (NS_FAILED(rv)) {
-            nsAutoString spec;
-            GetCurrentSrc(spec);
-            AutoTArray<nsString, 1> params = {spec};
-            ReportLoadError("MediaLoadInvalidURI", params);
+        if (uri && uri->SchemeIs(BLOBURI_SCHEME)) {
+          if (DocGroup* docGroup = OwnerDoc()->GetDocGroup()) {
+            mSrcMediaSource = docGroup->LookupMediaSourceURL(uri);
           }
         }
       }
@@ -5558,7 +5555,7 @@ template <typename DecoderType, typename... LoadArgs>
 nsresult HTMLMediaElement::SetupDecoder(DecoderType* aDecoder,
                                         LoadArgs&&... aArgs) {
   LOG(LogLevel::Debug, ("%p Created decoder %p for type %s", this, aDecoder,
-                        aDecoder->ContainerType().OriginalString().Data()));
+                        aDecoder->ContainerType().OriginalString().get()));
 
   nsresult rv = aDecoder->Load(std::forward<LoadArgs>(aArgs)...);
   if (NS_FAILED(rv)) {
@@ -8075,6 +8072,7 @@ void HTMLMediaElement::NotifyAboutPlaying() {
   // Stick to the QueueEvent() call path for now because we want to
   // trigger some telemetry-related codes in the QueueEvent() method.
   QueueEvent(u"playing"_ns);
+  StartMediaControlKeyListenerIfNeeded();
 }
 
 already_AddRefed<PlayPromise> HTMLMediaElement::CreatePlayPromise(

@@ -2133,8 +2133,8 @@ def finalizeHook(descriptor, gcx, obj):
                 {
                   JS::Value val = JS::GetReservedSlot(obj, ${slot});
                   if (!val.isUndefined()) {
-                    JSObject* obj = &val.toObject();
-                    js::SetProxyReservedSlot(obj, OBSERVABLE_ARRAY_DOM_INTERFACE_SLOT, JS::UndefinedValue());
+                    JSObject* proxyObj = &val.toObject();
+                    js::SetProxyReservedSlot(proxyObj, OBSERVABLE_ARRAY_DOM_INTERFACE_SLOT, JS::UndefinedValue());
                   }
                 }
                 """,
@@ -5787,6 +5787,7 @@ def getJSToNativeConversionInfo(
     isClamp = type.hasClamp()
     isEnforceRange = type.hasEnforceRange()
     isAllowShared = type.hasAllowShared()
+    isAllowLarge = type.hasAllowLarge()
 
     # If exceptionCode is not set, we'll just rethrow the exception we got.
     # Note that we can't just set failureCode to exceptionCode, because setting
@@ -6903,19 +6904,17 @@ def getJSToNativeConversionInfo(
                     objRef=objRef,
                     badType=onFailureIsShared().define(),
                 )
-            # For now reject large (> 2 GB) ArrayBuffers and ArrayBufferViews.
-            # Supporting this will require changing dom::TypedArray and
-            # consumers.
-            template += fill(
-                """
-                if (${isLargeMethod}(${objRef}.Obj())) {
-                  $*{badType}
-                }
-                """,
-                isLargeMethod=isLargeMethod,
-                objRef=objRef,
-                badType=onFailureIsLarge().define(),
-            )
+            if not isAllowLarge:
+                template += fill(
+                    """
+                    if (${isLargeMethod}(${objRef}.Obj())) {
+                      $*{badType}
+                    }
+                    """,
+                    isLargeMethod=isLargeMethod,
+                    objRef=objRef,
+                    badType=onFailureIsLarge().define(),
+                )
             # For now reject resizable ArrayBuffers and growable
             # SharedArrayBuffers. Supporting this will require changing
             # dom::TypedArray and consumers.
@@ -23389,12 +23388,18 @@ class CGObservableArrayProxyHandler_callback(ClassMethod):
             $*{convertType}
 
             $*{preCallback}
-            JS::Value val = js::GetProxyReservedSlot(aProxy, OBSERVABLE_ARRAY_DOM_INTERFACE_SLOT);
-            auto* interface = static_cast<${ifaceType}*>(val.toPrivate());
-            MOZ_ASSERT(interface);
+            const JS::Value& val = js::GetProxyReservedSlot(aProxy, OBSERVABLE_ARRAY_DOM_INTERFACE_SLOT);
+            if (MOZ_LIKELY(!val.isUndefined())) {
+              auto* interface = static_cast<${ifaceType}*>(val.toPrivate());
+              MOZ_ASSERT(interface);
 
-            ErrorResult rv;
-            MOZ_KnownLive(interface)->${methodName}(${callbackArgs});
+              ErrorResult rv;
+              MOZ_KnownLive(interface)->${methodName}(${callbackArgs});
+              if (rv.MaybeSetPendingException(cx)) {
+                return false;
+              }
+            }
+
             $*{postCallback}
             """,
             preConversion=self.preConversion(),
@@ -23438,7 +23443,7 @@ class CGObservableArrayProxyHandler_OnDeleteItem(
     def postCallback(self):
         return dedent(
             """
-            return !rv.MaybeSetPendingException(cx);
+            return true;
             """
         )
 
@@ -23503,10 +23508,6 @@ class CGObservableArrayProxyHandler_SetIndexedValue(
     def postCallback(self):
         return dedent(
             """
-            if (rv.MaybeSetPendingException(cx)) {
-              return false;
-            }
-
             if (!JS_SetElement(aCx, aBackingList, aIndex, aValue)) {
               return false;
             }

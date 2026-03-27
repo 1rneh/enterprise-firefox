@@ -233,8 +233,7 @@ void Navigation::EventListenerRemoved(nsAtom* aType) {
 
 /* static */
 bool Navigation::IsAPIEnabled(JSContext* /* unused */, JSObject* /* unused */) {
-  return SessionHistoryInParent() &&
-         StaticPrefs::dom_navigation_webidl_enabled_DoNotUseDirectly();
+  return StaticPrefs::dom_navigation_webidl_enabled_DoNotUseDirectly();
 }
 
 void Navigation::Entries(
@@ -1347,7 +1346,7 @@ void Navigation::TraverseTo(JSContext* aCx, const nsAString& aKey,
   //    early error result for an "InvalidStateError" DOMException.
   nsID key{};
   const bool foundKey =
-      key.Parse(NS_ConvertUTF16toUTF8(aKey).Data()) &&
+      key.Parse(NS_ConvertUTF16toUTF8(aKey).get()) &&
       std::find_if(mEntries.begin(), mEntries.end(), [&](const auto& aEntry) {
         return aEntry->Key() == key;
       }) != mEntries.end();

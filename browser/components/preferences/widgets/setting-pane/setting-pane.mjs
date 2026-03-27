@@ -12,6 +12,7 @@ import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
  * @property {string[]} groupIds What setting groups should be rendered.
  * @property {string} [iconSrc] Optional icon shown in the page header.
  * @property {string} [module] Import path for module housing the config.
+ * @property {"beta" | "new"} [badge] Badge type to display in the page header.
  * @property {() => boolean} [visible] If this pane is visible.
  * @property {string} [replaces] ID of legacy pane getting replaced by new pane.
  */
@@ -56,8 +57,8 @@ export class SettingPane extends MozLitElement {
     if (this.config.visible) {
       let visible = this.config.visible();
       if (!visible && !this.isSubPane) {
-        let categoryButton = /** @type {XULElement} */ (
-          document.querySelector(`#categories [value="${this.name}"]`)
+        let categoryButton = document.querySelector(
+          `#categories moz-page-nav-button[view="${this.name}"]`
         );
         if (categoryButton) {
           categoryButton.remove();
@@ -109,12 +110,11 @@ export class SettingPane extends MozLitElement {
   }
 
   _createCategoryButton() {
-    let categoryButton = document.createXULElement("richlistitem");
-    categoryButton.classList.add("category");
+    let categoryButton = document.createElement("moz-page-nav-button");
     if (this.isSubPane) {
       categoryButton.classList.add("hidden-category");
     }
-    categoryButton.setAttribute("value", this.name);
+    categoryButton.setAttribute("view", this.name);
     document.getElementById("categories").append(categoryButton);
   }
 
@@ -133,6 +133,7 @@ export class SettingPane extends MozLitElement {
           data-l10n-id=${this.config.l10nId}
           .iconSrc=${this.config.iconSrc}
           .supportPage=${this.config.supportPage}
+          .badge=${this.config.badge}
           .backButton=${this.isSubPane}
           @navigate-back=${this.goBack}
         ></moz-page-header>

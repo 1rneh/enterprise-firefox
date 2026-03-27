@@ -388,7 +388,7 @@ void nsHttpConnection::StartSpdy(nsITLSSocketControl* sslControl,
         ResetTransaction(std::move(mTransaction), true);
         mTransaction = nullptr;
       } else {
-        for (auto trans : list) {
+        for (const auto& trans : list) {
           if (!mSpdySession->Connection()) {
             mSpdySession->SetConnection(trans->Connection());
           }
@@ -633,7 +633,8 @@ nsresult nsHttpConnection::Activate(nsAHttpTransaction* trans, uint32_t caps,
   rv = OnOutputStreamReady(mSocketOut);
 
   if (NS_SUCCEEDED(rv) && mContinueHandshakeDone) {
-    mContinueHandshakeDone();
+    auto continuation = std::move(mContinueHandshakeDone);
+    continuation();
   }
   mContinueHandshakeDone = nullptr;
 
@@ -2058,7 +2059,7 @@ nsresult nsHttpConnection::MakeConnectString(nsAHttpTransaction* trans,
   if (LOG1_ENABLED()) {
     LOG(("nsHttpConnection::MakeConnectString for transaction=%p h2ws=%d[",
          trans->QueryHttpTransaction(), h2ws));
-    LogHeaders(result.BeginReading());
+    LogHeaders(PromiseFlatCString(result).get());
     LOG(("]"));
   }
 

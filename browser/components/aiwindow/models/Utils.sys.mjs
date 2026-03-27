@@ -27,6 +27,7 @@ const APIKEY_PREF = "browser.smartwindow.apiKey";
 const MODEL_PREF = "browser.smartwindow.model";
 const ENDPOINT_PREF = "browser.smartwindow.endpoint";
 const MODEL_CHOICE_PREF = "browser.smartwindow.firstrun.modelChoice";
+const GENERIC_MODEL_NAME = "generic";
 
 /**
  * Default engine ID used for all AI Window features
@@ -39,6 +40,16 @@ export const DEFAULT_ENGINE_ID = "smart-openai";
 export const SERVICE_TYPES = Object.freeze({
   AI: "ai",
   MEMORIES: "memories",
+});
+
+/**
+ * Purposes for different AI Window features, used to track usage and performance in telemetry
+ */
+export const PURPOSES = Object.freeze({
+  CHAT: "chat",
+  TITLE_GENERATION: "title-generation",
+  CONVERSATION_STARTERS_SIDEBAR: "convo-starters-sidebar",
+  MEMORY_GENERATION: "memory-generation",
 });
 
 /**
@@ -317,6 +328,13 @@ export class openAIEngine {
   #serviceType = null;
 
   /**
+   * Purpose used for creating the engine instance
+   *
+   * @type {string | null}
+   */
+  #purpose = null;
+
+  /**
    * Gets the Remote Settings client for AI window configurations.
    *
    * @returns {RemoteSettingsClient}
@@ -348,6 +366,24 @@ export class openAIEngine {
       );
       this.model = userModel;
     }
+  }
+
+  /**
+   * Overrides the model config with generic config
+   *
+   * @param {Array} featureConfigs - All configs for the feature from Remote Settings
+   * @param {number} majorVersion - Required major version for the feature
+   *
+   * @private
+   */
+  _loadGenericChatPrompt(featureConfigs, majorVersion) {
+    console.warn(`Custom endpoint detected. Using generic chat prompt`);
+    this.#configs[MODEL_FEATURES.CHAT] = selectMainConfig(featureConfigs, {
+      majorVersion,
+      userModel: GENERIC_MODEL_NAME,
+      modelChoiceId: "",
+      feature: MODEL_FEATURES.CHAT,
+    });
   }
 
   /**
@@ -486,6 +522,9 @@ export class openAIEngine {
 
     const hasCustomEndpoint = Services.prefs.prefHasUserValue(ENDPOINT_PREF);
     if (hasCustomEndpoint) {
+      if (feature === MODEL_FEATURES.CHAT) {
+        this._loadGenericChatPrompt(featureConfigs, majorVersion);
+      }
       this._applyCustomEndpointModel();
     }
   }
@@ -498,7 +537,28 @@ export class openAIEngine {
    */
   getConfig(feature) {
     const targetFeature = feature || this.feature;
-    return this.#configs?.[targetFeature] || null;
+    // load custom prompt pref if exists
+    // custom prompts should be entered as { feature_name: prompt }
+    const prefPromptRaw = Services.prefs.getStringPref(
+      "browser.smartwindow.customPrompts",
+      ""
+    );
+    let prefPrompt = null;
+    if (prefPromptRaw) {
+      try {
+        prefPrompt = JSON.parse(prefPromptRaw);
+      } catch (e) {
+        console.warn(
+          "browser.smartwindow.customPrompts contains invalid JSON. Expecting: { feature: prompt }",
+          e
+        );
+      }
+    }
+    const prefPromptMapping = prefPrompt?.[targetFeature]
+      ? { prompts: prefPrompt[targetFeature] }
+      : null;
+
+    return prefPromptMapping || this.#configs?.[targetFeature] || null;
   }
 
   /**
@@ -528,13 +588,17 @@ export class openAIEngine {
    * @param {string} serviceType
    *   The type of message to be sent ("ai", "memories", "s2s").
    *   Defaults to SERVICE_TYPES.AI.
+   * @param {string} purpose
+   *   The purpose of the request, used for telemetry tracking.
+   *   Defaults to PURPOSES.CHAT.
    * @returns {Promise<object>}
    *   Promise that will resolve to the configured engine instance.
    */
   static async build(
     feature,
     engineId = DEFAULT_ENGINE_ID,
-    serviceType = SERVICE_TYPES.AI
+    serviceType = SERVICE_TYPES.AI,
+    purpose = PURPOSES.CHAT
   ) {
     const engine = new openAIEngine();
 
@@ -542,10 +606,12 @@ export class openAIEngine {
 
     engine.#engineId = engineId;
     engine.#serviceType = serviceType;
+    engine.#purpose = purpose;
 
     engine.engineInstance = await openAIEngine.#createOpenAIEngine(
       engineId,
       serviceType,
+      purpose,
       engine.model
     );
 
@@ -575,10 +641,16 @@ export class openAIEngine {
    *
    * @param {string} engineId     The identifier for the engine instance
    * @param {string} serviceType  The type of message to be sent ("ai", "memories", "s2s")
+   * @param {string} purpose      The purpose of the request, used for telemetry tracking
    * @param {string | null} modelId  The resolved model ID (already contains fallback logic)
    * @returns {Promise<object>}   The configured engine instance
    */
-  static async #createOpenAIEngine(engineId, serviceType, modelId = null) {
+  static async #createOpenAIEngine(
+    engineId,
+    serviceType,
+    purpose,
+    modelId = null
+  ) {
     const extraHeadersPref = Services.prefs.getStringPref(
       "browser.smartwindow.extraHeaders",
       "{}"
@@ -601,6 +673,7 @@ export class openAIEngine {
         modelRevision: "main",
         taskName: "text-generation",
         serviceType,
+        purpose,
         extraHeaders,
       });
       return engineInstance;
@@ -685,6 +758,7 @@ export class openAIEngine {
     this.engineInstance = await openAIEngine.#createOpenAIEngine(
       this.#engineId,
       this.#serviceType,
+      this.#purpose,
       this.model
     );
   }

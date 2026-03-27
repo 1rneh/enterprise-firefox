@@ -114,10 +114,10 @@ use style::stylesheets::{
     CssRuleType, CssRuleTypes, CssRules, CustomMediaCondition, CustomMediaEvaluator,
     CustomMediaRule, DocumentRule, FontFaceRule, FontFeatureValuesRule, FontPaletteValuesRule,
     ImportRule, KeyframesRule, LayerBlockRule, LayerStatementRule, MarginRule, MediaRule,
-    NamespaceRule, NestedDeclarationsRule, Origin, OriginSet, PagePseudoClassFlags, PageRule,
-    PositionTryRule, PropertyRule, SanitizationData, SanitizationKind, ScopeRule,
+    NamespaceRule, NavigationType, NestedDeclarationsRule, Origin, OriginSet, PagePseudoClassFlags,
+    PageRule, PositionTryRule, PropertyRule, SanitizationData, SanitizationKind, ScopeRule,
     StartingStyleRule, StyleRule, StylesheetContents, StylesheetInDocument,
-    StylesheetLoader as StyleStylesheetLoader, SupportsRule, UrlExtraData,
+    StylesheetLoader as StyleStylesheetLoader, SupportsRule, UrlExtraData, ViewTransitionRule,
 };
 use style::stylist::{
     add_size_of_ua_cache, replace_parent_selector_with_implicit_scope, scope_root_candidates,
@@ -2588,6 +2588,13 @@ impl_basic_rule_funcs! { (NestedDeclarations, NestedDeclarationsRule, Locked<Nes
     changed: Servo_StyleSet_NestedDeclarationsRuleChanged,
 }
 
+impl_basic_rule_funcs! { (ViewTransition, ViewTransitionRule, ViewTransitionRule),
+    getter: Servo_CssRules_GetViewTransitionRuleAt,
+    debug: Servo_ViewTransitionRule_Debug,
+    to_css: Servo_ViewTransitionRule_GetCssText,
+    changed: Servo_StyleSet_ViewTransitionRuleChanged,
+}
+
 #[no_mangle]
 pub extern "C" fn Servo_NestedDeclarationsRule_GetStyle(
     rule: &LockedNestedDeclarationsRule,
@@ -3446,7 +3453,7 @@ pub extern "C" fn Servo_ContainerRule_GetConditionText(
     rule: &ContainerRule,
     result: &mut nsACString,
 ) {
-    rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
+    rule.conditions.to_css(&mut CssWriter::new(result)).unwrap();
 }
 
 #[no_mangle]
@@ -3464,7 +3471,8 @@ pub extern "C" fn Servo_ContainerRule_QueryContainerFor(
     rule: &ContainerRule,
     element: &RawGeckoElement,
 ) -> *const RawGeckoElement {
-    rule.condition
+    debug_assert_eq!(rule.conditions.0.len(), 1);
+    rule.conditions.0[0]
         .find_container(GeckoElement(element), None)
         .map_or(ptr::null(), |result| result.element.0)
 }
@@ -7506,6 +7514,14 @@ pub unsafe extern "C" fn Servo_StyleSet_GetCounterStyleRule(
 }
 
 #[no_mangle]
+pub extern "C" fn Servo_StyleSet_GetLastViewTransitionRule(
+    raw_data: &PerDocumentStyleData,
+) -> Strong<ViewTransitionRule> {
+    let data = raw_data.borrow();
+    data.stylist.last_view_transition_rule().cloned().into()
+}
+
+#[no_mangle]
 pub extern "C" fn Servo_StyleSet_BuildFontFeatureValueSet(
     raw_data: &PerDocumentStyleData,
 ) -> *mut gfxFontFeatureValueSet {
@@ -9679,6 +9695,33 @@ pub extern "C" fn Servo_LayerStatementRule_GetNameAt(
 ) {
     if let Some(ref name) = rule.names.get(index) {
         name.to_css(&mut CssWriter::new(result)).unwrap()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_ViewTransitionRule_GetNavigationDescriptor(
+    rule: &ViewTransitionRule,
+) -> NavigationType {
+    rule.descriptors.navigation.unwrap_or_default()
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_ViewTransitionRule_GetNavigation(
+    rule: &ViewTransitionRule,
+    result: &mut nsACString,
+) {
+    if let Some(nav) = rule.descriptors.navigation {
+        nav.to_css(&mut CssWriter::new(result)).unwrap()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_ViewTransitionRule_GetTypes(
+    rule: &ViewTransitionRule,
+    result: &mut nsTArray<*mut nsAtom>,
+) {
+    if let Some(ref types) = rule.descriptors.types {
+        result.extend(types.value.iter().map(|ty| ty.0.as_ptr()));
     }
 }
 

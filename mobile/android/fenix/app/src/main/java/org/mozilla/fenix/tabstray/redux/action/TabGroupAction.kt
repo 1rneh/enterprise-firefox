@@ -4,10 +4,27 @@
 
 package org.mozilla.fenix.tabstray.redux.action
 
+import org.mozilla.fenix.tabstray.data.TabsTrayItem
+
 /**
  *[TabsTrayAction]'s that represent user interactions for the Tab Group feature.
  */
 sealed interface TabGroupAction : TabsTrayAction {
+
+    /**
+     * Fired when the user clicks on edit Tab Group.
+     */
+    data object CreateTabGroupClicked : TabGroupAction
+
+    /**
+     * Fired when the user clicks on adding tab(s) to a tab group.
+     */
+    data object AddToTabGroup : TabGroupAction
+
+    /**
+     * Fired when the user clicks on adding tab(s) to a new tab group.
+     */
+    data object AddToNewTabGroup : TabGroupAction
 
     /**
      * Fired when the user changes the tab group name.
@@ -25,4 +42,11 @@ sealed interface TabGroupAction : TabsTrayAction {
      * Invoked when the user dismisses the tab group form.
      */
     data object FormDismissed : TabGroupAction
+
+    /**
+     * Fired when the user clicks on a Tab Group.
+     *
+     * @property group The clicked [TabsTrayItem.TabGroup].
+     */
+    data class TabGroupClicked(val group: TabsTrayItem.TabGroup) : TabGroupAction
 }

@@ -85,6 +85,7 @@ gecko_metrics = [
     "toolkit/components/formautofill/metrics.yaml",
     "toolkit/components/gecko-trace/generated-metrics.yaml",
     "toolkit/components/glean/metrics.yaml",
+    "toolkit/components/ipprotection/metrics.yaml",
     "toolkit/components/mediasniffer/metrics.yaml",
     "toolkit/components/messaging-system/metrics.yaml",
     "toolkit/components/ml/metrics.yaml",
@@ -156,6 +157,7 @@ firefox_desktop_metrics = [
     "toolkit/components/contentrelevancy/metrics.yaml",
     "toolkit/components/crashes/metrics.yaml",
     "toolkit/components/nimbus/metrics.yaml",
+    "toolkit/components/passwordmgr/metrics.yaml",
     "toolkit/components/pictureinpicture/metrics.yaml",
     "toolkit/components/places/metrics.yaml",
     "toolkit/components/reportbrokensite/metrics.yaml",
@@ -210,7 +212,6 @@ metrics_yamls = sorted(
 # Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
 gecko_pings = [
     "dom/pings.yaml",
-    "modules/libpref/pings.yaml",
     "netwerk/pings.yaml",
     "toolkit/components/antitracking/bouncetrackingprotection/pings.yaml",
     "toolkit/components/backgroundhangmonitor/pings.yaml",
@@ -237,6 +238,7 @@ firefox_desktop_pings = [
     "services/fxaccounts/pings.yaml",
     "services/sync/pings.yaml",
     "toolkit/components/nimbus/pings.yaml",
+    "toolkit/components/passwordmgr/pings.yaml",
     "toolkit/components/reportbrokensite/pings.yaml",
     "toolkit/components/telemetry/pings.yaml",
     "toolkit/modules/pings.yaml",

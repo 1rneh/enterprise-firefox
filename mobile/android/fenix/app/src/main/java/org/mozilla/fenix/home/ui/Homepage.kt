@@ -42,6 +42,7 @@ import org.mozilla.fenix.GleanMetrics.History
 import org.mozilla.fenix.GleanMetrics.HomeBookmarks
 import org.mozilla.fenix.GleanMetrics.RecentlyVisitedHomepage
 import org.mozilla.fenix.R
+import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.appstate.setup.checklist.SetupChecklistState
 import org.mozilla.fenix.compose.MessageCard
 import org.mozilla.fenix.compose.home.HomeSectionHeader
@@ -101,6 +102,7 @@ internal fun Homepage(
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
+    val browsingModeChanged = interactor::onPrivateModeButtonClicked
 
     BoxWithConstraints(
         modifier = modifier
@@ -133,15 +135,30 @@ internal fun Homepage(
                 )
             }
 
-            if (state.headerState.showHeader) {
-                HomepageHeader(
-                    wordmarkTextColor = state.headerState.wordmarkTextColor,
-                    privateBrowsingButtonColor = state.headerState.privateBrowsingButtonColor,
-                    browsingMode = state.browsingMode,
-                    browsingModeChanged = interactor::onPrivateModeButtonClicked,
-                )
-            } else {
-                Spacer(modifier = Modifier.height(16.dp))
+            val headerState = state.headerState
+            when (headerState) {
+                is HeaderState.Experimental.Normal -> {
+                    ExperimentalHomepageHeader(
+                        wordmarkTextColor = headerState.wordmarkTextColor,
+                        onPrivateModeTapped = { browsingModeChanged(BrowsingMode.Private) },
+                        onStoriesTapped = { interactor.onDiscoverMoreClicked() },
+                    )
+                }
+
+                is HeaderState.Experimental.Private -> {
+                    ExperimentalPrivateHomepageHeader(
+                        onHomeTapped = { browsingModeChanged(BrowsingMode.Normal) },
+                    )
+                }
+
+                is HeaderState.Normal -> {
+                    HomepageHeader(
+                        wordmarkTextColor = headerState.wordmarkTextColor,
+                        privateBrowsingButtonColor = headerState.privateBrowsingButtonColor,
+                        browsingMode = state.browsingMode,
+                        browsingModeChanged = browsingModeChanged,
+                    )
+                }
             }
 
             if (state.firstFrameDrawn) {
@@ -158,6 +175,7 @@ internal fun Homepage(
                                 TopSitesSection(
                                     topSites = topSites,
                                     topSiteColors = topSiteColors,
+                                    showHeader = showTopSitesHeader,
                                     interactor = interactor,
                                     onTopSitesItemBound = onTopSitesItemBound,
                                 )
@@ -165,7 +183,7 @@ internal fun Homepage(
 
                             if (showPrivacyReport) {
                                 TrackersBlockedCard(
-                                    trackersBlockedCount = 0,
+                                    trackersBlockedCount = trackersBlockedCount,
                                     modifier = Modifier.padding(top = 16.dp),
                                 )
                             }
@@ -297,17 +315,20 @@ private fun BannerCardSection(
 internal fun TopSitesSection(
     topSites: List<TopSite>,
     topSiteColors: TopSiteColors = TopSiteColors.colors(),
+    showHeader: Boolean = true,
     interactor: TopSiteInteractor,
     onTopSitesItemBound: () -> Unit,
 ) {
-    HomeSectionHeader(
-        headerText = stringResource(R.string.homepage_shortcuts_title),
-        modifier = Modifier.padding(horizontal = horizontalMargin),
-        description = stringResource(R.string.homepage_shortcuts_show_all_content_description),
-        onButtonClick = interactor::onShowAllTopSitesClicked,
-    )
+    if (showHeader) {
+        HomeSectionHeader(
+            headerText = stringResource(R.string.homepage_shortcuts_title),
+            modifier = Modifier.padding(horizontal = horizontalMargin),
+            description = stringResource(R.string.homepage_shortcuts_show_all_content_description),
+            onButtonClick = interactor::onShowAllTopSitesClicked,
+        )
 
-    Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
+    }
 
     TopSites(
         topSites = topSites,
@@ -507,8 +528,8 @@ private fun HomepagePreview() {
                     showPocketStories = true,
                     showCollections = true,
                     showPrivacyReport = true,
-                    headerState = HeaderState(
-                        showHeader = false,
+                    trackersBlockedCount = 754,
+                    headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
                         privateBrowsingButtonColor = colorResource(
                             getAttr(
@@ -526,6 +547,7 @@ private fun HomepagePreview() {
                     buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                     isSearchInProgress = false,
                     bottomPadding = 68,
+                    showTopSitesHeader = true,
                 ),
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onTopSitesItemBound = {},
@@ -559,8 +581,8 @@ private fun HomepageBannerPreview() {
                     showPocketStories = true,
                     showCollections = true,
                     showPrivacyReport = true,
-                    headerState = HeaderState(
-                        showHeader = true,
+                    trackersBlockedCount = 754,
+                    headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
                         privateBrowsingButtonColor = colorResource(
                             getAttr(
@@ -578,6 +600,7 @@ private fun HomepageBannerPreview() {
                     buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                     isSearchInProgress = false,
                     bottomPadding = 68,
+                    showTopSitesHeader = true,
                 ),
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onTopSitesItemBound = {},
@@ -611,8 +634,8 @@ private fun HomepagePreviewCollections() {
                     showPocketStories = true,
                     showCollections = true,
                     showPrivacyReport = true,
-                    headerState = HeaderState(
-                        showHeader = false,
+                    trackersBlockedCount = 754,
+                    headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
                         privateBrowsingButtonColor = colorResource(
                             getAttr(
@@ -630,6 +653,7 @@ private fun HomepagePreviewCollections() {
                     buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                     isSearchInProgress = false,
                     bottomPadding = 68,
+                    showTopSitesHeader = true,
                 ),
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onTopSitesItemBound = {},
@@ -663,8 +687,8 @@ private fun MinimalHomepagePreview() {
                     showPocketStories = true,
                     showCollections = false,
                     showPrivacyReport = true,
-                    headerState = HeaderState(
-                        showHeader = false,
+                    trackersBlockedCount = 754,
+                    headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
                         privateBrowsingButtonColor = colorResource(
                             getAttr(
@@ -682,6 +706,7 @@ private fun MinimalHomepagePreview() {
                     buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                     isSearchInProgress = false,
                     bottomPadding = 68,
+                    showTopSitesHeader = true,
                 ),
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onTopSitesItemBound = {},
@@ -697,8 +722,7 @@ private fun PrivateHomepagePreview() {
     FirefoxTheme(theme = Theme.Private) {
         Homepage(
             state = HomepageState.Private(
-                headerState = HeaderState(
-                    showHeader = false,
+                headerState = HeaderState.Normal(
                     wordmarkTextColor = null,
                     privateBrowsingButtonColor = colorResource(
                         getAttr(

@@ -66,78 +66,6 @@ add_setup(async function () {
   });
 });
 
-/**
- * Wait for mentions to be open.
- *
- * @param {MozBrowser} browser - The browser element
- * @returns {Promise<boolean>} True if mentions are open
- */
-async function waitForMentionsOpen(browser) {
-  return SpecialPowers.spawn(browser, [], async () => {
-    const aiWindowElement = content.document.querySelector("ai-window");
-    const smartbar = aiWindowElement.shadowRoot.querySelector(
-      "#ai-window-smartbar"
-    );
-    const editor = smartbar.querySelector("moz-multiline-editor");
-
-    await ContentTaskUtils.waitForCondition(
-      () => editor.isHandlingMentions,
-      "Wait for mentions to open"
-    );
-
-    return editor.isHandlingMentions;
-  });
-}
-
-/**
- * Wait for panel list to be visible.
- *
- * @param {MozBrowser} browser - The browser element
- * @returns {Promise<boolean>} True if panel is visible
- */
-async function waitForPanelOpen(browser) {
-  return SpecialPowers.spawn(browser, [], async () => {
-    const aiWindowElement = content.document.querySelector("ai-window");
-    const smartbar = aiWindowElement.shadowRoot.querySelector(
-      "#ai-window-smartbar"
-    );
-    const panelList = smartbar.querySelector("smartwindow-panel-list");
-    const panel = panelList.shadowRoot.querySelector("panel-list");
-
-    await ContentTaskUtils.waitForMutationCondition(
-      panel,
-      { attributes: true, attributeFilter: ["open"] },
-      () => panel.hasAttribute("open")
-    );
-
-    return panel.hasAttribute("open");
-  });
-}
-
-/**
- * Wait for a mention to be inserted.
- *
- * @param {MozBrowser} browser - The browser element
- * @returns {Promise<boolean>} True if the mention exists
- */
-async function waitForMentionInserted(browser) {
-  return SpecialPowers.spawn(browser, [], async () => {
-    const aiWindowElement = content.document.querySelector("ai-window");
-    const smartbar = aiWindowElement.shadowRoot.querySelector(
-      "#ai-window-smartbar"
-    );
-    const editor = smartbar.querySelector("moz-multiline-editor");
-
-    await ContentTaskUtils.waitForMutationCondition(
-      editor.shadowRoot,
-      { childList: true, subtree: true },
-      () => editor.shadowRoot.querySelector("ai-website-chip") !== null
-    );
-
-    return !!editor.shadowRoot.querySelector("ai-website-chip");
-  });
-}
-
 add_task(async function test_mentions_trigger_zero_prefix() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
@@ -174,7 +102,7 @@ add_task(async function test_mentions_suggestions_panel_shows() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
 
-  const panelVisible = waitForPanelOpen(browser);
+  const panelVisible = waitForMentionsOpen(browser);
   await typeInSmartbar(browser, "@");
   await panelVisible;
 
@@ -297,7 +225,7 @@ add_task(async function test_panel_shows_unified_group() {
   const browser = win.gBrowser.selectedBrowser;
 
   await typeInSmartbar(browser, "@");
-  await waitForPanelOpen(browser);
+  await waitForMentionsOpen(browser);
 
   const groupInfo = await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -366,7 +294,7 @@ add_task(async function test_deduplication_by_url() {
   const browser = win.gBrowser.selectedBrowser;
 
   await typeInSmartbar(browser, "@");
-  await waitForPanelOpen(browser);
+  await waitForMentionsOpen(browser);
 
   const itemInfo = await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -435,7 +363,7 @@ add_task(async function test_maxResults_total_limit() {
   const browser = win.gBrowser.selectedBrowser;
 
   await typeInSmartbar(browser, "@");
-  await waitForPanelOpen(browser);
+  await waitForMentionsOpen(browser);
 
   const itemInfo = await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -726,7 +654,7 @@ add_task(async function test_suggestions_hidden_when_inline_mentions_exists() {
   const browser = win.gBrowser.selectedBrowser;
 
   await typeInSmartbar(browser, "@");
-  await waitForPanelOpen(browser);
+  await waitForMentionsOpen(browser);
 
   await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -779,3 +707,59 @@ add_task(async function test_suggestions_show_after_inline_mentions_removed() {
 
   await BrowserTestUtils.closeWindow(win);
 });
+
+add_task(async function test_inline_mention_does_not_create_context_chip() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await insertInlineMention(browser);
+
+  const chips = await getSmartbarContextChips(browser);
+  Assert.equal(
+    chips.length,
+    0,
+    "Inline @mention should not create a context chip in the smartbar header"
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_inline_mention_available_via_getAllMentions() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await insertInlineMention(browser);
+
+  const mentions = await getEditorInlineMentions(browser);
+  Assert.equal(mentions.length, 1, "getAllMentions should return one mention");
+  Assert.equal(
+    mentions[0].id,
+    "https://example.com/1",
+    "Mention id should match the selected tab URL"
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(
+  async function test_deleted_inline_mention_excluded_from_getAllMentions() {
+    const win = await openAIWindow();
+    const browser = win.gBrowser.selectedBrowser;
+
+    await insertInlineMention(browser);
+
+    // Delete the mention by pressing Backspace twice (once for trailing space,
+    // once for the atomic mention node).
+    await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+    await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+
+    const mentions = await getEditorInlineMentions(browser);
+    Assert.equal(
+      mentions.length,
+      0,
+      "getAllMentions should return empty after deleting the inline mention"
+    );
+
+    await BrowserTestUtils.closeWindow(win);
+  }
+);

@@ -12,6 +12,7 @@
 #include "mozilla/Base64.h"
 
 #include <stdlib.h>
+#include <signal.h>
 #include <sys/wait.h>
 
 nsAuthSambaNTLM::nsAuthSambaNTLM() = default;
@@ -59,7 +60,7 @@ static bool WriteString(const mozilla::UniqueFileHandle& aFD,
                         const nsACString& aString) {
   size_t length = aString.Length();
   const char* s = aString.BeginReading();
-  LOG(("Writing to ntlm_auth: %s", s));
+  LOG(("Writing to ntlm_auth: %s", PromiseFlatCString(aString).get()));
 
   while (length > 0) {
     ssize_t result;

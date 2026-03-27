@@ -46,6 +46,7 @@ import androidx.navigation.fragment.navArgs
 import com.google.android.material.appbar.AppBarLayout
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -68,6 +69,7 @@ import mozilla.components.lib.state.ext.consumeFrom
 import mozilla.components.lib.state.ext.flow
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
+import mozilla.components.support.ktx.android.view.toScope
 import mozilla.components.support.utils.BuildManufacturerChecker
 import mozilla.components.support.utils.DateTimeProvider
 import mozilla.components.support.utils.DefaultDateTimeProvider
@@ -177,6 +179,7 @@ import org.mozilla.fenix.termsofuse.store.PrivacyNoticeBannerStore
 import org.mozilla.fenix.termsofuse.store.PrivacyNoticeBannerTelemetryMiddleware
 import org.mozilla.fenix.termsofuse.store.Surface
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.trackingprotection.TrackersBlockedFeature
 import org.mozilla.fenix.utils.allowUndo
 import org.mozilla.fenix.utils.showAddSearchWidgetPromptIfSupported
 import org.mozilla.fenix.wallpapers.Wallpaper
@@ -279,6 +282,7 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     private val snackbarBinding = ViewBoundFeatureWrapper<SnackbarBinding>()
     private val showReviewPromptBinding = ViewBoundFeatureWrapper<ShowReviewPromptBinding>()
     private val topSitesBinding = ViewBoundFeatureWrapper<TopSitesBinding>()
+    private val trackersBlockedFeature = ViewBoundFeatureWrapper<TrackersBlockedFeature>()
 
     private val homepageEdgeToEdgeFeature = ViewBoundFeatureWrapper<HomepageEdgeToEdgeFeature>()
     private var qrScanFenixFeature: ViewBoundFeatureWrapper<QrScanFenixFeature>? =
@@ -354,7 +358,11 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
 
         lifecycleScope.launch(IO) {
             val settings = requireContext().settings()
-            val showStories = settings.showPocketRecommendationsFeature
+
+            val showStories =
+                settings.showPocketRecommendationsFeature ||
+                    settings.privateModeAndStoriesEntryPointEnabled
+
             val showSponsoredStories = showStories && settings.showPocketSponsoredStories
 
             if (showStories) {
@@ -430,6 +438,17 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
                     accountManager = requireComponents.backgroundServices.accountManager,
                     historyStorage = requireComponents.core.historyStorage,
                     coroutineScope = viewLifecycleOwner.lifecycleScope,
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+        }
+
+        if (requireContext().settings().showPrivacyReportFeature) {
+            trackersBlockedFeature.set(
+                feature = TrackersBlockedFeature(
+                    appStore = components.appStore,
+                    protectionsStorage = components.core.protectionsStorage,
                 ),
                 owner = viewLifecycleOwner,
                 view = binding.root,
@@ -671,7 +690,7 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
             true -> {
                 val toolbarStore by buildToolbarStore(activity)
 
-                if (homepageEdgeToEdgeFeature.get() == null) {
+                if (isEdgeToEdgeBackgroundEnabled() && homepageEdgeToEdgeFeature.get() == null) {
                     homepageEdgeToEdgeFeature.set(
                         feature = HomepageEdgeToEdgeFeature(
                             appStore = requireComponents.appStore,
@@ -705,9 +724,11 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
                     directToSearchConfig = DirectToSearchConfig(
                         startSearch = bundleArgs.getBoolean(FOCUS_ON_ADDRESS_BAR) ||
                                 FxNimbus.features.oneClickSearch.value().enabled,
+                        startVoiceSearch = bundleArgs.getBoolean(START_VOICE_SEARCH),
                         sessionId = args.sessionToStartSearchFor,
                         source = args.searchAccessPoint,
                     ),
+                    coroutineScope = binding.homeLayout.toScope(),
                     tabStripContent = { TabStrip(toolbarStore) },
                     searchSuggestionsContent = { modifier ->
                         (awesomeBarComposable ?: initializeAwesomeBarComposable(toolbarStore, modifier))
@@ -1379,8 +1400,11 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     internal fun shouldEnableWallpaper() =
         (activity as? HomeActivity)?.themeManager?.currentTheme?.isPrivate?.not() ?: false
 
-    internal fun isEdgeToEdgeBackgroundEnabled(): Boolean =
-        requireContext().settings().currentWallpaperName == Wallpaper.EDGE_TO_EDGE
+    internal fun isEdgeToEdgeBackgroundEnabled(): Boolean {
+        val settings = requireContext().settings()
+        return settings.enableHomepageEdgeToEdgeBackgroundFeature &&
+                settings.currentWallpaperName == Wallpaper.EDGE_TO_EDGE
+    }
 
     private fun applyWallpaper(wallpaperName: String, orientationChange: Boolean, orientation: Int) {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -1470,6 +1494,7 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     companion object {
         // Navigation arguments passed to HomeFragment
         const val FOCUS_ON_ADDRESS_BAR = "focusOnAddressBar"
+        const val START_VOICE_SEARCH = "startVoiceSearch"
         private const val SESSION_TO_DELETE = "sessionToDelete"
 
         // Elevation for undo toasts

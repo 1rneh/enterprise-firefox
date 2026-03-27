@@ -2941,7 +2941,7 @@ nsresult ProcessXCTO(HttpBaseChannel* aChannel, nsIURI* aURI,
     RefPtr<dom::Document> doc;
     aLoadInfo->GetLoadingDocument(getter_AddRefs(doc));
     nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "XCTO"_ns, doc,
-                                    nsContentUtils::eSECURITY_PROPERTIES,
+                                    PropertiesFile::SECURITY_PROPERTIES,
                                     "XCTOHeaderValueMissing", params);
     return NS_OK;
   }
@@ -3814,9 +3814,7 @@ NS_IMETHODIMP
 HttpBaseChannel::GetLocalAddress(nsACString& addr) {
   if (mSelfAddr.raw.family == PR_AF_UNSPEC) return NS_ERROR_NOT_AVAILABLE;
 
-  addr.SetLength(kIPv6CStrBufSize);
-  mSelfAddr.ToStringBuffer(addr.BeginWriting(), kIPv6CStrBufSize);
-  addr.SetLength(strlen(addr.BeginReading()));
+  mSelfAddr.ToString(addr);
 
   return NS_OK;
 }
@@ -3877,7 +3875,7 @@ nsresult HttpBaseChannel::AddSecurityMessage(
 
   nsAutoString errorText;
   rv = nsContentUtils::GetLocalizedString(
-      nsContentUtils::eSECURITY_PROPERTIES,
+      PropertiesFile::SECURITY_PROPERTIES,
       NS_ConvertUTF16toUTF8(aMessageTag).get(), errorText);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -3910,9 +3908,7 @@ NS_IMETHODIMP
 HttpBaseChannel::GetRemoteAddress(nsACString& addr) {
   if (mPeerAddr.raw.family == PR_AF_UNSPEC) return NS_ERROR_NOT_AVAILABLE;
 
-  addr.SetLength(kIPv6CStrBufSize);
-  mPeerAddr.ToStringBuffer(addr.BeginWriting(), kIPv6CStrBufSize);
-  addr.SetLength(strlen(addr.BeginReading()));
+  mPeerAddr.ToString(addr);
 
   return NS_OK;
 }
@@ -4362,10 +4358,9 @@ HttpBaseChannel::GetEntityID(nsACString& aEntityID) {
 
 void HttpBaseChannel::AddConsoleReport(
     uint32_t aErrorFlags, const nsACString& aCategory,
-    nsContentUtils::PropertiesFile aPropertiesFile,
-    const nsACString& aSourceFileURI, uint32_t aLineNumber,
-    uint32_t aColumnNumber, const nsACString& aMessageName,
-    const nsTArray<nsString>& aStringParams) {
+    PropertiesFile aPropertiesFile, const nsACString& aSourceFileURI,
+    uint32_t aLineNumber, uint32_t aColumnNumber,
+    const nsACString& aMessageName, const nsTArray<nsString>& aStringParams) {
   mReportCollector->AddConsoleReport(aErrorFlags, aCategory, aPropertiesFile,
                                      aSourceFileURI, aLineNumber, aColumnNumber,
                                      aMessageName, aStringParams);
@@ -6877,7 +6872,7 @@ void HttpBaseChannel::LogORBError(
   params.AppendElement(NS_ConvertUTF8toUTF16(uri));
   params.AppendElement(aReason);
   nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "ORB"_ns, doc,
-                                  nsContentUtils::eNECKO_PROPERTIES,
+                                  PropertiesFile::NECKO_PROPERTIES,
                                   "ResourceBlockedORB", params);
 }
 

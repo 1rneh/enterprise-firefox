@@ -321,6 +321,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                 addonManager = components.addonManager,
                                 settings = settings,
                                 summarizeMenuSettings = components.core.summarizeFeatureSettings,
+                                summarizationEligibilityChecker = components.core.summarizationEligibilityChecker,
                                 bookmarksStorage = components.core.bookmarksStorage,
                                 pinnedSiteStorage = components.core.pinnedSiteStorage,
                                 appLinksUseCases = appLinksUseCases,

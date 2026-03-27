@@ -625,6 +625,8 @@ var SidebarController = {
     if (!isValidSidebar) {
       state.command = "";
     }
+    // reset any previously remembered launcher-visibility state
+    delete this._launcherStateAtOpen;
 
     const hasOpenPanel =
       state.panelOpen &&
@@ -1151,6 +1153,7 @@ var SidebarController = {
       );
       this._box.toggleAttribute("sidebar-ongoing-animations", false);
       tabbox.toggleAttribute("sidebar-ongoing-animations", false);
+      this.sidebarMain.toggleAttribute("sidebar-ongoing-animations", false);
     };
     if (this._ongoingAnimations.length) {
       this._ongoingAnimations.forEach(a => a.cancel());
@@ -1911,6 +1914,11 @@ var SidebarController = {
     if (!this._canShow(commandID)) {
       return false;
     }
+    // capture the launcher state so we can revert to it when the panel closes
+    if (this._launcherStateAtOpen === undefined) {
+      this._launcherStateAtOpen = this._state.launcherVisible;
+    }
+
     return this._show(commandID).then(() => {
       this._loadSidebarExtension(commandID);
 
@@ -2078,6 +2086,12 @@ var SidebarController = {
       // automatically re-open next time the sidebar is shown
       this._state.command = "";
       this.lastOpenedId = null;
+      if (this._launcherStateAtOpen !== undefined) {
+        if (this.sidebarRevampVisibility === "hide-sidebar") {
+          this._state.launcherVisible = this._launcherStateAtOpen;
+        }
+        delete this._launcherStateAtOpen;
+      }
     }
 
     if (this.sidebarRevampEnabled) {

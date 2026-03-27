@@ -309,10 +309,7 @@ XMLHttpRequestMainThread::~XMLHttpRequestMainThread() {
     Abort();
   }
 
-  if (mParseEndListener) {
-    mParseEndListener->SetIsStale();
-    mParseEndListener = nullptr;
-  }
+  mParseEndListener = nullptr;
 
   MOZ_ASSERT(!mFlagSyncLooping, "we rather crash than hang");
   mFlagSyncLooping = false;
@@ -509,7 +506,7 @@ static void LogMessage(
     doc = aWindow->GetExtantDoc();
   }
   nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns, doc,
-                                  nsContentUtils::eDOM_PROPERTIES, aWarning,
+                                  PropertiesFile::DOM_PROPERTIES, aWarning,
                                   aParams);
 }
 

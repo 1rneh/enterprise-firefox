@@ -51,6 +51,7 @@ import mozilla.components.compose.base.snackbar.displaySnackbar
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.data.createTab
+import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
@@ -228,7 +229,9 @@ fun TabsTray(
                 onExitSelectModeClick = {
                     tabsTrayStore.dispatch(TabsTrayAction.ExitSelectMode)
                 },
-                onAddToTabGroup = {},
+                onAddToTabGroup = {
+                    tabsTrayStore.dispatch(TabGroupAction.AddToTabGroup)
+                },
             )
         },
         floatingActionButton = {

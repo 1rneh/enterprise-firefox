@@ -258,8 +258,7 @@ nsresult NS_GetURIWithNewRef(nsIURI* aInput, const nsACString& aRef,
   // Note that aRef contains the hash, but ref doesn't, so need to account for
   // that in the equality check.
   if (NS_FAILED(rv) || (!hasRef && aRef.IsEmpty()) ||
-      (!aRef.IsEmpty() && hasRef &&
-       Substring(aRef.Data() + 1, aRef.Length() - 1) == ref)) {
+      (!aRef.IsEmpty() && hasRef && Substring(aRef, 1) == ref)) {
     nsCOMPtr<nsIURI> uri = aInput;
     uri.forget(aOutput);
     return NS_OK;
@@ -3037,7 +3036,7 @@ static bool ShouldSecureUpgradeNoHSTS(nsIURI* aURI, nsILoadInfo* aLoadInfo) {
     AutoTArray<nsString, 2> params = {reportSpec, reportScheme};
 
     nsAutoString localizedMsg;
-    nsContentUtils::FormatLocalizedString(nsContentUtils::eSECURITY_PROPERTIES,
+    nsContentUtils::FormatLocalizedString(PropertiesFile::SECURITY_PROPERTIES,
                                           "MixedContentAutoUpgrade", params,
                                           localizedMsg);
 
@@ -3530,7 +3529,7 @@ already_AddRefed<nsIURI> TryChangeProtocol(nsIURI* aURI,
     params.AppendElement(NS_ConvertUTF8toUTF16(newScheme));
     nsContentUtils::ReportToConsole(
         nsIScriptError::warningFlag, "Strict Url Protocol Setter"_ns, nullptr,
-        nsContentUtils::eNECKO_PROPERTIES, "StrictUrlProtocolSetter", params);
+        PropertiesFile::NECKO_PROPERTIES, "StrictUrlProtocolSetter", params);
     return nullptr;
   }
 
@@ -4057,7 +4056,7 @@ void WarnIgnoredPreload(const mozilla::dom::Document& aDoc, nsIURI* aURI,
     params.AppendElement(aSrcset);
   }
   nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns, &aDoc,
-                                  nsContentUtils::eDOM_PROPERTIES,
+                                  PropertiesFile::DOM_PROPERTIES,
                                   "PreloadIgnoredInvalidAttr", params);
 }
 

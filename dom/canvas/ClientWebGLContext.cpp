@@ -201,7 +201,18 @@ ClientWebGLContext::ClientWebGLContext(const bool webgl2)
     : mIsWebGL2(webgl2),
       mExtLoseContext(new ClientWebGLExtensionLoseContext(*this)) {}
 
-ClientWebGLContext::~ClientWebGLContext() { RemovePostRefreshObserver(); }
+static inline void SafeReleaseNotLostData(RefPtr<webgl::NotLostData>& notLost) {
+  if (notLost) {
+    const auto keepAlive = std::move(notLost);
+    keepAlive->extensions = {};
+    keepAlive->state = {};
+  }
+}
+
+ClientWebGLContext::~ClientWebGLContext() {
+  RemovePostRefreshObserver();
+  SafeReleaseNotLostData(mNotLost);
+}
 
 void ClientWebGLContext::JsWarning(const std::string& utf8) const {
   nsIGlobalObject* global = nullptr;
@@ -392,7 +403,7 @@ void ClientWebGLContext::ThrowEvent_WebGLContextCreationError(
     const std::string& text) const {
   nsCString msg;
   msg.AppendPrintf("Failed to create WebGL context: %s", text.c_str());
-  JsWarning(msg.BeginReading());
+  JsWarning(std::string(msg.View()));
 
   RefPtr<dom::EventTarget> target = mCanvasElement;
   if (!target && mOffscreenCanvas) {
@@ -2549,7 +2560,7 @@ void ClientWebGLContext::GetParameter(JSContext* cx, GLenum pname,
                                ToChars(bool(inProcess)));
       }
       str += *maybe;
-      retval.set(StringValue(cx, str.c_str(), rv));
+      retval.set(StringValue(cx, str, rv));
     }
   } else {
     const auto maybe = GetNumber(pname);
@@ -3390,7 +3401,7 @@ Maybe<const webgl::ErrorInfo> ValidateBindBuffer(
         "Buffer previously bound to %s cannot be now bound to %s.",
         fnKindStr(curKind), fnKindStr(requiredKind));
     return Some(
-        webgl::ErrorInfo{LOCAL_GL_INVALID_OPERATION, info.BeginReading()});
+        webgl::ErrorInfo{LOCAL_GL_INVALID_OPERATION, std::string(info.View())});
   }
 
   return {};
@@ -3400,7 +3411,7 @@ Maybe<webgl::ErrorInfo> CheckBindBufferRange(
     const GLenum target, const GLuint index, const bool isBuffer,
     const uint64_t offset, const uint64_t size, const webgl::Limits& limits) {
   const auto fnSome = [&](const GLenum type, const nsACString& info) {
-    return Some(webgl::ErrorInfo{type, info.BeginReading()});
+    return Some(webgl::ErrorInfo{type, std::string(info.View())});
   };
 
   switch (target) {
@@ -5354,7 +5365,7 @@ void ClientWebGLContext::ReadPixels(GLint x, GLint y, GLsizei width,
     nsCString name;
     WebGLContext::EnumName(type, &name);
     EnqueueError(LOCAL_GL_INVALID_ENUM, "type: invalid enum value %s",
-                 name.BeginReading());
+                 name.get());
     return;
   }
 
@@ -7239,11 +7250,7 @@ void ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& callback,
 }
 
 void ImplCycleCollectionUnlink(RefPtr<webgl::NotLostData>& field) {
-  if (!field) return;
-  const auto keepAlive = field;
-  keepAlive->extensions = {};
-  keepAlive->state = {};
-  field = nullptr;
+  SafeReleaseNotLostData(field);
 }
 
 // -----------------------------------------------------

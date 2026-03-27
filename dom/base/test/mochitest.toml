@@ -1145,7 +1145,6 @@ support-files = [
 
 ["test_document_wireframe.html"]
 skip-if = [
-  "!sessionHistoryInParent",
   "http2",
   "http3",
 ]
@@ -1224,6 +1223,8 @@ skip-if = [
 ["test_focus_radio.html"]
 
 ["test_focus_scroll_padding_tab.html"]
+
+["test_focus_hidden_overflow.html"]
 
 ["test_focus_scrollable_fieldset.html"]
 

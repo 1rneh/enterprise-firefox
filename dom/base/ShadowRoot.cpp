@@ -14,6 +14,7 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/ServoStyleRuleMap.h"
+#include "mozilla/ServoStyleSet.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/CustomElementRegistry.h"
@@ -210,15 +211,11 @@ void ShadowRoot::Unattach() {
 
 void ShadowRoot::InvalidateStyleAndLayoutOnSubtree(Element* aElement) {
   MOZ_ASSERT(aElement);
-  Document* doc = GetComposedDoc();
+  Document* doc = aElement->GetComposedDoc();
   if (!doc) {
-    return;
-  }
-
-  if (!aElement->IsInComposedDoc()) {
-    // If RemoveSlot is called from UnbindFromTree while we're moving
-    // (moveBefore) the slot elsewhere, invalidating styles and layout tree
-    // is done explicitly elsewhere.
+    // If not potentially in the flat tree, we don't need to invalidate, really.
+    // For tricky cases like moveBefore, invalidating styles and layout tree
+    // is done explicitly elsewhere as well.
     return;
   }
 

@@ -47,6 +47,7 @@ projects:
     - components:feature-media
     - components:feature-privatemode
     - components:feature-prompts
+    - components:feature-protection-dashboard
     - components:feature-push
     - components:feature-pwa
     - components:feature-qr
@@ -91,6 +92,7 @@ projects:
     - components:support-base
     - components:support-images
     - components:support-ktx
+    - components:support-license
     - components:support-locale
     - components:support-remotesettings
     - components:support-test

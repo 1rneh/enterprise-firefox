@@ -1224,6 +1224,14 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   // Remove our reference to the document and the document principal.
   mFocusedElement = nullptr;
 
+  // Unregister any remaining media source blob: URLs created by this window.
+  if (RefPtr<DocGroup> docGroup = GetDocGroup()) {
+    nsTArray<nsCString> mediaSourceURLs = std::move(mMediaSourceURLs);
+    for (auto& url : mediaSourceURLs) {
+      docGroup->UnregisterMediaSourceURL(url, /* aNotifyWindow */ false);
+    }
+  }
+
   nsIGlobalObject::UnlinkObjectsInGlobal();
 
   NotifyWindowIDDestroyed("inner-window-destroyed");
@@ -1733,9 +1741,8 @@ mozilla::dom::StorageManager* nsGlobalWindowInner::GetStorageManager() {
 bool nsGlobalWindowInner::IsEligibleForMessaging() { return IsFullyActive(); }
 
 void nsGlobalWindowInner::ReportToConsole(
-    uint32_t aErrorFlags, const nsCString& aCategory,
-    nsContentUtils::PropertiesFile aFile, const nsCString& aMessageName,
-    const nsTArray<nsString>& aParams,
+    uint32_t aErrorFlags, const nsCString& aCategory, PropertiesFile aFile,
+    const nsCString& aMessageName, const nsTArray<nsString>& aParams,
     const mozilla::SourceLocation& aLocation) {
   nsContentUtils::ReportToConsole(aErrorFlags, aCategory, mDoc, aFile,
                                   aMessageName.get(), aParams, aLocation);
@@ -3148,8 +3155,7 @@ void nsGlobalWindowInner::AudioPlaybackChanged(bool aIsPlayingAudio) {
 }
 
 bool nsPIDOMWindowInner::IsCurrentInnerWindow() const {
-  if (mozilla::SessionHistoryInParent() && mBrowsingContext &&
-      mBrowsingContext->IsInBFCache()) {
+  if (mBrowsingContext && mBrowsingContext->IsInBFCache()) {
     return false;
   }
 
@@ -5303,9 +5309,8 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
   }
 
   bool failed = false;
-  auto getString = [&](const char* name,
-                       nsContentUtils::PropertiesFile propFile =
-                           nsContentUtils::eDOM_PROPERTIES) {
+  auto getString = [&](const char* name, PropertiesFile propFile =
+                                             PropertiesFile::DOM_PROPERTIES) {
     nsAutoString result;
     nsresult rv = nsContentUtils::GetLocalizedString(propFile, name, result);
 
@@ -5325,7 +5330,7 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
     checkboxMsg = getString("KillAddonScriptGlobalMessage");
 
     auto appName =
-        getString("brandShortName", nsContentUtils::eBRAND_PROPERTIES);
+        getString("brandShortName", PropertiesFile::BRAND_PROPERTIES);
 
     nsCOMPtr<nsIAddonPolicyService> aps =
         do_GetService("@mozilla.org/addons/policy-service;1");
@@ -5335,7 +5340,7 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
     }
 
     rv = nsContentUtils::FormatLocalizedString(
-        msg, nsContentUtils::eDOM_PROPERTIES, "KillAddonScriptMessage",
+        msg, PropertiesFile::DOM_PROPERTIES, "KillAddonScriptMessage",
         addonName, appName);
 
     failed = failed || NS_FAILED(rv);
@@ -5389,7 +5394,7 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
       filenameUTF16.ReplaceLiteral(cutStart, cutLength, u"\x2026");
     }
     rv = nsContentUtils::FormatLocalizedString(
-        scriptLocation, nsContentUtils::eDOM_PROPERTIES, "KillScriptLocation",
+        scriptLocation, PropertiesFile::DOM_PROPERTIES, "KillScriptLocation",
         filenameUTF16);
 
     if (NS_SUCCEEDED(rv)) {
@@ -6788,8 +6793,7 @@ void nsGlobalWindowInner::EventListenerAdded(nsAtom* aType) {
   }
 
   if (aType == nsGkAtoms::onbeforeunload && mWindowGlobalChild) {
-    if (!mozilla::SessionHistoryInParent() ||
-        !StaticPrefs::
+    if (!StaticPrefs::
             docshell_shistory_bfcache_ship_allow_beforeunload_listeners()) {
       if (++mUnloadOrBeforeUnloadListenerCount == 1) {
         mWindowGlobalChild->BlockBFCacheFor(
@@ -6826,8 +6830,7 @@ void nsGlobalWindowInner::EventListenerRemoved(nsAtom* aType) {
   }
 
   if (aType == nsGkAtoms::onbeforeunload && mWindowGlobalChild) {
-    if (!mozilla::SessionHistoryInParent() ||
-        !StaticPrefs::
+    if (!StaticPrefs::
             docshell_shistory_bfcache_ship_allow_beforeunload_listeners()) {
       if (--mUnloadOrBeforeUnloadListenerCount == 0) {
         mWindowGlobalChild->UnblockBFCacheFor(
@@ -6945,6 +6948,8 @@ void nsGlobalWindowInner::AddSizeOfIncludingThis(
     aWindowSizes.mDOMSizes.mDOMPerformanceEventEntries =
         mPerformance->SizeOfEventEntries(aWindowSizes.mState.mMallocSizeOf);
   }
+
+  aWindowSizes.mMediaSourceURLsCount = mMediaSourceURLs.Length();
 }
 
 void nsGlobalWindowInner::RegisterDataDocumentForMemoryReporting(
@@ -7891,6 +7896,16 @@ TrustedTypePolicyFactory* nsGlobalWindowInner::TrustedTypes() {
   }
 
   return mTrustedTypePolicyFactory;
+}
+
+void nsGlobalWindowInner::NoteMediaSourceURL(const nsACString& aURL) {
+  MOZ_ASSERT(!IsDying(), "MediaSourceURL will never be cleaned up");
+  mMediaSourceURLs.InsertElementSorted(aURL);
+}
+
+void nsGlobalWindowInner::UnnoteMediaSourceURL(const nsACString& aURL) {
+  DebugOnly<bool> found = mMediaSourceURLs.RemoveElementSorted(aURL);
+  MOZ_ASSERT(found, "MediaSourceURL should have been noted");
 }
 
 void nsPIDOMWindowInner::MaybeSetHasPointerRawUpdateEventListeners() {

@@ -445,11 +445,6 @@ pref("browser.urlbar.scotchBonnet.enableOverride", true);
 
 pref("browser.urlbar.trustPanel.featureGate", true);
 
-// Once Perplexity has entered search mode at least once,
-// we no longer show the Perplexity onboarding callout.
-// This pref will be set to true when perplexity search mode is detected.
-pref("browser.urlbar.perplexity.hasBeenInSearchMode", false);
-
 // Whether or not Unified Search Button is shown always.
 pref("browser.urlbar.unifiedSearchButton.always", false);
 
@@ -1522,46 +1517,6 @@ pref("places.loglevel", "Error");
 // Whether or not diacritics must match in history text searches.
 pref("places.search.matchDiacritics", false);
 
-// the (maximum) number of the recent visits to sample
-// when calculating frecency
-pref("places.frecency.numVisits", 10);
-
-// buckets (in days) for frecency calculation
-pref("places.frecency.firstBucketCutoff", 4);
-pref("places.frecency.secondBucketCutoff", 14);
-pref("places.frecency.thirdBucketCutoff", 31);
-pref("places.frecency.fourthBucketCutoff", 90);
-
-// weights for buckets for frecency calculations
-pref("places.frecency.firstBucketWeight", 100);
-pref("places.frecency.secondBucketWeight", 70);
-pref("places.frecency.thirdBucketWeight", 50);
-pref("places.frecency.fourthBucketWeight", 30);
-pref("places.frecency.defaultBucketWeight", 10);
-
-// bonus (in percent) for visit transition types for frecency calculations
-pref("places.frecency.embedVisitBonus", 0);
-pref("places.frecency.framedLinkVisitBonus", 0);
-pref("places.frecency.linkVisitBonus", 100);
-pref("places.frecency.typedVisitBonus", 2000);
-// The bookmarks bonus is always added on top of any other bonus, including
-// the redirect source and the typed ones.
-pref("places.frecency.bookmarkVisitBonus", 75);
-// The redirect source bonus overwrites any transition bonus.
-// 0 would hide these pages, instead we want them low ranked.  Thus we use
-// linkVisitBonus - bookmarkVisitBonus, so that a bookmarked source is in par
-// with a common link.
-pref("places.frecency.redirectSourceVisitBonus", 25);
-pref("places.frecency.downloadVisitBonus", 0);
-// The perm/temp redirects here relate to redirect targets, not sources.
-pref("places.frecency.permRedirectVisitBonus", 50);
-pref("places.frecency.tempRedirectVisitBonus", 40);
-pref("places.frecency.reloadVisitBonus", 0);
-pref("places.frecency.defaultVisitBonus", 0);
-
-// bonus (in percent) for place types for frecency calculations
-pref("places.frecency.unvisitedBookmarkBonus", 140);
-pref("places.frecency.unvisitedTypedBonus", 200);
 
 // Enables alternative frecency calculation for origins.
 pref("places.frecency.origins.alternative.featureGate", false);
@@ -2159,6 +2114,9 @@ pref("browser.newtabpage.activity-stream.logowordmark.alwaysVisible", true);
 // - "key=value" - Search param named "key" with value "value"
 pref("browser.newtabpage.activity-stream.hideTopSitesWithSearchParam", "mfadid=adm");
 
+// Communicates to AboutNewTabChild whether or not it should load the classic scripts or do nothing.
+pref("browser.newtabpage.activity-stream.selfLoading.enabled", true);
+
 // Set to true to enable debug logging for AboutNewTabResourceMapping.
 pref("browser.newtabpage.resource-mapping.log", false);
 
@@ -2316,6 +2274,7 @@ pref("browser.smartwindow.enabled", false);
 pref("browser.smartwindow.endpoint", "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net/v1");
 pref("browser.smartwindow.memories.generateFromHistory", true);
 pref("browser.smartwindow.memories.generateFromConversation", true);
+pref("browser.smartwindow.memories.hasSeenMemories", false);
 pref("browser.smartwindow.memoriesLogLevel", "Warn");
 pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
@@ -2329,6 +2288,7 @@ pref("browser.smartwindow.checkSecurityFlags", false);
 // Smart Window Logging
 pref("browser.smartwindow.chatHistory.loglevel", "Error");
 pref("browser.smartwindow.chatStore.loglevel", "Error");
+pref("browser.smartwindow.conversation.logLevel", "Error");
 pref("browser.smartwindow.smartbarMentions.loglevel", "Error");
 
 // Block insecure active content on https pages
@@ -2621,6 +2581,13 @@ pref("browser.contentblocking.report.monitor.enabled", false);
 
 // Disable Protections report's Proxy card by default.
 pref("browser.contentblocking.report.proxy.enabled", false);
+
+// Enable Protections report's Privacy Metrics card on Nightly only.
+#ifdef NIGHTLY_BUILD
+  pref("browser.contentblocking.report.privacy_metrics.enabled", true);
+#else
+  pref("browser.contentblocking.report.privacy_metrics.enabled", false);
+#endif
 
 // Disable the mobile promotion by default.
 pref("browser.contentblocking.report.show_mobile_app", true);
@@ -3518,10 +3485,9 @@ pref("browser.places.interactions.enabled", true);
 // If the user has seen the Firefox View feature tour this value reflects
 // the id of the last screen they saw and whether they completed the tour
 pref("browser.firefox-view.feature-tour", "{\"screen\":\"FIREFOX_VIEW_SPOTLIGHT\",\"complete\":false}");
-// Number of times the user visited about:firefoxview
-pref("browser.firefox-view.view-count", 0);
-// Maximum number of rows to show on the "History" page (0 = unlimited).
-pref("browser.firefox-view.max-history-rows", 0);
+// Number of times the user visited about:firefoxview via the button/hidden tab in the past 30 days
+pref("browser.firefox-view.button-clicks", "{\"count\":0,\"lastCountTime\":\"\"}");
+
 // Enables virtual list functionality in Firefox View.
 pref("browser.firefox-view.virtual-list.enabled", true);
 
@@ -3646,8 +3612,6 @@ pref("browser.profiles.enabled", true);
 pref("browser.profiles.profile-name.updated", false);
 // Whether to allow the user to merge profile data
 pref("browser.profiles.sync.allow-danger-merge", false);
-// Allow Firefox Refresh even if profile is ineligible, see Bug 1928138
-pref("browser.profiles.forceEnableRefresh", false);
 
 pref("startup.homepage_override_url_nimbus", "");
 // These prefs are referring to the Fx update version

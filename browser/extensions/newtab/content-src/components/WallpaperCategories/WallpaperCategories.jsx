@@ -56,6 +56,7 @@ export class _WallpaperCategories extends React.PureComponent {
     this.arrowButtonRef = React.createRef(); // Used to focus arrow button when category opens
     this.customColorPickerRef = React.createRef(); // Used to determine contrast icon color for custom color picker
     this.customColorInput = React.createRef(); // Used to determine contrast icon color for custom color picker
+    this.wallpaperListRef = React.createRef(); // Used for CSSTransition nodeRef
     this.state = {
       activeCategory: null,
       activeCategoryFluentID: null,
@@ -430,6 +431,8 @@ export class _WallpaperCategories extends React.PureComponent {
 
   render() {
     const prefs = this.props.Prefs.values;
+    // @nova-cleanup(remove-conditional): Remove novaEnabled once Nova ships
+    const novaEnabled = prefs["nova.enabled"];
     const { wallpaperList, categories } = this.props.Wallpapers;
     const { activeWallpaper } = this.props;
     const { activeCategory } = this.state;
@@ -521,9 +524,13 @@ export class _WallpaperCategories extends React.PureComponent {
       );
 
     return (
-      <div>
+      // @nova-cleanup(remove-conditional): Remove nova-enabled class from root div
+      <div className={novaEnabled ? "nova-enabled" : undefined}>
         <div className="category-header">
-          <h2 data-l10n-id="newtab-wallpaper-title"></h2>
+          {
+            // @nova-cleanup(remove-conditional): Remove h2 once Nova ships — title moves to the wallpaper toggle
+            !novaEnabled && <h2 data-l10n-id="newtab-wallpaper-title"></h2>
+          }
           <button
             className="wallpapers-reset"
             onClick={this.handleReset}
@@ -647,13 +654,17 @@ export class _WallpaperCategories extends React.PureComponent {
         </div>
 
         <CSSTransition
+          nodeRef={this.wallpaperListRef}
           in={!!activeCategory}
           timeout={300}
           classNames="wallpaper-list"
           unmountOnExit={true}
           onEntered={this.handleWallpaperListEntered}
         >
-          <section className="category wallpaper-list ignore-color-mode">
+          <section
+            ref={this.wallpaperListRef}
+            className="category wallpaper-list ignore-color-mode"
+          >
             <button
               ref={this.arrowButtonRef}
               className="arrow-button"
@@ -687,7 +698,7 @@ export class _WallpaperCategories extends React.PureComponent {
                       style.backgroundColor = solid_color || "";
                     }
                     return (
-                      <>
+                      <React.Fragment key={title}>
                         <input
                           ref={el => {
                             if (el) {
@@ -714,7 +725,7 @@ export class _WallpaperCategories extends React.PureComponent {
                         >
                           {fluent_id}
                         </label>
-                      </>
+                      </React.Fragment>
                     );
                   }
                 )}

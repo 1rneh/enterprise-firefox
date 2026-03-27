@@ -37,8 +37,10 @@ class TabGroupCardTest {
                 ComposableUnderTest()
             }
         }
-        composeTestRule.onNodeWithTag(TabsTrayTestTag.TAB_GROUP_THREE_DOT_BUTTON)
-            .assertIsDisplayed()
+        composeTestRule.onNodeWithTag(
+            TabsTrayTestTag.TAB_GROUP_THREE_DOT_BUTTON,
+            useUnmergedTree = true,
+        ).assertIsDisplayed()
         composeTestRule.onNodeWithTag(
             TabsTrayTestTag.TAB_GROUP_THUMBNAIL_FIRST,
             useUnmergedTree = true,
@@ -46,8 +48,7 @@ class TabGroupCardTest {
         composeTestRule.onNodeWithTag(
             TabsTrayTestTag.TAB_GROUP_THUMBNAIL_SECOND,
             useUnmergedTree = true,
-        )
-            .assertIsDisplayed()
+        ).assertIsDisplayed()
         composeTestRule.onNodeWithTag(
             TabsTrayTestTag.TAB_GROUP_THUMBNAIL_THIRD,
             useUnmergedTree = true,
@@ -55,8 +56,7 @@ class TabGroupCardTest {
         composeTestRule.onNodeWithTag(
             TabsTrayTestTag.TAB_GROUP_THUMBNAIL_FOURTH,
             useUnmergedTree = true,
-        )
-            .assertIsDisplayed()
+        ).assertIsDisplayed()
     }
 
     @Test
@@ -99,6 +99,20 @@ class TabGroupCardTest {
         Assert.assertEquals("Test", argumentReceived)
     }
 
+    @Test
+    fun verifyMenuItems() {
+        composeTestRule.setContent {
+            FirefoxTheme {
+                ComposableUnderTest()
+            }
+        }
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.TAB_GROUP_THREE_DOT_BUTTON)
+            .performClick()
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.EDIT_TAB_GROUP).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.CLOSE_TAB_GROUP).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.DELETE_TAB_GROUP).assertIsDisplayed()
+    }
+
     @Composable
     private fun ComposableUnderTest(
         onClick: (String) -> Unit = {},
@@ -108,7 +122,7 @@ class TabGroupCardTest {
             group = TabsTrayItem.TabGroup(
                 title = "Group 1",
                 theme = TabGroupTheme.Yellow,
-                tabs = hashSetOf(
+                tabs = mutableListOf(
                     createTab(
                         url = ABOUT_HOME_URL,
                     ),

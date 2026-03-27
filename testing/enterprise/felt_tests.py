@@ -3,6 +3,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import ctypes
 import datetime
 import json
 import os
@@ -13,15 +14,45 @@ import tempfile
 import time
 import urllib.parse
 import uuid
-from ctypes import c_wchar_p
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from multiprocessing import Manager, Process, Value
+from multiprocessing import Array, Process, Value
 
 import felt_consts
 import requests
 from base_test import EnterpriseTestsBase
 from marionette_driver import expected
 from marionette_driver.by import By
+
+
+class SharedString:
+    """Process-safe string backed by shared memory.
+
+    Replaces Manager.Value(c_wchar_p, ...) to avoid the Manager IPC path, which
+    pickles data into a memoryview. Under GC pressure that memoryview can be
+    collected while still exported, triggering a CPython bug (bpo-77894 /
+    cpython#123898) that crashes the Manager's ServerProxy processes.
+    Using a shared memory Array avoids all IPC and memoryview allocation.
+    """
+
+    _MAX_SIZE = 128
+
+    def __init__(self, initial=""):
+        self._array = Array(ctypes.c_char, self._MAX_SIZE)
+        self.value = initial
+
+    @property
+    def value(self):
+        with self._array.get_lock():
+            return self._array._obj.value.decode("utf-8")
+
+    @value.setter
+    def value(self, s):
+        encoded = s.encode("utf-8")
+        assert len(encoded) < self._MAX_SIZE, (
+            f"SharedString value too long: {len(encoded)} >= {self._MAX_SIZE}"
+        )
+        with self._array.get_lock():
+            self._array._obj.value = encoded
 
 
 class LocalHttpRequestHandler(BaseHTTPRequestHandler):
@@ -203,20 +234,18 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             })
             contentType = "application/json"
 
+        elif path == "/api/browser/forced_updates_count":
+            """
+            This is a test only endpoint to verify how many updates were served
+            """
+
+            m = json.dumps({
+                "serve_forced_updates_count": self.server.serve_forced_updates_count
+            })
+            contentType = "application/json"
+
         # /api/browser/updates/FirefoxEnterprise/149.0a1/20260218134117/Linux_x86_64-gcc3/en-US/default/Linux%25206.17.0-8-generic%2520(GTK%25203.24.50%252Clibpulse%252017.0.0)/ISET%3ASSE4_2%2CMEM%3A85823/default/default/update.xml?force=1"
         elif path.startswith("/api/browser/updates"):
-            # Versions are important, they need to be equal or higher than the
-            # curernt binary otherwise no update will be downloaded
-            display_version = self.server.serve_updates_version["application_version"][
-                0
-            ]
-            app_version = self.server.serve_updates_version["application_version"][0]
-            platform_version = self.server.serve_updates_version["platform_version"][0]
-            # BuildID also needs to be different, fake it as newer
-            build_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-            # Hash is not verified client side? At least we can put what we want
-            hash_value = "ecee0f4b9f0af06cfa3a89c328e4cbb7dd075a0d411ef1b968a072a7995a0753dd96d3d541f0781ab95fdb61e3df7252a9379fc620f2b660ecaed582f2c5246d"
-
             # Producing this requires:
             # $ mach build && mach package
             # then extract the tar somewhere, you have firefox/
@@ -227,6 +256,22 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 os.path.dirname(__file__), os.path.basename("complete.mar")
             )
             if self.server.serve_updates and os.path.isfile(complete_mar):
+                # Versions are important, they need to be equal or higher than the
+                # current binary otherwise no update will be downloaded
+                display_version = self.server.serve_updates_version[
+                    "application_version"
+                ][0]
+                app_version = self.server.serve_updates_version["application_version"][
+                    0
+                ]
+                platform_version = self.server.serve_updates_version[
+                    "platform_version"
+                ][0]
+                # BuildID also needs to be different, fake it as newer
+                build_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                # Hash is not verified client side? At least we can put what we want
+                hash_value = "ecee0f4b9f0af06cfa3a89c328e4cbb7dd075a0d411ef1b968a072a7995a0753dd96d3d541f0781ab95fdb61e3df7252a9379fc620f2b660ecaed582f2c5246d"
+
                 size = os.stat(complete_mar).st_size
                 m = f"""<?xml version="1.0"?>
 <updates>
@@ -236,6 +281,9 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 </updates>"""
             else:
                 m = """<?xml version="1.0"?><updates></updates>"""
+
+            if "?force=1" in self.path:
+                self.server.serve_forced_updates_count += 1
 
             contentType = "text/xml"
 
@@ -370,6 +418,14 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             self.check_auth()
             m = json.dumps(None)
 
+        elif path == "/api/browser/forced_updates_count":
+            """
+            This is a test only endpoint to reset how many updates were served
+            """
+
+            self.server.serve_forced_updates_count = 0
+            m = json.dumps(None)
+
         elif path.startswith("/api/browser/updates"):
             self.server.serve_updates = not self.server.serve_updates
             payload = self.rfile.read(int(self.headers.get("Content-Length"))).decode(
@@ -438,6 +494,7 @@ def serve(
         httpd.policy_refresh_token = policy_refresh_token
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
+    httpd.serve_forced_updates_count = 0
     """
     TODO: Behavior is not yet clearly defined
     if device_posture_reply_forbidden is not None:
@@ -476,9 +533,8 @@ class FeltTestsBase(EnterpriseTestsBase):
         if hasattr(self, "EXTRA_PREFS"):
             self._extra_prefs.update(self.EXTRA_PREFS)
 
-        manager = Manager()
-        self.policy_access_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
-        self.policy_refresh_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
+        self.policy_access_token = SharedString(str(uuid.uuid4()))
+        self.policy_refresh_token = SharedString(str(uuid.uuid4()))
 
         self.console_httpd = Process(
             target=serve,
@@ -496,8 +552,8 @@ class FeltTestsBase(EnterpriseTestsBase):
         )
         self.console_httpd.start()
 
-        self.cookie_name = manager.Value(c_wchar_p, str(uuid.uuid1()).split("-")[0])
-        self.cookie_value = manager.Value(c_wchar_p, str(uuid.uuid4()).split("-")[4])
+        self.cookie_name = SharedString(str(uuid.uuid1()).split("-")[0])
+        self.cookie_value = SharedString(str(uuid.uuid4()).split("-")[4])
         self.sso_httpd = Process(
             target=serve,
             args=(self.sso_port, SsoHttpHandler),
@@ -641,31 +697,61 @@ class FeltTestsBase(EnterpriseTestsBase):
     def find_elem_child(self, e):
         return self._child_driver.find_element(By.CSS_SELECTOR, e)
 
-    def wait_process_exit(self):
-        self._logger.info("Waiting a few seconds ...")
-        if sys.platform == "win32":
-            time.sleep(8)
-        else:
-            time.sleep(3)
-        self._logger.info(f"Checking PID {self._browser_pid}")
-
+    def wait_process_exit(self, pid_to_check):
+        self._logger.info(f"Checking PID {pid_to_check}")
         import psutil
 
-        if not psutil.pid_exists(self._browser_pid):
-            self._logger.info(f"No more PID {self._browser_pid}")
-        else:
+        # Wait for a process termination
+        continue_checking = True
+        iterations = 0
+        while continue_checking and psutil.pid_exists(pid_to_check) and iterations < 30:
+            iterations += 1
+            self._logger.info(f"PID {pid_to_check} still exists")
+
             try:
-                process = psutil.Process(pid=self._browser_pid)
+                process = psutil.Process(pid=pid_to_check)
+                process_status = process.status()
+                self._logger.info(f"Found PID {pid_to_check}: STATUS:{process_status}")
+                continue_checking = process_status not in [
+                    psutil.STATUS_STOPPED,
+                    psutil.STATUS_ZOMBIE,
+                    psutil.STATUS_DEAD,
+                ]
+            except psutil.NoSuchProcess:
+                continue_checking = False
+            except psutil.ZombieProcess:
+                continue_checking = False
+
+            time.sleep(1)
+
+        self._logger.info(
+            f"Active waiting for PID {pid_to_check} DONE => continue_checking:{continue_checking} iterations:{iterations} psutil.pid_exists(pid_to_check):{psutil.pid_exists(pid_to_check)}"
+        )
+
+        if psutil.pid_exists(pid_to_check):
+            # Process is still not terminated, try to verify if it is still the same
+            # or if the PID was re-used.
+            try:
+                process = psutil.Process(pid=pid_to_check)
+                process_status = process.status()
                 process_name = process.name()
                 process_exe = process.exe()
                 process_basename = os.path.basename(process_name)
                 process_cmdline = process.cmdline()
                 self._logger.info(
-                    f"Found PID {self._browser_pid}: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
+                    f"Found PID {pid_to_check}: STATUS:{process_status} :: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
                 )
-                assert process_basename != "firefox", "Process is not Firefox"
+                # If process basename is not Firefox, then it is just PID re-use
+                assert not process_basename.startswith("firefox"), (
+                    f"Process PID {pid_to_check} should not be Firefox"
+                )
+            except psutil.NoSuchProcess:
+                self._logger.info(f"PID disappeared {pid_to_check}")
             except psutil.ZombieProcess:
-                self._logger.info(f"Zombie found as {self._browser_pid}")
+                # If it is a zombie, it is fine as well
+                self._logger.info(f"Zombie found as {pid_to_check}")
+
+        self._logger.info(f"All done for PID {pid_to_check}")
 
     def run_felt_base(self):
         self.run_felt_chrome_on_email_submit()

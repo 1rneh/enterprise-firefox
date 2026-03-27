@@ -452,6 +452,15 @@
       }
     },
 
+    "CrashReportsSubmit": {
+      "type": "object",
+      "properties": {
+        "ForceAutoSubmit": {
+          "type": "boolean"
+        }
+      }
+    },
+
     "DefaultDownloadDirectory": {
       "type": "string"
     },

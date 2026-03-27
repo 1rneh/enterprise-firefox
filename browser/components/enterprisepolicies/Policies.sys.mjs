@@ -1076,6 +1076,7 @@ export var Policies = {
         );
         setAndLockPref("browser.tabs.crashReporting.sendReport", true);
         setAndLockPref("browser.tabs.crashReporting.includeURL", true);
+        Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "1");
       }
     },
     onRemove(_manager, _oldParam) {
@@ -1083,6 +1084,7 @@ export var Policies = {
       unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
       unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
       unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
+      Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
     },
   },
 

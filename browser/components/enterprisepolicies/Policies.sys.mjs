@@ -277,14 +277,16 @@ export var Policies = {
         setAndLockPref("widget.disable_file_pickers", true);
         setAndLockPref("browser.download.useDownloadDir", true);
         manager.disallowFeature("filepickers");
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (!oldParams) {
-        unsetAndUnlockPref("widget.disable_file_pickers");
-        unsetAndUnlockPref("browser.download.useDownloadDir");
+      } else {
+        setAndLockPref("widget.disable_file_pickers", false);
+        setAndLockPref("browser.download.useDownloadDir", false);
         manager.allowFeature("filepickers");
       }
+    },
+    onRemove(manager, _oldParams) {
+      unsetAndUnlockPref("widget.disable_file_pickers");
+      unsetAndUnlockPref("browser.download.useDownloadDir");
+      manager.allowFeature("filepickers");
     },
   },
 
@@ -298,12 +300,8 @@ export var Policies = {
         manager.disallowFeature("app-auto-updates-on");
       }
     },
-    onRemove(manager, oldParams) {
-      if (!oldParams) {
-        manager.allowFeature("app-auto-updates-off");
-      } else {
-        manager.allowFeature("app-auto-updates-on");
-      }
+    onRemove(manager, _oldParams) {
+      manager.allowFeature("app-auto-updates-on");
     },
   },
 
@@ -514,12 +512,8 @@ export var Policies = {
         manager.disallowFeature("app-background-update-on");
       }
     },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
-        manager.allowFeature("app-background-update-off");
-      } else {
-        manager.allowFeature("app-background-update-on");
-      }
+    onRemove(manager, _oldParams) {
+      manager.allowFeature("app-background-update-on");
     },
   },
 
@@ -527,12 +521,12 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         blockAboutPage(manager, "about:addons", true);
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
+      } else {
         unblockAboutPage(manager, "about:addons");
       }
+    },
+    onRemove(manager, _oldParams) {
+      unblockAboutPage(manager, "about:addons");
     },
   },
 
@@ -556,6 +550,8 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("profileManagement");
+      } else {
+        manager.allowFeature("profileManagement");
       }
     },
     onBeforeUIStartup(manager, param) {
@@ -565,16 +561,20 @@ export var Policies = {
         blockAboutPage(manager, "about:editprofile");
         blockAboutPage(manager, "about:deleteprofile");
         blockAboutPage(manager, "about:newprofile");
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
+      } else {
         unblockAboutPage(manager, "about:profiles");
         unblockAboutPage(manager, "about:profilemanager");
         unblockAboutPage(manager, "about:editprofile");
         unblockAboutPage(manager, "about:deleteprofile");
         unblockAboutPage(manager, "about:newprofile");
       }
+    },
+    onRemove(manager, _oldParams) {
+      unblockAboutPage(manager, "about:profiles");
+      unblockAboutPage(manager, "about:profilemanager");
+      unblockAboutPage(manager, "about:editprofile");
+      unblockAboutPage(manager, "about:deleteprofile");
+      unblockAboutPage(manager, "about:newprofile");
     },
   },
 
@@ -583,13 +583,14 @@ export var Policies = {
       if (param) {
         blockAboutPage(manager, "about:support");
         manager.disallowFeature("aboutSupport");
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
+      } else {
         unblockAboutPage(manager, "about:support");
         manager.allowFeature("aboutSupport");
       }
+    },
+    onRemove(manager, _oldParams) {
+      unblockAboutPage(manager, "about:support");
+      manager.allowFeature("aboutSupport");
     },
   },
 
@@ -617,6 +618,7 @@ export var Policies = {
       }
     },
     onRemove(manager, oldParams) {
+      // TODO: Is this OK ?
       if (oldParams && typeof oldParams === "object") {
         if ("Enabled" in oldParams) {
           unsetAndUnlockPref(
@@ -1097,14 +1099,12 @@ export var Policies = {
         Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
       }
     },
-    onRemove(_manager, oldParam) {
-      if (oldParam.ForceAutoSubmit) {
-        unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
-        unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
-        unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
-        unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
-        Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
-      }
+    onRemove(_manager, _oldParams) {
+      unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
+      unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
+      unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
+      unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
+      Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
     },
   },
 
@@ -1122,13 +1122,14 @@ export var Policies = {
       if (param) {
         setAndLockPref("identity.fxaccounts.enabled", false);
         setAndLockPref("browser.aboutwelcome.enabled", false);
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
+      } else {
         unsetAndUnlockPref("identity.fxaccounts.enabled");
         unsetAndUnlockPref("browser.aboutwelcome.enabled");
       }
+    },
+    onRemove(_manager, _oldParams) {
+      unsetAndUnlockPref("identity.fxaccounts.enabled");
+      unsetAndUnlockPref("browser.aboutwelcome.enabled");
     },
   },
 
@@ -1136,12 +1137,12 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("appUpdate");
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
+      } else {
         manager.allowFeature("appUpdate");
       }
+    },
+    onRemove(manager, _oldParams) {
+      manager.allowFeature("appUpdate");
     },
   },
 
@@ -1251,13 +1252,14 @@ export var Policies = {
       if (param) {
         setAndLockPref("network.dns.echconfig.enabled", false);
         setAndLockPref("network.dns.http3_echconfig.enabled", false);
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
+      } else {
         unsetAndUnlockPref("network.dns.echconfig.enabled");
         unsetAndUnlockPref("network.dns.http3_echconfig.enabled");
       }
+    },
+    onRemove(_manager, _oldParams) {
+      unsetAndUnlockPref("network.dns.echconfig.enabled");
+      unsetAndUnlockPref("network.dns.http3_echconfig.enabled");
     },
   },
 
@@ -1265,12 +1267,12 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("feedbackCommands");
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
+      } else {
         manager.allowFeature("feedbackCommands");
       }
+    },
+    onRemove(manager, _oldParams) {
+      manager.allowFeature("feedbackCommands");
     },
   },
 
@@ -1284,19 +1286,20 @@ export var Policies = {
       if (param) {
         setAndLockPref("identity.fxaccounts.enabled", false);
         setAndLockPref("browser.aboutwelcome.enabled", false);
+      } else {
+        setAndLockPref("identity.fxaccounts.enabled", true);
+        setAndLockPref("browser.aboutwelcome.enabled", true);
       }
     },
-    onRemove(manager, oldParams) {
+    onRemove(manager, _oldParams) {
       // If DisableAccounts is set, let it take precedence.
       // TODO: true for onRemove as well?
       if ("DisableAccounts" in manager.getActivePolicies()) {
         return;
       }
 
-      if (oldParams) {
-        unsetAndUnlockPref("identity.fxaccounts.enabled");
-        unsetAndUnlockPref("browser.aboutwelcome.enabled");
-      }
+      unsetAndUnlockPref("identity.fxaccounts.enabled");
+      unsetAndUnlockPref("browser.aboutwelcome.enabled");
     },
   },
 
@@ -1304,12 +1307,12 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         setAndLockPref("screenshots.browser.component.enabled", false);
+      } else {
+        setAndLockPref("screenshots.browser.component.enabled", true);
       }
     },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
-        unsetAndUnlockPref("screenshots.browser.component.enabled");
-      }
+    onRemove(_manager, _oldParams) {
+      unsetAndUnlockPref("screenshots.browser.component.enabled");
     },
   },
 
@@ -1325,18 +1328,26 @@ export var Policies = {
           "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
           false
         );
+      } else {
+        manager.allowFeature("Shield");
+        setAndLockPref(
+          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons",
+          true
+        );
+        setAndLockPref(
+          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
+          true
+        );
       }
     },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
-        manager.allowFeature("Shield");
-        unsetAndUnlockPref(
-          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons"
-        );
-        unsetAndUnlockPref(
-          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features"
-        );
-      }
+    onRemove(manager, _oldParams) {
+      manager.allowFeature("Shield");
+      unsetAndUnlockPref(
+        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons"
+      );
+      unsetAndUnlockPref(
+        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features"
+      );
     },
   },
 
@@ -1344,6 +1355,8 @@ export var Policies = {
     onProfileAfterChange(manager, param) {
       if (param) {
         setAndLockPref("privacy.panicButton.enabled", false);
+      } else {
+        setAndLockPref("privacy.panicButton.enabled", true);
       }
     },
   },
@@ -1352,6 +1365,8 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         setAndLockPref("browser.formfill.enable", false);
+      } else {
+        setAndLockPref("browser.formfill.enable", true);
       }
     },
   },
@@ -1360,6 +1375,8 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("createMasterPassword");
+      } else {
+        manager.allowFeature("createMasterPassword");
       }
     },
   },
@@ -1368,6 +1385,8 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("passwordReveal");
+      } else {
+        manager.allowFeature("passwordReveal");
       }
     },
   },
@@ -1378,14 +1397,16 @@ export var Policies = {
         manager.disallowFeature("privatebrowsing");
         blockAboutPage(manager, "about:privatebrowsing", true);
         setAndLockPref("browser.privatebrowsing.autostart", false);
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
+      } else {
         manager.allowFeature("privatebrowsing");
         unblockAboutPage(manager, "about:privatebrowsing");
-        unsetAndUnlockPref("browser.privatebrowsing.autostart");
+        setAndLockPref("browser.privatebrowsing.autostart", true);
       }
+    },
+    onRemove(manager, _oldParams) {
+      manager.allowFeature("privatebrowsing");
+      unblockAboutPage(manager, "about:privatebrowsing");
+      unsetAndUnlockPref("browser.privatebrowsing.autostart");
     },
   },
 
@@ -1397,6 +1418,12 @@ export var Policies = {
           "browser.newtabpage.activity-stream.migrationExpired",
           true
         );
+      } else {
+        manager.allowFeature("profileImport");
+        setAndLockPref(
+          "browser.newtabpage.activity-stream.migrationExpired",
+          false
+        );
       }
     },
   },
@@ -1406,6 +1433,9 @@ export var Policies = {
       if (param) {
         manager.disallowFeature("profileRefresh");
         setAndLockPref("browser.disableResetPrompt", true);
+      } else {
+        manager.allowFeature("profileRefresh");
+        setAndLockPref("browser.disableResetPrompt", false);
       }
     },
   },
@@ -1414,6 +1444,8 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("NimbusRollouts");
+      } else {
+        manager.allowFeature("NimbusRollouts");
       }
     },
   },
@@ -1422,6 +1454,8 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("safeMode");
+      } else {
+        manager.allowFeature("safeMode");
       }
     },
   },
@@ -1448,6 +1482,8 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("setDesktopBackground");
+      } else {
+        manager.allowFeature("setDesktopBackground");
       }
     },
   },
@@ -1456,6 +1492,8 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("SysAddonUpdate");
+      } else {
+        manager.allowFeature("SysAddonUpdate");
       }
     },
   },
@@ -1468,16 +1506,20 @@ export var Policies = {
         setAndLockPref("toolkit.telemetry.archive.enabled", false);
         setAndLockPref("datareporting.usage.uploadEnabled", false);
         blockAboutPage(manager, "about:telemetry");
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
-        unsetAndUnlockPref("datareporting.healthreport.uploadEnabled");
-        unsetAndUnlockPref("datareporting.policy.dataSubmissionEnabled");
-        unsetAndUnlockPref("toolkit.telemetry.archive.enabled");
-        unsetAndUnlockPref("datareporting.usage.uploadEnabled");
+      } else {
+        setAndLockPref("datareporting.healthreport.uploadEnabled", true);
+        setAndLockPref("datareporting.policy.dataSubmissionEnabled", true);
+        setAndLockPref("toolkit.telemetry.archive.enabled", true);
+        setAndLockPref("datareporting.usage.uploadEnabled", true);
         unblockAboutPage(manager, "about:telemetry");
       }
+    },
+    onRemove(manager, _oldParams) {
+      unsetAndUnlockPref("datareporting.healthreport.uploadEnabled");
+      unsetAndUnlockPref("datareporting.policy.dataSubmissionEnabled");
+      unsetAndUnlockPref("toolkit.telemetry.archive.enabled");
+      unsetAndUnlockPref("datareporting.usage.uploadEnabled");
+      unblockAboutPage(manager, "about:telemetry");
     },
   },
 
@@ -1485,6 +1527,8 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("thirdPartyModuleBlocking");
+      } else {
+        manager.allowFeature("thirdPartyModuleBlocking");
       }
     },
   },
@@ -1973,9 +2017,7 @@ export var Policies = {
 
   ExtensionUpdate: {
     onBeforeAddons(manager, param) {
-      if (!param) {
-        setAndLockPref("extensions.update.enabled", param);
-      }
+      setAndLockPref("extensions.update.enabled", !param);
     },
   },
 
@@ -2176,6 +2218,8 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (!param) {
         setAndLockPref("layers.acceleration.disabled", true);
+      } else {
+        setAndLockPref("layers.acceleration.disabled", false);
       }
     },
   },
@@ -2295,6 +2339,8 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (!param) {
         setAndLockPref("browser.ipProtection.enabled", false);
+      } else {
+        setAndLockPref("browser.ipProtection.enabled", true);
       }
     },
   },
@@ -2401,6 +2447,8 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("autoAppUpdateChecking");
+      } else {
+        manager.allowFeature("autoAppUpdateChecking");
       }
     },
   },
@@ -2428,6 +2476,8 @@ export var Policies = {
     onProfileAfterChange(manager, param) {
       if (param) {
         manager.disallowFeature("defaultBookmarks");
+      } else {
+        manager.allowFeature("defaultBookmarks");
       }
     },
   },
@@ -2476,14 +2526,15 @@ export var Policies = {
       if (!param) {
         blockAboutPage(manager, "about:logins", true);
         setAndLockPref("pref.privacy.disable_button.view_passwords", true);
+      } else {
+        unblockAboutPage(manager, "about:logins");
+        setAndLockPref("pref.privacy.disable_button.view_passwords", false);
       }
       setAndLockPref("signon.rememberSignons", param);
     },
-    onRemove(manager, oldParams) {
-      if (!oldParams) {
-        unblockAboutPage(manager, "about:logins");
-        unsetAndUnlockPref("pref.privacy.disable_button.view_passwords", true);
-      }
+    onRemove(manager, _oldParams) {
+      unblockAboutPage(manager, "about:logins");
+      unsetAndUnlockPref("pref.privacy.disable_button.view_passwords", true);
       unsetAndUnlockPref("signon.rememberSignons");
     },
   },
@@ -3376,6 +3427,8 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("removeHomeButtonByDefault");
+      } else {
+        manager.allowFeature("removeHomeButtonByDefault");
       }
     },
     onAllWindowsRestored(manager, param) {
@@ -3506,6 +3559,9 @@ export var Policies = {
       if (param) {
         setAndLockPref("termsofuse.acceptedVersion", 999);
         setAndLockPref("termsofuse.acceptedDate", Date.now().toString());
+      } else {
+        unsetAndUnlockPref("termsofuse.acceptedVersion");
+        unsetAndUnlockPref("termsofuse.acceptedDate");
       }
     },
   },

@@ -7,7 +7,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
-  PREFS: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  CONSOLE_ADDRESS_PREF: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
@@ -262,7 +262,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   sendPrefsToFirefox() {
     Services.felt.sendStringPreference(
-      lazy.PREFS.CONSOLE_ADDRESS,
+      lazy.CONSOLE_ADDRESS_PREF,
       lazy.ConsoleClient.consoleBaseURI
     );
 

@@ -1076,13 +1076,24 @@ export var Policies = {
         );
         setAndLockPref("browser.tabs.crashReporting.sendReport", true);
         setAndLockPref("browser.tabs.crashReporting.includeURL", true);
+        Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "1");
+      } else {
+        // if ForceAutoSubmit is unset or is false
+        unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
+        unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
+        unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
+        unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
+        Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
       }
     },
-    onRemove(_manager, _oldParam) {
-      unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
-      unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
-      unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
-      unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
+    onRemove(_manager, oldParam) {
+      if (oldParam.ForceAutoSubmit) {
+        unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
+        unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
+        unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
+        unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
+        Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
+      }
     },
   },
 

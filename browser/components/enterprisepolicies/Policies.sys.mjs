@@ -29,6 +29,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   ProxyPolicies: "resource:///modules/policies/ProxyPolicies.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
+  AIChatbotPolicies: "resource:///modules/policies/AIChatbotPolicies.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
 });
@@ -189,6 +190,15 @@ export var Policies = {
       if ("MatchPatterns" in oldParams) {
         unsetAndUnlockPref("browser.ipProtection.inclusion.match_patterns");
       }
+    },
+  },
+
+  AIChatbot: {
+    onBeforeAddons(manager, param) {
+      lazy.AIChatbotPolicies.applyAIChatbotPolicy(param);
+    },
+    onRemove(_manager, _oldParams) {
+      lazy.AIChatbotPolicies.unapplyAIChatbotPolicy();
     },
   },
 

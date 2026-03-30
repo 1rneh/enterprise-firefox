@@ -55,9 +55,7 @@ MACH_TRY_PUSH_TO_VCS = os.getenv("MACH_TRY_PUSH_TO_VCS") == "1"
 HG_TRY_URL = "ssh://hg.mozilla.org/try"
 MACH_TRY_REMOTE = HG_TRY_URL
 
-TREEHERDER_LANDO_TRY_RUN_URL = (
-    "https://treeherder.mozilla.org/jobs?repo=try&landoCommitID={job_id}"
-)
+TREEHERDER_LANDO_TRY_RUN_URL = "https://treeherder.mozilla.org/jobs?repo=try&landoInstance={lando_instance}&landoCommitID={job_id}"
 
 here = os.path.abspath(os.path.dirname(__file__))
 build = MozbuildObject.from_environment(cwd=here)
@@ -244,14 +242,16 @@ def push_to_try(
                         MACH_TRY_REMOTE, ref=head, dest_branch=vcs.branch, force=True
                     )
         else:
-            job_id = push_to_lando_try(vcs, commit_message, changed_files, metrics)
-            if job_id:
+            push_data = push_to_lando_try(vcs, commit_message, changed_files, metrics)
+            lando_instance = push_data["lando_instance"]
+            job_id = push_data["lando_job_id"]
+            if lando_instance and job_id:
                 print(
                     f"Follow the progress of your build on Treeherder: "
-                    f"{TREEHERDER_LANDO_TRY_RUN_URL.format(job_id=job_id)}"
+                    f"{TREEHERDER_LANDO_TRY_RUN_URL.format(lando_instance=lando_instance, job_id=job_id)}"
                 )
 
-            return job_id
+            return push_data
     except MissingVCSExtension as e:
         if e.ext == "push-to-try":
             print(HG_PUSH_TO_TRY_NOT_FOUND)

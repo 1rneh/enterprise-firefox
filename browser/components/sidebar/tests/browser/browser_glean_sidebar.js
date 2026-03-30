@@ -54,7 +54,7 @@ add_task(async function test_metrics_initialized() {
 });
 
 add_task(async function test_sidebar_expand() {
-  await SidebarController.initializeUIState({ launcherExpanded: false });
+  await SidebarController.updateUIState({ launcherExpanded: false });
   await SpecialPowers.pushPrefEnv({
     set: [[VERTICAL_TABS_PREF, true]],
   });
@@ -123,7 +123,7 @@ async function testSidebarToggle(commandID, gleanEvent, otherCommandID) {
     "false",
     "Event indicates that the panel was closed."
   );
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     panelOpen: false,
     command: "",
     launcherVisible: true,
@@ -613,7 +613,7 @@ async function testIconClick(expanded) {
   sidebarMain.updateComplete;
 
   for (const button of sidebarMain.toolButtons) {
-    await SidebarController.initializeUIState({
+    await SidebarController.updateUIState({
       launcherExpanded: expanded,
       command: "",
     });
@@ -655,7 +655,7 @@ async function testIconClick(expanded) {
   await extension.startup();
   await extension.awaitMessage("sidebar");
 
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: expanded,
     panelOpen: false,
     command: "",

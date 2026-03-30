@@ -1689,9 +1689,7 @@ nsresult DictionaryOrigin::OnMetaDataElement(const char* asciiKey,
 //    DictionaryCacheEntry, purge the data. This could also be done via the
 //    InUse counter
 //
-// XXX be careful about thrashing the cache loading and purging, esp with RCWN.
-// Note that this makes RCWN somewhat superfluous for loads that have a
-// dictionary.
+// XXX be careful about thrashing the cache loading and purging.
 // XXX Perhaps allow a little dwell time in ram if not too large?
 
 // When a load comes in, we need to block decompressing it on having the data

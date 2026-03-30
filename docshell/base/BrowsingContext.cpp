@@ -2335,16 +2335,8 @@ nsresult BrowsingContext::LoadURI(nsDocShellLoadState* aLoadState,
       cp->TransmitBlobDataIfBlobURL(aLoadState->URI());
 
 #ifdef ANDROID
-      // Generate a unique android load identifier for this url load
-      // Used to map back to the app link launch type in
-      // ContentParent::RecordAndroidAppLinkTelemetry() so we can avoid
-      // sending the app link launch type to the content process
-      uint64_t androidLoadIdentifier = nsContentUtils::GenerateTabId();
-      MOZ_ALWAYS_SUCCEEDS(
-          SetAndroidAppLinkLoadIdentifier(Some(androidLoadIdentifier)));
-
       uint32_t appLinkLaunchType = aLoadState->GetAppLinkLaunchType();
-      cp->SetAndroidAppLinkLaunchType(androidLoadIdentifier, appLinkLaunchType);
+      Canonical()->SetAndroidAppLinkLaunchType(appLinkLaunchType);
 
       // Record timing for cold app link launches
       constexpr uint32_t APPLINK_COLD = 1;

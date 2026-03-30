@@ -273,7 +273,7 @@ impl HappyEyeballs {
             let ech = if svc_info.ech_config.is_empty() {
                 None
             } else {
-                Some(svc_info.ech_config.to_vec())
+                Some(happy_eyeballs::EchConfig::new(svc_info.ech_config.to_vec()))
             };
 
             let mut ipv4_vec = Vec::new();
@@ -336,9 +336,12 @@ impl HappyEyeballs {
         self.profiler.connection_result(id, status == NS_OK);
 
         let result = if status == NS_OK {
-            Ok(())
+            happy_eyeballs::ConnectionResult::Success
         } else {
-            Err(format!("connection failed: 0x{:08x}", status.0))
+            happy_eyeballs::ConnectionResult::Failure(format!(
+                "connection failed: 0x{:08x}",
+                status.0
+            ))
         };
 
         let input = happy_eyeballs::Input::ConnectionResult { id, result };
@@ -375,7 +378,7 @@ impl HappyEyeballs {
             Some(happy_eyeballs::Output::AttemptConnection { id, endpoint }) => {
                 self.profiler.connection_attempt_started(id, &endpoint);
                 if let Some(ref ech) = endpoint.ech_config {
-                    ech_config.extend_from_slice(ech);
+                    ech_config.extend_from_slice(ech.as_ref());
                 }
                 *ret_event = Output::AttemptConnection {
                     id: id.into(),

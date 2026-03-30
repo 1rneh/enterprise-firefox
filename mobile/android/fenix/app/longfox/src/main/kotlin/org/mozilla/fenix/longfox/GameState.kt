@@ -35,7 +35,7 @@ import kotlin.random.Random
 data class GameState(
     val size: Size = Size(0f, 0f),
     val fox: List<GridPoint> = listOf(GridPoint(5, 5), GridPoint(5, 4), GridPoint(5, 3), GridPoint(5, 2)),
-    val food: GridPoint = GridPoint(8, 8),
+    val food: GridPoint? = GridPoint(8, 8),
     val direction: Direction = DOWN,
     val isGameOver: Boolean = false,
     val score: Int = 0,
@@ -45,6 +45,7 @@ data class GameState(
 
     companion object {
         const val CELL_SIZE_DP = 20f
+        const val GAME_INTERVAL_TIME_MS = 100L
     }
 
     val numCellsWide = numCells
@@ -64,18 +65,17 @@ data class GameState(
     }
 
     /**
+     * Audio state machine: beep boop beep boop....
+     */
+    fun toggleBeepNext(): GameState = copy(beepNext = !beepNext)
+
+    /**
      * This function moves the fox in its current direction.
      * It determines the new state of the fox after it has moved: is it longer? is it dead?
      * or has it just shifted along a space?
      */
     fun moveFox(): GameState {
-        val head = fox.first()
-        val newHead = when (direction) {
-            UP -> head.copy(y = head.y - 1)
-            DOWN -> head.copy(y = head.y + 1)
-            LEFT -> head.copy(x = head.x - 1)
-            RIGHT -> head.copy(x = head.x + 1)
-        }
+        val newHead = makeNewHead(direction, fox.first())
 
         val collidedWithSelf = newHead in fox.dropLast(1)
         val collidedWithEdge = !withinBounds(newHead)
@@ -95,6 +95,33 @@ data class GameState(
                 isGameOver = isGameOver,
             )
         }
+    }
+
+    fun foxAnimationDemo(): GameState {
+        val head = fox.first()
+
+        val newDirection = when {
+            head.y >= numCellsTall - 2 -> {
+                if (head.x < numCellsWide - 2) RIGHT else UP
+            }
+            head.y < 2 -> {
+                if (head.x >= 2) LEFT else DOWN
+            }
+            else -> direction
+        }
+
+        val newFox = listOf(makeNewHead(newDirection, head)) + fox.dropLast(1)
+        return copy(fox = newFox, direction = newDirection)
+    }
+
+    private fun makeNewHead(
+        newDirection: Direction,
+        head: GridPoint,
+    ): GridPoint = when (newDirection) {
+        UP -> head.copy(y = head.y - 1)
+        DOWN -> head.copy(y = head.y + 1)
+        LEFT -> head.copy(x = head.x - 1)
+        RIGHT -> head.copy(x = head.x + 1)
     }
 
     /**

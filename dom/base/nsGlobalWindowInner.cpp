@@ -3421,10 +3421,10 @@ bool nsGlobalWindowInner::ResolveComponentsShim(
 
   // Define a bunch of shims from the Ci.nsIDOMFoo to window.Foo for DOM
   // interfaces with constants.
-  for (uint32_t i = 0; i < std::size(kInterfaceShimMap); ++i) {
+  for (auto entry : kInterfaceShimMap) {
     // Grab the names from the table.
-    const char* geckoName = kInterfaceShimMap[i].geckoName;
-    const char* domName = kInterfaceShimMap[i].domName;
+    const char* geckoName = entry.geckoName;
+    const char* domName = entry.domName;
 
     // Look up the appopriate interface object on the global.
     JS::Rooted<JS::Value> v(aCx, JS::UndefinedValue());

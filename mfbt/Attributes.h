@@ -927,15 +927,6 @@
 #    endif
 
 /*
- * Release-only constinit, runtime initializer in Debug.
- */
-#    if defined(DEBUG)
-#      define MOZ_RELEASE_CONSTINIT MOZ_RUNINIT
-#    else
-#      define MOZ_RELEASE_CONSTINIT constinit
-#    endif
-
-/*
  * It turns out that clang doesn't like void func() __attribute__ {} without a
  * warning, so use pragmas to disable the warning.
  */

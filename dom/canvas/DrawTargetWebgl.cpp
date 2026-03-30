@@ -885,7 +885,7 @@ bool DrawTargetWebgl::GenerateComplexClipMask() {
   return !!data;
 }
 
-bool DrawTargetWebgl::SetSimpleClipRect() {
+Maybe<Rect> DrawTargetWebgl::ComputeSimpleClipRect() const {
   // Determine whether the clipping rectangle is simple enough to accelerate.
   // Check if there is a device space clip rectangle available from the Skia
   // target.
@@ -897,9 +897,7 @@ bool DrawTargetWebgl::SetSimpleClipRect() {
     if (!clip->IsEmpty() && clip->Contains(GetRect())) {
       clip = Some(GetRect());
     }
-    mSharedContext->SetClipRect(*clip);
-    mSharedContext->SetNoClipMask();
-    return true;
+    return Some(Rect(*clip));
   }
 
   // There was no pixel-aligned clip rect available, so check the clip stack to
@@ -910,15 +908,22 @@ bool DrawTargetWebgl::SetSimpleClipRect() {
     // complex.
     if (clipStack.mPath ||
         !clipStack.mTransform.PreservesAxisAlignedRectangles()) {
-      return false;
+      return Nothing();
     }
     // Transform the rect and intersect it with the current clip.
     rect =
         clipStack.mTransform.TransformBounds(clipStack.mRect).Intersect(rect);
   }
-  mSharedContext->SetClipRect(rect);
-  mSharedContext->SetNoClipMask();
-  return true;
+  return Some(rect);
+}
+
+bool DrawTargetWebgl::SetSimpleClipRect() {
+  if (Maybe<Rect> rect = ComputeSimpleClipRect()) {
+    mSharedContext->SetClipRect(*rect);
+    mSharedContext->SetNoClipMask();
+    return true;
+  }
+  return false;
 }
 
 // Installs the Skia clip rectangle, if applicable, onto the shared WebGL
@@ -947,6 +952,21 @@ bool DrawTargetWebgl::PrepareContext(bool aClipped,
     mRefreshClipState = false;
   }
   return mSharedContext->SetTarget(this, aHandle, aViewportSize);
+}
+
+// Whether clipping may be necessary for the operation. This tries to avoid
+// generating a complex clip mask in case the current target is not active
+// or not using WebGL. If there is only a simple clip mask and its bounds
+// encompass the viewport, then no clipping is required.
+bool DrawTargetWebgl::ShouldClip() {
+  if (mSharedContext->IsCurrentTarget(this) && !mRefreshClipState) {
+    return mSharedContext->HasClipMask() ||
+           !mSharedContext->mClipAARect.Contains(Rect(GetRect()));
+  }
+  if (Maybe<Rect> rect = ComputeSimpleClipRect()) {
+    return !rect->Contains(Rect(GetRect()));
+  }
+  return true;
 }
 
 void SharedContextWebgl::RestoreCurrentTarget(
@@ -1382,7 +1402,7 @@ already_AddRefed<DataSourceSurface> SharedContextWebgl::ReadSnapshotFromPBO(
   Range<uint8_t> range = {dstMap.GetData(), bufSize};
   bool success = mWebgl->AsWebGL2()->GetBufferSubData(
       LOCAL_GL_PIXEL_PACK_BUFFER, 0, range, aSize.height,
-      BytesPerPixel(aFormat) * aSize.height, pboStride.value(),
+      BytesPerPixel(aFormat) * aSize.width, pboStride.value(),
       dstMap.GetStride());
   mWebgl->BindBuffer(LOCAL_GL_PIXEL_PACK_BUFFER, 0);
   if (success) {
@@ -2127,9 +2147,7 @@ void DrawTargetWebgl::ClearRect(const Rect& aRect) {
 
   // If the clear rectangle encompasses the entire viewport and is not clipped,
   // then mark the target as entirely clear.
-  if (containsViewport && mSharedContext->IsCurrentTarget(this) &&
-      !mSharedContext->HasClipMask() &&
-      mSharedContext->mClipAARect.Contains(Rect(GetRect()))) {
+  if (containsViewport && !ShouldClip()) {
     mIsClear = true;
   }
 }

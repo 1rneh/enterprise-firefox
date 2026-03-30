@@ -196,16 +196,18 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.reply("", 500, "Internal Server Error", "application/json")
                 return
             policy_content = {}
-            policy_value = (
-                False if self.server.policy_block_about_config.value == 0 else True
-            )
-            policy_content.update(
-                {"BlockAboutConfig": policy_value} if policy_value else {}
-            )
 
-            policy_value = self.server.policy_extensions.value == 1
-            policy_content.update(
-                {
+            # Reflect the states:
+            #  - "Unset" is -1, no value is pushed
+            #  - "False" is 0
+            #  - "True" is 1
+            if self.server.policy_block_about_config.value >= 0:
+                policy_content.update({
+                    "BlockAboutConfig": self.server.policy_block_about_config.value == 1
+                })
+
+            if self.server.policy_extensions.value == 1:
+                policy_content.update({
                     "ExtensionSettings": {
                         "treestyletab@piro.sakura.ne.jp": {
                             "installation_mode": "force_installed",
@@ -213,10 +215,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                             "updates_disabled": True,
                         }
                     }
-                }
-                if policy_value
-                else {}
-            )
+                })
 
             m = json.dumps({"policies": policy_content})
             contentType = "application/json"
@@ -525,7 +524,7 @@ class FeltTestsBase(EnterpriseTestsBase):
         self._manually_closed_child = False
         self.console_port = random.randrange(10000, 14999)
         self.sso_port = random.randrange(15000, 20000)
-        self.policy_block_about_config = Value("B", 1)
+        self.policy_block_about_config = Value("b", 1)
         self.policy_extensions = Value("B", 0)
         self.policies_fail_request = Value("B", 0)
         """

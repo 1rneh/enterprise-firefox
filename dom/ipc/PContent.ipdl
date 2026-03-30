@@ -1587,7 +1587,7 @@ parent:
     /**
      * Messages for communicating child Glean data to the parent process
      */
-    async RecordPageLoadEvent(PageloadEventData event, TimeStamp navigationStartTime, uint64_t aAndroidAppLinkLoadIdentifier);
+    async RecordPageLoadEvent(PageloadEventData event, TimeStamp navigationStartTime, MaybeDiscardedBrowsingContext aBrowsingContext);
 
     /**
      * Messages for communicating child Telemetry to the parent process

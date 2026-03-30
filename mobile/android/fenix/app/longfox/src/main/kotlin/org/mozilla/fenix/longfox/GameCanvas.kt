@@ -32,10 +32,9 @@ import org.mozilla.fenix.longfox.GameState.Companion.CELL_SIZE_DP
  * body, head, tail and food.
  *
  * @param state the current game state
- * @param onSize a callback that is called when the canvas is resized
  */
 @Composable
-fun GameCanvas(state: GameState, onSize: (Size) -> Unit) {
+fun GameCanvas(state: GameState) {
     val context = LocalContext.current
     val cellSize = state.cellSize.toInt()
 
@@ -77,7 +76,6 @@ fun GameCanvas(state: GameState, onSize: (Size) -> Unit) {
             .background(color = Color.Black)
             .size((CELL_SIZE_DP * state.numCellsWide).dp),
     ) {
-        onSize(size)
         drawHead(state, kitHead)
         drawBody(state, shouldersPath, bottomPath)
         drawTail(state, kitTail)
@@ -89,6 +87,6 @@ fun GameCanvas(state: GameState, onSize: (Size) -> Unit) {
 @Composable
 fun GameCanvasPreview() {
     MaterialTheme {
-        GameCanvas(GameState(size = Size(600f, 1000f)), onSize = { _ -> })
+        GameCanvas(GameState(size = Size(600f, 1000f)))
     }
 }

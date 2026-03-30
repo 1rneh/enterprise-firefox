@@ -19,6 +19,11 @@ ifndef MOZ_DEBUG_RUST
 cargo_build_flags += --release
 endif
 
+# Megazord Cargo.toml specifies both staticlib and cdylib crate-types for
+# compatibility with app-services builds. Override to staticlib-only here
+# to avoid trying to link a cdylib.
+cargo_crate_type_flag := $(if $(findstring megazord,$(RUST_LIBRARY_FILE)),--crate-type staticlib,)
+
 # The Spidermonkey library can be built from a package tarball outside the
 # tree, so we want to let Cargo create lock files in this case. When built
 # within a tree, the Rust dependencies have been vendored in so Cargo won't
@@ -522,7 +527,7 @@ endif
 # build.
 force-cargo-library-build:
 	$(call BUILDSTATUS,START_Rust $(notdir $(RUST_LIBRARY_FILE)))
-	$(call CARGO_BUILD) --lib $(cargo_target_flag) $(rust_features_flag) -- $(cargo_rustc_flags)
+	$(call CARGO_BUILD) --lib $(cargo_crate_type_flag) $(cargo_target_flag) $(rust_features_flag) -- $(cargo_rustc_flags)
 	$(call BUILDSTATUS,END_Rust $(notdir $(RUST_LIBRARY_FILE)))
 # When we are building in --enable-release mode; we add an additional check to confirm
 # that we are not importing any networking-related functions in rust code. This reduces

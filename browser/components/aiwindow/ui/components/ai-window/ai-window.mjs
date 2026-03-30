@@ -36,6 +36,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/ChatMessage.sys.mjs",
   getRoleLabel:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatUtils.sys.mjs",
+  getCurrentTabUrl:
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatUtils.sys.mjs",
   NewTabStarterGenerator:
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   generateConversationStartersSidebar:
@@ -982,9 +984,8 @@ export class AIWindow extends MozLitElement {
    * @param {string} options.text
    * @param {ChatSubmitType} options.submitType - How the request was submitted
    * @param {ContextWebsite[]} [options.contextMentions]
-   * @param {string|null} [options.contextPageUrl] - Page URL string from the
-   *   smartbar commit event. null means the user removed page context;
-   *   undefined means fall back to the current tab URL.
+   * @param {?URL} [options.contextPageUrl] - Page URL string from the smartbar's current
+   *   state. null means the user removed page context
    * @param {number} [options.inlineMentionsCount] - Number of inline mentions
    */
   submitChatMessage({
@@ -1010,17 +1011,10 @@ export class AIWindow extends MozLitElement {
       tabs: contextMentions.length,
     });
 
-    let pageUrl;
-    if (contextPageUrl === undefined) {
-      pageUrl = this.#getCurrentPageUrl();
-    } else {
-      pageUrl = contextPageUrl ? URL.parse(contextPageUrl) : null;
-    }
-
     this.#recordChatInteraction();
     this.#fetchAIResponse(trimmed, {
       ...this.#createUserRoleOpts(contextMentions),
-      pageUrl,
+      contextPageUrl,
     });
     this.#dispatchChromeEvent(
       "ai-window:smartbar-input",
@@ -1094,9 +1088,16 @@ export class AIWindow extends MozLitElement {
       message_seq: this.#conversation?.messageCount ?? 0,
       starter,
     });
+
+    const { pageUrl: contextPageUrl, contextWebsites } =
+      this.#smartbar.getCurrentContextData();
+
+    const submitType = starter ? "starter" : "suggestion";
     this.submitChatMessage({
       text,
-      submitType: starter ? "starter" : "suggestion",
+      contextWebsites,
+      contextPageUrl,
+      submitType,
     });
   }
 
@@ -1199,19 +1200,6 @@ export class AIWindow extends MozLitElement {
   }
 
   /**
-   * Gets the current url of the loaded page.
-   *
-   * @returns {URL} The page URL
-   *
-   * @private
-   */
-  #getCurrentPageUrl() {
-    return URL.fromURI(
-      window.browsingContext.topChromeWindow.gBrowser.currentURI
-    );
-  }
-
-  /**
    * Fetches an AI response based on the current user prompt.
    * Validates the prompt, updates conversation state, streams the response,
    * and dispatches updates to the browser actor.
@@ -1258,10 +1246,6 @@ export class AIWindow extends MozLitElement {
       );
 
       if (formattedPrompt) {
-        if (pageUrl === undefined) {
-          pageUrl = this.#getCurrentPageUrl();
-        }
-
         await this.#conversation.generatePrompt(
           formattedPrompt,
           pageUrl,
@@ -1344,6 +1328,17 @@ export class AIWindow extends MozLitElement {
   #sendModelResponseTelemetryEvent(error, { duration, latency }) {
     const { lastMessage: lastAssistantMessage, messageCount } =
       this.#getConversationLastMessageAndCount(lazy.MESSAGE_ROLE.ASSISTANT);
+    const ERROR_CODE_TEXT = {
+      1: "Budget exceeded",
+      2: "Rate limit exceeded",
+      3: "Chat maximum length hit",
+      4: "Account error",
+    };
+    let errorText = "";
+
+    if (error) {
+      errorText = ERROR_CODE_TEXT[error] ?? "Generic error";
+    }
 
     Glean.smartWindow.modelResponse.record({
       location: this.mode === MODE.FULLPAGE ? "home" : MODE.SIDEBAR,
@@ -1355,7 +1350,7 @@ export class AIWindow extends MozLitElement {
       memories: lastAssistantMessage?.memoriesApplied?.length ?? 0,
       latency,
       duration,
-      error: error ?? "",
+      error: errorText,
       model: this.modelName,
     });
   }
@@ -1386,19 +1381,15 @@ export class AIWindow extends MozLitElement {
   }
 
   #handleError(error, { latency, duration }) {
-    let errorMessage = error.error ?? error.metadata?.errorMessage;
+    let errorCode = error.error ?? error.metadata?.errorMessage;
     const newErrorMessage = {
       role: "",
       content: {
         isError: true,
-        error: errorMessage,
+        error: errorCode,
       },
     };
-
-    if (typeof errorMessage != "number") {
-      errorMessage = "Generic error";
-    }
-    this.#sendModelResponseTelemetryEvent(String(errorMessage), {
+    this.#sendModelResponseTelemetryEvent(errorCode ?? true, {
       latency,
       duration,
     });
@@ -1531,7 +1522,7 @@ export class AIWindow extends MozLitElement {
       detail: {
         input,
         mode: this.mode,
-        pageUrl: this.#getCurrentPageUrl(),
+        pageUrl: lazy.getCurrentTabUrl(window),
         conversationId: this.#getDataConvId(),
         tab: topChromeWindow?.gBrowser?.selectedTab,
         conversation: this.#conversation,

@@ -72,6 +72,8 @@ skip-if = [
 
 ["browser_sidebar_prefs.js"]
 
+["browser_sidebar_splitter_keyboard.js"]
+
 ["browser_syncedtabs_sidebar.js"]
 
 ["browser_toolbar_sidebar_button.js"]

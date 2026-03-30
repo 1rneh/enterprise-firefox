@@ -1247,6 +1247,11 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     override fun onStart() {
         super.onStart()
 
+        val settings = requireContext().settings()
+        if (settings.privateModeAndStoriesEntryPointEnabled) {
+            settings.incrementNewsButtonForegroundCount()
+        }
+
         findNavController().addOnDestinationChangedListener(destinationChangedListener)
 
         subscribeToTabCollections()
@@ -1312,7 +1317,7 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
         evaluateMessagesForMicrosurvey(components)
 
         maybeShowEncourageSearchCfr(
-            canShowCfr = components.settings.canShowCfr,
+            canShowCfr = components.settings.canShowCfr && components.settings.cfrPopupsEnabled,
             shouldShowCFR = components.settings.shouldShowSearchBarCFR,
             showCfr = ::showEncourageSearchCfr,
             recordExposure = { FxNimbus.features.encourageSearchCfr.recordExposure() },

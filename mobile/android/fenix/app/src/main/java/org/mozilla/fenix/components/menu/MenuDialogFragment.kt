@@ -407,9 +407,9 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                             (isExtensionsExpanded || isMoreMenuExpanded) &&
                             args.accesspoint == MenuAccessPoint.Browser,
                     cornerShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                    menuCfrState = if (settings.shouldShowMenuCFR) {
+                    menuCfrState = if (settings.shouldShowMenuCFR && settings.cfrPopupsEnabled) {
                         MenuCFRState(
-                            showCFR = settings.shouldShowMenuCFR,
+                            showCFR = settings.shouldShowMenuCFR && settings.cfrPopupsEnabled,
                             titleRes = R.string.menu_cfr_title,
                             messageRes = R.string.menu_cfr_body,
                             orientation = appStore.state.orientation,

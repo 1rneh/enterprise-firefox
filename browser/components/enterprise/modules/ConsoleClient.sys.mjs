@@ -20,11 +20,9 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 /**
- * Preferences used to integrate the a remote enterprise console
+ * Remote enterprise console preference
  */
-export const PREFS = {
-  CONSOLE_ADDRESS: "enterprise.console.address",
-};
+export const CONSOLE_ADDRESS_PREF = "enterprise.console.address";
 
 /**
  * Error logged when user needs to reauthenticate to obtain new token data
@@ -102,7 +100,7 @@ export const ConsoleClient = {
   get consoleBaseURI() {
     let consoleURI;
     try {
-      consoleURI = Services.prefs.getStringPref(PREFS.CONSOLE_ADDRESS);
+      consoleURI = Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
     } catch (e) {
       console.error("Critial misconfiguration: Missing console URI.");
       throw e;

@@ -67,7 +67,9 @@ class PackagingDescriptionSchema(Schema, kw_only=True):
     attributes: TaskDescriptionSchema.__annotations__["attributes"] = None
     dependencies: TaskDescriptionSchema.__annotations__["dependencies"] = None
     run_on_repo_type: TaskDescriptionSchema.__annotations__["run_on_repo_type"] = None
-    treeherder_group: TaskDescriptionSchema.__annotations__["treeherder_group"] = None,
+    treeherder_group: TaskDescriptionSchema.__annotations__["treeherder_group"] = (
+        None,
+    )
 
 
 transforms = TransformSequence()

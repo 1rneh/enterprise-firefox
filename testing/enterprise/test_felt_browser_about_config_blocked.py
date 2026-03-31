@@ -9,7 +9,7 @@ import time
 
 sys.path.append(os.path.dirname(__file__))
 
-from felt_consts import config_prefs
+from felt_consts import firefox_config
 from felt_tests import FeltTests
 from marionette_driver.errors import UnknownException
 
@@ -50,18 +50,8 @@ class BrowserAboutConfigBlocked(FeltTests):
         self._logger.info("Changing BlockAboutConfig policy")
         self.policy_block_about_config.value = new_value
 
-        # Polling frequency + 1s, defaulting to 2s in total if missing pref
-        waiting_time = (
-            next(
-                (
-                    v
-                    for k, v in config_prefs
-                    if k == "browser.policies.live_polling.frequency"
-                ),
-                1000,
-            )
-            / 1000
-        ) + 1
+        # Polling frequency + 1s
+        waiting_time = (firefox_config["polling_frequency"]["pref_value"] / 1000) + 1
         # Give time to make sure Policy got applied
         time.sleep(waiting_time)
         self._logger.info(

@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.6.190
- * pdfjsBuild = a9e439bce
+ * pdfjsVersion = 5.6.205
+ * pdfjsBuild = ada343803
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -6176,10 +6176,7 @@ class SimpleSegmentVisitor {
       huffmanTables = getSymbolDictionaryHuffmanTables(dictionary, referredSegments, this.customTables);
       huffmanInput = new Reader(data, start, end);
     }
-    let symbols = this.symbols;
-    if (!symbols) {
-      this.symbols = symbols = {};
-    }
+    const symbols = this.symbols ||= {};
     const inputSymbols = [];
     for (const referredSegment of referredSegments) {
       const referredSymbols = symbols[referredSegment];
@@ -6214,10 +6211,7 @@ class SimpleSegmentVisitor {
     this.onImmediateTextRegion(...arguments);
   }
   onPatternDictionary(dictionary, currentSegment, data, start, end) {
-    let patterns = this.patterns;
-    if (!patterns) {
-      this.patterns = patterns = {};
-    }
+    const patterns = this.patterns ||= {};
     const decodingContext = new DecodingContext(data, start, end);
     patterns[currentSegment] = decodePatternDictionary(dictionary.mmr, dictionary.patternWidth, dictionary.patternHeight, dictionary.maxPatternIndex, dictionary.template, decodingContext);
   }
@@ -6232,10 +6226,7 @@ class SimpleSegmentVisitor {
     this.onImmediateHalftoneRegion(...arguments);
   }
   onTables(currentSegment, data, start, end) {
-    let customTables = this.customTables;
-    if (!customTables) {
-      this.customTables = customTables = {};
-    }
+    const customTables = this.customTables ||= {};
     customTables[currentSegment] = decodeTablesSegment(data, start, end);
   }
 }
@@ -6276,10 +6267,7 @@ class HuffmanTreeNode {
     if (shift <= 0) {
       this.children[bit] = new HuffmanTreeNode(line);
     } else {
-      let node = this.children[bit];
-      if (!node) {
-        this.children[bit] = node = new HuffmanTreeNode(null);
-      }
+      const node = this.children[bit] ||= new HuffmanTreeNode(null);
       node.buildTree(line, shift - 1);
     }
   }
@@ -38280,6 +38268,7 @@ function createDefaultAppearance({
   return `/${escapePDFName(fontName)} ${fontSize} Tf ${getPdfColor(fontColor, true)}`;
 }
 class FakeUnicodeFont {
+  static #fontNameId = 1;
   constructor(xref, fontFamily) {
     this.xref = xref;
     this.widths = null;
@@ -38290,10 +38279,7 @@ class FakeUnicodeFont {
     this.ctxMeasure = canvas.getContext("2d", {
       willReadFrequently: true
     });
-    if (!FakeUnicodeFont._fontNameId) {
-      FakeUnicodeFont._fontNameId = 1;
-    }
-    this.fontName = Name.get(`InvalidPDFjsFont_${fontFamily}_${FakeUnicodeFont._fontNameId++}`);
+    this.fontName = Name.get(`InvalidPDFjsFont_${fontFamily}_${FakeUnicodeFont.#fontNameId++}`);
   }
   get fontDescriptorRef() {
     if (!FakeUnicodeFont._fontDescriptorRef) {
@@ -41369,7 +41355,7 @@ class Catalog {
         } else if (kids) {
           kidsArr = [kids];
         } else {
-          kidsArr = [];
+          continue;
         }
         for (const kid of kidsArr) {
           const kidObj = xref.fetchIfRef(kid);
@@ -41393,7 +41379,7 @@ class Catalog {
         if (!(parentRaw instanceof Ref)) {
           break;
         }
-        const parentDict = xref.fetchIfRef(parentRaw);
+        const parentDict = xref.fetch(parentRaw);
         if (!(parentDict instanceof Dict)) {
           break;
         }
@@ -41415,10 +41401,10 @@ class Catalog {
       y = null;
     const attrs = seDict.get("A");
     if (attrs instanceof Dict) {
-      const bboxArr = attrs.getArray("BBox");
-      if (isNumberArray(bboxArr, 4)) {
-        x = bboxArr[0];
-        y = bboxArr[3];
+      const bbox = lookupRect(attrs.getArray("BBox"), null);
+      if (bbox) {
+        x = bbox[0];
+        y = bbox[3];
       }
     }
     return [pageRef, {
@@ -42279,9 +42265,7 @@ class FontSelector {
   pushData(xfaFont, margin, lineHeight) {
     const lastFont = this.stack.at(-1);
     for (const name of ["typeface", "posture", "weight", "size", "letterSpacing"]) {
-      if (!xfaFont[name]) {
-        xfaFont[name] = lastFont.xfaFont[name];
-      }
+      xfaFont[name] ||= lastFont.xfaFont[name];
     }
     for (const name of ["top", "bottom", "left", "right"]) {
       if (isNaN(margin[name])) {
@@ -42289,9 +42273,7 @@ class FontSelector {
       }
     }
     const fontInfo = new FontInfo(xfaFont, margin, lineHeight || lastFont.lineHeight, this.fontFinder);
-    if (!fontInfo.pdfFont) {
-      fontInfo.pdfFont = lastFont.pdfFont;
-    }
+    fontInfo.pdfFont ||= lastFont.pdfFont;
     this.stack.push(fontInfo);
   }
   popFont() {
@@ -62708,7 +62690,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "5.6.190";
+    const workerVersion = "5.6.205";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }

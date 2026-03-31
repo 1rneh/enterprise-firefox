@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.6.190
- * pdfjsBuild = a9e439bce
+ * pdfjsVersion = 5.6.205
+ * pdfjsBuild = ada343803
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -1382,41 +1382,28 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
   return defaultFilename;
 }
 class StatTimer {
-  started = Object.create(null);
+  #started = new Map();
   times = [];
   time(name) {
-    if (name in this.started) {
+    if (this.#started.has(name)) {
       warn(`Timer is already running for ${name}`);
     }
-    this.started[name] = Date.now();
+    this.#started.set(name, Date.now());
   }
   timeEnd(name) {
-    if (!(name in this.started)) {
+    if (!this.#started.has(name)) {
       warn(`Timer has not been started for ${name}`);
     }
     this.times.push({
       name,
-      start: this.started[name],
+      start: this.#started.get(name),
       end: Date.now()
     });
-    delete this.started[name];
+    this.#started.delete(name);
   }
   toString() {
-    const outBuf = [];
-    let longest = 0;
-    for (const {
-      name
-    } of this.times) {
-      longest = Math.max(name.length, longest);
-    }
-    for (const {
-      name,
-      start,
-      end
-    } of this.times) {
-      outBuf.push(`${name.padEnd(longest)} ${end - start}ms\n`);
-    }
-    return outBuf.join("");
+    const longest = Math.max(...this.times.map(t => t.name.length));
+    return this.times.map(t => `${t.name.padEnd(longest)} ${t.end - t.start}ms\n`).join("");
   }
 }
 function isValidFetchUrl(url, baseUrl) {
@@ -1497,7 +1484,7 @@ function getRGB(color) {
     return color.slice(4, -1).split(",").map(x => parseInt(x));
   }
   if (color.startsWith("rgba(")) {
-    return color.slice(5, -1).split(",").map(x => parseInt(x)).slice(0, 3);
+    return color.slice(5, -1).split(",", 3).map(x => parseInt(x));
   }
   warn(`Not a valid color format: "${color}"`);
   return [0, 0, 0];
@@ -1631,13 +1618,10 @@ class CSSConstants {
     return shadow(this, "commentForegroundColor", getRGB(color));
   }
 }
-function applyOpacity(r, g, b, opacity) {
+function applyOpacity(color, opacity) {
   opacity = MathClamp(opacity ?? 1, 0, 1);
   const white = 255 * (1 - opacity);
-  r = Math.round(r * opacity + white);
-  g = Math.round(g * opacity + white);
-  b = Math.round(b * opacity + white);
-  return [r, g, b];
+  return color.map(c => Math.round(c * opacity + white));
 }
 function RGBToHSL(rgb, output) {
   const r = rgb[0] / 255;
@@ -13736,7 +13720,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "5.6.190",
+    apiVersion: "5.6.205",
     data,
     password,
     disableAutoFetch,
@@ -15361,8 +15345,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "5.6.190";
-const build = "a9e439bce";
+const version = "5.6.205";
+const build = "ada343803";
 
 ;// ./src/display/editor/color_picker.js
 

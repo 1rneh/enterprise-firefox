@@ -497,16 +497,19 @@ endef
 # dependency chain.
 #
 # Another tricky thing: some dependencies may contain escaped spaces, and they
-# need to be preserved, but $(foreach) splits on spaces, so we replace escaped
-# spaces with some unlikely string for the foreach, and replace them back in the
-# loop itself.
+# need to be preserved, but $(wordlist) and $(foreach) split on spaces, so we
+# replace escaped spaces with some unlikely string, and replace them back after.
+escape_sequence=_^_^_^_
+escape_spaces = $(subst \ ,$(escape_sequence),$(1))
+unescape_spaces = $(subst $(escape_sequence),\ ,$(1))
+
 define make_cargo_rule
-$(notdir $(1))_deps := $$(call normalize_sep,$$(wordlist 2, 10000000, $$(if $$(wildcard $(basename $(1)).d),$$(shell cat $(basename $(1)).d))))
+$(notdir $(1))_deps := $$(call unescape_spaces,$$(call normalize_sep,$$(wordlist 2, 10000000, $$(call escape_spaces,$$(if $$(wildcard $(basename $(1)).d),$$(shell cat $(basename $(1)).d))))))
 $(1): $(CARGO_FILE) $(3) $(topsrcdir)/Cargo.lock $$(if $$($(notdir $(1))_deps),$$($(notdir $(1))_deps),$(2))
 	$$(REPORT_BUILD)
 	$$(if $$($(notdir $(1))_deps),+$(MAKE) $(2),:)
 
-$$(foreach dep, $$(subst \ ,_^_^_^_,$$($(notdir $(1))_deps)),$$(eval $$(call make_default_rule,$$(subst _^_^_^_,\ ,$$(dep)))))
+$$(foreach dep, $$(call escape_spaces,$$($(notdir $(1))_deps)),$$(eval $$(call make_default_rule,$$(call unescape_spaces,$$(dep)))))
 endef
 
 ifdef RUST_LIBRARY_FILE

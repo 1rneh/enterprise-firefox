@@ -84,10 +84,14 @@ describe("settings ai features", () => {
       win.docShell.chromeEventHandler.ownerGlobal
     );
     EventUtils.sendKey("space");
-    await pickerOpened;
-    EventUtils.sendKey("down");
-    EventUtils.sendKey("down");
-    EventUtils.sendKey("return");
+    const selectPopup = await pickerOpened;
+    if (nativeSelectEnabled()) {
+      selectPopup.activateItem(selectPopup.childNodes[3]);
+    } else {
+      EventUtils.sendKey("down");
+      EventUtils.sendKey("down");
+      EventUtils.sendKey("return");
+    }
     await settingChanged;
 
     Assert.equal(
@@ -148,9 +152,13 @@ describe("settings ai features", () => {
       win.docShell.chromeEventHandler.ownerGlobal
     );
     EventUtils.sendKey("space");
-    await pickerOpened;
-    EventUtils.sendKey("down");
-    EventUtils.sendKey("return");
+    let selectPopup = await pickerOpened;
+    if (nativeSelectEnabled()) {
+      selectPopup.activateItem(selectPopup.childNodes[1]);
+    } else {
+      EventUtils.sendKey("down");
+      EventUtils.sendKey("return");
+    }
     await settingChanged;
 
     Assert.equal(providerControl.value, "blocked", "Provider blocked");
@@ -190,9 +198,13 @@ describe("settings ai features", () => {
       win.docShell.chromeEventHandler.ownerGlobal
     );
     EventUtils.sendKey("space");
-    await pickerOpened;
-    EventUtils.sendKey("down");
-    EventUtils.sendKey("return");
+    selectPopup = await pickerOpened;
+    if (nativeSelectEnabled()) {
+      selectPopup.activateItem(selectPopup.childNodes[3]);
+    } else {
+      EventUtils.sendKey("down");
+      EventUtils.sendKey("return");
+    }
     await settingChanged;
 
     Assert.equal(

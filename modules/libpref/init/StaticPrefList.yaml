@@ -9867,7 +9867,7 @@
 # unstable GPU process, otherwise simply crash the parent process.
 - name: layers.gpu-process.allow-fallback-to-parent
   type: bool
-  value: true
+  value: @IS_NOT_XP_WIN@
   mirror: once
 
 - name: layers.gpu-process.enabled
@@ -19564,9 +19564,9 @@
   value: true
   mirror: always
 
-- name: widget.macos.native-anchored-select
+- name: widget.macos.allow-native-select
   type: bool
-  value: false
+  value: true
   mirror: always
 
 - name: widget.macos.native-context-menus

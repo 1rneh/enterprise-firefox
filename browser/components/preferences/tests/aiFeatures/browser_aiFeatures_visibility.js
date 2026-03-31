@@ -92,10 +92,14 @@ describe("settings ai features", () => {
         win.docShell.chromeEventHandler.ownerGlobal
       );
       EventUtils.sendKey("space");
-      await pickerOpened;
+      const selectPopup = await pickerOpened;
       await waitForSettingChange(linkPreviewSetting, () => {
-        EventUtils.sendKey("up");
-        EventUtils.sendKey("return");
+        if (nativeSelectEnabled()) {
+          selectPopup.activateItem(selectPopup.childNodes[1]);
+        } else {
+          EventUtils.sendKey("up");
+          EventUtils.sendKey("return");
+        }
       });
 
       gBrowser.selectedTab = generalTab;
@@ -225,10 +229,14 @@ describe("settings ai features", () => {
         win.docShell.chromeEventHandler.ownerGlobal
       );
       EventUtils.sendKey("space");
-      await pickerOpened;
+      const selectPopup = await pickerOpened;
       await waitForSettingChange(translationsSetting, () => {
-        EventUtils.sendKey("up");
-        EventUtils.sendKey("return");
+        if (nativeSelectEnabled()) {
+          selectPopup.activateItem(selectPopup.childNodes[0]);
+        } else {
+          EventUtils.sendKey("up");
+          EventUtils.sendKey("return");
+        }
       });
 
       gBrowser.selectedTab = generalTab;

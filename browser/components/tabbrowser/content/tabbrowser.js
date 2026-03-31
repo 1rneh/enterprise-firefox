@@ -6351,7 +6351,7 @@
         ourBrowser.isDistinctProductPageVisit = true;
       }
 
-      SitePermissions.copyTemporaryPermissions(otherBrowser, ourBrowser);
+      let srcBrowserId = otherBrowser.browserId;
 
       // Add a reference to the original registeredOpenURI to the closing
       // tab so that events operating on the tab before close can reference it.
@@ -6388,6 +6388,12 @@
 
         this._swapBrowserDocShells(aOurTab, otherBrowser, stateFlags);
       }
+
+      SitePermissions.copyTemporaryPermissions(
+        srcBrowserId,
+        otherBrowser,
+        ourBrowser
+      );
 
       // Unregister the previously opened URI
       if (otherBrowser.registeredOpenURI) {

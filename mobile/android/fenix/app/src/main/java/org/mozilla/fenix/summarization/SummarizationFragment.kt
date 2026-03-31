@@ -109,9 +109,7 @@ class SummarizationFragment : BottomSheetDialogFragment() {
         bottomSheet?.let { sheet ->
             val behavior = BottomSheetBehavior.from(sheet)
             behavior.state = BottomSheetBehavior.STATE_EXPANDED
-            behavior.isFitToContents = false
             behavior.halfExpandedRatio = HALF_EXPANDED_RATIO
-            behavior.expandedOffset = 0
         }
     }
 

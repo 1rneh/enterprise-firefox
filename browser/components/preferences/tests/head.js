@@ -39,6 +39,12 @@ NimbusTestUtils.init(this);
 
 const kDefaultWait = 2000;
 
+// Synthesized events are not available with native menus
+const nativeSelectEnabled = () =>
+  AppConstants.platform == "macosx" &&
+  Services.prefs.getBoolPref("widget.macos.native-anchored-menus", false) &&
+  Services.prefs.getBoolPref("widget.macos.allow-native-select", false);
+
 function is_element_visible(aElement, aMsg) {
   isnot(aElement, null, "Element should not be null, when checking visibility");
   ok(!BrowserTestUtils.isHidden(aElement), aMsg);
@@ -333,7 +339,11 @@ async function selectHistoryMode(win, value) {
 
   let popupHiddenPromise = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
 
-  EventUtils.synthesizeMouseAtCenter(targetItem, {}, targetItem.ownerGlobal);
+  if (nativeSelectEnabled()) {
+    popup.activateItem(targetItem);
+  } else {
+    EventUtils.synthesizeMouseAtCenter(targetItem, {}, targetItem.ownerGlobal);
+  }
 
   await popupHiddenPromise;
 }

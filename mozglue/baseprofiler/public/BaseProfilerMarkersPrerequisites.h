@@ -711,7 +711,8 @@ class MarkerSchema {
     CString,
     String,
     TimeStamp,
-    TimeDuration
+    TimeDuration,
+    Flow,
   };
 
   template <typename T>
@@ -743,6 +744,8 @@ class MarkerSchema {
       return InputType::TimeDuration;
     } else if constexpr (std::is_same_v<CleanT, ProfilerString8View>) {
       return InputType::CString;
+    } else if constexpr (std::is_same_v<CleanT, Flow>) {
+      return InputType::Flow;
     } else {
       static_assert(sizeof(T) == 0, "Unsupported type");
     }
@@ -1094,6 +1097,69 @@ struct StreamPayloadHelper<Flow, aFormat> {
     aWriter.FlowProperty(aKey, aPayload);
   }
 };
+
+template <MarkerSchema::InputType IT>
+struct InputTypeToCpp;
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Uint64> {
+  using Type = uint64_t;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Uint32> {
+  using Type = uint32_t;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Uint8> {
+  using Type = uint8_t;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Int64> {
+  using Type = int64_t;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Int32> {
+  using Type = int32_t;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Int8> {
+  using Type = int8_t;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Double> {
+  using Type = double;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Boolean> {
+  using Type = bool;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::CString> {
+  using Type = ProfilerString8View;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::String> {
+  using Type = ProfilerString16View;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::TimeStamp> {
+  using Type = TimeStamp;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::TimeDuration> {
+  using Type = TimeDuration;
+};
+template <>
+struct InputTypeToCpp<MarkerSchema::InputType::Flow> {
+  using Type = Flow;
+};
+
+template <typename T, size_t... Is>
+auto PayloadFieldsTupleHelper(std::index_sequence<Is...>) -> std::tuple<
+    typename InputTypeToCpp<T::PayloadFields[Is].InputTy>::Type...>;
+
+template <typename T>
+using PayloadFieldsTuple = decltype(PayloadFieldsTupleHelper<T>(
+    std::make_index_sequence<std::size(T::PayloadFields)>{}));
 
 }  // namespace detail
 

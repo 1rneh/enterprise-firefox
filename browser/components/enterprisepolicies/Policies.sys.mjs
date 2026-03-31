@@ -31,6 +31,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
+  SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
 });
 
 export const PREF_LOGLEVEL = "browser.policies.loglevel";
@@ -3462,6 +3463,15 @@ export var Policies = {
     },
   },
 
+  Sync: {
+    async onBeforeAddons(manager, param) {
+      await lazy.SyncPolicy.applySettings(manager, param);
+    },
+    async onRemove(manager, _) {
+      await lazy.SyncPolicy.restoreSettings(manager);
+    },
+  },
+
   TranslateEnabled: {
     onBeforeAddons(manager, param) {
       setAndLockPref("browser.translations.enable", param);
@@ -4182,16 +4192,6 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
   lazy.gHandlerService.store(realMIMEInfo);
 }
 
-if (AppConstants.MOZ_ENTERPRISE) {
-  ChromeUtils.defineESModuleGetters(lazy, {
-    SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
-  });
-  Policies.Sync = {
-    async onBeforeAddons(manager, param) {
-      await lazy.SyncPolicy.applySettings(manager, param);
-    },
-    async onRemove(manager, _) {
-      await lazy.SyncPolicy.restoreSettings(manager);
-    },
-  };
+if (!AppConstants.MOZ_ENTERPRISE) {
+  delete Policies.Sync;
 }

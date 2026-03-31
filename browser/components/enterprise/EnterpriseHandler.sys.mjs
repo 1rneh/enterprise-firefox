@@ -25,7 +25,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
-const LOGO_URL = "enterprise.logo_url";
+const COMPANY_LOGO_URL_PREF = "enterprise.configs.company_logo_url";
 
 export const EnterpriseHandler = {
   /**
@@ -247,10 +247,12 @@ export const EnterpriseHandler = {
   },
 
   _updateLogo(window) {
-    const logoUrl = Services.prefs.getStringPref(LOGO_URL, "");
+    const logoUrl = Services.prefs.getStringPref(COMPANY_LOGO_URL_PREF, "");
 
     if (!logoUrl) {
-      console.warn(`${LOGO_URL} pref is not set, skipping logo update`);
+      console.warn(
+        `Unable to retrieve company logo url from: ${COMPANY_LOGO_URL_PREF}`
+      );
       return;
     }
 
@@ -258,25 +260,30 @@ export const EnterpriseHandler = {
     try {
       validLogoUrl = new URL(logoUrl);
     } catch {
-      throw new Error(`Invalid logo URL in pref: ${logoUrl}`);
+      console.warn(`Invalid logo URL in pref: ${logoUrl}`);
+      return;
     }
 
     if (validLogoUrl.protocol === "https:") {
       if (validLogoUrl.origin !== lazy.ConsoleClient.consoleBaseURI.origin) {
-        throw new Error(`Logo URL must be hosted from the console: ${logoUrl}`);
+        console.warn(`Logo URL must be hosted from the console: ${logoUrl}`);
+        return;
       }
     } else if (
       !/^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,/.test(logoUrl)
     ) {
-      throw new Error(`Invalid logo URL in pref: ${logoUrl}`);
+      console.warn(`Invalid logo URL in pref: ${logoUrl}`);
+      return;
     }
 
-    const toolbarLogo = window.document.querySelector(
-      "#enterprise-company-logo__wrapper > image"
+    const toolbarLogoWrapper = window.document.querySelector(
+      "#enterprise-company-logo__wrapper"
     );
+    const toolbarLogo = toolbarLogoWrapper.querySelector("image");
     toolbarLogo.style.setProperty(
       "list-style-image",
       `url("${validLogoUrl.href}")`
     );
+    toolbarLogoWrapper.classList.remove("is-hidden");
   },
 };

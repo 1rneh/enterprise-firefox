@@ -149,6 +149,7 @@ Attributes.h:
     - MOZ_XPCOM_ABI
     - MOZ_EMPTY_BASES
     - MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA
+    - MOZ_REINITIALIZES
 
 BinarySearch.h:
   functions:

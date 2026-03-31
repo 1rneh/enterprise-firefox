@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.6.190
- * pdfjsBuild = a9e439bce
+ * pdfjsVersion = 5.6.205
+ * pdfjsBuild = ada343803
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -2642,7 +2642,7 @@ class CommentManager {
     return CommentManager._makeCommentColor(color, opacity);
   }
   static _makeCommentColor(color, opacity) {
-    return this.#hasForcedColors ? null : findContrastColor(applyOpacity(...color, opacity ?? 1), CSSConstants.commentForegroundColor);
+    return this.#hasForcedColors ? null : findContrastColor(applyOpacity(color, opacity ?? 1), CSSConstants.commentForegroundColor);
   }
   destroy() {
     this.#dialog.destroy();
@@ -8629,7 +8629,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "5.6.190";
+    const viewerVersion = "5.6.205";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }

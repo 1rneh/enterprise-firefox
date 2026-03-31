@@ -161,10 +161,14 @@ describe("settings ai features", () => {
         win.docShell.chromeEventHandler.ownerGlobal
       );
       EventUtils.sendKey("space");
-      await pickerOpened;
+      const selectPopup = await pickerOpened;
       await waitForSettingChange(stgSetting, () => {
-        EventUtils.sendKey("up");
-        EventUtils.sendKey("return");
+        if (nativeSelectEnabled()) {
+          selectPopup.activateItem(selectPopup.childNodes[1]);
+        } else {
+          EventUtils.sendKey("up");
+          EventUtils.sendKey("return");
+        }
       });
       Assert.equal(stgSetting.value, "enabled", "STG is now enabled");
 

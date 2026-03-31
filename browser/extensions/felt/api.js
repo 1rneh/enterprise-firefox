@@ -8,6 +8,20 @@
 
 const lazy = {};
 
+// Maps logout types (from nsIFelt) to the CSS class applied to the FELT window
+// to display the appropriate message to the user after logout.
+ChromeUtils.defineLazyGetter(
+  lazy,
+  "logoutTypeMessageClass",
+  () =>
+    new Map([
+      [
+        Services.felt.logoutTypeConsoleForcedLogout,
+        "felt-browser-info-console-forced-logout",
+      ],
+    ])
+);
+
 ChromeUtils.defineESModuleGetters(lazy, {
   UpdateListener: "resource://gre/modules/UpdateListener.sys.mjs",
   FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
@@ -267,7 +281,9 @@ this.felt = class extends ExtensionAPI {
       case "FeltParent:FirefoxLogoutExit": {
         const success = Services.felt.makeBackgroundProcess(false);
         console.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
-        this.showWindow();
+        this.showWindow(
+          lazy.logoutTypeMessageClass.get(message.data.logoutType) ?? ""
+        );
         break;
       }
 

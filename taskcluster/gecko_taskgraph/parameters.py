@@ -155,6 +155,7 @@ def get_defaults(repo_root=None):
         "optimize_strategies": None,
         "phabricator_diff": None,
         "project": "mozilla-central",
+        "pull_request_number": None,
         "release_enable_emefree": False,
         "release_enable_partner_repack": False,
         "release_enable_partner_attribution": False,
@@ -179,3 +180,8 @@ def get_defaults(repo_root=None):
 
 def register_parameters():
     extend_parameters_schema(gecko_parameters_schema, defaults_fn=get_defaults)
+
+
+def get_decision_parameters(graph_config, parameters):
+    if pr_number := os.environ.get("GECKO_PULL_REQUEST_NUMBER", None):
+        parameters["pull_request_number"] = int(pr_number)

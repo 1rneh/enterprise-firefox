@@ -1,7 +1,9 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
+use nserror::{
+    nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_NOT_CONNECTED, NS_OK,
+};
 use nsstring::{nsACString, nsCString};
 use std::cell::RefCell;
 use std::env;
@@ -62,11 +64,11 @@ impl FeltXPCOM {
                 }
                 Err(err) => {
                     error!("FeltXPCOM:SendMessage: error: {}", err);
-                    NS_ERROR_FAILURE
+                    NS_ERROR_CONNECTION_REFUSED
                 }
             }
         } else {
-            NS_ERROR_FAILURE
+            NS_ERROR_NOT_CONNECTED
         }
     }
 
@@ -272,7 +274,12 @@ impl FeltXPCOM {
         let focus_hint = utils::get_focus_hint();
         #[cfg(not(target_os = "linux"))]
         let focus_hint = None;
-        trace!("FeltXPCOM::OpenURL: {} {} {:?}", url_s, disposition, focus_hint);
+        trace!(
+            "FeltXPCOM::OpenURL: {} {} {:?}",
+            url_s,
+            disposition,
+            focus_hint
+        );
         self.send(FeltMessage::OpenURL((url_s, disposition, focus_hint)))
     }
 

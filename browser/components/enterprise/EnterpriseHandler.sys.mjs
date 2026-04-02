@@ -45,12 +45,12 @@ function parseUrl(url) {
 }
 
 /**
- * Validate that the URL is HTTPS and hosted on the console host.
+ * Validate that the URL is HTTPS.
  *
  * @param {string} url - The URL string to validate.
  * @returns {URL|null} A parsed `URL` object if validation succeeds, otherwise `null`.
  */
-function validateHttpsConsoleUrl(url) {
+function validateHttpsUrl(url) {
   const parsedUrl = parseUrl(url);
 
   if (!parsedUrl) {
@@ -63,10 +63,6 @@ function validateHttpsConsoleUrl(url) {
 
   if (parsedUrl.protocol !== "https:" && !isLocalTest) {
     lazy.log.warn(`Expected HTTPS URL: ${url}`);
-    return null;
-  }
-  if (parsedUrl.hostname !== lazy.ConsoleClient.consoleBaseURI.hostname) {
-    lazy.log.warn(`Expected URL hosted by the console origin: ${url}`);
     return null;
   }
 
@@ -114,12 +110,6 @@ export const EnterpriseHandler = {
    * from the signed in user has been received from the console.
    */
   _isInitialized: false,
-
-  /**
-   * Whether the panel has been opened once,
-   * which populates the learn more link
-   */
-  _isLearnMoreLinkConfigured: false,
 
   /**
    * Handles the enterprise state for each new browser window.
@@ -239,45 +229,51 @@ export const EnterpriseHandler = {
   },
 
   /**
+   * Retrieves and validates the learn more URL.
+   * Returns null if the url is invalid.
+   */
+  _retrieveLearnMoreLink() {
+    const learnMoreUrl = Services.prefs.getStringPref(LEARN_MORE_URL_PREF, "");
+
+    if (!learnMoreUrl) {
+      lazy.log.warn("No learn more url available.");
+      return null;
+    }
+
+    return validateHttpsUrl(learnMoreUrl);
+  },
+
+  /**
    * Retrieves, validates, and applies the learn more URL to the link element.
-   * Leaves the link unconfigured if missing or invalid.
+   * Use fallback of "https://support.mozilla.org/kb/managed-browser-firefox" is no valid URL provided.
    *
    * @param {Window} win - chrome window
    * @returns {void}
    */
   _setupLearnMoreLink(win) {
-    const learnMoreUrl = Services.prefs.getStringPref(LEARN_MORE_URL_PREF);
+    const validLearnMoreUrl =
+      this._retrieveLearnMoreLink() ??
+      parseUrl("https://support.mozilla.org/kb/managed-browser-firefox");
 
-    if (!learnMoreUrl) {
-      lazy.log.warn("No learn more url available.");
-      return;
-    }
+    const document = win.document;
+    const learnMoreLink = document.getElementById("enterprise-learn-more-link");
+    lazy.log.debug(`Setting learn more uri to ${validLearnMoreUrl.href}`);
+    learnMoreLink.setAttribute("href", validLearnMoreUrl.href);
 
-    const validLearnMoreUrl = validateHttpsConsoleUrl(learnMoreUrl);
+    win._isEnterpriseLearnMoreLinkConfigured = true;
+    learnMoreLink.addEventListener("click", e => {
+      let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
+      if (where == "current") {
+        where = "tab";
+      }
+      win.openTrustedLinkIn(validLearnMoreUrl.href, where);
+      e.preventDefault();
 
-    if (validLearnMoreUrl !== null) {
-      lazy.log.debug(`Setting learn more uri to ${validLearnMoreUrl.href}`);
-      const document = win.document;
-      const learnMoreLink = document.getElementById(
-        "enterprise-learn-more-link"
-      );
-      learnMoreLink.setAttribute("href", validLearnMoreUrl.href);
-      this._isLearnMoreLinkConfigured = true;
-
-      learnMoreLink.addEventListener("click", e => {
-        let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
-        if (where == "current") {
-          where = "tab";
-        }
-        win.openTrustedLinkIn(validLearnMoreUrl.href, where);
-        e.preventDefault();
-
-        const panel = document
-          .getElementById("panelUI-enterprise")
-          .closest("panel");
-        win.PanelMultiView.hidePopup(panel);
-      });
-    }
+      const panel = document
+        .getElementById("panelUI-enterprise")
+        .closest("panel");
+      win.PanelMultiView.hidePopup(panel);
+    });
   },
 
   openPanel(element, event) {
@@ -285,7 +281,7 @@ export const EnterpriseHandler = {
     win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
 
-    if (!this._isLearnMoreLinkConfigured) {
+    if (!win._isEnterpriseLearnMoreLinkConfigured) {
       this._setupLearnMoreLink(win);
     }
 
@@ -384,7 +380,6 @@ export const EnterpriseHandler = {
   uninit() {
     this._signedInUser = {};
     this._isInitialized = false;
-    this._isLearnMoreLinkConfigured = false;
   },
 
   _updateLogo(window) {

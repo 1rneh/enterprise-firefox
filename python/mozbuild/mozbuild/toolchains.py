@@ -33,6 +33,7 @@ def toolchain_task_definitions():
         "files_changed": [],
         "head_repository": "https://github.com/mozilla/enterprise-firefox",
         "repository_type": "git",
+        "pull_request_number": 0,
     }
 
     import sys

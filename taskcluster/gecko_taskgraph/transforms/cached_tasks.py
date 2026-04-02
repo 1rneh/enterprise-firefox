@@ -100,3 +100,31 @@ def cache_task(config, tasks):
         digests[task["label"]] = format_task_digest(task["attributes"]["cached_task"])
 
         yield task
+
+
+@transforms.add
+def bump_priority(config, tasks):
+    """Bump priority of cached tasks on autoland from low to medium to avoid breakage for developers"""
+    if config.params["project"] != "autoland":
+        yield from tasks
+        return
+
+    for task in tasks:
+        task.setdefault("priority", "medium")
+        yield task
+
+
+@transforms.add
+def bump_priority_enterprise(config, tasks):
+    """Bump priority of cached tasks on enterprise from low to medium to avoid breakage for developers"""
+    if int(config.params["level"]) != 3:
+        yield from tasks
+        return
+
+    if config.params["project"] != "enterprise-firefox":
+        yield from tasks
+        return
+
+    for task in tasks:
+        task.setdefault("priority", "medium")
+        yield task

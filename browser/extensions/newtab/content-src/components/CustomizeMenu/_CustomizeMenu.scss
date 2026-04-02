@@ -155,8 +155,6 @@
 }
 
 .customize-menu {
-  --toggle-row-height: 42px;
-
   overflow: auto;
   height: 100%;
 
@@ -282,11 +280,6 @@
 
       #row-selector {
         width: 138px;
-      }
-
-      // @nova-cleanup(remove-conditional): Remove .nova-enabled selector, make default behavior for #shortcuts-toggle
-      .nova-enabled & {
-        height: var(--toggle-row-height); // setting fixed height so section doesn't resize and move pixels when it's toggled on/off
       }
     }
 
@@ -611,9 +604,11 @@
   padding-block: var(--space-medium);
 }
 
-// @nova-cleanup(remove-conditional): Remove .nova-enabled selector, make default behavior for #shortcuts-section and #row-selector
+// @nova-cleanup(remove-conditional): Remove .nova-enabled selector, make default behavior for #shortcuts-section, #widgets-section and #row-selector
 .nova-enabled {
-  #shortcuts-section {
+  #shortcuts-section,
+  #widgets-section,
+  #pocket-section {
     margin-block: var(--space-medium);
   }
 

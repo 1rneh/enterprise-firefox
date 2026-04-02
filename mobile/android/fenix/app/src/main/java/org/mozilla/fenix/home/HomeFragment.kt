@@ -1040,8 +1040,9 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
                 feature = SearchSelectorBinding(
                     context = view.context,
                     toolbarView = it,
-                    browserStore = requireComponents.core.store,
                     searchSelectorMenu = searchSelectorMenu,
+                    browsingModeManager = browsingModeManager,
+                    browserStore = requireComponents.core.store,
                 ),
                 owner = viewLifecycleOwner,
                 view = binding.root,

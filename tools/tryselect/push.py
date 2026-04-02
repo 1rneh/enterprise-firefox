@@ -2,11 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-
 import json
 import os
 import sys
 from functools import cache
+from typing import Optional
 
 from mach.util import get_state_dir
 from mozbuild.base import MozbuildObject
@@ -33,11 +33,15 @@ when pushing from hg. Please install it by running:
 """.lstrip()
 
 VCS_NOT_FOUND = """
-Could not detect version control. Only `hg` or `git` are supported.
+error: could not detect version control (only `hg` or `git` are supported)
+""".strip()
+
+NO_REMOTE_CONFIGURED = """
+error: no version control remote configured
 """.strip()
 
 UNCOMMITTED_CHANGES = """
-ERROR please commit changes before continuing
+error: commit changes before continuing
 """.strip()
 
 LARGE_PUSH_THRESHOLD = 1000
@@ -53,11 +57,7 @@ MAX_HISTORY = 10
 MACH_TRY_PUSH_TO_VCS = os.getenv("MACH_TRY_PUSH_TO_VCS") == "1"
 
 HG_TRY_URL = "ssh://hg.mozilla.org/try"
-
-# If f-string expansion is done now, it will miss the value being read from
-# mach settings
-MACH_TRY_REMOTE_HOST = "git@github.com"
-MACH_TRY_REMOTE_PROJ = "mozilla/enterprise-firefox-try.git"
+MACH_TRY_REMOTE: Optional[str] = None
 
 TREEHERDER_LANDO_TRY_RUN_URL = "https://treeherder.mozilla.org/jobs?repo=try&landoInstance={lando_instance}&landoCommitID={job_id}"
 
@@ -173,7 +173,10 @@ def get_sys_argv(injected_argv=None):
 
 @cache
 def _is_hg_try():
-    remote = f"{MACH_TRY_REMOTE_HOST}:{MACH_TRY_REMOTE_PROJ}"
+    remote = MACH_TRY_REMOTE
+    if not remote:
+        return False
+
     if remote_url := vcs.get_remote_url(remote, push=True):
         remote = remote_url
     return HG_TRY_URL in remote
@@ -193,6 +196,10 @@ def push_to_try(
 ):
     metrics.mach_try.commit_prep.start()
     push = not stage_changes and not dry_run
+
+    if push and not MACH_TRY_REMOTE:
+        print(NO_REMOTE_CONFIGURED)
+        sys.exit(1)
 
     # Use direct push if explicitly requested or we aren't pushing to hg.mozilla.org/try.
     push_to_vcs |= MACH_TRY_PUSH_TO_VCS or not _is_hg_try()

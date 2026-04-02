@@ -2000,7 +2000,6 @@ main section {
 }
 
 .customize-menu {
-  --toggle-row-height: 42px;
   overflow: auto;
   height: 100%;
 }
@@ -2107,9 +2106,6 @@ main section {
 }
 .home-section .section #shortcuts-toggle #row-selector {
   width: 138px;
-}
-.nova-enabled .home-section .section #shortcuts-toggle {
-  height: var(--toggle-row-height);
 }
 .home-section .section .more-info-top-wrapper,
 .home-section .section .more-info-pocket-wrapper,
@@ -2361,7 +2357,9 @@ main section {
   padding-block: var(--space-medium);
 }
 
-.nova-enabled #shortcuts-section {
+.nova-enabled #shortcuts-section,
+.nova-enabled #widgets-section,
+.nova-enabled #pocket-section {
   margin-block: var(--space-medium);
 }
 .nova-enabled .section #shortcuts-toggle #row-selector {

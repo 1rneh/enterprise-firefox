@@ -16,6 +16,8 @@ support-files = [
   "!/toolkit/components/ml/tests/browser/head.js",
 ]
 
+["browser_UrlbarInput_a11y.js"]
+
 ["browser_UrlbarInput_formatValue.js"]
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 1968567
@@ -141,6 +143,8 @@ support-files = [
 
 ["browser_autoFill_backspaced.js"]
 
+["browser_autoFill_backspace_dismissal.js"]
+
 ["browser_autoFill_canonize.js"]
 https_first_disabled = true
 
@@ -155,6 +159,8 @@ https_first_disabled = true
 ["browser_autoFill_placeholder.js"]
 
 ["browser_autoFill_preserve.js"]
+
+["browser_autoFill_resultMenu_dismissal.js"]
 
 ["browser_autoFill_trimURLs.js"]
 

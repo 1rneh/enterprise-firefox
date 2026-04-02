@@ -129,6 +129,7 @@ for (const type of [
   "DISCOVERY_STREAM_DEV_EXPIRE_CACHE",
   "DISCOVERY_STREAM_DEV_IDLE_DAILY",
   "DISCOVERY_STREAM_DEV_IMPRESSIONS",
+  "DISCOVERY_STREAM_DEV_REFRESH_CACHE",
   "DISCOVERY_STREAM_DEV_SHOW_PLACEHOLDER",
   "DISCOVERY_STREAM_DEV_SYNC_RS",
   "DISCOVERY_STREAM_DEV_SYSTEM_TICK",
@@ -683,8 +684,6 @@ class TogglePrefCheckbox extends (external_React_default()).PureComponent {
 class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
   constructor(props) {
     super(props);
-    this.restorePrefDefaults = this.restorePrefDefaults.bind(this);
-    this.setConfigValue = this.setConfigValue.bind(this);
     this.expireCache = this.expireCache.bind(this);
     this.refreshCache = this.refreshCache.bind(this);
     this.showPlaceholder = this.showPlaceholder.bind(this);
@@ -717,27 +716,9 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
   componentDidMount() {
     this.requestDebugFeatures();
   }
-  setConfigValue(configName, configValue) {
-    this.props.dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.DISCOVERY_STREAM_CONFIG_SET_VALUE,
-      data: {
-        name: configName,
-        value: configValue
-      }
-    }));
-  }
-  restorePrefDefaults() {
-    this.props.dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.DISCOVERY_STREAM_CONFIG_RESET_DEFAULTS
-    }));
-  }
   refreshCache() {
-    const {
-      config
-    } = this.props.state.DiscoveryStream;
     this.props.dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.DISCOVERY_STREAM_CONFIG_CHANGE,
-      data: config
+      type: actionTypes.DISCOVERY_STREAM_DEV_REFRESH_CACHE
     }));
   }
   refreshInferredPersonalization() {
@@ -1291,9 +1272,7 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }, "Data last fetched"), /*#__PURE__*/external_React_default().createElement("td", null, relativeTime(feeds.data[feed.url] ? feeds.data[feed.url].lastUpdated : null) || "(no data)")));
   }
   render() {
-    const prefToggles = "enabled collapsible".split(" ");
     const {
-      config,
       layout
     } = this.props.state.DiscoveryStream;
     const sectionsEnabled = this.props.otherPrefs[PREF_SECTIONS_ENABLED];
@@ -1307,9 +1286,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     const billboardPressed = billboardsEnabled && spocPlacements.includes("newtab_billboard");
     const leaderboardPressed = leaderboardEnabled && spocPlacements.includes("newtab_leaderboard");
     return /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("button", {
-      className: "button",
-      onClick: this.restorePrefDefaults
-    }, "Restore Pref Defaults"), " ", /*#__PURE__*/external_React_default().createElement("button", {
       className: "button",
       onClick: this.refreshCache
     }, "Refresh Cache"), /*#__PURE__*/external_React_default().createElement("br", null), /*#__PURE__*/external_React_default().createElement("button", {
@@ -1367,13 +1343,7 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }))), /*#__PURE__*/external_React_default().createElement("button", {
       className: "button",
       onClick: this.sendConversionEvent
-    }, "Send conversion event"), /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, prefToggles.map(pref => /*#__PURE__*/external_React_default().createElement(Row, {
-      key: pref
-    }, /*#__PURE__*/external_React_default().createElement("td", null, /*#__PURE__*/external_React_default().createElement(TogglePrefCheckbox, {
-      checked: config[pref],
-      pref: pref,
-      onChange: this.setConfigValue
-    })))))), /*#__PURE__*/external_React_default().createElement("h3", null, "Layout"), layout.map((row, rowIndex) => /*#__PURE__*/external_React_default().createElement("div", {
+    }, "Send conversion event"), /*#__PURE__*/external_React_default().createElement("h3", null, "Layout"), layout.map((row, rowIndex) => /*#__PURE__*/external_React_default().createElement("div", {
       key: `row-${rowIndex}`
     }, row.components.map((component, componentIndex) => /*#__PURE__*/external_React_default().createElement("div", {
       key: `component-${componentIndex}`,
@@ -14614,6 +14584,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
 
     // Setting this now so when we remove v1 we don't have to migrate v1 values.
     this.props.setPref("newtabWallpapers.wallpaper", id);
+    this.props.setPref("newtabWallpapers.initialWallpaper", "");
   }
 
   // Note: There's a separate event (debouncedHandleChange) that fires the handleChange
@@ -14629,6 +14600,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
       id = `solid-color-picker-${event.target.value}`;
     }
     this.props.setPref("newtabWallpapers.wallpaper", id);
+    this.props.setPref("newtabWallpapers.initialWallpaper", "");
     const uploadedPreviously = this.props.Prefs.values[PREF_WALLPAPER_UPLOADED_PREVIOUSLY];
     this.handleUserEvent(actionTypes.WALLPAPER_CLICK, {
       selected_wallpaper: id,
@@ -14723,6 +14695,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
 
     // Reset active wallpaper
     this.props.setPref("newtabWallpapers.wallpaper", "");
+    this.props.setPref("newtabWallpapers.initialWallpaper", "");
 
     // Fire WALLPAPER_CLICK telemetry event
     this.handleUserEvent(actionTypes.WALLPAPER_CLICK, {
@@ -14821,6 +14794,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
 
         // Set active wallpaper ID to "custom"
         this.props.setPref("newtabWallpapers.wallpaper", "custom");
+        this.props.setPref("newtabWallpapers.initialWallpaper", "");
 
         // Update the uploadedPreviously pref to TRUE
         // Note: this pref used for telemetry. Do not reset to false.
@@ -15501,6 +15475,16 @@ class ContentSection extends (external_React_default()).PureComponent {
       listsEnabled
     } = enabledWidgets;
 
+    // @nova-cleanup(remove-conditional): Remove novaEnabled check and newtab-custom-stories-toggle, default to newtab-recommended-stories-toggle
+    let pocketToggleL10nId;
+    if (mayHaveInferredPersonalization) {
+      pocketToggleL10nId = "newtab-custom-stories-personalized-toggle";
+    } else if (novaEnabled) {
+      pocketToggleL10nId = "newtab-recommended-stories-toggle";
+    } else {
+      pocketToggleL10nId = "newtab-custom-stories-toggle";
+    }
+
     // @nova-cleanup(remove-conditional): This conditional adds the toggle for wallpaper visibility.
     return /*#__PURE__*/external_React_default().createElement("div", {
       className: "home-section"
@@ -15664,19 +15648,15 @@ class ContentSection extends (external_React_default()).PureComponent {
     }), pocketRegion && /*#__PURE__*/external_React_default().createElement("div", {
       id: "pocket-section",
       className: "section"
-    }, /*#__PURE__*/external_React_default().createElement("moz-toggle", ContentSection_extends({
+    }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "pocket-toggle",
       pressed: pocketEnabled || null,
       ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
-      "aria-describedby": "custom-pocket-subtitle",
       "data-preference": "feeds.section.topstories",
-      "data-event-source": "TOP_STORIES"
-    }, mayHaveInferredPersonalization ? {
-      "data-l10n-id": "newtab-custom-stories-personalized-toggle"
-    } : {
-      "data-l10n-id": "newtab-custom-stories-toggle"
-    }), /*#__PURE__*/external_React_default().createElement("div", {
+      "data-event-source": "TOP_STORIES",
+      "data-l10n-id": pocketToggleL10nId
+    }, /*#__PURE__*/external_React_default().createElement("div", {
       slot: "nested"
     }, (mayHaveInferredPersonalization || mayHaveTopicSections) && /*#__PURE__*/external_React_default().createElement("div", {
       className: "more-info-pocket-wrapper"
@@ -15705,7 +15685,9 @@ class ContentSection extends (external_React_default()).PureComponent {
       onSubpanelToggle: onSubpanelToggle,
       togglePanel: toggleSectionsMgmtPanel,
       showPanel: showSectionsMgmtPanel
-    }))))))), /*#__PURE__*/external_React_default().createElement("span", {
+    }))))))),
+    // @nova-cleanup(remove-conditional): Remove this divider once Nova lands
+    !novaEnabled && /*#__PURE__*/external_React_default().createElement("span", {
       className: "divider",
       role: "separator"
     }), /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("button", {
@@ -17539,12 +17521,16 @@ class BaseContent extends (external_React_default()).PureComponent {
       } = prevProps;
       const selectedWallpaper = prefs["newtabWallpapers.wallpaper"];
       const prevSelectedWallpaper = prevPrefs["newtabWallpapers.wallpaper"];
+      const initialWallpaper = prefs["newtabWallpapers.initialWallpaper"];
+      const prevInitialWallpaper = prevPrefs["newtabWallpapers.initialWallpaper"];
       const uploadedWallpaperTheme = prefs["newtabWallpapers.customWallpaper.theme"];
       const prevUploadedWallpaperTheme = prevPrefs["newtabWallpapers.customWallpaper.theme"];
 
       // don't update wallpaper unless the wallpaper is being changed.
       if (selectedWallpaper !== prevSelectedWallpaper ||
       // selecting a new wallpaper
+      initialWallpaper !== prevInitialWallpaper ||
+      // experiment sets initial wallpaper
       uploadedWallpaper !== prevUploadedWallpaper ||
       // uploading a new wallpaper
       wallpaperList !== prevWallpaperList ||
@@ -17712,7 +17698,7 @@ class BaseContent extends (external_React_default()).PureComponent {
     const {
       wallpaperList
     } = this.props.Wallpapers;
-    const activeWallpaper = this.props.Prefs.values[`newtabWallpapers.wallpaper`];
+    const activeWallpaper = this.props.Prefs.values[`newtabWallpapers.wallpaper`] || this.props.Prefs.values[`newtabWallpapers.initialWallpaper`];
     const selected = wallpaperList.find(wp => wp.title === activeWallpaper);
     // make sure a wallpaper is selected and that the attribution also exists
     if (!selected?.attribution) {
@@ -17745,7 +17731,7 @@ class BaseContent extends (external_React_default()).PureComponent {
   }
   async updateWallpaper() {
     const prefs = this.props.Prefs.values;
-    const selectedWallpaper = prefs["newtabWallpapers.wallpaper"];
+    const selectedWallpaper = prefs["newtabWallpapers.wallpaper"] || prefs["newtabWallpapers.initialWallpaper"];
     const {
       wallpaperList,
       uploadedWallpaper: uploadedWallpaperUrl
@@ -17898,7 +17884,7 @@ class BaseContent extends (external_React_default()).PureComponent {
 
     // @nova-cleanup(remove-conditional):
     const novaEnabled = prefs[Base_PREF_NOVA_ENABLED];
-    const activeWallpaper = prefs[`newtabWallpapers.wallpaper`];
+    const activeWallpaper = prefs[`newtabWallpapers.wallpaper`] || prefs[`newtabWallpapers.initialWallpaper`];
     const wallpapersEnabled = prefs["newtabWallpapers.enabled"];
     const weatherEnabled = prefs.showWeather;
     const {

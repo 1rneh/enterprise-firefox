@@ -53,11 +53,6 @@ nsMathMLFrame::InheritAutomaticData(nsIFrame* aParent) {
 
   mPresentationData.flags.clear();
   mPresentationData.baseFrame = nullptr;
-
-  // by default, just inherit the display of our parent
-  nsPresentationData parentData;
-  GetPresentationDataFrom(aParent, parentData);
-
   return NS_OK;
 }
 
@@ -94,46 +89,6 @@ void nsMathMLFrame::GetEmbellishDataFrom(nsIFrame* aFrame,
       mathMLFrame->GetEmbellishData(aEmbellishData);
     }
   }
-}
-
-// helper to get the presentation data of a frame, by possibly walking up
-// the frame hierarchy if we happen to be surrounded by non-MathML frames.
-/* static */
-void nsMathMLFrame::GetPresentationDataFrom(
-    nsIFrame* aFrame, nsPresentationData& aPresentationData, bool aClimbTree) {
-  // initialize OUT params
-  aPresentationData.flags.clear();
-  aPresentationData.baseFrame = nullptr;
-
-  nsIFrame* frame = aFrame;
-  while (frame) {
-    if (frame->IsMathMLFrame()) {
-      nsIMathMLFrame* mathMLFrame = do_QueryFrame(frame);
-      if (mathMLFrame) {
-        mathMLFrame->GetPresentationData(aPresentationData);
-        break;
-      }
-    }
-    // stop if the caller doesn't want to lookup beyond the frame
-    if (!aClimbTree) {
-      break;
-    }
-    // stop if we reach the root <math> tag
-    nsIContent* content = frame->GetContent();
-    NS_ASSERTION(content || !frame->GetParent(),  // no assert for the root
-                 "dangling frame without a content node");
-    if (!content) {
-      break;
-    }
-
-    if (content->IsMathMLElement(nsGkAtoms::math)) {
-      break;
-    }
-    frame = frame->GetParent();
-  }
-  NS_WARNING_ASSERTION(
-      frame && frame->GetContent(),
-      "bad MathML markup - could not find the top <math> element");
 }
 
 /* static */

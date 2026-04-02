@@ -687,6 +687,7 @@ dependencies {
     implementation libs.protobuf.javalite
     implementation libs.sentry
     implementation libs.androidx.documentfile
+    implementation libs.zxing
 
     implementation libs.androidx.room.runtime
     ksp libs.androidx.room.compiler

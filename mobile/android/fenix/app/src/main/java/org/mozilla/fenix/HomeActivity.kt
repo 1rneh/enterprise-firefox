@@ -102,10 +102,12 @@ import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.ShareAction
 import org.mozilla.fenix.components.appstate.OrientationMode
 import org.mozilla.fenix.components.menu.MenuAccessPoint
+import org.mozilla.fenix.components.menu.share.QRCodeDialogFragment
 import org.mozilla.fenix.components.metrics.BreadcrumbsRecorder
 import org.mozilla.fenix.components.metrics.GrowthDataWorker
 import org.mozilla.fenix.components.metrics.MarketingAttributionService
 import org.mozilla.fenix.components.metrics.fonts.FontEnumerationWorker
+import org.mozilla.fenix.components.share.QR_CODE_URI_KEY
 import org.mozilla.fenix.components.share.SEND_TO_DEVICES_ACTION
 import org.mozilla.fenix.components.share.SendToDevicesDialogFragment
 import org.mozilla.fenix.crashes.CrashActionDispatcher
@@ -944,26 +946,36 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             return
         }
 
-        // Diagnostic breadcrumb for "Display already aquired" crash:
-        // https://github.com/mozilla-mobile/android-components/issues/7960
-        breadcrumb(
-            message = "onNewIntent()",
-            data = mapOf(
-                "intent" to intent.action.toString(),
-            ),
-        )
+        val qrCodeUri = intent.getStringExtra(QR_CODE_URI_KEY)
+        if (qrCodeUri != null) {
+            if (supportFragmentManager.findFragmentByTag(QRCodeDialogFragment.TAG) == null) {
+                QRCodeDialogFragment.newInstance(qrCodeUri).showNow(
+                    supportFragmentManager,
+                    QRCodeDialogFragment.TAG,
+                )
+            }
+        } else {
+            // Diagnostic breadcrumb for "Display already aquired" crash:
+            // https://github.com/mozilla-mobile/android-components/issues/7960
+            breadcrumb(
+                message = "onNewIntent()",
+                data = mapOf(
+                    "intent" to intent.action.toString(),
+                ),
+            )
 
-        val tab = components.core.store.state.findActiveMediaTab()
-        if (tab != null) {
-            components.useCases.sessionUseCases.exitFullscreen(tab.id)
+            val tab = components.core.store.state.findActiveMediaTab()
+            if (tab != null) {
+                components.useCases.sessionUseCases.exitFullscreen(tab.id)
+            }
+
+            val intentProcessors =
+                listOf(
+                    CrashReporterIntentProcessor(components.appStore),
+                ) + externalSourceIntentProcessors
+            intentProcessors.forEach { it.process(intent, navHost.navController, this.intent, settings()) }
+            browsingModeManager.updateMode(intent)
         }
-
-        val intentProcessors =
-            listOf(
-                CrashReporterIntentProcessor(components.appStore),
-            ) + externalSourceIntentProcessors
-        intentProcessors.forEach { it.process(intent, navHost.navController, this.intent, settings()) }
-        browsingModeManager.updateMode(intent)
     }
 
     /**

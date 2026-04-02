@@ -1841,28 +1841,33 @@ tab-group {
   }
 
   #tabbrowser-tabs[orient="vertical"] & {
-    height: 24px;
+    --tab-group-label-size: 24px;
+    height: var(--tab-group-label-size);
     min-height: auto;
-    line-height: 24px;
-    min-width: 24px;
+    line-height: var(--tab-group-label-size);
+    min-width: var(--tab-group-label-size);
+
+    :root[uidensity="touch"] & {
+      --tab-group-label-size: 27px;
+    }
 
     #tabbrowser-tabs:not([expanded]) & {
-      width: 24px;
-      max-width: 24px;
+      width: var(--tab-group-label-size);
+      max-width: var(--tab-group-label-size);
       font-size-adjust: 0;
 
       &::first-letter {
         font: message-box;
         font-weight: var(--font-weight-semibold);
-        line-height: 24px;
+        line-height: var(--tab-group-label-size);
       }
     }
+  }
 
-    #tabbrowser-tabs[expanded] & {
-      align-self: start;
-      max-width: -moz-available;
-      margin-inline-end: var(--space-medium);
-    }
+  #tabbrowser-tabs[expanded] & {
+    align-self: start;
+    max-width: -moz-available;
+    margin-inline-end: var(--space-medium);
   }
 }
 

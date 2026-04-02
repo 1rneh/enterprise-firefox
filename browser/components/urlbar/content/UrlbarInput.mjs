@@ -143,7 +143,6 @@ export class UrlbarInput extends HTMLElement {
           <html:input id="urlbar-scheme"
                       required="required"/>
           <html:input class="urlbar-input textbox-input"
-                      aria-controls="urlbar-results"
                       role="combobox"
                       aria-autocomplete="both"
                       inputmode="mozAwesomebar"
@@ -162,8 +161,7 @@ export class UrlbarInput extends HTMLElement {
             tooltip="aHTMLTooltip">
         <html:div class="urlbarView-body-outer">
           <html:div class="urlbarView-body-inner">
-            <html:div id="urlbar-results"
-                      class="urlbarView-results"
+            <html:div class="urlbarView-results"
                       role="listbox"/>
           </html:div>
         </html:div>
@@ -244,6 +242,7 @@ export class UrlbarInput extends HTMLElement {
 
   /** @type {AutofillPlaceholder|null} */
   _autofillPlaceholder = null;
+  _autofillBackspaceState = null;
 
   _resultForCurrentValue = null;
   _untrimmedValue = "";
@@ -329,9 +328,15 @@ export class UrlbarInput extends HTMLElement {
     }
 
     this.panel = this.querySelector(".urlbarView");
+    this._inputContainer = this.querySelector(".urlbar-input-container");
     this.inputField = /** @type {HTMLInputElement} */ (
       this.querySelector(".urlbar-input")
     );
+
+    let resultListboxId = this.#sapName + "-results";
+    this.querySelector(".urlbarView-results").id = resultListboxId;
+    this.inputField.setAttribute("aria-controls", resultListboxId);
+
     if (this.#isAddressbar) {
       this.inputField.id = "urlbar-input";
     }
@@ -339,7 +344,6 @@ export class UrlbarInput extends HTMLElement {
       // This adds a native clear button.
       this.inputField.setAttribute("type", "search");
     }
-    this._inputContainer = this.querySelector(".urlbar-input-container");
 
     this.controller = new lazy.UrlbarController({ input: this });
     this.view = new lazy.UrlbarView(this);
@@ -1838,6 +1842,23 @@ export class UrlbarInput extends HTMLElement {
         // the load. Just reportError it.
         lazy.UrlbarUtils.addToInputHistory(url, input).catch(console.error);
       }
+
+      // Re-integration: If the user picks a non-autofill result for a URL
+      // that has a blocked origin, clear the block.
+      if (
+        lazy.UrlbarPrefs.get("autoFillAdaptiveHistoryEnabled") &&
+        !result.autofill &&
+        result.type == lazy.UrlbarUtils.RESULT_TYPE.URL
+      ) {
+        let isOrigin = lazy.UrlbarUtils.isOriginUrl(url);
+        if (isOrigin) {
+          lazy.UrlbarUtils.clearOriginAutofillBlock(url).catch(console.error);
+        } else {
+          lazy.UrlbarUtils.clearOriginPageAutofillBlock(url).catch(
+            console.error
+          );
+        }
+      }
     }
 
     this.controller.engagementEvent.startTrackingBounceEvent(browser, event, {
@@ -3297,6 +3318,7 @@ export class UrlbarInput extends HTMLElement {
   _resetSearchState() {
     this._lastSearchString = this.value;
     this._autofillPlaceholder = null;
+    this._autofillBackspaceState = null;
   }
 
   /**
@@ -4958,6 +4980,8 @@ export class UrlbarInput extends HTMLElement {
     this._isKeyDownWithMeta = false;
     this._isKeyDownWithMetaAndLeft = false;
 
+    this._autofillBackspaceState = null;
+
     Services.obs.notifyObservers(null, "urlbar-blur");
   }
 
@@ -5163,6 +5187,41 @@ export class UrlbarInput extends HTMLElement {
     ) {
       // Take a telemetry if user deleted whole autofilled value.
       Glean.urlbar.autofillDeletion.add(1);
+    }
+
+    if (
+      lazy.UrlbarPrefs.get("autoFillAdaptiveHistoryEnabled") &&
+      event.inputType === "deleteContentBackward"
+    ) {
+      if (!this._autofillBackspaceState && this._autofillPlaceholder) {
+        this._autofillBackspaceState = {
+          url: this._resultForCurrentValue?.payload?.url,
+          count: 0,
+        };
+      }
+      if (this._autofillBackspaceState) {
+        this._autofillBackspaceState.count++;
+        if (
+          this._autofillBackspaceState.count >=
+          lazy.UrlbarPrefs.get("autoFill.backspaceThreshold")
+        ) {
+          if (!this.isPrivate) {
+            let { url } = this._autofillBackspaceState;
+            if (url) {
+              let blockUntil =
+                Date.now() +
+                lazy.UrlbarPrefs.get("autoFill.backspaceBlockDurationMs");
+              lazy.UrlbarUtils.blockAutofill(url, blockUntil).catch(
+                console.error
+              );
+            }
+          }
+          this._autofillBackspaceState = null;
+        }
+      }
+    } else if (this._autofillBackspaceState) {
+      // Any non-backspace input resets the state.
+      this._autofillBackspaceState = null;
     }
 
     let value = this.value;

@@ -4,7 +4,6 @@
 
 #include "WebRenderLayerManager.h"
 
-#include "DisplayItemCache.h"
 #include "GeckoProfiler.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_layers.h"
@@ -49,14 +48,6 @@ WebRenderLayerManager::WebRenderLayerManager(nsIWidget* aWidget)
       mWebRenderCommandBuilder(this) {
   MOZ_COUNT_CTOR(WebRenderLayerManager);
   mStateManager.mLayerManager = this;
-
-  if (XRE_IsContentProcess() &&
-      StaticPrefs::gfx_webrender_enable_item_cache_AtStartup()) {
-    static const size_t kInitialCacheSize = 1024;
-    static const size_t kMaximumCacheSize = 10240;
-
-    mDisplayItemCache.SetCapacity(kInitialCacheSize, kMaximumCacheSize);
-  }
 }
 
 KnowsCompositor* WebRenderLayerManager::AsKnowsCompositor() { return mWrChild; }
@@ -264,8 +255,6 @@ bool WebRenderLayerManager::EndEmptyTransaction(EndTransactionFlags aFlags) {
     return false;
   }
 
-  mDisplayItemCache.SkipWaitingForPartialDisplayList();
-
   mLatestTransactionId =
       mTransactionIdAllocator->GetTransactionId(/*aThrottle*/ true);
 
@@ -347,26 +336,22 @@ void WebRenderLayerManager::EndTransactionWithoutLayer(
 
   UniquePtr<wr::DisplayListBuilder> offscreenBuilder;
   wr::DisplayListBuilder* diplayListBuilder = mDLBuilder.get();
-  DisplayItemCache* itemCache = &mDisplayItemCache;
   if (aRenderOffscreen) {
     wr::PipelineId mainId = WrBridge()->GetPipeline();
     wr::PipelineId tmpPipeline = gfx::GetTemporaryWebRenderPipelineId(mainId);
     offscreenBuilder = MakeUnique<wr::DisplayListBuilder>(
         tmpPipeline, WrBridge()->GetWebRenderBackend());
     diplayListBuilder = offscreenBuilder.get();
-    itemCache = nullptr;
   }
 
-  diplayListBuilder->Begin(itemCache);
+  diplayListBuilder->Begin();
 
   wr::IpcResourceUpdateQueue resourceUpdates(WrBridge());
   wr::usize builderDumpIndex = 0;
   bool containsSVGGroup = false;
   bool dumpEnabled =
       mWebRenderCommandBuilder.ShouldDumpDisplayList(aDisplayListBuilder);
-  Maybe<AutoDisplayItemCacheSuppressor> cacheSuppressor;
   if (dumpEnabled) {
-    cacheSuppressor.emplace(itemCache);
     printf_stderr("-- WebRender display list build --\n");
   }
 
@@ -377,9 +362,6 @@ void WebRenderLayerManager::EndTransactionWithoutLayer(
 
   if (aDisplayList) {
     MOZ_ASSERT(aDisplayListBuilder && !aBackground);
-    if (itemCache) {
-      itemCache->SetDisplayList(aDisplayListBuilder, aDisplayList);
-    }
 
     mWebRenderCommandBuilder.BuildWebRenderCommands(
         *diplayListBuilder, resourceUpdates, aDisplayList, aDisplayListBuilder,
@@ -485,15 +467,11 @@ void WebRenderLayerManager::EndTransactionWithoutLayer(
         1000.);
     PerfStats::RecordMeasurement(PerfStats::Metric::WrDisplayListBuilding,
                                  duration);
-    bool ret = WrBridge()->EndTransaction(
+    WrBridge()->EndTransaction(
         std::move(dlData), mLatestTransactionId, containsSVGGroup,
         mTransactionIdAllocator->GetVsyncId(), aRenderOffscreen,
         mTransactionIdAllocator->GetVsyncStart(), refreshStart,
         mTransactionStart, mURL);
-    if (!ret && itemCache) {
-      // Failed to send display list, reset display item cache state.
-      itemCache->Clear();
-    }
 
     WrBridge()->SendSetFocusTarget(mFocusTarget);
     mFocusTarget = FocusTarget();
@@ -664,8 +642,6 @@ void WebRenderLayerManager::WrUpdated() {
   mStateManager.mAsyncResourceUpdates.reset();
   mWebRenderCommandBuilder.ClearCachedResources();
   DiscardLocalImages();
-  mDisplayItemCache.Clear();
-
   if (mWidget) {
     if (dom::BrowserChild* browserChild = mWidget->GetOwningBrowserChild()) {
       browserChild->SchedulePaint();

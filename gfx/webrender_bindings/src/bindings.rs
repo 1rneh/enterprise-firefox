@@ -2387,12 +2387,10 @@ pub extern "C" fn wr_transaction_set_display_list(
     pipeline_id: WrPipelineId,
     dl_descriptor: BuiltDisplayListDescriptor,
     dl_items_data: &mut WrVecU8,
-    dl_cache_data: &mut WrVecU8,
     dl_spatial_tree_data: &mut WrVecU8,
 ) {
     let payload = DisplayListPayload {
         items_data: dl_items_data.flush_into_vec(),
-        cache_data: dl_cache_data.flush_into_vec(),
         spatial_tree: dl_spatial_tree_data.flush_into_vec(),
     };
 
@@ -4391,31 +4389,6 @@ pub extern "C" fn wr_dp_push_box_shadow(
 }
 
 #[no_mangle]
-pub extern "C" fn wr_dp_start_item_group(state: &mut WrState) {
-    state.frame_builder.dl_builder.start_item_group();
-}
-
-#[no_mangle]
-pub extern "C" fn wr_dp_cancel_item_group(state: &mut WrState, discard: bool) {
-    state.frame_builder.dl_builder.cancel_item_group(discard);
-}
-
-#[no_mangle]
-pub extern "C" fn wr_dp_finish_item_group(state: &mut WrState, key: ItemKey) -> bool {
-    state.frame_builder.dl_builder.finish_item_group(key)
-}
-
-#[no_mangle]
-pub extern "C" fn wr_dp_push_reuse_items(state: &mut WrState, key: ItemKey) {
-    state.frame_builder.dl_builder.push_reuse_items(key);
-}
-
-#[no_mangle]
-pub extern "C" fn wr_dp_set_cache_size(state: &mut WrState, cache_size: usize) {
-    state.frame_builder.dl_builder.set_cache_size(cache_size);
-}
-
-#[no_mangle]
 pub extern "C" fn wr_dump_display_list(
     state: &mut WrState,
     indent: usize,
@@ -4462,13 +4435,11 @@ pub unsafe extern "C" fn wr_api_end_builder(
     state: &mut WrState,
     dl_descriptor: &mut BuiltDisplayListDescriptor,
     dl_items_data: &mut WrVecU8,
-    dl_cache_data: &mut WrVecU8,
     dl_spatial_tree: &mut WrVecU8,
 ) {
     let (_, dl) = state.frame_builder.dl_builder.end();
     let (payload, descriptor) = dl.into_data();
     *dl_items_data = WrVecU8::from_vec(payload.items_data);
-    *dl_cache_data = WrVecU8::from_vec(payload.cache_data);
     *dl_spatial_tree = WrVecU8::from_vec(payload.spatial_tree);
     *dl_descriptor = descriptor;
 }

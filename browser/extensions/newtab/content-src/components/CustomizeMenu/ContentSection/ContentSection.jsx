@@ -193,6 +193,16 @@ export class ContentSection extends React.PureComponent {
     } = enabledSections;
     const { timerEnabled, listsEnabled } = enabledWidgets;
 
+    // @nova-cleanup(remove-conditional): Remove novaEnabled check and newtab-custom-stories-toggle, default to newtab-recommended-stories-toggle
+    let pocketToggleL10nId;
+    if (mayHaveInferredPersonalization) {
+      pocketToggleL10nId = "newtab-custom-stories-personalized-toggle";
+    } else if (novaEnabled) {
+      pocketToggleL10nId = "newtab-recommended-stories-toggle";
+    } else {
+      pocketToggleL10nId = "newtab-custom-stories-toggle";
+    }
+
     // @nova-cleanup(remove-conditional): This conditional adds the toggle for wallpaper visibility.
     return (
       <div className="home-section">
@@ -419,17 +429,9 @@ export class ContentSection extends React.PureComponent {
                 pressed={pocketEnabled || null}
                 ontoggle={this.onPreferenceSelect}
                 onToggle={this.onPreferenceSelect}
-                aria-describedby="custom-pocket-subtitle"
                 data-preference="feeds.section.topstories"
                 data-event-source="TOP_STORIES"
-                {...(mayHaveInferredPersonalization
-                  ? {
-                      "data-l10n-id":
-                        "newtab-custom-stories-personalized-toggle",
-                    }
-                  : {
-                      "data-l10n-id": "newtab-custom-stories-toggle",
-                    })}
+                data-l10n-id={pocketToggleL10nId}
               >
                 <div slot="nested">
                   {(mayHaveInferredPersonalization || mayHaveTopicSections) && (
@@ -475,7 +477,10 @@ export class ContentSection extends React.PureComponent {
           )}
         </div>
 
-        <span className="divider" role="separator"></span>
+        {
+          // @nova-cleanup(remove-conditional): Remove this divider once Nova lands
+          !novaEnabled && <span className="divider" role="separator"></span>
+        }
 
         <div>
           <button

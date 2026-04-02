@@ -39,6 +39,12 @@ const QUERYTYPE = {
   AUTOFILL_ADAPTIVE: 3,
 };
 
+const RESULT_MENU_COMMANDS = {
+  DISMISS: "dismiss",
+  // In telemetry, we'll still report this as dismiss
+  DISMISS_AUTOFILL: "dismiss_autofill",
+};
+
 // Constants to support an alternative frecency algorithm.
 const ORIGIN_USE_ALT_FRECENCY = Services.prefs.getBoolPref(
   "places.frecency.origins.alternative.featureGate",
@@ -130,6 +136,7 @@ function originQuery(where, { preferHttps = false } = {}) {
       WHERE prefix NOT IN ('about:', 'place:')
         AND ((host BETWEEN :searchString AND :searchString || X'FFFF')
           OR (host BETWEEN 'www.' || :searchString AND 'www.' || :searchString || X'FFFF'))
+        AND (:blockingEnabled = 0 OR o.block_until_ms IS NULL OR o.block_until_ms <= :nowMs)
     ),
     matched_origin(host_fixed, url) AS (
       SELECT iif(instr(host, :searchString) = 1, host, fixed) || '/',
@@ -465,6 +472,76 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
     }
   }
 
+  async onEngagement(queryContext, controller, details) {
+    let { result } = details;
+    let didRemove = false;
+
+    switch (details.selType) {
+      case RESULT_MENU_COMMANDS.DISMISS: {
+        await lazy.PlacesUtils.history
+          .remove(result.payload.url)
+          .catch(console.error);
+        didRemove = true;
+        break;
+      }
+      case RESULT_MENU_COMMANDS.DISMISS_AUTOFILL: {
+        let blockUntilMs =
+          Date.now() +
+          lazy.UrlbarPrefs.get("autoFill.dismissalBlockDurationMs");
+        await UrlbarUtils.blockAutofill(result.payload.url, blockUntilMs).catch(
+          console.error
+        );
+        didRemove = true;
+        break;
+      }
+    }
+
+    if (didRemove) {
+      // Upon removing the autofill, we should do another search.
+      controller.input._setValue(queryContext.searchString);
+      controller.input.startQuery({
+        searchString: queryContext.searchString,
+        allowAutofill: false,
+        resetSearchState: false,
+      });
+    }
+  }
+
+  getResultCommands(result) {
+    if (
+      !result.autofill ||
+      !lazy.UrlbarPrefs.get("autoFill.adaptiveHistory.enabled")
+    ) {
+      return undefined;
+    }
+    if (
+      result.autofill.type === "adaptive" ||
+      result.autofill.type === "origin"
+    ) {
+      let isOrigin = UrlbarUtils.isOriginUrl(result.payload.url);
+      let resultArray = [
+        {
+          name: RESULT_MENU_COMMANDS.DISMISS_AUTOFILL,
+          l10n: {
+            id: "urlbar-result-menu-dismiss-suggestion",
+          },
+        },
+      ];
+
+      // For non-origin URLs, include the ability to remove it from history.
+      if (!isOrigin) {
+        resultArray.push({
+          name: RESULT_MENU_COMMANDS.DISMISS,
+          l10n: {
+            id: "urlbar-result-menu-remove-from-history",
+          },
+        });
+      }
+      return resultArray;
+    }
+    return undefined;
+  }
+
   /**
    * Filters hosts by retaining only the ones over the autofill threshold, then
    * sorts them by their frecency, and extracts the one with the highest value.
@@ -557,6 +634,10 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
     let opts = {
       query_type: QUERYTYPE.AUTOFILL_ORIGIN,
       searchString: searchStr.toLowerCase(),
+      nowMs: Date.now(),
+      blockingEnabled: lazy.UrlbarPrefs.get("autoFillAdaptiveHistoryEnabled")
+        ? 1
+        : 0,
     };
     if (this._strippedPrefix) {
       opts.prefix = this._strippedPrefix;
@@ -706,6 +787,10 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
       useCountThreshold: lazy.UrlbarPrefs.get(
         "autoFillAdaptiveHistoryUseCountThreshold"
       ),
+      nowMs: Date.now(),
+      blockingEnabled: lazy.UrlbarPrefs.get("autoFillAdaptiveHistoryEnabled")
+        ? 1
+        : 0,
     });
 
     const query = `
@@ -720,6 +805,7 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
           h.id AS id
         FROM moz_places h
         JOIN moz_inputhistory i ON i.place_id = h.id
+        JOIN moz_origins o ON o.id = h.origin_id
         WHERE LENGTH(i.input) != 0
           AND :fullSearchString BETWEEN i.input AND i.input || X'FFFF'
           AND ${sourceCondition}
@@ -729,6 +815,10 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
             starts_with OR
             (stripped_url COLLATE NOCASE BETWEEN 'www.' || :searchString AND 'www.' || :searchString || X'FFFF')
           )
+          AND (:blockingEnabled = 0 OR o.block_until_ms IS NULL OR o.block_until_ms <= :nowMs
+            OR strip_prefix_and_userinfo(h.url) != fixup_url(o.host) || '/')
+          AND (:blockingEnabled = 0 OR o.block_pages_until_ms IS NULL OR o.block_pages_until_ms <= :nowMs
+            OR strip_prefix_and_userinfo(h.url) = fixup_url(o.host) || '/')
         ORDER BY is_exact_match DESC, i.use_count DESC, h.frecency DESC, h.id DESC
         LIMIT 1
       )

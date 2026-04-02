@@ -69,7 +69,7 @@ class PartnerUrlsConfig(Schema, kw_only=True):
         Optional[str],
         use_msgspec=True,
     )
-    enterprise-repack: optionally_keyed_by(
+    enterprise_repack: optionally_keyed_by(
         "release-product",
         "release-level",
         "release-type",

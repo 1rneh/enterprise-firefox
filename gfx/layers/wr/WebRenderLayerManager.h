@@ -57,9 +57,12 @@ class WebRenderLayerManager final : public WindowRenderer {
   NS_INLINE_DECL_REFCOUNTING(WebRenderLayerManager, final)
 
  public:
-  explicit WebRenderLayerManager(nsIWidget* aWidget);
-  bool Initialize(PCompositorBridgeChild* aCBChild, wr::PipelineId aLayersId,
-                  TextureFactoryIdentifier* aTextureFactoryIdentifier,
+  static RefPtr<WebRenderLayerManager> Create(nsIWidget* aWidget,
+                                              PCompositorBridgeChild* aCBChild,
+                                              wr::PipelineId aPipelineId,
+                                              nsCString& aError);
+
+  bool Initialize(TextureFactoryIdentifier* aTextureFactoryIdentifier,
                   nsCString& aError);
 
   void Destroy() override;
@@ -210,6 +213,9 @@ class WebRenderLayerManager final : public WindowRenderer {
 #endif
 
  private:
+  explicit WebRenderLayerManager(
+      nsIWidget* aWidget, already_AddRefed<WebRenderBridgeChild> aWrChild);
+
   /**
    * Take a snapshot of the parent context, and copy
    * it into mTarget.
@@ -269,6 +275,10 @@ class WebRenderLayerManager final : public WindowRenderer {
   ScrollUpdatesMap mPendingScrollUpdates;
 
   LayoutDeviceIntSize mFlushWidgetSize;
+
+  // When we fail to initialize WebRender, it is useful to know if it has ever
+  // succeeded, or if this is the first attempt.
+  static bool sHasInitialized;
 };
 
 }  // namespace layers

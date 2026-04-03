@@ -179,6 +179,21 @@ trainhop-beta:
                     name: build/target.zip
 
 
+standalone:
+    description: "{description} with browser restart after each test to identify test dependencies"
+    component: "Testing::General"
+    expiration: "never"
+    suffix: "standalone"
+    treeherder-suffix: "sa"
+    mozinfo: "standalone"
+    replace:
+        optimization:
+            skip-unless-backstop: null
+    merge:
+        mozharness:
+            extra-options:
+                - "--restart-between-tests"
+
 geckoview-no-fission:
     description: "{description} without fission enabled"
     component: "GeckoView::General"

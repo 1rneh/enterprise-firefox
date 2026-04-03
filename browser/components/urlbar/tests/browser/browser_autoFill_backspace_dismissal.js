@@ -414,8 +414,8 @@ add_task(async function test_reintegration_adaptive_page_url() {
   let details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     details.result.autofill?.type,
-    "adaptive",
-    "Should have adaptive autofill before blocking"
+    "adaptive_url",
+    "Should have adaptive url autofill before blocking"
   );
   await UrlbarTestUtils.promisePopupClose(window);
 
@@ -435,7 +435,9 @@ add_task(async function test_reintegration_adaptive_page_url() {
   });
   details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.ok(
-    !details.result.autofill || details.result.autofill.type !== "adaptive",
+    !details.result.autofill ||
+      (details.result.autofill.type !== "adaptive_url" &&
+        details.result.autofill.type !== "adaptive_origin"),
     "Adaptive autofill should not appear while blocked"
   );
 
@@ -457,8 +459,8 @@ add_task(async function test_reintegration_adaptive_page_url() {
   details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     details.result.autofill?.type,
-    "adaptive",
-    "Adaptive autofill should be restored after reintegration"
+    "adaptive_url",
+    "Adaptive autofill url should be restored after reintegration"
   );
 
   await UrlbarTestUtils.promisePopupClose(window);
@@ -478,7 +480,7 @@ add_task(async function test_reintegration_adaptive_origin() {
   let details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     details.result.autofill?.type,
-    "adaptive",
+    "adaptive_origin",
     "Should have adaptive autofill before blocking"
   );
   await UrlbarTestUtils.promisePopupClose(window);
@@ -519,7 +521,7 @@ add_task(async function test_reintegration_adaptive_origin() {
   details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     details.result.autofill?.type,
-    "adaptive",
+    "adaptive_origin",
     "Adaptive origin autofill should be restored after reintegration"
   );
 
@@ -553,8 +555,8 @@ add_task(async function test_reintegration_origins_autofill() {
   Assert.ok(details.autofill, "Should have origins autofill before blocking");
   Assert.notEqual(
     details.result.autofill?.type,
-    "adaptive",
-    "Should be regular origin autofill, not adaptive"
+    "adaptive_origin",
+    "Should be regular origin autofill, not adaptive origin"
   );
   await UrlbarTestUtils.promisePopupClose(window);
 

@@ -3230,8 +3230,7 @@ void BrowserChild::InitRenderingState(
 
   // Pushing layers transactions directly to a separate
   // compositor context.
-  PCompositorBridgeChild* compositorChild = CompositorBridgeChild::Get();
-  if (!compositorChild) {
+  if (!CompositorBridgeChild::Get()) {
     mLayersConnected = Some(false);
     NS_WARNING("failed to get CompositorBridgeChild instance");
     return;
@@ -3258,7 +3257,7 @@ void BrowserChild::InitRenderingState(
                  layers::LayersBackend::LAYERS_NONE);
   bool success = false;
   if (mLayersConnected == Some(true)) {
-    success = CreateRemoteLayerManager(compositorChild);
+    success = CreateRemoteLayerManager();
   }
 
   if (success) {
@@ -3279,16 +3278,11 @@ void BrowserChild::InitRenderingState(
   }
 }
 
-bool BrowserChild::CreateRemoteLayerManager(
-    mozilla::layers::PCompositorBridgeChild* aCompositorChild) {
-  MOZ_ASSERT(aCompositorChild);
-
+bool BrowserChild::CreateRemoteLayerManager() {
   return mPuppetWidget->CreateRemoteLayerManager(
       [&](WebRenderLayerManager* aLayerManager) -> bool {
         nsCString error;
-        return aLayerManager->Initialize(aCompositorChild,
-                                         wr::AsPipelineId(mLayersId),
-                                         &mTextureFactoryIdentifier, error);
+        return aLayerManager->Initialize(&mTextureFactoryIdentifier, error);
       });
 }
 
@@ -3623,9 +3617,8 @@ void BrowserChild::ReinitRendering() {
   SendEnsureLayersConnected(&options);
   if (options) {
     mCompositorOptions = options;
-    RefPtr<CompositorBridgeChild> cb = CompositorBridgeChild::Get();
-    if (cb) {
-      success = CreateRemoteLayerManager(cb);
+    if (CompositorBridgeChild::Get()) {
+      success = CreateRemoteLayerManager();
     }
   }
 

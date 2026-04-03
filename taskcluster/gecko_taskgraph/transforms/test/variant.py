@@ -22,6 +22,7 @@ transforms = TransformSequence()
 class VariantEntry(Schema, kw_only=True):
     description: str
     suffix: str
+    treeherder_suffix: Optional[str] = None
     mozinfo: Optional[str] = None
     component: str
     expiration: str
@@ -102,11 +103,12 @@ def split_variants(config, tasks):
         task["description"] = variant["description"].format(**task)
 
         suffix = f"-{variant['suffix']}"
+        th_suffix = f"-{variant.get('treeherder-suffix') or variant['suffix']}"
         group, symbol = split_symbol(task["treeherder-symbol"])
         if group != "?":
-            group += suffix
+            group += th_suffix
         else:
-            symbol += suffix
+            symbol += th_suffix
         task["treeherder-symbol"] = join_symbol(group, symbol)
 
         # This will be used to set the label and try-name in 'make_job_description'.

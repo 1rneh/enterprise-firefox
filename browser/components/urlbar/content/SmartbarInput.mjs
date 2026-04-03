@@ -2252,7 +2252,10 @@ export class SmartbarInput extends HTMLElement {
       let input;
       if (!result.heuristic) {
         input = this._lastSearchString;
-      } else if (result.autofill?.type == "adaptive") {
+      } else if (
+        result.autofill?.type == "adaptive_url" ||
+        result.autofill?.type == "adaptive_origin"
+      ) {
         input = result.autofill.adaptiveHistoryInput;
       }
       // `input` may be an empty string, so do a strict comparison here.
@@ -3833,7 +3836,10 @@ export class SmartbarInput extends HTMLElement {
     // if the caret isn't at the end of the input.
     let canAutofillPlaceholder = false;
     if (this._autofillPlaceholder) {
-      if (this._autofillPlaceholder.type == "adaptive") {
+      if (
+        this._autofillPlaceholder.type == "adaptive_url" ||
+        this._autofillPlaceholder.type == "adaptive_origin"
+      ) {
         canAutofillPlaceholder =
           value.length >=
             this._autofillPlaceholder.adaptiveHistoryInput.length &&
@@ -4241,11 +4247,11 @@ export class SmartbarInput extends HTMLElement {
    *   The new selectionStart.
    * @param {number} options.selectionEnd
    *   The new selectionEnd.
-   * @param {"origin" | "url" | "adaptive"} options.type
-   *   The autofill type, one of: "origin", "url", "adaptive"
+   * @param {"origin" | "url" | "adaptive_url" | "adaptive_origin"} options.type
+   *   The autofill type.
    * @param {string} options.adaptiveHistoryInput
-   *   If the autofill type is "adaptive", this is the matching `input` value
-   *   from adaptive history.
+   *   If the autofill type is "adaptive_url" or "adaptive_origin", this is the
+   *   matching `input` value from adaptive history.
    * @param {string} [options.untrimmedValue]
    *   Untrimmed value including a protocol.
    */

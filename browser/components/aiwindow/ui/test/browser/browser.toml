@@ -44,6 +44,9 @@ support-files = [
 ["browser_aiwindow_assistant_message_footer.js"]
 
 ["browser_aiwindow_firstrun.js"]
+skip-if = [
+  "debug && standalone", # Bug 2025711
+]
 
 ["browser_aiwindow_followup_tokens.js"]
 
@@ -80,6 +83,9 @@ support-files = [
 ["browser_aiwindow_smartbar_telemetry.js"]
 
 ["browser_aiwindow_switcher.js"]
+skip-if = [
+  "debug && standalone", # Bug 2025711
+]
 
 ["browser_aiwindow_theme.js"]
 
@@ -120,6 +126,9 @@ support-files = [
 ["browser_smartwindow_init.js"]
 
 ["browser_smartwindow_leak.js"]
+skip-if = [
+  "debug && standalone", # Bug 2025711
+]
 
 ["browser_smartwindow_metrics_telemetry.js"]
 
@@ -130,6 +139,9 @@ support-files = [
 ["browser_smartwindow_recentchats.js"]
 
 ["browser_smartwindow_request_response_telemetry.js"]
+skip-if = [
+  "os == 'win' && debug && standalone", # Bug 2028654
+]
 
 ["browser_smartwindow_run_search.js"]
 
@@ -146,6 +158,10 @@ support-files = [
 ["browser_smartwindow_tab_switching.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26200'", # Bug 2019745
+  "standalone", # Bug 2026433
 ]
 
 ["browser_smartwindow_telemetry.js"]
+skip-if = [
+  "os == 'win' && debug && standalone", # Bug 2024015
+]

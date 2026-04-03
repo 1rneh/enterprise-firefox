@@ -12,27 +12,31 @@ LOG = RaptorLogger(component="raptor-speedometer3-support")
 
 class Speedometer3Support(BasePythonSupport):
     def handle_result(self, bt_result, raw_result, **kwargs):
-        """Parse Speedometer 3 results."""
+        """Parse a result for the required results.
 
-        for result in raw_result["extras"]:
-            overall_score = round(result["s3"]["score"]["mean"], 3)
-            measurements = {}
+        See base_python_support.py for what's expected from this method.
+        """
+        for res in raw_result["extras"]:
+            sp3_mean_score = round(res["s3"]["score"]["mean"], 3)
+            flattened_metrics_s3_internal = flatten(res["s3_internal"], ())
 
-            subtest_summary = result.get("s3_subtests_summary", {})
-            for metric_name, metric_value in subtest_summary.items():
-                measurements[metric_name] = [round(float(metric_value), 3)]
+            clean_flat_internal_metrics = {}
+            for k, vals in flattened_metrics_s3_internal.items():
+                if k in ("mean", "geomean"):
+                    # Skip these for parity with what was being
+                    # returned in the results.py/output.py
+                    continue
+                clean_flat_internal_metrics[k.replace("tests/", "")] = [
+                    round(val, 3) for val in vals
+                ]
 
-            flattened_internal = flatten(result.get("s3_internal", []), ())
-            total_values = flattened_internal.get("total", [])
+            clean_flat_internal_metrics["score-internal"] = clean_flat_internal_metrics[
+                "score"
+            ]
+            clean_flat_internal_metrics["score"] = [sp3_mean_score]
 
-            if total_values:
-                derived_total_mean = sum(total_values) / len(total_values)
-                measurements["total"] = [round(derived_total_mean, 3)]
-
-            measurements["score"] = [overall_score]
-
-            for name, values in measurements.items():
-                bt_result["measurements"].setdefault(name, []).extend(values)
+            for k, v in clean_flat_internal_metrics.items():
+                bt_result["measurements"].setdefault(k, []).extend(v)
 
     def _build_subtest(self, measurement_name, replicates, test):
         unit = test.get("unit", "ms")

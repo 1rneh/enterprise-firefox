@@ -36,8 +36,12 @@ using namespace gfx;
 
 namespace layers {
 
-WebRenderLayerManager::WebRenderLayerManager(nsIWidget* aWidget)
+bool WebRenderLayerManager::sHasInitialized = false;
+
+WebRenderLayerManager::WebRenderLayerManager(
+    nsIWidget* aWidget, already_AddRefed<WebRenderBridgeChild> aWrChild)
     : mWidget(aWidget),
+      mWrChild(aWrChild),
       mLatestTransactionId{0},
       mNeedsComposite(false),
       mIsFirstPaint(false),
@@ -47,29 +51,28 @@ WebRenderLayerManager::WebRenderLayerManager(nsIWidget* aWidget)
       mApzTestData(new APZTestData),
       mWebRenderCommandBuilder(this) {
   MOZ_COUNT_CTOR(WebRenderLayerManager);
+  MOZ_RELEASE_ASSERT(mWidget);
+  MOZ_RELEASE_ASSERT(mWrChild);
   mStateManager.mLayerManager = this;
 }
 
 KnowsCompositor* WebRenderLayerManager::AsKnowsCompositor() { return mWrChild; }
 
-bool WebRenderLayerManager::Initialize(
-    PCompositorBridgeChild* aCBChild, wr::PipelineId aLayersId,
-    TextureFactoryIdentifier* aTextureFactoryIdentifier, nsCString& aError) {
-  MOZ_ASSERT(mWrChild == nullptr);
-  MOZ_ASSERT(aTextureFactoryIdentifier);
-
-  // When we fail to initialize WebRender, it is useful to know if it has ever
-  // succeeded, or if this is the first attempt.
-  static bool hasInitialized = false;
+/* static */
+RefPtr<WebRenderLayerManager> WebRenderLayerManager::Create(
+    nsIWidget* aWidget, PCompositorBridgeChild* aCBChild,
+    wr::PipelineId aPipelineId, nsCString& aError) {
+  MOZ_RELEASE_ASSERT(aWidget);
+  MOZ_RELEASE_ASSERT(aCBChild);
 
   WindowKind windowKind;
-  if (mWidget->GetWindowType() != widget::WindowType::Popup) {
+  if (aWidget->GetWindowType() != widget::WindowType::Popup) {
     windowKind = WindowKind::MAIN;
   } else {
     windowKind = WindowKind::SECONDARY;
   }
 
-  LayoutDeviceIntSize size = mWidget->GetClientSize();
+  LayoutDeviceIntSize size = aWidget->GetClientSize();
   // Check widget size
   if (!wr::WindowSizeSanityCheck(size.width, size.height)) {
     gfxCriticalNoteOnce << "Widget size is not valid " << size
@@ -77,20 +80,28 @@ bool WebRenderLayerManager::Initialize(
   }
 
   PWebRenderBridgeChild* bridge =
-      aCBChild->SendPWebRenderBridgeConstructor(aLayersId, size, windowKind);
+      aCBChild->SendPWebRenderBridgeConstructor(aPipelineId, size, windowKind);
   if (!bridge) {
     // This should only fail if we attempt to access a layer we don't have
     // permission for, or more likely, the GPU process crashed again during
     // reinitialization. We can expect to be notified again to reinitialize
     // (which may or may not be using WebRender).
     gfxCriticalNote << "Failed to create WebRenderBridgeChild.";
-    aError.Assign(hasInitialized
+    aError.Assign(sHasInitialized
                       ? "FEATURE_FAILURE_WEBRENDER_INITIALIZE_IPDL_POST"_ns
                       : "FEATURE_FAILURE_WEBRENDER_INITIALIZE_IPDL_FIRST"_ns);
-    return false;
+    return nullptr;
   }
 
-  mWrChild = static_cast<WebRenderBridgeChild*>(bridge);
+  RefPtr<WebRenderBridgeChild> wrChild =
+      static_cast<WebRenderBridgeChild*>(bridge);
+  return new WebRenderLayerManager(aWidget, wrChild.forget());
+}
+
+bool WebRenderLayerManager::Initialize(
+    TextureFactoryIdentifier* aTextureFactoryIdentifier, nsCString& aError) {
+  MOZ_ASSERT(aTextureFactoryIdentifier);
+
   mHasFlushedThisChild = false;
 
   TextureFactoryIdentifier textureFactoryIdentifier;
@@ -99,7 +110,7 @@ bool WebRenderLayerManager::Initialize(
   if (!WrBridge()->SendEnsureConnected(&textureFactoryIdentifier, &idNamespace,
                                        &aError)) {
     gfxCriticalNote << "Failed as lost WebRenderBridgeChild.";
-    aError.Assign(hasInitialized
+    aError.Assign(sHasInitialized
                       ? "FEATURE_FAILURE_WEBRENDER_INITIALIZE_SYNC_POST"_ns
                       : "FEATURE_FAILURE_WEBRENDER_INITIALIZE_SYNC_FIRST"_ns);
     return false;
@@ -109,7 +120,7 @@ bool WebRenderLayerManager::Initialize(
       idNamespace.isNothing()) {
     gfxCriticalNote << "Failed to connect WebRenderBridgeChild. isParent="
                     << XRE_IsParentProcess();
-    aError.Append(hasInitialized ? "_POST"_ns : "_FIRST"_ns);
+    aError.Append(sHasInitialized ? "_POST"_ns : "_FIRST"_ns);
     return false;
   }
 
@@ -121,7 +132,7 @@ bool WebRenderLayerManager::Initialize(
   mDLBuilder = MakeUnique<wr::DisplayListBuilder>(
       WrBridge()->GetPipeline(), WrBridge()->GetWebRenderBackend());
 
-  hasInitialized = true;
+  sHasInitialized = true;
   return true;
 }
 
@@ -140,9 +151,7 @@ void WebRenderLayerManager::DoDestroy(bool aIsSync) {
 
   mStateManager.Destroy();
 
-  if (WrBridge()) {
-    WrBridge()->Destroy(aIsSync);
-  }
+  mWrChild->Destroy(aIsSync);
 
   mWebRenderCommandBuilder.Destroy();
 
@@ -726,9 +735,7 @@ void WebRenderLayerManager::SendInvalidRegion(const nsIntRegion& aRegion) {
   // XXX Webrender does not support invalid region yet.
 
 #ifndef XP_WIN
-  if (WrBridge()) {
-    WrBridge()->SendInvalidateRenderedFrame();
-  }
+  WrBridge()->SendInvalidateRenderedFrame();
 #endif
 }
 

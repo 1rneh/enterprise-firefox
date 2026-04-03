@@ -53,10 +53,10 @@ add_task(async function selected_result_autofill_adaptive() {
 
     assertEngagementTelemetry([
       {
-        selected_result: "autofill_adaptive",
+        selected_result: "autofill_adaptive_url",
         selected_position: 1,
         provider: "UrlbarProviderAutofill",
-        results: "autofill_adaptive",
+        results: "autofill_adaptive_url",
       },
     ]);
   });
@@ -92,10 +92,10 @@ add_task(async function selected_result_dismiss_autofill_adaptive_origin() {
 
     assertEngagementTelemetry([
       {
-        selected_result: "autofill_adaptive",
+        selected_result: "autofill_adaptive_origin",
         selected_position: 1,
         provider: "UrlbarProviderAutofill",
-        results: "autofill_adaptive",
+        results: "autofill_adaptive_origin",
       },
     ]);
   });
@@ -131,7 +131,7 @@ add_task(async function selected_result_dismiss_autofill_adaptive_url() {
 
     assertEngagementTelemetry([
       {
-        selected_result: "autofill_adaptive",
+        selected_result: "autofill_adaptive_url",
         selected_position: 1,
         provider: "UrlbarProviderAutofill",
       },
@@ -166,7 +166,7 @@ add_task(
 
       assertEngagementTelemetry([
         {
-          selected_result: "autofill_adaptive",
+          selected_result: "autofill_adaptive_url",
           selected_position: 1,
           provider: "UrlbarProviderAutofill",
         },

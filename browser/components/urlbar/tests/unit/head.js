@@ -847,6 +847,8 @@ function makeSearchResult(
  *   check which provider offered a result unless this option is specified.
  * @param {number} [options.source]
  *   The source of the result
+ * @param {boolean} [options.isAutofillFallback]
+ *   Whether it's a result of being a fallback for the autofill result.
  * @returns {UrlbarResult}
  */
 function makeVisitResult(
@@ -859,6 +861,7 @@ function makeVisitResult(
     tags = [],
     heuristic = false,
     source = UrlbarUtils.RESULT_SOURCE.HISTORY,
+    isAutofillFallback = false,
   }
 ) {
   let payload = {
@@ -892,6 +895,10 @@ function makeVisitResult(
 
   if (!heuristic && tags) {
     payload.tags = tags;
+  }
+
+  if (isAutofillFallback) {
+    payload.isAutofillFallback = true;
   }
 
   return new UrlbarResult({

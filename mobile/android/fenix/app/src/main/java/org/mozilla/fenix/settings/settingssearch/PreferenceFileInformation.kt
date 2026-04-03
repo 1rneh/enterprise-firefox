@@ -78,7 +78,7 @@ sealed class PreferenceFileInformation(
      */
     object DownloadsSettingsPreferences : PreferenceFileInformation(
         xmlResourceId = R.xml.downloads_settings_preferences,
-        topBreadcrumbResourceId = R.string.preferences_downloads,
+        topBreadcrumbResourceId = R.string.preferences_downloads_2,
         categoryHeaderResourceId = R.string.preferences_category_advanced,
         fragmentId = R.id.openDownloadsSettingsFragment,
     )

@@ -1,4 +1,7 @@
 [DEFAULT]
+skip-if = [
+  "debug && standalone", # Bug 2028423
+]
 support-files = [
   "dummy_page.html",
   "head.js",
@@ -141,6 +144,8 @@ support-files = [
   "add_search_engine_two.html",
 ]
 
+["browser_autoFill_adaptive_origin_fallback.js"]
+
 ["browser_autoFill_backspaced.js"]
 
 ["browser_autoFill_backspace_dismissal.js"]
@@ -154,11 +159,15 @@ https_first_disabled = true
 
 ["browser_autoFill_firstResult.js"]
 
+["browser_autoFill_originToAdaptive.js"]
+
 ["browser_autoFill_paste.js"]
 
 ["browser_autoFill_placeholder.js"]
 
 ["browser_autoFill_preserve.js"]
+
+["browser_autoFill_reintegration_telemetry.js"]
 
 ["browser_autoFill_resultMenu_dismissal.js"]
 
@@ -507,6 +516,9 @@ support-files = ["has-a-link.html"]
 ["browser_searchModeSwitcher_emptyInput.js"]
 
 ["browser_searchModeSwitcher_keyNavigation.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt", # Bug 2028824 - fails permanently with Windows 11 25H2
+]
 
 ["browser_searchModeSwitcher_opensearchInstall.js"]
 
@@ -713,6 +725,9 @@ skip-if = [
 
 ["browser_tabMatchesInAwesomebar.js"]
 support-files = ["moz.png"]
+skip-if = [
+  "os == 'win' && standalone", # Bug 2028766
+]
 
 ["browser_tabMatchesInAwesomebar_perwindowpb.js"]
 

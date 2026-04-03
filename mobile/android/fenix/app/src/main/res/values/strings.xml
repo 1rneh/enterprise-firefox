@@ -252,6 +252,8 @@
     <string name="browser_menu_edit_bookmark">Edit bookmark</string>
     <!-- Browser menu label that the saves the currently visited page as a PDF -->
     <string name="browser_menu_save_as_pdf_2">Save as PDF</string>
+    <!-- Browser menu label for moving the current private tab to a non-private tab -->
+    <string name="browser_menu_move_to_non_private_tab">Move to non-private tab</string>
     <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
     <string name="browser_menu_translate_page_2">Translate page</string>
     <!-- Browser menu label for navigating to the summarization feature, which provides site summarization for the current visited page -->
@@ -916,12 +918,17 @@
     <string name="preference_downloads_folder_permission_lost" tools:ignore="UnusedResources">You don’t have permission to use this folder. Try choosing a different one.</string>
     <!-- Preference title for choosing an app to handle downloads -->
     <string name="preferences_choose_app_for_downloads">Manage downloads with another app</string>
-    <!-- Title for the setting to automatically clean up downloaded files. %s is the name of the app (for example "Firefox"). -->
-    <string name="preferences_downloads_settings_clean_up_files_title">Delete from %s and device</string>
-    <!-- Summary for the setting to automatically clean up downloaded files -->
-    <string name="preferences_downloads_settings_clean_up_files_summary">Removing files from your download manager also removes them from your device</string>
+
+    <!-- Preference category for deleting or removing downloads -->
+    <string name="preferences_category_delete_or_remove_downloads">Delete or remove downloads</string>
+    <string name="preferences_downloads_delete_from_device">Delete from device</string>
+    <string name="preferences_downloads_delete_from_device_description">File is deleted from your device and removed from download history</string>
+    <string name="preferences_downloads_remove_from_download_history">Remove from download history</string>
+    <string name="preferences_downloads_remove_from_download_history_description">File is removed from your download history, but is still saved on your device</string>
+    <string name="preferences_downloads_ask_when_to_delete_files">Ask when I delete files</string>
+
     <!-- Preference for downloads -->
-    <string name="preferences_downloads">Downloads</string>
+    <string name="preferences_downloads_2">Download Settings</string>
     <!-- Preference for enabling gecko engine logs -->
     <string name="preferences_enable_gecko_logs">Enable Gecko logs</string>
     <!-- Message to indicate users that we are quitting the application to apply the changes -->
@@ -1597,6 +1604,11 @@
     <!-- Text for the cancel button in the dialog that is shown when there is not enough storage space to download a file.
          This button will dismiss the dialog. -->
     <string name="download_file_has_not_enough_storage_dialog_cancel_button_text">Cancel</string>
+    <!-- Title for the download deletion confirmation dialog. The message changes depending on how many files are selected. %d is the number of files to be deleted. -->
+    <plurals name="downloads_delete_dialog_title">
+        <item quantity="one">Delete file?</item>
+        <item quantity="other">Delete %d files?</item>
+    </plurals>
 
     <!-- Text for the button to delete a single downloaded file item -->
     <string name="download_delete_item">Delete</string>
@@ -1626,6 +1638,16 @@
     <string name="download_delete_multi_select_dialog_confirm">Delete</string>
     <!-- Alert dialog confirmation before deleting multiple download items, this is the negative action. -->
     <string name="download_delete_multi_select_dialog_cancel">Cancel</string>
+    <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+    <string name="download_delete_dialog_from_device">Delete from device</string>
+    <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+    <string name="download_delete_dialog_from_history">Only remove from download history</string>
+    <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the negative action. -->
+    <string name="download_delete_dialog_cancel">Cancel</string>
+    <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the positive action. -->
+    <string name="download_delete_dialog_confirm">Confirm</string>
+
+
     <!-- Title for the alert dialog confirmation before renaming a download item. -->
     <string name="download_rename_dialog_title">Rename file</string>
     <!-- Label for the name field in the alert dialog confirmation before renaming a download item. -->

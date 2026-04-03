@@ -121,8 +121,8 @@ add_task(async function engagement_type_dismiss_adaptive_autofill_origin() {
     let details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
     Assert.equal(
       details.result.autofill?.type,
-      "adaptive",
-      "Should be adaptive autofill"
+      "adaptive_origin",
+      "Should be adaptive origin autofill"
     );
 
     await UrlbarTestUtils.openResultMenuAndClickItem(
@@ -161,8 +161,8 @@ add_task(async function engagement_type_dismiss_adaptive_autofill_url() {
     let details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
     Assert.equal(
       details.result.autofill?.type,
-      "adaptive",
-      "Should be adaptive autofill"
+      "adaptive_url",
+      "Should be adaptive url autofill"
     );
 
     await UrlbarTestUtils.openResultMenuAndClickItem(
@@ -202,7 +202,7 @@ add_task(
       let details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
       Assert.equal(
         details.result.autofill?.type,
-        "adaptive",
+        "adaptive_url",
         "Should be adaptive autofill"
       );
 

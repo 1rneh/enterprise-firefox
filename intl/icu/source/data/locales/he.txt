@@ -1158,15 +1158,6 @@ he{
                 }
             }
         }
-        japanese{
-            eras{
-                abbreviated{
-                    0{"טאיקה"}
-                    24{"נינג׳ו"}
-                    73{"שוטוקו"}
-                }
-            }
-        }
         persian{
             eras{
                 wide{

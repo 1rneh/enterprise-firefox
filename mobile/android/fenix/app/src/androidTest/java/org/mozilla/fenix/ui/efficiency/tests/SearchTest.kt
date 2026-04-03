@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.ui.efficiency.tests
 
-import org.junit.Ignore
 import org.junit.Test
 import org.mozilla.fenix.ui.efficiency.helpers.BaseTest
 
@@ -24,7 +23,6 @@ class SearchTest : BaseTest() {
     }
 
     // TestRail link:
-    @Ignore("Disabled: https://bugzilla.mozilla.org/show_bug.cgi?id=2028590")
     @Test
     fun browserSearchBarItemsTest() {
         // Given: App is loaded with default settings

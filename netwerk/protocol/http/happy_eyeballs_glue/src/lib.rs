@@ -61,7 +61,7 @@ pub extern "C" fn happy_eyeballs_create(
         .iter()
         .map(|a| happy_eyeballs::AltSvc {
             host: None,
-            port: None,
+            port: if a.port != 0 { Some(a.port) } else { None },
             http_version: a.http_version.into(),
         })
         .collect();
@@ -72,7 +72,7 @@ pub extern "C" fn happy_eyeballs_create(
         ..Default::default()
     };
 
-    let profiler = profiler::Profiler::new(0, &origin_str, &network_config);
+    let profiler = profiler::Profiler::new(0u64.into(), &origin_str, &network_config);
 
     let raw_ptr = match happy_eyeballs::HappyEyeballs::new_with_network_config(
         origin_str.as_str(),
@@ -88,7 +88,7 @@ pub extern "C" fn happy_eyeballs_create(
             });
             boxed
                 .profiler
-                .set_flow_id(std::ptr::from_ref(&boxed.refcnt) as u64);
+                .set_flow_id(std::ptr::from_ref(&boxed.refcnt).into());
             Box::into_raw(boxed)
         }
         Err(_) => return NS_ERROR_UNEXPECTED,
@@ -175,6 +175,7 @@ pub extern "C" fn happy_eyeballs_process_output(
     he: *mut HappyEyeballs,
     ret_event: *mut Output,
     ech_config: *mut ThinVec<u8>,
+    dns_hostname: *mut nsACString,
 ) -> nsresult {
     let Some(he) = (unsafe { he.as_mut() }) else {
         debug_assert!(false, "unexpected null he pointer");
@@ -191,7 +192,12 @@ pub extern "C" fn happy_eyeballs_process_output(
         return NS_ERROR_INVALID_ARG;
     };
 
-    he.process_output(ret_event, ech_config)
+    let Some(dns_hostname) = (unsafe { dns_hostname.as_mut() }) else {
+        debug_assert!(false, "unexpected null dns_hostname pointer");
+        return NS_ERROR_INVALID_ARG;
+    };
+
+    he.process_output(ret_event, ech_config, dns_hostname)
 }
 
 #[repr(C)]
@@ -359,17 +365,25 @@ impl HappyEyeballs {
         NS_OK
     }
 
-    fn process_output(&mut self, ret_event: &mut Output, ech_config: &mut ThinVec<u8>) -> nsresult {
+    fn process_output(
+        &mut self,
+        ret_event: &mut Output,
+        ech_config: &mut ThinVec<u8>,
+        dns_hostname: &mut nsACString,
+    ) -> nsresult {
         let out = self.inner.process_output(std::time::Instant::now());
         ech_config.clear();
+        dns_hostname.truncate();
         match out {
             Some(happy_eyeballs::Output::SendDnsQuery {
                 id,
-                hostname: _hostname,
+                hostname,
                 record_type,
             }) => {
                 self.profiler.dns_query_started(id, record_type);
                 self.metrics.dns_query_started(id, record_type);
+                let hostname: String = hostname.into();
+                dns_hostname.assign(hostname.as_bytes());
                 *ret_event = Output::SendDnsQuery {
                     id: id.into(),
                     record_type: record_type.into(),
@@ -421,10 +435,11 @@ impl HappyEyeballs {
     }
 }
 
-// TODO: Expose ip and port.
+// TODO: Expose host.
 #[repr(C)]
 pub struct AltSvc {
     pub http_version: HttpVersion,
+    pub port: u16,
 }
 
 #[repr(C)]
@@ -512,6 +527,15 @@ impl From<happy_eyeballs::HttpVersion> for ConnectionAttemptHttpVersions {
     }
 }
 
+impl From<happy_eyeballs::FailureReason> for FailureReason {
+    fn from(v: happy_eyeballs::FailureReason) -> Self {
+        match v {
+            happy_eyeballs::FailureReason::DnsResolution => Self::DnsResolution,
+            happy_eyeballs::FailureReason::Connection => Self::Connection,
+        }
+    }
+}
+
 #[repr(C)]
 pub struct ServiceInfo {
     pub priority: u16,
@@ -539,6 +563,12 @@ impl From<std::net::IpAddr> for IpAddr {
 }
 
 #[repr(C)]
+pub enum FailureReason {
+    DnsResolution = 0,
+    Connection = 1,
+}
+
+#[repr(C)]
 pub enum Output {
     SendDnsQuery {
         id: u64,
@@ -563,20 +593,6 @@ pub enum Output {
     None,
 }
 
-#[repr(C)]
-pub enum FailureReason {
-    DnsResolution = 0,
-    Connection = 1,
-}
-
-impl From<happy_eyeballs::FailureReason> for FailureReason {
-    fn from(v: happy_eyeballs::FailureReason) -> Self {
-        match v {
-            happy_eyeballs::FailureReason::DnsResolution => Self::DnsResolution,
-            happy_eyeballs::FailureReason::Connection => Self::Connection,
-        }
-    }
-}
 
 #[no_mangle]
 pub unsafe extern "C" fn happy_eyeballs_release(happy_eyeballs: *const HappyEyeballs) {

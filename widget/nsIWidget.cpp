@@ -13,7 +13,6 @@
 #include "TouchEvents.h"
 #include "X11UndefineNone.h"
 #include "base/thread.h"
-#include "mozilla/Attributes.h"
 #include "mozilla/GlobalKeyListener.h"
 #include "mozilla/IMEStateManager.h"
 #include "mozilla/Logging.h"
@@ -274,7 +273,7 @@ int32_t nsIWidget::sPointerIdCounter = 0;
 // Some statics from nsIWidget.h
 /*static*/
 uint64_t AutoSynthesizedEventCallbackNotifier::sCallbackId = 0;
-MOZ_RUNINIT nsTHashMap<uint64_t, nsCOMPtr<nsISynthesizedEventCallback>>
+constinit nsTHashMap<uint64_t, nsCOMPtr<nsISynthesizedEventCallback>>
     AutoSynthesizedEventCallbackNotifier::sSavedCallbacks;
 
 // The maximum amount of time to let the EnableDragDrop runnable wait in the
@@ -1508,8 +1507,6 @@ already_AddRefed<WebRenderLayerManager> nsIWidget::CreateCompositorSession(
     options.SetInitiallyPaused(CompositorInitiallyPaused());
 #endif
 
-    RefPtr<WebRenderLayerManager> lm = new WebRenderLayerManager(this);
-
     uint64_t innerWindowId = 0;
     if (Document* doc = GetDocument()) {
       innerWindowId = doc->InnerWindowID();
@@ -1517,15 +1514,18 @@ already_AddRefed<WebRenderLayerManager> nsIWidget::CreateCompositorSession(
 
     bool retry = false;
     mCompositorSession = gpm->CreateTopLevelCompositor(
-        this, lm, GetDefaultScale(), options, UseExternalCompositingSurface(),
+        this, GetDefaultScale(), options, UseExternalCompositingSurface(),
         gfx::IntSize(aWidth, aHeight), innerWindowId, &retry);
 
+    RefPtr<WebRenderLayerManager> lm;
     if (mCompositorSession) {
-      TextureFactoryIdentifier textureFactoryIdentifier;
       nsCString error;
-      lm->Initialize(mCompositorSession->GetCompositorBridgeChild(),
-                     wr::AsPipelineId(mCompositorSession->RootLayerTreeId()),
-                     &textureFactoryIdentifier, error);
+      TextureFactoryIdentifier textureFactoryIdentifier;
+      lm = mCompositorSession->GetCompositorBridgeChild()->CreateLayerManager(
+          this, wr::AsPipelineId(mCompositorSession->RootLayerTreeId()), error);
+      if (lm) {
+        lm->Initialize(&textureFactoryIdentifier, error);
+      }
       if (textureFactoryIdentifier.mParentBackend != LayersBackend::LAYERS_WR) {
         retry = true;
         DestroyCompositor();

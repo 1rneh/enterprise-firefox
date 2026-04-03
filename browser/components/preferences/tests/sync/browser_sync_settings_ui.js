@@ -299,9 +299,8 @@ add_task(async function testSyncedEnginesEmptyState() {
       let syncEnginesList = syncConfigured.querySelector("sync-engines-list");
       ok(syncEnginesList, "sync-engines-list component is displayed.");
 
-      let engineListEmptyState = syncEnginesList.shadowRoot.querySelector(
-        "placeholder-message"
-      );
+      let engineListEmptyState =
+        syncEnginesList.shadowRoot.querySelector(".empty-state");
       ok(
         engineListEmptyState,
         "Empty state message is displayed when syncing is on but non of the engines is synced."

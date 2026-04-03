@@ -454,12 +454,13 @@ bool SVGElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
       // Check for SVGAnimatedPointList attribute
       if (GetPointListAttrName() == aAttribute) {
         if (SVGAnimatedPointList* pointList = GetAnimatedPointList()) {
-          pointList->SetBaseValueString(aValue);
-          // The spec says we parse everything up to the failure, so we DON'T
-          // need to check the result of SetBaseValueString or call
-          // pointList->ClearBaseValue() if it fails
-          aResult.SetTo(pointList->GetBaseValue(), &aValue);
-          didSetResult = true;
+          rv = pointList->SetBaseValueString(aValue);
+          if (NS_FAILED(rv)) {
+            pointList->ClearBaseValue();
+          } else {
+            aResult.SetTo(pointList->GetBaseValue(), &aValue);
+            didSetResult = true;
+          }
           foundMatch = true;
         }
       }

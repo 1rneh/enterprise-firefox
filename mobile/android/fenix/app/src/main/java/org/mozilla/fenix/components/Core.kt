@@ -146,6 +146,7 @@ import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryC
 import org.mozilla.fenix.tabgroups.storage.redux.middleware.TabGroupMiddleware
 import org.mozilla.fenix.tabgroups.storage.repository.DefaultTabGroupRepository
 import org.mozilla.fenix.telemetry.TelemetryMiddleware
+import org.mozilla.fenix.utils.Settings.DeleteDownloadBehavior
 import org.mozilla.fenix.utils.getUndoDelay
 import org.mozilla.geckoview.GeckoRuntime
 import java.util.concurrent.TimeUnit
@@ -363,7 +364,7 @@ class Core(
                     applicationContext = context,
                     downloadServiceClass = DownloadService::class.java,
                     deleteFileFromStorage = {
-                       context.settings().shouldCleanUpDownloadsAutomatically()
+                        context.settings().deleteDownloadBehavior == DeleteDownloadBehavior.DELETE_FROM_DEVICE
                     },
                     downloadFileUtils = DefaultDownloadFileUtils(
                         context = context.applicationContext,

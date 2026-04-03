@@ -52,6 +52,23 @@ const lazy = XPCOMUtils.declareLazy({
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
 });
 
+/**
+ * Parses a URL and returns the origin parts needed for moz_origins lookups.
+ * Returns null if the URL is unparseable.
+ *
+ * @param {string} url
+ *   The URL to parse.
+ * @returns {{ prefix: string, host: string } | null}
+ *   The prefix (scheme + "//") and host, or null if parsing failed.
+ */
+function parseOriginParts(url) {
+  let parsed = URL.parse(url);
+  if (!parsed) {
+    return null;
+  }
+  return { prefix: parsed.protocol + "//", host: parsed.host };
+}
+
 export var UrlbarUtils = {
   // Results are categorized into groups to help the muxer compose them.  See
   // UrlbarUtils.getResultGroup.  Since result groups are stored in result
@@ -1064,6 +1081,197 @@ export var UrlbarUtils = {
         { url, input: input.toLowerCase() }
       );
     });
+  },
+
+  /**
+   * Temporarily blocks autofill for the given URL. If the URL is an origin,
+   * blocks origin autofill via blockOriginAutofill. Otherwise, blocks
+   * page-level autofill via blockOriginPageAutofill.
+   *
+   * @param {string} url
+   *   The URL to block from autofill.
+   * @param {number} blockUntilMs
+   *   Epoch timestamp in ms after which the block expires.
+   */
+  async blockAutofill(url, blockUntilMs) {
+    if (this.isOriginUrl(url)) {
+      await this.blockOriginAutofill(url, blockUntilMs);
+    } else {
+      await this.blockOriginPageAutofill(url, blockUntilMs);
+    }
+  },
+
+  /**
+   * Temporarily blocks origin autofill for the given URL's origin and all its
+   * scheme/www variations. For example, blocking https://www.example.com also
+   * blocks http://www.example.com, http://example.com, and
+   * https://example.com. The lookup matches against moz_origins directly, so
+   * the URL need not have a corresponding entry in moz_places.
+   *
+   * This is a no-op if the URL is unparseable.
+   *
+   * @param {string} url
+   *   A URL belonging to the origin to block.
+   * @param {number} blockUntilMs
+   *   Epoch timestamp in ms after which the block expires.
+   */
+  async blockOriginAutofill(url, blockUntilMs) {
+    let origin = parseOriginParts(url);
+    if (!origin) {
+      return;
+    }
+
+    let baseHost = origin.host.replace(/^www\./, "");
+    let wwwHost = "www." + baseHost;
+
+    await lazy.PlacesUtils.withConnectionWrapper("blockOriginAutofill", db => {
+      return db.executeCached(
+        `
+      UPDATE moz_origins SET block_until_ms = :blockUntilMs
+      WHERE host IN (:baseHost, :wwwHost)
+        AND prefix IN ('http://', 'https://')
+      `,
+        { blockUntilMs, baseHost, wwwHost }
+      );
+    });
+  },
+
+  /**
+   * Temporarily blocks page-level autofill for the given URL's origin and all
+   * its scheme/www variations. For example, blocking https://www.example.com
+   * also blocks http://www.example.com, http://example.com, and
+   * https://example.com.
+   *
+   * This is a no-op if the URL is unparseable.
+   *
+   * @param {string} url
+   *   A URL belonging to the origin to block.
+   * @param {number} blockPagesUntilMs
+   *   Epoch timestamp in ms after which the block expires.
+   */
+  async blockOriginPageAutofill(url, blockPagesUntilMs) {
+    let origin = parseOriginParts(url);
+    if (!origin) {
+      return;
+    }
+
+    let baseHost = origin.host.replace(/^www\./, "");
+    let wwwHost = "www." + baseHost;
+
+    await lazy.PlacesUtils.withConnectionWrapper(
+      "blockOriginPageAutofill",
+      db => {
+        return db.executeCached(
+          `
+        UPDATE moz_origins SET block_pages_until_ms = :blockPagesUntilMs
+        WHERE host IN (:baseHost, :wwwHost)
+          AND prefix IN ('http://', 'https://')
+        `,
+          { blockPagesUntilMs, baseHost, wwwHost }
+        );
+      }
+    );
+  },
+
+  /**
+   * Clears an origin-level autofill block for the given URL's origin and all
+   * its scheme/www variations. For example, clearing a block on
+   * http://example.com also clears blocks on https://example.com,
+   * http://www.example.com, and https://www.example.com. The lookup matches
+   * against moz_origins directly, so the URL need not have a corresponding
+   * entry in moz_places.
+   *
+   * This is a no-op if the URL is unparseable or the origin is not
+   * currently blocked.
+   *
+   * @param {string} url
+   *   A URL belonging to the origin to unblock.
+   * @returns {Promise<boolean>}
+   *   True if a block was actually cleared, false otherwise.
+   */
+  async clearOriginAutofillBlock(url) {
+    let origin = parseOriginParts(url);
+    if (!origin) {
+      return false;
+    }
+
+    let baseHost = origin.host.replace(/^www\./, "");
+    let wwwHost = "www." + baseHost;
+
+    let rows = await lazy.PlacesUtils.withConnectionWrapper(
+      "clearOriginAutofillBlock",
+      db => {
+        return db.executeCached(
+          `
+        UPDATE moz_origins SET block_until_ms = NULL
+        WHERE host IN (:baseHost, :wwwHost)
+          AND prefix IN ('http://', 'https://')
+          AND block_until_ms IS NOT NULL
+        RETURNING id
+        `,
+          { baseHost, wwwHost }
+        );
+      }
+    );
+    return !!rows.length;
+  },
+
+  /**
+   * Clears a page-level autofill block for the given URL's origin and all its
+   * scheme/www variations. For example, clearing a block on
+   * http://example.com also clears blocks on https://example.com,
+   * http://www.example.com, and https://www.example.com.
+   *
+   * This is a no-op if the URL is unparseable or the origin's pages are
+   * not currently blocked.
+   *
+   * @param {string} url
+   *   A URL belonging to the origin to unblock.
+   * @returns {Promise<boolean>}
+   *   True if a block was actually cleared, false otherwise.
+   */
+  async clearOriginPageAutofillBlock(url) {
+    let origin = parseOriginParts(url);
+    if (!origin) {
+      return false;
+    }
+
+    let baseHost = origin.host.replace(/^www\./, "");
+    let wwwHost = "www." + baseHost;
+
+    let rows = await lazy.PlacesUtils.withConnectionWrapper(
+      "clearOriginPageAutofillBlock",
+      db => {
+        return db.executeCached(
+          `
+        UPDATE moz_origins SET block_pages_until_ms = NULL
+        WHERE host IN (:baseHost, :wwwHost)
+          AND prefix IN ('http://', 'https://')
+          AND block_pages_until_ms IS NOT NULL
+        RETURNING id
+        `,
+          { baseHost, wwwHost }
+        );
+      }
+    );
+    return !!rows.length;
+  },
+
+  /**
+   * Returns whether a URL is an origin URL, i.e. it has no path beyond "/",
+   * no query string, and no hash.
+   *
+   * @param {string} url
+   *   The URL to check.
+   * @returns {boolean}
+   *   True if the URL is an origin URL, false if it has a path, query, hash,
+   *   or is unparseable.
+   */
+  isOriginUrl(url) {
+    let parsed = URL.parse(url);
+    return (
+      !!parsed && parsed.pathname === "/" && !parsed.search && !parsed.hash
+    );
   },
 
   /**

@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.6.205
- * pdfjsBuild = ada343803
+ * pdfjsVersion = 5.6.224
+ * pdfjsBuild = e37709ea7
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -8256,8 +8256,8 @@ class PatternInfo {
     let offset = 20;
     const coords = new Float32Array(this.buffer, offset, nCoord * 2);
     offset += nCoord * 8;
-    const colors = new Uint8Array(this.buffer, offset, nColor * 3);
-    offset += nColor * 3;
+    const colors = new Uint8Array(this.buffer, offset, nColor * 4);
+    offset += nColor * 4;
     const stops = [];
     for (let i = 0; i < nStop; ++i) {
       const p = dataView.getFloat32(offset, true);
@@ -9490,70 +9490,107 @@ class TilingPattern {
     this.ctx = ctx;
     this.canvasGraphicsFactory = canvasGraphicsFactory;
     this.baseTransform = baseTransform;
+    this.patternBaseMatrix = this.matrix ? Util.transform(baseTransform, this.matrix) : baseTransform;
   }
-  createPatternCanvas(owner, opIdx) {
-    const {
-      bbox,
-      operatorList,
-      paintType,
-      tilingType,
-      color,
-      canvasGraphicsFactory
-    } = this;
-    let {
-      xstep,
-      ystep
-    } = this;
-    xstep = Math.abs(xstep);
-    ystep = Math.abs(ystep);
-    info("TilingType: " + tilingType);
-    const x0 = bbox[0],
-      y0 = bbox[1],
-      x1 = bbox[2],
-      y1 = bbox[3];
-    const width = x1 - x0;
-    const height = y1 - y0;
-    const scale = new Float32Array(2);
-    Util.singularValueDecompose2dScale(this.matrix, scale);
-    const [matrixScaleX, matrixScaleY] = scale;
-    Util.singularValueDecompose2dScale(this.baseTransform, scale);
-    const combinedScaleX = matrixScaleX * scale[0];
-    const combinedScaleY = matrixScaleY * scale[1];
-    let canvasWidth = width,
-      canvasHeight = height,
-      redrawHorizontally = false,
-      redrawVertically = false;
-    const xScaledStep = Math.ceil(xstep * combinedScaleX);
-    const yScaledStep = Math.ceil(ystep * combinedScaleY);
-    const xScaledWidth = Math.ceil(width * combinedScaleX);
-    const yScaledHeight = Math.ceil(height * combinedScaleY);
-    if (xScaledStep >= xScaledWidth) {
-      canvasWidth = xstep;
-    } else {
-      redrawHorizontally = true;
+  canSkipPatternCanvas([width, height, offsetX, offsetY]) {
+    const [x0, y0, x1, y1] = this.bbox;
+    const absXStep = Math.abs(this.xstep);
+    const absYStep = Math.abs(this.ystep);
+    if (width > absXStep + 1e-6 || height > absYStep + 1e-6) {
+      return null;
     }
-    if (yScaledStep >= yScaledHeight) {
-      canvasHeight = ystep;
-    } else {
-      redrawVertically = true;
-    }
-    const dimx = this.getSizeAndScale(canvasWidth, this.ctx.canvas.width, combinedScaleX);
-    const dimy = this.getSizeAndScale(canvasHeight, this.ctx.canvas.height, combinedScaleY);
+    const nXFirst = Math.floor((offsetX - x1) / absXStep) + 1;
+    const nXLast = Math.ceil((offsetX + width - x0) / absXStep) - 1;
+    const nYFirst = Math.floor((offsetY - y1) / absYStep) + 1;
+    const nYLast = Math.ceil((offsetY + height - y0) / absYStep) - 1;
+    return nXLast <= nXFirst && nYLast <= nYFirst ? [nXFirst, nYFirst] : null;
+  }
+  updatePatternDims(clippedBBox, dims) {
+    const inv = Util.inverseTransform(this.patternBaseMatrix);
+    const c1 = [clippedBBox[0], clippedBBox[1]];
+    const c2 = [clippedBBox[2], clippedBBox[3]];
+    Util.applyTransform(c1, inv);
+    Util.applyTransform(c2, inv);
+    dims[0] = Math.abs(c2[0] - c1[0]);
+    dims[1] = Math.abs(c2[1] - c1[1]);
+    dims[2] = Math.min(c1[0], c2[0]);
+    dims[3] = Math.min(c1[1], c2[1]);
+  }
+  _renderTileCanvas(owner, opIdx, dimx, dimy) {
+    const [x0, y0, x1, y1] = this.bbox;
     const tmpCanvas = owner.canvasFactory.create(dimx.size, dimy.size);
     const tmpCtx = tmpCanvas.context;
-    const graphics = canvasGraphicsFactory.createCanvasGraphics(tmpCtx, opIdx);
+    const graphics = this.canvasGraphicsFactory.createCanvasGraphics(tmpCtx, opIdx);
     graphics.groupLevel = owner.groupLevel;
-    this.setFillAndStrokeStyleToContext(graphics, paintType, color);
+    this.setFillAndStrokeStyleToContext(graphics, this.paintType, this.color);
     tmpCtx.translate(-dimx.scale * x0, -dimy.scale * y0);
     graphics.transform(0, dimx.scale, 0, 0, dimy.scale, 0, 0);
     tmpCtx.save();
     graphics.dependencyTracker?.save();
     this.clipBbox(graphics, x0, y0, x1, y1);
     graphics.baseTransform = getCurrentTransform(graphics.ctx);
-    graphics.executeOperatorList(operatorList);
+    graphics.executeOperatorList(this.operatorList);
     graphics.endDrawing();
     graphics.dependencyTracker?.restore();
     tmpCtx.restore();
+    return tmpCanvas;
+  }
+  _getCombinedScales() {
+    const scale = new Float32Array(2);
+    Util.singularValueDecompose2dScale(this.matrix, scale);
+    const [matrixScaleX, matrixScaleY] = scale;
+    Util.singularValueDecompose2dScale(this.baseTransform, scale);
+    return [matrixScaleX * scale[0], matrixScaleY * scale[1]];
+  }
+  drawPattern(owner, path, useEOFill = false, [n, m], opIdx) {
+    const [x0, y0, x1, y1] = this.bbox;
+    const bboxWidth = x1 - x0;
+    const bboxHeight = y1 - y0;
+    const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
+    const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
+    const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
+    const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
+    owner.save();
+    if (useEOFill) {
+      owner.ctx.clip(path, "evenodd");
+    } else {
+      owner.ctx.clip(path);
+    }
+    owner.ctx.setTransform(...this.patternBaseMatrix);
+    owner.ctx.translate(n * this.xstep, m * this.ystep);
+    owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
+    owner.canvasFactory.destroy(tmpCanvas);
+    owner.restore();
+  }
+  createPatternCanvas(owner, opIdx) {
+    const [x0, y0, x1, y1] = this.bbox;
+    const width = x1 - x0;
+    const height = y1 - y0;
+    let {
+      xstep,
+      ystep
+    } = this;
+    xstep = Math.abs(xstep);
+    ystep = Math.abs(ystep);
+    info("TilingType: " + this.tilingType);
+    const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
+    let canvasWidth = width,
+      canvasHeight = height,
+      redrawHorizontally = false,
+      redrawVertically = false;
+    if (Math.ceil(xstep * combinedScaleX) >= Math.ceil(width * combinedScaleX)) {
+      canvasWidth = xstep;
+    } else {
+      redrawHorizontally = true;
+    }
+    if (Math.ceil(ystep * combinedScaleY) >= Math.ceil(height * combinedScaleY)) {
+      canvasHeight = ystep;
+    } else {
+      redrawVertically = true;
+    }
+    const dimx = this.getSizeAndScale(canvasWidth, this.ctx.canvas.width, combinedScaleX);
+    const dimy = this.getSizeAndScale(canvasHeight, this.ctx.canvas.height, combinedScaleY);
+    const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
     if (redrawHorizontally || redrawVertically) {
       const image = tmpCanvas.canvas;
       if (redrawHorizontally) {
@@ -9639,13 +9676,7 @@ class TilingPattern {
     return false;
   }
   getPattern(ctx, owner, inverse, pathType, opIdx) {
-    let matrix = inverse;
-    if (pathType !== PathType.SHADING) {
-      matrix = Util.transform(matrix, owner.baseTransform);
-      if (this.matrix) {
-        matrix = Util.transform(matrix, this.matrix);
-      }
-    }
+    const matrix = pathType !== PathType.SHADING ? Util.transform(inverse, this.patternBaseMatrix) : inverse;
     const temporaryPatternCanvas = this.createPatternCanvas(owner, opIdx);
     let domMatrix = new DOMMatrix(matrix);
     domMatrix = domMatrix.translate(temporaryPatternCanvas.offsetX, temporaryPatternCanvas.offsetY);
@@ -9935,6 +9966,7 @@ class CanvasExtraState {
   textRise = 0;
   fillColor = "#000000";
   strokeColor = "#000000";
+  tilingPatternDims = null;
   patternFill = false;
   patternStroke = false;
   fillAlpha = 1;
@@ -9950,6 +9982,7 @@ class CanvasExtraState {
     const clone = Object.create(this);
     clone.clipBox = this.clipBox.slice();
     clone.minMax = this.minMax.slice();
+    clone.tilingPatternDims = this.tilingPatternDims?.slice();
     return clone;
   }
   getPathBoundingBox(pathType = PathType.FILL, transform = null) {
@@ -10732,6 +10765,9 @@ class CanvasGraphics {
     let [path] = data;
     if (!minMax) {
       path ||= data[0] = new Path2D();
+      if (op !== OPS.stroke && op !== OPS.closeStroke) {
+        this.current.tilingPatternDims = null;
+      }
       this[op](opIdx, path);
       return;
     }
@@ -10743,6 +10779,15 @@ class CanvasGraphics {
       path = data[0] = makePathFromDrawOPS(path);
     }
     Util.axialAlignedBoundingBox(minMax, getCurrentTransform(this.ctx), this.current.minMax);
+    const tilingDims = this.current.tilingPatternDims;
+    if (tilingDims && op !== OPS.stroke && op !== OPS.closeStroke && this.current.fillColor instanceof TilingPattern) {
+      const clippedBBox = Util.intersect(this.current.clipBox, this.current.minMax);
+      if (!clippedBBox) {
+        this.current.tilingPatternDims = null;
+      } else {
+        this.current.fillColor.updatePatternDims(clippedBBox, tilingDims);
+      }
+    }
     this[op](opIdx, path);
     this._pathStartIdx = opIdx;
   }
@@ -10783,7 +10828,19 @@ class CanvasGraphics {
     const fillColor = this.current.fillColor;
     const isPatternFill = this.current.patternFill;
     let needRestore = false;
+    const intersect = this.current.getClippedPathBoundingBox();
     if (isPatternFill) {
+      const dims = this.current.tilingPatternDims;
+      const tileIdx = dims && fillColor.canSkipPatternCanvas(dims);
+      if (tileIdx) {
+        fillColor.drawPattern(this, path, this.pendingEOFill, tileIdx, opIdx);
+        this.pendingEOFill = false;
+        if (consumePath) {
+          this.consumePath(opIdx, path, intersect);
+        }
+        this.current.tilingPatternDims = null;
+        return;
+      }
       const baseTransform = fillColor.isModifyingCurrentTransform() ? ctx.getTransform() : null;
       this.dependencyTracker?.save(opIdx);
       ctx.save();
@@ -10795,7 +10852,6 @@ class CanvasGraphics {
       }
       needRestore = true;
     }
-    const intersect = this.current.getClippedPathBoundingBox();
     if (this.contentVisible && intersect !== null) {
       if (this.pendingEOFill) {
         ctx.fill(path, "evenodd");
@@ -11318,8 +11374,9 @@ class CanvasGraphics {
   }
   setFillColorN(opIdx, ...args) {
     this.dependencyTracker?.recordSimpleData("fillColor", opIdx);
-    this.current.fillColor = this.getColorN_Pattern(opIdx, args);
+    const pattern = this.current.fillColor = this.getColorN_Pattern(opIdx, args);
     this.current.patternFill = true;
+    this.current.tilingPatternDims = pattern instanceof TilingPattern ? [0, 0, 0, 0] : null;
   }
   setStrokeRGBColor(opIdx, color) {
     this.dependencyTracker?.recordSimpleData("strokeColor", opIdx);
@@ -11335,11 +11392,13 @@ class CanvasGraphics {
     this.dependencyTracker?.recordSimpleData("fillColor", opIdx);
     this.ctx.fillStyle = this.current.fillColor = color;
     this.current.patternFill = false;
+    this.current.tilingPatternDims = null;
   }
   setFillTransparent(opIdx) {
     this.dependencyTracker?.recordSimpleData("fillColor", opIdx);
     this.ctx.fillStyle = this.current.fillColor = "transparent";
     this.current.patternFill = false;
+    this.current.tilingPatternDims = null;
   }
   _getPattern(opIdx, objId, matrix = null) {
     let pattern;
@@ -13720,7 +13779,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "5.6.205",
+    apiVersion: "5.6.224",
     data,
     password,
     disableAutoFetch,
@@ -15345,8 +15404,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "5.6.205";
-const build = "ada343803";
+const version = "5.6.224";
+const build = "e37709ea7";
 
 ;// ./src/display/editor/color_picker.js
 

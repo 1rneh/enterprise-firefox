@@ -373,10 +373,15 @@ pref("browser.urlbar.autoFill", true);
 pref("browser.urlbar.autoFill.adaptiveHistory.enabled", false);
 
 // Duration in ms to block after backspace penalty. Default: 2 days.
-pref("browser.urlbar.autoFill.adaptiveHistory.backspaceBlockDurationMs", 172800000);
+pref("browser.urlbar.autoFill.backspaceBlockDurationMs", 172800000);
+
+// How many times the user must consecutively backspace away an autofill
+// suggestion before we penalize and temporarily suppress it from autofilling.
+// The result may still appear as a regular history result.
+pref("browser.urlbar.autoFill.backspaceThreshold", 3);
 
 // Duration in ms to block an origin/URL after dismiss. Default: 7 days.
-pref("browser.urlbar.autoFill.adaptiveHistory.dismissalBlockDurationMs", 604800000);
+pref("browser.urlbar.autoFill.dismissalBlockDurationMs", 604800000);
 
 // Minimum char length of the user's search string to enable adaptive history
 // autofill.

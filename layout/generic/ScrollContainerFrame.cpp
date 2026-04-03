@@ -4158,7 +4158,7 @@ void ScrollContainerFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
         nsDisplaySolidColor* color = MakeDisplayItem<nsDisplaySolidColor>(
             aBuilder, this,
             dirtyRect + aBuilder->GetCurrentFrameOffsetToReferenceFrame(),
-            NS_RGBA(0, 0, 255, 64), false);
+            NS_RGBA(0, 0, 255, 64));
         if (color) {
           color->SetOverrideZIndex(INT32_MAX);
           set.PositionedDescendants()->AppendToTop(color);

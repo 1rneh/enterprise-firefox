@@ -8,12 +8,14 @@ import mozilla.components.concept.llm.Llm
 import mozilla.components.feature.summarize.ContentExtracted
 import mozilla.components.feature.summarize.OffDeviceSummarizationShakeConsentAction
 import mozilla.components.feature.summarize.OnDeviceSummarizationShakeConsentAction
-import mozilla.components.feature.summarize.ReceivedLlmResponse
 import mozilla.components.feature.summarize.SummarizationAction
+import mozilla.components.feature.summarize.SummarizationCompleted
+import mozilla.components.feature.summarize.SummarizationFailed
 import mozilla.components.feature.summarize.SummarizationRequested
 import mozilla.components.feature.summarize.SummarizationState
 import mozilla.components.feature.summarize.ViewAppeared
 import mozilla.components.feature.summarize.ViewDismissed
+import mozilla.components.feature.summarize.content.Content
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
 import mozilla.telemetry.glean.GleanTimerId
@@ -76,8 +78,9 @@ class SummarizationTelemetryMiddleware(
             is SummarizationRequested -> {
                 sessionTelemetry = sessionTelemetry.copy(model = action.info.nameRes.toString())
             }
-            is ContentExtracted -> handleExtractedContent(action)
-            is ReceivedLlmResponse -> handleReceivedResponse(action)
+            is ContentExtracted -> handleExtractedContent(action.content)
+            is SummarizationCompleted -> recordSummarizationCompleted()
+            is SummarizationFailed -> recordSummarizationCompleted(success = false, action.throwable.errorType)
             ViewDismissed -> {
                 AiSummarize.closed.record(
                     AiSummarize.ClosedExtra(
@@ -128,13 +131,13 @@ class SummarizationTelemetryMiddleware(
         }
     }
 
-    private fun handleExtractedContent(action: ContentExtracted) {
+    private fun handleExtractedContent(content: Content) {
         sessionTelemetry = sessionTelemetry.copy(
             contentMetrics = ContentMetrics(
-                wordCount = action.pageMetadata?.wordCount ?: -1,
-                charCount = action.content.length,
-                contentType = action.pageMetadata?.structuredDataTypes?.toString(),
-                language = action.pageMetadata?.language ?: "",
+                wordCount = content.metadata.wordCount,
+                charCount = content.body.length,
+                contentType = content.metadata.structuredDataTypes.toString(),
+                language = content.metadata.language,
             ),
         )
         AiSummarize.started.record(
@@ -148,23 +151,7 @@ class SummarizationTelemetryMiddleware(
         )
     }
 
-    private fun handleReceivedResponse(action: ReceivedLlmResponse) {
-        when (action.response) {
-            is Llm.Response.Success.ReplyFinished -> {
-                recordSummarizationCompleted(success = true, errorType = null)
-            }
-            is Llm.Response.Failure -> {
-                recordSummarizationCompleted(
-                    success = false,
-                    errorType = (action.response as? Llm.Response.Failure)
-                        ?.exception?.errorCode?.value?.toString(),
-                )
-            }
-            else -> {}
-        }
-    }
-
-    private fun recordSummarizationCompleted(success: Boolean, errorType: String?) {
+    private fun recordSummarizationCompleted(success: Boolean = true, errorType: String? = null) {
         timerId?.let {
             AiSummarize.duration.stopAndAccumulate(it)
             timerId = null
@@ -185,3 +172,5 @@ class SummarizationTelemetryMiddleware(
         )
     }
 }
+
+private val Throwable.errorType get() = (this as? Llm.Exception)?.errorCode?.value?.toString()

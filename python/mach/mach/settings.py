@@ -118,8 +118,8 @@ class MachSettings:
                 (
                     "try.pushremote",
                     "string",
-                    "git@github.com",
-                    "VCS host/username to push",
+                    "Remote name or url to push to.",
+                    "ssh://hg.mozilla.org/try",
                 ),
             ]
 

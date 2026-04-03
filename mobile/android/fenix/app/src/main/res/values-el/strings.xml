@@ -920,7 +920,7 @@
   <!-- Preference for settings related to visual options -->
   <string name="preferences_customize">Προσαρμογή</string>
   <!-- Preference description shown in the banner prompting the user to sign in for sync features -->
-  <string name="preferences_sign_in_description">Συγχρονίστε τις καρτέλες, τους σελιδοδείκτες, τους κωδικούς πρόσβασής και πολλά άλλα.</string>
+  <string name="preferences_sign_in_description">Συγχρονίστε καρτέλες, σελιδοδείκτες, κωδικούς πρόσβασης και πολλά άλλα.</string>
   <!-- Preference shown instead of account display name while account profile information isn't available yet. -->
   <string name="preferences_account_default_name_2">Λογαριασμός Mozilla</string>
   <!-- Preference text for account title when there was an error syncing FxA -->
@@ -2099,7 +2099,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">Το «%s» διαγράφηκε</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Διαγραμμένα στοιχεία: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Πλοήγηση προς τα πίσω</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Προσθήκη νέου φακέλου</string>
@@ -2308,6 +2312,8 @@
   <string name="menu_print">Εκτύπωση</string>
   <!-- Sub-header in the dialog to share a link to another sync device -->
   <string name="share_device_subheader">Αποστολή σε συσκευή</string>
+  <!-- Content description for the drag handle that dismisses the Send to Device bottom sheet -->
+  <string name="send_to_devices_bottom_sheet_close_content_description">Κλείσιμο αποστολής σε συσκευή</string>
   <!-- Sub-header in the dialog to share a link to an app from the full list -->
   <string name="share_link_all_apps_subheader">Όλες οι ενέργειες</string>
   <!-- Sub-header in the dialog to share a link to an app from the most-recent sorted list -->

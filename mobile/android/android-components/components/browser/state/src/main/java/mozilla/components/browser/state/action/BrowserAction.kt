@@ -1872,6 +1872,8 @@ sealed class SearchAction : BrowserAction() {
         val additionalAvailableSearchEngines: List<SearchEngine>,
         val userSelectedSearchEngineId: String?,
         val userSelectedSearchEngineName: String?,
+        val userSelectedPrivateSearchEngineId: String?,
+        val userSelectedPrivateSearchEngineName: String?,
         val regionDefaultSearchEngineId: String,
         val regionSearchEnginesOrder: List<String>,
         val searchEnginesConfigurationId: Int?,
@@ -1902,6 +1904,21 @@ sealed class SearchAction : BrowserAction() {
         val searchEngineId: String,
         val searchEngineName: String?,
     ) : SearchAction()
+
+    /**
+     * Updates [BrowserState.search] to update [SearchState.userSelectedPrivateSearchEngineId] and
+     * [SearchState.userSelectedPrivateSearchEngineName].
+     */
+    data class SelectPrivateSearchEngineAction(
+        val searchEngineId: String,
+        val searchEngineName: String?,
+    ) : SearchAction()
+
+    /**
+     * Clears the private browsing search engine override, causing it to fall back to the
+     * normal default search engine.
+     */
+    object ClearPrivateSearchEngineAction : SearchAction()
 
     /**
      * Shows a previously hidden, bundled search engine in [SearchState.regionSearchEngines] again

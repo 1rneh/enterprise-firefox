@@ -194,10 +194,10 @@ class DeclarationBlock final {
     return Servo_DeclarationBlock_GetPropertyIsImportant(mRaw, &aProperty);
   }
 
-  bool GetPropertyTypedValue(const CSSPropertyId& aPropId,
-                             StylePropertyTypedValue& aValue) const {
-    return Servo_DeclarationBlock_GetPropertyTypedValue(mRaw, &aPropId,
-                                                        &aValue);
+  bool GetPropertyTypedValueList(const CSSPropertyId& aPropId,
+                                 StylePropertyTypedValueList& aValue) const {
+    return Servo_DeclarationBlock_GetPropertyTypedValueList(mRaw, &aPropId,
+                                                            &aValue);
   }
 
   // Returns whether the property was removed.

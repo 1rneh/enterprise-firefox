@@ -803,7 +803,6 @@ export class DiscoveryStreamFeed {
     if (layoutData.spocs) {
       url =
         this.store.getState().Prefs.values[PREF_SPOCS_ENDPOINT] ||
-        this.config.spocs_endpoint ||
         layoutData.spocs.url;
 
       const spocsEndpointQuery =
@@ -1207,14 +1206,11 @@ export class DiscoveryStreamFeed {
       if (placements?.length) {
         const headers = new Headers();
         headers.append("content-type", "application/json");
-        const apiKeyPref = this.config.api_key_pref;
-        const apiKey = Services.prefs.getCharPref(apiKeyPref, "");
         const state = this.store.getState();
         let endpoint = state.DiscoveryStream.spocs.spocs_endpoint;
         let body = {
           pocket_id: this._impressionId,
           version: 2,
-          consumer_key: apiKey,
           ...(placements.length ? { placements } : {}),
         };
 
@@ -2649,6 +2645,7 @@ export class DiscoveryStreamFeed {
         this.retryFeed(action.data.feed);
         break;
       case at.DISCOVERY_STREAM_CONFIG_CHANGE:
+      case at.DISCOVERY_STREAM_DEV_REFRESH_CACHE:
         // When the config pref changes, load or unload data as needed.
         await this.onPrefChange();
         break;

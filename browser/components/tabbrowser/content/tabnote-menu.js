@@ -260,7 +260,11 @@
     saveNote() {
       let note = this.#noteField.value;
 
-      if (TabNotes.isEligible(this.#currentTab) && note.trim().length) {
+      if (
+        TabNotes.isEligible(this.#currentTab) &&
+        note.trim().length &&
+        note.length <= OVERFLOW_MAX_THRESHOLD
+      ) {
         TabNotes.set(this.#currentTab, note, {
           telemetrySource: this.#telemetrySource,
         });

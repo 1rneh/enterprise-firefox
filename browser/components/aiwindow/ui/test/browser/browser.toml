@@ -121,6 +121,8 @@ support-files = [
 
 ["browser_smartwindow_leak.js"]
 
+["browser_smartwindow_metrics_telemetry.js"]
+
 ["browser_smartwindow_panel_list.js"]
 
 ["browser_smartwindow_prompts.js"]

@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.ui.efficiency.tests
 
+import org.junit.Ignore
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
@@ -20,6 +21,7 @@ class HistoryTest : BaseTest() {
         on.history.navigateToPage()
     }
 
+    @Ignore("Disabled: https://bugzilla.mozilla.org/show_bug.cgi?id=2028590")
     @SmokeTest
     @Test
     fun noHistoryInPrivateBrowsingTest() {

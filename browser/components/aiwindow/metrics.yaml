@@ -1004,3 +1004,20 @@ smart_window:
       location: *location
       message_seq: *message_seq
       tabs_selected: *tabs_selected
+
+  memories_optin:
+    type: labeled_boolean
+    labels:
+      - generate_from_conversation
+      - generate_from_history
+    description: |
+      Records if the user is currently opted-in for memories from chat or from browsing.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2027892
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D291280
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - gcardieri@mozilla.com
+    expires: never

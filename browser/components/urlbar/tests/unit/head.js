@@ -1169,6 +1169,30 @@ async function check_results({
 }
 
 /**
+ * Reads a single column from moz_origins for the origin that matches the url.
+ *
+ * @param {string} url
+ *   A URL whose origin row should be looked up.
+ * @param {string} column
+ *   The column name to read from moz_origins.
+ */
+async function getOriginColumn(url, column) {
+  let db = await PlacesUtils.promiseDBConnection();
+  let rows = await db.executeCached(
+    `SELECT o.${column}
+     FROM moz_origins o
+     JOIN moz_places h ON h.origin_id = o.id
+     WHERE h.url_hash = hash(:url) AND h.url = :url
+     LIMIT 1`,
+    { url }
+  );
+  if (!rows.length) {
+    return undefined;
+  }
+  return rows[0].getResultByIndex(0);
+}
+
+/**
  * Returns the frecency of an origin.
  *
  * @param   {string} prefix

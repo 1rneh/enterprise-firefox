@@ -69,10 +69,10 @@ class ComputedStyle {
     Servo_GetComputedValue(this, aId, &aOut);
   }
 
-  // Returns the computed typed value of the given property.
-  bool GetPropertyTypedValue(const CSSPropertyId& aId,
-                             StylePropertyTypedValue& aOut) const {
-    return Servo_ComputedValues_GetPropertyTypedValue(this, &aId, &aOut);
+  // Returns the computed typed value list of the given property.
+  bool GetPropertyTypedValueList(const CSSPropertyId& aId,
+                                 StylePropertyTypedValueList& aOut) const {
+    return Servo_ComputedValues_GetPropertyTypedValueList(this, &aId, &aOut);
   }
 
   // Return the ComputedStyle whose style data should be used for the R,

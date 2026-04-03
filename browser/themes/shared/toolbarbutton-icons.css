@@ -360,6 +360,15 @@
       stroke: var(--icon-color-success);
     }
   }
+
+  &.ipprotection-paused {
+    list-style-image: url("chrome://browser/content/logos/ipprotection-paused.svg");
+    fill: var(--icon-color);
+
+    &:is([overflowedItem="true"], [cui-areatype="panel"]) {
+      list-style-image: url("chrome://browser/content/ipprotection/assets/states/ipprotection-paused.svg");
+    }
+  }
   > .toolbarbutton-icon {
     list-style-image: url("chrome://browser/content/ipprotection/assets/ac-icon.svg");
     width: calc(2 * var(--toolbarbutton-inner-padding) + 16px);

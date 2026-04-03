@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(__file__))
 from felt_tests import FeltTestsBase
 
 
-class FeltEmailInputFocus(FeltTestsBase):
+class FeltVersion(FeltTestsBase):
     """
     Tests the Firefox version in the Felt window
     """
@@ -31,25 +31,25 @@ class FeltEmailInputFocus(FeltTestsBase):
             );
 
             const version = AppConstants.MOZ_APP_VERSION_DISPLAY;
+            let l10n_id = "felt-version";
+            let isodate = null;
+            const is_nightly = AppConstants.NIGHTLY_BUILD === true;
 
-            if (AppConstants.NIGHTLY_BUILD) {
+            if (is_nightly) {
                 const buildID = Services.appinfo.appBuildID;
                 const year = buildID.slice(0, 4);
                 const month = buildID.slice(4, 6);
                 const day = buildID.slice(6, 8);
 
-            return {
-                is_nightly: true,
-                l10n_id: "felt-version-nightly",
-                version,
-                isodate: `${year}-${month}-${day}`,
-            };
+                l10n_id = "felt-version-nightly";
+                isodate = `${year}-${month}-${day}`;
             }
 
             return {
-                l10n_id: "felt-version",
+                is_nightly,
+                l10n_id,
                 version,
-                isodate: null,
+                isodate,
             };
             """
         )

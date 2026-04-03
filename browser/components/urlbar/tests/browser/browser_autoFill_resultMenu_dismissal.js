@@ -92,7 +92,7 @@ add_task(async function dismiss_menu_appears_for_adaptive_autofill_url() {
   Assert.ok(result.heuristic, "Result should be the heuristic");
   Assert.equal(
     result.autofill?.type,
-    "adaptive",
+    "adaptive_url",
     "Autofill type should be 'adaptive'"
   );
 
@@ -133,7 +133,7 @@ add_task(async function dismiss_menu_appears_for_adaptive_autofill_origin() {
   Assert.ok(result.heuristic, "Result should be the heuristic");
   Assert.equal(
     result.autofill?.type,
-    "adaptive",
+    "adaptive_origin",
     "Autofill type should be 'adaptive'"
   );
 
@@ -165,7 +165,7 @@ add_task(async function adaptive_autofill_result_menu_dismiss_click() {
   let { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     result.autofill?.type,
-    "adaptive",
+    "adaptive_url",
     "Should be adaptive autofill"
   );
 
@@ -206,7 +206,8 @@ add_task(async function adaptive_autofill_result_menu_dismiss_click() {
   let detailsAfter = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.ok(
     !detailsAfter.result.autofill ||
-      detailsAfter.result.autofill.type !== "adaptive",
+      (detailsAfter.result.autofill.type !== "adaptive_url" &&
+        detailsAfter.result.autofill.type !== "adaptive_origin"),
     "Adaptive autofill should NOT appear after dismissal"
   );
 
@@ -227,7 +228,7 @@ add_task(async function adaptive_autofill_result_menu_history_click() {
   let { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     result.autofill?.type,
-    "adaptive",
+    "adaptive_url",
     "Should be adaptive autofill"
   );
 
@@ -246,7 +247,8 @@ add_task(async function adaptive_autofill_result_menu_history_click() {
   let detailsAfter = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.ok(
     !detailsAfter.result.autofill ||
-      detailsAfter.result.autofill.type !== "adaptive",
+      (detailsAfter.result.autofill.type !== "adaptive_url" &&
+        detailsAfter.result.autofill.type !== "adaptive_origin"),
     "Adaptive autofill should NOT appear after history item was removed"
   );
 
@@ -273,8 +275,8 @@ add_task(async function dismiss_menu_for_origin_autofill() {
   Assert.ok(result.autofill, "Result should be autofill");
   Assert.notEqual(
     result.autofill?.type,
-    "adaptive",
-    "Autofill type should NOT be 'adaptive'"
+    "adaptive_origin",
+    "Autofill type should NOT be 'adaptive_origin'"
   );
 
   await UrlbarTestUtils.openResultMenuAndClickItem(window, "dismiss_autofill", {
@@ -312,7 +314,7 @@ add_task(async function reintegration_adaptive_page_url() {
   let details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     details.result.autofill?.type,
-    "adaptive",
+    "adaptive_url",
     "Should have adaptive autofill before dismissal"
   );
 
@@ -345,7 +347,9 @@ add_task(async function reintegration_adaptive_page_url() {
   });
   details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.ok(
-    !details.result.autofill || details.result.autofill.type !== "adaptive",
+    !details.result.autofill ||
+      (details.result.autofill.type !== "adaptive_url" &&
+        details.result.autofill.type !== "adaptive_origin"),
     "Adaptive autofill should not appear while blocked"
   );
 
@@ -372,7 +376,7 @@ add_task(async function reintegration_adaptive_page_url() {
   details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     details.result.autofill?.type,
-    "adaptive",
+    "adaptive_url",
     "Adaptive autofill should be restored after reintegration"
   );
 
@@ -394,7 +398,7 @@ add_task(async function reintegration_adaptive_origin() {
   let details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     details.result.autofill?.type,
-    "adaptive",
+    "adaptive_origin",
     "Should have adaptive origin autofill before dismissal"
   );
 
@@ -451,7 +455,7 @@ add_task(async function reintegration_adaptive_origin() {
   details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
   Assert.equal(
     details.result.autofill?.type,
-    "adaptive",
+    "adaptive_origin",
     "Adaptive origin autofill should be restored after reintegration"
   );
 
@@ -486,7 +490,7 @@ add_task(async function reintegration_origins_autofill() {
   Assert.ok(details.autofill, "Should have origins autofill before dismissal");
   Assert.notEqual(
     details.result.autofill?.type,
-    "adaptive",
+    "adaptive_origin",
     "Should be regular origin autofill, not adaptive"
   );
 

@@ -19,11 +19,11 @@ const { AppConstants } = ChromeUtils.importESModule(
  * @typedef {object} AutofillPlaceholder
  * @property {string} value
  *   The autofill value.
- * @property {"origin" | "url" | "adaptive"} type
+ * @property {"origin" | "url" | "adaptive_url" | "adaptive_origin"} type
  *   The autofill type.
  * @property {string} adaptiveHistoryInput
- *   If the type is "adaptive", this is the matching input value from adaptive
- *   history.
+ *   If the type is "adaptive_url" or "adaptive_origin", this is the matching
+ *   input value from adaptive history.
  * @property {number} selectionStart
  *   The selectionStart at the time of autofill.
  * @property {number} selectionEnd
@@ -1833,9 +1833,26 @@ export class UrlbarInput extends HTMLElement {
       let input;
       if (!result.heuristic) {
         input = this._lastSearchString;
-      } else if (result.autofill?.type == "adaptive") {
+      } else if (
+        result.autofill?.type == "adaptive_url" ||
+        result.autofill?.type == "adaptive_origin"
+      ) {
         input = result.autofill.adaptiveHistoryInput;
+      } else if (
+        lazy.UrlbarPrefs.get("autoFillAdaptiveHistoryEnabled") &&
+        result.autofill?.type == "origin" &&
+        // Bug: 2026227: Investigate if we want to use a higher threshold
+        this._lastSearchString?.length > 0
+      ) {
+        // The origin root URL (e.g. http://example.com/) may not be in
+        // moz_places yet. It's derived from a deep-link visit. Defer the
+        // write until the navigation records the visit.
+        lazy.UrlbarUtils.addToInputHistoryWhenReady(
+          url,
+          this._lastSearchString
+        ).catch(console.error);
       }
+
       // `input` may be an empty string, so do a strict comparison here.
       if (input !== undefined) {
         // We don't await for this, because a rejection should not interrupt
@@ -1852,11 +1869,21 @@ export class UrlbarInput extends HTMLElement {
       ) {
         let isOrigin = lazy.UrlbarUtils.isOriginUrl(url);
         if (isOrigin) {
-          lazy.UrlbarUtils.clearOriginAutofillBlock(url).catch(console.error);
+          lazy.UrlbarUtils.clearOriginAutofillBlock(url)
+            .then(wasBlocked => {
+              if (wasBlocked) {
+                Glean.urlbarAutofill.reintegration.origin.add(1);
+              }
+            })
+            .catch(console.error);
         } else {
-          lazy.UrlbarUtils.clearOriginPageAutofillBlock(url).catch(
-            console.error
-          );
+          lazy.UrlbarUtils.clearOriginPageAutofillBlock(url)
+            .then(wasBlocked => {
+              if (wasBlocked) {
+                Glean.urlbarAutofill.reintegration.url.add(1);
+              }
+            })
+            .catch(console.error);
         }
       }
     }
@@ -3352,7 +3379,10 @@ export class UrlbarInput extends HTMLElement {
     // if the caret isn't at the end of the input.
     let canAutofillPlaceholder = false;
     if (this._autofillPlaceholder) {
-      if (this._autofillPlaceholder.type == "adaptive") {
+      if (
+        this._autofillPlaceholder.type == "adaptive_url" ||
+        this._autofillPlaceholder.type == "adaptive_origin"
+      ) {
         canAutofillPlaceholder =
           value.length >=
             this._autofillPlaceholder.adaptiveHistoryInput.length &&

@@ -30,6 +30,8 @@ support-files = ["data/engine.xml"]
 
 ["test_UrlbarSearchUtils.js"]
 
+["test_UrlbarUtils_addToInputHistoryWhenReady.js"]
+
 ["test_UrlbarUtils_addToUrlbarHistory.js"]
 
 ["test_UrlbarUtils_autofillBlock.js"]
@@ -50,6 +52,8 @@ support-files = ["data/engine.xml"]
 
 ["test_autofill_adaptiveHistory.js"]
 requesttimeoutfactor = 3  # Slow on Mac debug
+
+["test_autofill_adaptive_origin_fallback.js"]
 
 ["test_autofill_blocking.js"]
 

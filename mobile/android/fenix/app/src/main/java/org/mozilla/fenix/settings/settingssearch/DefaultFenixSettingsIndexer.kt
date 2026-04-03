@@ -363,7 +363,6 @@ class DefaultFenixSettingsIndexer(
          * All of them require the app name.
          */
         val stringsWithRequiredFormatting = listOf(
-            R.string.preferences_downloads_settings_clean_up_files_title,
             R.string.preferences_show_nonsponsored_suggestions,
             R.string.preferences_about,
         )

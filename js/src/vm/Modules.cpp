@@ -2474,7 +2474,8 @@ void js::AsyncModuleExecutionFulfilled(JSContext* cx,
       // Step 12.b. Else if m.[[HasTLA]] is true, then:
       // Step 12.b.i. Perform ExecuteAsyncModule(m).
       if (!ExecuteAsyncModule(cx, m)) {
-        MOZ_ASSERT(cx->isThrowingOutOfMemory() || cx->isThrowingOverRecursed());
+        MOZ_ASSERT(!cx->isExceptionPending() || cx->isThrowingOutOfMemory() ||
+                   cx->isThrowingOverRecursed());
         cx->clearPendingException();
       }
     } else {

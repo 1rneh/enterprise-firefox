@@ -938,6 +938,7 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
             adjustCreative.set(settings.adjustCreative)
             adjustNetwork.set(settings.adjustNetwork)
 
+            settings.migrateDeleteDownloadBehaviorIfNeeded()
             settings.migrateSearchWidgetInstalledPrefIfNeeded()
             searchWidgetInstalled.set(settings.searchWidgetInstalled)
 

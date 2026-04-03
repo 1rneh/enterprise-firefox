@@ -466,6 +466,8 @@ export class ProxyConfiguration {
 }
 
 export class Capabilities extends Map {
+  #isBidi;
+
   /**
    * WebDriver session capabilities representation.
    *
@@ -513,6 +515,8 @@ export class Capabilities extends Map {
     }
 
     super(defaults);
+
+    this.#isBidi = isBidi;
   }
 
   /**
@@ -543,12 +547,17 @@ export class Capabilities extends Map {
   toJSON() {
     let marshalled = marshal(this);
 
-    // Always return the proxy capability even if it's empty
-    if (!("proxy" in marshalled)) {
-      marshalled.proxy = {};
+    if (!this.#isBidi) {
+      // For classic WebDriver, proxy is always returned at the moment even when not configured.
+      // See as well: https://github.com/w3c/webdriver/issues/1813
+      if (!("proxy" in marshalled)) {
+        marshalled.proxy = {};
+      }
+
+      // Don't add timeouts which is a WebDriver classic specific capability.
+      marshalled.timeouts = super.get("timeouts");
     }
 
-    marshalled.timeouts = super.get("timeouts");
     marshalled.unhandledPromptBehavior = super.get("unhandledPromptBehavior");
 
     return marshalled;

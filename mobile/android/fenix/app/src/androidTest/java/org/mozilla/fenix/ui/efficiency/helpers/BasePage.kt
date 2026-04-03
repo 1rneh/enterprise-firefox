@@ -9,7 +9,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -420,10 +420,10 @@ abstract class BasePage(
                     Log.i("mozGetElement", "Compose node not found for tag: ${selector.value}"); null
                 }
             }
-
-            SelectorStrategy.COMPOSE_ON_ALL_NODES_BY_TAG_ON_LAST -> {
+            // TODO: easier way to isolate parent/child/sibling elements, auto-selects sibilings or children on failure as a back-up
+            SelectorStrategy.COMPOSE_ON_ALL_NODES_BY_TAG_ON_FIRST -> {
                 try {
-                    composeRule.onAllNodesWithTag(selector.value).onLast()
+                    composeRule.onAllNodesWithTag(selector.value).onFirst()
                 } catch (_: Exception) {
                     Log.i("mozGetElement", "Compose node not found for tag: ${selector.value}"); null
                 }

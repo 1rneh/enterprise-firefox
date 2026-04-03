@@ -207,7 +207,7 @@ private fun TabGrid(
     header: (@Composable () -> Unit)? = null,
 ) {
     val gridState = rememberLazyGridState(initialFirstVisibleItemIndex = selectedTabIndex)
-    val tabListBottomPadding = dimensionResource(id = R.dimen.tab_tray_list_bottom_padding)
+    val tabGridBottomPadding = dimensionResource(id = R.dimen.tab_tray_grid_bottom_padding)
     val isInMultiSelectMode = selectionMode is TabsTrayState.Mode.Select
 
     val reorderState = createGridReorderState(
@@ -276,7 +276,7 @@ private fun TabGrid(
             }
 
             item(key = SPAN_ITEM_KEY, span = { GridItemSpan(maxLineSpan) }) {
-                Spacer(modifier = Modifier.height(tabListBottomPadding))
+                Spacer(modifier = Modifier.height(tabGridBottomPadding))
             }
         }
     }

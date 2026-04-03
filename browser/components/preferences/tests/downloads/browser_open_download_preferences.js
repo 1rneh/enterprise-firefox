@@ -21,9 +21,10 @@ add_setup(async function () {
 });
 
 async function getPdfCategoryItem() {
+  let appHandlerInitialized = TestUtils.topicObserved("app-handler-loaded");
   await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
   info("Preferences page opened on the general pane.");
-
+  await appHandlerInitialized;
   await gBrowser.selectedBrowser.contentWindow.promiseLoadHandlersList;
   info("Apps list loaded.");
 

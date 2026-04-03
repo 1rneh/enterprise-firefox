@@ -2378,9 +2378,19 @@ void nsHttpConnectionMgr::OnMsgCancelTransaction(int32_t reason,
   // then ask the connection to close the transaction.  otherwise, close the
   // transaction directly (removing it from the pending queue first).
   //
+  // If the transaction has a HappyEyeballsTransaction proxy, cancel through
+  // the proxy so the connection can find its transaction properly, and so
+  // the proxy doesn't re-queue the transaction.
+  RefPtr<nsAHttpTransaction> proxyTrans;
+  if (nsAHttpTransaction* proxy = trans->HappyEyeballsProxy()) {
+    proxy->Cancel(closeCode);
+    proxyTrans = proxy;
+  }
+
+  nsAHttpTransaction* transToClose = proxyTrans ? proxyTrans.get() : trans;
   RefPtr<nsAHttpConnection> conn(trans->Connection());
   if (conn && !trans->IsDone()) {
-    conn->CloseTransaction(trans, closeCode);
+    conn->CloseTransaction(transToClose, closeCode);
   } else {
     ConnectionEntry* ent = nullptr;
     if (trans->ConnectionInfo()) {
@@ -2393,7 +2403,7 @@ void nsHttpConnectionMgr::OnMsgCancelTransaction(int32_t reason,
            trans));
     }
 
-    trans->Close(closeCode);
+    transToClose->Close(closeCode);
 
     // Cancel is a pretty strong signal that things might be hanging
     // so we want to cancel any null transactions related to this connection

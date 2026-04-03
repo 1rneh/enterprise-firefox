@@ -322,6 +322,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                 addPinnedSiteUseCase = components.useCases.topSitesUseCase.addPinnedSites,
                                 removePinnedSitesUseCase = components.useCases.topSitesUseCase.removeTopSites,
                                 requestDesktopSiteUseCase = components.useCases.sessionUseCases.requestDesktopSite,
+                                migratePrivateTabUseCase = components.useCases.tabsUseCases.migratePrivateTabUseCase,
                                 materialAlertDialogBuilder = MaterialAlertDialogBuilder(context),
                                 topSitesMaxLimit = components.settings.topSitesMaxLimit,
                                 onDeleteAndQuit = {
@@ -755,6 +756,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                             isReaderViewActive = isReaderViewActive,
                                             isWebCompatEnabled = isWebCompatEnabled,
                                             isPinned = isPinned,
+                                            isPrivate = isPrivate,
                                             isInstallable = webAppUseCases.isInstallable(),
                                             isAddToHomeScreenSupported = selectedTab != null &&
                                                     webAppUseCases.isPinningSupported(),
@@ -805,6 +807,9 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                             },
                                             onOpenInAppMenuClick = {
                                                 store.dispatch(MenuAction.OpenInApp)
+                                            },
+                                            onMoveToNonPrivateTabMenuClick = {
+                                                store.dispatch(MenuAction.MoveToNonPrivateTab)
                                             },
                                         )
                                     },

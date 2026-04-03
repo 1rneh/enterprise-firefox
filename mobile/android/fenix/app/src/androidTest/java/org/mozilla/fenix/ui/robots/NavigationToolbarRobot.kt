@@ -352,18 +352,6 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
         }
     }
 
-    fun verifyTheTheTabStripPageViewNavigationBarBookmarkButton() {
-        Log.i(TAG, "verifyTheTheTabStripPageViewNavigationBarBookmarkButton: Trying to verify that the bookmark page button is displayed in the navigation bar")
-        composeTestRule.onNodeWithContentDescription("Bookmark page").assertIsDisplayed()
-        Log.i(TAG, "verifyTheTheTabStripPageViewNavigationBarBookmarkButton: Verified that the bookmark page button is displayed in the navigation bar")
-    }
-
-    fun verifyTheTabStripNavigationBarShareButton() {
-        Log.i(TAG, "verifyTheTabStripNavigationBarShareButton: Trying to verify that the share button is displayed in the navigation bar")
-        composeTestRule.onNodeWithContentDescription("Share").assertIsDisplayed()
-        Log.i(TAG, "verifyTheTabStripNavigationBarShareButton: Verified that the share button is displayed in the navigation bar")
-    }
-
     fun verifyTheTabStripOpenTab(tabName: String) {
         Log.i(TAG, "verifyTheTabStripOpenTab: Trying to verify that the opened tab is displayed in the tab strip")
         composeTestRule.onNodeWithText(tabName, ignoreCase = true).assertIsDisplayed()
@@ -391,6 +379,36 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyTheRefreshButton: Trying to verify that the \"Refresh\" nav bar button is displayed in landscape mode.")
         composeTestRule.onNodeWithContentDescription("Refresh").assertIsDisplayed()
         Log.i(TAG, "verifyTheRefreshButton: Verified that the \"Refresh\" nav bar button is displayed in landscape mode.")
+    }
+
+    fun clickTheNavigationBarAddBookmarkButton() {
+        Log.i(TAG, "clickTheNavigationBarAddBookmarkButton: Trying to click the \"Bookmark page\" button in the navigation bar.")
+        composeTestRule.onNodeWithContentDescription("Bookmark page").performClick()
+        Log.i(TAG, "clickTheNavigationBarAddBookmarkButton: Clicked the \"Bookmark page\" button in the navigation bar.")
+    }
+
+    fun verifyTheNavigationBarAddBookmarkButton() {
+        Log.i(TAG, "verifyTheNavigationBarAddBookmarkButton: Trying to verify that the bookmark page button is displayed in the navigation bar")
+        composeTestRule.onNodeWithContentDescription("Bookmark page").assertIsDisplayed()
+        Log.i(TAG, "verifyTheNavigationBarAddBookmarkButton: Verified that the bookmark page button is displayed in the navigation bar")
+    }
+
+    fun verifyTheNavigationBarShareButton() {
+        Log.i(TAG, "verifyTheNavigationBarShareButton: Trying to verify that the share button is displayed in the navigation bar")
+        composeTestRule.onNodeWithContentDescription("Share").assertIsDisplayed()
+        Log.i(TAG, "verifyTheNavigationBarShareButton: Verified that the share button is displayed in the navigation bar")
+    }
+
+    fun verifyTheNavigationBarTranslateButton() {
+        Log.i(TAG, "verifyTheNavigationBarTranslateButton: Trying to verify that the translate button is displayed in the navigation bar")
+        composeTestRule.onNodeWithContentDescription("Translate page").assertIsDisplayed()
+        Log.i(TAG, "verifyTheNavigationBarTranslateButton: Verified that the translate button is displayed in the navigation bar")
+    }
+
+    fun verifyTheNavigationBarHomepageButton() {
+        Log.i(TAG, "verifyTheNavigationBarHomepageButton: Trying to verify that the homepage button is displayed in the navigation bar")
+        composeTestRule.onNodeWithContentDescription("Homepage").assertIsDisplayed()
+        Log.i(TAG, "verifyTheNavigationBarHomepageButton: Verified that the homepage button is displayed in the navigation bar")
     }
 
     class Transition(private val composeTestRule: ComposeTestRule) {
@@ -611,6 +629,33 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
 
             SearchRobot(composeTestRule).interact()
             return SearchRobot.Transition(composeTestRule)
+        }
+
+        fun clickTheNavigationBarShareButton(interact: ShareOverlayRobot.() -> Unit): ShareOverlayRobot.Transition {
+            Log.i(TAG, "clickTheNavigationBarShareButton: Trying to click the \"Share\" button in the navigation bar.")
+            composeTestRule.onNodeWithContentDescription("Share").performClick()
+            Log.i(TAG, "clickTheNavigationBarShareButton: Clicked the \"Share\" button in the navigation bar.")
+
+            ShareOverlayRobot().interact()
+            return ShareOverlayRobot.Transition()
+        }
+
+        fun clickTheNavigationBarTranslatePageButton(interact: TranslationsRobot.() -> Unit): TranslationsRobot.Transition {
+            Log.i(TAG, "clickTheNavigationBarTranslatePageButton: Trying to click the \"Translate page\" button in the navigation bar.")
+            composeTestRule.onNodeWithContentDescription("Translate page").performClick()
+            Log.i(TAG, "clickTheNavigationBarTranslatePageButton: Clicked the \"Translate page\" button in the navigation bar.")
+
+            TranslationsRobot(composeTestRule).interact()
+            return TranslationsRobot.Transition(composeTestRule)
+        }
+
+        fun clickTheNavigationBarHomepageButton(interact: HomeScreenRobot.() -> Unit): HomeScreenRobot.Transition {
+            Log.i(TAG, "clickTheNavigationBarHomepageButton: Trying to click the \"Homepage\" button in the navigation bar.")
+            composeTestRule.onNodeWithContentDescription("Homepage").performClick()
+            Log.i(TAG, "clickTheNavigationBarHomepageButton: Clicked the \"Homepage\" button in the navigation bar.")
+
+            HomeScreenRobot(composeTestRule).interact()
+            return HomeScreenRobot.Transition(composeTestRule)
         }
     }
 }

@@ -12222,7 +12222,7 @@ nsHttpChannel::EarlyHint(const nsACString& aLinkHeader,
                          const nsACString& aCspHeader) {
   LOG(("nsHttpChannel::EarlyHint.\n"));
 
-  if (RefPtr<nsIEarlyHintObserver> obs = mEarlyHintObserver) {
+  if (nsCOMPtr<nsIEarlyHintObserver> obs = mEarlyHintObserver) {
     if (nsContentUtils::ComputeIsSecureContext(this)) {
       LOG(("nsHttpChannel::EarlyHint propagated.\n"));
       obs->EarlyHint(aLinkHeader, aReferrerPolicy, aCspHeader);

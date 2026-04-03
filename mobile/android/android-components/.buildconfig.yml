@@ -894,6 +894,15 @@ projects:
     - components:ui-colors
     - components:ui-icons
     - components:ui-widgets
+  components:feature-example:
+    description: A sample feature component demonstrating module structure and conventions.
+    path: components/feature/example
+    publish: false
+    upstream_dependencies:
+    - components:concept-base
+    - components:concept-fetch
+    - components:support-base
+    - components:tooling-lint
   components:feature-findinpage:
     description: Feature that will subscribe to the selected session and show an UI
       for results of find in page.
@@ -2325,6 +2334,13 @@ projects:
     - components:support-ktx
     - components:support-test
     - components:support-utils
+    - components:tooling-lint
+  components:service-merino-manifest:
+    description: A library that provides metadata for popular websites using an embedded
+      snapshot of the Merino manifest.
+    path: components/service/merino-manifest
+    publish: true
+    upstream_dependencies:
     - components:tooling-lint
   components:service-nimbus:
     description: A client-side experiment SDK

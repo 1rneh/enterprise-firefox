@@ -73,9 +73,22 @@
       },
       "required": ["Host", "Port"]
     },
-
     "AIControls": {
       "type": "object",
+      "x-category": "Content settings",
+      "description": "Controls access to AI features: Translations, PDF alt text generation, smart tab groups, display summaries in link previews, AI chatbot in the sidebar and smart windows. The `Default` value applies to all AI features, unless overridden by a specific feature.",
+      "examples": [
+        {
+          "Default": {
+            "Value": "blocked",
+            "Locked": true
+          },
+          "Translations": {
+            "Value": "available",
+            "Locked": false
+          }
+        }
+      ],
       "properties": {
         "Default": {
           "type": "object",
@@ -163,7 +176,6 @@
         }
       }
     },
-
     "AllowedDomainsForApps": {
       "type": "string",
       "x-category": "Network security",
@@ -1577,11 +1589,12 @@
         }
       }
     },
-
     "IPProtectionAvailable": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "",
+      "x-category": "Network security",
+      "examples": [true, false]
     },
-
     "LegacyProfiles": {
       "type": "boolean",
       "x-category": "Miscellaneous",

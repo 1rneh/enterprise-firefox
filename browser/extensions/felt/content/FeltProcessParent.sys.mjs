@@ -438,10 +438,9 @@ export class FeltProcessParent extends JSProcessActorParent {
               if (this.proc.exitCode === 0) {
                 this.abnormalExitCounter = 0;
                 this.abnormalExitFirstTime = 0;
-                Services.cpmm.sendAsyncMessage(
-                  "FeltParent:FirefoxNormalExit",
-                  {}
-                );
+                Services.cpmm.sendAsyncMessage("FeltParent:FirefoxNormalExit", {
+                  performLogout: true,
+                });
               } else {
                 this.handleRestartAfterAbnormalExit();
               }

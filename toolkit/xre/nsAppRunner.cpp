@@ -5834,11 +5834,19 @@ nsresult XREMain::XRE_mainRun() {
 
 #if defined(MOZ_ENTERPRISE)
     {
-      nsAutoCString consoleAddress;
-      rv =
-          Preferences::GetCString("enterprise.console.address", consoleAddress);
-      if (NS_SUCCEEDED(rv)) {
-        XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get());
+      // When running tests we may override the appUpdateURL to a test value
+      bool readUpdateUrlFromPref = false;
+      rv = Preferences::GetBool(
+          "enterprise.felt_tests.read_update_url_from_prefs",
+          &readUpdateUrlFromPref);
+      if (NS_SUCCEEDED(rv) && readUpdateUrlFromPref) {
+        NS_WARNING("Setting appUpdateURL from pref value");
+        nsAutoCString consoleAddress;
+        rv = Preferences::GetCString("enterprise.console.address",
+                                     consoleAddress);
+        if (NS_SUCCEEDED(rv)) {
+          XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get());
+        }
       }
     }
 #endif

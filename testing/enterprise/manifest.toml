@@ -60,6 +60,8 @@ run-if = [
 
 ["test_felt_browser_updates_basic.py"]
 
+["test_felt_browser_updates_distIni.py"]
+
 ["test_felt_browser_updates_errors.py"]
 
 ["test_felt_browser_updates_forward.py"]

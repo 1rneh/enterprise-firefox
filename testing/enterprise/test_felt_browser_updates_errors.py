@@ -13,6 +13,10 @@ from felt_tests import FeltTests
 
 
 class FeltUpdatesErrorHandling(FeltTests):
+    EXTRA_PREFS = {
+        "enterprise.felt_tests.read_update_url_from_prefs": True,
+    }
+
     def reload_chrome_window(self):
         self._driver.set_context("chrome")
         self._driver.execute_script(

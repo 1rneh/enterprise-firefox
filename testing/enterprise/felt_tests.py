@@ -880,6 +880,21 @@ class FeltTestsBase(EnterpriseTestsBase):
         self._driver.switch_to_window(self._driver.chrome_window_handles[0])
         self._driver.set_context("content")
 
+    def maybe_save_screenshot(
+        self, env, identifier, element=None, full=True, scroll=True
+    ):
+        if "UX_SCREENSHOT" in os.environ.keys():
+            # UPLOAD_DIR is defined on TaskCluster, use it to write at the correct place
+            with open(
+                os.path.join(
+                    os.environ.get("UPLOAD_DIR", ""), f"screenshot_{identifier}.png"
+                ),
+                "wb",
+            ) as fh:
+                self.get_driver(env).save_screenshot(
+                    fh, element=element, full=full, scroll=scroll
+                )
+
 
 class FeltTests(FeltTestsBase):
     def run_felt_chrome_on_email_submit(self):

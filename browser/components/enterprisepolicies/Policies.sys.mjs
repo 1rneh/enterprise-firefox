@@ -296,12 +296,16 @@ export var Policies = {
       // true, we disallow turning off auto updating, and visa versa.
       if (param) {
         manager.disallowFeature("app-auto-updates-off");
+        manager.allowFeature("app-auto-updates-on");
       } else {
         manager.disallowFeature("app-auto-updates-on");
+        manager.allowFeature("app-auto-updates-off");
       }
     },
     onRemove(manager, _oldParams) {
+      // In a default unpolicied state, it is allowed to turn auto updating on or off
       manager.allowFeature("app-auto-updates-on");
+      manager.allowFeature("app-auto-updates-off");
     },
   },
 
@@ -506,14 +510,20 @@ export var Policies = {
 
   BackgroundAppUpdate: {
     onBeforeAddons(manager, param) {
+      // Logic feels a bit reversed here, but it's correct. If BackgroundAppUpdate is
+      // true, we disallow turning off background updating, and visa versa.
       if (param) {
         manager.disallowFeature("app-background-update-off");
+        manager.allowFeature("app-background-update-on");
       } else {
         manager.disallowFeature("app-background-update-on");
+        manager.allowFeature("app-background-update-off");
       }
     },
     onRemove(manager, _oldParams) {
+      // In a default unpolicied state, it is allowed to turn background updating on or off
       manager.allowFeature("app-background-update-on");
+      manager.allowFeature("app-background-update-off");
     },
   },
 
@@ -570,6 +580,7 @@ export var Policies = {
       }
     },
     onRemove(manager, _oldParams) {
+      manager.allowFeature("profileManagement");
       unblockAboutPage(manager, "about:profiles");
       unblockAboutPage(manager, "about:profilemanager");
       unblockAboutPage(manager, "about:editprofile");
@@ -603,6 +614,10 @@ export var Policies = {
             "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
             param.Enabled
           );
+        } else {
+          unsetAndUnlockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled"
+          );
         }
 
         // Set URL logging level
@@ -614,23 +629,20 @@ export var Policies = {
             "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
             param.UrlLogging
           );
-        }
-      }
-    },
-    onRemove(manager, oldParams) {
-      // TODO: Is this OK ?
-      if (oldParams && typeof oldParams === "object") {
-        if ("Enabled" in oldParams) {
-          unsetAndUnlockPref(
-            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled"
-          );
-        }
-        if ("UrlLogging" in oldParams) {
+        } else {
           unsetAndUnlockPref(
             "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging"
           );
         }
       }
+    },
+    onRemove(_manager, _oldParams) {
+      unsetAndUnlockPref(
+        "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled"
+      );
+      unsetAndUnlockPref(
+        "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging"
+      );
     },
   },
 
@@ -2017,7 +2029,7 @@ export var Policies = {
 
   ExtensionUpdate: {
     onBeforeAddons(manager, param) {
-      setAndLockPref("extensions.update.enabled", !param);
+      setAndLockPref("extensions.update.enabled", param);
     },
   },
 

@@ -4218,7 +4218,9 @@ function blockAboutPage(manager, feature) {
 function unblockAboutPage(manager, feature) {
   addChromeURLBlocker();
   let idx = gBlockedAboutPages.indexOf(feature);
-  gBlockedAboutPages.splice(idx, 1);
+  if (idx !== -1) {
+    gBlockedAboutPages.splice(idx, 1);
+  }
 
   try {
     let aboutModule = Cc[ABOUT_CONTRACT + feature.split(":")[1]].getService(
@@ -4226,7 +4228,9 @@ function unblockAboutPage(manager, feature) {
     );
     let chromeURL = aboutModule.getChromeURI(Services.io.newURI(feature)).spec;
     let idxChrome = gBlockedAboutPages.indexOf(chromeURL);
-    gBlockedAboutPages.splice(idxChrome, 1);
+    if (idxChrome !== -1) {
+      gBlockedAboutPages.splice(idxChrome, 1);
+    }
   } catch (e) {
     // Some about pages don't have chrome URLS (compat)
   }

@@ -74,6 +74,96 @@
       "required": ["Host", "Port"]
     },
 
+    "AIControls": {
+      "type": "object",
+      "properties": {
+        "Default": {
+          "type": "object",
+          "properties": {
+            "Value": {
+              "type": "string",
+              "enum": ["available", "blocked"]
+            },
+            "Locked": {
+              "type": "boolean"
+            }
+          }
+        },
+        "Translations": {
+          "type": "object",
+          "properties": {
+            "Value": {
+              "type": "string",
+              "enum": ["available", "blocked"]
+            },
+            "Locked": {
+              "type": "boolean"
+            }
+          }
+        },
+        "PDFAltText": {
+          "type": "object",
+          "properties": {
+            "Value": {
+              "type": "string",
+              "enum": ["available", "blocked"]
+            },
+            "Locked": {
+              "type": "boolean"
+            }
+          }
+        },
+        "SmartTabGroups": {
+          "type": "object",
+          "properties": {
+            "Value": {
+              "type": "string",
+              "enum": ["available", "blocked"]
+            },
+            "Locked": {
+              "type": "boolean"
+            }
+          }
+        },
+        "LinkPreviewKeyPoints": {
+          "type": "object",
+          "properties": {
+            "Value": {
+              "type": "string",
+              "enum": ["available", "blocked"]
+            },
+            "Locked": {
+              "type": "boolean"
+            }
+          }
+        },
+        "SidebarChatbot": {
+          "type": "object",
+          "properties": {
+            "Value": {
+              "type": "string",
+              "enum": ["available", "blocked"]
+            },
+            "Locked": {
+              "type": "boolean"
+            }
+          }
+        },
+        "SmartWindow": {
+          "type": "object",
+          "properties": {
+            "Value": {
+              "type": "string",
+              "enum": ["available", "blocked"]
+            },
+            "Locked": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+
     "AllowedDomainsForApps": {
       "type": "string",
       "x-category": "Network security",
@@ -1486,6 +1576,10 @@
           "type": "boolean"
         }
       }
+    },
+
+    "IPProtectionAvailable": {
+      "type": "boolean"
     },
 
     "LegacyProfiles": {

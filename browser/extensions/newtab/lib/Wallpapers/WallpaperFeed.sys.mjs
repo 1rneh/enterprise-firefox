@@ -9,6 +9,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Utils: "resource://services-settings/Utils.sys.mjs",
 });
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 import {
   actionTypes as at,
   actionCreators as ac,
@@ -31,9 +33,9 @@ const PREF_WALLPAPERS_CUSTOM_WALLPAPER_UUID =
 const PREF_SELECTED_WALLPAPER =
   "browser.newtabpage.activity-stream.newtabWallpapers.wallpaper";
 
-const RS_FALLBACK_BASE_URL =
-  "https://firefox-settings-attachments.cdn.mozilla.net/";
-
+const RS_FALLBACK_BASE_URL = AppConstants.MOZ_ENTERPRISE
+  ? ""
+  : "https://firefox-settings-attachments.cdn.mozilla.net/";
 export class WallpaperFeed {
   constructor() {
     this.loaded = false;

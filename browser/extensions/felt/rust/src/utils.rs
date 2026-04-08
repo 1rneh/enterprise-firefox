@@ -40,7 +40,8 @@ pub fn get_focus_hint() -> Option<FocusHint> {
         felt_get_startup_token_or_timestamp(&mut token_ptr, &mut token_len, &mut timestamp);
     }
     if !token_ptr.is_null() && token_len > 0 {
-        let slice = unsafe { std::slice::from_raw_parts(token_ptr as *const u8, token_len as usize) };
+        let slice =
+            unsafe { std::slice::from_raw_parts(token_ptr as *const u8, token_len as usize) };
         return Some(FocusHint::StartupToken(
             String::from_utf8_lossy(slice).into_owned(),
         ));
@@ -197,7 +198,9 @@ pub fn notify_observers_with_payload(name: String, payload: Option<String>) {
         let topic = CString::new(name).expect("Topic name contained a null byte");
         let rv = if let Some(data) = payload {
             let payload_data = nsstring::nsString::from(&data);
-            unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), payload_data.as_ptr()) }
+            unsafe {
+                obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), payload_data.as_ptr())
+            }
         } else {
             unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), std::ptr::null()) }
         };

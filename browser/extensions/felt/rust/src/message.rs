@@ -72,4 +72,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 9;
+pub const FELT_IPC_VERSION: u32 = 10;

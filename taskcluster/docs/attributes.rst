@@ -615,3 +615,10 @@ required_checks
 ===============
 
 Indicates that a task should report on GitHub Checks
+
+msi_display_name
+================
+
+The human-readable product name for the MSI installer (e.g. ``Firefox Nightly``,
+``Firefox Beta``, ``Firefox``). Used by downstream signing tasks to construct
+the Authenticode comment embedded in the installer signature.

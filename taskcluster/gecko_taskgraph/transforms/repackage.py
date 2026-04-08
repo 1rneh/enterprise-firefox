@@ -46,6 +46,13 @@ packaging_description_schema = LegacySchema({
     Required("package-formats"): optionally_keyed_by(
         "build-platform", "release-type", "build-type", [str]
     ),
+    Optional("msi"): {
+        Optional("display-name"): optionally_keyed_by(
+            "release-type",
+            "shipping-product",
+            str,
+        ),
+    },
     Optional("msix"): {
         Optional("channel"): optionally_keyed_by(
             "package-format",
@@ -412,6 +419,7 @@ def handle_keyed_by(config, jobs):
     """
     fields = [
         "mozharness.config",
+        "msi.display-name",
         "package-formats",
         "worker.max-run-time",
         "flatpak.name",
@@ -428,6 +436,7 @@ def handle_keyed_by(config, jobs):
                 **{
                     "release-type": config.params["release_type"],
                     "level": config.params["level"],
+                    "shipping-product": job.get("shipping-product"),
                 },
             )
         yield job
@@ -564,6 +573,8 @@ def make_job_description(config, jobs):
                 treeherder["symbol"] = f"MSI-Ent({repack_id})"
             else:
                 treeherder["symbol"] = "MSI({})".format(locale or "N")
+            if display_name := job.get("msi", {}).get("display-name"):
+                attributes["msi_display_name"] = display_name
 
         elif config.kind == "repackage-msix":
             assert not locale

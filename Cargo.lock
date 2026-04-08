@@ -1074,6 +1074,15 @@ name = "cmake"
 version = "0.1.999"
 
 [[package]]
+name = "cobs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
+dependencies = [
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "cocoabind"
 version = "0.1.0"
 dependencies = [
@@ -2010,6 +2019,12 @@ name = "embed-manifest"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41cd446c890d6bed1d8b53acef5f240069ebef91d6fae7c5f52efe61fe8b5eae"
+
+[[package]]
+name = "embedded-io"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
 name = "embedded-uniffi-bindgen"
@@ -3908,17 +3923,18 @@ dependencies = [
 
 [[package]]
 name = "ipc-channel"
-version = "0.20.2"
-source = "git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e#f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
+version = "0.21.0"
+source = "git+https://github.com/mozilla/ipc-channel?rev=2e47e642b34aebfaaf953497c3834f96c365c8a0#2e47e642b34aebfaaf953497c3834f96c365c8a0"
 dependencies = [
- "bincode",
  "crossbeam-channel",
- "fnv",
  "libc",
  "mio",
+ "postcard",
  "rand",
- "serde",
+ "rustc-hash 2.1.1",
+ "serde_core",
  "tempfile",
+ "thiserror 2.0.12",
  "uuid",
  "windows",
 ]
@@ -6267,6 +6283,16 @@ version = "1.999.0"
 [[package]]
 name = "portable-atomic-util"
 version = "0.2.999"
+
+[[package]]
+name = "postcard"
+version = "1.1.3"
+source = "git+https://github.com/mozilla/postcard?rev=728ed1af0e844733f827e0699bc9c15a621d297c#728ed1af0e844733f827e0699bc9c15a621d297c"
+dependencies = [
+ "cobs",
+ "embedded-io",
+ "serde",
+]
 
 [[package]]
 name = "potential_utf"

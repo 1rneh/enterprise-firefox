@@ -285,7 +285,7 @@ def make_job_description(config, jobs):
             task.setdefault("fetches", {}).setdefault("toolchain", []).extend([
                 "linux64-node",
             ])
-            
+
         if build_platform.startswith("win"):
             task.setdefault("fetches", {}).setdefault("toolchain", []).append(
                 "linux64-7zz"

@@ -479,14 +479,13 @@ void CookieServiceChild::AddCookieFromDocument(
 
     // If there is no WindowGlobalChild fall back to PCookieService SetCookies.
     if (NS_WARN_IF(!windowGlobalChild)) {
-      SendSetCookies(aBaseDomain, aOriginAttributes, aDocumentURI, false,
-                     aThirdParty, cookiesToSend);
+      SendSetCookies(aBaseDomain, aOriginAttributes, aDocumentURI, aThirdParty,
+                     cookiesToSend);
       return;
     }
 
     windowGlobalChild->SendSetCookies(aBaseDomain, aOriginAttributes,
-                                      aDocumentURI, false, aThirdParty,
-                                      cookiesToSend);
+                                      aDocumentURI, aThirdParty, cookiesToSend);
   }
 }
 

@@ -18,7 +18,7 @@ use std::{
 // [1]: https://github.com/rust-lang/rust/issues/59618
 use hashbrown::hash_map::{Entry, HashMap};
 
-use crate::skv::{
+use crate::{
     abort::{AbortController, AbortSignal},
     store::{Store, StorePath},
 };

@@ -62,6 +62,8 @@
 
 #ifdef XP_MACOSX
 #  include "nsVersionComparator.h"
+#  include "nsCocoaFeatures.h"
+#  include "mozilla/glean/WidgetCocoaMetrics.h"
 #  include "MacLaunchHelper.h"
 #  include "MacApplicationDelegate.h"
 #  include "MacAutoreleasePool.h"
@@ -5531,6 +5533,13 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
 
   CrashReporter::RecordAnnotationBool(
       CrashReporter::Annotation::StartupCacheValid, cachesOK && versionOK);
+
+#ifdef XP_MACOSX
+  static bool status = nsCocoaFeatures::ProcessIsRosettaTranslated();
+  CrashReporter::RecordAnnotationBool(CrashReporter::Annotation::RosettaStatus,
+                                      status);
+  mozilla::glean::widget::rosetta_status.Set(status);
+#endif
 
   // Every time a profile is loaded by a build with a different version,
   // it updates the compatibility.ini file saying what version last wrote

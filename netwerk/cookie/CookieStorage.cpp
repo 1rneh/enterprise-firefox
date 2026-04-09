@@ -899,7 +899,9 @@ void CookieStorage::AddCookie(CookieParser* aCookieParser,
         purgedList = PurgeCookies(aCurrentTimeInUsec, mMaxNumberOfCookies,
                                   mCookiePurgeAge);
         uint32_t purgedLength = 0;
-        purgedList->GetLength(&purgedLength);
+        if (purgedList) {
+          purgedList->GetLength(&purgedLength);
+        }
         mozilla::glean::networking::cookie_purge_max.AccumulateSingleSample(
             purgedLength);
       }

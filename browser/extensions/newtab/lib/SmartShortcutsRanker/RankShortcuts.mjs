@@ -16,6 +16,9 @@ These prefs can be accessed at prefValues.trainhopConfig.smartShortcuts
 * click_bonus: multiplier applied to clicks
 * positive_prior: thompson sampling alpha
 * negative_prior: thompson sampling beta
+* min_exp_clicks: minimum recent clicks before exploration is enabled
+* min_exp_impressions: minimum recent impressions before exploration is enabled
+* tau: seasonality smoothing strength
 * sticky_numimps: number of impressions for sticky clicks. 0 turns off
 *
 * thom_weight: weight of thompson sampling. divided by 100
@@ -59,8 +62,11 @@ const FEATURE_META = {
 const FEATURES = ["frec", "thom", "bias"];
 const SHORTCUT_POSITIVE_PRIOR = 1;
 const SHORTCUT_NEGATIVE_PRIOR = 1000;
+const SHORTCUT_TAU = 100;
 const STICKY_NUMIMPS = 0;
 const SMART_TELEM = false;
+const MIN_EXP_IMPRESSIONS = 1000;
+const MIN_EXP_CLICKS = 10;
 
 const lazy = {};
 
@@ -74,6 +80,58 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 import { sortKeysValues } from "resource://newtab/lib/SmartShortcutsRanker/ThomSample.mjs";
 
+/**
+ * Gates exploration-related runtime config until local shortcut engagement
+ * reaches the configured click and impression thresholds.
+ *
+ * @param {object} runtimeConfig
+ * @param {object} prefs
+ * @param {object} engagement
+ * @returns {object}
+ */
+export function gateRuntimeConfigByEngagement(
+  runtimeConfig = {},
+  prefs = {},
+  engagement = {}
+) {
+  if (!runtimeConfig?.weights && !Object.hasOwn(runtimeConfig, "eta")) {
+    return runtimeConfig;
+  }
+  // get recent engagement totals
+  const totalImpressions = (engagement.impressions ?? []).reduce(
+    (sum, value) => sum + (Number.isFinite(value) ? value : 0),
+    0
+  );
+  const totalClicks = (engagement.clicks ?? []).reduce(
+    (sum, value) => sum + (Number.isFinite(value) ? value : 0),
+    0
+  );
+  // use nimbus prefs first and fallback to local
+  const minImpressions = prefs.min_exp_impressions ?? MIN_EXP_IMPRESSIONS;
+  const minClicks = prefs.min_exp_clicks ?? MIN_EXP_CLICKS;
+
+  // if adequate engagement, change nothing
+  if (totalImpressions >= minImpressions && totalClicks >= minClicks) {
+    return runtimeConfig;
+  }
+  // copy the input configs to prepare for mutation
+  const gatedConfig = { ...runtimeConfig };
+
+  // zero out thompson sampling weight
+  if (gatedConfig.weights) {
+    gatedConfig.weights = { ...gatedConfig.weights };
+    if (gatedConfig.weights?.thom) {
+      gatedConfig.weights.thom = 0;
+    }
+  }
+
+  // zero out learning rate
+  if (Object.hasOwn(gatedConfig, "eta")) {
+    gatedConfig.eta = 0;
+  }
+
+  return gatedConfig;
+}
 // helper for lowering precision of numbers, save space in telemetry
 // longest string i can come up with out of this function:
 //               -0.000009999 which is 12 characters
@@ -923,18 +981,34 @@ export class RankShortcutsProvider {
       sc_cache,
       SHORTCUT_TABLE
     );
+    const engagement = { clicks, impressions };
+    const learningConfig = gateRuntimeConfigByEngagement(
+      {
+        eta: (prefValues.trainhopConfig?.smartShortcuts?.eta ?? ETA) / 10000,
+      },
+      prefValues.trainhopConfig?.smartShortcuts,
+      engagement
+    );
+
     weights = await this.rankShortcutsWorker.post("updateWeights", [
       {
         data: latest_interaction_data,
         scores: sc_cache.score_map,
         features,
         weights,
-        eta: (prefValues.trainhopConfig?.smartShortcuts?.eta ?? ETA) / 10000,
+        eta: learningConfig.eta,
         click_bonus:
           (prefValues.trainhopConfig?.smartShortcuts?.click_bonus ??
             CLICK_BONUS) / 10,
       },
     ]);
+
+    const rankingConfig = gateRuntimeConfigByEngagement(
+      { weights },
+      prefValues.trainhopConfig?.smartShortcuts,
+      engagement
+    );
+    const rankingWeights = rankingConfig.weights;
 
     // write the weights and init... sometimes redundant
     await this.sc_obj.set("weights", weights);
@@ -974,14 +1048,14 @@ export class RankShortcutsProvider {
           beta:
             prefValues.trainhopConfig?.smartShortcuts?.negative_prior ??
             SHORTCUT_NEGATIVE_PRIOR,
-          tau: 100,
+          tau: prefValues.trainhopConfig?.smartShortcuts?.tau ?? SHORTCUT_TAU,
           guid: withGuid.map(t => t.guid),
           clicks,
           impressions,
           norms:
             sc_cache.norms ??
             Object.fromEntries(features.map(key => [key, null])),
-          weights,
+          weights: rankingWeights,
           frecency: frecency_scores,
           hourly_seasonality,
           daily_seasonality,
@@ -1039,7 +1113,7 @@ export class RankShortcutsProvider {
     if (prefValues?.trainhopConfig?.smartShortcuts?.telem || SMART_TELEM) {
       // store a version of weights that is rounded
       const roundWeights = Object.fromEntries(
-        Object.entries(weights ?? {}).map(([key, v]) => [
+        Object.entries(rankingWeights ?? {}).map(([key, v]) => [
           key,
           typeof v === "number" && isFinite(v) ? roundNum(v) : (v ?? null),
         ])

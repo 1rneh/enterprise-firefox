@@ -8,7 +8,7 @@ use std::num::NonZeroU32;
 
 use rusqlite::Transaction;
 
-use crate::skv::connection::ConnectionMigrator;
+use crate::connection::ConnectionMigrator;
 
 /// The schema for a physical SQLite database that contains many
 /// named logical databases.

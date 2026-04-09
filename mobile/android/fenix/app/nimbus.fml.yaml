@@ -936,17 +936,7 @@ features:
         description: >
           Whether or not to enable the tab search feature.
         type: Boolean
-        default: false
-    defaults:
-      - channel: release
-        value:
-          enabled: false
-      - channel: beta
-        value:
-          enabled: false
-      - channel: nightly
-        value:
-          enabled: true
+        default: true
 
   tab-groups:
     description: Control the visibility of the tab groups feature.

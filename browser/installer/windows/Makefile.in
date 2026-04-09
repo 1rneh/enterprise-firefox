@@ -30,7 +30,9 @@ INSTALLER_FILES = \
   nsis/shared.nsh \
   nsis/control_utils.nsh \
   nsis/postupdate_helper.nsh \
+  nsis/telemetry.nsh \
   nsis/test_stub.nsi \
+  nsis/test_telemetry.nsh \
   nsis/get_installation_type.nsh \
   stub.tag \
   $(NULL)

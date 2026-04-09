@@ -1477,7 +1477,7 @@ nsresult nsFrameSelection::TakeFocus(nsIContent& aNewFocus,
     }
     case FocusMode::kExtendSelection: {
       // Now update the range list:
-      nsINode* inclusiveTableCellAncestor =
+      nsCOMPtr<nsINode> inclusiveTableCellAncestor =
           GetClosestInclusiveTableCellAncestor(&aNewFocus);
       if (mTableSelection.mClosestInclusiveTableCellAncestor &&
           inclusiveTableCellAncestor &&

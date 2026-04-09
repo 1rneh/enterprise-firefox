@@ -120,9 +120,12 @@ PTextureParent* TextureHost::CreateIPDLActor(
     ReadLockDescriptor&& aReadLock, LayersBackend aLayersBackend,
     TextureFlags aFlags, const dom::ContentParentId& aContentId,
     uint64_t aSerial, const wr::MaybeExternalImageId& aExternalImageId) {
+  MOZ_ASSERT(!(aFlags & TextureFlags::DEALLOCATE_CLIENT));
+
+  TextureFlags flags = aFlags & ~TextureFlags::DEALLOCATE_CLIENT;
   TextureParent* actor =
       new TextureParent(aAllocator, aContentId, aSerial, aExternalImageId);
-  if (!actor->Init(aSharedData, std::move(aReadLock), aLayersBackend, aFlags)) {
+  if (!actor->Init(aSharedData, std::move(aReadLock), aLayersBackend, flags)) {
     actor->ActorDestroy(ipc::IProtocol::ActorDestroyReason::FailedConstructor);
     delete actor;
     return nullptr;
@@ -520,6 +523,10 @@ void BufferTextureHost::CreateRenderTexture(
   } else {
     texture =
         new wr::RenderBufferTextureHost(GetBuffer(), GetBufferDescriptor());
+
+    if (auto* shmemTextureHost = AsShmemTextureHost()) {
+      shmemTextureHost->OnRenderTextureCreated(texture);
+    }
   }
 
   wr::RenderThread::Get()->RegisterExternalImage(aExternalImageId,
@@ -824,6 +831,8 @@ ShmemTextureHost::ShmemTextureHost(const ipc::Shmem& aShmem,
                                    ISurfaceAllocator* aDeallocator,
                                    TextureFlags aFlags)
     : BufferTextureHost(aDesc, aFlags), mDeallocator(aDeallocator) {
+  MOZ_ASSERT(!(mFlags & TextureFlags::DEALLOCATE_CLIENT));
+
   if (aShmem.IsReadable()) {
     mShmem = MakeUnique<ipc::Shmem>(aShmem);
   } else {
@@ -840,8 +849,7 @@ ShmemTextureHost::ShmemTextureHost(const ipc::Shmem& aShmem,
 }
 
 ShmemTextureHost::~ShmemTextureHost() {
-  MOZ_ASSERT(!mShmem || (mFlags & TextureFlags::DEALLOCATE_CLIENT),
-             "Leaking our buffer");
+  MOZ_ASSERT(!mShmem, "Leaking our buffer");
   DeallocateDeviceData();
   MOZ_COUNT_DTOR(ShmemTextureHost);
 }
@@ -863,16 +871,67 @@ void ShmemTextureHost::ForgetSharedData() {
 
 void ShmemTextureHost::OnShutdown() { mShmem = nullptr; }
 
+ShmemTextureHost::ShmemDeallocRunnable::ShmemDeallocRunnable(
+    ISurfaceAllocator* aDeallocator, UniquePtr<mozilla::ipc::Shmem>&& aShmem)
+    : Runnable("ShmemDeallocRunnable"),
+      mDeallocator(aDeallocator),
+      mShmem(std::move(aShmem)) {}
+
+nsresult ShmemTextureHost::ShmemDeallocRunnable::Run() {
+  mDeallocator->AsShmemAllocator()->DeallocShmem(*mShmem);
+  mShmem = nullptr;
+  return NS_OK;
+}
+
+void ShmemTextureHost::OnRenderTextureCreated(
+    wr::RenderTextureHost* aRenderTexture) {
+  MOZ_ASSERT(aRenderTexture);
+
+  if (!mShmem || (GetFlags() & TextureFlags::DEALLOCATE_CLIENT)) {
+    return;
+  }
+
+  RefPtr<nsISerialEventTarget> eventTarget = GetCurrentSerialEventTarget();
+  RefPtr<ShmemDeallocRunnable> runnable =
+      new ShmemDeallocRunnable(mDeallocator, std::move(mShmem));
+  mShmemDeallocRunnable = runnable;
+
+  auto destroyedCallback = [eventTarget = std::move(eventTarget),
+                            runnable = std::move(runnable)]() mutable {
+    eventTarget->Dispatch(runnable.forget());
+  };
+
+  aRenderTexture->SetDestroyedCallback(destroyedCallback);
+}
+
 uint8_t* ShmemTextureHost::GetBuffer() const {
-  return mShmem ? mShmem->get<uint8_t>() : nullptr;
+  if (mShmem) {
+    return mShmem->get<uint8_t>();
+  }
+  if (mShmemDeallocRunnable && mShmemDeallocRunnable->GetShmem()) {
+    return mShmemDeallocRunnable->GetShmem()->get<uint8_t>();
+  }
+  return nullptr;
 }
 
 uint16_t* ShmemTextureHost::GetBuffer16() const {
-  return mShmem ? mShmem->get<uint16_t>() : nullptr;
+  if (mShmem) {
+    return mShmem->get<uint16_t>();
+  }
+  if (mShmemDeallocRunnable && mShmemDeallocRunnable->GetShmem()) {
+    return mShmemDeallocRunnable->GetShmem()->get<uint16_t>();
+  }
+  return nullptr;
 }
 
 size_t ShmemTextureHost::GetBufferSize() const {
-  return mShmem ? mShmem->Size<uint8_t>() : 0;
+  if (mShmem) {
+    return mShmem->Size<uint8_t>();
+  }
+  if (mShmemDeallocRunnable && mShmemDeallocRunnable->GetShmem()) {
+    return mShmemDeallocRunnable->GetShmem()->Size<uint8_t>();
+  }
+  return 0;
 }
 
 MemoryTextureHost::MemoryTextureHost(uint8_t* aBuffer,

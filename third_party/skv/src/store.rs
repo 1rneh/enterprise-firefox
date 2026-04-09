@@ -22,15 +22,12 @@ use chrono::{DateTime, Utc};
 use rusqlite::OpenFlags;
 
 use crate::{
-    fs::WidePathBuf,
-    skv::{
-        checker::{Checker, CheckerAction, IntoChecker},
-        connection::{
-            Connection, ConnectionIncident, ConnectionIncidents, ConnectionMaintenanceTask,
-            ConnectionPath, ConnectionType, ToConnectionIncident,
-        },
-        schema::{Schema, SchemaError},
+    checker::{Checker, CheckerAction, IntoChecker},
+    connection::{
+        Connection, ConnectionIncident, ConnectionIncidents, ConnectionMaintenanceTask,
+        ConnectionPath, ConnectionType, ToConnectionIncident,
     },
+    schema::{Schema, SchemaError},
 };
 
 /// A persistent store backed by a physical SQLite database.
@@ -256,10 +253,10 @@ impl StorePath {
     /// method normalizes string paths passed to the XPCOM
     /// [`crate::skv::interface`] methods.
     ///
-    /// **Canonicalization can accesses the filesystem**, so this method
+    /// **Canonicalization can access the filesystem**, so this method
     /// should not be called on the main thread.
-    pub fn canonicalizing(path: WidePathBuf) -> Result<Self, StoreError> {
-        Ok(if path == StorePath::IN_MEMORY_DATABASE_NAME {
+    pub fn canonicalizing(path: PathBuf) -> Result<Self, StoreError> {
+        Ok(if path.as_os_str() == StorePath::IN_MEMORY_DATABASE_NAME {
             StorePath::for_in_memory()
         } else {
             // Concurrently accessing the same physical SQLite database

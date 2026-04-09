@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.73
- * pdfjsBuild = dd8f0a327
+ * pdfjsVersion = 5.7.85
+ * pdfjsBuild = d6afffe8f
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -9380,7 +9380,7 @@ class PDFThumbnailViewer {
       const currentPageNumber = isNaN(this.#pageNumberToRemove) ? pagesToMove[0] : this.#pageNumberToRemove;
       pagesMapper.movePages(selectedPages, pagesToMove, newIndex);
       this.#updateCurrentPage(this.#updateThumbnails(currentPageNumber));
-      this.#computeThumbnailsPosition();
+      this.#thumbnailsPositions = null;
       selectedPages.clear();
       this.#pageNumberToRemove = NaN;
       this.#toggleMenuEntries(false);
@@ -9564,7 +9564,7 @@ class PDFThumbnailViewer {
     pagesMapper.pastePages(index);
     this.#updateThumbnails(currentPageNumber);
     this.#updateCurrentPage(index + 1, true);
-    this.#computeThumbnailsPosition();
+    this.#thumbnailsPositions = null;
     this.eventBus.dispatch("pagesedited", {
       source: this,
       pagesMapper,
@@ -9593,6 +9593,7 @@ class PDFThumbnailViewer {
     const pagesToDelete = this.#deletedPageNumbers = Uint32Array.from(selectedPages).sort((a, b) => a - b);
     pagesMapper.deletePages(pagesToDelete);
     this.#updateCurrentPage(this.#updateThumbnails(currentPageNumber));
+    this.#thumbnailsPositions = null;
     selectedPages.clear();
     this.#updateMenuEntries();
     this.eventBus.dispatch("pagesedited", {
@@ -12779,7 +12780,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "5.7.73";
+    const viewerVersion = "5.7.85";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -16092,7 +16093,7 @@ class ViewsManager extends Sidebar {
       attachmentsTitle: "pdfjs-views-manager-attachments-title",
       layersTitle: "pdfjs-views-manager-layers-title1",
       notificationButton: "pdfjs-toggle-views-manager-notification-button",
-      toggleButton: "pdfjs-toggle-views-manager-button"
+      toggleButton: "pdfjs-toggle-views-manager-button1"
     });
     this.#addEventListeners();
   }

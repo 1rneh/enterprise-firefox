@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.73
- * pdfjsBuild = dd8f0a327
+ * pdfjsVersion = 5.7.85
+ * pdfjsBuild = d6afffe8f
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -8803,9 +8803,9 @@ class MessageHandler {
   }
 }
 
-;// ./src/display/webgpu_mesh.js
+;// ./src/display/webgpu.js
 
-const WGSL = `
+const MESH_WGSL = `
 struct Uniforms {
   offsetX      : f32,
   offsetY      : f32,
@@ -8849,10 +8849,10 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
   return vec4<f32>(in.color, 1.0);
 }
 `;
-class WebGPUMesh {
+class WebGPU {
   #initPromise = null;
   #device = null;
-  #pipeline = null;
+  #meshPipeline = null;
   #preferredFormat = null;
   async #initGPU() {
     if (!globalThis.navigator?.gpu) {
@@ -8864,54 +8864,57 @@ class WebGPUMesh {
         return false;
       }
       this.#preferredFormat = navigator.gpu.getPreferredCanvasFormat();
-      const device = this.#device = await adapter.requestDevice();
-      const shaderModule = device.createShaderModule({
-        code: WGSL
-      });
-      this.#pipeline = device.createRenderPipeline({
-        layout: "auto",
-        vertex: {
-          module: shaderModule,
-          entryPoint: "vs_main",
-          buffers: [{
-            arrayStride: 2 * 4,
-            attributes: [{
-              shaderLocation: 0,
-              offset: 0,
-              format: "float32x2"
-            }]
-          }, {
-            arrayStride: 4,
-            attributes: [{
-              shaderLocation: 1,
-              offset: 0,
-              format: "unorm8x4"
-            }]
-          }]
-        },
-        fragment: {
-          module: shaderModule,
-          entryPoint: "fs_main",
-          targets: [{
-            format: this.#preferredFormat
-          }]
-        },
-        primitive: {
-          topology: "triangle-list"
-        }
-      });
+      this.#device = await adapter.requestDevice();
       return true;
     } catch {
       return false;
     }
   }
   init() {
-    if (this.#initPromise === null) {
-      this.#initPromise = this.#initGPU();
-    }
+    return this.#initPromise ||= this.#initGPU();
   }
   get isReady() {
     return this.#device !== null;
+  }
+  loadMeshShader() {
+    if (!this.#device || this.#meshPipeline) {
+      return;
+    }
+    const shaderModule = this.#device.createShaderModule({
+      code: MESH_WGSL
+    });
+    this.#meshPipeline = this.#device.createRenderPipeline({
+      layout: "auto",
+      vertex: {
+        module: shaderModule,
+        entryPoint: "vs_main",
+        buffers: [{
+          arrayStride: 2 * 4,
+          attributes: [{
+            shaderLocation: 0,
+            offset: 0,
+            format: "float32x2"
+          }]
+        }, {
+          arrayStride: 4,
+          attributes: [{
+            shaderLocation: 1,
+            offset: 0,
+            format: "unorm8x4"
+          }]
+        }]
+      },
+      fragment: {
+        module: shaderModule,
+        entryPoint: "fs_main",
+        targets: [{
+          format: this.#preferredFormat
+        }]
+      },
+      primitive: {
+        topology: "triangle-list"
+      }
+    });
   }
   #buildVertexStreams(figures, context) {
     const {
@@ -8973,6 +8976,7 @@ class WebGPUMesh {
     };
   }
   draw(figures, context, backgroundColor, paddedWidth, paddedHeight, borderSize) {
+    this.loadMeshShader();
     const device = this.#device;
     const {
       offsetX,
@@ -9005,7 +9009,7 @@ class WebGPUMesh {
     });
     device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([offsetX, offsetY, scaleX, scaleY, paddedWidth, paddedHeight, borderSize, 0]));
     const bindGroup = device.createBindGroup({
-      layout: this.#pipeline.getBindGroupLayout(0),
+      layout: this.#meshPipeline.getBindGroupLayout(0),
       entries: [{
         binding: 0,
         resource: {
@@ -9041,7 +9045,7 @@ class WebGPUMesh {
       }]
     });
     if (vertexCount > 0) {
-      renderPass.setPipeline(this.#pipeline);
+      renderPass.setPipeline(this.#meshPipeline);
       renderPass.setBindGroup(0, bindGroup);
       renderPass.setVertexBuffer(0, posBuffer);
       renderPass.setVertexBuffer(1, colBuffer);
@@ -9055,15 +9059,18 @@ class WebGPUMesh {
     return offscreen.transferToImageBitmap();
   }
 }
-const _webGPUMesh = new WebGPUMesh();
-function initWebGPUMesh() {
-  _webGPUMesh.init();
+const _webGPU = new WebGPU();
+function initGPU() {
+  return _webGPU.init();
 }
-function isWebGPUMeshReady() {
-  return _webGPUMesh.isReady;
+function isGPUReady() {
+  return _webGPU.isReady;
+}
+function loadMeshShader() {
+  _webGPU.loadMeshShader();
 }
 function drawMeshWithGPU(figures, context, backgroundColor, paddedWidth, paddedHeight, borderSize) {
-  return _webGPUMesh.draw(figures, context, backgroundColor, paddedWidth, paddedHeight, borderSize);
+  return _webGPU.draw(figures, context, backgroundColor, paddedWidth, paddedHeight, borderSize);
 }
 
 ;// ./src/display/pattern_helper.js
@@ -9369,6 +9376,7 @@ class MeshShadingPattern extends BaseShadingPattern {
     this._bbox = IR[6];
     this._background = IR[7];
     this.matrix = null;
+    loadMeshShader();
   }
   _createMeshCanvas(combinedScale, backgroundColor, canvasFactory) {
     const EXPECTED_SCALE = 1.1;
@@ -9393,7 +9401,7 @@ class MeshShadingPattern extends BaseShadingPattern {
     const paddedWidth = width + BORDER_SIZE * 2;
     const paddedHeight = height + BORDER_SIZE * 2;
     const tmpCanvas = canvasFactory.create(paddedWidth, paddedHeight);
-    if (isWebGPUMeshReady()) {
+    if (isGPUReady()) {
       tmpCanvas.context.drawImage(drawMeshWithGPU(this._figures, context, backgroundColor, paddedWidth, paddedHeight, BORDER_SIZE), 0, 0);
     } else {
       const data = tmpCanvas.context.createImageData(width, height);
@@ -13753,6 +13761,7 @@ function getDocument(src = {}) {
   const BinaryDataFactory = src.BinaryDataFactory || DOMBinaryDataFactory;
   const enableHWA = src.enableHWA === true;
   const enableWebGPU = src.enableWebGPU === true;
+  const gpuPromise = enableWebGPU ? initGPU() : Promise.resolve(false);
   const useWasm = src.useWasm !== false;
   const pagesMapper = src.pagesMapper || new PagesMapper();
   const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !isNodeJS && !disableFontFace;
@@ -13779,7 +13788,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "5.7.73",
+    apiVersion: "5.7.85",
     data,
     password,
     disableAutoFetch,
@@ -13802,7 +13811,7 @@ function getDocument(src = {}) {
       iccUrl,
       standardFontDataUrl,
       wasmUrl,
-      enableWebGPU
+      hasGPU: false
     }
   };
   const transportParams = {
@@ -13815,13 +13824,14 @@ function getDocument(src = {}) {
       enableXfa
     }
   };
-  worker.promise.then(function () {
+  Promise.all([worker.promise, gpuPromise]).then(function ([, hasGPU]) {
     if (task.destroyed) {
       throw new Error("Loading aborted");
     }
     if (worker.destroyed) {
       throw new Error("Worker was destroyed");
     }
+    docParams.evaluatorOptions.hasGPU = hasGPU;
     const workerIdPromise = worker.messageHandler.sendWithPromise("GetDocRequest", docParams, data ? [data.buffer] : null);
     let networkStream;
     if (data) {} else if (rangeTransport) {
@@ -15006,12 +15016,6 @@ class WorkerTransport {
       }
       this.#onProgress(data);
     });
-    messageHandler.on("PrepareWebGPU", () => {
-      if (this.destroyed) {
-        return;
-      }
-      initWebGPUMesh();
-    });
   }
   getData() {
     return this.messageHandler.sendWithPromise("GetData", null);
@@ -15396,8 +15400,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "5.7.73";
-const build = "dd8f0a327";
+const version = "5.7.85";
+const build = "d6afffe8f";
 
 ;// ./src/display/editor/color_picker.js
 

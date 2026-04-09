@@ -120,7 +120,6 @@ export class BaseContent extends React.PureComponent {
       this.toggleWidgetsManagementPanel.bind(this);
     this.state = {
       fixedSearch: false,
-      firstVisibleTimestamp: null,
       colorMode: "",
       fixedNavStyle: {},
       wallpaperTheme: "",
@@ -132,19 +131,10 @@ export class BaseContent extends React.PureComponent {
     this.spocPlaceholderStartTime = null;
   }
 
-  setFirstVisibleTimestamp() {
-    if (!this.state.firstVisibleTimestamp) {
-      this.setState({
-        firstVisibleTimestamp: Date.now(),
-      });
-    }
-  }
-
   onVisible() {
     this.setState({
       visible: true,
     });
-    this.setFirstVisibleTimestamp();
     this.shouldDisplayTopicSelectionModal();
     this.onVisibilityDispatch();
 
@@ -924,7 +914,6 @@ export class BaseContent extends React.PureComponent {
                 <ErrorBoundary className="borderless-error">
                   <DiscoveryStreamBase
                     locale={props.App.locale}
-                    firstVisibleTimestamp={this.state.firstVisibleTimestamp}
                     placeholder={this.isSpocsOnDemandExpired}
                   />
                 </ErrorBoundary>
@@ -969,6 +958,11 @@ export class BaseContent extends React.PureComponent {
             />
           </menu>
           <ConfirmDialog />
+          {this.props.Notifications?.showNotifications && (
+            <ErrorBoundary>
+              <Notifications dispatch={this.props.dispatch} />
+            </ErrorBoundary>
+          )}
         </div>
       );
     }
@@ -1047,7 +1041,6 @@ export class BaseContent extends React.PureComponent {
                 <ErrorBoundary className="borderless-error">
                   <DiscoveryStreamBase
                     locale={props.App.locale}
-                    firstVisibleTimestamp={this.state.firstVisibleTimestamp}
                     placeholder={this.isSpocsOnDemandExpired}
                   />
                 </ErrorBoundary>

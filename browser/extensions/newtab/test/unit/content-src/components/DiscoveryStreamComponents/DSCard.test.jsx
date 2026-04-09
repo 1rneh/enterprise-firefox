@@ -31,8 +31,6 @@ const DEFAULT_PROPS = {
   },
   DiscoveryStream: INITIAL_STATE.DiscoveryStream,
   Prefs: INITIAL_STATE.Prefs,
-  fetchTimestamp: new Date("March 20, 2024 10:30:44").getTime(),
-  firstVisibleTimestamp: new Date("March 21, 2024 10:11:12").getTime(),
 };
 
 describe("<DSCard>", () => {
@@ -291,8 +289,6 @@ describe("<DSCard>", () => {
             card_type: "organic",
             recommendation_id: undefined,
             tile_id: "fooidx",
-            fetchTimestamp: DEFAULT_PROPS.fetchTimestamp,
-            firstVisibleTimestamp: DEFAULT_PROPS.firstVisibleTimestamp,
             scheduled_corpus_item_id: undefined,
             corpus_item_id: undefined,
             recommended_at: undefined,
@@ -353,8 +349,6 @@ describe("<DSCard>", () => {
             card_type: "spoc",
             recommendation_id: undefined,
             tile_id: "fooidx",
-            fetchTimestamp: DEFAULT_PROPS.fetchTimestamp,
-            firstVisibleTimestamp: DEFAULT_PROPS.firstVisibleTimestamp,
             scheduled_corpus_item_id: undefined,
             corpus_item_id: undefined,
             recommended_at: undefined,
@@ -418,8 +412,6 @@ describe("<DSCard>", () => {
             recommendation_id: undefined,
             tile_id: "fooidx",
             shim: "click shim",
-            fetchTimestamp: DEFAULT_PROPS.fetchTimestamp,
-            firstVisibleTimestamp: DEFAULT_PROPS.firstVisibleTimestamp,
             scheduled_corpus_item_id: undefined,
             corpus_item_id: undefined,
             recommended_at: undefined,

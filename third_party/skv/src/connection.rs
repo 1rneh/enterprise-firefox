@@ -11,8 +11,6 @@ use std::{borrow::Cow, fmt::Debug, num::NonZeroU32, path::Path, sync::Mutex};
 
 use rusqlite::{config::DbConfig, InterruptHandle, OpenFlags, Transaction, TransactionBehavior};
 
-use crate::skv;
-
 /// A path to a physical SQLite database, and optional [`OpenFlags`] for
 /// interpreting that path.
 pub trait ConnectionPath {
@@ -92,9 +90,10 @@ impl Connection {
         // Turn off misfeatures: double-quoted strings and untrusted schemas.
         conn.set_db_config(DbConfig::SQLITE_DBCONFIG_DQS_DML, false)?;
         conn.set_db_config(DbConfig::SQLITE_DBCONFIG_DQS_DDL, false)?;
+        // We control the schema, turn off the unnecessary precautions.
         conn.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, true)?;
 
-        skv::functions::register(&mut conn)?;
+        crate::functions::register(&mut conn)?;
 
         match type_ {
             ConnectionType::ReadOnly => Ok(Self::with_connection(conn)),

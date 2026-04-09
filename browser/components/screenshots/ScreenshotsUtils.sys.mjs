@@ -1360,15 +1360,12 @@ export var ScreenshotsUtils = {
     const targetFile = new lazy.FileUtils.File(filename);
 
     // Create download and track its progress.
+    let isPrivate = lazy.PrivateBrowsingUtils.isBrowserPrivate(browser);
     try {
       const download = await lazy.Downloads.createDownload({
-        source: blobURL,
+        source: { url: blobURL, isPrivate },
         target: targetFile,
       });
-
-      let isPrivate = lazy.PrivateBrowsingUtils.isWindowPrivate(
-        browser.ownerGlobal
-      );
       const list = await lazy.Downloads.getList(
         isPrivate ? lazy.Downloads.PRIVATE : lazy.Downloads.PUBLIC
       );

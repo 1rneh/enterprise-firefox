@@ -1505,10 +1505,11 @@ class _ConfirmDialog extends (external_React_default()).PureComponent {
     }), this._renderModalMessage()), /*#__PURE__*/external_React_default().createElement("section", {
       className: "button-group"
     }, /*#__PURE__*/external_React_default().createElement("moz-button-group", null, /*#__PURE__*/external_React_default().createElement("moz-button", {
+      type: "ghost",
       onClick: this._handleCancelBtn,
       "data-l10n-id": this.props.data.cancel_button_string_id
     }), /*#__PURE__*/external_React_default().createElement("moz-button", {
-      type: "primary",
+      type: "destructive",
       onClick: this._handleConfirmBtn,
       "data-l10n-id": this.props.data.confirm_button_string_id,
       "data-l10n-args": JSON.stringify(this.props.data.confirm_button_string_args)
@@ -2004,7 +2005,6 @@ const LinkMenuOptions = {
         is_sponsored: !!site.sponsored_tile_id,
         event_source: "CONTEXT_MENU",
         topic: site.topic,
-        firstVisibleTimestamp: site.firstVisibleTimestamp,
         tile_id: site.tile_id,
         recommendation_id: site.recommendation_id,
         scheduled_corpus_item_id: site.scheduled_corpus_item_id,
@@ -2283,6 +2283,20 @@ const LinkMenuOptions = {
           actionCreators.AlsoToMain({
             type: actionTypes.DIALOG_CLOSE,
           }),
+          actionCreators.OnlyToOneContent(
+            {
+              type: actionTypes.SHOW_TOAST_MESSAGE,
+              data: {
+                toastId: "blockSectionToast",
+                showNotifications: true,
+                toastData: {
+                  l10nId: "newtab-section-toast-block",
+                  topic: title,
+                },
+              },
+            },
+            "ActivityStream:Content"
+          ),
         ],
         // Pass Fluent strings to ConfirmDialog component for the copy
         // of the prompt to block sections.
@@ -2292,7 +2306,7 @@ const LinkMenuOptions = {
         ],
         confirm_button_string_id: "newtab-section-block-topic-button",
         confirm_button_string_args: { topic: title },
-        cancel_button_string_id: "newtab-section-cancel-button",
+        cancel_button_string_id: "newtab-section-block-cancel-button",
       },
     },
     userEvent: "DIALOG_OPEN",
@@ -2301,8 +2315,9 @@ const LinkMenuOptions = {
     sectionPersonalization,
     sectionKey,
     sectionPosition,
+    title,
   }) => ({
-    id: "newtab-menu-section-unfollow",
+    id: "newtab-menu-section-unfollow-topic",
     action: actionCreators.AlsoToMain({
       type: actionTypes.SECTION_PERSONALIZATION_SET,
       data: (({ [sectionKey]: _sectionKey, ...remaining }) => remaining)(
@@ -2317,6 +2332,17 @@ const LinkMenuOptions = {
         event_source: "CONTEXT_MENU",
       },
     }),
+    toast: actionCreators.OnlyToOneContent(
+      {
+        type: actionTypes.SHOW_TOAST_MESSAGE,
+        data: {
+          toastId: "unfollowSectionToast",
+          showNotifications: true,
+          toastData: { l10nId: "newtab-section-toast-unfollow", topic: title },
+        },
+      },
+      "ActivityStream:Content"
+    ),
     userEvent: "SECTION_UNFOLLOW",
   }),
   ManageSponsoredContent: () => ({
@@ -2414,6 +2440,7 @@ class _LinkMenu extends (external_React_default()).PureComponent {
       const {
         action,
         impression,
+        toast,
         id,
         type,
         userEvent: eventName
@@ -2438,6 +2465,9 @@ class _LinkMenu extends (external_React_default()).PureComponent {
             }, action.data);
           }
           dispatch(action);
+          if (toast) {
+            dispatch(toast);
+          }
           if (eventName) {
             let value;
             // Bug 1958135: Pass additional info to ac.OPEN_NEW_WINDOW event
@@ -2446,8 +2476,6 @@ class _LinkMenu extends (external_React_default()).PureComponent {
                 card_type,
                 corpus_item_id,
                 event_source,
-                fetchTimestamp,
-                firstVisibleTimestamp,
                 format,
                 is_section_followed,
                 received_rank,
@@ -2464,8 +2492,6 @@ class _LinkMenu extends (external_React_default()).PureComponent {
                 card_type,
                 corpus_item_id,
                 event_source,
-                fetchTimestamp,
-                firstVisibleTimestamp,
                 format,
                 received_rank,
                 recommendation_id,
@@ -2655,7 +2681,6 @@ class _DSLinkMenu extends (external_React_default()).PureComponent {
         recommendation_id: this.props.recommendation_id,
         corpus_item_id: this.props.corpus_item_id,
         scheduled_corpus_item_id: this.props.scheduled_corpus_item_id,
-        firstVisibleTimestamp: this.props.firstVisibleTimestamp,
         recommended_at: this.props.recommended_at,
         received_rank: this.props.received_rank,
         topic: this.props.topic,
@@ -3059,7 +3084,6 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
             shim: link.shim
           } : {}),
           recommendation_id: link.recommendation_id,
-          fetchTimestamp: link.fetchTimestamp,
           corpus_item_id: link.corpus_item_id,
           scheduled_corpus_item_id: link.scheduled_corpus_item_id,
           recommended_at: link.recommended_at,
@@ -3078,8 +3102,7 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
             is_section_followed: link.is_section_followed,
             layout_name: link.sectionLayoutName
           } : {})
-        })),
-        firstVisibleTimestamp: props.firstVisibleTimestamp
+        }))
       };
       props.dispatch(actionCreators.DiscoveryStreamImpressionStats(impressionData));
       this.impressionCardGuids = cards.map(link => link.id);
@@ -3796,8 +3819,6 @@ class _DSCard extends (external_React_default()).PureComponent {
           ...(this.props.shim && this.props.shim.click ? {
             shim: this.props.shim.click
           } : {}),
-          fetchTimestamp: this.props.fetchTimestamp,
-          firstVisibleTimestamp: this.props.firstVisibleTimestamp,
           corpus_item_id: this.props.corpus_item_id,
           scheduled_corpus_item_id: this.props.scheduled_corpus_item_id,
           recommended_at: this.props.recommended_at,
@@ -4113,7 +4134,6 @@ class _DSCard extends (external_React_default()).PureComponent {
           shim: this.props.shim.impression
         } : {}),
         recommendation_id: this.props.recommendation_id,
-        fetchTimestamp: this.props.fetchTimestamp,
         corpus_item_id: this.props.corpus_item_id,
         scheduled_corpus_item_id: this.props.scheduled_corpus_item_id,
         recommended_at: this.props.recommended_at,
@@ -4138,8 +4158,7 @@ class _DSCard extends (external_React_default()).PureComponent {
         } : {})
       }],
       dispatch: this.props.dispatch,
-      source: this.props.type,
-      firstVisibleTimestamp: this.props.firstVisibleTimestamp
+      source: this.props.type
     }), ctaButtonVariant === "variant-b" && /*#__PURE__*/external_React_default().createElement("div", {
       className: "cta-header"
     }, "Shop Now"), /*#__PURE__*/external_React_default().createElement(DefaultMeta, {
@@ -4191,8 +4210,6 @@ class _DSCard extends (external_React_default()).PureComponent {
       section: this.props.section,
       section_position: this.props.sectionPosition,
       is_section_followed: this.props.sectionFollowed,
-      fetchTimestamp: this.props.fetchTimestamp,
-      firstVisibleTimestamp: this.props.firstVisibleTimestamp,
       format: format ? format : getActiveCardSize(window.innerWidth, this.props.sectionsClassNames, this.props.section, this.props.flightId),
       isSectionsCard: this.props.mayHaveSectionsCards,
       topic: this.props.topic,
@@ -4526,7 +4543,6 @@ function AdBannerContextMenu({
     site: {
       // Props we want to pass on for new ad types that come from Unified Ads API
       block_key: spoc.block_key,
-      fetchTimestamp: spoc.fetchTimestamp,
       flight_id: spoc.flight_id,
       format: spoc.format,
       id: spoc.id,
@@ -4643,7 +4659,6 @@ const PREF_PROMOCARD_VISIBLE = "discoverystream.promoCard.visible";
  *
  * @param spoc
  * @param dispatch
- * @param firstVisibleTimestamp
  * @param row
  * @param type
  * @param prefs
@@ -4653,7 +4668,6 @@ const PREF_PROMOCARD_VISIBLE = "discoverystream.promoCard.visible";
 const AdBanner = ({
   spoc,
   dispatch,
-  firstVisibleTimestamp,
   row,
   type,
   prefs
@@ -4700,8 +4714,6 @@ const AdBanner = ({
         ...(spoc.shim?.click ? {
           shim: spoc.shim.click
         } : {}),
-        fetchTimestamp: spoc.fetchTimestamp,
-        firstVisibleTimestamp,
         format: spoc.format,
         ...(sectionsEnabled ? {
           section: spoc.format,
@@ -4755,8 +4767,7 @@ const AdBanner = ({
         shim: spoc.shim.impression
       } : {})
     }],
-    dispatch: dispatch,
-    firstVisibleTimestamp: firstVisibleTimestamp
+    dispatch: dispatch
   }), /*#__PURE__*/external_React_default().createElement("div", {
     className: "ad-banner-content"
   }, /*#__PURE__*/external_React_default().createElement("img", {
@@ -4939,7 +4950,6 @@ class _CardGrid extends (external_React_default()).PureComponent {
           url: rec.url,
           id: rec.id,
           shim: rec.shim,
-          fetchTimestamp: rec.fetchTimestamp,
           type: this.props.type,
           context: rec.context,
           sponsor: rec.sponsor,
@@ -4953,7 +4963,6 @@ class _CardGrid extends (external_React_default()).PureComponent {
           ctaButtonSponsors: ctaButtonSponsors,
           ctaButtonVariant: ctaButtonVariant,
           recommendation_id: rec.recommendation_id,
-          firstVisibleTimestamp: this.props.firstVisibleTimestamp,
           mayHaveSectionsCards: mayHaveSectionsCards,
           corpus_item_id: rec.corpus_item_id,
           scheduled_corpus_item_id: rec.scheduled_corpus_item_id,
@@ -5033,7 +5042,6 @@ class _CardGrid extends (external_React_default()).PureComponent {
             key: `dscard-${spocToRender.id}`,
             dispatch: this.props.dispatch,
             type: this.props.type,
-            firstVisibleTimestamp: this.props.firstVisibleTimestamp,
             row: row,
             prefs: prefs
           }));
@@ -6600,6 +6608,7 @@ const INITIAL_STATE = {
     showNotifications: false,
     toastCounter: 0,
     toastId: "",
+    toastData: {},
     // This queue is reset each time SHOW_TOAST_MESSAGE is ran.
     // For can be a queue in the future, but for now is one item
     toastQueue: [],
@@ -7498,6 +7507,7 @@ function Notifications(prevState = INITIAL_STATE.Notifications, action) {
         showNotifications: action.data.showNotifications,
         toastCounter: prevState.toastCounter + 1,
         toastId: action.data.toastId,
+        toastData: action.data.toastData ?? {},
         toastQueue: [action.data.toastId],
       };
     case actionTypes.HIDE_TOAST_MESSAGE: {
@@ -10419,6 +10429,7 @@ const selectLayoutRender = ({ state = {}, prefs = {} }) => {
  */
 function SectionContextMenu({
   type = "DISCOVERY_STREAM",
+  buttonType = "icon",
   title,
   source,
   index,
@@ -10428,12 +10439,12 @@ function SectionContextMenu({
   sectionPersonalization,
   sectionPosition
 }) {
-  // Initial context menu options: block this section only.
-  const SECTIONS_CONTEXT_MENU_OPTIONS = ["SectionBlock"];
-  const [showContextMenu, setShowContextMenu] = (0,external_React_namespaceObject.useState)(false);
+  const SECTIONS_CONTEXT_MENU_OPTIONS = [];
   if (following) {
     SECTIONS_CONTEXT_MENU_OPTIONS.push("SectionUnfollow");
   }
+  SECTIONS_CONTEXT_MENU_OPTIONS.push("SectionBlock");
+  const [showContextMenu, setShowContextMenu] = (0,external_React_namespaceObject.useState)(false);
   const onClick = e => {
     e.preventDefault();
     setShowContextMenu(!showContextMenu);
@@ -10444,7 +10455,7 @@ function SectionContextMenu({
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: "section-context-menu"
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
-    type: "icon",
+    type: buttonType,
     size: "default",
     iconsrc: "chrome://global/skin/icons/more.svg",
     title: title || source,
@@ -10462,6 +10473,72 @@ function SectionContextMenu({
       sectionPosition,
       title
     }
+  }));
+}
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/SectionFollowButton/SectionFollowButton.jsx
+function SectionFollowButton_extends() { return SectionFollowButton_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, SectionFollowButton_extends.apply(null, arguments); }
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+
+const ADD_ICON = "chrome://global/skin/icons/plus.svg";
+const CHECK_ICON = "chrome://global/skin/icons/check.svg";
+const CLOSE_ICON = "chrome://global/skin/icons/close.svg";
+function SectionFollowButton({
+  following,
+  onFollowClick,
+  onUnfollowClick
+}) {
+  const [isHovered, setIsHovered] = (0,external_React_namespaceObject.useState)(false);
+  const [justFollowed, setJustFollowed] = (0,external_React_namespaceObject.useState)(false);
+  // This key is incremented on mouse leave / blur to remount moz-button and
+  // restore it to its icon-only state.
+  const [remountKey, setRemountKey] = (0,external_React_namespaceObject.useState)(0);
+  const isJustFollowed = following && isHovered && justFollowed;
+  const isUnfollowing = following && isHovered && !justFollowed;
+  let followButtonL10nId = "newtab-section-follow-button";
+  let icon = ADD_ICON;
+  let buttonType = "default";
+  if (isJustFollowed) {
+    followButtonL10nId = "newtab-section-following-button";
+    icon = CHECK_ICON;
+    buttonType = "primary";
+  } else if (isUnfollowing) {
+    followButtonL10nId = "newtab-section-unfollow-button";
+    icon = CLOSE_ICON;
+    buttonType = "destructive";
+  } else if (isHovered) {
+    buttonType = "primary";
+  } else if (following) {
+    icon = CHECK_ICON;
+  }
+  const handleFollowClick = () => {
+    setJustFollowed(true);
+    onFollowClick();
+  };
+  const hoverHandlers = {
+    onMouseEnter: () => setIsHovered(true),
+    onMouseLeave: () => {
+      setIsHovered(false);
+      setJustFollowed(false);
+      setRemountKey(k => k + 1);
+    },
+    onFocus: () => setIsHovered(true),
+    onBlur: () => {
+      setIsHovered(false);
+      setJustFollowed(false);
+      setRemountKey(k => k + 1);
+    }
+  };
+  return /*#__PURE__*/external_React_default().createElement("div", SectionFollowButton_extends({
+    className: `section-follow${following ? " following" : ""}`
+  }, hoverHandlers), /*#__PURE__*/external_React_default().createElement("moz-button", {
+    key: remountKey,
+    type: buttonType,
+    iconsrc: icon,
+    onClick: following ? onUnfollowClick : handleFollowClick,
+    "data-l10n-id": isHovered ? followButtonL10nId : null
   }));
 }
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/InterestPicker/InterestPicker.jsx
@@ -10760,8 +10837,7 @@ const BriefingCard = ({
   headlines = [],
   lastUpdated,
   selectedTopics,
-  isFollowed,
-  firstVisibleTimestamp
+  isFollowed
 }) => {
   const [showTimestamp, setShowTimestamp] = (0,external_React_namespaceObject.useState)(false);
   const [timeAgo, setTimeAgo] = (0,external_React_namespaceObject.useState)("");
@@ -10822,8 +10898,6 @@ const BriefingCard = ({
         card_type: "organic",
         recommendation_id: headline.recommendation_id,
         tile_id: headline.id,
-        fetchTimestamp: headline.fetchTimestamp,
-        firstVisibleTimestamp,
         corpus_item_id: headline.corpus_item_id,
         scheduled_corpus_item_id: headline.scheduled_corpus_item_id,
         recommended_at: headline.recommended_at,
@@ -10890,7 +10964,6 @@ const BriefingCard = ({
       id: headline.id,
       pos: headline.pos,
       recommendation_id: headline.recommendation_id,
-      fetchTimestamp: headline.fetchTimestamp,
       corpus_item_id: headline.corpus_item_id,
       scheduled_corpus_item_id: headline.scheduled_corpus_item_id,
       recommended_at: headline.recommended_at,
@@ -10906,8 +10979,7 @@ const BriefingCard = ({
       } : {})
     })),
     dispatch: dispatch,
-    source: "DAILY_BRIEFING",
-    firstVisibleTimestamp: firstVisibleTimestamp
+    source: "DAILY_BRIEFING"
   }));
 };
 
@@ -10915,6 +10987,7 @@ const BriefingCard = ({
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -10946,6 +11019,8 @@ const PREF_INFERRED_PERSONALIZATION_USER = "discoverystream.sections.personaliza
 const PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
 const PREF_DAILY_BRIEF_ENABLED = "discoverystream.dailyBrief.enabled";
 const CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED = "discoverystream.spocs.startupCache.enabled";
+// @nova-cleanup(remove-pref): Remove after Nova ships
+const CardSections_PREF_NOVA_ENABLED = "nova.enabled";
 
 // Feed URL
 const CURATED_RECOMMENDATIONS_FEED_URL = "https://merino.services.mozilla.com/api/v1/curated-recommendations";
@@ -11019,7 +11094,6 @@ function CardSection({
   section,
   dispatch,
   type,
-  firstVisibleTimestamp,
   ctaButtonVariant,
   ctaButtonSponsors,
   anySectionsFollowed,
@@ -11092,6 +11166,8 @@ function CardSection({
   const dailyBriefEnabled = prefs.trainhopConfig?.dailyBriefing?.enabled || prefs[PREF_DAILY_BRIEF_ENABLED];
   const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[PREF_DAILY_BRIEF_SECTIONID];
   const mayHaveSectionsPersonalization = prefs[PREF_SECTIONS_PERSONALIZATION_ENABLED];
+  // @nova-cleanup(remove-conditional): Remove novaEnabled, always use Nova layout
+  const novaEnabled = prefs[CardSections_PREF_NOVA_ENABLED];
   const {
     sectionKey,
     title,
@@ -11139,7 +11215,18 @@ function CardSection({
         event_source: "MOZ_BUTTON"
       }
     }));
-  }, [dispatch, sectionPersonalization, sectionKey, sectionPosition]);
+    dispatch(actionCreators.OnlyToOneContent({
+      type: actionTypes.SHOW_TOAST_MESSAGE,
+      data: {
+        toastId: "followSectionToast",
+        showNotifications: true,
+        toastData: {
+          l10nId: "newtab-section-toast-follow",
+          topic: title
+        }
+      }
+    }, "ActivityStream:Content"));
+  }, [dispatch, sectionPersonalization, sectionKey, sectionPosition, title]);
   const onUnfollowClick = (0,external_React_namespaceObject.useCallback)(() => {
     const updatedSectionData = {
       ...sectionPersonalization
@@ -11159,7 +11246,18 @@ function CardSection({
         event_source: "MOZ_BUTTON"
       }
     }));
-  }, [dispatch, sectionPersonalization, sectionKey, sectionPosition]);
+    dispatch(actionCreators.OnlyToOneContent({
+      type: actionTypes.SHOW_TOAST_MESSAGE,
+      data: {
+        toastId: "unfollowSectionToast",
+        showNotifications: true,
+        toastData: {
+          l10nId: "newtab-section-toast-unfollow",
+          topic: title
+        }
+      }
+    }, "ActivityStream:Content"));
+  }, [dispatch, sectionPersonalization, sectionKey, sectionPosition, title]);
   let {
     maxTile
   } = getMaxTiles(responsiveLayouts);
@@ -11218,8 +11316,7 @@ function CardSection({
           headlines: briefingHeadlines,
           lastUpdated: briefingLastUpdated,
           selectedTopics: selectedTopics,
-          isFollowed: following,
-          firstVisibleTimestamp: firstVisibleTimestamp
+          isFollowed: following
         }));
         continue;
       }
@@ -11282,7 +11379,6 @@ function CardSection({
         url: rec.url,
         id: rec.id,
         shim: rec.shim,
-        fetchTimestamp: rec.fetchTimestamp,
         type: type,
         context: rec.context,
         sponsor: rec.sponsor,
@@ -11294,7 +11390,6 @@ function CardSection({
         context_type: rec.context_type,
         bookmarkGuid: rec.bookmarkGuid,
         recommendation_id: rec.recommendation_id,
-        firstVisibleTimestamp: firstVisibleTimestamp,
         corpus_item_id: rec.corpus_item_id,
         scheduled_corpus_item_id: rec.scheduled_corpus_item_id,
         recommended_at: rec.recommended_at,
@@ -11376,9 +11471,23 @@ function CardSection({
     className: "section-title-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("h2", {
     className: "section-title"
-  }, title), subtitle && /*#__PURE__*/external_React_default().createElement("p", {
+  }, title), mayHaveSectionsPersonalization && novaEnabled && followable !== false && /*#__PURE__*/external_React_default().createElement(SectionFollowButton, {
+    following: following,
+    onFollowClick: onFollowClick,
+    onUnfollowClick: onUnfollowClick
+  }), subtitle && /*#__PURE__*/external_React_default().createElement("p", {
     className: "section-subtitle"
-  }, subtitle)), mayHaveSectionsPersonalization ? sectionContextWrapper : null), /*#__PURE__*/external_React_default().createElement("div", {
+  }, subtitle)), mayHaveSectionsPersonalization && (novaEnabled ? /*#__PURE__*/external_React_default().createElement(SectionContextMenu, {
+    dispatch: dispatch,
+    index: sectionPosition,
+    following: following,
+    sectionPersonalization: sectionPersonalization,
+    sectionKey: sectionKey,
+    title: title,
+    type: type,
+    sectionPosition: sectionPosition,
+    buttonType: "ghost"
+  }) : sectionContextWrapper)), /*#__PURE__*/external_React_default().createElement("div", {
     className: `ds-section-grid ds-card-grid`,
     onFocusCapture: syncLayoutOnFocus,
     onKeyDown: handleCardKeyDown
@@ -11389,7 +11498,6 @@ function CardSections({
   feed,
   dispatch,
   type,
-  firstVisibleTimestamp,
   ctaButtonVariant,
   ctaButtonSponsors,
   placeholder
@@ -11452,7 +11560,6 @@ function CardSections({
     section: section,
     dispatch: dispatch,
     type: type,
-    firstVisibleTimestamp: firstVisibleTimestamp,
     ctaButtonVariant: ctaButtonVariant,
     ctaButtonSponsors: ctaButtonSponsors,
     anySectionsFollowed: anySectionsFollowed,
@@ -11479,7 +11586,6 @@ function CardSections({
         key: `dscard-${spocToRender.id}`,
         dispatch: dispatch,
         type: type,
-        firstVisibleTimestamp: firstVisibleTimestamp,
         row: row,
         prefs: prefs
       }));
@@ -14305,7 +14411,6 @@ class _DiscoveryStreamBase extends (external_React_default()).PureComponent {
               data: component.data,
               dispatch: this.props.dispatch,
               type: component.type,
-              firstVisibleTimestamp: this.props.firstVisibleTimestamp,
               ctaButtonSponsors: component.properties.ctaButtonSponsors,
               ctaButtonVariant: component.properties.ctaButtonVariant,
               placeholder: this.props.placeholder
@@ -14326,7 +14431,6 @@ class _DiscoveryStreamBase extends (external_React_default()).PureComponent {
             ctaButtonSponsors: component.properties.ctaButtonSponsors,
             ctaButtonVariant: component.properties.ctaButtonVariant,
             hideDescriptions: this.props.DiscoveryStream.hideDescriptions,
-            firstVisibleTimestamp: this.props.firstVisibleTimestamp,
             spocPositions: component.spocs?.positions,
             placeholder: this.props.placeholder
           });
@@ -16960,6 +17064,42 @@ function DownloadModalToggle({
   }));
 }
 
+;// CONCATENATED MODULE: ./content-src/components/Notifications/Toasts/SectionToast.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function SectionToast({
+  onDismissClick,
+  onAnimationEnd,
+  toastData
+}) {
+  const mozMessageBarRef = (0,external_React_namespaceObject.useRef)(null);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const {
+      current: mozMessageBarElement
+    } = mozMessageBarRef;
+    mozMessageBarElement.addEventListener("message-bar:user-dismissed", onDismissClick, {
+      once: true
+    });
+    return () => {
+      mozMessageBarElement.removeEventListener("message-bar:user-dismissed", onDismissClick);
+    };
+  }, [onDismissClick]);
+  return /*#__PURE__*/external_React_default().createElement("moz-message-bar", {
+    type: "success",
+    class: "notification-feed-item newtab-toast-success",
+    dismissable: true,
+    "data-l10n-id": toastData.l10nId,
+    "data-l10n-args": JSON.stringify({
+      topic: toastData.topic
+    }),
+    ref: mozMessageBarRef,
+    onAnimationEnd: onAnimationEnd
+  });
+}
+
 ;// CONCATENATED MODULE: ./content-src/components/Notifications/Toasts/HideWidgetsToast.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -17016,7 +17156,7 @@ function ReportContentToast({
   }, [onDismissClick]);
   return /*#__PURE__*/external_React_default().createElement("moz-message-bar", {
     type: "success",
-    class: "notification-feed-item",
+    class: "notification-feed-item newtab-toast-success",
     dismissable: true,
     "data-l10n-id": "newtab-toast-thanks-for-reporting",
     ref: mozMessageBarRef,
@@ -17034,11 +17174,13 @@ function ReportContentToast({
 
 
 
+
 function Notifications_Notifications({
   dispatch
 }) {
   const toastQueue = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Notifications.toastQueue);
   const toastCounter = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Notifications.toastCounter);
+  const toastData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Notifications.toastData);
 
   /**
    * Syncs {@link toastQueue} array so it can be used to
@@ -17065,6 +17207,15 @@ function Notifications_Notifications({
       throw new Error("No toast found");
     }
     switch (latestToastItem) {
+      case "blockSectionToast":
+      case "followSectionToast":
+      case "unfollowSectionToast":
+        return /*#__PURE__*/external_React_default().createElement(SectionToast, {
+          onDismissClick: syncHiddenToastData,
+          onAnimationEnd: syncHiddenToastData,
+          toastData: toastData,
+          key: toastCounter
+        });
       case "reportSuccessToast":
         return /*#__PURE__*/external_React_default().createElement(ReportContentToast, {
           onDismissClick: syncHiddenToastData,
@@ -17080,7 +17231,7 @@ function Notifications_Notifications({
       default:
         throw new Error(`Unexpected toast type: ${latestToastItem}`);
     }
-  }, [syncHiddenToastData, toastCounter, toastQueue]);
+  }, [syncHiddenToastData, toastCounter, toastData, toastQueue]);
   (0,external_React_namespaceObject.useEffect)(() => {
     getToast();
   }, [toastQueue, getToast]);
@@ -17700,7 +17851,6 @@ class BaseContent extends (external_React_default()).PureComponent {
     this.toggleWidgetsManagementPanel = this.toggleWidgetsManagementPanel.bind(this);
     this.state = {
       fixedSearch: false,
-      firstVisibleTimestamp: null,
       colorMode: "",
       fixedNavStyle: {},
       wallpaperTheme: "",
@@ -17711,18 +17861,10 @@ class BaseContent extends (external_React_default()).PureComponent {
     };
     this.spocPlaceholderStartTime = null;
   }
-  setFirstVisibleTimestamp() {
-    if (!this.state.firstVisibleTimestamp) {
-      this.setState({
-        firstVisibleTimestamp: Date.now()
-      });
-    }
-  }
   onVisible() {
     this.setState({
       visible: true
     });
-    this.setFirstVisibleTimestamp();
     this.shouldDisplayTopicSelectionModal();
     this.onVisibilityDispatch();
     if (this.isSpocsOnDemandExpired && !this.spocPlaceholderStartTime) {
@@ -18318,7 +18460,6 @@ class BaseContent extends (external_React_default()).PureComponent {
         className: "borderless-error"
       }, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamBase, {
         locale: props.App.locale,
-        firstVisibleTimestamp: this.state.firstVisibleTimestamp,
         placeholder: this.isSpocsOnDemandExpired
       }))), /*#__PURE__*/external_React_default().createElement("div", {
         className: "sidebar-inline-end"
@@ -18348,7 +18489,9 @@ class BaseContent extends (external_React_default()).PureComponent {
         showWidgetsManagementPanel: this.state.showWidgetsManagementPanel,
         toggleWidgetsManagementPanel: this.toggleWidgetsManagementPanel,
         widgetsEnabled: prefs["widgets.enabled"]
-      })), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null));
+      })), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null), this.props.Notifications?.showNotifications && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Notifications_Notifications, {
+        dispatch: this.props.dispatch
+      })));
     }
 
     // @nova-cleanup(remove-conditional): Delete this entire classic return block along with all variables only used here
@@ -18395,7 +18538,6 @@ class BaseContent extends (external_React_default()).PureComponent {
       className: "borderless-error"
     }, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamBase, {
       locale: props.App.locale,
-      firstVisibleTimestamp: this.state.firstVisibleTimestamp,
       placeholder: this.isSpocsOnDemandExpired
     })) : /*#__PURE__*/external_React_default().createElement(Sections_Sections, null)), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null), wallpapersEnabled && this.renderWallpaperAttribution()), /*#__PURE__*/external_React_default().createElement("aside", null, this.props.Notifications?.showNotifications && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Notifications_Notifications, {
       dispatch: this.props.dispatch

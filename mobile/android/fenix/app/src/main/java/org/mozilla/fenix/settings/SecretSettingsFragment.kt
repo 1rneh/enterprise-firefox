@@ -469,6 +469,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_tab_groups_drag_and_drop).apply {
+            isVisible = Config.channel.isDebug
+            isChecked = context.settings().tabGroupsDragAndDropEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_private_mode_and_stories_entry_point).apply {
             isChecked = context.settings().privateModeAndStoriesEntryPointEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()

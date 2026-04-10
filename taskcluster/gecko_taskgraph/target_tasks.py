@@ -65,6 +65,8 @@ UNCOMMON_TRY_TASK_LABELS = [
     r"nightly-simulation",
     # Can't actually run on try
     r"notarization",
+    # not usually needed
+    "upload-symbols",
 ]
 
 

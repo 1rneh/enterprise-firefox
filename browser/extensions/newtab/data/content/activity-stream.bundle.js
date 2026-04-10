@@ -10453,12 +10453,13 @@ function SectionContextMenu({
     setShowContextMenu(!showContextMenu);
   };
   return /*#__PURE__*/external_React_default().createElement("div", {
-    className: "section-context-menu"
+    className: `section-context-menu${showContextMenu ? " context-menu-open" : ""}`
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
     type: buttonType,
     size: "default",
     iconsrc: "chrome://global/skin/icons/more.svg",
     title: title || source,
+    "aria-expanded": showContextMenu,
     onClick: onClick
   }), showContextMenu && /*#__PURE__*/external_React_default().createElement(LinkMenu, {
     onUpdate: onUpdate,
@@ -11019,7 +11020,7 @@ const PREF_INFERRED_PERSONALIZATION_USER = "discoverystream.sections.personaliza
 const PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
 const PREF_DAILY_BRIEF_ENABLED = "discoverystream.dailyBrief.enabled";
 const CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED = "discoverystream.spocs.startupCache.enabled";
-// @nova-cleanup(remove-pref): Remove after Nova ships
+// @nova-cleanup(remove-pref): Remove PREF_NOVA_ENABLED
 const CardSections_PREF_NOVA_ENABLED = "nova.enabled";
 
 // Feed URL
@@ -11099,7 +11100,8 @@ function CardSection({
   anySectionsFollowed,
   placeholder,
   activeColumnLayout,
-  syncLayoutOnFocus
+  syncLayoutOnFocus,
+  gridRef
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const {
@@ -11114,9 +11116,7 @@ function CardSection({
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.App);
   const [focusedPosition, setFocusedPosition] = (0,external_React_namespaceObject.useState)(0);
   const onCardFocus = position => {
-    if (Number.isInteger(position)) {
-      setFocusedPosition(position);
-    }
+    setFocusedPosition(position);
   };
   const handleCardKeyDown = e => {
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -11488,6 +11488,7 @@ function CardSection({
     sectionPosition: sectionPosition,
     buttonType: "ghost"
   }) : sectionContextWrapper)), /*#__PURE__*/external_React_default().createElement("div", {
+    ref: gridRef,
     className: `ds-section-grid ds-card-grid`,
     onFocusCapture: syncLayoutOnFocus,
     onKeyDown: handleCardKeyDown
@@ -11512,11 +11513,29 @@ function CardSections({
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
   const personalizationEnabled = prefs[PREF_SECTIONS_PERSONALIZATION_ENABLED];
   const interestPickerEnabled = prefs[PREF_INTEREST_PICKER_ENABLED];
+  // @nova-cleanup(remove-conditional): Remove novaEnabled check once classic path is gone
+  const novaEnabled = prefs[CardSections_PREF_NOVA_ENABLED];
+  const gridRef = (0,external_React_namespaceObject.useRef)(null);
   const [activeColumnLayout, setActiveColumnLayout] = (0,external_React_namespaceObject.useState)(() => getActiveColumnLayout(window.innerWidth));
-  const syncLayoutOnFocus = (0,external_React_namespaceObject.useCallback)(() => {
-    const nextLayout = getActiveColumnLayout(window.innerWidth);
+  (0,external_React_namespaceObject.useLayoutEffect)(() => {
+    if (!novaEnabled || !gridRef.current) {
+      return;
+    }
+    const val = parseInt(getComputedStyle(gridRef.current).getPropertyValue("--sections-col-count"), 10);
+    if (Number.isInteger(val)) {
+      setActiveColumnLayout(`col-${val}`);
+    }
+  }, [novaEnabled]);
+  const syncLayoutOnFocus = (0,external_React_namespaceObject.useCallback)(e => {
+    let nextLayout = getActiveColumnLayout(window.innerWidth);
+    if (novaEnabled) {
+      const val = parseInt(getComputedStyle(e.currentTarget).getPropertyValue("--sections-col-count"), 10);
+      if (Number.isInteger(val)) {
+        nextLayout = `col-${val}`;
+      }
+    }
     setActiveColumnLayout(currLayout => currLayout === nextLayout ? currLayout : nextLayout);
-  }, []);
+  }, [novaEnabled]);
 
   // Handle a render before feed has been fetched by displaying nothing
   if (!data) {
@@ -11565,7 +11584,8 @@ function CardSections({
     anySectionsFollowed: anySectionsFollowed,
     placeholder: placeholder,
     activeColumnLayout: activeColumnLayout,
-    syncLayoutOnFocus: syncLayoutOnFocus
+    syncLayoutOnFocus: syncLayoutOnFocus,
+    gridRef: sectionPosition === 0 ? gridRef : undefined
   }));
 
   // Add a billboard/leaderboard IAB ad to the sectionsToRender array (if enabled/possible).
@@ -12294,7 +12314,8 @@ function Lists({
   const badgeEnabled = (nimbusBadgeEnabled || nimbusBadgeTrainhopEnabled) ?? prefs[PREF_WIDGETS_LISTS_BADGE_ENABLED] ?? false;
   const badgeLabel = (nimbusBadgeLabel || nimbusBadgeTrainhopLabel) ?? prefs[PREF_WIDGETS_LISTS_BADGE_LABEL] ?? "";
   return /*#__PURE__*/external_React_default().createElement("article", {
-    className: `lists widget ${novaEnabled ? "col-4" : ""} ${isMaximized ? "is-maximized" : ""}`,
+    // @nova-cleanup(remove-conditional): Remove novaEnabled check; always apply col-4 and size class after Nova ships
+    className: `lists widget ${novaEnabled ? `col-4 ${widgetSize}-widget` : ""} ${isSmallSize ? "is-small" : ""} ${isMaximized ? "is-maximized" : ""}`,
     ref: el => {
       listsRef.current = [el];
     }
@@ -13229,7 +13250,8 @@ const FocusTimer = ({
     return () => el.removeEventListener("click", listener);
   }, [handleChangeSize]);
   return timerData ? /*#__PURE__*/external_React_default().createElement("article", {
-    className: `focus-timer widget ${novaEnabled ? "col-4" : ""} ${isMaximized ? "is-maximized" : ""}`,
+    // @nova-cleanup(remove-conditional): Remove novaEnabled check; always apply col-4 and size class after Nova ships
+    className: `focus-timer widget ${novaEnabled ? `col-4 ${widgetSize}-widget` : ""} ${isSmallSize ? "is-small" : ""} ${isMaximized ? "is-maximized" : ""}`,
     ref: el => {
       timerRef.current = [el];
     }
@@ -13824,7 +13846,7 @@ function WeatherForecast({
     })));
   }
   return /*#__PURE__*/external_React_default().createElement("article", {
-    className: `weather-forecast-widget widget ${novaEnabled ? "col-4" : ""} ${isMaximized ? "is-maximized" : ""} ${isSmallSize ? " small-widget" : ""} ${hasError ? "forecast-error-state" : ""}`,
+    className: `weather-forecast-widget widget ${novaEnabled ? "col-4" : ""} ${isMaximized ? "is-maximized" : ""} ${isSmallSize ? " is-small" : ""} ${hasError ? "forecast-error-state" : ""}`,
     ref: el => {
       forecastRef.current = [el];
     }
@@ -13902,6 +13924,419 @@ function WeatherForecast({
   })));
 }
 
+;// CONCATENATED MODULE: ./content-src/components/Widgets/Weather/Weather.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+
+
+
+
+
+const Weather_USER_ACTION_TYPES = {
+  CHANGE_LOCATION: "change_location",
+  DETECT_LOCATION: "detect_location",
+  CHANGE_TEMP_UNIT: "change_temperature_units",
+  CHANGE_SIZE: "change_size",
+  LEARN_MORE: "learn_more",
+  OPT_IN_ACCEPTED: "opt_in_accepted",
+  PROVIDER_LINK_CLICK: "provider_link_click"
+};
+const Weather_PREF_WEATHER_SIZE = "widgets.weather.size";
+function Weather_Weather({
+  dispatch,
+  size
+}) {
+  const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
+  const weatherData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather);
+  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
+  const errorTelemetrySent = (0,external_React_namespaceObject.useRef)(false);
+  const errorRef = (0,external_React_namespaceObject.useRef)(null);
+  const sizeSubmenuRef = (0,external_React_namespaceObject.useRef)(null);
+  const currentWeatherSize = prefs[Weather_PREF_WEATHER_SIZE] || "medium";
+  const handleChangeSize = (0,external_React_namespaceObject.useCallback)(newSize => {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: Weather_PREF_WEATHER_SIZE,
+          value: newSize
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.CHANGE_SIZE,
+          action_value: newSize,
+          widget_size: newSize
+        }
+      }));
+    });
+  }, [dispatch]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const el = sizeSubmenuRef.current;
+    if (!el) {
+      return undefined;
+    }
+    const listener = e => {
+      const item = e.composedPath().find(node => node.dataset?.size);
+      if (item) {
+        handleChangeSize(item.dataset.size);
+      }
+    };
+    el.addEventListener("click", listener);
+    return () => el.removeEventListener("click", listener);
+  }, [handleChangeSize]);
+  const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
+    if (impressionFired.current) {
+      return;
+    }
+    impressionFired.current = true;
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_IMPRESSION,
+      data: {
+        widget_name: "weather",
+        widget_size: size
+      }
+    }));
+  }, [dispatch, size]);
+  const weatherRef = useIntersectionObserver(handleIntersection);
+  const weatherExperimentEnabled = prefs.trainhopConfig?.weather?.enabled;
+  const isWeatherEnabled = prefs["widgets.weather.enabled"] && (prefs["widgets.system.weather.enabled"] || weatherExperimentEnabled);
+  const WEATHER_SUGGESTION = weatherData?.suggestions?.[0];
+  const HOURLY_FORECASTS = weatherData?.hourlyForecasts ?? [];
+  const showForecast = size === "medium" || size === "large";
+  const hasError = !WEATHER_SUGGESTION?.current_conditions || !WEATHER_SUGGESTION?.forecast || showForecast && !HOURLY_FORECASTS[0];
+  const handleErrorIntersection = (0,external_React_namespaceObject.useCallback)(entries => {
+    const entry = entries.find(e => e.isIntersecting);
+    if (entry && !errorTelemetrySent.current) {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_ERROR,
+        data: {
+          widget_name: "weather",
+          widget_size: size,
+          error_type: "load_error"
+        }
+      }));
+      errorTelemetrySent.current = true;
+    }
+  }, [dispatch, size]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (errorRef.current && !errorTelemetrySent.current) {
+      const observer = new IntersectionObserver(handleErrorIntersection);
+      observer.observe(errorRef.current);
+      return () => {
+        observer.disconnect();
+      };
+    }
+    return undefined;
+  }, [handleErrorIntersection, hasError]);
+  if (!weatherData?.initialized || !isWeatherEnabled) {
+    return null;
+  }
+  const weatherOptIn = prefs["system.showWeatherOptIn"];
+  const nimbusWeatherOptInEnabled = prefs.trainhopConfig?.weather?.weatherOptInEnabled;
+  const isOptInEnabled = weatherOptIn || nimbusWeatherOptInEnabled;
+  const optInDisplayed = prefs["weather.optInDisplayed"];
+  const optInUserChoice = prefs["weather.optInAccepted"];
+  const showOptInState = isOptInEnabled && optInDisplayed && !optInUserChoice;
+  const {
+    searchActive
+  } = weatherData;
+  function handleChangeLocation() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.BroadcastToContent({
+        type: actionTypes.WEATHER_SEARCH_ACTIVE,
+        data: true
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.CHANGE_LOCATION,
+          widget_size: size
+        }
+      }));
+    });
+  }
+  function handleDetectLocation() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_USER_OPT_IN_LOCATION
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.DETECT_LOCATION,
+          widget_size: size
+        }
+      }));
+    });
+  }
+  function handleChangeTempUnit(unit) {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "weather.temperatureUnits",
+          value: unit
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.CHANGE_TEMP_UNIT,
+          widget_size: size,
+          action_value: unit
+        }
+      }));
+    });
+  }
+  function handleHideWeather() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "widgets.weather.enabled",
+          value: false
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_ENABLED,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          enabled: false,
+          widget_size: size
+        }
+      }));
+    });
+  }
+  function handleLearnMore() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.OPEN_LINK,
+        data: {
+          url: "https://support.mozilla.org/kb/firefox-new-tab-widgets"
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.LEARN_MORE,
+          widget_size: size
+        }
+      }));
+    });
+  }
+  function handleProviderLinkClick() {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.WIDGETS_USER_EVENT,
+      data: {
+        widget_name: "weather",
+        widget_source: "widget",
+        user_action: Weather_USER_ACTION_TYPES.PROVIDER_LINK_CLICK,
+        widget_size: size
+      }
+    }));
+  }
+
+  // Bug 2029823 - Opt-in UI to be implemented
+  // eslint-disable-next-line no-unused-vars
+  function handleAcceptOptIn() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_USER_OPT_IN_LOCATION
+      }));
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_OPT_IN_PROMPT_SELECTION,
+        data: "accepted opt-in"
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "widget",
+          user_action: Weather_USER_ACTION_TYPES.OPT_IN_ACCEPTED,
+          widget_size: size,
+          action_value: true
+        }
+      }));
+    });
+  }
+
+  // Bug 2029823 - Opt-in UI to be implemented
+  // eslint-disable-next-line no-unused-vars
+  function handleRejectOptIn() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.SetPref("weather.optInAccepted", false));
+      dispatch(actionCreators.SetPref("weather.optInDisplayed", false));
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_OPT_IN_PROMPT_SELECTION,
+        data: "rejected opt-in"
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "widget",
+          user_action: Weather_USER_ACTION_TYPES.OPT_IN_ACCEPTED,
+          widget_size: size,
+          action_value: false
+        }
+      }));
+    });
+  }
+  function renderContextMenu() {
+    return /*#__PURE__*/external_React_default().createElement("div", {
+      className: "weather-context-menu-wrapper"
+    }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+      className: "weather-context-menu-button",
+      "data-l10n-id": "newtab-menu-section-tooltip",
+      iconSrc: "chrome://global/skin/icons/more.svg",
+      menuId: "weather-widget-context-menu",
+      type: "ghost",
+      size: "small"
+    }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+      id: "weather-widget-context-menu"
+    }, !isOptInEnabled && (prefs["weather.temperatureUnits"] === "f" ? /*#__PURE__*/external_React_default().createElement("panel-item", {
+      "data-l10n-id": "newtab-weather-menu-change-temperature-units-celsius",
+      onClick: () => handleChangeTempUnit("c")
+    }) : /*#__PURE__*/external_React_default().createElement("panel-item", {
+      "data-l10n-id": "newtab-weather-menu-change-temperature-units-fahrenheit",
+      onClick: () => handleChangeTempUnit("f")
+    })), prefs["weather.locationSearchEnabled"] && /*#__PURE__*/external_React_default().createElement("panel-item", {
+      "data-l10n-id": "newtab-weather-menu-change-location",
+      onClick: handleChangeLocation
+    }), isOptInEnabled && /*#__PURE__*/external_React_default().createElement("panel-item", {
+      "data-l10n-id": "newtab-weather-menu-detect-my-location",
+      onClick: handleDetectLocation
+    }), prefs["widgets.system.enabled"] && prefs["widgets.enabled"] && /*#__PURE__*/external_React_default().createElement("panel-item", {
+      submenu: "weather-widget-size-submenu",
+      "data-l10n-id": "newtab-widget-menu-change-size"
+    }, /*#__PURE__*/external_React_default().createElement("panel-list", {
+      ref: sizeSubmenuRef,
+      slot: "submenu",
+      id: "weather-widget-size-submenu"
+    }, ["small", "medium", "large"].map(s => /*#__PURE__*/external_React_default().createElement("panel-item", {
+      key: s,
+      type: "checkbox",
+      checked: currentWeatherSize === s || undefined,
+      "data-size": s,
+      "data-l10n-id": `newtab-widget-size-${s}`
+    })))), /*#__PURE__*/external_React_default().createElement("panel-item", {
+      "data-l10n-id": "newtab-widget-menu-hide",
+      onClick: handleHideWeather
+    }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+      "data-l10n-id": "newtab-weather-menu-learn-more",
+      onClick: handleLearnMore
+    })));
+  }
+  return /*#__PURE__*/external_React_default().createElement("article", {
+    className: `weather-widget col-4 ${size}-widget${hasError ? " weather-error-state" : ""}`,
+    ref: el => {
+      weatherRef.current = [el];
+    }
+  }, !hasError && /*#__PURE__*/external_React_default().createElement("a", {
+    className: "weather-anchor",
+    href: showForecast ? HOURLY_FORECASTS[0].url || "#" : WEATHER_SUGGESTION.forecast.url || "#",
+    "aria-label": weatherData.locationData.city,
+    onClick: handleProviderLinkClick
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "widget-title-bar"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "widget-title"
+  }, searchActive ? /*#__PURE__*/external_React_default().createElement(LocationSearch, {
+    outerClassName: ""
+  }) : /*#__PURE__*/external_React_default().createElement("h3", null, weatherData.locationData.city)), renderContextMenu()), hasError && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "forecast-error",
+    ref: errorRef
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "icon icon-info-warning"
+  }), " ", /*#__PURE__*/external_React_default().createElement("p", {
+    "data-l10n-id": "newtab-weather-error-not-available"
+  })), showOptInState ?
+  /*#__PURE__*/
+  // Bug 2029823 - Opt-in UI placeholder
+  external_React_default().createElement("div", {
+    className: "weather-opt-in-container"
+  }) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "weather-container"
+  }, !hasError && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "weather-conditions-view"
+  }, /*#__PURE__*/external_React_default().createElement("a", {
+    "data-l10n-id": "newtab-weather-see-forecast-description",
+    "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}",
+    "data-l10n-attrs": "aria-description",
+    href: WEATHER_SUGGESTION.forecast.url,
+    className: "weather-info-link",
+    onClick: handleProviderLinkClick
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "weather-icon-column"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
+  })), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "weather-info-column"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "weather-info-row"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "temperature-unit"
+  }, WEATHER_SUGGESTION.current_conditions.temperature[prefs["weather.temperatureUnits"]], "\xB0", prefs["weather.temperatureUnits"]), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "high-low-row"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "high-temperature"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "arrow-icon arrow-up",
+    "data-l10n-id": "newtab-weather-high"
+  }), WEATHER_SUGGESTION.forecast.high[prefs["weather.temperatureUnits"]], "\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "low-temperature"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "arrow-icon arrow-down",
+    "data-l10n-id": "newtab-weather-low"
+  }), WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]], "\xB0"))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "weather-info-description"
+  }, WEATHER_SUGGESTION.current_conditions.summary)))), !hasError && showForecast && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "forecast-row"
+  }, /*#__PURE__*/external_React_default().createElement("p", {
+    className: "today-forecast",
+    "data-l10n-id": "newtab-weather-todays-forecast"
+  }), /*#__PURE__*/external_React_default().createElement("ul", {
+    className: "forecast-row-items"
+  }, HOURLY_FORECASTS.map(slot => /*#__PURE__*/external_React_default().createElement("li", {
+    key: slot.epoch_date_time
+  }, /*#__PURE__*/external_React_default().createElement("span", null, slot.temperature[prefs["weather.temperatureUnits"]], "\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
+    className: `weather-icon iconId${slot.icon_id}`,
+    "aria-label": slot.summary,
+    role: "img"
+  }), /*#__PURE__*/external_React_default().createElement("span", null, (() => {
+    const date = new Date(slot.date_time);
+    const hours = date.getHours() % 12 || 12;
+    return `${hours}:${String(date.getMinutes()).padStart(2, "0")}`;
+  })())))))), !hasError && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "forecast-footer"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sponsored-text",
+    "aria-hidden": "true",
+    "data-l10n-id": "newtab-weather-sponsored",
+    "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}"
+  }), showForecast && /*#__PURE__*/external_React_default().createElement("a", {
+    className: "full-forecast",
+    href: HOURLY_FORECASTS[0]?.url || "#",
+    onClick: handleProviderLinkClick,
+    "data-l10n-id": "newtab-weather-see-full-forecast"
+  }))));
+}
+
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/WidgetsFeatureHighlight.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -13963,6 +14398,7 @@ function WidgetsFeatureHighlight({
 
 
 
+
 const CONTAINER_ACTION_TYPES = {
   HIDE_ALL: "hide_all",
   CHANGE_SIZE_ALL: "change_size_all",
@@ -13974,6 +14410,8 @@ const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
 const PREF_WIDGETS_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 const PREF_WIDGETS_TIMER_ENABLED = "widgets.focusTimer.enabled";
 const PREF_WIDGETS_SYSTEM_TIMER_ENABLED = "widgets.system.focusTimer.enabled";
+const PREF_WIDGETS_WEATHER_ENABLED = "widgets.weather.enabled";
+const PREF_WIDGETS_SYSTEM_WEATHER_ENABLED = "widgets.system.weather.enabled";
 const PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED = "widgets.system.weatherForecast.enabled";
 const PREF_WIDGETS_MAXIMIZED = "widgets.maximized";
 const PREF_WIDGETS_SYSTEM_MAXIMIZED = "widgets.system.maximized";
@@ -14011,6 +14449,31 @@ function resetTimerToDefaults(dispatch, timerType) {
     }
   }));
 }
+function renderWeather({
+  novaEnabled,
+  weatherEnabled,
+  weatherForecastEnabled,
+  weatherSize,
+  dispatch,
+  handleUserInteraction,
+  isMaximized,
+  widgetsMayBeMaximized
+}) {
+  if (novaEnabled) {
+    return weatherEnabled && weatherSize !== "small" && /*#__PURE__*/external_React_default().createElement(Weather_Weather, {
+      dispatch: dispatch,
+      size: weatherSize || "medium"
+    });
+  }
+  return weatherForecastEnabled && /*#__PURE__*/external_React_default().createElement(WeatherForecast, {
+    dispatch: dispatch,
+    handleUserInteraction: handleUserInteraction,
+    isMaximized: isMaximized,
+    widgetsMayBeMaximized: widgetsMayBeMaximized
+  });
+}
+
+// eslint-disable-next-line complexity
 function Widgets() {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const weatherData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather);
@@ -14028,6 +14491,7 @@ function Widgets() {
   const nimbusListsTrainhopEnabled = prefs.trainhopConfig?.widgets?.listsEnabled;
   const nimbusTimerTrainhopEnabled = prefs.trainhopConfig?.widgets?.timerEnabled;
   const nimbusWeatherForecastTrainhopEnabled = prefs.trainhopConfig?.widgets?.weatherForecastEnabled;
+  const nimbusWeatherTrainhopEnabled = prefs.trainhopConfig?.widgets?.weatherEnabled;
   const nimbusMaximizedTrainhopEnabled = prefs.trainhopConfig?.widgets?.maximized;
   const feedbackEnabled = prefs.trainhopConfig?.widgets?.feedbackEnabled || prefs[PREF_WIDGETS_FEEDBACK_ENABLED];
   const hideAllToastEnabled = prefs.trainhopConfig?.widgets?.hideAllToastEnabled || prefs[PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED];
@@ -14053,6 +14517,11 @@ function Widgets() {
   const weatherExperimentEnabled = prefs.trainhopConfig?.weather?.enabled;
   const isWeatherEnabled = showWeather && (systemShowWeather || weatherExperimentEnabled);
   const weatherForecastEnabled = widgetsEnabled && weatherForecastSystemEnabled && showDetailedView && weatherData?.initialized && isWeatherEnabled;
+  const weatherSystemEnabled = nimbusWeatherTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_WEATHER_ENABLED];
+  const weatherEnabled = weatherSystemEnabled && weatherData?.initialized && isWeatherEnabled && prefs[PREF_WIDGETS_WEATHER_ENABLED];
+  // Bug 2013978 will replace these hardcoded per-widget checks with a registry.
+  const weatherWidgetInRow = weatherEnabled && prefs[Widgets_PREF_WEATHER_SIZE] !== "small";
+  const anyWidgetInRow = listsEnabled || timerEnabled || !novaEnabled && weatherForecastEnabled || weatherWidgetInRow;
 
   // Widget size is "small" only when maximize feature is enabled and widgets
   // are currently minimized. Otherwise defaults to "medium".
@@ -14080,9 +14549,14 @@ function Widgets() {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.SetPref(PREF_WIDGETS_LISTS_ENABLED, false));
       dispatch(actionCreators.SetPref(PREF_WIDGETS_TIMER_ENABLED, false));
-      // If weather forecast widget is visible, turn off the weather
-      if (weatherForecastEnabled) {
+      // @nova-cleanup(remove-conditional): Remove the !novaEnabled guard and the
+      // weatherForecastEnabled branch entirely. Keep only the weatherEnabled branch,
+      // removing the size check once the weather widget always lives in the row.
+      if (!novaEnabled && weatherForecastEnabled) {
         dispatch(actionCreators.SetPref("showWeather", false));
+      }
+      if (weatherWidgetInRow) {
+        dispatch(actionCreators.SetPref(PREF_WIDGETS_WEATHER_ENABLED, false));
       }
       const telemetryData = {
         action_type: CONTAINER_ACTION_TYPES.HIDE_ALL,
@@ -14118,7 +14592,7 @@ function Widgets() {
       }
 
       // Send telemetry for weather widget if it was visible when hiding all widgets
-      if (weatherForecastEnabled) {
+      if (weatherForecastEnabled || weatherWidgetInRow) {
         dispatch(actionCreators.OnlyToMain({
           type: actionTypes.WIDGETS_ENABLED,
           data: {
@@ -14218,7 +14692,7 @@ function Widgets() {
       dispatch(actionCreators.SetPref(prefName, true));
     }
   }
-  if (!(listsEnabled || timerEnabled || weatherForecastEnabled)) {
+  if (!anyWidgetInRow) {
     return null;
   }
   return /*#__PURE__*/external_React_default().createElement("div", {
@@ -14265,11 +14739,15 @@ function Widgets() {
     handleUserInteraction: handleUserInteraction,
     isMaximized: isMaximized,
     widgetsMayBeMaximized: widgetsMayBeMaximized
-  }), weatherForecastEnabled && /*#__PURE__*/external_React_default().createElement(WeatherForecast, {
-    dispatch: dispatch,
-    handleUserInteraction: handleUserInteraction,
-    isMaximized: isMaximized,
-    widgetsMayBeMaximized: widgetsMayBeMaximized
+  }), renderWeather({
+    novaEnabled,
+    weatherEnabled,
+    weatherForecastEnabled,
+    weatherSize: prefs[Widgets_PREF_WEATHER_SIZE],
+    dispatch,
+    handleUserInteraction,
+    isMaximized,
+    widgetsMayBeMaximized
   })), feedbackEnabled && /*#__PURE__*/external_React_default().createElement("a", {
     className: "widgets-feedback-link",
     href: feedbackUrl,
@@ -15641,7 +16119,7 @@ function WidgetsManagementPanel({
     pressed: weatherEnabled || null,
     ontoggle: onToggleWidget,
     onToggle: onToggleWidget,
-    "data-preference": "showWeather",
+    "data-preference": "widgets.weather.enabled",
     "data-event-source": "WEATHER",
     "data-l10n-id": "newtab-custom-widget-weather-toggle"
   })), mayHaveTimerWidget && /*#__PURE__*/external_React_default().createElement("div", {
@@ -15924,7 +16402,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       pressed: weatherEnabled || null,
       ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
-      "data-preference": "showWeather",
+      "data-preference": novaEnabled ? "widgets.weather.enabled" : "showWeather",
       "data-event-source": "WEATHER",
       "data-l10n-id": "newtab-custom-weather-toggle"
     })), /*#__PURE__*/external_React_default().createElement("span", {
@@ -16085,8 +16563,10 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
     this.onEntered = this.onEntered.bind(this);
     this.onExited = this.onExited.bind(this);
     this.onSubpanelToggle = this.onSubpanelToggle.bind(this);
+    this.onCancel = this.onCancel.bind(this);
+    this.onDialogClick = this.onDialogClick.bind(this);
     this.personalizeButtonRef = /*#__PURE__*/external_React_default().createRef();
-    this.customizeMenuRef = /*#__PURE__*/external_React_default().createRef();
+    this.dialogRef = /*#__PURE__*/external_React_default().createRef();
     this.closeButtonRef = /*#__PURE__*/external_React_default().createRef();
     this.state = {
       exitEventFired: false,
@@ -16098,6 +16578,22 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
       subpanelOpen: isOpen
     });
   }
+  componentDidUpdate(prevProps) {
+    if (this.props.showing && !prevProps.showing) {
+      if (!this.dialogRef.current?.open) {
+        this.dialogRef.current?.showModal();
+      }
+    }
+  }
+  onCancel(e) {
+    e.preventDefault();
+    this.props.onClose();
+  }
+  onDialogClick(e) {
+    if (e.target === this.dialogRef.current) {
+      this.props.onClose();
+    }
+  }
   onEntered() {
     this.setState({
       exitEventFired: false
@@ -16107,6 +16603,9 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
     }
   }
   onExited() {
+    if (this.dialogRef.current?.open) {
+      this.dialogRef.current.close();
+    }
     this.setState({
       exitEventFired: true
     });
@@ -16130,33 +16629,30 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
       className: `${activationWindowClass} personalize-button`,
       "data-l10n-id": "newtab-customize-panel-icon-button",
       "aria-haspopup": "dialog",
-      onClick: () => this.props.onOpen(),
-      onKeyDown: e => {
-        if (e.key === "Enter") {
-          this.props.onOpen();
-        }
-      }
+      onClick: () => this.props.onOpen()
     }, /*#__PURE__*/external_React_default().createElement("label", {
       "data-l10n-id": "newtab-customize-panel-icon-button-label"
     }), /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("img", {
       role: "presentation",
       src: "chrome://global/skin/icons/edit-outline.svg"
     })))), /*#__PURE__*/external_React_default().createElement(external_ReactTransitionGroup_namespaceObject.CSSTransition, {
-      nodeRef: this.customizeMenuRef,
+      nodeRef: this.dialogRef,
       timeout: 250,
       classNames: "customize-animate",
       in: this.props.showing,
       onEntered: this.onEntered,
       onExited: this.onExited,
       appear: true
-    }, /*#__PURE__*/external_React_default().createElement("div", {
-      ref: this.customizeMenuRef,
-      className: "customize-menu-animate-wrapper"
-    }, /*#__PURE__*/external_React_default().createElement("div", {
+    }, /*#__PURE__*/external_React_default().createElement("dialog", {
+      ref: this.dialogRef
       // @nova-cleanup(remove-conditional): Remove nova-enabled class
-      className: `customize-menu ${this.state.subpanelOpen ? "subpanel-open" : ""} ${novaEnabled ? "nova-enabled" : ""}`,
-      role: "dialog",
-      "data-l10n-id": "newtab-settings-dialog-label"
+      ,
+      className: `customize-menu ${novaEnabled ? "nova-enabled" : ""}`,
+      "data-l10n-id": "newtab-settings-dialog-label",
+      onCancel: this.onCancel,
+      onClick: this.onDialogClick
+    }, /*#__PURE__*/external_React_default().createElement("div", {
+      className: `customize-menu-content${this.state.subpanelOpen ? " subpanel-open" : ""}`
     }, /*#__PURE__*/external_React_default().createElement("div", {
       className: "close-button-wrapper"
     }, /*#__PURE__*/external_React_default().createElement("moz-button", {
@@ -16370,7 +16866,7 @@ class Search_Search extends (external_React_default()).PureComponent {
 
 
 
-const Weather_USER_ACTION_TYPES = {
+const Weather_Weather_USER_ACTION_TYPES = {
   CHANGE_DISPLAY: "change_weather_display",
   CHANGE_LOCATION: "change_location",
   CHANGE_SIZE: "change_size",
@@ -16384,7 +16880,7 @@ const Weather_VISIBLE = "visible";
 const Weather_VISIBILITY_CHANGE_EVENT = "visibilitychange";
 const PREF_SYSTEM_SHOW_WEATHER = "system.showWeather";
 const Weather_PREF_NOVA_ENABLED = "nova.enabled";
-const Weather_PREF_WEATHER_SIZE = "widgets.weather.size";
+const Weather_Weather_PREF_WEATHER_SIZE = "widgets.weather.size";
 function WeatherPlaceholder() {
   const [isSeen, setIsSeen] = (0,external_React_namespaceObject.useState)(false);
 
@@ -16575,7 +17071,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "widget",
-          user_action: Weather_USER_ACTION_TYPES.PROVIDER_LINK_CLICK,
+          user_action: Weather_Weather_USER_ACTION_TYPES.PROVIDER_LINK_CLICK,
           widget_size: "mini"
         }
       }));
@@ -16595,7 +17091,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "context_menu",
-          user_action: Weather_USER_ACTION_TYPES.CHANGE_LOCATION,
+          user_action: Weather_Weather_USER_ACTION_TYPES.CHANGE_LOCATION,
           widget_size: "mini"
         }
       }));
@@ -16617,7 +17113,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "context_menu",
-          user_action: Weather_USER_ACTION_TYPES.DETECT_LOCATION,
+          user_action: Weather_Weather_USER_ACTION_TYPES.DETECT_LOCATION,
           widget_size: "mini"
         }
       }));
@@ -16640,7 +17136,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "context_menu",
-          user_action: Weather_USER_ACTION_TYPES.CHANGE_TEMP_UNIT,
+          user_action: Weather_Weather_USER_ACTION_TYPES.CHANGE_TEMP_UNIT,
           widget_size: "mini",
           action_value: value
         }
@@ -16655,7 +17151,7 @@ class _Weather extends (external_React_default()).PureComponent {
       this.props.dispatch(actionCreators.OnlyToMain({
         type: actionTypes.SET_PREF,
         data: {
-          name: Weather_PREF_WEATHER_SIZE,
+          name: Weather_Weather_PREF_WEATHER_SIZE,
           value: size
         }
       }));
@@ -16664,7 +17160,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "context_menu",
-          user_action: Weather_USER_ACTION_TYPES.CHANGE_SIZE,
+          user_action: Weather_Weather_USER_ACTION_TYPES.CHANGE_SIZE,
           action_value: size,
           widget_size: "mini"
         }
@@ -16689,7 +17185,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "context_menu",
-          user_action: Weather_USER_ACTION_TYPES.CHANGE_DISPLAY,
+          user_action: Weather_Weather_USER_ACTION_TYPES.CHANGE_DISPLAY,
           widget_size: "mini",
           action_value: weatherForecastEnabled ? "switch_to_forecast_widget" : value
         }
@@ -16735,7 +17231,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "context_menu",
-          user_action: Weather_USER_ACTION_TYPES.LEARN_MORE,
+          user_action: Weather_Weather_USER_ACTION_TYPES.LEARN_MORE,
           widget_size: "mini"
         }
       }));
@@ -16776,7 +17272,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "widget",
-          user_action: Weather_USER_ACTION_TYPES.OPT_IN_ACCEPTED,
+          user_action: Weather_Weather_USER_ACTION_TYPES.OPT_IN_ACCEPTED,
           widget_size: "mini",
           action_value: false
         }
@@ -16800,7 +17296,7 @@ class _Weather extends (external_React_default()).PureComponent {
         data: {
           widget_name: "weather",
           widget_source: "widget",
-          user_action: Weather_USER_ACTION_TYPES.OPT_IN_ACCEPTED,
+          user_action: Weather_Weather_USER_ACTION_TYPES.OPT_IN_ACCEPTED,
           widget_size: "mini",
           action_value: true
         }
@@ -16834,7 +17330,7 @@ class _Weather extends (external_React_default()).PureComponent {
     const showDetailedView = Prefs.values["weather.display"] === "detailed";
     // @nova-cleanup(remove-pref): Remove this line and PREF_NOVA_ENABLED constant
     const novaEnabled = Prefs.values[Weather_PREF_NOVA_ENABLED];
-    const currentWeatherSize = Prefs.values[Weather_PREF_WEATHER_SIZE] || "large";
+    const currentWeatherSize = Prefs.values[Weather_Weather_PREF_WEATHER_SIZE] || "large";
     const nimbusWeatherForecastTrainhopEnabled = Prefs.values.trainhopConfig?.widgets?.weatherForecastEnabled;
     const weatherForecastWidgetEnabled = nimbusWeatherForecastTrainhopEnabled || Prefs.values["widgets.system.weatherForecast.enabled"];
 
@@ -17039,7 +17535,7 @@ class _Weather extends (external_React_default()).PureComponent {
     }), contextMenu()));
   }
 }
-const Weather_Weather = (0,external_ReactRedux_namespaceObject.connect)(state => ({
+const Weather_Weather_Weather = (0,external_ReactRedux_namespaceObject.connect)(state => ({
   App: state.App,
   Weather: state.Weather,
   Prefs: state.Prefs,
@@ -17777,6 +18273,7 @@ function Base_extends() { return Base_extends = Object.assign ? Object.assign.bi
 
 
 
+
 const Base_VISIBLE = "visible";
 const Base_VISIBILITY_CHANGE_EVENT = "visibilitychange";
 const PREF_INFERRED_PERSONALIZATION_SYSTEM = "discoverystream.sections.personalization.inferred.enabled";
@@ -17836,7 +18333,6 @@ class BaseContent extends (external_React_default()).PureComponent {
     this.openPreferences = this.openPreferences.bind(this);
     this.openCustomizationMenu = this.openCustomizationMenu.bind(this);
     this.closeCustomizationMenu = this.closeCustomizationMenu.bind(this);
-    this.handleOnKeyDown = this.handleOnKeyDown.bind(this);
     this.onWindowScroll = Base_debounce(this.onWindowScroll.bind(this), 5);
     this.setPref = this.setPref.bind(this);
     this.shouldShowOMCHighlight = this.shouldShowOMCHighlight.bind(this);
@@ -17925,7 +18421,6 @@ class BaseContent extends (external_React_default()).PureComponent {
   componentDidMount() {
     this.applyBodyClasses();
     __webpack_require__.g.addEventListener("scroll", this.onWindowScroll);
-    __webpack_require__.g.addEventListener("keydown", this.handleOnKeyDown);
     const prefs = this.props.Prefs.values;
     const wallpapersEnabled = prefs["newtabWallpapers.enabled"];
     if (this.props.document.visibilityState === Base_VISIBLE) {
@@ -18061,7 +18556,6 @@ class BaseContent extends (external_React_default()).PureComponent {
   componentWillUnmount() {
     this.prefersDarkQuery?.removeEventListener("change", this.handleColorModeChange);
     __webpack_require__.g.removeEventListener("scroll", this.onWindowScroll);
-    __webpack_require__.g.removeEventListener("keydown", this.handleOnKeyDown);
     if (this._onVisibilityChange) {
       this.props.document.removeEventListener(Base_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
     }
@@ -18154,11 +18648,6 @@ class BaseContent extends (external_React_default()).PureComponent {
       this.props.dispatch(actionCreators.UserEvent({
         event: "HIDE_PERSONALIZE"
       }));
-    }
-  }
-  handleOnKeyDown(e) {
-    if (e.key === "Escape") {
-      this.closeCustomizationMenu();
     }
   }
   setPref(pref, value) {
@@ -18382,7 +18871,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       pocketEnabled: prefs["feeds.section.topstories"],
       showInferredPersonalizationEnabled: prefs[Base_PREF_INFERRED_PERSONALIZATION_USER],
       topSitesRowsCount: prefs.topSitesRows,
-      weatherEnabled: prefs.showWeather
+      weatherEnabled: novaEnabled ? prefs["widgets.weather.enabled"] : prefs.showWeather
     };
     const pocketRegion = prefs["feeds.system.topstories"];
     const mayHaveInferredPersonalization = prefs[PREF_INFERRED_PERSONALIZATION_SYSTEM];
@@ -18399,12 +18888,14 @@ class BaseContent extends (external_React_default()).PureComponent {
     const mayHaveWidgets = prefs["widgets.system.enabled"] || nimbusWidgetsEnabled || nimbusWidgetsTrainhopEnabled;
     const mayHaveListsWidget = prefs["widgets.system.lists.enabled"] || nimbusListsEnabled || nimbusListsTrainhopEnabled;
     const mayHaveTimerWidget = prefs["widgets.system.focusTimer.enabled"] || nimbusTimerEnabled || nimbusTimerTrainhopEnabled;
+    const mayHaveWeatherWidget = prefs["widgets.system.weather.enabled"] || prefs.trainhopConfig?.widgets?.weatherEnabled;
+    const showWeatherWidgetInSidebar = novaEnabled && mayHaveWeatherWidget && prefs["widgets.weather.enabled"] && weatherEnabled && prefs["widgets.weather.size"] === "small";
 
     // These prefs set the initial values on the Customize panel toggle switches
     const enabledWidgets = {
       listsEnabled: prefs["widgets.lists.enabled"],
       timerEnabled: prefs["widgets.focusTimer.enabled"],
-      weatherEnabled: prefs.showWeather,
+      weatherEnabled: novaEnabled ? prefs["widgets.weather.enabled"] : prefs.showWeather,
       widgetsMaximized: prefs["widgets.maximized"],
       widgetsMayBeMaximized: prefs["widgets.system.maximized"]
     };
@@ -18448,7 +18939,9 @@ class BaseContent extends (external_React_default()).PureComponent {
       // If ONLY Search or ONLY Shortcuts or ONLY Search AND Shortcuts or NO features
       // the logo should be centered instead of left-sidebar
       const logoShouldBeCentered = false;
-      return /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("div", {
+      return /*#__PURE__*/external_React_default().createElement("div", {
+        className: "nova-outer-wrapper"
+      }, /*#__PURE__*/external_React_default().createElement("div", {
         className: "container nova-enabled"
       }, /*#__PURE__*/external_React_default().createElement("div", {
         className: "sidebar-inline-start"
@@ -18463,7 +18956,10 @@ class BaseContent extends (external_React_default()).PureComponent {
         placeholder: this.isSpocsOnDemandExpired
       }))), /*#__PURE__*/external_React_default().createElement("div", {
         className: "sidebar-inline-end"
-      }, weatherEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather, null)))), /*#__PURE__*/external_React_default().createElement("menu", {
+      }, showWeatherWidgetInSidebar && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather, {
+        dispatch: props.dispatch,
+        size: "small"
+      })))), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null), /*#__PURE__*/external_React_default().createElement("menu", {
         className: "personalizeButtonWrapper"
       }, /*#__PURE__*/external_React_default().createElement(CustomizeMenu, {
         onClose: this.closeCustomizationMenu,
@@ -18488,8 +18984,9 @@ class BaseContent extends (external_React_default()).PureComponent {
         showSectionsMgmtPanel: this.state.showSectionsMgmtPanel,
         showWidgetsManagementPanel: this.state.showWidgetsManagementPanel,
         toggleWidgetsManagementPanel: this.toggleWidgetsManagementPanel,
-        widgetsEnabled: prefs["widgets.enabled"]
-      })), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null), this.props.Notifications?.showNotifications && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Notifications_Notifications, {
+        widgetsEnabled: prefs["widgets.enabled"],
+        dispatch: this.props.dispatch
+      })), this.props.Notifications?.showNotifications && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Notifications_Notifications, {
         dispatch: this.props.dispatch
       })));
     }
@@ -18499,7 +18996,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       className: featureClassName
     }, /*#__PURE__*/external_React_default().createElement("div", {
       className: "weatherWrapper"
-    }, weatherEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather, null))), /*#__PURE__*/external_React_default().createElement("div", {
+    }, !novaEnabled && weatherEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather_Weather, null))), /*#__PURE__*/external_React_default().createElement("div", {
       className: `mobileDownloadPromoWrapper ${mobileDownloadPromoWrapperHeightModifier}`
     }, mobileDownloadPromoEnabled && mobileDownloadPromoVariantABorC && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(DownloadModalToggle, {
       isActive: shouldShowDownloadHighlight,
@@ -18512,8 +19009,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       position: `inset-inline-start inset-block-end`,
       dispatch: this.props.dispatch
     })))), /*#__PURE__*/external_React_default().createElement("div", {
-      className: outerClassName,
-      onClick: this.closeCustomizationMenu
+      className: outerClassName
     }, /*#__PURE__*/external_React_default().createElement("main", {
       className: "newtab-main",
       style: this.state.fixedNavStyle

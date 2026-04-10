@@ -1621,7 +1621,7 @@ Function .onInit
     StrCpy $HadOldInstall false
   ${Else}
     StrCpy $HadOldInstall true
-    ${UseExistingInstallPathIfNoParam} $0
+    ${UseExistingInstallPathIfNoInstallDirArg} $0
   ${EndIf}
 
   ${InstallOnInitCommon} "$(WARN_MIN_SUPPORTED_OSVER_CPU_MSG2)"

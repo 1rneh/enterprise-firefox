@@ -153,7 +153,7 @@
     <string name="preferences_debug_settings_enable_longfox" translatable="false">Enable Longfox</string>
 
     <!-- Search suggestions title for Firefox Suggest Online -->
-    <string name="firefox_suggest_online_header" tools:ignore="BrandUsage" translatable="false">Firefox Suggest Online</string>
+    <string name="firefox_suggest_online_header" translatable="false" tools:ignore="BrandUsage">Firefox Suggest Online</string>
 
     <!-- Label for toggling the native android share sheet feature -->
     <string name="preferences_debug_settings_native_android_share_sheet" translatable="false">Enable Native Android Share Sheet</string>
@@ -163,6 +163,7 @@
 
     <!-- Label for toggling the Tab Groups feature -->
     <string name="preferences_tab_groups_feature" translatable="false">Enable Tab Groups</string>
+    <string name="preferences_tab_groups_drag_and_drop" translatable="false">Enable Tab Groups Drag and Drop</string>
 
     <!-- Label for toggling the Tab Manager opening animation -->
     <string name="preferences_tab_manager_opening_animation" translatable="false">Enable Tab Manager opening animation</string>

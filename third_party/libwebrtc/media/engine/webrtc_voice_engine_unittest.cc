@@ -870,7 +870,6 @@ class WebRtcVoiceEngineTestFake : public ::testing::TestWithParam<bool> {
 
   void VerifyEchoCancellationSettings(bool enabled) {
     EXPECT_EQ(apm_config_.echo_canceller.enabled, enabled);
-    EXPECT_EQ(apm_config_.echo_canceller.mobile_mode, false);
   }
 
   bool IsHighPassFilterEnabled() {
@@ -910,31 +909,6 @@ class WebRtcVoiceEngineTestFake : public ::testing::TestWithParam<bool> {
   AudioProcessing::Config apm_config_;
   PayloadTypePicker pt_mapper_;
 };
-
-TEST_P(WebRtcVoiceEngineTestFake, OnRtpSendParametersChangedCallback) {
-  EXPECT_TRUE(SetupSendStream());
-
-  std::optional<uint32_t> callback_ssrc;
-  RtpParameters callback_params;
-  int callback_count = 0;
-  send_channel_->SetOnRtpSendParametersChanged(
-      [&](std::optional<uint32_t> ssrc, const RtpParameters& params) {
-        callback_ssrc = ssrc;
-        callback_params = params;
-        ++callback_count;
-      });
-
-  RtpParameters parameters = send_channel_->GetRtpSendParameters(kSsrcX);
-  EXPECT_EQ(callback_count, 0);
-
-  // Change parameters.
-  parameters.encodings[0].max_bitrate_bps = 132000;
-  EXPECT_TRUE(send_channel_->SetRtpSendParameters(kSsrcX, parameters).ok());
-
-  EXPECT_EQ(callback_count, 1);
-  EXPECT_EQ(callback_ssrc, kSsrcX);  // SetupSendStream adds kSsrcX.
-  EXPECT_EQ(callback_params.encodings[0].max_bitrate_bps, 132000);
-}
 
 INSTANTIATE_TEST_SUITE_P(TestBothWithAndWithoutNullApm,
                          WebRtcVoiceEngineTestFake,
@@ -3766,6 +3740,37 @@ TEST_P(WebRtcVoiceEngineTestFake, OnReadyToSendSignalsNetworkState) {
   send_channel_->OnReadyToSend(true);
   EXPECT_EQ(kNetworkUp, call_.GetNetworkState(MediaType::AUDIO));
   EXPECT_EQ(kNetworkUp, call_.GetNetworkState(MediaType::VIDEO));
+}
+
+// Test that when an unsignaled stream is promoted to a signaled stream,
+// its ProxySink doesn't hold a dangling raw pointer if the default sink
+// is subsequently destroyed.
+TEST_P(WebRtcVoiceEngineTestFake,
+       ProxySinkSurvivesUnsignaledToSignaledPromotion) {
+  EXPECT_TRUE(SetupChannel());
+  std::unique_ptr<FakeAudioSink> fake_sink(new FakeAudioSink());
+
+  // Set the default sink.
+  receive_channel_->SetDefaultRawAudioSink(std::move(fake_sink));
+
+  // Deliver an RTP packet to create an unsignaled stream.
+  DeliverPacket(kPcmuFrame);
+  const AudioSinkInterface* proxy_sink = GetRecvStream(kSsrc1).sink();
+  EXPECT_NE(nullptr, proxy_sink);
+
+  // Promote the unsignaled stream to a signaled stream.
+  StreamParams sp = StreamParams::CreateLegacy(kSsrc1);
+  EXPECT_TRUE(receive_channel_->AddRecvStream(sp));
+
+  // The proxy sink should be removed from the stream upon promotion.
+  EXPECT_EQ(nullptr, GetRecvStream(kSsrc1).sink());
+
+  // Destroy the original sink by passing nullptr.
+  receive_channel_->SetDefaultRawAudioSink(nullptr);
+
+  // Note: calling proxy_sink->OnData would crash here if the proxy_sink
+  // would still be attached to the stream and hold a dangling pointer to
+  // default_sink_. But we've verified that it's detached, so that won't happen.
 }
 
 // Test that playout is still started after changing parameters

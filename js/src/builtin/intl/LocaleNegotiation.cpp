@@ -211,10 +211,10 @@ static bool BestAvailableLocale(JSContext* cx,
 /**
  * 9.2.2 BestAvailableLocale ( availableLocales, locale )
  */
-bool js::intl::BestAvailableLocale(JSContext* cx,
-                                   AvailableLocaleKind availableLocales,
-                                   LanguageId locale,
-                                   mozilla::Maybe<LanguageId>* result) {
+static bool BestAvailableLocale(JSContext* cx,
+                                AvailableLocaleKind availableLocales,
+                                LanguageId locale,
+                                mozilla::Maybe<LanguageId>* result) {
   return BestAvailableLocale(cx, availableLocales, locale, mozilla::Nothing(),
                              result);
 }
@@ -859,34 +859,6 @@ static JSLinearString* DefaultCalendar(JSContext* cx, LanguageId locale) {
 }
 
 /**
- * Return the default collation of a locale.
- */
-static JSLinearString* DefaultCollationCaseFirst(JSContext* cx,
-                                                 LanguageId locale) {
-  // If |locale| is the default locale (e.g. da-DK), but only supported through
-  // a fallback (da), we need to get the actual locale before we can call
-  // |sharedIntlData.isUpperCaseFirst|.
-  mozilla::Maybe<LanguageId> actualLocale{};
-  if (!BestAvailableLocale(cx, AvailableLocaleKind::Collator, locale,
-                           &actualLocale)) {
-    return nullptr;
-  }
-  MOZ_ASSERT(actualLocale);
-
-  auto& sharedIntlData = cx->runtime()->sharedIntlData.ref();
-
-  bool isUpperFirst;
-  if (!sharedIntlData.isUpperCaseFirst(cx, *actualLocale, &isUpperFirst)) {
-    return nullptr;
-  }
-
-  if (isUpperFirst) {
-    return cx->names().upper;
-  }
-  return cx->names().false_;
-}
-
-/**
  * Return the default numbering system of a locale.
  */
 static JSLinearString* DefaultNumberingSystem(JSContext* cx,
@@ -967,22 +939,13 @@ static bool DefaultValue(JSContext* cx, LocaleData localeData,
       return true;
     }
     case UnicodeExtensionKey::CollationCaseFirst: {
-      // Case first defaults to "false" for all search collations.
-      if (localeData == LocaleData::CollatorSearch) {
-        result.set(cx->names().false_);
-        return true;
-      }
-
-      auto* kf = DefaultCollationCaseFirst(cx, locale);
-      if (!kf) {
-        return false;
-      }
-      result.set(kf);
+      // Actual locale default determined on demand.
+      result.set(nullptr);
       return true;
     }
     case UnicodeExtensionKey::CollationNumeric: {
-      // Numeric defaults to "false" for all locales.
-      result.set(cx->names().false_);
+      // Actual locale default determined on demand.
+      result.set(nullptr);
       return true;
     }
     case UnicodeExtensionKey::HourCycle: {

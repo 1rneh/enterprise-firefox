@@ -169,8 +169,12 @@ tasks:
                         default: []
                 standalone:
                     by-test-platform:
-                        linux.*-64(-shippable)?/(opt|debug): ['autoland', 'mozilla-central']
-                        windows.*-64-[^-/]+(-shippable)?/(opt|debug): ['autoland', 'mozilla-central']
+                        linux.*-64-shippable/opt: ['mozilla-central']
+                        linux.*-64/debug: ['autoland', 'mozilla-central']
+                        linux.*-64/opt: ['autoland']
+                        windows.*-64-[^-/]+-shippable/opt: ['mozilla-central']
+                        windows.*-64-[^-/]+/debug: ['autoland', 'mozilla-central']
+                        windows.*-64-[^-/]+/opt: ['autoland']
                         default: []
                 headless:
                     by-test-platform:
@@ -356,8 +360,12 @@ tasks:
                         default: []
                 standalone:
                     by-test-platform:
-                        linux.*-64(-shippable)?/(opt|debug): ['autoland', 'mozilla-central']
-                        windows.*-64-[^-/]+(-shippable)?/(opt|debug): ['autoland', 'mozilla-central']
+                        linux.*-64-shippable/opt: ['mozilla-central']
+                        linux.*-64/debug: ['autoland', 'mozilla-central']
+                        linux.*-64/opt: ['autoland']
+                        windows.*-64-[^-/]+-shippable/opt: ['mozilla-central']
+                        windows.*-64-[^-/]+/debug: ['autoland', 'mozilla-central']
+                        windows.*-64-[^-/]+/opt: ['autoland']
                         default: []
                 vertical-tabs:
                     by-test-platform:
@@ -605,8 +613,12 @@ tasks:
                         default: built-projects
                 standalone:
                     by-test-platform:
-                        linux.*-64(-shippable)?/(opt|debug): ['autoland', 'mozilla-central']
-                        windows.*-64-[^-/]+(-shippable)?/(opt|debug): ['autoland', 'mozilla-central']
+                        linux.*-64-shippable/opt: ['mozilla-central']
+                        linux.*-64/debug: ['autoland', 'mozilla-central']
+                        linux.*-64/opt: ['autoland']
+                        windows.*-64-[^-/]+-shippable/opt: ['mozilla-central']
+                        windows.*-64-[^-/]+/debug: ['autoland', 'mozilla-central']
+                        windows.*-64-[^-/]+/opt: ['autoland']
                         default: []
                 inc-origin-init: []
         chunks: dynamic
@@ -648,8 +660,12 @@ tasks:
                         default: []
                 standalone:
                     by-test-platform:
-                        linux.*-64(-shippable)?/(opt|debug): ['autoland', 'mozilla-central']
-                        windows.*-64-[^-/]+(-shippable)?/(opt|debug): ['autoland', 'mozilla-central']
+                        linux.*-64-shippable/opt: ['mozilla-central']
+                        linux.*-64/debug: ['autoland', 'mozilla-central']
+                        linux.*-64/opt: ['autoland']
+                        windows.*-64-[^-/]+-shippable/opt: ['mozilla-central']
+                        windows.*-64-[^-/]+/debug: ['autoland', 'mozilla-central']
+                        windows.*-64-[^-/]+/opt: ['autoland']
                         default: []
                 http3:
                     by-test-platform:

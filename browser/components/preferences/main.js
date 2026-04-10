@@ -3991,6 +3991,8 @@ SettingGroupManager.registerGroups({
   },
   dnsOverHttps: {
     l10nId: "dns-over-https-group2",
+    supportPage: "dns-over-https",
+    subcategory: "doh",
     headingLevel: 1,
     inProgress: true,
     items: [
@@ -7808,7 +7810,7 @@ const ApplicationsHandler = (function () {
         aHandlerApp => {
           // If the user picked a new app from the menu, select it.
           if (aHandlerApp) {
-            // Rebuild menu items so that newly-selected app shows up in options.
+            // Rebuild menu items so that newly-selected app shows up in options so it can be evaluated below and selected as the option.
             handlerItem.buildActionsMenu();
 
             let actionsMenu = handlerItem.actionsMenu;
@@ -7845,7 +7847,7 @@ const ApplicationsHandler = (function () {
         params.filename = null;
         params.handlerApp = null;
 
-        let onAppSelected = () => {
+        let onAppPickerClose = () => {
           if (this.isValidHandlerApp(params.handlerApp)) {
             handlerApp = params.handlerApp;
 
@@ -7854,11 +7856,15 @@ const ApplicationsHandler = (function () {
           }
 
           chooseAppCallback(handlerApp);
+          // rebuild menu items to either
+          // 1. revert action menu back to original value if dialog was closed without selecting an app or
+          // 2. to update the menu if a new app (or same app as current) was selected
+          handlerItem.buildActionsMenu();
         };
 
         gSubDialog.open(
           "chrome://global/content/appPicker.xhtml",
-          { closingCallback: onAppSelected },
+          { closingCallback: onAppPickerClose },
           params
         );
       } else {
@@ -7885,6 +7891,9 @@ const ApplicationsHandler = (function () {
             handler.addPossibleApplicationHandler(handlerApp);
 
             chooseAppCallback(handlerApp);
+          } else {
+            // closed the dialog without choosing an app... so rebuild menu items to revert back to original value
+            handlerItem.buildActionsMenu();
           }
         };
 

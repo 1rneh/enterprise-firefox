@@ -15,6 +15,7 @@ import { TopSites } from "content-src/components/TopSites/TopSites";
 import { Sections } from "content-src/components/Sections/Sections";
 import { Logo } from "content-src/components/Logo/Logo";
 import { Weather } from "content-src/components/Weather/Weather";
+import { Weather as WeatherWidget } from "content-src/components/Widgets/Weather/Weather";
 import { DownloadModalToggle } from "content-src/components/DownloadModalToggle/DownloadModalToggle";
 import { Notifications } from "content-src/components/Notifications/Notifications";
 import { TopicSelection } from "content-src/components/DiscoveryStreamComponents/TopicSelection/TopicSelection";
@@ -103,7 +104,6 @@ export class BaseContent extends React.PureComponent {
     this.openPreferences = this.openPreferences.bind(this);
     this.openCustomizationMenu = this.openCustomizationMenu.bind(this);
     this.closeCustomizationMenu = this.closeCustomizationMenu.bind(this);
-    this.handleOnKeyDown = this.handleOnKeyDown.bind(this);
     this.onWindowScroll = debounce(this.onWindowScroll.bind(this), 5);
     this.setPref = this.setPref.bind(this);
     this.shouldShowOMCHighlight = this.shouldShowOMCHighlight.bind(this);
@@ -204,7 +204,6 @@ export class BaseContent extends React.PureComponent {
   componentDidMount() {
     this.applyBodyClasses();
     global.addEventListener("scroll", this.onWindowScroll);
-    global.addEventListener("keydown", this.handleOnKeyDown);
     const prefs = this.props.Prefs.values;
     const wallpapersEnabled = prefs["newtabWallpapers.enabled"];
 
@@ -369,7 +368,6 @@ export class BaseContent extends React.PureComponent {
       this.handleColorModeChange
     );
     global.removeEventListener("scroll", this.onWindowScroll);
-    global.removeEventListener("keydown", this.handleOnKeyDown);
     if (this._onVisibilityChange) {
       this.props.document.removeEventListener(
         VISIBILITY_CHANGE_EVENT,
@@ -466,12 +464,6 @@ export class BaseContent extends React.PureComponent {
     if (this.props.App.customizeMenuVisible) {
       this.props.dispatch({ type: at.HIDE_PERSONALIZE });
       this.props.dispatch(ac.UserEvent({ event: "HIDE_PERSONALIZE" }));
-    }
-  }
-
-  handleOnKeyDown(e) {
-    if (e.key === "Escape") {
-      this.closeCustomizationMenu();
     }
   }
 
@@ -750,7 +742,9 @@ export class BaseContent extends React.PureComponent {
       showInferredPersonalizationEnabled:
         prefs[PREF_INFERRED_PERSONALIZATION_USER],
       topSitesRowsCount: prefs.topSitesRows,
-      weatherEnabled: prefs.showWeather,
+      weatherEnabled: novaEnabled
+        ? prefs["widgets.weather.enabled"]
+        : prefs.showWeather,
     };
 
     const pocketRegion = prefs["feeds.system.topstories"];
@@ -783,11 +777,23 @@ export class BaseContent extends React.PureComponent {
       nimbusTimerEnabled ||
       nimbusTimerTrainhopEnabled;
 
+    const mayHaveWeatherWidget =
+      prefs["widgets.system.weather.enabled"] ||
+      prefs.trainhopConfig?.widgets?.weatherEnabled;
+    const showWeatherWidgetInSidebar =
+      novaEnabled &&
+      mayHaveWeatherWidget &&
+      prefs["widgets.weather.enabled"] &&
+      weatherEnabled &&
+      prefs["widgets.weather.size"] === "small";
+
     // These prefs set the initial values on the Customize panel toggle switches
     const enabledWidgets = {
       listsEnabled: prefs["widgets.lists.enabled"],
       timerEnabled: prefs["widgets.focusTimer.enabled"],
-      weatherEnabled: prefs.showWeather,
+      weatherEnabled: novaEnabled
+        ? prefs["widgets.weather.enabled"]
+        : prefs.showWeather,
       widgetsMaximized: prefs["widgets.maximized"],
       widgetsMayBeMaximized: prefs["widgets.system.maximized"],
     };
@@ -873,7 +879,7 @@ export class BaseContent extends React.PureComponent {
       const logoShouldBeCentered = false;
 
       return (
-        <div>
+        <div className="nova-outer-wrapper">
           <div className="container nova-enabled">
             <div className="sidebar-inline-start">
               {/* Logo */}
@@ -921,13 +927,14 @@ export class BaseContent extends React.PureComponent {
             </div>
             <div className="sidebar-inline-end">
               {/* Mini Widgets - Weather */}
-              {weatherEnabled && (
+              {showWeatherWidgetInSidebar && (
                 <ErrorBoundary>
-                  <Weather />
+                  <WeatherWidget dispatch={props.dispatch} size="small" />
                 </ErrorBoundary>
               )}
             </div>
           </div>
+          <ConfirmDialog />
           <menu className="personalizeButtonWrapper">
             <CustomizeMenu
               onClose={this.closeCustomizationMenu}
@@ -955,9 +962,9 @@ export class BaseContent extends React.PureComponent {
               showWidgetsManagementPanel={this.state.showWidgetsManagementPanel}
               toggleWidgetsManagementPanel={this.toggleWidgetsManagementPanel}
               widgetsEnabled={prefs["widgets.enabled"]}
+              dispatch={this.props.dispatch}
             />
           </menu>
-          <ConfirmDialog />
           {this.props.Notifications?.showNotifications && (
             <ErrorBoundary>
               <Notifications dispatch={this.props.dispatch} />
@@ -971,7 +978,7 @@ export class BaseContent extends React.PureComponent {
     return (
       <div className={featureClassName}>
         <div className="weatherWrapper">
-          {weatherEnabled && (
+          {!novaEnabled && weatherEnabled && (
             <ErrorBoundary>
               <Weather />
             </ErrorBoundary>
@@ -1002,8 +1009,7 @@ export class BaseContent extends React.PureComponent {
           )}
         </div>
 
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions*/}
-        <div className={outerClassName} onClick={this.closeCustomizationMenu}>
+        <div className={outerClassName}>
           <main className="newtab-main" style={this.state.fixedNavStyle}>
             {prefs.showSearch && (
               <div className="non-collapsible-section">

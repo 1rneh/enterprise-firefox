@@ -337,7 +337,6 @@ pref("media.videocontrols.keyboard-tab-to-all-controls", true);
   // third_party/libwebrtc/modules/audio_processing/include/audio_processing.h
   pref("media.getusermedia.audio.processing.aec.enabled", true);
   pref("media.getusermedia.audio.processing.aec", 1); // kModerateSuppression
-  pref("media.getusermedia.audio.processing.aec.mobile", false);
   pref("media.getusermedia.audio.processing.noise.enabled", true);
   pref("media.getusermedia.audio.processing.noise", 2); // kHigh
   pref("media.getusermedia.audio.processing.agc.enabled", true);

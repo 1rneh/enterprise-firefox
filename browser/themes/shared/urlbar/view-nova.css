@@ -62,6 +62,9 @@
   --urlbarView-tail150-overlay-color: var(--color-gray-05);
   --urlbarView-tail150-canvas-background: var(--color-violet-110);
 
+  --urlbarView-separator-char: "•";
+  --urlbarView-separator-margin-inline: 0.6em;
+
   &:-moz-locale-dir(rtl) {
     --urlbarView-action-slide-in-distance: -200px;
   }
@@ -669,8 +672,8 @@
 
 .urlbarView-title-separator {
   &::before {
-    content: "·";
-    margin: 0 0.4em;
+    content: var(--urlbarView-separator-char);
+    margin: 0 var(--urlbarView-separator-margin-inline);
     opacity: 0.6;
   }
 
@@ -828,9 +831,9 @@
        tree. We want screen readers to pause between the result title and the
        switch-to-tab action text. */
     opacity: 0;
-    /* -0.25em for the width of the "·" character. -.4em to offset the
+    /* -0.46em for the width of the "•" character. -.4em to offset the
        margin-inline-start already set on this element. */
-    margin-inline-end: -0.65em;
+    margin-inline-end: -0.86em;
   }
 }
 
@@ -1402,7 +1405,6 @@
       > .urlbarView-realtime-description-bottom > .urlbarView-realtime-description-separator-dash {
         /* stylelint-disable-next-line max-nesting-depth */
         &::before {
-          margin-inline: var(--space-xsmall);
           display: inline;
         }
 
@@ -1416,7 +1418,8 @@
       > .urlbarView-realtime-description-bottom > .urlbarView-realtime-description-separator-dot {
         /* stylelint-disable-next-line max-nesting-depth */
         &::before {
-          content: "·";
+          content: var(--urlbarView-separator-char);
+          margin-inline: var(--urlbarView-separator-margin-inline);
         }
       }
 
@@ -1425,6 +1428,7 @@
         /* stylelint-disable-next-line max-nesting-depth */
         &::before {
           content: "–";
+          margin-inline: var(--space-xsmall);
         }
       }
     }
@@ -1810,8 +1814,8 @@
   }
 
   .urlbarView-subtitle-separator::before {
-    content: "·";
-    margin: 0 0.4em;
+    content: var(--urlbarView-separator-char);
+    margin: 0 var(--urlbarView-separator-margin-inline);
     color: var(--text-color-deemphasized);
   }
 
@@ -1829,8 +1833,8 @@
 
   .urlbarView-bottom-separator {
     &::before {
-      content: "·";
-      margin: 0 0.4em;
+      content: var(--urlbarView-separator-char);
+      margin: 0 var(--urlbarView-separator-margin-inline);
       color: var(--text-color-deemphasized);
     }
 

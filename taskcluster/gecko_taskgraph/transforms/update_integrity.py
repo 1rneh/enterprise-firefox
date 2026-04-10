@@ -20,6 +20,46 @@ def skip_for_non_nightly(config, jobs):
 
 
 @transforms.add
+def add_build_target(config, jobs):
+    for job in jobs:
+        # checked before `linux64` to avoid `linux64-aarch64` ending up with
+        # `linux64` information
+        if job["attributes"]["build_platform"].startswith("linux64-aarch64"):
+            build_target = "Linux_aarch64-gcc3"
+        elif job["attributes"]["build_platform"].startswith("linux64"):
+            build_target = "Linux_x86_64-gcc3"
+        elif job["attributes"]["build_platform"].startswith("mac"):
+            build_target = "Darwin_x86_64-gcc3-u-i386-x86_64"
+        elif job["attributes"]["build_platform"].startswith("win32"):
+            build_target = "WINNT_x86-msvc"
+        # checked before `win64` to avoid `win64-aarch64` ending up with
+        # `win64` information
+        elif job["attributes"]["build_platform"].startswith("win64-aarch64"):
+            build_target = "WINNT_aarch64-msvc-aarch64"
+        elif job["attributes"]["build_platform"].startswith("win64"):
+            build_target = "WINNT_x86_64-msvc"
+        else:
+            raise Exception("couldn't detect build target")
+
+        job["attributes"]["build_target"] = build_target
+
+        yield job
+
+
+@transforms.add
+def skip_for_new_locales_and_platforms(config, jobs):
+    """Don't generate any jobs for newly added locales or platforms that don't have `from` releases to test."""
+    for job in jobs:
+        locale = job["attributes"].get("locale", "en-US")
+        build_target = job["attributes"]["build_target"]
+
+        if locale not in config.params["release_history"].get(build_target, {}):
+            continue
+
+        yield job
+
+
+@transforms.add
 def resolve_keys(config, jobs):
     for job in jobs:
         for key in ("cert-overrides", "fetches.toolchain"):
@@ -93,39 +133,21 @@ def add_to_installer(config, jobs):
 def add_additional_fetches_and_command(config, jobs):
     """Adds fetch entries for the "from" installers and partial MARs."""
     for job in jobs:
-        # checked before `linux64` to avoid `linux64-aarch64` ending up with
-        # `linux64` information
-        if job["attributes"]["build_platform"].startswith("linux64-aarch64"):
+        if job["attributes"]["build_platform"].startswith("linux"):
             platform = "linux"
-            build_target = "Linux_aarch64-gcc3"
-            installer_suffix = "tar.xz"
-        elif job["attributes"]["build_platform"].startswith("linux64"):
-            platform = "linux"
-            build_target = "Linux_x86_64-gcc3"
             installer_suffix = "tar.xz"
         elif job["attributes"]["build_platform"].startswith("mac"):
             platform = "mac"
-            build_target = "Darwin_x86_64-gcc3-u-i386-x86_64"
             installer_suffix = "dmg"
-        elif job["attributes"]["build_platform"].startswith("win32"):
+        elif job["attributes"]["build_platform"].startswith("win"):
             platform = "win"
-            build_target = "WINNT_x86-msvc"
-            installer_suffix = "installer.exe"
-        # checked before `win64` to avoid `win64-aarch64` ending up with
-        # `win64` information
-        elif job["attributes"]["build_platform"].startswith("win64-aarch64"):
-            platform = "win"
-            build_target = "WINNT_aarch64-msvc-aarch64"
-            installer_suffix = "installer.exe"
-        elif job["attributes"]["build_platform"].startswith("win64"):
-            platform = "win"
-            build_target = "WINNT_x86_64-msvc"
             installer_suffix = "installer.exe"
         else:
-            raise Exception("couldn't detect build target")
+            raise Exception("couldn't detect platform specific variables")
 
         # ideally, this attribute would be set on en-US jobs as well...but it's not, so we have to assume
         locale = job["attributes"].get("locale", "en-US")
+        build_target = job["attributes"]["build_target"]
 
         cmd = [
             # add dmg tool location to the $PATH. this is not strictly necessary

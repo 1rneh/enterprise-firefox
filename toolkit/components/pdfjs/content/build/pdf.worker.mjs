@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.85
- * pdfjsBuild = d6afffe8f
+ * pdfjsVersion = 5.7.97
+ * pdfjsBuild = a67b95211
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -9727,6 +9727,28 @@ class OperatorList {
     this.optimizer.reset();
   }
 }
+class CheckedOperatorList extends OperatorList {
+  needsIsolation = false;
+  addOp(fn, args) {
+    if (!this.needsIsolation) {
+      if (fn === OPS.beginGroup) {
+        this.needsIsolation = args[0].needsIsolation;
+      } else if (fn === OPS.setGState) {
+        for (const [key, val] of args[0]) {
+          if (key === "BM" && val !== "source-over") {
+            this.needsIsolation = true;
+            break;
+          }
+          if (key === "SMask" && val !== false) {
+            this.needsIsolation = true;
+            break;
+          }
+        }
+      }
+    }
+    super.addOp(fn, args);
+  }
+}
 
 ;// ./src/core/pattern.js
 
@@ -10604,7 +10626,7 @@ class DummyShading extends BaseShading {
     return ["Dummy"];
   }
 }
-function getTilingPatternIR(operatorList, dict, color) {
+function getTilingPatternIR(operatorList, dict, color, needsIsolation = true) {
   const matrix = lookupMatrix(dict.getArray("Matrix"), IDENTITY_MATRIX);
   const bbox = lookupNormalRect(dict.getArray("BBox"), null);
   if (!bbox || bbox[2] - bbox[0] === 0 || bbox[3] - bbox[1] === 0) {
@@ -10626,7 +10648,7 @@ function getTilingPatternIR(operatorList, dict, color) {
   if (!Number.isInteger(tilingType)) {
     throw new FormatError(`Invalid getTilingPatternIR /TilingType value.`);
   }
-  return ["TilingPattern", color, operatorList, matrix, bbox, xstep, ystep, paintType, tilingType];
+  return ["TilingPattern", color, operatorList, matrix, bbox, xstep, ystep, paintType, tilingType, needsIsolation];
 }
 
 ;// ./src/core/binary_cmap.js
@@ -10882,6 +10904,7 @@ class BinaryCMapReader {
 
 
 class Ascii85Stream extends DecodeStream {
+  #input = new Uint8Array(5);
   constructor(str, maybeLength) {
     if (maybeLength) {
       maybeLength *= 0.8;
@@ -10889,7 +10912,6 @@ class Ascii85Stream extends DecodeStream {
     super(maybeLength);
     this.stream = str;
     this.dict = str.dict;
-    this.input = new Uint8Array(5);
   }
   readBlock() {
     const TILDA_CHAR = 0x7e;
@@ -10908,12 +10930,10 @@ class Ascii85Stream extends DecodeStream {
     let buffer, i;
     if (c === Z_LOWER_CHAR) {
       buffer = this.ensureBuffer(bufferLength + 4);
-      for (i = 0; i < 4; ++i) {
-        buffer[bufferLength + i] = 0;
-      }
+      buffer.fill(0, bufferLength, bufferLength + 4);
       this.bufferLength += 4;
     } else {
-      const input = this.input;
+      const input = this.#input;
       input[0] = c;
       for (i = 1; i < 5; ++i) {
         c = str.getByte();
@@ -10928,9 +10948,7 @@ class Ascii85Stream extends DecodeStream {
       buffer = this.ensureBuffer(bufferLength + i - 1);
       this.bufferLength += i - 1;
       if (i < 5) {
-        for (; i < 5; ++i) {
-          input[i] = 0x21 + 84;
-        }
+        input.fill(0x21 + 84, i, 5);
         this.eof = true;
       }
       let t = 0;
@@ -21990,9 +22008,8 @@ class CFFCompiler {
     const objects = index.objects;
     const count = objects.length;
     if (count === 0) {
-      return [0, 0];
+      return new Uint8Array(2);
     }
-    const data = [count >> 8 & 0xff, count & 0xff];
     let lastOffset = 1,
       i;
     for (i = 0; i < count; ++i) {
@@ -22008,25 +22025,36 @@ class CFFCompiler {
     } else {
       offsetSize = 4;
     }
-    data.push(offsetSize);
+    const data = new Uint8Array(2 + offsetSize * (count + 1) + lastOffset);
+    let pos = 0;
+    data[pos++] = count >> 8 & 0xff;
+    data[pos++] = count & 0xff;
+    data[pos++] = offsetSize;
     let relativeOffset = 1;
     for (i = 0; i < count + 1; i++) {
       if (offsetSize === 1) {
-        data.push(relativeOffset & 0xff);
+        data[pos++] = relativeOffset & 0xff;
       } else if (offsetSize === 2) {
-        data.push(relativeOffset >> 8 & 0xff, relativeOffset & 0xff);
+        data[pos++] = relativeOffset >> 8 & 0xff;
+        data[pos++] = relativeOffset & 0xff;
       } else if (offsetSize === 3) {
-        data.push(relativeOffset >> 16 & 0xff, relativeOffset >> 8 & 0xff, relativeOffset & 0xff);
+        data[pos++] = relativeOffset >> 16 & 0xff;
+        data[pos++] = relativeOffset >> 8 & 0xff;
+        data[pos++] = relativeOffset & 0xff;
       } else {
-        data.push(relativeOffset >>> 24 & 0xff, relativeOffset >> 16 & 0xff, relativeOffset >> 8 & 0xff, relativeOffset & 0xff);
+        data[pos++] = relativeOffset >>> 24 & 0xff;
+        data[pos++] = relativeOffset >> 16 & 0xff;
+        data[pos++] = relativeOffset >> 8 & 0xff;
+        data[pos++] = relativeOffset & 0xff;
       }
       if (objects[i]) {
         relativeOffset += objects[i].length;
       }
     }
     for (i = 0; i < count; i++) {
-      trackers[i]?.offset(data.length);
-      data.push(...objects[i]);
+      trackers[i]?.offset(pos);
+      data.set(objects[i], pos);
+      pos += objects[i].length;
     }
     return data;
   }
@@ -36096,13 +36124,18 @@ class PartialEvaluator {
       operatorList.addOp(OPS.beginMarkedContentProps, ["OC", optionalContent]);
     }
     const group = dict.get("Group");
+    let newOpList;
+    const f32matrix = matrix && new Float32Array(matrix);
+    const args = [f32matrix, !group && f32bbox || null];
+    const localResources = dict.get("Resources");
     if (group) {
       groupOptions = {
         matrix,
         bbox: f32bbox,
         smask,
         isolated: false,
-        knockout: false
+        knockout: false,
+        needsIsolation: false
       };
       const groupSubtype = group.get("S");
       let colorSpace = null;
@@ -36118,23 +36151,28 @@ class PartialEvaluator {
         colorSpace ||= ColorSpaceUtils.rgb;
         smask.backdrop = colorSpace.getRgbHex(smask.backdrop, 0);
       }
-      operatorList.addOp(OPS.beginGroup, [groupOptions]);
+      newOpList = new CheckedOperatorList();
+    } else {
+      newOpList = operatorList;
+      operatorList.addOp(OPS.paintFormXObjectBegin, args);
     }
-    const f32matrix = matrix && new Float32Array(matrix);
-    const args = [f32matrix, !group && f32bbox || null];
-    operatorList.addOp(OPS.paintFormXObjectBegin, args);
-    const localResources = dict.get("Resources");
     await this.getOperatorList({
       stream: xobj,
       task,
       resources: localResources instanceof Dict ? localResources : resources,
-      operatorList,
+      operatorList: newOpList,
       initialState,
       prevRefs: seenRefs
     });
-    operatorList.addOp(OPS.paintFormXObjectEnd, []);
     if (group) {
+      groupOptions.needsIsolation = newOpList.needsIsolation || !!smask;
+      operatorList.addOp(OPS.beginGroup, [groupOptions]);
+      operatorList.addOp(OPS.paintFormXObjectBegin, args);
+      operatorList.addOpList(newOpList);
+      operatorList.addOp(OPS.paintFormXObjectEnd, []);
       operatorList.addOp(OPS.endGroup, [groupOptions]);
+    } else {
+      operatorList.addOp(OPS.paintFormXObjectEnd, []);
     }
     if (optionalContent !== undefined) {
       operatorList.addOp(OPS.endMarkedContent, []);
@@ -36416,7 +36454,7 @@ class PartialEvaluator {
     return transferMaps;
   }
   handleTilingType(fn, color, resources, pattern, patternDict, operatorList, task, localTilingPatternCache) {
-    const tilingOpList = new OperatorList();
+    const tilingOpList = new CheckedOperatorList();
     const patternResources = Dict.merge({
       xref: this.xref,
       dictArray: [patternDict.get("Resources"), resources]
@@ -36428,12 +36466,16 @@ class PartialEvaluator {
       operatorList: tilingOpList
     }).then(function () {
       const operatorListIR = tilingOpList.getIR();
-      const tilingPatternIR = getTilingPatternIR(operatorListIR, patternDict, color);
+      const {
+        needsIsolation
+      } = tilingOpList;
+      const tilingPatternIR = getTilingPatternIR(operatorListIR, patternDict, color, needsIsolation);
       operatorList.addDependencies(tilingOpList.dependencies);
       operatorList.addOp(fn, tilingPatternIR);
       if (patternDict.objId) {
         localTilingPatternCache.set(null, patternDict.objId, {
           operatorListIR,
+          needsIsolation,
           dict: patternDict
         });
       }
@@ -36829,7 +36871,7 @@ class PartialEvaluator {
       if (localTilingPattern) {
         try {
           const color = cs.base ? cs.base.getRgbHex(args, 0) : null;
-          const tilingPatternIR = getTilingPatternIR(localTilingPattern.operatorListIR, localTilingPattern.dict, color);
+          const tilingPatternIR = getTilingPatternIR(localTilingPattern.operatorListIR, localTilingPattern.dict, color, localTilingPattern.needsIsolation);
           operatorList.addOp(fn, tilingPatternIR);
           return undefined;
         } catch {}
@@ -64595,7 +64637,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "5.7.85";
+    const workerVersion = "5.7.97";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }

@@ -812,6 +812,8 @@ skip-if = [
 
 ["test_ext_webRequest_error_after_redirect.js"]
 
+["test_ext_webRequest_error_no_response.js"]
+
 ["test_ext_webRequest_filterTypes.js"]
 
 ["test_ext_webRequest_filter_urls.js"]

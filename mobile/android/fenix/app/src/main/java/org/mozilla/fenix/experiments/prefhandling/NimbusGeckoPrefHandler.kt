@@ -7,6 +7,7 @@ package org.mozilla.fenix.experiments.prefhandling
 import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -33,12 +34,13 @@ private val logger = Logger("Nimbus/GeckoPrefHandler")
  *
  * @param engine The browser engine used to read and write preferences.
  * @param nimbusApi The Nimbus API that will orchestrate enrollment and unenrollment.
+ * @param geckoScope The scope that will be used for completing Gecko tasks.
  */
 class NimbusGeckoPrefHandler(
     private val engine: Lazy<Engine>,
     private val nimbusApi: Lazy<NimbusApi>,
+    private val geckoScope: CoroutineScope = MainScope() + CoroutineName("NimbusGeckoPrefHandler"),
 ) : GeckoPrefHandler, BrowserPrefObserverIntegration.Observer {
-    val geckoScope = MainScope() + CoroutineName("NimbusGeckoPrefHandler")
 
     val browserPrefObserverIntegration by lazy { BrowserPrefObserverIntegration(engine.value) }
 

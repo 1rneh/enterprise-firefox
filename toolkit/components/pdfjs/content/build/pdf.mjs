@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.85
- * pdfjsBuild = d6afffe8f
+ * pdfjsVersion = 5.7.97
+ * pdfjsBuild = a67b95211
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -9489,6 +9489,7 @@ class TilingPattern {
     this.ystep = IR[6];
     this.paintType = IR[7];
     this.tilingType = IR[8];
+    this.needsIsolation = IR[9] ?? true;
     this.ctx = ctx;
     this.canvasGraphicsFactory = canvasGraphicsFactory;
     this.baseTransform = baseTransform;
@@ -9546,12 +9547,6 @@ class TilingPattern {
   }
   drawPattern(owner, path, useEOFill = false, [n, m], opIdx) {
     const [x0, y0, x1, y1] = this.bbox;
-    const bboxWidth = x1 - x0;
-    const bboxHeight = y1 - y0;
-    const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
-    const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
-    const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
-    const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
     owner.save();
     if (useEOFill) {
       owner.ctx.clip(path, "evenodd");
@@ -9560,8 +9555,23 @@ class TilingPattern {
     }
     owner.ctx.setTransform(...this.patternBaseMatrix);
     owner.ctx.translate(n * this.xstep, m * this.ystep);
-    owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
-    owner.canvasFactory.destroy(tmpCanvas);
+    if (this.needsIsolation || owner.ctx.globalAlpha !== 1 || owner.ctx.globalCompositeOperation !== "source-over" || owner.inSMaskMode) {
+      const bboxWidth = x1 - x0;
+      const bboxHeight = y1 - y0;
+      const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
+      const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
+      const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
+      const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
+      owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
+      owner.canvasFactory.destroy(tmpCanvas);
+    } else {
+      this.setFillAndStrokeStyleToContext(owner, this.paintType, this.color);
+      this.clipBbox(owner, x0, y0, x1, y1);
+      owner.baseTransformStack.push(owner.baseTransform);
+      owner.baseTransform = getCurrentTransform(owner.ctx);
+      owner.executeOperatorList(this.operatorList);
+      owner.baseTransform = owner.baseTransformStack.pop();
+    }
     owner.restore();
   }
   createPatternCanvas(owner, opIdx) {
@@ -9649,10 +9659,11 @@ class TilingPattern {
   clipBbox(graphics, x0, y0, x1, y1) {
     const bboxWidth = x1 - x0;
     const bboxHeight = y1 - y0;
-    graphics.ctx.rect(x0, y0, bboxWidth, bboxHeight);
+    const clip = new Path2D();
+    clip.rect(x0, y0, bboxWidth, bboxHeight);
     Util.axialAlignedBoundingBox([x0, y0, x1, y1], getCurrentTransform(graphics.ctx), graphics.current.minMax);
-    graphics.clip();
-    graphics.endPath();
+    graphics.ctx.clip(clip);
+    graphics.current.updateClipFromPath();
   }
   setFillAndStrokeStyleToContext(graphics, paintType, color) {
     const context = graphics.ctx,
@@ -11478,7 +11489,10 @@ class CanvasGraphics {
       return;
     }
     this.save(opIdx);
-    if (this.inSMaskMode) {
+    const {
+      inSMaskMode
+    } = this;
+    if (inSMaskMode) {
       this.endSMaskMode();
       this.current.activeSMask = null;
     }
@@ -11488,6 +11502,22 @@ class CanvasGraphics {
     }
     if (group.knockout) {
       warn("Knockout groups not supported.");
+    }
+    if (!group.needsIsolation && currentCtx.globalAlpha === 1 && currentCtx.globalCompositeOperation === "source-over" && !inSMaskMode) {
+      if (group.bbox) {
+        let clip = new Path2D();
+        const [x0, y0, x1, y1] = group.bbox;
+        clip.rect(x0, y0, x1 - x0, y1 - y0);
+        if (group.matrix) {
+          const path = new Path2D();
+          path.addPath(clip, new DOMMatrix(group.matrix));
+          clip = path;
+        }
+        currentCtx.clip(clip);
+      }
+      this.groupStack.push(null);
+      this.groupLevel++;
+      return;
     }
     const currentTransform = getCurrentTransform(currentCtx);
     if (group.matrix) {
@@ -11559,6 +11589,10 @@ class CanvasGraphics {
     this.groupLevel--;
     const groupCtx = this.ctx;
     const ctx = this.groupStack.pop();
+    if (ctx === null) {
+      this.restore(opIdx);
+      return;
+    }
     this.ctx = ctx;
     this.ctx.imageSmoothingEnabled = false;
     this.dependencyTracker?.popBaseTransform();
@@ -13788,7 +13822,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "5.7.85",
+    apiVersion: "5.7.97",
     data,
     password,
     disableAutoFetch,
@@ -15400,8 +15434,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "5.7.85";
-const build = "d6afffe8f";
+const version = "5.7.97";
+const build = "a67b95211";
 
 ;// ./src/display/editor/color_picker.js
 

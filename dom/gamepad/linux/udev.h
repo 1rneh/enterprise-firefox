@@ -75,6 +75,8 @@ class udev_lib {
     DLSYM(udev_device_unref);
     DLSYM(udev_device_new_from_syspath);
     DLSYM(udev_device_get_devnode);
+    DLSYM(udev_device_get_driver);
+    DLSYM(udev_device_get_parent);
     DLSYM(udev_device_get_parent_with_subsystem_devtype);
     DLSYM(udev_device_get_property_value);
     DLSYM(udev_device_get_action);
@@ -111,6 +113,8 @@ class udev_lib {
   struct udev_device* (*udev_device_new_from_syspath)(struct udev*,
                                                       const char*);
   const char* (*udev_device_get_devnode)(struct udev_device*);
+  const char* (*udev_device_get_driver)(struct udev_device*);
+  struct udev_device* (*udev_device_get_parent)(struct udev_device*);
   struct udev_device* (*udev_device_get_parent_with_subsystem_devtype)(
       struct udev_device*, const char*, const char*);
   const char* (*udev_device_get_property_value)(struct udev_device*,

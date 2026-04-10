@@ -16,10 +16,10 @@ Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/4527c41ef71d7683c
  4 files changed, 24 insertions(+), 12 deletions(-)
 
 diff --git a/BUILD.gn b/BUILD.gn
-index d3d7826c0f..199b92397c 100644
+index 92c1e32e27..46ba693161 100644
 --- a/BUILD.gn
 +++ b/BUILD.gn
-@@ -527,6 +527,9 @@ if (!rtc_build_ssl) {
+@@ -511,6 +511,9 @@ if (!rtc_build_ssl) {
        "crypto",
        "ssl",
      ]
@@ -29,7 +29,7 @@ index d3d7826c0f..199b92397c 100644
    }
  }
  
-@@ -620,6 +623,7 @@ if (!build_with_chromium) {
+@@ -602,6 +605,7 @@ if (!build_with_chromium) {
          "api/environment:environment_factory",
          "api/video:video_frame",
          "api/video:video_rtp_headers",
@@ -38,7 +38,7 @@ index d3d7826c0f..199b92397c 100644
        ]
        # Added when we removed deps in other places to avoid building
 diff --git a/media/BUILD.gn b/media/BUILD.gn
-index 8a8706f0d5..be93cf67a6 100644
+index 302a193108..ab61f22dcb 100644
 --- a/media/BUILD.gn
 +++ b/media/BUILD.gn
 @@ -12,12 +12,10 @@ import("../webrtc.gni")
@@ -103,7 +103,7 @@ index 8a8706f0d5..be93cf67a6 100644
  
  rtc_library("rtc_simulcast_encoder_adapter") {
    visibility = [ "*" ]
-@@ -721,6 +719,12 @@ rtc_library("rtc_audio_video") {
+@@ -725,6 +723,12 @@ rtc_library("rtc_audio_video") {
      "engine/webrtc_voice_engine.cc",
      "engine/webrtc_voice_engine.h",
    ]
@@ -117,10 +117,10 @@ index 8a8706f0d5..be93cf67a6 100644
    public_configs = []
    if (!build_with_chromium) {
 diff --git a/rtc_base/BUILD.gn b/rtc_base/BUILD.gn
-index 3d3238882b..1a46feb6ad 100644
+index bb214ae154..382ec4cbe3 100644
 --- a/rtc_base/BUILD.gn
 +++ b/rtc_base/BUILD.gn
-@@ -1578,6 +1578,7 @@ rtc_source_set("ssl_header") {
+@@ -1598,6 +1598,7 @@ rtc_source_set("ssl_header") {
  }
  
  rtc_library("digest") {
@@ -128,7 +128,7 @@ index 3d3238882b..1a46feb6ad 100644
    visibility = [ "*" ]
    sources = [
      "message_digest.cc",
-@@ -1599,8 +1600,10 @@ rtc_library("digest") {
+@@ -1619,8 +1620,10 @@ rtc_library("digest") {
      configs += [ "..:external_ssl_library" ]
    }
  }
@@ -139,7 +139,7 @@ index 3d3238882b..1a46feb6ad 100644
    visibility = [ "*" ]
    sources = [
      "crypto_random.cc",
-@@ -1621,6 +1624,7 @@ rtc_library("crypto_random") {
+@@ -1641,6 +1644,7 @@ rtc_library("crypto_random") {
      configs += [ "..:external_ssl_library" ]
    }
  }
@@ -148,7 +148,7 @@ index 3d3238882b..1a46feb6ad 100644
  rtc_library("ssl") {
  if (!build_with_mozilla) {
 diff --git a/webrtc.gni b/webrtc.gni
-index f0eda1a3d8..25c9ac3fff 100644
+index 8b835aba48..c54f33ad0c 100644
 --- a/webrtc.gni
 +++ b/webrtc.gni
 @@ -112,7 +112,7 @@ declare_args() {
@@ -160,7 +160,7 @@ index f0eda1a3d8..25c9ac3fff 100644
  
    # Enable when an external authentication mechanism is used for performing
    # packet authentication for RTP packets instead of libsrtp.
-@@ -340,7 +340,7 @@ declare_args() {
+@@ -337,7 +337,7 @@ declare_args() {
  }
  
  # Enable liboam only on non-mozilla builds.

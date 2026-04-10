@@ -2253,7 +2253,7 @@ onboarding:
       method:
         type: string
         description: |
-          The method in which the user exits onboarding. The value should be either "skipped" or "completed". (The skip option is not implemented yet)
+          The method in which the user exits onboarding. The value should be either "skipped" or "completed".
       onboarding_reason:
         type: string
         description: The reason the user is being onboarded.
@@ -2262,8 +2262,10 @@ onboarding:
         description: The source of installation.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2010810
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2028189
     data_reviews:
       - https://phabricator.services.mozilla.com/D281286
+      - https://phabricator.services.mozilla.com/D291731
     data_sensitivity:
       - interaction
     notification_emails:

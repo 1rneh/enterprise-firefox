@@ -811,7 +811,7 @@ void nsHostResolver::DetachCallback(
   RefPtr<nsResolveHostCallback> callback(aCallback);
 
   {
-    mozilla::AutoReadLock dbLock(mDBLock);
+    mozilla::AutoWriteLock dbLock(mDBLock);
     MutexAutoLock queueLock(mQueue.mLock);
 
     nsAutoCString originSuffix;

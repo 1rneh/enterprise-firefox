@@ -1491,7 +1491,7 @@
         "browser/components/enterprisepolicies/helpers/WebsiteFilter.sys.mjs"
       ],
       "resource:///modules/policies/schema.sys.mjs": [
-        "tools/@types/subs/schema.sys.d.mts"
+        "browser/components/enterprisepolicies/schemas/schema.sys.mjs"
       ],
       "resource:///modules/profiles/SelectableProfile.sys.mjs": [
         "browser/components/profiles/SelectableProfile.sys.mjs"

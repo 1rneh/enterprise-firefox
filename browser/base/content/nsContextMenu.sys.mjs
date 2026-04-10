@@ -715,10 +715,9 @@ export class nsContextMenu {
       );
     }
 
-    // Copy image contents depends on whether we're on an image.
     // Note: the element doesn't exist on all platforms, but showItem() takes
     // care of that by itself.
-    this.showItem("context-copyimage-contents", this.onImage);
+    this.showItem("context-copyimage-contents", this.onImage || this.onCanvas);
 
     // Copy image location depends on whether we're on an image.
     this.showItem("context-copyimage", this.onImage || showBGImage);
@@ -1683,6 +1682,12 @@ export class nsContextMenu {
 
   _canvasToBlobURL(targetIdentifier) {
     return this.actor.canvasToBlobURL(targetIdentifier);
+  }
+
+  copyCanvasImage() {
+    this.actor.copyCanvasImage(this.targetIdentifier).then(arrayBuffer => {
+      lazy.BrowserUtils.copyImageToClipboard(arrayBuffer);
+    }, console.error);
   }
 
   // Change current window to the URL of the image, video, or audio.

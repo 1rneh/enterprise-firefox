@@ -217,6 +217,10 @@
     .split-view-panel[column="0"] {
       order: 0;
       margin-inline-end: 0;
+
+      @media not (-moz-platform: macos) {
+        margin-inline-end: 2px;
+      }
     }
 
     .split-view-splitter {
@@ -237,6 +241,10 @@
     /* Panels with a custom width shouldn't grow. */
     .split-view-panel[width] {
       flex: none;
+
+      @media not (prefers-reduced-motion) {
+        transition: width 50ms ease-out;
+      }
     }
 
     /* Display split view footer within inactive panels. */

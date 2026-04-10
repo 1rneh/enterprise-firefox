@@ -205,7 +205,6 @@ AudioProcessing::Config AudioInputProcessing::ConfigForPrefs(
   config.pipeline.multi_channel_capture = true;
 
   config.echo_canceller.enabled = aPrefs.mAecOn;
-  config.echo_canceller.mobile_mode = aPrefs.mUseAecMobile;
 
   if ((config.gain_controller1.enabled =
            aPrefs.mAgcOn && !aPrefs.mAgc2Forced)) {

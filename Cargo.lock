@@ -2785,6 +2785,7 @@ dependencies = [
  "rust_minidump_writer_linux",
  "shell_windows",
  "signature_cache",
+ "ssl_tokens_cache",
  "static_prefs",
  "storage",
  "trust-anchors",
@@ -6942,6 +6943,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ssl_tokens_cache"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "flate2",
+ "log",
+ "nsstring",
+ "rustc-hash 2.1.1",
+ "serde",
+ "static_assertions",
+ "tempfile",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8511,6 +8526,7 @@ name = "widget_windows"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "moz_task",
  "nserror",
  "nsstring",
  "thin-vec",

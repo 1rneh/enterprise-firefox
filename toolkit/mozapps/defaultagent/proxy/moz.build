@@ -36,6 +36,7 @@ OS_LIBS += [
     "shell32",
     "shlwapi",
     "taskschd",
+    "user32",
 ]
 
 DEFINES["NS_NO_XPCOM"] = True

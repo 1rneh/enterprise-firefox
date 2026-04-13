@@ -21,8 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "sidebarOpenByDefault",
-  "browser.smartwindow.sidebar.openByDefault",
-  false
+  "browser.smartwindow.sidebar.openByDefault"
 );
 
 const SESSION_STORE_KEY = "ai-window-tab-state";

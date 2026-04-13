@@ -377,7 +377,7 @@ export default class MozSelect extends MozBaseInputElement {
       @keydown=${this.handlePanelKeydown}
       ?disabled=${this.disabled || this.parentDisabled}
     >
-      ${this.selectedOption?.label}
+      <span class="panel-trigger-text">${this.selectedOption?.label}</span>
     </button>`;
   }
 

@@ -140,7 +140,13 @@ class CookieService final : public nsICookieService,
   // private browsing.
   RefPtr<CookieStorage> mPersistentStorage;
   RefPtr<CookieStorage> mPrivateStorage;
-  RefPtr<CookieStorage> mDummyStorage;
+
+  // Holds the real persistent storage after shutdown swap so it is not
+  // destroyed (and its in-memory cookie tree torn down) on the main thread
+  // during the critical shutdown window. Releases naturally with the service.
+  RefPtr<CookieStorage> mRetiredStorage;
+
+  void RetirePersistentStorageForShutdown();
 
  private:
   nsresult AddInternal(nsIURI* aCookieURI, const nsACString& aHost,
@@ -151,8 +157,6 @@ class CookieService final : public nsICookieService,
                        nsICookie::schemeType aSchemeMap, bool aIsPartitioned,
                        bool aFromHttp, const nsID* aOperationID,
                        nsICookieValidation** aValidation);
-
-  CookieStorage* MaybeCreateDummyStorage();
 };
 
 }  // namespace net

@@ -259,6 +259,10 @@ nsresult CookieService::Init() {
   os->AddObserver(this, "last-pb-context-exited", true);
   os->AddObserver(this, "browser-delayed-startup-finished", true);
 
+  RunOnShutdown(
+      [self = RefPtr{this}] { self->RetirePersistentStorageForShutdown(); },
+      ShutdownPhase::AppShutdown);
+
   return NS_OK;
 }
 
@@ -266,16 +270,23 @@ void CookieService::InitCookieStorages() {
   NS_ASSERTION(!mPersistentStorage, "already have a default CookieStorage");
   NS_ASSERTION(!mPrivateStorage, "already have a private CookieStorage");
 
-  // Create two new CookieStorages. If we are in or beyond our observed
-  // shutdown phase, just be non-persistent.
-  if (MOZ_UNLIKELY(StaticPrefs::network_cookie_noPersistentStorage() ||
-                   AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown))) {
+  if (MOZ_UNLIKELY(AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown))) {
+    mPersistentStorage = new CookieDummyStorage();
+  } else if (MOZ_UNLIKELY(StaticPrefs::network_cookie_noPersistentStorage())) {
     mPersistentStorage = CookiePrivateStorage::Create();
   } else {
     mPersistentStorage = CookiePersistentStorage::Create();
   }
 
   mPrivateStorage = CookiePrivateStorage::Create();
+}
+
+void CookieService::RetirePersistentStorageForShutdown() {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (mPersistentStorage) {
+    mRetiredStorage = std::move(mPersistentStorage);
+    mPersistentStorage = new CookieDummyStorage();
+  }
 }
 
 void CookieService::CloseCookieStorages() {
@@ -291,8 +302,14 @@ void CookieService::CloseCookieStorages() {
   RefPtr<CookieStorage> persistentStorage;
   persistentStorage.swap(mPersistentStorage);
 
+  RefPtr<CookieStorage> retiredStorage;
+  retiredStorage.swap(mRetiredStorage);
+
   privateStorage->Close();
   persistentStorage->Close();
+  if (retiredStorage) {
+    retiredStorage->Close();
+  }
 }
 
 CookieService::~CookieService() {
@@ -1692,11 +1709,6 @@ bool CookieService::IsInitialized() const {
 CookieStorage* CookieService::PickStorage(const OriginAttributes& aAttrs) {
   MOZ_ASSERT(IsInitialized());
 
-  // We just want to avoid hanging in EnsureInitialized during shutdown.
-  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
-    return MaybeCreateDummyStorage();
-  }
-
   if (aAttrs.IsPrivateBrowsing()) {
     return mPrivateStorage;
   }
@@ -1705,21 +1717,9 @@ CookieStorage* CookieService::PickStorage(const OriginAttributes& aAttrs) {
   return mPersistentStorage;
 }
 
-CookieStorage* CookieService::MaybeCreateDummyStorage() {
-  if (!mDummyStorage) {
-    mDummyStorage = new CookieDummyStorage();
-  }
-  return mDummyStorage;
-}
-
 CookieStorage* CookieService::PickStorage(
     const OriginAttributesPattern& aAttrs) {
   MOZ_ASSERT(IsInitialized());
-
-  // We just want to avoid hanging in EnsureInitialized during shutdown.
-  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
-    return MaybeCreateDummyStorage();
-  }
 
   if (aAttrs.mPrivateBrowsingId.WasPassed() &&
       aAttrs.mPrivateBrowsingId.Value() > 0) {

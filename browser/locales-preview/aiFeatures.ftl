@@ -72,7 +72,7 @@ ai-window-learn-from-chat-activity =
     .label = Learn from chats in Smart Window
 
 ai-window-learn-from-browsing-activity =
-    .label = Learn from browsing and searches in Classic and Smart Windows
+    .label = Learn from browsing in Classic and Smart Windows
 
 ai-window-manage-memories-button =
     .label = Manage memories

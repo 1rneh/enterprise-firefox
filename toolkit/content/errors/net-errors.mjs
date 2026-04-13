@@ -326,13 +326,15 @@ export const NET_ERRORS = [
     category: "blocked",
     bodyTitleL10nId: "neterror-blocked-by-policy-page-title",
     introContent: {
-      dataL10nId: "fp-neterror-offline-intro",
-      dataL10nArgs: { hostname: null },
+      dataL10nId: "fp-neterror-blocked-by-policy-intro",
     },
     descriptionParts: [],
     buttons: {
       showTryAgain: false,
       showGoBack: false,
+    },
+    customNetError: {
+      titleL10nId: "neterror-blocked-by-policy-page-title",
     },
     hasNoUserFix: true,
   },

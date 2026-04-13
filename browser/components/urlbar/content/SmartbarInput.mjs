@@ -128,12 +128,11 @@ const MAX_CONTEXT_WEBSITES = 5;
 export class SmartbarInput extends HTMLElement {
   static get #markup() {
     return `
-      <hbox class="urlbar-background"/>
+      <html:div class="urlbar-background"/>
       <html:website-chip-container class="smartbar-context-chips-header" hidden="true"></html:website-chip-container>
-      <hbox class="urlbar-input-container"
-            flex="1"
+      <html:div class="urlbar-input-container"
             pageproxystate="invalid">
-        <moz-urlbar-slot name="remote-control-box"> </moz-urlbar-slot>
+        <html:moz-urlbar-slot name="remote-control-box" />
         <toolbarbutton id="urlbar-searchmode-switcher"
                        class="searchmode-switcher chromeclass-toolbar-additional"
                        align="center"
@@ -165,7 +164,7 @@ export class SmartbarInput extends HTMLElement {
                          role="button"
                          data-l10n-id="urlbar-searchmode-exit-button" />
         </box>
-        <moz-urlbar-slot name="site-info"> </moz-urlbar-slot>
+        <html:moz-urlbar-slot name="site-info" />
         <moz-input-box tooltip="aHTMLTooltip"
                        class="urlbar-input-box"
                        flex="1">
@@ -180,13 +179,14 @@ export class SmartbarInput extends HTMLElement {
                       data-l10n-id="smartbar-placeholder"/>
         </moz-input-box>
         <html:smartwindow-panel-list></html:smartwindow-panel-list>
-        <moz-urlbar-slot name="revert-button"> </moz-urlbar-slot>
-        <image class="urlbar-icon urlbar-go-button"
+        <html:moz-urlbar-slot name="revert-button" />
+        <html:img class="urlbar-icon urlbar-go-button"
                role="button"
+               keyNav="false"
                data-l10n-id="urlbar-go-button"/>
-        <moz-urlbar-slot name="page-actions" hidden=""> </moz-urlbar-slot>
-      </hbox>
-      <vbox class="urlbarView"
+        <html:moz-urlbar-slot name="page-actions" hidden="" />
+      </html:div>
+      <html:div class="urlbarView"
             context=""
             role="group"
             tooltip="aHTMLTooltip">
@@ -202,12 +202,12 @@ export class SmartbarInput extends HTMLElement {
         <hbox class="search-one-offs"
               includecurrentengine="true"
               disabletab="true"/>
-      </vbox>
-      <hbox class="smartbar-button-container">
+      </html:div>
+      <html:div class="smartbar-button-container">
         <html:context-icon-button></html:context-icon-button>
         <html:memories-icon-button></html:memories-icon-button>
         <html:input-cta action=""></html:input-cta>
-      </hbox>
+      </html:div>
     `;
   }
 

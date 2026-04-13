@@ -392,8 +392,8 @@
       "chrome://global/content/elements/moz-visual-picker.mjs": [
         "toolkit/content/widgets/moz-visual-picker/moz-visual-picker.mjs"
       ],
-      "chrome://global/content/elements/panel-list.js": [
-        "toolkit/content/widgets/panel-list/panel-list.js"
+      "chrome://global/content/elements/panel-list.mjs": [
+        "toolkit/content/widgets/panel-list/panel-list.mjs"
       ],
       "chrome://global/content/errors/cert-errors.mjs": [
         "toolkit/content/errors/cert-errors.mjs"
@@ -952,6 +952,9 @@
       ],
       "chrome://remote/content/shared/webdriver/process-actors/WebDriverProcessDataParent.sys.mjs": [
         "remote/shared/webdriver/process-actors/WebDriverProcessDataParent.sys.mjs"
+      ],
+      "chrome://remote/content/webdriver-bidi/ConsoleMessageFormatter.sys.mjs": [
+        "remote/webdriver-bidi/ConsoleMessageFormatter.sys.mjs"
       ],
       "chrome://remote/content/webdriver-bidi/DownloadBehaviorManager.sys.mjs": [
         "remote/webdriver-bidi/DownloadBehaviorManager.sys.mjs"
@@ -4535,9 +4538,6 @@
       "resource://devtools/client/webconsole/utils/id-generator.js": [
         "devtools/client/webconsole/utils/id-generator.js"
       ],
-      "resource://devtools/shared/webconsole/l10n.js": [
-        "devtools/shared/webconsole/l10n.js"
-      ],
       "resource://devtools/client/webconsole/utils/messages.js": [
         "devtools/client/webconsole/utils/messages.js"
       ],
@@ -5363,8 +5363,14 @@
       "resource://devtools/shared/webconsole/analyze-input-string.js": [
         "devtools/shared/webconsole/analyze-input-string.js"
       ],
+      "resource://devtools/shared/webconsole/formatMessageParametersAndText.sys.mjs": [
+        "devtools/shared/webconsole/formatMessageParametersAndText.sys.mjs"
+      ],
       "resource://devtools/shared/webconsole/js-property-provider.js": [
         "devtools/shared/webconsole/js-property-provider.js"
+      ],
+      "resource://devtools/shared/webconsole/l10n.js": [
+        "devtools/shared/webconsole/l10n.js"
       ],
       "resource://devtools/shared/webconsole/messages.js": [
         "devtools/shared/webconsole/messages.js"
@@ -6737,6 +6743,9 @@
       "resource://newtab/lib/PrefsFeed.sys.mjs": [
         "browser/extensions/newtab/lib/PrefsFeed.sys.mjs"
       ],
+      "resource://newtab/lib/RemoteRenderer.sys.mjs": [
+        "browser/extensions/newtab/lib/RemoteRenderer.sys.mjs"
+      ],
       "resource://newtab/lib/Screenshots.sys.mjs": [
         "browser/extensions/newtab/lib/Screenshots.sys.mjs"
       ],
@@ -7229,6 +7238,12 @@
       "resource://test/helper_color_data.js": [
         "devtools/client/shared/test/helper_color_data.js"
       ],
+      "resource://test/import_attributes.mjs": [
+        "js/xpconnect/tests/unit/import_attributes.mjs"
+      ],
+      "resource://test/import_attributes_css.mjs": [
+        "js/xpconnect/tests/unit/import_attributes_css.mjs"
+      ],
       "resource://test/import_non_shared_1.mjs": [
         "js/xpconnect/tests/unit/import_non_shared_1.mjs"
       ],
@@ -7348,6 +7363,9 @@
       ],
       "resource://testing-common/LoginTestUtils.sys.mjs": [
         "toolkit/components/passwordmgr/test/LoginTestUtils.sys.mjs"
+      ],
+      "resource://testing-common/MLTestUtils.sys.mjs": [
+        "toolkit/components/ml/tests/MLTestUtils.sys.mjs"
       ],
       "resource://testing-common/MerinoTestUtils.sys.mjs": [
         "browser/components/urlbar/tests/quicksuggest/MerinoTestUtils.sys.mjs"

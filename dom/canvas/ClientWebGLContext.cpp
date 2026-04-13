@@ -4706,6 +4706,14 @@ void ClientWebGLContext::TexImage(uint8_t funcDims, GLenum imageTarget,
                 std::string{"gpuProcessTextureId works only in GPU process."});
           }
         } break;
+        case layers::SurfaceDescriptor::TSurfaceDescriptorDXGIYCbCr: {
+          MOZ_ASSERT(desc->image);
+          keepAliveImage = desc->image;
+        } break;
+        case layers::SurfaceDescriptor::TSurfaceDescriptorMacIOSurface: {
+          MOZ_ASSERT(desc->image);
+          keepAliveImage = desc->image;
+        } break;
         case layers::SurfaceDescriptor::TSurfaceDescriptorGPUVideo: {
           const auto& inProcess = notLost->inProcess;
           MOZ_ASSERT(desc->image);
@@ -7269,11 +7277,11 @@ void ImplCycleCollectionUnlink(RefPtr<webgl::NotLostData>& field) {
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLBufferJS)
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WebGLFramebufferJS, mAttachments)
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WebGLProgramJS, mNextLink_Shaders)
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLQueryJS)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_WEAK_PTR(WebGLQueryJS)
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLRenderbufferJS)
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLSamplerJS)
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLShaderJS)
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLSyncJS)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_WEAK_PTR(WebGLSyncJS)
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLTextureJS)
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WebGLTransformFeedbackJS, mAttribBuffers,
                                       mActiveProgram)

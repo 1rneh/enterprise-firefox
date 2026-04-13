@@ -41,6 +41,7 @@ input {
   --newtab-background-color-secondary: var(--color-white);
   --newtab-text-primary-color: var(--text-color);
   --newtab-background-card: color-mix(in srgb, var(--color-white) 85%, transparent);
+  --newtab-card-placeholder-background-color: color-mix(in srgb, currentColor 21%, transparent);
   --newtab-text-topic-label-color: var(--color-violet-70);
   --newtab-text-secondary-text: var(--text-color-deemphasized);
   --newtab-contextual-text-primary-color: light-dark(var(--newtab-text-primary-color), var(--text-color));
@@ -1205,6 +1206,12 @@ main section {
 .top-site-outer.add-button .tile {
   background-color: var(--button-background-color);
 }
+.lightWallpaper .top-site-outer.add-button .tile {
+  color-scheme: light;
+}
+.darkWallpaper .top-site-outer.add-button .tile {
+  color-scheme: dark;
+}
 .top-site-outer.add-button .tile .icon-wrapper {
   background-image: url("chrome://global/skin/icons/plus-20.svg");
   background-size: cover;
@@ -1517,6 +1524,7 @@ main section {
   grid-gap: var(--space-xxlarge);
   grid-template-columns: repeat(auto-fit, 192px);
   margin: 0;
+  padding: 0;
 }
 @media (max-width: 610px) {
   .sections-list .section-list .context-menu {
@@ -4428,6 +4436,27 @@ dialog:dir(rtl)::after {
 .widgets-section-container h1 {
   font-size: var(--font-size-large);
   font-weight: var(--font-weight-bold);
+}
+.nova-enabled .widgets-section-container h1 {
+  color: var(--newtab-contextual-text-primary-color);
+}
+.lightWallpaper .nova-enabled .widgets-section-container h1 {
+  color-scheme: light;
+}
+.darkWallpaper .nova-enabled .widgets-section-container h1 {
+  color-scheme: dark;
+}
+.nova-enabled .widgets-section-container #hide-all-widgets-button,
+.nova-enabled .widgets-section-container #toggle-widgets-size-button {
+  color: var(--newtab-contextual-text-primary-color);
+}
+.lightWallpaper .nova-enabled .widgets-section-container #hide-all-widgets-button,
+.lightWallpaper .nova-enabled .widgets-section-container #toggle-widgets-size-button {
+  color-scheme: light;
+}
+.darkWallpaper .nova-enabled .widgets-section-container #hide-all-widgets-button,
+.darkWallpaper .nova-enabled .widgets-section-container #toggle-widgets-size-button {
+  color-scheme: dark;
 }
 
 @media (min-width: 1122px) {
@@ -9463,15 +9492,17 @@ hr {
 /* stylelint-disable max-nesting-depth */
 .ds-highlights .section .section-list {
   grid-gap: var(--gridRowGap);
+}
+.ds-highlights .section .section-list:not(.nova-enabled *) {
   grid-template-columns: repeat(1, 1fr);
 }
 @media (min-width: 610px) {
-  .ds-highlights .section .section-list {
+  .ds-highlights .section .section-list:not(.nova-enabled *) {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (min-width: 866px) {
-  .ds-highlights .section .section-list {
+  .ds-highlights .section .section-list:not(.nova-enabled *) {
     grid-template-columns: repeat(4, 1fr);
   }
 }
@@ -9508,6 +9539,57 @@ hr {
 }
 .ds-highlights .hide-for-narrow {
   display: block;
+}
+.nova-enabled .ds-highlights {
+  display: grid;
+  grid-column: 1/-1;
+  grid-template-columns: repeat(2, calc(2 * var(--col-width) + 1 * var(--space-medium)));
+  gap: var(--space-medium);
+  justify-content: center;
+}
+@container content-grid (inline-size >= calc(8 * 75px + 7 * 0.75rem)) {
+  .nova-enabled .ds-highlights {
+    grid-template-columns: repeat(4, calc(2 * var(--col-width) + 1 * var(--space-medium)));
+  }
+}
+@container content-grid (inline-size >= calc(12 * 75px + 11 * 0.75rem)) {
+  .nova-enabled .ds-highlights {
+    grid-template-columns: repeat(4, calc(3 * var(--col-width) + 2 * var(--space-medium)));
+  }
+}
+.nova-enabled .ds-highlights .ds-highlights-title {
+  grid-column: 1/-1;
+  font-weight: var(--font-weight-heading, var(--heading-font-weight));
+  font-size: var(--font-size-heading-large, var(--font-size-xlarge));
+  color: var(--newtab-contextual-text-primary-color);
+  margin-block: var(--space-small) 0;
+}
+.lightWallpaper .nova-enabled .ds-highlights .ds-highlights-title {
+  color-scheme: light;
+}
+.darkWallpaper .nova-enabled .ds-highlights .ds-highlights-title {
+  color-scheme: dark;
+}
+@container content-grid (inline-size >= calc(12 * 75px + 11 * 0.75rem)) {
+  .nova-enabled .ds-highlights .ds-highlights-title {
+    font-size: var(--font-size-heading-xlarge, var(--font-size-xxlarge));
+  }
+}
+.nova-enabled .ds-highlights .section {
+  display: contents;
+}
+.nova-enabled .ds-highlights .section > div {
+  display: contents;
+}
+.nova-enabled .ds-highlights .section-list {
+  grid-column: 1/-1;
+  padding-block-end: var(--space-xxlarge);
+  grid-template-columns: repeat(2, 1fr);
+}
+@container content-grid (inline-size >= calc(8 * 75px + 7 * 0.75rem)) {
+  .nova-enabled .ds-highlights .section-list {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .ds-hr {
@@ -9858,7 +9940,7 @@ hr {
   overflow: hidden;
 }
 .ds-card.placeholder .placeholder-fill {
-  background: var(--newtab-button-active-background);
+  background: var(--newtab-card-placeholder-background-color);
   border-radius: var(--border-radius-small);
 }
 .ds-card.placeholder .placeholder-image {
@@ -11671,132 +11753,240 @@ hr {
 }
 
 .personalized-card-wrapper {
-  background-color: var(--background-color-canvas);
+  background-color: var(--newtab-background-card);
   border: 2px solid var(--card-border-color, var(--border-color-card));
   color: var(--text-color);
-  padding: var(--space-xxlarge);
   border-radius: var(--border-radius-large);
+  padding-block-start: var(--space-xxlarge);
   margin: var(--space-xlarge) 0;
   position: relative;
+  display: flex;
+  overflow: hidden;
 }
 .personalized-card-wrapper .personalized-card-dismiss {
   position: absolute;
-  inset-inline-end: var(--space-medium);
-  inset-block-start: var(--space-medium);
+  inset-inline-end: var(--space-xxsmall);
+  inset-block-start: var(--space-xxsmall);
+}
+.personalized-card-wrapper img {
+  object-fit: contain;
 }
 .personalized-card-wrapper .personalized-card-inner {
-  display: grid;
-  grid-template-columns: 0.5fr 1fr 1fr 1fr;
-  align-items: start;
-}
-.personalized-card-wrapper .personalized-card-inner .personalized-card-cta-wrapper {
   display: flex;
   flex-direction: column;
-  gap: var(--space-medium);
 }
-.personalized-card-wrapper .personalized-card-inner img {
-  max-width: 200px;
-  max-height: 200px;
-  object-fit: contain;
-  justify-self: center;
-  align-self: start;
+.personalized-card-wrapper .personalized-card-message-wrapper {
+  display: flex;
+  gap: var(--space-small);
+  padding-inline: var(--space-xxlarge);
+  padding-block-end: var(--space-xxlarge);
 }
-.personalized-card-wrapper .personalized-card-inner h2, .personalized-card-wrapper .personalized-card-inner p {
-  margin-block-start: 0;
+.personalized-card-wrapper .personalized-card-message-wrapper h2, .personalized-card-wrapper .personalized-card-message-wrapper p {
+  margin: 0;
 }
-.personalized-card-wrapper .personalized-card-inner h2 {
-  font-size: var(--font-size-xxlarge);
+.personalized-card-wrapper .personalized-card-message-wrapper h2 {
+  font-size: var(--font-size-heading-large, var(--font-size-xlarge));
   font-weight: var(--font-weight-heading, var(--heading-font-weight));
 }
-.personalized-card-wrapper .personalized-card-inner .personalized-card-link {
+.personalized-card-wrapper .personalized-card-cta-wrapper {
+  display: flex;
+  gap: var(--space-small);
+  align-items: center;
+}
+.personalized-card-wrapper .personalized-card-cta-wrapper .personalized-card-link {
   color: var(--link-color);
   font-size: var(--font-size-small);
 }
-@media (max-width: 724px) {
-  .personalized-card-wrapper .personalized-card-inner {
-    grid-template-columns: 1fr;
-    gap: var(--space-large);
-  }
-  .personalized-card-wrapper .personalized-card-inner img {
-    width: 100px;
-    justify-self: initial;
-  }
-  .personalized-card-wrapper .personalized-card-inner h2 {
-    margin-block-end: var(--space-xsmall);
-  }
+.personalized-card-wrapper:not(.nova-enabled *) {
+  flex-direction: column;
+}
+.personalized-card-wrapper:not(.nova-enabled *) img {
+  width: 98px;
+  height: 98px;
+  margin-inline-start: var(--space-xxlarge);
+  margin-block-end: var(--space-large);
+}
+.personalized-card-wrapper:not(.nova-enabled *) moz-button {
+  width: 100%;
+}
+.personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper,
+.personalized-card-wrapper:not(.nova-enabled *) .personalized-card-cta-wrapper {
+  flex-direction: column;
+}
+.personalized-card-wrapper:not(.nova-enabled *) .personalized-card-cta-wrapper {
+  padding-inline-start: var(--space-xxlarge);
+  padding-inline-end: var(--space-xxlarge);
+  padding-block-end: var(--space-xxlarge);
 }
 @media (min-width: 724px) {
-  .personalized-card-wrapper .personalized-card-inner {
-    grid-template-columns: 0.2fr 1fr 1.2fr;
-    gap: var(--space-large);
+  .personalized-card-wrapper:not(.nova-enabled *) {
+    flex-direction: row;
   }
-  .personalized-card-wrapper .personalized-card-inner img {
+  .personalized-card-wrapper:not(.nova-enabled *) img {
     width: 130px;
-    align-self: end;
-    grid-row: 1/span 2;
+    height: 130px;
+    margin-inline-start: var(--space-large);
+    margin-block-end: 0;
+    align-self: flex-end;
   }
-  .personalized-card-wrapper .personalized-card-inner .personalized-card-cta-wrapper {
-    align-items: center;
-    display: grid;
-    grid-template-columns: subgrid;
-    grid-row: 2;
-    grid-column: 2/span 2;
-    padding-block-end: var(--space-xxlarge);
+  .personalized-card-wrapper:not(.nova-enabled *) moz-button {
+    width: auto;
   }
-  .personalized-card-wrapper .personalized-card-inner p {
-    width: 210px;
-    margin: 0;
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper,
+.personalized-card-wrapper:not(.nova-enabled *) .personalized-card-cta-wrapper {
+    flex-direction: row;
+    padding-inline-start: var(--space-large);
+    gap: var(--space-xxlarge);
   }
-  .personalized-card-wrapper .personalized-card-inner h2 {
-    margin: 0;
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper {
+    padding-block-end: var(--space-large);
+  }
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper h2 {
+    flex: 1;
+  }
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper p {
+    flex: 1.4;
+  }
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-cta-wrapper .personalized-card-button {
+    flex: none;
   }
 }
 @media (min-width: 1122px) {
-  .personalized-card-wrapper .personalized-card-inner {
-    grid-template-columns: 0.2fr 1.2fr 0.8fr 1fr;
-    gap: var(--space-large);
+  .personalized-card-wrapper:not(.nova-enabled *) img {
+    width: 98px;
+    height: 98px;
   }
-  .personalized-card-wrapper .personalized-card-inner img {
-    width: 100px;
-    align-self: end;
+  .personalized-card-wrapper:not(.nova-enabled *) moz-button {
+    width: 100%;
   }
-  .personalized-card-wrapper .personalized-card-inner h2 {
-    grid-column: 2;
-    grid-row: 1;
-    width: initial;
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-inner {
+    flex-direction: row;
   }
-  .personalized-card-wrapper .personalized-card-inner p {
-    grid-column: 3;
-    grid-row: 1;
-    width: 400px;
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper {
+    flex: 1;
+    padding-inline-start: var(--space-xxlarge);
+    padding-inline-end: 0;
+    padding-block-end: var(--space-xxlarge);
   }
-  .personalized-card-wrapper .personalized-card-inner .personalized-card-cta-wrapper {
-    grid-column: 4;
-    grid-row: 1;
-    display: flex;
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper p {
+    flex: 1.8;
+  }
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-cta-wrapper {
+    padding-inline-start: var(--space-xxlarge);
     flex-direction: column;
-    justify-self: end;
     gap: var(--space-medium);
-    width: max-content;
-    margin-inline-end: var(--space-medium);
-  }
-  .personalized-card-wrapper .personalized-card-inner .personalized-card-cta {
-    align-self: baseline;
   }
 }
-@media (min-width: 1122px) and (max-width: 1390px) {
-  .personalized-card-wrapper .personalized-card-inner {
-    grid-template-columns: 0.2fr 1fr 1fr 1fr;
+@media (min-width: 1390px) {
+  .personalized-card-wrapper:not(.nova-enabled *) img {
+    width: 141px;
+    height: 141px;
+    margin-inline-start: var(--space-large);
+    margin-block-end: calc(-1 * var(--space-xlarge));
+    margin-block-start: calc(-1 * var(--space-large));
   }
-  .personalized-card-wrapper .personalized-card-inner h2 {
-    max-width: 200px;
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper {
+    flex: 0.9;
+    padding-inline-start: var(--space-xlarge);
   }
-  .personalized-card-wrapper .personalized-card-inner p {
-    width: 300px;
+  .personalized-card-wrapper:not(.nova-enabled *) .personalized-card-message-wrapper p {
+    flex: 1.3;
   }
 }
-@media (min-width: 724px) {
-  .personalized-card-wrapper {
-    padding-block-end: 0;
+.personalized-card-wrapper:is(.nova-enabled *) {
+  border: none;
+  flex-direction: column;
+}
+.personalized-card-wrapper:is(.nova-enabled *) img {
+  width: 98px;
+  height: 98px;
+  margin-inline-start: var(--space-xxlarge);
+  margin-block-end: var(--space-large);
+}
+.personalized-card-wrapper:is(.nova-enabled *) moz-button {
+  width: 100%;
+}
+.personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper,
+.personalized-card-wrapper:is(.nova-enabled *) .personalized-card-cta-wrapper {
+  flex-direction: column;
+}
+.personalized-card-wrapper:is(.nova-enabled *) .personalized-card-cta-wrapper {
+  padding-inline-start: var(--space-xxlarge);
+  padding-inline-end: var(--space-xxlarge);
+  padding-block-end: var(--space-xxlarge);
+}
+@container content-grid (inline-size >= calc(8 * 75px + 7 * 0.75rem)) {
+  .personalized-card-wrapper:is(.nova-enabled *) {
+    flex-direction: row;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) img {
+    width: 130px;
+    height: 130px;
+    margin-inline-start: var(--space-large);
+    margin-block-end: 0;
+    align-self: flex-end;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) moz-button {
+    width: auto;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper,
+.personalized-card-wrapper:is(.nova-enabled *) .personalized-card-cta-wrapper {
+    flex-direction: row;
+    padding-inline-start: var(--space-large);
+    gap: var(--space-xxlarge);
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper {
+    padding-block-end: var(--space-large);
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper h2 {
+    flex: 1;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper p {
+    flex: 1.4;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-cta-wrapper .personalized-card-button {
+    flex: none;
+  }
+}
+@container content-grid (inline-size >= calc(12 * 75px + 11 * 0.75rem)) {
+  .personalized-card-wrapper:is(.nova-enabled *) img {
+    width: 98px;
+    height: 98px;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) moz-button {
+    width: 100%;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-inner {
+    flex-direction: row;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper {
+    flex: 1;
+    padding-inline-start: var(--space-xxlarge);
+    padding-inline-end: 0;
+    padding-block-end: var(--space-xxlarge);
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper p {
+    flex: 1.8;
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-cta-wrapper {
+    padding-inline-start: var(--space-xxlarge);
+    flex-direction: column;
+    gap: var(--space-medium);
+  }
+}
+@container content-grid (inline-size >= calc(16 * 75px + 15 * 0.75rem)) {
+  .personalized-card-wrapper:is(.nova-enabled *) img {
+    width: 141px;
+    height: 141px;
+    margin-inline-start: var(--space-large);
+    margin-block-end: calc(-1 * var(--space-xlarge));
+    margin-block-start: calc(-1 * var(--space-large));
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper {
+    flex: 0.9;
+    padding-inline-start: var(--space-xlarge);
+  }
+  .personalized-card-wrapper:is(.nova-enabled *) .personalized-card-message-wrapper p {
+    flex: 1.3;
   }
 }

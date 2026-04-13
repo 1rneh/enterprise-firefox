@@ -9041,15 +9041,23 @@ class _TopSiteList extends (external_React_default()).PureComponent {
       } else if (i >= maxNarrowVisibleIndex) {
         slotProps.className = "hide-for-narrow";
       }
+      const {
+        key: slotKey,
+        ...restSlotProps
+      } = slotProps;
       let topSiteLink = null;
       // Use a placeholder if the link is empty or it's rendering a sponsored
       // tile for the about:home startup cache.
       if (!link || props.App.isForStartupCache.TopSites && isSponsored(link)) {
         if (link) {
-          topSiteLink = /*#__PURE__*/external_React_default().createElement(TopSitePlaceholder, TopSite_extends({}, slotProps, commonProps));
+          topSiteLink = /*#__PURE__*/external_React_default().createElement(TopSitePlaceholder, TopSite_extends({
+            key: slotKey
+          }, restSlotProps, commonProps));
         }
       } else if (topSites[i]?.isAddButton) {
-        topSiteLink = /*#__PURE__*/external_React_default().createElement(TopSiteAddButton, TopSite_extends({}, slotProps, commonProps, {
+        topSiteLink = /*#__PURE__*/external_React_default().createElement(TopSiteAddButton, TopSite_extends({
+          key: slotKey
+        }, restSlotProps, commonProps, {
           setRef: i === this.state.focusedIndex ? el => {
             this.focusedRef = el;
           } : () => {},
@@ -9062,10 +9070,11 @@ class _TopSiteList extends (external_React_default()).PureComponent {
         }));
       } else {
         topSiteLink = /*#__PURE__*/external_React_default().createElement(TopSite, TopSite_extends({
+          key: slotKey,
           link: link,
           activeIndex: this.state.activeIndex,
           onActivate: this.onActivate
-        }, slotProps, commonProps, {
+        }, restSlotProps, commonProps, {
           colors: props.colors,
           setRef: i === this.state.focusedIndex ? el => {
             this.focusedRef = el;
@@ -9800,10 +9809,7 @@ class Section extends (external_React_default()).PureComponent {
       dispatch: this.props.dispatch,
       isWebExtension: this.props.isWebExtension
     }, !shouldShowEmptyState && /*#__PURE__*/external_React_default().createElement("ul", {
-      className: "section-list",
-      style: {
-        padding: 0
-      }
+      className: "section-list"
     }, cards), shouldShowEmptyState && /*#__PURE__*/external_React_default().createElement("div", {
       className: "section-empty-state"
     }, /*#__PURE__*/external_React_default().createElement("div", {
@@ -9878,21 +9884,33 @@ function Highlights_extends() { return Highlights_extends = Object.assign ? Obje
 
 
 
+
+
+// @nova-cleanup(remove-pref): Remove PREF_NOVA_ENABLED
+const Highlights_PREF_NOVA_ENABLED = "nova.enabled";
 class _Highlights extends (external_React_default()).PureComponent {
   render() {
     const section = this.props.Sections.find(s => s.id === "highlights");
     if (!section || !section.enabled) {
       return null;
     }
+
+    // @nova-cleanup(remove-conditional): Remove novaEnabled check, always show title
+    const novaEnabled = this.props.Prefs.values[Highlights_PREF_NOVA_ENABLED];
     return /*#__PURE__*/external_React_default().createElement("div", {
       className: "ds-highlights sections-list"
-    }, /*#__PURE__*/external_React_default().createElement(SectionIntl, Highlights_extends({}, section, {
+    }, novaEnabled && /*#__PURE__*/external_React_default().createElement("h2", {
+      className: "ds-highlights-title"
+    }, /*#__PURE__*/external_React_default().createElement(FluentOrText, {
+      message: section.title
+    })), /*#__PURE__*/external_React_default().createElement(SectionIntl, Highlights_extends({}, section, {
       isFixed: true
     })));
   }
 }
 const Highlights = (0,external_ReactRedux_namespaceObject.connect)(state => ({
-  Sections: state.Sections
+  Sections: state.Sections,
+  Prefs: state.Prefs
 }))(_Highlights);
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/HorizontalRule/HorizontalRule.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -10137,15 +10155,7 @@ const selectLayoutRender = ({ state = {}, prefs = {} }) => {
   function getMaxTiles(responsiveLayouts) {
     return responsiveLayouts
       .flatMap(responsiveLayout => responsiveLayout)
-      .reduce((acc, t) => {
-        acc[t.columnCount] = t.tiles.length;
-
-        // Update maxTile if current tile count is greater
-        if (!acc.maxTile || t.tiles.length > acc.maxTile) {
-          acc.maxTile = t.tiles.length;
-        }
-        return acc;
-      }, {});
+      .reduce((max, t) => Math.max(max, t.tiles.length), 0);
   }
 
   const placeholderComponent = component => {
@@ -10357,7 +10367,7 @@ const selectLayoutRender = ({ state = {}, prefs = {} }) => {
       let currentPosition = 0;
       data.sections.forEach(section => {
         // We assume the count for the breakpoint with the most tiles.
-        const { maxTile } = getMaxTiles(section?.layout?.responsiveLayouts);
+        const maxTile = getMaxTiles(section?.layout?.responsiveLayouts);
         for (let i = 0; i < maxTile; i++) {
           if (section.data[i]) {
             section.data[i] = {
@@ -10734,16 +10744,18 @@ const PersonalizedCard = ({
     iconSrc: "chrome://global/skin/icons/close.svg",
     onClick: onDismiss,
     "data-l10n-id": "newtab-card-dismiss-button"
-  })), /*#__PURE__*/external_React_default().createElement("div", {
-    className: "personalized-card-inner"
-  }, /*#__PURE__*/external_React_default().createElement("img", {
+  })), /*#__PURE__*/external_React_default().createElement("img", {
     src: kitFox,
     alt: ""
-  }), /*#__PURE__*/external_React_default().createElement("h2", null, messageData.content.cardTitle), /*#__PURE__*/external_React_default().createElement("p", null, messageData.content.cardMessage), /*#__PURE__*/external_React_default().createElement("div", {
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "personalized-card-inner"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "personalized-card-message-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("h2", null, messageData.content.cardTitle), /*#__PURE__*/external_React_default().createElement("p", null, messageData.content.cardMessage)), /*#__PURE__*/external_React_default().createElement("div", {
     className: "personalized-card-cta-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
     type: "primary",
-    class: "personalized-card-cta",
+    class: "personalized-card-button",
     onClick: () => onToggleClick("open-personalization-panel")
   }, messageData.content.ctaText), /*#__PURE__*/external_React_default().createElement(SafeAnchor, {
     className: "personalized-card-link",
@@ -11025,6 +11037,9 @@ const CardSections_PREF_NOVA_ENABLED = "nova.enabled";
 
 // Feed URL
 const CURATED_RECOMMENDATIONS_FEED_URL = "https://merino.services.mozilla.com/api/v1/curated-recommendations";
+
+// Divides evenly by 2, 3, and 4 to avoid orphan cards in any column layout.
+const DEFAULT_MAX_TILES = 12;
 function getLayoutData(responsiveLayouts, index) {
   let layoutData = {
     classNames: [],
@@ -11062,15 +11077,7 @@ function getLayoutData(responsiveLayouts, index) {
 
 // function to determine amount of tiles shown per section per viewport
 function getMaxTiles(responsiveLayouts) {
-  return responsiveLayouts.flatMap(responsiveLayout => responsiveLayout).reduce((acc, t) => {
-    acc[t.columnCount] = t.tiles.length;
-
-    // Update maxTile if current tile count is greater
-    if (!acc.maxTile || t.tiles.length > acc.maxTile) {
-      acc.maxTile = t.tiles.length;
-    }
-    return acc;
-  }, {});
+  return responsiveLayouts.flatMap(responsiveLayout => responsiveLayout).reduce((max, t) => Math.max(max, t.tiles.length), 0) || DEFAULT_MAX_TILES;
 }
 
 /**
@@ -11098,7 +11105,7 @@ function CardSection({
   ctaButtonVariant,
   ctaButtonSponsors,
   anySectionsFollowed,
-  placeholder,
+  spocsLoading,
   activeColumnLayout,
   syncLayoutOnFocus,
   gridRef
@@ -11258,13 +11265,9 @@ function CardSection({
       }
     }, "ActivityStream:Content"));
   }, [dispatch, sectionPersonalization, sectionKey, sectionPosition, title]);
-  let {
-    maxTile
-  } = getMaxTiles(responsiveLayouts);
-  if (placeholder) {
-    // We need a number that divides evenly by 2, 3, and 4.
-    // So it can be displayed without orphans in grids with 2, 3, and 4 columns.
-    maxTile = 12;
+  let maxTile = DEFAULT_MAX_TILES;
+  if (!spocsLoading) {
+    maxTile = getMaxTiles(responsiveLayouts);
   }
   const shouldShowBriefingCard = sectionKey === dailyBriefSectionId && dailyBriefEnabled;
   const getBriefingData = () => {
@@ -11333,7 +11336,7 @@ function CardSection({
       // 1. No recommendation is available.
       // 2. The item is flagged as a placeholder.
       // 3. Spocs are loading for with spocs startup cache disabled.
-      const isPlaceholder = !rec || rec.placeholder || placeholder || rec.flight_id && !spocsStartupCacheEnabled && isForStartupCache.DiscoveryStream;
+      const isPlaceholder = !rec || rec.placeholder || spocsLoading || rec.flight_id && !spocsStartupCacheEnabled && isForStartupCache.DiscoveryStream;
       if (isPlaceholder) {
         cards.push(/*#__PURE__*/external_React_default().createElement(PlaceholderDSCard, {
           key: `dscard-${currentIndex}`
@@ -11501,7 +11504,7 @@ function CardSections({
   type,
   ctaButtonVariant,
   ctaButtonSponsors,
-  placeholder
+  spocsLoading
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const {
@@ -11549,7 +11552,7 @@ function CardSections({
   // Used to determine if we should show FollowSectionButtonHighlight
   const anySectionsFollowed = sectionPersonalization && Object.values(sectionPersonalization).some(section => section?.isFollowed);
   let sectionsData = data.sections;
-  if (placeholder) {
+  if (spocsLoading) {
     // To clean up the placeholder state for sections if the whole section is loading still.
     sectionsData = [{
       ...sectionsData[0],
@@ -11582,7 +11585,7 @@ function CardSections({
     ctaButtonVariant: ctaButtonVariant,
     ctaButtonSponsors: ctaButtonSponsors,
     anySectionsFollowed: anySectionsFollowed,
-    placeholder: placeholder,
+    spocsLoading: spocsLoading,
     activeColumnLayout: activeColumnLayout,
     syncLayoutOnFocus: syncLayoutOnFocus,
     gridRef: sectionPosition === 0 ? gridRef : undefined
@@ -13377,6 +13380,7 @@ function EditableTimerFields({
 }) {
   return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("span", {
     contentEditable: "true",
+    suppressContentEditableWarning: true,
     ref: minutesRef,
     className: "timer-set-minutes",
     onKeyDown: props.onKeyDown,
@@ -13386,6 +13390,7 @@ function EditableTimerFields({
     tabIndex: tabIndex
   }, formatTime(props.timeLeft).split(":")[0]), ":", /*#__PURE__*/external_React_default().createElement("span", {
     contentEditable: "true",
+    suppressContentEditableWarning: true,
     ref: secondsRef,
     className: "timer-set-seconds",
     onKeyDown: props.onKeyDown,
@@ -14891,7 +14896,7 @@ class _DiscoveryStreamBase extends (external_React_default()).PureComponent {
               type: component.type,
               ctaButtonSponsors: component.properties.ctaButtonSponsors,
               ctaButtonVariant: component.properties.ctaButtonVariant,
-              placeholder: this.props.placeholder
+              spocsLoading: this.props.spocsLoading
             });
           }
           return /*#__PURE__*/external_React_default().createElement(CardGrid, {
@@ -14910,7 +14915,7 @@ class _DiscoveryStreamBase extends (external_React_default()).PureComponent {
             ctaButtonVariant: component.properties.ctaButtonVariant,
             hideDescriptions: this.props.DiscoveryStream.hideDescriptions,
             spocPositions: component.spocs?.positions,
-            placeholder: this.props.placeholder
+            placeholder: this.props.spocsLoading
           });
         }
       case "HorizontalRule":
@@ -15108,9 +15113,9 @@ function SectionsMgmtPanel({
   if (cardGridEntry) {
     sectionsFeedName = cardGridEntry.feed.url;
   }
-  let sectionsList;
+  let sectionsList = [];
   if (sectionsFeedName) {
-    sectionsList = sections[sectionsFeedName].data.sections;
+    sectionsList = sections[sectionsFeedName]?.data?.sections ?? [];
   }
   const [sectionsState, setSectionState] = (0,external_React_namespaceObject.useState)(sectionPersonalization); // State management with useState
 
@@ -18949,11 +18954,22 @@ class BaseContent extends (external_React_default()).PureComponent {
         className: "content"
       }, logoShouldBeCentered && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Logo, null)), prefs.showSearch && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Search_Search, Base_extends({
         showLogo: false
-      }, props.Search))), topSitesEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(TopSites_TopSites, null)), isDiscoveryStream && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
+      }, props.Search))), this.shouldShowOMCHighlight("ASRouterNewTabMessage") && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+        dispatch: this.props.dispatch
+      }, /*#__PURE__*/external_React_default().createElement(ExternalComponentWrapper, {
+        type: "ASROUTER_NEWTAB_MESSAGE",
+        messageData: this.props.Messages.messageData,
+        className: "asrouter-newtab-message-wrapper"
+      }))), this.shouldShowOMCHighlight("ActivationWindowMessage") && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+        dispatch: this.props.dispatch
+      }, /*#__PURE__*/external_React_default().createElement(ActivationWindowMessage, {
+        dispatch: this.props.dispatch,
+        messageData: this.props.Messages.messageData
+      }))), topSitesEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(TopSites_TopSites, null)), isDiscoveryStream && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
         className: "borderless-error"
       }, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamBase, {
         locale: props.App.locale,
-        placeholder: this.isSpocsOnDemandExpired
+        spocsLoading: this.isSpocsOnDemandExpired
       }))), /*#__PURE__*/external_React_default().createElement("div", {
         className: "sidebar-inline-end"
       }, showWeatherWidgetInSidebar && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather, {
@@ -19034,7 +19050,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       className: "borderless-error"
     }, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamBase, {
       locale: props.App.locale,
-      placeholder: this.isSpocsOnDemandExpired
+      spocsLoading: this.isSpocsOnDemandExpired
     })) : /*#__PURE__*/external_React_default().createElement(Sections_Sections, null)), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null), wallpapersEnabled && this.renderWallpaperAttribution()), /*#__PURE__*/external_React_default().createElement("aside", null, this.props.Notifications?.showNotifications && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Notifications_Notifications, {
       dispatch: this.props.dispatch
     }))), mayShowTopicSelection && pocketEnabled && /*#__PURE__*/external_React_default().createElement(TopicSelection, {

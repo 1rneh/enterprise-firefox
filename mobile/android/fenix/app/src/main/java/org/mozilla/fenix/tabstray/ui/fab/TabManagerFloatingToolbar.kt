@@ -94,9 +94,10 @@ internal fun TabManagerFloatingToolbar(
 ) {
     val state by tabsTrayStore.stateFlow.collectAsState()
     val privateTabsLocked = pbmLocked && state.selectedPage == Page.PrivateTabs
+    val tabGroupsPageSelected = state.config.tabGroupsEnabled && state.selectedPage == Page.TabGroups
 
     AnimatedVisibility(
-        visible = state.mode is Mode.Normal && !privateTabsLocked,
+        visible = state.mode is Mode.Normal && !privateTabsLocked && !tabGroupsPageSelected,
         modifier = modifier,
         enter = fadeIn(),
         exit = fadeOut(),
@@ -260,6 +261,8 @@ private fun FloatingToolbarFAB(
             label = stringResource(id = R.string.tab_manager_floating_action_button_new_private_tab)
             onClick = onOpenNewPrivateTabClicked
         }
+
+        Page.TabGroups -> return
 
         Page.SyncedTabs -> {
             icon = iconsR.drawable.mozac_ic_sync_24

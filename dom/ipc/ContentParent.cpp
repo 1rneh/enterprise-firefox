@@ -106,6 +106,8 @@
 #include "mozilla/dom/PContentPermissionRequestParent.h"
 #include "mozilla/dom/PCycleCollectWithLogsParent.h"
 #include "mozilla/dom/ParentProcessMessageManager.h"
+#include "mozilla/dom/PermissionObserver.h"
+#include "mozilla/dom/PermissionStatusBinding.h"
 #include "mozilla/dom/Permissions.h"
 #include "mozilla/dom/ProcessMessageManager.h"
 #include "mozilla/dom/PushNotifier.h"
@@ -126,6 +128,7 @@
 #include "mozilla/dom/notification/NotificationUtils.h"
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/dom/power/PowerManagerService.h"
+#include "mozilla/dom/quota/QuotaCommon.h"
 #include "mozilla/dom/quota/QuotaManagerService.h"
 #include "mozilla/extensions/ExtensionsParent.h"
 #include "mozilla/extensions/StreamFilterParent.h"
@@ -185,6 +188,7 @@
 #include "nsDirectoryServiceDefs.h"
 #include "nsDocShell.h"
 #include "nsEmbedCID.h"
+#include "nsExceptionHandler.h"
 #include "nsFocusManager.h"
 #include "nsFrameLoader.h"
 #include "nsFrameMessageManager.h"
@@ -4461,22 +4465,21 @@ bool ContentParent::SendRequestMemoryReport(
     const bool& aMinimizeMemoryUsage, const Maybe<FileDescriptor>& aDMDFile) {
   // This automatically cancels the previous request.
   mMemoryReportRequest = MakeUnique<MemoryReportRequestHost>(aGeneration);
-  // If we run the callback in response to a reply, then by definition |this|
-  // is still alive, so the ref pointer is redundant, but it seems easier
-  // to hold a strong reference than to worry about that.
   RefPtr<ContentParent> self(this);
-  PContentParent::SendRequestMemoryReport(
-      aGeneration, aAnonymize, aMinimizeMemoryUsage, aDMDFile,
-      [&, self](const uint32_t& aGeneration2) {
-        if (self->mMemoryReportRequest) {
-          self->mMemoryReportRequest->Finish(aGeneration2);
-          self->mMemoryReportRequest = nullptr;
-        }
-      },
-      [&, self](mozilla::ipc::ResponseRejectReason) {
-        self->mMemoryReportRequest = nullptr;
-      });
-  return IPC_OK();
+  PContentParent::SendRequestMemoryReport(aGeneration, aAnonymize,
+                                          aMinimizeMemoryUsage, aDMDFile)
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self](uint32_t aGeneration2) {
+            if (self->mMemoryReportRequest) {
+              self->mMemoryReportRequest->Finish(aGeneration2);
+              self->mMemoryReportRequest = nullptr;
+            }
+          },
+          [self](mozilla::ipc::ResponseRejectReason) {
+            self->mMemoryReportRequest = nullptr;
+          });
+  return true;
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvAddMemoryReport(
@@ -5891,6 +5894,9 @@ mozilla::ipc::IPCResult ContentParent::RecvGetFilesRequest(
 
     for (const auto& directoryPath : aDirectoryPaths) {
       if (!fss->ContentProcessHasAccessTo(ChildID(), directoryPath)) {
+        CrashReporter::RecordAnnotationNSCString(
+            CrashReporter::Annotation::FileSystemAccessRequestPath,
+            quota::AnonymizedCString(NS_ConvertUTF16toUTF8(directoryPath)));
         return IPC_FAIL(this, "ContentProcessHasAccessTo failed.");
       }
     }
@@ -7896,8 +7902,17 @@ IPCResult ContentParent::RecvGetSystemIcon(nsIURI* aURI,
 
 IPCResult ContentParent::RecvGetSystemGeolocationPermissionBehavior(
     GetSystemGeolocationPermissionBehaviorResolver&& aResolver) {
+  PermissionObserver::EnsureMonitoringInParent(PermissionName::Geolocation);
   aResolver(Geolocation::GetLocationOSPermission());
   return IPC_OK();
+}
+
+/* static */
+void ContentParent::BroadcastSystemPermissionChanged(PermissionName aName,
+                                                     PermissionState aState) {
+  for (auto* cp : AllProcesses(eLive)) {
+    (void)cp->SendSystemPermissionChanged(aName, aState);
+  }
 }
 
 IPCResult ContentParent::RecvRequestGeolocationPermissionFromUser(

@@ -2762,7 +2762,7 @@ static nsresult ProfileMissingDialog(nsINativeAppSupport* aNative) {
 
     nsCOMPtr<nsIStringBundle> sb;
     sbs->CreateBundle(kProfileProperties, getter_AddRefs(sb));
-    NS_ENSURE_TRUE_LOG(sbs, NS_ERROR_FAILURE);
+    NS_ENSURE_TRUE_LOG(sb, NS_ERROR_FAILURE);
 
     NS_ConvertUTF8toUTF16 appName(gAppData->name);
     AutoTArray<nsString, 2> params = {appName, appName};

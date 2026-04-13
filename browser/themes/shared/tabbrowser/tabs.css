@@ -1891,8 +1891,8 @@ tab-group {
   .tab-group-editor-name {
     display: flex;
     flex-direction: column;
-    margin: var(--arrowpanel-menuitem-margin);
-    padding-top: var(--arrowpanel-menuitem-padding-block);
+    margin: var(--panel-menuitem-margin);
+    padding-top: var(--panel-menuitem-padding-block);
 
     > label {
       margin-inline: 0;
@@ -1907,8 +1907,8 @@ tab-group {
     display: flex;
     flex-flow: row nowrap;
     justify-content: space-between;
-    margin: var(--arrowpanel-menuitem-margin);
-    padding-block: var(--arrowpanel-menuitem-padding-block);
+    margin: var(--panel-menuitem-margin);
+    padding-block: var(--panel-menuitem-padding-block);
   }
 
   input[name="tab-group-color"] {
@@ -1958,6 +1958,10 @@ tab-group {
   --panel-width: 300px;
   font: menu;
 
+  > .panel-header[hidden] {
+    display: none;
+  }
+
   > toolbarseparator {
     padding-inline: var(--panel-padding);
   }
@@ -1970,8 +1974,13 @@ tab-group {
   > .panel-action-row {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: var(--space-large);
   }
+}
+
+#tab-note-editor-button-delete {
+  color: var(--icon-color-critical);
 }
 
 #tab-note-text {
@@ -2574,12 +2583,12 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
 }
 
 .all-tabs-item {
-  border-radius: var(--arrowpanel-menuitem-border-radius);
-  margin-inline: var(--arrowpanel-menuitem-margin-inline);
+  border-radius: var(--panel-menuitem-border-radius);
+  margin-inline: var(--panel-menuitem-margin-inline);
 
   &.grouped {
-    /* Indent further by the size of a favicon and the favicon's end margin. */
-    margin-inline-start: calc(var(--arrowpanel-menuitem-margin-inline) + 16px + 8px);
+    /* Indent further by the size of a favicon and the favicon's padding-inline-start. */
+    margin-inline-start: calc(var(--panel-menuitem-margin-inline) + var(--icon-size) + var(--dimension-8));
   }
 
   &[selected] {
@@ -2807,7 +2816,7 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
 
 #tab-group-suggestions-container,
 #tab-group-suggestions-optin-container {
-  margin: var(--arrowpanel-menuitem-margin);
+  margin: var(--panel-menuitem-margin);
 }
 
 .tab-group-suggestions-loading-header,

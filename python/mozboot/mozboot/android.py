@@ -899,6 +899,8 @@ def ensure_java(os_name: str, os_arch: str):
         )
         install_mobile_android_sdk_or_ndk(java_url, MOZBUILD_PATH / "jdk")
 
+    return java_path
+
 
 def get_java_bin_path(os_name: str, toolchain_path: Path):
     # Like jdk-17.0.18+8

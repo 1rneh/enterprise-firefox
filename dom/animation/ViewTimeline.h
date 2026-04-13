@@ -63,11 +63,11 @@ class ViewTimeline final : public ScrollTimeline {
 
  private:
   ~ViewTimeline() = default;
-  ViewTimeline(Document* aDocument, const Scroller& aScroller,
+  ViewTimeline(Document* aDocument, const ScrollerInfo& aScrollerInfo,
                StyleScrollAxis aAxis, Element* aSubject,
                PseudoStyleType aSubjectPseudoType,
                const StyleViewTimelineInset& aInset)
-      : ScrollTimeline(aDocument, aScroller, aAxis),
+      : ScrollTimeline(aDocument, aScrollerInfo, aAxis),
         mSubject(aSubject),
         mSubjectPseudoType(aSubjectPseudoType),
         mInset(aInset) {}

@@ -73,7 +73,7 @@ function getExpectedElements(win, tabstripOrientation = "horizontal") {
 }
 
 add_task(async function test_toggle_vertical_tabs() {
-  await waitForTabstripOrientation("horizontal");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "horizontal");
 
   const sidebar = document.querySelector("sidebar-main");
   ok(sidebar, "Sidebar is shown.");
@@ -129,7 +129,7 @@ add_task(async function test_toggle_vertical_tabs() {
 
   // flip the pref to move the tabstrip into the sidebar
   await SpecialPowers.pushPrefEnv({ set: [[VERTICAL_TABS_PREF, true]] });
-  await waitForTabstripOrientation("vertical");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
 
   for (let selector of expectedElementsWhenVertical) {
     let elem = document.querySelector(selector);
@@ -402,7 +402,7 @@ add_task(async function test_toggle_vertical_tabs() {
 
   // flip the pref to move the tabstrip horizontally
   await SpecialPowers.pushPrefEnv({ set: [[VERTICAL_TABS_PREF, false]] });
-  await waitForTabstripOrientation("horizontal");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "horizontal");
 
   ok(
     !BrowserTestUtils.isVisible(verticalTabs),
@@ -437,7 +437,7 @@ add_task(async function test_toggle_vertical_tabs() {
 
 add_task(async function test_enabling_vertical_tabs_enables_sidebar_revamp() {
   await SpecialPowers.pushPrefEnv({ set: [["sidebar.revamp", false]] });
-  await waitForTabstripOrientation("horizontal");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "horizontal");
   ok(
     !Services.prefs.getBoolPref("sidebar.revamp", false),
     "sidebar.revamp pref is false initially."
@@ -448,7 +448,7 @@ add_task(async function test_enabling_vertical_tabs_enables_sidebar_revamp() {
   );
 
   await SpecialPowers.pushPrefEnv({ set: [[VERTICAL_TABS_PREF, true]] });
-  await waitForTabstripOrientation("vertical");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
   ok(
     Services.prefs.getBoolPref(VERTICAL_TABS_PREF, false),
     "sidebar.verticalTabs pref is enabled after we've enabled it."
@@ -460,7 +460,7 @@ add_task(async function test_enabling_vertical_tabs_enables_sidebar_revamp() {
 });
 
 add_task(async function test_vertical_tabs_overflow() {
-  await waitForTabstripOrientation("vertical");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
   let tabsContainer = document.getElementById("tabbrowser-tabs");
   info("Open new tabs until they overflow");
   let index = gBrowser.tabs.length;
@@ -500,11 +500,11 @@ add_task(async function test_vertical_tabs_expanded() {
       [VERTICAL_TABS_PREF, true],
     ],
   });
-  await waitForTabstripOrientation("vertical");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
 
   info("Disable revamped sidebar.");
   Services.prefs.setBoolPref("sidebar.revamp", false);
-  await waitForTabstripOrientation("horizontal");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "horizontal");
   ok(
     BrowserTestUtils.isHidden(document.getElementById("sidebar-main")),
     "Sidebar launcher is hidden."
@@ -512,7 +512,7 @@ add_task(async function test_vertical_tabs_expanded() {
 
   info("Enable vertical tabs.");
   Services.prefs.setBoolPref(VERTICAL_TABS_PREF, true);
-  await waitForTabstripOrientation("vertical");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
   ok(
     BrowserTestUtils.isVisible(document.getElementById("sidebar-main")),
     "Sidebar launcher is shown."
@@ -534,7 +534,7 @@ add_task(async function test_vertical_tabs_min_width() {
   await SpecialPowers.pushPrefEnv({
     set: [[VERTICAL_TABS_PREF, true]],
   });
-  await waitForTabstripOrientation("vertical");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
 
   ok(
     BrowserTestUtils.isVisible(SidebarController.sidebarMain),
@@ -602,7 +602,7 @@ add_task(async function test_vertical_tabs_min_width() {
   await SpecialPowers.pushPrefEnv({
     set: [[VERTICAL_TABS_PREF, false]],
   });
-  await waitForTabstripOrientation("horizontal");
+  await SidebarTestUtils.waitForTabstripOrientation(window, "horizontal");
 
   let tabbrowserTabs = document.getElementById("tabbrowser-tabs");
   let tabStyles = window.getComputedStyle(tabbrowserTabs);
@@ -623,7 +623,7 @@ add_task(
   async function test_launcher_collapsed_entering_horiz_tabs_with_hide_sidebar() {
     const { sidebarMain } = SidebarController;
     await SpecialPowers.pushPrefEnv({ set: [[VERTICAL_TABS_PREF, true]] });
-    await waitForTabstripOrientation("vertical");
+    await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
     ok(
       BrowserTestUtils.isVisible(sidebarMain),
       "Revamped sidebar main is shown initially."
@@ -656,7 +656,7 @@ add_task(
 
     // switch back to horizontal tabs and confirm the launcher get un-expanded
     await SpecialPowers.pushPrefEnv({ set: [[VERTICAL_TABS_PREF, false]] });
-    await waitForTabstripOrientation("horizontal");
+    await SidebarTestUtils.waitForTabstripOrientation(window, "horizontal");
 
     ok(
       BrowserTestUtils.isVisible(sidebarMain),

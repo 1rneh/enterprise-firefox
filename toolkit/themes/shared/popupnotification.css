@@ -31,11 +31,11 @@ popupnotificationcontent {
 .popup-notification-header-container,
 .popup-notification-footer-container {
   display: flex;
-  max-width: calc(2 * var(--arrowpanel-padding) + 16px /* Icon width */ + var(--panel-border-radius) + var(--popup-notification-body-width));
+  max-width: calc(2 * var(--panel-padding) + var(--icon-size) + var(--panel-border-radius) + var(--popup-notification-body-width));
 }
 
 .popup-notification-body-container {
-  padding: var(--arrowpanel-padding);
+  padding: var(--panel-padding);
 }
 
 .popup-notification-icon {

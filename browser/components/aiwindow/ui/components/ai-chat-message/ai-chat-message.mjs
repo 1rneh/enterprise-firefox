@@ -253,7 +253,10 @@ export class AIChatMessage extends MozLitElement {
       }
 
       // Disallowed scheme, strip href to prevent navigation.
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      if (
+        !parsed ||
+        (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      ) {
         anchor.removeAttribute("href");
         continue;
       }

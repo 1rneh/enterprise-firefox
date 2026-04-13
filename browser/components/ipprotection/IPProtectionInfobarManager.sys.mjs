@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { BANDWIDTH } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
+import { formatRemainingBandwidth } from "chrome://browser/content/ipprotection/ipprotection-utils.mjs";
+
+const BANDWIDTH_WARNING_DISMISSED_PREF =
+  "browser.ipProtection.bandwidthWarningDismissedThreshold";
 
 const lazy = {};
 
@@ -88,6 +91,7 @@ class IPProtectionInfobarManagerClass {
          want to clear the infobar if it's showing and there is less than
          75% usage */
       if (remainingPercent === 0 || remainingPercent > 0.25) {
+        Services.prefs.setIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0);
         this.#hideInfobar(75);
         this.#hideInfobar(90);
         return;
@@ -138,6 +142,13 @@ class IPProtectionInfobarManagerClass {
       return;
     }
 
+    if (
+      Services.prefs.getIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0) >=
+      threshold
+    ) {
+      return;
+    }
+
     // Skip if this window already has the notification
     const existing =
       win.gNotificationBox.getNotificationWithValue(notificationId);
@@ -145,25 +156,22 @@ class IPProtectionInfobarManagerClass {
       return;
     }
 
-    // Convert bytes to GB for display, using same logic as bandwidth-usage component
-    // Convert BigInt to Number first to avoid division errors
-    const remainingGB = Number(usage.remaining) / BANDWIDTH.BYTES_IN_GB;
+    const { value: remainingFormatted, useGB } = formatRemainingBandwidth(
+      Number(usage.remaining)
+    );
 
     let usageLeft;
     let l10nId;
 
-    if (threshold === 90 && remainingGB < 1) {
-      usageLeft = Math.floor(
-        Number(usage.remaining) / BANDWIDTH.BYTES_IN_MB
-      ).toString();
+    if (!useGB && threshold === 90) {
+      usageLeft = String(remainingFormatted);
       l10nId = "ip-protection-bandwidth-warning-infobar-message-90-mb";
-    } else if (threshold === 90) {
-      usageLeft = Math.round(remainingGB).toString();
-      l10nId = "ip-protection-bandwidth-warning-infobar-message-90";
     } else {
-      // 75% threshold
-      usageLeft = remainingGB.toFixed(1);
-      l10nId = "ip-protection-bandwidth-warning-infobar-message-75";
+      usageLeft = remainingFormatted.toFixed(1);
+      l10nId =
+        threshold === 90
+          ? "ip-protection-bandwidth-warning-infobar-message-90"
+          : "ip-protection-bandwidth-warning-infobar-message-75";
     }
 
     // Show the infobar with localized message
@@ -177,6 +185,20 @@ class IPProtectionInfobarManagerClass {
           },
         },
         priority: win.gNotificationBox.PRIORITY_WARNING_HIGH,
+        eventCallback: event => {
+          if (event === "dismissed") {
+            const current = Services.prefs.getIntPref(
+              BANDWIDTH_WARNING_DISMISSED_PREF,
+              0
+            );
+            if (threshold > current) {
+              Services.prefs.setIntPref(
+                BANDWIDTH_WARNING_DISMISSED_PREF,
+                threshold
+              );
+            }
+          }
+        },
       },
       [],
       false,

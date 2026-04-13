@@ -39,6 +39,8 @@ export const AboutNewTab = {
   _activityStreamEnabled: false,
   activityStream: null,
   activityStreamDebug: false,
+  activityStreamPromise: null,
+  _activityStreamResolver: null,
 
   _cachedTopSites: null,
 
@@ -52,6 +54,9 @@ export const AboutNewTab = {
     if (this.initialized) {
       return;
     }
+    let { promise, resolve } = Promise.withResolvers();
+    this.activityStreamPromise = promise;
+    this._activityStreamResolver = resolve;
 
     Services.obs.addObserver(this, TOPIC_APP_QUIT);
     if (!AppConstants.RELEASE_OR_BETA) {
@@ -207,7 +212,7 @@ export const AboutNewTab = {
     try {
       this.activityStream = new lazy.ActivityStream(createdInstant);
       Glean.newtab.activityStreamCtorSuccess.set(true);
-      redirector.resumeNewTabLoads();
+      this._activityStreamResolver();
     } catch (error) {
       // Send Activity Stream loading failure telemetry
       // This probe will help to monitor if ActivityStream failure has crossed

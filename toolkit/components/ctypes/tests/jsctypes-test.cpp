@@ -288,6 +288,22 @@ void test_add_char_short_int_va_cdecl(uint32_t* result, ...) {
   va_end(list);
 }
 
+void test_add_uint8_uint16_va_cdecl(uint32_t* result, ...) {
+  va_list list;
+  va_start(list, result);
+  *result += (unsigned int)va_arg(list, int);
+  *result += (unsigned int)va_arg(list, int);
+  va_end(list);
+}
+
+void test_add_float_double_va_cdecl(double* result, ...) {
+  va_list list;
+  va_start(list, result);
+  *result += va_arg(list, double);
+  *result += va_arg(list, double);
+  va_end(list);
+}
+
 int32_t* test_vector_add_va_cdecl(uint8_t num_vecs, uint8_t vec_len,
                                   int32_t* result, ...) {
   va_list list;

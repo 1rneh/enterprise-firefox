@@ -32,6 +32,7 @@ tab_notes:
           note being added. Expected values:
             - `context_menu` # Tab context menu's "Add Note" menu item
             - `hover_menu` # Tab hover preview panel's "Add Note" button
+            - `note_preview` # Tab note preview panel's edit icon or double-click
         type: string
       note_length:
         description: >

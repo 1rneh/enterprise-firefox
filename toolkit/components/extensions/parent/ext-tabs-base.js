@@ -1006,6 +1006,10 @@ class WindowBase {
       return "popup";
     }
 
+    if (!(chromeFlags & Ci.nsIWebBrowserChrome.CHROME_TOOLBAR)) {
+      return "popup";
+    }
+
     return "normal";
   }
 

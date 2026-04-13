@@ -62,6 +62,7 @@ import org.mozilla.fenix.tabstray.ui.fab.TabManagerFloatingToolbar
 import org.mozilla.fenix.tabstray.ui.tabpage.NormalTabsPage
 import org.mozilla.fenix.tabstray.ui.tabpage.PrivateTabsPage
 import org.mozilla.fenix.tabstray.ui.tabpage.SyncedTabsPage
+import org.mozilla.fenix.tabstray.ui.tabpage.TabGroupsPage
 import org.mozilla.fenix.tabstray.ui.theme.TabManagerThemeProvider
 import org.mozilla.fenix.theme.FirefoxTheme
 import mozilla.components.browser.storage.sync.Tab as SyncTab
@@ -164,9 +165,13 @@ fun TabsTray(
     onUnlockPbmClick: () -> Unit,
 ) {
     val tabsTrayState by tabsTrayStore.stateFlow.collectAsState()
+    val shouldShowTabGroupsPage = tabsTrayState.config.tabGroupsEnabled
     val pagerState = rememberPagerState(
-        initialPage = Page.pageToPosition(tabsTrayState.selectedPage),
-        pageCount = { Page.entries.size },
+        initialPage = Page.pageToPosition(
+            page = tabsTrayState.selectedPage,
+            shouldShowTabGroupsPage = shouldShowTabGroupsPage,
+        ),
+        pageCount = { Page.visiblePages(shouldShowTabGroupsPage).size },
     )
     val syncedTabCount = remember(tabsTrayState.sync.syncedTabs) {
         tabsTrayState.sync.syncedTabs
@@ -186,8 +191,13 @@ fun TabsTray(
         }
     }
 
-    LaunchedEffect(tabsTrayState.selectedPage) {
-        pagerState.animateScrollToPage(Page.pageToPosition(tabsTrayState.selectedPage))
+    LaunchedEffect(tabsTrayState.selectedPage, shouldShowTabGroupsPage) {
+        pagerState.animateScrollToPage(
+            Page.pageToPosition(
+                page = tabsTrayState.selectedPage,
+                shouldShowTabGroupsPage = shouldShowTabGroupsPage,
+            ),
+        )
     }
 
     Scaffold(
@@ -207,6 +217,8 @@ fun TabsTray(
                 selectedPage = tabsTrayState.selectedPage,
                 normalTabCount = tabsTrayState.normalTabs.size + tabsTrayState.inactiveTabs.tabs.size,
                 privateTabCount = tabsTrayState.privateBrowsing.tabs.size,
+                shouldShowTabGroupsPage = shouldShowTabGroupsPage,
+                tabGroupCount = tabsTrayState.tabGroups.size,
                 syncedTabCount = syncedTabCount,
                 selectionMode = tabsTrayState.mode,
                 isInDebugMode = tabsTrayState.config.isInDebugMode,
@@ -259,7 +271,7 @@ fun TabsTray(
                 state = pagerState,
                 userScrollEnabled = false,
             ) { position ->
-                when (Page.positionToPage(position)) {
+                when (Page.positionToPage(position, shouldShowTabGroupsPage)) {
                     Page.NormalTabs -> {
                         NormalTabsPage(
                             normalTabs = tabsTrayState.normalTabs,
@@ -323,6 +335,10 @@ fun TabsTray(
                                 tabsTrayStore.dispatch(TabsTrayAction.SyncedTabsHeaderToggled(i))
                             },
                         )
+                    }
+
+                    Page.TabGroups -> {
+                        TabGroupsPage()
                     }
                 }
             }

@@ -142,7 +142,7 @@ class CompareNetwork final : public nsIStreamLoaderObserver,
 
   bool Succeeded() const { return NS_SUCCEEDED(mNetworkResult); }
 
-  const nsTArray<nsCString>& URLList() const { return mURLList; }
+  const nsTArray<NotNull<RefPtr<nsIURI>>>& URLList() const { return mURLList; }
 
  private:
   ~CompareNetwork() {
@@ -164,7 +164,7 @@ class CompareNetwork final : public nsIStreamLoaderObserver,
   ChannelInfo mChannelInfo;
   RefPtr<InternalHeaders> mInternalHeaders;
   UniquePtr<PrincipalInfo> mPrincipalInfo;
-  nsTArray<nsCString> mURLList;
+  nsTArray<NotNull<RefPtr<nsIURI>>> mURLList;
 
   nsCString mMaxScope;
   nsLoadFlags mLoadFlags;
@@ -630,7 +630,7 @@ nsresult CompareNetwork::Initialize(nsIPrincipal* aPrincipal,
   }
 
   mURL = aURL;
-  mURLList.AppendElement(mURL);
+  mURLList.AppendElement(WrapNotNull(uri.get()));
 
   nsCOMPtr<nsILoadGroup> loadGroup;
   rv = NS_NewLoadGroup(getter_AddRefs(loadGroup), aPrincipal);
@@ -936,14 +936,13 @@ CompareNetwork::OnStreamComplete(nsIStreamLoader* aLoader,
       return rv;
     }
 
-    nsCString channelURLSpec;
-    MOZ_ALWAYS_SUCCEEDS(channelURL->GetSpec(channelURLSpec));
-
     // Append the final URL (which for an extension worker script is going to
     // be a file or jar url).
     MOZ_DIAGNOSTIC_ASSERT(!mURLList.IsEmpty());
-    if (channelURLSpec != mURLList[0]) {
-      mURLList.AppendElement(channelURLSpec);
+
+    bool equals = false;
+    if (NS_FAILED(channelURL->Equals(mURLList[0], &equals)) || !equals) {
+      mURLList.AppendElement(WrapNotNull(channelURL.get()));
     }
 
     UniquePtr<char16_t[], JS::FreePolicy> buffer;
@@ -1101,15 +1100,14 @@ CompareNetwork::OnStreamComplete(nsIStreamLoader* aLoader,
     return rv;
   }
 
-  nsCString channelURLSpec;
-  MOZ_ALWAYS_SUCCEEDS(channelURL->GetSpec(channelURLSpec));
-
   // Append the final URL if its different from the original
   // request URL.  This lets us note that a redirect occurred
   // even though we don't track every redirect URL here.
   MOZ_DIAGNOSTIC_ASSERT(!mURLList.IsEmpty());
-  if (channelURLSpec != mURLList[0]) {
-    mURLList.AppendElement(channelURLSpec);
+
+  bool equals = false;
+  if (NS_FAILED(channelURL->Equals(mURLList[0], &equals)) || !equals) {
+    mURLList.AppendElement(WrapNotNull(channelURL.get()));
   }
 
   UniquePtr<char16_t[], JS::FreePolicy> buffer;

@@ -137,9 +137,8 @@ auto BoundStorageKeyCache::Add(JSContext* aContext,
     return nullptr;
   }
 
-  nsAutoCString url;
-  request->GetUrl(url);
-  if (NS_WARN_IF(!IsValidPutRequestURL(url, aRv))) {
+  SafeRefPtr<InternalRequest> ireq = request->GetInternalRequest();
+  if (NS_WARN_IF(!IsValidPutRequestURL(ireq->GetURLWithoutFragment(), aRv))) {
     return nullptr;
   }
 
@@ -184,9 +183,8 @@ auto BoundStorageKeyCache::AddAll(
       return nullptr;
     }
 
-    nsAutoCString url;
-    request->GetUrl(url);
-    if (NS_WARN_IF(!IsValidPutRequestURL(url, aRv))) {
+    SafeRefPtr<InternalRequest> ireq = request->GetInternalRequest();
+    if (NS_WARN_IF(!IsValidPutRequestURL(ireq->GetURLWithoutFragment(), aRv))) {
       return nullptr;
     }
 

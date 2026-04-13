@@ -1126,6 +1126,14 @@ features:
         value:
           enabled: true
 
+  ip-protection:
+    description: Feature to enable IP Protection (VPN) for users on Firefox on Android.
+    variables:
+      enabled:
+        description: If true, IP Protection feature is enabled.
+        type: Boolean
+        default: false
+
   native-share-sheet:
     description: Feature to enable the Native Share Sheet for users on Firefox on Android.
     variables:

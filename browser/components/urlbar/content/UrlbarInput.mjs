@@ -110,11 +110,10 @@ let px = number => number.toFixed(2) + "px";
 export class UrlbarInput extends HTMLElement {
   static get #markup() {
     return `
-      <hbox class="urlbar-background"/>
-      <hbox class="urlbar-input-container"
-            flex="1"
+      <html:div class="urlbar-background"/>
+      <html:div class="urlbar-input-container"
             pageproxystate="invalid">
-        <moz-urlbar-slot name="remote-control-box"> </moz-urlbar-slot>
+        <html:moz-urlbar-slot name="remote-control-box" />
         <toolbarbutton id="urlbar-searchmode-switcher"
                        class="searchmode-switcher chromeclass-toolbar-additional"
                        align="center"
@@ -147,7 +146,7 @@ ${
                       data-l10n-id="urlbar-searchmode-popup-search-settings-menuitem"/>
           </menupopup>
         </toolbarbutton>
-        <moz-urlbar-slot name="site-info"> </moz-urlbar-slot>
+        <html:moz-urlbar-slot name="site-info" />
         <moz-input-box tooltip="aHTMLTooltip"
                        class="urlbar-input-box"
                        flex="1">
@@ -158,14 +157,14 @@ ${
                       inputmode="mozAwesomebar"
                       data-l10n-id="urlbar-placeholder"/>
         </moz-input-box>
-        <moz-urlbar-slot name="revert-button"> </moz-urlbar-slot>
-        <image class="urlbar-icon urlbar-go-button"
+        <html:moz-urlbar-slot name="revert-button" />
+        <html:img class="urlbar-icon urlbar-go-button"
                role="button"
                keyNav="false"
                data-l10n-id="urlbar-go-button"/>
-        <moz-urlbar-slot name="page-actions" hidden=""> </moz-urlbar-slot>
-      </hbox>
-      <vbox class="urlbarView"
+        <html:moz-urlbar-slot name="page-actions" />
+      </html:div>
+      <html:div class="urlbarView"
             context=""
             role="group"
             tooltip="aHTMLTooltip">
@@ -177,10 +176,10 @@ ${
         </html:div>
         <menupopup class="urlbarView-result-menu"
                    consumeoutsideclicks="false"/>
-        <hbox class="search-one-offs"
+        <html:div class="search-one-offs"
               includecurrentengine="true"
               disabletab="true"/>
-      </vbox>`;
+      </html:div>`;
   }
 
   /** @type {DocumentFragment} */

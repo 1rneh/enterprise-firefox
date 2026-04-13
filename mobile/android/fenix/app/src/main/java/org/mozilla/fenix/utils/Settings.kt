@@ -2325,6 +2325,14 @@ class Settings(
 
     val shouldUseComposableToolbar = true
 
+    /**
+     * Indicates if the homepage wallpaper background should be rendered in Compose.
+     */
+    var shouldUseComposeWallpaper by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_compose_wallpaper),
+        default = false,
+    )
+
     var shouldUseMinimalBottomToolbarWhenEnteringText by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_use_minimal_bottom_toolbar_while_entering_text),
         default = { FxNimbus.features.minimalAddressbar.value().atBottomWhileEnteringText },
@@ -2709,6 +2717,24 @@ class Settings(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_ai_controls),
         default = Config.channel.isNightlyOrDebug,
     )
+
+    /**
+     * Persists IPProtection state set through Secret Settings.
+     *
+     * `true` makes the IPProtection UI elements visible across the app, while `false` hides them.
+     */
+    var isIPProtectionEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_ip_protection),
+        default = false,
+    )
+
+    /**
+     * Indicates if the IPProtection feature is available for the user.
+     *
+     * The flag is backed by a Nimbus `ip-protection` feature, with an option to override it through secret settings.
+     */
+    val isIPProtectionAvailable: Boolean
+        get() = FxNimbus.features.ipProtection.value().enabled || isIPProtectionEnabled
 
     /**
      * Tracks how many times the summarize menu item has been shown.

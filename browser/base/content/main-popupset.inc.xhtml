@@ -652,8 +652,10 @@
          role="tooltip">
     <html:div class="tab-note-preview-container">
       <html:div class="tab-note-preview-text"></html:div>
-      <!-- Not using a real button here to avoid having to unset default styles -->
-      <html:div role="button" class="tab-note-preview-expand" data-l10n-id="tab-note-preview-expand"></html:div>
+      <html:div class="tab-note-preview-actions">
+        <!-- Not using a real button here to avoid having to unset default styles -->
+        <html:div role="button" tabindex="0" class="tab-note-preview-expand" data-l10n-id="tab-note-preview-expand"></html:div>
+      </html:div>
     </html:div>
   </panel>
 

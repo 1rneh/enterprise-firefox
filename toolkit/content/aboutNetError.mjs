@@ -1320,36 +1320,36 @@ function setFocus(selector, position = "afterbegin") {
   }
 }
 
-async function getErrorCode() {
+async function getCertErrorCode() {
   try {
-    const errorInfo = gIsCertError
-      ? document.getFailedCertSecurityInfo()
-      : document.getNetErrorInfo();
-    return errorInfo.errorCodeString;
+    return document.getFailedCertSecurityInfo().errorCodeString;
   } catch (e) {
     return undefined;
   }
 }
 
-async function retryErrorCode() {
+async function retryCertErrorCode() {
   return new Promise(res => {
     setTimeout(() => {
-      res(getErrorCode());
+      res(getCertErrorCode());
     }, 100);
   });
 }
 
-async function init() {
-  let errorCode = await getErrorCode();
+async function ensureCertErrorCode() {
+  if (!gIsCertError) {
+    return;
+  }
+  let errorCode = await getCertErrorCode();
   let i = 0;
   while (!errorCode && i < 3) {
     i++;
-    errorCode = await retryErrorCode();
+    errorCode = await retryCertErrorCode();
   }
 }
 
 async function main() {
-  await init();
+  await ensureCertErrorCode();
   if (!NetErrorCard.isSupported()) {
     // Initialize the error registry for legacy path
     initializeRegistry();

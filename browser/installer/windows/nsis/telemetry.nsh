@@ -98,12 +98,6 @@ Function PrepareTelemetryPing
     nsJSON::Set /tree ping "Data" "from_msi" /value true
   ${EndIf}
 
-  !ifdef HAVE_64BIT_BUILD
-    nsJSON::Set /tree ping "Data" "64bit_build" /value true
-  !else
-    nsJSON::Set /tree ping "Data" "64bit_build" /value false
-  !endif
-
   ${If} ${RunningX64}
     nsJSON::Set /tree ping "Data" "64bit_os" /value true
   ${Else}
@@ -164,12 +158,6 @@ Function PrepareTelemetryPing
     nsJSON::Set /tree ping "Data" "attribution" /value $0
   ${EndIf}
 
-  ${If} ${Silent}
-    nsJSON::Set /tree ping "Data" "silent" /value true
-  ${Else}
-    nsJSON::Set /tree ping "Data" "silent" /value false
-  ${EndIf}
-
   ClearErrors
   ${GetParameters} $0
   ${GetOptions} $0 "/TelemetryDebug:" $0
@@ -201,6 +189,12 @@ Function PrepareFullInstallPing
 
   nsJSON::Set /tree ping "Data" "installer_type" /value '"full"'
   nsJSON::Set /tree ping "Data" "installer_version" /value '"${AppVersion}"'
+
+  !ifdef HAVE_64BIT_BUILD
+    nsJSON::Set /tree ping "Data" "64bit_build" /value true
+  !else
+    nsJSON::Set /tree ping "Data" "64bit_build" /value false
+  !endif
 
   nsJSON::Set /tree ping "Data" "had_old_install" /value "$HadOldInstall"
 
@@ -267,6 +261,12 @@ Function PrepareFullInstallPing
 
   nsJSON::Set /tree ping "Data" "new_launched" /value "$LaunchedNewApp"
 
+  ${If} ${Silent}
+    nsJSON::Set /tree ping "Data" "silent" /value true
+  ${Else}
+    nsJSON::Set /tree ping "Data" "silent" /value false
+  ${EndIf}
+
   Pop $1
   Pop $0
 FunctionEnd
@@ -282,6 +282,19 @@ Function PrepareStubInstallPing
   nsJSON::Set /tree ping "Data" "installer_version" /value '""'
 
   nsJSON::Set /tree ping "Data" "stub_build_id" /value '"${MOZ_BUILDID}"'
+
+  !ifdef FunnelcakeVersion
+    nsJSON::Quote /always "${FunnelcakeVersion}"
+    Pop $0
+    nsJSON::Set /tree ping "Data" "funnelcake" /value $0
+  !endif
+
+  ${If} $ArchToInstall == ${ARCH_AMD64}
+  ${OrIf} $ArchToInstall == ${ARCH_AARCH64}
+    nsJSON::Set /tree ping "Data" "64bit_build" /value true
+  ${Else}
+    nsJSON::Set /tree ping "Data" "64bit_build" /value false
+  ${EndIf}
 
   nsJSON::Set /tree ping "Data" "download_retries" /value "$DownloadRetryCount"
   nsJSON::Set /tree ping "Data" "bytes_downloaded" /value "$DownloadedBytes"
@@ -379,12 +392,41 @@ Function PrepareStubInstallPing
 
   nsJSON::Set /tree ping "Data" "download_requests_blocked_by_server" /value "$DownloadRequestsBlockedByServer"
 
+  ${If} "$OpenedDownloadPage" == "1"
+    nsJSON::Set /tree ping "Data" "manual_download" /value true
+  ${Else}
+    nsJSON::Set /tree ping "Data" "manual_download" /value false
+  ${EndIf}
+
   Call GetHadOldInstall
   Pop $0
   ${If} "$0" == "1"
     nsJSON::Set /tree ping "Data" "had_old_install" /value true
   ${Else}
     nsJSON::Set /tree ping "Data" "had_old_install" /value false
+  ${EndIf}
+
+  nsJSON::Set /tree ping "Data" "old_running" /value false
+  ${If} "$FirefoxLaunchCode" == 2
+    nsJSON::Set /tree ping "Data" "new_launched" /value true
+  ${Else}
+    nsJSON::Set /tree ping "Data" "new_launched" /value false
+  ${EndIf}
+
+  nsJSON::Quote /always "$ExistingVersion"
+  Pop $0
+  nsJSON::Set /tree ping "Data" "old_version" /value "$0"
+
+  nsJSON::Quote /always "$ExistingBuildID"
+  Pop $0
+  nsJSON::Set /tree ping "Data" "old_build_id" /value "$0"
+
+  nsJSON::Set /tree ping "Data" "profile_cleanup_prompt" /value '"$ProfileCleanupPromptType"'
+
+  ${If} "$CheckboxCleanupProfile" == "1"
+    nsJSON::Set /tree ping "Data" "profile_cleanup_requested" /value true
+  ${Else}
+    nsJSON::Set /tree ping "Data" "profile_cleanup_requested" /value false
   ${EndIf}
 
   Call GetDesktopLauncherStatus

@@ -180,6 +180,8 @@ MOZ_EXPORT void* test_getfn();
 EXPORT_CDECL(int32_t) test_sum_va_cdecl(uint8_t n, ...);
 EXPORT_CDECL(uint8_t) test_count_true_va_cdecl(uint8_t n, ...);
 EXPORT_CDECL(void) test_add_char_short_int_va_cdecl(uint32_t* result, ...);
+EXPORT_CDECL(void) test_add_uint8_uint16_va_cdecl(uint32_t* result, ...);
+EXPORT_CDECL(void) test_add_float_double_va_cdecl(double* result, ...);
 EXPORT_CDECL(int32_t*)
 test_vector_add_va_cdecl(uint8_t num_vecs, uint8_t vec_len, int32_t* result,
                          ...);

@@ -583,8 +583,7 @@ nsresult nsFrameSelection::ConstrainFrameAndPointToAnchorSubtree(
   RefPtr<PresShell> presShell = mPresShell;
   nsIContent* anchorRoot = anchorContent->GetSelectionRootContent(
       presShell, nsINode::IgnoreOwnIndependentSelection::Yes,
-      static_cast<nsINode::AllowCrossShadowBoundary>(
-          StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()));
+      nsINode::AllowCrossShadowBoundary::Yes);
   NS_ENSURE_TRUE(anchorRoot, NS_ERROR_UNEXPECTED);
 
   //
@@ -596,8 +595,7 @@ nsresult nsFrameSelection::ConstrainFrameAndPointToAnchorSubtree(
   if (content) {
     nsIContent* contentRoot = content->GetSelectionRootContent(
         presShell, nsINode::IgnoreOwnIndependentSelection::Yes,
-        static_cast<nsINode::AllowCrossShadowBoundary>(
-            StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()));
+        nsINode::AllowCrossShadowBoundary::Yes);
     NS_ENSURE_TRUE(contentRoot, NS_ERROR_UNEXPECTED);
 
     if (anchorRoot == contentRoot) {
@@ -623,9 +621,7 @@ nsresult nsFrameSelection::ConstrainFrameAndPointToAnchorSubtree(
         NS_ENSURE_TRUE(cursorContent, NS_ERROR_FAILURE);
         nsIContent* cursorContentRoot = cursorContent->GetSelectionRootContent(
             presShell, nsINode::IgnoreOwnIndependentSelection::Yes,
-            static_cast<nsINode::AllowCrossShadowBoundary>(
-                StaticPrefs::
-                    dom_shadowdom_selection_across_boundary_enabled()));
+            nsINode::AllowCrossShadowBoundary::Yes);
         NS_ENSURE_TRUE(cursorContentRoot, NS_ERROR_UNEXPECTED);
         if (cursorContentRoot == anchorRoot) {
           *aRetFrame = cursorFrame;
@@ -2089,6 +2085,11 @@ nsresult nsFrameSelection::IntraLineMove(bool aForward, bool aExtend) {
   }
   return MoveCaret(eDirPrevious, ExtendSelection(aExtend), eSelectBeginLine,
                    eLogical);
+}
+
+nsresult nsFrameSelection::ParagraphMove(bool aForward, bool aExtend) {
+  return MoveCaret(aForward ? eDirNext : eDirPrevious, ExtendSelection(aExtend),
+                   eSelectParagraph, eLogical);
 }
 
 // static

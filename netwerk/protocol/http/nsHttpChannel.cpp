@@ -613,66 +613,73 @@ nsresult nsHttpChannel::PrepareToConnect() {
       mURI, mLoadInfo->GetExternalContentPolicyType(), &mRequestHead, IsHTTPS(),
       this, nsHttpChannel::StaticSuspend,
       [self = RefPtr(this)](bool aNeedsResume, DictionaryCacheEntry* aDict) {
-        self->mDictDecompress = aDict;
         if (aNeedsResume) {
           LOG_DICTIONARIES(("Resuming after getting Dictionary headers"));
           self->Resume();
         }
-        if (self->mDictDecompress) {
-          LOG_DICTIONARIES(
-              ("Added dictionary header for %p, DirectoryCacheEntry %p",
-               self.get(), aDict));
-          AUTO_PROFILER_FLOW_MARKER(
-              "nsHttpHandler::AddAcceptAndDictionaryHeaders Add "
-              "Available-Dictionary",
-              NETWORK, Flow::FromPointer(self));
-          // mDictDecompress is set if we added Available-Dictionary
-          self->mDictDecompress->InUse();
-          self->mUsingDictionary = true;
+        if (!aDict) {
+          return true;
+        }
+        LOG_DICTIONARIES(
+            ("Added dictionary header for %p, DictionaryCacheEntry %p",
+             self.get(), aDict));
+        AUTO_PROFILER_FLOW_MARKER(
+            "nsHttpHandler::AddAcceptAndDictionaryHeaders Add "
+            "Available-Dictionary",
+            NETWORK, Flow::FromPointer(self));
+        // These need to be set before calling prefetch
+        self->mDictDecompress = aDict;
+        self->mDictDecompress->InUse();
+        self->mUsingDictionary = true;
+        // If this fails, we won't add the dictionary and the
+        // Available-Dictionary header.
+        if (NS_SUCCEEDED(aDict->Prefetch(
+                GetLoadContextInfo(self), self->mShouldSuspendForDictionary,
+                [self](nsresult aResult) {
+                  // this is called when the prefetch is complete to
+                  // un-Suspend the channel
+                  PROFILER_MARKER("Dictionary Prefetch", NETWORK,
+                                  MarkerTiming::IntervalEnd(), FlowMarker,
+                                  Flow::FromPointer(self));
+                  if (NS_FAILED(aResult)) {
+                    LOG(
+                        ("nsHttpChannel::SetupChannelForTransaction [this=%p] "
+                         "Dictionary prefetch failed: 0x%08" PRIx32,
+                         self.get(), static_cast<uint32_t>(aResult)));
+                    if (self->mUsingDictionary) {
+                      self->mDictDecompress->UseCompleted();
+                      self->mUsingDictionary = false;
+                    }
+                    self->mDictDecompress = nullptr;
+                    if (self->mSuspendedForDictionary) {
+                      self->mSuspendedForDictionary = false;
+                      self->Cancel(aResult);
+                      self->Resume();
+                    }
+                    return;
+                  }
+                  MOZ_ASSERT(self->mDictDecompress->DictionaryReady());
+                  if (self->mSuspendedForDictionary) {
+                    LOG(
+                        ("nsHttpChannel::SetupChannelForTransaction [this=%p] "
+                         "Resuming channel "
+                         "suspended for Dictionary",
+                         self.get()));
+                    self->mSuspendedForDictionary = false;
+                    self->Resume();
+                  }
+                }))) {
           PROFILER_MARKER("Dictionary Prefetch", NETWORK,
                           MarkerTiming::IntervalStart(), FlowMarker,
                           Flow::FromPointer(self));
-          // XXX if this fails, retry the connection (we assume that the
-          // DictionaryCacheEntry has been removed).  Failure should be only in
-          // weird cases like no storage service.
-          return NS_SUCCEEDED(self->mDictDecompress->Prefetch(
-              GetLoadContextInfo(self), self->mShouldSuspendForDictionary,
-              [self](nsresult aResult) {
-                // this is called when the prefetch is complete to
-                // un-Suspend the channel
-                PROFILER_MARKER("Dictionary Prefetch", NETWORK,
-                                MarkerTiming::IntervalEnd(), FlowMarker,
-                                Flow::FromPointer(self));
-                if (NS_FAILED(aResult)) {
-                  LOG(
-                      ("nsHttpChannel::SetupChannelForTransaction [this=%p] "
-                       "Dictionary prefetch failed: 0x%08" PRIx32,
-                       self.get(), static_cast<uint32_t>(aResult)));
-                  if (self->mUsingDictionary) {
-                    self->mDictDecompress->UseCompleted();
-                    self->mUsingDictionary = false;
-                  }
-                  self->mDictDecompress = nullptr;
-                  if (self->mSuspendedForDictionary) {
-                    self->mSuspendedForDictionary = false;
-                    self->Cancel(aResult);
-                    self->Resume();
-                  }
-                  return;
-                }
-                MOZ_ASSERT(self->mDictDecompress->DictionaryReady());
-                if (self->mSuspendedForDictionary) {
-                  LOG(
-                      ("nsHttpChannel::SetupChannelForTransaction [this=%p] "
-                       "Resuming channel "
-                       "suspended for Dictionary",
-                       self.get()));
-                  self->mSuspendedForDictionary = false;
-                  self->Resume();
-                }
-              }));
+          return true;
         }
-        return true;
+        // Need to undo these if we're not going to be able to use the dict
+        self->mDictDecompress->UseCompleted();
+        self->mDictDecompress = nullptr;
+        self->mUsingDictionary = false;
+        LOG_DICTIONARIES(("** Prefetch failed!!!!"));
+        return false;
       });
   if (NS_FAILED(rv)) return rv;
 

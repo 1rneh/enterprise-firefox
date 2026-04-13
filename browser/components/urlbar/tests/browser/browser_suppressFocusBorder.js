@@ -269,7 +269,7 @@ add_task(async function clickOnEdgeOfURLBar() {
   );
 
   const container = win.gURLBar.querySelector(".urlbar-input-container");
-  container.click();
+  EventUtils.synthesizeMouseAtCenter(container, {}, win);
 
   await onHiddenFocusRemoved;
   Assert.ok(

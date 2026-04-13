@@ -3049,8 +3049,9 @@ bool JSStructuredCloneReader::readSharedWasmMemory(uint32_t nbytes,
     return false;
   }
 
-  Rooted<ArrayBufferObjectMaybeShared*> sab(
+  Rooted<SharedArrayBufferObject*> sab(
       cx, &payload.toObject().as<SharedArrayBufferObject>());
+  MOZ_RELEASE_ASSERT(sab->isWasm());
 
   // Construct the memory.
   RootedObject proto(

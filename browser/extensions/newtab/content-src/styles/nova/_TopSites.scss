@@ -53,6 +53,7 @@
 
   .tile {
     box-shadow: var(--card-box-shadow);
+    border: var(--border-width) solid var(--button-border-color-ghost);
     margin-block-start: var(--space-medium);
     transition: width 100ms ease-out, height 100ms ease-out, margin-block-start 100ms ease-out;
   }
@@ -64,6 +65,7 @@
       /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
       height: var(--col-width);
       margin-block-start: 0;
+      border-color: var(--button-border-color-ghost-hover);
     }
 
     .icon-pin-small,
@@ -71,6 +73,14 @@
       opacity: 1;
       transition: opacity 100ms ease-out 50ms;
     }
+  }
+
+  &:active .tile {
+    border-color: var(--button-border-color-ghost-active);
+  }
+
+  &.add-button .tile {
+    color-scheme: initial;
   }
 
   .top-site-inner > a:focus .tile {
@@ -88,7 +98,25 @@
   .context-menu-button {
     inset-inline-end: var(--space-xxsmall);
     inset-block-start: var(--space-xxsmall);
+    border: var(--border-width) solid var(--button-border-color-ghost);
     border-radius: var(--border-radius-circle);
+    color: var(--button-text-color-ghost);
+    fill: var(--button-icon-fill);
+
+    &:hover {
+      background-color: var(--button-background-color-ghost-hover);
+      border-color: var(--button-border-color-ghost-hover);
+      color: var(--button-text-color-ghost-hover);
+
+      &:active {
+        background-color: var(--button-background-color-ghost-active);
+        border-color: var(--button-border-color-ghost-active);
+      }
+    }
+
+    &:focus-visible {
+      background-color: var(--button-background-color-ghost); // @nova-cleanup(remove-conditional): overrides classic focus background
+    }
 
     .lightWallpaper &,
     .darkWallpaper & {
@@ -118,5 +146,32 @@
     padding: 0;
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
     width: var(--col-width);
+  }
+}
+
+@media (forced-colors: active) {
+  .nova-enabled .top-site-outer .tile {
+    background-color: var(--button-background-color);
+  }
+
+  .nova-enabled .top-site-outer .context-menu-button {
+    background-color: var(--button-background-color);
+  }
+
+  .nova-enabled .top-site-outer:is(:hover, :focus-within, .active) .tile {
+    background-color: var(--button-background-color-hover);
+  }
+
+  .nova-enabled .top-site-outer .sponsored-label {
+    color: var(--text-color);
+  }
+
+  .nova-enabled .top-site-outer.add-button .tile .icon-wrapper {
+    color: var(--button-text-color-ghost);
+    fill: var(--button-icon-fill);
+  }
+
+  .nova-enabled .top-site-outer.add-button:hover .tile .icon-wrapper {
+    color: var(--button-text-color-ghost-hover);
   }
 }

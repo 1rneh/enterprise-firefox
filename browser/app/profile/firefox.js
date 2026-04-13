@@ -301,6 +301,7 @@ pref("browser.shell.checkDefaultPDF.silencedByUser", false);
 // Whether or not the user should be shown the guidance notifications when
 // setting Firefox as their default browser.
 pref("browser.shell.setDefaultGuidanceNotifications", true);
+pref("browser.shell.focusSetDefaultBrowserButton", false);
 #endif
 
 
@@ -828,6 +829,10 @@ pref("browser.urlbar.lastUrlbarSearchSeconds", 0);
 
 // Feature gate pref for Nova UI in the urlbar.
 pref("browser.urlbar.nova.featureGate", false);
+
+// When selecting and hovering over certain types of urlbar results, replace
+// their URLs with strings that explain why they're shown.
+pref("browser.urlbar.resultExplanations.featureGate", false);
 
 pref("browser.altClickSave", false);
 
@@ -3668,6 +3673,9 @@ pref("browser.ipProtection.bandwidth.enabled", true);
 pref("browser.ipProtection.egressLocationEnabled", false);
 // Pref that flips at 50%, 75%, and 90% bandwidth usage thresholds
 pref("browser.ipProtection.bandwidthThreshold", 0);
+// Tracks the highest bandwidth warning threshold (75 or 90) the user has dismissed.
+// Reset to 0 when bandwidth usage resets.
+pref("browser.ipProtection.bandwidthWarningDismissedThreshold", 0);
 
 // Pref to enable aboug:glean redesign.
 pref("about.glean.redesign.enabled", false);

@@ -10978,6 +10978,10 @@ static bool StartSerializingShadowDOM(
   if (shadow->Clonable()) {
     aBuilder.Append(u" shadowrootclonable=\"\"");
   }
+  if (StaticPrefs::dom_shadowdom_shadowRootSlotAssignment_enabled() &&
+      shadow->SlotAssignment() == SlotAssignmentMode::Manual) {
+    aBuilder.Append(u" shadowrootslotassignment=\"manual\"");
+  }
 
   aBuilder.Append(u">");
 
@@ -13099,7 +13103,7 @@ int32_t nsContentUtils::CompareTreePosition(const nsINode* aNode1,
 nsIContent* nsContentUtils::AttachDeclarativeShadowRoot(
     nsIContent* aHost, ShadowRootMode aMode, bool aIsClonable,
     bool aIsSerializable, bool aDelegatesFocus, bool aCustomElementRegistry,
-    const nsAString& aReferenceTarget) {
+    SlotAssignmentMode aSlotAssignment, const nsAString& aReferenceTarget) {
   RefPtr<Element> host = mozilla::dom::Element::FromNodeOrNull(aHost);
   if (!host || host->GetShadowRoot()) {
     // https://html.spec.whatwg.org/#parsing-main-inhead:shadow-host
@@ -13109,7 +13113,7 @@ nsIContent* nsContentUtils::AttachDeclarativeShadowRoot(
   ShadowRootInit init;
   init.mMode = aMode;
   init.mDelegatesFocus = aDelegatesFocus;
-  init.mSlotAssignment = SlotAssignmentMode::Named;
+  init.mSlotAssignment = aSlotAssignment;
   init.mClonable = aIsClonable;
   init.mSerializable = aIsSerializable;
 

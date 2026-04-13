@@ -4,6 +4,8 @@
 
 package mozilla.components.feature.summarize.ui
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -102,7 +104,7 @@ internal fun SummarizingContent(
             painter = painterResource(id = iconsR.drawable.mozac_ic_logo_firefox_24),
             contentDescription = null,
             modifier = Modifier.size(48.dp),
-            tint = contentColor,
+            tint = MaterialTheme.colorScheme.onPrimary,
         )
 
         Text(
@@ -121,6 +123,7 @@ internal fun SummarizingContent(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @FlexibleWindowLightDarkPreview
 @Composable
 private fun SummarizingContentPreview() {

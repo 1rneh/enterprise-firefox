@@ -1417,7 +1417,7 @@ bool VRManager::SubmitFrame(const layers::SurfaceDescriptor& aTexture,
 
   if (mDisplayInfo.mDisplayState.suppressFrames ||
       !mDisplayInfo.mDisplayState.isConnected) {
-    // External implementation wants to supress frames, service has shut
+    // External implementation wants to suppress frames, service has shut
     // down or hardware has been disconnected.
     return false;
   }

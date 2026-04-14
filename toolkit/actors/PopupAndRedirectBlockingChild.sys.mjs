@@ -92,11 +92,12 @@ export class PopupAndRedirectBlockingChild extends JSWindowActorChild {
     );
     const result = [];
 
-    for (let i = 0; i < length; ++i) {
-      const popup = state.popups[i];
+    for (let reportIndex = 0; reportIndex < length; ++reportIndex) {
+      const popup = state.popups[reportIndex];
       const { popupWindowURISpec } = popup;
       result.push({
         popupWindowURISpec,
+        reportIndex,
       });
     }
 
@@ -115,8 +116,8 @@ export class PopupAndRedirectBlockingChild extends JSWindowActorChild {
   }
 
   #unblockPopup(aMessage) {
-    const idx = aMessage.data.index;
-    const popup = this.#getOrCreateDocState().popups[idx];
+    const reportIndex = aMessage.data.reportIndex;
+    const popup = this.#getOrCreateDocState().popups[reportIndex];
 
     if (popup?.requestingWindow?.document == popup.requestingDocument) {
       popup.requestingWindow.open(

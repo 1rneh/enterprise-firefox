@@ -37,6 +37,7 @@
 #include "nsIWebProgressListener.h"
 #include "nsNetUtil.h"
 #include "ThirdPartyUtil.h"
+#include "xpcpublic.h"
 
 using namespace mozilla::dom;
 
@@ -342,6 +343,10 @@ CookieService::Observe(nsISupports* /*aSubject*/, const char* aTopic,
 
 NS_IMETHODIMP
 CookieService::TestCloseCookieDB() {
+  if (!xpc::IsInAutomation()) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
   CloseCookieStorages();
   return NS_OK;
 }

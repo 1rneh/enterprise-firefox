@@ -5251,7 +5251,7 @@
      * @param {boolean} options.animate
      *   Whether or not to animate closing.
      * @param {boolean} options.suppressWarnAboutClosingWindow
-     *   This will supress the warning about closing a window with the last tab.
+     *   This will suppress the warning about closing a window with the last tab.
      * @param {boolean} options.skipPermitUnload
      *   Skips the before unload checks for the tabs. Only set this to true when
      *   using it in tandem with `runBeforeUnloadForTabs`.
@@ -5462,7 +5462,7 @@
      * @param {boolean} [options.animate]
      *   Whether or not to animate closing, defaults to true.
      * @param {boolean} [options.suppressWarnAboutClosingWindow]
-     *   This will supress the warning about closing a window with the last tab.
+     *   This will suppress the warning about closing a window with the last tab.
      * @param {boolean} [options.skipPermitUnload]
      *   Skips the before unload checks for the tabs. Only set this to true when
      *   using it in tandem with `runBeforeUnloadForTabs`.

@@ -964,7 +964,7 @@ class BrowserParent final : public PBrowserParent,
   nsTArray<nsString> mVerifyDropLinks;
 
 #ifdef DEBUG
-  int32_t mActiveSupressDisplayportCount = 0;
+  int32_t mActiveSuppressDisplayportCount = 0;
 #endif
 
   // When true, we've initiated normal shutdown and notified our managing

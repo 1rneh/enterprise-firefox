@@ -818,11 +818,14 @@ bool ArrayBufferObject::resizeImpl(JSContext* cx, const CallArgs& args) {
     Pages newPages =
         Pages::fromByteLengthExact(newByteLength, obj->wasmPageSize());
     MOZ_RELEASE_ASSERT(WasmArrayBufferSourceMaxPages(obj).isSome());
-    Rooted<ArrayBufferObject*> res(
-        cx,
-        obj->wasmGrowToPagesInPlace(obj->wasmAddressType(), newPages, obj, cx));
-    MOZ_ASSERT_IF(res, res == obj);
-    return !!res;
+    ArrayBufferObject* res =
+        obj->wasmGrowToPagesInPlace(obj->wasmAddressType(), newPages, obj, cx);
+    if (!res) {
+      return false;
+    }
+    MOZ_ASSERT(res == obj);
+    args.rval().setUndefined();
+    return true;
   }
 
   // Steps 7-15.

@@ -2355,9 +2355,8 @@ static bool GatherAvailableModuleAncestors(
 
 struct EvalOrderComparator {
   bool operator()(ModuleObject* a, ModuleObject* b, bool* lessOrEqualp) {
-    int32_t result = int32_t(a->asyncEvaluationOrder().get()) -
-                     int32_t(b->asyncEvaluationOrder().get());
-    *lessOrEqualp = (result <= 0);
+    *lessOrEqualp =
+        a->asyncEvaluationOrder().get() <= b->asyncEvaluationOrder().get();
     return true;
   }
 };

@@ -844,7 +844,7 @@ class GCRuntime {
   // receive a request to do GC work.
   void checkCanCallAPI();
 
-  // Check if the system state is such that GC has been supressed
+  // Check if the system state is such that GC has been suppressed
   // or otherwise delayed.
   [[nodiscard]] bool checkIfGCAllowedInCurrentState(JS::GCReason reason);
 

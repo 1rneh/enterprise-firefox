@@ -3821,11 +3821,11 @@ void BrowserParent::SuppressDisplayport(bool aEnabled) {
 
 #ifdef DEBUG
   if (aEnabled) {
-    mActiveSupressDisplayportCount++;
+    mActiveSuppressDisplayportCount++;
   } else {
-    mActiveSupressDisplayportCount--;
+    mActiveSuppressDisplayportCount--;
   }
-  MOZ_ASSERT(mActiveSupressDisplayportCount >= 0);
+  MOZ_ASSERT(mActiveSuppressDisplayportCount >= 0);
 #endif
 
   (void)SendSuppressDisplayport(aEnabled);

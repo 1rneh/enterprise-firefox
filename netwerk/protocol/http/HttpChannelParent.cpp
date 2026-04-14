@@ -274,12 +274,11 @@ void HttpChannelParent::CleanupBackgroundChannel() {
     // BackgroundChannelRegistrar. Only remove our own entry; another
     // HttpChannelParent may have been registered under the same channel Id
     // (e.g. after a redirect), and we must not remove that entry.
-    nsCOMPtr<nsIBackgroundChannelRegistrar> registrar =
+    RefPtr<BackgroundChannelRegistrar> registrar =
         BackgroundChannelRegistrar::GetOrCreate();
     MOZ_ASSERT(registrar);
-    if (RefPtr<BackgroundChannelRegistrar> bkregistrar =
-            do_QueryObject(registrar)) {
-      bkregistrar->DeleteChannelIfMatches(mChannel->ChannelId(), this);
+    if (registrar) {
+      registrar->DeleteChannelIfMatches(mChannel->ChannelId(), this);
     }
 
     // If mAsyncOpenBarrier is greater than zero, it means AsyncOpen procedure

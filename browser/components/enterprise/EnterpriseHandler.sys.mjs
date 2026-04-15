@@ -14,15 +14,13 @@ ChromeUtils.defineLazyGetter(lazy, "localization", () => {
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
-  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  createEnterpriseLogger:
+    "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return console.createInstance({
-    prefix: "EnterpriseHandler",
-    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
-  });
+  return lazy.createEnterpriseLogger("EnterpriseHandler");
 });
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";
@@ -142,7 +140,7 @@ export const EnterpriseHandler = {
       this._signedInUser = { name, email, pictureUrl: picture };
     } catch (e) {
       // TODO: Bug 2000864 - Handle unsuccessful GET /WHOAMI
-      console.warn(
+      lazy.log.warn(
         "EnterpriseHandler: Unable to initialize enterprise user: ",
         e
       );
@@ -290,7 +288,7 @@ export const EnterpriseHandler = {
       email.hidden = true;
       document.querySelector("#PanelUI-enterprise-email-separator").hidden =
         true;
-      console.warn(
+      lazy.log.warn(
         "Unable to update email in enterprise panel without user information"
       );
       return;
@@ -442,7 +440,7 @@ export const EnterpriseHandler = {
     try {
       await lazy.ConsoleClient.signoutUser();
     } catch (e) {
-      console.error(`Unable to signout the user: ${e}`);
+      lazy.log.error(`Unable to signout the user: ${e}`);
     } finally {
       Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
     }

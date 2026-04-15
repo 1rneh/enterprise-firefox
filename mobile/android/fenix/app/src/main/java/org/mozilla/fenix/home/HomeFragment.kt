@@ -89,6 +89,7 @@ import org.mozilla.fenix.browser.tabstrip.TabStrip
 import org.mozilla.fenix.browser.tabstrip.TabStripColors
 import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.HomepageThumbnailIntegration
+import org.mozilla.fenix.components.LensFeature
 import org.mozilla.fenix.components.QrScanFenixFeature
 import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.components.VoiceSearchFeature
@@ -148,7 +149,6 @@ import org.mozilla.fenix.home.topsites.DefaultTopSitesView
 import org.mozilla.fenix.home.topsites.TopSitesBinding
 import org.mozilla.fenix.home.topsites.controller.DefaultTopSiteController
 import org.mozilla.fenix.home.topsites.getTopSitesConfig
-import org.mozilla.fenix.home.ui.HomeSwipeIntegration
 import org.mozilla.fenix.home.ui.Homepage
 import org.mozilla.fenix.home.ui.MiddleSearchHomepage
 import org.mozilla.fenix.home.ui.WallpaperBackground
@@ -212,8 +212,6 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     private val bottomToolbarContainerView: BottomToolbarContainerView
         get() = _bottomToolbarContainerView!!
     private var awesomeBarComposable: AwesomeBarComposable? = null
-
-    private var homeSwipeIntegration: HomeSwipeIntegration? = null
 
     private val browsingModeManager get() = (activity as HomeActivity).browsingModeManager
 
@@ -292,6 +290,12 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     private val voiceSearchLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             voiceSearchFeature?.get()?.handleVoiceSearchResult(result.resultCode, result.data)
+        }
+    private var lensFeature: ViewBoundFeatureWrapper<LensFeature>? =
+        ViewBoundFeatureWrapper()
+    private val lensLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            lensFeature?.get()?.handleImageResult(result.resultCode, result.data)
         }
 
     private val destinationChangedListener =
@@ -693,16 +697,6 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
 
         initComposeHomepage()
 
-        homeSwipeIntegration = HomeSwipeIntegration(
-            components = requireContext().components,
-            settings = requireContext().settings(),
-            binding = binding,
-            activity = requireActivity() as HomeActivity,
-            toolbarView = toolbarView,
-            homeNavigationBar = homeNavigationBar,
-            navController = findNavController(),
-        )
-
         FxNimbus.features.homescreen.recordExposure()
 
         // DO NOT MOVE ANYTHING BELOW THIS addMarker CALL!
@@ -963,8 +957,6 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
             HomeScreen.standardHomepageViewCount.add()
         }
 
-        homeSwipeIntegration?.initializeSwipeUI()
-
         observePrivateModeLock {
             findNavController().navigate(
                 NavGraphDirections.actionGlobalUnlockPrivateTabsFragment(NavigationOrigin.HOME_PAGE),
@@ -989,6 +981,7 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
 
         qrScanFenixFeature = QrScanFenixFeature.register(this, qrScanLauncher)
         voiceSearchFeature = VoiceSearchFeature.register(this, voiceSearchLauncher)
+        lensFeature = LensFeature.register(this, lensLauncher)
 
         showReviewPromptBinding.set(
             feature = ShowReviewPromptBinding(
@@ -1189,7 +1182,6 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
         _sessionControlInteractor = null
         _bottomToolbarContainerView = null
         awesomeBarComposable = null
-        homeSwipeIntegration = null
         _binding = null
 
         bundleArgs.clear()

@@ -846,7 +846,7 @@ nsresult nsFrameSelection::MoveCaret(nsDirection aDirection,
       sel->CollapseInLimiter(node, offset);
     }
     sel->ScrollIntoView(nsISelectionController::SELECTION_FOCUS_REGION,
-                        ScrollAxis(), ScrollAxis(), scrollFlags);
+                        AxisScrollParams(), AxisScrollParams(), scrollFlags);
     return NS_OK;
   }
 
@@ -960,7 +960,8 @@ nsresult nsFrameSelection::MoveCaret(nsDirection aDirection,
   }
   if (NS_SUCCEEDED(rv)) {
     rv = sel->ScrollIntoView(nsISelectionController::SELECTION_FOCUS_REGION,
-                             ScrollAxis(), ScrollAxis(), scrollFlags);
+                             AxisScrollParams(), AxisScrollParams(),
+                             scrollFlags);
   }
 
   return rv;
@@ -1736,8 +1737,8 @@ nsresult nsFrameSelection::ScrollSelectionIntoView(SelectionType aSelectionType,
 
   // After ScrollSelectionIntoView(), the pending notifications might be
   // flushed and PresShell/PresContext/Frames may be dead. See bug 418470.
-  return sel->ScrollIntoView(aRegion, ScrollAxis(vScroll), ScrollAxis(),
-                             scrollFlags, mode);
+  return sel->ScrollIntoView(aRegion, AxisScrollParams(vScroll),
+                             AxisScrollParams(), scrollFlags, mode);
 }
 
 nsresult nsFrameSelection::RepaintSelection(SelectionType aSelectionType) {

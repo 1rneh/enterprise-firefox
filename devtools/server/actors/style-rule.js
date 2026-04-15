@@ -727,11 +727,11 @@ class StyleRuleActor extends Actor {
           conditions: Array.from(rawRule.conditions).map((condition, i) => ({
             containerName: condition.name,
             containerQuery: condition.query,
-            // For now, we consider the condition as matching if queryContainerFor returns
-            // an actual element (so condition with unexisting container name would appear
-            // as unmatched).
-            // But we should actually check that the condition is met (see Bug 2030236).
-            matched: !!rawRule.queryContainerFor(
+            matched: rawRule.queryConditionMatchesElement(
+              this.currentlySelectedElement,
+              i
+            ),
+            hasContainer: !!rawRule.queryContainerFor(
               this.currentlySelectedElement,
               i
             ),
@@ -1431,6 +1431,8 @@ class StyleRuleActor extends Actor {
    * @returns {object} An object with the following properties:
    *          - node: {NodeActor|null} The nodeActor representing the query container,
    *            null if none were found
+   *          - containerName: {string} The computed `containerType` value of the query container
+   *            when there's one, or the rule's condition `name`.
    *          - containerType: {string} The computed `containerType` value of the query container
    *          - inlineSize: {string} The computed `inlineSize` value of the query container (e.g. `120px`)
    *          - blockSize: {string} The computed `blockSize` value of the query container (e.g. `812px`)
@@ -1449,17 +1451,23 @@ class StyleRuleActor extends Actor {
       conditionIndex
     );
 
-    // queryContainerFor returns null when the container name wasn't find in any ancestor.
-    // In practice this shouldn't happen, as if the rule is applied, it means that an
-    // elligible container was found.
+    // queryContainerFor returns null when the container name wasn't find in any ancestor,
+    // which can happen for rules with multiple conditions.
     if (!containerEl) {
-      return { node: null };
+      return {
+        node: null,
+        containerName: ancestorRule.rawRule.conditions[conditionIndex]?.name,
+      };
     }
 
     const computedStyle = CssLogic.getComputedStyle(containerEl);
     return {
       node: this.pageStyle.walker.getNode(containerEl),
       containerType: computedStyle.containerType,
+      containerName:
+        computedStyle.containerName !== "none"
+          ? computedStyle.containerName
+          : null,
       inlineSize: computedStyle.inlineSize,
       blockSize: computedStyle.blockSize,
     };

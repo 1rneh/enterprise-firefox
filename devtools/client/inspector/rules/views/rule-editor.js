@@ -478,8 +478,9 @@ class RuleEditor extends EventEmitter {
         {
           containerName: containerQueryData.containerName,
           containerQuery: containerQueryData.containerQuery,
-          // in this case we only have one condition, so it's guaranteed to match,
+          // in this case we only have one condition, so it's guaranteed to have a container,
           // otherwise we wouldn't get this rule
+          hasContainer: true,
           matched: true,
         },
       ];
@@ -495,12 +496,13 @@ class RuleEditor extends EventEmitter {
       conditionIndex < containerQueryData.conditions.length;
       conditionIndex++
     ) {
-      const { containerName, containerQuery, matched } =
+      const { containerName, containerQuery, hasContainer, matched } =
         containerQueryData.conditions[conditionIndex];
 
       const containerConditionEl = createChild(containerQueryEl, "span", {
         class:
-          "container-condition has-tooltip" + (!matched ? " unmatched" : ""),
+          "container-condition has-tooltip" +
+          (!hasContainer || !matched ? " unmatched" : ""),
         "data-condition-index": conditionIndex,
       });
 
@@ -508,7 +510,7 @@ class RuleEditor extends EventEmitter {
         containerConditionEl.append(containerName);
       }
 
-      if (matched) {
+      if (hasContainer) {
         const jumpToNodeButton = createChild(containerConditionEl, "button", {
           class: "open-inspector",
           title: l10n("rule.containerQuery.selectContainerButton.tooltip"),

@@ -3115,7 +3115,8 @@ void nsFocusManager::ScrollIntoView(PresShell* aPresShell, nsIContent* aContent,
   }
 
   // If the noscroll flag isn't set, scroll the newly focused element into view.
-  const ScrollAxis axis(WhereToScroll::Center, WhenToScroll::IfNotVisible);
+  const AxisScrollParams axis(WhereToScroll::Center,
+                              WhenToScroll::IfNotVisible);
   aPresShell->ScrollContentIntoView(aContent, axis, axis,
                                     ScrollFlags::ScrollOverflowHidden);
   // Scroll the input / textarea selection into view, unless focused with the

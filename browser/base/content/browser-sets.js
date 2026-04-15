@@ -11,7 +11,7 @@ document.addEventListener(
       TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
     });
 
-    // <commandset id="mainCommandSet"> defined in browser-sets.inc
+    // <commandset id="mainCommandSet"> defined in browser-sets.inc.xhtml
     document
       .getElementById("mainCommandSet")
       // eslint-disable-next-line complexity

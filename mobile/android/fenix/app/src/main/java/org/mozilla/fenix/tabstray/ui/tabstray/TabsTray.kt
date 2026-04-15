@@ -28,7 +28,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -185,11 +184,6 @@ fun TabsTray(
     }
 
     val topAppBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val isScrolled by remember(topAppBarScrollBehavior.state) {
-        derivedStateOf {
-            topAppBarScrollBehavior.state.collapsedFraction == 1f
-        }
-    }
 
     LaunchedEffect(tabsTrayState.selectedPage, shouldShowTabGroupsPage) {
         pagerState.animateScrollToPage(
@@ -249,7 +243,6 @@ fun TabsTray(
         floatingActionButton = {
             TabManagerFloatingToolbar(
                 tabsTrayStore = tabsTrayStore,
-                expanded = !isScrolled,
                 isSignedIn = tabsTrayState.sync.isSignedIn,
                 pbmLocked = tabsTrayState.privateBrowsing.isLocked,
                 onOpenNewNormalTabClicked = onOpenNewNormalTabClicked,

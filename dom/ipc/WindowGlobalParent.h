@@ -344,8 +344,6 @@ class WindowGlobalParent final : public WindowContext,
       nsIURI* aHost, bool aIsThirdParty,
       const nsTArray<CookieStruct>& aCookies);
 
-  mozilla::ipc::IPCResult RecvOnInitialStorageAccess();
-
   mozilla::ipc::IPCResult RecvRecordUserActivationForBTP();
 
   mozilla::ipc::IPCResult RecvRecordUserInteractionForPermissions();

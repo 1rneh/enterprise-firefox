@@ -152,3 +152,4 @@ Finally, apply the patches:
 - bug1603271-videodsp-pointer-overflow.patch to avoid a UBSan pointer-overflow
   by combining a two-step pointer adjustment into a single positive-offset step.
 - vp9-get-format-rollback.patch to fix a VP9 decoder error handling issue.
+- flac-alloc-failure.patch fix leak in flac decoder in case of alloc failure

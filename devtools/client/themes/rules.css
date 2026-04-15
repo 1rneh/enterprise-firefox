@@ -782,7 +782,7 @@
   max-width: max-content;
 }
 
-.ruleview-rule-ancestor-data [role="listitem"] .container-condition:not(.unmatched):is(:hover, .tooltip-anchor) {
+.ruleview-rule-ancestor-data [role="listitem"] .container-condition:is(:hover, .tooltip-anchor) {
   text-decoration: underline;
   text-decoration-color: var(--theme-highlight-blue);
   text-decoration-style: dotted;
@@ -829,7 +829,8 @@
   .container-condition.unmatched,
 ):not(
   /* don't show the strike through when the element is hovered so it's more legible */
-  :hover
+  :hover,
+  .tooltip-anchor
 ) {
   text-decoration: line-through solid currentColor;
 }

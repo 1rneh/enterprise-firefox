@@ -58,7 +58,7 @@
     "disclaimer";
   grid-template-rows: 1fr auto auto auto;
 
-  & .fullpage-header {
+  & .fullpage-header:not([hidden]) {
     display: flex;
   }
 }
@@ -72,12 +72,12 @@
 }
 
 #browser-container {
-  grid-area: browser;
   display: contents;
   width: 100%;
 }
 
 #aichat-browser {
+  grid-area: browser;
   width: 100%;
   height: 100%;
 }
@@ -156,26 +156,24 @@ smartwindow-prompts {
   width: 100%;
 }
 
-.sidebar-header {
+.chat-header {
   box-sizing: border-box;
-  display: flex;
-  grid-area: sidebar-header;
   justify-content: flex-end;
-  padding: var(--space-small);
+  padding-block: var(--space-small);
+  padding-inline: var(--space-small) var(--space-large);
   position: absolute;
   top: 0;
   width: 100%;
 }
 
+.sidebar-header {
+  display: flex;
+  grid-area: sidebar-header;
+}
+
 .fullpage-header {
-  box-sizing: border-box;
   display: none;
   grid-area: fullpage-header;
-  justify-content: flex-end;
-  padding: var(--space-small);
-  position: absolute;
-  top: 0;
-  width: 100%;
 }
 
 moz-button.new-chat-icon-button {

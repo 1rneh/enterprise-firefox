@@ -56,7 +56,7 @@ interface SerialPort : EventTarget {
   readonly attribute WritableStream? writable;
 
   [Throws] SerialPortInfo getInfo();
-  [Throws] Promise<undefined> open(SerialOptions options);
+  [UseCounter, Throws] Promise<undefined> open(SerialOptions options);
   [Throws] Promise<undefined> setSignals(optional SerialOutputSignals signals = {});
   [Throws] Promise<SerialInputSignals> getSignals();
   [Throws] Promise<undefined> close();

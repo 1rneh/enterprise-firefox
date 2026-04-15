@@ -502,6 +502,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             isChecked = context.settings().longfoxEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
+
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_google_lens_integration).apply {
+            isVisible = Config.channel.isNightlyOrDebug
+            isChecked = context.settings().googleLensIntegrationEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
     }
 
     override fun onDisplayPreferenceDialog(preference: Preference) {

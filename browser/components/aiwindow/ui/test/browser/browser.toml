@@ -29,6 +29,8 @@ support-files = [
 
 ["browser_aichat_content_message_event.js"]
 
+["browser_aichat_content_overflow.js"]
+
 ["browser_aichat_message.js"]
 
 ["browser_aichat_open_link.js"]

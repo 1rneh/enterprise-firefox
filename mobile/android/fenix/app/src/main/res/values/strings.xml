@@ -1481,12 +1481,6 @@
     <!-- Title for the list of tabs in the synced tabs used by a11y services
     The %1$s will be replaced by the number of opened synced tabs -->
     <string name="tabs_header_synced_tabs_counter_title">Synced Tabs Open: %1$s. Tap to switch tabs.</string>
-    <!-- Text for the new tab button in the Tab Manager to indicate opening a new normal tab -->
-    <string name="tab_manager_floating_action_button_new_normal_tab">New tab</string>
-    <!-- Text for the new tab button in the Tab Manager to indicate opening a new private tab -->
-    <string name="tab_manager_floating_action_button_new_private_tab">New private tab</string>
-    <!-- Text for floating action button in the Tab Manager used to initiate a re-sync of synced tabs -->
-    <string name="tab_manager_floating_action_button_sync_tabs">Sync tabs</string>
     <!-- Content description (not visible, for screen readers etc.): Add tab button. Adds a news tab when pressed -->
     <string name="add_tab">Add tab</string>
     <!-- Content description (not visible, for screen readers etc.): Add tab button. Adds a news tab when pressed -->

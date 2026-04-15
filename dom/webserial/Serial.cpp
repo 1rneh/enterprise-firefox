@@ -536,7 +536,9 @@ already_AddRefed<Promise> Serial::GetPorts(ErrorResult& aRv) {
       })
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
-          [self = RefPtr{this}, promise](GetPortsData&& aData) {
+          // Capture tsRef here to avoid a race with the worker losing the
+          // workerref.
+          [self = RefPtr{this}, tsRef, promise](GetPortsData&& aData) {
             for (auto& data : aData.mNewPorts) {
               RefPtr<SerialPort> port =
                   MakeRefPtr<SerialPort>(data.mInfo, self);

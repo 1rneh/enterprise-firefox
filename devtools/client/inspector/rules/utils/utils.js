@@ -138,7 +138,7 @@ function getNodeInfo(node, elementStyle) {
   ) {
     type = VIEW_NODE_INACTIVE_CSS;
     value = declaration.getInactiveCssData();
-  } else if (node.closest(".container-condition:not(.unmatched)")) {
+  } else if (node.closest(".container-condition")) {
     type = VIEW_NODE_CSS_QUERY_CONTAINER;
     value = {
       ancestorIndex: node

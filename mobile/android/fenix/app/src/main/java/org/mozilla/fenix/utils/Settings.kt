@@ -3138,6 +3138,11 @@ class Settings(
         default = { FxNimbus.features.nativeShareSheet.value().enabled },
     )
 
+    var googleLensIntegrationEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_google_lens_integration),
+        default = { FxNimbus.features.googleLensIntegration.value().enabled },
+    )
+
     /**
      * Whether Longfox is enabled.
      */

@@ -10381,7 +10381,7 @@ var TabContextMenu = {
     }
 
     let contextAddNote = document.getElementById("context_addNote");
-    let contextUpdateNote = document.getElementById("context_updateNote");
+    let contextEditNote = document.getElementById("context_editNote");
     if (gBrowser._tabNotesEnabled) {
       // Tab notes behaviour is disabled if a user has a selection of tabs that
       // contains more than one canonical URL.
@@ -10393,7 +10393,7 @@ var TabContextMenu = {
 
       contextAddNote.disabled =
         multiselectingDiverseUrls || !this.TabNotes.isEligible(this.contextTab);
-      contextUpdateNote.disabled = multiselectingDiverseUrls;
+      contextEditNote.disabled = multiselectingDiverseUrls;
 
       this.removeNewBadge(contextAddNote);
       if (
@@ -10404,11 +10404,11 @@ var TabContextMenu = {
 
       this.TabNotes.has(this.contextTab).then(hasNote => {
         contextAddNote.hidden = hasNote;
-        contextUpdateNote.hidden = !hasNote;
+        contextEditNote.hidden = !hasNote;
       });
     } else {
       contextAddNote.hidden = true;
-      contextUpdateNote.hidden = true;
+      contextEditNote.hidden = true;
     }
 
     // Split View
@@ -11020,14 +11020,6 @@ var TabContextMenu = {
   removeNewBadge(menuItem) {
     menuItem.removeAttribute("badge");
     menuItem.classList.remove("badge-new");
-  },
-
-  deleteTabNotes() {
-    for (let tab of this.contextTabs) {
-      this.TabNotes.delete(tab, {
-        telemetrySource: this.TabNotes.TELEMETRY_SOURCE.TAB_CONTEXT_MENU,
-      });
-    }
   },
 };
 

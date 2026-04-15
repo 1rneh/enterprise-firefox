@@ -92,7 +92,7 @@ async function openTabNoteMenuByAddNote(tab) {
 async function openTabNoteMenuByEditNote(tab) {
   let tabNotePanel = document.getElementById("tabNotePanel");
   let panelShown = BrowserTestUtils.waitForPopupEvent(tabNotePanel, "shown");
-  activateTabContextMenuItem(tab, "#context_editNote", "#context_updateNote");
+  activateTabContextMenuItem(tab, "#context_editNote");
   await panelShown;
   return tabNotePanel;
 }
@@ -105,15 +105,15 @@ add_task(async function test_tabContextMenu_prefDisabled() {
   let tab = BrowserTestUtils.addTab(gBrowser, "https://www.example.com");
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
   let addNoteElement = document.getElementById("context_addNote");
-  let updateNoteElement = document.getElementById("context_updateNote");
+  let editNoteElement = document.getElementById("context_editNote");
   let tabContextMenu = await getContextMenu(tab, "tabContextMenu");
   Assert.ok(
     addNoteElement.hidden,
     "'Add Note' is hidden from context menu when pref disabled"
   );
   Assert.ok(
-    updateNoteElement.hidden,
-    "'Update Note' is hidden from context menu when pref disabled"
+    editNoteElement.hidden,
+    "'Edit Note' is hidden from context menu when pref disabled"
   );
   await closeContextMenu(tabContextMenu);
   BrowserTestUtils.removeTab(tab);
@@ -321,8 +321,18 @@ add_task(async function test_deleteTabNote() {
     }
   );
 
+  let tabNoteMenu = await openTabNoteMenuByEditNote(tab);
+  let deleteButton = tabNoteMenu.querySelector(
+    "#tab-note-editor-button-delete"
+  );
+  Assert.ok(deleteButton, "Delete button should be present in edit note menu");
+  Assert.ok(
+    !deleteButton.hidden,
+    "Delete button should be visible in edit note menu"
+  );
+
   let tabNoteRemoved = BrowserTestUtils.waitForEvent(tab, "TabNote:Removed");
-  activateTabContextMenuItem(tab, "#context_deleteNote", "#context_updateNote");
+  deleteButton.click();
   await tabNoteRemoved;
 
   await BrowserTestUtils.waitForCondition(
@@ -473,7 +483,7 @@ add_task(async function test_ineligibleTabsDisableMenus() {
 
   let tabContextMenu = document.getElementById("tabContextMenu");
   let addNoteEntry = document.querySelector("#context_addNote");
-  let updateNoteEntry = document.querySelector("#context_updateNote");
+  let editNoteEntry = document.querySelector("#context_editNote");
 
   let eligibleTab = BrowserTestUtils.addTab(
     gBrowser,
@@ -549,25 +559,25 @@ add_task(async function test_ineligibleTabsDisableMenus() {
   await closeContextMenu(tabContextMenu);
 
   info(
-    "Test that an eligible tab with a note has an enabled 'Update Note' entry"
+    "Test that an eligible tab with a note has an enabled 'Edit Note' entry"
   );
   gBrowser.selectedTabs = [eligibleTab];
   await TabNotes.set(eligibleTab, "Some tab note");
   await getContextMenu(eligibleTab, "tabContextMenu");
   Assert.ok(
-    !updateNoteEntry.hasAttribute("disabled"),
-    "Eligible tab has enabled 'Update Note' entry"
+    !editNoteEntry.hasAttribute("disabled"),
+    "Eligible tab has enabled 'Edit Note' entry"
   );
   await closeContextMenu(tabContextMenu);
 
   info(
-    "Test that a multiselection with a tab with a note and an ineligible tab has a disabled 'Update Note' entry"
+    "Test that a multiselection with a tab with a note and an ineligible tab has a disabled 'Edit Note' entry"
   );
   gBrowser.selectedTabs = [eligibleTab, ineligibleTab];
   await getContextMenu(eligibleTab, "tabContextMenu");
   Assert.ok(
-    updateNoteEntry.hasAttribute("disabled"),
-    "Multiselection with a tab with note and ineligible tab has disabled 'Update Note' entry"
+    editNoteEntry.hasAttribute("disabled"),
+    "Multiselection with a tab with note and ineligible tab has disabled 'Edit Note' entry"
   );
   await closeContextMenu(tabContextMenu);
 

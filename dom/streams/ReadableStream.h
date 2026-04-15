@@ -186,6 +186,10 @@ class ReadableStream : public nsISupports, public nsWrapperCache {
   already_AddRefed<mozilla::dom::ReadableStreamDefaultReader> GetReader(
       ErrorResult& aRv);
 
+  // https://streams.spec.whatwg.org/#readablestream-cancel
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Promise> CancelNative(
+      JSContext* aCx, JS::Handle<JS::Value> aReason, ErrorResult& aRv);
+
   // IDL layer functions
 
   nsIGlobalObject* GetParentObject() const { return mGlobal; }

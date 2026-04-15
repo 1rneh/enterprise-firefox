@@ -223,15 +223,8 @@ export class AIWindow extends MozLitElement {
       return;
     }
 
-    const lastUserMessage =
-      this.#conversation?.messages?.findLast?.(
-        m => m.role === lazy.MESSAGE_ROLE.USER
-      ) ?? null;
-    if (
-      lastUserMessage?.memoriesFlagSource ===
-      lazy.MEMORIES_FLAG_SOURCE.CONVERSATION
-    ) {
-      this.#memoriesToggled = lastUserMessage.memoriesEnabled;
+    if (this.#conversation?.memoriesToggled != null) {
+      this.#memoriesToggled = this.#conversation.memoriesToggled;
     }
     await this.#syncMemoriesButtonUI();
   }
@@ -469,7 +462,7 @@ export class AIWindow extends MozLitElement {
     this.#registerSwapDocShellsListener(win);
 
     // needed if a smart tab became classic and then becomes smart again via dragging
-    this.#updateSmartbarVisibility();
+    this.#updateSmartbarAndHeaderVisibility();
 
     const browser = window.browsingContext.embedderElement;
     const isAIWindowActive = lazy.AIWindow.isAIWindowActive(win);
@@ -522,7 +515,7 @@ export class AIWindow extends MozLitElement {
     this.#windowModeObserver = (subject, topic) => {
       if (topic === "ai-window-state-changed") {
         if (subject == window.browsingContext?.topChromeWindow) {
-          this.#updateSmartbarVisibility();
+          this.#updateSmartbarAndHeaderVisibility();
         }
       }
     };
@@ -533,7 +526,11 @@ export class AIWindow extends MozLitElement {
     );
   }
 
-  #updateSmartbarVisibility() {
+  #updateSmartbarAndHeaderVisibility() {
+    const chatHeader =
+      this.renderRoot.querySelector(".fullpage-header") ||
+      this.renderRoot.querySelector(".sidebar-header");
+
     if (!this.#smartbar || !this.#smartbarToggleButton) {
       return;
     }
@@ -545,6 +542,9 @@ export class AIWindow extends MozLitElement {
     this.#smartbar.hidden = !isSmartWindow;
     this.#smartbarToggleButton.hidden = isSmartWindow;
     this.toggleAttribute("classic-mode", !isSmartWindow);
+    if (chatHeader) {
+      chatHeader.hidden = !isSmartWindow;
+    }
   }
 
   disconnectedCallback() {
@@ -873,7 +873,7 @@ export class AIWindow extends MozLitElement {
       this.renderRoot.querySelector("#smartbar-slot").append(toggleButton);
     }
     this.#smartbarToggleButton = toggleButton;
-    this.#updateSmartbarVisibility();
+    this.#updateSmartbarAndHeaderVisibility();
   }
 
   #setupSmartbarFocus(smartbar) {
@@ -1113,8 +1113,19 @@ export class AIWindow extends MozLitElement {
     );
 
     this.#memoriesToggled = event.detail.pressed;
+    this.#saveMemoriesToggleToConversation(event.detail.pressed);
     this.#syncMemoriesButtonUI();
   };
+
+  #saveMemoriesToggleToConversation(pressed) {
+    // Only save to database if conversation has messages to avoid constraint violation
+    if (!this.#conversation || this.#conversation.messageCount === 0) {
+      return;
+    }
+
+    this.#conversation.memoriesToggled = pressed;
+    this.#updateConversation();
+  }
 
   /**
    * Handles the prompt selection event from smartwindow-prompts.
@@ -1640,6 +1651,7 @@ export class AIWindow extends MozLitElement {
     this.#removeConversationListeners();
     this.#conversation = conversation;
     this.#attachConversationListeners();
+    this.syncSmartbarMemoriesStateFromConversation();
   }
 
   /**
@@ -1666,8 +1678,6 @@ export class AIWindow extends MozLitElement {
       if (this.#smartbar && this.mode === MODE.SIDEBAR) {
         this.#smartbar.updateContextChips();
       }
-
-      this.syncSmartbarMemoriesStateFromConversation();
 
       // This assumes "openConversation" opens an active conversation, possible todo to see
       // if convo has messages before hiding the footer element.
@@ -1931,7 +1941,7 @@ export class AIWindow extends MozLitElement {
       <!-- TODO (Bug 2008938): Make in-page Smartbar styling not dependent on chrome styles -->
       <link rel="stylesheet" href="chrome://browser/skin/smartbar.css" />
       ${this.mode === MODE.SIDEBAR
-        ? html`<div class="sidebar-header">
+        ? html`<div class="chat-header sidebar-header">
             <moz-button
               data-l10n-id="aiwindow-new-chat"
               data-l10n-attrs="tooltiptext,aria-label"
@@ -1945,7 +1955,7 @@ export class AIWindow extends MozLitElement {
       ${this.mode === MODE.FULLPAGE
         ? html`
             <smartwindow-heading></smartwindow-heading>
-            <div class="fullpage-header">
+            <div class="chat-header fullpage-header">
               <moz-button
                 data-l10n-id="aiwindow-new-chat"
                 data-l10n-attrs="tooltiptext,aria-label"

@@ -2099,14 +2099,12 @@ export class UrlbarView {
       return true;
     }
 
-    // Container switch-tab results have a more complex DOM content that is
-    // only updated correctly by another switch-tab result.
+    // TAB_SWITCH rows have tab-group chiclets and container icons that are not
+    // present in other result types, so reusing them has higher risk of leaving
+    // stale DOM.
     if (
       oldResult.type == lazy.UrlbarUtils.RESULT_TYPE.TAB_SWITCH &&
-      newResult.type != oldResult.type &&
-      lazy.UrlbarProviderOpenTabs.isContainerUserContextId(
-        oldResult.payload.userContextId
-      )
+      newResult.type != oldResult.type
     ) {
       return true;
     }

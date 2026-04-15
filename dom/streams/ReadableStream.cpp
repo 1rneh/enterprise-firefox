@@ -1544,4 +1544,13 @@ ReadableStream::GetReader(ErrorResult& aRv) {
   return AcquireReadableStreamDefaultReader(this, aRv);
 }
 
+// https://streams.spec.whatwg.org/#readablestream-cancel
+// To cancel a ReadableStream stream with reason, return !
+// ReadableStreamCancel(stream, reason). The return value will be a promise that
+// either fulfills with undefined, or rejects with a failure reason.
+already_AddRefed<Promise> ReadableStream::CancelNative(
+    JSContext* aCx, JS::Handle<JS::Value> aReason, ErrorResult& aRv) {
+  return ReadableStreamCancel(aCx, this, aReason, aRv);
+}
+
 }  // namespace mozilla::dom

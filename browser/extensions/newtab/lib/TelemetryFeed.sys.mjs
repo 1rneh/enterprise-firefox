@@ -53,8 +53,10 @@ const PREF_SHOW_SPONSORED_STORIES = "showSponsored";
 const PREF_SHOW_SPONSORED_TOPSITES = "showSponsoredTopSites";
 const BLANK_HOMEPAGE_URL = "chrome://browser/content/blanktab.html";
 const PREF_PRIVATE_PING_ENABLED = "telemetry.privatePing.enabled";
-const PREF_REDACT_NEWTAB_PING_NEABLED =
+const PREF_REDACT_NEWTAB_PING_ENABLED =
   "telemetry.privatePing.redactNewtabPing.enabled";
+const PREF_MERINO_FEED_EXPERIMENT =
+  "browser.newtabpage.activity-stream.discoverystream.merino-feed-experiment";
 const PREF_PRIVATE_PING_INFERRED_ENABLED =
   "telemetry.privatePing.inferredInterests.enabled";
 const PREF_NEWTAB_PING_ENABLED = "browser.newtabpage.ping.enabled";
@@ -199,7 +201,7 @@ export class TelemetryFeed {
   }
 
   get redactNewTabPingEnabled() {
-    return this._prefs.get(PREF_REDACT_NEWTAB_PING_NEABLED);
+    return this._prefs.get(PREF_REDACT_NEWTAB_PING_ENABLED);
   }
 
   get privatePingInferredInterestsEnabled() {
@@ -1455,8 +1457,14 @@ export class TelemetryFeed {
     // To prevent fingerprinting we only send one current experiment / branch
     const experimentMetadata =
       lazy.NimbusFeatures.pocketNewtab.getEnrollmentMetadata();
-    privateMetrics.experimentName = experimentMetadata?.slug ?? "";
-    privateMetrics.experimentBranch = experimentMetadata?.branch ?? "";
+    const isMerinoFeedExperiment = Services.prefs.getBoolPref(
+      PREF_MERINO_FEED_EXPERIMENT
+    );
+
+    privateMetrics.experimentName =
+      (isMerinoFeedExperiment && experimentMetadata?.slug) || "";
+    privateMetrics.experimentBranch =
+      (isMerinoFeedExperiment && experimentMetadata?.branch) || "";
     privateMetrics.pingVersion = CONTENT_PING_VERSION;
     this.newtabContentPing.scheduleSubmission(privateMetrics);
   }

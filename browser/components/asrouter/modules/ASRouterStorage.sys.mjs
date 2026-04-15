@@ -28,7 +28,13 @@ export class ASRouterStorage {
   }
 
   get db() {
-    return this._db || (this._db = this.createOrOpenDb());
+    if (!this._db) {
+      this._db = this.createOrOpenDb().catch(e => {
+        this._db = null;
+        throw e;
+      });
+    }
+    return this._db;
   }
 
   /**
@@ -111,7 +117,15 @@ export class ASRouterStorage {
       if (this.telemetry) {
         this.telemetry.handleUndesiredEvent({ event: "INDEXEDDB_OPEN_FAILED" });
       }
-      await lazy.IndexedDB.deleteDatabase(this.dbName);
+      try {
+        await lazy.IndexedDB.deleteDatabase(this.dbName);
+      } catch (deleteErr) {
+        if (this.telemetry) {
+          this.telemetry.handleUndesiredEvent({
+            event: "INDEXEDDB_DELETE_FAILED",
+          });
+        }
+      }
       return this._openDatabase();
     }
   }

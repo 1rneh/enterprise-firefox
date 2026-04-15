@@ -187,6 +187,17 @@ bool ResolveLocale(JSContext* cx, AvailableLocaleKind availableLocales,
                    JS::MutableHandle<ResolvedLocale> result);
 
 /**
+ * Return the default calendar of a locale.
+ */
+JSLinearString* DefaultCalendar(JSContext* cx, const JSLinearString* locale);
+
+/**
+ * Return the default numbering system of a locale.
+ */
+JSLinearString* DefaultNumberingSystem(JSContext* cx,
+                                       const JSLinearString* locale);
+
+/**
  * Return the supported locales in |locales| which are supported according to
  * |availableLocales|.
  */

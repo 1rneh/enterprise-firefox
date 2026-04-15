@@ -16656,15 +16656,6 @@ void CodeGenerator::visitObjectKeys(LObjectKeys* lir) {
   callVM<Fn, jit::ObjectKeys>(lir);
 }
 
-void CodeGenerator::visitObjectKeysLength(LObjectKeysLength* lir) {
-  Register object = ToRegister(lir->object());
-
-  pushArg(object);
-
-  using Fn = bool (*)(JSContext*, HandleObject, int32_t*);
-  callVM<Fn, jit::ObjectKeysLength>(lir);
-}
-
 void CodeGenerator::visitGetIteratorCache(LGetIteratorCache* lir) {
   LiveRegisterSet liveRegs = lir->safepoint()->liveRegs();
   TypedOrValueRegister val =

@@ -1228,7 +1228,7 @@ def gtest(
             append_env=gtest_env,
             cwd=cwd,
             ensure_exit_code=False,
-            line_handler=lambda line: format_gtest_line(line),
+            line_handler=format_gtest_line,
         )
         gtest_log.shutdown()
         return result

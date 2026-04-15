@@ -24,6 +24,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
  */
 class IPProtectionInfobarManagerClass {
   #initialized = false;
+  #lastThreshold = null;
+  #lastUsage = null;
+  #windowListener = null;
 
   get initialized() {
     return this.#initialized;
@@ -39,6 +42,28 @@ class IPProtectionInfobarManagerClass {
       "IPProtectionService:StateChanged",
       this
     );
+
+    this.#windowListener = {
+      onOpenWindow: xulWindow => {
+        const win = xulWindow.docShell.domWindow;
+        win.addEventListener(
+          "load",
+          () => {
+            if (
+              win.document.documentElement.getAttribute("windowtype") !==
+              "navigator:browser"
+            ) {
+              return;
+            }
+            if (this.#lastThreshold && this.#lastUsage) {
+              this.#showInfobar(this.#lastThreshold, this.#lastUsage, win);
+            }
+          },
+          { once: true }
+        );
+      },
+    };
+    Services.wm.addListener(this.#windowListener);
 
     this.#initialized = true;
   }
@@ -57,6 +82,11 @@ class IPProtectionInfobarManagerClass {
       this
     );
 
+    Services.wm.removeListener(this.#windowListener);
+    this.#windowListener = null;
+    this.#lastThreshold = null;
+    this.#lastUsage = null;
+
     this.#initialized = false;
   }
 
@@ -66,6 +96,8 @@ class IPProtectionInfobarManagerClass {
       lazy.IPProtectionService.state !== lazy.IPProtectionStates.READY
     ) {
       // Eg. hide warnings when signed out
+      this.#lastThreshold = null;
+      this.#lastUsage = null;
       this.#hideInfobar(75);
       this.#hideInfobar(90);
       return;
@@ -92,6 +124,8 @@ class IPProtectionInfobarManagerClass {
          75% usage */
       if (remainingPercent === 0 || remainingPercent > 0.25) {
         Services.prefs.setIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0);
+        this.#lastThreshold = null;
+        this.#lastUsage = null;
         this.#hideInfobar(75);
         this.#hideInfobar(90);
         return;
@@ -99,9 +133,13 @@ class IPProtectionInfobarManagerClass {
 
       // Show 90% warning when 10% or less bandwidth remains
       if (remainingPercent <= 0.1) {
+        this.#lastThreshold = 90;
+        this.#lastUsage = usage;
         this.#showInfobar(90, usage);
         // Show 75% warning when bandwidth remaining is between 10% and 25%
       } else if (remainingPercent > 0.1 && remainingPercent <= 0.25) {
+        this.#lastThreshold = 75;
+        this.#lastUsage = usage;
         this.#showInfobar(75, usage);
       }
     }
@@ -129,14 +167,19 @@ class IPProtectionInfobarManagerClass {
   }
 
   /**
-   * Display bandwidth warning infobar in the most recently used browser window.
+   * Display bandwidth warning infobar in the given browser window, or the
+   * most recently used browser window if none is provided.
    *
    * @param {number} threshold - The threshold level (75 or 90)
    * @param {object} usage - Usage object containing remaining bandwidth
+   * @param {Window} [win] - The browser window to show the infobar in
    */
-  #showInfobar(threshold, usage) {
+  #showInfobar(
+    threshold,
+    usage,
+    win = Services.wm.getMostRecentWindow("navigator:browser")
+  ) {
     const notificationId = `ip-protection-bandwidth-warning-${threshold}`;
-    const win = Services.wm.getMostRecentWindow("navigator:browser");
 
     if (!win || win.closed) {
       return;

@@ -71,15 +71,7 @@
     <menuitem id="context_bookmarkTab"
               data-lazy-l10n-id="tab-context-bookmark-tab"/>
     <menuitem id="context_addNote" hidden="true" data-lazy-l10n-id="tab-context-add-note" />
-    <menu id="context_updateNote"
-      hidden="true"
-      data-lazy-l10n-id="tab-context-update-note">
-      <menupopup id="tabUpdateOptionsMenu">
-        <menuitem id="context_editNote" data-lazy-l10n-id="tab-context-edit-note" />
-        <menuitem id="context_deleteNote" data-lazy-l10n-id="tab-context-delete-note" />
-      </menupopup>
-    </menu>
-
+    <menuitem id="context_editNote" hidden="true" data-lazy-l10n-id="tab-context-edit-note" />
     <menu id="context_moveTabOptions"
           data-lazy-l10n-id="tab-context-move-tabs"
           data-l10n-args='{"tabCount": 1}'>
@@ -404,6 +396,10 @@
     <menuseparator/>
     <menuitem data-l10n-id="sidebar-history-context-menu-bookmark-page"
               id="sidebar-history-context-bookmark-page"/>
+    <menuitem data-l10n-id="places-open-all-in-tabs"
+              id="sidebar-history-context-open-all-in-tabs"
+              class="sidebar-history-multiselect-command"/>
+    <menuseparator class="sidebar-history-multiselect-command"/>
     <menuitem data-l10n-id="sidebar-history-context-menu-delete-pages"
               id="sidebar-history-context-delete-pages"
               class="sidebar-history-multiselect-command"/>
@@ -588,7 +584,7 @@
   <menupopup id="contentAreaContextMenu"
 # read by macOS cocoa code to enable the "services" menu here:
              showservicesmenu="true">
-#include browser-context.inc
+#include browser-context.inc.xhtml
   </menupopup>
 
   <menupopup id="pictureInPictureToggleContextMenu">

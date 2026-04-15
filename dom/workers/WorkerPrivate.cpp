@@ -2289,32 +2289,6 @@ void WorkerPrivate::PropagateStorageAccessPermissionGranted() {
   (void)NS_WARN_IF(!runnable->Dispatch(this));
 }
 
-void WorkerPrivate::NotifyStorageKeyUsed() {
-  AssertIsOnWorkerThread();
-
-  // Only notify once per global.
-  if (hasNotifiedStorageKeyUsed) {
-    return;
-  }
-  hasNotifiedStorageKeyUsed = true;
-
-  // Notify about storage access on the main thread.
-  RefPtr<StrongWorkerRef> strongRef =
-      StrongWorkerRef::Create(this, "WorkerPrivate::NotifyStorageKeyUsed");
-  if (!strongRef) {
-    return;
-  }
-  RefPtr<ThreadSafeWorkerRef> ref = new ThreadSafeWorkerRef(strongRef);
-  DispatchToMainThread(NS_NewRunnableFunction(
-      "WorkerPrivate::NotifyStorageKeyUsed", [ref = std::move(ref)] {
-        nsGlobalWindowInner* window =
-            nsGlobalWindowInner::Cast(ref->Private()->GetAncestorWindow());
-        if (window) {
-          window->MaybeNotifyStorageKeyUsed();
-        }
-      }));
-}
-
 bool WorkerPrivate::Close() {
   mMutex.AssertCurrentThreadOwns();
   if (mParentStatus < Closing) {

@@ -25,8 +25,8 @@ dictionary SerialPortFilter {
 interface Serial : EventTarget {
   attribute EventHandler onconnect;
   attribute EventHandler ondisconnect;
-  [Throws] Promise<sequence<SerialPort>> getPorts();
-  [Exposed=Window, Throws] Promise<SerialPort> requestPort(optional SerialPortRequestOptions options = {});
+  [UseCounter, Throws] Promise<sequence<SerialPort>> getPorts();
+  [UseCounter, Exposed=Window, Throws] Promise<SerialPort> requestPort(optional SerialPortRequestOptions options = {});
 
   [Pref="dom.webserial.testing.enabled", Throws]
   Promise<undefined> simulateDeviceConnection(DOMString deviceId, DOMString devicePath,

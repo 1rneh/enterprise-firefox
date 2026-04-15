@@ -247,12 +247,13 @@ class Selection final : public nsSupportsWeakReference,
 
   nsresult PostScrollSelectionIntoViewEvent(SelectionRegion aRegion,
                                             ScrollFlags aFlags,
-                                            ScrollAxis aVertical,
-                                            ScrollAxis aHorizontal);
+                                            AxisScrollParams aVertical,
+                                            AxisScrollParams aHorizontal);
 
   MOZ_CAN_RUN_SCRIPT nsresult ScrollIntoView(
-      SelectionRegion, ScrollAxis aVertical = ScrollAxis(),
-      ScrollAxis aHorizontal = ScrollAxis(), ScrollFlags = ScrollFlags::None,
+      SelectionRegion, AxisScrollParams aVertical = AxisScrollParams(),
+      AxisScrollParams aHorizontal = AxisScrollParams(),
+      ScrollFlags = ScrollFlags::None,
       SelectionScrollMode = SelectionScrollMode::Async);
 
  private:
@@ -927,7 +928,8 @@ class Selection final : public nsSupportsWeakReference,
     MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_DECL_NSIRUNNABLE
 
     ScrollSelectionIntoViewEvent(Selection* aSelection, SelectionRegion aRegion,
-                                 ScrollAxis aVertical, ScrollAxis aHorizontal,
+                                 AxisScrollParams aVertical,
+                                 AxisScrollParams aHorizontal,
                                  ScrollFlags aFlags)
         : Runnable("dom::Selection::ScrollSelectionIntoViewEvent"),
           mSelection(aSelection),
@@ -942,8 +944,8 @@ class Selection final : public nsSupportsWeakReference,
    private:
     Selection* mSelection;
     SelectionRegion mRegion;
-    ScrollAxis mVerticalScroll;
-    ScrollAxis mHorizontalScroll;
+    AxisScrollParams mVerticalScroll;
+    AxisScrollParams mHorizontalScroll;
     ScrollFlags mFlags;
   };
 
@@ -1318,8 +1320,8 @@ inline std::ostream& operator<<(
 
 inline nsresult nsISelectionController::ScrollSelectionIntoView(
     mozilla::SelectionType aType, SelectionRegion aRegion,
-    const mozilla::ScrollAxis& aVertical = mozilla::ScrollAxis(),
-    const mozilla::ScrollAxis& aHorizontal = mozilla::ScrollAxis(),
+    const mozilla::AxisScrollParams& aVertical = mozilla::AxisScrollParams(),
+    const mozilla::AxisScrollParams& aHorizontal = mozilla::AxisScrollParams(),
     mozilla::ScrollFlags aScrollFlags = mozilla::ScrollFlags::None,
     mozilla::SelectionScrollMode aMode = mozilla::SelectionScrollMode::Async) {
   RefPtr selection = GetSelection(mozilla::RawSelectionType(aType));
@@ -1333,8 +1335,8 @@ inline nsresult nsISelectionController::ScrollSelectionIntoView(
 inline nsresult nsISelectionController::ScrollSelectionIntoView(
     mozilla::SelectionType aType, SelectionRegion aRegion,
     mozilla::SelectionScrollMode aMode) {
-  return ScrollSelectionIntoView(aType, aRegion, mozilla::ScrollAxis(),
-                                 mozilla::ScrollAxis(),
+  return ScrollSelectionIntoView(aType, aRegion, mozilla::AxisScrollParams(),
+                                 mozilla::AxisScrollParams(),
                                  mozilla::ScrollFlags::None, aMode);
 }
 

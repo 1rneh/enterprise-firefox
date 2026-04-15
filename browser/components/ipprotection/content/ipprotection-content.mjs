@@ -391,17 +391,18 @@ export default class IPProtectionContentElement extends MozLitElement {
       ? "site-exclusion-toggle-disabled-1"
       : "site-exclusion-toggle-enabled-1";
     return html` <div id="site-exclusion-control">
-      <moz-toggle
-        data-l10n-id=${siteExclusionToggleStateL10nId}
-        data-l10n-attrs="label"
-        id="site-exclusion-toggle"
-        iconsrc="chrome://browser/content/ipprotection/assets/shield-vpn-exceptions.svg"
-        inputlayout="inline-end"
-        ?pressed=${!hasExclusion}
-        @toggle=${this.handleToggleUseVPN}
-      >
-      </moz-toggle>
-    </div>`;
+        <moz-toggle
+          data-l10n-id=${siteExclusionToggleStateL10nId}
+          data-l10n-attrs="label"
+          id="site-exclusion-toggle"
+          iconsrc="chrome://browser/content/ipprotection/assets/shield-vpn-exceptions.svg"
+          inputlayout="inline-end"
+          ?pressed=${!hasExclusion}
+          @toggle=${this.handleToggleUseVPN}
+        >
+        </moz-toggle>
+      </div>
+      <hr role="separator" />`;
   }
 
   footerTemplate() {

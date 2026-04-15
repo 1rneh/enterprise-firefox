@@ -20,6 +20,7 @@ import {
   gNoConnectivity,
   retryThis,
   VPN_ACTIVE,
+  detectClockSkew,
 } from "chrome://global/content/aboutNetErrorHelpers.mjs";
 import { initializeRegistry } from "chrome://global/content/errors/error-registry.mjs";
 import {
@@ -371,6 +372,17 @@ export class NetErrorCard extends MozLitElement {
       offline: gOffline,
       filePath: getFilePath(),
     });
+
+    if (errorConfig.checkClockSkew && gIsCertError) {
+      const now = Date.now();
+      if (detectClockSkew(this.errorInfo, now)) {
+        this.showCustomNetErrorCard = true;
+        return getResolvedErrorConfig("CLOCK_SKEW_ERROR", {
+          hostname: this.hostname,
+          now,
+        });
+      }
+    }
 
     if (errorConfig.customNetError) {
       this.showCustomNetErrorCard = true;

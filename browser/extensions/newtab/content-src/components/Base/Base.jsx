@@ -24,6 +24,11 @@ import { WallpaperFeatureHighlight } from "../DiscoveryStreamComponents/FeatureH
 import { ActivationWindowMessage } from "../ActivationWindowMessage/ActivationWindowMessage";
 import { MessageWrapper } from "content-src/components/MessageWrapper/MessageWrapper";
 import { ExternalComponentWrapper } from "content-src/components/ExternalComponentWrapper/ExternalComponentWrapper";
+import {
+  ASROUTER_NEWTAB_MESSAGE_POSITIONS,
+  shouldShowOMCHighlight,
+  shouldShowASRouterNewTabMessage,
+} from "../../lib/asrouter-message-utils.mjs";
 
 const VISIBLE = "visible";
 const VISIBILITY_CHANGE_EVENT = "visibilitychange";
@@ -106,7 +111,6 @@ export class BaseContent extends React.PureComponent {
     this.closeCustomizationMenu = this.closeCustomizationMenu.bind(this);
     this.onWindowScroll = debounce(this.onWindowScroll.bind(this), 5);
     this.setPref = this.setPref.bind(this);
-    this.shouldShowOMCHighlight = this.shouldShowOMCHighlight.bind(this);
     this.updateWallpaper = this.updateWallpaper.bind(this);
     this.prefersDarkQuery = null;
     this.handleColorModeChange = this.handleColorModeChange.bind(this);
@@ -598,20 +602,14 @@ export class BaseContent extends React.PureComponent {
     );
   }
 
-  shouldShowOMCHighlight(componentId) {
-    const messageData = this.props.Messages?.messageData;
-    const isVisible = this.props.Messages?.isVisible;
-    if (!messageData || Object.keys(messageData).length === 0 || !isVisible) {
-      return false;
-    }
-    return messageData?.content?.messageType === componentId;
-  }
-
   toggleDownloadHighlight() {
     this.setState(prevState => {
       const override = !(
         prevState.showDownloadHighlightOverride ??
-        this.shouldShowOMCHighlight("DownloadMobilePromoHighlight")
+        shouldShowOMCHighlight(
+          this.props.Messages,
+          "DownloadMobilePromoHighlight"
+        )
       );
 
       if (override) {
@@ -865,7 +863,10 @@ export class BaseContent extends React.PureComponent {
     // Otherwise, defer to OMC message display logic
     const shouldShowDownloadHighlight =
       this.state.showDownloadHighlightOverride ??
-      this.shouldShowOMCHighlight("DownloadMobilePromoHighlight");
+      shouldShowOMCHighlight(
+        this.props.Messages,
+        "DownloadMobilePromoHighlight"
+      );
 
     // @nova-cleanup(remove-conditional): Remove this conditional and
     // always render the Nova layout below. The classic render() return
@@ -873,17 +874,23 @@ export class BaseContent extends React.PureComponent {
     //  mobileDownloadPromo*, etc.) will become dead code and should
     // be deleted — expect lint errors for unused vars.
     if (novaEnabled) {
-      // Bug 2016230
-      // If ONLY Search or ONLY Shortcuts or ONLY Search AND Shortcuts or NO features
-      // the logo should be centered instead of left-sidebar
-      const logoShouldBeCentered = false;
+      // Logo renders in .content (above search/topsites) when no Pocket content
+      // feed and no content-area widgets are present. When either is enabled,
+      // the sidebar provides a better visual anchor.
+      const hasContentWidgets =
+        (mayHaveListsWidget && enabledWidgets.listsEnabled) ||
+        (mayHaveTimerWidget && enabledWidgets.timerEnabled) ||
+        (mayHaveWeatherWidget &&
+          enabledWidgets.weatherEnabled &&
+          !showWeatherWidgetInSidebar);
+      const logoShouldBeCentered = !pocketEnabled && !hasContentWidgets;
 
       return (
         <div className="nova-outer-wrapper">
-          <div className="container nova-enabled">
+          <div
+            className={`container nova-enabled${logoShouldBeCentered ? " logo-in-content" : ""}`}
+          >
             <div className="sidebar-inline-start">
-              {/* Logo */}
-              {/* TODO: Bug 2016230 - Add display logic for when to hide / display */}
               {!logoShouldBeCentered && (
                 <ErrorBoundary>
                   <Logo />
@@ -892,9 +899,6 @@ export class BaseContent extends React.PureComponent {
               {/* Future: Page Nav  */}
             </div>
             <div className="content">
-              {/* Logo */}
-
-              {/* TODO: Bug 2016230 - Add display logic for when to hide / display */}
               {logoShouldBeCentered && (
                 <ErrorBoundary>
                   <Logo />
@@ -908,8 +912,12 @@ export class BaseContent extends React.PureComponent {
                 </ErrorBoundary>
               )}
 
-              {/* ASRouterNewTabMessage */}
-              {this.shouldShowOMCHighlight("ASRouterNewTabMessage") && (
+              {/* ASRouterNewTabMessage (ASROUTER_NEWTAB_MESSAGE_POSITIONS.ABOVE_TOPSITES) */}
+              {shouldShowASRouterNewTabMessage(
+                this.props.Messages,
+                "ASRouterNewTabMessage",
+                ASROUTER_NEWTAB_MESSAGE_POSITIONS.ABOVE_TOPSITES
+              ) && (
                 <ErrorBoundary>
                   <MessageWrapper dispatch={this.props.dispatch}>
                     <ExternalComponentWrapper
@@ -922,7 +930,10 @@ export class BaseContent extends React.PureComponent {
               )}
 
               {/* ActivationWindowMessage */}
-              {this.shouldShowOMCHighlight("ActivationWindowMessage") && (
+              {shouldShowOMCHighlight(
+                this.props.Messages,
+                "ActivationWindowMessage"
+              ) && (
                 <ErrorBoundary>
                   <MessageWrapper dispatch={this.props.dispatch}>
                     <ActivationWindowMessage
@@ -940,7 +951,43 @@ export class BaseContent extends React.PureComponent {
                   <TopSites />
                 </ErrorBoundary>
               )}
+
+              {/* ASRouterNewTabMessage (ASROUTER_NEWTAB_MESSAGE_POSITIONS.ABOVE_WIDGETS) */}
+              {shouldShowASRouterNewTabMessage(
+                this.props.Messages,
+                "ASRouterNewTabMessage",
+                ASROUTER_NEWTAB_MESSAGE_POSITIONS.ABOVE_WIDGETS
+              ) && (
+                <ErrorBoundary>
+                  <MessageWrapper dispatch={this.props.dispatch}>
+                    <ExternalComponentWrapper
+                      type="ASROUTER_NEWTAB_MESSAGE"
+                      messageData={this.props.Messages.messageData}
+                      className="asrouter-newtab-message-wrapper"
+                    />
+                  </MessageWrapper>
+                </ErrorBoundary>
+              )}
+
               {/* Widgets */}
+
+              {/* ASRouterNewTabMessage (ASROUTER_NEWTAB_MESSAGE_POSITIONS.ABOVE_CONTENT_FEED) */}
+              {shouldShowASRouterNewTabMessage(
+                this.props.Messages,
+                "ASRouterNewTabMessage",
+                ASROUTER_NEWTAB_MESSAGE_POSITIONS.ABOVE_CONTENT_FEED
+              ) && (
+                <ErrorBoundary>
+                  <MessageWrapper dispatch={this.props.dispatch}>
+                    <ExternalComponentWrapper
+                      type="ASROUTER_NEWTAB_MESSAGE"
+                      messageData={this.props.Messages.messageData}
+                      className="asrouter-newtab-message-wrapper"
+                    />
+                  </MessageWrapper>
+                </ErrorBoundary>
+              )}
+
               {/* Content Feed */}
               {isDiscoveryStream && (
                 <ErrorBoundary className="borderless-error">
@@ -1052,16 +1099,10 @@ export class BaseContent extends React.PureComponent {
             {/* Bug 1914055: Show logo regardless if search is enabled */}
             {!prefs.showSearch && !noSectionsEnabled && <Logo />}
             <div className={`body-wrapper${initialized ? " on" : ""}`}>
-              {this.shouldShowOMCHighlight("ASRouterNewTabMessage") && (
-                <MessageWrapper dispatch={this.props.dispatch}>
-                  <ExternalComponentWrapper
-                    type="ASROUTER_NEWTAB_MESSAGE"
-                    messageData={this.props.Messages.messageData}
-                    className="asrouter-newtab-message-wrapper"
-                  />
-                </MessageWrapper>
-              )}
-              {this.shouldShowOMCHighlight("ActivationWindowMessage") && (
+              {shouldShowOMCHighlight(
+                this.props.Messages,
+                "ActivationWindowMessage"
+              ) && (
                 <MessageWrapper dispatch={this.props.dispatch}>
                   <ActivationWindowMessage
                     dispatch={this.props.dispatch}
@@ -1069,6 +1110,23 @@ export class BaseContent extends React.PureComponent {
                   />
                 </MessageWrapper>
               )}
+
+              {shouldShowASRouterNewTabMessage(
+                this.props.Messages,
+                "ASRouterNewTabMessage",
+                ASROUTER_NEWTAB_MESSAGE_POSITIONS.ABOVE_TOPSITES
+              ) && (
+                <ErrorBoundary>
+                  <MessageWrapper dispatch={this.props.dispatch}>
+                    <ExternalComponentWrapper
+                      type="ASROUTER_NEWTAB_MESSAGE"
+                      messageData={this.props.Messages.messageData}
+                      className="asrouter-newtab-message-wrapper"
+                    />
+                  </MessageWrapper>
+                </ErrorBoundary>
+              )}
+
               {isDiscoveryStream ? (
                 <ErrorBoundary className="borderless-error">
                   <DiscoveryStreamBase
@@ -1121,7 +1179,10 @@ export class BaseContent extends React.PureComponent {
             toggleSectionsMgmtPanel={this.toggleSectionsMgmtPanel}
             showSectionsMgmtPanel={this.state.showSectionsMgmtPanel}
           />
-          {this.shouldShowOMCHighlight("CustomWallpaperHighlight") && (
+          {shouldShowOMCHighlight(
+            this.props.Messages,
+            "CustomWallpaperHighlight"
+          ) && (
             <MessageWrapper dispatch={this.props.dispatch}>
               <WallpaperFeatureHighlight
                 position="inset-block-start inset-inline-start"

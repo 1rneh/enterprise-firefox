@@ -3156,14 +3156,15 @@ nsresult PresShell::GoToAnchor(const nsAString& aAnchorName,
         MOZ_TRY(ScrollSelectionIntoView(
             SelectionType::eTargetText,
             nsISelectionController::SELECTION_ANCHOR_REGION,
-            ScrollAxis(WhereToScroll::Center, WhenToScroll::Always),
-            ScrollAxis(WhereToScroll::Center, WhenToScroll::Always),
+            AxisScrollParams(WhereToScroll::Center, WhenToScroll::Always),
+            AxisScrollParams(WhereToScroll::Center, WhenToScroll::Always),
             ScrollFlags::AnchorScrollFlags | aAdditionalScrollFlags,
             SelectionScrollMode::SyncFlush));
       } else {
         MOZ_TRY(ScrollContentIntoView(
-            target, ScrollAxis(WhereToScroll::Start, WhenToScroll::Always),
-            ScrollAxis(),
+            target,
+            AxisScrollParams(WhereToScroll::Start, WhenToScroll::Always),
+            AxisScrollParams(),
             ScrollFlags::AnchorScrollFlags | aAdditionalScrollFlags));
       }
       if (ScrollContainerFrame* rootScroll = GetRootScrollContainerFrame()) {
@@ -3292,15 +3293,16 @@ nsresult PresShell::ScrollToAnchor() {
       return NS_OK;
     }
     return ScrollContentIntoView(
-        lastAnchor, ScrollAxis(WhereToScroll::Start, WhenToScroll::Always),
-        ScrollAxis(), ScrollFlags::AnchorScrollFlags);
+        lastAnchor,
+        AxisScrollParams(WhereToScroll::Start, WhenToScroll::Always),
+        AxisScrollParams(), ScrollFlags::AnchorScrollFlags);
   }
 
   return ScrollSelectionIntoView(
       SelectionType::eTargetText,
       nsISelectionController::SELECTION_ANCHOR_REGION,
-      ScrollAxis(WhereToScroll::Center, WhenToScroll::Always),
-      ScrollAxis(WhereToScroll::Center, WhenToScroll::Always),
+      AxisScrollParams(WhereToScroll::Center, WhenToScroll::Always),
+      AxisScrollParams(WhereToScroll::Center, WhenToScroll::Always),
       ScrollFlags::AnchorScrollFlags, SelectionScrollMode::SyncFlush);
 }
 
@@ -3498,8 +3500,8 @@ static Maybe<nsPoint> ScrollToShowRect(
     ScrollContainerFrame* aScrollContainerFrame,
     const nsIFrame* aScrollableFrame, const nsIFrame* aTarget,
     const nsRect& aRect, const Sides aScrollPaddingSkipSides,
-    const nsMargin& aMargin, ScrollAxis aVertical, ScrollAxis aHorizontal,
-    ScrollFlags aScrollFlags) {
+    const nsMargin& aMargin, AxisScrollParams aVertical,
+    AxisScrollParams aHorizontal, ScrollFlags aScrollFlags) {
   nsPoint scrollPt = aScrollContainerFrame->GetVisualViewportOffset();
   const nsPoint originalScrollPt = scrollPt;
   const nsRect visibleRect(scrollPt,
@@ -3589,8 +3591,8 @@ static Maybe<nsPoint> ScrollToShowRect(
 }
 
 nsresult PresShell::ScrollContentIntoView(nsIContent* aContent,
-                                          ScrollAxis aVertical,
-                                          ScrollAxis aHorizontal,
+                                          AxisScrollParams aVertical,
+                                          AxisScrollParams aHorizontal,
                                           ScrollFlags aScrollFlags) {
   NS_ENSURE_TRUE(aContent, NS_ERROR_NULL_POINTER);
   RefPtr<Document> composedDoc = aContent->GetComposedDoc();
@@ -3750,8 +3752,8 @@ static bool NeedToVisuallyScroll(const nsSize& aLayoutViewportSize,
 
 void PresShell::ScrollFrameIntoVisualViewport(
     Maybe<nsPoint>& aDestination, const nsRect& aPositionFixedRect,
-    const nsIFrame* aPositionFixedFrame, ScrollAxis aVertical,
-    ScrollAxis aHorizontal, ScrollFlags aScrollFlags) {
+    const nsIFrame* aPositionFixedFrame, AxisScrollParams aVertical,
+    AxisScrollParams aHorizontal, ScrollFlags aScrollFlags) {
   PresShell* root = GetRootPresShell();
   if (!root) {
     return;
@@ -3842,7 +3844,8 @@ void PresShell::ScrollFrameIntoVisualViewport(
 
 bool PresShell::ScrollFrameIntoView(
     nsIFrame* aTargetFrame, const Maybe<nsRect>& aKnownRectRelativeToTarget,
-    ScrollAxis aVertical, ScrollAxis aHorizontal, ScrollFlags aScrollFlags) {
+    AxisScrollParams aVertical, AxisScrollParams aHorizontal,
+    ScrollFlags aScrollFlags) {
   // If the AxesAreLogical flag is set, the aVertical and aHorizontal params
   // actually refer to block and inline axes respectively, so we resolve them
   // to physical axes/directions here.
@@ -9946,8 +9949,10 @@ bool PresShell::EventHandler::PrepareToUseCaretPosition(
     rv = MOZ_KnownLive(mPresShell)
              ->ScrollContentIntoView(
                  content,
-                 ScrollAxis(WhereToScroll::Nearest, WhenToScroll::IfNotVisible),
-                 ScrollAxis(WhereToScroll::Nearest, WhenToScroll::IfNotVisible),
+                 AxisScrollParams(WhereToScroll::Nearest,
+                                  WhenToScroll::IfNotVisible),
+                 AxisScrollParams(WhereToScroll::Nearest,
+                                  WhenToScroll::IfNotVisible),
                  ScrollFlags::ScrollOverflowHidden);
     NS_ENSURE_SUCCESS(rv, false);
     frame = content->GetPrimaryFrame();
@@ -10008,7 +10013,8 @@ void PresShell::EventHandler::GetCurrentItemAndPositionForElement(
     LayoutDeviceIntPoint& aTargetPt, nsIWidget* aRootWidget) {
   nsCOMPtr<nsIContent> focusedContent = aFocusedElement;
   MOZ_KnownLive(mPresShell)
-      ->ScrollContentIntoView(focusedContent, ScrollAxis(), ScrollAxis(),
+      ->ScrollContentIntoView(focusedContent, AxisScrollParams(),
+                              AxisScrollParams(),
                               ScrollFlags::ScrollOverflowHidden);
 
   nsPresContext* presContext = GetPresContext();

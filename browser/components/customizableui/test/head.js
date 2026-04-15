@@ -253,16 +253,20 @@ function endCustomizing(aWindow = window) {
   return afterCustomizationPromise;
 }
 
-function startCustomizing(aWindow = window) {
+async function startCustomizing(aWindow = window) {
   if (aWindow.document.documentElement.hasAttribute("customizing")) {
-    return null;
+    return;
   }
   let customizationReadyPromise = BrowserTestUtils.waitForEvent(
     aWindow.gNavToolbox,
     "customizationready"
   );
   aWindow.gCustomizeMode.enter();
-  return customizationReadyPromise;
+  await customizationReadyPromise;
+
+  if (document.hasPendingL10nMutations) {
+    await BrowserTestUtils.waitForEvent(document, "L10nMutationsFinished");
+  }
 }
 
 function promiseObserverNotified(aTopic) {

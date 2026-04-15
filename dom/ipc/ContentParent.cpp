@@ -128,7 +128,6 @@
 #include "mozilla/dom/notification/NotificationUtils.h"
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/dom/power/PowerManagerService.h"
-#include "mozilla/dom/quota/QuotaCommon.h"
 #include "mozilla/dom/quota/QuotaManagerService.h"
 #include "mozilla/extensions/ExtensionsParent.h"
 #include "mozilla/extensions/StreamFilterParent.h"
@@ -188,7 +187,6 @@
 #include "nsDirectoryServiceDefs.h"
 #include "nsDocShell.h"
 #include "nsEmbedCID.h"
-#include "nsExceptionHandler.h"
 #include "nsFocusManager.h"
 #include "nsFrameLoader.h"
 #include "nsFrameMessageManager.h"
@@ -2280,21 +2278,21 @@ void ContentParent::StartForceKillTimer() {
   }
 }
 
-TestShellParent* ContentParent::CreateTestShell() {
+already_AddRefed<TestShellParent> ContentParent::CreateTestShell() {
   RefPtr<TestShellParent> actor = new TestShellParent();
   if (!SendPTestShellConstructor(actor)) {
     return nullptr;
   }
-  return actor;
+  return actor.forget();
 }
 
 bool ContentParent::DestroyTestShell(TestShellParent* aTestShell) {
   return PTestShellParent::Send__delete__(aTestShell);
 }
 
-TestShellParent* ContentParent::GetTestShellSingleton() {
+already_AddRefed<TestShellParent> ContentParent::GetTestShellSingleton() {
   PTestShellParent* p = LoneManagedOrNullAsserts(ManagedPTestShellParent());
-  return static_cast<TestShellParent*>(p);
+  return do_AddRef(static_cast<TestShellParent*>(p));
 }
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
@@ -5894,9 +5892,6 @@ mozilla::ipc::IPCResult ContentParent::RecvGetFilesRequest(
 
     for (const auto& directoryPath : aDirectoryPaths) {
       if (!fss->ContentProcessHasAccessTo(ChildID(), directoryPath)) {
-        CrashReporter::RecordAnnotationNSCString(
-            CrashReporter::Annotation::FileSystemAccessRequestPath,
-            quota::AnonymizedCString(NS_ConvertUTF16toUTF8(directoryPath)));
         return IPC_FAIL(this, "ContentProcessHasAccessTo failed.");
       }
     }

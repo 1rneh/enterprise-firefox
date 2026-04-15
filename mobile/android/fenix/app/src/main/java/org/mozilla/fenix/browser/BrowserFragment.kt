@@ -43,6 +43,7 @@ import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.ReaderMode
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.store.BrowserScreenAction.ReaderModeStatusUpdated
+import org.mozilla.fenix.components.LensFeature
 import org.mozilla.fenix.components.QrScanFenixFeature
 import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.components.VoiceSearchFeature
@@ -100,6 +101,12 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
     private val voiceSearchLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             voiceSearchFeature?.get()?.handleVoiceSearchResult(result.resultCode, result.data)
+        }
+    private var lensFeature: ViewBoundFeatureWrapper<LensFeature>? =
+        ViewBoundFeatureWrapper<LensFeature>()
+    private val lensLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            lensFeature?.get()?.handleImageResult(result.resultCode, result.data)
         }
 
     private val continuousOnboardingDefaultBrowserLauncher: ActivityResultLauncher<Intent> =
@@ -303,6 +310,7 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
         initReaderModeUpdates(rootView.context, rootView)
         qrScanFenixFeature = QrScanFenixFeature.register(this, qrScanLauncher)
         voiceSearchFeature = VoiceSearchFeature.register(this, voiceSearchLauncher)
+        lensFeature = LensFeature.register(this, lensLauncher)
     }
 
     private fun initSharePageAction(context: Context) {

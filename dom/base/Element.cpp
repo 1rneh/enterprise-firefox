@@ -917,8 +917,8 @@ void Element::ScrollIntoView(const ScrollIntoViewOptions& aOptions) {
   }
 
   presShell->ScrollContentIntoView(
-      this, ScrollAxis(block, WhenToScroll::Always),
-      ScrollAxis(inline_, WhenToScroll::Always), scrollFlags);
+      this, AxisScrollParams(block, WhenToScroll::Always),
+      AxisScrollParams(inline_, WhenToScroll::Always), scrollFlags);
 }
 
 void Element::ScrollTo(double aXScroll, double aYScroll) {
@@ -3432,6 +3432,7 @@ nsresult Element::LeaveLink(nsPresContext* aPresContext) {
   if (!shell) {
     return NS_OK;
   }
+  aPresContext->EventStateManager()->SetLinkOverFrame(nullptr);
   return nsDocShell::Cast(shell)->OnLeaveLink();
 }
 

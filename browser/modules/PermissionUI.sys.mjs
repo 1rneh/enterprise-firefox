@@ -1928,7 +1928,6 @@ class SerialPermissionPrompt extends SitePermsAddonInstallRequest {
         accessKey: lazy.gBrowserBundle.GetStringFromName(
           "serial.allow.accesskey"
         ),
-        action: Ci.nsIPermissionManager.ALLOW,
         callback: () => {
           // Get selected device index from menulist
           let document = this.browser.ownerDocument;
@@ -1951,7 +1950,6 @@ class SerialPermissionPrompt extends SitePermsAddonInstallRequest {
         accessKey: lazy.gBrowserBundle.GetStringFromName(
           "serial.block.accesskey"
         ),
-        action: Ci.nsIPermissionManager.DENY_ACTION,
         callback: () => {
           this.cancel();
         },

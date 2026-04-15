@@ -12949,6 +12949,10 @@ bool InitOptionParser(OptionParser& op) {
       !op.addBoolOption('\0', "trace-regexp-parser", "Trace regexp parsing") ||
       !op.addBoolOption('\0', "trace-regexp-assembler",
                         "Trace regexp assembler") ||
+      !op.addBoolOption('\0', "trace-regexp-compiler",
+                        "Trace regexp compiler") ||
+      !op.addBoolOption('\0', "trace-regexp-graph-building",
+                        "Trace regexp graph building") ||
       !op.addBoolOption('\0', "trace-regexp-interpreter",
                         "Trace regexp interpreter") ||
       !op.addBoolOption('\0', "trace-regexp-peephole",
@@ -14218,6 +14222,12 @@ bool SetContextJITOptions(JSContext* cx, const OptionParser& op) {
   }
   if (op.getBoolOption("trace-regexp-assembler")) {
     jit::JitOptions.trace_regexp_assembler = true;
+  }
+  if (op.getBoolOption("trace-regexp-compiler")) {
+    jit::JitOptions.trace_regexp_compiler = true;
+  }
+  if (op.getBoolOption("trace-regexp-graph-building")) {
+    jit::JitOptions.trace_regexp_graph_building = true;
   }
   if (op.getBoolOption("trace-regexp-interpreter")) {
     jit::JitOptions.trace_regexp_bytecodes = true;

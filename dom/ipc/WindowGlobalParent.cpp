@@ -10,7 +10,6 @@
 #include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/BounceTrackingProtection.h"
-#include "mozilla/BounceTrackingStorageObserver.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Components.h"
 #include "mozilla/ContentBlockingAllowList.h"
@@ -96,6 +95,20 @@ extern mozilla::LazyLogModule gSHIPBFCacheLog;
 extern mozilla::LazyLogModule gUseCountersLog;
 
 namespace mozilla::dom {
+
+/**
+ * Accumulated page use counter data for a given top-level content document.
+ */
+struct PageUseCounters {
+  // The number of page use counter data messages we are still waiting for.
+  uint32_t mWaiting = 0;
+
+  // Whether we have received any page use counter data.
+  bool mReceivedAny = false;
+
+  // The accumulated page use counters.
+  UseCounters mUseCounters;
+};
 
 WindowGlobalParent::WindowGlobalParent(
     CanonicalBrowsingContext* aBrowsingContext, uint64_t aInnerWindowId,
@@ -1132,20 +1145,6 @@ void WindowGlobalParent::DrawSnapshotInternal(gfx::CrossProcessPaint* aPaint,
       });
 }
 
-/**
- * Accumulated page use counter data for a given top-level content document.
- */
-struct PageUseCounters {
-  // The number of page use counter data messages we are still waiting for.
-  uint32_t mWaiting = 0;
-
-  // Whether we have received any page use counter data.
-  bool mReceivedAny = false;
-
-  // The accumulated page use counters.
-  UseCounters mUseCounters;
-};
-
 mozilla::ipc::IPCResult WindowGlobalParent::RecvExpectPageUseCounters(
     const MaybeDiscarded<WindowContext>& aTop) {
   if (aTop.IsNull()) {
@@ -1825,13 +1824,6 @@ IPCResult WindowGlobalParent::RecvSetCookies(
 
   return cs->SetCookies(aBaseDomain, aOriginAttributes, aHost, aIsThirdParty,
                         aCookies, GetBrowsingContext());
-}
-
-IPCResult WindowGlobalParent::RecvOnInitialStorageAccess() {
-  DebugOnly<nsresult> rv =
-      BounceTrackingStorageObserver::OnInitialStorageAccess(this);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Failed to notify storage access");
-  return IPC_OK();
 }
 
 IPCResult WindowGlobalParent::RecvRecordUserActivationForBTP() {

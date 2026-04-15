@@ -7114,6 +7114,10 @@ void nsContentUtils::TriggerLinkMouseOver(nsIContent* aContent,
   }
 
   docShell->OnOverLink(aContent, aLinkURI, aTargetSpec);
+
+  if (nsPresContext* pc = aContent->OwnerDoc()->GetPresContext()) {
+    pc->EventStateManager()->SetLinkOverFrame(aContent->GetPrimaryFrame());
+  }
 }
 
 /* static */

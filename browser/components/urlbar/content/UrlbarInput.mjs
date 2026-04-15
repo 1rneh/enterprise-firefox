@@ -1870,7 +1870,10 @@ ${
     // Record input history but only in non-private windows.
     if (!this.isPrivate) {
       let input;
-      if (!result.heuristic) {
+      if (
+        !result.heuristic &&
+        result.type != lazy.UrlbarUtils.RESULT_TYPE.SEARCH
+      ) {
         input = this._lastSearchString;
       } else if (
         result.autofill?.type == "adaptive_url" ||
@@ -2101,6 +2104,13 @@ ${
       this._autofillPlaceholder.value = this.value;
       this._autofillPlaceholder.selectionStart = this.value.length;
       this._autofillPlaceholder.selectionEnd = this.value.length;
+    }
+
+    // Reset backspace dismissal tracking when navigating to a non-autofill
+    // result. The placeholder may already be null if the user backspaced away
+    // the autofill text before arrowing down.
+    if (!result.autofill && this._autofillBackspaceState) {
+      this._autofillBackspaceState = null;
     }
     return false;
   }
@@ -5277,7 +5287,12 @@ ${
       lazy.UrlbarPrefs.get("autoFillAdaptiveHistoryEnabled") &&
       event.inputType === "deleteContentBackward"
     ) {
-      if (!this._autofillBackspaceState && this._autofillPlaceholder) {
+      if (
+        !this._autofillBackspaceState &&
+        this._autofillPlaceholder &&
+        this._autofillPlaceholder.selectionStart <
+          this._autofillPlaceholder.selectionEnd
+      ) {
         this._autofillBackspaceState = {
           url: this._resultForCurrentValue?.payload?.url,
           count: 0,

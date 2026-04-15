@@ -177,11 +177,15 @@ class TranslationSettingsFragment : Fragment(), UserInteractionHandler, SystemIn
 
     override fun onBackPressed(): Boolean {
         return if (findNavController().previousBackStackEntry?.destination?.id == R.id.browserFragment) {
-            findNavController().navigate(
-                TranslationSettingsFragmentDirections.actionTranslationSettingsFragmentToTranslationsDialogFragment(
-                    translationsDialogAccessPoint = TranslationsDialogAccessPoint.TranslationsOptions,
-                ),
-            )
+            if (browserStore.state.translationEngine.isTranslationsEnabled) {
+                findNavController().navigate(
+                    TranslationSettingsFragmentDirections.actionTranslationSettingsFragmentToTranslationsDialogFragment(
+                        translationsDialogAccessPoint = TranslationsDialogAccessPoint.TranslationsOptions,
+                    ),
+                )
+            } else {
+                findNavController().popBackStack(R.id.browserFragment, false)
+            }
             true
         } else {
             false

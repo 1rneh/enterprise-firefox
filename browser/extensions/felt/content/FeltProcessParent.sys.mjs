@@ -44,6 +44,7 @@ export function queueURL(payload) {
   } else {
     // Queue at module level until ready
     gFeltPendingURLs.push(payload);
+    Services.cpmm.sendAsyncMessage("FeltParent:ForceFeltFocus", {});
   }
 }
 

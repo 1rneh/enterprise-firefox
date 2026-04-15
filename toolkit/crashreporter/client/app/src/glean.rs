@@ -309,6 +309,8 @@ mod test {
                 let path_result = InitOptions::construct_enterprise_console_endpoint();
                 assert!(path_result.is_err());
             });
+    }
+
     #[test]
     fn test_telemetry_enable_pref() {
         use crate::std::{

@@ -146,6 +146,8 @@ tasks:
             - http2
             - geckoview-fission-isolate-high-value
             - inc-origin-init
+        attributes:
+            code-review: true
         run-on-projects:
             by-variant:
                 conditioned_profile:

@@ -31,11 +31,11 @@ Bugzilla: Bug-<BUG_ID>
 * [ ] Added tests
 * [ ] Manual testing performed
 
-<!-- 
+<!--
 **Steps to verify changes:**
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 **Expected result:**
 -->

@@ -7,16 +7,15 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  createEnterpriseLogger:
+    "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   composeOSNames: "resource:///modules/enterprise/EnterpriseOSInfo.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return console.createInstance({
-    prefix: "ConsoleClient",
-    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
-  });
+  return lazy.createEnterpriseLogger("ConsoleClient");
 });
 
 /**
@@ -102,7 +101,7 @@ export const ConsoleClient = {
     try {
       consoleURI = Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
     } catch (e) {
-      console.error("Critial misconfiguration: Missing console URI.");
+      lazy.log.error("Critial misconfiguration: Missing console URI.");
       throw e;
     }
     return new URL(consoleURI);
@@ -123,9 +122,6 @@ export const ConsoleClient = {
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
-      FXACCOUNTS_OAUTH: "/api/fxa/oauth/v1",
-      FXACCOUNTS_PROFILE: "/api/fxa/profile/v1",
-      FXACCOUNTS_AUTH: "/api/fxa/api/v1",
     };
   },
 
@@ -715,7 +711,7 @@ export const ConsoleClient = {
           try {
             Services.felt.sendTokens();
           } catch (ex) {
-            console.error(
+            lazy.log.error(
               `ConsoleClient: Failed to send back tokens to felt on shutdown: ${ex}`
             );
           }

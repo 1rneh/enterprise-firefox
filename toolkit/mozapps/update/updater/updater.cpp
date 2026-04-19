@@ -3023,7 +3023,7 @@ static int PopulategMARStrings() {
                NS_T("%s/update-settings.ini"), gInstallDirPath);
   rv = ReadMARChannelIDsFromPath(updateSettingsPath, &gMARStrings);
 #  endif
-  return rv;
+  return rv == OK ? OK : UPDATE_SETTINGS_FILE_CHANNEL;
 }
 #endif  // MOZ_VERIFY_MAR_SIGNATURE
 

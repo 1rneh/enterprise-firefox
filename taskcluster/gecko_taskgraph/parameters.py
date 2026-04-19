@@ -125,13 +125,7 @@ def get_app_version(product_dir="browser"):
 
 
 def get_release_type(parameters):
-    if parameters["project"] != "enterprise-firefox":
-        return ""
-
-    if (
-        not parameters["base_repository"]
-        == "https://github.com/mozilla/enterprise-firefox"
-    ):
+    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
         return ""
 
     if parameters["head_ref"] == "refs/heads/enterprise-release":
@@ -156,7 +150,7 @@ def get_defaults(repo_root=None):
         "next_version": None,
         "optimize_strategies": None,
         "phabricator_diff": None,
-        "project": "mozilla-central",
+        "project": "enterprise-firefox",
         "release_enable_emefree": False,
         "release_enable_partner_repack": False,
         "release_enable_partner_attribution": False,

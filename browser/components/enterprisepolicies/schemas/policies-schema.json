@@ -73,6 +73,121 @@
       },
       "required": ["Host", "Port"]
     },
+    "AIChatbot": {
+      "type": "object",
+      "x-category": "Content settings",
+      "description": "Controls access to AI chat services. The built-in providers are Anthropic Claude, ChatGPT, Copilot, Google Gemini, HuggingChat, Le Chat Mistral, and a locally running AI chatbot. These can be enabled individually. For custom providers, add them to the 'Add' array. The 'Default' field specifies which provider is used by default.",
+      "examples": [
+        {
+          "Providers": {
+            "Builtin": {
+              "Anthropic Claude": true,
+              "ChatGPT": false,
+              "Copilot": false,
+              "Google Gemini": false,
+              "HuggingChat": true,
+              "Le Chat Mistral": true,
+              "localhost": true
+            },
+            "Default": "Anthropic Claude",
+            "Add": [
+              {
+                "url": "https://ai.example.com",
+                "name": "Example AI",
+                "id": "exampleai",
+                "iconUrl": "https://ai.example.com/icon.png",
+                "queryParam": "someparam"
+              }
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "Providers": {
+          "type": "object",
+          "properties": {
+            "Add": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "URL"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "iconUrl": {
+                    "type": "string"
+                  },
+                  "queryParam": {
+                    "type": "string"
+                  }
+                },
+                "required": ["url", "name", "id"]
+              }
+            },
+            "BuiltIn": {
+              "type": "object",
+              "properties": {
+                "Anthropic Claude": {
+                  "type": "boolean"
+                },
+                "ChatGPT": {
+                  "type": "boolean"
+                },
+                "Copilot": {
+                  "type": "boolean"
+                },
+                "Google Gemini": {
+                  "type": "boolean"
+                },
+                "HuggingChat": {
+                  "type": "boolean"
+                },
+                "Le Chat Mistral": {
+                  "type": "boolean"
+                },
+                "localhost": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "Default": {
+              "type": "string"
+            }
+          }
+        },
+        "Prompts": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "BuiltIn": {
+              "type": "object",
+              "properties": {
+                "Summarize": {
+                  "type": "boolean"
+                },
+                "Explain": {
+                  "type": "boolean"
+                },
+                "Quiz": {
+                  "type": "boolean"
+                },
+                "Proofread": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "AIControls": {
       "type": "object",
       "x-category": "Content settings",

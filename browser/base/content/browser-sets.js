@@ -10,7 +10,7 @@ document.addEventListener(
     document
       .getElementById("mainCommandSet")
       // eslint-disable-next-line complexity
-      .addEventListener("command", async event => {
+      .addEventListener("command", event => {
         switch (event.target.id) {
           case "cmd_newNavigator":
             OpenBrowserWindow();
@@ -191,7 +191,7 @@ document.addEventListener(
             gGestureSupport.rotateEnd();
             break;
           case "cmd_signoutEnterpriseUser":
-            await EnterpriseHandler.onSignOut(window);
+            EnterpriseHandler.onSignOut(window).catch(console.error);
             break;
           case "Browser:OpenLocation":
             openLocation(event);

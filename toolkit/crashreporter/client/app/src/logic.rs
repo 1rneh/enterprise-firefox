@@ -443,7 +443,7 @@ impl ReportCrash {
         // but with policy_auto_submit, the UI is intentionally not interactive until after the send completes,
         // so we won't need the logic thread to be unblocked.
         if self.config.policy_auto_submit {
-            logic_remote_queue.push(|s| { s.try_send(); });
+            logic_remote_queue.push_async(|s| { Box::pin(async move {s.try_send().await;}) });
         }
 
         // Spawn a separate thread to handle all interactions with `self`. This prevents blocking

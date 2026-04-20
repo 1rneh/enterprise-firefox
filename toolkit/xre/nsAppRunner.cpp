@@ -3147,11 +3147,11 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
     const char* xreProfileLocalPath = PR_GetEnv("XRE_PROFILE_LOCAL_PATH");
     auto savedLocalProfile = xreProfileLocalPath && *xreProfileLocalPath;
 
-    // When running as FELT UI use a hardcoded profile named "felt" and living
-    // in the OS' temporary directory. There are a few special cases where it is
-    // required to use a profile that is being given from different means:
-    //  - CLI argument "-profile ..."
-    //  - environment variables "XRE_PROFILE_PATH" / "XRE_PROFILE_LOCAL_PATH"
+    // When running as FELT UI use a hardcoded profile named "felt-XXX" with
+    // XXX being the update channel and living in the OS' temporary directory.
+    // There are a few special cases where it is required to use a profile that
+    // is being given from different means: - CLI argument "-profile ..." -
+    // environment variables "XRE_PROFILE_PATH" / "XRE_PROFILE_LOCAL_PATH"
     //
     // If either of those are present, the following code is skipped and profile
     // selection continues. This accounts for manually setting the profile,
@@ -3161,7 +3161,7 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
       nsCOMPtr<nsIFile> file;
       MOZ_TRY(GetSpecialSystemDirectory(OS_TemporaryDirectory,
                                         getter_AddRefs(file)));
-      MOZ_TRY(file->AppendNative("felt"_ns));
+      MOZ_TRY(file->AppendNative("felt-"_ns MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL)));
 
       bool exists = false;
       MOZ_TRY(file->Exists(&exists));

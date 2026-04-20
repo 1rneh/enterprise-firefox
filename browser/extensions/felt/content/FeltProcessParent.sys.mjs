@@ -544,18 +544,6 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
       }
 
-      /* Remove once we finished foxfooding */
-      if (!foundProfile) {
-        let legacyProfileName = lazy.FeltCommon.ENTERPRISE_PROFILE;
-        for (let profile of profileService.profiles) {
-          if (profile.name === legacyProfileName) {
-            foundProfile = profile;
-            lazy.log.warn("using legacy profile");
-            break;
-          }
-        }
-      }
-
       if (!foundProfile) {
         lazy.log.debug(`FeltExtension: creating new ${profileName} profile`);
         foundProfile = profileService.createProfile(null, profileName);

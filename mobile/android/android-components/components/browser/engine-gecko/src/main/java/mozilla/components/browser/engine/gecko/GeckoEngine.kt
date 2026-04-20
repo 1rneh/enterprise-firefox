@@ -1549,6 +1549,13 @@ class GeckoEngine(
                 field = value
             }
 
+        override var useContentBlockingDatabase: Boolean = false
+            set(value) {
+                runtime.settings.contentBlocking.contentBlockingDatabaseStatus = value
+                field = value
+            }
+            get() = runtime.settings.contentBlocking.contentBlockingDatabaseStatus
+
         override var remoteDebuggingEnabled: Boolean
             get() = runtime.settings.remoteDebuggingEnabled
             set(value) { runtime.settings.remoteDebuggingEnabled = value }
@@ -1956,6 +1963,7 @@ class GeckoEngine(
                 it.safeBrowsingRealTimeSimulationNegativeCacheEnabled
             this.safeBrowsingRealTimeSimulationNegativeCacheTTLSec =
                 it.safeBrowsingRealTimeSimulationNegativeCacheTTLSec
+            this.useContentBlockingDatabase = it.useContentBlockingDatabase
         }
     }
 

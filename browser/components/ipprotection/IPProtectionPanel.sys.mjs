@@ -24,8 +24,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPUsageHelper:
     "moz-src:///browser/components/ipprotection/IPPUsageHelper.sys.mjs",
-  UsageStates:
-    "moz-src:///browser/components/ipprotection/IPPUsageHelper.sys.mjs",
   IPProtectionService:
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtection:
@@ -49,6 +47,7 @@ import {
 } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
 const BANDWIDTH_THRESHOLD_PREF = "browser.ipProtection.bandwidthThreshold";
+const BANDWIDTH_RESET_DATE_PREF = "browser.ipProtection.bandwidthResetDate";
 const DEFAULT_EGRESS_LOCATION = { name: "United States", code: "us" };
 const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocationEnabled";
 const USER_OPENED_PREF = "browser.ipProtection.everOpenedPanel";
@@ -143,7 +142,6 @@ export class IPProtectionPanel {
   panel = null;
   initiatedUpgrade = false;
   #window = null;
-  #lastDismissedUsageState = "none";
   #panelView = null;
   // Bug 2020733: Adds a key listener at the panel level
   //  since moz-button (header button) traps key events in its shadow DOM.
@@ -722,14 +720,15 @@ export class IPProtectionPanel {
 
   #shouldShowBandwidthWarning() {
     const state = lazy.IPPUsageHelper.state;
-    if (
-      (state == "warning-75-percent" || state == "warning-90-percent") &&
-      state !== this.#lastDismissedUsageState
-    ) {
-      return true;
+    let threshold = 0;
+    if (state === "warning-75-percent") {
+      threshold = 75;
+    } else if (state === "warning-90-percent") {
+      threshold = 90;
+    } else {
+      return false;
     }
-
-    return false;
+    return lazy.IPPUsageHelper.getDismissedThresholds().panel < threshold;
   }
 
   #addProgressListener() {
@@ -922,7 +921,22 @@ export class IPProtectionPanel {
       lazy.IPPExceptionsManager.setExclusion(principal, true);
       Glean.ipprotection.exclusionToggled.record({ excluded: true });
     } else if (event.type == "IPProtection:DismissBandwidthWarning") {
-      this.#lastDismissedUsageState = lazy.IPPUsageHelper.state;
+      const state = lazy.IPPUsageHelper.state;
+      let threshold = 0;
+      if (state === "warning-75-percent") {
+        threshold = 75;
+      } else if (state === "warning-90-percent") {
+        threshold = 90;
+      }
+      if (threshold > 0) {
+        const current = lazy.IPPUsageHelper.getDismissedThresholds();
+        if (threshold > current.panel) {
+          lazy.IPPUsageHelper.setDismissedThresholds({
+            ...current,
+            panel: threshold,
+          });
+        }
+      }
       this.setState({ bandwidthWarning: false });
     } else if (event.type == "IPPProxyManager:UsageChanged") {
       const usage = event.detail.usage;
@@ -970,6 +984,17 @@ export class IPProtectionPanel {
         this.#measureBandwidthThreshold(threshold, lastRecordedThreshold);
       }
 
+      const resetDate = usage.reset.toString();
+      const lastResetDate = Services.prefs.getStringPref(
+        BANDWIDTH_RESET_DATE_PREF,
+        ""
+      );
+      Services.prefs.setStringPref(BANDWIDTH_RESET_DATE_PREF, resetDate);
+
+      if (threshold === 0 && lastResetDate && resetDate !== lastResetDate) {
+        this.#sendBandwidthResetTrigger();
+      }
+
       if (lazy.BANDWIDTH_USAGE_ENABLED) {
         this.setState({
           bandwidthUsage: {
@@ -980,11 +1005,18 @@ export class IPProtectionPanel {
         });
       }
     } else if (event.type == "IPPUsageHelper:StateChanged") {
-      if (lazy.IPPUsageHelper.state === lazy.UsageStates.NONE) {
-        this.#lastDismissedUsageState = lazy.UsageStates.NONE;
-      }
       this.setState({ bandwidthWarning: this.#shouldShowBandwidthWarning() });
     }
+  }
+
+  async #sendBandwidthResetTrigger() {
+    await lazy.ASRouter.waitForInitialized;
+    const win = Services.wm.getMostRecentBrowserWindow();
+    const browser = win?.gBrowser?.selectedBrowser;
+    await lazy.ASRouter.sendTriggerMessage({
+      browser,
+      id: "ipProtectionBandwidthReset",
+    });
   }
 
   #measureBandwidthThreshold(threshold, lastRecordedThreshold) {

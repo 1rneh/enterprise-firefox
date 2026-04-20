@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.174
- * pdfjsBuild = 9159afd63
+ * pdfjsVersion = 5.7.185
+ * pdfjsBuild = 302b4cb00
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -491,9 +491,6 @@ function stringToBytes(str) {
     bytes[i] = str.charCodeAt(i) & 0xff;
   }
   return bytes;
-}
-function string32(value) {
-  return String.fromCharCode(value >> 24 & 0xff, value >> 16 & 0xff, value >> 8 & 0xff, value & 0xff);
 }
 function objectSize(obj) {
   return Object.keys(obj).length;
@@ -13787,7 +13784,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "5.7.174",
+    apiVersion: "5.7.185",
     data,
     password,
     disableAutoFetch,
@@ -15399,8 +15396,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "5.7.174";
-const build = "9159afd63";
+const version = "5.7.185";
+const build = "302b4cb00";
 
 ;// ./src/display/editor/color_picker.js
 

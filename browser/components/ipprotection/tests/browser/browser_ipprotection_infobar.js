@@ -13,6 +13,21 @@ const { BANDWIDTH } = ChromeUtils.importESModule(
 const BANDWIDTH_WARNING_DISMISSED_PREF =
   "browser.ipProtection.bandwidthWarningDismissedThreshold";
 
+function getDismissedPref() {
+  const prefValue = Services.prefs.getStringPref(
+    BANDWIDTH_WARNING_DISMISSED_PREF,
+    ""
+  );
+  if (!prefValue) {
+    return { infobar: 0, panel: 0 };
+  }
+  try {
+    return JSON.parse(prefValue);
+  } catch {
+    return { infobar: 0, panel: 0 };
+  }
+}
+
 function dispatchUsageEvent(remainingPercent) {
   // Use realistic byte values: 50 GB max bandwidth
   const maxBytes = BigInt(BANDWIDTH.MAX_IN_GB) * BigInt(BANDWIDTH.BYTES_IN_GB);
@@ -360,7 +375,6 @@ add_task(
 );
 
 add_task(async function test_dismissed_75_stays_dismissed() {
-  Services.prefs.setIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0);
   IPProtectionInfobarManager.init();
 
   dispatchUsageEvent(0.2);
@@ -386,9 +400,9 @@ add_task(async function test_dismissed_75_stays_dismissed() {
   );
 
   Assert.equal(
-    Services.prefs.getIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0),
+    getDismissedPref().infobar,
     75,
-    "Dismissed pref is set to 75 after dismissal"
+    "Dismissed pref infobar is set to 75 after dismissal"
   );
 
   dispatchUsageEvent(0.2);
@@ -407,7 +421,6 @@ add_task(async function test_dismissed_75_stays_dismissed() {
 });
 
 add_task(async function test_dismissed_75_still_allows_90() {
-  Services.prefs.setIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0);
   IPProtectionInfobarManager.init();
 
   dispatchUsageEvent(0.2);
@@ -459,7 +472,6 @@ add_task(async function test_dismissed_75_still_allows_90() {
 });
 
 add_task(async function test_dismissed_90_stays_dismissed() {
-  Services.prefs.setIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0);
   IPProtectionInfobarManager.init();
 
   dispatchUsageEvent(0.05);
@@ -485,9 +497,9 @@ add_task(async function test_dismissed_90_stays_dismissed() {
   );
 
   Assert.equal(
-    Services.prefs.getIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0),
+    getDismissedPref().infobar,
     90,
-    "Dismissed pref is set to 90 after dismissal"
+    "Dismissed pref infobar is set to 90 after dismissal"
   );
 
   dispatchUsageEvent(0.05);
@@ -506,7 +518,6 @@ add_task(async function test_dismissed_90_stays_dismissed() {
 });
 
 add_task(async function test_bandwidth_reset_clears_dismissed_state() {
-  Services.prefs.setIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0);
   IPProtectionInfobarManager.init();
 
   dispatchUsageEvent(0.2);
@@ -532,18 +543,18 @@ add_task(async function test_bandwidth_reset_clears_dismissed_state() {
   );
 
   Assert.equal(
-    Services.prefs.getIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0),
+    getDismissedPref().infobar,
     75,
-    "Dismissed pref is 75 after dismissal"
+    "Dismissed pref infobar is 75 after dismissal"
   );
 
   dispatchUsageEvent(1);
   await TestUtils.waitForTick();
 
   Assert.equal(
-    Services.prefs.getIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0),
+    getDismissedPref().infobar,
     0,
-    "Dismissed pref is reset to 0 after bandwidth resets"
+    "Dismissed pref infobar is reset to 0 after bandwidth resets"
   );
 
   dispatchUsageEvent(0.2);
@@ -573,7 +584,6 @@ add_task(async function test_bandwidth_reset_clears_dismissed_state() {
 });
 
 add_task(async function test_dismissed_state_persists_through_sign_out() {
-  Services.prefs.setIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0);
   setupService({ isSignedIn: true, isEnrolledAndEntitled: true });
   IPProtectionService.updateState();
 
@@ -619,9 +629,9 @@ add_task(async function test_dismissed_state_persists_through_sign_out() {
     "75% notification stays dismissed after sign out and back in"
   );
   Assert.equal(
-    Services.prefs.getIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0),
+    getDismissedPref().infobar,
     75,
-    "Dismissed pref persists through sign out"
+    "Dismissed pref infobar persists through sign out"
   );
 
   Services.prefs.clearUserPref(BANDWIDTH_WARNING_DISMISSED_PREF);

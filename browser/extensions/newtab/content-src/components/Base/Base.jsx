@@ -890,15 +890,25 @@ export class BaseContent extends React.PureComponent {
           <div
             className={`container nova-enabled${logoShouldBeCentered ? " logo-in-content" : ""}`}
           >
-            <div className="sidebar-inline-start">
+            <aside className="sidebar-inline-start">
               {!logoShouldBeCentered && (
                 <ErrorBoundary>
                   <Logo />
                 </ErrorBoundary>
               )}
               {/* Future: Page Nav  */}
-            </div>
-            <div className="content">
+            </aside>
+            {/* Bug 2021460 - Placed before <main> in DOM order so small widgets
+            are tab-focused before the main content feed. */}
+            <aside className="sidebar-inline-end">
+              {/* Small Widgets - Weather */}
+              {showWeatherWidgetInSidebar && (
+                <ErrorBoundary>
+                  <WeatherWidget dispatch={props.dispatch} size="small" />
+                </ErrorBoundary>
+              )}
+            </aside>
+            <main className="content">
               {logoShouldBeCentered && (
                 <ErrorBoundary>
                   <Logo />
@@ -997,15 +1007,7 @@ export class BaseContent extends React.PureComponent {
                   />
                 </ErrorBoundary>
               )}
-            </div>
-            <div className="sidebar-inline-end">
-              {/* Mini Widgets - Weather */}
-              {showWeatherWidgetInSidebar && (
-                <ErrorBoundary>
-                  <WeatherWidget dispatch={props.dispatch} size="small" />
-                </ErrorBoundary>
-              )}
-            </div>
+            </main>
           </div>
           <ConfirmDialog />
           <menu className="personalizeButtonWrapper">

@@ -194,6 +194,11 @@ export const FEATURE_MAJOR_VERSIONS = Object.freeze({
  */
 
 /**
+ * @typedef {object} RemoteSettingsClient
+ * @property {() => Promise<object[]>} get - Function to get records from remote settings
+ */
+
+/**
  * Parses a version string in the format "{major}.{minor}".
  *
  * @param {string} versionString - Version string to parse (e.g., "1.2")
@@ -553,13 +558,21 @@ export class openAIEngine {
       majorVersion
     );
 
-    const hasCustomEndpoint = Services.prefs.prefHasUserValue(ENDPOINT_PREF);
-    if (hasCustomEndpoint) {
+    if (openAIEngine.hasCustomEndpoint()) {
       if (feature === MODEL_FEATURES.CHAT) {
         this._loadGenericChatPrompt(featureConfigs, majorVersion);
       }
       this._applyCustomEndpointModel();
     }
+  }
+
+  /**
+   * Checks whether a custom endpoint is configured via pref.
+   *
+   * @returns {boolean} True if the endpoint pref has a user-set value.
+   */
+  static hasCustomEndpoint() {
+    return Services.prefs.prefHasUserValue(ENDPOINT_PREF);
   }
 
   /**
@@ -619,19 +632,18 @@ export class openAIEngine {
    *
    * @param {string} feature
    *   The feature name to use to retrieve remote settings for prompts.
-   * @param {string} engineId
-   *   The engine ID for MLEngine creation. Defaults to DEFAULT_ENGINE_ID.
    * @param {string | null} [flowId]
    *   Flow ID for correlating frontend and backend telemetry.
    * @returns {Promise<object>}
    *   Promise that will resolve to the configured engine instance.
    */
-  static async build(feature, engineId = DEFAULT_ENGINE_ID, flowId = null) {
+  static async build(feature, flowId = null) {
     const engine = new openAIEngine();
 
     await engine.loadConfig(feature);
 
     const config = engine.getConfig(feature);
+    const engineId = `${DEFAULT_ENGINE_ID}-${feature}`;
     engine.#engineId = engineId;
     engine.#serviceType =
       config?.service_type ?? getDefaultServiceType(feature);
@@ -705,9 +717,9 @@ export class openAIEngine {
 
     try {
       const engineInstance = await openAIEngine._createEngine({
-        apiKey: Services.prefs.getStringPref(APIKEY_PREF, ""),
+        apiKey: this.hasCustomEndpoint() ? this.apiKey : "",
         backend: "openai",
-        baseURL: Services.prefs.getStringPref(ENDPOINT_PREF, ""),
+        baseURL: this.endpoint,
         engineId,
         featureId,
         flowId,
@@ -746,7 +758,9 @@ export class openAIEngine {
     try {
       return await this.engineInstance.run(content);
     } catch (ex) {
-      if (!this._is401Error(ex)) {
+      // Skip the token retry flow when using a custom endpoint,
+      // as the retry logic only applies to FxAccounts tokens.
+      if (!this._is401Error(ex) || openAIEngine.hasCustomEndpoint()) {
         throw ex;
       }
 
@@ -829,13 +843,21 @@ export class openAIEngine {
    * @yields {object}                   LLM streaming response chunks
    */
   async *_runWithGeneratorAuth(options) {
+    // Extract signal before passing options to engineInstance — AbortSignal
+    // cannot be cloned via postMessage (structured clone algorithm).
+    const { signal, ...engineOptions } = options;
     try {
-      const generator = this.engineInstance.runWithGenerator(options);
+      const generator = this.engineInstance.runWithGenerator(engineOptions);
       for await (const chunk of generator) {
+        if (signal?.aborted) {
+          return;
+        }
         yield chunk;
       }
     } catch (ex) {
-      if (!this._is401Error(ex)) {
+      // Skip the token retry flow when using a custom endpoint,
+      // as the retry logic only applies to FxAccounts tokens.
+      if (!this._is401Error(ex) || openAIEngine.hasCustomEndpoint()) {
         throw ex;
       }
 
@@ -852,11 +874,14 @@ export class openAIEngine {
       await this._recreateEngine();
 
       const newToken = await openAIEngine.getFxAccountToken();
-      const updatedOptions = { ...options, fxAccountToken: newToken };
+      const updatedOptions = { ...engineOptions, fxAccountToken: newToken };
 
       try {
         const generator = this.engineInstance.runWithGenerator(updatedOptions);
         for await (const chunk of generator) {
+          if (signal?.aborted) {
+            return;
+          }
           yield chunk;
         }
       } catch (retryEx) {
@@ -886,6 +911,64 @@ export class openAIEngine {
    */
   runWithGenerator(options) {
     return this._runWithGeneratorAuth(options);
+  }
+}
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  openAIEngine,
+  "endpoint",
+  ENDPOINT_PREF,
+  ""
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(openAIEngine, "apiKey", APIKEY_PREF, "");
+
+/**
+ * Resolves chat model metadata for a given choice ID from Remote Settings.
+ *
+ * @param {string} choiceId - Model choice ID (e.g., "1", "2", "3")
+ * @param {number} [maxMajorVersion] - Maximum major version to include
+ * @returns {Promise<{model: string, ownerName: string}|null>}
+ *   Returns null if choice ID not found in Remote Settings
+ */
+export async function resolveChatModelChoice(
+  choiceId,
+  maxMajorVersion = FEATURE_MAJOR_VERSIONS[MODEL_FEATURES.CHAT]
+) {
+  if (choiceId === "0") {
+    // Custom model - no RS lookup needed
+    return {
+      model: "custom-model",
+      ownerName: "",
+    };
+  }
+
+  try {
+    const client = openAIEngine.getRemoteClient();
+    const allRecords = await client.get();
+
+    const record = selectMainConfig(
+      allRecords.filter(r => r.feature === MODEL_FEATURES.CHAT),
+      {
+        majorVersion: maxMajorVersion,
+        feature: MODEL_FEATURES.CHAT,
+        modelChoiceId: choiceId,
+      }
+    );
+    if (!record) {
+      return null;
+    }
+
+    return {
+      model: record.model,
+      ownerName: record.owner_name ?? "",
+    };
+  } catch (error) {
+    console.warn(
+      "Failed to resolve chat model choice from Remote Settings:",
+      error
+    );
+    return null;
   }
 }
 

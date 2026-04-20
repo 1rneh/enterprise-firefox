@@ -319,8 +319,8 @@ fun TopSiteItem(
                     ) {
                         Image(
                             modifier = Modifier.size(12.dp),
-                            painter = painterResource(id = iconsR.drawable.mozac_ic_pin_fill_24),
-                            colorFilter = ColorFilter.tint(PhotonColors.DarkGrey90),
+                            painter = painterResource(id = iconsR.drawable.mozac_ic_pin_8),
+                            colorFilter = ColorFilter.tint(PhotonColors.LightGrey80),
                             contentDescription = null,
                         )
                     }
@@ -343,6 +343,7 @@ fun TopSiteItem(
                         .testTag(TopSitesTestTag.TOP_SITE_TITLE),
                     text = topSite.title ?: topSite.url,
                     color = topSiteColors.titleTextColor,
+                    textAlign = TextAlign.Center,
                     overflow = TextOverflow.Ellipsis,
                     maxLines = topSite.getMaxLinesForTitle(),
                     style = FirefoxTheme.typography.caption.copy(fontWeight = FontWeight.W700),

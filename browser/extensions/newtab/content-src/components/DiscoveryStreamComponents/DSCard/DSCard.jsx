@@ -637,7 +637,6 @@ export class _DSCard extends React.PureComponent {
       : ``;
     const sectionsCardsClassName = [
       mayHaveSectionsCards ? `sections-card-ui` : ``,
-      novaEnabled ? `nova-card-ui` : ``,
       this.props.sectionsClassNames,
     ]
       .filter(Boolean)

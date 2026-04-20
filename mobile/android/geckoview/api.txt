@@ -629,6 +629,7 @@ package org.mozilla.geckoview {
     method public boolean getAllowListConvenienceTrackingProtection();
     method public int getAntiTrackingCategories();
     method public int getBounceTrackingProtectionMode();
+    method public boolean getContentBlockingDatabaseStatus();
     method public boolean getCookieBannerDetectOnlyMode();
     method public boolean getCookieBannerGlobalRulesEnabled();
     method public boolean getCookieBannerGlobalRulesSubFramesEnabled();
@@ -661,6 +662,7 @@ package org.mozilla.geckoview {
     method @NonNull public ContentBlocking.Settings setAllowListConvenienceTrackingProtection(boolean);
     method @NonNull public ContentBlocking.Settings setAntiTracking(int);
     method @NonNull public ContentBlocking.Settings setBounceTrackingProtectionMode(int);
+    method @NonNull public ContentBlocking.Settings setContentBlockingDatabaseStatus(boolean);
     method @NonNull public ContentBlocking.Settings setCookieBannerDetectOnlyMode(boolean);
     method @NonNull public ContentBlocking.Settings setCookieBannerGlobalRulesEnabled(boolean);
     method @NonNull public ContentBlocking.Settings setCookieBannerGlobalRulesSubFramesEnabled(boolean);
@@ -698,6 +700,7 @@ package org.mozilla.geckoview {
     method @NonNull public ContentBlocking.Settings.Builder allowListConvenienceTrackingProtection(boolean);
     method @NonNull public ContentBlocking.Settings.Builder antiTracking(int);
     method @NonNull public ContentBlocking.Settings.Builder bounceTrackingProtectionMode(int);
+    method @NonNull public ContentBlocking.Settings.Builder contentBlockingDatabase(boolean);
     method @NonNull public ContentBlocking.Settings.Builder cookieBannerGlobalRulesEnabled(boolean);
     method @NonNull public ContentBlocking.Settings.Builder cookieBannerGlobalRulesSubFramesEnabled(boolean);
     method @NonNull public ContentBlocking.Settings.Builder cookieBannerHandlingDetectOnlyMode(boolean);

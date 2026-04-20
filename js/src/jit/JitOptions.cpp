@@ -403,8 +403,7 @@ DefaultJitOptions::DefaultJitOptions() {
   // V8 uses this for differential fuzzing to handle stack overflows.
   // We address the same problem in StackLimitCheck::HasOverflowed.
   SET_DEFAULT(correctness_fuzzer_suppressions, false);
-  // Instead of using a flag for this, we provide an implementation of
-  // CanReadUnaligned in SMRegExpMacroAssembler.
+  // This is set in InitializeJit based on supportsUnalignedAccesses.
   SET_DEFAULT(enable_regexp_unaligned_accesses, false);
   // This is used to guard an old prototype implementation of possessive
   // quantifiers, which never got past the point of adding parser support.

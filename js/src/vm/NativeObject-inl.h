@@ -225,13 +225,14 @@ inline bool NativeObject::initDenseElementsFromRange(JSContext* cx, Iter begin,
 
   HeapSlot* sp = elements_;
   size_t slot = 0;
-  for (; begin != end; sp++, begin++) {
+  for (; begin != end; sp++, begin++, slot++) {
     Value v = *begin;
 #ifdef DEBUG
     checkStoredValue(v);
 #endif
-    sp->init(this, HeapSlot::Element, slot++, v);
+    sp->unbarrieredInit(v);
   }
+  elementsRangePostWriteBarrier(0, count);
   MOZ_ASSERT(slot == count);
 
   getElementsHeader()->initializedLength = count;

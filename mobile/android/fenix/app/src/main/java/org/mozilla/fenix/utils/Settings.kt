@@ -1141,6 +1141,11 @@ class Settings(
         default = true,
     )
 
+    var shouldUseTrackingProtectionDatabase by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_tracking_protection_database_status),
+        default = false,
+    )
+
     var shouldEnableGlobalPrivacyControl by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_privacy_enable_global_privacy_control),
         false,
@@ -2115,6 +2120,11 @@ class Settings(
         default = true,
     )
 
+    var isSwipeToolbarToShowTabsEnabled by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_swipe_toolbar_show_tabs),
+        default = true,
+    )
+
     /**
      * Address Sync feature.
      */
@@ -2558,6 +2568,14 @@ class Settings(
     var enableHomepageSportsWidget by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_homepage_sports_widget),
         default = { FxNimbus.features.homepageSportsWidget.value().enabled },
+    )
+
+    /**
+     * The set of ISO codes of the user's selected countries to follow for the sports widget.
+     */
+    var sportsSelectedCountries by stringSetPreference(
+        appContext.getPreferenceKey(R.string.pref_key_sports_selected_countries),
+        default = setOf(),
     )
 
     /**

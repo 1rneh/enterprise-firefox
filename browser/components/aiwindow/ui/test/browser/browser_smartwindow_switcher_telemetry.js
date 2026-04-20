@@ -159,6 +159,22 @@ describe("SmartWindowSwitcherTelemetry", () => {
     });
   });
 
+  describe("classic_switch event", () => {
+    it("records classic_switch when switching back to classic window", async () => {
+      win = await openAIWindow();
+
+      AIWindow.toggleAIWindow(win, false);
+
+      await TestUtils.waitForCondition(
+        () => Glean.smartWindow.classicSwitch.testGetValue()?.length > 0,
+        "Wait for classic_switch event"
+      );
+
+      const events = Glean.smartWindow.classicSwitch.testGetValue();
+      Assert.equal(events?.length, 1, "One classic_switch event was recorded");
+    });
+  });
+
   describe("uri_load event", () => {
     beforeEach(() => {
       SmartWindowTelemetry.lastUriLoadTimestamp = 0;
@@ -222,7 +238,9 @@ describe("SmartWindowSwitcherTelemetry", () => {
         "Wait for aichat-browser to be created"
       );
 
-      await BrowserTestUtils.browserLoaded(aichatBrowser);
+      if (aichatBrowser.currentURI?.spec !== "about:aichatcontent") {
+        await BrowserTestUtils.browserLoaded(aichatBrowser);
+      }
 
       await SpecialPowers.spawn(aichatBrowser, [], async () => {
         content.windowGlobalChild

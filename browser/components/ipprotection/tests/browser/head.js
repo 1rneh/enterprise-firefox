@@ -371,6 +371,9 @@ add_setup(async function setupVPN() {
     Services.prefs.clearUserPref("browser.ipProtection.onboardingMessageMask");
     Services.prefs.clearUserPref("browser.ipProtection.egressLocationEnabled");
     Services.prefs.clearUserPref("browser.ipProtection.bandwidthThreshold");
+    Services.prefs.clearUserPref(
+      "browser.ipProtection.bandwidthWarningDismissedThreshold"
+    );
     Services.prefs.clearUserPref("browser.ipProtection.userEnabled");
   });
 });

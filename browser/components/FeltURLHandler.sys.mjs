@@ -14,6 +14,10 @@ ChromeUtils.defineLazyGetter(
     )
 );
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
+});
+
 export const FELT_OPEN_WINDOW_DISPOSITION = {
   DEFAULT: 0,
   NEW_WINDOW: 1,
@@ -23,7 +27,78 @@ export const FELT_OPEN_WINDOW_DISPOSITION = {
 // Queue for Felt external link handling
 // URL requests are stored here when they arrive via command line (before Felt extension loads)
 // FeltProcessParent imports this module and manages forwarding from this queue
-export let gFeltPendingURLs = [];
+export const gFeltPendingURLs = {
+  _pendingURLs: [],
+  _pendingFilePath: PathUtils.join(
+    Services.dirsvc.get("ProfD", Ci.nsIFile).path,
+    "pendingURLs.json"
+  ),
+  _ready: false,
+  _initPromise: null,
+
+  async init() {
+    if (this._ready) {
+      return;
+    }
+
+    if (this._initPromise) {
+      await this._initPromise;
+      return;
+    }
+
+    this._initPromise = (async () => {
+      if (this._ready) {
+        return;
+      }
+
+      const storage = new lazy.JSONFile({
+        path: this._pendingFilePath,
+      });
+
+      await storage.load();
+
+      if (storage.data?.pendingURLs) {
+        this._pendingURLs = storage.data.pendingURLs;
+      }
+
+      this._storage = storage;
+      this._ready = true;
+    })();
+    try {
+      await this._initPromise;
+    } finally {
+      this._initPromise = null;
+    }
+  },
+
+  [Symbol.iterator]() {
+    return this._pendingURLs[Symbol.iterator]();
+  },
+
+  async push(payload) {
+    await this.init();
+    const rv = this._pendingURLs.push(payload);
+    this._storage.data.pendingURLs = this._pendingURLs;
+    this._storage.saveSoon();
+    return rv;
+  },
+
+  get length() {
+    return this._pendingURLs.length;
+  },
+
+  clear() {
+    this._pendingURLs = [];
+    this._storage.data.pendingURLs = [];
+    this._storage.saveSoon();
+  },
+};
+
+if (Services.felt?.isFeltUI()) {
+  gFeltPendingURLs.init().catch(error => {
+    console.error(`Failed to initialize Felt pending URL storage: ${error}`);
+  });
+}
 
 let lastNotificationShown = 0;
 let gFeltFirefoxReadyNotified = false;
@@ -82,7 +157,9 @@ export function queueFeltURL(payload) {
       `Retrying to queue url ${payload.url} after initial failure:`,
       e
     );
-    gFeltPendingURLs.push(payload);
+    gFeltPendingURLs.push(payload).catch(err => {
+      console.error("Failed to persist pending Felt URL", err);
+    });
     Services.cpmm.sendAsyncMessage("FeltParent:ForceFeltFocus", {});
   }
 

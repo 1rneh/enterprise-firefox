@@ -346,6 +346,9 @@ def get_partner_config_by_url(manifest_url, kind, token, partner_subset=None):
 
 
 def check_if_partners_enabled(config, tasks):
+    if config.kind.startswith("enterprise-repack"):
+        yield from tasks
+
     if (
         (
             config.params["release_enable_partner_repack"]
@@ -486,6 +489,12 @@ def get_partner_url_config(parameters, graph_config):
         "partner attribution url",
         **substitutions,
     )
+    resolve_keyed_by(
+        partner_url_config,
+        "enterprise-repack",
+        "enterprise repacks manifest url",
+        **substitutions,
+    )
     return partner_url_config
 
 
@@ -610,3 +619,71 @@ def _pad_macos_attribution_code(attribution_string):
     while len(attribution_string) < 1010:
         attribution_string += "\t"
     return attribution_string
+
+
+ENTERPRISE_REPACKS = {
+    "moz": {
+        "stageGCP": {
+            "locales": ["en-US", "fr"],
+        },
+        "prodGCP": {
+            "locales": ["en-US", "fr"],
+        },
+    },
+    "hosted": {
+        "pilotStage": {
+            "locales": ["en-US", "fr"],
+        },
+        "pilotProd": {
+            "locales": ["en-US", "fr"],
+        },
+    },
+}
+
+
+def make_enterprise_repack(platforms):
+    repacks = deepcopy(ENTERPRISE_REPACKS)
+    for repack_repo in repacks.keys():
+        for repack_name in repacks[repack_repo]:
+            repacks[repack_repo][repack_name].update({"platforms": deepcopy(platforms)})
+    return repacks
+
+
+def get_release_partners(parameters):
+    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+        return []
+    return get_enterprise_partner_subset(parameters)
+
+
+def get_release_partner_config(parameters):
+    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+        return {}
+    return get_enterprise_partner_configs(parameters)
+
+
+def get_enterprise_partner_subset(parameters):
+    return list(ENTERPRISE_REPACKS.keys())
+
+
+def get_enterprise_partner_configs(parameters):
+    return {
+        "repackage-deb": make_enterprise_repack([
+            "linux64-enterprise-shippable",
+            "linux64-aarch64-enterprise-shippable",
+        ]),
+        "repackage-msi": make_enterprise_repack([
+            "win64-enterprise-shippable",
+        ]),
+        "enterprise-repack-repackage": make_enterprise_repack([
+            "linux64-enterprise-shippable",
+            "linux64-aarch64-enterprise-shippable",
+            "macosx64-enterprise-shippable",
+            "win64-enterprise-shippable",
+        ]),
+        "enterprise-repack-mac-signing": make_enterprise_repack([
+            "macosx64-enterprise-shippable",
+        ]),
+        "enterprise-repack-mac-notarization": make_enterprise_repack([
+            "macosx64-enterprise-shippable",
+        ]),
+    }

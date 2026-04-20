@@ -369,6 +369,21 @@ export var WinTaskbarJumpList = {
     if (this._blocked) {
       this._builder._deleteActiveJumpList();
     }
+
+    // In Felt mode, block jump list until Firefox is ready
+    if (Services.felt?.isFeltUI()) {
+      this._setupFeltBlocking();
+    }
+  },
+
+  _setupFeltBlocking: function WTBJL__setupFeltBlocking() {
+    const { isFeltFirefoxWindowReady, waitForFeltFirefoxWindowReady } =
+      ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
+    if (isFeltFirefoxWindowReady()) {
+      return;
+    }
+
+    this.blockJumpList(waitForFeltFirefoxWindowReady());
   },
 
   update: function WTBJL_update() {

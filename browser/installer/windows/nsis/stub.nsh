@@ -793,9 +793,13 @@ Function SendPing
     StrCpy $EndInstallPhaseTickCount "$EndFinishPhaseTickCount"
   ${EndIf}
 
+!if defined(STUB_DEBUG) | defined(DISABLE_INSTALLER_TELEMETRY)
+  ; Installer telemetry is disabled; skip sending the ping
+!else
   GetFunctionAddress $0 PrepareStubInstallPing
   Push $0
   Call SendTelemetryPing
+!endif
 
   ; The following will exit the installer
   SetAutoClose true

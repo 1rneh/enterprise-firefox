@@ -2,10 +2,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
-trust-domain: gecko
+trust-domain: enterprise
 project-repo-param-prefix: ''
 product-dir: 'browser'
 treeherder:
+    branch-map:
+        by-project:
+            enterprise-firefox-try:
+                default: enterprise-firefox-try
+            default:
+                enterprise-main: enterprise-main
+                enterprise-release: enterprise-release
     group-names:
         'js-bench-sm': 'JavaScript shell benchmarks with Spidermonkey'
         'js-bench-v8': 'JavaScript shell benchmarks with Google V8'
@@ -199,6 +206,15 @@ treeherder:
         'Attr-L10n': 'Build Attribution'
         'android-l10n': 'Import strings from android-l10n repo'
         'updt-tst': 'Test updates to release from older firefox versions'
+        'Rpk-Ent': 'Enterprise repacks'
+        'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
+        'Rpk': 'Classic repacks'
+        'MSI-Ent': "MSI Enterprise repacks"
+        'MSIs-Ent': "MSI signed Enterprise repacks"
+        'DEB-Ent': "Debian Enterprise repacks"
+        'BMS-Ent': "Mac signing for Enterprise repacks"
+        'BMN-Ent': "Mac notarization for Enterprise repacks"
+        'MnEnt': 'Marionette tests Enterprise'
 
         # The below symbols are from firefox-android (fenix/focus/android-components)
         'buildconfig': 'Make sure the content of .buildconfig.yml matches what gradle knows about its projects'
@@ -421,6 +437,7 @@ release-promotion:
         - 'fennec'
         - 'firefox'
         - 'firefox-android'
+        - 'firefox-enterprise'
     rebuild-kinds:
         - docker-image
         - fetch
@@ -484,7 +501,7 @@ release-promotion:
 
 scriptworker:
     # See additional configuration in taskcluster/gecko_taskgraph/util/scriptworker.py
-    scope-prefix: 'project:releng'
+    scope-prefix: 'project:enterprise:releng'
 
 partner-urls:
     release-partner-repack:
@@ -525,6 +542,13 @@ partner-urls:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/mozilla-EME-free-manifest.git'
                             staging: 'git@github.com:mozilla-partners/staging-mozilla-EME-free-manifest.git'
+    enterprise-repack:
+        by-release-product:
+            default: null
+            firefox-enterprise:
+                by-release-level:
+                    staging: 'git@github.com:mozilla-partners/staging-enterprise-manifests.git'
+                    production: 'git@github.com:mozilla-partners/enterprise-manifests.git'
 
 
 task-priority:
@@ -652,15 +676,15 @@ workers:
             provisioner: scriptworker-prov-v1
             implementation: iscript
             os: macosx
-            worker-type: dep-gecko-signing-mac14m2
+            worker-type: 'dep-{trust-domain}-signing-mac14m2'
         mac-signing:
             provisioner: scriptworker-prov-v1
             implementation: iscript
             os: macosx
             worker-type:
                 by-release-level:
-                    production: gecko-signing-mac14m2
-                    staging: dep-gecko-signing-mac14m2
+                    production: '{trust-domain}-signing-mac14m2'
+                    staging: 'dep-{trust-domain}-signing-mac14m2'
         push-apk:
             provisioner: scriptworker-k8s
             implementation: scriptworker-pushapk
@@ -809,20 +833,20 @@ workers:
             os: macosx
             worker-type:
                 by-level:
-                    '3': 'gecko-3-b-osx-arm64'
-                    default: 'gecko-1-b-osx-arm64'
+                    '3': '{trust-domain}-3-b-osx-arm64'
+                    default: '{trust-domain}-1-b-osx-arm64'
         win10-64-2009-hw:
             provisioner: releng-hardware
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
         win10-64-2009:
-            provisioner: 'gecko-t'
+            provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
         win10-64-2009(-gpu|-source):
-            provisioner: 'gecko-t'
+            provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
@@ -832,17 +856,17 @@ workers:
             os: windows
             worker-type: '{alias}'
         win11-64-24h2(|-gpu|-source|-large|-webgpu|-privileged):
-            provisioner: 'gecko-t'
+            provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
         win11-64-25h2(|-gpu|-source|-large|-webgpu|-privileged):
-            provisioner: 'gecko-t'
+            provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
         win11-a64-24h2:
-            provisioner: 'gecko-t'
+            provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
@@ -930,6 +954,7 @@ mac-signing:
                   entitlements:
                       by-build-platform:
                           .*devedition.*: public/build/security/firefoxdeveloperedition.browser.xml
+                          .*enterprise.*: public/build/security/firefoxenterprise.browser.xml
                           default:
                               by-project:
                                   mozilla-central: public/build/security/nightly.browser.xml

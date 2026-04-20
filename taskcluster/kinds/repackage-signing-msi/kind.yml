@@ -8,13 +8,11 @@ transforms:
     - taskgraph.transforms.from_deps
     - gecko_taskgraph.transforms.name_sanity
     - gecko_taskgraph.transforms.repackage_signing
+    - gecko_taskgraph.transforms.repackage_routes
     - gecko_taskgraph.transforms.task
 
 kind-dependencies:
     - repackage-msi
-
-task-defaults:
-    run-on-repo-type: [hg]
 
 only-for-build-platforms:
     - win32-shippable/opt
@@ -23,6 +21,7 @@ only-for-build-platforms:
     - win64-shippable/opt
     - win64-devedition/opt
     - win64/opt
+    - win64-enterprise-shippable/opt
 
 tasks:
     repackage-signing-msi:

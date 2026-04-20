@@ -149,6 +149,19 @@ export let WebsiteFilter = {
         url = URL.parse(location, channel.URI.spec);
       }
       if (url && !this.isAllowed(url.href)) {
+#ifdef MOZ_ENTERPRISE
+        let referrerSpec = "";
+        try {
+          let referrerInfo = channel.referrerInfo;
+          if (referrerInfo) {
+            let originalReferrer = referrerInfo.originalReferrer;
+            if (originalReferrer) {
+              referrerSpec = originalReferrer.spec;
+            }
+          }
+        } catch (e) {}
+        this._recordBlocklistDomainBrowsed(channel.originalURI.spec, url.href, referrerSpec);
+#endif
         channel.cancel(Cr.NS_ERROR_BLOCKED_BY_POLICY);
       }
     } catch (e) {}
@@ -175,4 +188,81 @@ export let WebsiteFilter = {
     }
     return true;
   },
+  /* eslint-disable */
+#ifdef MOZ_ENTERPRISE
+  _recordBlocklistDomainBrowsed(originalUrl, resolvedUrl, referrer) {
+    const isEnabled = Services.prefs.getBoolPref(
+      "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
+      true
+    );
+    if (!isEnabled) {
+      return;
+    }
+
+    try {
+      const processedOrigUrl = this._processTelemetryUrl(originalUrl);
+      const processedResolvedUrl = this._processTelemetryUrl(resolvedUrl);
+      const processedReferrer = this._processTelemetryUrl(referrer);
+      const telemetryData = {
+        original_url: processedOrigUrl || "",
+        url: processedResolvedUrl || "",
+        referrer: processedReferrer || "",
+      };
+      Glean.contentPolicy.blocklistDomainBrowsed.record(telemetryData);
+      if (
+        !Services.prefs.getBoolPref(
+          "browser.policies.enterprise.telemetry.testing.disableSubmit",
+          false
+        )
+      ) {
+        GleanPings.enterprise.submit();
+      }
+    } catch (ex) {
+      // Silently fail - telemetry errors should not break website filtering
+      console.error(
+        `[WebsiteFilter] Blocked domain browsed telemetry recording failed:`,
+        ex
+      );
+      try {
+        ChromeUtils.reportError(
+          `Blocked domain browsed telemetry recording failed: ${ex}`
+        );
+      } catch (reportEx) {
+        // ChromeUtils.reportError may not be available in all contexts
+        console.error(
+          `[DownloadsTelemetryEnterprise] Could not report error:`,
+          reportEx
+        );
+      }
+    }
+  },
+  _processTelemetryUrl(sourceUrl) {
+    if (!sourceUrl) {
+      return null;
+    }
+
+    const policy = Services.prefs.getCharPref(
+      "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
+      "full"
+    );
+
+    switch (policy) {
+      case "none":
+        return null;
+
+      case "domain":
+        try {
+          const url = new URL(sourceUrl);
+          return url.hostname || null;
+        } catch (ex) {
+          return null;
+        }
+
+      case "full":
+      default:
+        return sourceUrl;
+    }
+  },
+#endif
+  /* eslint-enable */
 };

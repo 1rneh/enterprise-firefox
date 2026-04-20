@@ -1220,6 +1220,13 @@ export class AddonWrapper {
     if (!Services.appinfo.inSafeMode) {
       return true;
     }
+
+#ifdef MOZ_ENTERPRISE
+    if (this.isInstalledByEnterprisePolicy) {
+      return true;
+    }
+#endif
+
     return XPIExports.XPIInternal.canRunInSafeMode(addon);
   }
 
@@ -1677,7 +1684,7 @@ const updatedAddonFluentIds = new Map([
       let fluentId =
         updatedAddonFluentIds.get(defaultFluentId) || defaultFluentId;
       try {
-        const l10n = new Localization(["browser/appExtensionFields.ftl"], true);
+        const l10n = new Localization(["browser/appExtensionFields.ftl", "browser/enterprise/enterprise.ftl"], true);
         [formattedMessage] = l10n.formatMessagesSync([{ id: fluentId }]);
       } catch (e) {
         // Log a warning when no fluent string was found, but fallback to the value set

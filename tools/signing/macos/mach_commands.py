@@ -415,6 +415,7 @@ def auto_detect_channel(ctx, app):
     DEVEDITION_BUNDLEID = "org.mozilla.firefoxdeveloperedition"
     # BETA uses the same bundle ID as Release
     RELEASE_BUNDLEID = "org.mozilla.firefox"
+    ENTERPRISE_BUNDLEID = "org.mozilla.firefoxenterprise"
 
     info_plist = os.path.join(app, "Contents/Info.plist")
 
@@ -443,6 +444,8 @@ def auto_detect_channel(ctx, app):
         return "devedition"
     elif bundleid == RELEASE_BUNDLEID:
         return "release"
+    elif bundleid == ENTERPRISE_BUNDLEID:
+        return "enterprise"
     else:
         # Couldn't determine the channel from <info_plist>.
         # Unrecognized bundle ID <bundleID>.

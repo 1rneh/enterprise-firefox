@@ -20,6 +20,7 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/SHA1.h"
 #include "mozilla/net/DNS.h"
+#include "nsNetworkInterface.h"
 
 class nsIThreadPool;
 
@@ -93,6 +94,8 @@ class nsNotifyAddrListener : public nsINetworkLinkService,
 
   // Time stamp for first event during coalescing
   mozilla::TimeStamp mChangeTime;
+
+  nsTArray<NetworkInterface> mNetworkInterfaces;
 };
 
 #endif /* NSNOTIFYADDRLISTENER_H_ */

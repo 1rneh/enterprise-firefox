@@ -92,6 +92,12 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
         "installerprefs",
     ]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    DIRS += ["enterprise"]
+    EXTRA_JS_MODULES += [
+        "FeltURLHandler.sys.mjs",
+    ]
+
 XPIDL_SOURCES += [
     "nsIBrowserHandler.idl",
 ]

@@ -961,3 +961,19 @@ Run Macrobenchmark for Android on Firebase TestLab.
 instrumented-build-macrobenchmark-apk
 -------------------------------------
 Generate instrumented apks used to run Macrobenchmark for Android apps.
+
+enterprise-repack
+-----------------
+Generates customized versions of releases for enterprises.
+
+enterprise-repack-repackage
+---------------------------
+Repackage customized versions of releases for enterprises.
+
+enterprise-repack-mac-notarization
+----------------------------------
+Mac notarization of customized versions of releases for enterprises.
+
+enterprise-repack-mac-signing
+----------------------------------
+Mac signature of customized versions of releases for enterprises.

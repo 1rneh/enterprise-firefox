@@ -72,7 +72,14 @@ def make_repackage_signing_description(config, jobs):
             treeherder["symbol"] = f"rs({locale})"
 
         if config.kind == "repackage-signing-msi":
-            treeherder["symbol"] = "MSIs({})".format(locale or "N")
+            if "enterprise-repack" in dep_job.label:
+                dep_symbol = dep_job.task.get("extra").get("treeherder").get("symbol")
+                treeherder["symbol"] = f"MSIs-Ent({dep_symbol})"
+                repack_label = dep_symbol.replace("/", "_")
+                attributes["repackage_type"] = f"{config.kind}-{repack_label}"
+            else:
+                treeherder["symbol"] = "MSIs({})".format(locale or "N")
+                attributes["repackage_type"] = f"{config.kind}-{locale or 'N'}"
 
         elif config.kind in (
             "repackage-signing-msix",
@@ -81,6 +88,18 @@ def make_repackage_signing_description(config, jobs):
             # Like "MSIXs(Bs-multi)".
             treeherder["symbol"] = "MSIXs({})".format(
                 dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol", "B")
+            )
+
+        if "enterprise-repack" in dep_job.label:
+            repack_id = (
+                dep_job.task
+                .get("extra")
+                .get("treeherder")
+                .get("symbol")
+                .replace("/", "_")
+            )
+            job["label"] = job["label"].replace(
+                "repackage-signing", f"repackage-signing-enterprise-repack-{repack_id}"
             )
 
         label = job["label"]
@@ -131,7 +150,11 @@ def make_repackage_signing_description(config, jobs):
         task = {
             "label": label,
             "description": description,
-            "worker-type": "linux-signing" if is_shippable else "linux-depsigning",
+            "worker-type": (
+                "linux-signing"
+                if is_shippable and int(config.params["level"]) == 3
+                else "linux-depsigning"
+            ),
             "worker": {
                 "implementation": "scriptworker-signing",
                 "signing-type": signing_type,

@@ -18,6 +18,7 @@ transforms = TransformSequence()
 PROVISIONING_PROFILE_FILENAMES = {
     "firefox": "orgmozillafirefox.provisionprofile",
     "devedition": "orgmozillafirefoxdeveloperedition.provisionprofile",
+    "enterprise": "orgmozillafirefoxenterprise.provisionprofile",
     "nightly": "orgmozillanightly.provisionprofile",
 }
 
@@ -99,6 +100,8 @@ def add_provisioning_profile_config(config, jobs):
             and release_level(config.params) == "production"
             # Ensure build is shippable
             and dep_job.attributes.get("shippable", False)
+            # Ensure not dep-signing
+            and job["worker"]["signing-type"] != "dep-signing"
         ):
             # Note that the check order here is important, as mozilla-central can build devedition
             if "devedition" in dep_job.attributes.get("build_platform", ""):
@@ -107,6 +110,12 @@ def add_provisioning_profile_config(config, jobs):
             elif config.params["project"] == "mozilla-central":
                 # Nightly
                 filename = PROVISIONING_PROFILE_FILENAMES["nightly"]
+            elif config.params["project"] in (
+                "enterprise-firefox",
+                "enterprise-firefox-try",
+            ):
+                # Enterprise
+                filename = PROVISIONING_PROFILE_FILENAMES["enterprise"]
             else:
                 # Release, beta, esr and variants should all use default firefox app id
                 # For full list of projects, see RELEASE_PROJECTS in taskcluster/gecko_taskgraph/util/attributes.py

@@ -1,0 +1,82 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - gecko_taskgraph.transforms.release_deps:transforms
+    - gecko_taskgraph.transforms.partner_repack:transforms
+    - gecko_taskgraph.transforms.job:transforms
+    - gecko_taskgraph.transforms.task:transforms
+
+kind-dependencies:
+    - build
+    - toolchain
+    - build-signing
+    - build-mac-signing
+    - build-mac-notarization
+    - shippable-l10n-signing
+    - shippable-l10n-mac-signing
+    - shippable-l10n-mac-notarization
+
+task-defaults:
+    run-on-projects: ["enterprise-firefox"]
+    name: ent-repack
+    description: Enterprise repacks
+    worker-type: b-linux
+    worker:
+        docker-image:
+            in-tree: "partner-repack"
+        chain-of-trust: true
+        max-run-time: 7200
+    shipping-product: firefox-enterprise
+    shipping-phase: build
+    run:
+        using: mozharness
+        config:
+            - partner_repacks/enterprise.py
+        script: mozharness/scripts/desktop_partner_repacks.py
+        job-script: taskcluster/scripts/builder/repackage.sh
+        tooltool-downloads: false
+    extra:
+        limit-locales:
+            by-release-level:
+                staging: true
+                production: false
+    treeherder:
+        kind: other
+        tier: 1
+        symbol: Rpk-Ent
+    attributes:
+        shippable: true
+        build_type: opt
+        artifact_prefix: project/enterprise/repacks
+
+only-for-build-platforms:
+    - linux64-enterprise-shippable/opt
+    - linux64-aarch64-enterprise-shippable/opt
+    - macosx64-enterprise-shippable/opt
+    - win64-enterprise-shippable/opt
+
+tasks:
+    linux64-enterprise-shippable:
+        treeherder:
+            platform: linux64-enterprise-shippable/opt
+        attributes:
+            build_platform: linux64-enterprise-shippable
+    linux64-aarch64-enterprise-shippable:
+        treeherder:
+            platform: linux64-aarch64-enterprise-shippable/opt
+        attributes:
+            build_platform: linux64-aarch64-enterprise-shippable
+    macosx64-enterprise-shippable:
+        treeherder:
+            platform: osx-cross-enterprise-shippable/opt
+        attributes:
+            build_platform: macosx64-enterprise-shippable
+    win64-enterprise-shippable:
+        treeherder:
+            platform: windows2012-64-enterprise-shippable/opt
+        attributes:
+            build_platform: win64-enterprise-shippable

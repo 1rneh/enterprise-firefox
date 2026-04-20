@@ -55,6 +55,7 @@ EXCLUSIVE_COMPONENTS = [
     "fuzztest",
     "geckoview-junit",
     "gtest",
+    "marionette-enterprise",
     "marionette-integration",
     "marionette-unittest",
     "mochitest",

@@ -16,6 +16,7 @@
 #include "mozilla/ChaosMode.h"
 #include "mozilla/HelperMacros.h"
 #include "mozilla/CmdLineAndEnvUtils.h"
+#include "mozilla/GeckoArgs.h"
 #include "mozilla/IOInterposer.h"
 #include "mozilla/ipc/UtilityProcessChild.h"
 #include "mozilla/Likely.h"
@@ -27,6 +28,7 @@
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/RuntimeExceptionModule.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_webgl.h"
@@ -42,6 +44,11 @@
 #include "mozilla/glean/GleanPings.h"
 #include "mozilla/widget/TextRecognition.h"
 #include "mozJSModuleLoader.h"
+
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/browser/extensions/felt/felt.h"
+#  include "SpecialSystemDirectory.h"
+#endif
 
 #include "nsAppRunner.h"
 #include "mozilla/XREAppData.h"
@@ -303,6 +310,14 @@ constexpr nsLiteralCString kStartupTokenNames[] = {
 };
 #endif
 
+// Keep this synchronized with the value of the same name in
+// devtools/client/framework/browser-toolbox/Launcher.sys.mjs.  Or, for bonus
+// points, lift this value to nsIXulRuntime or similar, so that it can be
+// accessed in both locations.  (The prefs service isn't available at this
+// point so the simplest manner of sharing the value is not available to us.)
+const char* BROWSER_TOOLBOX_WINDOW_URL =
+    "chrome://devtools/content/framework/browser-toolbox/window.html";
+
 int gArgc;
 char** gArgv;
 
@@ -544,6 +559,10 @@ static ArgResult CheckArg(const char* aArg, const char** aParam = nullptr,
  */
 static ArgResult CheckArgExists(const char* aArg) {
   return CheckArg(aArg, nullptr, CheckArgFlag::None);
+}
+
+static bool RequestedHeadlessMode() {
+  return CheckArgExists("headless") || CheckArgExists("screenshot");
 }
 
 bool gSafeMode = false;
@@ -2600,7 +2619,6 @@ void UnlockProfile() {
 nsresult LaunchChild(bool aBlankCommandLine, bool aTryExec) {
   // Restart this process by exec'ing it into the current process
   // if supported by the platform.  Otherwise, use NSPR.
-
   if (aBlankCommandLine) {
     gRestartArgc = 1;
     gRestartArgv[gRestartArgc] = nullptr;
@@ -3115,6 +3133,59 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
   if (EnvHasValue("XRE_RESTART_TO_PROFILE_MANAGER")) {
     return ShowProfileManager(aProfileSvc, aNative);
   }
+
+#if defined(MOZ_ENTERPRISE)
+  {
+    auto forcedProfile = geckoargs::sProfile.IsPresent(gArgc, gArgv);
+    // Those env var are set by LaunchChild() when performing a restart. Make
+    // sure the values are there and non empty to consider them as forced.
+    //
+    // AppShutdown::OnShutdownConfirmed() save them both so it is fine assuming
+    // they should be present both.
+    const char* xreProfilePath = PR_GetEnv("XRE_PROFILE_PATH");
+    auto savedProfile = xreProfilePath && *xreProfilePath;
+    const char* xreProfileLocalPath = PR_GetEnv("XRE_PROFILE_LOCAL_PATH");
+    auto savedLocalProfile = xreProfileLocalPath && *xreProfileLocalPath;
+
+    // When running as FELT UI use a hardcoded profile named "felt" and living
+    // in the OS' temporary directory. There are a few special cases where it is
+    // required to use a profile that is being given from different means:
+    //  - CLI argument "-profile ..."
+    //  - environment variables "XRE_PROFILE_PATH" / "XRE_PROFILE_LOCAL_PATH"
+    //
+    // If either of those are present, the following code is skipped and profile
+    // selection continues. This accounts for manually setting the profile,
+    // which is required including when using "mach run" as well as when FELT
+    // restarts for updates.
+    if (is_felt_ui() && !forcedProfile && !savedProfile && !savedLocalProfile) {
+      nsCOMPtr<nsIFile> file;
+      MOZ_TRY(GetSpecialSystemDirectory(OS_TemporaryDirectory,
+                                        getter_AddRefs(file)));
+      MOZ_TRY(file->AppendNative("felt"_ns));
+
+      bool exists = false;
+      MOZ_TRY(file->Exists(&exists));
+
+      if (!exists) {
+        // Create a unique profile directory.  This can fail if there are too
+        // many (thousands) of existing directories, which is unlikely to
+        // happen.
+        MOZ_TRY(file->CreateUnique(nsIFile::DIRECTORY_TYPE, 0700));
+      }
+
+      nsCOMPtr<nsIFile> localDir = file;
+      file.forget(aRootDir);
+      localDir.forget(aLocalDir);
+      // Background tasks never use profiles known to the profile service.
+      *aProfile = nullptr;
+
+      // consume -profile
+      (void)geckoargs::sProfile.Get(gArgc, gArgv);
+
+      return NS_OK;
+    }
+  }
+#endif
 
   // Ask the profile manager to select the profile directories to use.
   bool didCreate = false;
@@ -4098,15 +4169,34 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   BackgroundTasks::Init(backgroundTask);
 #endif
 
+#if defined(MOZ_ENTERPRISE)
+  bool allowHeadlessMode = true;
+#  ifdef MOZ_BACKGROUNDTASKS
+  allowHeadlessMode =
+      BackgroundTasks::IsBackgroundTaskMode() || EnvHasValue("MOZ_AUTOMATION");
+#  else
+  allowHeadlessMode = EnvHasValue("MOZ_AUTOMATION");
+#  endif
+#endif
+
 #ifndef ANDROID
-  if (PR_GetEnv("MOZ_RUN_GTEST")
+  bool mustEnableHeadless = PR_GetEnv("MOZ_RUN_GTEST")
 #  ifdef FUZZING
-      || PR_GetEnv("FUZZER")
+                            || PR_GetEnv("FUZZER")
 #  endif
 #  ifdef MOZ_BACKGROUNDTASKS
-      || BackgroundTasks::IsBackgroundTaskMode()
+                            || BackgroundTasks::IsBackgroundTaskMode()
 #  endif
-  ) {
+      ;
+  if (mustEnableHeadless) {
+#  if defined(MOZ_ENTERPRISE)
+    if (!allowHeadlessMode) {
+      Output(true,
+             "Error: Headless mode is only supported when Firefox runs in "
+             "automation.\n");
+      return 1;
+    }
+#  endif
     // Enable headless mode and assert that it worked, since gfxPlatform
     // uses a static bool set after the first call to `IsHeadless`.
     // Note: Android gtests seem to require an Activity and fail to start
@@ -4137,9 +4227,28 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
         "*** You are running in chaos test mode. See ChaosMode.h. ***\n");
   }
 
-  if (CheckArg("headless") || CheckArgExists("screenshot")) {
+  bool requestedHeadless = RequestedHeadlessMode();
+#if defined(MOZ_ENTERPRISE)
+  if (requestedHeadless && !allowHeadlessMode) {
+    Output(true,
+           "Error: Headless mode is only supported when Firefox runs in "
+           "automation.\n");
+    return 1;
+  }
+#endif
+
+  if (requestedHeadless) {
     PR_SetEnv("MOZ_HEADLESS=1");
   }
+
+#if defined(MOZ_ENTERPRISE)
+  if (PR_GetEnv("MOZ_HEADLESS") && !allowHeadlessMode) {
+    Output(true,
+           "Error: Headless mode is only supported when Firefox runs in "
+           "automation.\n");
+    return 1;
+  }
+#endif
 
   if (gfxPlatform::IsHeadless()) {
 #if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || defined(XP_MACOSX)
@@ -4244,6 +4353,12 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
       return 1;
     }
   }
+
+#if defined(MOZ_ENTERPRISE)
+  XRE_ParseEnterpriseServerURL(*mAppData);
+  // Ignoring nsresult. If console url is not found in a release build, the
+  // default server url is empty and crash reports will fail to submit.
+#endif
 
   // Check sanity and correctness of app data.
 
@@ -4414,6 +4529,13 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
 #endif
 
 #ifdef XP_MACOSX
+#  ifdef MOZ_ENTERPRISE
+  // Suppress dock icon before NSApp initialization. The dock icon will be
+  // restored after the remoting check. Remoting clients (processes that just
+  // forward a URL to an existing instance) exit before restoration, preventing
+  // transient dock icon flash on rapid link clicks (bug 2002462).
+  SuppressMacDockIcon();
+#  endif
   // Set up ability to respond to system (Apple) events. This must occur before
   // ProcessUpdates to ensure that links clicked in external applications aren't
   // lost when updates are pending.
@@ -4494,6 +4616,20 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
 #endif
 
   gSafeMode = safeModeRequested.value();
+
+#if defined(MOZ_ENTERPRISE)
+  if (safeModeRequested.value() && is_felt_ui()) {
+    if (!EnvHasValue("MOZ_AUTOMATION")) {
+      Output(
+          false,
+          "Warning: Safe Mode is inhibited in Firefox Enterprise Launcher but "
+          "will be transferred over to Firefox Enterprise Browser.\n");
+    }
+    // Let everything think it is not in safe mode, is_felt_safe_mode() will
+    // expose it to FELT extension code.
+    gSafeMode = false;
+  }
+#endif
 
   MaybeAddCPUMicrocodeCrashAnnotation();
   CrashReporter::RegisterAnnotationBool(CrashReporter::Annotation::SafeMode,
@@ -4638,7 +4774,8 @@ enum struct ShouldNotProcessUpdatesReason {
   DevToolsLaunching,
   NotAnUpdatingTask,
   OtherInstanceRunning,
-  FirstStartup
+  FirstStartup,
+  FeltOnlyUpdates,
 };
 
 const char* ShouldNotProcessUpdatesReasonAsString(
@@ -4650,9 +4787,17 @@ const char* ShouldNotProcessUpdatesReasonAsString(
       return "NotAnUpdatingTask";
     case ShouldNotProcessUpdatesReason::OtherInstanceRunning:
       return "OtherInstanceRunning";
+    case ShouldNotProcessUpdatesReason::FeltOnlyUpdates:
+      return "FeltOnlyUpdates";
     default:
       MOZ_CRASH("impossible value for ShouldNotProcessUpdatesReason");
   }
+}
+
+bool IsLaunchingBrowserDevtools() {
+  const char* chromeParam = nullptr;
+  return (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) &&
+         (strcmp(chromeParam, BROWSER_TOOLBOX_WINDOW_URL) == 0);
 }
 
 Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
@@ -4665,23 +4810,19 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
     return Some(ShouldNotProcessUpdatesReason::FirstStartup);
   }
 
+#  if defined(MOZ_ENTERPRISE)
+  // Don't process updates when launching a Browser from FELT, only Felt should
+  // perform that step
+  if (!is_felt_ui()) {
+    return Some(ShouldNotProcessUpdatesReason::FeltOnlyUpdates);
+  }
+#  endif
+
   // Do not process updates if we're launching devtools, as evidenced by
   // "--chrome ..." with the browser toolbox chrome document URL.
-
-  // Keep this synchronized with the value of the same name in
-  // devtools/client/framework/browser-toolbox/Launcher.sys.mjs.  Or, for bonus
-  // points, lift this value to nsIXulRuntime or similar, so that it can be
-  // accessed in both locations.  (The prefs service isn't available at this
-  // point so the simplest manner of sharing the value is not available to us.)
-  const char* BROWSER_TOOLBOX_WINDOW_URL =
-      "chrome://devtools/content/framework/browser-toolbox/window.html";
-
-  const char* chromeParam = nullptr;
-  if (ARG_FOUND == CheckArg("chrome", &chromeParam, CheckArgFlag::None)) {
-    if (!chromeParam || !strcmp(BROWSER_TOOLBOX_WINDOW_URL, chromeParam)) {
-      NS_WARNING("ShouldNotProcessUpdates(): DevToolsLaunching");
-      return Some(ShouldNotProcessUpdatesReason::DevToolsLaunching);
-    }
+  if (IsLaunchingBrowserDevtools()) {
+    NS_WARNING("ShouldNotProcessUpdates(): DevToolsLaunching");
+    return Some(ShouldNotProcessUpdatesReason::DevToolsLaunching);
   }
 
 #  ifdef MOZ_BACKGROUNDTASKS
@@ -5155,6 +5296,11 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
     }
   }
 #endif /* MOZ_HAS_REMOTE */
+
+#if defined(XP_MACOSX) && defined(MOZ_ENTERPRISE)
+  // Not a remoting client — restore the dock icon for the main process.
+  RestoreMacDockIcon();
+#endif
 
 #if defined(MOZ_UPDATER) && !defined(MOZ_WIDGET_ANDROID)
 #  ifdef XP_WIN
@@ -5728,11 +5874,40 @@ nsresult XREMain::XRE_mainRun() {
       xpc::InitializeJSContext();
     }
 
+#if defined(MOZ_ENTERPRISE)
+    if (XRE_IsParentProcess() && is_felt_browser()) {
+      NS_WARNING("Checking for FELT: start thread");
+      firefox_felt_connection_start_thread();
+
+      SpinEventLoopUntil("Waiting for FELT startup to complete"_ns,
+                         []() { return firefox_felt_is_startup_complete(); });
+    }
+#endif
+
     // Finally, now that JS has been initialized, we can finish pref loading.
     // This needs to happen after JS and XPConnect initialization because
     // AutoConfig files require JS execution. Note that this means AutoConfig
     // files can't override JS engine start-up prefs.
     mDirProvider.FinishInitializingUserPrefs();
+
+#if defined(MOZ_ENTERPRISE)
+    {
+      // When running tests we may override the appUpdateURL to a test value
+      bool readUpdateUrlFromPref = false;
+      rv = Preferences::GetBool(
+          "enterprise.felt_tests.read_update_url_from_prefs",
+          &readUpdateUrlFromPref);
+      if (NS_SUCCEEDED(rv) && readUpdateUrlFromPref) {
+        NS_WARNING("Setting appUpdateURL from pref value");
+        nsAutoCString consoleAddress;
+        rv = Preferences::GetCString("enterprise.console.address",
+                                     consoleAddress);
+        if (NS_SUCCEEDED(rv)) {
+          XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get());
+        }
+      }
+    }
+#endif
 
     // Now that the profiler, directory services, and prefs have been
     // initialized we can find the download directory, where the profiler can
@@ -6070,6 +6245,66 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   NS_SetCurrentThreadName("MainThread");
 #endif
 
+#if defined(MOZ_ENTERPRISE)
+  if (XRE_IsParentProcess()) {
+    // Initialize Felt state up-front so we can decide whether to continue.
+    felt_init();
+
+    // FELT IPC channel
+    Maybe<const char*> felt =
+        geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
+    const char* mozFeltEnv = PR_GetEnv("MOZ_FELT_UI");
+    if (mozFeltEnv) {
+      PR_SetEnv("MOZ_FELT_UI=");
+    }
+
+    // Remove Felt-specific flags from the command line.
+    (void)geckoargs::sFelt.Get(gArgc, gArgv);
+    (void)geckoargs::sFeltUI.Get(gArgc, gArgv);
+
+#  ifdef MOZ_BACKGROUNDTASKS
+    // Check for --backgroundtask argument directly to avoid triggering
+    // BackgroundTasks initialization before Init() is called in XRE_mainInit.
+    const char* tmpBackgroundTaskName = nullptr;
+    bool allowStandaloneLaunch =
+        (ARG_FOUND == CheckArg("backgroundtask", &tmpBackgroundTaskName,
+                               CheckArgFlag::None));
+#  else
+    bool allowStandaloneLaunch = false;
+#  endif
+
+    const bool requestedHeadless = RequestedHeadlessMode();
+    // Allow standalone launch for automated testing and development
+    allowStandaloneLaunch =
+        allowStandaloneLaunch || EnvHasValue("MOZ_AUTOMATION") ||
+        PR_GetEnv("MOZ_RUN_GTEST") || requestedHeadless ||
+        CheckArgExists("marionette") ||
+        CheckArgExists("remote-debugging-port") || IsLaunchingBrowserDevtools();
+
+    if (!allowStandaloneLaunch && !is_felt_ui() && !is_felt_browser()) {
+      Output(true,
+             "Error: Firefox for Enterprise must be launched from Felt.\n");
+      return 1;
+    }
+
+    NS_WARNING("Checking for FELT");
+    if (is_felt_browser()) {
+      // Felt browser mode requires a valid Felt socket for SSO enforcement
+      if (!felt.isSome()) {
+        Output(true,
+               "Error: Felt browser mode requires a Felt socket connection.\n");
+        return 1;
+      }
+      if (!firefox_connect_to_felt(*felt)) {
+        Output(
+            true,
+            "Error: Failed to connect to Felt. SSO authentication required.\n");
+        return 1;
+      }
+    }
+  }
+#endif
+
   AUTO_BASE_PROFILER_LABEL("XREMain::XRE_main (around Gecko Profiler)", OTHER);
   AUTO_PROFILER_INIT;
   AUTO_PROFILER_LABEL("XREMain::XRE_main", OTHER);
@@ -6334,7 +6569,14 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   }
 #endif
 
-  mozilla::AppShutdown::MaybeDoRestart();
+#if defined(MOZ_ENTERPRISE)
+  // Do not restart when running as Felt client (i.e. Enterprise browser)
+  if (!is_felt_browser()) {
+#endif
+    mozilla::AppShutdown::MaybeDoRestart();
+#if defined(MOZ_ENTERPRISE)
+  }
+#endif
 
   XRE_DeinitCommandLine();
 

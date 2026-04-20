@@ -99,7 +99,8 @@ def make_task_description(config, jobs):
         attributes["required_signoffs"] = sorted_unique_list(
             attributes.get("required_signoffs", []), job.pop("required_signoffs")
         )
-        attributes["shipping_phase"] = job["shipping-phase"]
+        # No shipping-phase for enterprise for now, running on-push instead of cron or relpro
+        # attributes["shipping_phase"] = job["shipping-phase"]
         if locale:
             attributes["locale"] = locale
 
@@ -122,6 +123,18 @@ def make_task_description(config, jobs):
         signing_type = get_signing_type_per_platform(
             build_platform, is_shippable, config
         )
+        index = job.get("index")
+        if index:
+            match (is_shippable, locale):
+                case (True, None):
+                    index["type"] = "shippable"
+                case (True, _):
+                    index["type"] = "shippable-l10n"
+                case (False, None):
+                    index["type"] = "generic"
+                case (False, _):
+                    index["type"] = "l10n"
+            index["job-name"] = f"mar-signing-{build_platform}"
 
         task = {
             "label": label,
@@ -142,6 +155,9 @@ def make_task_description(config, jobs):
             "run-on-repo-type": job.get("run-on-repo-type", ["git", "hg"]),
             "treeherder": treeherder,
         }
+        if index:
+            task["index"] = index
+
         if (git_branches := job.get("run-on-git-branches")) is not None:
             task["run-on-git-branches"] = git_branches
 

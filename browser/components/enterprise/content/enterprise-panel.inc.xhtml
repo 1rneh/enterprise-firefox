@@ -1,0 +1,27 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+<html:link rel="localization" href="browser/enterprise/enterprise.ftl" />
+
+<panelview id="panelUI-enterprise" class="PanelUI-subView">
+  <vbox class="panel-subview-body panelUI-enterprise__main-frame">
+    <html:div class="panelUI-enterprise__email"></html:div>
+
+    <toolbarseparator id="PanelUI-enterprise-email-separator" />
+
+    <vbox class="panelUI-enterprise__info-frame">
+      <hbox class="panelUI-enterprise__alert">
+        <image class="panelUI-enterprise__alert__icon" aria-hidden="true" />
+        <html:div class="panelUI-enterprise__alert__message" data-l10n-id="enterprise-panel-alert"></html:div>
+      </hbox>
+      <html:div class="panelUI-enterprise__message" data-l10n-id="enterprise-panel-information"></html:div>
+      <html:a id="enterprise-learn-more-link" class="learnMore" data-l10n-id="enterprise-panel-learn-more" />
+    </vbox>
+
+    <toolbarseparator id="PanelUI-enterprise-info-separator" />
+
+    <toolbarbutton class="subviewbutton panelUI-enterprise__sign-out-btn closemenu"
+      data-l10n-id="enterprise-panel-sign-out-btn" command="cmd_signoutEnterpriseUser"/>
+  </vbox>
+</panelview>

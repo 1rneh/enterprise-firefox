@@ -119,7 +119,7 @@ def isWin32(platform: str):
 
 
 def isWin64(platform: str):
-    return platform == "win64"
+    return platform.startswith("win64") and not "aarch64" in platform
 
 
 def isWin64Aarch64(platform: str):
@@ -261,7 +261,7 @@ def getUpstreamArtifacts(upstream_tasks, repack_stub_installer):
                     "Duplicated artifact %s processing tasks %s & %s",
                     name,
                     taskId,
-                    artifacts[name],
+                    artifact_ids[name],
                 )
                 sys.exit(1)
             else:

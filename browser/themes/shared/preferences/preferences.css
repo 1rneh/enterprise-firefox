@@ -1645,3 +1645,10 @@ setting-group[groupid="aiStatesDescription"] {
 .box-header-bold {
   --box-label-font-weight: var(--font-weight-heading);
 }
+
+#fxaUnlinkButton[restricted-enterprise-view],
+#verifiedManage[restricted-enterprise-view],
+#connect-another-device[restricted-enterprise-view],
+#syncNotConfigured[restricted-enterprise-view] {
+  display: none;
+}

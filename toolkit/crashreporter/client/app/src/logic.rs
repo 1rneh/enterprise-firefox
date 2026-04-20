@@ -66,7 +66,36 @@ pub fn sha256_hash_file(path: &Path) -> crate::std::io::Result<String> {
 impl ReportCrash {
     pub fn new(config: Arc<Config>, extra: serde_json::Value) -> anyhow::Result<Self> {
         let settings_file = config.data_dir().join("crashreporter_settings.json");
-        let settings: Settings = match std::fs::File::open(&settings_file) {
+        let settings = {
+            #[cfg(feature = "enterprise")]
+            if config.policy_auto_submit {
+                Settings {
+                    submit_report: true,
+                    include_url: true,
+                    test_hardware: true,
+                }
+            } else {
+                ReportCrash::load_settings(&settings_file)
+            }
+
+            #[cfg(not(feature = "enterprise"))]
+            ReportCrash::load_settings(&settings_file)
+        };
+        log::debug!("loaded settings: {settings:?}");
+
+        Ok(ReportCrash {
+            config,
+            extra,
+            settings_file,
+            settings: settings.into(),
+            attempted_to_send: Default::default(),
+            ui: None,
+            memtest: None.into(),
+        })
+    }
+
+    fn load_settings(settings_file: &Path) -> Settings {
+        match std::fs::File::open(&settings_file) {
             Err(e) => {
                 if e.kind() != std::io::ErrorKind::NotFound {
                     log::warn!(
@@ -85,19 +114,8 @@ impl ReportCrash {
                     Default::default()
                 }
                 Ok(s) => s,
-            },
-        };
-        log::debug!("loaded settings: {settings:?}");
-
-        Ok(ReportCrash {
-            config,
-            extra,
-            settings_file,
-            settings: settings.into(),
-            attempted_to_send: Default::default(),
-            ui: None,
-            memtest: None.into(),
-        })
+            }
+        }
     }
 
     /// Returns whether an attempt was made to send the report.
@@ -387,6 +405,7 @@ impl ReportCrash {
     }
 
     /// Restart the program.
+    #[cfg_attr(feature = "enterprise", allow(unused))]
     fn restart_process(&self) {
         self.config.restart_process();
     }
@@ -417,6 +436,15 @@ impl ReportCrash {
         }
         let logic_panic_handler = PanicHandler(crash_ui_async_task.weak());
         self.ui = Some(crash_ui_async_task);
+
+        #[cfg(feature = "enterprise")]
+        // Set up logic thread to immediately send the report
+        // Normally we might do this asynchronously because it blocks,
+        // but with policy_auto_submit, the UI is intentionally not interactive until after the send completes,
+        // so we won't need the logic thread to be unblocked.
+        if self.config.policy_auto_submit {
+            logic_remote_queue.push(|s| { s.try_send(); });
+        }
 
         // Spawn a separate thread to handle all interactions with `self`. This prevents blocking
         // the UI for any reason.
@@ -514,6 +542,7 @@ impl ReportCrash {
     }
 
     /// Restart the application and send the crash report.
+    #[cfg_attr(feature = "enterprise", allow(unused))]
     pub async fn restart(&self) {
         // Get the program restarted before sending the report.
         self.restart_process();
@@ -525,6 +554,12 @@ impl ReportCrash {
     pub async fn quit(&self) {
         let result = self.try_send().await;
         self.close_window(result.is_some()).await;
+    }
+
+    #[cfg(feature = "enterprise")]
+    /// Quit without sending a crash report
+    pub async fn just_quit(&self) {
+        self.close_window(false).await;
     }
 
     async fn close_window(&self, report_sent: bool) {

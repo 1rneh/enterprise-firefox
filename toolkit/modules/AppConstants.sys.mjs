@@ -64,6 +64,13 @@ export var AppConstants = Object.freeze({
   false,
 #endif
 
+  MOZ_ENTERPRISE:
+#ifdef MOZ_ENTERPRISE
+  true,
+#else
+  false,
+#endif
+
   MOZ_WMF_CDM: @MOZ_WMF_CDM_BOOL@,
 
   XP_UNIX:
@@ -213,7 +220,9 @@ export var AppConstants = Object.freeze({
   ENABLE_WEBDRIVER: @ENABLE_WEBDRIVER_BOOL@,
 
   REMOTE_SETTINGS_SERVER_URLS:
-#ifdef MOZ_THUNDERBIRD
+#ifdef MOZ_ENTERPRISE
+    [],
+#elif MOZ_THUNDERBIRD
     [ "https://thunderbird-settings.thunderbird.net/v1" ],
 #else
     [ "https://firefox.settings.services.mozilla.com/v1", "https://firefox.settings.services.mozilla.com/v2" ],
@@ -257,6 +266,8 @@ export var AppConstants = Object.freeze({
   MOZ_SYSTEM_POLICIES: @MOZ_SYSTEM_POLICIES_BOOL@,
 
   MOZ_SELECTABLE_PROFILES: @MOZ_SELECTABLE_PROFILES_BOOL@,
+
+  MOZ_ENTERPRISE: @MOZ_ENTERPRISE_BOOL@,
 
   SQLITE_LIBRARY_FILENAME:
 #ifdef MOZ_FOLD_LIBS

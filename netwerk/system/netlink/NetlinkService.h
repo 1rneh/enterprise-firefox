@@ -16,6 +16,7 @@
 #include "mozilla/UniquePtr.h"
 #include "nsTArray.h"
 #include "mozilla/net/DNS.h"
+#include "nsNetworkInterface.h"
 
 namespace mozilla {
 namespace net {
@@ -53,6 +54,7 @@ class NetlinkService : public nsIRunnable {
   void GetIsLinkUp(bool* aIsUp);
   nsresult GetDnsSuffixList(nsTArray<nsCString>& aDnsSuffixList);
   nsresult GetResolvers(nsTArray<NetAddr>& aResolvers);
+  nsresult GetNetworkInterfaces(nsTArray<NetworkInterface>& aNetworkInterfaces);
 
   static bool HasNonLocalIPv6Address();
 

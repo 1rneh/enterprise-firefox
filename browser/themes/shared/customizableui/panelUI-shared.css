@@ -669,7 +669,8 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
   display: none;
 }
 
-#appMenu-mainView[showing-fxa-menu-message] {
+#appMenu-mainView[showing-fxa-menu-message],
+#appMenu-mainView[restricted-enterprise-view] {
   & #appMenu-fxa-status2,
   & #appMenu-fxa-separator {
     display: none;
@@ -2440,4 +2441,38 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   #confirmation-hint-message {
     margin-inline-start: 0;
   }
+}
+
+/* ----- Enterprise panel ----- */
+.panelUI-enterprise__main-frame {
+  gap: 8px;
+}
+
+.panelUI-enterprise__email {
+  padding: 8px 0 0 16px;
+}
+
+.panelUI-enterprise__info-frame {
+  padding: 8px 8px 8px 16px;
+  gap: 8px;
+  width: 270px;
+}
+
+.panelUI-enterprise__alert {
+  gap: 8px;
+}
+
+.panelUI-enterprise__alert__icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  -moz-context-properties: fill;
+  fill: currentColor;
+
+  #panelUI-enterprise[visible] & {
+    list-style-image: url(chrome://browser/content/enterprise/alert.svg);
+  }
+}
+
+.panelUI-enterprise__alert__message {
+  font-weight: var(--font-weight-semibold);
 }

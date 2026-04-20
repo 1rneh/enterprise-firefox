@@ -756,6 +756,34 @@ CookieService::Add(const nsACString& aHost, const nsACString& aPath,
   return NS_OK;
 }
 
+#if defined(MOZ_ENTERPRISE)
+NS_IMETHODIMP
+CookieService::AddNativeForFelt(
+    const nsACString& aHost, const nsACString& aPath, const nsACString& aName,
+    const nsACString& aValue, bool aIsSecure, bool aIsHttpOnly, bool aIsSession,
+    int64_t aExpiry, int32_t aSameSite, nsICookie::schemeType aSchemeMap,
+    bool aIsPartitioned) {
+  OriginAttributes attrs;
+
+  nsCOMPtr<nsICookieValidation> validation;
+  nsresult rv = AddInternal(nullptr, aHost, aPath, aName, aValue, aIsSecure,
+                            aIsHttpOnly, aIsSession, aExpiry, &attrs, aSameSite,
+                            aSchemeMap, aIsPartitioned, /* from-http: */
+                            true, nullptr, getter_AddRefs(validation));
+  return rv;
+}
+#else
+NS_IMETHODIMP
+CookieService::AddNativeForFelt(
+    const nsACString& aHost, const nsACString& aPath, const nsACString& aName,
+    const nsACString& aValue, bool aIsSecure, bool aIsHttpOnly, bool aIsSession,
+    int64_t aExpiry, int32_t aSameSite, nsICookie::schemeType aSchemeMap,
+    bool aIsPartitioned) {
+  MOZ_ASSERT_UNREACHABLE("AddNativeForFelt is not expected to be called");
+  return NS_ERROR_FAILURE;
+}
+#endif  // defined(MOZ_ENTERPRISE)
+
 NS_IMETHODIMP_(nsresult)
 CookieService::AddNative(nsIURI* aCookieURI, const nsACString& aHost,
                          const nsACString& aPath, const nsACString& aName,

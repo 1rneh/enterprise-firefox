@@ -247,6 +247,19 @@ var gBrowserInit = {
       },
       window
     );
+
+    // Windows opened when running as Felt should not allow the user to escape
+    // hence remove toolbar, location bar, menubar
+    if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
+      [
+        "tabbrowser-tabs",
+        "toolbar-menubar",
+        "nav-bar",
+        "PersonalToolbar",
+      ].forEach(id => {
+        document.getElementById(id)?.setAttribute("hide-in-felt", "true");
+      });
+    }
   },
 
   onDOMContentLoaded() {

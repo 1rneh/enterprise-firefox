@@ -420,3 +420,9 @@ button.text-link .button-text {
 #ContentSelectDropdown menuitem[indented] > .menu-text {
   padding-inline-start: var(--space-xxlarge);
 }
+
+/* When in Enterprise and running in Felt mode, some parts of browser should
+ * not be accessible */
+[hide-in-felt="true"] {
+  display: none;
+}

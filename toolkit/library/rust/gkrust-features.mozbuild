@@ -57,8 +57,12 @@ if CONFIG["MOZ_WEBRTC"]:
 # We need to tell Glean it is being built with Gecko.
 gkrust_features += ["glean_with_gecko"]
 
-if not CONFIG["MOZILLA_OFFICIAL"]:
-    gkrust_features += ["glean_disable_upload"]
+if CONFIG["MOZ_ENTERPRISE"]:
+    if not CONFIG["MOZ_TELEMETRY_REPORTING"]:
+        gkrust_features += ["glean_disable_upload"]
+else:
+    if not CONFIG["MOZILLA_OFFICIAL"]:
+        gkrust_features += ["glean_disable_upload"]
 
 if CONFIG["MOZ_ENABLE_DBUS"]:
     gkrust_features += ["with_dbus"]
@@ -79,6 +83,9 @@ if CONFIG["MOZ_ICU4X"]:
 
 if CONFIG["USE_LIBZ_RS"]:
     gkrust_features += ["libz-rs-sys"]
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    gkrust_features += ["felt"]
 
 if CONFIG["MOZ_JXL"]:
     gkrust_features += ["jxl_decoder"]

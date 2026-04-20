@@ -12,14 +12,20 @@ from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.dependencies import get_primary_dependency
 from taskgraph.util.schema import Schema, optionally_keyed_by, resolve_keyed_by
 from taskgraph.util.taskcluster import get_artifact_prefix
+from taskgraph.util.treeherder import inherit_treeherder_from_dep
 
+from gecko_taskgraph.transforms.repackage import MOZHARNESS_EXPANSIONS
 from gecko_taskgraph.transforms.repackage import (
     PACKAGE_FORMATS as PACKAGE_FORMATS_VANILLA,
 )
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
 from gecko_taskgraph.util.attributes import copy_attributes_from_dependent_job
 from gecko_taskgraph.util.partners import get_partner_config_by_kind
-from gecko_taskgraph.util.platforms import archive_format, executable_extension
+from gecko_taskgraph.util.platforms import (
+    architecture,
+    archive_format,
+    executable_extension,
+)
 from gecko_taskgraph.util.workertypes import worker_type_implementation
 
 # When repacking the stub installer we need to pass a zip file and package name to the
@@ -61,6 +67,9 @@ class PackagingDescriptionSchema(Schema, kw_only=True):
     attributes: TaskDescriptionSchema.__annotations__["attributes"] = None
     dependencies: TaskDescriptionSchema.__annotations__["dependencies"] = None
     run_on_repo_type: TaskDescriptionSchema.__annotations__["run_on_repo_type"] = None
+    treeherder_group: TaskDescriptionSchema.__annotations__["treeherder_group"] = (
+        None,
+    )
 
 
 transforms = TransformSequence()
@@ -138,6 +147,8 @@ def make_job_description(config, jobs):
                 signing_task = dependency
             elif build_platform.startswith("win") and dependency.endswith("repack"):
                 signing_task = dependency
+            elif build_platform.startswith("linux") and dependency.endswith("repack"):
+                signing_task = dependency
 
         attributes["repackage_type"] = "repackage"
 
@@ -156,12 +167,19 @@ def make_job_description(config, jobs):
             command = copy.deepcopy(PACKAGE_FORMATS[format])
             substs = {
                 "archive_format": archive_format(build_platform),
+                "architecture": architecture(build_platform),
+                "mar-channel-id": attributes.get("mar-channel-id", ""),
                 "executable_extension": executable_extension(build_platform),
             }
+
+            # similar to MOZHARNESS_EXPANSIONS in repackage.py
+            substs.update({name: f"{{{name}}}" for name in MOZHARNESS_EXPANSIONS})
+
             command["inputs"] = {
                 name: filename.format(**substs)
                 for name, filename in command["inputs"].items()
             }
+            command["args"] = [arg.format(**substs) for arg in command["args"]]
             repackage_config.append(command)
 
         run = job.get("mozharness", {})
@@ -204,13 +222,26 @@ def make_job_description(config, jobs):
             )
         )
 
+        scopes = (
+            []
+            if "enterprise-repack" in job["label"]
+            else ["queue:get-artifact:releng/partner/*"]
+        )
+
+        if "enterprise-repack-repackage" in job["label"]:
+            repack_id = job.get("extra", {}).get("repack_id")
+            repack_label = "enterprise-repack-repackage-" + repack_id.replace("/", "_")
+            job["label"] = job["label"].replace(
+                "enterprise-repack-repackage", repack_label
+            )
+
         task = {
             "label": job["label"],
             "description": description,
             "worker-type": worker_type,
             "dependencies": dependencies,
             "attributes": attributes,
-            "scopes": ["queue:get-artifact:releng/partner/*"],
+            "scopes": scopes,
             "run-on-projects": dep_job.attributes.get("run_on_projects"),
             "routes": job.get("routes", []),
             "extra": job.get("extra", {}),
@@ -226,16 +257,36 @@ def make_job_description(config, jobs):
             ),
         }
 
+        group = job.get("treeherder-group")
+        if group is not None:
+            task["treeherder"] = inherit_treeherder_from_dep(job, dep_job)
+            task["treeherder"]["symbol"] = f"{group}({repack_id})"
+
         # we may have reduced the priority for partner jobs, otherwise task.py will set it
         if job.get("priority"):
             task["priority"] = job["priority"]
+
+        task.setdefault("fetches", {}).setdefault("toolchain", []).extend([
+            "linux64-mar-tools",
+            "linux64-zucchini-bin",
+            "linux64-upx",
+        ])
+
         if build_platform.startswith("macosx"):
             task.setdefault("fetches", {}).setdefault("toolchain", []).extend([
                 "linux64-libdmg",
                 "linux64-hfsplus",
                 "linux64-node",
+                "linux64-xar",
+                "linux64-mkbom",
             ])
-        elif build_platform.startswith("win"):
+
+        if build_platform.startswith("linux"):
+            task.setdefault("fetches", {}).setdefault("toolchain", []).extend([
+                "linux64-node",
+            ])
+
+        if build_platform.startswith("win"):
             task.setdefault("fetches", {}).setdefault("toolchain", []).append(
                 "linux64-7zz"
             )
@@ -278,6 +329,16 @@ def _generate_download_config(
                 f"{locale_path}setup-stub.exe",
             ])
         return {signing_task: download_config}
+
+    if build_platform.startswith("linux"):
+        return {
+            signing_task: [
+                {
+                    "artifact": f"{locale_path}target{archive_format(build_platform)}",
+                    "extract": False,
+                },
+            ],
+        }
 
     raise NotImplementedError(f'Unsupported build_platform: "{build_platform}"')
 

@@ -248,6 +248,10 @@ class IPPProxyManagerSingleton extends EventTarget {
     }
   }
 
+  channelFilter() {
+    return this.#connection;
+  }
+
   cancelChannelFilter() {
     if (this.#connection) {
       this.#connection.stop();

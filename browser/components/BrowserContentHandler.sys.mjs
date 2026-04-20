@@ -448,6 +448,9 @@ nsBrowserContentHandler.prototype = {
 
   /* nsICommandLineHandler */
   handle: function bch_handle(cmdLine) {
+    const isFeltUI = AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI();
+    // XXX: The following flags are not forwarded to Firefox in Felt mode:
+    // --new-tab, --chrome, --search, --file, and Windows "? searchterm"
     if (
       cmdLine.handleFlag("kiosk", false) ||
       cmdLine.handleFlagWithParam("kiosk-monitor", false)
@@ -469,7 +472,13 @@ nsBrowserContentHandler.prototype = {
       Services.prefs.lockPref("browser.gesture.pinch.out.shift");
     }
     if (cmdLine.handleFlag("browser", false)) {
-      openBrowserWindow(cmdLine, lazy.gSystemPrincipal);
+      if (isFeltUI) {
+        queueFeltURL({
+          disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW,
+        });
+      } else {
+        openBrowserWindow(cmdLine, lazy.gSystemPrincipal);
+      }
       cmdLine.preventDefault = true;
     }
 
@@ -480,7 +489,14 @@ nsBrowserContentHandler.prototype = {
         if (!shouldLoadURI(uri)) {
           continue;
         }
-        openBrowserWindow(cmdLine, principal, uri.spec);
+        if (isFeltUI) {
+          queueFeltURL({
+            url: uri.spec,
+            disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW,
+          });
+        } else {
+          openBrowserWindow(cmdLine, principal, uri.spec);
+        }
         cmdLine.preventDefault = true;
       }
     } catch (e) {
@@ -564,26 +580,36 @@ nsBrowserContentHandler.prototype = {
         false
       );
       if (privateWindowParam) {
-        let forcePrivate = true;
-        let resolvedInfo;
-        if (!lazy.PrivateBrowsingUtils.enabled) {
-          // Load about:privatebrowsing in a normal tab, which will display an error indicating
-          // access to private browsing has been disabled.
-          forcePrivate = false;
-          resolvedInfo = {
-            uri: Services.io.newURI("about:privatebrowsing"),
-            principal: lazy.gSystemPrincipal,
-          };
+        if (isFeltUI) {
+          let resolvedInfo = resolveURIInternal(cmdLine, privateWindowParam);
+          if (shouldLoadURI(resolvedInfo.uri)) {
+            queueFeltURL({
+              url: resolvedInfo.uri.spec,
+              disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW,
+            });
+          }
         } else {
-          resolvedInfo = resolveURIInternal(cmdLine, privateWindowParam);
+          let forcePrivate = true;
+          let resolvedInfo;
+          if (!lazy.PrivateBrowsingUtils.enabled) {
+            // Load about:privatebrowsing in a normal tab, which will display an error indicating
+            // access to private browsing has been disabled.
+            forcePrivate = false;
+            resolvedInfo = {
+              uri: Services.io.newURI("about:privatebrowsing"),
+              principal: lazy.gSystemPrincipal,
+            };
+          } else {
+            resolvedInfo = resolveURIInternal(cmdLine, privateWindowParam);
+          }
+          handURIToExistingBrowser(
+            resolvedInfo.uri,
+            Ci.nsIBrowserDOMWindow.OPEN_NEWTAB,
+            cmdLine,
+            forcePrivate,
+            resolvedInfo.principal
+          );
         }
-        handURIToExistingBrowser(
-          resolvedInfo.uri,
-          Ci.nsIBrowserDOMWindow.OPEN_NEWTAB,
-          cmdLine,
-          forcePrivate,
-          resolvedInfo.principal
-        );
         cmdLine.preventDefault = true;
       }
     } catch (e) {
@@ -592,13 +618,19 @@ nsBrowserContentHandler.prototype = {
       }
       // NS_ERROR_INVALID_ARG is thrown when flag exists, but has no param.
       if (cmdLine.handleFlag("private-window", false)) {
-        openBrowserWindow(
-          cmdLine,
-          lazy.gSystemPrincipal,
-          "about:privatebrowsing",
-          null,
-          lazy.PrivateBrowsingUtils.enabled
-        );
+        if (isFeltUI) {
+          queueFeltURL({
+            disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW,
+          });
+        } else {
+          openBrowserWindow(
+            cmdLine,
+            lazy.gSystemPrincipal,
+            "about:privatebrowsing",
+            null,
+            lazy.PrivateBrowsingUtils.enabled
+          );
+        }
         cmdLine.preventDefault = true;
       }
     }
@@ -1208,6 +1240,17 @@ nsBrowserContentHandler.prototype = {
 };
 var gBrowserContentHandler = new nsBrowserContentHandler();
 
+const { gFeltPendingURLs, FELT_OPEN_WINDOW_DISPOSITION, queueFeltURL } =
+  AppConstants.MOZ_ENTERPRISE
+    ? ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs")
+    : {
+        gFeltPendingURLs: [],
+        FELT_OPEN_WINDOW_DISPOSITION: {},
+        queueFeltURL: () => {},
+      };
+
+export { gFeltPendingURLs, FELT_OPEN_WINDOW_DISPOSITION, queueFeltURL };
+
 function handURIToExistingBrowser(
   uri,
   location,
@@ -1586,23 +1629,71 @@ nsDefaultCommandLineHandler.prototype = {
       return;
     }
 
+    // Make sure that when FeltUI is requested, we do not try to open another
+    // window. Instead, forward any URLs to be opened in the real Firefox.
+    if (Services.felt && Services.felt.isFeltUI()) {
+      console.debug(`Felt: Found FeltUI in BrowserContentHandler.`);
+      cmdLine.preventDefault = true;
+
+      // Consume Felt-specific flags that don't take parameters
+      cmdLine.handleFlag("feltUI", false);
+
+      // The URLs from -url flags have already been collected into urilist by the
+      // normal Firefox command line processing above (via handleFlagWithParam("url", false)).
+      // Now collect any positional URLs (URLs without -url flag).
+      for (let i = 0; i < cmdLine.length; ++i) {
+        var curarg = cmdLine.getArgument(i);
+        if (curarg.match(/^-/)) {
+          // Log unrecognized flags, we don't expect any at this point
+          console.error(
+            "Felt: Warning: unrecognized command line flag",
+            curarg
+          );
+          // To emulate the pre-nsICommandLine behavior, we ignore
+          // the argument after an unrecognized flag.
+          ++i;
+        } else {
+          try {
+            let { uri } = resolveURIInternal(cmdLine, curarg);
+            urilist.push(uri);
+          } catch (e) {
+            console.error(
+              `Felt: Error opening URI ${curarg} from the command line:`,
+              e
+            );
+          }
+        }
+      }
+
+      // Forward any URLs from the command line to the real Firefox
+      if (urilist.length) {
+        const urlSpecs = urilist.filter(shouldLoadURI).map(u => u.spec);
+        if (urlSpecs.length) {
+          for (let urlSpec of urlSpecs) {
+            queueFeltURL({
+              url: urlSpec,
+              disposition: FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
+            });
+          }
+        }
+      }
+      return;
+    }
+
     for (let i = 0; i < cmdLine.length; ++i) {
-      var curarg = cmdLine.getArgument(i);
-      if (curarg.match(/^-/)) {
-        console.error("Warning: unrecognized command line flag", curarg);
+      let arg = cmdLine.getArgument(i);
+      if (arg.match(/^-/)) {
+        console.error("Warning: unrecognized command line flag", arg);
         // To emulate the pre-nsICommandLine behavior, we ignore
         // the argument after an unrecognized flag.
         ++i;
       } else {
         try {
-          let { uri, principal } = resolveURIInternal(cmdLine, curarg);
+          let { uri, principal } = resolveURIInternal(cmdLine, arg);
           urilist.push(uri);
           principalList.push(principal);
         } catch (e) {
-          console.error(
-            `Error opening URI ${curarg} from the command line:`,
-            e
-          );
+          console.error(`Error opening URI ${arg} from the command line:`, e);
         }
       }
     }

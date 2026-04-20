@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
@@ -228,6 +229,14 @@ export class GuardianClient {
    * - 401: The auth token was rejected, probably a guardian/auth provider environment mismatch.
    */
   async fetchUserInfo(abortSignal = null) {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      const entitlement = new Entitlement({
+        subscribed: true,
+        uid: 1,
+        maxBytes: "1000000",
+      });
+      return { status: 200, entitlement };
+    }
     using tokenHandle =
       await lazy.IPProtectionService.authProvider.getToken(abortSignal);
     const response = await fetch(this.#statusURL, {
@@ -264,6 +273,15 @@ export class GuardianClient {
    * @returns {ProxyUsage | null}
    */
   async fetchProxyUsage(abortSignal) {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return new ProxyUsage(
+        "1000000",
+        "1000000",
+        Temporal.Now.zonedDateTimeISO()
+          .add(Temporal.Duration.from({ days: 30 }))
+          .toString()
+      );
+    }
     using tokenHandle =
       await lazy.IPProtectionService.authProvider.getToken(abortSignal);
     const response = await fetch(this.#tokenURL, {

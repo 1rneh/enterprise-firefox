@@ -160,6 +160,7 @@ add_task(async function test_os_auth_and_prp() {
   // prompted for opening it.
   // I should probably come up with a better way to test for OS auth.
   LoginTestUtils.primaryPassword.enable();
+
   info("PrP has been enabled");
 
   // Now we have a PrP and OS auth enabled so revealing a password should

@@ -5,6 +5,7 @@
 Transform the repackage task into an actual task description.
 """
 
+import copy
 from typing import Optional, Union
 
 from taskgraph.transforms.base import TransformSequence
@@ -439,6 +440,7 @@ def handle_keyed_by(config, jobs):
         "worker.max-run-time",
         "flatpak.name",
         "flatpak.branch",
+        "treeherder",
     ]
     for job in jobs:
         job = deepcopy(job)  # don't overwrite dict values here
@@ -493,7 +495,73 @@ def make_job_description(config, jobs):
 
         treeherder = job.get("treeherder", {})
         treeherder.setdefault("symbol", "Rpk")
+        if "enterprise" in attributes.get("build_platform", ""):
+            if "enterprise-repack" in dep_job.kind:
+                job["label"] = job["label"].replace(
+                    "repackage", "repackage-enterprise-repack"
+                )
+
+            variant = (
+                (
+                    config.kind.replace("repackage-", "").replace(
+                        attributes.get("build_platform", ""), ""
+                    )
+                )
+                if config.kind != "repackage"
+                else ""
+            )
+
+            family = "Rpk"
+
+            repack_id = dep_job.task.get("extra").get("repack_id")
+            if repack_id:
+                family = "Rpk-Ent"
+                variant = f"{repack_id}"
+
+            if locale:
+                variant = f"{variant}-{locale}"
+
+            # Follow central behavior and have rs() on Windows
+            if "repackage-signing-win" in dep_job.label:
+                family = "rs"
+
+            symbol = f"{family}({variant})"
+
+            # Mimic central behavior and show {BMS/BMN}-Ent() jobs with REPACK_ID
+            if ("repackage-mac" in job["label"] and "build-mac" in dep_job.label) or (
+                "repack-mac" in job["label"]
+            ):
+                bms_bmn = "BMS-Ent" if "signing" in dep_job.label else "BMN-Ent"
+                if not repack_id:
+                    symbol = bms_bmn
+
+            if "build-signing-win" in dep_job.label:
+                symbol = "Bs"
+
+            # We want Rpk Rpk-deb Rpk-deb-REPACK_ID on Linux
+            if "linux" in job["label"]:
+                if variant:
+                    symbol = f"{family}-{variant}"
+                else:
+                    symbol = family
+
+            treeherder["symbol"] = symbol
+
         dep_th_platform = dep_job.task.get("extra", {}).get("treeherder-platform")
+        # TODO: Hack because we loose the platform that was from enterprise-repack
+        if not dep_th_platform and "enterprise-repack-repackage" in dep_job.kind:
+            build_platform = attributes.get("build_platform")
+            if "linux64" in build_platform and "aarch64" in build_platform:
+                dep_th_platform = "linux64-aarch64-enterprise/opt"
+            elif "linux64" in build_platform:
+                dep_th_platform = "linux64-enterprise/opt"
+            elif "macosx64" in build_platform:
+                dep_th_platform = "osx-cross-enterprise/opt"
+            elif "win64" in build_platform:
+                dep_th_platform = "windows2012-64-enterprise/opt"
+            else:
+                raise ValueError(f"Unsupported {build_platform}")
+
         treeherder.setdefault("platform", dep_th_platform)
         treeherder.setdefault("tier", 1)
         treeherder.setdefault("kind", "build")
@@ -504,14 +572,22 @@ def make_job_description(config, jobs):
         for dependency in dependencies.keys():
             if "repackage-signing" in dependency:
                 repackage_signing_task = dependency
+            elif "enterprise-repack-repackage" in dependency:
+                repackage_signing_task = dependency
             elif "signing" in dependency or "notarization" in dependency:
                 signing_task = dependency
             elif "shippable-l10n" in dependency:
                 # Thunderbird does not sign langpacks, so we find them in the langpack build task
                 signing_task = dependency
+            elif "enterprise-repack" in dependency:
+                signing_task = dependency
 
         if config.kind == "repackage-msi":
-            treeherder["symbol"] = "MSI({})".format(locale or "N")
+            if "enterprise-repack" in dep_job.label:
+                repack_id = dep_job.task.get("extra").get("repack_id")
+                treeherder["symbol"] = f"MSI-Ent({repack_id})"
+            else:
+                treeherder["symbol"] = "MSI({})".format(locale or "N")
 
         elif config.kind == "repackage-msix":
             assert not locale
@@ -578,6 +654,12 @@ def make_job_description(config, jobs):
                 version=config.params["version"],
                 package=config.kind.split("-")[1],
             )
+
+            if "enterprise-repack" in dep_job.label:
+                if config.kind == "repackage-deb":
+                    # will be replaced later
+                    treeherder["symbol"] = "DEB-Ent({repack_id})"
+                attributes["repackage_type"] = f"{config.kind}-enterprise-repack"
 
         elif config.kind == "repackage-flatpak":
             build_platform = attributes["build_platform"]
@@ -655,7 +737,7 @@ def make_job_description(config, jobs):
                 "_locale": _fetch_subst_locale,
                 "architecture": architecture(build_platform),
                 "version_display": config.params["version"],
-                "mar-channel-id": attributes["mar-channel-id"],
+                "mar-channel-id": attributes.get("mar-channel-id", ""),
                 "build_number": config.params["build_number"],
                 "shipping_product": job["shipping-product"],
                 "release_type": config.params["release_type"],
@@ -761,15 +843,7 @@ def make_job_description(config, jobs):
             "extra": job.get("extra", {}),
             "worker": worker,
             "run": run,
-            "fetches": _generate_download_config(
-                config,
-                dep_job,
-                build_platform,
-                signing_task,
-                repackage_signing_task,
-                locale=locale,
-                existing_fetch=job.get("fetches"),
-            ),
+            "fetches": job.get("fetches"),
         }
 
         if build_platform.startswith("macosx"):
@@ -787,7 +861,56 @@ def make_job_description(config, jobs):
         if "shipping-product" in job and job["shipping-product"] is not None:
             task["shipping-product"] = job["shipping-product"]
 
-        yield task
+        repacks = []
+        if "enterprise-repack" in dep_job.kind:
+            previous_repack = dep_job.task.get("extra").get("repack_id")
+            if previous_repack and previous_repack not in repacks:
+                repacks += [previous_repack]
+            else:
+                release_partner_config = (
+                    config.params.get("release_partner_config") or {}
+                )
+                if this_repack := release_partner_config.get(config.kind):
+                    for enterprise_name, entries in this_repack.items():
+                        for repack_name, entry in entries.items():
+                            for platform_name in entry["platforms"]:
+                                for repack_locale in entry["locales"]:
+                                    if platform_name == build_platform:
+                                        repack_final_name = f"{enterprise_name}/{repack_name}/{repack_locale}"
+                                        if repack_final_name not in repacks:
+                                            repacks += [repack_final_name]
+
+        if len(repacks) == 0:
+            repacks = [None]
+
+        for repack in repacks:
+            repack_task = copy.deepcopy(task)
+
+            if repack:
+                repack_label = repack.replace("/", "_")
+                build_platform_with_repack = f"{build_platform}-{repack_label}"
+                repack_task["label"] = repack_task["label"].replace(
+                    build_platform, build_platform_with_repack
+                )
+
+                if "{repack_id}" in repack_task["treeherder"]["symbol"]:
+                    repack_task["treeherder"]["symbol"] = repack_task["treeherder"][
+                        "symbol"
+                    ].replace("{repack_id}", repack)
+                    repack_task["attributes"]["repackage_type"] += f"-{repack_label}"
+
+            repack_task["fetches"] = _generate_download_config(
+                config,
+                dep_job,
+                build_platform,
+                signing_task,
+                repackage_signing_task,
+                locale=locale,
+                existing_fetch=task["fetches"],
+                enterprise_repack=repack,
+            )
+
+            yield repack_task
 
 
 def _generate_download_config(
@@ -798,11 +921,15 @@ def _generate_download_config(
     repackage_signing_task,
     locale=None,
     existing_fetch=None,
+    enterprise_repack=None,
 ):
     locale_path = f"{locale}/" if locale else ""
     fetch = {}
     if existing_fetch:
         fetch.update(existing_fetch)
+
+    if enterprise_repack:
+        locale_path = f"{enterprise_repack}/"
 
     if repackage_signing_task and build_platform.startswith("win"):
         fetch.update({

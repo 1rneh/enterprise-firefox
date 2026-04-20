@@ -28,11 +28,19 @@ from taskgraph.util.yaml import load_yaml
 from . import GECKO
 from .actions import render_actions_json
 from .files_changed import get_changed_files
-from .parameters import get_app_version, get_version
+from .parameters import (
+    get_app_version,
+    get_release_type,
+    get_version,
+)
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
 from .util.bugbug import push_schedules
 from .util.hg import get_hg_revision_branch, get_hg_revision_info
 from .util.partials import populate_release_history
+from .util.partners import (
+    get_release_partner_config,
+    get_release_partners,
+)
 from .util.taskcluster import insert_index
 from .util.taskgraph import find_decision_task, find_existing_tasks_from_previous_kinds
 
@@ -121,6 +129,16 @@ PER_PROJECT_PARAMETERS = {
     },
     "staging-firefox": {
         "target_tasks_method": "default",
+    },
+    # Firefox Enterprise, will be improved later.
+    "enterprise-firefox": {
+        "target_tasks_method": "enterprise_firefox_with_tests_tasks",
+        "release_product": "firefox-enterprise",
+    },
+    "enterprise-firefox-try": {
+        "enable_always_target": True,
+        "release_product": "firefox-enterprise",
+        "target_tasks_method": "try_tasks",
     },
     # the default parameters are used for projects that do not match above.
     "default": {
@@ -349,12 +367,12 @@ def get_decision_parameters(graph_config, options):
     parameters["optimize_strategies"] = None
     parameters["optimize_target_tasks"] = True
     parameters["phabricator_diff"] = None
-    parameters["release_type"] = ""
+    parameters["release_type"] = get_release_type(parameters)
     parameters["release_eta"] = ""
     parameters["release_enable_partner_repack"] = False
     parameters["release_enable_partner_attribution"] = False
-    parameters["release_partners"] = []
-    parameters["release_partner_config"] = {}
+    parameters["release_partners"] = get_release_partners(parameters)
+    parameters["release_partner_config"] = get_release_partner_config(parameters)
     parameters["release_partner_build_number"] = 1
     parameters["release_enable_emefree"] = False
     parameters["release_product"] = None

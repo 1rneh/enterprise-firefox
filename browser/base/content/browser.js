@@ -128,6 +128,13 @@ ChromeUtils.defineLazyGetter(this, "fxAccounts", () => {
   ).getFxAccountsSingleton();
 });
 
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(this, {
+    EnterpriseHandler:
+      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
+  });
+}
+
 XPCOMUtils.defineLazyScriptGetter(
   this,
   ["BrowserCommands", "kSkipCacheFlags"],

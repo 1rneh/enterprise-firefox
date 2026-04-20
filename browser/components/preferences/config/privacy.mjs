@@ -543,12 +543,17 @@ export class PrivacySettingHelpers {
   static _initMasterPasswordUI() {
     var noMP = !LoginHelper.isPrimaryPasswordSet();
 
+    // Check if enterprise storage encryption is managing the primary password
+    const isEnterpriseManagedPrimaryPassword =
+      LoginHelper.isEnterpriseManagedPrimaryPassword();
+
     var button = document.getElementById("changeMasterPassword");
-    button.disabled = noMP;
+    button.disabled = noMP || isEnterpriseManagedPrimaryPassword;
 
     var checkbox = document.getElementById("useMasterPassword");
-    checkbox.checked = !noMP;
+    checkbox.checked = !noMP || isEnterpriseManagedPrimaryPassword;
     checkbox.disabled =
+      isEnterpriseManagedPrimaryPassword ||
       (noMP && !Services.policies.isAllowed("createMasterPassword")) ||
       (!noMP && !Services.policies.isAllowed("removeMasterPassword"));
   }

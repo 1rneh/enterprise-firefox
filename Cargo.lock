@@ -1317,6 +1317,7 @@ dependencies = [
  "phf",
  "phf_codegen",
  "rand",
+ "rust-ini",
  "serde",
  "serde_json",
  "sha2",
@@ -1324,6 +1325,7 @@ dependencies = [
  "time",
  "tokio",
  "unic-langid",
+ "url",
  "uuid",
  "warp",
  "windows-sys",
@@ -2086,6 +2088,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 
 [[package]]
+name = "felt"
+version = "0.1.0"
+dependencies = [
+ "cstr",
+ "env_logger",
+ "ipc-channel",
+ "log",
+ "moz_task",
+ "nserror",
+ "nsstring",
+ "serde",
+ "serde_json",
+ "thin-vec",
+ "time",
+ "xpcom",
+]
+
+[[package]]
 name = "ffi-support"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2302,6 +2322,7 @@ version = "0.1.0"
 dependencies = [
  "bhttp",
  "cstr",
+ "felt",
  "firefox-on-glean",
  "glean",
  "log",
@@ -2701,6 +2722,7 @@ dependencies = [
  "dom_fragmentdirectives",
  "encoding_glue",
  "etagere",
+ "felt",
  "fluent",
  "fluent-fallback",
  "fluent-ffi",
@@ -3652,6 +3674,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2b3ea6ff95e175473f8ffe6a7eb7c00d054240321b84c57051175fe3c1e075e"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "ipc-channel"
+version = "0.20.2"
+source = "git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e#f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
+dependencies = [
+ "bincode",
+ "crossbeam-channel",
+ "fnv",
+ "libc",
+ "mio",
+ "rand",
+ "serde",
+ "tempfile",
+ "uuid",
+ "windows",
 ]
 
 [[package]]

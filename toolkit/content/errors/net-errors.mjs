@@ -339,6 +339,31 @@ export const NET_ERRORS = [
     hasNoUserFix: true,
   },
   {
+    id: "blockedByPolicyEnterprise",
+    errorCode: "blockedByPolicyEnterprise",
+    category: "blocked",
+    bodyTitleL10nId: "blocked-by-policy-title-enterprise",
+    introContent: {
+      dataL10nId: "fp-neterror-offline-intro",
+      dataL10nArgs: { hostname: null },
+    },
+    descriptionParts: [
+      {
+        tag: "p",
+        dataL10nId: "neterror-blocked-by-policy-contact-admin",
+      },
+    ],
+    customNetError: {
+      titleL10nId: "blocked-by-policy-title-enterprise",
+      whatCanYouDoL10nId: "neterror-blocked-by-policy-contact-admin",
+    },
+    buttons: {
+      showTryAgain: false,
+      showGoBack: false,
+    },
+    hasNoUserFix: true,
+  },
+  {
     id: "httpErrorPage",
     errorCode: "httpErrorPage",
     category: "net",

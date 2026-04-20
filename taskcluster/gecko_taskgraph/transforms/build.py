@@ -214,7 +214,13 @@ def enable_full_crashsymbols(config, jobs):
     """Enable full crashsymbols on jobs with
     'enable-full-crashsymbols' set to True and on release branches, or
     on try"""
-    branches = RELEASE_PROJECTS | {"toolchains", "try", "try-comm-central"}
+    branches = RELEASE_PROJECTS | {
+        "toolchains",
+        "try",
+        "try-comm-central",
+        "enterprise-firefox",
+        "enterprise-firefox-try",
+    }
     for job in jobs:
         enable_full_crashsymbols = job["attributes"].get("enable-full-crashsymbols")
         if enable_full_crashsymbols and config.params["project"] in branches:
@@ -280,6 +286,9 @@ def add_signing_artifacts(config, jobs):
         elif "mozilla-central" == config.params["project"]:
             # Nightly
             browser_entitlement = "nightly.browser"
+        elif "enterprise-firefox" == config.params["project"]:
+            # Firefox Enterprise
+            browser_entitlement = "firefoxenterprise.browser"
         else:
             # Release and Beta
             browser_entitlement = "firefox.browser"
@@ -307,4 +316,32 @@ def add_signing_artifacts(config, jobs):
             for entry in job.get("worker", {}).get("artifacts", []):
                 if entry.get("path", "").startswith("checkouts/gecko/security"):
                     entry["path"] = "/builds/worker/" + entry["path"]
+        yield job
+
+
+@transforms.add
+def add_enterprise_secret_scopes(config, jobs):
+    """Enterprise builds re-use some secrets from the Gecko trust domain."""
+    level = config.params["level"]
+    for job in jobs:
+        if config.params["project"] in ("enterprise-firefox", "enterprise-firefox-try"):
+            job.setdefault("scopes", []).extend([
+                f"secrets:get:project/releng/gecko/build/level-{level}/gls-gapi.data",
+                f"secrets:get:project/releng/gecko/build/level-{level}/sb-gapi.data",
+                f"secrets:get:project/releng/gecko/build/level-{level}/mozilla-desktop-geoloc-api.key",
+            ])
+
+        yield job
+
+
+@transforms.add
+def add_enterprise_to_searchfox(config, jobs):
+    for job in jobs:
+        if (
+            config.params["project"] == "enterprise-firefox"
+            and config.kind == "searchfox"
+        ):
+            job["run"].setdefault("extra-config", {}).setdefault(
+                "extra_mozconfig_content", []
+            ).extend(["ac_add_options --enable-enterprise"])
         yield job

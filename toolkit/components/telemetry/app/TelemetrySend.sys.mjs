@@ -1602,12 +1602,13 @@ export var TelemetrySendImpl = {
    * @return {boolean} True if pings can be send to the servers, false otherwise.
    */
   sendingEnabled(ping = null) {
-    // We only send pings from official builds, but allow overriding this for tests.
-    if (
-      !Services.telemetry.isOfficialTelemetry &&
-      !this._testMode &&
-      !this._overrideOfficialCheck
-    ) {
+    // We only send pings when telemetry reporting is enabled, but allow overriding this for tests.
+    // For enterprise builds, check MOZ_TELEMETRY_REPORTING; for non-enterprise builds, use isOfficialTelemetry.
+    const checkPassed = AppConstants.MOZ_ENTERPRISE
+      ? AppConstants.MOZ_TELEMETRY_REPORTING
+      : Services.telemetry.isOfficialTelemetry;
+
+    if (!checkPassed && !this._testMode && !this._overrideOfficialCheck) {
       return false;
     }
 
@@ -1646,8 +1647,8 @@ export var TelemetrySendImpl = {
    */
   promisePendingPingActivity() {
     this._log.trace("promisePendingPingActivity - Waiting for ping task");
-    let p = Array.from(this._pendingPingActivity, p =>
-      p.catch(ex => {
+    let p = Array.from(this._pendingPingActivity, promise =>
+      promise.catch(ex => {
         this._log.error(
           "promisePendingPingActivity - ping activity had an error",
           ex

@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import os
+import sys
+import uuid
+
+sys.path.append(os.path.dirname(__file__))
+
+from base_test import Environment
+from felt_tests import FeltTests
+from marionette_driver.errors import (
+    NoAlertPresentException,
+    UnexpectedAlertOpen,
+)
+
+
+class BaseBrowserSignout(FeltTests):
+    def get_private_cookies(self):
+        self._driver.set_context("chrome")
+        private_cookies = self._driver.execute_script(
+            """
+            const { FeltCommon } = ChromeUtils.importESModule("chrome://felt/content/FeltCommon.sys.mjs");
+            console.debug(`Checking private cookies for browsing ID: ${FeltCommon.PRIVATE_BROWSING_ID}`);
+            return Services.cookies.getCookiesWithOriginAttributes(
+              JSON.stringify({
+                privateBrowsingId: FeltCommon.PRIVATE_BROWSING_ID,
+              })
+            );
+            """,
+        )
+        self._driver.set_context("content")
+        return private_cookies
+
+    def _do_signout(self):
+        self.assert_user_signed_in(env=Environment.FIREFOX)
+        # Cache email for later use in prefilled email input field assertion
+        user = self.get_logged_in_user_info(env=Environment.FIREFOX)
+        self._signed_in_email = user["email"]
+
+        self._child_driver.set_context("chrome")
+
+        self._logger.info("Clicking enterprise badge to open enterprise panel")
+        self.get_elem_child("#enterprise-badge-toolbar-button").click()
+
+        # Making sure we get to handle the Signout dialog
+        assert (
+            self._child_driver.session_capabilities.get("unhandledPromptBehavior")
+            == "ignore"
+        ), "Driver should not auto-handle prompt"
+
+        try:
+            # This will cause an UnexpectedAlertPresentException, which is our expected signout dialog
+            self._logger.info("Clicking signout button in enterprise panel")
+            self.get_elem_child(".panelUI-enterprise__sign-out-btn").click()
+        except UnexpectedAlertOpen:
+            # Do nothing, signout dialog ("alert") is expected
+            pass
+
+        self._logger.info("Waiting for the signout dialog to open")
+
+        def wait_for_and_accept_alert(driver):
+            try:
+                driver.switch_to_alert().accept()
+                self._logger.info(
+                    "Signing out the user by clicking the Signout button in the dialog"
+                )
+                return True
+            except NoAlertPresentException:
+                return False
+
+        self._waiter(self._child_driver).until(wait_for_and_accept_alert)
+
+        self._child_driver.set_context("content")
+
+        # This is not true but it will make sure the harness does not try to
+        # cleanup the browser and we can then make sure that our self-closing
+        # is correct.
+        self._manually_closed_child = True
+
+        # Set new cookie on server side
+        self.cookie_name.value = str(uuid.uuid1()).split("-")[0]
+        self.cookie_value.value = str(uuid.uuid4()).split("-")[4]
+
+        # Verify felt authentication window reloaded
+        self.await_felt_auth_window()
+        self.force_window()
+
+        # Verify no user signed in in Felt
+        self.assert_user_signed_out(env=Environment.FELT)
+
+        # Verify no cookies from the previous sign in session
+        cookies = self.get_private_cookies()
+        assert len(cookies) == 0, f"No private cookies, found {len(cookies)}"
+
+    def run_perform_signout(self):
+        self.connect_child_browser(
+            capabilities={
+                # Do not auto-handle prompts.
+                "unhandledPromptBehavior": "ignore"
+            }
+        )
+        self._do_signout()
+
+    def run_prefilled_email_submit(self):
+        self._driver.set_context("chrome")
+        email = self.get_elem("#felt-form__email").get_property("value")
+        assert email == self._signed_in_email, (
+            "Expected email to be pre-filled after signout"
+        )
+
+        self._logger.info("Submitting prefilled email by clicking")
+        btn = self.get_elem("#felt-form__sign-in-btn")
+        btn.click()
+
+        self._driver.set_context("content")
+
+    def run_load_sso(self):
+        self.force_window()
+        self.run_wait_until_sso_loaded()
+
+    def run_perform_sso_auth(self):
+        self.force_window()
+        self.run_felt_perform_sso_auth()
+        # We will be restarting again
+        self._manually_closed_child = False
+
+    def run_new_browser(self):
+        self.connect_child_browser()
+
+    def run_new_browser_new_tab(self):
+        self.open_tab_child(f"http://localhost:{self.sso_port}/sso_page")
+
+        expected_cookie = list(
+            filter(
+                lambda x: (
+                    x["name"] == self.cookie_name.value
+                    and x["value"] == self.cookie_value.value
+                ),
+                self._child_driver.get_cookies(),
+            )
+        )
+
+        assert len(expected_cookie) == 1, (
+            f"Cookie {self.cookie_name} was properly set on Firefox started by FELT, found {expected_cookie}"
+        )
+
+
+class BrowserSignout(BaseBrowserSignout):
+    def test_browser_signout(self):
+        super().run_felt_base()
+        self.run_perform_signout()
+        self.run_prefilled_email_submit()
+        self.run_load_sso()
+        self.run_perform_sso_auth()
+        self.run_new_browser()
+        self.run_new_browser_new_tab()

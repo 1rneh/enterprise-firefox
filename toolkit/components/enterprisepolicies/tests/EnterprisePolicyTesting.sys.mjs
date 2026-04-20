@@ -10,6 +10,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   FileTestUtils: "resource://testing-common/FileTestUtils.sys.mjs",
   modifySchemaForTests: "resource:///modules/policies/schema.sys.mjs",
+  HttpServer: "resource://testing-common/httpd.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 export var EnterprisePolicyTesting = {
@@ -46,6 +48,66 @@ export var EnterprisePolicyTesting = {
     lazy.modifySchemaForTests(customSchema || null);
 
     Services.obs.notifyObservers(null, "EnterprisePolicies:Restart");
+    return promise;
+  },
+
+  servePolicyWithJson: async function servePolicyWithJson(
+    json,
+    customSchema,
+    registerCleanupFunction
+  ) {
+    if (this._httpd === undefined) {
+      this._httpd = new lazy.HttpServer();
+      await this._httpd.start(-1);
+      const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
+
+      const expires_in = 3600;
+      const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
+      const tokenData = {
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        expires_at,
+        token_type: "Bearer",
+      };
+
+      // Set up mock token endpoint for ConsoleClient (token refresh never hits it yet)
+      this._httpd.registerPathHandler("/sso/token", (req, resp) => {
+        resp.setStatusLine(req.httpVersion, 200, "OK");
+        resp.setHeader("Content-Type", "application/json");
+        resp.write(JSON.stringify(tokenData));
+      });
+
+      Services.prefs.setStringPref("enterprise.console.address", serverAddr);
+      Services.prefs.setBoolPref("browser.policies.live_polling.enabled", true);
+      Services.felt.setTokens(
+        tokenData.access_token,
+        tokenData.refresh_token,
+        tokenData.expires_at
+      );
+
+      registerCleanupFunction(async () => {
+        await new Promise(resolve => this._httpd.stop(resolve));
+        this._httpd = undefined;
+        Services.prefs.clearUserPref("enterprise.console.address");
+        Services.prefs.clearUserPref("browser.policies.live_polling.enabled");
+        const { ConsoleClient } = ChromeUtils.importESModule(
+          "resource:///modules/enterprise/ConsoleClient.sys.mjs"
+        );
+        ConsoleClient.clearTokenData();
+      });
+    }
+
+    let { promise, resolve } = Promise.withResolvers();
+
+    this._httpd.registerPathHandler("/api/browser/policies", (req, resp) => {
+      resp.setStatusLine(req.httpVersion, 200, "OK");
+      resp.write(JSON.stringify(json));
+      lazy.modifySchemaForTests(customSchema || null);
+      lazy.setTimeout(() => {
+        resolve();
+      }, 100);
+    });
+
     return promise;
   },
 
@@ -95,7 +157,7 @@ export var PoliciesPrefTracker = {
     let { PoliciesUtils } = ChromeUtils.importESModule(
       "resource:///modules/policies/Policies.sys.mjs"
     );
-    this._originalFunc = PoliciesUtils.setDefaultPref;
+    this._originalFunc = PoliciesUtils.setDefaultPref.bind(PoliciesUtils);
     PoliciesUtils.setDefaultPref = this.hoistedSetDefaultPref.bind(this);
   },
 

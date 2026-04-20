@@ -534,6 +534,7 @@ Section "-Application" APP_IDX
   ${EndIf}
 
 !ifdef MOZ_LAUNCHER_PROCESS
+!ifndef DISABLE_INSTALLER_TELEMETRY
   ; Launcher telemetry is opt-out, so we always enable it by default in new
   ; installs. We always use HKCU because this value is a reflection of a pref
   ; from the user profile. While this is not a perfect abstraction (given the
@@ -541,6 +542,7 @@ Section "-Application" APP_IDX
   ; is more accurate than a machine-wide setting, and should be accurate in the
   ; majority of cases.
   WriteRegDWORD HKCU ${MOZ_LAUNCHER_SUBKEY} "$INSTDIR\${FileMainEXE}|Telemetry" 1
+!endif
 !endif
 
   ${WriteToastNotificationRegistration} $RegHive
@@ -1014,6 +1016,10 @@ FunctionEnd
 ; since we'd be double-counting the number of installations. The stub installer
 ; is repsonsible for sending the ping in that case.
 Function SendPingIfApplicable
+!ifdef DISABLE_INSTALLER_TELEMETRY
+  Return
+!endif
+
   ClearErrors
   ${GetParameters} $0
   ${GetOptions} $0 "/LaunchedFromStub" $0
@@ -1037,6 +1043,10 @@ FunctionEnd
 ; Note: Should be assumed to clobber all $0, $1, etc registers.
 !define JSONSet `nsJSON::Set /tree installation_data`
 Function WriteInstallationTelemetryData
+!ifdef DISABLE_INSTALLER_TELEMETRY
+  Return
+!endif
+
   ${JSONSet} /value "{}"
 
   ReadINIStr $0 "$INSTDIR\application.ini" "App" "Version"

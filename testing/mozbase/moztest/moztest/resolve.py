@@ -75,6 +75,15 @@ TEST_SUITES = {
         "kwargs": {"tests": None, "subsuite": "integration"},
         "task_regex": ["marionette($|.*(-1|[^0-9])$)"],
     },
+    "marionette-enterprise": {
+        "aliases": ("mnent",),
+        "build_flavor": "marionette",
+        "mach_command": "marionette-test",
+        "kwargs": {
+            "subsuite": "enterprise",
+        },
+        "task_regex": ["marionette($|.*(-1|[^0-9])$)"],
+    },
     "marionette-unittest": {
         "aliases": ("mnself",),
         "build_flavor": "marionette",
@@ -476,6 +485,7 @@ _test_subsuites = {
     ("browser-chrome", "screenshots"): "mochitest-browser-screenshots",
     ("browser-chrome", "translations"): "mochitest-browser-translations",
     ("chrome", "gpu"): "mochitest-chrome-gpu",
+    ("marionette", "enterprise"): "marionette-enterprise",
     ("marionette", "integration"): "marionette-integration",
     ("marionette", "unittest"): "marionette-unittest",
     ("mochitest", "gpu"): "mochitest-plain-gpu",

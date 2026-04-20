@@ -1,18 +1,31 @@
-![Firefox Browser](./docs/readme/readme-banner.svg)
+<img src="./docs/readme/readme-banner.svg" alt="Firefox for Enterprise Browser" width=2024 height=200/>
 
 [Firefox](https://firefox.com/) is a fast, reliable and private web browser from the non-profit [Mozilla organization](https://mozilla.org/).
 
-### Contributing
+#### Build
 
-To learn how to contribute to Firefox read the [Firefox Contributors' Quick Reference document](https://firefox-source-docs.mozilla.org/contributing/contribution_quickref.html).
+Add the following line to your `.mozconfig` depending on the platform you're developing for
 
-We use [bugzilla.mozilla.org](https://bugzilla.mozilla.org/) as our issue tracker, please file bugs there.
+- macos: `. "$topsrcdir/build/macosx/mozconfig.enterprise"`
+- unix: `. "$topsrcdir/build/unix/mozconfig.enterprise"`
+- win64: `. "$topsrcdir/build/win64/mozconfig.enterprise"`
 
-### Resources
+#### Run:
 
-* [Firefox Source Docs](https://firefox-source-docs.mozilla.org/) is our primary documentation repository
-* Nightly development builds can be downloaded from [Firefox Nightly page](https://www.mozilla.org/firefox/channel/desktop/#nightly)
+```
+$ ./mach run
+```
 
-If you have a question about developing Firefox, and can't find the solution
-on [Firefox Source Docs](https://firefox-source-docs.mozilla.org/), you can try asking your question on Matrix at
-chat.mozilla.org in the [Introduction channel](https://chat.mozilla.org/#/room/#introduction:mozilla.org).
+#### Tests:
+
+```
+$ ./mach marionette-test testing/enterprise/
+```
+
+You can also specify a test file, by default the manifest from the directory will be used.
+
+OR
+
+```
+$ ./mach test marionette-enterprise
+```

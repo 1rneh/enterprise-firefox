@@ -542,9 +542,14 @@ pref("toolkit.tabbox.switchByScrolling", false);
 
 // Telemetry settings.
 // Server to submit telemetry pings to.
+#ifdef MOZ_ENTERPRISE
+pref("toolkit.telemetry.server", "", locked);
+pref("toolkit.telemetry.server_owner", "N/A", locked);
+#else
 pref("toolkit.telemetry.server", "https://incoming.telemetry.mozilla.org");
 // Telemetry server owner. Please change if you set toolkit.telemetry.server to a different server
 pref("toolkit.telemetry.server_owner", "Mozilla");
+#endif
 // Determines whether full SQL strings are returned when they might contain sensitive info
 // i.e. dynamically constructed SQL strings or SQL executed by addons against addon DBs
 pref("toolkit.telemetry.debugSlowSql", false);
@@ -1755,6 +1760,9 @@ pref("security.notification_enable_delay", 500);
 pref("security.insecure_field_warning.ignore_local_ip_address", true);
 
 // Remote settings preferences
+#ifdef MOZ_ENTERPRISE
+pref("services.settings.server", "");
+#endif
 pref("services.settings.poll_interval", 86400); // 24H
 
 // The percentage of clients who will report uptake telemetry as
@@ -3085,7 +3093,11 @@ pref("network.tcp.keepalive.idle_time", 600); // seconds; 10 mins
 // All the Geolocation preferences are here.
 //
 #ifndef ANDROID
+#ifdef MOZ_ENTERPRISE
+  pref("geo.provider.network.url", "");
+#else
   pref("geo.provider.network.url", "https://www.googleapis.com/geolocation/v1/geolocate?key=%GOOGLE_LOCATION_SERVICE_API_KEY%&solution_channel=%OS%");
+#endif
 
   // Timeout to wait before sending the location request.
   pref("geo.provider.network.timeToWaitBeforeSending", 5000);
@@ -3206,7 +3218,11 @@ pref("pointer-lock-api.warning.timeout", 3000);
 
 pref("dom.push.loglevel", "Error");
 
+#ifdef MOZ_ENTERPRISE
+pref("dom.push.serverURL", "");
+#else
 pref("dom.push.serverURL", "wss://push.services.mozilla.com/");
+#endif
 pref("dom.push.userAgentID", "");
 
 // The maximum number of push messages that a service worker can receive
@@ -3270,8 +3286,13 @@ pref("network.connectivity-service.enabled", true);
 pref("network.connectivity-service.DNSv4.domain", "example.org");
 pref("network.connectivity-service.DNSv6.domain", "example.org");
 pref("network.connectivity-service.DNS_HTTPS.domain", "cloudflare-dns.com");
+#ifdef MOZ_ENTERPRISE
+pref("network.connectivity-service.IPv4.url", "");
+pref("network.connectivity-service.IPv6.url", "");
+#else
 pref("network.connectivity-service.IPv4.url", "http://detectportal.firefox.com/success.txt?ipv4");
 pref("network.connectivity-service.IPv6.url", "http://detectportal.firefox.com/success.txt?ipv6");
+#endif
 
 pref("network.trr.uri", "");
 // credentials to pass to DOH end-point
@@ -3288,7 +3309,11 @@ pref("network.trr.builtin-excluded-domains", "localhost,local");
 // Used for progressive rollout of LNA for ETP strict users
 pref("network.lna.etp.enabled", true);
 
+#ifdef MOZ_ENTERPRISE
+pref("captivedetect.canonicalURL", "");
+#else
 pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/canonical.html");
+#endif
 pref("captivedetect.canonicalContent", "<meta http-equiv=\"refresh\" content=\"0;url=https://support.mozilla.org/kb/captive-portal\"/>");
 pref("captivedetect.maxWaitingTime", 5000);
 pref("captivedetect.pollingTime", 3000);

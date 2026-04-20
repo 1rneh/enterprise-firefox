@@ -1704,6 +1704,12 @@ var gPrivacyPane = {
    * one is set.
    */
   async updateMasterPasswordButton() {
+    // If enterprise storage encryption is active, prevent any changes
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
+      this._initMasterPasswordUI();
+      return;
+    }
+
     let checkbox = document.getElementById("useMasterPassword");
     let button = document.getElementById("changeMasterPassword");
     button.disabled = !checkbox.checked;
@@ -1716,10 +1722,22 @@ var gPrivacyPane = {
   },
 
   async _removeMasterPassword() {
+    // If enterprise storage encryption is active, prevent any changes
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
+      this._initMasterPasswordUI();
+      return;
+    }
+
     await PrivacySettingHelpers._removeMasterPassword();
   },
 
   async changeMasterPassword() {
+    // If enterprise storage encryption is active, prevent any changes
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
+      this._initMasterPasswordUI();
+      return;
+    }
+
     await PrivacySettingHelpers.changeMasterPassword();
   },
 

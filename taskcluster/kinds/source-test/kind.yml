@@ -50,6 +50,7 @@ task-defaults:
     use-uv: true
     attributes:
         retrigger: true
+        code-review: true
     task-context:
         from-object: {}
         substitution-fields: []

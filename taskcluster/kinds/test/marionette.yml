@@ -113,3 +113,39 @@ marionette-integration:
         extra-options:
             - --subsuite=marionette-integration
             - --test-manifest=integration-tests.toml
+
+marionette-enterprise:
+    description: "Marionette integration enterprise run"
+    treeherder-symbol: MnEnt()
+    suite:
+        name: marionette-enterprise
+    attributes:
+        code-review: true
+    run-on-projects: built-projects
+    tier: 1
+    max-run-time:
+        by-test-platform:
+            .*-debug.*: 3600
+            default: 2700
+    instance-size: default
+    chunks:
+        by-test-platform:
+            .*-debug.*: 2
+            default: 1
+    mozharness:
+        config:
+            by-test-platform:
+                macosx.*:
+                    - marionette/prod_config.py
+                    - marionette/mac_taskcluster_config.py
+                    - marionette/enterprise_config.py
+                windows.*:
+                    - marionette/windows_taskcluster_config.py
+                    - marionette/enterprise_config.py
+                default:
+                    - marionette/prod_config.py
+                    - marionette/enterprise_config.py
+                    - remove_executables.py
+        extra-options:
+            - --subsuite=enterprise
+            - --test-manifest=enterprise-tests.toml

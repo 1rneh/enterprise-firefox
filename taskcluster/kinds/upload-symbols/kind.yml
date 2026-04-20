@@ -25,7 +25,8 @@ not-for-build-platforms:
     - win64-aarch64-geckodriver/opt
 
 task-defaults:
-    run-on-repo-type: [hg]
+    # Scopes aren't setup for enterprise yet
+    run-on-projects: []
 
 tasks:
     upload-symbols:

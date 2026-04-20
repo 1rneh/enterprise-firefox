@@ -1460,6 +1460,11 @@ here.
 """
 
 [[audits.cookie]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+version = "0.16.2"
+
+[[audits.cookie]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"
 delta = "0.16.0 -> 0.16.2"
@@ -3793,6 +3798,28 @@ who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
 criteria = "safe-to-deploy"
 delta = "7.0.1 -> 7.0.2"
 
+[[audits.ipc-channel]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+version = "0.20.0"
+
+[[audits.ipc-channel]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+delta = "0.20.0 -> 0.19.0"
+
+[[audits.ipc-channel]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+delta = "0.20.0 -> 0.20.2"
+notes = "Crate update"
+
+[[audits.ipc-channel]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+delta = "0.20.2 -> 0.20.2@git:f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
+importable = false
+
 [[audits.itertools]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
@@ -4360,6 +4387,11 @@ large refactor which makes this changeset artificially large.
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.3 -> 0.6.2"
+
+[[audits.minreq]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+version = "2.14.0"
 
 [[audits.mio]]
 who = "Bobby Holley <bobbyholley@gmail.com>"

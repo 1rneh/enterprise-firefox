@@ -495,6 +495,11 @@ export class Capabilities extends Map {
       ["moz:shutdownTimeout", lazy.shutdownTimeout],
     ];
 
+    const browserFlavor = getBrowserFlavor();
+    if (browserFlavor) {
+      defaults.push(["moz:browserFlavor", browserFlavor]);
+    }
+
     if (!isBidi) {
       // HTTP-only capabilities
       defaults.push(
@@ -879,7 +884,18 @@ function getWebDriverBrowserName() {
     return "firefox";
   }
 
+  if (lazy.AppInfo.isEnterprise) {
+    return "firefox";
+  }
+
   return lazy.AppInfo.name?.toLowerCase();
+}
+
+function getBrowserFlavor() {
+  if (lazy.AppInfo.isEnterprise) {
+    return "enterprise";
+  }
+  return null;
 }
 
 function getWebDriverPlatformName() {

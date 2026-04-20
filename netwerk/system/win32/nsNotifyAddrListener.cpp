@@ -18,6 +18,7 @@
 #include <objbase.h>
 #include <winsock2.h>
 #include <ws2ipdef.h>
+#include <ws2tcpip.h>
 #include <tcpmib.h>
 #include <iphlpapi.h>
 #include <netioapi.h>
@@ -449,7 +450,8 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
 
   PIP_ADAPTER_ADDRESSES adapterList = (PIP_ADAPTER_ADDRESSES)moz_xmalloc(len);
 
-  ULONG flags = GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST;
+  ULONG flags = GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST |
+                GAA_FLAG_INCLUDE_GATEWAYS;
   if (!StaticPrefs::network_notify_resolvers()) {
     flags |= GAA_FLAG_SKIP_DNS_SERVER;
   }
@@ -478,6 +480,7 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
 
   nsTArray<nsCString> dnsSuffixList;
   nsTArray<mozilla::net::NetAddr> resolvers;
+  nsTArray<NetworkInterface> networkInterfaces;
   uint32_t platformDNSIndications = NONE_DETECTED;
   bool hasNonLocalIPv6 = false;
   if (ret == ERROR_SUCCESS) {
@@ -494,6 +497,11 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
           nsDependentString(adapter->Description).Find(u"VMnet") != kNotFound) {
         continue;
       }
+
+#if defined(MOZ_ENTERPRISE)
+      // Skip non up interfaces as well as loopback
+      networkInterfaces.AppendElement(NetworkInterface(adapter));
+#endif
 
       LOG(("Adapter %s type: %lu",
            NS_ConvertUTF16toUTF8(adapter->FriendlyName).get(),
@@ -657,6 +665,7 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
     MutexAutoLock lock(mMutex);
     mDnsSuffixList = std::move(dnsSuffixList);
     mDNSResolvers = std::move(resolvers);
+    mNetworkInterfaces = std::move(networkInterfaces);
     mPlatformDNSIndications = platformDNSIndications;
   }
 
@@ -726,6 +735,26 @@ void nsNotifyAddrListener::CheckLinkStatus(void) {
     }
   }
 }
+
+#if defined(MOZ_ENTERPRISE)
+NS_IMETHODIMP
+nsNotifyAddrListener::GetNetworkInterfaces(
+    nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
+  MutexAutoLock lock(mMutex);
+
+  for (const auto& intf : mNetworkInterfaces) {
+    aNetworkInterfaces.AppendElement(MakeRefPtr<nsNetworkInterface>(&intf));
+  }
+
+  return NS_OK;
+}
+#else
+NS_IMETHODIMP
+nsNotifyAddrListener::GetNetworkInterfaces(
+    nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+#endif
 
 // static
 bool nsINetworkLinkService::HasNonLocalIPv6Address() {

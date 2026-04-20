@@ -109,6 +109,21 @@ class GeckoJobConfiguration:
     try_tree = "try"
 
 
+class EnterpriseJobConfiguration:
+    trust_domain = "enterprise"
+    product = "firefox"
+    default_candidate_trees = [
+        "enterprise-firefox.branch.enterprise-release",
+    ]
+    nightly_candidate_trees = [
+        "enterprise-firefox.branch.enterprise-main",
+    ]
+    beta_candidate_trees = []
+    # The list below list should be updated when we have new ESRs.
+    esr_candidate_trees = []
+    try_tree = "try"
+
+
 class AndroidJobConfiguration(GeckoJobConfiguration):
     product = "mobile"
 
@@ -1243,6 +1258,8 @@ class Artifacts:
         job_configuration = (
             ThunderbirdJobConfiguration
             if substs.get("MOZ_BUILD_APP") == "comm/mail"
+            else EnterpriseJobConfiguration
+            if substs.get("MOZ_ENTERPRISE") == "1"
             else None
         )
         if not self._unfiltered_project_package:
@@ -1363,6 +1380,9 @@ class Artifacts:
             target_suffix = "-debug"
         else:
             target_suffix = "-opt"
+
+        if self._substs.get("MOZ_ENTERPRISE"):
+            target_suffix = "-enterprise" + target_suffix
 
         if self._substs.get("MOZ_BUILD_APP", "") == "mobile/android":
             if self._substs["ANDROID_CPU_ARCH"] == "x86_64":

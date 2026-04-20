@@ -64,7 +64,8 @@ const KNOWN_ERROR_TITLE_IDS = new Set([
   "corruptedContentErrorv2-title",
   "sslv3Used-title",
   "inadequateSecurityError-title",
-  "blockedByPolicy-title",
+  "blocked-by-policy-title",
+  "blocked-by-policy-title-enterprise",
   "blocked-by-corp-headers-title",
   "clockSkewError-title",
   "networkProtocolError-title",
@@ -311,14 +312,31 @@ function initTitleAndBodyIds(baseURL, isTRROnlyFailure) {
       bodyTitleId = "general-body-title";
       tryAgain.hidden = true;
       break;
-    case "blockedByPolicy":
-      pageTitleId = "neterror-blocked-by-policy-page-title";
+    case "blockedByPolicyEnterprise":
+    case "blockedByPolicy": {
+      pageTitleId = "neterror-blocked-by-policy-page-title-enterprise";
+      bodyTitleId = "blocked-by-policy-title-enterprise";
       document.body.classList.add("blocked");
 
       // Remove the "Try again" button from pages that don't need it.
       // For pages blocked by policy, trying again won't help.
       tryAgain.hidden = true;
+
+      // Show the "Go back" button
+      const returnButtonContainer = document.getElementById(
+        "certErrorAndCaptivePortalButtonContainer"
+      );
+      const returnButton = document.getElementById("returnButton");
+      returnButtonContainer.hidden = false;
+      returnButton.hidden = false;
+      document.getElementById("advancedButton").hidden = true;
+      document.l10n.setAttributes(
+        returnButton,
+        "neterror-return-to-previous-page-button"
+      );
+      returnButton.addEventListener("click", onReturnButtonClick);
       break;
+    }
     case "blockedByCOOP":
     case "blockedByCOEP": {
       bodyTitleId = "general-body-title";

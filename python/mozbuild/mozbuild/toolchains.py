@@ -28,7 +28,13 @@ def toolchain_task_definitions():
 
     env = os.environ.copy()
     env.pop("MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE", None)
-    params = {"level": os.environ.get("MOZ_SCM_LEVEL", "3"), "files_changed": []}
+    params = {
+        "level": os.environ.get("MOZ_SCM_LEVEL", "1"),
+        "files_changed": [],
+        "head_repository": "https://github.com/mozilla/enterprise-firefox",
+        "repository_type": "git",
+        "pull_request_number": 0,
+    }
 
     import sys
 

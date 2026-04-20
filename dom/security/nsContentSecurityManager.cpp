@@ -53,6 +53,14 @@
 #include "nsScriptSecurityManager.h"
 #include "xpcpublic.h"
 
+#if defined(MOZ_ENTERPRISE)
+#  include <deque>
+#  include <utility>
+
+#  include "mozilla/glean/EnterprisepoliciesMetrics.h"
+#  include "mozilla/glean/GleanPings.h"
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 
@@ -61,6 +69,122 @@ NS_IMPL_ISUPPORTS(nsContentSecurityManager, nsIContentSecurityManager,
 
 mozilla::LazyLogModule sCSMLog("CSMLog");
 mozilla::LazyLogModule sUELLog("UnexpectedLoad");
+
+#if defined(MOZ_ENTERPRISE)
+
+class RecentBlockedUrlCache {
+ public:
+  bool RecentlyBlocked(nsIURI* aURI) {
+    if (!aURI) {
+      return false;
+    }
+    auto now = TimeStamp::Now();
+    nsCString url;
+    aURI->GetSpec(url);
+    ClearStaleEntries(now);
+    bool recentlyBlocked = ContainsUrl(url);
+    if (!recentlyBlocked) {
+      mEntries.push_back(std::make_pair(url, now));
+    }
+    return recentlyBlocked;
+  }
+
+ private:
+  std::deque<std::pair<nsCString, TimeStamp>> mEntries;
+  const TimeDuration kLookbackWindow = TimeDuration::FromSeconds(1);
+
+  void ClearStaleEntries(const TimeStamp& aNow) {
+    while (!mEntries.empty()) {
+      if (mEntries.front().second < (aNow - kLookbackWindow)) {
+        mEntries.pop_front();
+      } else {
+        break;
+      }
+    }
+  }
+
+  bool ContainsUrl(const nsACString& aUrl) {
+    for ([[maybe_unused]] const auto& [entryUrl, _] : mEntries) {
+      if (aUrl.Equals(entryUrl)) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+static bool BlocklistDomainBrowsedTelemetryIsEnabled() {
+  return Preferences::GetBool(
+      "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
+      true);
+}
+
+static nsCString BlocklistDomainBrowsedTelemetryUrlLoggingPolicy() {
+  nsCString urlLogging;
+  if (NS_FAILED(Preferences::GetCString("browser.policies.enterprise.telemetry."
+                                        "blocklistDomainBrowsed.urlLogging",
+                                        urlLogging)) ||
+      urlLogging.IsEmpty()) {
+    urlLogging.AssignLiteral("full");
+  }
+  return urlLogging;
+}
+
+static nsCString ProcessBlocklistDomainBrowsedTelemetryUrl(
+    nsIURI* aURI, const nsCString& aPolicy) {
+  if (!aURI || aPolicy.EqualsLiteral("none")) {
+    return ""_ns;
+  }
+
+  if (aPolicy.EqualsLiteral("domain")) {
+    nsCString host;
+    if (NS_FAILED(aURI->GetHost(host))) {
+      return ""_ns;
+    }
+    return host;
+  }
+
+  nsCString spec;
+  aURI->GetSpec(spec);
+  return spec;
+}
+
+static void RecordBlocklistDomainBrowsedTelemetry(nsIChannel* aChannel,
+                                                  nsIURI* aURI) {
+  if (!BlocklistDomainBrowsedTelemetryIsEnabled()) {
+    return;
+  }
+
+  MOZ_ASSERT(NS_IsMainThread());
+  static RecentBlockedUrlCache cache;
+  if (cache.RecentlyBlocked(aURI)) {
+    return;
+  }
+
+  const nsCString urlLogging =
+      BlocklistDomainBrowsedTelemetryUrlLoggingPolicy();
+
+  const nsCString blockedUrlTelemetry =
+      ProcessBlocklistDomainBrowsedTelemetryUrl(aURI, urlLogging);
+
+  nsCOMPtr<nsIURI> referrer;
+  NS_GetReferrerFromChannel(aChannel, getter_AddRefs(referrer));
+  const nsCString referrerTelemetry =
+      ProcessBlocklistDomainBrowsedTelemetryUrl(referrer, urlLogging);
+
+  glean::content_policy::BlocklistDomainBrowsedExtra extra = {
+      .referrer = Some(referrerTelemetry),
+      .url = Some(blockedUrlTelemetry),
+  };
+  glean::content_policy::blocklist_domain_browsed.Record(Some(extra));
+
+  if (!Preferences::GetBool(
+          "browser.policies.enterprise.telemetry.testing.disableSubmit",
+          false)) {
+    glean_pings::Enterprise.Submit();
+  }
+}
+#endif
 
 // These first two are used for off-the-main-thread checks of
 // general.config.filename
@@ -535,7 +659,13 @@ static nsresult DoContentSecurityChecks(nsIChannel* aChannel,
         return NS_ERROR_CONTENT_BLOCKED_SHOW_ALT;
       }
       if (shouldLoad == nsIContentPolicy::REJECT_POLICY) {
+#if defined(MOZ_ENTERPRISE)
+        RecordBlocklistDomainBrowsedTelemetry(aChannel, uri);
+#endif
         return NS_ERROR_BLOCKED_BY_POLICY;
+      }
+      if (shouldLoad == nsIContentPolicy::REJECT_RESTARTFORCED) {
+        return NS_ERROR_RESTART_FORCED;
       }
     }
     return NS_ERROR_CONTENT_BLOCKED;

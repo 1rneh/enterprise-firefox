@@ -125,6 +125,16 @@ def get_app_version(product_dir="browser"):
     return get_contents(app_version_path)
 
 
+def get_release_type(parameters):
+    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+        return ""
+
+    if parameters["head_ref"] == "refs/heads/enterprise-release":
+        return "release-enterprise"
+    else:
+        return "nightly-enterprise"
+
+
 def get_defaults(repo_root=None):
     return {
         "android_perftest_backstop": False,
@@ -141,7 +151,7 @@ def get_defaults(repo_root=None):
         "next_version": None,
         "optimize_strategies": None,
         "phabricator_diff": None,
-        "project": "mozilla-central",
+        "project": "enterprise-firefox",
         "release_enable_emefree": False,
         "release_enable_partner_repack": False,
         "release_enable_partner_attribution": False,

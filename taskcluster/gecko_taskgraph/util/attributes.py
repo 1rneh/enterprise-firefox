@@ -48,6 +48,8 @@ PROJECT_RELEASE_BRANCHES: dict[str, Union[list[str], Literal[True]]] = {
     "maple": True,
     # bug 1988213: cypress project branch
     "cypress": True,
+    # https://github.com/mozilla/enterprise-firefox
+    "enterprise-firefox": True,
 }
 RELEASE_PROJECTS = set(PROJECT_RELEASE_BRANCHES)
 RELEASE_PROMOTION_PROJECTS = {
@@ -89,6 +91,7 @@ RUN_ON_PROJECT_ALIASES = {
         params["project"] in ("mozilla-central", "toolchains")
     ),
     "mozilla-central-only": lambda params: params["project"] == "mozilla-central",
+    "enterprise-firefox": lambda params: params["project"] == "enterprise-firefox",
 }
 
 _COPYABLE_ATTRIBUTES = (

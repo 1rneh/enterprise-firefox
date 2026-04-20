@@ -141,12 +141,27 @@ def make_task_description(config, jobs):
                 "tier",
                 dep_job.task.get("extra", {}).get("treeherder", {}).get("tier", 1),
             )
-            treeherder.setdefault(
-                "symbol",
-                _generate_treeherder_symbol(
+
+            th_symbol = None
+
+            if "enterprise-repack-mac" in config.kind:
+                # assumes repacks-per-chunk is 1
+                repack_ids = job.get("extra").get("repack_ids")
+
+                assert len(repack_ids) == 1
+                th_group = "BMS-Ent" if "signing" in config.kind else "BMN-Ent"
+                th_symbol = f"{th_group}({repack_ids[0]})"
+
+                repack_label = "enterprise-repack-" + repack_ids[0].replace("/", "_")
+                job["label"] = job["label"].replace("enterprise-repack", repack_label)
+
+                job.setdefault("attributes", {})["repackage_type"] = f"{repack_label}"
+            else:
+                th_symbol = _generate_treeherder_symbol(
                     dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol")
-                ),
-            )
+                )
+
+            treeherder.setdefault("symbol", th_symbol)
             treeherder.setdefault("kind", "build")
 
         label = job["label"]
@@ -176,7 +191,11 @@ def make_task_description(config, jobs):
         signing_type = get_signing_type_per_platform(
             build_platform, is_shippable, config
         )
-        worker_type_alias = "linux-signing" if is_shippable else "linux-depsigning"
+        worker_type_alias = (
+            "linux-signing"
+            if is_shippable and int(config.params["level"]) == 3
+            else "linux-depsigning"
+        )
         task = {
             "label": label,
             "description": description,

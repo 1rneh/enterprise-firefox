@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 import { IPPAuthProvider } from "moz-src:///toolkit/components/ipprotection/IPPAuthProvider.sys.mjs";
 import { GUARDIAN_EXPERIMENT_TYPE } from "moz-src:///toolkit/components/ipprotection/GuardianClient.sys.mjs";
 
@@ -104,6 +106,12 @@ class IPPFxaAuthProviderSingleton extends IPPAuthProvider {
    * @returns {Promise<{token: string} & Disposable>}
    */
   async getToken(abortSignal = null) {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return {
+        token: Services.felt.getAccessTokenIfValid(),
+        [Symbol.dispose]: () => {},
+      };
+    }
     let tasks = [
       lazy.fxAccounts.getOAuthToken({
         scope: ["profile", "https://identity.mozilla.com/apps/vpn"],

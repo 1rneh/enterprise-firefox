@@ -161,6 +161,22 @@ already_AddRefed<Path> SVGEllipseElement::BuildPath(PathBuilder* aBuilder) {
   return aBuilder->Finish();
 }
 
+Maybe<bool> SVGEllipseElement::HasCtxDependentLength() const {
+  bool hasCtxDependentLength = false;
+  if (SVGGeometryProperty::DoForComputedStyle(
+          this, [&](const ComputedStyle* style) {
+            const nsStyleSVGReset* styleSVGReset = style->StyleSVGReset();
+
+            hasCtxDependentLength = styleSVGReset->mCx.HasPercent() ||
+                                    styleSVGReset->mCy.HasPercent() ||
+                                    styleSVGReset->mRx.HasPercent() ||
+                                    styleSVGReset->mRy.HasPercent();
+          })) {
+    return Some(hasCtxDependentLength);
+  }
+  return Nothing();
+}
+
 bool SVGEllipseElement::IsLengthChangedViaCSS(const ComputedStyle& aNewStyle,
                                               const ComputedStyle& aOldStyle) {
   const auto& newSVGReset = *aNewStyle.StyleSVGReset();

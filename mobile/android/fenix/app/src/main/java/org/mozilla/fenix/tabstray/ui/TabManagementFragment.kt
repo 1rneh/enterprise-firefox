@@ -543,6 +543,7 @@ class TabManagementFragment : DialogFragment() {
                         tabDataFlow = requireComponents.core.store.stateFlow.map { TabData(browserState = it) },
                         tabGroupRepository = requireComponents.core.tabGroupRepository,
                         removeTabsUseCase = requireComponents.useCases.tabsUseCases.removeTabs,
+                        moveTabsUseCase = requireComponents.useCases.tabsUseCases.moveTabs,
                         mainScope = lifecycleScope,
                     ),
                 ),

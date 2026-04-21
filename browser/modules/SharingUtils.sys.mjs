@@ -212,10 +212,7 @@ class SharingUtilsCls {
   async #showQRCodePanel(win, browser, url) {
     let qrCodeDataURI = null;
     try {
-      qrCodeDataURI = await lazy.QRCodeGenerator.generateQRCode(
-        url,
-        win.document
-      );
+      qrCodeDataURI = await lazy.QRCodeGenerator.generateQRCode(url);
     } catch (error) {
       console.error("Failed to generate QR code:", error);
     }

@@ -1104,6 +1104,10 @@ toolbar-button-share-tab =
   .label = Share
   .tooltiptext = Share this page
 
+toolbar-button-tab-groups =
+  .label = Tab groups
+  .tooltiptext = Show your tab groups
+
 ## EME notification panel
 
 eme-notifications-drm-content-playing = Some audio or video on this site uses DRM software, which may limit what { -brand-short-name } can let you do with it.
@@ -1564,6 +1568,11 @@ trustpanel-cryptominer-not-blocking-tab-header = { $count ->
   *[other] { -brand-product-name } allowed { $count } cryptominers
 }
 trustpanel-cryptominer-tab-list-header = These sites are trying to cryptomine:
+# "account on this site" refers to the (breached) site the user is currently visiting, not a Mozilla Monitor account.
+trustpanel-breachalerts-anonymous-breached-header = Have an account on this site?
+trustpanel-breachalerts-anonymous-breached-description = { -brand-product-name } found that this site had a data breach in the last 12 months. Find out if you were affected.
+trustpanel-breachalerts-anonymous-breached-button-dismiss = Dismiss
+trustpanel-breachalerts-anonymous-breached-button-check-monitor = Start free scan
 
 ## Reduced Protection Infobar ("ReducedProtectionNotification.sys.mjs")
 

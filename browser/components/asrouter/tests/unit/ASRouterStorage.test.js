@@ -160,11 +160,20 @@ describe("ASRouterStorage", () => {
       assert.throws(() => storage.getDbTable("undefined_store"));
     });
   });
-  it("should get the correct objectStore when calling _getStore", async () => {
+  it("should open objectStore in readonly mode by default", async () => {
     const objectStoreStub = sandbox.stub();
     indexedDB.open.resolves({ objectStore: objectStoreStub });
 
     await storage._getStore("foo");
+
+    assert.calledOnce(objectStoreStub);
+    assert.calledWithExactly(objectStoreStub, "foo", "readonly");
+  });
+  it("should open objectStore in readwrite mode when specified", async () => {
+    const objectStoreStub = sandbox.stub();
+    indexedDB.open.resolves({ objectStore: objectStoreStub });
+
+    await storage._getStore("foo", "readwrite");
 
     assert.calledOnce(objectStoreStub);
     assert.calledWithExactly(objectStoreStub, "foo", "readwrite");

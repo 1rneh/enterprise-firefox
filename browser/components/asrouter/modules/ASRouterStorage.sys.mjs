@@ -63,8 +63,8 @@ export class ASRouterStorage {
     throw new Error(`Store name ${storeName} does not exist.`);
   }
 
-  async _getStore(storeName) {
-    return (await this.db).objectStore(storeName, "readwrite");
+  async _getStore(storeName, mode = "readonly") {
+    return (await this.db).objectStore(storeName, mode);
   }
 
   _get(storeName, key) {
@@ -87,7 +87,7 @@ export class ASRouterStorage {
 
   _set(storeName, key, value) {
     return this._requestWrapper(async () =>
-      (await this._getStore(storeName)).put(value, key)
+      (await this._getStore(storeName, "readwrite")).put(value, key)
     );
   }
 

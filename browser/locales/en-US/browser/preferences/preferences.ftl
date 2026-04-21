@@ -67,15 +67,15 @@ pane-search-title = Search
 category-search =
     .tooltiptext = { pane-search-title }
 
-pane-privacy-title = Privacy & Security
-category-privacy =
-    .tooltiptext = { pane-privacy-title }
+pane-privacy-title2 = Privacy and security
+pane-privacy-section =
+    .heading = Privacy and security
 
 pane-sync-title3 = Sync
 category-sync3 =
     .tooltiptext = { pane-sync-title3 }
 
-pane-ai-controls-title = AI Controls
+pane-ai-controls-title = AI controls
 category-ai-controls =
     .tooltiptext = { pane-ai-controls-title }
 
@@ -88,8 +88,8 @@ pane-experimental-reset =
   .label = Restore Defaults
   .accesskey = R
 
-help-button-label = { -brand-short-name } Support
-addons-button-label = Extensions & Themes
+help-button-label = { -brand-short-name } support
+addons-button-label = Extensions and themes
 
 focus-search =
     .key = f
@@ -1229,6 +1229,8 @@ search-edit-engine =
 
 search-find-more-link = Find more search engines
 
+search-filtering-for-add-engine = Add Engine
+
 # This warning is displayed when the chosen keyword is already in use
 # ('Duplicate' is an adjective)
 search-keyword-warning-title = Duplicate Keyword
@@ -2098,6 +2100,13 @@ collection-backlogged-crash-reports2 =
     .accesskey = c
 collection-backlogged-crash-reports-description = This helps { -vendor-short-name } diagnose and fix issues with the browser. Reports may include personal or sensitive data.
 
+# Promotional message displayed in the Settings panes to inform users of the new redesign
+settings-redesign-promo =
+    .heading = Same settings, new look!
+    .message = We reorganized this page so it’s easier to scan and explore. Your personal settings haven’t changed, and everything’s still here. Tip: use search to jump straight to what you need.
+settings-redesign-promo-dismiss-button =
+    .label = Got it
+
 privacy-segmentation-section-header = New features that enhance your browsing
 
 privacy-segmentation-section-description = When we offer features that use your data to give you a more personal experience:
@@ -2335,6 +2344,18 @@ preferences-doh-custom-provider-label =
 
 preferences-doh-header2 =
   .heading = DNS over HTTPS
+
+## Connection and software security section
+
+preferences-connection-header =
+    .heading = Connection and software security
+
+preferences-connection-link-section =
+    .label = Connection and software security
+    .description = See how connections stay secure, harmful software is blocked, and websites are verified.
+
+preferences-connection-link-button =
+    .label = Advanced settings
 
 ## The following strings are used in the Download section of settings
 

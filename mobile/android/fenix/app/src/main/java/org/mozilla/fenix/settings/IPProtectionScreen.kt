@@ -42,6 +42,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.annotation.FlexibleWindowPreview
+import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateInfo.Companion.PROXY_STATE_ACTIVATING
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateInfo.Companion.PROXY_STATE_ACTIVE
@@ -63,8 +64,7 @@ private fun IPProtectionHandler.StateInfo.isSwitchChecked() =
 
 private fun IPProtectionHandler.StateInfo.isToggleEnabled() =
     proxyState == PROXY_STATE_ACTIVE || proxyState == PROXY_STATE_ACTIVATING ||
-        proxyState == PROXY_STATE_READY || proxyState == PROXY_STATE_ERROR ||
-        isEnrollmentNeeded
+        proxyState == PROXY_STATE_READY || proxyState == PROXY_STATE_ERROR
 
 private fun IPProtectionHandler.StateInfo.useColorfulIllustration() =
     proxyState == PROXY_STATE_ACTIVE || proxyState == PROXY_STATE_ACTIVATING
@@ -75,12 +75,14 @@ private fun IPProtectionHandler.StateInfo.useColorfulIllustration() =
  * @param state Current [IPProtectionHandler.StateInfo] to render.
  * @param onVpnToggle Called when the VPN switch is toggled.
  * @param onLearnMoreClick Called when any "Learn more" link is tapped.
+ * @param onGetStartedClick Called when the "Get started" button is tapped.
  */
 @Composable
 fun IPProtectionScreen(
     state: IPProtectionHandler.StateInfo,
     onVpnToggle: (Boolean) -> Unit,
     onLearnMoreClick: () -> Unit,
+    onGetStartedClick: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -97,7 +99,7 @@ fun IPProtectionScreen(
                 modifier = Modifier.padding(horizontal = FirefoxTheme.layout.space.dynamic200),
             )
 
-            Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static100))
+            Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static200))
 
             VpnToggleRow(
                 checked = state.isSwitchChecked(),
@@ -107,11 +109,25 @@ fun IPProtectionScreen(
 
             HorizontalDivider()
 
-            VpnDataSection(state = state, onLearnMoreClick = onLearnMoreClick)
+            if (!state.isEnrollmentNeeded) {
+                VpnDataSection(state = state, onLearnMoreClick = onLearnMoreClick)
 
-            HorizontalDivider()
+                HorizontalDivider()
 
-            VpnLocationSection()
+                VpnLocationSection()
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+
+                FilledButton(
+                    text = stringResource(R.string.ip_protection_get_started),
+                    modifier = Modifier
+                        .padding(horizontal = FirefoxTheme.layout.space.static200)
+                        .fillMaxWidth(),
+                    onClick = onGetStartedClick,
+                )
+
+                Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static400))
+            }
         }
     }
 }
@@ -198,21 +214,16 @@ private fun VpnToggleRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(FirefoxTheme.layout.space.static200),
     ) {
-        val contentColor = if (enabled) {
-            MaterialTheme.colorScheme.onSurface
-        } else {
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        }
         Icon(
             painter = painterResource(mozilla.components.ui.icons.R.drawable.mozac_ic_globe_24),
             contentDescription = null,
-            tint = contentColor,
+            tint = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = stringResource(R.string.ip_protection_toggle_label),
             modifier = Modifier.weight(1f),
             style = FirefoxTheme.typography.subtitle1,
-            color = contentColor,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Switch(
             checked = checked,
@@ -239,7 +250,7 @@ private fun VpnPromoCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.ip_protection_promo_headline, stringResource(R.string.app_name)),
+                    text = stringResource(R.string.ip_protection_promo_headline, stringResource(R.string.firefox)),
                     style = FirefoxTheme.typography.headline7,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -308,20 +319,24 @@ private fun IPProtectionScreenActivePreview(
             ),
             onVpnToggle = {},
             onLearnMoreClick = {},
+            onGetStartedClick = {},
         )
     }
 }
 
 @FlexibleWindowPreview
 @Composable
-private fun IPProtectionScreenNotAvailablePreview(
+private fun IPProtectionScreenNotEnrolledPreview(
     @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme = theme) {
         IPProtectionScreen(
-            state = IPProtectionHandler.StateInfo(),
+            state = IPProtectionHandler.StateInfo(
+                serviceState = IPProtectionHandler.StateInfo.SERVICE_STATE_UNAUTHENTICATED,
+            ),
             onVpnToggle = {},
             onLearnMoreClick = {},
+            onGetStartedClick = {},
         )
     }
 }
@@ -340,6 +355,7 @@ private fun IPProtectionScreenPausedPreview(
             ),
             onVpnToggle = {},
             onLearnMoreClick = {},
+            onGetStartedClick = {},
         )
     }
 }

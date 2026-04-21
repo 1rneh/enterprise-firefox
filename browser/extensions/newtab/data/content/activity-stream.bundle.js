@@ -160,6 +160,7 @@ for (const type of [
   "FOLLOW_SECTION",
   "HIDE_PERSONALIZE",
   "HIDE_TOAST_MESSAGE",
+  "INFERRED_PERSONALIZATION_CLEAR_INTEREST_VECTOR",
   "INFERRED_PERSONALIZATION_DEBUG_FEATURES_REQUEST",
   "INFERRED_PERSONALIZATION_DEBUG_FEATURES_UPDATE",
   "INFERRED_PERSONALIZATION_DEBUG_OVERRIDES_SET",
@@ -4088,7 +4089,7 @@ class _DSCard extends (external_React_default()).PureComponent {
     const ctaButtonClassName = ctaButtonEnabled ? `ds-card-cta-button` : ``;
     const compactImagesClassName = compactImages ? `ds-card-compact-image` : ``;
     const imageGradientClassName = imageGradient ? `ds-card-image-gradient` : ``;
-    const sectionsCardsClassName = [mayHaveSectionsCards ? `sections-card-ui` : ``, novaEnabled ? `nova-card-ui` : ``, this.props.sectionsClassNames].filter(Boolean).join(" ");
+    const sectionsCardsClassName = [mayHaveSectionsCards ? `sections-card-ui` : ``, this.props.sectionsClassNames].filter(Boolean).join(" ");
     const titleLinesName = `ds-card-title-lines-${titleLines}`;
     const descLinesClassName = `ds-card-desc-lines-${descLines}`;
     const isMediumRectangle = format === "rectangle";
@@ -4470,7 +4471,9 @@ function AdBannerContextMenu({
   position,
   type,
   showAdReporting,
-  toggleActive = () => {}
+  toggleActive = () => {},
+  // @nova-cleanup(remove-conditional): Remove novaEnabled, use size="small" and type="icon ghost" as default
+  novaEnabled
 }) {
   const ADBANNER_CONTEXT_MENU_OPTIONS = ["BlockAdUrl", ...(showAdReporting ? ["ReportAd"] : []), "ManageSponsoredContent", "OurSponsorsAndYourPrivacy"];
   const [showContextMenu, setShowContextMenu] = (0,external_React_namespaceObject.useState)(false);
@@ -4527,13 +4530,14 @@ function AdBannerContextMenu({
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: contextMenuClassNames
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
-    type: "icon",
-    size: "default",
+    type: novaEnabled ? "icon ghost" : "icon",
+    size: novaEnabled ? "small" : "default",
     "data-l10n-id": "newtab-menu-content-tooltip",
     "data-l10n-args": JSON.stringify({
       title: spoc.title || spoc.sponsor || spoc.alt_text
     }),
     iconsrc: "chrome://global/skin/icons/more.svg",
+    "aria-expanded": showContextMenu ? "true" : "false",
     onClick: onClick,
     onKeyDown: onKeyDown
   }), showContextMenu && /*#__PURE__*/external_React_default().createElement(LinkMenu, {
@@ -4668,6 +4672,8 @@ const AdBanner_PREF_OHTTP_UNIFIED_ADS = "unifiedAds.ohttp.enabled";
 const PREF_REPORT_ADS_ENABLED = "discoverystream.reportAds.enabled";
 const PREF_PROMOCARD_ENABLED = "discoverystream.promoCard.enabled";
 const PREF_PROMOCARD_VISIBLE = "discoverystream.promoCard.visible";
+// @nova-cleanup(remove-pref): Remove PREF_NOVA_ENABLED
+const PREF_NOVA_ENABLED = "nova.enabled";
 
 /**
  * A new banner ad that appears between rows of stories: leaderboard or billboard size.
@@ -4707,6 +4713,9 @@ const AdBanner = ({
     };
   };
   const promoCardEnabled = spoc.format === "billboard" && prefs[PREF_PROMOCARD_ENABLED] && prefs[PREF_PROMOCARD_VISIBLE];
+
+  // @nova-cleanup(remove-conditional): Remove novaEnabled check
+  const novaEnabled = prefs[PREF_NOVA_ENABLED];
   const sectionsEnabled = prefs[AdBanner_PREF_SECTIONS_ENABLED];
   const ohttpEnabled = prefs[AdBanner_PREF_OHTTP_UNIFIED_ADS];
   const showAdReporting = prefs[PREF_REPORT_ADS_ENABLED];
@@ -4756,8 +4765,11 @@ const AdBanner = ({
     rawImageSrc = `moz-cached-ohttp://newtab-image/?url=${encodeURIComponent(spoc.raw_image_src)}`;
   }
   return /*#__PURE__*/external_React_default().createElement("aside", {
-    className: adBannerWrapperClassName,
-    style: {
+    className: adBannerWrapperClassName
+    // Omit gridRow for Nova sections to ensure correct keyboard focus order.
+    // @nova-cleanup(remove-conditional): Remove novaEnabled check, keep sectionsEnabled condition
+    ,
+    style: novaEnabled && sectionsEnabled ? undefined : {
       gridRow: clampedRow
     }
   }, /*#__PURE__*/external_React_default().createElement("div", {
@@ -4804,7 +4816,8 @@ const AdBanner = ({
     position: row,
     type: type,
     showAdReporting: showAdReporting,
-    toggleActive: toggleActive
+    toggleActive: toggleActive,
+    novaEnabled: novaEnabled
   }))), promoCardEnabled && /*#__PURE__*/external_React_default().createElement(PromoCard, null));
 };
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/CardGrid/CardGrid.jsx
@@ -4819,7 +4832,7 @@ const AdBanner = ({
 
 
 
-const PREF_NOVA_ENABLED = "nova.enabled";
+const CardGrid_PREF_NOVA_ENABLED = "nova.enabled";
 const PREF_SECTIONS_CARDS_ENABLED = "discoverystream.sections.cards.enabled";
 const CardGrid_PREF_SECTIONS_ENABLED = "discoverystream.sections.enabled";
 const PREF_TOPICS_ENABLED = "discoverystream.topicLabels.enabled";
@@ -5105,7 +5118,7 @@ class _CardGrid extends (external_React_default()).PureComponent {
     // Handle the case where a user has dismissed all recommendations
     const isEmpty = data.recommendations.length === 0;
     const prefs = this.props.Prefs.values;
-    const novaEnabled = prefs[PREF_NOVA_ENABLED];
+    const novaEnabled = prefs[CardGrid_PREF_NOVA_ENABLED];
     const sectionsEnabled = prefs[CardGrid_PREF_SECTIONS_ENABLED];
     const showNovaHeader = novaEnabled && !sectionsEnabled;
     return /*#__PURE__*/external_React_default().createElement("div", {
@@ -12444,9 +12457,10 @@ function Lists({
   // @nova-cleanup(remove-conditional): Remove the novaEnabled check; always
   // render the size submenu after Nova ships
   novaEnabled && /*#__PURE__*/external_React_default().createElement("panel-item", {
-    submenu: "lists-size-submenu",
+    submenu: "lists-size-submenu"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
     "data-l10n-id": "newtab-widget-menu-change-size"
-  }, /*#__PURE__*/external_React_default().createElement("panel-list", {
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
     ref: sizeSubmenuRef,
     slot: "submenu",
     id: "lists-size-submenu"
@@ -13344,9 +13358,10 @@ const FocusTimer = ({
   // @nova-cleanup(remove-conditional): Remove the novaEnabled check; always
   // render the size submenu after Nova ships
   novaEnabled && /*#__PURE__*/external_React_default().createElement("panel-item", {
-    submenu: "focus-timer-size-submenu",
+    submenu: "focus-timer-size-submenu"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
     "data-l10n-id": "newtab-widget-menu-change-size"
-  }, /*#__PURE__*/external_React_default().createElement("panel-list", {
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
     ref: sizeSubmenuRef,
     slot: "submenu",
     id: "focus-timer-size-submenu"
@@ -14105,6 +14120,11 @@ function Weather_Weather({
     }
     return undefined;
   }, [handleErrorIntersection, hasError]);
+
+  // Must be declared before the early return to satisfy React's Rules of Hooks.
+  const handleOptInLocationSelected = (0,external_React_namespaceObject.useCallback)(() => {
+    dispatch(actionCreators.SetPref("weather.optInAccepted", true));
+  }, [dispatch]);
   if (!weatherData?.initialized || !isWeatherEnabled) {
     return null;
   }
@@ -14221,9 +14241,6 @@ function Weather_Weather({
       }
     }));
   }
-  const handleOptInLocationSelected = (0,external_React_namespaceObject.useCallback)(() => {
-    dispatch(actionCreators.SetPref("weather.optInAccepted", true));
-  }, [dispatch]);
   function handleOptInChooseLocation() {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.AlsoToMain({
@@ -14292,12 +14309,13 @@ function Weather_Weather({
       "data-l10n-id": "newtab-weather-menu-detect-my-location",
       onClick: handleDetectLocation
     }), prefs["widgets.system.enabled"] && prefs["widgets.enabled"] && /*#__PURE__*/external_React_default().createElement("panel-item", {
-      submenu: "weather-widget-size-submenu",
+      submenu: "weather-size-submenu"
+    }, /*#__PURE__*/external_React_default().createElement("span", {
       "data-l10n-id": "newtab-widget-menu-change-size"
-    }, /*#__PURE__*/external_React_default().createElement("panel-list", {
+    }), /*#__PURE__*/external_React_default().createElement("panel-list", {
       ref: sizeSubmenuRef,
       slot: "submenu",
-      id: "weather-widget-size-submenu"
+      id: "weather-size-submenu"
     }, ["small", "medium", "large"].map(s => /*#__PURE__*/external_React_default().createElement("panel-item", {
       key: s,
       type: "checkbox",
@@ -14508,7 +14526,7 @@ const PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED = "widgets.hideAllToast.enabled";
 const Widgets_PREF_LISTS_SIZE = "widgets.lists.size";
 const Widgets_PREF_FOCUS_TIMER_SIZE = "widgets.focusTimer.size";
 const Widgets_PREF_WEATHER_SIZE = "widgets.weather.size";
-const WIDGETS_FEEDBACK_URL = "https://connect.mozilla.org/t5/discussions/feedback-welcome-for-new-tab-widgets-now-available-via-firefox/td-p/108354";
+const WIDGETS_FEEDBACK_URL = "https://support.mozilla.org/kb/firefox-new-tab-widgets";
 
 // resets timer to default values (exported for testing)
 // In practice, this logic runs inside a useEffect when
@@ -14570,10 +14588,10 @@ function Widgets() {
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
   const timerType = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.TimerWidget.timerType);
   const timerData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.TimerWidget);
-  const isMaximized = prefs[PREF_WIDGETS_MAXIMIZED];
   const widgetsMayBeMaximized = prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED];
   const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
   const novaEnabled = prefs[Widgets_PREF_NOVA_ENABLED];
+  const isMaximized = prefs[PREF_WIDGETS_MAXIMIZED];
   const nimbusListsEnabled = prefs.widgetsConfig?.listsEnabled;
   const nimbusTimerEnabled = prefs.widgetsConfig?.timerEnabled;
   const nimbusListsTrainhopEnabled = prefs.trainhopConfig?.widgets?.listsEnabled;
@@ -14584,6 +14602,7 @@ function Widgets() {
   const feedbackEnabled = prefs.trainhopConfig?.widgets?.feedbackEnabled || prefs[PREF_WIDGETS_FEEDBACK_ENABLED];
   const hideAllToastEnabled = prefs.trainhopConfig?.widgets?.hideAllToastEnabled || prefs[PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED];
   const feedbackUrl = prefs.trainhopConfig?.widgets?.feedbackUrl ?? WIDGETS_FEEDBACK_URL;
+  const showWidgetsSizeToggle = nimbusMaximizedTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED];
   const widgetsEnabled = prefs[PREF_WIDGETS_ENABLED];
   const listsEnabled = widgetsEnabled && (nimbusListsTrainhopEnabled || nimbusListsEnabled || prefs[PREF_WIDGETS_SYSTEM_LISTS_ENABLED]) && prefs[PREF_WIDGETS_LISTS_ENABLED];
   const timerEnabled = widgetsEnabled && (nimbusTimerTrainhopEnabled || nimbusTimerEnabled || prefs[PREF_WIDGETS_SYSTEM_TIMER_ENABLED]) && prefs[PREF_WIDGETS_TIMER_ENABLED];
@@ -14718,14 +14737,14 @@ function Widgets() {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.SetPref(PREF_WIDGETS_MAXIMIZED, newMaximizedState));
 
-      // When Nova is enabled, drive individual widget size prefs rather than
-      // the legacy maximized flag. Widgets pinned to "small" are left
-      // untouched so users who opted them down don't get unexpectedly resized.
+      // When Nova is enabled, treat the shared header control as a toggle
+      // between the default/full widget presentation and the compact one.
+      // Lists has a true compact mode, while the other widgets currently
+      // fall back to their medium-sized presentation when minimized.
       if (novaEnabled) {
+        const listsTargetSize = newMaximizedState ? "large" : "small";
         const targetSize = newMaximizedState ? "large" : "medium";
-        if (prefs[Widgets_PREF_LISTS_SIZE] !== "small") {
-          dispatch(actionCreators.SetPref(Widgets_PREF_LISTS_SIZE, targetSize));
-        }
+        dispatch(actionCreators.SetPref(Widgets_PREF_LISTS_SIZE, listsTargetSize));
         if (prefs[Widgets_PREF_FOCUS_TIMER_SIZE] !== "small") {
           dispatch(actionCreators.SetPref(Widgets_PREF_FOCUS_TIMER_SIZE, targetSize));
         }
@@ -14760,7 +14779,10 @@ function Widgets() {
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.OPEN_LINK,
         data: {
-          url: feedbackUrl
+          url: feedbackUrl,
+          ...(novaEnabled ? {
+            where: "tab"
+          } : {})
         }
       }));
       dispatch(actionCreators.OnlyToMain({
@@ -14780,6 +14802,64 @@ function Widgets() {
       dispatch(actionCreators.SetPref(prefName, true));
     }
   }
+  function renderWidgetsTitle() {
+    if (!novaEnabled) {
+      return /*#__PURE__*/external_React_default().createElement("h1", {
+        "data-l10n-id": "newtab-widget-section-title"
+      });
+    }
+    return /*#__PURE__*/external_React_default().createElement("div", {
+      className: "widgets-title-heading"
+    }, /*#__PURE__*/external_React_default().createElement("h1", {
+      "data-l10n-id": "newtab-widget-section-title"
+    }), showWidgetsSizeToggle ? /*#__PURE__*/external_React_default().createElement("button", {
+      id: "toggle-widgets-size-button",
+      type: "button",
+      className: `widgets-expand-button${isMaximized ? " is-maximized" : ""}`,
+      "data-l10n-id": isMaximized ? "newtab-widget-section-minimize" : "newtab-widget-section-maximize",
+      onClick: handleToggleMaximizeClick,
+      onKeyDown: handleToggleMaximizeKeyDown
+    }) : null);
+  }
+  function renderWidgetsActions() {
+    if (novaEnabled) {
+      return /*#__PURE__*/external_React_default().createElement("div", {
+        className: "widgets-header-context-menu"
+      }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+        className: "widgets-header-context-menu-button",
+        "data-l10n-id": "newtab-widget-section-menu-button",
+        iconSrc: "chrome://global/skin/icons/more.svg",
+        menuId: "widgets-header-context-panel",
+        type: "ghost",
+        size: "small"
+      }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+        id: "widgets-header-context-panel"
+      }, /*#__PURE__*/external_React_default().createElement("panel-item", {
+        "data-l10n-id": "newtab-widget-section-menu-hide-all",
+        onClick: handleHideAllWidgetsClick
+      }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+        "data-l10n-id": "newtab-widget-section-menu-learn-more",
+        onClick: handleFeedbackClick
+      })));
+    }
+    return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, showWidgetsSizeToggle ? /*#__PURE__*/external_React_default().createElement("moz-button", {
+      id: "toggle-widgets-size-button",
+      type: "icon ghost",
+      size: "small",
+      "data-l10n-id": isMaximized ? "newtab-widget-section-minimize" : "newtab-widget-section-maximize",
+      iconsrc: `chrome://browser/skin/${isMaximized ? "fullscreen-exit" : "fullscreen"}.svg`,
+      onClick: handleToggleMaximizeClick,
+      onKeyDown: handleToggleMaximizeKeyDown
+    }) : null, /*#__PURE__*/external_React_default().createElement("moz-button", {
+      id: "hide-all-widgets-button",
+      type: "icon ghost",
+      size: "small",
+      "data-l10n-id": "newtab-widget-section-hide-all-button",
+      iconsrc: "chrome://global/skin/icons/close.svg",
+      onClick: handleHideAllWidgetsClick,
+      onKeyDown: handleHideAllWidgetsKeyDown
+    }));
+  }
   if (!anyWidgetInRow) {
     return null;
   }
@@ -14791,31 +14871,13 @@ function Widgets() {
     className: "widgets-title-container"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "widgets-title-container-text"
-  }, /*#__PURE__*/external_React_default().createElement("h1", {
-    "data-l10n-id": "newtab-widget-section-title"
-  }), messageData?.content?.messageType === "WidgetMessage" && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+  }, renderWidgetsTitle(), messageData?.content?.messageType === "WidgetMessage" && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
     dispatch: dispatch
   }, /*#__PURE__*/external_React_default().createElement(WidgetsFeatureHighlight, {
     dispatch: dispatch
-  }))), (nimbusMaximizedTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED]) && /*#__PURE__*/external_React_default().createElement("moz-button", {
-    id: "toggle-widgets-size-button",
-    type: "icon ghost",
-    size: "small"
-    // Toggle the icon and hover text
-    ,
-    "data-l10n-id": isMaximized ? "newtab-widget-section-minimize" : "newtab-widget-section-maximize",
-    iconsrc: `chrome://browser/skin/${isMaximized ? "fullscreen-exit" : "fullscreen"}.svg`,
-    onClick: handleToggleMaximizeClick,
-    onKeyDown: handleToggleMaximizeKeyDown
-  }), /*#__PURE__*/external_React_default().createElement("moz-button", {
-    id: "hide-all-widgets-button",
-    type: "icon ghost",
-    size: "small",
-    "data-l10n-id": "newtab-widget-section-hide-all-button",
-    iconsrc: "chrome://global/skin/icons/close.svg",
-    onClick: handleHideAllWidgetsClick,
-    onKeyDown: handleHideAllWidgetsKeyDown
-  })), /*#__PURE__*/external_React_default().createElement("div", {
+  }))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "widgets-title-actions"
+  }, renderWidgetsActions())), /*#__PURE__*/external_React_default().createElement("div", {
     className: `widgets-container${isMaximized ? " is-maximized" : ""}`
   }, listsEnabled && /*#__PURE__*/external_React_default().createElement(Lists, {
     dispatch: dispatch,
@@ -14836,7 +14898,7 @@ function Widgets() {
     handleUserInteraction,
     isMaximized,
     widgetsMayBeMaximized
-  })), feedbackEnabled && /*#__PURE__*/external_React_default().createElement("a", {
+  })), feedbackEnabled && !novaEnabled && /*#__PURE__*/external_React_default().createElement("a", {
     className: "widgets-feedback-link",
     href: feedbackUrl,
     "data-l10n-id": "newtab-widget-section-feedback",
@@ -15531,7 +15593,7 @@ function SectionsMgmtPanel({
   // @nova-cleanup(remove-conditional): Remove novaEnabled check, keep arrowIconSrc computation
   let arrowIconSrc;
   if (novaEnabled) {
-    const isRTL = document.dir === "rtl";
+    const isRTL = typeof document !== "undefined" && document.dir === "rtl";
     arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
   }
   const panelBody = /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("h3", {
@@ -15990,7 +16052,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
     // @nova-cleanup(remove-conditional): Remove novaEnabled check, keep arrowIconSrc computation
     let arrowIconSrc;
     if (novaEnabled) {
-      const isRTL = document.dir === "rtl";
+      const isRTL = typeof document !== "undefined" && document.dir === "rtl";
       arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
     }
     // Enable custom color select if pref'ed on
@@ -16359,7 +16421,7 @@ function WidgetsManagementPanel({
     timerEnabled,
     listsEnabled
   } = enabledWidgets;
-  const isRTL = document.dir === "rtl";
+  const isRTL = typeof document !== "undefined" && document.dir === "rtl";
   const arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
   return /*#__PURE__*/external_React_default().createElement("div", {
     id: "widgets-management-panel",
@@ -17582,9 +17644,10 @@ class _Weather extends (external_React_default()).PureComponent {
     // @nova-cleanup(remove-conditional): Remove the novaEnabled check
     // Always render the size submenu
     novaEnabled && /*#__PURE__*/external_React_default().createElement("panel-item", {
-      submenu: "weather-size-submenu",
+      submenu: "weather-size-submenu"
+    }, /*#__PURE__*/external_React_default().createElement("span", {
       "data-l10n-id": "newtab-widget-menu-change-size"
-    }, /*#__PURE__*/external_React_default().createElement("panel-list", {
+    }), /*#__PURE__*/external_React_default().createElement("panel-list", {
       ref: this.setSizeSubmenuRef,
       slot: "submenu",
       id: "weather-size-submenu"
@@ -19104,9 +19167,14 @@ class BaseContent extends (external_React_default()).PureComponent {
         className: "nova-outer-wrapper"
       }, /*#__PURE__*/external_React_default().createElement("div", {
         className: `container nova-enabled${logoShouldBeCentered ? " logo-in-content" : ""}`
-      }, /*#__PURE__*/external_React_default().createElement("div", {
+      }, /*#__PURE__*/external_React_default().createElement("aside", {
         className: "sidebar-inline-start"
-      }, !logoShouldBeCentered && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Logo, null))), /*#__PURE__*/external_React_default().createElement("div", {
+      }, !logoShouldBeCentered && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Logo, null))), /*#__PURE__*/external_React_default().createElement("aside", {
+        className: "sidebar-inline-end"
+      }, showWeatherWidgetInSidebar && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather, {
+        dispatch: props.dispatch,
+        size: "small"
+      }))), /*#__PURE__*/external_React_default().createElement("main", {
         className: "content"
       }, logoShouldBeCentered && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Logo, null)), prefs.showSearch && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Search_Search, Base_extends({
         showLogo: false
@@ -19138,11 +19206,6 @@ class BaseContent extends (external_React_default()).PureComponent {
       }, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamBase, {
         locale: props.App.locale,
         spocsLoading: this.isSpocsOnDemandExpired
-      }))), /*#__PURE__*/external_React_default().createElement("div", {
-        className: "sidebar-inline-end"
-      }, showWeatherWidgetInSidebar && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather, {
-        dispatch: props.dispatch,
-        size: "small"
       })))), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null), /*#__PURE__*/external_React_default().createElement("menu", {
         className: "personalizeButtonWrapper"
       }, /*#__PURE__*/external_React_default().createElement(CustomizeMenu, {

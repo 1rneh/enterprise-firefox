@@ -271,6 +271,7 @@
     <string name="pref_key_tracking_protection_redirect_trackers" translatable="false">pref_key_tracking_protection_redirect_trackers</string>
     <string name="pref_key_tracking_protection_suspected_fingerprinters" translatable="false">pref_key_tracking_protection_suspected_fingerprinters</string>
     <string name="pref_key_tracking_protection_suspected_fingerprinters_select" translatable="false">pref_key_tracking_protection_suspected_fingerprinters_select</string>
+    <string name="pref_key_tracking_protection_database_status" translatable="false">pref_key_tracking_protection_database_status</string>
 
     <!-- Logins Settings -->
     <string name="pref_key_save_logins_settings" translatable="false">pref_key_save_logins_settings</string>
@@ -598,6 +599,9 @@
 
     <!-- Longfox -->
     <string name="pref_key_enable_longfox" translatable="false">pref_key_enable_longfox</string>
+
+    <!-- Sports Widget -->
+    <string name="pref_key_sports_selected_countries" translatable="false">pref_key_sports_selected_countries</string>
 
     <!-- Google Lens Integration -->
     <string name="pref_key_google_lens_integration" translatable="false">pref_key_google_lens_integration</string>

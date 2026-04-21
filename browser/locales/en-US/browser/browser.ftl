@@ -1288,17 +1288,17 @@ unified-extensions-button-blocklisted =
 reset-pbm-toolbar-button =
     .label = End Private Session
     .tooltiptext = End Private Session
-reset-pbm-panel-heading = End your private session?
-reset-pbm-panel-description = Close all private tabs and delete history, cookies, and all other site data.
+reset-pbm-panel-heading2 = Clear data and start a fresh private session?
+reset-pbm-panel-description2 = This deletes history, cookies, and all other site data without closing your Private Window.
 reset-pbm-panel-always-ask-checkbox =
      .label = Always ask me
      .accesskey = A
 reset-pbm-panel-cancel-button =
     .label = Cancel
     .accesskey = C
-reset-pbm-panel-confirm-button =
-    .label = Delete session data
-    .accesskey = D
+reset-pbm-panel-confirm-button2 =
+    .label = Clear private session
+    .accesskey = l
 reset-pbm-panel-complete = Private session data deleted
 
 ## Autorefresh blocker
@@ -1564,3 +1564,10 @@ trustpanel-cryptominer-not-blocking-tab-header = { $count ->
   *[other] { -brand-product-name } allowed { $count } cryptominers
 }
 trustpanel-cryptominer-tab-list-header = These sites are trying to cryptomine:
+
+## Reduced Protection Infobar ("ReducedProtectionNotification.sys.mjs")
+
+# "temporarily lower your tracking protection" refers to temporarily decreasing the amount of tracking protection.
+reduced-protection-infobar-message = <strong>Site looks broken?</strong> Reload the page to temporarily lower your tracking protection.
+reduced-protection-infobar-reload-button = Reload
+  .accesskey = R

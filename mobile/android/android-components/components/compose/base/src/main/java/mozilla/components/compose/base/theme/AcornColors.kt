@@ -37,11 +37,7 @@ class AcornColors(
     formDefault: Color,
     textOnColorPrimary: Color,
     iconPrimaryInactive: Color,
-    iconActive: Color,
     iconOnColor: Color,
-    iconOnColorDisabled: Color,
-    iconActionPrimary: Color,
-    borderAccent: Color,
     ripple: Color,
     tabActive: Color,
     tabInactive: Color,
@@ -117,26 +113,8 @@ class AcornColors(
     var iconPrimaryInactive by mutableStateOf(iconPrimaryInactive)
         private set
 
-    // Active tab
-    var iconActive by mutableStateOf(iconActive)
-        private set
-
     // Icon inverted (on color)
     var iconOnColor by mutableStateOf(iconOnColor)
-        private set
-
-    // Disabled icon inverted (on color)
-    var iconOnColorDisabled by mutableStateOf(iconOnColorDisabled)
-        private set
-
-    // Action primary icon
-    var iconActionPrimary by mutableStateOf(iconActionPrimary)
-        private set
-
-    // Border
-
-    // Active tab (Nav), Selected tab, Active form
-    var borderAccent by mutableStateOf(borderAccent)
         private set
 
     var ripple by mutableStateOf(ripple)
@@ -196,11 +174,7 @@ class AcornColors(
         formDefault = other.formDefault
         textOnColorPrimary = other.textOnColorPrimary
         iconPrimaryInactive = other.iconPrimaryInactive
-        iconActive = other.iconActive
         iconOnColor = other.iconOnColor
-        iconOnColorDisabled = other.iconOnColorDisabled
-        iconActionPrimary = other.iconActionPrimary
-        borderAccent = other.borderAccent
         ripple = other.ripple
         tabActive = other.tabActive
         tabInactive = other.tabInactive
@@ -229,11 +203,7 @@ class AcornColors(
         formDefault: Color = this.formDefault,
         textOnColorPrimary: Color = this.textOnColorPrimary,
         iconPrimaryInactive: Color = this.iconPrimaryInactive,
-        iconActive: Color = this.iconActive,
         iconOnColor: Color = this.iconOnColor,
-        iconOnColorDisabled: Color = this.iconOnColorDisabled,
-        iconActionPrimary: Color = this.iconActionPrimary,
-        borderAccent: Color = this.borderAccent,
         ripple: Color = this.ripple,
         tabActive: Color = this.tabActive,
         tabInactive: Color = this.tabInactive,
@@ -256,11 +226,7 @@ class AcornColors(
         formDefault = formDefault,
         textOnColorPrimary = textOnColorPrimary,
         iconPrimaryInactive = iconPrimaryInactive,
-        iconActive = iconActive,
         iconOnColor = iconOnColor,
-        iconOnColorDisabled = iconOnColorDisabled,
-        iconActionPrimary = iconActionPrimary,
-        borderAccent = borderAccent,
         ripple = ripple,
         tabActive = tabActive,
         tabInactive = tabInactive,
@@ -286,11 +252,7 @@ val darkColorPalette = AcornColors(
     formDefault = PhotonColors.LightGrey05,
     textOnColorPrimary = PhotonColors.LightGrey05,
     iconPrimaryInactive = PhotonColors.LightGrey05A60,
-    iconActive = PhotonColors.Violet40,
     iconOnColor = PhotonColors.LightGrey05,
-    iconOnColorDisabled = PhotonColors.LightGrey05A40,
-    iconActionPrimary = PhotonColors.LightGrey05,
-    borderAccent = PhotonColors.Violet40,
     ripple = PhotonColors.White,
     tabActive = PhotonColors.DarkGrey30,
     tabInactive = PhotonColors.DarkGrey80,
@@ -315,11 +277,7 @@ val lightColorPalette = AcornColors(
     formDefault = PhotonColors.DarkGrey90,
     textOnColorPrimary = PhotonColors.LightGrey05,
     iconPrimaryInactive = PhotonColors.DarkGrey90A60,
-    iconActive = PhotonColors.Ink20,
     iconOnColor = PhotonColors.LightGrey05,
-    iconOnColorDisabled = PhotonColors.LightGrey05A40,
-    iconActionPrimary = PhotonColors.LightGrey05,
-    borderAccent = PhotonColors.Ink20,
     ripple = PhotonColors.Black,
     tabActive = PhotonColors.LightGrey10,
     tabInactive = PhotonColors.LightGrey20,

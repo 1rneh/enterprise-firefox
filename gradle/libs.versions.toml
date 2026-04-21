@@ -68,7 +68,7 @@ play-services-fido = "21.2.0"
 protobuf = "4.34.1" # Keep Protobuf in sync with the version used by AppServices.
 
 # Gradle plugins
-dependency-analysis = "3.6.1"
+dependency-analysis = "3.7.0"
 jacoco = "0.8.14"
 kaml = "0.104.0"
 kotlin-dsl = "6.5.2"
@@ -103,7 +103,7 @@ mockk = "1.14.9"
 robolectric = "4.16"
 
 # Third party libraries
-adjust = "5.6.0"
+adjust = "5.6.1"
 androidsvg = "1.4"
 disklrucache = "2.0.2"
 jetbrains-markdown = "0.7.3"
@@ -111,7 +111,7 @@ jna = "5.18.1"
 json = "20251224"
 okhttp = "5.3.2"
 okio = "3.17.0"
-sentry = "8.38.0"
+sentry = "8.39.1"
 zxing = "3.5.4"
 
 [libraries]

@@ -158,14 +158,20 @@ class TabStorageMiddleware(
         tabGroups: List<StoredTabGroup>,
         tabGroupAssignments: Map<TabItemId, String>,
     ): TabStorageUpdate {
-        val normalTabs: MutableList<TabsTrayItem> = mutableListOf()
+        val normalItems: MutableList<TabsTrayItem> = mutableListOf()
         val inactiveTabs: MutableList<TabsTrayItem.Tab> = mutableListOf()
         val privateTabs: MutableList<TabsTrayItem> = mutableListOf()
         val transformedTabGroups = constructTabGroupMaps(tabGroups = tabGroups)
         val groupsIncludedInNormalTabs = hashSetOf<TabItemId>()
+        var normalTabCount = 0
+        var selectedNormalTabIndex = 0
+        var selectedPrivateTabIndex = 0
 
         tabData.tabs.forEach { tab ->
-            val displayTab = TabsTrayItem.Tab(tab = tab)
+            val displayTab = TabsTrayItem.Tab(
+                tab = tab,
+                isFocused = tab.id == tabData.selectedTabId,
+            )
             val assignedGroup = getAssignedGroup(
                 tabItemId = displayTab.id,
                 tabGroupAssignments = tabGroupAssignments,
@@ -174,29 +180,93 @@ class TabStorageMiddleware(
 
             when {
                 assignedGroup != null -> {
-                    assignedGroup.tabs.add(displayTab)
-
-                    // We need to separately check & track if the group has already been added to the
-                    // collection of Normal tab items because normalTabs does not maintain a sort key
-                    // and cannot be backed by a Map/Set.
-                    if (!assignedGroup.closed && assignedGroup.id !in groupsIncludedInNormalTabs) {
-                        normalTabs.add(assignedGroup)
-                        groupsIncludedInNormalTabs.add(assignedGroup.id)
-                    }
+                    normalTabCount++
+                    addToTabGroup(
+                        tab = displayTab,
+                        assignedGroup = assignedGroup,
+                        groupsIncludedInNormalTabs = groupsIncludedInNormalTabs,
+                        normalTabs = normalItems,
+                        updateSelectedTabIndex = { selectedNormalTabIndex = it },
+                    )
                 }
-                displayTab.private -> privateTabs.add(displayTab)
-                inactiveTabsEnabled && displayTab.inactive -> inactiveTabs.add(displayTab)
-                else -> normalTabs.add(displayTab)
+
+                displayTab.private -> addToPrivateTabs(
+                    tab = displayTab,
+                    privateTabs = privateTabs,
+                    updateSelectedTabIndex = { selectedPrivateTabIndex = it },
+                )
+
+                inactiveTabsEnabled && displayTab.inactive -> {
+                    normalTabCount++
+                    inactiveTabs.add(displayTab)
+                }
+
+                else -> {
+                    normalTabCount++
+                    addToNormalTabs(
+                        tab = displayTab,
+                        normalTabs = normalItems,
+                        updateSelectedTabIndex = { selectedNormalTabIndex = it },
+                    )
+                }
             }
         }
 
         return TabStorageUpdate(
             selectedTabId = tabData.selectedTabId,
-            normalTabs = normalTabs,
+            normalItems = normalItems,
+            normalTabCount = normalTabCount,
+            selectedNormalItemIndex = selectedNormalTabIndex,
             inactiveTabs = inactiveTabs,
             privateTabs = privateTabs,
+            selectedPrivateItemIndex = selectedPrivateTabIndex,
             tabGroups = transformedTabGroups.values.toList(),
         )
+    }
+
+    private fun addToTabGroup(
+        tab: TabsTrayItem.Tab,
+        assignedGroup: TabsTrayItem.TabGroup,
+        groupsIncludedInNormalTabs: HashSet<TabItemId>,
+        normalTabs: MutableList<TabsTrayItem>,
+        updateSelectedTabIndex: (Int) -> Unit,
+    ) {
+        assignedGroup.tabs.add(tab)
+
+        // We need to separately check & track if the group has already been added to the
+        // collection of Normal tab items because normalTabs does not maintain a sort key
+        // and cannot be backed by a Map/Set.
+        if (!assignedGroup.closed && assignedGroup.id !in groupsIncludedInNormalTabs) {
+            normalTabs.add(assignedGroup)
+            groupsIncludedInNormalTabs.add(assignedGroup.id)
+        }
+
+        if (tab.isFocused) {
+            updateSelectedTabIndex(normalTabs.size - 1)
+            assignedGroup.isFocused = true
+        }
+    }
+
+    private fun addToNormalTabs(
+        tab: TabsTrayItem.Tab,
+        normalTabs: MutableList<TabsTrayItem>,
+        updateSelectedTabIndex: (Int) -> Unit,
+    ) {
+        normalTabs.add(tab)
+        if (tab.isFocused) {
+            updateSelectedTabIndex(normalTabs.size - 1)
+        }
+    }
+
+    private fun addToPrivateTabs(
+        tab: TabsTrayItem.Tab,
+        privateTabs: MutableList<TabsTrayItem>,
+        updateSelectedTabIndex: (Int) -> Unit,
+    ) {
+        privateTabs.add(tab)
+        if (tab.isFocused) {
+            updateSelectedTabIndex(privateTabs.size - 1)
+        }
     }
 
     private fun getAssignedGroup(
@@ -232,7 +302,7 @@ class TabStorageMiddleware(
     private fun handleSaveClicked(
         store: Store<TabsTrayState, TabsTrayAction>,
     ) {
-        val formState = store.state.tabGroupFormState ?: return
+        val formState = store.state.tabGroupState.formState ?: return
         val selectedTabIds = store.state.mode.selectedTabIds
 
         scope.launch {

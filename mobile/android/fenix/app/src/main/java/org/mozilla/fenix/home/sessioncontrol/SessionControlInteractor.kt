@@ -27,6 +27,7 @@ import org.mozilla.fenix.home.recentvisits.RecentlyVisitedItem.RecentHistoryGrou
 import org.mozilla.fenix.home.recentvisits.RecentlyVisitedItem.RecentHistoryHighlight
 import org.mozilla.fenix.home.recentvisits.controller.RecentVisitsController
 import org.mozilla.fenix.home.search.HomeSearchController
+import org.mozilla.fenix.home.sports.SportsController
 import org.mozilla.fenix.home.termsofuse.PrivacyNoticeBannerController
 import org.mozilla.fenix.home.toolbar.ToolbarController
 import org.mozilla.fenix.home.topsites.controller.TopSiteController
@@ -189,10 +190,11 @@ class SessionControlInteractor(
     private val topSiteController: TopSiteController,
     private val privacyNoticeBannerController: PrivacyNoticeBannerController,
     private val logoController: LogoController,
+    private val sportsController: SportsController,
 ) : HomepageInteractor {
 
-    override fun onLogoClicked() {
-        logoController.handleLogoClicked()
+    override fun onLogoLongClicked() {
+        logoController.handleLogoLongClicked()
     }
 
     override fun onCollectionAddTabTapped(collection: TabCollection) {
@@ -415,5 +417,9 @@ class SessionControlInteractor(
 
     override fun onPrivacyNoticeBannerDisplayed() {
         privacyNoticeBannerController.onBannerDisplayed()
+    }
+
+    override fun onCountriesSelected(countryCodes: Set<String>) {
+        sportsController.handleCountriesSelected(countryCodes = countryCodes)
     }
 }

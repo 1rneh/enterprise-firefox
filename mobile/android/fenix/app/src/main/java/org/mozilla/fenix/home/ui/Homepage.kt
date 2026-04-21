@@ -20,6 +20,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,6 +48,7 @@ import org.mozilla.fenix.GleanMetrics.RecentlyVisitedHomepage
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.appstate.setup.checklist.SetupChecklistState
+import org.mozilla.fenix.components.appstate.sports.SportsWidgetState
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.compose.MessageCard
 import org.mozilla.fenix.compose.home.HomeSectionHeader
@@ -70,6 +75,7 @@ import org.mozilla.fenix.home.recentvisits.view.RecentlyVisited
 import org.mozilla.fenix.home.sessioncontrol.CollectionInteractor
 import org.mozilla.fenix.home.sessioncontrol.MessageCardInteractor
 import org.mozilla.fenix.home.setup.ui.SetupChecklist
+import org.mozilla.fenix.home.sports.ui.SportsCountrySelectorBottomSheet
 import org.mozilla.fenix.home.store.HeaderState
 import org.mozilla.fenix.home.store.HomepageState
 import org.mozilla.fenix.home.store.NimbusMessageState
@@ -104,6 +110,7 @@ internal fun Homepage(
 ) {
     val scrollState = rememberScrollState()
     val browsingModeChanged = interactor::onPrivateModeButtonClicked
+    var showSportsCountrySelector by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
         modifier = modifier
@@ -147,7 +154,12 @@ internal fun Homepage(
                         onPrivateModeTapped = { browsingModeChanged(BrowsingMode.Private) },
                         onStoriesTapped = { interactor.onDiscoverMoreClicked() },
                         onNewsAnimationShown = { components.settings.recordNewsButtonAnimationShown() },
-                        onLogoClicked = interactor::onLogoClicked,
+                        onLogoClicked = {
+                            if (components.settings.enableHomepageSportsWidget) {
+                                showSportsCountrySelector = true
+                            }
+                        },
+                        onLogoLongClicked = interactor::onLogoLongClicked,
                     )
                 }
 
@@ -158,12 +170,19 @@ internal fun Homepage(
                 }
 
                 is HeaderState.Normal -> {
+                    val components = components
+
                     HomepageHeader(
                         wordmarkTextColor = headerState.wordmarkTextColor,
                         privateBrowsingButtonColor = headerState.privateBrowsingButtonColor,
                         browsingMode = state.browsingMode,
                         browsingModeChanged = browsingModeChanged,
-                        onLogoClicked = interactor::onLogoClicked,
+                        onLogoClicked = {
+                            if (components.settings.enableHomepageSportsWidget) {
+                                showSportsCountrySelector = true
+                            }
+                        },
+                        onLogoLongClicked = interactor::onLogoLongClicked,
                     )
                 }
             }
@@ -272,6 +291,14 @@ internal fun Homepage(
                         }
                     }
                 }
+            }
+
+            if (showSportsCountrySelector) {
+                SportsCountrySelectorBottomSheet(
+                    selectedCountryCode = null,
+                    onCountrySelected = { showSportsCountrySelector = false },
+                    onDismiss = { showSportsCountrySelector = false },
+                )
             }
         }
     }
@@ -536,6 +563,8 @@ private fun HomepagePreview() {
                     showCollections = true,
                     showPrivacyReport = true,
                     trackersBlockedCount = 754,
+                    showSportsWidget = false,
+                    sportsWidgetState = SportsWidgetState(),
                     headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
                         privateBrowsingButtonColor = colorResource(
@@ -589,6 +618,8 @@ private fun HomepageBannerPreview() {
                     showCollections = true,
                     showPrivacyReport = true,
                     trackersBlockedCount = 754,
+                    showSportsWidget = false,
+                    sportsWidgetState = SportsWidgetState(),
                     headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
                         privateBrowsingButtonColor = colorResource(
@@ -642,6 +673,8 @@ private fun HomepagePreviewCollections() {
                     showCollections = true,
                     showPrivacyReport = true,
                     trackersBlockedCount = 754,
+                    showSportsWidget = false,
+                    sportsWidgetState = SportsWidgetState(),
                     headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
                         privateBrowsingButtonColor = colorResource(
@@ -695,6 +728,8 @@ private fun MinimalHomepagePreview() {
                     showCollections = false,
                     showPrivacyReport = true,
                     trackersBlockedCount = 754,
+                    showSportsWidget = false,
+                    sportsWidgetState = SportsWidgetState(),
                     headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
                         privateBrowsingButtonColor = colorResource(

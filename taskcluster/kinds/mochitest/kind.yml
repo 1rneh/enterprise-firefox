@@ -84,10 +84,6 @@ task-defaults:
         by-test-platform:
             android-em.*: geckoview-test_runner.apk
             android-hw.*: geckoview-test_runner.apk
-            windows11-64.*:
-                by-variant:
-                    msix: target.installer.msix
-                    default: null
             default: null
     tier:
         by-variant:
@@ -336,7 +332,7 @@ tasks:
                         .*-32.*: []
                         linux2404-64(-shippable)?/opt: ['trunk']
                         macosx.*-64(-shippable)?(-qr)?/opt: ['trunk']
-                        windows11-64-24h2(-shippable)?/opt: ['trunk']
+                        windows11-64-25h2(-shippable)?/opt: ['trunk']
                         default: []
                 trainhop-release:
                     by-test-platform:
@@ -344,7 +340,7 @@ tasks:
                         .*-32.*: []
                         linux2404-64(-shippable)?/opt: ['trunk']
                         macosx.*-64(-shippable)?(-qr)?/opt: ['trunk']
-                        windows11-64-24h2(-shippable)?/opt: ['trunk']
+                        windows11-64-25h2(-shippable)?/opt: ['trunk']
                         default: []
                 webrender-sw:
                     by-test-platform:

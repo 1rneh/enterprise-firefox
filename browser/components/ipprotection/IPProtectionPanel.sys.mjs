@@ -495,12 +495,14 @@ export class IPProtectionPanel {
     }
 
     let headerButton = panelView.querySelector(".panel-info-button");
+    if (AppConstants.MOZ_ENTERPRISE) {
+      headerButton.replaceWith(
+        this.#createAccessConnectorStatusLabel(ownerDocument)
+      );
+    }
+
     headerButton.addEventListener("click", IPProtectionPanel.showHelpPage);
     headerButton.addEventListener("keypress", this.#handleHeaderButtonKeypress);
-    if (AppConstants.MOZ_ENTERPRISE) {
-      headerButton =
-        this.#createAccessConnectorStatusLabel(ownerDocument);
-    }
     // Reset the tab index to ensure it is focusable.
     headerButton.setAttribute("tabindex", "0");
     this.#headerButtons.push(headerButton);

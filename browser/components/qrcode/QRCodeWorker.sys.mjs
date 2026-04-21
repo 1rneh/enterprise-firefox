@@ -36,32 +36,14 @@ export class QRCodeWorker extends BasePromiseWorker {
   }
 
   /**
-   * Simple ping test for worker communication
-   *
-   * @returns {Promise<string>} Returns "pong"
-   */
-  async ping() {
-    return this.post("ping", []);
-  }
-
-  /**
-   * Check if the QRCode library is available in the worker
-   *
-   * @returns {Promise<boolean>} True if library is available
-   */
-  async hasQRCodeLibrary() {
-    return this.post("hasQRCodeLibrary", []);
-  }
-
-  /**
-   * Generate a QR code for the given URL
+   * Generate a complete QR code PNG with the Firefox logo composited off the
+   * main thread.
    *
    * @param {string} url - The URL to encode in the QR code
-   * @param {string} errorCorrectionLevel - Error correction level (L, M, Q, H)
-   * @returns {Promise<object>} Object with width, height, and src data URI
+   * @returns {Promise<string>} data:image/png;base64,... URI
    */
-  async generateQRCode(url, errorCorrectionLevel = "H") {
-    return this.post("generateQRCode", [url, errorCorrectionLevel]);
+  async generateFullQRCode(url) {
+    return this.post("generateFullQRCode", [url]);
   }
 
   /**

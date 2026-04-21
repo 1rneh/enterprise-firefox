@@ -1590,6 +1590,10 @@ class UrlbarInputTestUtils {
     if (openFn) {
       await openFn();
     } else {
+      button.focus();
+      await lazy.BrowserTestUtils.waitForCondition(
+        () => !button.hasAttribute("aria-hidden")
+      );
       button.click();
     }
     await Promise.all([promisePanelOpen, rebuildPromise]);

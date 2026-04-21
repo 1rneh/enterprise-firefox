@@ -638,6 +638,9 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // and panels in the Urlbar.
   ["trustPanel.featureGate", false],
 
+  // Enable the banner warning the user of breached websites in the trust panel:
+  ["trustPanel.breachAlerts", false],
+
   // Whether unit conversion is enabled.
   ["unitConversion.enabled", false],
 

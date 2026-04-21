@@ -79,6 +79,9 @@ pane-ai-controls-title = AI controls
 category-ai-controls =
     .tooltiptext = { pane-ai-controls-title }
 
+pane-accessibility-title = Accessibility
+  .title = { pane-accessibility-title }
+
 settings-pane-labs-title = { -firefoxlabs-brand-name }
 settings-category-labs =
     .tooltiptext = { -firefoxlabs-brand-name }
@@ -387,24 +390,8 @@ preferences-colors-manage-button =
 preferences-fonts-header2 =
   .label = Fonts
 
-default-font-2 =
-  .label = Default font
-  .accesskey = D
-default-font-size-2 =
-  .label = Size
-  .accesskey = S
-
-advanced-fonts =
-    .label = Advanced…
-    .accesskey = A
-
-# Zoom is a noun, and the message is used as header for a group of options
-preferences-zoom-header2 =
-  .label = Zoom
-
 preferences-default-zoom-label =
     .label = Default zoom
-    .accesskey = z
 
 # Variables:
 #   $percentage (number) - Zoom percentage value
@@ -805,10 +792,6 @@ performance-default-content-process-count =
 
 browsing-group =
   .label = Browsing
-
-browsing-use-autoscroll =
-    .label = Use autoscrolling
-    .accesskey = a
 
 browsing-use-smooth-scrolling =
     .label = Use smooth scrolling
@@ -2361,6 +2344,36 @@ preferences-connection-link-button =
 
 desktop-folder-name = Desktop
 downloads-folder-name = Downloads
+
+## Accessibility page
+
+preferences-accessibility-header =
+    .heading = Accessibility
+
+preferences-default-zoom-select =
+    .aria-label = Default zoom
+
+preferences-fonts-family =
+    .label = Font family
+    .accesskey = D
+
+preferences-fonts-size =
+    .label = Font size
+    .accesskey = s
+
+preferences-fonts-advanced-settings =
+    .label = Advanced settings
+    .accesskey = A
+
+browsing-use-autoscroll =
+    .label = Use autoscrolling
+    .accesskey = a
+
+keyboard-and-scrolling-group =
+  .label = Keyboard navigation and scrolling
+
+motion-and-link-group =
+  .label = Motion and link styling
 
 ## AI controls page
 

@@ -10579,7 +10579,8 @@ const CLOSE_ICON = "chrome://global/skin/icons/close.svg";
 function SectionFollowButton({
   following,
   onFollowClick,
-  onUnfollowClick
+  onUnfollowClick,
+  title
 }) {
   const [isHovered, setIsHovered] = (0,external_React_namespaceObject.useState)(false);
   const [justFollowed, setJustFollowed] = (0,external_React_namespaceObject.useState)(false);
@@ -10604,6 +10605,12 @@ function SectionFollowButton({
   } else if (following) {
     icon = CHECK_ICON;
   }
+
+  // Bug 2030391 - Provide an aria-label for the default icon state
+  const labelL10nId = following ? "newtab-section-unfollow-button-label" : "newtab-section-follow-button-label";
+  const labelL10nArgs = JSON.stringify({
+    topic: title
+  });
   const handleFollowClick = () => {
     setJustFollowed(true);
     onFollowClick();
@@ -10629,7 +10636,8 @@ function SectionFollowButton({
     type: buttonType,
     iconsrc: icon,
     onClick: following ? onUnfollowClick : handleFollowClick,
-    "data-l10n-id": isHovered ? followButtonL10nId : null
+    "data-l10n-id": isHovered ? followButtonL10nId : labelL10nId,
+    "data-l10n-args": isHovered ? null : labelL10nArgs
   }));
 }
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/InterestPicker/InterestPicker.jsx
@@ -10675,17 +10683,16 @@ function InterestPicker({
   }, [dispatch, receivedFeedRank]);
   const ref = useIntersectionObserver(handleIntersection);
   const onKeyDown = (0,external_React_namespaceObject.useCallback)(e => {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      // prevent the page from scrolling up/down while navigating.
-      e.preventDefault();
-    }
-    if (focusedRef.current?.nextSibling?.querySelector("input") && e.key === "ArrowDown") {
-      focusedRef.current.nextSibling.querySelector("input").tabIndex = 0;
-      focusedRef.current.nextSibling.querySelector("input").focus();
-    }
-    if (focusedRef.current?.previousSibling?.querySelector("input") && e.key === "ArrowUp") {
-      focusedRef.current.previousSibling.querySelector("input").tabIndex = 0;
-      focusedRef.current.previousSibling.querySelector("input").focus();
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      // Arrow direction should match visual navigation direction in RTL
+      const isRTL = document.dir === "rtl";
+      const navigateToPrevious = isRTL ? e.key === "ArrowRight" : e.key === "ArrowLeft";
+      const target = navigateToPrevious ? focusedRef.current?.previousSibling : focusedRef.current?.nextSibling;
+      const input = target?.querySelector("input");
+      if (input) {
+        input.tabIndex = 0;
+        input.focus();
+      }
     }
   }, []);
   function onWrapperFocus() {
@@ -10778,6 +10785,151 @@ function InterestPicker({
     }, interest.title || ""), /*#__PURE__*/external_React_default().createElement("div", {
       className: `topic-item-icon icon ${checked ? "icon-check-filled" : "icon-add-circle-fill"}`
     })));
+  })), /*#__PURE__*/external_React_default().createElement("p", {
+    className: "learn-more-copy"
+  }, /*#__PURE__*/external_React_default().createElement("a", {
+    href: prefs["support.url"],
+    "data-l10n-id": "newtab-topic-selection-privacy-link"
+  })));
+}
+
+;// CONCATENATED MODULE: ./content-src/components/Nova/InterestPicker/InterestPicker.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+// @nova-cleanup(move-directory): Move to components/DiscoveryStreamComponents/InterestPicker/ after Nova ships
+
+
+
+
+
+const InterestPicker_PREF_VISIBLE_SECTIONS = "discoverystream.sections.interestPicker.visibleSections";
+
+/**
+ * Shows a list of recommended topics with visual indication whether
+ * the user follows some of the topics (active, blue, selected topics)
+ * or is yet to do so (neutrally-coloured topics with a "plus" button).
+ *
+ * @returns {React.Element}
+ */
+
+function InterestPicker_InterestPicker({
+  title,
+  subtitle,
+  interests,
+  receivedFeedRank
+}) {
+  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
+  const focusedRef = (0,external_React_namespaceObject.useRef)(null);
+  const focusRef = (0,external_React_namespaceObject.useRef)(null);
+  const [focusedIndex, setFocusedIndex] = (0,external_React_namespaceObject.useState)(0);
+  const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
+  const {
+    sectionPersonalization
+  } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.DiscoveryStream);
+  const visibleSections = prefs[InterestPicker_PREF_VISIBLE_SECTIONS]?.split(",").map(item => item.trim()).filter(item => item);
+  const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.INLINE_SELECTION_IMPRESSION,
+      data: {
+        section_position: receivedFeedRank
+      }
+    }));
+  }, [dispatch, receivedFeedRank]);
+  const ref = useIntersectionObserver(handleIntersection);
+  const onKeyDown = (0,external_React_namespaceObject.useCallback)(e => {
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      // Arrow direction should match visual navigation direction in RTL
+      const isRTL = document.dir === "rtl";
+      const navigateToPrevious = isRTL ? e.key === "ArrowRight" : e.key === "ArrowLeft";
+      const target = navigateToPrevious ? focusedRef.current?.previousSibling : focusedRef.current?.nextSibling;
+      const button = target?.querySelector("moz-button");
+      if (button) {
+        button.tabIndex = 0;
+        button.focus();
+      }
+    }
+  }, []);
+  function onWrapperFocus() {
+    focusRef.current?.addEventListener("keydown", onKeyDown);
+  }
+  function onWrapperBlur() {
+    focusRef.current?.removeEventListener("keydown", onKeyDown);
+  }
+  function onItemFocus(index) {
+    setFocusedIndex(index);
+  }
+
+  // Updates user preferences as they follow or unfollow topics
+  // by selecting them from the list
+  function handleClick(topic, isChecked, index) {
+    let updatedSections = {
+      ...sectionPersonalization
+    };
+    if (isChecked) {
+      updatedSections[topic] = {
+        isFollowed: true,
+        isBlocked: false,
+        followedAt: new Date().toISOString()
+      };
+      if (!visibleSections.includes(topic)) {
+        // add section to visible sections and place after the inline picker
+        // subtract 1 from the rank so that it is normalized with array index
+        visibleSections.splice(receivedFeedRank - 1, 0, topic);
+        dispatch(actionCreators.SetPref(InterestPicker_PREF_VISIBLE_SECTIONS, visibleSections.join(", ")));
+      }
+    } else {
+      delete updatedSections[topic];
+    }
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.INLINE_SELECTION_CLICK,
+      data: {
+        topic,
+        is_followed: isChecked,
+        topic_position: index,
+        section_position: receivedFeedRank
+      }
+    }));
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.SECTION_PERSONALIZATION_SET,
+      data: updatedSections
+    }));
+  }
+  return /*#__PURE__*/external_React_default().createElement("section", {
+    className: "inline-selection-wrapper ds-section",
+    "aria-labelledby": "interest-picker-title",
+    ref: el => {
+      ref.current = [el];
+    }
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "section-heading"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "section-title-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("h2", {
+    id: "interest-picker-title",
+    className: "section-title"
+  }, title), /*#__PURE__*/external_React_default().createElement("p", {
+    className: "section-subtitle"
+  }, subtitle))), /*#__PURE__*/external_React_default().createElement("ul", {
+    className: "topic-list",
+    role: "group",
+    onFocus: onWrapperFocus,
+    onBlur: onWrapperBlur,
+    ref: focusRef
+  }, interests.filter(interest => interest.followable !== false).map((interest, index) => {
+    const checked = sectionPersonalization[interest.sectionId]?.isFollowed;
+    return /*#__PURE__*/external_React_default().createElement("li", {
+      key: interest.sectionId,
+      ref: index === focusedIndex ? focusedRef : null
+    }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+      type: checked ? "primary" : "default",
+      iconSrc: checked ? "chrome://global/skin/icons/check-filled.svg" : "chrome://newtab/content/data/content/assets/glyph-add-circle-fill-16.svg",
+      "aria-pressed": String(!!checked),
+      tabIndex: index === focusedIndex ? 0 : -1,
+      onClick: () => handleClick(interest.sectionId, !checked, index),
+      onFocus: () => onItemFocus(index)
+    }, interest.title || ""));
   })), /*#__PURE__*/external_React_default().createElement("p", {
     className: "learn-more-copy"
   }, /*#__PURE__*/external_React_default().createElement("a", {
@@ -11090,6 +11242,8 @@ const BriefingCard = ({
 
 
 
+
+// @nova-cleanup(move-directory): Update import path after NovaInterestPicker moves to InterestPicker/
 
 
 
@@ -11553,7 +11707,8 @@ function CardSection({
   }, title), mayHaveSectionsPersonalization && novaEnabled && followable !== false && /*#__PURE__*/external_React_default().createElement(SectionFollowButton, {
     following: following,
     onFollowClick: onFollowClick,
-    onUnfollowClick: onUnfollowClick
+    onUnfollowClick: onUnfollowClick,
+    title: title
   }), subtitle && /*#__PURE__*/external_React_default().createElement("p", {
     className: "section-subtitle"
   }, subtitle)), mayHaveSectionsPersonalization && (novaEnabled ? /*#__PURE__*/external_React_default().createElement(SectionContextMenu, {
@@ -11695,9 +11850,12 @@ function CardSections({
   // Add the interest picker to the sectionsToRender array (if enabled/possible).
   if (interestPickerEnabled && personalizationEnabled && interestPicker?.sections) {
     const index = interestPicker.receivedFeedRank - 1;
+
+    // @nova-cleanup(remove-conditional): Remove novaEnabled check, always use NovaInterestPicker
+    const InterestPickerComponent = novaEnabled ? InterestPicker_InterestPicker : InterestPicker;
     sectionsToRender.splice(
     // Math.min is used here to ensure the given row stays within the bounds of the sectionsToRender array.
-    Math.min(sectionsToRender.length - 1, index), 0, /*#__PURE__*/external_React_default().createElement(InterestPicker, {
+    Math.min(sectionsToRender.length - 1, index), 0, /*#__PURE__*/external_React_default().createElement(InterestPickerComponent, {
       title: interestPicker.title,
       subtitle: interestPicker.subtitle,
       interests: interestPicker.sections || [],
@@ -16249,7 +16407,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
       novaEnabled ? /*#__PURE__*/external_React_default().createElement("moz-button", {
         ref: this.arrowButtonRef,
         type: "ghost",
-        className: "arrow-button",
+        className: "wallpapers-arrow-button",
         iconSrc: arrowIconSrc,
         "data-l10n-id": activeCategoryFluentID,
         onClick: this.handleBack

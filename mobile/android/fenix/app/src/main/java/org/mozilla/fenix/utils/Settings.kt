@@ -460,6 +460,11 @@ class Settings(
         default = false,
     )
 
+    var rtamoAddonDownloadUrl by stringPreference(
+        appContext.getPreferenceKey(R.string.pref_key_rtamo_addon_download_url),
+        default = "",
+    )
+
     var contileContextId by stringPreference(
         appContext.getPreferenceKey(R.string.pref_key_contile_context_id),
         default = { TopSites.contextId.generateAndSet().toString() },

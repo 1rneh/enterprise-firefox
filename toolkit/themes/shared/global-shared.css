@@ -308,7 +308,15 @@ button.text-link .button-text {
   }
 
   &[disabled] {
-    opacity: 0.4;
+    background-color: var(--button-background-color-disabled);
+    color: var(--button-text-color-disabled);
+    opacity: var(--button-opacity-disabled);
+  }
+
+  &[default][disabled],
+  &.primary[disabled] {
+    background-color: var(--button-background-color-primary-disabled);
+    color: var(--button-text-color-primary-disabled);
   }
 
   &:focus-visible {

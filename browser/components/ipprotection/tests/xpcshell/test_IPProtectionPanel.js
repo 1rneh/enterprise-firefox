@@ -218,7 +218,9 @@ add_task(async function test_IPProtectionPanel_signedIn() {
   sandbox
     .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
     .get(() => true);
-  sandbox.stub(IPPEnrollAndEntitleManager, "isLinkedToGuardian").resolves(true);
+  sandbox
+    .stub(IPPFxaAuthProvider, "getEntitlement")
+    .resolves({ entitlement: createTestEntitlement() });
   sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
     status: 200,
     error: null,
@@ -308,7 +310,9 @@ add_task(async function test_IPProtectionPanel_started_stopped() {
   sandbox
     .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
     .get(() => true);
-  sandbox.stub(IPPEnrollAndEntitleManager, "isLinkedToGuardian").resolves(true);
+  sandbox
+    .stub(IPPFxaAuthProvider, "getEntitlement")
+    .resolves({ entitlement: createTestEntitlement() });
   sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
     status: 200,
     error: null,

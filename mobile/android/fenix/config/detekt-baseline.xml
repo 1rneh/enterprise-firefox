@@ -77,7 +77,7 @@
     <ID>ForbiddenSuppress:MainMenu.kt$@Suppress("LongMethod")</ID>
     <ID>ForbiddenSuppress:MainMenu.kt$@Suppress("LongParameterList", "LongMethod", "CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:MainMenu.kt$@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod", "CognitiveComplexMethod")</ID>
-    <ID>ForbiddenSuppress:MarketingAttributionService.kt$MarketingAttributionService$@Suppress("CognitiveComplexMethod")</ID>
+    <ID>ForbiddenSuppress:InstallReferrerHandlingService.kt$InstallReferrerHandlingService$@Suppress("CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:MarketingDataOnboardingPage.kt$@Suppress("LongMethod")</ID>
     <ID>ForbiddenSuppress:MarketingDataOnboardingPageRedesign.kt$@Suppress("LongMethod")</ID>
     <ID>ForbiddenSuppress:Menu.kt$@Suppress("LongMethod", "CognitiveComplexMethod")</ID>

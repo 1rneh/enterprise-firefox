@@ -749,7 +749,7 @@ tab-split-view-wrapper[dragtarget] {
   background-color: var(--lwt-accent-color);
   background-image: linear-gradient(transparent), linear-gradient(var(--toolbox-bgcolor));
   -moz-context-properties: fill;
-  fill: var(--icon-color);
+  fill: var(--tab-selected-textcolor);
   color-scheme: var(--tab-selected-color-scheme);
   border-radius: var(--border-radius-circle);
 
@@ -1358,7 +1358,7 @@ tab-group > tab-split-view-wrapper {
       }
     }
 
-    #tabbrowser-tabs[orient="vertical"][expanded] tab-split-view-wrapper & {
+    :root:not([sidebar-expand-on-hover]) #tabbrowser-tabs[orient="vertical"][expanded] tab-split-view-wrapper & {
       &:first-child {
         @container vertical-tabs-container (min-width: 211px) {
           .tab-background {
@@ -1380,6 +1380,22 @@ tab-group > tab-split-view-wrapper {
           .tab-content {
             padding-inline-start: var(--space-medium);
           }
+        }
+      }
+    }
+
+    :root:not([sidebar-expand-on-hover]) #tabbrowser-tabs[orient="vertical"][expanded] tab-split-view-wrapper & {
+      &:first-child {
+        tab-split-view-wrapper:not([hasactivetab]) & {
+          border-block-end: transparent;
+        }
+      }
+    }
+
+    :root:not([sidebar-expand-on-hover]) #tabbrowser-tabs[orient="vertical"][expanded] tab-split-view-wrapper & {
+      &:first-child {
+        tab-split-view-wrapper:not([hasactivetab]) & {
+          border-block-end: transparent;
         }
       }
     }
@@ -1421,6 +1437,10 @@ tab-group > tab-split-view-wrapper {
 #tabbrowser-tabs[orient="vertical"] tab-split-view-wrapper {
   border-radius: var(--tab-border-radius);
   gap: var(--space-xsmall);
+  grid-template-columns: 1fr;
+}
+
+#tabbrowser-tabs[orient="vertical"][expanded] tab-split-view-wrapper {
   grid-template-columns: 1fr 1fr;
 
   @container vertical-tabs-container (max-width: 210px) {
@@ -1439,6 +1459,38 @@ tab-group > tab-split-view-wrapper {
   }
 }
 
+/* When expand-on-hover is enabled, always stack split-view tabs in a single column */
+:root[sidebar-expand-on-hover] #tabbrowser-tabs[orient="vertical"][expanded] tab-split-view-wrapper {
+  grid-template-columns: 1fr;
+
+  &:not([hasactivetab]) .tabbrowser-tab {
+    &:first-child {
+      border-block-end: 1px solid var(--toolbarbutton-icon-fill);
+      border-inline-end: transparent;
+    }
+
+    &:last-child {
+      border-inline-start: transparent !important;
+    }
+  }
+}
+
+/* When expand-on-hover is enabled, always stack split-view tabs in a single column */
+:root[sidebar-expand-on-hover] #tabbrowser-tabs[orient="vertical"][expanded] tab-split-view-wrapper {
+  grid-template-columns: 1fr;
+
+  &:not([hasactivetab]) .tabbrowser-tab {
+    &:first-child {
+      border-block-end: 1px solid var(--toolbarbutton-icon-fill);
+      border-inline-end: transparent;
+    }
+
+    &:last-child {
+      border-inline-start: transparent !important;
+    }
+  }
+}
+
 /* Overrides for split-view-wrapped tabs in a collapsed vertical tabstrip */
 #tabbrowser-tabs[orient="vertical"]:not([expanded]) tab-split-view-wrapper {
   /* Prevent the close button from being cutoff by the bookmarks toolbar / nav bar
@@ -1447,18 +1499,29 @@ tab-group > tab-split-view-wrapper {
     margin-block-start: var(--space-xsmall);
   }
 
+  &:not([hasactivetab]) .tabbrowser-tab {
+    &:first-child {
+      border-block-end: 1px solid var(--toolbarbutton-icon-fill);
+      border-inline-end: transparent;
+    }
+
+    &:last-child {
+      border-inline-start: transparent !important;
+    }
+  }
+
   /* Allow close button to overflow the split view wrapper */
   .tabbrowser-tab {
     overflow: visible;
 
     .tab-background {
-      width: 100%;
       margin-inline: 0;
       margin-block: 0;
     }
 
     .tab-content {
       padding-inline: unset;
+      width: var(--tab-collapsed-background-width);
       justify-content: center;
       background-position-y: 4px !important;
       background-position-x: left calc(var(--tab-inline-padding) + var(--icon-size) - 10px) !important;
@@ -1481,12 +1544,28 @@ tab-group > tab-split-view-wrapper {
   }
 }
 
+/* During expand-on-hover collapse animation, keep split-tab icons
+   constrained to the collapsed pill geometry to avoid mid-transition drifting. */
+:root[sidebar-expand-on-hover]
+  #tabbrowser-tabbox[sidebar-ongoing-animations]
+  #tabbrowser-tabs[orient="vertical"]
+  tab-split-view-wrapper
+  .tabbrowser-tab
+  .tab-content {
+  width: var(--tab-collapsed-background-width);
+  justify-content: center;
+}
+
 /* Drag/drop of split-view-wrapped tabs */
 #tabbrowser-tabs[orient="vertical"] tab-split-view-wrapper {
   &[small-stack] {
     box-shadow:
       0 5px 0 -3px var(--tab-selected-bgcolor),
       0 3px var(--tab-dragover-outline-color);
+  }
+
+  :root[sidebar-expand-on-hover] &:first-child {
+    margin-block-start: var(--space-xsmall);
   }
 
   &[big-stack] {
@@ -2726,7 +2805,7 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
 
   list-style-image: url("chrome://global/skin/icons/tab-notes-12.svg");
   -moz-context-properties: fill;
-  fill: var(--icon-color);
+  fill: currentColor;
 
   /* Vertical expanded: reserve space so the note icon does not jump when the close shows.*/
   #tabbrowser-tabs[orient="vertical"][expanded] & {

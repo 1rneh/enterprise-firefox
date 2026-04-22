@@ -49,10 +49,14 @@ import {
 } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
 const BANDWIDTH_THRESHOLD_PREF = "browser.ipProtection.bandwidthThreshold";
+const BANDWIDTH_WARNING_DISMISSED_PREF =
+  "browser.ipProtection.bandwidthWarningDismissedThreshold";
 const BANDWIDTH_RESET_DATE_PREF = "browser.ipProtection.bandwidthResetDate";
 const DEFAULT_EGRESS_LOCATION = { name: "United States", code: "us" };
 const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocationEnabled";
 const USER_OPENED_PREF = "browser.ipProtection.everOpenedPanel";
+const OPENED_WITH_LOCATION_PREF =
+  "browser.ipProtection.openedPanelWithLocation";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -455,6 +459,13 @@ export class IPProtectionPanel {
     if (!hasUserEverOpenedPanel) {
       Services.prefs.setBoolPref(USER_OPENED_PREF, true);
     }
+
+    let hasOpenedPanelWithLocation = Services.prefs.getBoolPref(
+      OPENED_WITH_LOCATION_PREF
+    );
+    if (!hasOpenedPanelWithLocation) {
+      Services.prefs.setBoolPref(OPENED_WITH_LOCATION_PREF, true);
+    }
   }
 
   /**
@@ -794,18 +805,30 @@ export class IPProtectionPanel {
 
   #addPrefObserver() {
     Services.prefs.addObserver(EGRESS_LOCATION_PREF, this.handlePrefChange);
+    Services.prefs.addObserver(
+      BANDWIDTH_WARNING_DISMISSED_PREF,
+      this.handlePrefChange
+    );
   }
 
   #removePrefObserver() {
     Services.prefs.removeObserver(EGRESS_LOCATION_PREF, this.handlePrefChange);
+    Services.prefs.removeObserver(
+      BANDWIDTH_WARNING_DISMISSED_PREF,
+      this.handlePrefChange
+    );
   }
 
-  #handlePrefChange(subject, topic, data) {
+  #handlePrefChange(_subject, _topic, data) {
     if (data === EGRESS_LOCATION_PREF) {
       const isEnabled = Services.prefs.getBoolPref(EGRESS_LOCATION_PREF, false);
       this.setState({
         location: isEnabled ? DEFAULT_EGRESS_LOCATION : null,
       });
+    } else if (data === BANDWIDTH_WARNING_DISMISSED_PREF) {
+      if (!this.#shouldShowBandwidthWarning()) {
+        this.setState({ bandwidthWarning: false });
+      }
     }
   }
 

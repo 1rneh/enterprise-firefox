@@ -960,6 +960,7 @@ fn details_window() {
              ProcessType: main\n\
              ProductName: Bar\n\
              ReleaseChannel: release\n\
+             StackTraces: {{}}\n\
              SubmittedFrom: Client\n\
              Throttleable: 1\n\
              URL: https://url.example.com\n\
@@ -1321,6 +1322,7 @@ fn background_task_network_backend() {
                                 "ReleaseChannel":"release",
                                 "BuildID":"1234",
                                 "AsyncShutdownTimeout":"{}",
+                                "StackTraces":"{}",
                                 "Version":"100.0",
                                 "URL":"https://url.example.com",
                                 "Throttleable":"1",
@@ -1403,6 +1405,7 @@ fn curl_binary() {
             };
 
             let expected_args: Vec<OsString> = [
+                "--fail",
                 "--user-agent",
                 net::http::user_agent(),
                 "--form",
@@ -1485,6 +1488,7 @@ fn background_task_curl_fallback() {
                                     "ReleaseChannel":"release",
                                     "BuildID":"1234",
                                     "AsyncShutdownTimeout":"{}",
+                                    "StackTraces": "{}",
                                     "Version":"100.0",
                                     "URL":"https://url.example.com",
                                     "Throttleable":"1",
@@ -1542,6 +1546,7 @@ fn background_task_curl_fallback() {
                 };
 
                 let expected_args: Vec<OsString> = [
+                    "--fail",
                     "--user-agent",
                     net::http::user_agent(),
                     "--form",

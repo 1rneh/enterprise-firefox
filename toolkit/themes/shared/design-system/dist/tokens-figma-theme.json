@@ -405,9 +405,9 @@
   "button/icon/fill": "currentColor",
   "button/icon/stroke": "{Theme$button/icon/fill}",
   "button/opacity/disabled": {
-    "light": 50,
-    "dark": 50,
-    "forcedColors": 100
+    "light": 0.5,
+    "dark": 0.5,
+    "forcedColors": 1
   },
   "button/text/color": {
     "light": "{Colors$color/gray/100}",
@@ -584,6 +584,16 @@
     "dark": "{Theme$link/color}",
     "forcedColors": "{Theme$link/color}"
   },
+  "opacity/deemphasized-strong": {
+    "light": 0.6,
+    "dark": 0.6,
+    "forcedColors": 1
+  },
+  "opacity/deemphasized": {
+    "light": 0.8,
+    "dark": 0.8,
+    "forcedColors": 1
+  },
   "table/background/color": {
     "light": "#f8f8fa",
     "dark": "rgb(35, 34, 43)",
@@ -683,6 +693,46 @@
     "light": "{Theme$text/color}",
     "dark": "{Theme$text/color}",
     "forcedColors": "{Theme$text/color}"
+  },
+  "promo/background/color": {
+    "light": "color-mix(in lch, currentColor 8%, transparent)",
+    "dark": "color-mix(in lch, currentColor 8%, transparent)",
+    "forcedColors": "{Theme$background/color/canvas}"
+  },
+  "promo/background/color/vibrant": {
+    "light": "{Colors$color/violet/0}",
+    "dark": "{Colors$color/violet/90}",
+    "forcedColors": "transparent"
+  },
+  "promo/border": {
+    "light": "{Primitives$promo/border/width} solid {Theme$promo/border/color}",
+    "dark": "{Primitives$promo/border/width} solid {Theme$promo/border/color}",
+    "forcedColors": "{Primitives$promo/border/width} solid {Theme$promo/border/color}"
+  },
+  "promo/border/color": {
+    "light": "color-mix(in lch, currentColor 8%, transparent)",
+    "dark": "color-mix(in lch, currentColor 8%, transparent)",
+    "forcedColors": "{Theme$border/color}"
+  },
+  "promo/heading/text/color": {
+    "light": "{Theme$promo/message/text/color}",
+    "dark": "{Theme$promo/message/text/color}",
+    "forcedColors": "{Theme$promo/message/text/color}"
+  },
+  "promo/heading/text/color/vibrant": {
+    "light": "{Theme$promo/message/text/color}",
+    "dark": "{Theme$promo/message/text/color}",
+    "forcedColors": "{Theme$promo/message/text/color}"
+  },
+  "promo/message/text/color": {
+    "light": "{Theme$text/color}",
+    "dark": "{Theme$text/color}",
+    "forcedColors": "{Theme$text/color}"
+  },
+  "promo/message/text/color/vibrant": {
+    "light": "{Colors$color/violet/80}",
+    "dark": "{Colors$color/violet/0}",
+    "forcedColors": "transparent"
   },
   "toggle/background/color": {
     "light": "{Theme$button/background/color}",

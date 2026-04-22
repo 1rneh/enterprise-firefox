@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.compose.button
+package mozilla.components.compose.base.button
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,7 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
-import org.mozilla.fenix.theme.FirefoxTheme
+import mozilla.components.compose.base.theme.AcornTheme
 import androidx.compose.material3.RadioButton as M3RadioButton
 
 /**
@@ -57,7 +57,7 @@ private fun RadioButtonPreview() {
     val radioOptions = listOf("One", "Two", "Three")
     val (selectedOption, onOptionSelected) = remember { mutableStateOf(radioOptions[1]) }
 
-    FirefoxTheme {
+    AcornTheme {
         Surface {
             Column {
                 radioOptions.forEach { text ->

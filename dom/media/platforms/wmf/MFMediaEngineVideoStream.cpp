@@ -230,9 +230,11 @@ bool MFMediaEngineVideoStream::IsDCompImageReady() {
 RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineVideoStream::OutputData(
     RefPtr<MediaRawData> aSample) {
   if (IsShutdown()) {
+    mVideoDecodeBeforeDcompPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED,
+                                                  __func__);
     return MediaDataDecoder::DecodePromise::CreateAndReject(
         MediaResult(NS_ERROR_FAILURE,
-                    RESULT_DETAIL("MFMediaEngineStream is shutdown")),
+                    RESULT_DETAIL("MFMediaEngineVideoStream is shutdown")),
         __func__);
   }
   AssertOnTaskQueue();
@@ -270,6 +272,15 @@ already_AddRefed<MediaData> MFMediaEngineVideoStream::OutputDataInternal() {
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineVideoStream::Drain() {
+  if (IsShutdown()) {
+    mPendingDrainPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+    mVideoDecodeBeforeDcompPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED,
+                                                  __func__);
+    return MediaDataDecoder::DecodePromise::CreateAndReject(
+        MediaResult(NS_ERROR_FAILURE,
+                    RESULT_DETAIL("MFMediaEngineVideoStream is shutdown")),
+        __func__);
+  }
   AssertOnTaskQueue();
   MediaDataDecoder::DecodedData outputs;
   if (!IsDCompImageReady()) {
@@ -290,6 +301,15 @@ RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineVideoStream::Drain() {
 }
 
 RefPtr<MediaDataDecoder::FlushPromise> MFMediaEngineVideoStream::Flush() {
+  if (IsShutdown()) {
+    mPendingDrainPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+    mVideoDecodeBeforeDcompPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED,
+                                                  __func__);
+    return MediaDataDecoder::FlushPromise::CreateAndReject(
+        MediaResult(NS_ERROR_FAILURE,
+                    RESULT_DETAIL("MFMediaEngineVideoStream is shutdown")),
+        __func__);
+  }
   AssertOnTaskQueue();
   auto promise = MFMediaEngineStream::Flush();
   mPendingDrainPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);

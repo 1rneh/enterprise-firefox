@@ -368,6 +368,11 @@ const FlexShorthand = {
   tokenTypes: ["size", "icon-size"],
 };
 
+const Opacity = {
+  allow: ["0", "1"],
+  tokenTypes: ["opacity"],
+};
+
 /** @type {PropertyTypeConfig} */
 const TextColor = {
   allow: ["currentColor", "white", "black"],
@@ -913,5 +918,8 @@ export const propertyConfig = {
   },
   "scroll-padding-top": {
     validTypes: [Space],
+  },
+  opacity: {
+    validTypes: [Opacity],
   },
 };

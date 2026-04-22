@@ -554,6 +554,11 @@ export class AIWindow extends MozLitElement {
   }
 
   disconnectedCallback() {
+    // Cancel any pending inference for starter prompts so the promise chain
+    // does not prevent this window from being garbage collected.
+    this.#starterPromptsAbortController?.abort();
+    this.#starterPromptsAbortController = null;
+
     // Clean up visibility change handler
     if (this.#visibilityChangeHandler) {
       this.ownerDocument.removeEventListener(
@@ -734,6 +739,11 @@ export class AIWindow extends MozLitElement {
       return;
     }
 
+    // Cancel any previous pending loadStarterPrompts call, and create a new
+    // controller so this call can be canceled when the element disconnects
+    // (preventing the pending inference promise chain from keeping the
+    // window alive).
+    this.#starterPromptsAbortController?.abort();
     const abortController = new AbortController();
     this.#starterPromptsAbortController = abortController;
 
@@ -768,7 +778,8 @@ export class AIWindow extends MozLitElement {
             contextTabs,
             2,
             memoriesEnabled,
-            this.conversationId
+            this.conversationId,
+            this.#starterPromptsAbortController.signal
           )
           .catch(e => {
             lazy.log.error("[Prompts] Failed to generate sidebar starters:", e);

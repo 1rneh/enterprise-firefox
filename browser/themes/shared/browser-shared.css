@@ -120,7 +120,7 @@ body {
   --ext-theme-background-transition: background-color 0.1s cubic-bezier(0.17, 0.67, 0.83, 0.67);
 
   --inactive-window-transition: 0.2s ease;
-  --inactive-titlebar-opacity: 0.6;
+  --inactive-titlebar-opacity: var(--opacity-deemphasized-strong);
   /**
    * On macOS and Linux, fading the whole titlebar is the native behavior.
    *
@@ -261,6 +261,7 @@ body {
     transition: opacity var(--inactive-window-transition);
 
     &:-moz-window-inactive {
+      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
       opacity: var(--inactive-titlebar-opacity);
     }
   }
@@ -564,11 +565,13 @@ toolbarpaletteitem > #personal-bookmarks > #PlacesToolbar,
 .bookmark-item[cutting] {
   > .toolbarbutton-icon,
   > .menu-icon {
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
     opacity: 0.5;
   }
 
   > .toolbarbutton-text,
   > .menu-text {
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
     opacity: 0.7;
   }
 }
@@ -808,8 +811,7 @@ menupopup::part(drop-indicator) {
   padding: var(--space-xxsmall);
   -moz-context-properties: fill, fill-opacity;
   fill: currentColor;
-  /* TODO: replace with opacity token, see bug 1955325 */
-  fill-opacity: 0.6;
+  fill-opacity: var(--opacity-deemphasized-strong);
   list-style-image: url(chrome://global/skin/icons/help.svg);
 
   &:hover {
@@ -1063,10 +1065,12 @@ menupopup::part(drop-indicator) {
 
 #cfr-notification-footer-empty-stars[tooltiptext] {
   margin-inline-end: var(--space-small);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
   opacity: 0.3;
 }
 
 #cfr-notification-footer-users {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
   opacity: 0.7;
 }
 
@@ -1311,7 +1315,7 @@ popupnotificationcontent {
     }
 
     > span:last-child {
-      opacity: 0.6;
+      opacity: var(--opacity-deemphasized-strong);
     }
   }
 }
@@ -1378,6 +1382,7 @@ popupnotificationcontent {
 
     .will-navigate > & {
       transition-delay: 0.2s;
+      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
       opacity: 0.2;
     }
   }
@@ -1548,6 +1553,7 @@ popupnotificationcontent {
     }
 
     #TabsToolbar > .toolbar-items {
+      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
       opacity: 0.2;
       pointer-events: none;
     }
@@ -1555,6 +1561,7 @@ popupnotificationcontent {
     /* stylelint-disable-next-line media-query-no-invalid */
     @media -moz-pref("sidebar.verticalTabs") {
       #sidebar-main {
+        /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
         opacity: 0.2;
         pointer-events: none;
       }

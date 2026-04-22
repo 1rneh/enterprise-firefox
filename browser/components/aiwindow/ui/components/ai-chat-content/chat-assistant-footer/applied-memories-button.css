@@ -76,6 +76,7 @@ moz-button.memories-trigger::part(button) {
 }
 
 moz-button.memories-trigger[disabled] {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   opacity: 0.6;
 }
 

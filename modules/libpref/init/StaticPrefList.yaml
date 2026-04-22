@@ -6158,7 +6158,14 @@
   value: true
   mirror: always
 
-# Per-domain blocklist for the previous hack.
+# Whether to enable about:blank async-load workaround for Polarion's version of
+# the GWT's RichTextArea.
+- name: dom.about-blank-polarion-gwt-hack.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Per-domain blocklist for the GWT hack.
 - name: dom.about-blank-gwt-hack.disabled-domains
   type: String
   value: ""
@@ -7976,6 +7983,11 @@
   mirror: always
 
 - name: gfx.webrender.debug.dl.dump-content-serialized
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: gfx.webrender.debug.dl.dump-spatial-tree
   type: RelaxedAtomicBool
   value: false
   mirror: always

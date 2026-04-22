@@ -11,19 +11,16 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 /**
- * Android implementation of the enrollment step for IPPEnrollAndEntitleManager.
+ * Android implementation of enrollAndEntitle for IPPEnrollAndEntitleManager.
  *
  * Delegates the hidden OAuth window to the Android layer via EventDispatcher.
  * The Android layer must open the loginUrl in a Custom Tab or WebView, monitor
  * for a redirect to successUrl or errorUrl, and resolve or reject accordingly.
  *
- * Expected response on success: { ok: true }
- * Expected response on failure: rejection with an error message.
- *
  * @param {AbortSignal} [abortSignal=null]
- * @returns {Promise<{enrollment: boolean}|{enrollment: null, error: string}>}
+ * @returns {Promise<{isEnrolledAndEntitled: boolean, entitlement?: object, error?: string}>}
  */
-export async function androidEnroll(abortSignal = null) {
+export async function androidEnrollAndEntitle(abortSignal = null) {
   try {
     abortSignal?.throwIfAborted();
     const { loginURL, successURL, errorURL } =
@@ -53,10 +50,26 @@ export async function androidEnroll(abortSignal = null) {
 
     const result = await Promise.race(tasks);
     if (!result?.ok) {
-      return { enrollment: null, error: result?.error ?? "enrollment_failed" };
+      return {
+        isEnrolledAndEntitled: false,
+        error: result?.error ?? "enrollment_failed",
+      };
     }
-    return { enrollment: true };
   } catch (error) {
-    return { enrollment: null, error: error?.message };
+    return { isEnrolledAndEntitled: false, error: error?.message };
+  }
+
+  try {
+    const { status, entitlement, error } =
+      await lazy.IPProtectionService.guardian.fetchUserInfo();
+    if (error || !entitlement || status != 200) {
+      return {
+        isEnrolledAndEntitled: false,
+        error: error || `Status: ${status}`,
+      };
+    }
+    return { isEnrolledAndEntitled: true, entitlement };
+  } catch (error) {
+    return { isEnrolledAndEntitled: false, error: error.message };
   }
 }

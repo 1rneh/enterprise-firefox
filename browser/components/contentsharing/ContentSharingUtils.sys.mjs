@@ -245,7 +245,7 @@ class ContentSharingUtilsClass {
       if (item.links) {
         count += this.countItems(item);
       }
-      // Alway count the current item
+      // Always count the current item
       count += 1;
     }
 
@@ -269,6 +269,37 @@ class ContentSharingUtilsClass {
     }
 
     return true;
+  }
+
+  getCookie() {
+    let hostname;
+    try {
+      let serverURL = new URL(lazy.CONTENT_SHARING_SERVER_URL);
+
+      // Cookies are port-insensitive, but our test server sets a port number.
+      // Just use the hostname part of the URL for cookie lookup.
+      hostname = serverURL.hostname;
+    } catch (ex) {
+      console.error(
+        `Failed to get cookie because server URL in "browser.contentsharing.server.url" pref is unset or malformed: ` +
+          ex.message
+      );
+      return null;
+    }
+    const cookies = Services.cookies.getCookiesFromHost(hostname, {});
+    // Filter on host because parent domain cookies are returned when getting
+    // cookies from a subdomain.
+    let authCookie = cookies.find(
+      cookie =>
+        cookie.host == hostname &&
+        cookie.name == "auth" &&
+        cookie.expiry > Date.now()
+    );
+    return authCookie?.value;
+  }
+
+  isSignedIn() {
+    return !!this.getCookie();
   }
 }
 

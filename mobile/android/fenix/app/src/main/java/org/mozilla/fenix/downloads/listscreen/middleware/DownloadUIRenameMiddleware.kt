@@ -86,14 +86,8 @@ class DownloadUIRenameMiddleware(
             }
 
             val newNameTrimmed = newName.trim()
-
-            if (downloadFileUtils.fileExists(download.directoryPath, newNameTrimmed)) {
-                dispatchAction(
-                    uiStore,
-                    DownloadUIAction.RenameFileFailed(
-                            RenameFileError.NameAlreadyExists(newNameTrimmed),
-                        ),
-                    )
+            getRenameConflictError(download.directoryPath, currentName, newNameTrimmed)?.let { error ->
+                dispatchAction(uiStore, DownloadUIAction.RenameFileFailed(error))
                 return@launch
             }
 
@@ -118,5 +112,20 @@ class DownloadUIRenameMiddleware(
                 browserStore.dispatch(DownloadAction.UpdateDownloadAction(updated))
             }
         }
+    }
+
+    private fun getRenameConflictError(
+        directoryPath: String,
+        currentName: String,
+        newName: String,
+    ): RenameFileError? {
+        if (downloadFileUtils.fileExists(directoryPath, newName)) {
+            return if (newName.equals(currentName, ignoreCase = true)) {
+                RenameFileError.CaseOnlyNameChange(newName)
+            } else {
+                RenameFileError.NameAlreadyExists(newName)
+            }
+        }
+        return null
     }
 }

@@ -15,7 +15,7 @@ add_task(async function () {
   await enableApplicationPanel();
 
   const { panel, tab } = await openNewTabAndApplicationPanel(TAB_URL);
-  selectPage(panel, "session-history");
+  await selectPage(panel, "session-history");
 
   const doc = panel.panelWin.document;
 

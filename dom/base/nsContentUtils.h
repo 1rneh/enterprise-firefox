@@ -2672,12 +2672,7 @@ class nsContentUtils {
    */
   static bool IsSecureContextOrWebExtension(JSContext*, JSObject*);
 
-  enum DocumentViewerType {
-    TYPE_UNSUPPORTED,
-    TYPE_CONTENT,
-    TYPE_FALLBACK,
-    TYPE_UNKNOWN
-  };
+  enum DocumentViewerType { TYPE_UNSUPPORTED, TYPE_CONTENT, TYPE_UNKNOWN };
 
   static already_AddRefed<nsIDocumentLoaderFactory> FindInternalDocumentViewer(
       const nsACString& aType, DocumentViewerType* aLoaderType = nullptr);

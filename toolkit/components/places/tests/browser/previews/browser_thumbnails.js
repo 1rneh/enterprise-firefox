@@ -180,7 +180,7 @@ function fetchImage(url) {
   return new Promise((resolve, reject) => {
     NetUtil.asyncFetch(
       {
-        uri: NetUtil.newURI(url),
+        uri: Services.io.newURI(url),
         loadUsingSystemPrincipal: true,
         contentPolicyType: Ci.nsIContentPolicy.TYPE_INTERNAL_IMAGE,
       },

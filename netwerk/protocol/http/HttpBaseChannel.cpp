@@ -106,7 +106,7 @@
 #include "nsThreadUtils.h"
 #include "nsURLHelper.h"
 #include "mozilla/RemoteLazyInputStreamChild.h"
-#include "mozilla/net/SFVService.h"
+#include "mozilla/net/SFV.h"
 #include "mozilla/dom/ContentChild.h"
 #include "nsQueryObject.h"
 
@@ -6491,26 +6491,7 @@ NS_IMETHODIMP HttpBaseChannel::ComputeCrossOriginOpenerPolicy(
   //                              %s"same-origin-allow-popups" /
   //                              %s"unsafe-none"; case-sensitive
 
-  nsCOMPtr<nsISFVService> sfv = GetSFVService();
-
-  nsCOMPtr<nsISFVItem> item;
-  nsresult rv = sfv->ParseItem(openerPolicy, getter_AddRefs(item));
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-
-  nsCOMPtr<nsISFVBareItem> value;
-  rv = item->GetValue(getter_AddRefs(value));
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-
-  nsCOMPtr<nsISFVToken> token = do_QueryInterface(value);
-  if (!token) {
-    return NS_ERROR_UNEXPECTED;
-  }
-
-  rv = token->GetValue(openerPolicy);
+  nsresult rv = SFV::ParseItem<SFV::Token>(openerPolicy, openerPolicy);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -6600,22 +6581,7 @@ HttpBaseChannel::GetOriginAgentClusterHeader(bool* aValue) {
   }
 
   // Origin-Agent-Cluster = <boolean>
-  nsCOMPtr<nsISFVService> sfv = GetSFVService();
-  nsCOMPtr<nsISFVItem> item;
-  rv = sfv->ParseItem(content, getter_AddRefs(item));
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  nsCOMPtr<nsISFVBareItem> value;
-  rv = item->GetValue(getter_AddRefs(value));
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  nsCOMPtr<nsISFVBool> flag = do_QueryInterface(value);
-  if (!flag) {
-    return NS_ERROR_NOT_AVAILABLE;
-  }
-  return flag->GetValue(aValue);
+  return SFV::ParseItem<SFV::SFVBool>(content, *aValue);
 }
 
 void HttpBaseChannel::MaybeFlushConsoleReports() {

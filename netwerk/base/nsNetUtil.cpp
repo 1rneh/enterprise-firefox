@@ -107,6 +107,7 @@
 #include "mozilla/net/ExtensionProtocolHandler.h"
 #include "mozilla/net/MozNewTabWallpaperProtocolHandler.h"
 #include "mozilla/net/PageThumbProtocolHandler.h"
+#include "mozilla/net/SFV.h"
 #include "mozilla/net/SFVService.h"
 #include "nsICookieService.h"
 #include "nsIXPConnect.h"
@@ -2619,27 +2620,8 @@ nsresult NS_LinkRedirectChannels(uint64_t channelId,
 nsILoadInfo::CrossOriginEmbedderPolicy
 NS_GetCrossOriginEmbedderPolicyFromHeader(
     const nsACString& aHeader, bool aIsOriginTrialCoepCredentiallessEnabled) {
-  nsCOMPtr<nsISFVService> sfv = GetSFVService();
-
-  nsCOMPtr<nsISFVItem> item;
-  nsresult rv = sfv->ParseItem(aHeader, getter_AddRefs(item));
-  if (NS_FAILED(rv)) {
-    return nsILoadInfo::EMBEDDER_POLICY_NULL;
-  }
-
-  nsCOMPtr<nsISFVBareItem> value;
-  rv = item->GetValue(getter_AddRefs(value));
-  if (NS_FAILED(rv)) {
-    return nsILoadInfo::EMBEDDER_POLICY_NULL;
-  }
-
-  nsCOMPtr<nsISFVToken> token = do_QueryInterface(value);
-  if (!token) {
-    return nsILoadInfo::EMBEDDER_POLICY_NULL;
-  }
-
   nsAutoCString embedderPolicy;
-  rv = token->GetValue(embedderPolicy);
+  nsresult rv = SFV::ParseItem<SFV::Token>(aHeader, embedderPolicy);
   if (NS_FAILED(rv)) {
     return nsILoadInfo::EMBEDDER_POLICY_NULL;
   }
@@ -2656,43 +2638,15 @@ NS_GetCrossOriginEmbedderPolicyFromHeader(
 }
 
 bool NS_GetForceLoadAtTopFromHeader(const nsACString& aHeader) {
-  nsCOMPtr<nsISFVService> sfv = mozilla::net::GetSFVService();
-
-  nsCOMPtr<nsISFVDictionary> dict;
-  if (NS_FAILED(sfv->ParseDictionary(aHeader, getter_AddRefs(dict)))) {
-    return false;
-  }
-  nsCOMPtr<nsISFVItemOrInnerList> iil;
-  if (NS_FAILED(dict->Get("force-load-at-top"_ns, getter_AddRefs(iil)))) {
+  auto dict = SFV::ParseDict(aHeader);
+  if (!dict.IsValid()) {
     return false;
   }
 
-  nsCOMPtr<nsISFVItem> item(do_QueryInterface(iil));
-  if (!item) {
-    return false;
-  }
-
-  nsCOMPtr<nsISFVBareItem> bareItem;
-  if (NS_FAILED(item->GetValue(getter_AddRefs(bareItem)))) {
-    return false;
-  }
-
-  int32_t type;
-  if (NS_FAILED(bareItem->GetType(&type))) {
-    return false;
-  }
-
-  nsCOMPtr<nsISFVBool> boolItem(do_QueryInterface(bareItem));
-  if (!boolItem) {
-    return false;
-  }
-
-  bool b;
-  if (NS_FAILED(boolItem->GetValue(&b))) {
-    return false;
-  }
-
-  return b;
+  bool value = false;
+  return NS_SUCCEEDED(
+             dict.GetItem<SFV::SFVBool>("force-load-at-top"_ns, value)) &&
+         value;
 }
 
 /** Given the first (disposition) token from a Content-Disposition header,
@@ -4036,111 +3990,42 @@ bool NS_ParseUseAsDictionary(const nsACString& aValue, nsACString& aMatch,
   //                     %s"id" /
   //                     %t"type" ; case-sensitive
 
-  nsCOMPtr<nsISFVService> sfv = GetSFVService();
-
-  nsCOMPtr<nsISFVDictionary> parsedHeader;
-  nsresult rv;
-  if (NS_FAILED(
-          rv = sfv->ParseDictionary(aValue, getter_AddRefs(parsedHeader)))) {
+  auto dict = SFV::ParseDict(aValue);
+  if (!dict.IsValid()) {
     return false;
   }
 
-  nsCOMPtr<nsISFVItemOrInnerList> match;
-  rv = parsedHeader->Get("match"_ns, getter_AddRefs(match));
-  if (NS_FAILED(rv)) {
-    return false;  // match is required, fail if not found
+  // match is required
+  if (NS_FAILED(dict.GetItem<SFV::SFVString>("match"_ns, aMatch))) {
+    return false;
   }
-  if (nsCOMPtr<nsISFVItem> listItem = do_QueryInterface(match)) {
-    nsCOMPtr<nsISFVBareItem> value;
-    rv = listItem->GetValue(getter_AddRefs(value));
-    if (NS_FAILED(rv)) {
-      return false;
-    }
-    if (nsCOMPtr<nsISFVString> stringVal = do_QueryInterface(value)) {
-      if (NS_FAILED(stringVal->GetValue(aMatch))) {
-        return false;
-      }
-      if (aMatch.IsEmpty()) {
-        return false;  // match is required, fail if not found
-      }
-    } else {
-      return false;
-    }
-  } else {
+  if (aMatch.IsEmpty()) {
     return false;
   }
 
-  nsCOMPtr<nsISFVItemOrInnerList> matchdest;
-  rv = parsedHeader->Get("match-dest"_ns, getter_AddRefs(matchdest));
-  if (NS_SUCCEEDED(rv)) {
-    if (nsCOMPtr<nsISFVInnerList> innerList = do_QueryInterface(matchdest)) {
-      // Extract the first entry of each inner list, which should contain the
-      // endpoint's URL string
-      nsTArray<RefPtr<nsISFVItem>> items;
-      if (NS_FAILED(innerList->GetItems(items))) {
+  // match-dest is optional
+  auto matchDestList = dict.GetInnerList("match-dest"_ns);
+  if (matchDestList.IsValid()) {
+    size_t len = matchDestList.Length();
+    for (size_t i = 0; i < len; i++) {
+      auto item = matchDestList.GetItemAt(i);
+      if (!item.IsValid()) {
         return false;
       }
-      // Don't check items.IsEmpty() because an empty list is valid
-
-      for (auto& item : items) {
-        nsCOMPtr<nsISFVBareItem> value;
-        if (NS_FAILED(item->GetValue(getter_AddRefs(value)))) {
-          return false;
-        }
-        if (nsCOMPtr<nsISFVString> stringVal = do_QueryInterface(value)) {
-          nsAutoCString string;
-          if (NS_FAILED(stringVal->GetValue(string))) {
-            return false;
-          }
-          aMatchDestItems.AppendElement(string);
-        } else {
-          return false;  // match-dest is an inner list of strings
-        }
+      nsAutoCString string;
+      if (NS_FAILED(item.GetValue<SFV::SFVString>(string))) {
+        return false;
       }
+      aMatchDestItems.AppendElement(string);
     }
   }
 
-  nsCOMPtr<nsISFVItemOrInnerList> matchid;
-  rv = parsedHeader->Get("id"_ns, getter_AddRefs(matchid));
-  if (NS_SUCCEEDED(rv)) {
-    if (nsCOMPtr<nsISFVItem> listItem = do_QueryInterface(matchid)) {
-      nsCOMPtr<nsISFVBareItem> value;
-      rv = listItem->GetValue(getter_AddRefs(value));
-      if (NS_FAILED(rv)) {
-        return false;
-      }
-      if (nsCOMPtr<nsISFVString> stringVal = do_QueryInterface(value)) {
-        if (NS_FAILED(stringVal->GetValue(aMatchId))) {
-          return false;
-        }
-      } else {
-        return false;
-      }
-    } else {
-      return false;
-    }
-  }
+  // id is optional
+  (void)dict.GetItem<SFV::SFVString>("id"_ns, aMatchId);
 
-  nsCOMPtr<nsISFVItemOrInnerList> type;
-  rv = parsedHeader->Get("type"_ns, getter_AddRefs(type));
-  if (NS_SUCCEEDED(rv)) {
-    if (nsCOMPtr<nsISFVItem> listItem = do_QueryInterface(type)) {
-      nsCOMPtr<nsISFVBareItem> value;
-      rv = listItem->GetValue(getter_AddRefs(value));
-      if (NS_FAILED(rv)) {
-        return false;
-      }
-      if (nsCOMPtr<nsISFVToken> tokenVal = do_QueryInterface(value)) {
-        if (NS_FAILED(tokenVal->GetValue(aType))) {
-          return false;
-        }
-        if (!aType.Equals("raw"_ns)) {
-          return false;
-        }
-      } else {
-        return false;
-      }
-    } else {
+  // type is optional
+  if (NS_SUCCEEDED(dict.GetItem<SFV::Token>("type"_ns, aType))) {
+    if (!aType.Equals("raw"_ns)) {
       return false;
     }
   }
@@ -4337,26 +4222,21 @@ bool IsLocalOrPrivateNetworkAccess(
 
 Result<ActivateStorageAccess, nsresult> ParseActivateStorageAccess(
     const nsACString& aActivateStorageAcess) {
-  nsCOMPtr<nsISFVService> sfv = GetSFVService();
-
   // Parse storage acces values
   //  * Activate-Storage-Access: load
   //  * Activate-Storage-Access: retry; allowed-origin="https://foo.bar"
   //  * Activate-Storage-Access: retry; allowed-origin=*
   // into ActivateStorageAccess struct. See ActivateStorageAccessVariant for
   // documentation on fields
-  nsCOMPtr<nsISFVItem> parsedHeader;
-  MOZ_TRY(sfv->ParseItem(aActivateStorageAcess, getter_AddRefs(parsedHeader)));
-
-  nsCOMPtr<nsISFVBareItem> value;
-  MOZ_TRY(parsedHeader->GetValue(getter_AddRefs(value)));
-
-  nsCOMPtr<nsISFVToken> token = do_QueryInterface(value);
-  if (!token) {
+  auto item = SFV::ParseItemWithParams(aActivateStorageAcess);
+  if (!item.IsValid()) {
     return Err(NS_ERROR_FAILURE);
   }
+
   nsAutoCString tokenValue;
-  token->GetValue(tokenValue);
+  if (NS_FAILED(item.GetValue<SFV::Token>(tokenValue))) {
+    return Err(NS_ERROR_FAILURE);
+  }
 
   if (tokenValue.EqualsLiteral("load")) {
     return ActivateStorageAccess{
@@ -4366,17 +4246,12 @@ Result<ActivateStorageAccess, nsresult> ParseActivateStorageAccess(
   if (!tokenValue.EqualsLiteral("retry")) {
     return Err(NS_ERROR_FAILURE);
   }
-  nsCOMPtr<nsISFVParams> params;
-  MOZ_TRY(parsedHeader->GetParams(getter_AddRefs(params)));
 
-  nsCOMPtr<nsISFVBareItem> item;
-  MOZ_TRY(params->Get("allowed-origin"_ns, getter_AddRefs(item)));
-
-  // Evaluate whether the token value is a wildcard symbol.
-  nsCOMPtr<nsISFVToken> itemToken = do_QueryInterface(item);
-  if (itemToken) {
-    itemToken->GetValue(tokenValue);
-    if (!tokenValue.EqualsLiteral("*")) {
+  // Try to get allowed-origin as a token (wildcard)
+  nsAutoCString paramToken;
+  if (NS_SUCCEEDED(
+          item.GetParam<SFV::Token>("allowed-origin"_ns, paramToken))) {
+    if (!paramToken.EqualsLiteral("*")) {
       return Err(NS_ERROR_FAILURE);
     }
     return ActivateStorageAccess{
@@ -4384,13 +4259,12 @@ Result<ActivateStorageAccess, nsresult> ParseActivateStorageAccess(
     };
   }
 
-  // Evaluate whether the token value is an origin.
-  nsCOMPtr<nsISFVString> itemString = do_QueryInterface(item);
-  if (!itemString) {
+  // Try to get allowed-origin as a string (origin URL)
+  ActivateStorageAccess result{ActivateStorageAccessVariant::RetryOrigin};
+  if (NS_FAILED(
+          item.GetParam<SFV::SFVString>("allowed-origin"_ns, result.origin))) {
     return Err(NS_ERROR_FAILURE);
   }
-  ActivateStorageAccess result{ActivateStorageAccessVariant::RetryOrigin};
-  itemString->GetValue(result.origin);
   return result;
 }
 

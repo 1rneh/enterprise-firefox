@@ -321,9 +321,12 @@ class WidgetKeyboardEvent final : public WidgetInputEvent {
              // XXXedgar, we probably could improve this by referring to
              // EditCommandsConstRef() if we're sure the event target on Linux
              // and macOS is active with any edit commands.
+             // ctrl+f5 is used by web apps e.g. Google Slides as a
+             // presentation/fullscreen shortcut. See bug 2001938
              ((mKeyCode == dom::KeyboardEvent_Binding::DOM_VK_C ||
                mKeyCode == dom::KeyboardEvent_Binding::DOM_VK_V ||
-               mKeyCode == dom::KeyboardEvent_Binding::DOM_VK_X) &&
+               mKeyCode == dom::KeyboardEvent_Binding::DOM_VK_X ||
+               mKeyCode == dom::KeyboardEvent_Binding::DOM_VK_F5) &&
               IsAccel());
     }
 

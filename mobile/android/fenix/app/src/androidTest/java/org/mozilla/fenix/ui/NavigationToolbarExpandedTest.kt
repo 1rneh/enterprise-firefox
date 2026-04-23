@@ -239,7 +239,7 @@ class NavigationToolbarExpandedTest {
         }.openTabButtonShortcutsMenu {
             verifyTabButtonShortcutMenuItems()
         }.closeTabFromShortcutsMenu {
-            verifySnackBarText("Tab closed")
+            verifySnackBarText(composeTestRule, "Tab closed")
         }
     }
 

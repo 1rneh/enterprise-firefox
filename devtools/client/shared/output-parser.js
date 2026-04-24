@@ -1373,10 +1373,6 @@ class OutputParser {
 
     const container = this.#createNode("span", {});
 
-    const toggleButton = this.#createNode("button", {
-      class: options.shapeSwatchClass,
-    });
-
     const lowerCaseShape = shape.toLowerCase();
     for (const { prefix, coordParser } of shapeTypes) {
       if (lowerCaseShape.includes(prefix)) {
@@ -1386,7 +1382,12 @@ class OutputParser {
           class: options.shapeClass,
         });
 
-        container.appendChild(toggleButton);
+        if (options.shapeSwatchClass) {
+          const toggleButton = this.#createNode("button", {
+            class: options.shapeSwatchClass,
+          });
+          container.appendChild(toggleButton);
+        }
 
         appendText(valContainer, shape.substring(0, coordsBegin));
 

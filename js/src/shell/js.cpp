@@ -4118,7 +4118,8 @@ static bool DummyPreserveWrapperCallback(JSContext* cx, HandleObject obj) {
   return true;
 }
 
-static bool DummyHasReleasedWrapperCallback(HandleObject obj) { return true; }
+/* Wrappers stay preserved for dummy DOM objects. */
+static bool DummyHasReleasedWrapperCallback(HandleObject obj) { return false; }
 
 #ifdef FUZZING_JS_FUZZILLI
 static bool fuzzilli_hash(JSContext* cx, unsigned argc, Value* vp) {
@@ -13351,6 +13352,8 @@ bool InitOptionParser(OptionParser& op) {
       !op.addBoolOption('\0', "enable-iterator-sequencing",
                         "Enable Iterator Sequencing") ||
       !op.addBoolOption('\0', "enable-error-iserror", "Enable Error.isError") ||
+      !op.addBoolOption('\0', "enable-error-stack-trace-limit",
+                        "Enable Error.stackTraceLimit") ||
       !op.addBoolOption('\0', "enable-iterator-range",
                         "Enable Iterator.range") ||
       !op.addBoolOption('\0', "enable-joint-iteration",
@@ -13469,6 +13472,9 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
   }
   if (op.getBoolOption("enable-iterator-join")) {
     JS::Prefs::setAtStartup_experimental_iterator_join(true);
+  }
+  if (op.getBoolOption("enable-error-stack-trace-limit")) {
+    JS::Prefs::setAtStartup_experimental_error_stack_trace_limit(true);
   }
 #endif
 #ifdef ENABLE_SOURCE_PHASE_IMPORTS

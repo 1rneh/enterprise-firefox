@@ -170,7 +170,11 @@ add_task(async function test_closeButtonFocus() {
 
   Assert.equal(document.activeElement, gURLBar.inputField, "Input is focused");
 
+  // We intentionally turn off this a11y check, because the following click is
+  // purposefully targeting a non-interactive element.
+  AccessibilityUtils.setEnv({ mustHaveAccessibleRule: false });
   EventUtils.synthesizeMouseAtCenter(gBrowser.selectedBrowser, {});
+  AccessibilityUtils.resetEnv();
   Assert.equal(
     document.activeElement,
     gBrowser.selectedBrowser,

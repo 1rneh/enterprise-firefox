@@ -22,6 +22,8 @@ XPCOMUtils.defineLazyPreferenceGetter(
   ""
 );
 
+const MAX_ITEM_COUNT = 30;
+
 const SCHEMA_MAP = new Map();
 async function loadContentSharingSchema() {
   if (SCHEMA_MAP.has("CONTENT_SHARING_SCHEMA")) {
@@ -170,6 +172,40 @@ class ContentSharingUtilsClass {
   }
 
   /**
+   * Takes an object with a uri and optional title and returns an object with
+   * a url and title that is valid according the content sharing schema.
+   *
+   * @param {object} linkObject An object that must contain a uri and should
+   * contain a title.
+   * @returns {object|null} A link object with a url and a title. If the uri is
+   * missing or not valid, returns null. If the title is too long, it will be
+   * truncated to 100 characters.
+   */
+  makeValidLink(linkObject) {
+    if (!linkObject.uri) {
+      return null;
+    }
+
+    const httpsRegex = new RegExp("^https?://.*$");
+    if (!linkObject.uri.match(httpsRegex)) {
+      return null;
+    }
+
+    let url;
+    try {
+      url = new URL(linkObject.uri);
+    } catch (e) {
+      // This throws if the uri is not valid.
+      return null;
+    }
+
+    return {
+      url: url.toString().slice(0, 4000),
+      title: linkObject.title?.slice(0, 100) ?? "",
+    };
+  }
+
+  /**
    * Builds a share object from a given bookmark tree/tab group/selected tabs.
    * The share object is a simplified version of the bookmark tree that only
    * includes the necessary information for sharing (e.g. title and url).
@@ -186,26 +222,38 @@ class ContentSharingUtilsClass {
    * each link will have a url and title.
    *
    * @param {object} shareObject The bookmark tree to share.
+   * @param {object} currentCount The current count of links in the share
+   * object. The object only has a "value" property that is the count of the
+   * number of items in the share.
    * @returns {object} The built share object that will be validated against
    * the contentsharing.schema.json
    */
+  buildShare(shareObject, currentCount = {}) {
+    // Using an object for currentCount so that it can be passed by reference
+    // and updated across recursive calls.
+    currentCount.value = currentCount.value ?? 0;
 
-  buildShare(shareObject) {
     const share = {
       type: shareObject.type ?? "bookmarks",
-      title: shareObject.title,
+      title: shareObject.title.slice(0, 100),
     };
     let links = [];
     for (let linkOrNestShare of shareObject.children ?? []) {
+      if (currentCount.value >= MAX_ITEM_COUNT) {
+        break;
+      }
+
       if (linkOrNestShare.uri) {
-        const link = {
-          url: linkOrNestShare.uri,
-          title: linkOrNestShare.title ?? "",
-        };
-        links.push(link);
+        const validLink = this.makeValidLink(linkOrNestShare);
+        if (validLink) {
+          links.push(validLink);
+          currentCount.value += 1;
+        }
       } else if (linkOrNestShare.children) {
         linkOrNestShare.type = "bookmarks";
-        links.push(this.buildShare(linkOrNestShare));
+
+        currentCount.value += 1;
+        links.push(this.buildShare(linkOrNestShare, currentCount));
       }
     }
 
@@ -262,9 +310,9 @@ class ContentSharingUtilsClass {
       );
     }
 
-    if (this.countItems(share) > 100) {
+    if (this.countItems(share) > MAX_ITEM_COUNT) {
       throw new Error(
-        "ContentSharing Schema Error: Share object contains over 100 links"
+        `ContentSharing Schema Error: Share object contains over ${MAX_ITEM_COUNT} links`
       );
     }
 

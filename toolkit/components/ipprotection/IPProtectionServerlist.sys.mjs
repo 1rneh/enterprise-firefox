@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 /**
  * This file contains functions that work on top of the RemoteSettings
  * Bucket for the IP Protection server list.
@@ -435,6 +437,9 @@ export class PrefServerList extends IPProtectionServerlistBase {
     );
   }
   static get prefValue() {
+    if (!PrefServerList.hasPrefValue) {
+      return null;
+    }
     try {
       const value = Services.prefs.getStringPref(this.PREF_NAME);
       return JSON.parse(value);
@@ -451,6 +456,9 @@ export class PrefServerList extends IPProtectionServerlistBase {
  * @returns {IPProtectionServerlistBase} - The appropriate serverlist implementation.
  */
 export function IPProtectionServerlistFactory() {
+  if (AppConstants.MOZ_ENTERPRISE) {
+    return new PrefServerList();
+  }
   return PrefServerList.hasPrefValue
     ? new PrefServerList()
     : new RemoteSettingsServerlist();

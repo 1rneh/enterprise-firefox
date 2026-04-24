@@ -400,6 +400,9 @@ export class PrefServerList extends IPProtectionServerlistBase {
     );
   }
   static get prefValue() {
+    if (!PrefServerList.hasPrefValue) {
+      return null;
+    }
     try {
       const value = Services.prefs.getStringPref(this.PREF_NAME);
       return JSON.parse(value);

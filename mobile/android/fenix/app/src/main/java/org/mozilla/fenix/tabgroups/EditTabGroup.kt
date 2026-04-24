@@ -61,7 +61,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.annotation.FlexibleWindowPreview
-import mozilla.components.compose.base.button.TextButton
+import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.compose.base.theme.layout.AcornWindowSize.Companion.isLargeWindow
@@ -147,15 +147,12 @@ private fun EditTabGroupContent(
     Column(
         modifier = Modifier.padding(
             bottom = 12.dp,
-            start = FirefoxTheme.layout.space.dynamic200,
-            end = FirefoxTheme.layout.space.dynamic200,
         ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = AcornTheme.layout.space.dynamic200,
                     vertical = AcornTheme.layout.space.static150,
                 ),
             verticalAlignment = Alignment.CenterVertically,
@@ -168,10 +165,10 @@ private fun EditTabGroupContent(
                 style = FirefoxTheme.typography.headline7,
             )
 
-            TextButton(
+            FilledButton(
                 text = stringResource(R.string.create_tab_group_save_button),
-                onClick = onConfirmSave,
                 modifier = Modifier.padding(end = 12.dp),
+                onClick = onConfirmSave,
             )
         }
 

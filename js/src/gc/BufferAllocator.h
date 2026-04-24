@@ -397,10 +397,10 @@ class BufferAllocator : public SlimLinkedListElement<BufferAllocator> {
   // Large buffers that have been swept.
   MutexData<LargeAllocList> sweptLargeTenuredAllocs;
 
-  // Flag to indicate that data from minor sweeping is available to be
-  // merged. This includes chunks in the |sweptMixedChunks| or
-  // |sweptTenuredChunks| lists and the minorSweepingFinished flag.
-  mozilla::Atomic<bool, mozilla::Relaxed> hasMinorSweepDataToMerge;
+  // Flag to indicate that data from sweeping is available to be merged. This
+  // includes chunks in the |sweptMixedChunks| or |sweptTenuredChunks| lists and
+  // the minorSweepingFinished flag.
+  mozilla::Atomic<bool, mozilla::Relaxed> hasSweepDataToMerge;
 
   // GC state for minor and major GC.
   MainThreadOrGCTaskData<State> minorState;
@@ -569,8 +569,8 @@ class BufferAllocator : public SlimLinkedListElement<BufferAllocator> {
   bool sweepSmallBufferRegion(BufferChunk* chunk, SmallBufferRegion* region,
                               SweepKind sweepKind);
   void addSweptRegion(SmallBufferRegion* region, uintptr_t freeStart,
-                      uintptr_t freeEnd, bool expectUnchanged,
-                      FreeLists& freeLists);
+                      uintptr_t freeEnd, bool shouldDecommit,
+                      bool expectUnchanged, FreeLists& freeLists);
   void freeMedium(void* alloc);
   bool growMedium(void* alloc, size_t newBytes);
   bool shrinkMedium(void* alloc, size_t newBytes);

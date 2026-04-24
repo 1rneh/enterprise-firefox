@@ -580,6 +580,7 @@ function testParseShape(doc, parser) {
       desc: "Invalid polygon shape",
       definition: "polygon(0px 0px 100px 20px, 20% 20%)",
       spanCount: 0,
+      hasShapeWatch: false,
     },
     {
       desc: "Circle shape with all arguments",
@@ -620,6 +621,7 @@ function testParseShape(doc, parser) {
       desc: "Invalid circle shape",
       definition: "circle(25%at30%30%)",
       spanCount: 0,
+      hasShapeWatch: false,
     },
     {
       desc: "Ellipse shape with all arguments",
@@ -655,6 +657,7 @@ function testParseShape(doc, parser) {
       desc: "Invalid ellipse shape",
       definition: "ellipse(200px100px at 30$ 20%)",
       spanCount: 0,
+      hasShapeWatch: false,
     },
     {
       desc: "Inset shape with 4 arguments",
@@ -680,6 +683,7 @@ function testParseShape(doc, parser) {
       desc: "Inset shape with 0 arguments",
       definition: "inset()",
       spanCount: 0,
+      hasShapeWatch: false,
     },
     {
       desc: "INSET()",
@@ -694,14 +698,35 @@ function testParseShape(doc, parser) {
     },
   ];
 
-  for (const { desc, definition, property = "clip-path", spanCount } of tests) {
+  for (const {
+    desc,
+    definition,
+    property = "clip-path",
+    spanCount,
+    hasShapeWatch = true,
+  } of tests) {
     info(desc);
     const frag = parser.parseCssProperty(property, definition, {
       shapeClass: "inspector-shape",
+      shapeSwatchClass: "inspector-shape-swatch",
     });
     const spans = frag.querySelectorAll(".inspector-shape-point");
     is(spans.length, spanCount, desc + " span count");
     is(frag.textContent, definition, desc + " text content");
+    is(
+      frag.querySelectorAll("button.inspector-shape-swatch").length,
+      hasShapeWatch ? 1 : 0,
+      `${desc} ${hasShapeWatch ? "has" : "does not have"} a swatch button when shapeSwatchClass option is passed`
+    );
+
+    const swatchlessFrag = parser.parseCssProperty(property, definition, {
+      shapeClass: "inspector-shape",
+    });
+    is(
+      swatchlessFrag.querySelector("button"),
+      null,
+      `${desc} does not have a swatch button when shapeSwatchClass option is not passed`
+    );
   }
 }
 

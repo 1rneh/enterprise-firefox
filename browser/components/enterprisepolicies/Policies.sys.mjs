@@ -174,6 +174,14 @@ export var Policies = {
         );
       }
 
+      // Must be set before enabled so the badge dot doesn't flash when
+      // the pref observer triggers IPProtectionService.init().
+      PoliciesUtils.setDefaultPref(
+        "browser.ipProtection.openedPanelWithLocation",
+        true,
+        locked
+      );
+
       // Set enabled last so that all other prefs are in place when
       // the pref observer triggers IPProtectionService.init().
       PoliciesUtils.setDefaultPref(
@@ -188,6 +196,7 @@ export var Policies = {
       unsetAndUnlockPref("browser.ipProtection.autoStartEnabled");
       unsetAndUnlockPref("browser.ipProtection.mode");
       unsetAndUnlockPref("browser.ipProtection.override.serverlist");
+      unsetAndUnlockPref("browser.ipProtection.openedPanelWithLocation");
       if ("MatchPatterns" in oldParams) {
         unsetAndUnlockPref("browser.ipProtection.inclusion.match_patterns");
       }

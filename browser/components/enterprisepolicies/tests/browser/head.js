@@ -15,40 +15,16 @@ ChromeUtils.defineESModuleGetters(this, {
 
 PoliciesPrefTracker.start();
 
-async function setupPolicyEngineWithJson(json, customSchema, shutdown = false) {
+async function setupPolicyEngineWithJson(json, customSchema) {
   PoliciesPrefTracker.restoreDefaultValues();
-  if (!Services.prefs.getBoolPref("browser.policies.testUseHttp", false)) {
-    if (typeof json != "object") {
-      let filePath = getTestFilePath(json ? json : "non-existing-file.json");
-      return EnterprisePolicyTesting.setupPolicyEngineWithJson(
-        filePath,
-        customSchema
-      );
-    }
-
-    if (JSON.stringify(json) === "{}") {
-      json = "";
-    }
+  if (typeof json != "object") {
+    let filePath = getTestFilePath(json ? json : "non-existing-file.json");
     return EnterprisePolicyTesting.setupPolicyEngineWithJson(
-      json,
+      filePath,
       customSchema
     );
   }
-  if (JSON.stringify(json) === "{}") {
-    if (!shutdown) {
-      return EnterprisePolicyTesting.servePolicyWithJson(
-        { policies: {} },
-        {},
-        registerCleanupFunction
-      );
-    }
-    return EnterprisePolicyTesting.servePolicyWithJson({ policies: {} }, {});
-  }
-  return EnterprisePolicyTesting.servePolicyWithJson(
-    json,
-    customSchema || null,
-    registerCleanupFunction
-  );
+  return EnterprisePolicyTesting.setupPolicyEngineWithJson(json, customSchema);
 }
 
 function checkLockedPref(prefName, prefValue) {
@@ -194,7 +170,7 @@ async function check_homepage({
 
 add_setup(async function policies_headjs_startWithCleanSlate() {
   if (Services.policies.status != Ci.nsIEnterprisePolicies.INACTIVE) {
-    await setupPolicyEngineWithJson({});
+    await setupPolicyEngineWithJson("");
   }
   is(
     Services.policies.status,
@@ -205,7 +181,7 @@ add_setup(async function policies_headjs_startWithCleanSlate() {
 
 registerCleanupFunction(async function policies_headjs_finishWithCleanSlate() {
   if (Services.policies.status != Ci.nsIEnterprisePolicies.INACTIVE) {
-    await setupPolicyEngineWithJson({}, {}, true);
+    await setupPolicyEngineWithJson("");
   }
   is(
     Services.policies.status,

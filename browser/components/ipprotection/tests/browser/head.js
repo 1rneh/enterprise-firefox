@@ -60,9 +60,13 @@ const { SpecialMessageActions } = ChromeUtils.importESModule(
 );
 
 // Adapted from devtools/client/performance-new/test/browser/helpers.js
-function waitForPanelEvent(document, eventName) {
+function waitForPanelEvent(
+  document,
+  eventName,
+  viewId = "PanelUI-ipprotection"
+) {
   return BrowserTestUtils.waitForEvent(document, eventName, false, event => {
-    if (event.target.getAttribute("viewId") === "PanelUI-ipprotection") {
+    if (event.target.getAttribute("viewId") === viewId) {
       return true;
     }
     return false;
@@ -375,6 +379,9 @@ add_setup(async function setupVPN() {
       "browser.ipProtection.bandwidthWarningDismissedThreshold"
     );
     Services.prefs.clearUserPref("browser.ipProtection.userEnabled");
+    Services.prefs.clearUserPref(
+      "browser.ipProtection.openedPanelWithLocation"
+    );
   });
 });
 

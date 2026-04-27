@@ -1223,7 +1223,10 @@ export class AddonWrapper {
       return true;
     }
 
-    if (AppConstants.MOZ_ENTERPRISE && this.isInstalledByEnterprisePolicy) {
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.policies?.isAddonRequiredByPolicy(addon.id)
+    ) {
       return true;
     }
 

@@ -1669,6 +1669,8 @@ nsDefaultCommandLineHandler.prototype = {
     // window. Instead, forward any URLs to be opened in the real Firefox.
     if (Services.felt && Services.felt.isFeltUI()) {
       console.debug(`Felt: Found FeltUI in BrowserContentHandler.`);
+      const wasPreventDefault = cmdLine.preventDefault;
+
       cmdLine.preventDefault = true;
 
       // Consume Felt-specific flags that don't take parameters
@@ -1712,6 +1714,13 @@ nsDefaultCommandLineHandler.prototype = {
             });
           }
         }
+      } else if (
+        !wasPreventDefault &&
+        cmdLine.state != Ci.nsICommandLine.STATE_INITIAL_LAUNCH
+      ) {
+        queueFeltURL({
+          disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW,
+        });
       }
       return;
     }

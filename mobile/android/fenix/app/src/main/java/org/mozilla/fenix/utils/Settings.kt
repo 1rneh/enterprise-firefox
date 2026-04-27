@@ -92,6 +92,7 @@ class Settings(
     private val appContext: Context,
     private val packageName: String = appContext.packageName,
     private val packageManagerCompatHelper: PackageManagerCompatHelper = appContext.packageManagerCompatHelper,
+    @Suppress("unused")
     private val isBenchmarkBuild: Boolean = BuildConfig.IS_BENCHMARK_BUILD,
 ) : PreferencesHolder {
     companion object {
@@ -2354,14 +2355,6 @@ class Settings(
     )
 
     /**
-     * Indicates if the search bar CFR should be displayed to the user.
-     */
-    var shouldShowSearchBarCFR by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_should_searchbar_cfr),
-        default = false,
-    )
-
-    /**
      * Indicates whether or not to use remote server search configuration.
      */
     var useRemoteSearchConfiguration by booleanPreference(
@@ -2375,15 +2368,6 @@ class Settings(
     var shouldShowMenuCFR by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_menu_cfr),
         default = false,
-    )
-
-    /**
-     * Indicates if the toolbar CFR was displayed to the user.
-     */
-    var hasSeenBrowserToolbarCFR by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_toolbar_cfr),
-        default = Config.channel.isReleaseOrBeta || isBenchmarkBuild,
-        persistDefaultIfNotExists = true,
     )
 
     /**
@@ -2568,11 +2552,30 @@ class Settings(
     )
 
     /**
+     * Indicates if the Homepage Sports Widget should be visible on the homepage.
+     * This is the user-controlled visibility toggle, independent of the
+     * [enableHomepageSportsWidget] feature flag.
+     */
+    var showHomepageSportsWidget by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_show_homepage_sports_widget),
+        default = true,
+    )
+
+    /**
      * The set of ISO codes of the user's selected countries to follow for the sports widget.
      */
     var sportsSelectedCountries by stringSetPreference(
         appContext.getPreferenceKey(R.string.pref_key_sports_selected_countries),
         default = setOf(),
+    )
+
+    /**
+     * Whether the user has dismissed the sports widget "Follow your team" card via the
+     * "Skip" action. When true, the "Follow your team" card is not shown again.
+     */
+    var hasSkippedSportsFollowTeam by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_sports_has_skipped_follow_team),
+        default = false,
     )
 
     /**

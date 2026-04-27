@@ -7,6 +7,7 @@ package org.mozilla.fenix.search.awesomebar
 import androidx.core.net.toUri
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.test.TestScope
 import mozilla.components.browser.state.search.SearchEngine
 import mozilla.components.browser.state.search.SearchEngineProvider
 import mozilla.components.feature.awesomebar.provider.BookmarksStorageSuggestionProvider
@@ -66,6 +67,7 @@ class SearchSuggestionsProvidersBuilderTest {
 
         builder = SearchSuggestionsProvidersBuilder(
             components = components,
+            scope = TestScope(),
             browsingModeManager = browsingModeManager,
             includeSelectedTab = false,
             loadUrlUseCase = mockk(),

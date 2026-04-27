@@ -67,6 +67,9 @@ rejected-words:
         tier: 2
     run:
         mach: lint -v -l rejected-words -f treeherder -f json:/builds/worker/mozlint.json .
+    fetches:
+        toolchain:
+            - linux64-mozcheck
     when:
         files-changed:
             - '**/*.js'
@@ -270,6 +273,9 @@ license:
         symbol: pedantic(license)
     run:
         mach: lint -v -l license -f treeherder -f json:/builds/worker/mozlint.json .
+    fetches:
+        toolchain:
+            - linux64-mozcheck
     when:
         files-changed:
             - '**/*.c'
@@ -620,6 +626,24 @@ cargo-audit:
         toolchain:
             - linux64-rust
 
+mozcheck-tests:
+    description: mozcheck Rust unit tests
+    treeherder:
+        symbol: rust(mozcheck)
+    run:
+        using: run-task
+        cwd: '{checkout}'
+        command: >-
+            PATH="$MOZ_FETCHES_DIR/rustc/bin:$PATH"
+            cargo test --locked --verbose
+            --manifest-path tools/lint/mozcheck/Cargo.toml
+    when:
+        files-changed:
+            - 'tools/lint/mozcheck/**'
+    fetches:
+        toolchain:
+            - linux64-rust
+
 file-whitespace:
     description: Check for trailing whitespaces and Windows CR
     platform: lint/opt
@@ -630,6 +654,9 @@ file-whitespace:
         tier: 2
     run:
         mach: lint -v -l file-whitespace -f treeherder -f json:/builds/worker/mozlint.json .
+    fetches:
+        toolchain:
+            - linux64-mozcheck
     when:
         files-changed:
             - '**/*.c'
@@ -665,6 +692,9 @@ file-perm:
         tier: 2
     run:
         mach: lint -v -l file-perm -f treeherder -f json:/builds/worker/mozlint.json .
+    fetches:
+        toolchain:
+            - linux64-mozcheck
     when:
         files-changed:
             - '**/*.build'
@@ -786,6 +816,9 @@ trojan-source:
         symbol: misc(trojan-source)
     run:
         mach: lint -v -l trojan-source -f treeherder -f json:/builds/worker/mozlint.json .
+    fetches:
+        toolchain:
+            - linux64-mozcheck
     when:
         files-changed:
             - '**/*.c'

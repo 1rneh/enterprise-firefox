@@ -1590,24 +1590,6 @@ export class Interrupted extends LoginsApiError {
 }
 
 /**
- * Sync reported that authentication failed and the user should re-enter their FxA password.
- */
-export class SyncAuthInvalid extends LoginsApiError {
-
-    constructor(
-        reason,
-        ...params
-    ) {
-        const message = `reason: ${ reason }`;
-        super(message, ...params);
-        this.reason = reason;
-    }
-    toString() {
-        return `SyncAuthInvalid: ${super.toString()}`
-    }
-}
-
-/**
  * something internal went wrong which doesn't have a public error value
  * because the consuming app can not reasonably take any action to resolve it.
  * The underlying error will have been logged and reported.
@@ -1673,10 +1655,6 @@ export class FfiConverterTypeLoginsApiError extends FfiConverterArrayBuffer {
                     FfiConverterString.read(dataStream)
                     );
             case 12:
-                return new SyncAuthInvalid(
-                    FfiConverterString.read(dataStream)
-                    );
-            case 13:
                 return new UnexpectedLoginsApiError(
                     FfiConverterString.read(dataStream)
                     );
@@ -1724,10 +1702,6 @@ export class FfiConverterTypeLoginsApiError extends FfiConverterArrayBuffer {
             return totalSize;
         }
         if (value instanceof Interrupted) {
-            totalSize += FfiConverterString.computeSize(value.reason);
-            return totalSize;
-        }
-        if (value instanceof SyncAuthInvalid) {
             totalSize += FfiConverterString.computeSize(value.reason);
             return totalSize;
         }
@@ -1789,13 +1763,8 @@ export class FfiConverterTypeLoginsApiError extends FfiConverterArrayBuffer {
             FfiConverterString.write(dataStream, value.reason);
             return;
         }
-        if (value instanceof SyncAuthInvalid) {
-            dataStream.writeInt32(12);
-            FfiConverterString.write(dataStream, value.reason);
-            return;
-        }
         if (value instanceof UnexpectedLoginsApiError) {
-            dataStream.writeInt32(13);
+            dataStream.writeInt32(12);
             FfiConverterString.write(dataStream, value.reason);
             return;
         }
@@ -2608,7 +2577,7 @@ export class LoginStoreInterface {
      * Stores that the user dismissed the breach alert for a login.
      * @param {string} id
      */
-    recordBreachAlertDismissal(
+    async recordBreachAlertDismissal(
         id) {
       throw Error("recordBreachAlertDismissal not implemented");
     }
@@ -2617,7 +2586,7 @@ export class LoginStoreInterface {
      * @param {string} id
      * @param {number} timestamp
      */
-    recordBreachAlertDismissalTime(
+    async recordBreachAlertDismissalTime(
         id, 
         timestamp) {
       throw Error("recordBreachAlertDismissalTime not implemented");
@@ -2649,7 +2618,7 @@ export class LoginStoreInterface {
     /**
      * Removes all recorded breaches.
      */
-    resetAllBreaches() {
+    async resetAllBreaches() {
       throw Error("resetAllBreaches not implemented");
     }
     /**
@@ -3171,11 +3140,11 @@ export class LoginStore extends LoginStoreInterface {
      * Stores that the user dismissed the breach alert for a login.
      * @param {string} id
      */
-    recordBreachAlertDismissal(
+    async recordBreachAlertDismissal(
         id) {
        
         FfiConverterString.checkType(id);
-        const result = UniFFIScaffolding.callSync(
+        const result = await UniFFIScaffolding.callAsyncWrapper(
             39, // uniffi_logins_fn_method_loginstore_record_breach_alert_dismissal
             FfiConverterTypeLoginStore.lowerReceiver(this),
             FfiConverterString.lower(id),
@@ -3192,13 +3161,13 @@ export class LoginStore extends LoginStoreInterface {
      * @param {string} id
      * @param {number} timestamp
      */
-    recordBreachAlertDismissalTime(
+    async recordBreachAlertDismissalTime(
         id, 
         timestamp) {
        
         FfiConverterString.checkType(id);
         FfiConverterInt64.checkType(timestamp);
-        const result = UniFFIScaffolding.callSync(
+        const result = await UniFFIScaffolding.callAsyncWrapper(
             40, // uniffi_logins_fn_method_loginstore_record_breach_alert_dismissal_time
             FfiConverterTypeLoginStore.lowerReceiver(this),
             FfiConverterString.lower(id),
@@ -3270,9 +3239,9 @@ export class LoginStore extends LoginStoreInterface {
     /**
      * Removes all recorded breaches.
      */
-    resetAllBreaches() {
+    async resetAllBreaches() {
        
-        const result = UniFFIScaffolding.callSync(
+        const result = await UniFFIScaffolding.callAsyncWrapper(
             44, // uniffi_logins_fn_method_loginstore_reset_all_breaches
             FfiConverterTypeLoginStore.lowerReceiver(this),
         )

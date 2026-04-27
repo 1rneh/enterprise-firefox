@@ -183,4 +183,15 @@ sealed class PreferenceFileInformation(
         categoryHeaderResourceId = R.string.preferences_category_privacy_security,
         fragmentId = R.id.dataChoicesFragment,
     )
+
+    /**
+     * Represents the "AI Controls" settings screen.
+     * This screen is Compose-based and has no backing XML preference file.
+     */
+    object AIControlsPreferences : PreferenceFileInformation(
+        xmlResourceId = R.id.aiControlsFragment,
+        topBreadcrumbResourceId = R.string.preferences_ai_controls,
+        categoryHeaderResourceId = R.string.preferences_category_general,
+        fragmentId = R.id.aiControlsFragment,
+    )
 }

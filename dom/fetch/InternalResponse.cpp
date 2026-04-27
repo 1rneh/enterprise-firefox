@@ -88,8 +88,7 @@ template <typename T>
         aIPCResponse.metadata().principalInfo().ref()));
   }
 
-  nsAutoCString bodyBlobURISpec(aIPCResponse.metadata().bodyBlobURISpec());
-  response->SetBodyBlobURISpec(bodyBlobURISpec);
+  response->SetBodyBlobImpl(aIPCResponse.metadata().bodyBlobImpl());
   nsAutoString bodyLocalPath(aIPCResponse.metadata().bodyLocalPath());
   response->SetBodyLocalPath(bodyLocalPath);
 
@@ -142,7 +141,7 @@ InternalResponseMetadata InternalResponse::GetMetadata() {
   Maybe<mozilla::ipc::PrincipalInfo> principalInfo =
       mPrincipalInfo ? Some(*mPrincipalInfo) : Nothing();
 
-  nsAutoCString bodyBlobURISpec(BodyBlobURISpec());
+  RefPtr<BlobImpl> bodyBlobImpl(BodyBlobImpl());
   nsAutoString bodyLocalPath(BodyLocalPath());
 
   // Note: all the arguments are copied rather than moved, which would be more
@@ -151,16 +150,18 @@ InternalResponseMetadata InternalResponse::GetMetadata() {
   return InternalResponseMetadata(
       mType, GetUnfilteredURLList().Clone(), GetUnfilteredStatus(),
       GetUnfilteredStatusText(), headersGuard, headers, mErrorCode,
-      GetAlternativeDataType(), securityInfo, principalInfo, bodyBlobURISpec,
+      GetAlternativeDataType(), securityInfo, principalInfo, bodyBlobImpl,
       bodyLocalPath, GetCredentialsMode());
 }
 
 void InternalResponse::ToChildToParentInternalResponse(
-    ChildToParentInternalResponse* aIPCResponse,
-    mozilla::ipc::PBackgroundChild* aManager) {
+    ChildToParentInternalResponse* aIPCResponse) {
   *aIPCResponse = ChildToParentInternalResponse(GetMetadata(), Nothing(),
                                                 UNKNOWN_BODY_SIZE, Nothing());
+}
 
+void InternalResponse::SerializeChildToParentInternalResponseBody(
+    ChildToParentInternalResponse* aIPCResponse) {
   nsCOMPtr<nsIInputStream> body;
   int64_t bodySize;
   GetUnfilteredBody(getter_AddRefs(body), &bodySize);

@@ -23,7 +23,6 @@
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsICacheInfoChannel.h"  // nsICacheInfoChannel
-#include "nsIMemoryReporter.h"
 
 #include "jsapi.h"
 #include "ResolvedModuleSet.h"
@@ -43,7 +42,6 @@ void HostReleaseScriptFetchInfo(const Value& aPrivate);
 
 class ClassicScript;
 class ModuleScript;
-class EventScript;
 class LoadContextBase;
 
 // Information required to fetch scripts or module graphs.
@@ -68,7 +66,7 @@ class ScriptFetchInfo : public nsISupports {
   void SetForModulePreload(bool aValue) { mIsForModulePreload = aValue; }
 
   bool IsForModuleScript() const { return mKind == ScriptKind::eModule; }
-  bool IsForEventScript() const { return mKind == ScriptKind::eEvent; }
+  bool IsForEvent() const { return mKind == ScriptKind::eEvent; }
 
   mozilla::dom::ReferrerPolicy ReferrerPolicy() const {
     return mReferrerPolicy;
@@ -116,7 +114,7 @@ class ScriptFetchInfo : public nsISupports {
   RefPtr<ScriptFetchOptions> mFetchOptions;
 
   // The base URL used for resolving relative module imports.
-  // This field is unused for EventScript, and in that case the loader's base
+  // This field is unused for Event script, and in that case the loader's base
   // URL should be used.
   //
   // This field can be overwritten based on the response.
@@ -133,7 +131,7 @@ class ScriptFetchInfo : public nsISupports {
 // As the LoadedScript can be shared, using the SharedSubResourceCache, it is
 // exposed to the memory reporter such that sharing might be accounted for
 // properly.
-class LoadedScript : public nsIMemoryReporter {
+class LoadedScript : public nsISupports {
  protected:
   LoadedScript(ScriptKind aKind, nsIURI* aURI);
 
@@ -145,17 +143,10 @@ class LoadedScript : public nsIMemoryReporter {
   virtual ~LoadedScript();
 
  public:
-  // When the memory should be reported, register it using RegisterMemoryReport,
-  // and make sure to call SizeOfIncludingThis in the enclosing container.
-  //
-  // Each reported script would be listed under
-  // `explicit/js/script/loaded-script/<kind>`.
-  void RegisterMemoryReport();
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS;
-  NS_DECL_NSIMEMORYREPORTER;
   NS_DECL_CYCLE_COLLECTION_CLASS(LoadedScript)
 
   uint16_t ClampedRefCountForTelemetry() const {
@@ -168,7 +159,6 @@ class LoadedScript : public nsIMemoryReporter {
 
   bool IsClassicScript() const { return mKind == ScriptKind::eClassic; }
   bool IsModuleScript() const { return mKind == ScriptKind::eModule; }
-  bool IsEventScript() const { return mKind == ScriptKind::eEvent; }
   bool IsImportMapScript() const { return mKind == ScriptKind::eImportMap; }
 
   inline ClassicScript* AsClassicScript();
@@ -205,18 +195,23 @@ class LoadedScript : public nsIMemoryReporter {
 
     // This script is received as a serialized stencil from the channel,
     // mSRIAndSerializedStencil holds the SRI and the serialized stencil, and
-    // mStencil holds the decoded stencil.
+    // mCachedStencil is unused.
     eSerializedStencil,
 
     // This script is cached from the previous load.
-    // mStencil holds the cached stencil, and mSRIAndSerializedStencil holds
-    // the SRI. mScriptData is unused.
+    // mCachedStencil holds the cached stencil, and mSRIAndSerializedStencil
+    // holds the SRI. mScriptData is unused.
     eCachedStencil,
+
+    // This was eCachedStencil, but the stencil reference is cleared
+    // for the memory pressure.
+    // Other fields are still valid.
+    eInvalidatedCachedStencil,
 
     // This is a wasm module, which is used when the response mime type essence
     // is application/wasm.
     // mScriptData holds the wasm source as uint8_t from the channel.
-    // mStencil and mSRIAndSerializedStencil are unused.
+    // mCachedStencil and mSRIAndSerializedStencil are unused.
     eWasmBytes,
   };
 
@@ -237,6 +232,9 @@ class LoadedScript : public nsIMemoryReporter {
     return mDataType == DataType::eSerializedStencil;
   }
   bool IsCachedStencil() const { return mDataType == DataType::eCachedStencil; }
+  bool IsInvalidatedCachedStencil() const {
+    return mDataType == DataType::eInvalidatedCachedStencil;
+  }
   bool IsWasmBytes() const { return mDataType == DataType::eWasmBytes; }
 
   // ==== Methods to convert the data type ====
@@ -257,13 +255,21 @@ class LoadedScript : public nsIMemoryReporter {
     mDataType = DataType::eSerializedStencil;
   }
 
-  void ConvertToCachedStencil(mozilla::dom::ReferrerPolicy aReferrerPolicy,
+  void ConvertToCachedStencil(JS::Stencil* aStencil,
+                              mozilla::dom::ReferrerPolicy aReferrerPolicy,
                               nsIURI* aBaseURL) {
-    MOZ_ASSERT(HasStencil());
+    MOZ_ASSERT(!IsCachedStencil());
     SetUnknownDataType();
     mDataType = DataType::eCachedStencil;
+    mCachedStencil = aStencil;
     mCachedReferrerPolicy = aReferrerPolicy;
     mCachedBaseURL = aBaseURL;
+  }
+
+  void InvalidateCachedStencil() {
+    MOZ_ASSERT(IsCachedStencil());
+    mDataType = DataType::eInvalidatedCachedStencil;
+    mCachedStencil = nullptr;
   }
 
   void SetWasmBytes() {
@@ -385,21 +391,10 @@ class LoadedScript : public nsIMemoryReporter {
 
   // ==== Methods to access the stencil ====
 
-  bool HasStencil() const { return mStencil; }
-
-  Stencil* GetStencil() const {
-    MOZ_ASSERT(!IsUnknownDataType());
-    MOZ_ASSERT(HasStencil());
-    return mStencil;
+  Stencil* GetCachedStencil() const {
+    MOZ_ASSERT(IsCachedStencil());
+    return mCachedStencil;
   }
-
-  void SetStencil(Stencil* aStencil) {
-    MOZ_ASSERT(aStencil);
-    MOZ_ASSERT(!HasStencil());
-    mStencil = aStencil;
-  }
-
-  void ClearStencil() { mStencil = nullptr; }
 
   // ==== Methods to access the disk cache reference ====
 
@@ -560,8 +555,8 @@ class LoadedScript : public nsIMemoryReporter {
   //     or, if compression is enabled, ScriptBytecodeCompressedDataLayout.
   TranscodeBuffer mSRIAndSerializedStencil;
 
-  // Holds the stencil for the script.  This field is used in all DataType.
-  RefPtr<Stencil> mStencil;
+  // Holds the stencil for the script, cached for the subsequent requests.
+  RefPtr<Stencil> mCachedStencil;
 
   // The cache info channel used when saving the serialized Stencil to the
   // necko cache.
@@ -676,13 +671,6 @@ class LoadedScriptDelegate {
     GetLoadedScript()->DropSRIOrSRIAndSerializedStencil();
   }
 
-  bool HasStencil() const { return GetLoadedScript()->HasStencil(); }
-  Stencil* GetStencil() const { return GetLoadedScript()->GetStencil(); }
-  void SetStencil(Stencil* aStencil) {
-    GetLoadedScript()->SetStencil(aStencil);
-  }
-  void ClearStencil() { GetLoadedScript()->ClearStencil(); }
-
   void SetTookLongInPreviousRuns() {
     GetLoadedScript()->SetTookLongInPreviousRuns();
   }
@@ -699,13 +687,6 @@ class ClassicScript final : public LoadedScript {
   explicit ClassicScript(nsIURI* aURI);
 
   friend class ScriptLoadRequest;
-};
-
-class EventScript final : public LoadedScript {
-  ~EventScript() = default;
-
- public:
-  explicit EventScript(nsIURI* aURI);
 };
 
 class ImportMapScript final : public LoadedScript {

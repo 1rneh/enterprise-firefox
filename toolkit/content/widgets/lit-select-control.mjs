@@ -79,7 +79,7 @@ export class SelectControlBaseElement extends MozLitElement {
   }
 
   get hasValue() {
-    return this.value === 0 || !!this.value;
+    return this.value === 0 || this.value === false || !!this.value;
   }
 
   set focusedIndex(newIndex) {
@@ -100,6 +100,11 @@ export class SelectControlBaseElement extends MozLitElement {
     }
   }
 
+  focus() {
+    this.childElements[this.focusableIndex]?.focus();
+    this.#focusedIndex = undefined;
+  }
+
   get focusableIndex() {
     let activeEl = this.getRootNode().activeElement;
     let childElFocused =
@@ -107,8 +112,10 @@ export class SelectControlBaseElement extends MozLitElement {
 
     if (
       this.#checkedIndex != undefined &&
-      this.#value &&
-      (this.type == "radio" || !childElFocused)
+      this.hasValue &&
+      (this.type == "radio" ||
+        !childElFocused ||
+        this.#focusedIndex == undefined)
     ) {
       return this.#checkedIndex;
     }
@@ -121,7 +128,7 @@ export class SelectControlBaseElement extends MozLitElement {
       return this.#focusedIndex;
     }
 
-    return this.childElements.findIndex(item => !item.disabled);
+    return this.childElements.findIndex(item => !item.isDisabled);
   }
 
   // Query for child elements the first time they are needed + ensure they
@@ -253,7 +260,7 @@ export class SelectControlBaseElement extends MozLitElement {
 
       let nextItem = children[nextIndex];
 
-      if (nextItem && !nextItem.disabled) {
+      if (nextItem && !nextItem.isDisabled) {
         nextItem.focus();
         if (isRadio) {
           this.value = nextItem.value;
@@ -340,6 +347,7 @@ export const SelectControlItemMixin = superClass =>
       name: { type: String },
       value: { type: String },
       disabled: { type: Boolean, reflect: true },
+      parentDisabled: { type: Boolean, reflect: true },
       checked: { type: Boolean, reflect: true },
       itemTabIndex: { type: Number, state: true },
       role: { type: String, state: true },
@@ -351,14 +359,15 @@ export const SelectControlItemMixin = superClass =>
     }
 
     get isDisabled() {
-      return this.disabled || this.#controller.disabled;
+      return this.disabled || this.parentDisabled;
     }
 
     constructor() {
       super();
       this.checked = false;
+      this.parentDisabled = false;
       this.addEventListener("focus", () => {
-        if (!this.disabled) {
+        if (!this.isDisabled) {
           this.controller.focusedIndex = this.position;
         }
       });
@@ -375,6 +384,7 @@ export const SelectControlItemMixin = superClass =>
       }
 
       this.#controller = hostElement;
+      this.parentDisabled = this.#controller.disabled;
       this.role = this.#controller.type == "radio" ? "radio" : "option";
       if (this.#controller.hasValue) {
         this.checked = this.value === this.#controller.value;
@@ -403,18 +413,15 @@ export const SelectControlItemMixin = superClass =>
         this.#controller.value = "";
       }
 
-      if (changedProperties.has("disabled")) {
-        // Prevent enabling a items if containing focus manager is disabled.
-        if (this.disabled === false && this.#controller.disabled) {
-          this.disabled = true;
-          return;
-        }
-
+      if (
+        changedProperties.has("disabled") ||
+        changedProperties.has("parentDisabled")
+      ) {
         // Update items via focus manager parent for proper keyboard nav behavior.
         if (this.checked || !this.#controller.hasValue) {
           if (this.controller.checkedIndex != this.position) {
             this.#controller.syncFocusState();
-          } else {
+          } else if (this.isDisabled) {
             // If the newly disabled element was checked unset the checkedIndex
             // to recompute which element should be focusable.
             this.controller.checkedIndex = undefined;

@@ -392,6 +392,7 @@ preferences-fonts-header2 =
 
 preferences-default-zoom-label =
     .label = Default zoom
+    .accesskey = z
 
 # Variables:
 #   $percentage (number) - Zoom percentage value
@@ -696,19 +697,28 @@ play-drm-content =
 
 play-drm-content-learn-more = Learn more
 
-update-application-title = { -brand-short-name } Updates
+## Firefox updates
 
-update-application-description = Keep { -brand-short-name } up to date for the best performance, stability, and security.
+update-application-heading =
+    .label = { -brand-short-name } updates
+    .description = Updates improve { -brand-short-name }’s speed, stability, and security.
+
+update-application-suppress-prompts-heading =
+    .label = Notifications
+
+update-application-updates-managed-by-os =
+    .message = Updates are managed by your operating system
 
 # Variables:
 # $version (string) - Firefox version
 update-application-version = Version { $version } <a data-l10n-name="learn-more">What’s new</a>
 
-update-history =
-    .label = Show Update History…
+update-history-2 =
+    .label = Show update history
     .accesskey = p
 
-update-application-allow-description = Allow { -brand-short-name } to
+update-application-installation =
+    .label = Installation
 
 update-application-auto =
     .label = Automatically install updates (recommended)
@@ -722,7 +732,8 @@ update-application-background-enabled =
     .label = When { -brand-short-name } is not running
     .accesskey = W
 
-update-application-warning-cross-user-setting = This setting will apply to all Windows accounts and { -brand-short-name } profiles using this installation of { -brand-short-name }.
+update-application-warning-cross-user-setting-2 =
+    .message = This setting will apply to all Windows accounts and { -brand-short-name } profiles using this installation of { -brand-short-name }.
 
 update-application-suppress-prompts =
     .label = Show fewer update notification prompts

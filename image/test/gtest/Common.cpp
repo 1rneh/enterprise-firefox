@@ -784,6 +784,14 @@ ImageTestCase BlendAnimatedAVIFTestCase() {
                        /* aFrameCount */ 2);
 }
 
+#ifdef MOZ_JXL
+ImageTestCase BlendAnimatedJXLTestCase() {
+  return ImageTestCase("blend.jxl", "image/jxl", IntSize(100, 100),
+                       TEST_CASE_IS_TRANSPARENT | TEST_CASE_IS_ANIMATED,
+                       /* aFrameCount */ 2);
+}
+#endif
+
 ImageTestCase CorruptTestCase() {
   return ImageTestCase("corrupt.jpg", "image/jpeg", IntSize(100, 100),
                        TEST_CASE_HAS_ERROR);
@@ -1037,6 +1045,30 @@ ImageTestCase LargeJXLTestCase() {
 ImageTestCase TransparentJXLTestCase() {
   return ImageTestCase("transparent.jxl", "image/jxl", IntSize(1200, 1200),
                        TEST_CASE_IS_TRANSPARENT);
+}
+
+ImageTestCase CorruptJXLTestCase() {
+  return ImageTestCase("corrupt.jxl", "image/jxl", IntSize(100, 100),
+                       TEST_CASE_HAS_ERROR);
+}
+
+ImageTestCase PerfRgbLosslessJXLTestCase() {
+  return ImageTestCase("perf_srgb_lossless.jxl", "image/jxl",
+                       IntSize(1000, 1000));
+}
+
+ImageTestCase PerfRgbAlphaLosslessJXLTestCase() {
+  return ImageTestCase("perf_srgb_alpha_lossless.jxl", "image/jxl",
+                       IntSize(1000, 1000), TEST_CASE_IS_TRANSPARENT);
+}
+
+ImageTestCase PerfRgbLossyJXLTestCase() {
+  return ImageTestCase("perf_srgb_lossy.jxl", "image/jxl", IntSize(1000, 1000));
+}
+
+ImageTestCase PerfRgbAlphaLossyJXLTestCase() {
+  return ImageTestCase("perf_srgb_alpha_lossy.jxl", "image/jxl",
+                       IntSize(1000, 1000), TEST_CASE_IS_TRANSPARENT);
 }
 #endif
 

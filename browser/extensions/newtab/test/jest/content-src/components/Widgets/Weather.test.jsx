@@ -61,6 +61,7 @@ const mockState = {
       "widgets.system.weather.enabled": true,
       "widgets.weather.enabled": true,
       "widgets.weather.size": "medium",
+      "widgets.system.maximized": true,
     },
   },
   Weather: {
@@ -388,6 +389,34 @@ describe("<Weather> (Widgets/Weather)", () => {
       ).toBe(false);
     });
 
+    it("hides change-size submenu when widgets.system.maximized is false", () => {
+      const state = {
+        ...mockState,
+        Prefs: {
+          ...mockState.Prefs,
+          values: {
+            ...mockState.Prefs.values,
+            "widgets.system.maximized": false,
+          },
+        },
+      };
+      const { container } = renderWeather("medium", state);
+      expect(
+        container.querySelector(
+          "span[data-l10n-id='newtab-widget-menu-change-size']"
+        )
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows change-size submenu when widgets.system.maximized is true", () => {
+      const { container } = renderWeather();
+      expect(
+        container.querySelector(
+          "span[data-l10n-id='newtab-widget-menu-change-size']"
+        )
+      ).toBeInTheDocument();
+    });
+
     it("contains hide and learn-more items", () => {
       const { container } = renderWeather();
       expect(
@@ -637,7 +666,7 @@ describe("<Weather> (Widgets/Weather)", () => {
   });
 
   describe("error state", () => {
-    it("renders forecast-error when current_conditions is missing", () => {
+    it("renders weather-error when current_conditions is missing", () => {
       const state = {
         ...mockState,
         Weather: {
@@ -646,15 +675,15 @@ describe("<Weather> (Widgets/Weather)", () => {
         },
       };
       const { container } = renderWeather("medium", state);
-      expect(container.querySelector(".forecast-error")).toBeInTheDocument();
+      expect(container.querySelector(".weather-error")).toBeInTheDocument();
       expect(
         container.querySelector(
-          ".forecast-error p[data-l10n-id='newtab-weather-error-not-available']"
+          ".weather-error p[data-l10n-id='newtab-weather-error-not-available']"
         )
       ).toBeInTheDocument();
     });
 
-    it("renders forecast-error when forecast is missing", () => {
+    it("renders weather-error when forecast is missing", () => {
       const state = {
         ...mockState,
         Weather: {
@@ -665,7 +694,7 @@ describe("<Weather> (Widgets/Weather)", () => {
         },
       };
       const { container } = renderWeather("medium", state);
-      expect(container.querySelector(".forecast-error")).toBeInTheDocument();
+      expect(container.querySelector(".weather-error")).toBeInTheDocument();
     });
 
     it("adds weather-error-state class to root element on error", () => {
@@ -974,6 +1003,64 @@ describe("<Weather> (Widgets/Weather)", () => {
       ).toBeInTheDocument();
       expect(container.querySelector(".forecast-footer")).toBeInTheDocument();
       expect(container.querySelector(".full-forecast")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("search UI", () => {
+    it("adds weather-search-active class when searchActive is true", () => {
+      const state = {
+        ...mockState,
+        Weather: { ...mockState.Weather, searchActive: true },
+      };
+      const { container } = renderWeather("medium", state);
+      expect(
+        container.querySelector(".weather-widget.weather-search-active")
+      ).toBeInTheDocument();
+    });
+
+    it("does not add weather-search-active class when searchActive is false", () => {
+      const { container } = renderWeather();
+      expect(
+        container.querySelector(".weather-widget.weather-search-active")
+      ).not.toBeInTheDocument();
+    });
+
+    it("renders LocationSearch when searchActive is true", () => {
+      const state = {
+        ...mockState,
+        Weather: { ...mockState.Weather, searchActive: true },
+      };
+      const { container } = renderWeather("medium", state);
+      expect(container.querySelector(".location-search")).toBeInTheDocument();
+    });
+
+    it("does not render LocationSearch when searchActive is false", () => {
+      const { container } = renderWeather();
+      expect(
+        container.querySelector(".location-search")
+      ).not.toBeInTheDocument();
+    });
+
+    it("suppresses weather-opt-in class when searchActive is true during opt-in", () => {
+      const state = {
+        ...optInMockState,
+        Weather: { ...optInMockState.Weather, searchActive: true },
+      };
+      const { container } = renderWeather("medium", state);
+      expect(
+        container.querySelector(".weather-widget.weather-opt-in")
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not render context menu when searchActive is true", () => {
+      const state = {
+        ...mockState,
+        Weather: { ...mockState.Weather, searchActive: true },
+      };
+      const { container } = renderWeather("medium", state);
+      expect(
+        container.querySelector(".weather-context-menu-wrapper")
+      ).not.toBeInTheDocument();
     });
   });
 });

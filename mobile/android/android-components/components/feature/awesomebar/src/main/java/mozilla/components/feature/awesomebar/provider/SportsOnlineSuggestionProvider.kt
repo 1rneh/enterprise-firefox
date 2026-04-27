@@ -5,7 +5,6 @@
 package mozilla.components.feature.awesomebar.provider
 
 import androidx.annotation.VisibleForTesting
-import kotlinx.coroutines.delay
 import mozilla.components.concept.awesomebar.AwesomeBar
 import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionCategory
 import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionDate
@@ -28,13 +27,13 @@ internal const val DEFAULT_SPORT_SUGGESTION_LIMIT = 1
 /**
  * [AwesomeBar.SuggestionProvider] implementation that provides suggestions based on online sports.
  *
- * @property dataSource the [AwesomeBar.SportsSuggestionDataSource] to be used.
+ * @property dataSource the [AwesomeBar.CombinedSuggestionsDataSource] to be used.
  * @property suggestionsHeader optional parameter to specify if the suggestion should have a header.
  * @property maxNumberOfSuggestions the maximum number of suggestions to be provided.
  */
 class SportsOnlineSuggestionProvider(
     private val searchUseCase: SearchUseCases.SearchUseCase,
-    private val dataSource: AwesomeBar.SportsSuggestionDataSource,
+    private val dataSource: AwesomeBar.CombinedSuggestionsDataSource,
     private val suggestionsHeader: String? = null,
     @get:VisibleForTesting internal val maxNumberOfSuggestions: Int = DEFAULT_SPORT_SUGGESTION_LIMIT,
 ) : AwesomeBar.SuggestionProvider {
@@ -51,20 +50,23 @@ class SportsOnlineSuggestionProvider(
     override suspend fun onInputChanged(text: String): List<AwesomeBar.SportSuggestion> {
         if (text.isBlank()) return emptyList()
 
-        delay(ARTIFICIAL_DELAY)
-
-        val results = dataSource.fetch(text)
-
-        return results
+        val items = dataSource.fetchSports(text)
+        val suggestions = items
             .asSequence()
-            .mapNotNull { it.toSuggestionOrNull() }
+            .mapNotNull { item ->
+                item.toSuggestionOrNull()?.let { it to item.sportCategory }
+            }
             .take(maxNumberOfSuggestions)
             .toList()
-            .also {
-                if (it.isNotEmpty()) {
-                    emitOptimizedSuggestionCardDisplayedFact(SuggestionCardType.SPORTS)
-                }
-            }
+
+        suggestions.forEach {
+            emitOptimizedSuggestionCardDisplayedFact(
+                cardType = SuggestionCardType.SPORTS,
+                extra = it.second.lowercase(),
+            )
+        }
+
+        return suggestions.map { it.first }
     }
 
     private fun AwesomeBar.SportItem.toSuggestionOrNull(): AwesomeBar.SportSuggestion? {
@@ -81,7 +83,10 @@ class SportsOnlineSuggestionProvider(
         return if (hasRequiredFields && hasAllFields) {
             AwesomeBar.SportSuggestion(
                 onSuggestionClicked = {
-                    emitOptimizedSuggestionCardClickedFact(SuggestionCardType.SPORTS)
+                    emitOptimizedSuggestionCardClickedFact(
+                        cardType = SuggestionCardType.SPORTS,
+                        extra = this.sportCategory.lowercase(),
+                    )
                     searchUseCase.invoke(query)
                 },
                 provider = this@SportsOnlineSuggestionProvider,

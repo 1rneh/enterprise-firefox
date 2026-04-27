@@ -1107,21 +1107,31 @@ class OutputParser {
    *        options passed to the parse function. @see #mergeOptions for valid options
    *        and default values
    */
+  // eslint-disable-next-line complexity
   #onCloseParenthesisForAttr(stackEntry, options) {
     if (typeof options.getAttributeValue !== "function") {
       return stackEntry.parts;
     }
 
-    // The attribute name is the first Ident
     let attrNameIndex = null;
+    let commaIndex = null;
     for (let i = 0; i < stackEntry.parts.length; i++) {
       const part = stackEntry.parts[i];
       if (!stackEntry.tokensByPart.has(part)) {
         continue;
       }
       const token = stackEntry.tokensByPart.get(part);
-      if (token !== CLOSED_STACK_ENTRY && token.tokenType === "Ident") {
+      if (token === CLOSED_STACK_ENTRY) {
+        continue;
+      }
+
+      // The attribute name is the first Ident
+      if (token.tokenType === "Ident" && attrNameIndex === null) {
         attrNameIndex = i;
+      }
+
+      if (token.tokenType === "Comma") {
+        commaIndex = i;
         break;
       }
     }
@@ -1136,49 +1146,81 @@ class OutputParser {
     const attrName = attrNamePart.textContent;
     // and its value
     const attrValue = options.getAttributeValue(attrName);
-    // we want to render the attribute name on its own element with specific style if the
-    // attribute isn't found
+
+    // we want to render the attribute name on its own element
+    const attrNameNode = this.#createNode(
+      "span",
+      {
+        class: "inspector-attr-name",
+        "data-attribute":
+          attrValue === null
+            ? STYLE_INSPECTOR_L10N.getFormatStr("rule.attributeUnset", attrName)
+            : `"${attrValue}"`,
+      },
+      attrName
+    );
+    stackEntry.parts[attrNameIndex] = attrNameNode;
+
+    // as well as the first attribute (might contain attribute name + typing information),
+    // with specific style if the attribute isn't set
     const attrFirstParamNode = this.#createNode("span", {
-      class: `inspector-attribute${attrValue === null ? " " + options.unmatchedClass : ""}`,
-      "data-attribute":
-        attrValue === null
-          ? STYLE_INSPECTOR_L10N.getFormatStr("rule.attributeUnset", attrName)
-          : `"${attrValue}"`,
+      class: "inspector-attr-param",
     });
-    attrFirstParamNode.append(attrNamePart);
-    stackEntry.parts.splice(attrNameIndex, 1, attrFirstParamNode);
-
-    // Handle potential fallback value
-    // Note that this might change once the attribute type can be declared in attr()
-    // (see Bug 435426)
-
-    let commaIndex = null;
-    for (let i = attrNameIndex + 1; i < stackEntry.parts.length; i++) {
-      const part = stackEntry.parts[i];
-      if (!stackEntry.tokensByPart.has(part)) {
-        continue;
-      }
-      const token = stackEntry.tokensByPart.get(part);
-      if (token !== CLOSED_STACK_ENTRY && token.tokenType === "Comma") {
-        commaIndex = i;
-        break;
-      }
+    if (attrValue === null) {
+      attrFirstParamNode.classList.add(options.unmatchedClass);
     }
 
-    // We don't have to do anything when there's no fallback value, i.e. if we didn't
-    // found a separator
+    // Let's put all the parts starting with the attribute name until the comma
+    let attrFirstParamChildCount = 0;
+    let attrFirstParamEndIndex;
+    if (commaIndex === null) {
+      // if we didn't found a comma, we want to get all the items until the closing
+      // parenthesis, which is the last item in parts
+      attrFirstParamEndIndex = stackEntry.parts.length - 1;
+    } else if (
+      // if the token before the comma is a whitespace, don't include it in the first param node
+      stackEntry.tokensByPart.get(stackEntry.parts[commaIndex - 1])
+        ?.tokenType === "WhiteSpace"
+    ) {
+      attrFirstParamEndIndex = commaIndex - 1;
+    } else {
+      attrFirstParamEndIndex = commaIndex;
+    }
+
+    for (let i = attrNameIndex; i < attrFirstParamEndIndex; i++) {
+      attrFirstParamNode.append(stackEntry.parts[i]);
+      attrFirstParamChildCount++;
+    }
+    stackEntry.parts.splice(
+      attrNameIndex,
+      attrFirstParamChildCount,
+      attrFirstParamNode
+    );
+
+    // We don't have to do anything more when there's no fallback value, i.e. if we didn't
+    // found a comma
     if (commaIndex === null) {
       return stackEntry.parts;
     }
 
+    // we need to update the comma index, as we added attrFirstParamNode in parts and
+    // removed all the elements we put in it.
+    commaIndex = commaIndex + 1 - attrFirstParamChildCount;
     let fallbackStartIndex = null;
+    // Then we want to find the part that correspond to the first non whitespace token,
+    // which will be the start of the fallback param
     for (let i = commaIndex + 1; i < stackEntry.parts.length; i++) {
       const part = stackEntry.parts[i];
       if (!stackEntry.tokensByPart.has(part)) {
         continue;
       }
       const token = stackEntry.tokensByPart.get(part);
-      if (token !== CLOSED_STACK_ENTRY && token.tokenType !== "WhiteSpace") {
+      if (
+        // we might get into a part that was already handled, for example a nested function,
+        // and in such case, it should be part of the fallback element
+        token === CLOSED_STACK_ENTRY ||
+        token.tokenType !== "WhiteSpace"
+      ) {
         fallbackStartIndex = i;
         break;
       }
@@ -1197,7 +1239,12 @@ class OutputParser {
         continue;
       }
       const token = stackEntry.tokensByPart.get(part);
-      if (token !== CLOSED_STACK_ENTRY && token.tokenType !== "WhiteSpace") {
+      if (
+        // we might get into a part that was already handled, for example a nested function,
+        // and in such case, it should be part of the fallback element
+        token === CLOSED_STACK_ENTRY ||
+        token.tokenType !== "WhiteSpace"
+      ) {
         fallbackEndTokenIndex = i;
         break;
       }

@@ -89,6 +89,7 @@ import org.mozilla.fenix.perf.StrictModeManager
 import org.mozilla.fenix.perf.lazyMonitored
 import org.mozilla.fenix.reviewprompt.ReviewPromptMiddleware
 import org.mozilla.fenix.search.VoiceSearchAIControlFeature
+import org.mozilla.fenix.settings.ai.AIControlsSearchProvider
 import org.mozilla.fenix.settings.datachoices.DataChoicesSearchProvider
 import org.mozilla.fenix.settings.settingssearch.DefaultFenixSettingsIndexer
 import org.mozilla.fenix.termsofuse.TermsOfUseManager
@@ -368,6 +369,9 @@ class Components(private val context: Context) {
 
     private fun setupSportsWidgetState() = SportsWidgetState(
         countriesSelected = settings.sportsSelectedCountries,
+        hasSkippedFollowTeam = settings.hasSkippedSportsFollowTeam,
+        isVisible = settings.showHomepageSportsWidget,
+        isFeatureEnabled = settings.enableHomepageSportsWidget,
     )
 
     val fxSuggest by lazyMonitored { FxSuggest(context, remoteSettingsService.value, analytics.crashReporter) }
@@ -405,6 +409,7 @@ class Components(private val context: Context) {
             context = context,
             additionalProviders = listOf(
                 DataChoicesSearchProvider,
+                AIControlsSearchProvider,
             ),
         )
     }

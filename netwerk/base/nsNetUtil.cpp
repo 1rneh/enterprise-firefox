@@ -17,6 +17,7 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/StaticPrefs_extensions.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StaticPrefs_urlclassifier.h"
@@ -1637,7 +1638,7 @@ class BufferWriter final : public nsIInputStreamCallback {
 
   // All the members of this class are touched on the owning thread only. The
   // monitor is only used to communicate when there is more data to read.
-  Monitor mMonitor MOZ_UNANNOTATED;
+  Monitor mMonitor MOZ_ANNOTATED;
 
   nsCOMPtr<nsIInputStream> mInputStream;
   nsCOMPtr<nsIAsyncInputStream> mAsyncInputStream;
@@ -2241,7 +2242,22 @@ bool NS_HasBeenCrossOrigin(nsIChannel* aChannel, bool aReport) {
     res = loadingPrincipal->CheckMayLoad(uri, dataInherits);
   }
 
-  return NS_FAILED(res);
+  if (NS_FAILED(res)) {
+    return true;
+  }
+
+  if (!StaticPrefs::extensions_web_accessible_workers_deprecated_behavior() &&
+      uri->SchemeIs("moz-extension")) {
+    nsContentPolicyType internalContentType =
+        loadInfo->InternalContentPolicyType();
+
+    if (internalContentType == nsIContentPolicy::TYPE_INTERNAL_WORKER ||
+        internalContentType == nsIContentPolicy::TYPE_INTERNAL_SHARED_WORKER) {
+      return !loadingPrincipal->IsSameOrigin(uri);
+    }
+  }
+
+  return false;
 }
 
 bool NS_IsSafeMethodNav(nsIChannel* aChannel) {
@@ -2431,26 +2447,26 @@ bool NS_SecurityCompareURIs(nsIURI* aSourceURI, nsIURI* aTargetURI,
   }
 #endif
 
-  nsCOMPtr<nsIPrincipal> sourceBlobPrincipal;
-  if (BlobURLProtocolHandler::GetBlobURLPrincipal(
-          sourceBaseURI, getter_AddRefs(sourceBlobPrincipal))) {
-    nsCOMPtr<nsIURI> sourceBlobOwnerURI;
-    auto* basePrin = BasePrincipal::Cast(sourceBlobPrincipal);
-    rv = basePrin->GetURI(getter_AddRefs(sourceBlobOwnerURI));
-    if (NS_SUCCEEDED(rv)) {
-      sourceBaseURI = std::move(sourceBlobOwnerURI);
+  if (sourceBaseURI->SchemeIs(BLOBURI_SCHEME)) {
+    // NOTE: OriginAttributes are discarded by GetURI, so can be default.
+    nsCOMPtr<nsIPrincipal> sourceBlobPrincipal;
+    if (!BlobURLProtocolHandler::GetBlobURLPrincipal(
+            sourceBaseURI, OriginAttributes(),
+            getter_AddRefs(sourceBlobPrincipal))) {
+      return false;
     }
+    sourceBaseURI = sourceBlobPrincipal->GetURI();
   }
 
-  nsCOMPtr<nsIPrincipal> targetBlobPrincipal;
-  if (BlobURLProtocolHandler::GetBlobURLPrincipal(
-          targetBaseURI, getter_AddRefs(targetBlobPrincipal))) {
-    nsCOMPtr<nsIURI> targetBlobOwnerURI;
-    auto* basePrin = BasePrincipal::Cast(targetBlobPrincipal);
-    rv = basePrin->GetURI(getter_AddRefs(targetBlobOwnerURI));
-    if (NS_SUCCEEDED(rv)) {
-      targetBaseURI = std::move(targetBlobOwnerURI);
+  if (targetBaseURI->SchemeIs(BLOBURI_SCHEME)) {
+    // NOTE: OriginAttributes are discarded by GetURI, so can be default.
+    nsCOMPtr<nsIPrincipal> targetBlobPrincipal;
+    if (!BlobURLProtocolHandler::GetBlobURLPrincipal(
+            targetBaseURI, OriginAttributes(),
+            getter_AddRefs(targetBlobPrincipal))) {
+      return false;
     }
+    targetBaseURI = targetBlobPrincipal->GetURI();
   }
 
   if (!sourceBaseURI || !targetBaseURI) return false;

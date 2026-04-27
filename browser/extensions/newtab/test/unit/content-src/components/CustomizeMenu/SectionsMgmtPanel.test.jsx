@@ -278,7 +278,42 @@ describe("<SectionsMgmtPanel>", () => {
       const topicList = wrapper.find(".topic-list").first();
       assert.ok(topicList.exists());
       assert.equal(topicList.find("li").length, 1);
-      assert.equal(topicList.find("label").text(), "Technology");
+      assert.equal(
+        topicList.find("li").first().find("span").first().text(),
+        "Technology"
+      );
+    });
+
+    it("should set localization attributes on the follow/unfollow button for accessible name", () => {
+      const stateWithFollowedTopics = {
+        ...DEFAULT_STATE,
+        DiscoveryStream: {
+          ...DEFAULT_STATE.DiscoveryStream,
+          sectionPersonalization: {
+            technology: {
+              isFollowed: true,
+              isBlocked: false,
+              followedAt: fakeDate,
+            },
+          },
+        },
+      };
+
+      wrapper = mount(
+        <WrapWithProvider state={stateWithFollowedTopics}>
+          <SectionsMgmtPanel {...DEFAULT_PROPS} showPanel={true} />
+        </WrapWithProvider>
+      );
+
+      const button = wrapper.find("moz-button[section='technology']");
+      assert.equal(
+        button.prop("data-l10n-id"),
+        "newtab-section-unfollow-topic"
+      );
+      assert.equal(
+        button.prop("data-l10n-args"),
+        JSON.stringify({ topic: "Technology" })
+      );
     });
 
     it("should dispatch UNFOLLOW_SECTION action when unfollow button is clicked", () => {
@@ -408,7 +443,38 @@ describe("<SectionsMgmtPanel>", () => {
       const topicList = wrapper.find(".topic-list");
       assert.ok(topicList.exists());
       assert.equal(topicList.find("li").length, 1);
-      assert.equal(topicList.find("label").text(), "Technology");
+      assert.equal(
+        topicList.find("li").first().find("span").first().text(),
+        "Technology"
+      );
+    });
+
+    it("should set localization attributes on the block/unblock button for accessible name", () => {
+      const stateWithBlockedTopics = {
+        ...DEFAULT_STATE,
+        DiscoveryStream: {
+          ...DEFAULT_STATE.DiscoveryStream,
+          sectionPersonalization: {
+            technology: {
+              isFollowed: false,
+              isBlocked: true,
+            },
+          },
+        },
+      };
+
+      wrapper = mount(
+        <WrapWithProvider state={stateWithBlockedTopics}>
+          <SectionsMgmtPanel {...DEFAULT_PROPS} showPanel={true} />
+        </WrapWithProvider>
+      );
+
+      const button = wrapper.find("moz-button[section='technology']");
+      assert.equal(button.prop("data-l10n-id"), "newtab-section-unblock-topic");
+      assert.equal(
+        button.prop("data-l10n-args"),
+        JSON.stringify({ topic: "Technology" })
+      );
     });
 
     it("should dispatch UNBLOCK_SECTION action when unblock button is clicked", () => {

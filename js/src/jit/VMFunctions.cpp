@@ -6,6 +6,7 @@
 
 #include "mozilla/FloatingPoint.h"
 
+#include "builtin/Date.h"
 #include "builtin/MapObject.h"
 #include "builtin/String.h"
 #include "gc/Cell.h"
@@ -18,6 +19,7 @@
 #include "jit/JitRuntime.h"
 #include "jit/mips64/Simulator-mips64.h"
 #include "jit/Simulator.h"
+#include "js/Date.h"
 #include "js/experimental/JitInfo.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/friend/StackLimits.h"    // js::AutoCheckRecursionLimit
@@ -3267,6 +3269,76 @@ int32_t Float32ToFloat16(float value) {
 void DateFillLocalTimeSlots(DateObject* dateObj) {
   AutoUnsafeCallWithABI unsafe;
   dateObj->fillLocalTimeSlots();
+}
+
+double DateNow(JSContext* cx) {
+  AutoUnsafeCallWithABI unsafe;
+
+  // ClippedTime can return non-canonical NaN, so canonicalize explicitly.
+  return JS::CanonicalizeNaN(js::DateNow(cx).toDouble());
+}
+
+double DateParse(JSContext* cx, const JSString* str) {
+  AutoUnsafeCallWithABI unsafe;
+
+  MOZ_ASSERT(str->isLinear());
+
+  const auto* linear = &str->asLinear();
+
+  // ClippedTime can return non-canonical NaN, so canonicalize explicitly.
+  return JS::CanonicalizeNaN(js::DateParse(cx, linear).toDouble());
+}
+
+double DateLocalTimeToUTC(JSContext* cx, int64_t localTime) {
+  AutoUnsafeCallWithABI unsafe;
+
+  // ClippedTime can return non-canonical NaN, so canonicalize explicitly.
+  return JS::CanonicalizeNaN(js::LocalTimeToUTC(cx, localTime).toDouble());
+}
+
+double DateYearFromTime(JSContext* cx, double utcTime) {
+  AutoUnsafeCallWithABI unsafe;
+
+  auto clipped = JS::TimeClip(utcTime);
+  if (!clipped.isValid()) {
+    return JS::GenericNaN();
+  }
+
+  int64_t localTime = js::UTCToLocalTime(cx, int64_t(clipped.toDouble()));
+  return double(ToYearMonthDay(localTime).year);
+}
+
+double DateMonthFromTime(JSContext* cx, double utcTime) {
+  AutoUnsafeCallWithABI unsafe;
+
+  auto clipped = JS::TimeClip(utcTime);
+  if (!clipped.isValid()) {
+    return JS::GenericNaN();
+  }
+
+  int64_t localTime = js::UTCToLocalTime(cx, int64_t(clipped.toDouble()));
+  return double(ToYearMonthDay(localTime).month);
+}
+
+double DateDateFromTime(JSContext* cx, double utcTime) {
+  AutoUnsafeCallWithABI unsafe;
+
+  auto clipped = JS::TimeClip(utcTime);
+  if (!clipped.isValid()) {
+    return JS::GenericNaN();
+  }
+
+  int64_t localTime = js::UTCToLocalTime(cx, int64_t(clipped.toDouble()));
+  return double(ToYearMonthDay(localTime).day);
+}
+
+JSObject* NewDateObject(JSContext* cx, double utcTime) {
+  auto clipped = JS::TimeClip(utcTime);
+  MOZ_ASSERT(
+      mozilla::NumbersAreBitwiseIdentical(
+          utcTime, clipped.isValid() ? clipped.toDouble() : JS::GenericNaN()),
+      "JIT code must have time-clipped the double");
+  return NewDateObjectMsec(cx, clipped);
 }
 
 JSAtom* AtomizeStringNoGC(JSContext* cx, JSString* str) {

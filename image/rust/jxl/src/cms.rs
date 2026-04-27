@@ -215,9 +215,9 @@ impl JxlCmsTransformer for QcmsTransformer {
 }
 
 fn f32_to_u8(v: f32) -> u8 {
-    (v * 255.0).clamp(0.0, 255.0) as u8
+    (v * 255.0).clamp(0.0, 255.0).round() as u8
 }
 
 fn f32_to_u8_inverted(v: f32) -> u8 {
-    ((1.0 - v) * 255.0).clamp(0.0, 255.0) as u8
+    ((1.0 - v) * 255.0).clamp(0.0, 255.0).round() as u8
 }

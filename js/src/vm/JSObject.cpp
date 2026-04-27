@@ -1239,6 +1239,14 @@ void JSObject::swap(JSContext* cx, HandleObject a, HandleObject b,
   bool aIsUsedAsPrototype = a->isUsedAsPrototype();
   bool bIsUsedAsPrototype = b->isUsedAsPrototype();
 
+  // Verify that swapping does not result in an object becoming its own proto.
+  if (aIsUsedAsPrototype && b->hasStaticPrototype()) {
+    MOZ_RELEASE_ASSERT(b->staticPrototype() != a);
+  }
+  if (bIsUsedAsPrototype && a->hasStaticPrototype()) {
+    MOZ_RELEASE_ASSERT(a->staticPrototype() != b);
+  }
+
   // Swap element associations.
   Zone* zone = a->zone();
 
@@ -2216,14 +2224,18 @@ JS_PUBLIC_API bool js::ShouldIgnorePropertyDefinition(JSContext* cx,
       return true;
     }
   }
-  if (key == JSProto_Iterator && !JS::Prefs::experimental_iterator_chunking()) {
-    if (id == NameToId(cx->names().chunks) ||
-        id == NameToId(cx->names().windows)) {
+  if (key == JSProto_Iterator) {
+    if (!JS::Prefs::experimental_iterator_chunking() &&
+        (id == NameToId(cx->names().chunks) ||
+         id == NameToId(cx->names().windows))) {
       return true;
     }
-  }
-  if (key == JSProto_Iterator && !JS::Prefs::experimental_iterator_join()) {
-    if (id == NameToId(cx->names().join)) {
+    if (!JS::Prefs::experimental_iterator_join() &&
+        id == NameToId(cx->names().join)) {
+      return true;
+    }
+    if (!JS::Prefs::experimental_iterator_includes() &&
+        id == NameToId(cx->names().includes)) {
       return true;
     }
   }

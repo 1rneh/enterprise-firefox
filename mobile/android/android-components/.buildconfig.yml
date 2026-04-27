@@ -975,6 +975,19 @@ projects:
     - components:support-utils
     - components:tooling-lint
     - components:ui-icons
+  components:feature-importer:
+    description: A feature that handles importing bookmarks and passwords.
+    path: components/feature/importer
+    publish: true
+    upstream_dependencies:
+    - components:concept-base
+    - components:concept-fetch
+    - components:lib-publicsuffixlist
+    - components:lib-state
+    - components:support-base
+    - components:support-ktx
+    - components:support-utils
+    - components:tooling-lint
   components:feature-intent:
     description: Combining various feature components for intent processing.
     path: components/feature/intent

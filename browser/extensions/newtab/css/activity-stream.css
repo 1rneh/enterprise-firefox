@@ -3437,28 +3437,38 @@ dialog:dir(rtl)::after {
   content: url("chrome://browser/skin/weather/night-mostly-cloudy-with-flurries.svg");
 }
 
-.location-input-wrapper {
+.weatherWrapper .location-input-wrapper,
+.weather-forecast-widget .location-input-wrapper {
   background-color: light-dark(var(--color-white), var(--newtab-background-color-secondary));
   color: var(--newtab-text-primary-color);
   border-radius: var(--border-radius-medium);
   padding: var(--space-small);
   position: relative;
 }
-.lightWallpaper .location-input-wrapper, .darkWallpaper .location-input-wrapper {
+.lightWallpaper .weatherWrapper .location-input-wrapper, .darkWallpaper .weatherWrapper .location-input-wrapper,
+.lightWallpaper .weather-forecast-widget .location-input-wrapper,
+.darkWallpaper .weather-forecast-widget .location-input-wrapper {
   background-color: var(--newtab-weather-background-color);
 }
-.lightWallpaper .location-input-wrapper:hover, .darkWallpaper .location-input-wrapper:hover {
+.lightWallpaper .weatherWrapper .location-input-wrapper:hover, .darkWallpaper .weatherWrapper .location-input-wrapper:hover,
+.lightWallpaper .weather-forecast-widget .location-input-wrapper:hover,
+.darkWallpaper .weather-forecast-widget .location-input-wrapper:hover {
   background-color: var(--newtab-button-static-hover-background);
 }
-.lightWallpaper .location-input-wrapper:hover:active, .darkWallpaper .location-input-wrapper:hover:active {
+.lightWallpaper .weatherWrapper .location-input-wrapper:hover:active, .darkWallpaper .weatherWrapper .location-input-wrapper:hover:active,
+.lightWallpaper .weather-forecast-widget .location-input-wrapper:hover:active,
+.darkWallpaper .weather-forecast-widget .location-input-wrapper:hover:active {
   background-color: var(--newtab-button-static-active-background);
 }
 @media (prefers-contrast) {
-  .lightWallpaper .location-input-wrapper, .darkWallpaper .location-input-wrapper {
+  .lightWallpaper .weatherWrapper .location-input-wrapper, .darkWallpaper .weatherWrapper .location-input-wrapper,
+.lightWallpaper .weather-forecast-widget .location-input-wrapper,
+.darkWallpaper .weather-forecast-widget .location-input-wrapper {
     background-color: var(--background-color-box);
   }
 }
-.location-input-wrapper .search-icon {
+.weatherWrapper .location-input-wrapper .search-icon,
+.weather-forecast-widget .location-input-wrapper .search-icon {
   content: url("chrome://global/skin/icons/search-glass.svg");
   -moz-context-properties: fill;
   fill: var(--icon-color);
@@ -3467,22 +3477,26 @@ dialog:dir(rtl)::after {
   transform: translateY(-50%);
   inset-inline-start: var(--space-large);
 }
-.location-input-wrapper .close-icon {
+.weatherWrapper .location-input-wrapper .close-icon,
+.weather-forecast-widget .location-input-wrapper .close-icon {
   position: absolute;
   inset-block-start: 50%;
   transform: translateY(-50%);
   inset-inline-end: var(--space-medium);
 }
-.location-input-wrapper .close-icon:focus-visible {
+.weatherWrapper .location-input-wrapper .close-icon:focus-visible,
+.weather-forecast-widget .location-input-wrapper .close-icon:focus-visible {
   outline: var(--focus-outline);
 }
-.location-input-wrapper input {
+.weatherWrapper .location-input-wrapper input,
+.weather-forecast-widget .location-input-wrapper input {
   border-radius: var(--border-radius-medium);
   background-color: light-dark(var(--color-white), var(--newtab-background-color-secondary));
   padding: var(--space-small) var(--space-xxlarge);
   border: 1px solid var(--border-color);
 }
-.location-input-wrapper input:focus-visible {
+.weatherWrapper .location-input-wrapper input:focus-visible,
+.weather-forecast-widget .location-input-wrapper input:focus-visible {
   outline: var(--focus-outline);
 }
 
@@ -4844,7 +4858,6 @@ dialog:dir(rtl)::after {
   transition: opacity 0.2s ease;
   border-radius: var(--border-radius-large);
   padding-block-start: var(--space-medium);
-  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -4852,13 +4865,27 @@ dialog:dir(rtl)::after {
 .lists:hover {
   background: var(--newtab-background-color-secondary);
 }
+.nova-enabled .lists {
+  box-shadow: var(--box-shadow-level-2);
+}
+.nova-enabled .lists:hover, .nova-enabled .lists:focus-within {
+  outline: 1px solid var(--border-color-deemphasized);
+  box-shadow: var(--card-box-shadow-hover);
+}
 .classic-enabled .lists {
   grid-column: span 1;
   width: var(--newtab-card-grid-layout-width);
   height: var(--newtab-card-height);
+  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
 }
 .has-sections-grid .classic-enabled .lists {
   width: var(--newtab-card-width-medium);
+}
+.lightWallpaper .classic-enabled .lists .empty-list {
+  color-scheme: light;
+}
+.darkWallpaper .classic-enabled .lists .empty-list {
+  color-scheme: dark;
 }
 .lists.medium-widget {
   grid-row: span 2;
@@ -5026,12 +5053,6 @@ dialog:dir(rtl)::after {
   height: 100%;
   padding-block-end: var(--space-medium);
 }
-.lightWallpaper .lists .empty-list {
-  color-scheme: light;
-}
-.darkWallpaper .lists .empty-list {
-  color-scheme: dark;
-}
 .lists .empty-list .empty-list-text {
   margin: 0;
   text-align: center;
@@ -5084,15 +5105,22 @@ dialog:dir(rtl)::after {
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
 }
 .focus-timer:hover {
   background: var(--newtab-background-color-secondary);
+}
+.nova-enabled .focus-timer {
+  box-shadow: var(--box-shadow-level-2);
+}
+.nova-enabled .focus-timer:hover, .nova-enabled .focus-timer:focus-within {
+  outline: 1px solid var(--border-color-deemphasized);
+  box-shadow: var(--card-box-shadow-hover);
 }
 .classic-enabled .focus-timer {
   grid-column: span 1;
   width: var(--newtab-card-grid-layout-width);
   height: var(--newtab-card-height);
+  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
 }
 .has-sections-grid .classic-enabled .focus-timer {
   width: var(--newtab-card-width-medium);
@@ -5118,14 +5146,17 @@ dialog:dir(rtl)::after {
   justify-content: center;
   flex-grow: 1;
 }
-.focus-timer-tabs-buttons moz-button {
+.nova-enabled .focus-timer-tabs-buttons {
+  gap: var(--space-small);
+}
+.classic-enabled .focus-timer-tabs-buttons moz-button {
   flex-grow: 1;
 }
-.focus-timer-tabs-buttons moz-button:first-of-type::part(button) {
+.classic-enabled .focus-timer-tabs-buttons moz-button:first-of-type::part(button) {
   border-end-end-radius: 0;
   border-start-end-radius: 0;
 }
-.focus-timer-tabs-buttons moz-button:last-of-type::part(button) {
+.classic-enabled .focus-timer-tabs-buttons moz-button:last-of-type::part(button) {
   border-start-start-radius: 0;
   border-end-start-radius: 0;
 }
@@ -10194,7 +10225,6 @@ hr {
 }
 
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal {
-  --arrow-size: 24px;
   width: auto;
   padding: var(--space-large);
 }
@@ -10211,7 +10241,7 @@ hr {
   inset-inline-end: calc(var(--space-xxlarge) * 2);
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal.inset-inline-start::after {
-  inset-inline-end: calc(var(--arrow-size) / 2 * -1);
+  inset-inline-end: calc(var(--space-xlarge) / -2);
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal.inset-block-end {
   margin-block-start: 0;
@@ -10224,7 +10254,7 @@ hr {
   margin-block-end: calc(-4 * var(--space-xsmall));
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal.inset-block-start::after {
-  inset-block-end: calc(var(--arrow-size) - var(--space-xxsmall));
+  inset-block-end: calc(var(--space-xlarge) - var(--space-xxsmall));
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal .title {
   font-weight: var(--font-weight-heading, var(--heading-font-weight));
@@ -10238,8 +10268,8 @@ hr {
   text-align: end;
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal::after {
-  height: var(--arrow-size);
-  width: var(--arrow-size);
+  height: var(--space-xlarge);
+  width: var(--space-xlarge);
   box-shadow: 4px -4px 6px -2px rgba(0, 0, 0, 0.15);
   pointer-events: none;
 }
@@ -10251,6 +10281,99 @@ hr {
 @media (prefers-color-scheme: dark) {
   .wallpaper-feature-highlight.is-inverted-dark-dismiss-button .feature-highlight-modal > moz-button {
     --button-icon-fill: var(--color-gray-70);
+  }
+}
+
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal {
+  --highlight-border-gradient-start: light-dark(#B58CFF, #A67CE5);
+  --highlight-border-gradient-end: light-dark(#FF8A5B, #764EDD);
+  --wallpaper-highlight-shadow:
+    -10px -10px 28px rgba(231, 217, 255, 70%),
+    8px 8px 28px rgba(255, 211, 183, 70%),
+    0 3px 12px rgba(0, 0, 0, 4%),
+    0 0.375px 1px rgba(0, 0, 0, 1.5%);
+  --wallpaper-highlight-image-background: #FCF5F0;
+  --wallpaper-highlight-tail-image: url("chrome://newtab/content/data/content/assets/highlights/feature-callout-tail.svg");
+  width: 352px;
+  min-height: 382px;
+  padding: var(--space-xlarge);
+  border: var(--border-width) solid var(--border-color-transparent);
+  border-radius: var(--border-radius-large);
+  background: linear-gradient(var(--background-color-box), var(--background-color-box)) padding-box, linear-gradient(135deg, var(--highlight-border-gradient-start), var(--highlight-border-gradient-end)) border-box;
+  box-shadow: var(--wallpaper-highlight-shadow);
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .content-wrapper {
+  width: 100%;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .wallpaper-feature-highlight-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-large);
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .wallpaper-feature-highlight-image {
+  display: flex;
+  justify-content: center;
+  border-radius: var(--border-radius-large);
+  background-color: var(--wallpaper-highlight-image-background);
+  background-image: url("chrome://newtab/content/data/content/assets/highlights/firefox-wallpaper-desktop-hills-light-rgb.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  height: 222px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
+  padding-block-start: 44px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
+  padding-block-end: 22px;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .wallpaper-feature-highlight-image img {
+  display: block;
+  width: 207px;
+  height: 156px;
+  object-fit: contain;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .wallpaper-feature-highlight-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-small);
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .title {
+  font-size: var(--font-size-root, 13px);
+  font-weight: var(--font-weight-heading, var(--heading-font-weight));
+  margin: 0;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .subtitle {
+  font-size: var(--font-size-root, 13px);
+  margin: 0;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal.inset-block-start::after {
+  width: 20px;
+  height: 56px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
+  inset-block-end: 7px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
+  inset-inline-end: -17.5px;
+  transform: none;
+  background: var(--wallpaper-highlight-tail-image) no-repeat center/contain;
+  box-shadow: none;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal > moz-button {
+  inset-inline-end: var(--space-xsmall);
+  inset-block-start: var(--space-xsmall);
+}
+@media (prefers-color-scheme: dark) {
+  .nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal {
+    --wallpaper-highlight-shadow:
+      -10px -10px 28px rgba(99, 47, 200, 28%),
+      8px 8px 28px rgba(255, 138, 87, 24%),
+      0 3px 12px rgba(0, 0, 0, 32%),
+      0 0.375px 1.5px rgba(0, 0, 0, 16%);
+    --wallpaper-highlight-tail-image: url("chrome://newtab/content/data/content/assets/highlights/feature-callout-tail-dark.svg");
+  }
+}
+@media (forced-colors: active) {
+  .nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal {
+    --wallpaper-highlight-tail-image: url("chrome://newtab/content/data/content/assets/highlights/feature-callout-tail-hcm.svg");
+    background: Canvas;
   }
 }
 

@@ -280,7 +280,8 @@ class CollectionTest {
             selectAddTabToCollection()
             verifyTabsSelectedCounterText(1)
             saveTabsSelectedForCollection()
-            verifySnackBarText(composeTestRule, "Tab saved")
+            // See: https://bugzilla.mozilla.org/show_bug.cgi?id=2034448
+            // verifySnackBarText(composeTestRule, "Tab saved")
             verifyTabSavedInCollection(secondWebPage.title)
         }
     }

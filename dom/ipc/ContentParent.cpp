@@ -3081,17 +3081,11 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
         return true;
       }
 
-      IPCBlob ipcBlob;
-      nsresult rv = IPCBlobUtils::Serialize(aBlobImpl, ipcBlob);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
-      }
+      registrations.AppendElement(
+          BlobURLRegistrationData(nsCString(aURI), WrapNotNull(aPrincipal),
+                                  nsCString(aPartitionKey), aRevoked));
 
-      registrations.AppendElement(BlobURLRegistrationData(
-          nsCString(aURI), ipcBlob, WrapNotNull(aPrincipal),
-          nsCString(aPartitionKey), aRevoked));
-
-      rv = TransmitPermissionsForPrincipal(aPrincipal);
+      nsresult rv = TransmitPermissionsForPrincipal(aPrincipal);
       (void)NS_WARN_IF(NS_FAILED(rv));
       return true;
     });
@@ -5155,7 +5149,8 @@ PContentPermissionRequestParent*
 ContentParent::AllocPContentPermissionRequestParent(
     const nsTArray<PermissionRequest>& aRequests, nsIPrincipal* aPrincipal,
     nsIPrincipal* aTopLevelPrincipal, const bool& aIsHandlingUserInput,
-    const bool& aMaybeUnsafePermissionDelegate, const TabId& aTabId) {
+    const bool& aMaybeUnsafePermissionDelegate, const TabId& aTabId,
+    const bool& aIgnoreAllowSitePermission) {
   RefPtr<BrowserParent> tp;
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
   if (cpm) {
@@ -5173,14 +5168,15 @@ ContentParent::AllocPContentPermissionRequestParent(
   }
   return nsContentPermissionUtils::CreateContentPermissionRequestParent(
       tp->GetOwnerElement(), aPrincipal, topPrincipal, aIsHandlingUserInput,
-      aMaybeUnsafePermissionDelegate, aTabId);
+      aMaybeUnsafePermissionDelegate, aTabId, aIgnoreAllowSitePermission);
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvPContentPermissionRequestConstructor(
     PContentPermissionRequestParent* aActor,
     nsTArray<PermissionRequest>&& aRequests, nsIPrincipal* aPrincipal,
     nsIPrincipal* aTopLevelPrincipal, const bool& aIsHandlingUserInput,
-    const bool& aMaybeUnsafePermissionDelegate, const TabId& tabId) {
+    const bool& aMaybeUnsafePermissionDelegate, const TabId& tabId,
+    const bool& aIgnoreAllowSitePermission) {
   nsContentPermissionUtils::InitContentPermissionRequestParent(
       aActor, std::move(aRequests));
   return IPC_OK();
@@ -5789,14 +5785,7 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
         break;
       }
 
-      IPCBlob ipcBlob;
-      rv = IPCBlobUtils::Serialize(aBlobImpl, ipcBlob);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        break;
-      }
-
-      (void)cp->SendBlobURLRegistration(uri, ipcBlob, aPrincipal,
-                                        aPartitionKey);
+      (void)cp->SendBlobURLRegistration(uri, aPrincipal, aPartitionKey);
     }
   }
 }
@@ -5855,8 +5844,8 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreAndBroadcastBlobURLRegistration(
     return IPC_FAIL(this, "Blob deserialization failed.");
   }
 
-  BlobURLProtocolHandler::AddDataEntry(aURI, aPrincipal, aPartitionKey,
-                                       blobImpl, Some(ChildID()));
+  BlobURLProtocolHandler::AddDataEntryParent(aURI, aPrincipal, aPartitionKey,
+                                             blobImpl, ChildID());
   BroadcastBlobURLRegistration(aURI, blobImpl, aPrincipal, aPartitionKey, this);
 
   return IPC_OK();
@@ -6112,17 +6101,11 @@ void ContentParent::TransmitBlobURLsForPrincipal(nsIPrincipal* aPrincipal) {
             return true;
           }
 
-          IPCBlob ipcBlob;
-          nsresult rv = IPCBlobUtils::Serialize(aBlobImpl, ipcBlob);
-          if (NS_WARN_IF(NS_FAILED(rv))) {
-            return false;
-          }
+          registrations.AppendElement(
+              BlobURLRegistrationData(nsCString(aURI), WrapNotNull(aPrincipal),
+                                      nsCString(aPartitionKey), aRevoked));
 
-          registrations.AppendElement(BlobURLRegistrationData(
-              nsCString(aURI), ipcBlob, WrapNotNull(aPrincipal),
-              nsCString(aPartitionKey), aRevoked));
-
-          rv = TransmitPermissionsForPrincipal(aBlobPrincipal);
+          nsresult rv = TransmitPermissionsForPrincipal(aBlobPrincipal);
           (void)NS_WARN_IF(NS_FAILED(rv));
           return true;
         });
@@ -6133,11 +6116,12 @@ void ContentParent::TransmitBlobURLsForPrincipal(nsIPrincipal* aPrincipal) {
   }
 }
 
-void ContentParent::TransmitBlobDataIfBlobURL(nsIURI* aURI) {
+void ContentParent::TransmitBlobDataIfBlobURL(nsIURI* aURI,
+                                              const OriginAttributes& aAttrs) {
   MOZ_ASSERT(aURI);
 
   nsCOMPtr<nsIPrincipal> principal;
-  if (BlobURLProtocolHandler::GetBlobURLPrincipal(aURI,
+  if (BlobURLProtocolHandler::GetBlobURLPrincipal(aURI, aAttrs,
                                                   getter_AddRefs(principal))) {
     TransmitBlobURLsForPrincipal(principal);
   }

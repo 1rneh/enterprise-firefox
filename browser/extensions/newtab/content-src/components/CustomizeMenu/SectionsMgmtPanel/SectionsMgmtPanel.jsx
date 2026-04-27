@@ -206,12 +206,7 @@ function SectionsMgmtPanel({
 
       return (
         <li key={sectionKey}>
-          <label
-            id={`follow-topic-label-${sectionKey}`}
-            htmlFor={`follow-topic-${sectionKey}`}
-          >
-            {title}
-          </label>
+          <span>{title}</span>
           <div
             className={
               following ? "section-follow following" : "section-follow"
@@ -227,8 +222,13 @@ function SectionsMgmtPanel({
               index={receivedRank}
               section={sectionKey}
               id={`follow-topic-${sectionKey}`}
-              // Compose accessible label from the localized "Following" span and the topic title label.
-              aria-labelledby={`follow-state-${sectionKey} follow-topic-label-${sectionKey}`}
+              data-l10n-id={
+                following
+                  ? "newtab-section-unfollow-topic"
+                  : "newtab-section-follow-topic"
+              }
+              data-l10n-args={JSON.stringify({ topic: title })}
+              data-l10n-attrs="aria-label"
             >
               <span
                 className="section-button-follow-text"
@@ -256,12 +256,7 @@ function SectionsMgmtPanel({
 
       return (
         <li key={sectionKey}>
-          <label
-            id={`blocked-topic-label-${sectionKey}`}
-            htmlFor={`blocked-topic-${sectionKey}`}
-          >
-            {title}
-          </label>
+          <span>{title}</span>
           <div className={blocked ? "section-block blocked" : "section-block"}>
             <moz-button
               onClick={() =>
@@ -273,8 +268,13 @@ function SectionsMgmtPanel({
               index={receivedRank}
               section={sectionKey}
               id={`blocked-topic-${sectionKey}`}
-              // Compose accessible label from the localized "Blocked" span and the topic title label.
-              aria-labelledby={`blocked-state-${sectionKey} blocked-topic-label-${sectionKey}`}
+              data-l10n-id={
+                blocked
+                  ? "newtab-section-unblock-topic"
+                  : "newtab-section-block-topic"
+              }
+              data-l10n-args={JSON.stringify({ topic: title })}
+              data-l10n-attrs="aria-label"
             >
               <span
                 className="section-button-block-text"

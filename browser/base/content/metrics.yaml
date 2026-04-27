@@ -462,7 +462,6 @@ browser.timings:
     notification_emails:
       - mconley@mozilla.com
     expires: never
-    telemetry_mirror: FX_TAB_CLICK_MS
 
   new_window:
     type: timing_distribution

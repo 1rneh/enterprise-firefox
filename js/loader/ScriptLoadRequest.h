@@ -272,6 +272,11 @@ class ScriptLoadRequest : public nsISupports,
   const LoadedScript* getLoadedScript() const { return mLoadedScript.get(); }
   LoadedScript* getLoadedScript() { return mLoadedScript.get(); }
 
+  bool HasStencil() const { return !!mStencil; }
+  JS::Stencil* GetStencil() const { return mStencil; }
+  void SetStencil(JS::Stencil* aStencil) { mStencil = aStencil; }
+  void ClearStencil() { mStencil = nullptr; }
+
   bool HasSourceMapURL() const { return mHasSourceMapURL_; }
   const nsString& GetSourceMapURL() const {
     MOZ_ASSERT(mHasSourceMapURL_);
@@ -358,6 +363,12 @@ class ScriptLoadRequest : public nsISupports,
 
   // The loaded script holds the data which can be shared among similar requests
   RefPtr<LoadedScript> mLoadedScript;
+
+  // Either the result of compilation/decode, or the stencil retrieved from
+  // cache.
+  // Once this field is populated, it's is guaranteed to be valid until the
+  // stencil is instantiated.
+  RefPtr<JS::Stencil> mStencil;
 
   RefPtr<ScriptFetchInfo> mFetchInfo;
 

@@ -623,7 +623,11 @@ void DocumentOrShadowRoot::GetAnimations(
        child = child->GetNextSibling()) {
     if (RefPtr<Element> element = Element::FromNode(child)) {
       nsTArray<RefPtr<Animation>> result;
-      element->GetAnimationsWithoutFlush(options, result);
+      IgnoredErrorResult error;
+      element->GetAnimationsWithoutFlush(options, result, error);
+      MOZ_ASSERT(
+          !error.Failed(),
+          "We only expect exceptions with invalid pseudoElement arguments");
       aAnimations.AppendElements(std::move(result));
     }
   }

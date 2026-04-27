@@ -429,12 +429,6 @@ name = "backtrace"
 version = "0.3.999"
 
 [[package]]
-name = "base16"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d27c3610c36aee21ce8ac510e6224498de4228ad772a171ed65643a24693a5a8"
-
-[[package]]
 name = "base64"
 version = "0.21.999"
 dependencies = [
@@ -2919,9 +2913,9 @@ dependencies = [
 
 [[package]]
 name = "glslopt"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ba4741358604ca0848c27ecc069d68e62e11cde81e38aac1da3c54b79ab5adf"
+checksum = "8a56905d98a23fb02f9ef9c8925af41f832e137f114f34952a186f810e979582"
 dependencies = [
  "cc",
 ]
@@ -3146,20 +3140,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea0b22561a9c04a7cb1a302c013e0259cd3b4bb619f145b32f72b8b4bcbed230"
 dependencies = [
  "hashbrown 0.16.0",
-]
-
-[[package]]
-name = "hawk"
-version = "5.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab302457b3e28e621daab18932d67a67328f29240bfaa5f604b7627ece1eacda"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "log",
- "once_cell",
- "thiserror 1.999.999",
- "url",
 ]
 
 [[package]]
@@ -5177,6 +5157,7 @@ dependencies = [
  "nserror",
  "nsstring",
  "qlog",
+ "rustix",
  "static_assertions",
  "static_prefs",
  "thin-vec",
@@ -6220,7 +6201,6 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.999",
  "error-support",
- "hawk",
  "hex",
  "nss",
  "thiserror 2.0.12",
@@ -7201,13 +7181,10 @@ name = "sync15"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base16",
- "base64 0.21.999",
  "error-support",
  "interrupt-support",
  "lazy_static",
  "payload-support",
- "rc_crypto",
  "serde",
  "serde_derive",
  "serde_json",
@@ -7215,8 +7192,6 @@ dependencies = [
  "sync-guid",
  "thiserror 2.0.12",
  "uniffi",
- "url",
- "viaduct",
 ]
 
 [[package]]
@@ -8261,7 +8236,6 @@ dependencies = [
  "bincode",
  "bitflags 2.10.0",
  "build-parallel",
- "bytemuck",
  "byteorder",
  "derive_more",
  "etagere",

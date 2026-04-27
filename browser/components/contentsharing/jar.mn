@@ -4,3 +4,4 @@
 
 browser.jar:
     content/browser/contentsharing/contentsharing.schema.json           (contentsharing.schema.json)
+    content/browser/contentsharing/contentSharingModal.xhtml            (content/contentSharingModal.xhtml)

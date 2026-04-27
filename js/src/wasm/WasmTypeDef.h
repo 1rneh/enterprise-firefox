@@ -476,7 +476,10 @@ class ContType {
 
  public:
   ContType() = default;
-  explicit ContType(const TypeDef* funcType);
+  explicit ContType(const TypeDef* funcTypeDef) : funcTypeDef_(funcTypeDef) {
+    // We can't assert this is a function type yet. Validation can only check
+    // this after we've decoded the whole rec group.
+  }
 
   ContType(const ContType&) = default;
   ContType& operator=(const ContType&) = default;
@@ -489,9 +492,7 @@ class ContType {
   const ValTypeVector& args() const { return funcType().args(); }
   const ValTypeVector& results() const { return funcType().results(); }
 
-  HashNumber hash(const RecGroup* recGroup) const {
-    return funcType().hash(recGroup);
-  }
+  HashNumber hash(const RecGroup* recGroup) const;
 
   // Compares two cont types for isorecursive equality. See
   // "Comparing type definitions" in WasmValType.h for more background.
@@ -1370,6 +1371,14 @@ using MutableTypeContext = RefPtr<TypeContext>;
 // misc
 
 #ifdef ENABLE_WASM_JSPI
+
+inline HashNumber ContType::hash(const RecGroup* recGroup) const {
+  // Don't assume this is a function type. We don't validate it's a function
+  // type until after the rec group is constructed. If that validation fails,
+  // we may still use this hash method when checking if we need to clean up
+  // the canonical type set.
+  return funcTypeDef_->hash();
+}
 
 inline bool ContType::isoEquals(const RecGroup* lhsRecGroup,
                                 const ContType& lhs,

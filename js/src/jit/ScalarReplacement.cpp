@@ -13,6 +13,7 @@
 #include "jit/WarpBuilderShared.h"
 #include "js/Vector.h"
 #include "vm/ArgumentsObject.h"
+#include "vm/DateObject.h"
 #include "vm/TypedArrayObject.h"
 
 #include "gc/ObjectKind-inl.h"
@@ -3579,6 +3580,259 @@ void SubarrayReplacer::assertSuccess() const {
   MOZ_ASSERT(!subarray_->hasLiveDefUses());
 }
 
+static inline bool IsOptimizableNewDateObjectInstruction(MInstruction* ins) {
+  return ins->isNewDateObject();
+}
+
+class DateObjectReplacer : public MDefinitionVisitorDefaultNoop {
+ private:
+  const MIRGenerator* mir_;
+  MIRGraph& graph_;
+  MInstruction* dateObject_;
+
+  // Allow scalar replacement if a date component is read exactly once.
+  bool hasSeenDateComponent_ = false;
+
+  TempAllocator& alloc() { return graph_.alloc(); }
+
+  MNewDateObject* newDateObject() const {
+    return dateObject_->toNewDateObject();
+  }
+  auto* templateObject() const { return newDateObject()->templateObject(); }
+
+  void visitGuardShape(MGuardShape* ins);
+  void visitUnbox(MUnbox* ins);
+  void visitLoadFixedSlot(MLoadFixedSlot* ins);
+  void visitDateFillLocalTimeSlots(MDateFillLocalTimeSlots* ins);
+
+ public:
+  DateObjectReplacer(const MIRGenerator* mir, MIRGraph& graph,
+                     MInstruction* dateObject)
+      : mir_(mir), graph_(graph), dateObject_(dateObject) {
+    MOZ_ASSERT(IsOptimizableNewDateObjectInstruction(dateObject));
+  }
+
+  bool escapes(MInstruction* ins);
+  bool run();
+  void assertSuccess() const;
+};
+
+void DateObjectReplacer::visitUnbox(MUnbox* ins) {
+  // Skip unbox on other objects.
+  if (ins->input() != dateObject_) {
+    return;
+  }
+  MOZ_ASSERT(ins->type() == MIRType::Object);
+
+  // Replace the unbox with the date object.
+  ins->replaceAllUsesWith(dateObject_);
+
+  // Remove the unbox.
+  ins->block()->discard(ins);
+}
+
+void DateObjectReplacer::visitGuardShape(MGuardShape* ins) {
+  // Skip guards on other objects.
+  if (ins->object() != dateObject_) {
+    return;
+  }
+
+  // Replace the guard with the date object.
+  ins->replaceAllUsesWith(dateObject_);
+
+  // Remove the guard.
+  ins->block()->discard(ins);
+}
+
+void DateObjectReplacer::visitLoadFixedSlot(MLoadFixedSlot* ins) {
+  // Skip load on other objects.
+  if (ins->object() != dateObject_) {
+    return;
+  }
+
+  auto* utcTime = newDateObject()->utcTime();
+
+  MDefinition* replacement;
+  switch (ins->slot()) {
+    case DateObject::UTC_TIME_SLOT: {
+      // Replace load with the UTC time argument.
+      replacement = utcTime;
+      break;
+    }
+    case DateObject::LOCAL_YEAR_SLOT: {
+      auto* yearFromTime = MYearFromTime::New(alloc(), utcTime);
+      ins->block()->insertBefore(ins, yearFromTime);
+      replacement = yearFromTime;
+      break;
+    }
+    case DateObject::LOCAL_MONTH_SLOT: {
+      auto* monthFromTime = MMonthFromTime::New(alloc(), utcTime);
+      ins->block()->insertBefore(ins, monthFromTime);
+      replacement = monthFromTime;
+      break;
+    }
+    case DateObject::LOCAL_DATE_SLOT: {
+      auto* dateFromTime = MDateFromTime::New(alloc(), utcTime);
+      ins->block()->insertBefore(ins, dateFromTime);
+      replacement = dateFromTime;
+      break;
+    }
+    default:
+      MOZ_CRASH("unexpected slot");
+  }
+
+  // Replace the load.
+  ins->replaceAllUsesWith(replacement);
+
+  // Remove the load.
+  ins->block()->discard(ins);
+}
+
+void DateObjectReplacer::visitDateFillLocalTimeSlots(
+    MDateFillLocalTimeSlots* ins) {
+  // Skip fill on other objects.
+  if (ins->date() != dateObject_) {
+    return;
+  }
+
+  // Remove the fill without any replacement.
+  ins->block()->discard(ins);
+}
+
+// Returns false if the Date object does not escape.
+bool DateObjectReplacer::escapes(MInstruction* ins) {
+  MOZ_ASSERT(ins->type() == MIRType::Object);
+
+  JitSpewDef(JitSpew_Escape, "Check Date object\n", ins);
+  JitSpewIndent spewIndent(JitSpew_Escape);
+
+  // Check all uses to see whether they can be supported without allocating a
+  // DateObject.
+  for (MUseIterator i(ins->usesBegin()); i != ins->usesEnd(); i++) {
+    MNode* consumer = (*i)->consumer();
+
+    // If a resume point can observe this instruction, we can only optimize if
+    // it is recoverable.
+    if (consumer->isResumePoint()) {
+      if (!consumer->toResumePoint()->isRecoverableOperand(*i)) {
+        JitSpew(JitSpew_Escape, "Observable date object cannot be recovered");
+        return true;
+      }
+      continue;
+    }
+
+    MDefinition* def = consumer->toDefinition();
+    switch (def->op()) {
+      case MDefinition::Opcode::GuardShape: {
+        auto* guard = def->toGuardShape();
+        if (templateObject()->shape() != guard->shape()) {
+          JitSpewDef(JitSpew_Escape, "has a non-matching guard shape\n", def);
+          return true;
+        }
+        if (escapes(guard)) {
+          JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
+          return true;
+        }
+        break;
+      }
+
+      case MDefinition::Opcode::Unbox: {
+        if (def->type() != MIRType::Object) {
+          JitSpewDef(JitSpew_Escape, "has an invalid unbox\n", def);
+          return true;
+        }
+        if (escapes(def->toInstruction())) {
+          JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
+          return true;
+        }
+        break;
+      }
+
+      case MDefinition::Opcode::LoadFixedSlot: {
+        auto* load = def->toLoadFixedSlot();
+
+        switch (load->slot()) {
+          case DateObject::UTC_TIME_SLOT:
+            // We can replace loading the UTC time slot.
+            break;
+          case DateObject::LOCAL_YEAR_SLOT:
+          case DateObject::LOCAL_MONTH_SLOT:
+          case DateObject::LOCAL_DATE_SLOT:
+            // We can replace loading these date component slots. Only allow a
+            // single load, because it's probably more efficient to use the
+            // cached components in the Date object if multiple loads happen.
+            if (!hasSeenDateComponent_) {
+              hasSeenDateComponent_ = true;
+              break;
+            }
+            [[fallthrough]];
+          default:
+            JitSpew(JitSpew_Escape,
+                    "is escaped by unsupported LoadFixedSlot\n");
+            return true;
+        }
+        break;
+      }
+
+      // No-op for scalar replaced date objects.
+      case MDefinition::Opcode::DateFillLocalTimeSlots:
+        break;
+
+      // This instruction is a no-op used to test that scalar replacement is
+      // working as expected.
+      case MDefinition::Opcode::AssertRecoveredOnBailout:
+        break;
+
+      default:
+        JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
+        return true;
+    }
+  }
+
+  JitSpew(JitSpew_Escape, "Date object is not escaped");
+  return false;
+}
+
+bool DateObjectReplacer::run() {
+  MBasicBlock* startBlock = dateObject_->block();
+
+  // Iterate over each basic block.
+  for (ReversePostorderIterator block = graph_.rpoBegin(startBlock);
+       block != graph_.rpoEnd(); block++) {
+    if (mir_->shouldCancel("Scalar replacement of new Date Objects")) {
+      return false;
+    }
+
+    // Iterates over phis and instructions.
+    // We do not have to visit resume points. Any resume points that capture the
+    // new Date object will be handled by the Sink pass.
+    for (MDefinitionIterator iter(*block); iter;) {
+      // Increment the iterator before visiting the instruction, as the visit
+      // function might discard itself from the basic block.
+      MDefinition* def = *iter++;
+      switch (def->op()) {
+#define MIR_OP(op)              \
+  case MDefinition::Opcode::op: \
+    visit##op(def->to##op());   \
+    break;
+        MIR_OPCODE_LIST(MIR_OP)
+#undef MIR_OP
+      }
+      if (!graph_.alloc().ensureBallast()) {
+        return false;
+      }
+    }
+  }
+
+  assertSuccess();
+  return true;
+}
+
+void DateObjectReplacer::assertSuccess() const {
+  MOZ_ASSERT(dateObject_->canRecoverOnBailout());
+  MOZ_ASSERT(!dateObject_->hasLiveDefUses());
+}
+
 // WebAssembly only supports scalar replacement of structs with only inline
 // data for now.
 static inline bool IsOptimizableWasmStructInstruction(MInstruction* ins) {
@@ -4269,6 +4523,17 @@ bool ScalarReplacement(const MIRGenerator* mir, MIRGraph& graph) {
 
       if (IsOptimizableSubarrayInstruction(*ins)) {
         SubarrayReplacer replacer(mir, graph, *ins);
+        if (replacer.escapes(*ins)) {
+          continue;
+        }
+        if (!replacer.run()) {
+          return false;
+        }
+        continue;
+      }
+
+      if (IsOptimizableNewDateObjectInstruction(*ins)) {
+        DateObjectReplacer replacer(mir, graph, *ins);
         if (replacer.escapes(*ins)) {
           continue;
         }

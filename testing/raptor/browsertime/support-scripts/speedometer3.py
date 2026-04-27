@@ -77,6 +77,8 @@ class Speedometer3Support(BasePythonSupport):
             "unit": unit,
             "alertThreshold": float(test.get("alert_threshold", 2.0)),
             "lowerIsBetter": lower_is_better,
+            "minBackWindow": 24,
+            "maxBackWindow": 48,
             "name": measurement_name,
             "replicates": replicates,
             "shouldAlert": True,
@@ -97,12 +99,18 @@ class Speedometer3Support(BasePythonSupport):
         See base_python_support.py for what's expected from this method.
         """
         suite["type"] = "benchmark"
+        suite["minBackWindow"] = 24
+        suite["maxBackWindow"] = 48
         if suite["subtests"] == {}:
             suite["subtests"] = []
         for measurement_name, replicates in test["measurements"].items():
             if not replicates:
                 continue
             if self.is_additional_metric(measurement_name):
+                continue
+            # Only report suite-level totals (e.g. "Perf-Dashboard/total"),
+            # not per-task breakdowns (e.g. "Perf-Dashboard/Render/Async").
+            if measurement_name.count("/") > 1:
                 continue
             suite["subtests"].append(
                 self._build_subtest(measurement_name, replicates, test)

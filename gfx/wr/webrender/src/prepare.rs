@@ -21,7 +21,7 @@ use crate::clip::{ClipStore, ClipNodeRange};
 use crate::render_task_graph::RenderTaskId;
 use crate::renderer::{GpuBufferAddress, GpuBufferWriterF};
 use crate::spatial_tree::SpatialNodeIndex;
-use crate::clip::{ClipNodeFlags, ClipChainInstance, ClipItemKind};
+use crate::clip::{clamped_radius, ClipNodeFlags, ClipChainInstance, ClipItemKind};
 use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureContext, PictureState};
 use crate::gpu_types::{BrushFlags, BlurEdgeMode};
 use crate::render_target::RenderTargetKind;
@@ -31,6 +31,7 @@ use crate::picture::{PrimitiveList, PrimitiveCluster, SurfaceIndex, SubpixelMode
 use crate::tile_cache::{SliceId, TileCacheInstance};
 use crate::prim_store::*;
 use crate::prim_store::borders::NormalBorderScratch;
+use crate::prim_store::line_dec::LineDecorationScratch;
 use crate::quad::{self, QuadTransformState};
 use crate::render_backend::DataStores;
 use crate::render_task_cache::RenderTaskCacheKeyKind;
@@ -359,7 +360,7 @@ fn prepare_interned_prim_for_render(
     let device_pixel_scale = frame_state.surfaces[pic_context.surface_index.0].device_pixel_scale;
 
     match &mut prim_instance.kind {
-        PrimitiveInstanceKind::BoxShadow { data_handle, ref mut render_task } => {
+        PrimitiveInstanceKind::BoxShadow { data_handle, .. } => {
             profile_scope!("BoxShadow");
 
             let prim_data = &data_stores.box_shadow[*data_handle];
@@ -508,8 +509,6 @@ fn prepare_interned_prim_for_render(
                 }
             );
 
-            *render_task = Some(task_id);
-
             let prim_rect = LayoutRect::from_origin_and_size(
                 prim_instance.prim_origin,
                 prim_data.common.prim_size,
@@ -577,7 +576,7 @@ fn prepare_interned_prim_for_render(
                 frame_context,
                 frame_state,
             );
-            *scratch_handle = scratch.arena.push(render_task);
+            *scratch_handle = scratch.line_decoration.push(LineDecorationScratch { task_id: render_task });
         }
         PrimitiveInstanceKind::TextRun { run_index, data_handle, .. } => {
             profile_scope!("TextRun");
@@ -652,9 +651,11 @@ fn prepare_interned_prim_for_render(
 
             border_data.write_brush_gpu_blocks(common_data, frame_state);
 
-            let segment_count = border_data.border_segments.len() as u32;
-            let handle = scratch.arena.push(NormalBorderScratch { segment_count });
-            scratch.arena.push_zeroed::<RenderTaskId>(segment_count);
+            let segment_count = border_data.border_segments.len();
+            let task_ids = scratch.border_task_ids.extend(
+                std::iter::repeat(RenderTaskId::INVALID).take(segment_count),
+            );
+            let handle = scratch.normal_border.push(NormalBorderScratch { task_ids });
 
             border_data.update(
                 common_data,
@@ -662,8 +663,7 @@ fn prepare_interned_prim_for_render(
                 device_pixel_scale,
                 frame_context,
                 frame_state,
-                handle,
-                &mut scratch.arena,
+                &mut scratch.border_task_ids[task_ids],
             );
 
             *scratch_handle = handle;
@@ -1643,13 +1643,12 @@ fn write_brush_segment_description(
         }
 
         let (local_clip_rect, radius, mode) = match clip_node.item.kind {
-            ClipItemKind::RoundedRectangle { size, radius, mode } => {
-                let rect = LayoutRect::from_origin_and_size(clip_instance.clip_rect_origin, size);
-                (rect, Some(radius), mode)
+            ClipItemKind::RoundedRectangle { radius, mode } => {
+                let radius = clamped_radius(&radius, clip_instance.clip_rect.size());
+                (clip_instance.clip_rect, Some(radius), mode)
             }
-            ClipItemKind::Rectangle { size, mode } => {
-                let rect = LayoutRect::from_origin_and_size(clip_instance.clip_rect_origin, size);
-                (rect, None, mode)
+            ClipItemKind::Rectangle { mode } => {
+                (clip_instance.clip_rect, None, mode)
             }
             ClipItemKind::Image { .. } => {
                 panic!("bug: masks not supported on old segment path");

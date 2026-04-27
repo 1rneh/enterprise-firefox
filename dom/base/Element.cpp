@@ -84,6 +84,7 @@
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/DocumentTimeline.h"
+#include "mozilla/dom/EditContext.h"
 #include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/ElementInlines.h"
 #include "mozilla/dom/Flex.h"
@@ -4926,7 +4927,8 @@ already_AddRefed<Animation> Element::Animate(
 }
 
 void Element::GetAnimations(const GetAnimationsOptions& aOptions,
-                            nsTArray<RefPtr<Animation>>& aAnimations) {
+                            nsTArray<RefPtr<Animation>>& aAnimations,
+                            ErrorResult& aError) {
   if (Document* doc = GetComposedDoc()) {
     // We don't need to explicitly flush throttled animations here, since
     // updating the animation style of elements will never affect the set of
@@ -4941,7 +4943,7 @@ void Element::GetAnimations(const GetAnimationsOptions& aOptions,
                        /* aUpdateRelevancy = */ false));
   }
 
-  GetAnimationsWithoutFlush(aOptions, aAnimations);
+  GetAnimationsWithoutFlush(aOptions, aAnimations, aError);
 }
 
 static void GetAnimationsUnsorted(const Element* aElement,
@@ -5049,44 +5051,62 @@ static void GetAnimationsUnsortedForSubtree(
 
 void Element::GetAnimationsWithoutFlush(
     const GetAnimationsOptions& aOptions,
-    nsTArray<RefPtr<Animation>>& aAnimations) {
+    nsTArray<RefPtr<Animation>>& aAnimations, ErrorResult& aError) {
   Element* elem = this;
   PseudoStyleRequest pseudoRequest;
-  // For animations on generated-content elements, the animations are stored
-  // on the parent element.
-  if (IsGeneratedContentContainerForBefore()) {
-    elem = GetParentElement();
-    pseudoRequest.mType = PseudoStyleType::Before;
-  } else if (IsGeneratedContentContainerForAfter()) {
-    elem = GetParentElement();
-    pseudoRequest.mType = PseudoStyleType::After;
-  } else if (IsGeneratedContentContainerForMarker()) {
-    elem = GetParentElement();
-    pseudoRequest.mType = PseudoStyleType::Marker;
-  } else if (IsGeneratedContentContainerForBackdrop()) {
-    elem = GetParentElement();
-    pseudoRequest.mType = PseudoStyleType::Backdrop;
+  if (DOMStringIsNull(aOptions.mPseudoElement)) {
+    // For animations on generated-content elements, the animations are
+    // stored on the parent element.
+    if (IsGeneratedContentContainerForBefore()) {
+      elem = GetParentElement();
+      pseudoRequest.mType = PseudoStyleType::Before;
+    } else if (IsGeneratedContentContainerForAfter()) {
+      elem = GetParentElement();
+      pseudoRequest.mType = PseudoStyleType::After;
+    } else if (IsGeneratedContentContainerForMarker()) {
+      elem = GetParentElement();
+      pseudoRequest.mType = PseudoStyleType::Marker;
+    } else if (IsGeneratedContentContainerForBackdrop()) {
+      elem = GetParentElement();
+      pseudoRequest.mType = PseudoStyleType::Backdrop;
+    }
+
+    if (!elem) {
+      return;
+    }
+  } else {
+    if (aOptions.mPseudoElement.IsEmpty()) {
+      aError.ThrowSyntaxError("The pseudo-element selector cannot be empty.");
+      return;
+    }
+    Maybe<PseudoStyleRequest> request =
+        PseudoStyleRequest::Parse(aOptions.mPseudoElement);
+    if (request.isNothing()) {
+      aError.ThrowSyntaxError("The pseudo-element selector is not valid.");
+      return;
+    }
+    pseudoRequest = request.value();
   }
 
-  if (!elem) {
+  // NOTE: It's not possible to get animations on pseudo elements not supported
+  // for animations such as ::part().
+  if (!pseudoRequest.IsNotPseudo() &&
+      !AnimationUtils::IsSupportedPseudoForAnimations(pseudoRequest)) {
     return;
   }
 
-  // FIXME: Bug 1935557. Rewrite this to support pseudoElement option.
-  if (!aOptions.mSubtree || (pseudoRequest.mType == PseudoStyleType::Before ||
-                             pseudoRequest.mType == PseudoStyleType::After ||
-                             pseudoRequest.mType == PseudoStyleType::Backdrop ||
-                             pseudoRequest.mType == PseudoStyleType::Marker)) {
-    // Case 1: Non-subtree, or |this| is ::before, ::after, or ::marker.
-    //
-    // ::before, ::after, and ::marker doesn't have subtree on themself, so we
-    // just simply get the animations of the element itself even if mSubtree is
-    // true.
-    GetAnimationsUnsorted(elem, pseudoRequest, aAnimations);
+  // NOTE: Currently, it is only view transition pseudo elements that can have
+  // a subtree among pseudo elements supported for animations.
+  if (aOptions.mSubtree &&
+      (pseudoRequest.IsNotPseudo() || pseudoRequest.IsViewTransition())) {
+    const auto* subtreeRoot =
+        pseudoRequest.IsNotPseudo() ? this : GetPseudoElement(pseudoRequest);
+    if (!subtreeRoot) {
+      return;
+    }
+    GetAnimationsUnsortedForSubtree(subtreeRoot, aAnimations);
   } else {
-    // Case 2: Subtree. |this| is an element or a view transition
-    // pseudo-element.
-    GetAnimationsUnsortedForSubtree(elem, aAnimations);
+    GetAnimationsUnsorted(elem, pseudoRequest, aAnimations);
   }
   aAnimations.Sort(AnimationPtrComparator<RefPtr<Animation>>());
 }
@@ -5407,6 +5427,12 @@ TextEditor* Element::GetTextEditorInternal() {
   TextControlElement* textControlElement = TextControlElement::FromNode(this);
   return textControlElement ? MOZ_KnownLive(textControlElement)->GetTextEditor()
                             : nullptr;
+}
+
+void Element::ClearEditContext() {
+  MOZ_ASSERT(HasFlag(ELEMENT_HAS_EDIT_CONTEXT));
+  UnsetFlags(ELEMENT_HAS_EDIT_CONTEXT);
+  EditContext::SetForElement(*this, nullptr);
 }
 
 nsresult Element::SetBoolAttr(nsAtom* aAttr, bool aValue) {

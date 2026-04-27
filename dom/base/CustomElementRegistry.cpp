@@ -1563,6 +1563,10 @@ void CustomElementRegistry::Upgrade(Element* aElement,
     return;
   }
 
+  // 11. Set element's custom element state to "custom".
+  data->mState = CustomElementData::State::eCustom;
+  aElement->SetDefined(true);
+
   // 10. If element is a form-associated custom element, then:
   if (data->IsFormAssociated()) {
     // 10.1. Reset the form owner of element.
@@ -1574,10 +1578,6 @@ void CustomElementRegistry::Upgrade(Element* aElement,
 
     internals->UpdateFormOwner();
   }
-
-  // 11. Set element's custom element state to "custom".
-  data->mState = CustomElementData::State::eCustom;
-  aElement->SetDefined(true);
 }
 
 already_AddRefed<nsISupports> CustomElementRegistry::CallGetCustomInterface(

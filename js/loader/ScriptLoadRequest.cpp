@@ -179,6 +179,8 @@ void ScriptLoadRequest::CacheEntryRevived(LoadedScript* aLoadedScript) {
 
 void ScriptLoadRequest::SetCacheEntry(LoadedScript* aLoadedScript,
                                       ScriptFetchOptions* aFetchOptions) {
+  SetStencil(aLoadedScript->GetCachedStencil());
+
   mFetchInfo =
       new ScriptFetchInfo(mKind, aLoadedScript->CachedReferrerPolicy(),
                           aFetchOptions, aLoadedScript->CachedBaseURL());
@@ -211,7 +213,7 @@ void ScriptLoadRequest::SetCacheEntry(LoadedScript* aLoadedScript,
       mState = State::Fetching;
       break;
     case ScriptKind::eEvent:
-      MOZ_ASSERT_UNREACHABLE("EventScripts are not using ScriptLoadRequest");
+      MOZ_ASSERT_UNREACHABLE("eEvent is only for ScriptFetchInfo");
       break;
   }
 }
@@ -239,7 +241,7 @@ void ScriptLoadRequest::NoCacheEntryFound(
       mLoadedScript = new ModuleScript(aURI, mFetchInfo);
       break;
     case ScriptKind::eEvent:
-      MOZ_ASSERT_UNREACHABLE("EventScripts are not using ScriptLoadRequest");
+      MOZ_ASSERT_UNREACHABLE("eEvent is only for ScriptFetchInfo");
       break;
   }
   mState = State::Fetching;

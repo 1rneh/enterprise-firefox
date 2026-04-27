@@ -8,7 +8,6 @@
 #include <array>
 #include <bitset>
 #include <cctype>
-#include <queue>
 
 #include "AccessCheck.h"
 #include "CompositableHost.h"
@@ -2871,6 +2870,14 @@ webgl::ExplicitPixelPackingState::ForUseWith(
   }
   if (!state.imageHeight) {
     state.imageHeight = subrectSize.y;
+  }
+
+  if (!std::in_range<GLint>(state.rowLength) ||
+      !std::in_range<GLint>(state.imageHeight) ||
+      !std::in_range<GLint>(state.skipPixels) ||
+      !std::in_range<GLint>(state.skipRows) ||
+      !std::in_range<GLint>(state.skipImages)) {
+    return Err("pixelStorei params must be GLint.");
   }
 
   // -

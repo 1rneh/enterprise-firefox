@@ -998,6 +998,10 @@ TEST_F(ImageDecoders, AnimatedJXLMultiChunk) {
 TEST_F(ImageDecoders, AnimatedJXLWithBlendedFrames) {
   CheckAnimationDecoderSingleChunk(GreenFirstFrameAnimatedJXLTestCase());
 }
+
+TEST_F(ImageDecoders, CorruptJXLSingleChunk) {
+  CheckDecoderSingleChunk(CorruptJXLTestCase());
+}
 #endif
 
 TEST_F(ImageDecoders, CorruptSingleChunk) {

@@ -1579,6 +1579,9 @@ export class TelemetryFeed {
       case at.WIDGETS_ENABLED:
         this.handleUnifiedWidgetEnabled(action);
         break;
+      case at.WIDGETS_HIDE_ALL:
+        this.handleWidgetsHideAll(action);
+        break;
       case at.WIDGETS_ERROR:
         this.handleUnifiedWidgetError(action);
         break;
@@ -1718,6 +1721,27 @@ export class TelemetryFeed {
       }
 
       Glean.newtab.widgetsEnabled.record(payload);
+    }
+  }
+
+  handleWidgetsHideAll(action) {
+    const { targets, widget_size } = action.data;
+    this.handleUnifiedWidgetContainerAction({
+      ...action,
+      data: { action_type: "hide_all", widget_size },
+    });
+    for (const target of targets) {
+      if (target.active) {
+        this.handleUnifiedWidgetEnabled({
+          ...action,
+          data: {
+            widget_name: target.telemetryName,
+            widget_source: "widget",
+            enabled: false,
+            widget_size,
+          },
+        });
+      }
     }
   }
 

@@ -629,7 +629,7 @@ export class AIChatContent extends MozLitElement {
       return nothing;
     }
     return html`<chat-assistant-loader
-      .isSearch=${this.isSearching}
+      .mode=${this.isSearching ? "search" : "default"}
     ></chat-assistant-loader>`;
   }
 

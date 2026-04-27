@@ -14,15 +14,15 @@ add_task(async function test_handleShareTabs() {
       "https://example.com/1"
     );
 
-    let openedUrl;
-    const origOpenWebLinkIn = window.openWebLinkIn;
-    window.openWebLinkIn = (url, _where) => {
-      openedUrl = url;
+    let modalArgs;
+    const origOpen = window.gDialogBox.open;
+    window.gDialogBox.open = (_url, args) => {
+      modalArgs = args;
     };
 
     await ContentSharingUtils.handleShareTabs([tab1, tab2]);
     // restore function after stubbing
-    window.openWebLinkIn = origOpenWebLinkIn;
+    window.gDialogBox.open = origOpen;
 
     Assert.equal(
       server.requests.length,
@@ -49,9 +49,9 @@ add_task(async function test_handleShareTabs() {
       "Second link URL matches tab 2"
     );
     Assert.equal(
-      openedUrl,
+      modalArgs?.url,
       server.mockResponse.url,
-      "openWebLinkIn was called with the share URL"
+      "Modal was opened with the share URL"
     );
 
     BrowserTestUtils.removeTab(tab1);

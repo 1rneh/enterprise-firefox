@@ -2566,6 +2566,14 @@
     obj: ObjId
     result: IntPtrId
 
+- name: LinearizeString
+  shared: true
+  transpile: true
+  cost_estimate: 4
+  args:
+    str: StringId
+    result: StringId
+
 - name: LinearizeForCharAccess
   shared: true
   transpile: true
@@ -3831,6 +3839,37 @@
   cost_estimate: 2
   args:
     secondsIntoYear: ValId
+
+- name: DateNow
+  shared: true
+  transpile: true
+  cost_estimate: 4
+  args:
+    result: NumberId
+
+- name: DateParse
+  shared: true
+  transpile: true
+  cost_estimate: 4
+  args:
+    str: StringId
+    result: NumberId
+
+- name: TimeClip
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    time: NumberId
+    result: NumberId
+
+- name: NewDateObjectResult
+  shared: true
+  transpile: true
+  cost_estimate: 5
+  args:
+    templateObject: ObjectField
+    utcTime: NumberId
 
 - name: ArrayFromArgumentsObjectResult
   shared: true

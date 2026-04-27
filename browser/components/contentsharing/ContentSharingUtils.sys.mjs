@@ -67,18 +67,24 @@ class ContentSharingUtilsClass {
   }
 
   /**
-   * Handles sharing bookmarks by building a share object and sending it to the
-   * content sharing server to get a shareable link, which is then opened in a
-   * new tab. bookmarkFolderGuids can be 1 or more bookmark folder guids. If
-   * more than 1, the first guid will be treated as the parent folder and the
-   * rest will be nested inside it.
+   * Handles sharing bookmarks by building a share object and opening the
+   * content sharing modal. bookmarkFolderGuids can be 1 or more bookmark
+   * folder guids. If more than 1, the first guid will be treated as the parent
+   * folder and the rest will be nested inside it.
    *
    * @param {Array<string>} bookmarkFolderGuids An array of bookmark folder guids
-   * @param {Window} window The window to open the share URL in
+   * @param {Window} window The browser window to open the modal in
    */
   async createShareableLinkFromBookmarkFolders(bookmarkFolderGuids, window) {
-    const share = await this.buildShareFromBookmarkFolders(bookmarkFolderGuids);
-    await this.openShareUrlInNewTab(share, window);
+    let share;
+    try {
+      share = await this.buildShareFromBookmarkFolders(bookmarkFolderGuids);
+    } catch (e) {
+      console.error("ContentSharingUtils: failed to share bookmarks", e);
+    }
+    if (share) {
+      await this.#createLinkAndOpenModal(share, window, "bookmarks");
+    }
   }
 
   /**
@@ -87,27 +93,24 @@ class ContentSharingUtilsClass {
    * @param {MozTabbrowserTab[]} tabs
    */
   async handleShareTabs(tabs) {
-    try {
-      const shareObject = {
-        type: "tabs",
-        title: `${tabs.length} tabs`,
-        children: tabs.map(t => ({
-          uri: t.linkedBrowser.currentURI.spec,
-          title: t.label.slice(0, 100),
-        })),
-      };
-
-      const share = this.buildShare(shareObject);
-      await this.openShareUrlInNewTab(share, tabs[0].ownerGlobal);
-    } catch (e) {
-      console.error("ContentSharingUtils: failed to share tabs", e);
+    if (!tabs.length) {
+      return;
     }
+    const shareObject = {
+      type: "tabs",
+      title: `${tabs.length} tabs`,
+      children: tabs.map(t => ({
+        uri: t.linkedBrowser.currentURI.spec,
+        title: t.label,
+      })),
+    };
+    const share = this.buildShare(shareObject);
+    await this.#createLinkAndOpenModal(share, tabs[0].ownerGlobal, "tabs");
   }
 
   /**
-   * Handles sharing a tab group by building a share object and sending it to the
-   * content sharing server to get a shareable link, which is then opened in a
-   * new tab.
+   * Handles sharing a tab group by building a share object and opening the
+   * content sharing modal.
    *
    * @param {MozTabbrowserTabGroup} tabGroup The tab group element to share
    */
@@ -122,12 +125,18 @@ class ContentSharingUtilsClass {
       title,
       type: "tab_group",
       children: tabGroup.tabs.map(t => {
-        return { uri: t.linkedBrowser.currentURI.displaySpec, title: t.label };
+        return {
+          uri: t.linkedBrowser.currentURI.displaySpec,
+          title: t.label,
+        };
       }),
     };
-
     const share = this.buildShare(shareObject);
-    await this.openShareUrlInNewTab(share, tabGroup.ownerGlobal);
+    await this.#createLinkAndOpenModal(
+      share,
+      tabGroup.ownerGlobal,
+      "tab group"
+    );
   }
 
   /**
@@ -262,9 +271,33 @@ class ContentSharingUtilsClass {
     return share;
   }
 
-  async openShareUrlInNewTab(share, window) {
-    const shareUrl = await this.createShareableLink(share);
-    window.openWebLinkIn(shareUrl, "tab");
+  /**
+   * @param {object} share
+   * @param {Window} window
+   * @param {string} context Used in error logging (e.g. "tabs", "tab group")
+   */
+  async #createLinkAndOpenModal(share, window, context) {
+    let url;
+    try {
+      url = await this.createShareableLink(share);
+    } catch (e) {
+      console.error(`ContentSharingUtils: failed to share ${context}`, e);
+    }
+    await this.openShareModal(window, { share, url });
+  }
+
+  /**
+   * Opens the content sharing modal in the given window.
+   *
+   * @param {Window} window The browser window to open the modal in
+   * @param {object} args
+   * @param {object} args.share The share object to preview in the modal
+   * @param {string} [args.url] The shareable URL, if successfully created
+   */
+  async openShareModal(window, args) {
+    const url =
+      "chrome://browser/content/contentsharing/contentSharingModal.xhtml";
+    await window.gDialogBox?.open(url, args);
   }
 
   async createShareableLink(share) {

@@ -1096,6 +1096,7 @@ main.newtab-main section {
   grid-column: 3;
   grid-row: 1/span 2;
   grid-template-rows: subgrid;
+  position: relative;
 }
 
 .sidebar-inline-start {
@@ -4515,7 +4516,6 @@ button.arrow-button:dir(rtl) {
   transition: opacity 0.2s ease;
   border-radius: var(--border-radius-large);
   padding-block-start: var(--space-medium);
-  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -4523,13 +4523,27 @@ button.arrow-button:dir(rtl) {
 .lists:hover {
   background: var(--newtab-background-color-secondary);
 }
+.nova-enabled .lists {
+  box-shadow: var(--box-shadow-level-2);
+}
+.nova-enabled .lists:hover, .nova-enabled .lists:focus-within {
+  outline: 1px solid var(--border-color-deemphasized);
+  box-shadow: var(--card-box-shadow-hover);
+}
 .classic-enabled .lists {
   grid-column: span 1;
   width: var(--newtab-card-grid-layout-width);
   height: var(--newtab-card-height);
+  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
 }
 .has-sections-grid .classic-enabled .lists {
   width: var(--newtab-card-width-medium);
+}
+.lightWallpaper .classic-enabled .lists .empty-list {
+  color-scheme: light;
+}
+.darkWallpaper .classic-enabled .lists .empty-list {
+  color-scheme: dark;
 }
 .lists.medium-widget {
   grid-row: span 2;
@@ -4697,12 +4711,6 @@ button.arrow-button:dir(rtl) {
   height: 100%;
   padding-block-end: var(--space-medium);
 }
-.lightWallpaper .lists .empty-list {
-  color-scheme: light;
-}
-.darkWallpaper .lists .empty-list {
-  color-scheme: dark;
-}
 .lists .empty-list .empty-list-text {
   margin: 0;
   text-align: center;
@@ -4755,15 +4763,22 @@ button.arrow-button:dir(rtl) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
 }
 .focus-timer:hover {
   background: var(--newtab-background-color-secondary);
+}
+.nova-enabled .focus-timer {
+  box-shadow: var(--box-shadow-level-2);
+}
+.nova-enabled .focus-timer:hover, .nova-enabled .focus-timer:focus-within {
+  outline: 1px solid var(--border-color-deemphasized);
+  box-shadow: var(--card-box-shadow-hover);
 }
 .classic-enabled .focus-timer {
   grid-column: span 1;
   width: var(--newtab-card-grid-layout-width);
   height: var(--newtab-card-height);
+  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
 }
 .has-sections-grid .classic-enabled .focus-timer {
   width: var(--newtab-card-width-medium);
@@ -4789,14 +4804,17 @@ button.arrow-button:dir(rtl) {
   justify-content: center;
   flex-grow: 1;
 }
-.focus-timer-tabs-buttons moz-button {
+.nova-enabled .focus-timer-tabs-buttons {
+  gap: var(--space-small);
+}
+.classic-enabled .focus-timer-tabs-buttons moz-button {
   flex-grow: 1;
 }
-.focus-timer-tabs-buttons moz-button:first-of-type::part(button) {
+.classic-enabled .focus-timer-tabs-buttons moz-button:first-of-type::part(button) {
   border-end-end-radius: 0;
   border-start-end-radius: 0;
 }
-.focus-timer-tabs-buttons moz-button:last-of-type::part(button) {
+.classic-enabled .focus-timer-tabs-buttons moz-button:last-of-type::part(button) {
   border-start-start-radius: 0;
   border-end-start-radius: 0;
 }
@@ -5028,6 +5046,7 @@ button.arrow-button:dir(rtl) {
   display: flex;
   flex-direction: column;
   position: relative;
+  z-index: 1;
   --weather-sunny-background-color: light-dark(var(--color-yellow-0), var(--color-yellow-90));
   --weather-cloudy-background-color: light-dark(var(--color-gray-20), var(--color-gray-80));
   --weather-rainy-background-color: light-dark(var(--color-blue-0), var(--color-blue-90));
@@ -5421,6 +5440,84 @@ button.arrow-button:dir(rtl) {
 }
 .weather-widget.weather-opt-in.large-widget .weather-opt-in-container-buttons {
   gap: var(--space-medium);
+}
+.weather-widget.weather-search-active .weather-search-container {
+  position: relative;
+}
+.weather-widget.weather-search-active .location-input {
+  padding: var(--space-small);
+  outline: 1px solid var(--border-color-selected);
+  border-radius: var(--border-radius-circle);
+  padding-inline-start: calc(var(--space-medium) * 4);
+  border: 0;
+  width: 100%;
+}
+.weather-widget.weather-search-active .location-input-wrapper {
+  margin-block-end: var(--space-small);
+  position: relative;
+}
+.weather-widget.weather-search-active .search-icon {
+  content: url("chrome://global/skin/icons/search-glass.svg");
+  -moz-context-properties: fill;
+  fill: var(--icon-color);
+  position: absolute;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  inset-inline-start: var(--space-large);
+}
+.weather-widget.weather-search-active .close-icon {
+  position: absolute;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  inset-inline-end: var(--space-medium);
+}
+.weather-widget.weather-search-active .close-icon:focus-visible {
+  outline: var(--focus-outline);
+}
+.weather-widget.weather-search-active .weather-anchor, .weather-widget.weather-search-active .weather-container, .weather-widget.weather-search-active .forecast-footer, .weather-widget.weather-search-active .widget-title-bar {
+  display: none;
+}
+.weather-widget.weather-search-active.small-widget {
+  position: absolute;
+  inset-inline-end: 0;
+  width: calc(4 * var(--col-width) + 3 * var(--space-medium));
+  height: calc(2 * var(--row-height) + var(--space-medium));
+}
+.weather-widget.weather-error-state {
+  justify-content: flex-start;
+}
+.weather-widget.weather-error-state .weather-error {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: var(--space-small);
+}
+.weather-widget.weather-error-state p {
+  margin: 0;
+  font-size: var(--font-size-small);
+  color: var(--text-color-deemphasized);
+}
+.weather-widget.weather-error-state.small-widget .weather-error {
+  margin-block-start: auto;
+  gap: var(--space-xsmall);
+}
+.weather-widget.weather-error-state.medium-widget .weather-error {
+  flex-direction: row;
+  justify-content: flex-start;
+  margin-block: auto;
+}
+.weather-widget.weather-error-state.medium-widget .widget-title-bar {
+  margin-block-end: 0;
+}
+.weather-widget.weather-error-state.large-widget .weather-error {
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.weather-widget.weather-error-state.large-widget .widget-title-bar {
+  margin-block-end: 0;
 }
 
 .ds-card-grid .ds-card {
@@ -10035,7 +10132,6 @@ button.arrow-button:dir(rtl) {
 }
 
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal {
-  --arrow-size: 24px;
   width: auto;
   padding: var(--space-large);
 }
@@ -10052,7 +10148,7 @@ button.arrow-button:dir(rtl) {
   inset-inline-end: calc(var(--space-xxlarge) * 2);
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal.inset-inline-start::after {
-  inset-inline-end: calc(var(--arrow-size) / 2 * -1);
+  inset-inline-end: calc(var(--space-xlarge) / -2);
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal.inset-block-end {
   margin-block-start: 0;
@@ -10065,7 +10161,7 @@ button.arrow-button:dir(rtl) {
   margin-block-end: calc(-4 * var(--space-xsmall));
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal.inset-block-start::after {
-  inset-block-end: calc(var(--arrow-size) - var(--space-xxsmall));
+  inset-block-end: calc(var(--space-xlarge) - var(--space-xxsmall));
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal .title {
   font-weight: var(--font-weight-heading, var(--heading-font-weight));
@@ -10079,8 +10175,8 @@ button.arrow-button:dir(rtl) {
   text-align: end;
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal::after {
-  height: var(--arrow-size);
-  width: var(--arrow-size);
+  height: var(--space-xlarge);
+  width: var(--space-xlarge);
   box-shadow: 4px -4px 6px -2px rgba(0, 0, 0, 0.15);
   pointer-events: none;
 }
@@ -10092,6 +10188,99 @@ button.arrow-button:dir(rtl) {
 @media (prefers-color-scheme: dark) {
   .wallpaper-feature-highlight.is-inverted-dark-dismiss-button .feature-highlight-modal > moz-button {
     --button-icon-fill: var(--color-gray-70);
+  }
+}
+
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal {
+  --highlight-border-gradient-start: light-dark(#B58CFF, #A67CE5);
+  --highlight-border-gradient-end: light-dark(#FF8A5B, #764EDD);
+  --wallpaper-highlight-shadow:
+    -10px -10px 28px rgba(231, 217, 255, 70%),
+    8px 8px 28px rgba(255, 211, 183, 70%),
+    0 3px 12px rgba(0, 0, 0, 4%),
+    0 0.375px 1px rgba(0, 0, 0, 1.5%);
+  --wallpaper-highlight-image-background: #FCF5F0;
+  --wallpaper-highlight-tail-image: url("chrome://newtab/content/data/content/assets/highlights/feature-callout-tail.svg");
+  width: 352px;
+  min-height: 382px;
+  padding: var(--space-xlarge);
+  border: var(--border-width) solid var(--border-color-transparent);
+  border-radius: var(--border-radius-large);
+  background: linear-gradient(var(--background-color-box), var(--background-color-box)) padding-box, linear-gradient(135deg, var(--highlight-border-gradient-start), var(--highlight-border-gradient-end)) border-box;
+  box-shadow: var(--wallpaper-highlight-shadow);
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .content-wrapper {
+  width: 100%;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .wallpaper-feature-highlight-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-large);
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .wallpaper-feature-highlight-image {
+  display: flex;
+  justify-content: center;
+  border-radius: var(--border-radius-large);
+  background-color: var(--wallpaper-highlight-image-background);
+  background-image: url("chrome://newtab/content/data/content/assets/highlights/firefox-wallpaper-desktop-hills-light-rgb.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  height: 222px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
+  padding-block-start: 44px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
+  padding-block-end: 22px;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .wallpaper-feature-highlight-image img {
+  display: block;
+  width: 207px;
+  height: 156px;
+  object-fit: contain;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .wallpaper-feature-highlight-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-small);
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .title {
+  font-size: var(--font-size-root, 13px);
+  font-weight: var(--font-weight-heading, var(--heading-font-weight));
+  margin: 0;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal .subtitle {
+  font-size: var(--font-size-root, 13px);
+  margin: 0;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal.inset-block-start::after {
+  width: 20px;
+  height: 56px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
+  inset-block-end: 7px;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
+  inset-inline-end: -17.5px;
+  transform: none;
+  background: var(--wallpaper-highlight-tail-image) no-repeat center/contain;
+  box-shadow: none;
+}
+.nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal > moz-button {
+  inset-inline-end: var(--space-xsmall);
+  inset-block-start: var(--space-xsmall);
+}
+@media (prefers-color-scheme: dark) {
+  .nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal {
+    --wallpaper-highlight-shadow:
+      -10px -10px 28px rgba(99, 47, 200, 28%),
+      8px 8px 28px rgba(255, 138, 87, 24%),
+      0 3px 12px rgba(0, 0, 0, 32%),
+      0 0.375px 1.5px rgba(0, 0, 0, 16%);
+    --wallpaper-highlight-tail-image: url("chrome://newtab/content/data/content/assets/highlights/feature-callout-tail-dark.svg");
+  }
+}
+@media (forced-colors: active) {
+  .nova-enabled .wallpaper-feature-highlight .feature-highlight .wallpaper-feature-highlight-modal {
+    --wallpaper-highlight-tail-image: url("chrome://newtab/content/data/content/assets/highlights/feature-callout-tail-hcm.svg");
+    background: Canvas;
   }
 }
 

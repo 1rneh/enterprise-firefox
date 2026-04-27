@@ -27,6 +27,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
 
+private const val ARTIFICIAL_DELAY = 350L
+
 /**
  * Tests for [SportsOnlineSuggestionProvider].
  *
@@ -35,16 +37,12 @@ import java.util.Locale
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SportsOnlineSuggestionProviderTest {
-    private lateinit var fakeDataSource: FakeSportsSuggestionDataSource
+    private lateinit var fakeDataSource: FakeCombinedOnlineSuggestionDataSource
     private lateinit var provider: SportsOnlineSuggestionProvider
 
     @Before
     fun setUp() {
-        fakeDataSource = FakeSportsSuggestionDataSource(
-            results = listOf(
-                sampleSportItem(),
-            ),
-        )
+        fakeDataSource = FakeCombinedOnlineSuggestionDataSource(sportResults = listOf(sampleSportItem()))
 
         provider = SportsOnlineSuggestionProvider(
             searchUseCase = mock(),
@@ -80,10 +78,8 @@ class SportsOnlineSuggestionProviderTest {
     @Test
     fun `onSuggestionClicked invokes search use case with query`() = runTest {
         val searchUseCase: SearchUseCase = mock()
-        val localDateSource = FakeSportsSuggestionDataSource(
-            results = listOf(
-                sampleSportItem("test query"),
-            ),
+        val localDateSource = FakeCombinedOnlineSuggestionDataSource(
+            sportResults = listOf(sampleSportItem("test query")),
         )
         val localProvider = SportsOnlineSuggestionProvider(
             searchUseCase = searchUseCase,
@@ -111,7 +107,7 @@ class SportsOnlineSuggestionProviderTest {
             sampleSportItem(query = "c sport", sport = "C"),
         )
 
-        val localDataSource = FakeSportsSuggestionDataSource(results = manyResults)
+        val localDataSource = FakeCombinedOnlineSuggestionDataSource(sportResults = manyResults)
 
         val limitedProvider = SportsOnlineSuggestionProvider(
             searchUseCase = mock(),
@@ -131,7 +127,7 @@ class SportsOnlineSuggestionProviderTest {
     fun `id is stable per instance`() = runTest {
         val p = SportsOnlineSuggestionProvider(
             searchUseCase = mock(),
-            dataSource = FakeSportsSuggestionDataSource(results = listOf(sampleSportItem())),
+            dataSource = FakeCombinedOnlineSuggestionDataSource(sportResults = listOf(sampleSportItem())),
             suggestionsHeader = null,
             maxNumberOfSuggestions = 1,
         )
@@ -147,7 +143,7 @@ class SportsOnlineSuggestionProviderTest {
 
     @Test
     fun `cancellation before delay prevents data source call`() = runTest {
-        val localDataSource = FakeSportsSuggestionDataSource(results = listOf(sampleSportItem()))
+        val localDataSource = FakeCombinedOnlineSuggestionDataSource(sportResults = listOf(sampleSportItem()))
         val cancellableProvider = SportsOnlineSuggestionProvider(
             searchUseCase = mock(),
             dataSource = localDataSource,
@@ -356,7 +352,7 @@ class SportsOnlineSuggestionProviderTest {
             name = "Minnesota Wild",
             colors = listOf("0E4431"),
             score = 3,
-            iconUrl = null,
+            icon = null,
         )
 
         val result = provider.parseTeam(team)
@@ -372,7 +368,7 @@ class SportsOnlineSuggestionProviderTest {
             name = "   ",
             colors = listOf("0E4431"),
             score = 3,
-            iconUrl = null,
+            icon = null,
         )
 
         assertNull(provider.parseTeam(team))
@@ -424,21 +420,6 @@ class SportsOnlineSuggestionProviderTest {
     }
 }
 
-/**
- * Simple fake data source used for unit tests.
- * Records calls and returns the specified results.
- */
-private class FakeSportsSuggestionDataSource(
-    private val results: List<AwesomeBar.SportItem> = emptyList(),
-) : AwesomeBar.SportsSuggestionDataSource {
-    val calls = mutableListOf<String>()
-
-    override suspend fun fetch(query: String): List<AwesomeBar.SportItem> {
-        calls += query
-        return results
-    }
-}
-
 /** Convenience factory for creating sample [AwesomeBar.SportItem] objects for tests. */
 private fun sampleSportItem(
     query: String = "NHL Winnipeg Jets at Minnesota Wild 28 Oct 2025",
@@ -466,12 +447,12 @@ private val sampleHomeTeam = AwesomeBar.SportItem.Team(
     name = "Minnesota Wild",
     colors = listOf("0E4431", "AC1A2E", "EAAA00", "DDC9A3"),
     score = 3,
-    iconUrl = null,
+    icon = null,
 )
 private val sampleAwayTeam = AwesomeBar.SportItem.Team(
     key = "WPG",
     name = "Winnipeg Jets",
     colors = listOf("041E42", "004A98", "A2AAAD", "A6192E"),
     score = 4,
-    iconUrl = null,
+    icon = null,
 )

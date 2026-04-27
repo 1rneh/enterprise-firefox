@@ -276,7 +276,6 @@ export class AboutLoginsParent extends JSWindowActorParent {
 
     let { isAuthorized, telemetryEvent } = await lazy.LoginHelper.requestReauth(
       this.browsingContext.embedderElement,
-      isOSAuthEnabled,
       AboutLogins._authExpirationTime,
       messageText.value,
       captionText.value,
@@ -398,7 +397,6 @@ export class AboutLoginsParent extends JSWindowActorParent {
     let reason = "export_logins";
     let { isAuthorized, telemetryEvent } = await lazy.LoginHelper.requestReauth(
       this.browsingContext.embedderElement,
-      true,
       null, // Prompt regardless of a recent prompt
       messageText.value,
       captionText.value,

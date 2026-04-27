@@ -18,13 +18,8 @@
 
 #include <algorithm>
 #include <bit>
-#include <cctype>
 #include <optional>
 #include <ostream>
-
-#ifdef JS_JITSPEW
-#  include <queue>
-#endif
 
 #include "irregexp/RegExpTypes.h"
 #include "irregexp/util/BitVectorShim.h"

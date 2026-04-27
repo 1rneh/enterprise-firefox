@@ -189,6 +189,7 @@ toolbar .toolbarbutton-1 {
     border-radius: var(--toolbarbutton-border-radius);
     outline: var(--toolbarbutton-outline);
     outline-offset: var(--toolbarbutton-outline-offset);
+    overflow-clip-margin: padding-box;
   }
 
   &:focus-visible {

@@ -31,6 +31,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.waitUntilAtLeastOneExists
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions
 import androidx.test.espresso.assertion.PositionAssertions.isPartiallyBelow
@@ -73,6 +74,7 @@ import org.mozilla.fenix.home.ui.HomepageTestTag.HOMEPAGE_PRIVATE_BROWSING_LEARN
 import org.mozilla.fenix.home.ui.HomepageTestTag.HOMEPAGE_STORY
 import org.mozilla.fenix.home.ui.HomepageTestTag.HOMEPAGE_WORDMARK_LOGO
 import org.mozilla.fenix.home.ui.HomepageTestTag.HOMEPAGE_WORDMARK_TEXT
+import org.mozilla.fenix.home.ui.HomepageTestTag.POCKET_STORIES
 import org.mozilla.fenix.home.ui.HomepageTestTag.PRIVATE_BROWSING_HOMEPAGE_BUTTON
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.ui.util.PositionOnScreenMatcher.Position.BOTTOM
@@ -302,17 +304,28 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "togglePrivateBrowsingModeOnOff: Clicked private browsing home screen button")
     }
 
+    @OptIn(ExperimentalTestApi::class)
     fun verifyThoughtProvokingStories(enabled: Boolean) {
         if (enabled) {
+            Log.i(TAG, "verifyThoughtProvokingStories: Trying to wait $waitingTimeLong ms for the \"$POCKET_STORIES\" node to appear in the semantics tree")
+            composeTestRule.waitUntilAtLeastOneExists(hasTestTag(POCKET_STORIES), timeoutMillis = waitingTimeLong)
+            Log.i(TAG, "verifyThoughtProvokingStories: The \"$POCKET_STORIES\" node appeared in the semantics tree")
+            Log.i(TAG, "verifyThoughtProvokingStories: Trying to scroll to the \"$POCKET_STORIES\" node")
+            composeTestRule.onNodeWithTag(HOMEPAGE).performScrollToNode(hasTestTag(POCKET_STORIES))
+            Log.i(TAG, "verifyThoughtProvokingStories: Scrolled to the \"$POCKET_STORIES\" node")
+            Log.i(TAG, "verifyThoughtProvokingStories: Trying to verify the Pocket stories header is displayed")
             assertUIObjectExists(itemContainingText(getStringResource(R.string.pocket_stories_header_2)))
+            Log.i(TAG, "verifyThoughtProvokingStories: Verified the Pocket stories header is displayed")
         } else {
+            Log.i(TAG, "verifyThoughtProvokingStories: Trying to verify the Pocket stories header does not exist")
             assertUIObjectExists(itemContainingText(getStringResource(R.string.pocket_stories_header_2)), exists = false)
+            Log.i(TAG, "verifyThoughtProvokingStories: Verified the Pocket stories header does not exist")
         }
     }
 
     fun verifyPocketRecommendedStoriesItems() {
         Log.i(TAG, "verifyPocketRecommendedStoriesItems: Trying to scroll into view the \"Stories\" pocket section")
-        this@HomeScreenRobot.composeTestRule.onNodeWithTag("homepage.view").performScrollToNode(hasTestTag("pocket.stories"))
+        this@HomeScreenRobot.composeTestRule.onNodeWithTag(HOMEPAGE).performScrollToNode(hasTestTag(POCKET_STORIES))
         Log.i(TAG, "verifyPocketRecommendedStoriesItems: Scrolled into view the \"Stories\" pocket section")
         for (position in 0..7) {
             Log.i(TAG, "verifyPocketRecommendedStoriesItems: Trying to scroll into view the featured pocket story from position: $position")
@@ -628,15 +641,23 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
         }
 
         fun openThreeDotMenu(interact: ThreeDotMenuMainRobot.() -> Unit): ThreeDotMenuMainRobot.Transition {
+            val menuButton = itemWithDescription(getStringResource(R.string.content_description_menu))
+            Log.i(TAG, "openThreeDotMenu: Waiting for main menu button to exist")
+            menuButton.waitForExists(waitingTime)
+            mDevice.waitForIdle()
             Log.i(TAG, "openThreeDotMenu: Trying to click main menu button")
-            itemWithDescription(getStringResource(R.string.content_description_menu)).click()
+            menuButton.click()
             Log.i(TAG, "openThreeDotMenu: Clicked main menu button")
 
             ThreeDotMenuMainRobot(composeTestRule).interact()
             return ThreeDotMenuMainRobot.Transition(composeTestRule)
         }
 
+        @OptIn(ExperimentalTestApi::class)
         fun openSearch(interact: SearchRobot.() -> Unit): SearchRobot.Transition {
+            Log.i(TAG, "openSearch: Waiting for $waitingTime until the URL bar exists")
+            composeTestRule.waitUntilAtLeastOneExists(hasTestTag(ADDRESSBAR_URL_BOX), waitingTime)
+            Log.i(TAG, "openSearch: Waited for $waitingTime until the URL bar exists")
             Log.i(TAG, "openSearch: Trying to click navigation toolbar")
             itemWithResId(ADDRESSBAR_URL_BOX).click()
             Log.i(TAG, "openSearch: Clicked navigation toolbar")
@@ -646,11 +667,14 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
         }
 
         fun togglePrivateBrowsingMode(switchPBModeOn: Boolean = true) {
+            Log.i(TAG, "togglePrivateBrowsingMode: Waiting for $waitingTime ms for private browsing button to exist")
+            if (!privateBrowsingButton().waitForExists(waitingTime)) {
+                throw AssertionError("togglePrivateBrowsingMode: Private browsing button not found after $waitingTime ms")
+            }
+            Log.i(TAG, "togglePrivateBrowsingMode: Waited for $waitingTime ms for private browsing button to exist")
+
             // Switch to private browsing homescreen
             if (switchPBModeOn && !isPrivateModeEnabled()) {
-                Log.i(TAG, "togglePrivateBrowsingMode: Waiting for $waitingTime ms for private browsing button to exist")
-                privateBrowsingButton().waitForExists(waitingTime)
-                Log.i(TAG, "togglePrivateBrowsingMode: Waited for $waitingTime ms for private browsing button to exist")
                 Log.i(TAG, "togglePrivateBrowsingMode: Trying to click private browsing button")
                 privateBrowsingButton().click()
                 Log.i(TAG, "togglePrivateBrowsingMode: Clicked private browsing button")
@@ -658,11 +682,7 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
 
             // Switch to normal browsing homescreen
             if (!switchPBModeOn && isPrivateModeEnabled()) {
-                Log.i(TAG, "togglePrivateBrowsingMode: Waiting for $waitingTime ms for private browsing button to exist")
-                privateBrowsingButton().waitForExists(waitingTime)
-                Log.i(TAG, "togglePrivateBrowsingMode: Waited for $waitingTime ms for private browsing button to exist")
                 Log.i(TAG, "togglePrivateBrowsingMode: Trying to click private browsing button")
-                privateBrowsingButton().click()
                 privateBrowsingButton().click()
                 Log.i(TAG, "togglePrivateBrowsingMode: Clicked private browsing button")
             }
@@ -847,14 +867,27 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
             return TabDrawerRobot.Transition(composeTestRule)
         }
 
+        @OptIn(ExperimentalTestApi::class)
         fun clickPocketStoryItem(position: Int, interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
-            Log.i(TAG, "clickPocketStoryItem: Trying to click pocket story item at position: $position and wait for $waitingTime ms for a new window")
-            mDevice.findObject(
-                UiSelector()
-                    .resourceId(HOMEPAGE_STORY)
-                    .index(position - 1),
-            ).clickAndWaitForNewWindow(waitingTime)
-            Log.i(TAG, "clickPocketStoryItem: Clicked pocket story item published at position: $position and wait for $waitingTime ms for a new window")
+            Log.i(TAG, "clickPocketStoryItem: Trying to scroll to the \"$POCKET_STORIES\" section")
+            composeTestRule.onNodeWithTag(HOMEPAGE).performScrollToNode(hasTestTag(POCKET_STORIES))
+            Log.i(TAG, "clickPocketStoryItem: Scrolled to the \"$POCKET_STORIES\" section")
+            composeTestRule.waitForIdle()
+            Log.i(TAG, "clickPocketStoryItem: Trying to wait $waitingTimeLong ms for at least one \"$HOMEPAGE_STORY\" node to appear")
+            composeTestRule.waitUntilAtLeastOneExists(hasTestTag(HOMEPAGE_STORY), timeoutMillis = waitingTimeLong)
+            val storyNodes = composeTestRule.onAllNodesWithTag(HOMEPAGE_STORY)
+            val storyNodeList = storyNodes.fetchSemanticsNodes()
+            check(position in 1..storyNodeList.size) {
+                "clickPocketStoryItem: requested position $position but only ${storyNodeList.size} \"$HOMEPAGE_STORY\" nodes found"
+            }
+            Log.i(TAG, "clickPocketStoryItem: \"$HOMEPAGE_STORY\" nodes are present, scrolling item at position $position into view")
+            storyNodes[position - 1].performScrollTo()
+            composeTestRule.waitForIdle()
+            Log.i(TAG, "clickPocketStoryItem: Trying to click pocket story item at position $position")
+            storyNodes[position - 1].performClick()
+            Log.i(TAG, "clickPocketStoryItem: Clicked pocket story item at position $position")
+            composeTestRule.waitForIdle()
+            mDevice.waitForIdle()
 
             BrowserRobot(composeTestRule).interact()
             return BrowserRobot.Transition(composeTestRule)
@@ -960,7 +993,7 @@ fun deleteFromHistory() =
     ).inRoot(RootMatchers.isPlatformPopup())
 
 private fun pocketStoriesList() =
-    UiScrollable(UiSelector().resourceId("pocket.stories")).setAsHorizontalList()
+    UiScrollable(UiSelector().resourceId(POCKET_STORIES)).setAsHorizontalList()
 
 private fun firefoxOptionSetAsDefaultBrowserDialogRadioButton() =
     itemWithClassNameAndIndex(

@@ -94,6 +94,7 @@ export class _CustomizeMenu extends React.PureComponent {
                 className={`open-customization-button${activationWindowClass ? ` ${activationWindowClass}` : ""}`}
                 data-l10n-id="newtab-customize-panel-label"
                 aria-haspopup="dialog"
+                aria-expanded={this.props.showing ? "true" : "false"}
                 onClick={() => this.props.onOpen()}
                 iconsrc="chrome://global/skin/icons/edit-outline.svg"
                 iconposition="end"
@@ -105,6 +106,7 @@ export class _CustomizeMenu extends React.PureComponent {
                 className={`${activationWindowClass} personalize-button`}
                 data-l10n-id="newtab-customize-panel-icon-button"
                 aria-haspopup="dialog"
+                aria-expanded={this.props.showing}
                 onClick={() => this.props.onOpen()}
               >
                 <label data-l10n-id="newtab-customize-panel-icon-button-label" />

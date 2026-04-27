@@ -561,12 +561,9 @@ export class LoginDataSource extends DataSourceBase {
       allowFromInactiveWorkspace: true,
     }).browsingContext;
 
-    const isOSAuthEnabled = LoginHelper.getOSAuthEnabled();
-
     const reason = "export_cpm";
     let { isAuthorized, telemetryEvent } = await LoginHelper.requestReauth(
       browsingContext,
-      isOSAuthEnabled,
       null, // Prompt regardless of a recent prompt
       this.#exportPasswordsStrings.OSReauthMessage,
       this.#exportPasswordsStrings.OSAuthDialogCaption,

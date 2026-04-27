@@ -248,30 +248,43 @@ add_task(async function test_migration_is_triggered_by_pref_change() {
  * it multiple times does not create duplicate logins in the Rust store.
  */
 add_task(async function test_migration_is_idempotent() {
-  // ensure mirror is on
-  await SpecialPowers.pushPrefEnv({
-    set: [["signon.rustMirror.enabled", true]],
-  });
+  // Defensively clear state: in test-verification mode (10 runs in one browser)
+  // previous iterations may have left data behind.
+  LoginTestUtils.clearData();
+  const rustStorage = new LoginManagerRustStorage();
+  await rustStorage.removeAllLoginsAsync();
 
+  // Add a login while the mirror is off so migration picks it up.
+  await SpecialPowers.pushPrefEnv({
+    set: [["signon.rustMirror.enabled", false]],
+  });
   const login = LoginTestUtils.testData.formLogin({
     username: "test-user",
     password: "secure-password",
   });
-  const addLoginFinishedPromise = TestUtils.topicObserved(
-    "rust-mirror.event.addLogin.finished"
-  );
   await Services.logins.addLoginAsync(login);
-  await addLoginFinishedPromise;
 
-  const rustStorage = new LoginManagerRustStorage();
-  let rustLogins = await rustStorage.getAllLogins();
+  // Enable the mirror with migrationNeeded=true and wait until the login
+  // appears in Rust. Using waitForCondition rather than topicObserved avoids
+  // a race where a stale migration from the previous run's flushPrefEnv fires
+  // migration.finished before our migration runs; with the re-queue fix in
+  // #migrate(), our migration will run after the stale one completes.
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
+  await SpecialPowers.pushPrefEnv({
+    set: [["signon.rustMirror.enabled", true]],
+  });
+  await BrowserTestUtils.waitForCondition(async () => {
+    const logins = await rustStorage.getAllLogins();
+    return logins.length === 1;
+  }, "Login migrated to Rust after first migration");
+
   Assert.equal(
-    rustLogins.length,
+    (await rustStorage.getAllLogins()).length,
     1,
     "Rust store contains login after first migration"
   );
 
-  // trigger again
+  // Trigger migration a second time and verify no duplicates.
   await SpecialPowers.pushPrefEnv({
     set: [["signon.rustMirror.enabled", false]],
   });
@@ -284,8 +297,11 @@ add_task(async function test_migration_is_idempotent() {
   });
   await migrationFinishedPromise;
 
-  rustLogins = await rustStorage.getAllLogins();
-  Assert.equal(rustLogins.length, 1, "No duplicate after second migration");
+  Assert.equal(
+    (await rustStorage.getAllLogins()).length,
+    1,
+    "No duplicate after second migration"
+  );
 
   LoginTestUtils.clearData();
   await rustStorage.removeAllLoginsAsync();
@@ -698,26 +714,24 @@ add_task(async function test_punycode_formActionOrigin_metric() {
 /*
  * Tests that we collect telemetry about several origin errors
  */
+// Note: "example.com", "www.example.com", https (bare label), "https:", and
+// "https://" are intentionally omitted — the perform_additional_origin_fixups
+// feature now repairs these into valid origins instead of rejecting them.
 const originsToTest = {
   "//example.com": "MissingProtocol",
   "//example.com/path": "MissingProtocol",
-  "example.com": "MissingProtocol",
   "example.com/path": "MissingProtocol",
   "hptts//example.com": "ProtocolTypo",
   "htp//example.com": "ProtocolTypo",
   "htpps//example.com": "ProtocolTypo",
   "http//example.com": "ProtocolTypo",
   "http//example.com/path": "ProtocolTypo",
-  https: "ProtocolNameOnly",
   "https//example.com": "ProtocolTypo",
   "https//example.com:abc": "MissingProtocol",
-  "https:": "ProtocolFragmentOnly",
   "https:// example.com": "UnknownError",
-  "https://": "ProtocolOnly",
   "https:///": "UnknownError",
   "https://exa mple.com": "UnknownError",
   "htttp//example.com": "ProtocolTypo",
-  "www.example.com": "MissingProtocol",
 };
 for (const origin in originsToTest) {
   add_task(async function () {
@@ -746,6 +760,54 @@ for (const origin in originsToTest) {
     Assert.equal(evt.extra?.origin_error, originsToTest[origin]);
 
     LoginTestUtils.clearData();
+    await SpecialPowers.flushPrefEnv();
+  });
+}
+
+/*
+ * Tests that origins repaired by perform_additional_origin_fixups are accepted
+ * and stored with the fixed-up origin value.
+ */
+const fixedUpOriginsToTest = {
+  "example.com": "moz-pwmngr-fixed://example.com",
+  "www.example.com": "moz-pwmngr-fixed://www.example.com",
+  https: "moz-pwmngr-fixed://https",
+  "https:": "https://moz.pwmngr.fixed",
+  "https://": "https://moz.pwmngr.fixed",
+};
+for (const origin in fixedUpOriginsToTest) {
+  add_task(async function () {
+    await SpecialPowers.pushPrefEnv({
+      set: [["signon.rustMirror.enabled", true]],
+    });
+
+    Services.fog.testResetFOG();
+
+    const login = LoginTestUtils.testData.formLogin({
+      origin,
+      formActionOrigin: "https://example.com",
+      username: "user1",
+      password: "pass1",
+    });
+
+    const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+      () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 1,
+      "event has been emitted"
+    );
+    await Services.logins.addLoginAsync(login);
+    await waitForGleanEvent;
+
+    const rustStorage = new LoginManagerRustStorage();
+    const allLogins = await rustStorage.getAllLogins();
+    Assert.equal(allLogins.length, 1, `${origin}: saved to Rust after fixup`);
+    Assert.equal(
+      allLogins[0].origin,
+      fixedUpOriginsToTest[origin],
+      `${origin}: origin was fixed up correctly`
+    );
+
+    LoginTestUtils.clearData();
+    await rustStorage.removeAllLoginsAsync();
     await SpecialPowers.flushPrefEnv();
   });
 }

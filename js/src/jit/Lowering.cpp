@@ -8276,6 +8276,14 @@ void LIRGenerator::visitWeakSetHasObject(MWeakSetHasObject* ins) {
   defineReturn(lir, ins);
 }
 
+void LIRGenerator::visitNewDateObject(MNewDateObject* ins) {
+  MOZ_ASSERT(ins->utcTime()->type() == MIRType::Double);
+
+  auto* lir = new (alloc()) LNewDateObject(useRegister(ins->utcTime()), temp());
+  define(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
 void LIRGenerator::visitDateFillLocalTimeSlots(MDateFillLocalTimeSlots* ins) {
   auto* lir =
       new (alloc()) LDateFillLocalTimeSlots(useRegister(ins->date()), temp());
@@ -8302,6 +8310,52 @@ void LIRGenerator::visitDateSecondsFromSecondsIntoYear(
   auto* lir = new (alloc()) LDateSecondsFromSecondsIntoYear(
       useBox(ins->secondsIntoYear()), temp(), temp());
   defineBox(lir, ins);
+}
+
+void LIRGenerator::visitDateNow(MDateNow* ins) {
+  auto* lir = new (alloc()) LDateNow(tempFixed(CallTempReg0));
+  defineReturn(lir, ins);
+}
+
+void LIRGenerator::visitDateParse(MDateParse* ins) {
+  auto* lir = new (alloc())
+      LDateParse(useRegisterAtStart(ins->string()), tempFixed(CallTempReg0));
+  defineReturn(lir, ins);
+}
+
+void LIRGenerator::visitTimeClip(MTimeClip* ins) {
+  if (Assembler::HasRoundInstruction(RoundingMode::TowardsZero)) {
+    auto* lir = new (alloc()) LTimeClip(useRegister(ins->input()));
+    define(lir, ins);
+  } else {
+    auto* lir = new (alloc()) LTimeClipCall(useRegister(ins->input()), temp());
+    define(lir, ins);
+    assignSafepoint(lir, ins);
+  }
+}
+
+void LIRGenerator::visitLocalTimeToUTC(MLocalTimeToUTC* ins) {
+  auto* lir = new (alloc()) LLocalTimeToUTC(
+      useInt64RegisterAtStart(ins->localTime()), tempFixed(CallTempReg0));
+  defineReturn(lir, ins);
+}
+
+void LIRGenerator::visitYearFromTime(MYearFromTime* ins) {
+  auto* lir = new (alloc()) LYearFromTime(useRegisterAtStart(ins->utcTime()),
+                                          tempFixed(CallTempReg0));
+  defineReturn(lir, ins);
+}
+
+void LIRGenerator::visitMonthFromTime(MMonthFromTime* ins) {
+  auto* lir = new (alloc()) LMonthFromTime(useRegisterAtStart(ins->utcTime()),
+                                           tempFixed(CallTempReg0));
+  defineReturn(lir, ins);
+}
+
+void LIRGenerator::visitDateFromTime(MDateFromTime* ins) {
+  auto* lir = new (alloc()) LDateFromTime(useRegisterAtStart(ins->utcTime()),
+                                          tempFixed(CallTempReg0));
+  defineReturn(lir, ins);
 }
 
 void LIRGenerator::visitPostIntPtrConversion(MPostIntPtrConversion* ins) {

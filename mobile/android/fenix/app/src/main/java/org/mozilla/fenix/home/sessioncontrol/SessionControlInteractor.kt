@@ -435,6 +435,14 @@ class SessionControlInteractor(
         sportsController.handleCountriesSelected(countryCodes = countryCodes)
     }
 
+    override fun onSkippedFollowTeam() {
+        sportsController.handleSkippedFollowTeam()
+    }
+
+    override fun onSportsWidgetDismissed() {
+        sportsController.handleSportsWidgetDismissed()
+    }
+
     override fun onPrivacyReportTapped() {
         Homepage.privacyReportTapped.record(NoExtras())
     }

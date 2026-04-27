@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -46,12 +47,14 @@ fun TrackersBlockedCard(
     interactor: TrackingProtectionInteractor,
     modifier: Modifier = Modifier,
 ) {
+    val shape = RoundedCornerShape(24.dp)
     Row(
         modifier = modifier
             .background(
                 color = FirefoxTheme.colors.layer2,
-                shape = RoundedCornerShape(24.dp),
+                shape = shape,
             )
+            .clip(shape)
             .clickable { interactor.onPrivacyReportTapped() }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),

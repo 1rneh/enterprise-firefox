@@ -24,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPUsageHelper:
     "moz-src:///browser/components/ipprotection/IPPUsageHelper.sys.mjs",
+  IPProtectionServerlist:
+    "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs",
   IPProtectionService:
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtection:
@@ -52,11 +54,12 @@ const BANDWIDTH_THRESHOLD_PREF = "browser.ipProtection.bandwidthThreshold";
 const BANDWIDTH_WARNING_DISMISSED_PREF =
   "browser.ipProtection.bandwidthWarningDismissedThreshold";
 const BANDWIDTH_RESET_DATE_PREF = "browser.ipProtection.bandwidthResetDate";
-const DEFAULT_EGRESS_LOCATION = { name: "United States", code: "us" };
-const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocationEnabled";
+const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocation";
 const USER_OPENED_PREF = "browser.ipProtection.everOpenedPanel";
 const OPENED_WITH_LOCATION_PREF =
   "browser.ipProtection.openedPanelWithLocation";
+const LOCATION_BADGE_DISMISSED_PREF =
+  "browser.ipProtection.locationButtonBadgeDismissed";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -67,9 +70,9 @@ XPCOMUtils.defineLazyPreferenceGetter(
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
-  "EGRESS_LOCATION_ENABLED",
+  "EGRESS_LOCATION",
   EGRESS_LOCATION_PREF,
-  false
+  ""
 );
 
 let hasCustomElements = new WeakSet();
@@ -119,12 +122,10 @@ export class IPProtectionPanel {
    *  The timestamp in milliseconds since IP Protection was enabled
    * @property {boolean} isSignedOut
    *  True if not signed in to account
-   * @property {object} location
-   *  Data about the server location the proxy is connected to
-   * @property {string} location.name
-   *  The location country name
-   * @property {string} location.code
+   * @property {string} location
    *  The location country code
+   * @property {Array<{code: string, available: boolean}>} locationsList
+   *  Countries available as egress locations, from IPProtectionServerlist.
    * @property {"generic-error" | "network-error" | ""} error
    *  The error type as a string if an error occurred, or empty string if there are no errors.
    * @property {boolean} hasUpgraded
@@ -141,6 +142,8 @@ export class IPProtectionPanel {
    *  An object containing the current and max usage
    * @property {boolean} isActivating
    *  True if the VPN service is in the process of connecting, else false.
+   * @property {boolean} showLocationButtonBadge
+   *  True if the "new" badge on the location selection button should be visible.
    */
 
   /**
@@ -254,7 +257,8 @@ export class IPProtectionPanel {
         lazy.IPProtectionStates.UNAUTHENTICATED,
       isProtectionEnabled:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
-      location: lazy.EGRESS_LOCATION_ENABLED ? DEFAULT_EGRESS_LOCATION : null,
+      location: lazy.EGRESS_LOCATION || null,
+      locationsList: lazy.IPProtectionServerlist.countries,
       error: "",
       hasUpgraded: lazy.IPPEnrollAndEntitleManager.hasUpgraded,
       onboardingMessage: "",
@@ -268,6 +272,10 @@ export class IPProtectionPanel {
       isCheckingEntitlement:
         lazy.IPPEnrollAndEntitleManager.isEnrolling ||
         lazy.IPPEnrollAndEntitleManager.isCheckingEntitlement,
+      showLocationButtonBadge: !Services.prefs.getBoolPref(
+        LOCATION_BADGE_DISMISSED_PREF,
+        false
+      ),
     };
 
     // The progress listener to listen for page navigations.
@@ -366,7 +374,11 @@ export class IPProtectionPanel {
     const win = this.#window.get();
     const inPrivateBrowsing =
       !!win && lazy.PrivateBrowsingUtils.isWindowPrivate(win);
-    const { error } = await lazy.IPPProxyManager.start(true, inPrivateBrowsing);
+    const { error } = await lazy.IPPProxyManager.start(
+      true,
+      inPrivateBrowsing,
+      this.state.location
+    );
     if (error && error !== lazy.ERRORS.CANCELED) {
       const errorMessage =
         error == lazy.ERRORS.NETWORK
@@ -474,6 +486,11 @@ export class IPProtectionPanel {
    * Disables updates to the panel.
    */
   hiding() {
+    if (this.state.showLocationButtonBadge) {
+      Services.prefs.setBoolPref(LOCATION_BADGE_DISMISSED_PREF, true);
+      this.state.showLocationButtonBadge = false;
+    }
+
     const mask = lazy.IPPOnboardingMessage.readPrefMask();
     const hasUsedSiteExceptions = !!(
       mask & ONBOARDING_PREF_FLAGS.EVER_USED_SITE_EXCEPTIONS
@@ -632,10 +649,28 @@ export class IPProtectionPanel {
     let viewShown = new Promise(resolve => {
       view.addEventListener("ViewShown", resolve, { once: true });
     });
+
+    // ipprotection-locations and locations-list are rendered as roots in the light DOM,
+    // so moveFocus in the panelKeyListener can reach both elements naturally.
+    // TODO: see if we can tab between the header buttons and the locations list,
+    // but have arrow keys for moving through location items. (Bug 2034577)
+    view.addEventListener(
+      "ViewHiding",
+      () => {
+        view.removeEventListener("keydown", this.#panelKeyListener, {
+          capture: true,
+        });
+      },
+      { once: true }
+    );
+
     this.panelMultiView?.showSubView(IPProtectionPanel.LOCATIONS_PANELVIEW);
     this.#createPanel(view, IPProtectionPanel.LOCATIONS_TAGNAME);
 
     await viewShown;
+    view.addEventListener("keydown", this.#panelKeyListener, {
+      capture: true,
+    });
   }
 
   /**
@@ -700,6 +735,7 @@ export class IPProtectionPanel {
       this.handleEvent
     );
     doc.addEventListener("IPProtection:UserShowLocations", this.handleEvent);
+    doc.addEventListener("IPProtection:UserSelectLocation", this.handleEvent);
   }
 
   #removePanelListeners(doc) {
@@ -722,6 +758,10 @@ export class IPProtectionPanel {
       this.handleEvent
     );
     doc.removeEventListener("IPProtection:UserShowLocations", this.handleEvent);
+    doc.removeEventListener(
+      "IPProtection:UserSelectLocation",
+      this.handleEvent
+    );
   }
 
   #addProxyListeners() {
@@ -749,6 +789,10 @@ export class IPProtectionPanel {
       "IPPExceptionsManager:ExclusionChanged",
       this.handleEvent
     );
+    lazy.IPProtectionServerlist.addEventListener(
+      "IPProtectionServerlist:ListChanged",
+      this.handleEvent
+    );
   }
 
   #removeProxyListeners() {
@@ -774,6 +818,10 @@ export class IPProtectionPanel {
     );
     lazy.IPPExceptionsManager.removeEventListener(
       "IPPExceptionsManager:ExclusionChanged",
+      this.handleEvent
+    );
+    lazy.IPProtectionServerlist.removeEventListener(
+      "IPProtectionServerlist:ListChanged",
       this.handleEvent
     );
   }
@@ -821,9 +869,9 @@ export class IPProtectionPanel {
 
   #handlePrefChange(_subject, _topic, data) {
     if (data === EGRESS_LOCATION_PREF) {
-      const isEnabled = Services.prefs.getBoolPref(EGRESS_LOCATION_PREF, false);
+      const value = Services.prefs.getStringPref(EGRESS_LOCATION_PREF, "");
       this.setState({
-        location: isEnabled ? DEFAULT_EGRESS_LOCATION : null,
+        location: value || null,
       });
     } else if (data === BANDWIDTH_WARNING_DISMISSED_PREF) {
       if (!this.#shouldShowBandwidthWarning()) {
@@ -980,6 +1028,10 @@ export class IPProtectionPanel {
       });
     } else if (event.type == "IPPExceptionsManager:ExclusionChanged") {
       this.#updateSiteData();
+    } else if (event.type == "IPProtectionServerlist:ListChanged") {
+      this.setState({
+        locationsList: lazy.IPProtectionServerlist.countries,
+      });
     } else if (event.type == "IPProtection:UserEnableVPNForSite") {
       const win = event.target.ownerGlobal;
       const principal = win?.gBrowser.contentPrincipal;
@@ -1079,7 +1131,13 @@ export class IPProtectionPanel {
     } else if (event.type == "IPPUsageHelper:StateChanged") {
       this.setState({ bandwidthWarning: this.#shouldShowBandwidthWarning() });
     } else if (event.type == "IPProtection:UserShowLocations") {
+      if (this.state.showLocationButtonBadge) {
+        Services.prefs.setBoolPref(LOCATION_BADGE_DISMISSED_PREF, true);
+        this.setState({ showLocationButtonBadge: false });
+      }
       this.showLocationSelector();
+    } else if (event.type == "IPProtection:UserSelectLocation") {
+      // TODO: Save selected location (Bug 2033621)
     }
   }
 

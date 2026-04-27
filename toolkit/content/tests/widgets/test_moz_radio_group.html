@@ -718,19 +718,28 @@
         await radioGroup.updateComplete;
         verifyElementStates("disabled");
 
-        // Verify it's not possible to enable a single radio button when the
-        // parent group is disabled.
+        // Setting disabled to false while the group is disabled tracks the state
+        // change. The button remains functionally disabled until the group is enabled.
         firstButton.disabled = false;
         await firstButton.updateComplete;
         verifyElementStates("disabled");
 
-        // Re-enable the radio group. The independently disabled radio button
-        // should still be disabled.
+        // Re-enable the radio group. The first button's disabled state change is applied.
+        radioGroup.disabled = false;
+        await radioGroup.updateComplete;
+        verifyElementStates("enabled");
+
+        // Verify that a button independently disabled before the group was disabled
+        // stays disabled when the group is re-enabled without changing its state.
+        firstButton.disabled = true;
+        await firstButton.updateComplete;
+        radioGroup.disabled = true;
+        await radioGroup.updateComplete;
         radioGroup.disabled = false;
         await radioGroup.updateComplete;
         ok(
           firstButton.inputEl.hasAttribute("disabled"),
-          "The first radio button is still disabled."
+          "The first radio button is still independently disabled."
         );
         otherButtons.forEach(button =>
           ok(

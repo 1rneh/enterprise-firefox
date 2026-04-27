@@ -2863,12 +2863,16 @@ ssl3_SendApplicationData(sslSocket *ss, const unsigned char *in,
     while (len > totalSent) {
         PRInt32 sent, toSend;
 
-        if (totalSent > 0) {
+        if (totalSent > 0 && ssl_SocketIsBlocking(ss)) {
             /*
              * The thread yield is intended to give the reader thread a
              * chance to get some cycles while the writer thread is in
              * the middle of a large application data write.  (See
              * Bugzilla bug 127740, comment #1.)
+             *
+             * For non-blocking sockets, the pendingBuf check below
+             * already breaks out of the loop when the underlying
+             * socket cannot accept more data.
              */
             ssl_ReleaseXmitBufLock(ss);
             PR_Sleep(PR_INTERVAL_NO_WAIT); /* PR_Yield(); */
@@ -7357,6 +7361,15 @@ ssl3_HandleServerHello(sslSocket *ss, PRUint8 *b, PRUint32 length)
                     SSL_GETPID(), ss->fd));
         desc = unexpected_message;
         errCode = SSL_ERROR_RX_UNEXPECTED_HELLO_RETRY_REQUEST;
+        goto alert_loser;
+    }
+
+    /* A server that sent HelloVerifyRequest is DTLS 1.2 or earlier;
+     * reject a subsequent TLS 1.3 ServerHello as illegal. */
+    if (ss->ssl3.hs.dtlsReceivedHVR &&
+        ss->version >= SSL_LIBRARY_VERSION_TLS_1_3) {
+        desc = illegal_parameter;
+        errCode = SSL_ERROR_RX_MALFORMED_SERVER_HELLO;
         goto alert_loser;
     }
 
@@ -14089,6 +14102,8 @@ ssl3_InitState(sslSocket *ss)
                 sizeof(ss->ssl3.hs.newSessionTicket));
 
     ss->ssl3.hs.zeroRttState = ssl_0rtt_none;
+
+    ss->ssl3.hs.dtlsReceivedHVR = PR_FALSE;
     return SECSuccess;
 }
 

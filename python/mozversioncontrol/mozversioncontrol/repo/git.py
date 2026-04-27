@@ -443,7 +443,15 @@ class GitRepository(Repository):
     def get_commit_patches(self, nodes: list[str]) -> list[bytes]:
         """Return the contents of the patch `node` in the VCS' standard format."""
         return [
-            self._run("format-patch", node, "-1", "--always", "--stdout", encoding=None)
+            self._run(
+                "format-patch",
+                node,
+                "-1",
+                "--always",
+                "--stdout",
+                "--no-base",  # In case the user has format.useAutoBase true
+                encoding=None,
+            )
             for node in nodes
         ]
 
@@ -779,7 +787,9 @@ class GitRepository(Repository):
         Retrieve git format-patch style patches of all commits that occurred
         after `base_ref`.
         """
-        return self._run("format-patch", f"{base_ref}..HEAD", "--stdout")
+        return self._run(
+            "format-patch", f"{base_ref}..HEAD", "--stdout", f"--base={base_ref}"
+        )
 
     def get_patch_for_uncommitted_changes(
         self, message: str = "[PATCH] Uncommitted changes", date: datetime = None

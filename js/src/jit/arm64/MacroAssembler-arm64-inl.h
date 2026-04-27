@@ -1698,11 +1698,15 @@ void MacroAssembler::branchTest32(Condition cond, Register lhs, Register rhs,
   MOZ_ASSERT(cond == Zero || cond == NonZero || cond == Signed ||
              cond == NotSigned);
   // The x86-biased front end prefers |test foo, foo| to |cmp foo, #0|.  We look
-  // for the former pattern and expand as Cbz/Cbnz when possible.
+  // for the former pattern and expand as Cbz/Cbnz/Tbz/Tbnz when possible.
   if (lhs == rhs && cond == Zero) {
     Cbz(ARMRegister(lhs, 32), label);
   } else if (lhs == rhs && cond == NonZero) {
     Cbnz(ARMRegister(lhs, 32), label);
+  } else if (lhs == rhs && cond == Signed) {
+    Tbnz(ARMRegister(lhs, 32), 31, label);
+  } else if (lhs == rhs && cond == NotSigned) {
+    Tbz(ARMRegister(lhs, 32), 31, label);
   } else {
     test32(lhs, rhs);
     B(label, cond);
@@ -1743,6 +1747,10 @@ void MacroAssembler::branchTestPtr(Condition cond, Register lhs, Register rhs,
     Cbz(ARMRegister(lhs, 64), label);
   } else if (lhs == rhs && cond == NonZero) {
     Cbnz(ARMRegister(lhs, 64), label);
+  } else if (lhs == rhs && cond == Signed) {
+    Tbnz(ARMRegister(lhs, 64), 63, label);
+  } else if (lhs == rhs && cond == NotSigned) {
+    Tbz(ARMRegister(lhs, 64), 63, label);
   } else {
     Tst(ARMRegister(lhs, 64), Operand(ARMRegister(rhs, 64)));
     B(label, cond);
@@ -2169,6 +2177,12 @@ void MacroAssembler::branchTestMagic(Condition cond, const Address& valaddr,
   uint64_t magic = MagicValue(why).asRawBits();
   cmpPtr(valaddr, ImmWord(magic));
   B(label, cond);
+}
+
+void MacroAssembler::branchTestMagic(Condition cond, const BaseIndex& valaddr,
+                                     JSWhyMagic why, Label* label) {
+  uint64_t magic = MagicValue(why).asRawBits();
+  branchPtr(cond, valaddr, ImmWord(magic), label);
 }
 
 template <typename T>

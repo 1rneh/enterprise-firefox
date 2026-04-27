@@ -1223,7 +1223,10 @@ export class AddonWrapper {
       return true;
     }
 
-    if (AppConstants.MOZ_ENTERPRISE && this.isInstalledByEnterprisePolicy) {
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.policies?.isAddonRequiredByPolicy(addon.id)
+    ) {
       return true;
     }
 
@@ -1372,23 +1375,6 @@ export class AddonWrapper {
   get isSyncable() {
     let addon = addonFor(this);
     return addon.location.name == KEY_APP_PROFILE;
-  }
-
-  /**
-   * Returns true if the addon is configured to be installed
-   * by enterprise policy.
-   *
-   * Should be kept in sync with Extension.sys.mjs
-   */
-  get isInstalledByEnterprisePolicy() {
-    const policySettings = Services.policies?.getExtensionSettings(this.id);
-    const legacyLockedSettings =
-      Services.policies?.getActivePolicies()?.Extensions?.Locked ?? [];
-    return (
-      ["force_installed", "normal_installed"].includes(
-        policySettings?.installation_mode
-      ) || legacyLockedSettings.includes(this.id)
-    );
   }
 
   /**
@@ -2704,7 +2690,7 @@ export const XPIDatabase = {
     if (
       this.mustSign(aAddon.type) &&
       aAddon.adminInstallOnly &&
-      !aAddon.wrapper.isInstalledByEnterprisePolicy
+      !Services.policies?.isAddonRequiredByPolicy(aAddon.id)
     ) {
       logger.warn(
         `Add-on ${aAddon.id} is installable only from policies, but no policy extension settings have been found.`

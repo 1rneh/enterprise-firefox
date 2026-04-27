@@ -25,9 +25,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineLazyGetter(lazy, "SearchModeSwitcherL10n", () => {
   return new Localization(["browser/browser.ftl"]);
 });
-ChromeUtils.defineLazyGetter(lazy, "searchModeNewBadge", () => {
-  return lazy.SearchModeSwitcherL10n.formatValue("urlbar-searchmode-new");
-});
 
 // Default icon used for engines that do not have icons loaded.
 const DEFAULT_ENGINE_ICON =
@@ -227,30 +224,43 @@ export class SearchModeSwitcher {
 
   /**
    * @param {MouseEvent|KeyboardEvent} event
+   *  A mouseup, click or keydown event.
+   *  Click is used for regular mouse clicks.
+   *  Keydown is used for keyboard clicks (bug 1245292).
+   *  Auxclick is used for middle clicks.
    */
   #handlePanelItemEvent(event) {
-    if (event.type == "click") {
-      // Prevent the panel from closing. We handle that manually.
-      event.stopPropagation();
-    }
+    switch (event.type) {
+      case "click": {
+        let mouseEvent = /** @type {MouseEvent} */ (event);
+        // Prevent the panel from closing. We handle that manually.
+        mouseEvent.stopPropagation();
 
-    if (
-      MouseEvent.isInstance(event) &&
-      event.type == "click" &&
-      event.inputSource == MouseEvent.MOZ_SOURCE_KEYBOARD
-    ) {
-      // Keyboard clicks always have shiftKey=false due to bug 1245292.
-      // For now, we handle them on keydown instead.
-      return;
-    }
-
-    if (
-      KeyboardEvent.isInstance(event) &&
-      event.type == "keydown" &&
-      event.keyCode != KeyEvent.DOM_VK_SPACE &&
-      event.keyCode != KeyEvent.DOM_VK_RETURN
-    ) {
-      return;
+        if (mouseEvent.inputSource == MouseEvent.MOZ_SOURCE_KEYBOARD) {
+          // Keyboard clicks always have shiftKey=false due to bug 1245292.
+          // For now, we handle them on keydown instead.
+          return;
+        }
+        break;
+      }
+      case "keydown": {
+        let keyboardEvent = /** @type {KeyboardEvent} */ (event);
+        if (
+          keyboardEvent.keyCode != KeyEvent.DOM_VK_SPACE &&
+          keyboardEvent.keyCode != KeyEvent.DOM_VK_RETURN
+        ) {
+          return;
+        }
+        break;
+      }
+      case "auxclick": {
+        let mouseEvent = /** @type {MouseEvent} */ (event);
+        if (mouseEvent.button != 1) {
+          // Ignore non-middle-auxclicks.
+          return;
+        }
+        break;
+      }
     }
 
     let panelItem = /** @type {PanelItem} */ (event.currentTarget);
@@ -276,6 +286,15 @@ export class SearchModeSwitcher {
         break;
       }
     }
+  }
+
+  /**
+   * @param {PanelItem} panelItem
+   */
+  #addCommandListeners(panelItem) {
+    panelItem.addEventListener("click", this);
+    panelItem.addEventListener("keydown", this);
+    panelItem.addEventListener("auxclick", this);
   }
 
   observe(_subject, topic, data) {
@@ -495,18 +514,14 @@ export class SearchModeSwitcher {
       menuitem.setAttribute("closemenu", "none");
 
       if (engine.isNew() && engine.isAppProvided) {
-        menuitem.setAttribute("badge", await lazy.searchModeNewBadge);
-        menuitem.classList.add("badge-new");
+        menuitem.setAttribute("badge-type", "new");
       }
 
       menuitem.dataset.engineId = engine.id;
       // This attribute is for testing.
       menuitem.dataset.engineName = engine.name;
       menuitem.dataset.action = "searchmode";
-
-      menuitem.addEventListener("click", this);
-      menuitem.addEventListener("keydown", this);
-
+      this.#addCommandListeners(menuitem);
       installedEngineSeparator.before(menuitem);
     }
 
@@ -535,8 +550,7 @@ export class SearchModeSwitcher {
       menuitem.dataset.action = "installopensearch";
       // This attribute is for testing.
       menuitem.dataset.engineName = engine.title;
-      menuitem.addEventListener("click", this);
-      menuitem.addEventListener("keydown", this);
+      this.#addCommandListeners(menuitem);
       // @ts-expect-error
       menuitem._engine = engine;
 
@@ -596,8 +610,7 @@ export class SearchModeSwitcher {
       );
       menuitem.dataset.action = "localsearchmode";
       menuitem.dataset.restrict = restrict;
-      menuitem.addEventListener("click", this);
-      menuitem.addEventListener("keydown", this);
+      this.#addCommandListeners(menuitem);
       this.#input.document.l10n.setAttributes(
         menuitem,
         `urlbar-searchmode-${name}2`
@@ -622,8 +635,7 @@ export class SearchModeSwitcher {
         ? "urlbar-searchmode-popup-settings-panelitem"
         : "urlbar-searchmode-popup-search-settings-panelitem"
     );
-    menuitem.addEventListener("click", this);
-    menuitem.addEventListener("keydown", this);
+    this.#addCommandListeners(menuitem);
     this.#panelList.appendChild(menuitem);
   }
 
@@ -775,7 +787,17 @@ export class SearchModeSwitcher {
 
     let observer = engineObj => {
       Services.obs.removeObserver(observer, topic);
-      this.#remoteSearch(engineObj.wrappedJSObject, event);
+      this.#input.search(this.#getSearchString(), {
+        searchEngine: engineObj.wrappedJSObject,
+        searchModeEntry: "searchbutton",
+      });
+      if (this.#input.sapName == "urlbar") {
+        Glean.urlbarUnifiedsearchbutton.picked[
+          engineObj.wrappedJSObject.isConfigEngine
+            ? "builtin_search"
+            : "addon_search"
+        ].add(1);
+      }
     };
     Services.obs.addObserver(observer, topic);
 

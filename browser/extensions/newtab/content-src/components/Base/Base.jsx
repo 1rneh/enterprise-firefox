@@ -15,7 +15,7 @@ import { TopSites } from "content-src/components/TopSites/TopSites";
 import { Sections } from "content-src/components/Sections/Sections";
 import { Logo } from "content-src/components/Logo/Logo";
 import { Weather } from "content-src/components/Weather/Weather";
-import { Weather as WeatherWidget } from "content-src/components/Widgets/Weather/Weather";
+import { WidgetsSidebar } from "content-src/components/Widgets/WidgetsSidebar";
 import { DownloadModalToggle } from "content-src/components/DownloadModalToggle/DownloadModalToggle";
 import { Notifications } from "content-src/components/Notifications/Notifications";
 import { TopicSelection } from "content-src/components/DiscoveryStreamComponents/TopicSelection/TopicSelection";
@@ -29,6 +29,11 @@ import {
   shouldShowOMCHighlight,
   shouldShowASRouterNewTabMessage,
 } from "../../lib/asrouter-message-utils.mjs";
+import {
+  WIDGET_REGISTRY,
+  resolveWidgetHasSidebar,
+  resolveWidgetSize,
+} from "content-src/components/Widgets/WidgetsRegistry.mjs";
 
 const VISIBLE = "visible";
 const VISIBILITY_CHANGE_EVENT = "visibilitychange";
@@ -282,8 +287,13 @@ export class BaseContent extends React.PureComponent {
     const prefs = this.props.Prefs.values;
 
     // Check if weather widget was re-enabled from customization menu
-    const wasWeatherDisabled = !prevProps.Prefs.values.showWeather;
-    const isWeatherEnabled = this.props.Prefs.values.showWeather;
+    // @nova-cleanup(remove-conditional): Remove novaEnabledInUpdate and weatherPref variables; replace wasWeatherDisabled/isWeatherEnabled with direct reads of prevProps/props.Prefs.values["widgets.weather.enabled"]
+    const novaEnabledInUpdate = this.props.Prefs.values["nova.enabled"];
+    const weatherPref = novaEnabledInUpdate
+      ? "widgets.weather.enabled"
+      : "showWeather";
+    const wasWeatherDisabled = !prevProps.Prefs.values[weatherPref];
+    const isWeatherEnabled = this.props.Prefs.values[weatherPref];
 
     if (wasWeatherDisabled && isWeatherEnabled) {
       // If weather widget was enabled from customization menu, display opt-in dialog
@@ -752,7 +762,10 @@ export class BaseContent extends React.PureComponent {
       prefs[`newtabWallpapers.initialWallpaper`];
     const wallpapersEnabled = prefs["newtabWallpapers.enabled"];
     const wallpapersUserEnabled = prefs["newtabWallpapers.user.enabled"];
-    const weatherEnabled = prefs.showWeather;
+    // @nova-cleanup(remove-conditional): Remove conditional; replace with prefs["widgets.weather.enabled"]
+    const weatherEnabled = novaEnabled
+      ? prefs["widgets.weather.enabled"]
+      : prefs.showWeather;
     const { showTopicSelection } = DiscoveryStream;
     const mayShowTopicSelection =
       showTopicSelection && prefs["discoverystream.topicSelection.enabled"];
@@ -814,12 +827,6 @@ export class BaseContent extends React.PureComponent {
     const mayHaveWeatherWidget =
       prefs["widgets.system.weather.enabled"] ||
       prefs.trainhopConfig?.widgets?.weatherEnabled;
-    const showWeatherWidgetInSidebar =
-      novaEnabled &&
-      mayHaveWeatherWidget &&
-      prefs["widgets.weather.enabled"] &&
-      weatherEnabled &&
-      prefs["widgets.weather.size"] === "small";
 
     // These prefs set the initial values on the Customize panel toggle switches
     const enabledWidgets = {
@@ -913,12 +920,16 @@ export class BaseContent extends React.PureComponent {
       // Logo renders in .content (above search/topsites) when no Pocket content
       // feed and no content-area widgets are present. When either is enabled,
       // the sidebar provides a better visual anchor.
+      const weatherWidget = WIDGET_REGISTRY.find(w => w.id === "weather");
+      const weatherGoesToSidebar =
+        resolveWidgetHasSidebar(weatherWidget, prefs) &&
+        resolveWidgetSize(weatherWidget, prefs) === "small";
       const hasContentWidgets =
         (mayHaveListsWidget && enabledWidgets.listsEnabled) ||
         (mayHaveTimerWidget && enabledWidgets.timerEnabled) ||
         (mayHaveWeatherWidget &&
           enabledWidgets.weatherEnabled &&
-          !showWeatherWidgetInSidebar);
+          !weatherGoesToSidebar);
       const logoShouldBeCentered = !pocketEnabled && !hasContentWidgets;
 
       return (
@@ -937,10 +948,9 @@ export class BaseContent extends React.PureComponent {
             {/* Bug 2021460 - Placed before <main> in DOM order so small widgets
             are tab-focused before the main content feed. */}
             <aside className="sidebar-inline-end">
-              {/* Small Widgets - Weather */}
-              {showWeatherWidgetInSidebar && (
+              {novaEnabled && (
                 <ErrorBoundary>
-                  <WeatherWidget dispatch={props.dispatch} size="small" />
+                  <WidgetsSidebar dispatch={props.dispatch} />
                 </ErrorBoundary>
               )}
             </aside>
@@ -1046,7 +1056,7 @@ export class BaseContent extends React.PureComponent {
             </main>
           </div>
           <ConfirmDialog />
-          <menu className="personalizeButtonWrapper">
+          <menu className="personalizeButtonWrapper nova-enabled">
             <CustomizeMenu
               onClose={this.closeCustomizationMenu}
               onOpen={this.openCustomizationMenu}
@@ -1076,6 +1086,17 @@ export class BaseContent extends React.PureComponent {
               widgetsEnabled={prefs["widgets.enabled"]}
               dispatch={this.props.dispatch}
             />
+            {shouldShowOMCHighlight(
+              this.props.Messages,
+              "CustomWallpaperHighlight"
+            ) && (
+              <MessageWrapper dispatch={this.props.dispatch}>
+                <WallpaperFeatureHighlight
+                  position="inset-block-start inset-inline-start"
+                  dispatch={this.props.dispatch}
+                />
+              </MessageWrapper>
+            )}
           </menu>
           {this.props.Notifications?.showNotifications && (
             <ErrorBoundary>

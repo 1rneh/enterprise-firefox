@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.216
- * pdfjsBuild = fe4873684
+ * pdfjsVersion = 5.7.232
+ * pdfjsBuild = 4489c4106
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -13784,7 +13784,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "5.7.216",
+    apiVersion: "5.7.232",
     data,
     password,
     disableAutoFetch,
@@ -15397,8 +15397,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "5.7.216";
-const build = "fe4873684";
+const version = "5.7.232";
+const build = "4489c4106";
 
 ;// ./src/display/editor/color_picker.js
 

@@ -25,7 +25,8 @@ import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityTestRule
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
-import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
+import org.mozilla.fenix.helpers.TestAssetHelper.downloadPageAsset
+import org.mozilla.fenix.helpers.TestAssetHelper.loremIpsumAsset
 import org.mozilla.fenix.helpers.TestHelper.clickSnackbarButton
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.TestHelper.verifySnackBarText
@@ -46,12 +47,13 @@ import org.mozilla.fenix.ui.robots.notificationShade
  *  - Verifies managing downloads inside the Downloads listing.
  **/
 class DownloadTest {
-    // Remote test page managed by Mozilla Mobile QA team at https://github.com/mozilla-mobile/testapp
     @get:Rule(order = 0)
     val fenixTestRule: FenixTestRule = FenixTestRule()
 
     private val mockWebServer get() = fenixTestRule.mockWebServer
 
+    // Remote test page used by large-file tests (3GB.zip); managed by Mozilla Mobile QA team
+    // at https://github.com/mozilla-mobile/testapp
     private val downloadTestPage =
         "https://storage.googleapis.com/mobile_test_assets/test_app/downloads.html"
     private var downloadFile: String = ""
@@ -72,7 +74,7 @@ class DownloadTest {
     @Test
     fun verifyTheDownloadPromptsTest() {
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = "web_icon.png")
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = "web_icon.png")
             verifyDownloadCompleteSnackbar(fileName = "web_icon.png")
             clickSnackbarButton(composeTestRule = this@DownloadTest.composeTestRule, "OPEN")
             verifyPhotosAppOpens()
@@ -111,7 +113,7 @@ class DownloadTest {
     @Test
     fun verifyDownloadCompleteNotificationTest() {
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = "web_icon.png")
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = "web_icon.png")
             verifyDownloadCompleteSnackbar(fileName = "web_icon.png")
             waitUntilDownloadSnackbarGone()
         }
@@ -165,7 +167,7 @@ class DownloadTest {
     @Test
     fun openDownloadedFileFromDownloadsMenuTest() {
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = "web_icon.png")
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = "web_icon.png")
             verifyDownloadCompleteSnackbar(fileName = "web_icon.png")
         }
         browserScreen(composeTestRule) {
@@ -183,7 +185,7 @@ class DownloadTest {
     @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2004099"])
     fun deleteDownloadedFileTest() {
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = "smallZip.zip")
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = "smallZip.zip")
         }
         browserScreen(composeTestRule) {
         }.openThreeDotMenu {
@@ -206,7 +208,7 @@ class DownloadTest {
         val secondDownloadedFile = "textfile.txt"
 
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = firstDownloadedFile)
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = firstDownloadedFile)
             verifyDownloadCompleteSnackbar(fileName = firstDownloadedFile)
         }
         browserScreen(composeTestRule) {
@@ -240,7 +242,7 @@ class DownloadTest {
     @Test
     fun fileDeletedFromStorageIsDeletedEverywhereTest() {
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = "smallZip.zip")
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = "smallZip.zip")
             verifyDownloadCompleteSnackbar(fileName = "smallZip.zip")
         }
         browserScreen(composeTestRule) {
@@ -256,7 +258,7 @@ class DownloadTest {
         }
 
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = "smallZip.zip")
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = "smallZip.zip")
             verifyDownloadCompleteSnackbar(fileName = "smallZip.zip")
         }
         browserScreen(composeTestRule) {
@@ -362,15 +364,11 @@ class DownloadTest {
     @SmokeTest
     @Test
     fun saveAsPdfFunctionalityTest() {
-        val genericURL = mockWebServer.getGenericAsset(3)
-        downloadFile = "pdfForm.pdf"
+        val genericURL = mockWebServer.loremIpsumAsset
+        downloadFile = "Lorem"
 
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
-            clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            waitForPageToLoad()
-            clickPageObject(composeTestRule, itemContainingText("Cancel"))
-            fillPdfForm("Firefox")
         }.openThreeDotMenu {
         }.clickShareButton {
         }.clickSaveAsPDF(composeTestRule) {
@@ -414,7 +412,7 @@ class DownloadTest {
         val secondDownloadedFile = "web_icon.png"
 
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = firstDownloadedFile)
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = firstDownloadedFile)
             verifyDownloadCompleteSnackbar(fileName = firstDownloadedFile)
         }
         browserScreen(composeTestRule) {
@@ -435,7 +433,7 @@ class DownloadTest {
     @Test
     fun shareDownloadedFileTest() {
         downloadRobot(composeTestRule) {
-            openPageAndDownloadFile(url = downloadTestPage.toUri(), downloadFile = "web_icon.png")
+            openPageAndDownloadFile(url = mockWebServer.downloadPageAsset.url, downloadFile = "web_icon.png")
             verifyDownloadCompleteSnackbar(fileName = "web_icon.png")
         }
         browserScreen(composeTestRule) {

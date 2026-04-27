@@ -26,7 +26,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <chrono>
 #ifdef XP_WIN
 #  include <direct.h>
 #  include <process.h>
@@ -3176,12 +3175,12 @@ static bool EvaluateInner(JSContext* cx, HandleString code,
     }
 
     if (saveBytecodeWithDelazifications) {
-      bool alreadyStarted;
-      if (!JS::StartCollectingDelazifications(cx, script, stencil,
-                                              alreadyStarted)) {
+      JS::CollectDelazificationsResult result;
+      if (!JS::StartCollectingDelazifications(cx, script, stencil, result)) {
         return false;
       }
-      MOZ_ASSERT(!alreadyStarted);
+      MOZ_ASSERT(result == JS::CollectDelazificationsResult::NewlyStarted ||
+                 result == JS::CollectDelazificationsResult::NotSupported);
     }
 
     if (execute) {
@@ -9237,6 +9236,10 @@ static bool TransplantObject(JSContext* cx, unsigned argc, Value* vp) {
   RootedObject proto(cx);
   if (JS::GetClass(source) == GetDomClass()) {
     proto = GetDOMPrototype(cx, newGlobal);
+    if (proto == source) {
+      JS_ReportErrorASCII(cx, "Cannot transplant the FakeDOMObject prototype");
+      return false;
+    }
   } else {
     proto = JS::GetRealmObjectPrototype(cx);
   }
@@ -13373,6 +13376,8 @@ bool InitOptionParser(OptionParser& op) {
       !op.addBoolOption('\0', "enable-iterator-chunking",
                         "Enable Iterator Chunking") ||
       !op.addBoolOption('\0', "enable-iterator-join", "Enable Iterator.join") ||
+      !op.addBoolOption('\0', "enable-iterator-includes",
+                        "Enable Iterator.prototype.includes") ||
       !op.addBoolOption('\0', "enable-source-phase-imports",
                         "Enable source phase imports") ||
       !op.addBoolOption(
@@ -13472,6 +13477,9 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
   }
   if (op.getBoolOption("enable-iterator-join")) {
     JS::Prefs::setAtStartup_experimental_iterator_join(true);
+  }
+  if (op.getBoolOption("enable-iterator-includes")) {
+    JS::Prefs::setAtStartup_experimental_iterator_includes(true);
   }
   if (op.getBoolOption("enable-error-stack-trace-limit")) {
     JS::Prefs::setAtStartup_experimental_error_stack_trace_limit(true);

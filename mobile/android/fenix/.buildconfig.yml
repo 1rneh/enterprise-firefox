@@ -43,6 +43,7 @@ projects:
     - components:feature-downloads
     - components:feature-findinpage
     - components:feature-fxsuggest
+    - components:feature-importer
     - components:feature-intent
     - components:feature-logins
     - components:feature-media

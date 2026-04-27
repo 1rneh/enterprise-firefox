@@ -31,6 +31,7 @@ import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.feature.top.sites.TopSitesUseCases
 import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import mozilla.components.support.test.robolectric.testContext
+import mozilla.components.support.utils.INTENT_TYPE_PDF
 import mozilla.components.ui.tabcounter.TabCounterMenu
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.After
@@ -502,7 +503,41 @@ class DefaultBrowserToolbarControllerTest {
             store.dispatch(
                 ShareResourceAction.AddShareAction(
                     tabId = "1",
-                    ShareResourceState.LocalResource("content://pdf.pdf"),
+                    ShareResourceState.LocalResource("content://pdf.pdf", INTENT_TYPE_PDF),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `GIVEN that the tab is a remote PDF WHEN share button is clicked THEN start the shareResource process`() {
+        val store = spyk(
+            BrowserStore(
+                initialState = BrowserState(
+                    tabs = listOf(
+                        createTab("https://mozilla.com/document", id = "1").let {
+                            it.copy(content = it.content.copy(isPdf = true))
+                        },
+                    ),
+                    selectedTabId = "1",
+                ),
+                middleware = listOf(captureMiddleware),
+            ),
+        )
+
+        val controller = createController(store = store)
+        controller.onShareActionClicked()
+
+        verify {
+            store.dispatch(
+                ShareResourceAction.AddShareAction(
+                    tabId = "1",
+                    ShareResourceState.InternetResource(
+                        url = "https://mozilla.com/document",
+                        contentType = INTENT_TYPE_PDF,
+                        private = false,
+                        referrerUrl = "https://mozilla.com/document",
+                    ),
                 ),
             )
         }

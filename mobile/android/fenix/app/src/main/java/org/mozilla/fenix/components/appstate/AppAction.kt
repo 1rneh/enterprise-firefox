@@ -829,5 +829,17 @@ sealed class AppAction : Action {
          * @property countryCodes Set of ISO codes of the selected countries.
          */
         data class CountriesSelected(val countryCodes: Set<String>) : SportsWidgetAction()
+
+        /**
+         * Dispatched when the user skips the "Follow your team" card.
+         */
+        data object FollowTeamSkipped : SportsWidgetAction()
+
+        /**
+         * Dispatched when the sports widget's visibility changes.
+         *
+         * @property isVisible The new visibility state of the sports widget.
+         */
+        data class VisibilityChanged(val isVisible: Boolean) : SportsWidgetAction()
     }
 }

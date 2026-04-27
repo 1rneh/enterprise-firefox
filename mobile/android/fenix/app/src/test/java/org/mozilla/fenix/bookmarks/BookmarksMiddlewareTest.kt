@@ -13,6 +13,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 import mozilla.appservices.places.BookmarkRoot
 import mozilla.components.concept.engine.EngineSession
@@ -44,6 +45,7 @@ class BookmarksMiddlewareTest {
     private lateinit var navigateToBrowser: () -> Unit
     private lateinit var navigateToSearch: () -> Unit
     private lateinit var navigateToSignIntoSync: () -> Unit
+    private lateinit var navigateToImportDialog: () -> Unit
     private lateinit var shareBookmarks: (List<BookmarkItem.Bookmark>) -> Unit
     private lateinit var showTabsTray: (Boolean) -> Unit
     private lateinit var getBrowsingMode: () -> BrowsingMode
@@ -97,6 +99,7 @@ class BookmarksMiddlewareTest {
         navigateToBrowser = { }
         navigateToSearch = { }
         navigateToSignIntoSync = { }
+        navigateToImportDialog = { }
         shareBookmarks = { }
         showTabsTray = { _ -> }
         getBrowsingMode = { BrowsingMode.Normal }
@@ -3299,6 +3302,40 @@ class BookmarksMiddlewareTest {
         assertNull(store.state.bookmarksEditBookmarkState)
     }
 
+    @Test
+    fun `WHEN RootOverflowMenuClicked is dispatched THEN state is updated and no side effects occur`() = runTest {
+        val store = buildMiddleware(this).makeStore()
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(store.state.rootMenuShown)
+        store.dispatch(RootOverflowMenuClicked)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(store.state.rootMenuShown)
+    }
+
+    @Test
+    fun `WHEN RootOverflowMenuDismissed is dispatched THEN rootMenuShown is set to false`() = runTest {
+        val store = buildMiddleware(this).makeStore(BookmarksState.default.copy(rootMenuShown = true))
+        testScheduler.advanceUntilIdle()
+
+        store.dispatch(RootOverflowMenuDismissed)
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(store.state.rootMenuShown)
+    }
+
+    @Test
+    fun `WHEN ImportFileClicked is dispatched THEN rootMenuShown is false and launchFilePicker is true`() = runTest {
+        val store = buildMiddleware(this).makeStore(BookmarksState.default.copy(rootMenuShown = true))
+        testScheduler.advanceUntilIdle()
+
+        store.dispatch(ImportAction.ImportFileClicked)
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(store.state.rootMenuShown)
+    }
+
     private fun buildMiddleware(
         scope: CoroutineScope,
         useNewSearchUX: Boolean = false,
@@ -3315,6 +3352,7 @@ class BookmarksMiddlewareTest {
         navigateToBrowser = navigateToBrowser,
         navigateToSearch = navigateToSearch,
         navigateToSignIntoSync = navigateToSignIntoSync,
+        navigateToImportDialog = navigateToImportDialog,
         shareBookmarks = shareBookmarks,
         showTabsTray = showTabsTray,
         resolveFolderTitle = resolveFolderTitle,
@@ -3322,6 +3360,7 @@ class BookmarksMiddlewareTest {
         saveBookmarkSortOrder = saveSortOrder,
         lastSavedFolderCache = lastSavedFolderCache,
         reportResultGlobally = reportResultGlobally,
+        importResults = { emptyFlow() },
         lifecycleScope = scope,
     )
 

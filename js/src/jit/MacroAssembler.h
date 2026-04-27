@@ -2028,6 +2028,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   inline void branchTestMagic(Condition cond, const Address& valaddr,
                               JSWhyMagic why, Label* label) PER_ARCH;
+  inline void branchTestMagic(Condition cond, const BaseIndex& valaddr,
+                              JSWhyMagic why, Label* label) PER_ARCH;
 
   inline void branchTestMagicValue(Condition cond, const ValueOperand& val,
                                    JSWhyMagic why, Label* label);
@@ -5902,6 +5904,10 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void dateSecondsFromSecondsIntoYear(ValueOperand secondsIntoYear,
                                       ValueOperand output, Register scratch1,
                                       Register scratch2);
+
+  void timeClip(FloatRegister time, FloatRegister output);
+  void timeClip(FloatRegister time, FloatRegister output, Register scratch,
+                const LiveRegisterSet& liveRegs);
 
   void computeImplicitThis(Register env, ValueOperand output, Label* slowPath);
 

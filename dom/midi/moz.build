@@ -16,6 +16,7 @@ EXPORTS.mozilla.dom += [
     "MIDIAccessManager.h",
     "MIDIInput.h",
     "MIDIInputMap.h",
+    "MIDIIPCUtils.h",
     "MIDIManagerChild.h",
     "MIDIManagerParent.h",
     "MIDIMessageEvent.h",

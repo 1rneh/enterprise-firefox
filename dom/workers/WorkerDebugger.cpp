@@ -311,8 +311,11 @@ WorkerDebugger::GetWindowIDs(nsTArray<uint64_t>& aResult) {
   } else if (mWorkerPrivate->IsSharedWorker()) {
     const RemoteWorkerChild* const controller =
         mWorkerPrivate->GetRemoteWorkerController();
-    MOZ_ASSERT(controller);
-    aResult = controller->WindowIDs().Clone();
+    // In case this is called during the WorkerDebugger registration, the
+    // controller is not set yet, and it will be set after the registration done
+    if (controller) {
+      aResult = controller->WindowIDs().Clone();
+    }
   }
 
   return NS_OK;

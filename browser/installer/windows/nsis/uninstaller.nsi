@@ -495,6 +495,7 @@ Section "Uninstall"
     SetShellVarContext all  ; Set SHCTX to HKLM
     DeleteRegValue HKLM "Software\Mozilla" "${BrandShortName}InstallerTest"
     StrCpy $RegHive "HKLM"
+    DeleteRegValue HKLM "Software\Mozilla\${BrandFullNameInternal}" "UpdaterDeletedShortcut"
     ${un.RegCleanMain} "Software\Mozilla"
     ${un.RegCleanUninstall}
     ${un.DeleteShortcuts}

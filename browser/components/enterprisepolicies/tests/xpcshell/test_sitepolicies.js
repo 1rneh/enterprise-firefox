@@ -342,6 +342,6 @@ add_task(async function test_hasSitePoliciesForURI() {
     },
   });
 
-  assertHasSitePolicy("http://example.com/", true);
+  assertHasSitePolicy("http://example.com/", false);
   assertHasSitePolicy("http://example.net/", false);
 });

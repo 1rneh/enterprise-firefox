@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.232
- * pdfjsBuild = 4489c4106
+ * pdfjsVersion = 5.7.272
+ * pdfjsBuild = 53931c5d2
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -956,6 +956,7 @@ const {
   getFilenameFromUrl,
   getPdfFilenameFromUrl,
   getRGB,
+  getRGBA,
   getUuid,
   getXfaPageViewport,
   GlobalWorkerOptions,
@@ -2360,7 +2361,7 @@ class CaretBrowsingMode {
   #getNodeOnNextPage(textLayer, isUp) {
     while (true) {
       const page = textLayer.closest(".page");
-      const pageNumber = parseInt(page.getAttribute("data-page-number"));
+      const pageNumber = parseInt(page.getAttribute("data-page-number"), 10);
       const nextPage = isUp ? pageNumber - 1 : pageNumber + 1;
       textLayer = this.#viewerContainer.querySelector(`.page[data-page-number="${nextPage}"] .textLayer`);
       if (!textLayer) {
@@ -8635,7 +8636,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "5.7.232";
+    const viewerVersion = "5.7.272";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -11189,6 +11190,8 @@ const PDFViewerApplication = {
     } else {
       await (this.pdfDocument?.annotationStorage.size > 0 ? this.save() : this.download());
     }
+    delete this._mergedDocumentNeedsSaving;
+    this.setTitle();
     classList.remove("wait");
   },
   async _documentError(key, moreInfo = null) {
@@ -11521,7 +11524,7 @@ const PDFViewerApplication = {
     }
   },
   _hasChanges() {
-    return this.pdfDocument?.annotationStorage.size > 0 || this.pdfThumbnailViewer?.hasStructuralChanges();
+    return this.pdfDocument?.annotationStorage.size > 0 || this.pdfThumbnailViewer?.hasStructuralChanges() || this._mergedDocumentNeedsSaving === true;
   },
   _initializeAnnotationStorageCallbacks(pdfDocument) {
     if (pdfDocument !== this.pdfDocument) {
@@ -11866,6 +11869,7 @@ const PDFViewerApplication = {
       console.error("Something wrong happened when saving the edited PDF.\nPlease file a bug.");
       return;
     }
+    this._mergedDocumentNeedsSaving = true;
     this.open({
       data: modifiedPdfBytes,
       filename: this._docFilename

@@ -4227,6 +4227,7 @@
 
   &::-moz-color-swatch{
     border-radius:100%;
+    margin:0;
   }
 
 }

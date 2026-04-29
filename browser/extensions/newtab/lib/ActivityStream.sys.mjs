@@ -705,7 +705,7 @@ export const PREFS_CONFIG = new Map([
     {
       title:
         "Boolean flag controlling wallpaper visibility -- if true the user's selected wallpaper is shown, if false it is hidden",
-      value: true,
+      value: false,
     },
   ],
   [

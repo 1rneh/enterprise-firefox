@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.232
- * pdfjsBuild = 4489c4106
+ * pdfjsVersion = 5.7.272
+ * pdfjsBuild = 53931c5d2
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -93,6 +93,7 @@ const AnnotationEditorParamsType = {
   INK_COLOR: 21,
   INK_THICKNESS: 22,
   INK_OPACITY: 23,
+  INK_COLOR_AND_OPACITY: 24,
   HIGHLIGHT_COLOR: 31,
   HIGHLIGHT_THICKNESS: 32,
   HIGHLIGHT_FREE: 33,
@@ -533,11 +534,25 @@ class FeatureTest {
   static get isCSSRoundSupported() {
     return shadow(this, "isCSSRoundSupported", globalThis.CSS?.supports?.("width: round(1.5px, 1px)"));
   }
+  static get isAlphaColorInputSupported() {
+    return shadow(this, "isAlphaColorInputSupported", (() => {
+      if (typeof document === "undefined") {
+        return false;
+      }
+      const input = document.createElement("input");
+      input.type = "color";
+      input.setAttribute("alpha", "");
+      input.value = "#ff000080";
+      return input.value !== "#ff0000";
+    })());
+  }
 }
-const hexNumbers = Array.from(Array(256).keys(), n => n.toString(16).padStart(2, "0"));
 class Util {
+  static get hexNums() {
+    return shadow(this, "hexNums", Array.from(Array(256).keys(), n => n.toString(16).padStart(2, "0")));
+  }
   static makeHexColor(r, g, b) {
-    return `#${hexNumbers[r]}${hexNumbers[g]}${hexNumbers[b]}`;
+    return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
   }
   static domMatrixToTransform(dm) {
     return [dm.a, dm.b, dm.c, dm.d, dm.e, dm.f];
@@ -1093,7 +1108,7 @@ class Ref {
     if (!m || m[1] === "0") {
       return null;
     }
-    return RefCache[str] = new Ref(parseInt(m[1]), !m[2] ? 0 : parseInt(m[2]));
+    return RefCache[str] = new Ref(parseInt(m[1], 10), !m[2] ? 0 : parseInt(m[2], 10));
   }
   static get(num, gen) {
     const key = gen === 0 ? `${num}R` : `${num}R${gen}`;
@@ -1268,7 +1283,6 @@ class BaseStream {
 
 const PDF_VERSION_REGEXP = /^[1-9]\.\d$/;
 const MAX_INT_32 = 2 ** 31 - 1;
-const MIN_INT_32 = (/* unused pure expression or super */ null && (-(2 ** 31)));
 const IDENTITY_MATRIX = [1, 0, 0, 1, 0, 0];
 const RESOURCES_KEYS_OPERATOR_LIST = ["ColorSpace", "ExtGState", "Font", "Pattern", "Properties", "Shading", "XObject"];
 const RESOURCES_KEYS_TEXT_CONTENT = ["ExtGState", "Font", "Properties", "XObject"];
@@ -1701,7 +1715,7 @@ function stringToUTF16HexString(str) {
   const buf = [];
   for (let i = 0, ii = str.length; i < ii; i++) {
     const char = str.charCodeAt(i);
-    buf.push(hexNumbers[char >> 8 & 0xff], hexNumbers[char & 0xff]);
+    buf.push(Util.hexNums[char >> 8 & 0xff], Util.hexNums[char & 0xff]);
   }
   return buf.join("");
 }
@@ -2797,7 +2811,7 @@ class IccColorSpace extends ColorSpace {
           });
           isUsable = !!this._module;
           QCMS._memory = this._module.memory;
-          QCMS._makeHexColor = Util.makeHexColor;
+          QCMS._makeHexColor = Util.makeHexColor.bind(Util);
         } catch (e) {
           warn(`ICCBased color space: "${e}".`);
         }
@@ -51021,7 +51035,7 @@ class XdpNamespace {
 const XHTML_NS_ID = NamespaceIds.xhtml.id;
 const $richText = Symbol();
 const VALID_STYLES = new Set(["color", "font", "font-family", "font-size", "font-stretch", "font-style", "font-weight", "margin", "margin-bottom", "margin-left", "margin-right", "margin-top", "letter-spacing", "line-height", "orphans", "page-break-after", "page-break-before", "page-break-inside", "tab-interval", "tab-stop", "text-align", "text-decoration", "text-indent", "vertical-align", "widows", "kerning-mode", "xfa-font-horizontal-scale", "xfa-font-vertical-scale", "xfa-spacerun", "xfa-tab-stops"]);
-const StyleMapping = new Map([["page-break-after", "breakAfter"], ["page-break-before", "breakBefore"], ["page-break-inside", "breakInside"], ["kerning-mode", value => value === "none" ? "none" : "normal"], ["xfa-font-horizontal-scale", value => `scaleX(${Math.max(0, parseInt(value) / 100).toFixed(2)})`], ["xfa-font-vertical-scale", value => `scaleY(${Math.max(0, parseInt(value) / 100).toFixed(2)})`], ["xfa-spacerun", ""], ["xfa-tab-stops", ""], ["font-size", (value, original) => {
+const StyleMapping = new Map([["page-break-after", "breakAfter"], ["page-break-before", "breakBefore"], ["page-break-inside", "breakInside"], ["kerning-mode", value => value === "none" ? "none" : "normal"], ["xfa-font-horizontal-scale", value => `scaleX(${Math.max(0, parseInt(value, 10) / 100).toFixed(2)})`], ["xfa-font-vertical-scale", value => `scaleY(${Math.max(0, parseInt(value, 10) / 100).toFixed(2)})`], ["xfa-spacerun", ""], ["xfa-tab-stops", ""], ["font-size", (value, original) => {
   value = original.fontSize = Math.abs(getMeasurement(value));
   return measureToString(0.99 * value);
 }], ["letter-spacing", value => measureToString(getMeasurement(value))], ["line-height", value => measureToString(getMeasurement(value))], ["margin", value => measureToString(getMeasurement(value))], ["margin-bottom", value => measureToString(getMeasurement(value))], ["margin-left", value => measureToString(getMeasurement(value))], ["margin-right", value => measureToString(getMeasurement(value))], ["margin-top", value => measureToString(getMeasurement(value))], ["text-indent", value => measureToString(getMeasurement(value))], ["font-family", value => value], ["vertical-align", value => measureToString(getMeasurement(value))]]);
@@ -51785,7 +51799,7 @@ class XFAFactory {
           width,
           height
         } = c.attributes.style;
-        return [0, 0, parseInt(width), parseInt(height)];
+        return [0, 0, parseInt(width, 10), parseInt(height, 10)];
       });
     } catch (e) {
       warn(`XFA - an error occurred during layout: ${e}`);
@@ -53058,9 +53072,10 @@ class WidgetAnnotation extends Annotation {
   }
   _decodeFormValue(formValue) {
     if (Array.isArray(formValue)) {
-      return formValue.filter(item => typeof item === "string").map(item => stringToPDFString(item));
+      const arr = formValue.map(item => this._decodeFormValue(item)).filter(item => item !== null);
+      return arr.length > 0 ? arr : null;
     } else if (formValue instanceof Name) {
-      return stringToPDFString(formValue.name);
+      return formValue.name;
     } else if (typeof formValue === "string") {
       return stringToPDFString(formValue);
     }
@@ -53982,7 +53997,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       this.data.fieldValue = asValue;
     }
     const yes = this.data.fieldValue !== null && this.data.fieldValue !== "Off" ? this.data.fieldValue : "Yes";
-    const exportValues = this._decodeFormValue([...normalAppearance.getKeys()]);
+    const exportValues = [...normalAppearance.getKeys()];
     if (exportValues.length === 0) {
       exportValues.push("Off", yes);
     } else if (exportValues.length === 1) {
@@ -54040,7 +54055,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     }
     for (const key of normalAppearance.getKeys()) {
       if (key !== "Off") {
-        this.data.buttonValue = this._decodeFormValue(key);
+        this.data.buttonValue = key;
         break;
       }
     }
@@ -57412,7 +57427,7 @@ class XRef {
         if (!entry) {
           continue;
         }
-        const ref = Ref.get(parseInt(num), entry.gen);
+        const ref = Ref.get(parseInt(num, 10), entry.gen);
         let obj;
         try {
           obj = this.fetch(ref);
@@ -62337,7 +62352,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "5.7.232";
+    const workerVersion = "5.7.272";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }

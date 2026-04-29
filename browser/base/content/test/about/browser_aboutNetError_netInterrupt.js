@@ -3,28 +3,8 @@
 
 "use strict";
 
-async function loadNetInterruptErrorPage(hostAndPort) {
-  let browser, tab;
-  const url = `about:neterror?e=netInterrupt&u=http%3A%2F%2F${encodeURIComponent(hostAndPort)}%2F`;
-  await BrowserTestUtils.openNewForegroundTab(
-    gBrowser,
-    () => {
-      gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
-      browser = gBrowser.selectedBrowser;
-      tab = gBrowser.selectedTab;
-    },
-    false
-  );
-  const pageLoaded = BrowserTestUtils.waitForErrorPage(browser);
-  SpecialPowers.spawn(browser, [url], errorUrl => {
-    content.location = errorUrl;
-  });
-  await pageLoaded;
-  return { browser, tab };
-}
-
 add_task(async function test_netInterrupt_error_page_elements() {
-  const { browser, tab } = await loadNetInterruptErrorPage("127.0.0.1");
+  const { browser, tab } = await loadNetErrorPage("netInterrupt", "127.0.0.1");
 
   await SpecialPowers.spawn(browser, [], async function () {
     await ContentTaskUtils.waitForCondition(

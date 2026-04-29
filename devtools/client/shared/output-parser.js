@@ -466,13 +466,25 @@ class OutputParser {
       if (!token) {
         break;
       }
-      const lowerCaseTokenText = token.text?.toLowerCase();
       const tokenType = token.tokenType;
-
       if (tokenType === "Comment") {
         // This doesn't change spaceNeeded, because we didn't emit
         // anything to the output.
         continue;
+      }
+
+      const tokenText = text.substring(token.startOffset, token.endOffset);
+      const lowerCaseTokenText = tokenText.toLowerCase();
+
+      if (
+        this.#stack.length &&
+        // Don't add the token text to the current stack if we have a function or an
+        // opening parenthesis, as we're going to create a new stack entry for those (with
+        // the tokenText being the initial text value in it)
+        tokenType !== "Function" &&
+        tokenType !== "ParenthesisBlock"
+      ) {
+        this.#stack.at(-1).text += tokenText;
       }
 
       switch (tokenType) {
@@ -488,6 +500,7 @@ class OutputParser {
             lowerCaseFunctionName,
             functionName,
             isColorTakingFunction,
+            text: tokenText,
           });
 
           if (
@@ -501,10 +514,7 @@ class OutputParser {
             // it isn't special in some other way. So, we let it
             // through to the ordinary parsing loop so that the value
             // can be handled in a single place.
-            this.#appendTextNode(
-              text.substring(token.startOffset, token.endOffset),
-              token
-            );
+            this.#appendTextNode(tokenText, token);
           } else if (
             lowerCaseFunctionName === "var" &&
             options.getVariableData
@@ -688,16 +698,13 @@ class OutputParser {
             // identifier to be equal to 'important'.
             fontFamilyNameParts.push(token.text);
           } else {
-            this.#appendTextNode(
-              text.substring(token.startOffset, token.endOffset),
-              token
-            );
+            this.#appendTextNode(tokenText, token);
           }
           break;
 
         case "IDHash":
         case "Hash": {
-          const original = text.substring(token.startOffset, token.endOffset);
+          const original = tokenText;
           if (colorOK() && InspectorUtils.isValidCSSColor(original)) {
             if (spaceNeeded) {
               // Insert a space to prevent token pasting when a #xxx
@@ -721,33 +728,23 @@ class OutputParser {
           break;
         }
         case "Dimension": {
-          const value = text.substring(token.startOffset, token.endOffset);
-          if (angleOK(value)) {
-            this.#appendAngle(value, options, token);
+          if (angleOK(tokenText)) {
+            this.#appendAngle(tokenText, options, token);
           } else {
-            this.#appendTextNode(value, token);
+            this.#appendTextNode(tokenText, token);
           }
           break;
         }
         case "UnquotedUrl":
         case "BadUrl":
-          this.#appendURL(
-            text.substring(token.startOffset, token.endOffset),
-            token.value,
-            options
-          );
+          this.#appendURL(tokenText, token.value, options);
           break;
 
         case "QuotedString":
           if (options.expectFont) {
-            fontFamilyNameParts.push(
-              text.substring(token.startOffset, token.endOffset)
-            );
+            fontFamilyNameParts.push(tokenText);
           } else {
-            this.#appendTextNode(
-              text.substring(token.startOffset, token.endOffset),
-              token
-            );
+            this.#appendTextNode(tokenText, token);
           }
           break;
 
@@ -755,19 +752,13 @@ class OutputParser {
           if (options.expectFont) {
             fontFamilyNameParts.push(" ");
           } else {
-            this.#appendTextNode(
-              text.substring(token.startOffset, token.endOffset),
-              token
-            );
+            this.#appendTextNode(tokenText, token);
           }
           break;
 
         case "ParenthesisBlock":
-          this.#createStackEntry({ isParenthesis: true });
-          this.#appendTextNode(
-            text.substring(token.startOffset, token.endOffset),
-            token
-          );
+          this.#createStackEntry({ isParenthesis: true, text: tokenText });
+          this.#appendTextNode(tokenText, token);
           break;
 
         case "CloseParenthesis": {
@@ -807,10 +798,7 @@ class OutputParser {
 
         // falls through
         default:
-          this.#appendTextNode(
-            text.substring(token.startOffset, token.endOffset),
-            token
-          );
+          this.#appendTextNode(tokenText, token);
           break;
       }
 
@@ -860,12 +848,12 @@ class OutputParser {
       // The parsed parts of the function that will be rendered on screen.
       // This can hold Element or Text instances
       parts: [],
-      // A <(Element|Text),(Token|Symbol)> Map, whose keys are element in `parts`,
+      // A <(Element|Text),object> Map, whose keys are element in `parts`,
       // and values are usually the token they represents (multiple part can represent
       // a single token).
       // When a stack entry was already handled in #onCloseParenthesis, the value will
-      // be CLOSED_STACK_ENTRY so consumers can know the part was for a
-      // previous stack entry and shouldn't be considered.
+      // be an object with a CLOSED_STACK_ENTRY tokenType and a `stackEntry` property
+      // representing the closed stack entry
       tokensByPart: new WeakMap(),
       // Function name if token is a function, null otherwise.
       functionName: null,
@@ -877,6 +865,8 @@ class OutputParser {
       isColorTakingFunction: null,
       // Boolean indicating if the stack entry represent a parenthesis block
       isParenthesis: null,
+      // Will hold the text for the stack entry, i.e. the whole function call (e.g. `min(10px, max(1em, 40vw))`),
+      text: "",
       ...entryData,
     };
     this.#stack.push(stackEntry);
@@ -888,7 +878,7 @@ class OutputParser {
     }
 
     const stackEntry = this.#stack.pop();
-    let parts = stackEntry.parts;
+    let { parts, text } = stackEntry;
     if (stackEntry.lowerCaseFunctionName === "light-dark") {
       parts = this.#onCloseParenthesisForLightDark(stackEntry, options);
     } else if (stackEntry.lowerCaseFunctionName === "cubic-bezier") {
@@ -905,11 +895,15 @@ class OutputParser {
 
     if (this.#stack.length) {
       const lastStackEntry = this.#stack.at(-1);
-
-      for (const part of parts) {
+      lastStackEntry.text += text;
+      const closedStackEntryToken = {
         // Associate CLOSED_STACK_ENTRY to the part so consumers can know the part was for
         // a previous stack entry and shouldn't be considered.
-        lastStackEntry.tokensByPart.set(part, CLOSED_STACK_ENTRY);
+        tokenType: CLOSED_STACK_ENTRY,
+        stackEntry,
+      };
+      for (const part of parts) {
+        lastStackEntry.tokensByPart.set(part, closedStackEntryToken);
       }
     }
   }
@@ -1069,7 +1063,7 @@ class OutputParser {
       return stackEntry.parts;
     }
 
-    const linear = stackEntry.parts.map(p => p.textContent ?? p).join("");
+    const linear = stackEntry.text;
 
     if (linear.includes("var(")) {
       // For now, we don't support cubic-bezier with CSS variables (see Bug 2031696)
@@ -1121,7 +1115,7 @@ class OutputParser {
         continue;
       }
       const token = stackEntry.tokensByPart.get(part);
-      if (token === CLOSED_STACK_ENTRY) {
+      if (token.tokenType === CLOSED_STACK_ENTRY) {
         continue;
       }
 
@@ -1218,7 +1212,7 @@ class OutputParser {
       if (
         // we might get into a part that was already handled, for example a nested function,
         // and in such case, it should be part of the fallback element
-        token === CLOSED_STACK_ENTRY ||
+        token.tokenType === CLOSED_STACK_ENTRY ||
         token.tokenType !== "WhiteSpace"
       ) {
         fallbackStartIndex = i;
@@ -1242,7 +1236,7 @@ class OutputParser {
       if (
         // we might get into a part that was already handled, for example a nested function,
         // and in such case, it should be part of the fallback element
-        token === CLOSED_STACK_ENTRY ||
+        token.tokenType === CLOSED_STACK_ENTRY ||
         token.tokenType !== "WhiteSpace"
       ) {
         fallbackEndTokenIndex = i;

@@ -17279,7 +17279,6 @@ class CGDescriptor(CGThing):
                 elif m.getExtendedAttribute("Replaceable"):
                     cgThings.append(CGSpecializedReplaceableSetter(descriptor, m))
                 elif m.getExtendedAttribute("LegacyLenientSetter"):
-                    # XXX In this case, we need to add an include for mozilla/dom/Document.h to the generated cpp file.
                     cgThings.append(CGSpecializedLenientSetter(descriptor, m))
                 if (
                     not m.isStatic()
@@ -19384,14 +19383,15 @@ class CGBindingRoot(CGThing):
         # JS_GetOwnPropertyDescriptorById
         bindingHeaders["js/PropertyDescriptor.h"] = True
 
-        def descriptorDeprecated(desc):
+        def descriptorDeprecatedOrLenientSetter(desc):
             iface = desc.interface
-            return any(
-                m.getExtendedAttribute("Deprecated") for m in iface.members + [iface]
-            )
+            return any((
+                m.getExtendedAttribute("Deprecated")
+                or m.getExtendedAttribute("LegacyLenientSetter")
+            ) for m in iface.members + [iface])
 
         bindingHeaders["mozilla/dom/Document.h"] = any(
-            descriptorDeprecated(d) for d in descriptors
+            descriptorDeprecatedOrLenientSetter(d) for d in descriptors
         )
 
         bindingHeaders["mozilla/dom/DOMJSProxyHandler.h"] = any(

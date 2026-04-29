@@ -6,6 +6,7 @@
 /** @import { MozOption } from 'moz-src:///toolkit/content/widgets/moz-select/moz-select.mjs';*/
 /** @import MozSelect from 'moz-src:///toolkit/content/widgets/moz-select/moz-select.mjs';*/
 /** @import MozBoxGroup from 'chrome://global/content/elements/moz-box-group.mjs'; */
+/** @import { AsyncSettingHandler } from 'chrome://global/content/preferences/AsyncSetting.mjs'; */
 
 /* import-globals-from extensionControlled.js */
 /* import-globals-from preferences.js */
@@ -16,6 +17,11 @@
 /**
  * @import { Setting } from "chrome://global/content/preferences/Setting.mjs"
  */
+
+const { Multilingual } = ChromeUtils.importESModule(
+  "chrome://browser/content/preferences/config/languages.mjs",
+  { global: "current" }
+);
 
 ChromeUtils.defineESModuleGetters(this, {
   BackgroundUpdate: "resource://gre/modules/BackgroundUpdate.sys.mjs",
@@ -161,15 +167,11 @@ Preferences.addAll([
     type: "bool",
   },
 
-  // Languages
-  { id: "intl.regional_prefs.use_os_locales", type: "bool" },
-
-  { id: "intl.accept_languages", type: "string" },
-  { id: "privacy.spoof_english", type: "int" },
+  // Languages (intl.multilingual.*, intl.regional_prefs.*, intl.accept_languages,
+  // privacy.spoof_english) are registered from config/languages.mjs.
   // General tab
 
   /* Browsing */
-  { id: "layout.spellcheckDefault", type: "int" },
 
   { id: "browser.ml.linkPreview.enabled", type: "bool" },
   { id: "browser.ml.linkPreview.optin", type: "bool" },
@@ -212,9 +214,6 @@ Preferences.addAll([
 
   // Appearance
   { id: "layout.css.prefers-color-scheme.content-override", type: "int" },
-
-  // Translations
-  { id: "browser.translations.automaticallyPopup", type: "bool" },
 ]);
 
 if (AppConstants.HAVE_SHELL_SERVICE) {
@@ -629,212 +628,6 @@ Preferences.addSetting({
     );
   },
 });
-
-Preferences.addSetting({
-  id: "acceptLanguages",
-  pref: "intl.accept_languages",
-  get(prefVal, _, setting) {
-    return setting.pref.defaultValue != prefVal
-      ? prefVal.toLowerCase()
-      : Services.locale.acceptLanguages.toLowerCase();
-  },
-});
-Preferences.addSetting({
-  id: "availableLanguages",
-  deps: ["acceptLanguages"],
-  get(_, { acceptLanguages }) {
-    let re = /\s*(?:,|$)\s*/;
-    let _acceptLanguages = acceptLanguages.value.split(re);
-    let availableLanguages = [];
-    let localeCodes = [];
-    let localeValues = [];
-    let bundle = Services.strings.createBundle(
-      "resource://gre/res/language.properties"
-    );
-
-    for (let currString of bundle.getSimpleEnumeration()) {
-      let property = currString.key.split(".");
-      if (property[1] == "accept") {
-        localeCodes.push(property[0]);
-        localeValues.push(currString.value);
-      }
-    }
-
-    let localeNames = Services.intl.getLocaleDisplayNames(
-      undefined,
-      localeCodes
-    );
-
-    for (let i in localeCodes) {
-      let isVisible =
-        localeValues[i] == "true" &&
-        (!_acceptLanguages.includes(localeCodes[i]) ||
-          !_acceptLanguages[localeCodes[i]]);
-      let locale = {
-        code: localeCodes[i],
-        displayName: localeNames[i],
-        isVisible,
-      };
-      availableLanguages.push(locale);
-    }
-
-    return availableLanguages;
-  },
-});
-
-Preferences.addSetting({
-  id: "websiteLanguageWrapper",
-  deps: ["acceptLanguages"],
-  onUserReorder(event, deps) {
-    const { draggedIndex, targetIndex } = event.detail;
-
-    let re = /\s*(?:,|$)\s*/;
-    let languages = deps.acceptLanguages.value.split(re).filter(lang => lang);
-
-    const [draggedLang] = languages.splice(draggedIndex, 1);
-
-    languages.splice(targetIndex, 0, draggedLang);
-
-    deps.acceptLanguages.value = languages.join(",");
-  },
-  getControlConfig(config, deps) {
-    let languagePref = deps.acceptLanguages.value;
-    let localeCodes = languagePref
-      .toLowerCase()
-      .split(/\s*,\s*/)
-      .filter(code => code.length);
-    let localeDisplayNames = Services.intl.getLocaleDisplayNames(
-      undefined,
-      localeCodes
-    );
-    /** @type {SettingOptionConfig[]} */
-    let availableLanguages = [];
-    for (let i = 0; i < localeCodes.length; i++) {
-      let displayName = localeDisplayNames[i];
-      let localeCode = localeCodes[i];
-      availableLanguages.push({
-        l10nId: "languages-code-format",
-        l10nArgs: {
-          locale: displayName,
-          code: localeCode,
-        },
-        control: "moz-box-item",
-        key: localeCode,
-        options: [
-          {
-            control: "moz-button",
-            slot: "actions-start",
-            iconSrc: "chrome://global/skin/icons/delete.svg",
-            l10nId: "website-remove-language-button",
-            l10nArgs: {
-              locale: displayName,
-              code: localeCode,
-            },
-            controlAttrs: {
-              locale: localeCode,
-              action: "remove",
-            },
-          },
-        ],
-      });
-    }
-    config.options = [config.options[0], ...availableLanguages];
-    return config;
-  },
-  onUserClick(e, deps) {
-    let code = e.target.getAttribute("locale");
-    let action = e.target.getAttribute("action");
-    if (code && action) {
-      if (action === "remove") {
-        let re = /\s*(?:,|$)\s*/;
-        let acceptedLanguages = deps.acceptLanguages.value.split(re);
-        let filteredLanguages = acceptedLanguages.filter(
-          acceptedCode => acceptedCode !== code
-        );
-        deps.acceptLanguages.value = filteredLanguages.join(",");
-        let closestBoxItem = e.target.closest("moz-box-item");
-        closestBoxItem.nextElementSibling
-          ? closestBoxItem.nextElementSibling.focus()
-          : closestBoxItem.previousElementSibling.focus();
-      }
-    }
-  },
-});
-
-Preferences.addSetting({
-  id: "websiteLanguageAddLanguage",
-  deps: ["websiteLanguagePicker", "acceptLanguages"],
-  onUserClick(e, deps) {
-    let selectedLanguage = deps.websiteLanguagePicker.value;
-    if (selectedLanguage == "-1") {
-      return;
-    }
-
-    let re = /\s*(?:,|$)\s*/;
-    let currentLanguages = deps.acceptLanguages.value.split(re);
-    let isAlreadyAccepted = currentLanguages.includes(selectedLanguage);
-
-    if (isAlreadyAccepted) {
-      return;
-    }
-
-    currentLanguages.unshift(selectedLanguage);
-    deps.acceptLanguages.value = currentLanguages.join(",");
-  },
-});
-
-Preferences.addSetting(
-  /** @type {{inputValue: string} & SettingConfig } */ ({
-    id: "websiteLanguagePicker",
-    deps: ["availableLanguages", "acceptLanguages"],
-    inputValue: "-1",
-    getControlConfig(config, deps) {
-      let re = /\s*(?:,|$)\s*/;
-      let availableLanguages =
-        /** @type {{ locale: string, code: string, displayName: string, isVisible: boolean }[]} */
-        deps.availableLanguages.value;
-
-      let acceptLanguages = new Set(
-        /** @type {string} */ (deps.acceptLanguages.value).split(re)
-      );
-
-      let sortedOptions = availableLanguages.map(locale => ({
-        l10nId: "languages-code-format",
-        l10nArgs: {
-          locale: locale.displayName,
-          code: locale.code,
-        },
-        hidden: locale.isVisible && acceptLanguages.has(locale.code),
-        value: locale.code,
-      }));
-      // Sort the list of languages by name
-      let comp = new Services.intl.Collator(undefined, {
-        usage: "sort",
-      });
-
-      sortedOptions.sort((a, b) => {
-        return comp.compare(a.l10nArgs.locale, b.l10nArgs.locale);
-      });
-
-      // Take the existing "Add Language" option and prepend it.
-      config.options = [config.options[0], ...sortedOptions];
-      return config;
-    },
-    get(_, deps) {
-      if (
-        !this.inputValue ||
-        deps.acceptLanguages.value.split(",").includes(this.inputValue)
-      ) {
-        this.inputValue = "-1";
-      }
-      return this.inputValue;
-    },
-    set(inputVal) {
-      this.inputValue = String(inputVal);
-    },
-  })
-);
-
 Preferences.addSetting({
   id: "containersPane",
   onUserClick(e) {
@@ -848,137 +641,6 @@ Preferences.addSetting({
   deps: ["aiControlDefault", "aiControlTranslations"],
   visible: ({ aiControlDefault, aiControlTranslations }) =>
     !Services.prefs.getBoolPref("browser.settings-redesign.enabled", false) &&
-    canShowAiFeature(aiControlTranslations, aiControlDefault),
-});
-
-Preferences.addSetting({
-  id: "offerTranslations",
-  pref: "browser.translations.automaticallyPopup",
-  deps: ["aiControlDefault", "aiControlTranslations"],
-  visible: ({ aiControlDefault, aiControlTranslations }) =>
-    canShowAiFeature(aiControlTranslations, aiControlDefault),
-});
-
-Preferences.addSetting({
-  id: "checkSpelling",
-  pref: "layout.spellcheckDefault",
-  get: prefVal => prefVal != 0,
-  set: val => (val ? 1 : 0),
-});
-
-Preferences.addSetting({
-  id: "downloadDictionaries",
-});
-
-Preferences.addSetting({
-  id: "spellCheckPromo",
-});
-
-function createNeverTranslateSitesDescription() {
-  const description = document.createElement("span");
-  description.dataset.l10nId =
-    "settings-translations-subpage-never-translate-sites-description";
-
-  for (const [name, src] of [
-    ["translations-icon", "chrome://browser/skin/translations.svg"],
-    ["settings-icon", "chrome://global/skin/icons/settings.svg"],
-  ]) {
-    const icon = document.createElement("img");
-    icon.src = src;
-
-    icon.dataset.l10nName = name;
-    icon.style.verticalAlign = "middle";
-
-    icon.setAttribute("role", "presentation");
-    icon.setAttribute("width", "16");
-    icon.setAttribute("height", "16");
-
-    description.appendChild(icon);
-  }
-
-  return description;
-}
-
-Preferences.addSetting({
-  id: "translationsDownloadLanguagesGroup",
-});
-
-Preferences.addSetting({
-  id: "translationsDownloadLanguagesRow",
-});
-
-Preferences.addSetting({
-  id: "translationsDownloadLanguagesSelect",
-});
-
-Preferences.addSetting({
-  id: "translationsDownloadLanguagesButton",
-});
-
-Preferences.addSetting({
-  id: "translationsDownloadLanguagesNoneRow",
-});
-
-Preferences.addSetting({
-  id: "translationsAlwaysTranslateLanguagesGroup",
-});
-
-Preferences.addSetting({
-  id: "translationsAlwaysTranslateLanguagesRow",
-});
-
-Preferences.addSetting({
-  id: "translationsAlwaysTranslateLanguagesSelect",
-});
-
-Preferences.addSetting({
-  id: "translationsAlwaysTranslateLanguagesNoneRow",
-});
-
-Preferences.addSetting({
-  id: "translationsAlwaysTranslateLanguagesButton",
-});
-
-Preferences.addSetting({
-  id: "translationsNeverTranslateLanguagesNoneRow",
-});
-
-Preferences.addSetting({
-  id: "translationsNeverTranslateLanguagesButton",
-});
-
-Preferences.addSetting({
-  id: "translationsNeverTranslateLanguagesGroup",
-});
-
-Preferences.addSetting({
-  id: "translationsNeverTranslateLanguagesRow",
-});
-
-Preferences.addSetting({
-  id: "translationsNeverTranslateLanguagesSelect",
-});
-
-Preferences.addSetting({
-  id: "translationsNeverTranslateSitesGroup",
-});
-
-Preferences.addSetting({
-  id: "translationsNeverTranslateSitesRow",
-});
-
-Preferences.addSetting({
-  id: "translationsNeverTranslateSitesNoneRow",
-});
-
-Preferences.addSetting({
-  id: "translationsManageButton",
-  deps: ["aiControlDefault", "aiControlTranslations"],
-  onUserClick(e) {
-    e.preventDefault();
-    gotoPref("paneTranslations");
-  },
-  visible: ({ aiControlDefault, aiControlTranslations }) =>
     canShowAiFeature(aiControlTranslations, aiControlDefault),
 });
 
@@ -2580,57 +2242,6 @@ SettingGroupManager.registerGroups({
   startup: createStartupConfig(
     Services.prefs.getBoolPref("browser-settings-redesign.enabled", false)
   ),
-  translations: {
-    inProgress: true,
-    l10nId: "settings-translations-header",
-    iconSrc: "chrome://browser/skin/translations.svg",
-    supportPage: "website-translation",
-    headingLevel: 2,
-    items: [
-      {
-        id: "offerTranslations",
-        l10nId: "settings-translations-offer-to-translate-label",
-      },
-      {
-        id: "translationsManageButton",
-        l10nId: "settings-translations-more-settings-button",
-        control: "moz-box-button",
-      },
-    ],
-  },
-  spellCheck: {
-    l10nId: "settings-spellcheck-header",
-    iconSrc: "chrome://global/skin/icons/check.svg",
-    headingLevel: 2,
-    items: [
-      {
-        id: "checkSpelling",
-        l10nId: "check-user-spelling",
-        supportPage: "how-do-i-use-firefox-spell-checker",
-      },
-      {
-        id: "downloadDictionaries",
-        l10nId: "spellcheck-download-dictionaries",
-        control: "moz-box-link",
-        controlAttrs: {
-          href: Services.urlFormatter.formatURLPref(
-            "browser.dictionaries.download.url"
-          ),
-        },
-      },
-      {
-        id: "spellCheckPromo",
-        l10nId: "spellcheck-promo",
-        control: "moz-promo",
-        controlAttrs: {
-          imagesrc:
-            "chrome://browser/content/preferences/spell-check-promo.svg",
-          imagewidth: "large",
-          imagedisplay: "cover",
-        },
-      },
-    ],
-  },
   browserLayout: {
     l10nId: "browser-layout-header2",
     headingLevel: 2,
@@ -2719,52 +2330,6 @@ SettingGroupManager.registerGroups({
         controlAttrs: {
           href: "about:addons",
         },
-      },
-    ],
-  },
-  websiteLanguage: {
-    inProgress: true,
-    l10nId: "website-language-heading",
-    headingLevel: 2,
-    items: [
-      {
-        id: "websiteLanguageWrapper",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "reorderable-list",
-        },
-        options: [
-          {
-            id: "websiteLanguagePickerWrapper",
-            l10nId: "website-preferred-language",
-            key: "addlanguage",
-            control: "moz-box-item",
-            slot: "header",
-            items: [
-              {
-                id: "websiteLanguagePicker",
-                slot: "actions",
-                control: "moz-select",
-                options: [
-                  {
-                    control: "moz-option",
-                    l10nId: "website-add-language",
-                    controlAttrs: {
-                      value: "-1",
-                    },
-                  },
-                ],
-              },
-              {
-                id: "websiteLanguageAddLanguage",
-                slot: "actions",
-                control: "moz-button",
-                iconSrc: "chrome://global/skin/icons/plus.svg",
-                l10nId: "website-add-language-button",
-              },
-            ],
-          },
-        ],
       },
     ],
   },
@@ -3100,198 +2665,6 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
-  translationsAutomaticTranslation: {
-    inProgress: true,
-    headingLevel: 2,
-    l10nId: "settings-translations-subpage-automatic-translation-header",
-    items: [
-      {
-        id: "translationsAlwaysTranslateLanguagesGroup",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "list",
-        },
-        items: [
-          {
-            id: "translationsAlwaysTranslateLanguagesRow",
-            l10nId: "settings-translations-subpage-always-translate-header",
-            control: "moz-box-item",
-            slot: "header",
-            controlAttrs: {
-              class: "box-header-bold",
-            },
-            items: [
-              {
-                id: "translationsAlwaysTranslateLanguagesSelect",
-                slot: "actions",
-                control: "moz-select",
-                options: [
-                  {
-                    value: "",
-                    l10nId:
-                      "settings-translations-subpage-language-select-option",
-                  },
-                ],
-              },
-              {
-                id: "translationsAlwaysTranslateLanguagesButton",
-                l10nId: "settings-translations-subpage-language-add-button",
-                control: "moz-button",
-                slot: "actions",
-                controlAttrs: {
-                  type: "icon",
-                  iconsrc: "chrome://global/skin/icons/plus.svg",
-                },
-              },
-            ],
-          },
-          {
-            id: "translationsAlwaysTranslateLanguagesNoneRow",
-            l10nId: "settings-translations-subpage-no-languages-added",
-            control: "moz-box-item",
-            controlAttrs: {
-              class: "description-deemphasized",
-            },
-          },
-        ],
-      },
-      {
-        id: "translationsNeverTranslateLanguagesGroup",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "list",
-        },
-        items: [
-          {
-            id: "translationsNeverTranslateLanguagesRow",
-            l10nId: "settings-translations-subpage-never-translate-header",
-            control: "moz-box-item",
-            slot: "header",
-            controlAttrs: {
-              class: "box-header-bold",
-            },
-            items: [
-              {
-                id: "translationsNeverTranslateLanguagesSelect",
-                slot: "actions",
-                control: "moz-select",
-                options: [
-                  {
-                    value: "",
-                    l10nId:
-                      "settings-translations-subpage-language-select-option",
-                  },
-                ],
-              },
-              {
-                id: "translationsNeverTranslateLanguagesButton",
-                l10nId: "settings-translations-subpage-language-add-button",
-                control: "moz-button",
-                slot: "actions",
-                controlAttrs: {
-                  type: "icon",
-                  iconsrc: "chrome://global/skin/icons/plus.svg",
-                },
-              },
-            ],
-          },
-          {
-            id: "translationsNeverTranslateLanguagesNoneRow",
-            l10nId: "settings-translations-subpage-no-languages-added",
-            control: "moz-box-item",
-            controlAttrs: {
-              class: "description-deemphasized",
-            },
-          },
-        ],
-      },
-      {
-        id: "translationsNeverTranslateSitesGroup",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "list",
-        },
-        items: [
-          {
-            id: "translationsNeverTranslateSitesRow",
-            l10nId:
-              "settings-translations-subpage-never-translate-sites-header",
-            control: "moz-box-item",
-            controlAttrs: {
-              class: "box-header-bold",
-              ".description": createNeverTranslateSitesDescription(),
-            },
-          },
-          {
-            id: "translationsNeverTranslateSitesNoneRow",
-            l10nId: "settings-translations-subpage-no-sites-added",
-            control: "moz-box-item",
-            controlAttrs: {
-              class: "description-deemphasized",
-            },
-          },
-        ],
-      },
-    ],
-  },
-  translationsDownloadLanguages: {
-    inProgress: true,
-    headingLevel: 2,
-    l10nId: "settings-translations-subpage-speed-up-translation-header",
-    items: [
-      {
-        id: "translationsDownloadLanguagesGroup",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "list",
-        },
-        items: [
-          {
-            id: "translationsDownloadLanguagesRow",
-            l10nId: "settings-translations-subpage-download-languages-header",
-            control: "moz-box-item",
-            slot: "header",
-            controlAttrs: {
-              class: "box-header-bold",
-            },
-            items: [
-              {
-                id: "translationsDownloadLanguagesSelect",
-                slot: "actions",
-                control: "moz-select",
-                options: [
-                  {
-                    value: "",
-                    l10nId:
-                      "settings-translations-subpage-download-languages-select-option",
-                  },
-                ],
-              },
-              {
-                id: "translationsDownloadLanguagesButton",
-                l10nId:
-                  "settings-translations-subpage-download-languages-button",
-                control: "moz-button",
-                slot: "actions",
-                controlAttrs: {
-                  type: "icon",
-                  iconsrc: "chrome://browser/skin/downloads/downloads.svg",
-                },
-              },
-            ],
-          },
-          {
-            id: "translationsDownloadLanguagesNoneRow",
-            l10nId: "settings-translations-subpage-no-languages-downloaded",
-            control: "moz-box-item",
-            controlAttrs: {
-              class: "description-deemphasized",
-            },
-          },
-        ],
-      },
-    ],
-  },
 });
 
 /**
@@ -3390,6 +2763,7 @@ var gMainPane = {
     initSettingGroup("contrast");
     initSettingGroup("zoom");
     initSettingGroup("fonts");
+    initSettingGroup("browserLanguage");
     initSettingGroup("websiteLanguage");
     initSettingGroup("browsing");
     initSettingGroup("keyboardAndScrolling");
@@ -4109,25 +3483,7 @@ var gMainPane = {
       return;
     }
     let locales = localesString.split(",");
-    Services.locale.requestedLocales = locales;
-
-    // Record the change in telemetry before we restart.
-    gMainPane.recordBrowserLanguagesTelemetry("apply");
-
-    // Restart with the new locale.
-    let cancelQuit = Cc["@mozilla.org/supports-PRBool;1"].createInstance(
-      Ci.nsISupportsPRBool
-    );
-    Services.obs.notifyObservers(
-      cancelQuit,
-      "quit-application-requested",
-      "restart"
-    );
-    if (!cancelQuit.data) {
-      Services.startup.quit(
-        Services.startup.eAttemptQuit | Services.startup.eRestart
-      );
-    }
+    Multilingual.applyAndRestart(locales);
   },
 
   /* Show or hide the confirm change message bar based on the new locale. */
@@ -4146,22 +3502,22 @@ var gMainPane = {
       new Set([locale, ...Services.locale.requestedLocales]).values()
     );
 
-    gMainPane.recordBrowserLanguagesTelemetry("reorder");
+    Multilingual.recordTelemetry("reorder");
 
-    switch (gMainPane.getLanguageSwitchTransitionType(newLocales)) {
-      case "requires-restart":
+    switch (Multilingual.getTransitionType(newLocales)) {
+      case Multilingual.TransitionType.RestartRequired:
         // Prepare to change the locales, as they were different.
         gMainPane.showConfirmLanguageChangeMessageBar(newLocales);
         gMainPane.updatePrimaryBrowserLanguageUI(newLocales[0]);
         break;
-      case "live-reload":
+      case Multilingual.TransitionType.LiveReload:
         Services.locale.requestedLocales = newLocales;
         gMainPane.updatePrimaryBrowserLanguageUI(
           Services.locale.appLocaleAsBCP47
         );
         gMainPane.hideConfirmLanguageChangeMessageBar();
         break;
-      case "locales-match":
+      case Multilingual.TransitionType.LocalesMatch:
         // They matched, so we can reset the UI.
         gMainPane.updatePrimaryBrowserLanguageUI(
           Services.locale.appLocaleAsBCP47
@@ -4195,12 +3551,6 @@ var gMainPane = {
     );
   },
 
-  recordBrowserLanguagesTelemetry(method, value = null) {
-    Glean.intlUiBrowserLanguage[method + "Main"].record(
-      value ? { value } : undefined
-    );
-  },
-
   /**
    * Open the browser languages sub dialog in either the normal mode, or search mode.
    * The search mode is only available from the menu to change the primary browser
@@ -4215,7 +3565,7 @@ var gMainPane = {
       10
     ).toString();
     let method = search ? "search" : "manage";
-    gMainPane.recordBrowserLanguagesTelemetry(method, telemetryId);
+    Multilingual.recordTelemetry(method, telemetryId);
 
     let opts = {
       selectedLocalesForRestart: gMainPane.selectedLocalesForRestart,
@@ -4227,37 +3577,6 @@ var gMainPane = {
       { closingCallback: this.browserLanguagesClosed },
       opts
     );
-  },
-
-  /**
-   * Determine the transition strategy for switching the locale based on prefs
-   * and the switched locales.
-   *
-   * @param {Array<string>} newLocales - List of BCP 47 locale identifiers.
-   * @returns {"locales-match" | "requires-restart" | "live-reload"}
-   */
-  getLanguageSwitchTransitionType(newLocales) {
-    const { appLocalesAsBCP47 } = Services.locale;
-    if (appLocalesAsBCP47.join(",") === newLocales.join(",")) {
-      // The selected locales match, the order matters.
-      return "locales-match";
-    }
-
-    if (Services.prefs.getBoolPref("intl.multilingual.liveReload")) {
-      if (
-        Services.intl.getScriptDirection(newLocales[0]) !==
-          Services.intl.getScriptDirection(appLocalesAsBCP47[0]) &&
-        !Services.prefs.getBoolPref("intl.multilingual.liveReloadBidirectional")
-      ) {
-        // Bug 1750852: The directionality of the text changed, which requires a restart
-        // until the quality of the switch can be improved.
-        return "requires-restart";
-      }
-
-      return "live-reload";
-    }
-
-    return "requires-restart";
   },
 
   /* Show or hide the confirm change message bar based on the updated ordering. */
@@ -4287,12 +3606,12 @@ var gMainPane = {
       this.gBrowserLanguagesDialog.recordTelemetry("setFallback");
     }
 
-    switch (gMainPane.getLanguageSwitchTransitionType(selected)) {
-      case "requires-restart":
+    switch (Multilingual.getTransitionType(selected)) {
+      case Multilingual.TransitionType.RestartRequired:
         gMainPane.showConfirmLanguageChangeMessageBar(selected);
         gMainPane.updatePrimaryBrowserLanguageUI(selected[0]);
         break;
-      case "live-reload":
+      case Multilingual.TransitionType.LiveReload:
         Services.locale.requestedLocales = selected;
 
         gMainPane.updatePrimaryBrowserLanguageUI(
@@ -4300,7 +3619,7 @@ var gMainPane = {
         );
         gMainPane.hideConfirmLanguageChangeMessageBar();
         break;
-      case "locales-match":
+      case Multilingual.TransitionType.LocalesMatch:
         // They matched, so we can reset the UI.
         gMainPane.updatePrimaryBrowserLanguageUI(
           Services.locale.appLocaleAsBCP47

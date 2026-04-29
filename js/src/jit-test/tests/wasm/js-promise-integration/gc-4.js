@@ -1,3 +1,5 @@
+// |jit-test| skip-if: !wasmJSPromiseIntegrationEnabled()
+
 // Tests with types that are defined in the module internally.
 
 // Suspending function with internal struct parameter.

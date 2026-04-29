@@ -394,10 +394,10 @@ class DMABufSurfaceRGBA final : public DMABufSurface {
 #endif
 
   DMABufSurfaceRGBA();
-
- private:
   DMABufSurfaceRGBA(const DMABufSurfaceRGBA&) = delete;
   DMABufSurfaceRGBA& operator=(const DMABufSurfaceRGBA&) = delete;
+
+ private:
   ~DMABufSurfaceRGBA();
 
   bool Create(mozilla::gl::GLContext* aGLContext, int aWidth, int aHeight,
@@ -430,6 +430,9 @@ class DMABufSurfaceRGBA final : public DMABufSurface {
 
 class DMABufSurfaceYUV final : public DMABufSurface {
  public:
+  DMABufSurfaceYUV(const DMABufSurfaceYUV&) = delete;
+  DMABufSurfaceYUV& operator=(const DMABufSurfaceYUV&) = delete;
+
   static already_AddRefed<DMABufSurfaceYUV> CreateYUVSurface(
       const VADRMPRIMESurfaceDescriptor& aDesc, int aWidth, int aHeight);
   static already_AddRefed<DMABufSurfaceYUV> CopyYUVSurface(
@@ -488,8 +491,6 @@ class DMABufSurfaceYUV final : public DMABufSurface {
 #endif
 
  private:
-  DMABufSurfaceYUV(const DMABufSurfaceYUV&) = delete;
-  DMABufSurfaceYUV& operator=(const DMABufSurfaceYUV&) = delete;
   ~DMABufSurfaceYUV();
 
   bool Create(const mozilla::layers::SurfaceDescriptor& aDesc) override;

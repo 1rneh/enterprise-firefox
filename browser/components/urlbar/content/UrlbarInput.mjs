@@ -175,9 +175,7 @@ ${
         </html:div>
         <menupopup class="urlbarView-result-menu"
                    consumeoutsideclicks="false"/>
-        <html:div class="search-one-offs"
-              includecurrentengine="true"
-              disabletab="true"/>
+        <html:moz-urlbar-slot name="search-one-offs" />
    </html:div>`;
   }
 
@@ -3732,7 +3730,7 @@ ${
     if (this.getAttribute("pageproxystate") == "valid") {
       uri = this.#isOpenedPageInBlankTargetLoading
         ? this.window.gBrowser.selectedBrowser.browsingContext
-            .nonWebControlledBlankURI
+            .nonWebControlledLoadingURI
         : this.window.gBrowser.currentURI;
     } else {
       // The value could be:
@@ -6046,7 +6044,7 @@ ${
       this.window.gBrowser.selectedBrowser.browsingContext.sessionHistory
         ?.count === 0 &&
       this.window.gBrowser.selectedBrowser.browsingContext
-        .nonWebControlledBlankURI
+        .nonWebControlledLoadingURI
     );
   }
 

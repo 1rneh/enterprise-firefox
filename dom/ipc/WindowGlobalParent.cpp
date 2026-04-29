@@ -13,6 +13,7 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Components.h"
 #include "mozilla/ContentBlockingAllowList.h"
+#include "mozilla/EnumeratedRange.h"
 #include "mozilla/IdentityCredentialRequestManager.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/ServoCSSParser.h"
@@ -1269,11 +1270,11 @@ WindowGlobalParent::FinishAccumulatingPageUseCounters() {
     }
 
     bool any = false;
-    for (int32_t c = 0; c < eUseCounter_Count; ++c) {
-      auto uc = static_cast<UseCounter>(c);
+    for (const UseCounter uc : MakeEnumeratedRange(eUseCounter_Count)) {
       if (!mPageUseCounters->mUseCounters[uc]) {
         continue;
       }
+
       any = true;
       const char* metricName = IncrementUseCounter(uc, /* aIsPage = */ true);
       if (dumpCounters) {

@@ -1304,7 +1304,13 @@ function HandleAppCommandEvent(evt) {
   evt.preventDefault();
 }
 
-function loadOneOrMoreURIs(aURIString, aTriggeringPrincipal, aPolicyContainer) {
+function loadOneOrMoreURIs(
+  aURIString,
+  {
+    triggeringPrincipal = Services.scriptSecurityManager.getSystemPrincipal(),
+    newWindowLoad = false,
+  } = {}
+) {
   // we're not a browser window, pass the URI string to a new browser window
   if (window.location.href != AppConstants.BROWSER_CHROME_URL) {
     window.openDialog(
@@ -1322,8 +1328,8 @@ function loadOneOrMoreURIs(aURIString, aTriggeringPrincipal, aPolicyContainer) {
     gBrowser.loadTabs(aURIString.split("|"), {
       inBackground: false,
       replace: true,
-      triggeringPrincipal: aTriggeringPrincipal,
-      policyContainer: aPolicyContainer,
+      triggeringPrincipal,
+      newWindowLoad,
     });
   } catch (e) {}
 }

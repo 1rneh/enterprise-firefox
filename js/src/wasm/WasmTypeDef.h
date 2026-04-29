@@ -109,16 +109,16 @@ class FuncType {
   FuncType() = default;
   FuncType(ValTypeVector&& args, ValTypeVector&& results)
       : args_(std::move(args)), results_(std::move(results)) {
-    MOZ_ASSERT(args_.length() <= MaxParams);
-    MOZ_ASSERT(results_.length() <= MaxResults);
+    MOZ_RELEASE_ASSERT(args_.length() <= MaxParams);
+    MOZ_RELEASE_ASSERT(results_.length() <= MaxResults);
   }
 
   FuncType(FuncType&&) = default;
   FuncType& operator=(FuncType&&) = default;
 
   [[nodiscard]] bool clone(const FuncType& src) {
-    MOZ_ASSERT(args_.empty());
-    MOZ_ASSERT(results_.empty());
+    MOZ_RELEASE_ASSERT(args_.empty());
+    MOZ_RELEASE_ASSERT(results_.empty());
     immediateTypeId_ = src.immediateTypeId_;
     return args_.appendAll(src.args_) && results_.appendAll(src.results_);
   }
@@ -354,7 +354,7 @@ class StructType {
         payloadOffsetIL_(0),
         allocKind_(gc::AllocKind::INVALID),
         isDefaultable_(false) {
-    MOZ_ASSERT(fields_.length() <= MaxStructFields);
+    MOZ_RELEASE_ASSERT(fields_.length() <= MaxStructFields);
   }
 
   StructType(StructType&&) = default;
@@ -601,7 +601,7 @@ class SuperTypeVector {
   uint32_t length() const { return length_; }
 
   const SuperTypeVector* type(size_t index) const {
-    MOZ_ASSERT(index < length_);
+    MOZ_RELEASE_ASSERT(index < length_);
     return types_[index];
   }
 
@@ -663,8 +663,8 @@ class TypeDef {
   void setRecGroup(RecGroup* recGroup) {
     uintptr_t recGroupAddr = (uintptr_t)recGroup;
     uintptr_t typeDefAddr = (uintptr_t)this;
-    MOZ_ASSERT(typeDefAddr > recGroupAddr);
-    MOZ_ASSERT(typeDefAddr - recGroupAddr <= UINT32_MAX);
+    MOZ_RELEASE_ASSERT(typeDefAddr > recGroupAddr);
+    MOZ_RELEASE_ASSERT(typeDefAddr - recGroupAddr <= UINT32_MAX);
     offsetToRecGroup_ = typeDefAddr - recGroupAddr;
   }
 
@@ -701,21 +701,21 @@ class TypeDef {
   }
 
   TypeDef& operator=(FuncType&& that) noexcept {
-    MOZ_ASSERT(isNone());
+    MOZ_RELEASE_ASSERT(isNone());
     kind_ = TypeDefKind::Func;
     new (&funcType_) FuncType(std::move(that));
     return *this;
   }
 
   TypeDef& operator=(StructType&& that) noexcept {
-    MOZ_ASSERT(isNone());
+    MOZ_RELEASE_ASSERT(isNone());
     kind_ = TypeDefKind::Struct;
     new (&structType_) StructType(std::move(that));
     return *this;
   }
 
   TypeDef& operator=(ArrayType&& that) noexcept {
-    MOZ_ASSERT(isNone());
+    MOZ_RELEASE_ASSERT(isNone());
     kind_ = TypeDefKind::Array;
     new (&arrayType_) ArrayType(std::move(that));
     return *this;
@@ -723,7 +723,7 @@ class TypeDef {
 
 #ifdef ENABLE_WASM_JSPI
   TypeDef& operator=(ContType&& that) noexcept {
-    MOZ_ASSERT(isNone());
+    MOZ_RELEASE_ASSERT(isNone());
     kind_ = TypeDefKind::Cont;
     new (&contType_) ContType(std::move(that));
     return *this;
@@ -773,43 +773,43 @@ class TypeDef {
 #endif
 
   const FuncType& funcType() const {
-    MOZ_ASSERT(isFuncType());
+    MOZ_RELEASE_ASSERT(isFuncType());
     return funcType_;
   }
 
   FuncType& funcType() {
-    MOZ_ASSERT(isFuncType());
+    MOZ_RELEASE_ASSERT(isFuncType());
     return funcType_;
   }
 
   const StructType& structType() const {
-    MOZ_ASSERT(isStructType());
+    MOZ_RELEASE_ASSERT(isStructType());
     return structType_;
   }
 
   StructType& structType() {
-    MOZ_ASSERT(isStructType());
+    MOZ_RELEASE_ASSERT(isStructType());
     return structType_;
   }
 
   const ArrayType& arrayType() const {
-    MOZ_ASSERT(isArrayType());
+    MOZ_RELEASE_ASSERT(isArrayType());
     return arrayType_;
   }
 
   ArrayType& arrayType() {
-    MOZ_ASSERT(isArrayType());
+    MOZ_RELEASE_ASSERT(isArrayType());
     return arrayType_;
   }
 
 #ifdef ENABLE_WASM_JSPI
   const ContType& contType() const {
-    MOZ_ASSERT(isContType());
+    MOZ_RELEASE_ASSERT(isContType());
     return contType_;
   }
 
   ContType& contType() {
-    MOZ_ASSERT(isContType());
+    MOZ_RELEASE_ASSERT(isContType());
     return contType_;
   }
 #endif
@@ -944,10 +944,8 @@ class TypeDef {
 
     // The supertype vectors do exist. Check that they point to the right
     // places.
-    MOZ_ASSERT(subSTV);
-    MOZ_ASSERT(superSTV);
-    MOZ_ASSERT(subSTV->typeDef() == subTypeDef);
-    MOZ_ASSERT(superSTV->typeDef() == superTypeDef);
+    MOZ_RELEASE_ASSERT(subSTV && superSTV && subSTV->typeDef() == subTypeDef &&
+                       superSTV->typeDef() == superTypeDef);
 
     // We need to check if `superTypeDef` is one of `subTypeDef`s super types
     // by checking in `subTypeDef`s super type vector. We can use the static
@@ -1166,9 +1164,9 @@ class RecGroup : public AtomicRefCounted<RecGroup> {
 
   // Get the index of a type definition that's in this recursion group.
   uint32_t indexOf(const TypeDef* typeDef) const {
-    MOZ_ASSERT(typeDef >= types_);
+    MOZ_RELEASE_ASSERT(typeDef >= types_);
     size_t groupTypeIndex = (size_t)(typeDef - types_);
-    MOZ_ASSERT(groupTypeIndex < numTypes());
+    MOZ_RELEASE_ASSERT(groupTypeIndex < numTypes());
     return (uint32_t)groupTypeIndex;
   }
 

@@ -494,10 +494,9 @@ export class AddonDetails extends AboutAddonsHTMLElement {
     this.renderDescription(addon);
     this.querySelector(".addon-detail-contribute").hidden =
       !addon.contributionURL;
-    this.querySelector(".addon-detail-row-updates").hidden = !hasPermission(
-      addon,
-      "upgrade"
-    );
+    this.querySelector(".addon-detail-row-updates").hidden =
+      !hasPermission(addon, "upgrade") ||
+      addon.isApplyBackgroundUpdatesControlledByPolicies;
 
     if (addon.type != "extension") {
       // Don't show any private browsing related section for non-extension

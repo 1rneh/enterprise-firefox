@@ -155,6 +155,7 @@ const PREFERENCES_PANES = [
   "paneMoreFromMozilla",
   "paneAi",
   "paneAccessibility",
+  "paneLanguages",
 ];
 
 const IGNORABLE_EVENTS = new WeakMap();
@@ -296,9 +297,7 @@ function getPinnedTabsCount() {
   let pinnedTabs = 0;
 
   for (let win of Services.wm.getEnumerator("navigator:browser")) {
-    pinnedTabs += [...win.ownerGlobal.gBrowser.tabs].filter(
-      t => t.pinned
-    ).length;
+    pinnedTabs += [...win.gBrowser.tabs].filter(t => t.pinned).length;
   }
 
   return pinnedTabs;

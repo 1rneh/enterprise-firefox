@@ -332,12 +332,12 @@ class CallRefHint {
   bool full() const { return length() == 3; }
 
   uint32_t get(uint32_t index) const {
-    MOZ_ASSERT(index < length());
+    MOZ_RELEASE_ASSERT(index < length());
     uint64_t res = (state_ >> (index * ElemBits + LengthBits)) & Mask;
     return uint32_t(res);
   }
   void set(uint32_t index, uint32_t funcIndex) {
-    MOZ_ASSERT(index < length());
+    MOZ_RELEASE_ASSERT(index < length());
     MOZ_ASSERT(funcIndex <= Mask);
     uint32_t shift = index * ElemBits + LengthBits;
     uint64_t c = uint64_t(Mask) << shift;

@@ -2004,6 +2004,19 @@ CookiePersistentStorage::OpenDBResult CookiePersistentStorage::Read() {
       continue;
     }
 
+    // When the valueless_cookie pref is enabled, discard legacy nameless
+    // cookies (name="") that were stored under the old behavior.
+    // Under the new behavior these cookies are unreachable since new cookies
+    // without '=' are stored with the token as name, not value.
+    if (StaticPrefs::network_cookie_valueless_cookie() &&
+        cookieStruct->name().IsEmpty()) {
+      CookieDomainTuple* cleanupTuple = mCleanupArray.AppendElement();
+      cleanupTuple->key = CookieKey(baseDomain, attrs);
+      cleanupTuple->originAttributes = attrs;
+      cleanupTuple->cookie = Cookie::Create(*cookieStruct, attrs);
+      continue;
+    }
+
     // Create the Cookie on the background thread. CreateValidated fixes up
     // any timestamps in the DB that are far in the future.
     RefPtr<Cookie> cookie = Cookie::CreateValidated(*cookieStruct, attrs);

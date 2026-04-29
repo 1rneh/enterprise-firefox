@@ -82,6 +82,13 @@ category-ai-controls =
 pane-accessibility-title = Accessibility
   .title = { pane-accessibility-title }
 
+pane-languages-title = Languages
+category-languages =
+    .tooltiptext = { pane-languages-title }
+
+preferences-languages-header =
+    .heading = { pane-languages-title }
+
 settings-pane-labs-title = { -firefoxlabs-brand-name }
 settings-pane-labs-header =
     .heading = { -firefoxlabs-brand-name }
@@ -449,6 +456,17 @@ manage-browser-languages-button =
   .accesskey = l
 confirm-browser-language-change-description = Restart { -brand-short-name } to apply these changes
 confirm-browser-language-change-button = Apply and Restart
+
+browser-language-heading =
+  .label = Browser language
+  .description = Choose the language used to display menus, messages, and notifications from { -brand-short-name }.
+browser-language-preferred-label =
+  .label = Preferred language
+browser-language-fallback-label =
+  .label = Fallback language
+  .description = Used when preferred language localization is incomplete.
+browser-language-install-error =
+  .message = { -brand-short-name } can’t update your languages right now. Check that you are connected to the internet or try again.
 
 fx-translate-web-pages = { -translations-brand-name }
 
@@ -1553,6 +1571,17 @@ forms-breach-alerts =
     .label = Show alerts about passwords for breached websites
     .accesskey = b
 forms-breach-alerts-learn-more-link = Learn more
+
+## Privacy Panel Settings
+
+privacy-panel-settings-header =
+    .label = Privacy panel settings
+    .description = Get help protecting your info online in { -brand-short-name }.
+# By “breach message” we mean the UI messaging shown when Firefox detects that a
+# site the user has interacted with has been involved in a known data breach
+privacy-panel-breach-alerts =
+    .label = Show breach messages
+    .accesskey = s
 preferences-relay-integration-checkbox2 =
     .label = Suggest { -relay-brand-name } email masks to protect your email address
     .accesskey = r

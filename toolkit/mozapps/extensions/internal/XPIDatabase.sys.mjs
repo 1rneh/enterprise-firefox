@@ -852,7 +852,10 @@ export class AddonInternal {
       if (!Services.policies.isAllowed(`disable-extension:${this.id}`)) {
         permissions &= ~lazy.AddonManager.PERM_CAN_DISABLE;
       }
-      if (Services.policies.getExtensionSettings(this.id)?.updates_disabled) {
+      const updatesDisabled = Services.policies.getExtensionSettings(
+        this.id
+      )?.updates_disabled;
+      if (updatesDisabled === true) {
         permissions &= ~lazy.AddonManager.PERM_CAN_UPGRADE;
       }
     }
@@ -1096,10 +1099,27 @@ export class AddonWrapper {
     );
   }
 
+  get isApplyBackgroundUpdatesControlledByPolicies() {
+    const { updates_disabled } =
+      Services.policies?.getExtensionSettings(this.id) ?? {};
+    return typeof updates_disabled === "boolean";
+  }
+
   get applyBackgroundUpdates() {
+    if (this.isApplyBackgroundUpdatesControlledByPolicies) {
+      const { updates_disabled } = Services.policies.getExtensionSettings(
+        this.id
+      );
+      return updates_disabled
+        ? lazy.AddonManager.AUTOUPDATE_DISABLE
+        : lazy.AddonManager.AUTOUPDATE_ENABLE;
+    }
     return addonFor(this).applyBackgroundUpdates;
   }
   set applyBackgroundUpdates(val) {
+    if (this.isApplyBackgroundUpdatesControlledByPolicies) {
+      return;
+    }
     let addon = addonFor(this);
     if (
       val != lazy.AddonManager.AUTOUPDATE_DEFAULT &&

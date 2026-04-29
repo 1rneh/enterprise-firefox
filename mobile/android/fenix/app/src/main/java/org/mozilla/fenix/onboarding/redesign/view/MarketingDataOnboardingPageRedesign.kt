@@ -83,7 +83,11 @@ fun MarketingDataOnboardingPageRedesign(
             ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.weight(TITLE_TOP_SPACER_WEIGHT)).takeIf { !state.isSmallDevice }
+            if (state.isSmallDevice) {
+                Spacer(modifier = Modifier.height(16.dp))
+            } else {
+                Spacer(modifier = Modifier.weight(TITLE_TOP_SPACER_WEIGHT))
+            }
 
             var checkboxChecked by remember { mutableStateOf(true) }
 

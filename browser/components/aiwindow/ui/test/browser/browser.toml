@@ -33,6 +33,8 @@ support-files = [
 
 ["browser_aichat_content_overflow.js"]
 
+["browser_aichat_message_table.js"]
+
 ["browser_aichat_message.js"]
 
 ["browser_aichat_open_link.js"]
@@ -120,6 +122,8 @@ skip-if = [
 ["browser_smartwindow_assistant_ui_errors.js"]
 
 ["browser_smartwindow_beta_badge.js"]
+
+["browser_smartwindow_chat_markdown_parser.js"]
 
 ["browser_smartwindow_classic_mode_switch.js"]
 

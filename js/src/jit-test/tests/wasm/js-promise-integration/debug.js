@@ -1,3 +1,5 @@
+// |jit-test| skip-if: !wasmJSPromiseIntegrationEnabled()
+
 // Tests stepping through the wasm code with JS PI cont stack.
 
 const g = newGlobal({ newCompartment: true });

@@ -7,6 +7,7 @@
 #include "CamerasParent.h"
 #include "VideoEngine.h"
 #include "api/video/i420_buffer.h"
+#include "fake_video_capture/device_info_empty.h"
 #include "fake_video_capture/device_info_fake.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -23,6 +24,7 @@ using testing::Property;
 using testing::Return;
 using testing::Test;
 using webrtc::VideoCaptureModule;
+using webrtc::videocapturemodule::DeviceInfoEmpty;
 using webrtc::videocapturemodule::DeviceInfoFake;
 
 namespace mozilla::camera {
@@ -84,6 +86,7 @@ class MockVideoCapturer : public webrtc::VideoCaptureModule {
   }
 };
 
+template <typename DeviceInfoType>
 class MockVideoCaptureFactory : public VideoCaptureFactory {
  public:
   MOCK_METHOD(std::shared_ptr<VideoCaptureModule::DeviceInfo>, CreateDeviceInfo,
@@ -91,7 +94,7 @@ class MockVideoCaptureFactory : public VideoCaptureFactory {
   MOCK_METHOD(VideoCaptureFactory::CreateVideoCaptureResult, CreateVideoCapture,
               (int32_t, const char*, CaptureDeviceType), (override));
 
-  MockVideoCaptureFactory() : mDeviceInfo(std::make_shared<DeviceInfoFake>()) {
+  MockVideoCaptureFactory() : mDeviceInfo(std::make_shared<DeviceInfoType>()) {
     ON_CALL(*this, CreateDeviceInfo)
         .WillByDefault([&](CaptureDeviceType aType)
                            -> std::shared_ptr<VideoCaptureModule::DeviceInfo> {
@@ -110,11 +113,12 @@ class MockVideoCaptureFactory : public VideoCaptureFactory {
             });
   }
 
-  const std::shared_ptr<DeviceInfoFake> mDeviceInfo;
+  const std::shared_ptr<VideoCaptureModule::DeviceInfo> mDeviceInfo;
   std::map<int32_t, webrtc::scoped_refptr<MockVideoCapturer>> mCapturers;
 };
 
-struct TestAggregateCapturer : public Test {
+template <typename DeviceInfoType>
+struct TestAggregateCapturerWithDeviceInfo : public Test {
   static constexpr uint64_t kWindowId = 1;
   const CaptureEngine mCapEngine = CameraEngine;
   const CaptureDeviceType mDeviceType = ([&] {
@@ -132,8 +136,8 @@ struct TestAggregateCapturer : public Test {
     }
     return CaptureDeviceType::Camera;
   })();
-  RefPtr<MockVideoCaptureFactory> mFactory =
-      MakeRefPtr<NiceMock<MockVideoCaptureFactory>>();
+  RefPtr<MockVideoCaptureFactory<DeviceInfoType>> mFactory =
+      MakeRefPtr<NiceMock<MockVideoCaptureFactory<DeviceInfoType>>>();
   RefPtr<VideoEngine> mEngine = VideoEngine::Create(mDeviceType, mFactory);
   RefPtr<MockCamerasParent> mParent;
   std::unique_ptr<AggregateCapturer> mAggregator;
@@ -174,6 +178,11 @@ struct TestAggregateCapturer : public Test {
     NS_ProcessPendingEvents(nullptr);
   }
 };
+
+using TestAggregateCapturer =
+    TestAggregateCapturerWithDeviceInfo<DeviceInfoFake>;
+using TestAggregateCapturerNoCapabilities =
+    TestAggregateCapturerWithDeviceInfo<DeviceInfoEmpty>;
 
 TEST_F(TestAggregateCapturer, EmptyLifeCycle) {
   // Checks that lifecycle is OK with simple Create()/RemoveStreamsFor().
@@ -266,5 +275,20 @@ TEST_F(TestAggregateCapturer, FrameDelivery) {
   mAggregator->OnFrame(frame);
 
   WaitForBackgroundThread();
+}
+
+TEST_F(TestAggregateCapturerNoCapabilities, StartStream) {
+  webrtc::VideoCaptureCapability cap;
+  cap.width = 854;
+  cap.height = 480;
+  cap.maxFPS = 30;
+  cap.videoType = webrtc::VideoType::kI420;
+
+  auto capturer = mFactory->mCapturers[mAggregator->mCaptureId];
+  EXPECT_CALL(*capturer, StartCapture(Eq(cap))).WillOnce(Return(0));
+
+  mAggregator->StartStream(mAggregator->mCaptureId, cap,
+                           NormalizedConstraints{},
+                           dom::VideoResizeModeEnum::None);
 }
 }  // namespace mozilla::camera

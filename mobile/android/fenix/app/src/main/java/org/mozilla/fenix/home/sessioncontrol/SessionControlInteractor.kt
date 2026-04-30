@@ -422,4 +422,12 @@ class SessionControlInteractor(
     override fun onCountriesSelected(countryCodes: Set<String>) {
         sportsController.handleCountriesSelected(countryCodes = countryCodes)
     }
+
+    override fun onSkippedFollowTeam() {
+        sportsController.handleSkippedFollowTeam()
+    }
+
+    override fun onSportsWidgetDismissed() {
+        sportsController.handleSportsWidgetDismissed()
+    }
 }

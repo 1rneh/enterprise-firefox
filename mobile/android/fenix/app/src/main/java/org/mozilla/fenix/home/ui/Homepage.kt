@@ -75,6 +75,8 @@ import org.mozilla.fenix.home.recentvisits.view.RecentlyVisited
 import org.mozilla.fenix.home.sessioncontrol.CollectionInteractor
 import org.mozilla.fenix.home.sessioncontrol.MessageCardInteractor
 import org.mozilla.fenix.home.setup.ui.SetupChecklist
+import org.mozilla.fenix.home.sports.ui.CountdownPromoCard
+import org.mozilla.fenix.home.sports.ui.FollowTeamPromoCard
 import org.mozilla.fenix.home.sports.ui.SportsCountrySelectorBottomSheet
 import org.mozilla.fenix.home.store.HeaderState
 import org.mozilla.fenix.home.store.HomepageState
@@ -154,11 +156,7 @@ internal fun Homepage(
                         onPrivateModeTapped = { browsingModeChanged(BrowsingMode.Private) },
                         onStoriesTapped = { interactor.onDiscoverMoreClicked() },
                         onNewsAnimationShown = { components.settings.recordNewsButtonAnimationShown() },
-                        onLogoClicked = {
-                            if (components.settings.enableHomepageSportsWidget) {
-                                showSportsCountrySelector = true
-                            }
-                        },
+                        onLogoClicked = {},
                         onLogoLongClicked = interactor::onLogoLongClicked,
                     )
                 }
@@ -170,18 +168,12 @@ internal fun Homepage(
                 }
 
                 is HeaderState.Normal -> {
-                    val components = components
-
                     HomepageHeader(
                         wordmarkTextColor = headerState.wordmarkTextColor,
                         privateBrowsingButtonColor = headerState.privateBrowsingButtonColor,
                         browsingMode = state.browsingMode,
                         browsingModeChanged = browsingModeChanged,
-                        onLogoClicked = {
-                            if (components.settings.enableHomepageSportsWidget) {
-                                showSportsCountrySelector = true
-                            }
-                        },
+                        onLogoClicked = {},
                         onLogoLongClicked = interactor::onLogoLongClicked,
                     )
                 }
@@ -211,6 +203,18 @@ internal fun Homepage(
                                 TrackersBlockedCard(
                                     trackersBlockedCount = trackersBlockedCount,
                                     modifier = Modifier.padding(top = 16.dp),
+                                )
+                            }
+
+                            if (sportsWidgetState.isShown) {
+                                SportsWidgetSection(
+                                    sportsWidgetState = sportsWidgetState,
+                                    onDismiss = interactor::onSportsWidgetDismissed,
+                                    onViewSchedule = {},
+                                    onFollowTeam = {
+                                        showSportsCountrySelector = true
+                                    },
+                                    onSkip = interactor::onSkippedFollowTeam,
                                 )
                             }
 
@@ -288,17 +292,20 @@ internal fun Homepage(
                             }
 
                             Spacer(Modifier.height(bottomPadding.dp))
+
+                            if (showSportsCountrySelector) {
+                                SportsCountrySelectorBottomSheet(
+                                    selectedCountryCode = sportsWidgetState.countriesSelected.firstOrNull(),
+                                    onCountrySelected = { countryCode ->
+                                        interactor.onCountriesSelected(setOf(countryCode))
+                                        showSportsCountrySelector = false
+                                    },
+                                    onDismiss = { showSportsCountrySelector = false },
+                                )
+                            }
                         }
                     }
                 }
-            }
-
-            if (showSportsCountrySelector) {
-                SportsCountrySelectorBottomSheet(
-                    selectedCountryCode = null,
-                    onCountrySelected = { showSportsCountrySelector = false },
-                    onDismiss = { showSportsCountrySelector = false },
-                )
             }
         }
     }
@@ -539,6 +546,35 @@ private fun CollectionsSection(
 }
 
 @Composable
+private fun SportsWidgetSection(
+    sportsWidgetState: SportsWidgetState,
+    onDismiss: () -> Unit,
+    onViewSchedule: () -> Unit,
+    onFollowTeam: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    Spacer(modifier = Modifier.height(44.dp))
+
+    if (!sportsWidgetState.hasWorldCupStarted) {
+        CountdownPromoCard(
+            days = "5",
+            hours = "21",
+            mins = "3",
+            onViewSchedule = onViewSchedule,
+            onDismiss = onDismiss,
+            modifier = Modifier.padding(horizontal = horizontalMargin),
+        )
+    } else if (!sportsWidgetState.hasSkippedFollowTeam && sportsWidgetState.countriesSelected.isEmpty()) {
+        FollowTeamPromoCard(
+            onFollowTeam = onFollowTeam,
+            onSkip = onSkip,
+            onDismiss = onDismiss,
+            modifier = Modifier.padding(horizontal = horizontalMargin),
+        )
+    }
+}
+
+@Composable
 @PreviewLightDark
 private fun HomepagePreview() {
     FirefoxTheme {
@@ -563,7 +599,6 @@ private fun HomepagePreview() {
                     showCollections = true,
                     showPrivacyReport = true,
                     trackersBlockedCount = 754,
-                    showSportsWidget = false,
                     sportsWidgetState = SportsWidgetState(),
                     headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
@@ -618,7 +653,6 @@ private fun HomepageBannerPreview() {
                     showCollections = true,
                     showPrivacyReport = true,
                     trackersBlockedCount = 754,
-                    showSportsWidget = false,
                     sportsWidgetState = SportsWidgetState(),
                     headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
@@ -673,7 +707,6 @@ private fun HomepagePreviewCollections() {
                     showCollections = true,
                     showPrivacyReport = true,
                     trackersBlockedCount = 754,
-                    showSportsWidget = false,
                     sportsWidgetState = SportsWidgetState(),
                     headerState = HeaderState.Normal(
                         wordmarkTextColor = null,
@@ -728,7 +761,6 @@ private fun MinimalHomepagePreview() {
                     showCollections = false,
                     showPrivacyReport = true,
                     trackersBlockedCount = 754,
-                    showSportsWidget = false,
                     sportsWidgetState = SportsWidgetState(),
                     headerState = HeaderState.Normal(
                         wordmarkTextColor = null,

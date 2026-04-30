@@ -1033,7 +1033,7 @@ static JSLinearString* TransformCase(JSContext* cx, Handle<JSString*> string,
     locale = CaseMappingLocale(requestedLocales[0]);
   } else {
     auto defaultLocale = LanguageId::und();
-    if (!cx->global()->globalIntlData().defaultLocale(cx, &defaultLocale)) {
+    if (!intl::DefaultLocale(cx, &defaultLocale)) {
       return nullptr;
     }
     locale = CaseMappingLocale(defaultLocale.language());

@@ -11,9 +11,6 @@ const { colorUtils } = require("resource://devtools/shared/css/color.js");
 const {
   InspectorCSSParserWrapper,
 } = require("resource://devtools/shared/css/lexer.js");
-const {
-  appendText,
-} = require("resource://devtools/client/inspector/shared/utils.js");
 
 const STYLE_INSPECTOR_PROPERTIES =
   "devtools/shared/locales/styleinspector.properties";
@@ -231,12 +228,16 @@ class OutputParser {
         return { tokens, functionData, sawComma: true, sawVariable, depth };
       } else if (token.tokenType === "ParenthesisBlock") {
         ++depth;
+        this.#createStackEntry({ isParenthesis: true, text: "(" });
       } else if (token.tokenType === "CloseParenthesis") {
-        this.#onCloseParenthesis(options);
         --depth;
         if (depth === 0) {
           break;
         }
+        // only call #onCloseParenthesis when we're not closing the top stack.
+        // We'll call it from the callsites after the data returned by this function
+        // is consumed and transformed into parts.
+        this.#onCloseParenthesis(options);
       } else if (
         token.tokenType === "Function" &&
         token.value === "var" &&
@@ -299,6 +300,7 @@ class OutputParser {
       text,
       tokenStream,
       options,
+      // stopAtComma
       true
     );
 
@@ -508,7 +510,8 @@ class OutputParser {
             ANGLE_TAKING_FUNCTIONS.has(lowerCaseFunctionName) ||
             lowerCaseFunctionName === "cubic-bezier" ||
             lowerCaseFunctionName === "linear" ||
-            lowerCaseFunctionName === "attr"
+            lowerCaseFunctionName === "attr" ||
+            BASIC_SHAPE_FUNCTIONS.has(lowerCaseFunctionName)
           ) {
             // The function can accept a color or an angle argument, and we know
             // it isn't special in some other way. So, we let it
@@ -549,6 +552,7 @@ class OutputParser {
             } else {
               this.#append(variableNode);
             }
+            this.#onCloseParenthesis(options);
           } else {
             const {
               functionData,
@@ -643,15 +647,11 @@ class OutputParser {
                   ...options,
                   colorFunction: colorFunctionEntry?.functionName,
                 });
-              } else if (
-                options.expectShape &&
-                BASIC_SHAPE_FUNCTIONS.has(lowerCaseFunctionName)
-              ) {
-                this.#appendShape(functionText, options);
               } else {
                 this.#appendTextNode(functionText, token);
               }
             }
+            this.#onCloseParenthesis(options);
           }
           break;
         }
@@ -887,6 +887,8 @@ class OutputParser {
       parts = this.#onCloseParenthesisForLinear(stackEntry, options);
     } else if (stackEntry.lowerCaseFunctionName === "attr") {
       parts = this.#onCloseParenthesisForAttr(stackEntry, options);
+    } else if (BASIC_SHAPE_FUNCTIONS.has(stackEntry.lowerCaseFunctionName)) {
+      parts = this.#onCloseParenthesisForBasicShape(stackEntry, options);
     }
 
     // Put all the parts in the "new" last stack, or the main parsed array if there
@@ -1100,6 +1102,7 @@ class OutputParser {
    * @param {object} options
    *        options passed to the parse function. @see #mergeOptions for valid options
    *        and default values
+   * @returns {Array<string|Element>} The updated parts for the stack entry that is being closed.
    */
   // eslint-disable-next-line complexity
   #onCloseParenthesisForAttr(stackEntry, options) {
@@ -1259,6 +1262,543 @@ class OutputParser {
   }
 
   /**
+   * Called when we got the closing bracket for any function in BASIC_SHAPE_FUNCTIONS.
+   * It will append a CSS shapes highlighter toggle next to the value, and parse the value
+   * into spans, each containing a point that can be hovered over.
+   *
+   * @param {object} stackEntry
+   *        The last item in this.#stack
+   * @param {object} options
+   *        options passed to the parse function. @see #mergeOptions for valid options
+   *        and default values
+   * @returns {Array<string|Element>} The updated parts for the stack entry that is being closed.
+   */
+  #onCloseParenthesisForBasicShape(stackEntry, options) {
+    if (!options.expectShape) {
+      return stackEntry.parts;
+    }
+
+    const container = this.#createNode("span", {});
+    const valContainer = this.#createNode("span", {
+      class: options.shapeClass,
+    });
+
+    // Let's retrieve the index in `parts` where the coordinates start
+    let coordStartIdx = null;
+    let previousToken;
+    for (let i = 0; i < stackEntry.parts.length; i++) {
+      const part = stackEntry.parts[i];
+      const token = stackEntry.tokensByPart.get(part);
+      // Multiple consecutive parts can reference the same token, so let's find the first
+      // part that refers to a token that is not the initial function.
+      if (
+        token.tokenType === "Function" &&
+        (!previousToken || token === previousToken)
+      ) {
+        coordStartIdx = i + 1;
+        previousToken = token;
+        valContainer.append(part);
+      } else if (coordStartIdx !== null) {
+        // we already found the coordinate, and the token does not represent the initial
+        // function, so we can stop looping
+        break;
+      }
+    }
+
+    // That shouldn't happen, but let's be safe
+    if (coordStartIdx === null) {
+      return stackEntry.parts;
+    }
+
+    if (stackEntry.lowerCaseFunctionName === "polygon") {
+      valContainer.append(
+        ...this.#onCloseParenthesisForPolygonShape(stackEntry, coordStartIdx)
+      );
+    } else if (stackEntry.lowerCaseFunctionName === "circle") {
+      valContainer.append(
+        ...this.#onCloseParenthesisForCircleShape(stackEntry, coordStartIdx)
+      );
+    } else if (stackEntry.lowerCaseFunctionName === "ellipse") {
+      valContainer.append(
+        ...this.#onCloseParenthesisForEllipseShape(stackEntry, coordStartIdx)
+      );
+    } else if (stackEntry.lowerCaseFunctionName === "inset") {
+      valContainer.append(
+        ...this.#onCloseParenthesisForInsetShape(stackEntry, coordStartIdx)
+      );
+    }
+
+    if (options.shapeSwatchClass) {
+      const toggleButton = this.#createNode("button", {
+        class: options.shapeSwatchClass,
+      });
+      container.appendChild(toggleButton);
+    }
+
+    container.appendChild(valContainer);
+    return [container];
+  }
+
+  /**
+   * Called when we got the closing bracket for the `polygon()` function.
+   * It will append a CSS shapes highlighter toggle next to the value, and parse the value
+   * into spans, each containing a point that can be hovered over.
+   *
+   * @param {object} stackEntry
+   *        The last item in this.#stack
+   * @param {number} coordsStartIdx
+   *        The index in stackEntry.parts at which the coordinates for the polygon start
+   * @returns {Array<Element|Text>} The parts that were handled
+   */
+  // eslint-disable-next-line complexity
+  #onCloseParenthesisForPolygonShape(stackEntry, coordsStartIdx) {
+    const points = [];
+    let previousToken;
+    for (let i = coordsStartIdx; i < stackEntry.parts.length; i++) {
+      const part = stackEntry.parts[i];
+      const token = stackEntry.tokensByPart.get(part);
+
+      if (
+        token.tokenType !== "Number" &&
+        token.tokenType !== "Dimension" &&
+        token.tokenType !== "Percentage" &&
+        // when we have a stack entry, we can consider all the parts related to it as a
+        // single point
+        token.tokenType !== CLOSED_STACK_ENTRY
+      ) {
+        continue;
+      }
+
+      const lastPoint = points.at(-1);
+      if (previousToken !== token) {
+        if (!lastPoint || lastPoint.y) {
+          points.push({
+            x: [i],
+          });
+        } else {
+          lastPoint.y = [i];
+        }
+      } else if (lastPoint.y) {
+        lastPoint.y.push(i);
+      } else {
+        lastPoint.x.push(i);
+      }
+
+      previousToken = token;
+    }
+
+    // Let's iterate through points in reverse as we're going to mutate stackEntry.parts
+    // and the indexes in `points` refer to the original indexes
+    for (let i = points.length - 1; i >= 0; i--) {
+      const point = points[i];
+      const xNode = this.#createNode("span", {
+        class: "inspector-shape-point",
+        "data-point": i,
+        "data-pair": "x",
+      });
+      for (const idx of point.x) {
+        xNode.append(stackEntry.parts[idx]);
+      }
+      const yNode = this.#createNode("span", {
+        class: "inspector-shape-point",
+        "data-point": i,
+        "data-pair": "y",
+      });
+      for (const idx of point.y) {
+        yNode.append(stackEntry.parts[idx]);
+      }
+      const coordNode = this.#createNode("span", {
+        class: "inspector-shape-point",
+        "data-point": i,
+      });
+      coordNode.append(xNode);
+      // Put the parts between the x and y points
+      for (let j = point.x.at(-1) + 1; j < point.y[0]; j++) {
+        coordNode.append(stackEntry.parts[j]);
+      }
+      coordNode.append(yNode);
+      stackEntry.parts.splice(
+        point.x[0],
+        point.y.at(-1) - point.x[0] + 1,
+        coordNode
+      );
+    }
+
+    return stackEntry.parts;
+  }
+
+  /**
+   * Called when we got the closing bracket for the `circle()` function.
+   * It will append a CSS shapes highlighter toggle next to the value, and parse the value
+   * into spans, each containing a point that can be hovered over.
+   *
+   * @param {object} stackEntry
+   *        The last item in this.#stack
+   * @param {number} coordsStartIdx
+   *        The index in stackEntry.parts at which the coordinates for the circle start
+   * @returns {Array<Element|Text>} The parts that were handled
+   */
+  // eslint-disable-next-line complexity
+  #onCloseParenthesisForCircleShape(stackEntry, coordsStartIdx) {
+    const radiusPartsIndexes = [];
+    const positionsPartsIndexes = [];
+    let seenAtKeyword = false;
+    let previousToken;
+    for (let i = coordsStartIdx; i < stackEntry.parts.length; i++) {
+      const part = stackEntry.parts[i];
+      const token = stackEntry.tokensByPart.get(part);
+
+      if (token.tokenType === "Ident" && token.text === "at") {
+        seenAtKeyword = true;
+        continue;
+      }
+
+      // circle() can take a radius which is before `at`, which can be a length, percentage,
+      // or a keyword (closest-corner, closest-side, farthest-corner, farthest-side)
+      if (
+        !seenAtKeyword &&
+        (token.tokenType === "Number" ||
+          token.tokenType === "Dimension" ||
+          token.tokenType === "Percentage" ||
+          token.tokenType === "Ident" ||
+          // when we have a stack entry, we can consider all the parts related to it as a
+          // single item
+          token.tokenType === CLOSED_STACK_ENTRY)
+      ) {
+        // we have a single radius, the array will contain all the indexes of parts that
+        // refer to it.
+        radiusPartsIndexes.push(i);
+      }
+
+      // after that `at` keyword, the position of the circle is defined. It can be represented
+      // by 1, 2 or 4 length, percentage or keyword (e.g. start, center, …)
+      // So let's collect all those here
+      if (
+        seenAtKeyword &&
+        (token.tokenType === "Number" ||
+          token.tokenType === "Dimension" ||
+          token.tokenType === "Percentage" ||
+          token.tokenType === "Ident" ||
+          // when we have a stack entry, we can consider all the parts related to it as a
+          // single item
+          token.tokenType === CLOSED_STACK_ENTRY)
+      ) {
+        if (token !== previousToken) {
+          positionsPartsIndexes.push([i]);
+        } else {
+          // if the token for the current part is the same one as the previous part, then
+          // it represent the same position, so we add the part index to the last position
+          // item we added.
+          positionsPartsIndexes.at(-1).push(i);
+        }
+      }
+
+      previousToken = token;
+    }
+
+    // We're going to mutate stackEntry.parts, so let's go through the parts in reverse
+    // as the indexes in radiusIndexes and positionIndexes refer to the original indexes
+    // So first, let's handle positions if there are some
+    if (positionsPartsIndexes.length) {
+      const centerEl = this.#createNode("span", {
+        class: "inspector-shape-point",
+        "data-point": "center",
+      });
+      for (let i = positionsPartsIndexes.length - 1; i >= 0; i--) {
+        const pointEl = this.#createNode("span", {
+          class: "inspector-shape-point",
+          "data-point": "center",
+        });
+        if (i === 0) {
+          pointEl.setAttribute("data-pair", "x");
+        } else if (positionsPartsIndexes.length === 2) {
+          // Here we're not handling the first item, and there's only 2 items, so we know
+          // we have the y coord
+          pointEl.setAttribute("data-pair", "y");
+        } else if (i === 2) {
+          // If there's more than 2 position, that means we have a <position-four> type,
+          // where there's both x,y positions + offsets (e.g. `left 10px top 15px`)
+          // In such case, the first item is x (already handled in the first if block),
+          // and the third item is y
+          pointEl.setAttribute("data-pair", "y");
+        }
+
+        const indexes = positionsPartsIndexes[i];
+        for (const idx of indexes) {
+          pointEl.append(stackEntry.parts[idx]);
+        }
+
+        centerEl.prepend(pointEl);
+        stackEntry.parts.splice(indexes[0], indexes.length);
+
+        // append any parts between this point and the previous one into centerEl
+        const previousIndexes = positionsPartsIndexes[i - 1];
+        if (previousIndexes) {
+          for (let j = indexes[0] - 1; j > previousIndexes.at(-1); j--) {
+            centerEl.prepend(stackEntry.parts[j]);
+            stackEntry.parts.splice(j, 1);
+          }
+        }
+      }
+      stackEntry.parts.splice(positionsPartsIndexes[0][0], 0, centerEl);
+    }
+
+    // Handle radius size if there's one
+    if (radiusPartsIndexes.length) {
+      const radiusEl = this.#createNode("span", {
+        class: "inspector-shape-point",
+        "data-point": "radius",
+      });
+      for (let i = radiusPartsIndexes.length - 1; i >= 0; i--) {
+        const idx = radiusPartsIndexes[i];
+        radiusEl.prepend(stackEntry.parts[idx]);
+        stackEntry.parts.splice(idx, 1);
+      }
+      stackEntry.parts.splice(radiusPartsIndexes[0], 0, radiusEl);
+    }
+
+    return stackEntry.parts;
+  }
+
+  /**
+   * Called when we got the closing bracket for the `ellipse()` function.
+   * It will append a CSS shapes highlighter toggle next to the value, and parse the value
+   * into spans, each containing a point that can be hovered over.
+   *
+   * @param {object} stackEntry
+   *        The last item in this.#stack
+   * @param {number} coordsStartIdx
+   *        The index in stackEntry.parts at which the coordinates for the ellipse start
+   * @returns {Array<Element|Text>} The parts that were handled
+   */
+  // eslint-disable-next-line complexity
+  #onCloseParenthesisForEllipseShape(stackEntry, coordsStartIdx) {
+    const radiiPartsIndexes = [];
+    const positionsPartsIndexes = [];
+    let seenAtKeyword = false;
+    let previousToken;
+    for (let i = coordsStartIdx; i < stackEntry.parts.length; i++) {
+      const part = stackEntry.parts[i];
+      const token = stackEntry.tokensByPart.get(part);
+
+      if (token.tokenType === "Ident" && token.text === "at") {
+        seenAtKeyword = true;
+        continue;
+      }
+
+      // ellipse() can take two radii before `at`, which can be a lengths, percentages,
+      // or a keywords (closest-corner, closest-side, farthest-corner, farthest-side)
+      if (
+        !seenAtKeyword &&
+        (token.tokenType === "Number" ||
+          token.tokenType === "Dimension" ||
+          token.tokenType === "Percentage" ||
+          token.tokenType === "Ident" ||
+          // when we have a stack entry, we can consider all the parts related to it as a
+          // single point
+          token.tokenType === CLOSED_STACK_ENTRY)
+      ) {
+        if (token !== previousToken) {
+          radiiPartsIndexes.push([i]);
+        } else {
+          // if the token for the current part is the same one as the previous part, then
+          // it represent the same radius, so we add the part index to the last radius
+          // item we added.
+          radiiPartsIndexes.at(-1).push(i);
+        }
+      }
+
+      // after that `at` keyword, the position of the ellipse is defined. It can be represented
+      // by 1, 2 or 4 length, percentage or keyword (e.g. start, center, …)
+      // So let's collect all those here
+      if (
+        seenAtKeyword &&
+        (token.tokenType === "Number" ||
+          token.tokenType === "Dimension" ||
+          token.tokenType === "Percentage" ||
+          token.tokenType === "Ident" ||
+          // when we have a stack entry, we can consider all the parts related to it as a
+          // single point
+          token.tokenType === CLOSED_STACK_ENTRY)
+      ) {
+        if (token !== previousToken) {
+          positionsPartsIndexes.push([i]);
+        } else {
+          // if the token for the current part is the same one as the previous part, then
+          // it represent the same position, so we add the part index to the last position
+          // item we added.
+          positionsPartsIndexes.at(-1).push(i);
+        }
+      }
+
+      previousToken = token;
+    }
+
+    // We're going to mutate stackEntry.parts, so let's go through the parts in reverse
+    // as the indexes in radiusIndexes and positionIndexes refer to the original indexes
+    // So first, let's handle positions if there are some
+    if (positionsPartsIndexes.length) {
+      const centerEl = this.#createNode("span", {
+        class: "inspector-shape-point",
+        "data-point": "center",
+      });
+      for (let i = positionsPartsIndexes.length - 1; i >= 0; i--) {
+        const pointEl = this.#createNode("span", {
+          class: "inspector-shape-point",
+          "data-point": "center",
+        });
+        if (i === 0) {
+          pointEl.setAttribute("data-pair", "x");
+        } else if (positionsPartsIndexes.length === 2) {
+          // Here we're not handling the first item, and there's only 2 items, so we know
+          // we have the y coord
+          pointEl.setAttribute("data-pair", "y");
+        } else if (i === 2) {
+          // If there's more than 2 position, that means we have a <position-four> type,
+          // where there's both x,y positions + offsets (e.g. `left 10px top 15px`)
+          // In such case, the first item is x (already handled in the first if block),
+          // and the third item is y
+          pointEl.setAttribute("data-pair", "y");
+        }
+
+        const indexes = positionsPartsIndexes[i];
+        for (const idx of indexes) {
+          pointEl.append(stackEntry.parts[idx]);
+        }
+        // we're iterating the parts in reverse, so we need to prepend in centerEl
+        centerEl.prepend(pointEl);
+        // We can remove as many items as we have indexes here, because if we have
+        // multiple parts refering to the same position, their indexes should be consecutive.
+        stackEntry.parts.splice(indexes[0], indexes.length);
+
+        // prepend any parts (e.g. whitespaces) between this point and the previous one
+        // into centerEl
+        const previousIndexes = positionsPartsIndexes[i - 1];
+        if (previousIndexes) {
+          for (let j = indexes[0] - 1; j > previousIndexes.at(-1); j--) {
+            centerEl.prepend(stackEntry.parts[j]);
+            stackEntry.parts.splice(j, 1);
+          }
+        }
+      }
+      stackEntry.parts.splice(positionsPartsIndexes[0][0], 0, centerEl);
+    }
+
+    // Handle radius size if there are some
+    if (radiiPartsIndexes.length) {
+      for (let i = radiiPartsIndexes.length - 1; i >= 0; i--) {
+        const radiusEl = this.#createNode("span", {
+          class: "inspector-shape-point",
+          // we should only have 2 radii, the first one being rx and the second one ry
+          "data-point": i === 0 ? "rx" : "ry",
+        });
+
+        const indexes = radiiPartsIndexes[i];
+        for (const idx of indexes) {
+          radiusEl.append(stackEntry.parts[idx]);
+        }
+        // We can remove as many items as we have indexes here, because if we have
+        // multiple parts refering to the same radius, their indexes should be consecutive.
+        stackEntry.parts.splice(indexes[0], indexes.length, radiusEl);
+      }
+    }
+
+    return stackEntry.parts;
+  }
+
+  /**
+   * Called when we got the closing bracket for the `inset()` function.
+   * It will append a CSS shapes highlighter toggle next to the value, and parse the value
+   * into spans, each containing a point that can be hovered over.
+   *
+   * @param {object} stackEntry
+   *        The last item in this.#stack
+   * @param {number} coordsStartIdx
+   *        The index in stackEntry.parts at which the coordinates for the inset start
+   * @returns {Array<Element|Text>} The parts that were handled
+   */
+  #onCloseParenthesisForInsetShape(stackEntry, coordsStartIdx) {
+    const insetPointsPartsIndexes = [];
+    let previousToken;
+    for (let i = coordsStartIdx; i < stackEntry.parts.length; i++) {
+      const part = stackEntry.parts[i];
+      const token = stackEntry.tokensByPart.get(part);
+
+      if (token.tokenType === "Ident" && token.text === "round") {
+        // Once we see the `round` keyword, we can stop looping, we have all the coordinates
+        // we need
+        break;
+      }
+
+      if (
+        token.tokenType !== "Number" &&
+        token.tokenType !== "Dimension" &&
+        token.tokenType !== "Percentage" &&
+        // when we have a stack entry, we can consider all the parts related to it as a
+        // single point
+        token.tokenType !== CLOSED_STACK_ENTRY
+      ) {
+        continue;
+      }
+
+      const lastPoint = insetPointsPartsIndexes.at(-1);
+      if (!lastPoint || previousToken !== token) {
+        insetPointsPartsIndexes.push([i]);
+      } else if (lastPoint) {
+        lastPoint.push(i);
+      }
+
+      previousToken = token;
+    }
+
+    const insetPoints = ["top", "right", "bottom", "left"];
+
+    // Let's iterate through points in reverse as we're going to mutate stackEntry.parts
+    // and the indexes in `points` refer to the original indexes
+    for (let i = insetPointsPartsIndexes.length - 1; i >= 0; i--) {
+      const pointPartsIndexes = insetPointsPartsIndexes[i];
+      const shapePointNode = this.#createNode("span", {
+        class: "inspector-shape-point",
+      });
+
+      // insetPoints contains the 4 different possible inset points in the order they are
+      // defined. By taking the modulo of the index in insetPoints with the number of nodes,
+      // we can get which node represents each point (e.g. if there is only 1 node, it
+      // represents all 4 points). The exception is "left" when there are 3 nodes. In that
+      // case, it is nodes[1] that represents the left point rather than nodes[0].
+      if (insetPointsPartsIndexes.length === 1) {
+        shapePointNode.classList.add(...insetPoints);
+      } else if (insetPointsPartsIndexes.length === 2) {
+        if (i === 0) {
+          shapePointNode.classList.add(insetPoints[0], insetPoints[2]);
+        } else {
+          shapePointNode.classList.add(insetPoints[1], insetPoints[3]);
+        }
+      } else if (insetPointsPartsIndexes.length === 3) {
+        if (i === 1) {
+          shapePointNode.classList.add(insetPoints[1], insetPoints[3]);
+        } else {
+          shapePointNode.classList.add(insetPoints[i]);
+        }
+      } else if (insetPointsPartsIndexes.length === 4) {
+        shapePointNode.classList.add(insetPoints[i]);
+      }
+
+      for (const idx of pointPartsIndexes) {
+        shapePointNode.append(stackEntry.parts[idx]);
+      }
+
+      stackEntry.parts.splice(
+        pointPartsIndexes[0],
+        pointPartsIndexes.at(-1) - pointPartsIndexes[0] + 1,
+        shapePointNode
+      );
+    }
+
+    return stackEntry.parts;
+  }
+
+  /**
    * Parse a string.
    *
    * @param  {string} text
@@ -1380,694 +1920,6 @@ class OutputParser {
     const value = this.#createNode("span", {}, text);
     container.append(value);
     this.#append(container);
-  }
-
-  /**
-   * Append a CSS shapes highlighter toggle next to the value, and parse the value
-   * into spans, each containing a point that can be hovered over.
-   *
-   * @param {string} shape
-   *        The shape text value to append
-   * @param {object} options
-   *        Options object. For valid options and default values see
-   *        #mergeOptions()
-   */
-  #appendShape(shape, options) {
-    const shapeTypes = [
-      {
-        prefix: "polygon(",
-        coordParser: this.#addPolygonPointNodes.bind(this),
-      },
-      {
-        prefix: "circle(",
-        coordParser: this.#addCirclePointNodes.bind(this),
-      },
-      {
-        prefix: "ellipse(",
-        coordParser: this.#addEllipsePointNodes.bind(this),
-      },
-      {
-        prefix: "inset(",
-        coordParser: this.#addInsetPointNodes.bind(this),
-      },
-    ];
-
-    const container = this.#createNode("span", {});
-
-    const lowerCaseShape = shape.toLowerCase();
-    for (const { prefix, coordParser } of shapeTypes) {
-      if (lowerCaseShape.includes(prefix)) {
-        const coordsBegin = prefix.length;
-        const coordsEnd = shape.lastIndexOf(")");
-        let valContainer = this.#createNode("span", {
-          class: options.shapeClass,
-        });
-
-        if (options.shapeSwatchClass) {
-          const toggleButton = this.#createNode("button", {
-            class: options.shapeSwatchClass,
-          });
-          container.appendChild(toggleButton);
-        }
-
-        appendText(valContainer, shape.substring(0, coordsBegin));
-
-        const coordsString = shape.substring(coordsBegin, coordsEnd);
-        valContainer = coordParser(coordsString, valContainer);
-
-        appendText(valContainer, shape.substring(coordsEnd));
-        container.appendChild(valContainer);
-      }
-    }
-
-    this.#append(container);
-  }
-
-  /**
-   * Parse the given polygon coordinates and create a span for each coordinate pair,
-   * adding it to the given container node.
-   *
-   * @param {string} coords
-   *        The string of coordinate pairs.
-   * @param {Node} container
-   *        The node to which spans containing points are added.
-   * @returns {Node} The container to which spans have been added.
-   */
-  // eslint-disable-next-line complexity
-  #addPolygonPointNodes(coords, container) {
-    const tokenStream = new InspectorCSSParserWrapper(coords);
-    let token = tokenStream.nextToken();
-    let coord = "";
-    let i = 0;
-    let depth = 0;
-    let isXCoord = true;
-    let fillRule = false;
-    let coordNode = this.#createNode("span", {
-      class: "inspector-shape-point",
-      "data-point": `${i}`,
-    });
-
-    while (token) {
-      if (token.tokenType === "Comma") {
-        // Comma separating coordinate pairs; add coordNode to container and reset vars
-        if (!isXCoord) {
-          // Y coord not added to coordNode yet
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": `${i}`,
-              "data-pair": isXCoord ? "x" : "y",
-            },
-            coord
-          );
-          coordNode.appendChild(node);
-          coord = "";
-          isXCoord = !isXCoord;
-        }
-
-        if (fillRule) {
-          // If the last text added was a fill-rule, do not increment i.
-          fillRule = false;
-        } else {
-          container.appendChild(coordNode);
-          i++;
-        }
-        appendText(
-          container,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-        coord = "";
-        depth = 0;
-        isXCoord = true;
-        coordNode = this.#createNode("span", {
-          class: "inspector-shape-point",
-          "data-point": `${i}`,
-        });
-      } else if (token.tokenType === "ParenthesisBlock") {
-        depth++;
-        coord += coords.substring(token.startOffset, token.endOffset);
-      } else if (token.tokenType === "CloseParenthesis") {
-        depth--;
-        coord += coords.substring(token.startOffset, token.endOffset);
-      } else if (token.tokenType === "WhiteSpace" && coord === "") {
-        // Whitespace at beginning of coord; add to container
-        appendText(
-          container,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-      } else if (token.tokenType === "WhiteSpace" && depth === 0) {
-        // Whitespace signifying end of coord
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-            "data-point": `${i}`,
-            "data-pair": isXCoord ? "x" : "y",
-          },
-          coord
-        );
-        coordNode.appendChild(node);
-        appendText(
-          coordNode,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-        coord = "";
-        isXCoord = !isXCoord;
-      } else if (
-        token.tokenType === "Number" ||
-        token.tokenType === "Dimension" ||
-        token.tokenType === "Percentage" ||
-        token.tokenType === "Function"
-      ) {
-        if (isXCoord && coord && depth === 0) {
-          // Whitespace is not necessary between x/y coords.
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": `${i}`,
-              "data-pair": "x",
-            },
-            coord
-          );
-          coordNode.appendChild(node);
-          isXCoord = false;
-          coord = "";
-        }
-
-        coord += coords.substring(token.startOffset, token.endOffset);
-        if (token.tokenType === "Function") {
-          depth++;
-        }
-      } else if (
-        token.tokenType === "Ident" &&
-        (token.text === "nonzero" || token.text === "evenodd")
-      ) {
-        // A fill-rule (nonzero or evenodd).
-        appendText(
-          container,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-        fillRule = true;
-      } else {
-        coord += coords.substring(token.startOffset, token.endOffset);
-      }
-      token = tokenStream.nextToken();
-    }
-
-    // Add coords if any are left over
-    if (coord) {
-      const node = this.#createNode(
-        "span",
-        {
-          class: "inspector-shape-point",
-          "data-point": `${i}`,
-          "data-pair": isXCoord ? "x" : "y",
-        },
-        coord
-      );
-      coordNode.appendChild(node);
-      container.appendChild(coordNode);
-    }
-    return container;
-  }
-
-  /**
-   * Parse the given circle coordinates and populate the given container appropriately
-   * with a separate span for the center point.
-   *
-   * @param {string} coords
-   *        The circle definition.
-   * @param {Node} container
-   *        The node to which the definition is added.
-   * @returns {Node} The container to which the definition has been added.
-   */
-  // eslint-disable-next-line complexity
-  #addCirclePointNodes(coords, container) {
-    const tokenStream = new InspectorCSSParserWrapper(coords);
-    let token = tokenStream.nextToken();
-    let depth = 0;
-    let coord = "";
-    let point = "radius";
-    const centerNode = this.#createNode("span", {
-      class: "inspector-shape-point",
-      "data-point": "center",
-    });
-    while (token) {
-      if (token.tokenType === "ParenthesisBlock") {
-        depth++;
-        coord += coords.substring(token.startOffset, token.endOffset);
-      } else if (token.tokenType === "CloseParenthesis") {
-        depth--;
-        coord += coords.substring(token.startOffset, token.endOffset);
-      } else if (token.tokenType === "WhiteSpace" && coord === "") {
-        // Whitespace at beginning of coord; add to container
-        appendText(
-          container,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-      } else if (
-        token.tokenType === "WhiteSpace" &&
-        point === "radius" &&
-        depth === 0
-      ) {
-        // Whitespace signifying end of radius
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-            "data-point": "radius",
-          },
-          coord
-        );
-        container.appendChild(node);
-        appendText(
-          container,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-        point = "cx";
-        coord = "";
-        depth = 0;
-      } else if (token.tokenType === "WhiteSpace" && depth === 0) {
-        // Whitespace signifying end of cx/cy
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-            "data-point": "center",
-            "data-pair": point === "cx" ? "x" : "y",
-          },
-          coord
-        );
-        centerNode.appendChild(node);
-        appendText(
-          centerNode,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-        point = point === "cx" ? "cy" : "cx";
-        coord = "";
-        depth = 0;
-      } else if (token.tokenType === "Ident" && token.text === "at") {
-        // "at"; Add radius to container if not already done so
-        if (point === "radius" && coord) {
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": "radius",
-            },
-            coord
-          );
-          container.appendChild(node);
-        }
-        appendText(
-          container,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-        point = "cx";
-        coord = "";
-        depth = 0;
-      } else if (
-        token.tokenType === "Number" ||
-        token.tokenType === "Dimension" ||
-        token.tokenType === "Percentage" ||
-        token.tokenType === "Function"
-      ) {
-        if (point === "cx" && coord && depth === 0) {
-          // Center coords don't require whitespace between x/y. So if current point is
-          // cx, we have the cx coord, and depth is 0, then this token is actually cy.
-          // Add cx to centerNode and set point to cy.
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": "center",
-              "data-pair": "x",
-            },
-            coord
-          );
-          centerNode.appendChild(node);
-          point = "cy";
-          coord = "";
-        }
-
-        coord += coords.substring(token.startOffset, token.endOffset);
-        if (token.tokenType === "Function") {
-          depth++;
-        }
-      } else {
-        coord += coords.substring(token.startOffset, token.endOffset);
-      }
-      token = tokenStream.nextToken();
-    }
-
-    // Add coords if any are left over.
-    if (coord) {
-      if (point === "radius") {
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-            "data-point": "radius",
-          },
-          coord
-        );
-        container.appendChild(node);
-      } else {
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-            "data-point": "center",
-            "data-pair": point === "cx" ? "x" : "y",
-          },
-          coord
-        );
-        centerNode.appendChild(node);
-      }
-    }
-
-    if (centerNode.textContent) {
-      container.appendChild(centerNode);
-    }
-    return container;
-  }
-
-  /**
-   * Parse the given ellipse coordinates and populate the given container appropriately
-   * with a separate span for each point
-   *
-   * @param {string} coords
-   *        The ellipse definition.
-   * @param {Node} container
-   *        The node to which the definition is added.
-   * @returns {Node} The container to which the definition has been added.
-   */
-  // eslint-disable-next-line complexity
-  #addEllipsePointNodes(coords, container) {
-    const tokenStream = new InspectorCSSParserWrapper(coords);
-    let token = tokenStream.nextToken();
-    let depth = 0;
-    let coord = "";
-    let point = "rx";
-    const centerNode = this.#createNode("span", {
-      class: "inspector-shape-point",
-      "data-point": "center",
-    });
-    while (token) {
-      if (token.tokenType === "ParenthesisBlock") {
-        depth++;
-        coord += coords.substring(token.startOffset, token.endOffset);
-      } else if (token.tokenType === "CloseParenthesis") {
-        depth--;
-        coord += coords.substring(token.startOffset, token.endOffset);
-      } else if (token.tokenType === "WhiteSpace" && coord === "") {
-        // Whitespace at beginning of coord; add to container
-        appendText(
-          container,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-      } else if (token.tokenType === "WhiteSpace" && depth === 0) {
-        if (point === "rx" || point === "ry") {
-          // Whitespace signifying end of rx/ry
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": point,
-            },
-            coord
-          );
-          container.appendChild(node);
-          appendText(
-            container,
-            coords.substring(token.startOffset, token.endOffset)
-          );
-          point = point === "rx" ? "ry" : "cx";
-          coord = "";
-          depth = 0;
-        } else {
-          // Whitespace signifying end of cx/cy
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": "center",
-              "data-pair": point === "cx" ? "x" : "y",
-            },
-            coord
-          );
-          centerNode.appendChild(node);
-          appendText(
-            centerNode,
-            coords.substring(token.startOffset, token.endOffset)
-          );
-          point = point === "cx" ? "cy" : "cx";
-          coord = "";
-          depth = 0;
-        }
-      } else if (token.tokenType === "Ident" && token.text === "at") {
-        // "at"; Add radius to container if not already done so
-        if (point === "ry" && coord) {
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": "ry",
-            },
-            coord
-          );
-          container.appendChild(node);
-        }
-        appendText(
-          container,
-          coords.substring(token.startOffset, token.endOffset)
-        );
-        point = "cx";
-        coord = "";
-        depth = 0;
-      } else if (
-        token.tokenType === "Number" ||
-        token.tokenType === "Dimension" ||
-        token.tokenType === "Percentage" ||
-        token.tokenType === "Function"
-      ) {
-        if (point === "rx" && coord && depth === 0) {
-          // Radius coords don't require whitespace between x/y.
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": "rx",
-            },
-            coord
-          );
-          container.appendChild(node);
-          point = "ry";
-          coord = "";
-        }
-        if (point === "cx" && coord && depth === 0) {
-          // Center coords don't require whitespace between x/y.
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-              "data-point": "center",
-              "data-pair": "x",
-            },
-            coord
-          );
-          centerNode.appendChild(node);
-          point = "cy";
-          coord = "";
-        }
-
-        coord += coords.substring(token.startOffset, token.endOffset);
-        if (token.tokenType === "Function") {
-          depth++;
-        }
-      } else {
-        coord += coords.substring(token.startOffset, token.endOffset);
-      }
-      token = tokenStream.nextToken();
-    }
-
-    // Add coords if any are left over.
-    if (coord) {
-      if (point === "rx" || point === "ry") {
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-            "data-point": point,
-          },
-          coord
-        );
-        container.appendChild(node);
-      } else {
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-            "data-point": "center",
-            "data-pair": point === "cx" ? "x" : "y",
-          },
-          coord
-        );
-        centerNode.appendChild(node);
-      }
-    }
-
-    if (centerNode.textContent) {
-      container.appendChild(centerNode);
-    }
-    return container;
-  }
-
-  /**
-   * Parse the given inset coordinates and populate the given container appropriately.
-   *
-   * @param {string} coords
-   *        The inset definition.
-   * @param {Node} container
-   *        The node to which the definition is added.
-   * @returns {Node} The container to which the definition has been added.
-   */
-  // eslint-disable-next-line complexity
-  #addInsetPointNodes(coords, container) {
-    const insetPoints = ["top", "right", "bottom", "left"];
-    const tokenStream = new InspectorCSSParserWrapper(coords);
-    let token = tokenStream.nextToken();
-    let depth = 0;
-    let coord = "";
-    let i = 0;
-    let round = false;
-    // nodes is an array containing all the coordinate spans. otherText is an array of
-    // arrays, each containing the text that should be inserted into container before
-    // the node with the same index. i.e. all elements of otherText[i] is inserted
-    // into container before nodes[i].
-    const nodes = [];
-    const otherText = [[]];
-
-    while (token) {
-      if (round) {
-        // Everything that comes after "round" should just be plain text
-        otherText[i].push(coords.substring(token.startOffset, token.endOffset));
-      } else if (token.tokenType === "ParenthesisBlock") {
-        depth++;
-        coord += coords.substring(token.startOffset, token.endOffset);
-      } else if (token.tokenType === "CloseParenthesis") {
-        depth--;
-        coord += coords.substring(token.startOffset, token.endOffset);
-      } else if (token.tokenType === "WhiteSpace" && coord === "") {
-        // Whitespace at beginning of coord; add to container
-        otherText[i].push(coords.substring(token.startOffset, token.endOffset));
-      } else if (token.tokenType === "WhiteSpace" && depth === 0) {
-        // Whitespace signifying end of coord; create node and push to nodes
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-          },
-          coord
-        );
-        nodes.push(node);
-        i++;
-        coord = "";
-        otherText[i] = [coords.substring(token.startOffset, token.endOffset)];
-        depth = 0;
-      } else if (
-        token.tokenType === "Number" ||
-        token.tokenType === "Dimension" ||
-        token.tokenType === "Percentage" ||
-        token.tokenType === "Function"
-      ) {
-        if (coord && depth === 0) {
-          // Inset coords don't require whitespace between each coord.
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-            },
-            coord
-          );
-          nodes.push(node);
-          i++;
-          coord = "";
-          otherText[i] = [];
-        }
-
-        coord += coords.substring(token.startOffset, token.endOffset);
-        if (token.tokenType === "Function") {
-          depth++;
-        }
-      } else if (token.tokenType === "Ident" && token.text === "round") {
-        if (coord && depth === 0) {
-          // Whitespace is not necessary before "round"; create a new node for the coord
-          const node = this.#createNode(
-            "span",
-            {
-              class: "inspector-shape-point",
-            },
-            coord
-          );
-          nodes.push(node);
-          i++;
-          coord = "";
-          otherText[i] = [];
-        }
-        round = true;
-        otherText[i].push(coords.substring(token.startOffset, token.endOffset));
-      } else {
-        coord += coords.substring(token.startOffset, token.endOffset);
-      }
-      token = tokenStream.nextToken();
-    }
-
-    // Take care of any leftover text
-    if (coord) {
-      if (round) {
-        otherText[i].push(coord);
-      } else {
-        const node = this.#createNode(
-          "span",
-          {
-            class: "inspector-shape-point",
-          },
-          coord
-        );
-        nodes.push(node);
-      }
-    }
-
-    // insetPoints contains the 4 different possible inset points in the order they are
-    // defined. By taking the modulo of the index in insetPoints with the number of nodes,
-    // we can get which node represents each point (e.g. if there is only 1 node, it
-    // represents all 4 points). The exception is "left" when there are 3 nodes. In that
-    // case, it is nodes[1] that represents the left point rather than nodes[0].
-    for (let j = 0; j < 4; j++) {
-      const point = insetPoints[j];
-      const nodeIndex =
-        point === "left" && nodes.length === 3 ? 1 : j % nodes.length;
-      nodes[nodeIndex].classList.add(point);
-    }
-
-    nodes.forEach((node, j) => {
-      for (const text of otherText[j]) {
-        appendText(container, text);
-      }
-      container.appendChild(node);
-    });
-
-    // Add text that comes after the last node, if any exists
-    if (otherText[nodes.length]) {
-      for (const text of otherText[nodes.length]) {
-        appendText(container, text);
-      }
-    }
-
-    return container;
   }
 
   /**

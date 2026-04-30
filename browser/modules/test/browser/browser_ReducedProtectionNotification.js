@@ -147,7 +147,7 @@ add_task(async function test_button_disables_tp_and_reloads() {
 
   info("Clicking the reload button on the infobar");
   let reloadPromise = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-  let button = notification.buttonContainer.querySelector("button");
+  let button = notification.buttonContainer.querySelector("button:last-child");
   button.click();
   await reloadPromise;
 
@@ -245,7 +245,7 @@ add_task(async function test_button_disables_all_tracker_prefs() {
   ok(notification, "Infobar appeared");
 
   let reloadPromise = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-  notification.buttonContainer.querySelector("button").click();
+  notification.buttonContainer.querySelector("button:last-child").click();
   await reloadPromise;
 
   let scopedPrefs = tab.linkedBrowser.browsingContext.scopedPrefs;
@@ -390,4 +390,49 @@ add_task(async function test_no_infobar_on_meta_refresh() {
   ok(!notification, "No infobar after a meta refresh");
 
   BrowserTestUtils.removeTab(tab);
+});
+
+// Clicking "Don't show again" sets the feature pref to false.
+add_task(async function test_dont_show_again_disables_pref() {
+  let blockingPromise = waitForContentBlockingEvent(pbWindow.gBrowser);
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    pbWindow.gBrowser,
+    TRACKING_PAGE
+  );
+  await blockingPromise;
+
+  let loadedPromise = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  pbWindow.gBrowser.reloadWithFlags(Ci.nsIWebNavigation.LOAD_FLAGS_NONE);
+  await loadedPromise;
+
+  let notification = await TestUtils.waitForCondition(
+    () => getNotification(tab.linkedBrowser),
+    "Waiting for reduced protection notification"
+  );
+  ok(notification, "Infobar appeared");
+
+  let dontShowAgainButton =
+    notification.buttonContainer.querySelector("button:first-child");
+  ok(dontShowAgainButton, "Don't show again button is present");
+  is(
+    dontShowAgainButton.dataset.l10nId,
+    "reduced-protection-infobar-never-show-button",
+    "First button is 'Don't show again'"
+  );
+
+  dontShowAgainButton.click();
+
+  ok(
+    !Services.prefs.getBoolPref(
+      "privacy.reducePageProtection.infobar.enabled.pbmode"
+    ),
+    "Feature pref is disabled after clicking Don't show again"
+  );
+
+  BrowserTestUtils.removeTab(tab);
+  // restore prefs to value before test ran
+  Services.prefs.setBoolPref(
+    "privacy.reducePageProtection.infobar.enabled.pbmode",
+    true
+  );
 });

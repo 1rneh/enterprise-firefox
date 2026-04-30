@@ -217,7 +217,8 @@ internal fun Homepage(
                                 SportsWidgetSection(
                                     sportsWidgetState = sportsWidgetState,
                                     onDismiss = interactor::onSportsWidgetDismissed,
-                                    onViewSchedule = {},
+                                    onCountdownWidgetDismiss = interactor::onCountdownWidgetDismissed,
+                                    onViewSchedule = interactor::onViewScheduleClicked,
                                     onFollowTeam = {
                                         showSportsCountrySelector = true
                                     },
@@ -564,22 +565,22 @@ private fun CollectionsSection(
 private fun SportsWidgetSection(
     sportsWidgetState: SportsWidgetState,
     onDismiss: () -> Unit,
+    onCountdownWidgetDismiss: () -> Unit,
     onViewSchedule: () -> Unit,
     onFollowTeam: () -> Unit,
     onSkip: () -> Unit,
 ) {
     Spacer(modifier = Modifier.height(44.dp))
 
-    if (!sportsWidgetState.hasWorldCupStarted) {
+    if (sportsWidgetState.isCountdownShown) {
+        val worldCupKickoffDate = "2026-06-11T00:00:00Z"
         CountdownPromoCard(
-            days = "5",
-            hours = "21",
-            mins = "3",
+            dateInUtc = worldCupKickoffDate,
             onViewSchedule = onViewSchedule,
-            onDismiss = onDismiss,
+            onDismiss = onCountdownWidgetDismiss,
             modifier = Modifier.padding(horizontal = horizontalMargin),
         )
-    } else if (!sportsWidgetState.hasSkippedFollowTeam && sportsWidgetState.countriesSelected.isEmpty()) {
+    } else if (sportsWidgetState.isFollowTeamsCardShown) {
         FollowTeamPromoCard(
             onFollowTeam = onFollowTeam,
             onSkip = onSkip,

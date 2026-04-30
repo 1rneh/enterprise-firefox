@@ -199,8 +199,8 @@ panel-item[action="save"]::part(button) {
 
 ### Badging
 
-Icons may be badged by setting the `badged` attribute. This adds a dot next to
-the icon.
+There are two types of badging. Icons may be badged by setting the `badged`
+attribute. This adds a dot next to the icon.
 
 ```html
 <panel-list>
@@ -213,6 +213,25 @@ the icon.
 <panel-list stay-open open>
   <panel-item action="new">New</panel-item>
   <panel-item action="save" badged>Save</panel-item>
+</panel-list>
+```
+
+A `moz-badge` element can be added next to the label by setting the `badge-type`
+attribute.
+
+```html
+<panel-list>
+  <panel-item action="new">New</panel-item>
+  <panel-item action="save" badge-type="new">Save</panel-item>
+  <panel-item action="delete" badge-type="beta">Delete</panel-item>
+</panel-list>
+```
+
+```html story
+<panel-list stay-open open>
+  <panel-item action="new">New</panel-item>
+  <panel-item action="save" badge-type="new">Save</panel-item>
+  <panel-item action="delete" badge-type="beta">Delete</panel-item>
 </panel-list>
 ```
 

@@ -4,20 +4,26 @@
 
 package org.mozilla.fenix.home.sports
 
+import androidx.navigation.NavController
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Test
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction
+import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.utils.Settings
 
 class SportsControllerTest {
 
     private val appStore: AppStore = mockk(relaxed = true)
     private val settings: Settings = mockk(relaxed = true)
+    private val navController: NavController = mockk(relaxed = true)
+    private val fenixBrowserUseCases: FenixBrowserUseCases = mockk(relaxed = true)
     private val controller: SportsController = DefaultSportsController(
         appStore = appStore,
         settings = settings,
+        navController = navController,
+        fenixBrowserUseCases = fenixBrowserUseCases,
     )
 
     @Test
@@ -79,6 +85,16 @@ class SportsControllerTest {
         verify {
             settings.showHomepageSportsWidget = false
             appStore.dispatch(AppAction.SportsWidgetAction.VisibilityChanged(isVisible = false))
+        }
+    }
+
+    @Test
+    fun `WHEN the countdown widget is dismissed THEN the visibility preference is set to false and the action is dispatched`() {
+        controller.handleCountdownWidgetDismissed()
+
+        verify {
+            settings.showHomepageCountdownWidget = false
+            appStore.dispatch(AppAction.SportsWidgetAction.CountdownVisibilityChanged(isCountdownVisible = false))
         }
     }
 }

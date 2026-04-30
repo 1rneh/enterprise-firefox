@@ -31866,8 +31866,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
       * - **browsertime-tp6-firefox-twitch**
-        - ✅
-        - ✅
+        - ❌
+        - ❌
         - ❌
         - ❌
       * - **browsertime-tp6-live-chrome-twitch**
@@ -38189,36 +38189,6 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - autoland
         - mozilla-release
         - mozilla-beta
-      * - **browsertime-tp6m-chrome-m-facebook-cristiano-nofis**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-cstm-car-m-facebook-cristiano-nofis**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-fenix-facebook-cristiano**
-        - ✅
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-fenix-facebook-cristiano-nofis**
-        - ✅
-        - ✅
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-geckoview-facebook-cristiano**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-geckoview-facebook-cristiano-nofis**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
       * - **browsertime-tp6m-live-chrome-m-facebook-cristiano-nofis**
         - ❌
         - ❌
@@ -38244,11 +38214,6 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
-      * - **browsertime-tp6m-refbrow-facebook-cristiano**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
 
 
    .. list-table:: **test-android-hw-a55-14-0-aarch64/opt**
@@ -38260,26 +38225,6 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - autoland
         - mozilla-release
         - mozilla-beta
-      * - **browsertime-tp6m-fenix-facebook-cristiano**
-        - ✅
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-fenix-facebook-cristiano-nofis**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-geckoview-facebook-cristiano**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-geckoview-facebook-cristiano-nofis**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
       * - **browsertime-tp6m-live-fenix-facebook-cristiano**
         - ❌
         - ❌
@@ -38296,11 +38241,6 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
       * - **browsertime-tp6m-live-geckoview-facebook-cristiano-nofis**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6m-refbrow-facebook-cristiano**
         - ❌
         - ❌
         - ❌

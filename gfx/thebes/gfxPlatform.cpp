@@ -3077,8 +3077,30 @@ void gfxPlatform::InitHardwareVideoConfig() {
   InitPlatformHardwareVideoConfig();
   InitPlatformHardwarDRMConfig();
 
+  FeatureState& featureVulkanDec =
+      gfxConfig::GetFeature(Feature::HARDWARE_VIDEO_DECODING_VULKAN);
+  featureVulkanDec.Reset();
+  featureVulkanDec.EnableByDefault();
+  if (!StaticPrefs::media_hardware_video_decoding_vulkan_enabled_AtStartup()) {
+    featureVulkanDec.UserDisable(
+        "User disabled via media.hardware-video-decoding-vulkan.enabled pref",
+        "FEATURE_HARDWARE_VIDEO_DECODING_VULKAN_PREF_DISABLED"_ns);
+  }
+
+  bool canUseVulkanDecode = false;
+  int32_t vulkanDecStatus = nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
+  nsCString vulkanDecFailureId;
+  if (featureVulkanDec.IsEnabled() &&
+      NS_SUCCEEDED(gfxInfo->GetFeatureStatus(
+          nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING_VULKAN,
+          vulkanDecFailureId, &vulkanDecStatus)) &&
+      vulkanDecStatus == nsIGfxInfo::FEATURE_STATUS_OK) {
+    canUseVulkanDecode = true;
+  }
+
   nsCString message;
-  gfxVars::SetCanUseHardwareVideoDecoding(featureDec.IsEnabled());
+  gfxVars::SetCanUseHardwareVideoDecoding(featureDec.IsEnabled() ||
+                                          canUseVulkanDecode);
   gfxVars::SetCanUseHardwareVideoEncoding(featureEnc.IsEnabled());
 
 #ifdef MOZ_WIDGET_ANDROID
@@ -3096,7 +3118,7 @@ void gfxPlatform::InitHardwareVideoConfig() {
   FeatureState& featureDec##name =                                             \
       gfxConfig::GetFeature(Feature::name##_HW_DECODE);                        \
   featureDec##name.Reset();                                                    \
-  if (featureDec.IsEnabled()) {                                                \
+  if (featureDec.IsEnabled() || canUseVulkanDecode) {                          \
     CODEC_HW_FEATURE_SETUP_PLATFORM(name, Dec, false)                          \
     if (!IsGfxInfoStatusOkay(nsIGfxInfo::FEATURE_##name##_HW_DECODE, &message, \
                              failureId)) {                                     \
@@ -3178,28 +3200,12 @@ void gfxPlatform::InitWebGLConfig() {
     }
   }
 
-  bool allowWebGLOop =
-      IsFeatureOk(nsIGfxInfo::FEATURE_ALLOW_WEBGL_OUT_OF_PROCESS);
-  if (!kIsAndroid) {
-    gfxVars::SetAllowWebglOop(allowWebGLOop);
-  } else {
-    // On android, enable out-of-process WebGL only when GPU process exists.
-    gfxVars::SetAllowWebglOop(allowWebGLOop &&
-                              gfxConfig::IsEnabled(Feature::GPU_PROCESS));
-    // Enable gl::SharedSurface of AndroidHardwareBuffer when out-of-process
-    // WebGL is enabled.
 #ifdef MOZ_WIDGET_ANDROID
-    if (gfxVars::AllowWebglOop() &&
-        StaticPrefs::webgl_out_of_process_enable_ahardwarebuffer_AtStartup()) {
-      gfxVars::SetUseAHardwareBufferSharedSurfaceWebglOop(true);
-    }
+  gfxVars::SetUseAHardwareBufferSharedSurfaceWebglOop(
+      StaticPrefs::webgl_out_of_process_enable_ahardwarebuffer_AtStartup());
 #endif
-  }
 
   if (!gfxConfig::IsEnabled(Feature::GPU_PROCESS) &&
-#ifdef ANDROID
-      !StaticPrefs::webgl_allow_in_content_AtStartup() &&
-#endif
       !StaticPrefs::webgl_allow_in_parent_AtStartup()) {
     featureWebGL.Disable(FeatureStatus::UnavailableNoGpuProcess,
                          "Disabled without GPU process",
@@ -4084,8 +4090,7 @@ bool gfxPlatform::FallbackFromAcceleration(FeatureStatus aStatus,
       (gfxVars::AllowWebGPU() &&
        !StaticPrefs::dom_webgpu_allow_in_parent_AtStartup()) ||
       (gfxVars::AllowWebGL() &&
-       !StaticPrefs::webgl_allow_in_parent_AtStartup()) ||
-      (kIsAndroid && gfxVars::AllowWebglOop())) {
+       !StaticPrefs::webgl_allow_in_parent_AtStartup())) {
     // Because content has a lot of control over inputs to remote canvas, we
     // try to disable it as part of our final fallback step before disabling
     // the GPU process. We don't actually support remote canvas in the parent
@@ -4094,8 +4099,8 @@ bool gfxPlatform::FallbackFromAcceleration(FeatureStatus aStatus,
     gfxCriticalNoteOnce << "Fallback SW-WR, disable remote canvas";
     DisableAllCanvasForFallback(
         FeatureStatus::UnavailableNoGpuProcess,
-        "Disabled by fallback to GPU Process disabled",
-        "FEATURE_FAILURE_DISABLED_BY_FALLBACK_GPU_PROCESS_DISABLED"_ns);
+        "Disabled by GPU process instability",
+        "FEATURE_FAILURE_DISABLED_BY_GPU_PROCESS_INSTABILITY"_ns);
     return true;
   }
 
@@ -4132,17 +4137,9 @@ void gfxPlatform::DisableAllCanvasForFallback(FeatureStatus aStatus,
   }
 
   if (gfxVars::AllowWebGL() &&
-#ifdef ANDROID
-      !StaticPrefs::webgl_allow_in_content_AtStartup() &&
-#endif
       !StaticPrefs::webgl_allow_in_parent_AtStartup()) {
     gfxConfig::Disable(Feature::WEBGL, aStatus, aMessage, aFailureId);
     gfxVars::SetAllowWebGL(false);
-  }
-
-  if (kIsAndroid) {
-    // On android, enable out-of-process WebGL only when GPU process exists.
-    gfxVars::SetAllowWebglOop(false);
   }
 }
 

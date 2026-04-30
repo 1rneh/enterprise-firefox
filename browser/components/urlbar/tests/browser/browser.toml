@@ -370,10 +370,6 @@ support-files = ["dummy_page.html"]
 
 ["browser_searchSingleWordNotification.js"]
 https_first_disabled = true
-skip-if = [
-  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt", # Bug 1929645
-  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt", # Bug 1929645
-]
 
 ["browser_searchSuggestions.js"]
 support-files = [
@@ -490,6 +486,8 @@ support-files = ["moz.png"]
 ["browser_tabMatchesInAwesomebar_perwindowpb.js"]
 
 ["browser_tabToSearch.js"]
+
+["browser_testUrlbarIcons.js"]
 
 ["browser_text_dont_shift_on_mousedown.js"]
 

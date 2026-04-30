@@ -361,7 +361,7 @@ bool SavedFrame::HashPolicy::match(SavedFrame* existing, const Lookup& lookup) {
 }
 
 /* static */
-void SavedFrame::HashPolicy::rekey(Key& key, const Key& newKey) {
+void SavedFrame::HashPolicy::rekey(Key& key, SavedFrame* newKey) {
   key = newKey;
 }
 

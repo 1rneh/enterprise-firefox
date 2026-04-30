@@ -959,6 +959,11 @@ export class UrlbarView {
         queryContext.deferUserSelectionProviders.delete(r.providerName);
       });
     }
+
+    if (lazy.UrlbarPrefs.get("unifiedSearchButton.always")) {
+      // Update the search mode switcher icon to reflect what pressing Enter will do after new results show.
+      this.input.searchModeSwitcher?.updateSearchIcon();
+    }
   }
 
   /**
@@ -2205,6 +2210,8 @@ export class UrlbarView {
 
     item._content.id = item.id + "-inner";
 
+    item.toggleAttribute("is-top-pick", !!result.isBestMatch);
+
     if (result.isBottomUrlSuggestion) {
       this.#updateRowContentForBottomUrl(item, result);
       return;
@@ -2233,7 +2240,8 @@ export class UrlbarView {
     if (
       result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH &&
       !result.payload.providesSearchMode &&
-      !result.payload.inPrivateWindow
+      !result.payload.inPrivateWindow &&
+      result.providerName != lazy.UrlbarProviderQuickSuggest.name
     ) {
       item.setAttribute(
         "type",

@@ -3368,6 +3368,8 @@ class Document : public nsINode,
   // Observe loading=lazy sizes=auto image for size changes.
   void ObserveAutoSizesImage(HTMLImageElement& aElement);
   void UnobserveAutoSizesImage(HTMLImageElement& aElement);
+  // Returns whether we are observing |aElement| for sizes=auto size changes.
+  bool ObservesAutoSizesImage(HTMLImageElement& aElement) const;
 
   nsresult GetStateObject(JS::MutableHandle<JS::Value> aState);
 
@@ -4310,17 +4312,12 @@ class Document : public nsINode,
   }
 
  private:
-  void DoCacheAllKnownLangPrefs();
   void RecomputeLanguageFromCharset();
   bool GetSHEntryHasUserInteraction();
 
   void AppendAutoFocusCandidateToTopDocument(Element* aAutoFocusCandidate);
 
  public:
-  void SetMayNeedFontPrefsUpdate() { mMayNeedFontPrefsUpdate = true; }
-
-  bool MayNeedFontPrefsUpdate() { return mMayNeedFontPrefsUpdate; }
-
   void SetSHEntryHasUserInteraction(bool aHasInteraction);
 
   nsAtom* GetContentLanguageAsAtomForStyle() const;
@@ -4330,22 +4327,7 @@ class Document : public nsINode,
    * Fetch the user's font preferences for the given aLanguage's
    * language group.
    */
-  const LangGroupFontPrefs* GetFontPrefsForLang(
-      nsAtom* aLanguage, bool* aNeedsToCache = nullptr) const;
-
-  void ForceCacheLang(nsAtom* aLanguage) {
-    if (!mLanguagesUsed.EnsureInserted(aLanguage)) {
-      return;
-    }
-    GetFontPrefsForLang(aLanguage);
-  }
-
-  void CacheAllKnownLangPrefs() {
-    if (!mMayNeedFontPrefsUpdate) {
-      return;
-    }
-    DoCacheAllKnownLangPrefs();
-  }
+  const LangGroupFontPrefs* GetFontPrefsForLang(nsAtom* aLanguage) const;
 
   nsINode* GetServoRestyleRoot() const { return mServoRestyleRoot; }
 
@@ -4990,8 +4972,6 @@ class Document : public nsINode,
 
   // True if BIDI is enabled.
   bool mBidiEnabled : 1;
-  // True if we may need to recompute the language prefs for this document.
-  bool mMayNeedFontPrefsUpdate : 1;
 
   // True if we are trying to fire the load event for the initial about:blank.
   // Since the initial about:blank is already in READYSTATE_COMPLETE when
@@ -5705,8 +5685,6 @@ class Document : public nsINode,
   // We lazily calculate declaration blocks for elements with mapped
   // attributes. This set contains all elements which need lazy resolution.
   nsTHashSet<Element*> mLazyPresElements;
-
-  nsTHashSet<RefPtr<nsAtom>> mLanguagesUsed;
 
   // TODO(emilio): Is this hot enough to warrant to be cached?
   // EncodingToLang.cpp keeps the atom alive until shutdown, so

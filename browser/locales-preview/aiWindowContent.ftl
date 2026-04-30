@@ -35,6 +35,12 @@ aiwindow-retry =
 aiwindow-copy-message =
     .tooltiptext = Copy
     .aria-label = Copy message
+aiwindow-thumbs-up =
+    .tooltiptext = Good response
+    .aria-label = Good response
+aiwindow-thumbs-down =
+    .tooltiptext = Bad response
+    .aria-label = Bad response
 aiwindow-applied-memories-popover =
     .aria-label = Applied memories
 

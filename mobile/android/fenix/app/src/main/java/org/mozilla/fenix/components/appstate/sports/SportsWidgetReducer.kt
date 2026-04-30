@@ -17,5 +17,17 @@ internal object SportsWidgetReducer {
                 countriesSelected = action.countryCodes,
             ),
         )
+
+        SportsWidgetAction.FollowTeamSkipped -> state.copy(
+            sportsWidgetState = state.sportsWidgetState.copy(
+                hasSkippedFollowTeam = true,
+            ),
+        )
+
+        is SportsWidgetAction.VisibilityChanged -> state.copy(
+            sportsWidgetState = state.sportsWidgetState.copy(
+                isVisible = action.isVisible,
+            ),
+        )
     }
 }

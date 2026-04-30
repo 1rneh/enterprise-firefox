@@ -296,4 +296,16 @@ class SessionControlInteractorTest {
         interactor.onCountriesSelected(countryCodes)
         verify { sportsController.handleCountriesSelected(countryCodes) }
     }
+
+    @Test
+    fun `WHEN the follow team flow is skipped THEN sports controller handles the skip`() {
+        interactor.onSkippedFollowTeam()
+        verify { sportsController.handleSkippedFollowTeam() }
+    }
+
+    @Test
+    fun `WHEN the sports widget is dismissed THEN sports controller handles the dismissal`() {
+        interactor.onSportsWidgetDismissed()
+        verify { sportsController.handleSportsWidgetDismissed() }
+    }
 }

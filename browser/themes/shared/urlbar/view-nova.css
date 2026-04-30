@@ -29,19 +29,21 @@
   /* The two common row icon types are favicons and rich search suggestion icons,
      favicons being smaller. Depending on current product requirements, there
      may be other icon types of various sizes. All icons no larger than rich
-     search suggestion icons should be center-aligned along one vertical axis. */
+     search suggestion icons should be center-aligned along one vertical axis.
+     Larger icons should be left-aligned with rich search suggestion icons. */
   --urlbarView-favicon-size: 16px;
   --urlbarView-rich-search-suggestion-icon-size: 28px;
+  --urlbarView-top-pick-icon-size: 58px;
 
-  /* Inline margins required for center-aligning favicons along the icon axis.
-     Icons larger than rich search suggestion icons also use these margins so
-     that they are left-aligned with favicons. */
+  /* Icon margin-end not taking into account the size of the icon */
+  --urlbarView-icon-margin-end-base: calc(var(--urlbar-icon-padding) + var(--identity-box-margin-inline));
+
   --urlbarView-favicon-margin-start: calc((var(--urlbarView-rich-search-suggestion-icon-size) - var(--urlbarView-favicon-size)) / 2);
-  --urlbarView-favicon-margin-end: calc(
-    var(--urlbar-icon-padding) + var(--identity-box-margin-inline) + ((var(--urlbarView-rich-search-suggestion-icon-size) - var(--urlbarView-favicon-size)) / 2)
-  );
+  --urlbarView-favicon-margin-end: calc(var(--urlbarView-icon-margin-end-base) + var(--urlbarView-favicon-margin-start));
 
-  --urlbarView-top-pick-large-icon-box-size: 52px;
+  --urlbarView-icon-border-radius-rounded: calc(
+    var(--urlbarView-row-border-radius) - min(var(--urlbarView-row-padding-block), var(--urlbarView-row-padding-inline))
+  );
 
   --urlbarView-result-button-size: 24px;
   --urlbarView-result-button-background-opacity: 60%;
@@ -119,35 +121,9 @@
 
 .urlbarView-row {
   --urlbarView-icon-size: var(--urlbarView-favicon-size);
-  --urlbarView-icon-margin-start: var(--urlbarView-favicon-margin-start);
-  --urlbarView-icon-margin-end: var(--urlbarView-favicon-margin-end);
   --urlbarView-icon-border-radius: 0;
-
-  &[icon-size="24"] {
-    --urlbarView-icon-size: 24px;
-  }
-
-  &[icon-size="28"] {
-    --urlbarView-icon-size: 28px;
-  }
-
-  &[icon-size="32"] {
-    --urlbarView-icon-size: 32px;
-  }
-
-  &[icon-size="52"] {
-    --urlbarView-icon-size: 52px;
-  }
-
-  /* Inline margins required for center-aligning icons no larger than rich search
-     suggestion icons. Larger icons are left-aligned with favicons. */
-  &[icon-size="24"],
-  &[icon-size="28"] {
-    --urlbarView-icon-margin-start: calc((var(--urlbarView-rich-search-suggestion-icon-size) - var(--urlbarView-icon-size)) / 2);
-    --urlbarView-icon-margin-end: calc(
-      var(--urlbar-icon-padding) + var(--identity-box-margin-inline) + ((var(--urlbarView-rich-search-suggestion-icon-size) - var(--urlbarView-icon-size)) / 2)
-    );
-  }
+  --urlbarView-icon-margin-start: max(0px, (var(--urlbarView-rich-search-suggestion-icon-size) - var(--urlbarView-icon-size)) / 2);
+  --urlbarView-icon-margin-end: calc(var(--urlbarView-icon-margin-end-base) + var(--urlbarView-icon-margin-start));
 
   display: flex;
   align-items: center;
@@ -182,6 +158,9 @@
   }
 
   &[type="rich-search"] {
+    --urlbarView-icon-size: 28px;
+    --urlbarView-icon-border-radius: var(--urlbarView-icon-border-radius-rounded);
+
     :root:not([uidensity="compact"]) & {
       min-height: 46px;
     }
@@ -321,10 +300,6 @@
        contrast from the result highlight. */
     color: var(--link-color);
     -moz-context-properties: fill;
-  }
-
-  .urlbarView-row[type="rich-search"] > .urlbarView-row-inner > & {
-    border-radius: var(--border-radius-circle);
   }
 }
 
@@ -973,22 +948,46 @@
       }
     }
   }
+
+  &[tip-type="dismissalAcknowledgment"] {
+    --urlbarView-icon-size: var(--urlbarView-rich-search-suggestion-icon-size);
+  }
 }
 
 /* Firefox Suggest rows */
 
-.urlbarView-row[type$="_amo"][icon-size="24"] > .urlbarView-row-inner > .urlbarView-favicon {
-  padding: calc((var(--urlbarView-top-pick-large-icon-box-size) - 24px) / 2);
-  background-color: var(--urlbar-box-background-color-focus);
-  border-radius: var(--border-radius-xsmall);
+.urlbarView-row[is-top-pick] {
+  --urlbarView-icon-size: var(--urlbarView-top-pick-icon-size);
+  --urlbarView-icon-border-radius: var(--urlbarView-icon-border-radius-rounded);
 }
 
-.urlbarView-row[type$="_amo"][icon-size="24"]:is([selected], :hover) > .urlbarView-row-inner > .urlbarView-favicon {
-  background-color: var(--urlbarView-result-button-selected-background-color);
+.urlbarView-row[type$="_adm_sponsored"][is-top-pick] {
+  --urlbarView-icon-size: var(--urlbarView-rich-search-suggestion-icon-size);
 }
 
-.urlbarView-row[type$="_vpn"][icon-size="32"] > .urlbarView-row-inner > .urlbarView-favicon {
-  padding: calc((var(--urlbarView-top-pick-large-icon-box-size) - 32px) / 2);
+.urlbarView-row[type$="_amo"] {
+  /* Draw the icon at 24px but give it a padding and background color to make it
+     overall the size of top-pick icons. */
+  --urlbarView-icon-size: 24px;
+  --urlbarView-icon-border-radius: 0;
+  --urlbarView-icon-margin-start: 0;
+  --urlbarView-icon-margin-end: var(--urlbarView-icon-margin-end-base);
+
+  > .urlbarView-row-inner > .urlbarView-favicon {
+    padding: calc((var(--urlbarView-top-pick-icon-size) - 24px) / 2);
+    background-color: var(--urlbar-box-background-color-focus);
+    border-radius: var(--urlbarView-icon-border-radius-rounded);
+  }
+
+  &:is([selected], :hover) > .urlbarView-row-inner > .urlbarView-favicon {
+    background-color: var(--urlbarView-result-button-selected-background-color);
+  }
+}
+
+.urlbarView-row[type$="_important_dates"] {
+  /* Important dates are top picks, but their icons are smaller. */
+  --urlbarView-icon-size: 24px;
+  --urlbarView-icon-border-radius: 0;
 }
 
 .urlbarView-row[dynamicType="weather"],
@@ -1283,11 +1282,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: var(--urlbarView-top-pick-large-icon-box-size);
-      height: var(--urlbarView-top-pick-large-icon-box-size);
+      width: var(--urlbarView-top-pick-icon-size);
+      height: var(--urlbarView-top-pick-icon-size);
       margin-inline-end: var(--space-medium);
       border: 1px solid transparent;
-      border-radius: var(--border-radius-small);
+      border-radius: var(--urlbarView-icon-border-radius-rounded);
 
       fill: currentColor;
       fill-opacity: var(--urlbar-icon-fill-opacity);
@@ -1426,9 +1425,10 @@
   --star-size: 12px;
 
   > .urlbarView-realtime-image-container > .urlbarView-realtime-image {
-    width: 52px;
-    height: 52px;
-    flex-basis: 52px;
+    width: var(--urlbarView-top-pick-icon-size);
+    height: var(--urlbarView-top-pick-icon-size);
+    flex-basis: var(--urlbarView-top-pick-icon-size);
+    border-radius: var(--urlbarView-icon-border-radius-rounded);
   }
 
   > .urlbarView-realtime-description {

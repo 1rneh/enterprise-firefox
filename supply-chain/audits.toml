@@ -989,6 +989,11 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.1.60 -> 0.1.64"
 
+[[audits.async-trait]]
+who = "Benjamin Beurdouche <bbeurdouche@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.1.80 -> 0.1.89"
+
 [[audits.atomic_refcell]]
 who = "Bobby Holley <bholley@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -4435,11 +4440,9 @@ criteria = "safe-to-deploy"
 delta = "0.39.1 -> 0.45.0"
 
 [[audits.mls-rs]]
-who = "Anna Weine <anna.weine@mozilla.com>"
+who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
-delta = "0.45.0 -> 0.45.0@git:c846691feab0f3617c3815c527402bd44d854d74"
-importable = false
-notes = "The commented out lines removal would be in the following patch."
+delta = "0.45.0 -> 0.54.0"
 
 [[audits.mls-rs-codec]]
 who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
@@ -4452,10 +4455,9 @@ criteria = "safe-to-deploy"
 delta = "0.5.3 -> 0.6.0"
 
 [[audits.mls-rs-codec]]
-who = "Anna Weine <anna.weine@mozilla.com>"
+who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
-delta = "0.6.0 -> 0.6.0@git:c846691feab0f3617c3815c527402bd44d854d74"
-importable = false
+delta = "0.6.0 -> 0.7.0"
 
 [[audits.mls-rs-codec-derive]]
 who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
@@ -4468,12 +4470,6 @@ who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.1.1 -> 0.2.0"
 
-[[audits.mls-rs-codec-derive]]
-who = "Anna Weine <anna.weine@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "0.2.0 -> 0.2.0@git:c846691feab0f3617c3815c527402bd44d854d74"
-importable = false
-
 [[audits.mls-rs-core]]
 who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -4485,10 +4481,9 @@ criteria = "safe-to-deploy"
 delta = "0.18.0 -> 0.21.0"
 
 [[audits.mls-rs-core]]
-who = "Anna Weine <anna.weine@mozilla.com>"
+who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
-delta = "0.21.0 -> 0.21.0@git:c846691feab0f3617c3815c527402bd44d854d74"
-importable = false
+delta = "0.21.0 -> 0.26.0"
 
 [[audits.mls-rs-crypto-hpke]]
 who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
@@ -4506,10 +4501,9 @@ criteria = "safe-to-deploy"
 delta = "0.9.0 -> 0.14.0"
 
 [[audits.mls-rs-crypto-hpke]]
-who = "Anna Weine <anna.weine@mozilla.com>"
+who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
-delta = "0.14.0 -> 0.14.0@git:c846691feab0f3617c3815c527402bd44d854d74"
-importable = false
+delta = "0.14.0 -> 0.20.0"
 
 [[audits.mls-rs-crypto-traits]]
 who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
@@ -4522,10 +4516,9 @@ criteria = "safe-to-deploy"
 delta = "0.10.0 -> 0.15.0"
 
 [[audits.mls-rs-crypto-traits]]
-who = "Anna Weine <anna.weine@mozilla.com>"
+who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
-delta = "0.15.0 -> 0.15.0@git:c846691feab0f3617c3815c527402bd44d854d74"
-importable = false
+delta = "0.15.0 -> 0.21.0"
 
 [[audits.mls-rs-identity-x509]]
 who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
@@ -4538,10 +4531,9 @@ criteria = "safe-to-deploy"
 delta = "0.11.0 -> 0.15.0"
 
 [[audits.mls-rs-identity-x509]]
-who = "Anna Weine <anna.weine@mozilla.com>"
+who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
-delta = "0.15.0 -> 0.15.0@git:c846691feab0f3617c3815c527402bd44d854d74"
-importable = false
+delta = "0.15.0 -> 0.20.0"
 
 [[audits.mls-rs-provider-sqlite]]
 who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
@@ -4554,9 +4546,14 @@ criteria = "safe-to-deploy"
 delta = "0.11.0 -> 0.15.0"
 
 [[audits.mls-rs-provider-sqlite]]
-who = "Anna Weine <anna.weine@mozilla.com>"
+who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
 criteria = "safe-to-deploy"
-delta = "0.15.0 -> 0.15.0@git:c846691feab0f3617c3815c527402bd44d854d74"
+delta = "0.15.0 -> 0.22.0"
+
+[[audits.mls-rs-provider-sqlite]]
+who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.22.0 -> 0.22.0@git:bbbf9d51d60e5f63ab2b791ffbfd884c4d1a317b"
 importable = false
 
 [[audits.mockito]]
@@ -4784,12 +4781,6 @@ who = "John M. Schanck <jschanck@mozilla.com>"
 criteria = "safe-to-deploy"
 version = "0.2.1"
 notes = "Maintained by the CryptoEng team at Mozilla."
-
-[[audits.nss-gk-api]]
-who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "0.3.0 -> 0.3.0@git:e48a946811ffd64abc78de3ee284957d8d1c0d63"
-importable = false
 
 [[audits.ntapi]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"

@@ -3255,6 +3255,13 @@
   value: false
   mirror: always
 
+# <img loading=lazy sizes=auto>
+# https://html.spec.whatwg.org/multipage/embedded-content.html#allows-auto-sizes
+- name: dom.image.sizes_auto.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # W3C draft ImageCapture API
 - name: dom.imagecapture.enabled
   type: bool
@@ -4619,7 +4626,7 @@
 # For testing purposes only: Cache stencil across navigation
 - name: dom.script_loader.experimental.navigation_cache
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # The delay until saving the script disk cache in microseconds.
@@ -4918,7 +4925,7 @@
 # scope-based checks in "in body" mode.
 - name: dom.lift_select_parser_restrictions.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.send_after_paint_to_content
@@ -7825,11 +7832,6 @@
   value: false
   mirror: always
 
-- name: gfx.will-change.ignore-opacity
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Should we override the blocklist to enable WebGPU?
 - name: gfx.webgpu.ignore-blocklist
   type: bool
@@ -8434,7 +8436,7 @@
 # for devices with weak GPUs, or when running SWGL.
 - name: gfx.webrender.low-quality-pinch-zoom
   type: bool
-#if defined(MOZ_WIDGET_ANDROID) && defined(NIGHTLY_BUILD)
+#if defined(MOZ_WIDGET_ANDROID)
   value: true
 #else
   value: false
@@ -12525,6 +12527,11 @@
   mirror: once
 
 - name: media.hardware-video-decoding.force-enabled
+  type: bool
+  value: false
+  mirror: once
+
+- name: media.hardware-video-decoding-vulkan.enabled
   type: bool
   value: false
   mirror: once
@@ -16752,19 +16759,6 @@
   value: 144.0f
   mirror: always
 
-# Whether support for monochrome printing is enabled for CUPS.
-- name: print.cups.monochrome.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Whether simpler monochrome printing set-up is enabled for CUPS.
-# TODO(emilio): remove after a few releases on-by-default
-- name: print.cups.monochrome-gtk-simple.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Disabling this will no-op window.print()
 - name: print.enabled
   type: RelaxedAtomicBool
@@ -19449,33 +19443,11 @@
 #endif
   mirror: once
 
-#if defined(ANDROID)
-- name: webgl.allow-in-content
-  type: bool
-  value: false
-  mirror: once
-#endif
-
 # Should we override the blocklist to enable WebGL?
 - name: webgl.ignore-blocklist
   type: bool
   value: false
   mirror: once
-
-- name: webgl.out-of-process
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: webgl.out-of-process.worker
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: webgl.out-of-process.force
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
 
 - name: webgl.out-of-process.shmem-size
   type: RelaxedAtomicUint32

@@ -1166,13 +1166,7 @@ void nsIFrame::RemoveDisplayItemDataForDeletion() {
   DL_LOGV("Removing display item data for frame %p (%s)", this,
           NS_ConvertUTF16toUTF8(name).get());
 
-  auto* data = builder->Data();
-  if (MayHaveWillChangeBudget()) {
-    // Keep the frame in list, so it can be removed from the will-change budget.
-    data->Flags(this) = RetainedDisplayListData::FrameFlag::HadWillChange;
-  } else {
-    data->Remove(this);
-  }
+  builder->Data()->Remove(this);
 }
 
 void nsIFrame::MarkNeedsDisplayItemRebuild() {
@@ -3176,10 +3170,6 @@ void nsIFrame::BuildDisplayListForStackingContext(
     return;
   }
 
-  if (aBuilder->IsForPainting() && disp->mWillChange.bits) {
-    aBuilder->AddToWillChangeBudget(this, GetSize());
-  }
-
   // For preserves3d, use the dirty rect already installed on the
   // builder, since aDirtyRect maybe distorted for transforms along
   // the chain.
@@ -3724,7 +3714,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
   // effects, wrap it up in an opacity item.
   if (useOpacity) {
     const bool needsActiveOpacityLayer =
-        nsDisplayOpacity::NeedsActiveLayer(aBuilder, this);
+        nsDisplayOpacity::NeedsActiveLayer(this);
     resultList.AppendNewToTop<nsDisplayOpacity>(
         aBuilder, this, &resultList, containerItemASR,
         nsDisplayItem::ContainerASRType::AncestorOfContained,
@@ -4300,10 +4290,6 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
       !(!overflowClipAxes.isEmpty() || child->MayHaveTransformAnimation() ||
         child->MayHaveOpacityAnimation());
 
-  if (aBuilder->IsForPainting()) {
-    aBuilder->ClearWillChangeBudgetStatus(child);
-  }
-
   if (StaticPrefs::layout_css_scroll_anchoring_highlight()) {
     if (child->FirstContinuation()->IsScrollAnchor()) {
       nsRect bounds = child->GetContentRectRelativeToSelf() +
@@ -4340,9 +4326,6 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
     }
 
     child = childOrOutOfFlow;
-    if (aBuilder->IsForPainting()) {
-      aBuilder->ClearWillChangeBudgetStatus(child);
-    }
 
     // If 'child' is a pushed out-of-flow then it's owned by a block that's not
     // an ancestor of the placeholder, and it will be painted by that block and

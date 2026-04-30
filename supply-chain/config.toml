@@ -151,34 +151,6 @@ notes = "This is a pinned version of the upstream code, presumably to get a fix 
 audit-as-crates-io = false
 notes = "Fork of mio 1.1.1 with windows-sys downgraded to 0.52."
 
-[policy.mls-rs]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, pending update of the crate."
-
-[policy.mls-rs-codec]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, pending update of the crate."
-
-[policy.mls-rs-codec-derive]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, pending update of the crate."
-
-[policy.mls-rs-core]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, pending update of the crate."
-
-[policy.mls-rs-crypto-hpke]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, pending update of the crate."
-
-[policy.mls-rs-crypto-traits]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, pending update of the crate."
-
-[policy.mls-rs-identity-x509]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, pending update of the crate."
-
 [policy.mls-rs-provider-sqlite]
 audit-as-crates-io = true
 notes = "This is a pinned version of the upstream code, pending update of the crate."
@@ -224,10 +196,6 @@ audit-as-crates-io = true
 [policy.naga]
 audit-as-crates-io = true
 notes = "Part of the wgpu repository, pinned as the rest of wgpu crates."
-
-[policy.nss-gk-api]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, pending update of the crate."
 
 [policy.objc]
 audit-as-crates-io = true

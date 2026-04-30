@@ -594,6 +594,36 @@ function testParseShape(doc, parser) {
         `</span>`,
     },
     {
+      desc: "simple polygon() with extra spaces",
+      definition: "polygon( 0px 0px , 10px 10px , 10px 20px )",
+      markup:
+        // prettier-ignore
+        `<span>` +
+          `<button class="inspector-shape-swatch"></button>` +
+          `<span class="inspector-shape">` +
+            `polygon( ` +
+            `<span class="inspector-shape-point" data-point="0">` +
+              `<span class="inspector-shape-point" data-point="0" data-pair="x">0px</span>` +
+              ` ` +
+              `<span class="inspector-shape-point" data-point="0" data-pair="y">0px</span>` +
+            `</span>` +
+            ` , ` +
+            `<span class="inspector-shape-point" data-point="1">` +
+              `<span class="inspector-shape-point" data-point="1" data-pair="x">10px</span>` +
+              ` ` +
+              `<span class="inspector-shape-point" data-point="1" data-pair="y">10px</span>` +
+            `</span>` +
+            ` , ` +
+            `<span class="inspector-shape-point" data-point="2">` +
+              `<span class="inspector-shape-point" data-point="2" data-pair="x">10px</span>` +
+              ` ` +
+              `<span class="inspector-shape-point" data-point="2" data-pair="y">20px</span>` +
+            `</span>` +
+            ` )` +
+          `</span>` +
+        `</span>`,
+    },
+    {
       desc: "polygon() with fill rule",
       definition: "polygon(nonzero, 0px 0px, 10px 10px, 10px 20px)",
       markup:
@@ -649,16 +679,14 @@ function testParseShape(doc, parser) {
             `<span class="inspector-shape-point" data-point="2">` +
               `<span class="inspector-shape-point" data-point="2" data-pair="x">30%</span>` +
               `<span class="inspector-shape-point" data-point="2" data-pair="y">30%</span>` +
-              ` ` +
             `</span>` +
-            `, ` +
+            ` , ` +
             `<span class="inspector-shape-point" data-point="3">` +
               `<span class="inspector-shape-point" data-point="3" data-pair="x">calc(250px - 10px)</span>` +
               ` ` +
               `<span class="inspector-shape-point" data-point="3" data-pair="y">0</span>` +
-              ` ` +
             `</span>` +
-            `,\n ` +
+            ` ,\n ` +
             `<span class="inspector-shape-point" data-point="4">` +
               `<span class="inspector-shape-point" data-point="4" data-pair="x">12em</span>` +
               ` ` +
@@ -701,16 +729,14 @@ function testParseShape(doc, parser) {
             `<span class="inspector-shape-point" data-point="2">` +
               `<span class="inspector-shape-point" data-point="2" data-pair="x">30%</span>` +
               `<span class="inspector-shape-point" data-point="2" data-pair="y">30%</span>` +
-              ` ` +
             `</span>` +
-            `, ` +
+            ` , ` +
             `<span class="inspector-shape-point" data-point="3">` +
               `<span class="inspector-shape-point" data-point="3" data-pair="x">calc(250px - 10px)</span>` +
               ` ` +
               `<span class="inspector-shape-point" data-point="3" data-pair="y">0</span>` +
-              ` ` +
             `</span>` +
-            `,\n ` +
+            ` ,\n ` +
             `<span class="inspector-shape-point" data-point="4">` +
               `<span class="inspector-shape-point" data-point="4" data-pair="x">12em</span>` +
               ` ` +
@@ -822,11 +848,11 @@ function testParseShape(doc, parser) {
             `<span class="inspector-shape-point" data-point="center">` +
               `<span class="inspector-shape-point" data-point="center" data-pair="x">left</span>` +
               ` ` +
-              `<span class="inspector-shape-point" data-point="center" data-pair="y">10px</span>` +
+              `<span class="inspector-shape-point" data-point="center">10px</span>` +
               ` ` +
-              `<span class="inspector-shape-point" data-point="center" data-pair="x">top</span>` +
+              `<span class="inspector-shape-point" data-point="center" data-pair="y">top</span>` +
               ` ` +
-              `<span class="inspector-shape-point" data-point="center" data-pair="y">15px</span>` +
+              `<span class="inspector-shape-point" data-point="center">15px</span>` +
             `</span>` +
             `)` +
           `</span>` +
@@ -1323,11 +1349,11 @@ function testParseVariable(doc, parser) {
         "</span>",
     },
     {
-      text: "color-mix(in sgrb, var(--x), purple)",
+      text: "color-mix(in srgb, var(--x), purple)",
       variables: { "--x": "yellow" },
       expected:
         // prettier-ignore
-        `color-mix(in sgrb, ` +
+        `color-mix(in srgb, ` +
         `<span data-color="yellow" class="color-swatch-container">` +
           `<span class="test-class" style="background-color:yellow" tabindex="0" role="button" data-color-function="color-mix">` +
           `</span>` +

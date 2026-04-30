@@ -27,10 +27,7 @@ struct AtomHasher {
   static inline HashNumber hash(const Lookup& l);
   static MOZ_ALWAYS_INLINE bool match(const WeakHeapPtr<JSAtom*>& entry,
                                       const Lookup& lookup);
-  static void rekey(WeakHeapPtr<JSAtom*>& k,
-                    const WeakHeapPtr<JSAtom*>& newKey) {
-    k = newKey;
-  }
+  static void rekey(WeakHeapPtr<JSAtom*>& k, JSAtom* newKey) { k = newKey; }
 };
 
 struct js::AtomHasher::Lookup {

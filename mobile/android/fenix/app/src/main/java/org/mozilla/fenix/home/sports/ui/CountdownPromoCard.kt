@@ -22,24 +22,21 @@ import org.mozilla.fenix.theme.FirefoxTheme
 /**
  * Card counting down to kickoff and prompting the user to pick a team to follow.
  *
- * @param days Days remaining until kickoff.
- * @param hours Hours remaining until kickoff.
- * @param mins Minutes remaining until kickoff.
+ * @param dateInUtc ISO 8601 UTC date string (e.g. "2025-06-28T14:00:00Z") remaining until kickoff.
  * @param onViewSchedule Callback invoked when the "View schedule" button is tapped.
  * @param onDismiss Callback invoked when the close button is tapped.
  * @param modifier The [Modifier] to be applied to the card.
  */
 @Composable
 fun CountdownPromoCard(
-    days: String,
-    hours: String,
-    mins: String,
+    dateInUtc: String,
     onViewSchedule: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val contentDescription = stringResource(R.string.sports_widget_close_content_description)
     PromoCard(
-        closeButtonContentDescription = null,
+        closeButtonContentDescription = contentDescription,
         onDismiss = onDismiss,
         modifier = modifier,
         title = {
@@ -49,11 +46,7 @@ fun CountdownPromoCard(
             )
         },
         message = {
-            CountdownPill(
-                days = days,
-                hours = hours,
-                mins = mins,
-            )
+            CountdownPill(dateInUtc = dateInUtc)
         },
         actions = {
             FilledButton(
@@ -74,9 +67,7 @@ private fun CountdownPromoCardPreview() {
     FirefoxTheme {
         Surface {
             CountdownPromoCard(
-                days = "5",
-                hours = "21",
-                mins = "3",
+                dateInUtc = "2026-06-11T19:00:00Z",
                 onViewSchedule = {},
                 onDismiss = {},
                 modifier = Modifier.padding(16.dp),

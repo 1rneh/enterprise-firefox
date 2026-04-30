@@ -137,6 +137,14 @@ browsertime-tp6:
                                 macosx1470.*shippable.*: [trunk]
                                 default: []
                         default: []
+                twitch:
+                    by-app:
+                        firefox:
+                            by-test-platform:
+                                windows11-64-24h2.*shippable.*: []
+                                ^(?!windows11-64-24h2).*64(?!.*nightlyasrelease).*shippable.*: [trunk]
+                                default: []
+                        default: []
                 default:
                     by-app:
                         firefox:

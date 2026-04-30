@@ -163,6 +163,13 @@ redox_syscall = { path = "build/rust/redox_syscall" }
 # Patch hermit-abi to an empty crate
 hermit-abi = { path = "build/rust/hermit-abi" }
 
+# mls-rs pulls these in unconditionally (or for non-Gecko targets), but their
+# code paths are gated on `cfg(not(feature = "std"))` or
+# `cfg(not(target_has_atomic = "ptr"))`, neither of which Gecko ever hits.
+spin = { path = "build/rust/spin" }
+portable-atomic = { path = "build/rust/portable-atomic" }
+portable-atomic-util = { path = "build/rust/portable-atomic-util" }
+
 # Patch base64 0.21 to 0.22
 base64_21 = { package = "base64", path = "build/rust/base64" }
 
@@ -266,7 +273,7 @@ rure = { path = "third_party/rust/rure" }
 
 # To-be-published changes.
 unicode-bidi = { git = "https://github.com/servo/unicode-bidi", rev = "ca612daf1c08c53abe07327cb3e6ef6e0a760f0c" }
-nss-gk-api = { git = "https://github.com/beurdouche/nss-gk-api", rev = "e48a946811ffd64abc78de3ee284957d8d1c0d63" }
+
 
 # Other overrides
 any_all_workaround = { git = "https://github.com/hsivonen/any_all_workaround", rev = "7fb1b7034c9f172aade21ee1c8554e8d8a48af80" }

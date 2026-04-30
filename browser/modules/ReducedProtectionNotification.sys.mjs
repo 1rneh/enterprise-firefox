@@ -140,11 +140,6 @@ export const ReducedProtectionNotification = {
       return;
     }
 
-    const doc = tabbrowser.ownerDocument;
-    const [buttonLabel] = await doc.l10n.formatValues([
-      { id: "reduced-protection-infobar-reload-button" },
-    ]);
-
     await notificationBox.appendNotification(
       NOTIFICATION_VALUE,
       {
@@ -153,7 +148,13 @@ export const ReducedProtectionNotification = {
       },
       [
         {
-          label: buttonLabel,
+          "l10n-id": "reduced-protection-infobar-never-show-button",
+          callback: () => {
+            Services.prefs.setBoolPref(PREF, false);
+          },
+        },
+        {
+          "l10n-id": "reduced-protection-infobar-reload-button",
           callback: () => {
             const scopedPrefs = aBrowser.browsingContext.scopedPrefs;
             if (scopedPrefs) {

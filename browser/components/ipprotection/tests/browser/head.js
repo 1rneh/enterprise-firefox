@@ -373,7 +373,6 @@ add_setup(async function setupVPN() {
     Services.prefs.clearUserPref("browser.ipProtection.locationListCache");
     Services.prefs.clearUserPref("browser.ipProtection.usageCache");
     Services.prefs.clearUserPref("browser.ipProtection.onboardingMessageMask");
-    Services.prefs.clearUserPref("browser.ipProtection.egressLocationEnabled");
     Services.prefs.clearUserPref("browser.ipProtection.bandwidthThreshold");
     Services.prefs.clearUserPref(
       "browser.ipProtection.bandwidthWarningDismissedThreshold"
@@ -381,6 +380,9 @@ add_setup(async function setupVPN() {
     Services.prefs.clearUserPref("browser.ipProtection.userEnabled");
     Services.prefs.clearUserPref(
       "browser.ipProtection.openedPanelWithLocation"
+    );
+    Services.prefs.clearUserPref(
+      "browser.ipProtection.locationButtonBadgeDismissed"
     );
   });
 });
@@ -666,3 +668,28 @@ function checkBandwidth(bandwidthEl, bandwidthUsage) {
     `MB used ${bandwidthUsage.mbCount} times`
   );
 }
+
+// Borrowed from browser_PanelMultiView_keyboard.js
+async function expectFocusAfterKey(aKey, aFocus) {
+  let res = aKey.match(/^(Shift\+)?(.+)$/);
+  let shift = Boolean(res[1]);
+  let key;
+  if (res[2].length == 1) {
+    key = res[2]; // Character.
+  } else {
+    key = "KEY_" + res[2]; // Tab, ArrowRight, etc.
+  }
+  info("Waiting for focus on " + aFocus.id);
+  // Attempts to capture a nested button element (ie. inside of a moz-button)
+  let focused = BrowserTestUtils.waitForEvent(
+    aFocus.buttonEl ?? aFocus,
+    "focus"
+  );
+  EventUtils.synthesizeKey(key, { shiftKey: shift });
+  await focused;
+  ok(
+    true,
+    `${aFocus.id || "unidentified element"} focused after [${aKey}] pressed`
+  );
+}
+/* exported expectFocusAfterKey */

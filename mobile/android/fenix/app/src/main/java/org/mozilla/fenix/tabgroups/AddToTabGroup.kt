@@ -99,8 +99,6 @@ private fun AddToTabGroupContent(
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(
-                start = FirefoxTheme.layout.space.dynamic200,
-                end = FirefoxTheme.layout.space.dynamic200,
                 bottom = 12.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(FirefoxTheme.layout.space.static200),
@@ -137,6 +135,7 @@ private fun NewTabGroupContent(
     Row(
         modifier = modifier
             .defaultMinSize(minHeight = NEW_TAB_GROUP_COMPONENT_HEIGHT)
+            .padding(horizontal = FirefoxTheme.layout.space.dynamic200)
             .semantics(mergeDescendants = true) {
                 contentDescription = newTabGroupContentDescription
                 role = Role.Button

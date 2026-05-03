@@ -83,11 +83,14 @@ struct ScopedLayerTreeRegistration {
 };
 
 class CompositorBridgeParentBase : public PCompositorBridgeParent,
+                                   public CompositorController,
                                    public HostIPCAllocator,
                                    public mozilla::ipc::IShmemAllocator {
   friend class PCompositorBridgeParent;
 
  public:
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorBridgeParentBase, final);
+
   explicit CompositorBridgeParentBase(CompositorManagerParent* aManager);
 
   virtual bool SetTestSampleTime(const LayersId& aId, const TimeStamp& aTime) {
@@ -137,12 +140,6 @@ class CompositorBridgeParentBase : public PCompositorBridgeParent,
   bool AllocUnsafeShmem(size_t aSize, mozilla::ipc::Shmem* aShmem) override;
   bool DeallocShmem(mozilla::ipc::Shmem& aShmem) override;
 
-  NS_IMETHOD_(MozExternalRefCountType) AddRef() override {
-    return HostIPCAllocator::AddRef();
-  }
-  NS_IMETHOD_(MozExternalRefCountType) Release() override {
-    return HostIPCAllocator::Release();
-  }
   virtual bool IsRemote() const { return false; }
 
   virtual void NotifyMemoryPressure() {}
@@ -171,11 +168,9 @@ class CompositorBridgeParentBase : public PCompositorBridgeParent,
       const MaybeExternalImageId& aExternalImageId) = 0;
   virtual bool DeallocPTextureParent(PTextureParent* aActor) = 0;
 
-  virtual PWebRenderBridgeParent* AllocPWebRenderBridgeParent(
+  virtual already_AddRefed<PWebRenderBridgeParent> AllocPWebRenderBridgeParent(
       const PipelineId& pipelineId, const LayoutDeviceIntSize& aSize,
       const WindowKind& aWindowKind) = 0;
-  virtual bool DeallocPWebRenderBridgeParent(
-      PWebRenderBridgeParent* aActor) = 0;
 
   virtual already_AddRefed<PCompositorWidgetParent>
   AllocPCompositorWidgetParent(const CompositorWidgetInitData& aInitData) = 0;
@@ -227,8 +222,7 @@ class CompositorBridgeParentBase : public PCompositorBridgeParent,
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(
     CompositorBridgeParentBase::TransformsToSkip)
 
-class CompositorBridgeParent final : public CompositorBridgeParentBase,
-                                     public CompositorController {
+class CompositorBridgeParent final : public CompositorBridgeParentBase {
   friend class CompositorThreadHolder;
   friend class InProcessCompositorSession;
   friend class gfx::GPUProcessManager;
@@ -236,13 +230,6 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   friend class PCompositorBridgeParent;
 
  public:
-  NS_IMETHOD_(MozExternalRefCountType) AddRef() override {
-    return CompositorBridgeParentBase::AddRef();
-  }
-  NS_IMETHOD_(MozExternalRefCountType) Release() override {
-    return CompositorBridgeParentBase::Release();
-  }
-
   explicit CompositorBridgeParent(CompositorManagerParent* aManager,
                                   CSSToLayoutDeviceScale aScale,
                                   const TimeDuration& aVsyncRate,
@@ -387,6 +374,8 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   static void ScheduleForcedComposition(const LayersId& aLayersId,
                                         wr::RenderReasons aReasons);
 
+  static void DisconnectWrBridge(WebRenderBridgeParent* aWrBridge);
+
   /**
    * Returns the unique layer tree identifier that corresponds to the root
    * tree of this compositor.
@@ -516,10 +505,9 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
     return mVsyncRate;
   }
 
-  PWebRenderBridgeParent* AllocPWebRenderBridgeParent(
+  already_AddRefed<PWebRenderBridgeParent> AllocPWebRenderBridgeParent(
       const wr::PipelineId& aPipelineId, const LayoutDeviceIntSize& aSize,
       const WindowKind& aWindowKind) override;
-  bool DeallocPWebRenderBridgeParent(PWebRenderBridgeParent* aActor) override;
   void EnsureWebRenderBridgeParentInitialized() override;
   RefPtr<WebRenderBridgeParent> GetWebRenderBridgeParent() const;
   Maybe<TimeStamp> GetTestingTimeStamp() const;

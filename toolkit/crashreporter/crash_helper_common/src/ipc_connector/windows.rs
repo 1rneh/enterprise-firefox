@@ -9,7 +9,7 @@ use crate::{
         windows::{create_manual_reset_event, get_last_error, OverlappedOperation},
         PlatformError,
     },
-    IO_TIMEOUT,
+    ProcessHandle, IO_TIMEOUT,
 };
 
 use bytes::{BufMut, BytesMut};
@@ -125,8 +125,8 @@ impl IPCConnector {
         IPCConnector::from_raw_handle(connector.handle)
     }
 
-    pub fn set_process(&mut self, process: OwnedHandle) {
-        self.process = Some(process);
+    pub fn set_process(&mut self, process: ProcessHandle) {
+        self.process = Some(process.0);
     }
 
     pub(crate) fn as_raw(&self) -> HANDLE {

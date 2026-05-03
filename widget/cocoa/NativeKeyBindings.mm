@@ -131,25 +131,24 @@ void NativeKeyBindings::Init(NativeKeyBindingsType aType) {
   SEL_TO_COMMAND(moveToBeginningOfDocument:, Command::MoveTop);
   SEL_TO_COMMAND(moveToBeginningOfDocumentAndModifySelection:,
                  Command::SelectTop);
-  SEL_TO_COMMAND(moveToBeginningOfLine:, Command::BeginLine);
+  SEL_TO_COMMAND(moveToBeginningOfLine:, Command::MoveLeft3);
   SEL_TO_COMMAND(moveToBeginningOfLineAndModifySelection:,
-                 Command::SelectBeginLine);
+                 Command::SelectLeft3);
   SEL_TO_COMMAND(moveToBeginningOfParagraph:, Command::BeginParagraph);
   SEL_TO_COMMAND(moveToBeginningOfParagraphAndModifySelection:,
                  Command::SelectBeginParagraph);
   SEL_TO_COMMAND(moveToEndOfDocument:, Command::MoveBottom);
   SEL_TO_COMMAND(moveToEndOfDocumentAndModifySelection:, Command::SelectBottom);
-  SEL_TO_COMMAND(moveToEndOfLine:, Command::EndLine);
-  SEL_TO_COMMAND(moveToEndOfLineAndModifySelection:, Command::SelectEndLine);
+  SEL_TO_COMMAND(moveToEndOfLine:, Command::MoveRight3);
+  SEL_TO_COMMAND(moveToEndOfLineAndModifySelection:, Command::SelectRight3);
   SEL_TO_COMMAND(moveToEndOfParagraph:, Command::EndParagraph);
   SEL_TO_COMMAND(moveToEndOfParagraphAndModifySelection:,
                  Command::SelectEndParagraph);
-  SEL_TO_COMMAND(moveToLeftEndOfLine:, Command::BeginLine);
-  SEL_TO_COMMAND(moveToLeftEndOfLineAndModifySelection:,
-                 Command::SelectBeginLine);
-  SEL_TO_COMMAND(moveToRightEndOfLine:, Command::EndLine);
+  SEL_TO_COMMAND(moveToLeftEndOfLine:, Command::MoveLeft3);
+  SEL_TO_COMMAND(moveToLeftEndOfLineAndModifySelection:, Command::SelectLeft3);
+  SEL_TO_COMMAND(moveToRightEndOfLine:, Command::MoveRight3);
   SEL_TO_COMMAND(moveToRightEndOfLineAndModifySelection:,
-                 Command::SelectEndLine);
+                 Command::SelectRight3);
   if (aType == NativeKeyBindingsType::SingleLineEditor) {
     SEL_TO_COMMAND(moveUp:, Command::BeginLine);
   } else {

@@ -500,7 +500,7 @@ class MenuDialogMiddlewareTest {
         store.dispatch(MenuAction.AddShortcut)
         testScheduler.advanceUntilIdle()
 
-        verify { addPinnedSiteUseCase.invoke(url = url, title = title) }
+        coVerify { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify {
             appStore.dispatch(
                 AppAction.ShortcutAction.ShortcutAdded,
@@ -551,7 +551,7 @@ class MenuDialogMiddlewareTest {
         store.dispatch(MenuAction.AddShortcut)
         testScheduler.advanceUntilIdle()
 
-        verify(exactly = 0) { addPinnedSiteUseCase.invoke(url = url, title = title) }
+        coVerify(exactly = 0) { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify(exactly = 0) {
             appStore.dispatch(
                 AppAction.ShortcutAction.ShortcutAdded,
@@ -593,7 +593,7 @@ class MenuDialogMiddlewareTest {
         store.dispatch(MenuAction.RemoveShortcut)
         testScheduler.advanceUntilIdle()
 
-        verify(exactly = 0) { removePinnedSiteUseCase.invoke(topSite = topSite) }
+        coVerify(exactly = 0) { removePinnedSiteUseCase.invoke(topSite = topSite) }
         assertFalse(dismissedWasCalled)
     }
 
@@ -632,7 +632,7 @@ class MenuDialogMiddlewareTest {
         store.dispatch(MenuAction.RemoveShortcut)
         testScheduler.advanceUntilIdle()
 
-        verify { removePinnedSiteUseCase.invoke(topSite = topSite) }
+        coVerify { removePinnedSiteUseCase.invoke(topSite = topSite) }
         assertTrue(dismissedWasCalled)
     }
 
@@ -683,7 +683,7 @@ class MenuDialogMiddlewareTest {
         store.dispatch(MenuAction.AddShortcut)
         testScheduler.advanceUntilIdle()
 
-        verify(exactly = 0) { addPinnedSiteUseCase.invoke(url = url, title = title) }
+        coVerify(exactly = 0) { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify(exactly = 0) {
             appStore.dispatch(
                 AppAction.ShortcutAction.ShortcutAdded,

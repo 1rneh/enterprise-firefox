@@ -329,4 +329,11 @@ bool XULPopupElement::IsWaylandPopup() const {
 #endif
 }
 
+bool XULPopupElement::IsNativeMenu() const {
+  if (nsMenuPopupFrame* menuPopupFrame = do_QueryFrame(GetPrimaryFrame())) {
+    return menuPopupFrame->IsNativeMenu();
+  }
+  return false;
+}
+
 }  // namespace mozilla::dom

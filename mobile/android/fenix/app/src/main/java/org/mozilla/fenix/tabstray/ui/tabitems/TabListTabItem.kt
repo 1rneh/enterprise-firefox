@@ -127,7 +127,7 @@ private fun TabContent(
     onLongClick: ((TabsTrayItem) -> Unit)? = null,
 ) {
     val contentBackgroundColor = if (selectionState.isSelected) {
-        MaterialTheme.colorScheme.surfaceContainerHigh
+        MaterialTheme.colorScheme.primaryContainer
     } else {
         MaterialTheme.colorScheme.surfaceContainerLowest
     }
@@ -208,7 +208,7 @@ private fun TabListIcon(
     } else {
         RadioCheckmark(
             isSelected = selectionState.isSelected,
-            modifier = Modifier.padding(end = 16.dp),
+            modifier = Modifier.padding(end = FirefoxTheme.layout.space.dynamic200),
         )
     }
 }

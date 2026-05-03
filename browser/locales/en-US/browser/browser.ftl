@@ -451,9 +451,11 @@ identity-clear-site-data =
 identity-connection-not-secure-security-view = You are not securely connected to this site.
 identity-connection-verified = You are securely connected to this site.
 identity-ev-owner-label = Certificate issued to:
+identity-verifier-label = Verified by:
 # "qualified" here refers to the qualified website authentication certificate presented by the site.
 identity-etsi = Qualified as specified in Regulation (EU) 2024/1183.
 identity-description-custom-root2 = Mozilla does not recognize this certificate issuer. It may have been added from your operating system or by an administrator.
+identity-cert-exception-overridden = You have added a security exception for this site.
 identity-remove-cert-exception =
     .label = Remove Exception
     .accesskey = R
@@ -482,11 +484,6 @@ browser-window-close-button =
 # Clicking this button closes the window and returns to the tab where it was opened from
 browser-window-return-to-opener =
     .tooltiptext = Return
-
-## Tab actions
-
-# This label should be written in all capital letters if your locale supports them.
-browser-tab-audio-pip = PICTURE-IN-PICTURE
 
 ## Bookmarks toolbar items
 

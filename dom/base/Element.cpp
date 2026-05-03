@@ -1373,7 +1373,7 @@ void Element::SetSlot(const nsAString& aName, ErrorResult& aError) {
 void Element::GetSlot(nsAString& aName) { GetAttr(nsGkAtoms::slot, aName); }
 
 // https://dom.spec.whatwg.org/#dom-element-shadowroot
-ShadowRoot* Element::GetShadowRootByMode() const {
+ShadowRoot* Element::GetShadowRootForBindings() const {
   /**
    * 1. Let shadow be context object's shadow root.
    * 2. If shadow is null or its mode is "closed", then return null.
@@ -1386,6 +1386,17 @@ ShadowRoot* Element::GetShadowRootByMode() const {
   /**
    * 3. Return shadow.
    */
+  return shadowRoot;
+}
+
+ShadowRoot* Element::GetOpenOrClosedShadowRoot(nsIPrincipal& aSubject) const {
+  ShadowRoot* shadowRoot = GetShadowRoot();
+  if (!shadowRoot) {
+    return nullptr;
+  }
+  if (!aSubject.IsSystemPrincipal() && shadowRoot->IsUAWidget()) {
+    return nullptr;
+  }
   return shadowRoot;
 }
 
@@ -1499,7 +1510,8 @@ already_AddRefed<ShadowRoot> Element::AttachShadow(const ShadowRootInit& aInit,
 
 /* https://dom.spec.whatwg.org/#concept-attach-a-shadow-root */
 already_AddRefed<ShadowRoot> Element::AttachShadowWithoutNameChecks(
-    const ShadowRootInit& aInit, bool aNotify) {
+    const ShadowRootInit& aInit, bool aNotify,
+    CustomSlotDispatch aCustomSlotDispatch) {
   nsAutoScriptBlocker scriptBlocker;
 
   auto* nim = NodeInfoManager();
@@ -1520,11 +1532,11 @@ already_AddRefed<ShadowRoot> Element::AttachShadowWithoutNameChecks(
   // 9. Set shadow's declarative to false.
   // 10. Set shadow's clonable to clonable.
   // 11. Set shadow's serializable to serializable.
-  RefPtr<ShadowRoot> shadowRoot = new (nim)
-      ShadowRoot(this, aInit.mMode, DelegatesFocus(aInit.mDelegatesFocus),
-                 aInit.mSlotAssignment, ShadowRootClonable(aInit.mClonable),
-                 ShadowRootSerializable(aInit.mSerializable),
-                 ShadowRootDeclarative::No, nodeInfo.forget());
+  RefPtr<ShadowRoot> shadowRoot = new (nim) ShadowRoot(
+      this, aInit.mMode, DelegatesFocus(aInit.mDelegatesFocus),
+      aInit.mSlotAssignment, ShadowRootClonable(aInit.mClonable),
+      ShadowRootSerializable(aInit.mSerializable), ShadowRootDeclarative::No,
+      aCustomSlotDispatch, nodeInfo.forget());
   // 12. Set shadow's custom element registry to registry.
   // TODO(keithamus): Scoped Registries
   if (aInit.mReferenceTarget.WasPassed()) {
@@ -1576,6 +1588,7 @@ already_AddRefed<ShadowRoot> Element::AttachShadowWithoutNameChecks(
 
 void Element::AttachAndSetUAShadowRoot(NotifyUAWidget aNotifyUAWidget,
                                        DelegatesFocus aDelegatesFocus,
+                                       CustomSlotDispatch aCustomSlotDispatch,
                                        bool aNotify) {
   MOZ_DIAGNOSTIC_ASSERT(!CanAttachShadowDOM(),
                         "Cannot be used to attach UA shadow DOM");
@@ -1588,7 +1601,7 @@ void Element::AttachAndSetUAShadowRoot(NotifyUAWidget aNotifyUAWidget,
     init.mMode = ShadowRootMode::Closed;
     init.mDelegatesFocus = aDelegatesFocus == DelegatesFocus::Yes;
     RefPtr<ShadowRoot> shadowRoot =
-        AttachShadowWithoutNameChecks(init, aNotify);
+        AttachShadowWithoutNameChecks(init, aNotify, aCustomSlotDispatch);
     shadowRoot->SetIsUAWidget();
   }
 

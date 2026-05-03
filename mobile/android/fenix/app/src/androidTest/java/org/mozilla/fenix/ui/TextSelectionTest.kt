@@ -21,6 +21,7 @@ import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.browserScreen
+import org.mozilla.fenix.ui.robots.clearTextFieldItem
 import org.mozilla.fenix.ui.robots.clickContextMenuItem
 import org.mozilla.fenix.ui.robots.clickPageObject
 import org.mozilla.fenix.ui.robots.homeScreen
@@ -271,7 +272,6 @@ class TextSelectionTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2326814
-    @Ignore("Disabled after enabling the composable toolbar and main menu: https://bugzilla.mozilla.org/show_bug.cgi?id=2006295")
     @Test
     fun verifyCopyUrlBarTextSelectionOptionTest() {
         val genericURL = mockWebServer.getGenericAsset(1)
@@ -279,13 +279,15 @@ class TextSelectionTest {
         navigationToolbar(retryableComposeTestRule.current) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
         }.openNavigationToolbar {
-            longClickEditModeToolbar()
+        }
+        searchScreen(retryableComposeTestRule.current) {
+            longClickToolbar()
             clickContextMenuItem("Copy")
-            clickClearToolbarButton()
-            verifyToolbarIsEmpty()
-            longClickEditModeToolbar()
+            clickClearButton()
+            verifySearchBarPlaceholder("Search or enter address")
+            longClickToolbar()
             clickContextMenuItem("Paste")
-            verifyUrl(genericURL.url.toString())
+            verifyTypedToolbarText(genericURL.url.toString(), exists = true)
         }
     }
 

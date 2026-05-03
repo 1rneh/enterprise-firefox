@@ -65,7 +65,7 @@ class FrameTransformerProxy;
  */
 class VideoRenderer {
  protected:
-  virtual ~VideoRenderer() {}
+  virtual ~VideoRenderer() = default;
 
  public:
   /**
@@ -94,7 +94,7 @@ class VideoRenderer {
  */
 class MediaSessionConduit {
  protected:
-  virtual ~MediaSessionConduit() {}
+  virtual ~MediaSessionConduit() = default;
 
  public:
   enum Type { AUDIO, VIDEO };
@@ -274,17 +274,17 @@ class CodecPluginID {
  public:
   virtual MediaEventSource<uint64_t>* InitPluginEvent() { return nullptr; }
   virtual MediaEventSource<uint64_t>* ReleasePluginEvent() { return nullptr; }
-  virtual ~CodecPluginID() {}
+  virtual ~CodecPluginID() = default;
 };
 
 class VideoEncoder : public CodecPluginID {
  public:
-  virtual ~VideoEncoder() {}
+  virtual ~VideoEncoder() = default;
 };
 
 class VideoDecoder : public CodecPluginID {
  public:
-  virtual ~VideoDecoder() {}
+  virtual ~VideoDecoder() = default;
 };
 
 /**
@@ -337,7 +337,7 @@ class VideoSessionConduit : public MediaSessionConduit {
         mUsingTmmbr(false),
         mUsingFEC(false) {}
 
-  virtual ~VideoSessionConduit() {}
+  virtual ~VideoSessionConduit() = default;
 
   Type type() const override { return VIDEO; }
 
@@ -425,7 +425,7 @@ class AudioSessionConduit : public MediaSessionConduit {
       RefPtr<WebrtcCallWrapper> aCall,
       nsCOMPtr<nsISerialEventTarget> aStsThread);
 
-  virtual ~AudioSessionConduit() {}
+  virtual ~AudioSessionConduit() = default;
 
   Type type() const override { return AUDIO; }
 

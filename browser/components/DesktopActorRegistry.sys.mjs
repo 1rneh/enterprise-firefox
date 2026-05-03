@@ -232,7 +232,6 @@ let JSWINDOWACTORS = {
       esModuleURI:
         "moz-src:///browser/components/aiwindow/ui/actors/AIChatContentChild.sys.mjs",
       events: {
-        "AIChatContent:DispatchSearch": { wantUntrusted: true },
         "AIChatContent:DispatchFollowUp": { wantUntrusted: true },
         "AIChatContent:Ready": { wantUntrusted: true },
         "AIChatContent:DispatchAction": { wantUntrusted: true },
@@ -286,6 +285,7 @@ let JSWINDOWACTORS = {
           wantUntrusted: true,
         },
         "BackupUI:ErrorBarDismissed": { wantUntrusted: true },
+        "BackupUI:FindBackupsInWellKnownLocations": { wantUntrusted: true },
       },
     },
     includeChrome: true,

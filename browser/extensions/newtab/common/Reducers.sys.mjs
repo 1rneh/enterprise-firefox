@@ -211,6 +211,10 @@ export const INITIAL_STATE = {
   ExternalComponents: {
     components: [],
   },
+  SportsWidget: {
+    data: null,
+    initialized: false,
+  },
 };
 
 function App(prevState = INITIAL_STATE.App, action) {
@@ -750,7 +754,11 @@ function DiscoveryStream(prevState = INITIAL_STATE.DiscoveryStream, action) {
         ...prevState,
       };
     case at.DISCOVERY_STREAM_LAYOUT_RESET:
-      return { ...INITIAL_STATE.DiscoveryStream, config: prevState.config };
+      return {
+        ...INITIAL_STATE.DiscoveryStream,
+        config: prevState.config,
+        sectionPersonalization: prevState.sectionPersonalization,
+      };
     case at.DISCOVERY_STREAM_FEEDS_UPDATE:
       return {
         ...prevState,
@@ -1194,6 +1202,15 @@ function ExternalComponents(
   }
 }
 
+function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
+  switch (action.type) {
+    case at.WIDGETS_SPORTS_WIDGET_SET:
+      return { ...prevState, data: action.data, initialized: true };
+    default:
+      return prevState;
+  }
+}
+
 export const reducers = {
   TopSites,
   App,
@@ -1213,4 +1230,5 @@ export const reducers = {
   SectionsLayout,
   Weather,
   ExternalComponents,
+  SportsWidget,
 };

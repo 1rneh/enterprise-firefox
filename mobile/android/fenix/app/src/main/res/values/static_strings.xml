@@ -85,6 +85,14 @@
     <string name="preferences_sync_debug_temporary_auth_error_button_title">Simulate temporary account auth error</string>
     <!-- Button title for simulating an FxA permanent auth error inside the Sync Debug menu -->
     <string name="preferences_sync_debug_permanent_auth_error_button_title">Simulate permanent account auth error</string>
+    <string name="preferences_sync_debug_scope_authorization_category">OAuth Scope Authorization</string>
+    <string name="preferences_sync_debug_scope_authorization_scopes_title">Scopes (space-separated)</string>
+    <string name="preferences_sync_debug_scope_authorization_entrypoint_title">Entrypoint</string>
+    <string name="preferences_sync_debug_scope_authorization_start_title">Start OAuth flow</string>
+    <string name="preferences_sync_debug_oauth_token_category">OAuth Access Token Fetch</string>
+    <string name="preferences_sync_debug_oauth_token_scopes_title">Scopes (space-separated)</string>
+    <string name="preferences_sync_debug_oauth_token_fetch_title">Fetch Token</string>
+    <string name="preferences_sync_debug_oauth_token_result_title">Result</string>
     <!-- Label for enabling the Homepage Search Bar -->
     <string name="preferences_debug_settings_homepage_searchbar" translatable="false">Enable Homepage Search Bar</string>
     <!-- Label for enabling Homepage as a New Tab -->
@@ -166,6 +174,14 @@
     <string name="preferences_debug_settings_google_lens_integration" translatable="false">Enable Google Lens Integration</string>
     <!-- Lens image search button content description -->
     <string name="lens_search_content_description">Search with image</string>
+    <!-- Content description for the gallery picker button in the Lens camera screen -->
+    <string name="content_description_gallery">Choose from gallery to send to Google Lens</string>
+    <!-- Content description for the shutter button in the Lens camera screen -->
+    <string name="content_description_take_photo">Take photo and send to Google Lens</string>`
+    <!-- Image context menu entry that sends the long-pressed image to Google Lens -->
+    <string name="context_menu_open_image_with_google_lens">Search with Google Lens</string>
+    <!-- Toast shown when the user denies the camera permission requested by the Lens camera screen -->
+    <string name="lens_camera_permission_denied">Permission denied</string>
 
     <!-- Label for toggling the Tab Search feature -->
     <string name="preferences_tab_search_feature" translatable="false">Enable Tab Search</string>

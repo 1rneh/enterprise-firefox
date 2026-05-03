@@ -8,9 +8,13 @@
 newtab-page-title = Nowa karta
 newtab-settings-button =
     .title = Dostosuj stronę nowej karty
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Dostosuj tę stronę
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Dostosuj
+newtab-customize-panel-label =
+    .label = Dostosuj
 newtab-personalize-settings-icon-label =
     .title = Personalizuj nową kartę
     .aria-label = Ustawienia
@@ -698,10 +702,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Ukończone ({ $number })
 newtab-widget-task-list-menu-copy = Kopiuj
 newtab-widget-lists-menu-edit = Edytuj nazwę listy
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Edytuj nazwę listy
 newtab-widget-lists-menu-create = Utwórz nową listę
 newtab-widget-lists-menu-delete = Usuń tę listę
 newtab-widget-lists-menu-copy = Kopiuj listę do schowka
 newtab-widget-lists-menu-learn-more = Więcej informacji
+newtab-widget-lists-button-add-item = Dodaj pozycję
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Dodaj pozycję
+    .aria-label = Dodaj pozycję
 newtab-widget-lists-input-add-an-item =
     .placeholder = Dodaj pozycję
 newtab-widget-lists-input-error = Wpisz tekst, aby dodać pozycję.
@@ -717,6 +727,10 @@ newtab-widget-lists-name-label-default =
     .label = Lista zadań
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Lista zadań
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Nowa lista
+    .aria-label = Edytuj nazwę listy
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nowa lista
@@ -738,8 +752,7 @@ newtab-widget-section-minimize =
     .aria-label = Zwiń wszystkie widżety do małego rozmiaru
 newtab-widget-section-feedback = Powiedz nam, co sądzisz
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Minutnik
 newtab-widget-timer-notification-focus = Czas na skupienie minął. Dobra robota. Potrzebujesz przerwy?

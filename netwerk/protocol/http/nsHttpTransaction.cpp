@@ -3658,8 +3658,16 @@ void nsHttpTransaction::OnHttp3TunnelFallbackTimer() {
     return;
   }
 
-  DisableHttp3(false);
-  // Setting this flag since DisableHttp3 is already called.
+  RefPtr<nsHttpConnectionInfo> fallbackCI =
+      mConnInfo->CreateConnectUDPFallbackConnInfo();
+  if (fallbackCI) {
+    mCaps |= NS_HTTP_DISALLOW_HTTP3;
+    RemoveAlternateServiceUsedHeader(mRequestHead);
+    mConnInfo.swap(fallbackCI);
+  } else {
+    DisableHttp3(false);
+  }
+
   mDontRetryWithDirectRoute = true;
   if (mConnection) {
     mConnection->CloseTransaction(this, NS_ERROR_NET_RESET);

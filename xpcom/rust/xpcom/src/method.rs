@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use nserror::{nsresult, NS_ERROR_NULL_POINTER};
+use nserror::{NS_ERROR_NULL_POINTER, nsresult};
 
 /// The xpcom_method macro generates a Rust XPCOM method stub that converts
 /// raw pointer arguments to references, calls a Rustic implementation
@@ -110,7 +110,7 @@ macro_rules! xpcom_method {
     // doesn't (yet?) support out-parameters (*mut nsIFoo).  The xpcom_method
     // macro itself does, however, support the return value out-parameter.
     (@ensure_param $name:ident) => {
-        let $name = match $crate::Ensure::ensure($name) {
+        let $name = match unsafe { $crate::Ensure::ensure($name) } {
             Ok(val) => val,
             Err(result) => return result,
         };
@@ -129,7 +129,7 @@ macro_rules! xpcom_method {
             $(xpcom_method!(@ensure_param $param_name);)*
             match self.$rust_name($($param_name, )*) {
                 Ok(val) => {
-                    val.forget(&mut *retval);
+                    unsafe { val.forget(&mut *retval) };
                     NS_OK
                 }
                 Err(error) => {
@@ -147,7 +147,7 @@ macro_rules! xpcom_method {
             $(xpcom_method!(@ensure_param $param_name);)*
             match self.$rust_name($($param_name, )*) {
                 Ok(val) => {
-                    (*retval).assign(&val);
+                    unsafe { (*retval).assign(&val) };
                     NS_OK
                 }
                 Err(error) => {
@@ -165,7 +165,7 @@ macro_rules! xpcom_method {
             $(xpcom_method!(@ensure_param $param_name);)*
             match self.$rust_name($($param_name, )*) {
                 Ok(val) => {
-                    (*retval).assign(&val);
+                    unsafe { (*retval).assign(&val) };
                     NS_OK
                 }
                 Err(error) => {
@@ -183,7 +183,7 @@ macro_rules! xpcom_method {
             $(xpcom_method!(@ensure_param $param_name);)*
             match self.$rust_name($($param_name, )*) {
                 Ok(val) => {
-                    *retval = val;
+                    unsafe { *retval = val };
                     NS_OK
                 }
                 Err(error) => {

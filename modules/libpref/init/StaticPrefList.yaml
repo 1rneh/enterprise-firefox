@@ -3259,7 +3259,7 @@
 # https://html.spec.whatwg.org/multipage/embedded-content.html#allows-auto-sizes
 - name: dom.image.sizes_auto.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # W3C draft ImageCapture API
@@ -4478,7 +4478,7 @@
 
 - name: dom.reporting.crash.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.reporting.header.enabled
@@ -4626,7 +4626,7 @@
 # For testing purposes only: Cache stencil across navigation
 - name: dom.script_loader.experimental.navigation_cache
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # The delay until saving the script disk cache in microseconds.
@@ -8101,6 +8101,8 @@
   type: RelaxedAtomicBool
 #if defined(XP_WIN)
   value: true
+#elif defined(XP_DARWIN)
+  value: @IS_NIGHTLY_BUILD@
 #else
   value: false
 #endif
@@ -14617,6 +14619,13 @@
   value: true
   mirror: always
 
+# How many seconds to force-validate a prefetched cache entry that has no
+# explicit Cache-Control or Expires headers (bug 1527334). Set to 0 to disable.
+- name: network.prefetch-next.force-valid-for
+  type: uint32_t
+  value: 300
+  mirror: always
+
 # Enables `<link rel="modulepreload">` tag and `Link: rel=modulepreload`
 # response header handling.
 - name: network.modulepreload
@@ -17350,18 +17359,6 @@
   value: true
   mirror: always
 
-# Always partition web storage APIs except cookies.
-- name: privacy.partition.always_partition_third_party_non_cookie_storage
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Exclude session storage from the above preference.
-- name: privacy.partition.always_partition_third_party_non_cookie_storage.exempt_sessionstorage
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: privacy.partition.bloburl_per_partition_key
   type: bool
   value: true
@@ -18303,7 +18300,7 @@
 
 - name: security.ssl3.ecdhe_ecdsa_aes_128_sha
   type: RelaxedAtomicBool
-  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: always
 
 - name: security.ssl3.ecdhe_rsa_aes_256_sha

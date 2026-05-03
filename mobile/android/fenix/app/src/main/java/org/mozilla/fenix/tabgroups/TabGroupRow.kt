@@ -19,11 +19,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.Role
@@ -54,6 +57,7 @@ private val THUMBNAIL_HEIGHT = 68.dp
  * @param onClick The action to be performed when the tab group item is clicked.
  * @param modifier The Modifier
  * @param trailingContent Optional trailing content.
+ * @param trailingContentColor Optional content color for trailing content.
  */
 @Composable
 fun TabGroupRow(
@@ -61,6 +65,7 @@ fun TabGroupRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     trailingContent: @Composable (() -> Unit)? = null,
+    trailingContentColor: Color? = null,
 ) {
     val tabGroupRowContentDescription = pluralStringResource(
         id = R.plurals.add_to_exiting_tab_group_content_description,
@@ -110,7 +115,13 @@ fun TabGroupRow(
 
         TabGroupTextContent(tabGroup = tabGroup, modifier = Modifier.weight(1f))
 
-        trailingContent?.invoke()
+        trailingContent?.let { content ->
+            CompositionLocalProvider(
+                LocalContentColor provides (trailingContentColor ?: LocalContentColor.current),
+            ) {
+                content()
+            }
+        }
     }
 }
 

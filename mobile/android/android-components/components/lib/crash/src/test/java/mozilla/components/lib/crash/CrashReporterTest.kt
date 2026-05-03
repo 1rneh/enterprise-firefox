@@ -49,6 +49,7 @@ import org.robolectric.annotation.Config
 import java.lang.Thread.sleep
 import java.lang.reflect.Modifier
 import kotlin.coroutines.ContinuationInterceptor
+import kotlin.test.assertIs
 
 @RunWith(AndroidJUnit4::class)
 class CrashReporterTest {
@@ -1518,7 +1519,7 @@ class CrashReporterTest {
         val entity = crash.toEntity()
         val otherCrash = entity.toCrash() as Crash.UncaughtExceptionCrash
 
-        assertTrue(otherCrash.throwable is CrashReporterUnableToRestoreException)
+        assertIs<CrashReporterUnableToRestoreException>(otherCrash.throwable)
         assertEquals(expectedMessage, otherCrash.throwable.message)
         assertArrayEquals(crash.throwable.stackTrace, otherCrash.throwable.stackTrace)
     }

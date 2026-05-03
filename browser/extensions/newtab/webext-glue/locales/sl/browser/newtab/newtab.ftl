@@ -8,9 +8,13 @@
 newtab-page-title = Nov zavihek
 newtab-settings-button =
     .title = Prilagodite stran novega zavihka
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Prilagodi to stran
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Prilagodi
+newtab-customize-panel-label =
+    .label = Prilagodi
 newtab-personalize-settings-icon-label =
     .title = Prilagodite stran novega zavihka
     .aria-label = Nastavitve
@@ -385,6 +389,7 @@ newtab-wallpaper-title = Ozadja
 newtab-wallpaper-reset = Ponastavi privzeto
 #  (developer note): @nova-cleanup(remove-string): Remove old "Upload an image" string once Nova lands. The new "Add an image"  string will take over
 newtab-wallpaper-upload-image = Naloži sliko
+newtab-wallpaper-add-an-image = Dodaj sliko
 newtab-wallpaper-custom-color = Izberite barvo
 newtab-wallpaper-toggle-title =
     .label = Ozadja
@@ -412,6 +417,7 @@ newtab-wallpaper-light-fox-anniversary = Lisica na travnatem polju v megleni gor
 
 #  (developer note): @nova-cleanup(remove-string): Remove old "Solid colors" string once Nova lands. The simplified "Colors" string will take over
 newtab-wallpaper-category-title-colors = Enobarvna
+newtab-wallpaper-colors = Barve
 newtab-wallpaper-blue = Modro
 newtab-wallpaper-light-blue = Svetlo modro
 newtab-wallpaper-light-purple = Svetlo vijolično
@@ -502,6 +508,9 @@ newtab-weather-menu-change-location = Spremeni lokacijo
 newtab-weather-change-location-search-input-placeholder =
     .placeholder = Išči lokacijo
     .aria-label = Išči lokacijo
+# "Current" refers to the user's physical/geographic location detected via geolocation.
+newtab-weather-change-location-search-use-current =
+    .label = Uporabi trenutno lokacijo
 newtab-weather-menu-weather-display = Prikazovalnik vremena
 newtab-weather-todays-forecast = Napoved za današnji dan
 newtab-weather-see-full-forecast = Prikaži celotno napoved
@@ -526,8 +535,16 @@ newtab-weather-opt-in-not-now =
     .label = Ne zdaj
 newtab-weather-opt-in-yes =
     .label = Da
+newtab-weather-opt-in-use-location =
+    .label = Uporabi lokacijo
 # We'll be showing static (fake) weather data if the user has not opted in to using their location
 newtab-weather-static-city = New York
+# "Highest" here refers to the highest temperature of the day
+newtab-weather-high =
+    .aria-label = Najvišja
+# "Lowest" here refers to the lowest temperature of the day
+newtab-weather-low =
+    .aria-label = Najnižja
 # Variables:
 #   $provider (string) - Service provider for weather data
 newtab-weather-see-forecast-description =
@@ -579,6 +596,10 @@ newtab-topic-selection-button-pick-interests = Izberite svoja zanimanja
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Sledi
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Sledi temi { $topic }
 newtab-section-following-button = Sledite
 newtab-section-unfollow-button = Nehaj slediti
 # A modal may appear next to the Follow button, directing users to try out the feature
@@ -592,6 +613,10 @@ newtab-section-follow-highlight-subtitle = Sledite svojim zanimanjem in dobivajt
 newtab-section-block-button = Prepovej
 newtab-section-blocked-button = Prepovedano
 newtab-section-unblock-button = Dovoli
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Odblokiraj temo { $topic }
 
 ## Confirmation modal for blocking a section
 
@@ -663,6 +688,18 @@ newtab-report-cancel = Prekliči
 newtab-report-submit = Pošlji
 newtab-toast-thanks-for-reporting =
     .message = Hvala za prijavo.
+# Variables:
+#   $topic (string) - Topic that the user has followed
+newtab-section-toast-follow =
+    .message = Zdaj sledite temi { $topic }.
+# Variables:
+#   $topic (string) - Topic that the user has unfollowed
+newtab-section-toast-unfollow =
+    .message = Ne sledite več temi { $topic }.
+# Variables:
+#   $topic (string) - Topic that the user has blocked
+newtab-section-toast-block =
+    .message = Zgodbe o temi { $topic } se vam ne bodo več prikazovale.
 
 ## Strings for task / to-do list productivity widget
 
@@ -679,10 +716,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Opravljeno ({ $number })
 newtab-widget-task-list-menu-copy = Kopiraj
 newtab-widget-lists-menu-edit = Uredi ime seznama
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Uredi ime seznama
 newtab-widget-lists-menu-create = Ustvari nov seznam
 newtab-widget-lists-menu-delete = Izbriši ta seznam
 newtab-widget-lists-menu-copy = Kopiraj seznam v odložišče
 newtab-widget-lists-menu-learn-more = Več o tem
+newtab-widget-lists-button-add-item = Dodaj element
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Dodaj element
+    .aria-label = Dodaj element
 newtab-widget-lists-input-add-an-item =
     .placeholder = Dodaj element
 newtab-widget-lists-input-error = Za dodajanje predmeta vključite besedilo.
@@ -698,6 +741,10 @@ newtab-widget-lists-name-label-default =
     .label = Seznam opravil
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Seznam opravil
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Nov seznam
+    .aria-label = Uredi ime seznama
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nov seznam
@@ -717,10 +764,10 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Pomanjšaj pripomočke
     .aria-label = Skrči vse pripomočke
+newtab-widget-section-menu-learn-more = Več o tem
 newtab-widget-section-feedback = Povejte nam svoje mnenje
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Odštevalnik
 newtab-widget-timer-notification-focus = Čas za osredotočeno delo je potekel. Odlično opravljeno. Potrebujete odmor?

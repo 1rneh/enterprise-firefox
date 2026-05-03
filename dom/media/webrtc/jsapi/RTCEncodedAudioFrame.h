@@ -37,6 +37,12 @@ class RTCEncodedAudioFrame final : public RTCEncodedAudioFrameData,
   explicit RTCEncodedAudioFrame(nsIGlobalObject* aGlobal,
                                 RTCEncodedAudioFrameData&& aData);
 
+  // forbid copy/move to keep mState member in base valid
+  RTCEncodedAudioFrame(const RTCEncodedAudioFrame&) = delete;
+  RTCEncodedAudioFrame& operator=(const RTCEncodedAudioFrame&) = delete;
+  RTCEncodedAudioFrame(RTCEncodedAudioFrame&&) = delete;
+  RTCEncodedAudioFrame& operator=(RTCEncodedAudioFrame&&) = delete;
+
   // webidl (timestamp and data accessors live in base class)
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
@@ -59,12 +65,6 @@ class RTCEncodedAudioFrame final : public RTCEncodedAudioFrameData,
 
  private:
   virtual ~RTCEncodedAudioFrame() = default;
-
-  // forbid copy/move to keep mState member in base valid
-  RTCEncodedAudioFrame(const RTCEncodedAudioFrame&) = delete;
-  RTCEncodedAudioFrame& operator=(const RTCEncodedAudioFrame&) = delete;
-  RTCEncodedAudioFrame(RTCEncodedAudioFrame&&) = delete;
-  RTCEncodedAudioFrame& operator=(RTCEncodedAudioFrame&&) = delete;
 
   // RTCEncodedAudioFrame can run on either main thread or worker thread.
   void AssertIsOnOwningThread() const {

@@ -42,6 +42,7 @@ import org.mozilla.fenix.search.SearchEngineSource
 import org.mozilla.fenix.search.awesomebar.SearchSuggestionsProvidersBuilder.SearchProviderState
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
+import kotlin.test.assertIs
 
 @RunWith(RobolectricTestRunner::class)
 class SearchSuggestionsProvidersBuilderTest {
@@ -1156,8 +1157,8 @@ class SearchSuggestionsProvidersBuilderTest {
         )
 
         assertNotNull(result)
-        assertTrue(result is CombinedHistorySuggestionProvider)
-        assertNotNull((result as CombinedHistorySuggestionProvider).resultsUriFilter)
+        assertIs<CombinedHistorySuggestionProvider>(result)
+        assertNotNull(result.resultsUriFilter)
         assertEquals(SearchSuggestionsProvidersBuilder.METADATA_SUGGESTION_LIMIT, result.getMaxNumberOfSuggestions())
     }
 
@@ -1177,8 +1178,8 @@ class SearchSuggestionsProvidersBuilderTest {
         )
 
         assertNotNull(result)
-        assertTrue(result is HistoryStorageSuggestionProvider)
-        assertNotNull((result as HistoryStorageSuggestionProvider).resultsUriFilter)
+        assertIs<HistoryStorageSuggestionProvider>(result)
+        assertNotNull(result.resultsUriFilter)
         assertEquals(SearchSuggestionsProvidersBuilder.METADATA_SUGGESTION_LIMIT, result.getMaxNumberOfSuggestions())
     }
 
@@ -1197,7 +1198,7 @@ class SearchSuggestionsProvidersBuilderTest {
 
         val result = builder.getSearchTermSuggestionsProvider(searchEngineSource)
 
-        assertTrue(result is SearchTermSuggestionsProvider)
+        assertIs<SearchTermSuggestionsProvider>(result)
     }
 
     @Test
@@ -1211,8 +1212,8 @@ class SearchSuggestionsProvidersBuilderTest {
 
         val result = builder.getSearchTermSuggestionsProvider(searchEngineSource)
 
-        assertTrue(result is SearchTermSuggestionsProvider)
-        assertEquals("Test search", result?.groupTitle())
+        assertIs<SearchTermSuggestionsProvider>(result)
+        assertEquals("Test search", result.groupTitle())
     }
 
     @Test
@@ -1224,8 +1225,8 @@ class SearchSuggestionsProvidersBuilderTest {
 
         val result = builder.getSearchTermSuggestionsProvider(searchEngineSource)
 
-        assertTrue(result is SearchTermSuggestionsProvider)
-        assertNull(result?.groupTitle())
+        assertIs<SearchTermSuggestionsProvider>(result)
+        assertNull(result.groupTitle())
     }
 
     @Test
@@ -1239,8 +1240,8 @@ class SearchSuggestionsProvidersBuilderTest {
 
         val result = builder.getSearchTermSuggestionsProvider(searchEngineSource)
 
-        assertTrue(result is SearchTermSuggestionsProvider)
-        assertNull(result?.groupTitle())
+        assertIs<SearchTermSuggestionsProvider>(result)
+        assertNull(result.groupTitle())
     }
 
     @Test

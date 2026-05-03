@@ -165,6 +165,8 @@ class EditorCommand : public ControllerCommand {
       case Command::MoveRight2:
       case Command::MoveUp2:
       case Command::MoveDown2:
+      case Command::MoveLeft3:
+      case Command::MoveRight3:
       case Command::SelectLeft:
       case Command::SelectRight:
       case Command::SelectUp:
@@ -173,6 +175,8 @@ class EditorCommand : public ControllerCommand {
       case Command::SelectRight2:
       case Command::SelectUp2:
       case Command::SelectDown2:
+      case Command::SelectLeft3:
+      case Command::SelectRight3:
         return EditorCommandParamType::None;
       // PasteNoFormattingCommand
       case Command::PasteWithoutFormat:

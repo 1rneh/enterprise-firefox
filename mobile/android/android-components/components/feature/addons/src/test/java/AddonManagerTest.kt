@@ -60,6 +60,7 @@ import org.mockito.Mockito.never
 import org.mockito.Mockito.spy
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
+import kotlin.test.assertIs
 
 @RunWith(AndroidJUnit4::class)
 class AddonManagerTest {
@@ -552,7 +553,7 @@ class AddonManagerTest {
         // Verifying we returned the right status
         verify(engine).updateWebExtension(any(), any(), onErrorCaptor.capture())
         onErrorCaptor.value.invoke("message", Exception())
-        assertTrue(updateStatus is Status.Error)
+        assertIs<Status.Error>(updateStatus)
     }
 
     @Test

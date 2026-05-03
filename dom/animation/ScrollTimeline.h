@@ -181,6 +181,8 @@ class ScrollTimeline : public AnimationTimeline,
     bool mIsRoot;
   };
 
+  ScrollTimeline() = delete;
+
   static already_AddRefed<ScrollTimeline> MakeAnonymous(
       Document* aDocument, const NonOwningAnimationTarget& aTarget,
       StyleScrollAxis aAxis, StyleScroller aScroller);
@@ -278,7 +280,6 @@ class ScrollTimeline : public AnimationTimeline,
 
  protected:
   virtual ~ScrollTimeline();
-  ScrollTimeline() = delete;
   ScrollTimeline(Document* aDocument, const ScrollerInfo& aScrollerInfo,
                  StyleScrollAxis aAxis);
 

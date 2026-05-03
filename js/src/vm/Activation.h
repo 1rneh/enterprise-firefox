@@ -245,7 +245,8 @@ class LiveSavedFrameCache {
    public:
     // If iter's frame is of a type that can be cached, construct a FramePtr
     // for its frame. Otherwise, return Nothing.
-    static inline mozilla::Maybe<FramePtr> create(const FrameIter& iter);
+    static inline mozilla::Maybe<FramePtr> create(JSContext* cx,
+                                                  const FrameIter& iter);
 
     inline bool hasCachedSavedFrame() const;
     inline void setHasCachedSavedFrame();

@@ -7,17 +7,22 @@ with Files("**"):
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
     MOZ_SRC_FILES += [
-        "android/IPPAndroidAuthProvider.sys.mjs",
-        "android/IPPAndroidEnrollAndEntitle.sys.mjs",
-        "android/IPPAndroidSignInWatcher.sys.mjs",
+        "fxa/IPPAndroidAuthProvider.sys.mjs",
+        "fxa/IPPAndroidSignInWatcher.sys.mjs",
+        "gpi/IPPGpiAuthProvider.sys.mjs",
     ]
 
+TESTING_JS_MODULES.ipprotection += [
+    "gpi/IPPGpiAuthProvider.sys.mjs",
+]
+
 MOZ_SRC_FILES += [
+    "fxa/GuardianClient.sys.mjs",
     "fxa/IPPEnrollAndEntitleManager.sys.mjs",
     "fxa/IPPFxaActivateAuthProvider.sys.mjs",
     "fxa/IPPFxaAuthProvider.sys.mjs",
     "fxa/IPPSignInWatcher.sys.mjs",
-    "GuardianClient.sys.mjs",
+    "GuardianTypes.sys.mjs",
     "IPPAuthProvider.sys.mjs",
     "IPPAutoRestore.sys.mjs",
     "IPPAutoStart.sys.mjs",

@@ -8,9 +8,13 @@
 newtab-page-title = Tab Newydd
 newtab-settings-button =
     .title = Cyfaddasu eich tudalen Tab Newydd
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Cyfaddasu’r dudalen hon
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Cyfaddasu
+newtab-customize-panel-label =
+    .label = Cyfaddasu
 newtab-personalize-settings-icon-label =
     .title = Personoli Tab Newydd
     .aria-label = Gosodiadau
@@ -598,8 +602,16 @@ newtab-topic-selection-button-pick-interests = Dewiswch eich diddordebau
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Dilyn
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Dilyn { $topic }
 newtab-section-following-button = Yn dilyn
 newtab-section-unfollow-button = Dad-ddilyn
+# Variables:
+#   $topic (string) - Topic that the user is following and can unfollow
+newtab-section-unfollow-button-label =
+    .aria-label = Yn dilyn: Dad-ddilyn { $topic }
 # A modal may appear next to the Follow button, directing users to try out the feature
 newtab-section-follow-highlight-title = Mireinio'ch ffrwd
 newtab-section-follow-highlight-subtitle = Dilynwch eich diddordebau i weld mwy o'r hyn rydych yn ei hoffi.
@@ -641,6 +653,12 @@ newtab-custom-wallpaper-cta = Rhowch gynnig arni
 newtab-new-user-custom-wallpaper-title = Dewiswch bapur wal i wneud { -brand-product-name } eich un chi
 newtab-new-user-custom-wallpaper-subtitle = Gwnewch i bob tab newydd deimlo fel adref gyda phapurau wal a lliwiau cyfaddas.
 newtab-new-user-custom-wallpaper-cta = Rhowch gynnig arno
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Mae papurau wal newydd ffres wedi cyrraedd
+newtab-wallpaper-feature-highlight-subtitle = Dewis eich ffefryn a gwneud i bob tab newydd deimlo fel cartref.
+newtab-wallpaper-feature-highlight-cta = Dewis papur wal
 
 ## Strings for download mobile highlight
 
@@ -712,10 +730,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Wedi cwblhau ( { $number })
 newtab-widget-task-list-menu-copy = Copïo
 newtab-widget-lists-menu-edit = Golygu enw'r rhestr
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Golygu enw'r rhestr
 newtab-widget-lists-menu-create = Creu rhestr newydd
 newtab-widget-lists-menu-delete = Dileu'r rhestr hon
 newtab-widget-lists-menu-copy = Copïo'r rhestr i'r clipfwrdd
 newtab-widget-lists-menu-learn-more = Dysgu rhagor
+newtab-widget-lists-button-add-item = Ychwanegu eitem
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Ychwanegu eitem
+    .aria-label = Ychwanegu eitem
 newtab-widget-lists-input-add-an-item =
     .placeholder = Ychwanegu eitem
 newtab-widget-lists-input-error = Cynhwyswch destun i ychwanegu eitem.
@@ -729,8 +753,19 @@ newtab-widget-lists-dropdown-create =
     .label = + Creu rhestr newydd
 newtab-widget-lists-name-label-default =
     .label = Rhestr tasgau
+newtab-widget-lists-name-label-checklist =
+    .label = Rhestr wirio
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Rhestr tasgau
+newtab-widget-lists-name-placeholder-checklist2 =
+    .placeholder = Rhestr wirio
+    .aria-label = Golygu enw'r rhestr
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Rhestr newydd
+    .aria-label = Golygu enw'r rhestr
+newtab-widget-lists-name-placeholder-checklist =
+    .placeholder = Rhestr wirio
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Rhestr newydd
@@ -750,10 +785,15 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Lleihau teclynnau
     .aria-label = Lleihau pob teclyn i faint llai
+newtab-widget-section-menu-button =
+    .title = Dewislen teclynnau
+    .aria-label = Agor dewislen teclynnau
+newtab-widget-section-menu-hide-all = Cuddio teclynnau
+newtab-widget-section-menu-learn-more = Dysgu rhagor
 newtab-widget-section-feedback = Dywedwch wrthym beth yw eich barn
+newtab-widget-lists-name-default = Rhestr wirio
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Amserydd
 newtab-widget-timer-notification-focus = Mae'r amser canolbwyntio ar ben. Gwaith da. Angen seibiant?

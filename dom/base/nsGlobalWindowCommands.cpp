@@ -64,15 +64,17 @@ constexpr nsLiteralCString kSelectCommands[] = {
 
 // Physical-direction movement and selection commands
 constexpr nsLiteralCString kPhysicalSelectMoveScrollCommands[] = {
-    "cmd_moveDown"_ns,  "cmd_moveDown2"_ns, "cmd_moveLeft"_ns,
-    "cmd_moveLeft2"_ns, "cmd_moveRight"_ns, "cmd_moveRight2"_ns,
-    "cmd_moveUp"_ns,    "cmd_moveUp2"_ns,
+    "cmd_moveDown"_ns,   "cmd_moveDown2"_ns,  "cmd_moveLeft"_ns,
+    "cmd_moveLeft2"_ns,  "cmd_moveLeft3"_ns,  "cmd_moveRight"_ns,
+    "cmd_moveRight2"_ns, "cmd_moveRight3"_ns, "cmd_moveUp"_ns,
+    "cmd_moveUp2"_ns,
 };
 
 constexpr nsLiteralCString kPhysicalSelectCommands[] = {
-    "cmd_selectDown"_ns,  "cmd_selectDown2"_ns, "cmd_selectLeft"_ns,
-    "cmd_selectLeft2"_ns, "cmd_selectRight"_ns, "cmd_selectRight2"_ns,
-    "cmd_selectUp"_ns,    "cmd_selectUp2"_ns,
+    "cmd_selectDown"_ns,   "cmd_selectDown2"_ns,  "cmd_selectLeft"_ns,
+    "cmd_selectLeft2"_ns,  "cmd_selectLeft3"_ns,  "cmd_selectRight"_ns,
+    "cmd_selectRight2"_ns, "cmd_selectRight3"_ns, "cmd_selectUp"_ns,
+    "cmd_selectUp2"_ns,
 };
 
 // a base class for selection-related commands, for code sharing
@@ -296,6 +298,12 @@ static const struct PhysicalBrowseCommand {
     {Command::MoveDown2, nsISelectionController::MOVE_DOWN, 1,
      KeyboardScrollAction::eScrollComplete,
      &nsISelectionController::CompleteScroll},
+    {Command::MoveLeft3, nsISelectionController::MOVE_LEFT, 2,
+     KeyboardScrollAction::eScrollComplete,
+     &nsISelectionController::CompleteScroll},
+    {Command::MoveRight3, nsISelectionController::MOVE_RIGHT, 2,
+     KeyboardScrollAction::eScrollComplete,
+     &nsISelectionController::CompleteScroll},
 };
 
 nsresult nsPhysicalSelectMoveScrollCommand::DoCommand(
@@ -399,7 +407,9 @@ static const struct PhysicalSelectCommand {
     {Command::SelectLeft2, nsISelectionController::MOVE_LEFT, 1},
     {Command::SelectRight2, nsISelectionController::MOVE_RIGHT, 1},
     {Command::SelectUp2, nsISelectionController::MOVE_UP, 1},
-    {Command::SelectDown2, nsISelectionController::MOVE_DOWN, 1}};
+    {Command::SelectDown2, nsISelectionController::MOVE_DOWN, 1},
+    {Command::SelectLeft3, nsISelectionController::MOVE_LEFT, 2},
+    {Command::SelectRight3, nsISelectionController::MOVE_RIGHT, 2}};
 
 nsresult nsPhysicalSelectCommand::DoCommand(const nsACString& aCommandName,
                                             nsICommandParams* aParams,

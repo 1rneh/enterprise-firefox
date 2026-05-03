@@ -347,6 +347,7 @@ export const LinkMenuOptions = {
               [sectionKey]: {
                 isBlocked: true,
                 isFollowed: false,
+                title,
               },
             },
           }),

@@ -297,6 +297,7 @@ pref("media.videocontrols.keyboard-tab-to-all-controls", true);
   pref("media.peerconnection.default_iceservers", "[]");
   #ifdef NIGHTLY_BUILD
     pref("media.peerconnection.allow_old_setParameters", false);
+    pref("media.peerconnection.allow_old_setParameters.allowlist", "*.google.com");
   #else
     pref("media.peerconnection.allow_old_setParameters", true);
   #endif
@@ -4145,3 +4146,8 @@ pref("captchadetection.actor.enabled", true);
 // Make general.smoothScroll sticky to avoid being clobbered by
 // preferes-reduced-motion system setting.
 pref("general.smoothScroll", true, sticky);
+
+// Trigger FOG's Artifact Build support on artifact builds.
+#ifdef MOZ_ARTIFACT_BUILDS
+  pref("telemetry.fog.artifact_build", true);
+#endif

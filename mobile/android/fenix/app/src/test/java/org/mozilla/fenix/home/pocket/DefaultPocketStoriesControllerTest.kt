@@ -392,6 +392,7 @@ class DefaultPocketStoriesControllerTest {
         assertNull(Pocket.homeRecsSpocClicked.testGetValue())
 
         controller.handleStoryClicked(sponsoredContent, storyPosition = Triple(2, 3, 4))
+        testScheduler.advanceUntilIdle()
 
         assertEquals(1, Pocket.homeRecsSpocClicked.testGetValue()!!.size)
         val data = Pocket.homeRecsSpocClicked.testGetValue()!!.single().extra
@@ -498,6 +499,7 @@ class DefaultPocketStoriesControllerTest {
         }
     }
 
+    @Test
     fun `WHEN screen is shown THEN impression is logged`() = runTest {
         assertNull(StoriesLibrary.viewed.testGetValue())
         val controller = createController(scope = this)

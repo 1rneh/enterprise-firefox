@@ -2714,12 +2714,16 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
       case Command::SelectWordNext:
       case Command::EndLine:
       case Command::SelectEndLine:
+      case Command::MoveRight3:
+      case Command::SelectRight3:
       case Command::CharPrevious:
       case Command::SelectCharPrevious:
       case Command::WordPrevious:
       case Command::SelectWordPrevious:
       case Command::BeginLine:
       case Command::SelectBeginLine:
+      case Command::MoveLeft3:
+      case Command::SelectLeft3:
       case Command::LinePrevious:
       case Command::SelectLinePrevious:
       case Command::MoveTop:
@@ -2852,7 +2856,9 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
       case Command::WordNext:
       case Command::SelectWordNext:
       case Command::EndLine:
-      case Command::SelectEndLine: {
+      case Command::SelectEndLine:
+      case Command::MoveRight3:
+      case Command::SelectRight3: {
         nsCocoaUtils::InitInputEvent(keypressEvent, keyEvent);
         keypressEvent.mKeyCode = NS_VK_RIGHT;
         keypressEvent.mKeyNameIndex = KEY_NAME_INDEX_ArrowRight;
@@ -2860,7 +2866,8 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
             ~(MODIFIER_CONTROL | MODIFIER_ALT | MODIFIER_META);
         if (aCommand == Command::SelectCharNext ||
             aCommand == Command::SelectWordNext ||
-            aCommand == Command::SelectEndLine) {
+            aCommand == Command::SelectEndLine ||
+            aCommand == Command::SelectRight3) {
           keypressEvent.mModifiers |= MODIFIER_SHIFT;
         }
         if (aCommand == Command::WordNext ||
@@ -2868,7 +2875,9 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
           keypressEvent.mModifiers |= MODIFIER_ALT;
         }
         if (aCommand == Command::EndLine ||
-            aCommand == Command::SelectEndLine) {
+            aCommand == Command::SelectEndLine ||
+            aCommand == Command::MoveRight3 ||
+            aCommand == Command::SelectRight3) {
           keypressEvent.mModifiers |= MODIFIER_META;
         }
         break;
@@ -2878,7 +2887,9 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
       case Command::WordPrevious:
       case Command::SelectWordPrevious:
       case Command::BeginLine:
-      case Command::SelectBeginLine: {
+      case Command::SelectBeginLine:
+      case Command::MoveLeft3:
+      case Command::SelectLeft3: {
         nsCocoaUtils::InitInputEvent(keypressEvent, keyEvent);
         keypressEvent.mKeyCode = NS_VK_LEFT;
         keypressEvent.mKeyNameIndex = KEY_NAME_INDEX_ArrowLeft;
@@ -2886,7 +2897,8 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
             ~(MODIFIER_CONTROL | MODIFIER_ALT | MODIFIER_META);
         if (aCommand == Command::SelectCharPrevious ||
             aCommand == Command::SelectWordPrevious ||
-            aCommand == Command::SelectBeginLine) {
+            aCommand == Command::SelectBeginLine ||
+            aCommand == Command::SelectLeft3) {
           keypressEvent.mModifiers |= MODIFIER_SHIFT;
         }
         if (aCommand == Command::WordPrevious ||
@@ -2894,7 +2906,9 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
           keypressEvent.mModifiers |= MODIFIER_ALT;
         }
         if (aCommand == Command::BeginLine ||
-            aCommand == Command::SelectBeginLine) {
+            aCommand == Command::SelectBeginLine ||
+            aCommand == Command::MoveLeft3 ||
+            aCommand == Command::SelectLeft3) {
           keypressEvent.mModifiers |= MODIFIER_META;
         }
         break;

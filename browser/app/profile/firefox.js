@@ -1051,10 +1051,6 @@ pref("browser.tabs.loadBookmarksInBackground", false);
 pref("browser.tabs.loadBookmarksInTabs", false);
 pref("browser.tabs.tabClipWidth", 140);
 pref("browser.tabs.tabMinWidth", 76);
-// Users running in any of the following language codes will have the
-// secondary text on tabs hidden due to size constraints and readability
-// of the text at small font sizes.
-pref("browser.tabs.secondaryTextUnsupportedLocales", "ar,bn,bo,ckb,fa,gu,he,hi,ja,km,kn,ko,lo,mr,my,ne,pa,si,ta,te,th,ur,zh");
 
 // When tabs opened by links in other tabs via a combination of
 // browser.link.open_newwindow being set to 3 and target="_blank" etc are
@@ -1846,7 +1842,9 @@ pref("browser.partnerlink.campaign.topsites", "amzn_2020_a1");
 // Activates preloading of the new tab url.
 pref("browser.newtab.preload", true);
 
-// Do not enable the preonboarding experience on Linux
+// Preonboarding is disabled by default on Linux.
+// For official Mozilla distributions, enable at runtime through
+// Policy.isEligibleOnLinux() in TelemetryReportingPolicy.
 #ifdef XP_LINUX
   pref("browser.preonboarding.enabled", false);
 #endif
@@ -2456,6 +2454,14 @@ pref("media.videocontrols.picture-in-picture.video-toggle.visibility-threshold",
 pref("media.videocontrols.picture-in-picture.keyboard-controls.enabled", true);
 pref("media.videocontrols.picture-in-picture.urlbar-button.enabled", true);
 pref("media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled", false);
+pref("media.videocontrols.picture-in-picture.auto-close.enabled", true);
+pref("media.videocontrols.picture-in-picture.auto-close.timeoutMs", 1000);
+
+#ifdef NIGHTLY_BUILD
+  pref("media.contextmenu.video-overlay-detection", true);
+#else
+  pref("media.contextmenu.video-overlay-detection", false);
+#endif
 
 // TODO (Bug 1817084) - This pref is used for managing translation preferences
 // in the Firefox Translations addon. It should be removed when the addon is
@@ -3548,11 +3554,6 @@ pref("cookiebanners.ui.desktop.showCallout", false);
   pref("browser.swipe.navigation-icon-end-position", 60);
   pref("browser.swipe.navigation-icon-min-radius", 12);
   pref("browser.swipe.navigation-icon-max-radius", 20);
-#endif
-
-// Trigger FOG's Artifact Build support on artifact builds.
-#ifdef MOZ_ARTIFACT_BUILDS
-  pref("telemetry.fog.artifact_build", true);
 #endif
 
 pref("ui.new-webcompat-reporter.enabled", true);

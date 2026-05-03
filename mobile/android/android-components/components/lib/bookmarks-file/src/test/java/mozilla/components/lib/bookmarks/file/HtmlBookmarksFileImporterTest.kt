@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import kotlin.test.assertIs
 
 @RunWith(RobolectricTestRunner::class)
 class HtmlBookmarksFileImporterTest {
@@ -60,7 +61,7 @@ class HtmlBookmarksFileImporterTest {
         val result = importer.importBookmarksFromUri(testUri)
 
         assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IOException)
+        assertIs<IOException>(result.exceptionOrNull())
     }
 
     @Test
@@ -81,7 +82,7 @@ class HtmlBookmarksFileImporterTest {
         val result = importer.importBookmarksFromUri(testUri)
 
         assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is RuntimeException)
+        assertIs<RuntimeException>(result.exceptionOrNull())
     }
 
     private fun fakeInserter(

@@ -4216,6 +4216,14 @@ nsresult nsDocShell::StopInternal(
     // XXXbz We could also pass |this| to nsIURILoader::Stop.  That will
     // just call Stop() on us as an nsIDocumentLoader... We need fewer
     // redundant apis!
+    if (aUnsetOngoingNavigation == UnsetOngoingNavigation::No && mLoadGroup) {
+      // Tag load group cancellation as navigation-caused so that XHR can
+      // suppress abort events (bug 1505389). SetCanceledReason is
+      // first-write-wins, so nsDocLoader::Stop's reason won't overwrite.
+
+      // XXX Consider using a flag on LoadGroup instead of CanceledReason
+      mLoadGroup->SetCanceledReason("navigation"_ns);
+    }
     Stop();
 
     // Clear out mChannelToDisconnectOnPageHide. This page won't go in the
@@ -7821,7 +7829,7 @@ bool nsDocShell::IsSameDocumentNavigation(nsDocShellLoadState* aLoadState,
               // At this point the requested URI is for sure a fragment
               // navigation via HTTP and HTTPS-Only mode or HTTPS-First is
               // enabled. Also it is not interfering the upgrade order of
-              // https://searchfox.org/mozilla-central/source/netwerk/base/nsNetUtil.cpp#2948-2953.
+              // https://searchfox.org/firefox-main/source/netwerk/base/nsNetUtil.cpp#2948-2953.
               // Since we are on an HTTPS site the fragment
               // navigation should also be an HTTPS.
               // For that reason we should upgrade the URI to HTTPS.

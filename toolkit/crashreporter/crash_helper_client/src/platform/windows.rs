@@ -5,7 +5,7 @@
 use anyhow::{bail, Result};
 use crash_helper_common::{
     messages::ChildProcessRendezVousReply, BreakpadChar, BreakpadData, BreakpadString,
-    GeckoChildId, IPCChannel, IPCConnector, IPCListener, Pid,
+    GeckoChildId, IPCChannel, IPCConnector, IPCListener, Pid, ProcessHandle,
 };
 use std::{
     ffi::{OsStr, OsString},
@@ -63,7 +63,7 @@ impl CrashHelperClient {
         minidump_path: OsString,
         endpoint: IPCConnector,
         listener: IPCListener,
-    ) -> Result<OwnedHandle> {
+    ) -> Result<ProcessHandle> {
         // SAFETY: `GetCurrentProcessId()` takes no arguments and should always work
         let pid = OsString::from(unsafe { GetCurrentProcessId() }.to_string());
 
@@ -114,7 +114,9 @@ impl CrashHelperClient {
 
         // SAFETY: We've already checked that `pi.hProcess` contains a
         // valid process handle.
-        Ok(unsafe { OwnedHandle::from_raw_handle(pi.hProcess as RawHandle) })
+        Ok(ProcessHandle(unsafe {
+            OwnedHandle::from_raw_handle(pi.hProcess as RawHandle)
+        }))
     }
 
     pub(crate) fn prepare_for_minidump(

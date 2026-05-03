@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,16 +79,12 @@ fun TabGroupList(
                         .clip(itemShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerLowest),
                     trailingContent = {
-                        CompositionLocalProvider(
-                            LocalContentColor provides MaterialTheme.colorScheme.secondary,
-                        ) {
-                            TabGroupMenuButton(
-                                includeCloseOption = false,
-                                onDeleteTabGroupClick = { onDeleteTabGroupClick(group) },
-                                onEditTabGroupClick = { onEditTabGroupClick(group) },
-                                onCloseTabGroupClick = {},
-                            )
-                        }
+                        TabGroupMenuButton(
+                            includeCloseOption = false,
+                            onDeleteTabGroupClick = { onDeleteTabGroupClick(group) },
+                            onEditTabGroupClick = { onEditTabGroupClick(group) },
+                            onCloseTabGroupClick = {},
+                        )
                     },
                 )
 

@@ -5,7 +5,7 @@ Raptor
 Raptor is a performance-testing framework for running browser pageload and browser benchmark tests. Raptor is cross-browser compatible and is currently running in production on Firefox Desktop, Firefox Android GeckoView, Fenix, Reference Browser, Chromium, Chrome, Chrome for Android, Safari, and Safari Technology Preview.
 
 - Contact: Dave Hunt [:davehunt]
-- Source code: https://searchfox.org/mozilla-central/source/testing/raptor
+- Source code: :searchfox:`testing/raptor`
 - Good first bugs: https://codetribute.mozilla.org/projects/automation?project%3DRaptor
 
 Raptor currently supports three test types: 1) page-load performance tests, 2) standard benchmark-performance tests, and 3) "scenario"-based tests, such as power, CPU, and memory-usage measurements on Android and Desktop.
@@ -55,7 +55,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/ares6.toml#16>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/ares6.toml#16`
    * **lower is better**: true
    * **page cycles**: 4
    * **page timeout**: 270000
@@ -263,7 +263,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/assorted-dom.toml#16>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/assorted-dom.toml#16`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -474,7 +474,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/jetstream2-mobile.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/jetstream2-mobile.toml#17`
    * **lower is better**: false
    * **page cycles**: 4
    * **page timeout**: 2000000
@@ -780,7 +780,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/jetstream2.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/jetstream2.toml#17`
    * **lower is better**: false
    * **page cycles**: 4
    * **page timeout**: 2000000
@@ -1097,7 +1097,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **expose chrome trace**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/jetstream3-desktop.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/jetstream3-desktop.toml#17`
    * **lower is better**: false
    * **page cycles**: 1
    * **page timeout**: 2000000
@@ -1404,7 +1404,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/jetstream3-mobile.toml#22>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/jetstream3-mobile.toml#22`
    * **lower is better**: false
    * **page cycles**: 1
    * **page timeout**: 2000000
@@ -1722,7 +1722,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/matrix-react-bench.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/matrix-react-bench.toml#17`
    * **lower is better**: true
    * **page cycles**: 30
    * **page timeout**: 2000000
@@ -1935,7 +1935,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,SwComposite,RenderBackend,SceneBuilder,WrWorker,CanvasWorkers,TextureUpdate
    * **host from parent**: false
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/motionmark-1-3-desktop.toml#13>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/motionmark-1-3-desktop.toml#13`
    * **lower is better**: false
    * **page cycles**: 1
    * **page timeout**: 600000
@@ -2261,7 +2261,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,SwComposite,RenderBackend,SceneBuilder,WrWorker,CanvasWorkers,TextureUpdate
    * **host from parent**: false
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/motionmark-1-3-mobile.toml#12>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/motionmark-1-3-mobile.toml#12`
    * **lower is better**: false
    * **page cycles**: 1
    * **page timeout**: 600000
@@ -2598,7 +2598,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,SwComposite,RenderBackend,SceneBuilder,WrWorker,CanvasWorkers,TextureUpdate
    * **host from parent**: false
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/motionmark-1-3-desktop.toml#29>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/motionmark-1-3-desktop.toml#29`
    * **lower is better**: false
    * **page cycles**: 1
    * **page timeout**: 600000
@@ -2924,7 +2924,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,SwComposite,RenderBackend,SceneBuilder,WrWorker,CanvasWorkers,TextureUpdate
    * **host from parent**: false
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/motionmark-1-3-mobile.toml#28>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/motionmark-1-3-mobile.toml#28`
    * **lower is better**: false
    * **page cycles**: 1
    * **page timeout**: 600000
@@ -3258,7 +3258,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gecko profile features**: stackwalk,js,cpu,processcpu,ipcmessages,nomarkerstacks
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,TaskController,StyleThread
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/speedometer-desktop.toml#19>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/speedometer-desktop.toml#19`
    * **lower is better**: false
    * **page cycles**: 5
    * **page timeout**: 600000
@@ -3659,7 +3659,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gecko profile features**: stackwalk,js,cpu,processcpu,ipcmessages,nomarkerstacks
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,TaskController,StyleThread
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/speedometer-mobile.toml#19>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/speedometer-mobile.toml#19`
    * **lower is better**: false
    * **page cycles**: 5
    * **page timeout**: 420000
@@ -4073,7 +4073,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,TaskController,StyleThread
    * **host from parent**: false
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/speedometer-desktop.toml#21>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/speedometer-desktop.toml#21`
    * **lower is better**: false
    * **page cycles**: 5
    * **page timeout**: 600000
@@ -4521,7 +4521,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,TaskController,StyleThread
    * **host from parent**: false
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/speedometer-mobile.toml#21>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/speedometer-mobile.toml#21`
    * **lower is better**: false
    * **page cycles**: 5
    * **page timeout**: 420000
@@ -4973,7 +4973,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/stylebench.toml#16>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/stylebench.toml#16`
    * **lower is better**: false
    * **page cycles**: 5
    * **page timeout**: 140000
@@ -5181,7 +5181,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/sunspider.toml#10>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/sunspider.toml#10`
    * **lower is better**: true
    * **page cycles**: 5
    * **page timeout**: 55000
@@ -5387,7 +5387,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/twitch-animation.toml#16>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/twitch-animation.toml#16`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 2000000
@@ -5580,7 +5580,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/unity-webgl-desktop.toml#15>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/unity-webgl-desktop.toml#15`
    * **lower is better**: false
    * **page cycles**: 5
    * **page timeout**: 420000
@@ -5852,7 +5852,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/unity-webgl-mobile.toml#14>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/unity-webgl-mobile.toml#14`
    * **lower is better**: false
    * **page cycles**: 1
    * **page timeout**: 420000
@@ -6133,7 +6133,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/wasm-godot.toml#11>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/wasm-godot.toml#11`
    * **lower is better**: true
    * **newtab per cycle**: true
    * **page cycles**: 5
@@ -6351,7 +6351,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/wasm-godot-baseline.toml#14>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/wasm-godot-baseline.toml#14`
    * **lower is better**: true
    * **newtab per cycle**: true
    * **page cycles**: 5
@@ -6539,7 +6539,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/wasm-godot-optimizing.toml#14>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/wasm-godot-optimizing.toml#14`
    * **lower is better**: true
    * **newtab per cycle**: true
    * **page cycles**: 5
@@ -6727,7 +6727,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/wasm-misc.toml#15>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/wasm-misc.toml#15`
    * **lower is better**: true
    * **page cycles**: 5
    * **page timeout**: 1200000
@@ -6932,7 +6932,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/wasm-misc-baseline.toml#14>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/wasm-misc-baseline.toml#14`
    * **lower is better**: true
    * **page cycles**: 5
    * **page timeout**: 1200000
@@ -7123,7 +7123,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/wasm-misc-optimizing.toml#14>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/wasm-misc-optimizing.toml#14`
    * **lower is better**: true
    * **page cycles**: 5
    * **page timeout**: 1200000
@@ -7314,7 +7314,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/webaudio.toml#10>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/webaudio.toml#10`
    * **lower is better**: true
    * **page cycles**: 5
    * **page timeout**: 360000
@@ -7522,7 +7522,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#24>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#24`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 2700000
@@ -7612,7 +7612,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gather cpuTime**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#28>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#28`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -7788,7 +7788,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gather cpuTime**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#34>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#34`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -7964,7 +7964,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#82>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#82`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -8136,7 +8136,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gather cpuTime**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#40>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#40`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -8312,7 +8312,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gather cpuTime**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#55>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#55`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -8487,7 +8487,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#70>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#70`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 2700000
@@ -8731,7 +8731,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#74>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#74`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 2700000
@@ -8995,7 +8995,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gather cpuTime**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#96>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#96`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -9171,7 +9171,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gather cpuTime**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#102>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#102`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -9347,7 +9347,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gather cpuTime**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#108>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#108`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -9523,7 +9523,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **gather cpuTime**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#123>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#123`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -9699,7 +9699,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#89>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#89`
    * **lower is better**: true
    * **page cycles**: 20
    * **page timeout**: 2700000
@@ -9870,7 +9870,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#138>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#138`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 2700000
@@ -10103,7 +10103,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#142>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#142`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 2700000
@@ -10294,7 +10294,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#156>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#156`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 2700000
@@ -10485,7 +10485,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expose browser profiler**: true
    * **gecko profile interval**: 1000
    * **gecko profile threads**: MediaPlayback
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#170>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/youtube-playback.toml#170`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 2700000
@@ -10686,7 +10686,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#50>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#50`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -10885,7 +10885,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#54>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#54`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -11084,7 +11084,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#58>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#58`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -11283,7 +11283,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#62>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#62`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -11482,7 +11482,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#66>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#66`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -11681,7 +11681,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#70>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#70`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -11880,7 +11880,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#74>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#74`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -12079,7 +12079,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#78>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#78`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -12278,7 +12278,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#82>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#82`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -12477,7 +12477,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#86>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#86`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -12676,7 +12676,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#90>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#90`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -12875,7 +12875,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#94>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#94`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -13071,7 +13071,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **browser cycles**: 1
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-custom.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-custom.toml#17`
    * **lower is better**: true
    * **measure**: fnbpaint, fcp, dcf, loadtime
    * **page cycles**: 1
@@ -13108,7 +13108,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-speculative.toml#18>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-speculative.toml#18`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -13285,7 +13285,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **fore window**: 1
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-regression-test.toml#23>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-regression-test.toml#23`
    * **lower is better**: true
    * **max back window**: 3
    * **min back window**: 2
@@ -13355,7 +13355,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#16>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#16`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -13574,7 +13574,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#51>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#51`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -13793,7 +13793,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#98>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#98`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -13991,7 +13991,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-network-bench.toml#38>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-network-bench.toml#38`
    * **lower is better**: false
    * **output timeout**: 2000000
    * **page cycles**: 1
@@ -14576,7 +14576,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-network-bench.toml#34>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-network-bench.toml#34`
    * **lower is better**: false
    * **output timeout**: 2000000
    * **page cycles**: 1
@@ -15161,7 +15161,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-network-bench.toml#28>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-network-bench.toml#28`
    * **lower is better**: false
    * **output timeout**: 2000000
    * **page cycles**: 1
@@ -15746,7 +15746,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-network-bench.toml#24>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-network-bench.toml#24`
    * **lower is better**: false
    * **output timeout**: 2000000
    * **page cycles**: 1
@@ -16333,7 +16333,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#36>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#36`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -16532,7 +16532,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#40>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#40`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -16731,7 +16731,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#28>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#28`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -16930,7 +16930,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile entries**: 131072000
    * **gecko profile features**: js,stackwalk,cpu,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#32>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#32`
    * **lower is better**: true
    * **measure**: cpuTime
    * **output timeout**: 2000000
@@ -17128,7 +17128,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **browsertime args**: --pageCompleteWaitTime=1000 --pageCompleteCheckInactivity=true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-process-switch.toml#20>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-process-switch.toml#20`
    * **lower is better**: true
    * **measure**: fcp, loadtime, ContentfulSpeedIndex, PerceptualSpeedIndex, SpeedIndex, FirstVisualChange, LastVisualChange
    * **page cycles**: 25
@@ -17310,7 +17310,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **fore window**: 1
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-sample-python-support.toml#22>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-sample-python-support.toml#22`
    * **lower is better**: true
    * **max back window**: 3
    * **min back window**: 2
@@ -17347,7 +17347,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-throttled-pageload.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-throttled-pageload.toml#17`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -17524,7 +17524,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-tp6-bench.toml#19>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-tp6-bench.toml#19`
    * **lower is better**: true
    * **output timeout**: 2000000
    * **page cycles**: 1
@@ -17707,7 +17707,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#23>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#23`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -17884,7 +17884,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#30>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#30`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -18103,7 +18103,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#37>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#37`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -18280,7 +18280,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#44>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#44`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -18499,7 +18499,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#58>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#58`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -18718,7 +18718,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#65>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#65`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -18895,7 +18895,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#72>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#72`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -19114,7 +19114,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#79>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#79`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -19291,7 +19291,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#86>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-trr-performance.toml#86`
    * **lower is better**: true
    * **page cycles**: 1
    * **page timeout**: 60000
@@ -19509,7 +19509,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-upload.toml#16>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-upload.toml#16`
    * **lower is better**: false
    * **output timeout**: 2000000
    * **page cycles**: 1
@@ -19709,7 +19709,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-upload.toml#31>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-upload.toml#31`
    * **lower is better**: false
    * **output timeout**: 2000000
    * **page cycles**: 1
@@ -19907,13 +19907,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#22>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#22`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=av01.0.04M.08&latencyModes=quality&width=1920&height=1080&framerate=30>`__
@@ -20101,6 +20101,431 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-av1-q-cam
+   :class-container: anchor-id-ve-av1-q-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-av1-q-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures AV1 encoding performance for 1080p camera input in quality mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#82>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=av01.0.04M.08&latencyModes=quality&width=1920&height=1080&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-av1-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: ve-av1-q-i420
+   :class-container: anchor-id-ve-av1-q-i420-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-av1-q-i420
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures AV1 encoding performance for 1080p I420 input in quality mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#52>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=av01.0.04M.08&latencyModes=quality&width=1920&height=1080&framerate=30&pixelFormats=I420>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-av1-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-av1-rt
    :class-container: anchor-id-ve-av1-rt-c
 
@@ -20119,13 +20544,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#19>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#19`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=av01.0.04M.08&latencyModes=realtime&width=1920&height=1080&framerate=30>`__
@@ -20313,6 +20738,431 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-av1-rt-cam
+   :class-container: anchor-id-ve-av1-rt-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-av1-rt-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures AV1 encoding performance for 1080p camera input in real-time mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#73>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=av01.0.04M.08&latencyModes=realtime&width=1920&height=1080&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-av1-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: ve-av1-rt-i420
+   :class-container: anchor-id-ve-av1-rt-i420-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-av1-rt-i420
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures AV1 encoding performance for 1080p I420 input in real-time mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#49>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=av01.0.04M.08&latencyModes=realtime&width=1920&height=1080&framerate=30&pixelFormats=I420>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-av1-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-av1-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-av1-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-av1-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-h264-q
    :class-container: anchor-id-ve-h264-q-c
 
@@ -20331,13 +21181,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#28>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#28`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=avc1.42001E:avc&latencyModes=quality&width=1920&height=1080&framerate=30>`__
@@ -20447,6 +21297,275 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-h264-q-cam
+   :class-container: anchor-id-ve-h264-q-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-h264-q-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures H264-baseline encoding performance for 1080p camera input in quality mode using AVC format.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#100>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=avc1.42001E:avc&latencyModes=quality&width=1920&height=1080&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-h264-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: ve-h264-q-i420
+   :class-container: anchor-id-ve-h264-q-i420-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-h264-q-i420
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures H264-baseline encoding performance for 1080p I420 input in quality mode using AVC format.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#58>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=avc1.42001E:avc&latencyModes=quality&width=1920&height=1080&framerate=30&pixelFormats=I420>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-h264-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-h264-q-sd
    :class-container: anchor-id-ve-h264-q-sd-c
 
@@ -20465,13 +21584,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#34>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#34`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=avc1.42001E:avc&latencyModes=quality&width=640&height=480&framerate=30>`__
@@ -20601,6 +21720,161 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-h264-q-sd-cam
+   :class-container: anchor-id-ve-h264-q-sd-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-h264-q-sd-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures H264-baseline encoding performance for 480p camera input in quality mode using AVC format.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#118>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=avc1.42001E:avc&latencyModes=quality&width=640&height=480&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-h264-q-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-h264-q-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-h264-q-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-h264-q-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-h264-q-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-h264-q-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-h264-q-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-q-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-h264-rt
    :class-container: anchor-id-ve-h264-rt-c
 
@@ -20619,13 +21893,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#25>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#25`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=avc1.42001E:annexb&latencyModes=realtime&width=1920&height=1080&framerate=30>`__
@@ -20735,6 +22009,275 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-h264-rt-cam
+   :class-container: anchor-id-ve-h264-rt-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-h264-rt-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures H264-baseline encoding performance for 1080p camera input in real-time mode using Annex B format.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#91>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=avc1.42001E:annexb&latencyModes=realtime&width=1920&height=1080&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-h264-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: ve-h264-rt-i420
+   :class-container: anchor-id-ve-h264-rt-i420-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-h264-rt-i420
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures H264-baseline encoding performance for 1080p I420 input in real-time mode using Annex B format.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#55>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=avc1.42001E:annexb&latencyModes=realtime&width=1920&height=1080&framerate=30&pixelFormats=I420>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-h264-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-h264-rt-sd
    :class-container: anchor-id-ve-h264-rt-sd-c
 
@@ -20753,13 +22296,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#31>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#31`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=avc1.42001E:annexb&latencyModes=realtime&width=640&height=480&framerate=30>`__
@@ -20889,6 +22432,161 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-h264-rt-sd-cam
+   :class-container: anchor-id-ve-h264-rt-sd-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-h264-rt-sd-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures H264-baseline encoding performance for 480p camera input in real-time mode using Annex B format.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#109>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=avc1.42001E:annexb&latencyModes=realtime&width=640&height=480&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-h264-rt-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-h264-rt-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-h264-rt-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-h264-rt-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-h264-rt-sd-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-h264-rt-sd-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-vp8-q
    :class-container: anchor-id-ve-vp8-q-c
 
@@ -20907,13 +22605,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#40>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#40`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=vp8&latencyModes=quality&width=1920&height=1080&framerate=30>`__
@@ -21101,6 +22799,431 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-vp8-q-cam
+   :class-container: anchor-id-ve-vp8-q-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-vp8-q-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures VP8 encoding performance for 1080p camera input in quality mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#136>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=vp8&latencyModes=quality&width=1920&height=1080&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-vp8-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: ve-vp8-q-i420
+   :class-container: anchor-id-ve-vp8-q-i420-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-vp8-q-i420
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures VP8 encoding performance for 1080p I420 input in quality mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#64>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=vp8&latencyModes=quality&width=1920&height=1080&framerate=30&pixelFormats=I420>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-vp8-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-vp8-rt
    :class-container: anchor-id-ve-vp8-rt-c
 
@@ -21119,13 +23242,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#37>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#37`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=vp8&latencyModes=realtime&width=1920&height=1080&framerate=30>`__
@@ -21313,6 +23436,431 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-vp8-rt-cam
+   :class-container: anchor-id-ve-vp8-rt-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-vp8-rt-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures VP8 encoding performance for 1080p camera input in real-time mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#127>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=vp8&latencyModes=realtime&width=1920&height=1080&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-vp8-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: ve-vp8-rt-i420
+   :class-container: anchor-id-ve-vp8-rt-i420-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-vp8-rt-i420
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures VP8 encoding performance for 1080p I420 input in real-time mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#61>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=vp8&latencyModes=realtime&width=1920&height=1080&framerate=30&pixelFormats=I420>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-vp8-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp8-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp8-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp8-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-vp9-q
    :class-container: anchor-id-ve-vp9-q-c
 
@@ -21331,13 +23879,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#46>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#46`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=vp09.00.10.08&latencyModes=quality&width=1920&height=1080&framerate=30>`__
@@ -21525,6 +24073,431 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-vp9-q-cam
+   :class-container: anchor-id-ve-vp9-q-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-vp9-q-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures VP9 encoding performance for 1080p camera input in quality mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#154>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=vp09.00.10.08&latencyModes=quality&width=1920&height=1080&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-vp9-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-q-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: ve-vp9-q-i420
+   :class-container: anchor-id-ve-vp9-q-i420-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-vp9-q-i420
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures VP9 encoding performance for 1080p I420 input in quality mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#70>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=vp09.00.10.08&latencyModes=quality&width=1920&height=1080&framerate=30&pixelFormats=I420>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-vp9-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-q-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-q-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: ve-vp9-rt
    :class-container: anchor-id-ve-vp9-rt-c
 
@@ -21543,13 +24516,13 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#43>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#43`
    * **lower is better**: true
    * **page cycles**: 3
    * **page timeout**: 360000
    * **repository**: https://github.com/mozilla/perf-automation
    * **repository path**: benchmarks/webcodecs
-   * **repository revision**: d34775ba6b6cef6068005c05b570d6c79eb0f7d8
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
    * **sparse checkout**: true
    * **support class**: browsertime_benchmark.py
    * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=vp09.00.10.08&latencyModes=realtime&width=1920&height=1080&framerate=30>`__
@@ -21737,6 +24710,431 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: ve-vp9-rt-cam
+   :class-container: anchor-id-ve-vp9-rt-cam-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-vp9-rt-cam
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures VP9 encoding performance for 1080p camera input in real-time mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#145>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **preferences**: media.navigator.permission.disabled=true media.navigator.streams.fake=true media.getusermedia.camera.fake.force=true media.autoplay.default=0
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&sources=camera&codecs=vp09.00.10.08&latencyModes=realtime&width=1920&height=1080&framerate=30>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-vp9-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-rt-cam**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: ve-vp9-rt-i420
+   :class-container: anchor-id-ve-vp9-rt-i420-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t ve-vp9-rt-i420
+
+   **Owner**: :chunmin and Media Team
+
+   **Description**: Measures VP9 encoding performance for 1080p I420 input in real-time mode.
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, safari, custom-car
+   * **expected**: pass
+   * **expose browser profiler**: true
+   * **gecko profile interval**: 1
+   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-webcodecs.toml#67>`__
+   * **lower is better**: true
+   * **page cycles**: 3
+   * **page timeout**: 360000
+   * **repository**: https://github.com/mozilla/perf-automation
+   * **repository path**: benchmarks/webcodecs
+   * **repository revision**: 8fd150ac2ede429d5a927e25c04159e57760ac81
+   * **sparse checkout**: true
+   * **support class**: browsertime_benchmark.py
+   * **test url**: `<http://\<host\>:\<port\>/index.html?raptor&codecs=vp09.00.10.08&latencyModes=realtime&width=1920&height=1080&framerate=30&pixelFormats=I420>`__
+   * **type**: benchmark
+   * **unit**: score
+   * **Test Task**:
+
+   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux2404-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-safari-ve-vp9-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1470-64/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-chrome-ve-vp9-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-custom-car-ve-vp9-rt-i420**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows11-64-24h2/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-webcodecs-firefox-ve-vp9-rt-i420**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
+
+
+
 .. dropdown:: vpl-av1
    :class-container: anchor-id-vpl-av1-c
 
@@ -21759,7 +25157,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile features**: stackwalk,js,cpu,java,processcpu,screenshots,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: BackgroundThreadPool,Compositor,decoder,GeckoMain,gmp,graph,grph,InotifyEventThread,IPDL Background,media,ModuleProcessThread,PacerThread,RemVidChild,RenderBackend,Renderer,SwComposite,TextureUpdate,ImageBridgeChld
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#37>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#37`
    * **lower is better**: true
    * **measure**: firstFrame, secondFrame, lastFrame, estimatedFirstFrameLatency, estimatedAnyFrameLatency
    * **newtab per cycle**: true
@@ -22062,7 +25460,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile features**: stackwalk,js,cpu,java,processcpu,screenshots,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: BackgroundThreadPool,Compositor,decoder,GeckoMain,gmp,graph,grph,InotifyEventThread,IPDL Background,media,ModuleProcessThread,PacerThread,RemVidChild,RenderBackend,Renderer,SwComposite,TextureUpdate,ImageBridgeChld
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#31>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#31`
    * **lower is better**: true
    * **measure**: firstFrame, secondFrame, lastFrame, estimatedFirstFrameLatency, estimatedAnyFrameLatency
    * **newtab per cycle**: true
@@ -22370,7 +25768,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **gecko profile features**: stackwalk,js,cpu,java,processcpu,screenshots,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: BackgroundThreadPool,Compositor,decoder,GeckoMain,gmp,graph,grph,InotifyEventThread,IPDL Background,media,ModuleProcessThread,PacerThread,RemVidChild,RenderBackend,Renderer,SwComposite,TextureUpdate,ImageBridgeChld
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#34>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#34`
    * **lower is better**: true
    * **measure**: firstFrame, secondFrame, lastFrame, estimatedFirstFrameLatency, estimatedAnyFrameLatency
    * **newtab per cycle**: true
@@ -22670,7 +26068,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/custom/browsertime-welcome.toml#18>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-welcome.toml#18`
    * **lower is better**: true
    * **measure**: fcp, loadtime, ContentfulSpeedIndex, PerceptualSpeedIndex, SpeedIndex, FirstVisualChange, LastVisualChange
    * **page cycles**: 25
@@ -22854,7 +26252,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#22>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#22`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -23286,7 +26684,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#29>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#29`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -23656,7 +27054,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#33>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#33`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -23892,7 +27290,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#40>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#40`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -24244,7 +27642,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#23>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#23`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -24437,7 +27835,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#46>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#46`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -24743,7 +28141,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#52>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#52`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -24979,7 +28377,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#59>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#59`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -25214,7 +28612,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#64>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#64`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -25515,7 +28913,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#71>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#71`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -25886,7 +29284,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#77>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#77`
    * **lower is better**: true
    * **page complete wait time**: 8000
    * **page cycles**: 25
@@ -26193,7 +29591,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#84>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#84`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -26497,7 +29895,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#89>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#89`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -26802,7 +30200,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#96>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#96`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -27173,7 +30571,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#102>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#102`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -27479,7 +30877,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#108>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#108`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -27771,7 +31169,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#121>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#121`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -28137,7 +31535,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#126>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#126`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -28442,7 +31840,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#132>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#132`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -28747,7 +32145,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#137>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#137`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -29047,7 +32445,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#143>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#143`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -29282,7 +32680,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#147>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#147`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -29517,7 +32915,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#27>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#27`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -29710,7 +33108,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#151>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#151`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -30009,7 +33407,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#155>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#155`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -30313,7 +33711,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#159>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#159`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -30618,7 +34016,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#166>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#166`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -30924,7 +34322,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#32>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#32`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -31117,7 +34515,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#28>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#28`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -31310,7 +34708,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#173>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#173`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -31615,7 +35013,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#179>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#179`
    * **lower is better**: true
    * **measure**: fcp, loadtime, ContentfulSpeedIndex, PerceptualSpeedIndex, SpeedIndex, FirstVisualChange, LastVisualChange
    * **page cycles**: 25
@@ -31922,7 +35320,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#192>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#192`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -32287,7 +35685,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#41>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp7/desktop/browsertime-tp7.toml#41`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -32480,7 +35878,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#197>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#197`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -32716,7 +36114,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#205>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#205`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -33088,7 +36486,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#211>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#211`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -33458,7 +36856,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
    * **browser cycles**: 25
    * **expected**: pass
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#216>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/desktop/browsertime-tp6.toml#216`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -33772,7 +37170,7 @@ Browsertime tests that interact with the webpage. Includes responsiveness tests 
    * **expected**: pass
    * **gecko profile interval**: 1
    * **interactive**: true
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#25>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#25`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -33984,7 +37382,7 @@ Browsertime tests that interact with the webpage. Includes responsiveness tests 
    * **expected**: pass
    * **gecko profile interval**: 1
    * **interactive**: true
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#40>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#40`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 90000
@@ -34197,7 +37595,7 @@ Browsertime tests that interact with the webpage. Includes responsiveness tests 
    * **expected**: pass
    * **gecko profile interval**: 1
    * **interactive**: true
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#65>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#65`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 240000
@@ -34409,7 +37807,7 @@ Browsertime tests that interact with the webpage. Includes responsiveness tests 
    * **expected**: pass
    * **gecko profile interval**: 1
    * **interactive**: true
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#82>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#82`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 90000
@@ -34621,7 +38019,7 @@ Browsertime tests that interact with the webpage. Includes responsiveness tests 
    * **expected**: pass
    * **gecko profile interval**: 1
    * **interactive**: true
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#104>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/interactive/browsertime-responsiveness.toml#104`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 90000
@@ -34833,7 +38231,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#17`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -34928,7 +38326,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#20>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#20`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35023,7 +38421,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#23>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#23`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35118,7 +38516,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#26>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#26`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35213,7 +38611,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#29>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#29`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35308,7 +38706,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#32>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#32`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35403,7 +38801,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#35>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#35`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35498,7 +38896,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#38>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#38`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35593,7 +38991,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#41>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#41`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35688,7 +39086,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#44>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#44`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35783,7 +39181,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#47>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#47`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35878,7 +39276,7 @@ A set of test pages that are run as live sites instead of recorded versions. The
    * **apps**: geckoview, fenix, refbrow, chrome-m, firefox, chrome
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#50>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/live/browsertime-live.toml#50`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -35979,7 +39377,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#22>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#22`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -36138,7 +39536,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#27>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#27`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -36297,7 +39695,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#30>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#30`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -36476,7 +39874,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#33>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#33`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -36635,7 +40033,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#38>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#38`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -36794,7 +40192,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#41>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#41`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -36953,7 +40351,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#44>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#44`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -37112,7 +40510,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#47>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#47`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -37271,7 +40669,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#50>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#50`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -37430,7 +40828,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#53>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#53`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -37589,7 +40987,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#56>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#56`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -37748,7 +41146,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#59>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#59`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -37907,7 +41305,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#62>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#62`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -38066,7 +41464,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#65>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#65`
    * **login**: true
    * **lower is better**: true
    * **page cycles**: 25
@@ -38166,7 +41564,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#70>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#70`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -38265,7 +41663,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#73>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#73`
    * **login**: true
    * **lower is better**: true
    * **page cycles**: 25
@@ -38425,7 +41823,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#78>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#78`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -38584,7 +41982,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#81>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#81`
    * **login**: true
    * **lower is better**: true
    * **page cycles**: 25
@@ -38744,7 +42142,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#86>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#86`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -38903,7 +42301,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#89>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#89`
    * **login**: true
    * **lower is better**: true
    * **page cycles**: 25
@@ -39063,7 +42461,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#95>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#95`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -39222,7 +42620,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#98>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#98`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -39381,7 +42779,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#101>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#101`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -39495,7 +42893,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#106>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#106`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -39654,7 +43052,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#109>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#109`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -39813,7 +43211,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#112>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#112`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -39972,7 +43370,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
    * **benchmark page**: true
    * **browser cycles**: 15
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#115>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/tp6/mobile/browsertime-tp6m.toml#115`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -40133,7 +43531,7 @@ Tests that perform a specific action (a scenario), i.e. idle application, idle a
    * **alert threshold**: 2.0
    * **apps**: fenix, geckoview, refbrow
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/scenario/idle.toml#15>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/scenario/idle.toml#15`
    * **lower is better**: true
    * **measure**: fakeMeasure
    * **page cycles**: 1
@@ -40159,7 +43557,7 @@ Tests that perform a specific action (a scenario), i.e. idle application, idle a
    * **apps**: fenix, geckoview, refbrow
    * **browsertime args**: --browsertime.scenario_time=60000 --browsertime.background_app=false
    * **expected**: pass
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/scenario/idle.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/scenario/idle.toml#17`
    * **lower is better**: true
    * **measure**: fakeMeasure
    * **page cycles**: 1
@@ -40192,7 +43590,7 @@ These tests aren't used in standard testing, they are only used in the Raptor un
    * **expected**: pass
    * **gecko profile entries**: 14000000
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/unittests/browsertime-tp6-unittest.toml#17>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/unittests/browsertime-tp6-unittest.toml#17`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -40220,7 +43618,7 @@ These tests aren't used in standard testing, they are only used in the Raptor un
    * **expected**: pass
    * **gecko profile entries**: 14000000
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/unittests/browsertime-tp6-unittest.toml#20>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/unittests/browsertime-tp6-unittest.toml#20`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -40248,7 +43646,7 @@ These tests aren't used in standard testing, they are only used in the Raptor un
    * **expected**: pass
    * **gecko profile entries**: 14000000
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/unittests/browsertime-tp6-unittest.toml#23>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/unittests/browsertime-tp6-unittest.toml#23`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000
@@ -40276,7 +43674,7 @@ These tests aren't used in standard testing, they are only used in the Raptor un
    * **expected**: pass
    * **gecko profile entries**: 14000000
    * **gecko profile interval**: 1
-   * **link searchfox**: `<https://searchfox.org/mozilla-central/source/testing/raptor/raptor/tests/unittests/browsertime-tp6-unittest.toml#26>`__
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/unittests/browsertime-tp6-unittest.toml#26`
    * **lower is better**: true
    * **page cycles**: 25
    * **page timeout**: 60000

@@ -37,6 +37,7 @@ INDEX_TMPL = "gecko.v2.{}.pushlog-id.{}.decision"
 PUSHLOG_TMPL = "{}/json-pushes?version=2&startID={}&endID={}"
 CHUNK_SIZE = 25
 MAX_WINDOW_SIZE = 100
+_PRIORITIES = ["lowest", "very-low", "low", "medium", "high", "very-high", "highest"]
 
 
 def _tags_within_context(tags, context=[]):
@@ -266,7 +267,18 @@ def fetch_graph_and_labels(parameters, graph_config):
     return (decision_task_id, full_task_graph, label_to_taskid, label_to_taskids)
 
 
-def create_task_from_def(task_def, level, action_tag=None):
+def _lower_priority(current, max_priority):
+    try:
+        if current is None or _PRIORITIES.index(max_priority) < _PRIORITIES.index(
+            current
+        ):
+            return max_priority
+    except ValueError:
+        pass
+    return current
+
+
+def create_task_from_def(task_def, level, action_tag=None, max_priority=None):
     """Create a new task from a definition rather than from a label
     that is already in the full-task-graph. The task definition will
     have {relative-datestamp': '..'} rendered just like in a decision task.
@@ -275,6 +287,8 @@ def create_task_from_def(task_def, level, action_tag=None):
     it to this function. No dependencies will be scheduled. You must handle
     this yourself. Seeing how create_tasks handles it might prove helpful."""
     task_def["schedulerId"] = f"gecko-level-{level}"
+    if max_priority:
+        task_def["priority"] = _lower_priority(task_def.get("priority"), max_priority)
     label = task_def["metadata"]["name"]
     task_id = slugid()
     session = get_session()
@@ -290,6 +304,11 @@ def update_parent(task, graph):
 
 def update_action_tag(task, graph, action_tag):
     task.task.setdefault("tags", {}).setdefault("action", action_tag)
+    return task
+
+
+def update_priority(task, graph, max_priority):
+    task.task["priority"] = _lower_priority(task.task.get("priority"), max_priority)
     return task
 
 
@@ -309,6 +328,7 @@ def create_tasks(
     suffix="",
     modifier=lambda t: t,
     action_tag=None,
+    max_priority=None,
 ):
     """Create new tasks.  The task definition will have {relative-datestamp':
     '..'} rendered just like in a decision task.  Action callbacks should use
@@ -348,6 +368,8 @@ def create_tasks(
         target_task_graph.for_each_task(update_action_tag, action_tag)
     if decision_task_id and decision_task_id != os.environ.get("TASK_ID"):
         target_task_graph.for_each_task(update_dependencies)
+    if max_priority:
+        target_task_graph.for_each_task(update_priority, max_priority)
     optimized_task_graph, label_to_taskid = optimize_task_graph(
         target_task_graph,
         to_run,

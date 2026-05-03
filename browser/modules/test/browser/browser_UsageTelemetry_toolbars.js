@@ -306,10 +306,18 @@ add_task(async function customizeMode() {
   let popupHidden = BrowserTestUtils.waitForEvent(toolbarPopup, "popuphidden");
   let subMenu = barMenu.querySelector("menupopup");
   popupShown = BrowserTestUtils.waitForEvent(subMenu, "popupshown");
-  barMenu.openMenu(true);
+  if (toolbarPopup.isNativeMenu) {
+    barMenu.openMenu(true);
+  } else {
+    EventUtils.synthesizeMouseAtCenter(barMenu, {}, win);
+  }
   await popupShown;
   let alwaysButton = barMenu.querySelector('*[data-visibility-enum="always"]');
-  subMenu.activateItem(alwaysButton);
+  if (toolbarPopup.isNativeMenu) {
+    subMenu.activateItem(alwaysButton);
+  } else {
+    EventUtils.synthesizeMouseAtCenter(alwaysButton, {}, win);
+  }
   await popupHidden;
 
   let navbar = CustomizableUI.getCustomizationTarget(

@@ -53,7 +53,7 @@ ChromeUtils.defineESModuleGetters(this, {
 });
 
 const { ProxyPass, ProxyUsage, Entitlement } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/GuardianClient.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/GuardianTypes.sys.mjs"
 );
 const { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"
@@ -295,8 +295,7 @@ let STUBS = {
   isCheckingEntitlement: undefined,
   updateEntitlement: undefined,
   refetchEntitlement: undefined,
-  enrollWithFxa: undefined,
-  fetchUserInfo: undefined,
+  enrollAndEntitle: undefined,
   fetchProxyPass: undefined,
   fetchProxyUsage: undefined,
   getEntitlement: undefined,
@@ -384,6 +383,9 @@ add_setup(async function setupVPN() {
     Services.prefs.clearUserPref(
       "browser.ipProtection.openedPanelWithLocation"
     );
+    Services.prefs.clearUserPref(
+      "browser.ipProtection.locationButtonBadgeDismissed"
+    );
   });
 });
 
@@ -412,16 +414,18 @@ function setupStubs(stubs = STUBS) {
     .stub(IPPEnrollAndEntitleManager, "refetchEntitlement")
     .resolves();
 
-  const guardianStub = {
-    enrollWithFxa: setupSandbox.stub(),
-    fetchUserInfo: setupSandbox.stub(),
-    fetchProxyPass: setupSandbox.stub(),
-    fetchProxyUsage: setupSandbox.stub(),
-  };
-  stubs.enrollWithFxa = guardianStub.enrollWithFxa;
-  stubs.fetchUserInfo = guardianStub.fetchUserInfo;
-  stubs.fetchProxyPass = guardianStub.fetchProxyPass;
-  stubs.fetchProxyUsage = guardianStub.fetchProxyUsage;
+  stubs.enrollAndEntitle = setupSandbox.stub(
+    IPPFxaAuthProvider,
+    "enrollAndEntitle"
+  );
+  stubs.fetchProxyPass = setupSandbox.stub(
+    IPPFxaAuthProvider,
+    "fetchProxyPass"
+  );
+  stubs.fetchProxyUsage = setupSandbox.stub(
+    IPPFxaAuthProvider,
+    "fetchProxyUsage"
+  );
   stubs.getEntitlement = setupSandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: DEFAULT_SERVICE_STATUS.entitlement?.entitlement });
@@ -429,8 +433,6 @@ function setupStubs(stubs = STUBS) {
     SpecialMessageActions,
     "fxaSignInFlow"
   );
-
-  setupSandbox.stub(IPProtectionService, "guardian").get(() => guardianStub);
 }
 /* exported setupStubs */
 
@@ -460,16 +462,16 @@ function setupService(
   }
 
   if (typeof canEnroll != "undefined") {
-    stubs.enrollWithFxa.resolves({
-      ok: canEnroll,
+    stubs.enrollAndEntitle.resolves({
+      isEnrolledAndEntitled: canEnroll,
+      entitlement: canEnroll
+        ? DEFAULT_SERVICE_STATUS.entitlement?.entitlement
+        : undefined,
     });
   }
 
   if (typeof entitlement != "undefined") {
-    stubs.fetchUserInfo.resolves(entitlement);
     stubs.getEntitlement.resolves({ entitlement: entitlement?.entitlement });
-  } else {
-    stubs.fetchUserInfo.resolves(DEFAULT_SERVICE_STATUS.entitlement);
   }
 
   if (typeof proxyPass != "undefined") {
@@ -663,3 +665,28 @@ function checkBandwidth(bandwidthEl, bandwidthUsage) {
     `MB used ${bandwidthUsage.mbCount} times`
   );
 }
+
+// Borrowed from browser_PanelMultiView_keyboard.js
+async function expectFocusAfterKey(aKey, aFocus) {
+  let res = aKey.match(/^(Shift\+)?(.+)$/);
+  let shift = Boolean(res[1]);
+  let key;
+  if (res[2].length == 1) {
+    key = res[2]; // Character.
+  } else {
+    key = "KEY_" + res[2]; // Tab, ArrowRight, etc.
+  }
+  info("Waiting for focus on " + aFocus.id);
+  // Attempts to capture a nested button element (ie. inside of a moz-button)
+  let focused = BrowserTestUtils.waitForEvent(
+    aFocus.buttonEl ?? aFocus,
+    "focus"
+  );
+  EventUtils.synthesizeKey(key, { shiftKey: shift });
+  await focused;
+  ok(
+    true,
+    `${aFocus.id || "unidentified element"} focused after [${aKey}] pressed`
+  );
+}
+/* exported expectFocusAfterKey */

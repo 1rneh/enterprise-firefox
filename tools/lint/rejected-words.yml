@@ -6,8 +6,9 @@ avoid-blacklist-and-whitelist:
     type: external
     payload: mozcheck:lint
     check: rejected-words
-    regex-pattern: (black|white)[-_]?list
-    ignore-case: true
+    check-config:
+        regex-pattern: (black|white)[-_]?list
+        ignore-case: true
     support-files:
         - 'tools/lint/mozcheck/**'
     # Based on codespell with idl and webidl added.
@@ -309,8 +310,9 @@ avoid-gobbledygook:
     type: external
     payload: mozcheck:lint
     check: rejected-words
-    regex-pattern: \b(gobbledy)?-?gook
-    ignore-case: true
+    check-config:
+        regex-pattern: \b(gobbledy)?-?gook
+        ignore-case: true
     support-files:
         - 'tools/lint/mozcheck/**'
     exclude:

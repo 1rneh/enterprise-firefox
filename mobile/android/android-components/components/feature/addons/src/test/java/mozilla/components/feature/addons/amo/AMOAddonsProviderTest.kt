@@ -35,6 +35,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.util.Date
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertIs
 
 @RunWith(AndroidJUnit4::class)
 class AMOAddonsProviderTest {
@@ -381,7 +382,7 @@ class AMOAddonsProviderTest {
         val provider = AMOAddonsProvider(testContext, client = mockedClient, ioDispatcher = dispatcher)
 
         val bitmap = provider.loadIconAsync("id", "https://example.com/image.png").await()
-        assertTrue(bitmap is Bitmap)
+        assertIs<Bitmap>(bitmap)
     }
 
     @Test
@@ -397,7 +398,7 @@ class AMOAddonsProviderTest {
 
         verify(mockedClient, times(0)).fetch(any())
         assertEquals(expectedIcon, bitmap)
-        assertTrue(bitmap is Bitmap)
+        assertIs<Bitmap>(bitmap)
     }
 
     @Test

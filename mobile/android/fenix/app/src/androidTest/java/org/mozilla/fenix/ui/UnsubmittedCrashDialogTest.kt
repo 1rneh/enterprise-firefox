@@ -33,6 +33,7 @@ import org.mozilla.fenix.helpers.HomeActivityTestRule
 import org.mozilla.fenix.helpers.MatcherHelper
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.TestHelper
+import kotlin.test.assertIs
 
 class UnsubmittedCrashDialogTest {
     private lateinit var fakeContext: Context
@@ -121,7 +122,7 @@ class UnsubmittedCrashDialogTest {
         verifyDialogText(getUnsubmittedCrashNormal())
         clickButton(cancelUnsubmittedCrashNormal())
         verifyDialogTextGone(getUnsubmittedCrashNormal())
-        assertTrue(dispatchedAction is CrashAction.CancelTapped)
+        assertIs<CrashAction.CancelTapped>(dispatchedAction)
     }
 
     @Test
@@ -144,10 +145,10 @@ class UnsubmittedCrashDialogTest {
         verifyDialogText(getUnsubmittedCrashNormal())
         clickButton(submitUnsubmittedCrashNormal())
         verifyDialogTextGone(getUnsubmittedCrashNormal())
-        assertTrue(dispatchedAction is CrashAction.ReportTapped)
-        val report = (dispatchedAction as? CrashAction.ReportTapped)
-        assertFalse(report?.automaticallySendChecked == true)
-        assertTrue(report?.crashIDs?.isEmpty() == true)
+        val report = dispatchedAction
+        assertIs<CrashAction.ReportTapped>(report)
+        assertFalse(report.automaticallySendChecked)
+        assertTrue(report.crashIDs.isEmpty())
     }
 
     @Test
@@ -186,7 +187,7 @@ class UnsubmittedCrashDialogTest {
         verifyDialogText(getUnsubmittedCrashPullOne())
         clickButton(cancelUnsubmittedCrashPull().uppercase())
         verifyDialogTextGone(getUnsubmittedCrashPullOne())
-        assertTrue(dispatchedAction is CrashAction.CancelTapped)
+        assertIs<CrashAction.CancelTapped>(dispatchedAction)
     }
 
     @Test
@@ -211,7 +212,7 @@ class UnsubmittedCrashDialogTest {
         verifyDialogText(getUnsubmittedCrashPullOne())
         clickButton(cancelForEverUnsubmittedCrashPull().uppercase())
         verifyDialogTextGone(getUnsubmittedCrashPullOne())
-        assertTrue(dispatchedAction is CrashAction.CancelForEverTapped)
+        assertIs<CrashAction.CancelForEverTapped>(dispatchedAction)
     }
 
     @Test
@@ -227,10 +228,10 @@ class UnsubmittedCrashDialogTest {
         verifyDialogText(getUnsubmittedCrashPullOne())
         clickButton(submitUnsubmittedCrashPull().uppercase())
         verifyDialogTextGone(getUnsubmittedCrashPullOne())
-        assertTrue(dispatchedAction is CrashAction.ReportTapped)
-        val report = (dispatchedAction as? CrashAction.ReportTapped)
-        assertFalse(report?.automaticallySendChecked == true)
-        assertEquals(report?.crashIDs, listOf("1"))
+        val report = dispatchedAction
+        assertIs<CrashAction.ReportTapped>(report)
+        assertFalse(report.automaticallySendChecked)
+        assertEquals(report.crashIDs, listOf("1"))
     }
 
     @Test

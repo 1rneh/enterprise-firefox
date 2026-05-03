@@ -1022,6 +1022,7 @@ class TelemetryEvent {
 
     let internalDetails = {
       ...details,
+      event,
       provider: details.result?.providerName,
       selIndex: details.result?.rowIndex ?? -1,
     };
@@ -1754,6 +1755,9 @@ class TelemetryEvent {
     }
     if (element.dataset.command == "dismiss") {
       return "block";
+    }
+    if (element.classList?.contains("urlbarView-action-btn")) {
+      return "action";
     }
     // Now handle the result.
     return lazy.UrlbarUtils.telemetryTypeFromResult(result);

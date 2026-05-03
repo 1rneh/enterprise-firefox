@@ -8,9 +8,13 @@
 newtab-page-title = Uusi välilehti
 newtab-settings-button =
     .title = Muokkaa Uusi välilehti -sivua
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Mukauta tätä sivua
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Mukauta
+newtab-customize-panel-label =
+    .label = Mukauta
 newtab-personalize-settings-icon-label =
     .title = Mukauta uutta välilehteä
     .aria-label = Asetukset
@@ -386,6 +390,7 @@ newtab-wallpaper-title = Taustakuvat
 newtab-wallpaper-reset = Palauta oletusarvo
 #  (developer note): @nova-cleanup(remove-string): Remove old "Upload an image" string once Nova lands. The new "Add an image"  string will take over
 newtab-wallpaper-upload-image = Lähetä kuva
+newtab-wallpaper-add-an-image = Lisää kuva
 newtab-wallpaper-custom-color = Valitse väri
 newtab-wallpaper-toggle-title =
     .label = Taustakuvat
@@ -413,6 +418,7 @@ newtab-wallpaper-light-fox-anniversary = Kettu ruohopellolla ja sumuinen vuorist
 
 #  (developer note): @nova-cleanup(remove-string): Remove old "Solid colors" string once Nova lands. The simplified "Colors" string will take over
 newtab-wallpaper-category-title-colors = Yhtenäiset värit
+newtab-wallpaper-colors = Värit
 newtab-wallpaper-blue = Sininen
 newtab-wallpaper-light-blue = Vaaleansininen
 newtab-wallpaper-light-purple = Vaaleanvioletti
@@ -503,6 +509,9 @@ newtab-weather-menu-change-location = Vaihda sijaintia
 newtab-weather-change-location-search-input-placeholder =
     .placeholder = Hae sijaintia
     .aria-label = Hae sijaintia
+# "Current" refers to the user's physical/geographic location detected via geolocation.
+newtab-weather-change-location-search-use-current =
+    .label = Käytä nykyistä sijaintia
 newtab-weather-menu-weather-display = Sään näkymä
 newtab-weather-todays-forecast = Tämän päivän ennuste
 newtab-weather-see-full-forecast = Katso koko ennuste
@@ -528,6 +537,10 @@ newtab-weather-opt-in-not-now =
     .label = Ei nyt
 newtab-weather-opt-in-yes =
     .label = Kyllä
+newtab-weather-opt-in-headline = Hanki paikallinen sääennuste
+newtab-weather-opt-in-use-location =
+    .label = Käytä sijaintia
+newtab-weather-opt-in-choose-location = Valitse sijainti
 # We'll be showing static (fake) weather data if the user has not opted in to using their location
 newtab-weather-static-city = Helsinki
 # "Highest" here refers to the highest temperature of the day
@@ -587,6 +600,10 @@ newtab-topic-selection-button-pick-interests = Valitse kiinnostuksen kohteesi
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Seuraa
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Seuraa aihetta { $topic }
 newtab-section-following-button = Seurataan
 newtab-section-unfollow-button = Lopeta seuraaminen
 # A modal may appear next to the Follow button, directing users to try out the feature
@@ -600,6 +617,22 @@ newtab-section-follow-highlight-subtitle = Seuraa kiinnostuksen kohteitasi nähd
 newtab-section-block-button = Estä
 newtab-section-blocked-button = Estetty
 newtab-section-unblock-button = Poista esto
+# Variables:
+#   $topic (string) - Name of topic that user is following
+newtab-section-follow-topic =
+    .aria-label = Seuraa aihetta { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unfollowing
+newtab-section-unfollow-topic =
+    .aria-label = Lopeta aiheen { $topic } seuraaminen
+# Variables:
+#   $topic (string) - Name of topic that user is blocking
+newtab-section-block-topic =
+    .aria-label = Estä { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Poista aiheen { $topic } esto
 
 ## Confirmation modal for blocking a section
 
@@ -630,6 +663,12 @@ newtab-custom-wallpaper-cta = Kokeile
 newtab-new-user-custom-wallpaper-title = Valitse taustakuva ja tee { -brand-product-name }ista omasi
 newtab-new-user-custom-wallpaper-subtitle = Tee jokaisesta uudesta välilehdestä tutunomainen mukautetuilla taustakuvilla ja väreillä.
 newtab-new-user-custom-wallpaper-cta = Kokeile nyt
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Uudet taustakuvat saapuivat juuri
+newtab-wallpaper-feature-highlight-subtitle = Valitse suosikkisi ja tee jokaisesta uudesta välilehdestä kotoisa.
+newtab-wallpaper-feature-highlight-cta = Valitse taustakuva
 
 ## Strings for download mobile highlight
 
@@ -701,10 +740,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Valmis ({ $number })
 newtab-widget-task-list-menu-copy = Kopioi
 newtab-widget-lists-menu-edit = Muokkaa listan nimeä
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Muokkaa listan nimeä
 newtab-widget-lists-menu-create = Luo uusi lista
 newtab-widget-lists-menu-delete = Poista tämä lista
 newtab-widget-lists-menu-copy = Kopioi lista leikepöydälle
 newtab-widget-lists-menu-learn-more = Lue lisää
+newtab-widget-lists-button-add-item = Lisää kohde
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Lisää kohde
+    .aria-label = Lisää kohde
 newtab-widget-lists-input-add-an-item =
     .placeholder = Lisää kohde
 newtab-widget-lists-input-error = Sisällytä tekstiä lisätäksesi kohteen.
@@ -718,8 +763,19 @@ newtab-widget-lists-dropdown-create =
     .label = + Luo uusi lista
 newtab-widget-lists-name-label-default =
     .label = Tehtävälista
+newtab-widget-lists-name-label-checklist =
+    .label = Tarkistuslista
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Tehtävälista
+newtab-widget-lists-name-placeholder-checklist2 =
+    .placeholder = Tarkistuslista
+    .aria-label = Muokkaa listan nimeä
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Uusi lista
+    .aria-label = Muokkaa listan nimeä
+newtab-widget-lists-name-placeholder-checklist =
+    .placeholder = Tarkistuslista
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Uusi lista
@@ -739,10 +795,11 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Pienennä pienoisohjelmat
     .aria-label = Supista pienoisohjelmat kompaktiin kokoon
+newtab-widget-section-menu-learn-more = Lue lisää
 newtab-widget-section-feedback = Kerro meille mielipiteesi
+newtab-widget-lists-name-default = Tarkistuslista
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Ajastin
 newtab-widget-timer-notification-focus = Keskittymisaika on ohi. Hyvää työtä. Tarvitsetko tauon?

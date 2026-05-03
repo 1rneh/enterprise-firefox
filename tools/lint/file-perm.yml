@@ -47,7 +47,6 @@ maybe-shebang-file-perm:
     description: "File permission check for files that might have `#!` header."
     include:
         - .
-    allow-shebang: true
     extensions:
         - .js
         - .py
@@ -57,3 +56,5 @@ maybe-shebang-file-perm:
     type: external
     payload: mozcheck:lint
     check: file-perm
+    check-config:
+        allow-shebang: true

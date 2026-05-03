@@ -32,6 +32,7 @@
 #include "mozilla/ContentEvents.h"
 #include "mozilla/DisplayPortUtils.h"
 #include "mozilla/EventDispatcher.h"
+#include "mozilla/EventStateManager.h"
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Preferences.h"
@@ -3519,15 +3520,14 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
     clipState.ClipContentDescendants(scrollPartsClip);
   }
 
-  for (uint32_t i = 0; i < scrollParts.Length(); ++i) {
-    MOZ_ASSERT(scrollParts[i]);
+  for (nsIFrame* scrollPart : scrollParts) {
     Maybe<ScrollDirection> scrollDirection;
     uint32_t appendToTopFlags = 0;
-    if (scrollParts[i] == mVScrollbarBox) {
+    if (scrollPart == mVScrollbarBox) {
       scrollDirection.emplace(ScrollDirection::eVertical);
       appendToTopFlags |= APPEND_SCROLLBAR_CONTAINER;
     }
-    if (scrollParts[i] == mHScrollbarBox) {
+    if (scrollPart == mHScrollbarBox) {
       MOZ_ASSERT(!scrollDirection.isSome());
       scrollDirection.emplace(ScrollDirection::eHorizontal);
       appendToTopFlags |= APPEND_SCROLLBAR_CONTAINER;
@@ -3539,14 +3539,14 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
     // zoomable, and where the scrollbar sizes are bounded by the widget.
     const nsRect visible =
         mIsRoot && PresContext()->IsRootContentDocumentCrossProcess()
-            ? scrollParts[i]->InkOverflowRectRelativeToParent()
+            ? scrollPart->InkOverflowRectRelativeToParent()
             : aBuilder->GetVisibleRect();
     if (visible.IsEmpty()) {
       continue;
     }
     const nsRect dirty =
         mIsRoot && PresContext()->IsRootContentDocumentCrossProcess()
-            ? scrollParts[i]->InkOverflowRectRelativeToParent()
+            ? scrollPart->InkOverflowRectRelativeToParent()
             : aBuilder->GetDirtyRect();
 
     // Always create layers for overlay scrollbars so that we don't create a
@@ -3565,15 +3565,16 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
       nsDisplayListBuilder::AutoCurrentScrollbarInfoSetter infoSetter(
           aBuilder, scrollTargetId, scrollDirection, createLayer);
       BuildDisplayListForChild(
-          aBuilder, scrollParts[i], partList,
+          aBuilder, scrollPart, partList,
           nsIFrame::DisplayChildFlag::ForceStackingContext);
     }
 
-    // DisplayChildFlag::ForceStackingContext put everything into
-    // partList.PositionedDescendants().
-    if (partList.PositionedDescendants()->IsEmpty()) {
+    if (partList.IsEmpty()) {
       continue;
     }
+
+    nsDisplayList list(aBuilder);
+    partList.SerializeWithCorrectZOrder(&list, scrollPart->GetContent());
 
     if (createLayer) {
       appendToTopFlags |= APPEND_OWN_LAYER;
@@ -3582,7 +3583,7 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
       appendToTopFlags |= APPEND_POSITIONED;
     }
 
-    if (isOverlayScrollbar || scrollParts[i] == mResizerBox) {
+    if (isOverlayScrollbar || scrollPart == mResizerBox) {
       if (isOverlayScrollbar && mIsRoot) {
         appendToTopFlags |= APPEND_TOP;
       } else {
@@ -3593,13 +3594,13 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
 
     {
       nsDisplayListBuilder::AutoBuildingDisplayList buildingForChild(
-          aBuilder, scrollParts[i], visible + GetOffsetTo(scrollParts[i]),
-          dirty + GetOffsetTo(scrollParts[i]));
-      if (scrollParts[i]->IsTransformed()) {
+          aBuilder, scrollPart, visible + GetOffsetTo(scrollPart),
+          dirty + GetOffsetTo(scrollPart));
+      if (scrollPart->IsTransformed()) {
         nsPoint toOuterReferenceFrame;
         const nsIFrame* outerReferenceFrame = aBuilder->FindReferenceFrameFor(
-            scrollParts[i]->GetParent(), &toOuterReferenceFrame);
-        toOuterReferenceFrame += scrollParts[i]->GetPosition();
+            scrollPart->GetParent(), &toOuterReferenceFrame);
+        toOuterReferenceFrame += scrollPart->GetPosition();
 
         buildingForChild.SetReferenceFrameAndCurrentOffset(
             outerReferenceFrame, toOuterReferenceFrame);
@@ -3607,8 +3608,8 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
       nsDisplayListBuilder::AutoCurrentScrollbarInfoSetter infoSetter(
           aBuilder, scrollTargetId, scrollDirection, createLayer);
 
-      ::AppendToTop(aBuilder, aLists, partList.PositionedDescendants(),
-                    scrollParts[i], this, appendToTopFlags);
+      ::AppendToTop(aBuilder, aLists, &list, scrollPart, this,
+                    appendToTopFlags);
     }
   }
 }
@@ -7802,13 +7803,16 @@ Maybe<SnapDestination> ScrollContainerFrame::GetSnapPointForResnap() {
   nsIContent* focusedContent =
       GetContent()->GetComposedDoc()->GetUnretargetedFocusedContent();
 
+  nsIContent* targetContent =
+      PresContext()->EventStateManager()->GetURLTargetContent();
+
   // While we are reconstructing this scroll container, we might be in the
   // process of restoring the scroll position, we need to respect it.
   nsPoint currentOrRestorePos =
       NeedRestorePosition() ? mRestorePos : GetScrollPosition();
   return ScrollSnapUtils::GetSnapPointForResnap(
       ComputeScrollSnapInfo(), GetLayoutScrollRange(), currentOrRestorePos,
-      mLastSnapTargetIds, focusedContent, GetWritingMode());
+      mLastSnapTargetIds, focusedContent, targetContent, GetWritingMode());
 }
 
 bool ScrollContainerFrame::NeedsResnap() {

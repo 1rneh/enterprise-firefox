@@ -409,9 +409,13 @@ class SearchRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "typeSearch: Compose is now idle")
     }
 
+    @OptIn(ExperimentalTestApi::class)
     fun clickClearButton() {
+        Log.i(TAG, "openSearch: Waiting for $waitingTime until the clear toolbar button exists")
+        composeTestRule.waitUntilAtLeastOneExists(hasContentDescription(getStringResource(toolbarR.string.mozac_clear_button_description)), waitingTime)
+        Log.i(TAG, "openSearch: Waited for $waitingTime until the clear toolbar button exists")
         Log.i(TAG, "clickClearButton: Trying to click the clear button")
-        composeTestRule.onNodeWithContentDescription(getStringResource(toolbarR.string.mozac_clear_button_description)).performClick()
+        itemWithDescription(getStringResource(toolbarR.string.mozac_clear_button_description)).click()
         Log.i(TAG, "clickClearButton: Clicked the clear button")
         Log.i(TAG, "clickClearButton: Waiting for compose test rule to be idle")
         composeTestRule.waitForIdle()

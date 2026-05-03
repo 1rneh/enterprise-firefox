@@ -376,6 +376,7 @@ def add_task_with_original_manifests(
         decision_task_id,
         suffix="0",
         modifier=partial(backfill_modifier, input=input),
+        max_priority="very-low",
     )
 
     # TODO Implement a way to write out artifacts without assuming there's
@@ -507,6 +508,7 @@ def add_all_browsertime(parameters, graph_config, input, task_group_id, task_id)
         label_to_taskid,
         parameters,
         decision_task_id,
+        max_priority="very-low",
     )
     logger.info(f"Scheduled {len(to_run)} raptor tasks (time 1)")
 

@@ -8,9 +8,13 @@
 newtab-page-title = Nieuw tabblad
 newtab-settings-button =
     .title = Uw Nieuw-tabbladpagina aanpassen
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Deze pagina aanpassen
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Aanpassen
+newtab-customize-panel-label =
+    .label = Aanpassen
 newtab-personalize-settings-icon-label =
     .title = Nieuw tabblad personaliseren
     .aria-label = Instellingen
@@ -363,6 +367,8 @@ newtab-custom-widget-lists-toggle =
     .label = Lijsten
 newtab-custom-widget-timer-toggle =
     .label = Timer
+newtab-custom-widget-sports-toggle =
+    .label = Wereldkampioenschap
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -501,6 +507,9 @@ newtab-weather-menu-change-location = Locatie wijzigen
 newtab-weather-change-location-search-input-placeholder =
     .placeholder = Locatie zoeken
     .aria-label = Locatie zoeken
+# "Current" refers to the user's physical/geographic location detected via geolocation.
+newtab-weather-change-location-search-use-current =
+    .label = Huidige locatie gebruiken
 newtab-weather-menu-weather-display = Weerweergave
 newtab-weather-todays-forecast = Weersverwachting voor vandaag
 newtab-weather-see-full-forecast = Volledige weersverwachting bekijken
@@ -589,8 +598,16 @@ newtab-topic-selection-button-pick-interests = Kies uw interesses
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Volgen
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = { $topic } volgen
 newtab-section-following-button = Volgend
 newtab-section-unfollow-button = Ontvolgen
+# Variables:
+#   $topic (string) - Topic that the user is following and can unfollow
+newtab-section-unfollow-button-label =
+    .aria-label = Volgend: { $topic } niet meer volgen
 # A modal may appear next to the Follow button, directing users to try out the feature
 newtab-section-follow-highlight-title = Uw feed verfijnen
 newtab-section-follow-highlight-subtitle = Volg uw interesses om meer te zien van wat u leuk vindt.
@@ -602,6 +619,22 @@ newtab-section-follow-highlight-subtitle = Volg uw interesses om meer te zien va
 newtab-section-block-button = Blokkeren
 newtab-section-blocked-button = Geblokkeerd
 newtab-section-unblock-button = Blokkering opheffen
+# Variables:
+#   $topic (string) - Name of topic that user is following
+newtab-section-follow-topic =
+    .aria-label = { $topic } volgen
+# Variables:
+#   $topic (string) - Name of topic that user is unfollowing
+newtab-section-unfollow-topic =
+    .aria-label = { $topic } niet meer volgen
+# Variables:
+#   $topic (string) - Name of topic that user is blocking
+newtab-section-block-topic =
+    .aria-label = { $topic } blokkeren
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Blokkering { $topic } opheffen
 
 ## Confirmation modal for blocking a section
 
@@ -632,6 +665,12 @@ newtab-custom-wallpaper-cta = Uitproberen
 newtab-new-user-custom-wallpaper-title = Kies een achtergrond om { -brand-product-name } van u te maken
 newtab-new-user-custom-wallpaper-subtitle = Laat elk nieuw tabblad als thuis voelen met aangepaste achtergronden en kleuren.
 newtab-new-user-custom-wallpaper-cta = Nu proberen
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Er zijn frisse nieuwe achtergronden binnen
+newtab-wallpaper-feature-highlight-subtitle = Kies uw favoriet en laat elk nieuw tabblad als thuis voelen.
+newtab-wallpaper-feature-highlight-cta = Achtergrond kiezen
 
 ## Strings for download mobile highlight
 
@@ -701,12 +740,20 @@ newtab-widget-lists-label-beta =
 # Variables:
 #   $number (number) - Amount of list items marked complete
 newtab-widget-lists-completed-list = Voltooid ({ $number })
+newtab-widget-lists-celebration-headline = Goed werk
+newtab-widget-lists-celebration-subhead = Alles gereed
 newtab-widget-task-list-menu-copy = Kopiëren
 newtab-widget-lists-menu-edit = Lijstnaam bewerken
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Lijstnaam bewerken
 newtab-widget-lists-menu-create = Een nieuwe lijst aanmaken
 newtab-widget-lists-menu-delete = Deze lijst verwijderen
 newtab-widget-lists-menu-copy = Lijst naar klembord kopiëren
 newtab-widget-lists-menu-learn-more = Meer info
+newtab-widget-lists-button-add-item = Een item toevoegen
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Een item toevoegen
+    .aria-label = Een item toevoegen
 newtab-widget-lists-input-add-an-item =
     .placeholder = Een item toevoegen
 newtab-widget-lists-input-error = Voeg tekst toe om een item toe te voegen.
@@ -715,13 +762,26 @@ newtab-widget-lists-input-menu-move-up = Omhoog verplaatsen
 newtab-widget-lists-input-menu-move-down = Omlaag verplaatsen
 newtab-widget-lists-input-menu-delete = Verwijderen
 newtab-widget-lists-input-menu-edit = Bewerken
+newtab-widget-lists-input-menu-edit2 =
+    .aria-label = Item bewerken
 # the + symbol emphasises the functionality of adding a new list
 newtab-widget-lists-dropdown-create =
     .label = + Een nieuwe lijst aanmaken
 newtab-widget-lists-name-label-default =
     .label = Takenlijst
+newtab-widget-lists-name-label-checklist =
+    .label = Checklist
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Takenlijst
+newtab-widget-lists-name-placeholder-checklist2 =
+    .placeholder = Checklist
+    .aria-label = Lijstnaam bewerken
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Nieuwe lijst
+    .aria-label = Lijstnaam bewerken
+newtab-widget-lists-name-placeholder-checklist =
+    .placeholder = Checklist
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nieuwe lijst
@@ -741,10 +801,15 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Widgets minimaliseren
     .aria-label = Alle widgets samenvouwen tot compacte afmeting
+newtab-widget-section-menu-button =
+    .title = Menu Widgets
+    .aria-label = Menu Widgets openen
+newtab-widget-section-menu-hide-all = Widgets verbergen
+newtab-widget-section-menu-learn-more = Meer info
 newtab-widget-section-feedback = Vertel ons wat u ervan vindt
+newtab-widget-lists-name-default = Checklist
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Timer
 newtab-widget-timer-notification-focus = De focustijd is om. Goed gedaan. Pauze?
@@ -784,6 +849,47 @@ newtab-promo-card-cta = Meer info
 newtab-promo-card-dismiss-button =
     .title = Sluiten
     .aria-label = Sluiten
+
+## Sports widget
+
+newtab-sports-widget-menu-follow-teams = Teams volgen
+newtab-sports-widget-menu-view-upcoming = Volgende tonen
+newtab-sports-widget-menu-view-results = Resultaten bekijken
+newtab-sports-widget-menu-learn-more = Meer info
+newtab-sports-widget-countdown-title = Aftellen naar het WK
+newtab-sports-widget-get-updates = Ontvang live wedstrijdupdates en meer.
+newtab-sports-widget-follow-teams =
+    .label = Teams volgen
+newtab-sports-widget-choose-wallpaper =
+    .label = Kies een achtergrond
+newtab-sports-widget-skip = Overslaan
+newtab-sports-widget-search-teams =
+    .placeholder = Teams zoeken
+    .aria-label = Teams zoeken
+newtab-sports-widget-done-button =
+    .label = Gereed
+newtab-sports-widget-group-stage = Groepsfase
+# The "LIVE" string is meant to be uppercase in English, but other languages and locales may vary in how they handle this.
+newtab-sports-widget-live = LIVE
+newtab-custom-widget-live-refresh =
+    .title = Scores vernieuwen
+    .aria-label = Scores vernieuwen
+newtab-sports-widget-upcoming = Binnenkort
+newtab-sports-widget-results = Resultaten
+newtab-sports-widget-semi-finals = Halve finales
+newtab-sports-widget-bronze-finals = Troostfinale
+# Final is the final match for 1st place.
+newtab-sports-widget-final = Finale
+newtab-sports-widget-delayed = Vertraagd
+newtab-sports-widget-postponed = Uitgesteld
+newtab-sports-widget-suspended = Onderbroken
+newtab-sports-widget-cancelled = Geannuleerd
+newtab-sports-widget-information = Informatie over de wedstrijd
+newtab-sports-widget-no-live-data = Livewedstrijdgegevens worden momenteel niet bijgewerkt
+newtab-sports-widget-view-results-link = Resultaten bekijken
+newtab-sports-widget-third-place = Derde plaats
+newtab-sports-widget-champions = Kampioen
+newtab-sports-widget-world-cup-champions = Wereldkampioen 2026
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

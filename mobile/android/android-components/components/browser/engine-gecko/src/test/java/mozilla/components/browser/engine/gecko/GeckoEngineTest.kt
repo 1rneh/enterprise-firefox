@@ -109,6 +109,7 @@ import org.mozilla.geckoview.WebPushController
 import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import java.io.IOException
+import kotlin.test.assertIs
 import org.mozilla.geckoview.WebExtension as GeckoWebExtension
 
 typealias GeckoInstallException = org.mozilla.geckoview.WebExtension.InstallException
@@ -130,17 +131,17 @@ class GeckoEngineTest {
 
     @Test
     fun createView() {
-        assertTrue(
+        assertIs<GeckoEngineView>(
             GeckoEngine(context, runtime = runtime).createView(
                 Robolectric.buildActivity(Activity::class.java).get(),
-            ) is GeckoEngineView,
+            ),
         )
     }
 
     @Test
     fun createSession() {
         val engine = GeckoEngine(context, runtime = runtime)
-        assertTrue(engine.createSession() is GeckoEngineSession)
+        assertIs<GeckoEngineSession>(engine.createSession())
 
         // Create a private speculative session and consume it
         engine.speculativeCreateSession(private = true)
@@ -1265,7 +1266,7 @@ class GeckoEngineTest {
         shadowOf(getMainLooper()).idle()
 
         assertTrue(onErrorCalled)
-        assertTrue(throwable is GeckoWebExtensionException)
+        assertIs<GeckoWebExtensionException>(throwable)
     }
 
     @Test
@@ -1292,7 +1293,7 @@ class GeckoEngineTest {
         shadowOf(getMainLooper()).idle()
 
         assertTrue(onErrorCalled)
-        assertTrue(throwable is GeckoWebExtensionException)
+        assertIs<GeckoWebExtensionException>(throwable)
     }
 
     @Test
@@ -3138,7 +3139,7 @@ class GeckoEngineTest {
             extensionCaptor.value as mozilla.components.browser.engine.gecko.webextension.GeckoWebExtension
         assertEquals(extension, capturedExtension.nativeExtension)
 
-        assertTrue(exceptionCaptor.value is WebExtensionInstallException.Blocklisted)
+        assertIs<WebExtensionInstallException.Blocklisted>(exceptionCaptor.value)
     }
 
     @Test

@@ -156,7 +156,7 @@ add_task(async function testSettingGroupTelemetry() {
       EventUtils.synthesizeMouseAtCenter(select.inputEl, {}, win);
       let popup = await popupShown;
       let popupHidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
-      if (nativeSelectEnabled()) {
+      if (popup.isNativeMenu) {
         popup.activateItem(popup.childNodes[1]);
       } else {
         EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);

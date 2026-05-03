@@ -1,7 +1,7 @@
 <!doctype html>
 <script>
   var bcName = "zoomRestoreBfcache" + window.location.search;
-  var bc = new BroadcastChannel(bcName);
+  var bc = SpecialPowers.wrap(BroadcastChannel).unpartitionedTestingChannel(bcName);
   if (window.location.search == "?2") {
     bc.onmessage = (msgEvent) => {
       var msg = msgEvent.data;

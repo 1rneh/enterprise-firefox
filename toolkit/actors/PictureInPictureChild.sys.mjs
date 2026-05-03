@@ -50,6 +50,18 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "media.videocontrols.picture-in-picture.urlbar-button.enabled",
   false
 );
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "PIP_AUTO_CLOSE",
+  "media.videocontrols.picture-in-picture.auto-close.enabled",
+  true
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "EMPTIED_TIMEOUT_MS",
+  "media.videocontrols.picture-in-picture.auto-close.timeoutMs",
+  1000
+);
 
 const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
 const TOGGLE_ENABLED_PREF =
@@ -70,7 +82,6 @@ const MOUSEMOVE_PROCESSING_DELAY_MS = 50;
 const TOGGLE_HIDING_TIMEOUT_MS = 3000;
 // If you change this, also change VideoControlsWidget.SEEK_TIME_SECS:
 const SEEK_TIME_SECS = 5;
-const EMPTIED_TIMEOUT_MS = 1000;
 
 // The ToggleChild does not want to capture events from the PiP
 // windows themselves. This set contains all currently open PiP
@@ -2023,15 +2034,17 @@ export class PictureInPictureChild extends JSWindowActorChild {
           clearTimeout(this.emptiedTimeout);
           this.emptiedTimeout = null;
         }
-        let video = this.getWeakVideo();
-        // We may want to keep the pip window open if the video
-        // is still in DOM. But if video src is no longer defined,
-        // close Picture-in-Picture.
-        this.emptiedTimeout = setTimeout(() => {
-          if (!video || !video.src) {
-            this.closePictureInPicture({ reason: "VideoElEmptied" });
-          }
-        }, EMPTIED_TIMEOUT_MS);
+        if (lazy.PIP_AUTO_CLOSE) {
+          let video = this.getWeakVideo();
+          // We may want to keep the pip window open if the video
+          // is still in DOM. But if video src is no longer defined,
+          // close Picture-in-Picture.
+          this.emptiedTimeout = setTimeout(() => {
+            if (!video || !video.src) {
+              this.closePictureInPicture({ reason: "VideoElEmptied" });
+            }
+          }, lazy.EMPTIED_TIMEOUT_MS);
+        }
         break;
       }
       case "change": {

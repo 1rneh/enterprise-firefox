@@ -8,9 +8,13 @@
 newtab-page-title = Thẻ mới
 newtab-settings-button =
     .title = Tùy biến trang thẻ mới
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Tuỳ chỉnh trang này
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Tùy chỉnh
+newtab-customize-panel-label =
+    .label = Tùy chỉnh
 newtab-personalize-settings-icon-label =
     .title = Cá nhân hóa thẻ mới
     .aria-label = Cài đặt
@@ -361,6 +365,8 @@ newtab-custom-widget-lists-toggle =
     .label = Danh sách
 newtab-custom-widget-timer-toggle =
     .label = Bộ hẹn giờ
+newtab-custom-widget-sports-toggle =
+    .label = World Cup
 newtab-custom-widget-section-title = Widget
 newtab-custom-widget-section-toggle =
     .label = Widget
@@ -380,6 +386,7 @@ newtab-wallpaper-title = Hình nền
 newtab-wallpaper-reset = Đặt lại về mặc định
 #  (developer note): @nova-cleanup(remove-string): Remove old "Upload an image" string once Nova lands. The new "Add an image"  string will take over
 newtab-wallpaper-upload-image = Tải lên một ảnh
+newtab-wallpaper-add-an-image = Thêm một ảnh
 newtab-wallpaper-custom-color = Chọn màu
 newtab-wallpaper-toggle-title =
     .label = Hình nền
@@ -407,6 +414,7 @@ newtab-wallpaper-light-fox-anniversary = Một chú cáo trong cánh đồng xan
 
 #  (developer note): @nova-cleanup(remove-string): Remove old "Solid colors" string once Nova lands. The simplified "Colors" string will take over
 newtab-wallpaper-category-title-colors = Màu
+newtab-wallpaper-colors = Màu
 newtab-wallpaper-blue = Xanh dương
 newtab-wallpaper-light-blue = Xanh dương nhạt
 newtab-wallpaper-light-purple = Tím nhạt
@@ -497,6 +505,9 @@ newtab-weather-menu-change-location = Thay đổi khu vực
 newtab-weather-change-location-search-input-placeholder =
     .placeholder = Tìm kiếm khu vực
     .aria-label = Tìm kiếm khu vực
+# "Current" refers to the user's physical/geographic location detected via geolocation.
+newtab-weather-change-location-search-use-current =
+    .label = Sử dụng khu vực hiện tại
 newtab-weather-menu-weather-display = Cách hiển thị thời tiết
 newtab-weather-todays-forecast = Dự báo thời tiết hôm nay
 newtab-weather-see-full-forecast = Xem dự báo thời tiết đầy đủ
@@ -522,6 +533,10 @@ newtab-weather-opt-in-not-now =
     .label = Không phải bây giờ
 newtab-weather-opt-in-yes =
     .label = Đồng ý
+newtab-weather-opt-in-headline = Xem dự báo thời tiết nơi ở hiện tại của bạn
+newtab-weather-opt-in-use-location =
+    .label = Sử dụng vị trí
+newtab-weather-opt-in-choose-location = Chọn khu vực
 # We'll be showing static (fake) weather data if the user has not opted in to using their location
 newtab-weather-static-city = Thành phố New York
 # "Highest" here refers to the highest temperature of the day
@@ -581,8 +596,16 @@ newtab-topic-selection-button-pick-interests = Chọn sở thích của bạn
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Theo dõi
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Theo dõi { $topic }
 newtab-section-following-button = Đang theo dõi
 newtab-section-unfollow-button = Huỷ theo dõi
+# Variables:
+#   $topic (string) - Topic that the user is following and can unfollow
+newtab-section-unfollow-button-label =
+    .aria-label = Đang theo dõi: Bỏ theo dõi { $topic }
 # A modal may appear next to the Follow button, directing users to try out the feature
 newtab-section-follow-highlight-title = Tinh chỉnh nguồn cấp dữ liệu của bạn
 newtab-section-follow-highlight-subtitle = Theo dõi sở thích của bạn để xem thêm những gì bạn thích.
@@ -594,6 +617,22 @@ newtab-section-follow-highlight-subtitle = Theo dõi sở thích của bạn đ�
 newtab-section-block-button = Chặn
 newtab-section-blocked-button = Đã chặn
 newtab-section-unblock-button = Bỏ chặn
+# Variables:
+#   $topic (string) - Name of topic that user is following
+newtab-section-follow-topic =
+    .aria-label = Theo dõi { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unfollowing
+newtab-section-unfollow-topic =
+    .aria-label = Bỏ theo dõi { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is blocking
+newtab-section-block-topic =
+    .aria-label = Chặn { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Bỏ chặn { $topic }
 
 ## Confirmation modal for blocking a section
 
@@ -624,6 +663,12 @@ newtab-custom-wallpaper-cta = Thử ngay
 newtab-new-user-custom-wallpaper-title = Chọn một hình nền để tạo { -brand-product-name } thành của riêng bạn
 newtab-new-user-custom-wallpaper-subtitle = Khiến mọi thẻ mới trở nên thân thiện với hình nền và màu sắc tùy chỉnh.
 newtab-new-user-custom-wallpaper-cta = Thử ngay bây giờ
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Những hình nền mới toanh vừa cập nhật
+newtab-wallpaper-feature-highlight-subtitle = Hãy chọn thẻ yêu thích của bạn và biến mỗi thẻ mới thành một trải nghiệm quen thuộc.
+newtab-wallpaper-feature-highlight-cta = Chọn hình nền
 
 ## Strings for download mobile highlight
 
@@ -693,12 +738,20 @@ newtab-widget-lists-label-beta =
 # Variables:
 #   $number (number) - Amount of list items marked complete
 newtab-widget-lists-completed-list = Đã hoàn thành ({ $number })
+newtab-widget-lists-celebration-headline = Làm tốt lắm
+newtab-widget-lists-celebration-subhead = Tất cả đã xong
 newtab-widget-task-list-menu-copy = Sao chép
 newtab-widget-lists-menu-edit = Chỉnh sửa tên danh sách
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Chỉnh sửa tên danh sách
 newtab-widget-lists-menu-create = Tạo một danh sách mới
 newtab-widget-lists-menu-delete = Xóa danh sách này
 newtab-widget-lists-menu-copy = Sao chép danh sách vào bộ nhớ tạm
 newtab-widget-lists-menu-learn-more = Tìm hiểu thêm
+newtab-widget-lists-button-add-item = Thêm một mục
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Thêm một mục
+    .aria-label = Thêm một mục
 newtab-widget-lists-input-add-an-item =
     .placeholder = Thêm một mục
 newtab-widget-lists-input-error = Vui lòng thêm văn bản để thêm mục.
@@ -707,13 +760,26 @@ newtab-widget-lists-input-menu-move-up = Di chuyển lên
 newtab-widget-lists-input-menu-move-down = Di chuyển xuống
 newtab-widget-lists-input-menu-delete = Xóa
 newtab-widget-lists-input-menu-edit = Chỉnh sửa
+newtab-widget-lists-input-menu-edit2 =
+    .aria-label = Chỉnh sửa mục
 # the + symbol emphasises the functionality of adding a new list
 newtab-widget-lists-dropdown-create =
     .label = + Tạo một danh sách mới
 newtab-widget-lists-name-label-default =
     .label = Danh sách nhiệm vụ
+newtab-widget-lists-name-label-checklist =
+    .label = Danh sách việc cần làm
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Danh sách nhiệm vụ
+newtab-widget-lists-name-placeholder-checklist2 =
+    .placeholder = Danh sách việc cần làm
+    .aria-label = Chỉnh sửa tên danh sách
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Danh sách mới
+    .aria-label = Chỉnh sửa tên danh sách
+newtab-widget-lists-name-placeholder-checklist =
+    .placeholder = Danh sách việc cần làm
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Danh sách mới
@@ -733,10 +799,15 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Thu nhỏ widget
     .aria-label = Thu nhỏ tất cả widget thành kích thước nhỏ gọn
+newtab-widget-section-menu-button =
+    .title = Menu widget
+    .aria-label = Mở menu widget
+newtab-widget-section-menu-hide-all = Ẩn widget
+newtab-widget-section-menu-learn-more = Tìm hiểu thêm
 newtab-widget-section-feedback = Hãy cho chúng tôi biết suy nghĩ của bạn
+newtab-widget-lists-name-default = Danh sách việc cần làm
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Bộ hẹn giờ
 newtab-widget-timer-notification-focus = Đã hết thời gian tập trung. Làm tốt lắm. Bạn cần nghỉ ngơi không?
@@ -776,6 +847,47 @@ newtab-promo-card-cta = Tìm hiểu thêm
 newtab-promo-card-dismiss-button =
     .title = Bỏ qua
     .aria-label = Bỏ qua
+
+## Sports widget
+
+newtab-sports-widget-menu-follow-teams = Theo dõi đội
+newtab-sports-widget-menu-view-upcoming = Xem cái gì sắp tới
+newtab-sports-widget-menu-view-results = Hiện kết quả
+newtab-sports-widget-menu-learn-more = Tìm hiểu thêm
+newtab-sports-widget-countdown-title = Đếm ngược đến World Cup
+newtab-sports-widget-get-updates = Nhận thông tin cập nhật trực tiếp và hơn thế nữa.
+newtab-sports-widget-follow-teams =
+    .label = Theo dõi đội
+newtab-sports-widget-choose-wallpaper =
+    .label = Chọn một hình nền
+newtab-sports-widget-skip = Bỏ qua
+newtab-sports-widget-search-teams =
+    .placeholder = Tìm kiếm đội
+    .aria-label = Tìm kiếm đội
+newtab-sports-widget-done-button =
+    .label = Xong
+newtab-sports-widget-group-stage = Vòng bảng
+# The "LIVE" string is meant to be uppercase in English, but other languages and locales may vary in how they handle this.
+newtab-sports-widget-live = TRỰC TIẾP
+newtab-custom-widget-live-refresh =
+    .title = Làm mới điểm số
+    .aria-label = Làm mới điểm số
+newtab-sports-widget-upcoming = Sắp tới
+newtab-sports-widget-results = Kết quả
+newtab-sports-widget-semi-finals = Bán kết
+newtab-sports-widget-bronze-finals = Tranh hạng ba
+# Final is the final match for 1st place.
+newtab-sports-widget-final = Chung kết
+newtab-sports-widget-delayed = Bị lùi giờ
+newtab-sports-widget-postponed = Đã hoãn lại
+newtab-sports-widget-suspended = Đã tạm dừng
+newtab-sports-widget-cancelled = Đã huỷ trận
+newtab-sports-widget-information = Thông tin về trận đấu
+newtab-sports-widget-no-live-data = Dữ liệu trận đấu trực tiếp hiện chưa được cập nhật
+newtab-sports-widget-view-results-link = Xem kết quả
+newtab-sports-widget-third-place = Hạng ba
+newtab-sports-widget-champions = Nhà vô địch
+newtab-sports-widget-world-cup-champions = Nhà vô địch World Cup 2026
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

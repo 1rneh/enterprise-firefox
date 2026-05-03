@@ -11,8 +11,6 @@ import {
   CHAT_WRAPPER_ELEMENTS,
 } from "chrome://browser/content/aiwindow/modules/ChatMarkdownParser.mjs";
 // eslint-disable-next-line import/no-unassigned-import
-import "chrome://browser/content/aiwindow/components/ai-chat-search-button.mjs";
-// eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/ai-chat-table.mjs";
 
 /**
@@ -43,14 +41,13 @@ export class AIChatMessage extends MozLitElement {
     role: { type: String }, // "user" | "assistant"
     message: { type: String },
     messageId: { type: String, reflect: true, attribute: "data-message-id" },
-    searchTokens: { type: Array },
+    complete: { type: Boolean },
     seenUrls: { type: Object, attribute: false },
     conversationId: { type: String },
   };
 
   constructor() {
     super();
-    this.searchTokens = [];
 
     /**
      * The URLs seen in the conversation, used for link unfurling.
@@ -69,10 +66,6 @@ export class AIChatMessage extends MozLitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.addEventListener(
-      "AIWindow:chat-search",
-      this.handleSearchHandoffEvent.bind(this)
-    );
     this.#initLinkNavigationListener();
   }
 
@@ -125,18 +118,22 @@ export class AIChatMessage extends MozLitElement {
     }
   }
 
-  /**
-   * Handle search handoff events
-   *
-   * @param {CustomEvent} event - The custom event containing the search query.
-   */
-  handleSearchHandoffEvent(event) {
-    const e = new CustomEvent("AIChatContent:DispatchSearch", {
-      detail: event.detail,
-      bubbles: true,
-      composed: true,
-    });
-    this.dispatchEvent(e);
+  updated(changed) {
+    if (changed.has("complete") && this.complete && this.role === "assistant") {
+      const messageEl = this.shadowRoot?.querySelector(`.message-${this.role}`);
+      const text = messageEl
+        ? (messageEl.innerText || messageEl.textContent || "")
+            .replace(/\s+/g, " ")
+            .trim()
+        : "";
+      this.dispatchEvent(
+        new CustomEvent("ai-chat-message:complete", {
+          bubbles: true,
+          composed: true,
+          detail: { messageId: this.messageId, text },
+        })
+      );
+    }
   }
 
   #getIconSrc = linkHref => {
@@ -396,15 +393,6 @@ export class AIChatMessage extends MozLitElement {
         ${this.role === "user"
           ? this.getUserMessage()
           : this.getAssistantMessage()}
-        ${this.role === "assistant"
-          ? html`${this.searchTokens.map(
-              token =>
-                html`<ai-chat-search-button
-                  .query=${token}
-                  .label=${token}
-                ></ai-chat-search-button>`
-            )}`
-          : null}
       </article>
     `;
   }

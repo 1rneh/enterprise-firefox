@@ -686,18 +686,27 @@ nsRect LocalAccessible::ParentRelativeBounds() {
       return result;
     }
 
-    if (ScrollContainerFrame* sf =
-            mParent == mDoc
-                ? mDoc->PresShellPtr()->GetRootScrollContainerFrame()
-                : boundingFrame->GetScrollTargetFrame()) {
-      // If boundingFrame has a scroll position, result is currently relative
-      // to that. Instead, we want result to remain the same regardless of
-      // scrolling. We then subtract the scroll position later when
-      // calculating absolute bounds. We do this because we don't want to push
-      // cache updates for the bounds of all descendants every time we scroll.
-      nsPoint scrollPos = sf->GetScrollPosition().ApplyResolution(
-          mDoc->PresShellPtr()->GetResolution());
-      result.MoveBy(scrollPos.x, scrollPos.y);
+    if (!IsDoc()) {
+      if (ScrollContainerFrame* sf =
+              boundingFrame == mDoc->GetFrame()
+                  ? mDoc->PresShellPtr()->GetRootScrollContainerFrame()
+                  : boundingFrame->GetScrollTargetFrame()) {
+        // If boundingFrame has a scroll position, result is currently relative
+        // to that. Instead, we want result to remain the same regardless of
+        // scrolling. We then subtract the scroll position later when
+        // calculating absolute bounds. We do this because we don't want to push
+        // cache updates for the bounds of all descendants every time we scroll.
+        // We don't need to do this for the document because document bounds are
+        // always computed to be self-relative -- see
+        // FindNearestAccessibleAncestorFrame. However, if boundingFrame is the
+        // document's frame (e.g. mParent had no frame, and the document is the
+        // nearest frame-having ancestor), we have to account for any scroll
+        // offset between the doc and its content. This is tracked in the
+        // PresShell's root scroll container frame.
+        nsPoint scrollPos = sf->GetScrollPosition().ApplyResolution(
+            mDoc->PresShellPtr()->GetResolution());
+        result.MoveBy(scrollPos.x, scrollPos.y);
+      }
     }
 
     return result;

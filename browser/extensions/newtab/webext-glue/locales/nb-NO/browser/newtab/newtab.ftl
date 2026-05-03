@@ -8,9 +8,13 @@
 newtab-page-title = Ny fane
 newtab-settings-button =
     .title = Tilpass siden for Ny fane
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Tilpass denne siden
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Tilpass
+newtab-customize-panel-label =
+    .label = Tilpass
 newtab-personalize-settings-icon-label =
     .title = Tilpass ny fane
     .aria-label = Innstillinger
@@ -362,6 +366,8 @@ newtab-custom-widget-lists-toggle =
     .label = Lister
 newtab-custom-widget-timer-toggle =
     .label = Nedtelling
+newtab-custom-widget-sports-toggle =
+    .label = VM
 newtab-custom-widget-section-title = Widgeter
 newtab-custom-widget-section-toggle =
     .label = Widgeter
@@ -500,6 +506,9 @@ newtab-weather-menu-change-location = Endre plassering
 newtab-weather-change-location-search-input-placeholder =
     .placeholder = Søk plassering
     .aria-label = Søk plassering
+# "Current" refers to the user's physical/geographic location detected via geolocation.
+newtab-weather-change-location-search-use-current =
+    .label = Bruk gjeldende posisjon
 newtab-weather-menu-weather-display = Værvisning
 newtab-weather-todays-forecast = Dagens værmelding
 newtab-weather-see-full-forecast = Se fullstendig værmelding
@@ -588,8 +597,16 @@ newtab-topic-selection-button-pick-interests = Velg dine interesser
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Følge
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Følg { $topic }
 newtab-section-following-button = Følger
 newtab-section-unfollow-button = Slutt å følge
+# Variables:
+#   $topic (string) - Topic that the user is following and can unfollow
+newtab-section-unfollow-button-label =
+    .aria-label = Følger: Slutt å følge { $topic }
 # A modal may appear next to the Follow button, directing users to try out the feature
 newtab-section-follow-highlight-title = Finjuster kilden din
 newtab-section-follow-highlight-subtitle = Følg interessene dine for å se mer av det du liker.
@@ -601,6 +618,22 @@ newtab-section-follow-highlight-subtitle = Følg interessene dine for å se mer 
 newtab-section-block-button = Blokker
 newtab-section-blocked-button = Blokkert
 newtab-section-unblock-button = Opphev blokkering
+# Variables:
+#   $topic (string) - Name of topic that user is following
+newtab-section-follow-topic =
+    .aria-label = Følg { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unfollowing
+newtab-section-unfollow-topic =
+    .aria-label = Slutt å følge { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is blocking
+newtab-section-block-topic =
+    .aria-label = Blokker { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Opphev blokkering av { $topic }
 
 ## Confirmation modal for blocking a section
 
@@ -631,6 +664,12 @@ newtab-custom-wallpaper-cta = Prøv det
 newtab-new-user-custom-wallpaper-title = Velg et bakgrunnsbilde for å gjøre { -brand-product-name } til din egen
 newtab-new-user-custom-wallpaper-subtitle = Få hver nye fane til å føles som hjemme med tilpassede bakgrunner og farger.
 newtab-new-user-custom-wallpaper-cta = Prøv det nå
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Nye bakgrunnsbilder er nå tilgjengelige
+newtab-wallpaper-feature-highlight-subtitle = Velg favoritten din og få hver ny fane til å føles som hjemme
+newtab-wallpaper-feature-highlight-cta = Velg bakgrunnsbilde
 
 ## Strings for download mobile highlight
 
@@ -700,12 +739,20 @@ newtab-widget-lists-label-beta =
 # Variables:
 #   $number (number) - Amount of list items marked complete
 newtab-widget-lists-completed-list = Fullført ({ $number })
+newtab-widget-lists-celebration-headline = Bra jobbet
+newtab-widget-lists-celebration-subhead = Alt klart
 newtab-widget-task-list-menu-copy = Kopier
 newtab-widget-lists-menu-edit = Rediger listenavn
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Rediger listenavn
 newtab-widget-lists-menu-create = Opprett en ny liste
 newtab-widget-lists-menu-delete = Slett denne listen
 newtab-widget-lists-menu-copy = Kopier liste til utklippstavlen
 newtab-widget-lists-menu-learn-more = Les mer
+newtab-widget-lists-button-add-item = Legg til et element
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Legg til et element
+    .aria-label = Legg til et element
 newtab-widget-lists-input-add-an-item =
     .placeholder = Legg til et element
 newtab-widget-lists-input-error = Legg til tekst for å legge til et element.
@@ -714,13 +761,23 @@ newtab-widget-lists-input-menu-move-up = Flytt opp
 newtab-widget-lists-input-menu-move-down = Flytt ned
 newtab-widget-lists-input-menu-delete = Slett
 newtab-widget-lists-input-menu-edit = Rediger
+newtab-widget-lists-input-menu-edit2 =
+    .aria-label = Rediger element
 # the + symbol emphasises the functionality of adding a new list
 newtab-widget-lists-dropdown-create =
     .label = + Lag en ny liste
 newtab-widget-lists-name-label-default =
     .label = Oppgaveliste
+newtab-widget-lists-name-label-checklist =
+    .label = Sjekkliste
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Oppgaveliste
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Ny liste
+    .aria-label = Rediger listenavn
+newtab-widget-lists-name-placeholder-checklist =
+    .placeholder = Sjekkliste
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Ny liste
@@ -740,10 +797,10 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimer widgeter
     .aria-label = Slå sammen alle widgeter til kompakt størrelse
+newtab-widget-section-menu-learn-more = Les mer
 newtab-widget-section-feedback = Fortell oss hva du synes
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Nedtelling
 newtab-widget-timer-notification-focus = Fokustiden er over. Bra jobbet. Trenger du en pause?

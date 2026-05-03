@@ -71,7 +71,6 @@ import org.mozilla.fenix.settings.sitepermissions.AUTOPLAY_BLOCK_ALL
 import org.mozilla.fenix.settings.sitepermissions.AUTOPLAY_BLOCK_AUDIBLE
 import org.mozilla.fenix.tabstray.DefaultTabManagementFeatureHelper
 import org.mozilla.fenix.termsofuse.TOU_VERSION
-import org.mozilla.fenix.termsofuse.getApplicationInstalledTime
 import org.mozilla.fenix.wallpapers.Wallpaper
 import java.security.InvalidParameterException
 import java.util.concurrent.TimeUnit.MILLISECONDS
@@ -2743,7 +2742,7 @@ class Settings(
 
     var aiControlsFeatureFlagEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_ai_controls),
-        default = Config.channel.isNightlyOrDebug,
+        default = true,
     )
 
     var importBookmarksFeatureFlagEnabled by booleanPreference(

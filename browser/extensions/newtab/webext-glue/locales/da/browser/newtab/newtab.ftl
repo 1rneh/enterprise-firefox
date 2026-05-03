@@ -8,9 +8,13 @@
 newtab-page-title = Nyt faneblad
 newtab-settings-button =
     .title = Tilpas siden Nyt faneblad
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Tilpas denne side
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Tilpas
+newtab-customize-panel-label =
+    .label = Tilpas
 newtab-personalize-settings-icon-label =
     .title = Tilpas nyt faneblad
     .aria-label = Indstillinger
@@ -674,10 +678,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Afsluttede ({ $number })
 newtab-widget-task-list-menu-copy = Kopier
 newtab-widget-lists-menu-edit = Rediger listens navn
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Rediger listens navn
 newtab-widget-lists-menu-create = Opret en ny liste
 newtab-widget-lists-menu-delete = Slet denne liste
 newtab-widget-lists-menu-copy = Kopier liste til udklipsholderen
 newtab-widget-lists-menu-learn-more = Læs mere
+newtab-widget-lists-button-add-item = Tilføj et element
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Tilføj et element
+    .aria-label = Tilføj et element
 newtab-widget-lists-input-add-an-item =
     .placeholder = Tilføj et element
 newtab-widget-lists-input-error = Inkluder tekst for at tilføje et element.
@@ -693,6 +703,10 @@ newtab-widget-lists-name-label-default =
     .label = Opgaveliste
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Opgaveliste
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Ny liste
+    .aria-label = Rediger listens navn
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Ny liste
@@ -710,8 +724,7 @@ newtab-widget-section-minimize =
     .aria-label = Sammenfold alle widgets til kompakt størrelse
 newtab-widget-section-feedback = Fortæl os, hvad du synes
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Timer
 newtab-widget-timer-notification-focus = Fokus-tiden er slut. Godt gået. Har du brug for en pause?

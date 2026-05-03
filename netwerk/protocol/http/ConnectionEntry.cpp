@@ -907,7 +907,7 @@ Http3ConnectionStatsParams ConnectionEntry::GetHttp3ConnectionStatsData() {
 void ConnectionEntry::LogConnections() {
   LOG(("active conns ["));
   for (HttpConnectionBase* conn : mActiveConns) {
-    LOG(("  %p", conn));
+    LOG(("  %p (ready=%d)", conn, conn->CanDirectlyActivate()));
   }
 
   LOG(("] idle conns ["));

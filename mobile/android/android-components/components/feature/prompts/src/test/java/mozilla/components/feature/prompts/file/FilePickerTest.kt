@@ -52,6 +52,7 @@ import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
 import org.robolectric.annotation.Config
 import java.io.File
+import kotlin.test.assertIs
 
 @RunWith(AndroidJUnit4::class)
 class FilePickerTest {
@@ -611,10 +612,10 @@ class FilePickerTest {
 
         val result = filePicker.getVisualMediaType(request)
 
-        assertTrue(result is ActivityResultContracts.PickVisualMedia.SingleMimeType)
+        assertIs<ActivityResultContracts.PickVisualMedia.SingleMimeType>(result)
         assertEquals(
             "image/png",
-            (result as ActivityResultContracts.PickVisualMedia.SingleMimeType).mimeType,
+            result.mimeType,
         )
     }
 

@@ -4536,7 +4536,7 @@ void HTMLInputElement::SetupShadowTree(bool aNotify) {
   AttachAndSetUAShadowRoot(uaWidget,
                            uaWidget == NotifyUAWidget::Yes ? DelegatesFocus::Yes
                                                            : DelegatesFocus::No,
-                           aNotify);
+                           CustomSlotDispatch::No, aNotify);
   if (uaWidget == NotifyUAWidget::Yes) {
     // The UA widget system takes care of this.
     return;

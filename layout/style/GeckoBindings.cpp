@@ -25,7 +25,6 @@
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/RWLock.h"
 #include "mozilla/RestyleManager.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/ServoElementSnapshot.h"
@@ -90,7 +89,7 @@ using namespace mozilla::dom;
 
 ServoTraversalStatistics* ServoTraversalStatistics::sSingleton = nullptr;
 
-static StaticAutoPtr<RWLock> sServoFFILock;
+static StaticAutoPtr<Mutex> sServoFFILock;
 /*
  * Does this child count as significant for selector matching?
  *
@@ -352,7 +351,7 @@ nscoord Gecko_CalcLineHeight(const StyleLineHeight* aLh,
                              const nsStyleFont* aAgainstFont,
                              const mozilla::dom::Element* aElement) {
   // Normal line-height depends on font metrics.
-  AutoWriteLock guard(*sServoFFILock);
+  MutexAutoLock guard(*sServoFFILock);
   return ReflowInput::CalcLineHeight(*aLh, *aAgainstFont,
                                      const_cast<nsPresContext*>(aPc), aVertical,
                                      aElement, NS_UNCONSTRAINEDSIZE, 1.0f);
@@ -878,13 +877,18 @@ bool Gecko_IsSelectListBox(const Element* aElement) {
 }
 
 bool Gecko_LookupAttrValue(const Element* aElement, nsAtom& aNamespace,
-                           const nsAtom& aName, nsAString& aResult) {
+                           nsAtom& aName, nsAString& aResult) {
   int32_t attrNameSpace = kNameSpaceID_None;
   if (!aNamespace.IsEmpty()) {
     attrNameSpace = nsNameSpaceManager::GetInstance()->GetNameSpaceID(
         &aNamespace, nsContentUtils::IsChromeDoc(aElement->OwnerDoc()));
   }
-  return aElement->GetAttr(attrNameSpace, &aName, aResult);
+  if (aName.IsAsciiLowercase() || !aElement->OwnerDoc()->IsHTMLDocument()) {
+    return aElement->GetAttr(attrNameSpace, &aName, aResult);
+  }
+  RefPtr<nsAtom> lowercaseName(&aName);
+  ToLowerCaseASCII(lowercaseName);
+  return aElement->GetAttr(attrNameSpace, lowercaseName, aResult);
 }
 
 template <typename Implementor>
@@ -1296,7 +1300,7 @@ void InitializeServo() {
   gUACacheReporter = new UACacheReporter();
   RegisterWeakMemoryReporter(gUACacheReporter);
 
-  sServoFFILock = new RWLock("Servo::FFILock");
+  sServoFFILock = new Mutex("Servo::FFILock");
 }
 
 void ShutdownServo() {
@@ -1313,8 +1317,8 @@ void ShutdownServo() {
 
 void AssertIsMainThreadOrServoFontMetricsLocked() {
   if (!NS_IsMainThread()) {
-    MOZ_ASSERT(sServoFFILock &&
-               sServoFFILock->LockedForWritingByCurrentThread());
+    MOZ_ASSERT(sServoFFILock);
+    sServoFFILock->AssertCurrentThreadOwns();
   }
 }
 
@@ -1325,7 +1329,7 @@ GeckoFontMetrics Gecko_GetFontMetrics(const nsPresContext* aPresContext,
                                       const nsStyleFont* aFont,
                                       Length aFontSize,
                                       StyleQueryFontMetricsFlags flags) {
-  AutoWriteLock guard(*sServoFFILock);
+  MutexAutoLock guard(*sServoFFILock);
 
   // Getting font metrics can require some main thread only work to be
   // done, such as work that needs to touch non-threadsafe refcounted

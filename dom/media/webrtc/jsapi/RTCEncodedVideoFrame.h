@@ -40,6 +40,12 @@ class RTCEncodedVideoFrame final : public RTCEncodedVideoFrameData,
   explicit RTCEncodedVideoFrame(nsIGlobalObject* aGlobal,
                                 RTCEncodedVideoFrameData&& aData);
 
+  // forbid copy/move to keep mState member in base valid
+  RTCEncodedVideoFrame(const RTCEncodedVideoFrame&) = delete;
+  RTCEncodedVideoFrame& operator=(const RTCEncodedVideoFrame&) = delete;
+  RTCEncodedVideoFrame(RTCEncodedVideoFrame&&) = delete;
+  RTCEncodedVideoFrame& operator=(RTCEncodedVideoFrame&&) = delete;
+
   // webidl (timestamp and data accessors live in base class)
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
@@ -70,12 +76,6 @@ class RTCEncodedVideoFrame final : public RTCEncodedVideoFrameData,
 
  private:
   virtual ~RTCEncodedVideoFrame() = default;
-
-  // forbid copy/move to keep mState member in base valid
-  RTCEncodedVideoFrame(const RTCEncodedVideoFrame&) = delete;
-  RTCEncodedVideoFrame& operator=(const RTCEncodedVideoFrame&) = delete;
-  RTCEncodedVideoFrame(RTCEncodedVideoFrame&&) = delete;
-  RTCEncodedVideoFrame& operator=(RTCEncodedVideoFrame&&) = delete;
 
   // RTCEncodedVideoFrame can run on either main thread or worker thread.
   void AssertIsOnOwningThread() const {

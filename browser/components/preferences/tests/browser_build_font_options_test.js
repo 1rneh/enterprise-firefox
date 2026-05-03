@@ -55,7 +55,7 @@ add_task(async function () {
   mozSelect.focus();
   EventUtils.synthesizeKey(" ", {}, contentWindow);
   let selectPopup = await pickerOpened;
-  if (nativeSelectEnabled()) {
+  if (selectPopup.isNativeMenu) {
     selectPopup.activateItem(selectPopup.childNodes[1]);
   } else {
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, contentWindow);
@@ -72,7 +72,7 @@ add_task(async function () {
   mozSelect.focus();
   EventUtils.synthesizeKey(" ", {}, contentWindow);
   selectPopup = await pickerOpened;
-  if (nativeSelectEnabled()) {
+  if (selectPopup.isNativeMenu) {
     selectPopup.activateItem(selectPopup.childNodes[0]);
   } else {
     EventUtils.synthesizeKey("KEY_ArrowUp", {}, contentWindow);
@@ -319,7 +319,7 @@ add_task(async function test_font_options_redesign_accessibility_pane() {
   mozSelect.focus();
   EventUtils.synthesizeKey(" ", {}, contentWindow);
   let selectPopup = await pickerOpened;
-  if (nativeSelectEnabled()) {
+  if (selectPopup.isNativeMenu) {
     selectPopup.activateItem(selectPopup.childNodes[1]);
   } else {
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, contentWindow);
@@ -336,7 +336,7 @@ add_task(async function test_font_options_redesign_accessibility_pane() {
   mozSelect.focus();
   EventUtils.synthesizeKey(" ", {}, contentWindow);
   selectPopup = await pickerOpened;
-  if (nativeSelectEnabled()) {
+  if (selectPopup.isNativeMenu) {
     selectPopup.activateItem(selectPopup.childNodes[0]);
   } else {
     EventUtils.synthesizeKey("KEY_ArrowUp", {}, contentWindow);

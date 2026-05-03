@@ -113,10 +113,18 @@ class UrlbarInputTestUtils {
    * @param {ChromeWindow} win The window containing the urlbar
    */
   async promiseSearchComplete(win) {
-    let waitForQuery = () => {
-      return this.promisePopupOpen(win, () => {}).then(
-        () => this.#urlbar(win).lastQueryContextPromise
-      );
+    let waitForQuery = async () => {
+      await this.promisePopupOpen(win, () => {});
+      // Re-read `lastQueryContextPromise` after each await in case the query
+      // was restarted (e.g., by the `reopenOnBlur` mechanism in
+      // `promiseAutocompleteResultPopup`), and wait for the latest query.
+      let promise;
+      let context;
+      do {
+        promise = this.#urlbar(win).lastQueryContextPromise;
+        context = await promise;
+      } while (this.#urlbar(win).lastQueryContextPromise !== promise);
+      return context;
     };
     /** @type {UrlbarQueryContext} */
     let context = await waitForQuery();

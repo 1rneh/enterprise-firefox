@@ -8,9 +8,13 @@
 newtab-page-title = Nový panel
 newtab-settings-button =
     .title = Přizpůsobení stránky nového panelu
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Přizpůsobte si tuto stránku
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Přizpůsobit
+newtab-customize-panel-label =
+    .label = Přizpůsobit
 newtab-personalize-settings-icon-label =
     .title = Přizpůsobení nového panelu
     .aria-label = Nastavení
@@ -371,6 +375,8 @@ newtab-custom-widget-lists-toggle =
     .label = Seznamy
 newtab-custom-widget-timer-toggle =
     .label = Časovač
+newtab-custom-widget-sports-toggle =
+    .label = Světový šampionát
 newtab-custom-widget-section-title = Widgety
 newtab-custom-widget-section-toggle =
     .label = Widgety
@@ -390,6 +396,7 @@ newtab-wallpaper-title = Tapety
 newtab-wallpaper-reset = Obnovit výchozí nastavení
 #  (developer note): @nova-cleanup(remove-string): Remove old "Upload an image" string once Nova lands. The new "Add an image"  string will take over
 newtab-wallpaper-upload-image = Nahrát obrázek
+newtab-wallpaper-add-an-image = Přidat obrázek
 newtab-wallpaper-custom-color = Vybrat barvu
 newtab-wallpaper-toggle-title =
     .label = Tapety
@@ -417,6 +424,7 @@ newtab-wallpaper-light-fox-anniversary = Liška na louce se zamlženou horskou k
 
 #  (developer note): @nova-cleanup(remove-string): Remove old "Solid colors" string once Nova lands. The simplified "Colors" string will take over
 newtab-wallpaper-category-title-colors = Jednobarevné
+newtab-wallpaper-colors = Barvy
 newtab-wallpaper-blue = Modrá
 newtab-wallpaper-light-blue = Světle modrá
 newtab-wallpaper-light-purple = Světle fialová
@@ -507,6 +515,9 @@ newtab-weather-menu-change-location = Změnit místo
 newtab-weather-change-location-search-input-placeholder =
     .placeholder = Hledat umístění
     .aria-label = Hledat umístění
+# "Current" refers to the user's physical/geographic location detected via geolocation.
+newtab-weather-change-location-search-use-current =
+    .label = Použít aktuální polohu
 newtab-weather-menu-weather-display = Zobrazení počasí
 newtab-weather-todays-forecast = Dnešní předpověď
 newtab-weather-see-full-forecast = Zobrazit úplnou předpověď
@@ -532,6 +543,10 @@ newtab-weather-opt-in-not-now =
     .label = Teď ne
 newtab-weather-opt-in-yes =
     .label = Ano
+newtab-weather-opt-in-headline = Získejte místní předpověď počasí
+newtab-weather-opt-in-use-location =
+    .label = Použít polohu
+newtab-weather-opt-in-choose-location = Vyberte umístění
 # We'll be showing static (fake) weather data if the user has not opted in to using their location
 newtab-weather-static-city = New York
 # "Highest" here refers to the highest temperature of the day
@@ -591,8 +606,16 @@ newtab-topic-selection-button-pick-interests = Vyberte, co vás zajímá
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Sledovat
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Sledovat téma { $topic }
 newtab-section-following-button = Sledované
 newtab-section-unfollow-button = Přestat sledovat
+# Variables:
+#   $topic (string) - Topic that the user is following and can unfollow
+newtab-section-unfollow-button-label =
+    .aria-label = Sledování: přestat sledovat téma { $topic }
 # A modal may appear next to the Follow button, directing users to try out the feature
 newtab-section-follow-highlight-title = Dolaďte si svůj kanál
 newtab-section-follow-highlight-subtitle = Sledujte své zájmy a uvidíte víc toho, co se vám líbí.
@@ -604,6 +627,22 @@ newtab-section-follow-highlight-subtitle = Sledujte své zájmy a uvidíte víc 
 newtab-section-block-button = Blokovat
 newtab-section-blocked-button = Blokováno
 newtab-section-unblock-button = Odblokovat
+# Variables:
+#   $topic (string) - Name of topic that user is following
+newtab-section-follow-topic =
+    .aria-label = Sledovat téma { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unfollowing
+newtab-section-unfollow-topic =
+    .aria-label = Přestat sledovat téma { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is blocking
+newtab-section-block-topic =
+    .aria-label = Blokovat téma { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Odblokovat téma { $topic }
 
 ## Confirmation modal for blocking a section
 
@@ -642,6 +681,12 @@ newtab-new-user-custom-wallpaper-title =
     }
 newtab-new-user-custom-wallpaper-subtitle = Zajistěte, aby se každý nový panel cítil jako doma pomocí vlastních tapet a barev.
 newtab-new-user-custom-wallpaper-cta = Vyzkoušejte nyní
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Právě přišly nové čerstvé tapety
+newtab-wallpaper-feature-highlight-subtitle = Vyberte si svůj oblíbený a v každém novém panelu se budete cítit jako doma.
+newtab-wallpaper-feature-highlight-cta = Zvolte si tapetu
 
 ## Strings for download mobile highlight
 
@@ -723,12 +768,19 @@ newtab-widget-lists-label-beta =
 # Variables:
 #   $number (number) - Amount of list items marked complete
 newtab-widget-lists-completed-list = Splněno ({ $number })
+newtab-widget-lists-celebration-headline = Dobrá práce
 newtab-widget-task-list-menu-copy = Kopírovat
 newtab-widget-lists-menu-edit = Upravit název seznamu
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Upravit název seznamu
 newtab-widget-lists-menu-create = Vytvoření nového seznamu
 newtab-widget-lists-menu-delete = Smazat tento seznam
 newtab-widget-lists-menu-copy = Zkopírovat seznam do schránky
 newtab-widget-lists-menu-learn-more = Zjistit více
+newtab-widget-lists-button-add-item = Přidat položku
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Přidat položku
+    .aria-label = Přidat položku
 newtab-widget-lists-input-add-an-item =
     .placeholder = Přidat položku
 newtab-widget-lists-input-error = Položku přidáte zadáním textu.
@@ -737,13 +789,23 @@ newtab-widget-lists-input-menu-move-up = Posunout výše
 newtab-widget-lists-input-menu-move-down = Posunout níže
 newtab-widget-lists-input-menu-delete = Smazat
 newtab-widget-lists-input-menu-edit = Upravit
+newtab-widget-lists-input-menu-edit2 =
+    .aria-label = Upravit položku
 # the + symbol emphasises the functionality of adding a new list
 newtab-widget-lists-dropdown-create =
     .label = + Vytvořit nový seznam
 newtab-widget-lists-name-label-default =
     .label = Seznam úkolů
+newtab-widget-lists-name-label-checklist =
+    .label = Kontrolní seznam
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Seznam úkolů
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Nový seznam
+    .aria-label = Upravit název seznamu
+newtab-widget-lists-name-placeholder-checklist =
+    .placeholder = Kontrolní seznam
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nový seznam
@@ -763,10 +825,11 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimalizovat wigety
     .aria-label = Sbalení všech widgetů na kompaktní velikost
+newtab-widget-section-menu-hide-all = Skrýt widgety
+newtab-widget-section-menu-learn-more = Zjistit více
 newtab-widget-section-feedback = Sdělte nám svůj názor
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Časovač
 newtab-widget-timer-notification-focus = Čas soustředění vypršel. Pěkná práce. Potřebujete přestávku?
@@ -810,6 +873,16 @@ newtab-promo-card-cta = Zjistit více
 newtab-promo-card-dismiss-button =
     .title = Zavřít
     .aria-label = Zavřít
+
+## Sports widget
+
+newtab-sports-widget-suspended = Pozastaveno
+newtab-sports-widget-cancelled = Zrušeno
+newtab-sports-widget-information = Informace o zápase
+newtab-sports-widget-no-live-data = Data o aktuálních zápasech se aktuálně neaktualizují
+newtab-sports-widget-view-results-link = Zobrazit výsledky
+newtab-sports-widget-third-place = Třetí místo
+newtab-sports-widget-world-cup-champions = Mistrovství světa ve fotbale 2026
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

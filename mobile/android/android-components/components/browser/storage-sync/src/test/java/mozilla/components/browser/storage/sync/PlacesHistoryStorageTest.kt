@@ -49,6 +49,7 @@ import org.mockito.Mockito.verify
 import org.robolectric.annotation.Config
 import java.io.File
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertIs
 
 @RunWith(AndroidJUnit4::class)
 class PlacesHistoryStorageTest {

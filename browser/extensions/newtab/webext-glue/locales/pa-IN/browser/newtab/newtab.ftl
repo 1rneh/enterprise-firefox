@@ -8,9 +8,13 @@
 newtab-page-title = ਨਵੀਂ ਟੈਬ
 newtab-settings-button =
     .title = ਆਪਣੇ ਨਵੀਂ ਟੈਬ ਸਫ਼ੇ ਨੂੰ ਆਪਣੇ ਮੁਤਾਬਕ ਢਾਲੋ
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = ਇਸ ਸਫ਼ੇ ਨੂੰ ਕਸਟਮਾਈਜ਼ ਕਰੋ
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = ਕਸਟਮਾਈਜ਼
+newtab-customize-panel-label =
+    .label = ਕਸਟਮਾਈਜ਼
 newtab-personalize-settings-icon-label =
     .title = ਨਵੀਂ ਟੈਬ ਨੂੰ ਨਿੱਜੀ ਬਣਾਓ
     .aria-label = ਸੈਟਿੰਗਾਂ
@@ -696,10 +700,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = ਪੂਰੇ ਹੋਏ ({ $number })
 newtab-widget-task-list-menu-copy = ਕਾਪੀ ਕਰੋ
 newtab-widget-lists-menu-edit = ਸੂਚੀ ਦੇ ਨਾਂ ਨੂੰ ਸੋਧੋ
+newtab-widget-lists-menu-edit2 =
+    .aria-label = ਸੂਚੀ ਦੇ ਨਾਂ ਨੂੰ ਸੋਧੋ
 newtab-widget-lists-menu-create = ਇੱਕ ਨਵੀਂ ਲਿਸਟ ਬਣਾਓ
 newtab-widget-lists-menu-delete = ਇਸ ਸੂਚੀ ਨੂੰ ਹਟਾਓ
 newtab-widget-lists-menu-copy = ਸੂਚੀ ਨੂੰ ਕਲਿੱਪਬੋਰਡ ਵਿੱਚ ਕਾਪੀ ਕਰੋ
 newtab-widget-lists-menu-learn-more = ਹੋਰ ਜਾਣੋ
+newtab-widget-lists-button-add-item = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜੋ
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜੋ
+    .aria-label = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜੋ
 newtab-widget-lists-input-add-an-item =
     .placeholder = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜੋ
 newtab-widget-lists-input-error = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜਨ ਲਈ ਲਿਖਤ ਨੂੰ ਸ਼ਾਮਲ ਕਰੋ।
@@ -715,6 +725,10 @@ newtab-widget-lists-name-label-default =
     .label = ਕੰਮ ਸੂਚੀ
 newtab-widget-lists-name-placeholder-default =
     .placeholder = ਕੰਮ ਸੂਚੀ
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = ਨਵੀਂ ਸੂਚੀ
+    .aria-label = ਸੂਚੀ ਦੇ ਨਾਂ ਨੂੰ ਸੋਧੋ
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = ਨਵੀਂ ਸੂਚੀ
@@ -736,8 +750,7 @@ newtab-widget-section-minimize =
     .aria-label = ਸਾਰੇ ਵਿਜੈੱਟ ਨੂੰ ਸੰਖੇਪ ਆਕਾਰ ਲਈ ਸਮੇਟੋ
 newtab-widget-section-feedback = ਸਾਨੂੰ ਦੱਸੋ ਕਿ ਤੁਸੀਂ ਕੀ ਸੋਚਦੇ ਹੋ
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = ਟਾਈਮਰ
 newtab-widget-timer-notification-focus = ਫੋਕਸ ਸਮਾਂ ਸਮਾਪਤ ਹੋਇਆ। ਵਧੀਆ ਕੰਮ ਕੀਤਾ, ਸਾਹ ਲੈਣਾ ਹੈ?

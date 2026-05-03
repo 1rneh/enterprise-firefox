@@ -306,6 +306,7 @@ for (const type of [
   "WIDGETS_LISTS_UPDATE",
   "WIDGETS_LISTS_USER_EVENT",
   "WIDGETS_LISTS_USER_IMPRESSION",
+  "WIDGETS_SPORTS_WIDGET_SET",
   "WIDGETS_TIMER_END",
   "WIDGETS_TIMER_PAUSE",
   "WIDGETS_TIMER_PLAY",
@@ -1072,7 +1073,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "inferred-personalization-overrides",
       pressed: overridesEnabled || null,
-      ontoggle: this.handleDebugOverridesToggle,
       onToggle: this.handleDebugOverridesToggle,
       label: "Enable overrides"
     })))), /*#__PURE__*/external_React_default().createElement(Row, {
@@ -1221,7 +1221,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
       id: "sections-toggle",
       disabled: !unifiedAdsSpocsEnabled || null,
       pressed: allizomEnabled || null,
-      ontoggle: this.handleAllizomToggle,
       onToggle: this.handleAllizomToggle,
       label: "Toggle allizom"
     }))), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
@@ -1313,7 +1312,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "sections-toggle",
       pressed: sectionsEnabled || null,
-      ontoggle: this.handleSectionsToggle,
       onToggle: this.handleSectionsToggle,
       label: "Toggle DS Sections"
     })), /*#__PURE__*/external_React_default().createElement("details", {
@@ -1323,7 +1321,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "newtab_leaderboard",
       pressed: leaderboardPressed || null,
-      ontoggle: this.toggleIABBanners,
       onToggle: this.toggleIABBanners,
       label: "Enable IAB Leaderboard"
     })), /*#__PURE__*/external_React_default().createElement("div", {
@@ -1331,7 +1328,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "newtab_billboard",
       pressed: billboardPressed || null,
-      ontoggle: this.toggleIABBanners,
       onToggle: this.toggleIABBanners,
       label: "Enable IAB Billboard"
     })), /*#__PURE__*/external_React_default().createElement("div", {
@@ -1339,7 +1335,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "newtab_rectangle",
       pressed: mediumRectangleEnabledPressed || null,
-      ontoggle: this.toggleIABBanners,
       onToggle: this.toggleIABBanners,
       label: "Enable IAB Medium Rectangle (MREC)"
     }))), /*#__PURE__*/external_React_default().createElement("button", {
@@ -2272,6 +2267,7 @@ const LinkMenuOptions = {
               [sectionKey]: {
                 isBlocked: true,
                 isFollowed: false,
+                title,
               },
             },
           }),
@@ -6736,6 +6732,10 @@ const INITIAL_STATE = {
   ExternalComponents: {
     components: [],
   },
+  SportsWidget: {
+    data: null,
+    initialized: false,
+  },
 };
 
 function App(prevState = INITIAL_STATE.App, action) {
@@ -7275,7 +7275,11 @@ function DiscoveryStream(prevState = INITIAL_STATE.DiscoveryStream, action) {
         ...prevState,
       };
     case actionTypes.DISCOVERY_STREAM_LAYOUT_RESET:
-      return { ...INITIAL_STATE.DiscoveryStream, config: prevState.config };
+      return {
+        ...INITIAL_STATE.DiscoveryStream,
+        config: prevState.config,
+        sectionPersonalization: prevState.sectionPersonalization,
+      };
     case actionTypes.DISCOVERY_STREAM_FEEDS_UPDATE:
       return {
         ...prevState,
@@ -7719,6 +7723,15 @@ function ExternalComponents(
   }
 }
 
+function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
+  switch (action.type) {
+    case actionTypes.WIDGETS_SPORTS_WIDGET_SET:
+      return { ...prevState, data: action.data, initialized: true };
+    default:
+      return prevState;
+  }
+}
+
 const reducers = {
   TopSites,
   App,
@@ -7738,6 +7751,7 @@ const reducers = {
   SectionsLayout,
   Weather,
   ExternalComponents,
+  SportsWidget,
 };
 
 ;// CONCATENATED MODULE: ./content-src/components/TopSites/TopSiteFormInput.jsx
@@ -10622,10 +10636,14 @@ function SectionFollowButton({
   }
 
   // Bug 2030391 - Provide an aria-label for the default icon state
-  const labelL10nId = following ? "newtab-section-unfollow-button-label" : "newtab-section-follow-button-label";
-  const labelL10nArgs = JSON.stringify({
-    topic: title
-  });
+  let labelL10nId = null;
+  let labelL10nArgs = null;
+  if (title) {
+    labelL10nId = following ? "newtab-section-unfollow-button-label" : "newtab-section-follow-button-label";
+    labelL10nArgs = JSON.stringify({
+      topic: title
+    });
+  }
   const handleFollowClick = () => {
     setJustFollowed(true);
     onFollowClick();
@@ -11995,6 +12013,11 @@ const PREF_WIDGETS_SYSTEM_TIMER_ENABLED =
   "widgets.system.focusTimer.enabled";
 const PREF_WIDGETS_SYSTEM_WEATHER_ENABLED =
   "widgets.system.weather.enabled";
+const PREF_WIDGETS_SPORTS_WIDGET_ENABLED =
+  "widgets.sportsWidget.enabled";
+const PREF_SPORTS_WIDGET_SIZE = "widgets.sportsWidget.size";
+const PREF_WIDGETS_SYSTEM_SPORTS_WIDGET_ENABLED =
+  "widgets.system.sportsWidget.enabled";
 
 /**
  * @typedef {object} WidgetRegistryEntry
@@ -12055,6 +12078,20 @@ const WIDGET_REGISTRY = [
     trainhopEnabledKey: "weatherEnabled",
     trainhopSizeKey: "weatherSize",
     trainhopSidebarKey: "weatherSidebar",
+  },
+  {
+    id: "sportsWidget",
+    telemetryName: "sports_widget",
+    order: 3,
+    enabledPref: PREF_WIDGETS_SPORTS_WIDGET_ENABLED,
+    sizePref: PREF_SPORTS_WIDGET_SIZE,
+    defaultSize: "medium",
+    validSizes: ["medium", "large"],
+    hasSidebar: false,
+    systemEnabledPref: PREF_WIDGETS_SYSTEM_SPORTS_WIDGET_ENABLED,
+    trainhopEnabledKey: "sportsWidgetEnabled",
+    trainhopSizeKey: "sportsWidgetSize",
+    trainhopSidebarKey: null,
   },
 ];
 
@@ -12177,11 +12214,199 @@ function getHideAllTargets(prefs, widgetEnabledMap) {
   }));
 }
 
+;// CONCATENATED MODULE: ./content-src/components/Widgets/WidgetCelebration.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+
+const DEFAULT_GRADIENT_STOPS = [{
+  offset: "0%",
+  color: "var(--color-orange-20)"
+}, {
+  offset: "28%",
+  color: "var(--color-orange-30)"
+}, {
+  offset: "64%",
+  color: "var(--color-pink-30)"
+}, {
+  offset: "100%",
+  color: "var(--color-pink-40)"
+}];
+const WidgetCelebration = ({
+  classNamePrefix = "widget-celebration",
+  celebrationFrame,
+  celebrationId,
+  gradientStops = DEFAULT_GRADIENT_STOPS,
+  headlineL10nId,
+  illustrationSrc,
+  onComplete,
+  subheadL10nId
+}) => {
+  const className = suffix => suffix ? `${classNamePrefix}-${suffix}` : classNamePrefix;
+  const resolvedIllustrationSrc = illustrationSrc?.endsWith(".svg") ? `${illustrationSrc}?run=${celebrationId}` : illustrationSrc;
+  const strokeSize = celebrationFrame.strokeInset * 2;
+  const strokeWidth = celebrationFrame.width - strokeSize;
+  const strokeHeight = celebrationFrame.height - strokeSize;
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: className(),
+    key: celebrationId,
+    role: "status",
+    "aria-live": "polite",
+    onAnimationEnd: event => {
+      if (event.target === event.currentTarget && event.animationName === "widget-celebration-lifecycle") {
+        onComplete?.();
+      }
+    }
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: className("effects"),
+    "aria-hidden": "true"
+  }, /*#__PURE__*/external_React_default().createElement("svg", {
+    viewBox: `0 0 ${celebrationFrame.width} ${celebrationFrame.height}`,
+    preserveAspectRatio: "none"
+  }, /*#__PURE__*/external_React_default().createElement("defs", null, /*#__PURE__*/external_React_default().createElement("linearGradient", {
+    id: `${classNamePrefix}-gradient-${celebrationId}`,
+    x1: "0%",
+    y1: "0%",
+    x2: "100%",
+    y2: "100%"
+  }, gradientStops.map(({
+    offset,
+    color
+  }) => /*#__PURE__*/external_React_default().createElement("stop", {
+    key: offset,
+    offset: offset,
+    stopColor: color
+  })))), /*#__PURE__*/external_React_default().createElement("rect", {
+    className: className("stroke-track"),
+    x: celebrationFrame.strokeInset,
+    y: celebrationFrame.strokeInset,
+    width: strokeWidth,
+    height: strokeHeight,
+    rx: celebrationFrame.radius,
+    ry: celebrationFrame.radius,
+    pathLength: "100"
+  }), /*#__PURE__*/external_React_default().createElement("rect", {
+    className: className("stroke"),
+    x: celebrationFrame.strokeInset,
+    y: celebrationFrame.strokeInset,
+    width: strokeWidth,
+    height: strokeHeight,
+    rx: celebrationFrame.radius,
+    ry: celebrationFrame.radius,
+    pathLength: "100",
+    stroke: `url(#${classNamePrefix}-gradient-${celebrationId})`
+  }), /*#__PURE__*/external_React_default().createElement("rect", {
+    className: className("stroke-orbit"),
+    x: celebrationFrame.strokeInset,
+    y: celebrationFrame.strokeInset,
+    width: strokeWidth,
+    height: strokeHeight,
+    rx: celebrationFrame.radius,
+    ry: celebrationFrame.radius,
+    pathLength: "100"
+  }))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: className("copy")
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: className("headline"),
+    "data-l10n-id": headlineL10nId
+  }), /*#__PURE__*/external_React_default().createElement("span", {
+    className: className("subhead"),
+    "data-l10n-id": subheadL10nId
+  })), resolvedIllustrationSrc && /*#__PURE__*/external_React_default().createElement("img", {
+    alt: "",
+    "aria-hidden": "true",
+    className: className("illustration"),
+    src: resolvedIllustrationSrc
+  }));
+};
+;// CONCATENATED MODULE: ./content-src/components/Widgets/useWidgetCelebration.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+
+
+/**
+ * Shared widget-celebration lifecycle hook.
+ *
+ * Usage:
+ * 1. Create a ref for the widget root element and pass it to this hook.
+ * 2. Render <WidgetCelebration /> only when both `isCelebrating` and
+ *    `celebrationFrame` are truthy, and pass `completeCelebration` to the
+ *    component's `onComplete` prop.
+ * 3. Call `triggerCelebration()` when the widget reaches its completion state.
+ *    Returns `false` if the animation was skipped (reduced motion or no
+ *    widget ref) so the caller can run its completion handler inline.
+ *
+ * Example:
+ * const widgetRef = useRef(null);
+ * const {
+ *   celebrationFrame,
+ *   celebrationId,
+ *   completeCelebration,
+ *   isCelebrating,
+ *   triggerCelebration,
+ * } = useWidgetCelebration(widgetRef);
+ *
+ * <article ref={widgetRef}>
+ *   {isCelebrating && celebrationFrame ? (
+ *     <WidgetCelebration
+ *       celebrationFrame={celebrationFrame}
+ *       celebrationId={celebrationId}
+ *       onComplete={completeCelebration}
+ *       ...
+ *     />
+ *   ) : null}
+ * </article>
+ */
+const useWidgetCelebration = widgetRef => {
+  const [celebrationId, setCelebrationId] = (0,external_React_namespaceObject.useState)(0);
+  const [isCelebrating, setIsCelebrating] = (0,external_React_namespaceObject.useState)(false);
+  const [celebrationFrame, setCelebrationFrame] = (0,external_React_namespaceObject.useState)(null);
+  const triggerCelebration = (0,external_React_namespaceObject.useCallback)(() => {
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return false;
+    }
+    const widget = widgetRef.current;
+    if (!widget) {
+      return false;
+    }
+    const {
+      width,
+      height
+    } = widget.getBoundingClientRect();
+    const strokeInset = 1.5;
+    const borderRadius = parseFloat(getComputedStyle(widget).borderTopLeftRadius) || 0;
+    const frame = {
+      height,
+      radius: Math.max(0, borderRadius - strokeInset),
+      strokeInset,
+      width
+    };
+    setCelebrationFrame(frame);
+    setCelebrationId(currentValue => currentValue + 1);
+    setIsCelebrating(true);
+    return true;
+  }, [widgetRef]);
+  const completeCelebration = (0,external_React_namespaceObject.useCallback)(() => {
+    setIsCelebrating(false);
+  }, []);
+  return {
+    celebrationFrame,
+    celebrationId,
+    completeCelebration,
+    isCelebrating,
+    triggerCelebration
+  };
+};
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/Lists/Lists.jsx
 function Lists_extends() { return Lists_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, Lists_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+
 
 
 
@@ -12196,21 +12421,92 @@ const USER_ACTION_TYPES = {
   CHANGE_SIZE: "change_size",
   LIST_COPY: "list_copy",
   LIST_CREATE: "list_create",
-  LIST_DELETE: "list_delete",
   LIST_EDIT: "list_edit",
-  TASK_COMPLETE: "task_complete",
+  LIST_DELETE: "list_delete",
   TASK_CREATE: "task_create",
+  TASK_EDIT: "task_edit",
   TASK_DELETE: "task_delete",
-  TASK_EDIT: "task_edit"
+  TASK_COMPLETE: "task_complete"
 };
 const PREF_WIDGETS_LISTS_MAX_LISTS = "widgets.lists.maxLists";
 const PREF_WIDGETS_LISTS_MAX_LISTITEMS = "widgets.lists.maxListItems";
 const PREF_WIDGETS_LISTS_BADGE_ENABLED = "widgets.lists.badge.enabled";
 const PREF_WIDGETS_LISTS_BADGE_LABEL = "widgets.lists.badge.label";
+const PREF_WIDGETS_LISTS_SIZE = "widgets.lists.size";
 const Lists_PREF_NOVA_ENABLED = "nova.enabled";
-const Lists_PREF_LISTS_SIZE = "widgets.lists.size";
+const LISTS_EMPTY_STATE_ILLUSTRATION = "chrome://newtab/content/data/content/assets/firefox-pictorgram-pencil-rgb.svg";
+const LISTS_CELEBRATION = {
+  headlineL10nId: "newtab-widget-lists-celebration-headline",
+  illustrationSrc: "chrome://newtab/content/data/content/assets/firefox-motion-head-pop-up-no-bg.svg",
+  subheadL10nId: "newtab-widget-lists-celebration-subhead"
+};
+const ENABLE_COMPACT_COMPLETED_PREVIEW = false;
+const getCompactPreviewState = ({
+  enableCompactCompletedPreview,
+  isCompactMediumSize,
+  selectedList,
+  showCompactCompleted
+}) => {
+  const hasIncompleteTasks = selectedList?.tasks.length >= 1;
+  const hasCompletedTasks = selectedList?.completed.length >= 1;
+  const hasAnyTasks = hasIncompleteTasks || hasCompletedTasks;
+  const isShowingCompactCompleted = enableCompactCompletedPreview && isCompactMediumSize && hasCompletedTasks && (showCompactCompleted || !hasIncompleteTasks);
+  let hasVisibleTasks = hasAnyTasks;
+  if (isCompactMediumSize) {
+    hasVisibleTasks = isShowingCompactCompleted ? hasCompletedTasks : hasIncompleteTasks;
+  }
+  return {
+    hasIncompleteTasks,
+    hasCompletedTasks,
+    hasAnyTasks,
+    hasVisibleTasks,
+    isShowingCompactCompleted,
+    compactPreviewTasks: isShowingCompactCompleted ? selectedList?.completed : selectedList?.tasks,
+    compactPreviewTaskType: isShowingCompactCompleted ? TASK_TYPE.COMPLETED : TASK_TYPE.IN_PROGRESS
+  };
+};
+const renderListSwitcherOrTitle = ({
+  currentListsCount,
+  lists,
+  onSelect,
+  selected,
+  defaultListLabelL10nId
+}) => {
+  const selectedLabel = lists[selected]?.label;
+  if (currentListsCount > 1) {
+    return /*#__PURE__*/external_React_default().createElement("div", {
+      className: "lists-switcher"
+    }, /*#__PURE__*/external_React_default().createElement("span", Lists_extends({
+      className: "lists-title",
+      id: "lists-switcher-label"
+    }, selectedLabel ? {} : {
+      "data-l10n-id": defaultListLabelL10nId
+    }), selectedLabel || null), /*#__PURE__*/external_React_default().createElement("moz-button", {
+      "aria-haspopup": "true",
+      "aria-labelledby": "lists-switcher-label",
+      className: "lists-switcher-button",
+      iconSrc: "chrome://global/skin/icons/arrow-down-12.svg",
+      menuId: "lists-switcher-panel",
+      type: "ghost"
+    }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+      id: "lists-switcher-panel"
+    }, Object.entries(lists).map(([key, list]) => /*#__PURE__*/external_React_default().createElement("panel-item", Lists_extends({
+      key: key,
+      checked: key === selected,
+      onClick: () => onSelect(key),
+      type: "checkbox"
+    }, list.label ? {} : {
+      "data-l10n-id": defaultListLabelL10nId
+    }), list.label || null))));
+  }
+  return /*#__PURE__*/external_React_default().createElement("span", Lists_extends({
+    className: "lists-title"
+  }, selectedLabel ? {} : {
+    "data-l10n-id": defaultListLabelL10nId
+  }), selectedLabel || null);
+};
 
-// eslint-disable-next-line max-statements
+// eslint-disable-next-line complexity, max-statements
 function Lists({
   dispatch,
   handleUserInteraction,
@@ -12223,28 +12519,55 @@ function Lists({
     lists
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.ListsWidget);
   const [newTask, setNewTask] = (0,external_React_namespaceObject.useState)("");
+  const [isAddingTask, setIsAddingTask] = (0,external_React_namespaceObject.useState)(false);
   const [isEditing, setIsEditing] = (0,external_React_namespaceObject.useState)(false);
   const [pendingNewList, setPendingNewList] = (0,external_React_namespaceObject.useState)(null);
+  const [showCompactCompleted, setShowCompactCompleted] = (0,external_React_namespaceObject.useState)(false);
   const selectedList = (0,external_React_namespaceObject.useMemo)(() => lists[selected], [lists, selected]);
-
-  // @nova-cleanup(remove-pref): Remove novaEnabled and this check; always use resolveWidgetSize directly and always apply col-4 class after Nova ships
   const novaEnabled = prefs[Lists_PREF_NOVA_ENABLED];
-  // Nova path: only "medium" or "large" are selectable; "small" is disabled in the submenu
-  const isSmallSize = novaEnabled ? false : !isMaximized && widgetsMayBeMaximized;
   const listsWidget = WIDGET_REGISTRY.find(w => w.id === "lists");
-  let widgetSize;
-  if (novaEnabled) {
-    widgetSize = resolveWidgetSize(listsWidget, prefs);
-  } else {
-    widgetSize = isSmallSize ? "small" : "medium";
-  }
+  const getListsWidgetSize = () => {
+    if (novaEnabled) {
+      const resolvedSize = resolveWidgetSize(listsWidget, prefs);
+      return resolvedSize === "small" ? "medium" : resolvedSize;
+    }
+    const requestedSize = prefs[PREF_WIDGETS_LISTS_SIZE];
+    if (requestedSize === "large" || requestedSize === "medium") {
+      return requestedSize;
+    }
+    if (requestedSize === "small") {
+      return "medium";
+    }
+    if (!widgetsMayBeMaximized) {
+      return "large";
+    }
+    return isMaximized ? "large" : "medium";
+  };
+  const widgetSize = getListsWidgetSize();
+  const isMediumSize = widgetSize === "medium";
   const prevCompletedCount = (0,external_React_namespaceObject.useRef)(selectedList?.completed?.length || 0);
   const inputRef = (0,external_React_namespaceObject.useRef)(null);
-  const selectRef = (0,external_React_namespaceObject.useRef)(null);
   const reorderListRef = (0,external_React_namespaceObject.useRef)(null);
-  const [canvasRef, fireConfetti] = useConfetti();
+  const sizeSubmenuRef = (0,external_React_namespaceObject.useRef)(null);
+  const widgetRef = (0,external_React_namespaceObject.useRef)(null);
   const impressionFired = (0,external_React_namespaceObject.useRef)(false);
+  const {
+    celebrationFrame,
+    celebrationId,
+    completeCelebration,
+    isCelebrating,
+    triggerCelebration
+  } = useWidgetCelebration(widgetRef);
   const handleListInteraction = (0,external_React_namespaceObject.useCallback)(() => handleUserInteraction("lists"), [handleUserInteraction]);
+  const handleSelectList = (0,external_React_namespaceObject.useCallback)(listId => {
+    setIsEditing(false);
+    setPendingNewList(null);
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_LISTS_CHANGE_SELECTED,
+      data: listId
+    }));
+    handleListInteraction();
+  }, [dispatch, handleListInteraction]);
 
   // store selectedList with useMemo so it isnt re-calculated on every re-render
   const isValidUrl = (0,external_React_namespaceObject.useCallback)(str => URL.canParse(str), []);
@@ -12259,14 +12582,14 @@ function Lists({
       }));
       const telemetryData = {
         widget_name: "lists",
-        widget_size: widgetSize
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
       };
       dispatch(actionCreators.AlsoToMain({
         type: actionTypes.WIDGETS_IMPRESSION,
         data: telemetryData
       }));
     });
-  }, [dispatch, widgetSize]);
+  }, [dispatch, widgetsMayBeMaximized, widgetSize]);
   const listsRef = useIntersectionObserver(handleIntersection);
   const reorderLists = (0,external_React_namespaceObject.useCallback)((draggedElement, targetElement, before = false) => {
     const draggedIndex = selectedList.tasks.findIndex(({
@@ -12316,18 +12639,7 @@ function Lists({
     }
   }, [selectedList, reorderLists]);
   (0,external_React_namespaceObject.useEffect)(() => {
-    const selectNode = selectRef.current;
     const reorderNode = reorderListRef.current;
-    if (!selectNode || !reorderNode) {
-      return undefined;
-    }
-    function handleSelectChange(e) {
-      dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WIDGETS_LISTS_CHANGE_SELECTED,
-        data: e.target.value
-      }));
-      handleListInteraction();
-    }
     function handleReorder(e) {
       const {
         draggedElement,
@@ -12336,13 +12648,11 @@ function Lists({
       } = e.detail;
       reorderLists(draggedElement, targetElement, position === -1);
     }
-    reorderNode.addEventListener("reorder", handleReorder);
-    selectNode.addEventListener("change", handleSelectChange);
+    reorderNode?.addEventListener("reorder", handleReorder);
     return () => {
-      selectNode.removeEventListener("change", handleSelectChange);
-      reorderNode.removeEventListener("reorder", handleReorder);
+      reorderNode?.removeEventListener("reorder", handleReorder);
     };
-  }, [dispatch, isEditing, reorderLists, handleListInteraction]);
+  }, [reorderLists]);
 
   // effect that enables editing new list name only after store has been hydrated
   (0,external_React_namespaceObject.useEffect)(() => {
@@ -12351,6 +12661,19 @@ function Lists({
       setPendingNewList(null);
     }
   }, [selected, pendingNewList]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (isAddingTask) {
+      inputRef.current?.focus();
+    }
+  }, [isAddingTask]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    setShowCompactCompleted(false);
+  }, [selected]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (!selectedList?.completed?.length) {
+      setShowCompactCompleted(false);
+    }
+  }, [selectedList]);
   function saveTask() {
     const trimmedTask = newTask.trimEnd();
     // only add new task if it has a length, to avoid creating empty tasks
@@ -12386,7 +12709,7 @@ function Lists({
           widget_name: "lists",
           widget_source: "widget",
           user_action: USER_ACTION_TYPES.TASK_CREATE,
-          widget_size: widgetSize
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
         };
         dispatch(actionCreators.OnlyToMain({
           type: actionTypes.WIDGETS_USER_EVENT,
@@ -12394,8 +12717,9 @@ function Lists({
         }));
       });
       setNewTask("");
-      handleListInteraction();
     }
+    setIsAddingTask(false);
+    handleListInteraction();
   }
   function updateTask(updatedTask, type) {
     const isCompletedType = type === TASK_TYPE.COMPLETED;
@@ -12456,7 +12780,7 @@ function Lists({
           widget_name: "lists",
           widget_source: "widget",
           user_action: userAction,
-          widget_size: widgetSize
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
         };
         dispatch(actionCreators.AlsoToMain({
           type: actionTypes.WIDGETS_USER_EVENT,
@@ -12495,7 +12819,7 @@ function Lists({
         widget_name: "lists",
         widget_source: "widget",
         user_action: USER_ACTION_TYPES.TASK_DELETE,
-        widget_size: widgetSize
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
       };
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.WIDGETS_USER_EVENT,
@@ -12510,7 +12834,12 @@ function Lists({
     } else if (e.key === "Escape" && document.activeElement === inputRef.current) {
       // Clear out the input when esc is pressed
       setNewTask("");
+      setIsAddingTask(false);
     }
+  }
+  function handleShowTaskInput() {
+    setIsAddingTask(true);
+    handleListInteraction();
   }
   function handleListNameSave(newLabel) {
     const trimmedLabel = newLabel.trimEnd();
@@ -12539,7 +12868,7 @@ function Lists({
           widget_name: "lists",
           widget_source: "widget",
           user_action: USER_ACTION_TYPES.LIST_EDIT,
-          widget_size: widgetSize
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
         };
         dispatch(actionCreators.OnlyToMain({
           type: actionTypes.WIDGETS_USER_EVENT,
@@ -12581,7 +12910,7 @@ function Lists({
         widget_name: "lists",
         widget_source: "widget",
         user_action: USER_ACTION_TYPES.LIST_CREATE,
-        widget_size: widgetSize
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
       };
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.WIDGETS_USER_EVENT,
@@ -12621,7 +12950,7 @@ function Lists({
           widget_name: "lists",
           widget_source: "widget",
           user_action: USER_ACTION_TYPES.LIST_DELETE,
-          widget_size: widgetSize
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
         };
         dispatch(actionCreators.OnlyToMain({
           type: actionTypes.WIDGETS_USER_EVENT,
@@ -12671,7 +13000,7 @@ function Lists({
           widget_name: "lists",
           widget_source: "widget",
           user_action: USER_ACTION_TYPES.LIST_DELETE,
-          widget_size: widgetSize
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
         };
         dispatch(actionCreators.OnlyToMain({
           type: actionTypes.WIDGETS_USER_EVENT,
@@ -12694,7 +13023,7 @@ function Lists({
         widget_name: "lists",
         widget_source: "context_menu",
         enabled: false,
-        widget_size: widgetSize
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
       };
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.WIDGETS_ENABLED,
@@ -12734,7 +13063,7 @@ function Lists({
         widget_name: "lists",
         widget_source: "widget",
         user_action: USER_ACTION_TYPES.LIST_COPY,
-        widget_size: widgetSize
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
       };
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.WIDGETS_USER_EVENT,
@@ -12747,35 +13076,18 @@ function Lists({
     dispatch(actionCreators.OnlyToMain({
       type: actionTypes.OPEN_LINK,
       data: {
-        url: "https://support.mozilla.org/kb/firefox-new-tab-widgets"
+        url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
+        where: "tab"
       }
     }));
     handleListInteraction();
   }
-
-  // Reset baseline only when switching lists
-  (0,external_React_namespaceObject.useEffect)(() => {
-    prevCompletedCount.current = selectedList?.completed?.length || 0;
-    // intentionally leaving out selectedList from dependency array
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
-  (0,external_React_namespaceObject.useEffect)(() => {
-    if (selectedList) {
-      const doneCount = selectedList.completed?.length || 0;
-      const previous = Math.floor(prevCompletedCount.current / 5);
-      const current = Math.floor(doneCount / 5);
-      if (current > previous) {
-        fireConfetti();
-      }
-      prevCompletedCount.current = doneCount;
-    }
-  }, [selectedList, fireConfetti, selected]);
   const handleChangeSize = (0,external_React_namespaceObject.useCallback)(size => {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.SET_PREF,
         data: {
-          name: Lists_PREF_LISTS_SIZE,
+          name: PREF_WIDGETS_LISTS_SIZE,
           value: size
         }
       }));
@@ -12791,16 +13103,11 @@ function Lists({
       }));
     });
   }, [dispatch]);
-  const sizeSubmenuRef = (0,external_React_namespaceObject.useRef)(null);
   (0,external_React_namespaceObject.useEffect)(() => {
     const el = sizeSubmenuRef.current;
     if (!el) {
       return undefined;
     }
-    // The size submenu panel-list is moved into the panel-item's shadow DOM by
-    // the panel-list custom element, so React's synthetic onClick doesn't reach
-    // inner items. We use composedPath() to find the clicked item across the
-    // shadow boundary via its data-size attribute.
     const listener = e => {
       const item = e.composedPath().find(node => node.dataset?.size);
       if (item) {
@@ -12810,6 +13117,25 @@ function Lists({
     el.addEventListener("click", listener);
     return () => el.removeEventListener("click", listener);
   }, [handleChangeSize]);
+
+  // Reset baseline only when switching lists
+  (0,external_React_namespaceObject.useEffect)(() => {
+    prevCompletedCount.current = selectedList?.completed?.length || 0;
+    setIsAddingTask(false);
+    // intentionally leaving out selectedList from dependency array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (selectedList) {
+      const doneCount = selectedList.completed?.length || 0;
+      const previous = Math.floor(prevCompletedCount.current / 5);
+      const current = Math.floor(doneCount / 5);
+      if (current > previous) {
+        triggerCelebration();
+      }
+      prevCompletedCount.current = doneCount;
+    }
+  }, [selectedList, triggerCelebration, selected]);
   if (!lists) {
     return null;
   }
@@ -12833,21 +13159,61 @@ function Lists({
   // Fallback to 0 if the selected id isn’t found.
   const listKeys = Object.keys(lists);
   const selectedIndex = Math.max(0, listKeys.indexOf(selected));
-  const listNamePlaceholder = currentListsCount > 1 && selectedIndex !== 0 ? "newtab-widget-lists-name-placeholder-new" : "newtab-widget-lists-name-placeholder-default";
+  const listNamePlaceholder = currentListsCount > 1 && selectedIndex !== 0 ? "newtab-widget-lists-name-placeholder-new2" : "newtab-widget-lists-name-placeholder-checklist2";
   const nimbusBadgeEnabled = prefs.widgetsConfig?.listsBadgeEnabled;
   const nimbusBadgeLabel = prefs.widgetsConfig?.listsBadgeLabel;
   const nimbusBadgeTrainhopEnabled = prefs.trainhopConfig?.widgets?.listsBadgeEnabled;
   const nimbusBadgeTrainhopLabel = prefs.trainhopConfig?.widgets?.listsBadgeLabel;
   const badgeEnabled = (nimbusBadgeEnabled || nimbusBadgeTrainhopEnabled) ?? prefs[PREF_WIDGETS_LISTS_BADGE_ENABLED] ?? false;
   const badgeLabel = (nimbusBadgeLabel || nimbusBadgeTrainhopLabel) ?? prefs[PREF_WIDGETS_LISTS_BADGE_LABEL] ?? "";
+  const {
+    hasIncompleteTasks,
+    hasCompletedTasks,
+    hasAnyTasks,
+    hasVisibleTasks,
+    isShowingCompactCompleted
+  } = getCompactPreviewState({
+    enableCompactCompletedPreview: ENABLE_COMPACT_COMPLETED_PREVIEW,
+    isCompactMediumSize: isMediumSize,
+    selectedList,
+    showCompactCompleted
+  });
+  const showCompactPopulatedState = isMediumSize && hasAnyTasks;
+  const showCompletedTasks = !isMediumSize && hasCompletedTasks;
+  const showInlineAddButton = !showCompactPopulatedState;
+  const showHeaderAddButton = showCompactPopulatedState;
+  const showEmptyState = !hasAnyTasks && !isAddingTask;
+  const defaultListLabelL10nId = "newtab-widget-lists-name-default";
+  const listsSizeClass = widgetSize === "large" ? "large-widget" : "medium-widget compact-widget";
+  function renderAddTaskButton(iconOnly = false) {
+    return /*#__PURE__*/external_React_default().createElement("button", {
+      className: `lists-add-button${iconOnly ? " icon-only" : ""}`,
+      disabled: isAtMaxListItemsLimit,
+      onClick: handleShowTaskInput,
+      type: "button"
+    }, /*#__PURE__*/external_React_default().createElement("span", {
+      className: "icon icon-add"
+    }), /*#__PURE__*/external_React_default().createElement("span", {
+      className: iconOnly ? "sr-only" : "button-label",
+      "data-l10n-id": "newtab-widget-lists-button-add-item"
+    }));
+  }
   return /*#__PURE__*/external_React_default().createElement("article", {
-    // @nova-cleanup(remove-conditional): Remove novaEnabled check; always apply col-4 and size class after Nova ships
-    className: `lists widget ${novaEnabled ? `col-4 ${widgetSize}-widget` : ""} ${isSmallSize ? "is-small" : ""} ${isMaximized ? "is-maximized" : ""}`,
+    className: `lists widget ${novaEnabled ? "col-4" : ""} ${listsSizeClass} ${isMaximized ? "is-maximized" : ""}${showEmptyState ? " is-empty" : ""}${hasVisibleTasks ? " has-visible-tasks" : ""}${isAddingTask ? " is-adding-task" : ""}${isCelebrating ? " is-celebrating" : ""}`,
     ref: el => {
+      widgetRef.current = el;
       listsRef.current = [el];
     }
-  }, /*#__PURE__*/external_React_default().createElement("div", {
-    className: "select-wrapper"
+  }, isCelebrating && celebrationFrame ? /*#__PURE__*/external_React_default().createElement(WidgetCelebration, {
+    classNamePrefix: "lists-celebration",
+    celebrationFrame: celebrationFrame,
+    celebrationId: celebrationId,
+    headlineL10nId: LISTS_CELEBRATION.headlineL10nId,
+    illustrationSrc: LISTS_CELEBRATION.illustrationSrc,
+    onComplete: completeCelebration,
+    subheadL10nId: LISTS_CELEBRATION.subheadL10nId
+  }) : null, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "lists-header"
   }, /*#__PURE__*/external_React_default().createElement(EditableText, {
     value: lists[selected]?.label || "",
     onSave: handleListNameSave,
@@ -12856,19 +13222,15 @@ function Lists({
     onCancel: handleCancelNewList,
     type: "list",
     maxLength: 30,
+    ariaLabelL10nId: "newtab-widget-lists-menu-edit2",
     dataL10nId: listNamePlaceholder
-  }, /*#__PURE__*/external_React_default().createElement("moz-select", {
-    ref: selectRef,
-    value: selected
-  }, Object.entries(lists).map(([key, list]) => /*#__PURE__*/external_React_default().createElement("moz-option", Lists_extends({
-    key: key,
-    value: key
-    // On the first/initial list, use default name
-  }, list.label ? {
-    label: list.label
-  } : {
-    "data-l10n-id": "newtab-widget-lists-name-label-default"
-  }))))), !isEditing && badgeEnabled && badgeLabel && /*#__PURE__*/external_React_default().createElement("moz-badge", {
+  }, renderListSwitcherOrTitle({
+    currentListsCount,
+    lists,
+    onSelect: handleSelectList,
+    selected,
+    defaultListLabelL10nId
+  })), !isEditing && badgeEnabled && badgeLabel && !isMediumSize && /*#__PURE__*/external_React_default().createElement("moz-badge", {
     "data-l10n-id": (() => {
       if (badgeLabel === "New") {
         return "newtab-widget-lists-label-new";
@@ -12878,8 +13240,23 @@ function Lists({
       }
       return "";
     })()
-  }), /*#__PURE__*/external_React_default().createElement("moz-button", {
+  }), showHeaderAddButton && renderAddTaskButton(true), ENABLE_COMPACT_COMPLETED_PREVIEW && isMediumSize && hasCompletedTasks && /*#__PURE__*/external_React_default().createElement("button", {
+    "aria-pressed": isShowingCompactCompleted,
+    className: `lists-completed-button${isShowingCompactCompleted ? " is-active" : ""}`,
+    onClick: () => hasIncompleteTasks && setShowCompactCompleted(currentValue => !currentValue),
+    type: "button"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    "aria-hidden": "true",
+    className: "lists-completed-button-label"
+  }, "C"), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sr-only",
+    "data-l10n-id": "newtab-widget-lists-completed-list",
+    "data-l10n-args": JSON.stringify({
+      number: selectedList?.completed.length
+    })
+  })), /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "lists-panel-button",
+    "data-l10n-id": "newtab-menu-section-tooltip",
     iconSrc: "chrome://global/skin/icons/more.svg",
     menuId: "lists-panel",
     type: "ghost"
@@ -12900,32 +13277,29 @@ function Lists({
   }), /*#__PURE__*/external_React_default().createElement("hr", null), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-widget-lists-menu-copy",
     onClick: () => handleCopyListToClipboard()
-  }),
-  // @nova-cleanup(remove-conditional): Remove the `novaEnabled &&` check; keep widgetsMayBeMaximized
-  novaEnabled && widgetsMayBeMaximized && /*#__PURE__*/external_React_default().createElement("panel-item", {
-    submenu: "lists-size-submenu"
-  }, /*#__PURE__*/external_React_default().createElement("span", {
+  }), novaEnabled && widgetsMayBeMaximized && /*#__PURE__*/external_React_default().createElement("panel-item", {
+    submenu: "lists-size-submenu",
     "data-l10n-id": "newtab-widget-menu-change-size"
-  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+  }, /*#__PURE__*/external_React_default().createElement("panel-list", {
     ref: sizeSubmenuRef,
     slot: "submenu",
     id: "lists-size-submenu"
-  }, ["small", "medium", "large"].map(size => /*#__PURE__*/external_React_default().createElement("panel-item", Lists_extends({
+  }, ["medium", "large"].map(size => /*#__PURE__*/external_React_default().createElement("panel-item", {
     key: size,
     type: "checkbox",
     checked: widgetSize === size || undefined,
     "data-size": size,
     "data-l10n-id": `newtab-widget-size-${size}`
-  }, size === "small" ? {
-    disabled: true
-  } : {}))))), /*#__PURE__*/external_React_default().createElement("panel-item", {
+  })))), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-widget-menu-hide",
     onClick: () => handleHideLists()
   }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     className: "learn-more",
     "data-l10n-id": "newtab-widget-lists-menu-learn-more",
     onClick: handleLearnMore
-  }))), /*#__PURE__*/external_React_default().createElement("div", {
+  }))), (showInlineAddButton || isAddingTask) && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "lists-add-action"
+  }, showInlineAddButton && renderAddTaskButton(), /*#__PURE__*/external_React_default().createElement("div", {
     className: "add-task-container"
   }, /*#__PURE__*/external_React_default().createElement("span", {
     className: `icon icon-add ${isAtMaxListItemsLimit ? "icon-disabled" : ""}`
@@ -12934,19 +13308,28 @@ function Lists({
     onBlur: () => saveTask(),
     onChange: e => setNewTask(e.target.value),
     value: newTask,
-    "data-l10n-id": "newtab-widget-lists-input-add-an-item",
+    "data-l10n-id": "newtab-widget-lists-input-add-an-item2",
+    "data-l10n-attrs": "placeholder,aria-label",
     className: "add-task-input",
     onKeyDown: handleKeyDown,
     type: "text",
     maxLength: 100,
     disabled: isAtMaxListItemsLimit
-  })), /*#__PURE__*/external_React_default().createElement("div", {
+  }))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "task-list-wrapper"
-  }, /*#__PURE__*/external_React_default().createElement("moz-reorderable-list", {
+  }, showEmptyState ? /*#__PURE__*/external_React_default().createElement("div", {
+    className: "empty-list"
+  }, /*#__PURE__*/external_React_default().createElement("img", {
+    className: "empty-list-illustration",
+    src: LISTS_EMPTY_STATE_ILLUSTRATION,
+    width: "68",
+    height: "68",
+    alt: ""
+  })) : /*#__PURE__*/external_React_default().createElement("moz-reorderable-list", {
     ref: reorderListRef,
     itemSelector: "fieldset .task-type-tasks",
     dragSelector: ".checkbox-wrapper:has(.task-label)"
-  }, /*#__PURE__*/external_React_default().createElement("fieldset", null, selectedList?.tasks.length >= 1 && selectedList.tasks.map((task, index) => /*#__PURE__*/external_React_default().createElement(ListItem, {
+  }, /*#__PURE__*/external_React_default().createElement("fieldset", null, isMediumSize ? hasIncompleteTasks && selectedList.tasks.map((task, index) => /*#__PURE__*/external_React_default().createElement(ListItem, {
     type: TASK_TYPE.IN_PROGRESS,
     task: task,
     key: task.id,
@@ -12956,7 +13339,17 @@ function Lists({
     isValidUrl: isValidUrl,
     isFirst: index === 0,
     isLast: index === selectedList.tasks.length - 1
-  })), selectedList?.completed.length >= 1 && /*#__PURE__*/external_React_default().createElement("details", {
+  })) : hasIncompleteTasks && selectedList.tasks.map((task, index) => /*#__PURE__*/external_React_default().createElement(ListItem, {
+    type: TASK_TYPE.IN_PROGRESS,
+    task: task,
+    key: task.id,
+    updateTask: updateTask,
+    deleteTask: deleteTask,
+    moveTask: moveTask,
+    isValidUrl: isValidUrl,
+    isFirst: index === 0,
+    isLast: index === selectedList.tasks.length - 1
+  })), showCompletedTasks && /*#__PURE__*/external_React_default().createElement("details", {
     className: "completed-task-wrapper",
     open: selectedList?.tasks.length < 1
   }, /*#__PURE__*/external_React_default().createElement("summary", null, /*#__PURE__*/external_React_default().createElement("span", {
@@ -12965,31 +13358,13 @@ function Lists({
       number: lists[selected]?.completed.length
     }),
     className: "completed-title"
-  })), selectedList?.completed.map(completedTask => /*#__PURE__*/external_React_default().createElement(ListItem, {
+  })), selectedList.completed.map(completedTask => /*#__PURE__*/external_React_default().createElement(ListItem, {
     key: completedTask.id,
     type: TASK_TYPE.COMPLETED,
     task: completedTask,
     deleteTask: deleteTask,
     updateTask: updateTask
-  }))))), selectedList?.tasks.length < 1 && selectedList?.completed.length < 1 && /*#__PURE__*/external_React_default().createElement("div", {
-    className: "empty-list"
-  }, /*#__PURE__*/external_React_default().createElement("picture", null, /*#__PURE__*/external_React_default().createElement("source", {
-    srcSet: "chrome://newtab/content/data/content/assets/lists-empty-state-dark.svg",
-    media: "(prefers-color-scheme: dark)"
-  }), /*#__PURE__*/external_React_default().createElement("source", {
-    srcSet: "chrome://newtab/content/data/content/assets/lists-empty-state-light.svg",
-    media: "(prefers-color-scheme: light)"
-  }), /*#__PURE__*/external_React_default().createElement("img", {
-    width: "100",
-    height: "100",
-    alt: ""
-  })), /*#__PURE__*/external_React_default().createElement("p", {
-    className: "empty-list-text",
-    "data-l10n-id": "newtab-widget-lists-empty-cta"
-  }))), /*#__PURE__*/external_React_default().createElement("canvas", {
-    className: "confetti-canvas",
-    ref: canvasRef
-  }));
+  })))))));
 }
 function ListItem({
   task,
@@ -13075,8 +13450,10 @@ function ListItem({
     setIsEditing: setIsEditing,
     value: task.value,
     onSave: handleSave,
-    type: "task"
+    type: "task",
+    ariaLabelL10nId: "newtab-widget-lists-input-menu-edit2"
   }, taskLabel)), /*#__PURE__*/external_React_default().createElement("moz-button", {
+    "data-l10n-id": "newtab-menu-section-tooltip",
     iconSrc: "chrome://global/skin/icons/more.svg",
     menuId: `panel-task-${task.id}`,
     type: "ghost"
@@ -13114,6 +13491,7 @@ function EditableText({
   children,
   type,
   dataL10nId = null,
+  ariaLabelL10nId = null,
   maxLength = 100
 }) {
   const [tempValue, setTempValue] = (0,external_React_namespaceObject.useState)(value);
@@ -13121,6 +13499,8 @@ function EditableText({
 
   // True if tempValue is empty, null/undefined, or only whitespace
   const showPlaceholder = (tempValue ?? "").trim() === "";
+  const inputL10nId = showPlaceholder && dataL10nId ? dataL10nId : ariaLabelL10nId;
+  const inputL10nAttrs = showPlaceholder && dataL10nId ? "placeholder,aria-label" : "aria-label";
   (0,external_React_namespaceObject.useEffect)(() => {
     if (isEditing) {
       inputRef.current?.focus();
@@ -13151,9 +13531,10 @@ function EditableText({
     onChange: event => setTempValue(event.target.value),
     onBlur: handleOnBlur,
     onKeyDown: handleKeyDown
-    // Note that if a user has a custom name set, it will override the placeholder
-  }, showPlaceholder && dataL10nId ? {
-    "data-l10n-id": dataL10nId
+  }, inputL10nId ? {
+    "data-l10n-id": inputL10nId
+  } : {}, inputL10nId ? {
+    "data-l10n-attrs": inputL10nAttrs
   } : {})) : [children];
 }
 
@@ -13168,6 +13549,15 @@ function FocusTimer_extends() { return FocusTimer_extends = Object.assign ? Obje
 
 
 
+
+
+const FOCUS_TIMER_CELEBRATION_GRADIENT_STOPS = [{
+  offset: "0%",
+  color: "var(--timer-celebration-leading)"
+}, {
+  offset: "100%",
+  color: "var(--timer-celebration-trailing)"
+}];
 const FocusTimer_USER_ACTION_TYPES = {
   CHANGE_SIZE: "change_size",
   TIMER_SET: "timer_set",
@@ -13228,6 +13618,25 @@ const isAtMaxLength = currentValue => {
   return currentValue.length >= 2;
 };
 
+// @nova-cleanup(remove): Drop after Nova ships
+/**
+ * Validates whether the next state of the Nova spinbutton is acceptable.
+ * Allows up to 2 digits, an optional single colon, and up to 2 more digits.
+ *
+ * @param current - The element's current text content
+ * @param input - The string the user is about to insert
+ * @param start - The selection start (insertion point) within `current`
+ * @param end - The selection end within `current`
+ * @returns boolean - true if the resulting string matches the MM:SS pattern
+ */
+const isValidSpinbuttonInput = (current, input, start, end) => {
+  if (input === null || input === undefined) {
+    return true;
+  }
+  const next = current.slice(0, start) + input + current.slice(end);
+  return /^(\d{1,2})?(:\d{0,2})?$/.test(next);
+};
+
 /**
  * Converts a polar coordinate (angle on circle) into a percentage-based [x,y] position for clip-path
  *
@@ -13263,6 +13672,8 @@ const getClipPath = progress => {
   }
   return `polygon(${points.join(", ")})`;
 };
+
+/* eslint-disable complexity, max-statements */
 const FocusTimer = ({
   dispatch,
   handleUserInteraction,
@@ -13296,6 +13707,16 @@ const FocusTimer = ({
   } else {
     widgetSize = isSmallSize ? "small" : "medium";
   }
+
+  // @nova-cleanup(remove-conditional): Inline these for Nova-only after Nova ships
+  // Nova spinbutton works in whole minutes; ceil to the next minute so a 4:38
+  // remainder reads as "5 minutes" via aria-valuenow / accessible name.
+  const minutesValue = Math.max(1, Math.ceil((timeLeft || duration) / 60));
+  // For +/- and arrow-key adjustments, treat the integer-minutes part of the
+  // current duration as the base so e.g. 0:01 + 1 -> 1:00 (not 2:00).
+  const minutesFloor = Math.floor((timeLeft || duration) / 60);
+  const hasProgressed = duration < initialDuration || isRunning;
+  const isComplete = progress === 1;
   const handleTimerInteraction = (0,external_React_namespaceObject.useCallback)(() => handleUserInteraction("focusTimer"), [handleUserInteraction]);
   const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
     if (impressionFired.current) {
@@ -13317,6 +13738,21 @@ const FocusTimer = ({
     });
   }, [dispatch, widgetSize]);
   const timerRef = useIntersectionObserver(handleIntersection);
+  const widgetCelebrationRef = (0,external_React_namespaceObject.useRef)(null);
+  const {
+    celebrationFrame,
+    celebrationId,
+    completeCelebration,
+    isCelebrating,
+    triggerCelebration
+  } = useWidgetCelebration(widgetCelebrationRef);
+  // Guards against a double-fire that would re-toggle SET_TYPE.
+  const celebrationCompletedRef = (0,external_React_namespaceObject.useRef)(false);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (isCelebrating) {
+      celebrationCompletedRef.current = false;
+    }
+  }, [isCelebrating]);
   const resetProgressCircle = (0,external_React_namespaceObject.useCallback)(() => {
     if (arcRef?.current) {
       arcRef.current.style.clipPath = "polygon(50% 50%)";
@@ -13325,108 +13761,119 @@ const FocusTimer = ({
     setProgress(0);
     handleTimerInteraction();
   }, [arcRef, handleTimerInteraction]);
-  const showSystemNotifications = prefs["widgets.focusTimer.showSystemNotifications"];
-  (0,external_React_namespaceObject.useEffect)(() => {
-    // resets default values after timer ends
-    let interval;
-    let hasReachedZero = false;
-    if (isRunning && duration > 0) {
-      interval = setInterval(() => {
-        const currentTime = Math.floor(Date.now() / 1000);
-        const elapsed = currentTime - startTime;
-        const remaining = calculateTimeRemaining(duration, startTime);
-
-        // using setTimeLeft to trigger a re-render of the component to show live countdown each second
-        setTimeLeft(remaining);
-        setProgress((initialDuration - remaining) / initialDuration);
-        if (elapsed >= duration && hasReachedZero) {
-          clearInterval(interval);
-          (0,external_ReactRedux_namespaceObject.batch)(() => {
-            dispatch(actionCreators.AlsoToMain({
-              type: actionTypes.WIDGETS_TIMER_END,
-              data: {
-                timerType,
-                duration: initialTimerDuration,
-                initialDuration: initialTimerDuration
-              }
-            }));
-            dispatch(actionCreators.OnlyToMain({
-              type: actionTypes.WIDGETS_TIMER_USER_EVENT,
-              data: {
-                userAction: FocusTimer_USER_ACTION_TYPES.TIMER_END
-              }
-            }));
-            const telemetryData = {
-              widget_name: "focus_timer",
-              widget_source: "widget",
-              user_action: FocusTimer_USER_ACTION_TYPES.TIMER_END,
-              widget_size: widgetSize
-            };
-            dispatch(actionCreators.OnlyToMain({
-              type: actionTypes.WIDGETS_USER_EVENT,
-              data: telemetryData
-            }));
-          });
-
-          // animate the progress circle to turn solid green
-          setProgress(1);
-
-          // More transitions after a delay to allow the animation above to complete
-          setTimeout(() => {
-            // progress circle goes back to default grey
-            resetProgressCircle();
-
-            // There's more to see!
-            setTimeout(() => {
-              // switch over to the other timer type
-              // eslint-disable-next-line max-nested-callbacks
-              (0,external_ReactRedux_namespaceObject.batch)(() => {
-                dispatch(actionCreators.AlsoToMain({
-                  type: actionTypes.WIDGETS_TIMER_SET_TYPE,
-                  data: {
-                    timerType: timerType === "focus" ? "break" : "focus"
-                  }
-                }));
-                const userAction = timerType === "focus" ? FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_BREAK : FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS;
-                dispatch(actionCreators.OnlyToMain({
-                  type: actionTypes.WIDGETS_TIMER_USER_EVENT,
-                  data: {
-                    userAction
-                  }
-                }));
-                const telemetryData = {
-                  widget_name: "focus_timer",
-                  widget_source: "widget",
-                  user_action: userAction,
-                  widget_size: widgetSize
-                };
-                dispatch(actionCreators.OnlyToMain({
-                  type: actionTypes.WIDGETS_USER_EVENT,
-                  data: telemetryData
-                }));
-              });
-            }, 500);
-          }, 1000);
-        } else if (elapsed >= duration) {
-          hasReachedZero = true;
-        }
-      }, 1000);
+  const handleCelebrationComplete = (0,external_React_namespaceObject.useCallback)(() => {
+    if (celebrationCompletedRef.current) {
+      return;
     }
+    celebrationCompletedRef.current = true;
+    resetProgressCircle();
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_TIMER_SET_TYPE,
+        data: {
+          timerType: timerType === "focus" ? "break" : "focus"
+        }
+      }));
+      const userAction = timerType === "focus" ? FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_BREAK : FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS;
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_TIMER_USER_EVENT,
+        data: {
+          userAction
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "focus_timer",
+          widget_source: "widget",
+          user_action: userAction,
+          widget_size: widgetSize
+        }
+      }));
+    });
+    completeCelebration();
+  }, [completeCelebration, dispatch, resetProgressCircle, timerType, widgetSize]);
+  const showSystemNotifications = prefs["widgets.focusTimer.showSystemNotifications"];
 
-    // Shows the correct live time in the UI whenever the timer state changes
-    const newTime = isRunning ? calculateTimeRemaining(duration, startTime) : duration;
-    setTimeLeft(newTime);
+  // Held in a ref so the ticker effect below doesn't re-arm whenever
+  // timerType / widgetSize / handleCelebrationComplete change. Reassigned
+  // each render so the closure captures the latest values at fire time.
+  const handleTimerEndRef = (0,external_React_namespaceObject.useRef)(null);
+  handleTimerEndRef.current = () => {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_TIMER_END,
+        data: {
+          timerType,
+          duration: initialTimerDuration,
+          initialDuration: initialTimerDuration
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_TIMER_USER_EVENT,
+        data: {
+          userAction: FocusTimer_USER_ACTION_TYPES.TIMER_END
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "focus_timer",
+          widget_source: "widget",
+          user_action: FocusTimer_USER_ACTION_TYPES.TIMER_END,
+          widget_size: widgetSize
+        }
+      }));
+    });
+    celebrationCompletedRef.current = false;
 
-    // Set progress for paused timers (handles page load and timer type toggling)
+    // animate the progress circle to turn solid green
+    setProgress(1);
+
+    // Classic mode and reduced-motion users skip the animation, so
+    // run the completion handler inline so the auto-toggle still fires.
+    // @nova-cleanup(remove-conditional): replace with `if (!triggerCelebration())`.
+    if (!(novaEnabled && triggerCelebration())) {
+      handleCelebrationComplete();
+    }
+  };
+
+  // Ticker: re-arms only when run-state changes, not on every timerType flip.
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (!isRunning || duration <= 0) {
+      return undefined;
+    }
+    let hasReachedZero = false;
+    const interval = setInterval(() => {
+      const currentTime = Math.floor(Date.now() / 1000);
+      const elapsed = currentTime - startTime;
+      const remaining = calculateTimeRemaining(duration, startTime);
+
+      // using setTimeLeft to trigger a re-render of the component to show live countdown each second
+      setTimeLeft(remaining);
+      setProgress((initialDuration - remaining) / initialDuration);
+      if (elapsed >= duration && hasReachedZero) {
+        clearInterval(interval);
+        handleTimerEndRef.current?.();
+      } else if (elapsed >= duration) {
+        hasReachedZero = true;
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning, startTime, duration, initialDuration]);
+
+  // Paused-UI sync: shows the correct live time and progress whenever timer
+  // state changes (page load, type toggle, pause/resume).
+  (0,external_React_namespaceObject.useEffect)(() => {
+    setTimeLeft(isRunning ? calculateTimeRemaining(duration, startTime) : duration);
     if (!isRunning && duration < initialDuration) {
       // Show previously elapsed time
       setProgress((initialDuration - duration) / initialDuration);
-    } else if (!isRunning) {
-      // Reset progress for fresh timers
+    } else if (!isRunning && !isCelebrating) {
+      // Don't reset while celebrating — would clear progress=1 mid-animation.
       setProgress(0);
     }
-    return () => clearInterval(interval);
-  }, [isRunning, startTime, duration, initialDuration, dispatch, resetProgressCircle, timerType, initialTimerDuration, widgetSize]);
+  }, [isRunning, startTime, duration, initialDuration, isCelebrating]);
 
   // Update the clip-path of the gradient circle to match the current progress value
   (0,external_React_namespaceObject.useEffect)(() => {
@@ -13444,10 +13891,10 @@ const FocusTimer = ({
   const setTimerDuration = () => {
     const minutesEl = activeMinutesRef.current;
     const secondsEl = activeSecondsRef.current;
-    const minutesValue = minutesEl.innerText.trim() || "0";
-    const secondsValue = secondsEl.innerText.trim() || "0";
-    let minutes = parseInt(minutesValue || "0", 10);
-    let seconds = parseInt(secondsValue || "0", 10);
+    const minutesText = minutesEl.innerText.trim() || "0";
+    const secondsText = secondsEl.innerText.trim() || "0";
+    let minutes = parseInt(minutesText || "0", 10);
+    let seconds = parseInt(secondsText || "0", 10);
 
     // Set a limit of 99 minutes
     minutes = Math.min(minutes, 99);
@@ -13486,6 +13933,11 @@ const FocusTimer = ({
 
   // Pause timer function
   const toggleTimer = () => {
+    // Ignore activations during the celebration window so the just-finished
+    // timer can't be restarted before Focus<->Break flips.
+    if (isCelebrating) {
+      return;
+    }
     if (!isRunning && duration > 0) {
       (0,external_ReactRedux_namespaceObject.batch)(() => {
         dispatch(actionCreators.AlsoToMain({
@@ -13545,6 +13997,11 @@ const FocusTimer = ({
 
   // reset timer function
   const resetTimer = () => {
+    // Same rationale as toggleTimer: don't let the keyboard-reachable
+    // reset button restart the cycle while the celebration is running.
+    if (isCelebrating) {
+      return;
+    }
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.AlsoToMain({
         type: actionTypes.WIDGETS_TIMER_RESET,
@@ -13759,6 +14216,148 @@ const FocusTimer = ({
       }));
     });
   }, [dispatch]);
+
+  // @nova-cleanup(remove-conditional): Drop the legacy callers and inline this for Nova
+  const setTimerMinutes = (0,external_React_namespaceObject.useCallback)(nextMinutes => {
+    const clamped = Math.max(1, Math.min(99, nextMinutes));
+    const totalSeconds = clamped * 60;
+    if (totalSeconds === duration) {
+      return;
+    }
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_TIMER_SET_DURATION,
+        data: {
+          timerType,
+          duration: totalSeconds
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_TIMER_USER_EVENT,
+        data: {
+          userAction: FocusTimer_USER_ACTION_TYPES.TIMER_SET
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "focus_timer",
+          widget_source: "widget",
+          user_action: FocusTimer_USER_ACTION_TYPES.TIMER_SET,
+          widget_size: widgetSize
+        }
+      }));
+    });
+    handleTimerInteraction();
+  }, [dispatch, duration, timerType, widgetSize, handleTimerInteraction]);
+
+  // @nova-cleanup(remove-conditional): Inline this once the Nova spinbutton is the only path
+  const commitSpinbuttonDuration = (0,external_React_namespaceObject.useCallback)(() => {
+    const el = activeMinutesRef.current;
+    if (!el) {
+      return;
+    }
+    const text = el.innerText.replace(/\s+/g, "");
+    const [mmRaw, ssRaw = "0"] = text.split(":");
+    const mm = parseInt(mmRaw, 10);
+    const ss = parseInt(ssRaw, 10);
+    if (Number.isNaN(mm)) {
+      // Invalid input; restore visual to current state by re-rendering
+      el.innerText = formatTime(timeLeft);
+      return;
+    }
+    const minutes = Math.min(99, Math.max(0, mm));
+    const seconds = Math.min(59, Math.max(0, Number.isNaN(ss) ? 0 : ss));
+    const totalSeconds = Math.max(1, minutes * 60 + seconds);
+    if (totalSeconds === duration) {
+      // No change; rewrite text to clamp display to valid range
+      el.innerText = formatTime(totalSeconds);
+      return;
+    }
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_TIMER_SET_DURATION,
+        data: {
+          timerType,
+          duration: totalSeconds
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_TIMER_USER_EVENT,
+        data: {
+          userAction: FocusTimer_USER_ACTION_TYPES.TIMER_SET
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "focus_timer",
+          widget_source: "widget",
+          user_action: FocusTimer_USER_ACTION_TYPES.TIMER_SET,
+          widget_size: widgetSize
+        }
+      }));
+    });
+    handleTimerInteraction();
+  }, [dispatch, duration, timerType, widgetSize, handleTimerInteraction, timeLeft]);
+
+  // @nova-cleanup(remove-conditional): Remove if the Nova spinbutton is replaced
+  const handleSpinBeforeInput = e => {
+    const input = e.data;
+    if (input === null || input === undefined) {
+      return;
+    }
+    const current = e.target.innerText;
+    const selection = window.getSelection();
+    const start = selection ? Math.min(selection.anchorOffset, selection.focusOffset) : current.length;
+    const end = selection ? Math.max(selection.anchorOffset, selection.focusOffset) : current.length;
+    if (!isValidSpinbuttonInput(current, input, start, end)) {
+      e.preventDefault();
+    }
+  };
+
+  // @nova-cleanup(remove-conditional): Remove if the Nova spinbutton is replaced
+  const handleSpinKeyDown = e => {
+    let next = minutesValue;
+    switch (e.key) {
+      case "Enter":
+        e.preventDefault();
+        commitSpinbuttonDuration();
+        e.target.blur();
+        return;
+      case "ArrowUp":
+        next = minutesFloor + 1;
+        break;
+      case "ArrowDown":
+        next = minutesFloor - 1;
+        break;
+      case "PageUp":
+        next = minutesFloor + 5;
+        break;
+      case "PageDown":
+        next = minutesFloor - 5;
+        break;
+      case "Home":
+        next = 1;
+        break;
+      case "End":
+        next = 99;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    setTimerMinutes(next);
+  };
+
+  // @nova-cleanup(remove-conditional): Remove with the Nova radiogroup
+  const handleRadiogroupKeyDown = e => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") {
+      return;
+    }
+    e.preventDefault();
+    toggleType(timerType === "focus" ? "break" : "focus");
+  };
   const sizeSubmenuRef = (0,external_React_namespaceObject.useRef)(null);
   (0,external_React_namespaceObject.useEffect)(() => {
     const el = sizeSubmenuRef.current;
@@ -13778,13 +14377,29 @@ const FocusTimer = ({
     el.addEventListener("click", listener);
     return () => el.removeEventListener("click", listener);
   }, [handleChangeSize]);
+
+  // Keep the running-state body layout through the celebration so the ring
+  // doesn't shift to a third position during the animation.
+  const bodyShowsRunningLayout = hasProgressed || isCelebrating || isComplete;
   return timerData ? /*#__PURE__*/external_React_default().createElement("article", {
     // @nova-cleanup(remove-conditional): Remove novaEnabled check; always apply col-4 and size class after Nova ships
-    className: `focus-timer widget ${novaEnabled ? `col-4 ${widgetSize}-widget` : ""} ${isSmallSize ? "is-small" : ""} ${isMaximized ? "is-maximized" : ""}`,
+    className: `focus-timer widget ${novaEnabled ? `col-4 ${widgetSize}-widget` : ""} ${isSmallSize ? "is-small" : ""} ${isMaximized ? "is-maximized" : ""}${isComplete ? " is-complete" : ""}${isCelebrating ? " is-celebrating" : ""}${hasProgressed && !isComplete ? " is-active" : ""}`,
     ref: el => {
       timerRef.current = [el];
+      widgetCelebrationRef.current = el;
     }
-  }, /*#__PURE__*/external_React_default().createElement("div", {
+  },
+  // @nova-cleanup(remove-conditional): drop the `novaEnabled &&` guard.
+  novaEnabled && isCelebrating && celebrationFrame ? /*#__PURE__*/external_React_default().createElement(WidgetCelebration, {
+    classNamePrefix: "focus-timer-celebration",
+    celebrationFrame: celebrationFrame,
+    celebrationId: celebrationId,
+    gradientStops: FOCUS_TIMER_CELEBRATION_GRADIENT_STOPS,
+    headlineL10nId: timerType === "focus" ? "newtab-widget-timer-celebration-heading-focus" : "newtab-widget-timer-celebration-heading-break",
+    illustrationSrc: null,
+    onComplete: handleCelebrationComplete,
+    subheadL10nId: timerType === "focus" ? "newtab-widget-timer-celebration-message-focus" : "newtab-widget-timer-celebration-message-break"
+  }) : null, /*#__PURE__*/external_React_default().createElement("div", {
     className: "newtab-widget-timer-notification-title-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("h2", {
     "data-l10n-id": "newtab-widget-timer-notification-title"
@@ -13801,6 +14416,25 @@ const FocusTimer = ({
     "data-l10n-id": showSystemNotifications ? "newtab-widget-timer-menu-notifications" : "newtab-widget-timer-menu-notifications-on",
     onClick: () => {
       handlePrefUpdate("widgets.focusTimer.showSystemNotifications", !showSystemNotifications);
+    }
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    // @nova-cleanup(remove-conditional): Drop the ternary and keep
+    // newtab-widget-timer-menu-hide once Nova ships.
+    "data-l10n-id": novaEnabled ? "newtab-widget-timer-menu-hide" : "newtab-widget-menu-hide",
+    onClick: () => {
+      (0,external_ReactRedux_namespaceObject.batch)(() => {
+        handlePrefUpdate("widgets.focusTimer.enabled", false);
+        const telemetryData = {
+          widget_name: "focus_timer",
+          widget_source: "context_menu",
+          enabled: false,
+          widget_size: widgetSize
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_ENABLED,
+          data: telemetryData
+        }));
+      });
     }
   }),
   // @nova-cleanup(remove-conditional): Remove the `novaEnabled &&` check; keep widgetsMayBeMaximized
@@ -13820,27 +14454,123 @@ const FocusTimer = ({
     "data-l10n-id": `newtab-widget-size-${size}`
   }, size === "small" ? {
     disabled: true
-  } : {}))))), /*#__PURE__*/external_React_default().createElement("panel-item", {
-    "data-l10n-id": "newtab-widget-menu-hide",
-    onClick: () => {
-      (0,external_ReactRedux_namespaceObject.batch)(() => {
-        handlePrefUpdate("widgets.focusTimer.enabled", false);
-        const telemetryData = {
-          widget_name: "focus_timer",
-          widget_source: "context_menu",
-          enabled: false,
-          widget_size: widgetSize
-        };
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_ENABLED,
-          data: telemetryData
-        }));
-      });
-    }
-  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+  } : {}))))),
+  // @nova-cleanup(remove-conditional): Remove the `novaEnabled &&` check; always render the divider.
+  novaEnabled && /*#__PURE__*/external_React_default().createElement("hr", null), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-widget-timer-menu-learn-more",
     onClick: handleLearnMore
-  })))), /*#__PURE__*/external_React_default().createElement("div", {
+  })))),
+  // @nova-cleanup(remove-conditional): Remove this branch and the legacy block below; keep only the Nova body
+  novaEnabled ? /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+    role: "progress",
+    className: `progress-circle-wrapper${isComplete ? " is-complete" : ""}${hasProgressed ? " is-active" : ""}`,
+    onClick: toggleTimer
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: `progress-circle-background${timerType === "break" ? "-break" : ""}`
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: `progress-circle ${timerType === "focus" ? "focus-visible" : "focus-hidden"}`,
+    ref: timerType === "focus" ? arcRef : null
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: `progress-circle ${timerType === "break" ? "break-visible" : "break-hidden"}`,
+    ref: timerType === "break" ? arcRef : null
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: `progress-circle-complete${isComplete ? " visible" : ""}`
+  }), progress > 0 && progress < 1 && /*#__PURE__*/external_React_default().createElement("div", {
+    className: `progress-circle-cap-rotator is-${timerType}`,
+    style: {
+      "--progress-angle": `${progress * 360}deg`
+    },
+    "aria-hidden": "true"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "progress-circle-cap"
+  })), /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "focus-timer-play-button",
+    type: "icon ghost",
+    iconsrc: `chrome://global/skin/media/${isRunning ? "pause" : "play"}-fill.svg`,
+    "data-l10n-id": isRunning ? "newtab-widget-timer-pause-aria" : "newtab-widget-timer-start-aria",
+    "data-l10n-args": JSON.stringify({
+      minutes: minutesValue
+    }),
+    onClick: e => {
+      e.stopPropagation();
+      toggleTimer();
+    }
+  })), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "focus-timer-body"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "focus-timer-time-slot"
+  }, bodyShowsRunningLayout && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "focus-timer-time-display"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "focus-timer-time-text"
+  }, formatTime(timeLeft)), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "focus-timer-time-mode",
+    "data-l10n-id": timerType === "focus" ? "newtab-widget-timer-running-focus" : "newtab-widget-timer-running-break"
+  })), !bodyShowsRunningLayout && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "focus-timer-time-row"
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "focus-timer-minute-decrement",
+    type: "icon ghost",
+    iconsrc: "chrome://global/skin/icons/minus.svg",
+    "data-l10n-id": "newtab-widget-timer-decrease-min",
+    "aria-controls": "focus-timer-spinbutton",
+    tabindex: "-1",
+    onClick: () => setTimerMinutes(minutesFloor - 1)
+  }), /*#__PURE__*/external_React_default().createElement("span", {
+    id: "focus-timer-spinbutton",
+    className: "focus-timer-spinbutton",
+    role: "spinbutton",
+    "aria-valuemin": 1,
+    "aria-valuemax": 99,
+    "aria-valuenow": minutesValue,
+    "data-l10n-id": "newtab-widget-timer-spinbutton-name",
+    "data-l10n-args": JSON.stringify({
+      minutes: minutesValue
+    }),
+    contentEditable: "true",
+    suppressContentEditableWarning: true,
+    tabIndex: 0,
+    onKeyDown: handleSpinKeyDown,
+    onBeforeInput: handleSpinBeforeInput,
+    onFocus: handleFocus,
+    onBlur: commitSpinbuttonDuration,
+    ref: activeMinutesRef
+  }, formatTime(timeLeft)), /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "focus-timer-minute-increment",
+    type: "icon ghost",
+    iconsrc: "chrome://global/skin/icons/plus.svg",
+    "data-l10n-id": "newtab-widget-timer-increase-min",
+    "aria-controls": "focus-timer-spinbutton",
+    tabindex: "-1",
+    onClick: () => setTimerMinutes(minutesFloor + 1)
+  }))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "focus-timer-bottom-slot"
+  }, bodyShowsRunningLayout && widgetSize === "large" && /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "focus-timer-reset-button",
+    type: "icon",
+    iconsrc: "chrome://newtab/content/data/content/assets/arrow-clockwise-16.svg",
+    "data-l10n-id": "newtab-widget-timer-reset",
+    onClick: resetTimer
+  }), !bodyShowsRunningLayout && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "focus-timer-mode-group",
+    role: "radiogroup",
+    "data-l10n-id": "newtab-widget-timer-mode-group",
+    onKeyDown: handleRadiogroupKeyDown
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    role: "radio",
+    "aria-checked": timerType === "focus" ? "true" : "false",
+    tabindex: timerType === "focus" ? "0" : "-1",
+    type: timerType === "focus" ? "default" : "ghost",
+    "data-l10n-id": "newtab-widget-timer-mode-focus",
+    onClick: () => toggleType("focus")
+  }), /*#__PURE__*/external_React_default().createElement("moz-button", {
+    role: "radio",
+    "aria-checked": timerType === "break" ? "true" : "false",
+    tabindex: timerType === "break" ? "0" : "-1",
+    type: timerType === "break" ? "default" : "ghost",
+    "data-l10n-id": "newtab-widget-timer-mode-break",
+    onClick: () => toggleType("break")
+  }))))) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
     className: "focus-timer-tabs"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "focus-timer-tabs-buttons"
@@ -13896,8 +14626,10 @@ const FocusTimer = ({
   }))), !showSystemNotifications && !timerData[timerType].isRunning && /*#__PURE__*/external_React_default().createElement("p", {
     className: "timer-notification-status",
     "data-l10n-id": "newtab-widget-timer-notification-warning"
-  })) : null;
+  }))) : null;
 };
+/* eslint-enable complexity, max-statements */
+
 function EditableTimerFields({
   minutesRef,
   secondsRef,
@@ -14970,10 +15702,402 @@ function WidgetsFeatureHighlight({
   });
 }
 
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/WidgetsRowFeatureHighlight.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+
+
+
+function WidgetsRowFeatureHighlight({
+  handleDismiss,
+  handleBlock,
+  dispatch
+}) {
+  const {
+    messageData
+  } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
+  const onDismiss = (0,external_React_namespaceObject.useCallback)(() => {
+    handleDismiss();
+    handleBlock();
+  }, [handleDismiss, handleBlock]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "widgets-row-feature-highlight"
+  }, /*#__PURE__*/React.createElement(FeatureHighlight, {
+    position: "inset-inline-center inset-block-end",
+    arrowPosition: "arrow-top-start",
+    openedOverride: true,
+    showButtonIcon: false,
+    feature: messageData.content.feature,
+    modalClassName: "widgets-row-highlight-modal",
+    message: /*#__PURE__*/React.createElement("div", {
+      className: "widgets-row-highlight-content"
+    }, messageData.content.cardTitle ? /*#__PURE__*/React.createElement("h3", {
+      className: "title"
+    }, messageData.content.cardTitle) : /*#__PURE__*/React.createElement("h3", {
+      className: "title",
+      "data-l10n-id": messageData.content.title || "newtab-widget-message-title"
+    }), messageData.content.cardMessage ? /*#__PURE__*/React.createElement("p", {
+      className: "subtitle"
+    }, messageData.content.cardMessage) : /*#__PURE__*/React.createElement("p", {
+      className: "subtitle",
+      "data-l10n-id": messageData.content.subtitle || "newtab-widget-message-copy"
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "button-wrapper"
+    }, messageData.content.cardCta ? /*#__PURE__*/React.createElement("moz-button", {
+      type: "primary",
+      onClick: onDismiss,
+      label: messageData.content.cardCta
+    }) : /*#__PURE__*/React.createElement("moz-button", {
+      type: "primary",
+      onClick: onDismiss,
+      "data-l10n-id": messageData.content.cta || "newtab-wallpaper-feature-highlight-button"
+    }))),
+    dispatch: dispatch,
+    dismissCallback: onDismiss,
+    outsideClickCallback: handleDismiss
+  }));
+}
+
+;// CONCATENATED MODULE: ./content-src/components/Widgets/SportsWidget/SportsWidget.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+// eslint-disable-next-line no-unused-vars
+
+
+
+
+const SportsWidget_USER_ACTION_TYPES = {
+  FOLLOW_TEAMS: "follow_teams",
+  VIEW_UPCOMING: "view_upcoming",
+  VIEW_RESULTS: "view_results",
+  VIEW_SCHEDULE: "view_schedule",
+  CHANGE_SIZE: "change_size",
+  LEARN_MORE: "learn_more"
+};
+const SportsWidget_PREF_NOVA_ENABLED = "nova.enabled";
+const SportsWidget_PREF_SPORTS_WIDGET_SIZE = "widgets.sportsWidget.size";
+const PREF_SPORTS_WIDGET_LIVE_ENABLED = "widgets.sportsWidget.live.enabled";
+
+// June 11, 2026, midnight CST (UTC-6)
+const WORLD_CUP_KICKOFF = new Date("2026-06-11T06:00:00Z");
+const calculateCountdown = targetDate => {
+  const diff = targetDate.getTime() - Date.now();
+  if (diff <= 0) {
+    return null;
+  }
+  const totalSeconds = Math.floor(diff / 1000);
+  return {
+    days: Math.floor(totalSeconds / 86400),
+    hours: Math.floor(totalSeconds % 86400 / 3600),
+    minutes: Math.floor(totalSeconds % 3600 / 60)
+  };
+};
+function SportsWidget_SportsWidget({
+  dispatch,
+  handleUserInteraction
+}) {
+  const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
+  const sportsWidgetData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.SportsWidget);
+  const widgetSize = prefs[SportsWidget_PREF_SPORTS_WIDGET_SIZE] || "medium";
+  const liveEnabled = prefs[PREF_SPORTS_WIDGET_LIVE_ENABLED];
+  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
+  const sizeSubmenuRef = (0,external_React_namespaceObject.useRef)(null);
+  const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
+    if (impressionFired.current) {
+      return;
+    }
+    impressionFired.current = true;
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_IMPRESSION,
+      data: {
+        widget_name: "sports_widget",
+        widget_size: widgetSize
+      }
+    }));
+  }, [dispatch, widgetSize]);
+  const widgetRef = useIntersectionObserver(handleIntersection);
+  const handleInteraction = (0,external_React_namespaceObject.useCallback)(() => handleUserInteraction("sportsWidget"), [handleUserInteraction]);
+  function handleFollowTeams() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "sports_widget",
+          widget_source: "context_menu",
+          user_action: SportsWidget_USER_ACTION_TYPES.FOLLOW_TEAMS,
+          widget_size: widgetSize
+        }
+      }));
+    });
+    handleInteraction();
+  }
+  function handleViewUpcoming() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "sports_widget",
+          widget_source: "context_menu",
+          user_action: SportsWidget_USER_ACTION_TYPES.VIEW_UPCOMING,
+          widget_size: widgetSize
+        }
+      }));
+    });
+    handleInteraction();
+  }
+  function handleViewResults() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "sports_widget",
+          widget_source: "context_menu",
+          user_action: SportsWidget_USER_ACTION_TYPES.VIEW_RESULTS,
+          widget_size: widgetSize
+        }
+      }));
+    });
+    handleInteraction();
+  }
+  function handleSportsWidgetHide() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "widgets.sportsWidget.enabled",
+          value: false
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_ENABLED,
+        data: {
+          widget_name: "sports_widget",
+          widget_source: "context_menu",
+          enabled: false,
+          widget_size: widgetSize
+        }
+      }));
+    });
+    handleInteraction();
+  }
+  const handleChangeSize = (0,external_React_namespaceObject.useCallback)(size => {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: SportsWidget_PREF_SPORTS_WIDGET_SIZE,
+          value: size
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "sports_widget",
+          widget_source: "context_menu",
+          user_action: SportsWidget_USER_ACTION_TYPES.CHANGE_SIZE,
+          action_value: size,
+          widget_size: size
+        }
+      }));
+    });
+  }, [dispatch]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const el = sizeSubmenuRef.current;
+    if (!el) {
+      return undefined;
+    }
+    const listener = e => {
+      const item = e.composedPath().find(node => node.dataset?.size);
+      if (item) {
+        handleChangeSize(item.dataset.size);
+      }
+    };
+    el.addEventListener("click", listener);
+    return () => el.removeEventListener("click", listener);
+  }, [handleChangeSize]);
+  function handleCountdownViewSchedule() {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.WIDGETS_USER_EVENT,
+      data: {
+        widget_name: "sports_widget",
+        widget_source: "countdown",
+        user_action: SportsWidget_USER_ACTION_TYPES.VIEW_SCHEDULE,
+        widget_size: widgetSize
+      }
+    }));
+    handleInteraction();
+  }
+  function handleCountdownFollowTeams() {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.WIDGETS_USER_EVENT,
+      data: {
+        widget_name: "sports_widget",
+        widget_source: "countdown",
+        user_action: SportsWidget_USER_ACTION_TYPES.FOLLOW_TEAMS,
+        widget_size: widgetSize
+      }
+    }));
+    handleInteraction();
+  }
+  function handleLearnMore() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.OPEN_LINK,
+        data: {
+          url: "https://support.mozilla.org/kb/firefox-new-tab-widgets"
+        }
+      }));
+      const telemetryData = {
+        widget_name: "sports_widget",
+        widget_source: "context_menu",
+        user_action: SportsWidget_USER_ACTION_TYPES.LEARN_MORE,
+        widget_size: widgetSize
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
+      }));
+    });
+  }
+  const countdownActive = calculateCountdown(WORLD_CUP_KICKOFF);
+
+  // @nova-cleanup(remove-gate): Remove this guard and PREF_NOVA_ENABLED after Nova ships
+  if (!prefs[SportsWidget_PREF_NOVA_ENABLED]) {
+    return null;
+  }
+  return /*#__PURE__*/external_React_default().createElement("article", {
+    className: `sports-widget widget col-4 ${widgetSize}-widget`,
+    ref: el => {
+      widgetRef.current = [el];
+    }
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-widget-title-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("div", null), countdownActive && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "countdown-text-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("h2", {
+    className: "sports-widget-countdown-title",
+    "data-l10n-id": "newtab-sports-widget-countdown-title"
+  }), /*#__PURE__*/external_React_default().createElement("p", {
+    className: "sports-widget-countdown-lede",
+    "data-l10n-id": "newtab-sports-widget-get-updates"
+  })), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-widget-context-menu-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "sports-widget-context-menu-button",
+    iconSrc: "chrome://global/skin/icons/more.svg",
+    menuId: "sports-widget-context-menu",
+    type: "ghost"
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+    id: "sports-widget-context-menu"
+  }, /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-sports-widget-menu-follow-teams",
+    onClick: handleFollowTeams
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-sports-widget-menu-view-upcoming",
+    onClick: handleViewUpcoming
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-sports-widget-menu-view-results",
+    onClick: handleViewResults
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    submenu: "sports-widget-size-submenu"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    "data-l10n-id": "newtab-widget-menu-change-size"
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+    ref: sizeSubmenuRef,
+    slot: "submenu",
+    id: "sports-widget-size-submenu"
+  }, ["medium", "large"].map(size => /*#__PURE__*/external_React_default().createElement("panel-item", {
+    key: size,
+    type: "checkbox",
+    checked: widgetSize === size || undefined,
+    "data-size": size,
+    "data-l10n-id": `newtab-widget-size-${size}`
+  })))), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-widget-menu-hide",
+    onClick: handleSportsWidgetHide
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-sports-widget-menu-learn-more",
+    onClick: handleLearnMore
+  })))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-widget-body"
+  }, countdownActive && /*#__PURE__*/external_React_default().createElement(SportsWidgetCountdown, {
+    widgetSize: widgetSize,
+    onViewSchedule: handleCountdownViewSchedule,
+    onFollowTeams: handleCountdownFollowTeams
+  }), liveEnabled && sportsWidgetData?.initialized && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-widget-live-scores"
+  })));
+}
+function SportsWidgetCountdown({
+  widgetSize,
+  onViewSchedule,
+  onFollowTeams
+}) {
+  const [countdown, setCountdown] = (0,external_React_namespaceObject.useState)(() => calculateCountdown(WORLD_CUP_KICKOFF));
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const interval = setInterval(() => {
+      const remaining = calculateCountdown(WORLD_CUP_KICKOFF);
+      setCountdown(remaining);
+      if (!remaining) {
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  if (!countdown) {
+    return null;
+  }
+  const units = [{
+    value: countdown.days,
+    labelId: "newtab-sports-widget-countdown-days"
+  }, {
+    value: countdown.hours,
+    labelId: "newtab-sports-widget-countdown-hours"
+  }, {
+    value: countdown.minutes,
+    labelId: "newtab-sports-widget-countdown-minutes"
+  }];
+  return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-widget-countdown"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-widget-countdown-units",
+    "aria-live": "off"
+  }, units.map(({
+    value,
+    labelId
+  }) => /*#__PURE__*/external_React_default().createElement("div", {
+    key: labelId,
+    className: "sports-widget-countdown-unit"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sports-widget-countdown-value"
+  }, String(value).padStart(2, "0")), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sports-widget-countdown-label",
+    "data-l10n-id": labelId
+  }))))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "countdown-buttons-wrapper"
+  }, widgetSize !== "medium" && /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "primary",
+    "data-l10n-id": "newtab-sports-widget-view-schedule",
+    className: "countdown-view-schedule",
+    onClick: onViewSchedule
+  }), /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "secondary",
+    size: widgetSize === "medium" ? "small" : undefined,
+    "data-l10n-id": "newtab-sports-widget-follow-teams",
+    className: "countdown-follow-teams",
+    onClick: onFollowTeams
+  })));
+}
+
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/WidgetsComponentRegistry.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -15007,7 +16131,8 @@ function WeatherSidebarWidget({
 const WIDGET_ROW_COMPONENTS = {
   lists: Lists,
   focusTimer: FocusTimer,
-  weather: WeatherRowWidget
+  weather: WeatherRowWidget,
+  sportsWidget: SportsWidget_SportsWidget
 };
 const WIDGET_SIDEBAR_COMPONENTS = {
   weather: WeatherSidebarWidget
@@ -15021,6 +16146,7 @@ const WIDGET_SIDEBAR_COMPONENTS = {
 
 // Bug 2034542: these per-widget imports can be removed once the non-Nova render
 // path (@nova-cleanup) is gone and all widgets render via WIDGET_ROW_COMPONENTS.
+
 
 
 
@@ -15155,7 +16281,8 @@ function Widgets() {
   const widgetEnabledMap = {
     lists: listsEnabled,
     focusTimer: timerEnabled,
-    weather: weatherEnabled && !weatherGoesToSidebar
+    weather: weatherEnabled && !weatherGoesToSidebar,
+    sportsWidget: isWidgetEnabled(WIDGET_REGISTRY.find(w => w.id === "sportsWidget"), prefs, widgetsEnabled)
   };
   const widgetOrder = resolveWidgetOrder(prefs);
   const anyWidgetInRow = WIDGET_REGISTRY.some(w => widgetEnabledMap[w.id]) || !novaEnabled && weatherForecastEnabled;
@@ -15417,7 +16544,13 @@ function Widgets() {
       isMaximized,
       widgetsMayBeMaximized
     }));
-  })), feedbackEnabled && !novaEnabled && /*#__PURE__*/external_React_default().createElement("a", {
+  })), messageData?.content?.messageType === "NovaWidgetMessage" && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "widgets-row-highlight-anchor"
+  }, /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+    dispatch: dispatch
+  }, /*#__PURE__*/external_React_default().createElement(WidgetsRowFeatureHighlight, {
+    dispatch: dispatch
+  }))), feedbackEnabled && !novaEnabled && /*#__PURE__*/external_React_default().createElement("a", {
     className: "widgets-feedback-link",
     href: feedbackUrl,
     "data-l10n-id": "newtab-widget-section-feedback",
@@ -15464,13 +16597,13 @@ function Widgets() {
  * @param {object} props.props - Properties to assign to the component, where
  *   each key is the property name, and the value is the property value.
  */
+// eslint-disable-next-line no-unsanitized/method
+const defaultImportModule = url => import(/* webpackIgnore: true */url);
 function ExternalComponentWrapper({
   type,
   className,
-  // importFunction is declared as an arrow function here purely so that we can
-  // override it for testing.
-  // eslint-disable-next-line no-unsanitized/method
-  importModule = url => import(/* webpackIgnore: true */url),
+  // importModule can be overridden for testing.
+  importModule = defaultImportModule,
   ...props
 }) {
   const containerRef = external_React_default().useRef(null);
@@ -15925,15 +17058,25 @@ function SectionsMgmtPanel({
   if (sectionsFeedName) {
     sectionsList = sections[sectionsFeedName]?.data?.sections ?? [];
   }
-  const [sectionsState, setSectionState] = (0,external_React_namespaceObject.useState)(sectionPersonalization); // State management with useState
-
+  const [sectionsState, setSectionState] = (0,external_React_namespaceObject.useState)(sectionPersonalization);
   let followedSectionsData = sectionsList.filter(item => sectionsState[item.sectionKey]?.isFollowed);
-  let blockedSectionsData = sectionsList.filter(item => sectionsState[item.sectionKey]?.isBlocked);
+
+  // Keys of sections currently returned by the feed .
+  const sectionListKeys = new Set(sectionsList.map(s => s.sectionKey));
+
+  // Blocked sections still present in the feed (normal case, cache not yet expired).
+  const blockedFromFeed = sectionsList.filter(item => sectionsState[item.sectionKey]?.isBlocked);
+
+  // Blocked sections absent from the feed (Sections not returned from merino).
+  // Reconstructed from persisted personalization data using the title
+  // stored at block-time.
+  const blockedFromPersonalization = Object.entries(sectionsState).filter(([key, val]) => val?.isBlocked && val.title && !sectionListKeys.has(key)).map(([key, val]) => ({
+    sectionKey: key,
+    title: val.title
+  }));
+  let blockedSectionsData = [...blockedFromFeed, ...blockedFromPersonalization];
   function updateCachedData() {
-    // Reset cached followed/blocked list data while panel is open
     setSectionState(sectionPersonalization);
-    followedSectionsData = sectionsList.filter(item => sectionsState[item.sectionKey]?.isFollowed);
-    blockedSectionsData = sectionsList.filter(item => sectionsState[item.sectionKey]?.isBlocked);
   }
   const onFollowClick = (0,external_React_namespaceObject.useCallback)((sectionKey, receivedRank) => {
     dispatch(actionCreators.AlsoToMain({
@@ -15957,14 +17100,15 @@ function SectionsMgmtPanel({
       }
     }));
   }, [dispatch, sectionPersonalization]);
-  const onBlockClick = (0,external_React_namespaceObject.useCallback)((sectionKey, receivedRank) => {
+  const onBlockClick = (0,external_React_namespaceObject.useCallback)((sectionKey, receivedRank, title) => {
     dispatch(actionCreators.AlsoToMain({
       type: actionTypes.SECTION_PERSONALIZATION_SET,
       data: {
         ...sectionPersonalization,
         [sectionKey]: {
           isFollowed: false,
-          isBlocked: true
+          isBlocked: true,
+          title
         }
       }
     }));
@@ -16084,7 +17228,7 @@ function SectionsMgmtPanel({
     }, /*#__PURE__*/external_React_default().createElement("span", null, title), /*#__PURE__*/external_React_default().createElement("div", {
       className: blocked ? "section-block blocked" : "section-block"
     }, /*#__PURE__*/external_React_default().createElement("moz-button", {
-      onClick: () => blocked ? onUnblockClick(sectionKey, receivedRank) : onBlockClick(sectionKey, receivedRank),
+      onClick: () => blocked ? onUnblockClick(sectionKey, receivedRank) : onBlockClick(sectionKey, receivedRank, title),
       type: "default",
       index: receivedRank,
       section: sectionKey,
@@ -16111,7 +17255,9 @@ function SectionsMgmtPanel({
   let arrowIconSrc;
   if (novaEnabled) {
     const isRTL = typeof document !== "undefined" && document.dir === "rtl";
-    arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
+    // @backward-compat { version 151 } Switch to chrome://global/skin/icons/shaft-arrow-${dir}.svg
+    // once Firefox 151 reaches Release (icons not available in toolkit until then).
+    arrowIconSrc = `chrome://newtab/content/data/content/assets/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
   }
   const panelBody = /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("h3", {
     "data-l10n-id": "newtab-section-mangage-topics-followed-topics"
@@ -16654,7 +17800,9 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
     let arrowIconSrc;
     if (novaEnabled) {
       const isRTL = typeof document !== "undefined" && document.dir === "rtl";
-      arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
+      // @backward-compat { version 151 } Switch to chrome://global/skin/icons/shaft-arrow-${dir}.svg
+      // once Firefox 151 reaches Release (icons not available in toolkit until then).
+      arrowIconSrc = `chrome://newtab/content/data/content/assets/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
     }
     // Enable custom color select if pref'ed on
     let showColorPicker = prefs["newtabWallpapers.customColor.enabled"];
@@ -16938,6 +18086,7 @@ function WidgetsManagementPanel({
   mayHaveWeather,
   mayHaveTimerWidget,
   mayHaveListsWidget,
+  mayHaveSportsWidget,
   mayHaveWeatherForecast,
   weatherDisplay,
   setPref
@@ -16988,6 +18137,9 @@ function WidgetsManagementPanel({
         case "WIDGET_TIMER":
           widgetName = "focus_timer";
           break;
+        case "WIDGET_SPORTS":
+          widgetName = "sports_widget";
+          break;
       }
       if (widgetName) {
         const {
@@ -17022,10 +18174,13 @@ function WidgetsManagementPanel({
   } = enabledSections;
   const {
     timerEnabled,
-    listsEnabled
+    listsEnabled,
+    sportsWidgetEnabled
   } = enabledWidgets;
   const isRTL = typeof document !== "undefined" && document.dir === "rtl";
-  const arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
+  // @backward-compat { version 151 } Switch to chrome://global/skin/icons/shaft-arrow-${dir}.svg
+  // once Firefox 151 reaches Release (icons not available in toolkit until then).
+  const arrowIconSrc = `chrome://newtab/content/data/content/assets/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
   return /*#__PURE__*/external_React_default().createElement("div", {
     id: "widgets-management-panel",
     className: "widgets-mgmt-panel-container"
@@ -17062,7 +18217,6 @@ function WidgetsManagementPanel({
   }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
     id: "weather-toggle",
     pressed: weatherEnabled || null,
-    ontoggle: onToggleWidget,
     onToggle: onToggleWidget,
     "data-preference": "widgets.weather.enabled",
     "data-event-source": "WEATHER",
@@ -17073,7 +18227,6 @@ function WidgetsManagementPanel({
   }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
     id: "timer-toggle",
     pressed: timerEnabled || null,
-    ontoggle: onToggleWidget,
     onToggle: onToggleWidget,
     "data-preference": "widgets.focusTimer.enabled",
     "data-event-source": "WIDGET_TIMER",
@@ -17084,11 +18237,23 @@ function WidgetsManagementPanel({
   }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
     id: "lists-toggle",
     pressed: listsEnabled || null,
-    ontoggle: onToggleWidget,
     onToggle: onToggleWidget,
     "data-preference": "widgets.lists.enabled",
     "data-event-source": "WIDGET_LISTS",
     "data-l10n-id": "newtab-custom-widget-lists-toggle"
+  })), mayHaveSportsWidget && /*#__PURE__*/external_React_default().createElement("div", {
+    id: "sports-widget-section",
+    className: "section"
+  }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
+    id: "sports-widget-toggle",
+    pressed: sportsWidgetEnabled || null,
+    ontoggle: onToggleWidget,
+    onToggle: onToggleWidget,
+    "data-preference": "widgets.sportsWidget.enabled",
+    "data-event-source": "WIDGET_SPORTS"
+    //  TODO: add in widget title fluent string when product gets back to us*
+    ,
+    label: "Sports"
   })))))));
 }
 
@@ -17239,6 +18404,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       mayHaveWidgets,
       mayHaveTimerWidget,
       mayHaveListsWidget,
+      mayHaveSportsWidget,
       mayHaveWeatherForecast,
       openPreferences,
       wallpapersUserEnabled,
@@ -17287,7 +18453,6 @@ class ContentSection extends (external_React_default()).PureComponent {
     }, novaEnabled && /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "wallpapers-toggle",
       pressed: wallpapersUserEnabled && !!activeWallpaper || null,
-      ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
       "data-preference": "newtabWallpapers.user.enabled",
       "data-event-source": "WALLPAPERS",
@@ -17311,7 +18476,6 @@ class ContentSection extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "weather-toggle",
       pressed: weatherEnabled || null,
-      ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
       "data-preference": "showWeather",
       "data-event-source": "WEATHER",
@@ -17322,7 +18486,6 @@ class ContentSection extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "lists-toggle",
       pressed: listsEnabled || null,
-      ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
       "data-preference": "widgets.lists.enabled",
       "data-event-source": "WIDGET_LISTS",
@@ -17333,7 +18496,6 @@ class ContentSection extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "timer-toggle",
       pressed: timerEnabled || null,
-      ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
       "data-preference": "widgets.focusTimer.enabled",
       "data-event-source": "WIDGET_TIMER",
@@ -17348,7 +18510,6 @@ class ContentSection extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "weather-toggle",
       pressed: weatherEnabled || null,
-      ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
       "data-preference": novaEnabled ? "widgets.weather.enabled" : "showWeather",
       "data-event-source": "WEATHER",
@@ -17362,7 +18523,6 @@ class ContentSection extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "shortcuts-toggle",
       pressed: topSitesEnabled || null,
-      ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
       "data-preference": "feeds.topsites",
       "data-event-source": "TOP_SITES",
@@ -17410,7 +18570,6 @@ class ContentSection extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "widgets-system-toggle",
       pressed: widgetsEnabled || null,
-      ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
       "data-preference": "widgets.enabled",
       "data-event-source": "WIDGETS_SYSTEM",
@@ -17428,6 +18587,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       mayHaveWeather: mayHaveWeather,
       mayHaveTimerWidget: mayHaveTimerWidget,
       mayHaveListsWidget: mayHaveListsWidget,
+      mayHaveSportsWidget: mayHaveSportsWidget,
       mayHaveWeatherForecast: mayHaveWeatherForecast,
       weatherDisplay: weatherDisplay,
       setPref: setPref,
@@ -17447,7 +18607,6 @@ class ContentSection extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "pocket-toggle",
       pressed: pocketEnabled || null,
-      ontoggle: this.onPreferenceSelect,
       onToggle: this.onPreferenceSelect,
       "data-preference": "feeds.section.topstories",
       "data-event-source": "TOP_STORIES",
@@ -17652,6 +18811,7 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
       weatherDisplay: this.props.weatherDisplay,
       mayHaveTimerWidget: this.props.mayHaveTimerWidget,
       mayHaveListsWidget: this.props.mayHaveListsWidget,
+      mayHaveSportsWidget: this.props.mayHaveSportsWidget,
       dispatch: this.props.dispatch,
       exitEventFired: this.state.exitEventFired,
       onSubpanelToggle: this.onSubpanelToggle,
@@ -19814,12 +20974,16 @@ class BaseContent extends (external_React_default()).PureComponent {
     const mayHaveListsWidget = prefs["widgets.system.lists.enabled"] || nimbusListsEnabled || nimbusListsTrainhopEnabled;
     const mayHaveTimerWidget = prefs["widgets.system.focusTimer.enabled"] || nimbusTimerEnabled || nimbusTimerTrainhopEnabled;
     const mayHaveWeatherWidget = prefs["widgets.system.weather.enabled"] || prefs.trainhopConfig?.widgets?.weatherEnabled;
+    const nimbusSportsWidgetEnabled = prefs.widgetsConfig?.sportsWidgetEnabled;
+    const nimbusSportsWidgetTrainhopEnabled = prefs.trainhopConfig?.widgets?.sportsWidgetEnabled;
+    const mayHaveSportsWidget = prefs["widgets.system.sportsWidget.enabled"] || nimbusSportsWidgetEnabled || nimbusSportsWidgetTrainhopEnabled;
 
     // These prefs set the initial values on the Customize panel toggle switches
     const enabledWidgets = {
       listsEnabled: prefs["widgets.lists.enabled"],
       timerEnabled: prefs["widgets.focusTimer.enabled"],
       weatherEnabled: novaEnabled ? prefs["widgets.weather.enabled"] : prefs.showWeather,
+      sportsWidgetEnabled: prefs["widgets.sportsWidget.enabled"],
       widgetsMaximized: prefs["widgets.maximized"],
       widgetsMayBeMaximized: prefs["widgets.system.maximized"]
     };
@@ -19864,7 +21028,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       // the sidebar provides a better visual anchor.
       const weatherWidget = WIDGET_REGISTRY.find(w => w.id === "weather");
       const weatherGoesToSidebar = resolveWidgetHasSidebar(weatherWidget, prefs) && resolveWidgetSize(weatherWidget, prefs) === "small";
-      const hasContentWidgets = mayHaveListsWidget && enabledWidgets.listsEnabled || mayHaveTimerWidget && enabledWidgets.timerEnabled || mayHaveWeatherWidget && enabledWidgets.weatherEnabled && !weatherGoesToSidebar;
+      const hasContentWidgets = mayHaveListsWidget && enabledWidgets.listsEnabled || mayHaveTimerWidget && enabledWidgets.timerEnabled || mayHaveWeatherWidget && enabledWidgets.weatherEnabled && !weatherGoesToSidebar || mayHaveSportsWidget && enabledWidgets.sportsWidgetEnabled;
       const logoShouldBeCentered = !pocketEnabled && !hasContentWidgets;
       return /*#__PURE__*/external_React_default().createElement("div", {
         className: "nova-outer-wrapper"
@@ -19927,6 +21091,7 @@ class BaseContent extends (external_React_default()).PureComponent {
         mayHaveWidgets: mayHaveWidgets,
         mayHaveTimerWidget: mayHaveTimerWidget,
         mayHaveListsWidget: mayHaveListsWidget,
+        mayHaveSportsWidget: mayHaveSportsWidget,
         mayHaveWeatherForecast: prefs["widgets.system.weatherForecast.enabled"],
         weatherDisplay: prefs["weather.display"],
         showing: customizeMenuVisible,
@@ -20013,6 +21178,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       mayHaveWidgets: mayHaveWidgets,
       mayHaveTimerWidget: mayHaveTimerWidget,
       mayHaveListsWidget: mayHaveListsWidget,
+      mayHaveSportsWidget: mayHaveSportsWidget,
       mayHaveWeatherForecast: prefs["widgets.system.weatherForecast.enabled"],
       weatherDisplay: prefs["weather.display"],
       showing: customizeMenuVisible,

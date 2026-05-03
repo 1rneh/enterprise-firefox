@@ -793,7 +793,7 @@ class PeerConnectionImpl final
     // This class is not cycle-collected, so we must avoid grabbing a strong
     // reference.
     const std::string mPcHandle;
-    virtual ~StunAddrsHandler() {}
+    virtual ~StunAddrsHandler() = default;
   };
 
   // Manage ICE transports.

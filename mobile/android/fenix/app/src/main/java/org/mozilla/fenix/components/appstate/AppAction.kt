@@ -33,6 +33,7 @@ import org.mozilla.fenix.home.recentsyncedtabs.RecentSyncedTab
 import org.mozilla.fenix.home.recentsyncedtabs.RecentSyncedTabState
 import org.mozilla.fenix.home.recenttabs.RecentTab
 import org.mozilla.fenix.home.recentvisits.RecentlyVisitedItem
+import org.mozilla.fenix.home.sports.MatchCard
 import org.mozilla.fenix.library.history.PendingDeletionHistory
 import org.mozilla.fenix.messaging.MessagingState
 import org.mozilla.fenix.wallpapers.Wallpaper
@@ -384,6 +385,9 @@ sealed class AppAction : Action {
     sealed class LensAction : AppAction() {
         /** The user has requested a Lens image search. */
         data object LensRequested : LensAction()
+
+        /** The user has requested a Lens image search for an already-known image URL. */
+        data class LensRequestedWithImageUrl(val imageUrl: String) : LensAction()
 
         /** The Lens request has been consumed and the image chooser launched. */
         data object LensRequestConsumed : LensAction()
@@ -848,5 +852,13 @@ sealed class AppAction : Action {
          * @property isCountdownVisible The new visibility state of the countdown widget.
          */
         data class CountdownVisibilityChanged(val isCountdownVisible: Boolean) : SportsWidgetAction()
+
+        /**
+         * Dispatched when new match card data is available for the homepage sports widget.
+         *
+         * @property matchCardState The new [MatchCard] to display, or null if no match
+         * should be shown.
+         */
+        data class MatchCardStateUpdated(val matchCardState: MatchCard?) : SportsWidgetAction()
     }
 }

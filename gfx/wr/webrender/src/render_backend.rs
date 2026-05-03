@@ -39,9 +39,9 @@ use crate::internal_types::{FastHashMap, FrameId, FrameStamp, RenderedDocument, 
 use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use crate::picture::{PictureScratchBuffer, SurfaceInfo, RasterConfig};
 use crate::tile_cache::{SliceId, TileCacheInstance, TileCacheParams};
-use crate::picture::PicturePrimitive;
+use crate::picture::PictureInstance;
 use crate::prim_store::{PrimitiveScratchBuffer, PrimitiveInstance};
-use crate::prim_store::{PrimitiveInstanceKind, PrimTemplateCommonData};
+use crate::prim_store::{PrimitiveKind, PrimTemplateCommonData};
 use crate::prim_store::interned::*;
 use crate::profiler::{self, TransactionProfile};
 use crate::render_task_graph::RenderTaskGraphBuilder;
@@ -145,11 +145,11 @@ impl DataStores {
     pub fn get_local_prim_rect(
         &self,
         prim_instance: &PrimitiveInstance,
-        pictures: &[PicturePrimitive],
+        pictures: &[PictureInstance],
         surfaces: &[SurfaceInfo],
     ) -> LayoutRect {
         match prim_instance.kind {
-            PrimitiveInstanceKind::Picture { pic_index, .. } => {
+            PrimitiveKind::Picture { pic_index, .. } => {
                 let pic = &pictures[pic_index.0];
 
                 match pic.raster_config {
@@ -176,11 +176,11 @@ impl DataStores {
     pub fn get_local_prim_coverage_rect(
         &self,
         prim_instance: &PrimitiveInstance,
-        pictures: &[PicturePrimitive],
+        pictures: &[PictureInstance],
         surfaces: &[SurfaceInfo],
     ) -> LayoutRect {
         match prim_instance.kind {
-            PrimitiveInstanceKind::Picture { pic_index, .. } => {
+            PrimitiveKind::Picture { pic_index, .. } => {
                 let pic = &pictures[pic_index.0];
 
                 match pic.raster_config {
@@ -209,7 +209,7 @@ impl DataStores {
         prim_instance: &PrimitiveInstance,
     ) -> bool {
         match prim_instance.kind {
-            PrimitiveInstanceKind::Picture { .. } => {
+            PrimitiveKind::Picture { .. } => {
                 false
             }
             _ => {
@@ -224,7 +224,7 @@ impl DataStores {
         prim_instance: &PrimitiveInstance,
     ) -> bool {
         match prim_instance.kind {
-            PrimitiveInstanceKind::Picture { .. } => {
+            PrimitiveKind::Picture { .. } => {
                 false
             }
             _ => {
@@ -238,58 +238,58 @@ impl DataStores {
         prim_inst: &PrimitiveInstance
     ) -> &PrimTemplateCommonData {
         match prim_inst.kind {
-            PrimitiveInstanceKind::Rectangle { data_handle, .. } => {
+            PrimitiveKind::Rectangle { data_handle, .. } => {
                 let prim_data = &self.prim[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::Image { data_handle, .. } => {
+            PrimitiveKind::Image { data_handle, .. } => {
                 let prim_data = &self.image[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::ImageBorder { data_handle, .. } => {
+            PrimitiveKind::ImageBorder { data_handle, .. } => {
                 let prim_data = &self.image_border[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::LineDecoration { data_handle, .. } => {
+            PrimitiveKind::LineDecoration { data_handle, .. } => {
                 let prim_data = &self.line_decoration[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::LinearGradient { data_handle, .. } => {
+            PrimitiveKind::LinearGradient { data_handle, .. } => {
                 let prim_data = &self.linear_grad[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::NormalBorder { data_handle, .. } => {
+            PrimitiveKind::NormalBorder { data_handle, .. } => {
                 let prim_data = &self.normal_border[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::Picture { .. } => {
+            PrimitiveKind::Picture { .. } => {
                 panic!("BUG: picture prims don't have common data!");
             }
-            PrimitiveInstanceKind::RadialGradient { data_handle, .. } => {
+            PrimitiveKind::RadialGradient { data_handle, .. } => {
                 let prim_data = &self.radial_grad[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::ConicGradient { data_handle, .. } => {
+            PrimitiveKind::ConicGradient { data_handle, .. } => {
                 let prim_data = &self.conic_grad[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::TextRun { data_handle, .. }  => {
+            PrimitiveKind::TextRun { data_handle, .. }  => {
                 let prim_data = &self.text_run[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::YuvImage { data_handle, .. } => {
+            PrimitiveKind::YuvImage { data_handle, .. } => {
                 let prim_data = &self.yuv_image[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::BackdropCapture { data_handle, .. } => {
+            PrimitiveKind::BackdropCapture { data_handle, .. } => {
                 let prim_data = &self.backdrop_capture[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::BackdropRender { data_handle, .. } => {
+            PrimitiveKind::BackdropRender { data_handle, .. } => {
                 let prim_data = &self.backdrop_render[data_handle];
                 &prim_data.common
             }
-            PrimitiveInstanceKind::BoxShadow { data_handle, .. } => {
+            PrimitiveKind::BoxShadow { data_handle, .. } => {
                 let prim_data = &self.box_shadow[data_handle];
                 &prim_data.common
             }

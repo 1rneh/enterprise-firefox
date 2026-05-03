@@ -147,7 +147,7 @@ object SettingsSelectors {
     val TRANSLATIONS_BUTTON = Selector(
         strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT,
         value = "Translations",
-        description = "the Private browsing button",
+        description = "the Translations button",
         groups = listOf("generalSettingsSection"),
     )
 

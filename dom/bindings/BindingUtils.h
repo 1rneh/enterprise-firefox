@@ -2167,15 +2167,16 @@ template <typename T, bool isDictionary = is_dom_dictionary<T>,
           bool isTypedArray = is_dom_typed_array<T>,
           bool isOwningUnion = is_dom_owning_union<T>>
 class SequenceTracer {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 };
 
 // sequence<object> or sequence<object?>
 template <>
 class SequenceTracer<JSObject*, false, false, false> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, JSObject** objp, JSObject** end) {
     for (; objp != end; ++objp) {
       JS::TraceRoot(trc, objp, "sequence<object>");
@@ -2186,9 +2187,9 @@ class SequenceTracer<JSObject*, false, false, false> {
 // sequence<any>
 template <>
 class SequenceTracer<JS::Value, false, false, false> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, JS::Value* valp, JS::Value* end) {
     for (; valp != end; ++valp) {
       JS::TraceRoot(trc, valp, "sequence<any>");
@@ -2199,9 +2200,9 @@ class SequenceTracer<JS::Value, false, false, false> {
 // sequence<sequence<T>>
 template <typename T>
 class SequenceTracer<Sequence<T>, false, false, false> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, Sequence<T>* seqp,
                             Sequence<T>* end) {
     for (; seqp != end; ++seqp) {
@@ -2213,9 +2214,9 @@ class SequenceTracer<Sequence<T>, false, false, false> {
 // sequence<sequence<T>> as return value
 template <typename T>
 class SequenceTracer<nsTArray<T>, false, false, false> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, nsTArray<T>* seqp,
                             nsTArray<T>* end) {
     for (; seqp != end; ++seqp) {
@@ -2227,9 +2228,9 @@ class SequenceTracer<nsTArray<T>, false, false, false> {
 // sequence<someDictionary>
 template <typename T>
 class SequenceTracer<T, true, false, false> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, T* dictp, T* end) {
     for (; dictp != end; ++dictp) {
       dictp->TraceDictionary(trc);
@@ -2240,9 +2241,9 @@ class SequenceTracer<T, true, false, false> {
 // sequence<SomeTypedArray>
 template <typename T>
 class SequenceTracer<T, false, true, false> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, T* arrayp, T* end) {
     for (; arrayp != end; ++arrayp) {
       arrayp->TraceSelf(trc);
@@ -2253,9 +2254,9 @@ class SequenceTracer<T, false, true, false> {
 // sequence<SomeOwningUnion>
 template <typename T>
 class SequenceTracer<T, false, false, true> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, T* arrayp, T* end) {
     for (; arrayp != end; ++arrayp) {
       arrayp->TraceUnion(trc);
@@ -2266,9 +2267,9 @@ class SequenceTracer<T, false, false, true> {
 // sequence<T?> with T? being a Nullable<T>
 template <typename T>
 class SequenceTracer<Nullable<T>, false, false, false> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, Nullable<T>* seqp,
                             Nullable<T>* end) {
     for (; seqp != end; ++seqp) {
@@ -2294,9 +2295,9 @@ void TraceRecord(JSTracer* trc, Record<K, V>& record) {
 // sequence<record>
 template <typename K, typename V>
 class SequenceTracer<Record<K, V>, false, false, false> {
+ public:
   explicit SequenceTracer() = delete;  // Should never be instantiated
 
- public:
   static void TraceSequence(JSTracer* trc, Record<K, V>* seqp,
                             Record<K, V>* end) {
     for (; seqp != end; ++seqp) {

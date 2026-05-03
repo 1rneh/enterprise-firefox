@@ -1490,7 +1490,7 @@ bool SavedStacks::insertFrames(JSContext* cx, MutableHandle<SavedFrame*> frame,
   while (!iter.done()) {
     Activation& activation = *iter.activation();
     Maybe<LiveSavedFrameCache::FramePtr> framePtr =
-        LiveSavedFrameCache::FramePtr::create(iter);
+        LiveSavedFrameCache::FramePtr::create(cx, iter);
 
     if (capture.is<JS::AllFrames>() && iter.hasUsableAbstractFramePtr()) {
       unreachedEvalTargets.eraseIfEqual(iter.abstractFramePtr());
@@ -1586,7 +1586,7 @@ bool SavedStacks::insertFrames(JSContext* cx, MutableHandle<SavedFrame*> frame,
     }
 
     ++iter;
-    framePtr = LiveSavedFrameCache::FramePtr::create(iter);
+    framePtr = LiveSavedFrameCache::FramePtr::create(cx, iter);
 
     if (iter.activation() != &activation && capture.is<JS::AllFrames>()) {
       // If there were no cache hits in the entire activation, clear its
@@ -1807,7 +1807,7 @@ bool SavedStacks::checkForEvalInFramePrev(
   }
 
   Maybe<LiveSavedFrameCache::FramePtr> maybeTarget =
-      LiveSavedFrameCache::FramePtr::create(iter);
+      LiveSavedFrameCache::FramePtr::create(cx, iter);
   MOZ_ASSERT(maybeTarget);
 
   LiveSavedFrameCache::FramePtr target = *maybeTarget;

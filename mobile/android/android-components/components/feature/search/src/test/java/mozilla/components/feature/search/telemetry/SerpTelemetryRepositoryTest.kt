@@ -17,6 +17,7 @@ import org.junit.runner.RunWith
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.`when`
 import org.robolectric.RobolectricTestRunner
+import kotlin.test.assertIs
 import mozilla.components.support.remotesettings.RemoteSettingsService as MozillaRemoteSettingsService
 
 @RunWith(RobolectricTestRunner::class)

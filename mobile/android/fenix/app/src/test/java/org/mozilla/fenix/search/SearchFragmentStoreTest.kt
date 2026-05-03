@@ -41,6 +41,7 @@ import org.mozilla.fenix.search.SearchFragmentAction.SearchSuggestionsVisibility
 import org.mozilla.fenix.search.fixtures.EMPTY_SEARCH_FRAGMENT_STATE
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
+import kotlin.test.assertIs
 
 @RunWith(RobolectricTestRunner::class)
 class SearchFragmentStoreTest {
@@ -1319,7 +1320,7 @@ class SearchFragmentStoreTest {
         assertNotNull(store.state.defaultEngine)
         assertEquals("Engine B", store.state.defaultEngine!!.name)
 
-        assertTrue(store.state.searchEngineSource is SearchEngineSource.Default)
+        assertIs<SearchEngineSource.Default>(store.state.searchEngineSource)
         assertNotNull(store.state.searchEngineSource.searchEngine)
         assertEquals("Engine B", store.state.searchEngineSource.searchEngine!!.name)
     }
@@ -1369,7 +1370,7 @@ class SearchFragmentStoreTest {
         assertNotNull(store.state.defaultEngine)
         assertEquals("Engine B", store.state.defaultEngine!!.name)
 
-        assertTrue(store.state.searchEngineSource is SearchEngineSource.Default)
+        assertIs<SearchEngineSource.Default>(store.state.searchEngineSource)
         assertNotNull(store.state.searchEngineSource.searchEngine)
         assertEquals("Engine B", store.state.searchEngineSource.searchEngine!!.name)
     }
@@ -1434,7 +1435,7 @@ class SearchFragmentStoreTest {
 
         assertNotNull(store.state.defaultEngine)
         assertEquals("Engine A", store.state.defaultEngine!!.name)
-        assertTrue(store.state.searchEngineSource is SearchEngineSource.Default)
+        assertIs<SearchEngineSource.Default>(store.state.searchEngineSource)
         assertEquals("Engine A", store.state.searchEngineSource.searchEngine!!.name)
     }
 
@@ -1469,7 +1470,7 @@ class SearchFragmentStoreTest {
 
         assertNotNull(store.state.defaultEngine)
         assertEquals("Engine B", store.state.defaultEngine!!.name)
-        assertTrue(store.state.searchEngineSource is SearchEngineSource.Default)
+        assertIs<SearchEngineSource.Default>(store.state.searchEngineSource)
         assertEquals("Engine B", store.state.searchEngineSource.searchEngine!!.name)
     }
 

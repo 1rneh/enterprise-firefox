@@ -4,13 +4,6 @@
 
 import { IPPFxaAuthProviderSingleton } from "moz-src:///toolkit/components/ipprotection/fxa/IPPFxaAuthProvider.sys.mjs";
 
-const lazy = {};
-
-ChromeUtils.defineESModuleGetters(lazy, {
-  IPProtectionService:
-    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
-});
-
 /**
  * FxA implementation of IPPAuthProvider that uses the direct token activation
  * flow by calling Guardian's POST /api/v1/fpn/activate endpoint with the FxA
@@ -28,13 +21,25 @@ class IPPFxaActivateAuthProviderSingleton extends IPPFxaAuthProviderSingleton {
   }
 
   /**
+   * Enrolls and entitles the user by presenting the FxA Bearer token directly
+   * to Guardian's activate endpoint, without an OAuth redirect flow.
+   *
+   * @param {import("moz-src:///toolkit/components/ipprotection/fxa/GuardianClient.sys.mjs").GuardianClient} guardian
+   * @param {Function} getToken
    * @param {AbortSignal} [abortSignal=null]
    * @returns {Promise<{isEnrolledAndEntitled: boolean, entitlement?: object, error?: string}>}
    */
-  static async #defaultEnrollAndEntitle(abortSignal = null) {
+  static async #defaultEnrollAndEntitle(
+    guardian,
+    getToken,
+    abortSignal = null
+  ) {
     try {
-      const { ok, entitlement, error } =
-        await lazy.IPProtectionService.guardian.activate(abortSignal);
+      using tokenHandle = await getToken(abortSignal);
+      const { ok, entitlement, error } = await guardian.activate(
+        tokenHandle,
+        abortSignal
+      );
       if (!ok) {
         return { isEnrolledAndEntitled: false, error };
       }
@@ -49,8 +54,9 @@ class IPPFxaActivateAuthProviderSingleton extends IPPFxaAuthProviderSingleton {
    */
   async getEntitlement() {
     try {
+      using tokenHandle = await this.getToken();
       const { status, entitlement, error } =
-        await lazy.IPProtectionService.guardian.fetchUserInfo();
+        await this.guardian.fetchUserInfo(tokenHandle);
       if (error || !entitlement || status != 200) {
         return { error: error || `Status: ${status}` };
       }

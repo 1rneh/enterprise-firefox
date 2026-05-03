@@ -347,10 +347,10 @@ class InternalResponse final : public AtomicSafeRefCounted<InternalResponse> {
 
   ~InternalResponse();
 
- private:
   explicit InternalResponse(const InternalResponse& aOther) = delete;
   InternalResponse& operator=(const InternalResponse&) = delete;
 
+ private:
   // Returns an instance of InternalResponse which is a copy of this
   // InternalResponse, except headers, body and wrapped response (if any) which
   // are left uninitialized. Used for cloning and filtering.

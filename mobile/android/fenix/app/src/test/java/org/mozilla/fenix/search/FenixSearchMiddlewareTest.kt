@@ -77,6 +77,7 @@ import org.mozilla.fenix.telemetry.ACTION_SEARCH_ENGINE_SELECTED
 import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
+import kotlin.test.assertIs
 import org.mozilla.fenix.components.appstate.search.SearchState as AppSearchState
 
 @RunWith(RobolectricTestRunner::class)
@@ -111,7 +112,7 @@ class FenixSearchMiddlewareTest {
 
         assertNotNull(store.state.defaultEngine)
         assertEquals("Engine B", store.state.defaultEngine!!.name)
-        assertTrue(store.state.searchEngineSource is SearchEngineSource.Default)
+        assertIs<SearchEngineSource.Default>(store.state.searchEngineSource)
         assertNotNull(store.state.searchEngineSource.searchEngine)
         assertEquals("Engine B", store.state.searchEngineSource.searchEngine!!.name)
     }

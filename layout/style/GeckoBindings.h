@@ -167,7 +167,7 @@ bool Gecko_HasActiveViewTransitionTypes(
   nsAtom* prefix_##LangValue(implementor_ element);
 
 bool Gecko_LookupAttrValue(const mozilla::dom::Element* aElement,
-                           nsAtom& aNamespace, const nsAtom& aName,
+                           nsAtom& aNamespace, nsAtom& aName,
                            nsAString& aResult);
 bool Gecko_AttrEquals(const nsAttrValue*, const nsAtom*, bool aIgnoreCase);
 bool Gecko_AttrDashEquals(const nsAttrValue*, const nsAtom*, bool aIgnoreCase);

@@ -77,7 +77,7 @@ describe("settings ai features", () => {
     );
     EventUtils.sendKey("space");
     const selectPopup = await pickerOpened;
-    if (nativeSelectEnabled()) {
+    if (selectPopup.isNativeMenu) {
       selectPopup.activateItem(selectPopup.childNodes[3]);
     } else {
       EventUtils.sendKey("down");
@@ -145,7 +145,7 @@ describe("settings ai features", () => {
     );
     EventUtils.sendKey("space");
     let selectPopup = await pickerOpened;
-    if (nativeSelectEnabled()) {
+    if (selectPopup.isNativeMenu) {
       selectPopup.activateItem(selectPopup.childNodes[1]);
     } else {
       EventUtils.sendKey("down");
@@ -191,7 +191,7 @@ describe("settings ai features", () => {
     );
     EventUtils.sendKey("space");
     selectPopup = await pickerOpened;
-    if (nativeSelectEnabled()) {
+    if (selectPopup.isNativeMenu) {
       selectPopup.activateItem(selectPopup.childNodes[3]);
     } else {
       EventUtils.sendKey("down");

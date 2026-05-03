@@ -138,6 +138,7 @@ TEST_HARNESS_FILES.gtest += [
     "test_ValidSmallEBMLMaxSizeLength.webm",
     "test_vbri.mp3",
     "tos-vp9-hdr-cll.webm",
+    "truncated-xing-placeholder.mp3",
 ]
 
 TEST_DIRS += [

@@ -104,6 +104,7 @@ abstract class BasePage(
             path.forEach { step ->
                 when (step) {
                     is NavigationStep.Click -> mozClick(step.selector)
+                    is NavigationStep.ClickIfPresent -> mozClickIfPresent(step.selector)
                     is NavigationStep.Swipe -> mozSwipeTo(step.selector, step.direction)
                     is NavigationStep.OpenNotificationsTray -> mozOpenNotificationsTray()
                     is NavigationStep.EnterText -> mozEnterText(url, step.selector)
@@ -261,6 +262,60 @@ abstract class BasePage(
                 is UiObject -> {
                     if (!element.exists()) throw AssertionError("UiObject does not exist for selector: ${selector.description}")
                     if (!element.click()) throw AssertionError("Failed to click UiObject for selector: ${selector.description}")
+                }
+                is SemanticsNodeInteraction -> {
+                    element.assertExists()
+                    element.assertIsDisplayed()
+                    element.performClick()
+                }
+                else -> throw AssertionError("Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}")
+            }
+
+            rep?.endCmd(success = true, message = "Clicked '${selector.description}'")
+            return this
+        } catch (e: Throwable) {
+            rep?.endCmd(success = false, message = "Click '${selector.description}' failed: ${e.message ?: "exception"}")
+            throw e
+        }
+    }
+
+    /**
+     * Waits up to [timeout] ms for [selector] to appear, then clicks it if visible; silently
+     * skips if it never appears.
+     *
+     * Use this exclusively for UI that is genuinely optional by design (e.g. a one-time
+     * dialog that only appears on the first run). Never use it as a workaround for flaky
+     * selectors or timing issues — those should be fixed at the source.
+     */
+    fun mozClickIfPresent(selector: Selector, timeout: Long = 3_000, interval: Long = 200): BasePage {
+        val rep = rep()
+        rep?.startCmd(safeId("click_if_present", selector.description), "Attempting to click '${selector.description}' if present...", 1)
+
+        val deadline = System.currentTimeMillis() + timeout
+        var present = false
+        while (System.currentTimeMillis() < deadline) {
+            rep?.startLoc(safeId("loc", selector.description), "Attempting to locate '${selector.description}'...", 2)
+            present = mozVerifyElement(selector, applyPreconditions = false)
+            rep?.endLoc(success = present, message = if (present) found(selector.description) else notFound(selector.description))
+            if (present) break
+            android.os.SystemClock.sleep(interval)
+        }
+
+        if (!present) {
+            rep?.endCmdSkip(message = "'${selector.description}' not present after ${timeout}ms")
+            return this
+        }
+
+        val element = mozGetElement(selector) ?: run {
+            rep?.endCmdSkip(message = "'${selector.description}' vanished before click")
+            return this
+        }
+
+        try {
+            when (element) {
+                is ViewInteraction -> element.perform(click())
+                is UiObject -> {
+                    if (element.exists()) element.click()
                 }
                 is SemanticsNodeInteraction -> {
                     element.assertExists()

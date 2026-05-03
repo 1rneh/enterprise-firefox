@@ -557,6 +557,8 @@ nsresult PeerConnectionImpl::Initialize(PeerConnectionObserver& aObserver,
   // param in RTCConfiguration.
   mAllowOldSetParameters = Preferences::GetBool(
       "media.peerconnection.allow_old_setParameters", false);
+  mAllowOldSetParameters |= media::HostnameInPref(
+      "media.peerconnection.allow_old_setParameters.allowlist", mHostname);
 
   // setup the stun local addresses IPC async call
   InitLocalAddrs();

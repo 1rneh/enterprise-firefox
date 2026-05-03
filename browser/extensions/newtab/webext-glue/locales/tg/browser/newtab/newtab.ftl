@@ -8,9 +8,13 @@
 newtab-page-title = Варақаи нав
 newtab-settings-button =
     .title = Танзим кардани саҳифаи худ дар варақаи нав
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Фармоишдиҳии ин саҳифа
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Фармоишдиҳӣ
+newtab-customize-panel-label =
+    .label = Фармоишдиҳӣ
 newtab-personalize-settings-icon-label =
     .title = Шахсисозии варақаи нав
     .aria-label = Танзимот
@@ -65,13 +69,13 @@ newtab-topsites-add-shortcut-title =
 newtab-topsites-title-label = Сарлавҳа
 newtab-topsites-title-input =
     .placeholder = Сарлавҳаро ворид намоед
-newtab-topsites-url-label = Нишонии URL
+newtab-topsites-url-label = Нишонии «URL»
 newtab-topsites-url-input =
-    .placeholder = Нишонии URL-ро ворид кунед ё гузоред
-newtab-topsites-url-validation = Нишонии URL-и эътибор лозим аст
-newtab-topsites-image-url-label = Нишонии URL-и тасвири шахсӣ
+    .placeholder = Нишонии «URL»-ро ворид кунед ё гузоред
+newtab-topsites-url-validation = Нишонии «URL»-и эътибор лозим аст
+newtab-topsites-image-url-label = Нишонии «URL»-и тасвири шахсӣ
 newtab-topsites-use-image-link = Истифодаи тасвири шахсӣ…
-newtab-topsites-image-validation = Тасвир бор карда нашуд. Нишонии URL-и дигареро кӯшиш кунед.
+newtab-topsites-image-validation = Тасвир бор карда нашуд. Нишонии «URL»-и дигареро кӯшиш кунед.
 
 ## Clear text button for the URL and image URL input fields in the Top Sites form.
 
@@ -380,6 +384,7 @@ newtab-wallpaper-title = Тасвирҳои замина
 newtab-wallpaper-reset = Ба ҳолати пешфарз барқарор кунед
 #  (developer note): @nova-cleanup(remove-string): Remove old "Upload an image" string once Nova lands. The new "Add an image"  string will take over
 newtab-wallpaper-upload-image = Бор кардани тасвир
+newtab-wallpaper-add-an-image = Илова кардани тасвир
 newtab-wallpaper-custom-color = Рангеро интихоб кунед
 newtab-wallpaper-toggle-title =
     .label = Тасвирҳои замина
@@ -407,6 +412,7 @@ newtab-wallpaper-light-fox-anniversary = Рӯбоҳи ҷилодор дар са
 
 #  (developer note): @nova-cleanup(remove-string): Remove old "Solid colors" string once Nova lands. The simplified "Colors" string will take over
 newtab-wallpaper-category-title-colors = Рангҳои яклухт
+newtab-wallpaper-colors = Рангҳо
 newtab-wallpaper-blue = Кабуд
 newtab-wallpaper-light-blue = Кабуди равшан
 newtab-wallpaper-light-purple = Лоҷуварди равшан
@@ -681,10 +687,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Иҷро шуд ({ $number })
 newtab-widget-task-list-menu-copy = Нусха бардоштан
 newtab-widget-lists-menu-edit = Таҳрир кардани номи рӯйхат
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Таҳрир кардани номи рӯйхат
 newtab-widget-lists-menu-create = Эҷод кардани рӯйхати нав
 newtab-widget-lists-menu-delete = Нест кардани ин рӯйхат
 newtab-widget-lists-menu-copy = Нусха бардоштани рӯйхат ба ҳофизаи муваққатӣ
 newtab-widget-lists-menu-learn-more = Маълумоти бештар
+newtab-widget-lists-button-add-item = Илова кардани унсур
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Илова кардани унсур
+    .aria-label = Илова кардани унсур
 newtab-widget-lists-input-add-an-item =
     .placeholder = Илова кардани унсур
 newtab-widget-lists-input-error = Лутфан, барои илова кардани унсур матнеро ворид намоед.
@@ -700,6 +712,10 @@ newtab-widget-lists-name-label-default =
     .label = Рӯйхати вазифаҳо
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Рӯйхати вазифаҳо
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Рӯйхати нав
+    .aria-label = Таҳрир кардани номи рӯйхат
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Рӯйхати нав
@@ -720,8 +736,7 @@ newtab-widget-section-minimize =
     .title = Ба ҳадди ақал сохтани виҷетҳо
     .aria-label = Ҳамаи виҷетҳои худро то андозаи хурд шакл созед
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Вақтсанҷ
 newtab-widget-timer-notification-focus = Вақти мутолиа ба анҷом расид. Кори хуб. Танаффус лозим аст?
@@ -756,6 +771,13 @@ newtab-promo-card-cta = Маълумоти бештар
 newtab-promo-card-dismiss-button =
     .title = Нодида гузарондан
     .aria-label = Нодида гузарондан
+
+## Sports widget
+
+newtab-sports-widget-skip = Нодида гузарондан
+newtab-sports-widget-done-button =
+    .label = Тайёр
+newtab-sports-widget-results = Натиҷаҳо
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

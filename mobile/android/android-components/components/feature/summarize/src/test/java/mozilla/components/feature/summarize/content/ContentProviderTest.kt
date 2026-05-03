@@ -6,8 +6,8 @@ package mozilla.components.feature.summarize.content
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.test.assertIs
 
 class ContentProviderTest {
     @Test
@@ -31,7 +31,7 @@ class ContentProviderTest {
             { Result.success(PageMetadata()) },
         ).getContent().exceptionOrNull()
 
-        assertTrue(content is PageContentExtractor.Exception)
+        assertIs<PageContentExtractor.Exception>(content)
     }
 
     @Test

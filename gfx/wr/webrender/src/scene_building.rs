@@ -62,11 +62,11 @@ use crate::hit_test::HitTestingScene;
 use crate::intern::Interner;
 use crate::internal_types::{FastHashMap, LayoutPrimitiveInfo, Filter, PlaneSplitterIndex, PipelineInstanceId};
 use crate::svg_filter::{FilterGraphNode, FilterGraphOp, FilterGraphPictureReference};
-use crate::picture::{Picture3DContext, PictureCompositeMode, PicturePrimitive};
+use crate::picture::{Picture3DContext, PictureCompositeMode, PictureInstance};
 use crate::picture::{BlitReason, OrderedPictureChild, PrimitiveList, SurfaceInfo, PictureFlags};
 use crate::picture_graph::PictureGraph;
 use crate::prim_store::{PrimitiveInstance, PrimitiveStoreStats};
-use crate::prim_store::{PrimitiveInstanceKind, NinePatchDescriptor, PrimitiveStore};
+use crate::prim_store::{PrimitiveKind, NinePatchDescriptor, PrimitiveStore};
 use crate::prim_store::{InternablePrimitive, PictureIndex};
 use crate::prim_store::PolygonKey;
 use crate::prim_store::rectangle::RectanglePrim;
@@ -324,7 +324,7 @@ impl PictureChainBuilder {
 
         let pic_index = PictureIndex(prim_store.pictures
             .alloc()
-            .init(PicturePrimitive::new_image(
+            .init(PictureInstance::new_image(
                 Some(composite_mode.clone()),
                 context_3d,
                 self.flags,
@@ -396,7 +396,7 @@ impl PictureChainBuilder {
 
                 let pic_index = PictureIndex(prim_store.pictures
                     .alloc()
-                    .init(PicturePrimitive::new_image(
+                    .init(PictureInstance::new_image(
                         composite_mode,
                         Picture3DContext::Out,
                         self.flags,
@@ -704,7 +704,7 @@ impl<'a> SceneBuilder<'a> {
     fn finalize_picture(
         pic_index: PictureIndex,
         prim_index: Option<usize>,
-        pictures: &mut [PicturePrimitive],
+        pictures: &mut [PictureInstance],
         parent_spatial_node_index: Option<SpatialNodeIndex>,
         clip_tree_builder: &ClipTreeBuilder,
         prim_instances: &[PrimitiveInstance],
@@ -848,7 +848,7 @@ impl<'a> SceneBuilder<'a> {
         // Update the spatial node of any child pictures
         for cluster in &prim_list.clusters {
             for prim_instance_index in cluster.prim_range() {
-                if let PrimitiveInstanceKind::Picture { pic_index: child_pic_index, .. } = prim_instances[prim_instance_index].kind {
+                if let PrimitiveKind::Picture { pic_index: child_pic_index, .. } = prim_instances[prim_instance_index].kind {
                     let child_pic = &mut pictures[child_pic_index.0];
 
                     if child_pic.spatial_node_index == SpatialNodeIndex::UNKNOWN {
@@ -2522,7 +2522,7 @@ impl<'a> SceneBuilder<'a> {
                 // Add picture for this actual stacking context contents to render into.
                 let pic_index = PictureIndex(self.prim_store.pictures
                     .alloc()
-                    .init(PicturePrimitive::new_image(
+                    .init(PictureInstance::new_image(
                         composite_mode.clone(),
                         Picture3DContext::In { root_data: None, ancestor_index, plane_splitter_index },
                         stacking_context.prim_flags,
@@ -2567,7 +2567,7 @@ impl<'a> SceneBuilder<'a> {
                     // Add picture for this actual stacking context contents to render into.
                     let pic_index = PictureIndex(self.prim_store.pictures
                         .alloc()
-                        .init(PicturePrimitive::new_image(
+                        .init(PictureInstance::new_image(
                             composite_mode.clone(),
                             Picture3DContext::Out,
                             stacking_context.prim_flags,
@@ -2676,7 +2676,7 @@ impl<'a> SceneBuilder<'a> {
             // This is the acttual picture representing our 3D hierarchy root.
             let pic_index = PictureIndex(self.prim_store.pictures
                 .alloc()
-                .init(PicturePrimitive::new_image(
+                .init(PictureInstance::new_image(
                     None,
                     context_3d,
                     stacking_context.prim_flags,
@@ -3160,7 +3160,7 @@ impl<'a> SceneBuilder<'a> {
                         // Create the primitive to draw the shadow picture into the scene.
                         let shadow_pic_index = PictureIndex(self.prim_store.pictures
                             .alloc()
-                            .init(PicturePrimitive::new_image(
+                            .init(PictureInstance::new_image(
                                 composite_mode,
                                 Picture3DContext::Out,
                                 PrimitiveFlags::IS_BACKFACE_VISIBLE,
@@ -3183,7 +3183,7 @@ impl<'a> SceneBuilder<'a> {
                         let clip_node_id = self.clip_tree_builder.build_clip_set(api::ClipChainId::INVALID);
 
                         let shadow_prim_instance = PrimitiveInstance::new(
-                            PrimitiveInstanceKind::Picture {
+                            PrimitiveKind::Picture {
                                 data_handle: shadow_prim_data_handle,
                                 pic_index: shadow_pic_index,
                             },
@@ -3854,7 +3854,7 @@ impl<'a> SceneBuilder<'a> {
             // Extract the pic index for the intermediate surface. We need to
             // supply this to the capture prim below.
             let output_pic_index = match filtered_instance.kind {
-                PrimitiveInstanceKind::Picture { pic_index, .. } => pic_index,
+                PrimitiveKind::Picture { pic_index, .. } => pic_index,
                 _ => panic!("bug: not a picture"),
             };
 
@@ -3900,7 +3900,7 @@ impl<'a> SceneBuilder<'a> {
             // Set up the picture index for the backdrop-filter output in the prim
             // that will draw it
             match backdrop_render_instance.kind {
-                PrimitiveInstanceKind::BackdropRender { ref mut pic_index, .. } => {
+                PrimitiveKind::BackdropRender { ref mut pic_index, .. } => {
                     assert_eq!(*pic_index, PictureIndex::INVALID);
                     *pic_index = output_pic_index;
                 }
@@ -4635,7 +4635,7 @@ impl FlattenedStackingContext {
 
         let pic_index = PictureIndex(prim_store.pictures
             .alloc()
-            .init(PicturePrimitive::new_image(
+            .init(PictureInstance::new_image(
                 composite_mode.clone(),
                 flat_items_context_3d,
                 self.prim_flags,
@@ -4737,7 +4737,7 @@ fn create_prim_instance(
         .intern(&pic_key, || ());
 
     PrimitiveInstance::new(
-        PrimitiveInstanceKind::Picture {
+        PrimitiveKind::Picture {
             data_handle,
             pic_index,
         },

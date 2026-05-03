@@ -23,7 +23,7 @@ if (AppConstants.MOZ_ENTERPRISE) {
 }
 
 const { GuardianClient } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/GuardianClient.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/fxa/GuardianClient.sys.mjs"
 );
 function makeGuardianServer(
   arg = {

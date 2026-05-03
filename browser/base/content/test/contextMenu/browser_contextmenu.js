@@ -686,6 +686,76 @@ add_task(async function test_video_ok() {
   await SpecialPowers.popPrefEnv();
 });
 
+add_task(async function test_video_with_overlay() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["media.videocontrols.picture-in-picture.enabled", true],
+      ["media.contextmenu.video-overlay-detection", true],
+    ],
+  });
+
+  await test_contextmenu(
+    "#test-video-overlay",
+    [
+      "context-media-play",
+      true,
+      "context-media-mute",
+      true,
+      "context-media-playbackrate",
+      null,
+      [
+        "context-media-playbackrate-050x",
+        true,
+        "context-media-playbackrate-100x",
+        true,
+        "context-media-playbackrate-125x",
+        true,
+        "context-media-playbackrate-150x",
+        true,
+        "context-media-playbackrate-200x",
+        true,
+      ],
+      null,
+      "context-media-loop",
+      true,
+      "context-video-fullscreen",
+      true,
+      "context-media-hidecontrols",
+      true,
+      "---",
+      null,
+      "context-viewvideo",
+      true,
+      "context-video-pictureinpicture",
+      true,
+      "---",
+      null,
+      "context-video-saveimage",
+      true,
+      "context-savevideo",
+      true,
+      "context-copyvideourl",
+      true,
+      "context-sendvideo",
+      true,
+      "---",
+      null,
+      "context-take-screenshot",
+      true,
+      "---",
+      null,
+      ...askChatMenu,
+    ],
+    {
+      awaitOnMenuBuilt: {
+        id: "context-ask-chat",
+      },
+    }
+  );
+
+  await SpecialPowers.popPrefEnv();
+});
+
 add_task(async function test_audio_in_video() {
   await test_contextmenu(
     "#test-audio-in-video",

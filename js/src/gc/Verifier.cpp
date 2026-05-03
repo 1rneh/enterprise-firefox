@@ -1203,17 +1203,15 @@ bool js::gc::CheckWeakMapEntryMarking(const WeakMapBase* map, Cell* key,
   }
 
   JSObject* delegate = MaybeGetDelegate(key);
-  if (!delegate) {
-    return ok;
-  }
-
-  CellColor delegateColor = effectiveColor(delegate);
-  if (keyColor < std::min(map->mapColor(), delegateColor)) {
-    fprintf(stderr, "WeakMap key is less marked than map or delegate\n");
-    fprintf(stderr, "(map %p is %s, delegate %p is %s, key %p is %s)\n", map,
-            CellColorName(map->mapColor()), delegate,
-            CellColorName(delegateColor), key, CellColorName(keyColor));
-    ok = false;
+  if (delegate) {
+    CellColor delegateColor = effectiveColor(delegate);
+    if (keyColor < std::min(map->mapColor(), delegateColor)) {
+      fprintf(stderr, "WeakMap key is less marked than map or delegate\n");
+      fprintf(stderr, "(map %p is %s, delegate %p is %s, key %p is %s)\n", map,
+              CellColorName(map->mapColor()), delegate,
+              CellColorName(delegateColor), key, CellColorName(keyColor));
+      ok = false;
+    }
   }
 
   // Symbols key must be marked in the atom marking bitmap for the zone.

@@ -16,16 +16,6 @@ export class IPPAuthProvider {
   }
 
   /**
-   * Retrieves an auth token for use with the Guardian service.
-   *
-   * @param {AbortSignal} [_abortSignal]
-   * @returns {Promise<{token: string} & Disposable> | null}
-   */
-  getToken(_abortSignal) {
-    return null;
-  }
-
-  /**
    * Called before the proxy starts. Should resolve enrollment and verify
    * entitlement. Returns an error object if the proxy should not start,
    * or null if everything is in order.
@@ -34,6 +24,26 @@ export class IPPAuthProvider {
    */
   async aboutToStart() {
     return { error: "no_auth_provider" };
+  }
+
+  /**
+   * Fetches a new VPN node pass from the auth provider.
+   *
+   * @param {AbortSignal} [_abortSignal]
+   * @returns {Promise<{pass?: import("./GuardianTypes.sys.mjs").ProxyPass, usage?: import("./GuardianTypes.sys.mjs").ProxyUsage|null, status?: number, error?: string}>}
+   */
+  async fetchProxyPass(_abortSignal) {
+    return { error: "no_auth_provider" };
+  }
+
+  /**
+   * Fetches the current VPN node usage without requesting a new pass.
+   *
+   * @param {AbortSignal} [_abortSignal]
+   * @returns {Promise<import("./GuardianTypes.sys.mjs").ProxyUsage | null>}
+   */
+  async fetchProxyUsage(_abortSignal) {
+    return null;
   }
 
   /**

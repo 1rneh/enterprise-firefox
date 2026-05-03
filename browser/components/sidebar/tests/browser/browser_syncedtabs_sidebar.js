@@ -512,12 +512,10 @@ add_task(async function test_tabs_click_auxclick() {
   await content.promiseDocumentFlushed(() => {});
 
   {
-    const tabPromise = BrowserTestUtils.waitForNewTab(
-      gBrowser,
-      row.url,
-      false,
-      true
-    );
+    const selectedTabAtStart = gBrowser.selectedTab;
+    const tabsLengthAtStart = gBrowser.tabs.length;
+    const browser = gBrowser.selectedBrowser;
+    const loaded = BrowserTestUtils.browserLoaded(browser, false, row.url);
 
     // See the comment in test_history_hover_buttons in
     // browser_history_sidebar.js
@@ -530,11 +528,18 @@ add_task(async function test_tabs_click_auxclick() {
       content
     );
     AccessibilityUtils.resetEnv();
-    const tab = await tabPromise;
+    await loaded;
 
-    is(gBrowser.selectedTab, tab, "The opened tab should be selected");
-
-    BrowserTestUtils.removeTab(tab);
+    is(
+      gBrowser.selectedTab,
+      selectedTabAtStart,
+      "The link is loaded in the current tab"
+    );
+    is(
+      gBrowser.tabs.length,
+      tabsLengthAtStart,
+      "No new tab is opened on left-click"
+    );
   }
 
   {

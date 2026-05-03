@@ -8,9 +8,13 @@
 newtab-page-title = Новая картка
 newtab-settings-button =
     .title = Наладзіць вашу старонку новай карткі
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Уладкаваць гэту старонку
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Уладкаваць
+newtab-customize-panel-label =
+    .label = Уладкаваць
 newtab-personalize-settings-icon-label =
     .title = Персаналізаваць новую картку
     .aria-label = Налады
@@ -384,6 +388,7 @@ newtab-wallpaper-title = Шпалеры
 newtab-wallpaper-reset = Скінуць да прадвызначаных
 #  (developer note): @nova-cleanup(remove-string): Remove old "Upload an image" string once Nova lands. The new "Add an image"  string will take over
 newtab-wallpaper-upload-image = Зацягнуць выяву
+newtab-wallpaper-add-an-image = Дадаць выяву
 newtab-wallpaper-custom-color = Выберыце колер
 newtab-wallpaper-toggle-title =
     .label = Шпалеры
@@ -411,6 +416,7 @@ newtab-wallpaper-light-fox-anniversary = Ліса ў травяністым по
 
 #  (developer note): @nova-cleanup(remove-string): Remove old "Solid colors" string once Nova lands. The simplified "Colors" string will take over
 newtab-wallpaper-category-title-colors = Аднатонныя колеры
+newtab-wallpaper-colors = Колеры
 newtab-wallpaper-blue = Сіні
 newtab-wallpaper-light-blue = Блакітны
 newtab-wallpaper-light-purple = Светла-фіялетавы
@@ -526,6 +532,7 @@ newtab-weather-opt-in-not-now =
     .label = Не зараз
 newtab-weather-opt-in-yes =
     .label = Так
+newtab-weather-opt-in-headline = Атрымайце мясцовы прагноз надвор'я
 # We'll be showing static (fake) weather data if the user has not opted in to using their location
 newtab-weather-static-city = Нью-Ёрк
 # "Highest" here refers to the highest temperature of the day
@@ -699,10 +706,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Завершана ({ $number })
 newtab-widget-task-list-menu-copy = Капіяваць
 newtab-widget-lists-menu-edit = Змяніць назву спісу
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Змяніць назву спісу
 newtab-widget-lists-menu-create = Стварыць новы спіс
 newtab-widget-lists-menu-delete = Выдаліць гэты спіс
 newtab-widget-lists-menu-copy = Скапіяваць спіс у буфер абмену
 newtab-widget-lists-menu-learn-more = Падрабязней
+newtab-widget-lists-button-add-item = Дадаць элемент
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Дадаць элемент
+    .aria-label = Дадаць элемент
 newtab-widget-lists-input-add-an-item =
     .placeholder = Дадаць элемент
 newtab-widget-lists-input-error = Калі ласка, улучыце тэкст, каб дадаць элемент.
@@ -718,6 +731,10 @@ newtab-widget-lists-name-label-default =
     .label = Спіс задач
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Спіс задач
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Новы спіс
+    .aria-label = Змяніць назву спісу
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Новы спіс
@@ -739,8 +756,7 @@ newtab-widget-section-minimize =
     .aria-label = Згарнуць усе віджэты ў кампактны памер
 newtab-widget-section-feedback = Раскажыце нам, што вы думаеце
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Таймер
 newtab-widget-timer-notification-focus = Час для канцэнтрацыі скончыўся. Выдатная праца. Патрэбен перапынак?

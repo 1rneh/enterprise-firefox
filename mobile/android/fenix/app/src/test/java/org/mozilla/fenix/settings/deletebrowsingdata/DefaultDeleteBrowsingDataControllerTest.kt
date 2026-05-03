@@ -39,6 +39,7 @@ import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.PermissionStorage
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.utils.Settings
+import kotlin.test.assertIs
 
 class DefaultDeleteBrowsingDataControllerTest {
 
@@ -238,7 +239,7 @@ class DefaultDeleteBrowsingDataControllerTest {
         val succeedingType = DeleteBrowsingDataOnQuitType.TABS
 
         val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-            assertTrue(throwable is RuntimeException)
+            assertIs<RuntimeException>(throwable)
             assertEquals("Deletion failed!", throwable.message)
         }
 

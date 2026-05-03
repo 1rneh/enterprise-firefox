@@ -5734,9 +5734,7 @@ static void EmitStoreBufferCheckForConstant(MacroAssembler& masm,
   masm.loadPtr(AbsoluteAddress(&arena->bufferedCells()), cells);
 
   size_t index = gc::ArenaCellSet::getCellIndex(cell);
-  size_t word;
-  uint32_t mask;
-  gc::ArenaCellSet::getWordIndexAndMask(index, &word, &mask);
+  auto [word, mask] = gc::ArenaCellSet::getWordIndexAndMask(index);
   size_t offset = gc::ArenaCellSet::offsetOfBits() + word * sizeof(uint32_t);
 
   masm.branchTest32(Assembler::NonZero, Address(cells, offset), Imm32(mask),
@@ -10572,6 +10570,10 @@ void CodeGenerator::visitWasmSuspend(LWasmSuspend* lir) {
                     scratch3, lir->mir()->callSiteDesc(), &suspendedCodeOffset,
                     &suspendedFramePushed);
 
+  if (masm.oom()) {
+    return;
+  }
+
   markSafepointAt(suspendedCodeOffset.offset(), lir);
   lir->safepoint()->setFramePushedAtStackMapBase(suspendedFramePushed);
   lir->safepoint()->setWasmSafepointKind(WasmSafepointKind::StackSwitch);
@@ -10621,6 +10623,10 @@ void CodeGenerator::visitWasmResume(LWasmResume* lir) {
   wasm::EmitResume(masm, instance, cont, handlersParamsArea, scratch1, scratch2,
                    scratch3, ool->entry(), mir->handlers(), handlerLabels,
                    mir->callSiteDesc(), &resumeCodeOffset, &resumeFramePushed);
+
+  if (masm.oom()) {
+    return;
+  }
 
   markSafepointAt(resumeCodeOffset.offset(), lir);
   lir->safepoint()->setFramePushedAtStackMapBase(resumeFramePushed);
@@ -22539,10 +22545,13 @@ void CodeGenerator::visitWeakMapGetObject(LWeakMapGetObject* ins) {
     regsToSave.takeUnchecked(scratch5);
     masm.PushRegsInMask(regsToSave);
 
-    using Fn = void (*)(js::gc::Cell* cell);
+    masm.movePtr(ImmPtr(mirGen().realm->zone()->addressOfZone()), scratch2);
+
+    using Fn = void (*)(js::gc::TenuredCell*, Zone*);
     masm.setupAlignedABICall();
     masm.passABIArg(scratch);
-    masm.callWithABI<Fn, js::jit::ReadBarrier>();
+    masm.passABIArg(scratch2);
+    masm.callWithABI<Fn, js::jit::WeakMapValueReadBarrier>();
 
     masm.PopRegsInMask(regsToSave);
 

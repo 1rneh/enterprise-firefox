@@ -8,9 +8,13 @@
 newtab-page-title = لسان جديد
 newtab-settings-button =
     .title = خصص صفحة اللسان الجديد
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = خصّص هذه الصفحة
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = خصّص
+newtab-customize-panel-label =
+    .label = خصّص
 newtab-personalize-settings-icon-label =
     .title = خصّص صفحة اللسان الجديد
     .aria-label = إعدادات
@@ -360,6 +364,8 @@ newtab-custom-widget-lists-toggle =
     .label = قوائم
 newtab-custom-widget-timer-toggle =
     .label = المؤقت
+newtab-widget-manage-widget-button =
+    .label = أدر الويدجات
 # Tooltip for close button
 newtab-custom-close-menu-button =
     .title = أغلق
@@ -373,6 +379,7 @@ newtab-wallpaper-title = الخلفيات
 newtab-wallpaper-reset = صفّر إلى المبدئي
 #  (developer note): @nova-cleanup(remove-string): Remove old "Upload an image" string once Nova lands. The new "Add an image"  string will take over
 newtab-wallpaper-upload-image = ارفع صورة
+newtab-wallpaper-add-an-image = أضِف صورة
 newtab-wallpaper-custom-color = اختر لونًا
 newtab-wallpaper-toggle-title =
     .label = الخلفيات
@@ -400,6 +407,7 @@ newtab-wallpaper-light-fox-anniversary = ثعلب في حقل عشبي مع من
 
 #  (developer note): @nova-cleanup(remove-string): Remove old "Solid colors" string once Nova lands. The simplified "Colors" string will take over
 newtab-wallpaper-category-title-colors = الألوان الصلبة
+newtab-wallpaper-colors = الألوان
 newtab-wallpaper-blue = أزرق
 newtab-wallpaper-light-blue = أزرق فاتح
 newtab-wallpaper-light-purple = ارجواني فاتح
@@ -445,6 +453,7 @@ newtab-wallpaper-sand-dunes = كثبان رملية بيضاء
 #   $webpage_string (String) - The name of the webpage where the photo is located.
 newtab-wallpaper-attribution = صورة من <a data-l10n-name="name-link">{ $author_string }</a> على <a data-l10n-name="webpage-link">{ $webpage_string }</a>
 newtab-wallpaper-feature-highlight-header = جرب دفقة من الألوان
+newtab-wallpaper-feature-highlight-content = امنح صفحة لسانك الجديدة مظهرًا جديدًا باستخدام الخلفيات.
 newtab-wallpaper-feature-highlight-button = فهمت
 # Tooltip for dismiss button
 feature-highlight-dismiss-button =
@@ -480,6 +489,8 @@ newtab-weather-change-location-search-input-placeholder =
     .placeholder = ابحث عن الموقع
     .aria-label = ابحث عن الموقع
 newtab-weather-menu-weather-display = عرض الطقس
+newtab-weather-todays-forecast = توقعات الطقس اليوم
+newtab-weather-see-full-forecast = اطّلع على التوقعات كاملة
 # Display options are:
 # - Simple: Displays a current weather condition icon and the current temperature
 # - Detailed: Include simple information plus a short text summary: e.g. "Mostly cloudy"
@@ -502,6 +513,8 @@ newtab-weather-opt-in-not-now =
     .label = ليس الآن
 newtab-weather-opt-in-yes =
     .label = نعم
+newtab-weather-opt-in-use-location =
+    .label = استخدم الموقع
 # "Highest" here refers to the highest temperature of the day
 newtab-weather-high =
     .aria-label = مرتفعة
@@ -527,13 +540,16 @@ newtab-topic-label-education-science = علوم
 newtab-topic-selection-save-button = احفظ
 newtab-topic-selection-cancel-button = ألغِ
 newtab-topic-selection-button-maybe-later = ربما لاحقا
+newtab-topic-selection-privacy-link = تعرّف على كيف نحمي بياناتك وإدارة البيانات
 newtab-topic-selection-button-update-interests = حدِّث اهتماماتك
+newtab-topic-selection-button-pick-interests = اختر اهتماماتك
 
 ## Content Feed Sections
 ## "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = تابع
+newtab-section-following-button = يتابع
 newtab-section-unfollow-button = ألغِ المتابعة
 
 ## Button to block/unblock listed topics
@@ -560,6 +576,8 @@ newtab-section-mangage-topics-title = المواضيع
 newtab-section-manage-topics-button-v2 =
     .label = أدِر المواضيع
 newtab-section-mangage-topics-followed-topics-empty-state = لم تتابع أي مواضيع بعد.
+newtab-section-mangage-topics-blocked-topics = محظور
+newtab-section-mangage-topics-blocked-topics-empty-state = لم تحظر أي موضوع بعد.
 # 'Make firefox yours" means to customize or personalize
 newtab-custom-wallpaper-subtitle = ارفع خلفية شاشتك أو اختر لونًا مخصصًا لجعل { -brand-product-name } خاصًا بك.
 newtab-custom-wallpaper-cta = جربه
@@ -575,6 +593,7 @@ newtab-new-user-custom-wallpaper-cta = جرّبه الآن
 newtab-download-mobile-highlight-title = نزّل { -brand-product-name } للجوّال
 # "Scan the code" refers to scanning the QR code that appears above the body text that leads to Firefox for mobile download.
 newtab-download-mobile-highlight-body-variant-a = افحص الرمز للتصفح بشكل آمن أثناء التنقل.
+newtab-download-mobile-highlight-body-variant-b = استكمل من حيث توقفت عند مزامنة ألسنتك وكلمات سرك والمزيد.
 newtab-download-mobile-highlight-body-variant-c = أتعلم أنه يمكنك اصطحاب { -brand-product-name } معك أينما ذهبت؟ نفس المتصفح. في جيبك.
 newtab-download-mobile-highlight-image =
     .aria-label = رمز QR لتنزيل { -brand-product-name } للجوال
@@ -592,6 +611,8 @@ newtab-report-ads-reason-not-interested =
     .label = أنا لست مهتم
 newtab-report-ads-reason-inappropriate =
     .label = غير مناسب
+newtab-report-ads-reason-seen-it-too-many-times =
+    .label = لقد رأيت ذلك مرات كثيرة جدًا
 newtab-report-content-wrong-category =
     .label = فئة خاطئة
 newtab-report-content-outdated =
@@ -633,10 +654,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = اكتمل ({ $number })
 newtab-widget-task-list-menu-copy = انسخ
 newtab-widget-lists-menu-edit = حرّر اسم القائمة
+newtab-widget-lists-menu-edit2 =
+    .aria-label = حرّر اسم القائمة
 newtab-widget-lists-menu-create = أنشئ قائمة جديدة
 newtab-widget-lists-menu-delete = احذف هذه القائمة
 newtab-widget-lists-menu-copy = انسخ القائمة إلى الحافظة
 newtab-widget-lists-menu-learn-more = اطّلع على المزيد
+newtab-widget-lists-button-add-item = أضف عنصر
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = أضف عنصر
+    .aria-label = أضف عنصر
 newtab-widget-lists-input-add-an-item =
     .placeholder = أضف عنصر
 newtab-widget-lists-input-error = يُرجى إدخال نص لإضافة عنصر.
@@ -650,6 +677,10 @@ newtab-widget-lists-name-label-default =
 newtab-widget-lists-name-placeholder-default =
     .placeholder = قائمة المهام
 # The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = قائمة جديدة
+    .aria-label = حرّر اسم القائمة
+# The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = قائمة جديدة
 newtab-widget-menu-hide = أخفِ الويدجت
@@ -661,10 +692,14 @@ newtab-widget-size-large = كبير
 newtab-widget-section-hide-all-button =
     .title = أخف الويدجات
     .aria-label = أخف الويدجات
+newtab-widget-section-menu-button =
+    .title = قائمة الويدجات
+    .aria-label = افتح قائمة الويدجات
+newtab-widget-section-menu-hide-all = أخفِ الويدجات
+newtab-widget-section-menu-learn-more = اطّلع على المزيد
 newtab-widget-section-feedback = أخبرنا برأيك
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = المؤقت
 newtab-widget-timer-notification-break = انتهت استراحتك. هل أنت مستعد للتركيز؟
@@ -701,6 +736,10 @@ newtab-promo-card-cta = اطّلع على المزيد
 newtab-promo-card-dismiss-button =
     .title = أهمِل
     .aria-label = أهمِل
+
+## Sports widget
+
+newtab-sports-widget-skip = تخطَّ
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

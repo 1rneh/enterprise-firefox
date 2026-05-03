@@ -19,10 +19,7 @@
   // Nova layout
   // @nova-cleanup(remove-conditional): Make Nova grid default, remove .nova-enabled selector
   .nova-enabled & {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: subgrid;
-    grid-template-rows: subgrid;
+    display: contents;
   }
 }
 
@@ -53,7 +50,12 @@
   .nova-enabled & {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: subgrid;
+    grid-template-columns: repeat(
+      auto-fill,
+      calc(4 * var(--col-width) + 3 * var(--space-medium))
+    );
+    gap: var(--space-medium);
+    justify-content: center;
   }
 
   .widgets-title-container {
@@ -94,7 +96,13 @@
 
     // @nova-cleanup(remove-conditional): Make default, remove .nova-enabled selector
     .nova-enabled & {
+      font-size: var(--font-size-heading-large);
+      font-weight: var(--font-weight-heading);
       color: var(--newtab-contextual-text-primary-color);
+
+      @include at-content-cols(12) {
+        font-size: var(--font-size-heading-xlarge);
+      }
 
       @include wallpaper-contrast-fix;
     }
@@ -218,7 +226,7 @@
   .nova-enabled & {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: subgrid;
+    grid-template-columns: repeat(auto-fill, var(--col-width));
     grid-auto-rows: var(--row-height);
     gap: var(--space-medium);
   }
@@ -233,7 +241,8 @@
     --widgets-small-card-height: var(--newtab-card-height-small);
 
     &:has(.lists),
-    &:has(.focus-timer) {
+    &:has(.focus-timer),
+    &:has(.sports-widget) {
       display: grid;
       grid-template-columns: repeat(auto-fit, var(--widgets-card-width));
       gap: var(--widgets-grid-gap);
@@ -263,7 +272,8 @@
   --widgets-card-width: var(--newtab-card-width-medium);
 
   &:has(.lists),
-  &:has(.focus-timer) {
+  &:has(.focus-timer),
+  &:has(.sports-widget) {
     @media(min-width: $break-point-widest) {
       --widgets-grid-gap: var(--space-large);
     }

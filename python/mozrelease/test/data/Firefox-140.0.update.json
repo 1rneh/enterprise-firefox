@@ -9,7 +9,7 @@
     {
         "fields": {
             "actions": "showURL",
-            "openURL": "https://www.firefox.com/%LOCALE%/whatsnew/140.0/?oldversion=%OLD_VERSION%&utm_medium=firefox-desktop&utm_source=update&utm_campaign=140"
+            "openURL": "https://www.firefox.com/%LOCALE%/whatsnew/140/?oldversion=%OLD_VERSION%&utm_medium=firefox-desktop&utm_source=update&utm_campaign=140"
         },
         "for": {
             "channels": [

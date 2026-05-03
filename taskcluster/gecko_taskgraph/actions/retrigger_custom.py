@@ -178,5 +178,8 @@ def handle_custom_retrigger(parameters, graph_config, input, task_group_id, task
     logging.info("New task definition: %s", new_task_definition)
 
     create_task_from_def(
-        new_task_definition, parameters["level"], action_tag="retrigger-custom-task"
+        new_task_definition,
+        parameters["level"],
+        action_tag="retrigger-custom-task",
+        max_priority="very-low",
     )

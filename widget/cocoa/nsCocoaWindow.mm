@@ -4,6 +4,7 @@
 
 #include "nsCocoaWindow.h"
 
+#include "nsISupportsPrimitives.h"
 #include "nsArrayUtils.h"
 #include "MOZDynamicCursor.h"
 #include "nsIAppStartup.h"
@@ -3305,14 +3306,14 @@ static gfx::IntPoint GetIntegerDeltaForEvent(NSEvent* aEvent) {
 - (void)moveToRightEndOfLine:(id)sender {
   // Command + RightArrow in the default settings.
   if (mTextInputHandler) {
-    mTextInputHandler->HandleCommand(Command::EndLine);
+    mTextInputHandler->HandleCommand(Command::MoveRight3);
   }
 }
 
 - (void)moveToRightEndOfLineAndModifySelection:(id)sender {
   // Command + Shift + RightArrow in the default settings.
   if (mTextInputHandler) {
-    mTextInputHandler->HandleCommand(Command::SelectEndLine);
+    mTextInputHandler->HandleCommand(Command::SelectRight3);
   }
 }
 
@@ -3347,14 +3348,14 @@ static gfx::IntPoint GetIntegerDeltaForEvent(NSEvent* aEvent) {
 - (void)moveToLeftEndOfLine:(id)sender {
   // Command + LeftArrow in the default settings.
   if (mTextInputHandler) {
-    mTextInputHandler->HandleCommand(Command::BeginLine);
+    mTextInputHandler->HandleCommand(Command::MoveLeft3);
   }
 }
 
 - (void)moveToLeftEndOfLineAndModifySelection:(id)sender {
   // Command + Shift + LeftArrow in the default settings.
   if (mTextInputHandler) {
-    mTextInputHandler->HandleCommand(Command::SelectBeginLine);
+    mTextInputHandler->HandleCommand(Command::SelectLeft3);
   }
 }
 
@@ -3996,6 +3997,31 @@ static NSURL* GetPasteLocation(NSPasteboard* aPasteboard, bool aUseFallback) {
         }
 
         item->SetTransferData(kFilePromiseDirectoryMime, macLocalFile);
+
+        // If the dest filename is empty (e.g. the image URL had no path
+        // filename, only a query string), provide a fallback so that
+        // the file promise data provider does not fail. The correct
+        // extension will be added by ValidateFileNameForSaving using
+        // the image's MIME type.
+        nsCOMPtr<nsISupports> filenamePrimitive;
+        nsresult fnRv = item->GetTransferData(
+            kFilePromiseDestFilename, getter_AddRefs(filenamePrimitive));
+        if (NS_SUCCEEDED(fnRv)) {
+          nsCOMPtr<nsISupportsString> filenameStr =
+              do_QueryInterface(filenamePrimitive);
+          nsAutoString filename;
+          if (filenameStr) {
+            filenameStr->GetData(filename);
+          }
+          if (filename.IsEmpty()) {
+            nsCOMPtr<nsISupportsString> fallback =
+                do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID);
+            if (fallback) {
+              fallback->SetData(u"unknown"_ns);
+              item->SetTransferData(kFilePromiseDestFilename, fallback);
+            }
+          }
+        }
 
         // Now request the kFilePromiseMime data, which will invoke the data
         // provider. If successful, the file will have been created.

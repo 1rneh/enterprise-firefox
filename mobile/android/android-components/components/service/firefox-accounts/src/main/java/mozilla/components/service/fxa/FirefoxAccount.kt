@@ -190,7 +190,10 @@ class FirefoxAccount internal constructor(
         return inner.getConnectionSuccessURL()
     }
 
-    override suspend fun completeOAuthFlow(code: String, state: String) = withContext(scope.coroutineContext) {
+    override suspend fun completeOAuthFlow(
+        code: String,
+        state: String,
+    ) = withContext(scope.coroutineContext) {
         handleFxaExceptions(logger, "complete oauth flow") {
             inner.completeOAuthFlow(code, state)
         }

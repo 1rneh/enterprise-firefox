@@ -155,7 +155,7 @@ describe("settings ai features", () => {
       EventUtils.sendKey("space");
       const selectPopup = await pickerOpened;
       await waitForSettingChange(stgSetting, () => {
-        if (nativeSelectEnabled()) {
+        if (selectPopup.isNativeMenu) {
           selectPopup.activateItem(selectPopup.childNodes[1]);
         } else {
           EventUtils.sendKey("up");

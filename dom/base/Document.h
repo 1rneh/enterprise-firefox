@@ -567,9 +567,6 @@ class Document : public nsINode,
   Document(const char* aContentType, LoadedAsData aLoadedAsData);
   virtual ~Document();
 
-  Document(const Document&) = delete;
-  Document& operator=(const Document&) = delete;
-
  public:
   using ExternalResourceLoad = dom::ExternalResourceMap::ExternalResourceLoad;
   using ReferrerPolicyEnum = dom::ReferrerPolicy;
@@ -579,6 +576,8 @@ class Document : public nsINode,
   // nsINode overrides the new operator for DOM Arena allocation.
   // to use the default one, we need to bring it back again
   void* operator new(size_t aSize) { return ::operator new(aSize); }
+  Document(const Document&) = delete;
+  Document& operator=(const Document&) = delete;
 
   /**
    * Called when XPCOM shutdown.

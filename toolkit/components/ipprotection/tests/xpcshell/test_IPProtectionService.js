@@ -146,9 +146,7 @@ add_task(
 
     await waitForReady;
 
-    IPProtectionService.guardian.fetchUserInfo.resolves({
-      status: 200,
-      error: null,
+    IPPFxaAuthProvider.getEntitlement.resolves({
       entitlement: createTestEntitlement({ subscribed: true }),
     });
 
@@ -185,11 +183,7 @@ add_task(
     await IPPEnrollAndEntitleManager.maybeEnrollAndEntitle();
     IPProtectionService.updateState();
 
-    IPProtectionService.guardian.fetchUserInfo.resolves({
-      status: 404,
-      error: "invalid_response",
-      validEntitlement: false,
-    });
+    IPPFxaAuthProvider.getEntitlement.resolves({ error: "invalid_response" });
 
     let hasUpgradedEventPromise = waitForEvent(
       IPPEnrollAndEntitleManager,
@@ -248,14 +242,13 @@ add_task(async function test_IPProtectionService_hasUpgraded_signed_out() {
 add_task(async function test_guardian_endpoint_updates_on_reinit() {
   await IPProtectionService.init();
 
-  let guardian1 = IPProtectionService.guardian;
   let expectedEndpoint = AppConstants.MOZ_ENTERPRISE
     ? ""
     : "https://vpn.mozilla.org/";
   Assert.equal(
-    guardian1.guardianEndpoint,
+    IPPFxaAuthProvider.guardian.guardianEndpoint,
     expectedEndpoint,
-    "Initial guardian should have default endpoint"
+    "Guardian should have default endpoint"
   );
 
   Services.prefs.setCharPref(
@@ -263,20 +256,10 @@ add_task(async function test_guardian_endpoint_updates_on_reinit() {
     "https://test.example.com/"
   );
 
-  IPProtectionService.uninit();
-  await IPProtectionService.init();
-
-  let guardian2 = IPProtectionService.guardian;
   Assert.equal(
-    guardian2.guardianEndpoint,
+    IPPFxaAuthProvider.guardian.guardianEndpoint,
     "https://test.example.com/",
-    "Guardian should have updated endpoint after reinit"
-  );
-
-  Assert.notStrictEqual(
-    guardian1,
-    guardian2,
-    "Guardian instances should be different after reinit"
+    "Guardian should reflect updated endpoint after pref change"
   );
 
   IPProtectionService.uninit();
@@ -296,7 +279,7 @@ add_task(async function test_isCheckingEntitlement_during_updateEntitlement() {
   let resolveEntitlement;
   // Slow down fetching entitlement info so that we can properly test
   // isCheckingEntitlement. The promise only resolves when we call resolveEntitlement().
-  IPProtectionService.guardian.fetchUserInfo.returns(
+  IPPFxaAuthProvider.getEntitlement.returns(
     new Promise(resolve => {
       resolveEntitlement = resolve;
     })
@@ -314,11 +297,7 @@ add_task(async function test_isCheckingEntitlement_during_updateEntitlement() {
     "isCheckingEntitlement should be true while updateEntitlement is in progress"
   );
 
-  resolveEntitlement({
-    status: 200,
-    error: null,
-    entitlement: createTestEntitlement(),
-  });
+  resolveEntitlement({ entitlement: createTestEntitlement() });
   await updatePromise;
 
   Assert.ok(
@@ -376,7 +355,7 @@ add_task(async function test_isEnrolling_during_maybeEnrollAndEntitle() {
   let resolveEnroll;
   // Slow down enrolling step info so that we can properly test
   // isEnrolling. The promise only resolves when we call resolveEnroll().
-  IPProtectionService.guardian.enrollWithFxa.returns(
+  IPPFxaAuthProvider.enrollAndEntitle.returns(
     new Promise(resolve => {
       resolveEnroll = resolve;
     })
@@ -403,7 +382,7 @@ add_task(async function test_isEnrolling_during_maybeEnrollAndEntitle() {
     { once: true }
   );
 
-  resolveEnroll({ status: 200, error: null, ok: true });
+  resolveEnroll({ isEnrolledAndEntitled: true });
   await enrollPromise;
 
   Assert.ok(

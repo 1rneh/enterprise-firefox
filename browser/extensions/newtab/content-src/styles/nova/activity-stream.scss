@@ -3,6 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // @nova-cleanup(merge-styles): Merge nova/activity-stream.scss back to activity-stream.scss after ship
+// @nova-cleanup(remove-file): The CSS switcher in AboutNewTabChild.sys.mjs was removed, but it won't
+// train hop to older Firefox versions. This file is kept so those versions still have a working
+// reference when the switcher swaps to it. Once the switcher removal reaches Release, this file
+// can be removed.
 
 @import 'tokens';
 @import '../normalize';
@@ -169,8 +173,10 @@ input {
 
 // Widget Components
 @import '../../components/Widgets/Widgets';
+@import '../../components/Widgets/WidgetCelebration';
 @import '../../components/Widgets/Lists/Lists';
 @import '../../components/Widgets/FocusTimer/FocusTimer';
+@import '../../components/Widgets/SportsWidget/SportsWidget';
 @import '../../components/Widgets/Weather/Weather';
 
 // Discovery Stream Components
@@ -194,6 +200,7 @@ input {
 @import '../../components/DiscoveryStreamComponents/FeatureHighlight/FollowSectionButtonHighlight';
 @import '../../components/DiscoveryStreamComponents/FeatureHighlight/WallpaperFeatureHighlight';
 @import '../../components/DiscoveryStreamComponents/FeatureHighlight/ShortcutFeatureHighlight';
+@import '../../components/DiscoveryStreamComponents/FeatureHighlight/WidgetsRowFeatureHighlight';
 @import '../../components/DiscoveryStreamComponents/TopicSelection/TopicSelection';
 @import '../../components/DiscoveryStreamComponents/AdBanner/AdBanner';
 @import '../../components/DiscoveryStreamComponents/AdBannerContextMenu/AdBannerContextMenu';

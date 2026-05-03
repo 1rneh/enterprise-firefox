@@ -7,8 +7,6 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  GuardianClient:
-    "moz-src:///toolkit/components/ipprotection/GuardianClient.sys.mjs",
   IPPAuthProvider:
     "moz-src:///toolkit/components/ipprotection/IPPAuthProvider.sys.mjs",
   IPPNimbusHelper:
@@ -51,8 +49,6 @@ export const IPProtectionStates = Object.freeze({
 class IPProtectionServiceSingleton extends EventTarget {
   #state = IPProtectionStates.UNINITIALIZED;
 
-  #guardian = null;
-
   #helpers = [];
   #authProvider = new lazy.IPPAuthProvider();
 
@@ -64,13 +60,6 @@ class IPProtectionServiceSingleton extends EventTarget {
    */
   get state() {
     return this.#state;
-  }
-
-  get guardian() {
-    if (!this.#guardian) {
-      this.#guardian = new lazy.GuardianClient();
-    }
-    return this.#guardian;
   }
 
   constructor() {
@@ -128,8 +117,6 @@ class IPProtectionServiceSingleton extends EventTarget {
     if (this.#state === IPProtectionStates.UNINITIALIZED) {
       return;
     }
-    this.#guardian = null;
-
     this.#helpers.forEach(helper => helper.uninit());
 
     this.#setState(IPProtectionStates.UNINITIALIZED);

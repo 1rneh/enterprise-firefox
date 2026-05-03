@@ -154,7 +154,7 @@ class ScriptLoadData final
       public nsISupports,
       public SharedSubResourceCacheLoadingValueBase<ScriptLoadData> {
  protected:
-  ~ScriptLoadData() {}
+  ~ScriptLoadData() = default;
 
  public:
   ScriptLoadData(ScriptLoader* aLoader, JS::loader::ScriptLoadRequest* aRequest,

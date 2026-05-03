@@ -37,6 +37,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowLooper
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertIs
 
 @RunWith(AndroidJUnit4::class)
 class ViewTest {
@@ -183,17 +184,17 @@ class ViewTest {
         val rootFound = root.findViewInHierarchy { it is LinearLayout }
 
         assertNotNull(rootFound)
-        assertTrue(rootFound is LinearLayout)
+        assertIs<LinearLayout>(rootFound)
 
         val layoutFound = root.findViewInHierarchy { it is RelativeLayout }
 
         assertNotNull(layoutFound)
-        assertTrue(layoutFound is RelativeLayout)
+        assertIs<RelativeLayout>(layoutFound)
 
         val testViewFound = root.findViewInHierarchy { it is TestView }
 
         assertNotNull(testViewFound)
-        assertTrue(testViewFound is TestView)
+        assertIs<TestView>(testViewFound)
     }
 
     private class TestView(context: Context) : View(context)

@@ -952,7 +952,7 @@ add_task(async function open_with_alt_option_with_open_view() {
   });
 
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  UrlbarTestUtils.searchModeSwitcherPopup(window).hide();
+  EventUtils.synthesizeKey("KEY_Escape");
   await popupHidden;
 });
 
@@ -965,7 +965,7 @@ add_task(async function open_with_alt_option_with_closed_view() {
   });
 
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  UrlbarTestUtils.searchModeSwitcherPopup(window).hide();
+  EventUtils.synthesizeKey("KEY_Escape");
   await popupHidden;
 });
 

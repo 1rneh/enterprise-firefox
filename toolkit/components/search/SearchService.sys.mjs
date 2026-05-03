@@ -1984,7 +1984,6 @@ export const SearchService = new (class SearchService {
 
     // Don't show the notification if the previous engine was an enterprise engine -
     // the text doesn't quite make sense.
-    // let checkPolicyEngineId = prevCurrentEngineId ? prevCurrentEngineId : prevAppDefaultEngineId;
     let checkPolicyEngineId = prevCurrentEngineId || prevAppDefaultEngineId;
     if (checkPolicyEngineId) {
       let engineSettings = settings.engines.find(

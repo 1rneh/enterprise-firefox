@@ -33,7 +33,11 @@ apply plugin: 'androidx.navigation.safeargs.kotlin'
 apply plugin: 'kotlinx-serialization'
 apply plugin: 'com.google.devtools.ksp'
 
-if (gradle.mozconfig.substs.MOZILLA_OFFICIAL) {
+// The OSS-licenses plugin is only needed for shipping builds and is incompatible
+// with Gradle's configuration cache, which causes a fresh configuration phase on
+// every lint invocation. Skip it during `mach lint` (which always passes
+// `-Pandroid-lint`) so the configuration cache stays storable/reusable.
+if (gradle.mozconfig.substs.MOZILLA_OFFICIAL && !project.hasProperty('android-lint')) {
     apply plugin: 'com.google.android.gms.oss-licenses-plugin'
 }
 
@@ -567,6 +571,7 @@ dependencies {
     implementation project(':components:feature-fxsuggest')
     implementation project(':components:feature-importer')
     implementation project(':components:feature-intent')
+    implementation project(':components:feature-ipprotection')
     implementation project(':components:feature-logins')
     implementation project(':components:feature-media')
     implementation project(':components:feature-privatemode')
@@ -740,6 +745,7 @@ dependencies {
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.androidx.test.uiautomator
     androidTestImplementation libs.androidx.work.testing
+    androidTestImplementation libs.kotlin.test
     androidTestImplementation libs.leakcanary.instrumentation
     androidTestImplementation libs.mockk.android
     androidTestImplementation libs.mockwebserver

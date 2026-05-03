@@ -28,7 +28,14 @@ use windows_sys::Win32::{
 
 pub(crate) const CHILD_RENDEZVOUS_ANCILLARY_DATA_LEN: usize = 0;
 
-pub type ProcessHandle = OwnedHandle;
+#[repr(transparent)]
+pub struct ProcessHandle(pub OwnedHandle);
+
+impl Clone for ProcessHandle {
+    fn clone(&self) -> Self {
+        ProcessHandle(self.0.try_clone().unwrap())
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum PlatformError {

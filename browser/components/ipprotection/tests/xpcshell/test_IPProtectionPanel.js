@@ -224,11 +224,6 @@ add_task(async function test_IPProtectionPanel_signedIn() {
   sandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });
-  sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
-    status: 200,
-    error: null,
-    entitlement: createTestEntitlement({ subscribed: true }),
-  });
 
   let ipProtectionPanel = new IPProtectionPanel();
   let fakeElement = new FakeIPProtectionPanelElement();
@@ -316,12 +311,7 @@ add_task(async function test_IPProtectionPanel_started_stopped() {
   sandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });
-  sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
-    status: 200,
-    error: null,
-    entitlement: createTestEntitlement({ subscribed: true }),
-  });
-  sandbox.stub(IPProtectionService.guardian, "fetchProxyPass").resolves({
+  sandbox.stub(IPPFxaAuthProvider, "fetchProxyPass").resolves({
     status: 200,
     error: undefined,
     pass: new ProxyPass(createProxyPassToken()),
@@ -331,9 +321,6 @@ add_task(async function test_IPProtectionPanel_started_stopped() {
       "2026-02-01T00:00:00.000Z"
     ),
   });
-  sandbox
-    .stub(IPProtectionService.guardian, "enrollWithFxa")
-    .resolves({ ok: true });
 
   IPProtectionService.updateState();
 

@@ -8,9 +8,13 @@
 newtab-page-title = Nueva pestaña
 newtab-settings-button =
     .title = Personaliza tu página de Nueva pestaña
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Personalizar esta página
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Personalizar
+newtab-customize-panel-label =
+    .label = Personalizar
 newtab-personalize-settings-icon-label =
     .title = Personalizar nueva pestaña
     .aria-label = Ajustes
@@ -359,6 +363,8 @@ newtab-custom-widget-lists-toggle =
     .label = Listas
 newtab-custom-widget-timer-toggle =
     .label = Temporizador
+newtab-custom-widget-sports-toggle =
+    .label = Copa Mundial
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -497,6 +503,9 @@ newtab-weather-menu-change-location = Cambiar ubicación
 newtab-weather-change-location-search-input-placeholder =
     .placeholder = Buscar ubicación
     .aria-label = Buscar ubicación
+# "Current" refers to the user's physical/geographic location detected via geolocation.
+newtab-weather-change-location-search-use-current =
+    .label = Utilizar la ubicación actual
 newtab-weather-menu-weather-display = Visualización del clima
 newtab-weather-todays-forecast = Pronóstico del tiempo para hoy
 newtab-weather-see-full-forecast = Ver pronóstico completo
@@ -585,8 +594,16 @@ newtab-topic-selection-button-pick-interests = Elige tus intereses
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Seguir
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Seguir { $topic }
 newtab-section-following-button = Siguiendo
 newtab-section-unfollow-button = Dejar de seguir
+# Variables:
+#   $topic (string) - Topic that the user is following and can unfollow
+newtab-section-unfollow-button-label =
+    .aria-label = Siguiendo: Dejar de seguir { $topic }
 # A modal may appear next to the Follow button, directing users to try out the feature
 newtab-section-follow-highlight-title = Optimiza tu feed
 newtab-section-follow-highlight-subtitle = Sigue tus intereses para ver más de lo que te gusta.
@@ -598,6 +615,22 @@ newtab-section-follow-highlight-subtitle = Sigue tus intereses para ver más de 
 newtab-section-block-button = Bloquear
 newtab-section-blocked-button = Bloqueado
 newtab-section-unblock-button = Desbloquear
+# Variables:
+#   $topic (string) - Name of topic that user is following
+newtab-section-follow-topic =
+    .aria-label = Seguir { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unfollowing
+newtab-section-unfollow-topic =
+    .aria-label = Dejar de seguir { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is blocking
+newtab-section-block-topic =
+    .aria-label = Bloquear { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Desbloquear { $topic }
 
 ## Confirmation modal for blocking a section
 
@@ -628,6 +661,12 @@ newtab-custom-wallpaper-cta = Inténtalo
 newtab-new-user-custom-wallpaper-title = Elige un fondo de pantalla para que { -brand-product-name } sea tuyo
 newtab-new-user-custom-wallpaper-subtitle = Haz que cada nueva pestaña se sienta como en casa con fondos de pantalla y colores personalizados.
 newtab-new-user-custom-wallpaper-cta = Pruébalo ahora
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Acaban de llegar nuevos fondos de pantalla.
+newtab-wallpaper-feature-highlight-subtitle = Elige tu favorito y haz que cada pestaña nueva te haga sentir como en casa.
+newtab-wallpaper-feature-highlight-cta = Elegir fondo de pantalla
 
 ## Strings for download mobile highlight
 
@@ -697,12 +736,20 @@ newtab-widget-lists-label-beta =
 # Variables:
 #   $number (number) - Amount of list items marked complete
 newtab-widget-lists-completed-list = Completado ({ $number })
+newtab-widget-lists-celebration-headline = Buen trabajo
+newtab-widget-lists-celebration-subhead = Todo listo
 newtab-widget-task-list-menu-copy = Copiar
 newtab-widget-lists-menu-edit = Editar el nombre de la lista
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Editar el nombre de la lista
 newtab-widget-lists-menu-create = Crear una nueva lista
 newtab-widget-lists-menu-delete = Eliminar esta lista
 newtab-widget-lists-menu-copy = Copiar lista al portapapeles
 newtab-widget-lists-menu-learn-more = Aprender más
+newtab-widget-lists-button-add-item = Añadir un elemento
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Añadir un elemento
+    .aria-label = Añadir un elemento
 newtab-widget-lists-input-add-an-item =
     .placeholder = Añadir un elemento
 newtab-widget-lists-input-error = Por favor, incluye texto para añadir un elemento.
@@ -711,13 +758,26 @@ newtab-widget-lists-input-menu-move-up = Subir
 newtab-widget-lists-input-menu-move-down = Bajar
 newtab-widget-lists-input-menu-delete = Eliminar
 newtab-widget-lists-input-menu-edit = Editar
+newtab-widget-lists-input-menu-edit2 =
+    .aria-label = Editar elemento
 # the + symbol emphasises the functionality of adding a new list
 newtab-widget-lists-dropdown-create =
     .label = + Crear una nueva lista
 newtab-widget-lists-name-label-default =
     .label = Lista de tareas
+newtab-widget-lists-name-label-checklist =
+    .label = Lista de verificación
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Lista de tareas
+newtab-widget-lists-name-placeholder-checklist2 =
+    .placeholder = Lista de verificación
+    .aria-label = Editar el nombre de la lista
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Nueva lista
+    .aria-label = Editar el nombre de la lista
+newtab-widget-lists-name-placeholder-checklist =
+    .placeholder = Lista de verificación
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nueva lista
@@ -737,10 +797,15 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimizar widgets
     .aria-label = Minimizar todos los widgets al tamaño compacto
+newtab-widget-section-menu-button =
+    .title = Menú de widgets
+    .aria-label = Abrir menú de widgets
+newtab-widget-section-menu-hide-all = Ocultar widgets
+newtab-widget-section-menu-learn-more = Aprender más
 newtab-widget-section-feedback = Cuéntanos lo que piensas
+newtab-widget-lists-name-default = Lista de verificación
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Temporizador
 newtab-widget-timer-notification-focus = Se acabó el tiempo de concentración. Buen trabajo. ¿Necesitas un descanso?
@@ -780,6 +845,47 @@ newtab-promo-card-cta = Más información
 newtab-promo-card-dismiss-button =
     .title = Ocultar
     .aria-label = Ocultar
+
+## Sports widget
+
+newtab-sports-widget-menu-follow-teams = Seguir equipos
+newtab-sports-widget-menu-view-upcoming = Ver próximos
+newtab-sports-widget-menu-view-results = Ver resultados
+newtab-sports-widget-menu-learn-more = Aprender más
+newtab-sports-widget-countdown-title = Cuenta regresiva para la Copa Mundial
+newtab-sports-widget-get-updates = Recibe actualizaciones de partidos en directo y mucho más.
+newtab-sports-widget-follow-teams =
+    .label = Seguir equipos
+newtab-sports-widget-choose-wallpaper =
+    .label = Elige un fondo de pantalla
+newtab-sports-widget-skip = Saltar
+newtab-sports-widget-search-teams =
+    .placeholder = Buscar equipos
+    .aria-label = Buscar equipos
+newtab-sports-widget-done-button =
+    .label = Hecho
+newtab-sports-widget-group-stage = Fase de grupos
+# The "LIVE" string is meant to be uppercase in English, but other languages and locales may vary in how they handle this.
+newtab-sports-widget-live = EN VIVO
+newtab-custom-widget-live-refresh =
+    .title = Actualizar puntuaciones
+    .aria-label = Actualizar puntuaciones
+newtab-sports-widget-upcoming = Próximamente
+newtab-sports-widget-results = Resultados
+newtab-sports-widget-semi-finals = Semifinales
+newtab-sports-widget-bronze-finals = Tercer puesto
+# Final is the final match for 1st place.
+newtab-sports-widget-final = Final
+newtab-sports-widget-delayed = Retrasado
+newtab-sports-widget-postponed = Pospuesto
+newtab-sports-widget-suspended = Suspendido
+newtab-sports-widget-cancelled = Cancelado
+newtab-sports-widget-information = Información sobre el partido
+newtab-sports-widget-no-live-data = Los datos del partido en vivo no se están actualizando en este momento.
+newtab-sports-widget-view-results-link = Ver resultados
+newtab-sports-widget-third-place = Tercer lugar
+newtab-sports-widget-champions = Campeones
+newtab-sports-widget-world-cup-champions = Campeones de la Copa Mundial 2026
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

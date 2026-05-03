@@ -7,8 +7,6 @@ prefs = [
 ]
 support-files = [
   "head.js",
-  "test_chat_search_button.html",
-  "test_chat_search_button.mjs",
   "test_assistant_message_footer_page.html",
   "test_applied_memories_page.html",
   "test_chat_assistant_error.html",
@@ -21,6 +19,8 @@ support-files = [
   "test_website_chip.mjs",
   "test_website_select_page.html",
   "test_website_select.mjs",
+  "test_website_confirmation_page.html",
+  "test_website_confirmation.mjs",
   "test_context_url_page.html",
   "test_context_url_page2.html"
 ]
@@ -33,9 +33,9 @@ support-files = [
 
 ["browser_aichat_content_overflow.js"]
 
-["browser_aichat_message_table.js"]
-
 ["browser_aichat_message.js"]
+
+["browser_aichat_message_table.js"]
 
 ["browser_aichat_open_link.js"]
 
@@ -67,8 +67,6 @@ skip-if = [
 ["browser_aiwindow_new_chat_button.js"]
 
 ["browser_aiwindow_newtab_preload.js"]
-
-["browser_aiwindow_search_button.js"]
 
 ["browser_aiwindow_session_restore.js"]
 
@@ -109,6 +107,8 @@ skip-if = [
 
 ["browser_aiwindow_website_chip.js"]
 
+["browser_aiwindow_website_confirmation.js"]
+
 ["browser_aiwindow_website_select.js"]
 
 ["browser_aiwindowui.js"]
@@ -122,6 +122,8 @@ skip-if = [
 ["browser_smartwindow_assistant_ui_errors.js"]
 
 ["browser_smartwindow_beta_badge.js"]
+
+["browser_smartwindow_chat_browser_tabbable.js"]
 
 ["browser_smartwindow_chat_markdown_parser.js"]
 
@@ -168,6 +170,8 @@ skip-if = [
 ["browser_smartwindow_shortcut.js"]
 
 ["browser_smartwindow_sidebar.js"]
+
+["browser_smartwindow_sidebar_auto_open_pref_prompt.js"]
 
 ["browser_smartwindow_smartbar_tab_state.js"]
 

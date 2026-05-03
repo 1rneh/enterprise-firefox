@@ -86,7 +86,7 @@ describe("settings ai features", () => {
       EventUtils.sendKey("space");
       const selectPopup = await pickerOpened;
       await waitForSettingChange(linkPreviewSetting, () => {
-        if (nativeSelectEnabled()) {
+        if (selectPopup.isNativeMenu) {
           selectPopup.activateItem(selectPopup.childNodes[1]);
         } else {
           EventUtils.sendKey("up");
@@ -223,7 +223,7 @@ describe("settings ai features", () => {
       EventUtils.sendKey("space");
       const selectPopup = await pickerOpened;
       await waitForSettingChange(translationsSetting, () => {
-        if (nativeSelectEnabled()) {
+        if (selectPopup.isNativeMenu) {
           selectPopup.activateItem(selectPopup.childNodes[0]);
         } else {
           EventUtils.sendKey("up");

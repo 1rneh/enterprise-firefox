@@ -188,7 +188,7 @@ add_task(async function test_IPPProxyManager_start_stop_reset() {
  */
 add_task(async function test_IPPProxyManager_reset() {
   let sandbox = sinon.createSandbox();
-  sandbox.stub(IPProtectionService.guardian, "fetchProxyPass").returns({
+  sandbox.stub(IPPFxaAuthProvider, "fetchProxyPass").returns({
     status: 200,
     error: undefined,
     pass: new ProxyPass(createProxyPassToken()),
@@ -266,7 +266,7 @@ add_task(async function test_IPPProxyManager_reset_clears_usage() {
 
   // Simulate an account switch: the next fetchProxyUsage call returns new data.
   let usageRefreshed = new Promise(resolve => {
-    IPProtectionService.guardian.fetchProxyUsage.callsFake(() => {
+    IPPFxaAuthProvider.fetchProxyUsage.callsFake(() => {
       resolve();
       return Promise.resolve(newUsage);
     });
@@ -312,7 +312,7 @@ add_task(async function test_IPPProxyStates_error() {
 
   sandbox.restore();
   sandbox = sinon.createSandbox();
-  sandbox.stub(IPProtectionService.guardian, "fetchProxyPass").resolves({
+  sandbox.stub(IPPFxaAuthProvider, "fetchProxyPass").resolves({
     status: 500,
     error: undefined,
     pass: undefined,
@@ -359,11 +359,6 @@ add_task(async function test_IPPProxyManager_activation_failure() {
   sandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });
-  sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
-    status: 200,
-    error: undefined,
-    entitlement: createTestEntitlement(),
-  });
   sandbox
     .stub(IPPEnrollAndEntitleManager, "maybeEnrollAndEntitle")
     .resolves({ isEnrolledAndEntitled: false });
@@ -399,14 +394,9 @@ add_task(async function test_IPPProxyManager_quota_exceeded() {
   sandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });
-  sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
-    status: 200,
-    error: undefined,
-    entitlement: createTestEntitlement(),
-  });
   await putServerInRemoteSettings();
 
-  sandbox.stub(IPProtectionService.guardian, "fetchProxyPass").resolves({
+  sandbox.stub(IPPFxaAuthProvider, "fetchProxyPass").resolves({
     status: 429,
     error: "quota_exceeded",
     pass: undefined,
@@ -506,12 +496,7 @@ add_task(async function test_IPPProxytates_active() {
   sandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });
-  sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
-    status: 200,
-    error: undefined,
-    entitlement: createTestEntitlement(),
-  });
-  sandbox.stub(IPProtectionService.guardian, "fetchProxyPass").resolves({
+  sandbox.stub(IPPFxaAuthProvider, "fetchProxyPass").resolves({
     status: 200,
     error: undefined,
     pass: new ProxyPass(
@@ -585,12 +570,7 @@ add_task(async function test_IPPProxytates_start_stop() {
   sandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });
-  sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
-    status: 200,
-    error: undefined,
-    entitlement: createTestEntitlement(),
-  });
-  sandbox.stub(IPProtectionService.guardian, "fetchProxyPass").resolves({
+  sandbox.stub(IPPFxaAuthProvider, "fetchProxyPass").resolves({
     status: 200,
     error: undefined,
     pass: new ProxyPass(
@@ -950,7 +930,7 @@ add_task(async function test_IPPProxyManager_restores_cached_usage() {
   Services.prefs.setBoolPref("browser.ipProtection.cacheDisabled", false);
 
   const { ProxyUsage } = ChromeUtils.importESModule(
-    "moz-src:///toolkit/components/ipprotection/GuardianClient.sys.mjs"
+    "moz-src:///toolkit/components/ipprotection/GuardianTypes.sys.mjs"
   );
 
   const cachedUsage = new ProxyUsage(
@@ -1580,6 +1560,54 @@ add_task(async function test_IPPProxyManager_switch_from_active() {
   Assert.ok(
     uninitSpy.calledBefore(initSpy.lastCall),
     "uninitialize must be called before the re-initialize"
+  );
+
+  await IPPProxyManager.stop();
+  IPProtectionService.uninit();
+  sandbox.restore();
+});
+
+add_task(async function test_IPPProxyManager_switch_recommended() {
+  await IPPProxyManager.reset();
+  await putServerInRemoteSettings();
+
+  let sandbox = sinon.createSandbox();
+  setupStubs(sandbox);
+
+  const getRecommendedSpy = sandbox.spy(
+    IPProtectionServerlist,
+    "getRecommendedLocation"
+  );
+
+  const readyEvent = waitForEvent(
+    IPProtectionService,
+    "IPProtectionService:StateChanged",
+    () => IPProtectionService.state === IPProtectionStates.READY
+  );
+
+  IPProtectionService.init();
+  await readyEvent;
+
+  const activeEvent = waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:StateChanged",
+    () => IPPProxyManager.state === IPPProxyStates.ACTIVE
+  );
+
+  await IPPProxyManager.start(true, false);
+  await activeEvent;
+
+  const result = IPPProxyManager.switch();
+
+  Assert.deepEqual(
+    result,
+    { switched: true },
+    "switch() with no country should report success from ACTIVE"
+  );
+
+  Assert.ok(
+    getRecommendedSpy.called,
+    "getRecommendedLocation should be called when no country is provided"
   );
 
   await IPPProxyManager.stop();

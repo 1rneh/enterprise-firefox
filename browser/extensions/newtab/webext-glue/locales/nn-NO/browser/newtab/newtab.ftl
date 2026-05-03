@@ -8,9 +8,13 @@
 newtab-page-title = Ny fane
 newtab-settings-button =
     .title = Tilpass sida for Ny fane
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Tilpass denne sida
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Tilpass
+newtab-customize-panel-label =
+    .label = Tilpass
 newtab-personalize-settings-icon-label =
     .title = Tilpass ny fane
     .aria-label = Innstillingar
@@ -362,6 +366,8 @@ newtab-custom-widget-lists-toggle =
     .label = Lister
 newtab-custom-widget-timer-toggle =
     .label = Nedteljing
+newtab-custom-widget-sports-toggle =
+    .label = VM
 newtab-custom-widget-section-title = Widgetar
 newtab-custom-widget-section-toggle =
     .label = Widgetar
@@ -381,6 +387,7 @@ newtab-wallpaper-title = Bakgrunnsbilde
 newtab-wallpaper-reset = Still tilbake til standard
 #  (developer note): @nova-cleanup(remove-string): Remove old "Upload an image" string once Nova lands. The new "Add an image"  string will take over
 newtab-wallpaper-upload-image = Last opp eit bilde
+newtab-wallpaper-add-an-image = Legg til eit bilde
 newtab-wallpaper-custom-color = Vel ein farge
 newtab-wallpaper-toggle-title =
     .label = Bakgrunnsbilde
@@ -408,6 +415,7 @@ newtab-wallpaper-light-fox-anniversary = Ein rev i ei graskledd mark med eit tå
 
 #  (developer note): @nova-cleanup(remove-string): Remove old "Solid colors" string once Nova lands. The simplified "Colors" string will take over
 newtab-wallpaper-category-title-colors = Einsfarga
+newtab-wallpaper-colors = Fargar
 newtab-wallpaper-blue = Blå
 newtab-wallpaper-light-blue = Lyseblå
 newtab-wallpaper-light-purple = Lyselilla
@@ -498,6 +506,9 @@ newtab-weather-menu-change-location = Endre plassering
 newtab-weather-change-location-search-input-placeholder =
     .placeholder = Søk plassering
     .aria-label = Søk plassering
+# "Current" refers to the user's physical/geographic location detected via geolocation.
+newtab-weather-change-location-search-use-current =
+    .label = Bruk gjeldande plassering
 newtab-weather-menu-weather-display = Vêrvising
 newtab-weather-todays-forecast = Vêrmeldinga i dag.
 newtab-weather-see-full-forecast = Sjå fullstendig vêrmelding
@@ -523,6 +534,10 @@ newtab-weather-opt-in-not-now =
     .label = Ikkje no
 newtab-weather-opt-in-yes =
     .label = Ja
+newtab-weather-opt-in-headline = Få di lokale vêrmelding
+newtab-weather-opt-in-use-location =
+    .label = Bruk plassering
+newtab-weather-opt-in-choose-location = Vel plassering
 # We'll be showing static (fake) weather data if the user has not opted in to using their location
 newtab-weather-static-city = New York City
 # "Highest" here refers to the highest temperature of the day
@@ -582,8 +597,16 @@ newtab-topic-selection-button-pick-interests = Vel interessene dine
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Følg
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Følg { $topic }
 newtab-section-following-button = Følgjer
 newtab-section-unfollow-button = Slutt å følgje
+# Variables:
+#   $topic (string) - Topic that the user is following and can unfollow
+newtab-section-unfollow-button-label =
+    .aria-label = Følgjer: Slutt å følgje { $topic }
 # A modal may appear next to the Follow button, directing users to try out the feature
 newtab-section-follow-highlight-title = Finjuster kjelda di
 newtab-section-follow-highlight-subtitle = Følg interessene dine for å sjå meir av det du likar.
@@ -595,6 +618,22 @@ newtab-section-follow-highlight-subtitle = Følg interessene dine for å sjå me
 newtab-section-block-button = Blokker
 newtab-section-blocked-button = Blokkert
 newtab-section-unblock-button = Opphev blokkeringa
+# Variables:
+#   $topic (string) - Name of topic that user is following
+newtab-section-follow-topic =
+    .aria-label = Følg { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unfollowing
+newtab-section-unfollow-topic =
+    .aria-label = Slutt å følgje { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is blocking
+newtab-section-block-topic =
+    .aria-label = Blokker { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Opphev blokkering av { $topic }
 
 ## Confirmation modal for blocking a section
 
@@ -625,6 +664,11 @@ newtab-custom-wallpaper-cta = Prøv det
 newtab-new-user-custom-wallpaper-title = Vel eit bakgrunnsbilde for å gjere { -brand-product-name } til din eigen
 newtab-new-user-custom-wallpaper-subtitle = Få kvar nye fane til å kjennast som heime med tilpassa bakgrunnar og fargar.
 newtab-new-user-custom-wallpaper-cta = Prøv det no
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Nye bakgrunnsbilde er no tilgjengelege
+newtab-wallpaper-feature-highlight-cta = Vel bakgrunnsbilde
 
 ## Strings for download mobile highlight
 
@@ -696,10 +740,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Fullført ({ $number })
 newtab-widget-task-list-menu-copy = Kopier
 newtab-widget-lists-menu-edit = Rediger listenamn
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Rediger listenamn
 newtab-widget-lists-menu-create = Opprett ei ny liste
 newtab-widget-lists-menu-delete = Slett denne lista
 newtab-widget-lists-menu-copy = Kopier liste til utklippstavla
 newtab-widget-lists-menu-learn-more = Les meir
+newtab-widget-lists-button-add-item = Legg til eit element
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Legg til eit element
+    .aria-label = Legg til eit element
 newtab-widget-lists-input-add-an-item =
     .placeholder = Legg til eit element
 newtab-widget-lists-input-error = Legg til tekst for å leggje til eit element.
@@ -708,6 +758,8 @@ newtab-widget-lists-input-menu-move-up = Flytt opp
 newtab-widget-lists-input-menu-move-down = Flytt ned
 newtab-widget-lists-input-menu-delete = Slett
 newtab-widget-lists-input-menu-edit = Rediger
+newtab-widget-lists-input-menu-edit2 =
+    .aria-label = Rediger element
 # the + symbol emphasises the functionality of adding a new list
 newtab-widget-lists-dropdown-create =
     .label = + Lag ei ny liste
@@ -715,6 +767,10 @@ newtab-widget-lists-name-label-default =
     .label = Oppgåveliste
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Oppgåveliste
+# The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Ny liste
+    .aria-label = Rediger listenamn
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Ny liste
@@ -734,10 +790,14 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimer widgetar
     .aria-label = Slå saman alle widgetar til kompakt størrelse
+newtab-widget-section-menu-button =
+    .title = Widget-meny
+    .aria-label = Opne widget-meny
+newtab-widget-section-menu-hide-all = Skjul widgetar
+newtab-widget-section-menu-learn-more = Les meir
 newtab-widget-section-feedback = Fortel oss kva du synest
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = Nedteljing
 newtab-widget-timer-notification-focus = Fokustida er over. Bra jobba. Treng du ein pause?
@@ -777,6 +837,33 @@ newtab-promo-card-cta = Les meir
 newtab-promo-card-dismiss-button =
     .title = Avvis
     .aria-label = Avvis
+
+## Sports widget
+
+newtab-sports-widget-menu-view-upcoming = Vis komande
+newtab-sports-widget-menu-view-results = Vis resultat
+newtab-sports-widget-menu-learn-more = Les meir
+newtab-sports-widget-countdown-title = Nedteljing til VM
+newtab-sports-widget-get-updates = Få direkte kampoppdateringar og meir.
+newtab-sports-widget-choose-wallpaper =
+    .label = Vel eit bakgrunnsbilde
+newtab-sports-widget-skip = Hopp over
+newtab-sports-widget-done-button =
+    .label = Ferdig
+# The "LIVE" string is meant to be uppercase in English, but other languages and locales may vary in how they handle this.
+newtab-sports-widget-live = DIREKTE
+newtab-sports-widget-upcoming = Komande
+newtab-sports-widget-results = Resultat
+newtab-sports-widget-semi-finals = Semifinalar
+newtab-sports-widget-bronze-finals = Bronsefinale
+# Final is the final match for 1st place.
+newtab-sports-widget-final = Finale
+newtab-sports-widget-delayed = Forseinka
+newtab-sports-widget-postponed = Utsett
+newtab-sports-widget-cancelled = Annulert
+newtab-sports-widget-information = Informasjon om kampen
+newtab-sports-widget-view-results-link = Vis resultat
+newtab-sports-widget-third-place = Tredjeplass
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

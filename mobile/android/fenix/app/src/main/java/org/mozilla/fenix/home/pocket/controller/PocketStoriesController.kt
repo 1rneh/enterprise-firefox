@@ -6,7 +6,6 @@ package org.mozilla.fenix.home.pocket.controller
 
 import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import mozilla.components.service.pocket.PocketStory
 import mozilla.components.service.pocket.PocketStory.ContentRecommendation
@@ -127,7 +126,7 @@ internal class DefaultPocketStoriesController(
                     ),
                 )
 
-                viewLifecycleScope.launch(Dispatchers.IO) {
+                viewLifecycleScope.launch {
                     marsUseCases.recordInteraction(storyShown.callbacks.impressionUrl)
                 }
             }
@@ -238,7 +237,7 @@ internal class DefaultPocketStoriesController(
                     ),
                 )
 
-                viewLifecycleScope.launch(Dispatchers.IO) {
+                viewLifecycleScope.launch {
                     marsUseCases.recordInteraction(storyClicked.callbacks.clickUrl)
                 }
             }

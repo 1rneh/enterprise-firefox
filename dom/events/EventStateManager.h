@@ -530,6 +530,13 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
     return mMouseEnterLeaveHelper;
   }
 
+  /**
+   * Return the content node which is the explicit target of the drag gesture
+   * start event (typically a "mousedown"). I.e., the result may be a `Text`
+   * even though the event target should be an `Element`. Or if the original
+   * target was once removed, this returns the connected node which contained
+   * the origin target.
+   */
   nsIContent* GetTrackingDragGestureContent() const {
     return mGestureDownContent;
   }
@@ -539,6 +546,8 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   void NotifyContentWillBeRemovedForGesture(nsIContent& aContent);
 
   bool IsTrackingDragGesture() const { return mGestureDownContent != nullptr; }
+
+  nsIContent* GetURLTargetContent() const { return mURLTargetContent; }
 
  protected:
   /*
@@ -1373,7 +1382,10 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
 
   // member variables for the d&d gesture state machine
   LayoutDeviceIntPoint mGestureDownPoint;  // screen coordinates
-  // The content to use as target if we start a d&d (what we drag).
+  // The content node which the preceding event (typically a "mousedown) starts
+  // the dragging gesture. So, this may be a `Text` even though the event target
+  // should be an `Element`. If the origin node is removed, this is set to the
+  // connected node which contained the original node.
   RefPtr<nsIContent> mGestureDownContent;
   // The content of the frame where the mouse-down event occurred. It's the same
   // as the target in most cases but not always - for example when dragging

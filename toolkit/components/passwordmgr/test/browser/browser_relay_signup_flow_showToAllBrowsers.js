@@ -190,7 +190,11 @@ async function clickThruMoreActionsToDisableRelay(notificationPopup) {
   );
   await BrowserTestUtils.waitForPopupEvent(menuPopup, "shown");
   const buttonToClick = menuPopup.querySelector("menuitem[accesskey='D']");
-  notificationPopup.activateItem(buttonToClick);
+  if (buttonToClick.parentNode.isNativeMenu) {
+    notificationPopup.activateItem(buttonToClick);
+  } else {
+    await clickButtonAndWaitForPopupToClose(buttonToClick);
+  }
 }
 
 add_task(

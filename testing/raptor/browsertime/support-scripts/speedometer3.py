@@ -73,9 +73,14 @@ class Speedometer3Support(BasePythonSupport):
             lower_is_better = False
             unit = "score"
 
+        alert_severity = "subcritical"
+        if measurement_name == "score" and self.platform == "Windows":
+            alert_severity = "critical"
+
         subtest = {
             "unit": unit,
             "alertThreshold": float(test.get("alert_threshold", 2.0)),
+            "alertSeverity": alert_severity,
             "lowerIsBetter": lower_is_better,
             "minBackWindow": 24,
             "maxBackWindow": 48,
@@ -128,6 +133,9 @@ class Speedometer3Support(BasePythonSupport):
                 break
         suite["value"] = score
         suite["replicates"] = replicates
+        suite["alertSeverity"] = "subcritical"
+        if self.platform == "Windows":
+            suite["alertSeverity"] = "critical"
 
     def modify_command(self, cmd, test):
         """Modify the browsertime command for speedometer 3.

@@ -12,6 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.test.assertIs
 
 class JsoupBookmarksFileParserTest {
 
@@ -197,11 +198,7 @@ class JsoupBookmarksFileParserTest {
                 inputStream = TestData.INVALID_HTML_CONTENT.byteInputStream(),
             )
 
-            assertTrue(
-                "Expected result to be BookmarksParserError.UnsupportedContentType " +
-                    "but got ${result.getOrNull()}",
-                result.exceptionOrNull() is BookmarksParserError.UnsupportedContentType,
-            )
+            assertIs<BookmarksParserError.UnsupportedContentType>(result.exceptionOrNull())
         }
 
     @Test
@@ -212,11 +209,7 @@ class JsoupBookmarksFileParserTest {
                     .byteInputStream(),
             )
 
-            assertTrue(
-                "Expected result to be BookmarksParserError.UnsupportedContentType " +
-                    "but got ${result.getOrNull()}",
-                result.exceptionOrNull() is BookmarksParserError.UnsupportedContentType,
-            )
+            assertIs<BookmarksParserError.UnsupportedContentType>(result.exceptionOrNull())
         }
 
     // endregion
@@ -233,11 +226,7 @@ class JsoupBookmarksFileParserTest {
             val root = result.getOrThrow().folder
             val item = root.children.first()
 
-            assertTrue(
-                "Expected first child to be an Item but got ${item.javaClass}",
-                item is InsertableBookmarkTreeNode.Item,
-            )
-            item as InsertableBookmarkTreeNode.Item
+            assertIs<InsertableBookmarkTreeNode.Item>(item)
             assertEquals("https://example.com", item.url)
             assertEquals("Example", item.title)
             assertEquals(0u, item.position)
@@ -298,10 +287,7 @@ class JsoupBookmarksFileParserTest {
                 "Expected result to be a failure but got ${result.getOrNull()}",
                 result.isFailure,
             )
-            assertTrue(
-                "Expected failure to be InvalidFormatError but got ${result.exceptionOrNull()}",
-                result.exceptionOrNull() is BookmarksParserError.InvalidFormatError,
-            )
+            assertIs<BookmarksParserError.InvalidFormatError>(result.exceptionOrNull())
         }
 
     @Test
@@ -351,11 +337,7 @@ class JsoupBookmarksFileParserTest {
             assertEquals(1, root.children.size)
 
             val folder = root.children.first()
-            assertTrue(
-                "Expected first child to be a Folder but got ${folder.javaClass}",
-                folder is InsertableBookmarkTreeNode.Folder,
-            )
-            folder as InsertableBookmarkTreeNode.Folder
+            assertIs<InsertableBookmarkTreeNode.Folder>(folder)
             assertEquals("My Folder", folder.title)
             assertEquals(100L, folder.dateAddedTimestamp)
             assertEquals(200L, folder.lastModifiedTimestamp)
@@ -487,22 +469,13 @@ class JsoupBookmarksFileParserTest {
             val root = result.getOrThrow().folder
 
             assertEquals(3, root.children.size)
-            assertTrue(
-                "Child at index 0 should be an Item",
-                root.children[0] is InsertableBookmarkTreeNode.Item,
-            )
+            assertIs<InsertableBookmarkTreeNode.Item>(root.children[0])
             assertEquals(0u, root.children[0].position)
 
-            assertTrue(
-                "Child at index 1 should be a Separator",
-                root.children[1] is InsertableBookmarkTreeNode.Separator,
-            )
+            assertIs<InsertableBookmarkTreeNode.Separator>(root.children[1])
             assertEquals(1u, root.children[1].position)
 
-            assertTrue(
-                "Child at index 2 should be an Item",
-                root.children[2] is InsertableBookmarkTreeNode.Item,
-            )
+            assertIs<InsertableBookmarkTreeNode.Item>(root.children[2])
             assertEquals(2u, root.children[2].position)
         }
 
@@ -515,11 +488,7 @@ class JsoupBookmarksFileParserTest {
 
             val root = result.getOrThrow().folder
             val separator = root.children.first()
-            assertTrue(
-                "Expected the first child to be a separator" +
-                    " but got ${separator.javaClass}",
-                separator is InsertableBookmarkTreeNode.Separator,
-            )
+            assertIs<InsertableBookmarkTreeNode.Separator>(separator)
             assertEquals(
                 "Expected the date added timestamp to be 1000 " +
                     "but got ${separator.dateAddedTimestamp}",

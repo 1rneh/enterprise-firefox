@@ -64,11 +64,13 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import mozilla.components.compose.base.RadioCheckmark
 import mozilla.components.compose.base.annotation.FlexibleWindowPreview
 import mozilla.components.compose.base.modifier.thenConditional
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.SwipeToDismissState2
 import org.mozilla.fenix.tabgroups.TabGroupCard
+import org.mozilla.fenix.tabgroups.TabGroupRow
 import org.mozilla.fenix.tabstray.browser.compose.DragItemContainer
 import org.mozilla.fenix.tabstray.browser.compose.createListReorderState
 import org.mozilla.fenix.tabstray.browser.compose.detectListPressAndDrag
@@ -89,6 +91,7 @@ import org.mozilla.fenix.tabstray.data.createTab
 import org.mozilla.fenix.tabstray.data.createTabGroup
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.ui.tabitems.TabGridTabItem
+import org.mozilla.fenix.tabstray.ui.tabitems.TabGroupMenuButton
 import org.mozilla.fenix.tabstray.ui.tabitems.TabListBorderMiddleItemShape
 import org.mozilla.fenix.tabstray.ui.tabitems.TabListFirstItemShape
 import org.mozilla.fenix.tabstray.ui.tabitems.TabListLastItemShape
@@ -213,6 +216,9 @@ fun TabLayout(
             onItemLongClick = onItemLongClick,
             tabInteractionHandler = tabInteractionHandler,
             onTabDragStart = onTabDragStart,
+            onDeleteTabGroupClick = onDeleteTabGroupClick,
+            onEditTabGroupClick = onEditTabGroupClick,
+            onCloseTabGroupClick = onCloseTabGroupClick,
             header = header,
         )
     }
@@ -660,6 +666,9 @@ private fun TabList(
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onItemLongClick: (TabsTrayItem) -> Unit,
+    onDeleteTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
+    onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
+    onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     header: (@Composable () -> Unit)? = null,
     onTabDragStart: () -> Unit = {},
 ) {
@@ -726,15 +735,23 @@ private fun TabList(
                 }
             }
 
-            // As groups are not shown, this impacts the visible index of the tab being shown,
-            // which is needed to know the correct shape
-            // todo This logic should be updated when TabList is supported for groups
-            val firstVisibleIndex = tabs.indexOfFirst { it is TabsTrayItem.Tab }
-            val lastVisibleIndex = tabs.indexOfLast { it is TabsTrayItem.Tab }
+            val firstVisibleIndex = tabs.indices.firstOrNull() ?: -1
+            val lastVisibleIndex = tabs.lastIndex
             itemsIndexed(
                 items = tabs,
                 key = { _, tab -> tab.id },
             ) { index, tab ->
+                val tabShapeInfo = getTabShapeInfo(
+                    firstVisibleIndex = firstVisibleIndex,
+                    lastVisibleIndex = lastVisibleIndex,
+                    itemIndex = index,
+                    size = tabs.size,
+                )
+                val selectionState = TabsTrayItemSelectionState(
+                    isFocused = tab.isFocused,
+                    multiSelectEnabled = isInMultiSelectMode,
+                    isSelected = selectionMode.contains(tab),
+                )
                 when (tab) {
                     is TabsTrayItem.Tab -> {
                         DragItemContainer(
@@ -742,12 +759,6 @@ private fun TabList(
                             position = index + if (header != null) 1 else 0,
                             key = tab.id,
                         ) {
-                            val tabShapeInfo = getTabShapeInfo(
-                                firstVisibleIndex = firstVisibleIndex,
-                                lastVisibleIndex = lastVisibleIndex,
-                                itemIndex = index,
-                                size = tabs.size,
-                            )
                             TabListTabItem(
                                 tab = tab,
                                 modifier = Modifier
@@ -755,11 +766,7 @@ private fun TabList(
                                         tabShapeInfo = tabShapeInfo,
                                         tab = tab,
                                     ),
-                                selectionState = TabsTrayItemSelectionState(
-                                    isFocused = tab.isFocused,
-                                    multiSelectEnabled = isInMultiSelectMode,
-                                    isSelected = selectionMode.contains(tab),
-                                ),
+                                selectionState = selectionState,
                                 shouldClickListen = reorderState.draggingItemKey != tab.id,
                                 swipingEnabled = !state.isScrollInProgress,
                                 onCloseClick = onTabClose,
@@ -768,7 +775,46 @@ private fun TabList(
                         }
                     }
 
-                    is TabsTrayItem.TabGroup -> {} // unsupported
+                    is TabsTrayItem.TabGroup -> {
+                        DragItemContainer(
+                            state = reorderState,
+                            position = index + if (header != null) 1 else 0,
+                            key = tab.id,
+                        ) {
+                            TabGroupRow(
+                                tabGroup = tab,
+                                onClick = { onItemClick(tab) },
+                                modifier = Modifier
+                                    .tabListItemShapeStyling(
+                                        tabShapeInfo = tabShapeInfo,
+                                        tab = tab,
+                                    )
+                                    .background(
+                                        if (selectionState.isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceContainerLowest
+                                        },
+                                    ),
+                                trailingContent = {
+                                    if (selectionState.multiSelectEnabled) {
+                                        RadioCheckmark(
+                                            isSelected = selectionState.isSelected,
+                                            modifier = Modifier.padding(end = FirefoxTheme.layout.space.dynamic200),
+                                        )
+                                    } else {
+                                        TabGroupMenuButton(
+                                            includeCloseOption = true,
+                                            onDeleteTabGroupClick = { onDeleteTabGroupClick(tab) },
+                                            onEditTabGroupClick = { onEditTabGroupClick(tab) },
+                                            onCloseTabGroupClick = { onCloseTabGroupClick(tab) },
+                                        )
+                                    }
+                                },
+                                trailingContentColor = MaterialTheme.colorScheme.secondary,
+                            )
+                        }
+                    }
                 }
 
                 if (index != tabs.size - 1) {
@@ -1100,7 +1146,7 @@ private fun defaultCrossAxisStartPadding(): Float =
         0f
     }
 
-// todo: add a border on hovered when drag and drop for tab groups is added
+// todo (Bug 2032255): add a border on hovered when drag and drop for tab groups is added
 @Composable
 private fun Modifier.tabListItemShapeStyling(
     tabShapeInfo: TabListShapeInfo,

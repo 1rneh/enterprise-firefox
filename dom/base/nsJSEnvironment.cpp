@@ -1537,8 +1537,8 @@ static void DOMGCSliceCallback(JSContext* aCx, JS::GCProgress aProgress,
       }
 
       MOZ_ASSERT(sCurrentGCStartTime);
-      glean::dom::gc_in_progress.AccumulateRawDuration(TimeStamp::Now() -
-                                                       sCurrentGCStartTime);
+      glean::dom::gc_in_progress.ProcessGet().AccumulateRawDuration(
+          TimeStamp::Now() - sCurrentGCStartTime);
 
 #if defined(MOZ_MEMORY)
       if (freeDirty &&

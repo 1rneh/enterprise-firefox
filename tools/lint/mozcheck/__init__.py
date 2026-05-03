@@ -71,28 +71,6 @@ def _find_mozcheck_binary(log, root, topobjdir=None):
     return None
 
 
-SKIP_KEYS = {
-    "name",
-    "description",
-    "type",
-    "payload",
-    "include",
-    "exclude",
-    "extensions",
-    "exclude_extensions",
-    "support-files",
-    "level",
-    "path",
-    "find-dotfiles",
-    "setup",
-    "check",
-}
-
-
-def _extract_check_config(config):
-    return {k: v for k, v in config.items() if k not in SKIP_KEYS}
-
-
 def setup(root, **lintargs):
     log = lintargs.get("log")
     _find_mozcheck_binary(log, root, lintargs.get("topobjdir"))
@@ -122,7 +100,7 @@ def lint(paths, config, fix=None, **lintargs):
                 "exclude": config.get("exclude", []),
                 "find_dotfiles": config.get("find-dotfiles", False),
                 "config": {
-                    **_extract_check_config(config),
+                    **config.get("check-config", {}),
                     "message": config["description"],
                 },
             }
@@ -156,7 +134,7 @@ def lint(paths, config, fix=None, **lintargs):
             continue
 
         if "fixed" in data and "path" not in data:
-            fixed = data["fixed"]
+            fixed += data["fixed"]
             continue
 
         res = {

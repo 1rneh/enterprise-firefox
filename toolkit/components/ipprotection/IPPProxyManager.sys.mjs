@@ -140,7 +140,7 @@ class IPPProxyManagerSingleton extends EventTarget {
   #activationAbortController = null;
 
   #pass = null;
-  /**@type {import("./GuardianClient.sys.mjs").ProxyUsage | null} */
+  /**@type {import("./GuardianTypes.sys.mjs").ProxyUsage | null} */
   #usage = null;
   /**@type {import("./IPPChannelFilter.sys.mjs").IPPChannelFilter | null} */
   #connection = null;
@@ -235,7 +235,7 @@ class IPPProxyManagerSingleton extends EventTarget {
    * This will be updated on every new ProxyPass fetch,
    * changes to the usage will be notified via the "IPPProxyManager:UsageChanged" event.
    *
-   * @returns {import("./GuardianClient.sys.mjs").ProxyUsage | null}
+   * @returns {import("./GuardianTypes.sys.mjs").ProxyUsage | null}
    */
   get usageInfo() {
     return this.#usage;
@@ -485,7 +485,9 @@ class IPPProxyManagerSingleton extends EventTarget {
       return { switched: false };
     }
 
-    const location = lazy.IPProtectionServerlist.getLocation(country);
+    const location = country
+      ? lazy.IPProtectionServerlist.getLocation(country)
+      : lazy.IPProtectionServerlist.getRecommendedLocation();
     const server = lazy.IPProtectionServerlist.selectServer(location?.city);
 
     if (!server) {
@@ -568,7 +570,7 @@ class IPPProxyManagerSingleton extends EventTarget {
    */
   async #getPassAndUsage(abortSignal = null) {
     let { status, error, pass, usage } =
-      await lazy.IPProtectionService.guardian.fetchProxyPass(abortSignal);
+      await lazy.IPProtectionService.authProvider.fetchProxyPass(abortSignal);
     lazy.logConsole.debug("ProxyPass:", {
       status,
       valid: pass?.isValid(),
@@ -692,7 +694,7 @@ class IPPProxyManagerSingleton extends EventTarget {
     let newUsage;
     try {
       newUsage =
-        await lazy.IPProtectionService.guardian.fetchProxyUsage(signal);
+        await lazy.IPProtectionService.authProvider.fetchProxyUsage(signal);
     } catch (error) {
       lazy.logConsole.error("Error refreshing usage:", error);
     } finally {
@@ -777,7 +779,7 @@ class IPPProxyManagerSingleton extends EventTarget {
   }
 
   /**
-   * @param {import("./GuardianClient.sys.mjs").ProxyUsage } usage
+   * @param {import("./GuardianTypes.sys.mjs").ProxyUsage } usage
    */
   #setUsage(usage) {
     this.#usage = usage;

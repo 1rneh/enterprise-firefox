@@ -655,11 +655,13 @@ newtab-widget-lists-name-label-checklist =
     .label = Checklist
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Task list
-newtab-widget-lists-name-placeholder-checklist =
+newtab-widget-lists-name-placeholder-checklist2 =
     .placeholder = Checklist
+    .aria-label = Edit list name
 # The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
+newtab-widget-lists-name-placeholder-new2 =
     .placeholder = New list
+    .aria-label = Edit list name
 
 # "Add one" means adding a new task to the list (e.g., "Walk the dog")
 newtab-widget-lists-empty-cta = The possibilities are endless. Add one.
@@ -672,20 +674,28 @@ newtab-widget-lists-label-beta =
 # Variables:
 #   $number (number) - Amount of list items marked complete
 newtab-widget-lists-completed-list = Completed ({ $number })
+newtab-widget-lists-celebration-headline = Good work
+newtab-widget-lists-celebration-subhead = All clear
 newtab-widget-task-list-menu-copy = Copy
 newtab-widget-lists-menu-edit = Edit list name
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Edit list name
 newtab-widget-lists-menu-create = Create a new list
 newtab-widget-lists-menu-delete = Delete this list
 newtab-widget-lists-menu-copy = Copy list to clipboard
 newtab-widget-lists-menu-learn-more = Learn more
-newtab-widget-lists-input-add-an-item =
+newtab-widget-lists-button-add-item = Add an item
+newtab-widget-lists-input-add-an-item2 =
     .placeholder = Add an item
+    .aria-label = Add an item
 newtab-widget-lists-input-error = Please include text to add an item.
 newtab-widget-lists-input-menu-open-link = Open link
 newtab-widget-lists-input-menu-move-up = Move up
 newtab-widget-lists-input-menu-move-down = Move down
 newtab-widget-lists-input-menu-delete = Delete
 newtab-widget-lists-input-menu-edit = Edit
+newtab-widget-lists-input-menu-edit2 =
+    .aria-label = Edit item
 
 # the + symbol emphasises the functionality of adding a new list
 newtab-widget-lists-dropdown-create =
@@ -720,7 +730,24 @@ newtab-sports-widget-menu-view-results = View results
 newtab-sports-widget-menu-learn-more = Learn more
 
 newtab-sports-widget-countdown-title = Countdown to the World Cup
+# Abbreviated label for days in the sport widget countdown. D is short for Days.
+# The layout only allows for 1–2 characters: if there is an equivalent single
+# character for your language, use that. Your translation will be automatically
+# truncated at 1 character to avoid layout issues.
+newtab-sports-widget-countdown-days = D
+# Abbreviated label for hours in the sport widget countdown. H is short for Hours.
+# The layout only allows for 1–2 characters: if there is an equivalent single
+# character for your language, use that. Your translation will be automatically
+# truncated at 1 character to avoid layout issues.
+newtab-sports-widget-countdown-hours = H
+# Abbreviated label for minutes in the sport widget countdown. M is short for Minutes.
+# The layout only allows for 1–2 characters: if there is an equivalent single
+# character for your language, use that. Your translation will be automatically
+# truncated at 1 character to avoid layout issues.
+newtab-sports-widget-countdown-minutes = M
 newtab-sports-widget-get-updates = Get live match updates and more.
+newtab-sports-widget-view-schedule =
+    .label = View schedule
 newtab-sports-widget-follow-teams =
     .label = Follow teams
 newtab-sports-widget-choose-wallpaper =
@@ -742,6 +769,7 @@ newtab-sports-widget-upcoming = Upcoming
 newtab-sports-widget-results = Results
 newtab-sports-widget-semi-finals = Semi-finals
 newtab-sports-widget-bronze-finals = Bronze Final
+# Final is the final match for 1st place.
 newtab-sports-widget-final = Final
 
 newtab-sports-widget-delayed = Delayed
@@ -754,9 +782,51 @@ newtab-sports-widget-no-live-data = Live match data isn’t updating right now
 newtab-sports-widget-view-results-link = View results
 
 newtab-sports-widget-third-place = Third place
+# Runner-up is the team in 2nd place.
+newtab-sports-widget-runner-up = Runner-up
 newtab-sports-widget-champions = Champions
 newtab-sports-widget-world-cup-champions = 2026 World Cup Champions
 
+## Strings introduced by the Nova redesign of the Timer widget
+
+# Variables:
+#   $minutes (number) - The currently selected timer duration in minutes
+newtab-widget-timer-start-aria =
+    .aria-label =
+        { $minutes ->
+            *[other] Start { $minutes }-minute timer
+        }
+newtab-widget-timer-pause-aria =
+    .aria-label = Pause timer
+# Variables:
+#   $minutes (number) - The currently selected timer duration in minutes
+newtab-widget-timer-spinbutton-name =
+    .aria-label =
+        { $minutes ->
+            [one] { $minutes } minute
+            *[other] { $minutes } minutes
+        }
+newtab-widget-timer-decrease-min =
+    .title = Decrease 1 minute
+newtab-widget-timer-increase-min =
+    .title = Increase 1 minute
+newtab-widget-timer-mode-group =
+    .aria-label = Timer mode
+# Small label shown beneath the live time while the focus timer is running or paused.
+newtab-widget-timer-running-focus = Focus
+# Small label shown beneath the live time while the break timer is running or paused.
+newtab-widget-timer-running-break = Break
+# Context-menu item to hide the Timer widget. Replaces the shared "Hide widget"
+# copy with a widget-specific string per the Nova design.
+newtab-widget-timer-menu-hide = Hide timer
+# Heading shown inside the Timer widget after a focus session ends.
+newtab-widget-timer-celebration-heading-focus = Nice work
+# Heading shown inside the Timer widget after a break session ends.
+newtab-widget-timer-celebration-heading-break = Your break is over
+# Message shown inside the Timer widget after a focus session ends.
+newtab-widget-timer-celebration-message-focus = Need a break?
+# Message shown inside the Timer widget after a break session ends.
+newtab-widget-timer-celebration-message-break = Ready to focus?
 
 # Strings for daily briefing card
 

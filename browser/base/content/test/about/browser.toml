@@ -5,8 +5,6 @@ support-files = [
   "dummy_page.html",
 ]
 
-["browser_releaseNotesURL.js"]
-
 ["browser_aboutCertError.js"]
 skip-if = [
   "os == 'mac' && os_version == '10.15' && arch == 'x86_64' && opt",
@@ -108,6 +106,8 @@ support-files = [
   "server_error.sjs",
 ]
 
+["browser_aboutNetError_telemetry.js"]
+
 ["browser_aboutNetError_timeout.js"]
 skip-if = [
   "socketprocess_networking",
@@ -117,8 +117,6 @@ skip-if = [
 skip-if = [
   "socketprocess_networking",
 ]
-
-["browser_aboutNetError_telemetry.js"]
 
 ["browser_aboutNetError_xfo_iframe.js"]
 https_first_disabled = true
@@ -167,3 +165,5 @@ skip-if = [
 ["browser_bug633691.js"]
 
 ["browser_bug2008464.js"]
+
+["browser_releaseNotesURL.js"]

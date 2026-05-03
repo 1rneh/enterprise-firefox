@@ -25,7 +25,7 @@ ChromiumCDMVideoDecoder::ChromiumCDMVideoDecoder(
 
 ChromiumCDMVideoDecoder::~ChromiumCDMVideoDecoder() = default;
 
-static uint32_t ToCDMH264Profile(uint8_t aProfile) {
+static cdm::VideoCodecProfile ToCDMH264Profile(uint8_t aProfile) {
   switch (aProfile) {
     case 66:
       return cdm::VideoCodecProfile::kH264ProfileBaseline;
@@ -45,7 +45,7 @@ static uint32_t ToCDMH264Profile(uint8_t aProfile) {
   return cdm::VideoCodecProfile::kUnknownVideoCodecProfile;
 }
 
-static uint32_t ToCDMAV1Profile(uint8_t aProfile) {
+static cdm::VideoCodecProfile ToCDMAV1Profile(uint8_t aProfile) {
   switch (aProfile) {
     case 0:
       return cdm::VideoCodecProfile::kAv1ProfileMain;

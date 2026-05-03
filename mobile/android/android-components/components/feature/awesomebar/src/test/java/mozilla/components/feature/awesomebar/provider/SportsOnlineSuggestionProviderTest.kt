@@ -26,6 +26,7 @@ import org.mockito.Mockito.verify
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
+import kotlin.test.assertIs
 
 private const val ARTIFICIAL_DELAY = 350L
 
@@ -194,8 +195,8 @@ class SportsOnlineSuggestionProviderTest {
 
         val result = provider.parseDate(isoDate, Locale.US, timeZone)
 
-        assertTrue(result is SportSuggestionDate.Tomorrow)
-        assertEquals("5:00 PM", (result as SportSuggestionDate.Tomorrow).time)
+        assertIs<SportSuggestionDate.Tomorrow>(result)
+        assertEquals("5:00 PM", result.time)
     }
 
     @Test
@@ -227,8 +228,8 @@ class SportsOnlineSuggestionProviderTest {
 
         val result = provider.parseDate(isoDate, Locale.US, timeZone)
 
-        assertTrue(result is SportSuggestionDate.General)
-        assertEquals("29 Oct 2025", (result as SportSuggestionDate.General).date)
+        assertIs<SportSuggestionDate.General>(result)
+        assertEquals("29 Oct 2025", result.date)
     }
 
     @Test
@@ -261,7 +262,7 @@ class SportsOnlineSuggestionProviderTest {
         val result = provider.parseDate(isoDate, Locale.US, timeZone)
 
         // 15:00 UTC = 00:00 JST next day, which is "tomorrow" in JST
-        assertTrue(result is SportSuggestionDate.Tomorrow)
+        assertIs<SportSuggestionDate.Tomorrow>(result)
     }
 
     // --- parseStatus tests ---

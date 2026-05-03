@@ -42,7 +42,14 @@ async function test_background_update_pref(expectedEnabled, expectedLocked) {
   if (AppConstants.MOZ_UPDATE_AGENT) {
     let shouldShowUI =
       !expectedLocked && UpdateUtils.PER_INSTALLATION_PREFS_SUPPORTED;
-    await BrowserTestUtils.withNewTab("about:preferences", browser => {
+    let settingsRedesignEnabled = Services.prefs.getBoolPref(
+      "browser.settings-redesign.enabled",
+      false
+    );
+    let prefUrl = settingsRedesignEnabled
+      ? "about:preferences#about"
+      : "about:preferences";
+    await BrowserTestUtils.withNewTab(prefUrl, browser => {
       let backgroundUpdateControl = browser.contentDocument.getElementById(
         "setting-control-backgroundUpdate"
       );

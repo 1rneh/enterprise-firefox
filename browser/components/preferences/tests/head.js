@@ -39,12 +39,6 @@ NimbusTestUtils.init(this);
 
 const kDefaultWait = 2000;
 
-// Synthesized events are not available with native menus
-const nativeSelectEnabled = () =>
-  AppConstants.platform == "macosx" &&
-  Services.prefs.getBoolPref("widget.macos.native-anchored-menus", false) &&
-  Services.prefs.getBoolPref("widget.macos.allow-native-select", false);
-
 const SRD_PREF_VALUE = Services.prefs.getBoolPref(
   "browser.settings-redesign.enabled"
 );
@@ -343,7 +337,7 @@ async function selectHistoryMode(win, value) {
 
   let popupHiddenPromise = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
 
-  if (nativeSelectEnabled()) {
+  if (popup.isNativeMenu) {
     popup.activateItem(targetItem);
   } else {
     EventUtils.synthesizeMouseAtCenter(targetItem, {}, targetItem.ownerGlobal);
@@ -469,6 +463,25 @@ function getSettingControl(
   win = gBrowser.selectedBrowser.contentWindow
 ) {
   return win.document.getElementById(`setting-control-${settingId}`);
+}
+
+/**
+ * Waits for a setting control to render and complete any async updates.
+ *
+ * @param {string} settingId - The setting identifier.
+ * @param {Window} [win] - Optional window, defaults to current browser window.
+ * @returns {Promise<Element>} The rendered setting control element.
+ */
+async function settingControlRenders(settingId, win) {
+  await BrowserTestUtils.waitForCondition(
+    () => getSettingControl(settingId, win),
+    `Wait for ${settingId} control to render`
+  );
+  let control = getSettingControl(settingId, win);
+  if (control?.updateComplete) {
+    await control.updateComplete;
+  }
+  return control;
 }
 
 function synthesizeClick(el) {

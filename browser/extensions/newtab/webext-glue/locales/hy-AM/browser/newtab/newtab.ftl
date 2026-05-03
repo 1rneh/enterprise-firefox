@@ -8,9 +8,13 @@
 newtab-page-title = Նոր ներդիր
 newtab-settings-button =
     .title = Հարմարեցրեք ձեր Նոր Ներդիր էջը
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button =
     .title = Հարմարեցնել այս էջը
+#  (developer note): @nova-cleanup(remove-string): Remove newtab-customize-panel-icon-button-label once Nova lands, will be using newtab-customize-panel-label instead
 newtab-customize-panel-icon-button-label = Հարմարեցնել
+newtab-customize-panel-label =
+    .label = Հարմարեցնել
 newtab-personalize-settings-icon-label =
     .title = Անհատականացնել նոր ներդիրը
     .aria-label = Կարգավորումներ
@@ -623,10 +627,16 @@ newtab-widget-lists-label-beta =
 newtab-widget-lists-completed-list = Ավարտված է ({ $number })
 newtab-widget-task-list-menu-copy = Պատճենել
 newtab-widget-lists-menu-edit = Խմբագրել ցանկի անունը
+newtab-widget-lists-menu-edit2 =
+    .aria-label = Խմբագրել ցանկի անունը
 newtab-widget-lists-menu-create = Ստեղծել նոր ցանկ
 newtab-widget-lists-menu-delete = Ջնջել այս ցանկը
 newtab-widget-lists-menu-copy = Պատճենել ցանկը սեղմատախտակին
 newtab-widget-lists-menu-learn-more = Իմանալ ավելին
+newtab-widget-lists-button-add-item = Ավելացնել միույթ
+newtab-widget-lists-input-add-an-item2 =
+    .placeholder = Ավելացնել միույթ
+    .aria-label = Ավելացնել միույթ
 newtab-widget-lists-input-add-an-item =
     .placeholder = Ավելացնել միույթ
 newtab-widget-lists-input-error = Խնդրում ենք ներառել տեքստ՝ տարր ավելացնելու համար։
@@ -643,6 +653,10 @@ newtab-widget-lists-name-label-default =
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Առաջադրանքների ցանկ
 # The placeholder value of the name field for a newly created list
+newtab-widget-lists-name-placeholder-new2 =
+    .placeholder = Նոր ցանկ
+    .aria-label = Խմբագրել ցանկի անունը
+# The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Նոր ցանկ
 newtab-widget-section-title = Վիջեթներ
@@ -657,8 +671,7 @@ newtab-widget-section-minimize =
     .title = Փոքրացնել վիջեթները
     .aria-label = Կոծկել բոլոր վիջեթները սեղմ չափի
 
-## Strings for timer productivity widget
-## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
+## Strings introduced by the Nova redesign of the Timer widget
 
 newtab-widget-timer-notification-title = ժամաչափ
 newtab-widget-timer-notification-focus = Կենտրոնանալու ժամանակը սպառվեց։ Լավ աշխատանք։ Հանգստի կարիք ունե՞ք։

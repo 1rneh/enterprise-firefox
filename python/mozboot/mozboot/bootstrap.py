@@ -346,7 +346,19 @@ class Bootstrapper:
             return
 
         mach_binary = checkout_root / "mach"
-        subprocess.check_call((sys.executable, str(mach_binary), "install-moz-phab"))
+        try:
+            subprocess.check_call((
+                sys.executable,
+                str(mach_binary),
+                "install-moz-phab",
+            ))
+        except subprocess.CalledProcessError as e:
+            print(
+                f"WARNING: './mach install-moz-phab' failed with exit code "
+                f"{e.returncode}. You can retry with './mach install-moz-phab "
+                f"--force'.",
+                file=sys.stderr,
+            )
 
     def bootstrap(self, settings):
         state_dir = Path(get_state_dir())

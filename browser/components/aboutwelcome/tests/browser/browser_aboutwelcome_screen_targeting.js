@@ -1,7 +1,7 @@
 "use strict";
 
-const { AWScreenUtils } = ChromeUtils.importESModule(
-  "resource:///modules/aboutwelcome/AWScreenUtils.sys.mjs"
+const { ASRouterScreenUtils } = ChromeUtils.importESModule(
+  "resource:///modules/asrouter/ASRouterScreenUtils.sys.mjs"
 );
 
 const TEST_DEFAULT_CONTENT = [

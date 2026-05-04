@@ -467,7 +467,7 @@ def push_to_lando_try(
             """
             This Try push uses the new Lando instance.
             Please report any issue to https://matrix.to/#/#conduit:mozilla.org.
-            If you want to use the old Lando instance, set the environment variable LANDO_TRY_CONFIG to `lando-prod` (section name from '.lando.ini')"
+            To use the old Lando instance, set the environment variable LANDO_TRY_CONFIG to `lando-prod` (section name from '.lando.ini')"
             """
         )
         print(notification_message)

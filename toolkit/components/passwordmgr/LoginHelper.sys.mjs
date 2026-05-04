@@ -1707,7 +1707,7 @@ export const LoginHelper = {
           OS_AUTH_FOR_PASSWORDS_BOOL_PREF,
           messageText,
           captionText,
-          browser.ownerGlobal,
+          browser.documentGlobal,
           false
         );
         result = isAuthorized ? "success" : "fail_user_canceled";
@@ -1861,7 +1861,7 @@ export const LoginHelper = {
    *                    which could be in a different window.
    */
   getBrowserForPrompt(browser) {
-    let chromeWindow = browser.ownerGlobal;
+    let chromeWindow = browser.documentGlobal;
     let openerBrowsingContext = browser.browsingContext.opener;
     let openerBrowser = openerBrowsingContext
       ? openerBrowsingContext.top.embedderElement

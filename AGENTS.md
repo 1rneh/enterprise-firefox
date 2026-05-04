@@ -28,7 +28,7 @@ that has definitely changed locally. If you're unsure, ask.
 - `./mach run`: Run the project
 - `./mach doc --no-serve --no-open`: Build the documentation
 - `./mach python --virtualenv <virtualenv_name>`: Execute Python of a Mach command's virtualenv. Value of `virtualenv_name` is in relevant `@Command` decorator. This avoids `ImportError`s.
-- `treeherder-cli`: Pull CI results for a try push
+- `treeherder-cli`: Pull CI results for a try push. It needs a revision hash. If given a Treeherder URL with a `landoCommitID=NNNN` parameter (no revision), resolve the revision first by fetching the landing page on the matching lando instance — for `landoInstance=lando-prod-2025`, use `curl -sL https://lando.moz.tools/landings/NNNN/` and grep for the 40-char hex commit hash. (The legacy `api.lando.services.mozilla.com/landing_jobs/NNNN` JSON endpoint serves a *different* lando instance with re-used IDs — do not use it for `lando-prod-2025`.)
 - Use the MCP resource `@moz:bugzilla://bug/{bug_id}` to retrieve a bug
 - Use the MCP resource `@moz:phabricator://revision/D{revision_id}` to retrieve a Phabricator revision
 
@@ -50,5 +50,6 @@ You can find the review identifier by inspecting the commit log with:
 - Ask if you should run a test. If you do, you probably want to run the test with `--headless`
 - Never submit patches to Phabricator without explicit user approval.
 - In commit messages, group reviewers use a `#` prefix: `r?#group-name` (e.g. `r?#linter-reviewers`), while individual reviewers do not: `r?username`
+- Never put `DONTBUILD` (or `CLOSED TREE`) in the `-m` message of `mach try fuzzy` / `mach try compare` when you want builds to actually run. The Gecko decision task scans the message and on `DONTBUILD` strips every task from the graph: the decision task itself succeeds (Treeherder shows green) but no builds are scheduled.
 - When doing Android and Desktop front-end-only changes, use the special `./mach build faster` to skip all C++/Rust compilation.
 - Conversely, for C++/Rust only changes you can use the special `./mach build binaries` to skip all front-end-related tasks.

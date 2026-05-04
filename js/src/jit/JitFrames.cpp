@@ -2576,6 +2576,10 @@ char* MachineState::SafepointState::addressOfRegister(FloatRegister reg) const {
   char* ptr = floatSpillBase;
   for (FloatRegisterBackwardIterator iter(floatRegs); iter.more(); ++iter) {
     ptr -= (*iter).size();
+    if ((*iter).size() < reg.size()) {
+      // The spilled slot is too small to hold |reg|.
+      continue;
+    }
     for (uint32_t a = 0; a < (*iter).numAlignedAliased(); a++) {
       // Only say that registers that actually start here start here.
       // e.g. d0 should not start at s1, only at s0.
@@ -2586,6 +2590,24 @@ char* MachineState::SafepointState::addressOfRegister(FloatRegister reg) const {
     }
   }
   MOZ_CRASH("Invalid register");
+}
+
+bool MachineState::has(FloatRegister reg) const {
+  if (state_.is<BailoutState>()) {
+    return true;
+  }
+  // ReduceSetForPush may represent a register using a wider alias in the
+  // spill set (for example, on arm64 a float32 register is spilled using its
+  // double-precision alias). Look for any aligned alias of |reg| that's at
+  // least as wide as |reg|. This must match addressOfRegister above.
+  const auto& s = state_.as<SafepointState>();
+  for (uint32_t a = 0; a < reg.numAlignedAliased(); a++) {
+    FloatRegister alias = reg.alignedAliased(a);
+    if (alias.size() >= reg.size() && s.floatRegs.hasRegisterIndex(alias)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 uintptr_t MachineState::read(Register reg) const {

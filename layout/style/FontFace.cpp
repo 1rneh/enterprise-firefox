@@ -68,7 +68,7 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(FontFace)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(FontFace)
 
-FontFace::FontFace(nsIGlobalObject* aParent) { BindToOwner(aParent); }
+FontFace::FontFace(nsIGlobalObject* aParent) { BindToGlobal(aParent); }
 
 FontFace::~FontFace() {
   // Assert that we don't drop any FontFace objects during a Servo traversal,
@@ -301,11 +301,11 @@ void FontFace::MaybeReject(FontFaceLoadedRejectReason aReason,
 }
 
 void FontFace::EnsurePromise() {
-  if (mLoaded || !mImpl || !GetOwnerGlobal()) {
+  if (mLoaded || !mImpl || !GetRelevantGlobal()) {
     return;
   }
 
-  mLoaded = Promise::CreateInfallible(GetOwnerGlobal());
+  mLoaded = Promise::CreateInfallible(GetRelevantGlobal());
 
   if (mImpl->Status() == FontFaceLoadStatus::Loaded) {
     mLoaded->MaybeResolve(this);

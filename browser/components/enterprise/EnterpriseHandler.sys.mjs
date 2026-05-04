@@ -287,7 +287,7 @@ export const EnterpriseHandler = {
   },
 
   openPanel(element, event) {
-    const win = element.ownerGlobal;
+    const win = element.documentGlobal;
     win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
 

@@ -430,4 +430,12 @@ class SessionControlInteractor(
     override fun onSportsWidgetDismissed() {
         sportsController.handleSportsWidgetDismissed()
     }
+
+    override fun onViewScheduleClicked() {
+        sportsController.handleViewScheduleClicked()
+    }
+
+    override fun onCountdownWidgetDismissed() {
+        sportsController.handleCountdownWidgetDismissed()
+    }
 }

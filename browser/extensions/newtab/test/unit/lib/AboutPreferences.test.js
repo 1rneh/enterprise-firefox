@@ -50,26 +50,26 @@ describe("AboutPreferences Feed", () => {
     it("should call .openPreferences on SETTINGS_OPEN", () => {
       const action = {
         type: at.SETTINGS_OPEN,
-        _target: { browser: { ownerGlobal: { openPreferences: sinon.spy() } } },
+        _target: {
+          window: { openPreferences: sinon.spy() },
+        },
       };
       instance.onAction(action);
-      assert.calledOnce(action._target.browser.ownerGlobal.openPreferences);
+      assert.calledOnce(action._target.window.openPreferences);
     });
     it("should call .BrowserAddonUI.openAddonsMgr with the extension id on OPEN_WEBEXT_SETTINGS", () => {
       const action = {
         type: at.OPEN_WEBEXT_SETTINGS,
         data: "foo",
         _target: {
-          browser: {
-            ownerGlobal: {
-              BrowserAddonUI: { openAddonsMgr: sinon.spy() },
-            },
+          window: {
+            BrowserAddonUI: { openAddonsMgr: sinon.spy() },
           },
         },
       };
       instance.onAction(action);
       assert.calledWith(
-        action._target.browser.ownerGlobal.BrowserAddonUI.openAddonsMgr,
+        action._target.window.BrowserAddonUI.openAddonsMgr,
         "addons://detail/foo"
       );
     });

@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.7.334
- * pdfjsBuild = 7ebf3a4d7
+ * pdfjsVersion = 6.0.4
+ * pdfjsBuild = 091b172a2
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -496,15 +496,12 @@ function stringToBytes(str) {
 function objectSize(obj) {
   return Object.keys(obj).length;
 }
-function isLittleEndian() {
-  const buffer8 = new Uint8Array(4);
-  buffer8[0] = 1;
-  const view32 = new Uint32Array(buffer8.buffer, 0, 1);
-  return view32[0] === 1;
-}
 class FeatureTest {
   static get isLittleEndian() {
-    return shadow(this, "isLittleEndian", isLittleEndian());
+    const buffer8 = new Uint8Array(4);
+    buffer8[0] = 1;
+    const view32 = new Uint32Array(buffer8.buffer, 0, 1);
+    return shadow(this, "isLittleEndian", view32[0] === 1);
   }
   static get isOffscreenCanvasSupported() {
     return shadow(this, "isOffscreenCanvasSupported", typeof OffscreenCanvas !== "undefined");
@@ -530,9 +527,6 @@ class FeatureTest {
       isWindows: platform.includes("Win"),
       isFirefox: true
     });
-  }
-  static get isCSSRoundSupported() {
-    return shadow(this, "isCSSRoundSupported", globalThis.CSS?.supports?.("width: round(1.5px, 1px)"));
   }
   static get isAlphaColorInputSupported() {
     return shadow(this, "isAlphaColorInputSupported", (() => {
@@ -62388,7 +62382,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "5.7.334";
+    const workerVersion = "6.0.4";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }

@@ -385,7 +385,7 @@ function setupMarionetteEnvironment() {
       return window;
     },
 
-    get ownerGlobal() {
+    get documentGlobal() {
       return window;
     },
 

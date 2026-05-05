@@ -2278,7 +2278,7 @@ MOZ_CAN_RUN_SCRIPT static bool IsDeferredLoadEmptyFrame(Element& aEmbedder) {
   }
   // Finally, we also look for an identifying property on the embedder's global
   // to be extra sure.
-  RefPtr global = aEmbedder.GetOwnerGlobal();
+  RefPtr global = aEmbedder.GetRelevantGlobal();
   if (!global || !global->GetGlobalJSObject()) {
     return false;
   }
@@ -4417,10 +4417,6 @@ void nsGlobalWindowInner::Btoa(const nsAString& aBinaryData,
 //*****************************************************************************
 // EventTarget
 //*****************************************************************************
-
-nsPIDOMWindowOuter* nsGlobalWindowInner::GetOwnerGlobalForBindingsInternal() {
-  return nsPIDOMWindowOuter::GetFromCurrentInner(this);
-}
 
 bool nsGlobalWindowInner::DispatchEvent(Event& aEvent, CallerType aCallerType,
                                         ErrorResult& aRv) {

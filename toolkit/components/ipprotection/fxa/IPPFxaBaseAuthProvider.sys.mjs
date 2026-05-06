@@ -130,7 +130,7 @@ export class IPPFxaBaseAuthProvider extends IPPAuthProvider {
     if (AppConstants.MOZ_ENTERPRISE) {
       return {
         token: Services.felt.getAccessTokenIfValid(),
-        [Symbol.dispose]: () => { },
+        [Symbol.dispose]: () => {},
       };
     }
     let tasks = [

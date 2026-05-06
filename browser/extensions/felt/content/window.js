@@ -32,21 +32,7 @@ async function connectToConsole(email) {
     posture = await lazy.ConsoleClient.sendDevicePosture();
   } catch (err) {
     lazy.log.error(`FeltExtension: Failed to connect to console: ${err}`);
-    // Show simpler "No Network Connection" only for truly offline scenarios
-    // netOffline for offline mode, dnsNotFound2 for actual network disconnect
-    const NETWORK_ERRORS = new Set(["netOffline", "dnsNotFound2"]);
-    if (NETWORK_ERRORS.has(err.message)) {
-      lazy.FeltErrorReport.update(
-        "felt-browser-error-no-network",
-        "no-network-connection"
-      );
-    } else {
-      lazy.FeltErrorReport.update(
-        "felt-browser-error-connection",
-        err.message,
-        err.cause
-      );
-    }
+    await lazy.FeltErrorReport.handleXhrError(err);
     return;
   }
 
@@ -171,7 +157,7 @@ async function connectToConsole(email) {
         );
         resetToLoginPage(
           "felt-browser-error-connection",
-          lazy.ConsoleClient._getErrorNameForStatus(status),
+          lazy.FeltErrorReport.getFluentIdForStatus(status),
           { hostname: uri.host }
         );
         return;

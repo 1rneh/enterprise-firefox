@@ -40,6 +40,7 @@ class FeltConsoleError(FeltConsoleErrorBase):
                 error_msg=error_msg,
                 error_msg_contains=error_msg_contains,
                 screenshot_name=f"{self._testMethodName}_xhrerror",
+                source="xhr",
             )
 
     def assert_neterror(

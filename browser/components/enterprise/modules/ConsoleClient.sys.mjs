@@ -232,36 +232,6 @@ export const ConsoleClient = {
   },
 
   /**
-   * Gets the error name for a channel status code.
-   *
-   * @param {number} status - The channel status code
-   * @returns {string} Human-readable error name
-   */
-  _getErrorNameForStatus(status) {
-    try {
-      const nssErrorsService = Cc[
-        "@mozilla.org/nss_errors_service;1"
-      ].getService(Ci.nsINSSErrorsService);
-      return nssErrorsService.getErrorName(status);
-    } catch {
-      // Not an NSS error, check common network error codes
-
-      // Mapping here should follow what nsDocShell::DisplayLoadError uses.
-      // Consumer code will expect those to fail when using Fluent to format
-      // and perform fallback to string bundles where they are defined.
-      const networkErrors = {
-        [Cr.NS_ERROR_UNKNOWN_HOST]: "dnsNotFound2",
-        [Cr.NS_ERROR_CONNECTION_REFUSED]: "connectionFailure",
-        [Cr.NS_ERROR_NET_TIMEOUT]: "netTimeout",
-        [Cr.NS_ERROR_NET_RESET]: "netReset",
-        [Cr.NS_ERROR_NET_INTERRUPT]: "netInterrupt",
-        [Cr.NS_ERROR_OFFLINE]: "netOffline",
-      };
-      return networkErrors[status] || "network";
-    }
-  },
-
-  /**
    * Fetch-like wrapper that exposes detailed network errors.
    * Uses XMLHttpRequest internally to access channel.status on error,
    * which native fetch() does not expose.
@@ -309,9 +279,11 @@ export const ConsoleClient = {
       };
 
       xhr.onerror = () => {
-        const errorName = this._getErrorNameForStatus(xhr.channel?.status);
+        const channelStatus = xhr.channel?.status ?? null;
         reject(
-          new TypeError(errorName, { cause: { hostname: new URL(url).host } })
+          new TypeError("ConsoleClientXHRError", {
+            cause: { hostname: new URL(url).host, channelStatus },
+          })
         );
       };
 

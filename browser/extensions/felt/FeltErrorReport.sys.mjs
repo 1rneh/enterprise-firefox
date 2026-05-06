@@ -42,6 +42,35 @@ export const FeltErrorReport = {
    */
   _noNetworkErrors: ["netOffline", "dnsNotFound"],
 
+  /**
+   * Gets the error fluent id for a channel status code.
+   *
+   * @param {number} status - The channel status code
+   * @returns {string} Fluent ID
+   */
+  getFluentIdForStatus(status) {
+    lazy.log.debug(`getFluentIdForStatus(${status})`);
+    try {
+      const nssErrorsService = Cc[
+        "@mozilla.org/nss_errors_service;1"
+      ].getService(Ci.nsINSSErrorsService);
+      return nssErrorsService.getErrorName(status);
+    } catch {
+      // Not an NSS error, check common network error codes
+
+      // Mapping here should follow what nsDocShell::DisplayLoadError uses.
+      const networkErrors = {
+        [Cr.NS_ERROR_UNKNOWN_HOST]: "dnsNotFound",
+        [Cr.NS_ERROR_CONNECTION_REFUSED]: "connectionFailure",
+        [Cr.NS_ERROR_NET_TIMEOUT]: "netTimeout",
+        [Cr.NS_ERROR_NET_RESET]: "netReset",
+        [Cr.NS_ERROR_NET_INTERRUPT]: "netInterrupt",
+        [Cr.NS_ERROR_OFFLINE]: "netOffline",
+      };
+      return networkErrors[status] ?? "network";
+    }
+  },
+
   init(doc) {
     this._document = doc;
     lazy.initializeRegistry();
@@ -226,6 +255,23 @@ export const FeltErrorReport = {
       .querySelector(".felt-login__email-pane")
       .classList.remove("is-hidden");
     this._document.querySelector(".felt-login__sso").classList.add("is-hidden");
+  },
+
+  /**
+   * Handle displaying an error produced by XmlHttpRequest.
+   *
+   * @param {object} aError - The TypeError containing the XHR channel status
+   *                          code in aError.cause.channelStatus and the
+   *                          hostname of the URL triggering the error in
+   *                          aError.cause.hostname.
+   */
+  async handleXhrError(aError) {
+    if (aError.cause) {
+      const errorCode = this.getFluentIdForStatus(aError.cause.channelStatus);
+      await this.updateNetworkError(errorCode, aError.cause, ERROR_SOURCE.XHR);
+    } else {
+      await this.updateNetworkError("network", null, ERROR_SOURCE.XHR);
+    }
   },
 
   /**

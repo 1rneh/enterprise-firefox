@@ -14,8 +14,8 @@ const { sinon } = ChromeUtils.importESModule(
 ChromeUtils.defineESModuleGetters(lazy, {
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
-  IPPEnrollAndEntitleManager:
-    "moz-src:///toolkit/components/ipprotection/fxa/IPPEnrollAndEntitleManager.sys.mjs",
+  IPPFxaAuthProvider:
+    "moz-src:///toolkit/components/ipprotection/fxa/IPPFxaAuthProvider.sys.mjs",
 });
 
 const { BANDWIDTH } = ChromeUtils.importESModule(
@@ -577,11 +577,9 @@ add_task(async function test_get_started_button() {
     .callsFake(async function () {
       return true;
     });
-  sandbox
-    .stub(lazy.IPPEnrollAndEntitleManager, "maybeEnrollAndEntitle")
-    .callsFake(async function () {
-      return true;
-    });
+  sandbox.stub(lazy.IPPFxaAuthProvider, "enroll").callsFake(async function () {
+    return true;
+  });
 
   await setupVpnPrefs({
     feature: true,
@@ -620,8 +618,8 @@ add_task(async function test_get_started_button() {
       );
 
       Assert.ok(
-        lazy.IPPEnrollAndEntitleManager.maybeEnrollAndEntitle.calledOnce,
-        "maybeEnrollAndEntitle should be called once when Get started button is clicked"
+        lazy.IPPFxaAuthProvider.enroll.calledOnce,
+        "enroll should be called once when Get started button is clicked"
       );
     }
   );
@@ -639,9 +637,7 @@ add_task(async function test_VPN_get_started_entrypoint() {
   let fxaStub = sandbox
     .stub(lazy.SpecialMessageActions, "fxaSignInFlow")
     .resolves(true);
-  sandbox
-    .stub(lazy.IPPEnrollAndEntitleManager, "maybeEnrollAndEntitle")
-    .resolves(true);
+  sandbox.stub(lazy.IPPFxaAuthProvider, "enroll").resolves(true);
 
   await setupVpnPrefs({
     feature: true,

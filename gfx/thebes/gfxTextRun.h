@@ -1381,8 +1381,8 @@ class gfxFontGroup final : public gfxTextRunFactory {
   eFontPrefLang mLastPrefLang = eFontPrefLang_Western;  // lang group for last
                                                         // pref font
   eFontPrefLang mPageLang;
-  bool mLastPrefFirstFont;  // is this the first font in the list of pref fonts
-                            // for this lang group?
+  bool mLastPrefFirstFont = false;  // is this the first font in the list of
+                                    // pref fonts for this lang group?
 
   bool mSkipDrawing = false;  // hide text while waiting for a font
                               // download to complete (or fallback

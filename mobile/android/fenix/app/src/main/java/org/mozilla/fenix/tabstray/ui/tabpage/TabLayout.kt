@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -297,15 +300,18 @@ private fun ReorderableTabGrid(
     header: (@Composable () -> Unit)? = null,
 ) {
     val gridState = rememberLazyGridState()
+    val tabGridBottomPadding = dimensionResource(id = R.dimen.tab_tray_grid_bottom_padding)
+    val spacing = FirefoxTheme.layout.space.static200
+    val navigationBarPadding =
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     TabLayoutScrollHelper(
         state = gridState,
         selectedTabIndex = selectedItemIndex,
-        bottomPadding = contentPadding.calculateBottomPadding(),
+        bottomPadding = contentPadding.calculateBottomPadding() + spacing + tabGridBottomPadding + navigationBarPadding,
         isHeaderPresent = header != null,
     )
 
-    val tabGridBottomPadding = dimensionResource(id = R.dimen.tab_tray_grid_bottom_padding)
     val isInMultiSelectMode = selectionMode is TabsTrayState.Mode.Select
 
     val reorderState = createGridReorderState(
@@ -344,7 +350,7 @@ private fun ReorderableTabGrid(
                 ),
             state = gridState,
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(space = FirefoxTheme.layout.space.static200),
+            verticalArrangement = Arrangement.spacedBy(space = spacing),
             horizontalArrangement = Arrangement.spacedBy(space = horizontalGridPadding),
         ) {
             header?.let {
@@ -401,15 +407,18 @@ private fun InteractableTabGrid(
     header: (@Composable () -> Unit)? = null,
 ) {
     val gridState = rememberLazyGridState()
+    val tabGridBottomPadding = dimensionResource(id = R.dimen.tab_tray_grid_bottom_padding)
+    val spacing = FirefoxTheme.layout.space.static200
+    val navigationBarPadding =
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     TabLayoutScrollHelper(
         state = gridState,
         selectedTabIndex = selectedItemIndex,
-        bottomPadding = contentPadding.calculateBottomPadding(),
+        bottomPadding = contentPadding.calculateBottomPadding() + tabGridBottomPadding + spacing + navigationBarPadding,
         isHeaderPresent = header != null,
     )
 
-    val tabGridBottomPadding = dimensionResource(id = R.dimen.tab_tray_grid_bottom_padding)
     val isInMultiSelectMode = selectionMode is TabsTrayState.Mode.Select
 
     val gridInteractionState = createGridInteractionState(
@@ -449,7 +458,7 @@ private fun InteractableTabGrid(
             state = gridState,
             userScrollEnabled = gridInteractionState.draggedItem == InteractionState.None,
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(space = FirefoxTheme.layout.space.static200),
+            verticalArrangement = Arrangement.spacedBy(space = spacing),
             horizontalArrangement = Arrangement.spacedBy(space = horizontalGridPadding),
         ) {
             header?.let {

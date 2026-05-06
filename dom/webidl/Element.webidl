@@ -172,7 +172,8 @@ dictionary FocusOptions {
   boolean focusVisible;
 };
 
-interface mixin HTMLOrForeignElement {
+// https://html.spec.whatwg.org/multipage/dom.html#htmlorsvgelement
+interface mixin HTMLOrSVGOrMathMLElement {
   [SameObject] readonly attribute DOMStringMap dataset;
   // See bug 1389421
   // attribute DOMString nonce; // intentionally no [CEReactions]

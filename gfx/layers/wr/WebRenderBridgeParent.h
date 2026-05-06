@@ -531,11 +531,11 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   Maybe<ScreenPixelsRequest> mScreenPixelsRequest;
 #endif
 
-  uint32_t mBoolParameterBits;
+  uint32_t mBoolParameterBits = 0;
   uint16_t mBlobTileSize = 256;
   wr::RenderReasons mSkippedCompositeReasons = wr::RenderReasons::NONE;
-  bool mDestroyed;
-  bool mIsFirstPaint;
+  bool mDestroyed = false;
+  bool mIsFirstPaint = false;
   bool mLastNotifiedHasLayers = false;
   bool mReceivedDisplayList = false;
   bool mSkippedComposite = false;

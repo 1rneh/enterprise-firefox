@@ -3191,7 +3191,7 @@ static void AddSharedAnnotations(AnnotationTable& aAnnotations) {
 
       if (!value.IsEmpty() && aAnnotations[key].IsEmpty() &&
           ShouldIncludeAnnotation(key, value.get())) {
-        aAnnotations[key] = value;
+        aAnnotations[key] = std::move(value);
       }
     }
   }

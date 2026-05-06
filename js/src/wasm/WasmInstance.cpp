@@ -2824,6 +2824,7 @@ bool Instance::init(JSContext* cx, const JSObjectVector& funcImports,
     data.boundsCheckLimit128 = limit > 15 ? limit - 15 : 0;
 #endif
     data.isShared = md.isShared();
+    data.mappedSize = memory->buffer().wasmMappedSize();
 
     // Add observer if our memory base may grow
     if (memory && memory->movingGrowable() &&
@@ -3221,6 +3222,24 @@ bool Instance::memoryAccessInGuardRegion(const uint8_t* addr,
     }
   }
   return false;
+}
+
+bool Instance::memoryAccessInMappedRegion(const uint8_t* addr,
+                                          uint32_t* memoryIndex,
+                                          uint64_t* offset) const {
+  for (uint32_t i = 0; i < codeMeta().memories.length(); i++) {
+    const MemoryInstanceData& md = memoryInstanceData(i);
+    if (addr >= md.base && addr < md.base + md.mappedSize) {
+      *memoryIndex = i;
+      *offset = addr - md.base;
+      return true;
+    }
+  }
+  return false;
+}
+
+size_t Instance::memoryMappedSize(uint32_t memoryIndex) const {
+  return memoryInstanceData(memoryIndex).mappedSize;
 }
 
 void Instance::tracePrivate(JSTracer* trc) {
@@ -4233,6 +4252,7 @@ void Instance::onMovingGrowMemory(const WasmMemoryObject* memory) {
     ArrayBufferObject& buffer = md.memory->buffer().as<ArrayBufferObject>();
 
     md.base = buffer.dataPointer();
+    md.mappedSize = buffer.wasmMappedSize();
     size_t limit = md.memory->boundsCheckLimit();
 #if !defined(JS_64BIT)
     // We assume that the limit is a 32-bit quantity

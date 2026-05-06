@@ -8,7 +8,6 @@ import android.content.Context
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,7 +35,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
@@ -48,12 +46,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import mozilla.components.compose.base.LinkText
+import mozilla.components.compose.base.LinkTextState
 import mozilla.components.compose.base.annotation.FlexibleWindowPreview
 import mozilla.components.compose.base.button.TextButton
 import mozilla.components.concept.ai.controls.AIControllableFeature
 import org.mozilla.fenix.R
-import org.mozilla.fenix.compose.LinkText
-import org.mozilla.fenix.compose.LinkTextState
+import org.mozilla.fenix.compose.PromoCard
 import org.mozilla.fenix.compose.list.IconListItem
 import org.mozilla.fenix.compose.list.SwitchListItem
 import org.mozilla.fenix.compose.settings.SettingsSectionHeader
@@ -247,65 +246,33 @@ private fun FeatureRow(
 
 @Composable
 private fun AIChoiceBanner(onLearnMoreClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                start = 16.dp,
-                end = 16.dp,
-                top = 8.dp,
-                bottom = 16.dp,
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(FirefoxTheme.colors.layerAccentNonOpaque)
-                .padding(horizontal = 16.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = 12.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.ai_controls_banner_headline, stringResource(R.string.app_name)),
-                    style = FirefoxTheme.typography.headline7,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
+    val learnMoreText = stringResource(R.string.ai_controls_learn_more)
+    val description = stringResource(R.string.ai_controls_banner_supporting_text_2, learnMoreText)
 
-                val learnMoreText = stringResource(R.string.ai_controls_learn_more)
-                val supportingText = stringResource(R.string.ai_controls_banner_supporting_text)
-                val fullText = "$supportingText $learnMoreText"
-
-                LinkText(
-                    text = fullText,
-                    linkTextStates = listOf(
-                        LinkTextState(
-                            text = learnMoreText,
-                            url = "",
-                            onClick = { onLearnMoreClick() },
-                        ),
-                    ),
-                    style = FirefoxTheme.typography.body2.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
-                    linkTextDecoration = TextDecoration.Underline,
-                    linkTextColor = MaterialTheme.colorScheme.tertiary,
-                )
-            }
-
+    PromoCard(
+        description = null,
+        modifier = Modifier.padding(
+            start = 16.dp,
+            end = 16.dp,
+            top = 8.dp,
+            bottom = 16.dp,
+        ),
+        title = stringResource(R.string.ai_controls_banner_headline, stringResource(R.string.app_name)),
+        footer = description to LinkTextState(
+            text = learnMoreText,
+            url = "",
+            onClick = { onLearnMoreClick() },
+        ),
+        illustration = {
             Image(
                 painter = painterResource(iconsR.drawable.mozac_ic_fox_ai_on_state),
                 contentDescription = null,
                 modifier = Modifier
-                    .align(Alignment.Bottom)
                     .width(62.dp)
                     .height(63.dp),
             )
-        }
-    }
+        },
+    )
 }
 
 @Composable

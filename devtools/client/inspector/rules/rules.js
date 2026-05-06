@@ -1689,10 +1689,17 @@ class CssRuleView extends EventEmitter {
 
       // Ensure adding the rule editor at the right location
       const lastElement = lastElementPerContainer.get(container);
-      if (lastElement) {
+      // Also avoid any DOM mutation if the rule already exists and wasn't moved
+      if (
+        lastElement &&
+        lastElement.nextElementSibling != rule.editor.element
+      ) {
         lastElement.insertAdjacentElement("afterend", rule.editor.element);
-      } else {
-        container.appendChild(rule.editor.element);
+      } else if (
+        !lastElement &&
+        container.firstElementChild != rule.editor.element
+      ) {
+        container.insertAdjacentElement("afterbegin", rule.editor.element);
       }
       lastElementPerContainer.set(container, rule.editor.element);
     }
@@ -1812,10 +1819,14 @@ class CssRuleView extends EventEmitter {
       const lastContainer = currentContainers.at(-1);
       // Pseudo element rules are sorted **after** element matching rules and inherited rules
       // in ElementStyle.rules, but we want the container to always be shown at the top.
+      //
+      // Also avoid any DOM mutation if the rule already exists and wasn't moved
       if (id == PSEUDO_ELEMENTS_CONTAINER_ID || !lastContainer) {
-        this.element.insertAdjacentElement("afterbegin", header);
-        header.insertAdjacentElement("afterend", container);
-      } else {
+        if (this.element.firstElementChild != header) {
+          this.element.insertAdjacentElement("afterbegin", header);
+          header.insertAdjacentElement("afterend", container);
+        }
+      } else if (lastContainer.nextElementSibling != header) {
         lastContainer.insertAdjacentElement("afterend", header);
         header.insertAdjacentElement("afterend", container);
       }
@@ -1855,16 +1866,21 @@ class CssRuleView extends EventEmitter {
   }
 
   #createRegisteredPropertyEditors() {
-    const registeredPropertiesContainer =
-      this.getOrCreateRegisteredPropertiesExpandableContainer();
-    // Always swipe and rebuild the list of properties from scratch
-    registeredPropertiesContainer.replaceChildren();
-
     const targetRegisteredProperties =
       this.getRegisteredPropertiesForSelectedNodeTarget();
     if (!targetRegisteredProperties?.size) {
+      // Wipe the list, but only if the properties container was populated
+      const entry = this.#containers.get(REGISTERED_PROPERTIES_CONTAINER_ID);
+      if (entry) {
+        entry.container.replaceChildren();
+      }
       return;
     }
+
+    const registeredPropertiesContainer =
+      this.getOrCreateRegisteredPropertiesExpandableContainer();
+    // Always wipe and rebuild the list of properties from scratch
+    registeredPropertiesContainer.replaceChildren();
 
     // Sort properties by their name, as we want to display them in alphabetical order
     const propertyDefinitions = Array.from(

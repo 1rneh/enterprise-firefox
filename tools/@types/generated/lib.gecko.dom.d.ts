@@ -11777,7 +11777,7 @@ declare var HTMLDocument: {
 interface HTMLElementEventMap extends ElementEventMap, GlobalEventHandlersEventMap, OnErrorEventHandlerForNodesEventMap, TouchEventHandlersEventMap {
 }
 
-interface HTMLElement extends Element, ElementCSSInlineStyle, ElementOffsetAttributes, GlobalEventHandlers, HTMLOrForeignElement, OnErrorEventHandlerForNodes, TouchEventHandlers {
+interface HTMLElement extends Element, ElementCSSInlineStyle, ElementOffsetAttributes, GlobalEventHandlers, HTMLOrSVGOrMathMLElement, OnErrorEventHandlerForNodes, TouchEventHandlers {
     accessKey: string;
     readonly accessKeyLabel: string;
     autocapitalize: string;
@@ -12623,7 +12623,7 @@ declare var HTMLOptionsCollection: {
     isInstance: IsInstance<HTMLOptionsCollection>;
 };
 
-interface HTMLOrForeignElement {
+interface HTMLOrSVGOrMathMLElement {
     autofocus: boolean;
     readonly dataset: DOMStringMap;
     tabIndex: number;
@@ -14936,7 +14936,7 @@ declare var MatchPatternSet: {
 interface MathMLElementEventMap extends ElementEventMap, GlobalEventHandlersEventMap, OnErrorEventHandlerForNodesEventMap, TouchEventHandlersEventMap {
 }
 
-interface MathMLElement extends Element, ElementCSSInlineStyle, GlobalEventHandlers, HTMLOrForeignElement, OnErrorEventHandlerForNodes, TouchEventHandlers {
+interface MathMLElement extends Element, ElementCSSInlineStyle, GlobalEventHandlers, HTMLOrSVGOrMathMLElement, OnErrorEventHandlerForNodes, TouchEventHandlers {
     addEventListener<K extends keyof MathMLElementEventMap>(type: K, listener: (this: MathMLElement, ev: MathMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
     addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
     removeEventListener<K extends keyof MathMLElementEventMap>(type: K, listener: (this: MathMLElement, ev: MathMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
@@ -18741,7 +18741,7 @@ interface SVGElementEventMap extends ElementEventMap, GlobalEventHandlersEventMa
 }
 
 // @ts-ignore
-interface SVGElement extends Element, ElementCSSInlineStyle, GlobalEventHandlers, HTMLOrForeignElement, OnErrorEventHandlerForNodes, TouchEventHandlers {
+interface SVGElement extends Element, ElementCSSInlineStyle, GlobalEventHandlers, HTMLOrSVGOrMathMLElement, OnErrorEventHandlerForNodes, TouchEventHandlers {
     readonly className: SVGAnimatedString;
     id: string;
     nonce: string;
@@ -26101,7 +26101,7 @@ declare var XULCommandEvent: {
 interface XULElementEventMap extends ElementEventMap, GlobalEventHandlersEventMap, OnErrorEventHandlerForNodesEventMap, TouchEventHandlersEventMap {
 }
 
-interface XULElement extends Element, ElementCSSInlineStyle, ElementOffsetAttributes, GlobalEventHandlers, HTMLOrForeignElement, OnErrorEventHandlerForNodes, TouchEventHandlers {
+interface XULElement extends Element, ElementCSSInlineStyle, ElementOffsetAttributes, GlobalEventHandlers, HTMLOrSVGOrMathMLElement, OnErrorEventHandlerForNodes, TouchEventHandlers {
     collapsed: boolean;
     contextMenu: string;
     readonly controllers: XULControllers;

@@ -878,9 +878,6 @@ int FFmpegVideoDecoder<LIBAV_VER>::GetVideoBuffer(
     struct AVCodecContext* aCodecContext, AVFrame* aFrame, int aFlags) {
   FFMPEG_LOGV("GetVideoBuffer: aCodecContext=%p aFrame=%p", aCodecContext,
               aFrame);
-  if (!StaticPrefs::media_ffmpeg_customized_buffer_allocation()) {
-    return AVERROR(EINVAL);
-  }
 
   if (mIsUsingShmemBufferForDecode && !*mIsUsingShmemBufferForDecode) {
     return AVERROR(EINVAL);

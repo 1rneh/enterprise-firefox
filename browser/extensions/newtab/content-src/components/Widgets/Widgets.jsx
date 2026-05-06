@@ -103,7 +103,7 @@ function renderWeather({
   );
 }
 
-// eslint-disable-next-line complexity
+// eslint-disable-next-line complexity, max-statements
 function Widgets() {
   const prefs = useSelector(state => state.Prefs.values);
   const weatherData = useSelector(state => state.Weather);
@@ -186,6 +186,11 @@ function Widgets() {
     weather: weatherEnabled && !weatherGoesToSidebar,
     sportsWidget: isWidgetEnabled(
       WIDGET_REGISTRY.find(w => w.id === "sportsWidget"),
+      prefs,
+      widgetsEnabled
+    ),
+    clocks: isWidgetEnabled(
+      WIDGET_REGISTRY.find(w => w.id === "clocks"),
       prefs,
       widgetsEnabled
     ),
@@ -403,7 +408,7 @@ function Widgets() {
             iconSrc="chrome://global/skin/icons/more.svg"
             menuId="widgets-header-context-panel"
             type="ghost"
-            size="small"
+            size="default"
           />
           <panel-list id="widgets-header-context-panel">
             <panel-item

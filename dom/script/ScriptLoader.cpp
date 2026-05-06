@@ -693,7 +693,7 @@ static nsSecurityFlags CORSModeToSecurityFlags(CORSMode aCORSMode) {
 nsresult ScriptLoader::StartClassicLoad(
     ScriptLoadRequest* aRequest,
     const Maybe<nsAutoString>& aCharsetForPreload) {
-  if (aRequest->IsCachedStencil()) {
+  if (aRequest->OnceCachedStencil()) {
     EmulateNetworkEvents(aRequest, aCharsetForPreload);
     return NS_OK;
   }
@@ -1267,6 +1267,8 @@ void ScriptLoader::TryUseCache(ReferrerPolicy aReferrerPolicy,
   //       LoadedScript, and we cannot use them here.
   ScriptHashKey key(this, aRequest, aReferrerPolicy, aFetchOptions, aURI);
   auto cacheResult = mCache->Lookup(*this, key, /* aSyncLoad = */ true);
+  MOZ_ASSERT_IF(cacheResult.mState == CachedSubResourceState::Complete,
+                cacheResult.mCompleteValue->OnceCachedStencil());
   if (cacheResult.mState != CachedSubResourceState::Complete ||
       !cacheResult.mCompleteValue->IsCachedStencil()) {
     aRequest->NoCacheEntryFound(aReferrerPolicy, aFetchOptions, aURI);
@@ -1346,7 +1348,7 @@ void ScriptLoader::TryUseCache(ReferrerPolicy aReferrerPolicy,
 void ScriptLoader::EmulateNetworkEvents(
     ScriptLoadRequest* aRequest,
     const Maybe<nsAutoString>& aCharsetForPreload) {
-  MOZ_ASSERT(aRequest->IsCachedStencil());
+  MOZ_ASSERT(aRequest->OnceCachedStencil());
   MOZ_ASSERT(aRequest->mNetworkMetadata);
   MOZ_ASSERT(!aRequest->IsWasmBytes());
 
@@ -1563,7 +1565,7 @@ bool ScriptLoader::ProcessExternalScript(nsIScriptElement* aElement,
       return block;
     }
 
-    if (request->IsCachedStencil()) {
+    if (request->OnceCachedStencil()) {
       // https://html.spec.whatwg.org/#prepare-the-script-element
       //
       // Step 33. If el's type is "classic" and el has a src attribute, or el's
@@ -2039,7 +2041,7 @@ nsresult ScriptLoader::CompileOffThreadOrProcessRequest(
   NS_ASSERTION(nsContentUtils::IsSafeToRunScript(),
                "Processing requests when running scripts is unsafe.");
 
-  if (!aRequest->IsCachedStencil() &&
+  if (!aRequest->OnceCachedStencil() &&
       !aRequest->GetScriptLoadContext()->mCompileOrDecodeTask &&
       !aRequest->GetScriptLoadContext()->CompileStarted()) {
     bool couldCompile = false;
@@ -2155,7 +2157,7 @@ nsresult ScriptLoader::AttemptOffThreadScriptCompile(
     return NS_OK;
   }
 
-  if (aRequest->IsCachedStencil()) {
+  if (aRequest->OnceCachedStencil()) {
     // This is a revived cache.
     return NS_OK;
   }
@@ -2936,7 +2938,8 @@ void ScriptLoader::CalculateCacheFlag(ScriptLoadRequest* aRequest) {
 
   MOZ_ASSERT(!aRequest->IsWasmBytes());
 
-  if (!aRequest->IsCachedStencil() && aRequest->ExpirationTime().IsExpired()) {
+  if (!aRequest->OnceCachedStencil() &&
+      aRequest->ExpirationTime().IsExpired()) {
     LOG(("ScriptLoadRequest (%p): Bytecode-cache: Skip all: Expired",
          aRequest));
     // NOTE: The expiration for in-memory-cached case should be handled by
@@ -3016,7 +3019,7 @@ void ScriptLoader::CalculateCacheFlag(ScriptLoadRequest* aRequest) {
   // cache for this script, as the overhead of parsing it might not be worth the
   // effort.
   size_t sourceLength;
-  if (aRequest->IsCachedStencil()) {
+  if (aRequest->OnceCachedStencil()) {
     sourceLength = JS::GetScriptSourceLength(aRequest->GetStencil());
   } else {
     MOZ_ASSERT(aRequest->IsTextSource());
@@ -3508,7 +3511,7 @@ void ScriptLoader::InstantiateClassicScriptFromAny(
     ScriptLoadRequest* aRequest, JS::MutableHandle<JSScript*> aScript,
     JS::Handle<JSScript*> aDebuggerIntroductionScript, ErrorResult& aRv) {
   MOZ_ASSERT(!aRequest->IsWasmBytes());
-  if (aRequest->IsCachedStencil()) {
+  if (aRequest->OnceCachedStencil()) {
     RefPtr<JS::Stencil> stencil = aRequest->GetStencil();
     InstantiateClassicScriptFromCachedStencil(aCx, aCompileOptions, aRequest,
                                               stencil, aScript,
@@ -3554,6 +3557,8 @@ ScriptLoader::CacheBehavior ScriptLoader::GetCacheBehavior(
                     aRequest->getLoadedScript()->GetURI());
   auto cacheResult = mCache->Lookup(*this, key,
                                     /* aSyncLoad = */ true);
+  MOZ_ASSERT_IF(cacheResult.mState == CachedSubResourceState::Complete,
+                cacheResult.mCompleteValue->OnceCachedStencil());
   if (cacheResult.mState == CachedSubResourceState::Complete &&
       cacheResult.mCompleteValue->IsCachedStencil()) {
     if (!cacheResult.mCompleteValue->IsSRIMetadataReusableBy(
@@ -3610,16 +3615,21 @@ void ScriptLoader::TryCacheRequest(ScriptLoadRequest* aRequest) {
     cacheBehavior = CacheBehavior::Evict;
   }
 
-  LoadedScript* loadedScript = aRequest->getLoadedScript();
   if (cacheBehavior == CacheBehavior::Insert) {
-    loadedScript->SetSRIMetadata(aRequest->mIntegrity);
-    auto loadData = MakeRefPtr<ScriptLoadData>(this, aRequest, loadedScript);
+    LoadedScript* loadedScript = aRequest->getLoadedScript();
+    CacheExpirationTime expirationTime = aRequest->ExpirationTime();
     loadedScript->ConvertToCachedStencil(aRequest->GetStencil(),
                                          aRequest->ReferrerPolicy(),
                                          aRequest->BaseURL());
     if (loadedScript->mFetchCount == 0) {
       loadedScript->mFetchCount = 1;
     }
+    if (loadedScript->IsModuleScript()) {
+      loadedScript = loadedScript->ModuleScriptToCache();
+    }
+    loadedScript->SetSRIMetadata(aRequest->mIntegrity);
+    auto loadData = MakeRefPtr<ScriptLoadData>(this, aRequest, expirationTime,
+                                               loadedScript);
     mCache->Insert(*loadData);
     mCache->OnEntryInserted();
     LOG(("ScriptLoader (%p): Inserting in-memory cache for %s.", this,
@@ -3631,7 +3641,7 @@ void ScriptLoader::TryCacheRequest(ScriptLoadRequest* aRequest) {
 
     MOZ_ASSERT(cacheBehavior == CacheBehavior::Evict);
     ScriptHashKey key(this, aRequest, aRequest->ReferrerPolicy(),
-                      aRequest->FetchOptions(), loadedScript->GetURI());
+                      aRequest->FetchOptions(), aRequest->URI());
     mCache->Evict(key);
     LOG(("ScriptLoader (%p): Evicting in-memory cache for %s.", this,
          aRequest->URI()->GetSpecOrDefault().get()));
@@ -3980,10 +3990,10 @@ void ScriptLoader::UpdateDiskCache() {
       continue;
     }
 
-    if (!loadedScript->IsCachedStencil()) {
-      // The cache is invalidated.
+    if (loadedScript->IsInvalidatedCachedStencil()) {
       continue;
     }
+
     RefPtr<JS::Stencil> stencil = loadedScript->GetCachedStencil();
 
     Vector<uint8_t> compressed;
@@ -4487,6 +4497,8 @@ nsresult ScriptLoader::OnStreamComplete(
           ScriptHashKey key(this, aRequest, aRequest->ReferrerPolicy(),
                             aRequest->FetchOptions(), aRequest->URI());
           auto cacheResult = mCache->Lookup(*this, key, /* aSyncLoad = */ true);
+          MOZ_ASSERT_IF(cacheResult.mState == CachedSubResourceState::Complete,
+                        cacheResult.mCompleteValue->OnceCachedStencil());
           if (cacheResult.mState == CachedSubResourceState::Complete &&
               cacheResult.mCompleteValue->IsCachedStencil() &&
               cacheResult.mCompleteValue->IsSRIMetadataReusableBy(
@@ -4544,8 +4556,8 @@ nsresult ScriptLoader::OnStreamComplete(
     } else if (aRequest->IsSerializedStencil()) {
       mLoadedFromNeckoAsSerializedStencil++;
     }
-    // NOTE: aRequest->IsCachedStencil() case is handled above by incrementing
-    //       mMemoryCacheRevived.
+    // NOTE: IsCachedStencil() and IsInvalidatedCachedStencil() cases are
+    //       handled above by incrementing mMemoryCacheRevived.
 
     if (NS_SUCCEEDED(rv)) {
       rv = PrepareLoadedRequest(aRequest, aChannel, aChannelStatus);

@@ -105,7 +105,7 @@ const nsNavigationDirection DirectionFromKeyCodeTable[2][6] = {
         eNavigationDirection_After    // KeyboardEvent_Binding::DOM_VK_DOWN
     }};
 
-nsXULPopupManager* nsXULPopupManager::sInstance = nullptr;
+StaticRefPtr<nsXULPopupManager> nsXULPopupManager::sInstance;
 
 PendingPopup::PendingPopup(Element* aPopup, mozilla::dom::Event* aEvent)
     : mPopup(aPopup), mEvent(aEvent), mModifiers(0) {
@@ -301,14 +301,9 @@ nsXULPopupManager::~nsXULPopupManager() {
   }
 }
 
-nsresult nsXULPopupManager::Init() {
-  sInstance = new nsXULPopupManager();
-  NS_ENSURE_TRUE(sInstance, NS_ERROR_OUT_OF_MEMORY);
-  NS_ADDREF(sInstance);
-  return NS_OK;
-}
+void nsXULPopupManager::Init() { sInstance = MakeRefPtr<nsXULPopupManager>(); }
 
-void nsXULPopupManager::Shutdown() { NS_IF_RELEASE(sInstance); }
+void nsXULPopupManager::Shutdown() { sInstance = nullptr; }
 
 NS_IMETHODIMP
 nsXULPopupManager::Observe(nsISupports* aSubject, const char* aTopic,
@@ -1911,7 +1906,7 @@ void nsXULPopupManager::FirePopupHidingEvent(Element* aPopup,
   // The transition would still occur either way, but if we don't wait the
   // view will be hidden and you won't be able to see it.
   if (shouldAnimate && AnimationUtils::HasCurrentTransitions(aPopup)) {
-    RefPtr<TransitionEnder> ender = new TransitionEnder(aPopup, aOptions);
+    auto ender = MakeRefPtr<TransitionEnder>(aPopup, aOptions);
     aPopup->AddSystemEventListener(u"transitionend"_ns, ender, false, false);
     aPopup->AddSystemEventListener(u"transitioncancel"_ns, ender, false, false);
     return;

@@ -25,10 +25,6 @@ const { IPPSignInWatcher } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/fxa/IPPSignInWatcher.sys.mjs"
 );
 
-const { IPPEnrollAndEntitleManager } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/fxa/IPPEnrollAndEntitleManager.sys.mjs"
-);
-
 const { IPPFxaAuthProvider } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/fxa/IPPFxaAuthProvider.sys.mjs"
 );
@@ -111,7 +107,7 @@ async function openPanel(state, win = window) {
   let panel = IPProtection.getPanel(win);
   if (state) {
     panel.setState({
-      isCheckingEntitlement: false,
+      isEnrolling: false,
       unauthenticated: false,
       ...state,
     });
@@ -269,8 +265,7 @@ let DEFAULT_EXPERIMENT = {
 /* exported SETUP_EXPERIMENT */
 
 let DEFAULT_SERVICE_STATUS = {
-  isSignedIn: false,
-  isEnrolledAndEntitled: undefined,
+  isReady: false,
   canEnroll: true,
   entitlement: {
     status: 200,
@@ -289,12 +284,11 @@ let DEFAULT_SERVICE_STATUS = {
 /* exported DEFAULT_SERVICE_STATUS */
 
 let STUBS = {
-  isEnrolledAndEntitled: undefined,
+  isReady: undefined,
   hasUpgraded: undefined,
   isEnrolling: undefined,
-  isCheckingEntitlement: undefined,
   updateEntitlement: undefined,
-  refetchEntitlement: undefined,
+  checkForUpgrade: undefined,
   enrollAndEntitle: undefined,
   fetchProxyPass: undefined,
   fetchProxyUsage: undefined,
@@ -390,28 +384,19 @@ add_setup(async function setupVPN() {
 });
 
 function setupStubs(stubs = STUBS) {
-  stubs.isSignedIn = setupSandbox.stub(IPPSignInWatcher, "isSignedIn");
-  stubs.isEnrolledAndEntitled = setupSandbox.stub(
-    IPPEnrollAndEntitleManager,
-    "isEnrolledAndEntitled"
-  );
-  stubs.hasUpgraded = setupSandbox.stub(
-    IPPEnrollAndEntitleManager,
-    "hasUpgraded"
-  );
-  // Stub isEnrolling, isCheckingEntitlement, updateEntitlement, and refetchEntitlement
+  setupSandbox.stub(IPPFxaAuthProvider, "aboutToStart").resolves(null);
+  stubs.isReady = setupSandbox.stub(IPPFxaAuthProvider, "isReady");
+  stubs.hasUpgraded = setupSandbox.stub(IPPFxaAuthProvider, "hasUpgraded");
+  // Stub isEnrolling, updateEntitlement, and checkForUpgrade
   // to prevent loading skeleton from rendering unexpectedly during tests.
   stubs.isEnrolling = setupSandbox
-    .stub(IPPEnrollAndEntitleManager, "isEnrolling")
-    .get(() => false);
-  stubs.isCheckingEntitlement = setupSandbox
-    .stub(IPPEnrollAndEntitleManager, "isCheckingEntitlement")
+    .stub(IPPFxaAuthProvider, "isEnrolling")
     .get(() => false);
   stubs.updateEntitlement = setupSandbox
-    .stub(IPPEnrollAndEntitleManager, "updateEntitlement")
+    .stub(IPPFxaAuthProvider, "updateEntitlement")
     .resolves();
-  stubs.refetchEntitlement = setupSandbox
-    .stub(IPPEnrollAndEntitleManager, "refetchEntitlement")
+  stubs.checkForUpgrade = setupSandbox
+    .stub(IPPFxaAuthProvider, "checkForUpgrade")
     .resolves();
 
   stubs.enrollAndEntitle = setupSandbox.stub(
@@ -438,8 +423,7 @@ function setupStubs(stubs = STUBS) {
 
 function setupService(
   {
-    isSignedIn,
-    isEnrolledAndEntitled,
+    isReady,
     hasUpgraded,
     canEnroll,
     entitlement,
@@ -449,12 +433,8 @@ function setupService(
   } = DEFAULT_SERVICE_STATUS,
   stubs = STUBS
 ) {
-  if (typeof isSignedIn != "undefined") {
-    stubs.isSignedIn.get(() => isSignedIn);
-  }
-
-  if (typeof isEnrolledAndEntitled != "undefined") {
-    stubs.isEnrolledAndEntitled.get(() => isEnrolledAndEntitled);
+  if (typeof isReady != "undefined") {
+    stubs.isReady.get(() => isReady);
   }
 
   if (typeof hasUpgraded != "undefined") {

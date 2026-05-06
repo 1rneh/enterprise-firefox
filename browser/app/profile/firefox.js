@@ -2164,20 +2164,12 @@ pref("nimbus.firstUpdateComplete", false);
 pref("nimbus.profilesdatastoreservice.enabled", true);
 
 // Should Nimbus read from the shared ProfilesDatastoreService?
-// TODO(bug 1972426): Enable this behaviour by default and remove this pref.
-#if defined(NIGHTLY_BUILD)
+// TODO(bug 2032586): Remove this pref.
 pref("nimbus.profilesdatastoreservice.read.enabled", true);
-#else
-pref("nimbus.profilesdatastoreservice.read.enabled", false);
-#endif
 
 // Should Nimbus sync experiment unenrollments from other profiles?
-// TODO(bug 1956087): Enable this behaviour by default and remove this pref.
-#if defined(NIGHTLY_BUILD)
+// TODO(bug 2032586): Remove this pref.
 pref("nimbus.profilesdatastoreservice.sync.enabled", true);
-#else
-pref("nimbus.profilesdatastoreservice.sync.enabled", false);
-#endif
 
 // Enable the targeting context telemetry by default, but allow it to be
 // disabled, e.g., for artifact builds.
@@ -3031,9 +3023,7 @@ pref("browser.toolbars.bookmarks.showOtherBookmarks", true);
 // If preffed off, it makes it so that the button is no longer
 // available on the toolbar or in the customize section. Requires a
 // restart to reflect state changes.
-#ifndef XP_LINUX
-  pref("browser.toolbars.share-button.enabled", true);
-#endif
+pref("browser.toolbars.share-button.enabled", true);
 
 // Felt Privacy pref to control simplified private browsing UI
 pref("browser.privatebrowsing.felt-privacy-v1", false);

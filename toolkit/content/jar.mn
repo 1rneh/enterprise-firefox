@@ -160,6 +160,7 @@ toolkit.jar:
    content/global/elements/moz-reorderable-list.tokens.css    (widgets/moz-reorderable-list/moz-reorderable-list.tokens.css)
    content/global/elements/moz-reorderable-list.css    (widgets/moz-reorderable-list/moz-reorderable-list.css)
    content/global/elements/moz-reorderable-list.mjs    (widgets/moz-reorderable-list/moz-reorderable-list.mjs)
+   content/global/elements/moz-select.tokens.css    (widgets/moz-select/moz-select.tokens.css)
    content/global/elements/moz-select.css    (widgets/moz-select/moz-select.css)
    content/global/elements/moz-select.mjs    (widgets/moz-select/moz-select.mjs)
    content/global/elements/moz-support-link.mjs    (widgets/moz-support-link/moz-support-link.mjs)

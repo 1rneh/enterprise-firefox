@@ -299,9 +299,6 @@ class LiveSavedFrameCache {
   using EntryVector = Vector<Entry, 0, SystemAllocPolicy>;
   EntryVector* frames;
 
-  LiveSavedFrameCache(const LiveSavedFrameCache&) = delete;
-  LiveSavedFrameCache& operator=(const LiveSavedFrameCache&) = delete;
-
  public:
   explicit LiveSavedFrameCache() : frames(nullptr) {}
 
@@ -316,6 +313,9 @@ class LiveSavedFrameCache {
       frames = nullptr;
     }
   }
+
+  LiveSavedFrameCache(const LiveSavedFrameCache&) = delete;
+  LiveSavedFrameCache& operator=(const LiveSavedFrameCache&) = delete;
 
   bool initialized() const { return !!frames; }
   bool init(JSContext* cx) {
@@ -452,7 +452,6 @@ class Activation {
   inline LiveSavedFrameCache* getLiveSavedFrameCache(JSContext* cx);
   void clearLiveSavedFrameCache() { frameCache_.get().clear(); }
 
- private:
   Activation(const Activation& other) = delete;
   void operator=(const Activation& other) = delete;
 };

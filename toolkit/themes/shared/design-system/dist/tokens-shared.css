@@ -354,6 +354,26 @@
     --opacity-deemphasized: 0.8;
     --opacity-deemphasized-strong: 0.6;
 
+    /** panel **/
+    --panel-background-color: Field;
+    --panel-background-color-dimmed: color-mix(in srgb, currentColor 17%, transparent);
+    --panel-background-color-dimmed-further: color-mix(in srgb, currentColor 30%, transparent);
+    --panel-border-color: ThreeDShadow;
+    --panel-border-radius: var(--border-radius-medium);
+    --panel-box-shadow: 0 0 var(--panel-box-shadow-margin) hsla(0, 0%, 0%, 0.2);
+    --panel-box-shadow-margin: 4px;
+    --panel-menuitem-border-radius: var(--border-radius-small);
+    --panel-menuitem-margin: var(--panel-menuitem-margin-block) var(--panel-menuitem-margin-inline);
+    --panel-menuitem-margin-block: 0px;
+    --panel-menuitem-margin-inline: 8px;
+    --panel-menuitem-padding: var(--panel-menuitem-padding-block) var(--panel-menuitem-padding-inline);
+    --panel-menuitem-padding-block: 8px;
+    --panel-menuitem-padding-inline: 8px;
+    --panel-padding: 16px;
+    --panel-padding-block: 4px;
+    --panel-text-color: FieldText;
+    --panel-width: initial;
+
     /** popup **/
     --popup-box-shadow: var(--box-shadow-level-3);
 
@@ -406,46 +426,46 @@
     --text-color-list-item-hover: var(--text-color);
 
     /** toolbar **/
-    --toolbar-bgcolor: color-mix(in srgb, -moz-dialog 85%, var(--color-white));
-    --toolbar-color: -moz-dialogtext;
+    --toolbar-background-color: color-mix(in srgb, -moz-dialog 85%, var(--color-white));
     --toolbar-field-background-color: light-dark(rgba(0, 0, 0, 0.05), var(--color-black-alpha-30));
+    --toolbar-field-background-color-focus: Field;
     --toolbar-field-border-color: var(--border-color-transparent);
-    --toolbar-field-color: inherit;
-    --toolbar-field-focus-background-color: Field;
-    --toolbar-field-focus-border-color: color-mix(in srgb, var(--focus-outline-color) 50%, transparent);
-    --toolbar-field-focus-color: FieldText;
-    --toolbar-start-end-padding: 8px;
+    --toolbar-field-border-color-focus: color-mix(in srgb, var(--focus-outline-color) 50%, transparent);
+    --toolbar-field-text-color: inherit;
+    --toolbar-field-text-color-focus: FieldText;
+    --toolbar-padding-inline: 8px;
+    --toolbar-text-color: -moz-dialogtext;
 
     /** toolbarbutton **/
-    --toolbarbutton-active-background: color-mix(in srgb, currentColor 30%, transparent);
-    --toolbarbutton-active-outline-color: transparent;
+    --toolbarbutton-background-color-hover: color-mix(in srgb, currentColor 17%, transparent);
+    --toolbarbutton-background-color-active: color-mix(in srgb, currentColor 30%, transparent);
     --toolbarbutton-border-radius: var(--button-border-radius);
-    --toolbarbutton-disabled-opacity: var(--button-opacity-disabled);
-    --toolbarbutton-hover-background: color-mix(in srgb, currentColor 17%, transparent);
-    --toolbarbutton-hover-outline-color: transparent;
     --toolbarbutton-icon-fill: currentColor;
     --toolbarbutton-icon-fill-attention: AccentColor;
     --toolbarbutton-icon-fill-attention-text: AccentColorText;
-    --toolbarbutton-inner-padding: 8px;
-    --toolbarbutton-inner-padding-compact: 6px;
-    --toolbarbutton-inner-padding-narrow: 7px;
-    --toolbarbutton-inner-padding-touch: 9px;
-    --toolbarbutton-inner-padding-touch-narrow: 8px;
-    --toolbarbutton-outer-padding: 2px;
-    --toolbarbutton-outer-padding-narrow: 1px;
+    --toolbarbutton-opacity-disabled: var(--button-opacity-disabled);
     --toolbarbutton-outline: var(--border-width) solid var(--toolbarbutton-outline-color);
     --toolbarbutton-outline-color: transparent;
+    --toolbarbutton-outline-color-hover: transparent;
+    --toolbarbutton-outline-color-active: transparent;
+    --toolbarbutton-outline-color-selected: var(--toolbarbutton-outline-color-active);
     --toolbarbutton-outline-offset: calc(-1 * var(--border-width));
-    --toolbarbutton-selected-outline-color: var(--toolbarbutton-active-outline-color);
+    --toolbarbutton-padding-inner: 8px;
+    --toolbarbutton-padding-inner-compact: 6px;
+    --toolbarbutton-padding-inner-narrow: 7px;
+    --toolbarbutton-padding-inner-touch: 9px;
+    --toolbarbutton-padding-inner-touch-narrow: 8px;
+    --toolbarbutton-padding-outer: 2px;
+    --toolbarbutton-padding-outer-narrow: 1px;
 
     /** toolbarseparator **/
     --toolbarseparator-color: var(--text-color-deemphasized);
 
     /** toolbox **/
-    --toolbox-bgcolor: -moz-headerbar;
-    --toolbox-bgcolor-inactive: -moz-headerbarinactive;
-    --toolbox-textcolor: -moz-headerbartext;
-    --toolbox-textcolor-inactive: -moz-headerbarinactivetext;
+    --toolbox-background-color: -moz-headerbar;
+    --toolbox-background-color-inactive: -moz-headerbarinactive;
+    --toolbox-text-color: -moz-headerbartext;
+    --toolbox-text-color-inactive: -moz-headerbarinactivetext;
   }
 }
 
@@ -503,12 +523,13 @@
       /** toolbar **/
       --toolbar-field-background-color: Field;
       --toolbar-field-border-color: var(--input-border-color);
-      --toolbar-field-color: FieldText;
-      --toolbar-field-focus-border-color: var(--focus-outline-color);
+      --toolbar-field-border-color-focus: var(--focus-outline-color);
+      --toolbar-field-text-color: FieldText;
 
       /** toolbarbutton **/
-      --toolbarbutton-active-outline-color: currentColor;
-      --toolbarbutton-hover-outline-color: currentColor;
+      --toolbarbutton-opacity-disabled: 0.3;
+      --toolbarbutton-outline-color-hover: currentColor;
+      --toolbarbutton-outline-color-active: currentColor;
     }
   }
 }
@@ -598,10 +619,10 @@
       --text-color-accent-primary-selected: SelectedItemText;
 
       /** toolbarbutton **/
-      --toolbarbutton-active-outline-color: ButtonText;
-      --toolbarbutton-hover-outline-color: SelectedItem;
       --toolbarbutton-outline-color: ButtonText;
-      --toolbarbutton-selected-outline-color: SelectedItem;
+      --toolbarbutton-outline-color-hover: SelectedItem;
+      --toolbarbutton-outline-color-active: ButtonText;
+      --toolbarbutton-outline-color-selected: SelectedItem;
     }
   }
 }
@@ -612,12 +633,19 @@
   @media not ((forced-colors) or (-moz-native-theme)) {
     :root:not([lwtheme]),
     :host(.anonymous-content-host) {
+      /** panel **/
+      --panel-background-color: light-dark(var(--color-white), rgb(66, 65, 77));
+      --panel-background-color-dimmed: light-dark(color-mix(in srgb, currentColor 12%, transparent), color-mix(in srgb, currentColor 17%, transparent));
+      --panel-background-color-dimmed-further: light-dark(color-mix(in srgb, currentColor 20%, transparent), color-mix(in srgb, currentColor 14%, transparent));
+      --panel-border-color: light-dark(rgb(240, 240, 244), rgb(82, 82, 94));
+      --panel-text-color: light-dark(var(--color-black), rgb(251, 251, 254));
+
       /** toolbar **/
-      --toolbar-bgcolor: light-dark(#f9f9fb, rgb(43, 42, 51));
-      --toolbar-color: light-dark(var(--color-gray-100), var(--color-gray-05));
-      --toolbar-field-color: light-dark(var(--color-gray-100), var(--color-gray-05));
-      --toolbar-field-focus-background-color: light-dark(var(--color-white), rgb(66, 65, 77));
-      --toolbar-field-focus-color: light-dark(var(--color-black), var(--color-gray-05));
+      --toolbar-background-color: light-dark(#f9f9fb, rgb(43, 42, 51));
+      --toolbar-field-background-color-focus: light-dark(var(--color-white), rgb(66, 65, 77));
+      --toolbar-field-text-color: light-dark(var(--color-gray-100), var(--color-gray-05));
+      --toolbar-field-text-color-focus: light-dark(var(--color-black), var(--color-gray-05));
+      --toolbar-text-color: light-dark(var(--color-gray-100), var(--color-gray-05));
 
       /** toolbarbutton **/
       --toolbarbutton-icon-fill: light-dark(var(--color-gray-70), var(--color-gray-05));
@@ -625,10 +653,10 @@
       --toolbarbutton-icon-fill-attention-text: light-dark(var(--color-gray-20), var(--color-gray-90));
 
       /** toolbox **/
-      --toolbox-bgcolor: light-dark(rgb(234, 234, 237), var(--color-gray-90));
-      --toolbox-bgcolor-inactive: var(--toolbox-bgcolor);
-      --toolbox-textcolor: light-dark(var(--color-gray-100), var(--color-gray-05));
-      --toolbox-textcolor-inactive: var(--toolbox-textcolor);
+      --toolbox-background-color: light-dark(rgb(234, 234, 237), var(--color-gray-90));
+      --toolbox-background-color-inactive: var(--toolbox-background-color);
+      --toolbox-text-color: light-dark(var(--color-gray-100), var(--color-gray-05));
+      --toolbox-text-color-inactive: var(--toolbox-text-color);
     }
   }
 }

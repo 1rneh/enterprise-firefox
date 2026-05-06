@@ -29,9 +29,9 @@
     --tab-pinned-container-margin-inline-expanded: var(--space-small);
     --tab-pinned-expanded-background-width: var(--dimension-40);
     --tab-pinned-margin-inline-expanded: var(--space-xsmall);
-    --tab-selected-bgcolor: var(--toolbar-bgcolor);
+    --tab-selected-bgcolor: var(--toolbar-background-color);
     --tab-selected-outline-color: transparent;
-    --tab-selected-textcolor: var(--toolbar-color);
+    --tab-selected-textcolor: var(--toolbar-text-color);
     --tab-vertical-block-margin: var(--dimension-2);
     --tab-vertical-inline-padding: var(--space-medium);
   }

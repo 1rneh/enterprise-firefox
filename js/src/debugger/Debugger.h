@@ -1163,6 +1163,9 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   Debugger(JSContext* cx, NativeObject* dbg);
   ~Debugger();
 
+  Debugger(const Debugger&) = delete;
+  Debugger& operator=(const Debugger&) = delete;
+
   inline const js::HeapPtr<NativeObject*>& toJSObject() const;
   inline js::HeapPtr<NativeObject*>& toJSObjectRef();
   static inline Debugger* fromJSObject(const JSObject* obj);
@@ -1319,10 +1322,6 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
                                  Handle<WasmInstanceObject*> wasmInstance);
 
   DebuggerDebuggeeLink* getDebuggeeLink();
-
- private:
-  Debugger(const Debugger&) = delete;
-  Debugger& operator=(const Debugger&) = delete;
 };
 
 // Specialize InternalBarrierMethods so we can have WeakHeapPtr<Debugger*>.

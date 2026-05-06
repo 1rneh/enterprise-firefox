@@ -105,8 +105,12 @@ Allowed actions, and subfields:
 
   mozleak_object
      process - Process that leaked
-     bytes - Number of bytes that leaked
+     count - Number of instances that leaked
      name - Name of the object that leaked
+     bytes_per_inst - Per-instance size in bytes
+     bytes_leaked - Total bytes leaked for this class
+     total_instances - Total instances allocated
+     bytes - Legacy alias of count, copied from count for out-of-tree consumers
      scope - An identifier for the set of tests run during the browser session
              (e.g. a directory name)
      allowed - Boolean indicating whether the leak was permitted
@@ -675,13 +679,18 @@ class StructuredLogger:
 
     @log_action(
         Unicode("process"),
-        Int("bytes"),
+        Int("count"),
         Unicode("name"),
+        Int("bytes_per_inst"),
+        Int("bytes_leaked"),
+        Int("total_instances"),
         Unicode("scope", optional=True, default=None),
         Boolean("allowed", optional=True, default=False),
         Unicode("subsuite", default=None, optional=True),
     )
     def mozleak_object(self, data):
+        # 'bytes' is a legacy alias of 'count' kept for out-of-tree consumers.
+        data["bytes"] = data["count"]
         self._log_data("mozleak_object", data)
 
     @log_action(

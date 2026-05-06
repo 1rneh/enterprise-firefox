@@ -594,7 +594,7 @@ nsresult PuppetWidget::RequestIMEToCommitComposition(bool aCancel) {
   // Dispatch eCompositionCommit event.
   WidgetCompositionEvent compositionCommitEvent(true, eCompositionCommit, this);
   InitEvent(compositionCommitEvent, nullptr);
-  compositionCommitEvent.mData = committedString;
+  compositionCommitEvent.mData = std::move(committedString);
   DispatchEvent(&compositionCommitEvent);
 
 #ifdef DEBUG

@@ -35,6 +35,10 @@ export const SYSTEM_COLORS = [
   "-moz-combobox",
   "-moz-dialog",
   "-moz-dialogtext",
+  "-moz-headerbar",
+  "-moz-headerbarinactive",
+  "-moz-headerbarinactivetext",
+  "-moz-headerbartext",
 ];
 
 /**

@@ -25,7 +25,6 @@ class AcornColors(
     layer2: Color,
     layer3: Color,
     layerAccent: Color,
-    layerAccentNonOpaque: Color,
     layerGradientStart: Color,
     layerGradientEnd: Color,
     layerWarning: Color,
@@ -60,10 +59,6 @@ class AcornColors(
 
     // App Bar Top (edit), Text Cursor, Selected Tab Check
     var layerAccent by mutableStateOf(layerAccent)
-        private set
-
-    // Selected tab
-    var layerAccentNonOpaque by mutableStateOf(layerAccentNonOpaque)
         private set
 
     // Tooltip
@@ -186,7 +181,6 @@ class AcornColors(
         layer2 = other.layer2
         layer3 = other.layer3
         layerAccent = other.layerAccent
-        layerAccentNonOpaque = other.layerAccentNonOpaque
         layerGradientStart = other.layerGradientStart
         layerGradientEnd = other.layerGradientEnd
         layerWarning = other.layerWarning
@@ -218,7 +212,6 @@ class AcornColors(
         layer2: Color = this.layer2,
         layer3: Color = this.layer3,
         layerAccent: Color = this.layerAccent,
-        layerAccentNonOpaque: Color = this.layerAccentNonOpaque,
         layerGradientStart: Color = this.layerGradientStart,
         layerGradientEnd: Color = this.layerGradientEnd,
         layerWarning: Color = this.layerWarning,
@@ -244,7 +237,6 @@ class AcornColors(
         layer2 = layer2,
         layer3 = layer3,
         layerAccent = layerAccent,
-        layerAccentNonOpaque = layerAccentNonOpaque,
         layerGradientStart = layerGradientStart,
         layerGradientEnd = layerGradientEnd,
         layerWarning = layerWarning,
@@ -273,7 +265,6 @@ val darkColorPalette = AcornColors(
     layer2 = PhotonColors.DarkGrey30,
     layer3 = PhotonColors.DarkGrey80,
     layerAccent = PhotonColors.Violet40,
-    layerAccentNonOpaque = PhotonColors.Violet50A32,
     layerGradientStart = PhotonColors.Violet70,
     layerGradientEnd = PhotonColors.Violet60,
     layerWarning = PhotonColors.Yellow70A77,
@@ -301,7 +292,6 @@ val lightColorPalette = AcornColors(
     layer2 = PhotonColors.White,
     layer3 = PhotonColors.LightGrey20,
     layerAccent = PhotonColors.Ink20,
-    layerAccentNonOpaque = PhotonColors.Violet70A12,
     layerGradientStart = PhotonColors.Violet70,
     layerGradientEnd = PhotonColors.Violet60,
     layerWarning = PhotonColors.Yellow20,

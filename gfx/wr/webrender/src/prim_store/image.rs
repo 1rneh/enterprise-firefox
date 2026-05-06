@@ -79,6 +79,12 @@ pub struct ImageScratch {
     /// rect, and for snapshot images where the snapshot area is
     /// tighter than the rasterized area.
     pub tight_local_clip_rect: LayoutRect,
+    /// Whether this draw needs the repetition-capable image shader.
+    /// Set to false when the stretch_size covers the prim (no tiling)
+    /// or when the image was decomposed into per-tile prims at
+    /// scene-build time. Read by batch to choose between brush_image
+    /// and brush_fast_image.
+    pub may_need_repetition: bool,
 }
 
 impl ImageScratch {
@@ -89,6 +95,7 @@ impl ImageScratch {
             normalized_uvs: false,
             adjustment: AdjustedImageSource::new(),
             tight_local_clip_rect: LayoutRect::zero(),
+            may_need_repetition: true,
         }
     }
 }
@@ -158,7 +165,7 @@ impl ImageData {
         prim_spatial_node_index: SpatialNodeIndex,
         frame_state: &mut FrameBuildingState,
         frame_context: &FrameBuildingContext,
-        prim_origin: LayoutPoint,
+        prim_rect: LayoutRect,
         scratch: &mut PrimitiveScratchBuffer,
     ) -> storage::Index<ImageScratch> {
 
@@ -177,12 +184,6 @@ impl ImageData {
             None => PrimitiveOpacity::opaque(),
         };
 
-        if self.stretch_size.width >= common.prim_size.width &&
-            self.stretch_size.height >= common.prim_size.height {
-
-            common.may_need_repetition = false;
-        }
-
         let request = ImageRequest {
             key: self.key,
             rendering: self.image_rendering,
@@ -195,7 +196,6 @@ impl ImageData {
         // We also rely on having a tight clip rect in some cases other than
         // tiled/repeated images, for example when rendering a snapshot image
         // where the snapshot area is tighter than the rasterized area.
-        let prim_rect = LayoutRect::from_origin_and_size(prim_origin, common.prim_size);
         let tight_clip_rect = scratch.frame.draws[prim_instance_index.0 as usize]
             .clip_chain
             .local_clip_rect
@@ -203,6 +203,11 @@ impl ImageData {
 
         let mut image_scratch = ImageScratch::empty();
         image_scratch.tight_local_clip_rect = tight_clip_rect;
+        if self.stretch_size.width >= prim_rect.size().width
+            && self.stretch_size.height >= prim_rect.size().height
+        {
+            image_scratch.may_need_repetition = false;
+        }
 
         match image_properties {
             // Non-tiled (most common) path.
@@ -348,9 +353,8 @@ impl ImageData {
 
                 // We are performing the decomposition on the CPU here, no need to
                 // have it in the shader.
-                common.may_need_repetition = false;
+                image_scratch.may_need_repetition = false;
 
-                let prim_rect = LayoutRect::from_origin_and_size(prim_origin, common.prim_size);
                 let repetitions = image_tiling::repetitions(
                     &prim_rect,
                     &visible_rect,
@@ -919,9 +923,9 @@ fn test_struct_sizes() {
     // (b) You made a structure larger. This is not necessarily a problem, but should only
     //     be done with care, and after checking if talos performance regresses badly.
     assert_eq!(mem::size_of::<Image>(), 32, "Image size changed");
-    assert_eq!(mem::size_of::<ImageTemplate>(), 64, "ImageTemplate size changed");
-    assert_eq!(mem::size_of::<ImageKey>(), 44, "ImageKey size changed");
+    assert_eq!(mem::size_of::<ImageTemplate>(), 52, "ImageTemplate size changed");
+    assert_eq!(mem::size_of::<ImageKey>(), 36, "ImageKey size changed");
     assert_eq!(mem::size_of::<YuvImage>(), 32, "YuvImage size changed");
-    assert_eq!(mem::size_of::<YuvImageTemplate>(), 76, "YuvImageTemplate size changed");
-    assert_eq!(mem::size_of::<YuvImageKey>(), 44, "YuvImageKey size changed");
+    assert_eq!(mem::size_of::<YuvImageTemplate>(), 64, "YuvImageTemplate size changed");
+    assert_eq!(mem::size_of::<YuvImageKey>(), 36, "YuvImageKey size changed");
 }

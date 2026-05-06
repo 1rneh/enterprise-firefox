@@ -368,7 +368,6 @@ module.exports = [
       "toolkit/themes/shared/radio.css",
       "toolkit/themes/shared/splitter.css",
       "toolkit/themes/shared/tabbox.css",
-      "toolkit/themes/shared/toolbar.css",
       "toolkit/themes/shared/toolbarbutton.css",
       "toolkit/themes/shared/tree/tree.css",
       "toolkit/themes/windows/global/autocomplete.css",

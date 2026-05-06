@@ -4433,6 +4433,38 @@ bool nsDisplayBoxShadowOuter::CreateWebRenderCommands(
                                                      mFrame, borderRadii);
   }
 
+  // For sliced inline elements split across continuations, frameRect is the
+  // joined-box rect spanning all continuations, but each continuation pushes
+  // its own box-shadow primitive. Without clamping the clip to the actual
+  // fragment edges on the sides shared with sibling continuations, blur from
+  // the joined-box shadow leaks past the line-break edges. Mirrors the
+  // fragmentClip logic in nsCSSRendering::PaintBoxShadowOuter.
+  Sides skipSides = mFrame->GetSkipSides();
+  if (!skipSides.IsEmpty()) {
+    if (skipSides.Left()) {
+      nscoord xmost = bounds.XMost();
+      bounds.x = borderRect.x;
+      bounds.width = xmost - bounds.x;
+    }
+    if (skipSides.Right()) {
+      nscoord overflow = bounds.XMost() - borderRect.XMost();
+      if (overflow > 0) {
+        bounds.width -= overflow;
+      }
+    }
+    if (skipSides.Top()) {
+      nscoord ymost = bounds.YMost();
+      bounds.y = borderRect.y;
+      bounds.height = ymost - bounds.y;
+    }
+    if (skipSides.Bottom()) {
+      nscoord overflow = bounds.YMost() - borderRect.YMost();
+      if (overflow > 0) {
+        bounds.height -= overflow;
+      }
+    }
+  }
+
   // Everything here is in app units, change to device units.
   LayoutDeviceRect clipRect =
       LayoutDeviceRect::FromAppUnits(bounds, appUnitsPerDevPixel);

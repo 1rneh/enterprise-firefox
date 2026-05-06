@@ -1354,7 +1354,7 @@ var TelemetryReportingPolicyImpl = {
       },
     };
 
-    SpecialMessageActions.handleAction(config, win);
+    SpecialMessageActions.handleAction(config, win.gBrowser.selectedBrowser);
     this._notificationInProgress = true;
 
     return true;

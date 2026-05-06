@@ -4034,6 +4034,14 @@
   value: true
   mirror: always
 
+#if defined(MOZ_WIDGET_COCOA)
+# Whether to use the platform API to "lock" the native pointer for pointer lock.
+- name: dom.pointer-lock.native-lock.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+#endif
+
 # re-SAB: Whether to allow postMessage of a SharedArrayBuffer if various
 # preconditions related to COOP and COEP are met
 - name: dom.postMessage.sharedArrayBuffer.withCOOP_COEP
@@ -4626,7 +4634,7 @@
 # For testing purposes only: Cache stencil across navigation
 - name: dom.script_loader.experimental.navigation_cache
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # The delay until saving the script disk cache in microseconds.
@@ -8098,8 +8106,6 @@
   type: RelaxedAtomicBool
 #if defined(XP_WIN)
   value: true
-#elif defined(XP_DARWIN)
-  value: @IS_NIGHTLY_BUILD@
 #else
   value: false
 #endif
@@ -9388,6 +9394,12 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+  # Experimental support for Intl Locale Info in JavaScript.
+- name: javascript.options.experimental.intl_locale_info
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: startup
 #endif  // NIGHTLY_BUILD
 
   # Capture stack traces for OOM
@@ -9538,6 +9550,14 @@
   mirror: always
   set_spidermonkey_pref: always
 
+# Whether we should try to report extra information about a trap in
+# wasm linear memory.
+- name: javascript.options.wasm_memory_debugging
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: always
+
 - name: javascript.options.wasm_exception_force_stack_trace
   type: bool
   value: false
@@ -9623,7 +9643,7 @@
 
 -   name: javascript.options.wasm_js_promise_integration
     type: bool
-    value: false
+    value: @IS_NIGHTLY_BUILD@
     mirror: always
     set_spidermonkey_pref: always
 
@@ -11874,6 +11894,14 @@
   value: false
   mirror: always
 
+# Prefer the platform hardware decoder over the GMP built-in software decoder
+# for Widevine-encrypted video. Falls back to GMP if the platform decoder
+# fails to be created.
+- name: media.eme.video.prefer-platform-decoder
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 - name: media.eme.chromium-api.video-shmems
   type: RelaxedAtomicUint32
   value: 6
@@ -12253,12 +12281,6 @@
     value: false
     mirror: always
 #endif
-
-# Allow ffmpeg decoder to decode directly onto shmem buffer
-- name: media.ffmpeg.customized-buffer-allocation
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
 
 # Disable falling back to software decoders in case of frame drop
 - name: media.ffmpeg.disable-software-fallback
@@ -20347,11 +20369,7 @@
 
 - name: zoom.minPercent
   type: uint32_t
-#ifdef ANDROID
   value: 20
-#else
-  value: 30
-#endif
   mirror: always
 
 #---------------------------------------------------------------------------

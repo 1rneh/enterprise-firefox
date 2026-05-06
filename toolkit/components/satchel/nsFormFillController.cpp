@@ -691,7 +691,7 @@ nsFormFillController::OnSearchCompletion(nsIAutoCompleteResult* aResult) {
   nsAutoString searchString;
   aResult->GetSearchString(searchString);
 
-  mLastSearchString = searchString;
+  mLastSearchString = std::move(searchString);
 
   if (mLastListener) {
     nsCOMPtr<nsIAutoCompleteObserver> lastListener = mLastListener;

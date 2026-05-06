@@ -1,6 +1,14 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
+async function unloadSearchExtension(extension) {
+  let settingsWritten = SearchTestUtils.promiseSearchNotification(
+    "write-settings-to-disk-complete"
+  );
+  await extension.unload();
+  await settingsWritten;
+}
+
 add_setup(async function setup() {
   requestLongerTimeout(5);
   await SpecialPowers.pushPrefEnv({
@@ -422,7 +430,7 @@ add_task(async function open_engine_page_directly() {
 
   // Cleanup.
   await PlacesUtils.history.clear();
-  await searchExtension.unload();
+  await unloadSearchExtension(searchExtension);
 });
 
 add_task(async function test_searchWithPostEngine() {
@@ -462,7 +470,7 @@ add_task(async function test_searchWithPostEngine() {
   // Cleanup.
   spy.restore();
   await PlacesUtils.history.clear();
-  await searchExtension.unload();
+  await unloadSearchExtension(searchExtension);
 });
 
 add_task(async function open_engine_page_in_tab() {
@@ -548,7 +556,7 @@ add_task(async function open_engine_page_in_tab() {
 
   // Cleanup.
   await PlacesUtils.history.clear();
-  await searchExtension.unload();
+  await unloadSearchExtension(searchExtension);
 });
 
 add_task(async function test_enter_searchmode_by_key_if_single_result() {
@@ -851,7 +859,7 @@ add_task(async function test_search_mode_switcher_engine_no_icon() {
   gURLBar.querySelector(".searchmode-switcher-close").click();
   await UrlbarTestUtils.assertSearchMode(window, null);
 
-  await searchExtension.unload();
+  await unloadSearchExtension(searchExtension);
 });
 
 add_task(async function test_search_mode_switcher_private_engine_icon() {
@@ -934,7 +942,7 @@ add_task(async function test_search_mode_switcher_private_engine_icon() {
   Assert.ok(true, "The icon was updated.");
 
   await BrowserTestUtils.closeWindow(privateWin);
-  await searchExtension.unload();
+  await unloadSearchExtension(searchExtension);
   await SpecialPowers.popPrefEnv();
 });
 

@@ -13,6 +13,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/FunctionRef.h"
 #include "mozilla/Logging.h"
+#include "mozilla/StaticPtr.h"
 #include "mozilla/widget/InitData.h"
 #include "mozilla/widget/NativeMenu.h"
 #include "nsCOMPtr.h"
@@ -370,6 +371,9 @@ class nsXULPopupManager final : public nsIDOMEventListener,
                                 public nsIRollupListener,
                                 public nsIObserver,
                                 public mozilla::widget::NativeMenu::Observer {
+  template <typename T, typename... Args>
+  friend RefPtr<T> mozilla::MakeRefPtr(Args&&... aArgs);
+
  public:
   friend class nsXULPopupHidingEvent;
   friend class nsXULPopupPositionedEvent;
@@ -410,10 +414,10 @@ class nsXULPopupManager final : public nsIDOMEventListener,
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void OnNativeMenuWillActivateItem(
       mozilla::dom::Element* aMenuItemElement) override;
 
-  static nsXULPopupManager* sInstance;
+  static mozilla::StaticRefPtr<nsXULPopupManager> sInstance;
 
   // initialize and shutdown methods called by nsLayoutStatics
-  static nsresult Init();
+  static void Init();
   static void Shutdown();
 
   // returns a weak reference to the popup manager instance, could return null

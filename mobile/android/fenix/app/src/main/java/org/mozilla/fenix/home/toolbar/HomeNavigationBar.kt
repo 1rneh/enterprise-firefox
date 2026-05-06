@@ -75,7 +75,7 @@ class HomeNavigationBar(
     /**
      * Returns a [Composable] function that renders the default navigation bar content.
      */
-    fun asComposable(): @Composable () -> Unit = {
+    override fun asComposable(): @Composable () -> Unit = {
         DefaultNavigationBarContent()
     }
 

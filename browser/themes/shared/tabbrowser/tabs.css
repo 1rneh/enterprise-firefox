@@ -602,9 +602,9 @@ tab-split-view-wrapper[dragtarget] {
     &:is([soundplaying], [muted], [activemedia-blocked]) {
       /* We want to make this look like the selected tab, but fully opaque. For that,
        * we build a stack of `--lwt-accent-color` (guaranteed opaque), then
-       * `--toolbox-bgcolor`, then `--tab-selected-bgcolor`.
+       * `--toolbox-background-color`, then `--tab-selected-bgcolor`.
        *
-       * We rely on at least one of `--toolbox-bgcolor` / `--tab-selected-bgcolor`
+       * We rely on at least one of `--toolbox-background-color` / `--tab-selected-bgcolor`
        * being opaque on the system themes, so even though `--lwt-accent-color` is
        * not set there, it ends up working out because we never see it through.
        *
@@ -618,17 +618,18 @@ tab-split-view-wrapper[dragtarget] {
       color-scheme: var(--tab-selected-color-scheme);
       border-radius: var(--border-radius-circle);
 
-      background-image: linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--toolbox-bgcolor));
+      background-image: linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--toolbox-background-color));
       &:-moz-window-inactive {
-        background-image: linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--toolbox-bgcolor-inactive));
+        background-image: linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--toolbox-background-color-inactive));
       }
       &[selected] {
         background-image:
-          linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-bgcolor));
+          linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-background-color));
       }
       &[selected]:-moz-window-inactive {
         background-image:
-          linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-bgcolor-inactive));
+          linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--tab-selected-bgcolor)),
+          linear-gradient(var(--toolbox-background-color-inactive));
       }
 
       &:hover {
@@ -672,9 +673,9 @@ tab-split-view-wrapper[dragtarget] {
       &:is([soundplaying], [muted], [activemedia-blocked]) {
         /* We want to make this look like the selected tab, but fully opaque. For that,
          * we build a stack of `--lwt-accent-color` (guaranteed opaque), then
-         * `--toolbox-bgcolor`, then `--tab-selected-bgcolor`.
+         * `--toolbox-background-color`, then `--tab-selected-bgcolor`.
          *
-         * We rely on at least one of `--toolbox-bgcolor` / `--tab-selected-bgcolor`
+         * We rely on at least one of `--toolbox-background-color` / `--tab-selected-bgcolor`
          * being opaque on the system themes, so even though `--lwt-accent-color` is
          * not set there, it ends up working out because we never see it through.
          *
@@ -683,25 +684,26 @@ tab-split-view-wrapper[dragtarget] {
          */
         --audio-overlay-extra-background: transparent;
         background-color: var(--lwt-accent-color);
-        background-image: linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--toolbox-bgcolor));
+        background-image: linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--toolbox-background-color));
         -moz-context-properties: fill;
         fill: var(--tab-selected-textcolor);
         color-scheme: var(--tab-selected-color-scheme);
         border-radius: var(--border-radius-circle);
 
         &:-moz-window-inactive {
-          background-image: linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--toolbox-bgcolor-inactive));
+          background-image: linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--toolbox-background-color-inactive));
         }
 
         &[selected] {
           background-image:
-            linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-bgcolor));
+            linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--tab-selected-bgcolor)),
+            linear-gradient(var(--toolbox-background-color));
         }
 
         &[selected]:-moz-window-inactive {
           background-image:
             linear-gradient(var(--audio-overlay-extra-background)), linear-gradient(var(--tab-selected-bgcolor)),
-            linear-gradient(var(--toolbox-bgcolor-inactive));
+            linear-gradient(var(--toolbox-background-color-inactive));
         }
 
         &:hover {
@@ -744,20 +746,20 @@ tab-split-view-wrapper[dragtarget] {
   list-style-image: url("chrome://global/skin/icons/tab-notes-12.svg");
 
   background-color: var(--lwt-accent-color);
-  background-image: linear-gradient(transparent), linear-gradient(var(--toolbox-bgcolor));
+  background-image: linear-gradient(transparent), linear-gradient(var(--toolbox-background-color));
   -moz-context-properties: fill;
   fill: var(--tab-selected-textcolor);
   color-scheme: var(--tab-selected-color-scheme);
   border-radius: var(--border-radius-circle);
 
   .tabbrowser-tab &:-moz-window-inactive {
-    background-image: linear-gradient(transparent), linear-gradient(var(--toolbox-bgcolor-inactive));
+    background-image: linear-gradient(transparent), linear-gradient(var(--toolbox-background-color-inactive));
   }
   .tabbrowser-tab[selected] & {
-    background-image: linear-gradient(transparent), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-bgcolor));
+    background-image: linear-gradient(transparent), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-background-color));
   }
   .tabbrowser-tab[selected] &:-moz-window-inactive {
-    background-image: linear-gradient(transparent), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-bgcolor-inactive));
+    background-image: linear-gradient(transparent), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-background-color-inactive));
   }
 
   #tabbrowser-tabs[orient="vertical"] & {
@@ -2154,9 +2156,9 @@ tab-group {
   &::part(scrollbutton-up),
   &::part(scrollbutton-down) {
     --arrowscrollbox-scrollicon-border-radius: var(--tab-border-radius);
-    --arrowscrollbox-scrollicon-hover-background-color: var(--toolbarbutton-hover-background);
-    --arrowscrollbox-scrollicon-active-background-color: var(--toolbarbutton-active-background);
-    --arrowscrollbox-scrollicon-padding: var(--toolbarbutton-inner-padding) 2px;
+    --arrowscrollbox-scrollicon-hover-background-color: var(--toolbarbutton-background-color-hover);
+    --arrowscrollbox-scrollicon-active-background-color: var(--toolbarbutton-background-color-active);
+    --arrowscrollbox-scrollicon-padding: var(--toolbarbutton-padding-inner) 2px;
 
     appearance: none;
     padding: 0 4px;
@@ -2448,9 +2450,9 @@ tab-group {
       fill: var(--tab-selected-textcolor);
       /* We want to make this look like the selected tab, but fully opaque. For that,
        * we build a stack of `--lwt-accent-color` (guaranteed opaque), then
-       * `--toolbox-bgcolor`, then `--tab-selected-bgcolor`.
+       * `--toolbox-background-color`, then `--tab-selected-bgcolor`.
        *
-       * We rely on at least one of `--toolbox-bgcolor` / `--tab-selected-bgcolor`
+       * We rely on at least one of `--toolbox-background-color` / `--tab-selected-bgcolor`
        * being opaque on the system themes, so even though `--lwt-accent-color` is
        * not set there, it ends up working out because we never see it through.
        *
@@ -2460,7 +2462,7 @@ tab-group {
       --close-button-extra-background: transparent;
       background-color: var(--lwt-accent-color);
       background-image:
-        linear-gradient(var(--close-button-extra-background)), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-bgcolor));
+        linear-gradient(var(--close-button-extra-background)), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-background-color));
       color-scheme: var(--tab-selected-color-scheme);
       outline-color: var(--tab-selected-outline-color);
       box-shadow: var(--tab-selected-shadow);
@@ -2473,7 +2475,8 @@ tab-group {
 
       &:-moz-window-inactive {
         background-image:
-          linear-gradient(var(--close-button-extra-background)), linear-gradient(var(--tab-selected-bgcolor)), linear-gradient(var(--toolbox-bgcolor-inactive));
+          linear-gradient(var(--close-button-extra-background)), linear-gradient(var(--tab-selected-bgcolor)),
+          linear-gradient(var(--toolbox-background-color-inactive));
       }
 
       &:hover {

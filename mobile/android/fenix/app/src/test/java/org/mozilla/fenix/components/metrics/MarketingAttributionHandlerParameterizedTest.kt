@@ -139,7 +139,7 @@ class MarketingAttributionHandlerParameterizedTest(private val scenario: Scenari
             Scenario(
                 installReferrer = """utm_source=apps.facebook.com&utm_medium=paid&utm_campaign=fb_install_campaign&utm_content={"app":12345,"t":1234567890,"source":{"data":"DATA","nonce":"NONCE"}}&utm_term=""",
                 shouldAttributeInstallToMetaApp = true,
-                shouldShowMarketingOnboarding = false,
+                shouldShowMarketingOnboarding = true,
             ),
             // Meta missing data → not meta.
             Scenario(

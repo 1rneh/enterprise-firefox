@@ -33,10 +33,10 @@ class RareArgumentsData {
   using ConstBitArray = ExternalBitArray<const size_t>;
 
   RareArgumentsData() = default;
-  RareArgumentsData(const RareArgumentsData&) = delete;
-  void operator=(const RareArgumentsData&) = delete;
 
  public:
+  RareArgumentsData(const RareArgumentsData&) = delete;
+  void operator=(const RareArgumentsData&) = delete;
   static RareArgumentsData* create(JSContext* cx, ArgumentsObject* obj);
   static size_t bytesRequired(size_t numActuals);
 

@@ -1706,7 +1706,7 @@ void BrowserChild::HandleMouseRawUpdateEvent(
   HandleRealMouseButtonEvent(mouseRawUpdateEvent, aGuid, aInputBlockId);
 }
 
-mozilla::ipc::IPCResult BrowserChild::RecvRealMouseMoveEventForTests(
+mozilla::ipc::IPCResult BrowserChild::RecvRealMouseMoveEventNoCompress(
     const WidgetMouseEvent& aMouseEvent, const ScrollableLayerGuid& aGuid,
     const uint64_t& aInputBlockId) {
   return RecvRealMouseMoveEvent(aMouseEvent, aGuid, aInputBlockId);
@@ -1719,7 +1719,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvNormalPriorityRealMouseMoveEvent(
 }
 
 mozilla::ipc::IPCResult
-BrowserChild::RecvNormalPriorityRealMouseMoveEventForTests(
+BrowserChild::RecvNormalPriorityRealMouseMoveEventNoCompress(
     const WidgetMouseEvent& aMouseEvent, const ScrollableLayerGuid& aGuid,
     const uint64_t& aInputBlockId) {
   return RecvRealMouseMoveEvent(aMouseEvent, aGuid, aInputBlockId);

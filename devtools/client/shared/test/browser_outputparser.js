@@ -69,31 +69,37 @@ function makeColorTest(name, value, segments) {
     if (typeof segment === "string") {
       result.expected += segment;
     } else {
-      const buttonAttributes = {
-        class: COLOR_TEST_CLASS,
-        style: `background-color:${segment.name}`,
-        tabindex: 0,
-        role: "button",
-      };
-      if (segment.colorFunction) {
-        buttonAttributes["data-color-function"] = segment.colorFunction;
-      }
-      const buttonAttrString = Object.entries(buttonAttributes)
-        .map(([attr, v]) => `${attr}="${v}"`)
-        .join(" ");
-
-      // prettier-ignore
-      result.expected +=
-        `<span data-color="${segment.name}" class="color-swatch-container">` +
-          `<span ${buttonAttrString}></span>`+
-          `<span>${segment.name}</span>` +
-        `</span>`;
+      result.expected += getColorMarkup({
+        color: segment.name,
+        colorFunction: segment.colorFunction,
+      });
     }
   }
 
-  result.desc = "Testing " + name + ": " + value;
-
   return result;
+}
+
+function getColorMarkup({ color, colorFunction, content }) {
+  const buttonAttributes = {
+    class: COLOR_TEST_CLASS,
+    style: `background-color:${color}`,
+    tabindex: 0,
+    role: "button",
+  };
+  if (colorFunction) {
+    buttonAttributes["data-color-function"] = colorFunction;
+  }
+  const buttonAttrString = Object.entries(buttonAttributes)
+    .map(([attr, v]) => `${attr}="${v}"`)
+    .join(" ");
+
+  // prettier-ignore
+  return (
+    `<span data-color="${color}" class="color-swatch-container">` +
+      `<span ${buttonAttrString}></span>` +
+      `<span>${content ?? color}</span>` +
+    `</span>`
+  );
 }
 
 function testParseCssProperty(doc, parser) {
@@ -239,32 +245,66 @@ function testParseCssProperty(doc, parser) {
       { name: "#f06" },
     ]),
 
-    makeColorTest("color", "color-mix(in srgb, red, blue)", [
-      "color-mix(in srgb, ",
-      { name: "red", colorFunction: "color-mix" },
-      ", ",
-      { name: "blue", colorFunction: "color-mix" },
-      ")",
-    ]),
+    {
+      name: "color",
+      value: "color-mix(in srgb, red, blue)",
+      expected: getColorMarkup({
+        color: "color-mix(in srgb, red, blue)",
+        content:
+          `color-mix(in srgb, ` +
+          // we have a nested color spans for the color-mix() params, `red` and `blue`
+          getColorMarkup({ color: "red", colorFunction: "color-mix" }) +
+          `, ` +
+          getColorMarkup({ color: "blue", colorFunction: "color-mix" }) +
+          `)`,
+      }),
+    },
 
-    makeColorTest(
-      "background-image",
-      "linear-gradient(to top, color-mix(in srgb, #008000, rgba(255, 255, 0, 0.9)), blue, contrast-color(#abc))",
-      [
-        "linear-gradient(to top, ",
-        "color-mix(in srgb, ",
-        { name: "#008000", colorFunction: "color-mix" },
-        ", ",
-        { name: "rgba(255, 255, 0, 0.9)", colorFunction: "color-mix" },
-        "), ",
-        { name: "blue", colorFunction: "linear-gradient" },
-        ", ",
-        "contrast-color(",
-        { name: "#abc", colorFunction: "contrast-color" },
+    {
+      name: "background-image",
+      value:
+        "linear-gradient(to top, color-mix(in srgb, #008000, rgba(255, 255, 0, 0.9)), blue, contrast-color(#abc))",
+      expected:
+        `linear-gradient(to top, ` +
+        // first we have a nested color span for resulting color of color-mix()
+        getColorMarkup({
+          color: "color-mix(in srgb, #008000, rgba(255, 255, 0, 0.9))",
+          colorFunction: "linear-gradient",
+          content:
+            `color-mix(in srgb, ` +
+            // we have a nested color spans for the color-mix() params, `#008000` and `rgba(255, 255, 0, 0.9)`
+            getColorMarkup({ color: "#008000", colorFunction: "color-mix" }) +
+            `, ` +
+            getColorMarkup({
+              color: "rgba(255, 255, 0, 0.9)",
+              colorFunction: "color-mix",
+            }) +
+            // closing the `color-mix()` function
+            `)`,
+        }) +
+        ", " +
+        // second param for the gradient, `blue`
+        getColorMarkup({
+          color: "blue",
+          colorFunction: "linear-gradient",
+        }) +
+        ", " +
+        // third param for the gradient, a `contrast-color()`
+        getColorMarkup({
+          color: "contrast-color(#abc)",
+          colorFunction: "linear-gradient",
+          content:
+            `contrast-color(` +
+            getColorMarkup({
+              // we have a nested color spans for the contrast-color() param, `#abc`
+              color: "#abc",
+              colorFunction: "contrast-color",
+            }) +
+            `)`,
+        }) +
+        // closing the `linear-gradient()` function
         ")",
-        ")",
-      ]
-    ),
+    },
 
     makeColorTest("color", "light-dark(red, blue)", [
       "light-dark(",
@@ -289,41 +329,108 @@ function testParseCssProperty(doc, parser) {
       ]
     ),
 
-    makeColorTest("color", "rgb(from gold r g b)", [
-      { name: "rgb(from gold r g b)" },
-    ]),
+    {
+      name: "color",
+      value: "rgb(from gold r g b)",
+      expected: getColorMarkup({
+        color: "rgb(from gold r g b)",
+        // we have a nested color span for the `gold` after `from`
+        content: `rgb(from ${getColorMarkup({ color: "gold", colorFunction: "rgb" })} r g b)`,
+      }),
+    },
 
-    makeColorTest("color", "color(from hsl(0 100% 50%) xyz x y 0.5)", [
-      { name: "color(from hsl(0 100% 50%) xyz x y 0.5)" },
-    ]),
+    {
+      name: "color",
+      value: "color(from hsl(0 100% 50%) xyz x y 0.5)",
+      expected: getColorMarkup({
+        color: "color(from hsl(0 100% 50%) xyz x y 0.5)",
+        // we have a nested color span for the inner `hsl()` after `from`
+        content:
+          `color(from ` +
+          getColorMarkup({ color: "hsl(0 100% 50%)", colorFunction: "color" }) +
+          ` xyz x y 0.5)`,
+      }),
+    },
 
-    makeColorTest(
-      "color",
-      "oklab(from red calc(l - 1) calc(a * 2) calc(b + 3) / alpha)",
-      [{ name: "oklab(from red calc(l - 1) calc(a * 2) calc(b + 3) / alpha)" }]
-    ),
+    {
+      name: "color",
+      value: "oklab(from red calc(l - 1) calc(a * 2) calc(b + 3) / alpha)",
+      expected: getColorMarkup({
+        color: "oklab(from red calc(l - 1) calc(a * 2) calc(b + 3) / alpha)",
+        // we have a nested color span for the inner `red` after `from`
+        content:
+          `oklab(from ` +
+          getColorMarkup({ color: "red", colorFunction: "oklab" }) +
+          ` calc(l - 1) calc(a * 2) calc(b + 3) / alpha)`,
+      }),
+    },
 
-    makeColorTest(
-      "color",
-      "rgb(from color-mix(in lch, plum 40%, pink) r g b)",
-      [{ name: "rgb(from color-mix(in lch, plum 40%, pink) r g b)" }]
-    ),
+    {
+      name: "color",
+      value: "rgb(from color-mix(in lch, plum 40%, pink) r g b)",
+      expected: getColorMarkup({
+        color: "rgb(from color-mix(in lch, plum 40%, pink) r g b)",
+        content:
+          `rgb(from ` +
+          // we have a nested color span for the inner `color-mix()` after `from`
+          getColorMarkup({
+            color: "color-mix(in lch, plum 40%, pink)",
+            colorFunction: "rgb",
+            content:
+              `color-mix(in lch, ` +
+              // and we have nested colors representing the color-mix color params (plum and pink)
+              getColorMarkup({ color: "plum", colorFunction: "color-mix" }) +
+              ` 40%, ` +
+              getColorMarkup({ color: "pink", colorFunction: "color-mix" }) +
+              `)`,
+          }) +
+          ` r g b)`,
+      }),
+    },
 
-    makeColorTest("color", "rgb(from rgb(from gold r g b) r g b)", [
-      { name: "rgb(from rgb(from gold r g b) r g b)" },
-    ]),
+    {
+      name: "color",
+      value: "rgb(from rgb(from gold r g b) r g b)",
+      expected: getColorMarkup({
+        color: "rgb(from rgb(from gold r g b) r g b)",
+        content:
+          `rgb(from ` +
+          // we have a nested color span for the inner `rgb()` after `from`
+          getColorMarkup({
+            color: "rgb(from gold r g b)",
+            colorFunction: "rgb",
+            content:
+              `rgb(from ` +
+              // we have a nested color span for `gold` after `from`
+              getColorMarkup({ color: "gold", colorFunction: "rgb" }) +
+              ` r g b)`,
+          }) +
+          ` r g b)`,
+      }),
+    },
 
-    makeColorTest(
-      "background-image",
-      "linear-gradient(to right, #F60 10%, rgb(from gold r g b))",
-      [
-        "linear-gradient(to right, ",
-        { name: "#F60", colorFunction: "linear-gradient" },
-        " 10%, ",
-        { name: "rgb(from gold r g b)", colorFunction: "linear-gradient" },
+    {
+      name: "background-image",
+      value: "linear-gradient(to right, #F60 10%, rgb(from gold r g b))",
+      expected:
+        `linear-gradient(to right, ` +
+        getColorMarkup({ color: "#F60", colorFunction: "linear-gradient" }) +
+        " 10%, " +
+        getColorMarkup({
+          color: "rgb(from gold r g b)",
+          colorFunction: "linear-gradient",
+          content:
+            `rgb(from ` +
+            // nested color span for `gold` after `from`
+            getColorMarkup({
+              color: "gold",
+              colorFunction: "rgb",
+            }) +
+            " r g b)",
+        }) +
+        // closing linear-gradient()
         ")",
-      ]
-    ),
+    },
 
     {
       desc: "--a: (min-width:680px)",
@@ -362,49 +469,87 @@ function testParseCssProperty(doc, parser) {
       },
     },
 
-    makeColorTest("color", "contrast-color(red)", [
-      "contrast-color(",
-      { name: "red", colorFunction: "contrast-color" },
-      ")",
-    ]),
+    {
+      name: "color",
+      value: "contrast-color(red)",
+      expected: getColorMarkup({
+        color: "contrast-color(red)",
+        content:
+          "contrast-color(" +
+          // color span for the `color()` param, `red`
+          getColorMarkup({ color: "red", colorFunction: "contrast-color" }) +
+          ")",
+      }),
+    },
 
-    makeColorTest(
-      "color",
-      "color-mix(in srgb, red, contrast-color(hsl(0 100 200)))",
-      [
-        "color-mix(in srgb, ",
-        { name: "red", colorFunction: "color-mix" },
-        ", ",
-        "contrast-color(",
-        { name: "hsl(0 100 200)", colorFunction: "contrast-color" },
-        ")",
-        ")",
-      ]
-    ),
+    {
+      name: "color",
+      value: "color-mix(in srgb, red, contrast-color(hsl(0 100 200)))",
+      expected: getColorMarkup({
+        color: "color-mix(in srgb, red, contrast-color(hsl(0 100 200)))",
+        content:
+          "color-mix(in srgb, " +
+          // color span for the `color-mix()` param, `red`
+          getColorMarkup({ color: "red", colorFunction: "color-mix" }) +
+          ", " +
+          // color span for the resulting color of `contrast-color()`
+          getColorMarkup({
+            color: "contrast-color(hsl(0 100 200))",
+            colorFunction: "color-mix",
+            content:
+              "contrast-color(" +
+              // color span for the `color()` param, `hsl(0 100 200)`
+              getColorMarkup({
+                color: "hsl(0 100 200)",
+                colorFunction: "contrast-color",
+              }) +
+              ")",
+          }) +
+          // closing `color-mix()`
+          ")",
+      }),
+    },
 
-    // multi-color color-mix
-    makeColorTest("color", "color-mix(in srgb, red, blue, green)", [
-      "color-mix(in srgb, ",
-      { name: "red", colorFunction: "color-mix" },
-      ", ",
-      { name: "blue", colorFunction: "color-mix" },
-      ", ",
-      { name: "green", colorFunction: "color-mix" },
-      ")",
-    ]),
+    {
+      name: "color",
+      value: "color-mix(in srgb, red, blue, green)",
+      expected: getColorMarkup({
+        color: "color-mix(in srgb, red, blue, green)",
+        content:
+          "color-mix(in srgb, " +
+          // color span for the first `color-mix()` param, `red`
+          getColorMarkup({ color: "red", colorFunction: "color-mix" }) +
+          ", " +
+          // color span for the second `color-mix()` param, `blue`
+          getColorMarkup({ color: "blue", colorFunction: "color-mix" }) +
+          ", " +
+          // color span for the third `color-mix()` param, `green`
+          getColorMarkup({ color: "green", colorFunction: "color-mix" }) +
+          // closing `color-mix()
+          ")",
+      }),
+    },
 
-    makeColorTest("color", "color-mix(in srgb, red)", [
-      "color-mix(in srgb, ",
-      { name: "red", colorFunction: "color-mix" },
-      ")",
-    ]),
+    {
+      name: "color",
+      value: "color-mix(in srgb, red)",
+      expected: getColorMarkup({
+        color: "color-mix(in srgb, red)",
+        content:
+          "color-mix(in srgb, " +
+          // color span for the first `color-mix()` param, `red`
+          getColorMarkup({ color: "red", colorFunction: "color-mix" }) +
+          // closing `color-mix()
+          ")",
+      }),
+    },
   ];
 
   const target = doc.querySelector("div");
   ok(target, "captain, we have the div");
 
   for (const test of tests) {
-    info(test.desc);
+    info(`Testing "${test.name}: ${test.value}"`);
 
     const frag = parser.parseCssProperty(test.name, test.value, {
       colorSwatchClass: COLOR_TEST_CLASS,
@@ -416,7 +561,7 @@ function testParseCssProperty(doc, parser) {
     is(
       target.innerHTML,
       test.expected,
-      "CSS property correctly parsed for " + test.name + ": " + test.value
+      `CSS property correctly parsed for "${test.name}: ${test.value}"`
     );
 
     target.innerHTML = "";
@@ -497,6 +642,7 @@ function testParseURL(doc, parser) {
     },
   ];
 
+  const target = doc.querySelector("div");
   for (const test of tests) {
     const url = test.leader + "something.jpg" + test.trailer;
     const frag = parser.parseCssProperty("background", url, {
@@ -504,8 +650,7 @@ function testParseURL(doc, parser) {
       baseURI: test.baseURI,
     });
 
-    const target = doc.querySelector("div");
-    target.appendChild(frag);
+    target.replaceChildren(frag);
 
     const expectedTrailer = test.expectedTrailer || test.trailer;
 
@@ -516,9 +661,36 @@ function testParseURL(doc, parser) {
       expectedTrailer;
 
     is(target.innerHTML, expected, test.desc);
-
-    target.innerHTML = "";
   }
+
+  info("Check that long URLs get the class for visual truncation");
+  const LONG_URL = `something.jpg?${"a".repeat(5000)}`;
+  target.replaceChildren(
+    parser.parseCssProperty("background", `url(${LONG_URL})`, {
+      urlClass: "test-urlclass",
+    })
+  );
+  is(
+    target.innerHTML,
+    // prettier-ignore
+    `url(` +
+    `<a target="_blank" class="test-urlclass propertyvalue-long-text" href="${LONG_URL}">` +
+    LONG_URL +
+    `</a>` +
+    `)`,
+    "long url is wrapped in an element with a specific class"
+  );
+
+  target.replaceChildren(
+    parser.parseCssProperty("background", `url(${LONG_URL})`, {})
+  );
+  is(
+    target.innerHTML,
+    `<span class="propertyvalue-long-text">url(${LONG_URL})</span>`,
+    "long url is wrapped in an element with a specific class, even when urlClass option is not set"
+  );
+
+  target.innerHTML = "";
 }
 
 function testParseFilter(doc, parser) {
@@ -1323,7 +1495,8 @@ function testParseVariable(doc, parser) {
         // prettier-ignore
         '<span data-color="chartreuse">' +
           "<span>var(" +
-            `<span data-variable="chartreuse">--seen${getJumpToVariableButton("--seen")}</span>,` +
+            `<span data-variable="chartreuse">--seen${getJumpToVariableButton("--seen")}</span>` +
+            `,` +
             '<span class="unmatched-class"> ' +
               '<span data-color="seagreen">' +
                 "<span>seagreen</span>" +
@@ -1337,15 +1510,18 @@ function testParseVariable(doc, parser) {
       variables: { "--seen": "chartreuse" },
       expected:
         // prettier-ignore
-        "<span>var(" +
-          '<span class="unmatched-class" data-variable="--not-seen is not set">--not-seen</span>,' +
-          "<span> " +
-            '<span data-color="chartreuse">' +
-              "<span>var(" +
-                `<span data-variable="chartreuse">--seen${getJumpToVariableButton("--seen")}</span>)` +
+        `<span data-color=" chartreuse">` +
+          "<span>var(" +
+            '<span class="unmatched-class" data-variable="--not-seen is not set">--not-seen</span>'+
+            ',' +
+            "<span> " +
+              '<span data-color="chartreuse">' +
+                "<span>var(" +
+                  `<span data-variable="chartreuse">--seen${getJumpToVariableButton("--seen")}</span>)` +
+                "</span>" +
               "</span>" +
-            "</span>" +
-          "</span>)" +
+            "</span>)" +
+          "</span>" +
         "</span>",
     },
     {
@@ -1353,19 +1529,25 @@ function testParseVariable(doc, parser) {
       variables: { "--x": "yellow" },
       expected:
         // prettier-ignore
-        `color-mix(in srgb, ` +
-        `<span data-color="yellow" class="color-swatch-container">` +
-          `<span class="test-class" style="background-color:yellow" tabindex="0" role="button" data-color-function="color-mix">` +
+        `<span data-color=\"color-mix(in srgb, yellow, purple)\" class=\"color-swatch-container\">` +
+          `<span class=\"test-class\" style=\"background-color:color-mix(in srgb, yellow, purple)\" tabindex=\"0\" role=\"button\"></span>` +
+          `<span>` +
+            `color-mix(in srgb, ` +
+            `<span data-color="yellow" class="color-swatch-container">` +
+              `<span class="test-class" style="background-color:yellow" tabindex="0" role="button" data-color-function="color-mix">` +
+              `</span>` +
+              `<span>var(<span data-variable="yellow">--x${getJumpToVariableButton("--x")}</span>)</span>` +
+            `</span>` +
+            `, ` +
+            `<span data-color="purple" class="color-swatch-container">` +
+              `<span class="test-class" style="background-color:purple" tabindex="0" role="button" data-color-function="color-mix">` +
+              `</span>` +
+              `<span>purple</span>` +
+            `</span>` +
+            // closing `color-mix()`
+            `)` +
           `</span>` +
-          `<span>var(<span data-variable="yellow">--x${getJumpToVariableButton("--x")}</span>)</span>` +
-        `</span>` +
-        `, ` +
-        `<span data-color="purple" class="color-swatch-container">` +
-          `<span class="test-class" style="background-color:purple" tabindex="0" role="button" data-color-function="color-mix">` +
-          `</span>` +
-          `<span>purple</span>` +
-        `</span>` +
-        `)`,
+        `</span>`,
       parserExtraOptions: {
         colorSwatchClass: COLOR_TEST_CLASS,
       },
@@ -1402,7 +1584,8 @@ function testParseVariable(doc, parser) {
         '1px solid ' +
         '<span data-color="chartreuse">' +
           "<span>var(" +
-            `<span data-variable="chartreuse">--seen${getJumpToVariableButton("--seen")}</span>,` +
+            `<span data-variable="chartreuse">--seen${getJumpToVariableButton("--seen")}</span>` +
+            `,` +
             '<span class="unmatched-class"> ' +
               '<span data-color="seagreen">' +
                 "<span>seagreen</span>" +
@@ -1419,13 +1602,16 @@ function testParseVariable(doc, parser) {
       expected:
         // prettier-ignore
         `1px solid ` +
-        `<span>var(` +
-          `<span class="unmatched-class" data-variable="--not-seen is not set">--not-seen</span>,` +
-          `<span> ` +
-            `<span data-color="seagreen">` +
-              `<span>seagreen</span>` +
-            `</span>` +
-          `</span>)` +
+        `<span data-color=" seagreen">` +
+          `<span>var(` +
+            `<span class="unmatched-class" data-variable="--not-seen is not set">--not-seen</span>` +
+            `,` +
+            `<span> ` +
+              `<span data-color="seagreen">` +
+                `<span>seagreen</span>` +
+              `</span>` +
+            `</span>)` +
+          `</span>` +
         `</span>`,
     },
     {
@@ -1452,9 +1638,12 @@ function testParseVariable(doc, parser) {
         '<span data-color="rgba(from red r g 0 / calc(0.8 * 0.5))">' +
           "<span>rgba("+
             "from " +
-            "<span>" +
-              `var(<span data-variable="red">--base${getJumpToVariableButton("--base")}</span>)` +
-            "</span> r g 0 / " +
+            `<span data-color="red">` +
+              "<span>" +
+                `var(<span data-variable="red">--base${getJumpToVariableButton("--base")}</span>)` +
+              "</span>" +
+            "</span>" +
+            " r g 0 / " +
             "calc(" +
             "<span>" +
               `var(<span data-variable="0.8">--a${getJumpToVariableButton("--a")}</span>)` +
@@ -1471,7 +1660,8 @@ function testParseVariable(doc, parser) {
         '<span data-color="rgb( 255, 0, 0)">' +
           "<span>rgb("+
             "<span>var(" +
-              `<span class="unmatched-class" data-variable="--not-seen is not set">--not-seen</span>,` +
+              `<span class="unmatched-class" data-variable="--not-seen is not set">--not-seen</span>` +
+              `,` +
               `<span> 255</span>` +
             ")</span>, 0, 0" +
           ")</span>" +
@@ -1690,11 +1880,11 @@ function testParseVariable(doc, parser) {
       expected:
         // prettier-ignore
         `<span>` +
-          `var(` +
+          `var(  ` +
             `<span data-variable="1px">--foo${getJumpToVariableButton("--foo")}</span>` +
-            `,` +
-            `<span class="unmatched-class">  500px  </span>` +
-          `)` +
+            `  ,` +
+            `<span class="unmatched-class">  500px</span>` +
+          `  )` +
         `</span>`,
     },
     {
@@ -1704,11 +1894,11 @@ function testParseVariable(doc, parser) {
       expected:
         // prettier-ignore
         `<span>` +
-          `var(` +
+          `var(\n` +
             `<span data-variable="1px">--foo${getJumpToVariableButton("--foo")}</span>` +
             `,` +
-            `<span class="unmatched-class"> 500px\n</span>` +
-          `)` +
+            `<span class="unmatched-class"> 500px</span>` +
+          `\n)` +
         `</span>`,
     },
   ];
@@ -1872,7 +2062,7 @@ function testParseFontFamily(doc, parser) {
     {
       desc: "Fonts with extra whitespace",
       definition: " Open  Sans  ",
-      families: ["Open Sans"],
+      families: ["Open  Sans"],
     },
   ];
 
@@ -1885,7 +2075,7 @@ function testParseFontFamily(doc, parser) {
     {
       desc: "Whitespace between fonts",
       definition: "Arial ,  Helvetica,   sans-serif",
-      output: "Arial , Helvetica, sans-serif",
+      output: "Arial ,  Helvetica,   sans-serif",
     },
     {
       desc: "Whitespace before first font trimmed",
@@ -1900,7 +2090,7 @@ function testParseFontFamily(doc, parser) {
     {
       desc: "Whitespace between quoted fonts",
       definition: "'Arial' ,  \"Helvetica\" ",
-      output: "'Arial' , \"Helvetica\"",
+      output: "'Arial' ,  \"Helvetica\"",
     },
     {
       desc: "Whitespace within font preserved",
@@ -1932,7 +2122,7 @@ function testParseFontFamily(doc, parser) {
   info("Test font-family with custom properties");
   const frag = parser.parseCssProperty(
     "font-family",
-    "var(--family, Georgia, serif)",
+    "MonoLisa, var(--family, Georgia black, 'Helvetica Neue', serif), monospace !important",
     {
       getVariableData: () => ({}),
       unmatchedClass: "unmatched-class",
@@ -1944,17 +2134,24 @@ function testParseFontFamily(doc, parser) {
   is(
     target.innerHTML,
     // prettier-ignore
+    `<span class="ruleview-font-family">MonoLisa</span>` +
+    `, ` +
     `<span>var(` +
       `<span class="unmatched-class" data-variable="--family is not set">` +
         `--family` +
       `</span>` +
       `,` +
       `<span> ` +
-        `<span class="ruleview-font-family">Georgia</span>` +
+        `<span class="ruleview-font-family">Georgia black</span>` +
+        `, ` +
+        `'<span class="ruleview-font-family">Helvetica Neue</span>'` +
         `, ` +
         `<span class="ruleview-font-family">serif</span>` +
       `</span>)` +
-    `</span>`,
+    `</span>` +
+    `, ` +
+    `<span class="ruleview-font-family">monospace</span>` +
+    ` !important`,
     "Got expected output for font-family with custom properties"
   );
 }

@@ -82,13 +82,13 @@ export const ThemeVariableMap = [
     },
   ],
   [
-    "--toolbarbutton-hover-background",
+    "--toolbarbutton-background-color-hover",
     {
       lwtProperty: "button_background_hover",
     },
   ],
   [
-    "--toolbarbutton-active-background",
+    "--toolbarbutton-background-color-active",
     {
       lwtProperty: "button_background_active",
     },

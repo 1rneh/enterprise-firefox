@@ -119,6 +119,14 @@ class IPPGpiAuthProviderSingleton extends IPPAuthProvider {
     return !!renewAfter && Date.now() >= Number(renewAfter);
   }
 
+  // TODO: implement checkForUpgrade for GPI once the subscription flow is defined.
+  async checkForUpgrade() {}
+
+  async enroll() {
+    const jwt = await this.#enroll();
+    return { isEnrolledAndEntitled: !!jwt };
+  }
+
   get isReady() {
     const jwt = Services.prefs.getCharPref(AUTH_JWT_PREF, "");
     if (jwt) {
@@ -134,8 +142,11 @@ class IPPGpiAuthProviderSingleton extends IPPAuthProvider {
   async aboutToStart() {
     const needsEnrollment =
       !Services.prefs.getCharPref(AUTH_JWT_PREF, "") || this.#shouldRenewJwt;
-    if (needsEnrollment && !(await this.#enroll())) {
-      return { error: "enrollment_failed" };
+    if (needsEnrollment) {
+      const { isEnrolledAndEntitled } = await this.enroll();
+      if (!isEnrolledAndEntitled) {
+        return { error: "enrollment_failed" };
+      }
     }
     return null;
   }

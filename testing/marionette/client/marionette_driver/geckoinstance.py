@@ -395,6 +395,7 @@ class GeckoInstance:
     def _get_runner_args(self):
         process_args = {
             "processOutputLine": [NullOutput()],
+            "storeOutput": False,
             "universal_newlines": True,
         }
 
@@ -573,6 +574,7 @@ class FennecInstance(GeckoInstance):
     def _get_runner_args(self):
         process_args = {
             "processOutputLine": [NullOutput()],
+            "storeOutput": False,
             "universal_newlines": True,
         }
 

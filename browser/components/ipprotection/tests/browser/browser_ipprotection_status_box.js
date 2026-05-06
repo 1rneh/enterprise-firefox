@@ -19,8 +19,7 @@ const mockBandwidthUsage = {
 
 add_task(async function test_paused_content() {
   setupService({
-    isSignedIn: true,
-    isEnrolledAndEntitled: true,
+    isReady: true,
     canEnroll: true,
     proxyPass: {
       status: 200,
@@ -28,7 +27,7 @@ add_task(async function test_paused_content() {
       pass: makePass(),
     },
   });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
+  await IPPFxaAuthProvider.checkForUpgrade();
 
   let content = await openPanel({
     paused: true,
@@ -83,8 +82,7 @@ add_task(async function test_paused_content() {
 
 add_task(async function test_paused_content_upgraded() {
   setupService({
-    isSignedIn: true,
-    isEnrolledAndEntitled: true,
+    isReady: true,
     hasUpgraded: true,
     canEnroll: true,
     proxyPass: {
@@ -95,7 +93,6 @@ add_task(async function test_paused_content_upgraded() {
   });
 
   let content = await openPanel({
-    isSignedOut: false,
     paused: true,
     hasUpgraded: true,
     bandwidthUsage: mockBandwidthUsage,
@@ -126,7 +123,6 @@ add_task(async function test_paused_content_upgraded() {
  */
 add_task(async function test_generic_error() {
   let content = await openPanel({
-    isSignedOut: false,
     unauthenticated: false,
     error: ERRORS.GENERIC,
   });
@@ -159,7 +155,6 @@ add_task(async function test_generic_error() {
  */
 add_task(async function test_network_error() {
   let content = await openPanel({
-    isSignedOut: false,
     unauthenticated: false,
     error: ERRORS.NETWORK,
   });
@@ -196,7 +191,6 @@ add_task(async function test_network_error() {
  */
 add_task(async function test_catastrophic_error() {
   let content = await openPanel({
-    isSignedOut: false,
     unauthenticated: false,
     error: ERRORS.CATASTROPHIC,
   });

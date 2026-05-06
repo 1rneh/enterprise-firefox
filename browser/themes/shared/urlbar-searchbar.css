@@ -108,7 +108,7 @@ toolbar[inactive="true"] .urlbar,
   min-width: 1px;
   min-height: var(--urlbar-min-height);
   text-shadow: none;
-  color: var(--toolbar-field-color);
+  color: var(--toolbar-field-text-color);
 
   /**
    * System colors and widgets are set based on toolbar color. Since toolbar
@@ -229,9 +229,9 @@ toolbar[inactive="true"] .urlbar,
 
   /* We used --focus-outline above to inherit its width and style properties,
      but we still want to use the theme's border-color.
-     --toolbar-field-focus-border-color is set equal to --focus-outline-color
+     --toolbar-field-border-color-focus is set equal to --focus-outline-color
      on :root, but LWT themes can override this value. */
-  outline-color: var(--toolbar-field-focus-border-color);
+  outline-color: var(--toolbar-field-border-color-focus);
   border-color: transparent;
 }
 
@@ -255,12 +255,12 @@ toolbar[inactive="true"] .urlbar,
 
 .urlbar:is([focused], [open]),
 #searchbar:focus-within {
-  color: var(--toolbar-field-focus-color);
+  color: var(--toolbar-field-text-color-focus);
 }
 
 .urlbar:is([focused], [open]) > .urlbar-background,
 #searchbar:focus-within {
-  background-color: var(--toolbar-field-focus-background-color);
+  background-color: var(--toolbar-field-background-color-focus);
 }
 
 .urlbar-input::placeholder,
@@ -396,15 +396,15 @@ toolbar[inactive="true"] .urlbar,
   /* We leave a base width plus whatever space the download and unified extensions
    * buttons will need when they *both* appear. Normally, for each button, this
    * should be 16px for the icon, plus 2 * 2px padding plus the
-   * toolbarbutton-inner-padding. We're adding 4px to ensure things like rounding
+   * toolbarbutton-padding-inner. We're adding 4px to ensure things like rounding
    * on hidpi don't accidentally result in the buttons going into overflow.
    */
-  width: calc(var(--urlbar-container-min-width) + 2 * (24px + 2 * var(--toolbarbutton-inner-padding)));
+  width: calc(var(--urlbar-container-min-width) + 2 * (24px + 2 * var(--toolbarbutton-padding-inner)));
 
   /* When the download button OR the unified extensions button is shown, we leave
    * the base width plus the space needed for a single button as described above. */
   #nav-bar:is([downloadsbuttonshown], [unifiedextensionsbuttonshown]) & {
-    width: calc(var(--urlbar-container-min-width) + 24px + 2 * var(--toolbarbutton-inner-padding));
+    width: calc(var(--urlbar-container-min-width) + 24px + 2 * var(--toolbarbutton-padding-inner));
   }
 
   /* When both the download and unified extensions buttons are visible, we use
@@ -652,14 +652,14 @@ toolbar[inactive="true"] .urlbar,
   &:not([disabled]):hover {
     background-color: var(--urlbar-box-background-color-hover);
     color: var(--urlbar-box-text-color-hover);
-    outline-color: var(--toolbarbutton-hover-outline-color);
+    outline-color: var(--toolbarbutton-outline-color-hover);
   }
 
   &:not([disabled])[open],
   &:not([disabled]):hover:active {
     background-color: var(--urlbar-box-background-color-active);
     color: var(--urlbar-box-text-color-hover);
-    outline-color: var(--toolbarbutton-active-outline-color);
+    outline-color: var(--toolbarbutton-outline-color-active);
   }
 }
 

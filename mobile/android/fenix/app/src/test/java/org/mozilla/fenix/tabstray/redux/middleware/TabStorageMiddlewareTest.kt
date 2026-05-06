@@ -43,8 +43,6 @@ import org.mozilla.fenix.tabstray.redux.state.TabGroupFormState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState.Mode
 import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
-import kotlin.collections.map
-import kotlin.collections.toSet
 import kotlin.test.assertEquals
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1051,6 +1049,71 @@ class TabStorageMiddlewareTest {
         }
 
     @Test
+    fun `GIVEN the user has selected a mix of tabs and groups WHEN adding to one of the selected groups THEN the tabs are added and the groups are merged into the destination group`() = runTest {
+        val tabs = MutableList(size = 40) { createTab(url = "") }
+        val selectedTabs = MutableList(size = 40) { TabsTrayItem.Tab(tabs[it]) }
+        val tabData = TabData(tabs = tabs)
+        val tabGroups = List(size = 3) {
+            StoredTabGroup(
+                title = "Group $it",
+                theme = TabGroupTheme.Red.name,
+                lastModified = 0L,
+            )
+        }
+        val selectedTabGroups = tabGroups.map {
+            createTabGroup(
+                id = it.id,
+                title = it.title,
+                theme = TabGroupTheme.valueOf(it.theme),
+            )
+        }
+        val destinationTabGroup = selectedTabGroups.first()
+        // Assign tabs to the 3 multi-selected groups
+        selectedTabGroups[0].tabs.addAll(selectedTabs.subList(10, 20))
+        selectedTabGroups[1].tabs.addAll(selectedTabs.subList(20, 30))
+        selectedTabGroups[2].tabs.addAll(selectedTabs.subList(30, 40))
+        val initialTabAssignments = hashMapOf<String, String>()
+        selectedTabGroups.forEach { group ->
+            group.tabs.forEach { tab ->
+                initialTabAssignments[tab.id] = group.id
+            }
+        }
+        val store = createStore(
+            initialState = TabsTrayState(
+                mode = Mode.Select(
+                    selectedTabs = selectedTabs.toSet(),
+                    selectedTabGroups = selectedTabGroups.toSet(),
+                ),
+            ),
+            tabGroupsEnabled = true,
+            tabDataFlow = flowOf(tabData),
+            tabGroupRepository = createRepository(
+                tabGroupFlow = MutableStateFlow(tabGroups),
+                tabGroupAssignmentFlow = MutableStateFlow(initialTabAssignments),
+            ),
+            scope = backgroundScope,
+        )
+        val expectedTabGroupList = listOf(destinationTabGroup.copy(tabs = selectedTabs))
+        val expectedState = TabsTrayState(
+            mode = Mode.Normal,
+            normalTabsState = TabsTrayState.NormalTabsState(
+                items = expectedTabGroupList,
+                tabCount = tabs.size,
+            ),
+            tabGroupState = TabsTrayState.TabGroupState(
+                groups = expectedTabGroupList,
+            ),
+        )
+
+        store.dispatch(TabGroupAction.SelectedTabsAddedToGroup(groupId = destinationTabGroup.id))
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expectedState, store.state)
+    }
+
+    @Test
     fun `GIVEN the user has at least one tab and one tab group WHEN the user adds a tab to an existing tab group THEN the tab is added to the specified group`() =
         runTest {
             val tab = createTab(url = "")
@@ -1186,6 +1249,57 @@ class TabStorageMiddlewareTest {
         advanceUntilIdle()
 
         store.dispatch(TabGroupAction.SaveClicked)
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expectedBrowserState, browserStore.state)
+    }
+
+    @Test
+    fun `WHEN a group is merged into another group the tabs are sequenced together by destination`() = runTest {
+        val tabs = List(size = 10) { createTab(url = "$it") }
+        val sourceGroupTabs = tabs.slice(0..3)
+        val ungroupedTabs = tabs.slice(4..6)
+        val destinationGroupTabs = tabs.slice(7..9)
+        val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+        val sourceStoredGroup = StoredTabGroup(
+            title = "Group 1",
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+        val destinationStoredGroup = StoredTabGroup(
+            title = "Group 2",
+            theme = TabGroupTheme.Blue.name,
+            lastModified = 0L,
+        )
+        val store = createStore(
+            tabGroupsEnabled = true,
+            tabGroupRepository = createRepository(
+                tabGroupFlow = MutableStateFlow(listOf(sourceStoredGroup, destinationStoredGroup)),
+                tabGroupAssignmentFlow = MutableStateFlow(
+                    sourceGroupTabs.associate { it.id to sourceStoredGroup.id } +
+                        destinationGroupTabs.associate { it.id to destinationStoredGroup.id },
+                ),
+            ),
+            scope = backgroundScope,
+            moveTabsUseCase = MoveTabsUseCase(store = browserStore),
+            tabDataFlow = flowOf(TabData(tabs = tabs)),
+        )
+        val expectedTabs = ungroupedTabs + destinationGroupTabs + sourceGroupTabs
+        val expectedBrowserState = BrowserState(
+            tabs = expectedTabs,
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(
+            TabGroupAction.DragAndDropCompleted(
+                sourceId = sourceStoredGroup.id,
+                destinationId = destinationStoredGroup.id,
+            ),
+        )
 
         runCurrent()
         advanceUntilIdle()
@@ -1368,7 +1482,7 @@ class TabStorageMiddlewareTest {
         )
         val expectedState = TabsTrayState(
             normalTabsState = TabsTrayState.NormalTabsState(
-                tabCount = tabs.size,
+                tabCount = 0,
             ),
             tabGroupState = TabsTrayState.TabGroupState(
                 groups = listOf(displayGroup.copy(closed = true)),
@@ -1428,6 +1542,81 @@ class TabStorageMiddlewareTest {
 
             assertEquals(expected = expectedState, store.state)
         }
+
+    @Test
+    fun `WHEN dropping a group onto a group THEN the source group is merged into the destination group`() = runTest {
+        val sourceStoredGroup = StoredTabGroup(
+            title = "Group 1",
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+        val sourceGroupTabs = listOf(
+            createTab(url = ""),
+            createTab(url = ""),
+            createTab(url = ""),
+        )
+        val destinationStoredGroup = StoredTabGroup(
+            title = "Group 2",
+            theme = TabGroupTheme.Blue.name,
+            lastModified = 0L,
+        )
+        val destinationGroupTabs = listOf(
+            createTab(url = ""),
+            createTab(url = ""),
+            createTab(url = ""),
+            createTab(url = ""),
+            createTab(url = ""),
+        )
+        val tabData = TabData(tabs = sourceGroupTabs + destinationGroupTabs)
+        val store = createStore(
+            tabGroupsEnabled = true,
+            tabDataFlow = flowOf(tabData),
+            tabGroupRepository = createRepository(
+                tabGroupFlow = MutableStateFlow(listOf(sourceStoredGroup, destinationStoredGroup)),
+                tabGroupAssignmentFlow = MutableStateFlow(
+                    sourceGroupTabs.associate { it.id to sourceStoredGroup.id } +
+                        destinationGroupTabs.associate { it.id to destinationStoredGroup.id },
+                ),
+            ),
+            scope = backgroundScope,
+        )
+        val expectedTabGroupList = listOf(
+            createTabGroup(
+                id = destinationStoredGroup.id,
+                title = destinationStoredGroup.title,
+                theme = TabGroupTheme.valueOf(destinationStoredGroup.theme),
+                tabs =
+                    (
+                        sourceGroupTabs.map { TabsTrayItem.Tab(it) } +
+                            destinationGroupTabs.map { TabsTrayItem.Tab(it) }
+                        ).toMutableList(),
+            ),
+        )
+        val expectedState = TabsTrayState(
+            normalTabsState = TabsTrayState.NormalTabsState(
+                items = expectedTabGroupList,
+                tabCount = 8,
+            ),
+            tabGroupState = TabsTrayState.TabGroupState(
+                groups = expectedTabGroupList,
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(
+            TabGroupAction.DragAndDropCompleted(
+                sourceId = sourceStoredGroup.id,
+                destinationId = destinationStoredGroup.id,
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expectedState, store.state)
+    }
 
     @Test
     fun `WHEN dropping a tab onto a group THEN the tab is added to the group`() = runTest {

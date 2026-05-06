@@ -1,16 +1,14 @@
 {
-  "outer": {
-    "padding": {
+  "padding": {
+    "outer": {
       "@base": {
         "value": "2px"
       },
       "narrow": {
         "value": "1px"
       }
-    }
-  },
-  "inner": {
-    "padding": {
+    },
+    "inner": {
       "@base": {
         "value": "8px"
       },
@@ -57,9 +55,12 @@
       }
     }
   },
-  "disabled": {
-    "opacity": {
-      "value": "{button.opacity.disabled}"
+  "opacity": {
+    "disabled": {
+      "value": {
+        "default": "{button.opacity.disabled}",
+        "prefersContrast": 0.3
+      }
     }
   },
   "border": {
@@ -67,52 +68,46 @@
       "value": "{button.border.radius}"
     }
   },
-  "hover": {
-    "background": {
-      "value": "color-mix(in srgb, currentColor 17%, transparent)"
-    },
-    "outline": {
-      "color": {
-        "value": {
-          "default": "transparent",
-          "prefersContrast": "currentColor",
-          "forcedColors": "SelectedItem"
-        }
-      }
-    }
-  },
-  "active": {
-    "background": {
-      "value": "color-mix(in srgb, currentColor 30%, transparent)"
-    },
-    "outline": {
-      "color": {
-        "value": {
-          "default": "transparent",
-          "prefersContrast": "currentColor",
-          "forcedColors": "ButtonText"
-        }
-      }
-    }
-  },
-  "selected": {
-    "outline": {
-      "color": {
-        "value": {
-          "default": "{toolbarbutton.active.outline.color}",
-          "forcedColors": "SelectedItem"
-        }
+  "background": {
+    "color": {
+      "hover": {
+        "value": "color-mix(in srgb, currentColor 17%, transparent)"
+      },
+      "active": {
+        "value": "color-mix(in srgb, currentColor 30%, transparent)"
       }
     }
   },
   "outline": {
     "@base": {
-      "value": "{border.width} solid {toolbarbutton.outline.color}"
+      "value": "{border.width} solid {toolbarbutton.outline.color.@base}"
     },
     "color": {
-      "value": {
-        "default": "transparent",
-        "forcedColors": "ButtonText"
+      "@base": {
+        "value": {
+          "default": "transparent",
+          "forcedColors": "ButtonText"
+        }
+      },
+      "hover": {
+        "value": {
+          "default": "transparent",
+          "prefersContrast": "currentColor",
+          "forcedColors": "SelectedItem"
+        }
+      },
+      "active": {
+        "value": {
+          "default": "transparent",
+          "prefersContrast": "currentColor",
+          "forcedColors": "ButtonText"
+        }
+      },
+      "selected": {
+        "value": {
+          "default": "{toolbarbutton.outline.color.active}",
+          "forcedColors": "SelectedItem"
+        }
       }
     },
     "offset": {

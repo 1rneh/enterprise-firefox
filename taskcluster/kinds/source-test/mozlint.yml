@@ -757,7 +757,7 @@ perfdocs-verify:
     treeherder:
         symbol: doc(perfdocs)
     run:
-        mach: lint -v -l perfdocs -f treeherder -f json:/builds/worker/mozlint.json .
+        mach: perfdocs --output-file /builds/worker/mozlint.json
     worker:
         env:
             WORKSPACE: /builds/worker/checkouts/gecko/

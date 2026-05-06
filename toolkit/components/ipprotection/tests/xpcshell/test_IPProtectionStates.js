@@ -95,8 +95,8 @@ add_task(async function test_IPProtectionStates_unauthenticated() {
 
   sandbox.stub(IPPNimbusHelper, "isEligible").get(() => true);
   sandbox
-    .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
-    .get(() => true);
+    .stub(IPPFxaAuthProvider, "entitlement")
+    .get(() => createTestEntitlement());
 
   IPProtectionService.updateState();
 
@@ -141,7 +141,7 @@ add_task(async function test_IPProtectionStates_enrolling() {
     "IP Protection service should be unauthenticated"
   );
 
-  const enrollData = await IPPEnrollAndEntitleManager.maybeEnrollAndEntitle();
+  const enrollData = await IPPFxaAuthProvider.enroll();
   Assert.ok(enrollData.isEnrolledAndEntitled, "Fully enrolled and entitled");
 
   Assert.equal(

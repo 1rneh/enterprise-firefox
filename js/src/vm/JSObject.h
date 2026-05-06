@@ -589,6 +589,9 @@ class JSObject
       4 * sizeof(void*) + 16 * sizeof(JS::Value);
 #endif
 
+  JSObject(const JSObject& other) = delete;
+  void operator=(const JSObject& other) = delete;
+
  protected:
   // JIT Accessors.
   //
@@ -597,10 +600,6 @@ class JSObject
   friend class js::jit::MacroAssembler;
 
   static constexpr size_t offsetOfShape() { return offsetOfHeaderPtr(); }
-
- private:
-  JSObject(const JSObject& other) = delete;
-  void operator=(const JSObject& other) = delete;
 
  protected:
   // For the allocator only, to be used with placement new.

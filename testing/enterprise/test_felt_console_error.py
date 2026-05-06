@@ -40,7 +40,7 @@ class FeltConsoleError(FeltTestsBase):
                 details = self.get_elem(f"{selector} .felt-browser-error-details")
                 details_text = details.get_property("textContent").strip()
                 assert details_text == error_msg, (
-                    f"Correct error message: '{details_text}'"
+                    f"Correct error message: '{details_text}' expected: '{error_msg}'"
                 )
 
             if error_msg_contains is not None:
@@ -86,7 +86,7 @@ class FeltConsoleError(FeltTestsBase):
         app_name = self._driver.session_capabilities.get("browserName")
         expected_str = None
         if app_name == "firefox":
-            expected_str = f"Firefox can’t establish a connection to the server at localhost:{refused_port}."
+            expected_str = f"Firefox Enterprise can’t connect to the server at localhost:{refused_port}"
         elif app_name == "thunderbird":
             expected_str = f"The connection was refused when attempting to contact localhost:{refused_port}."
         else:

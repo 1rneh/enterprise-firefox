@@ -7,6 +7,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  FeltErrorReport: "resource:///modules/FeltErrorReport.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -25,7 +26,10 @@ export class FeltErrorWindowParent extends JSWindowActorParent {
     );
     switch (message.name) {
       case "ErrorReport": {
-        // Nothing for now.
+        const errorPage = message.data;
+        lazy.FeltErrorReport.handleNetError(errorPage).catch(err =>
+          lazy.log.error(`Error while handling ErrorReport message: ${err}`)
+        );
         break;
       }
     }

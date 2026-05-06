@@ -311,7 +311,7 @@ export const ConsoleClient = {
       xhr.onerror = () => {
         const errorName = this._getErrorNameForStatus(xhr.channel?.status);
         reject(
-          new TypeError(errorName, { cause: { host: new URL(url).host } })
+          new TypeError(errorName, { cause: { hostname: new URL(url).host } })
         );
       };
 

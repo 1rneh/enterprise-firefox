@@ -12,6 +12,10 @@ cargo-audit:
         - "Crate depends on a vulnerable version of time."
         # bug 1973225
         - "Crate depends on a vulnerable version of self_cell."
+        # For enterprise builds: Remove the next error exclusion once
+        # release goes to 151 which includes a commit that updates
+        # the crate thin-vec to 0.2.16 (see bug 2031666)
+        - "Crate depends on a vulnerable version of thin-vec."
     extensions:
         - lock
     setup: cargo-audit:setup

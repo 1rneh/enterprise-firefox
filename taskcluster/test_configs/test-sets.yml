@@ -357,7 +357,7 @@ windows11-25h2-tests:
     - test-verify-wpt
     - xpcshell
 
-windows11-24h2-tests-enterprise:
+windows11-25h2-tests-enterprise:
     - marionette-integration
     - marionette-enterprise
     - mochitest-browser-chrome

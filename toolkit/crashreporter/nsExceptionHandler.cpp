@@ -234,7 +234,7 @@ static MOZ_GLIBCXX_CONSTINIT xpstring memoryReportPath;
 static MOZ_GLIBCXX_CONSTINIT xpstring eventsDirectory;
 
 // If this is false, we don't launch the crash reporter
-static bool doReport = true;
+static mozilla::Atomic<bool> doReport(true);
 
 // if this is true, we pass the exception on to the OS crash reporter
 static bool showOSCrashReporter = false;
@@ -1911,8 +1911,8 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   if (envvar && *envvar && !force) return NS_OK;
 #endif
 
-  // this environment variable prevents us from launching
-  // the crash reporter client
+  // Initialize the launch-client decision from the environment. Policies and
+  // other callers can update it later via UpdateShouldReport().
   doReport = ShouldReport();
 
   RegisterRuntimeExceptionModule();
@@ -2791,6 +2791,8 @@ nsresult SetSubmitReports(bool aSubmitReports) {
   obsServ->NotifyObservers(nullptr, "submit-reports-pref-changed", nullptr);
   return NS_OK;
 }
+
+void UpdateShouldReport() { doReport = ShouldReport(); }
 
 static void SetCrashEventsDir(nsIFile* aDir) {
   static const XP_CHAR eventsDirectoryEnv[] =

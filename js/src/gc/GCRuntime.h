@@ -152,7 +152,7 @@ class BackgroundMarkTask : public GCParallelTask {
   bool isOverBudget() { return budget.isOverBudget(); }
 
  private:
-  bool isConcurrent;
+  bool isConcurrent = false;
   JS::SliceBudget budget;
   JS::SliceBudget::InterruptRequestFlag interruptRequest;
   friend class GCRuntime;

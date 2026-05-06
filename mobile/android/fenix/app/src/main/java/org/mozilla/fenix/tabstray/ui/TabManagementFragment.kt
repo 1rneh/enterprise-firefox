@@ -5,7 +5,6 @@
 package org.mozilla.fenix.tabstray.ui
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -32,9 +31,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
-import androidx.fragment.app.DialogFragment
+import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.compose.content
@@ -56,7 +54,6 @@ import mozilla.components.feature.accounts.push.CloseTabsUseCases
 import mozilla.components.feature.downloads.ui.DownloadCancelDialogFragment
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.storeProvider
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
-import mozilla.components.support.ktx.android.view.setSystemBarsBackground
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.Config
 import org.mozilla.fenix.GleanMetrics.PrivateBrowsingLocked
@@ -122,7 +119,7 @@ import kotlin.math.abs
  * The fullscreen fragment for displaying the tabs management UI.
  */
 @Suppress("TooManyFunctions", "LargeClass")
-class TabManagementFragment : DialogFragment() {
+class TabManagementFragment : Fragment() {
 
     private lateinit var tabManagerInteractor: TabManagerInteractor
     private lateinit var tabManagerController: TabManagerController
@@ -181,8 +178,6 @@ class TabManagementFragment : DialogFragment() {
                 PrivateBrowsingLocked.authFailure.record()
             },
         )
-
-        setStyle(STYLE_NO_TITLE, R.style.TabManagerDialogStyle)
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -192,9 +187,6 @@ class TabManagementFragment : DialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
-        // Remove the window dimming so the Toolbar UI from Home/Browser is still visible during the transition
-        dialog?.window?.setDimAmount(0f)
-
         tabsTrayStore = setupStore()
 
         tabManagerController = DefaultTabManagerController(
@@ -240,8 +232,6 @@ class TabManagementFragment : DialogFragment() {
             }
 
             FirefoxTheme(theme = TabManagerThemeProvider(selectedPage = state.selectedPage).provideTheme()) {
-                val navBarColor = MaterialTheme.colorScheme.surfaceContainerHigh.toArgb()
-                val statusBarColor = MaterialTheme.colorScheme.surface.toArgb()
                 val transitionColor = MaterialTheme.colorScheme.surfaceContainer
 
                 val tabTrayVisibilityState = remember {
@@ -267,17 +257,6 @@ class TabManagementFragment : DialogFragment() {
                     } else {
                         performTabClick(tab = tab)
                     }
-                }
-
-                LaunchedEffect(state.selectedPage) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        dialog?.window?.isNavigationBarContrastEnforced = false
-                    }
-
-                    dialog?.window?.setSystemBarsBackground(
-                        statusBarColor = statusBarColor,
-                        navigationBarColor = navBarColor,
-                    )
                 }
 
                 // When the TabTray is hidden by an action, if a new tab is being selected, navigate to it.
@@ -428,6 +407,7 @@ class TabManagementFragment : DialogFragment() {
                                     handleContentDescription = stringResource(
                                         id = R.string.tab_group_sheet_dismiss_description,
                                     ),
+                                    showBetaLabel = true,
                                 ),
                             ) { args ->
                                 val expandedGroup by tabsTrayStore.observeTabGroup(tabGroup = args.group)
@@ -480,6 +460,7 @@ class TabManagementFragment : DialogFragment() {
                                     handleContentDescription = stringResource(
                                         id = R.string.edit_tab_group_bottom_sheet_grabber_content_description,
                                     ),
+                                    showBetaLabel = true,
                                 ),
                             ) {
                                 EditTabGroup(tabsTrayStore = tabsTrayStore)
@@ -490,6 +471,7 @@ class TabManagementFragment : DialogFragment() {
                                     handleContentDescription = stringResource(
                                         id = R.string.add_to_tab_group_bottom_sheet_grabber_content_description,
                                     ),
+                                    showBetaLabel = true,
                                 ),
                             ) {
                                 AddToTabGroup(
@@ -664,7 +646,7 @@ class TabManagementFragment : DialogFragment() {
             feature = SecureTabManagerBinding(
                 store = tabsTrayStore,
                 settings = requireComponents.settings,
-                window = this.dialog?.window,
+                window = activity?.window,
             ),
             owner = this,
             view = view,

@@ -78,7 +78,7 @@ use crate::prim_store::gradient::{
     optimize_linear_gradient,
 };
 use crate::prim_store::image::{Image, YuvImage};
-use crate::prim_store::line_dec::{LineDecoration, LineDecorationCacheKey, get_line_decoration_size};
+use crate::prim_store::line_dec::LineDecoration;
 use crate::prim_store::picture::{Picture, PictureKey};
 use crate::picture_composite_mode::PictureCompositeKey;
 use crate::prim_store::text_run::TextRun;
@@ -2015,7 +2015,7 @@ impl<'a> SceneBuilder<'a> {
         PrimitiveInstance::new(
             instance_kind,
             clip_leaf_id,
-            info.rect.min,
+            info.rect,
         )
     }
 
@@ -3188,7 +3188,7 @@ impl<'a> SceneBuilder<'a> {
                                 pic_index: shadow_pic_index,
                             },
                             self.clip_tree_builder.build_for_picture(clip_node_id),
-                            LayoutPoint::zero(),
+                            LayoutRect::zero(),
                         );
 
                         // Add the shadow primitive. This must be done before pushing this
@@ -3311,32 +3311,15 @@ impl<'a> SceneBuilder<'a> {
         color: ColorF,
         style: LineStyle,
     ) {
-        // For line decorations, we can construct the render task cache key
-        // here during scene building, since it doesn't depend on device
-        // pixel ratio or transform.
-        let size = get_line_decoration_size(
-            &info.rect.size(),
-            orientation,
-            style,
-            wavy_line_thickness,
-        );
-
-        let cache_key = size.map(|size| {
-            LineDecorationCacheKey {
-                style,
-                orientation,
-                wavy_line_thickness: Au::from_f32_px(wavy_line_thickness),
-                size: size.to_au(),
-            }
-        });
-
         self.add_primitive(
             spatial_node_index,
             clip_node_id,
             &info,
             Vec::new(),
             LineDecoration {
-                cache_key,
+                style,
+                orientation,
+                wavy_line_thickness: Au::from_f32_px(wavy_line_thickness),
                 color: color.into(),
             },
         );
@@ -3509,11 +3492,13 @@ impl<'a> SceneBuilder<'a> {
             (start_point, end_point)
         };
 
+        let stretch_ratio = compute_stretch_ratio(stretch_size, info.rect.size());
+
         Some(LinearGradient {
             extend_mode,
             start_point: sp.into(),
             end_point: ep.into(),
-            stretch_size: stretch_size.into(),
+            stretch_ratio: stretch_ratio.into(),
             tile_spacing: tile_spacing.into(),
             stops,
             reverse_stops,
@@ -3545,11 +3530,13 @@ impl<'a> SceneBuilder<'a> {
             ratio_xy,
         };
 
+        let stretch_ratio = compute_stretch_ratio(stretch_size, info.rect.size());
+
         RadialGradient {
             extend_mode,
             center: center.into(),
             params,
-            stretch_size: stretch_size.into(),
+            stretch_ratio: stretch_ratio.into(),
             tile_spacing: tile_spacing.into(),
             nine_patch,
             stops,
@@ -3579,11 +3566,13 @@ impl<'a> SceneBuilder<'a> {
             }
         }).collect();
 
+        let stretch_ratio = compute_stretch_ratio(stretch_size, info.rect.size());
+
         ConicGradient {
             extend_mode,
             center: center.into(),
             params: ConicGradientParams { angle, start_offset, end_offset },
-            stretch_size: stretch_size.into(),
+            stretch_ratio: stretch_ratio.into(),
             tile_spacing: tile_spacing.into(),
             nine_patch,
             stops,
@@ -4744,7 +4733,7 @@ fn create_prim_instance(
         clip_tree_builder.build_for_picture(
             clip_node_id,
         ),
-        LayoutPoint::zero(),
+        LayoutRect::zero(),
     )
 }
 
@@ -4806,6 +4795,31 @@ fn process_repeat_size(
             repeat_size.height
         },
     )
+}
+
+/// Encode a gradient's per-tile stretch as a fraction of its prim_size.
+/// Per-axis: ratio = stretch_size / prim_size, clamped to [0, 1] (the upper
+/// bound matches the old `stretch_size.min(prim_size)` clamp on the radial
+/// and conic templates and avoids over-allocating render-task pixels).
+///
+/// If prim_size isn't finite-positive on both axes we fall back to a uniform
+/// (1.0, 1.0) ratio, not per-axis. A per-axis fallback can mix a sentinel
+/// 1.0 (NaN axis) with a real ratio (finite axis), which at prep produces a
+/// partially-NaN stretch_size — that breaks downstream invariants like
+/// image_tiling::repetitions's `stride > 0` assertion (NaN width passes the
+/// finite-height needs_repetition check and reaches the assert before the
+/// NaN-aware intersection short-circuit fires).
+fn compute_stretch_ratio(stretch_size: LayoutSize, prim_size: LayoutSize) -> LayoutSize {
+    let prim_ok = prim_size.width.is_finite()
+        && prim_size.width > 0.0
+        && prim_size.height.is_finite()
+        && prim_size.height > 0.0;
+    if !prim_ok {
+        return LayoutSize::new(1.0, 1.0);
+    }
+    let w = (stretch_size.width / prim_size.width).min(1.0);
+    let h = (stretch_size.height / prim_size.height).min(1.0);
+    LayoutSize::new(w, h)
 }
 
 fn read_gradient_stops(stops: ItemRange<GradientStop>) -> Vec<GradientStopKey> {

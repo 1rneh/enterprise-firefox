@@ -742,6 +742,7 @@ WEBIDL_FILES = [
     "HTMLTrackElement.webidl",
     "HTMLUListElement.webidl",
     "HTMLVideoElement.webidl",
+    "HyperlinkElementUtils.webidl",
     "IDBCursor.webidl",
     "IDBDatabase.webidl",
     "IDBFactory.webidl",

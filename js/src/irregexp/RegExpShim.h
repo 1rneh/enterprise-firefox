@@ -797,7 +797,7 @@ class HeapObject : public Object {
 template <typename T>
 class Tagged {
  public:
-  Tagged() {}
+  Tagged() = default;
   MOZ_IMPLICIT Tagged(const T& value) : value_(value) {}
   MOZ_IMPLICIT Tagged(T&& value) : value_(std::move(value)) {}
 
@@ -1146,7 +1146,7 @@ using DisallowGarbageCollection = JS::AutoAssertNoGC;
 
 class AllowGarbageCollection {
  public:
-  AllowGarbageCollection() {}
+  AllowGarbageCollection() = default;
 };
 
 // Origin:

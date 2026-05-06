@@ -135,10 +135,10 @@ class JitcodeGlobalEntry : public JitCodeRange {
   // Protected destructor to ensure this is called through DestroyPolicy.
   ~JitcodeGlobalEntry() = default;
 
+ public:
   JitcodeGlobalEntry(const JitcodeGlobalEntry& other) = delete;
   void operator=(const JitcodeGlobalEntry& other) = delete;
 
- public:
   struct DestroyPolicy {
     void operator()(JitcodeGlobalEntry* entry);
   };

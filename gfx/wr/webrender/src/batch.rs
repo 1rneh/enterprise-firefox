@@ -962,7 +962,31 @@ impl BatchBuilder {
         );
 
         let mut batch_features = BatchFeatures::empty();
-        if ctx.data_stores.prim_may_need_repetition(prim_instance) {
+        let may_need_repetition = match prim_instance.kind {
+            PrimitiveKind::Image { .. } => {
+                let idx = prim_info.kind_scratch.unwrap_image();
+                ctx.scratch.frame.images[idx].may_need_repetition
+            }
+            PrimitiveKind::NormalBorder { .. } => {
+                let idx = prim_info.kind_scratch.unwrap_normal_border();
+                ctx.scratch.frame.normal_border[idx].may_need_repetition
+            }
+            // Image borders always go through brush_image and may tile
+            // their mid sections, so request the repetition-capable
+            // shader.
+            PrimitiveKind::ImageBorder { .. } => true,
+            // Patterned line decorations (Dashed / Dotted / Wavy) batch
+            // as `BrushBatchKind::Image` over a cached pattern tile and
+            // rely on shader-level repetition to span the segment.
+            // Solid lines batch as `BrushBatchKind::Solid`, where the
+            // REPETITION flag is harmless.
+            PrimitiveKind::LineDecoration { .. } => true,
+            // Other prim kinds don't reach the brush_image consumer of
+            // BatchFeatures::REPETITION; the flag is dead state for
+            // them.
+            _ => false,
+        };
+        if may_need_repetition {
             batch_features |= BatchFeatures::REPETITION;
         }
 
@@ -1602,6 +1626,10 @@ impl BatchBuilder {
         };
 
         // The following primitives lower to the image brush shader in the same way.
+        // For ImageBorder, the GPU block lives on per-instance scratch
+        // (`ImageBorderScratch.gpu_address`), so override
+        // `prim_cache_address` here.
+        let mut prim_cache_address = prim_cache_address;
         let img_brush_data = match prim_instance.kind {
             PrimitiveKind::RadialGradient { .. } => {
                 unreachable!("BUG: radial gradients should always use quad path");
@@ -1612,9 +1640,9 @@ impl BatchBuilder {
             PrimitiveKind::ImageBorder { data_handle, .. } => {
                 let prim_data = &ctx.data_stores.image_border[data_handle];
                 let ib_handle = prim_info.kind_scratch.unwrap_image_border();
-                let brush_segments_range =
-                    ctx.scratch.frame.image_border[ib_handle].brush_segments_range;
-                let brush_segments = &ctx.scratch.frame.segments[brush_segments_range];
+                let ib_scratch = ctx.scratch.frame.image_border[ib_handle];
+                prim_cache_address = ib_scratch.gpu_address;
+                let brush_segments = &ctx.scratch.frame.segments[ib_scratch.brush_segments_range];
                 Some((prim_data.kind.src_color, brush_segments))
             }
             _ => None,
@@ -1640,7 +1668,7 @@ impl BatchBuilder {
             }.encode();
 
             let prim_header = PrimitiveHeader {
-                specific_prim_address: common_data.gpu_buffer_address.as_int(),
+                specific_prim_address: prim_cache_address.as_int(),
                 user_data: prim_user_data,
                 ..base_prim_header
             };
@@ -1694,6 +1722,7 @@ impl BatchBuilder {
             PrimitiveKind::NormalBorder { .. } => {
                 let scratch_handle = prim_info.kind_scratch.unwrap_normal_border();
                 let nb_scratch = ctx.scratch.frame.normal_border[scratch_handle];
+                let prim_cache_address = nb_scratch.gpu_address;
                 let task_ids = &ctx.scratch.frame.border_task_ids[nb_scratch.task_ids];
                 let mut segment_data: SmallVec<[SegmentInstanceData; 8]> = SmallVec::new();
 
@@ -1977,7 +2006,9 @@ impl BatchBuilder {
             }
             PrimitiveKind::LineDecoration { .. } => {
                 let scratch_handle = prim_info.kind_scratch.unwrap_line_decoration();
-                let render_task_id = ctx.scratch.frame.line_decoration[scratch_handle].task_id;
+                let line_dec_scratch = ctx.scratch.frame.line_decoration[scratch_handle];
+                let render_task_id = line_dec_scratch.task_id;
+                let prim_cache_address = line_dec_scratch.gpu_address;
 
                 let (clip_task_address, clip_mask_texture_id) = ctx.get_prim_clip_task_and_texture(
                     prim_info.clip_task_index,

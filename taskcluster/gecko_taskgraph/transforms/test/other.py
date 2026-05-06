@@ -1100,7 +1100,7 @@ def add_gecko_profile_symbolication_deps(config, tasks):
         ):
             fetches = task.setdefault("fetches", {})
             fetch_toolchains = fetches.setdefault("toolchain", [])
-            fetch_toolchains.append("symbolicator-cli")
+            fetch_toolchains.append("profiler-node-tools")
 
             test_platform = task["test-platform"]
 
@@ -1114,7 +1114,7 @@ def add_gecko_profile_symbolication_deps(config, tasks):
                 fetch_toolchains.append("linux64-samply")
 
             # Add node as a dependency for talos and mochitest tasks if needed.
-            # node is used to run symbolicator-cli, our profile symbolication tool
+            # node is used to run profiler-edit, our profile symbolication tool
             if task["suite"] == "talos" or "mochitest" in task["suite"]:
                 if "macosx" in test_platform and "aarch64" in test_platform:
                     node_toolchain = "macosx64-aarch64-node"

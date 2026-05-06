@@ -36,9 +36,8 @@ very diverse skills:
    language <https://github.com/rust-lang/rust>`_ itself, numerous crates like `grcov <https://github.com/mozilla/grcov/>`_
    or `Servo <https://servo.org/>`_, the web browser engine designed for parallelism and safety.
 -  If you know **Kotlin**, you can contribute to :ref:`Firefox for Android <Firefox Contributors' Quick Reference>` (code name: "Fenix"). :searchfox:`Fenix's code <mobile/android/>` is integrated into the same repository as Firefox Desktop.
--  If you know **Swift**, you can contribute to `Firefox for
-   iOS <https://github.com/mozilla-mobile/firefox-ios>`_ and `Firefox
-   Focus for iOS <https://github.com/mozilla-mobile/focus-ios>`_.
+-  If you know **Swift**, you can contribute to `Firefox and Firefox Focus for
+   iOS <https://github.com/mozilla-mobile/firefox-ios>`_.
 -  If you know **C++**, you can contribute to our `VPN client <https://github.com/mozilla-mobile/mozilla-vpn-client>`_.
 -  If you know **Python**, you can contribute to our web services,
    including Firefox Sync and Firefox Accounts.

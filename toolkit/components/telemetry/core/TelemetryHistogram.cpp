@@ -952,7 +952,8 @@ nsresult internal_GetHistogramsSnapshot(
         continue;
       }
 
-      if (!hArray.emplaceBack(HistogramSnapshotInfo{snapshotData, id})) {
+      if (!hArray.emplaceBack(
+              HistogramSnapshotInfo{std::move(snapshotData), id})) {
         return NS_ERROR_OUT_OF_MEMORY;
       }
 

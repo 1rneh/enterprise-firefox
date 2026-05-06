@@ -142,7 +142,7 @@ class VRManagerChild : public PVRManagerChild {
 
   nsTArray<RefPtr<VRDisplayClient>> mDisplays;
   VRDisplayCapabilityFlags mRuntimeCapabilities;
-  bool mDisplaysInitialized;
+  bool mDisplaysInitialized = false;
   nsTArray<uint64_t> mNavigatorCallbacks;
 
   struct XRFrameRequest {

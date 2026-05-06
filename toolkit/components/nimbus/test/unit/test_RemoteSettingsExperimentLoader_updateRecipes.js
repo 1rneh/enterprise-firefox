@@ -471,7 +471,7 @@ add_task(async function test_updateRecipes_simpleFeatureInvalidAfterUpdate() {
   await cleanup();
 });
 
-async function test_updateRecipes_invalidFeatureAfterUpdate() {
+add_task(async function test_updateRecipes_invalidFeatureAfterUpdate() {
   const featureConfig = { featureId: "bogus", value: {} };
 
   const { manager, cleanup } = await setupTest({
@@ -523,15 +523,6 @@ async function test_updateRecipes_invalidFeatureAfterUpdate() {
   );
 
   await cleanup();
-}
-
-add_task(test_updateRecipes_invalidFeatureAfterUpdate);
-add_task(async function test_updateRecipes_invalidFeatureAfterUpdate_db() {
-  const resetNimbusEnrollmentPrefs = NimbusTestUtils.enableNimbusEnrollments({
-    read: true,
-  });
-  await test_updateRecipes_invalidFeatureAfterUpdate();
-  resetNimbusEnrollmentPrefs();
 });
 
 add_task(async function test_updateRecipes_validationTelemetry() {

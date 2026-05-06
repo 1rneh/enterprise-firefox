@@ -177,19 +177,15 @@ body {
   /* Prevents the background from propagating to the viewport */
   contain: paint;
   position: relative;
-  background-color: var(--toolbox-bgcolor);
-  /* toolbox variables will be tokenized, see bug 2017970 */
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  color: var(--toolbox-textcolor);
+  background-color: var(--toolbox-background-color);
+  color: var(--toolbox-text-color);
 
   will-change: background-color;
   transition: background-color var(--inactive-window-transition);
 
   &:-moz-window-inactive {
-    background-color: var(--toolbox-bgcolor-inactive);
-    /* toolbox variables will be tokenized, see bug 2017970 */
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-    color: var(--toolbox-textcolor-inactive);
+    background-color: var(--toolbox-background-color-inactive);
+    color: var(--toolbox-text-color-inactive);
   }
 
   :root[customizing] & {
@@ -244,10 +240,8 @@ body {
   /* stylelint-disable-next-line media-query-no-invalid */
   @media not -moz-pref("sidebar.verticalTabs") {
     &:not(.browser-titlebar) {
-      background-color: var(--toolbar-bgcolor);
-      /* --toolbar-color will be tokenized, see bug 2017970 */
-      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-      color: var(--toolbar-color);
+      background-color: var(--toolbar-background-color);
+      color: var(--toolbar-text-color);
     }
   }
 }
@@ -446,9 +440,7 @@ body {
   /* Add space to beginning of toolbar and make that space click the first <toolbarbutton> */
   > :is(toolbarbutton, toolbaritem):first-child,
   > toolbarpaletteitem:first-child > :is(toolbarbutton, toolbaritem) {
-    /* --toolbar-color will be tokenized, see bug 2017970 */
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-    padding-inline-start: var(--toolbar-start-end-padding);
+    padding-inline-start: var(--toolbar-padding-inline);
   }
 }
 
@@ -626,10 +618,8 @@ menupopup::part(drop-indicator) {
 /* Find bar */
 
 .browserContainer > findbar {
-  background-color: var(--toolbar-bgcolor);
-  /* --toolbar-color will be tokenized, see bug 2017970 */
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  color: var(--toolbar-color);
+  background-color: var(--toolbar-background-color);
+  color: var(--toolbar-text-color);
   color-scheme: var(--toolbar-color-scheme);
   /* Variables defined in browser-colors.css will be updated to use design tokens, see bug 1952566. */
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
@@ -637,7 +627,7 @@ menupopup::part(drop-indicator) {
 
   :root[lwtheme] & {
     background-color: var(--lwt-accent-color); /* Known opaque */
-    background-image: linear-gradient(var(--toolbar-bgcolor)), var(--toolbox-background-image);
+    background-image: linear-gradient(var(--toolbar-background-color)), var(--toolbox-background-image);
     background-repeat: no-repeat, var(--toolbox-background-repeat);
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
     background-position:
@@ -699,8 +689,8 @@ menupopup::part(drop-indicator) {
    themes cannot set */
 #DateTimePickerPanel {
   color-scheme: env(-moz-content-preferred-color-scheme);
-  --panel-background: Field;
-  --panel-color: FieldText;
+  --panel-background-color: Field;
+  --panel-text-color: FieldText;
 }
 
 #widget-overflow .webextension-popup-browser {
@@ -1460,9 +1450,7 @@ popupnotificationcontent {
 
     > .toolbarbutton-icon {
       /* Smart Window icon has additional 2px padding per side, to be slightly smaller than Classic Window icon when used in Switcher */
-      /* toolbarbutton tokens will be added in bug 2017970 */
-      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-      padding: var(--toolbarbutton-inner-padding);
+      padding: var(--toolbarbutton-padding-inner);
       /* The design system does not have any inset box-shadow tokens. */
       /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
       box-shadow: 0 0 16px 4px var(--smartwindow-toggle-shadow-color) inset;

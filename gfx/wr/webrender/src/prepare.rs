@@ -308,6 +308,7 @@ fn prepare_prim_for_render(
                 NormalBorderScratch::build_for_prim(
                     data_handle,
                     PrimitiveInstanceIndex(prim_instance_index as u32),
+                    prim_instance.prim_rect.size(),
                     data_stores,
                     scratch,
                 );
@@ -316,6 +317,7 @@ fn prepare_prim_for_render(
                 ImageBorderScratch::build_for_prim(
                     data_handle,
                     PrimitiveInstanceIndex(prim_instance_index as u32),
+                    prim_instance.prim_rect.size(),
                     data_stores,
                     scratch,
                 );
@@ -414,10 +416,7 @@ fn prepare_interned_prim_for_render(
             // For Inset, the prim was registered with `info.rect = element_rect`,
             // so prim_rect == element; inner = element.translate(box_offset)
             // .inflate(spread_amount); outer = inner.inflate(blur_offset).
-            let prim_rect = LayoutRect::from_origin_and_size(
-                prim_instance.prim_origin,
-                prim_data.common.prim_size,
-            );
+            let prim_rect = prim_instance.prim_rect;
             let blur_offset = (BLUR_SAMPLE_SCALE * blur_radius).ceil();
             let (inner_shadow_rect, outer_shadow_rect, element_rect) = match shadow_data.clip_mode {
                 BoxShadowClipMode::Outset => {
@@ -580,21 +579,46 @@ fn prepare_interned_prim_for_render(
                 }
             );
 
+            // Compensate for the rounding `create_quad_primitive` applies to
+            // prim_rect when `aa_flags` is empty: the shader receives the
+            // rounded p0 as `local_prim_rect.p0` (after the round-trip through
+            // device space and back via `pattern_scale_offset`) and
+            // reconstructs absolute positions via `local_prim_rect.p0 +
+            // offset`. Computing offsets against the un-rounded p0 mismatches
+            // by up to half a device pixel and produces a one-pixel seam on
+            // trailing edges (bug 2035734). The round must be done in device
+            // space to match `create_quad_primitive` for non-identity
+            // transforms (e.g. Gecko at 125% display scaling).
+            let prim_min_rounded = match quad_transform.as_2d_scale_offset() {
+                Some(local_to_device) => {
+                    // Use Point2D::round (euclid's Round trait, defined as
+                    // (n+0.5).floor()) to match what create_quad_primitive
+                    // uses on the rendered quad bounds. f32::round here would
+                    // round half-away-from-zero and disagree at negative
+                    // half-integer device-x values, causing a 1-pixel shift
+                    // when the shader reconstructs dest_rect.min as
+                    // local_prim_rect.p0 + dest_rect_offset.
+                    let dev: DevicePoint = local_to_device.map_point(&prim_rect.min);
+                    local_to_device.unmap_point::<DevicePixel, LayoutPixel>(&dev.round())
+                }
+                None => prim_rect.min,
+            };
+
             // For outset, prim_rect == dest_rect so offset is zero.
             // For inset, prim_rect is the element rect; dest_rect (outer_shadow_rect)
             // may be offset and smaller, so we pass its size and offset separately.
             let dest_rect = outer_shadow_rect;
             let dest_rect_offset = LayoutVector2D::new(
-                dest_rect.min.x - prim_rect.min.x,
-                dest_rect.min.y - prim_rect.min.y,
+                dest_rect.min.x - prim_min_rounded.x,
+                dest_rect.min.y - prim_min_rounded.y,
             );
             let dest_rect_size = dest_rect.size();
 
             let mut element_radius = shadow_data.element_radius;
             border::ensure_no_corner_overlap(&mut element_radius, element_rect.size());
             let element_offset_rel_prim = LayoutVector2D::new(
-                element_rect.min.x - prim_rect.min.x,
-                element_rect.min.y - prim_rect.min.y,
+                element_rect.min.x - prim_min_rounded.x,
+                element_rect.min.y - prim_min_rounded.y,
             );
 
             let pattern = BoxShadowPatternData {
@@ -630,26 +654,25 @@ fn prepare_interned_prim_for_render(
         }
         PrimitiveKind::LineDecoration { data_handle } => {
             profile_scope!("LineDecoration");
-            let prim_data = &mut data_stores.line_decoration[*data_handle];
-            let common_data = &mut prim_data.common;
-            let line_dec_data = &mut prim_data.kind;
+            let prim_data = &data_stores.line_decoration[*data_handle];
 
-            line_dec_data.update(common_data, frame_state);
-
-            let render_task = line_dec_data.prepare_render_task(
+            let (task_id, gpu_address) = prim_data.kind.prepare(
+                prim_instance.prim_rect.size(),
                 prim_spatial_node_index,
                 frame_context,
                 frame_state,
             );
-            let line_dec_handle = scratch.frame.line_decoration.push(LineDecorationScratch { task_id: render_task });
+
+            let line_dec_handle = scratch.frame.line_decoration.push(LineDecorationScratch {
+                task_id,
+                gpu_address,
+            });
             scratch.frame.draws[prim_instance_index.0 as usize].kind_scratch =
                 KindScratchHandle::LineDecoration(line_dec_handle);
         }
         PrimitiveKind::TextRun { data_handle } => {
             profile_scope!("TextRun");
             let prim_data = &mut data_stores.text_run[*data_handle];
-
-            prim_data.common.may_need_repetition = false;
 
             // The glyph transform has to match `glyph_transform` in "ps_text_run" shader.
             // It's relative to the rasterizing space of a glyph.
@@ -659,7 +682,7 @@ fn prepare_interned_prim_for_render(
                     pic_context.raster_spatial_node_index,
                 )
                 .into_fast_transform();
-            let prim_offset = prim_instance.prim_origin.to_vector();
+            let prim_offset = prim_instance.prim_rect.min.to_vector();
 
             let surface = &frame_state.surfaces[pic_context.surface_index.0];
 
@@ -725,7 +748,13 @@ fn prepare_interned_prim_for_render(
             let nb_scratch = scratch.frame.normal_border[nb_handle];
 
             let brush_segments = &scratch.frame.segments[nb_scratch.brush_segments_range];
-            border_data.write_brush_gpu_blocks(common_data, brush_segments, frame_state);
+            let gpu_address = border_data.write_brush_gpu_blocks(
+                common_data,
+                prim_instance.prim_rect.size(),
+                brush_segments,
+                frame_state,
+            );
+            scratch.frame.normal_border[nb_handle].gpu_address = gpu_address;
 
             // Hold split borrows on distinct fields of scratch.frame so
             // we can pass the border_segments slice and the task_ids
@@ -736,7 +765,6 @@ fn prepare_interned_prim_for_render(
                 ..
             } = scratch.frame;
             border_data.update(
-                common_data,
                 &border_segments[nb_scratch.border_segments_range],
                 prim_spatial_node_index,
                 device_pixel_scale,
@@ -762,18 +790,19 @@ fn prepare_interned_prim_for_render(
 
             // Update the template this instance references, which may refresh the GPU
             // cache with any shared template data.
-            prim_data.kind.update(
+            let gpu_address = prim_data.kind.update(
                 &mut prim_data.common,
+                prim_instance.prim_rect.size(),
                 brush_segments,
                 frame_state,
             );
+            scratch.frame.image_border[ib_handle].gpu_address = gpu_address;
         }
         PrimitiveKind::Rectangle { data_handle, .. } => {
             profile_scope!("Rectangle");
 
             if use_legacy_path {
                 let prim_data = &mut data_stores.prim[*data_handle];
-                prim_data.common.may_need_repetition = false;
 
                 // Update the template this instane references, which may refresh the GPU
                 // cache with any shared template data.
@@ -793,7 +822,7 @@ fn prepare_interned_prim_for_render(
                 );
             } else {
                 let prim_data = &data_stores.prim[*data_handle];
-                let prim_rect = LayoutRect::from_origin_and_size(prim_instance.prim_origin, prim_data.common.prim_size);
+                let prim_rect = prim_instance.prim_rect;
                 let color = prim_data.resolve(frame_context.scene_properties);
 
                 quad::prepare_quad(
@@ -822,8 +851,6 @@ fn prepare_interned_prim_for_render(
             let common_data = &mut prim_data.common;
             let yuv_image_data = &mut prim_data.kind;
 
-            common_data.may_need_repetition = false;
-
             // Update the template this instane references, which may refresh the GPU
             // cache with any shared template data.
             yuv_image_data.update(
@@ -850,10 +877,7 @@ fn prepare_interned_prim_for_render(
             let image_data = &mut prim_data.kind;
 
             if !use_legacy_path {
-                let prim_rect = LayoutRect::from_origin_and_size(
-                    prim_instance.prim_origin,
-                    common_data.prim_size,
-                );
+                let prim_rect = prim_instance.prim_rect;
 
                 crate::prim_store::image::prepare_image_quads(
                     &prim_rect,
@@ -881,7 +905,7 @@ fn prepare_interned_prim_for_render(
                 prim_spatial_node_index,
                 frame_state,
                 frame_context,
-                prim_instance.prim_origin,
+                prim_instance.prim_rect,
                 scratch,
             );
             scratch.frame.draws[prim_instance_index.0 as usize].kind_scratch =
@@ -901,14 +925,18 @@ fn prepare_interned_prim_for_render(
         PrimitiveKind::LinearGradient { data_handle, .. } => {
             profile_scope!("LinearGradient");
             let prim_data = &mut data_stores.linear_grad[*data_handle];
-            let prim_rect = LayoutRect::from_origin_and_size(prim_instance.prim_origin, prim_data.common.prim_size);
+            let prim_rect = prim_instance.prim_rect;
+            let stretch_size = LayoutSize::new(
+                prim_data.stretch_ratio.width * prim_rect.size().width,
+                prim_data.stretch_ratio.height * prim_rect.size().height,
+            );
 
             if let Some(nine_patch) = &prim_data.border_nine_patch {
                 quad::prepare_border_image_nine_patch(
                     &*nine_patch,
                     prim_data,
                     &prim_rect,
-                    prim_data.stretch_size,
+                    stretch_size,
                     prim_data.common.aligned_aa_edges,
                     prim_data.common.transformed_aa_edges,
                     prim_instance_index,
@@ -952,11 +980,11 @@ fn prepare_interned_prim_for_render(
                 None
             };
 
-            let local_rect = LayoutRect::from_origin_and_size(prim_instance.prim_origin, prim_data.common.prim_size);
+            let local_rect = prim_instance.prim_rect;
             quad::prepare_repeatable_quad(
                 prim_data,
                 &local_rect,
-                prim_data.stretch_size,
+                stretch_size,
                 prim_data.tile_spacing,
                 prim_data.common.aligned_aa_edges,
                 prim_data.common.transformed_aa_edges,
@@ -977,14 +1005,18 @@ fn prepare_interned_prim_for_render(
         PrimitiveKind::RadialGradient { data_handle, .. } => {
             profile_scope!("RadialGradient");
             let prim_data = &mut data_stores.radial_grad[*data_handle];
-            let local_rect = LayoutRect::from_origin_and_size(prim_instance.prim_origin, prim_data.common.prim_size);
+            let local_rect = prim_instance.prim_rect;
+            let stretch_size = LayoutSize::new(
+                prim_data.stretch_ratio.width * local_rect.size().width,
+                prim_data.stretch_ratio.height * local_rect.size().height,
+            );
 
             if let Some(nine_patch) = &prim_data.border_nine_patch {
                 quad::prepare_border_image_nine_patch(
                     &*nine_patch,
                     prim_data,
                     &local_rect,
-                    prim_data.stretch_size,
+                    stretch_size,
                     prim_data.common.aligned_aa_edges,
                     prim_data.common.transformed_aa_edges,
                     prim_instance_index,
@@ -1003,7 +1035,7 @@ fn prepare_interned_prim_for_render(
             quad::prepare_repeatable_quad(
                 prim_data,
                 &local_rect,
-                prim_data.stretch_size,
+                stretch_size,
                 prim_data.tile_spacing,
                 prim_data.common.aligned_aa_edges,
                 prim_data.common.transformed_aa_edges,
@@ -1023,14 +1055,18 @@ fn prepare_interned_prim_for_render(
         PrimitiveKind::ConicGradient { data_handle, .. } => {
             profile_scope!("ConicGradient");
             let prim_data = &mut data_stores.conic_grad[*data_handle];
-            let prim_rect = LayoutRect::from_origin_and_size(prim_instance.prim_origin, prim_data.common.prim_size);
+            let prim_rect = prim_instance.prim_rect;
+            let stretch_size = LayoutSize::new(
+                prim_data.stretch_ratio.width * prim_rect.size().width,
+                prim_data.stretch_ratio.height * prim_rect.size().height,
+            );
 
             if let Some(nine_patch) = &prim_data.border_nine_patch {
                 quad::prepare_border_image_nine_patch(
                     &*nine_patch,
                     prim_data,
                     &prim_rect,
-                    prim_data.stretch_size,
+                    stretch_size,
                     prim_data.common.aligned_aa_edges,
                     prim_data.common.transformed_aa_edges,
                     prim_instance_index,
@@ -1079,11 +1115,11 @@ fn prepare_interned_prim_for_render(
                 None
             };
 
-            let local_rect = LayoutRect::from_origin_and_size(prim_instance.prim_origin, prim_data.common.prim_size);
+            let local_rect = prim_instance.prim_rect;
             quad::prepare_repeatable_quad(
                 prim_data,
                 &local_rect,
-                prim_data.stretch_size,
+                stretch_size,
                 prim_data.tile_spacing,
                 prim_data.common.aligned_aa_edges,
                 prim_data.common.transformed_aa_edges,

@@ -60,6 +60,7 @@ class MarketingAttributionHandler(
         return MetaParams.extractMetaAttribution(utmParams.content) != null
     }
 
+    @Suppress("ReturnCount")
     private suspend fun shouldShowMarketingOnboarding(
         installReferrerResponse: String?,
         distributionIdManager: DistributionIdManager,
@@ -70,6 +71,10 @@ class MarketingAttributionHandler(
 
         if (distributionIdManager.isPartnershipDistribution()) {
             return !distributionIdManager.shouldSkipMarketingConsentScreen()
+        }
+
+        if (isMetaAttribution(installReferrerResponse)) {
+            return true
         }
 
         return marketingPrefixes.any { installReferrerResponse.startsWith(it, ignoreCase = true) }

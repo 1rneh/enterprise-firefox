@@ -93,7 +93,7 @@ class PropertyEnumerator {
   uint32_t flags_;
   Rooted<PropertyKeySet> visited_;
 
-  uint32_t ownPropertyCount_;
+  uint32_t ownPropertyCount_ = 0;
 
   bool enumeratingProtoChain_ = false;
   bool forObjectKeys_ = false;

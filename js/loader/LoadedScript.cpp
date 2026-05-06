@@ -156,15 +156,19 @@ LoadedScript::LoadedScript(ScriptKind aKind, nsIURI* aURI)
 
 LoadedScript::LoadedScript(const LoadedScript& aOther)
     : mDataType(DataType::eCachedStencil),
+      mFetchCount(aOther.mFetchCount),
       mKind(aOther.mKind),
+      mCachedReferrerPolicy(aOther.mCachedReferrerPolicy),
       mSerializedStencilOffset(0),
       mCacheEntryId(aOther.mCacheEntryId),
       mIsDirty(aOther.mIsDirty),
       mTookLongInPreviousRuns(aOther.mTookLongInPreviousRuns),
       mIsEverHitFromMemoryCache(aOther.mIsEverHitFromMemoryCache),
       mURI(aOther.mURI),
+      mCachedBaseURL(aOther.mCachedBaseURL),
       mReceivedScriptTextLength(0),
-      mCachedStencil(aOther.mCachedStencil) {
+      mCachedStencil(aOther.mCachedStencil),
+      mCacheEntry(aOther.mCacheEntry) {
   MOZ_ASSERT(mURI);
   // NOTE: This is only for the cached stencil case.
   //       The script text and the serialized stencil are not reflected.
@@ -349,17 +353,30 @@ ModuleScript::ModuleScript(const LoadedScript& aOther,
 already_AddRefed<ModuleScript> ModuleScript::FromCache(
     const LoadedScript& aScript, ScriptFetchInfo* aFetchInfo) {
   MOZ_DIAGNOSTIC_ASSERT(aScript.IsModuleScript());
+  // IsInvalidatedCachedStencil case shouldn't reach here, because that case
+  // should be filtered out immediately after the cache lookup, and then
+  // this should be called synchronously and immediately after that.
   MOZ_DIAGNOSTIC_ASSERT(aScript.IsCachedStencil());
 
   return mozilla::MakeRefPtr<ModuleScript>(aScript, aFetchInfo).forget();
 }
 
-already_AddRefed<LoadedScript> ModuleScript::ToCache() {
+LoadedScript* LoadedScript::ModuleScriptToCache() {
   MOZ_DIAGNOSTIC_ASSERT(IsCachedStencil());
-  MOZ_DIAGNOSTIC_ASSERT(!HasParseError());
-  MOZ_DIAGNOSTIC_ASSERT(!HasErrorToRethrow());
+  MOZ_DIAGNOSTIC_ASSERT(IsModuleScript());
+  MOZ_DIAGNOSTIC_ASSERT(!AsModuleScript()->HasParseError());
+  MOZ_DIAGNOSTIC_ASSERT(!AsModuleScript()->HasErrorToRethrow());
 
-  return mozilla::MakeRefPtr<LoadedScript>(*this).forget();
+  LoadedScript* result = new LoadedScript(*this);
+
+  if (HasSRI()) {
+    // SRI is used only for the disk cache handling, which is performed by the
+    // SharedScriptCache, and the original ModuleScript no longer neeed the
+    // data.
+    result->mSRIAndSerializedStencil = std::move(mSRIAndSerializedStencil);
+  }
+
+  return result;
 }
 
 void ModuleScript::Shutdown() {

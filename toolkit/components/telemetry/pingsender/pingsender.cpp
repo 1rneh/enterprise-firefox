@@ -196,7 +196,7 @@ int main(int argc, char* argv[]) {
   if ((argc >= 3) && ((argc - 1) % 2 == 0)) {
     for (int i = 1; i < argc; i += 2) {
       Ping ping(argv[i], argv[i + 1]);
-      pings.push_back(ping);
+      pings.push_back(std::move(ping));
     }
   } else {
     PINGSENDER_LOG(

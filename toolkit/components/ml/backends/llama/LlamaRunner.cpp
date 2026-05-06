@@ -118,7 +118,7 @@ nsresult LlamaGenerateTask::Run() {
                          __PRETTY_FUNCTION__);
         LOGE_RUNNER("{}", msg);
         // graceful termination
-        return mozilla::Err(Error{msg});
+        return mozilla::Err(Error{std::move(msg)});
       }
     }
 
@@ -129,7 +129,7 @@ nsresult LlamaGenerateTask::Run() {
       auto msg = nsFmtCString("{}: Unable to append message to the response",
                               __PRETTY_FUNCTION__);
       LOGE_RUNNER("{}", msg);
-      return mozilla::Err(Error{msg});
+      return mozilla::Err(Error{std::move(msg)});
     }
 
     response.mPhase = chunk.mPhase;
@@ -179,7 +179,7 @@ nsresult LlamaGenerateTask::Run() {
         __PRETTY_FUNCTION__);
     LOGE_RUNNER("{}", msg);
 
-    mErrorMessage = msg;
+    mErrorMessage = std::move(msg);
     mState = TaskState::CompletedFailure;
   }
 

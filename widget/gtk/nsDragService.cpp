@@ -1938,7 +1938,7 @@ static nsresult GetDownloadDetails(nsITransferable* aTransferable,
   }
 
   sourceURI.swap(*aSourceURI);
-  aFilename = srcFileName;
+  aFilename = std::move(srcFileName);
   return NS_OK;
 }
 

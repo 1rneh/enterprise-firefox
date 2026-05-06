@@ -3660,8 +3660,10 @@ static inline JSObject* NewObservableArrayProxyObject(
   }
 
   JS::Rooted<JS::Value> targetValue(aCx, JS::ObjectValue(*target));
+  js::ProxyOptions options;
+  options.setLazyProto(true);
   JS::Rooted<JSObject*> proxy(
-      aCx, js::NewProxyObject(aCx, aHandler, targetValue, nullptr));
+      aCx, js::NewProxyObject(aCx, aHandler, targetValue, nullptr, options));
   if (!proxy) {
     return nullptr;
   }

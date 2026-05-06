@@ -830,16 +830,16 @@ void PresShell::Init(nsPresContext* aPresContext) {
       AccessibleCaretEnabled(mDocument->GetDocShell());
   if (accessibleCaretEnabled) {
     // Need to happen before nsFrameSelection has been set up.
-    mAccessibleCaretEventHub = new AccessibleCaretEventHub(this);
+    mAccessibleCaretEventHub = MakeRefPtr<AccessibleCaretEventHub>(this);
     mAccessibleCaretEventHub->Init();
   }
 
-  mSelection = new nsFrameSelection(this, accessibleCaretEnabled);
+  mSelection = MakeRefPtr<nsFrameSelection>(this, accessibleCaretEnabled);
 
   // Important: this has to happen after the selection has been set up
 #ifdef SHOW_CARET
   // make the caret
-  mCaret = new nsCaret();
+  mCaret = MakeRefPtr<nsCaret>();
   mCaret->Init(this);
   mOriginalCaret = mCaret;
 
@@ -910,7 +910,7 @@ void PresShell::Init(nsPresContext* aPresContext) {
   mTouchManager.Init(this, mDocument);
 
   if (mPresContext->IsRootContentDocumentCrossProcess()) {
-    mZoomConstraintsClient = new ZoomConstraintsClient();
+    mZoomConstraintsClient = MakeRefPtr<ZoomConstraintsClient>();
     mZoomConstraintsClient->Init(this, mDocument);
 
     // We call this to create mMobileViewportManager, if it is needed.
@@ -1404,6 +1404,22 @@ bool PresShell::FixUpFocus() {
   nsCOMPtr<nsPIDOMWindowOuter> window = mDocument->GetWindow();
   if (NS_WARN_IF(!window)) {
     return false;
+  }
+  // XXX: This is a temporary fix to avoid regressions with sequential
+  //      focus navigation. (But maybe this should still happen when caret
+  //      browsing is enabled?) See bug 2034851.
+  // Don't move document selection to native anonymous subtree.
+  if (RefPtr element = fm->GetFocusedElement();
+      element && !element->IsInNativeAnonymousSubtree()) {
+    RefPtr selection = window->GetSelection();
+    if (MOZ_LIKELY(selection)) {
+      // Move selection to the element so that focus navigation starts from
+      // there.
+      selection->SetAncestorLimiter(nullptr);
+      DebugOnly<nsresult> rv = selection->CollapseInLimiter(element, 0);
+      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                           "Selection::CollapseInLimiter failed.");
+    }
   }
   fm->ClearFocus(window);
   return true;
@@ -7414,7 +7430,7 @@ nsresult PresShell::EnsurePrecedingPointerRawUpdate(
           !TouchManager::ShouldConvertTouchToPointer(touch, &touchRawUpdate)) {
         continue;
       }
-      RefPtr<Touch> newTouch = new Touch(*touch);
+      auto newTouch = MakeRefPtr<Touch>(*touch);
       newTouch->mMessage = eTouchRawUpdate;
       newTouch->mCoalescedWidgetEvents = nullptr;
       touchRawUpdate.mTouches.AppendElement(std::move(newTouch));
@@ -11877,8 +11893,9 @@ void PresShell::MaybeRecreateMobileViewportManager(bool aAfterInitialization) {
     // have one.
     MOZ_ASSERT(!mMobileViewportManager);
 
-    mMVMContext = new GeckoMVMContext(mDocument, this);
-    mMobileViewportManager = new MobileViewportManager(mMVMContext, *mvmType);
+    mMVMContext = MakeRefPtr<GeckoMVMContext>(mDocument, this);
+    mMobileViewportManager =
+        MakeRefPtr<MobileViewportManager>(mMVMContext, *mvmType);
     if (MOZ_UNLIKELY(
             MOZ_LOG_TEST(MobileViewportManager::gLog, LogLevel::Debug))) {
       nsIURI* uri = mDocument->GetDocumentURI();

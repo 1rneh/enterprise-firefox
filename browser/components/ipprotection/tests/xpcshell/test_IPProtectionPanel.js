@@ -16,7 +16,6 @@ const { IPProtectionServerlist } = ChromeUtils.importESModule(
 class FakeIPProtectionPanelElement {
   constructor() {
     this.state = {
-      isSignedOut: true,
       isProtectionEnabled: false,
     };
     this.isConnected = false;
@@ -217,10 +216,7 @@ add_task(async function test_updateComponentState() {
  */
 add_task(async function test_IPProtectionPanel_signedIn() {
   let sandbox = sinon.createSandbox();
-  sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => true);
-  sandbox
-    .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
-    .get(() => true);
+  sandbox.stub(IPPFxaAuthProvider, "isReady").get(() => true);
   sandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });
@@ -241,15 +237,15 @@ add_task(async function test_IPProtectionPanel_signedIn() {
   await signedInEventPromise;
 
   Assert.equal(
-    ipProtectionPanel.state.isSignedOut,
+    ipProtectionPanel.state.unauthenticated,
     false,
-    "isSignedOut should be false in the IPProtectionPanel state"
+    "unauthenticated should be false in the IPProtectionPanel state"
   );
 
   Assert.equal(
-    fakeElement.state.isSignedOut,
+    fakeElement.state.unauthenticated,
     false,
-    "isSignedOut should be false in the fake elements state"
+    "unauthenticated should be false in the fake elements state"
   );
 
   sandbox.restore();
@@ -260,7 +256,7 @@ add_task(async function test_IPProtectionPanel_signedIn() {
  */
 add_task(async function test_IPProtectionPanel_signedOut() {
   let sandbox = sinon.createSandbox();
-  sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => false);
+  sandbox.stub(IPPFxaAuthProvider, "isReady").get(() => false);
 
   let ipProtectionPanel = new IPProtectionPanel();
   let fakeElement = new FakeIPProtectionPanelElement();
@@ -279,15 +275,15 @@ add_task(async function test_IPProtectionPanel_signedOut() {
   await signedOutEventPromise;
 
   Assert.equal(
-    ipProtectionPanel.state.isSignedOut,
+    ipProtectionPanel.state.unauthenticated,
     true,
-    "isSignedOut should be true in the IPProtectionPanel state"
+    "unauthenticated should be true in the IPProtectionPanel state"
   );
 
   Assert.equal(
-    fakeElement.state.isSignedOut,
+    fakeElement.state.unauthenticated,
     true,
-    "isSignedOut should be true in the fake elements state"
+    "unauthenticated should be true in the fake elements state"
   );
 
   sandbox.restore();
@@ -304,10 +300,8 @@ add_task(async function test_IPProtectionPanel_started_stopped() {
   fakeElement.isConnected = true;
 
   let sandbox = sinon.createSandbox();
-  sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => true);
-  sandbox
-    .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
-    .get(() => true);
+  sandbox.stub(IPPFxaAuthProvider, "isReady").get(() => true);
+  sandbox.stub(IPPFxaAuthProvider, "aboutToStart").resolves(null);
   sandbox
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });

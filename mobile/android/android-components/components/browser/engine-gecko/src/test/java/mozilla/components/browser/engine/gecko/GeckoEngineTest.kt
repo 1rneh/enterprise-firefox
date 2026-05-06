@@ -8,6 +8,7 @@ import android.app.Activity
 import android.content.Context
 import android.graphics.Color
 import android.os.Looper.getMainLooper
+import androidx.annotation.OptIn
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.browser.engine.gecko.ext.getAntiTrackingPolicy
@@ -85,6 +86,7 @@ import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.ContentBlocking.CookieBehavior
 import org.mozilla.geckoview.ContentBlockingController
 import org.mozilla.geckoview.ContentBlockingController.Event
+import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import org.mozilla.geckoview.GeckoPreferenceController.GeckoPreference
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
@@ -230,6 +232,7 @@ class GeckoEngineTest {
         assertEquals("Gecko", GeckoEngine(context, runtime = runtime).name())
     }
 
+    @OptIn(ExperimentalGeckoViewApi::class)
     @Test
     fun settings() {
         val defaultSettings = DefaultSettings()
@@ -356,6 +359,15 @@ class GeckoEngineTest {
 
         assertEquals(contentBlockingSettings.emailTrackerBlockingPrivateBrowsingEnabled, engine.settings.emailTrackerBlockingPrivateBrowsing)
 
+        // Verify safe browsing simulation defaults
+        assertFalse(contentBlockingSettings.safeBrowsingGlobalCacheEnabled)
+        assertFalse(contentBlockingSettings.safeBrowsingRealTimeEnabled)
+        assertFalse(contentBlockingSettings.safeBrowsingRealTimeSimulationEnabled)
+        assertEquals(5, contentBlockingSettings.safeBrowsingRealTimeSimulationHitProbability)
+        assertEquals(300, contentBlockingSettings.safeBrowsingRealTimeSimulationCacheTTLSec)
+        assertFalse(contentBlockingSettings.safeBrowsingRealTimeSimulationNegativeCacheEnabled)
+        assertEquals(300, contentBlockingSettings.safeBrowsingRealTimeSimulationNegativeCacheTTLSec)
+
         try {
             engine.settings.domStorageEnabled
             fail("Expected UnsupportedOperationException")
@@ -369,6 +381,31 @@ class GeckoEngineTest {
         } catch (e: UnsupportedSettingException) {
             // Ignore exception
         }
+    }
+
+    @OptIn(ExperimentalGeckoViewApi::class)
+    @Test
+    fun `WHEN safe browsing simulation settings are set via DefaultSettings THEN they must be propagated to contentBlockingSettings`() {
+        val contentBlockingSettings = ContentBlocking.Settings.Builder().build()
+        val runtime = mock<GeckoRuntime>()
+        val runtimeSettings = mock<GeckoRuntimeSettings>()
+        whenever(runtimeSettings.javaScriptEnabled).thenReturn(true)
+        whenever(runtime.settings).thenReturn(runtimeSettings)
+        whenever(runtimeSettings.contentBlocking).thenReturn(contentBlockingSettings)
+        whenever(runtimeSettings.fontInflationEnabled).thenReturn(true)
+
+        val defaultSettings = DefaultSettings(
+            safeBrowsingRealTimeSimulationHitProbability = 50,
+            safeBrowsingRealTimeSimulationCacheTTLSec = 600,
+            safeBrowsingRealTimeSimulationNegativeCacheEnabled = true,
+            safeBrowsingRealTimeSimulationNegativeCacheTTLSec = 120,
+        )
+        GeckoEngine(context, defaultSettings, runtime)
+
+        assertEquals(50, contentBlockingSettings.safeBrowsingRealTimeSimulationHitProbability)
+        assertEquals(600, contentBlockingSettings.safeBrowsingRealTimeSimulationCacheTTLSec)
+        assertTrue(contentBlockingSettings.safeBrowsingRealTimeSimulationNegativeCacheEnabled)
+        assertEquals(120, contentBlockingSettings.safeBrowsingRealTimeSimulationNegativeCacheTTLSec)
     }
 
     @Test
@@ -4215,7 +4252,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.registerPrefForObservation(
         anyString(),
         onSuccess = { onSuccessCalled = true },
@@ -4248,7 +4285,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.registerPrefsForObservation(
             anyList<String>(),
             onSuccess = { onSuccessCalled = true },
@@ -4280,7 +4317,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.registerPrefForObservation(
             anyString(),
             onSuccess = { onSuccessCalled = true },
@@ -4312,7 +4349,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.registerPrefsForObservation(
             anyList<String>(),
             onSuccess = { onSuccessCalled = true },
@@ -4345,7 +4382,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.unregisterPrefForObservation(
             anyString(),
             onSuccess = { onSuccessCalled = true },
@@ -4378,7 +4415,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.unregisterPrefsForObservation(
             anyList<String>(),
             onSuccess = { onSuccessCalled = true },
@@ -4410,7 +4447,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.unregisterPrefForObservation(
             anyString(),
             onSuccess = { onSuccessCalled = true },
@@ -4442,7 +4479,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.unregisterPrefsForObservation(
             anyList<String>(),
             onSuccess = { onSuccessCalled = true },
@@ -4476,7 +4513,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.getBrowserPref(
             geckoPref,
             onSuccess = {
@@ -4512,7 +4549,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.getBrowserPrefs(
             prefs = geckoPrefs,
             onSuccess = {
@@ -4549,7 +4586,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.setBrowserPref(
             "test.test.test",
             1,
@@ -4597,7 +4634,7 @@ class GeckoEngineTest {
             ),
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.setBrowserPrefs(
             prefs = request,
             onSuccess = {
@@ -4641,7 +4678,7 @@ class GeckoEngineTest {
             ),
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.setBrowserPrefs(
             prefs = request,
             onSuccess = {
@@ -4678,7 +4715,7 @@ class GeckoEngineTest {
             geckoPreferenceAccessor = geckoPreferenceAccessor,
         )
 
-        @OptIn(ExperimentalAndroidComponentsApi::class)
+        @kotlin.OptIn(ExperimentalAndroidComponentsApi::class)
         engine.clearBrowserUserPref(
             "test.test.test",
             onSuccess = {

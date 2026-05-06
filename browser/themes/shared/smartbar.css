@@ -28,7 +28,7 @@
   --urlbarview-background-color-hover: light-dark(var(--color-violet-0), var(--button-background-color-hover));
   --urlbarview-background-color-selected: light-dark(var(--color-violet-10), var(--button-background-color-active));
   /* This aligns with the hover color assignment. This will likely be refactored once Nova lands */
-  --urlbarview-text-color-selected: var(--toolbar-field-focus-color);
+  --urlbarview-text-color-selected: var(--toolbar-field-text-color-focus);
   --urlbarView-item-inline-padding: var(--space-small);
   --urlbarView-item-block-padding: var(--space-small);
   --urlbarView-labeled-row-margin-top: 0;

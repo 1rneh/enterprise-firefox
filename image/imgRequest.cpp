@@ -850,7 +850,7 @@ struct NewPartResult final {
         mShouldResetCacheEntry(false) {}
 
   nsAutoCString mContentType;
-  int64_t mContentLength;
+  int64_t mContentLength = 0;
   nsAutoCString mContentDisposition;
   RefPtr<image::Image> mImage;
   const bool mIsFirstPart;

@@ -99,7 +99,19 @@ class InlineOptionsBrowser extends HTMLElement {
     browser.setAttribute("class", "addon-inline-options");
     browser.setAttribute("transparent", "true");
     browser.setAttribute("forcemessagemanager", "true");
-    browser.setAttribute("autocompletepopup", "PopupAutoComplete");
+    // autocompletepopup="PopupAutoComplete" is the intended effect, except it
+    // would trigger a lookup in the current (about:addons) document, while the
+    // PopupAutoComplete element is defined in the browser window. Override the
+    // getter to return the desired element from the browser window instead.
+    Object.defineProperty(browser, "autoCompletePopup", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return this.browsingContext.topChromeWindow.document.getElementById(
+          "PopupAutoComplete"
+        );
+      },
+    });
 
     let { optionsURL, optionsBrowserStyle } = addon;
     if (addon.isWebExtension) {

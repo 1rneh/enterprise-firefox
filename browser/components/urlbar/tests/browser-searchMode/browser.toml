@@ -71,9 +71,6 @@ support-files = ["has-a-link.html"]
 ["browser_searchModeSwitcher_emptyInput.js"]
 
 ["browser_searchModeSwitcher_keyNavigation.js"]
-skip-if = [
-  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt", # Bug 2028824 - fails permanently with Windows 11 25H2
-]
 
 ["browser_searchModeSwitcher_opensearchInstall.js"]
 

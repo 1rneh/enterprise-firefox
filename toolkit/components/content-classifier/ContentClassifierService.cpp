@@ -710,7 +710,9 @@ class FilterListLoader final : public nsIStreamLoaderObserver {
   }
 
  private:
-  ~FilterListLoader() = default;
+  ~FilterListLoader() {
+    mPromiseHolder.RejectIfExists(NS_ERROR_ABORT, __func__);
+  }
 
   nsTArray<nsCString>* mRules;
   MozPromiseHolder<GenericPromise> mPromiseHolder;

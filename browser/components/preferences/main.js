@@ -47,6 +47,11 @@ ChromeUtils.importESModule(
   { global: "current" }
 );
 
+ChromeUtils.importESModule(
+  "chrome://browser/content/preferences/config/appearance.mjs",
+  { global: "current" }
+);
+
 // Constants & Enumeration Values
 const TYPE_PDF = "application/pdf";
 
@@ -57,8 +62,6 @@ const PREF_CONTAINERS_EXTENSION = "privacy.userContext.extension";
 
 // Strings to identify ExtensionSettingsStore overrides
 const CONTAINERS_KEY = "privacy.containers";
-
-const FORCED_COLORS_QUERY = matchMedia("(forced-colors)");
 
 const ICON_URL_APP =
   AppConstants.platform == "linux"
@@ -148,9 +151,6 @@ Preferences.addAll([
   { id: "browser.tabs.groups.smart.enabled", type: "bool" },
   { id: "privacy.userContext.ui.enabled", type: "bool" },
 
-  { id: "sidebar.verticalTabs", type: "bool" },
-  { id: "sidebar.revamp", type: "bool" },
-
   // CFR
   {
     id: "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons",
@@ -205,9 +205,6 @@ Preferences.addAll([
     id: "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled",
     type: "bool",
   },
-
-  // Appearance
-  { id: "layout.css.prefers-color-scheme.content-override", type: "int" },
 ]);
 
 if (AppConstants.HAVE_SHELL_SERVICE) {
@@ -539,79 +536,6 @@ Preferences.addSetting({
   pref: "browser.download.always_ask_before_handling_new_types",
 });
 
-Preferences.addSetting({
-  id: "browserLayoutRadioGroup",
-  pref: "sidebar.verticalTabs",
-  get: prefValue => (prefValue ? "true" : "false"),
-  set: value => value === "true",
-});
-Preferences.addSetting({
-  id: "browserLayoutShowSidebar",
-  pref: "sidebar.revamp",
-  onUserChange(checked) {
-    if (checked) {
-      window.browsingContext.topChromeWindow.SidebarController?.enabledViaSettings(
-        true
-      );
-    }
-  },
-});
-Preferences.addSetting({
-  id: "web-appearance-override-warning",
-  setup: emitChange => {
-    FORCED_COLORS_QUERY.addEventListener("change", emitChange);
-    return () => FORCED_COLORS_QUERY.removeEventListener("change", emitChange);
-  },
-  visible: () => {
-    return FORCED_COLORS_QUERY.matches;
-  },
-});
-
-Preferences.addSetting(
-  /** @type {{ themeNames: string[] } & SettingConfig}} */ ({
-    id: "web-appearance-chooser",
-    themeNames: ["dark", "light", "auto"],
-    pref: "layout.css.prefers-color-scheme.content-override",
-    setup(emitChange) {
-      Services.obs.addObserver(emitChange, "look-and-feel-changed");
-      return () =>
-        Services.obs.removeObserver(emitChange, "look-and-feel-changed");
-    },
-    get(val, _, setting) {
-      return (
-        this.themeNames[val] ||
-        this.themeNames[/** @type {number} */ (setting.pref.defaultValue)]
-      );
-    },
-    /** @param {string} val */
-    set(val) {
-      return this.themeNames.indexOf(val);
-    },
-    getControlConfig(config) {
-      // Set the auto theme image to the light/dark that matches.
-      let systemThemeIndex = Services.appinfo
-        .contentThemeDerivedColorSchemeIsDark
-        ? 2
-        : 1;
-      config.options[0].controlAttrs = {
-        ...config.options[0].controlAttrs,
-        imagesrc: config.options[systemThemeIndex].controlAttrs.imagesrc,
-      };
-      return config;
-    },
-  })
-);
-
-Preferences.addSetting({
-  id: "web-appearance-manage-themes-link",
-  onUserClick: e => {
-    e.preventDefault();
-    // @ts-ignore topChromeWindow global
-    window.browsingContext.topChromeWindow.BrowserAddonUI.openAddonsMgr(
-      "addons://list/theme"
-    );
-  },
-});
 Preferences.addSetting({
   id: "containersPane",
   onUserClick(e) {
@@ -1791,97 +1715,6 @@ SettingGroupManager.registerGroups({
   startup: createStartupConfig(
     Services.prefs.getBoolPref("browser-settings-redesign.enabled", false)
   ),
-  browserLayout: {
-    l10nId: "browser-layout-header2",
-    headingLevel: 2,
-    items: [
-      {
-        id: "browserLayoutRadioGroup",
-        control: "moz-visual-picker",
-        options: [
-          {
-            id: "browserLayoutHorizontalTabs",
-            value: "false",
-            l10nId: "browser-layout-horizontal-tabs2",
-            controlAttrs: {
-              class: "setting-chooser-item",
-              imagesrc:
-                "chrome://browser/content/preferences/browser-layout-horizontal.svg",
-            },
-          },
-          {
-            id: "browserLayoutVerticalTabs",
-            value: "true",
-            l10nId: "browser-layout-vertical-tabs2",
-            controlAttrs: {
-              class: "setting-chooser-item",
-              imagesrc:
-                "chrome://browser/content/preferences/browser-layout-vertical.svg",
-            },
-          },
-        ],
-      },
-      {
-        id: "browserLayoutShowSidebar",
-        l10nId: "browser-layout-show-sidebar2",
-      },
-    ],
-  },
-  appearance: {
-    l10nId: "appearance-group",
-    headingLevel: 2,
-    items: [
-      {
-        id: "web-appearance-override-warning",
-        l10nId: "preferences-web-appearance-override-warning3",
-        control: "moz-message-bar",
-      },
-      {
-        id: "web-appearance-chooser",
-        control: "moz-visual-picker",
-        options: [
-          {
-            value: "auto",
-            l10nId: "preferences-web-appearance-choice-auto2",
-            controlAttrs: {
-              id: "preferences-web-appearance-choice-auto",
-              class: "setting-chooser-item",
-              imagesrc:
-                "chrome://browser/content/preferences/web-appearance-light.svg",
-            },
-          },
-          {
-            value: "light",
-            l10nId: "preferences-web-appearance-choice-light2",
-            controlAttrs: {
-              id: "preferences-web-appearance-choice-light",
-              class: "setting-chooser-item",
-              imagesrc:
-                "chrome://browser/content/preferences/web-appearance-light.svg",
-            },
-          },
-          {
-            value: "dark",
-            l10nId: "preferences-web-appearance-choice-dark2",
-            controlAttrs: {
-              id: "preferences-web-appearance-choice-dark",
-              class: "setting-chooser-item",
-              imagesrc:
-                "chrome://browser/content/preferences/web-appearance-dark.svg",
-            },
-          },
-        ],
-      },
-      {
-        id: "web-appearance-manage-themes-link",
-        l10nId: "preferences-web-appearance-link",
-        control: "moz-box-link",
-        controlAttrs: {
-          href: "about:addons",
-        },
-      },
-    ],
-  },
   applications: {
     id: "applicationsGroup",
     l10nId: "applications-setting",

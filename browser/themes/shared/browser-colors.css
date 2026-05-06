@@ -10,10 +10,10 @@
    * on platforms where the native theme is not active (e.g. macOS). */
   :root {
     &:where([customtitlebar]) {
-      --toolbox-bgcolor: ActiveCaption;
-      --toolbox-textcolor: CaptionText;
-      --toolbox-bgcolor-inactive: InactiveCaption;
-      --toolbox-textcolor-inactive: InactiveCaptionText;
+      --toolbox-background-color: ActiveCaption;
+      --toolbox-text-color: CaptionText;
+      --toolbox-background-color-inactive: InactiveCaption;
+      --toolbox-text-color-inactive: InactiveCaptionText;
     }
   }
 }
@@ -79,7 +79,7 @@
     --tabs-navbar-separator-style: none;
 
     &:where([customtitlebar]) {
-      --toolbox-bgcolor-inactive: light-dark(rgb(235, 235, 239), rgb(31, 30, 37));
+      --toolbox-background-color-inactive: light-dark(rgb(235, 235, 239), rgb(31, 30, 37));
     }
 
     /* stylelint-disable-next-line media-query-no-invalid */

@@ -2237,7 +2237,14 @@ export const SearchService = new (class SearchService {
         if (engine instanceof lazy.AddonSearchEngine) {
           // If this is an add-on search engine, check to see if it needs
           // an update.
-          await engine.update();
+          await engine
+            .update()
+            .catch(ex =>
+              lazy.logConsole.error(
+                `Failed to update add-on search engine ${engine.id}`,
+                ex
+              )
+            );
         }
         continue;
       }

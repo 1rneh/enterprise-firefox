@@ -3856,7 +3856,7 @@ class WasmStructMemoryView : public MDefinitionVisitorDefaultNoop {
 
  private:
   TempAllocator& alloc_;
-  MInstruction* struct_;
+  MWasmNewStructObject* struct_;
   MConstant* undefinedVal_;
   MBasicBlock* startBlock_;
   BlockState* state_;
@@ -3864,7 +3864,7 @@ class WasmStructMemoryView : public MDefinitionVisitorDefaultNoop {
   bool oom_;
 
  public:
-  WasmStructMemoryView(TempAllocator& alloc, MInstruction* wasmStruct);
+  WasmStructMemoryView(TempAllocator& alloc, MWasmNewStructObject* wasmStruct);
 
   MBasicBlock* startingBlock();
   bool initStartingState(BlockState** pState);
@@ -3908,7 +3908,7 @@ bool WasmStructMemoryView::initStartingState(BlockState** pState) {
   // Create a new block state and insert at it at the location of the new
   // struct.
   BlockState* state = BlockState::New(alloc_, struct_);
-  if (!state || !state->init()) {
+  if (!state) {
     return false;
   }
 
@@ -3996,7 +3996,63 @@ void WasmStructMemoryView::visitWasmLoadField(MWasmLoadField* ins) {
 
   MDefinition* value = state_->getField(ins->structFieldIndex().value());
 
-  // Replace load by the field value.
+  // Packed fields (i8/i16) require widening. Since we're eliding the load,
+  // insert MIR to apply the equivalent widening operation.
+  MWideningOp wideningOp = ins->wideningOp();
+  if (wideningOp != MWideningOp::None) {
+    // Widening only goes to Int32.
+    MOZ_ASSERT(ins->type() == MIRType::Int32);
+
+    MBasicBlock* block = ins->block();
+    switch (wideningOp) {
+      case MWideningOp::FromU8:
+      case MWideningOp::FromU16: {
+        int32_t maskVal = wideningOp == MWideningOp::FromU8 ? 0xFF : 0xFFFF;
+        auto* mask = MConstant::NewInt32(alloc_, maskVal);
+        if (!mask) {
+          oom_ = true;
+          return;
+        }
+        block->insertBefore(ins, mask);
+        auto* widened = MBitAnd::New(alloc_, value, mask, MIRType::Int32);
+        if (!widened) {
+          oom_ = true;
+          return;
+        }
+        block->insertBefore(ins, widened);
+        value = widened;
+        break;
+      }
+      case MWideningOp::FromS8:
+      case MWideningOp::FromS16: {
+        int32_t shiftAmount = wideningOp == MWideningOp::FromS8 ? 24 : 16;
+        auto* shift = MConstant::NewInt32(alloc_, shiftAmount);
+        if (!shift) {
+          oom_ = true;
+          return;
+        }
+        block->insertBefore(ins, shift);
+        auto* lsh = MLsh::New(alloc_, value, shift, MIRType::Int32);
+        if (!lsh) {
+          oom_ = true;
+          return;
+        }
+        block->insertBefore(ins, lsh);
+        auto* widened = MRsh::New(alloc_, lsh, shift, MIRType::Int32);
+        if (!widened) {
+          oom_ = true;
+          return;
+        }
+        block->insertBefore(ins, widened);
+        value = widened;
+        break;
+      }
+      default:
+        MOZ_CRASH("Unexpected widening op");
+    }
+  }
+
+  // Replace load by the (possibly widened) field value.
   ins->replaceAllUsesWith(value);
 
   // Remove original instruction.
@@ -4119,13 +4175,6 @@ static bool IsWasmStructEscaped(MDefinition* ins, MInstruction* newStruct) {
     }
   }
 
-  // We don't support defaultable structs for now.
-  if (newStruct->isWasmNewStructObject() &&
-      newStruct->toWasmNewStructObject()->zeroFields()) {
-    JitSpew(JitSpew_Escape, "Struct is created with new_default\n");
-    return true;
-  }
-
   // Check if the struct is escaped. If the object is not the first argument
   // of either a known Store / Load, then we consider it as escaped. This is a
   // cheap and conservative escape analysis.
@@ -4189,7 +4238,7 @@ static bool IsWasmStructEscaped(MDefinition* ins, MInstruction* newStruct) {
     "Scalar Replacement of wasm structs";
 
 WasmStructMemoryView::WasmStructMemoryView(TempAllocator& alloc,
-                                           MInstruction* wasmStruct)
+                                           MWasmNewStructObject* wasmStruct)
     : alloc_(alloc),
       struct_(wasmStruct),
       undefinedVal_(nullptr),
@@ -4554,7 +4603,7 @@ bool ScalarReplacement(const MIRGenerator* mir, MIRGraph& graph) {
 
       if (IsOptimizableWasmStructInstruction(*ins) &&
           !IsWasmStructEscaped(*ins, *ins)) {
-        WasmStructMemoryView view(graph.alloc(), *ins);
+        WasmStructMemoryView view(graph.alloc(), ins->toWasmNewStructObject());
         if (!replaceWasmStructs.run(view)) {
           return false;
         }

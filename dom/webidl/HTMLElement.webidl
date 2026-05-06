@@ -122,7 +122,7 @@ interface mixin TouchEventHandlers {
 
 HTMLElement includes ElementOffsetAttributes;
 HTMLElement includes GlobalEventHandlers;
-HTMLElement includes HTMLOrForeignElement;
+HTMLElement includes HTMLOrSVGOrMathMLElement;
 HTMLElement includes ElementCSSInlineStyle;
 HTMLElement includes TouchEventHandlers;
 HTMLElement includes OnErrorEventHandlerForNodes;

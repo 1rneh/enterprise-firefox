@@ -647,12 +647,12 @@ class MOZ_RAII AutoKeepJitScripts {
   jit::JitZone* zone_;
   bool prev_;
 
-  AutoKeepJitScripts(const AutoKeepJitScripts&) = delete;
-  void operator=(const AutoKeepJitScripts&) = delete;
-
  public:
   explicit inline AutoKeepJitScripts(JSContext* cx);
   inline ~AutoKeepJitScripts();
+
+  AutoKeepJitScripts(const AutoKeepJitScripts&) = delete;
+  void operator=(const AutoKeepJitScripts&) = delete;
 };
 
 // Mark ICScripts on the stack as active, so that they are not discarded

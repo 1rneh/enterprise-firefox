@@ -34,9 +34,11 @@ body {
 /* Urlbar */
 #urlbar:not([open]) {
   > .urlbar-background,
-  #identity-icon-box,
-  #urlbar-searchmode-switcher {
+  #identity-icon-box {
     border-radius: var(--border-radius-circle);
+  }
+  .searchmode-switcher {
+    --button-border-radius: var(--border-radius-circle);
   }
 }
 

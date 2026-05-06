@@ -1598,28 +1598,28 @@ class gfxFont {
 
   // Font metrics
   struct Metrics {
-    gfxFloat capHeight;
-    gfxFloat xHeight;
-    gfxFloat strikeoutSize;
-    gfxFloat strikeoutOffset;
-    gfxFloat underlineSize;
-    gfxFloat underlineOffset;
+    gfxFloat capHeight = 0.0;
+    gfxFloat xHeight = 0.0;
+    gfxFloat strikeoutSize = 0.0;
+    gfxFloat strikeoutOffset = 0.0;
+    gfxFloat underlineSize = 0.0;
+    gfxFloat underlineOffset = 0.0;
 
-    gfxFloat internalLeading;
-    gfxFloat externalLeading;
+    gfxFloat internalLeading = 0.0;
+    gfxFloat externalLeading = 0.0;
 
-    gfxFloat emHeight;
-    gfxFloat emAscent;
-    gfxFloat emDescent;
-    gfxFloat maxHeight;
-    gfxFloat maxAscent;
-    gfxFloat maxDescent;
-    gfxFloat maxAdvance;
+    gfxFloat emHeight = 0.0;
+    gfxFloat emAscent = 0.0;
+    gfxFloat emDescent = 0.0;
+    gfxFloat maxHeight = 0.0;
+    gfxFloat maxAscent = 0.0;
+    gfxFloat maxDescent = 0.0;
+    gfxFloat maxAdvance = 0.0;
 
-    gfxFloat aveCharWidth;
-    gfxFloat spaceWidth;
-    gfxFloat zeroWidth;         // -1 if there was no zero glyph
-    gfxFloat ideographicWidth;  // -1 if kWaterIdeograph is not supported
+    gfxFloat aveCharWidth = 0.0;
+    gfxFloat spaceWidth = 0.0;
+    gfxFloat zeroWidth = -1.0;         // -1 if there was no zero glyph
+    gfxFloat ideographicWidth = -1.0;  // -1 if kWaterIdeograph is not supported
 
     gfxFloat ZeroOrAveCharWidth() const {
       return zeroWidth >= 0 ? zeroWidth : aveCharWidth;

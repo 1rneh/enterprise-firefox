@@ -131,7 +131,7 @@ class WeakMapBase : public SlimLinkedListElement<WeakMapBase> {
   using CellColor = js::gc::CellColor;
 
   WeakMapBase(JSObject* memOf, JS::Zone* zone);
-  virtual ~WeakMapBase() {}
+  virtual ~WeakMapBase() = default;
 
   JS::Zone* zone() const { return zone_; }
 

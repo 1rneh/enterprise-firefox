@@ -46,6 +46,9 @@ class XrayTraits {
  public:
   constexpr XrayTraits() = default;
 
+  XrayTraits(XrayTraits&) = delete;
+  const XrayTraits& operator=(XrayTraits&) = delete;
+
   static JSObject* getTargetObject(JSObject* wrapper) {
     JSObject* target =
         js::UncheckedUnwrap(wrapper, /* stopAtWindowProxy = */ false);
@@ -133,9 +136,6 @@ class XrayTraits {
                                 JS::HandleObject exclusiveWrapper,
                                 JS::HandleObject exclusiveWrapperGlobal,
                                 nsIPrincipal* origin);
-
-  XrayTraits(XrayTraits&) = delete;
-  const XrayTraits& operator=(XrayTraits&) = delete;
 };
 
 void ExpandoObjectFinalize(JS::GCContext* gcx, JSObject* obj);

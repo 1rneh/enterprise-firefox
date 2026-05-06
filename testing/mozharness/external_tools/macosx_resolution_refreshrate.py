@@ -87,6 +87,13 @@ def get_resolution():
     return 0
 
 
+def is_virtual_machine():
+    result = subprocess.run(
+        "sysctl -n hw.model", shell=True, capture_output=True, text=True
+    )
+    return result.stdout.strip().startswith("VirtualMac")
+
+
 def main():
     # NOTE: this script is only designed for macosx.
     parser = OptionParser()
@@ -106,6 +113,9 @@ def main():
     os_version = get_os_version()
     # Currently the 10.15 machines are not all consistent with proper kvm, resolution, refresh rate
     if os_version == "10.15":
+        return 0
+    # Virtual machines have no physical display; skip display checks.
+    if platform.system() == "Darwin" and is_virtual_machine():
         return 0
     return retVal
 

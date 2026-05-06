@@ -119,7 +119,7 @@
   },
   "selected": {
     "bgcolor": {
-      "value": "var(--toolbar-bgcolor)"
+      "value": "var(--toolbar-background-color)"
     },
     "outline": {
       "color": {
@@ -130,7 +130,7 @@
       }
     },
     "textcolor": {
-      "value": "var(--toolbar-color)"
+      "value": "var(--toolbar-text-color)"
     }
   },
   "vertical": {

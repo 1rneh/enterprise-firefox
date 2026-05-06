@@ -25,10 +25,6 @@ const { IPProtectionActivator } = ChromeUtils.importESModule(
 const { IPPFxaAuthProvider } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/fxa/IPPFxaAuthProvider.sys.mjs"
 );
-const { IPPEnrollAndEntitleManager } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/fxa/IPPEnrollAndEntitleManager.sys.mjs"
-);
-
 IPProtectionActivator.addHelpers(IPPFxaAuthProvider.helpers);
 IPProtectionActivator.setupHelpers();
 IPProtectionActivator.setAuthProvider(IPPFxaAuthProvider);

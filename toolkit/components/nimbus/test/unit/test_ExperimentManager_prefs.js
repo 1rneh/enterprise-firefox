@@ -2704,7 +2704,7 @@ add_task(async function test_prefChanged_noPrefSet() {
   }
 });
 
-async function test_restorePrefs_manifestChanged() {
+add_task(async function test_restorePrefs_manifestChanged() {
   const LEGACY_FILTER = {
     category: "normandy",
     method: "unenroll",
@@ -3161,15 +3161,6 @@ async function test_restorePrefs_manifestChanged() {
       }
     }
   }
-}
-
-add_task(test_restorePrefs_manifestChanged);
-add_task(async function test_restorePrefs_manifestChanged_db() {
-  const resetNimbusEnrollmentPrefs = NimbusTestUtils.enableNimbusEnrollments({
-    read: true,
-  });
-  await test_restorePrefs_manifestChanged();
-  resetNimbusEnrollmentPrefs();
 });
 
 add_task(async function test_nested_prefs_enroll_both() {
@@ -3564,7 +3555,7 @@ add_task(
   }
 );
 
-async function test_setPref_types_restore() {
+add_task(async function test_setPref_types_restore() {
   const featureCleanup = NimbusTestUtils.addTestFeatures(TYPED_FEATURE);
 
   const json = {
@@ -3653,15 +3644,6 @@ async function test_setPref_types_restore() {
 
   await cleanup();
   featureCleanup();
-}
-
-add_task(test_setPref_types_restore);
-add_task(async function test_setPref_types_restore_db() {
-  const resetNimbusEnrollmentPrefs = NimbusTestUtils.enableNimbusEnrollments({
-    read: true,
-  });
-  await test_setPref_types_restore();
-  resetNimbusEnrollmentPrefs();
 });
 
 add_task(async function testDb() {

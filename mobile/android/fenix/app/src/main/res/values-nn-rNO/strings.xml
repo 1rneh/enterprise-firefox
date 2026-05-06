@@ -409,6 +409,8 @@
   <string name="ai_controls_voice_search_description">Lyd blir konvertert til tekst av Google Speech Services.</string>
   <!-- Title for the block AI enhancements confirmation dialog -->
   <string name="ai_controls_block_dialog_title">Blokkere AI-forbetringar?</string>
+  <!-- Body text for the block AI enhancements confirmation dialog. %1$s is the name of the app (for example "Firefox"). -->
+  <string name="ai_controls_block_dialog_body">Du vil ikkje sjå nye eller eksisterande AI-forbetringar i %1$s, eller varsel om dei. Etterpå kan du oppheve blokkeringa av det du ønskjer å halde fram med å bruke.\n\nBlokkering påverkar også utvidingar som bruker AI levert av %1$s.</string>
   <!-- Label shown above the list of features that will be blocked in the block AI dialog -->
   <string name="ai_controls_block_dialog_what_will_be_blocked">Kva som vil bli blokkert:</string>
   <!-- Cancel button text in the block AI enhancements confirmation dialog -->
@@ -4584,7 +4586,7 @@
     %1$s is the soccer tournament group name or stage (e.g. Group A represented by sports_widget_group_a, Round of 32 represented by sports_widget_round_of_32),
     %2$d is the current page number, and %3$d is the total number of pages.
   -->
-  <string name="sports_widget_page_position_content_description" tools:ignore="UnusedResources">%1$s, sider %2$d av %3$d</string>
+  <string name="sports_widget_page_position_content_description" tools:ignore="UnusedResources">%1$s, side %2$d av %3$d</string>
   <!--
     Content description (for accessibility, not displayed) for a page within the World Cup final results carousel.
     %1$d is the current page number, and %2$d is the total number of pages.

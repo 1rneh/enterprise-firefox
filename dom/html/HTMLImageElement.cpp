@@ -682,7 +682,7 @@ bool HTMLImageElement::SelectedSourceMatchesLast(nsIURI* aSelectedSource) {
 }
 
 bool HTMLImageElement::AllowsAutoSizes() const {
-  if (!StaticPrefs::dom_image_sizes_auto_enabled()) {
+  if (!OwnerDoc()->AutoSizesEnabled()) {
     return false;
   }
   const nsAttrValue* val = GetParsedAttr(nsGkAtoms::loading);

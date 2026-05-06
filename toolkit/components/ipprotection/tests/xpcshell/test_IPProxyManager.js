@@ -360,8 +360,8 @@ add_task(async function test_IPPProxyManager_activation_failure() {
     .stub(IPPFxaAuthProvider, "getEntitlement")
     .resolves({ entitlement: createTestEntitlement() });
   sandbox
-    .stub(IPPEnrollAndEntitleManager, "maybeEnrollAndEntitle")
-    .resolves({ isEnrolledAndEntitled: false });
+    .stub(IPPFxaAuthProvider, "fetchProxyPass")
+    .resolves({ status: 500, error: "test_error", usage: null });
 
   await IPProtectionService.init();
 
@@ -654,23 +654,15 @@ add_task(
       proxyUsage: new ProxyUsage("1000000", "0", "3026-02-05T00:00:00.000Z"),
     });
 
-    const readyEvent = waitForEvent(
-      IPProtectionService,
-      "IPProtectionService:StateChanged",
-      () => IPProtectionService.state === IPProtectionStates.READY
-    );
-
-    IPProtectionService.init();
-    await readyEvent;
-
+    // Register before init so we catch the PAUSED event from refreshUsage()
+    // completing during init (zero quota is detected without needing to call start()).
     const pausedEventPromise = waitForEvent(
       IPPProxyManager,
       "IPPProxyManager:StateChanged",
       () => IPPProxyManager.state === IPPProxyStates.PAUSED
     );
 
-    IPPProxyManager.start();
-
+    IPProtectionService.init();
     await pausedEventPromise;
 
     Assert.equal(

@@ -235,6 +235,9 @@ class LoadedScript : public nsISupports {
   bool IsInvalidatedCachedStencil() const {
     return mDataType == DataType::eInvalidatedCachedStencil;
   }
+  bool OnceCachedStencil() const {
+    return IsCachedStencil() || IsInvalidatedCachedStencil();
+  }
   bool IsWasmBytes() const { return mDataType == DataType::eWasmBytes; }
 
   // ==== Methods to convert the data type ====
@@ -258,7 +261,7 @@ class LoadedScript : public nsISupports {
   void ConvertToCachedStencil(JS::Stencil* aStencil,
                               mozilla::dom::ReferrerPolicy aReferrerPolicy,
                               nsIURI* aBaseURL) {
-    MOZ_ASSERT(!IsCachedStencil());
+    MOZ_ASSERT(!OnceCachedStencil());
     SetUnknownDataType();
     mDataType = DataType::eCachedStencil;
     mCachedStencil = aStencil;
@@ -336,9 +339,11 @@ class LoadedScript : public nsISupports {
 
   // ---- For SRI-only consumers ----
 
-  bool CanHaveSRIOnly() const { return IsTextSource() || IsCachedStencil(); }
+  bool CanHaveSRIOnly() const {
+    return IsTextSource() || IsCachedStencil() || IsInvalidatedCachedStencil();
+  }
 
-  bool HasSRI() {
+  bool HasSRI() const {
     MOZ_ASSERT(CanHaveSRIOnly());
     return !mSRIAndSerializedStencil.empty();
   }
@@ -453,6 +458,17 @@ class LoadedScript : public nsISupports {
   // Returns true if this script has compatible SRI metadata as the provided
   // one.
   bool IsSRIMetadataReusableBy(const mozilla::dom::SRIMetadata& aSRIMetadata);
+
+  // Clone an existing ModuleScript to a cache-able LoadedScript, which does
+  // not capture any GC references.
+  // SharedScriptCache is JSContext-agnostic, and it cannot hold any GC
+  // references.
+  //
+  // When putting a ModuleScript into the SharedScriptCache, it should be
+  // converted into LoadedScript with this method, and when the cached module
+  // is found in subsequent loads, the script should be cloned back to a new
+  // ModuleScript with ModuleScript::FromCache below.
+  LoadedScript* ModuleScriptToCache();
 
  public:
   // Fields.
@@ -598,6 +614,22 @@ class LoadedScriptDelegate {
     return GetLoadedScript()->IsSerializedStencil();
   }
   bool IsCachedStencil() const { return GetLoadedScript()->IsCachedStencil(); }
+  bool IsInvalidatedCachedStencil() const {
+    return GetLoadedScript()->IsInvalidatedCachedStencil();
+  }
+  // Returns true if this delegate (ScriptLoadRequest) is loaded from the
+  // SharedScriptCache.
+  //
+  // At the point of using the cache, the item should still be valid,
+  // and the cached stencil should be copied to the ScriptLoadRequest.
+  //
+  // The item in SharedScriptCache can be invalidated after that point,
+  // but the consumers can still use this LoadedScript, in the same way as
+  // `IsCachedStencil`, except that the `GetCachedStencil` can no longer
+  // be called.
+  bool OnceCachedStencil() const {
+    return GetLoadedScript()->OnceCachedStencil();
+  }
   bool IsWasmBytes() const { return GetLoadedScript()->IsWasmBytes(); }
 
   void SetUnknownDataType() { GetLoadedScript()->SetUnknownDataType(); }
@@ -736,7 +768,6 @@ class ModuleScript final : public LoadedScript {
   // mozilla::dom::SharedScriptCache.
   static already_AddRefed<ModuleScript> FromCache(const LoadedScript& aScript,
                                                   ScriptFetchInfo* aFetchInfo);
-  already_AddRefed<LoadedScript> ToCache();
 
   void SetModuleRecord(Handle<JSObject*> aModuleRecord);
   void SetParseError(const Value& aError);

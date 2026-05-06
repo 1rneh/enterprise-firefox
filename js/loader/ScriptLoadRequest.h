@@ -112,7 +112,7 @@ class ScriptLoadRequest : public nsISupports,
     // necko.  For in-memory cached, case, the
     // SharedSubResourceCache::CompleteSubResource::mExpirationTime field is
     // used instead.
-    MOZ_ASSERT(!IsCachedStencil());
+    MOZ_ASSERT(!OnceCachedStencil());
     return mExpirationTime;
   }
 

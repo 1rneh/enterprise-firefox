@@ -1045,9 +1045,13 @@ browser.ui.interaction:
     bugs:
       - https://bugzil.la/1620358
       - https://bugzil.la/2020865
+      - https://bugzil.la/2032598
+      - https://bugzil.la/2032602
     data_reviews:
       - https://bugzil.la/1620358
       - https://bugzil.la/2020865
+      - https://bugzil.la/2032598
+      - https://bugzil.la/2032602
     notification_emails:
       - shong@mozilla.com
       - dtownsend@mozilla.com
@@ -1351,6 +1355,21 @@ browser.ui.interaction:
       - tgiles@mozilla.com
     expires: never
 
+  preferences_pane_appearance:
+    type: labeled_counter
+    description: >
+      Records the items interacted with in the Appearance section
+      of preferences. See
+      https://firefox-source-docs.mozilla.org/browser/BrowserUsageTelemetry.html
+    bugs:
+      - https://bugzil.la/1968113
+    data_reviews:
+      - https://bugzil.la/1968113
+    notification_emails:
+      - mstriemer@mozilla.com
+      - tgiles@mozilla.com
+    expires: never
+
   preferences_pane_languages:
     type: labeled_counter
     description: >
@@ -1363,6 +1382,20 @@ browser.ui.interaction:
       - https://bugzil.la/1972081
     notification_emails:
       - mstriemer@mozilla.com
+    expires: never
+
+  preferences_pane_permissions_data:
+    type: labeled_counter
+    description: >
+      Records the items interacted with in the Permissions and data section
+      of preferences. See
+      https://firefox-source-docs.mozilla.org/browser/BrowserUsageTelemetry.html
+    bugs:
+      - https://bugzil.la/1968118
+    data_reviews:
+      - https://bugzil.la/1968118
+    notification_emails:
+      - hjones@mozilla.com
     expires: never
 
   preferences_pane_experimental:

@@ -104,7 +104,7 @@ void ContentSessionStore::SetSHistoryChanged() { mSHistoryChanged = true; }
 void ContentSessionStore::OnDocumentStart() {
   nsCString caps = CollectDocShellCapabilities();
   if (!mDocCaps.Equals(caps)) {
-    mDocCaps = caps;
+    mDocCaps = std::move(caps);
     mDocCapChanged = true;
   }
 

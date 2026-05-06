@@ -599,6 +599,31 @@
     "dark": 0.8,
     "forcedColors": 1
   },
+  "panel/background/color": {
+    "light": "{Colors$color/white}",
+    "dark": "rgb(66, 65, 77)",
+    "forcedColors": "transparent"
+  },
+  "panel/background/color/dimmed": {
+    "light": "color-mix(in srgb, currentColor 12%, transparent)",
+    "dark": "color-mix(in srgb, currentColor 17%, transparent)",
+    "forcedColors": "transparent"
+  },
+  "panel/background/color/dimmed/further": {
+    "light": "color-mix(in srgb, currentColor 20%, transparent)",
+    "dark": "color-mix(in srgb, currentColor 14%, transparent)",
+    "forcedColors": "transparent"
+  },
+  "panel/border/color": {
+    "light": "rgb(240, 240, 244)",
+    "dark": "rgb(82, 82, 94)",
+    "forcedColors": "transparent"
+  },
+  "panel/text/color": {
+    "light": "{Colors$color/black}",
+    "dark": "rgb(251, 251, 254)",
+    "forcedColors": "transparent"
+  },
   "table/background/color": {
     "light": "#f8f8fa",
     "dark": "rgb(35, 34, 43)",
@@ -634,37 +659,37 @@
     "dark": "{Theme$border/color/transparent}",
     "forcedColors": "{Theme$input/border/color}"
   },
+  "toolbar/field/border/color/focus": {
+    "light": "color-mix(in srgb, {Theme$focus/outline/color} 50%, transparent)",
+    "dark": "color-mix(in srgb, {Theme$focus/outline/color} 50%, transparent)",
+    "forcedColors": "{Theme$focus/outline/color}"
+  },
   "toolbar/field/background/color": {
     "light": "rgba(0, 0, 0, 0.05)",
     "dark": "{Colors$color/black/alpha/30}",
     "forcedColors": "{HCM Theme$Field}"
   },
-  "toolbar/field/color": {
-    "light": "{Colors$color/gray/100}",
-    "dark": "{Colors$color/gray/05}",
-    "forcedColors": "{HCM Theme$FieldText}"
-  },
-  "toolbar/field/focus/background/color": {
+  "toolbar/field/background/color/focus": {
     "light": "{Colors$color/white}",
     "dark": "rgb(66, 65, 77)",
     "forcedColors": "transparent"
   },
-  "toolbar/field/focus/color": {
+  "toolbar/field/text/color": {
+    "light": "{Colors$color/gray/100}",
+    "dark": "{Colors$color/gray/05}",
+    "forcedColors": "{HCM Theme$FieldText}"
+  },
+  "toolbar/field/text/color/focus": {
     "light": "{Colors$color/black}",
     "dark": "{Colors$color/gray/05}",
     "forcedColors": "transparent"
   },
-  "toolbar/field/focus/border/color": {
-    "light": "color-mix(in srgb, {Theme$focus/outline/color} 50%, transparent)",
-    "dark": "color-mix(in srgb, {Theme$focus/outline/color} 50%, transparent)",
-    "forcedColors": "{Theme$focus/outline/color}"
-  },
-  "toolbar/bgcolor": {
+  "toolbar/background/color": {
     "light": "#f9f9fb",
     "dark": "rgb(43, 42, 51)",
     "forcedColors": "transparent"
   },
-  "toolbar/color": {
+  "toolbar/text/color": {
     "light": "{Colors$color/gray/100}",
     "dark": "{Colors$color/gray/05}",
     "forcedColors": "transparent"
@@ -684,25 +709,10 @@
     "dark": "{Colors$color/gray/90}",
     "forcedColors": "transparent"
   },
-  "toolbarbutton/disabled/opacity": {
+  "toolbarbutton/opacity/disabled": {
     "light": "{Theme$button/opacity/disabled}",
     "dark": "{Theme$button/opacity/disabled}",
-    "forcedColors": "{Theme$button/opacity/disabled}"
-  },
-  "toolbarbutton/hover/outline/color": {
-    "light": "transparent",
-    "dark": "transparent",
-    "forcedColors": "{HCM Theme$SelectedItem}"
-  },
-  "toolbarbutton/active/outline/color": {
-    "light": "transparent",
-    "dark": "transparent",
-    "forcedColors": "{HCM Theme$ButtonText}"
-  },
-  "toolbarbutton/selected/outline/color": {
-    "light": "{Theme$toolbarbutton/active/outline/color}",
-    "dark": "{Theme$toolbarbutton/active/outline/color}",
-    "forcedColors": "{HCM Theme$SelectedItem}"
+    "forcedColors": 30
   },
   "toolbarbutton/outline": {
     "light": "{Primitives$border/width} solid {Theme$toolbarbutton/outline/color}",
@@ -714,30 +724,45 @@
     "dark": "transparent",
     "forcedColors": "{HCM Theme$ButtonText}"
   },
+  "toolbarbutton/outline/color/hover": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "{HCM Theme$SelectedItem}"
+  },
+  "toolbarbutton/outline/color/active": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "{HCM Theme$ButtonText}"
+  },
+  "toolbarbutton/outline/color/selected": {
+    "light": "{Theme$toolbarbutton/outline/color/active}",
+    "dark": "{Theme$toolbarbutton/outline/color/active}",
+    "forcedColors": "{HCM Theme$SelectedItem}"
+  },
   "toolbarseparator/color": {
     "light": "{Theme$text/color/deemphasized}",
     "dark": "{Theme$text/color/deemphasized}",
     "forcedColors": "{Theme$text/color/deemphasized}"
   },
-  "toolbox/bgcolor": {
+  "toolbox/background/color": {
     "light": "rgb(234, 234, 237)",
     "dark": "{Colors$color/gray/90}",
     "forcedColors": "transparent"
   },
-  "toolbox/bgcolor/inactive": {
-    "light": "{Theme$toolbox/bgcolor}",
-    "dark": "{Theme$toolbox/bgcolor}",
-    "forcedColors": "{Theme$toolbox/bgcolor}"
+  "toolbox/background/color/inactive": {
+    "light": "{Theme$toolbox/background/color}",
+    "dark": "{Theme$toolbox/background/color}",
+    "forcedColors": "{Theme$toolbox/background/color}"
   },
-  "toolbox/textcolor": {
+  "toolbox/text/color": {
     "light": "{Colors$color/gray/100}",
     "dark": "{Colors$color/gray/05}",
     "forcedColors": "transparent"
   },
-  "toolbox/textcolor/inactive": {
-    "light": "{Theme$toolbox/textcolor}",
-    "dark": "{Theme$toolbox/textcolor}",
-    "forcedColors": "{Theme$toolbox/textcolor}"
+  "toolbox/text/color/inactive": {
+    "light": "{Theme$toolbox/text/color}",
+    "dark": "{Theme$toolbox/text/color}",
+    "forcedColors": "{Theme$toolbox/text/color}"
   },
   "badge/text/color": {
     "light": "{Theme$text/color/deemphasized}",
@@ -863,6 +888,62 @@
     "light": "{Theme$color/accent/primary}",
     "dark": "{Theme$color/accent/primary}",
     "forcedColors": "{Theme$color/accent/primary}"
+  },
+  "select/background/color": {
+    "light": "{Theme$button/background/color}",
+    "dark": "{Theme$button/background/color}",
+    "forcedColors": "{Theme$button/background/color}"
+  },
+  "select/background/color/hover": {
+    "light": "{Theme$button/background/color/hover}",
+    "dark": "{Theme$button/background/color/hover}",
+    "forcedColors": "{Theme$button/background/color/hover}"
+  },
+  "select/background/color/disabled": {
+    "light": "{Theme$button/background/color/disabled}",
+    "dark": "{Theme$button/background/color/disabled}",
+    "forcedColors": "{Theme$button/background/color/disabled}"
+  },
+  "select/border": {
+    "light": "{Theme$button/border}",
+    "dark": "{Theme$button/border}",
+    "forcedColors": "{Theme$button/border}"
+  },
+  "select/border/color/hover": {
+    "light": "{Theme$button/border/color/hover}",
+    "dark": "{Theme$button/border/color/hover}",
+    "forcedColors": "{Theme$button/border/color/hover}"
+  },
+  "select/border/color/disabled": {
+    "light": "{Theme$button/border/color/disabled}",
+    "dark": "{Theme$button/border/color/disabled}",
+    "forcedColors": "{Theme$button/border/color/disabled}"
+  },
+  "select/icon/fill": "{Theme$button/icon/fill}",
+  "select/opacity/disabled": {
+    "light": "{Theme$button/opacity/disabled}",
+    "dark": "{Theme$button/opacity/disabled}",
+    "forcedColors": "{Theme$button/opacity/disabled}"
+  },
+  "select/option/text/color": {
+    "light": "{Theme$text/color}",
+    "dark": "{Theme$text/color}",
+    "forcedColors": "{Theme$text/color}"
+  },
+  "select/text/color": {
+    "light": "{Theme$button/text/color}",
+    "dark": "{Theme$button/text/color}",
+    "forcedColors": "{Theme$button/text/color}"
+  },
+  "select/text/color/hover": {
+    "light": "{Theme$button/text/color/hover}",
+    "dark": "{Theme$button/text/color/hover}",
+    "forcedColors": "{Theme$button/text/color/hover}"
+  },
+  "select/text/color/disabled": {
+    "light": "{Theme$button/text/color/disabled}",
+    "dark": "{Theme$button/text/color/disabled}",
+    "forcedColors": "{Theme$button/text/color/disabled}"
   },
   "toggle/background/color": {
     "light": "{Theme$button/background/color}",

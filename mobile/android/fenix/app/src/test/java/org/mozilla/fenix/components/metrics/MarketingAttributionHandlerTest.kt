@@ -11,10 +11,13 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mozilla.fenix.distributions.DistributionIdManager
 import org.mozilla.fenix.utils.Settings
+import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class MarketingAttributionHandlerTest {
     private val settings: Settings = mockk(relaxed = true)
 
@@ -41,6 +44,27 @@ class MarketingAttributionHandlerTest {
         val handler = MarketingAttributionHandler(settings, mockedDistributionIdManager, scope = this)
 
         handler.handleReferrer("valid")
+        runCurrent()
+
+        verify { settings.shouldShowMarketingOnboarding = true }
+    }
+
+    @Test
+    fun `WHEN installReferrerResponse is meta attribution THEN we should show marketing onboarding`() = runTest {
+        val mockedDistributionIdManager = mockk<DistributionIdManager>(relaxed = true) {
+            coEvery { isPartnershipDistribution() } returns false
+            coEvery { shouldSkipMarketingConsentScreen() } returns false
+        }
+        val handler = MarketingAttributionHandler(settings, mockedDistributionIdManager, scope = this)
+        val installResponse1 = """utm_source=apps.facebook.com&utm_campaign=fb4a&utm_content={"app":12345,"t":1234567890,"source":{"data":"DATA","nonce":"NONCE"}}"""
+
+        handler.handleReferrer(installResponse1)
+        runCurrent()
+
+        verify { settings.shouldShowMarketingOnboarding = true }
+
+        val installResponse2 = """utm_content=%7B%22app%22%3A12345%2C%22t%22%3A1234567890%2C%22source%22%3A%7B%22data%22%3A%22DATA%22%2C%22nonce%22%3A%22NONCE%22%7B%7D""""
+        handler.handleReferrer(installResponse2)
         runCurrent()
 
         verify { settings.shouldShowMarketingOnboarding = true }

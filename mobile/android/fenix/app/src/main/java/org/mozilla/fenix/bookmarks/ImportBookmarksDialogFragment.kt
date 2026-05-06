@@ -17,6 +17,7 @@ import mozilla.components.feature.importer.BookmarkImporter
 import mozilla.components.feature.importer.ImporterResult
 import mozilla.components.lib.bookmark.parser.jsoup.jsoupParser
 import mozilla.components.lib.bookmarks.file.htmlImporter
+import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.requireComponents
 
 internal class ImportBookmarksDialogFragment : DialogFragment() {
@@ -29,7 +30,9 @@ internal class ImportBookmarksDialogFragment : DialogFragment() {
             importer = BookmarksFileImporter.htmlImporter(
                 context = requireContext(),
                 parentGuid = BookmarkRoot.Mobile.id,
-                parser = BookmarksFileParser.jsoupParser(rootFolderName = "Imported Bookmarks"),
+                parser = BookmarksFileParser.jsoupParser(
+                    rootFolderName = requireContext().getString(R.string.bookmark_import_destination_default_name),
+                ),
                 inserter = requireComponents.core.bookmarksStorage,
             ),
             onFinished = { result ->

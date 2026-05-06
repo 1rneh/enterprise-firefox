@@ -454,7 +454,7 @@ export default class IPProtectionContentElement extends MozLitElement {
   }
 
   mainContentTemplate() {
-    if (this.state.isCheckingEntitlement) {
+    if (this.state.isEnrolling) {
       return html`${this.enrollingTemplate()} ${this.footerTemplate()}`;
     }
 

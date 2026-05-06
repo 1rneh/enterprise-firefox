@@ -129,7 +129,7 @@ private fun SummarizationScreen(
 private val useGradient get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
 private fun Modifier.summaryLoadingGradientCompat(loadingAlpha: Float): Modifier =
-    thenConditional(
+    this.thenConditional(
         if (useGradient) {
             Modifier.summaryLoadingGradient(loadingAlpha)
         } else {

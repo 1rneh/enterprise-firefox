@@ -1021,6 +1021,15 @@ const nsTArray<RefPtr<GfxDriverInfo>>& GfxInfo::GetGfxDriverInfo() {
         nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_COMPARISON_IGNORED,
         V(0, 0, 0, 0), "FEATURE_FAILURE_WEBGL_MESA_VM", "");
 
+    // Disable nvidia 390.157 due to startup crashes (Bug 2028081)
+    APPEND_TO_DRIVER_BLOCKLIST_RANGE_EXT(
+        OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
+        WindowProtocol::All, DriverVendor::NonMesaAll, DeviceFamily::NvidiaAll,
+        nsIGfxInfo::FEATURE_WEBGL_USE_HARDWARE,
+        nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_BETWEEN_INCLUSIVE_START,
+        V(390, 157, 0, 0), V(391, 0, 0, 0), "FEATURE_FAILURE_WEBGL_OLD_NVIDIA",
+        "391.0.0");
+
     ////////////////////////////////////
     // FEATURE_WEBRENDER_COMPOSITOR
     APPEND_TO_DRIVER_BLOCKLIST(
@@ -1188,6 +1197,18 @@ const nsTArray<RefPtr<GfxDriverInfo>>& GfxInfo::GetGfxDriverInfo() {
         nsIGfxInfo::FEATURE_HW_DECODED_VIDEO_ZERO_COPY,
         nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_LESS_THAN, V(24, 2, 0, 0),
         "FEATURE_HARDWARE_VIDEO_ZERO_COPY_LINUX_AMD_DISABLE", "Mesa 24.2.0.0");
+
+    ////////////////////////////////////
+    // FEATURE_VIDEO_HDR - ALLOWLIST
+
+    // Allow HDR video on Wayland - this is also controlled by the pref
+    // gfx.color_management.hdr which is currently false as of this writing (see
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1642854)
+    APPEND_TO_DRIVER_BLOCKLIST_EXT(
+        OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
+        WindowProtocol::Wayland, DriverVendor::All, DeviceFamily::All,
+        nsIGfxInfo::FEATURE_VIDEO_HDR, nsIGfxInfo::FEATURE_ALLOW_ALWAYS,
+        DRIVER_COMPARISON_IGNORED, V(0, 0, 0, 0), "FEATURE_ROLLOUT_ALL", "");
 
     ////////////////////////////////////
     // FEATURE_WEBRENDER_PARTIAL_PRESENT

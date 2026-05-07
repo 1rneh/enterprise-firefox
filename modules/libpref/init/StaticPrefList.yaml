@@ -8842,13 +8842,6 @@
   value: false
   mirror: always
 
-# Force the ICC color management path for JXL decoding even when the output
-# profile is sRGB. Intended for testing purposes only.
-- name: image.jxl.force_icc_slow_path
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
 #endif
 
 #---------------------------------------------------------------------------
@@ -9350,7 +9343,7 @@
   type: bool
   value: false
   mirror: always
-  set_spidermonkey_pref: startup
+  set_spidermonkey_pref: always
 
   # Experimental support for Promise.allKeyed in JavaScript.
 - name: javascript.options.experimental.promise_allkeyed
@@ -9643,7 +9636,7 @@
 
 -   name: javascript.options.wasm_js_promise_integration
     type: bool
-    value: @IS_NIGHTLY_BUILD@
+    value: false
     mirror: always
     set_spidermonkey_pref: always
 
@@ -11786,6 +11779,35 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# Enable WebRTC type support in Media Capabilities API.
+- name: media.mediacapabilities.webrtc.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Enable colorGamut and transferFunction validation in Media Capabilities.
+# When disabled, these fields are ignored rather than validated against the
+# codec's color space info or rejected when used with inapplicable types.
+- name: media.mediacapabilities.color-space-validation.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Enable scalabilityMode validation for non-WebRTC encoding in Media Capabilities.
+# When disabled, scalabilityMode in a non-WebRTC MediaEncodingConfiguration
+# is silently ignored rather than causing a TypeError.
+- name: media.mediacapabilities.scalability-mode-validation.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Controls smooth attribute for WebRTC EncodeInfo
+# 0 = heuristic-based, 1 = always true, 2 = always false
+- name: media.mediacapabilities.webrtc-encode-smooth-override
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
 # AudioSink
 - name: media.resampling.enabled
   type: RelaxedAtomicBool
@@ -11899,7 +11921,7 @@
 # fails to be created.
 - name: media.eme.video.prefer-platform-decoder
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 - name: media.eme.chromium-api.video-shmems
@@ -13138,6 +13160,27 @@
   value: true
   mirror: always
 
+- name: media.peerconnection.video.use_rtx
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.peerconnection.video.use_rtx.blocklist
+  type: String
+  value: "doxy.me,*.doxy.me"
+  mirror: never
+
+- name: media.peerconnection.video.vp9_enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.peerconnection.video.vp9_preferred
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+
 - name: media.peerconnection.scripttransform.enabled
   type: RelaxedAtomicBool
   value: true
@@ -13354,8 +13397,64 @@
 #endif
   mirror: always
 
+- name: media.navigator.audio.use_fec
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.navigator.video.max_fs
+  type: RelaxedAtomicUint32
+  value: 12288 # Enough for 2048x1536
+  mirror: always
+
+- name: media.navigator.video.max_fr
+  type: RelaxedAtomicUint32
+  value: 60
+  mirror: always
+
+- name: media.navigator.video.disable_h264_baseline
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: media.navigator.video.h264.level
+  type: RelaxedAtomicUint32
+  value: 31 # minimum suggested for WebRTC spec: 0x42E0[1f] - level 3.1
+  mirror: always
+
+- name: media.navigator.video.h264.max_br
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
+- name: media.navigator.video.h264.max_mbps
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
+- name: media.navigator.video.red_ulpfec_enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.navigator.video.use_tmmbr
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: media.navigator.video.use_remb
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.navigator.video.use_transport_cc
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+
 - name: media.webrtc.hw.h264.enabled
-  type: bool
+  type: RelaxedAtomicBool
 #if defined(MOZ_WIDGET_ANDROID)
   value: true
 #else
@@ -13371,7 +13470,7 @@
 # If true, then AV1 will be used as the preferred codec for WebRTC video.
 # After the AV1 codec is enabled by default, this pref will be renamed.
 - name: media.webrtc.codec.video.av1.experimental_preferred
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 

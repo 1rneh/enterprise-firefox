@@ -910,6 +910,10 @@ export class PanelItem extends HTMLElement {
     this.setAttribute("type", val);
   }
 
+  click() {
+    this.button.click();
+  }
+
   focus() {
     this.button.focus();
   }

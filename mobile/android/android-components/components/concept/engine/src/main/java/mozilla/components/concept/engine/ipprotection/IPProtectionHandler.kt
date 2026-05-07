@@ -80,5 +80,27 @@ interface IPProtectionHandler {
             const val PROXY_STATE_ERROR = 4
             const val PROXY_STATE_PAUSED = 5
         }
+
+        override fun toString(): String {
+            val service = when (serviceState) {
+                SERVICE_STATE_UNINITIALIZED -> "UNINITIALIZED"
+                SERVICE_STATE_UNAVAILABLE -> "UNAVAILABLE"
+                SERVICE_STATE_UNAUTHENTICATED -> "UNAUTHENTICATED"
+                SERVICE_STATE_READY -> "READY"
+                else -> "UNKNOWN($serviceState)"
+            }
+            val proxy = when (proxyState) {
+                PROXY_STATE_NOT_READY -> "NOT_READY"
+                PROXY_STATE_READY -> "READY"
+                PROXY_STATE_ACTIVATING -> "ACTIVATING"
+                PROXY_STATE_ACTIVE -> "ACTIVE"
+                PROXY_STATE_ERROR -> "ERROR"
+                PROXY_STATE_PAUSED -> "PAUSED"
+                else -> "UNKNOWN($proxyState)"
+            }
+            return "StateInfo(serviceState=$service, proxyState=$proxy," +
+                " remaining=$remaining, max=$max, resetTime=$resetTime," +
+                " lastError=$lastError)"
+        }
     }
 }

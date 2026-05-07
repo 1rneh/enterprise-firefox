@@ -632,15 +632,23 @@ EnterprisePoliciesManager.prototype = {
   },
 
   getExtensionSettings(extensionID) {
-    let settings = null;
-    if (ExtensionSettings) {
-      if (extensionID in ExtensionSettings) {
-        settings = ExtensionSettings[extensionID];
-      } else if ("*" in ExtensionSettings) {
-        settings = ExtensionSettings["*"];
-      }
+    if (!ExtensionSettings) {
+      return null;
     }
-    return settings;
+    if (extensionID in ExtensionSettings) {
+      const settings = ExtensionSettings[extensionID];
+      if (
+        settings.installation_mode === "force_installed" &&
+        !("updates_disabled" in settings)
+      ) {
+        return { ...settings, updates_disabled: false };
+      }
+      return settings;
+    }
+    if ("*" in ExtensionSettings) {
+      return ExtensionSettings["*"];
+    }
+    return null;
   },
 
   isAddonRequiredByPolicy(addonID) {

@@ -57,6 +57,7 @@ import org.mozilla.fenix.compose.MessageCard
 import org.mozilla.fenix.compose.home.HomeSectionHeader
 import org.mozilla.fenix.debugsettings.sportswidget.SportsWidgetDebugTool
 import org.mozilla.fenix.ext.isLargeWindow
+import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.home.bookmarks.Bookmark
 import org.mozilla.fenix.home.bookmarks.interactor.BookmarksInteractor
 import org.mozilla.fenix.home.bookmarks.view.Bookmarks
@@ -402,9 +403,10 @@ internal fun TopSitesSection(
 
     TopSites(
         topSites = topSites,
-        topSiteColors = topSiteColors,
         interactor = interactor,
         onTopSitesItemBound = onTopSitesItemBound,
+        topSiteColors = topSiteColors,
+        isPager = LocalContext.current.settings().topSitesPager,
     )
 }
 

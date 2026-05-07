@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.16
- * pdfjsBuild = a55cec4a0
+ * pdfjsVersion = 6.0.28
+ * pdfjsBuild = cd1b5f57c
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -1325,21 +1325,17 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
   const getURL = urlString => {
     try {
       return new URL(urlString);
-    } catch {
-      try {
-        return new URL(decodeURIComponent(urlString));
-      } catch {
-        try {
-          return new URL(urlString, "https://foo.bar");
-        } catch {
-          try {
-            return new URL(decodeURIComponent(urlString), "https://foo.bar");
-          } catch {
-            return null;
-          }
-        }
-      }
-    }
+    } catch {}
+    try {
+      return new URL(decodeURIComponent(urlString));
+    } catch {}
+    try {
+      return new URL(urlString, "https://foo.bar");
+    } catch {}
+    try {
+      return new URL(decodeURIComponent(urlString), "https://foo.bar");
+    } catch {}
+    return null;
   };
   const newURL = getURL(url);
   if (!newURL) {
@@ -1350,7 +1346,7 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
       let decoded = decodeURIComponent(name);
       if (decoded.includes("/")) {
         decoded = stripPath(decoded);
-        if (/^\.pdf$/i.test(decoded)) {
+        if (decoded.length === 4 && pdfRegex.test(decoded)) {
           return name;
         }
       }
@@ -13809,7 +13805,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.0.16",
+    apiVersion: "6.0.28",
     data,
     password,
     disableAutoFetch,
@@ -15422,8 +15418,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.0.16";
-const build = "a55cec4a0";
+const version = "6.0.28";
+const build = "cd1b5f57c";
 
 ;// ./src/display/editor/color_picker.js
 

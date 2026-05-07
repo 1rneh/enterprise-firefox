@@ -2894,15 +2894,10 @@ static gfx::IntPoint GetIntegerDeltaForEvent(NSEvent* aEvent) {
     outGeckoEvent->mRefPoint = nsCocoaWindow::GetNativeLockedPoint();
     WidgetMouseEvent* widgetMouseEvent = outGeckoEvent->AsMouseEvent();
     if (widgetMouseEvent && widgetMouseEvent->mMessage == eMouseMove) {
-      int32_t movementX = int32_t(aMouseEvent.deltaX);
-      int32_t movementY = int32_t(aMouseEvent.deltaY);
-      if (movementX == 0 && movementY == 0) {
-        // Ignore the the mouse move event with zero movement, since they
-        // don't cause any movement of the pointer.
-        return;
-      }
-      widgetMouseEvent->mMovement =
-          Some(LayoutDeviceIntPoint(movementX, movementY));
+      // XXX maybe we would like to ignore the the mousemove event with zero
+      // movement, since they don't cause any chanage of the pointer?
+      widgetMouseEvent->mMovement = Some(LayoutDeviceIntPoint(
+          int32_t(aMouseEvent.deltaX), int32_t(aMouseEvent.deltaY)));
     }
   } else {
     outGeckoEvent->mRefPoint = [self convertWindowCoordinates:locationInWindow];
@@ -5116,7 +5111,7 @@ void nsCocoaWindow::Destroy() {
 
   nsCOMPtr<nsIWidget> kungFuDeathGrip(this);
 
-  // Deal with the possiblity that we're being destroyed while running modal.
+  // Deal with the possibility that we're being destroyed while running modal.
   if (mModal) {
     SetModal(false);
   }
@@ -6608,7 +6603,7 @@ nsresult nsCocoaWindow::SetTitle(const nsAString& aTitle) {
 // The drag manager has let us know that something related to a drag has
 // occurred in this window. It could be any number of things, ranging from
 // a drop, to a drag enter/leave, or a drag over event. The actual event
-// is passed in |aMessage| and is passed along to our event hanlder so Gecko
+// is passed in |aMessage| and is passed along to our event handler so Gecko
 // knows about it.
 bool nsCocoaWindow::DragEvent(unsigned int aMessage,
                               mozilla::gfx::Point aMouseGlobal,

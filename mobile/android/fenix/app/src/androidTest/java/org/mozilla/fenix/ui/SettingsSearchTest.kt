@@ -4,13 +4,11 @@
 
 package org.mozilla.fenix.ui
 
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.filters.SdkSuppress
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
-import org.mozilla.fenix.customannotations.SkipLeaks
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.AppAndSystemHelper.runWithAppLocaleChanged
 import org.mozilla.fenix.helpers.DataGenerationHelper.setTextToClipBoard
@@ -32,6 +30,7 @@ import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
 import org.mozilla.fenix.ui.robots.searchScreen
 import java.util.Locale
+import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 class SettingsSearchTest {
     @get:Rule(order = 0)
@@ -46,13 +45,13 @@ class SettingsSearchTest {
             "Google",
         )
 
-    @get:Rule
-    val composeTestRule = AndroidComposeTestRule(
+    @get:Rule(order = 1)
+    val composeTestRule = AndroidComposeTestRuleV2(
         HomeActivityIntentTestRule.withDefaultSettingsOverrides(),
     ) { it.activity }
 
-    @get:Rule
-    val memoryLeaksRule = DetectMemoryLeaksRule()
+    @get:Rule(order = 2)
+    val memoryLeaksRule = DetectMemoryLeaksRule(composeTestRule = { composeTestRule })
 
     @get:Rule
     val searchMockServerRule = SearchMockServerRule()
@@ -582,7 +581,6 @@ class SettingsSearchTest {
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2233337
     @Test
-    @SkipLeaks
     fun verifyTheSearchEnginesListsRespectTheLocaleTest() {
         runWithAppLocaleChanged(Locale.CHINA, composeTestRule.activityRule) {
             navigationToolbar(composeTestRule) {

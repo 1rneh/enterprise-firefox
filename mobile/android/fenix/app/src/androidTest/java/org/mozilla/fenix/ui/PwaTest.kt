@@ -4,8 +4,8 @@
 
 package org.mozilla.fenix.ui
 
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.core.net.toUri
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -20,6 +20,7 @@ import org.mozilla.fenix.ui.robots.clickPageObject
 import org.mozilla.fenix.ui.robots.customTabScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
 import org.mozilla.fenix.ui.robots.pwaScreen
+import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 class PwaTest {
     /* Updated externalLinks.html to v2.0,
@@ -33,16 +34,17 @@ class PwaTest {
     private val phoneLink = "tel://1234567890"
     private val shortcutTitle = "TEST_APP"
 
-    @get:Rule
+    @get:Rule(order = 1)
     val composeTestRule =
-        AndroidComposeTestRule(
+        AndroidComposeTestRuleV2(
             HomeActivityTestRule.withDefaultSettingsOverrides(),
         ) { it.activity }
 
-    @get:Rule
-    val memoryLeaksRule = DetectMemoryLeaksRule()
+    @get:Rule(order = 2)
+    val memoryLeaksRule = DetectMemoryLeaksRule(composeTestRule = { composeTestRule })
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/845695
+    @Ignore("Bug 2036844: PWA pin-shortcut dialog never appears under v2 runTest dispatcher.")
     @Test
     fun externalLinkPWATest() {
         val externalLinkURL = "https://mozilla-mobile.github.io/testapp/downloads"
@@ -64,6 +66,7 @@ class PwaTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/845694
+    @Ignore("Bug 2036844: PWA pin-shortcut dialog never appears under v2 runTest dispatcher.")
     @Test
     fun appLikeExperiencePWATest() {
         navigationToolbar(composeTestRule) {
@@ -83,6 +86,7 @@ class PwaTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/834200
+    @Ignore("Bug 2036844: PWA pin-shortcut dialog never appears under v2 runTest dispatcher.")
     @SmokeTest
     @Test
     fun installPWAFromTheMainMenuTest() {

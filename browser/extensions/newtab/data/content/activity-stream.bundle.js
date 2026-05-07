@@ -306,6 +306,10 @@ for (const type of [
   "WIDGETS_LISTS_UPDATE",
   "WIDGETS_LISTS_USER_EVENT",
   "WIDGETS_LISTS_USER_IMPRESSION",
+  "WIDGETS_SPORTS_CHANGE_SELECTED_TEAMS",
+  "WIDGETS_SPORTS_CHANGE_WIDGET_STATE",
+  "WIDGETS_SPORTS_SET_SELECTED_TEAMS",
+  "WIDGETS_SPORTS_SET_WIDGET_STATE",
   "WIDGETS_SPORTS_WIDGET_SET",
   "WIDGETS_TIMER_END",
   "WIDGETS_TIMER_PAUSE",
@@ -6735,6 +6739,8 @@ const INITIAL_STATE = {
   SportsWidget: {
     data: null,
     initialized: false,
+    widgetState: "sports-intro",
+    selectedTeams: [],
   },
 };
 
@@ -7727,6 +7733,10 @@ function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
   switch (action.type) {
     case actionTypes.WIDGETS_SPORTS_WIDGET_SET:
       return { ...prevState, data: action.data, initialized: true };
+    case actionTypes.WIDGETS_SPORTS_SET_WIDGET_STATE:
+      return { ...prevState, widgetState: action.data };
+    case actionTypes.WIDGETS_SPORTS_SET_SELECTED_TEAMS:
+      return { ...prevState, selectedTeams: action.data };
     default:
       return prevState;
   }
@@ -15789,6 +15799,44 @@ function WidgetsRowFeatureHighlight({
 
 
 
+const WIDGET_STATES = {
+  INTRO: "sports-intro",
+  FOLLOW_TEAMS: "sports-follow-state"
+};
+const COUNTRIES = [{
+  id: "CA",
+  name: "Canada"
+}, {
+  id: "AU",
+  name: "Australia"
+}, {
+  id: "DZ",
+  name: "Algeria"
+}, {
+  id: "IQ",
+  name: "Iraq"
+}, {
+  id: "IT",
+  name: "Italy"
+}, {
+  id: "ES",
+  name: "Spain"
+}, {
+  id: "NG",
+  name: "Nigeria"
+}, {
+  id: "MR",
+  name: "Morocco"
+}, {
+  id: "PT",
+  name: "Portugal"
+}, {
+  id: "DE",
+  name: "Germany"
+}, {
+  id: "SN",
+  name: "Senegal"
+}];
 const SportsWidget_USER_ACTION_TYPES = {
   FOLLOW_TEAMS: "follow_teams",
   VIEW_UPCOMING: "view_upcoming",
@@ -15808,6 +15856,10 @@ function SportsWidget_SportsWidget({
   const sportsWidgetData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.SportsWidget);
   const widgetSize = prefs[SportsWidget_PREF_SPORTS_WIDGET_SIZE] || "medium";
   const liveEnabled = prefs[PREF_SPORTS_WIDGET_LIVE_ENABLED];
+  const widgetsMayBeMaximized = prefs["widgets.system.maximized"];
+  const widgetState = sportsWidgetData.widgetState || WIDGET_STATES.INTRO;
+  const displaySize = widgetState === WIDGET_STATES.FOLLOW_TEAMS ? "large" : widgetSize;
+  const selectedTeams = sportsWidgetData.selectedTeams || [];
   const impressionFired = (0,external_React_namespaceObject.useRef)(false);
   const sizeSubmenuRef = (0,external_React_namespaceObject.useRef)(null);
   const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
@@ -15834,6 +15886,11 @@ function SportsWidget_SportsWidget({
         user_action: SportsWidget_USER_ACTION_TYPES.FOLLOW_TEAMS,
         widget_size: widgetSize
       }
+    }));
+    // Tell the backend the widget state changed — it will save it and update the UI.
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_SPORTS_CHANGE_WIDGET_STATE,
+      data: WIDGET_STATES.FOLLOW_TEAMS
     }));
     handleInteraction();
   }
@@ -15954,18 +16011,32 @@ function SportsWidget_SportsWidget({
     });
   }
 
+  // Discard any team changes and go back to the intro state.
+  const handleCancelSelection = (0,external_React_namespaceObject.useCallback)(() => dispatch(actionCreators.AlsoToMain({
+    type: actionTypes.WIDGETS_SPORTS_CHANGE_WIDGET_STATE,
+    data: WIDGET_STATES.INTRO
+  })), [dispatch]);
+
   // @nova-cleanup(remove-gate): Remove this guard and PREF_NOVA_ENABLED after Nova ships
   if (!prefs[SportsWidget_PREF_NOVA_ENABLED]) {
     return null;
   }
   return /*#__PURE__*/external_React_default().createElement("article", {
-    className: `sports widget col-4 ${widgetSize}-widget`,
+    className: `sports widget col-4 ${displaySize}-widget ${widgetState}`,
     ref: el => {
       widgetRef.current = [el];
     }
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-title-wrapper"
-  }, /*#__PURE__*/external_React_default().createElement("div", null), /*#__PURE__*/external_React_default().createElement("div", {
+  }, widgetState === WIDGET_STATES.INTRO && /*#__PURE__*/external_React_default().createElement("div", null), widgetState === WIDGET_STATES.FOLLOW_TEAMS && /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sports-follow-teams-title",
+    "data-l10n-id": "newtab-sports-widget-follow-teams-title"
+    // If changing this number, also update isMaxSelected in SportsWidgetFollowTeams.
+    ,
+    "data-l10n-args": JSON.stringify({
+      number: 3
+    })
+  }), widgetState === WIDGET_STATES.INTRO && /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-intro-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("h2", {
     className: "sports-intro-title",
@@ -15973,7 +16044,11 @@ function SportsWidget_SportsWidget({
   }), /*#__PURE__*/external_React_default().createElement("p", {
     className: "sports-intro-lede",
     "data-l10n-id": "newtab-sports-widget-get-updates"
-  })), /*#__PURE__*/external_React_default().createElement("div", {
+  })), widgetState === WIDGET_STATES.FOLLOW_TEAMS ? /*#__PURE__*/external_React_default().createElement("button", {
+    className: "sports-cancel-button",
+    "data-l10n-id": "newtab-sports-widget-cancel",
+    onClick: handleCancelSelection
+  }) : /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-context-menu-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "sports-context-menu-button",
@@ -15991,7 +16066,7 @@ function SportsWidget_SportsWidget({
   }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-sports-widget-menu-view-results",
     onClick: handleViewResults
-  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+  }), widgetsMayBeMaximized && /*#__PURE__*/external_React_default().createElement("panel-item", {
     submenu: "sports-size-submenu"
   }, /*#__PURE__*/external_React_default().createElement("span", {
     "data-l10n-id": "newtab-widget-menu-change-size"
@@ -16013,7 +16088,11 @@ function SportsWidget_SportsWidget({
     onClick: handleLearnMore
   })))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-body"
-  }, /*#__PURE__*/external_React_default().createElement("div", {
+  }, widgetState === WIDGET_STATES.FOLLOW_TEAMS ? /*#__PURE__*/external_React_default().createElement(SportsWidgetFollowTeams, {
+    initialSelectedTeams: selectedTeams,
+    dispatch: dispatch,
+    onClose: handleCancelSelection
+  }) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-buttons-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
     type: "primary",
@@ -16025,11 +16104,57 @@ function SportsWidget_SportsWidget({
     type: "secondary",
     size: widgetSize === "medium" ? "small" : undefined,
     "data-l10n-id": "newtab-sports-widget-follow-teams",
-    className: "sports-follow-teams",
+    className: "sports-follow-teams-btn",
     onClick: () => handleFollowTeams("widget")
   })), liveEnabled && sportsWidgetData?.initialized && /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-live-scores"
-  })));
+  }))));
+}
+function SportsWidgetFollowTeams({
+  onClose,
+  initialSelectedTeams,
+  dispatch
+}) {
+  const [selectedTeams, setSelectedTeams] = (0,external_React_namespaceObject.useState)(initialSelectedTeams);
+  const [searchQuery, setSearchQuery] = (0,external_React_namespaceObject.useState)("");
+  const isMaxSelected = selectedTeams.length >= 3;
+  const filteredCountries = searchQuery ? COUNTRIES.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase())) : COUNTRIES;
+  function handleCountryToggle(countryId, isChecked) {
+    setSelectedTeams(prev => isChecked ? [...prev, countryId] : prev.filter(id => id !== countryId));
+  }
+
+  // Save the selected teams and go back to the intro state.
+  function handleDoneSelection() {
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_SPORTS_CHANGE_SELECTED_TEAMS,
+      data: selectedTeams
+    }));
+    onClose();
+  }
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-follow-teams"
+  }, /*#__PURE__*/external_React_default().createElement("moz-input-search", {
+    "data-l10n-id": "newtab-sports-widget-search-country",
+    className: "sports-country-search",
+    onInput: e => setSearchQuery(e.target.value)
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-follow-teams-list"
+  }, filteredCountries.map(country => {
+    const isSelected = selectedTeams.includes(country.id);
+    return /*#__PURE__*/external_React_default().createElement("moz-checkbox", {
+      key: country.id,
+      label: country.name,
+      checked: isSelected || undefined,
+      disabled: !isSelected && isMaxSelected ? true : undefined,
+      onChange: e => handleCountryToggle(country.id, e.target.checked)
+    });
+  })), /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "sports-done-button",
+    "data-l10n-id": "newtab-sports-widget-done-button",
+    type: "primary",
+    size: "small",
+    onClick: handleDoneSelection
+  }));
 }
 
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/Clocks/ClocksHelpers.mjs
@@ -17186,6 +17311,10 @@ function ExternalComponentWrapper({
 }) {
   const containerRef = external_React_default().useRef(null);
   const customElementRef = external_React_default().useRef(null);
+  const cleanupRef = external_React_default().useRef(null);
+  const scriptRef = external_React_default().useRef(null);
+  const styleRef = external_React_default().useRef(null);
+  const shadowRootRef = external_React_default().useRef(null);
   const l10nLinksRef = external_React_default().useRef([]);
   const [error, setError] = external_React_default().useState(null);
   const {
@@ -17200,15 +17329,47 @@ function ExternalComponentWrapper({
           console.warn(`No external component configuration found for type: ${type}`);
           return;
         }
-        await importModule(config.componentURL);
         l10nLinksRef.current = [];
-        for (let l10nURL of config.l10nURLs) {
+        for (const l10nURL of config.l10nURLs ?? []) {
           const l10nEl = document.createElement("link");
           l10nEl.rel = "localization";
           l10nEl.href = l10nURL;
           document.head.appendChild(l10nEl);
           l10nLinksRef.current.push(l10nEl);
         }
+        if (config.mountStrategy === "react-bundle") {
+          if (!shadowRootRef.current) {
+            shadowRootRef.current = container.shadowRoot ?? container.attachShadow({
+              mode: "open"
+            });
+            document.l10n.connectRoot(shadowRootRef.current);
+          }
+          const shadowRoot = shadowRootRef.current;
+          for (const stylesURL of config.stylesURLs) {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = stylesURL;
+            shadowRoot.appendChild(link);
+          }
+          if (config.moduleURLs?.length) {
+            await Promise.all(config.moduleURLs.map(url => importModule(url)));
+          }
+          const mountPoint = document.createElement("div");
+          shadowRoot.appendChild(mountPoint);
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = config.bundleURL;
+            script.onload = () => {
+              cleanupRef.current = window[config.mountFunction](mountPoint, props);
+              resolve();
+            };
+            script.onerror = reject;
+            document.head.appendChild(script);
+            scriptRef.current = script;
+          });
+          return;
+        }
+        await importModule(config.componentURL);
         if (containerRef.current && !customElementRef.current) {
           const element = document.createElement(config.tagName);
           if (config.attributes) {
@@ -17236,6 +17397,20 @@ function ExternalComponentWrapper({
     };
     loadComponent();
     return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+      scriptRef.current?.remove();
+      scriptRef.current = null;
+      if (shadowRootRef.current) {
+        document.l10n.disconnectRoot(shadowRootRef.current);
+        while (shadowRootRef.current.firstChild) {
+          shadowRootRef.current.firstChild.remove();
+        }
+        shadowRootRef.current = null;
+      } else {
+        styleRef.current?.remove();
+        styleRef.current = null;
+      }
       if (customElementRef.current && container) {
         container.removeChild(customElementRef.current);
         customElementRef.current = null;
@@ -21633,6 +21808,13 @@ class BaseContent extends (external_React_default()).PureComponent {
     // If state.showDownloadHighlightOverride has value, let it override the logic
     // Otherwise, defer to OMC message display logic
     const shouldShowDownloadHighlight = this.state.showDownloadHighlightOverride ?? shouldShowOMCHighlight(this.props.Messages, "DownloadMobilePromoHighlight");
+    const multistageMessageFeed = shouldShowOMCHighlight(this.props.Messages, "ASRouterMultistageMessage") ? /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+      dispatch: this.props.dispatch
+    }, /*#__PURE__*/external_React_default().createElement(ExternalComponentWrapper, {
+      type: "ASROUTER_MULTISTAGE_MESSAGE",
+      messageData: this.props.Messages.messageData,
+      className: "asrouter-multistage-message-wrapper"
+    }))) : null;
 
     // @nova-cleanup(remove-conditional): Remove this conditional and
     // always render the Nova layout below. The classic render() return
@@ -21689,7 +21871,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       }, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamBase, {
         locale: props.App.locale,
         spocsLoading: this.isSpocsOnDemandExpired
-      })))), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null), /*#__PURE__*/external_React_default().createElement("menu", {
+      })), !pocketEnabled && multistageMessageFeed)), /*#__PURE__*/external_React_default().createElement(ConfirmDialog, null), /*#__PURE__*/external_React_default().createElement("menu", {
         className: "personalizeButtonWrapper nova-enabled"
       }, /*#__PURE__*/external_React_default().createElement(CustomizeMenu, {
         onClose: this.closeCustomizationMenu,

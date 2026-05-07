@@ -7,7 +7,6 @@ import androidx.compose.ui.test.performClick
 import org.mozilla.fenix.R
 import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
-import org.mozilla.fenix.helpers.HomeActivityComposeTestRule
 
 class ThreeDotMenuBookmarksRobot {
     class Transition(private val composeTestRule: ComposeTestRule) {
@@ -66,7 +65,7 @@ class ThreeDotMenuBookmarksRobot {
             return BookmarksRobot.Transition(composeTestRule)
         }
 
-        fun clickOpenAllInTabs(composeTestRule: HomeActivityComposeTestRule, interact: TabDrawerRobot.() -> Unit): TabDrawerRobot.Transition {
+        fun clickOpenAllInTabs(composeTestRule: ComposeTestRule, interact: TabDrawerRobot.() -> Unit): TabDrawerRobot.Transition {
             Log.i(TAG, "clickOpenAllInTabs: Trying to click the \"Open all in new tabs\" button")
             composeTestRule.openAllInTabsButton().performClick()
             Log.i(TAG, "clickOpenAllInTabs: Clicked the \"Open all in new tabs\" button")
@@ -75,7 +74,7 @@ class ThreeDotMenuBookmarksRobot {
             return TabDrawerRobot.Transition(composeTestRule)
         }
 
-        fun clickOpenAllInPrivateTabs(composeTestRule: HomeActivityComposeTestRule, interact: TabDrawerRobot.() -> Unit): TabDrawerRobot.Transition {
+        fun clickOpenAllInPrivateTabs(composeTestRule: ComposeTestRule, interact: TabDrawerRobot.() -> Unit): TabDrawerRobot.Transition {
             Log.i(TAG, "clickOpenAllInPrivateTabs: Trying to click the \"Open all in private tabs\" button")
             composeTestRule.openAllInPrivateTabsButton().performClick()
             Log.i(TAG, "clickOpenAllInPrivateTabs: Clicked the \"Open all in private tabs\" button")

@@ -64,7 +64,7 @@ LexerResult nsJXLDecoder::DoDecode(SourceBufferIterator& aIterator,
         // the next loop iteration in ProcessAvailableData. This is also
         // potentially the only and last chance to actually push the pixels
         // through the surface pipe so they get to the user.
-        if (!HasAnimation() && !mPixelBuffer.empty() && mCurrentPipe) {
+        if (!HasAnimation() && !mPixelBuffer.empty()) {
           FlushPartialFrame();
         }
       }
@@ -205,77 +205,97 @@ nsJXLDecoder::ProcessResult nsJXLDecoder::ProcessAvailableData(
   while (true) {
     JxlDecoderStatus status = ProcessInput(aData, aLength);
 
-    switch (status) {
-      case JxlDecoderStatus::Error:
-        return ProcessResult::Error;
+    if (status == JxlDecoderStatus::Error) {
+      return ProcessResult::Error;
+    }
 
-      case JxlDecoderStatus::NeedMoreData:
-        return ProcessResult::NeedMoreData;
-
-      case JxlDecoderStatus::Ok: {
-        if (mDecoderState == DecoderState::Initial) {
-          JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
-          if (!basicInfo.valid) {
-            if (*aLength == 0) {
-              return ProcessResult::NeedMoreData;
-            }
-            continue;
-          }
-
-          if (basicInfo.width > INT32_MAX || basicInfo.height > INT32_MAX) {
-            return ProcessResult::Error;
-          }
-
-          PostSize(basicInfo.width, basicInfo.height);
-          if (basicInfo.has_alpha) {
-            PostHasTransparency();
-          }
-
-          if (!basicInfo.is_animated) {
-            PostFrameCount(1);
-            if (IsMetadataDecode()) {
-              return ProcessResult::Complete;
-            }
-          }
-
-          mDecoderState = DecoderState::HaveBasicInfo;
+    // Basic info may have just become available, regardless of whether
+    // ProcessInput returned Ok or NeedMoreData (jxl-rs sets it during its
+    // internal loop and continues). Posting the size and pre-allocating
+    // the pixel buffer and SurfacePipe before the visible frame header
+    // arrives is what lets flush_pixels render an LF-frame preview into
+    // the buffer while we are still waiting on bytes.
+    if (mDecoderState == DecoderState::Initial) {
+      JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
+      if (basicInfo.valid) {
+        if (basicInfo.width > INT32_MAX || basicInfo.height > INT32_MAX) {
+          return ProcessResult::Error;
         }
 
-        if (mDecoderState == DecoderState::HaveBasicInfo) {
-          if (jxl_decoder_is_frame_ready(mDecoder.get()) && !HasAnimation()) {
-            JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
-            if (basicInfo.is_animated) {
-              JxlFrameInfo frameInfo =
-                  jxl_decoder_get_frame_info(mDecoder.get());
-              PostIsAnimated(
-                  FrameTimeout::FromRawMilliseconds(frameInfo.duration_ms));
-              // num_loops == 0 in jxl means infinite loop, whereas 1 means one
-              // total play through.
-              PostLoopCount(
-                  (basicInfo.num_loops == 0 || basicInfo.num_loops > INT32_MAX)
-                      ? -1
-                      : static_cast<int32_t>(basicInfo.num_loops - 1));
-              if (IsMetadataDecode()) {
-                return ProcessResult::Complete;
-              }
-            }
-          }
+        PostSize(basicInfo.width, basicInfo.height);
+        if (basicInfo.has_alpha) {
+          PostHasTransparency();
         }
 
-        switch (HandleFrameOutput()) {
-          case FrameOutputResult::BufferAllocated:
-          case FrameOutputResult::NoOutput:
-            continue;
-          case FrameOutputResult::FrameAdvanced:
-            return ProcessResult::YieldOutput;
-          case FrameOutputResult::DecodeComplete:
+        if (!basicInfo.is_animated) {
+          PostFrameCount(1);
+          if (IsMetadataDecode()) {
             return ProcessResult::Complete;
-          case FrameOutputResult::Error:
-            return ProcessResult::Error;
+          }
         }
-        MOZ_CRASH("Unhandled FrameOutputResult");
+
+        mDecoderState = DecoderState::HaveBasicInfo;
+
+        // Allocate the pixel buffer for non-animated images here so that
+        // FlushPartialFrame can render an LF preview during the LF-frame
+        // phase. The SurfacePipe (and the surface it exposes) is created
+        // lazily in FlushPartialFrame / FinishFrame so that no opaque-black
+        // surface is visible while we wait for the first rendered pixels.
+        // Animated images don't take the FlushPartialFrame path, so eager
+        // allocation buys them nothing; each frame's buffer is allocated
+        // per-frame in HandleFrameOutput.
+        if (!basicInfo.is_animated) {
+          if (NS_FAILED(AllocateFrameBuffers())) {
+            return ProcessResult::Error;
+          }
+        }
+      } else if (status == JxlDecoderStatus::Ok) {
+        // Ok without basic info shouldn't happen, but if it does, retry
+        // with the remaining bytes.
+        if (*aLength == 0) {
+          return ProcessResult::NeedMoreData;
+        }
+        continue;
       }
     }
+
+    if (status == JxlDecoderStatus::NeedMoreData) {
+      return ProcessResult::NeedMoreData;
+    }
+
+    MOZ_ASSERT(status == JxlDecoderStatus::Ok);
+    if (mDecoderState == DecoderState::HaveBasicInfo) {
+      if (jxl_decoder_is_frame_ready(mDecoder.get()) && !HasAnimation()) {
+        JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
+        if (basicInfo.is_animated) {
+          JxlFrameInfo frameInfo = jxl_decoder_get_frame_info(mDecoder.get());
+          PostIsAnimated(
+              FrameTimeout::FromRawMilliseconds(frameInfo.duration_ms));
+          // num_loops == 0 in jxl means infinite loop, whereas 1 means one
+          // total play through.
+          PostLoopCount(
+              (basicInfo.num_loops == 0 || basicInfo.num_loops > INT32_MAX)
+                  ? -1
+                  : static_cast<int32_t>(basicInfo.num_loops - 1));
+          if (IsMetadataDecode()) {
+            return ProcessResult::Complete;
+          }
+        }
+      }
+    }
+
+    switch (HandleFrameOutput()) {
+      case FrameOutputResult::BufferAllocated:
+      case FrameOutputResult::NoOutput:
+        continue;
+      case FrameOutputResult::FrameAdvanced:
+        return ProcessResult::YieldOutput;
+      case FrameOutputResult::DecodeComplete:
+        return ProcessResult::Complete;
+      case FrameOutputResult::Error:
+        return ProcessResult::Error;
+    }
+    MOZ_CRASH("Unhandled FrameOutputResult");
   }
 }
 
@@ -331,7 +351,10 @@ nsJXLDecoder::FrameOutputResult nsJXLDecoder::HandleFrameOutput() {
   bool frameNeedsBuffer = jxl_decoder_is_frame_ready(mDecoder.get());
 
   if (frameNeedsBuffer && mPixelBuffer.empty()) {
-    return BeginFrame();
+    if (NS_FAILED(AllocateFrameBuffers())) {
+      return FrameOutputResult::Error;
+    }
+    return FrameOutputResult::BufferAllocated;
   }
 
   if (!frameNeedsBuffer && !mPixelBuffer.empty()) {
@@ -369,7 +392,7 @@ nsJXLDecoder::PixelFormat nsJXLDecoder::DetectPixelFormat(
                                                  : PixelFormat::Rgba8;
 }
 
-nsJXLDecoder::FrameOutputResult nsJXLDecoder::BeginFrame() {
+nsresult nsJXLDecoder::AllocateFrameBuffers() {
   MOZ_ASSERT(HasSize());
   OrientedIntSize size = Size();
   JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
@@ -388,15 +411,15 @@ nsJXLDecoder::FrameOutputResult nsJXLDecoder::BeginFrame() {
       CheckedInt<size_t>(size.width) * size.height * BytesPerPixel();
   if (!bufferSize.isValid() || !mPixelBuffer.resize(bufferSize.value())) {
     MOZ_LOG(sJXLLog, LogLevel::Error,
-            ("[this=%p] nsJXLDecoder::BeginFrame -- "
+            ("[this=%p] nsJXLDecoder::AllocateFrameBuffers -- "
              "failed to allocate pixel buffer\n",
              this));
-    return FrameOutputResult::Error;
+    return NS_ERROR_FAILURE;
   }
 
   if (mPixelFormat.value() == PixelFormat::Cmyk8 &&
       !mKBuffer.resize(size.width * size.height)) {
-    return FrameOutputResult::Error;
+    return NS_ERROR_FAILURE;
   }
 
   // Per-row u8 scratch for all non-passthrough paths (gray, CMYK, HDR).
@@ -405,25 +428,39 @@ nsJXLDecoder::FrameOutputResult nsJXLDecoder::BeginFrame() {
   if (mPixelFormat.value() != PixelFormat::Rgba8) {
     CheckedInt<size_t> rowBufSize = CheckedInt<size_t>(size.width) * 4;
     if (!rowBufSize.isValid() || !mU8RowBuf.resize(rowBufSize.value())) {
-      return FrameOutputResult::Error;
+      return NS_ERROR_FAILURE;
     }
-  }
-
-  Maybe<AnimationParams> animParams;
-  if (HasAnimation()) {
-    JxlFrameInfo frameInfo = jxl_decoder_get_frame_info(mDecoder.get());
-    if (!frameInfo.frame_duration_valid) {
-      return FrameOutputResult::Error;
-    }
-    animParams.emplace(FullFrame().ToUnknownRect(),
-                       FrameTimeout::FromRawMilliseconds(frameInfo.duration_ms),
-                       mFrameIndex, BlendMethod::SOURCE, DisposalMethod::KEEP);
   }
 
   // Build the qcms transform once on the first frame. The ICC profile and
   // color space are constant across all frames of a JXL image.
   if (mFrameIndex == 0 && GetCMSOutputProfile() && mCMSMode != CMSMode::Off) {
     BuildCMSTransform();
+  }
+
+  return NS_OK;
+}
+
+nsresult nsJXLDecoder::EnsureSurfacePipe() {
+  if (mCurrentPipe) {
+    return NS_OK;
+  }
+
+  MOZ_ASSERT(HasSize());
+  OrientedIntSize size = Size();
+  JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
+  MOZ_ASSERT(basicInfo.valid);
+
+  Maybe<AnimationParams> animParams;
+  if (HasAnimation()) {
+    JxlFrameInfo frameInfo = jxl_decoder_get_frame_info(mDecoder.get());
+    MOZ_ASSERT(frameInfo.frame_duration_valid);
+    if (!frameInfo.frame_duration_valid) {
+      return NS_ERROR_FAILURE;
+    }
+    animParams.emplace(FullFrame().ToUnknownRect(),
+                       FrameTimeout::FromRawMilliseconds(frameInfo.duration_ms),
+                       mFrameIndex, BlendMethod::SOURCE, DisposalMethod::KEEP);
   }
 
   // Cmyk8 with CMS: qcms outputs RGB8 (3 bytes/pixel), pipe handles R8G8B8.
@@ -462,10 +499,10 @@ nsJXLDecoder::FrameOutputResult nsJXLDecoder::BeginFrame() {
       this, size, OutputSize(), FullFrame(), inFormat, outFormat, animParams,
       pipeTransform, pipeFlags);
   if (!mCurrentPipe) {
-    return FrameOutputResult::Error;
+    return NS_ERROR_FAILURE;
   }
 
-  return FrameOutputResult::BufferAllocated;
+  return NS_OK;
 }
 
 void nsJXLDecoder::BuildCMSTransform() {
@@ -628,7 +665,11 @@ bool nsJXLDecoder::WritePixelRowsToPipe() {
 nsresult nsJXLDecoder::FinishFrame() {
   MOZ_ASSERT(HasSize());
   MOZ_ASSERT(mDecoder);
-  MOZ_ASSERT(mCurrentPipe);
+
+  nsresult rv = EnsureSurfacePipe();
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
 
@@ -655,13 +696,23 @@ nsresult nsJXLDecoder::FinishFrame() {
 
 void nsJXLDecoder::FlushPartialFrame() {
   MOZ_ASSERT(!mPixelBuffer.empty());
-  MOZ_ASSERT(mCurrentPipe);
 
   JxlDecoderStatus status = jxl_decoder_flush_pixels(
       mDecoder.get(), mPixelBuffer.begin(), mPixelBuffer.length(),
       mKBuffer.empty() ? nullptr : mKBuffer.begin(), mKBuffer.length());
   if (status != JxlDecoderStatus::Ok) {
     // Nothing new was rendered.
+    return;
+  }
+
+  // Lazily create the SurfacePipe now that we have content for it. Doing
+  // this before any pixels are ready would expose an opaque-black surface
+  // for images without an alpha channel.
+  if (NS_FAILED(EnsureSurfacePipe())) {
+    MOZ_LOG(sJXLLog, LogLevel::Error,
+            ("[this=%p] nsJXLDecoder::FlushPartialFrame -- "
+             "EnsureSurfacePipe failed\n",
+             this));
     return;
   }
 

@@ -5020,11 +5020,12 @@ struct Internals {
       rv = pref->GetValue(aKind, aResult);
 
       if (profiler_thread_is_being_profiled_for_markers()) {
+        auto str = PrefValueToString(aResult);
         profiler_add_marker(
             "Preference Read", baseprofiler::category::OTHER_PreferenceRead, {},
             PreferenceMarker{},
             ProfilerString8View::WrapNullTerminatedString(aPrefName),
-            Some(aKind), pref->Type(), PrefValueToString(aResult));
+            Some(aKind), pref->Type(), std::move(str));
       }
     }
 
@@ -5039,12 +5040,12 @@ struct Internals {
       rv = pref->GetValue(PrefValueKind::User, aResult);
 
       if (profiler_thread_is_being_profiled_for_markers()) {
+        auto str = PrefValueToString(aResult);
         profiler_add_marker(
             "Preference Read", baseprofiler::category::OTHER_PreferenceRead, {},
             PreferenceMarker{},
             ProfilerString8View::WrapNullTerminatedString(aName),
-            Nothing() /* indicates Shared */, pref->Type(),
-            PrefValueToString(aResult));
+            Nothing() /* indicates Shared */, pref->Type(), std::move(str));
       }
     }
 

@@ -237,6 +237,14 @@ const CONFIG_PANES = Object.freeze({
     visible: () =>
       Services.prefs.getBoolPref("browser.preferences.aiControls", false),
   },
+  downloads: {
+    l10nId: "pane-downloads",
+    iconSrc: "chrome://browser/skin/downloads/downloads.svg",
+    groupIds: ["downloads", "applications"],
+    module: "chrome://browser/content/preferences/config/downloads.mjs",
+    visible: () =>
+      Services.prefs.getBoolPref("browser.settings-redesign.enabled", false),
+  },
   connectionSecurity: {
     parent: "privacy",
     l10nId: "preferences-connection-header",

@@ -284,7 +284,6 @@ windows11-64-24h2/opt:
             default: build-signing-win64/opt
     test-sets:
         - windows11-24h2-tests
-        - talos-xperf
         - windows-talos
         - browsertime
         - windows-talos-webgl
@@ -315,7 +314,6 @@ windows11-64-24h2-shippable/opt:
             default: build-signing-win64-shippable/opt
     test-sets:
         - windows11-24h2-tests
-        - talos-xperf
         - talos-profiling
         - windows-talos
         - browsertime

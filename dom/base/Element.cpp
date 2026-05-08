@@ -900,6 +900,8 @@ void Element::ScrollIntoView(const ScrollIntoViewOptions& aOptions) {
         return WhereToScroll::Center;
       case ScrollLogicalPosition::End:
         return WhereToScroll::End;
+      case ScrollLogicalPosition::Auto:
+        return WhereToScroll::Auto;
       case ScrollLogicalPosition::Nearest:
         break;
     }
@@ -4239,15 +4241,18 @@ void Element::DumpContent(FILE* out, int32_t aIndent, bool aDumpAll) const {
 }
 #endif
 
-void Element::Describe(nsAString& aOutDescription, bool aShort) const {
+void Element::Describe(nsAString& aOutDescription,
+                       DescriptionKind aKind) const {
   aOutDescription.Append(mNodeInfo->QualifiedName());
   aOutDescription.AppendPrintf("@%p", (void*)this);
 
   uint32_t index, count = mAttrs.AttrCount();
   for (index = 0; index < count; index++) {
-    if (aShort) {
+    if (aKind != DescriptionKind::AllAttributes) {
+      bool includeClass = (aKind == DescriptionKind::IdAndClass);
       const nsAttrName* name = mAttrs.AttrNameAt(index);
-      if (!name->Equals(nsGkAtoms::id) && !name->Equals(nsGkAtoms::_class)) {
+      if (!name->Equals(nsGkAtoms::id) &&
+          !(includeClass && name->Equals(nsGkAtoms::_class))) {
         continue;
       }
     }

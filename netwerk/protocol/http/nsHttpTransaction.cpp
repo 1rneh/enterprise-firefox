@@ -358,7 +358,9 @@ nsresult nsHttpTransaction::Init(
               nsIOService::gDefaultSegmentSize,
               nsIOService::gDefaultSegmentCount);
 
-  bool forceUseHTTPSRR = StaticPrefs::network_dns_force_use_https_rr();
+  // HTTPS RR is handled by HappyEyeballsConnectionAttempt.
+  bool forceUseHTTPSRR = StaticPrefs::network_dns_force_use_https_rr() &&
+                         !(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS);
   if ((StaticPrefs::network_dns_use_https_rr_as_altsvc() &&
        !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR) &&
        !(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS)) ||
@@ -3217,8 +3219,8 @@ bool nsHttpTransaction::Do0RTT(bool aCanSendEarlyData) {
 
 nsresult nsHttpTransaction::Finish0RTT(bool aRestart,
                                        bool aAlpnChanged /* ignored */) {
-  LOG(("nsHttpTransaction::Finish0RTT %p %d %d\n", this, aRestart,
-       aAlpnChanged));
+  LOG(("nsHttpTransaction::Finish0RTT %p aRestart=%d aAlpnChanged=%d\n", this,
+       aRestart, aAlpnChanged));
   MOZ_ASSERT(m0RTTInProgress);
   m0RTTInProgress = false;
 
@@ -3246,6 +3248,30 @@ nsresult nsHttpTransaction::Finish0RTT(bool aRestart,
     MaybeRefreshSecurityInfo();
   }
   return NS_OK;
+}
+
+void nsHttpTransaction::FinishAdopted0RTT(bool aRestart) {
+  LOG(("nsHttpTransaction::FinishAdopted0RTT %p restart=%d\n", this, aRestart));
+  mResumptionAttempted = true;
+  if (!aRestart) {
+    // Mirror nsHttpTransaction::Finish0RTT: only promote when the
+    // pre-state is EARLY_SENT (i.e. ZeroRttHandle::ReadSegments
+    // already flipped us via MarkEarlyDataSent). If EARLY_SENT was
+    // never set, no bytes were sent as early data for this txn and
+    // claiming EARLY_ACCEPTED would be a lie.
+    if (mEarlyDataDisposition == EARLY_SENT) {
+      mEarlyDataDisposition = EARLY_ACCEPTED;
+    }
+  } else {
+    mDoNotTryEarlyData = true;
+    // Rewind the request stream so the real txn re-sends from the
+    // start on the winning full-handshake conn. Matches
+    // nsHttpTransaction::Finish0RTT's restart path.
+    nsCOMPtr<nsISeekableStream> seekable = do_QueryInterface(mRequestStream);
+    if (seekable) {
+      (void)seekable->Seek(nsISeekableStream::NS_SEEK_SET, 0);
+    }
+  }
 }
 
 void nsHttpTransaction::Refused0RTT() {

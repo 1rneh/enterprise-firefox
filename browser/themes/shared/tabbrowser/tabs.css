@@ -2142,6 +2142,11 @@ tab-group {
       z-index: 1;
 
       margin-block: 0 -16px;
+
+      /* stylelint-disable-next-line media-query-no-invalid */
+      @media -moz-pref("browser.nova.enabled") {
+        background-image: linear-gradient(to top, transparent, var(--toolbox-background-color));
+      }
     }
 
     /* Flip the fade at the bottom */
@@ -2350,6 +2355,11 @@ tab-group {
   background-color: transparent;
   margin-inline: var(--tab-inner-inline-margin);
   min-height: 2px;
+
+  /* stylelint-disable-next-line media-query-no-invalid */
+  @media -moz-pref("browser.nova.enabled") {
+    min-height: 4px;
+  }
 
   #pinned-tabs-container:empty + & {
     display: none;

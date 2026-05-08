@@ -85,6 +85,10 @@ pane-about-firefox-title = About { -brand-short-name }
 pane-appearance-title = Appearance
   .title = { pane-appearance-title }
 
+pane-downloads-title = Downloads
+pane-downloads =
+    .heading = { pane-downloads-title }
+
 pane-accessibility-title = Accessibility
   .title = { pane-accessibility-title }
 
@@ -591,27 +595,26 @@ spellcheck-promo =
 
 files-and-applications-title = Files and Applications
 
-downloads-header-2 =
-    .label = Downloads
-
-download-save-where-2 =
+download-save-files-header =
     .label = Save files to
-    .accesskey = v
 
-download-always-ask-where =
-    .label = Always ask you where to save files
+download-save-where-3 =
+    .aria-label = Save files to
+
+download-always-ask-where2 =
+    .label = Ask where to save files before downloading
     .accesskey = A
-download-private-browsing-delete =
-    .label = Delete files downloaded in private browsing when all private windows are closed
+download-private-browsing-delete2 =
+    .label = Delete private window downloads on close
     .accesskey = D
 
 applications-header = Applications
 
 applications-description = Choose how { -brand-short-name } handles the files you download from the web or the applications you use while browsing.
 
-applications-setting =
-    .label = Applications
-    .description = Choose how { -brand-short-name } handles the files you download from the web or the applications you use while browsing.
+applications-setting2 =
+    .label = Files and applications
+    .description = Choose how { -brand-short-name } handles downloaded files and content.
 
 applications-filter =
     .placeholder = Search file types or applications
@@ -709,9 +712,15 @@ applications-setting-new-file-types =
 applications-save-for-new-types =
     .label = Save files
     .accesskey = S
+applications-save-for-new-types2 =
+    .label = Automatically save files
+    .accesskey = S
 
 applications-ask-before-handling =
     .label = Ask whether to open or save files
+    .accesskey = A
+applications-ask-before-handling2 =
+    .label = Ask to open or save files
     .accesskey = A
 
 drm-group =

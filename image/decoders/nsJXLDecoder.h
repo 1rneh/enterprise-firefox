@@ -74,7 +74,16 @@ class nsJXLDecoder final : public Decoder {
 
   static PixelFormat DetectPixelFormat(JxlApiDecoder* aDecoder,
                                        const JxlBasicInfo& aBasicInfo);
-  FrameOutputResult BeginFrame();
+  // Allocate the pixel / K / scratch buffers, detect the output pixel
+  // format, and perform any CMS setup needed for this image. The SurfacePipe
+  // (and the surface it exposes) is deferred to EnsureSurfacePipe until we
+  // actually have pixels to output.
+  nsresult AllocateFrameBuffers();
+  // Create mCurrentPipe if it doesn't already exist. Idempotent.
+  // Preconditions: AllocateFrameBuffers has already run (mPixelFormat /
+  // mTransform are read here); for animated images the caller must also
+  // have observed frame_ready so that AnimationParams is available.
+  nsresult EnsureSurfacePipe();
   void BuildCMSTransform();
   nsresult FinishFrame();
   void FlushPartialFrame();
@@ -131,7 +140,7 @@ class nsJXLDecoder final : public Decoder {
   // Per-row u8 output buffer for manual CMS paths (HDR, gray, CMYK).
   Vector<uint8_t> mU8RowBuf;
 
-  // Full-frame decoded pixel buffer; allocated in BeginFrame, sized
+  // Full-frame decoded pixel buffer; allocated in AllocateFrameBuffers, sized
   // width * height * BytesPerPixel(). Passed to jxl-rs as the output buffer.
   Vector<uint8_t> mPixelBuffer;
   Vector<uint8_t> mKBuffer;  // K (Black) channel, 1 byte/pixel, for CMYK images

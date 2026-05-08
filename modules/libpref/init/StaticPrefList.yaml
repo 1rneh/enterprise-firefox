@@ -4038,7 +4038,7 @@
 # Whether to use the platform API to "lock" the native pointer for pointer lock.
 - name: dom.pointer-lock.native-lock.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 #endif
 
@@ -9636,7 +9636,7 @@
 
 -   name: javascript.options.wasm_js_promise_integration
     type: bool
-    value: false
+    value: @IS_NIGHTLY_BUILD@
     mirror: always
     set_spidermonkey_pref: always
 
@@ -16385,6 +16385,19 @@
 - name: network.http.happy_eyeballs_enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# The time to wait after receiving the first DNS response before moving on
+# to the connection phase (ms).
+- name: network.http.happy_eyeballs_resolution_delay
+  type: RelaxedAtomicUint32
+  value: 50
+  mirror: always
+
+# The time to wait between successive connection attempts (ms).
+- name: network.http.happy_eyeballs_connection_attempt_delay
+  type: RelaxedAtomicUint32
+  value: 250
   mirror: always
 
 # If true, it will include extra tags to be sniffed by nsUnknownDecoder

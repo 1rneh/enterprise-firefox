@@ -144,6 +144,7 @@ const ENTRYPOINT_TRACKED_CONTEXT_MENU_IDS = {
 
 // A list of the expected panes in about:preferences
 const PREFERENCES_PANES = [
+  "paneDownloads",
   "paneHome",
   "paneGeneral",
   "panePrivacy",

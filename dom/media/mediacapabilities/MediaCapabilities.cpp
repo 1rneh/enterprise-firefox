@@ -479,18 +479,28 @@ static bool GetThreadForAsyncRequest(
     nsIGlobalObject* aParent, RefPtr<DOMMozPromiseRequestHolder<T>>* aHolderOut,
     RefPtr<nsISerialEventTarget>* aTargetThreadOut,
     RefPtr<StrongWorkerRef>* aWorkerRefOut, const char* aTag) {
-  *aHolderOut = MakeRefPtr<DOMMozPromiseRequestHolder<T>>(aParent);
-  *aTargetThreadOut = aParent->SerialEventTarget();
+  auto holder = MakeRefPtr<DOMMozPromiseRequestHolder<T>>(aParent);
+  RefPtr<nsISerialEventTarget> target = aParent->SerialEventTarget();
+  MOZ_ASSERT(target->IsOnCurrentThread());
 
-  MOZ_ASSERT(aParent->SerialEventTarget()->IsOnCurrentThread());
-  if (!NS_IsMainThread()) {
-    WorkerPrivate* wp = GetCurrentThreadWorkerPrivate();
-    // Prevent worker from being killed when request is in flight
-    *aWorkerRefOut = StrongWorkerRef::Create(wp, aTag, []() {});
-    if (NS_WARN_IF(!*aWorkerRefOut)) {
-      return false;
-    }
+  if (NS_IsMainThread()) {
+    *aHolderOut = std::move(holder);
+    *aTargetThreadOut = std::move(target);
+    return true;
   }
+
+  WorkerPrivate* wp = GetCurrentThreadWorkerPrivate();
+  MOZ_ASSERT(wp, "Must be called from a worker thread");
+
+  RefPtr<StrongWorkerRef> ref = StrongWorkerRef::Create(
+      wp, aTag, [holder]() { holder->DisconnectIfExists(); });
+  if (NS_WARN_IF(!ref)) {
+    return false;
+  }
+
+  *aHolderOut = std::move(holder);
+  *aTargetThreadOut = std::move(target);
+  *aWorkerRefOut = std::move(ref);
   return true;
 }
 
@@ -604,7 +614,7 @@ void MediaCapabilities::CreateWebRTCDecodingInfo(
       })
       ->Then(
           targetThread, __func__,
-          [promise = RefPtr(aPromise),
+          [promise = RefPtr(aPromise), workerRef,
            holder](MediaCapabilitiesDecodingInfo&& aInfo) {
             holder->Complete();
             nsIGlobalObject* global = holder->GetParentObject();

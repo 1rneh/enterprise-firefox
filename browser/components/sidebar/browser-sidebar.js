@@ -1451,20 +1451,24 @@ var SidebarController = {
       this.handleToolBadges();
       switch (this.sidebarRevampVisibility) {
         case "always-show":
-        case "expand-on-hover":
+        case "expand-on-hover": {
           // Toolbar button controls expanded state.
-          toolbarButton.checked = this.sidebarMain.expanded;
-          toolbarButton.dataset.l10nId = toolbarButton.checked
+          const isExpanded = this.sidebarMain.expanded;
+          toolbarButton.checked = isVerticalTabs && isExpanded;
+          toolbarButton.dataset.l10nId = isExpanded
             ? "sidebar-widget-collapse-sidebar2"
             : "sidebar-widget-expand-sidebar2";
           break;
-        case "hide-sidebar":
+        }
+        case "hide-sidebar": {
           // Toolbar button controls hidden state.
-          toolbarButton.checked = !this.sidebarContainer.hidden;
-          toolbarButton.dataset.l10nId = toolbarButton.checked
+          const isVisible = !this.sidebarContainer.hidden;
+          toolbarButton.checked = isVerticalTabs && isVisible;
+          toolbarButton.dataset.l10nId = isVisible
             ? "sidebar-widget-hide-sidebar2"
             : "sidebar-widget-show-sidebar2";
           break;
+        }
       }
     }
   },

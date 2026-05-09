@@ -4,10 +4,6 @@
 
 "use strict";
 
-const { E10SUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/E10SUtils.sys.mjs"
-);
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -133,26 +129,16 @@ async function connectToConsole(email) {
     return;
   }
 
-  let browser = document.getElementById("browser");
-
-  let oa = E10SUtils.predictOriginAttributes({ browser });
-  browser.setAttribute("maychangeremoteness", "true");
-
   const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(
     email,
     posture.posture
   );
 
+  const browser = document.getElementById("browser");
+  browser.setAttribute("maychangeremoteness", "true");
   browser.setAttribute(
     "remoteType",
-    E10SUtils.getRemoteTypeForURI(
-      ssoLoginURI.spec,
-      /* remote */ true,
-      /* fission */ true,
-      E10SUtils.WEB_REMOTE_TYPE,
-      null,
-      oa
-    )
+    ChromeUtils.predictRemoteTypeForURI(ssoLoginURI.spec, { browser })
   );
   lazy.log.debug(
     `FeltExtension: creating contentPrincipal with privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`

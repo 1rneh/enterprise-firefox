@@ -143,7 +143,7 @@ async function connectToConsole(email) {
     );
   } else {
     // Bug 2038608
-    // Supporting this two path process selection for now until the changes from Bug 2011326 are 
+    // Supporting this two path process selection for now until the changes from Bug 2011326 are
     // stable enough and get merged to upstream/beta. To be removed after the merge.
     const { E10SUtils } = ChromeUtils.importESModule(
       "resource://gre/modules/E10SUtils.sys.mjs"

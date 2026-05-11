@@ -519,6 +519,9 @@ def target_tasks_enterprise_firefox_with_tests(
         if ("shippable" in task.label or shippable) and level < 3:
             return False
 
+        if task.kind == "complete" and level < 3:
+            return False
+
         if not build_platform or not build_type:
             return True
 

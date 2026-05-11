@@ -1362,6 +1362,13 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.clocks.zones",
+    {
+      title: "Saved clock widget time zones",
+      value: "",
+    },
+  ],
+  [
     "widgets.feedback.enabled",
     {
       title: "Enables the feedback link in the widgets container",

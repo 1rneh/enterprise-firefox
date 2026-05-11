@@ -744,7 +744,7 @@ class BuildOutputManager(OutputManager):
             if os.path.exists(stripped):
                 path = mozpath.abspath(stripped)
         if not path.startswith(self.monitor.topsrcdir):
-            return True
+            return True  # generated file
         if not self._third_party_dirs:
             return False
         path = path[len(self.monitor.topsrcdir) + 1 :]

@@ -909,9 +909,10 @@ enum class ShellGlobalKind {
 };
 
 static void SetStandardRealmOptions(JSContext* cx, JS::RealmOptions& options);
-static JSObject* NewGlobalObject(JSContext* cx, JS::RealmOptions& options,
-                                 JSPrincipals* principals, ShellGlobalKind kind,
-                                 bool immutablePrototype);
+static JSObject* NewGlobalObject(
+    JSContext* cx, JS::RealmOptions& options, JSPrincipals* principals,
+    ShellGlobalKind kind, bool immutablePrototype,
+    JS::HandleObject existingWindowProxy = nullptr);
 
 /*
  * A toy WindowProxy class for the shell. This is intended for testing code
@@ -7402,6 +7403,10 @@ static bool NewGlobal(JSContext* cx, unsigned argc, Value* vp) {
   // sameZoneAs is used.
   Rooted<JSObject*> compartmentRoot(cx);
 
+  // If transplantWindowProxy is given, the unwrapped existing WindowProxy that
+  // will be transplanted.
+  Rooted<JSObject*> existingWindowProxy(cx);
+
   JS::AutoHoldPrincipals principals(cx);
 
   if (args.length() == 1 && args[0].isObject()) {
@@ -7455,6 +7460,25 @@ static bool NewGlobal(JSContext* cx, unsigned argc, Value* vp) {
     if (v.isBoolean()) {
       kind = v.toBoolean() ? ShellGlobalKind::WindowProxy
                            : ShellGlobalKind::GlobalObject;
+    }
+
+    if (!JS_GetProperty(cx, opts, "transplantWindowProxy", &v)) {
+      return false;
+    }
+    if (v.isObject()) {
+      existingWindowProxy =
+          js::CheckedUnwrapDynamic(&v.toObject(), cx,
+                                   /* stopAtWindowProxy = */ true);
+      if (!existingWindowProxy) {
+        ReportAccessDenied(cx);
+        return false;
+      }
+      if (!js::IsWindowProxy(existingWindowProxy)) {
+        JS_ReportErrorASCII(
+            cx, "transplantWindowProxy: argument is not a WindowProxy");
+        return false;
+      }
+      kind = ShellGlobalKind::WindowProxy;
     }
 
     if (!JS_GetProperty(cx, opts, "immutablePrototype", &v)) {
@@ -7548,8 +7572,9 @@ static bool NewGlobal(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  RootedObject global(cx, NewGlobalObject(cx, options, principals.get(), kind,
-                                          immutablePrototype));
+  RootedObject global(cx,
+                      NewGlobalObject(cx, options, principals.get(), kind,
+                                      immutablePrototype, existingWindowProxy));
   if (!global) {
     return false;
   }
@@ -10475,6 +10500,9 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
 "         (default false).\n"
 "      useWindowProxy: the global will be created with a WindowProxy attached. In this\n"
 "          case, the WindowProxy will be returned.\n"
+"      transplantWindowProxy: If an object, this must be an existing WindowProxy\n"
+"          that will be reused. Used to test JS_TransplantObject code used in\n"
+"          the browser.\n"
 "      freezeBuiltins: certain builtin constructors will be frozen when created and\n"
 "          their prototypes will be sealed. These constructors will be defined on the\n"
 "          global as non-configurable and non-writable.\n"
@@ -11847,7 +11875,8 @@ static const JSPropertySpec TestingProperties[] = {
 
 static JSObject* NewGlobalObject(JSContext* cx, JS::RealmOptions& options,
                                  JSPrincipals* principals, ShellGlobalKind kind,
-                                 bool immutablePrototype) {
+                                 bool immutablePrototype,
+                                 JS::HandleObject existingWindowProxy) {
   RootedObject glob(cx,
                     JS_NewGlobalObject(cx, &global_class, principals,
                                        JS::DontFireOnNewGlobalHook, options));
@@ -11863,7 +11892,20 @@ static JSObject* NewGlobalObject(JSContext* cx, JS::RealmOptions& options,
       if (!proxy) {
         return nullptr;
       }
+      if (existingWindowProxy) {
+        // Use JS_TransplantObject to reuse the existing WindowProxy for the new
+        // global. This matches nsGlobalWindowOuter::SetNewDocument.
+        //
+        // If the globals are in different compartments, `existingWindowProxy`
+        // becomes a CCW for the new WindowProxy. If the globals are in the same
+        // compartment, `existingWindowProxy` will be overwritten with the
+        // contents of the new WindowProxy.
+        proxy = JS_TransplantObject(cx, existingWindowProxy, proxy);
+        MOZ_RELEASE_ASSERT(proxy, "JS_TransplantObject is infallible");
+      }
       js::SetWindowProxy(cx, glob, proxy);
+    } else {
+      MOZ_ASSERT(!existingWindowProxy);
     }
 
 #ifndef LAZY_STANDARD_CLASSES

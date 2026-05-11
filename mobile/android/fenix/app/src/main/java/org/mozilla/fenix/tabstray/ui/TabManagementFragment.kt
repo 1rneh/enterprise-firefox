@@ -147,10 +147,12 @@ class TabManagementFragment : Fragment() {
                 targetKey: String?,
                 placeAfter: Boolean,
             ) {
-                requireComponents.useCases.tabsUseCases.moveTabs.invoke(
-                    sourceKey,
-                    targetKey,
-                    placeAfter,
+                tabsTrayStore.dispatch(
+                    TabsTrayAction.ReorderTabsTrayItem(
+                        sourceId = sourceKey,
+                        destinationId = targetKey,
+                        placeAfter = placeAfter,
+                    ),
                 )
             }
 

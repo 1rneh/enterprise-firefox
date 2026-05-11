@@ -2437,9 +2437,15 @@ static bool AppearanceValueAffectsFrames(StyleAppearance aAppearance,
                                          StyleAppearance aDefaultAppearance) {
   switch (aAppearance) {
     case StyleAppearance::Base:
-      /* TODO: Other appearance: base cases */
-      return aDefaultAppearance == StyleAppearance::Checkbox ||
+      return aDefaultAppearance == StyleAppearance::Menulist ||
+             aDefaultAppearance == StyleAppearance::Listbox ||
+             aDefaultAppearance == StyleAppearance::Checkbox ||
              aDefaultAppearance == StyleAppearance::Radio;
+    case StyleAppearance::BaseSelect:
+      // <select> doesn't construct an nsComboboxControlFrame with base
+      // appearance.
+      return aDefaultAppearance == StyleAppearance::Menulist ||
+             aDefaultAppearance == StyleAppearance::Listbox;
     case StyleAppearance::None:
       // Checkbox / radio with appearance: none don't construct an
       // nsCheckboxRadioFrame.

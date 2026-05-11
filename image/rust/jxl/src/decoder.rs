@@ -303,54 +303,55 @@ impl JxlApiDecoder {
             };
             let result = self.inner.process(data, bufs);
 
-            match result {
-                Err(e) => {
-                    return Err(e.into());
+            let need_more = match result {
+                Err(e) => return Err(e.into()),
+                Ok(ProcessingResult::Complete { .. }) => false,
+                Ok(ProcessingResult::NeedsMoreInput { .. }) => true,
+            };
+
+            // For metadata-only decode of non-animated images, return once
+            // we have basic_info. For animated images, continue until frame
+            // header is available to get the first frame's duration.
+            if self.metadata_only {
+                if let Some(basic_info) = self.inner.basic_info() {
+                    if basic_info.animation.is_none() {
+                        return Ok(true);
+                    }
                 }
-                Ok(r) => match r {
-                    ProcessingResult::Complete { .. } => {
-                        // For metadata-only decode of non-animated images, return once
-                        // we have basic_info. For animated images, continue until frame
-                        // header is available to get the first frame's duration.
-                        if self.metadata_only {
-                            if let Some(basic_info) = self.inner.basic_info() {
-                                if basic_info.animation.is_none() {
-                                    return Ok(true);
-                                }
-                            }
-                        }
-
-                        if !self.pixel_format_set && self.inner.basic_info().is_some() {
-                            self.set_pixel_format();
-                            debug_assert!(self.pixel_format_set);
-                            // Continue processing - don't return, let jxl-rs continue
-                            continue;
-                        }
-
-                        // Check if we have a frame header ready
-                        let frame_header = self.inner.frame_header();
-                        if let Some(frame_header) = frame_header {
-                            self.frame_duration = frame_header.duration.or(Some(0.0));
-                            self.frame_ready = true;
-                            // process() with a buffer should have consumed the frame header
-                            debug_assert!(
-                                !has_output_buffer,
-                                "frame_header present with output buffer"
-                            );
-                            return Ok(true);
-                        } else if self.frame_ready {
-                            // Frame was rendered
-                            self.frame_ready = false;
-                            return Ok(true);
-                        }
-                        // No frame yet, need more data
-                        return Ok(false);
-                    }
-                    ProcessingResult::NeedsMoreInput { .. } => {
-                        return Ok(false);
-                    }
-                },
             }
+
+            // jxl-rs guarantees that once basic_info() returns Some, the
+            // embedded color profile has also been parsed; set_pixel_format
+            // relies on the latter (update_default_output_color_profile
+            // unwraps it).
+            if !self.pixel_format_set && self.inner.basic_info().is_some() {
+                debug_assert!(self.inner.embedded_color_profile().is_some());
+                self.set_pixel_format();
+                debug_assert!(self.pixel_format_set);
+                debug_assert!(self.inner.current_pixel_format().is_some());
+                if !need_more {
+                    // Re-enter to let jxl-rs make further progress now that the
+                    // pixel format is configured if we don't need more input.
+                    continue;
+                }
+            }
+
+            if need_more {
+                return Ok(false);
+            }
+
+            let frame_header = self.inner.frame_header();
+            if let Some(frame_header) = frame_header {
+                self.frame_duration = frame_header.duration.or(Some(0.0));
+                self.frame_ready = true;
+                return Ok(true);
+            } else if self.frame_ready {
+                // Frame was rendered
+                self.frame_ready = false;
+                return Ok(true);
+            }
+            // No frame yet, need more data
+            return Ok(false);
         }
     }
 }

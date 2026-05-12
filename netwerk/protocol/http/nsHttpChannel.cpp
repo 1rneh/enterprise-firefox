@@ -598,6 +598,30 @@ bool nsHttpChannel::StorageAccessReloadedChannel() {
   return LoadStorageAccessReloadChannel();
 }
 
+void nsHttpChannel::PrimeSuspendAfterExamineResponse() {
+  mSuspendAfterExamineResponse = Some(true);
+}
+
+void nsHttpChannel::CancelSuspendOrResumeAfterExamineResponse() {
+  if (mSuspendAfterExamineResponse.isNothing()) {
+    return;
+  }
+  bool oldValue = mSuspendAfterExamineResponse.ref().exchange(false);
+  if (!oldValue) {
+    Resume();
+  }
+}
+
+void nsHttpChannel::MaybeSuspendAfterExamineResponse() {
+  if (mSuspendAfterExamineResponse.isNothing()) {
+    return;
+  }
+  bool oldValue = mSuspendAfterExamineResponse.ref().exchange(false);
+  if (oldValue) {
+    Suspend();
+  }
+}
+
 nsresult nsHttpChannel::PrepareToConnect() {
   LOG(("nsHttpChannel::PrepareToConnect [this=%p]\n", this));
 
@@ -3077,6 +3101,8 @@ nsresult nsHttpChannel::ProcessResponse(nsHttpConnectionInfo* aConnInfo) {
 
   // notify "http-on-examine-response" observers
   gHttpHandler->OnExamineResponse(this);
+
+  MaybeSuspendAfterExamineResponse();
 
   return ContinueProcessResponse1(aConnInfo);
 }
@@ -7611,8 +7637,7 @@ void nsHttpChannel::AsyncOpenFinal(TimeStamp aTimeStamp) {
   // lookup is not needed so CheckIsTrackerWithLocalTable() will return an
   // error and then we can MaybeResolveProxyAndBeginConnect() right away.
   // We skip the check in case this is an internal redirected channel
-  if (!LoadAuthRedirectedChannel() &&
-      NS_ShouldClassifyChannel(this, ClassifyType::ETP)) {
+  if (NS_ShouldClassifyChannel(this, ClassifyType::ETP)) {
     RefPtr<nsHttpChannel> self = this;
     willCallback = NS_SUCCEEDED(
         AsyncUrlChannelClassifier::CheckChannel(this, [self]() -> void {
@@ -8042,7 +8067,6 @@ nsresult nsHttpChannel::BeginConnect() {
   // skip classifier checks if this channel was the result of internal auth
   // redirect
   bool shouldBeClassifiedForTracker =
-      !LoadAuthRedirectedChannel() &&
       NS_ShouldClassifyChannel(this, ClassifyType::ETP);
 
   if (shouldBeClassifiedForTracker) {
@@ -8071,6 +8095,18 @@ nsresult nsHttpChannel::BeginConnect() {
 
   bool shouldBeClassifiedForSafeBrowsing =
       NS_ShouldClassifyChannel(this, ClassifyType::SafeBrowsing);
+
+  if (shouldBeClassifiedForTracker) {
+    PrimeSuspendAfterExamineResponse();
+    RefPtr<nsHttpChannel> self(this);
+    nsresult rv =
+        AntiTrackingChannelClassifierUtils::CheckChannelBeforeProcessResponse(
+            this,
+            [self]() { self->CancelSuspendOrResumeAfterExamineResponse(); });
+    if (NS_FAILED(rv)) {
+      CancelSuspendOrResumeAfterExamineResponse();
+    }
+  }
 
   if (shouldBeClassifiedForSafeBrowsing) {
     // Start nsChannelClassifier to catch phishing and malware URIs.

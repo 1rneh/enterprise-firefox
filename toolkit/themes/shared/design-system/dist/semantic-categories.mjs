@@ -245,6 +245,7 @@ export const tokensTable = {
       value: "var(--button-background-color-active)",
       name: "--button-background-color-selected",
     },
+    { value: "var(--background-color-box)", name: "--card-background-color" },
     {
       value: {
         light: "var(--color-white)",
@@ -826,6 +827,7 @@ export const tokensTable = {
   ],
   "border-width": [
     { value: "1px", name: "--border-width" },
+    { value: "var(--border-width)", name: "--card-border-width" },
     { value: "1px", name: "--badge-border-width" },
     { value: "var(--border-width)", name: "--message-bar-border-width" },
     { value: "var(--border-width)", name: "--promo-border-width" },
@@ -1154,6 +1156,7 @@ export const tokensTable = {
       value: "var(--focus-outline-width) solid var(--focus-outline-color)",
       name: "--focus-outline",
     },
+    { value: "var(--focus-outline)", name: "--card-focus-outline" },
     {
       value: "var(--border-width) solid var(--toolbarbutton-outline-color)",
       name: "--toolbarbutton-outline",
@@ -1370,6 +1373,9 @@ export const tokensTable = {
       name: "--button-padding",
     },
     { value: 0, name: "--button-padding-icon" },
+    { value: "var(--space-large)", name: "--card-padding" },
+    { value: "var(--card-padding)", name: "--card-gap" },
+    { value: "var(--space-small)", name: "--card-gap-article" },
     { value: "var(--space-small)", name: "--checkbox-margin-inline" },
     {
       value:
@@ -1817,6 +1823,10 @@ export const tokensTable = {
       name: "--button-border",
     },
     {
+      value: "var(--card-border-width) solid var(--card-border-color)",
+      name: "--card-border",
+    },
+    {
       value: "var(--promo-border-width) solid var(--promo-border-color)",
       name: "--promo-border",
     },
@@ -1948,6 +1958,366 @@ export const tokensTable = {
   ],
   uncategorized: [
     { value: "var(--toolbar-text-color)", name: "--tab-selected-textcolor" },
+    {
+      value: {
+        light: "var(--color-blue-50)",
+        dark: "var(--color-blue-10)",
+        default: "light-dark(var(--color-blue-50), var(--color-blue-10))",
+      },
+      name: "--tab-group-blue",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-blue-60)",
+        default: "light-dark(var(--color-white), var(--color-blue-60))",
+      },
+      name: "--tab-group-blue-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-blue-60)",
+        default: "light-dark(var(--color-blue-60), var(--color-white))",
+      },
+      name: "--tab-group-blue-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-blue-60)",
+        dark: "var(--color-blue-20)",
+        default: "light-dark(var(--color-blue-60), var(--color-blue-20))",
+      },
+      name: "--tab-group-blue-hover",
+    },
+    {
+      value: {
+        light: "var(--color-blue-10)",
+        dark: "var(--color-blue-50)",
+        default: "light-dark(var(--color-blue-10), var(--color-blue-50))",
+      },
+      name: "--tab-group-blue-invert",
+    },
+    {
+      value: {
+        light: "var(--color-purple-50)",
+        dark: "var(--color-purple-10)",
+        default: "light-dark(var(--color-purple-50), var(--color-purple-10))",
+      },
+      name: "--tab-group-purple",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-purple-60)",
+        default: "light-dark(var(--color-white), var(--color-purple-60))",
+      },
+      name: "--tab-group-purple-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-purple-60)",
+        default: "light-dark(var(--color-purple-60), var(--color-white))",
+      },
+      name: "--tab-group-purple-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-purple-60)",
+        dark: "var(--color-purple-20)",
+        default: "light-dark(var(--color-purple-60), var(--color-purple-20))",
+      },
+      name: "--tab-group-purple-hover",
+    },
+    {
+      value: {
+        light: "var(--color-purple-10)",
+        dark: "var(--color-purple-50)",
+        default: "light-dark(var(--color-purple-10), var(--color-purple-50))",
+      },
+      name: "--tab-group-purple-invert",
+    },
+    {
+      value: {
+        light: "var(--color-cyan-50)",
+        dark: "var(--color-cyan-10)",
+        default: "light-dark(var(--color-cyan-50), var(--color-cyan-10))",
+      },
+      name: "--tab-group-cyan",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-cyan-60)",
+        default: "light-dark(var(--color-white), var(--color-cyan-60))",
+      },
+      name: "--tab-group-cyan-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-cyan-60)",
+        default: "light-dark(var(--color-cyan-60), var(--color-white))",
+      },
+      name: "--tab-group-cyan-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-cyan-60)",
+        dark: "var(--color-cyan-20)",
+        default: "light-dark(var(--color-cyan-60), var(--color-cyan-20))",
+      },
+      name: "--tab-group-cyan-hover",
+    },
+    {
+      value: {
+        light: "var(--color-cyan-10)",
+        dark: "var(--color-cyan-50)",
+        default: "light-dark(var(--color-cyan-10), var(--color-cyan-50))",
+      },
+      name: "--tab-group-cyan-invert",
+    },
+    {
+      value: {
+        light: "var(--color-orange-50)",
+        dark: "var(--color-orange-10)",
+        default: "light-dark(var(--color-orange-50), var(--color-orange-10))",
+      },
+      name: "--tab-group-orange",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-orange-60)",
+        default: "light-dark(var(--color-white), var(--color-orange-60))",
+      },
+      name: "--tab-group-orange-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-orange-60)",
+        default: "light-dark(var(--color-orange-60), var(--color-white))",
+      },
+      name: "--tab-group-orange-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-orange-60)",
+        dark: "var(--color-orange-20)",
+        default: "light-dark(var(--color-orange-60), var(--color-orange-20))",
+      },
+      name: "--tab-group-orange-hover",
+    },
+    {
+      value: {
+        light: "var(--color-orange-10)",
+        dark: "var(--color-orange-50)",
+        default: "light-dark(var(--color-orange-10), var(--color-orange-50))",
+      },
+      name: "--tab-group-orange-invert",
+    },
+    {
+      value: {
+        light: "var(--color-yellow-50)",
+        dark: "var(--color-yellow-10)",
+        default: "light-dark(var(--color-yellow-50), var(--color-yellow-10))",
+      },
+      name: "--tab-group-yellow",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-yellow-60)",
+        default: "light-dark(var(--color-white), var(--color-yellow-60))",
+      },
+      name: "--tab-group-yellow-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-yellow-60)",
+        default: "light-dark(var(--color-yellow-60), var(--color-white))",
+      },
+      name: "--tab-group-yellow-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-yellow-60)",
+        dark: "var(--color-yellow-20)",
+        default: "light-dark(var(--color-yellow-60), var(--color-yellow-20))",
+      },
+      name: "--tab-group-yellow-hover",
+    },
+    {
+      value: {
+        light: "var(--color-yellow-10)",
+        dark: "var(--color-yellow-50)",
+        default: "light-dark(var(--color-yellow-10), var(--color-yellow-50))",
+      },
+      name: "--tab-group-yellow-invert",
+    },
+    {
+      value: {
+        light: "var(--color-pink-50)",
+        dark: "var(--color-pink-10)",
+        default: "light-dark(var(--color-pink-50), var(--color-pink-10))",
+      },
+      name: "--tab-group-pink",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-pink-60)",
+        default: "light-dark(var(--color-white), var(--color-pink-60))",
+      },
+      name: "--tab-group-pink-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-pink-60)",
+        default: "light-dark(var(--color-pink-60), var(--color-white))",
+      },
+      name: "--tab-group-pink-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-pink-60)",
+        dark: "var(--color-pink-20)",
+        default: "light-dark(var(--color-pink-60), var(--color-pink-20))",
+      },
+      name: "--tab-group-pink-hover",
+    },
+    {
+      value: {
+        light: "var(--color-pink-10)",
+        dark: "var(--color-pink-50)",
+        default: "light-dark(var(--color-pink-10), var(--color-pink-50))",
+      },
+      name: "--tab-group-pink-invert",
+    },
+    {
+      value: {
+        light: "var(--color-green-50)",
+        dark: "var(--color-green-10)",
+        default: "light-dark(var(--color-green-50), var(--color-green-10))",
+      },
+      name: "--tab-group-green",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-green-60)",
+        default: "light-dark(var(--color-white), var(--color-green-60))",
+      },
+      name: "--tab-group-green-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-green-60)",
+        default: "light-dark(var(--color-green-60), var(--color-white))",
+      },
+      name: "--tab-group-green-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-green-60)",
+        dark: "var(--color-green-20)",
+        default: "light-dark(var(--color-green-60), var(--color-green-20))",
+      },
+      name: "--tab-group-green-hover",
+    },
+    {
+      value: {
+        light: "var(--color-green-10)",
+        dark: "var(--color-green-50)",
+        default: "light-dark(var(--color-green-10), var(--color-green-50))",
+      },
+      name: "--tab-group-green-invert",
+    },
+    {
+      value: {
+        light: "var(--color-red-50)",
+        dark: "var(--color-red-10)",
+        default: "light-dark(var(--color-red-50), var(--color-red-10))",
+      },
+      name: "--tab-group-red",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-red-60)",
+        default: "light-dark(var(--color-white), var(--color-red-60))",
+      },
+      name: "--tab-group-red-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-red-60)",
+        default: "light-dark(var(--color-red-60), var(--color-white))",
+      },
+      name: "--tab-group-red-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-red-60)",
+        dark: "var(--color-red-20)",
+        default: "light-dark(var(--color-red-60), var(--color-red-20))",
+      },
+      name: "--tab-group-red-hover",
+    },
+    {
+      value: {
+        light: "var(--color-red-10)",
+        dark: "var(--color-red-50)",
+        default: "light-dark(var(--color-red-10), var(--color-red-50))",
+      },
+      name: "--tab-group-red-invert",
+    },
+    {
+      value: {
+        light: "var(--color-gray-55)",
+        dark: "var(--color-gray-05)",
+        default: "light-dark(var(--color-gray-55), var(--color-gray-05))",
+      },
+      name: "--tab-group-gray",
+    },
+    {
+      value: {
+        light: "var(--color-white)",
+        dark: "var(--color-gray-65)",
+        default: "light-dark(var(--color-white), var(--color-gray-65))",
+      },
+      name: "--tab-group-gray-text",
+    },
+    {
+      value: {
+        dark: "var(--color-white)",
+        light: "var(--color-gray-65)",
+        default: "light-dark(var(--color-gray-65), var(--color-white))",
+      },
+      name: "--tab-group-gray-text-invert",
+    },
+    {
+      value: {
+        light: "var(--color-gray-65)",
+        dark: "var(--color-gray-10)",
+        default: "light-dark(var(--color-gray-65), var(--color-gray-10))",
+      },
+      name: "--tab-group-gray-hover",
+    },
+    {
+      value: {
+        light: "var(--color-gray-05)",
+        dark: "var(--color-gray-55)",
+        default: "light-dark(var(--color-gray-05), var(--color-gray-55))",
+      },
+      name: "--tab-group-gray-invert",
+    },
   ],
 };
 
@@ -2678,6 +3048,9 @@ export const variableLookupTable = {
     "var(--button-text-color-primary-active)",
   "button-text-color-selected": "var(--button-text-color-active)",
   "button-attention-dot-color": "var(--color-accent-attention)",
+  "card-background-color": "var(--background-color-box)",
+  "card-border": "var(--card-border-width) solid var(--card-border-color)",
+  "card-border-width": "var(--border-width)",
   "card-border-color": {
     light: "color-mix(in srgb, currentColor 10%, transparent)",
     dark: "color-mix(in srgb, currentColor 6%, transparent)",
@@ -2689,6 +3062,10 @@ export const variableLookupTable = {
   "card-border-radius": "var(--border-radius-large)",
   "card-box-shadow": "var(--box-shadow-level-2)",
   "card-box-shadow-hover": "var(--box-shadow-level-4)",
+  "card-focus-outline": "var(--focus-outline)",
+  "card-padding": "var(--space-large)",
+  "card-gap": "var(--card-padding)",
+  "card-gap-article": "var(--space-small)",
   "checkbox-margin-inline": "var(--space-small)",
   "checkbox-size": "var(--size-item-small)",
   "icon-color": {
@@ -3158,4 +3535,229 @@ export const variableLookupTable = {
   "tab-selected-textcolor": "var(--toolbar-text-color)",
   "tab-vertical-block-margin": "var(--dimension-2)",
   "tab-vertical-inline-padding": "var(--space-medium)",
+  "tab-group-blue": {
+    light: "var(--color-blue-50)",
+    dark: "var(--color-blue-10)",
+    default: "light-dark(var(--color-blue-50), var(--color-blue-10))",
+  },
+  "tab-group-blue-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-blue-60)",
+    default: "light-dark(var(--color-white), var(--color-blue-60))",
+  },
+  "tab-group-blue-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-blue-60)",
+    default: "light-dark(var(--color-blue-60), var(--color-white))",
+  },
+  "tab-group-blue-hover": {
+    light: "var(--color-blue-60)",
+    dark: "var(--color-blue-20)",
+    default: "light-dark(var(--color-blue-60), var(--color-blue-20))",
+  },
+  "tab-group-blue-invert": {
+    light: "var(--color-blue-10)",
+    dark: "var(--color-blue-50)",
+    default: "light-dark(var(--color-blue-10), var(--color-blue-50))",
+  },
+  "tab-group-purple": {
+    light: "var(--color-purple-50)",
+    dark: "var(--color-purple-10)",
+    default: "light-dark(var(--color-purple-50), var(--color-purple-10))",
+  },
+  "tab-group-purple-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-purple-60)",
+    default: "light-dark(var(--color-white), var(--color-purple-60))",
+  },
+  "tab-group-purple-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-purple-60)",
+    default: "light-dark(var(--color-purple-60), var(--color-white))",
+  },
+  "tab-group-purple-hover": {
+    light: "var(--color-purple-60)",
+    dark: "var(--color-purple-20)",
+    default: "light-dark(var(--color-purple-60), var(--color-purple-20))",
+  },
+  "tab-group-purple-invert": {
+    light: "var(--color-purple-10)",
+    dark: "var(--color-purple-50)",
+    default: "light-dark(var(--color-purple-10), var(--color-purple-50))",
+  },
+  "tab-group-cyan": {
+    light: "var(--color-cyan-50)",
+    dark: "var(--color-cyan-10)",
+    default: "light-dark(var(--color-cyan-50), var(--color-cyan-10))",
+  },
+  "tab-group-cyan-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-cyan-60)",
+    default: "light-dark(var(--color-white), var(--color-cyan-60))",
+  },
+  "tab-group-cyan-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-cyan-60)",
+    default: "light-dark(var(--color-cyan-60), var(--color-white))",
+  },
+  "tab-group-cyan-hover": {
+    light: "var(--color-cyan-60)",
+    dark: "var(--color-cyan-20)",
+    default: "light-dark(var(--color-cyan-60), var(--color-cyan-20))",
+  },
+  "tab-group-cyan-invert": {
+    light: "var(--color-cyan-10)",
+    dark: "var(--color-cyan-50)",
+    default: "light-dark(var(--color-cyan-10), var(--color-cyan-50))",
+  },
+  "tab-group-orange": {
+    light: "var(--color-orange-50)",
+    dark: "var(--color-orange-10)",
+    default: "light-dark(var(--color-orange-50), var(--color-orange-10))",
+  },
+  "tab-group-orange-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-orange-60)",
+    default: "light-dark(var(--color-white), var(--color-orange-60))",
+  },
+  "tab-group-orange-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-orange-60)",
+    default: "light-dark(var(--color-orange-60), var(--color-white))",
+  },
+  "tab-group-orange-hover": {
+    light: "var(--color-orange-60)",
+    dark: "var(--color-orange-20)",
+    default: "light-dark(var(--color-orange-60), var(--color-orange-20))",
+  },
+  "tab-group-orange-invert": {
+    light: "var(--color-orange-10)",
+    dark: "var(--color-orange-50)",
+    default: "light-dark(var(--color-orange-10), var(--color-orange-50))",
+  },
+  "tab-group-yellow": {
+    light: "var(--color-yellow-50)",
+    dark: "var(--color-yellow-10)",
+    default: "light-dark(var(--color-yellow-50), var(--color-yellow-10))",
+  },
+  "tab-group-yellow-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-yellow-60)",
+    default: "light-dark(var(--color-white), var(--color-yellow-60))",
+  },
+  "tab-group-yellow-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-yellow-60)",
+    default: "light-dark(var(--color-yellow-60), var(--color-white))",
+  },
+  "tab-group-yellow-hover": {
+    light: "var(--color-yellow-60)",
+    dark: "var(--color-yellow-20)",
+    default: "light-dark(var(--color-yellow-60), var(--color-yellow-20))",
+  },
+  "tab-group-yellow-invert": {
+    light: "var(--color-yellow-10)",
+    dark: "var(--color-yellow-50)",
+    default: "light-dark(var(--color-yellow-10), var(--color-yellow-50))",
+  },
+  "tab-group-pink": {
+    light: "var(--color-pink-50)",
+    dark: "var(--color-pink-10)",
+    default: "light-dark(var(--color-pink-50), var(--color-pink-10))",
+  },
+  "tab-group-pink-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-pink-60)",
+    default: "light-dark(var(--color-white), var(--color-pink-60))",
+  },
+  "tab-group-pink-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-pink-60)",
+    default: "light-dark(var(--color-pink-60), var(--color-white))",
+  },
+  "tab-group-pink-hover": {
+    light: "var(--color-pink-60)",
+    dark: "var(--color-pink-20)",
+    default: "light-dark(var(--color-pink-60), var(--color-pink-20))",
+  },
+  "tab-group-pink-invert": {
+    light: "var(--color-pink-10)",
+    dark: "var(--color-pink-50)",
+    default: "light-dark(var(--color-pink-10), var(--color-pink-50))",
+  },
+  "tab-group-green": {
+    light: "var(--color-green-50)",
+    dark: "var(--color-green-10)",
+    default: "light-dark(var(--color-green-50), var(--color-green-10))",
+  },
+  "tab-group-green-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-green-60)",
+    default: "light-dark(var(--color-white), var(--color-green-60))",
+  },
+  "tab-group-green-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-green-60)",
+    default: "light-dark(var(--color-green-60), var(--color-white))",
+  },
+  "tab-group-green-hover": {
+    light: "var(--color-green-60)",
+    dark: "var(--color-green-20)",
+    default: "light-dark(var(--color-green-60), var(--color-green-20))",
+  },
+  "tab-group-green-invert": {
+    light: "var(--color-green-10)",
+    dark: "var(--color-green-50)",
+    default: "light-dark(var(--color-green-10), var(--color-green-50))",
+  },
+  "tab-group-red": {
+    light: "var(--color-red-50)",
+    dark: "var(--color-red-10)",
+    default: "light-dark(var(--color-red-50), var(--color-red-10))",
+  },
+  "tab-group-red-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-red-60)",
+    default: "light-dark(var(--color-white), var(--color-red-60))",
+  },
+  "tab-group-red-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-red-60)",
+    default: "light-dark(var(--color-red-60), var(--color-white))",
+  },
+  "tab-group-red-hover": {
+    light: "var(--color-red-60)",
+    dark: "var(--color-red-20)",
+    default: "light-dark(var(--color-red-60), var(--color-red-20))",
+  },
+  "tab-group-red-invert": {
+    light: "var(--color-red-10)",
+    dark: "var(--color-red-50)",
+    default: "light-dark(var(--color-red-10), var(--color-red-50))",
+  },
+  "tab-group-gray": {
+    light: "var(--color-gray-55)",
+    dark: "var(--color-gray-05)",
+    default: "light-dark(var(--color-gray-55), var(--color-gray-05))",
+  },
+  "tab-group-gray-text": {
+    light: "var(--color-white)",
+    dark: "var(--color-gray-65)",
+    default: "light-dark(var(--color-white), var(--color-gray-65))",
+  },
+  "tab-group-gray-text-invert": {
+    dark: "var(--color-white)",
+    light: "var(--color-gray-65)",
+    default: "light-dark(var(--color-gray-65), var(--color-white))",
+  },
+  "tab-group-gray-hover": {
+    light: "var(--color-gray-65)",
+    dark: "var(--color-gray-10)",
+    default: "light-dark(var(--color-gray-65), var(--color-gray-10))",
+  },
+  "tab-group-gray-invert": {
+    light: "var(--color-gray-05)",
+    dark: "var(--color-gray-55)",
+    default: "light-dark(var(--color-gray-05), var(--color-gray-55))",
+  },
 };

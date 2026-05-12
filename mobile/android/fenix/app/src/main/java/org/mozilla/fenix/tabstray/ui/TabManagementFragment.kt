@@ -79,6 +79,7 @@ import org.mozilla.fenix.settings.biometric.ext.isAuthenticatorAvailable
 import org.mozilla.fenix.settings.biometric.ext.isHardwareAvailable
 import org.mozilla.fenix.share.ShareFragment
 import org.mozilla.fenix.tabgroups.AddToTabGroup
+import org.mozilla.fenix.tabgroups.CloseLastTabAndDeleteTabGroupConfirmationDialog
 import org.mozilla.fenix.tabgroups.DeleteTabGroupConfirmationDialog
 import org.mozilla.fenix.tabgroups.EditTabGroup
 import org.mozilla.fenix.tabgroups.ExpandedTabGroup
@@ -111,6 +112,7 @@ import org.mozilla.fenix.tabstray.ui.tabstray.TabsTray
 import org.mozilla.fenix.tabstray.ui.theme.TabManagerThemeProvider
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.ThemeManager
+import org.mozilla.fenix.trackingprotection.TrackersBlockedFeature
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.getSnackbarTimeout
 import kotlin.math.abs
@@ -136,6 +138,7 @@ class TabManagementFragment : Fragment() {
     private val pbmLockStatusBinding = ViewBoundFeatureWrapper<PbmLockStatusBinding>()
     private val secureTabManagerBinding = ViewBoundFeatureWrapper<SecureTabManagerBinding>()
     private val syncedTabsIntegration = ViewBoundFeatureWrapper<SyncedTabsIntegration>()
+    private val trackersBlockedFeature = ViewBoundFeatureWrapper<TrackersBlockedFeature>()
     private lateinit var snackbarHostState: SnackbarHostState
 
     private val animationDurationMs = 200
@@ -217,9 +220,14 @@ class TabManagementFragment : Fragment() {
 
         tabManagerInteractor = DefaultTabManagerInteractor(controller = tabManagerController)
 
+        val settings = requireContext().settings()
+        val showPrivacyReport = shouldShowPrivacyReport(settings)
+
         return content {
             val state by tabsTrayStore.stateFlow.collectAsState()
+            val appState by requireComponents.appStore.stateFlow.collectAsState()
             snackbarHostState = remember { SnackbarHostState() }
+            val trackersBlockedCount = if (showPrivacyReport) appState.trackersBlockedCount else null
 
             BackHandler {
                 when {
@@ -397,6 +405,7 @@ class TabManagementFragment : Fragment() {
                                     onUnlockPbmClick = {
                                         verifyUser(fallbackVerification = verificationResultLauncher)
                                     },
+                                    trackersBlockedCount = trackersBlockedCount,
                                 )
                             }
 
@@ -424,8 +433,10 @@ class TabManagementFragment : Fragment() {
                                             else -> {}
                                         }
                                     },
-                                    onTabClose = {
-                                        tabManagerInteractor.onTabClosed(tab = it, source = TAB_MANAGER_FEATURE_NAME)
+                                    onTabClose = { tab ->
+                                        tabsTrayStore.dispatch(
+                                            TabGroupAction.TabClosed(tab = tab, group = expandedGroup),
+                                        )
                                     },
                                     onDeleteTabGroupClick = {
                                         tabsTrayStore.dispatch(TabGroupAction.DeleteClicked(expandedGroup))
@@ -485,6 +496,21 @@ class TabManagementFragment : Fragment() {
                                         tabsTrayStore.dispatch(
                                             TabGroupAction.SelectedTabsAddedToGroup(groupId = group.id),
                                         )
+                                    },
+                                )
+                            }
+
+                            entry<TabManagerNavDestination.CloseTabAndDeleteGroupConfirmationDialog>(
+                                metadata = DialogSceneStrategy.dialog(),
+                            ) { args ->
+                                CloseLastTabAndDeleteTabGroupConfirmationDialog(
+                                    onConfirmDelete = {
+                                        tabsTrayStore.dispatch(
+                                            TabGroupAction.CloseTabAndDeleteGroupConfirmed(args.group),
+                                        )
+                                    },
+                                    onCancel = {
+                                        tabsTrayStore.dispatch(TabsTrayAction.NavigateBackInvoked)
                                     },
                                 )
                             }
@@ -665,6 +691,17 @@ class TabManagementFragment : Fragment() {
             owner = this,
             view = view,
         )
+
+        if (shouldShowPrivacyReport(requireContext().settings())) {
+            trackersBlockedFeature.set(
+                feature = TrackersBlockedFeature(
+                    appStore = requireComponents.appStore,
+                    protectionsStorage = requireComponents.core.protectionsStorage,
+                ),
+                owner = this,
+                view = view,
+            )
+        }
 
         setFragmentResultListener(ShareFragment.RESULT_KEY) { _, _ ->
             dismissTabManager()
@@ -973,6 +1010,11 @@ class TabManagementFragment : Fragment() {
     ): Boolean {
         return isPrivateMode && hasPrivateTabs && biometricAvailable && !privateLockEnabled && shouldShowBanner
     }
+
+    private fun shouldShowPrivacyReport(settings: Settings): Boolean =
+        settings.showPrivacyReportSectionToggle &&
+            settings.showPrivacyReportFeature &&
+            settings.shouldUseTrackingProtectionDatabase
 
     private companion object {
         private const val DOWNLOAD_CANCEL_DIALOG_FRAGMENT_TAG = "DOWNLOAD_CANCEL_DIALOG_FRAGMENT_TAG"

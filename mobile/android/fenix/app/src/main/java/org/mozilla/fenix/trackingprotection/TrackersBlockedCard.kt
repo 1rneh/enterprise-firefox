@@ -22,9 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,14 +46,13 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import mozilla.components.ui.colors.PhotonColors
+import mozilla.components.compose.base.modifier.thenConditional
 import org.mozilla.fenix.R
 import org.mozilla.fenix.home.sessioncontrol.TrackingProtectionInteractor
 import org.mozilla.fenix.theme.FirefoxTheme
 import java.text.BreakIterator
 import java.text.StringCharacterIterator
 import kotlin.math.roundToInt
-import mozilla.components.ui.icons.R as iconsR
 
 private const val FOX_ANIMATION_DURATION = 600
 private const val TYPING_DELAY_MS = 50L
@@ -63,15 +62,15 @@ private const val CURSOR_BLINK_MS = 500L
  * A card that displays the number of trackers blocked with an animated fox.
  *
  * @param trackersBlockedCount The number of trackers blocked to display.
- * @param interactor [TrackingProtectionInteractor] for handling interactions.
  * @param modifier Modifier to be applied to the card.
+ * @param interactor Optional [TrackingProtectionInteractor] for handling interactions.
  * @param showLongfoxEntryPoint Whether to show the fox animation and typewriter text.
  */
 @Composable
 fun TrackersBlockedCard(
     trackersBlockedCount: Int,
-    interactor: TrackingProtectionInteractor,
     modifier: Modifier = Modifier,
+    interactor: TrackingProtectionInteractor? = null,
     showLongfoxEntryPoint: Boolean = false,
 ) {
     val foxOffsetY = remember { Animatable(1f) }
@@ -110,7 +109,7 @@ fun TrackersBlockedCard(
 
             ProtectionStatusPill(
                 trackersBlockedCount = trackersBlockedCount,
-                onClick = { interactor.onPrivacyReportTapped() },
+                interactor = interactor,
             )
         }
 
@@ -127,7 +126,7 @@ fun TrackersBlockedCard(
 @Composable
 private fun ProtectionStatusPill(
     trackersBlockedCount: Int,
-    onClick: () -> Unit,
+    interactor: TrackingProtectionInteractor? = null,
 ) {
     val shape = RoundedCornerShape(24.dp)
     Row(
@@ -137,7 +136,10 @@ private fun ProtectionStatusPill(
                 shape = shape,
             )
             .clip(shape)
-            .clickable { onClick() }
+            .thenConditional(
+                Modifier.clickable { interactor?.onPrivacyReportTapped() },
+                { interactor != null },
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -219,13 +221,15 @@ private fun TypewriterText(
 @Composable
 private fun TrackersBlockedCardPreview() {
     FirefoxTheme {
-        TrackersBlockedCard(
-            trackersBlockedCount = 754,
-            interactor = object : TrackingProtectionInteractor {
-                override fun onPrivacyReportTapped() = Unit
-            },
-            showLongfoxEntryPoint = true,
-        )
+        Surface {
+            TrackersBlockedCard(
+                trackersBlockedCount = 754,
+                interactor = object : TrackingProtectionInteractor {
+                    override fun onPrivacyReportTapped() = Unit
+                },
+                showLongfoxEntryPoint = true,
+            )
+        }
     }
 }
 
@@ -233,13 +237,15 @@ private fun TrackersBlockedCardPreview() {
 @Composable
 private fun TrackersBlockedCardEmptyPreview() {
     FirefoxTheme {
-        TrackersBlockedCard(
-            trackersBlockedCount = 0,
-            interactor = object : TrackingProtectionInteractor {
-                override fun onPrivacyReportTapped() = Unit
-            },
-            showLongfoxEntryPoint = false,
-        )
+        Surface {
+            TrackersBlockedCard(
+                trackersBlockedCount = 0,
+                interactor = object : TrackingProtectionInteractor {
+                    override fun onPrivacyReportTapped() = Unit
+                },
+                showLongfoxEntryPoint = false,
+            )
+        }
     }
 }
 
@@ -250,63 +256,50 @@ private fun TrackersBlockedCardInteractivePreview() {
     var peekHeight by remember { mutableFloatStateOf(19f) }
 
     FirefoxTheme {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(contentAlignment = Alignment.TopStart) {
-                Image(
-                    painter = painterResource(R.drawable.expressive_firefox),
-                    contentDescription = null,
-                    modifier = Modifier.offset {
-                        IntOffset(
-                            x = 14.dp.toPx().roundToInt(),
-                            y = ((-peekHeight.dp.toPx()) + (animationProgress * peekHeight.dp.toPx())).roundToInt(),
-                        )
-                    },
-                )
-
-                Row(
-                    modifier = Modifier
-                        .background(
-                            color = FirefoxTheme.colors.layer2,
-                            shape = RoundedCornerShape(24.dp),
-                        )
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        painter = painterResource(iconsR.drawable.mozac_ic_shield_checkmark_24),
+        Surface {
+            Column(
+                modifier = Modifier.padding(FirefoxTheme.layout.space.static400),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(contentAlignment = Alignment.TopStart) {
+                    Image(
+                        painter = painterResource(R.drawable.expressive_firefox),
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = PhotonColors.Violet70,
+                        modifier = Modifier.offset {
+                            IntOffset(
+                                x = 14.dp.toPx().roundToInt(),
+                                y = ((-peekHeight.dp.toPx()) + (animationProgress * peekHeight.dp.toPx())).roundToInt(),
+                            )
+                        },
                     )
-                    Text(
-                        text = "754 Trackers blocked",
-                        style = FirefoxTheme.typography.body2,
-                        color = MaterialTheme.colorScheme.onSurface,
+
+                    TrackersBlockedCard(
+                        trackersBlockedCount = 754,
+                        interactor = object : TrackingProtectionInteractor {
+                            override fun onPrivacyReportTapped() = Unit
+                        },
+                        showLongfoxEntryPoint = true,
                     )
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text("animationProgress: $animationProgress (0=peek, 1=hidden)")
+                Slider(
+                    value = animationProgress,
+                    onValueChange = { animationProgress = it },
+                    valueRange = 0f..1f,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Text("peekHeight: ${peekHeight.toInt()}dp")
+                Slider(
+                    value = peekHeight,
+                    onValueChange = { peekHeight = it },
+                    valueRange = 0f..40f,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text("animationProgress: $animationProgress (0=peek, 1=hidden)")
-            Slider(
-                value = animationProgress,
-                onValueChange = { animationProgress = it },
-                valueRange = 0f..1f,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Text("peekHeight: ${peekHeight.toInt()}dp")
-            Slider(
-                value = peekHeight,
-                onValueChange = { peekHeight = it },
-                valueRange = 0f..40f,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
 }

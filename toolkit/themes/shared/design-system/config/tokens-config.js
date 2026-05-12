@@ -435,7 +435,8 @@ const createDesktopFormat =
 /* stylelint-disable-next-line media-query-no-invalid */
 @media -moz-pref("${pref}") {
 ${overrideContents}
-}`;
+}
+`;
     });
 
     return contents;
@@ -546,10 +547,10 @@ function formatNovaNewtabTokens({ mediaQuery, args }) {
   });
 
   if (mediaQuery) {
-    return `\n@media (${mediaQuery}) {\n  :root:has(.nova-enabled) {\n${formattedVars}\n  }\n}\n`;
+    return `\n@media (${mediaQuery}) {\n  :root.nova-tokens {\n${formattedVars}\n  }\n}\n`;
   }
 
-  return `:root:has(.nova-enabled) {\n${formattedVars}\n}\n`;
+  return `:root.nova-tokens {\n${formattedVars}\n}\n`;
 }
 
 /**

@@ -91,6 +91,7 @@ import org.mozilla.fenix.components.appstate.AppAction.ContentRecommendationsAct
 import org.mozilla.fenix.components.appstate.AppAction.MessagingAction
 import org.mozilla.fenix.components.appstate.AppAction.MessagingAction.MicrosurveyAction
 import org.mozilla.fenix.components.appstate.AppAction.ReviewPromptAction.CheckIfEligibleForReviewPrompt
+import org.mozilla.fenix.components.appstate.AppAction.SportsWidgetAction
 import org.mozilla.fenix.components.appstate.OrientationMode
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.components.metrics.installSourcePackage
@@ -162,7 +163,6 @@ import org.mozilla.fenix.perf.MarkersFragmentLifecycleCallbacks
 import org.mozilla.fenix.perf.StartupTimeline
 import org.mozilla.fenix.reviewprompt.ShowReviewPromptBinding
 import org.mozilla.fenix.search.awesomebar.AwesomeBarComposable
-import org.mozilla.fenix.search.toolbar.DefaultSearchSelectorController
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
 import org.mozilla.fenix.tabstray.redux.state.Page
@@ -984,6 +984,11 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
 
         evaluateMessagesForMicrosurvey(components)
 
+        val sportsWidgetState = components.appStore.state.sportsWidgetState
+        if (sportsWidgetState.isShown && sportsWidgetState.hasWorldCupStarted) {
+            components.appStore.dispatch(SportsWidgetAction.FetchMatches)
+        }
+
         BiometricAuthenticationManager.biometricAuthenticationNeededInfo.shouldShowAuthenticationPrompt =
             true
         BiometricAuthenticationManager.biometricAuthenticationNeededInfo.authenticationStatus =
@@ -1284,9 +1289,6 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
                 browsingModeManager = browsingModeManager,
                 fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
                 settings = requireComponents.settings,
-            ),
-            searchSelectorController = DefaultSearchSelectorController(
-                navController = findNavController(),
             ),
             toolbarController = DefaultToolbarController(
                 appStore = requireComponents.appStore,

@@ -44,8 +44,19 @@
         <item name="mozacSelectCreditCardHeaderTextStyle" tools:ignore="UnusedResources">@style/SelectPromptHeaderTextStyle</item>
         <item name="mozacSelectAddressHeaderTextStyle" tools:ignore="UnusedResources">@style/SelectPromptHeaderTextStyle</item>
 
+        <item name="mozacProtectionsDashboardBackground" tools:ignore="UnusedResources">@color/protections_dashboard_background</item>
+        <item name="mozacProtectionsDashboardTextPrimary" tools:ignore="UnusedResources">@color/protections_dashboard_text_primary</item>
+        <item name="mozacProtectionsDashboardTextAccent" tools:ignore="UnusedResources">@color/protections_dashboard_text_accent</item>
+        <item name="mozacProtectionsDashboardChipBackground" tools:ignore="UnusedResources">@color/protections_dashboard_chip_background</item>
+        <item name="mozacProtectionsDashboardChipText" tools:ignore="UnusedResources">@color/protections_dashboard_chip_text</item>
+        <item name="mozacProtectionsDashboardWaveGradient1" tools:ignore="UnusedResources">@color/protections_dashboard_wave_gradient1</item>
+        <item name="mozacProtectionsDashboardWaveGradient2" tools:ignore="UnusedResources">@color/protections_dashboard_wave_gradient2</item>
+        <item name="mozacProtectionsDashboardWaveGradient3" tools:ignore="UnusedResources">@color/protections_dashboard_wave_gradient3</item>
+        <item name="mozacProtectionsDashboardWaveGradient4" tools:ignore="UnusedResources">@color/protections_dashboard_wave_gradient4</item>
+        <item name="mozacProtectionsDashboardProgressBar" tools:ignore="UnusedResources">@color/protections_dashboard_progress_bar</item>
+
         <!-- Material3 -->
-        <item name="colorPrimarySurface">@color/fx_mobile_primary</item>
+        <item name="colorPrimary">@color/fx_mobile_primary</item>
         <item name="colorOnPrimary">@color/fx_mobile_on_primary</item>
         <item name="colorPrimaryContainer">@color/fx_mobile_primary_container</item>
         <item name="colorOnPrimaryContainer">@color/fx_mobile_on_primary_container</item>
@@ -102,8 +113,6 @@
         <item name="scrim">@color/fx_mobile_layer_color_scrim</item>
 
         <!-- Action -->
-        <!-- Primary button, Snackbar, Floating action button, Chip selected -->
-        <item name="actionPrimary">@color/fx_mobile_action_color_primary</item>
         <!-- Primary button in a disabled state -->
         <item name="actionPrimaryDisabled">@color/fx_mobile_action_color_primary_disabled</item>
 
@@ -112,8 +121,6 @@
         <item name="textDisabled">@color/fx_mobile_text_color_disabled</item>
         <!-- Text Inverted/On Color -->
         <item name="textOnColorPrimary">@color/fx_mobile_text_color_oncolor_primary</item>
-        <!-- Action Primary text -->
-        <item name="textActionPrimary">@color/fx_mobile_text_color_action_primary</item>
         <!-- Action Primary disabled text -->
         <item name="textActionPrimaryDisabled">@color/fx_mobile_text_color_action_primary_disabled</item>
 
@@ -324,8 +331,19 @@
         <item name="mozacSelectCreditCardHeaderTextStyle" tools:ignore="UnusedResources">@style/SelectPromptHeaderTextStyle</item>
         <item name="mozacSelectAddressHeaderTextStyle" tools:ignore="UnusedResources">@style/SelectPromptHeaderTextStyle</item>
 
+        <item name="mozacProtectionsDashboardBackground" tools:ignore="UnusedResources">@color/protections_dashboard_background_private</item>
+        <item name="mozacProtectionsDashboardTextPrimary" tools:ignore="UnusedResources">@color/protections_dashboard_text_primary_private</item>
+        <item name="mozacProtectionsDashboardTextAccent" tools:ignore="UnusedResources">@color/protections_dashboard_text_accent_private</item>
+        <item name="mozacProtectionsDashboardChipBackground" tools:ignore="UnusedResources">@color/protections_dashboard_chip_background_private</item>
+        <item name="mozacProtectionsDashboardChipText" tools:ignore="UnusedResources">@color/protections_dashboard_chip_text_private</item>
+        <item name="mozacProtectionsDashboardWaveGradient1" tools:ignore="UnusedResources">@color/protections_dashboard_wave_gradient1_private</item>
+        <item name="mozacProtectionsDashboardWaveGradient2" tools:ignore="UnusedResources">@color/protections_dashboard_wave_gradient2_private</item>
+        <item name="mozacProtectionsDashboardWaveGradient3" tools:ignore="UnusedResources">@color/protections_dashboard_wave_gradient3_private</item>
+        <item name="mozacProtectionsDashboardWaveGradient4" tools:ignore="UnusedResources">@color/protections_dashboard_wave_gradient4_private</item>
+        <item name="mozacProtectionsDashboardProgressBar" tools:ignore="UnusedResources">@color/protections_dashboard_progress_bar_private</item>
+
         <!-- Material3 -->
-        <item name="colorPrimarySurface">@color/fx_mobile_private_primary</item>
+        <item name="colorPrimary">@color/fx_mobile_private_primary</item>
         <item name="colorOnPrimary">@color/fx_mobile_private_on_primary</item>
         <item name="colorPrimaryContainer">@color/fx_mobile_private_primary_container</item>
         <item name="colorOnPrimaryContainer">@color/fx_mobile_private_on_primary_container</item>
@@ -382,8 +400,6 @@
         <item name="scrim">@color/fx_mobile_private_layer_color_scrim</item>
 
         <!-- Action -->
-        <!-- Primary button, Snackbar, Floating action button, Chip selected -->
-        <item name="actionPrimary">@color/fx_mobile_private_action_color_primary</item>
         <!-- Primary button in a disabled state -->
         <item name="actionPrimaryDisabled">@color/fx_mobile_private_action_color_primary_disabled</item>
 
@@ -392,8 +408,6 @@
         <item name="textDisabled">@color/fx_mobile_private_text_color_disabled</item>
         <!-- Text Inverted/On Color -->
         <item name="textOnColorPrimary">@color/fx_mobile_private_text_color_oncolor_primary</item>
-        <!-- Action Primary text -->
-        <item name="textActionPrimary">@color/fx_mobile_private_text_color_action_primary</item>
         <!-- Action Primary disabled text -->
         <item name="textActionPrimaryDisabled">@color/fx_mobile_private_text_color_action_primary_disabled</item>
 
@@ -489,14 +503,14 @@
     </style>
 
     <style name="DestructiveButton" parent="NeutralButton">
-        <item name="iconTint">@color/fx_mobile_icon_color_critical_button</item>
-        <item name="android:textColor">@color/fx_mobile_text_color_critical_button</item>
+        <item name="iconTint">?attr/colorError</item>
+        <item name="android:textColor">?attr/colorError</item>
     </style>
 
     <style name="PositiveButton" parent="NeutralButton">
-        <item name="backgroundTint">?actionPrimary</item>
-        <item name="iconTint">?iconOnColor</item>
-        <item name="android:textColor">?textActionPrimary</item>
+        <item name="backgroundTint">?attr/colorPrimary</item>
+        <item name="iconTint">?attr/colorOnPrimary</item>
+        <item name="android:textColor">?attr/colorOnPrimary</item>
     </style>
 
     <style name="DialogStyleBase" parent="NormalTheme">
@@ -748,12 +762,6 @@
 
     <style name="BottomSheetBase" parent="ThemeOverlay.MaterialComponents.DayNight.BottomSheetDialog">
         <item name="android:windowIsFloating">false</item>
-    </style>
-
-    <style name="SearchSelectorIconStyle">
-        <item name="cornerFamily">rounded</item>
-        <item name="elevation">0dp</item>
-        <item name="cornerSize">2dp</item>
     </style>
 
     <style name="StopProfilerTransparentTheme" parent="Theme.AppCompat.NoActionBar">

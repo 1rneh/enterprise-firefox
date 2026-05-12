@@ -3080,7 +3080,7 @@ pref("network.tcp.keepalive.idle_time", 600); // seconds; 10 mins
 
 // All the Geolocation preferences are here.
 //
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(XP_WIN)
 #ifdef MOZ_ENTERPRISE
   pref("geo.provider.network.url", "");
 #else
@@ -4012,7 +4012,12 @@ pref("dom.postMessage.sharedArrayBuffer.bypassCOOP_COEP.insecure.enabled", false
 // Note: "extensions.formautofill.available"
 // is not being used in form autofill, but need to exist for migration purposes.
 pref("extensions.formautofill.available", "detect");
+
+#if defined(NIGHTLY_BUILD) && !defined(ANDROID)
+pref("extensions.formautofill.addresses.supported", "on");
+#else
 pref("extensions.formautofill.addresses.supported", "detect");
+#endif
 pref("extensions.formautofill.addresses.enabled", true);
 pref("extensions.formautofill.addresses.capture.enabled", true);
 #if defined(ANDROID)

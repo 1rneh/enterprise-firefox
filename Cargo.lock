@@ -343,9 +343,9 @@ dependencies = [
 
 [[package]]
 name = "audio_thread_priority"
-version = "0.34.0"
+version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7203799cd8063907524460aa8b632a46baba80c50947295aa6b92d7793c26447"
+checksum = "f8865406116350b733332de840244b6be15c7ff4d22f4278e98a73da343b935f"
 dependencies = [
  "cfg-if",
  "dbus",
@@ -358,7 +358,7 @@ dependencies = [
 [[package]]
 name = "audioipc2"
 version = "0.6.0"
-source = "git+https://github.com/mozilla/audioipc?rev=b52c33425baf619b6c1278c5b4c7ffa3e92b9b1e#b52c33425baf619b6c1278c5b4c7ffa3e92b9b1e"
+source = "git+https://github.com/mozilla/audioipc?rev=57a79753da9de4cf4b1c54e0c6775d3d2aba26f6#57a79753da9de4cf4b1c54e0c6775d3d2aba26f6"
 dependencies = [
  "arrayvec",
  "ashmem",
@@ -366,7 +366,6 @@ dependencies = [
  "bincode",
  "byteorder",
  "bytes",
- "cc",
  "crossbeam-queue",
  "cubeb",
  "iovec",
@@ -385,7 +384,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-client"
 version = "0.6.0"
-source = "git+https://github.com/mozilla/audioipc?rev=b52c33425baf619b6c1278c5b4c7ffa3e92b9b1e#b52c33425baf619b6c1278c5b4c7ffa3e92b9b1e"
+source = "git+https://github.com/mozilla/audioipc?rev=57a79753da9de4cf4b1c54e0c6775d3d2aba26f6#57a79753da9de4cf4b1c54e0c6775d3d2aba26f6"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -396,7 +395,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-server"
 version = "0.6.0"
-source = "git+https://github.com/mozilla/audioipc?rev=b52c33425baf619b6c1278c5b4c7ffa3e92b9b1e#b52c33425baf619b6c1278c5b4c7ffa3e92b9b1e"
+source = "git+https://github.com/mozilla/audioipc?rev=57a79753da9de4cf4b1c54e0c6775d3d2aba26f6#57a79753da9de4cf4b1c54e0c6775d3d2aba26f6"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -3054,9 +3053,9 @@ dependencies = [
 
 [[package]]
 name = "glean"
-version = "67.2.0"
+version = "67.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2e80112f3dc5721d9c2833d60438c33f699d617c59be3aff658a4e647988f68"
+checksum = "4d874be427a6085c1e2573b95ba36e39dc49e3823a52758630c06f0d2a594588"
 dependencies = [
  "crossbeam-channel",
  "glean-core",
@@ -3069,9 +3068,9 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "67.2.0"
+version = "67.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5619534488457c776f34f9c1cf66c0f53ad5453a0d5009b600a6729c5a665f22"
+checksum = "41ba33ae65aa326647ac3bd5a95ae60f1e957e1a86f7e3a9712e22275de5fd44"
 dependencies = [
  "android_logger",
  "bincode",
@@ -5652,7 +5651,6 @@ dependencies = [
 [[package]]
 name = "nss-rs"
 version = "0.3.0"
-source = "git+https://github.com/mozilla/nss-rs?rev=c54949bbff92795b8b2e837ec84decc9b468081a#c54949bbff92795b8b2e837ec84decc9b468081a"
 dependencies = [
  "bindgen 0.72.0",
  "enum-map",

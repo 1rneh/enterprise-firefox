@@ -405,12 +405,6 @@ this.felt = class extends ExtensionAPI {
       Services.obs.removeObserver(this.updateObserver, "felt-update-ready");
     }
 
-    Services.ppmm.removeMessageListener("FeltChild:Loaded", this);
-    Services.ppmm.removeMessageListener(
-      "FeltParent:FirefoxLaunchFailure",
-      this
-    );
-
     if (this.chromeHandle) {
       this.chromeHandle.destruct();
       this.chromeHandle = null;

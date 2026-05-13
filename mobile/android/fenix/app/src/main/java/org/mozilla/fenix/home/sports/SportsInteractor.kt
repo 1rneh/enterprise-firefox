@@ -40,6 +40,16 @@ interface SportsInteractor {
      * Called when the user taps the reload button to manually refresh match data.
      */
     fun onRefreshClicked()
+
+    /**
+     * Called when the user clicks the "Get custom wallpaper" menu item.
+     */
+    fun onGetCustomWallpaperClicked()
+
+    /**
+     * Called when the user clicks a Match.
+     */
+    fun onMatchClicked(homeTeam: String, awayTeam: String)
 }
 
 /**
@@ -73,5 +83,13 @@ class DefaultSportsInteractor(
 
     override fun onRefreshClicked() {
         controller.handleRefreshClicked()
+    }
+
+    override fun onGetCustomWallpaperClicked() {
+        controller.handleOnGetCustomWallpaperClicked()
+    }
+
+    override fun onMatchClicked(homeTeam: String, awayTeam: String) {
+        controller.handleMatchClicked(homeTeam = homeTeam, awayTeam = awayTeam)
     }
 }

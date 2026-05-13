@@ -588,7 +588,6 @@ class TabManagementFragment : Fragment() {
                 isInDebugMode = Config.channel.isDebug || requireComponents.settings.showSecretDebugMenuThisSession,
                 showTabAutoCloseBanner = settings.shouldShowAutoCloseTabsBanner &&
                     settings.canShowCfr && settings.cfrPopupsEnabled,
-                tabSearchEnabled = requireComponents.settings.tabSearchEnabled,
             ),
         )
     }
@@ -696,7 +695,8 @@ class TabManagementFragment : Fragment() {
             trackersBlockedFeature.set(
                 feature = TrackersBlockedFeature(
                     appStore = requireComponents.appStore,
-                    protectionsStorage = requireComponents.core.protectionsStorage,
+                    fetchTotalTrackersBlocked = requireComponents.useCases
+                        .trackingProtectionUseCases.fetchTotalTrackersBlocked,
                 ),
                 owner = this,
                 view = view,

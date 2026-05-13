@@ -215,12 +215,6 @@ class Settings(
         persistDefaultIfNotExists = true,
     )
 
-    val toolbarSimpleShortcut: String
-        get() = when (shouldShowToolbarCustomization) {
-            true -> toolbarSimpleShortcutKey
-            false -> ShortcutType.NEW_TAB.value
-        }
-
     /**
      * Indicates what expanded toolbar shortcut key is currently selected.
      */
@@ -229,12 +223,6 @@ class Settings(
         default = { ShortcutType.BOOKMARK.value },
         persistDefaultIfNotExists = true,
     )
-
-    val toolbarExpandedShortcut: String
-        get() = when (shouldShowToolbarCustomization) {
-            true -> toolbarExpandedShortcutKey
-            false -> ShortcutType.BOOKMARK.value
-        }
 
     /**
      * Indicates if the Pocket recommendations homescreen section should also show sponsored stories.
@@ -1531,11 +1519,6 @@ class Settings(
         persistDefaultIfNotExists = true,
     )
 
-    var shouldShowToolbarCustomization by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_enable_toolbar_customization),
-        default = { FxNimbus.features.toolbarRedesignOption.value().showCustomization },
-    )
-
     val toolbarPosition: ToolbarPosition
         get() = if (isTabStripEnabled) {
             ToolbarPosition.TOP
@@ -2343,14 +2326,6 @@ class Settings(
     )
 
     /**
-     * Indicates if the user has access to the toolbar redesign option in settings.
-     */
-    var toolbarRedesignEnabled by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_enable_toolbar_redesign),
-        default = { FxNimbus.features.toolbarRedesignOption.value().showOptions },
-    )
-
-    /**
      * Indicates whether or not to use remote server search configuration.
      */
     var useRemoteSearchConfiguration by booleanPreference(
@@ -3115,14 +3090,6 @@ class Settings(
     var tabManagerOpeningAnimationEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_tab_manager_opening_animation),
         default = { DefaultTabManagementFeatureHelper.openingAnimationEnabled },
-    )
-
-    /**
-     * Whether the Tab Search feature is enabled.
-     */
-    var tabSearchEnabled by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_tab_search),
-        default = { DefaultTabManagementFeatureHelper.tabSearchEnabled },
     )
 
     /**

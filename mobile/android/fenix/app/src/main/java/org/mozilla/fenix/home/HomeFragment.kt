@@ -1136,7 +1136,8 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
             trackersBlockedFeature.set(
                 feature = TrackersBlockedFeature(
                     appStore = requireComponents.appStore,
-                    protectionsStorage = requireComponents.core.protectionsStorage,
+                    fetchTotalTrackersBlocked = requireComponents.useCases
+                        .trackingProtectionUseCases.fetchTotalTrackersBlocked,
                 ),
                 owner = viewLifecycleOwner,
                 view = binding.root,
@@ -1309,6 +1310,7 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
                 settings = requireComponents.settings,
                 navController = findNavController(),
                 fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                browserStore = requireComponents.core.store,
             ),
         )
     }

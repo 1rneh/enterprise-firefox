@@ -368,6 +368,7 @@ Preferences.addAll([
   { id: "browser.ipProtection.autoStartPrivateEnabled", type: "bool" },
   { id: "browser.ipProtection.bandwidth.enabled", type: "bool" },
   { id: "browser.ipProtection.usageCache", type: "string" },
+  { id: "browser.ipProtection.upgradeNotAvailable", type: "bool" },
 
   // Media
   { id: "media.autoplay.default", type: "int" },
@@ -951,8 +952,8 @@ SettingGroupManager.registerGroups({
         ],
         controlAttrs: {
           "search-l10n-ids": `
-            history-remember-description3,
-            history-dontremember-description3,
+            history-remember-description4,
+            history-dontremember-description4,
             history-private-browsing-permanent.label,
             history-remember-browser-option.label,
             history-remember-search-option.label,
@@ -1906,6 +1907,10 @@ Preferences.addSetting({
   },
 });
 Preferences.addSetting({
+  id: "ipProtectionUpgradeNotAvailable",
+  pref: "browser.ipProtection.upgradeNotAvailable",
+});
+Preferences.addSetting({
   id: "ipProtectionNotOptedInSection",
   deps: ["ipProtectionVisible", "ipProtectionNotOptedIn"],
   visible: ({ ipProtectionVisible, ipProtectionNotOptedIn }) =>
@@ -2118,15 +2123,18 @@ Preferences.addSetting({
     "ipProtectionVisible",
     "ipProtectionNotOptedIn",
     "ipProtectionSubscribedToVpn",
+    "ipProtectionUpgradeNotAvailable",
   ],
   visible: ({
     ipProtectionVisible,
     ipProtectionNotOptedIn,
     ipProtectionSubscribedToVpn,
+    ipProtectionUpgradeNotAvailable,
   }) =>
     ipProtectionVisible.value &&
     !ipProtectionNotOptedIn.value &&
-    !ipProtectionSubscribedToVpn.value,
+    !ipProtectionSubscribedToVpn.value &&
+    !ipProtectionUpgradeNotAvailable.value,
 });
 
 Preferences.addSetting({

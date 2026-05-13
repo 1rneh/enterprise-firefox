@@ -482,6 +482,8 @@ macosx1500-aarch64-tests:
     - jsreftest
     - marionette-integration
     - marionette-unittest
+    - crashtest
+    - jittest
     - mochitest-a11y
     - mochitest-browser-a11y
     - mochitest-browser-media
@@ -503,6 +505,7 @@ macosx1500-aarch64-tests:
     - test-verify-gpu
     - test-verify-wpt
     - web-platform-tests
+    - xpcshell
 
 # Test set for ARM64 VMs (VirtualMac2,1). No GPU, no display, no perf hardware.
 # Limited to suites empirically validated on these workers; tests that need
@@ -520,7 +523,6 @@ macosx1470-64-tests:
     - crashtest
     - firefox-ui-functional
     - gtest
-    - jittest
     - web-platform-tests-canvas
     - web-platform-tests-crashtest
     - web-platform-tests-eme
@@ -528,7 +530,6 @@ macosx1470-64-tests:
     - web-platform-tests-reftest
     - web-platform-tests-wdspec
     - web-platform-tests-webcodecs
-    - xpcshell
 
 macosx1015-64-qr-tests:
     - cppunittest

@@ -297,6 +297,14 @@ pref("browser.shell.checkDefaultPDF.silencedByUser", false);
 // setting Firefox as their default browser.
 pref("browser.shell.setDefaultGuidanceNotifications", true);
 pref("browser.shell.focusSetDefaultBrowserButton", false);
+
+// After a failed UserChoice attempt, show the OS "Open with" picker via the
+// undocumented IOpenWithLauncher API so the user can pick Firefox themselves.
+pref("browser.shell.setDefaultPDFHandler.useOpenWith", true);
+// Delay between invoking a default-handler method (UserChoice / Open with /
+// modern settings) and sampling whether Firefox is actually the default.
+// The sample is reported via the set_default_pdf_handler_attempt event.
+pref("browser.shell.setDefaultPDFHandler.attemptWaitTimeMs", 30000);
 #endif
 
 
@@ -2130,10 +2138,11 @@ pref("browser.aboutwelcome.enabled", true);
 // Used to set multistage welcome UX
 pref("browser.aboutwelcome.screens", "");
 // Whether to gate loading about:welcome on Nimbus experiments having loaded.
-// Currently limited to Mac where a blocking preonboarding modal is shown with a
-// splash screen that advances after experiments load. On non-MSIX Windows,
-// experiments are loaded early enough that this isn't required.
-#if defined(XP_MACOSX)
+// Enable the Nimbus experiments gate on Mac and Windows. The gate shows a splash
+// screen while experiments load, then auto-advances. On platforms where experiments
+// are already loaded when the modal opens, skipSplashIfLoaded (true by default)
+// causes the splash to be skipped via screen targeting.
+#if defined(XP_MACOSX) || defined(XP_WIN)
   pref("browser.aboutwelcome.experimentsGate.enabled", true);
 #endif
 // Whether to skip showing the experiment loading splash screen if Nimbus is
@@ -2295,7 +2304,7 @@ pref("browser.smartwindow.firstrun.explainerURL", "https://www.firefox.com/en-US
 pref("places.semanticHistory.smartwindow.featureGate", false);
 
 // Smart Window: Merino World Cup Soccer tool call (bug 2038266)
-pref("browser.smartwindow.worldcup.enabled", false);
+pref("browser.smartwindow.worldcup.enabled", true);
 pref("browser.smartwindow.worldcup.endpointURL", "https://merino.services.mozilla.com");
 pref("browser.smartwindow.worldcup.timeoutMs", 2000);
 
@@ -3669,6 +3678,8 @@ pref("browser.ipProtection.guardian.endpoint", "https://vpn.mozilla.org/");
 pref("browser.ipProtection.added", false);
 // Pref to track whether the user has upgraded to Mozilla VPN
 pref("browser.ipProtection.hasUpgraded", false);
+// Pref to disable upgrade-related messaging when VPN upgrade is not available
+pref("browser.ipProtection.upgradeNotAvailable", false);
 // Pref that enables bandwidth usage feature
 pref("browser.ipProtection.bandwidth.enabled", true);
 // Pref for messaging the maximum bandwidth allowance in GB

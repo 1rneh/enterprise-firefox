@@ -4,7 +4,7 @@ android-gradle-plugin = "8.13.2" # Keep lint version in sync
 android-lint = "31.13.2"
 
 # Kotlin
-coroutines = "1.10.2"
+coroutines = "1.11.0"
 kotlin = "2.3.21"
 serialization = "1.11.0"
 
@@ -35,7 +35,7 @@ emoji2 = "1.6.0"
 fragment = "1.8.9"
 lifecycle = "2.10.0"
 media = "1.7.1"
-media3 = "1.10.0"
+media3 = "1.10.1"
 navigation = "2.9.8"
 navigation3 = "1.1.1"
 paging = "3.5.0"
@@ -54,17 +54,17 @@ work = "2.11.2"
 
 # Google other
 accompanist = "0.37.3"
-firebase-messaging = "25.0.1"
+firebase-messaging = "25.0.2"
 installreferrer = "2.2"
 ksp = "2.3.7"
 material = "1.13.0"
-mlkit-prompt = "1.0.0-beta1"
-osslicenses-plugin = "0.10.10"
+mlkit-prompt = "1.0.0-beta2"
+osslicenses-plugin = "0.12.0"
 play-integrity = "1.6.0"
 play-review = "2.0.2"
 play-services-ads-id = "18.3.0"
 play-services-base = "18.10.0"
-play-services-fido = "21.2.0"
+play-services-fido = "21.3.0"
 protobuf = "4.34.1" # Keep Protobuf in sync with the version used by AppServices.
 
 # Gradle plugins

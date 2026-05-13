@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from base_test import Environment
 from felt_tests import FeltTests
+from marionette_driver import errors
 
 
 class BaseBrowserSignout(FeltTests):
@@ -81,7 +82,18 @@ class BaseBrowserSignout(FeltTests):
             """
         )
 
-        self._child_driver.set_context("content")
+        try:
+            self._child_driver.set_context("content")
+        except (
+            errors.InvalidSessionIdException,
+            errors.NoSuchWindowException,
+            errors.TimeoutException,
+            OSError,
+        ):
+            # The child browser quits immediately after the signout dialog is
+            # accepted, so the connection may already be closed by the time we
+            # reset its context. _child_driver is not used after this point.
+            pass
 
         # This is not true but it will make sure the harness does not try to
         # cleanup the browser and we can then make sure that our self-closing

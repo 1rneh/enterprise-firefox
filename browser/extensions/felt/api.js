@@ -213,6 +213,28 @@ this.felt = class extends ExtensionAPI {
     },
   };
 
+  _feltMessageListeners = [
+    "FeltParent:FirefoxNormalExit",
+    "FeltParent:FirefoxRestartUpdateExit",
+    "FeltParent:FirefoxLogoutExit",
+    "FeltParent:FirefoxAbnormalExit",
+    "FeltParent:FirefoxLaunchFailure",
+    "FeltParent:TransitionFeltToBackground",
+    "FeltParent:ForceFeltFocus",
+  ];
+
+  addFeltMessageListeners() {
+    this._feltMessageListeners.forEach(messageListener =>
+      Services.ppmm.addMessageListener(messageListener, this)
+    );
+  }
+
+  removeFeltMessageListeners() {
+    this._feltMessageListeners.forEach(messageListener =>
+      Services.ppmm.removeMessageListener(messageListener, this)
+    );
+  }
+
   async onStartup() {
     if (Services.felt.isFeltUI()) {
       // Disable QoS thread priority demotion: background content processes get
@@ -223,19 +245,7 @@ this.felt = class extends ExtensionAPI {
       await this.registerActors();
       await lazy.FeltStorage.init();
       this.showWindow();
-      Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
-      Services.ppmm.addMessageListener(
-        "FeltParent:FirefoxRestartUpdateExit",
-        this
-      );
-      Services.ppmm.addMessageListener("FeltParent:FirefoxLogoutExit", this);
-      Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
-      Services.ppmm.addMessageListener("FeltParent:FirefoxLaunchFailure", this);
-      Services.ppmm.addMessageListener(
-        "FeltParent:TransitionFeltToBackground",
-        this
-      );
-      Services.ppmm.addMessageListener("FeltParent:ForceFeltFocus", this);
+      this.addFeltMessageListeners();
     } else if (Services.felt.isFeltBrowser()) {
       // In the real Firefox, register observer to handle URLs
       Services.obs.addObserver(this.urlObserver, "felt-open-url");
@@ -403,6 +413,10 @@ this.felt = class extends ExtensionAPI {
     if (Services.felt.isFeltBrowser()) {
       Services.obs.removeObserver(this.urlObserver, "felt-open-url");
       Services.obs.removeObserver(this.updateObserver, "felt-update-ready");
+    }
+
+    if (Services.felt.isFeltUI()) {
+      this.removeFeltMessageListeners();
     }
 
     if (this.chromeHandle) {

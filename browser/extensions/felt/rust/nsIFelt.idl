@@ -12,7 +12,7 @@ interface nsIFelt : nsISupports {
   ACString oneShotIpcServer();
 
   [must_use]
-  ACString binPath();
+  AString binPath();
 
   [must_use]
   boolean makeBackgroundProcess(in boolean background);

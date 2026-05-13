@@ -4,7 +4,7 @@
 use nserror::{
     nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_NOT_CONNECTED, NS_OK,
 };
-use nsstring::{nsACString, nsCString};
+use nsstring::{nsACString, nsAString, nsCString, nsString};
 use std::cell::RefCell;
 use std::env;
 use std::ffi::{c_char, CStr, CString};
@@ -460,20 +460,31 @@ impl FeltXPCOM {
         }
     }
 
-    fn BinPath(&self, bin: *mut nsACString) -> nserror::nsresult {
+    fn BinPath(&self, bin: *mut nsAString) -> nserror::nsresult {
         match env::current_exe() {
-            Ok(exe_path) => match exe_path.to_str() {
-                Some(path) => {
-                    unsafe {
-                        (*bin).assign(path);
+            Ok(exe_path) => {
+                // Use separate code path between Windows and others platforms
+                // here because on Windows it is already encoded as wide strings
+                #[cfg(windows)]
+                let wide: Vec<u16> = {
+                    use std::os::windows::ffi::OsStrExt;
+                    exe_path.as_os_str().encode_wide().collect()
+                };
+
+                #[cfg(not(windows))]
+                let wide: Vec<u16> = match exe_path.to_str() {
+                    Some(path) => path.encode_utf16().collect(),
+                    None => {
+                        trace!("FeltXPCOM: BinPath: to_str() failure");
+                        return NS_ERROR_FAILURE;
                     }
-                    NS_OK
+                };
+
+                unsafe {
+                    (*bin).assign(&nsString::from(&wide[..]));
                 }
-                None => {
-                    trace!("FeltXPCOM: BinPath: to_str() failure");
-                    NS_ERROR_FAILURE
-                }
-            },
+                NS_OK
+            }
             Err(err) => {
                 trace!("FeltXPCOM: BinPath: err={}", err);
                 NS_ERROR_FAILURE

@@ -292,7 +292,7 @@ export default class IPProtectionContentElement extends MozLitElement {
   }
 
   upgradeTemplate() {
-    if (this.state.hasUpgraded) {
+    if (this.state.hasUpgraded || this.state.upgradeNotAvailable) {
       return null;
     }
 

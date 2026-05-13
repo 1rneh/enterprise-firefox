@@ -655,6 +655,7 @@ Preferences.addAll([
   { id: "browser.ipProtection.autoStartPrivateEnabled", type: "bool" },
   { id: "browser.ipProtection.bandwidth.enabled", type: "bool" },
   { id: "browser.ipProtection.usageCache", type: "string" },
+  { id: "browser.ipProtection.upgradeNotAvailable", type: "bool" },
 
   // Media
   { id: "media.autoplay.default", type: "int" },
@@ -2729,6 +2730,10 @@ Preferences.addSetting({
   },
 });
 Preferences.addSetting({
+  id: "ipProtectionUpgradeNotAvailable",
+  pref: "browser.ipProtection.upgradeNotAvailable",
+});
+Preferences.addSetting({
   id: "ipProtectionNotOptedInSection",
   deps: ["ipProtectionVisible", "ipProtectionNotOptedIn"],
   visible: ({ ipProtectionVisible, ipProtectionNotOptedIn }) =>
@@ -2941,15 +2946,18 @@ Preferences.addSetting({
     "ipProtectionVisible",
     "ipProtectionNotOptedIn",
     "ipProtectionSubscribedToVpn",
+    "ipProtectionUpgradeNotAvailable",
   ],
   visible: ({
     ipProtectionVisible,
     ipProtectionNotOptedIn,
     ipProtectionSubscribedToVpn,
+    ipProtectionUpgradeNotAvailable,
   }) =>
     ipProtectionVisible.value &&
     !ipProtectionNotOptedIn.value &&
-    !ipProtectionSubscribedToVpn.value,
+    !ipProtectionSubscribedToVpn.value &&
+    !ipProtectionUpgradeNotAvailable.value,
 });
 
 // Study opt out

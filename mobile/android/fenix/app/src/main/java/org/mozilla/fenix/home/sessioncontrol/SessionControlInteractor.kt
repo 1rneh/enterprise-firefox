@@ -33,8 +33,6 @@ import org.mozilla.fenix.home.sports.SportsController
 import org.mozilla.fenix.home.termsofuse.PrivacyNoticeBannerController
 import org.mozilla.fenix.home.toolbar.ToolbarController
 import org.mozilla.fenix.home.topsites.controller.TopSiteController
-import org.mozilla.fenix.search.toolbar.SearchSelectorController
-import org.mozilla.fenix.search.toolbar.SearchSelectorMenu
 import org.mozilla.fenix.wallpapers.WallpaperState
 
 /**
@@ -196,7 +194,6 @@ class SessionControlInteractor(
     private val recentVisitsController: RecentVisitsController,
     private val pocketStoriesController: PocketStoriesController,
     private val privateBrowsingController: PrivateBrowsingController,
-    private val searchSelectorController: SearchSelectorController,
     private val toolbarController: ToolbarController,
     private val homeSearchController: HomeSearchController,
     private val topSiteController: TopSiteController,
@@ -411,10 +408,6 @@ class SessionControlInteractor(
         controller.handleMessageClosed(message)
     }
 
-    override fun onMenuItemTapped(item: SearchSelectorMenu.Item) {
-        searchSelectorController.handleMenuItemTapped(item)
-    }
-
     override fun onPrivacyNoticeBannerCloseClicked() {
         privacyNoticeBannerController.onBannerCloseClicked()
     }
@@ -445,6 +438,10 @@ class SessionControlInteractor(
 
     override fun onViewScheduleClicked() {
         sportsController.handleViewScheduleClicked()
+    }
+
+    override fun onRefreshClicked() {
+        sportsController.handleRefreshClicked()
     }
 
     override fun onCountdownWidgetDismissed() {

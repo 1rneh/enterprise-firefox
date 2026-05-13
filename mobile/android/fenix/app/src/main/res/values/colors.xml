@@ -68,8 +68,6 @@
     <color name="fx_mobile_layer_color_critical">@color/photonRed10</color>
 
     <!-- Action -->
-    <!-- Primary button, Snackbar, Floating action button, Chip selected -->
-    <color name="fx_mobile_action_color_primary">@color/photonInk20</color>
     <!-- Primary button in a disabled state-->
     <color name="fx_mobile_action_color_primary_disabled">@color/photonInk20A20</color>
     <!-- Secondary button -->
@@ -78,14 +76,10 @@
     <!-- Text -->
     <!-- Disabled text -->
     <color name="fx_mobile_text_color_disabled">@color/photonDarkGrey90A40</color>
-    <!-- Warning text on Secondary button -->
-    <color name="fx_mobile_text_color_critical_button">@color/photonRed70</color>
     <!-- Text Inverted/On Color -->
     <color name="fx_mobile_text_color_oncolor_primary">@color/photonLightGrey05</color>
     <!-- Text Inverted/On Color -->
     <color name="fx_mobile_text_color_oncolor_secondary">@color/photonLightGrey40</color>
-    <!-- Action Primary text -->
-    <color name="fx_mobile_text_color_action_primary">@color/photonLightGrey05</color>
     <!-- Action Primary disabled text -->
     <color name="fx_mobile_text_color_action_primary_disabled">@color/photonDarkGrey90A50</color>
     <!-- Action Secondary text -->
@@ -101,8 +95,6 @@
     <!-- Icon inverted (on color) -->
     <color name="fx_mobile_icon_color_oncolor">@color/photonLightGrey05</color>
     <color name="fx_mobile_icon_color_critical">@color/photonRed70</color>
-    <!-- Warning icon on Secondary button -->
-    <color name="fx_mobile_icon_color_critical_button">@color/photonRed70</color>
     <color name="fx_mobile_icon_color_accent_violet">@color/photonViolet70</color>
     <color name="fx_mobile_icon_color_accent_blue">@color/photonBlue60</color>
     <color name="fx_mobile_icon_color_accent_pink">@color/photonPink60</color>
@@ -171,8 +163,6 @@
     <color name="fx_mobile_private_layer_color_scrim">@color/photonDarkGrey90A95</color>
 
     <!-- Action -->
-    <!-- Primary button, Snackbar, Floating action button, Chip selected -->
-    <color name="fx_mobile_private_action_color_primary">@color/photonViolet60</color>
     <!-- Primary button in a disabled state -->
     <color name="fx_mobile_private_action_color_primary_disabled">@color/photonInk20A20</color>
 
@@ -181,8 +171,6 @@
     <color name="fx_mobile_private_text_color_disabled">@color/photonLightGrey05A40</color>
     <!-- Text Inverted/On Color -->
     <color name="fx_mobile_private_text_color_oncolor_primary">@color/photonLightGrey05</color>
-    <!-- Action Primary text -->
-    <color name="fx_mobile_private_text_color_action_primary">@color/photonLightGrey05</color>
     <!-- Action Primary disabled text -->
     <color name="fx_mobile_private_text_color_action_primary_disabled">@color/photonLightGrey05A40</color>
 
@@ -216,6 +204,30 @@
     <color name="search_suggestion_indicator_icon_color_normal_theme">@color/photonGreen70</color>
     <color name="search_suggestion_indicator_icon_bookmark_color_normal_theme">@color/photonBlue50</color>
 
+    <!-- Tracking protection dashboard colors used in normal browsing mode -->
+    <color name="protections_dashboard_background">#FFE6E0F5</color>
+    <color name="protections_dashboard_text_primary">#FF15141A</color>
+    <color name="protections_dashboard_text_accent">#FF312A64</color>
+    <color name="protections_dashboard_chip_background">#66FFFFFF</color>
+    <color name="protections_dashboard_chip_text">#FF312A64</color>
+    <color name="protections_dashboard_wave_gradient1">#FFFCF5F0</color>
+    <color name="protections_dashboard_wave_gradient2">#FFFAECF1</color>
+    <color name="protections_dashboard_wave_gradient3">#FFF5D4F5</color>
+    <color name="protections_dashboard_wave_gradient4">#FFEEAEF0</color>
+    <color name="protections_dashboard_progress_bar">#FF592ACB</color>
+
+    <!-- Tracking protection dashboard colors used in private browsing mode -->
+    <color name="protections_dashboard_background_private">#FF4B3974</color>
+    <color name="protections_dashboard_text_primary_private">#FFD9D0F5</color>
+    <color name="protections_dashboard_text_accent_private">#FFE8CCFF</color>
+    <color name="protections_dashboard_chip_background_private">#FF3D3264</color>
+    <color name="protections_dashboard_chip_text_private">#FFD9D0F5</color>
+    <color name="protections_dashboard_wave_gradient1_private">#FF342668</color>
+    <color name="protections_dashboard_wave_gradient2_private">#FF3D2D7A</color>
+    <color name="protections_dashboard_wave_gradient3_private">#FF4A3A8C</color>
+    <color name="protections_dashboard_wave_gradient4_private">#FF5C4A9E</color>
+    <color name="protections_dashboard_progress_bar_private">#FFD9BFFF</color>
+
     <!-- Colors for Edge to Edge background  -->
     <color name="homepage_edge_to_edge_gradient_start">#FFF7EAE8</color>
     <color name="homepage_edge_to_edge_gradient_end">#FFF8F3F4</color>
@@ -236,7 +248,6 @@
     <color name="toggle_off_track_normal_theme">@color/photonDarkGrey90</color>
 
     <!-- Misc colors applied universally-->
-    <color name="suggestion_highlight_color">#5C592ACB</color>
     <color name="sync_error_background_color">#FFF36E</color>
     <color name="sync_error_text_color">@color/photonYellow90</color>
     <color name="preference_scroll_highlight">@color/fx_mobile_surface_container_highest</color>

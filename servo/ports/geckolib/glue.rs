@@ -53,7 +53,6 @@ use style::gecko::restyle_damage::GeckoRestyleDamage;
 use style::gecko::selector_parser::{NonTSPseudoClass, PseudoElement};
 use style::gecko::snapshot_helpers::classes_changed;
 use style::gecko::traversal::RecalcStyleOnly;
-use style::gecko::url;
 use style::gecko::wrapper::{
     slow_selector_flags_from_node_selector_flags, GeckoElement, GeckoNode,
 };
@@ -130,6 +129,7 @@ use style::traversal::DomTraversal;
 use style::traversal_flags::{self, TraversalFlags};
 use style::typed_om::numeric_declaration::NumericDeclaration;
 use style::typed_om::sum_value::SumValue;
+use style::url;
 use style::use_counters::{CustomUseCounter, UseCounters};
 use style::values::animated::{Animate, Procedure, ToAnimatedZero};
 use style::values::computed::easing::ComputedTimingFunction;
@@ -153,7 +153,7 @@ use style::values::specified::intersection_observer::IntersectionObserverMargin;
 use style::values::specified::position::PositionTryFallbacksItem;
 use style::values::specified::source_size_list::SourceSizeList;
 use style::values::specified::svg_path::PathCommand;
-use style::values::specified::{AbsoluteLength, NoCalcLength};
+use style::values::specified::{LengthUnit, NoCalcLength};
 use style::values::{specified, AtomIdent, CustomIdent, KeyframesName};
 use style_traits::{
     CssWriter, NumericValue, ParseError, ParsingMode, SpecifiedValueInfo, ToCss, ToTyped,
@@ -222,7 +222,7 @@ pub unsafe extern "C" fn Servo_Shutdown() {
     DUMMY_URL_DATA = ptr::null_mut();
     DUMMY_CHROME_URL_DATA = ptr::null_mut();
     Stylist::shutdown();
-    url::shutdown();
+    url::gecko::shutdown();
 }
 
 #[inline(always)]
@@ -2613,6 +2613,21 @@ pub extern "C" fn Servo_NestedDeclarationsRule_SetStyle(
     write_locked_arc(rule, |rule: &mut NestedDeclarationsRule| {
         rule.block = unsafe { Arc::from_raw_addrefed(declarations) };
     })
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_DeclarationBlock_MayBeInRuleTree(
+    declarations: &LockedDeclarationBlock,
+) -> bool {
+    use std::sync::atomic::Ordering;
+    // SAFETY: See StyleSource::mark_in_rule_tree. This boolean is conceptually not part of the
+    // locked data, and it's a relaxed atomic, so it's sound to read.
+    unsafe {
+        declarations
+            .read_unchecked()
+            .may_be_in_rule_tree
+            .load(Ordering::Relaxed)
+    }
 }
 
 #[no_mangle]
@@ -5204,6 +5219,7 @@ pub extern "C" fn Servo_PseudoStyleType_EnabledForAllContent(ty: PseudoStyleType
 #[no_mangle]
 pub extern "C" fn Servo_ParsePseudoElement(
     data: &nsAString,
+    url_data: *mut URLExtraData,
     ignore_enabled_state: bool,
     request: &mut structs::PseudoStyleRequest, /* output */
 ) -> bool {
@@ -5224,7 +5240,8 @@ pub extern "C" fn Servo_ParsePseudoElement(
     if parser.next_including_whitespace().is_ok() {
         return false;
     }
-    if !ignore_enabled_state && !pseudo.enabled_in_content() {
+    let data = unsafe { UrlExtraData::from_ptr_ref(&url_data) };
+    if !ignore_enabled_state && !pseudo.enabled_in_content(data) {
         return false;
     }
     let (pseudo_type, name) = pseudo.pseudo_type_and_argument();
@@ -6320,7 +6337,7 @@ pub extern "C" fn Servo_DeclarationBlock_SetPixelValue(
         PaddingLeft => NonNegative(lp),
         BorderSpacing => {
             let v = NonNegativeLength::from(nocalc);
-            Box::new(BorderSpacing::new(v.clone(), v))
+            BorderSpacing::new(v.clone(), v)
         },
         BorderTopLeftRadius => {
             let length = NonNegativeLengthPercentage::from(nocalc);
@@ -6354,62 +6371,33 @@ pub extern "C" fn Servo_DeclarationBlock_SetLengthValue(
     use style::properties::PropertyDeclaration;
     use style::values::generics::length::{LengthPercentageOrAuto, Size};
     use style::values::generics::NonNegative;
-    use style::values::specified::length::{
-        FontRelativeLength, LengthPercentage, ViewportPercentageLength,
-    };
+    use style::values::specified::length::LengthPercentage;
     use style::values::specified::FontSize;
 
     let long = get_longhand_from_id!(property);
-    let nocalc = match unit {
-        structs::nsCSSUnit::eCSSUnit_EM => {
-            NoCalcLength::FontRelative(FontRelativeLength::Em(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_XHeight => {
-            NoCalcLength::FontRelative(FontRelativeLength::Ex(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_RootEM => {
-            NoCalcLength::FontRelative(FontRelativeLength::Rem(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_Char => {
-            NoCalcLength::FontRelative(FontRelativeLength::Ch(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_Ideographic => {
-            NoCalcLength::FontRelative(FontRelativeLength::Ic(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_CapHeight => {
-            NoCalcLength::FontRelative(FontRelativeLength::Cap(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_LineHeight => {
-            NoCalcLength::FontRelative(FontRelativeLength::Lh(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_RootLineHeight => {
-            NoCalcLength::FontRelative(FontRelativeLength::Rlh(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_Pixel => NoCalcLength::Absolute(AbsoluteLength::Px(value)),
-        structs::nsCSSUnit::eCSSUnit_Inch => NoCalcLength::Absolute(AbsoluteLength::In(value)),
-        structs::nsCSSUnit::eCSSUnit_Centimeter => {
-            NoCalcLength::Absolute(AbsoluteLength::Cm(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_Millimeter => {
-            NoCalcLength::Absolute(AbsoluteLength::Mm(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_Point => NoCalcLength::Absolute(AbsoluteLength::Pt(value)),
-        structs::nsCSSUnit::eCSSUnit_Pica => NoCalcLength::Absolute(AbsoluteLength::Pc(value)),
-        structs::nsCSSUnit::eCSSUnit_Quarter => NoCalcLength::Absolute(AbsoluteLength::Q(value)),
-        structs::nsCSSUnit::eCSSUnit_VW => {
-            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vw(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_VH => {
-            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vh(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_VMin => {
-            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vmin(value))
-        },
-        structs::nsCSSUnit::eCSSUnit_VMax => {
-            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vmax(value))
-        },
+    let length_unit = match unit {
+        structs::nsCSSUnit::eCSSUnit_EM => LengthUnit::Em,
+        structs::nsCSSUnit::eCSSUnit_XHeight => LengthUnit::Ex,
+        structs::nsCSSUnit::eCSSUnit_RootEM => LengthUnit::Rem,
+        structs::nsCSSUnit::eCSSUnit_Char => LengthUnit::Ch,
+        structs::nsCSSUnit::eCSSUnit_Ideographic => LengthUnit::Ic,
+        structs::nsCSSUnit::eCSSUnit_CapHeight => LengthUnit::Cap,
+        structs::nsCSSUnit::eCSSUnit_LineHeight => LengthUnit::Lh,
+        structs::nsCSSUnit::eCSSUnit_RootLineHeight => LengthUnit::Rlh,
+        structs::nsCSSUnit::eCSSUnit_Pixel => LengthUnit::Px,
+        structs::nsCSSUnit::eCSSUnit_Inch => LengthUnit::In,
+        structs::nsCSSUnit::eCSSUnit_Centimeter => LengthUnit::Cm,
+        structs::nsCSSUnit::eCSSUnit_Millimeter => LengthUnit::Mm,
+        structs::nsCSSUnit::eCSSUnit_Point => LengthUnit::Pt,
+        structs::nsCSSUnit::eCSSUnit_Pica => LengthUnit::Pc,
+        structs::nsCSSUnit::eCSSUnit_Quarter => LengthUnit::Q,
+        structs::nsCSSUnit::eCSSUnit_VW => LengthUnit::Vw,
+        structs::nsCSSUnit::eCSSUnit_VH => LengthUnit::Vh,
+        structs::nsCSSUnit::eCSSUnit_VMin => LengthUnit::Vmin,
+        structs::nsCSSUnit::eCSSUnit_VMax => LengthUnit::Vmax,
         _ => unreachable!("Unknown unit passed to SetLengthValue"),
     };
+    let nocalc = NoCalcLength::new(length_unit, value);
 
     let mut source_declarations = SourcePropertyDeclaration::with_one(match_wrap_declared! { long,
         Width => Size::LengthPercentage(NonNegative(LengthPercentage::Length(nocalc))),
@@ -9802,8 +9790,8 @@ pub unsafe extern "C" fn Servo_StyleArcSlice_EmptyPtr() -> *mut c_void {
 
 #[no_mangle]
 pub unsafe extern "C" fn Servo_LoadData_GetLazy(
-    source: &url::LoadDataSource,
-) -> *const url::LoadData {
+    source: &url::gecko::LoadDataSource,
+) -> *const url::gecko::LoadData {
     source.get()
 }
 

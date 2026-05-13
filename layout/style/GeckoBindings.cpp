@@ -385,14 +385,6 @@ const StyleLockedDeclarationBlock* Gecko_GetStyleAttrDeclarationBlock(
   return decl->Raw();
 }
 
-void Gecko_UnsetDirtyStyleAttr(const Element* aElement) {
-  DeclarationBlock* decl = aElement->GetInlineStyleDeclaration();
-  if (!decl) {
-    return;
-  }
-  decl->UnsetDirty();
-}
-
 const StyleLockedDeclarationBlock*
 Gecko_GetHTMLPresentationAttrDeclarationBlock(const Element* aElement) {
   return aElement->GetMappedAttributeStyle();
@@ -1265,6 +1257,11 @@ void Gecko_Snapshot_DebugListAttributes(const ServoElementSnapshot* aSnapshot,
 }
 
 NS_IMPL_THREADSAFE_FFI_REFCOUNTING(URLExtraData, URLExtraData);
+
+bool Gecko_IsURIInList(const URLExtraData* aData, const nsACString* aList) {
+  return nsContentUtils::IsURIInList(aData->BaseURI(),
+                                     PromiseFlatCString(*aList));
+}
 
 void Gecko_nsStyleFont_SetLang(nsStyleFont* aFont, nsAtom* aAtom) {
   aFont->mLanguage = dont_AddRef(aAtom);

@@ -22,9 +22,7 @@ import mozilla.components.ui.colors.PhotonColors
 @Suppress("LongParameterList")
 @Stable
 class AcornColors(
-    layer2: Color,
     layer3: Color,
-    layerAccent: Color,
     layerGradientStart: Color,
     layerGradientEnd: Color,
     actionInformation: Color,
@@ -46,16 +44,8 @@ class AcornColors(
 ) {
     // Layers
 
-    // Card background, Menu background, Dialog, Banner
-    var layer2 by mutableStateOf(layer2)
-        private set
-
     // Search
     var layer3 by mutableStateOf(layer3)
-        private set
-
-    // App Bar Top (edit), Text Cursor, Selected Tab Check
-    var layerAccent by mutableStateOf(layerAccent)
         private set
 
     // Tooltip
@@ -163,9 +153,7 @@ class AcornColors(
      */
     @Suppress("LongMethod")
     fun update(other: AcornColors) {
-        layer2 = other.layer2
         layer3 = other.layer3
-        layerAccent = other.layerAccent
         layerGradientStart = other.layerGradientStart
         layerGradientEnd = other.layerGradientEnd
         actionInformation = other.actionInformation
@@ -191,9 +179,7 @@ class AcornColors(
      */
     @Suppress("LongMethod")
     fun copy(
-        layer2: Color = this.layer2,
         layer3: Color = this.layer3,
-        layerAccent: Color = this.layerAccent,
         layerGradientStart: Color = this.layerGradientStart,
         layerGradientEnd: Color = this.layerGradientEnd,
         actionInformation: Color = this.actionInformation,
@@ -213,9 +199,7 @@ class AcornColors(
         onWarningContainer: Color = this.onWarningContainer,
         surfaceDimVariant: Color = this.surfaceDimVariant,
     ): AcornColors = AcornColors(
-        layer2 = layer2,
         layer3 = layer3,
-        layerAccent = layerAccent,
         layerGradientStart = layerGradientStart,
         layerGradientEnd = layerGradientEnd,
         actionInformation = actionInformation,
@@ -238,9 +222,7 @@ class AcornColors(
 }
 
 val darkColorPalette = AcornColors(
-    layer2 = PhotonColors.DarkGrey30,
     layer3 = PhotonColors.DarkGrey80,
-    layerAccent = PhotonColors.Violet40,
     layerGradientStart = PhotonColors.Violet70,
     layerGradientEnd = PhotonColors.Violet60,
     actionInformation = PhotonColors.Blue60,
@@ -262,9 +244,7 @@ val darkColorPalette = AcornColors(
 )
 
 val lightColorPalette = AcornColors(
-    layer2 = PhotonColors.White,
     layer3 = PhotonColors.LightGrey20,
-    layerAccent = PhotonColors.Ink20,
     layerGradientStart = PhotonColors.Violet70,
     layerGradientEnd = PhotonColors.Violet60,
     actionInformation = PhotonColors.Blue50,
@@ -286,7 +266,6 @@ val lightColorPalette = AcornColors(
 )
 
 val privateColorPalette = darkColorPalette.copy(
-    layer2 = PhotonColors.Violet90,
     layer3 = PhotonColors.Ink90,
     tabActive = PhotonColors.Purple60,
     tabInactive = PhotonColors.Ink90,

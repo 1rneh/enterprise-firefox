@@ -969,20 +969,6 @@ features:
           type: Boolean
           default: true
 
-  toolbar-redesign-option:
-    description: Control the visibility of toolbar redesign option in settings.
-    variables:
-      show-options:
-        description: >
-          Whether or not the toolbar redesign option is visible to the user.  This allows the user to switch between simple and expanded toolbar.
-        type: Boolean
-        default: true
-      show-customization:
-        description: >
-          Whether or not the simple/expanded toolbar customization option is visible to the user.
-        type: Boolean
-        default: true
-
   tab-management-enhancements:
     description: Control the visibility of the tab management enhancements.
     variables:
@@ -1002,15 +988,6 @@ features:
       - channel: nightly
         value:
           opening_animation_enabled: true
-
-  tab-search:
-    description: Control the visibility of the tab search feature.
-    variables:
-      enabled:
-        description: >
-          Whether or not to enable the tab search feature.
-        type: Boolean
-        default: true
 
   tab-groups:
     description: Control the visibility of the tab groups feature.
@@ -1048,6 +1025,14 @@ features:
       - channel: nightly
         value:
           enabled: false
+
+  marketing-onboarding-card:
+    description: A temporary feature to control the marketing onboarding card shown during the onboarding flow.
+    variables:
+      enabled:
+        description: If false, the marketing onboarding card will never be shown.
+        type: Boolean
+        default: true
 
   suppress-sponsored-top-sites:
     description: Suppress sponsored top sites for new users for 14 days.

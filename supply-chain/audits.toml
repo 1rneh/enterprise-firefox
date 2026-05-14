@@ -4791,12 +4791,12 @@ delta = "28.0.0 -> 29.0.0"
 
 [[audits.naga]]
 who = [
-    "Jim Blandy <jimb@red-bean.com>",
     "Andy Leiserson <aleiserson@mozilla.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:0b4bdaf9cea213ce614405a834ff049b9dfba103"
+delta = "29.0.0 -> 29.0.0@git:64394cc73a10222134ab0ac858f29f535e98d553"
 importable = false
 
 [[audits.net2]]
@@ -6338,6 +6338,12 @@ who = "Max Inden <mail@max-inden.de>"
 criteria = "safe-to-deploy"
 delta = "1.1.0 -> 1.3.0"
 
+[[audits.signal-hook-registry]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-run"
+version = "1.4.8"
+notes = "Well-maintained crate for low-level OS signal handling, used via tokio's signal feature."
+
 [[audits.siphasher]]
 who = "Emilio Cobos Álvarez <emilio@crisal.io>"
 criteria = "safe-to-deploy"
@@ -7630,12 +7636,12 @@ delta = "28.0.0 -> 29.0.0"
 
 [[audits.wgpu-core]]
 who = [
-    "Jim Blandy <jimb@red-bean.com>",
     "Andy Leiserson <aleiserson@mozilla.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:0b4bdaf9cea213ce614405a834ff049b9dfba103"
+delta = "29.0.0 -> 29.0.0@git:64394cc73a10222134ab0ac858f29f535e98d553"
 importable = false
 
 [[audits.wgpu-core-deps-apple]]
@@ -7680,12 +7686,12 @@ delta = "28.0.0 -> 29.0.0"
 
 [[audits.wgpu-core-deps-apple]]
 who = [
-    "Jim Blandy <jimb@red-bean.com>",
     "Andy Leiserson <aleiserson@mozilla.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:0b4bdaf9cea213ce614405a834ff049b9dfba103"
+delta = "29.0.0 -> 29.0.0@git:64394cc73a10222134ab0ac858f29f535e98d553"
 importable = false
 
 [[audits.wgpu-core-deps-windows-linux-android]]
@@ -7730,12 +7736,12 @@ delta = "28.0.0 -> 29.0.0"
 
 [[audits.wgpu-core-deps-windows-linux-android]]
 who = [
-    "Jim Blandy <jimb@red-bean.com>",
     "Andy Leiserson <aleiserson@mozilla.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:0b4bdaf9cea213ce614405a834ff049b9dfba103"
+delta = "29.0.0 -> 29.0.0@git:64394cc73a10222134ab0ac858f29f535e98d553"
 importable = false
 
 [[audits.wgpu-hal]]
@@ -7858,12 +7864,12 @@ delta = "28.0.0 -> 29.0.0"
 
 [[audits.wgpu-hal]]
 who = [
-    "Jim Blandy <jimb@red-bean.com>",
     "Andy Leiserson <aleiserson@mozilla.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:0b4bdaf9cea213ce614405a834ff049b9dfba103"
+delta = "29.0.0 -> 29.0.0@git:64394cc73a10222134ab0ac858f29f535e98d553"
 importable = false
 
 [[audits.wgpu-naga-bridge]]
@@ -7878,12 +7884,12 @@ delta = "28.0.0 -> 29.0.0"
 
 [[audits.wgpu-naga-bridge]]
 who = [
-    "Jim Blandy <jimb@red-bean.com>",
     "Andy Leiserson <aleiserson@mozilla.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:0b4bdaf9cea213ce614405a834ff049b9dfba103"
+delta = "29.0.0 -> 29.0.0@git:64394cc73a10222134ab0ac858f29f535e98d553"
 importable = false
 
 [[audits.wgpu-types]]
@@ -8001,12 +8007,12 @@ delta = "28.0.0 -> 29.0.0"
 
 [[audits.wgpu-types]]
 who = [
-    "Jim Blandy <jimb@red-bean.com>",
     "Andy Leiserson <aleiserson@mozilla.com>",
     "Teodor Tanasoaia <ttanasoaia@mozilla.com>",
+    "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:0b4bdaf9cea213ce614405a834ff049b9dfba103"
+delta = "29.0.0 -> 29.0.0@git:64394cc73a10222134ab0ac858f29f535e98d553"
 importable = false
 
 [[audits.whatsys]]

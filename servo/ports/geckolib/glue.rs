@@ -65,8 +65,8 @@ use style::gecko_bindings::bindings::{
     Gecko_HaveSeenPtr, IterationCompositeOperation, Loader, LoaderReusableStyleSheets,
     MallocSizeOf as GeckoMallocSizeOf, NonCustomCSSPropertyId, OriginFlags, PropertyValuePair,
     PseudoStyleType, SeenPtrs, ServoElementSnapshotTable, ServoStyleSetSizes, ServoTraversalFlags,
-    SheetLoadData, SheetLoadDataHolder, SheetParsingMode, StyleRuleInclusion,
-    StyleSheet as DomStyleSheet, URLExtraData,
+    ShadowRoot as RawShadowRoot, SheetLoadData, SheetLoadDataHolder, SheetParsingMode,
+    StyleRuleInclusion, StyleSheet as DomStyleSheet, URLExtraData,
 };
 use style::gecko_bindings::structs;
 use style::gecko_bindings::sugar::ownership::Strong;
@@ -96,7 +96,7 @@ use style::properties::{
 };
 use style::properties_and_values::registry::PropertyRegistration;
 use style::rule_cache::RuleCacheConditions;
-use style::rule_tree::{RuleCascadeFlags, StrongRuleNode};
+use style::rule_tree::{CascadeLevel, RuleCascadeFlags, StrongRuleNode};
 use style::selector_parser::PseudoElementCascadeType;
 use style::shared_lock::{
     Locked, SharedRwLock, SharedRwLockReadGuard, StylesheetGuards, ToCssWithGuard,
@@ -1560,11 +1560,26 @@ pub extern "C" fn Servo_Element_ReferencesAttribute(
     let Some(data) = element.borrow_data() else {
         return false;
     };
-    let Some(ref attrs) = data.styles.primary().attribute_references else {
-        return false;
-    };
+    if let Some(ref attrs) = data.styles.primary().attribute_references {
+        if unsafe { Atom::with(attr, |attr| attrs.contains_key(AtomIdent::cast(attr))) } {
+            return true;
+        }
+    }
 
-    unsafe { Atom::with(attr, |attr| attrs.contains_key(AtomIdent::cast(attr))) }
+    // Some eager pseudos (::first-letter, ::first-line) lack Gecko element nodes,
+    // so check them for attr() dependency through the originating element here.
+    for pseudo_styles in data.styles.pseudos.as_array() {
+        let Some(ref styles) = pseudo_styles else {
+            continue;
+        };
+        let Some(ref attrs) = styles.attribute_references else {
+            continue;
+        };
+        if unsafe { Atom::with(attr, |attr| attrs.contains_key(AtomIdent::cast(attr))) } {
+            return true;
+        }
+    }
+    false
 }
 
 fn mode_to_origin(mode: SheetParsingMode) -> Origin {
@@ -2616,7 +2631,7 @@ pub extern "C" fn Servo_NestedDeclarationsRule_SetStyle(
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_DeclarationBlock_MayBeInRuleTree(
+pub extern "C" fn Servo_DeclarationBlock_IsImmutable(
     declarations: &LockedDeclarationBlock,
 ) -> bool {
     use std::sync::atomic::Ordering;
@@ -2625,8 +2640,23 @@ pub extern "C" fn Servo_DeclarationBlock_MayBeInRuleTree(
     unsafe {
         declarations
             .read_unchecked()
-            .may_be_in_rule_tree
+            .immutable
             .load(Ordering::Relaxed)
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_DeclarationBlock_SetImmutable(
+    declarations: &LockedDeclarationBlock,
+) {
+    use std::sync::atomic::Ordering;
+    // SAFETY: See StyleSource::mark_in_rule_tree. This boolean is conceptually not part of the
+    // locked data, and it's a relaxed atomic, so it's sound to read.
+    unsafe {
+        declarations
+            .read_unchecked()
+            .immutable
+            .store(true, Ordering::Relaxed);
     }
 }
 
@@ -4468,6 +4498,7 @@ pub unsafe extern "C" fn Servo_ComputedValues_GetForPageContent(
 pub unsafe extern "C" fn Servo_ComputedValues_GetForPositionTry(
     raw_data: &PerDocumentStyleData,
     style: &ComputedValues,
+    scope: CascadeLevel,
     element: &RawGeckoElement,
     fallback_item: &PositionTryFallbacksItem,
 ) -> Strong<ComputedValues> {
@@ -4477,7 +4508,7 @@ pub unsafe extern "C" fn Servo_ComputedValues_GetForPositionTry(
     let element = GeckoElement(element);
     let data = raw_data.borrow();
     data.stylist
-        .resolve_position_try(style, &guards, element, fallback_item)
+        .resolve_position_try(style, &guards, scope, element, fallback_item)
         .into()
 }
 
@@ -11043,4 +11074,15 @@ pub extern "C" fn Servo_ResolvePositionAreaSelfAlignment(
         return;
     };
     *out = align;
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_GetShadowRootForScoped(
+    element: &RawGeckoElement,
+    scope: CascadeLevel,
+) -> *const RawShadowRoot {
+    let element = GeckoElement(element);
+    scope
+        .get_shadow_root_for_scoped(element)
+        .map_or(ptr::null(), |sr| sr.0 as *const _)
 }

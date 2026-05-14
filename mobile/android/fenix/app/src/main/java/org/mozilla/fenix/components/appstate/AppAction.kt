@@ -858,10 +858,10 @@ sealed class AppAction : Action {
         /**
          * Dispatched when new match card data is available for the homepage sports widget.
          *
-         * @property matchCardState The new [MatchCard] to display, or null if no match
+         * @property matchCardStates The new [MatchCard]s to display, or empty if no match
          * should be shown.
          */
-        data class MatchCardStateUpdated(val matchCardState: MatchCard?) : SportsWidgetAction()
+        data class MatchCardStateUpdated(val matchCardStates: List<MatchCard>) : SportsWidgetAction()
 
         /**
          * Dispatched when the sport widget's debug tool visibility changes.
@@ -898,5 +898,14 @@ sealed class AppAction : Action {
          * @property error The [SportCardErrorState] describing the failure.
          */
         data class FetchFailed(val error: SportCardErrorState) : SportsWidgetAction()
+
+        /**
+         * Dispatched when the user toggles the one week to the world cup override setting
+         * in the sport widget's debug tool. This overrides [SportsWidgetState.isOneWeekToWorldCup] and should
+         * be used for debug only.
+         *
+         * @property isOneWeekToWorldCupOverride Whether it's one week to the World Cup.
+         */
+        data class OneWeekToWorldCupOverrideUpdated(val isOneWeekToWorldCupOverride: Boolean) : SportsWidgetAction()
     }
 }

@@ -1415,6 +1415,15 @@
   value: false
   mirror: always
 
+# If true, TrackingDBService read methods broadcast a flush request before
+# querying, so live ContentBlockingLogs for long-lived top-level documents
+# write their pending events to the database first. Has no effect unless
+# browser.contentblocking.database.enabled is also true.
+- name: browser.contentblocking.database.flushOnQuery.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # How many recent block/unblock actions per origins we remember in the
 # Content Blocking log for each top-level window.
 - name: browser.contentblocking.originlog.length
@@ -9398,7 +9407,7 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
-  set_spidermonkey_pref: startup
+  set_spidermonkey_pref: always
 
   # Experimental support for Error.stackTraceLimit
 - name: javascript.options.experimental.error_stack_trace_limit
@@ -9449,10 +9458,10 @@
 #ifdef ENABLE_SOURCE_PHASE_IMPORTS
   # Experimental support for source phase imports in JavaScript.
 - name: javascript.options.experimental.source_phase_imports
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
-  set_spidermonkey_pref: startup
+  set_spidermonkey_pref: always
   # Enable support for <module source> module used in test262
 - name: javascript.options.experimental.source_phase_imports.test262_module_source
   type: bool
@@ -11382,14 +11391,14 @@
 # overlay scrollbars.
 - name: layout.css.fake-webkit-scrollbar.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
 # Per-domain blocklist for ::-webkit-scrollbar pseudo element
 - name: layout.css.fake-webkit-scrollbar.disabled-domains
   type: DataMutexString
-  value: "discord.com"
+  value: "discord.com,shitposter.world"
   mirror: always
   rust: true
 
@@ -11847,6 +11856,13 @@
 - name: media.mediacapabilities.webrtc-encode-smooth-override
   type: RelaxedAtomicUint32
   value: 0
+  mirror: always
+
+# Whether to expose media metadata to system media controls
+# in private browsing mode
+- name: media.privatebrowsing.metadata.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # AudioSink
@@ -13338,6 +13354,13 @@
 #else
   value: false
 #endif
+  mirror: always
+
+# When true, AudioContext yields to audio-focus competition by suspending
+# itself on the Stop media-control key.
+- name: media.audioFocus.webaudio.enabled
+  type: bool
+  value: false
   mirror: always
 
 - name: media.hardwaremediakeys.enabled

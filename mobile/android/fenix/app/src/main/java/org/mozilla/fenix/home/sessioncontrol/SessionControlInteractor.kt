@@ -451,4 +451,12 @@ class SessionControlInteractor(
     override fun onPrivacyReportTapped() {
         Homepage.privacyReportTapped.record(NoExtras())
     }
+
+    override fun onGetCustomWallpaperClicked() {
+        sportsController.handleOnGetCustomWallpaperClicked()
+    }
+
+    override fun onMatchClicked(homeTeam: String, awayTeam: String) {
+        sportsController.handleMatchClicked(homeTeam = homeTeam, awayTeam = awayTeam)
+    }
 }

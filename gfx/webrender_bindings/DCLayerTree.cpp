@@ -2520,7 +2520,11 @@ void DCSurfaceVideo::PresentVideo() {
                          presentDurationMs);
   PROFILER_MARKER_TEXT("PresentWait", GRAPHICS, {}, marker);
 
-  if (mRenderTextureHostUsageInfo) {
+  // RenderTextureHostUsageInfo::OnVideoPresent() is called to disable video
+  // overlay if present is slow. However, HDR requires video overlay to show
+  // correct colors. To avoid displaying incorrect color, don't make this call
+  // if the content is HDR.
+  if (!mContentIsHDR && mRenderTextureHostUsageInfo) {
     mRenderTextureHostUsageInfo->OnVideoPresent(mDCLayerTree->GetFrameId(),
                                                 presentDurationMs);
   }
@@ -2783,6 +2787,39 @@ static Maybe<DXGI_COLOR_SPACE_TYPE> GetOutputDXGIColorSpace(
   }
 }
 
+static DXGI_HDR_METADATA_HDR10 ToStreamHDR10Metadata(
+    const gfx::HDRMetadata& aMetadata) {
+  constexpr float kChromaticityScale = 50000.0f;
+  constexpr float kMinLuminanceScale = 10000.0f;
+  DXGI_HDR_METADATA_HDR10 hdr10 = {};
+  if (const auto& smpte = aMetadata.mSmpte2086) {
+    hdr10.RedPrimary[0] =
+        static_cast<UINT16>(smpte->displayPrimaryRed.x * kChromaticityScale);
+    hdr10.RedPrimary[1] =
+        static_cast<UINT16>(smpte->displayPrimaryRed.y * kChromaticityScale);
+    hdr10.GreenPrimary[0] =
+        static_cast<UINT16>(smpte->displayPrimaryGreen.x * kChromaticityScale);
+    hdr10.GreenPrimary[1] =
+        static_cast<UINT16>(smpte->displayPrimaryGreen.y * kChromaticityScale);
+    hdr10.BluePrimary[0] =
+        static_cast<UINT16>(smpte->displayPrimaryBlue.x * kChromaticityScale);
+    hdr10.BluePrimary[1] =
+        static_cast<UINT16>(smpte->displayPrimaryBlue.y * kChromaticityScale);
+    hdr10.WhitePoint[0] =
+        static_cast<UINT16>(smpte->whitePoint.x * kChromaticityScale);
+    hdr10.WhitePoint[1] =
+        static_cast<UINT16>(smpte->whitePoint.y * kChromaticityScale);
+    hdr10.MaxMasteringLuminance = static_cast<UINT>(smpte->maxLuminance);
+    hdr10.MinMasteringLuminance =
+        static_cast<UINT>(smpte->minLuminance * kMinLuminanceScale);
+  }
+  if (const auto& cll = aMetadata.mContentLightLevel) {
+    hdr10.MaxContentLightLevel = cll->maxContentLightLevel;
+    hdr10.MaxFrameAverageLightLevel = cll->maxFrameAverageLightLevel;
+  }
+  return hdr10;
+}
+
 bool DCSurfaceVideo::CallVideoProcessorBlt() {
   MOZ_ASSERT(mRenderTextureHost);
 
@@ -2878,6 +2915,16 @@ bool DCSurfaceVideo::CallVideoProcessorBlt() {
       videoContext2->VideoProcessorSetOutputHDRMetaData(
           videoProcessor, DXGI_HDR_METADATA_TYPE_HDR10,
           sizeof(DXGI_HDR_METADATA_HDR10), &(hdrMetadata.ref()));
+    }
+  }
+
+  if (videoContext2) {
+    const auto& streamHdrMetadata = texture->GetHDRMetadata();
+    if (streamHdrMetadata.isSome()) {
+      DXGI_HDR_METADATA_HDR10 hdr10 = ToStreamHDR10Metadata(*streamHdrMetadata);
+      videoContext2->VideoProcessorSetStreamHDRMetaData(
+          videoProcessor, 0, DXGI_HDR_METADATA_TYPE_HDR10, sizeof(hdr10),
+          &hdr10);
     }
   }
 

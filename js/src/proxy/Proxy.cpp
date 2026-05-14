@@ -37,7 +37,7 @@ static bool ProxySetOnExpando(JSContext* cx, HandleObject proxy, HandleId id,
   MOZ_ASSERT(id.isPrivateName());
 
   // For BaseProxyHandler, private names are stored in the expando object.
-  RootedObject expando(cx, proxy->as<ProxyObject>().expando().toObjectOrNull());
+  RootedObject expando(cx, proxy->as<ProxyObject>().expando());
 
   // SetPrivateElementOperation checks for hasOwn first, which ensures the
   // expando exsists.
@@ -67,7 +67,7 @@ static bool ProxySetOnExpando(JSContext* cx, HandleObject proxy, HandleId id,
 static bool ProxyGetOwnPropertyDescriptorFromExpando(
     JSContext* cx, HandleObject proxy, HandleId id,
     MutableHandle<mozilla::Maybe<PropertyDescriptor>> desc) {
-  RootedObject expando(cx, proxy->as<ProxyObject>().expando().toObjectOrNull());
+  RootedObject expando(cx, proxy->as<ProxyObject>().expando());
 
   if (!expando) {
     return true;
@@ -80,7 +80,7 @@ static bool ProxyGetOnExpando(JSContext* cx, HandleObject proxy,
                               HandleValue receiver, HandleId id,
                               MutableHandleValue vp) {
   // For BaseProxyHandler, private names are stored in the expando object.
-  RootedObject expando(cx, proxy->as<ProxyObject>().expando().toObjectOrNull());
+  RootedObject expando(cx, proxy->as<ProxyObject>().expando());
 
   // We must have the expando, or GetPrivateElemOperation didn't call
   // hasPrivate first.
@@ -120,7 +120,7 @@ static bool ProxyGetOnExpando(JSContext* cx, HandleObject proxy,
 static bool ProxyHasOnExpando(JSContext* cx, HandleObject proxy, HandleId id,
                               bool* bp) {
   // For BaseProxyHandler, private names are stored in the expando object.
-  RootedObject expando(cx, proxy->as<ProxyObject>().expando().toObjectOrNull());
+  RootedObject expando(cx, proxy->as<ProxyObject>().expando());
 
   // If there is no expando object, then there is no private field.
   if (!expando) {
@@ -137,7 +137,7 @@ static bool ProxyDefineOnExpando(JSContext* cx, HandleObject proxy, HandleId id,
   MOZ_ASSERT(id.isPrivateName());
 
   // For BaseProxyHandler, private names are stored in the expando object.
-  RootedObject expando(cx, proxy->as<ProxyObject>().expando().toObjectOrNull());
+  RootedObject expando(cx, proxy->as<ProxyObject>().expando());
 
   if (!expando) {
     expando = NewPlainObjectWithProto(cx, nullptr);
@@ -885,7 +885,7 @@ static inline void CheckProxyIsInCCWMap(ProxyObject* proxy) {
 void ProxyObject::trace(JSTracer* trc, JSObject* obj) {
   ProxyObject* proxy = &obj->as<ProxyObject>();
 
-  TraceEdge(trc, proxy->slotOfExpando(), "expando");
+  TraceEdge(trc, proxy->expandoPtr(), "expando");
 
 #ifdef DEBUG
   JSContext* cx = TlsContext.get();
@@ -926,21 +926,12 @@ static void proxy_Finalize(JS::GCContext* gcx, JSObject* obj) {
 
 size_t js::proxy_ObjectMoved(JSObject* obj, JSObject* old) {
   ProxyObject& proxy = obj->as<ProxyObject>();
-  proxy.setInlineValueArray();
   return proxy.handler()->objectMoved(obj, old);
 }
 
 const JSClassOps js::ProxyClassOps = {
-    nullptr,             // addProperty
-    nullptr,             // delProperty
-    nullptr,             // enumerate
-    nullptr,             // newEnumerate
-    nullptr,             // resolve
-    nullptr,             // mayResolve
-    proxy_Finalize,      // finalize
-    nullptr,             // call
-    nullptr,             // construct
-    ProxyObject::trace,  // trace
+    .finalize = proxy_Finalize,
+    .trace = ProxyObject::trace,
 };
 
 const ClassExtension js::ProxyClassExtension = {
@@ -973,7 +964,8 @@ static const ClassSpec ProxyClassSpec = {
 
 const JSClass js::ProxyClass = PROXY_CLASS_DEF_WITH_CLASS_SPEC(
     "Proxy",
-    JSCLASS_HAS_CACHED_PROTO(JSProto_Proxy) | JSCLASS_HAS_RESERVED_SLOTS(2),
+    JSCLASS_HAS_CACHED_PROTO(JSProto_Proxy) |
+        JSCLASS_HAS_RESERVED_SLOTS(SwappableProxyReservedSlots),
     &ProxyClassSpec);
 
 JS_PUBLIC_API JSObject* js::NewProxyObject(JSContext* cx,

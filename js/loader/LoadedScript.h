@@ -9,7 +9,6 @@
 #include "js/experimental/JSStencil.h"
 #include "js/Transcoding.h"
 
-#include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MaybeOneOf.h"
 #include "mozilla/MemoryReporting.h"
@@ -41,7 +40,7 @@ void HostAddRefScriptFetchInfo(const Value& aPrivate);
 void HostReleaseScriptFetchInfo(const Value& aPrivate);
 
 class ClassicScript;
-class ModuleScript;
+class LoadedModuleScript;
 class LoadContextBase;
 
 // Information required to fetch scripts or module graphs.
@@ -131,23 +130,15 @@ class ScriptFetchInfo : public nsISupports {
 // As the LoadedScript can be shared, using the SharedSubResourceCache, it is
 // exposed to the memory reporter such that sharing might be accounted for
 // properly.
-class LoadedScript : public nsISupports {
- protected:
-  LoadedScript(ScriptKind aKind, nsIURI* aURI);
-
-  LoadedScript(const LoadedScript& aOther);
-
-  template <typename T, typename... Args>
-  friend RefPtr<T> mozilla::MakeRefPtr(Args&&... aArgs);
-
-  virtual ~LoadedScript();
+class LoadedScript final : public nsISupports {
+  ~LoadedScript() = default;
 
  public:
+  LoadedScript(ScriptKind aKind, nsIURI* aURI);
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
  public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS;
-  NS_DECL_CYCLE_COLLECTION_CLASS(LoadedScript)
+  NS_DECL_ISUPPORTS
 
   uint16_t ClampedRefCountForTelemetry() const {
     uintptr_t count = mRefCnt.get();
@@ -160,9 +151,6 @@ class LoadedScript : public nsISupports {
   bool IsClassicScript() const { return mKind == ScriptKind::eClassic; }
   bool IsModuleScript() const { return mKind == ScriptKind::eModule; }
   bool IsImportMapScript() const { return mKind == ScriptKind::eImportMap; }
-
-  inline ClassicScript* AsClassicScript();
-  inline ModuleScript* AsModuleScript();
 
   nsIURI* GetURI() const { return mURI; }
 
@@ -199,8 +187,21 @@ class LoadedScript : public nsISupports {
     eSerializedStencil,
 
     // This script is cached from the previous load.
-    // mCachedStencil holds the cached stencil, and mSRIAndSerializedStencil
-    // holds the SRI. mScriptData is unused.
+    // mCachedStencil holds the cached stencil. mScriptData is unused.
+    //
+    // mSRIAndSerializedStencil can contain SRI only if this script is going to
+    // be saved to disk:
+    //   * If this was retrieved as eTextSource and then converted to
+    //     eCachedStencil:
+    //     * If this script is going to be saved to disk,
+    //       mSRIAndSerializedStencil holds the SRI
+    //     * If this script was already saved to disk,
+    //       mSRIAndSerializedStencil was cleared before save, and is unused
+    //     * If this script is not going to be saved to disk,
+    //       mSRIAndSerializedStencil is unused
+    //   * If this was retrieved as eSerializedStencil and then converted to
+    //     eCachedStencil, the decoded stencil should not borrow the buffer.
+    //     mSRIAndSerializedStencil was cleared on conversion, is unused
     eCachedStencil,
 
     // This was eCachedStencil, but the stencil reference is cleared
@@ -235,9 +236,6 @@ class LoadedScript : public nsISupports {
   bool IsInvalidatedCachedStencil() const {
     return mDataType == DataType::eInvalidatedCachedStencil;
   }
-  bool OnceCachedStencil() const {
-    return IsCachedStencil() || IsInvalidatedCachedStencil();
-  }
   bool IsWasmBytes() const { return mDataType == DataType::eWasmBytes; }
 
   // ==== Methods to convert the data type ====
@@ -261,7 +259,19 @@ class LoadedScript : public nsISupports {
   void ConvertToCachedStencil(JS::Stencil* aStencil,
                               mozilla::dom::ReferrerPolicy aReferrerPolicy,
                               nsIURI* aBaseURL) {
-    MOZ_ASSERT(!OnceCachedStencil());
+    if (IsTextSource()) {
+      // The text source is no longer necessary, given it's already compiled.
+      // The SRI is still necessary in order to save it to the disk cache.
+      ClearScriptText();
+    } else {
+      // The serialized stencil is no longer necessary, given it's already
+      // decoded, without borrowing.
+      // The SRI is also unnecessary given we don't save serialized stencil
+      // again.
+      MOZ_ASSERT(IsSerializedStencil());
+      MOZ_ASSERT(!JS::StencilIsBorrowed(aStencil));
+      DropSRIOrSRIAndSerializedStencil();
+    }
     SetUnknownDataType();
     mDataType = DataType::eCachedStencil;
     mCachedStencil = aStencil;
@@ -459,17 +469,6 @@ class LoadedScript : public nsISupports {
   // one.
   bool IsSRIMetadataReusableBy(const mozilla::dom::SRIMetadata& aSRIMetadata);
 
-  // Clone an existing ModuleScript to a cache-able LoadedScript, which does
-  // not capture any GC references.
-  // SharedScriptCache is JSContext-agnostic, and it cannot hold any GC
-  // references.
-  //
-  // When putting a ModuleScript into the SharedScriptCache, it should be
-  // converted into LoadedScript with this method, and when the cached module
-  // is found in subsequent loads, the script should be cloned back to a new
-  // ModuleScript with ModuleScript::FromCache below.
-  LoadedScript* ModuleScriptToCache();
-
  public:
   // Fields.
 
@@ -609,27 +608,6 @@ class LoadedScriptDelegate {
   bool IsUnknownDataType() const {
     return GetLoadedScript()->IsUnknownDataType();
   }
-  bool IsTextSource() const { return GetLoadedScript()->IsTextSource(); }
-  bool IsSerializedStencil() const {
-    return GetLoadedScript()->IsSerializedStencil();
-  }
-  bool IsCachedStencil() const { return GetLoadedScript()->IsCachedStencil(); }
-  bool IsInvalidatedCachedStencil() const {
-    return GetLoadedScript()->IsInvalidatedCachedStencil();
-  }
-  // Returns true if this delegate (ScriptLoadRequest) is loaded from the
-  // SharedScriptCache.
-  //
-  // At the point of using the cache, the item should still be valid,
-  // and the cached stencil should be copied to the ScriptLoadRequest.
-  //
-  // The item in SharedScriptCache can be invalidated after that point,
-  // but the consumers can still use this LoadedScript, in the same way as
-  // `IsCachedStencil`, except that the `GetCachedStencil` can no longer
-  // be called.
-  bool OnceCachedStencil() const {
-    return GetLoadedScript()->OnceCachedStencil();
-  }
   bool IsWasmBytes() const { return GetLoadedScript()->IsWasmBytes(); }
 
   void SetUnknownDataType() { GetLoadedScript()->SetUnknownDataType(); }
@@ -680,8 +658,6 @@ class LoadedScriptDelegate {
     return GetLoadedScript()->GetScriptSource(aCx, aMaybeSource, aLoadContext);
   }
 
-  void ClearScriptText() { GetLoadedScript()->ClearScriptText(); }
-
   bool HasNoSRIOrSRIAndSerializedStencil() const {
     return GetLoadedScript()->HasNoSRIOrSRIAndSerializedStencil();
   }
@@ -699,10 +675,6 @@ class LoadedScriptDelegate {
     GetLoadedScript()->SetSRILength(sriLength);
   }
 
-  void DropSRIOrSRIAndSerializedStencil() {
-    GetLoadedScript()->DropSRIOrSRIAndSerializedStencil();
-  }
-
   void SetTookLongInPreviousRuns() {
     GetLoadedScript()->SetTookLongInPreviousRuns();
   }
@@ -711,26 +683,9 @@ class LoadedScriptDelegate {
   }
 };
 
-class ClassicScript final : public LoadedScript {
-  ~ClassicScript() = default;
-
- private:
-  // Scripts can be created only by ScriptLoadRequest::NoCacheEntryFound.
-  explicit ClassicScript(nsIURI* aURI);
-
-  friend class ScriptLoadRequest;
-};
-
-class ImportMapScript final : public LoadedScript {
-  ~ImportMapScript() = default;
-
- public:
-  explicit ImportMapScript(nsIURI* aURI);
-};
-
 // A single module script. May be used to satisfy multiple load requests.
 
-class ModuleScript final : public LoadedScript {
+class ModuleScript final : public nsISupports {
   // Those fields are used only after instantiated, and they're reset to
   // null and false when stored into the cache as LoadedScript instance.
   Heap<JSObject*> mModuleRecord;
@@ -748,26 +703,10 @@ class ModuleScript final : public LoadedScript {
   ~ModuleScript();
 
  public:
-  NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(ModuleScript,
-                                                         LoadedScript)
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ModuleScript)
 
- private:
-  // Scripts can be created only by ScriptLoadRequest::NoCacheEntryFound.
-  ModuleScript(nsIURI* aURI, ScriptFetchInfo* aFetchInfo);
-
-  ModuleScript(const LoadedScript& other, ScriptFetchInfo* aFetchInfo);
-
-  template <typename T, typename... Args>
-  friend RefPtr<T> mozilla::MakeRefPtr(Args&&... aArgs);
-
-  friend class ScriptLoadRequest;
-
- public:
-  // Convert between cacheable LoadedScript instance, which is used by
-  // mozilla::dom::SharedScriptCache.
-  static already_AddRefed<ModuleScript> FromCache(const LoadedScript& aScript,
-                                                  ScriptFetchInfo* aFetchInfo);
+  explicit ModuleScript(ScriptFetchInfo* aFetchInfo);
 
   void SetModuleRecord(Handle<JSObject*> aModuleRecord);
   void SetParseError(const Value& aError);
@@ -797,16 +736,6 @@ class ModuleScript final : public LoadedScript {
   ResolvedModuleSet* GetPreloadedResolvedSet();
   void ReleasePreloadedResolvedSet() { mPreloadedResolvedSet = nullptr; }
 };
-
-ClassicScript* LoadedScript::AsClassicScript() {
-  MOZ_ASSERT(!IsModuleScript());
-  return static_cast<ClassicScript*>(this);
-}
-
-ModuleScript* LoadedScript::AsModuleScript() {
-  MOZ_ASSERT(IsModuleScript());
-  return static_cast<ModuleScript*>(this);
-}
 
 }  // namespace JS::loader
 

@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+@file:OptIn(ExperimentalAndroidComponentsApi::class)
+
 package org.mozilla.fenix.components.toolbar
 
 import androidx.navigation.NavController
@@ -72,14 +74,15 @@ import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.concept.engine.cookiehandling.CookieBannersStorage
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateInfo
+import mozilla.components.concept.engine.ipprotection.ServiceState
 import mozilla.components.concept.engine.permission.SitePermissionsStorage
 import mozilla.components.concept.engine.prompt.ShareData
 import mozilla.components.concept.engine.utils.ABOUT_HOME_URL
 import mozilla.components.concept.storage.BookmarksStorage
-import mozilla.components.feature.ipprotection.Authorized
-import mozilla.components.feature.ipprotection.IPProtectionAction
-import mozilla.components.feature.ipprotection.IPProtectionState
-import mozilla.components.feature.ipprotection.IPProtectionStore
+import mozilla.components.feature.ipprotection.store.IPProtectionAction
+import mozilla.components.feature.ipprotection.store.IPProtectionStore
+import mozilla.components.feature.ipprotection.store.state.Authorized
+import mozilla.components.feature.ipprotection.store.state.IPProtectionState
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.feature.session.TrackingProtectionUseCases
 import mozilla.components.feature.tabs.TabsUseCases
@@ -93,7 +96,6 @@ import mozilla.components.support.utils.INTENT_TYPE_PDF
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -136,6 +138,7 @@ import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.search.BOOKMARKS_SEARCH_ENGINE_ID
 import org.mozilla.fenix.components.search.HISTORY_SEARCH_ENGINE_ID
 import org.mozilla.fenix.components.search.TABS_SEARCH_ENGINE_ID
+import org.mozilla.fenix.components.share.ShareSheetLauncher
 import org.mozilla.fenix.components.toolbar.BrowserToolbarMiddleware.ToolbarAction
 import org.mozilla.fenix.components.toolbar.DisplayActions.AddBookmarkClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.EditBookmarkClicked
@@ -166,6 +169,8 @@ import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.Stories.markAsOpenedFromHomeScreen
 import org.mozilla.fenix.utils.Stories.markAsOpenedFromStoriesScreen
 import org.robolectric.annotation.Config
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import mozilla.components.browser.toolbar.R as toolbarR
 import mozilla.components.ui.icons.R as iconsR
 import mozilla.components.ui.tabcounter.R as tabcounterR
@@ -208,6 +213,7 @@ class BrowserToolbarMiddlewareTest {
     private val publicSuffixList = PublicSuffixList(testContext)
     private val bookmarksStorage: BookmarksStorage = mockk()
     private val ipProtectionStore = IPProtectionStore()
+    private val shareSheetLauncher: ShareSheetLauncher = mockk(relaxed = true)
     private lateinit var appStore: AppStore
 
     @Before
@@ -1416,6 +1422,99 @@ class BrowserToolbarMiddlewareTest {
         }
     }
 
+    @Config(sdk = [34])
+    @Test
+    fun `GIVEN native share sheet is enabled AND device supports it WHEN the share shortcut is clicked THEN launch the system share sheet`() {
+        settings.isTabStripEnabled = true
+        settings.shouldUseExpandedToolbar = false
+        settings.toolbarSimpleShortcutKey = ShortcutType.SHARE.value
+        settings.nativeShareSheetEnabled = true
+
+        every { navController.currentDestination?.id } returns R.id.browserFragment
+
+        val browserScreenStore = buildBrowserScreenStore()
+        val currentTab = createTab(url = "https://www.mozilla.org", title = "Mozilla", private = false)
+        val browserStore = BrowserStore(
+            initialState = BrowserState(
+                tabs = listOf(currentTab),
+                selectedTabId = currentTab.id,
+            ),
+        )
+        val middleware = buildMiddleware(
+            browserScreenStore = browserScreenStore,
+            browserStore = browserStore,
+            isWideScreen = { true },
+        )
+        val toolbarStore = buildStore(middleware)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val shareButton = toolbarStore.state.displayState.browserActionsEnd[0] as ActionButtonRes
+        toolbarStore.dispatch(shareButton.onClick as BrowserToolbarEvent)
+
+        verify {
+            shareSheetLauncher.showSystemShareSheet(
+                id = currentTab.id,
+                longUrl = currentTab.content.url,
+                title = currentTab.content.title,
+                isPrivate = false,
+                isCustomTab = false,
+            )
+        }
+        verify(exactly = 0) { navController.navigate(any<NavDirections>(), null) }
+    }
+
+    @Config(sdk = [33])
+    @Test
+    fun `GIVEN native share sheet is enabled AND device does not support it WHEN the share shortcut is clicked THEN navigate to share fragment`() {
+        settings.isTabStripEnabled = true
+        settings.shouldUseExpandedToolbar = false
+        settings.toolbarSimpleShortcutKey = ShortcutType.SHARE.value
+        settings.nativeShareSheetEnabled = true
+
+        every { navController.currentDestination?.id } returns R.id.browserFragment
+        every { navController.navigate(any<NavDirections>(), null) } just Runs
+
+        val browserScreenStore = buildBrowserScreenStore()
+        val currentTab = createTab(url = "https://www.mozilla.org", title = "Mozilla", private = false)
+        val browserStore = BrowserStore(
+            initialState = BrowserState(
+                tabs = listOf(currentTab),
+                selectedTabId = currentTab.id,
+            ),
+        )
+        val middleware = buildMiddleware(
+            browserScreenStore = browserScreenStore,
+            browserStore = browserStore,
+            isWideScreen = { true },
+        )
+        val toolbarStore = buildStore(middleware)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val shareButton = toolbarStore.state.displayState.browserActionsEnd[0] as ActionButtonRes
+        toolbarStore.dispatch(shareButton.onClick as BrowserToolbarEvent)
+
+        verify(exactly = 0) {
+            shareSheetLauncher.showSystemShareSheet(any(), any<String>(), any(), any(), any())
+        }
+        verify {
+            navController.navigate(
+                directions = directionsEq(
+                    BrowserFragmentDirections.actionGlobalShareFragment(
+                        sessionId = currentTab.id,
+                        data = arrayOf(
+                            ShareData(
+                                url = currentTab.content.url,
+                                title = currentTab.content.title,
+                            ),
+                        ),
+                        showPage = true,
+                    ),
+                ),
+                navOptions = null,
+            )
+        }
+    }
+
     @Test
     fun `GIVEN on a small width with tabstrip is enabled and not using the extended layout THEN don't show a share button as browser end action`() {
         settings.shouldUseExpandedToolbar = false
@@ -2291,7 +2390,7 @@ class BrowserToolbarMiddlewareTest {
 
         val toolbarPageActions = toolbarStore.state.displayState.pageActionsStart
         assertEquals(1, toolbarPageActions.size)
-        assertTrue(toolbarPageActions[0] is ActionButtonRes)
+        assertIs<ActionButtonRes>(toolbarPageActions[0])
     }
 
     @Test
@@ -2363,12 +2462,12 @@ class BrowserToolbarMiddlewareTest {
 
             var toolbarPageActions = toolbarStore.state.displayState.pageActionsStart
             assertEquals(1, toolbarPageActions.size)
-            assertTrue(toolbarPageActions[0] is ActionButtonRes)
+            assertIs<ActionButtonRes>(toolbarPageActions[0])
 
             ipProtectionStore.dispatch(
                 IPProtectionAction.EngineStateChanged(
                     StateInfo(
-                        serviceState = StateInfo.SERVICE_STATE_READY,
+                        serviceState = ServiceState.Ready,
                         proxyState = StateInfo.PROXY_STATE_ACTIVE,
                     ),
                 ),
@@ -2377,7 +2476,7 @@ class BrowserToolbarMiddlewareTest {
 
             toolbarPageActions = toolbarStore.state.displayState.pageActionsStart
             assertEquals(1, toolbarPageActions.size)
-            assertTrue(toolbarPageActions[0] is AnimatedPillActionRes)
+            assertIs<AnimatedPillActionRes>(toolbarPageActions[0])
         }
 
     @OptIn(ExperimentalAndroidComponentsApi::class)
@@ -2410,12 +2509,12 @@ class BrowserToolbarMiddlewareTest {
 
             var toolbarPageActions = toolbarStore.state.displayState.pageActionsStart
             assertEquals(1, toolbarPageActions.size)
-            assertTrue(toolbarPageActions[0] is AnimatedPillActionRes)
+            assertIs<AnimatedPillActionRes>(toolbarPageActions[0])
 
             ipProtectionStore.dispatch(
                 IPProtectionAction.EngineStateChanged(
                     StateInfo(
-                        serviceState = StateInfo.SERVICE_STATE_READY,
+                        serviceState = ServiceState.Ready,
                         proxyState = StateInfo.PROXY_STATE_READY,
                     ),
                 ),
@@ -2424,7 +2523,7 @@ class BrowserToolbarMiddlewareTest {
 
             toolbarPageActions = toolbarStore.state.displayState.pageActionsStart
             assertEquals(1, toolbarPageActions.size)
-            assertTrue(toolbarPageActions[0] is ActionButtonRes)
+            assertIs<ActionButtonRes>(toolbarPageActions[0])
         }
 
     @Test
@@ -3658,6 +3757,7 @@ class BrowserToolbarMiddlewareTest {
         clipboard: ClipboardHandler = this.clipboard,
         publicSuffixList: PublicSuffixList = this.publicSuffixList,
         settings: Settings = this.settings,
+        shareSheetLauncher: ShareSheetLauncher = this.shareSheetLauncher,
         navController: NavController = this.navController,
         browsingModeManager: BrowsingModeManager = this.browsingModeManager,
         readerModeController: ReaderModeController = this.readerModeController,
@@ -3680,6 +3780,7 @@ class BrowserToolbarMiddlewareTest {
         clipboard = clipboard,
         publicSuffixList = publicSuffixList,
         settings = settings,
+        shareSheetLauncher = shareSheetLauncher,
         navController = navController,
         browsingModeManager = browsingModeManager,
         readerModeController = readerModeController,

@@ -2342,6 +2342,13 @@ void JSReporter::CollectReports(WindowPaths* windowPaths,
         " to RSS, only vsize.");
   }
 
+  if (rtStats.runtime.wasmContStacks > 0) {
+    REPORT_BYTES(
+        "wasm-cont-stacks"_ns, KIND_OTHER, rtStats.runtime.wasmContStacks,
+        "Memory mapped for wasm continuation stacks (JS Promise Integration "
+        "and stack-switching), including guard pages.");
+  }
+
   // Report the numbers for memory outside of realms.
 
   REPORT_BYTES("js-main-runtime/gc-heap/unused-chunks"_ns, KIND_OTHER,
@@ -3003,7 +3010,7 @@ static nsresult ReadSourceFromFilename(JSContext* cx, const char* filename,
   // Allocate a buffer the size of the file to initially fill with the UTF-8
   // contents of the file.  Use the JS allocator so that if UTF-8 source was
   // requested, we can return this memory directly.
-  JS::UniqueChars buf(js_pod_malloc<char>(rawLen));
+  JS::UniqueChars buf(js_pod_malloc<char>(static_cast<size_t>(rawLen)));
   if (!buf) {
     return NS_ERROR_OUT_OF_MEMORY;
   }

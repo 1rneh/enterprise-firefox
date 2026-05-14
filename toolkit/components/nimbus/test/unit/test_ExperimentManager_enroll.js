@@ -686,7 +686,7 @@ add_task(async function test_forceEnroll_cleanup() {
   await manager.enroll(existingRecipe, "test_forceEnroll_cleanup");
 
   sandbox.spy(NimbusTelemetry, "setExperimentActive");
-  await manager.forceEnroll(forcedRecipe, forcedRecipe.branches[0]);
+  await manager.forceEnroll(forcedRecipe, forcedRecipe.branches[0].slug);
 
   Assert.deepEqual(
     Glean.nimbusEvents.enrollmentStatus
@@ -754,7 +754,7 @@ add_task(async function test_rollout_unenroll_conflict() {
   // We want to force a conflict
   await manager.enroll(conflictingRollout, "rs-loader");
 
-  await manager.forceEnroll(rollout, rollout.branches[0]);
+  await manager.forceEnroll(rollout, rollout.branches[0].slug);
 
   Assert.ok(
     manager._unenroll.calledOnceWith(
@@ -817,7 +817,7 @@ add_task(async function test_forceEnroll() {
 
   for (const { enroll, expected } of TEST_CASES) {
     for (const recipe of enroll) {
-      await manager.forceEnroll(recipe, recipe.branches[0]);
+      await manager.forceEnroll(recipe, recipe.branches[0].slug);
     }
 
     const activeSlugs = manager.store
@@ -870,6 +870,50 @@ add_task(async function test_featureIds_is_stored() {
   );
 
   await doExperimentCleanup();
+
+  await cleanup();
+});
+
+add_task(async function testForceEnrollmentWithCoenrollment() {
+  const { manager, cleanup } = await setupTest();
+
+  const recipes = [
+    NimbusTestUtils.factories.recipe.withFeatureConfig("foo", {
+      featureId: "no-feature-firefox-desktop",
+    }),
+    NimbusTestUtils.factories.recipe.withFeatureConfig(
+      "bar",
+      { featureId: "no-feature-firefox-desktop" },
+      { isRollout: true }
+    ),
+    NimbusTestUtils.factories.recipe.withFeatureConfig("baz", {
+      featureId: "no-feature-firefox-desktop",
+    }),
+    NimbusTestUtils.factories.recipe.withFeatureConfig(
+      "qux",
+      { featureId: "no-feature-firefox-desktop" },
+      { isRollout: true }
+    ),
+  ];
+
+  for (const recipe of recipes) {
+    await manager.forceEnroll(recipe, recipe.branches[0].slug);
+  }
+
+  for (const recipe of recipes) {
+    const optInSlug = `optin-${recipe.slug}`;
+    const enrollment = manager.store.get(optInSlug);
+
+    Assert.ok(enrollment, `Enrollment for ${optInSlug} exists`);
+    Assert.ok(enrollment.active, `Enrollment for ${optInSlug} is active`);
+  }
+
+  NimbusTestUtils.cleanupManager([
+    "optin-foo",
+    "optin-bar",
+    "optin-baz",
+    "optin-qux",
+  ]);
 
   await cleanup();
 });

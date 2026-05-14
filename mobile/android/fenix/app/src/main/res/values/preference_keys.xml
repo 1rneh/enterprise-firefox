@@ -118,6 +118,7 @@
     <string name="pref_cfr_popups_enabled" translatable="false">pref_cfr_popups_enabled</string>
     <string name="pref_in_app_messages_enabled" translatable="false">pref_in_app_messages_enabled</string>
     <string name="pref_key_onboarding_completed_timestamp" translatable="false">pref_key_onboarding_completed_timestamp</string>
+    <string name="pref_key_enable_import_passwords" translatable="false">pref_key_enable_import_passwords</string>
 
     <!-- Continuous onboarding -->
     <string name="pref_key_continuous_onboarding_enabled" translatable="false">pref_key_continuous_onboarding_enabled</string>
@@ -208,6 +209,9 @@
     <string name="pref_key_remote_settings_server_prod" translatable="false">pref_key_remote_settings_server_prod</string>
     <string name="pref_key_remote_settings_server_stage" translatable="false">pref_key_remote_settings_server_stage</string>
     <string name="pref_key_remote_settings_server_dev" translatable="false">pref_key_remote_settings_server_dev</string>
+    <string name="pref_key_remote_settings_server_stage_v2" translatable="false">pref_key_remote_settings_server_stage_v2</string>
+    <string name="pref_key_remote_settings_server_prod_v2" translatable="false">pref_key_remote_settings_server_prod_v2</string>
+    <string name="pref_key_remote_settings_server_dev_v2" translatable="false">pref_key_remote_settings_server_dev_v2</string>
 
     <!-- Theme Settings -->
     <string name="pref_key_light_theme" translatable="false">pref_key_light_theme</string>
@@ -226,7 +230,6 @@
     <string name="pref_key_swipe_toolbar_show_tabs" translatable="false">pref_key_swipe_toolbar_show_tabs</string>
     <string name="pref_key_recent_tabs" translatable="false">pref_key_recent_tabs</string>
     <string name="pref_key_privacy_report" translatable="false">pref_key_privacy_report</string>
-    <string name="pref_key_enable_privacy_report" translatable="false">pref_key_enable_privacy_report</string>
     <string name="pref_key_customization_bookmarks" translatable="false">pref_key_recent_bookmarks</string>
     <string name="pref_key_customization_category_toolbar" translatable="false">pref_key_customization_category_toolbar</string>
     <string name="pref_key_customization_category_toolbar_layout" translatable="false">pref_key_customization_category_toolbar_layout</string>
@@ -275,7 +278,7 @@
     <string name="pref_key_tracking_protection_redirect_trackers" translatable="false">pref_key_tracking_protection_redirect_trackers</string>
     <string name="pref_key_tracking_protection_suspected_fingerprinters" translatable="false">pref_key_tracking_protection_suspected_fingerprinters</string>
     <string name="pref_key_tracking_protection_suspected_fingerprinters_select" translatable="false">pref_key_tracking_protection_suspected_fingerprinters_select</string>
-    <string name="pref_key_tracking_protection_database_status" translatable="false">pref_key_tracking_protection_database_status</string>
+    <string name="pref_key_tracking_protection_dashboard_status" translatable="false">pref_key_tracking_protection_dashboard_status</string>
 
     <!-- Logins Settings -->
     <string name="pref_key_save_logins_settings" translatable="false">pref_key_save_logins_settings</string>
@@ -350,6 +353,8 @@
 
     <!-- Return to AMO - addon to install at the first app launch -->
     <string name="pref_key_rtamo_addon_download_url" translatable="false">pref_key_rtamo_addon_download_url</string>
+    <string name="pref_key_rtamo_addon_image_url" translatable="false">pref_key_rtamo_addon_image_url</string>
+    <string name="pref_key_rtamo_addon_name" translatable="false">pref_key_rtamo_addon_name</string>
 
     <string name="pref_key_contile_context_id" translatable="false">pref_key_contile_context_id</string>
 

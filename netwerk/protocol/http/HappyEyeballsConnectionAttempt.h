@@ -92,6 +92,15 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
   // real txn yet (speculative entry) or the txn can't be queried.
   void AdoptWinner(HappyEyeballsTransaction* aWinner);
 
+  // Remove the real nsHttpTransaction from this entry's pending queue
+  // if it's still there. Returns true if the trans was found and
+  // removed, false if it was already gone (dispatched elsewhere).
+  // Called by ZeroRttHandle at the first Do0RTT acceptance: if the
+  // trans is already gone (returns false), Do0RTT must decline 0-RTT
+  // so we don't put early-data bytes on the wire for a trans that is
+  // already being served by a different connection.
+  bool LockInRealTxnFromPendingQueue();
+
  private:
   ~HappyEyeballsConnectionAttempt();
 
@@ -128,6 +137,10 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
   void HandleTCPConnectionResult(
       Result<RefPtr<HttpConnectionBase>, nsresult> aResult,
       TCPConnectionEstablisher* aEstablisher, uint64_t aId);
+  // If 0-RTT was active, forward the connection's security info to the real
+  // transaction so MaybeRemoveSSLToken() in nsHttpTransaction::Restart() can
+  // clear the SSL token cache for the retry.
+  void MaybeForward0RTTSecurityInfo(ConnectionEstablisher* aEstablisher);
   void CancelConnection(uint64_t aId);
   nsresult EstablishUDPConnection(NetAddr aAddr, uint16_t aPort,
                                   nsTArray<uint8_t>&& aEchConfig, uint64_t aId);

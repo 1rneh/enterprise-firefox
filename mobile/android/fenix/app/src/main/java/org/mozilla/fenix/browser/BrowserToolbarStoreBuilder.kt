@@ -18,12 +18,14 @@ import mozilla.components.compose.browser.toolbar.store.BrowserToolbarState
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarStore
 import mozilla.components.compose.browser.toolbar.store.DisplayState
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
+import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.browser.readermode.ReaderModeController
 import org.mozilla.fenix.browser.store.BrowserScreenStore
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.Components
+import org.mozilla.fenix.components.share.DefaultShareSheetLauncher
 import org.mozilla.fenix.components.toolbar.BrowserToolbarMiddleware
 import org.mozilla.fenix.components.toolbar.BrowserToolbarTelemetryMiddleware
 import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware
@@ -94,7 +96,7 @@ object BrowserToolbarStoreBuilder {
                         appStore = appStore,
                         browserScreenStore = browserScreenStore,
                         browserStore = browserStore,
-                        ipProtectionStore = components.ipProtectionStore,
+                        ipProtectionStore = components.ipProtection.store,
                         permissionsStorage = components.core.geckoSitePermissionsStorage,
                         cookieBannersStorage = components.core.cookieBannersStorage,
                         bookmarksStorage = activity.components.core.bookmarksStorage,
@@ -104,6 +106,11 @@ object BrowserToolbarStoreBuilder {
                         clipboard = activity.components.clipboardHandler,
                         publicSuffixList = components.publicSuffixList,
                         settings = settings,
+                        shareSheetLauncher = DefaultShareSheetLauncher(
+                            navController = navController,
+                            homeActivityClass = HomeActivity::class.java,
+                            scope = lifecycleScope,
+                        ),
                         navController = navController,
                         browsingModeManager = browsingModeManager,
                         readerModeController = readerModeController,
@@ -136,7 +143,7 @@ object BrowserToolbarStoreBuilder {
                         requireNotNull(customTabSession).id,
                         browserStore = browserStore,
                         appStore = appStore,
-                        ipProtectionStore = components.ipProtectionStore,
+                        ipProtectionStore = components.ipProtection.store,
                         permissionsStorage = components.core.geckoSitePermissionsStorage,
                         cookieBannersStorage = components.core.cookieBannersStorage,
                         useCases = components.useCases.customTabsUseCases,

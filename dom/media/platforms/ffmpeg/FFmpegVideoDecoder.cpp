@@ -1353,6 +1353,11 @@ void FFmpegVideoDecoder<LIBAV_VER>::InitHWCodecContext(ContextType aType) {
   mCodecContext->width = mInfo.mImage.width;
   mCodecContext->height = mInfo.mImage.height;
   mCodecContext->thread_count = 1;
+  // Mirror the SW-path cap from FFmpegDataDecoder::InitDecoder. The four
+  // HW init paths (VAAPI/V4L2/D3D11VA/MediaCodec) each call this helper
+  // between avcodec_alloc_context3 and avcodec_open2, so one assignment
+  // here covers all of them.
+  mCodecContext->max_pixels = MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT;
 
   switch (aType) {
     case ContextType::V4L2:
@@ -2894,7 +2899,7 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::CreateImageD3D11(
       GetSurfaceFormat(), GetFrameColorSpace(), GetFrameColorRange(),
       mInfo.mColorDepth,
       mInfo.mTransferFunction.refOr(gfx::TransferFunction::BT709),
-      mFrame->width, mFrame->height);
+      mInfo.mHDRMetadata, mFrame->width, mFrame->height);
   if (FAILED(hr)) {
     nsPrintfCString msg("Failed to configure DXVA2Manager, hr=%lx", hr);
     FFMPEG_LOG("%s", msg.get());
@@ -3024,17 +3029,12 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::AllocateH264ExtraData() {
     return NS_OK;
   }
 
-  mCodecContext->extradata =
-      static_cast<uint8_t*>(mLib->av_malloc(extradata->Length()));
-  if (!mCodecContext->extradata) {
-    return MediaResult(NS_ERROR_OUT_OF_MEMORY,
-                       RESULT_DETAIL("Couldn't init ffmpeg extradata"));
+  MediaResult rv = AssignCodecContextExtraData(extradata);
+  if (NS_FAILED(rv)) {
+    return rv;
   }
-
+  mCodecContext->moz_extradata_offset = AssertedCast<int>(spsLength);
   FFMPEG_LOG("  extracted %zu bytes of H264 extradata", extradata->Length());
-  mCodecContext->extradata_size = extradata->Length();
-  mCodecContext->moz_extradata_offset = spsLength;
-  memcpy(mCodecContext->extradata, extradata->Elements(), extradata->Length());
   return NS_OK;
 }
 
@@ -3048,16 +3048,11 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::AllocateHEVCExtraData() {
     return NS_OK;
   }
 
-  mCodecContext->extradata =
-      static_cast<uint8_t*>(mLib->av_malloc(extradata->Length()));
-  if (!mCodecContext->extradata) {
-    return MediaResult(NS_ERROR_OUT_OF_MEMORY,
-                       RESULT_DETAIL("Couldn't init ffmpeg extradata"));
+  MediaResult rv = AssignCodecContextExtraData(extradata);
+  if (NS_FAILED(rv)) {
+    return rv;
   }
-
   FFMPEG_LOG("  extracted %zu bytes of HEVC extradata", extradata->Length());
-  mCodecContext->extradata_size = extradata->Length();
-  memcpy(mCodecContext->extradata, extradata->Elements(), extradata->Length());
   return NS_OK;
 }
 #  endif

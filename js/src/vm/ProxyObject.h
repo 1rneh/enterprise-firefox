@@ -31,9 +31,12 @@ class ProxyObject : public JSObject {
                   "proxy object size must match GC thing size");
     static_assert(offsetof(ProxyObject, data) == detail::ProxyDataOffset,
                   "proxy object layout must match shadow interface");
-    static_assert(offsetof(ProxyObject, data.reservedSlots) ==
-                      offsetof(JS::shadow::Object, slots),
-                  "Proxy reservedSlots must overlay native object slots field");
+  }
+
+  // The ProxyValueArray is always stored inline immediately after the
+  // ProxyObject header.
+  static constexpr size_t offsetOfProxyValueArray() {
+    return sizeof(ProxyObject);
   }
 
  public:
@@ -43,18 +46,8 @@ class ProxyObject : public JSObject {
 
   void init(const BaseProxyHandler* handler, HandleValue priv, JSContext* cx);
 
-  // Proxies always store their ProxyValueArray inline in the object.
-  void* inlineDataStart() const {
-    return (void*)(uintptr_t(this) + sizeof(ProxyObject));
-  }
-  void setInlineValueArray() {
-    data.reservedSlots =
-        &reinterpret_cast<detail::ProxyValueArray*>(inlineDataStart())
-             ->reservedSlots;
-  }
-
   const Value& private_() const { return GetProxyPrivate(this); }
-  const Value& expando() const { return GetProxyExpando(this); }
+  JSObject* expando() const { return GetProxyExpando(this); }
 
   void setExpando(JSObject* expando);
 
@@ -66,14 +59,20 @@ class ProxyObject : public JSObject {
   const BaseProxyHandler* handler() const { return GetProxyHandler(this); }
 
   void setHandler(const BaseProxyHandler* handler) {
-    SetProxyHandler(this, handler);
+    detail::GetProxyDataLayout(this)->handler = handler;
   }
 
-  static size_t offsetOfReservedSlots() {
-    return offsetof(ProxyObject, data.reservedSlots);
-  }
-  static size_t offsetOfHandler() {
+  static constexpr size_t offsetOfHandler() {
     return offsetof(ProxyObject, data.handler);
+  }
+  static constexpr size_t offsetOfPrivateSlot() {
+    return offsetOfProxyValueArray() +
+           offsetof(detail::ProxyValueArray, privateSlot);
+  }
+  static constexpr size_t offsetOfReservedSlot(size_t n) {
+    return offsetOfProxyValueArray() +
+           offsetof(detail::ProxyValueArray, reservedSlots) +
+           n * sizeof(JS::Value);
   }
 
   size_t numReservedSlots() const { return JSCLASS_RESERVED_SLOTS(getClass()); }
@@ -90,7 +89,7 @@ class ProxyObject : public JSObject {
  private:
   GCPtr<Value>* reservedSlotPtr(size_t n) {
     return reinterpret_cast<GCPtr<Value>*>(
-        &detail::GetProxyDataLayout(this)->reservedSlots->slots[n]);
+        &detail::GetProxyDataLayout(this)->values()->reservedSlots[n]);
   }
 
   GCPtr<Value>* slotOfPrivate() {
@@ -98,9 +97,9 @@ class ProxyObject : public JSObject {
         &detail::GetProxyDataLayout(this)->values()->privateSlot);
   }
 
-  GCPtr<Value>* slotOfExpando() {
-    return reinterpret_cast<GCPtr<Value>*>(
-        &detail::GetProxyDataLayout(this)->values()->expandoSlot);
+  GCPtr<JSObject*>* expandoPtr() {
+    return reinterpret_cast<GCPtr<JSObject*>*>(
+        &detail::GetProxyDataLayout(this)->expando);
   }
 
   void setPrivate(const Value& priv);

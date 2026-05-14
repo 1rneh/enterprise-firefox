@@ -20,6 +20,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/TitleGeneration.sys.mjs",
   AIWindow:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  EMPTY_SMARTBAR_INPUT_STATE:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowTabStatesManager.sys.mjs",
   ChatConversation:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatConversation.sys.mjs",
   MEMORIES_FLAG_SOURCE:
@@ -58,7 +60,19 @@ ChromeUtils.defineLazyGetter(lazy, "log", function () {
 
 /**
  * @typedef {{
- *   input: string,
+ *   type: string,
+ *   id: string,
+ *   label: string,
+ *   textOffset: number
+ * }} PersistedMention
+ *
+ * @typedef {{
+ *   text: string,
+ *   mentions: PersistedMention[]
+ * }} SmartbarInputState
+ *
+ * @typedef {{
+ *   input: SmartbarInputState | false,
  *   mode: string,
  *   pageUrl: URL,
  *   conversationId: string,
@@ -106,6 +120,41 @@ const TAB_FAVICON_CHAT =
 const PREF_CHAT_INTERACTION_COUNT = "browser.smartwindow.chat.interactionCount";
 const MAX_INTERACTION_COUNT = 1000;
 const MAX_SIDEBAR_STARTER_CACHE_KEYS = 20;
+
+// 1-6 are MLPA spec codes; 7 is set locally for Fastly-blocked 406s.
+const ERROR_TELEMETRY_NAME_BY_CODE = {
+  1: "budgetExceeded",
+  2: "rateLimitExceeded",
+  3: "contextTooLarge",
+  4: "maxUsersReached",
+  5: "upstreamRateLimit",
+  6: "fastlyWafRateLimit",
+  7: "invalidPageContent",
+};
+
+// Fastly errors don't have the error attribute; map the 406 to invalidPageContent.
+function getErrorCode(error) {
+  return (
+    error.error ??
+    error.metadata?.errorMessage ??
+    (error.status === 406 ? 7 : undefined)
+  );
+}
+
+function resolveModelResponseError(error) {
+  const httpStatus = error.status ?? 0;
+  if (error.clientReason) {
+    return { name: error.clientReason, httpStatus };
+  }
+  const code = getErrorCode(error);
+  if (code in ERROR_TELEMETRY_NAME_BY_CODE) {
+    return { name: ERROR_TELEMETRY_NAME_BY_CODE[code], httpStatus };
+  }
+  if (httpStatus) {
+    return { name: "serverError", httpStatus };
+  }
+  return { name: error.name || "genericError", httpStatus };
+}
 
 /**
  * A custom element for managing AI Window
@@ -735,16 +784,53 @@ export class AIWindow extends MozLitElement {
   }
 
   /**
-   * Update the smartbar input
+   * Update the smartbar input from a persisted input state. Restores the
+   * plain text first, then re-inserts each saved mention chip at its
+   * stored text-character offset.
    *
-   * @param {string} value The value to update the input with
+   * @param {SmartbarInputState} state
    */
-  updateInput(value) {
+  updateInput({ text, mentions }) {
     if (!this.#smartbar) {
       return;
     }
 
-    this.#smartbar.value = value;
+    this.#smartbar.value = text;
+
+    if (!mentions.length) {
+      return;
+    }
+
+    // Mentions are atom nodes that contribute zero text characters, so
+    // inserting one in doc order doesn't shift the textOffsets of those
+    // that come after. If insertNode ever starts perturbing surrounding
+    // text, this iteration must reverse-walk or re-resolve offsets.
+    const editor = this.#smartbar.inputField;
+    for (const { type, id, label, textOffset } of mentions) {
+      editor.insertMention({ type, id, label }, textOffset);
+    }
+  }
+
+  /**
+   * Captures the current smartbar input as a structured state suitable for
+   * persistence: plain text plus the list of inline mention chips with their
+   * text-character offsets.
+   *
+   * @returns {SmartbarInputState}
+   */
+  #getSmartbarInputState() {
+    const editor = this.#smartbar?.inputField;
+    if (!editor) {
+      return lazy.EMPTY_SMARTBAR_INPUT_STATE;
+    }
+
+    const mentions = editor.getAllMentions().map(mention => {
+      mention.textOffset = editor.posToTextOffset(mention.pos);
+      delete mention.pos;
+      return mention;
+    });
+
+    return { text: editor.plainText, mentions };
   }
 
   /**
@@ -1018,14 +1104,12 @@ export class AIWindow extends MozLitElement {
    * AIWindowTabStatesManager.sys.mjs to manage the input
    * state of the sidebar chat window.
    *
-   * @param {Event} event
-   *
    * @private
    */
-  #handleSmartbarInput = event => {
+  #handleSmartbarInput = () => {
     this.#dispatchChromeEvent(
       "ai-window:smartbar-input",
-      this.#getAIWindowEventOptions(event.target.value)
+      this.#getAIWindowEventOptions(this.#getSmartbarInputState())
     );
   };
 
@@ -1240,7 +1324,7 @@ export class AIWindow extends MozLitElement {
     });
     this.#dispatchChromeEvent(
       "ai-window:smartbar-input",
-      this.#getAIWindowEventOptions("", true)
+      this.#getAIWindowEventOptions(lazy.EMPTY_SMARTBAR_INPUT_STATE, true)
     );
   }
 
@@ -1521,7 +1605,7 @@ export class AIWindow extends MozLitElement {
       });
 
       this.#sendModelResponseTelemetryEvent(
-        "",
+        null,
         this.#getModelRequestLatencyAndDuration(requestStart, firstTokenTime)
       );
     } catch (e) {
@@ -1603,18 +1687,9 @@ export class AIWindow extends MozLitElement {
   #sendModelResponseTelemetryEvent(error, { duration, latency }) {
     const { lastMessage: lastAssistantMessage, messageCount } =
       this.#getConversationLastMessageAndCount(lazy.MESSAGE_ROLE.ASSISTANT);
-    const ERROR_CODE_TEXT = {
-      1: "Budget exceeded",
-      2: "Rate limit exceeded",
-      3: "Chat maximum length hit",
-      4: "Account error",
-      7: "Invalid page content",
-    };
-    let errorText = "";
-
-    if (error) {
-      errorText = ERROR_CODE_TEXT[error] ?? "Generic error";
-    }
+    const { name: errorName, httpStatus } = error
+      ? resolveModelResponseError(error)
+      : { name: "", httpStatus: 0 };
 
     Glean.smartWindow.modelResponse.record({
       location: this.mode === MODE.FULLPAGE ? "home" : MODE.SIDEBAR,
@@ -1626,7 +1701,8 @@ export class AIWindow extends MozLitElement {
       memories: lastAssistantMessage?.memoriesApplied?.length ?? 0,
       latency,
       duration,
-      error: errorText,
+      error: errorName,
+      http_status: httpStatus,
       model: this.modelName,
     });
   }
@@ -1658,20 +1734,16 @@ export class AIWindow extends MozLitElement {
 
   #handleError(error, { latency, duration }) {
     console.error(error);
-    let errorCode = error.error ?? error.metadata?.errorMessage;
-    // fastly errors don't have the error attribute
-    if (error.status === 406) {
-      errorCode = 7;
-    }
-
     const newErrorMessage = {
       role: "",
       content: {
         isError: true,
-        error: errorCode,
+        error: getErrorCode(error),
+        httpStatus: error.status ?? 0,
+        clientReason: error.clientReason,
       },
     };
-    this.#sendModelResponseTelemetryEvent(errorCode ?? true, {
+    this.#sendModelResponseTelemetryEvent(error, {
       latency,
       duration,
     });
@@ -1805,6 +1877,12 @@ export class AIWindow extends MozLitElement {
         ...message,
         isPreviousMessage: true,
       });
+    });
+
+    // send a message to restore the scroll position after a conversation was restored
+    this.#dispatchMessageToActor(actor, {
+      role: "restored-all-messages-in-a-conversation",
+      convId: this.#conversation.id,
     });
   }
 

@@ -840,7 +840,7 @@ impl BatchBuilder {
             PrimitiveCommand::Instance { draw_index, gpu_buffer_address } => {
                 (draw_index, Some(gpu_buffer_address.as_int()))
             }
-            PrimitiveCommand::Quad { pattern, pattern_input, draw_index, gpu_buffer_address, quad_flags, edge_flags, transform_id, src_color_task_id } => {
+            PrimitiveCommand::Quad { pattern, pattern_input, draw_index, gpu_buffer_address, quad_flags, edge_flags, transform_id, src_color_task_id, blend_mode } => {
                 let prim_info = &ctx.scratch.frame.draws[draw_index.0 as usize];
                 let bounding_rect = &prim_info.clip_chain.pic_coverage_rect;
                 let render_task_address = self.batcher.render_task_address;
@@ -859,6 +859,7 @@ impl BatchBuilder {
                         INVALID_SEGMENT_INDEX as u8,
                         *src_color_task_id,
                         z_id,
+                        *blend_mode,
                         render_tasks,
                         gpu_buffer_builder,
                         |key, instance| {
@@ -889,6 +890,7 @@ impl BatchBuilder {
                             i as u8,
                             *task_id,
                             z_id,
+                            *blend_mode,
                             render_tasks,
                             gpu_buffer_builder,
                             |key, instance| {
@@ -1784,8 +1786,11 @@ impl BatchBuilder {
                 let run_scratch = &ctx.scratch.frame.text_runs[text_run_scratch_handle];
                 let subpx_dir = run_scratch.used_font.get_subpx_dir();
 
-                // The GPU cache data is stored in the template and reused across
-                // frames and display lists.
+                // The GPU buffer holding color + glyph blocks lives on
+                // per-instance scratch (`TextRunScratch.gpu_address`), since
+                // multiple prims that share an intern key need their own
+                // GPU blocks.
+                let prim_cache_address = run_scratch.gpu_address;
                 let prim_data = &ctx.data_stores.text_run[data_handle];
 
                 // The local prim rect is only informative for text primitives, as
@@ -1799,9 +1804,13 @@ impl BatchBuilder {
                 // the added bonus of avoiding quantization effects when storing
                 // floats in the extra header integers.
                 let glyph_keys = &ctx.scratch.frame.glyph_keys[run_scratch.glyph_keys_range];
+                // Template glyphs are stored relative to the run's pen origin
+                // (see TextRunTemplate::run_origin_offset). Compose it into the
+                // shader-facing prim origin so `glyph.point + local_rect.min`
+                // in the shader still resolves to the correct world position.
                 let prim_header = PrimitiveHeader {
                     local_rect: LayoutRect {
-                        min: prim_rect.min,
+                        min: prim_rect.min + prim_data.run_origin_offset,
                         max: run_scratch.snapped_reference_frame_relative_offset.to_point(),
                     },
                     specific_prim_address: prim_cache_address.as_int(),

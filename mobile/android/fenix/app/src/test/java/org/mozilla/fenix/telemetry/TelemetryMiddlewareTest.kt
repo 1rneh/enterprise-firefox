@@ -4,6 +4,10 @@
 
 package org.mozilla.fenix.telemetry
 
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
+import android.content.Context
+import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.every
 import io.mockk.just
@@ -31,7 +35,6 @@ import mozilla.components.support.test.robolectric.testContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -50,7 +53,10 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.FenixGleanTestRule
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
+import kotlin.test.assertNotNull
 import org.mozilla.fenix.GleanMetrics.EngineTab as EngineMetrics
 
 @RunWith(RobolectricTestRunner::class)
@@ -255,6 +261,7 @@ class TelemetryMiddlewareTest {
         }
 
     @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
     fun `WHEN tabs gets killed THEN middleware sends an event`() = runTest {
         store.dispatch(
             TabListAction.RestoreAction(
@@ -325,6 +332,7 @@ class TelemetryMiddlewareTest {
         }
 
     @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
     fun `GIVEN an existing tab WHEN its process is killed and it reloads THEN telemetry is sent with content_process_kill reason`() = runTest {
         val tabId = "test-tab-id"
 
@@ -350,7 +358,7 @@ class TelemetryMiddlewareTest {
 
         val recordedEvents = EngineMetrics.reloaded.testGetValue()
         assertNotNull(recordedEvents)
-        assertEquals(1, recordedEvents!!.size)
+        assertEquals(1, recordedEvents.size)
         assertEquals("-1", recordedEvents[0].extra?.get("duration_since_last_visible_seconds"))
         assertEquals("content_process_kill", recordedEvents[0].extra?.get("reason"))
 
@@ -358,6 +366,7 @@ class TelemetryMiddlewareTest {
     }
 
     @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
     fun `GIVEN a tab with a known lastVisibleAt WHEN it reloads THEN duration_since_last_visible_seconds is correct`() =
         runTest {
             val tabId = "test-tab-id"
@@ -376,12 +385,13 @@ class TelemetryMiddlewareTest {
 
             val recordedEvents = EngineMetrics.reloaded.testGetValue()
             assertNotNull(recordedEvents)
-            val duration = recordedEvents!![0].extra?.get("duration_since_last_visible_seconds")?.toInt()
+            val duration = recordedEvents[0].extra?.get("duration_since_last_visible_seconds")?.toInt()
             assertNotNull(duration)
-            assertTrue("Expected ~300s, got $duration", duration!! in 298..305)
+            assertTrue("Expected ~300s, got $duration", duration in 298..305)
         }
 
     @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
     fun `GIVEN a tab with lastVisibleAt of 0 WHEN it reloads THEN duration_since_last_visible_seconds is -1`() =
         runTest {
             val tabId = "test-tab-id"
@@ -399,10 +409,11 @@ class TelemetryMiddlewareTest {
 
             val recordedEvents = EngineMetrics.reloaded.testGetValue()
             assertNotNull(recordedEvents)
-            assertEquals("-1", recordedEvents!![0].extra?.get("duration_since_last_visible_seconds"))
+            assertEquals("-1", recordedEvents[0].extra?.get("duration_since_last_visible_seconds"))
         }
 
     @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
     fun `GIVEN a background tab switched away 20min ago and a foreground tab backgrounded 10min ago WHEN both are killed and reloaded THEN each records its own duration`() =
         runTest {
             val switchedTabId = "switched-tab"
@@ -435,7 +446,7 @@ class TelemetryMiddlewareTest {
 
             val recordedEvents = EngineMetrics.reloaded.testGetValue()
             assertNotNull(recordedEvents)
-            assertEquals(2, recordedEvents!!.size)
+            assertEquals(2, recordedEvents.size)
 
             // Events are recorded in dispatch order: switched tab first, foreground tab second.
             val switchedDuration = recordedEvents[0].extra?.get("duration_since_last_visible_seconds")?.toInt()
@@ -444,14 +455,15 @@ class TelemetryMiddlewareTest {
             assertNotNull(switchedDuration)
             assertNotNull(foregroundDuration)
             // Switched tab: ~1200s (20 min)
-            assertTrue("Expected ~1200s, got $switchedDuration", switchedDuration!! in 1198..1205)
+            assertTrue("Expected ~1200s, got $switchedDuration", switchedDuration in 1198..1205)
             // Foreground tab: ~600s (10 min)
-            assertTrue("Expected ~600s, got $foregroundDuration", foregroundDuration!! in 598..605)
+            assertTrue("Expected ~600s, got $foregroundDuration", foregroundDuration in 598..605)
             // The switched-away tab always has a longer duration than the foregrounded one.
             assertTrue(switchedDuration > foregroundDuration)
         }
 
     @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
     fun `GIVEN a tab restored from a previous session WHEN its engine session is created THEN telemetry is sent with app_session_restore reason`() = runTest {
         val tabId = "test-tab-id"
 
@@ -471,8 +483,66 @@ class TelemetryMiddlewareTest {
 
         val recordedEvents = EngineMetrics.reloaded.testGetValue()
         assertNotNull(recordedEvents)
-        assertEquals(1, recordedEvents!!.size)
+        assertEquals(1, recordedEvents.size)
         assertEquals("app_session_restore", recordedEvents[0].extra?.get("reason"))
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
+    fun `GIVEN last exit was user-requested WHEN tabs are restored THEN reloaded metric is NOT recorded`() = runTest {
+        val tabId = "test-tab-id"
+        val activityManager = testContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val exitInfo = mockk<ApplicationExitInfo>()
+        every { exitInfo.reason } returns ApplicationExitInfo.REASON_USER_REQUESTED
+        every { exitInfo.processName } returns testContext.packageName
+        shadowOf(activityManager).addApplicationExitInfo(exitInfo)
+
+        store.dispatch(
+            TabListAction.RestoreAction(
+                tabs = listOf(RecoverableTab(null, TabState(url = "https://firefox.com", id = tabId))),
+                restoreLocation = TabListAction.RestoreAction.RestoreLocation.BEGINNING,
+            ),
+        )
+        store.dispatch(RestoreCompleteAction)
+        store.dispatch(EngineAction.CreateEngineSessionAction(tabId))
+
+        ShadowLooper.idleMainLooper()
+
+        assertTrue(EngineMetrics.reloaded.testGetValue().isNullOrEmpty())
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun `GIVEN API below 30 WHEN tabs are restored THEN reloaded metric is NOT recorded`() = runTest {
+        val tabId = "test-tab-id"
+
+        store.dispatch(
+            TabListAction.RestoreAction(
+                tabs = listOf(RecoverableTab(null, TabState(url = "https://firefox.com", id = tabId))),
+                restoreLocation = TabListAction.RestoreAction.RestoreLocation.BEGINNING,
+            ),
+        )
+        store.dispatch(RestoreCompleteAction)
+        store.dispatch(EngineAction.CreateEngineSessionAction(tabId))
+
+        ShadowLooper.idleMainLooper()
+
+        assertTrue(EngineMetrics.reloaded.testGetValue().isNullOrEmpty())
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun `GIVEN API below 30 WHEN a tab is killed THEN tab_killed metric is NOT recorded`() = runTest {
+        val tabId = "test-tab-id"
+
+        store.dispatch(
+            TabListAction.AddTabAction(createTab(id = tabId, url = "https://firefox.com")),
+        )
+        store.dispatch(EngineAction.KillEngineSessionAction(tabId))
+
+        ShadowLooper.idleMainLooper()
+
+        assertTrue(EngineMetrics.tabKilled.testGetValue().isNullOrEmpty())
     }
 
     @Test
@@ -518,6 +588,7 @@ class TelemetryMiddlewareTest {
         }
 
     @Test
+    @Config(sdk = [Build.VERSION_CODES.R])
     fun `GIVEN 50 killed tabs WHEN another killed tab is reloaded THEN oldest tab is removed and reloaded tab is recorded`() =
         runTest {
             val oldestTabId = "tab-id-0"
@@ -559,7 +630,7 @@ class TelemetryMiddlewareTest {
             ShadowLooper.idleMainLooper()
             val recordedEventsAfter = EngineMetrics.reloaded.testGetValue()
             assertNotNull(recordedEventsAfter)
-            assertEquals(recordedEventsBefore + 1, recordedEventsAfter!!.size)
+            assertEquals(recordedEventsBefore + 1, recordedEventsAfter.size)
             assertEquals("content_process_kill", recordedEventsAfter.last().extra?.get("reason"))
         }
 

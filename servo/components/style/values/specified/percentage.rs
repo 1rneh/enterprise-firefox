@@ -10,7 +10,7 @@ use crate::values::computed::percentage::Percentage as ComputedPercentage;
 use crate::values::computed::{Context, ToComputedValue};
 use crate::values::generics::NonNegative;
 use crate::values::specified::calc::{CalcNode, CalcNumeric, Leaf};
-use crate::values::specified::{LengthPercentage, NoCalcNumber, Number};
+use crate::values::specified::{CalcLengthPercentage, LengthPercentage, NoCalcNumber, Number};
 use crate::values::tagged_numeric::{Extracted, NumericUnion, Unpacked, UnpackedMut};
 use crate::values::{normalize, reify_percentage, serialize_percentage, CSSFloat};
 use cssparser::{Parser, Token};
@@ -185,7 +185,7 @@ impl Percentage {
     pub fn to_length_percentage(self) -> LengthPercentage {
         match self.0.extract() {
             Extracted::Inline((), p) => LengthPercentage::Percentage(NoCalcPercentage(p)),
-            Extracted::Boxed(calc) => LengthPercentage::Calc(calc),
+            Extracted::Boxed(calc) => LengthPercentage::Calc(Box::new(CalcLengthPercentage(*calc))),
         }
     }
 
@@ -281,8 +281,7 @@ impl ToComputedValue for Percentage {
         match self.0.unpack() {
             Unpacked::Inline((), p) => NoCalcPercentage(p).to_computed_value(context),
             Unpacked::Boxed(ref calc) => {
-                let resolved = calc.node.with_computed_context(context).resolve();
-                let value = match resolved {
+                let value = calc.resolve(context, |result| match result {
                     Ok(Leaf::Percentage(p)) => p.get(),
                     _ => {
                         debug_assert!(
@@ -291,12 +290,8 @@ impl ToComputedValue for Percentage {
                         );
                         f32::NAN
                     },
-                };
-                ComputedPercentage(
-                    crate::values::normalize(calc.clamping_mode.clamp(value))
-                        .min(f32::MAX)
-                        .max(f32::MIN),
-                )
+                });
+                ComputedPercentage(crate::values::normalize(value).min(f32::MAX).max(f32::MIN))
             },
         }
     }

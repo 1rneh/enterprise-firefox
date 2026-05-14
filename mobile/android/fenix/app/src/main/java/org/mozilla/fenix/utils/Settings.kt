@@ -280,16 +280,6 @@ class Settings(
         get() = FxNimbus.features.homescreen.value().sectionsEnabled
 
     /**
-     * Indicates if the privacy report homepage section settings should be visible.
-     * Controlled by secret settings toggle.
-     */
-    val showPrivacyReportSectionToggle: Boolean
-        get() = preferences.getBoolean(
-            appContext.getPreferenceKey(R.string.pref_key_enable_privacy_report),
-            false,
-        )
-
-    /**
      * Indicates if the recent tabs homepage section settings should be visible
      */
     val showHomepageRecentTabsSectionToggle: Boolean
@@ -450,6 +440,16 @@ class Settings(
 
     var rtamoAddonDownloadUrl by stringPreference(
         appContext.getPreferenceKey(R.string.pref_key_rtamo_addon_download_url),
+        default = "",
+    )
+
+    var rtamoAddonImageUrl by stringPreference(
+        appContext.getPreferenceKey(R.string.pref_key_rtamo_addon_image_url),
+        default = "",
+    )
+
+    var rtamoAddonName by stringPreference(
+        appContext.getPreferenceKey(R.string.pref_key_rtamo_addon_name),
         default = "",
     )
 
@@ -1099,6 +1099,15 @@ class Settings(
             appContext.getString(R.string.remote_settings_server_dev) -> {
                 appContext.getString(R.string.preferences_remote_settings_server_dev_label)
             }
+            appContext.getString(R.string.remote_settings_server_prod_v2) -> {
+                appContext.getString(R.string.preferences_remote_settings_server_prod_label_v2)
+            }
+            appContext.getString(R.string.remote_settings_server_stage_v2) -> {
+                appContext.getString(R.string.preferences_remote_settings_server_stage_label_v2)
+            }
+            appContext.getString(R.string.remote_settings_server_dev_v2) -> {
+                appContext.getString(R.string.preferences_remote_settings_server_dev_label_v2)
+            }
             else -> {
                 appContext.getString(R.string.preferences_remote_settings_server_prod_label)
             }
@@ -1134,8 +1143,8 @@ class Settings(
         default = true,
     )
 
-    var shouldUseTrackingProtectionDatabase by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_tracking_protection_database_status),
+    var shouldShowTrackingProtectionDashboard by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_tracking_protection_dashboard_status),
         default = false,
     )
 
@@ -2847,6 +2856,14 @@ class Settings(
     var coldStartsBetweenSetAsDefaultPrompts by intPreference(
         appContext.getPreferenceKey(R.string.pref_key_app_cold_start_count),
         default = 0,
+    )
+
+    /**
+     * Feature flag that indicates if the Import Passwords feature is enabled.
+     */
+    var importPasswordsFeatureFlagEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_import_passwords),
+        default = Config.channel.isDebug,
     )
 
     /**

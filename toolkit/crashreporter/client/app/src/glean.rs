@@ -247,27 +247,6 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_telemetry_enable_pref() {
-        use crate::std::{
-            fs::{MockFS, MockFiles},
-            mock,
-            path::Path,
-        };
-
-        for pref_value in [false, true] {
-            let files = MockFiles::new();
-            files.add_dir("profile_dir").add_file(
-                "profile_dir/prefs.js",
-                format!(r#"user_pref("datareporting.healthreport.uploadEnabled", {pref_value});"#),
-            );
-            let result = mock::builder()
-                .set(MockFS, files)
-                .run(|| determine_telemetry_enabled(Some(Path::new("profile_dir"))));
-            assert_eq!(result, pref_value);
-        }
-    }
-
     #[cfg(feature = "enterprise")]
     #[test]
     fn build_expected_enterprise_glean_url() -> anyhow::Result<()> {
@@ -330,6 +309,27 @@ mod test {
                 let path_result = InitOptions::construct_enterprise_console_endpoint();
                 assert!(path_result.is_err());
             });
+    }
+
+    #[test]
+    fn test_telemetry_enable_pref() {
+        use crate::std::{
+            fs::{MockFS, MockFiles},
+            mock,
+            path::Path,
+        };
+
+        for pref_value in [false, true] {
+            let files = MockFiles::new();
+            files.add_dir("profile_dir").add_file(
+                "profile_dir/prefs.js",
+                format!(r#"user_pref("datareporting.healthreport.uploadEnabled", {pref_value});"#),
+            );
+            let result = mock::builder()
+                .set(MockFS, files)
+                .run(|| determine_telemetry_enabled(Some(Path::new("profile_dir"))));
+            assert_eq!(result, pref_value);
+        }
     }
 }
 

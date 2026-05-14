@@ -3,6 +3,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import base64
 import ctypes
 import datetime
 import json
@@ -218,6 +219,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "BlockAboutConfig": self.server.policy_block_about_config.value == 1
                 })
 
+            if self.server.policy_access_connector.value == 1:
+                policy_content.update({
+                    "AccessConnector": {
+                        "Host": "proxy",
+                        "MatchPatterns": [
+                            "https://*.mozilla.org",
+                        ],
+                        "Port": 18443,
+                    }
+                })
+
             if self.server.policy_extensions.value == 1:
                 policy_content.update({
                     "ExtensionSettings": {
@@ -301,6 +313,23 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.server.serve_forced_updates_count += 1
 
             contentType = "text/xml"
+
+        elif path == "/api/v1/fpn/token":
+            now = int(time.time())
+            body = {
+                "sub": "test",
+                "aud": f"http://localhost:{self.server.console_port}",
+                "iat": now,
+                "nbf": now,
+                "exp": now + 3600,
+                "iss": "test",
+            }
+            encoded = base64.b64encode(json.dumps(body).encode()).decode()
+            m = json.dumps({
+                # header.body.signature
+                "token": f"fxn.{encoded}.token"
+            })
+            contentType = "application/json"
 
         elif path == "/sso/callback":
             self.server.policy_access_token.value = str(uuid.uuid4())
@@ -496,6 +525,7 @@ def serve(
     policy_extensions=None,
     policy_access_token=None,
     policy_refresh_token=None,
+    policy_access_connector=None,
     policies_fail_request=None,
     signout_count=None,
     # TODO: Behavior is not yet clearly defined
@@ -514,6 +544,8 @@ def serve(
         httpd.policy_extensions = policy_extensions
     if policy_access_token:
         httpd.policy_access_token = policy_access_token
+    if policy_access_connector:
+        httpd.policy_access_connector = policy_access_connector
     if policy_refresh_token:
         httpd.policy_refresh_token = policy_refresh_token
     httpd.policies_fail_request = (
@@ -623,6 +655,7 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.console_port = find_free_port()
         self.sso_port = find_free_port()
         self.policy_block_about_config = Value("b", 1)
+        self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
         self.policies_fail_request = Value("B", 0)
         """
@@ -631,7 +664,6 @@ class FeltTestsBase(EnterpriseTestsBase):
         """
 
         self._extra_prefs = {
-            "enterprise.console.address": f"http://localhost:{self.console_port}",
             "enterprise.is_testing": True,
             "enterprise.log_level": "Debug",
         }  # + test_prefs
@@ -652,6 +684,7 @@ class FeltTestsBase(EnterpriseTestsBase):
                 policy_block_about_config=self.policy_block_about_config,
                 policy_extensions=self.policy_extensions,
                 policy_access_token=self.policy_access_token,
+                policy_access_connector=self.policy_access_connector,
                 policy_refresh_token=self.policy_refresh_token,
                 policies_fail_request=self.policies_fail_request,
                 signout_count=self.signout_count,

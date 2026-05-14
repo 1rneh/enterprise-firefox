@@ -864,6 +864,10 @@
       "description": "Set the default download directory.",
       "examples": ["${home}/Downloads"]
     },
+    "DefaultSerialGuardSetting": {
+      "type": "number",
+      "enum": [2, 3]
+    },
     "DisableAccounts": {
       "type": "boolean",
       "x-category": "Miscellaneous",
@@ -1412,6 +1416,9 @@
             },
             "updates_disabled": {
               "type": "boolean"
+            },
+            "update_url": {
+              "type": "URL"
             },
             "default_area": {
               "type": "string",
@@ -2584,7 +2591,10 @@
         {
           "Delete": ["A Device"]
         },
-        { "A Device": "/path/to/lib", "Another Device": "/path/to/another/lib" }
+        {
+          "A Device": "/path/to/lib",
+          "Another Device": "/path/to/another/lib"
+        }
       ],
       "patternProperties": {
         "^(?!Add$|Delete$)": {
@@ -2853,6 +2863,12 @@
       "type": "boolean",
       "x-category": "Authentication",
       "description": "Allow Windows single sign-on for Microsoft, work, and school accounts.",
+      "examples": [true, false]
+    },
+    "XSLTEnabled": {
+      "type": "boolean",
+      "x-category": "Content settings",
+      "description": "Enable or disable support for the XSLTProcessor JavaScript API and the XSLT processing instruction.",
       "examples": [true, false]
     }
   }

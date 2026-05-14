@@ -155,9 +155,10 @@ def make_task_description(config, jobs):
             "run-on-repo-type": job.get("run-on-repo-type", ["git", "hg"]),
             "treeherder": treeherder,
         }
-        if (git_branches := job.get("run-on-git-branches")) is not None:
-            task["run-on-git-branches"] = git_branches
         if index:
             task["index"] = index
+
+        if (git_branches := job.get("run-on-git-branches")) is not None:
+            task["run-on-git-branches"] = git_branches
 
         yield task

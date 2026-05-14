@@ -507,15 +507,28 @@ def target_tasks_enterprise_firefox_with_tests(
             return False
 
         build_platform = task.attributes.get("build_platform")
+        test_platform = task.attributes.get("test_platform")
         build_type = task.attributes.get("build_type")
         shippable = task.attributes.get("shippable", False)
 
         level = int(parameters["level"])
-        if ("shippable" in task.label or shippable) and level < 3:
-            return False
+        if level < 3:
+            if "shippable" in task.label or shippable:
+                return False
 
-        if task.kind == "complete" and level < 3:
-            return False
+            if task.kind == "complete":
+                return False
+
+            if build_platform and not "enterprise" in build_platform:
+                if "windows10" in build_platform:
+                    return False
+
+                if "-asan" or "-tsan" in build_platform:
+                    return False
+
+            if test_platform and not "enterprise" in test_platform:
+                if "-asan" or "-tsan" in test_platform:
+                    return False
 
         if not build_platform or not build_type:
             return True

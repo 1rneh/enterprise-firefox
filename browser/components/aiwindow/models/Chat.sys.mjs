@@ -259,10 +259,6 @@ Object.assign(Chat, {
         return;
       }
 
-      if (signal?.aborted) {
-        return;
-      }
-
       // Guard: if the first pending tool call is a duplicate run_search,
       // return an error tool result so the model continues without
       // executing the search or navigating the browser.

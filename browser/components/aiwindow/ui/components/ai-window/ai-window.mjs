@@ -2116,7 +2116,6 @@ export class AIWindow extends MozLitElement {
               data-l10n-id="aiwindow-new-chat"
               data-l10n-attrs="tooltiptext,aria-label"
               class="new-chat-icon-button"
-              type="ghost"
               size="default"
               iconsrc="chrome://browser/content/aiwindow/assets/new-chat.svg"
               @click=${this.onCreateNewChatClick}

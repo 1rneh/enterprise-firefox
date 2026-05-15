@@ -225,7 +225,7 @@ typescript:
     # adding them to the exclusion list avoids the reported error,
     # so dont make it surfaced on GitHub Checks
     attributes:
-        required_checks: false
+        code-review: false
     treeherder:
         symbol: js(TSC)
         tier: 3
@@ -486,7 +486,7 @@ yaml:
 rst:
     description: rst lint run over the gecko codebase
     treeherder:
-        symbol: text(rst)
+        symbol: doc(rst)
     run:
         mach: lint -v -l rst -f treeherder -f json:/builds/worker/mozlint.json .
     when:
@@ -707,9 +707,9 @@ perfdocs-verify:
     # perfdocs will always warn because we are not scheduling the builds it
     # likes, so dont make it surfaced on GitHub Checks
     attributes:
-        required_checks: false
+        code-review: false
     treeherder:
-        symbol: text(perfdocs)
+        symbol: doc(perfdocs)
     run:
         mach: lint -v -l perfdocs -f treeherder -f json:/builds/worker/mozlint.json .
     worker:
@@ -785,7 +785,7 @@ trojan-source:
     treeherder:
         symbol: misc(trojan-source)
     run:
-        mach: lint -v -l trojan-source --include-third-party -f treeherder -f json:/builds/worker/mozlint.json .
+        mach: lint -v -l trojan-source -f treeherder -f json:/builds/worker/mozlint.json .
     when:
         files-changed:
             - '**/*.c'

@@ -174,6 +174,14 @@ export var Policies = {
         );
       }
 
+      // Must be set before enabled so the badge dot doesn't flash when
+      // the pref observer triggers IPProtectionService.init().
+      PoliciesUtils.setDefaultPref(
+        "browser.ipProtection.openedPanelWithLocation",
+        true,
+        locked
+      );
+
       // Set enabled last so that all other prefs are in place when
       // the pref observer triggers IPProtectionService.init().
       PoliciesUtils.setDefaultPref(
@@ -188,6 +196,7 @@ export var Policies = {
       unsetAndUnlockPref("browser.ipProtection.autoStartEnabled");
       unsetAndUnlockPref("browser.ipProtection.mode");
       unsetAndUnlockPref("browser.ipProtection.override.serverlist");
+      unsetAndUnlockPref("browser.ipProtection.openedPanelWithLocation");
       if ("MatchPatterns" in oldParams) {
         unsetAndUnlockPref("browser.ipProtection.inclusion.match_patterns");
       }
@@ -1126,6 +1135,29 @@ export var Policies = {
         "browser.download.dir",
         replacePathVariables(param)
       );
+    },
+  },
+
+  DefaultSerialGuardSetting: {
+    onBeforeAddons(manager, param) {
+      if (!Number.isInteger(param)) {
+        lazy.log.error(
+          `Non-integer value for DefaultSerialGuardSetting: ${param}`
+        );
+        return;
+      }
+      if (param == 3) {
+        // allow access to serial ports, but don't lock the
+        // pref so it can be manually disabled
+        PoliciesUtils.setDefaultPref("dom.webserial.enabled", true, false);
+      } else if (param == 2) {
+        // do not allow access to serial ports
+        setAndLockPref("dom.webserial.enabled", false);
+      } else {
+        lazy.log.error(
+          `Unrecognized value for DefaultSerialGuardSetting: ${param}`
+        );
+      }
     },
   },
 
@@ -2712,6 +2744,7 @@ export var Policies = {
         "app.update.",
         "browser.",
         "datareporting.policy.",
+        "devtools.",
         "dom.",
         "extensions.",
         "general.autoScroll",
@@ -2735,6 +2768,7 @@ export var Policies = {
         "privacy.globalprivacycontrol.enabled",
         "privacy.userContext.enabled",
         "privacy.userContext.ui.enabled",
+        "sidebar.",
         "signon.",
         "spellchecker.",
         "svg.context-properties.content.enabled",
@@ -3738,6 +3772,12 @@ export var Policies = {
       setAndLockPref("network.http.windows-sso.enabled", param);
     },
   },
+
+  XSLTEnabled: {
+    onBeforeAddons(manager, param) {
+      setAndLockPref("dom.xslt.enabled", param);
+    },
+  },
 };
 
 /*
@@ -4146,6 +4186,19 @@ function installAddonFromURL(url, extensionID, addon) {
         ) {
           lazy.log.debug(
             "Installation cancelled because versions are the same"
+          );
+          install.removeListener(listener);
+          install.cancel();
+        }
+
+        // Cancel install if the addon version downloaded is detected
+        // to be a downgrade compared to the version already installed.
+        if (
+          addon &&
+          Services.vc.compare(addon.version, install.addon.version) > 0
+        ) {
+          lazy.log.warn(
+            `Installation cancelled because installed version ${addon.version} is greater than ${install.addon.version} downloaded from ${url}`
           );
           install.removeListener(listener);
           install.cancel();

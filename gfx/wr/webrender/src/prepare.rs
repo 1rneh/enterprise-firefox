@@ -636,6 +636,7 @@ fn prepare_interned_prim_for_render(
             quad::prepare_quad(
                 &pattern,
                 &prim_rect,
+                &prim_info.clip_chain.local_clip_rect,
                 prim_data.common.aligned_aa_edges,
                 prim_data.common.transformed_aa_edges,
                 prim_instance_index,
@@ -672,7 +673,7 @@ fn prepare_interned_prim_for_render(
         }
         PrimitiveKind::TextRun { data_handle } => {
             profile_scope!("TextRun");
-            let prim_data = &mut data_stores.text_run[*data_handle];
+            let prim_data = &data_stores.text_run[*data_handle];
 
             // The glyph transform has to match `glyph_transform` in "ps_text_run" shader.
             // It's relative to the rasterizing space of a glyph.
@@ -682,7 +683,13 @@ fn prepare_interned_prim_for_render(
                     pic_context.raster_spatial_node_index,
                 )
                 .into_fast_transform();
-            let prim_offset = prim_instance.prim_rect.min.to_vector();
+            // Template glyphs are stored relative to the run's pen origin, not
+            // the prim rect origin. Compose `prim_rect.min + run_origin_offset`
+            // so the shader formula `glyph.point + local_rect.min` still
+            // resolves to the correct absolute glyph position, and so the snap
+            // path anchors on the run pen rather than the bounding rect top.
+            let prim_offset = prim_instance.prim_rect.min.to_vector()
+                + prim_data.run_origin_offset;
 
             let surface = &frame_state.surfaces[pic_context.surface_index.0];
 
@@ -729,8 +736,6 @@ fn prepare_interned_prim_for_render(
             );
             scratch.frame.draws[prim_instance_index.0 as usize].kind_scratch =
                 KindScratchHandle::TextRun(text_run_handle);
-
-            prim_data.update(frame_state);
         }
         PrimitiveKind::NormalBorder { data_handle } => {
             profile_scope!("NormalBorder");
@@ -828,6 +833,7 @@ fn prepare_interned_prim_for_render(
                 quad::prepare_quad(
                     &color,
                     &prim_rect,
+                    &prim_info.clip_chain.local_clip_rect,
                     prim_data.common.aligned_aa_edges,
                     prim_data.common.transformed_aa_edges,
                     prim_instance_index,
@@ -1326,6 +1332,8 @@ fn prepare_interned_prim_for_render(
 
             if let Picture3DContext::In { root_data: None, plane_splitter_index, ancestor_index, .. } = pic.context_3d {
                 let dirty_rect = frame_state.current_dirty_region().combined;
+                let visibility_spatial_node = frame_state.current_dirty_region().visibility_spatial_node;
+
                 let splitter = &mut frame_state.plane_splitters[plane_splitter_index.0];
                 let surface_index = pic.raster_config.as_ref().unwrap().surface_index;
                 let surface = &frame_state.surfaces[surface_index.0];
@@ -1336,6 +1344,7 @@ fn prepare_interned_prim_for_render(
                     frame_context.spatial_tree,
                     prim_spatial_node_index,
                     ancestor_index,
+                    visibility_spatial_node,
                     local_prim_rect,
                     &prim_info.clip_chain.local_clip_rect,
                     dirty_rect,

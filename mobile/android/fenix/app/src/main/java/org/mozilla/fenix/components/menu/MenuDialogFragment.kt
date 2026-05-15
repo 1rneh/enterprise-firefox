@@ -60,6 +60,9 @@ import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.concept.engine.translate.TranslationSupport
 import mozilla.components.concept.engine.translate.findLanguage
 import mozilla.components.feature.addons.Addon
+import mozilla.components.feature.ipprotection.store.IPProtectionAction
+import mozilla.components.feature.ipprotection.store.state.Authorized
+import mozilla.components.feature.ipprotection.store.state.isEligible
 import mozilla.components.service.fxa.manager.AccountState.NotAuthenticated
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import mozilla.components.support.ktx.android.util.dpToPx
@@ -85,13 +88,14 @@ import org.mozilla.fenix.components.menu.middleware.MenuNavigationMiddleware
 import org.mozilla.fenix.components.menu.middleware.MenuTelemetryMiddleware
 import org.mozilla.fenix.components.menu.store.BrowserMenuState
 import org.mozilla.fenix.components.menu.store.ExtensionMenuState
+import org.mozilla.fenix.components.menu.store.IPProtectionMenuStatus
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
 import org.mozilla.fenix.components.menu.store.MenuStore
 import org.mozilla.fenix.components.menu.store.SummarizationMenuState
 import org.mozilla.fenix.components.menu.store.TranslationInfo
 import org.mozilla.fenix.components.menu.store.WebExtensionMenuItem
-import org.mozilla.fenix.components.share.ShareSheetLauncherImpl
+import org.mozilla.fenix.components.share.DefaultShareSheetLauncher
 import org.mozilla.fenix.ext.canGoBackInHistoryOrToStories
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.openSetDefaultBrowserOption
@@ -361,14 +365,8 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                 scope = coroutineScope,
                                 customTab = customTab,
                                 webCompatReporterMoreInfoSender = webCompatReporterMoreInfoSender,
-                                shareSheetLauncher = ShareSheetLauncherImpl(
-                                    browserStore = browserStore,
+                                shareSheetLauncher = DefaultShareSheetLauncher(
                                     navController = findNavController(),
-                                    onDismiss = {
-                                        lifecycleScope.launch(Dispatchers.Main) {
-                                            this@MenuDialogFragment.dismiss()
-                                        }
-                                    },
                                     homeActivityClass = HomeActivity::class.java,
                                 ),
                             ),
@@ -463,7 +461,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
 
                     ipProtectionMenuBinding.set(
                         feature = IPProtectionMenuBinding(
-                            ipProtectionStore = components.ipProtectionStore,
+                            ipProtectionStore = components.ipProtection.store,
                             menuStore = store,
                         ),
                         owner = this@MenuDialogFragment,
@@ -560,7 +558,18 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                     }.collectAsState(initial = SummarizationMenuState.Default)
 
                     val ipProtectionMenuState by remember {
-                        store.stateFlow.map { state -> state.ipProtectionMenuState }
+                        // FIXME(IPP) map to correct menu state.
+                        components.ipProtection.store.stateFlow.map { ipState ->
+                            store.state.ipProtectionMenuState.copy(
+                                status = run {
+                                    if (ipState.proxyStatus is Authorized.Active) {
+                                        IPProtectionMenuStatus.Enabled
+                                    } else {
+                                        IPProtectionMenuStatus.Disabled
+                                    }
+                                },
+                            )
+                        }
                     }.collectAsState(initial = store.state.ipProtectionMenuState)
 
                     val contentState: Route by remember { mutableStateOf(initRoute) }
@@ -687,7 +696,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                     isDownloadHighlighted = isDownloadHighlighted,
                                     webExtensionMenuCount = webExtensionsCount,
                                     isAllWebExtensionsDisabled = isAllWebExtensionsDisabled,
-                                    showIPProtection = components.ipProtectionStore.state.isEligible,
+                                    showIPProtection = components.ipProtection.store.state.isEligible,
                                     ipProtectionMenuState = ipProtectionMenuState,
                                     onMozillaAccountButtonClick = {
                                         store.dispatch(
@@ -774,7 +783,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                         }
                                     },
                                     onIPProtectionClick = {
-                                        // will be implemented in https://bugzilla.mozilla.org/show_bug.cgi?id=2030143
+                                        components.ipProtection.store.dispatch(IPProtectionAction.Toggle)
                                     },
                                     onIPProtectionNavigate = {
                                         store.dispatch(MenuAction.Navigate.IPProtectionSettings)

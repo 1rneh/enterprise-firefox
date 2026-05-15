@@ -63,6 +63,8 @@ pane-home-title = Home
 category-home =
     .tooltiptext = { pane-home-title }
 
+pane-home-startup-title = Home and startup
+
 pane-search-title = Search
 category-search =
     .tooltiptext = { pane-search-title }
@@ -172,7 +174,7 @@ extension-controlling-homepage = { $name } controls some of your homepage settin
 
 ## Preferences UI Search Results
 
-search-results-header = Search Results
+search-results-header = Search results
 
 # `<span data-l10n-name="query"></span>` will be replaced by the search term.
 search-results-empty-message2 =

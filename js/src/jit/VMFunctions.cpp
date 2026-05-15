@@ -11,13 +11,11 @@
 #include "builtin/String.h"
 #include "gc/Cell.h"
 #include "gc/GC.h"
-#include "jit/arm/Simulator-arm.h"
 #include "jit/AtomicOperations.h"
 #include "jit/BaselineIC.h"
 #include "jit/CalleeToken.h"
 #include "jit/JitFrames.h"
 #include "jit/JitRuntime.h"
-#include "jit/mips64/Simulator-mips64.h"
 #include "jit/Simulator.h"
 #include "js/Date.h"
 #include "js/experimental/JitInfo.h"
@@ -535,8 +533,8 @@ bool InvokeFunction(JSContext* cx, HandleObject obj, bool constructing,
     // we can use normal construction code without creating an extraneous
     // object.
     if (thisv.isMagic()) {
-      MOZ_ASSERT(thisv.whyMagic() == JS_IS_CONSTRUCTING ||
-                 thisv.whyMagic() == JS_UNINITIALIZED_LEXICAL);
+      MOZ_RELEASE_ASSERT(thisv.whyMagic() == JS_IS_CONSTRUCTING ||
+                         thisv.whyMagic() == JS_UNINITIALIZED_LEXICAL);
 
       RootedObject obj(cx);
       if (!Construct(cx, fval, cargs, newTarget, &obj)) {
@@ -1653,7 +1651,7 @@ bool CallDOMGetter(JSContext* cx, const JSJitInfo* info, HandleObject obj,
 #endif
 
   // Loading DOM_OBJECT_SLOT, which must be the first slot.
-  JS::Value val = JS::GetReservedSlot(obj, 0);
+  JS::Value val = obj->as<NativeObject>().getReservedSlot(0);
   JSJitGetterOp getter = info->getter;
   return getter(cx, obj, val.toPrivate(), JSJitGetterCallArgs(result));
 }
@@ -1687,7 +1685,7 @@ bool CallDOMSetter(JSContext* cx, const JSJitInfo* info, HandleObject obj,
 #endif
 
   // Loading DOM_OBJECT_SLOT, which must be the first slot.
-  JS::Value val = JS::GetReservedSlot(obj, 0);
+  JS::Value val = obj->as<NativeObject>().getReservedSlot(0);
   JSJitSetterOp setter = info->setter;
 
   RootedValue v(cx, value);

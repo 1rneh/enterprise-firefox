@@ -959,6 +959,7 @@ impl PictureInstance {
         // into this pre-perspective space so the BSP works on real 3D planes
         // rather than post-perspective ones.
         ancestor_spatial_node_index: SpatialNodeIndex,
+        visibility_spatial_node_index: SpatialNodeIndex,
         original_local_rect: LayoutRect,
         combined_local_clip_rect: &LayoutRect,
         dirty_rect: VisRect,
@@ -1004,15 +1005,27 @@ impl PictureInstance {
             }
             CoordinateSpaceMapping::ScaleOffset(_) |
             CoordinateSpaceMapping::Transform(_) => {
-                let prim_to_world = spatial_tree
-                    .get_world_transform(prim_spatial_node_index)
-                    .into_transform()
-                    .cast()
-                    .to_untyped();
-                let world_bounds = dirty_rect.cast().to_rect().to_untyped();
+                // Project the visible region back into the 3D context's containing-block
+                // (ancestor) space.
+                // This may fail if the dirty rect doesn't have a valid pre-image (e.g. it
+                // sits behind the projection plane in ancestor space), in which case we
+                // fall back to no lateral bounds.
+                // TODO: Instead of trying to map the vis (world) space dirty rect into the
+                // right space here, we should be able to find the dirty rect in this space
+                // that was built during the dirty rect propagation at the beginning of the
+                // frame.
+                let map_ancestor_to_vis = SpaceMapper::<LayoutPixel, VisPixel>::new_with_target(
+                    visibility_spatial_node_index,
+                    ancestor_spatial_node_index,
+                    VisRect::max_rect(),
+                    spatial_tree,
+                );
+                let ancestor_dirty_rect = map_ancestor_to_vis.unmap(&dirty_rect);
+
+                let ancestor_bounds = ancestor_dirty_rect.map(|r| r.cast().to_rect().to_untyped());
 
                 let mut clipper = Clipper::<PlaneSplitAnchor>::new();
-                let planes = match Clipper::<PlaneSplitAnchor>::frustum_planes(&prim_to_world, Some(world_bounds)) {
+                let planes = match Clipper::<PlaneSplitAnchor>::frustum_planes(&ancestor_matrix, ancestor_bounds) {
                     Ok(p) => p,
                     Err(_) => return false,
                 };
@@ -2430,4 +2443,110 @@ fn test_drop_filter_dirty_region_outside_prim() {
         false,
     ).expect("No surface rect");
     assert_eq!(info.task_size, DeviceIntSize::new(432, 578));
+}
+
+#[test]
+fn test_drop_filter_partial_dirty_content_inflate() {
+    // Bug 1822189: When the parent's dirty region (clipping_rect here) overlaps
+    // the drop-shadow's image content but stops short of the picture's full
+    // unclipped extent, the source-texture allocation must include enough blur
+    // margin around the image content to keep the picture_task texture's edges
+    // in transparent space. Otherwise the content quad's blur margin samples
+    // UVs > 1 and the texture-edge image content bleeds into the visible
+    // result.
+
+    use api::Shadow;
+    use crate::spatial_tree::{SceneSpatialTree, SpatialTree};
+
+    let mut cst = SceneSpatialTree::new();
+    let root_reference_frame_index = cst.root_reference_frame_index();
+
+    let mut spatial_tree = SpatialTree::new();
+    spatial_tree.apply_updates(cst.end_frame_and_get_pending_updates());
+    spatial_tree.update_tree(&SceneProperties::new());
+
+    let map_local_to_picture = SpaceMapper::new_with_target(
+        root_reference_frame_index,
+        root_reference_frame_index,
+        PictureRect::max_rect(),
+        &spatial_tree,
+    );
+
+    // 500x500 image content, drop-shadow with non-zero offset.
+    let mut surfaces = vec![
+        SurfaceInfo {
+            unclipped_local_rect: PictureRect::max_rect(),
+            clipped_local_rect: PictureRect::max_rect(),
+            is_opaque: true,
+            // Parent's clipping_rect = dirty region that partially overlaps
+            // the image but stops short of the full picture extent. This is
+            // the scenario where the bug used to leave the texture's right
+            // and bottom edges on image content.
+            clipping_rect: PictureRect::new(
+                PicturePoint::new(0.0, 0.0),
+                PicturePoint::new(683.0, 341.0),
+            ),
+            map_local_to_picture: map_local_to_picture.clone(),
+            raster_spatial_node_index: root_reference_frame_index,
+            surface_spatial_node_index: root_reference_frame_index,
+            visibility_spatial_node_index: root_reference_frame_index,
+            device_pixel_scale: DevicePixelScale::new(1.0),
+            world_scale_factors: (1.0, 1.0),
+            local_scale: (1.0, 1.0),
+            allow_snapping: true,
+            force_scissor_rect: false,
+            culling_rect: VisRect::max_rect(),
+        },
+        SurfaceInfo {
+            unclipped_local_rect: PictureRect::new(
+                PicturePoint::new(0.0, 0.0),
+                PicturePoint::new(500.0, 500.0),
+            ),
+            clipped_local_rect: PictureRect::new(
+                PicturePoint::new(0.0, 0.0),
+                PicturePoint::new(500.0, 500.0),
+            ),
+            is_opaque: true,
+            clipping_rect: PictureRect::max_rect(),
+            map_local_to_picture,
+            raster_spatial_node_index: root_reference_frame_index,
+            surface_spatial_node_index: root_reference_frame_index,
+            visibility_spatial_node_index: root_reference_frame_index,
+            device_pixel_scale: DevicePixelScale::new(1.0),
+            world_scale_factors: (1.0, 1.0),
+            local_scale: (1.0, 1.0),
+            allow_snapping: true,
+            force_scissor_rect: false,
+            culling_rect: VisRect::max_rect(),
+        },
+    ];
+
+    let shadows = smallvec![
+        Shadow {
+            offset: LayoutVector2D::new(400.0, 100.0),
+            color: ColorF::BLACK,
+            blur_radius: 20.0,
+        },
+    ];
+
+    let composite_mode = PictureCompositeMode::Filter(Filter::DropShadows(shadows));
+
+    let info = get_surface_rects(
+        SurfaceIndex(1),
+        &composite_mode,
+        SurfaceIndex(0),
+        &mut surfaces,
+        &spatial_tree,
+        MAX_SURFACE_SIZE as f32,
+        false,
+    ).expect("No surface rect");
+
+    // With the fix, the image-content side of required_local_rect is inflated
+    // by blur (20 * BLUR_SAMPLE_SCALE = 60) so the texture extends to
+    // (-60, -60)..(560, 401) — placing the right and bottom edges in the
+    // transparent blur margin around the image rather than on image content.
+    // Width=620, height=461. Without the fix this would be (560, 401) i.e.
+    // 560x401 with the texture's right and bottom edges sitting on the
+    // 500x500 image content, producing the visible bleed.
+    assert_eq!(info.task_size, DeviceIntSize::new(620, 461));
 }

@@ -944,6 +944,12 @@ bool js::ObjectMayBeSwapped(const JSObject* obj) {
 /* Use this method with extreme caution. It trades the guts of two objects. */
 void JSObject::swap(JSContext* cx, HandleObject a, HandleObject b,
                     AutoEnterOOMUnsafeRegion& oomUnsafe) {
+  // Only proxies with SwappableProxyReservedSlots and the same AllocKind may be
+  // swapped.
+  MOZ_RELEASE_ASSERT(JSCLASS_RESERVED_SLOTS(a->getClass()) ==
+                     js::SwappableProxyReservedSlots);
+  MOZ_RELEASE_ASSERT(JSCLASS_RESERVED_SLOTS(b->getClass()) ==
+                     js::SwappableProxyReservedSlots);
   MOZ_RELEASE_ASSERT(a->allocKind() == b->allocKind());
 
   MOZ_RELEASE_ASSERT(a->compartment() == b->compartment());
@@ -1010,9 +1016,6 @@ void JSObject::swap(JSContext* cx, HandleObject a, HandleObject b,
   js_memcpy(tmp, a, size);
   js_memcpy(a, b, size);
   js_memcpy(b, tmp, size);
-
-  a->as<ProxyObject>().setInlineValueArray();
-  b->as<ProxyObject>().setInlineValueArray();
 
   MOZ_ASSERT_IF(aid, gc::GetUniqueIdInfallible(a) == aid);
   MOZ_ASSERT_IF(bid, gc::GetUniqueIdInfallible(b) == bid);
@@ -2575,10 +2578,9 @@ void JSObject::dumpFields(js::JSONPrinter& json) const {
       json.endStringProperty();
     }
 
-    Value expando = GetProxyExpando(this);
-    if (!expando.isNull()) {
+    if (JSObject* expando = GetProxyExpando(this)) {
       js::GenericPrinter& out = json.beginStringProperty("expando");
-      expando.dumpStringContent(out);
+      JS::ObjectValue(*expando).dumpStringContent(out);
       json.endStringProperty();
     }
 

@@ -10,6 +10,8 @@
 #include "mozilla/ScrollSnapTargetId.h"
 #include "mozilla/ServoStyleConsts.h"
 #include "mozilla/StaticPrefs_layout.h"
+#include "mozilla/dom/Document.h"
+#include "nsContentUtils.h"
 #include "nsIFrame.h"
 #include "nsLayoutUtils.h"
 #include "nsPresContext.h"
@@ -584,6 +586,24 @@ ScrollSnapTargetId ScrollSnapUtils::GetTargetIdFor(const nsIFrame* aFrame) {
   return ScrollSnapTargetId{reinterpret_cast<uintptr_t>(aFrame->GetContent())};
 }
 
+static const nsIContent* ResolveSnapTargetToContent(
+    const ScrollSnapTargetId& aId) {
+  if (aId == ScrollSnapTargetId::None) {
+    return nullptr;
+  }
+  return reinterpret_cast<const nsIContent*>(aId);
+}
+
+static bool SnapTargetIsFlattenedTreeDescendantOf(
+    const ScrollSnapTargetId& aPossibleDescendant,
+    const ScrollSnapTargetId& aPossibleAncestor) {
+  MOZ_ASSERT(aPossibleAncestor != ScrollSnapTargetId::None &&
+             aPossibleDescendant != ScrollSnapTargetId::None);
+  return nsContentUtils::ContentIsFlattenedTreeDescendantOf(
+      ResolveSnapTargetToContent(aPossibleDescendant),
+      ResolveSnapTargetToContent(aPossibleAncestor));
+}
+
 static std::pair<Maybe<nscoord>, Maybe<nscoord>> GetCandidateInLastTargets(
     const ScrollSnapInfo& aSnapInfo, const nsPoint& aCurrentPosition,
     const UniquePtr<ScrollSnapTargetIds>& aLastSnapTargetIds,
@@ -625,7 +645,10 @@ static std::pair<Maybe<nscoord>, Maybe<nscoord>> GetCandidateInLastTargets(
           blockSet.AppendElement(&aTarget);
         }
         if (aLastSnapTargetIds->Contains(aTarget.mTargetId)) {
-          if (aTarget.mTargetId == targetIdForFocusedContent) {
+          if (aTarget.mTargetId == targetIdForFocusedContent ||
+              (targetIdForFocusedContent != ScrollSnapTargetId::None &&
+               SnapTargetIsFlattenedTreeDescendantOf(targetIdForFocusedContent,
+                                                     aTarget.mTargetId))) {
             focusedTarget = &aTarget;
           }
           if (aTarget.mTargetId == targetIdForTargetContent) {
@@ -666,6 +689,35 @@ static std::pair<Maybe<nscoord>, Maybe<nscoord>> GetCandidateInLastTargets(
       blockSet = {targetedTarget};
     }
   }
+
+  // Step 4.3: For each box in a set, remove any box from the set that is an
+  // ancestor of that box.
+  auto removeAncestors =
+      [](AutoTArray<const ScrollSnapInfo::SnapTarget*, 2>& aSet) {
+        if (aSet.Length() <= 1) {
+          return;
+        }
+        AutoTArray<const ScrollSnapInfo::SnapTarget*, 2> result;
+        for (const auto* candidate : aSet) {
+          bool isAncestorOfAnotherInSet = false;
+          for (const auto* other : aSet) {
+            if (other == candidate) {
+              continue;
+            }
+            if (SnapTargetIsFlattenedTreeDescendantOf(other->mTargetId,
+                                                      candidate->mTargetId)) {
+              isAncestorOfAnotherInSet = true;
+              break;
+            }
+          }
+          if (!isAncestorOfAnotherInSet) {
+            result.AppendElement(candidate);
+          }
+        }
+        aSet = std::move(result);
+      };
+  removeAncestors(inlineSet);
+  removeAncestors(blockSet);
 
   // Step 5: If the inline and block sets overlap (share at least one element),
   // replace both with their intersection. If they are disjoint, the block axis
@@ -839,15 +891,42 @@ Maybe<SnapDestination> ScrollSnapUtils::GetSnapPointForResnap(
 }
 
 void ScrollSnapUtils::PostPendingResnapIfNeededFor(nsIFrame* aFrame) {
+  MOZ_ASSERT(aFrame);
+
   ScrollSnapTargetId id = GetTargetIdFor(aFrame);
   if (id == ScrollSnapTargetId::None) {
     return;
   }
 
-  if (ScrollContainerFrame* sf = nsLayoutUtils::GetNearestScrollContainerFrame(
-          aFrame, nsLayoutUtils::SCROLLABLE_SAME_DOC |
-                      nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN)) {
-    sf->PostPendingResnapIfNeeded(aFrame);
+  ScrollContainerFrame* sf = nsLayoutUtils::GetNearestScrollContainerFrame(
+      aFrame, nsLayoutUtils::SCROLLABLE_SAME_DOC |
+                  nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN);
+  if (!sf) {
+    return;
+  }
+
+  sf->PostPendingResnapIfNeeded(aFrame);
+
+  nsIContent* focusedContent =
+      aFrame->PresContext()->Document()->GetUnretargetedFocusedContent(
+          dom::Document::IncludeChromeOnly::No);
+  // If the focused content is a descendant of |aFrame|, ancestor scroll
+  // containers may also need to re-snap since |sf| or other ancestors may be
+  // registered as their snap target.
+  if (!focusedContent || !nsContentUtils::ContentIsFlattenedTreeDescendantOf(
+                             focusedContent, aFrame->GetContent())) {
+    return;
+  }
+
+  AutoTArray<nsIFrame*, 2> targets = {sf};
+  for (nsIFrame* f = sf->GetParent(); f; f = f->GetParent()) {
+    if (ScrollContainerFrame* ancestorSf = do_QueryFrame(f)) {
+      for (nsIFrame* target : targets) {
+        ancestorSf->PostPendingResnapIfNeeded(target);
+      }
+      targets.ClearAndRetainStorage();
+    }
+    targets.AppendElement(f);
   }
 }
 

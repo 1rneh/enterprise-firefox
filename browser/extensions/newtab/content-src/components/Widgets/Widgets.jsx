@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import React, { useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef } from "react";
 import { useDispatch, useSelector, batch } from "react-redux";
+import { BaseContext } from "content-src/lib/BaseContext";
 // Bug 2034542: these per-widget imports can be removed once the non-Nova render
 // path (@nova-cleanup) is gone and all widgets render via WIDGET_ROW_COMPONENTS.
 import { Lists } from "./Lists/Lists";
@@ -23,6 +24,7 @@ import {
   getHideAllTargets,
 } from "common/WidgetsRegistry.mjs";
 import { WIDGET_ROW_COMPONENTS } from "./WidgetsComponentRegistry.jsx";
+import { WidgetWrapper } from "./WidgetWrapper";
 
 const CONTAINER_ACTION_TYPES = {
   HIDE_ALL: "hide_all",
@@ -111,6 +113,7 @@ function Widgets() {
   const timerType = useSelector(state => state.TimerWidget.timerType);
   const timerData = useSelector(state => state.TimerWidget);
   const dispatch = useDispatch();
+  const { openWidgetsPanel } = useContext(BaseContext);
 
   const novaEnabled = prefs[PREF_NOVA_ENABLED];
   const isMaximized = prefs[PREF_WIDGETS_MAXIMIZED];
@@ -339,6 +342,12 @@ function Widgets() {
     }
   }
 
+  function handleManageWidgetsClick(e) {
+    e.preventDefault();
+    openWidgetsPanel();
+    dispatch(ac.UserEvent({ event: "SHOW_PERSONALIZE" }));
+  }
+
   function handleFeedbackClick(e) {
     e.preventDefault();
     batch(() => {
@@ -416,6 +425,10 @@ function Widgets() {
               onClick={handleHideAllWidgetsClick}
             />
             <panel-item
+              data-l10n-id="newtab-widget-section-menu-manage"
+              onClick={handleManageWidgetsClick}
+            />
+            <panel-item
               data-l10n-id="newtab-widget-section-menu-learn-more"
               onClick={handleFeedbackClick}
             />
@@ -479,15 +492,24 @@ function Widgets() {
           {widgetOrder.map(id => {
             if (novaEnabled) {
               const Component = WIDGET_ROW_COMPONENTS[id];
-              return Component && widgetEnabledMap[id] ? (
-                <Component
+              if (!Component || !widgetEnabledMap[id]) {
+                return null;
+              }
+              const entry = WIDGET_REGISTRY.find(w => w.id === id);
+              const size = entry ? resolveWidgetSize(entry, prefs) : null;
+              return (
+                <WidgetWrapper
                   key={id}
-                  dispatch={dispatch}
-                  handleUserInteraction={handleUserInteraction}
-                  isMaximized={isMaximized}
-                  widgetsMayBeMaximized={widgetsMayBeMaximized}
-                />
-              ) : null;
+                  className={size ? `${size}-widget` : ""}
+                >
+                  <Component
+                    dispatch={dispatch}
+                    handleUserInteraction={handleUserInteraction}
+                    isMaximized={isMaximized}
+                    widgetsMayBeMaximized={widgetsMayBeMaximized}
+                  />
+                </WidgetWrapper>
+              );
             }
             // @nova-cleanup: remove below
             return (

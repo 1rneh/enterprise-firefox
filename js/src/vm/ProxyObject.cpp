@@ -46,12 +46,7 @@ static gc::AllocKind GetProxyGCObjectKind(const JSClass* clasp,
 
 void ProxyObject::init(const BaseProxyHandler* handler, HandleValue priv,
                        JSContext* cx) {
-  setInlineValueArray();
-
-  detail::ProxyValueArray* values = detail::GetProxyDataLayout(this)->values();
-  values->init(numReservedSlots());
-
-  data.handler = handler;
+  data.init(handler, numReservedSlots());
 
   if (IsCrossCompartmentWrapper(this)) {
     MOZ_ASSERT(cx->global() == &cx->compartment()->globalForNewCCW());
@@ -59,10 +54,6 @@ void ProxyObject::init(const BaseProxyHandler* handler, HandleValue priv,
   } else {
     setSameCompartmentPrivate(priv);
   }
-
-  // The expando slot is nullptr until required by the installation of
-  // a private field.
-  setExpando(nullptr);
 }
 
 /* static */
@@ -164,7 +155,7 @@ void ProxyObject::setExpando(JSObject* expando) {
   MOZ_ASSERT_IF(!zone()->isGCPreparing() && isMarkedBlack() && expando,
                 !JS::GCThingIsMarkedGray(JS::GCCellPtr(expando)));
 
-  *slotOfExpando() = ObjectOrNullValue(expando);
+  *expandoPtr() = expando;
 }
 
 void ProxyObject::nuke() {

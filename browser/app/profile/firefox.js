@@ -2297,6 +2297,7 @@ pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
 pref("browser.smartwindow.showThemesNotice", true);
 pref("browser.smartwindow.sidebar.openByDefault", true);
+pref("browser.smartwindow.isDefaultWindow", false);
 pref("browser.smartwindow.firstrun.modelChoice", "");
 pref("browser.smartwindow.model", "");
 pref("browser.smartwindow.preferences.endpoint", "");
@@ -3174,6 +3175,8 @@ pref("devtools.eyedropper.zoom", 6);
 pref("devtools.markup.collapseAttributes", true);
 // Length to collapse attributes
 pref("devtools.markup.collapseAttributeLength", 120);
+// Enable the display of comment nodes in the markup view.
+pref("devtools.markup.showComments", true);
 // Whether to auto-beautify the HTML on copy.
 pref("devtools.markup.beautifyOnCopy", false);
 
@@ -3693,6 +3696,8 @@ pref("browser.ipProtection.bandwidthThreshold", 0);
 pref("browser.ipProtection.bandwidthWarningDismissedThreshold", "");
 // Pref to track if the "NEW" badge on the location selection button should be visible.
 pref("browser.ipProtection.locationButtonBadgeDismissed", false);
+// Pref to use the FxA activate flow as the auth provider.
+pref("browser.ipProtection.fxa.useActivateFlow", true);
 
 // Pref to enable aboug:glean redesign.
 pref("about.glean.redesign.enabled", false);

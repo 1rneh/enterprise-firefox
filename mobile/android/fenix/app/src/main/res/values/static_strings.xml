@@ -47,6 +47,12 @@
     <string name="preferences_remote_settings_server_stage_label" translatable="false">Staging</string>
     <!-- Label for Development server option -->
     <string name="preferences_remote_settings_server_dev_label" translatable="false">Development</string>
+    <!-- Label for Production server with v2 route option -->
+    <string name="preferences_remote_settings_server_prod_label_v2" translatable="false">Production V2</string>
+    <!-- Label for Staging server with v2 route option -->
+    <string name="preferences_remote_settings_server_stage_label_v2" translatable="false">Staging V2</string>
+    <!-- Label for Development server with v2 route option -->
+    <string name="preferences_remote_settings_server_dev_label_v2" translatable="false">Development V2</string>
     <!-- Toast message shown when starting to sync remote settings -->
     <string name="preferences_remote_settings_syncing" translatable="false">Syncing remote settings…</string>
     <!-- Toast message shown when remote settings sync completes successfully -->
@@ -109,8 +115,6 @@
     <string name="preferences_debug_settings_merino_manifest" translatable="false">Enable Merino Manifest</string>
     <!-- Label for enabling Mozilla Ads Client -->
     <string name="preferences_debug_settings_mozilla_ads_client" translatable="false">Enable Mozilla Ads Client</string>
-    <!-- Label for enabling Privacy Report on homepage -->
-    <string name="preferences_debug_settings_privacy_report" translatable="false">Enable Privacy Report</string>
     <!-- Label for enabling the custom tab extension -->
     <string name="preferences_debug_settings_custom_tab_extensions" translatable="false">Enable Custom Tab Extension List</string>
     <!-- Label for enabling Firefox Suggest -->
@@ -144,7 +148,7 @@
     <!-- Label for enabling Homepage Sports Widget -->
     <string name="preferences_debug_settings_homepage_sports_widget" translatable="false">Enable Homepage Sports Widget</string>
     <!-- Label for enabling using Gecko's tracking protection database -->
-    <string name="preferences_settings_use_tracking_protection_database" translatable="false">Use the tracking protection database (requires restart)</string>
+    <string name="preferences_settings_show_tracking_protection_dashboard" translatable="false">Show the tracking protection dashboard</string>
 
     <!-- Search Optimization Secret Settings -->
     <string name="preferences_debug_settings_search_optimization" translatable="false">Search Optimization Feature</string>
@@ -333,9 +337,6 @@
     <!-- Subtitle warning text for crash button -->
     <string name="crash_debug_startup_crash_warning">This will start the startup crash activity in a new process and terminate the current process.</string>
 
-    <!-- Label for enabling Email Masks -->
-    <string name="preferences_enable_email_masks">Enable Email Masks</string>
-
     <!-- Firefox Labs -->
     <!-- Firefox Labs is the name of a screen in Settings to allow users to learn about
         experimental and in-development features, and turn those features on and off.
@@ -368,6 +369,10 @@
     <string name="firefox_labs_restore_defaults_dialog_title">Restore defaults?</string>
     <!-- The description used in a confirmation dialog when restoring the application to its defaults by turning off any experimental features. -->
     <string name="firefox_labs_restore_defaults_dialog_message">Resetting experimental features will restart %s.</string>
+    <!-- The link text shown when a feedback URL for a labs feature is available. The feedback URL page will allow users to provide opinions and suggestions. -->
+    <string name="firefox_labs_share_feedback">Share feedback</string>
+    <!-- Content description for the share feedback link on a labs feature. This text will be used by screen readers to provide more context on the feedback link. %s is the name of the labs feature. -->
+    <string name="firefox_labs_share_feedback_content_description">Share feedback for %s</string>
 
     <!-- Debug drawer tab group tools -->
     <!-- The title of the debug drawer tab to help populate tab groups-->
@@ -416,4 +421,7 @@
     <string name="preferences_import_bookmarks">Import Bookmarks</string>
     <!-- Label for the secret settings preference to enable Import Bookmarks -->
     <string name="preferences_debug_settings_import_bookmarks">Enable Import Bookmarks</string>
+
+  <!-- Label for the secret settings preference to enable Import Passwords -->
+  <string name="preferences_debug_settings_import_passwords">Enable Import Passwords</string>
 </resources>

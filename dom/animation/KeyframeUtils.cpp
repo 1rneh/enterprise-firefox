@@ -220,7 +220,9 @@ static void GetKeyframeListFromPropertyIndexedKeyframe(
     JSContext* aCx, dom::Document* aDocument, JS::Handle<JS::Value> aValue,
     nsTArray<Keyframe>& aResult, ErrorResult& aRv);
 
-static void DistributeRange(const Range<Keyframe>& aRange);
+static void DistributeRange(const Range<Keyframe*>& aRange);
+
+static void DoComputeMissingKeyframeOffsets(nsTArray<Keyframe*>& aKeyframes);
 
 // ------------------------------------------------------------------
 //
@@ -269,38 +271,42 @@ nsTArray<Keyframe> KeyframeUtils::GetKeyframesFromObject(
 }
 
 /* static */
-void KeyframeUtils::DistributeKeyframes(nsTArray<Keyframe>& aKeyframes) {
+void KeyframeUtils::ComputeMissingKeyframeOffsets(
+    nsTArray<Keyframe>& aKeyframes) {
   if (aKeyframes.IsEmpty()) {
     return;
   }
 
-  // If the first keyframe has an unspecified offset, fill it in with 0%.
-  // If there is only a single keyframe, then it gets 100%.
-  if (aKeyframes.Length() > 1) {
-    Keyframe& firstElement = aKeyframes[0];
-    firstElement.mComputedOffset = firstElement.mOffset.valueOr(0.0);
-    // We will fill in the last keyframe's offset below
-  } else {
-    Keyframe& lastElement = aKeyframes.LastElement();
-    lastElement.mComputedOffset = lastElement.mOffset.valueOr(1.0);
-  }
+  // We intentionally maintain a special array of keyframes with double offset
+  // or null (i.e. the keyframes without TimelineRangeOffset). We would like to
+  // use this array to distribute the keyframes with missing offsets.
+  //
+  // This part is not specced so we borrow the idea from other browsers, i.e.
+  // the missing keyframe offsets are calculated only from double offset.
+  nsTArray<Keyframe*> keyframesWithDoubleOrNullOffsets;
 
-  // Fill in remaining missing offsets.
-  const Keyframe* const last = &aKeyframes.LastElement();
-  const RangedPtr<Keyframe> begin(aKeyframes.Elements(), aKeyframes.Length());
-  RangedPtr<Keyframe> keyframeA = begin;
-  while (keyframeA != last) {
-    // Find keyframe A and keyframe B *between* which we will apply spacing.
-    RangedPtr<Keyframe> keyframeB = keyframeA + 1;
-    while (keyframeB->mOffset.isNothing() && keyframeB != last) {
-      ++keyframeB;
+  // 1. The 1st pass. We try to resolve the computed offset from offset if
+  // provided.
+  for (Keyframe& keyframe : aKeyframes) {
+    const auto& offset = keyframe.mOffset;
+    if (!offset) {
+      keyframesWithDoubleOrNullOffsets.AppendElement(&keyframe);
+      continue;
     }
-    keyframeB->mComputedOffset = keyframeB->mOffset.valueOr(1.0);
 
-    // Fill computed offsets in (keyframe A, keyframe B).
-    DistributeRange(Range<Keyframe>(keyframeA, keyframeB + 1));
-    keyframeA = keyframeB;
+    if (offset->IsPercentageOffset()) {
+      keyframesWithDoubleOrNullOffsets.AppendElement(&keyframe);
+      keyframe.mComputedOffset = offset->mPercentage;
+      continue;
+    }
+
+    // FIXME: Implement the computation of TimelineRangeOffset in Bug 1824875.
+    // Using kComputedOffsetNotSet for now to skip this keyframe.
+    keyframe.mComputedOffset = std::numeric_limits<double>::quiet_NaN();
   }
+
+  // 2. The 2nd pass. Follow the spec to compute the missing offsets.
+  DoComputeMissingKeyframeOffsets(keyframesWithDoubleOrNullOffsets);
 }
 
 /* static */
@@ -326,9 +332,13 @@ nsTArray<AnimationProperty> KeyframeUtils::GetAnimationPropertiesFromKeyframes(
   const size_t len = aKeyframes.Length();
   for (size_t i = 0; i < len; ++i) {
     const Keyframe& frame = aKeyframes[i];
+    if (frame.mOffset && frame.mOffset->IsTimelineRangeOffset() &&
+        std::isnan(frame.mComputedOffset)) {
+      // FIXME: Bug 1824875. Resolve the TimelineRangeOffset.
+      continue;
+    }
     for (auto& value : computedValues[i]) {
-      MOZ_ASSERT(frame.mComputedOffset != Keyframe::kComputedOffsetNotSet,
-                 "Invalid computed offset");
+      MOZ_ASSERT(!std::isnan(frame.mComputedOffset), "Invalid computed offset");
       KeyframeValueEntry* entry = entries.AppendElement();
       entry->mOffset = frame.mComputedOffset;
       entry->mProperty = value.mProperty;
@@ -456,7 +466,9 @@ static bool ConvertKeyframeSequence(JSContext* aCx, dom::Document* aDocument,
     }
 
     if (!keyframeDict.mOffset.IsNull()) {
-      keyframe->mOffset.emplace(keyframeDict.mOffset.Value());
+      // FIXME: Bug 2016574. Support TimelineRangeOffset dictionary.
+      keyframe->mOffset.emplace(
+          Keyframe::OffsetType::PercentageOffset(keyframeDict.mOffset.Value()));
     }
 
     keyframe->mComposite = keyframeDict.mComposite;
@@ -703,7 +715,11 @@ static bool HasValidOffsets(const nsTArray<Keyframe>& aKeyframes) {
   double offset = 0.0;
   for (const Keyframe& keyframe : aKeyframes) {
     if (keyframe.mOffset) {
-      double thisOffset = keyframe.mOffset.value();
+      // FIXME: Bug 2016574. This function is called from the process of
+      // script-generated keyframes, so we don't need to worry about range names
+      // now.
+      MOZ_ASSERT(keyframe.mOffset->IsPercentageOffset());
+      double thisOffset = keyframe.mOffset->mPercentage;
       if (thisOffset < offset || thisOffset > 1.0f) {
         return false;
       }
@@ -1075,7 +1091,8 @@ static void GetKeyframeListFromPropertyIndexedKeyframe(
       offsets ? std::min(offsets->Length(), aResult.Length()) : 0;
   for (size_t i = 0; i < offsetsToFill; i++) {
     if (!offsets->ElementAt(i).IsNull()) {
-      aResult[i].mOffset.emplace(offsets->ElementAt(i).Value());
+      aResult[i].mOffset.emplace(Keyframe::OffsetType::PercentageOffset(
+          offsets->ElementAt(i).Value()));
     }
   }
 
@@ -1176,15 +1193,69 @@ static void GetKeyframeListFromPropertyIndexedKeyframe(
  * @param aRange The sequence of keyframes between whose endpoints we should
  * distribute offsets.
  */
-static void DistributeRange(const Range<Keyframe>& aRange) {
-  const Range<Keyframe> rangeToAdjust =
-      Range<Keyframe>(aRange.begin() + 1, aRange.end() - 1);
+static void DistributeRange(const Range<Keyframe*>& aRange) {
+  const Range<Keyframe*> rangeToAdjust =
+      Range<Keyframe*>(aRange.begin() + 1, aRange.end() - 1);
   const size_t n = aRange.length() - 1;
-  const double startOffset = aRange[0].mComputedOffset;
-  const double diffOffset = aRange[n].mComputedOffset - startOffset;
+  const double startOffset = aRange[0]->mComputedOffset;
+  const double diffOffset = aRange[n]->mComputedOffset - startOffset;
   for (auto iter = rangeToAdjust.begin(); iter != rangeToAdjust.end(); ++iter) {
     size_t index = iter - aRange.begin();
-    iter->mComputedOffset = startOffset + double(index) / n * diffOffset;
+    (*iter)->mComputedOffset = startOffset + double(index) / n * diffOffset;
+  }
+}
+
+/**
+ * Compute the missing offsets of all keyframes. This follows the spec steps in
+ * https://drafts.csswg.org/web-animations-1/#compute-missing-keyframe-offsets.
+ * Note that we compute the missing keyframe offsets from the existing keyframes
+ * with a double offset (i.e. excluding the keyframes with timeline range
+ * names).
+ *
+ * @param aKeyframes The sequence of keyframes. Note that all of the offsets in
+ * this sequence should only be null or double.
+ */
+static void DoComputeMissingKeyframeOffsets(nsTArray<Keyframe*>& aKeyframes) {
+  if (aKeyframes.IsEmpty()) {
+    return;
+  }
+
+  // If the first keyframe has an unspecified offset, fill it in with 0%.
+  // If there is only a single keyframe, then it gets 100%.
+  if (aKeyframes.Length() > 1) {
+    Keyframe& firstElement = *aKeyframes[0];
+    MOZ_ASSERT(!firstElement.mOffset ||
+               firstElement.mOffset->IsPercentageOffset());
+    firstElement.mComputedOffset =
+        firstElement.mOffset ? firstElement.mOffset->mPercentage : 0.0;
+    // We will fill in the last keyframe's offset below
+  } else {
+    Keyframe& lastElement = *aKeyframes.LastElement();
+    MOZ_ASSERT(!lastElement.mOffset ||
+               lastElement.mOffset->IsPercentageOffset());
+    lastElement.mComputedOffset =
+        lastElement.mOffset ? lastElement.mOffset->mPercentage : 1.0;
+  }
+
+  // Fill in remaining missing offsets.
+  const Keyframe* const last = aKeyframes.LastElement();
+  const RangedPtr<Keyframe*> begin(aKeyframes.Elements(), aKeyframes.Length());
+  RangedPtr<Keyframe*> keyframeA = begin;
+  while (*keyframeA != last) {
+    // Find keyframe A and keyframe B *between* which we will apply spacing.
+    RangedPtr<Keyframe*> keyframeB = keyframeA + 1;
+    while ((*keyframeB)->mOffset.isNothing() && *keyframeB != last) {
+      ++keyframeB;
+    }
+
+    MOZ_ASSERT(!(*keyframeB)->mOffset ||
+               (*keyframeB)->mOffset->IsPercentageOffset());
+    (*keyframeB)->mComputedOffset =
+        (*keyframeB)->mOffset ? (*keyframeB)->mOffset->mPercentage : 1.0;
+
+    // Fill computed offsets in (keyframe A, keyframe B).
+    DistributeRange(Range<Keyframe*>(keyframeA, keyframeB + 1));
+    keyframeA = keyframeB;
   }
 }
 

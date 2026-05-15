@@ -29,6 +29,8 @@ import org.mozilla.fenix.home.recentvisits.RecentlyVisitedItem.RecentHistoryGrou
 import org.mozilla.fenix.home.recentvisits.RecentlyVisitedItem.RecentHistoryHighlight
 import org.mozilla.fenix.home.recentvisits.controller.RecentVisitsController
 import org.mozilla.fenix.home.search.HomeSearchController
+import org.mozilla.fenix.home.sports.CountrySelectorSource
+import org.mozilla.fenix.home.sports.LiveMatchRefreshSource
 import org.mozilla.fenix.home.sports.SportsController
 import org.mozilla.fenix.home.termsofuse.PrivacyNoticeBannerController
 import org.mozilla.fenix.home.toolbar.ToolbarController
@@ -177,6 +179,11 @@ interface TrackingProtectionInteractor {
      * Invoked when the privacy report card is tapped.
      */
     fun onPrivacyReportTapped()
+
+    /**
+     * Invoked when the longfox entry point text is clicked.
+     */
+    fun onLongfoxEntryPointClicked()
 }
 
 /**
@@ -201,10 +208,6 @@ class SessionControlInteractor(
     private val logoController: LogoController,
     private val sportsController: SportsController,
 ) : HomepageInteractor {
-
-    override fun onLogoLongClicked() {
-        logoController.handleLogoLongClicked()
-    }
 
     override fun onCollectionAddTabTapped(collection: TabCollection) {
         controller.handleCollectionAddTabTapped(collection)
@@ -440,8 +443,8 @@ class SessionControlInteractor(
         sportsController.handleViewScheduleClicked()
     }
 
-    override fun onRefreshClicked() {
-        sportsController.handleRefreshClicked()
+    override fun onRefreshClicked(source: LiveMatchRefreshSource) {
+        sportsController.handleRefreshClicked(source)
     }
 
     override fun onCountdownWidgetDismissed() {
@@ -452,11 +455,23 @@ class SessionControlInteractor(
         Homepage.privacyReportTapped.record(NoExtras())
     }
 
+    override fun onLongfoxEntryPointClicked() {
+        logoController.handleLongfoxEntryPointClicked()
+    }
+
     override fun onGetCustomWallpaperClicked() {
         sportsController.handleOnGetCustomWallpaperClicked()
     }
 
     override fun onMatchClicked(homeTeam: String, awayTeam: String) {
         sportsController.handleMatchClicked(homeTeam = homeTeam, awayTeam = awayTeam)
+    }
+
+    override fun onSportsWidgetShown() {
+        sportsController.handleSportsWidgetShown()
+    }
+
+    override fun onCountrySelectorShown(source: CountrySelectorSource) {
+        sportsController.handleCountrySelectorShown(source)
     }
 }

@@ -4,7 +4,6 @@ prefs = [
 ]
 support-files = [
   "head.js",
-  "../head.js",
 ]
 tags = "os_integration"
 
@@ -29,6 +28,8 @@ support-files = [
   "head.js","!/gfx/layers/apz/test/mochitest/apz_test_native_event_utils.js"]
 
 ["browser_searchShowSuggestionsFirst.js"]
+
+["browser_search_category_filter.js"]
 
 ["browser_search_engineList.js"]
 fail-if = [

@@ -89,18 +89,6 @@
 #  include "irregexp/RegExpAPI.h"
 #endif
 
-#ifdef JS_SIMULATOR_ARM
-#  include "jit/arm/Simulator-arm.h"
-#endif
-#ifdef JS_SIMULATOR_MIPS64
-#  include "jit/mips64/Simulator-mips64.h"
-#endif
-#ifdef JS_SIMULATOR_LOONG64
-#  include "jit/loong64/Simulator-loong64.h"
-#endif
-#ifdef JS_SIMULATOR_RISCV64
-#  include "jit/riscv64/Simulator-riscv64.h"
-#endif
 #include "jit/BaselineCompileQueue.h"
 #include "jit/CacheIRHealth.h"
 #include "jit/InlinableNatives.h"
@@ -108,6 +96,7 @@
 #include "jit/JitcodeMap.h"
 #include "jit/JitZone.h"
 #include "jit/shared/CodeGenerator-shared.h"
+#include "jit/Simulator.h"
 #ifdef JS_CODEGEN_ARM64
 #  include "jit/arm64/vixl/Cpu-Features-vixl.h"
 #endif
@@ -917,10 +906,15 @@ static JSObject* NewGlobalObject(
 /*
  * A toy WindowProxy class for the shell. This is intended for testing code
  * where global |this| is a WindowProxy. All requests are forwarded to the
- * underlying global and no navigation is supported.
+ * underlying global.
+ *
+ * The newGlobal testing function has a transplantWindowProxy option that can be
+ * used to transplant/change a WindowProxy for a new global, similar to what
+ * happens in the browser on navigation.
  */
 const JSClass ShellWindowProxyClass =
-    PROXY_CLASS_DEF("ShellWindowProxy", JSCLASS_HAS_RESERVED_SLOTS(1));
+    PROXY_CLASS_DEF("ShellWindowProxy",
+                    JSCLASS_HAS_RESERVED_SLOTS(SwappableProxyReservedSlots));
 
 JSObject* NewShellWindowProxy(JSContext* cx, JS::HandleObject global) {
   MOZ_ASSERT(global->is<GlobalObject>());
@@ -2410,16 +2404,7 @@ class UserBufferObject : public NativeObject {
 };
 
 const JSClassOps UserBufferObject::classOps_ = {
-    nullptr,                     // addProperty
-    nullptr,                     // delProperty
-    nullptr,                     // enumerate
-    nullptr,                     // newEnumerate
-    nullptr,                     // resolve
-    nullptr,                     // mayResolve
-    UserBufferObject::finalize,  // finalize
-    nullptr,                     // call
-    nullptr,                     // construct
-    nullptr,                     // trace
+    .finalize = UserBufferObject::finalize,
 };
 
 const JSClass UserBufferObject::class_ = {
@@ -4482,16 +4467,9 @@ static bool sandbox_resolve(JSContext* cx, HandleObject obj, HandleId id,
 }
 
 static const JSClassOps sandbox_classOps = {
-    nullptr,                   // addProperty
-    nullptr,                   // delProperty
-    nullptr,                   // enumerate
-    sandbox_enumerate,         // newEnumerate
-    sandbox_resolve,           // resolve
-    nullptr,                   // mayResolve
-    nullptr,                   // finalize
-    nullptr,                   // call
-    nullptr,                   // construct
-    JS_GlobalObjectTraceHook,  // trace
+    .newEnumerate = sandbox_enumerate,
+    .resolve = sandbox_resolve,
+    .trace = JS_GlobalObjectTraceHook,
 };
 
 static const JSClass sandbox_class = {
@@ -5852,16 +5830,7 @@ class XDRBufferObject : public NativeObject {
 };
 
 /*static */ const JSClassOps XDRBufferObject::classOps_ = {
-    nullptr,                    // addProperty
-    nullptr,                    // delProperty
-    nullptr,                    // enumerate
-    nullptr,                    // newEnumerate
-    nullptr,                    // resolve
-    nullptr,                    // mayResolve
-    XDRBufferObject::finalize,  // finalize
-    nullptr,                    // call
-    nullptr,                    // construct
-    nullptr,                    // trace
+    .finalize = XDRBufferObject::finalize,
 };
 
 /*static */ const JSClass XDRBufferObject::class_ = {
@@ -7721,16 +7690,7 @@ static bool CreateIsHTMLDDA(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   static const JSClassOps classOps = {
-      nullptr,         // addProperty
-      nullptr,         // delProperty
-      nullptr,         // enumerate
-      nullptr,         // newEnumerate
-      nullptr,         // resolve
-      nullptr,         // mayResolve
-      nullptr,         // finalize
-      IsHTMLDDA_Call,  // call
-      nullptr,         // construct
-      nullptr,         // trace
+      .call = IsHTMLDDA_Call,
   };
 
   static const JSClass cls = {
@@ -8529,16 +8489,7 @@ class StreamCacheEntryObject : public NativeObject {
 };
 
 const JSClassOps StreamCacheEntryObject::classOps_ = {
-    nullptr,                           // addProperty
-    nullptr,                           // delProperty
-    nullptr,                           // enumerate
-    nullptr,                           // newEnumerate
-    nullptr,                           // resolve
-    nullptr,                           // mayResolve
-    StreamCacheEntryObject::finalize,  // finalize
-    nullptr,                           // call
-    nullptr,                           // construct
-    nullptr,                           // trace
+    .finalize = StreamCacheEntryObject::finalize,
 };
 
 const JSClass StreamCacheEntryObject::class_ = {
@@ -9097,7 +9048,8 @@ static constexpr uint32_t DOM_OBJECT_SLOT2 = 1;
 static const JSClass* GetDomClass();
 
 static const JSClass TransplantableProxyObjectClass =
-    PROXY_CLASS_DEF("TransplantableProxyObject", JSCLASS_HAS_RESERVED_SLOTS(1));
+    PROXY_CLASS_DEF("TransplantableProxyObject",
+                    JSCLASS_HAS_RESERVED_SLOTS(SwappableProxyReservedSlots));
 
 // A non-Wrapper proxy that can be transplanted. We want to have shell coverage
 // of this to match the non-wrapper RemoteObjectProxy{Base} proxies in the
@@ -9572,16 +9524,8 @@ static bool SideEffectfulResolveObject_resolve(JSContext* cx, HandleObject obj,
 }
 
 static const JSClassOps SideEffectfulResolveObject_classOps = {
-    nullptr,                               // addProperty
-    nullptr,                               // delProperty
-    nullptr,                               // enumerate
-    SideEffectfulResolveObject_enumerate,  // newEnumerate
-    SideEffectfulResolveObject_resolve,    // resolve
-    nullptr,                               // mayResolve
-    nullptr,                               // finalize
-    nullptr,                               // call
-    nullptr,                               // construct
-    nullptr,
+    .newEnumerate = SideEffectfulResolveObject_enumerate,
+    .resolve = SideEffectfulResolveObject_resolve,
 };
 
 static const JSClass SideEffectfulResolveObject_class = {
@@ -11329,16 +11273,10 @@ static bool global_mayResolve(const JSAtomState& names, jsid id,
 }
 
 static const JSClassOps global_classOps = {
-    nullptr,                   // addProperty
-    nullptr,                   // delProperty
-    nullptr,                   // enumerate
-    global_enumerate,          // newEnumerate
-    global_resolve,            // resolve
-    global_mayResolve,         // mayResolve
-    nullptr,                   // finalize
-    nullptr,                   // call
-    nullptr,                   // construct
-    JS_GlobalObjectTraceHook,  // trace
+    .newEnumerate = global_enumerate,
+    .resolve = global_resolve,
+    .mayResolve = global_mayResolve,
+    .trace = JS_GlobalObjectTraceHook,
 };
 
 static constexpr uint32_t DOM_PROTOTYPE_SLOT = JSCLASS_GLOBAL_SLOT_COUNT;
@@ -11590,16 +11528,7 @@ static void FakeDOMObject_finalize(JS::GCContext* gcx, JSObject* obj) {
 }
 
 static const JSClassOps FakeDOMObjectClassOps = {
-    nullptr,  // addProperty
-    nullptr,  // delProperty
-    nullptr,  // enumerate
-    nullptr,  // newEnumerate
-    nullptr,  // resolve
-    nullptr,  // mayResolve
-    FakeDOMObject_finalize,
-    nullptr,  // call
-    nullptr,  // construct
-    nullptr,
+    .finalize = FakeDOMObject_finalize,
 };
 
 static const JSClass dom_class = {

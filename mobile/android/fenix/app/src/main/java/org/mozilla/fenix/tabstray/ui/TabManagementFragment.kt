@@ -60,6 +60,7 @@ import org.mozilla.fenix.GleanMetrics.PrivateBrowsingLocked
 import org.mozilla.fenix.GleanMetrics.TabsTray
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.share.DefaultShareSheetLauncher
 import org.mozilla.fenix.compose.navigation.BottomSheetSceneStrategy
 import org.mozilla.fenix.ext.actualInactiveTabs
 import org.mozilla.fenix.ext.components
@@ -201,6 +202,11 @@ class TabManagementFragment : Fragment() {
             tabsTrayStore = tabsTrayStore,
             browserStore = requireComponents.core.store,
             settings = requireContext().settings(),
+            shareSheetLauncher = DefaultShareSheetLauncher(
+                navController = findNavController(),
+                homeActivityClass = HomeActivity::class.java,
+                scope = viewLifecycleOwner.lifecycleScope,
+            ),
             browsingModeManager = (activity as HomeActivity).browsingModeManager,
             navController = findNavController(),
             navigateToHomeAndDeleteSession = ::navigateToHomeAndDeleteSession,
@@ -1012,9 +1018,8 @@ class TabManagementFragment : Fragment() {
     }
 
     private fun shouldShowPrivacyReport(settings: Settings): Boolean =
-        settings.showPrivacyReportSectionToggle &&
-            settings.showPrivacyReportFeature &&
-            settings.shouldUseTrackingProtectionDatabase
+        settings.showPrivacyReportFeature &&
+            settings.shouldShowTrackingProtectionDashboard
 
     private companion object {
         private const val DOWNLOAD_CANCEL_DIALOG_FRAGMENT_TAG = "DOWNLOAD_CANCEL_DIALOG_FRAGMENT_TAG"

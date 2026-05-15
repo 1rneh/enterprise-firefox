@@ -448,6 +448,8 @@ pref("browser.urlbar.deduplication.thresholdDays", 0);
 pref("browser.urlbar.scotchBonnet.enableOverride", true);
 
 pref("browser.urlbar.trustPanel.featureGate", true);
+pref("browser.urlbar.trustPanel.breachAlerts.featureGate", false);
+pref("browser.urlbar.trustPanel.breachAlerts", false);
 
 // Whether or not Unified Search Button is shown always.
 pref("browser.urlbar.unifiedSearchButton.always", false);
@@ -2245,7 +2247,11 @@ pref("sidebar.expandOnHover", true);
 pref("sidebar.old-sidebar.has-used", false);
 pref("sidebar.new-sidebar.has-used", false);
 pref("sidebar.history.sortOption", "date");
+#ifdef NIGHTLY_BUILD
+pref("sidebar.updatedBookmarks.enabled", true);
+#else
 pref("sidebar.updatedBookmarks.enabled", false);
+#endif
 
 pref("sidebar.notification.badge.aichat", false);
 
@@ -3493,7 +3499,7 @@ pref("first-startup.category-tasks-enabled", true);
   pref("browser.menu.share_url.allow", false);
 #endif
 
-#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
+#ifdef NIGHTLY_BUILD
 pref("browser.shareqrcode.enabled", true);
 #else
 pref("browser.shareqrcode.enabled", false);

@@ -15,7 +15,7 @@ import tempfile
 import time
 import urllib.parse
 import uuid
-from contextlib import closing
+from contextlib import closing, contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Array, Process, Value
 
@@ -1074,3 +1074,27 @@ class FeltTests(FeltTestsBase):
 
     def await_felt_auth_window(self):
         self._wait.until(lambda mn: len(self._driver.chrome_window_handles) == 1)
+
+    @contextmanager
+    def expect_new_felt_auth_window(self):
+        """Context manager: assert FELT's auth window is replaced by a new one.
+
+        Captures the current FELT chrome window handle on entry. On normal
+        exit, waits for that window to be replaced by a new single chrome
+        window and switches to it via force_window(). Use to wrap actions
+        whose effect is that FELT closes its auth window and then re-opens
+        a new one (e.g. login completion that spawns a child Firefox which
+        then fails, causing FELT to re-open its auth window). Ensures the
+        test awaits the new FELT window and not the original one prior to
+        closing.
+        """
+        handles = self._driver.chrome_window_handles
+        previous_handle = handles[0] if len(handles) == 1 else None
+        yield
+
+        def replaced(_):
+            handles = self._driver.chrome_window_handles
+            return previous_handle not in handles and len(handles) == 1
+
+        self._wait.until(replaced)
+        self.force_window()

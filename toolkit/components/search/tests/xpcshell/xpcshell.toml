@@ -270,8 +270,6 @@ support-files = [
 
 ["test_validate_engines.js"]
 
-["test_validate_manifests.js"]
-
 ["test_webextensions_install.js"]
 support-files = [
   "sjs/iconsRedirect.sjs",
@@ -288,8 +286,6 @@ support-files = ["settings/v1-migrate-to-webextension.json"]
 ["test_webextensions_startup_duplicate.js"]
 
 ["test_webextensions_startup_remove.js"]
-
-["test_webextensions_uninstall_appProvided.js"]
 
 ["test_webextensions_upgrade.js"]
 

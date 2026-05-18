@@ -61,7 +61,6 @@ import mozilla.components.concept.engine.translate.TranslationSupport
 import mozilla.components.concept.engine.translate.findLanguage
 import mozilla.components.feature.addons.Addon
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
-import mozilla.components.feature.ipprotection.store.state.Authorized
 import mozilla.components.feature.ipprotection.store.state.isEligible
 import mozilla.components.service.fxa.manager.AccountState.NotAuthenticated
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
@@ -71,7 +70,6 @@ import mozilla.components.support.utils.ext.isLandscape
 import mozilla.components.support.utils.ext.top
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.Events
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.automotive.isAndroidAutomotiveAvailable
 import org.mozilla.fenix.components.appstate.SupportedMenuNotifications
@@ -88,14 +86,12 @@ import org.mozilla.fenix.components.menu.middleware.MenuNavigationMiddleware
 import org.mozilla.fenix.components.menu.middleware.MenuTelemetryMiddleware
 import org.mozilla.fenix.components.menu.store.BrowserMenuState
 import org.mozilla.fenix.components.menu.store.ExtensionMenuState
-import org.mozilla.fenix.components.menu.store.IPProtectionMenuStatus
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
 import org.mozilla.fenix.components.menu.store.MenuStore
 import org.mozilla.fenix.components.menu.store.SummarizationMenuState
 import org.mozilla.fenix.components.menu.store.TranslationInfo
 import org.mozilla.fenix.components.menu.store.WebExtensionMenuItem
-import org.mozilla.fenix.components.share.DefaultShareSheetLauncher
 import org.mozilla.fenix.ext.canGoBackInHistoryOrToStories
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.openSetDefaultBrowserOption
@@ -356,6 +352,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                 openToBrowser = ::openToBrowser,
                                 sessionUseCases = components.useCases.sessionUseCases,
                                 webAppUseCases = webAppUseCases,
+                                shareUseCases = components.useCases.shareUseCases,
                                 settings = settings,
                                 onDismiss = {
                                     withContext(Dispatchers.Main) {
@@ -365,10 +362,6 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                 scope = coroutineScope,
                                 customTab = customTab,
                                 webCompatReporterMoreInfoSender = webCompatReporterMoreInfoSender,
-                                shareSheetLauncher = DefaultShareSheetLauncher(
-                                    navController = findNavController(),
-                                    homeActivityClass = HomeActivity::class.java,
-                                ),
                             ),
                             MenuTelemetryMiddleware(
                                 accessPoint = args.accesspoint,
@@ -462,7 +455,9 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                     ipProtectionMenuBinding.set(
                         feature = IPProtectionMenuBinding(
                             ipProtectionStore = components.ipProtection.store,
-                            menuStore = store,
+                            onIPProtectionStatusUpdate = {
+                                store.dispatch(MenuAction.UpdateIPProtectionMenuState(it))
+                            },
                         ),
                         owner = this@MenuDialogFragment,
                         view = this,
@@ -558,18 +553,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                     }.collectAsState(initial = SummarizationMenuState.Default)
 
                     val ipProtectionMenuState by remember {
-                        // FIXME(IPP) map to correct menu state.
-                        components.ipProtection.store.stateFlow.map { ipState ->
-                            store.state.ipProtectionMenuState.copy(
-                                status = run {
-                                    if (ipState.proxyStatus is Authorized.Active) {
-                                        IPProtectionMenuStatus.Enabled
-                                    } else {
-                                        IPProtectionMenuStatus.Disabled
-                                    }
-                                },
-                            )
-                        }
+                        store.stateFlow.map { state -> state.ipProtectionMenuState }
                     }.collectAsState(initial = store.state.ipProtectionMenuState)
 
                     val contentState: Route by remember { mutableStateOf(initRoute) }

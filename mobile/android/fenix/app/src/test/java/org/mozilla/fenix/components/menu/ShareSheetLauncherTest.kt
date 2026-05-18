@@ -9,9 +9,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.service.chooser.ChooserAction
-import androidx.navigation.NavController
-import androidx.navigation.NavDirections
-import androidx.navigation.NavOptions
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -35,10 +32,6 @@ import org.robolectric.annotation.Config
 class ShareSheetLauncherTest {
 
     private val mockContext = mockk<Context>(relaxed = true)
-    private val mockNavController: NavController = mockk(relaxed = true) {
-        every { navigate(any<NavDirections>(), any<NavOptions>()) } just runs
-        every { context } returns mockContext
-    }
     private val mockShareDelegate: ShareDelegate = mockk(relaxed = true) {
         every { share(any(), any()) } just runs
         every { shareWithChooserActions(any(), any(), any()) } just runs
@@ -55,7 +48,7 @@ class ShareSheetLauncherTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
     private val launcher = DefaultShareSheetLauncher(
-        navController = mockNavController,
+        applicationContext = mockContext,
         qrCodeGenerator = mockQRCodeGenerator,
         cacheHelper = mockCacheHelper,
         scope = CoroutineScope(testDispatcher),
@@ -69,7 +62,7 @@ class ShareSheetLauncherTest {
     fun `WHEN native share sheet triggered on older API THEN share is invoked`() {
         launcher.showSystemShareSheet(
             id = "123",
-            longUrl = "https://www.mozilla.org",
+            url = "https://www.mozilla.org",
             title = "Mozilla",
             isCustomTab = false,
         )
@@ -82,7 +75,7 @@ class ShareSheetLauncherTest {
     fun `GIVEN API level below 34 WHEN native share sheet triggered THEN basic share is used`() {
         launcher.showSystemShareSheet(
             id = "123",
-            longUrl = "https://www.mozilla.org",
+            url = "https://www.mozilla.org",
             title = "Mozilla",
         )
 
@@ -95,7 +88,7 @@ class ShareSheetLauncherTest {
     fun `GIVEN API level 34 and valid tab id WHEN native share sheet triggered THEN chooser actions share is used`() {
         launcher.showSystemShareSheet(
             id = "123",
-            longUrl = "https://www.mozilla.org",
+            url = "https://www.mozilla.org",
             title = "Mozilla",
         )
 
@@ -108,7 +101,7 @@ class ShareSheetLauncherTest {
     fun `GIVEN API level 34 and null tab id WHEN native share sheet triggered THEN basic share is used`() {
         launcher.showSystemShareSheet(
             id = null,
-            longUrl = "https://www.mozilla.org",
+            url = "https://www.mozilla.org",
             title = "Mozilla",
         )
 
@@ -121,7 +114,7 @@ class ShareSheetLauncherTest {
     fun `GIVEN a private tab WHEN native share sheet triggered THEN chooser actions share is still used`() {
         launcher.showSystemShareSheet(
             id = "123",
-            longUrl = "https://www.mozilla.org",
+            url = "https://www.mozilla.org",
             title = "Mozilla",
             isPrivate = true,
         )
@@ -138,7 +131,7 @@ class ShareSheetLauncherTest {
 
         launcher.showSystemShareSheet(
             id = "123",
-            longUrl = "https://www.mozilla.org",
+            url = "https://www.mozilla.org",
             title = "Mozilla",
         )
 
@@ -188,5 +181,22 @@ class ShareSheetLauncherTest {
         launcher.showSystemShareSheet(items = emptyList())
 
         verify { mockShareDelegate.share(text = "", subject = "") }
+    }
+
+    @Test
+    fun `WHEN showSystemShareSheet is called with multiple items and a subject THEN share is invoked with urls and subject`() {
+        val items = listOf(
+            ShareData(url = "https://mozilla.org", title = "Mozilla"),
+            ShareData(url = "https://firefox.com", title = "Firefox"),
+        )
+
+        launcher.showSystemShareSheet(items = items, subject = "My collection")
+
+        verify {
+            mockShareDelegate.share(
+                text = "https://mozilla.org\nhttps://firefox.com",
+                subject = "My collection",
+            )
+        }
     }
 }

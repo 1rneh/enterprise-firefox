@@ -63,6 +63,7 @@ import mozilla.components.concept.engine.permission.SitePermissionsStorage
 import mozilla.components.concept.engine.prompt.ShareData
 import mozilla.components.concept.engine.utils.ABOUT_HOME_URL
 import mozilla.components.concept.storage.BookmarksStorage
+import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.feature.ipprotection.store.IPProtectionStore
 import mozilla.components.feature.ipprotection.store.state.Authorized
 import mozilla.components.feature.session.SessionUseCases
@@ -105,9 +106,6 @@ import org.mozilla.fenix.components.appstate.AppAction.URLCopiedToClipboard
 import org.mozilla.fenix.components.appstate.snackbar.SnackbarState
 import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.metrics.MetricsUtils
-import org.mozilla.fenix.components.share.ShareSheetLauncher
-import org.mozilla.fenix.components.share.createPdfShareAction
-import org.mozilla.fenix.components.share.isSystemShareSheetSupported
 import org.mozilla.fenix.components.toolbar.DisplayActions.AddBookmarkClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.EditBookmarkClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.HomepageClicked
@@ -127,6 +125,7 @@ import org.mozilla.fenix.components.toolbar.TabCounterInteractions.AddNewTab
 import org.mozilla.fenix.components.toolbar.TabCounterInteractions.CloseCurrentTab
 import org.mozilla.fenix.components.toolbar.TabCounterInteractions.TabCounterClicked
 import org.mozilla.fenix.components.toolbar.TabCounterInteractions.TabCounterLongClicked
+import org.mozilla.fenix.components.usecases.ShareUseCases
 import org.mozilla.fenix.ext.canGoBackInHistoryOrToStories
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.navigateSafe
@@ -201,11 +200,11 @@ internal sealed class PageEndActionsInteractions(override val source: Source) : 
  * of the current tab.
  * @param useCases [UseCases] helping this integrate with other features of the applications.
  * @param sessionUseCases [SessionUseCases] for interacting with the current session.
+ * @param shareUseCases [ShareUseCases] for sharing content via the system share sheet or the in-app [ShareFragment].
  * @param nimbusComponents [NimbusComponents] used for accessing Nimbus events to use in telemetry.
  * @param clipboard [ClipboardHandler] to use for reading from device's clipboard.
  * @param publicSuffixList [PublicSuffixList] used to obtain the base domain of the current site.
  * @param settings [Settings] for accessing user preferences.
- * @param shareSheetLauncher [ShareSheetLauncher] used to show the system share sheet.
  * @param navController [NavController] to use for navigating to other in-app destinations.
  * @param browsingModeManager [BrowsingModeManager] for querying the current browsing mode.
  * @param readerModeController [ReaderModeController] for showing or hiding the reader view UX.
@@ -228,11 +227,11 @@ class BrowserToolbarMiddleware(
     private val trackingProtectionUseCases: TrackingProtectionUseCases,
     private val useCases: UseCases,
     private val sessionUseCases: SessionUseCases = SessionUseCases(browserStore),
+    private val shareUseCases: ShareUseCases,
     private val nimbusComponents: NimbusComponents,
     private val clipboard: ClipboardHandler,
     private val publicSuffixList: PublicSuffixList,
     private val settings: Settings,
-    private val shareSheetLauncher: ShareSheetLauncher,
     private val navController: NavController,
     private val browsingModeManager: BrowsingModeManager,
     private val readerModeController: ReaderModeController,
@@ -589,24 +588,13 @@ class BrowserToolbarMiddleware(
 
             is ShareClicked -> {
                 val selectedTab = browserStore.state.selectedTab ?: return
-                val shareAction = browserStore.createPdfShareAction(selectedTab.id, selectedTab.content.url)
-
-                when {
-                    shareAction != null -> {
-                        browserStore.dispatch(shareAction)
-                    }
-
-                    settings.nativeShareSheetEnabled && isSystemShareSheetSupported -> {
-                        shareSheetLauncher.showSystemShareSheet(
-                            id = selectedTab.id,
-                            longUrl = selectedTab.content.url,
-                            title = selectedTab.content.title,
-                            isPrivate = selectedTab.content.private,
-                            isCustomTab = false,
-                        )
-                    }
-
-                    else -> {
+                shareUseCases.shareUrl(
+                    id = selectedTab.id,
+                    url = selectedTab.content.url,
+                    title = selectedTab.content.title,
+                    isPrivate = selectedTab.content.private,
+                    isCustomTab = false,
+                    navigateToShareFragment = {
                         navController.nav(
                             R.id.browserFragment,
                             BrowserFragmentDirections.actionGlobalShareFragment(
@@ -620,8 +608,8 @@ class BrowserToolbarMiddleware(
                                 showPage = true,
                             ),
                         )
-                    }
-                }
+                    },
+                )
 
                 next(action)
             }
@@ -1356,9 +1344,12 @@ class BrowserToolbarMiddleware(
                 overlayResId = iconsR.drawable.mozac_ic_globe_24,
                 textResId = R.string.ip_protection_toolbar_pill_label,
                 contentDescriptionResId = R.string.ip_protection_toolbar_pill_description,
+                animated = !ipProtectionStore.state.proxyActiveShown,
                 highlighted = highlighted,
                 onClick = onClick,
-            )
+            ).also {
+                ipProtectionStore.dispatch(IPProtectionAction.ProxyActiveShown)
+            }
         } else {
             ActionButtonRes(
                 drawableResId = drawableResId,

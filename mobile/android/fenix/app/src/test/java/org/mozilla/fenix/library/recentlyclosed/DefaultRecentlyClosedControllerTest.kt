@@ -35,6 +35,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppState
+import org.mozilla.fenix.components.usecases.ShareUseCases
 import org.mozilla.fenix.ext.directionsEq
 import org.mozilla.fenix.ext.optionsEq
 import org.mozilla.fenix.helpers.FenixGleanTestRule
@@ -50,6 +51,7 @@ class DefaultRecentlyClosedControllerTest {
     private val browserStore: BrowserStore = BrowserStore(middleware = listOf(captureActionsMiddleware))
     private val recentlyClosedStore: RecentlyClosedFragmentStore = mockk(relaxed = true)
     private val tabsUseCases: TabsUseCases = mockk(relaxed = true)
+    private val shareUseCases: ShareUseCases = mockk(relaxed = true)
 
     @get:Rule
     val gleanTestRule = FenixGleanTestRule(testContext)
@@ -224,15 +226,11 @@ class DefaultRecentlyClosedControllerTest {
 
         createController().handleShare(tabs.toSet())
 
-        verify {
-            val data = arrayOf(
-                ShareData(title = tabs[0].title, url = tabs[0].url),
-                ShareData(title = tabs[1].title, url = tabs[1].url),
-            )
-            navController.navigate(
-                directionsEq(RecentlyClosedFragmentDirections.actionGlobalShareFragment(data)),
-            )
-        }
+        val items = listOf(
+            ShareData(url = tabs[0].url, title = tabs[0].title),
+            ShareData(url = tabs[1].url, title = tabs[1].title),
+        )
+        verify { shareUseCases.shareItems(items = items, navigateToShareFragment = any()) }
         assertNotNull(RecentlyClosedTabs.menuShare.testGetValue())
         assertEquals(1, RecentlyClosedTabs.menuShare.testGetValue()!!.size)
         assertNull(RecentlyClosedTabs.menuShare.testGetValue()!!.single().extra)
@@ -336,6 +334,7 @@ class DefaultRecentlyClosedControllerTest {
             recentlyClosedStore = recentlyClosedStore,
             recentlyClosedTabsStorage = RecentlyClosedTabsStorage(testContext, mockk(), mockk()),
             tabsUseCases = tabsUseCases,
+            shareUseCases = shareUseCases,
             lifecycleScope = scope,
             openToBrowser = openToBrowser,
         )

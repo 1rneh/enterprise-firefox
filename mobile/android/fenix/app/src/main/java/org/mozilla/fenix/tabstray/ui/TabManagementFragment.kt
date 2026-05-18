@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -60,7 +61,6 @@ import org.mozilla.fenix.GleanMetrics.PrivateBrowsingLocked
 import org.mozilla.fenix.GleanMetrics.TabsTray
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
-import org.mozilla.fenix.components.share.DefaultShareSheetLauncher
 import org.mozilla.fenix.compose.navigation.BottomSheetSceneStrategy
 import org.mozilla.fenix.ext.actualInactiveTabs
 import org.mozilla.fenix.ext.components
@@ -158,6 +158,9 @@ class TabManagementFragment : Fragment() {
                         placeAfter = placeAfter,
                     ),
                 )
+                tabsTrayStore.dispatch(
+                    TabsTrayAction.TabDragCancel,
+                )
             }
 
             override fun onDrop(sourceKey: String, targetKey: String) {
@@ -166,6 +169,18 @@ class TabManagementFragment : Fragment() {
                         sourceKey,
                         targetKey,
                     ),
+                )
+            }
+
+            override fun onDragCancel() {
+                tabsTrayStore.dispatch(
+                    TabsTrayAction.TabDragCancel,
+                )
+            }
+
+            override fun onDragStart(preserveSelectMode: Boolean) {
+                tabsTrayStore.dispatch(
+                    TabsTrayAction.TabDragStart(preserveSelectMode),
                 )
             }
         }
@@ -202,17 +217,13 @@ class TabManagementFragment : Fragment() {
             tabsTrayStore = tabsTrayStore,
             browserStore = requireComponents.core.store,
             settings = requireContext().settings(),
-            shareSheetLauncher = DefaultShareSheetLauncher(
-                navController = findNavController(),
-                homeActivityClass = HomeActivity::class.java,
-                scope = viewLifecycleOwner.lifecycleScope,
-            ),
             browsingModeManager = (activity as HomeActivity).browsingModeManager,
             navController = findNavController(),
             navigateToHomeAndDeleteSession = ::navigateToHomeAndDeleteSession,
             profiler = requireComponents.core.engine.profiler,
             tabsUseCases = requireComponents.useCases.tabsUseCases,
             fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+            shareUseCases = requireComponents.useCases.shareUseCases,
             closeSyncedTabsUseCases = requireComponents.useCases.closeSyncedTabsUseCases,
             bookmarksStorage = requireComponents.core.bookmarksStorage,
             collectionStorage = requireComponents.core.tabCollectionStorage,
@@ -220,8 +231,8 @@ class TabManagementFragment : Fragment() {
             showUndoSnackbarForInactiveTab = ::showUndoSnackbarForInactiveTab,
             showUndoSnackbarForSyncedTab = ::showUndoSnackbarForSyncedTab,
             showCancelledDownloadWarning = ::showCancelledDownloadWarning,
-            showCollectionSnackbar = ::showCollectionSnackbar,
             showBookmarkSnackbar = ::showBookmarkSnackbar,
+            showCollectionSnackbar = ::showCollectionSnackbar,
         )
 
         tabManagerInteractor = DefaultTabManagerInteractor(controller = tabManagerController)
@@ -274,6 +285,8 @@ class TabManagementFragment : Fragment() {
                         performTabClick(tab = tab)
                     }
                 }
+                val windowSize = FirefoxTheme.windowSize
+                val resources = LocalResources.current
 
                 // When the TabTray is hidden by an action, if a new tab is being selected, navigate to it.
                 LaunchedEffect(tabTrayVisibilityState.currentState) {
@@ -420,12 +433,17 @@ class TabManagementFragment : Fragment() {
                             }
 
                             entry<TabManagerNavDestination.ExpandedTabGroup>(
-                                metadata = BottomSheetSceneStrategy.bottomSheet(
-                                    handleContentDescription = stringResource(
-                                        id = R.string.tab_group_sheet_dismiss_description,
-                                    ),
-                                    showBetaLabel = true,
-                                ),
+                                metadata = { destination ->
+                                    BottomSheetSceneStrategy.bottomSheet(
+                                        handleContentDescription = resources.getString(
+                                            R.string.tab_group_sheet_dismiss_description,
+                                        ),
+                                        showBetaLabel = true,
+                                        fullyExpandOnFirstOpen = destination.group.shouldFullyExpandOnFirstOpen(
+                                            windowSize = windowSize,
+                                        ),
+                                    )
+                                },
                             ) { args ->
                                 val expandedGroup by tabsTrayStore.observeTabGroup(tabGroup = args.group)
                                     .collectAsState(initial = args.group)

@@ -673,6 +673,7 @@ SettingGroupManager.registerGroups({
     items: [
       {
         id: "warningCard",
+        subcategory: "security-warning-card",
         l10nId: "security-privacy-issue-card",
         control: "moz-card",
         controlAttrs: {
@@ -765,6 +766,7 @@ SettingGroupManager.registerGroups({
   },
   cookiesAndSiteData2: {
     inProgress: true,
+    subcategory: "sitedata",
     l10nId: "sitedata-heading",
     iconSrc: "chrome://browser/skin/controlcenter/3rdpartycookies.svg",
     headingLevel: 2,
@@ -1010,6 +1012,7 @@ SettingGroupManager.registerGroups({
     ],
   },
   dnsOverHttps: {
+    subcategory: "dnsOverHttps",
     l10nId: "dns-over-https-group2",
     supportPage: "dns-over-https",
     headingLevel: 1,
@@ -1093,6 +1096,7 @@ SettingGroupManager.registerGroups({
   },
   etpStatus: {
     inProgress: true,
+    subcategory: "etpStatus",
     headingLevel: 2,
     l10nId: "preferences-etp-status-header",
     supportPage: "enhanced-tracking-protection",
@@ -1151,6 +1155,7 @@ SettingGroupManager.registerGroups({
           },
           {
             id: "etpLevelStrict",
+            subcategory: "etp-strict-control",
             value: "strict",
             l10nId: "preferences-etp-level-strict",
             items: [
@@ -1171,6 +1176,7 @@ SettingGroupManager.registerGroups({
           },
           {
             id: "etpLevelCustom",
+            subcategory: "etp-custom-control",
             value: "custom",
             l10nId: "preferences-etp-level-custom",
             items: [
@@ -1236,6 +1242,18 @@ SettingGroupManager.registerGroups({
             id: "etpResetStrictButton",
             control: "moz-button",
             l10nId: "preferences-etp-reset-strict-button",
+          },
+        ],
+      },
+      {
+        id: "reloadTabsHint",
+        control: "moz-message-bar",
+        l10nId: "preferences-etp-reload-tabs-hint",
+        options: [
+          {
+            control: "moz-button",
+            l10nId: "preferences-etp-reload-tabs-hint-button",
+            slot: "actions",
           },
         ],
       },
@@ -1372,6 +1390,7 @@ SettingGroupManager.registerGroups({
     ],
   },
   ipprotection: {
+    subcategory: "vpn",
     l10nId: "ip-protection-description-1",
     headingLevel: 2,
     supportPage: "built-in-vpn",
@@ -3458,6 +3477,9 @@ Preferences.addSetting({
 
     return config;
   },
+  onUserChange() {
+    PrivacySettingHelpers.maybeNotifyUserToReload();
+  },
 });
 
 Preferences.addSetting({
@@ -3598,6 +3620,7 @@ Preferences.addSetting({
   deps: ["contentBlockingCategory"],
   onUserClick(_, { contentBlockingCategory }) {
     contentBlockingCategory.value = "standard";
+    PrivacySettingHelpers.maybeNotifyUserToReload();
   },
   disabled({ contentBlockingCategory }) {
     return (
@@ -3612,6 +3635,7 @@ Preferences.addSetting({
   deps: ["contentBlockingCategory"],
   onUserClick(_, { contentBlockingCategory }) {
     contentBlockingCategory.value = "strict";
+    PrivacySettingHelpers.maybeNotifyUserToReload();
   },
   disabled({ contentBlockingCategory }) {
     return (

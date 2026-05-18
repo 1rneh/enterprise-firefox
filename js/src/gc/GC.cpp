@@ -1191,6 +1191,11 @@ bool GCRuntime::freezeSharedAtomsZone() {
 
   atomsZone()->arenas.clearFreeLists();
 
+  {
+    AutoLockGC lock(this);
+    clearCurrentChunk(atomsZone(), lock);
+  }
+
   for (auto kind : AllAllocKinds()) {
     for (auto thing =
              atomsZone()->cellIterUnsafe<TenuredCell>(kind, nurseryIsEmpty);
@@ -1221,6 +1226,8 @@ bool GCRuntime::freezeSharedAtomsZone() {
 void GCRuntime::restoreSharedAtomsZone() {
   // Return the shared atoms zone to the zone list. This allows the contents of
   // the shared atoms zone to be collected when the parent runtime is shut down.
+
+  MOZ_ASSERT(!allocTask.wasStarted());
 
   if (!sharedAtomsZone_) {
     return;

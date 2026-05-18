@@ -158,11 +158,16 @@ class BookmarkFragment : Fragment(), SystemInsetsPaddedFragment {
                                     )
                                 },
                                 shareBookmarks = { bookmarks ->
-                                    navController.nav(
-                                        R.id.bookmarkFragment,
-                                        BookmarkFragmentDirections.actionGlobalShareFragment(
-                                            data = bookmarks.asShareDataArray(),
-                                        ),
+                                    requireComponents.useCases.shareUseCases.shareItems(
+                                        items = bookmarks.asShareDataArray().toList(),
+                                        navigateToShareFragment = {
+                                            navController.nav(
+                                                R.id.bookmarkFragment,
+                                                BookmarkFragmentDirections.actionGlobalShareFragment(
+                                                    data = bookmarks.asShareDataArray(),
+                                                ),
+                                            )
+                                        },
                                     )
                                 },
                                 showTabsTray = ::showTabTray,

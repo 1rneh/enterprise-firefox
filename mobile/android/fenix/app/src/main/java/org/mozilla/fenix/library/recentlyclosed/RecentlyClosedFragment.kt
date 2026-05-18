@@ -125,6 +125,7 @@ class RecentlyClosedFragment :
             recentlyClosedStore = recentlyClosedFragmentStore,
             tabsUseCases = requireComponents.useCases.tabsUseCases,
             recentlyClosedTabsStorage = requireComponents.core.recentlyClosedTabsStorage.value,
+            shareUseCases = requireComponents.useCases.shareUseCases,
             lifecycleScope = lifecycleScope,
             openToBrowser = { url -> openItem(url) },
         )

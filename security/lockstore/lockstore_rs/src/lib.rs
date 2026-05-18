@@ -11,7 +11,7 @@ mod utils;
 pub use crypto::CipherSuite;
 pub use crypto::DEFAULT_CIPHER_SUITE;
 pub use datastore::LockstoreDatastore;
-pub use keystore::LockstoreKeystore;
+pub use keystore::{ConnectionHandle, Keystore};
 #[cfg(test)]
 pub use utils::{bytes_to_value, value_to_bytes};
 
@@ -51,6 +51,8 @@ pub enum LockstoreError {
     NotExtractable(String),
     #[error("Authentication cancelled")]
     AuthenticationCancelled,
+    #[error("Authentication failed")]
+    AuthenticationFailed,
     #[error("Token error: {0}")]
     TokenError(String),
     #[error("Invalid kek_ref: {0}")]
@@ -63,6 +65,8 @@ pub enum LockstoreError {
     WrongPassword,
     #[error("Primary password is not initialized")]
     NotInitialized,
+    #[error("Locking failure: {0}")]
+    LockingFailure(String),
 }
 
 impl From<serde_json::Error> for LockstoreError {

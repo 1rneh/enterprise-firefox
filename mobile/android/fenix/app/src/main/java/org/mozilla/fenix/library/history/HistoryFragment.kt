@@ -695,10 +695,16 @@ class HistoryFragment :
 
     private fun share(data: List<ShareData>) {
         GleanHistory.shared.record(NoExtras())
-        val directions = HistoryFragmentDirections.actionGlobalShareFragment(
-            data = data.toTypedArray(),
+
+        requireComponents.useCases.shareUseCases.shareItems(
+            items = data,
+            navigateToShareFragment = {
+                val directions = HistoryFragmentDirections.actionGlobalShareFragment(
+                    data = data.toTypedArray(),
+                )
+                navigateToHistoryFragment(directions)
+            },
         )
-        navigateToHistoryFragment(directions)
     }
 
     private fun navigateToHistoryFragment(directions: NavDirections) {

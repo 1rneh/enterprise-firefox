@@ -39,10 +39,19 @@ toolbar-button-ai-window-toggle =
 
 ai-window-toggleview-switch-classic =
     .label = Classic Window
+    .value = Classic Window
+
+ai-window-toggleview-switch-classic-description =
+    .label = Standard browsing
+    .value = Standard browsing
 
 ai-window-toggleview-switch-ai =
     .label = Smart Window
     .value = Smart Window
+
+ai-window-toggleview-switch-ai-description =
+    .label = Ask as you browse
+    .value = Ask as you browse
 
 ai-window-toggleview-switch-private =
     .label = Private Window
@@ -133,6 +142,13 @@ aiwindow-firstrun-memories-checkbox-chats = Chats in Smart Window
 aiwindow-firstrun-memories-checkbox-browsing = Browsing across { -brand-product-name }
 aiwindow-firstrun-memories-update-settings = Update in settings anytime.
 aiwindow-firstrun-memories-no-create = Got it. Smart Window won’t create memories. Update in settings anytime.
+
+## Firstrun set as default onboarding
+
+aiwindow-firstrun-default-title = Make Smart Window your go-to
+aiwindow-firstrun-default-subtitle = Browse, search, and ask in one place. You can still open Private and Classic Windows when you want.
+aiwindow-firstrun-default-checkbox-label = Always open { -brand-product-name } in Smart Window
+aiwindow-firstrun-default-checkbox-description = Switch in settings anytime
 
 ## Ask Toolbar Button
 
@@ -253,3 +269,10 @@ smart-window-confirm-close-tabs =
         [one] Close { $count } tab
        *[other] Close { $count } tabs
     }
+
+## Smart Window new tab promo
+
+smart-window-default-promo-heading = Make Smart Window your default?
+smart-window-default-promo-message = { -brand-short-name } will open in Smart Window every time.
+smart-window-default-promo-primary-button = Set as default
+smart-window-default-promo-additional-button = Not now

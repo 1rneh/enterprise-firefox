@@ -517,6 +517,9 @@ macosx1500-aarch64-tests:
 macosx1500-aarch64-vms-tests:
     - cppunittest
     - jittest
+    - jsreftest
+    - telemetry-tests-client
+    - xpcshell
 
 macosx1470-64-tests:
     - cppunittest

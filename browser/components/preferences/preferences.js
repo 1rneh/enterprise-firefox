@@ -20,6 +20,18 @@
 /** @import {SettingGroup} from "chrome://browser/content/preferences/widgets/setting-group.mjs" */
 /** @import {SettingPane, SettingPaneConfig} from "chrome://browser/content/preferences/widgets/setting-pane.mjs" */
 
+/**
+ * @typedef {object} PaneShownEventDetail
+ * @property {string} category
+ * @property {string} subcategory
+ */
+
+/**
+ * @typedef {Omit<CustomEvent, 'detail'> & {
+ *   detail: PaneShownEventDetail
+ * }} PaneShownEvent
+ */
+
 "use strict";
 
 var { AppConstants } = ChromeUtils.importESModule(
@@ -187,6 +199,13 @@ var SettingGroupManager = ChromeUtils.importESModule(
   }
 ).SettingGroupManager;
 
+let resolveLegacyCategory = ChromeUtils.importESModule(
+  "chrome://browser/content/preferences/config/LegacyPaneMappings.mjs",
+  {
+    global: "current",
+  }
+).resolveLegacyCategory;
+
 /**
  * Register initial config-based setting panes here. If you need to register a
  * pane elsewhere, use {@link SettingPaneManager['registerPane']}.
@@ -227,7 +246,7 @@ const CONFIG_PANES = Object.freeze({
     visible: () => srdSectionPrefs.all,
   },
   ai: {
-    l10nId: "preferences-ai-controls-header",
+    l10nId: "preferences-ai-controls-header2",
     iconSrc: "chrome://global/skin/icons/highlights.svg",
     groupIds: ["aiControlsDescription", "aiFeatures", "aiStatesDescription"],
     module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
@@ -235,7 +254,7 @@ const CONFIG_PANES = Object.freeze({
       Services.prefs.getBoolPref("browser.preferences.aiControls", false),
   },
   downloads: {
-    l10nId: "pane-downloads",
+    l10nId: "pane-downloads2",
     iconSrc: "chrome://browser/skin/downloads/downloads.svg",
     groupIds: ["downloads", "applications"],
     module: "chrome://browser/content/preferences/config/downloads.mjs",
@@ -297,7 +316,7 @@ const CONFIG_PANES = Object.freeze({
     replaces: "home",
   },
   languages: {
-    l10nId: "preferences-languages-header",
+    l10nId: "preferences-languages-header2",
     iconSrc: "chrome://browser/skin/translations.svg",
     groupIds: [
       "browserLanguage",
@@ -514,7 +533,7 @@ function init_all() {
   );
   let categorySync = document.getElementById("category-sync");
   if (redesignEnabled) {
-    categorySync.setAttribute("data-l10n-id", "pane-account-sync-title");
+    categorySync.setAttribute("data-l10n-id", "pane-account-sync-title2");
     categorySync.iconSrc = "chrome://browser/skin/fxa/avatar-empty.svg";
     categorySync.hidden = false;
   } else if (accountsEnabled) {
@@ -631,10 +650,21 @@ async function gotoPref(
   let breakIndex = category.indexOf("-");
   // Subcategories allow for selecting smaller sections of the preferences
   // until proper search support is enabled (bug 1353954).
-  let subcategory = breakIndex != -1 && category.substring(breakIndex + 1);
+  let subcategory =
+    breakIndex != -1 ? category.substring(breakIndex + 1) : null;
   if (subcategory) {
     category = category.substring(0, breakIndex);
   }
+
+  // Subcategories could have new destinations when the settings-redesign pref
+  // is enabled. We need to resolve the legacy category and
+  // subcategory before getting the friendly name.
+  if (Services.prefs.getBoolPref("browser.settings-redesign.enabled")) {
+    let resolved = resolveLegacyCategory(category, subcategory);
+    category = resolved.category;
+    subcategory = resolved.subcategory;
+  }
+
   category = friendlyPrefCategoryNameToInternalName(category);
   if (category != "paneSearchResults") {
     gSearchResultsPane.query = null;
@@ -700,7 +730,24 @@ async function gotoPref(
   // the change-view event will re-enter the gotoPref codepath.
   gLastCategory.category = category;
   gLastCategory.subcategory = subcategory;
-  categories.currentView = item ? item.getAttribute("view") : category;
+
+  // For sub-panes, select the root parent navigation button so keyboard
+  // navigation works correctly.
+  let currentView = item ? item.getAttribute("view") : category;
+
+  try {
+    let paneLookupId = internalPrefCategoryNameToFriendlyName(currentView);
+    let parentPanes = SettingPaneManager.getWithParents(paneLookupId);
+    if (parentPanes.length > 1) {
+      // Get root parent (first in chain) for navigation selection
+      let rootParent = parentPanes[0];
+      currentView = friendlyPrefCategoryNameToInternalName(rootParent.id);
+    }
+  } catch (ex) {
+    // Pane not found in SettingPaneManager, use currentView
+  }
+
+  categories.currentView = currentView;
   window.history.replaceState(category, document.title);
 
   let categoryInfo = gCategoryInits.get(category);
@@ -752,13 +799,16 @@ async function gotoPref(
   });
 
   document.dispatchEvent(
-    new CustomEvent("paneshown", {
-      bubbles: true,
-      cancelable: true,
-      detail: {
-        category,
-      },
-    })
+    /** @type {PaneShownEvent} */ (
+      new CustomEvent("paneshown", {
+        bubbles: true,
+        cancelable: true,
+        detail: {
+          category,
+          subcategory,
+        },
+      })
+    )
   );
 }
 

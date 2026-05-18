@@ -6026,11 +6026,15 @@ AMTelemetry = {
   /**
    * @param {object} opts
    * @param {nsIURI} opts.displayURI
+   * @param {string} permissionType The requested permission
    */
-  recordSuspiciousSiteEvent({ displayURI }) {
+  recordSuspiciousSiteEvent({ displayURI, permissionType }) {
     let site = displayURI?.displayHost ?? "(unknown)";
     Glean.addonsManager.reportSuspiciousSite.record(
-      this.formatExtraVars({ suspicious_site: site })
+      this.formatExtraVars({
+        suspicious_site: site,
+        permission_type: permissionType,
+      })
     );
   },
 

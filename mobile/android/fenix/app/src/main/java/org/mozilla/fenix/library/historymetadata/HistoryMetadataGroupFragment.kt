@@ -105,6 +105,7 @@ class HistoryMetadataGroupFragment :
                 fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
                 navController = findNavController(),
                 settings = requireComponents.settings,
+                shareUseCases = requireComponents.useCases.shareUseCases,
                 scope = CoroutineScope(Dispatchers.IO),
                 searchTerm = args.title,
                 deleteSnackbar = ::deleteSnackbar,

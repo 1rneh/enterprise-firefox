@@ -47,6 +47,7 @@ import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.appstate.setup.checklist.ChecklistItem
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
+import org.mozilla.fenix.components.usecases.ShareUseCases
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.helpers.FenixGleanTestRule
@@ -60,6 +61,7 @@ import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.wallpapers.Wallpaper
 import org.mozilla.fenix.wallpapers.WallpaperState
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.io.File
 import java.lang.ref.WeakReference
 import kotlin.test.assertNotNull
@@ -87,6 +89,7 @@ class DefaultSessionControlControllerTest {
     private val selectTabUseCase: TabsUseCases = mockk(relaxed = true)
     private val fenixBrowserUseCases: FenixBrowserUseCases = mockk(relaxed = true)
     private val settings: Settings = mockk(relaxed = true)
+    private val shareUseCases: ShareUseCases = mockk(relaxed = true)
     private val searchEngine = SearchEngine(
         id = "test",
         name = "Test Engine",
@@ -326,11 +329,13 @@ class DefaultSessionControlControllerTest {
     }
 
     @Test
-    fun handleCollectionShareTabsClicked() {
+    fun `WHEN handleCollectionShareTabsClicked is called THEN share use case is invoked with the collection items and title as subject`() {
+        val collectionTitle = "Reading list"
         val collection = mockk<TabCollection> {
             every { tabs } returns emptyList()
-            every { title } returns ""
+            every { title } returns collectionTitle
         }
+
         createController().handleCollectionShareTabsClicked(collection)
 
         assertNotNull(Collections.shared.testGetValue())
@@ -339,9 +344,10 @@ class DefaultSessionControlControllerTest {
         assertEquals(null, recordedEvents.single().extra)
 
         verify {
-            navController.navigate(
-                match<NavDirections> { it.actionId == R.id.action_global_shareFragment },
-                null,
+            shareUseCases.shareItems(
+                items = emptyList(),
+                subject = collectionTitle,
+                navigateToShareFragment = any(),
             )
         }
     }
@@ -704,6 +710,7 @@ class DefaultSessionControlControllerTest {
             appStore = appStore,
             navControllerRef = WeakReference(navController),
             viewLifecycleScope = TestScope(),
+            shareUseCases = shareUseCases,
             showAddSearchWidgetPrompt = { showAddSearchWidgetPromptCalled = true },
             requestSetDefaultBrowserPrompt = { requestSetDefaultBrowserPromptCalled = true },
         ).apply {

@@ -86,11 +86,16 @@ class EditBookmarkFragment : Fragment(), SystemInsetsPaddedFragment {
                                     },
                                     navigateToImportDialog = {},
                                     shareBookmarks = { bookmarks ->
-                                        navController.nav(
-                                            R.id.bookmarkFragment,
-                                            BookmarkFragmentDirections.actionGlobalShareFragment(
-                                                data = bookmarks.asShareDataArray(),
-                                            ),
+                                        requireComponents.useCases.shareUseCases.shareItems(
+                                            items = bookmarks.asShareDataArray().toList(),
+                                            navigateToShareFragment = {
+                                                navController.nav(
+                                                    R.id.bookmarkFragment,
+                                                    BookmarkFragmentDirections.actionGlobalShareFragment(
+                                                        data = bookmarks.asShareDataArray(),
+                                                    ),
+                                                )
+                                            },
                                         )
                                     },
                                     showTabsTray = { },

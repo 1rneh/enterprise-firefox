@@ -16,7 +16,18 @@ use cssparser::{match_ignore_ascii_case, Parser, Token};
 use std::f32::consts::PI;
 use std::fmt::{self, Write};
 use std::ops::Neg;
-use style_traits::{CssWriter, ParseError, SpecifiedValueInfo, ToCss};
+use style_traits::{
+    CssString, CssWriter, NumericValue, ParseError, SpecifiedValueInfo, ToCss, ToTyped, TypedValue,
+    UnitValue,
+};
+use thin_vec::ThinVec;
+
+/// Number of degrees per radian.
+const DEG_PER_RAD: f32 = 180.0 / PI;
+/// Number of degrees per turn.
+const DEG_PER_TURN: f32 = 360.0;
+/// Number of degrees per gradian.
+const DEG_PER_GRAD: f32 = 180.0 / 200.0;
 
 /// The unit of a `<angle>` value.
 #[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, PartialOrd, ToShmem)]
@@ -33,6 +44,18 @@ pub enum AngleUnit {
 }
 
 impl AngleUnit {
+    /// Returns the angle unit for the given string.
+    #[inline]
+    pub fn from_str(unit: &str) -> Result<Self, ()> {
+        Ok(match_ignore_ascii_case! { unit,
+            "deg" => AngleUnit::Deg,
+            "grad" => AngleUnit::Grad,
+            "turn" => AngleUnit::Turn,
+            "rad" => AngleUnit::Rad,
+             _ => return Err(())
+        })
+    }
+
     /// Returns this unit as a string.
     #[inline]
     pub fn as_str(self) -> &'static str {
@@ -77,6 +100,18 @@ impl ToCss for NoCalcAngle {
     }
 }
 
+impl ToTyped for NoCalcAngle {
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        let value = self.unitless_value();
+        let unit = CssString::from(self.unit());
+        dest.push(TypedValue::Numeric(NumericValue::Unit(UnitValue {
+            value,
+            unit,
+        })));
+        Ok(())
+    }
+}
+
 impl SpecifiedValueInfo for NoCalcAngle {}
 
 impl NoCalcAngle {
@@ -106,10 +141,6 @@ impl NoCalcAngle {
     /// Returns the value of the angle in degrees.
     #[inline]
     pub fn degrees(&self) -> CSSFloat {
-        const DEG_PER_RAD: f32 = 180.0 / PI;
-        const DEG_PER_TURN: f32 = 360.0;
-        const DEG_PER_GRAD: f32 = 180.0 / 200.0;
-
         match self.unit {
             AngleUnit::Deg => self.value,
             AngleUnit::Rad => self.value * DEG_PER_RAD,
@@ -125,27 +156,39 @@ impl NoCalcAngle {
         self.degrees() * RAD_PER_DEG
     }
 
-    /// Returns the unit of the angle.
-    #[inline]
-    pub fn unit(&self) -> &'static str {
-        self.unit.as_str()
-    }
-
     /// Returns the unitless, raw value.
     #[inline]
     pub fn unitless_value(&self) -> CSSFloat {
         self.value
     }
 
+    /// Returns the unit of the angle.
+    #[inline]
+    pub fn unit(&self) -> &'static str {
+        self.unit.as_str()
+    }
+
+    /// Return the canonical unit for this value.
+    pub fn canonical_unit(&self) -> Option<&'static str> {
+        Some("deg")
+    }
+
+    /// Convert this value to the specified unit, if possible.
+    pub fn to(&self, unit: &str) -> Result<Self, ()> {
+        let degrees = self.degrees();
+        let unit = AngleUnit::from_str(unit)?;
+        let divisor = match unit {
+            AngleUnit::Deg => 1.0,
+            AngleUnit::Grad => DEG_PER_GRAD,
+            AngleUnit::Turn => DEG_PER_TURN,
+            AngleUnit::Rad => DEG_PER_RAD,
+        };
+        Ok(Self::new(unit, degrees / divisor))
+    }
+
     /// Parse an `<angle>` value given a value and a unit.
     pub fn parse_dimension(value: CSSFloat, unit: &str) -> Result<Self, ()> {
-        let unit = match_ignore_ascii_case! { unit,
-            "deg" => AngleUnit::Deg,
-            "grad" => AngleUnit::Grad,
-            "turn" => AngleUnit::Turn,
-            "rad" => AngleUnit::Rad,
-             _ => return Err(())
-        };
+        let unit = AngleUnit::from_str(unit)?;
         Ok(Self::new(unit, value))
     }
 }
@@ -173,6 +216,15 @@ impl ToCss for Angle {
         match self.0.unpack() {
             Unpacked::Inline(unit, value) => NoCalcAngle::new(unit, value).to_css(dest),
             Unpacked::Boxed(calc) => calc.to_css(dest),
+        }
+    }
+}
+
+impl ToTyped for Angle {
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        match self.0.unpack() {
+            Unpacked::Inline(unit, value) => NoCalcAngle::new(unit, value).to_typed(dest),
+            Unpacked::Boxed(calc) => calc.to_typed(dest),
         }
     }
 }

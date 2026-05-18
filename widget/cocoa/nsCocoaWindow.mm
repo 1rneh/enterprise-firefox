@@ -4655,10 +4655,18 @@ void ChildViewMouseTracker::OnDestroyWindow(NSWindow* aWindow) {
 
 void ChildViewMouseTracker::MouseEnteredWindow(NSEvent* aEvent) {
   NSWindow* window = aEvent.window;
-  if (!window.ignoresMouseEvents) {
-    sWindowUnderMouse = window;
-    ReEvaluateMouseEnterState(aEvent);
+  if (window.ignoresMouseEvents) {
+    return;
   }
+  // NSTrackingActiveAlways can deliver spurious mouseEntered: to windows on
+  // inactive Spaces. Accepting them clobbers the global sWindowUnderMouse and
+  // causes hover flicker when Firefox windows span multiple Spaces or
+  // displays (Bug 1854862).
+  if (!window.isOnActiveSpace) {
+    return;
+  }
+  sWindowUnderMouse = window;
+  ReEvaluateMouseEnterState(aEvent);
 }
 
 void ChildViewMouseTracker::MouseExitedWindow(NSEvent* aEvent) {
@@ -7763,6 +7771,13 @@ LayoutDeviceIntPoint nsCocoaWindow::GetNativeLockedPoint() {
   }
   mGeckoWindow->FinishCurrentTransitionIfMatching(
       nsCocoaWindow::TransitionType::Deminiaturize);
+
+  // When deminiaturizing a window, the activation events that cause it to
+  // persist its size are not sent by default. This means that if you
+  // deminiaturize a window and then open a new window, the new window
+  // will not necessarily be the size of the deminiaturized window as you'd
+  // expect. See bug 429952.
+  [self sendToplevelActivateEvents];
 }
 
 - (BOOL)windowShouldZoom:(NSWindow*)window toFrame:(NSRect)proposedFrame {

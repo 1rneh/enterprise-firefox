@@ -1405,21 +1405,10 @@ bool PresShell::FixUpFocus() {
   if (NS_WARN_IF(!window)) {
     return false;
   }
-  // XXX: This is a temporary fix to avoid regressions with sequential
-  //      focus navigation. (But maybe this should still happen when caret
-  //      browsing is enabled?) See bug 2034851.
-  // Don't move document selection to native anonymous subtree.
-  if (RefPtr element = fm->GetFocusedElement();
-      element && !element->IsInNativeAnonymousSubtree()) {
-    RefPtr selection = window->GetSelection();
-    if (MOZ_LIKELY(selection)) {
-      // Move selection to the element so that focus navigation starts from
-      // there.
-      selection->SetAncestorLimiter(nullptr);
-      DebugOnly<nsresult> rv = selection->CollapseInLimiter(element, 0);
-      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "Selection::CollapseInLimiter failed.");
-    }
+  if (auto* element = fm->GetFocusedElement()) {
+    // Set focus navigation starting point, so that focus navigation still
+    // starts from this element.
+    element->OwnerDoc()->SetFocusNavigationStartingPoint(element);
   }
   fm->ClearFocus(window);
   return true;
@@ -2228,8 +2217,13 @@ void PresShell::NotifyDestroyingFrame(nsIFrame* aFrame) {
   }
 }
 
-already_AddRefed<nsCaret> PresShell::GetCaret() const {
+already_AddRefed<nsCaret> PresShell::GetActiveCaret() const {
   RefPtr<nsCaret> caret = mCaret;
+  return caret.forget();
+}
+
+already_AddRefed<nsCaret> PresShell::GetOriginalCaret() const {
+  RefPtr<nsCaret> caret = mOriginalCaret;
   return caret.forget();
 }
 
@@ -2239,7 +2233,7 @@ PresShell::GetAccessibleCaretEventHub() const {
   return eventHub.forget();
 }
 
-void PresShell::SetCaret(nsCaret* aNewCaret) {
+void PresShell::SetActiveCaret(nsCaret* aNewCaret) {
   if (mCaret == aNewCaret) {
     return;
   }
@@ -2252,7 +2246,7 @@ void PresShell::SetCaret(nsCaret* aNewCaret) {
   }
 }
 
-void PresShell::RestoreCaret() { SetCaret(mOriginalCaret); }
+void PresShell::RestoreOriginalCaret() { SetActiveCaret(mOriginalCaret); }
 
 NS_IMETHODIMP PresShell::SetCaretEnabled(bool aInEnable) {
   bool oldEnabled = mCaretEnabled;
@@ -2260,9 +2254,9 @@ NS_IMETHODIMP PresShell::SetCaretEnabled(bool aInEnable) {
   mCaretEnabled = aInEnable;
 
   if (mCaretEnabled != oldEnabled) {
-    MOZ_ASSERT(mCaret);
-    if (mCaret) {
-      mCaret->SetVisible(mCaretEnabled);
+    MOZ_ASSERT(mOriginalCaret);
+    if (mOriginalCaret) {
+      mOriginalCaret->SetVisible(mCaretEnabled);
     }
   }
 
@@ -2270,8 +2264,8 @@ NS_IMETHODIMP PresShell::SetCaretEnabled(bool aInEnable) {
 }
 
 NS_IMETHODIMP PresShell::SetCaretReadOnly(bool aReadOnly) {
-  if (mCaret) {
-    mCaret->SetCaretReadOnly(aReadOnly);
+  if (mOriginalCaret) {
+    mOriginalCaret->SetCaretReadOnly(aReadOnly);
   }
   return NS_OK;
 }
@@ -2283,16 +2277,16 @@ NS_IMETHODIMP PresShell::GetCaretEnabled(bool* aOutEnabled) {
 }
 
 NS_IMETHODIMP PresShell::SetCaretVisibilityDuringSelection(bool aVisibility) {
-  if (mCaret) {
-    mCaret->SetVisibilityDuringSelection(aVisibility);
+  if (mOriginalCaret) {
+    mOriginalCaret->SetVisibilityDuringSelection(aVisibility);
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP PresShell::GetCaretVisible(bool* aOutIsVisible) {
   *aOutIsVisible = false;
-  if (mCaret) {
-    *aOutIsVisible = mCaret->IsVisible();
+  if (mOriginalCaret) {
+    *aOutIsVisible = mOriginalCaret->IsVisible();
   }
   return NS_OK;
 }
@@ -10006,7 +10000,7 @@ bool PresShell::EventHandler::PrepareToUseCaretPosition(
   nsresult rv;
 
   // check caret visibility
-  RefPtr<nsCaret> caret = mPresShell->GetCaret();
+  RefPtr<nsCaret> caret = mPresShell->GetActiveCaret();
   NS_ENSURE_TRUE(caret, false);
 
   bool caretVisible = caret->IsVisible();

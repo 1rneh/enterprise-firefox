@@ -313,6 +313,7 @@ export const SpecialMessageActions = {
       "browser.smartwindow.enabled",
       "browser.smartwindow.firstrun.hasCompleted",
       "browser.smartwindow.firstrun.modelChoice",
+      "browser.smartwindow.isDefaultWindow",
       "browser.smartwindow.sidebar.openByDefault",
       "browser.smartwindow.memories.generateFromConversation",
       "browser.smartwindow.memories.generateFromHistory",
@@ -640,7 +641,11 @@ export const SpecialMessageActions = {
   },
 
   async createAndOpenProfile() {
-    await lazy.SelectableProfileService.createNewProfile();
+    await lazy.SelectableProfileService.createNewProfile(
+      true,
+      null,
+      "asrouter"
+    );
   },
 
   async submitOnboardingOptOutPing() {

@@ -91,21 +91,21 @@ fun ExpandedTabGroup(
         )
 
         TabLayout(
-            tabs = group.tabs.toList(),
+            tabs = group.tabs,
             displayTabsInGrid = true,
             dragAndDropEnabled = false,
-            selectedItemIndex = 0, // updating this in Bug 2030474
+            selectedItemIndex = group.initialScrollIndex,
             selectionMode = TabsTrayState.Mode.Normal,
             tabInteractionHandler = NoOpTabInteractionHandler, // todo Bug 2032255: Inject interaction handling
             modifier = Modifier,
             onTabClose = onTabClose,
             onItemClick = onItemClick,
             onItemLongClick = { item -> }, // Ignore long click
-            onTabDragStart = { }, // Ignore drags
             onDeleteTabGroupClick = { }, // Ignore tab group deletes
             onEditTabGroupClick = { }, // Ignore tab group edits
             onCloseTabGroupClick = { }, // Ignore tab group closes
             contentPadding = PaddingValues(0.dp), // TabLayout should not have its own content padding inside this view
+            focusEnabled = true, // Drag and drop is not possible in this view, so focus should never be suppressed
         )
     }
 }

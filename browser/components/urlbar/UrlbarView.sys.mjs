@@ -561,7 +561,9 @@ export class UrlbarView {
 
     this.#stopTail150();
 
-    this.#inputWidthOnLastClose = getBoundsWithoutFlushing(this.input).width;
+    this.#containerWidthOnLastClose = getBoundsWithoutFlushing(
+      this.input.parentElement
+    ).width;
 
     // We exit search mode preview on close since the result previewing it is
     // implicitly unselected.
@@ -577,7 +579,6 @@ export class UrlbarView {
     this.#previousTabToSearchEngine = null;
 
     this.input.removeAttribute("open");
-    this.input.endLayoutExtend();
 
     // Search Tips can open the view without the Urlbar being focused. If the
     // tip is ignored (e.g. the page content is clicked or the window loses
@@ -734,7 +735,8 @@ export class UrlbarView {
     if (
       this.#rows.firstElementChild &&
       this.#queryContext.searchString == this.input.value &&
-      this.#inputWidthOnLastClose == getBoundsWithoutFlushing(this.input).width
+      this.#containerWidthOnLastClose ==
+        getBoundsWithoutFlushing(this.input.parentElement).width
     ) {
       // We can reuse the current rows.
       queryOptions.allowAutofill = this.#queryContext.allowAutofill;
@@ -1162,7 +1164,7 @@ export class UrlbarView {
   #announceTabToSearchOnSelection;
   #blobUrlsByResultUrl = null;
   #tail150 = null;
-  #inputWidthOnLastClose = 0;
+  #containerWidthOnLastClose = 0;
   #l10nCache;
   #mousedownSelectedElement;
   #openPanelInstance;
@@ -1208,7 +1210,6 @@ export class UrlbarView {
 
     this.input.toggleAttribute("suppress-focus-border", true);
     this.input.toggleAttribute("open", true);
-    this.input.startLayoutExtend();
 
     this.window.addEventListener("resize", this);
     this.window.addEventListener("blur", this);
@@ -3161,6 +3162,13 @@ export class UrlbarView {
       }
       if (element != row) {
         row?.toggleAttribute("descendant-selected", true);
+      }
+      // Keep the selected row in view in the smartbar, where the results
+      // list is scrollable. `block: "nearest"` is a no-op when the row is
+      // already visible. Scoped to smartbar to avoid changing classic
+      // urlbar behavior.
+      if (this.input.sapName == "smartbar") {
+        (row ?? element).scrollIntoView({ block: "nearest" });
       }
     }
 

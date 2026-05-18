@@ -7,15 +7,4 @@
 with Files("**"):
     BUG_COMPONENT = ("Enterprise Products", "Firefox")
 
-EXTRA_JS_MODULES.enterprise += [
-    "modules/ConsoleClient.sys.mjs",
-    "modules/EnterpriseCommon.sys.mjs",
-    "modules/EnterpriseEndpoints.sys.mjs",
-    "modules/EnterpriseHandler.sys.mjs",
-    "modules/EnterpriseOSInfo.sys.mjs",
-    "modules/Updates.sys.mjs",
-]
-
 JAR_MANIFESTS += ["jar.mn"]
-
-BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]

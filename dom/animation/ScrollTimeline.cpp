@@ -210,6 +210,28 @@ void ScrollTimeline::WillRefresh() {
   Tick(dummyState);
 }
 
+bool ScrollTimeline::UpdateIfStale() {
+  // The scroll timeline may be stale if there are any updates in
+  // RenderingPhase::AnimationFrameCallbacks and RenderingPhase::Layout.
+  // We have to check if the ranges are still valid.
+  // https://drafts.csswg.org/scroll-animations-1/#event-loop
+  if (MOZ_LIKELY(!UpdateCachedCurrentTime())) {
+    return false;
+  }
+
+  if (mAnimations.IsEmpty()) {
+    return false;
+  }
+
+  // Check all animations and request restyle.
+  // NOTE: Even if the animation doesn't have the target, it would be okay to
+  // post update. We can optimize the case later.
+  for (const auto& animation : mAnimations) {
+    animation->PostUpdate();
+  }
+  return true;
+}
+
 bool ScrollTimeline::SourceMatches(
     const Element* aElement, const PseudoStyleRequest& aPseudoRequest) const {
   if (mScrollerInfo.IsAnonymous()) {
@@ -295,7 +317,7 @@ void ScrollTimeline::ReplacePropertiesWith(
 
 ScrollTimeline::~ScrollTimeline() { Teardown(); }
 
-void ScrollTimeline::UpdateCachedCurrentTime() {
+bool ScrollTimeline::UpdateCachedCurrentTime() {
   const auto prevCachedCurrentTime = std::move(mCachedCurrentTime);
 
   mCachedCurrentTime.reset();
@@ -303,14 +325,14 @@ void ScrollTimeline::UpdateCachedCurrentTime() {
   const auto state = GetState();
   // If no layout box, this timeline is inactive.
   if (const auto* e = state.mSource.mElement; !e || !e->GetPrimaryFrame()) {
-    return;
+    return prevCachedCurrentTime.isSome();
   }
 
   // if this is not a scroller container, this timeline is inactive.
   const ScrollContainerFrame* scrollContainerFrame =
       state.GetScrollContainerFrame();
   if (!scrollContainerFrame) {
-    return;
+    return prevCachedCurrentTime.isSome();
   }
 
   const auto orientation = state.Axis();
@@ -319,7 +341,7 @@ void ScrollTimeline::UpdateCachedCurrentTime() {
   // https://drafts.csswg.org/scroll-animations-1/#scrolltimeline-interface
   if (!scrollContainerFrame->GetAvailableScrollingDirections().contains(
           orientation)) {
-    return;
+    return prevCachedCurrentTime.isSome();
   }
 
   const nsPoint& scrollPosition = scrollContainerFrame->GetScrollPosition();
@@ -336,6 +358,7 @@ void ScrollTimeline::UpdateCachedCurrentTime() {
                                     prevCachedCurrentTime->mMaxScrollOffset) {
     TimelineDataDidChange();
   }
+  return mCachedCurrentTime != prevCachedCurrentTime;
 }
 
 void ScrollTimeline::TimelineDataDidChange() {

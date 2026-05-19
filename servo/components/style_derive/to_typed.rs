@@ -55,9 +55,18 @@ use synstructure::{BindingInfo, Structure};
 ///
 /// * `#[css(skip)]` on a field disables reification for that field.
 ///
-/// * `#[typed(skip_if = "...")]` on a field conditionally disables reification
-///   for that field. If the provided function returns `true` for the field
-///   value, the field is ignored.
+/// * `#[css(skip_if = "...")]` / `#[typed(skip_if = "...")]` on a field
+///   conditionally disables reification for that field. If the provided
+///   function returns `true` for the field value, the field is ignored.
+///
+/// * `#[css(contextual_skip_if = "...")]` /
+///   `#[typed(contextual_skip_if = "...")]` on a field conditionally disables
+///   reification for that field. The provided function is called with all
+///   fields in the current struct or variant. If it returns `true`, the field
+///   is ignored.
+///
+///   Typed skip annotations override CSS skip annotations when both are
+///   present.
 ///
 /// * `#[css(keyword = "...")]` on a unit variant overrides the keyword
 ///   string.
@@ -77,6 +86,9 @@ use synstructure::{BindingInfo, Structure};
 ///
 /// * `#[css(if_empty = "...")]` on an iterable field causes the provided
 ///   keyword to be emitted when the iterable contains no elements.
+///
+/// * `#[css(represents_keyword)]` on a bool field causes the field name to be
+///   reified as a keyword when the field is true.
 pub fn derive(mut input: DeriveInput) -> TokenStream {
     // The mutable `where_clause` is passed down to helper functions so they
     // can append trait bounds only when necessary. In particular, a bound of
@@ -267,8 +279,8 @@ fn derive_variant_arm(
 ///   destination and then validates whether the enclosing variant is allowed
 ///   to produce multiple `TypedValue`s.
 ///
-/// Fields marked with `#[css(skip)]`, or skipped by
-/// `#[typed(skip_if = "...")]`, are ignored.
+/// Fields marked with `#[css(skip)]`, or skipped by css/typed `skip_if` or
+/// `contextual_skip_if` annotations, are ignored.
 fn derive_variant_fields_expr(
     bindings: &[BindingInfo],
     where_clause: &mut Option<WhereClause>,
@@ -298,31 +310,28 @@ fn derive_variant_fields_expr(
 
     // Handle the simple case of exactly one non-iterable field.
     if !css_field_attrs.iterable && iter.peek().is_none() {
-        // Add a trait bound `T: ToTyped` to ensure the field type implements
-        // the required conversion, and emit a call to its `.to_typed()`
-        // method.
-        let ty = &first.ast().ty;
-        cg::add_predicate(where_clause, parse_quote!(#ty: style_traits::ToTyped));
+        let expr =
+            derive_single_field_expr(first, css_field_attrs, field_attrs, where_clause, bindings);
 
-        let mut expr = quote! { style_traits::ToTyped::to_typed(#first, dest) };
-
-        if let Some(condition) = field_attrs.skip_if {
-            expr = quote! {
-                if !#condition(#first) {
-                    #expr
-                }
-            }
-        }
-
-        return expr;
+        return quote! {{
+            #expr
+            Ok(())
+        }};
     }
 
     // Handle the general case by appending reified output from the supported
     // fields directly to the destination.
-    let mut expr = derive_single_field_expr(first, css_field_attrs, field_attrs, where_clause);
+    let mut expr =
+        derive_single_field_expr(first, css_field_attrs, field_attrs, where_clause, bindings);
     for (binding, css_field_attrs, field_attrs) in iter {
-        derive_single_field_expr(binding, css_field_attrs, field_attrs, where_clause)
-            .to_tokens(&mut expr)
+        derive_single_field_expr(
+            binding,
+            css_field_attrs,
+            field_attrs,
+            where_clause,
+            bindings,
+        )
+        .to_tokens(&mut expr)
     }
 
     quote! {{
@@ -347,8 +356,9 @@ fn derive_variant_fields_expr(
 /// For non-iterable fields, it generates a direct `ToTyped::to_typed` call
 /// for the field value.
 ///
-/// If `#[typed(skip_if = "...")]` is present and the provided function returns
-/// `true` for the field value, the field contributes no reified output.
+/// If a css/typed `skip_if` or `contextual_skip_if` annotation is present and
+/// the provided function returns `true`, the field contributes no reified
+/// output. Typed skip annotations override CSS skip annotations.
 ///
 /// The appropriate `T: ToTyped` bounds for the field type or iterable element
 /// type(s) are added to the `where` clause.
@@ -357,6 +367,7 @@ fn derive_single_field_expr(
     css_field_attrs: CssFieldAttrs,
     field_attrs: TypedFieldAttrs,
     where_clause: &mut Option<WhereClause>,
+    bindings: &[BindingInfo],
 ) -> TokenStream {
     let mut expr = if css_field_attrs.iterable {
         // We add `ToTyped` bounds for the iterable's element type(s), rather
@@ -394,6 +405,20 @@ fn derive_single_field_expr(
                 }
             }
         }
+    } else if css_field_attrs.represents_keyword {
+        let ident = field
+            .ast()
+            .ident
+            .as_ref()
+            .expect("Unnamed field with represents_keyword?");
+        let ident = cg::to_css_identifier(&ident.to_string()).replace("_", "-");
+        quote! {
+            if *#field {
+                dest.push(style_traits::TypedValue::Keyword(
+                    style_traits::KeywordValue(style_traits::CssString::from(#ident)),
+                ));
+            }
+        }
     } else {
         // Add a trait bound `T: ToTyped` to ensure the field type implements
         // the required conversion, and emit a call to its `.to_typed()`
@@ -406,9 +431,40 @@ fn derive_single_field_expr(
         }
     };
 
-    if let Some(condition) = field_attrs.skip_if {
+    let typed_has_skip = field_attrs.skip_if.is_some() || field_attrs.contextual_skip_if.is_some();
+
+    let skip_if = field_attrs.skip_if.or_else(|| {
+        if typed_has_skip {
+            None
+        } else {
+            css_field_attrs.skip_if
+        }
+    });
+
+    let contextual_skip_if = field_attrs.contextual_skip_if.or_else(|| {
+        if typed_has_skip {
+            None
+        } else {
+            css_field_attrs.contextual_skip_if
+        }
+    });
+
+    assert!(
+        skip_if.is_none() || contextual_skip_if.is_none(),
+        "Field should not have both skip_if and contextual_skip_if"
+    );
+
+    if let Some(condition) = skip_if {
         expr = quote! {
             if !#condition(#field) {
+                #expr
+            }
+        }
+    }
+
+    if let Some(condition) = contextual_skip_if {
+        expr = quote! {
+            if !#condition(#(#bindings), *) {
                 #expr
             }
         }
@@ -540,4 +596,11 @@ pub struct TypedFieldAttrs {
     /// The provided function is called with the field value. If it returns
     /// `true`, the field is ignored and produces no `TypedValue` items.
     pub skip_if: Option<Path>,
+
+    /// Conditionally skips reification of this field based on the full value.
+    ///
+    /// The provided function is called with all fields in the current struct
+    /// or variant. If it returns `true`, the field is ignored and produces no
+    /// `TypedValue` items.
+    pub contextual_skip_if: Option<Path>,
 }

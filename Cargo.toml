@@ -162,7 +162,7 @@ uniffi_pipeline = "0.31"
 # Shared across multiple application-services consumers.
 rusqlite = "0.37"
 # Shared across multiple glean consumers.
-glean = "=67.3.1"
+glean = "=67.3.2"
 
 # Explicitly specify what our profiles use.  The opt-level setting here is
 # a total fiction; see the setup of MOZ_RUST_DEFAULT_FLAGS for what the
@@ -300,9 +300,6 @@ goblin = { path = "build/rust/goblin" }
 
 # Implement getrandom 0.2 in terms of 0.3
 getrandom = { path = "build/rust/getrandom" }
-
-# Patch mio to 1.1.1 with windows-sys 0.52 backport
-mio = { git = "https://github.com/kinetiknz/mio", rev = "5e8b202db39facecc343170f50a07916640a607c" }
 
 # Patch rustc-hash 1.1.0 to 2.1.1
 rustc-hash = { path = "build/rust/rustc-hash" }

@@ -2247,11 +2247,7 @@ pref("sidebar.expandOnHover", true);
 pref("sidebar.old-sidebar.has-used", false);
 pref("sidebar.new-sidebar.has-used", false);
 pref("sidebar.history.sortOption", "date");
-#ifdef NIGHTLY_BUILD
-pref("sidebar.updatedBookmarks.enabled", true);
-#else
 pref("sidebar.updatedBookmarks.enabled", false);
-#endif
 
 pref("sidebar.notification.badge.aichat", false);
 
@@ -3737,4 +3733,4 @@ pref("browser.contentsharing.enabled", false);
 pref("browser.contentsharing.newBadge.enabled", true);
 
 // When enabled, Firefox ignores the distribution.ini file if global.id is MozillaOnline.
-pref("distribution.mozillaonline.ignore", false);
+pref("distribution.mozillaonline.ignore", true);

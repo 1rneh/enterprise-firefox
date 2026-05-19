@@ -1761,6 +1761,8 @@ export const LoginHelper = {
       };
     }
 
+    // So there's a primary password. But since checkPassword didn't succeed,
+    // we're logged out (per nsIPKCS11Token.idl).
     try {
       if (isEnterpriseManagedPrimaryPassword) {
         // Enterprise builds rely on the backend-provided secret rather than forcing a logout.

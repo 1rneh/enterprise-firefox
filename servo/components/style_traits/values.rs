@@ -809,9 +809,18 @@ pub struct TypedValueList {
 /// * `#[css(skip)]` on a field causes that field to be ignored during
 ///   reification.
 ///
-/// * `#[typed(skip_if = "...")]` on a field conditionally disables reification
-///   for that field. If the provided function returns `true` for the field
-///   value, the field is ignored.
+/// * `#[css(skip_if = "...")]` / `#[typed(skip_if = "...")]` on a field
+///   conditionally disables reification for that field. If the provided
+///   function returns `true` for the field value, the field is ignored.
+///
+/// * `#[css(contextual_skip_if = "...")]` /
+///   `#[typed(contextual_skip_if = "...")]` on a field conditionally disables
+///   reification for that field. The provided function is called with all
+///   fields in the current struct or variant. If it returns `true`, the field
+///   is ignored.
+///
+///   Typed skip annotations override CSS skip annotations when both are
+///   present.
 ///
 /// * `#[css(keyword = "...")]` on a unit variant overrides the keyword that
 ///   would otherwise be derived from the Rust identifier.
@@ -832,6 +841,9 @@ pub struct TypedValueList {
 ///
 /// * `#[css(if_empty = "...")]` on an iterable field specifies a keyword
 ///   value that should be produced when the iterable is empty.
+///
+/// * `#[css(represents_keyword)]` on a bool field causes the field name to be
+///   reified as a keyword when the field is true.
 pub trait ToTyped {
     /// Attempt to convert `self` into one or more [`TypedValue`] items.
     ///

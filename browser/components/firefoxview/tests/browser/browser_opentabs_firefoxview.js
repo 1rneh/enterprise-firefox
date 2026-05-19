@@ -547,6 +547,17 @@ add_task(async function test_send_mobile_signed_out_submenu_text() {
 
     ok(sendTabPanelItem, "Send tabs to mobile submenu panel item exists");
 
+    let sendTabSubmenuList = sendTabPanelItem.shadowRoot.querySelector(
+      "panel-list[id=send-tab-menu3]"
+    );
+    ok(sendTabSubmenuList, "Send tabs to mobile submenu panel list exists");
+
+    let signInPanelItem = sendTabSubmenuList.querySelector(
+      "panel-item[data-l10n-id=fxviewtabrow-send-to-mobile-sign-in]"
+    );
+
+    ok(signInPanelItem, "Send tabs to mobile sign in panel item exists");
+
     sandbox.restore();
     TabsSetupFlowManager.resetInternalState();
     while (gBrowser.tabs.length > 1) {
@@ -598,7 +609,7 @@ add_task(
       ok(sendTabSubmenuList, "Send tabs to mobile submenu panel list exists");
 
       let enableSyncPanelItem = sendTabSubmenuList.querySelector(
-        "panel-item[data-l10n-id=fxviewtabrow-send-to-mobile-enable-sync2]"
+        "panel-item[data-l10n-id=fxviewtabrow-send-to-mobile-turn-on-sync]"
       );
 
       ok(
@@ -657,7 +668,7 @@ add_task(async function test_send_mobile_single_device_submenu_text() {
     ok(sendTabSubmenuList, "Send tabs to mobile submenu panel list exists");
 
     let connectPhonePanelItem = sendTabSubmenuList.querySelector(
-      "panel-item[data-l10n-id=fxviewtabrow-send-to-mobile-connect-phone2]"
+      "panel-item[data-l10n-id=fxviewtabrow-send-to-mobile-connect-device]"
     );
 
     ok(

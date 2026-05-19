@@ -81,6 +81,13 @@
         <item name="colorOnError">@color/fx_mobile_on_error</item>
         <item name="colorErrorContainer">@color/fx_mobile_error_container</item>
         <item name="colorOnErrorContainer">@color/fx_mobile_on_error_container</item>
+        <item name="colorInformation">@color/fx_mobile_information</item>
+        <item name="colorInformationContainer">@color/fx_mobile_information_container</item>
+        <item name="colorOnInformationContainer">@color/fx_mobile_on_information_container</item>
+        <item name="colorSuccess">@color/fx_mobile_success</item>
+        <item name="colorWarning">@color/fx_mobile_warning</item>
+        <item name="colorWarningContainer">@color/fx_mobile_warning_container</item>
+        <item name="colorOnWarningContainer">@color/fx_mobile_on_warning_container</item>
         <item name="colorOutline">@color/fx_mobile_outline</item>
         <item name="colorOutlineVariant">@color/fx_mobile_outline_variant</item>
         <item name="colorSurfaceBright">@color/fx_mobile_surface_bright</item>
@@ -167,8 +174,8 @@
         <item name="bottomBarBackgroundTop">@drawable/home_bottom_bar_background_top</item>
         <item name="mozac_ic_private_mode_circle_fill_background_color">@android:color/transparent</item>
         <item name="mozac_ic_private_mode_circle_fill_icon_color">@color/fx_mobile_on_surface</item>
-        <item name="mozac_ic_shield_slash_bg_fill_critical">@color/fx_mobile_icon_color_primary</item>
-        <item name="mozac_ic_shield_slash_fill_critical">@color/fx_mobile_icon_color_critical</item>
+        <item name="mozac_ic_shield_slash_bg_fill_critical">?attr/colorOnSurface</item>
+        <item name="mozac_ic_shield_slash_fill_critical">?attr/colorError</item>
 
         <item name="tabCounterTintColor">?attr/colorOnSurface</item>
     </style>
@@ -366,6 +373,13 @@
         <item name="colorOnError">@color/fx_mobile_private_on_error</item>
         <item name="colorErrorContainer">@color/fx_mobile_private_error_container</item>
         <item name="colorOnErrorContainer">@color/fx_mobile_private_on_error_container</item>
+        <item name="colorInformation">@color/fx_mobile_private_information</item>
+        <item name="colorInformationContainer">@color/fx_mobile_private_information_container</item>
+        <item name="colorOnInformationContainer">@color/fx_mobile_private_on_information_container</item>
+        <item name="colorSuccess">@color/fx_mobile_private_success</item>
+        <item name="colorWarning">@color/fx_mobile_private_warning</item>
+        <item name="colorWarningContainer">@color/fx_mobile_private_warning_container</item>
+        <item name="colorOnWarningContainer">@color/fx_mobile_private_on_warning_container</item>
         <item name="colorOutline">@color/fx_mobile_private_outline</item>
         <item name="colorOutlineVariant">@color/fx_mobile_private_outline_variant</item>
         <item name="colorSurfaceBright">@color/fx_mobile_private_surface_bright</item>
@@ -450,8 +464,8 @@
         <item name="bottomBarBackgroundTop">@drawable/private_home_bottom_bar_background_gradient_top</item>
         <item name="mozac_ic_private_mode_circle_fill_background_color">@color/photonWhite</item>
         <item name="mozac_ic_private_mode_circle_fill_icon_color">@color/fx_mobile_private_layer_color_2</item>
-        <item name="mozac_ic_shield_slash_bg_fill_critical">@color/fx_mobile_private_icon_color_primary</item>
-        <item name="mozac_ic_shield_slash_fill_critical">@color/fx_mobile_private_icon_color_critical</item>
+        <item name="mozac_ic_shield_slash_bg_fill_critical">?attr/colorOnSurface</item>
+        <item name="mozac_ic_shield_slash_fill_critical">?attr/colorError</item>
 
         <item name="tabCounterTintColor">?attr/colorOnSurface</item>
     </style>
@@ -482,7 +496,7 @@
 
     <!-- UI button styling -->
     <style name="NeutralButton" parent="Widget.MaterialComponents.Button.TextButton">
-        <item name="iconTint">@color/fx_mobile_icon_color_action_secondary</item>
+        <item name="iconTint">?attr/colorOnSurface</item>
         <item name="iconPadding">8dp</item>
         <item name="iconGravity">textStart</item>
         <item name="android:textAlignment">center</item>
@@ -492,7 +506,7 @@
         <item name="android:textStyle">bold</item>
         <item name="android:textAllCaps">false</item>
         <item name="backgroundTint">@color/fx_mobile_action_color_secondary</item>
-        <item name="android:textColor">@color/fx_mobile_text_color_action_secondary</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
         <item name="rippleColor">?attr/colorOnSurfaceVariant</item>
         <item name="android:letterSpacing">0</item>
         <item name="android:textFontWeight" tools:ignore="NewApi">@integer/font_weight_medium</item>

@@ -909,8 +909,16 @@ class OpenTabsContextMenu extends MozLitElement {
     return html`<panel-item
       data-l10n-id="fxviewtabrow-send-to-mobile"
       data-l10n-attrs="accesskey"
-      @click=${this.onSendTabSignedOutItemClick}
-    ></panel-item>`;
+      submenu="send-tab-menu3"
+    >
+      <panel-list slot="submenu" id="send-tab-menu3">
+        <panel-item
+          data-l10n-id="fxviewtabrow-send-to-mobile-sign-in"
+          @click=${this.onSendTabSignedOutItemClick}
+        >
+        </panel-item>
+      </panel-list>
+    </panel-item>`;
   }
 
   sendTabSyncDisabledTemplate() {
@@ -921,7 +929,7 @@ class OpenTabsContextMenu extends MozLitElement {
     >
       <panel-list slot="submenu" id="send-tab-menu1">
         <panel-item
-          data-l10n-id="fxviewtabrow-send-to-mobile-enable-sync2"
+          data-l10n-id="fxviewtabrow-send-to-mobile-turn-on-sync"
           @click=${this.onSendTabSyncDisabledItemClick}
         >
         </panel-item>
@@ -937,7 +945,7 @@ class OpenTabsContextMenu extends MozLitElement {
     >
       <panel-list slot="submenu" id="send-tab-menu2">
         <panel-item
-          data-l10n-id="fxviewtabrow-send-to-mobile-connect-phone2"
+          data-l10n-id="fxviewtabrow-send-to-mobile-connect-device"
           @click=${this.onSendTabConnectPhoneItemClick}
         >
         </panel-item>

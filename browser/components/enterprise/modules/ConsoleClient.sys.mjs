@@ -749,11 +749,6 @@ export const ConsoleClient = {
         this._consoleUriReadyPromise = null;
         break;
       }
-      case "nsPref:changed": {
-        // Console pref was changed, make sure new callers gets a new promise
-        this._consoleUriReadyPromise = null;
-        break;
-      }
     }
   },
 }.init();

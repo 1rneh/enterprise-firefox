@@ -330,6 +330,8 @@ profiles:
           A profile created for a background task
         unknown
           The profile was created without supplying a source
+        felt-firstrun
+          First run of felt creates the profile
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2026972
     data_reviews:

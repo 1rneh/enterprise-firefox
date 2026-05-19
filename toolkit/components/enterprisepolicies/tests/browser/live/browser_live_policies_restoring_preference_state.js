@@ -1,0 +1,346 @@
+/* Any copyright is dedicated to the Public Domain.
+ * http://creativecommons.org/publicdomain/zero/1.0/ */
+
+"use strict";
+
+const { setAndLockPref, unsetAndUnlockPref, PoliciesUtils } =
+  ChromeUtils.importESModule("resource:///modules/policies/Policies.sys.mjs");
+
+const PREF_VALUE = {
+  INITIAL_DEFAULT: "initial-default-value",
+  INITIAL_USER: "initial-user-value",
+  USER_CHANGED: "user-changed",
+  POLICY_DEFAULT: "policy-default",
+  POLICY_CHANGED: "policy-changed",
+};
+
+const prefName = "browser.tests.some_random_pref";
+
+function assert_clean_preference_state() {
+  info(
+    "Verifying we are starting with a clean preference state, hence no default or user value"
+  );
+  ok(!Services.prefs.prefHasDefaultValue(prefName), "No default value");
+  ok(!Services.prefs.prefHasUserValue(prefName), "No user value");
+
+  // Resetting the preference state cache
+  PoliciesUtils._initialPrefState = {};
+}
+
+/**
+ * Restoring the preference state (default and user value cached) when the
+ * preference was locked restores both default and user value.
+ */
+add_task(
+  async function test_restore_default_and_user_value_when_preference_locked() {
+    assert_clean_preference_state();
+
+    const defaults = Services.prefs.getDefaultBranch("");
+
+    info("Setting preference's default and user value");
+    defaults.setStringPref(prefName, PREF_VALUE.INITIAL_DEFAULT);
+    Services.prefs.setStringPref(prefName, PREF_VALUE.INITIAL_USER);
+
+    info(
+      "Set the preference's default value to the policy value and lock the preference"
+    );
+    setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+
+    info("Verifying that the policy value is applied");
+    Assert.equal(
+      defaults.getStringPref(prefName),
+      PREF_VALUE.POLICY_DEFAULT,
+      "Expected policy value to be returned as default"
+    );
+
+    info(
+      "Verifying that the policy default value is returned as user value, since the preference is locked"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.POLICY_DEFAULT,
+      "Expected policy value to be returned as user value"
+    );
+
+    info("Verifying that the policy is locked");
+    ok(Services.prefs.prefIsLocked(prefName), "Preference is locked");
+
+    info("Modifying the user value on a locked preference");
+    Services.prefs.setStringPref(prefName, PREF_VALUE.USER_CHANGED);
+
+    info(
+      "Verifying that the policy default value is still returned even after the user value was directly modified"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.POLICY_DEFAULT,
+      "Expected policy value to be returned even after user value changed"
+    );
+
+    info("Restoring preference state");
+    unsetAndUnlockPref(prefName);
+
+    info("Verifying that the initial default value is restored");
+    Assert.equal(
+      defaults.getStringPref(prefName),
+      PREF_VALUE.INITIAL_DEFAULT,
+      "Expected default value to be restored"
+    );
+
+    info(
+      "Verifying that the user value is unchanged, since the preference is not locked"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.INITIAL_USER,
+      "Expected user value to be restored."
+    );
+
+    info("Verifying that the policy is unlocked again");
+    ok(!Services.prefs.prefIsLocked(prefName), "Preference is unlocked");
+
+    Services.prefs.deleteBranch(prefName);
+  }
+);
+
+/**
+ * Restoring the preference state (default and user value cached) when the
+ * preference wasn't locked restores only the default value.
+ */
+add_task(
+  async function test_restore_only_default_value_when_preference_unlocked() {
+    assert_clean_preference_state();
+
+    const defaults = Services.prefs.getDefaultBranch("");
+
+    info("Setting preference's default and user value");
+    defaults.setStringPref(prefName, PREF_VALUE.INITIAL_DEFAULT);
+    Services.prefs.setStringPref(prefName, PREF_VALUE.INITIAL_USER);
+
+    info("Set the preference's default value to the policy value");
+    PoliciesUtils.setDefaultPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+
+    info("Verifying that the policy value is applied");
+    Assert.equal(
+      defaults.getStringPref(prefName),
+      PREF_VALUE.POLICY_DEFAULT,
+      "Expected policy value to be returned as default"
+    );
+
+    info(
+      "Verifying that the user value is unchanged, since the preference is not locked"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.INITIAL_USER,
+      "Expected user value to remain untouched"
+    );
+
+    info("Restoring preference state");
+    PoliciesUtils.unsetDefaultPref(prefName);
+
+    info("Verifying that the initial default value is restored");
+    Assert.equal(
+      defaults.getStringPref(prefName),
+      PREF_VALUE.INITIAL_DEFAULT,
+      "Expected default value to be restored"
+    );
+
+    Services.prefs.deleteBranch(prefName);
+  }
+);
+
+/**
+ * Restoring the preference state (no values cached) when the
+ * preference was locked restores both default and user value,
+ * hence the preference gets removed again.
+ */
+add_task(
+  async function test_remove_preference_if_no_default_or_user_value_to_restore_and_preference_locked() {
+    assert_clean_preference_state();
+
+    const defaults = Services.prefs.getDefaultBranch("");
+
+    info(
+      "Set the preference's default value to the policy value and lock the preference"
+    );
+    setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+
+    info("Verifying that the policy value is applied");
+    Assert.equal(
+      defaults.getStringPref(prefName),
+      PREF_VALUE.POLICY_DEFAULT,
+      "Expected policy value to be returned as default"
+    );
+
+    info(
+      "Verifying that the policy default value is returned as user value, since the preference is locked"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.POLICY_DEFAULT,
+      "Expected policy value to be returned as user value"
+    );
+
+    info("Verifying that the policy is locked");
+    ok(Services.prefs.prefIsLocked(prefName), "Preference is locked");
+
+    info("Restoring preference state");
+    unsetAndUnlockPref(prefName);
+
+    info(
+      "Verifying that there is no default value since the preference was removed"
+    );
+    ok(
+      !Services.prefs.prefHasDefaultValue(prefName),
+      "No default value since preference was removed"
+    );
+
+    info(
+      "Verifying that there is no user value since the preference was removed"
+    );
+    ok(
+      !Services.prefs.prefHasUserValue(prefName),
+      "No user value since preference was removed"
+    );
+  }
+);
+
+/**
+ *
+ * Restoring the preference state (no values cached) when the
+ * preference wasn't locked restores only the default value,
+ * hence the default value is removed.
+ */
+add_task(
+  async function test_only_default_value_restored_when_no_default_or_user_value_to_restore_and_preference_unlocked() {
+    assert_clean_preference_state();
+
+    const defaults = Services.prefs.getDefaultBranch("");
+
+    info("Set the preference's default value to the policy value");
+    PoliciesUtils.setDefaultPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+
+    info("Verifying that the policy value is applied");
+    Assert.equal(
+      defaults.getStringPref(prefName),
+      PREF_VALUE.POLICY_DEFAULT,
+      "Expected policy value to be returned as default"
+    );
+
+    info(
+      "Verifying that the policy default value is returned for non-existing user value"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.POLICY_DEFAULT,
+      "Expected policy value to be returned as user value "
+    );
+
+    Services.prefs.setStringPref(prefName, PREF_VALUE.USER_CHANGED);
+
+    info("Verifying that the user value is changed.");
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.USER_CHANGED,
+      "Expected non-default user value to be returned"
+    );
+
+    info("Restoring preference state");
+    PoliciesUtils.unsetDefaultPref(prefName);
+
+    info(
+      "Verifying that there is no default value since the preference was removed"
+    );
+    ok(
+      !Services.prefs.prefHasDefaultValue(prefName),
+      "Expected default value to be removed"
+    );
+
+    info(
+      "Verifying that the user value remains unchanged as the preference was unlocked"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.USER_CHANGED,
+      "Expected user value to remain unchanged"
+    );
+
+    Services.prefs.deleteBranch(prefName);
+  }
+);
+
+/**
+ * Restoring the preference state (default and user value cached) when the
+ * preference was locked restores both default and user value.
+ */
+add_task(async function test_preference_state_only_cached_once() {
+  assert_clean_preference_state();
+
+  const defaults = Services.prefs.getDefaultBranch("");
+
+  info("Setting preference's default and user value");
+  defaults.setStringPref(prefName, PREF_VALUE.INITIAL_DEFAULT);
+  Services.prefs.setStringPref(prefName, PREF_VALUE.INITIAL_USER);
+
+  info("Set the preference's default value to the policy value");
+  PoliciesUtils.setDefaultPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+
+  info("Verifying that the policy value is applied");
+  Assert.equal(
+    defaults.getStringPref(prefName),
+    PREF_VALUE.POLICY_DEFAULT,
+    "Expected policy value to be returned as default"
+  );
+
+  info(
+    "Verifying that the user value is unchanged, since the preference is not locked"
+  );
+  Assert.equal(
+    Services.prefs.getStringPref(prefName),
+    PREF_VALUE.INITIAL_USER,
+    "Expected user value to remain untouched"
+  );
+
+  info("Overriding the preference's default value");
+  PoliciesUtils.setDefaultPref(prefName, PREF_VALUE.POLICY_CHANGED);
+
+  info("Verifying that the policy default value is updated");
+  Assert.equal(
+    defaults.getStringPref(prefName),
+    PREF_VALUE.POLICY_CHANGED,
+    "Expected updated policy value to be returned as default"
+  );
+
+  info(
+    "Verifying that the user value is unchanged, since the preference is not locked"
+  );
+  Assert.equal(
+    Services.prefs.getStringPref(prefName),
+    PREF_VALUE.INITIAL_USER,
+    "Expected user value to remain untouched"
+  );
+
+  info("Restoring preference state");
+  PoliciesUtils.unsetDefaultPref(prefName);
+
+  info(
+    "Verifying that the initial default value is restored, because only preference state was only cached once"
+  );
+  Assert.equal(
+    defaults.getStringPref(prefName),
+    PREF_VALUE.INITIAL_DEFAULT,
+    "Expected default value to be restored"
+  );
+
+  info(
+    "Verifying that the user value is unchanged, since the preference is not locked"
+  );
+  Assert.equal(
+    Services.prefs.getStringPref(prefName),
+    PREF_VALUE.INITIAL_USER,
+    "Expected user value to be restored."
+  );
+
+  Services.prefs.deleteBranch(prefName);
+});

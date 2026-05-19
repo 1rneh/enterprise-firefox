@@ -56,11 +56,6 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         marionette = self._marionette_weakref()
 
-        # All this needs to happen before process is started to avoid race
-        # conditions, but requires self.marionette that is setup by
-        # super().setUp() right above.
-        self.overwrite_distribution_ini()
-
         if hasattr(self, "_extra_cli_args"):
             self._saved_cli_args = deepcopy(marionette.instance.app_args)
             marionette.instance.app_args += self._extra_cli_args

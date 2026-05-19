@@ -598,7 +598,11 @@ export class FeltProcessParent extends JSProcessActorParent {
 
       if (!foundProfile) {
         lazy.log.debug(`FeltExtension: creating new ${profileName} profile`);
-        foundProfile = profileService.createProfile(null, profileName);
+        foundProfile = profileService.createProfile(
+          null,
+          profileName,
+          "felt-firstrun"
+        );
 
         await profileService.asyncFlush();
       }

@@ -3948,11 +3948,13 @@ export var PoliciesUtils = {
 
     const type = Services.prefs.getPrefType(prefName);
     const defaults = Services.prefs.getDefaultBranch("");
-    const isClearUserValue = prefState.isLocked && prefState.userValue === null;
 
     if (prefState.defaultValue === null) {
       // There is no API to only clear the default value, hence we need to delete the
       // preference and restore the user value later if needed.
+      const isClearUserValue =
+        (prefState.isLocked && prefState.userValue === null) ||
+        (!prefState.isLocked && !Services.prefs.prefHasUserValue(prefName));
       const currentUserValue = Services.prefs.prefHasUserValue(prefName)
         ? this._readPref(Services.prefs, prefName, type)
         : null;

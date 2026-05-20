@@ -11,6 +11,11 @@ import {
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  IPProtectionService:
+    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
+});
+
 ChromeUtils.defineLazyGetter(lazy, "logConsole", () =>
   console.createInstance({
     prefix: "IPPEnterpriseAuthProvider",
@@ -133,8 +138,25 @@ class IPPEnterpriseAuthProviderSingleton extends IPPAuthProvider {
     return null;
   }
 
+  init() {}
+
+  // eslint-disable-next-line require-await
+  async initOnStartupCompleted() {
+    // The enterprise provider is always ready; notify listeners so the panel
+    // and toolbar button pick up the correct state after policy activation.
+    this.dispatchEvent(
+      new CustomEvent("IPPAuthProvider:StateChanged", {
+        bubbles: true,
+        composed: true,
+      })
+    );
+    lazy.IPProtectionService.updateState();
+  }
+
+  uninit() {}
+
   get helpers() {
-    return [];
+    return [this];
   }
 
   get isReady() {

@@ -1900,31 +1900,23 @@ void MacroAssembler::orPtr(Imm32 imm, Register src, Register dest) {
 void MacroAssembler::patchSub32FromStackPtr(CodeOffset offset, Imm32 imm) {
   DEBUG_PRINTF("patchSub32FromStackPtr at offset %zu with immediate %d\n",
                offset.offset(), imm.value);
-  Instruction* inst0 =
-      (Instruction*)m_buffer.getInst(BufferOffset(offset.offset()));
+  Instruction* inst0 = getInstructionAt(BufferOffset(offset.offset()));
   Instruction* inst1 =
-      (Instruction*)m_buffer.getInst(BufferOffset(offset.offset() + 4));
-  MOZ_ASSERT(IsLui(*reinterpret_cast<Instr*>(inst0)));
-  MOZ_ASSERT(IsAddi(*reinterpret_cast<Instr*>(inst1)));
+      getInstructionAt(BufferOffset(offset.offset() + kInstrSize));
+  MOZ_ASSERT(inst0->IsLui());
+  MOZ_ASSERT(inst1->IsAddi());
 
-  int64_t value = imm.value;
-  int64_t high_20 = ((value + 0x800) >> 12);
-  int64_t low_12 = value << 52 >> 52;
+  auto [high_20, low_12] = ToHigh20Low12(imm.value);
 
-  uint32_t* p0 = reinterpret_cast<uint32_t*>(inst0);
-  uint32_t* p1 = reinterpret_cast<uint32_t*>(inst1);
-
-  (*p0) = (*p0) & 0xfff;
-  (*p0) = (*p0) | ((int32_t)high_20 << 12);
-  (*p1) = (*p1) & 0xfffff;
-  (*p1) = (*p1) | ((int32_t)low_12 << 20);
+  inst0->SetImm20UValue(high_20);
+  inst1->SetImm12Value(low_12);
 
 #ifdef JS_DISASM_RISCV64
-  disassembleInstr(inst0->InstructionBits());
-  disassembleInstr(inst1->InstructionBits());
+  disassembleInstr(inst0);
+  disassembleInstr(inst1);
 #endif /* JS_DISASM_RISCV64 */
-  MOZ_ASSERT((int32_t)(inst0->Imm20UValue() << kImm20Shift) +
-                 (int32_t)(inst1->Imm12Value()) ==
+
+  MOZ_ASSERT((inst0->Imm20UValue() << kImm20Shift) + inst1->Imm12Value() ==
              imm.value);
 }
 

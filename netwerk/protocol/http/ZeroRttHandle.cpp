@@ -90,6 +90,9 @@ bool ZeroRttHandle::Do0RTT(HappyEyeballsTransaction* aCaller,
            this, aCaller));
       return false;
     }
+
+    MOZ_ASSERT(mState == State::Open,
+               "Do0RTT locking transaction from queue on a non-Open handle");
   }
 
   LOG(("ZeroRttHandle::Do0RTT %p caller=%p accepted, offset=0", this, aCaller));
@@ -188,6 +191,11 @@ nsresult ZeroRttHandle::Finish0RTT(HappyEyeballsTransaction* aCaller,
     return NS_OK;
   }
 
+  // At this point we are about to declare a winner.  The handle must still be
+  // Open.
+  MOZ_ASSERT(mState == State::Open,
+             "Finish0RTT declaring winner on a non-Open handle");
+
   nsHttpTransaction* realTxn = ResolveRealTxn(mHet);
   if (!realTxn) {
     LOG(("ZeroRttHandle::Finish0RTT %p real txn gone; closing caller=%p", this,
@@ -279,6 +287,7 @@ void ZeroRttHandle::Transition(State aNext, HappyEyeballsTransaction* aWinner,
       MOZ_ASSERT(aWinner, "WinnerDeclared entry requires winner");
       mState = State::WinnerDeclared;
       mWinner = aWinner;
+      mHadWinner = true;
       if (aRejected) {
         mRejected = true;
       }
@@ -289,19 +298,13 @@ void ZeroRttHandle::Transition(State aNext, HappyEyeballsTransaction* aWinner,
                  "CleanedUp entry from Open or WinnerDeclared only");
       mState = State::CleanedUp;
       mHet = nullptr;
+      mWinner = nullptr;  // break RefPtr cycle with HET::mZeroRttHandle
       break;
   }
 }
 
 nsHttpTransaction* ZeroRttHandle::RealTxn() const {
   return ResolveRealTxn(mHet);
-}
-
-Maybe<uint64_t> ZeroRttHandle::WinnerOffset() const {
-  if (!mWinner) {
-    return Nothing();
-  }
-  return mWinner->Request0RttStreamOffset();
 }
 
 }  // namespace mozilla::net

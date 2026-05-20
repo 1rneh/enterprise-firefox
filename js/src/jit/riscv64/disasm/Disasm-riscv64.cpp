@@ -51,7 +51,7 @@ class Decoder {
 
   // Writes one disassembled instruction into 'buffer' (0-terminated).
   // Returns the length of the disassembled machine instruction in bytes.
-  int InstructionDecode(uint8_t* instruction);
+  int InstructionDecode(Instruction* instr);
 
   static bool IsConstantPoolAt(uint8_t* instr_ptr);
   static int ConstantPoolSizeAt(uint8_t* instr_ptr);
@@ -681,12 +681,11 @@ void Decoder::PrintImm12(Instruction* instr) {
 }
 
 void Decoder::PrintTarget(Instruction* instr) {
-  // if (Assembler::IsJalr(instr->InstructionBits())) {
-  //   if (Assembler::IsAuipc((instr - 4)->InstructionBits()) &&
+  // if (instr->IsJalr()) {
+  //   if ((instr - 4)->IsAuipc() &&
   //       (instr - 4)->RdValue() == instr->Rs1Value()) {
-  //     int32_t imm = Assembler::BrachlongOffset((instr -
-  //     4)->InstructionBits(),
-  //                                              instr->InstructionBits());
+  //     int32_t imm = Assembler::BrachlongOffset(
+  //         (instr - 4)->InstructionBits(), instr->InstructionBits());
   //     const char* target =
   //         converter_.NameOfAddress(reinterpret_cast<byte*>(instr - 4) + imm);
   //     out_buffer_pos_ +=
@@ -2127,8 +2126,7 @@ int Decoder::ConstantPoolSizeAt(uint8_t* instr_ptr) {
 }
 
 // Disassemble the instruction at *instr_ptr into the output buffer.
-int Decoder::InstructionDecode(uint8_t* instruction) {
-  Instruction* instr = Instruction::At(instruction);
+int Decoder::InstructionDecode(Instruction* instr) {
   // Print raw instruction bytes.
   out_buffer_pos_ += SNPrintF(out_buffer_ + out_buffer_pos_, "%08x       ",
                               instr->InstructionBits());
@@ -2236,10 +2234,9 @@ Disassembler::Disassembler(const NameConverter& converter)
 
 Disassembler::~Disassembler() {}
 
-int Disassembler::InstructionDecode(V8Vector<char> buffer,
-                                    uint8_t* instruction) {
+int Disassembler::InstructionDecode(V8Vector<char> buffer, Instruction* instr) {
   Decoder d(converter_, buffer);
-  return d.InstructionDecode(instruction);
+  return d.InstructionDecode(instr);
 }
 
 int Disassembler::ConstantPoolSizeAt(uint8_t* instruction) {
@@ -2253,7 +2250,7 @@ void Disassembler::Disassemble(FILE* f, uint8_t* begin, uint8_t* end) {
     EmbeddedVector<char, ReasonableBufferSize> buffer;
     buffer[0] = '\0';
     uint8_t* prev_pc = pc;
-    pc += d.InstructionDecode(buffer, pc);
+    pc += d.InstructionDecode(buffer, Instruction::At(pc));
     fprintf(f, "%p    %08x      %s\n", prev_pc,
             *reinterpret_cast<int32_t*>(prev_pc), buffer.start());
   }

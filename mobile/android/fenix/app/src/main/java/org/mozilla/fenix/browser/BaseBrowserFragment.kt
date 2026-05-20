@@ -51,7 +51,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import mozilla.components.browser.menu.view.MenuButton
 import mozilla.components.browser.state.action.ContentAction
 import mozilla.components.browser.state.selector.findCustomTab
 import mozilla.components.browser.state.selector.findCustomTabOrSelectedTab
@@ -286,10 +285,6 @@ abstract class BaseBrowserFragment :
     private var _findInPageLauncher: (() -> Unit)? = null
     private val findInPageLauncher: () -> Unit
         get() = _findInPageLauncher!!
-
-    @Suppress("VariableNaming")
-    @VisibleForTesting
-    internal var _menuButtonView: MenuButton? = null
 
     protected val readerViewFeature = ViewBoundFeatureWrapper<ReaderViewFeature>()
     protected val thumbnailsFeature = ViewBoundFeatureWrapper<BrowserThumbnails>()
@@ -1035,11 +1030,11 @@ abstract class BaseBrowserFragment :
                         get() = emailMaskBar
 
                     override fun shouldShowEmailMaskCfr() =
-                        context.settings().shouldShowEmailMaskCfr &&
+                        requireComponents.emailMasksRepository.shouldShowCfr() &&
                             context.settings().cfrPopupsEnabled
 
                     override fun onEmailMaskCfrDismissed() {
-                        context.settings().shouldShowEmailMaskCfr = false
+                        requireComponents.emailMasksRepository.dismissCfr()
                     }
 
                     override suspend fun onEmailMaskClick(generatedFor: String) = withContext(Dispatchers.IO) {
@@ -1066,7 +1061,7 @@ abstract class BaseBrowserFragment :
                     }
                 },
                 isEmailMaskFeatureEnabled = { context.settings().isEmailMaskFeatureEnabled },
-                isSuggestEmailMaskEnabled = { context.settings().isEmailMaskSuggestionEnabled },
+                isSuggestEmailMaskEnabled = { requireComponents.emailMasksRepository.isSuggestionEnabled() },
                 shouldAutomaticallyShowSuggestedPassword = { context.settings().isFirstTimeEngagingWithSignup },
                 onFirstTimeEngagedWithSignup = {
                     context.settings().isFirstTimeEngagingWithSignup = false
@@ -2263,8 +2258,6 @@ abstract class BaseBrowserFragment :
         emailMaskBar = null
 
         _findInPageLauncher = null
-
-        _menuButtonView = null
 
         _bottomToolbarContainerView = null
         _browserToolbar = null

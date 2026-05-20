@@ -2592,7 +2592,7 @@ CodeOffset MacroAssembler::farJumpWithPatch() {
   // Allocate space which will be patched by patchFarJump().
   CodeOffset farJump(nextInstrOffset(5, 0).getOffset());
   auipc(scratch, 0);
-  lw(scratch2, scratch, 4 * sizeof(Instr));
+  lw(scratch2, scratch, 4 * kInstrSize);
   add(scratch, scratch, scratch2);
   jr(scratch, 0);
   spew(".space 32bit initValue 0xffff ffff");
@@ -2605,15 +2605,17 @@ CodeOffset MacroAssembler::moveNearAddressWithPatch(Register dest) {
 }
 
 CodeOffset MacroAssembler::nopPatchableToCall() {
+  // Generate a seven instruction sequence:
+  // - Six instructions for WriteLoad64Instructions.
+  // - Plus one instruction for the final jalr.
   BlockTrampolinePoolScope block_trampoline_pool(this, 7);
-  // riscv64
   nop();  // lui(rd, (int32_t)high_20);
   nop();  // addi(rd, rd, low_12);  // 31 bits in rd.
   nop();  // slli(rd, rd, 11);      // Space for next 11 bis
   nop();  // ori(rd, rd, b11);      // 11 bits are put in. 42 bit in rd
   nop();  // slli(rd, rd, 6);       // Space for next 6 bits
   nop();  // ori(rd, rd, a6);       // 6 bits are put in. 48 bis in rd
-  nop();  // jirl
+  nop();  // jalr
   return CodeOffset(currentOffset());
 }
 
@@ -3666,14 +3668,10 @@ void MacroAssembler::patchSub32FromMemAndBranchIfNegative(CodeOffset offset,
                                                           Imm32 imm) {
   int32_t val = imm.value;
   MOZ_RELEASE_ASSERT(val >= 1 && val <= 127);
-  auto* inst = m_buffer.getInst(BufferOffset(offset.offset() - 4));
-  inst->InstructionOpcodeType();
-  MOZ_ASSERT(IsAddiw(inst->InstructionBits()));
-  /*
-   * | imm[11:0] | rs1 | 000 | rd | 0011011 |
-   */
-  inst->SetInstructionBits(((uint32_t)inst->InstructionBits() & ~kImm12Mask) |
-                           (((uint32_t)(-val) & 0xfff) << kImm12Shift));
+
+  auto* inst = getInstructionAt(BufferOffset(offset.offset() - kInstrSize));
+  MOZ_ASSERT(inst->IsAddiw());
+  inst->SetImm12Value(-val);
 }
 
 void MacroAssembler::flexibleDivMod32(Register lhs, Register rhs,
@@ -3880,14 +3878,16 @@ void MacroAssembler::oolWasmTruncateCheckF64ToI64(
 }
 
 void MacroAssembler::patchCallToNop(uint8_t* call) {
-  uint32_t* p = reinterpret_cast<uint32_t*>(call) - 7;
-  *reinterpret_cast<Instr*>(p) = kNopByte;
-  *reinterpret_cast<Instr*>(p + 1) = kNopByte;
-  *reinterpret_cast<Instr*>(p + 2) = kNopByte;
-  *reinterpret_cast<Instr*>(p + 3) = kNopByte;
-  *reinterpret_cast<Instr*>(p + 4) = kNopByte;
-  *reinterpret_cast<Instr*>(p + 5) = kNopByte;
-  *reinterpret_cast<Instr*>(p + 6) = kNopByte;
+  // See nopPatchableToCall() for the expected code layout.
+
+  Instruction* instr = Instruction::At(call - 7 * kInstrSize);
+  (instr + 0 * kInstrSize)->SetNop();
+  (instr + 1 * kInstrSize)->SetNop();
+  (instr + 2 * kInstrSize)->SetNop();
+  (instr + 3 * kInstrSize)->SetNop();
+  (instr + 4 * kInstrSize)->SetNop();
+  (instr + 5 * kInstrSize)->SetNop();
+  (instr + 6 * kInstrSize)->SetNop();
 }
 
 CodeOffset MacroAssembler::callWithPatch() {
@@ -3895,9 +3895,7 @@ CodeOffset MacroAssembler::callWithPatch() {
   DEBUG_PRINTF("\tcallWithPatch\n");
   UseScratchRegisterScope temps(this);
   Register scratch = temps.Acquire();
-  int32_t imm32 = 1 * sizeof(uint32_t);
-  int32_t Hi20 = ((imm32 + 0x800) >> 12);
-  int32_t Lo12 = imm32 << 20 >> 20;
+  auto [Hi20, Lo12] = ToHigh20Low12(0);
   auipc(scratch, Hi20);  // Read PC + Hi20 into scratch.
   jalr(scratch, Lo12);   // jump PC + Hi20 + Lo12
   DEBUG_PRINTF("\tret %d\n", currentOffset());
@@ -3906,46 +3904,65 @@ CodeOffset MacroAssembler::callWithPatch() {
 
 void MacroAssembler::patchCall(uint32_t callerOffset, uint32_t calleeOffset) {
   DEBUG_PRINTF("\tpatchCall\n");
-  BufferOffset call(callerOffset - 2 * sizeof(uint32_t));
+
+  BufferOffset call(callerOffset - 2 * kInstrSize);
   DEBUG_PRINTF("\tcallerOffset %d\n", callerOffset);
+
   int32_t offset = BufferOffset(calleeOffset).getOffset() - call.getOffset();
-  if (is_int32(offset)) {
-    Instruction* auipc_ = (Instruction*)editSrc(call);
-    Instruction* jalr_ = (Instruction*)editSrc(
-        BufferOffset(callerOffset - 1 * sizeof(uint32_t)));
-    DEBUG_PRINTF("\t%p %zu\n\t", auipc_, callerOffset - 2 * sizeof(uint32_t));
+
+  Instruction* auipc_ = getInstructionAt(call);
+  Instruction* jalr_ =
+      getInstructionAt(BufferOffset(callerOffset - 1 * kInstrSize));
+
+  DEBUG_PRINTF("\t%p %u\n\t", auipc_, callerOffset - 2 * kInstrSize);
 #ifdef JS_DISASM_RISCV64
-    disassembleInstr(auipc_->InstructionBits());
+  disassembleInstr(auipc_);
 #endif /* JS_DISASM_RISCV64 */
-    DEBUG_PRINTF("\t%p %zu\n\t", jalr_, callerOffset - 1 * sizeof(uint32_t));
+  DEBUG_PRINTF("\t%p %u\n\t", jalr_, callerOffset - 1 * kInstrSize);
+
 #ifdef JS_DISASM_RISCV64
-    disassembleInstr(jalr_->InstructionBits());
+  disassembleInstr(jalr_);
 #endif /* JS_DISASM_RISCV64 */
-    DEBUG_PRINTF("\t\n");
-    MOZ_ASSERT(IsJalr(jalr_->InstructionBits()) &&
-               IsAuipc(auipc_->InstructionBits()));
-    MOZ_ASSERT(auipc_->RdValue() == jalr_->Rs1Value());
-    int32_t Hi20 = (((int32_t)offset + 0x800) >> 12);
-    int32_t Lo12 = (int32_t)offset << 20 >> 20;
-    putInstrAt(call, SetAuipcOffset(Hi20, auipc_->InstructionBits()));
-    putInstrAt(BufferOffset(callerOffset - 1 * sizeof(uint32_t)),
-               SetJalrOffset(Lo12, jalr_->InstructionBits()));
-  } else {
-    MOZ_CRASH();
-  }
+  DEBUG_PRINTF("\t\n");
+
+  MOZ_ASSERT(jalr_->IsJalr() && auipc_->IsAuipc());
+  MOZ_ASSERT(auipc_->RdValue() == jalr_->Rs1Value());
+
+  auto [Hi20, Lo12] = ToHigh20Low12(offset);
+
+  auipc_->SetImm20UValue(Hi20);
+  jalr_->SetImm12Value(Lo12);
 }
 
 void MacroAssembler::patchFarJump(CodeOffset farJump, uint32_t targetOffset) {
-  uint32_t* u32 = reinterpret_cast<uint32_t*>(
-      editSrc(BufferOffset(farJump.offset() + 4 * kInstrSize)));
-  MOZ_ASSERT(*u32 == UINT32_MAX);
-  *u32 = targetOffset - farJump.offset();
+  // See farJumpWithPatch for the expected code layout:
+  //   auipc        ; farJump
+  //   lw
+  //   add
+  //   jr
+  //   <immediate>  ; farJump + 4 * kInstrSize
+  Instruction* inst =
+      getInstructionAt(BufferOffset(farJump.offset() + 4 * kInstrSize));
+
+  int64_t distance = int64_t(targetOffset) - int64_t(farJump.offset());
+
+  MOZ_ASSERT(inst->InstructionBits() == int32_t(UINT32_MAX));
+  inst->SetInstructionBits(mozilla::AssertedCast<int32_t>(distance));
 }
 
 void MacroAssembler::patchFarJump(uint8_t* farJump, uint8_t* target) {
-  uint32_t* u32 = reinterpret_cast<uint32_t*>(farJump + 4 * kInstrSize);
-  MOZ_ASSERT(*u32 == UINT32_MAX);
-  *u32 = (int64_t)target - (int64_t)farJump;
+  // See farJumpWithPatch for the expected code layout:
+  //   auipc        ; farJump
+  //   lw
+  //   add
+  //   jr
+  //   <immediate>  ; farJump + 4 * kInstrSize
+  Instruction* inst = Instruction::At(farJump + 4 * kInstrSize);
+
+  int64_t distance = int64_t(target) - int64_t(farJump);
+
+  MOZ_ASSERT(inst->InstructionBits() == int32_t(UINT32_MAX));
+  inst->SetInstructionBits(mozilla::AssertedCast<int32_t>(distance));
 }
 
 void MacroAssembler::patchNearAddressMove(CodeLocationLabel loc,
@@ -3954,16 +3971,17 @@ void MacroAssembler::patchNearAddressMove(CodeLocationLabel loc,
 }
 
 void MacroAssembler::patchNopToCall(uint8_t* call, uint8_t* target) {
-  uint32_t* p = reinterpret_cast<uint32_t*>(call) - 7;
-  Assembler::WriteLoad64Instructions((Instruction*)p, SavedScratchRegister,
+  // See nopPatchableToCall() for the expected code layout.
+
+  Instruction* instr = Instruction::At(call - 7 * kInstrSize);
+  Assembler::WriteLoad64Instructions(instr, SavedScratchRegister,
                                      (uint64_t)target);
   DEBUG_PRINTF("\tpatchNopToCall %" PRIu64 " %" PRIu64 "\n", (uint64_t)target,
-               ExtractLoad64Value((Instruction*)p));
-  MOZ_ASSERT(ExtractLoad64Value((Instruction*)p) == (uint64_t)target);
-  Instr jalr_ = JALR | (ra.code() << kRdShift) | (0x0 << kFunct3Shift) |
-                (SavedScratchRegister.code() << kRs1Shift) |
-                (0x0 << kImm12Shift);
-  *reinterpret_cast<Instr*>(p + 6) = jalr_;
+               ExtractLoad64Value(instr));
+  MOZ_ASSERT(ExtractLoad64Value(instr) == (uint64_t)target);
+
+  Instruction* jalr = (instr + 6 * kInstrSize);
+  jalr->SetIFormat(RO_JALR, ra.code(), SavedScratchRegister.code(), 0);
 }
 void MacroAssembler::Pop(Register reg) {
   pop(reg);
@@ -4833,14 +4851,12 @@ CodeOffset MacroAssembler::wasmMarkedSlowCall(const wasm::CallSiteDesc& desc,
 }
 //}}} check_macroassembler_style
 
-// This method generates lui, dsll and ori instruction block that can be
+// This method generates lui + addi instruction block that can be
 // modified by UpdateLoad64Value, either during compilation (eg.
 // Assembler::bind), or during execution (eg. jit::PatchJump).
 void MacroAssemblerRiscv64::ma_liPatchable(Register dest, Imm32 imm) {
-  m_buffer.ensureSpace(2 * sizeof(uint32_t));
-  int64_t value = imm.value;
-  int64_t high_20 = ((value + 0x800) >> 12);
-  int64_t low_12 = value << 52 >> 52;
+  m_buffer.ensureSpace(2 * kInstrSize);
+  auto [high_20, low_12] = ToHigh20Low12(imm.value);
   lui(dest, high_20);
   addi(dest, dest, low_12);
 }
@@ -7078,9 +7094,7 @@ void MacroAssemblerRiscv64::wasmStoreImpl(const wasm::MemoryAccessDesc& access,
 
 void MacroAssemblerRiscv64::GenPCRelativeJumpAndLink(Register rd,
                                                      int32_t imm32) {
-  MOZ_ASSERT(is_int32(imm32 + 0x800));
-  int32_t Hi20 = ((imm32 + 0x800) >> 12);
-  int32_t Lo12 = imm32 << 20 >> 20;
+  auto [Hi20, Lo12] = ToHigh20Low12(imm32);
   auipc(rd, Hi20);  // Read PC + Hi20 into scratch.
   jalr(rd, Lo12);   // jump PC + Hi20 + Lo12
 }

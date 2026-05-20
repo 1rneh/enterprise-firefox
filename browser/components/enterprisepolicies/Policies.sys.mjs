@@ -3853,7 +3853,7 @@ export var PoliciesUtils = {
    * @type {object}
    * @property {number|boolean|string|null} defaultValue - default preference value
    * @property {number|boolean|string|null} userValue - user modified preference value
-   * @property {boolean} locked - whether the applying policy locked this preference
+   * @property {boolean} isLocked - whether the preference is locked
    */
 
   /** @type {PreferenceState} */
@@ -3907,12 +3907,14 @@ export var PoliciesUtils = {
   },
 
   /**
-   * Saves the current default and user values of a pref before a policy changes it.
+   * Saves the current default and user values of a pref before a policy changes it,
+   * along with whether the applying policy will leave the pref locked.
    * No-op if the pref was already saved.
    *
    * @param {string} prefName
+   * @param {boolean} isLocked
    */
-  savePreferenceState(prefName) {
+  savePreferenceState(prefName, isLocked) {
     if (prefName in this._initialPrefState) {
       return;
     }
@@ -3925,6 +3927,7 @@ export var PoliciesUtils = {
       userValue: Services.prefs.prefHasUserValue(prefName) // check needed since the default is returned in case no user value exists
         ? this._readPref(Services.prefs, prefName, type)
         : null,
+      isLocked,
     };
 
     this._initialPrefState[prefName] = prefState;
@@ -3932,7 +3935,8 @@ export var PoliciesUtils = {
 
   /**
    * Restores the preference to the state before any policy was applied. The user
-   * value of a preference is only restored if the preference is/was locked
+   * value of a preference is only restored if the preference was locked by the policy
+   * or was locked even before
    *
    * @param {string} prefName
    */
@@ -4000,9 +4004,7 @@ export var PoliciesUtils = {
       Services.prefs.unlockPref(prefName);
     }
 
-    this.savePreferenceState(prefName);
-    this._initialPrefState[prefName].isLocked =
-      prefWasLocked || locked === true;
+    this.savePreferenceState(prefName, prefWasLocked || locked === true);
 
     const defaults = Services.prefs.getDefaultBranch("");
 

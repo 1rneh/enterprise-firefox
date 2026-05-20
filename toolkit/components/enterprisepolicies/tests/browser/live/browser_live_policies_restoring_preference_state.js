@@ -234,7 +234,7 @@ add_task(
     Assert.equal(
       Services.prefs.getStringPref(prefName),
       PREF_VALUE.POLICY_DEFAULT,
-      "Expected policy value to be returned as user value "
+      "Expected policy value to be returned as user value"
     );
 
     Services.prefs.setStringPref(prefName, PREF_VALUE.USER_CHANGED);

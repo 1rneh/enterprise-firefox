@@ -6867,12 +6867,26 @@ pub extern "C" fn Servo_CSSSupports2(property: &nsACString, value: &nsACString) 
     .is_ok()
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy)]
+pub enum CssSupportsUrlContext {
+    Default,
+    Chrome,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CssSupportsParams {
+    pub origin: Origin,
+    pub url_context: CssSupportsUrlContext,
+    pub quirks: nsCompatibility,
+}
+
 #[no_mangle]
-pub extern "C" fn Servo_CSSSupports(
+pub unsafe extern "C" fn Servo_CSSSupports(
     cond: &nsACString,
-    ua_origin: bool,
-    chrome_sheet: bool,
-    quirks: bool,
+    params: &CssSupportsParams,
+    raw_extra_data: *mut URLExtraData,
 ) -> bool {
     let condition = unsafe { cond.as_str_unchecked() };
     let mut input = ParserInput::new(&condition);
@@ -6882,32 +6896,27 @@ pub extern "C" fn Servo_CSSSupports(
         Err(..) => return false,
     };
 
-    let origin = if ua_origin {
-        Origin::UserAgent
-    } else {
-        Origin::Author
-    };
     let url_data = unsafe {
-        if chrome_sheet {
-            dummy_chrome_url_data()
-        } else {
-            dummy_url_data()
+        match params.url_context {
+            CssSupportsUrlContext::Default => {
+                if !raw_extra_data.is_null() {
+                    UrlExtraData::from_ptr_ref(&raw_extra_data)
+                } else {
+                    dummy_url_data()
+                }
+            },
+            CssSupportsUrlContext::Chrome => dummy_chrome_url_data(),
         }
-    };
-    let quirks_mode = if quirks {
-        QuirksMode::Quirks
-    } else {
-        QuirksMode::NoQuirks
     };
 
     // NOTE(emilio): The supports API is not associated to any stylesheet,
     // so the fact that there is no namespace map here is fine.
     let context = ParserContext::new(
-        origin,
+        params.origin,
         url_data,
         Some(CssRuleType::Style),
         ParsingMode::DEFAULT,
-        quirks_mode,
+        params.quirks.into(),
         /* namespaces = */ Default::default(),
         None,
         None,

@@ -104,12 +104,6 @@ struct TraceTimestampTraits<mozilla::TimeStamp> {
 PERFETTO_DEFINE_CATEGORIES(perfetto::Category("task"),
                            perfetto::Category("usertiming"));
 
-template <typename T, typename = void>
-struct MarkerHasPayloadFields : std::false_type {};
-template <typename T>
-struct MarkerHasPayloadFields<T, std::void_t<decltype(T::PayloadFields)>>
-    : std::true_type {};
-
 using MS = mozilla::MarkerSchema;
 
 // Primary template.  Assert if a payload type has not been specialized so we
@@ -271,8 +265,17 @@ void EmitPerfettoTrackEvent(const mozilla::ProfilerString8View& aName,
   // track event. Otherwise, we define an empty lambda which does nothing.
   std::function<void(perfetto::EventContext)> annotateTrackEvent =
       [&](perfetto::EventContext ctx) {};
-  if constexpr (MarkerHasPayloadFields<MarkerType>::value) {
+  if constexpr (mozilla::MarkerHasTranslator<MarkerType>::value) {
+    // NOP
+    // TODO - Bug 2037782
+  } else if constexpr (mozilla::MarkerHasPayloadFields<MarkerType>::value) {
     annotateTrackEvent = [&](perfetto::EventContext ctx) {
+      static_assert(
+          sizeof...(PayloadArguments) ==
+              std::extent_v<decltype(MarkerType::PayloadFields)>,
+          "Number and type of fields must be equal to number and type of "
+          "payload arguments. If this is not the case a "
+          "TranslateMarkerInputToSchema function must be defined.");
       size_t i = 0;
       auto processArgument = [&](const auto& payloadArg) {
         AddDebugAnnotation(ctx, MarkerType::PayloadFields[i++].Key, payloadArg);

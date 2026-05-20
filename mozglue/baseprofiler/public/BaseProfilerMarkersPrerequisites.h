@@ -1163,6 +1163,22 @@ using PayloadFieldsTuple = decltype(PayloadFieldsTupleHelper<T>(
 
 }  // namespace detail
 
+// Check if T::PayloadFields exists and if it is not empty
+template <typename T, typename = void>
+struct MarkerHasPayloadFields : std::false_type {};
+template <typename T>
+struct MarkerHasPayloadFields<
+    T, std::void_t<decltype(T::PayloadFields),
+                   decltype(std::size(T::PayloadFields))>> : std::true_type {};
+
+// Check if T::TranslateMarkerInputToSchema exists
+template <typename T, typename = void>
+struct MarkerHasTranslator : std::false_type {};
+template <typename T>
+struct MarkerHasTranslator<
+    T, std::void_t<decltype(T::TranslateMarkerInputToSchema)>>
+    : std::true_type {};
+
 // This helper class is used by MarkerTypes that want to support the general
 // MarkerType object schema. When using this the markers will also transmit
 // their payload to the ETW tracer as well as requiring less inline code.

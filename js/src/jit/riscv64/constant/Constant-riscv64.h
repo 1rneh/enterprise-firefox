@@ -20,10 +20,6 @@
 namespace js {
 namespace jit {
 
-// A reasonable (ie, safe) buffer size for the disassembly of a single
-// instruction.
-const int ReasonableBufferSize = 256;
-
 // Difference between address of current opcode and value read from pc
 // register.
 static constexpr int kPcLoadDelta = 4;
@@ -49,14 +45,11 @@ static constexpr int kMaxJumpOffset = (1 << (kJumpOffsetBits - 1)) - 1;
 
 static constexpr int kCJumpOffset = (1 << (kCJalOffsetBits - 1)) - 1;
 
-static constexpr int kTrampolineSlotsSize = 2 * kInstrSize;
-
 static_assert(kCJalOffsetBits == kOffset12);
 static_assert(kCBranchOffsetBits == kOffset9);
 static_assert(kJumpOffsetBits == kOffset21);
 static_assert(kBranchOffsetBits == kOffset13);
-// Vector as used by the original code to allow for minimal modification.
-// Functions exactly like a character array with helper methods.
+
 }  // namespace jit
 }  // namespace js
 

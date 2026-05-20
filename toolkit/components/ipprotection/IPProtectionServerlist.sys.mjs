@@ -9,6 +9,8 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
  * Bucket for the IP Protection server list.
  */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", () =>

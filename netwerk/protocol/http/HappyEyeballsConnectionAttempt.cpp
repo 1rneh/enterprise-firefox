@@ -62,7 +62,8 @@ NS_INTERFACE_MAP_END
 HappyEyeballsConnectionAttempt::HappyEyeballsConnectionAttempt(
     nsHttpConnectionInfo* ci, nsAHttpTransaction* trans, uint32_t caps,
     bool speculative, bool urgentStart)
-    : ConnectionAttempt(ci, trans, caps, speculative, urgentStart) {
+    : ConnectionAttempt(ci, trans, caps, speculative, urgentStart),
+      mZeroRttHandle(new ZeroRttHandle(this)) {
   LOG(("HappyEyeballsConnectionAttempt ctor %p", this));
   if (mConnInfo->GetRoutedHost().IsEmpty()) {
     mHost = mConnInfo->GetOrigin();
@@ -213,8 +214,7 @@ nsresult HappyEyeballsConnectionAttempt::ProcessConnectionResult(
   // transport parameters from a PSK ticket belonging to a different server,
   // H3 protocol error, etc.).  Restart without 0-RTT instead of falling
   // through to a TCP fallback that may also be unavailable.
-  if (aStatus == NS_ERROR_NET_RESET && mZeroRttHandle &&
-      mZeroRttHandle->AnyStarted()) {
+  if (aStatus == NS_ERROR_NET_RESET && mZeroRttHandle->AnyStarted()) {
     if (entry) {
       entry->RemoveConnectionAttempt(this, true);
     }
@@ -600,7 +600,7 @@ void HappyEyeballsConnectionAttempt::DNSLookup(
 
 void HappyEyeballsConnectionAttempt::MaybeForward0RTTSecurityInfo(
     ConnectionEstablisher* aEstablisher) {
-  if (!mZeroRttHandle || !mZeroRttHandle->AnyStarted()) {
+  if (!mZeroRttHandle->AnyStarted()) {
     return;
   }
   RefPtr<HttpConnectionBase> conn = aEstablisher->ResultConn();
@@ -715,9 +715,6 @@ HappyEyeballsConnectionAttempt::CreateAttemptTransaction(
   nsCOMPtr<nsIInterfaceRequestor> callbacks;
   if (mTransaction) {
     mTransaction->GetSecurityCallbacks(getter_AddRefs(callbacks));
-  }
-  if (!mZeroRttHandle) {
-    mZeroRttHandle = new ZeroRttHandle(this);
   }
   RefPtr<HappyEyeballsTransaction> trans = new HappyEyeballsTransaction(
       aInfo, callbacks, mCaps,
@@ -926,9 +923,38 @@ void HappyEyeballsConnectionAttempt::Abandon() {
   }
   mTimer = nullptr;
 
-  if (mZeroRttHandle) {
-    mZeroRttHandle->Cleanup();
+  // If 0-RTT started, LockInRealTxnFromPendingQueue removed the real txn
+  // from the pending queue.  If it was never adopted and not already closed
+  // with an error, re-queue it so the CM can dispatch it on a new connection.
+  // Setting mTransaction to nullptr afterwards acts as a one-shot guard:
+  // Abandon() may be called twice for the same HCA (e.g. from
+  // CloseAllConnectionAttempts and then again from OnSucceeded line 1134),
+  // and a second AddTransaction would cause an AddStream duplicate assertion.
+  if (mTransaction && mZeroRttHandle->AnyStarted() &&
+      !mZeroRttHandle->HadWinner()) {
+    if (nsHttpTransaction* realTxn = mTransaction->QueryHttpTransaction()) {
+      if (!realTxn->Closed()) {
+        realTxn->FinishAdopted0RTT(/*aRestart=*/true);
+        RefPtr<ConnectionEntry> entry(mEntry);
+        RefPtr<PendingTransactionInfo> existing;
+        if (entry) {
+          existing = gHttpHandler->ConnMgr()->FindTransactionHelper(
+              /*removeWhenFound=*/false, entry, realTxn);
+        }
+        if (!existing) {
+          gHttpHandler->ConnMgr()->AddTransaction(realTxn, realTxn->Priority());
+        }
+      }
+    }
+    mTransaction = nullptr;
   }
+
+  MOZ_DIAGNOSTIC_ASSERT(!mZeroRttHandle->AnyStarted() ||
+                            mZeroRttHandle->HadWinner() || !mTransaction,
+                        "transaction not re-queued and not "
+                        "adopted");
+
+  mZeroRttHandle->Cleanup();
 
   mEntry = nullptr;
 }
@@ -1002,7 +1028,9 @@ void HappyEyeballsConnectionAttempt::ProcessUDPConn(
     if (aTransactionAlreadyOnConn) {
       // Activate already ran before timings were set on the connection,
       // so transfer them directly to the transaction.
-      nsHttpTransaction* trans = mTransaction->QueryHttpTransaction();
+      // mTransaction may be null if restartedFallback0Rtt cleared it.
+      nsHttpTransaction* trans =
+          mTransaction ? mTransaction->QueryHttpTransaction() : nullptr;
       if (trans) {
         TimingStruct timings;
         timings.domainLookupStart = mDomainLookupStart;
@@ -1080,10 +1108,17 @@ void HappyEyeballsConnectionAttempt::OnSucceeded() {
   // to 0 and marks mDoNotTryEarlyData / mEarlyDataWasAvailable so the real txn
   // re-sends a fresh request on the winning conn.
   bool restartedFallback0Rtt = false;
-  if (mZeroRttHandle && mZeroRttHandle->AnyStarted() &&
-      (!mZeroRttHandle->Winner() || !mZeroRttHandle->Winner()->IsAdopted())) {
-    if (nsHttpTransaction* realTxn = mTransaction->QueryHttpTransaction()) {
-      realTxn->FinishAdopted0RTT(/*aRestart=*/true);
+  nsHttpTransaction* trans =
+      mTransaction ? mTransaction->QueryHttpTransaction() : nullptr;
+  if (mZeroRttHandle->AnyStarted() && !mZeroRttHandle->HadWinner()) {
+    // AnyStarted() is set only after LockInRealTxnFromPendingQueue() succeeds,
+    // which requires QueryHttpTransaction() to return non-null. So trans is
+    // always non-null here.
+    MOZ_ASSERT(trans,
+               "AnyStarted implies a live real transaction; "
+               "QueryHttpTransaction() should not be null");
+    if (trans) {
+      trans->FinishAdopted0RTT(/*aRestart=*/true);
       // LockInRealTxnFromPendingQueue removed the real txn from the pending
       // queue when 0-RTT was entered. Re-queue it so the conn manager can
       // dispatch it on the winning conn or open a new connection. Guard
@@ -1092,14 +1127,20 @@ void HappyEyeballsConnectionAttempt::OnSucceeded() {
       RefPtr<PendingTransactionInfo> existing;
       if (entry) {
         existing = gHttpHandler->ConnMgr()->FindTransactionHelper(
-            /*removeWhenFound=*/false, entry, realTxn);
+            /*removeWhenFound=*/false, entry, trans);
       }
       if (!existing) {
-        gHttpHandler->ConnMgr()->AddTransaction(realTxn, realTxn->Priority());
+        gHttpHandler->ConnMgr()->AddTransaction(trans, trans->Priority());
       }
       restartedFallback0Rtt = true;
+      mTransaction = nullptr;
     }
   }
+
+  MOZ_DIAGNOSTIC_ASSERT(
+      !mZeroRttHandle->AnyStarted() || mZeroRttHandle->HadWinner() ||
+          !mTransaction,
+      "OnSucceeded: 0-RTT transaction not re-queued and not adopted");
 
   // Adopted: real txn is on the conn and already out of the pending
   // queue. Skip ProcessTCPConn's pending-queue branch — on H1 it
@@ -1108,16 +1149,14 @@ void HappyEyeballsConnectionAttempt::OnSucceeded() {
   // Also skip FindTransactionHelper for the fallback restart case: the
   // re-inserted trans will be dispatched by ReportSpdyConnection →
   // ProcessPendingQ once the conn is in the active pool.
-  bool alreadyOnConn = (mZeroRttHandle && mZeroRttHandle->Winner() &&
-                        mZeroRttHandle->Winner()->IsAdopted()) ||
-                       restartedFallback0Rtt;
+  bool alreadyOnConn = mZeroRttHandle->HadWinner() || restartedFallback0Rtt;
   RefPtr<nsHttpConnection> connTCP = do_QueryObject(mOutputConn);
   if (connTCP) {
     // If the original request had an alt-svc route but a direct TCP
     // connection won, remove the Alt-Used header since we're not using
     // the alt-svc route.
     if (!mConnInfo->GetRoutedHost().IsEmpty()) {
-      if (nsHttpTransaction* trans = mTransaction->QueryHttpTransaction()) {
+      if (trans) {
         trans->RemoveAltSvcUsedHeader();
       }
     }

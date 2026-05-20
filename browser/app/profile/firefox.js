@@ -1125,7 +1125,6 @@ pref("browser.tabs.groups.smart.searchTopicEnabled", true);
 pref("browser.tabs.groups.smart.userEnabled", true);
 
 pref("security.allow_parent_unrestricted_js_loads", false);
-pref("browser.unexpectedScriptLoad.logLevel", "Warn");
 
 // Unload tabs when available memory is running low
 #if defined(XP_MACOSX) || defined(XP_WIN)

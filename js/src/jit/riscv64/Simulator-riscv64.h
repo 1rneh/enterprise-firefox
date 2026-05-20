@@ -42,10 +42,10 @@
 #include <utility>
 
 #include "jit/IonTypes.h"
+#include "jit/riscv64/base/base-assembler-riscv.h"
+#include "jit/riscv64/base/Vector.h"
 #include "jit/riscv64/constant/Constant-riscv64.h"
-#include "jit/riscv64/constant/util-riscv64.h"
 #include "jit/riscv64/disasm/Disasm-riscv64.h"
-#include "jit/riscv64/extension/base-assembler-riscv.h"
 #include "js/ProfilingFrameIterator.h"
 #include "js/Utility.h"
 #include "js/Vector.h"
@@ -251,25 +251,11 @@ inline uint64_t box_float(uint32_t v) { return (0xFFFFFFFF00000000 | v); }
 // -----------------------------------------------------------------------------
 // Utility functions
 
-class SimInstructionBase : public InstructionBase {
- public:
-  Type InstructionType() const { return type_; }
-  inline Instruction* instr() const { return instr_; }
-  inline int32_t operand() const { return operand_; }
+class SimInstruction : public InstructionBase {
+  int32_t operand_ = -1;
+  Instruction* instr_ = nullptr;
+  Type type_ = kUnsupported;
 
- protected:
-  SimInstructionBase() : operand_(-1), instr_(nullptr), type_(kUnsupported) {}
-  explicit SimInstructionBase(Instruction* instr) {}
-
-  int32_t operand_;
-  Instruction* instr_;
-  Type type_;
-
- private:
-  SimInstructionBase& operator=(const SimInstructionBase&) = delete;
-};
-
-class SimInstruction : public InstructionGetters<SimInstructionBase> {
  public:
   SimInstruction() = default;
 
@@ -282,6 +268,12 @@ class SimInstruction : public InstructionGetters<SimInstructionBase> {
     MOZ_ASSERT(reinterpret_cast<void*>(&operand_) == this);
     return *this;
   }
+
+  SimInstruction& operator=(const SimInstruction&) = delete;
+
+  Type InstructionType() const { return type_; }
+  inline Instruction* instr() const { return instr_; }
+  inline int32_t operand() const { return operand_; }
 };
 
 // std::vector shim for breakpoints
@@ -546,6 +538,11 @@ class Simulator {
   void set_pc(int64_t value);
   int64_t get_pc() const;
 
+  template <typename T>
+  T get_pc_as() const {
+    return reinterpret_cast<T>(get_pc());
+  }
+
   SimInstruction instr_;
   // RISCV utlity API to access register value
   // Helpers for data value tracing.
@@ -789,11 +786,6 @@ class Simulator {
 
   template <typename T>
   bool CompareFHelper(T input1, T input2, FPUCondition cc);
-
-  template <typename T>
-  T get_pc_as() const {
-    return reinterpret_cast<T>(get_pc());
-  }
 
   void enable_single_stepping(SingleStepCallback cb, void* arg);
   void disable_single_stepping();

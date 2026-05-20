@@ -50,9 +50,9 @@
 #include "jit/Registers.h"
 #include "jit/RegisterSets.h"
 #include "jit/riscv64/Architecture-riscv64.h"
+#include "jit/riscv64/base/base-assembler-riscv.h"
+#include "jit/riscv64/base/base-riscv-i.h"
 #include "jit/riscv64/constant/Constant-riscv64.h"
-#include "jit/riscv64/extension/base-assembler-riscv.h"
-#include "jit/riscv64/extension/base-riscv-i.h"
 #include "jit/riscv64/extension/extension-riscv-a.h"
 #include "jit/riscv64/extension/extension-riscv-b.h"
 #include "jit/riscv64/extension/extension-riscv-c.h"
@@ -115,7 +115,7 @@ static constexpr uint32_t JitStackAlignment = 16;
 static constexpr uint32_t JitStackValueAlignment =
     JitStackAlignment / sizeof(Value);
 static const uint32_t WasmStackAlignment = 16;
-static const uint32_t WasmTrapInstructionLength = 2 * sizeof(uint32_t);
+static const uint32_t WasmTrapInstructionLength = 2 * kInstrSize;
 // See comments in wasm::GenerateFunctionPrologue.  The difference between these
 // is the size of the largest callable prologue on the platform.
 static constexpr uint32_t WasmCheckedCallEntryOffset = 0u;
@@ -128,7 +128,7 @@ class Assembler;
 using Buffer =
     js::jit::AssemblerBufferWithConstantPools<Instruction, Assembler,
                                               js::jit::AssemblerBufferSettings{
-                                                  .instSize = 4,
+                                                  .instSize = kInstrSize,
                                                   .guardSize = 2,
                                                   .headerSize = 2,
                                                   .pcBias = 8,
@@ -168,7 +168,11 @@ class Assembler : public AssemblerShared,
   CompactBufferWriter dataRelocations_;
   Buffer m_buffer;
   bool isFinished = false;
-  Instruction* editSrc(BufferOffset bo) { return m_buffer.getInst(bo); }
+
+  // Return the Instruction at a given byte offset.
+  Instruction* getInstructionAt(BufferOffset offset) {
+    return m_buffer.getInst(offset);
+  }
 
   struct RelativePatch {
     // the offset within the code buffer where the value is loaded that
@@ -381,19 +385,17 @@ class Assembler : public AssemblerShared,
   Register getStackPointer() const { return StackPointer; }
   void flushBuffer() {}
 #ifdef JS_DISASM_RISCV64
-  static int disassembleInstr(Instr instr, bool enable_spew = false);
+  static int disassembleInstr(Instruction* instr, bool enable_spew = false);
 #endif /* JS_DISASM_RISCV64 */
-  int jumpChainTargetAt(BufferOffset pos, bool is_internal);
+  int jumpChainTargetAt(BufferOffset pos);
   static int jumpChainTargetAt(Instruction* instruction, BufferOffset pos,
-                               bool is_internal,
                                Instruction* instruction2 = nullptr);
-  BufferOffset jumpChainGetNextLink(BufferOffset pos, bool is_internal);
-  uint32_t jumpChainUseNextLink(Label* label, bool is_internal);
+  BufferOffset jumpChainGetNextLink(BufferOffset pos);
+  uint32_t jumpChainUseNextLink(Label* label);
   static uint64_t jumpChainTargetAddressAt(Instruction* pos);
   static void jumpChainSetTargetValueAt(Instruction* pc, uint64_t target);
   // Returns true if the target was successfully assembled and spewed.
-  bool jumpChainPutTargetAt(BufferOffset pos, BufferOffset target_pos,
-                            bool trampoline = false);
+  bool jumpChainPutTargetAt(BufferOffset pos, BufferOffset target_pos);
   int32_t branchOffsetHelper(Label* L, OffsetSize bits);
   int32_t branchLongOffsetHelper(Label* L);
 
@@ -413,12 +415,11 @@ class Assembler : public AssemblerShared,
     MOZ_ASSERT(hasCreator());
     BufferOffset offset = m_buffer.putInt(x);
 #if (defined(DEBUG) || defined(JS_JITSPEW)) && defined(JS_DISASM_RISCV64)
-    if (!oom()) {
-      DEBUG_PRINTF(
-          "0x%" PRIx64 "(%" PRIxPTR "):",
-          (uint64_t)editSrc(BufferOffset(currentOffset() - sizeof(Instr))),
-          currentOffset() - sizeof(Instr));
-      disassembleInstr(x, JitSpewEnabled(JitSpew_Codegen));
+    if (offset.assigned()) {
+      DEBUG_PRINTF("0x%" PRIx64 "(%x):", uint64_t(getInstructionAt(offset)),
+                   unsigned(offset.getOffset()));
+      disassembleInstr(getInstructionAt(offset),
+                       JitSpewEnabled(JitSpew_Codegen));
     }
 #endif
     return offset;
@@ -426,30 +427,13 @@ class Assembler : public AssemblerShared,
   virtual BufferOffset emit(ShortInstr x) { MOZ_CRASH(); }
   virtual BufferOffset emit(uint64_t x) { MOZ_CRASH(); }
   virtual BufferOffset emit(uint32_t x) {
-    DEBUG_PRINTF(
-        "0x%" PRIx64 "(%" PRIxPTR "): uint32_t: %" PRId32 "\n",
-        (uint64_t)editSrc(BufferOffset(currentOffset() - sizeof(Instr))),
-        currentOffset() - sizeof(Instr), x);
-    return m_buffer.putInt(x);
-  }
-
-  void putInstrAt(BufferOffset offset, Instr instr) {
-#ifdef JS_DISASM_RISCV64
-    DEBUG_PRINTF("\t[putInstrAt\n");
-    DEBUG_PRINTF("\t%p %d \n\t", editSrc(offset), offset.getOffset());
-    disassembleInstr(editSrc(offset)->InstructionBits());
-    DEBUG_PRINTF("\t");
-    *reinterpret_cast<Instr*>(editSrc(offset)) = instr;
-    disassembleInstr(editSrc(offset)->InstructionBits());
-    DEBUG_PRINTF("\t]\n");
-#else
-    DEBUG_PRINTF(
-        "\t[putInstrAt\n"
-        "\t%p %d \n\t"
-        "\t]\n",
-        editSrc(offset), offset.getOffset());
-    *reinterpret_cast<Instr*>(editSrc(offset)) = instr;
-#endif /* JS_DISASM_RISCV64 */
+    BufferOffset offset = m_buffer.putInt(x);
+    if (offset.assigned()) {
+      DEBUG_PRINTF("0x%" PRIx64 "(%x): uint32_t: %" PRId32 "\n",
+                   uint64_t(getInstructionAt(offset)),
+                   unsigned(offset.getOffset()), x);
+    }
+    return offset;
   }
 
   static Condition InvertCondition(Condition);
@@ -467,7 +451,7 @@ class Assembler : public AssemblerShared,
 
   static void PatchWrite_NearCall(CodeLocationLabel start,
                                   CodeLocationLabel toCall) {
-    Instruction* inst = (Instruction*)start.raw();
+    Instruction* inst = Instruction::At(start.raw());
     uint8_t* dest = toCall.raw();
 
     // Overwrite whatever instruction used to be here with a call.
@@ -478,15 +462,14 @@ class Assembler : public AssemblerShared,
     // WriteLoad64Instructions will emit 6 instrs to load a addr.
     Assembler::WriteLoad64Instructions(inst, SavedScratchRegister,
                                        (uint64_t)dest);
-    Instr jalr_ = JALR | (ra.code() << kRdShift) | (0x0 << kFunct3Shift) |
-                  (SavedScratchRegister.code() << kRs1Shift) |
-                  (0x0 << kImm12Shift);
-    *reinterpret_cast<Instr*>(inst + 6 * kInstrSize) = jalr_;
+
+    Instruction* jalr = (inst + 6 * kInstrSize);
+    jalr->SetIFormat(RO_JALR, ra.code(), SavedScratchRegister.code(), 0);
   }
   static void WriteLoad64Instructions(Instruction* inst0, Register reg,
                                       uint64_t value);
 
-  static uint32_t PatchWrite_NearCallSize() { return 7 * sizeof(uint32_t); }
+  static uint32_t PatchWrite_NearCallSize() { return 7 * kInstrSize; }
 
   static void TraceJumpRelocations(JSTracer* trc, JitCode* code,
                                    CompactBufferReader& reader);
@@ -503,10 +486,10 @@ class Assembler : public AssemblerShared,
   void bind(CodeLabel* label) { label->target()->bind(currentOffset()); }
   uint32_t currentOffset() { return nextOffset().getOffset(); }
   void retarget(Label* label, Label* target);
-  static uint32_t NopSize() { return 4; }
+  static uint32_t NopSize() { return kInstrSize; }
 
   static uint64_t GetPointer(uint8_t* instPtr) {
-    Instruction* inst = (Instruction*)instPtr;
+    Instruction* inst = Instruction::At(instPtr);
     return Assembler::ExtractLoad64Value(inst);
   }
 

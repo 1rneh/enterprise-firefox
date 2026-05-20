@@ -1289,28 +1289,32 @@ SettingGroupManager.registerGroups({
             options: [
               {
                 value: Ci.nsICookieService.BEHAVIOR_ACCEPT.toString(),
-                l10nId: "preferences-etpc-custom-cookie-behavior-accept-all",
+                l10nId: "preferences-etp-custom-cookie-behavior-accept-all",
               },
               {
                 value: Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER.toString(),
-                l10nId: "sitedata-option-block-cross-site-trackers",
+                l10nId:
+                  "preferences-etp-custom-cookie-behavior-block-cross-site-cookies",
               },
               {
                 value:
                   Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN.toString(),
-                l10nId: "sitedata-option-block-cross-site-cookies2",
+                l10nId:
+                  "preferences-etp-custom-cookie-behavior-isolate-cross-site-cookies",
               },
               {
                 value: Ci.nsICookieService.BEHAVIOR_LIMIT_FOREIGN.toString(),
-                l10nId: "sitedata-option-block-unvisited",
+                l10nId:
+                  "preferences-etp-custom-cookie-behavior-block-unvisited",
               },
               {
                 value: Ci.nsICookieService.BEHAVIOR_REJECT_FOREIGN.toString(),
-                l10nId: "sitedata-option-block-all-cross-site-cookies",
+                l10nId:
+                  "preferences-etp-custom-cookie-behavior-block-all-cross-site-cookies",
               },
               {
                 value: Ci.nsICookieService.BEHAVIOR_REJECT.toString(),
-                l10nId: "sitedata-option-block-all",
+                l10nId: "preferences-etp-custom-cookie-behavior-block-all",
               },
             ],
           },
@@ -1887,24 +1891,33 @@ if (SECURITY_PRIVACY_STATUS_CARD_ENABLED) {
       id: "appUpdateStatus",
       cachedValue: undefined,
       setup(emitChange) {
-        if (lazy.AppConstants.MOZ_UPDATER && !lazy.isPackagedApp) {
-          let appUpdater = new lazy.AppUpdater();
-          /**
-           * @param {number} appStatus
-           * @param {any[]} _args
-           */
-          let listener = (appStatus, ..._args) => {
-            this.cachedValue = appStatus;
-            emitChange();
-          };
-          appUpdater.addListener(listener);
-          appUpdater.check();
-          return () => {
-            appUpdater.removeListener(listener);
-            appUpdater.stop();
-          };
+        if (!lazy.AppConstants.MOZ_UPDATER || lazy.isPackagedApp) {
+          return () => {};
         }
-        return () => {};
+        // Reuse the AppUpdater driven by about-firefox.mjs's updateState
+        // setting so we don't kick off a parallel update check and download.
+        let sharedAppUpdater = window.gAppUpdater?._appUpdater;
+        let appUpdater = sharedAppUpdater ?? new lazy.AppUpdater();
+        /**
+         * @param {number} appStatus
+         * @param {any[]} _args
+         */
+        let listener = (appStatus, ..._args) => {
+          this.cachedValue = appStatus;
+          emitChange();
+        };
+        appUpdater.addListener(listener);
+        if (sharedAppUpdater) {
+          this.cachedValue = appUpdater.status;
+        } else {
+          appUpdater.check();
+        }
+        return () => {
+          appUpdater.removeListener(listener);
+          if (!sharedAppUpdater) {
+            appUpdater.stop();
+          }
+        };
       },
       get() {
         return this.cachedValue;

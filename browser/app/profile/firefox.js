@@ -3046,7 +3046,7 @@ pref("browser.toolbars.bookmarks.showOtherBookmarks", true);
 pref("browser.toolbars.share-button.enabled", true);
 
 // Felt Privacy pref to control simplified private browsing UI
-pref("browser.privatebrowsing.felt-privacy-v1", false);
+pref("browser.privatebrowsing.felt-privacy-v1", true);
 pref("security.certerrors.felt-privacy-v1", true);
 
 
@@ -3627,7 +3627,7 @@ pref("browser.backup.scheduled.user-disabled", false);
 // How many milliseconds to wait for tab state to flush before continuing the
 // backup process.
 pref("browser.backup.tab-flush-timeout", 5000);
-pref("browser.backup.enabled_on.profiles", "{}");
+pref("browser.backup.enabled_on.profiles", "[]");
 
 // Pref to enable the new profiles
 pref("browser.profiles.enabled", true);
@@ -3716,7 +3716,7 @@ pref("toolkit.rust-components.logging.crates", "");
 pref("toolkit.rust-components.logging.internal-level", "Warn");
 
 // Settings Redesign 2025 prefs
-pref("browser.settings-redesign.enabled", false);
+pref("browser.settings-redesign.enabled", true);
 
 // A preference that will be locked to reflect whether this build has support
 // for XDG Config Home handling. Mostly used to be able to keep tests around

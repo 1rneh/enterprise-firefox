@@ -20,7 +20,9 @@ import mozilla.components.compose.base.theme.layout.AcornWindowSize
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.appstate.sports.SportsWidgetState
 import org.mozilla.fenix.home.sports.CountrySelectorSource
+import org.mozilla.fenix.home.sports.FollowedTeamOutcome
 import org.mozilla.fenix.home.sports.LiveMatchRefreshSource
+import org.mozilla.fenix.home.sports.SportCardErrorState
 import org.mozilla.fenix.home.sports.Team
 import org.mozilla.fenix.home.sports.WORLD_CUP_KICKOFF_UTC
 import org.mozilla.fenix.home.sports.regionGrouping
@@ -58,7 +60,7 @@ fun SportsWidget(
     onSkip: () -> Unit,
     onGetCustomWallpaper: () -> Unit,
     onRefresh: (LiveMatchRefreshSource) -> Unit,
-    onMatchClicked: (String, String) -> Unit,
+    onMatchClicked: (String?, String?, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Spacer(modifier = Modifier.height(SportsWidgetTopSpacing))
@@ -95,12 +97,15 @@ fun SportsWidget(
                     .firstOrNull { it.key in countriesSelected }
             }
 
-            val pages = remember(
+            val pagesResult = remember(
                 sportsWidgetState.isOneWeekToWorldCup,
                 sportsWidgetState.isFollowTeamsCardShown,
                 selectedTeam,
                 sportsWidgetState.matchCardStates,
+                sportsWidgetState.errorState,
                 onFollowTeam,
+                onGetCustomWallpaper,
+                onDismiss,
                 onRefresh,
                 onMatchClicked,
             ) {
@@ -109,76 +114,109 @@ fun SportsWidget(
                     isFollowTeamsCardShown = sportsWidgetState.isFollowTeamsCardShown,
                     selectedTeam = selectedTeam,
                     matchCardStates = sportsWidgetState.matchCardStates,
+                    errorState = sportsWidgetState.errorState,
                     onFollowTeam = onFollowTeam,
+                    onGetCustomWallpaper = onGetCustomWallpaper,
+                    onRemove = onDismiss,
                     onRefresh = onRefresh,
                     onMatchClicked = onMatchClicked,
                 )
             }
 
             SportsCardPager(
-                pages = pages,
+                pages = pagesResult.first,
                 onChangeTeam = onFollowTeam,
                 onGetCustomWallpaper = onGetCustomWallpaper,
                 onRemove = onDismiss,
                 modifier = containerModifier,
+                championsPageIndices = pagesResult.second,
             )
         }
     }
 }
 
+@Suppress("LongParameterList")
 private fun sportsCardPages(
     isOneWeekToWorldCup: Boolean,
     isFollowTeamsCardShown: Boolean,
     selectedTeam: Team?,
     matchCardStates: List<MatchCardState>,
+    errorState: SportCardErrorState?,
     onFollowTeam: (CountrySelectorSource) -> Unit,
+    onGetCustomWallpaper: () -> Unit,
+    onRemove: () -> Unit,
     onRefresh: (LiveMatchRefreshSource) -> Unit,
-    onMatchClicked: (String, String) -> Unit,
-): List<@Composable (pageNumber: Int, pageCount: Int) -> Unit> = buildList {
-    if (isFollowTeamsCardShown) {
-        if (isOneWeekToWorldCup) {
-            add { pageNumber, pageCount ->
-                CountdownPromoCard(
-                    dateInUtc = WORLD_CUP_KICKOFF_UTC,
-                    actionButtonLabelResId = R.string.sports_widget_country_selector_title,
-                    onClick = { onFollowTeam(CountrySelectorSource.COUNTDOWN_CARD_FOLLOW_TEAM_BUTTON) },
-                    onDismiss = null,
-                    pageNumber = pageNumber,
-                    pageCount = pageCount,
-                )
+    onMatchClicked: (String?, String?, String?) -> Unit,
+): Pair<List<@Composable (pageNumber: Int, pageCount: Int) -> Unit>, Set<Int>> {
+    val championsPageIndices = mutableSetOf<Int>()
+    val pages = buildList<@Composable (pageNumber: Int, pageCount: Int) -> Unit> {
+        if (isFollowTeamsCardShown) {
+            if (isOneWeekToWorldCup) {
+                add { pageNumber, pageCount ->
+                    CountdownPromoCard(
+                        dateInUtc = WORLD_CUP_KICKOFF_UTC,
+                        actionButtonLabelResId = R.string.sports_widget_country_selector_title,
+                        onClick = { onFollowTeam(CountrySelectorSource.COUNTDOWN_CARD_FOLLOW_TEAM_BUTTON) },
+                        onDismiss = null,
+                        pageNumber = pageNumber,
+                        pageCount = pageCount,
+                    )
+                }
+            } else {
+                add { pageNumber, pageCount ->
+                    FollowTeamPromoCard(
+                        onFollowTeam = onFollowTeam,
+                        pageNumber = pageNumber,
+                        pageCount = pageCount,
+                    )
+                }
             }
-        } else {
+        } else if (selectedTeam != null && matchCardStates.isEmpty()) {
             add { pageNumber, pageCount ->
-                FollowTeamPromoCard(
-                    onFollowTeam = onFollowTeam,
+                FollowingPromoCard(
+                    team = selectedTeam,
                     pageNumber = pageNumber,
                     pageCount = pageCount,
                 )
             }
         }
-    } else if (selectedTeam != null && matchCardStates.isEmpty()) {
-        add { pageNumber, pageCount ->
-            FollowingPromoCard(
-                team = selectedTeam,
-                pageNumber = pageNumber,
-                pageCount = pageCount,
-            )
-        }
-    }
 
-    matchCardStates.forEach { matchCardState ->
-        add { pageNumber, pageCount ->
-            MatchCard(
-                state = matchCardState,
-                isTeamSelected = selectedTeam != null,
-                onRefresh = onRefresh,
-                onMatchClicked = onMatchClicked,
-                pageNumber = pageNumber,
-                pageCount = pageCount,
-            )
+        matchCardStates.forEach { matchCardState ->
+            if (shouldDisplayChampionsCard(matchCardState.viewerOutcome)) {
+                championsPageIndices.add(size)
+                add { pageNumber, pageCount ->
+                    ChampionsCard(
+                        state = matchCardState,
+                        onMatchClicked = onMatchClicked,
+                        onGetCustomWallpaper = onGetCustomWallpaper,
+                        onRemove = onRemove,
+                        pageNumber = pageNumber,
+                        pageCount = pageCount,
+                    )
+                }
+            } else {
+                add { pageNumber, pageCount ->
+                    MatchCard(
+                        state = matchCardState,
+                        errorState = errorState,
+                        isTeamSelected = selectedTeam != null,
+                        onRefresh = onRefresh,
+                        onMatchClicked = onMatchClicked,
+                        pageNumber = pageNumber,
+                        pageCount = pageCount,
+                    )
+                }
+            }
         }
     }
+    return pages to championsPageIndices
 }
+
+private fun shouldDisplayChampionsCard(followedTeamOutcome: FollowedTeamOutcome): Boolean =
+    when (followedTeamOutcome) {
+        is FollowedTeamOutcome.TournamentWinner, is FollowedTeamOutcome.ThirdPlace -> true
+        else -> false
+    }
 
 @PreviewLightDark
 @Composable

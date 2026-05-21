@@ -3967,8 +3967,10 @@ export var PoliciesUtils = {
         // Removing the preference also cleared the user value
         return;
       }
-      // Restoring the user value which recreates the preference but without the default value
-      this._writePref(Services.prefs, prefName, type, currentUserValue);
+      if (currentUserValue !== null) {
+        // Restoring the user value which recreates the preference but without the default value
+        this._writePref(Services.prefs, prefName, type, currentUserValue);
+      }
     } else {
       // Restore the default value
       this._writePref(defaults, prefName, type, prefState.defaultValue);

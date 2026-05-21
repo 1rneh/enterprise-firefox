@@ -19,6 +19,10 @@
  * Plus: test_only_initial_preference_state_cached_and_restored — verifies
  * that repeated setDefaultPref calls don't overwrite the cached initial state.
  *
+ * Plus: test_restore_cached_user_value_when_no_initial_default_value_and_user_value_cleared_mid_policy —
+ * verifies the (null, set, yes) row when the user value is cleared mid-policy:
+ * the cached snapshot wins over the (now-missing) current user value.
+ *
  * Note: the policy engine cannot correctly restore preference state across
  * browser restarts. _initialPrefState lives only in memory, so the cached
  * pre-policy values are lost on shutdown; any policy applied in a previous
@@ -388,6 +392,61 @@ add_task(
       Services.prefs.getStringPref(prefName),
       PREF_VALUE.INITIAL_USER,
       "Expected user value to be restored"
+    );
+
+    info("Verifying that the preference is unlocked again");
+    ok(!Services.prefs.prefIsLocked(prefName), "Preference is unlocked");
+
+    Services.prefs.deleteBranch(prefName);
+  }
+);
+
+/**
+ * Restoring the preference state when only a user value was cached (no initial
+ * default value), the policy was locked, and the user value was cleared
+ * during the policy's lifetime. Only the cached user value is restored.
+ */
+add_task(
+  async function test_restore_cached_user_value_when_no_initial_default_value_and_user_value_cleared_mid_policy() {
+    assert_clean_preference_state();
+
+    info("Setting preference's user value (no default value)");
+    Services.prefs.setStringPref(prefName, PREF_VALUE.INITIAL_USER);
+    ok(
+      !Services.prefs.prefHasDefaultValue(prefName),
+      "No initial default value"
+    );
+
+    info(
+      "Set the preference's default value to the policy value and lock the preference"
+    );
+    setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+
+    info("Verifying that the policy is locked");
+    ok(Services.prefs.prefIsLocked(prefName), "Preference is locked");
+
+    info("Clearing the user value while the policy is active");
+    Services.prefs.clearUserPref(prefName);
+    ok(!Services.prefs.prefHasUserValue(prefName), "No user value mid-policy");
+
+    info("Restoring preference state");
+    unsetAndUnlockPref(prefName);
+
+    info(
+      "Verifying that there is no default value, since none existed before the policy was applied"
+    );
+    ok(
+      !Services.prefs.prefHasDefaultValue(prefName),
+      "Expected no default value"
+    );
+
+    info(
+      "Verifying that the cached user value is restored, since the policy was locked"
+    );
+    Assert.equal(
+      Services.prefs.getStringPref(prefName),
+      PREF_VALUE.INITIAL_USER,
+      "Expected cached user value to be restored"
     );
 
     info("Verifying that the preference is unlocked again");

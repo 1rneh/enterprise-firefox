@@ -13588,7 +13588,7 @@
 
 - name: media.webrtc.simulcast.vp9.enabled
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: media.peerconnection.video.use_dd
@@ -17831,6 +17831,12 @@
 
 # Whether to apply the <meta http="Content-Security-Policy"> to browser.xhtml
 - name: security.browser_xhtml_csp.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Whether all chrome: documents will automatically get a baseline CSP
+- name: security.chrome_baseline_csp.enabled
   type: bool
   value: true
   mirror: always

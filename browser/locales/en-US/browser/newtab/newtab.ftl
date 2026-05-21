@@ -776,6 +776,11 @@ newtab-sports-widget-view-all =
     .label = View all
 newtab-sports-widget-show-less =
     .label = Show less
+
+## Watch live stream dialog
+## Shown when the user clicks the “Watch live” button on a live match.
+## Lists available streaming services where the match can be watched.
+
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Watch
@@ -785,6 +790,38 @@ newtab-sports-widget-watch =
 newtab-sports-widget-watch-icon =
     .aria-label = Watch live
     .title = Watch live
+
+newtab-sports-widget-watch-dialog-close =
+    .aria-label = Close
+    .title = Close
+
+# Tag: user can watch without paying (sign-in may still be required).
+newtab-sports-widget-watch-stream-free = Free
+
+# Tag: user can start watching via a trial; continued access may require payment after it ends.
+newtab-sports-widget-watch-stream-free-trial = Free trial
+
+# Tag: provider offers both a no-cost or trial path and a paid path.
+newtab-sports-widget-watch-stream-free-paid = Free and paid
+
+# Tag: user must pay to watch (subscription, TV provider, premium plan, or add-on).
+newtab-sports-widget-watch-stream-paid = Paid
+
+# Note: provider only streams some matches, not the full tournament.
+newtab-sports-widget-watch-stream-select-games-only = Select games only
+
+# Heading for the list of streaming services available in the user’s country/region.
+newtab-sports-widget-watch-available-region = Available in your region
+
+# Heading for the list of streaming services available outside the user’s country/region.
+newtab-sports-widget-watch-available-other-regions = Other regions
+
+# Button that opens the provider’s stream page in a new tab.
+newtab-sports-widget-watch-play =
+    .aria-label = Open stream
+    .title = Open stream
+
+##
 
 # The "LIVE" string is meant to be uppercase in English, but other languages and locales may vary in how they handle this.
 newtab-sports-widget-live = LIVE
@@ -797,7 +834,6 @@ newtab-sports-widget-upcoming = Upcoming
 # Used for a match currently ongoing
 newtab-sports-widget-now = Now
 newtab-sports-widget-results = Results
-newtab-sports-widget-group-stage = Group Stage
 newtab-sports-widget-round-32 = Round of 32
 newtab-sports-widget-round-16 = Round of 16
 newtab-sports-widget-quarter-finals = Quarter-finals
@@ -805,6 +841,25 @@ newtab-sports-widget-semi-finals = Semi-finals
 newtab-sports-widget-bronze-finals = Bronze Final
 # Final is the final match for 1st place.
 newtab-sports-widget-final = Final
+
+## Labels for the 12 World Cup group-stage groups (Group A through Group L).
+## Each team is assigned to one of these groups during the World Cup tournament group stage.
+
+newtab-sports-widget-group-stage = Group Stage
+newtab-sports-widget-group-a = Group A
+newtab-sports-widget-group-b = Group B
+newtab-sports-widget-group-c = Group C
+newtab-sports-widget-group-d = Group D
+newtab-sports-widget-group-e = Group E
+newtab-sports-widget-group-f = Group F
+newtab-sports-widget-group-g = Group G
+newtab-sports-widget-group-h = Group H
+newtab-sports-widget-group-i = Group I
+newtab-sports-widget-group-j = Group J
+newtab-sports-widget-group-k = Group K
+newtab-sports-widget-group-l = Group L
+
+##
 
 # Variables:
 #   $start (Date) - Start date of a tournament stage
@@ -887,6 +942,21 @@ newtab-sports-widget-match-aria-label-upcoming-suspended =
 # An upcoming match row whose status is "cancelled".
 newtab-sports-widget-match-aria-label-upcoming-cancelled =
     .aria-label = { $homeTeam } vs. { $awayTeam }, cancelled
+
+## Sports widget — team names (FIFA country codes)
+## Only includes names not adequately covered by standard country-code
+## internationalization tooling.
+
+newtab-sports-widget-team-name-label-bih =
+    .label = Bosnia and Herzegovina
+newtab-sports-widget-team-name-label-civ =
+    .label = Ivory Coast
+newtab-sports-widget-team-name-label-cod =
+    .label = DR Congo
+newtab-sports-widget-team-name-label-eng =
+    .label = England
+newtab-sports-widget-team-name-label-sco =
+    .label = Scotland
 
 ## Strings introduced by the Nova redesign of the Timer widget
 

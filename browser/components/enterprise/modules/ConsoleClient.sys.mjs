@@ -94,43 +94,31 @@ export const ConsoleClient = {
           const consoleURI = Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
           resolve(consoleURI);
         } catch (e) {
-          lazy.log.warn(
-            `Missing console URI. Waiting on distribution customization to complete.`
-          );
-          const kDistributionPreferencesCompleteTopic =
-            "distribution-preferences-complete";
-          const distributionCompleteObserver = {
-            observe(_aSubject, aTopic, _aData) {
-              Services.obs.removeObserver(
-                distributionCompleteObserver,
-                "xpcom-shutdown"
-              );
-              Services.obs.removeObserver(
-                distributionCompleteObserver,
-                kDistributionPreferencesCompleteTopic
-              );
-              if (aTopic === kDistributionPreferencesCompleteTopic) {
-                try {
-                  const consoleURI =
-                    Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
-                  resolve(consoleURI);
-                } catch (ex) {
-                  lazy.log.error(
-                    `Critical misconfiguration: Missing console URI`
+          lazy.log.warn(`Missing console URI. Waiting on pref change.`);
+          const consolePrefObserver = {
+            observe(_, topic) {
+              switch (topic) {
+                case "nsPref:changed":
+                  Services.prefs.removeObserver(
+                    CONSOLE_ADDRESS_PREF,
+                    consolePrefObserver
                   );
-                  reject(ex);
-                }
+                  lazy.log.warn(`Missing console URI. Pref changed, checking.`);
+                  try {
+                    const consoleURI =
+                      Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
+                    resolve(consoleURI);
+                  } catch (ex) {
+                    lazy.log.error(
+                      `Critical misconfiguration: Missing console URI`
+                    );
+                    reject(ex);
+                  }
+                  break;
               }
             },
           };
-          Services.obs.addObserver(
-            distributionCompleteObserver,
-            kDistributionPreferencesCompleteTopic
-          );
-          Services.obs.addObserver(
-            distributionCompleteObserver,
-            "xpcom-shutdown"
-          );
+          Services.prefs.addObserver(CONSOLE_ADDRESS_PREF, consolePrefObserver);
         }
       });
     }

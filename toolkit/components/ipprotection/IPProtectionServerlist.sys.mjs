@@ -402,6 +402,13 @@ export class PrefServerList extends IPProtectionServerlistBase {
     this.maybeFetchList();
   }
 
+  // Re-read the pref so that a policy activated after module load is picked up before #updateState() runs.
+  init() {
+    this.__list = IPProtectionServerlistBase.dataToList(
+      PrefServerList.prefValue
+    );
+  }
+
   async initOnStartupCompleted() {
     Services.prefs.addObserver(
       IPProtectionServerlist.PREF_NAME,

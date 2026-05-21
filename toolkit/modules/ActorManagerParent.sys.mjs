@@ -487,23 +487,6 @@ let JSWINDOWACTORS = {
     safeForUntrustedWebProcess: true,
   },
 
-  NetError: {
-    parent: {
-      esModuleURI: "resource://gre/actors/NetErrorParent.sys.mjs",
-    },
-    child: {
-      esModuleURI: "resource://gre/actors/NetErrorChild.sys.mjs",
-      events: {
-        DOMDocElementInserted: {},
-        click: {},
-      },
-    },
-
-    matches: ["about:certerror?*", "about:neterror?*"],
-    allFrames: true,
-    safeForUntrustedWebProcess: true,
-  },
-
   OpenSearchLoader: {
     child: {
       esModuleURI:
@@ -717,6 +700,27 @@ let JSWINDOWACTORS = {
   },
 };
 
+if (
+  !AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltUI()
+) {
+  JSWINDOWACTORS.NetError = {
+    parent: {
+      esModuleURI: "resource://gre/actors/NetErrorParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "resource://gre/actors/NetErrorChild.sys.mjs",
+      events: {
+        DOMDocElementInserted: {},
+        click: {},
+      },
+    },
+
+    matches: ["about:certerror?*", "about:neterror?*"],
+    allFrames: true,
+    safeForUntrustedWebProcess: true,
+  };
+}
+
 /**
  * Note that turning on page data collection for snapshots currently disables
  * collection of generic page info for normal history entries. See bug 1740234.
@@ -869,6 +873,72 @@ if (AppConstants.platform != "android") {
     includeChrome: true,
     allFrames: true,
     safeForUntrustedWebProcess: true,
+  };
+}
+
+if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
+  // This actor registers asynchronously because its 'matches' field depends on
+  // the console address, a value that requires promise based call.
+  JSWINDOWACTORS.FeltWindow = {
+    parent: {
+      esModuleURI: "chrome://felt/content/FeltWindowParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
+      events: {
+        DOMContentLoaded: {},
+      },
+    },
+    allFrames: true,
+    matches: [],
+    onAddActor(register, _unregister) {
+      const { ConsoleClient } = ChromeUtils.importESModule(
+        "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+      );
+      ConsoleClient.ssoCallbackUriMatchPattern.then(
+        uri => {
+          this.matches = [uri];
+          register();
+        },
+        e => console.error("Felt: FeltWindow actor registration failed", e)
+      );
+    },
+
+  };
+
+  JSWINDOWACTORS.FeltErrorWindow = {
+    child: {
+      esModuleURI: "chrome://felt/content/FeltErrorWindowChild.sys.mjs",
+      events: {
+        DOMContentLoaded: {},
+      },
+    },
+    parent: {
+      esModuleURI: "chrome://felt/content/FeltErrorWindowParent.sys.mjs",
+    },
+    allFrames: true,
+    safeForUntrustedWebProcess: true,
+    matches: ["about:certerror?*", "about:neterror?*"],
+  };
+
+  JSWINDOWACTORS.ContextMenu = {
+    parent: {
+      esModuleURI: "chrome://felt/content/ContextMenuParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "chrome://felt/content/ContextMenuChild.sys.mjs",
+      events: {
+        contextmenu: { mozSystemGroup: true },
+      },
+    },
+    allFrames: true,
+    safeForUntrustedWebProcess: true,
+  };
+
+  JSPROCESSACTORS.FeltProcess = {
+    parent: {
+      esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
+    },
   };
 }
 

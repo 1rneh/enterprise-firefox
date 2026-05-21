@@ -56,10 +56,6 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
  *    enter/exitLastWindowClosingSurvivalArea.
  */
 export class Felt {
-  FELT_PROCESS_ACTOR = "FeltProcess";
-  FELT_WINDOW_ACTOR = "FeltWindow";
-  FELT_ERROR_WINDOW_ACTOR = "FeltErrorWindow";
-
   // XPCOM identity
   static classID = Components.ID("{4a73d4d4-09fd-4f68-8c31-a6b39bfb36b7}");
   static contractID = "@mozilla.org/felt;1";
@@ -79,65 +75,6 @@ export class Felt {
         Services.obs.removeObserver(this, "xpcom-shutdown");
         this.#handleShutdown();
     }
-  }
-
-  async registerActors() {
-    const { ConsoleClient } = ChromeUtils.importESModule(
-      "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
-    );
-    const matches = [await ConsoleClient.ssoCallbackUriMatchPattern];
-    ChromeUtils.registerWindowActor(this.FELT_WINDOW_ACTOR, {
-      parent: {
-        esModuleURI: "chrome://felt/content/FeltWindowParent.sys.mjs",
-      },
-      child: {
-        esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
-        events: {
-          DOMContentLoaded: {},
-          load: {},
-        },
-      },
-      allFrames: true,
-      matches,
-    });
-
-    // Remove existing error handler installed by default so we can install
-    // our own to provide a dedicated UI.
-    ChromeUtils.unregisterWindowActor("NetError");
-    ChromeUtils.registerWindowActor(this.FELT_ERROR_WINDOW_ACTOR, {
-      child: {
-        esModuleURI: "chrome://felt/content/FeltErrorWindowChild.sys.mjs",
-        events: {
-          DOMContentLoaded: {},
-        },
-      },
-      parent: {
-        esModuleURI: "chrome://felt/content/FeltErrorWindowParent.sys.mjs",
-      },
-      allFrames: true,
-      matches: ["about:certerror?*", "about:neterror?*"],
-    });
-
-    // We use a much simpler version of the context menu so replace the default actor with our own.
-    ChromeUtils.unregisterWindowActor("ContextMenu");
-    ChromeUtils.registerWindowActor("ContextMenu", {
-      parent: {
-        esModuleURI: "chrome://felt/content/ContextMenuParent.sys.mjs",
-      },
-      child: {
-        esModuleURI: "chrome://felt/content/ContextMenuChild.sys.mjs",
-        events: {
-          contextmenu: { mozSystemGroup: true },
-        },
-      },
-      allFrames: true,
-    });
-
-    ChromeUtils.registerProcessActor(this.FELT_PROCESS_ACTOR, {
-      parent: {
-        esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
-      },
-    });
   }
 
   urlObserver = {
@@ -288,7 +225,6 @@ export class Felt {
       // their main thread demoted to low-priority QoS, which can starve the
       // SSO callback's DOMContentLoaded event and prevent token extraction.
       Services.prefs.setBoolPref("threads.use_low_power.enabled", false);
-      await this.registerActors();
       await lazy.FeltStorage.init();
       this.showWindow();
       this.addFeltMessageListeners();
@@ -475,9 +411,6 @@ export class Felt {
         Services.obs.removeObserver(this.webauthnObserver, "webauthn-prompt");
       }
 
-      ChromeUtils.unregisterWindowActor(this.FELT_WINDOW_ACTOR);
-      ChromeUtils.unregisterWindowActor(this.FELT_ERROR_WINDOW_ACTOR);
-      ChromeUtils.unregisterProcessActor(this.FELT_PROCESS_ACTOR);
       lazy.FeltStorage.uninit();
     }
   }

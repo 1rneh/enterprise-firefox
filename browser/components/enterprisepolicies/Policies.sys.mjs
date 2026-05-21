@@ -3864,93 +3864,140 @@ export var PoliciesUtils = {
    *
    * @typedef PreferenceState
    * @type {object}
-   * @property {Ci.nsIPrefBranch.PreferenceType} type - preference type
    * @property {number|boolean|string|null} defaultValue - default preference value
    * @property {number|boolean|string|null} userValue - user modified preference value
+   * @property {boolean} isLocked - whether the preference is locked
    */
 
   /** @type {PreferenceState} */
   _initialPrefState: {},
 
   /**
-   * Saves the current default and user values of a pref before a policy changes it.
+   * Reads a typed preference value from the given branch, returning null when
+   * the branch has no value for this pref.
+   *
+   * @param {nsIPrefBranch} branch  User or default branch.
+   * @param {string} prefName
+   * @param {Ci.nsIPrefBranch.PreferenceType} type
+   */
+  _readPref(branch, prefName, type) {
+    switch (type) {
+      case Ci.nsIPrefBranch.PREF_INT:
+        return branch.getIntPref(prefName, null);
+      case Ci.nsIPrefBranch.PREF_BOOL:
+        return branch.getBoolPref(prefName, null);
+      case Ci.nsIPrefBranch.PREF_STRING:
+        return branch.getStringPref(prefName, null);
+      case Ci.nsIPrefBranch.PREF_INVALID:
+        return null;
+    }
+    return null;
+  },
+
+  /**
+   * Writes a typed preference value to the given branch. No-op for
+   * Ci.nsIPrefBranch.PREF_INVALID.
+   *
+   * @param {nsIPrefBranch} branch  User or default branch.
+   * @param {string} prefName
+   * @param {Ci.nsIPrefBranch.PreferenceType} type
+   * @param {number|boolean|string} value
+   */
+  _writePref(branch, prefName, type, value) {
+    switch (type) {
+      case Ci.nsIPrefBranch.PREF_INT:
+        branch.setIntPref(prefName, value);
+        break;
+      case Ci.nsIPrefBranch.PREF_BOOL:
+        branch.setBoolPref(prefName, value);
+        break;
+      case Ci.nsIPrefBranch.PREF_STRING:
+        branch.setStringPref(prefName, value);
+        break;
+      case Ci.nsIPrefBranch.PREF_INVALID:
+        break;
+    }
+  },
+
+  /**
+   * Saves the current default and user values of a pref before a policy changes it,
+   * along with whether the applying policy will leave the pref locked.
    * No-op if the pref was already saved.
    *
    * @param {string} prefName
+   * @param {boolean} isLocked
    */
-  savePreferenceState(prefName) {
+  savePreferenceState(prefName, isLocked) {
     if (prefName in this._initialPrefState) {
       return;
     }
 
     const type = Services.prefs.getPrefType(prefName);
-    const prefState = { type, defaultValue: null, userValue: null };
 
     const defaults = Services.prefs.getDefaultBranch("");
-    switch (type) {
-      case Ci.nsIPrefBranch.PREF_INT:
-        prefState.defaultValue = defaults.getIntPref(prefName, null);
-        prefState.userValue = Services.prefs.getIntPref(prefName, null);
-        break;
-      case Ci.nsIPrefBranch.PREF_BOOL:
-        prefState.defaultValue = defaults.getBoolPref(prefName, null);
-        prefState.userValue = Services.prefs.getBoolPref(prefName, null);
-        break;
-      case Ci.nsIPrefBranch.PREF_STRING:
-        prefState.defaultValue = defaults.getStringPref(prefName, null);
-        prefState.userValue = Services.prefs.getStringPref(prefName, null);
-        break;
-      case Ci.nsIPrefBranch.PREF_INVALID:
-      default:
-        break;
-    }
+    const prefState = {
+      defaultValue: this._readPref(defaults, prefName, type),
+      userValue: Services.prefs.prefHasUserValue(prefName) // check needed since the default is returned in case no user value exists
+        ? this._readPref(Services.prefs, prefName, type)
+        : null,
+      isLocked,
+    };
 
     this._initialPrefState[prefName] = prefState;
   },
 
   /**
-   * Restores the default and user values of a pref to the state before any policy was applied.
-   * No-op if no state was saved for the pref.
+   * Restores the preference to the state before any policy was applied. The user
+   * value of a preference is only restored if the preference was locked by the policy
+   * or was locked even before
    *
    * @param {string} prefName
    */
   restorePreferenceState(prefName) {
     const prefState = this._initialPrefState[prefName];
 
+    delete this._initialPrefState[prefName];
+
     if (!prefState) {
       // Nothing to restore
       return;
     }
 
+    const type = Services.prefs.getPrefType(prefName);
     const defaults = Services.prefs.getDefaultBranch("");
-    switch (prefState.type) {
-      case Ci.nsIPrefBranch.PREF_INT:
-        if (prefState.defaultValue !== null) {
-          defaults.setIntPref(prefName, prefState.defaultValue);
-        }
-        if (prefState.userValue !== null) {
-          Services.prefs.setIntPref(prefName, prefState.userValue);
-        }
-        break;
-      case Ci.nsIPrefBranch.PREF_BOOL:
-        if (prefState.defaultValue !== null) {
-          defaults.setBoolPref(prefName, prefState.defaultValue);
-        }
-        if (prefState.userValue !== null) {
-          Services.prefs.setBoolPref(prefName, prefState.userValue);
-        }
-        break;
-      case Ci.nsIPrefBranch.PREF_STRING:
-        if (prefState.defaultValue !== null) {
-          defaults.setStringPref(prefName, prefState.defaultValue);
-        }
-        if (prefState.userValue !== null) {
-          Services.prefs.setStringPref(prefName, prefState.userValue);
-        }
-        break;
+
+    if (prefState.defaultValue === null) {
+      // There is no API to only clear the default value, hence we need to delete the
+      // preference and restore the user value later if needed.
+      const isClearUserValue =
+        (prefState.isLocked && prefState.userValue === null) ||
+        (!prefState.isLocked && !Services.prefs.prefHasUserValue(prefName));
+      const currentUserValue = Services.prefs.prefHasUserValue(prefName)
+        ? this._readPref(Services.prefs, prefName, type)
+        : null;
+      defaults.deleteBranch(prefName);
+      if (isClearUserValue) {
+        // Removing the preference also cleared the user value
+        return;
+      }
+      if (currentUserValue !== null) {
+        // Restoring the user value which recreates the preference but without the default value
+        this._writePref(Services.prefs, prefName, type, currentUserValue);
+      }
+    } else {
+      // Restore the default value
+      this._writePref(defaults, prefName, type, prefState.defaultValue);
     }
 
-    delete this._initialPrefState[prefName];
+    if (prefState.isLocked) {
+      if (prefState.userValue === null) {
+        // Remove the user value
+        Services.prefs.clearUserPref(prefName);
+      } else {
+        // Restoring user value since preference was locked.
+        this._writePref(Services.prefs, prefName, type, prefState.userValue);
+      }
+    }
   },
 
   /**
@@ -3967,14 +4014,14 @@ export var PoliciesUtils = {
    *        Optionally lock the pref
    */
   setDefaultPref(prefName, prefValue, locked) {
-    let prefWasLocked = Services.prefs.prefIsLocked(prefName);
+    const prefWasLocked = Services.prefs.prefIsLocked(prefName);
     if (prefWasLocked) {
       Services.prefs.unlockPref(prefName);
     }
 
-    this.savePreferenceState(prefName);
+    this.savePreferenceState(prefName, prefWasLocked || locked === true);
 
-    let defaults = Services.prefs.getDefaultBranch("");
+    const defaults = Services.prefs.getDefaultBranch("");
 
     switch (typeof prefValue) {
       case "boolean":

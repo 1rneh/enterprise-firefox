@@ -709,7 +709,7 @@ export const ConsoleClient = {
    * Register shutdown observer to clean up the client.
    */
   init() {
-    Services.prefs.addObserver("enterprise.console.address", this);
+    Services.prefs.addObserver(CONSOLE_ADDRESS_PREF, this);
 
     if (Services.felt.isFeltBrowser()) {
       Services.obs.addObserver(this, "xpcom-shutdown");
@@ -723,7 +723,7 @@ export const ConsoleClient = {
     switch (topic) {
       case "xpcom-shutdown": {
         Services.obs.removeObserver(this, "xpcom-shutdown");
-        Services.prefs.removeObserver(this, "enterprise.console.address");
+        Services.prefs.removeObserver(CONSOLE_ADDRESS_PREF, this);
         Services.obs.removeObserver(
           this,
           "felt-firefox-access-token-refreshed"

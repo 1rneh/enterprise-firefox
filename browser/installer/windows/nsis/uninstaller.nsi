@@ -711,7 +711,7 @@ Section "Uninstall"
   RmDir "$INSTDIR"
 
 !ifdef MOZ_ENTERPRISE
-  RmDir /r "$TEMP\felt\"
+  RmDir /r "$TEMP\felt-${UpdateChannel}\"
 !endif
 
   ; If firefox.exe was successfully deleted yet we still need to restart to

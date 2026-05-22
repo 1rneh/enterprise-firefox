@@ -73,6 +73,10 @@ ChromeUtils.defineLazyGetter(AppInfo, "isEnterprise", () => {
   return Services.appinfo.ID == ID_FIREFOX && AppConstants.MOZ_ENTERPRISE;
 });
 
+ChromeUtils.defineLazyGetter(AppInfo, "isFeltUI", () => {
+  return !!(AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI());
+});
+
 ChromeUtils.defineLazyGetter(AppInfo, "name", () => {
   if (Services.appinfo.ID == ID_FIREFOX && AppConstants.MOZ_ENTERPRISE) {
     return "Firefox";

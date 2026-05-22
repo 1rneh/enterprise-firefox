@@ -3648,7 +3648,11 @@ pref("browser.backup.tab-flush-timeout", 5000);
 pref("browser.backup.enabled_on.profiles", "[]");
 
 // Pref to enable the new profiles
+#ifdef MOZ_ENTERPRISE
+pref("browser.profiles.enabled", false);
+#else
 pref("browser.profiles.enabled", true);
+#endif
 pref("browser.profiles.profile-name.updated", false);
 // Whether to allow the user to merge profile data
 pref("browser.profiles.sync.allow-danger-merge", false);

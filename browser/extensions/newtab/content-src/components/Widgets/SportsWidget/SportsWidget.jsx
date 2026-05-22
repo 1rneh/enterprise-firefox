@@ -10,6 +10,7 @@ import { useIntersectionObserver } from "../../../lib/utils";
 import { SportsMatchRow } from "./SportsMatchRow";
 import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
 import { useLocalizedTeamNames } from "./useLocalizedTeamNames.jsx";
+import { MoveSubmenu } from "../MoveSubmenu";
 
 const WIDGET_STATES = {
   INTRO: "sports-intro",
@@ -56,7 +57,7 @@ const SPORTS_WIDGET_REGISTRY_ENTRY = WIDGET_REGISTRY.find(
   widget => widget.id === "sportsWidget"
 );
 
-function SportsWidget({ dispatch, handleUserInteraction }) {
+function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
   const prefs = useSelector(state => state.Prefs.values);
   const sportsWidgetData = useSelector(state => state.SportsWidget);
 
@@ -512,6 +513,10 @@ function SportsWidget({ dispatch, handleUserInteraction }) {
                   </panel-list>
                 </panel-item>
               )}
+              <MoveSubmenu
+                widgetId="sportsWidget"
+                widgetEnabledMap={widgetEnabledMap}
+              />
               <panel-item
                 data-l10n-id="newtab-widget-menu-hide"
                 onClick={handleSportsWidgetHide}
@@ -541,6 +546,7 @@ function SportsWidget({ dispatch, handleUserInteraction }) {
             previous={sportsWidgetData?.data?.matches?.previous ?? []}
             current={sportsWidgetData?.data?.matches?.current ?? []}
             next={sportsWidgetData?.data?.matches?.next ?? []}
+            handleInteraction={handleInteraction}
           />
         )}
         {widgetState === WIDGET_STATES.KEY_DATES && (
@@ -665,6 +671,7 @@ function SportsMatchesView({
   previous,
   current,
   next,
+  handleInteraction,
 }) {
   const [showResultsList, setShowResultsList] = useState(false);
   const [showUpcomingList, setShowUpcomingList] = useState(false);
@@ -703,7 +710,12 @@ function SportsMatchesView({
               <li
                 key={`${match.home_team.key}-${match.away_team.key}-${match.date}`}
               >
-                <SportsMatchRow match={match} variant="results" size="list" />
+                <SportsMatchRow
+                  match={match}
+                  variant="results"
+                  size="list"
+                  handleInteraction={handleInteraction}
+                />
               </li>
             ))}
           </ul>
@@ -714,6 +726,7 @@ function SportsMatchesView({
                 match={previous[0]}
                 variant="results"
                 size={size}
+                handleInteraction={handleInteraction}
               />
             </div>
           )
@@ -739,7 +752,12 @@ function SportsMatchesView({
           {current[0] && (
             <>
               <div className="match-highlight-view">
-                <SportsMatchRow match={current[0]} variant="now" size={size} />
+                <SportsMatchRow
+                  match={current[0]}
+                  variant="now"
+                  size={size}
+                  handleInteraction={handleInteraction}
+                />
               </div>
               {/* TODO: Add onClick handler + play icon when we start implementing Watch dialog UI */}
               <moz-button
@@ -767,14 +785,24 @@ function SportsMatchesView({
               <li
                 key={`${match.home_team.key}-${match.away_team.key}-${match.date}`}
               >
-                <SportsMatchRow match={match} variant="upcoming" size="list" />
+                <SportsMatchRow
+                  match={match}
+                  variant="upcoming"
+                  size="list"
+                  handleInteraction={handleInteraction}
+                />
               </li>
             ))}
           </ul>
         ) : (
           next[0] && (
             <div className="match-highlight-view">
-              <SportsMatchRow match={next[0]} variant="upcoming" size={size} />
+              <SportsMatchRow
+                match={next[0]}
+                variant="upcoming"
+                size={size}
+                handleInteraction={handleInteraction}
+              />
             </div>
           )
         )}

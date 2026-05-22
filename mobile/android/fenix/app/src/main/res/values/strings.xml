@@ -2835,6 +2835,8 @@
     <string name="saved_logins_sort_strategy_last_used">Last used</string>
     <!-- Content description (not visible, for screen readers etc.) -->
     <string name="saved_logins_menu_dropdown_chevron_icon_content_description_2">Sort passwords menu</string>
+    <!-- Label for button to import passwords from file. -->
+    <string name="passwords_import_menu_button">Import from file</string>
 
     <!-- Email Masks -->
     <!-- Title for the Email Masks in the settings menu -->
@@ -3074,8 +3076,6 @@
     <string name="addresses_save_button">Save</string>
     <!-- The text for the "Cancel" button for cancelling adding, updating or deleting an address -->
     <string name="addresses_cancel_button">Cancel</string>
-    <!-- The text for the "Delete address" button for deleting an address -->
-    <string name="addressess_delete_address_button">Delete address</string>
     <!-- The title for the "Delete address" confirmation dialog -->
     <string name="addressess_confirm_dialog_message_2">Delete this address?</string>
     <!-- The text for the positive button on "Delete address" dialog -->

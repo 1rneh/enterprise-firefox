@@ -81,6 +81,10 @@ export class ContentSharingModal extends MozLitElement {
   }
 
   close() {
+    // Borrowing a hack from unexpectedScriptLoad.js, which we use to ensure
+    // opened tabs are foregrounded. To be fixed in bug 2040823.
+    window.top.document.documentElement.removeAttribute("window-modal-open");
+
     window.close();
   }
 
@@ -99,7 +103,7 @@ export class ContentSharingModal extends MozLitElement {
   }
 
   linksInfoTemplate() {
-    if (this.shareResult.warnings.includes(WARNINGS.TOO_MANY_LINKS)) {
+    if (this.shareResult.warning === WARNINGS.TOO_MANY_LINKS) {
       return html`<div
         class="too-many-links"
         data-l10n-id="content-sharing-modal-too-many-links"
@@ -135,7 +139,7 @@ export class ContentSharingModal extends MozLitElement {
 
   handleViewPageClick() {
     this.close();
-    this.documentGlobal.frameElement.documentGlobal.openTrustedLinkIn(
+    this.documentGlobal.frameElement.documentGlobal.openWebLinkIn(
       this.shareResult.url,
       "tab"
     );
@@ -159,7 +163,7 @@ export class ContentSharingModal extends MozLitElement {
       : "/accounts/fxa/login/";
     const signInURL = lazy.CONTENT_SHARING_SERVER_URL + accountSlug;
     this.close();
-    this.documentGlobal.frameElement.documentGlobal.openTrustedLinkIn(
+    this.documentGlobal.frameElement.documentGlobal.openWebLinkIn(
       signInURL,
       "tab"
     );
@@ -172,7 +176,7 @@ export class ContentSharingModal extends MozLitElement {
     event.preventDefault();
     this.close();
     // Need to do this explicity because just clicking isn't opening a tab
-    this.documentGlobal.frameElement.documentGlobal.openTrustedLinkIn(
+    this.documentGlobal.frameElement.documentGlobal.openWebLinkIn(
       event.target.href,
       "tab"
     );
@@ -184,17 +188,16 @@ export class ContentSharingModal extends MozLitElement {
     // if were not signed in and got an unauthorized error
     if (
       this.shareResult.url ||
-      !this.shareResult.errors.length ||
+      !this.shareResult.error ||
       (!this.shareResult.isSignedIn &&
-        this.shareResult.errors.length === 1 &&
-        this.shareResult.errors.includes(ERRORS.UNAUTHORIZED))
+        this.shareResult.error === ERRORS.UNAUTHORIZED)
     ) {
       return html`<moz-button-group
         >${this.buttonsTemplate()}</moz-button-group
       >`;
     }
 
-    if (this.shareResult.errors.length) {
+    if (this.shareResult.error) {
       return html`<moz-message-bar
         type="critical"
         data-l10n-id="content-sharing-modal-generic-error"

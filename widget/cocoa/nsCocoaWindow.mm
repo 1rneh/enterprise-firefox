@@ -3078,6 +3078,31 @@ static gfx::IntPoint GetIntegerDeltaForEvent(NSEvent* aEvent) {
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
+// Override NSResponder's default undo:/redo: implementations. The defaults
+// look up the responder's undoManager property and silently no-op when it is
+// nil, which it always is in Gecko (we use our own TransactionManager rather
+// than NSUndoManager). Without this override, clicking Edit > Undo or Edit >
+// Redo in the macOS system menu bar would dispatch through the responder
+// chain, be "claimed" by the default NSResponder implementation, and do
+// nothing. Forwarding via menuItemHit: routes the click through Gecko's
+// command system, which fires cmd_undo / cmd_redo on the focused editor
+// (bug 2040844).
+//
+// The standard Edit menu items have action=@selector(undo:)/(redo:) with
+// target=nil (see nsMenuItemX.mm) so that macOS 26+ injects SF Symbol icons
+// and so that native NSText fields inside NSSavePanel/NSOpenPanel sheets keep
+// receiving these actions natively when they are the first responder. Those
+// sheets are not in this view's responder chain, so the overrides below only
+// kick in when ChildView is the first responder -- i.e. when focus is in
+// Gecko content or chrome.
+- (void)undo:(id)aSender {
+  [nsMenuBarX::sNativeEventTarget menuItemHit:aSender];
+}
+
+- (void)redo:(id)aSender {
+  [nsMenuBarX::sNativeEventTarget menuItemHit:aSender];
+}
+
 - (void)unmarkText {
   NS_ENSURE_TRUE_VOID(mTextInputHandler);
   mTextInputHandler->CommitIMEComposition();
@@ -5182,6 +5207,36 @@ nsresult nsCocoaWindow::CreateNativeWindow(const NSRect& aRect,
     mWindow.collectionBehavior =
         mWindow.collectionBehavior | NSWindowCollectionBehaviorCanJoinAllSpaces;
   }
+
+  // Set an explicit fullscreen collection behavior before any display so
+  // that AppKit never needs to consult `_implicitlyAllowsFullScreenPrimary`
+  // while rendering. That internal heuristic has been observed to flip its
+  // return value mid-display on macOS 15.3 in background-only (LSUIElement)
+  // processes, which causes a `_NSThemeFullScreenButton` to be inserted
+  // into the titlebar while AppKit is enumerating the titlebar's subviews
+  // -- producing a "Collection was mutated while being enumerated" crash
+  // in `NSViewUpdateVibrancyForSubtree` (bug 2031249, bug 2038980).
+  //
+  // Default to FullScreenPrimary | FullScreenAllowsTiling for resizable
+  // titled top-level windows -- that matches what AppKit's heuristic
+  // returns for those windows today, so the green window-control button
+  // keeps its fullscreen-enter arrows. Non-resizable titled windows
+  // default to Auxiliary | DisallowsTiling, which gives them the "+"
+  // zoom glyph (they typically aren't fullscreen-capable anyway).
+  // SetSupportsNativeFullscreen() can later override based on the XUL
+  // `macnativefullscreen` attribute.
+  if ((mWindowType == WindowType::TopLevel ||
+       mWindowType == WindowType::Dialog) &&
+      (features & NSWindowStyleMaskTitled)) {
+    NSWindowCollectionBehavior fsBehavior =
+        (features & NSWindowStyleMaskResizable)
+            ? (NSWindowCollectionBehaviorFullScreenPrimary |
+               NSWindowCollectionBehaviorFullScreenAllowsTiling)
+            : (NSWindowCollectionBehaviorFullScreenAuxiliary |
+               NSWindowCollectionBehaviorFullScreenDisallowsTiling);
+    mWindow.collectionBehavior |= fsBehavior;
+  }
+
   mWindow.contentMinSize = NSMakeSize(60, 60);
 
   // Make the window use CoreAnimation from the start, so that we don't
@@ -5371,25 +5426,6 @@ void nsCocoaWindow::SetModal(bool aModal) {
 
 bool nsCocoaWindow::IsRunningAppModal() { return [NSApp _isRunningAppModal]; }
 
-static NSRectEdge AlignmentPositionToNSRectEdge(int8_t aPosition) {
-  switch (aPosition) {
-    case POPUPPOSITION_BEFORESTART:
-    case POPUPPOSITION_BEFOREEND:
-      return NSRectEdgeMaxY;
-    case POPUPPOSITION_AFTERSTART:
-    case POPUPPOSITION_AFTEREND:
-      return NSRectEdgeMinY;
-    case POPUPPOSITION_STARTBEFORE:
-    case POPUPPOSITION_STARTAFTER:
-      return NSRectEdgeMaxX;
-    case POPUPPOSITION_ENDBEFORE:
-    case POPUPPOSITION_ENDAFTER:
-      return NSRectEdgeMinX;
-    default:
-      return NSRectEdgeMinY;
-  }
-}
-
 static void SyncPopoverBounds(NSPopover* aPopover,
                               nsMenuPopupFrame* aPopupFrame) {
   if (!aPopover || !aPopover.shown || !aPopupFrame) {
@@ -5484,8 +5520,8 @@ void nsCocoaWindow::Show(bool aState) {
       NS_OBJC_END_TRY_IGNORE_BLOCK;
       if (ShouldShowAsNSPopover() && nativeParentWindow) {
         nsMenuPopupFrame* popupFrame = GetPopupFrame();
-        NSRectEdge preferredEdge =
-            AlignmentPositionToNSRectEdge(popupFrame->GetAlignmentPosition());
+        NSRectEdge preferredEdge = nsCocoaUtils::PopupPositionToNSRectEdge(
+            popupFrame->GetAlignmentPosition());
         nsRect anchorRectAppUnits = popupFrame->GetUntransformedAnchorRect();
         nsPresContext* pc = popupFrame->PresContext();
         int32_t appUnitsPerDevPixel = pc->AppUnitsPerDevPixel();
@@ -7251,11 +7287,24 @@ void nsCocoaWindow::SetSupportsNativeFullscreen(
     // want to do this for primary application windows. We'll set the
     // relevant macnativefullscreen attribute on those, which will lead to us
     // being called with aSupportsNativeFullscreen set to `true` here.
+    //
+    // Always set both the Primary/Auxiliary and AllowsTiling/DisallowsTiling
+    // bits explicitly, even when the resulting state matches the window's
+    // creation-time default. Leaving any of the four bits unset would let
+    // AppKit fall back to `_implicitlyAllowsFullScreenPrimary`, which is
+    // non-deterministic in background-only processes and triggers the
+    // mid-display titlebar mutation that caused bug 2031249.
     NSWindowCollectionBehavior newBehavior = [mWindow collectionBehavior];
+    newBehavior &= ~(NSWindowCollectionBehaviorFullScreenPrimary |
+                     NSWindowCollectionBehaviorFullScreenAuxiliary |
+                     NSWindowCollectionBehaviorFullScreenAllowsTiling |
+                     NSWindowCollectionBehaviorFullScreenDisallowsTiling);
     if (aSupportsNativeFullscreen) {
-      newBehavior |= NSWindowCollectionBehaviorFullScreenPrimary;
+      newBehavior |= NSWindowCollectionBehaviorFullScreenPrimary |
+                     NSWindowCollectionBehaviorFullScreenAllowsTiling;
     } else {
-      newBehavior &= ~NSWindowCollectionBehaviorFullScreenPrimary;
+      newBehavior |= NSWindowCollectionBehaviorFullScreenAuxiliary |
+                     NSWindowCollectionBehaviorFullScreenDisallowsTiling;
     }
     [mWindow setCollectionBehavior:newBehavior];
   }

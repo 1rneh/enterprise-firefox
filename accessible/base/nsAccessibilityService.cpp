@@ -1647,7 +1647,7 @@ mozilla::Monitor& nsAccessibilityService::GetAndroidMonitor() {
 ////////////////////////////////////////////////////////////////////////////////
 // nsAccessibilityService private
 
-bool nsAccessibilityService::Init(uint64_t aCacheDomains) {
+bool nsAccessibilityService::Init(uint64_t aCacheDomains, uint32_t aConsumer) {
   AUTO_PROFILER_MARKER_UNTYPED("nsAccessibilityService::Init", A11Y, {});
   // DO NOT ADD CODE ABOVE HERE: THIS CODE IS MEASURING TIMINGS.
   PerfStats::AutoMetricRecording<
@@ -1664,13 +1664,6 @@ bool nsAccessibilityService::Init(uint64_t aCacheDomains) {
   if (!observerService) return false;
 
   observerService->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
-
-#if defined(XP_WIN)
-  // This information needs to be initialized before the observer fires.
-  if (XRE_IsParentProcess()) {
-    Compatibility::Init();
-  }
-#endif  // defined(XP_WIN)
 
   // Subscribe to EventListenerService.
   nsCOMPtr<nsIEventListenerService> eventListenerService =
@@ -1704,30 +1697,65 @@ bool nsAccessibilityService::Init(uint64_t aCacheDomains) {
   }
 
   NS_ADDREF(gApplicationAccessible);  // will release in Shutdown()
-  gApplicationAccessible->Init();
-
   CrashReporter::RecordAnnotationCString(
       CrashReporter::Annotation::Accessibility, "Active");
 
-  // Now its safe to start platform accessibility.
-  if (XRE_IsParentProcess()) PlatformInit();
+  if (aConsumer == ePdfOutput) {
+    // When running purely for PDF output, we don't force creation of
+    // DocAccessibles for existing documents (which would affect unrelated
+    // documents) or initialize platform AT APIs (which have no clients in this
+    // mode). PDF output also uses doc-specific cache domains.
+    gCacheDomains = aCacheDomains;
+  } else {
+    FullInit(aCacheDomains, aConsumer);
+  }
 
-  // Check the startup cache domain pref. We might be in a test environment
-  // where we need to have all cache domains enabled (e.g., fuzzing).
+  // We deliberately fire the a11y init notification even for ePdfOutput so that
+  // tests know that the accessibility service has started in all cases. We use
+  // a different value to differentiate this from full init notifications. Note
+  // that gConsumers hasn't been set yet, so we can't use IsOnlyForPdfOutput()
+  // here.
+  observerService->NotifyObservers(nullptr, "a11y-init-or-shutdown",
+                                   aConsumer == ePdfOutput ? u"pdf" : u"1");
+
+  return true;
+}
+
+void nsAccessibilityService::FullInit(uint64_t aCacheDomains,
+                                      uint32_t aConsumer) {
+  gApplicationAccessible->CreateInitialDocs();
+  if (XRE_IsParentProcess()) {
+    PlatformInit();
+  }
   if (XRE_IsParentProcess() &&
       StaticPrefs::accessibility_enable_all_cache_domains_AtStartup()) {
+    // We might be in a test environment where we need to have all cache domains
+    // enabled (e.g., fuzzing).
+    gCacheDomains = CacheDomain::All;
+  } else if (aConsumer == eXPCOM) {
+    // When instantiated via XPCOM, cache all accessibility information.
     gCacheDomains = CacheDomain::All;
   } else {
     // Set the active accessibility cache domains. We might want to modify the
     // domains that we activate based on information about the instantiator.
     gCacheDomains = ::GetCacheDomainsForKnownClients(aCacheDomains);
   }
+}
 
-  static const char16_t kInitIndicator[] = {'1', 0};
-  observerService->NotifyObservers(nullptr, "a11y-init-or-shutdown",
-                                   kInitIndicator);
+void nsAccessibilityService::PromoteFromPdfOutput(uint64_t aCacheDomains,
+                                                  uint32_t aConsumer) {
+  // Called by GetOrCreateAccService when the service was previously brought
+  // up only for ePdfOutput and a real consumer has just been added. Runs the
+  // init work that Init skipped for the original ePdfOutput-only consumer.
+  // The new consumer is already recorded in gConsumers by this point so the
+  // init notification below sees the post-promote state.
+  FullInit(aCacheDomains, aConsumer);
 
-  return true;
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
+  if (observerService) {
+    observerService->NotifyObservers(nullptr, "a11y-init-or-shutdown", u"1");
+  }
 }
 
 void nsAccessibilityService::Shutdown() {
@@ -1737,7 +1765,7 @@ void nsAccessibilityService::Shutdown() {
   // if someone will try to operate with it.
 
   MOZ_ASSERT(gConsumers, "Accessibility was shutdown already");
-  UnsetConsumers(eXPCOM | eMainProcess | ePlatformAPI);
+  UnsetConsumers(eXPCOM | eMainProcess | ePlatformAPI | ePdfOutput);
 
   // Remove observers.
   nsCOMPtr<nsIObserverService> observerService =
@@ -2077,14 +2105,8 @@ nsAccessibilityService* GetOrCreateAccService(uint32_t aNewConsumer,
   }
 
   if (!nsAccessibilityService::gAccessibilityService) {
-    uint64_t cacheDomains = aCacheDomains;
-    if (aNewConsumer == nsAccessibilityService::eXPCOM) {
-      // When instantiated via XPCOM, cache all accessibility information.
-      cacheDomains = CacheDomain::All;
-    }
-
     RefPtr<nsAccessibilityService> service = new nsAccessibilityService();
-    if (!service->Init(cacheDomains)) {
+    if (!service->Init(aCacheDomains, aNewConsumer)) {
       service->Shutdown();
       return nullptr;
     }
@@ -2092,7 +2114,15 @@ nsAccessibilityService* GetOrCreateAccService(uint32_t aNewConsumer,
 
   MOZ_ASSERT(nsAccessibilityService::gAccessibilityService,
              "LocalAccessible service is not initialized.");
+  // If the service was previously brought up only for tagged PDF output and a
+  // real consumer is arriving now, finish the init work that was deferred.
+  bool wasOnlyForPdfOutput = nsAccessibilityService::IsOnlyForPdfOutput();
   nsAccessibilityService::gAccessibilityService->SetConsumers(aNewConsumer);
+  if (wasOnlyForPdfOutput &&
+      aNewConsumer != nsAccessibilityService::ePdfOutput) {
+    nsAccessibilityService::gAccessibilityService->PromoteFromPdfOutput(
+        aCacheDomains, aNewConsumer);
+  }
   return nsAccessibilityService::gAccessibilityService;
 }
 
@@ -2104,8 +2134,12 @@ void MaybeShutdownAccService(uint32_t aFormerConsumer, bool aAsync) {
     return;
   }
 
-  // Still used by XPCOM
-  if (nsCoreUtils::AccEventObserversExist() ||
+  // Check if we're still being used by XPCOM. However, when running purely for
+  // PDF output, we ignore event observers so that tests can assert that
+  // unexpected events aren't fired without unintentionally preventing the
+  // service from shutting down.
+  if ((!nsAccessibilityService::IsOnlyForPdfOutput() &&
+       nsCoreUtils::AccEventObserversExist()) ||
       xpcAccessibilityService::IsInUse() || accService->HasXPCDocuments()) {
     // In case the XPCOM flag was unset (possibly because of the shutdown
     // timer in the xpcAccessibilityService) ensure it is still present. Note:

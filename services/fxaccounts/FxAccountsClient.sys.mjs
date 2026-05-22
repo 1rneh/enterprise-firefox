@@ -797,9 +797,11 @@ FxAccountsClient.prototype = {
         method,
         credentials,
         jsonPayload,
-        ...(AppConstants.MOZ_ENTERPRISE && {
-          Authorization: `Bearer ${await lazy.ConsoleClient.getAccessToken()}`,
-        })
+        AppConstants.MOZ_ENTERPRISE
+          ? {
+              Authorization: `Bearer ${await lazy.ConsoleClient.getAccessToken()}`,
+            }
+          : {}
       );
     } catch (error) {
       log.error(`error ${method}ing ${path}`, error);

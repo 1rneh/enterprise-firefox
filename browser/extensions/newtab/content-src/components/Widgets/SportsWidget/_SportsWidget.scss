@@ -14,6 +14,8 @@
   box-shadow: var(--box-shadow-level-2);
   height: 100%;
 
+  @include widget-base-style;
+
   &:hover,
   &:has(:focus-visible) {
     outline: 1px solid var(--border-color-deemphasized);
@@ -219,8 +221,8 @@
 }
 
 .sports-team-flag {
-  width: 37px;
-  height: 26px;
+  width: 30px;
+  height: var(--dimension-20);
   object-fit: cover;
   flex-shrink: 0;
 }

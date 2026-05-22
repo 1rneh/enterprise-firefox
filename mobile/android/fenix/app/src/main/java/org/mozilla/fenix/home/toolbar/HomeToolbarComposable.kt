@@ -7,7 +7,6 @@ package org.mozilla.fenix.home.toolbar
 import android.content.Context
 import android.content.Intent
 import android.speech.RecognizerIntent
-import android.view.Gravity
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Easing
@@ -22,8 +21,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
-import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.core.view.updateLayoutParams
 import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -43,7 +40,6 @@ import mozilla.components.compose.browser.toolbar.store.ToolbarGravity.Bottom
 import mozilla.components.compose.browser.toolbar.store.ToolbarGravity.Top
 import mozilla.components.compose.browser.toolbar.ui.BrowserToolbarQuery
 import mozilla.components.lib.state.ext.observeAsComposableState
-import mozilla.components.support.ktx.android.view.ImeInsetsSynchronizer
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
@@ -53,8 +49,6 @@ import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchStarte
 import org.mozilla.fenix.components.appstate.VoiceSearchAction.VoiceInputRequested
 import org.mozilla.fenix.components.metrics.MetricsUtils
 import org.mozilla.fenix.components.toolbar.ToolbarPosition.BOTTOM
-import org.mozilla.fenix.components.toolbar.ToolbarPosition.TOP
-import org.mozilla.fenix.databinding.FragmentHomeBinding
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.wallpapers.Wallpaper
@@ -67,7 +61,6 @@ internal const val EDIT_TOOLBAR_DELAY_AFTER_VOICE_REQUEST = 1_000L
  * A wrapper over the [BrowserToolbar] composable to allow for extra customisation.
  *
  * @param context [Context] used for various system interactions.
- * @param homeBinding [FragmentHomeBinding] which will serve as parent for this composable.
  * @param navController [NavController] to use for navigating to other in-app destinations.
  * @param toolbarStore [BrowserToolbarStore] containing the composable toolbar state.
  * @param appStore [AppStore] to sync from.
@@ -85,7 +78,6 @@ internal const val EDIT_TOOLBAR_DELAY_AFTER_VOICE_REQUEST = 1_000L
 @Suppress("LongParameterList")
 internal class HomeToolbarComposable(
     private val context: Context,
-    private val homeBinding: FragmentHomeBinding,
     private val navController: NavController,
     private val toolbarStore: BrowserToolbarStore,
     private val appStore: AppStore,
@@ -199,7 +191,6 @@ internal class HomeToolbarComposable(
             DefaultToolbar()
         }
         translationZ = context.resources.getDimension(R.dimen.browser_fragment_above_toolbar_panels_elevation)
-        homeBinding.homeLayout.addView(this)
     }
 
     /**
@@ -210,17 +201,6 @@ internal class HomeToolbarComposable(
     }
 
     override fun build(browserState: BrowserState, middleSearchEnabled: Boolean) {
-        layout.updateLayoutParams {
-            (this as? CoordinatorLayout.LayoutParams)?.gravity = when (settings.toolbarPosition) {
-                TOP -> Gravity.TOP
-                BOTTOM -> Gravity.BOTTOM
-            }
-        }
-
-        if (settings.shouldUseBottomToolbar) {
-            ImeInsetsSynchronizer.setup(homeBinding.root)
-        }
-
         configureStartingInSearchMode()
         updateAddressBarVisibility(!middleSearchEnabled)
     }

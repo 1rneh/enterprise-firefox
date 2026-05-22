@@ -1910,6 +1910,8 @@ void nsContentSecurityUtils::AssertAboutPageHasCSP(Document* aDocument) {
 
 /* static */
 void nsContentSecurityUtils::AssertChromePageHasCSP(Document* aDocument) {
+  // Thunderbird's CSP does not pass these checks
+#  ifndef MOZ_THUNDERBIRD
   nsCOMPtr<nsIURI> documentURI = aDocument->GetDocumentURI();
   if (!documentURI->SchemeIs("chrome")) {
     return;
@@ -1940,8 +1942,6 @@ void nsContentSecurityUtils::AssertChromePageHasCSP(Document* aDocument) {
                             spec.get());
   }
 
-  // Thunderbird's CSP does not pass these checks.
-#  ifndef MOZ_THUNDERBIRD
   nsAutoString baselinePolicy;
   static_cast<nsCSPContext*>(csp.get())->GetPolicy(0)->toString(baselinePolicy);
   MOZ_ASSERT(baselinePolicy == kBaselineChromeCSP);

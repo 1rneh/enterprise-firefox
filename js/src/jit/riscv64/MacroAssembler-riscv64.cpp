@@ -90,11 +90,11 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Imm32 imm,
     switch (c) {
       case Equal:
       case BelowOrEqual:
-        ma_sltu(dst, lhs, Operand(1));
+        seqz(dst, lhs);
         break;
       case NotEqual:
       case Above:
-        sltu(dst, zero, lhs);
+        snez(dst, lhs);
         break;
       case AboveOrEqual:
       case Below:
@@ -102,30 +102,30 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Imm32 imm,
         break;
       case GreaterThan:
       case LessThanOrEqual:
-        slt(dst, zero, lhs);
+        sgtz(dst, lhs);
         if (c == LessThanOrEqual) {
-          xori(dst, dst, 1);
+          NegateBool(dst, dst);
         }
         break;
       case LessThan:
       case GreaterThanOrEqual:
-        slt(dst, lhs, zero);
+        sltz(dst, lhs);
         if (c == GreaterThanOrEqual) {
-          xori(dst, dst, 1);
+          NegateBool(dst, dst);
         }
         break;
       case Zero:
-        ma_sltu(dst, lhs, Operand(1));
+        seqz(dst, lhs);
         break;
       case NonZero:
-        sltu(dst, zero, lhs);
+        snez(dst, lhs);
         break;
       case Signed:
-        slt(dst, lhs, zero);
+        sltz(dst, lhs);
         break;
       case NotSigned:
-        slt(dst, lhs, zero);
-        xori(dst, dst, 1);
+        sltz(dst, lhs);
+        NegateBool(dst, dst);
         break;
       default:
         MOZ_CRASH("Invalid condition.");
@@ -138,9 +138,9 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Imm32 imm,
     case NotEqual:
       ma_xor(dst, lhs, imm);
       if (c == Equal) {
-        ma_sltu(dst, dst, Operand(1));
+        seqz(dst, dst);
       } else {
-        sltu(dst, zero, dst);
+        snez(dst, dst);
       }
       break;
     case Zero:
@@ -152,7 +152,9 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Imm32 imm,
       Condition cond = ma_cmp(dst, lhs, imm, c);
       MOZ_ASSERT(cond == Equal || cond == NotEqual);
 
-      if (cond == Equal) xori(dst, dst, 1);
+      if (cond == Equal) {
+        NegateBool(dst, dst);
+      }
   }
 }
 
@@ -274,16 +276,16 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Register rhs,
     case Equal:
       // seq d,s,t =>
       //   xor d,s,t
-      //   sltiu d,d,1
+      //   seqz d,d
       xor_(dst, lhs, rhs);
-      ma_sltu(dst, dst, Operand(1));
+      seqz(dst, dst);
       break;
     case NotEqual:
       // sne d,s,t =>
       //   xor d,s,t
-      //   sltu d,$zero,d
+      //   snez d,d
       xor_(dst, lhs, rhs);
-      sltu(dst, zero, dst);
+      snez(dst, dst);
       break;
     case Above:
       // sgtu d,s,t =>
@@ -295,7 +297,7 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Register rhs,
       //   sltu d,s,t
       //   xori d,d,1
       sltu(dst, lhs, rhs);
-      xori(dst, dst, 1);
+      NegateBool(dst, dst);
       break;
     case Below:
       // sltu d,s,t
@@ -306,7 +308,7 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Register rhs,
       //   sltu d,t,s
       //   xori d,d,1
       sltu(dst, rhs, lhs);
-      xori(dst, dst, 1);
+      NegateBool(dst, dst);
       break;
     case GreaterThan:
       // sgt d,s,t =>
@@ -318,7 +320,7 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Register rhs,
       //   slt d,s,t
       //   xori d,d,1
       slt(dst, lhs, rhs);
-      xori(dst, dst, 1);
+      NegateBool(dst, dst);
       break;
     case LessThan:
       // slt d,s,t
@@ -329,31 +331,31 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Register rhs,
       //   slt d,t,s
       //   xori d,d,1
       slt(dst, rhs, lhs);
-      xori(dst, dst, 1);
+      NegateBool(dst, dst);
       break;
     case Zero:
       MOZ_ASSERT(lhs == rhs);
       // seq d,s,$zero =>
-      //   sltiu d,s,1
-      ma_sltu(dst, lhs, Operand(1));
+      //   seqz d,s
+      seqz(dst, lhs);
       break;
     case NonZero:
       MOZ_ASSERT(lhs == rhs);
       // sne d,s,$zero =>
-      //   sltu d,$zero,s
-      sltu(dst, zero, lhs);
+      //   snez d,s
+      snez(dst, lhs);
       break;
     case Signed:
       MOZ_ASSERT(lhs == rhs);
-      slt(dst, lhs, zero);
+      sltz(dst, lhs);
       break;
     case NotSigned:
       MOZ_ASSERT(lhs == rhs);
       // sge d,s,$zero =>
-      //   slt d,s,$zero
+      //   sltz d,s
       //   xori d,d,1
-      slt(dst, lhs, zero);
-      xori(dst, dst, 1);
+      sltz(dst, lhs);
+      NegateBool(dst, dst);
       break;
     default:
       MOZ_CRASH("Invalid condition.");
@@ -1858,16 +1860,16 @@ void MacroAssemblerRiscv64Compat::unboxInt32(const BaseIndex& src,
 
 void MacroAssemblerRiscv64Compat::unboxBoolean(const ValueOperand& operand,
                                                Register dest) {
-  ExtractBits(dest, operand.valueReg(), 0, 32);
+  SignExtendWord(dest, operand.valueReg());
 }
 
 void MacroAssemblerRiscv64Compat::unboxBoolean(Register src, Register dest) {
-  ExtractBits(dest, src, 0, 32);
+  SignExtendWord(dest, src);
 }
 
 void MacroAssemblerRiscv64Compat::unboxBoolean(const Address& src,
                                                Register dest) {
-  ma_load(dest, Address(src.base, src.offset), SizeWord, ZeroExtend);
+  load32(Address(src.base, src.offset), dest);
 }
 
 void MacroAssemblerRiscv64Compat::unboxBoolean(const BaseIndex& src,
@@ -1875,7 +1877,7 @@ void MacroAssemblerRiscv64Compat::unboxBoolean(const BaseIndex& src,
   UseScratchRegisterScope temps(this);
   Register scratch = temps.Acquire();
   computeScaledAddress(src, scratch);
-  ma_load(dest, Address(scratch, src.offset), SizeWord, ZeroExtend);
+  load32(Address(scratch, src.offset), dest);
 }
 
 void MacroAssemblerRiscv64Compat::unboxDouble(const ValueOperand& operand,
@@ -5282,8 +5284,8 @@ void MacroAssemblerRiscv64::ma_b(Register lhs, Register rhs, Label* label,
   }
 }
 
-void MacroAssemblerRiscv64::ExtractBits(Register rt, Register rs, uint16_t pos,
-                                        uint16_t size, bool sign_extend) {
+void MacroAssemblerRiscv64::ExtractBits(Register rd, Register rs, uint16_t pos,
+                                        uint16_t size) {
   constexpr uint16_t MaxBits = 64;
 
   MOZ_ASSERT(pos < MaxBits);
@@ -5294,71 +5296,13 @@ void MacroAssemblerRiscv64::ExtractBits(Register rt, Register rs, uint16_t pos,
 
   Register src;
   if (uint16_t shift = MaxBits - (pos + size)) {
-    slli(rt, rs, shift);
-    src = rt;
+    slli(rd, rs, shift);
+    src = rd;
   } else {
     src = rs;
   }
 
-  if (sign_extend) {
-    srai(rt, src, MaxBits - size);
-  } else {
-    srli(rt, src, MaxBits - size);
-  }
-}
-
-void MacroAssemblerRiscv64::InsertBits(Register dest, Register source, int pos,
-                                       int size) {
-  MOZ_ASSERT(size < 64);
-
-  UseScratchRegisterScope temps(this);
-  BlockTrampolinePoolScope block_trampoline_pool(this, 9);
-  Register source_ = temps.Acquire();
-  if (pos != 0) {
-    Register mask = temps.Acquire();
-    // Create a mask of the length=size.
-    ma_li(mask, Imm32(1));
-    slli(mask, mask, size);
-    addi(mask, mask, -1);
-    and_(source_, mask, source);
-    slli(source_, source_, pos);
-    // Make a mask containing 0's. 0's start at "pos" with length=size.
-    slli(mask, mask, pos);
-    not_(mask, mask);
-    // cut area for insertion of source.
-    and_(dest, mask, dest);
-  } else {
-    // clear top bits from source and bottom bits from dest.
-    slli(source_, source, 64 - size);
-    srli(source_, source_, 64 - size);
-    srli(dest, dest, size);
-    slli(dest, dest, size);
-  }
-  // insert source
-  or_(dest, dest, source_);
-}
-
-void MacroAssemblerRiscv64::InsertBits(Register dest, Register source,
-                                       Register pos, int size) {
-  MOZ_ASSERT(size < 64);
-
-  UseScratchRegisterScope temps(this);
-  Register mask = temps.Acquire();
-  BlockTrampolinePoolScope block_trampoline_pool(this, 9);
-  Register source_ = temps.Acquire();
-  // Create a mask of the length=size.
-  ma_li(mask, Imm32(1));
-  slli(mask, mask, size);
-  addi(mask, mask, -1);
-  and_(source_, mask, source);
-  sll(source_, source_, pos);
-  // Make a mask containing 0's. 0's start at "pos" with length=size.
-  sll(mask, mask, pos);
-  not_(mask, mask);
-  // cut area for insertion of source.
-  and_(dest, mask, dest);
-  // insert source
-  or_(dest, dest, source_);
+  srli(rd, src, MaxBits - size);
 }
 
 void MacroAssemblerRiscv64::ma_add32(Register rd, Register rs, Operand rt) {
@@ -5764,7 +5708,7 @@ void MacroAssemblerRiscv64::ma_sle(Register rd, Register rs, Operand rt) {
     ma_li(scratch, rt.immediate());
     slt(rd, scratch, rs);
   }
-  xori(rd, rd, 1);
+  NegateBool(rd, rd);
 }
 
 void MacroAssemblerRiscv64::ma_sleu(Register rd, Register rs, Operand rt) {
@@ -5779,7 +5723,7 @@ void MacroAssemblerRiscv64::ma_sleu(Register rd, Register rs, Operand rt) {
     ma_li(scratch, rt.immediate());
     sltu(rd, scratch, rs);
   }
-  xori(rd, rd, 1);
+  NegateBool(rd, rd);
 }
 
 void MacroAssemblerRiscv64::ma_sgt(Register rd, Register rs, Operand rt) {
@@ -5812,12 +5756,12 @@ void MacroAssemblerRiscv64::ma_sgtu(Register rd, Register rs, Operand rt) {
 
 void MacroAssemblerRiscv64::ma_sge(Register rd, Register rs, Operand rt) {
   ma_slt(rd, rs, rt);
-  xori(rd, rd, 1);
+  NegateBool(rd, rd);
 }
 
 void MacroAssemblerRiscv64::ma_sgeu(Register rd, Register rs, Operand rt) {
   ma_sltu(rd, rs, rt);
-  xori(rd, rd, 1);
+  NegateBool(rd, rd);
 }
 
 static inline bool IsZero(const Operand& rt) {

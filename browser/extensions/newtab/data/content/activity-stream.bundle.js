@@ -309,6 +309,7 @@ for (const type of [
   "WIDGETS_SPORTS_CHANGE_MATCHES_TAB",
   "WIDGETS_SPORTS_CHANGE_SELECTED_TEAMS",
   "WIDGETS_SPORTS_CHANGE_WIDGET_STATE",
+  "WIDGETS_SPORTS_OPEN_MATCH_SEARCH",
   "WIDGETS_SPORTS_SET_MATCHES_TAB",
   "WIDGETS_SPORTS_SET_SELECTED_TEAMS",
   "WIDGETS_SPORTS_SET_WIDGET_STATE",
@@ -10087,6 +10088,8 @@ class Topic extends (external_React_default()).PureComponent {
     }, topicName);
   }
 }
+
+// eslint-disable-next-line no-shadow
 class Navigation extends (external_React_default()).PureComponent {
   render() {
     let links = this.props.links || [];
@@ -12440,11 +12443,103 @@ const useWidgetCelebration = widgetRef => {
     triggerCelebration
   };
 };
+;// CONCATENATED MODULE: ./content-src/components/Widgets/MoveSubmenu.jsx
+function MoveSubmenu_extends() { return MoveSubmenu_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, MoveSubmenu_extends.apply(null, arguments); }
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+
+
+// Action is order-based and direction-agnostic: onMoveLeft always swaps with
+// the previous item in the order array. The Fluent strings handle the visual
+// flip for RTL locales by translating "Left" as "Right" (and vice versa).
+function buildMoveProps(id, order, enabledMap, dispatch) {
+  const visible = order.filter(w => enabledMap?.[w]);
+  const idx = visible.indexOf(id);
+  const swap = delta => () => {
+    const target = visible[idx + delta];
+    if (!target) {
+      return;
+    }
+    const newOrder = [...order];
+    const a = newOrder.indexOf(id);
+    const b = newOrder.indexOf(target);
+    [newOrder[a], newOrder[b]] = [newOrder[b], newOrder[a]];
+    dispatch(actionCreators.SetPref(PREF_WIDGETS_ORDER, newOrder.join(",")));
+  };
+  return {
+    canMoveLeft: visible[idx - 1] !== undefined,
+    canMoveRight: visible[idx + 1] !== undefined,
+    onMoveLeft: swap(-1),
+    onMoveRight: swap(+1)
+  };
+}
+
+// Submenu panel-list children are moved into the panel-item's shadow DOM
+// by the panel-list custom element, so React's synthetic onClick doesn't
+// reach them. Listen at the panel-list root and walk composedPath() to
+// find the clicked item by its data-move-dir attribute.
+function MoveSubmenu({
+  widgetId,
+  widgetEnabledMap
+}) {
+  const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
+  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
+  const ref = (0,external_React_namespaceObject.useRef)(null);
+  const moveProps = buildMoveProps(widgetId, resolveWidgetOrder(prefs), widgetEnabledMap, dispatch);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const el = ref.current;
+    if (!el) {
+      return undefined;
+    }
+    const listener = e => {
+      const item = e.composedPath().find(n => n.dataset?.moveDir);
+      if (!item) {
+        return;
+      }
+      if (item.dataset.moveDir === "left") {
+        moveProps.onMoveLeft();
+      } else if (item.dataset.moveDir === "right") {
+        moveProps.onMoveRight();
+      }
+    };
+    el.addEventListener("click", listener);
+    return () => el.removeEventListener("click", listener);
+  }, [moveProps]);
+  if (!moveProps.canMoveLeft && !moveProps.canMoveRight) {
+    return null;
+  }
+  const submenuId = `${widgetId}-move-submenu`;
+  return /*#__PURE__*/external_React_default().createElement("panel-item", {
+    submenu: submenuId
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    "data-l10n-id": "newtab-widget-menu-move"
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+    ref: ref,
+    slot: "submenu",
+    id: submenuId
+  }, /*#__PURE__*/external_React_default().createElement("panel-item", MoveSubmenu_extends({
+    "data-l10n-id": "newtab-widget-menu-move-left",
+    "data-move-dir": "left"
+  }, moveProps.canMoveLeft ? {} : {
+    disabled: true
+  })), /*#__PURE__*/external_React_default().createElement("panel-item", MoveSubmenu_extends({
+    "data-l10n-id": "newtab-widget-menu-move-right",
+    "data-move-dir": "right"
+  }, moveProps.canMoveRight ? {} : {
+    disabled: true
+  }))));
+}
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/Lists/Lists.jsx
 function Lists_extends() { return Lists_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, Lists_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -12551,7 +12646,8 @@ function Lists({
   dispatch,
   handleUserInteraction,
   isMaximized,
-  widgetsMayBeMaximized
+  widgetsMayBeMaximized,
+  widgetEnabledMap
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const {
@@ -13287,7 +13383,10 @@ function Lists({
     checked: widgetSize === size || undefined,
     "data-size": size,
     "data-l10n-id": `newtab-widget-size-${size}`
-  })))), /*#__PURE__*/external_React_default().createElement("panel-item", {
+  })))), /*#__PURE__*/external_React_default().createElement(MoveSubmenu, {
+    widgetId: "lists",
+    widgetEnabledMap: widgetEnabledMap
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-widget-menu-hide",
     onClick: () => handleHideLists()
   }), /*#__PURE__*/external_React_default().createElement("panel-item", {
@@ -13557,6 +13656,7 @@ function FocusTimer_extends() { return FocusTimer_extends = Object.assign ? Obje
 
 
 
+
 const FOCUS_TIMER_CELEBRATION_GRADIENT_STOPS = [{
   offset: "0%",
   color: "var(--timer-celebration-leading)"
@@ -13684,7 +13784,8 @@ const FocusTimer = ({
   dispatch,
   handleUserInteraction,
   isMaximized,
-  widgetsMayBeMaximized
+  widgetsMayBeMaximized,
+  widgetEnabledMap
 }) => {
   const [timeLeft, setTimeLeft] = (0,external_React_namespaceObject.useState)(0);
   // calculated value for the progress circle; 1 = 100%
@@ -14460,7 +14561,10 @@ const FocusTimer = ({
     "data-l10n-id": `newtab-widget-size-${size}`
   }, size === "small" ? {
     disabled: true
-  } : {}))))),
+  } : {}))))), /*#__PURE__*/external_React_default().createElement(MoveSubmenu, {
+    widgetId: "focusTimer",
+    widgetEnabledMap: widgetEnabledMap
+  }),
   // @nova-cleanup(remove-conditional): Remove the `novaEnabled &&` check; always render the divider.
   novaEnabled && /*#__PURE__*/external_React_default().createElement("hr", null), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-widget-timer-menu-learn-more",
@@ -15227,6 +15331,7 @@ function WeatherForecast({
 
 
 
+
 const Weather_USER_ACTION_TYPES = {
   CHANGE_LOCATION: "change_location",
   DETECT_LOCATION: "detect_location",
@@ -15238,7 +15343,8 @@ const Weather_USER_ACTION_TYPES = {
 };
 function Weather_Weather({
   dispatch,
-  size
+  size,
+  widgetEnabledMap
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const weatherData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather);
@@ -15532,7 +15638,10 @@ function Weather_Weather({
       checked: currentWeatherSize === s || undefined,
       "data-size": s,
       "data-l10n-id": `newtab-widget-size-${s}`
-    })))), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    })))), /*#__PURE__*/external_React_default().createElement(MoveSubmenu, {
+      widgetId: "weather",
+      widgetEnabledMap: widgetEnabledMap
+    }), /*#__PURE__*/external_React_default().createElement("panel-item", {
       "data-l10n-id": "newtab-widget-menu-hide",
       onClick: handleHideWeather
     }), /*#__PURE__*/external_React_default().createElement("panel-item", {
@@ -15541,7 +15650,10 @@ function Weather_Weather({
     })));
   }
   function getArticleClassNames() {
-    return ["weather-widget", "col-4", `${size}-widget`, hasError && "weather-error-state",
+    return ["weather-widget", "col-4", `${size}-widget`,
+    // weather-error-state is suppressed during opt-in so the error UI does
+    // not overlap or push the opt-in layout out of its container.
+    hasError && !showOptInState && "weather-error-state",
     // weather-opt-in is suppressed while search is active so the opt-in
     // layout styles don't conflict with the search UI layout.
     showOptInState && !searchActive && "weather-opt-in",
@@ -15562,7 +15674,7 @@ function Weather_Weather({
     className: "widget-title-bar"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "widget-title"
-  }, !showOptInState && !searchActive && /*#__PURE__*/external_React_default().createElement("h3", null, weatherData.locationData.city)), !searchActive && renderContextMenu()), hasError && /*#__PURE__*/external_React_default().createElement("div", {
+  }, !showOptInState && !searchActive && /*#__PURE__*/external_React_default().createElement("h3", null, weatherData.locationData.city)), !searchActive && renderContextMenu()), hasError && !showOptInState && /*#__PURE__*/external_React_default().createElement("div", {
     className: "weather-error",
     ref: errorRef
   }, /*#__PURE__*/external_React_default().createElement("span", {
@@ -15770,11 +15882,15 @@ function WidgetsRowFeatureHighlight({
 }
 
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/SportsWidget/SportsMatchRow.jsx
+function SportsMatchRow_extends() { return SportsMatchRow_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, SportsMatchRow_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 
+
+
+const SportsMatchRow_PREF_SPORTS_WIDGET_SIZE = "widgets.sportsWidget.size";
 const STATUS_L10N_MAP = {
   delayed: "newtab-sports-widget-delayed",
   postponed: "newtab-sports-widget-postponed",
@@ -15811,8 +15927,14 @@ function ScorePill({
 function SportsMatchRow({
   match,
   variant,
-  size = "large"
+  size = "large",
+  handleInteraction
 }) {
+  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
+  // Read the widget size pref (not `size`, which can be "list" when the
+  // user expanded the view) so the telemetry event below reports the user's
+  // actual chosen size.
+  const widgetSize = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values[SportsMatchRow_PREF_SPORTS_WIDGET_SIZE] || "medium");
   const {
     home_team,
     away_team,
@@ -15823,7 +15945,8 @@ function SportsMatchRow({
     home_extra,
     away_extra,
     home_penalty,
-    away_penalty
+    away_penalty,
+    query
   } = match;
   const dateTimestamp = new Date(date).getTime();
   // (developer note): Assumes home_score/away_score exclude extra time goals
@@ -15940,12 +16063,59 @@ function SportsMatchRow({
         }
     }
   }
-  return /*#__PURE__*/external_React_default().createElement("a", {
-    className: `sports-match-row sports-match-row-${size}`,
+
+  // Hand the click off to the main process, which calls
+  // SearchUIUtils.loadSearch to resolve the user's default engine, navigate
+  // (handling POST + private windows), and record SAP telemetry. We also
+  // dispatch a WIDGETS_USER_EVENT so newtab-side telemetry can attribute
+  // the click to the right tab variant + widget size.
+  function openMatchSearch(event) {
+    if (!query) {
+      return;
+    }
+    event.preventDefault();
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.WIDGETS_USER_EVENT,
+      data: {
+        widget_name: "sports_widget",
+        widget_source: variant,
+        user_action: "open_match_search",
+        widget_size: widgetSize
+      }
+    }));
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.WIDGETS_SPORTS_OPEN_MATCH_SEARCH,
+      data: {
+        query,
+        eventInfo: {
+          button: event.button,
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          altKey: event.altKey
+        }
+      }
+    }));
+    handleInteraction?.();
+  }
+  function onKeyDown(event) {
+    // Anchor without an href doesn't fire click on Enter/Space, so wire it
+    // up manually to keep keyboard activation working.
+    if (event.key === "Enter" || event.key === " ") {
+      openMatchSearch(event);
+    }
+  }
+  const clickable = !!query;
+  return /*#__PURE__*/external_React_default().createElement("a", SportsMatchRow_extends({
+    className: `sports-match-row sports-match-row-${size}${clickable ? " clickable" : ""}`,
     "data-l10n-id": ariaLabelL10n.id,
-    "data-l10n-args": JSON.stringify(ariaLabelL10n.args),
-    href: ""
-  }, /*#__PURE__*/external_React_default().createElement("div", {
+    "data-l10n-args": JSON.stringify(ariaLabelL10n.args)
+  }, clickable && {
+    role: "link",
+    tabIndex: 0,
+    onClick: openMatchSearch,
+    onKeyDown
+  }), /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-match-team"
   }, /*#__PURE__*/external_React_default().createElement("img", {
     className: "sports-match-flag",
@@ -16101,6 +16271,7 @@ function useLocalizedTeamNames(teams) {
 
 
 
+
 const WIDGET_STATES = {
   INTRO: "sports-intro",
   FOLLOW_TEAMS: "sports-follow-state",
@@ -16137,7 +16308,8 @@ const PREF_SPORTS_WIDGET_LIVE_ENABLED = "widgets.sportsWidget.live.enabled";
 const SPORTS_WIDGET_REGISTRY_ENTRY = WIDGET_REGISTRY.find(widget => widget.id === "sportsWidget");
 function SportsWidget_SportsWidget({
   dispatch,
-  handleUserInteraction
+  handleUserInteraction,
+  widgetEnabledMap
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const sportsWidgetData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.SportsWidget);
@@ -16484,7 +16656,10 @@ function SportsWidget_SportsWidget({
     checked: widgetSize === size || undefined,
     "data-size": size,
     "data-l10n-id": `newtab-widget-size-${size}`
-  })))), /*#__PURE__*/external_React_default().createElement("panel-item", {
+  })))), /*#__PURE__*/external_React_default().createElement(MoveSubmenu, {
+    widgetId: "sportsWidget",
+    widgetEnabledMap: widgetEnabledMap
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-widget-menu-hide",
     onClick: handleSportsWidgetHide
   }), /*#__PURE__*/external_React_default().createElement("panel-item", {
@@ -16502,7 +16677,8 @@ function SportsWidget_SportsWidget({
     size: widgetSize,
     previous: sportsWidgetData?.data?.matches?.previous ?? [],
     current: sportsWidgetData?.data?.matches?.current ?? [],
-    next: sportsWidgetData?.data?.matches?.next ?? []
+    next: sportsWidgetData?.data?.matches?.next ?? [],
+    handleInteraction: handleInteraction
   }), widgetState === WIDGET_STATES.KEY_DATES && /*#__PURE__*/external_React_default().createElement(SportsWidgetKeyDates, {
     handleViewMatches: handleViewMatches
   }), widgetState === WIDGET_STATES.INTRO && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
@@ -16589,7 +16765,8 @@ function SportsMatchesView({
   size,
   previous,
   current,
-  next
+  next,
+  handleInteraction
 }) {
   const [showResultsList, setShowResultsList] = (0,external_React_namespaceObject.useState)(false);
   const [showUpcomingList, setShowUpcomingList] = (0,external_React_namespaceObject.useState)(false);
@@ -16627,13 +16804,15 @@ function SportsMatchesView({
   }, /*#__PURE__*/external_React_default().createElement(SportsMatchRow, {
     match: match,
     variant: "results",
-    size: "list"
+    size: "list",
+    handleInteraction: handleInteraction
   })))) : previous[0] && /*#__PURE__*/external_React_default().createElement("div", {
     className: "match-highlight-view"
   }, /*#__PURE__*/external_React_default().createElement(SportsMatchRow, {
     match: previous[0],
     variant: "results",
-    size: size
+    size: size,
+    handleInteraction: handleInteraction
   })), !!previous.length && /*#__PURE__*/external_React_default().createElement("moz-button", {
     type: "secondary",
     size: size === "medium" ? "small" : undefined,
@@ -16647,7 +16826,8 @@ function SportsMatchesView({
   }, /*#__PURE__*/external_React_default().createElement(SportsMatchRow, {
     match: current[0],
     variant: "now",
-    size: size
+    size: size,
+    handleInteraction: handleInteraction
   })), /*#__PURE__*/external_React_default().createElement("moz-button", {
     type: size === "medium" ? "icon" : "default",
     size: size === "medium" ? "small" : undefined,
@@ -16664,13 +16844,15 @@ function SportsMatchesView({
   }, /*#__PURE__*/external_React_default().createElement(SportsMatchRow, {
     match: match,
     variant: "upcoming",
-    size: "list"
+    size: "list",
+    handleInteraction: handleInteraction
   })))) : next[0] && /*#__PURE__*/external_React_default().createElement("div", {
     className: "match-highlight-view"
   }, /*#__PURE__*/external_React_default().createElement(SportsMatchRow, {
     match: next[0],
     variant: "upcoming",
-    size: size
+    size: size,
+    handleInteraction: handleInteraction
   })), !!next.length && /*#__PURE__*/external_React_default().createElement("moz-button", {
     type: "secondary",
     size: size === "medium" ? "small" : undefined,
@@ -16941,6 +17123,30 @@ const getSupportedTimeZones = () => {
   return FIXED_DEFAULT_ZONES;
 };
 
+/**
+ * Returns a localized generic time-zone name, or the IANA id on failure.
+ */
+const getLocalizedTimeZoneName = (timeZone, locale) => {
+  try {
+    const parts = new Intl.DateTimeFormat(locale, {
+      timeZone,
+      timeZoneName: "longGeneric",
+    }).formatToParts(new Date());
+    const part = parts.find(p => p.type === "timeZoneName");
+    return part?.value || timeZone;
+  } catch (e) {
+    return timeZone;
+  }
+};
+
+const buildLocalizedTimeZoneMap = (timeZones, locale) => {
+  const map = new Map();
+  for (const tz of timeZones) {
+    map.set(tz, getLocalizedTimeZoneName(tz, locale));
+  }
+  return map;
+};
+
 const normalizeClockZone = clock => {
   const normalizedClock =
     typeof clock === "string" ? { timeZone: clock } : clock;
@@ -17028,25 +17234,43 @@ const getClockFormDerivedState = ({
   clockSearchQuery,
   clockSelectedTimeZone,
   isEditingClock,
+  localizedTimeZoneMap,
   supportedTimeZones,
 }) => {
   let resolvedClockTimeZone = "";
   const query = clockSearchQuery.trim().toLowerCase();
+  const getLocalized = timeZone =>
+    (localizedTimeZoneMap?.get(timeZone) ?? "").toLowerCase();
+
   if (clockSelectedTimeZone && isValidTimeZone(clockSelectedTimeZone)) {
     resolvedClockTimeZone = clockSelectedTimeZone;
   } else if (query) {
-    resolvedClockTimeZone =
-      supportedTimeZones.find(timeZone => {
-        const city = getCityFromTimeZone(timeZone).toLowerCase();
-        return timeZone.toLowerCase() === query || city === query;
-      }) ?? "";
+    const idOrCityMatch = supportedTimeZones.find(timeZone => {
+      const city = getCityFromTimeZone(timeZone).toLowerCase();
+      return timeZone.toLowerCase() === query || city === query;
+    });
+    if (idOrCityMatch) {
+      resolvedClockTimeZone = idOrCityMatch;
+    } else {
+      // Localized zone names can be shared by multiple IANA zones.
+      const localizedMatches = supportedTimeZones.filter(
+        timeZone => getLocalized(timeZone) === query
+      );
+      if (localizedMatches.length === 1) {
+        [resolvedClockTimeZone] = localizedMatches;
+      }
+    }
   }
 
   const filteredTimeZones = query
     ? supportedTimeZones
         .filter(timeZone => {
           const city = getCityFromTimeZone(timeZone).toLowerCase();
-          return timeZone.toLowerCase().includes(query) || city.includes(query);
+          return (
+            timeZone.toLowerCase().includes(query) ||
+            city.includes(query) ||
+            getLocalized(timeZone).includes(query)
+          );
         })
         .slice(0, 8)
     : [];
@@ -17178,6 +17402,7 @@ const MAX_NICKNAME_LENGTH = 11;
  * @param {object|null} props.initialClock Pre-fill values when editing.
  * @param {boolean} props.canAddClock
  * @param {string[]} props.supportedTimeZones
+ * @param {string} [props.locale] Locale for localized zone names.
  * @param {(zone: object) => void} props.onSave
  * @param {() => void} props.onCancel
  */
@@ -17186,9 +17411,11 @@ function AddClockForm({
   initialClock,
   canAddClock,
   supportedTimeZones,
+  locale,
   onSave,
   onCancel
 }) {
+  const localizedTimeZoneMap = (0,external_React_namespaceObject.useMemo)(() => buildLocalizedTimeZoneMap(supportedTimeZones, locale), [supportedTimeZones, locale]);
   const [searchQuery, setSearchQuery] = (0,external_React_namespaceObject.useState)(initialClock ? initialClock.city || getCityFromTimeZone(initialClock.timeZone) : "");
   const [selectedTimeZone, setSelectedTimeZone] = (0,external_React_namespaceObject.useState)(initialClock?.timeZone || "");
   const [nickname, setNickname] = (0,external_React_namespaceObject.useState)(initialClock?.label || "");
@@ -17203,8 +17430,9 @@ function AddClockForm({
     clockSearchQuery: searchQuery,
     clockSelectedTimeZone: selectedTimeZone,
     isEditingClock: isEditing,
+    localizedTimeZoneMap,
     supportedTimeZones
-  }), [canAddClock, searchQuery, selectedTimeZone, isEditing, supportedTimeZones]);
+  }), [canAddClock, searchQuery, selectedTimeZone, isEditing, localizedTimeZoneMap, supportedTimeZones]);
 
   // moz-input-search renders its inner input asynchronously, so focusing
   // the custom element host immediately can throw before inputEl exists.
@@ -17307,7 +17535,7 @@ function AddClockForm({
     className: "clocks-search-result-city"
   }, getCityFromTimeZone(timeZone)), /*#__PURE__*/external_React_default().createElement("span", {
     className: "clocks-search-result-timezone"
-  }, timeZone))) : /*#__PURE__*/external_React_default().createElement("div", {
+  }, localizedTimeZoneMap?.get(timeZone) || timeZone))) : /*#__PURE__*/external_React_default().createElement("div", {
     className: "clocks-search-no-results",
     role: "option",
     "aria-disabled": "true",
@@ -17533,6 +17761,7 @@ function EditClocksPanel({
 
 
 
+
 const Clocks_USER_ACTION_TYPES = {
   ADD_CLOCK: "add_clock",
   ADD_NICKNAME: "add_nickname",
@@ -17584,7 +17813,8 @@ function getClockWidgetDisplayState({
  */
 function Clocks({
   dispatch,
-  size
+  size,
+  widgetEnabledMap
 }) {
   const clocksZonesPref = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values[PREF_CLOCKS_ZONES]);
   const hourFormatPref = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values[PREF_CLOCKS_HOUR_FORMAT]);
@@ -17934,7 +18164,10 @@ function Clocks({
     checked: currentSize === s,
     "data-size": s,
     "data-l10n-id": `newtab-widget-size-${s}`
-  })))), /*#__PURE__*/external_React_default().createElement("panel-item", {
+  })))), /*#__PURE__*/external_React_default().createElement(MoveSubmenu, {
+    widgetId: "clocks",
+    widgetEnabledMap: widgetEnabledMap
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-clock-widget-menu-edit",
     onClick: () => {
       handleShowEditClocks(CLOCK_WIDGET_SOURCE.CONTEXT_MENU);
@@ -17955,6 +18188,7 @@ function Clocks({
     initialClock: editingClockIndex !== null ? clockZones[editingClockIndex] : null,
     canAddClock: canAddClock,
     supportedTimeZones: supportedTimeZones,
+    locale: locale,
     onSave: handleSaveClock,
     onCancel: handleCloseClockForm
   }), isEditingClocks && /*#__PURE__*/external_React_default().createElement(EditClocksPanel, {
@@ -18005,13 +18239,15 @@ function Clocks({
 const weatherEntry = WIDGET_REGISTRY.find(w => w.id === "weather");
 const clocksEntry = WIDGET_REGISTRY.find(w => w.id === "clocks");
 function WeatherRowWidget({
-  dispatch
+  dispatch,
+  widgetEnabledMap
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const weatherSize = resolveWidgetSize(weatherEntry, prefs);
   return /*#__PURE__*/external_React_default().createElement(Weather_Weather, {
     dispatch: dispatch,
-    size: weatherSize
+    size: weatherSize,
+    widgetEnabledMap: widgetEnabledMap
   });
 }
 function WeatherSidebarWidget({
@@ -18027,13 +18263,15 @@ function WeatherSidebarWidget({
   });
 }
 function ClocksRowWidget({
-  dispatch
+  dispatch,
+  widgetEnabledMap
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const clocksSize = resolveWidgetSize(clocksEntry, prefs);
   return /*#__PURE__*/external_React_default().createElement(Clocks, {
     dispatch: dispatch,
-    size: clocksSize
+    size: clocksSize,
+    widgetEnabledMap: widgetEnabledMap
   });
 }
 const WIDGET_ROW_COMPONENTS = {
@@ -18476,7 +18714,8 @@ function Widgets() {
         dispatch: dispatch,
         handleUserInteraction: handleUserInteraction,
         isMaximized: isMaximized,
-        widgetsMayBeMaximized: widgetsMayBeMaximized
+        widgetsMayBeMaximized: widgetsMayBeMaximized,
+        widgetEnabledMap: widgetEnabledMap
       }));
     }
     // @nova-cleanup: remove below
@@ -18701,6 +18940,7 @@ function ExternalComponentWrapper({
 
 
 
+// eslint-disable-next-line no-shadow
 
 
 
@@ -22989,6 +23229,9 @@ class BaseContent extends (external_React_default()).PureComponent {
     let filteredSections = props.Sections.filter(section => section.id !== "topstories");
     const topSitesEnabled = prefs["feeds.topsites"];
     const pocketEnabled = prefs["feeds.section.topstories"] && prefs["feeds.system.topstories"];
+    // @nova-cleanup(remove): pre-Nova; `filteredSections` is the legacy
+    // Sections redux slice that no longer drives Nova layout. Nova uses
+    // `noContentSectionsEnabled` (declared in the Nova branch below).
     const noSectionsEnabled = !topSitesEnabled && !pocketEnabled && filteredSections.filter(section => section.enabled).length === 0;
     const enabledSections = {
       topSitesEnabled,
@@ -23076,12 +23319,19 @@ class BaseContent extends (external_React_default()).PureComponent {
     //  mobileDownloadPromo*, etc.) will become dead code and should
     // be deleted — expect lint errors for unused vars.
     if (novaEnabled) {
-      // Logo renders in .content (above search/topsites) when no Pocket content
-      // feed and no content-area widgets are present. When either is enabled,
-      // the sidebar provides a better visual anchor.
+      // Logo placement: when there's no Pocket feed and no content-area
+      // widget, the Logo renders centered in .content; otherwise it
+      // anchors the inline-start sidebar. If the page has nothing on it
+      // (no content sections, no search, no widgets), the Logo is
+      // suppressed entirely via `isPageEmpty`.
       const weatherWidget = WIDGET_REGISTRY.find(w => w.id === "weather");
       const weatherGoesToSidebar = resolveWidgetHasSidebar(weatherWidget, prefs) && resolveWidgetSize(weatherWidget, prefs) === "small";
       const hasContentWidgets = mayHaveListsWidget && enabledWidgets.listsEnabled || mayHaveTimerWidget && enabledWidgets.timerEnabled || mayHaveClocksWidget && enabledWidgets.clocksEnabled || mayHaveWeatherWidget && enabledWidgets.weatherEnabled && !weatherGoesToSidebar || mayHaveSportsWidget && enabledWidgets.sportsWidgetEnabled;
+      const widgetsEnabled = prefs["widgets.enabled"];
+      const hasAnyEnabledWidget = WIDGET_REGISTRY.some(w => isWidgetEnabled(w, prefs, widgetsEnabled));
+      const highlightsEnabled = prefs["feeds.section.highlights"];
+      const noContentSectionsEnabled = !topSitesEnabled && !pocketEnabled && !highlightsEnabled;
+      const isPageEmpty = noContentSectionsEnabled && !prefs.showSearch && !hasAnyEnabledWidget;
       const logoShouldBeCentered = !pocketEnabled && !hasContentWidgets;
       return /*#__PURE__*/external_React_default().createElement(BaseContext.Provider, {
         value: baseContextValue
@@ -23091,13 +23341,13 @@ class BaseContent extends (external_React_default()).PureComponent {
         className: `container nova-enabled${logoShouldBeCentered ? " logo-in-content" : ""}`
       }, /*#__PURE__*/external_React_default().createElement("aside", {
         className: "sidebar-inline-start"
-      }, !logoShouldBeCentered && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Logo, null))), /*#__PURE__*/external_React_default().createElement("aside", {
+      }, !logoShouldBeCentered && !isPageEmpty && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Logo, null))), /*#__PURE__*/external_React_default().createElement("aside", {
         className: "sidebar-inline-end"
       }, novaEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(WidgetsSidebar, {
         dispatch: props.dispatch
       }))), /*#__PURE__*/external_React_default().createElement("main", {
         className: "content"
-      }, logoShouldBeCentered && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Logo, null)), prefs.showSearch && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Search_Search, Base_extends({
+      }, logoShouldBeCentered && !isPageEmpty && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Logo, null)), prefs.showSearch && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Search_Search, Base_extends({
         showLogo: false
       }, props.Search))), shouldShowASRouterNewTabMessage(this.props.Messages, "ASRouterNewTabMessage", ASROUTER_NEWTAB_MESSAGE_POSITIONS.ABOVE_TOPSITES) && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
         dispatch: this.props.dispatch

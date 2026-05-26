@@ -3,29 +3,6 @@
 
 "use strict";
 
-async function createFolderWithBookmarks(
-  folderName,
-  parentGuid = PlacesUtils.bookmarks.toolbarGuid
-) {
-  const folder = await PlacesUtils.bookmarks.insert({
-    index: -1,
-    type: PlacesUtils.bookmarks.TYPE_FOLDER,
-    parentGuid,
-    title: folderName,
-  });
-
-  for (let i of [1, 2, 3, 4, 5]) {
-    await PlacesUtils.bookmarks.insert({
-      index: -1,
-      type: PlacesUtils.bookmarks.TYPE_BOOKMARK,
-      parentGuid: folder.guid,
-      url: `https://example.com/${i}`,
-      title: `Example ${i}`,
-    });
-  }
-  return folder;
-}
-
 add_setup(function () {
   registerCleanupFunction(async () => {
     await PlacesUtils.bookmarks.eraseEverything();
@@ -66,6 +43,9 @@ add_task(async function test_shareBookmarks() {
 });
 
 add_task(async function test_createShareableLink() {
+  await Services.fog.testFlushAllChildren();
+  Services.fog.testResetFOG();
+
   await withContentSharingMockServer(async server => {
     const folder = await createFolderWithBookmarks("test folder");
     await ContentSharingUtils.createShareableLinkFromBookmarkFolders([
@@ -79,7 +59,7 @@ add_task(async function test_createShareableLink() {
     );
     const body = server.requests[0].body;
 
-    await assertContentSharingModal(
+    const modalEl = await assertContentSharingModal(
       window,
       {
         share: body,
@@ -88,9 +68,24 @@ add_task(async function test_createShareableLink() {
         url: server.mockResponse.url,
         isSchemaValid: true,
         isSignedIn: true,
+        loadingPromise: null,
       },
       true
     );
+
+    let gleanData = Glean.collectionShare.dialogOpen.testGetValue();
+    Assert.equal(gleanData.length, 1, "Recorded dialogOpen once");
+    Assert.equal(
+      gleanData[0].extra.signed_in,
+      "true",
+      "Test user should be signed in"
+    );
+    Assert.equal(
+      gleanData[0].extra.share_type,
+      "bookmarks",
+      "Share type should be bookmarks"
+    );
+    gleanData = null;
 
     Assert.equal(body.type, "bookmarks", "Share type is 'bookmarks'");
     Assert.equal(body.links.length, 5, "Share contains 5 links");
@@ -103,6 +98,52 @@ add_task(async function test_createShareableLink() {
       );
     }
 
+    // Click the copy button and check Glean.
+    await SimpleTest.promiseClipboardChange(server.mockResponse.url, () =>
+      modalEl.copyButton.click()
+    );
+    gleanData = Glean.collectionShare.ctaClicked.testGetValue();
+    Assert.equal(gleanData.length, 1, "Recorded ctaClicked once");
+    Assert.equal(
+      gleanData[0].extra.button,
+      "copy-button",
+      "Copy link button was clicked"
+    );
+    Assert.equal(
+      gleanData[0].extra.signed_in,
+      "true",
+      "Signed-in state should be true"
+    );
+
     await PlacesUtils.bookmarks.eraseEverything();
+    Services.fog.testResetFOG();
+
+    // Click the view page button and check Glean.
+    let tabOpenedPromise = BrowserTestUtils.waitForNewTab(
+      gBrowser,
+      url => url.includes(server.mockResponse.url),
+      true
+    );
+    modalEl.viewPageButton.click();
+    await tabOpenedPromise;
+    // Assert the copy button was clicked.
+    gleanData = Glean.collectionShare.ctaClicked.testGetValue();
+    Assert.equal(gleanData.length, 1, "Recorded ctaClicked once");
+    Assert.equal(
+      gleanData[0].extra.button,
+      "view-page",
+      "View page button was clicked"
+    );
+    Assert.equal(
+      gleanData[0].extra.signed_in,
+      "true",
+      "Signed-in state should be true"
+    );
+
+    registerCleanupFunction(async () => {
+      BrowserTestUtils.removeTab(gBrowser.selectedTab);
+      await PlacesUtils.bookmarks.eraseEverything();
+      Services.fog.testResetFOG();
+    });
   });
 });

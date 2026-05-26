@@ -1326,19 +1326,40 @@ export var UrlbarUtils = {
     return !!rows.length;
   },
 
-  // Tracks backspace-induced autofill blocks so re-integration telemetry can
-  // measure how long after a backspace the user returned to the same
-  // destination. Keyed by the host matching how blockOriginAutofill applies
-  // the block in SQL. Each value is an object of the form
-  // { origin?: timestampMs, url?: timestampMs } recording the
-  // Date.now() at which a block was applied at that autofill level. A host
-  // may have one or both slots populated. Insertion order is maintained as
-  // an LRU: on each update the key is re-inserted so the least recently
-  // blocked host sits at the front, and entries past BACKSPACE_BLOCKS_MAX
-  // are evicted. State is per-session and does not survive restart. A
-  // re-integration after restart, or more than _BACKSPACE_BLOCK_MAX_AGE_HOURS
-  // after the block, does not record a sample.
+  /**
+   * @typedef {object} BackspaceInfo
+   * @property {number?} count
+   *   How many times the origin or URL had its autofill cleared.
+   * @property {number?} blockedAt
+   *   How long ago the origin or URL was blocked from backspacing.
+   */
+
+  /**
+   * LRU map tracking adaptive autofill backspace dismissals through their
+   * lifecycle: pre-block (counting backspaces toward the threshold) and
+   * post-block (timestamp used by re-integration telemetry to measure how
+   * long until the user returned to the same destination).
+   *
+   * Keyed by "<scope>:<host>" where scope is "origin" or "page" and host
+   * has any leading "www." stripped, matching how blockOriginAutofill
+   * applies the underlying SQL block. The two scopes for the same host
+   * live as independent entries.
+   *
+   * Insertion order is maintained as an LRU: entries past
+   * _BACKSPACE_BLOCKS_MAX are evicted. State does not survive
+   * restart.
+   *
+   * Re-integration after restart, or more than _BACKSPACE_BLOCK_MAX_AGE_HOURS
+   * after the block, does not record a sample.
+   *
+   * @type {Map<string, BackspaceInfo>}
+   */
   _backspaceBlocks: new Map(),
+
+  // Resolves with the most recent recordAutofillBackspace() call's DB write
+  // (if any). Tests can await this to sequence on the block before reading
+  // from the database.
+  _lastRecordAutofillBackspacePromise: Promise.resolve(),
 
   // Maximum age of a tracked block, in hours.
   _BACKSPACE_BLOCK_MAX_AGE_HOURS: 24,
@@ -1348,44 +1369,79 @@ export var UrlbarUtils = {
 
   /**
    * Computes the map key used to record a backspace block for the given URL.
-   * The key is the URL's host with a leading "www." stripped, mirroring how
+   * The key is in the form of the scope (origin or page), followed by colon,
+   * and the URL's host with a leading "www." stripped, mirroring how
    * blockOriginAutofill applies the underlying block in SQL.
    *
    * @param {string} url
    *   The URL whose key is being computed.
    * @returns {?string}
-   *   The normalized host key, or null if the URL is unparseable.
+   *   The scope and normalized host key, or null if the URL is unparseable.
+   *
+   * @example
+   * // Returns "origin:example.com"
+   * _backspaceBlockKey("https://www.example.com/");
+   *
+   * @example
+   * // Returns "page:example.com"
+   * _backspaceBlockKey("https://example.com/some/path");
    */
   _backspaceBlockKey(url) {
     let origin = parseOriginParts(url);
     if (!origin) {
       return null;
     }
-    return origin.host.replace(/^www\./, "");
+    let basehost = origin.host.replace(/^www\./, "");
+    let scope = /** @type {"origin" | "page"} */ (
+      this.isOriginUrl(url) ? "origin" : "page"
+    );
+    return `${scope}:${basehost}`;
   },
 
   /**
-   * Records that a backspace-induced autofill block was just set for the
-   * given URL. Subsequent re-integration of the same origin/page within
-   * the session will record a timing sample.
+   * Records a backspace in the LRU map for the autofill URL. Increments
+   * (or creates) the entry's count and when the count reaches the
+   * `autoFill.backspaceThreshold` pref calls blockAutofill and records the
+   * entry's blockedAt so re-integration telemetry can sample the unblock
+   * delay later.
    *
    * @param {string} url
-   *   The URL that was just blocked.
+   *   The autofill result URL whose backspace is being recorded.
+   * @returns {Promise<void>}
+   *   Resolves after the threshold-triggered blockAutofill DB write completes.
+   *   Resolves immediately when the URL is unparseable or the count is still
+   *   below threshold (no DB write in either case). Tests can await this to
+   *   sequence on the block.
    */
-  trackBackspaceBlock(url) {
+  async recordAutofillBackspace(url) {
     let key = this._backspaceBlockKey(url);
     if (!key) {
       return;
     }
 
-    let level = this.isOriginUrl(url) ? "origin" : "url";
-    let entry = this._backspaceBlocks.get(key) ?? {};
-    entry[level] = Date.now();
+    let entry = this._backspaceBlocks.get(key) ?? {
+      count: 0,
+      blockedAt: null,
+    };
+    if (entry.blockedAt) {
+      delete entry.blockedAt;
+    }
+    let newCount = (entry.count ?? 0) + 1;
 
-    // Overwrites the slot's timestamp if this host and level was already
-    // tracked, refreshing its BACKSPACE_BLOCK_MAX_AGE_HOURS expiration.
-    // Map.set preserves insertion order on existing keys. Delete first so this
-    // host is treated as most-recent for LRU expiration.
+    if (newCount >= lazy.UrlbarPrefs.get("autoFill.backspaceThreshold")) {
+      delete entry.count;
+      entry.blockedAt = Date.now();
+      await this.blockAutofill(
+        url,
+        Date.now() + lazy.UrlbarPrefs.get("autoFill.backspaceBlockDurationMs")
+      ).catch(console.error);
+    } else {
+      entry.count = newCount;
+    }
+
+    // Remove and reinsert so this entry is treated as most-recent under the
+    // Map's insertion-order semantics, which we rely on below to expire the
+    // least-recently-used entry.
     this._backspaceBlocks.delete(key);
     this._backspaceBlocks.set(key, entry);
 
@@ -1417,30 +1473,34 @@ export var UrlbarUtils = {
     }
 
     let entry = this._backspaceBlocks.get(key);
-    if (!entry) {
-      return null;
-    }
-
-    /** @type {"origin" | "url"} */
-    let level = this.isOriginUrl(url) ? "origin" : "url";
-    let blockedAt = entry[level];
-    if (!blockedAt) {
+    if (!entry?.blockedAt) {
       return null;
     }
 
     // Consume the timestamp so a later call returns null for this URL.
-    delete entry[level];
-
-    // Drop the host entry when no timestamps remain.
-    if (!entry.origin && !entry.url) {
-      this._backspaceBlocks.delete(key);
-    }
+    this._backspaceBlocks.delete(key);
 
     // If the timestamp is too old, don't report it.
-    let ageHours = (Date.now() - blockedAt) / (60 * 60 * 1000);
-    return ageHours > this._BACKSPACE_BLOCK_MAX_AGE_HOURS
-      ? null
-      : { blockedAt, level };
+    let ageHours = (Date.now() - entry.blockedAt) / (60 * 60 * 1000);
+    if (ageHours > this._BACKSPACE_BLOCK_MAX_AGE_HOURS) {
+      return null;
+    }
+    /** @type {"origin" | "url"} */
+    let level = this.isOriginUrl(url) ? "origin" : "url";
+    return { blockedAt: entry.blockedAt, level };
+  },
+
+  /**
+   * Clears the in-progress backspace count for the URL's scope.
+   *
+   * @param {string} url
+   *   A URL belonging to the scope being cleared.
+   */
+  clearAutofillBackspaceEntryForUrl(url) {
+    let key = this._backspaceBlockKey(url);
+    if (key) {
+      this._backspaceBlocks.delete(key);
+    }
   },
 
   /**
@@ -3652,6 +3712,85 @@ export class UrlbarProvider {
   onSelection(_result, _element) {}
 
   /**
+   * @typedef {object} ViewTemplate
+   *   A plain object that describes the DOM subtree for a dynamic result type.
+   *   When a dynamic result is shown in the urlbar view, its type's view template
+   *   is used to construct the part of the view that represents the result.
+   *
+   * @property {ViewTemplateElement[]} children
+   *   The elements that make up the subtree for the dynamic result type.
+   */
+
+  /**
+   * @typedef {object} ViewTemplateElement
+   *   Describes the DOM subtree for the given dynamic result type.
+   *   It should be a tree-like nested structure with each object in the nesting
+   *   representing a DOM element to be created.  This tree-like structure is
+   *   achieved using the `children` property described below.  Each object in
+   *   the structure may include the following properties:
+   *
+   * @property {string} tag
+   *   The tag name of the object.  It is required for all objects in the
+   *   structure except the root object and declares the kind of element that
+   *   will be created for the object: span, div, img, etc.
+   *
+   * @property {string} [name]
+   *   The name of the object. This value is required if you need to update
+   *   the object's DOM element at query time. It's also helpful but not
+   *   required if you need to style the element. When defined, it serves two
+   *   important functions:
+   *   (1) The element created for the object will automatically have a class
+   *       named `urlbarView-dynamic-${dynamicType}-${name}`, where
+   *       `dynamicType` is the name of the dynamic result type.  The element
+   *       will also automatically have an attribute "name" whose value is
+   *       this name.  The class and attribute allow the element to be styled
+   *       in CSS.
+   *   (2) The name is used when updating the view.  See
+   *       UrlbarProvider.getViewUpdate().
+   *   Names must be unique within a view template, but they don't need to be
+   *   globally unique.  i.e., two different view templates can use the same
+   *   names, and other DOM elements can use the same names in their IDs and
+   *   classes.  The name also suffixes the dynamic element's ID: an element
+   *   with name `data` will get the ID `urlbarView-row-{unique number}-data`.
+   *   If there is no name provided for the root element, the root element
+   *   will not get an ID.
+   *
+   * @property {object} [attributes]
+   *   An optional mapping from attribute names to values.  For each
+   *   name-value pair, an attribute is added to the element created for the
+   *   object. The `id` attribute is reserved and cannot be set by the
+   *   provider. Element IDs are passed back to the provider in getViewUpdate
+   *   if they are needed.
+   *
+   * @property {ViewTemplateElement[]} [children]
+   *   An optional list of children.  Each item in the array must be an object
+   *   as described here.  For each item, a child element as described by the
+   *   item is created and added to the element created for the parent object.
+   *
+   * @property {string[]} [classList]
+   *   An optional list of classes.  Each class will be added to the element
+   *   created for the object by calling element.classList.add().
+   *
+   * @property {boolean} [overflowable]
+   *   If true, the element's overflow status will be tracked in order to
+   *   fade it out when needed.
+   */
+
+  /**
+   * This is called only for dynamic result types, when the urlbar view creates
+   * the view of one of the results of the provider.
+   *
+   * @param {UrlbarResult} _result
+   *   The result whose view will be created.
+   * @returns {?ViewTemplate}
+   *   The view template describing the DOM to build for the result,
+   *   or null if the provider doesn't define one.
+   */
+  getViewTemplate(_result) {
+    return null;
+  }
+
+  /**
    * This is called only for dynamic result types, when the urlbar view updates
    * the view of one of the results of the provider.  It should return an object
    * describing the view update that looks like this:
@@ -3682,7 +3821,7 @@ export class UrlbarProvider {
    * The object should contain a property for each element to update in the
    * dynamic result type view.  The names of these properties are the names
    * declared in the view template of the dynamic result type; see
-   * UrlbarView.addDynamicViewTemplate().  The values are similar to the nested
+   * UrlbarProvider.getViewTemplate().  The values are similar to the nested
    * objects specified in the view template but not quite the same; see below.
    * For each property, the element in the view subtree with the specified name
    * is updated according to the object in the property's value.  If an

@@ -200,8 +200,11 @@ impl Parse for AngleOrPercentage {
 /// <number> | <percentage>
 ///
 /// Accepts only non-negative numbers.
+///
+/// TODO(Bug 2040559) - Convert this into a NumericUnion, instead of an enum over
+/// Number and Percentage. Both types are also NumericUnions of unitless floats.
 #[allow(missing_docs)]
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss, ToShmem, ToTyped)]
 pub enum NumberOrPercentage {
     Percentage(Percentage),
     Number(Number),
@@ -243,6 +246,23 @@ impl NumberOrPercentage {
         match self {
             Self::Percentage(p) => p.to_number(),
             Self::Number(n) => Some(n.clone()),
+        }
+    }
+
+    /// Gets a reference to the underlying percentage, or None if this is a number
+    pub fn as_percentage(&self) -> Option<&Percentage> {
+        match self {
+            NumberOrPercentage::Percentage(percentage) => Some(percentage),
+            _ => None,
+        }
+    }
+
+    /// If this is a non-calc percentage, replaces it with the equivalent
+    /// number; otherwise, returns the original value.
+    pub fn into_simplified_number(self) -> NumberOrPercentage {
+        match self.as_percentage().and_then(|p| p.get()) {
+            Some(p) => NumberOrPercentage::Number(Number::new(p)),
+            None => self,
         }
     }
 
@@ -296,28 +316,21 @@ impl Parse for NonNegativeNumberOrPercentage {
     }
 }
 
-/// The value of Opacity is <alpha-value>, which is "<number> | <percentage>".
-/// However, we serialize the specified value as number, so it's ok to store
-/// the Opacity as Number.
-#[derive(
-    Clone, Debug, MallocSizeOf, PartialEq, PartialOrd, SpecifiedValueInfo, ToCss, ToShmem, ToTyped,
-)]
-pub struct Opacity(Number);
+/// A specified CSS `opacity`
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss, ToShmem, ToTyped)]
+pub struct Opacity(NumberOrPercentage);
 
 impl Parse for Opacity {
     /// Opacity accepts <number> | <percentage>, so we parse it as NumberOrPercentage,
-    /// and then convert into an Number if it's a Percentage.
-    /// https://drafts.csswg.org/cssom/#serializing-css-values
+    /// and then convert into an Number if it's a non-calc Percentage.
+    /// https://drafts.csswg.org/css-color-4/#serializing-opacity-values
     fn parse<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        // TODO(Bug 1980555) - Properly handle serialization of percentages in calcs by not eagerly
-        // converting into a number here at parse time.
-        let Some(number) = NumberOrPercentage::parse(context, input)?.to_number() else {
-            return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
-        };
-        Ok(Opacity(number))
+        Ok(Opacity(
+            NumberOrPercentage::parse(context, input)?.into_simplified_number(),
+        ))
     }
 }
 
@@ -326,7 +339,7 @@ impl ToComputedValue for Opacity {
 
     #[inline]
     fn to_computed_value(&self, context: &Context) -> CSSFloat {
-        let value = self.0.to_computed_value(context);
+        let value = self.0.to_computed_value(context).value();
         if context.for_animation {
             // Type <number> and <percentage> should be able to interpolate
             // out-of-range opacity values which benefits additive animation
@@ -338,7 +351,9 @@ impl ToComputedValue for Opacity {
 
     #[inline]
     fn from_computed_value(computed: &CSSFloat) -> Self {
-        Opacity(Number::from_computed_value(computed))
+        Opacity(NumberOrPercentage::Number(Number::from_computed_value(
+            computed,
+        )))
     }
 }
 

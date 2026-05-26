@@ -23,6 +23,7 @@ class HistoryTest : BaseTest() {
         on.history.navigateToPage()
     }
 
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/903590
     @SmokeTest
     @Test
     fun noHistoryInPrivateBrowsingTest() {
@@ -31,7 +32,7 @@ class HistoryTest : BaseTest() {
             .mozClick(HomeSelectors.PRIVATE_BROWSING_BUTTON)
         on.browserPage.navigateToPage(website.url.toString())
         on.history.navigateToPage()
-            .mozVerifyElementsByGroup("emptyHistory")
+            .mozVerifyElementsByGroup("emptyHistoryMenuView")
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2302742
@@ -41,7 +42,7 @@ class HistoryTest : BaseTest() {
         val website = mockWebServer.getGenericAsset(1)
         on.browserPage.navigateToPage(website.url.toString())
         on.history.navigateToPage()
-            .mozVerifyElementsByGroup("browsingHistory")
+            .mozVerifyElementsByGroup("historyMenuViewWithHistoryItems")
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1848881
@@ -57,6 +58,6 @@ class HistoryTest : BaseTest() {
             .mozClick(HistorySelectors.DELETE_EVERYTHING_OPTION_BUTTON)
             .mozClick(HistorySelectors.DELETE_CONFIRM_BUTTON)
             .mozVerify(HistorySelectors.BROWSING_DATA_DELETED_SNACKBAR)
-            .mozVerifyElementsByGroup("emptyHistory")
+            .mozVerifyElementsByGroup("emptyHistoryMenuView")
     }
 }

@@ -478,6 +478,11 @@
   value: true
   mirror: always
 
+- name: apz.autoscroll.scroll_wheel_cooldown
+  type: RelaxedAtomicInt32
+  value: 500
+  mirror: always
+
 - name: apz.axis_lock.breakout_angle
   type: AtomicFloat
   value: float(M_PI / 8.0)    # 22.5 degrees
@@ -4103,6 +4108,22 @@
   value: false
   mirror: always
 
+#ifdef NIGHTLY_BUILD
+# When true, Promise::MaybeResolve routes through JS::SafeResolve, which
+# implements the thenable-curtailment proposal's MaybeDeferredPromiseResolve.
+# In brief: when resolving with a thenable would synchronously run user code,
+# the steps that do so are deferred to a microtask, but the promise can no
+# longer be resolved by anyone else.
+#
+# This is experimental. For more details see
+# - https://github.com/whatwg/webidl/issues/1584
+# - https://github.com/tc39/proposal-thenable-curtailment
+- name: dom.promise.experimental_safe_resolve
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+#endif  // NIGHTLY_BUILD
+
 # This currently only affects XHTML. For XUL the cache is always allowed.
 - name: dom.prototype_document_cache.enabled
   type: bool
@@ -4964,14 +4985,6 @@
   mirror: always
   rust: true
 
-# Whether to lift select parser restrictions per the updated HTML spec,
-# removing the "in select" insertion mode and handling <select> via
-# scope-based checks in "in body" mode.
-- name: dom.lift_select_parser_restrictions.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: dom.send_after_paint_to_content
   type: bool
   value: false
@@ -5288,6 +5301,12 @@
   value: false
   mirror: always
 
+- name: dom.headingoffset.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 - name: dom.text_fragments.enabled
   type: RelaxedAtomicBool
   value: true
@@ -5368,7 +5387,7 @@
 # and disable this optimization for a site.
 - name: dom.timeout.defer_during_load
   type: bool
-  value: true
+  value: false
   mirror: always
 
 # Sites we shouldn't defer timeouts and intervals while loading a page.
@@ -8874,7 +8893,7 @@
 # Whether we attempt to decode JXL images or not.
 - name: image.jxl.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #endif
@@ -9403,6 +9422,19 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+  # Experimental support for the second parameter to Promise resolve functions
+  # from https://tc39.es/proposal-thenable-curtailment/
+  #
+  # When true, a resolve function created by `new Promise((resolve, _) => ...)`
+  # accepts an optional second boolean argument `doSafeResolve`; passing `true`
+  # causes the resolution steps that would run user code to be deferred
+  # to a microtask while the resolving functions are latched synchronously.
+- name: javascript.options.experimental.promise_safe_resolve
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: startup
+
   # Experimental support for Iterator Chunking in JavaScript.
 - name: javascript.options.experimental.iterator_chunking
   type: bool
@@ -9666,6 +9698,12 @@
     value: false
     mirror: always
     set_spidermonkey_pref: always
+
+- name: javascript.options.wasm_components
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: always
 
 #if defined(ENABLE_WASM_SIMD)
 #if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
@@ -10686,13 +10724,6 @@
   mirror: always
   rust: true
 
-# Is support for :heading and :heading() pseudo classes enabled?
-- name: layout.css.heading-selector.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
 # Is support for CSS initial-letter property enabled?
 - name: layout.css.initial-letter.enabled
   type: bool
@@ -11623,16 +11654,13 @@
 #endif
   mirror: always
 
-# Enable the support to position absoluetly positioned frames properly across
-# fragmentainers (Bug 1994316).
-#
-# Note: Layout code should use
-# nsPresContext::FragmentainerAwarePositioningEnabled() rather than checking
-# this pref directly. This ensures a given frame tree handles abspos
-# fragmentation consistently even if the actual pref value changes.
-- name: layout.abspos.fragmentainer-aware-positioning.enabled
+# Enable the spec-compliant behavior to consider the first and last inline
+# fragments when computing the inline containing block's rectangle for
+# absolutely positioned frames per
+# https://drafts.csswg.org/css-position-3/#absolute-cb
+- name: layout.abspos.fragment-aware-inline-cb.enabled
   type: bool
-  value: true
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

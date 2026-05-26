@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-05-04T15:54:11.381350+00:00'
+updated_at: '2026-05-22T18:36:11.106125+00:00'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -46,6 +46,10 @@ people:
     bmo_id: 382067
     name: Andrew Halberstadt
     nick: ahal
+  - &ahale
+    bmo_id: 706885
+    name: Ashley Hale
+    nick: ahale
   - &ahochheiden
     bmo_id: 693303
     name: Alex Hochheiden
@@ -1967,6 +1971,7 @@ modules:
       - *gw
       - *lsalzman
       - *aosmond
+      - *ahale
     machine_name: core_graphics
 
   - name: 'Core: HAL'
@@ -3706,6 +3711,7 @@ modules:
           - *Gijs
           - *emcminn
           - *charlie
+          - *aminomancer
         machine_name: normandy
 
       - machine_name: firefox_view
@@ -4756,5 +4762,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: 597912a134f7fcd57622c0ce222d3c1afcef67d7
-  export: 4c64c0ea58f5856d29834def047e139a60bf5a3e
+  config: a62367011c85a471d59303209aee8f27ef627789
+  export: a8da8ed8eb8dee98c82bf230b64b7bd6f6dd93ea

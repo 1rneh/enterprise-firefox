@@ -6,6 +6,7 @@
 
 use crate::derives::*;
 use crate::parser::{Parse, ParserContext};
+use crate::typed_om::{NumericValue, ToTyped, TypedValue, UnitValue};
 use crate::values::computed::time::Time as ComputedTime;
 use crate::values::computed::{Context, ToComputedValue};
 use crate::values::specified::calc::{CalcNode, CalcNumeric, Leaf};
@@ -16,8 +17,7 @@ use cssparser::{match_ignore_ascii_case, Parser, Token};
 use std::fmt::{self, Write};
 use style_traits::values::specified::AllowedNumericType;
 use style_traits::{
-    CssString, CssWriter, NumericValue, ParseError, SpecifiedValueInfo, StyleParseErrorKind, ToCss,
-    ToTyped, TypedValue, UnitValue,
+    CssString, CssWriter, ParseError, SpecifiedValueInfo, StyleParseErrorKind, ToCss,
 };
 use thin_vec::ThinVec;
 
@@ -62,6 +62,12 @@ impl NoCalcTime {
     }
 
     /// Returns the unit of the time.
+    #[inline]
+    pub fn time_unit(&self) -> TimeUnit {
+        self.unit
+    }
+
+    /// Returns the unit of the time as a string.
     #[inline]
     pub fn unit(&self) -> &'static str {
         match self.unit {

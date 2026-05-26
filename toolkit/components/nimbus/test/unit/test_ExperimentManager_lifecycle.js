@@ -19,6 +19,10 @@ const { ProfilesDatastoreService } = ChromeUtils.importESModule(
   "moz-src:///toolkit/profile/ProfilesDatastoreService.sys.mjs"
 );
 
+const { RemoteSettingsExperimentLoader } = ChromeUtils.importESModule(
+  "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs"
+);
+
 /**
  * onStartup()
  * - should set call setExperimentActive for each active experiment
@@ -29,19 +33,23 @@ add_task(async function test_onStartup_setExperimentActive_called() {
     storePath: await NimbusTestUtils.createStoreWith(store => {
       NimbusTestUtils.addEnrollmentForRecipe(
         NimbusTestUtils.factories.recipe("foo"),
-        { store, branchSlug: "control" }
+        { store, branchSlug: "control", extra: { source: "test" } }
       );
       NimbusTestUtils.addEnrollmentForRecipe(
         NimbusTestUtils.factories.recipe("bar", { isRollout: true }),
-        { store }
+        { store, extra: { source: "test" } }
       );
       NimbusTestUtils.addEnrollmentForRecipe(
         NimbusTestUtils.factories.recipe("baz"),
-        { store, branchSlug: "control", extra: { active: false } }
+        {
+          store,
+          branchSlug: "control",
+          extra: { active: false, source: "test" },
+        }
       );
       NimbusTestUtils.addEnrollmentForRecipe(
         NimbusTestUtils.factories.recipe("qux", { isRollout: true }),
-        { store, extra: { active: false } }
+        { store, extra: { active: false, source: "test" } }
       );
     }),
     migrationState: NimbusTestUtils.migrationState.LATEST,
@@ -85,7 +93,7 @@ add_task(async function test_startup_unenroll() {
         { store, branchSlug: "control" }
       );
     }),
-    migrationState: NimbusTestUtils.migrationState.UNMIGRATED,
+    migrationState: NimbusTestUtils.migrationState.LATEST,
   });
 
   sandbox.spy(manager, "_unenroll");
@@ -515,6 +523,611 @@ add_task(async function testDb() {
     manager.store.get(experimentRecipe.slug).branch.slug,
     "experiment branch slug matches"
   );
+
+  await cleanup();
+});
+
+add_task(async function testUpdateEnrollmentSourceMismatchActive() {
+  const SLUG = "foo";
+
+  const { manager, cleanup } = await NimbusTestUtils.setupTest({
+    experiments: [
+      NimbusTestUtils.factories.recipe.withFeatureConfig(
+        SLUG,
+        {
+          featureId: "no-feature-firefox-desktop",
+        },
+        { isRollout: true }
+      ),
+    ],
+    migrationState: NimbusTestUtils.migrationState.LATEST,
+    storePath: await NimbusTestUtils.createStoreWith(store => {
+      NimbusTestUtils.addEnrollmentForRecipe(
+        NimbusTestUtils.factories.recipe.withFeatureConfig(
+          SLUG,
+          {
+            featureId: "no-feature-firefox-desktop",
+          },
+          { isRollout: true }
+        ),
+        { store, extra: { source: "nimbus-devtools" } }
+      );
+    }),
+  });
+
+  const enrollment = manager.store.get(SLUG);
+
+  Assert.equal(enrollment.source, "nimbus-devtools");
+  Assert.ok(enrollment.active);
+
+  await NimbusTestUtils.cleanupManager([SLUG]);
+
+  await cleanup();
+});
+
+add_task(async function testUpdateEnrollmentSourceMismatchInactive() {
+  const SLUG = "foo";
+
+  const { manager, cleanup } = await NimbusTestUtils.setupTest({
+    experiments: [
+      NimbusTestUtils.factories.recipe.withFeatureConfig(
+        SLUG,
+        {
+          featureId: "no-feature-firefox-desktop",
+        },
+        { isRollout: true }
+      ),
+    ],
+    migrationState: NimbusTestUtils.migrationState.LATEST,
+    storePath: await NimbusTestUtils.createStoreWith(store => {
+      NimbusTestUtils.addEnrollmentForRecipe(
+        NimbusTestUtils.factories.recipe.withFeatureConfig(
+          SLUG,
+          {
+            featureId: "no-feature-firefox-desktop",
+          },
+          { isRollout: true }
+        ),
+        {
+          store,
+          extra: {
+            active: false,
+            unenrollReason: "bucketing",
+            source: "nimbus-devtools",
+          },
+        }
+      );
+    }),
+  });
+
+  const enrollment = manager.store.get(SLUG);
+
+  Assert.equal(enrollment.source, "nimbus-devtools");
+  Assert.ok(!enrollment.active);
+
+  await cleanup();
+});
+
+add_task(async function testRestoreFirefoxLabsOptIns() {
+  const recipes = {};
+  let currentDate = new Date().getTime();
+
+  for (const slug of [
+    "live-active",
+    "live-inactive",
+    "live-activePaused",
+    "live-inactivePaused",
+    "optin-active",
+    "optin-inactive",
+    "optin-activePaused",
+    "optin-inactivePaused",
+  ]) {
+    recipes[slug] = NimbusTestUtils.factories.recipe(slug, {
+      isRollout: true,
+      isFirefoxLabsOptIn: true,
+      publishedDate: new Date(currentDate).toISOString(),
+      isEnrollmentPaused: slug.endsWith("Paused"),
+    });
+
+    currentDate += 10000;
+  }
+
+  const { sandbox, loader, manager, cleanup } = await NimbusTestUtils.setupTest(
+    {
+      experiments: [
+        recipes["live-active"],
+        recipes["live-inactive"],
+        recipes["live-activePaused"],
+        recipes["live-inactivePaused"],
+      ],
+      migrationState: NimbusTestUtils.migrationState.LATEST,
+      storePath: await NimbusTestUtils.createStoreWith(async store => {
+        // recipes.live-* are all provided by Remote Settings.
+        await NimbusTestUtils.addEnrollmentForRecipe(recipes["live-active"], {
+          store,
+          extra: {
+            source: "rs-loader",
+          },
+        });
+        await NimbusTestUtils.addEnrollmentForRecipe(recipes["live-inactive"], {
+          store,
+          extra: {
+            source: "rs-loader",
+            active: false,
+            unenrollReason: "labs-opt-out",
+          },
+        });
+        await NimbusTestUtils.addEnrollmentForRecipe(
+          recipes["live-activePaused"],
+          {
+            store,
+            extra: {
+              source: "rs-loader",
+            },
+          }
+        );
+        await NimbusTestUtils.addEnrollmentForRecipe(
+          recipes["live-inactivePaused"],
+          {
+            store,
+            extra: {
+              source: "rs-loader",
+              active: false,
+              unenrollReason: "labs-opt-out",
+            },
+          }
+        );
+
+        // The remainder are opted-in (e.g., via force enrollment or nimbus devtools).
+        await NimbusTestUtils.addEnrollmentForRecipe(recipes["optin-active"], {
+          store,
+          extra: {
+            source: "force-enrollment",
+          },
+        });
+        await NimbusTestUtils.addEnrollmentForRecipe(
+          recipes["optin-inactive"],
+          {
+            store,
+            extra: {
+              source: "force-enrollment",
+              active: false,
+              unenrollReason: "labs-opt-out",
+            },
+          }
+        );
+        await NimbusTestUtils.addEnrollmentForRecipe(
+          recipes["optin-activePaused"],
+          {
+            store,
+            extra: {
+              source: "nimbus-devtools",
+            },
+          }
+        );
+        await NimbusTestUtils.addEnrollmentForRecipe(
+          recipes["optin-inactivePaused"],
+          {
+            store,
+            extra: {
+              source: "nimbus-devtools",
+              active: false,
+              unenrollReason: "labs-opt-out",
+            },
+          }
+        );
+      }),
+      init: false,
+    }
+  );
+
+  // At this point, the ExperimentAPI has not been initialized. We are going to
+  // replace the the enable method on the RSEL instance with one that will
+  // assert that the correct set of opt-ins is restored from the database before
+  // dispatching to the real enable method.
+  //
+  // This stub will be called when we call ExperimentAPI.init() below.
+  sandbox.stub(loader, "enable").callsFake(async (...args) => {
+    // The only recipes that should be pre-loaded are those that:
+    //
+    // * are not sourced from rs-loader (e.g., they are force-enrollment or
+    //   nimbus-devtools); and
+    // * are either active (enrolled) or inactive but do not have paused
+    //   enrollment.
+    //
+    // Thus no live-* recipes are present, nor is optin-inactivePaused.
+    Assert.deepEqual(
+      manager.optIns.map(entry => entry.recipe.slug),
+      ["optin-active", "optin-activePaused", "optin-inactive"]
+    );
+
+    await RemoteSettingsExperimentLoader.prototype.enable.call(loader, ...args);
+  });
+
+  await ExperimentAPI.init();
+
+  // Assert that our stub was actually called.
+  Assert.ok(loader.enable.calledOnce, "loader enabled");
+
+  // live-inactivePaused is present in the list, but will be unavailable in Firefox Labs.
+  Assert.deepEqual(
+    manager.optIns.map(entry => entry.recipe.slug),
+    [
+      "optin-active",
+      "optin-activePaused",
+      "optin-inactive",
+      "live-active",
+      "live-activePaused",
+      "live-inactive",
+      "live-inactivePaused",
+    ]
+  );
+
+  await NimbusTestUtils.cleanupManager([
+    "live-active",
+    "live-activePaused",
+    "optin-active",
+    "optin-activePaused",
+  ]);
+  await cleanup();
+});
+
+add_task(async function testRegisterOptIn() {
+  const { manager, cleanup } = await NimbusTestUtils.setupTest();
+
+  Assert.deepEqual(manager.optIns, []);
+
+  const recipes = [
+    NimbusTestUtils.factories.recipe.withFeatureConfig(
+      "foo",
+      { featureId: "no-feature-firefox-desktop" },
+      { isFirefoxLabsOptIn: true, isRollout: true }
+    ),
+    NimbusTestUtils.factories.recipe.withFeatureConfig(
+      "bar",
+      { featureId: "no-feature-firefox-desktop" },
+      { isFirefoxLabsOptIn: true, isRollout: true }
+    ),
+    NimbusTestUtils.factories.recipe.withFeatureConfig(
+      "baz",
+      { featureId: "no-feature-firefox-desktop" },
+      { isFirefoxLabsOptIn: true, isRollout: true }
+    ),
+  ];
+
+  for (const recipe of recipes) {
+    Assert.ok(
+      manager.registerOptIn(recipe, "nimbus-devtools"),
+      `Can register opt-in ${recipe.slug}`
+    );
+    const entry = manager.optIns.find(
+      entry => entry.recipe.slug === recipe.slug
+    );
+    Assert.notStrictEqual(
+      typeof entry,
+      "undefiend",
+      `Opt-in ${recipe.slug} available on ExperimentManager`
+    );
+  }
+
+  Assert.deepEqual(
+    manager.optIns.map(entry => [entry.recipe.slug, entry.source]),
+    [
+      ["foo", "nimbus-devtools"],
+      ["bar", "nimbus-devtools"],
+      ["baz", "nimbus-devtools"],
+    ]
+  );
+
+  for (const { slug } of recipes) {
+    Assert.ok(manager.unregisterOptIn(slug), `Can unregister opt-in ${slug}`);
+    Assert.ok(
+      !manager.optIns.find(entry => entry.recipe.slug === slug),
+      `Opt-in ${slug} no longer available`
+    );
+  }
+
+  Assert.deepEqual(manager.optIns, []);
+
+  Assert.ok(
+    !manager.unregisterOptIn("bogus"),
+    "Cannot unregister recipes that do not exist"
+  );
+
+  await cleanup();
+});
+
+add_task(async function testRegisterOptInConflicts() {
+  const recipes = Object.fromEntries([
+    ...[
+      "active-fxlab-devtools",
+      "inactive-fxlab-devtools",
+      "active-fxlab-rs",
+      "inactive-fxlab-rs",
+      "expired-fxlab-rs",
+    ].map(slug => [
+      slug,
+      NimbusTestUtils.factories.recipe.withFeatureConfig(
+        slug,
+        { featureId: "no-feature-firefox-desktop" },
+        { isFirefoxLabsOptIn: true, isRollout: true }
+      ),
+    ]),
+
+    ...[
+      "active-experiment-devtools",
+      "inactive-experiment-devtools",
+      "active-experiment-rs",
+      "inactive-experiment-rs",
+    ].map(slug => [
+      slug,
+      NimbusTestUtils.factories.recipe.withFeatureConfig(slug, {
+        featureId: "no-feature-firefox-desktop",
+      }),
+    ]),
+
+    ...[
+      "expired-rollout-rs",
+      "active-rollout-rs",
+      "inactive-rollout-rs",
+      "active-rollout-devtools",
+      "inactive-rollout-devtools",
+    ].map(slug => [
+      slug,
+      NimbusTestUtils.factories.recipe.withFeatureConfig(
+        slug,
+        { featureId: "no-feature-firefox-desktop" },
+        { isRollout: true }
+      ),
+    ]),
+  ]);
+
+  const { manager, cleanup } = await NimbusTestUtils.setupTest({
+    experiments: [
+      recipes["active-experiment-rs"],
+      recipes["active-fxlab-devtools"],
+      recipes["active-fxlab-rs"],
+      recipes["active-rollout-rs"],
+      recipes["inactive-experiment-rs"],
+      recipes["inactive-fxlab-devtools"],
+      recipes["inactive-fxlab-rs"],
+      recipes["inactive-rollout-rs"],
+    ],
+    migrationState: NimbusTestUtils.migrationState.LATEST,
+    storePath: await NimbusTestUtils.createStoreWith(store => {
+      NimbusTestUtils.addEnrollmentForRecipe(
+        recipes["active-experiment-devtools"],
+        { store, extra: { active: true, source: "nimbus-devtools" } }
+      );
+      NimbusTestUtils.addEnrollmentForRecipe(recipes["active-fxlab-devtools"], {
+        store,
+        extra: { active: true, source: "nimbus-devtools" },
+      });
+      NimbusTestUtils.addEnrollmentForRecipe(
+        recipes["active-rollout-devtools"],
+        { store, extra: { active: true, source: "nimbus-devtools" } }
+      );
+      NimbusTestUtils.addEnrollmentForRecipe(
+        recipes["inactive-experiment-devtools"],
+        {
+          store,
+          extra: {
+            active: false,
+            unenrollReason: "individual-opt-out",
+            source: "nimbus-devtools",
+          },
+        }
+      );
+      NimbusTestUtils.addEnrollmentForRecipe(
+        recipes["inactive-experiment-rs"],
+        {
+          store,
+          extra: { active: false, unenrollReason: "individual-opt-out" },
+        }
+      );
+      NimbusTestUtils.addEnrollmentForRecipe(
+        recipes["inactive-fxlab-devtools"],
+        {
+          store,
+          extra: {
+            active: false,
+            source: "nimbus-devtools",
+            unenrollReason: "labs-opt-out",
+          },
+        }
+      );
+      NimbusTestUtils.addEnrollmentForRecipe(recipes["inactive-fxlab-rs"], {
+        store,
+        extra: {
+          active: false,
+          source: "rs-loader",
+          unenrollReason: "labs-opt-out",
+        },
+      });
+      NimbusTestUtils.addEnrollmentForRecipe(
+        recipes["inactive-rollout-devtools"],
+        {
+          store,
+          extra: {
+            active: false,
+            unenrollReason: "individual-opt-out",
+            source: "nimbus-devtools",
+          },
+        }
+      );
+      NimbusTestUtils.addEnrollmentForRecipe(recipes["inactive-rollout-rs"], {
+        store,
+        extra: { active: false, unenrollReason: "individual-opt-out" },
+      });
+      NimbusTestUtils.addEnrollmentForRecipe(recipes["expired-fxlab-rs"], {
+        store,
+        extra: {
+          active: false,
+          source: "rs-loader",
+          unenrollReason: "recipe-not-seen",
+        },
+      });
+      NimbusTestUtils.addEnrollmentForRecipe(recipes["expired-rollout-rs"], {
+        store,
+        extra: {
+          active: false,
+          source: "rs-loader",
+          unenrollReason: "recipe-not-seen",
+        },
+      });
+    }),
+  });
+
+  const currentOptIns = manager.optIns
+    .toSorted((a, b) => a.recipe.slug.localeCompare(b.recipe.slug))
+    .map(entry => [entry.recipe.slug, entry.source]);
+
+  Assert.deepEqual(currentOptIns, [
+    ["active-fxlab-devtools", "nimbus-devtools"],
+    ["active-fxlab-rs", "rs-loader"],
+    ["inactive-fxlab-devtools", "nimbus-devtools"],
+    ["inactive-fxlab-rs", "rs-loader"],
+  ]);
+
+  function makeOptInRecipe(slug) {
+    return NimbusTestUtils.factories.recipe.withFeatureConfig(
+      slug,
+      { featureId: "no-feature-firefox-desktop" },
+      { isFirefoxLabsOptIn: true, isRollout: true }
+    );
+  }
+
+  for (const entry of manager.optIns) {
+    const recipe = makeOptInRecipe(entry.recipe.slug);
+
+    for (const source of ["nimbus-devtools", "rs-loader"]) {
+      Assert.ok(
+        !manager.registerOptIn(recipe, source),
+        `Cannot re-register opt-in with existing slug ${recipe.slug} with source=${source}`
+      );
+    }
+  }
+
+  Assert.ok(
+    !manager.registerOptIn(
+      makeOptInRecipe("active-experiment-devtools"),
+      "nimbus-devtools"
+    ),
+    "Cannot register an opt-in that conflicts with an existing enrollment (experiment)"
+  );
+  Assert.ok(
+    !manager.registerOptIn(
+      makeOptInRecipe("active-rollout-devtools"),
+      "nimbus-devtools"
+    ),
+    "Cannot register an opt-in that conflicts with an existing enrollment (rollout)"
+  );
+
+  Assert.ok(
+    !manager.optIns.find(entry => entry.recipe.slug === "expired-fxlab-rs")
+  );
+  Assert.ok(
+    !manager.registerOptIn(
+      makeOptInRecipe("expired-fxlab-rs"),
+      "nimbus-devtools"
+    ),
+    "Cannot register an opt-in with the same slug as a past labs enrollment with a different source"
+  );
+  Assert.ok(
+    !manager.registerOptIn(makeOptInRecipe("expired-rollout-rs"), "rs-loader"),
+    "Cannot register an opt-in with the same slug as a past non-enrollment enrollment with the same source"
+  );
+
+  Assert.deepEqual(
+    manager.optIns
+      .toSorted((a, b) => a.recipe.slug.localeCompare(b.recipe.slug))
+      .map(entry => [entry.recipe.slug, entry.source]),
+    currentOptIns,
+    "The list of opt-ins did not change"
+  );
+
+  await NimbusTestUtils.cleanupManager([
+    "active-experiment-devtools",
+    "active-rollout-rs",
+    "active-fxlab-devtools",
+    "active-rollout-devtools",
+    "active-experiment-rs",
+  ]);
+
+  await cleanup();
+});
+
+add_task(async function testForceEnrollMultifeature() {
+  const { manager, cleanup } = await NimbusTestUtils.setupTest({
+    features: [
+      new ExperimentFeature("test-feature-1", { variables: {} }),
+      new ExperimentFeature("test-feature-2", { variables: {} }),
+    ],
+  });
+
+  await manager.enroll(
+    NimbusTestUtils.factories.recipe("recipe-1", {
+      branches: [
+        {
+          slug: "control",
+          ratio: 1,
+          features: [
+            {
+              featureId: "test-feature-1",
+              value: {},
+            },
+            {
+              featureId: "test-feature-2",
+              value: {},
+            },
+          ],
+        },
+      ],
+    }),
+    "test"
+  );
+
+  Assert.ok(
+    manager.store.get("recipe-1")?.active,
+    "Enrollment in recipe-1 is active"
+  );
+
+  const recipe = NimbusTestUtils.factories.recipe("recipe-2", {
+    branches: [
+      {
+        slug: "control",
+        ratio: 1,
+        features: [
+          {
+            featureId: "test-feature-1",
+            value: {},
+          },
+          {
+            featureId: "test-feature-2",
+            value: {},
+          },
+        ],
+      },
+    ],
+  });
+
+  const result = manager.canEnroll(recipe);
+  Assert.ok(!result.ok);
+  Assert.equal(result.reason, "enrolled-in-feature");
+  Assert.deepEqual(Array.from(result.conflictingEnrollments), ["recipe-1"]);
+
+  await manager.forceEnroll(recipe, "control");
+
+  Assert.ok(
+    !manager.store.get("recipe-1").active,
+    "Enrollment in recipe-1 is inactive"
+  );
+  Assert.ok(
+    manager.store.get("optin-recipe-2")?.active,
+    "Enrollment in recipe-2 is active"
+  );
+
+  manager.unenroll("optin-recipe-2", "test");
 
   await cleanup();
 });

@@ -330,6 +330,10 @@ pref("browser.startup.preXulSkeletonUI", true);
 pref("browser.startup.windowsLaunchOnLogin.enabled", true);
 // Whether to show the launch on login infobar notification
 pref("browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt", false);
+// Whether new installs should default to launching Firefox on Windows login.
+// Set to false by DefaultWindowsLaunchOnLogin.applyExperimentOverride when
+// Nimbus opts users out. Read by StartupOSIntegration on first run.
+pref("browser.startup.windowsLaunchOnLogin.defaultEnabled", true);
 #endif
 
 // Show an upgrade dialog on major upgrades.
@@ -2287,9 +2291,7 @@ pref("browser.ml.linkPreview.supportedLocales", "en");
 pref("browser.ml.pageAssist.enabled", false);
 
 // Smart Window Feature
-pref("browser.smartwindow.apiKey", '');
 pref("browser.smartwindow.enabled", false);
-pref("browser.smartwindow.endpoint", "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net/v1");
 pref("browser.smartwindow.memories.generateFromHistory", true);
 pref("browser.smartwindow.memories.generateFromConversation", true);
 pref("browser.smartwindow.memories.hasSeenMemories", false);
@@ -2299,9 +2301,6 @@ pref("browser.smartwindow.firstrun.hasCompleted", false);
 pref("browser.smartwindow.showThemesNotice", true);
 pref("browser.smartwindow.sidebar.openByDefault", true);
 pref("browser.smartwindow.isDefaultWindow", false);
-pref("browser.smartwindow.firstrun.modelChoice", "");
-pref("browser.smartwindow.model", "");
-pref("browser.smartwindow.preferences.endpoint", "");
 pref("browser.smartwindow.firstrun.explainerURL", "https://www.firefox.com/en-US/smart-window/?v=product");
 pref("places.semanticHistory.smartwindow.featureGate", false);
 // Allow markdown tables in Smart Window responses
@@ -2465,12 +2464,7 @@ pref("media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled"
 pref("media.videocontrols.picture-in-picture.auto-close.enabled", true);
 pref("media.videocontrols.picture-in-picture.auto-close.timeoutMs", 1000);
 
-#ifdef NIGHTLY_BUILD
-  pref("media.contextmenu.video-overlay-detection", true);
-#else
-  pref("media.contextmenu.video-overlay-detection", false);
-#endif
-
+pref("media.contextmenu.video-overlay-detection", true);
 // TODO (Bug 1817084) - This pref is used for managing translation preferences
 // in the Firefox Translations addon. It should be removed when the addon is
 // removed.

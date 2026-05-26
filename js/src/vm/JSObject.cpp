@@ -938,116 +938,12 @@ bool js::ObjectMayBeSwapped(const JSObject* obj) {
   // Only proxies may be swapped: WindowProxy, Wrapper, DeadProxyObject,
   // RemoteObjectProxy. We don't want to support a native object becoming a
   // proxy object or vice versa.
-  return obj->is<ProxyObject>();
-}
-
-/* Use this method with extreme caution. It trades the guts of two objects. */
-void JSObject::swap(JSContext* cx, HandleObject a, HandleObject b,
-                    AutoEnterOOMUnsafeRegion& oomUnsafe) {
-  // Only proxies with SwappableProxyReservedSlots and the same AllocKind may be
-  // swapped.
-  MOZ_RELEASE_ASSERT(JSCLASS_RESERVED_SLOTS(a->getClass()) ==
-                     js::SwappableProxyReservedSlots);
-  MOZ_RELEASE_ASSERT(JSCLASS_RESERVED_SLOTS(b->getClass()) ==
-                     js::SwappableProxyReservedSlots);
-  MOZ_RELEASE_ASSERT(a->allocKind() == b->allocKind());
-
-  MOZ_RELEASE_ASSERT(a->compartment() == b->compartment());
-
-  // You must have entered the objects' compartment before calling this.
-  MOZ_RELEASE_ASSERT(cx->compartment() == a->compartment());
-
-  // Only certain types of objects are allowed to be swapped. This allows the
-  // JITs to better optimize objects that can never swap and rules out most
-  // builtin objects that have special behaviour.
-  MOZ_RELEASE_ASSERT(js::ObjectMayBeSwapped(a));
-  MOZ_RELEASE_ASSERT(js::ObjectMayBeSwapped(b));
-
-  // Don't allow a GC which may observe intermediate state or run before we
-  // execute all necessary barriers.
-  gc::AutoSuppressGC nogc(cx);
-
-  // Ensure we update any embedded nursery pointers in either object.
-  gc::StoreBuffer& storeBuffer = cx->runtime()->gc.storeBuffer();
-  if (a->isTenured()) {
-    storeBuffer.putWholeCell(a);
+  if (!obj->is<ProxyObject>()) {
+    return false;
   }
-  if (b->isTenured()) {
-    storeBuffer.putWholeCell(b);
-  }
-  if (a->isTenured() || b->isTenured()) {
-    if (a->zone()->wasGCStarted()) {
-      storeBuffer.setMayHavePointersToDeadCells();
-    }
-  }
-
-  unsigned r = NotifyGCPreSwap(a, b);
-
-  bool aIsUsedAsPrototype = a->isUsedAsPrototype();
-  bool bIsUsedAsPrototype = b->isUsedAsPrototype();
-
-  // Verify that swapping does not result in an object becoming its own proto.
-  if (aIsUsedAsPrototype && b->hasStaticPrototype()) {
-    MOZ_RELEASE_ASSERT(b->staticPrototype() != a);
-  }
-  if (bIsUsedAsPrototype && a->hasStaticPrototype()) {
-    MOZ_RELEASE_ASSERT(a->staticPrototype() != b);
-  }
-
-  Zone* zone = a->zone();
-
-#ifdef DEBUG
-  // Record any associated unique IDs.
-  //
-  // Note that unique IDs are NOT swapped but remain associated with the
-  // original address.
-  uint64_t aid = 0;
-  uint64_t bid = 0;
-  (void)gc::MaybeGetUniqueId(a, &aid);
-  (void)gc::MaybeGetUniqueId(b, &bid);
-#endif
-
-  // The objects have matching alloc kinds, so they're the same size and we
-  // can just memcpy their contents.
-  size_t size = gc::Arena::thingSize(a->allocKind());
-  char tmp[sizeof(JSObject_Slots16)];
-  MOZ_ASSERT(size <= sizeof(tmp));
-
-  js_memcpy(tmp, a, size);
-  js_memcpy(a, b, size);
-  js_memcpy(b, tmp, size);
-
-  MOZ_ASSERT_IF(aid, gc::GetUniqueIdInfallible(a) == aid);
-  MOZ_ASSERT_IF(bid, gc::GetUniqueIdInfallible(b) == bid);
-
-  // Preserve the IsUsedAsPrototype flag on the objects.
-  if (aIsUsedAsPrototype) {
-    if (!JSObject::setIsUsedAsPrototype(cx, a)) {
-      oomUnsafe.crash("setIsUsedAsPrototype");
-    }
-  }
-  if (bIsUsedAsPrototype) {
-    if (!JSObject::setIsUsedAsPrototype(cx, b)) {
-      oomUnsafe.crash("setIsUsedAsPrototype");
-    }
-  }
-
-  /*
-   * We need a write barrier here. If |a| was marked and |b| was not, then
-   * after the swap, |b|'s guts would never be marked. The write barrier
-   * solves this.
-   *
-   * Normally write barriers happen before the write. However, that's not
-   * necessary here because nothing is being destroyed. We're just swapping.
-   */
-  PreWriteBarrier(zone, a.get(), [](JSTracer* trc, JSObject* obj) {
-    obj->traceChildren(trc);
-  });
-  PreWriteBarrier(zone, b.get(), [](JSTracer* trc, JSObject* obj) {
-    obj->traceChildren(trc);
-  });
-
-  NotifyGCPostSwap(a, b, r);
+  const auto* handler = obj->as<ProxyObject>().handler();
+  MOZ_ASSERT_IF(handler->isScripted(), !handler->mayBeSwapped());
+  return handler->mayBeSwapped();
 }
 
 static NativeObject* DefineConstructorAndPrototype(

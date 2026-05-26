@@ -335,6 +335,13 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "hideLogo",
+    {
+      title: "Hide the Firefox logo on new tab",
+      value: false,
+    },
+  ],
+  [
     "showSponsored",
     {
       title: "User pref for sponsored Pocket content",
@@ -1728,6 +1735,19 @@ export const PREFS_CONFIG = new Map([
       title:
         "Set to true to enable the RemoteSettings backed renderer for newtab. See RemoteRenderer.sys.mjs for more details.",
       value: false,
+    },
+  ],
+  /**
+   * @backward-compat { version 153 }
+   * Remove this pref entry after Firefox 153 hits Release — it's only
+   * needed while the 2026 World Cup logo variation is live.
+   */
+  [
+    "logo.variation",
+    {
+      title:
+        "Variant ID of a logo variation to render in place of the standard newtab logo (e.g. 'spin-ball-small'). Empty string disables. Overridden by trainhopConfig.logo.variation when set.",
+      value: "",
     },
   ],
 ]);

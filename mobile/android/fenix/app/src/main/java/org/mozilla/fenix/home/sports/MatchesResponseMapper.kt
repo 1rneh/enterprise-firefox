@@ -110,15 +110,20 @@ class MatchesResponseMapper(
             MatchStatus.Final
         }
 
-    private fun mapStage(stage: String): TournamentRound = when (stage) {
-        STAGE_GROUP -> TournamentRound.GROUP_STAGE
-        STAGE_ROUND_OF_32 -> TournamentRound.ROUND_OF_32
-        STAGE_ROUND_OF_16 -> TournamentRound.ROUND_OF_16
-        STAGE_QUARTER_FINAL -> TournamentRound.QUARTER_FINAL
-        STAGE_SEMI_FINAL -> TournamentRound.SEMI_FINAL
-        STAGE_FINAL -> TournamentRound.FINAL
-        STAGE_THIRD_PLACE_PLAYOFF -> TournamentRound.THIRD_PLACE_PLAYOFF
-        else -> TournamentRound.GROUP_STAGE
+    private fun mapStage(stage: String): TournamentRound {
+        val normalized = stage.lowercase().filter { it.isLetterOrDigit() }
+        return when (normalized) {
+            "groupstage" -> TournamentRound.GROUP_STAGE
+            "roundof32" -> TournamentRound.ROUND_OF_32
+            "roundof16" -> TournamentRound.ROUND_OF_16
+            "quarterfinal", "quarterfinals" -> TournamentRound.QUARTER_FINAL
+            "semifinal", "semifinals" -> TournamentRound.SEMI_FINAL
+            "final" -> TournamentRound.FINAL
+            "3rdplace", "thirdplace", "3rdplaceplayoff", "thirdplaceplayoff",
+                -> TournamentRound.THIRD_PLACE_PLAYOFF
+
+            else -> TournamentRound.GROUP_STAGE
+        }
     }
 
     private companion object {
@@ -128,13 +133,5 @@ class MatchesResponseMapper(
 
         const val PERIOD_LIVE_PENALTIES = "P"
         const val PERIOD_FINAL_AFTER_PENALTIES = "FT(P)"
-
-        const val STAGE_GROUP = "group_stage"
-        const val STAGE_ROUND_OF_32 = "round_of_32"
-        const val STAGE_ROUND_OF_16 = "round_of_16"
-        const val STAGE_QUARTER_FINAL = "quarter_final"
-        const val STAGE_SEMI_FINAL = "semi_final"
-        const val STAGE_FINAL = "final"
-        const val STAGE_THIRD_PLACE_PLAYOFF = "third_place_playoff"
     }
 }

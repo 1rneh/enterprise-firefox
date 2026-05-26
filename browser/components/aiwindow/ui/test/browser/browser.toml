@@ -24,6 +24,7 @@ support-files = [
   "test_website_select.mjs",
   "test_website_confirmation_page.html",
   "test_website_confirmation.mjs",
+  "test_aiwindow_tab_close_integration.html",
   "test_context_url_page.html",
   "test_context_url_page2.html"
 ]
@@ -128,11 +129,17 @@ skip-if = [
 
 ["browser_aiwindow_website_select.js"]
 
+["browser_aiwindow_chat_tool_ui.js"]
+
+["browser_aiwindow_tab_close_integration.js"]
+
 ["browser_aiwindowui.js"]
 
 ["browser_memories_icon_button.js"]
 
 ["browser_open_aiwindow.js"]
+
+["browser_security_chat.js"]
 
 ["browser_sidebar_aiwindow.js"]
 
@@ -181,6 +188,8 @@ skip-if = [
 skip-if = [
   "os == 'win' && debug && standalone", # Bug 2028654
 ]
+
+["browser_smartwindow_retry_context.js"]
 
 ["browser_smartwindow_run_search.js"]
 

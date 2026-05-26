@@ -99,6 +99,11 @@ export class SidebarBookmarks extends SidebarPage {
     );
     const editBookmark = q("#sidebar-bookmarks-context-edit-bookmark");
     const deleteBookmark = q("#sidebar-bookmarks-context-delete-bookmark");
+    const showInFolder = q("#sidebar-bookmarks-context-show-in-folder");
+    const sepAdd = q("#sidebar-bookmarks-context-sep-add");
+    const addBookmark = q("#sidebar-bookmarks-context-add-bookmark");
+    const addFolder = q("#sidebar-bookmarks-context-add-folder");
+    const addSeparator = q("#sidebar-bookmarks-context-add-separator");
     this.#contextMenuItems = {
       folderItems: [openAllBookmarks, sepOpenAll, sepSort, sortByName],
       bookmarkItems: [
@@ -125,6 +130,11 @@ export class SidebarBookmarks extends SidebarPage {
       openInPrivateWindow,
       editBookmark,
       deleteBookmark,
+      showInFolder,
+      sepAdd,
+      addBookmark,
+      addFolder,
+      addSeparator,
       paste: q("#sidebar-bookmarks-context-paste"),
     };
   }
@@ -300,6 +310,8 @@ export class SidebarBookmarks extends SidebarPage {
             isEmpty,
             isRootFolder: lazy.PlacesUtils.isRootItem(folderEl.guid),
           };
+        } else if (this.findTriggerNode(e, "moz-input-search")) {
+          return;
         } else {
           e.preventDefault();
           return;
@@ -338,6 +350,13 @@ export class SidebarBookmarks extends SidebarPage {
       openInPrivateWindow,
       editBookmark,
       deleteBookmark,
+      showInFolder,
+      copyLink,
+      sepEditCopy,
+      sepAdd,
+      addBookmark,
+      addFolder,
+      addSeparator,
       paste,
     } = this.#contextMenuItems;
 
@@ -360,6 +379,23 @@ export class SidebarBookmarks extends SidebarPage {
     editBookmark.hidden = isSeparator;
     editBookmark.disabled = isRootFolder;
     paste.hidden = !this.#hasClipboardData();
+
+    const isSearchResult = isBookmark && !!this.searchQuery;
+    showInFolder.hidden = !isSearchResult;
+    if (isSearchResult) {
+      copyLink.hidden = true;
+      paste.hidden = true;
+      sepEditCopy.hidden = true;
+      sepAdd.hidden = true;
+      addBookmark.hidden = true;
+      addFolder.hidden = true;
+      addSeparator.hidden = true;
+    } else {
+      sepAdd.hidden = false;
+      addBookmark.hidden = false;
+      addFolder.hidden = false;
+      addSeparator.hidden = false;
+    }
 
     openAllBookmarks.disabled = isEmpty;
     sortByName.disabled = isEmpty;
@@ -407,6 +443,7 @@ export class SidebarBookmarks extends SidebarPage {
       openInPrivateWindow,
       editBookmark,
       deleteBookmark,
+      showInFolder,
       paste,
     } = this.#contextMenuItems;
 
@@ -419,6 +456,7 @@ export class SidebarBookmarks extends SidebarPage {
     openInWindow.hidden = true;
     openInPrivateWindow.hidden = true;
     sepOpenOptions.hidden = true;
+    showInFolder.hidden = true;
 
     editBookmark.hidden = false;
     editBookmark.disabled = true;
@@ -531,6 +569,9 @@ export class SidebarBookmarks extends SidebarPage {
       case "sidebar-bookmarks-context-delete-bookmark":
         this.#deleteBookmarks(this.selectedItems ?? [this.triggerNode]);
         break;
+      case "sidebar-bookmarks-context-show-in-folder":
+        this.#showInFolder(this.triggerNode);
+        break;
       case "sidebar-bookmarks-context-copy-link":
         lazy.BrowserUtils.copyLink(
           this.triggerNode.url,
@@ -595,6 +636,80 @@ export class SidebarBookmarks extends SidebarPage {
     await lazy.PlacesTransactions.Remove({
       guids: bookmarks.map(b => b.guid),
     }).transact();
+  }
+
+  async #showInFolder(bookmark) {
+    const fetchInfo = await lazy.PlacesUtils.bookmarks.fetch(
+      { guid: bookmark.guid },
+      null,
+      { includePath: true }
+    );
+    if (!fetchInfo) {
+      return;
+    }
+    for (const ancestor of fetchInfo.path ?? []) {
+      this.#expandedFolderGuids.add(ancestor.guid);
+    }
+    this.#expandedFolderGuids.add(fetchInfo.parentGuid);
+    this.sidebarController._state.bookmarksExpandedFolders = [
+      ...this.#expandedFolderGuids,
+    ];
+
+    this.searchQuery = "";
+    this.searchResults = [];
+    if (this.searchInput) {
+      this.searchInput.value = "";
+    }
+
+    await this.updateComplete;
+    await this.#scrollAndFocusBookmarkRow(bookmark.guid);
+  }
+
+  async #scrollAndFocusBookmarkRow(guid) {
+    const findRow = list => {
+      if (!list) {
+        return null;
+      }
+      for (const row of list.rowEls ?? []) {
+        if (row.guid === guid) {
+          return { row, list };
+        }
+      }
+      for (const details of list.folderEls ?? []) {
+        const sublist = details.querySelector("sidebar-bookmark-list");
+        const found = findRow(sublist);
+        if (found) {
+          return found;
+        }
+      }
+      return null;
+    };
+
+    const found = await this.#waitForElement(() => findRow(this.bookmarkList));
+    if (!found) {
+      return;
+    }
+
+    const { row, list } = found;
+    this.treeView.resetSelection();
+    this.treeView.selectRowInList(list, row.guid);
+    await list.requestVirtualListUpdate();
+    row.scrollIntoView({ block: "nearest" });
+    row.mainEl?.focus?.();
+  }
+
+  async #waitForElement(probe, { maxFrames = 60 } = {}) {
+    for (let i = 0; i < maxFrames; i++) {
+      const found = probe();
+      if (found) {
+        return found;
+      }
+      await this.bookmarkList?.updateComplete;
+      await new Promise(resolve =>
+        this.documentGlobal.requestAnimationFrame(resolve)
+      );
+    }
+    return probe();
   }
 
   async #addItem(type) {
@@ -945,6 +1060,7 @@ export class SidebarBookmarks extends SidebarPage {
         .tabItems=${this.searchResults}
         @fxview-tab-list-primary-action=${this.onPrimaryAction}
         @fxview-tab-list-secondary-action=${this.onSecondaryAction}
+        @fxview-tab-list-middleclick-action=${this.onPrimaryAction}
       ></sidebar-bookmark-list>
     `;
   }
@@ -983,7 +1099,10 @@ export class SidebarBookmarks extends SidebarPage {
                 .expandedFolderGuids=${this.#expandedFolderGuids}
                 @fxview-tab-list-primary-action=${this.onPrimaryAction}
                 @fxview-tab-list-secondary-action=${this.onSecondaryAction}
+                @fxview-tab-list-middleclick-action=${this.onPrimaryAction}
                 @bookmark-folder-toggle=${this.#onFolderToggle}
+                @bookmark-folder-middleclick=${({ detail }) =>
+                  this.#openBookmarks([detail])}
               ></sidebar-bookmark-list>`
           )}
         </div>

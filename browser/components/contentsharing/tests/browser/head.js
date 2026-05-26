@@ -61,13 +61,19 @@ async function withContentSharingMockServer(task) {
   }
 }
 
-async function assertContentSharingModal(window, expected) {
+/**
+ * Asserts on the contents of the sharing modal.
+ * If leaveOpen is true, returns the sharing modal el.
+ *
+ * @param {Window} window - Chrome window in which to open the modal.
+ * @param {object} expected - expected result object with shape
+ *                            { share, url, isSignedIn }.
+ * @param {boolean} leaveOpen - If true, the modal element is returned and
+ *                              the dialog is left open. Otherwise the dialog
+ *                              is closed when the assert is finished.
+ */
+async function assertContentSharingModal(window, expected, leaveOpen = false) {
   Assert.ok(window.gDialogBox.isOpen, "Content sharing modal should be open");
-  Assert.deepEqual(
-    window.gDialogBox.dialog.frameContentWindow.arguments[0],
-    expected,
-    "The window has the expected arguments"
-  );
 
   // Wait for the modal to be fully rendered
   const modalEl = await TestUtils.waitForCondition(() =>
@@ -76,8 +82,22 @@ async function assertContentSharingModal(window, expected) {
     )
   );
   await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(modalEl));
+
+  // If the modal is still loading, wait for the loadingPromise to resolve
+  // before asserting on the final shareResult state.
+  if (modalEl.shareResult?.loadingPromise) {
+    await modalEl.shareResult.loadingPromise;
+    await modalEl.getUpdateComplete();
+  }
+
   await TestUtils.waitForCondition(() => modalEl.getUpdateComplete);
   await modalEl.getUpdateComplete();
+
+  Assert.deepEqual(
+    modalEl.shareResult,
+    expected,
+    "Modal has the expected share result"
+  );
   await TestUtils.waitForCondition(
     () => modalEl.links?.length === Math.min(expected.share.links.length, 3)
   );
@@ -138,5 +158,32 @@ async function assertContentSharingModal(window, expected) {
     }
   }
 
+  if (leaveOpen) {
+    return modalEl;
+  }
   window.gDialogBox.dialog.close();
+  return null;
+}
+
+async function createFolderWithBookmarks(
+  folderName,
+  parentGuid = PlacesUtils.bookmarks.toolbarGuid
+) {
+  const folder = await PlacesUtils.bookmarks.insert({
+    index: -1,
+    type: PlacesUtils.bookmarks.TYPE_FOLDER,
+    parentGuid,
+    title: folderName,
+  });
+
+  for (let i of [1, 2, 3, 4, 5]) {
+    await PlacesUtils.bookmarks.insert({
+      index: -1,
+      type: PlacesUtils.bookmarks.TYPE_BOOKMARK,
+      parentGuid: folder.guid,
+      url: `https://example.com/${i}`,
+      title: `Example ${i}`,
+    });
+  }
+  return folder;
 }

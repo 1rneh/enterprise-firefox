@@ -89,7 +89,7 @@ class HistoryTest {
             registerAndCleanupIdlingResources(
                 RecyclerViewIdlingResource(composeTestRule.activity.findViewById(R.id.history_list), 1),
             ) {
-                verifyHistoryMenuView()
+                verifyHistoryMenuView(historyItemExists = true)
                 verifyVisitedTimeTitle()
                 verifyFirstTestPageTitle("Test_Page_1")
                 verifyTestPageUrl(firstWebPage.url)
@@ -175,7 +175,7 @@ class HistoryTest {
             verifyShareHistoryButton()
             verifyCloseToolbarButton()
         }.closeToolbarReturnToHistory {
-            verifyHistoryMenuView()
+            verifyHistoryMenuView(historyItemExists = true)
         }
     }
 
@@ -334,7 +334,7 @@ class HistoryTest {
             pressBack()
         }
         historyMenu(composeTestRule) {
-            verifyHistoryMenuView()
+            verifyHistoryMenuView(historyItemExists = true)
         }
     }
 
@@ -424,6 +424,11 @@ class HistoryTest {
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/903590
     // Test running on beta/release builds in CI:
     // caution when making changes to it, so they don't block the builds
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.HistoryTest#noHistoryInPrivateBrowsingTest"],
+        bug = 2024690,
+        since = "2026-03",
+    )
     @SmokeTest
     @Test
     fun noHistoryInPrivateBrowsingTest() {

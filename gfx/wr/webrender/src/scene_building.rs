@@ -77,7 +77,7 @@ use crate::prim_store::gradient::{
     ConicGradientParams, optimize_radial_gradient, apply_gradient_local_clip,
     optimize_linear_gradient,
 };
-use crate::prim_store::image::{Image, YuvImage};
+use crate::prim_store::image::{Image, StretchSizeKey, YuvImage};
 use crate::prim_store::line_dec::LineDecoration;
 use crate::prim_store::picture::{Picture, PictureKey};
 use crate::picture_composite_mode::PictureCompositeKey;
@@ -1444,7 +1444,7 @@ impl<'a> SceneBuilder<'a> {
                     spatial_node_index,
                     clip_node_id,
                     &layout,
-                    layout.rect.size(),
+                    StretchSizeKey::fills_prim(),
                     LayoutSize::zero(),
                     info.image_key,
                     info.image_rendering,
@@ -1460,8 +1460,7 @@ impl<'a> SceneBuilder<'a> {
                     info.bounds,
                 );
 
-                let stretch_size = process_repeat_size(
-                    &layout.rect,
+                let stretch_size = process_image_stretch_size(
                     &unsnapped_rect,
                     info.stretch_size,
                 );
@@ -1620,51 +1619,23 @@ impl<'a> SceneBuilder<'a> {
                     info.tile_size,
                 );
 
-                let mut stops = read_gradient_stops(item.gradient_stops());
+                let stops = read_gradient_stops(item.gradient_stops());
                 let mut start = info.gradient.start_point;
                 let mut end = info.gradient.end_point;
-                let flags = layout.flags;
-                let optimized = optimize_linear_gradient(
+                // Run the simplification + clip pass; the fast-path two-stop
+                // segment decomposition that used to run here now happens at
+                // prepare time so segments tile against the snapped prim_rect
+                // (see `decompose_axis_aligned_gradient`).
+                optimize_linear_gradient(
                     &mut layout.rect,
                     &mut tile_size,
                     info.tile_spacing,
                     &layout.clip_rect,
                     &mut start,
                     &mut end,
-                    info.gradient.extend_mode,
-                    &mut stops,
-                    self.config.enable_dithering,
-                    &mut |rect, start, end, stops, edge_aa_mask| {
-                        let layout = LayoutPrimitiveInfo {
-                            rect: *rect,
-                            clip_rect: *rect,
-                            flags,
-                            aligned_aa_edges: EdgeMask::empty(),
-                            transformed_aa_edges: edge_aa_mask,
-                        };
-                        if let Some(prim_key_kind) = self.create_linear_gradient_prim(
-                            &layout,
-                            start,
-                            end,
-                            stops.to_vec(),
-                            ExtendMode::Clamp,
-                            rect.size(),
-                            LayoutSize::zero(),
-                            None,
-                            edge_aa_mask,
-                        ) {
-                            self.add_nonshadowable_primitive(
-                                spatial_node_index,
-                                clip_node_id,
-                                &layout,
-                                Vec::new(),
-                                prim_key_kind,
-                            );
-                        }
-                    }
                 );
 
-                if !optimized && !tile_size.ceil().is_empty() {
+                if !tile_size.ceil().is_empty() {
                     if let Some(prim_key_kind) = self.create_linear_gradient_prim(
                         &layout,
                         start,
@@ -3651,7 +3622,7 @@ impl<'a> SceneBuilder<'a> {
         spatial_node_index: SpatialNodeIndex,
         clip_node_id: ClipNodeId,
         info: &LayoutPrimitiveInfo,
-        stretch_size: LayoutSize,
+        stretch_size: StretchSizeKey,
         mut tile_spacing: LayoutSize,
         image_key: ImageKey,
         image_rendering: ImageRendering,
@@ -3659,7 +3630,15 @@ impl<'a> SceneBuilder<'a> {
         color: ColorF,
     ) {
         let mut prim_rect = info.rect;
-        simplify_repeated_primitive(&stretch_size, &mut tile_spacing, &mut prim_rect);
+        // Resolve per-axis: axes that fill the prim use the unsnapped
+        // prim-rect size (`prim_rect` here is unsnapped at scene build).
+        let prim_size = prim_rect.size();
+        let stored: LayoutSize = stretch_size.size.into();
+        let stretch_size_for_simplify = LayoutSize::new(
+            if stretch_size.fills_width { prim_size.width } else { stored.width },
+            if stretch_size.fills_height { prim_size.height } else { stored.height },
+        );
+        simplify_repeated_primitive(&stretch_size_for_simplify, &mut tile_spacing, &mut prim_rect);
         let info = LayoutPrimitiveInfo {
             rect: prim_rect,
             .. *info
@@ -3673,7 +3652,7 @@ impl<'a> SceneBuilder<'a> {
             Image {
                 key: image_key,
                 tile_spacing: tile_spacing.into(),
-                stretch_size: stretch_size.into(),
+                stretch_size,
                 color: color.into(),
                 image_rendering,
                 alpha_type,
@@ -4749,6 +4728,34 @@ fn filter_datas_for_compositing(
         });
     }
     filter_datas
+}
+
+/// Image-specific stretch-size discriminator. Decided per-axis: if the
+/// gecko-specified `repeat_size` matches the unsnapped prim rect on
+/// that axis (within an FP-noise epsilon), the axis is flagged
+/// `fills_*` and the effective extent is resolved against the snapped
+/// prim rect at frame-build. Otherwise the explicit per-axis value is
+/// stored verbatim. Per-axis (rather than all-or-nothing) preserves the
+/// old `process_repeat_size` behaviour where a width-matching tile with
+/// a non-matching height still picks up the snapped prim width.
+fn process_image_stretch_size(
+    unsnapped_rect: &LayoutRect,
+    repeat_size: LayoutSize,
+) -> StretchSizeKey {
+    const EPSILON: f32 = 0.001;
+    let fills_width = repeat_size.width.approx_eq_eps(&unsnapped_rect.width(), &EPSILON);
+    let fills_height = repeat_size.height.approx_eq_eps(&unsnapped_rect.height(), &EPSILON);
+    // Normalise filling axes to zero so prims that fill both axes share
+    // an intern key regardless of their displayed size.
+    let stored = LayoutSize::new(
+        if fills_width { 0.0 } else { repeat_size.width },
+        if fills_height { 0.0 } else { repeat_size.height },
+    );
+    StretchSizeKey {
+        size: stored.into(),
+        fills_width,
+        fills_height,
+    }
 }
 
 fn process_repeat_size(

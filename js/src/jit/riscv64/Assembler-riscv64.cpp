@@ -236,7 +236,7 @@ void Assembler::GeneralLi(Register rd, int64_t imm) {
     return;
   }
   UseScratchRegisterScope temps(this);
-  BlockTrampolinePoolScope block_trampoline_pool(this, 8);
+  AutoForbidPoolsAndNops afp(this, 8);
   // 64-bit case: divide imm into two 32-bit parts, upper and lower
   int64_t up_32 = imm >> 32;
   int64_t low_32 = imm & 0xffffffffull;
@@ -497,9 +497,9 @@ static constexpr auto ToImmPtrParts(int64_t imm) {
   };
 }
 
-void Assembler::li_ptr(Register rd, int64_t imm) {
-  m_buffer.enterNoNops();
-  m_buffer.assertNoPoolAndNoNops();
+BufferOffset Assembler::li_ptr(Register rd, int64_t imm) {
+  AutoForbidPoolsAndNops afp(this, 6);
+  BufferOffset offset = nextOffset();
 
   // Initialize rd with an address
   // Pointers are 48 bits
@@ -515,7 +515,8 @@ void Assembler::li_ptr(Register rd, int64_t imm) {
   ori(rd, rd, b11);      // 11 bits are put in. 42 bit in rd
   slli(rd, rd, 6);       // Space for next 6 bits
   ori(rd, rd, a6);       // 6 bits are put in. 48 bis in rd
-  m_buffer.leaveNoNops();
+
+  return offset;
 }
 
 struct Imm64Parts {
@@ -538,9 +539,10 @@ static constexpr auto ToImm64Parts(int64_t imm) {
   };
 }
 
-void Assembler::li_constant(Register rd, int64_t imm) {
-  m_buffer.enterNoNops();
-  m_buffer.assertNoPoolAndNoNops();
+BufferOffset Assembler::li_constant(Register rd, int64_t imm) {
+  AutoForbidPoolsAndNops afp(this, 8);
+  BufferOffset offset = nextOffset();
+
   DEBUG_PRINTF("li_constant(%d, %" PRIx64 " <%" PRId64 ">)\n", ToNumber(rd),
                imm, imm);
 
@@ -554,7 +556,8 @@ void Assembler::li_constant(Register rd, int64_t imm) {
   addi(rd, rd, b12);  // Bits 23:12
   slli(rd, rd, 12);
   addi(rd, rd, a12);  // Bits 11:0
-  m_buffer.leaveNoNops();
+
+  return offset;
 }
 
 ABIArg ABIArgGenerator::next(MIRType type) {
@@ -1144,21 +1147,6 @@ void Assembler::Bind(uint8_t* rawCode, const CodeLabel& label) {
       Assembler::UpdateLoad64Value(inst, (uint64_t)(rawCode + target));
     }
   }
-}
-
-bool Assembler::isNear(Label* L) {
-  MOZ_ASSERT(L->bound());
-  return is_intn((currentOffset() - L->offset()), kJumpOffsetBits);
-}
-
-bool Assembler::isNear(Label* L, OffsetSize bits) {
-  if (L == nullptr || !L->bound()) return true;
-  return is_intn((currentOffset() - L->offset()), bits);
-}
-
-bool Assembler::is_near_branch(Label* L) {
-  MOZ_ASSERT(L->bound());
-  return is_intn((currentOffset() - L->offset()), kBranchOffsetBits);
 }
 
 int32_t Assembler::branchLongOffsetHelper(Label* L) {

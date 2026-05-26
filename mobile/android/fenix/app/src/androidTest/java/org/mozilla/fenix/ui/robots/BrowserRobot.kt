@@ -72,7 +72,6 @@ import org.mozilla.fenix.helpers.SessionLoadedIdlingResource
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeShort
-import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeVeryShort
 import org.mozilla.fenix.helpers.TestHelper.appContext
 import org.mozilla.fenix.helpers.TestHelper.appName
 import org.mozilla.fenix.helpers.TestHelper.mDevice
@@ -971,13 +970,8 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
         assertUIObjectExists(
             itemContainingText(
                 getStringResource(
-                    applinksR.string.mozac_feature_applinks_normal_confirm_dialog_title_with_app_name,
+                    applinksR.string.mozac_feature_applinks_normal_confirm_dialog_title_with_app_name_2,
                     appName,
-                ),
-            ),
-            itemContainingText(
-                getStringResource(
-                    applinksR.string.mozac_feature_applinks_normal_confirm_dialog_message,
                 ),
             ),
             waitingTime = waitingTimeLong,
@@ -988,13 +982,8 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
         assertUIObjectIsGone(
             itemContainingText(
                 getStringResource(
-                    applinksR.string.mozac_feature_applinks_normal_confirm_dialog_title_with_app_name,
+                    applinksR.string.mozac_feature_applinks_normal_confirm_dialog_title_with_app_name_2,
                     appName,
-                ),
-            ),
-            itemContainingText(
-                getStringResource(
-                    applinksR.string.mozac_feature_applinks_normal_confirm_dialog_message,
                 ),
             ),
         )
@@ -1016,7 +1005,7 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
                 assertUIObjectExists(
                     itemContainingText(
                         getStringResource(
-                            applinksR.string.mozac_feature_applinks_normal_confirm_dialog_title_with_app_name,
+                            applinksR.string.mozac_feature_applinks_normal_confirm_dialog_title_with_app_name_2,
                             appName,
                         ),
                     ),
@@ -1406,6 +1395,31 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyETPShieldIconIsDisplayed: Trying to verify that the \"Shield icon\" is displayed")
         composeTestRule.onNodeWithContentDescription(getStringResource(toolbarR.string.mozac_browser_toolbar_content_description_site_info)).assertIsDisplayed()
         Log.i(TAG, "verifyETPShieldIconIsDisplayed: Verified that the \"Shield icon\" was displayed")
+    }
+
+    fun verifyTheSummarizeCFR(shouldBeDisplayed: Boolean = true) {
+        if (shouldBeDisplayed) {
+            Log.i(TAG, "verifyTheSummarizeCFR: Trying to verify the \"Shake your device to summarize this page in seconds\" CFR message is displayed.")
+            composeTestRule.summarizeCFRMessage().assertIsDisplayed()
+            Log.i(TAG, "verifyTheSummarizeCFR: Verified the \"Shake your device to summarize this page in seconds\" CFR message is displayed.")
+            Log.i(TAG, "verifyTheSummarizeCFR: Trying to verify the \"Shake your device to summarize this page in seconds\" CFR dismiss button is displayed.")
+            composeTestRule.summarizeCFRButton().assertIsDisplayed()
+            Log.i(TAG, "verifyTheSummarizeCFR: Verified the \"Shake your device to summarize this page in seconds\" CFR dismiss button is displayed.")
+        } else {
+            Log.i(TAG, "verifyTheSummarizeCFR: Trying to verify the \"Shake your device to summarize this page in seconds\" CFR message is NOT displayed.")
+            composeTestRule.summarizeCFRMessage().assertDoesNotExist()
+            Log.i(TAG, "verifyTheSummarizeCFR: Verified the \"Shake your device to summarize this page in seconds\" CFR message is NOT displayed.")
+        }
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    fun clickTheDismissButtonOnSummarizeCFR() {
+        Log.i(TAG, "clickTheDismissButtonOnSummarizeCFR: Waiting for the summarize CFR dismiss button to exist")
+        composeTestRule.waitUntilAtLeastOneExists(hasTestTag("cfr.dismiss"), waitingTime)
+        Log.i(TAG, "clickTheDismissButtonOnSummarizeCFR: Waited for the summarize CFR dismiss button to exist")
+        Log.i(TAG, "clickTheDismissButtonOnSummarizeCFR: Trying to click the \"X\" button on the summarize CFR")
+        composeTestRule.summarizeCFRButton().performClick()
+        Log.i(TAG, "clickTheDismissButtonOnSummarizeCFR: Clicked the \"X\" button on the summarize CFR")
     }
 
     class Transition(private val composeTestRule: ComposeTestRule) {
@@ -1871,3 +1885,7 @@ private fun contextMenuShareLink() =
 // Open in external app option
 private fun contextMenuOpenInExternalApp() =
     itemContainingText(getStringResource(contextmenuR.string.mozac_feature_contextmenu_open_link_in_external_app))
+
+private fun ComposeTestRule.summarizeCFRMessage() = onNodeWithText(getStringResource(R.string.browser_toolbar_summarize_cfr_description))
+
+private fun ComposeTestRule.summarizeCFRButton() = onNodeWithTag("cfr.dismiss")

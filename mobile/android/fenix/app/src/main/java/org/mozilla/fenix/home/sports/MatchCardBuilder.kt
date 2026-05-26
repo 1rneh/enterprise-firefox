@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.home.sports
 
-import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -48,21 +47,13 @@ object MatchCardBuilder {
     }
 
     /**
-     * Path 2 — no team selected. Renders the next-available day's matches as a single
-     * card during the group stage, and one card per date during knockout rounds.
+     * Path 2 — no team selected. Surfaces the full schedule available in the response as
+     * one card per match day, in chronological order. Every match on a given day is rendered
+     * inside that day's card; the round label is derived from that day's matches.
      */
-    fun buildForNoTeam(
-        matches: List<SportsMatch>,
-        today: LocalDate = LocalDate.now(),
-    ): List<MatchCard> {
+    fun buildForNoTeam(matches: List<SportsMatch>): List<MatchCard> {
         if (matches.isEmpty()) return emptyList()
-        val sorted = matches.sortedBy { it.date }
-        val cards = if (sorted.first().stage == TournamentRound.GROUP_STAGE) {
-            listOf(buildNoTeamGroupCard(sorted, today))
-        } else {
-            buildNoTeamKnockoutCards(sorted)
-        }
-        return cards.orderedForPager()
+        return buildNoTeamPerDayCards(matches.sortedBy { it.date }).orderedForPager()
     }
 
     private fun buildGroupStageCard(
@@ -70,9 +61,9 @@ object MatchCardBuilder {
         liveIds: Set<Long>,
     ): MatchCard {
         // Featured (enlarged) matches go in `matches`; the rest go in `relatedMatches`.
-        // Priority: live > next upcoming > most recent past — so the user always sees
-        // the most-actionable game given the selected team's schedule.
-        val featured = pickFeaturedGroupMatches(groupMatches, liveIds)
+        // Priority: live > next upcoming > most recent past — so the user always sees the
+        // most-actionable game given the selected team's schedule.
+        val featured = pickFeaturedMatches(groupMatches, liveIds)
         val featuredIds = featured.map { it.globalEventId }.toSet()
         val featuredUi = featured.map { it.toMatch() }
         val relatedUi = groupMatches
@@ -85,16 +76,16 @@ object MatchCardBuilder {
         )
     }
 
-    private fun pickFeaturedGroupMatches(
-        groupMatches: List<SportsMatch>,
+    private fun pickFeaturedMatches(
+        matches: List<SportsMatch>,
         liveIds: Set<Long>,
     ): List<SportsMatch> {
-        val live = groupMatches.filter { it.globalEventId in liveIds }
+        val live = matches.filter { it.globalEventId in liveIds }
         if (live.isNotEmpty()) return live
-        // groupMatches is sorted oldest-first; firstOrNull on Scheduled returns the next upcoming,
+        // matches is sorted oldest-first; firstOrNull on Scheduled returns the next upcoming,
         // lastOrNull on past returns the most recently played.
-        groupMatches.firstOrNull { it.matchStatus is MatchStatus.Scheduled }?.let { return listOf(it) }
-        return groupMatches.lastOrNull { it.matchStatus.isPast() }?.let { listOf(it) } ?: emptyList()
+        matches.firstOrNull { it.matchStatus is MatchStatus.Scheduled }?.let { return listOf(it) }
+        return matches.lastOrNull { it.matchStatus.isPast() }?.let { listOf(it) } ?: emptyList()
     }
 
     private fun buildSingleMatchCard(match: SportsMatch): MatchCard {
@@ -108,39 +99,30 @@ object MatchCardBuilder {
         )
     }
 
-    private fun buildNoTeamGroupCard(
-        sortedMatches: List<SportsMatch>,
-        today: LocalDate,
-    ): MatchCard {
-        val targetDay = sortedMatches
-            .map { it.date.toLocalDate() }
-            .firstOrNull { !it.isBefore(today) }
-            ?: sortedMatches.last().date.toLocalDate()
-        val dayMatches = sortedMatches.filter { it.date.toLocalDate() == targetDay }
-        val (live, others) = dayMatches.partition { it.matchStatus.isLive() }
-        val liveUi = live.map { it.toMatch() }
-        val relatedUi = others.map { it.toMatch() }
-        return MatchCard(
-            matches = liveUi,
-            round = TournamentRound.GROUP_STAGE,
-            relatedMatches = relatedUi,
-        )
-    }
-
-    private fun buildNoTeamKnockoutCards(sortedMatches: List<SportsMatch>): List<MatchCard> {
-        val round = sortedMatches.first().stage
-        return sortedMatches
+    private fun buildNoTeamPerDayCards(sortedMatches: List<SportsMatch>): List<MatchCard> =
+        sortedMatches
             .groupBy { it.date.toLocalDate() }
             .toSortedMap()
-            .map { (_, dayMatches) ->
-                val uiMatches = dayMatches.map { it.toMatch() }
-                MatchCard(
-                    matches = uiMatches,
-                    round = round,
-                    viewerOutcome = celebrationOutcomeFor(round, uiMatches) ?: FollowedTeamOutcome.NotInvolved,
-                    relatedMatches = emptyList(),
-                )
-            }
+            .map { (_, dayMatches) -> buildDayCard(dayMatches, dayMatches.first().stage) }
+
+    // Featured (enlarged) match in `matches`, everything else as compact rows in
+    // `relatedMatches`. Featured priority: live > next upcoming > most recent past — same
+    // shape the team-selected group-stage card uses, so a day with one live and two
+    // scheduled matches renders one big tile + two related rows rather than three big tiles.
+    private fun buildDayCard(dayMatches: List<SportsMatch>, round: TournamentRound): MatchCard {
+        val liveIds = dayMatches.filter { it.matchStatus.isLive() }.map { it.globalEventId }.toSet()
+        val featured = pickFeaturedMatches(dayMatches, liveIds)
+        val featuredIds = featured.map { it.globalEventId }.toSet()
+        val featuredUi = featured.map { it.toMatch() }
+        val relatedUi = dayMatches
+            .filter { it.globalEventId !in featuredIds }
+            .map { it.toMatch() }
+        return MatchCard(
+            matches = featuredUi,
+            round = round,
+            viewerOutcome = celebrationOutcomeFor(round, featuredUi) ?: FollowedTeamOutcome.NotInvolved,
+            relatedMatches = relatedUi,
+        )
     }
 }
 
@@ -170,10 +152,6 @@ private fun List<MatchCard>.orderedForPager(): List<MatchCard> {
     }
     return live + past + upcoming
 }
-
-private fun MatchStatus.isLive(): Boolean = this is MatchStatus.Live || this is MatchStatus.Penalties
-
-private fun MatchStatus.isPast(): Boolean = this is MatchStatus.Final || this is MatchStatus.FinalAfterPenalties
 
 // A decided final or third-place playoff always carries the celebration outcome,
 // regardless of which team (if any) the viewer follows — the champion card is shown

@@ -18,6 +18,8 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Chat: "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs",
+  FEATURE_MAJOR_VERSIONS:
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   MODEL_FEATURES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   openAIEngine: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   generateChatTitle:
@@ -509,6 +511,15 @@ export class AIWindow extends MozLitElement {
 
   get conversationMessageCount() {
     return this.#conversation.messageCount;
+  }
+
+  /**
+   * Get the current conversation object
+   *
+   * @returns {ChatConversation} The conversation object
+   */
+  get conversation() {
+    return this.#conversation;
   }
 
   #registerSwapDocShellsListener(win) {
@@ -2204,7 +2215,7 @@ export class AIWindow extends MozLitElement {
   }
 
   handleToolUIUpdate(data) {
-    lazy.ToolUI.handleUpdate(data, this.#conversation);
+    lazy.ToolUI.handleUpdate(data, this.#conversation, this.#topChromeWindow);
   }
 
   #openFeedbackModal(type) {
@@ -2212,7 +2223,14 @@ export class AIWindow extends MozLitElement {
     if (!browser) {
       return;
     }
-    lazy.FeedbackModal.open(browser, type);
+    const metadata = {
+      metadata: {
+        model: this.modelName,
+        turn_count: this.#conversation?.messageCount ?? 0,
+        prompt_version: lazy.FEATURE_MAJOR_VERSIONS[lazy.MODEL_FEATURES.CHAT],
+      },
+    };
+    lazy.FeedbackModal.open(browser, type, metadata);
   }
 
   #openMemoriesSettings() {
@@ -2278,6 +2296,8 @@ export class AIWindow extends MozLitElement {
         skipUserDispatch: true,
         memoriesEnabled:
           withMemories ?? this.#memoriesToggled ?? this.#memoriesIconShown,
+        contextMentions: userMsg.content.contextMentions,
+        pageUrl: userMsg.pageUrl,
       });
     } catch (e) {
       console.error("ai-window: retry failed", e);
@@ -2344,7 +2364,7 @@ export class AIWindow extends MozLitElement {
               data-l10n-id="aiwindow-new-chat"
               data-l10n-attrs="tooltiptext,aria-label"
               class="new-chat-icon-button"
-              size="default"
+              type="ghost icon"
               iconsrc="chrome://browser/content/aiwindow/assets/new-chat.svg"
               @click=${this.onCreateNewChatClick}
             ></moz-button>
@@ -2352,7 +2372,7 @@ export class AIWindow extends MozLitElement {
               data-l10n-id="aiwindow-close-sidebar"
               data-l10n-attrs="tooltiptext,aria-label"
               class="close-sidebar-button"
-              size="default"
+              type="ghost icon"
               iconsrc="chrome://global/skin/icons/close.svg"
               @click=${this.#onCloseSidebarClick}
             ></moz-button>
@@ -2366,7 +2386,7 @@ export class AIWindow extends MozLitElement {
                 data-l10n-id="aiwindow-new-chat"
                 data-l10n-attrs="tooltiptext,aria-label"
                 class="new-chat-icon-button"
-                size="default"
+                type="ghost icon"
                 iconsrc="chrome://browser/content/aiwindow/assets/new-chat.svg"
                 @click=${this.onCreateNewChatClick}
               ></moz-button>

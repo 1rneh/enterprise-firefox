@@ -3,9 +3,11 @@
 
 "use strict";
 
+/* eslint-disable mozilla/reject-import-preferences-module */
 const { Preferences } = ChromeUtils.importESModule(
   "resource://gre/modules/Preferences.sys.mjs"
 );
+/* eslint-enable mozilla/reject-import-preferences-module */
 
 function checkLockedPref(prefName, prefValue) {
   Assert.equal(

@@ -22,6 +22,13 @@
   pref("browser.hiddenWindowChromeURL", "chrome://browser/content/hiddenWindowMac.xhtml");
 #endif
 
+// Default preferences for enterprise builds
+#ifdef MOZ_ENTERPRISE
+pref("enterprise.log_level", "Error");
+// Default preference to be removed here and instead controled by policy FirefoxHome
+pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
+#endif
+
 // Set add-ons abuse report related prefs specific to Firefox Desktop.
 pref("extensions.abuseReport.enabled", true);
 

@@ -38,9 +38,6 @@ def FirefoxBranding():
         ]
 
     if CONFIG["MOZ_ENTERPRISE"]:
-        JS_PREFERENCE_FILES += [
-            "pref/enterprise-defaults.js",
-        ]
         FINAL_TARGET_FILES[".."].distribution += [
             "distribution.ini",
         ]

@@ -4,9 +4,6 @@
 
 // This file contains branding-specific prefs.
 
-// Default enterprise theme
-pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");
-
 pref("startup.homepage_override_url", "");
 pref("startup.homepage_welcome_url", "about:welcome");
 pref("startup.homepage_welcome_url.additional", "");
@@ -49,3 +46,14 @@ pref("app.update.badgeWaitTime", 345600);
 // Number of usages of the web console.
 // If this is less than 5, then pasting code into the web console is disabled
 pref("devtools.selfxss.count", 0);
+
+// Default enterprise theme
+pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");
+
+// On Enterprise we want to enforce updates so we force it
+// Bug 2020768: Should those value be set/locked at runtime by FELT only
+//              or is it fine to apply it to any enterprise build?
+pref("app.update.auto", true);
+pref("app.update.checkOnlyInstance.enabled", false);
+pref("app.update.background.enabled", true);
+pref("app.update.staging.enabled", true);

@@ -22,8 +22,7 @@
 #include "mozilla/net/HttpChannelChild.h"
 #include "mozilla/net/CacheEntryWriteHandleChild.h"
 #include "mozilla/net/PBackgroundDataBridge.h"
-#include "mozilla/net/UrlClassifierCommon.h"
-#include "mozilla/net/UrlClassifierFeatureFactory.h"
+#include "mozilla/net/ChannelClassifierUtils.h"
 
 #include "AltDataOutputStreamChild.h"
 #include "CookieServiceChild.h"
@@ -1172,8 +1171,7 @@ void HttpChannelChild::DoOnStopRequest(nsIRequest* aRequest,
     // NB: We use aChannelStatus here instead of mStatus because if there was an
     // nsCORSListenerProxy on this request, it will override the tracking
     // protection's return value.
-    if (UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(
-            aChannelStatus) ||
+    if (ChannelClassifierUtils::IsClassifierBlockingErrorCode(aChannelStatus) ||
         aChannelStatus == NS_ERROR_MALWARE_URI ||
         aChannelStatus == NS_ERROR_UNWANTED_URI ||
         aChannelStatus == NS_ERROR_BLOCKED_URI ||
@@ -1191,8 +1189,8 @@ void HttpChannelChild::DoOnStopRequest(nsIRequest* aRequest,
       rv = GetMatchedFullHash(fullhash);
       NS_ENSURE_SUCCESS_VOID(rv);
 
-      UrlClassifierCommon::SetBlockedContent(this, aChannelStatus, list,
-                                             provider, fullhash);
+      ChannelClassifierUtils::SetBlockedContent(this, aChannelStatus, list,
+                                                provider, fullhash);
     }
   };
   checkForBlockedContent();
@@ -3098,6 +3096,11 @@ HttpChannelChild::GetProxyInfo(nsIProxyInfo** aProxyInfo) { DROP_DEAD(); }
 NS_IMETHODIMP HttpChannelChild::GetHttpProxyConnectResponseCode(
     int32_t* aResponseCode) {
   DROP_DEAD();
+}
+
+NS_IMETHODIMP HttpChannelChild::GetHttpProxyResponseHeader(
+    const nsACString& aHeader, nsACString& aValue) {
+  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 //-----------------------------------------------------------------------------

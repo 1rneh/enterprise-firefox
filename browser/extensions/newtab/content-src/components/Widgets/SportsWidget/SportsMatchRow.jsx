@@ -44,7 +44,13 @@ function ScorePill({
   );
 }
 
-function SportsMatchRow({ match, variant, size = "large", handleInteraction }) {
+function SportsMatchRow({
+  match,
+  variant,
+  size = "large",
+  handleInteraction,
+  followedTeams,
+}) {
   const dispatch = useDispatch();
   // Read the widget size pref (not `size`, which can be "list" when the
   // user expanded the view) so the telemetry event below reports the user's
@@ -65,6 +71,8 @@ function SportsMatchRow({ match, variant, size = "large", handleInteraction }) {
     away_penalty,
     query,
   } = match;
+  const isHomeFollowed = !!followedTeams?.has(home_team.key);
+  const isAwayFollowed = !!followedTeams?.has(away_team.key);
   const dateTimestamp = new Date(date).getTime();
   // (developer note): Assumes home_score/away_score exclude extra time goals
   const displayHomeScore = home_score + (home_extra || 0);
@@ -204,7 +212,7 @@ function SportsMatchRow({ match, variant, size = "large", handleInteraction }) {
       ac.OnlyToMain({
         type: at.WIDGETS_USER_EVENT,
         data: {
-          widget_name: "sports_widget",
+          widget_name: "sports",
           widget_source: variant,
           user_action: "open_match_search",
           widget_size: widgetSize,
@@ -252,23 +260,41 @@ function SportsMatchRow({ match, variant, size = "large", handleInteraction }) {
     >
       {/* (developer note): Replace href with SERP link. */}
       <div className="sports-match-team">
-        <img
-          className="sports-match-flag"
-          src={home_team.icon_url}
-          alt={home_team.name}
-          title={home_team.name}
-        />
-        <span className="sports-match-code">{home_team.key}</span>
+        <span
+          className={`sports-match-flag-wrapper${isHomeFollowed ? " is-followed" : ""}`}
+        >
+          <img
+            className="sports-match-flag"
+            src={home_team.icon_url}
+            alt={home_team.name}
+            title={home_team.name}
+          />
+          {isHomeFollowed && (
+            <span className="sports-match-flag-check" aria-hidden="true" />
+          )}
+        </span>
+        <span className="sports-match-code">
+          {isHomeFollowed ? <strong>{home_team.key}</strong> : home_team.key}
+        </span>
       </div>
       {renderMiddle()}
       <div className="sports-match-team">
-        <img
-          className="sports-match-flag"
-          src={away_team.icon_url}
-          alt={away_team.name}
-          title={away_team.name}
-        />
-        <span className="sports-match-code">{away_team.key}</span>
+        <span
+          className={`sports-match-flag-wrapper${isAwayFollowed ? " is-followed" : ""}`}
+        >
+          <img
+            className="sports-match-flag"
+            src={away_team.icon_url}
+            alt={away_team.name}
+            title={away_team.name}
+          />
+          {isAwayFollowed && (
+            <span className="sports-match-flag-check" aria-hidden="true" />
+          )}
+        </span>
+        <span className="sports-match-code">
+          {isAwayFollowed ? <strong>{away_team.key}</strong> : away_team.key}
+        </span>
       </div>
     </a>
   );

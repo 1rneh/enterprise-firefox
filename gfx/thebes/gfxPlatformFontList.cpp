@@ -47,6 +47,10 @@
 
 #include "base/eintr_wrapper.h"
 
+#ifdef XP_MACOSX
+#  include "mozilla/MacAutoreleasePool.h"
+#endif
+
 #include <numeric>
 
 using namespace mozilla;
@@ -270,6 +274,13 @@ static void InitFontListCallback(void* aFontList) {
   AUTO_PROFILER_REGISTER_THREAD("InitFontList");
   PR_SetCurrentThreadName("InitFontList");
 
+#ifdef XP_MACOSX
+  // InitFontList calls Apple font code that autoreleases many Objective-C
+  // objects. There needs to be an autorelease pool in place for these objects
+  // otherwise we'll leak them.
+  mozilla::MacAutoreleasePool pool;
+#endif
+
   if (!static_cast<gfxPlatformFontList*>(aFontList)->InitFontList()) {
     gfxPlatformFontList::Shutdown();
   }
@@ -492,14 +503,13 @@ void gfxPlatformFontList::ListFontsUsedForString(
   using TextRange = gfxFontGroup::TextRange;
   using Script = mozilla::intl::Script;
 
-  gfxScriptItemizer scriptRuns;
-  const char16_t* textData = aText.BeginReading();
-  uint32_t textLen = aText.Length();
-  scriptRuns.SetText(textData, textLen);
+  gfxScriptItemizer scriptRuns(aText.BeginReading(), aText.Length());
 
   nsTHashSet<nsCString> usedSet;
 
-  while (gfxScriptItemizer::Run run = scriptRuns.Next()) {
+  do {
+    MOZ_DIAGNOSTIC_ASSERT(!scriptRuns.Done());
+    gfxScriptItemizer::Run run = scriptRuns.Next();
     Script script = run.mScript;
     // Resolve COMMON/INHERITED to LATIN for western language contexts,
     // matching what InitTextRun does via ResolveScriptForLang.
@@ -508,8 +518,8 @@ void gfxPlatformFontList::ListFontsUsedForString(
     }
 
     AutoTArray<TextRange, 3> ranges;
-    fontGroup->ComputeRanges(ranges, textData + run.mOffset, run.mLength,
-                             script,
+    fontGroup->ComputeRanges(ranges, aText.BeginReading() + run.mOffset,
+                             run.mLength, script,
                              gfx::ShapedTextFlags::TEXT_ORIENT_HORIZONTAL);
 
     for (const auto& range : ranges) {
@@ -524,7 +534,7 @@ void gfxPlatformFontList::ListFontsUsedForString(
         }
       }
     }
-  }
+  } while (!scriptRuns.Done());
 
   LOG_FONTQUERY(("(fontquery) ListFontsUsedForString: result - %zu fonts used",
                  aFontsUsed.Length()));

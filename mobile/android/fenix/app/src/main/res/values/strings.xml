@@ -389,6 +389,8 @@
     <string name="search_suggestions_delete_history_item_snackbar">Deleted %1$s from history</string>
     <!-- Content description (not visible, for screen readers etc.): Button shown near a history search result allowing to delete it from browsing history. -->
     <string name="mozac_browser_awesomebar_remove_suggestion" tools:ignore="UnusedResources">Delete this history entry</string>
+    <!-- Button in the app links prompt that keeps the user in the browser instead of opening the external app. %1$s is the name of the app (for example "Firefox"). -->
+    <string name="applinks_prompt_negative_button">Stay in %1$s</string>
 
     <!-- Home onboarding -->
     <!-- Content description (not visible, for screen readers etc.): Close button for the home onboarding dialog -->
@@ -1503,6 +1505,8 @@
     <string name="tab_manager_search_bar_placeholder">Search your tabs</string>
     <!-- Text shown in the menu to view recently closed tabs -->
     <string name="tab_tray_menu_recently_closed">Recently closed tabs</string>
+    <!-- Text shown in the menu to select all tabs. -->
+    <string name="tab_tray_menu_select_all_tabs">Select all</string>
     <!-- Text shown in the menu to view account settings -->
     <string name="tab_tray_menu_account_settings">Account settings</string>
     <!-- Text shown in the menu to view tab settings -->
@@ -2169,8 +2173,7 @@
     <string name="collections_header">Collections</string>
     <!-- Content description (not visible, for screen readers etc.): Opens the collection menu when pressed -->
     <string name="collection_menu_button_content_description">Collection menu</string>
-    <!-- Label to describe what collections are to a new user without any collections -->
-    <string name="no_collections_description2">Collect the things that matter to you.\nGroup together similar searches, sites, and tabs for quick access later.</string>
+
     <!-- Title for the "select tabs" step of the collection creator -->
     <string name="create_collection_select_tabs">Select Tabs</string>
     <!-- Title for the "select collection" step of the collection creator -->
@@ -3295,9 +3298,6 @@
     <string name="default_browser_experiment_card_title">Switch your default browser</string>
     <!-- Default browser card text -->
     <string name="default_browser_experiment_card_text" tools:ignore="BrandUsage">Set links from websites, emails, and messages to open automatically in Firefox.</string>
-
-    <!-- Content description for close button in collection placeholder. -->
-    <string name="remove_home_collection_placeholder_content_description">Remove</string>
 
     <!-- Content description radio buttons with a link to more information -->
     <string name="radio_preference_info_content_description">Click for more details</string>

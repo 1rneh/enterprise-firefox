@@ -72,17 +72,6 @@ class HomeNavigationBar(
         }
     }
 
-    /**
-     * Returns a [Composable] function that renders the default navigation bar content.
-     */
-    override fun asComposable(): @Composable () -> Unit = {
-        DefaultNavigationBarContent()
-    }
-
-    override fun updateDividerVisibility(isVisible: Boolean) {
-        // no-op
-    }
-
     override fun updateButtonVisibility(browserState: BrowserState) {
         // no-op
     }
@@ -91,11 +80,7 @@ class HomeNavigationBar(
         // no-op
     }
 
-    override fun updateTabCounter(browserState: BrowserState) {
-        // no-op
-    }
-
-    override fun build(browserState: BrowserState, middleSearchEnabled: Boolean) {
+    override fun build(middleSearchEnabled: Boolean) {
         // no-op
     }
 }

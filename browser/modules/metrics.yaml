@@ -401,7 +401,6 @@ browser.engagement:
       - beth@mozilla.com
       - perf-telemetry-alerts@mozilla.com
     expires: never
-    telemetry_mirror: LOADED_TAB_COUNT
 
 installation.first_seen:
   failure_reason:
@@ -1461,6 +1460,20 @@ browser.ui.interaction:
       - hjones@mozilla.com
     expires: never
 
+  preferences_pane_passwords_autofill:
+    type: labeled_counter
+    description: >
+      Records the items interacted with in the Passwords and autofill section
+      of preferences. See
+      https://firefox-source-docs.mozilla.org/browser/BrowserUsageTelemetry.html
+    bugs:
+      - https://bugzil.la/2041430
+    data_reviews:
+      - https://bugzil.la/2041430
+    notification_emails:
+      - hjones@mozilla.com
+    expires: never
+
   preferences_pane_experimental:
     type: labeled_counter
     description: >
@@ -1537,7 +1550,6 @@ timestamps:
       - mconley@mozilla.com
     expires: never
     unit: ms
-    telemetry_mirror: TIMESTAMPS_ABOUT_HOME_TOPSITES_FIRST_PAINT
 
 browser.sanitizer:
   total:

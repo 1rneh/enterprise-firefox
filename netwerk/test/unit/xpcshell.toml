@@ -1468,6 +1468,11 @@ skip-if = [
   "socketprocess_networking", # Bug 1614708
 ]
 
+["test_proxyconnect_headers.js"]
+skip-if = [
+  "socketprocess_networking", # Bug 1614708
+]
+
 ["test_proxyconnect_https.js"]
 skip-if = [
   "socketprocess_networking", # Bug 1614708
@@ -1620,6 +1625,19 @@ run-sequentially = ["true"] # tlsserver uses fixed port; profile dir must be exc
 # network.ssl_tokens_cache_persistence must be set here (before xpcshell
 # initialises the IO service and SSLTokensCache::Init runs) rather than
 # in the test add_setup.
+prefs = [
+  "network.ssl_tokens_cache_persistence=true",
+  "logging.SSLTokensCache=5",
+  "logging.config.sync=true",
+]
+skip-if = [
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix", # Bug 2034343
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix", # Bug 2034343
+]
+
+["test_ssl_token_cache_persist_disabled.js"]
+run-sequentially = ["true"] # tlsserver uses fixed port; profile dir must be exclusive
+# Init() sees pref=true; the test flips it to false before profile-after-change.
 prefs = [
   "network.ssl_tokens_cache_persistence=true",
   "logging.SSLTokensCache=5",

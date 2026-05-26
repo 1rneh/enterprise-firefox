@@ -274,18 +274,6 @@ features:
         type: Boolean
         default: false
 
-  print:
-    description: A feature for printing from the share or browser menu.
-    variables:
-      share-print-enabled:
-        description: If true, a print button from the share menu is available.
-        type: Boolean
-        default: true
-      browser-print-enabled:
-        description: If true, a print button from the browser menu is available.
-        type: Boolean
-        default: true
-
   sent-from-firefox:
     description: A feature that allows the user to add a download firefox footer to a shared link.
     variables:
@@ -443,22 +431,6 @@ features:
           'global-settings-enabled' must also be enabled for users to access this feature.
         type: Boolean
         default: true
-
-  navigation-toolbar:
-    description: Feature for navigation toolbar.
-    variables:
-      enabled:
-        description: >
-          When the feature is enabled then the user will see the new navigation toolbar.
-        type: Boolean
-        default: false
-    defaults:
-      - channel: developer
-        value:
-          enabled: true
-      - channel: nightly
-        value:
-          enabled: true
 
   minimal-addressbar:
     description: Show a smaller height bottom addressbar with just the URL.
@@ -690,18 +662,6 @@ features:
           Negative cache TTL in seconds for the real-time request simulator.
         type: Int
         default: 300
-
-  menu-redesign:
-    description: Control the new menu redesign.
-    variables:
-      report-site-issue:
-        description: If true, report site issue menu item and preview is available.
-        type: Boolean
-        default: true
-      menu-banner:
-        description: If true, the menu banner is visible.
-        type: Boolean
-        default: true
 
   firefox-jp-guide-default-site:
     description: >
@@ -959,15 +919,6 @@ features:
         description: Whether or not the feature is available for the user.
         type: Boolean
         default: true
-
-  settings-search:
-      description: Feature to allow users to search for settings.
-      variables:
-        enabled:
-          description: >
-            Enables the user to search for settings.
-          type: Boolean
-          default: true
 
   tab-management-enhancements:
     description: Control the visibility of the tab management enhancements.

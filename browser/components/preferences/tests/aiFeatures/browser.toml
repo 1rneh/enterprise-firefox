@@ -1,4 +1,5 @@
 [DEFAULT]
+dupe-manifest=true
 prefs = [
   "browser.settings-redesign.enabled=false",
 ]

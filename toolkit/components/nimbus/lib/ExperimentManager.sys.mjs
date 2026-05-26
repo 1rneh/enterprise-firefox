@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ExperimentAPI: "resource://nimbus/ExperimentAPI.sys.mjs",
   ExperimentStore: "resource://nimbus/lib/ExperimentStore.sys.mjs",
   FirstStartup: "resource://gre/modules/FirstStartup.sys.mjs",
+  NimbusEnrollments: "resource://nimbus/lib/Enrollments.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   NimbusTelemetry: "resource://nimbus/lib/Telemetry.sys.mjs",
   NormandyUtils: "resource://normandy/lib/NormandyUtils.sys.mjs",
@@ -64,9 +65,9 @@ const CannotEnrollFeatureReason = Object.freeze({
 /**
  * @typedef {object} _CannotEnrollResult
  * @property {false} ok Whether or not enrollment is possible.
- * @property {string| undefined} featureId If reason = DOES_NOT_EXIST, the
+ * @property {string|undefined} featureId If reason = DOES_NOT_EXIST, the
  * feature that does not exist.
- * @property {string[]| undefined} conflictingEnrollments
+ * @property {Set<string>|undefined} conflictingEnrollments
  * If reason = ENROLLED_IN_FEATURE, an array of slugs that conflict based on
  * feature ID.
  * @property {CannotEnrollFeatureReason} reason Why enrollment is not possible.
@@ -348,6 +349,15 @@ export class ExperimentManager {
       }
     }
 
+    if (
+      lazy.ExperimentAPI.labsEnabled &&
+      lazy.NimbusEnrollments.readFromDatabaseEnabled
+    ) {
+      // If labs are disabled, we will immediately clear the list of opt-in
+      // recipes after initialization.
+      this.optIns = await lazy.NimbusEnrollments.loadThirdPartyOptInRecipes();
+    }
+
     this._prefFlips.init();
 
     if (!lazy.ExperimentAPI.labsEnabled) {
@@ -422,8 +432,12 @@ export class ExperimentManager {
       recipe.isFirefoxLabsOptIn &&
       result.status !== lazy.MatchStatus.DISABLED
     ) {
-      // We do not enroll directly into Firefox Labs opt-ins.
-      this.optIns.push({ recipe, source });
+      if (!this.registerOptIn(recipe, source)) {
+        lazy.log.error(
+          `Could not register opt-in with slug ${recipe.slug}: an opt-in already exists with that slug`
+        );
+      }
+
       return;
     }
 
@@ -604,7 +618,7 @@ export class ExperimentManager {
       };
     }
 
-    const conflictingEnrollments = [];
+    const conflictingEnrollments = new Set();
 
     for (const featureId of recipe.featureIds) {
       const feature = lazy.NimbusFeatures[featureId];
@@ -623,11 +637,11 @@ export class ExperimentManager {
 
       const enrollment = storeLookupByFeature(featureId);
       if (enrollment) {
-        conflictingEnrollments.push(enrollment.slug);
+        conflictingEnrollments.add(enrollment.slug);
       }
     }
 
-    if (conflictingEnrollments.length) {
+    if (conflictingEnrollments.size) {
       return {
         ok: false,
         reason: CannotEnrollFeatureReason.ENROLLED_IN_FEATURE,
@@ -742,7 +756,7 @@ export class ExperimentManager {
             status: lazy.NimbusTelemetry.EnrollmentStatus.NOT_ENROLLED,
             reason:
               lazy.NimbusTelemetry.EnrollmentStatusReason.FEATURE_CONFLICT,
-            conflict_slug: result.conflictingEnrollments.join(","),
+            conflict_slug: Array.from(result.conflictingEnrollments).join(","),
           });
           return null;
       }
@@ -831,16 +845,26 @@ export class ExperimentManager {
    * distinguish it from regular enrollments in telemetry.
    *
    * @param {object} recipe The recipe to enroll in.
-   * @param {string} branchSlug The slug of the branch to enroll in.
+   * @param {object|string} branchOrBranchSlug Either the slug of the branch to
+   * enroll in or the branch object.
    *
    * @returns {object} The resulting enrollment.
    */
-  async forceEnroll(recipe, branchSlug) {
-    const branch = recipe.branches.find(b => b.slug === branchSlug);
-    if (!branch) {
-      throw new Error(
-        `Could not force enroll into ${recipe.slug}: no such branch ${branchSlug}`
+  async forceEnroll(recipe, branchOrBranchSlug) {
+    let branch;
+    if (typeof branchOrBranchSlug === "string") {
+      branch = recipe.branches.find(b => b.slug === branchOrBranchSlug);
+
+      if (!branch) {
+        throw new Error(
+          `Could not force enroll into ${recipe.slug}: no such branch ${branchOrBranchSlug}`
+        );
+      }
+    } else {
+      lazy.log.warn(
+        "forceEnroll with an object branch is deprecated and will be removed in a future version"
       );
+      branch = branchOrBranchSlug;
     }
 
     const result = this.canEnroll(recipe);
@@ -878,7 +902,7 @@ export class ExperimentManager {
 
     const enrollment = await this._enroll(
       optInRecipe,
-      branchSlug,
+      branch.slug,
       lazy.NimbusTelemetry.EnrollmentSource.FORCE_ENROLLMENT
     );
 
@@ -907,13 +931,25 @@ export class ExperimentManager {
    *        The result of validation, targeting, and bucketing.
    *
    *        See `CheckRecipeResult` for details.
-   *
-   * @returns {boolean}
-   *          Whether the enrollment is active.
    */
   async updateEnrollment(enrollment, recipe, source, result) {
     const { EnrollmentStatus, EnrollmentStatusReason, UnenrollReason } =
       lazy.NimbusTelemetry;
+
+    if (enrollment.source !== source) {
+      // In practice this function is only called with source == "rs-loader".
+      // Therefore this condition can only really happen if the user has
+      // force-enrolled into an experiment via the console or nimbus-devtools.
+      //
+      // Either way their state is "corrupted" and the only way to fix it is to
+      // manually delete the entry from the enrollment database.
+      //
+      // Report the error and move on.
+      lazy.log.error(
+        `Refusing to update enrollment for recipe ${recipe.slug} from source ${source}: the existing enrollment has a different source (${enrollment.source})`
+      );
+      return;
+    }
 
     if (result.ok) {
       // Unenrollment due to studies or rollouts becoming disabled are handled in
@@ -924,11 +960,26 @@ export class ExperimentManager {
           status: EnrollmentStatus.NOT_ENROLLED,
           reason: EnrollmentStatusReason.OPT_OUT,
         });
-        return false;
+        return;
       }
 
-      if (recipe?.isFirefoxLabsOptIn) {
-        this.optIns.push({ recipe, source });
+      if (recipe?.isFirefoxLabsOptIn && !this.registerOptIn(recipe, source)) {
+        // This *should* be unreachable because:
+        //
+        // * we have already returned if enrollment.source !== source;
+        // * this function is in practice only called with source = "rs-loader"
+        //   (either directly or indirectly from
+        //   RemoteSettingsExerimentLoader.updateRecipes())
+        // * we clear the opt-in list for "rs-loader" in updateRecipes(); and
+        // * slugs are unique across Remote Settings records.
+        //
+        // However, the user could be playing with devtools at precisely the
+        // wrong time, so we must make sure to handle this gracefully.
+
+        lazy.log.error(
+          `Unexpected error: could not register opt-in with slug ${recipe.slug}: an opt-in already exists with that slug`
+        );
+        return;
       }
     }
 
@@ -939,7 +990,7 @@ export class ExperimentManager {
           enrollment,
           UnenrollmentCause.fromCheckRecipeResult(result)
         );
-        return false;
+        return;
       }
 
       if (result.status === lazy.MatchStatus.NOT_SEEN) {
@@ -948,7 +999,7 @@ export class ExperimentManager {
           enrollment,
           UnenrollmentCause.fromCheckRecipeResult(result)
         );
-        return false;
+        return;
       }
 
       if (!recipe.branches.find(b => b.slug === enrollment.branch.slug)) {
@@ -959,7 +1010,7 @@ export class ExperimentManager {
           enrollment,
           UnenrollmentCause.fromReason(UnenrollReason.BRANCH_REMOVED)
         );
-        return false;
+        return;
       }
 
       if (result.status === lazy.MatchStatus.NO_MATCH) {
@@ -969,7 +1020,7 @@ export class ExperimentManager {
           enrollment,
           UnenrollmentCause.fromCheckRecipeResult(result)
         );
-        return false;
+        return;
       }
 
       if (
@@ -982,7 +1033,7 @@ export class ExperimentManager {
           enrollment,
           UnenrollmentCause.fromCheckRecipeResult(result)
         );
-        return false;
+        return;
       }
 
       if (result.status === lazy.MatchStatus.UNENROLLED_IN_ANOTHER_PROFILE) {
@@ -990,7 +1041,7 @@ export class ExperimentManager {
           enrollment,
           UnenrollmentCause.fromCheckRecipeResult(result)
         );
-        return false;
+        return;
       }
 
       if (result.status === lazy.MatchStatus.TARGETING_AND_BUCKETING) {
@@ -1006,13 +1057,13 @@ export class ExperimentManager {
       // are in the bucket allocation. For the former, we do not re-evaluate
       // bucketing for experiments because the bucketing cannot change. For the
       // latter, we are already active so we don't need to enroll.
-      return true;
+      return;
     }
 
     if (!enrollment.isRollout || enrollment.isFirefoxLabsOptIn) {
       // We can only re-enroll into rollouts and we do not enroll directly into
       // Firefox Labs Opt-Ins.
-      return false;
+      return;
     }
 
     if (
@@ -1028,10 +1079,8 @@ export class ExperimentManager {
       // We only re-enroll if we match targeting and bucketing and the unenroll
       // reason is one of the above reasons.
       lazy.log.debug(`Re-enrolling in rollout "${recipe.slug}`);
-      return !!(await this.enroll(recipe, source, { reenroll: true }));
+      await this.enroll(recipe, source, { reenroll: true });
     }
-
-    return false;
   }
 
   /**
@@ -1889,6 +1938,53 @@ export class ExperimentManager {
             featureId => !onlyFeatureIds.has(featureId)
           ))
     );
+  }
+
+  /**
+   * Register an opt-in recipe from a source.
+   *
+   * @param {object} recipe The recipe.
+   * @param {string} source The source.
+   *
+   * @returns {boolean} True if the opt-in was registered or false if there was a conflict.
+   */
+  registerOptIn(recipe, source) {
+    if (this.optIns.find(entry => entry.recipe.slug === recipe.slug)) {
+      return false;
+    }
+
+    const enrollment = this.store.get(recipe.slug);
+    if (
+      enrollment &&
+      (enrollment.source !== source ||
+        !enrollment.isFirefoxLabsOptIn ||
+        (enrollment.active &&
+          source !== lazy.NimbusTelemetry.EnrollmentSource.RS_LOADER))
+    ) {
+      return false;
+    }
+
+    this.optIns.push({ recipe, source });
+    return true;
+  }
+
+  /**
+   * Unregister an opt-in recipe from a source.
+   *
+   * NB: This is only intended to be used by nimbus-devtools.
+   *
+   * @param {string} slug The slug of the recipe to remove.
+   *
+   * @returns {boolean} True if the opt-in was removed or false if it was not found.
+   */
+  unregisterOptIn(slug) {
+    const index = this.optIns.findIndex(entry => entry.recipe.slug === slug);
+    if (index >= 0) {
+      this.optIns.splice(index, 1);
+      return true;
+    }
+
+    return false;
   }
 
   /**

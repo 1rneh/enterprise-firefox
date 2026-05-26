@@ -63,15 +63,6 @@ if (!Services.prefs.getBoolPref("dom.select.customizable_select.enabled")) {
   });
 }
 
-if (!Services.prefs.getBoolPref("layout.css.fake-webkit-scrollbar.enabled")) {
-  ignoreList.push({
-    sourceName: /\bwebcompat\/injections\/css\/.*\.css$/i,
-    errorMessage:
-      /Unknown pseudo-class or pseudo-element ‘-webkit-scrollbar’./i,
-    isFromDevTools: false,
-  });
-}
-
 if (!Services.prefs.getBoolPref("layout.css.zoom.enabled")) {
   ignoreList.push({
     sourceName: /\bscrollbars\.css$/i,
@@ -121,6 +112,14 @@ if (
   ignoreList.push({
     sourceName: /smartbar\.css$/i,
     errorMessage: /Unknown property .*animation-timeline/i,
+    isFromDevTools: false,
+  });
+}
+
+if (!Services.prefs.getBoolPref("dom.headingoffset.enabled")) {
+  ignoreList.push({
+    sourceName: /\b(html)\.css$/i,
+    errorMessage: /Unknown pseudo-class.*heading/i,
     isFromDevTools: false,
   });
 }

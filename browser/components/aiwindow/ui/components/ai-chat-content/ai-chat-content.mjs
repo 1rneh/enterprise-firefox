@@ -18,6 +18,22 @@ import "chrome://browser/content/aiwindow/components/ai-website-confirmation.mjs
 import "chrome://browser/content/aiwindow/components/kit-mention.mjs";
 
 const FOLLOW_UP_QTY = 2;
+/**
+ * UI labels for tool results and follow-ups.
+ */
+const UI_TYPES = {
+  WEBSITE_CONFIRMATION: "website-confirmation",
+  AI_ACTION_RESULT: "ai-action-result",
+  CANCELLED_COMPONENT: "cancelled-component",
+};
+/**
+ * UI update types for communicating user interactions with tool UIs back to the actor.
+ */
+const UI_UPDATE_TYPES = {
+  CONFIRMATION_TAB_SELECTION: "confirmation-tab-selection",
+  CANCEL_TAB_SELECTION: "cancel-tab-selection",
+  UNDO_TAB_CLOSE: "undo-tab-close",
+};
 
 /**
  * A custom element for managing AI Chat Content
@@ -728,13 +744,66 @@ export class AIChatContent extends MozLitElement {
     this.dispatchEvent(event);
   }
 
+  #getCloseTabsData(confirmedData) {
+    const selectedTabs = confirmedData.selectedTabs || [];
+    const tabCount = selectedTabs.length;
+
+    // Format rows to show the closed tabs
+    const rows = [];
+    if (selectedTabs.length) {
+      rows.push({
+        labelL10nId: "smart-window-closed-tabs-row-label",
+        items: selectedTabs.map(tab => ({
+          url: tab.url,
+          label: tab.title,
+        })),
+      });
+    }
+
+    return {
+      labelL10nId: "smart-window-closed-tabs-label",
+      labelL10nArgs: { count: tabCount },
+      summaryL10nId: "smart-window-closed-tabs-summary",
+      summaryL10nArgs: { count: tabCount },
+      rows,
+      isExpanded: false,
+    };
+  }
+
+  #getRestoreTabsData(originalClosedTabs) {
+    const restoredCount = originalClosedTabs.length;
+    // Format rows to show both closed and restored tabs
+    const rows = [
+      {
+        labelL10nId: "smart-window-closed-tabs-row-label",
+        items: originalClosedTabs.map(({ url, title }) => ({
+          url,
+          label: title,
+        })),
+      },
+      {
+        labelL10nId: "smart-window-restored-row-label",
+        labelL10nArgs: { count: restoredCount },
+        // Design opted out of showing items here.
+      },
+    ];
+
+    return {
+      labelL10nId: "smart-window-closed-and-restored-label",
+      summaryL10nId: "smart-window-restore-success-summary",
+      summaryL10nArgs: { count: restoredCount },
+      rows,
+      isExpanded: true,
+    };
+  }
+
   #renderToolUI(toolUIData, messageId) {
     if (!toolUIData) {
       return nothing;
     }
 
     switch (toolUIData.uiType) {
-      case "website-confirmation":
+      case UI_TYPES.WEBSITE_CONFIRMATION:
         return html`
           <ai-website-confirmation
             .tabs=${toolUIData.properties?.tabs || []}
@@ -752,21 +821,62 @@ export class AIChatContent extends MozLitElement {
               )}
           ></ai-website-confirmation>
         `;
-      case "ai-action-result":
-        return html`<div>confirmation placeholder</div>`;
-      case "cancelled-component":
-        return html`<div>cancelled placeholder</div>`;
+      case UI_TYPES.AI_ACTION_RESULT: {
+        // Extract the confirmed selections and operation data
+        const confirmedData = toolUIData.properties?.confirmedData || {};
+        const wasRestored = confirmedData.wasRestored || false;
+
+        // Get the data object for the action result component
+        const actionResultData = wasRestored
+          ? this.#getRestoreTabsData(confirmedData.originalClosedTabs || [])
+          : this.#getCloseTabsData(confirmedData);
+
+        let canUndo = !wasRestored && !!confirmedData.operationId;
+        // Override can undo if explicitly dismissed
+        if (toolUIData.properties?.undoDismissed) {
+          canUndo = false;
+        }
+
+        // Handle undo action if applicable
+        const onUndo = canUndo
+          ? () =>
+              this.#dispatchToolUIUpdate({
+                messageId,
+                toolCallId: toolUIData.toolCallId,
+                updateType: UI_UPDATE_TYPES.UNDO_TAB_CLOSE,
+                updateData: {
+                  operationId: confirmedData.operationId,
+                  selectedTabs: confirmedData.selectedTabs || [],
+                },
+              })
+          : undefined;
+
+        // Explicitly render the ai-action-result component
+        return html`
+          <ai-action-result
+            .labelL10nId=${actionResultData.labelL10nId}
+            .labelL10nArgs=${actionResultData.labelL10nArgs}
+            .summaryL10nId=${actionResultData.summaryL10nId}
+            .summaryL10nArgs=${actionResultData.summaryL10nArgs}
+            .rows=${actionResultData.rows}
+            .canUndo=${canUndo}
+            .isExpanded=${actionResultData.isExpanded}
+            @action-result-undo=${onUndo}
+          ></ai-action-result>
+        `;
+      }
+      case UI_TYPES.CANCELLED_COMPONENT:
+        return html`<div data-l10n-id="smart-window-cancelled-label"></div>`;
       default:
         return nothing;
     }
   }
 
   #handleConfirmationSubmit = (event, messageId, toolCallId) => {
-    // TODO - add selected tabs, this will be part of the card integration pach
     this.#dispatchToolUIUpdate({
       messageId,
       toolCallId,
-      updateType: "confirmation-tab-selection",
+      updateType: UI_UPDATE_TYPES.CONFIRMATION_TAB_SELECTION,
       updateData: event.detail,
     });
   };
@@ -775,7 +885,7 @@ export class AIChatContent extends MozLitElement {
     this.#dispatchToolUIUpdate({
       messageId,
       toolCallId,
-      updateType: "cancel-tab-selection",
+      updateType: UI_UPDATE_TYPES.CANCEL_TAB_SELECTION,
       updateData: event.detail,
     });
   };
@@ -894,6 +1004,7 @@ export class AIChatContent extends MozLitElement {
         data-l10n-attrs="aria-label,tooltiptext"
         iconsrc="chrome://global/skin/icons/shaft-arrow-down.svg"
         disabled
+        type="ghost icon"
       ></moz-button>
     `;
   }

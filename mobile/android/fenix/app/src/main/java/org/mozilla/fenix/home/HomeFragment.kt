@@ -63,7 +63,6 @@ import mozilla.components.concept.sync.OAuthAccount
 import mozilla.components.feature.accounts.push.SendTabUseCases
 import mozilla.components.feature.tab.collections.TabCollection
 import mozilla.components.feature.top.sites.presenter.DefaultTopSitesPresenter
-import mozilla.components.lib.state.ext.consumeFrom
 import mozilla.components.lib.state.ext.flow
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.service.nimbus.messaging.Message
@@ -108,7 +107,6 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getRootView
 import org.mozilla.fenix.ext.hideToolbar
 import org.mozilla.fenix.ext.isOnline
-import org.mozilla.fenix.ext.isToolbarAtBottom
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.recordEventInNimbus
 import org.mozilla.fenix.ext.requireComponents
@@ -440,7 +438,6 @@ class HomeFragment : Fragment() {
                 (awesomeBarComposable ?: initializeAwesomeBarComposable(toolbarStore, modifier))
                     ?.SearchSuggestions()
             },
-            navigationBarContent = null,
         )
     }
 
@@ -498,21 +495,12 @@ class HomeFragment : Fragment() {
             )
         }
 
-        toolbarView.build(requireComponents.core.store.state, requireContext().settings().enableHomepageSearchBar)
-
-        val showDivider = requireContext().isToolbarAtBottom() || !requireContext().settings().enableHomepageSearchBar
-        toolbarView.updateDividerVisibility(showDivider)
-
-        consumeFrom(requireComponents.core.store) {
-            toolbarView.updateTabCounter(it)
-        }
+        toolbarView.build(requireContext().settings().enableHomepageSearchBar)
 
         requireComponents.appStore.state.wasLastTabClosedPrivate?.also {
             showUndoSnackbar(requireContext().tabClosedUndoMessage(it))
             requireComponents.appStore.dispatch(AppAction.TabStripAction.UpdateLastTabClosed(null))
         }
-
-        toolbarView.updateTabCounter(requireComponents.core.store.state)
 
         qrScanFenixFeature = QrScanFenixFeature.register(this, qrScanLauncher)
         voiceSearchFeature = VoiceSearchFeature.register(this, voiceSearchLauncher)
@@ -613,7 +601,13 @@ class HomeFragment : Fragment() {
                                 AndroidView(factory = { navBar.layout })
                             }
                         } else {
-                            AndroidView(factory = { toolbarView.layout })
+                            Column {
+                                AndroidView(factory = { toolbarView.layout })
+
+                                homeNavigationBar?.let { navBar ->
+                                    AndroidView(factory = { navBar.layout })
+                                }
+                            }
                         }
                     },
                     containerColor = Color.Transparent,
@@ -683,7 +677,6 @@ class HomeFragment : Fragment() {
                 onTopSitesItemBound = {
                     StartupTimeline.onTopSitesItemBound(activity = (requireActivity() as HomeActivity))
                 },
-                navigationBarContent = null,
             )
 
             if (microsurveyVisible) {

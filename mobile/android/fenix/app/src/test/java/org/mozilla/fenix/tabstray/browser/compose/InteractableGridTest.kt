@@ -163,8 +163,8 @@ class InteractableGridTest {
 
         val candidates = gatherCandidates(
             gridState = gridState,
-            draggedItemOffset = fakeDraggedItemOffset(),
-            draggedItem = InteractionState.Active(
+            draggedItemOffset = fakeDraggedGridItemOffset(),
+            draggedItem = InteractionState.Grid.Active(
                 index = 0,
                 key = "key",
                 initialOffset = Offset.Zero,
@@ -192,8 +192,8 @@ class InteractableGridTest {
 
         val candidates = gatherCandidates(
             gridState = gridState,
-            draggedItemOffset = fakeDraggedItemOffset(),
-            draggedItem = InteractionState.Active(
+            draggedItemOffset = fakeDraggedGridItemOffset(),
+            draggedItem = InteractionState.Grid.Active(
                 index = 0,
                 key = "key",
                 initialOffset = Offset.Zero,
@@ -217,7 +217,7 @@ class InteractableGridTest {
             totalItems = 10,
         )
 
-        val draggedItem = InteractionState.Active(
+        val draggedItem = InteractionState.Grid.Active(
             index = 0,
             key = "key",
             initialOffset = Offset(10f, 10f),
@@ -243,8 +243,8 @@ class InteractableGridTest {
 
         val candidates = gatherCandidates(
             gridState = gridState,
-            draggedItemOffset = fakeDraggedItemOffset(),
-            draggedItem = InteractionState.Active(
+            draggedItemOffset = fakeDraggedGridItemOffset(),
+            draggedItem = InteractionState.Grid.Active(
                 index = 0,
                 key = "key",
                 initialOffset = Offset.Zero,
@@ -262,8 +262,8 @@ class InteractableGridTest {
 
         val candidates = gatherCandidates(
             gridState = gridState,
-            draggedItemOffset = fakeDraggedItemOffset(),
-            draggedItem = InteractionState.Active(
+            draggedItemOffset = fakeDraggedGridItemOffset(),
+            draggedItem = InteractionState.Grid.Active(
                 index = 0,
                 key = "key",
                 initialOffset = Offset.Zero,
@@ -378,10 +378,10 @@ class InteractableGridTest {
         reorderState.onTouchSlopPassed(Offset.Zero, false)
         reorderState.onDragEnd()
 
-        assertEquals(InteractionState.None, reorderState.draggedItem)
-        assertEquals(InteractionState.None, reorderState.hoveredItem)
+        assertEquals(InteractionState.Grid.None, reorderState.draggedItem)
+        assertEquals(InteractionState.Grid.None, reorderState.hoveredItem)
         assertNull(reorderState.highlightedRect)
-        assertEquals(InteractionMode.None, reorderState.interactionMode)
+        assertEquals(InteractionMode.Grid.None, reorderState.interactionMode)
     }
 
     @Test

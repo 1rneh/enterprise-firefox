@@ -65,6 +65,7 @@ export class ChatConversation extends EventEmitter {
   createdDate;
   updatedDate;
   status;
+  /** @type {SecurityProperties} */
   securityProperties;
   /** @type {ChatMessage[]} */
   #messages;
@@ -513,6 +514,8 @@ export class ChatConversation extends EventEmitter {
     const newTurnIndex =
       this.#messages.length === 1 ? currentTurn : currentTurn + 1;
 
+    this.#dismissPendingUndos();
+
     return this.addMessage(
       MESSAGE_ROLE.USER,
       content,
@@ -520,6 +523,44 @@ export class ChatConversation extends EventEmitter {
       newTurnIndex,
       userOpts
     );
+  }
+
+  /**
+   * Mark the most recent ai-action-result toolUIData with
+   * properties.undoDismissed: true. Called when a user message
+   * is added, signalling the previous action is no longer available.
+   *
+   * At most one card is non-dismissed at any time, so walk back
+   * and stop on first hit.
+   *
+   * Persistence: emit triggers re-render. The toolUIData mutation
+   * is persisted on the next ChatStore.updateConversation call
+   * which fires when the assistant turn that follows completes.
+   */
+  #dismissPendingUndos() {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const m = this.messages[i];
+      const td = m.toolUIData;
+      if (
+        !td ||
+        td.uiType !== "ai-action-result" ||
+        td.properties?.undoDismissed
+      ) {
+        continue;
+      }
+
+      const operationId = td.properties?.confirmedData?.operationId;
+      if (!operationId) {
+        continue;
+      }
+
+      m.toolUIData = {
+        ...td,
+        properties: { ...td.properties, undoDismissed: true },
+      };
+      this.emit("chat-conversation:message-update", m);
+      break;
+    }
   }
 
   /**
@@ -983,7 +1024,7 @@ export class ChatConversation extends EventEmitter {
 
     // Add specific data based on the UI type
     if (nextUI === "ai-action-result") {
-      message.toolUIData.properties.confirmedSelections = data.updateData;
+      message.toolUIData.properties.confirmedData = data.updateData;
     }
 
     // Emit event to trigger re-render

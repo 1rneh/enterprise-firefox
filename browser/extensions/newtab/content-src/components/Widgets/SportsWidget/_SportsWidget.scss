@@ -13,6 +13,7 @@
   flex-direction: column;
   box-shadow: var(--box-shadow-level-2);
   height: 100%;
+  position: relative;
 
   @include widget-base-style;
 
@@ -20,6 +21,24 @@
   &:has(:focus-visible) {
     outline: 1px solid var(--border-color-deemphasized);
     box-shadow: var(--card-box-shadow-hover);
+  }
+
+  &.is-followed-highlight {
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 2px; /* stylelint-disable-line declaration-property-value-disallowed-list */
+      background: var(--sports-followed-gradient);
+      // Cuts a hole in the middle so only the 2px outer ring shows,
+      // turning the gradient fill into a gradient border.
+      mask:
+        linear-gradient(#FFF 0 0) content-box,
+        linear-gradient(#FFF 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
   }
 
   &.medium-widget {
@@ -237,6 +256,10 @@
 .sports-back-button {
   grid-column: 1;
   justify-self: start;
+
+  &:dir(rtl) {
+    transform: scaleX(-1);
+  }
 }
 
 .sports-matches-tabs {
@@ -259,10 +282,59 @@
   margin-inline: auto;
 }
 
-.sports-matches-list {
+.sports-matches-list-section > ul {
   list-style: none;
   padding-inline-start: 0;
   margin-block: 0;
+}
+
+.sports-matches-list {
+  margin-block-start: var(--space-medium);
+}
+
+.sports-section-label {
+  color: var(--text-color-deemphasized);
+  font-size: var(--font-size-small);
+}
+
+.sports-matches-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-large);
+}
+
+@keyframes sports-section-label-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.sports-section-label-live {
+  color: var(--text-color-error);
+  font-weight: var(--font-weight-heading);
+  animation: sports-section-label-live-pulse 1.6s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.sports-matches-list-section {
+  & + & {
+    border-block-start: 1px solid var(--border-color-deemphasized);
+    padding-block-start: calc(var(--space-large) + var(--space-xsmall));
+    margin-block-start: calc(var(--space-large) + var(--space-xsmall));
+  }
+}
+
+.sports-followed-only-toggle {
+  display: block;
+  margin-block-end: var(--space-small);
 }
 
 // This rule applies to the "Show less" button only when the full list of upcoming games or previous results is shown
@@ -274,6 +346,19 @@
 .sports-matches-tab-panel:has(.match-highlight-view) {
   height: 100%;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.sports-matches-tab-panel:has(.match-highlight-view) > .sports-section-label {
+  position: absolute;
+  margin-block-start: var(--space-medium);
+}
+
+.large-widget
+.sports-matches-tab-panel:has(.match-highlight-view)
+> .match-highlight-view {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;

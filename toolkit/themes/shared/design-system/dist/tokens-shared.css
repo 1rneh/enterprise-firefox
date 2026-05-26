@@ -13,6 +13,8 @@
     /** background-color **/
     --background-color-box: light-dark(var(--color-white), var(--color-gray-80));
     --background-color-critical: light-dark(var(--color-red-0), var(--color-red-90));
+    --background-color-dimmed: color-mix(in srgb, currentColor 17%, transparent);
+    --background-color-dimmed-further: color-mix(in srgb, currentColor 30%, transparent);
     --background-color-information: light-dark(var(--color-blue-0), var(--color-blue-90));
     --background-color-overlay: var(--color-black-alpha-50);
     --background-color-success: light-dark(var(--color-green-0), var(--color-green-90));
@@ -65,6 +67,11 @@
     --button-background-color-primary-disabled: var(--button-background-color-primary);
     --button-background-color-primary-selected: var(--button-background-color-primary-active);
     --button-background-color-selected: var(--button-background-color-active);
+    --button-background-color-toolbar: transparent;
+    --button-background-color-toolbar-hover: var(--toolbarbutton-background-color-hover);
+    --button-background-color-toolbar-active: var(--toolbarbutton-background-color-active);
+    --button-background-color-toolbar-disabled: var(--button-background-color-ghost);
+    --button-background-color-toolbar-selected: var(--button-background-color-ghost-active);
     --button-border: var(--border-width) solid var(--button-border-color);
     --button-border-color: transparent;
     --button-border-color-hover: var(--button-border-color);
@@ -86,6 +93,11 @@
     --button-border-color-primary-disabled: var(--button-border-color-primary);
     --button-border-color-primary-selected: var(--button-border-color-primary-active);
     --button-border-color-selected: var(--button-border-color-active);
+    --button-border-color-toolbar: var(--button-border-color);
+    --button-border-color-toolbar-hover: var(--button-border-color-hover);
+    --button-border-color-toolbar-active: var(--button-border-color-active);
+    --button-border-color-toolbar-disabled: var(--button-border-color-disabled);
+    --button-border-color-toolbar-selected: var(--button-border-color-ghost-active);
     --button-border-radius: var(--border-radius-medium);
     --button-font-size: var(--font-size-root);
     --button-font-size-small: var(--font-size-small);
@@ -121,6 +133,11 @@
     --button-text-color-primary-disabled: var(--button-text-color-primary);
     --button-text-color-primary-selected: var(--button-text-color-primary-active);
     --button-text-color-selected: var(--button-text-color-active);
+    --button-text-color-toolbar: inherit;
+    --button-text-color-toolbar-hover: inherit;
+    --button-text-color-toolbar-active: inherit;
+    --button-text-color-toolbar-disabled: inherit;
+    --button-text-color-toolbar-selected: var(--button-text-color-ghost-active);
 
     /** card **/
     /* TODO Bug 2030793 - Move card tokens to be used by moz-card rather than globally */
@@ -348,7 +365,21 @@
 
     /** input **/
     --input-border-color: var(--border-color-interactive);
+    --input-folder-gap: var(--space-medium);
+    --input-height: var(--size-item-small);
+    --input-swatch-size: var(--size-item-medium);
+    --input-text-background-color: Field;
+    --input-text-background-color-disabled: var(--button-background-color-disabled);
+    --input-text-border: var(--border-width) solid var(--input-text-border-color);
+    --input-text-border-color: var(--border-color);
+    --input-text-border-color-disabled: var(--border-color-interactive-disabled);
+    --input-text-border-radius: var(--border-radius-medium);
+    --input-text-color: FieldText;
+    --input-text-color-disabled: var(--input-text-color);
+    --input-text-icon-size: var(--icon-size-xsmall);
     --input-text-min-height: var(--button-min-height);
+    --input-text-opacity-disabled: var(--button-opacity-disabled);
+    --input-width: var(--size-item-small);
 
     /** link **/
     /**
@@ -364,8 +395,8 @@
 
     /** panel **/
     --panel-background-color: Field;
-    --panel-background-color-dimmed: color-mix(in srgb, currentColor 17%, transparent);
-    --panel-background-color-dimmed-further: color-mix(in srgb, currentColor 30%, transparent);
+    --panel-background-color-dimmed: var(--background-color-dimmed);
+    --panel-background-color-dimmed-further: var(--background-color-dimmed-further);
     --panel-border-color: ThreeDShadow;
     --panel-border-radius: var(--border-radius-medium);
     --panel-box-shadow: 0 0 var(--panel-box-shadow-margin) hsla(0, 0%, 0%, 0.2);
@@ -510,6 +541,8 @@
       --button-border-color: var(--button-text-color);
       --button-text-color-ghost-hover: var(--button-text-color-hover);
       --button-text-color-ghost-active: var(--button-text-color-active);
+      --button-text-color-toolbar-hover: var(--button-text-color-hover);
+      --button-text-color-toolbar-active: var(--button-text-color-active);
 
       /** card **/
       --card-border-color: color-mix(in srgb, currentColor 41%, transparent);
@@ -601,6 +634,8 @@
       --button-text-color-menu-active: var(--button-text-color-primary);
       --button-text-color-primary: ButtonFace;
       --button-text-color-primary-hover: SelectedItemText;
+      --button-text-color-toolbar-hover: var(--button-text-color-hover);
+      --button-text-color-toolbar-active: var(--button-text-color-active);
 
       /** card **/
       --card-border-color: CanvasText;
@@ -613,6 +648,9 @@
 
       /** focus-outline **/
       --focus-outline-color: var(--text-color);
+
+      /** input **/
+      --input-text-color-disabled: GrayText;
 
       /** link **/
       --link-color: LinkText;
@@ -647,10 +685,12 @@
   @media not ((forced-colors) or (-moz-native-theme)) {
     :root:not([lwtheme]),
     :host(.anonymous-content-host) {
+      /** background-color **/
+      --background-color-dimmed: light-dark(color-mix(in srgb, currentColor 12%, transparent), color-mix(in srgb, currentColor 17%, transparent));
+      --background-color-dimmed-further: light-dark(color-mix(in srgb, currentColor 20%, transparent), color-mix(in srgb, currentColor 14%, transparent));
+
       /** panel **/
       --panel-background-color: light-dark(var(--color-white), rgb(66, 65, 77));
-      --panel-background-color-dimmed: light-dark(color-mix(in srgb, currentColor 12%, transparent), color-mix(in srgb, currentColor 17%, transparent));
-      --panel-background-color-dimmed-further: light-dark(color-mix(in srgb, currentColor 20%, transparent), color-mix(in srgb, currentColor 14%, transparent));
       --panel-border-color: light-dark(rgb(240, 240, 244), rgb(82, 82, 94));
       --panel-text-color: light-dark(var(--color-black), rgb(251, 251, 254));
 

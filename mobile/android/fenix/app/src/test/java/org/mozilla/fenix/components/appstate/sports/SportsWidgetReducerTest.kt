@@ -359,6 +359,32 @@ class SportsWidgetReducerTest {
     }
 
     @Test
+    fun `GIVEN no eliminated countries WHEN EliminatedCountriesUpdated is dispatched THEN eliminatedCountries is set`() {
+        val initialState = AppState(sportsWidgetState = SportsWidgetState())
+
+        val finalState = AppStoreReducer.reduce(
+            initialState,
+            AppAction.SportsWidgetAction.EliminatedCountriesUpdated(countryCodes = setOf("MEX", "RSA")),
+        )
+
+        assertEquals(setOf("MEX", "RSA"), finalState.sportsWidgetState.eliminatedCountries)
+    }
+
+    @Test
+    fun `GIVEN eliminated countries set WHEN EliminatedCountriesUpdated is dispatched with empty set THEN eliminatedCountries is cleared`() {
+        val initialState = AppState(
+            sportsWidgetState = SportsWidgetState(eliminatedCountries = setOf("MEX")),
+        )
+
+        val finalState = AppStoreReducer.reduce(
+            initialState,
+            AppAction.SportsWidgetAction.EliminatedCountriesUpdated(countryCodes = emptySet()),
+        )
+
+        assertTrue(finalState.sportsWidgetState.eliminatedCountries.isEmpty())
+    }
+
+    @Test
     fun `GIVEN isDebugToolVisible is false WHEN DebugToolVisibilityChanged is dispatched with true THEN isDebugToolVisible is true`() {
         val initialState = AppState(
             sportsWidgetState = SportsWidgetState(isDebugToolVisible = false),
@@ -412,5 +438,60 @@ class SportsWidgetReducerTest {
         )
 
         assertTrue(finalState.sportsWidgetState.isOneWeekToWorldCup)
+    }
+
+    @Test
+    fun `WHEN WorldCupStarted override turned ON THEN OneWeek override is forced off`() {
+        val initialState = AppState(
+            sportsWidgetState = SportsWidgetState(
+                hasWorldCupStartedOverride = false,
+                isOneWeekToWorldCupOverride = true,
+            ),
+        )
+
+        val finalState = AppStoreReducer.reduce(
+            initialState,
+            AppAction.SportsWidgetAction.WorldCupStartedOverrideUpdated(hasWorldCupStartedOverride = true),
+        )
+
+        assertTrue(finalState.sportsWidgetState.hasWorldCupStarted)
+        assertFalse(finalState.sportsWidgetState.isOneWeekToWorldCup)
+    }
+
+    @Test
+    fun `WHEN OneWeek override turned ON THEN WorldCupStarted override is forced off`() {
+        val initialState = AppState(
+            sportsWidgetState = SportsWidgetState(
+                hasWorldCupStartedOverride = true,
+                isOneWeekToWorldCupOverride = false,
+            ),
+        )
+
+        val finalState = AppStoreReducer.reduce(
+            initialState,
+            AppAction.SportsWidgetAction.OneWeekToWorldCupOverrideUpdated(isOneWeekToWorldCupOverride = true),
+        )
+
+        assertTrue(finalState.sportsWidgetState.isOneWeekToWorldCup)
+        assertFalse(finalState.sportsWidgetState.hasWorldCupStarted)
+    }
+
+    @Test
+    fun `WHEN OneWeek override turned OFF THEN WorldCupStarted override is preserved`() {
+        val initialState = AppState(
+            sportsWidgetState = SportsWidgetState(
+                hasWorldCupStartedOverride = true,
+                isOneWeekToWorldCupOverride = false,
+            ),
+        )
+
+        val finalState = AppStoreReducer.reduce(
+            initialState,
+            AppAction.SportsWidgetAction.OneWeekToWorldCupOverrideUpdated(isOneWeekToWorldCupOverride = false),
+        )
+
+        // Toggling one OFF doesn't touch the other.
+        assertTrue(finalState.sportsWidgetState.hasWorldCupStarted)
+        assertFalse(finalState.sportsWidgetState.isOneWeekToWorldCup)
     }
 }

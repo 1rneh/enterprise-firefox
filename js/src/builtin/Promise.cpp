@@ -15,6 +15,7 @@
 #include "js/experimental/JitInfo.h"  // JSJitGetterOp, JSJitInfo
 #include "js/ForOfIterator.h"         // JS::ForOfIterator
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
+#include "js/Prefs.h"                 // JS::Prefs
 #include "js/PropertySpec.h"
 #include "js/Stack.h"
 #include "vm/ArrayObject.h"
@@ -1113,7 +1114,13 @@ class ThenableJob : public MicroTaskEntry {
 
   enum TargetFunction : int32_t {
     PromiseResolveThenableJob,
-    PromiseResolveBuiltinThenableJob
+    PromiseResolveBuiltinThenableJob,
+#ifdef NIGHTLY_BUILD
+    // Job used by MaybeDeferredPromiseResolve (JS::SafeResolve): runs
+    // PerformPromiseResolution on `promise` with the resolution value stored
+    // in the Thenable slot. The Then slot is unused for this target.
+    DeferredResolveJob,
+#endif  // NIGHTLY_BUILD
   };
 
   Value thenable() const { return getFixedSlot(Slots::Thenable); }
@@ -1191,6 +1198,14 @@ static bool RejectPromiseFunction(JSContext* cx, unsigned argc, Value* vp);
 
 static JSFunction* GetResolveFunctionFromReject(JSFunction* reject);
 static JSFunction* GetRejectFunctionFromResolve(JSFunction* resolve);
+static JSFunction* GetResolveFunctionFromPromise(PromiseObject* promise);
+
+#ifdef NIGHTLY_BUILD
+[[nodiscard]] static bool RequiresDeferredPromiseResolution(
+    JSContext* cx, HandleValue value, bool* needsDeferral);
+[[nodiscard]] static bool EnqueueDeferredResolveJob(
+    JSContext* cx, Handle<PromiseObject*> promise, HandleValue resolution);
+#endif  // NIGHTLY_BUILD
 
 #ifdef DEBUG
 
@@ -1333,8 +1348,17 @@ void js::SetAlreadyResolvedPromiseWithDefaultResolvingFunction(
   //         ! CreateBuiltinFunction(stepsResolve, lengthResolve, "",
   //                                 « [[Promise]], [[AlreadyResolved]] »).
   Handle<PropertyName*> funName = cx->names().empty_;
-  resolveFn.set(NewNativeFunction(cx, ResolvePromiseFunction, 1, funName,
-                                  gc::AllocKind::FUNCTION_EXTENDED,
+#ifdef NIGHTLY_BUILD
+  // Thenable-curtailment proposal: the resolve function takes an optional
+  // `doSafeResolve` second parameter, so its length becomes 2 when the pref
+  // is enabled. Otherwise it remains 1, matching the current spec.
+  unsigned resolveLength =
+      JS::Prefs::experimental_promise_safe_resolve() ? 2 : 1;
+#else
+  unsigned resolveLength = 1;
+#endif
+  resolveFn.set(NewNativeFunction(cx, ResolvePromiseFunction, resolveLength,
+                                  funName, gc::AllocKind::FUNCTION_EXTENDED,
                                   GenericObject));
   if (!resolveFn) {
     return false;
@@ -1599,6 +1623,18 @@ static bool ResolvePromiseFunction(JSContext* cx, unsigned argc, Value* vp) {
   JSFunction* resolve = &args.callee().as<JSFunction>();
   HandleValue resolutionVal = args.get(0);
 
+#ifdef NIGHTLY_BUILD
+  // Thenable-curtailment proposal: the resolve function takes a second
+  // `doSafeResolve` parameter. When true (and the pref is enabled), and
+  // resolving would synchronously run user code, the user-code-running steps
+  // are deferred to a microtask.
+  //
+  // Here we are strict and do not coerce, but that's potentially an area
+  // for future feedback.
+  bool doSafeResolve = JS::Prefs::experimental_promise_safe_resolve() &&
+                       args.get(1).isBoolean() && args.get(1).toBoolean();
+#endif  // NIGHTLY_BUILD
+
   // Step 3. Let promise be F.[[Promise]].
   const Value& promiseVal =
       resolve->getExtendedSlot(ResolveFunctionSlot_Promise);
@@ -1627,6 +1663,27 @@ static bool ResolvePromiseFunction(JSContext* cx, unsigned argc, Value* vp) {
     return true;
   }
 
+#ifdef NIGHTLY_BUILD
+  // Thenable-curtailment proposal: if the caller asked for safe resolution
+  // and the value would run user code, defer to a microtask. Subsequent
+  // resolve/reject is a no-op because SetAlreadyResolvedResolutionFunction has
+  // happened.
+  if (doSafeResolve) {
+    bool needsDeferral = false;
+    if (!RequiresDeferredPromiseResolution(cx, resolutionVal, &needsDeferral)) {
+      return false;
+    }
+    if (needsDeferral) {
+      Rooted<PromiseObject*> promiseObj(cx, &promise->as<PromiseObject>());
+      if (!EnqueueDeferredResolveJob(cx, promiseObj, resolutionVal)) {
+        return false;
+      }
+      args.rval().setUndefined();
+      return true;
+    }
+  }
+#endif  // NIGHTLY_BUILD
+
   // Steps 7-15.
   if (!ResolvePromiseInternal(cx, promise, resolutionVal)) {
     return false;
@@ -1640,7 +1697,7 @@ static bool ResolvePromiseFunction(JSContext* cx, unsigned argc, Value* vp) {
 static bool EnqueueJob(JSContext* cx, JS::JSMicroTask* job) {
   MOZ_ASSERT(cx->realm());
   GeckoProfilerRuntime& profiler = cx->runtime()->geckoProfiler();
-  if (profiler.enabled()) {
+  if (MOZ_UNLIKELY(profiler.enabled())) {
     // Emit a flow start marker here.
     uint64_t uid = 0;
     if (JS::GetFlowIdFromJSMicroTask(job, &uid)) {
@@ -1649,15 +1706,18 @@ static bool EnqueueJob(JSContext* cx, JS::JSMicroTask* job) {
     }
   }
 
+  // Only check if we need to use the debug queue when we're not on main thread.
+  if (MOZ_LIKELY(cx->runtime()->isMainRuntime())) {
+    return cx->microTaskQueues->enqueueRegularMicroTask(cx, ObjectValue(*job));
+  }
+
   // We need to root this job because useDebugQueue can GC.
   Rooted<JS::JSMicroTask*> rootedJob(cx, job);
-
-  // Only check if we need to use the debug queue when we're not on main thread.
-  if (MOZ_UNLIKELY(!cx->runtime()->isMainRuntime() &&
-                   cx->jobQueue->useDebugQueue(cx->global()))) {
+  if (MOZ_UNLIKELY(cx->jobQueue->useDebugQueue(cx->global()))) {
     return cx->microTaskQueues->enqueueDebugMicroTask(cx,
                                                       ObjectValue(*rootedJob));
   }
+
   return cx->microTaskQueues->enqueueRegularMicroTask(cx,
                                                       ObjectValue(*rootedJob));
 }
@@ -2982,6 +3042,172 @@ static bool PromiseResolveBuiltinThenableJob(JSContext* cx,
 
   return EnqueueJob(cx, thenableJob);
 }
+
+#ifdef NIGHTLY_BUILD
+/**
+ * Thenable-curtailment: https://tc39.es/proposal-thenable-curtailment/
+ *
+ * RequiresDeferredPromiseResolution (value)
+ *
+ * Returns true in *needsDeferral if the synchronous steps of resolving a
+ * promise with `value` _might_ execute user code: e.g.
+ * - a Proxy or other exotic object on the prototype chain, an accessor
+ *   for `"then"`, or a callable data-property `"then"`.
+ *
+ */
+[[nodiscard]] static bool RequiresDeferredPromiseResolution(
+    JSContext* cx, HandleValue value, bool* needsDeferral) {
+  *needsDeferral = false;
+  if (!value.isObject()) {
+    return true;
+  }
+
+  RootedValue thenVal(cx);
+  if (!GetPropertyPure(cx, &value.toObject(), NameToId(cx->names().then),
+                       thenVal.address())) {
+    *needsDeferral = true;
+    return true;
+  }
+
+  *needsDeferral = IsCallable(thenVal);
+  return true;
+}
+
+/**
+ * Thenable-curtailment: https://tc39.es/proposal-thenable-curtailment/
+ *
+ * PerformPromiseResolution (promise, resolution)
+ *
+ */
+[[nodiscard]] static bool PerformPromiseResolution(
+    JSContext* cx, Handle<PromiseObject*> promise, HandleValue resolution) {
+  MOZ_ASSERT(promise->state() == JS::PromiseState::Pending);
+
+  // Step 1.
+  if (!resolution.isObject()) {
+    return FulfillMaybeWrappedPromise(cx, promise, resolution);
+  }
+
+  // Step 2.
+  if (resolution.isObject() && &resolution.toObject() == promise) {
+    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
+                              JSMSG_CANNOT_RESOLVE_PROMISE_WITH_ITSELF);
+    RootedValue selfResolutionError(cx);
+    Rooted<SavedFrame*> stack(cx);
+    if (!MaybeGetAndClearExceptionAndStack(cx, &selfResolutionError, &stack)) {
+      return false;
+    }
+    return RejectPromiseInternal(cx, promise, selfResolutionError, stack);
+  }
+
+  // Step 3.
+  RootedObject resolutionObj(cx, &resolution.toObject());
+  RootedValue thenVal(cx);
+  if (!GetProperty(cx, resolutionObj, resolution, cx->names().then, &thenVal)) {
+    // Step 4.
+    RootedValue exn(cx);
+    Rooted<SavedFrame*> stack(cx);
+    if (!MaybeGetAndClearExceptionAndStack(cx, &exn, &stack)) {
+      return false;
+    }
+    if (IsSettledMaybeWrappedPromise(promise)) {
+      return true;
+    }
+    return RejectPromiseInternal(cx, promise, exn, stack);
+  }
+
+  if (IsSettledMaybeWrappedPromise(promise)) {
+    return true;
+  }
+
+  // Step 6
+  if (!IsCallable(thenVal)) {
+    return FulfillMaybeWrappedPromise(cx, promise, resolution);
+  }
+
+  // Steps 7-9
+  RootedValue promiseVal(cx, ObjectValue(*promise));
+  return EnqueuePromiseResolveThenableJob(cx, promiseVal, resolution, thenVal);
+}
+
+/**
+ * Thenable-curtailment: https://tc39.es/proposal-thenable-curtailment/
+ *
+ * Enqueues a deferred-resolve microtask job that will invoke
+ * PerformPromiseResolution on `promise` with `resolution` when run.
+ *
+ * The job's realm is the caller's current realm, matching
+ * HostEnqueuePromiseJob's contract.
+ */
+[[nodiscard]] static bool EnqueueDeferredResolveJob(
+    JSContext* cx, Handle<PromiseObject*> promise, HandleValue resolution) {
+  RootedObject incumbentGlobalRepresentative(cx);
+  RootedObject optionalHostDefinedData(cx);
+  if (!GetObjectFromHostDefinedData(cx, &incumbentGlobalRepresentative,
+                                    &optionalHostDefinedData)) {
+    return false;
+  }
+
+  RootedObject promiseObj(cx, promise);
+  ThenableJob* job = NewThenableJob(
+      cx, ThenableJob::DeferredResolveJob, promiseObj, resolution, nullptr,
+      incumbentGlobalRepresentative, optionalHostDefinedData);
+  if (!job) {
+    return false;
+  }
+
+  return EnqueueJob(cx, job);
+}
+
+/**
+ * Thenable-curtailment: https://tc39.es/proposal-thenable-curtailment/
+ *
+ * MaybeDeferredPromiseResolve (promiseCapability, resolution)
+ *
+ * Resolves `promise` with `resolution`. If the synchronous resolution steps
+ * might run user code (Proxy, accessor, or callable "then" data property),
+ * mark the promise's resolving functions as no-ops and defers the actual
+ * PerformPromiseResolution steps to a freshly-enqueued microtask.
+ *
+ */
+bool js::SafeResolvePromise(JSContext* cx, Handle<PromiseObject*> promise,
+                            HandleValue resolution) {
+  cx->check(promise, resolution);
+  MOZ_ASSERT(!PromiseHasAnyFlag(*promise, PROMISE_FLAG_ASYNC));
+
+  if (promise->state() != JS::PromiseState::Pending) {
+    return true;
+  }
+
+  bool needsDeferral = false;
+  if (!RequiresDeferredPromiseResolution(cx, resolution, &needsDeferral)) {
+    return false;
+  }
+
+  if (!needsDeferral) {
+    return PromiseObject::resolve(cx, promise, resolution);
+  }
+
+  // Mark resolving functions as no-ops.
+  if (IsPromiseWithDefaultResolvingFunction(promise)) {
+    if (PromiseHasAnyFlag(
+            *promise,
+            PROMISE_FLAG_DEFAULT_RESOLVING_FUNCTIONS_ALREADY_RESOLVED)) {
+      return true;
+    }
+    SetAlreadyResolvedPromiseWithDefaultResolvingFunction(promise);
+  } else {
+    JSFunction* resolveFun = GetResolveFunctionFromPromise(promise);
+    if (!resolveFun) {
+      // Already latched.
+      return true;
+    }
+    SetAlreadyResolvedResolutionFunction(resolveFun);
+  }
+
+  return EnqueueDeferredResolveJob(cx, promise, resolution);
+}
+#endif  // NIGHTLY_BUILD
 
 [[nodiscard]] static bool AddDummyPromiseReactionForDebugger(
     JSContext* cx, Handle<PromiseObject*> promise,
@@ -8329,6 +8555,16 @@ JS_PUBLIC_API bool JS::RunJSMicroTask(JSContext* cx,
                                               &job->thenable().toObject());
         return PromiseResolveBuiltinThenableJob(cx, promise, thenableObj);
       }
+#ifdef NIGHTLY_BUILD
+      case ThenableJob::DeferredResolveJob: {
+        MOZ_ASSERT(promise->is<PromiseObject>());
+        Rooted<PromiseObject*> promiseRooted(cx, &promise->as<PromiseObject>());
+        if (promiseRooted->state() != JS::PromiseState::Pending) {
+          return true;
+        }
+        return PerformPromiseResolution(cx, promiseRooted, thenable);
+      }
+#endif  // NIGHTLY_BUILD
     }
     MOZ_CRASH("Corrupted Target Function");
     return false;

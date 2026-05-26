@@ -9073,6 +9073,8 @@ class TransplantableProxyHandler final : public ForwardingProxyHandler {
     return IsProxy(obj) && GetProxyHandler(obj) == &singleton;
   }
 
+  bool mayBeSwapped() const override { return true; }
+
   static JSObject* GetAndClearExpandoObject(
       JSObject* obj, JS::MutableHandle<JS::Value> restoreToken) {
     MOZ_ASSERT(TransplantableProxyHandler::is(obj));
@@ -13223,6 +13225,11 @@ bool InitOptionParser(OptionParser& op) {
       !op.addBoolOption('\0', "enable-import-text", "Enable import text") ||
       !op.addBoolOption('\0', "enable-promise-allkeyed",
                         "Enable Promise.allKeyed") ||
+      !op.addBoolOption(
+          '\0', "enable-promise-safe-resolve",
+          "Enable thenable-curtailment's safe-resolve second parameter on "
+          "Promise resolve functions") ||
+
       !op.addBoolOption('\0', "enable-arraybuffer-immutable",
                         "Enable immutable ArrayBuffers") ||
       !op.addBoolOption('\0', "enable-iterator-chunking",
@@ -13328,6 +13335,11 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
   if (op.getBoolOption("enable-promise-allkeyed")) {
     JS::Prefs::setAtStartup_experimental_promise_allkeyed(true);
   }
+#  ifdef NIGHTLY_BUILD
+  if (op.getBoolOption("enable-promise-safe-resolve")) {
+    JS::Prefs::setAtStartup_experimental_promise_safe_resolve(true);
+  }
+#  endif  // NIGHTLY_BUILD
   if (op.getBoolOption("enable-iterator-chunking")) {
     JS::Prefs::setAtStartup_experimental_iterator_chunking(true);
   }

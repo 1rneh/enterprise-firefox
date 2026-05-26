@@ -135,7 +135,7 @@
 #include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/net/NeckoChannelParams.h"
 #include "mozilla/net/OpaqueResponseUtils.h"
-#include "mozilla/net/UrlClassifierFeatureFactory.h"
+#include "mozilla/net/ChannelClassifierUtils.h"
 #include "mozilla/net/URLPatternGlue.h"
 #include "mozilla/net/urlpattern_glue.h"
 #include "HttpTrafficAnalyzer.h"
@@ -657,8 +657,9 @@ nsresult nsHttpChannel::PrepareToConnect() {
         self->mUsingDictionary = true;
         // If this fails, we won't add the dictionary and the
         // Available-Dictionary header.
+        RefPtr<LoadContextInfo> lci = GetLoadContextInfo(self);
         if (NS_SUCCEEDED(aDict->Prefetch(
-                GetLoadContextInfo(self), self->mShouldSuspendForDictionary,
+                lci, self->mShouldSuspendForDictionary,
                 [self](nsresult aResult) {
                   // this is called when the prefetch is complete to
                   // un-Suspend the channel
@@ -824,8 +825,7 @@ nsresult nsHttpChannel::ContinuePrepareToConnect() {
 
 void nsHttpChannel::HandleContinueCancellingByURLClassifier(
     nsresult aErrorCode) {
-  MOZ_ASSERT(
-      UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(aErrorCode));
+  MOZ_ASSERT(ChannelClassifierUtils::IsClassifierBlockingErrorCode(aErrorCode));
   MOZ_ASSERT(!mCallOnResume, "How did that happen?");
 
   if (mSuspendCount) {
@@ -2627,13 +2627,23 @@ nsresult nsHttpChannel::CallOnStartRequest() {
 NS_IMETHODIMP nsHttpChannel::GetHttpProxyConnectResponseCode(
     int32_t* aResponseCode) {
   NS_ENSURE_ARG_POINTER(aResponseCode);
-
-  if (mConnectionInfo && mConnectionInfo->UsingConnect()) {
-    *aResponseCode = mProxyConnectResponseCode;
+  if (mProxyConnectResponseHead) {
+    *aResponseCode = mProxyConnectResponseHead->Status();
+  } else if (mConnectionInfo && mConnectionInfo->UsingConnect()) {
+    *aResponseCode = 0;
   } else {
     *aResponseCode = -1;
   }
   return NS_OK;
+}
+
+NS_IMETHODIMP nsHttpChannel::GetHttpProxyResponseHeader(
+    const nsACString& aHeader, nsACString& aValue) {
+  if (mProxyConnectResponseHead) {
+    return mProxyConnectResponseHead->GetHeader(nsHttp::ResolveAtom(aHeader),
+                                                aValue);
+  }
+  return NS_ERROR_NOT_AVAILABLE;
 }
 
 nsresult nsHttpChannel::ProcessFailedProxyConnect(uint32_t httpStatus) {
@@ -3786,8 +3796,8 @@ nsresult nsHttpChannel::ContinueProcessNormal2(nsresult rv) {
   // be created without the dictionary attached, causing decompression to fail.
   // The dictionary prefetch callback (in PrepareToConnect) will call Resume()
   // when ready, which will re-invoke ContinueProcessNormal2 via mCallOnResume.
-  if (mDictDecompress && mUsingDictionary && mShouldSuspendForDictionary &&
-      !mDictDecompress->DictionaryReady()) {
+  if (mIsDictionaryCompressed && mDictDecompress && mUsingDictionary &&
+      mShouldSuspendForDictionary && !mDictDecompress->DictionaryReady()) {
     LOG_DICTIONARIES(
         ("nsHttpChannel::ContinueProcessNormal2 [this=%p] Suspending before "
          "creating decompressor, waiting for dictionary",
@@ -3805,6 +3815,9 @@ nsresult nsHttpChannel::ContinueProcessNormal2(nsresult rv) {
 }
 
 nsresult nsHttpChannel::ContinueProcessNormal3() {
+  if (mCanceled) {
+    return CallOnStartRequest();
+  }
   nsresult rv = NS_OK;
 
   // Finish post-ParseDictionary work, must be done after waiting if Suspended
@@ -5124,6 +5137,26 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
   rv = nsHttp::GetHttpResponseHeadFromCacheEntry(entry,
                                                  mCachedResponseHead.get());
   NS_ENSURE_SUCCESS(rv, rv);
+
+  // Purge stale cache entries that have dcb/dcz Content-Encoding in their
+  // metadata. These were written by early compression dictionary code that
+  // failed to clear Content-Encoding before writing cache metadata.  The data
+  // body is decompressed but the header is wrong; serving such entries would
+  // cause crashes in content processes.  Doom and re-fetch from network.
+  {
+    nsAutoCString cachedEncoding;
+    (void)mCachedResponseHead->GetHeader(nsHttp::Content_Encoding,
+                                         cachedEncoding);
+    if (cachedEncoding.LowerCaseFindASCII("dcb") != -1 ||
+        cachedEncoding.LowerCaseFindASCII("dcz") != -1) {
+      LOG(("Dooming stale cache entry with dcb/dcz Content-Encoding [%s]\n",
+           mSpec.get()));
+      glean::http3::stale_dcb_dcz_cache_entries_purged.Add(1);
+      entry->AsyncDoom(nullptr);
+      *aResult = ENTRY_NOT_WANTED;
+      return NS_OK;
+    }
+  }
 
   bool isCachedRedirect = WillRedirect(*mCachedResponseHead);
 
@@ -7043,8 +7076,8 @@ nsHttpChannel::Cancel(nsresult status) {
   // other reason, for example because we've received notification about our
   // parent process side channel being canceled, in which case we cannot expect
   // that CancelByURLClassifier() would have handled this case.
-  if (UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(status) &&
-      !UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(mStatus)) {
+  if (ChannelClassifierUtils::IsClassifierBlockingErrorCode(status) &&
+      !ChannelClassifierUtils::IsClassifierBlockingErrorCode(mStatus)) {
     MOZ_CRASH_UNSAFE_PRINTF("Blocking classifier error %" PRIx32
                             " need to be handled by CancelByURLClassifier()",
                             static_cast<uint32_t>(status));
@@ -7079,8 +7112,7 @@ nsHttpChannel::Cancel(nsresult status) {
 
 NS_IMETHODIMP
 nsHttpChannel::CancelByURLClassifier(nsresult aErrorCode) {
-  MOZ_ASSERT(
-      UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(aErrorCode));
+  MOZ_ASSERT(ChannelClassifierUtils::IsClassifierBlockingErrorCode(aErrorCode));
   MOZ_ASSERT(NS_IsMainThread());
   // We should never have a pump open while a CORS preflight is in progress.
   MOZ_ASSERT_IF(mPreflightChannel, !mCachePump);
@@ -7133,8 +7165,7 @@ nsHttpChannel::CancelByURLClassifier(nsresult aErrorCode) {
 }
 
 void nsHttpChannel::ContinueCancellingByURLClassifier(nsresult aErrorCode) {
-  MOZ_ASSERT(
-      UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(aErrorCode));
+  MOZ_ASSERT(ChannelClassifierUtils::IsClassifierBlockingErrorCode(aErrorCode));
   MOZ_ASSERT(NS_IsMainThread());
   // We should never have a pump open while a CORS preflight is in progress.
   MOZ_ASSERT_IF(mPreflightChannel, !mCachePump);
@@ -7159,7 +7190,7 @@ nsresult nsHttpChannel::CancelInternal(nsresult status) {
   LOG(("nsHttpChannel::CancelInternal [this=%p]\n", this));
   bool channelClassifierCancellationPending =
       !!LoadChannelClassifierCancellationPending();
-  if (UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(status)) {
+  if (ChannelClassifierUtils::IsClassifierBlockingErrorCode(status)) {
     StoreChannelClassifierCancellationPending(0);
   }
 
@@ -7249,6 +7280,25 @@ nsresult nsHttpChannel::CancelInternal(nsresult status) {
     // to safe-browsing protection, we need to AsyncAbort the channel now.
     needAsyncAbort = false;
     (void)AsyncAbort(status);
+  }
+
+  // If suspended waiting for dictionary prefetch, unblock it so the channel
+  // can proceed to cleanup. The prefetch callback may never fire, so we must
+  // not rely on it to call Resume().
+  if (mSuspendedForDictionary) {
+    LOG(
+        ("nsHttpChannel::CancelInternal resuming dictionary-suspended channel "
+         "[this=%p]\n",
+         this));
+    mSuspendedForDictionary = false;
+    mCallOnResume = nullptr;
+    // Null out the already-cancelled pumps so Resume() won't re-trigger
+    // their OnStopRequest before AsyncAbort's DoNotifyListener can call
+    // OnStartRequest on our listener.
+    mTransactionPump = nullptr;
+    mCachePump = nullptr;
+    Resume();
+    needAsyncAbort = true;
   }
 
   // If we already have mCallOnResume, AsyncAbort will be called in
@@ -9044,7 +9094,7 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
       .AccumulateRawDuration(mSuspendTotalTime);
 
   if (mTransaction) {
-    mProxyConnectResponseCode = mTransaction->GetProxyConnectResponseCode();
+    mProxyConnectResponseHead = mTransaction->GetProxyConnectResponseHead();
     if (request == mTransactionPump) {
       StoreDataSentToChildProcess(mTransaction->DataSentToChildProcess());
     }
@@ -9358,7 +9408,7 @@ nsresult nsHttpChannel::ContinueOnStartRequest2(nsresult result) {
        mStatus == NS_ERROR_NET_TIMEOUT || mStatus == NS_ERROR_NET_RESET)) {
     PushRedirectAsyncFunc(&nsHttpChannel::ContinueOnStartRequest3);
     if (NS_SUCCEEDED(ProxyFailover())) {
-      mProxyConnectResponseCode = 0;
+      mProxyConnectResponseHead.reset();
       return NS_OK;
     }
     PopRedirectAsyncFunc(&nsHttpChannel::ContinueOnStartRequest3);

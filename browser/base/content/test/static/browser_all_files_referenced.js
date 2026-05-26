@@ -233,7 +233,6 @@ var allowlist = [
 
   // File from the ipp-activator add-on
   { file: "resource://builtin-addons/ipp-activator/breakages/tab.json" },
-  { file: "resource://builtin-addons/ipp-activator/breakages/tabWC.json" },
 
   // Starting from here, files in the allowlist are bugs that need fixing.
   // Bug 1339424 (wontfix?)
@@ -323,11 +322,6 @@ var allowlist = [
   // and this file will be needed for that.
   {
     file: "resource://app/modules/backup/CookiesBackupResource.sys.mjs",
-  },
-
-  // Bug 2035340: TabManagementService will be used by AI Window for tab management
-  {
-    file: "moz-src:///browser/components/aiwindow/ui/modules/TabManagementService.sys.mjs",
   },
 
   // Bug 2023223: Replace loginOrigin, addresses, payments, and form history

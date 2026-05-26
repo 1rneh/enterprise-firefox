@@ -94,6 +94,7 @@ export function makeShareResult({ share = null } = {}) {
     url: null,
     isSchemaValid: null,
     isSignedIn: null,
+    loadingPromise: null,
   };
 }
 
@@ -203,7 +204,7 @@ class ContentSharingUtilsClass {
       }),
     };
     const result = this.buildShare(shareObject);
-    await this.#createLinkAndOpenModal(result, "tab group");
+    await this.#createLinkAndOpenModal(result, "tab_group");
   }
 
   /**
@@ -349,25 +350,43 @@ class ContentSharingUtilsClass {
    * open a new tab at the share URL.
    *
    * @param {ShareResult} shareResult An object containing the share object and any warnings
-   * @param {string} context Used in error logging (e.g. "tabs", "tab group")
+   * @param {string} context Used in error logging (e.g. "tabs", "tab_group")
    */
   async #createLinkAndOpenModal(shareResult, context) {
-    // Note: the result object contains either the URL or an error. It's safe
-    // to pass into the modal, which handles error UI as needed.
-    shareResult = await this.createShareableLink(shareResult);
-    shareResult.isSignedIn =
-      this.isSignedIn() && shareResult.error !== ERRORS.UNAUTHORIZED;
+    let resolveLoading;
+    const loadingPromise = new Promise(resolve => {
+      resolveLoading = resolve;
+    });
 
     let window = Services.wm.getMostRecentBrowserWindow();
 
-    // Note: we deliberately do not await the open.
-    window.gDialogBox.open(CONTENT_SHARING_MODAL_URL, shareResult);
+    window.gDialogBox.open(CONTENT_SHARING_MODAL_URL, {
+      ...shareResult,
+      loadingPromise,
+    });
+
+    // Note: the result object contains either the URL or an error. It's safe
+    // to pass into the modal, which handles error UI as needed.
+    try {
+      shareResult = await this.createShareableLink(shareResult);
+      shareResult.isSignedIn =
+        this.isSignedIn() && shareResult.error !== ERRORS.UNAUTHORIZED;
+    } finally {
+      // Resolve with a new object so Lit detects the shareResult change
+      resolveLoading({ ...shareResult, loadingPromise: null });
+    }
+
     if (shareResult.error && !shareResult.isSignedIn) {
       console.error(
         `ContentSharingUtils: failed to share ${context}`,
         shareResult.error
       );
     }
+
+    Glean.collectionShare.dialogOpen.record({
+      signed_in: shareResult.isSignedIn,
+      share_type: context,
+    });
 
     // After the dialog box closes, attempt login if needed.
     if (shareResult.isSignedIn) {
@@ -389,6 +408,11 @@ class ContentSharingUtilsClass {
 
       // The most recent window may have changed during the login flow.
       window = Services.wm.getMostRecentBrowserWindow();
+
+      // Borrowing a hack from unexpectedScriptLoad.js, which we use to ensure
+      // opened tabs are foregrounded. To be fixed in bug 2040823.
+      window.top.document.documentElement.removeAttribute("window-modal-open");
+
       window.openWebLinkIn(shareResult.url, "tab");
     } catch (ex) {
       // Either we timed out waiting for the cookie to be set, or something
@@ -463,6 +487,12 @@ class ContentSharingUtilsClass {
           },
           body: JSON.stringify(shareResult.share),
         });
+
+        if (!response.ok) {
+          Glean.collectionShare.error.record({
+            status_code: response.status,
+          });
+        }
 
         if (!response.ok && response.status >= 500) {
           canRetry = true;

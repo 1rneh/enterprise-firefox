@@ -25,8 +25,13 @@
 // Default preferences for enterprise builds
 #ifdef MOZ_ENTERPRISE
 pref("enterprise.log_level", "Error");
-// Default preference to be removed here and instead controled by policy FirefoxHome
-pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
+// Prompting the signout dialog on quitting/closing the app
+pref("enterprise.prompt_on_signout", true);
+// On Enterprise we want to enforce updates so we force it
+// Bug 2020768: Should those value be set/locked at runtime by FELT only
+//              or is it fine to apply it to any enterprise build?
+pref("app.update.checkOnlyInstance.enabled", false);
+pref("app.update.background.enabled", true);
 #endif
 
 // Set add-ons abuse report related prefs specific to Firefox Desktop.
@@ -151,7 +156,7 @@ pref("app.update.notifyDuringDownload", false);
 // (which is in a file in the update directory). Because of this, this pref
 // should no longer be used directly. Instead, getAppUpdateAutoEnabled and
 // getAppUpdateAutoEnabled from UpdateUtils.sys.mjs should be used.
-#ifndef XP_WIN
+#if !defined(XP_WIN) || defined(MOZ_ENTERPRISE)
   pref("app.update.auto", true);
 #endif
 

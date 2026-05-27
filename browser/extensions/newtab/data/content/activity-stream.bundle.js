@@ -18760,6 +18760,7 @@ function WidgetWrapper({
   }), children);
 }
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/Widgets.jsx
+function Widgets_extends() { return Widgets_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, Widgets_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -18783,6 +18784,7 @@ function WidgetWrapper({
 const CONTAINER_ACTION_TYPES = {
   HIDE_ALL: "hide_all",
   CHANGE_SIZE_ALL: "change_size_all",
+  CHANGE_ROW_VISIBILITY: "change_row_visibility",
   FEEDBACK: "feedback"
 };
 const PREF_WIDGETS_ENABLED = "widgets.enabled";
@@ -18790,6 +18792,7 @@ const Widgets_PREF_NOVA_ENABLED = "nova.enabled";
 const PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED = "widgets.system.weatherForecast.enabled";
 const PREF_WIDGETS_MAXIMIZED = "widgets.maximized";
 const PREF_WIDGETS_SYSTEM_MAXIMIZED = "widgets.system.maximized";
+const PREF_WIDGETS_ROW_EXPANDED = "widgets.row.expanded";
 const PREF_WIDGETS_FEEDBACK_ENABLED = "widgets.feedback.enabled";
 const PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED = "widgets.hideAllToast.enabled";
 const WIDGETS_FEEDBACK_URL = "https://support.mozilla.org/kb/firefox-new-tab-widgets";
@@ -18861,6 +18864,7 @@ function Widgets() {
   } = (0,external_React_namespaceObject.useContext)(BaseContext);
   const novaEnabled = prefs[Widgets_PREF_NOVA_ENABLED];
   const isMaximized = prefs[PREF_WIDGETS_MAXIMIZED];
+  const rowExpanded = !!prefs[PREF_WIDGETS_ROW_EXPANDED];
   const nimbusMaximizedTrainhopEnabled = prefs.trainhopConfig?.widgets?.maximized;
   const feedbackEnabled = prefs.trainhopConfig?.widgets?.feedbackEnabled || prefs[PREF_WIDGETS_FEEDBACK_ENABLED];
   const hideAllToastEnabled = prefs.trainhopConfig?.widgets?.hideAllToastEnabled || prefs[PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED];
@@ -19040,6 +19044,24 @@ function Widgets() {
       event: "SHOW_PERSONALIZE"
     }));
   }
+  function toggleRowExpanded() {
+    const next = !rowExpanded;
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.SetPref(PREF_WIDGETS_ROW_EXPANDED, next));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_CONTAINER_ACTION,
+        data: {
+          action_type: CONTAINER_ACTION_TYPES.CHANGE_ROW_VISIBILITY,
+          action_value: next ? "expand_row" : "collapse_row",
+          widget_size: widgetSize
+        }
+      }));
+    });
+  }
+  function handleToggleRowExpandedClick(e) {
+    e.preventDefault();
+    toggleRowExpanded();
+  }
   function handleFeedbackClick(e) {
     e.preventDefault();
     (0,external_ReactRedux_namespaceObject.batch)(() => {
@@ -19133,11 +19155,84 @@ function Widgets() {
   if (!anyWidgetInRow) {
     return null;
   }
+
+  // CSS container queries on the widgets section decide whether the toggle
+  // button is shown — see _Widgets.scss. JS builds the ordered list of
+  // enabled widget sizes and, for each possible card-column count
+  // (1–4), checks whether the layout overflows: any large past the
+  // first N positions can't fit, and any medium past N needs a medium
+  // in the first N to pair with. The matching `data-overflow-N`
+  // attribute is read by the @container rules in CSS.
+  const sizes = [];
+  const enabledWidgetIds = [];
+  for (const id of widgetOrder) {
+    if (!WIDGET_ROW_COMPONENTS[id] || !widgetEnabledMap[id]) {
+      continue;
+    }
+    const entry = WIDGET_REGISTRY.find(w => w.id === id);
+    let size = entry ? resolveWidgetSize(entry, prefs) : null;
+    // Mirrors the size override applied in the render loop below — when
+    // the sports follow-teams panel is active it always renders large.
+    if (id === "sportsWidget" && sportsWidgetState === "sports-follow-state") {
+      size = "large";
+    }
+    sizes.push(size);
+    enabledWidgetIds.push(id);
+  }
+  const overflowsAt = cols => {
+    if (sizes.length <= cols) {
+      return false;
+    }
+    const rest = sizes.slice(cols);
+    if (rest.some(s => s === "large")) {
+      return true;
+    }
+    const partnersAvailable = sizes.slice(0, cols).filter(s => s !== "large").length;
+    return rest.length > partnersAvailable;
+  };
+  // For each viewport (cols 1–4), returns the set of widget render indices
+  // that would be clipped when the row is collapsed: any large past the
+  // first `cols` positions, plus mediums past `cols` whose pair-partner
+  // in the first `cols` is already taken. CSS keys off the matching
+  // `data-hidden-N` to make them tab-out and a11y-hide via
+  // `visibility: hidden` at that viewport.
+  const hiddenIndicesAt = cols => {
+    const set = new Set();
+    if (sizes.length <= cols) {
+      return set;
+    }
+    const partnersCount = sizes.slice(0, cols).filter(s => s !== "large").length;
+    let mediumOverflowSeen = 0;
+    for (let i = cols; i < sizes.length; i++) {
+      if (sizes[i] === "large") {
+        set.add(i);
+      } else {
+        if (mediumOverflowSeen >= partnersCount) {
+          set.add(i);
+        }
+        mediumOverflowSeen++;
+      }
+    }
+    return set;
+  };
+  const hiddenAtCols = {
+    1: hiddenIndicesAt(1),
+    2: hiddenIndicesAt(2),
+    3: hiddenIndicesAt(3),
+    4: hiddenIndicesAt(4)
+  };
+  const overflowAttrs = {
+    "data-overflow-1": overflowsAt(1) ? "" : undefined,
+    "data-overflow-2": overflowsAt(2) ? "" : undefined,
+    "data-overflow-3": overflowsAt(3) ? "" : undefined,
+    "data-overflow-4": overflowsAt(4) ? "" : undefined
+  };
+  const isCollapsed = novaEnabled && !rowExpanded;
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: "widgets-wrapper"
-  }, /*#__PURE__*/external_React_default().createElement("div", {
+  }, /*#__PURE__*/external_React_default().createElement("div", Widgets_extends({
     className: "widgets-section-container"
-  }, /*#__PURE__*/external_React_default().createElement("div", {
+  }, overflowAttrs), /*#__PURE__*/external_React_default().createElement("div", {
     className: "widgets-title-container"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "widgets-title-container-text"
@@ -19148,7 +19243,9 @@ function Widgets() {
   }))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "widgets-title-actions"
   }, renderWidgetsActions())), /*#__PURE__*/external_React_default().createElement("div", {
-    className: `widgets-container${isMaximized ? " is-maximized" : ""}`
+    id: "widgets-container",
+    className: `widgets-container${isMaximized ? " is-maximized" : ""}`,
+    "data-row-collapsed": isCollapsed ? "" : undefined
   }, widgetOrder.map(id => {
     if (novaEnabled) {
       const Component = WIDGET_ROW_COMPONENTS[id];
@@ -19162,10 +19259,17 @@ function Widgets() {
       if (id === "sportsWidget" && sportsWidgetState === "sports-follow-state") {
         size = "large";
       }
-      return /*#__PURE__*/external_React_default().createElement(WidgetWrapper, {
+      const renderIdx = enabledWidgetIds.indexOf(id);
+      const hiddenAttrs = {
+        "data-hidden-1": hiddenAtCols[1].has(renderIdx) ? "" : undefined,
+        "data-hidden-2": hiddenAtCols[2].has(renderIdx) ? "" : undefined,
+        "data-hidden-3": hiddenAtCols[3].has(renderIdx) ? "" : undefined,
+        "data-hidden-4": hiddenAtCols[4].has(renderIdx) ? "" : undefined
+      };
+      return /*#__PURE__*/external_React_default().createElement(WidgetWrapper, Widgets_extends({
         key: id,
         className: size ? `${size}-widget` : ""
-      }, /*#__PURE__*/external_React_default().createElement(Component, {
+      }, hiddenAttrs), /*#__PURE__*/external_React_default().createElement(Component, {
         dispatch: dispatch,
         handleUserInteraction: handleUserInteraction,
         isMaximized: isMaximized,
@@ -19196,7 +19300,14 @@ function Widgets() {
       isMaximized,
       widgetsMayBeMaximized
     }));
-  })), messageData?.content?.messageType === "NovaWidgetMessage" && /*#__PURE__*/external_React_default().createElement("div", {
+  })), novaEnabled && /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "widgets-row-toggle",
+    type: "default",
+    "aria-expanded": rowExpanded,
+    "aria-controls": "widgets-container",
+    onClick: handleToggleRowExpandedClick,
+    "data-l10n-id": rowExpanded ? "newtab-widget-section-show-less" : "newtab-widget-section-show-more"
+  }), messageData?.content?.messageType === "NovaWidgetMessage" && /*#__PURE__*/external_React_default().createElement("div", {
     className: "widgets-row-highlight-anchor"
   }, /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
     dispatch: dispatch
@@ -21545,6 +21656,240 @@ const CustomizeMenu = (0,external_ReactRedux_namespaceObject.connect)(state => (
   DiscoveryStream: state.DiscoveryStream,
   Prefs: state.Prefs
 }))(_CustomizeMenu);
+;// CONCATENATED MODULE: ./content-src/components/Logo/variants/SpinSmooth.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/**
+ * @backward-compat { version 153 }
+ * The entire logo-variation feature can be removed after Firefox 153 hits
+ * Release, when the 2026 World Cup is over. Delete this file, the
+ * `spin-smooth` entry in `LOGO_VARIATIONS` (in `Logo.jsx`), the
+ * `spin-smooth.webp` asset under `data/content/assets/`, and the
+ * `logo.variation` pref entry in `ActivityStream.sys.mjs`.
+ */
+
+
+const SPRITE_URL = "chrome://newtab/content/data/content/assets/spin-smooth.webp";
+const TRANSFORM_VALUES = "0 0;-200 0;-400 0;-600 0;-800 0;-1000 0;0 -200;-200 -200;-400 -200;-600 -200;-800 -200;-1000 -200;0 -400;-200 -400;-400 -400;-600 -400;-800 -400;-1000 -400;0 -600;-200 -600;-400 -600;-600 -600;-800 -600;-1000 -600;0 -800;-200 -800;-400 -800;-600 -800;-800 -800;-1000 -800;0 -1000;-200 -1000;-400 -1000;-600 -1000;-800 -1000;-1000 -1000;0 -1200;-200 -1200;-400 -1200;-600 -1200;-800 -1200;-1000 -1200;0 -1400;-200 -1400;-400 -1400;-600 -1400;-800 -1400;-1000 -1400;0 -1600;-200 -1600;-400 -1600;-600 -1600;-800 -1600;-1000 -1600;0 -1800;-200 -1800;-400 -1800;-600 -1800;-800 -1800;-1000 -1800";
+
+/**
+ * The "logo spin smooth" logo variation. Renders a 200x200 SVG that
+ * windows onto a 1200x2000 WebP sprite sheet (60 frames, 6 columns x
+ * 10 rows). The WebP is served from
+ * `chrome://newtab/content/data/content/assets/spin-smooth.webp` —
+ * `chrome:` is permitted by the newtab CSP's `img-src` list. A SMIL
+ * `<animateTransform>` element pans the image through all 60 cells in
+ * 6.67 seconds. The animation runs **on click**, not automatically — it's
+ * authored with `begin="indefinite"` and triggered via `beginElement()`
+ * from the click handler below. Default `fill="remove"` means the sprite
+ * snaps back to frame 0 once the animation completes, ready for the next
+ * click.
+ *
+ * Click semantics match `<SpinBallSmall>`:
+ *  - First click plays the animation.
+ *  - Clicks while the animation is in flight are ignored (so the sprite
+ *    doesn't jump back mid-spin).
+ *  - Clicks after the animation finishes replay it cleanly.
+ *  - Clicks under `prefers-reduced-motion: reduce` are a no-op; the SVG
+ *    stays at frame 0 (top-left cell of the sprite). This preserves the
+ *    visual presence and click affordance for reduced-motion users
+ *    without forcing them through the spin.
+ *
+ * The variation has no script: the only JS involvement is in the React
+ * click handler. The animation itself is SMIL-declarative.
+ *
+ * @returns {React.ReactElement} The SVG element wrapping the sprite +
+ *   the indefinitely-begun SMIL animation.
+ */
+function SpinSmooth() {
+  const animRef = (0,external_React_namespaceObject.useRef)(null);
+  const isRunningRef = (0,external_React_namespaceObject.useRef)(false);
+  const [isAnimating, setIsAnimating] = (0,external_React_namespaceObject.useState)(false);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const anim = animRef.current;
+    if (!anim) {
+      return undefined;
+    }
+    const onBegin = () => {
+      isRunningRef.current = true;
+      setIsAnimating(true);
+    };
+    const onEnd = () => {
+      isRunningRef.current = false;
+      setIsAnimating(false);
+    };
+    anim.addEventListener("beginEvent", onBegin);
+    anim.addEventListener("endEvent", onEnd);
+    return () => {
+      anim.removeEventListener("beginEvent", onBegin);
+      anim.removeEventListener("endEvent", onEnd);
+    };
+  }, []);
+
+  /**
+   * Plays the SMIL animation once, unless the user has reduced motion
+   * enabled or the animation is already running. `beginElement()` is the
+   * SMIL equivalent of `Animation.play()` for the Web Animations API.
+   */
+  const handleClick = () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    if (!animRef.current || isRunningRef.current) {
+      return;
+    }
+    animRef.current.beginElement();
+  };
+  return /*#__PURE__*/external_React_default().createElement("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    viewBox: "0 0 200 200",
+    className: `logo-variation-small spin-smooth${isAnimating ? " is-animating" : ""}`,
+    "aria-hidden": "true",
+    onClick: handleClick
+  }, /*#__PURE__*/external_React_default().createElement("defs", null, /*#__PURE__*/external_React_default().createElement("clipPath", {
+    id: "spin-smooth-clip"
+  }, /*#__PURE__*/external_React_default().createElement("rect", {
+    x: "0",
+    y: "0",
+    width: "200",
+    height: "200"
+  }))), /*#__PURE__*/external_React_default().createElement("g", {
+    clipPath: "url(#spin-smooth-clip)"
+  }, /*#__PURE__*/external_React_default().createElement("g", null, /*#__PURE__*/external_React_default().createElement("image", {
+    width: "1200",
+    height: "2000",
+    x: "0",
+    y: "0",
+    href: SPRITE_URL
+  }), /*#__PURE__*/external_React_default().createElement("animateTransform", {
+    ref: animRef,
+    attributeName: "transform",
+    type: "translate",
+    calcMode: "discrete",
+    dur: "6.67s",
+    begin: "indefinite",
+    values: TRANSFORM_VALUES
+  }))));
+}
+
+;// CONCATENATED MODULE: ./content-src/components/Logo/variants/RotatingBall.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/**
+ * @backward-compat { version 153 }
+ * The entire logo-variation feature can be removed after Firefox 153 hits
+ * Release, when the 2026 World Cup is over. Delete this file, the
+ * `rotating-ball` entry in `LOGO_VARIATIONS` (in `Logo.jsx`), the
+ * `rotating-ball.webp` asset under `data/content/assets/`, and the
+ * `logo.variation` pref entry in `ActivityStream.sys.mjs`.
+ */
+
+
+const RotatingBall_SPRITE_URL = "chrome://newtab/content/data/content/assets/rotating-ball.webp";
+
+// 30 frames (one entry per sprite cell).
+const RotatingBall_TRANSFORM_VALUES = "0,0;-200,0;-400,0;-600,0;-800,0;-1000,0;-1200,0;-1400,0;-1600,0;-1800,0;-2000,0;-2200,0;-2400,0;-2600,0;-2800,0;-3000,0;-3200,0;-3400,0;-3600,0;-3800,0;-4000,0;-4200,0;-4400,0;-4600,0;-4800,0;-5000,0;-5200,0;-5400,0;-5600,0;-5800,0";
+
+/**
+ * The "rotating ball" logo variation. Renders a 200x200 SVG that windows
+ * onto a 6000x200 WebP sprite sheet (30 frames in a single row, each
+ * 200x200 to match `spin-smooth.webp`). The WebP is served from
+ * `chrome://newtab/content/data/content/assets/rotating-ball.webp` —
+ * `chrome:` is permitted by the newtab CSP's `img-src` list. A SMIL
+ * `<animateTransform>` element pans the image through all 30 frames in
+ * 2.9333 seconds. The animation runs **on click**, not automatically —
+ * it's authored with `begin="indefinite"` and triggered via
+ * `beginElement()` from the click handler. Default `fill="remove"` means
+ * the sprite snaps back to frame 0 once the animation completes, ready
+ * for the next click.
+ *
+ * Click semantics match the other click-triggered variations:
+ *  - First click plays the animation.
+ *  - Clicks while the animation is in flight are ignored (so the sprite
+ *    doesn't jump back mid-spin).
+ *  - Clicks after the animation finishes replay it cleanly.
+ *  - Clicks under `prefers-reduced-motion: reduce` are a no-op; the SVG
+ *    stays at frame 0 (left-most cell of the sprite). This preserves the
+ *    visual presence and click affordance for reduced-motion users
+ *    without forcing them through the spin.
+ *
+ * @returns {React.ReactElement} The SVG element wrapping the sprite +
+ *   the indefinitely-begun SMIL animation.
+ */
+function RotatingBall() {
+  const animRef = (0,external_React_namespaceObject.useRef)(null);
+  const isRunningRef = (0,external_React_namespaceObject.useRef)(false);
+  const [isAnimating, setIsAnimating] = (0,external_React_namespaceObject.useState)(false);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const anim = animRef.current;
+    if (!anim) {
+      return undefined;
+    }
+    const onBegin = () => {
+      isRunningRef.current = true;
+      setIsAnimating(true);
+    };
+    const onEnd = () => {
+      isRunningRef.current = false;
+      setIsAnimating(false);
+    };
+    anim.addEventListener("beginEvent", onBegin);
+    anim.addEventListener("endEvent", onEnd);
+    return () => {
+      anim.removeEventListener("beginEvent", onBegin);
+      anim.removeEventListener("endEvent", onEnd);
+    };
+  }, []);
+
+  /**
+   * Plays the SMIL animation once, unless the user has reduced motion
+   * enabled or the animation is already running. `beginElement()` is the
+   * SMIL equivalent of `Animation.play()` for the Web Animations API.
+   */
+  const handleClick = () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    if (!animRef.current || isRunningRef.current) {
+      return;
+    }
+    animRef.current.beginElement();
+  };
+  return /*#__PURE__*/external_React_default().createElement("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    viewBox: "0 0 200 200",
+    className: `logo-variation-small rotating-ball${isAnimating ? " is-animating" : ""}`,
+    "aria-hidden": "true",
+    onClick: handleClick
+  }, /*#__PURE__*/external_React_default().createElement("defs", null, /*#__PURE__*/external_React_default().createElement("clipPath", {
+    id: "rotating-ball-clip"
+  }, /*#__PURE__*/external_React_default().createElement("rect", {
+    x: "0",
+    y: "0",
+    width: "200",
+    height: "200"
+  }))), /*#__PURE__*/external_React_default().createElement("g", {
+    clipPath: "url(#rotating-ball-clip)"
+  }, /*#__PURE__*/external_React_default().createElement("g", null, /*#__PURE__*/external_React_default().createElement("image", {
+    width: "6000",
+    height: "200",
+    imageRendering: "smooth",
+    href: RotatingBall_SPRITE_URL
+  }), /*#__PURE__*/external_React_default().createElement("animateTransform", {
+    ref: animRef,
+    attributeName: "transform",
+    type: "translate",
+    calcMode: "discrete",
+    dur: "2.9333s",
+    begin: "indefinite",
+    values: RotatingBall_TRANSFORM_VALUES
+  }))));
+}
+
 ;// CONCATENATED MODULE: ./content-src/components/Logo/variants/SpinBallSmall.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -21578,6 +21923,36 @@ const CustomizeMenu = (0,external_ReactRedux_namespaceObject.connect)(state => (
  */
 function SpinBallSmall() {
   const svgRef = (0,external_React_namespaceObject.useRef)(null);
+  const [isAnimating, setIsAnimating] = (0,external_React_namespaceObject.useState)(false);
+
+  // Track whether any of the SVG's CSS animations are in flight. The SVG
+  // contains four parallel animations (spin, blur, classic-fade, nova-fade);
+  // count starts and ends so we only clear `isAnimating` once they're all
+  // done. CSS `animationstart`/`animationend` events bubble from the
+  // animated children up to the SVG ref.
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const svg = svgRef.current;
+    if (!svg) {
+      return undefined;
+    }
+    let inflight = 0;
+    const onStart = () => {
+      inflight += 1;
+      setIsAnimating(true);
+    };
+    const onEnd = () => {
+      inflight = Math.max(0, inflight - 1);
+      if (inflight === 0) {
+        setIsAnimating(false);
+      }
+    };
+    svg.addEventListener("animationstart", onStart);
+    svg.addEventListener("animationend", onEnd);
+    return () => {
+      svg.removeEventListener("animationstart", onStart);
+      svg.removeEventListener("animationend", onEnd);
+    };
+  }, []);
 
   /**
    * Plays every CSS animation declared on the SVG (and its descendants),
@@ -21617,7 +21992,7 @@ function SpinBallSmall() {
     ref: svgRef,
     xmlns: "http://www.w3.org/2000/svg",
     viewBox: "0 0 1000 1000",
-    className: "logo-variation-small spin-ball-small",
+    className: `logo-variation-small spin-ball-small${isAnimating ? " is-animating" : ""}`,
     "aria-hidden": "true",
     onClick: handleClick
   }, /*#__PURE__*/external_React_default().createElement("defs", null, /*#__PURE__*/external_React_default().createElement("linearGradient", {
@@ -21975,6 +22350,8 @@ function SpinBallSmall() {
 
 
 
+
+
 /**
  * @backward-compat { version 153 }
  * Pref consulted (after `trainhopConfig.logo.variation`) to choose a logo
@@ -22008,6 +22385,18 @@ const PREF_LOGO_VARIATION = "logo.variation";
 const LOGO_VARIATIONS = {
   "spin-ball-small": {
     component: SpinBallSmall,
+    minViewportWidth: 0,
+    requiresLTR: false,
+    fallback: null
+  },
+  "spin-smooth": {
+    component: SpinSmooth,
+    minViewportWidth: 0,
+    requiresLTR: false,
+    fallback: null
+  },
+  "rotating-ball": {
+    component: RotatingBall,
     minViewportWidth: 0,
     requiresLTR: false,
     fallback: null

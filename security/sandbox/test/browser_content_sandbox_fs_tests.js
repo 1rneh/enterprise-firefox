@@ -117,6 +117,32 @@ async function testFileAccessAllPlatforms() {
     });
   }
 
+  if (AppConstants.MOZ_ENTERPRISE) {
+    const uAppDataDir = GetUserAppDataDir();
+    const feltJson = uAppDataDir.clone();
+    feltJson.append("felt.json");
+    await IOUtils.writeUTF8(feltJson.path, "{}");
+    tests.push({
+      desc: "felt storage", // description
+      ok: false, // expected to succeed?
+      browser: webBrowser, // browser to run test in
+      file: feltJson, // nsIFile object
+      minLevel: minProfileReadSandboxLevel(), // min level to enable test
+      func: readFile,
+    });
+
+    const feltPendingURLs = GetProfileEntry("pendingURLs.json");
+    await IOUtils.writeUTF8(feltPendingURLs.path, "{}");
+    tests.push({
+      desc: "felt pending urls", // description
+      ok: false, // expected to succeed?
+      browser: webBrowser, // browser to run test in
+      file: feltPendingURLs, // nsIFile object
+      minLevel: minProfileReadSandboxLevel(), // min level to enable test
+      func: readFile,
+    });
+  }
+
   let homeDir = GetHomeDir();
   tests.push({
     desc: "home dir",

@@ -5,6 +5,7 @@
 @import url("chrome://global/skin/global.css");
 @import url("chrome://global/skin/design-system/text-and-typography.css");
 @import url("chrome://global/skin/design-system/tokens-brand.css");
+@import url("chrome://branding/content/felt-tokens.css");
 @import url("chrome://felt/content/styles/felt-tokens.css");
 
 :root {
@@ -28,7 +29,7 @@ body {
 
 .felt-logo {
   display: flex;
-  background: linear-gradient(101deg, #1a3560 0%, #0c66b4 98.12%);
+  background: var(--felt-logo-background-gradient);
   overflow: hidden;
   flex-direction: column;
   justify-content: center;
@@ -42,7 +43,7 @@ body {
   height: 602px;
   justify-content: center;
   align-items: center;
-  background-image: url("chrome://felt/content/assets/enterprise-icon-cropped.svg");
+  background-image: url("chrome://branding/content/enterprise-icon-cropped.svg");
   background-repeat: no-repeat;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   background-size: contain;
@@ -71,8 +72,8 @@ body {
   flex: 1 0 0;
 }
 
-.firefox-enterprise-wordmark {
-  content: url("chrome://felt/content/assets/enterprise-wordmark.svg");
+.enterprise-wordmark {
+  content: url("chrome://branding/content/enterprise-wordmark.svg");
   -moz-context-properties: fill;
   fill: currentColor;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */

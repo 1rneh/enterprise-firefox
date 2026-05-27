@@ -6,6 +6,9 @@
 //!
 //! https://drafts.css-houdini.org/css-typed-om-1/
 
+use crate::values::generics::transform::GenericMatrix3D;
+use crate::values::CSSFloat;
+use crate::{One, Zero};
 use app_units::Au;
 use servo_arc::Arc;
 use style_traits::CssString;
@@ -141,6 +144,267 @@ pub enum NumericValue {
     Sum(MathSum),
 }
 
+impl NumericValue {
+    /// Returns a zero pixel unit value.
+    #[inline]
+    pub fn zero_px() -> Self {
+        Self::Unit(UnitValue {
+            value: 0.0,
+            unit: CssString::from("px"),
+        })
+    }
+}
+
+impl Zero for NumericValue {
+    #[inline]
+    fn zero() -> Self {
+        Self::Unit(UnitValue {
+            value: 0.0,
+            unit: CssString::from("number"),
+        })
+    }
+
+    #[inline]
+    fn is_zero(&self) -> bool {
+        match *self {
+            Self::Unit(ref value) => value.value == 0.0,
+            _ => false,
+        }
+    }
+}
+
+impl One for NumericValue {
+    #[inline]
+    fn one() -> Self {
+        Self::Unit(UnitValue {
+            value: 1.0,
+            unit: CssString::from("number"),
+        })
+    }
+
+    #[inline]
+    fn is_one(&self) -> bool {
+        match *self {
+            Self::Unit(ref value) => value.value == 1.0,
+            _ => false,
+        }
+    }
+}
+
+/// A translate transform component used by the Typed OM.
+///
+/// This corresponds to `CSSTranslate` in the Typed OM specification. The `x`,
+/// `y`, and `z` components are always present; omitted offsets are represented
+/// as `0px`.
+///
+/// The `is_2d` flag indicates whether the component was reified from a 2D
+/// translate function.
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct TranslateComponent {
+    /// The x-axis translation component.
+    pub x: NumericValue,
+
+    /// The y-axis translation component.
+    pub y: NumericValue,
+
+    /// The z-axis translation component.
+    pub z: NumericValue,
+
+    /// Whether this translate component is two-dimensional.
+    pub is_2d: bool,
+}
+
+/// A rotate transform component used by the Typed OM.
+///
+/// This corresponds to `CSSRotate` in the Typed OM specification. The `angle`,
+/// `x`, `y`, and `z` components are always present; omitted axis coordinates
+/// are represented using the implicit axis for the corresponding rotate
+/// function.
+///
+/// The `is_2d` flag indicates whether the component was reified from a 2D
+/// rotate function.
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct RotateComponent {
+    /// The rotation angle.
+    pub angle: NumericValue,
+
+    /// The x-axis rotation coordinate.
+    pub x: NumericValue,
+
+    /// The y-axis rotation coordinate.
+    pub y: NumericValue,
+
+    /// The z-axis rotation coordinate.
+    pub z: NumericValue,
+
+    /// Whether this rotate component is two-dimensional.
+    pub is_2d: bool,
+}
+
+/// A scale transform component used by the Typed OM.
+///
+/// This corresponds to `CSSScale` in the Typed OM specification. The `x`, `y`,
+/// and `z` components are always present; omitted scale factors are
+/// represented as `1`.
+///
+/// The `is_2d` flag indicates whether the component was reified from a 2D
+/// scale function.
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct ScaleComponent {
+    /// The x-axis scale factor.
+    pub x: NumericValue,
+
+    /// The y-axis scale factor.
+    pub y: NumericValue,
+
+    /// The z-axis scale factor.
+    pub z: NumericValue,
+
+    /// Whether this scale component is two-dimensional.
+    pub is_2d: bool,
+}
+
+/// A skew transform component used by the Typed OM.
+///
+/// This corresponds to `CSSSkew` in the Typed OM specification. The `ax` and
+/// `ay` components are always present; omitted angles are represented as
+/// `0deg`.
+///
+/// Skew components are always two-dimensional.
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct SkewComponent {
+    /// The x-axis skew angle.
+    pub ax: NumericValue,
+
+    /// The y-axis skew angle.
+    pub ay: NumericValue,
+}
+
+/// A skewX transform component used by the Typed OM.
+///
+/// This corresponds to `CSSSkewX` in the Typed OM specification. The value is
+/// always present; omitted angles are represented as `0deg`.
+///
+/// SkewX components are always two-dimensional.
+pub type SkewXComponent = NumericValue;
+
+/// A skewY transform component used by the Typed OM.
+///
+/// This corresponds to `CSSSkewY` in the Typed OM specification. The value is
+/// always present; omitted angles are represented as `0deg`.
+///
+/// SkewY components are always two-dimensional.
+pub type SkewYComponent = NumericValue;
+
+/// A perspective value used by a perspective component.
+///
+/// This corresponds to the `CSSPerspectiveValue` union in the Typed OM
+/// specification.
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub enum PerspectiveValue {
+    /// A numeric perspective value.
+    ///
+    /// This corresponds to `CSSNumericValue`.
+    Numeric(NumericValue),
+
+    /// A keyword perspective value.
+    ///
+    /// This corresponds to `CSSKeywordValue`.
+    Keyword(KeywordValue),
+}
+
+/// A perspective transform component used by the Typed OM.
+///
+/// This corresponds to `CSSPerspective` in the Typed OM specification. The
+/// `length` component is always present.
+///
+/// Perspective components are always three-dimensional.
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct PerspectiveComponent {
+    /// The perspective length.
+    pub length: PerspectiveValue,
+}
+
+/// A matrix transform component used by the Typed OM.
+///
+/// This corresponds to `CSSMatrixComponent` in the Typed OM specification.
+///
+/// The `matrix` field always stores a full 4×4 matrix. Two-dimensional
+/// matrices are expanded to their equivalent 3D representation during
+/// reification.
+///
+/// The `is_2d` flag indicates whether the component was reified from a 2D
+/// matrix function.
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct MatrixComponent {
+    /// The 4×4 matrix.
+    pub matrix: GenericMatrix3D<CSSFloat>,
+
+    /// Whether this matrix component is two-dimensional.
+    pub is_2d: bool,
+}
+
+/// A single transform component used by the Typed OM.
+///
+/// This corresponds to `CSSTransformComponent` in the Typed OM specification.
+/// Each variant represents one concrete transform component subclass.
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub enum TransformComponent {
+    /// A translate transform component.
+    ///
+    /// This corresponds to `CSSTranslate`.
+    Translate(TranslateComponent),
+
+    /// A rotate transform component.
+    ///
+    /// This corresponds to `CSSRotate`.
+    Rotate(RotateComponent),
+
+    /// A scale transform component.
+    ///
+    /// This corresponds to `CSSScale`.
+    Scale(ScaleComponent),
+
+    /// A skew transform component.
+    ///
+    /// This corresponds to `CSSSkew`.
+    Skew(SkewComponent),
+
+    /// A skewX transform component.
+    ///
+    /// This corresponds to `CSSSkewX`.
+    SkewX(SkewXComponent),
+
+    /// A skewY transform component.
+    ///
+    /// This corresponds to `CSSSkewY`.
+    SkewY(SkewYComponent),
+
+    /// A perspective transform component.
+    ///
+    /// This corresponds to `CSSPerspective`.
+    Perspective(PerspectiveComponent),
+
+    /// A matrix transform component.
+    ///
+    /// This corresponds to `CSSMatrixComponent`.
+    Matrix(MatrixComponent),
+}
+
+/// A transform value used by the Typed OM.
+///
+/// This corresponds to `CSSTransformValue` in the Typed OM specification. It
+/// represents a `<transform-list>` as an ordered list of transform components.
+pub type TransformValue = ThinVec<TransformComponent>;
+
 /// A property-agnostic representation of a value, used by Typed OM.
 ///
 /// `TypedValue` is the internal counterpart of the various `CSSStyleValue`
@@ -167,6 +431,11 @@ pub enum TypedValue {
     /// This corresponds to the `CSSNumericValue` hierarchy in the Typed OM
     /// specification, including `CSSUnitValue` and `CSSMathSum`.
     Numeric(NumericValue),
+
+    /// A transform value such as `translate(10px, 20px)`.
+    ///
+    /// This corresponds to `CSSTransformValue` in the Typed OM specification.
+    Transform(TransformValue),
 }
 
 /// A list of property-agnostic values used by the Typed OM.
@@ -282,6 +551,17 @@ pub trait ToTyped {
         let mut dest = ThinVec::new();
         self.to_typed(&mut dest).ok()?;
         dest.into_iter().next()
+    }
+
+    /// Attempt to convert `self` into a [`NumericValue`].
+    ///
+    /// Returns `Some(NumericValue)` if the value reifies to a single
+    /// `TypedValue::Numeric` item. Returns `None` otherwise.
+    fn to_numeric_value(&self) -> Option<NumericValue> {
+        match self.to_typed_value()? {
+            TypedValue::Numeric(value) => Some(value),
+            _ => None,
+        }
     }
 
     /// Attempt to convert `self` into a [`TypedValueList`].

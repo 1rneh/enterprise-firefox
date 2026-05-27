@@ -12,6 +12,8 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
+import { SpinSmooth } from "./variants/SpinSmooth";
+import { RotatingBall } from "./variants/RotatingBall";
 import { SpinBallSmall } from "./variants/SpinBallSmall";
 
 /**
@@ -47,6 +49,18 @@ export const PREF_LOGO_VARIATION = "logo.variation";
 export const LOGO_VARIATIONS = {
   "spin-ball-small": {
     component: SpinBallSmall,
+    minViewportWidth: 0,
+    requiresLTR: false,
+    fallback: null,
+  },
+  "spin-smooth": {
+    component: SpinSmooth,
+    minViewportWidth: 0,
+    requiresLTR: false,
+    fallback: null,
+  },
+  "rotating-ball": {
+    component: RotatingBall,
     minViewportWidth: 0,
     requiresLTR: false,
     fallback: null,

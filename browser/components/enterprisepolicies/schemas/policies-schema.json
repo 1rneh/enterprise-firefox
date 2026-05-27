@@ -827,7 +827,8 @@
             "reject",
             "limit-foreign",
             "reject-tracker",
-            "reject-tracker-and-partition-foreign"
+            "reject-tracker-and-partition-foreign",
+            "partition-foreign"
           ]
         },
         "BehaviorPrivateBrowsing": {
@@ -838,7 +839,8 @@
             "reject",
             "limit-foreign",
             "reject-tracker",
-            "reject-tracker-and-partition-foreign"
+            "reject-tracker-and-partition-foreign",
+            "partition-foreign"
           ]
         }
       }

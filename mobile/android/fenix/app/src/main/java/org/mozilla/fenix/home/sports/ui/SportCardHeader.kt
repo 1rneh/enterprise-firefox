@@ -19,6 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
@@ -30,6 +33,7 @@ import org.mozilla.fenix.home.sports.Group
 import org.mozilla.fenix.home.sports.LiveMatchRefreshSource
 import org.mozilla.fenix.home.sports.Match
 import org.mozilla.fenix.home.sports.MatchStatus
+import org.mozilla.fenix.home.sports.SportCardErrorState
 import org.mozilla.fenix.home.sports.Team
 import org.mozilla.fenix.home.sports.TournamentRound
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -40,14 +44,35 @@ internal fun SportCardHeader(
     match: Match,
     round: TournamentRound,
     isTeamSelected: Boolean,
+    errorState: SportCardErrorState?,
     onRefresh: (LiveMatchRefreshSource) -> Unit,
     modifier: Modifier = Modifier,
+    pageNumber: Int? = null,
+    pageCount: Int? = null,
 ) {
-    val title = if (isTeamSelected) {
-        groupDisplayName(group = match.home.group) ?: roundDisplayName(round)
+    // Group label only makes sense on the group-stage card (both teams share a group).
+    // Knockout rounds pair teams from different groups, so showing the home team's group
+    // would be misleading — use the round name there.
+    // For the group-stage case, fall through home → away so the label still resolves
+    // when the followed team is the away side or one side carries partial data.
+    val title = if (isTeamSelected && round == TournamentRound.GROUP_STAGE) {
+        val groupForDisplay = match.home?.group ?: match.away?.group
+        groupDisplayName(group = groupForDisplay) ?: roundDisplayName(round)
     } else {
         roundDisplayName(round)
     }
+
+    val isLive = match.matchStatus.isLive()
+    val baseContentDescription = when {
+        isLive -> stringResource(R.string.sports_widget_live_game_content_description, title)
+        !isTeamSelected -> "$title, ${match.date}"
+        else -> title
+    }
+    val headerContentDescription = pagerHeadingContentDescription(
+        baseText = baseContentDescription,
+        pageNumber = pageNumber,
+        pageCount = pageCount,
+    )
 
     Row(
         modifier = modifier
@@ -55,14 +80,22 @@ internal fun SportCardHeader(
             .padding(horizontal = FirefoxTheme.layout.space.static100),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = title,
-            style = FirefoxTheme.typography.headline8,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clearAndSetSemantics {
+                    heading()
+                    contentDescription = headerContentDescription
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = FirefoxTheme.typography.headline8,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
 
-        Row(modifier = Modifier.weight(1f)) {
-            if (match.matchStatus.isLive()) {
+            if (isLive) {
                 Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
 
                 LiveBadge()
@@ -73,6 +106,7 @@ internal fun SportCardHeader(
                     text = "·",
                     style = FirefoxTheme.typography.body2,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.clearAndSetSemantics {},
                 )
 
                 Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
@@ -85,7 +119,7 @@ internal fun SportCardHeader(
             }
         }
 
-        if (match.matchStatus.isLive()) {
+        if (isLive && errorState == null) {
             IconButton(
                 onClick = { onRefresh(LiveMatchRefreshSource.LIVE_MATCH_HEADER) },
                 contentDescription = stringResource(R.string.sports_widget_error_refresh),
@@ -110,7 +144,7 @@ private fun LiveBadge() {
     )
 }
 
-private fun MatchStatus.isLive(): Boolean = when (this) {
+internal fun MatchStatus.isLive(): Boolean = when (this) {
     is MatchStatus.Live,
     is MatchStatus.Penalties,
         -> true
@@ -212,6 +246,7 @@ private fun SportCardHeaderPreview(
                 ),
                 round = state.round,
                 isTeamSelected = true,
+                errorState = null,
                 onRefresh = {},
             )
         }

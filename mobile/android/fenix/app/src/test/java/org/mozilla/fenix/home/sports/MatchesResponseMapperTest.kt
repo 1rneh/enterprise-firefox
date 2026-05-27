@@ -158,6 +158,31 @@ class MatchesResponseMapperTest {
     }
 
     @Test
+    fun `GIVEN a team with an ISO3 key that has a FIFA alias WHEN mapped THEN key is normalized to FIFA`() {
+        val dto = minimalEvent().copy(
+            homeTeam = TeamInfoDto(key = "URY"),
+            awayTeam = TeamInfoDto(key = "DEU"),
+        )
+        val match = mapper.mapAllMatches(MatchesResponseDto(listOf(dto)))[0]
+        assertEquals("URU", match.homeTeam.key)
+        assertEquals("GER", match.awayTeam.key)
+    }
+
+    @Test
+    fun `GIVEN a team with a CVI key WHEN mapped THEN key is normalized to FIFA`() {
+        val dto = minimalEvent().copy(homeTeam = TeamInfoDto(key = "CVI"))
+        val match = mapper.mapAllMatches(MatchesResponseDto(listOf(dto)))[0]
+        assertEquals("CPV", match.homeTeam.key)
+    }
+
+    @Test
+    fun `GIVEN a team key with no alias WHEN mapped THEN key is left untouched`() {
+        val dto = minimalEvent().copy(homeTeam = TeamInfoDto(key = "ENG"))
+        val match = mapper.mapAllMatches(MatchesResponseDto(listOf(dto)))[0]
+        assertEquals("ENG", match.homeTeam.key)
+    }
+
+    @Test
     fun `GIVEN a team with null icon and group WHEN mapped THEN iconUrl and group are null`() {
         val dto = minimalEvent().copy(
             homeTeam = TeamInfoDto(key = "USA", iconUrl = null, group = null),
@@ -402,6 +427,18 @@ class MatchesResponseMapperTest {
     fun `GIVEN missing stage WHEN mapped THEN stage defaults to GROUP_STAGE`() {
         // DTO default kicks in when the JSON doesn't include "stage".
         assertEquals(TournamentRound.GROUP_STAGE, mapSingle(minimalEvent()).stage)
+    }
+
+    @Test
+    fun `GIVEN canonical API stage strings WHEN mapped THEN parsed to the correct TournamentRound`() {
+        // Exact values the server emits per the spec.
+        assertStage("Group Stage", TournamentRound.GROUP_STAGE)
+        assertStage("Round of 32", TournamentRound.ROUND_OF_32)
+        assertStage("Round of 16", TournamentRound.ROUND_OF_16)
+        assertStage("Quarter-Finals", TournamentRound.QUARTER_FINAL)
+        assertStage("Semi-Finals", TournamentRound.SEMI_FINAL)
+        assertStage("3rd Place", TournamentRound.THIRD_PLACE_PLAYOFF)
+        assertStage("Final", TournamentRound.FINAL)
     }
 
     // endregion

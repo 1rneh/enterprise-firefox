@@ -21,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
@@ -29,6 +31,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.home.sports.LiveMatchRefreshSource
 import org.mozilla.fenix.home.sports.Match
 import org.mozilla.fenix.home.sports.MatchStatus
+import org.mozilla.fenix.home.sports.SportCardErrorState
 import org.mozilla.fenix.home.sports.Team
 import org.mozilla.fenix.home.sports.fake.FakeMatchCardScenario
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -38,18 +41,25 @@ import org.mozilla.fenix.home.sports.MatchCard as MatchCardState
  * Card that renders a sports match and their related matches.
  *
  * @param state The [MatchCardState] to display in this card.
+ * @param errorState The [SportCardErrorState] to display in this card when there is an error during a live match.
  * @param isTeamSelected Whether the user has selected a team.
  * @param onRefresh Used to refresh the scores for live matches.
  * @param onMatchClicked Used to handle match click actions.
  * @param modifier [Modifier] to be applied to the card.
+ * @param pageNumber 1-based page position when this card is rendered inside a pager; used by the
+ * header to announce e.g. "Group D, page 1 of 2" for assistive technology.
+ * @param pageCount Total number of pages when rendered inside a pager. Ignored if `pageNumber` is null.
  */
 @Composable
 fun MatchCard(
     state: MatchCardState,
+    errorState: SportCardErrorState?,
     isTeamSelected: Boolean,
     onRefresh: (LiveMatchRefreshSource) -> Unit,
-    onMatchClicked: (String, String) -> Unit,
+    onMatchClicked: (String?, String?, String?) -> Unit,
     modifier: Modifier = Modifier,
+    pageNumber: Int? = null,
+    pageCount: Int? = null,
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -80,22 +90,28 @@ fun MatchCard(
                     match = sportHeaderMatch,
                     round = state.round,
                     isTeamSelected = isTeamSelected,
+                    errorState = errorState,
                     onRefresh = onRefresh,
+                    pageNumber = pageNumber,
+                    pageCount = pageCount,
                 )
             }
 
             matches.forEach { match ->
                 MatchBody(
                     match = match,
+                    errorState = errorState,
                     showDivider = relatedMatches.isNotEmpty(),
                     isTeamSelected = isTeamSelected,
                     onMatchClicked = onMatchClicked,
+                    onRefresh = onRefresh,
                 )
             }
 
             if (relatedMatches.isNotEmpty()) {
                 RelatedMatchesSection(
                     matches = relatedMatches,
+                    round = state.round,
                     isTeamSelected = isTeamSelected,
                     onMatchClicked = onMatchClicked,
                 )
@@ -109,38 +125,58 @@ fun MatchCard(
  * a score pill for current matches.
  */
 @Composable
-private fun MatchBody(
+internal fun MatchBody(
     match: Match,
+    errorState: SportCardErrorState?,
     showDivider: Boolean,
     isTeamSelected: Boolean,
-    onMatchClicked: (String, String) -> Unit,
+    onMatchClicked: (String?, String?, String?) -> Unit,
+    onRefresh: (LiveMatchRefreshSource) -> Unit,
 ) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = { onMatchClicked(match.home.region, match.away.region) }),
-            horizontalArrangement = Arrangement.spacedBy(FirefoxTheme.layout.space.static100),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TeamSlot(team = match.home, modifier = Modifier.weight(1f))
+    if (errorState != null && match.matchStatus.isLive()) {
+        SportsWidgetErrorCard(
+            error = errorState,
+            onRefresh = { onRefresh(LiveMatchRefreshSource.LIVE_MATCH_ERROR_BUTTON) },
+        )
+    } else {
+        val rowContentDescription = matchBodyContentDescription(match = match, isTeamSelected = isTeamSelected)
 
-            Scoreboard(match = match, isTeamSelected = isTeamSelected)
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        onClick = {
+                            if (match.home != null || match.away != null) {
+                                onMatchClicked(match.home?.key, match.away?.key, "${match.date} ${match.time}")
+                            }
+                        },
+                    )
+                    .clearAndSetSemantics {
+                        contentDescription = rowContentDescription
+                    },
+                horizontalArrangement = Arrangement.spacedBy(FirefoxTheme.layout.space.static100),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TeamSlot(team = match.home, modifier = Modifier.weight(1f))
 
-            TeamSlot(team = match.away, modifier = Modifier.weight(1f))
-        }
+                Scoreboard(match = match, isTeamSelected = isTeamSelected)
 
-        if (showDivider) {
-            Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static100))
+                TeamSlot(team = match.away, modifier = Modifier.weight(1f))
+            }
 
-            HorizontalDivider()
+            if (showDivider) {
+                Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static100))
+
+                HorizontalDivider()
+            }
         }
     }
 }
 
 @Composable
 private fun TeamSlot(
-    team: Team,
+    team: Team?,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -149,12 +185,12 @@ private fun TeamSlot(
         verticalArrangement = Arrangement.spacedBy(FirefoxTheme.layout.space.static50),
     ) {
         FlagContainer(
-            flagResId = team.flagResId,
+            flagResId = team?.flagResId,
             modifier = Modifier.size(width = 60.dp, height = 40.dp),
         )
 
         Text(
-            text = team.key,
+            text = team?.key ?: "--",
             style = FirefoxTheme.typography.subtitle2,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -234,6 +270,66 @@ private fun secondStatusSubtitle(status: MatchStatus, time: String): String = wh
     else -> time
 }
 
+@Composable
+private fun matchBodyContentDescription(
+    match: Match,
+    isTeamSelected: Boolean,
+): String {
+    val homeName = match.home?.let { localizedTeamName(it) }
+        ?: stringResource(R.string.sports_widget_team_to_be_determined)
+    val awayName = match.away?.let { localizedTeamName(it) }
+        ?: stringResource(R.string.sports_widget_team_to_be_determined)
+    val middleText = matchBodyMiddleText(match = match, isTeamSelected = isTeamSelected)
+
+    return when {
+        match.homeScore == null || match.awayScore == null ->
+            stringResource(
+                R.string.sports_widget_match_content_description,
+                homeName,
+                awayName,
+                middleText,
+            )
+
+        match.matchStatus.isLive() ->
+            stringResource(
+                R.string.sports_widget_live_score_content_description,
+                homeName,
+                match.homeScore,
+                awayName,
+                match.awayScore,
+                middleText,
+            )
+
+        else -> listOf(
+            homeName,
+            match.homeScore.toString(),
+            awayName,
+            match.awayScore.toString(),
+            middleText,
+        ).filter { it.isNotEmpty() }.joinToString(separator = " ")
+    }
+}
+
+@Composable
+private fun matchBodyMiddleText(match: Match, isTeamSelected: Boolean): String {
+    val status = match.matchStatus
+    val primary = if (status is MatchStatus.Live) {
+        stringResource(R.string.sports_widget_match_elapsed_minutes, status.clock)
+    } else {
+        statusSubtitle(
+            status = status,
+            date = match.date,
+            isTeamSelected = isTeamSelected,
+        )
+    }
+    val secondary = if (status.hasSecondaryStatusSubtitle()) {
+        secondStatusSubtitle(status = status, time = match.time)
+    } else {
+        ""
+    }
+    return listOf(primary, secondary).filter { it.isNotEmpty() }.joinToString(separator = " ")
+}
+
 private data class MatchCardPreviewState(
     val label: String,
     val state: MatchCardState,
@@ -254,12 +350,34 @@ private fun MatchCardPreview(
         Surface {
             MatchCard(
                 state = preview.state,
+                errorState = null,
                 isTeamSelected = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(FirefoxTheme.layout.space.static200),
                 onRefresh = {},
-                onMatchClicked = { _, _ -> },
+                onMatchClicked = { _, _, _ -> },
+            )
+        }
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun MatchCardErrorPreview(
+    @PreviewParameter(MatchCardPreviewProvider::class) preview: MatchCardPreviewState,
+) {
+    FirefoxTheme {
+        Surface {
+            MatchCard(
+                state = preview.state,
+                errorState = SportCardErrorState.LoadFailed,
+                isTeamSelected = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(FirefoxTheme.layout.space.static200),
+                onRefresh = {},
+                onMatchClicked = { _, _, _ -> },
             )
         }
     }

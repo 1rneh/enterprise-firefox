@@ -7,9 +7,10 @@ package org.mozilla.fenix.home.sports
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
+import org.mozilla.fenix.R
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import kotlin.test.assertIs
 
 class MatchCardBuilderTest {
 
@@ -111,10 +112,80 @@ class MatchCardBuilderTest {
 
         assertEquals(2, cards.size)
         assertEquals(TournamentRound.GROUP_STAGE, cards[0].round)
-        assertTrue(cards[0].matches.isEmpty())
-        assertEquals(listOf(1L, 2L), cards[0].relatedMatches.map { it.globalEventId })
+        // No live match: featured falls back to the most-recent past (g2); older sibling collapses to related.
+        assertEquals(listOf(2L), cards[0].matches.map { it.globalEventId })
+        assertEquals(listOf(1L), cards[0].relatedMatches.map { it.globalEventId })
         assertEquals(TournamentRound.ROUND_OF_16, cards[1].round)
         assertEquals(listOf(3L), cards[1].matches.map { it.globalEventId })
+    }
+
+    @Test
+    fun `buildForTeam GIVEN group stage with no live but upcoming matches THEN next upcoming is featured`() {
+        val past = sportsMatch(
+            id = 1L,
+            stage = TournamentRound.GROUP_STAGE,
+            status = MatchStatus.Final,
+            homeScore = 1,
+            awayScore = 0,
+            date = zonedDateTime(2026, 6, 12, 18),
+        )
+        val nextUpcoming = sportsMatch(
+            id = 2L,
+            stage = TournamentRound.GROUP_STAGE,
+            status = MatchStatus.Scheduled,
+            date = zonedDateTime(2026, 6, 17, 18),
+        )
+        val laterUpcoming = sportsMatch(
+            id = 3L,
+            stage = TournamentRound.GROUP_STAGE,
+            status = MatchStatus.Scheduled,
+            date = zonedDateTime(2026, 6, 22, 18),
+        )
+
+        val cards = MatchCardBuilder.buildForTeam(
+            TeamMatchesResult(
+                previous = listOf(past),
+                current = emptyList(),
+                next = listOf(nextUpcoming, laterUpcoming),
+            ),
+        )
+
+        assertEquals(1, cards.size)
+        assertEquals(TournamentRound.GROUP_STAGE, cards[0].round)
+        assertEquals(listOf(2L), cards[0].matches.map { it.globalEventId })
+        assertEquals(listOf(1L, 3L), cards[0].relatedMatches.map { it.globalEventId })
+    }
+
+    @Test
+    fun `buildForTeam GIVEN group stage with only past matches THEN most recent past is featured`() {
+        val earlier = sportsMatch(
+            id = 1L,
+            stage = TournamentRound.GROUP_STAGE,
+            status = MatchStatus.Final,
+            homeScore = 1,
+            awayScore = 0,
+            date = zonedDateTime(2026, 6, 12, 18),
+        )
+        val recent = sportsMatch(
+            id = 2L,
+            stage = TournamentRound.GROUP_STAGE,
+            status = MatchStatus.Final,
+            homeScore = 2,
+            awayScore = 1,
+            date = zonedDateTime(2026, 6, 22, 18),
+        )
+
+        val cards = MatchCardBuilder.buildForTeam(
+            TeamMatchesResult(
+                previous = listOf(earlier, recent),
+                current = emptyList(),
+                next = emptyList(),
+            ),
+        )
+
+        assertEquals(1, cards.size)
+        assertEquals(listOf(2L), cards[0].matches.map { it.globalEventId })
+        assertEquals(listOf(1L), cards[0].relatedMatches.map { it.globalEventId })
     }
 
     @Test
@@ -139,31 +210,31 @@ class MatchCardBuilderTest {
 
     @Test
     fun `buildForNoTeam GIVEN empty THEN empty pager`() {
-        val cards = MatchCardBuilder.buildForNoTeam(matches = emptyList(), today = LocalDate.of(2026, 6, 12))
+        val cards = MatchCardBuilder.buildForNoTeam(matches = emptyList())
         assertTrue(cards.isEmpty())
     }
 
     @Test
-    fun `buildForNoTeam GIVEN group stage future matches THEN picks next available day`() {
-        val today = LocalDate.of(2026, 6, 12)
-        val tomorrow = sportsMatch(id = 1L, date = zonedDateTime(2026, 6, 13, 14))
-        val tomorrowEvening = sportsMatch(id = 2L, date = zonedDateTime(2026, 6, 13, 18))
-        val later = sportsMatch(id = 3L, date = zonedDateTime(2026, 6, 14, 14))
+    fun `buildForNoTeam GIVEN group stage matches across days THEN one card per date in chronological order`() {
+        val day1Early = sportsMatch(id = 1L, date = zonedDateTime(2026, 6, 13, 14))
+        val day1Late = sportsMatch(id = 2L, date = zonedDateTime(2026, 6, 13, 18))
+        val day2 = sportsMatch(id = 3L, date = zonedDateTime(2026, 6, 14, 14))
 
         val cards = MatchCardBuilder.buildForNoTeam(
-            matches = listOf(tomorrow, tomorrowEvening, later),
-            today = today,
+            matches = listOf(day1Early, day1Late, day2),
         )
 
-        assertEquals(1, cards.size)
-        val card = cards[0]
-        assertTrue(card.matches.isEmpty())
-        assertEquals(listOf(1L, 2L), card.relatedMatches.map { it.globalEventId })
+        assertEquals(2, cards.size)
+        // Day 1: soonest scheduled is featured, sibling collapses to a related row.
+        assertEquals(listOf(1L), cards[0].matches.map { it.globalEventId })
+        assertEquals(listOf(2L), cards[0].relatedMatches.map { it.globalEventId })
+        // Day 2: lone match is featured, no siblings.
+        assertEquals(listOf(3L), cards[1].matches.map { it.globalEventId })
+        assertTrue(cards[1].relatedMatches.isEmpty())
     }
 
     @Test
-    fun `buildForNoTeam GIVEN group stage live today THEN live in matches, others in relatedMatches`() {
-        val today = LocalDate.of(2026, 6, 12)
+    fun `buildForNoTeam GIVEN multiple matches on one day THEN live is featured and others are related`() {
         val past = sportsMatch(
             id = 1L,
             date = zonedDateTime(2026, 6, 12, 9),
@@ -184,18 +255,15 @@ class MatchCardBuilderTest {
 
         val cards = MatchCardBuilder.buildForNoTeam(
             matches = listOf(past, live, future),
-            today = today,
         )
 
         assertEquals(1, cards.size)
-        val card = cards[0]
-        assertEquals(listOf(2L), card.matches.map { it.globalEventId })
-        assertEquals(listOf(1L, 3L), card.relatedMatches.map { it.globalEventId })
+        assertEquals(listOf(2L), cards[0].matches.map { it.globalEventId })
+        assertEquals(listOf(1L, 3L), cards[0].relatedMatches.map { it.globalEventId })
     }
 
     @Test
-    fun `buildForNoTeam GIVEN group stage all past THEN falls back to most recent day`() {
-        val today = LocalDate.of(2026, 7, 1)
+    fun `buildForNoTeam GIVEN only past matches on different days THEN one card per date in chronological order`() {
         val past1 = sportsMatch(
             id = 1L,
             date = zonedDateTime(2026, 6, 10, 18),
@@ -211,10 +279,11 @@ class MatchCardBuilderTest {
             awayScore = 1,
         )
 
-        val cards = MatchCardBuilder.buildForNoTeam(matches = listOf(past1, past2), today = today)
+        val cards = MatchCardBuilder.buildForNoTeam(matches = listOf(past1, past2))
 
-        assertEquals(1, cards.size)
-        assertEquals(listOf(2L), cards[0].relatedMatches.map { it.globalEventId })
+        assertEquals(2, cards.size)
+        assertEquals(listOf(1L), cards[0].matches.map { it.globalEventId })
+        assertEquals(listOf(2L), cards[1].matches.map { it.globalEventId })
     }
 
     @Test
@@ -241,11 +310,14 @@ class MatchCardBuilderTest {
         val cards = MatchCardBuilder.buildForNoTeam(matches = listOf(d1a, d1b, d2))
 
         assertEquals(2, cards.size)
-        assertEquals(listOf(3L), cards[0].matches.map { it.globalEventId }) // live day first
-        assertEquals(listOf(1L, 2L), cards[1].matches.map { it.globalEventId }) // upcoming day after
+        // Live day comes first; its lone live match is featured with no siblings.
+        assertEquals(listOf(3L), cards[0].matches.map { it.globalEventId })
+        assertTrue(cards[0].relatedMatches.isEmpty())
+        // Upcoming day: soonest scheduled is featured, the sibling collapses to a related row.
+        assertEquals(listOf(1L), cards[1].matches.map { it.globalEventId })
+        assertEquals(listOf(2L), cards[1].relatedMatches.map { it.globalEventId })
         assertEquals(TournamentRound.ROUND_OF_16, cards[0].round)
         assertEquals(TournamentRound.ROUND_OF_16, cards[1].round)
-        cards.forEach { assertTrue(it.relatedMatches.isEmpty()) }
     }
 
     // endregion
@@ -309,7 +381,8 @@ class MatchCardBuilderTest {
     // region celebration outcome
 
     @Test
-    fun `viewerOutcome GIVEN decided final via buildForTeam THEN TournamentWinner`() {
+    fun `viewerOutcome GIVEN decided final via buildForTeam THEN TournamentWinner carries the winning team`() {
+        // CAN home, AUS away. Regulation 1-1, penalties 4-3 → CAN wins.
         val finalMatch = sportsMatch(
             id = 1L,
             stage = TournamentRound.FINAL,
@@ -324,11 +397,13 @@ class MatchCardBuilderTest {
         val cards = MatchCardBuilder.buildForTeam(
             TeamMatchesResult(previous = listOf(finalMatch), current = emptyList(), next = emptyList()),
         )
-        assertEquals(FollowedTeamOutcome.TournamentWinner, cards[0].viewerOutcome)
+        val outcome = cards[0].viewerOutcome
+        assertIs<FollowedTeamOutcome.TournamentWinner>(outcome)
+        assertEquals("CAN", outcome.winner.key)
     }
 
     @Test
-    fun `viewerOutcome GIVEN decided final via buildForNoTeam THEN TournamentWinner`() {
+    fun `viewerOutcome GIVEN decided final via buildForNoTeam THEN TournamentWinner carries the winning team`() {
         val finalMatch = sportsMatch(
             id = 1L,
             stage = TournamentRound.FINAL,
@@ -342,11 +417,32 @@ class MatchCardBuilderTest {
         )
         val cards = MatchCardBuilder.buildForNoTeam(matches = listOf(finalMatch))
         assertEquals(1, cards.size)
-        assertEquals(FollowedTeamOutcome.TournamentWinner, cards[0].viewerOutcome)
+        val outcome = cards[0].viewerOutcome
+        assertIs<FollowedTeamOutcome.TournamentWinner>(outcome)
+        assertEquals("CAN", outcome.winner.key)
     }
 
     @Test
-    fun `viewerOutcome GIVEN decided third-place playoff THEN ThirdPlace`() {
+    fun `viewerOutcome GIVEN final where away team wins THEN winner is the away team`() {
+        // CAN home, AUS away. Regulation 0-2 → AUS wins outright.
+        val finalMatch = sportsMatch(
+            id = 1L,
+            stage = TournamentRound.FINAL,
+            homeKey = "CAN",
+            awayKey = "AUS",
+            status = MatchStatus.Final,
+            homeScore = 0,
+            awayScore = 2,
+        )
+        val cards = MatchCardBuilder.buildForNoTeam(matches = listOf(finalMatch))
+        val outcome = cards[0].viewerOutcome
+        assertIs<FollowedTeamOutcome.TournamentWinner>(outcome)
+        assertEquals("AUS", outcome.winner.key)
+    }
+
+    @Test
+    fun `viewerOutcome GIVEN decided third-place playoff THEN ThirdPlace carries the winning team`() {
+        // USA home, PAR away. Regulation 8-5 → USA wins the playoff.
         val playoff = sportsMatch(
             id = 1L,
             stage = TournamentRound.THIRD_PLACE_PLAYOFF,
@@ -358,7 +454,9 @@ class MatchCardBuilderTest {
         )
         val cards = MatchCardBuilder.buildForNoTeam(matches = listOf(playoff))
         assertEquals(1, cards.size)
-        assertEquals(FollowedTeamOutcome.ThirdPlace, cards[0].viewerOutcome)
+        val outcome = cards[0].viewerOutcome
+        assertIs<FollowedTeamOutcome.ThirdPlace>(outcome)
+        assertEquals("USA", outcome.winner.key)
     }
 
     @Test
@@ -385,6 +483,35 @@ class MatchCardBuilderTest {
             TeamMatchesResult(previous = listOf(qf), current = emptyList(), next = emptyList()),
         )
         assertEquals(FollowedTeamOutcome.NotInvolved, cards[0].viewerOutcome)
+    }
+
+    // endregion
+
+    // region key normalization
+
+    @Test
+    fun `toTeam GIVEN unknown key THEN preserve key and produce zero flagResId`() {
+        val match = sportsMatch(id = 1L, homeKey = "XYZ", awayKey = "USA")
+        val home = MatchCardBuilder.buildForNoTeam(listOf(match))
+            .first()
+            .matches
+            .first()
+            .home
+        assertEquals("XYZ", home?.key)
+        assertEquals(0, home?.flagResId)
+    }
+
+    @Test
+    fun `toTeam GIVEN FIFA key already matches Region THEN pass through`() {
+        val match = sportsMatch(id = 1L, homeKey = "ENG", awayKey = "BRA")
+        val ui = MatchCardBuilder.buildForNoTeam(listOf(match))
+            .first()
+            .matches
+            .first()
+        assertEquals("ENG", ui.home?.key)
+        assertEquals(R.drawable.flag_eng, ui.home?.flagResId)
+        assertEquals("BRA", ui.away?.key)
+        assertEquals(R.drawable.flag_br, ui.away?.flagResId)
     }
 
     // endregion

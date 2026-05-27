@@ -31,7 +31,6 @@ import org.mozilla.fenix.components.appstate.setup.checklist.ChecklistItem
 import org.mozilla.fenix.compose.MessageCardState
 import org.mozilla.fenix.home.bookmarks.Bookmark
 import org.mozilla.fenix.home.bookmarks.interactor.BookmarksInteractor
-import org.mozilla.fenix.home.collections.CollectionColors
 import org.mozilla.fenix.home.collections.CollectionsState
 import org.mozilla.fenix.home.interactor.HomepageInteractor
 import org.mozilla.fenix.home.pocket.PocketRecommendedStoriesCategory
@@ -118,7 +117,7 @@ internal object FakeHomepagePreview {
 
             override fun onGetCustomWallpaperClicked() { /* no op */ }
 
-            override fun onMatchClicked(homeTeam: String, awayTeam: String) { /* no op */ }
+            override fun onMatchClicked(homeTeam: String?, awayTeam: String?, date: String?) { /* no op */ }
 
             override fun onSportsWidgetShown() { /* no op */ }
 
@@ -239,8 +238,6 @@ internal object FakeHomepagePreview {
             ) { /* no op */ }
 
             override fun onAddTabsToCollectionTapped() { /* no op */ }
-
-            override fun onRemoveCollectionsPlaceholder() { /* no op */ }
         }
 
     internal val homeSearchInteractor: HomeSearchInteractor
@@ -388,12 +385,6 @@ internal object FakeHomepagePreview {
         collections = listOf(collection(tabs = listOf(tab()))),
         expandedCollections = setOf(),
         showSaveTabsToCollection = true,
-    )
-
-    @Composable
-    internal fun collectionsPlaceholder() = CollectionsState.Placeholder(
-        showSaveTabsToCollection = true,
-        colors = CollectionColors.colors(),
     )
 
     internal fun collection(tabs: List<Tab> = emptyList()): TabCollection {

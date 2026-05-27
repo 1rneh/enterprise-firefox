@@ -123,11 +123,6 @@ interface CollectionInteractor {
      * Opens the collection creator
      */
     fun onAddTabsToCollectionTapped()
-
-    /**
-     * User has removed the collections placeholder from home.
-     */
-    fun onRemoveCollectionsPlaceholder()
 }
 
 interface MessageCardInteractor {
@@ -313,10 +308,6 @@ class SessionControlInteractor(
         homeSearchController.handleHomeContentFocusedWhileSearchIsActive()
     }
 
-    override fun onRemoveCollectionsPlaceholder() {
-        controller.handleRemoveCollectionsPlaceholder()
-    }
-
     override fun onRecentTabClicked(tabId: String) {
         recentTabController.handleRecentTabClicked(tabId)
     }
@@ -463,8 +454,8 @@ class SessionControlInteractor(
         sportsController.handleOnGetCustomWallpaperClicked()
     }
 
-    override fun onMatchClicked(homeTeam: String, awayTeam: String) {
-        sportsController.handleMatchClicked(homeTeam = homeTeam, awayTeam = awayTeam)
+    override fun onMatchClicked(homeTeam: String?, awayTeam: String?, date: String?) {
+        sportsController.handleMatchClicked(homeTeam = homeTeam, awayTeam = awayTeam, date = date)
     }
 
     override fun onSportsWidgetShown() {

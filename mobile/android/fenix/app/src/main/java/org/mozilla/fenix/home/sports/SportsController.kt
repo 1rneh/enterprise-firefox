@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.home.sports
 
+import android.net.ConnectivityManager
 import androidx.navigation.NavController
 import mozilla.components.browser.state.state.selectedOrDefaultSearchEngine
 import mozilla.components.browser.state.store.BrowserStore
@@ -12,11 +13,10 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
+import org.mozilla.fenix.ext.isOnline
 import org.mozilla.fenix.ext.openToBrowser
+import org.mozilla.fenix.home.sports.util.localizedCountryName
 import org.mozilla.fenix.utils.Settings
-import java.util.IllformedLocaleException
-import java.util.Locale
-import java.util.MissingResourceException
 
 /**
  * Controller for handling sports widget interactions on the homepage.
@@ -63,7 +63,7 @@ interface SportsController {
     /**
      * Called when the user clicks a Match.
      */
-    fun handleMatchClicked(homeTeam: String, awayTeam: String)
+    fun handleMatchClicked(homeTeam: String?, awayTeam: String?, date: String?)
 
     /**
      * Called when the sports widget is displayed.
@@ -84,6 +84,7 @@ interface SportsController {
  * @param settings [Settings] used to persist sports widget preferences.
  * @param navController [NavController] used to navigate to a new browser fragment.
  * @param fenixBrowserUseCases [FenixBrowserUseCases] used to load the sports schedule.
+ * @param connectivityManager [ConnectivityManager] used to short-circuit refresh requests when the device is offline.
  */
 class DefaultSportsController(
     private val appStore: AppStore,
@@ -91,6 +92,7 @@ class DefaultSportsController(
     private val settings: Settings,
     private val navController: NavController,
     private val fenixBrowserUseCases: FenixBrowserUseCases,
+    private val connectivityManager: ConnectivityManager?,
 ) : SportsController {
 
     override fun handleCountriesSelected(countryCodes: Set<String>) {
@@ -120,7 +122,12 @@ class DefaultSportsController(
     }
 
     override fun handleRefreshClicked(source: LiveMatchRefreshSource) {
-        appStore.dispatch(AppAction.SportsWidgetAction.FetchMatches)
+        val action = if (connectivityManager?.isOnline() == true) {
+            AppAction.SportsWidgetAction.FetchMatches
+        } else {
+            AppAction.SportsWidgetAction.FetchFailed(SportCardErrorState.ConnectionInterrupted)
+        }
+        appStore.dispatch(action)
         WorldCup.refreshClicked.record(
             extra = WorldCup.RefreshClickedExtra(source = source.value),
         )
@@ -142,11 +149,20 @@ class DefaultSportsController(
         WorldCup.getCustomWallpaperClicked.record()
     }
 
-    override fun handleMatchClicked(homeTeam: String, awayTeam: String) {
+    override fun handleMatchClicked(homeTeam: String?, awayTeam: String?, date: String?) {
         navController.openToBrowser()
 
+        val homeName = homeTeam?.let { localizedCountryName(it) }
+        val awayName = awayTeam?.let { localizedCountryName(it) }
+        val searchTerm = when {
+            homeName != null && awayName != null -> "$homeName vs $awayName"
+            homeName != null -> "$date $homeName vs"
+            awayName != null -> "$date $awayName vs"
+            else -> date.orEmpty()
+        }
+
         fenixBrowserUseCases.loadUrlOrSearch(
-            searchTermOrURL = "${localizedCountryName(homeTeam)} vs ${localizedCountryName(awayTeam)}",
+            searchTermOrURL = searchTerm,
             newTab = true,
             private = appStore.state.mode.isPrivate,
             searchEngine = appStore.state.searchState.selectedSearchEngine?.searchEngine
@@ -162,24 +178,6 @@ class DefaultSportsController(
 
     override fun handleCountrySelectorShown(source: CountrySelectorSource) {
         WorldCup.countrySelectorDisplayed.record(extra = WorldCup.CountrySelectorDisplayedExtra(source = source.value))
-    }
-
-    /**
-     * Resolves an ISO 3166-1 alpha-3 region code (as stored on [Team.region]) to a country name
-     * localized to the user's current [Locale]. Falls back to the original code when no match
-     * is found.
-     */
-    private fun localizedCountryName(iso3Code: String): String {
-        return try {
-            val iso2Code = Locale.getISOCountries().firstOrNull {
-                Locale.Builder().setRegion(it).build().isO3Country.equals(iso3Code, ignoreCase = true)
-            } ?: return iso3Code
-            Locale.Builder().setRegion(iso2Code).build().getDisplayCountry(Locale.getDefault())
-        } catch (e: IllformedLocaleException) {
-            iso3Code
-        } catch (e: MissingResourceException) {
-            iso3Code
-        }
     }
 
     companion object {

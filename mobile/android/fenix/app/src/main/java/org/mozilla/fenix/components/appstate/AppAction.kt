@@ -71,7 +71,6 @@ sealed class AppAction : Action {
         val topSites: List<TopSite>,
         val mode: BrowsingMode,
         val collections: List<TabCollection>,
-        val showCollectionPlaceholder: Boolean,
         val recentTabs: List<RecentTab>,
         val bookmarks: List<Bookmark>,
         val recentHistory: List<RecentlyVisitedItem>,
@@ -119,8 +118,6 @@ sealed class AppAction : Action {
      * Removes a set of items, previously marked for removal, to be displayed again in the UI.
      */
     data class UndoPendingDeletionSet(val historyItems: Set<PendingDeletionHistory>) : AppAction()
-
-    data object RemoveCollectionsPlaceholder : AppAction()
 
     /**
      * Action dispatched when the user has authenticated with their account.
@@ -862,6 +859,15 @@ sealed class AppAction : Action {
          * should be shown.
          */
         data class MatchCardStateUpdated(val matchCardStates: List<MatchCard>) : SportsWidgetAction()
+
+        /**
+         * Dispatched when the set of teams eliminated from the tournament changes,
+         * derived from the latest fetched match data. Drives the eliminated-team
+         * styling in the country selector bottom sheet.
+         *
+         * @property countryCodes ISO codes of teams flagged eliminated in the last response.
+         */
+        data class EliminatedCountriesUpdated(val countryCodes: Set<String>) : SportsWidgetAction()
 
         /**
          * Dispatched when the sport widget's debug tool visibility changes.

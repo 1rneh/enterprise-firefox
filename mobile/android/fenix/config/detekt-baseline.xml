@@ -2,6 +2,9 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>AcornThemeUsage:EliminatedBanner.kt$import mozilla.components.compose.base.theme.AcornTheme</ID>
+    <ID>AcornThemeUsage:SendToDevicesScreen.kt$import mozilla.components.compose.base.theme.AcornTheme</ID>
+    <ID>AcornThemeUsage:TrackersBlockedCard.kt$import mozilla.components.compose.base.theme.AcornTheme</ID>
     <ID>ForbiddenSuppress:AccountSettingsFragment.kt$AccountSettingsFragment$@Suppress("LongMethod", "CyclomaticComplexMethod")</ID>
     <ID>ForbiddenSuppress:AddonMenuItem.kt$@Suppress("LongMethod")</ID>
     <ID>ForbiddenSuppress:AddonPermissionsScreen.kt$@Suppress("LongParameterList", "LongMethod", "CognitiveComplexMethod")</ID>
@@ -62,7 +65,6 @@
     <ID>ForbiddenSuppress:HomeActivity.kt$HomeActivity$@Suppress("MagicNumber")</ID>
     <ID>ForbiddenSuppress:HomeActivity.kt$HomeActivity$@SuppressWarnings("TooManyFunctions", "LargeClass", "LongMethod")</ID>
     <ID>ForbiddenSuppress:HomeDeepLinkIntentProcessor.kt$HomeDeepLinkIntentProcessor$@Suppress("CyclomaticComplexMethod")</ID>
-    <ID>ForbiddenSuppress:HomeFragment.kt$HomeFragment$@Suppress("CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:HomeFragment.kt$HomeFragment$@Suppress("LongMethod")</ID>
     <ID>ForbiddenSuppress:Homepage.kt$@Suppress("LongMethod", "CyclomaticComplexMethod", "CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:InstalledAddonDetailsFragment.kt$InstalledAddonDetailsFragment$@SuppressWarnings("LongMethod")</ID>
@@ -259,7 +261,6 @@
     <ID>HardcodedPaddingUsage:InactiveTabs.kt$(all = 16.dp)</ID>
     <ID>HardcodedPaddingUsage:InactiveTabs.kt$(horizontal = 12.dp)</ID>
     <ID>HardcodedPaddingUsage:InactiveTabs.kt$(horizontal = 16.dp, vertical = 12.dp)</ID>
-    <ID>HardcodedPaddingUsage:InactiveTabs.kt$(horizontal = 4.dp)</ID>
     <ID>HardcodedPaddingUsage:InactiveTabs.kt$(start = 16.dp)</ID>
     <ID>HardcodedPaddingUsage:InfoScreen.kt$( start = 72.dp, top = 6.dp, end = 16.dp, bottom = 6.dp, )</ID>
     <ID>HardcodedPaddingUsage:InfoScreen.kt$(end = 8.dp)</ID>
@@ -398,7 +399,6 @@
     <ID>HardcodedPaddingUsage:TopSites.kt$(horizontal = 4.dp)</ID>
     <ID>HardcodedPaddingUsage:TopSites.kt$(top = 8.dp)</ID>
     <ID>HardcodedPaddingUsage:TrackerCategoryDetailsPanel.kt$(horizontal = 16.dp)</ID>
-    <ID>HardcodedPaddingUsage:TrackersBlockedCard.kt$(16.dp)</ID>
     <ID>HardcodedPaddingUsage:TrackersBlockedCard.kt$(horizontal = 16.dp, vertical = 8.dp)</ID>
     <ID>HardcodedPaddingUsage:TrackersBlockedPanel.kt$(horizontal = 12.dp)</ID>
     <ID>HardcodedPaddingUsage:TrailingIcons.kt$(8.dp)</ID>
@@ -433,6 +433,19 @@
     <ID>HardcodedPaddingUsage:WebCompatReporterPreviewSheet.kt$(top = 72.dp)</ID>
     <ID>HardcodedPaddingUsage:Wordmark.kt$(end = 10.dp)</ID>
     <ID>LongMethod:ThemeOnboardingPage.kt$@Composable private fun SelectableImageItem( boxWithConstraintsScope: BoxWithConstraintsScope, themeOption: ThemeOption, selectedOption: ThemeOptionType, onClick: (ThemeOptionType) -&gt; Unit, )</ID>
+    <ID>MaterialTypographyUsage:ContinuousOnboardingScreen.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:DownloadDeleteBehaviorComposePreference.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:DownloadsScreen.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:FontSizeSlider.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:IPProtectionBottomSheet.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:MarketingDataOnboardingPageRedesign.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:NimbusExperiments.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:OnboardingPageRedesign.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:RenameAndChangeLocationDialogContent.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:SyncedTabsList.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:TabGroupColors.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:TermsOfServiceOnboardingPageRedesign.kt$MaterialTheme.typography</ID>
+    <ID>MaterialTypographyUsage:ToolbarOnboardingPageRedesign.kt$MaterialTheme.typography</ID>
     <ID>MaxLineLength:TelemetryMiddleware.kt$TelemetryMiddleware$@Suppress("TooGenericExceptionCaught", "CognitiveComplexMethod", "NestedBlockDepth", "LongMethod", "CyclomaticComplexMethod")</ID>
     <ID>UndocumentedPublicClass:AboutItem.kt$AboutItem</ID>
     <ID>UndocumentedPublicClass:AboutItem.kt$AboutItem$Crashes : AboutItem</ID>

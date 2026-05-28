@@ -26,9 +26,6 @@ const MERINO_CLIENT_KEY = "HNT_SPORTS_FEED";
 // the generic newtab source; the search team may ask us to switch to a
 // widget-specific source later.
 const SEARCH_SAP_SOURCE = "about_newtab";
-// Temporary: backend requires a date parameter on the matches endpoint until
-// TODO: 10 days before kickoff (2026-06-11). Remove this and the appendDate logic once the backend no longer requires it.
-const SPORTS_MATCHES_PRE_KICKOFF_DATE = "2026-06-15";
 
 /**
  * Manages persistent state for the Sports widget (selected teams and widget
@@ -89,7 +86,7 @@ export class SportsFeed {
     const cachedData = (await this.cache.get()) || {};
     const { widgetState, selectedTeams, sportsData, matchesTab, followedOnly } =
       cachedData;
-    const { teams, matches } = sportsData || {};
+    const { teams, matches, live } = sportsData || {};
 
     if (widgetState) {
       this.store.dispatch(
@@ -127,13 +124,14 @@ export class SportsFeed {
       );
     }
 
-    if (teams || matches) {
+    if (teams || matches || live) {
       this.store.dispatch(
         ac.BroadcastToContent({
           type: at.WIDGETS_SPORTS_WIDGET_SET,
           data: {
             teams: teams ?? [],
             matches: matches ?? { previous: [], current: [], next: [] },
+            live: live ?? [],
           },
         })
       );
@@ -148,6 +146,9 @@ export class SportsFeed {
     const matchesEndpoint =
       prefs?.trainhopConfig?.sports?.matchesEndpoint ||
       prefs?.["sports.worldCup.matchesEndpoint"];
+    const liveEndpoint =
+      prefs?.trainhopConfig?.sports?.liveEndpoint ||
+      prefs?.["sports.worldCup.liveEndpoint"];
 
     const allowedEndpoints = (prefs?.["discoverystream.endpoints"] ?? "")
       .split(",")
@@ -170,30 +171,41 @@ export class SportsFeed {
       );
       return;
     }
-
-    // TODO: remove matchesEndpointWithDate variable and all references to it 10 days before kickoff (June 1st 2026)
-    let matchesEndpointWithDate = matchesEndpoint;
-    if (matchesEndpoint) {
-      const matchesUrl = new URL(matchesEndpoint);
-      matchesUrl.searchParams.set("date", SPORTS_MATCHES_PRE_KICKOFF_DATE);
-      matchesEndpointWithDate = matchesUrl.toString();
+    if (
+      liveEndpoint &&
+      !allowedEndpoints.some(prefix => liveEndpoint.startsWith(prefix))
+    ) {
+      console.error(`Sports live endpoint not in allowlist: ${liveEndpoint}`);
+      return;
     }
 
-    const [teams, matches] = await Promise.all([
+    const [teams, matches, live] = await Promise.all([
       this.merino.fetchSportsTeams({
         source: "newtab",
         endpointUrl: teamsEndpoint,
       }),
       this.merino.fetchSportsMatches({
         source: "newtab",
-        endpointUrl: matchesEndpointWithDate,
+        endpointUrl: matchesEndpoint,
+      }),
+      this.merino.fetchSportsLive({
+        source: "newtab",
+        endpointUrl: liveEndpoint,
       }),
     ]);
 
-    if (teams?.teams || matches) {
+    // The /live endpoint returns `{ matches: [...] }` and is pre-filtered to
+    // in-progress games by the backend, so we surface its array directly as
+    // `live` alongside `matches`. The "Now" tab reads from `data.live`, while
+    // `matches.previous` / `matches.next` continue to drive the Results and
+    // Upcoming tabs.
+    const liveMatches = Array.isArray(live?.matches) ? live.matches : [];
+
+    if (teams?.teams || matches || live) {
       await this.cache.set("sportsData", {
         teams: teams?.teams,
         matches,
+        live: liveMatches,
       });
     }
 
@@ -203,6 +215,7 @@ export class SportsFeed {
         data: {
           teams: teams?.teams ?? [],
           matches: matches ?? { previous: [], current: [], next: [] },
+          live: liveMatches,
         },
       })
     );

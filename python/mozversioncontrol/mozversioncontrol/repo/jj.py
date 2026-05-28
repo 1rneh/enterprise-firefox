@@ -142,9 +142,16 @@ class JujutsuRepository(Repository):
 
     @property
     def branch(self):
-        # jj does not have an "active branch" concept. The lone caller will fall
-        # back to self.head_ref.
-        return None
+        bookmark = self._run_read_only(
+            "log",
+            "--no-graph",
+            "-n1",
+            "-r",
+            self.HEAD_REVSET,
+            "-T",
+            'if(local_bookmarks, local_bookmarks.first(), "")',
+        ).strip()
+        return bookmark or None
 
     @property
     def has_git_cinnabar(self):
@@ -365,6 +372,8 @@ class JujutsuRepository(Repository):
         if dest_branch and not ref:
             raise ValueError("Cannot specify dest_branch without specifying ref")
 
+        if ref and dest_branch:
+            ref = self._resolve_to_commit(ref)
         self._git.push(remote, ref=ref, dest_branch=dest_branch, force=force)
 
     def push_to_try(
@@ -508,7 +517,7 @@ class JujutsuRepository(Repository):
                 "log",
                 "--no-graph",
                 "-r",
-                "trunk()..@ ~ description(exact:'')",
+                "heads(trunk() | (remote_bookmarks() & ancestors(@)))..@ ~ description(exact:'')",
                 "-T",
                 "'  ' ++ description.first_line() ++ '\n'",
             ),

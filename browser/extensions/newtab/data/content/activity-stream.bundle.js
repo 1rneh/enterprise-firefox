@@ -16550,7 +16550,7 @@ function SportsWidget_SportsWidget({
   const widgetSize = resolveWidgetSize(SPORTS_WIDGET_REGISTRY_ENTRY, prefs);
   const liveEnabled = prefs[PREF_SPORTS_WIDGET_LIVE_ENABLED];
   const widgetsMayBeMaximized = prefs["widgets.system.maximized"];
-  const hasLiveGames = sportsWidgetData?.data?.matches?.current?.length > 0;
+  const hasLiveGames = sportsWidgetData?.data?.live?.length > 0;
   const hasPreviousResults = sportsWidgetData?.data?.matches?.previous?.length > 0;
   const tournamentStarted = hasLiveGames || hasPreviousResults;
   const savedWidgetState = sportsWidgetData.widgetState || WIDGET_STATES.INTRO;
@@ -16559,6 +16559,7 @@ function SportsWidget_SportsWidget({
   const rawSelectedTeams = sportsWidgetData.selectedTeams;
   const rawTeams = sportsWidgetData?.data?.teams;
   const rawMatches = sportsWidgetData?.data?.matches;
+  const rawLive = sportsWidgetData?.data?.live;
   const selectedTeams = (0,external_React_namespaceObject.useMemo)(() => rawSelectedTeams || [], [rawSelectedTeams]);
   const teams = (0,external_React_namespaceObject.useMemo)(() => rawTeams ?? [], [rawTeams]);
   const {
@@ -16603,10 +16604,10 @@ function SportsWidget_SportsWidget({
   } = (0,external_React_namespaceObject.useMemo)(() => {
     return {
       sortedPrevious: sortFollowedFirst(rawMatches?.previous ?? [], selectedTeamsSet),
-      sortedCurrent: sortFollowedFirst(rawMatches?.current ?? [], selectedTeamsSet),
+      sortedCurrent: sortFollowedFirst(rawLive ?? [], selectedTeamsSet),
       sortedNext: sortFollowedFirst(rawMatches?.next ?? [], selectedTeamsSet)
     };
-  }, [rawMatches, selectedTeamsSet]);
+  }, [rawMatches, rawLive, selectedTeamsSet]);
 
   // List-view toggle states for the Results and Upcoming tabs are lifted up
   // here so we can tell whether a highlight match is currently visible (for
@@ -20739,7 +20740,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
           const hex = activeWallpaper.split("solid-color-picker-")[1] || "";
           style.backgroundColor = hex;
         }
-        const isCategorySelected = activeWallpaperObj || isCustomSolidColor;
+        const isCategorySelected = wallpapersUserEnabled && (activeWallpaperObj || isCustomSolidColor);
         return /*#__PURE__*/external_React_default().createElement("div", {
           key: category
         }, /*#__PURE__*/external_React_default().createElement("button", WallpaperCategories_extends({
@@ -23883,8 +23884,15 @@ function WallpaperFeatureHighlight({
   const {
     messageData
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
+  const isWorldCup = isNova && messageData?.content?.messageType === "WorldCupWallpaperHighlight";
+  const novaHighlightImage = isWorldCup ? "chrome://newtab/content/data/content/assets/highlights/wallpaper-callout.png" : "chrome://newtab/content/data/content/assets/highlights/firefox-mascot-prop-paintbucket-rgb.svg";
+  const novaImgWidth = isWorldCup ? "319" : "207";
+  const novaImgHeight = isWorldCup ? "204" : "156";
+  const novaTitleL10nId = isWorldCup ? "newtab-sports-widget-message-wallpapers-title" : "newtab-wallpaper-feature-highlight-title";
+  const novaSubtitleL10nId = isWorldCup ? "newtab-sports-widget-message-wallpapers-body" : "newtab-wallpaper-feature-highlight-subtitle";
+  const novaCtaL10nId = isWorldCup ? "newtab-sports-widget-message-wallpapers-cta" : "newtab-wallpaper-feature-highlight-cta";
   return /*#__PURE__*/external_React_default().createElement("div", {
-    className: `wallpaper-feature-highlight ${messageData.content?.darkModeDismiss ? "is-inverted-dark-dismiss-button" : ""}`
+    className: `wallpaper-feature-highlight ${isWorldCup ? "world-cup-variant" : ""} ${messageData.content?.darkModeDismiss ? "is-inverted-dark-dismiss-button" : ""}`
   }, /*#__PURE__*/external_React_default().createElement(FeatureHighlight, {
     position: position,
     "data-l10n-id": "feature-highlight-wallpaper",
@@ -23896,14 +23904,14 @@ function WallpaperFeatureHighlight({
     }, /*#__PURE__*/external_React_default().createElement("picture", {
       className: isNova ? "wallpaper-feature-highlight-image" : "follow-section-button-highlight-image"
     }, /*#__PURE__*/external_React_default().createElement("source", {
-      srcSet: messageData.content?.darkModeImageURL || (isNova ? "chrome://newtab/content/data/content/assets/highlights/firefox-mascot-prop-paintbucket-rgb.svg" : "chrome://newtab/content/data/content/assets/highlights/omc-newtab-wallpapers.svg"),
+      srcSet: messageData.content?.darkModeImageURL || (isNova ? novaHighlightImage : "chrome://newtab/content/data/content/assets/highlights/omc-newtab-wallpapers.svg"),
       media: "(prefers-color-scheme: dark)"
     }), /*#__PURE__*/external_React_default().createElement("source", {
-      srcSet: messageData.content?.imageURL || (isNova ? "chrome://newtab/content/data/content/assets/highlights/firefox-mascot-prop-paintbucket-rgb.svg" : "chrome://newtab/content/data/content/assets/highlights/omc-newtab-wallpapers.svg"),
+      srcSet: messageData.content?.imageURL || (isNova ? novaHighlightImage : "chrome://newtab/content/data/content/assets/highlights/omc-newtab-wallpapers.svg"),
       media: "(prefers-color-scheme: light)"
     }), /*#__PURE__*/external_React_default().createElement("img", {
-      width: isNova ? "207" : "320",
-      height: isNova ? "156" : "195",
+      width: isNova ? novaImgWidth : "320",
+      height: isNova ? novaImgHeight : "195",
       alt: ""
     })), /*#__PURE__*/external_React_default().createElement("div", {
       className: "wallpaper-feature-highlight-copy"
@@ -23911,12 +23919,12 @@ function WallpaperFeatureHighlight({
       className: "title"
     }, messageData.content.cardTitle) : /*#__PURE__*/external_React_default().createElement("p", {
       className: "title",
-      "data-l10n-id": isNova ? "newtab-wallpaper-feature-highlight-title" : messageData.content.title || "newtab-new-user-custom-wallpaper-title"
+      "data-l10n-id": isNova ? novaTitleL10nId : messageData.content.title || "newtab-new-user-custom-wallpaper-title"
     }), !isNova && messageData.content?.cardMessage ? /*#__PURE__*/external_React_default().createElement("p", {
       className: "subtitle"
     }, messageData.content.cardMessage) : /*#__PURE__*/external_React_default().createElement("p", {
       className: "subtitle",
-      "data-l10n-id": isNova ? "newtab-wallpaper-feature-highlight-subtitle" : messageData.content.subtitle || "newtab-new-user-custom-wallpaper-subtitle"
+      "data-l10n-id": isNova ? novaSubtitleL10nId : messageData.content.subtitle || "newtab-new-user-custom-wallpaper-subtitle"
     })), /*#__PURE__*/external_React_default().createElement("span", {
       className: "button-wrapper"
     }, !isNova && messageData.content?.cardCta ? /*#__PURE__*/external_React_default().createElement("moz-button", {
@@ -23926,7 +23934,7 @@ function WallpaperFeatureHighlight({
     }) : /*#__PURE__*/external_React_default().createElement("moz-button", {
       type: isNova ? "primary" : "default",
       onClick: () => onToggleClick("open-customize-menu"),
-      "data-l10n-id": isNova ? "newtab-wallpaper-feature-highlight-cta" : messageData.content.cta || "newtab-new-user-custom-wallpaper-cta"
+      "data-l10n-id": isNova ? novaCtaL10nId : messageData.content.cta || "newtab-new-user-custom-wallpaper-cta"
     }))),
     toggle: /*#__PURE__*/external_React_default().createElement("div", {
       className: "icon icon-help"
@@ -24849,7 +24857,7 @@ class BaseContent extends (external_React_default()).PureComponent {
         toggleWidgetsManagementPanel: this.toggleWidgetsManagementPanel,
         widgetsEnabled: prefs["widgets.enabled"],
         dispatch: this.props.dispatch
-      }), shouldShowOMCHighlight(this.props.Messages, "CustomWallpaperHighlight") && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+      }), (shouldShowOMCHighlight(this.props.Messages, "CustomWallpaperHighlight") || shouldShowOMCHighlight(this.props.Messages, "WorldCupWallpaperHighlight")) && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
         dispatch: this.props.dispatch
       }, /*#__PURE__*/external_React_default().createElement(WallpaperFeatureHighlight, {
         position: "inset-block-start inset-inline-start",

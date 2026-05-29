@@ -6,9 +6,14 @@
 
 #include "mozilla/Keyframe.h"
 #include "mozilla/ScrollContainerFrame.h"
+#include "mozilla/ServoCSSParser.h"
+#include "mozilla/ServoStyleSet.h"
 #include "mozilla/dom/Animation.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/ElementInlines.h"
 #include "mozilla/dom/ViewTimelineBinding.h"
+#include "nsComputedDOMStyle.h"
 #include "nsLayoutUtils.h"
 #include "nsPresContext.h"
 
@@ -52,6 +57,106 @@ JSObject* ViewTimeline::WrapObject(JSContext* aCx,
     return ScrollTimeline::WrapObject(aCx, aGivenProto);
   }
   return ViewTimeline_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+static MOZ_CAN_RUN_SCRIPT Maybe<StyleViewTimelineInset>
+ParseAndComputeInsetString(const nsACString& aInsetString, Element* aSubject,
+                           const Document* aDocument) {
+  if (!aSubject) {
+    // Use default.
+    return Some(StyleViewTimelineInset());
+  }
+
+  // We flush and get the computed style to compute the insets. The flush is not
+  // spec'ed but other browsers agree with this now so we follow them.
+  // https://github.com/w3c/csswg-drafts/issues/13852
+  //
+  // Note: ViewTimeline.subject doesn't allow pseudo-element per spec.
+  // Note: |style| could be null. We handle the null case in
+  // Servo_ParseAndComputeViewTimelineInset().
+  RefPtr<const ComputedStyle> style = nsComputedDOMStyle::GetComputedStyle(
+      aSubject, PseudoStyleRequest::NotPseudo());
+  const StylePerDocumentStyleData* rawData =
+      aDocument->EnsureStyleSet().RawData();
+  StyleViewTimelineInset inset;
+  if (!ServoCSSParser::ParseAndComputeViewTimelineInset(
+          aInsetString, aSubject, style, rawData, inset)) {
+    return Nothing();
+  }
+  return Some(std::move(inset));
+}
+
+/* static */
+already_AddRefed<ViewTimeline> ViewTimeline::Constructor(
+    const GlobalObject& aGlobal, const ViewTimelineOptions& aOptions,
+    ErrorResult& aRv) {
+  RefPtr<Document> doc =
+      AnimationUtils::GetCurrentRealmDocument(aGlobal.Context());
+  if (!doc) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  // The spec doesn't provide the default value for element, so we use null
+  // subject to align the behavior with other browsers.
+  RefPtr<Element> subject =
+      aOptions.mSubject.WasPassed() ? &aOptions.mSubject.Value() : nullptr;
+
+  StyleScrollAxis axis;
+  switch (aOptions.mAxis) {
+    case dom::ScrollAxis::Block:
+      axis = StyleScrollAxis::Block;
+      break;
+    case dom::ScrollAxis::Inline:
+      axis = StyleScrollAxis::Inline;
+      break;
+    case dom::ScrollAxis::X:
+      axis = StyleScrollAxis::X;
+      break;
+    case dom::ScrollAxis::Y:
+      axis = StyleScrollAxis::Y;
+      break;
+  }
+
+  StyleViewTimelineInset inset;
+  if (aOptions.mInset.IsUTF8String()) {
+    // If a DOMString value is provided as an inset, parse it as a
+    // <'view-timeline-inset'> value;
+    Maybe<StyleViewTimelineInset> value = ParseAndComputeInsetString(
+        aOptions.mInset.GetAsUTF8String(), subject, doc);
+    if (!value) {
+      // We throw TypeError for the invalid inset, including DOMString, just
+      // like the invalid sequence case per spec.
+      aRv.ThrowTypeError("Invalid inset string");
+      return nullptr;
+    }
+    inset = std::move(*value);
+  } else {
+    if (!StaticPrefs::layout_css_typed_om_enabled()) {
+      // CSSKeywordValue and CSSNumericValue are disabled.
+      aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+      return nullptr;
+    }
+    // if a sequence is provided, the first value represents the start inset and
+    // the second value represents the end inset. If the sequence has only one
+    // value, it is duplicated. If it has zero values or more than two values,
+    // or if it contains a CSSKeywordValue whose value is not "auto", throw a
+    // TypeError.
+    // FIXME: Bug 2016880. Handle the sequence of CSSNumericValue and
+    // CSSKeywordValue.
+    aRv.ThrowTypeError("Unsupported");
+    return nullptr;
+  }
+
+  // Set the source of timeline to the subject’s nearest ancestor scroll
+  // container element.
+  // Note: if subject is null, we use null source as well.
+  ScrollerInfo scroller = ScrollerInfo::Anonymous(
+      subject ? ScrollerInfo::Type::Nearest : ScrollerInfo::Type::Provided,
+      subject, PseudoStyleRequest::NotPseudo());
+
+  return MakeAndAddRef<ViewTimeline>(doc, scroller, axis, subject,
+                                     PseudoStyleType::NotPseudo, inset);
 }
 
 Nullable<double> ViewTimeline::GetStartOffset() const {

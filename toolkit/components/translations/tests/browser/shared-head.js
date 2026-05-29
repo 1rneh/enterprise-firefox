@@ -246,12 +246,11 @@ function serveOnce(html, statusCode = 200) {
  * @param {string} url
  */
 async function loadNewPage(browser, url) {
+  const loaded = BrowserTestUtils.browserLoaded(browser, {
+    wantLoad: url,
+  });
   BrowserTestUtils.startLoadingURIString(browser, url);
-  await BrowserTestUtils.browserLoaded(
-    browser,
-    /* includeSubFrames */ false,
-    url
-  );
+  await loaded;
 }
 
 /**
@@ -2862,7 +2861,7 @@ async function ensureWindowSize(win, width, height) {
  * @returns {Promise<{
  *   tab: object,
  *   remoteClients: (Record<string, any> | null),
- *   cleanup: () => Promise<void>,
+ *   cleanup: (options?: { browser?: Browser }) => Promise<void>,
  *   resolveDownloads: (count: number) => Promise<void>,
  *   rejectDownloads: (count: number) => Promise<void>,
  *   resolveBulkDownloads: (expectations: { expectedWasmDownloads: number, expectedLanguagePairDownloads: number }) => Promise<void>,
@@ -2969,12 +2968,17 @@ async function loadTestPage({
     });
   }
 
-  // Start the tab at a blank page.
+  const blankPageLoaded = BrowserTestUtils.waitForNewTab(
+    win.gBrowser,
+    BLANK_PAGE,
+    /* waitForLoad */ true
+  );
   const tab = await BrowserTestUtils.openNewForegroundTab(
     win.gBrowser,
     BLANK_PAGE,
-    true // waitForLoad
+    /* waitForLoad */ false
   );
+  await blankPageLoaded;
 
   if (contentEagerMode) {
     info("Triggering content-eager translations mode by opening the find bar.");
@@ -3021,10 +3025,12 @@ async function loadTestPage({
      * @param {number} count - Count of the language pairs expected.
      */
     async resolveDownloads(count) {
-      await remoteClients.translationsWasm.resolvePendingDownloads(1);
-      await remoteClients.translationModels.resolvePendingDownloads(
-        downloadedFilesPerLanguagePair() * count
-      );
+      await Promise.all([
+        remoteClients.translationsWasm.resolvePendingDownloads(1),
+        remoteClients.translationModels.resolvePendingDownloads(
+          downloadedFilesPerLanguagePair() * count
+        ),
+      ]);
     },
 
     /**
@@ -3036,10 +3042,12 @@ async function loadTestPage({
      * @param {number} count - Count of the language pairs expected.
      */
     async rejectDownloads(count) {
-      await remoteClients.translationsWasm.rejectPendingDownloads(1);
-      await remoteClients.translationModels.rejectPendingDownloads(
-        downloadedFilesPerLanguagePair() * count
-      );
+      await Promise.all([
+        remoteClients.translationsWasm.rejectPendingDownloads(1),
+        remoteClients.translationModels.rejectPendingDownloads(
+          downloadedFilesPerLanguagePair() * count
+        ),
+      ]);
     },
 
     /**
@@ -3057,12 +3065,14 @@ async function loadTestPage({
       expectedWasmDownloads,
       expectedLanguagePairDownloads,
     }) {
-      await remoteClients.translationsWasm.resolvePendingDownloads(
-        expectedWasmDownloads
-      );
-      await remoteClients.translationModels.resolvePendingDownloads(
-        downloadedFilesPerLanguagePair() * expectedLanguagePairDownloads
-      );
+      await Promise.all([
+        remoteClients.translationsWasm.resolvePendingDownloads(
+          expectedWasmDownloads
+        ),
+        remoteClients.translationModels.resolvePendingDownloads(
+          downloadedFilesPerLanguagePair() * expectedLanguagePairDownloads
+        ),
+      ]);
     },
 
     /**
@@ -3080,20 +3090,24 @@ async function loadTestPage({
       expectedWasmDownloads,
       expectedLanguagePairDownloads,
     }) {
-      await remoteClients.translationsWasm.rejectPendingDownloads(
-        expectedWasmDownloads
-      );
-      await remoteClients.translationModels.rejectPendingDownloads(
-        downloadedFilesPerLanguagePair() * expectedLanguagePairDownloads
-      );
+      await Promise.all([
+        remoteClients.translationsWasm.rejectPendingDownloads(
+          expectedWasmDownloads
+        ),
+        remoteClients.translationModels.rejectPendingDownloads(
+          downloadedFilesPerLanguagePair() * expectedLanguagePairDownloads
+        ),
+      ]);
     },
 
     /**
+     * @param {object} [options]
+     * @param {Browser} [options.browser] - Browser to load with the blank page before cleanup.
      * @returns {Promise<void>}
      */
-    async cleanup() {
+    async cleanup({ browser = tab.linkedBrowser } = {}) {
       await closeAllOpenPanelsAndMenus();
-      await loadBlankPage();
+      await loadBlankPage(browser);
       await EngineProcess.destroyTranslationsEngine();
       await removeMocks();
       if (cleanupLocales) {
@@ -3329,15 +3343,19 @@ function createAttachmentMock(
 
   async function downloadHandler(expectedDownloadCount, action) {
     const names = [];
-    let maxTries = 100;
-    while (names.length < expectedDownloadCount && maxTries-- > 0) {
-      await new Promise(resolve => setTimeout(resolve, 0));
-      let download = pendingDownloads.shift();
-      if (!download) {
-        // Uncomment the following to debug download issues:
-        // console.log(`No pending download:`, client.collectionName, names.length);
-        continue;
+    while (names.length < expectedDownloadCount) {
+      if (!pendingDownloads.length) {
+        try {
+          await waitForPendingDownloads(1, {
+            interval: 10,
+            maxTries: 50,
+          });
+        } catch {
+          break;
+        }
       }
+
+      let download = pendingDownloads.shift();
       console.log(`Handling download:`, client.collectionName);
       action(download);
       names.push(download.record.name);
@@ -3365,12 +3383,15 @@ function createAttachmentMock(
     );
   }
 
-  function waitForPendingDownloads(expectedCount) {
+  function waitForPendingDownloads(
+    expectedCount,
+    { interval = 100, maxTries = 10 } = {}
+  ) {
     return waitForCondition(
       () => pendingDownloads.length >= expectedCount,
       `Waiting for ${expectedCount} pending downloads for "${client.collectionName}"`,
-      100,
-      10
+      interval,
+      maxTries
     );
   }
 
@@ -4352,9 +4373,11 @@ function promiseLoadSubDialog(aURL) {
  * This is useful for resetting the state during cleanup, and also
  * before starting a test, to further help ensure that there is no
  * unintentional state left over from test case.
+ *
+ * @param {Browser} [browser] - Browser to load with the blank page.
  */
-async function loadBlankPage() {
-  await loadNewPage(gBrowser.selectedBrowser, BLANK_PAGE);
+async function loadBlankPage(browser) {
+  await loadNewPage(browser ?? gBrowser.selectedBrowser, BLANK_PAGE);
 }
 
 /**

@@ -68,6 +68,9 @@ const JSWINDOWACTORS = {
     includeChrome: true,
   },
   GeckoViewPrompt: {
+    parent: {
+      esModuleURI: "resource:///actors/GeckoViewPromptParent.sys.mjs",
+    },
     child: {
       esModuleURI: "resource:///actors/GeckoViewPromptChild.sys.mjs",
       events: {
@@ -138,6 +141,7 @@ export class GeckoViewStartup {
             "GeckoView:TrackingDB:GetEventsByDateRange",
             "GeckoView:TrackingDB:SumAllEvents",
             "GeckoView:TrackingDB:GetEarliestRecordedDate",
+            "GeckoView:TrackingDB:ClearAll",
           ],
         });
 

@@ -195,6 +195,7 @@
 #include "mozilla/dom/HTMLObjectElement.h"
 #include "mozilla/dom/HTMLSharedElement.h"
 #include "mozilla/dom/HTMLTextAreaElement.h"
+#include "mozilla/dom/HTMLVideoElement.h"
 #include "mozilla/dom/HighlightRegistry.h"
 #include "mozilla/dom/InspectorUtils.h"
 #include "mozilla/dom/IntegrityPolicy.h"
@@ -219,6 +220,8 @@
 #include "mozilla/dom/PageTransitionEventBinding.h"
 #include "mozilla/dom/Performance.h"
 #include "mozilla/dom/PermissionMessageUtils.h"
+#include "mozilla/dom/PictureInPictureEvent.h"
+#include "mozilla/dom/PictureInPictureService.h"
 #include "mozilla/dom/PolicyContainer.h"
 #include "mozilla/dom/PopoverData.h"
 #include "mozilla/dom/PostMessageEvent.h"
@@ -2515,6 +2518,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStyleSheetSetList)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mScriptLoader)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCustomContentContainer)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPictureInPictureElement)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPopoverHintStackParent)
 
   DocumentOrShadowRoot::Traverse(tmp, cb);
@@ -2693,6 +2697,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mViewTransitionUpdateCallbacks)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mReferrerInfo)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreloadReferrerInfo)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mPictureInPictureElement)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPopoverHintStackParent)
 
   if (tmp->mDocGroup && tmp->mDocGroup->GetBrowsingContextGroup()) {
@@ -12734,6 +12739,12 @@ void Document::OnPageHide(bool aPersisted, EventTarget* aDispatchStartTarget,
     // however a hidden page wouldn't trigger that again, so it makes no
     // sense to dispatch such event here.
   }
+
+  if (auto* element = HTMLVideoElement::FromNodeOrNull(
+          GetPictureInPictureElementInternal())) {
+    PictureInPictureService::DispatchExitPictureInPictureRunnable(nullptr,
+                                                                  element);
+  }
 }
 
 void Document::WillRemoveRoot() {
@@ -15514,6 +15525,44 @@ already_AddRefed<Promise> Document::ExitFullscreen(ErrorResult& aRv) {
   return promise.forget();
 }
 
+bool Document::PictureInPictureEnabled() {
+  return FeaturePolicyUtils::IsFeatureAllowed(this, u"picture-in-picture"_ns) &&
+         PictureInPictureWindow::PictureInPictureEnabled();
+}
+
+Element* Document::GetPictureInPictureElementInternal() const {
+  return mPictureInPictureElement;
+}
+
+void Document::SetPictureInPictureElement(Element* aElement) {
+  mPictureInPictureElement = aElement;
+}
+
+// https://w3c.github.io/picture-in-picture/#exit-pip
+already_AddRefed<Promise> Document::ExitPictureInPicture(ErrorResult& aRv) {
+  PictureInPictureService::EnsureInit();
+  RefPtr<Promise> p = Promise::Create(GetRelevantGlobal(), aRv);
+
+  if (!p) {
+    return nullptr;
+  }
+
+  auto* pipElement =
+      HTMLVideoElement::FromNodeOrNull(GetPictureInPictureElementInternal());
+
+  // 1. If pictureInPictureElement is null, return a promise rejected with
+  // InvalidStateError and abort these steps.
+  if (!pipElement) {
+    p->MaybeRejectWithInvalidStateError(
+        "No element is currently in picture-in-picture");
+    return p.forget();
+  }
+
+  PictureInPictureService::DispatchExitPictureInPictureRunnable(p, pipElement);
+
+  return p.forget();
+}
+
 static void AskWindowToExitFullscreen(Document* aDoc) {
   if (XRE_GetProcessType() == GeckoProcessType_Content) {
     nsContentUtils::DispatchEventOnlyToChrome(
@@ -16770,10 +16819,14 @@ static void SetKeyboardLockStatusAndMaybeDispatchEvent(
 void Document::RequestFullscreenInContentProcess(
     UniquePtr<FullscreenRequest> aRequest, bool aApplyFullscreenDirectly) {
   MOZ_ASSERT(XRE_IsContentProcess());
+  if (!CheckFullscreenAllowedElementType(aRequest->Element())) {
+    aRequest->Reject("FullscreenDeniedNotHTMLSVGOrMathML");
+    return;
+  }
+
   // If we are in the content process, we can apply the fullscreen
   // state directly only if we have been in DOM fullscreen, because
   // otherwise we always need to notify the chrome.
-
   if (aApplyFullscreenDirectly ||
       nsContentUtils::GetInProcessSubtreeRootDocument(this)->Fullscreen()) {
     // This optimization causes edge case behaviors, due to not going via the
@@ -16782,11 +16835,6 @@ void Document::RequestFullscreenInContentProcess(
     aRequest->SetShouldDispatchKeyboardLockEvent(aRequest->GetPromise() &&
                                                  aRequest->Document() == this);
     ApplyFullscreen(std::move(aRequest));
-    return;
-  }
-
-  if (!CheckFullscreenAllowedElementType(aRequest->Element())) {
-    aRequest->Reject("FullscreenDeniedNotHTMLSVGOrMathML");
     return;
   }
 

@@ -2759,7 +2759,7 @@ def clearableCachedAttrs(descriptor):
     return (
         m
         for m in descriptor.interface.members
-        if m.isAttr() and
+        if m.isAttr() and not m.type.isObservableArray() and
         # Constants should never need clearing!
         m.dependsOn != "Nothing" and m.slotIndices is not None
     )
@@ -23305,8 +23305,8 @@ def getObservableArrayBackingObject(descriptor, attr, objName="obj", errorReturn
     assert attr.type.isObservableArray()
 
     # GetObservableArrayBackingObject may return a wrapped object for Xrays, so
-    # when we create it we need to unwrap it to store the interface in the
-    # reserved slot.
+    # we store the unwrapped interface in the reserved slot when we create it,
+    # in NewObservableArrayProxyObject.
     return fill(
         """
         JS::Rooted<JSObject*> backingObj(cx);
@@ -23638,11 +23638,7 @@ class CGObservableArraySetterGenerator(CGGeneric):
             self,
             fill(
                 """
-                if (xpc::WrapperFactory::IsXrayWrapper(obj)) {
-                  JS_ReportErrorASCII(cx, "Accessing from Xray wrapper is not supported.");
-                  return false;
-                }
-
+                // Unwrap wrappers (including CCW and XrayWrapper) to get the actual Proxy object.
                 JS::Rooted<JSObject*> unwrappedObj(cx, js::UncheckedUnwrap(obj, /* stopAtWindowProxy = */ false));
                 MOZ_ASSERT(IsDOMObject(unwrappedObj));
                 {

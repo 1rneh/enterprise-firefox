@@ -105,8 +105,8 @@ MOZ_RUNINIT CompositorBridgeParent::LayerTreeMap
 void EraseLayerState(LayersId aId);
 
 CompositorBridgeParentBase::CompositorBridgeParentBase(
-    CompositorManagerParent* aManager)
-    : mCanSend(true), mCompositorManager(aManager) {}
+    CompositorManagerParent* aManager, uint32_t aNamespace)
+    : mCanSend(true), mCompositorManager(aManager), mNamespace(aNamespace) {}
 
 CompositorBridgeParentBase::~CompositorBridgeParentBase() = default;
 
@@ -149,6 +149,11 @@ bool CompositorBridgeParentBase::AllocUnsafeShmem(size_t aSize,
 
 bool CompositorBridgeParentBase::DeallocShmem(ipc::Shmem& aShmem) {
   return PCompositorBridgeParent::DeallocShmem(aShmem);
+}
+
+bool CompositorBridgeParentBase::OwnsExternalImageId(
+    const wr::ExternalImageId& aId) const {
+  return mNamespace == static_cast<uint32_t>(wr::AsUint64(aId) >> 32);
 }
 
 CompositorBridgeParent::LayerTreeState::LayerTreeState()
@@ -197,11 +202,11 @@ void CompositorBridgeParent::FinishShutdown() {
 }
 
 CompositorBridgeParent::CompositorBridgeParent(
-    CompositorManagerParent* aManager, CSSToLayoutDeviceScale aScale,
-    const TimeDuration& aVsyncRate, const CompositorOptions& aOptions,
-    bool aUseExternalSurfaceSize, const gfx::IntSize& aSurfaceSize,
-    uint64_t aInnerWindowId)
-    : CompositorBridgeParentBase(aManager),
+    CompositorManagerParent* aManager, uint32_t aNamespace,
+    CSSToLayoutDeviceScale aScale, const TimeDuration& aVsyncRate,
+    const CompositorOptions& aOptions, bool aUseExternalSurfaceSize,
+    const gfx::IntSize& aSurfaceSize, uint64_t aInnerWindowId)
+    : CompositorBridgeParentBase(aManager, aNamespace),
       mWidget(nullptr),
       mScale(aScale),
       mVsyncRate(aVsyncRate),

@@ -24,7 +24,7 @@ from mozversioncontrol.errors import (
     MissingVCSExtension,
     MissingVCSInfo,
 )
-from mozversioncontrol.repo.base import Repository
+from mozversioncontrol.repo.base import HG_TRY_URL, Repository
 from mozversioncontrol.repo.git import GitRepository
 
 
@@ -142,15 +142,16 @@ class JujutsuRepository(Repository):
 
     @property
     def branch(self):
-        bookmark = self._run_read_only(
+        output = self._run_read_only(
             "log",
             "--no-graph",
             "-n1",
             "-r",
             self.HEAD_REVSET,
             "-T",
-            'if(local_bookmarks, local_bookmarks.first(), "")',
-        ).strip()
+            'local_bookmarks.join("\n")',
+        )
+        bookmark = output.split("\n")[0].strip()
         return bookmark or None
 
     @property
@@ -376,12 +377,38 @@ class JujutsuRepository(Repository):
             ref = self._resolve_to_commit(ref)
         self._git.push(remote, ref=ref, dest_branch=dest_branch, force=force)
 
-    def push_to_try(
-        self,
-        message: str,
-        changed_files: dict[str, str] = {},
-        allow_log_capture: bool = False,
-    ):
+    def _push_to_git_try(self, message, changed_files, remote):
+        dest_branch = self.branch
+        if not dest_branch:
+            # Replicate `jj git push -c` and create a new bookmark
+            template = (
+                self._run_read_only(
+                    "config", "get", "templates.git_push_bookmark", return_codes=[0, 1]
+                ).strip()
+                or '"push-" ++ change_id.short()'
+            )
+            dest_branch = self._run_read_only(
+                "log", "--no-graph", "-n1", "-r", self.HEAD_REVSET, "-T", template
+            ).strip()
+            self._run("bookmark", "create", dest_branch, "-r", self.HEAD_REVSET)
+
+        email = self.get_user_email()
+        if not email:
+            raise ValueError(
+                "user.email is not configured; run 'jj config set user.email <email>'"
+            )
+        prefix = email.split("@", 1)[0]
+        if not dest_branch.startswith(prefix + "/"):
+            dest_branch = f"{prefix}/{dest_branch}"
+        with self.try_commit(message, changed_files) as head:
+            self.push(
+                remote,
+                ref=head,
+                dest_branch=dest_branch,
+                force=True,
+            )
+
+    def _push_to_hg_try(self, message, changed_files, allow_log_capture):
         if not self.has_git_cinnabar:
             raise MissingVCSExtension("cinnabar")
 
@@ -421,6 +448,18 @@ class JujutsuRepository(Repository):
             else:
                 subprocess.check_call(cmd, cwd=self.path)
         self._run("git", "remote", "remove", "mach_tryserver", return_codes=[0, 1])
+
+    def push_to_try(
+        self,
+        message: str,
+        changed_files: dict[str, str] = {},
+        remote: str = HG_TRY_URL,
+        allow_log_capture: bool = False,
+    ):
+        if HG_TRY_URL in remote:
+            self._push_to_hg_try(message, changed_files, allow_log_capture)
+        else:
+            self._push_to_git_try(message, changed_files, remote)
 
     def set_config(self, name, value):
         self._run_read_only("config", name, value)

@@ -713,7 +713,8 @@ nsresult ServiceWorkerPrivate::Initialize() {
   }
 
   auto remoteType = RemoteWorkerManager::GetRemoteType(
-      principal, WorkerKind::WorkerKindService);
+      principal, WorkerKind::WorkerKindService,
+      SharedWebRemoteType(principal->OriginAttributesRef()));
   if (NS_WARN_IF(remoteType.isErr())) {
     return remoteType.unwrapErr();
   }
@@ -763,7 +764,9 @@ nsresult ServiceWorkerPrivate::Initialize() {
       // Origin trials are associated to a window, so it doesn't make sense on
       // service workers.
       OriginTrials(), std::move(serviceWorkerData), regInfo->AgentClusterId(),
-      remoteType.unwrap());
+      remoteType.unwrap(),
+      // Bug 2040904. Add support for language override for service workers.
+      ""_ns, nsTArray<nsString>());
 
   mRemoteWorkerData.referrerInfo() = MakeAndAddRef<ReferrerInfo>(nullptr);
 

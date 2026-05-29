@@ -3004,7 +3004,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   Endpoint<PImageBridgeChild> imageBridge;
   Endpoint<PVRManagerChild> vrBridge;
   Endpoint<PRemoteMediaManagerChild> videoManager;
-  AutoTArray<uint32_t, 3> namespaces;
+  AutoTArray<uint32_t, 4> namespaces;
 
   if (NS_SUCCEEDED(gpuReadyRv) &&
       gpm->CreateContentBridges(OtherEndpointProcInfo(), &compositor,
@@ -3190,7 +3190,7 @@ void ContentParent::OnCompositorUnexpectedShutdown() {
   Endpoint<PImageBridgeChild> imageBridge;
   Endpoint<PVRManagerChild> vrBridge;
   Endpoint<PRemoteMediaManagerChild> videoManager;
-  AutoTArray<uint32_t, 3> namespaces;
+  AutoTArray<uint32_t, 4> namespaces;
 
   if (!gpm->CreateContentBridges(OtherEndpointProcInfo(), &compositor,
                                  &imageBridge, &vrBridge, &videoManager,
@@ -4260,6 +4260,9 @@ mozilla::ipc::IPCResult ContentParent::RecvConstructPopupBrowser(
           aInitialWindowInit.context().mBrowsingContextId);
   if (!browsingContext || browsingContext->IsDiscarded()) {
     return IPC_FAIL(this, "Null or discarded initial BrowsingContext");
+  }
+  if (!browsingContext->Group()->IsKnownForChildID(OtherChildID())) {
+    return IPC_FAIL(this, "Unknown BrowsingContextGroup for this process");
   }
   if (!aInitialWindowInit.principal()) {
     return IPC_FAIL(this, "Cannot create without valid initial principal");
@@ -6755,13 +6758,14 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaPlaybackChanged(
 
 mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaAudibleChanged(
     const MaybeDiscarded<BrowsingContext>& aContext, MediaAudibleState aState,
-    ControlType aType) {
+    ControlType aType, AudioSessionType aSessionType) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
   if (RefPtr<IMediaInfoUpdater> updater =
           aContext.get_canonical()->GetMediaController()) {
-    updater->NotifyMediaAudibleChanged(aContext.ContextId(), aState, aType);
+    updater->NotifyMediaAudibleChanged(aContext.ContextId(), aState, aType,
+                                       aSessionType);
   }
   return IPC_OK();
 }

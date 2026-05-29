@@ -180,6 +180,7 @@ import org.mozilla.fenix.components.accounts.FxaWebChannelIntegration
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.MessagingAction
 import org.mozilla.fenix.components.appstate.AppAction.MessagingAction.MicrosurveyAction
+import org.mozilla.fenix.components.share.ShareSource
 import org.mozilla.fenix.components.toolbar.BottomToolbarContainerIntegration
 import org.mozilla.fenix.components.toolbar.BottomToolbarContainerView
 import org.mozilla.fenix.components.toolbar.BrowserNavigationBar
@@ -511,7 +512,7 @@ abstract class BaseBrowserFragment :
     // https://github.com/mozilla-mobile/fenix/issues/19920
     @CallSuper
     internal open fun initializeUI(view: View, tab: SessionState) {
-        val context = requireContext()
+        val context = context ?: return
         val store = context.components.core.store
         val activity = requireActivity() as HomeActivity
         val appStore = context.components.appStore
@@ -723,7 +724,7 @@ abstract class BaseBrowserFragment :
                 ->
                 run {
                     if (canShowDownloadDialog()) {
-                        requireContext().components.analytics.crashReporter.recordCrashBreadcrumb(
+                        context.components.analytics.crashReporter.recordCrashBreadcrumb(
                             Breadcrumb("FirstPartyDownloadDialog created"),
                         )
                         val contentSize = currentDownloadState.value.contentLength ?: 0
@@ -749,7 +750,7 @@ abstract class BaseBrowserFragment :
                                 fileNameIfAlreadyDownloaded.value,
                             )
 
-                            downloadDialog = MaterialAlertDialogBuilder(requireContext())
+                            downloadDialog = MaterialAlertDialogBuilder(context)
                                 .setTitle(title)
                                 .setMessage(message)
                                 .setNegativeButton(
@@ -819,8 +820,9 @@ abstract class BaseBrowserFragment :
                     }
                 }
             },
-            fileHasNotEnoughStorageDialog = { filename ->
-                MaterialAlertDialogBuilder(requireContext())
+            fileHasNotEnoughStorageDialog = callback@{ filename ->
+                val context = this.context ?: return@callback
+                MaterialAlertDialogBuilder(context)
                     .setTitle(R.string.download_file_has_not_enough_storage_dialog_title)
                     .setMessage(
                         HtmlCompat.fromHtml(
@@ -1001,12 +1003,25 @@ abstract class BaseBrowserFragment :
                         onDismiss: () -> Unit,
                         onSuccess: () -> Unit,
                     ) {
-                        val directions = NavGraphDirections.actionGlobalShareFragment(
-                            data = arrayOf(shareData),
-                            showPage = true,
-                            sessionId = getCurrentTab()?.id,
+                        val currentTab = getCurrentTab()
+
+                        context.components.useCases.shareUseCases.shareUrl(
+                            id = currentTab?.id,
+                            url = shareData.url,
+                            title = shareData.title,
+                            source = ShareSource.WEB_SHARE,
+                            isPrivate = currentTab?.content?.private ?: false,
+                            isCustomTab = currentTab is CustomTabSessionState,
+                            navigateToShareFragment = {
+                                findNavController().navigate(
+                                    NavGraphDirections.actionGlobalShareFragment(
+                                        data = arrayOf(shareData),
+                                        showPage = true,
+                                        sessionId = currentTab?.id,
+                                    ),
+                                )
+                            },
                         )
-                        findNavController().navigate(directions)
                     }
                 },
                 onNeedToRequestPermissions = { permissions ->
@@ -2482,7 +2497,7 @@ abstract class BaseBrowserFragment :
             RenameAndChangeLocationDialogFragment.RENAME_AND_CHANGE_LOCATION_DIALOG_TAG,
         ) != null
 
-        return downloadDialog == null && !isRenameFragmentShowing
+        return downloadDialog == null && !isRenameFragmentShowing && isAdded
     }
 
     private fun appLinksPromptDialog(): ((RedirectDialogData) -> AppLinksPromptFragment)? {
@@ -2506,10 +2521,11 @@ abstract class BaseBrowserFragment :
     }
 
     private fun openManageStorageSettings() {
+        val context = context ?: return
         val intent = Intent(StorageManager.ACTION_MANAGE_STORAGE)
 
-        if (intent.resolveActivity(requireContext().packageManager) != null) {
-            requireContext().startActivity(intent)
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
         }
     }
 
@@ -2518,6 +2534,7 @@ abstract class BaseBrowserFragment :
         positiveAction: PositiveActionCallback,
         negativeAction: NegativeActionCallback,
     ) {
+        val context = context ?: return
         val contentSize = currentDownloadState.value.contentLength ?: 0
         val title = if (contentSize > 0L) {
             val contentSizeInBytes = requireComponents.core.fileSizeFormatter.formatSizeInBytes(
@@ -2533,7 +2550,7 @@ abstract class BaseBrowserFragment :
             )
         }
 
-        downloadDialog = MaterialAlertDialogBuilder(requireContext())
+        downloadDialog = MaterialAlertDialogBuilder(context)
             .setTitle(title)
             .setMessage(currentDownloadState.value.fileName)
             .setPositiveButton(
@@ -2552,7 +2569,7 @@ abstract class BaseBrowserFragment :
                 negativeAction.value.invoke()
             }.setOnDismissListener {
                 downloadDialog = null
-                requireContext().components.analytics.crashReporter.recordCrashBreadcrumb(
+                context.components.analytics.crashReporter.recordCrashBreadcrumb(
                     Breadcrumb("FirstPartyDownloadDialog onDismiss"),
                 )
             }.show()

@@ -2043,7 +2043,8 @@ export var Policies = {
           }
         }
       }
-      if (blockAllExtensions) {
+      let allowedTypes = extensionSettings["*"]?.allowed_types;
+      if (blockAllExtensions || allowedTypes) {
         for (let addon of addons) {
           if (
             addon.isSystem ||
@@ -2052,7 +2053,10 @@ export var Policies = {
           ) {
             continue;
           }
-          if (!allowedExtensions.includes(addon.id)) {
+          if (
+            !allowedExtensions.includes(addon.id) &&
+            (blockAllExtensions || !allowedTypes.includes(addon.type))
+          ) {
             try {
               // Can't use the addon from getActiveAddons since it doesn't have uninstall.
               let addonToUninstall = await lazy.AddonManager.getAddonByID(

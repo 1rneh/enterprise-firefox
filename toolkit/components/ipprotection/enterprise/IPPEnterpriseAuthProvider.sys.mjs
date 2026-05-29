@@ -142,8 +142,6 @@ class IPPEnterpriseAuthProviderSingleton extends IPPAuthProvider {
 
   // eslint-disable-next-line require-await
   async initOnStartupCompleted() {
-    // The enterprise provider is always ready; notify listeners so the panel
-    // and toolbar button pick up the correct state after policy activation.
     this.dispatchEvent(
       new CustomEvent("IPPAuthProvider:StateChanged", {
         bubbles: true,

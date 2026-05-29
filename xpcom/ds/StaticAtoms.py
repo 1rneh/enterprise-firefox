@@ -365,6 +365,8 @@ STATIC_ATOMS = [
     Atom("disablehistory", "disablehistory"),
     Atom("disablefullscreen", "disablefullscreen"),
     Atom("disablepictureinpicture", "disablepictureinpicture"),
+    Atom("onenterpictureinpicture", "onenterpictureinpicture"),
+    Atom("onleavepictureinpicture", "onleavepictureinpicture"),
     Atom("disclosure_closed", "disclosure-closed"),
     Atom("disclosure_open", "disclosure-open"),
     Atom("display", "display"),
@@ -2469,6 +2471,7 @@ STATIC_ATOMS = [
     Atom("onmetadatachange", "onmetadatachange"),
     Atom("onplaybackstatechange", "onplaybackstatechange"),
     Atom("onpositionstatechange", "onpositionstatechange"),
+    Atom("oneffectiveaudiosessiontypechange", "oneffectiveaudiosessiontypechange"),
     Atom("onsupportedkeyschange", "onsupportedkeyschange"),
     # Media query prefs for UA sheets.
     Atom("dom_image_sizes_auto_enabled", "dom.image.sizes_auto.enabled"),

@@ -97,6 +97,7 @@ import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.ContentBlockingController
 import org.mozilla.geckoview.ContentBlockingController.Event
+import org.mozilla.geckoview.ContentBlockingController.LogEntry.BlockingData
 import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
@@ -265,6 +266,22 @@ class GeckoEngine(
         runtime.contentBlockingController.trackingDbEarliestRecordedDate.then(
             { date ->
                 onSuccess(if (date == 0L) null else date)
+                GeckoResult<Void>()
+            },
+            { throwable ->
+                onError(throwable)
+                GeckoResult<Void>()
+            },
+        )
+    }
+
+    override fun clearTrackingProtectionData(
+        onSuccess: () -> Unit,
+        onError: (Throwable) -> Unit,
+    ) {
+        runtime.contentBlockingController.clearTrackingDb().then(
+            {
+                onSuccess()
                 GeckoResult<Void>()
             },
             { throwable ->
@@ -2195,11 +2212,25 @@ internal fun ContentBlockingController.LogEntry.BlockingData.unBlockedBySmartBlo
 
 internal fun ContentBlockingController.LogEntry.BlockingData.getBlockedCategory(): TrackingCategory {
     return when (category) {
-        Event.BLOCKED_FINGERPRINTING_CONTENT -> TrackingCategory.FINGERPRINTING
-        Event.BLOCKED_SUSPICIOUS_FINGERPRINTING -> TrackingCategory.FINGERPRINTING
+        Event.BLOCKED_FINGERPRINTING_CONTENT,
+        Event.BLOCKED_SUSPICIOUS_FINGERPRINTING,
+        Event.REPLACED_FINGERPRINTING_CONTENT,
+            -> TrackingCategory.FINGERPRINTING
+
         Event.BLOCKED_CRYPTOMINING_CONTENT -> TrackingCategory.CRYPTOMINING
-        Event.BLOCKED_SOCIALTRACKING_CONTENT, Event.COOKIES_BLOCKED_SOCIALTRACKER -> TrackingCategory.MOZILLA_SOCIAL
-        Event.BLOCKED_TRACKING_CONTENT -> TrackingCategory.SCRIPTS_AND_SUB_RESOURCES
+
+        Event.BLOCKED_SOCIALTRACKING_CONTENT,
+        Event.COOKIES_BLOCKED_SOCIALTRACKER,
+            -> TrackingCategory.MOZILLA_SOCIAL
+
+        Event.BLOCKED_EMAILTRACKING_CONTENT -> TrackingCategory.EMAIL
+
+        Event.BLOCKED_TRACKING_CONTENT,
+        Event.REPLACED_TRACKING_CONTENT,
+            -> TrackingCategory.SCRIPTS_AND_SUB_RESOURCES
+
+        Event.PURGED_BOUNCETRACKER -> TrackingCategory.SCRIPTS_AND_SUB_RESOURCES
+
         else -> TrackingCategory.NONE
     }
 }

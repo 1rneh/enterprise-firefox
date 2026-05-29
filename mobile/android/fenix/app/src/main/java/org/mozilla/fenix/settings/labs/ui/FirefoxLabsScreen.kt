@@ -7,13 +7,16 @@ package org.mozilla.fenix.settings.labs.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -29,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
@@ -43,6 +47,8 @@ import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.button.TextButton
+import mozilla.components.compose.base.modifier.thenConditional
+import mozilla.components.compose.base.theme.layout.AcornWindowSize
 import mozilla.components.compose.base.utils.BackInvokedHandler
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.list.SwitchListItem
@@ -129,11 +135,17 @@ private fun FirefoxLabsScreenContent(
         }
 
         item {
+            val isWideScreen = AcornWindowSize.getWindowSize().isNotSmall()
             FilledButton(
                 text = stringResource(R.string.firefox_labs_restore_default_button_text),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .thenConditional(
+                        modifier = Modifier.wrapContentWidth(Alignment.CenterHorizontally),
+                        predicate = { isWideScreen },
+                    )
                     .padding(horizontal = 16.dp, vertical = 24.dp),
+                enabled = labsFeatures.any { it.enabled },
                 onClick = onRestoreDefaultsButtonClick,
             )
         }
@@ -194,12 +206,12 @@ private fun LabsShareFeedbackLink(
 @Composable
 private fun FirefoxLabsBanner() {
     PromoCard(
-        modifier = Modifier.padding(
-            start = 16.dp,
-            end = 16.dp,
-            top = 8.dp,
-            bottom = 16.dp,
-        ),
+        modifier = Modifier
+            .padding(
+                horizontal = FirefoxTheme.layout.space.dynamic200,
+                vertical = FirefoxTheme.layout.space.static100,
+            )
+            .height(IntrinsicSize.Min),
         title = { Text(text = stringResource(R.string.firefox_labs_banner_title)) },
         message = {
             Text(
@@ -211,8 +223,12 @@ private fun FirefoxLabsBanner() {
         },
         illustration = {
             Image(
-                painter = painterResource(R.drawable.fox_ai_on_state),
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(top = FirefoxTheme.layout.space.static150),
+                painter = painterResource(R.drawable.kit_expressive_full),
                 contentDescription = null,
+                contentScale = ContentScale.FillHeight,
             )
         },
     )
@@ -325,20 +341,23 @@ private fun ToggleFeatureDialog(
         },
         title = {
             Text(
-                text = if (featureEnabled) {
-                    stringResource(R.string.firefox_labs_disable_feature_dialog_title)
-                } else {
-                    stringResource(R.string.firefox_labs_enable_feature_dialog_title)
-                },
+                text = stringResource(R.string.firefox_labs_feature_dialog_title),
                 style = FirefoxTheme.typography.headline5,
             )
         },
         text = {
             Text(
-                text = String.format(
-                    stringResource(R.string.firefox_labs_enable_feature_dialog_message),
-                    stringResource(R.string.app_name),
-                ),
+                text = if (featureEnabled) {
+                    String.format(
+                        stringResource(R.string.firefox_labs_feature_disable_dialog_message),
+                        stringResource(R.string.app_name),
+                    )
+                } else {
+                    String.format(
+                        stringResource(R.string.firefox_labs_feature_enable_dialog_message),
+                        stringResource(R.string.app_name),
+                    )
+                },
                 style = FirefoxTheme.typography.body2,
             )
         },

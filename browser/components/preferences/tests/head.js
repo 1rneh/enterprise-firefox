@@ -187,6 +187,10 @@ async function evaluateSearchResults(
       continue;
     }
     if (child.localName == "setting-group") {
+      // Skip migrated setting-groups to avoid interference with legacy tests
+      if (child.hasAttribute("data-srd-migrated")) {
+        continue;
+      }
       if (searchResults.includes(child.groupId)) {
         is_element_visible(
           child,
@@ -323,7 +327,7 @@ async function selectHistoryMode(win, value) {
 
   let popupShownPromise = BrowserTestUtils.waitForSelectPopupShown(window);
 
-  await EventUtils.synthesizeMouseAtCenter(
+  EventUtils.synthesizeMouseAtCenter(
     historyMode,
     {},
     historyMode.documentGlobal
@@ -400,11 +404,7 @@ async function updateCheckBoxElement(checkbox, value) {
   checkbox.scrollIntoView();
 
   // Toggle the state.
-  await EventUtils.synthesizeMouseAtCenter(
-    checkbox,
-    {},
-    checkbox.documentGlobal
-  );
+  EventUtils.synthesizeMouseAtCenter(checkbox, {}, checkbox.documentGlobal);
 }
 
 async function updateCheckBox(win, id, value) {
@@ -421,11 +421,7 @@ async function updateCheckBox(win, id, value) {
   checkbox.scrollIntoView();
 
   // Toggle the state.
-  await EventUtils.synthesizeMouseAtCenter(
-    checkbox,
-    {},
-    checkbox.documentGlobal
-  );
+  EventUtils.synthesizeMouseAtCenter(checkbox, {}, checkbox.documentGlobal);
 }
 
 /**

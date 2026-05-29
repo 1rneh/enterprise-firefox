@@ -8007,7 +8007,8 @@ function MessageWrapper({
   children,
   dispatch,
   hiddenOverride,
-  onDismiss
+  onDismiss,
+  wrapperClassName
 }) {
   const message = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
   const [isIntersecting, setIsIntersecting] = (0,external_React_namespaceObject.useState)(false);
@@ -8107,7 +8108,7 @@ function MessageWrapper({
     ref: el => {
       ref.current = [el];
     },
-    className: "message-wrapper"
+    className: wrapperClassName ? `message-wrapper ${wrapperClassName}` : "message-wrapper"
   }, /*#__PURE__*/external_React_default().cloneElement(children, {
     isIntersecting,
     handleDismiss,
@@ -15946,6 +15947,274 @@ function WidgetsRowFeatureHighlight({
   }));
 }
 
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/HighlightText.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+const HighlightText = ({
+  as: Tag = "p",
+  className,
+  value,
+  id
+}) => {
+  if (!value) {
+    return null;
+  }
+  if (value.raw) {
+    return /*#__PURE__*/external_React_default().createElement(Tag, {
+      id: id,
+      className: className
+    }, value.raw);
+  }
+  if (value.l10nId) {
+    return /*#__PURE__*/external_React_default().createElement(Tag, {
+      id: id,
+      className: className,
+      "data-l10n-id": value.l10nId
+    });
+  }
+  return null;
+};
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/HighlightImage.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+const HighlightImage = ({
+  source,
+  className,
+  alt = "",
+  width,
+  height
+}) => {
+  if (!source) {
+    return null;
+  }
+  if (source.srcLight && source.srcDark) {
+    return /*#__PURE__*/external_React_default().createElement("picture", null, /*#__PURE__*/external_React_default().createElement("source", {
+      srcSet: source.srcDark,
+      media: "(prefers-color-scheme: dark)"
+    }), /*#__PURE__*/external_React_default().createElement("source", {
+      srcSet: source.srcLight,
+      media: "(prefers-color-scheme: light)"
+    }), /*#__PURE__*/external_React_default().createElement("img", {
+      className: className,
+      src: source.srcLight,
+      alt: alt,
+      width: width,
+      height: height
+    }));
+  }
+  if (source.src) {
+    return /*#__PURE__*/external_React_default().createElement("img", {
+      className: className,
+      src: source.src,
+      alt: alt,
+      width: width,
+      height: height
+    });
+  }
+  return null;
+};
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/OMCHighlightSlots.mjs
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+const SLOTS = Object.freeze({
+  WIDGETS_ROW: "widgets-row",
+});
+
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/OMCHighlightRegistry.mjs
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+const SHELLS = Object.freeze({
+  POPOVER: "popover",
+});
+
+const DISMISS_MODES = Object.freeze({
+  BLOCK: "block",
+});
+
+const OMC_HIGHLIGHT_REGISTRY = Object.freeze({
+  WorldCupWidgetsCallout: {
+    slot: SLOTS.WIDGETS_ROW,
+    shell: SHELLS.POPOVER,
+    chrome: {
+      position: "inset-block-start inset-inline-center",
+      modalClassName: "widgets-callout",
+    },
+    body: {
+      image: {
+        src: "chrome://newtab/content/data/content/assets/highlights/widget-worldcup.png",
+      },
+      title: { l10nId: "newtab-sports-widget-message-day-in-play-title" },
+      subtitle: { l10nId: "newtab-sports-widget-message-day-in-play-body" },
+    },
+    dismiss: DISMISS_MODES.BLOCK,
+  },
+  WidgetsCallout: {
+    slot: SLOTS.WIDGETS_ROW,
+    shell: SHELLS.POPOVER,
+    chrome: {
+      position: "inset-block-start inset-inline-center",
+      modalClassName: "widgets-callout",
+    },
+    body: {
+      image: {
+        src: "chrome://newtab/content/data/content/assets/highlights/widget-non-worldcup.png",
+      },
+      title: { l10nId: "newtab-widget-message-focus-forecasts-title" },
+      subtitle: { l10nId: "newtab-widget-message-focus-forecasts-body" },
+    },
+    dismiss: DISMISS_MODES.BLOCK,
+  },
+});
+
+const getRegistryEntry = messageType => {
+  if (!messageType) {
+    return null;
+  }
+  return OMC_HIGHLIGHT_REGISTRY[messageType] || null;
+};
+
+const resolveText = ({ content, rawKey, l10nKey, defaultL10nId }) => {
+  const raw = content?.[rawKey];
+  if (raw) {
+    return { raw };
+  }
+  const customL10nId = content?.[l10nKey];
+  if (customL10nId) {
+    return { l10nId: customL10nId };
+  }
+  if (defaultL10nId) {
+    return { l10nId: defaultL10nId };
+  }
+  return null;
+};
+
+const resolveImage = ({ content, defaults }) => {
+  if (content?.hideImage) {
+    return null;
+  }
+  const override = content?.imageURL;
+  if (override) {
+    return { src: override };
+  }
+  return defaults || null;
+};
+
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/HighlightPopoverBody.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+
+const HighlightPopoverBody = ({
+  body,
+  content
+}) => {
+  const image = resolveImage({
+    content,
+    defaults: body?.image
+  });
+  const title = resolveText({
+    content,
+    rawKey: "cardTitle",
+    l10nKey: "title",
+    defaultL10nId: body?.title?.l10nId
+  });
+  const subtitle = resolveText({
+    content,
+    rawKey: "cardMessage",
+    l10nKey: "subtitle",
+    defaultL10nId: body?.subtitle?.l10nId
+  });
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: "highlight-popover-body"
+  }, /*#__PURE__*/external_React_default().createElement(HighlightImage, {
+    source: image,
+    className: "highlight-popover-image"
+  }), /*#__PURE__*/external_React_default().createElement(HighlightText, {
+    as: "h3",
+    className: "title",
+    value: title
+  }), /*#__PURE__*/external_React_default().createElement(HighlightText, {
+    as: "p",
+    className: "subtitle",
+    value: subtitle
+  }));
+};
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/OMCHighlightSlot.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+
+
+
+const PopoverShell = ({
+  entry,
+  content,
+  handleDismiss,
+  handleBlock
+}) => {
+  const dismissCallback = (0,external_React_namespaceObject.useCallback)(() => {
+    handleDismiss?.();
+    if (entry.dismiss === DISMISS_MODES.BLOCK) {
+      handleBlock?.();
+    }
+  }, [entry.dismiss, handleDismiss, handleBlock]);
+  return /*#__PURE__*/external_React_default().createElement(FeatureHighlight, {
+    position: entry.chrome.position,
+    arrowPosition: entry.chrome.arrowPosition,
+    modalClassName: entry.chrome.modalClassName,
+    openedOverride: true,
+    showButtonIcon: false,
+    message: /*#__PURE__*/external_React_default().createElement(HighlightPopoverBody, {
+      body: entry.body,
+      content: content
+    }),
+    dismissCallback: dismissCallback,
+    outsideClickCallback: handleDismiss
+  });
+};
+const OMCHighlightSlot = ({
+  slot,
+  dispatch
+}) => {
+  const {
+    messageData
+  } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
+  const content = messageData?.content;
+  const entry = getRegistryEntry(content?.messageType);
+  if (!entry || entry.slot !== slot) {
+    return null;
+  }
+  if (entry.shell === SHELLS.POPOVER) {
+    return /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+      dispatch: dispatch,
+      wrapperClassName: "omc-highlight-slot"
+    }, /*#__PURE__*/external_React_default().createElement(PopoverShell, {
+      entry: entry,
+      content: content
+    }));
+  }
+  return null;
+};
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/SportsWidget/SportsMatchRow.jsx
 function SportsMatchRow_extends() { return SportsMatchRow_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, SportsMatchRow_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -16473,6 +16742,11 @@ const SportsWidget_USER_ACTION_TYPES = {
 const SportsWidget_PREF_NOVA_ENABLED = "nova.enabled";
 const SportsWidget_PREF_SPORTS_WIDGET_SIZE = "widgets.sportsWidget.size";
 const PREF_SPORTS_WIDGET_LIVE_ENABLED = "widgets.sportsWidget.live.enabled";
+
+// World Cup 2026 kickoff: June 11, 2026 at 19:00 UTC. Used as a temporary
+// guard to ignore /live data while the endpoint still serves mock matches
+// pre-kickoff. Remove this once the backend returns empty pre-kickoff.
+const WORLD_CUP_KICKOFF_MS = Date.UTC(2026, 5, 11, 19, 0, 0);
 const SPORTS_WIDGET_REGISTRY_ENTRY = WIDGET_REGISTRY.find(widget => widget.id === "sportsWidget");
 
 // Stable sort that bubbles matches involving a followed team to the front
@@ -16540,6 +16814,8 @@ function getFollowedGradient(match, selectedTeamsSet, teamColorsByKey) {
   }
   return `linear-gradient(to right, ${colors.join(", ")})`;
 }
+
+// eslint-disable-next-line max-statements
 function SportsWidget_SportsWidget({
   dispatch,
   handleUserInteraction,
@@ -16550,16 +16826,22 @@ function SportsWidget_SportsWidget({
   const widgetSize = resolveWidgetSize(SPORTS_WIDGET_REGISTRY_ENTRY, prefs);
   const liveEnabled = prefs[PREF_SPORTS_WIDGET_LIVE_ENABLED];
   const widgetsMayBeMaximized = prefs["widgets.system.maximized"];
-  const hasLiveGames = sportsWidgetData?.data?.live?.length > 0;
+  // /live currently serves mock data pre-kickoff, so ignore its contents
+  // until the kickoff timestamp. Drop this guard once the backend returns
+  // empty pre-kickoff.
+  const liveDataTrustable = Date.now() >= WORLD_CUP_KICKOFF_MS;
+  const hasLiveGames = liveDataTrustable && sportsWidgetData?.data?.live?.length > 0;
   const hasPreviousResults = sportsWidgetData?.data?.matches?.previous?.length > 0;
-  const tournamentStarted = hasLiveGames || hasPreviousResults;
+  const hasUpcomingMatches = sportsWidgetData?.data?.matches?.next?.length > 0;
+  const tournamentStarted = hasLiveGames || hasPreviousResults || hasUpcomingMatches;
   const savedWidgetState = sportsWidgetData.widgetState || WIDGET_STATES.INTRO;
-  // Once the tournament has started, skip the intro and open on the match schedule.
+  // Once the backend has any match data (upcoming, live, or completed), skip
+  // the intro and open on the match schedule.
   const widgetState = tournamentStarted && savedWidgetState === WIDGET_STATES.INTRO ? WIDGET_STATES.MATCHES : savedWidgetState;
   const rawSelectedTeams = sportsWidgetData.selectedTeams;
   const rawTeams = sportsWidgetData?.data?.teams;
   const rawMatches = sportsWidgetData?.data?.matches;
-  const rawLive = sportsWidgetData?.data?.live;
+  const rawLive = liveDataTrustable ? sportsWidgetData?.data?.live : null;
   const selectedTeams = (0,external_React_namespaceObject.useMemo)(() => rawSelectedTeams || [], [rawSelectedTeams]);
   const teams = (0,external_React_namespaceObject.useMemo)(() => rawTeams ?? [], [rawTeams]);
   const {
@@ -16634,6 +16916,21 @@ function SportsWidget_SportsWidget({
   const followedGradient = getFollowedGradient(highlightMatch, selectedTeamsSet, teamColorsByKey);
   const impressionFired = (0,external_React_namespaceObject.useRef)(false);
   const sizeSubmenuRef = (0,external_React_namespaceObject.useRef)(null);
+  const introVideoRef = (0,external_React_namespaceObject.useRef)(null);
+  const playIntroVideo = (0,external_React_namespaceObject.useMemo)(() => {
+    const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    return () => {
+      if (prefersReducedMotion) {
+        return;
+      }
+      const video = introVideoRef.current;
+      if (!video || !video.paused) {
+        return;
+      }
+      video.currentTime = 0;
+      video.play().catch(() => {});
+    };
+  }, []);
   const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
     if (impressionFired.current) {
       return;
@@ -16891,8 +17188,24 @@ function SportsWidget_SportsWidget({
     } : undefined,
     ref: el => {
       widgetRef.current = [el];
+    },
+    onMouseEnter: playIntroVideo,
+    onFocus: e => {
+      if (!e.currentTarget.contains(e.relatedTarget)) {
+        playIntroVideo();
+      }
     }
-  }, /*#__PURE__*/external_React_default().createElement("div", {
+  }, widgetState === WIDGET_STATES.INTRO && /*#__PURE__*/external_React_default().createElement("video", {
+    ref: introVideoRef,
+    className: "sports-intro-video",
+    muted: true,
+    playsInline: true,
+    preload: "auto",
+    "aria-hidden": "true",
+    tabIndex: -1,
+    poster: `chrome://newtab/content/data/content/assets/worldcup-${displaySize}.png`,
+    src: `chrome://newtab/content/data/content/assets/worldcup-${displaySize}.webm`
+  }), /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-title-wrapper"
   }, widgetState === WIDGET_STATES.INTRO && /*#__PURE__*/external_React_default().createElement("div", null), widgetState === WIDGET_STATES.FOLLOW_TEAMS && /*#__PURE__*/external_React_default().createElement("span", {
     className: "sports-follow-teams-title",
@@ -18576,8 +18889,9 @@ function Clocks({
   }, [clockZones, currentSize, dispatch]);
   const isClockFormOpen = activePanel === CLOCKS_PANEL.FORM;
   const isEditingClocks = activePanel === CLOCKS_PANEL.EDIT;
+  const hasAnyLabel = clockZones.some(c => !!c.label);
   return /*#__PURE__*/external_React_default().createElement("article", {
-    className: `clocks-widget col-4 ${panelDisplaySize}-widget${clockZones.length === 1 ? " is-hero" : ""}${isDismissed ? " is-dismissed" : ""}${isClockFormOpen ? " is-clock-form-open" : ""}${isEditingClocks ? " is-editing-clocks" : ""}${activePanel ? " is-panel-open" : ""}`,
+    className: `clocks-widget col-4 ${panelDisplaySize}-widget${clockZones.length === 1 ? " is-hero" : ""}${isDismissed ? " is-dismissed" : ""}${isClockFormOpen ? " is-clock-form-open" : ""}${isEditingClocks ? " is-editing-clocks" : ""}${activePanel ? " is-panel-open" : ""}${hasAnyLabel ? "" : " has-no-labels"}`,
     "data-clock-count": clockZones.length,
     onMouseLeave: () => setIsDismissed(false),
     ref: el => {
@@ -18771,6 +19085,8 @@ function Widgets_extends() { return Widgets_extends = Object.assign ? Object.ass
 
 // Bug 2034542: these per-widget imports can be removed once the non-Nova render
 // path (@nova-cleanup) is gone and all widgets render via WIDGET_ROW_COMPONENTS.
+
+
 
 
 
@@ -19243,7 +19559,10 @@ function Widgets() {
     dispatch: dispatch
   }))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "widgets-title-actions"
-  }, renderWidgetsActions())), /*#__PURE__*/external_React_default().createElement("div", {
+  }, renderWidgetsActions())), novaEnabled && /*#__PURE__*/external_React_default().createElement(OMCHighlightSlot, {
+    slot: SLOTS.WIDGETS_ROW,
+    dispatch: dispatch
+  }), /*#__PURE__*/external_React_default().createElement("div", {
     id: "widgets-container",
     className: `widgets-container${isMaximized ? " is-maximized" : ""}`,
     "data-row-collapsed": isCollapsed ? "" : undefined

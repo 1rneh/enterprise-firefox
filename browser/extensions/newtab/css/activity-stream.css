@@ -335,7 +335,7 @@ body {
   background-position: var(--newtab-wallpaper-backgroundPosition);
   background-attachment: fixed;
   background-image: var(--newtab-wallpaper, ""), linear-gradient(to right, var(--newtab-wallpaper-color, ""), var(--newtab-wallpaper-color, ""));
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 
 h1,
@@ -6832,12 +6832,22 @@ dialog:dir(rtl)::after {
   margin-block-start: var(--space-large);
 }
 .sports.sports-intro {
-  background-image: url("chrome://newtab/content/data/content/assets/foxtail-goal.png");
-  background-repeat: no-repeat;
-  background-size: cover;
+  position: relative;
+  overflow: hidden;
 }
-.sports.sports-intro.medium-widget {
-  background-position-y: 0;
+.sports.sports-intro .sports-intro-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: bottom center;
+  pointer-events: none;
+}
+.sports.sports-intro > .sports-title-wrapper,
+.sports.sports-intro > .sports-body {
+  position: relative;
+  z-index: 1;
 }
 .sports.sports-follow-state .sports-title-wrapper {
   padding: var(--space-small);
@@ -6925,6 +6935,10 @@ dialog:dir(rtl)::after {
 }
 .sports-buttons-wrapper .sports-view-matches {
   margin-block-end: var(--space-small);
+}
+.sports-buttons-wrapper .sports-follow-teams-btn {
+  background: var(--newtab-background-color-secondary);
+  border-radius: var(--border-radius-xlarge);
 }
 
 .sports-follow-teams {
@@ -8363,7 +8377,10 @@ dialog:dir(rtl)::after {
 }
 .nova-enabled .clocks-widget.large-widget[data-clock-count="3"] .clocks-meta, .nova-enabled .clocks-widget.large-widget[data-clock-count="4"] .clocks-meta {
   display: grid;
-  grid-template-columns: 7ch minmax(0, 1fr);
+  grid-template-columns: 9ch minmax(9ch, 1fr);
+}
+.nova-enabled .clocks-widget.large-widget.has-no-labels[data-clock-count="3"] .clocks-meta, .nova-enabled .clocks-widget.large-widget.has-no-labels[data-clock-count="4"] .clocks-meta {
+  grid-template-columns: 1fr;
 }
 .nova-enabled .clocks-widget .clocks-city {
   font-size: var(--font-size-root);
@@ -13886,6 +13903,86 @@ hr {
   text-align: end;
 }
 
+.nova-enabled .highlight-popover-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-small);
+}
+.nova-enabled .highlight-popover-body .title {
+  font-weight: var(--font-weight-heading);
+  margin: 0;
+}
+.nova-enabled .highlight-popover-body .subtitle {
+  font-size: var(--font-size-root);
+  margin: 0;
+}
+.nova-enabled .highlight-popover-image {
+  width: 100%;
+  height: auto;
+  border-radius: var(--border-radius-small);
+}
+
+.nova-enabled .omc-highlight-slot {
+  grid-column: 1/-1;
+}
+.nova-enabled .feature-highlight .widgets-callout {
+  --nova-highlight-border-gradient-start: light-dark(#B58CFF, #A67CE5);
+  --nova-highlight-border-gradient-end: light-dark(#FF8A5B, #764EDD);
+  --nova-highlight-shadow:
+    -10px -10px 28px rgba(231, 217, 255, 70%),
+    8px 8px 28px rgba(255, 211, 183, 70%),
+    0 3px 12px rgba(0, 0, 0, 4%),
+    0 0.375px 1px rgba(0, 0, 0, 1.5%);
+  border: var(--border-width) solid var(--border-color-transparent);
+  border-radius: var(--border-radius-large);
+  background: linear-gradient(var(--background-color-box), var(--background-color-box)) padding-box, linear-gradient(135deg, var(--nova-highlight-border-gradient-start), var(--nova-highlight-border-gradient-end)) border-box;
+  box-shadow: var(--nova-highlight-shadow);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 360px;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  max-width: calc(100vw - var(--space-large) * 2);
+  padding: calc(var(--space-large) + var(--space-xsmall));
+}
+@media (prefers-color-scheme: dark) {
+  .nova-enabled .feature-highlight .widgets-callout {
+    --nova-highlight-shadow:
+      -10px -10px 28px rgba(99, 47, 200, 28%),
+      8px 8px 28px rgba(255, 138, 87, 24%),
+      0 3px 12px rgba(0, 0, 0, 32%),
+      0 0.375px 1.5px rgba(0, 0, 0, 16%);
+  }
+}
+@media (forced-colors: active) {
+  .nova-enabled .feature-highlight .widgets-callout {
+    background: Canvas;
+  }
+}
+.nova-enabled .feature-highlight .widgets-callout .message-icon {
+  display: none;
+}
+.nova-enabled .feature-highlight .widgets-callout .content-wrapper {
+  width: 100%;
+}
+.nova-enabled .feature-highlight .widgets-callout > moz-button {
+  position: absolute;
+  inset-inline-end: var(--space-small);
+  inset-block-start: var(--space-small);
+}
+.nova-enabled .feature-highlight .widgets-callout::after {
+  background: linear-gradient(var(--background-color-box), var(--background-color-box)) padding-box, linear-gradient(90deg, var(--nova-highlight-border-gradient-start), var(--nova-highlight-border-gradient-end)) border-box;
+  border: var(--border-width) solid var(--border-color-transparent);
+  border-end-end-radius: var(--border-radius-small);
+  box-shadow: none;
+  clip-path: polygon(100% 100%, 100% 2%, 2% 100%);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens, declaration-property-value-disallowed-list */
+  inset-block-end: calc(var(--space-medium) * -1 + 0.125px);
+  inset-inline-start: 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+.nova-enabled .highlight-popover-body .title {
+  font-size: var(--font-size-root);
+}
+
 /* stylelint-disable max-nesting-depth */
 .topic-selection-container {
   --transition: 0.6s opacity, 0.6s scale, 0.6s rotate, 0.6s translate;
@@ -14934,6 +15031,7 @@ hr {
   /** card **/
   --card-border-color: light-dark(rgba(255, 255, 255, 10%), rgba(255, 255, 255, 6%));
   --card-border-radius: var(--border-radius-xlarge);
+  --card-gap: var(--space-medium);
   /** color **/
   --color-accent-attention: light-dark(var(--color-green-40), var(--color-green-30));
   --color-accent-primary: light-dark(var(--color-violet-50), var(--color-violet-20));
@@ -15073,6 +15171,8 @@ hr {
   --icon-size-medium: 20px;
   --icon-size-large: var(--size-item-medium);
   --icon-size-xlarge: var(--size-item-large);
+  /** input **/
+  --input-text-border-radius: var(--border-radius-large);
   /** link **/
   --link-color: var(--color-accent-primary);
   --link-color-hover: var(--color-accent-primary-hover);
@@ -15081,12 +15181,12 @@ hr {
   /** page **/
   --page-main-content-width: 664px;
   /** panel **/
-  --panel-background-color: var(--background-color-box);
-  --panel-border-color: light-dark(var(--color-gray-10), var(--color-gray-60));
+  --panel-background-color: Field;
+  --panel-border-color: ThreeDShadow;
   --panel-border-radius: 16px;
   --panel-padding: var(--panel-padding-block);
   --panel-padding-block: 8px;
-  --panel-text-color: var(--text-color);
+  --panel-text-color: FieldText;
   /** size **/
   --size-item-xsmall: 12px;
   --size-item-small: 16px;
@@ -15104,19 +15204,19 @@ hr {
   --text-color-deemphasized: light-dark(rgba(20, 9, 43, 70%), rgba(242, 240, 248, 70%));
   --text-color-error: light-dark(var(--color-red-50), var(--color-red-20));
   /** toolbar **/
-  --toolbar-background-color: var(--background-color-box);
+  --toolbar-background-color: color-mix(in srgb, -moz-dialog 85%, var(--color-white));
   --toolbar-field-background-color: var(--toolbar-background-color);
-  --toolbar-field-background-color-focus: var(--background-color-box);
+  --toolbar-field-background-color-focus: Field;
   --toolbar-field-border-color: light-dark(var(--color-gray-20), var(--color-gray-60));
   --toolbar-field-border-color-focus: #FFF;
-  --toolbar-field-text-color: light-dark(var(--color-violet-desaturated-70), var(--color-violet-desaturated-10));
-  --toolbar-field-text-color-focus: var(--toolbar-field-text-color);
+  --toolbar-field-text-color: inherit;
+  --toolbar-field-text-color-focus: FieldText;
   --toolbar-padding-inline: 6px;
   /** toolbarbutton **/
   --toolbarbutton-background-color-hover: light-dark(rgba(117, 102, 159, 25%), rgba(182, 170, 217, 25%));
   --toolbarbutton-background-color-active: light-dark(rgba(117, 102, 159, 40%), rgba(182, 170, 217, 40%));
-  --toolbarbutton-icon-fill: light-dark(var(--color-violet-desaturated-50), var(--color-violet-desaturated-10));
-  --toolbarbutton-icon-fill-attention: var(--color-accent-primary);
+  --toolbarbutton-icon-fill: currentColor;
+  --toolbarbutton-icon-fill-attention: AccentColor;
   --toolbarbutton-opacity-disabled: 0.4;
   --toolbarbutton-outline-color: transparent;
   --toolbarbutton-outline-color-hover: transparent;
@@ -15127,9 +15227,9 @@ hr {
   /** toolbarseparator **/
   --toolbarseparator-color: color-mix(in srgb, currentColor 60%, transparent);
   /** toolbox **/
-  --toolbox-background-color-inactive: transparent;
-  --toolbox-text-color: var(--text-color);
-  --toolbox-text-color-inactive: var(--text-color-deemphasized);
+  --toolbox-background-color-inactive: -moz-headerbarinactive;
+  --toolbox-text-color: -moz-headerbartext;
+  --toolbox-text-color-inactive: -moz-headerbarinactivetext;
 }
 
 @media (forced-colors) {
@@ -15208,7 +15308,6 @@ hr {
     --link-color: LinkText;
     --link-color-hover: LinkText;
     --link-color-active: ActiveText;
-    --link-color-visited: VisitedText;
     /** panel **/
     --panel-border-color: var(--border-color);
     /** table **/

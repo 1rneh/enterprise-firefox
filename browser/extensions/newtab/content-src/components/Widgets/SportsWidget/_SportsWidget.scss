@@ -81,12 +81,23 @@
   }
 
   &.sports-intro {
-    background-image: url('chrome://newtab/content/data/content/assets/foxtail-goal.png');
-    background-repeat: no-repeat;
-    background-size: cover;
+    position: relative;
+    overflow: hidden;
 
-    &.medium-widget {
-      background-position-y: 0;
+    .sports-intro-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: bottom center;
+      pointer-events: none;
+    }
+
+    > .sports-title-wrapper,
+    > .sports-body {
+      position: relative;
+      z-index: 1;
     }
   }
 
@@ -191,6 +202,11 @@
 
   .sports-view-matches {
     margin-block-end: var(--space-small);
+  }
+
+  .sports-follow-teams-btn {
+    background: var(--newtab-background-color-secondary);
+    border-radius: var(--border-radius-xlarge);
   }
 }
 

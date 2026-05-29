@@ -656,20 +656,27 @@ class TestManifestLoader(TestLoader):
         manifest = reftest.ReftestManifest(finder=self.finder)
         manifest.load(mpath)
 
-        manifests_with_tests = set()
         for test in sorted(manifest.tests, key=lambda x: x.get("path")):
             test["manifest_relpath"] = test["manifest"][len(self.topsrcdir) + 1 :]
-            manifests_with_tests.add(test["manifest"])
             yield test
 
         # Sub-manifests with no file-based tests (e.g. those containing only
         # data: URL tests, which ReftestManifest skips) would otherwise be
         # invisible to the taskgraph manifest loader. Yield a placeholder so
         # they still get scheduled.
-        for manifest_path in sorted(manifest.manifests - {manifest.path}):
-            if manifest_path not in manifests_with_tests:
+        manifests_with_tests = {t["manifest"] for t in manifest.tests}
+        for manifest_path, info in sorted(manifest.manifests.items()):
+            # Skip the top-level manifest: it is the task entry point and
+            # needs no placeholder.
+            if manifest_path == manifest.path:
+                continue
+            # has_test_lines excludes include-only manifests: manifest.sys.mjs
+            # skips include recursion when MOZHARNESS_TEST_PATHS is set, so
+            # they would run 0 tests if directly targeted. Their sub-manifests
+            # are already scheduled independently.
+            if manifest_path not in manifests_with_tests and info["has_test_lines"]:
                 relpath = manifest_path[len(self.topsrcdir) + 1 :]
-                yield {
+                placeholder = {
                     "path": manifest_path,
                     "here": os.path.dirname(manifest_path),
                     "manifest": manifest_path,
@@ -679,6 +686,14 @@ class TestManifestLoader(TestLoader):
                     "support-files": "",
                     "subsuite": "",
                 }
+                skip_if = (
+                    info["tests_skip_if"]
+                    if info["tests_skip_if"] is not None
+                    else info["include_skip_if"]
+                )
+                if skip_if:
+                    placeholder["skip-if"] = skip_if
+                yield placeholder
 
     def __call__(self):
         for path, name, key, value in self.reader.find_variables_from_ast(

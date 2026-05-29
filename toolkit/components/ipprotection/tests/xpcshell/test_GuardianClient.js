@@ -9,6 +9,9 @@ const { HttpServer, HTTP_404 } = ChromeUtils.importESModule(
 const { GuardianClient } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/fxa/GuardianClient.sys.mjs"
 );
+const { IPPFxaAuthProvider } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/ipprotection/fxa/IPPFxaAuthProvider.sys.mjs"
+);
 const { JsonSchemaValidator } = ChromeUtils.importESModule(
   "resource://gre/modules/components-utils/JsonSchemaValidator.sys.mjs"
 );
@@ -105,11 +108,13 @@ add_task(async function test_fetchUserInfo() {
     subscribed: true,
     uid: 42,
     maxBytes: "1073741824",
+    limited_bandwidth: true,
   };
   const DEFAULT_EXPECTED_VALUES = {
     subscribed: true,
     uid: 42,
     maxBytes: BigInt(1073741824),
+    limitedBandwidth: true,
   };
 
   const testcases = [
@@ -124,6 +129,23 @@ add_task(async function test_fetchUserInfo() {
         validEntitlement: true,
         entitlement: {
           ...DEFAULT_EXPECTED_VALUES,
+        },
+      },
+    },
+    {
+      name: "It should default limitedBandwidth to true when missing",
+      sends: ok({
+        subscribed: true,
+        uid: 42,
+        maxBytes: "1073741824",
+      }),
+      expects: {
+        status: 200,
+        error: null,
+        validEntitlement: true,
+        entitlement: {
+          ...DEFAULT_EXPECTED_VALUES,
+          limitedBandwidth: true,
         },
       },
     },

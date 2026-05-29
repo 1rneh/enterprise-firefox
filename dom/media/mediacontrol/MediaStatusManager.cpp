@@ -49,19 +49,15 @@ MediaStatusManager::MediaStatusManager(uint64_t aBrowsingContextId)
                         "MediaStatusManager only runs on Chrome process!");
 }
 
-void MediaStatusManager::NotifyMediaAudibleChanged(uint64_t aBrowsingContextId,
-                                                   MediaAudibleState aState,
-                                                   ControlType aType) {
-  // MediaStatusManager only tracks controllable sources; uncontrollable
-  // sources are handled by the derived MediaController override.
-  MOZ_ASSERT(aType == ControlType::eControllable);
-  Maybe<uint64_t> oldAudioFocusOwnerId =
-      mPlaybackStatusDelegate.GetAudioFocusOwnerContextId();
-  mPlaybackStatusDelegate.UpdateMediaAudibleState(aBrowsingContextId, aState);
-  Maybe<uint64_t> newAudioFocusOwnerId =
-      mPlaybackStatusDelegate.GetAudioFocusOwnerContextId();
-  if (oldAudioFocusOwnerId != newAudioFocusOwnerId) {
-    HandleAudioFocusOwnerChanged(newAudioFocusOwnerId);
+void MediaStatusManager::NotifyMediaAudibleChanged(
+    uint64_t aBrowsingContextId, MediaAudibleState aState, ControlType aType,
+    AudioSessionType aSessionType) {
+  const bool ownerChanged = mPlaybackStatusDelegate.UpdateMediaAudibleState(
+      aBrowsingContextId, aState, aType, aSessionType);
+  if (ownerChanged) {
+    Maybe<uint64_t> newOwner =
+        mPlaybackStatusDelegate.GetActiveAudibleControllableContextId();
+    HandleActiveAudibleControllableContextChanged(newOwner);
   }
 }
 
@@ -75,7 +71,9 @@ void MediaStatusManager::NotifySessionCreated(uint64_t aBrowsingContextId) {
         return true;
       });
 
-  if (created && IsSessionOwningAudioFocus(aBrowsingContextId)) {
+  if (created &&
+      mPlaybackStatusDelegate.GetActiveAudibleControllableContextId() ==
+          Some(aBrowsingContextId)) {
     // This can't be done from within the WithEntryHandle functor, since it
     // accesses mMediaSessionInfoMap.
     SetActiveMediaSessionContextId(aBrowsingContextId);
@@ -125,22 +123,23 @@ void MediaStatusManager::UpdateMetadata(
   }
 }
 
-void MediaStatusManager::HandleAudioFocusOwnerChanged(
+void MediaStatusManager::HandleActiveAudibleControllableContextChanged(
     Maybe<uint64_t>& aBrowsingContextId) {
-  // No one is holding the audio focus.
+  // No context currently qualifies; there is no active media session.
   if (!aBrowsingContextId) {
-    LOG("No one is owning audio focus");
+    LOG("No active audible controllable context");
     return ClearActiveMediaSessionContextIdIfNeeded();
   }
 
-  // This owner of audio focus doesn't have media session, so we should deactive
-  // the active session because the active session must own the audio focus.
+  // The qualifying context has no MediaSession registered; the active media
+  // session cannot be derived from it.
   if (!mMediaSessionInfoMap.Contains(*aBrowsingContextId)) {
-    LOG("The owner of audio focus doesn't have media session");
+    LOG("The active audible controllable context has no media session");
     return ClearActiveMediaSessionContextIdIfNeeded();
   }
 
-  // This owner has media session so it should become an active session context.
+  // The qualifying context has a MediaSession; promote it to the active
+  // media session.
   SetActiveMediaSessionContextId(*aBrowsingContextId);
 }
 
@@ -190,14 +189,6 @@ void MediaStatusManager::StoreMediaSessionContextIdOnWindowContext() {
     (void)bc->GetTopWindowContext()->SetActiveMediaSessionContextId(
         mActiveMediaSessionContextId);
   }
-}
-
-bool MediaStatusManager::IsSessionOwningAudioFocus(
-    uint64_t aBrowsingContextId) const {
-  Maybe<uint64_t> audioFocusContextId =
-      mPlaybackStatusDelegate.GetAudioFocusOwnerContextId();
-  return audioFocusContextId ? *audioFocusContextId == aBrowsingContextId
-                             : false;
 }
 
 MediaMetadataBase MediaStatusManager::CreateDefaultMetadata() const {
@@ -538,6 +529,15 @@ bool MediaStatusManager::IsMediaPlaying() const {
 
 bool MediaStatusManager::IsAnyMediaBeingControlled() const {
   return mPlaybackStatusDelegate.IsAnyMediaBeingControlled();
+}
+
+AudioSessionType MediaStatusManager::EffectiveTypeForBc(
+    uint64_t aBrowsingContextId) const {
+  return mPlaybackStatusDelegate.EffectiveTypeForBc(aBrowsingContextId);
+}
+
+bool MediaStatusManager::IsBcAudible(uint64_t aBrowsingContextId) const {
+  return mPlaybackStatusDelegate.IsBcAudible(aBrowsingContextId);
 }
 
 void MediaStatusManager::NotifyPageTitleChanged() {

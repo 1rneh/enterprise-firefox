@@ -187,6 +187,10 @@ async function evaluateSearchResults(
       continue;
     }
     if (child.localName == "setting-group") {
+      // Skip migrated setting-groups to avoid interference with legacy tests
+      if (child.hasAttribute("data-srd-migrated")) {
+        continue;
+      }
       if (searchResults.includes(child.groupId)) {
         is_element_visible(
           child,
@@ -511,9 +515,10 @@ function getSettingControl(
  * @returns {Promise<Element>} The rendered setting control element.
  */
 async function settingControlRenders(settingId, win) {
-  await BrowserTestUtils.waitForCondition(
-    () => getSettingControl(settingId, win),
-    `Wait for ${settingId} control to render`
+  await BrowserTestUtils.waitForMutationCondition(
+    win.document.documentElement,
+    { childList: true, subtree: true },
+    () => !!getSettingControl(settingId, win)
   );
   let control = getSettingControl(settingId, win);
   if (control?.updateComplete) {

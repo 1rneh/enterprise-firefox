@@ -168,7 +168,7 @@ export class PasswordSettingHelpers {
     if (checkbox) {
       checkbox.checked = !noMP || isEnterpriseManagedPrimaryPassword;
       checkbox.disabled =
-      isEnterpriseManagedPrimaryPassword ||
+        isEnterpriseManagedPrimaryPassword ||
         (noMP && !Services.policies.isAllowed("createMasterPassword")) ||
         (!noMP && !Services.policies.isAllowed("removeMasterPassword"));
     }

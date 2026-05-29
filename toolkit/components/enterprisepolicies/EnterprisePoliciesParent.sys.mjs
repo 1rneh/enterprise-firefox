@@ -142,10 +142,10 @@ EnterprisePoliciesManager.prototype = {
 
       this._status = Ci.nsIEnterprisePolicies.ACTIVE;
 
-    // Make Web Serial support be opt-in for enterprise policies.
-    Services.prefs
-      .getDefaultBranch("")
-      .setBoolPref("dom.webserial.enabled", false);
+      // Make Web Serial support be opt-in for enterprise policies.
+      Services.prefs
+        .getDefaultBranch("")
+        .setBoolPref("dom.webserial.enabled", false);
 
       this._activatePolicies(provider.policies);
       Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, true);

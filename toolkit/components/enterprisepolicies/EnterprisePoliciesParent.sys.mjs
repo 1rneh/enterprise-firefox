@@ -181,30 +181,42 @@ EnterprisePoliciesManager.prototype = {
     let jsonProvider = new JSONPoliciesProvider();
     jsonProvider.onPoliciesChanges(handler);
 
-    let remoteProvider = RemotePoliciesProvider.createInstance();
-    // Fetch first set of remote policies during the
-    // initialization of the policy engine
-    await remoteProvider.fetchPoliciesOnStartup();
-    if (Services.felt?.isFeltBrowser() && remoteProvider.failed) {
-      // bug 2027006 will move the fetching of policies to felt
-      // and not shutdown will be needed then
-      lazy.EnterpriseHandler.initiateShutdown();
+    let remoteProvider = null;
+    if (AppConstants.MOZ_ENTERPRISE) {
+      remoteProvider = RemotePoliciesProvider.createInstance();
+      // Fetch first set of remote policies during the
+      // initialization of the policy engine
+      await remoteProvider.fetchPoliciesOnStartup();
+      if (remoteProvider.failed) {
+        // bug 2027006 will move the fetching of policies to felt
+        // and not shutdown will be needed then
+        lazy.EnterpriseHandler.initiateShutdown();
+      }
+      remoteProvider.onPoliciesChanges(handler);
     }
-    remoteProvider.onPoliciesChanges(handler);
 
     if (platformProvider && platformProvider.hasPolicies) {
       if (jsonProvider.hasPolicies) {
-        return new CombinedProvider(
-          new CombinedProvider(remoteProvider, platformProvider),
-          jsonProvider
-        );
+        if (remoteProvider) {
+          return new CombinedProvider(
+            new CombinedProvider(remoteProvider, platformProvider),
+            jsonProvider
+          );
+        }
+        return new CombinedProvider(platformProvider, jsonProvider);
       }
-      return new CombinedProvider(remoteProvider, platformProvider);
+      if (remoteProvider) {
+        return new CombinedProvider(remoteProvider, platformProvider);
+      }
+      return platformProvider;
     }
     if (jsonProvider.hasPolicies) {
-      return new CombinedProvider(remoteProvider, jsonProvider);
+      if (remoteProvider) {
+        return new CombinedProvider(remoteProvider, jsonProvider);
+      }
+      return jsonProvider;
     }
-    return remoteProvider;
+    return remoteProvider ?? jsonProvider;
   },
 
   _activatePolicies(unparsedPolicies) {

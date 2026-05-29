@@ -284,15 +284,19 @@ skip-if = [
 
 ["browser_relay_signup_flow.js"]
 support-files = ["browser_relay_utils.js"]
+skip-if = ["enterprise"] # Relay is not supported in enterprise builds
 
 ["browser_relay_signup_flow_showToAllBrowsers.js"]
 support-files = ["browser_relay_utils.js"]
+skip-if = ["enterprise"] # Relay is not supported in enterprise builds
 
 ["browser_relay_telemetry.js"]
 support-files = ["browser_relay_utils.js"]
+skip-if = ["enterprise"] # Relay is not supported in enterprise builds
 
 ["browser_relay_use.js"]
 support-files = ["browser_relay_utils.js"]
+skip-if = ["enterprise"] # Relay is not supported in enterprise builds
 
 ["browser_telemetry_SignUpFormRuleset.js"]
 

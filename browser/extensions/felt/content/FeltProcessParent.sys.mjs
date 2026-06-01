@@ -8,6 +8,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   CONSOLE_ADDRESS_PREF: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  isBuildAppBrowser: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
@@ -240,9 +241,11 @@ export class FeltProcessParent extends JSProcessActorParent {
           case "felt-extension-ready": {
             if (gFeltProcessParentInstance) {
               gFeltProcessParentInstance.extensionReady = true;
-              gFeltProcessParentInstance.forwardPendingURLs().catch(err => {
-                lazy.log.error("Failed to forward pending URLs", err);
-              });
+              if (lazy.isBuildAppBrowser()) {
+                gFeltProcessParentInstance.forwardPendingURLs().catch(err => {
+                  lazy.log.error("Failed to forward pending URLs", err);
+                });
+              }
               notifyFirefoxReady();
             }
             break;
@@ -447,7 +450,11 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.exitReported = false;
     this.firefoxReady = false;
     this.extensionReady = false;
-    resetFeltFirefoxWindowReady();
+    if (lazy.isBuildAppBrowser()) {
+      // This also part of FeltURLHandler that cannot be loaded in non browser
+      // applications.
+      resetFeltFirefoxWindowReady();
+    }
     gFeltFirefoxReadyNotified = false;
 
     // There is no message being sent to the message listener on restart phases
@@ -482,7 +489,9 @@ export class FeltProcessParent extends JSProcessActorParent {
         this.firefoxReady = true;
 
         // Try to forward pending URLs now (will only forward if extension is also ready)
-        await this.forwardPendingURLs();
+        if (lazy.isBuildAppBrowser()) {
+          await this.forwardPendingURLs();
+        }
         notifyFirefoxReady();
       })
       .then(() => {

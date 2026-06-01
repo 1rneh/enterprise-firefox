@@ -156,17 +156,22 @@ internal fun Homepage(
             when (val headerState = state.headerState) {
                 is HeaderState.Experimental.Normal -> {
                     val settings = components.settings
+                    val shouldDisplaySportsLogo =
+                        settings.enableHomepageSportsWidget && settings.showHomepageSportsWidget
 
                     ExperimentalHomepageHeader(
                         wordmarkTextColor = headerState.wordmarkTextColor,
                         showStoriesButton = headerState.showStoriesButton,
                         showButtonAnimation = headerState.showButtonAnimation,
-                        isSportsWidgetEnabled = settings.enableHomepageSportsWidget,
+                        isSportsWidgetEnabled = shouldDisplaySportsLogo,
                         onPrivateModeTapped = { browsingModeChanged(BrowsingMode.Private) },
                         onStoriesTapped = { interactor.onDiscoverMoreClicked() },
                         onNewsAnimationShown = { settings.recordNewsButtonAnimationShown() },
                         onLogoClicked = {
-                            if (settings.showHomepageSportsWidget) showSportsCountrySelector = true
+                            if (settings.showHomepageSportsWidget) {
+                                interactor.onCountrySelectorShown(CountrySelectorSource.SPORTS_LOGO)
+                                showSportsCountrySelector = true
+                            }
                         },
                     )
                 }
@@ -179,13 +184,15 @@ internal fun Homepage(
 
                 is HeaderState.Normal -> {
                     val settings = components.settings
+                    val shouldDisplaySportsLogo =
+                        settings.enableHomepageSportsWidget && settings.showHomepageSportsWidget
 
                     HomepageHeader(
                         wordmarkTextColor = headerState.wordmarkTextColor,
                         privateBrowsingButtonColor = headerState.privateBrowsingButtonColor,
                         browsingMode = state.browsingMode,
                         browsingModeChanged = browsingModeChanged,
-                        isSportsWidgetEnabled = settings.enableHomepageSportsWidget,
+                        isSportsWidgetEnabled = shouldDisplaySportsLogo,
                         onLogoClicked = {
                             if (settings.showHomepageSportsWidget) {
                                 interactor.onCountrySelectorShown(CountrySelectorSource.SPORTS_LOGO)
@@ -226,7 +233,6 @@ internal fun Homepage(
                             }
 
                             if (sportsWidgetState.isShown) {
-                                interactor.onSportsWidgetShown()
                                 SportsWidget(
                                     sportsWidgetState = sportsWidgetState,
                                     onDismiss = interactor::onSportsWidgetDismissed,
@@ -244,6 +250,7 @@ internal fun Homepage(
                                     onMatchClicked = { homeTeam, awayTeam, date ->
                                         interactor.onMatchClicked(homeTeam, awayTeam, date)
                                     },
+                                    onCardShown = interactor::onSportsWidgetCardShown,
                                 )
                             }
 

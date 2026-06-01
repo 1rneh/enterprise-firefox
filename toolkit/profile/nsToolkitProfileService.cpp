@@ -1323,6 +1323,12 @@ nsToolkitProfileService::GetStartWithLastProfile(bool* aResult) {
 }
 
 NS_IMETHODIMP
+nsToolkitProfileService::GetIsFirstRun(bool* aResult) {
+  *aResult = mIsFirstRun;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsToolkitProfileService::GetProfiles(nsISimpleEnumerator** aResult) {
   *aResult = new ProfileEnumerator(mProfiles.getFirst());
 

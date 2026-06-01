@@ -64,6 +64,14 @@ export class Felt {
   // QI — implement nsISupports + nsIObserver
   QueryInterface = ChromeUtils.generateQI(["nsIObserver"]);
 
+  constructor() {
+    if (Services.felt?.isFeltUI()) {
+      // Felt UI XPCOM is triggered by profile-after-change, make sure to block
+      // closing until startup has been executed.
+      Services.startup.enterLastWindowClosingSurvivalArea();
+    }
+  }
+
   // nsIObserver
   observe(_subject, topic, _data) {
     switch (topic) {

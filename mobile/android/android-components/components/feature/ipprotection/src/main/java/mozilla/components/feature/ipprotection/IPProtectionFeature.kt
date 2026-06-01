@@ -25,7 +25,7 @@ import mozilla.components.concept.engine.ipprotection.ServiceState
 import mozilla.components.feature.ipprotection.IPProtectionFxaAuthFlow.Companion.SCOPE_IPPROTECTION
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.feature.ipprotection.store.IPProtectionStore
-import mozilla.components.feature.ipprotection.store.InternalAction.FirstEnrollmentChanged
+import mozilla.components.feature.ipprotection.store.InternalAction
 import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
 import mozilla.components.lib.state.ext.flow
@@ -77,16 +77,25 @@ class IPProtectionFeature(
         mainDispatcher: CoroutineDispatcher,
     ) {
         store.flowScoped(dispatcher = mainDispatcher) { flow ->
-            flow.map { it.eligibilityStatus to it.serviceStatus }
+            flow.map { Triple(it.eligibilityStatus, it.serviceStatus, it.accountState.status) }
                 .distinctUntilChanged()
                 // We use `collectLatest` only because of the nested `observeToggle` that
                 // should be canceled on new observation.
-                .collectLatest { (eligibilityStatus, serviceStatus) ->
+                .collectLatest { (eligibilityStatus, serviceStatus, accountStatus) ->
                     when (eligibilityStatus) {
                         EligibilityStatus.Eligible -> {
                             if (serviceStatus == ServiceState.Uninitialized) {
                                 logger.info("Registering and initializing with IPProtectionController.")
                                 registerAndInit()
+                            }
+
+                            // When the app starts with an already signed-in user, the account state
+                            // is likely to be ready faster than the service, so we should notify
+                            // a ready account state after initializing the handler.
+                            if (serviceStatus == ServiceState.Unauthenticated &&
+                                accountStatus == AccountStatus.Authenticated
+                            ) {
+                                handler?.notifyAccountStatus(true)
                             }
                             observeToggle()
                         }
@@ -116,15 +125,18 @@ class IPProtectionFeature(
                             handler?.notifyAccountStatus(false)
                         }
 
-                        AccountStatus.Ready -> {
-                            if (state.accountState.isFirstEnrollment) {
-                                handler?.enroll { enrollInfo ->
-                                    if (enrollInfo.isEnrolledAndEntitled) {
-                                        store.dispatch(FirstEnrollmentChanged(false))
-                                    }
-                                }
-                            }
+                        AccountStatus.Authenticated -> {
                             handler?.notifyAccountStatus(true)
+                        }
+
+                        AccountStatus.AwaitingEnrollment -> {
+                            handler?.enroll { enrollInfo ->
+                                store.dispatch(
+                                    InternalAction.FinishingEnrollment(
+                                        success = enrollInfo.isEnrolledAndEntitled,
+                                    ),
+                                )
+                            }
                         }
 
                         AccountStatus.TryAgain -> {
@@ -138,7 +150,7 @@ class IPProtectionFeature(
                         AccountStatus.RequestingAuthorization,
                         AccountStatus.AwaitingAuthentication,
                         AccountStatus.AwaitingAuthorization,
-                        AccountStatus.FinishingAuthFlow,
+                        AccountStatus.EnrolledAndEntitled,
                             -> {
                             // no-op when we are in transient states.
                         }

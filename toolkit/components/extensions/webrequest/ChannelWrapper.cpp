@@ -655,7 +655,9 @@ bool ChannelWrapper::Matches(
 
     // The third parameter (aCheckRestricted) is false because we already check
     // restricted URLs below as part of CanModify().
-    if (!aExtension->CanAccessURI(urlInfo, false, false, true)) {
+    // The fourth parameter (aAllowFilePermission, default false) does not
+    // matter because file:-channels are never wrapped by ChannelWrapper.
+    if (!aExtension->CanAccessURI(urlInfo, false, false)) {
       return false;
     }
 
@@ -668,9 +670,10 @@ bool ChannelWrapper::Matches(
       }
 
       auto origin = DocumentURLInfo();
-      // Extensions with the file:-permission may observe requests from file:
-      // origins, because such documents can already be modified by content
-      // scripts anyway.
+      // The fourth parameter (aAllowFilePermission) is true instead of gated
+      // on aExtension->FileSchemeAllowed(), because we want extensions to have
+      // the ability to block http(s) requests from file origins (bug 1621935),
+      // without the user being required to grant access to all local files.
       if (origin && !aExtension->CanAccessURI(*origin, false, false, true)) {
         return false;
       }
@@ -824,7 +827,9 @@ already_AddRefed<nsITraceableChannel> ChannelWrapper::GetTraceableChannel(
     // the duration of the request. We need to revalidate FinalURLInfo() in
     // case it changed, e.g. due to a redirect or permission change.
     if (!HaveChannel() ||
-        !aAddon.CanAccessURI(FinalURLInfo(), false, true, true)) {
+        // The fourth parameter (aAllowFilePermission, default false) does not
+        // matter because file:-channels are never wrapped by ChannelWrapper.
+        !aAddon.CanAccessURI(FinalURLInfo())) {
       return nullptr;
     }
 
@@ -1204,7 +1209,8 @@ ChannelWrapper::RequestListener::OnStartRequest(nsIRequest* request) {
   mChannelWrapper->ErrorCheck();
   mChannelWrapper->FireEvent(u"start"_ns);
 
-  return mOrigStreamListener->OnStartRequest(request);
+  nsCOMPtr<nsIStreamListener> origStreamListener = mOrigStreamListener;
+  return origStreamListener->OnStartRequest(request);
 }
 
 NS_IMETHODIMP
@@ -1217,7 +1223,8 @@ ChannelWrapper::RequestListener::OnStopRequest(nsIRequest* request,
   mChannelWrapper->ActivityErrorFallbackCheck();
   mChannelWrapper->FireEvent(u"stop"_ns);
 
-  return mOrigStreamListener->OnStopRequest(request, aStatus);
+  nsCOMPtr<nsIStreamListener> origStreamListener = mOrigStreamListener;
+  return origStreamListener->OnStopRequest(request, aStatus);
 }
 
 NS_IMETHODIMP
@@ -1226,8 +1233,9 @@ ChannelWrapper::RequestListener::OnDataAvailable(nsIRequest* request,
                                                  uint64_t sourceOffset,
                                                  uint32_t count) {
   MOZ_ASSERT(mOrigStreamListener, "Should have mOrigStreamListener");
-  return mOrigStreamListener->OnDataAvailable(request, inStr, sourceOffset,
-                                              count);
+  nsCOMPtr<nsIStreamListener> origStreamListener = mOrigStreamListener;
+  return origStreamListener->OnDataAvailable(request, inStr, sourceOffset,
+                                             count);
 }
 
 NS_IMETHODIMP

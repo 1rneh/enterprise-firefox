@@ -46,6 +46,29 @@ const PRIVATE_BROWSING_PERMS = {
 };
 
 /**
+ * @typedef {object} AddonMessageInfo
+ * @property {string} [messageId]
+ * @property {object} [messageArgs]
+ * @property {"error"|"warning"} [type]
+ * @property {string} [linkUrl]
+ * @property {string} [linkId]
+ * @property {string} [linkSumoPage]
+ */
+
+/**
+ * @typedef {object} AddonMessageInfoOptions
+ * @property {boolean} isCardExpanded
+ * @property {boolean} isInDisabledSection
+ */
+
+/**
+ * @callback GetAddonMessageInfoHook
+ * @param {AddonWrapper} addon
+ * @param {AddonMessageInfoOptions} options
+ * @returns {Promise<AddonMessageInfo>}
+ */
+
+/**
  * A card component for managing an add-on. It should be initialized by setting
  * the add-on with `setAddon()` before being connected to the document.
  *
@@ -54,6 +77,34 @@ const PRIVATE_BROWSING_PERMS = {
  *    document.body.appendChild(card);
  */
 export class AddonCard extends AboutAddonsHTMLElement {
+  /** @type {GetAddonMessageInfoHook} */
+  static #getAddonMessageInfoHook = getAddonMessageInfo;
+
+  /**
+   * Register embedder hooks that override addon-card behavior for downstream
+   * consumers (e.g. Thunderbird).
+   *
+   * The caller should call this method only once with all hook callbacks to
+   * be set. The callbacks missing from the hooks object will be cleared.
+   *
+   * The caller is also responsible for refreshing already-rendered cards if
+   * needed, e.g.
+   * `document.querySelectorAll("addon-card").forEach(card => card.update())`.
+   *
+   * @param {object} [hooks]
+   * @param {GetAddonMessageInfoHook|null} [hooks.getAddonMessageInfo]
+   *   Pass a function to override the default resolution of the card's
+   *   banner content. The hook may delegate to the default implementation
+   *   exported from aboutaddons-utils.mjs for cases it does not handle.
+   *   Setting it to `null`, `undefined` or omitting it resets the hook to the
+   *   default.
+   */
+  static setEmbedderHooks(hooks) {
+    const { getAddonMessageInfo: getAddonMessageInfoHook } = hooks ?? {};
+    AddonCard.#getAddonMessageInfoHook =
+      getAddonMessageInfoHook ?? getAddonMessageInfo;
+  }
+
   static get markup() {
     return `
       <template>
@@ -222,19 +273,31 @@ export class AddonCard extends AboutAddonsHTMLElement {
       perms.permissions = [permission];
     } else if (type === "origin") {
       perms.origins = [permission];
+    } else if (type === "file_scheme_access") {
+      // Note: the visibility of this permission does not imply that the
+      // extension has declared file:-access. If an extension removes file
+      // access in an update, a previously granted internal permission is not
+      // removed. We show the permission UI to allow the user to remove it, but
+      // when the page is reloaded the control will disappear.
+      perms.permissions = ["internal:fileSchemeAllowed"];
+      // TODO: Consider also granting/revoking file: host permissions along
+      // with the internal permission. These permissions can currently not
+      // be controlled separately from <all_urls> in the UI (bug 1765828).
     } else if (type === "data_collection") {
       perms.data_collection = [permission];
     } else {
       throw new Error("unknown permission type changed");
     }
 
-    let normalized = lazy.ExtensionPermissions.normalizeOptional(
-      perms,
-      addon.optionalPermissions
-    );
+    if (type !== "file_scheme_access") {
+      perms = lazy.ExtensionPermissions.normalizeOptional(
+        perms,
+        addon.optionalPermissions
+      );
+    }
 
     let policy = WebExtensionPolicy.getByID(addon.id);
-    lazy.ExtensionPermissions[action](addon.id, normalized, policy?.extension);
+    lazy.ExtensionPermissions[action](addon.id, perms, policy?.extension);
   }
 
   async handleEvent(e) {
@@ -589,6 +652,7 @@ export class AddonCard extends AboutAddonsHTMLElement {
   async updateMessage() {
     const messageBar = this.card.querySelector(".addon-card-message");
 
+    const resolveMessageInfo = AddonCard.#getAddonMessageInfoHook;
     const {
       linkUrl,
       linkId,
@@ -596,7 +660,7 @@ export class AddonCard extends AboutAddonsHTMLElement {
       messageId,
       messageArgs,
       type = "",
-    } = await getAddonMessageInfo(this.addon, {
+    } = await resolveMessageInfo(this.addon, {
       isCardExpanded: this.expanded,
       isInDisabledSection:
         !this.expanded &&

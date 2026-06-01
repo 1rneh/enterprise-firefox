@@ -107,8 +107,10 @@
           tabindex="0"
           id="tabGroupEditor_shareTabGroup"
           class="subviewbutton"
+          badged="true"
           data-l10n-id="tab-group-editor-action-share-tab-group"
           hidden="">
+          <html:moz-badge type="new" move-after-stack="true"></html:moz-badge>
         </toolbarbutton>
         <toolbarseparator class="tab-group-edit-mode-only" />
         <toolbarbutton
@@ -1056,6 +1058,12 @@
         window.removeEventListener("TabOpen", onTabOpened);
       };
       window.addEventListener("TabOpen", onTabOpened);
+      // The tab group menu can be invoked on a window that isn't the OS-level
+      // frontmost window (most reproducibly on macOS in a multi-monitor
+      // setup). Raise the window so the new tab's focusUrlBar request can
+      // actually land OS keyboard focus on the address bar. Bug 2039674
+      // tracks routing this through URILoadingHelper instead.
+      window.focus();
       gBrowser.addAdjacentNewTab(lastTab);
     }
 

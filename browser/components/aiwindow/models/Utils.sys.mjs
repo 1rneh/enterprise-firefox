@@ -192,6 +192,18 @@ export function parseVersion(versionString) {
 }
 
 /**
+ * Verifies that the RS record matches the current Fx build
+ *
+ * @param {string} recordVersion {majorVersion}.{minorVersion}
+ * @param {string} comparisonVersion major version supported by this build
+ * @returns {boolean} whether or not major version in recordVersion matches comparisonVersion
+ */
+export function checkMajorVersion(recordVersion, comparisonVersion) {
+  const parsed = parseVersion(recordVersion);
+  return parsed && parsed.major == comparisonVersion;
+}
+
+/**
  * Selects the main configuration for a feature based on version and model preferences.
  *
  * Remote Settings maintains only the latest minor version for each (feature, model, major_version) combination.
@@ -214,10 +226,9 @@ function selectMainConfig(
   { majorVersion, userModel, modelChoiceId, feature }
 ) {
   // Filter to configs matching the required major version
-  const sameMajor = featureConfigs.filter(config => {
-    const parsed = parseVersion(config.version);
-    return parsed && parsed.major === majorVersion;
-  });
+  const sameMajor = featureConfigs.filter(config =>
+    checkMajorVersion(config.version, majorVersion)
+  );
 
   if (sameMajor.length === 0) {
     console.warn(`Missing featureConfigs for major version ${majorVersion}`);
@@ -406,13 +417,15 @@ export class openAIEngine {
    * @param {Array} allRecords - All Remote Settings records
    * @param {Array} featureConfigs - Remote Settings configs for this feature
    * @param {number} majorVersion - Required major version
+   * @param {string} [modelChoiceIdOverride] - Optional model choice ID to override the global preference
    * @private
    */
   _applyRemoteSettingsConfig(
     feature,
     allRecords,
     featureConfigs,
-    majorVersion
+    majorVersion,
+    modelChoiceIdOverride = null
   ) {
     if (!featureConfigs.length) {
       const msg = `No Remote Settings records found for feature: ${feature}`;
@@ -424,7 +437,9 @@ export class openAIEngine {
 
     const userModel = Services.prefs.getStringPref(MODEL_PREF, "");
     const hasCustomModel = Services.prefs.prefHasUserValue(MODEL_PREF);
-    const modelChoiceId = Services.prefs.getStringPref(MODEL_CHOICE_PREF, "");
+    const modelChoiceId =
+      modelChoiceIdOverride ??
+      Services.prefs.getStringPref(MODEL_CHOICE_PREF, "");
 
     const mainConfig = selectMainConfig(featureConfigs, {
       majorVersion,
@@ -514,12 +529,13 @@ export class openAIEngine {
    *
    * @param {string} feature - The feature identifier from MODEL_FEATURES
    * @param {number} majorVersionOverride - Used to override hardcoded major version
+   * @param {string} [modelChoiceId] - Optional model choice ID to override the global preference
    * @returns {Promise<void>}
    *   Sets this.feature to the feature name
    *   Sets this.model to the selected model ID
    *   Sets this.#configs to contain feature's and additional_components' configs
    */
-  async loadConfig(feature, majorVersionOverride = null) {
+  async loadConfig(feature, majorVersionOverride = null, modelChoiceId = null) {
     const client = openAIEngine.getRemoteClient();
     const allRecords = await client.get();
 
@@ -534,7 +550,8 @@ export class openAIEngine {
       feature,
       allRecords,
       featureConfigs,
-      majorVersion
+      majorVersion,
+      modelChoiceId
     );
   }
 
@@ -608,16 +625,18 @@ export class openAIEngine {
    *   The feature name to use to retrieve remote settings for prompts.
    * @param {string | null} [flowId]
    *   Flow ID for correlating frontend and backend telemetry.
+   * @param {string} [modelChoiceId]
+   *   Model choice ID to override the global preference.
    * @returns {Promise<object>}
    *   Promise that will resolve to the configured engine instance.
    */
-  static async build(feature, flowId = null) {
+  static async build(feature, flowId = null, modelChoiceId = null) {
     const engine = new openAIEngine();
 
-    await engine.loadConfig(feature);
+    await engine.loadConfig(feature, null, modelChoiceId);
 
     const config = engine.getConfig(feature);
-    const engineId = `${DEFAULT_ENGINE_ID}-${feature}`;
+    const engineId = `${DEFAULT_ENGINE_ID}-${feature}-${engine.model}`;
     engine.#engineId = engineId;
     engine.#serviceType =
       config?.service_type ?? getDefaultServiceType(feature);

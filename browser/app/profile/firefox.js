@@ -730,6 +730,14 @@ pref("places.semanticHistory.featureGate", false);
 #endif
 pref("places.semanticHistory.supportedRegions", "[[\"AU\",[\"en-*\"]],[\"CA\",[\"en-*\"]],[\"GB\",[\"en-*\"]],[\"IE\",[\"en-*\"]],[\"NZ\",[\"en-*\"]],[\"PH\",[\"en-*\"]],[\"US\",[\"en-*\"]]]");
 
+// Embedding family used by Places semantic history. "static" or "contextual".
+// Settable via Nimbus (semanticHistoryEmbeddingType).
+pref("places.semanticHistory.embeddingType", "static");
+
+// Dev / debug overrides for the contextual engine. Not exposed via Nimbus.
+pref("browser.ml.embedGen.textEmbeddingSize", 384);
+pref("browser.ml.embedGen.textEmbeddingFeatureModel", "");
+
 // Minimum length threshold for semantic history search
 pref("browser.urlbar.suggest.semanticHistory.minLength", 5);
 
@@ -2251,6 +2259,7 @@ pref("sidebar.old-sidebar.has-used", false);
 pref("sidebar.new-sidebar.has-used", false);
 pref("sidebar.history.sortOption", "date");
 pref("sidebar.updatedBookmarks.enabled", false);
+pref("sidebar.openTabsPanel.enabled", false);
 
 pref("sidebar.notification.badge.aichat", false);
 
@@ -3720,9 +3729,6 @@ pref("widget.support-xdg-config", true, locked);
 
 // A preference that enables Content Sharing
 pref("browser.contentsharing.enabled", false);
-
-// Controls whether the "New" badge is shown on the content sharing menu items
-pref("browser.contentsharing.newBadge.enabled", true);
 
 // When enabled, Firefox ignores the distribution.ini file if global.id is MozillaOnline.
 pref("distribution.mozillaonline.ignore", true);

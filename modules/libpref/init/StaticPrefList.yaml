@@ -563,13 +563,6 @@
   value: @IS_ANDROID@
   mirror: always
 
-# Fast-path notify APZ on non-passive APZ-aware listener registration,
-# without waiting for the next paint.
-- name: apz.fastpath_apz_aware_listener.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Test only.
 - name: apz.fixed-margin-override.enabled
   type: RelaxedAtomicBool
@@ -4699,7 +4692,7 @@
 # Speculatively compile link preload scripts
 - name: dom.script_loader.external_scripts.speculate_link_preload.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # For testing purposes only: Cache stencil across navigation
@@ -6448,6 +6441,15 @@
 - name: extensions.webextensions.allow_executeScript_in_moz_extension
   type: bool
   value: false
+  mirror: always
+
+# Whether file:-access requires another opt-in besides host permissions.
+# When false, file access is granted together with the "<all_urls>" permission
+# ("Access your data for all websites"). When true, access to file:-schemes
+# requires an additional opt-in by the user, on top of the host permission.
+- name: extensions.webextensions.fileSchemeAccess.requireOptIn
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # Prior to bug 2013389 and bug 2017797, calling structuredClone within a
@@ -9036,6 +9038,14 @@
     value: true
     mirror: always
 
+  # Whether Gecko returns caret rect before composition string or TS_E_NOLAYOUT
+  # from ITextStoreACP::GetTextExt() when the specified range is larger than
+  # composition start offset if and only if WeChat Input Method is active TIP.
+-  name: intl.tsf.hack.we_chat_input_method.do_not_return_no_layout_error
+   type: bool
+   value: true
+   mirror: always
+
   # Whether Gecko sets input scope of the URL bar to IS_DEFAULT when black
   # listed IMEs are active or does not.  If you use tablet mode mainly and you
   # want to use touch keyboard for URL when you set focus to the URL bar, you
@@ -9400,6 +9410,13 @@
   mirror: always
   set_spidermonkey_pref: always
 
+  # Experimental support for Intl Locale Info in JavaScript.
+- name: javascript.options.experimental.intl_locale_info
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
 #ifdef NIGHTLY_BUILD
   # Experimental support for Async Iterator Helpers in JavaScript.
 -   name: javascript.options.experimental.async_iterator_helpers
@@ -9476,13 +9493,6 @@
   value: false
   mirror: always
   set_spidermonkey_pref: always
-
-  # Experimental support for Intl Locale Info in JavaScript.
-- name: javascript.options.experimental.intl_locale_info
-  type: bool
-  value: false
-  mirror: always
-  set_spidermonkey_pref: startup
 #endif  // NIGHTLY_BUILD
 
   # Capture stack traces for OOM
@@ -10593,6 +10603,13 @@
 - name: layout.css.basic-shape-shape.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is support for CSS Borders 4 corner-shape enabled?
+- name: layout.css.corner-shape.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -11919,7 +11936,7 @@
 # Enable WebRTC type support in Media Capabilities API.
 - name: media.mediacapabilities.webrtc.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Comma-separated hostnames (with optional `*.` wildcard prefix). Hosts in
@@ -13556,6 +13573,11 @@
   mirror: always
 
 - name: media.navigator.audio.use_fec
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.navigator.audio.use_transport_cc
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -17308,8 +17330,18 @@
   value: ""
   mirror: never
 
-# Comma-separated names of remote settings lists to use for content blocking.
-- name: privacy.trackingprotection.content.protection.list_names
+# Comma-separated content classifier feature names whose engines are used
+# for blocking in non-private browsing contexts.
+# Defined feature names are in ContentClassifierService.cpp, kFeatures.
+- name: privacy.trackingprotection.content.protection.engines
+  type: String
+  value: "test_block"
+  mirror: never
+
+# Comma-separated content classifier feature names whose engines are used
+# for blocking in private browsing contexts.
+# Defined feature names are in ContentClassifierService.cpp, kFeatures.
+- name: privacy.trackingprotection.content.protection.engines.pbmode
   type: String
   value: ""
   mirror: never
@@ -17328,8 +17360,18 @@
   value: ""
   mirror: never
 
-# Comma-separated names of remote settings lists to use for content annotation.
-- name: privacy.trackingprotection.content.annotation.list_names
+# Comma-separated content classifier feature names whose engines are used
+# for annotation in non-private browsing contexts.
+# Defined feature names are in ContentClassifierService.cpp, kFeatures.
+- name: privacy.trackingprotection.content.annotation.engines
+  type: String
+  value: "test_annotate"
+  mirror: never
+
+# Comma-separated content classifier feature names whose engines are used
+# for annotation in private browsing contexts.
+# Defined feature names are in ContentClassifierService.cpp, kFeatures.
+- name: privacy.trackingprotection.content.annotation.engines.pbmode
   type: String
   value: ""
   mirror: never
@@ -18445,7 +18487,7 @@
 # processing is enabled.
 - name: security.qwacs.enabled
   type: bool
-  value: false
+  value: @IS_NOT_ANDROID@
   mirror: always
 
 # Whether or not to enable the test trust anchor list when verifying QWACs.

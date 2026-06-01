@@ -202,7 +202,7 @@ template <typename T>
 void TraceBufferRoot(JSTracer* trc, JS::Zone* zone, T** bufferp,
                      const char* name) {
   void** ptrp = reinterpret_cast<void**>(bufferp);
-  gc::TraceBufferEdgeInternal(trc, zone, nullptr, ptrp, name);
+  gc::TraceBufferEdgeInternal(trc, ptrp, name);
 }
 
 template <typename T>
@@ -312,18 +312,18 @@ void TraceRootRange(JSTracer* trc, size_t len, T* vec, const char* name) {
 // Note that this doesn't trace the contents of the alloc.
 // TODO: Unify this with other TraceEdge methods.
 template <typename T>
-void TraceBufferEdge(JSTracer* trc, gc::Cell* owner, T** bufferp,
-                     const char* name) {
+void* TraceBufferEdge(JSTracer* trc, T** bufferp, const char* name) {
   void** ptrp = reinterpret_cast<void**>(bufferp);
-  gc::TraceBufferEdgeInternal(trc, owner->zoneFromAnyThread(), owner, ptrp,
-                              name);
+  return gc::TraceBufferEdgeInternal(trc, ptrp, name);
 }
 template <typename T>
-void TraceBufferEdge(JSTracer* trc, gc::Cell* owner, GCStructPtr<T>* bufferp,
-                     const char* name) {
+void TraceEdgeAndBuffer(JSTracer* trc, GCBuffer<T>* bufferp, const char* name) {
+  static_assert(std::is_pointer_v<T>);
   void** ptrp = reinterpret_cast<void**>(bufferp->unbarrieredAddress());
-  gc::TraceBufferEdgeInternal(trc, owner->zoneFromAnyThread(), owner, ptrp,
-                              name);
+  void* ptr = gc::TraceBufferEdgeInternal(trc, ptrp, name);
+  if (ptr) {
+    static_cast<T>(ptr)->trace(trc);
+  }
 }
 
 // As below but with manual barriers.

@@ -53,13 +53,16 @@ class TabsTrayTelemetryMiddleware(
             is TabsTrayAction.NavigateBackInvoked -> handleNavigateBackInvoked(topDestination, isEditing)
             else -> {
                 if (action !is TabGroupAction) {
-                    handleGeneralTabsTrayAction(action)
+                    handleGeneralTabsTrayAction(store, action)
                 }
             }
         }
     }
 
-    private fun handleGeneralTabsTrayAction(action: TabsTrayAction) {
+    private fun handleGeneralTabsTrayAction(
+        store: Store<TabsTrayState, TabsTrayAction>,
+        action: TabsTrayAction,
+    ) {
         when (action) {
             is TabsTrayAction.TabDataUpdateReceived -> {
                 if (shouldReportInactiveTabMetrics) {
@@ -115,6 +118,27 @@ class TabsTrayTelemetryMiddleware(
             is TabsTrayAction.PageSelected -> {
                 if (action.page == Page.TabGroups) {
                     TabsTray.tabGroupScreenOpened.record(NoExtras())
+                }
+            }
+
+            is TabsTrayAction.TabDragStart -> {
+                val itemType = when (
+                    store.state.normalTabsState.items.find { it.id == action.sourceId }
+                ) {
+                    is TabsTrayItem.TabGroup -> TabItemType.TAB_GROUP.telemetryId
+                    is TabsTrayItem.Tab -> TabItemType.TAB.telemetryId
+                    null -> TabItemType.UNKNOWN.telemetryId
+                }
+                TabsTray.tabLongPressDrag.record(
+                    TabsTray.TabLongPressDragExtra(itemType = itemType),
+                )
+            }
+
+            is TabsTrayAction.ReorderTabsTrayItem -> {
+                val isTabGroup = store.state.normalTabsState.items
+                    .find { it.id == action.sourceId } is TabsTrayItem.TabGroup
+                if (!isTabGroup) {
+                    TabsTray.tabLongPressDragRearrangedPosition.record(NoExtras())
                 }
             }
 
@@ -228,5 +252,15 @@ class TabsTrayTelemetryMiddleware(
                 // no-op
             }
         }
+    }
+
+    /**
+     * Enum representing the type of tabs tray item.
+     * @property telemetryId The telemetry identifier.
+     */
+    enum class TabItemType(val telemetryId: String) {
+        TAB("tab"),
+        TAB_GROUP("tab_group"),
+        UNKNOWN("unknown"),
     }
 }

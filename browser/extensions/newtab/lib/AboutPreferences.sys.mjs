@@ -806,6 +806,7 @@ export class AboutPreferences {
       items: [
         {
           id: "homepageNewWindows",
+          subcategory: "homeOverride",
           control: "moz-select",
           l10nId: "home-homepage-new-windows",
           options: [
@@ -821,9 +822,11 @@ export class AboutPreferences {
           id: "homepageGoToCustomHomepageUrlPanel",
           control: "moz-box-button",
           l10nId: "home-homepage-custom-homepage-button",
+          loadPane: "customHomepage",
         },
         {
           id: "homepageNewTabs",
+          subcategory: "newtabOverride",
           control: "moz-select",
           l10nId: "home-homepage-new-tabs",
           options: [
@@ -1169,6 +1172,13 @@ export class AboutPreferences {
     const firefoxHomeActive = ({ homepageNewWindows, homepageNewTabs }) =>
       homepageNewWindows.value === "home" || homepageNewTabs.value === "home";
 
+    const HOME_CUSTOMIZE_URL = "about:home#customize";
+    const HOME_CUSTOMIZE_TOPICS_URL = "about:home#customize-topics";
+
+    // Open in a new tab if "New tabs" is Firefox Home, else a new window.
+    const dispatchForHomeLink = ({ homepageNewTabs }) =>
+      homepageNewTabs.value === "home" ? "tab" : "window";
+
     Preferences.addSetting({
       id: "firefoxHomeDisabledNotice",
       deps: firefoxHomeDeps,
@@ -1352,6 +1362,13 @@ export class AboutPreferences {
           stories.value
         );
       },
+      onUserClick: (e, deps) => {
+        e.preventDefault();
+        window.openTrustedLinkIn(
+          HOME_CUSTOMIZE_TOPICS_URL,
+          dispatchForHomeLink(deps)
+        );
+      },
     });
 
     // Support Firefox: sponsored content
@@ -1420,6 +1437,10 @@ export class AboutPreferences {
       id: "chooseWallpaper",
       deps: firefoxHomeDeps,
       visible: deps => firefoxHomeActive(deps),
+      onUserClick: (e, deps) => {
+        e.preventDefault();
+        window.openTrustedLinkIn(HOME_CUSTOMIZE_URL, dispatchForHomeLink(deps));
+      },
     });
 
     return {
@@ -1427,6 +1448,7 @@ export class AboutPreferences {
       headingLevel: 2,
       l10nId: "home-prefs-content-header",
       iconSrc: "chrome://browser/skin/home.svg",
+      subcategory: "contents",
       items: [
         {
           id: "firefoxHomeDisabledNotice",
@@ -1438,11 +1460,13 @@ export class AboutPreferences {
         },
         {
           id: "webSearch",
+          subcategory: "web-search",
           l10nId: "home-prefs-search-header2",
           control: "moz-toggle",
         },
         {
           id: "weather",
+          subcategory: "weather",
           l10nId: "home-prefs-weather-header",
           control: "moz-toggle",
         },
@@ -1471,6 +1495,7 @@ export class AboutPreferences {
         },
         {
           id: "shortcuts",
+          subcategory: "topsites",
           l10nId: "home-prefs-shortcuts-header",
           control: "moz-toggle",
           items: [
@@ -1504,6 +1529,7 @@ export class AboutPreferences {
         },
         {
           id: "stories",
+          subcategory: "topstories",
           l10nId: "home-prefs-stories-header2",
           control: "moz-toggle",
           items: [
@@ -1512,13 +1538,14 @@ export class AboutPreferences {
               l10nId: "home-prefs-manage-topics-link2",
               control: "moz-box-link",
               controlAttrs: {
-                href: "about:newtab#customize-topics",
+                href: HOME_CUSTOMIZE_TOPICS_URL,
               },
             },
           ],
         },
         {
           id: "supportFirefox",
+          subcategory: "support-firefox",
           l10nId: "home-prefs-support-firefox-header",
           control: "moz-toggle",
           items: [
@@ -1551,6 +1578,7 @@ export class AboutPreferences {
         },
         {
           id: "recentActivity",
+          subcategory: "highlights",
           l10nId: "home-prefs-recent-activity-header",
           control: "moz-toggle",
           items: [
@@ -1599,7 +1627,7 @@ export class AboutPreferences {
           l10nId: "home-prefs-choose-wallpaper-link2",
           control: "moz-box-link",
           controlAttrs: {
-            href: "about:newtab#customize",
+            href: HOME_CUSTOMIZE_URL,
           },
           iconSrc: "chrome://browser/skin/customize.svg",
         },

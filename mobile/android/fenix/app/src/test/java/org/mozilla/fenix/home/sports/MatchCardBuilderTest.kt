@@ -48,6 +48,25 @@ class MatchCardBuilderTest {
     }
 
     @Test
+    fun `buildForTeam GIVEN a match with undetermined teams THEN null teams pass through to the UI`() {
+        val tbd = sportsMatch(
+            id = 1L,
+            stage = TournamentRound.SEMI_FINAL,
+            status = MatchStatus.Scheduled,
+            homeKey = null,
+            awayKey = null,
+        )
+
+        val cards = MatchCardBuilder.buildForTeam(
+            TeamMatchesResult(previous = emptyList(), current = emptyList(), next = listOf(tbd)),
+        )
+
+        val match = cards.single().matches.single()
+        assertEquals(null, match.home)
+        assertEquals(null, match.away)
+    }
+
+    @Test
     fun `buildForTeam GIVEN knockout matches THEN live before past before upcoming`() {
         val r32 = sportsMatch(
             id = 1L,
@@ -441,6 +460,48 @@ class MatchCardBuilderTest {
     }
 
     @Test
+    fun `viewerOutcome GIVEN final decided in extra time THEN TournamentWinner uses ET goals to break the regulation tie`() {
+        // CAN home, AUS away. Regulation 2-2 (tied), extra time 1-0 → CAN wins in AET.
+        // Per MatchesResponseMapper.mapPastStatus, AET collapses to MatchStatus.Final
+        // (only "FT(P)" maps to FinalAfterPenalties), so winnerOf must consult the
+        // home_extra / away_extra fields to disambiguate.
+        val finalMatch = sportsMatch(
+            id = 1L,
+            stage = TournamentRound.FINAL,
+            homeKey = "CAN",
+            awayKey = "AUS",
+            status = MatchStatus.Final,
+            homeScore = 2,
+            awayScore = 2,
+            homeExtra = 1,
+            awayExtra = 0,
+        )
+        val cards = MatchCardBuilder.buildForNoTeam(matches = listOf(finalMatch))
+        val outcome = cards[0].viewerOutcome
+        assertIs<FollowedTeamOutcome.TournamentWinner>(outcome)
+        assertEquals("CAN", outcome.winner.key)
+    }
+
+    @Test
+    fun `viewerOutcome GIVEN third-place playoff decided in extra time THEN ThirdPlace uses ET goals`() {
+        val playoff = sportsMatch(
+            id = 1L,
+            stage = TournamentRound.THIRD_PLACE_PLAYOFF,
+            homeKey = "USA",
+            awayKey = "PAR",
+            status = MatchStatus.Final,
+            homeScore = 1,
+            awayScore = 1,
+            homeExtra = 0,
+            awayExtra = 1,
+        )
+        val cards = MatchCardBuilder.buildForNoTeam(matches = listOf(playoff))
+        val outcome = cards[0].viewerOutcome
+        assertIs<FollowedTeamOutcome.ThirdPlace>(outcome)
+        assertEquals("PAR", outcome.winner.key)
+    }
+
+    @Test
     fun `viewerOutcome GIVEN decided third-place playoff THEN ThirdPlace carries the winning team`() {
         // USA home, PAR away. Regulation 8-5 → USA wins the playoff.
         val playoff = sportsMatch(
@@ -524,12 +585,14 @@ class MatchCardBuilderTest {
     private fun sportsMatch(
         id: Long,
         date: ZonedDateTime = zonedDateTime(2026, 6, 12, 18),
-        homeKey: String = "USA",
-        awayKey: String = "MEX",
+        homeKey: String? = "USA",
+        awayKey: String? = "MEX",
         status: MatchStatus = MatchStatus.Scheduled,
         stage: TournamentRound = TournamentRound.GROUP_STAGE,
         homeScore: Int? = null,
         awayScore: Int? = null,
+        homeExtra: Int? = null,
+        awayExtra: Int? = null,
         homePenalty: Int? = null,
         awayPenalty: Int? = null,
         homeEliminated: Boolean = false,
@@ -537,29 +600,13 @@ class MatchCardBuilderTest {
     ): SportsMatch = SportsMatch(
         globalEventId = id,
         date = date,
-        homeTeam = SportsTeam(
-            key = homeKey,
-            globalTeamId = 0L,
-            name = homeKey,
-            region = homeKey,
-            iconUrl = null,
-            group = null,
-            eliminated = homeEliminated,
-        ),
-        awayTeam = SportsTeam(
-            key = awayKey,
-            globalTeamId = 0L,
-            name = awayKey,
-            region = awayKey,
-            iconUrl = null,
-            group = null,
-            eliminated = awayEliminated,
-        ),
+        homeTeam = homeKey?.let { sportsTeam(it, homeEliminated) },
+        awayTeam = awayKey?.let { sportsTeam(it, awayEliminated) },
         matchStatus = status,
         homeScore = homeScore,
         awayScore = awayScore,
-        homeExtra = null,
-        awayExtra = null,
+        homeExtra = homeExtra,
+        awayExtra = awayExtra,
         homePenalty = homePenalty,
         awayPenalty = awayPenalty,
         clock = null,
@@ -567,6 +614,16 @@ class MatchCardBuilderTest {
         updated = null,
         venue = null,
         stage = stage,
+    )
+
+    private fun sportsTeam(key: String, eliminated: Boolean): SportsTeam = SportsTeam(
+        key = key,
+        globalTeamId = 0L,
+        name = key,
+        region = key,
+        iconUrl = null,
+        group = null,
+        eliminated = eliminated,
     )
 
     // endregion

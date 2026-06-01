@@ -18,6 +18,13 @@ document.addEventListener(
       switch (event.target.id) {
         // == tabContextMenu ==
         case "context_openANewTab":
+          // The tab context menu can be invoked on a window that isn't the
+          // OS-level frontmost window (most reproducibly on macOS in a
+          // multi-monitor setup). Raise the window so the new tab's
+          // focusUrlBar request can actually land OS keyboard focus on the
+          // address bar. Bug 2039674 tracks routing this through
+          // URILoadingHelper instead.
+          window.focus();
           gBrowser.addAdjacentNewTab(TabContextMenu.contextTab);
           break;
         case "context_moveTabToNewGroup":
@@ -86,10 +93,6 @@ document.addEventListener(
           break;
         case "context_shareSelectedTabs":
           lazy.ContentSharingUtils.handleShareTabs(TabContextMenu.contextTabs);
-          Services.prefs.setBoolPref(
-            "browser.contentsharing.newBadge.enabled",
-            false
-          );
           break;
         case "context_bookmarkTab":
           PlacesCommandHook.bookmarkTabs([TabContextMenu.contextTab]);

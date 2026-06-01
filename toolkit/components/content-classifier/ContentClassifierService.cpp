@@ -20,6 +20,7 @@
 #include "mozilla/StaticPtr.h"
 #include "nsIAsyncShutdown.h"
 #include "nsIChannel.h"
+#include "nsIClassifiedChannel.h"
 #include "nsIStreamLoader.h"
 #include "nsIURI.h"
 #include "nsNetUtil.h"
@@ -35,15 +36,119 @@ bool ContentClassifierService::sEnabled = false;
 
 namespace {
 
-bool HasAnyListNames() {
-  nsAutoCString blockNames;
-  Preferences::GetCString(
-      "privacy.trackingprotection.content.protection.list_names", blockNames);
-  nsAutoCString annotateNames;
-  Preferences::GetCString(
-      "privacy.trackingprotection.content.annotation.list_names",
-      annotateNames);
-  return !blockNames.IsEmpty() || !annotateNames.IsEmpty();
+constexpr nsLiteralCString kTrackersListIds[] = {"disconnect-tracker-base"_ns};
+constexpr nsLiteralCString kTrackersContentListIds[] = {
+    "disconnect-tracker-content"_ns};
+constexpr nsLiteralCString kSocialTrackersListIds[] = {"mozilla-social"_ns};
+constexpr nsLiteralCString kFingerprintersListIds[] = {
+    "disconnect-fingerprinters-base"_ns};
+constexpr nsLiteralCString kEmailTrackersListIds[] = {
+    "disconnect-email-base"_ns};
+constexpr nsLiteralCString kCryptominersListIds[] = {
+    "disconnect-cryptominer-base"_ns};
+constexpr nsLiteralCString kMajorExceptionListIds[] = {
+    "mozilla-major-exceptions"_ns};
+constexpr nsLiteralCString kMinorExceptionListIds[] = {
+    "mozilla-minor-exceptions"_ns};
+constexpr nsLiteralCString kTestBlockListIds[] = {"test_block"_ns};
+constexpr nsLiteralCString kTestAnnotateListIds[] = {"test_annotate"_ns};
+
+constexpr ContentClassifierFeature kFeatures[] = {
+    {"trackers"_ns, Span<const nsLiteralCString>(kTrackersListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
+     nsIWebProgressListener::STATE_LOADED_LEVEL_1_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
+     NS_ERROR_TRACKING_URI},
+    // The annotation variant adds content-track-digest256, which mirrors
+    // url-classifier's promotion to STATE_LOADED_LEVEL_2_TRACKING_CONTENT
+    // when a content-track-* table matches.
+    {"trackers-content"_ns,
+     Span<const nsLiteralCString>(kTrackersContentListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
+     nsIWebProgressListener::STATE_LOADED_LEVEL_2_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
+     NS_ERROR_TRACKING_URI},
+    {"social-trackers"_ns, Span<const nsLiteralCString>(kSocialTrackersListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_SOCIALTRACKING,
+     nsIWebProgressListener::STATE_LOADED_SOCIALTRACKING_CONTENT,
+     nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
+     NS_ERROR_SOCIALTRACKING_URI},
+    {"fingerprinters"_ns, Span<const nsLiteralCString>(kFingerprintersListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_FINGERPRINTING,
+     nsIWebProgressListener::STATE_LOADED_FINGERPRINTING_CONTENT,
+     nsIWebProgressListener::STATE_REPLACED_FINGERPRINTING_CONTENT,
+     nsIWebProgressListener::STATE_ALLOWED_FINGERPRINTING_CONTENT,
+     NS_ERROR_FINGERPRINTING_URI},
+    {"email-trackers"_ns, Span<const nsLiteralCString>(kEmailTrackersListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_EMAILTRACKING,
+     nsIWebProgressListener::STATE_LOADED_EMAILTRACKING_LEVEL_1_CONTENT,
+     nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
+     NS_ERROR_EMAILTRACKING_URI},
+    {"cryptominers"_ns, Span<const nsLiteralCString>(kCryptominersListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_CRYPTOMINING,
+     nsIWebProgressListener::STATE_LOADED_CRYPTOMINING_CONTENT,
+     nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
+     NS_ERROR_CRYPTOMINING_URI},
+    {"minor-exceptions"_ns,
+     Span<const nsLiteralCString>(kMinorExceptionListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING, 0, 0, 0,
+     NS_OK},
+    {"major-exceptions"_ns,
+     Span<const nsLiteralCString>(kMajorExceptionListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING, 0, 0, 0,
+     NS_OK},
+    // Test-only features. Their list data is not fetched from
+    // RemoteSettings; instead, the HTTP test loader (driven by the
+    // *.test_list_urls prefs) writes the downloaded rule text into
+    // mFilterListData under the synthetic list IDs "test_block" /
+    // "test_annotate". They behave like any other feature once built.
+    {"test_block"_ns, Span<const nsLiteralCString>(kTestBlockListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
+     nsIWebProgressListener::STATE_LOADED_LEVEL_1_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
+     NS_ERROR_TRACKING_URI},
+    {"test_annotate"_ns, Span<const nsLiteralCString>(kTestAnnotateListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
+     nsIWebProgressListener::STATE_LOADED_LEVEL_1_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
+     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT, NS_OK},
+};
+
+// Prefs that name feature engines built into mEngines.
+constexpr const char* kFeatureEnginesPrefs[] = {
+    "privacy.trackingprotection.content.protection.engines",
+    "privacy.trackingprotection.content.protection.engines.pbmode",
+    "privacy.trackingprotection.content.annotation.engines",
+    "privacy.trackingprotection.content.annotation.engines.pbmode",
+};
+
+bool HasAnyConfiguredFeatures() {
+  nsAutoCString value;
+  for (const char* pref : kFeatureEnginesPrefs) {
+    Preferences::GetCString(pref, value);
+    if (!value.IsEmpty()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void AppendFeatureNamesFromPref(const char* aPref, nsTArray<nsCString>& aOut) {
+  nsAutoCString value;
+  Preferences::GetCString(aPref, value);
+  for (const auto& part : value.Split(',')) {
+    nsAutoCString name(part);
+    name.Trim("\b\t\r\n ");
+    if (!name.IsEmpty() && !aOut.Contains(name)) {
+      aOut.AppendElement(name);
+    }
+  }
 }
 
 void NotifyListsLoadedForTesting() {
@@ -81,6 +186,22 @@ bool ContentClassifierService::IsEnabled() {
   }
 
   return sEnabled;
+}
+
+// static
+Span<const ContentClassifierFeature> ContentClassifierService::GetFeatures() {
+  return Span<const ContentClassifierFeature>(kFeatures);
+}
+
+// static
+Maybe<const ContentClassifierFeature&>
+ContentClassifierService::GetFeatureByName(const nsACString& aName) {
+  for (const auto& feature : kFeatures) {
+    if (feature.mName.Equals(aName)) {
+      return SomeRef(feature);
+    }
+  }
+  return Nothing();
 }
 
 // static
@@ -122,7 +243,7 @@ void ContentClassifierService::OnPrefChange(const char* aPref, void*) {
 
   if (!wasEnabled && sEnabled && !hasRSClient) {
     // Feature just became enabled. Start the RS client if list names are set.
-    if (HasAnyListNames()) {
+    if (HasAnyConfiguredFeatures()) {
       service->InitRSClient();
     }
     return;
@@ -136,22 +257,25 @@ void ContentClassifierService::OnPrefChange(const char* aPref, void*) {
 
   // Feature enabled state unchanged. Handle individual pref changes.
   const nsDependentCString prefStr(aPref);
-  const bool isListNamesPref =
+  const bool isFeatureSelectionPref =
       prefStr.EqualsLiteral(
-          "privacy.trackingprotection.content.protection.list_names") ||
+          "privacy.trackingprotection.content.protection.engines") ||
       prefStr.EqualsLiteral(
-          "privacy.trackingprotection.content.annotation.list_names");
+          "privacy.trackingprotection.content.protection.engines.pbmode") ||
+      prefStr.EqualsLiteral(
+          "privacy.trackingprotection.content.annotation.engines") ||
+      prefStr.EqualsLiteral(
+          "privacy.trackingprotection.content.annotation.engines.pbmode");
 
-  if (isListNamesPref) {
+  if (isFeatureSelectionPref) {
     if (!sEnabled) {
-      // list_names changed while the feature is disabled. No engines
-      // to rebuild, nothing to fetch; enabling the feature will pick
-      // up the new pref.
+      // The feature is disabled; nothing to rebuild or fetch. Enabling
+      // will pick up the new pref.
       return;
     }
-    // Active list names changed. Start RS client if needed, then rebuild
-    // engines from already-stored data to reflect the new selection.
-    if (!hasRSClient && HasAnyListNames()) {
+    // Active feature selection changed. Start RS client if needed, then
+    // rebuild engines from already-stored data to reflect the new selection.
+    if (!hasRSClient && HasAnyConfiguredFeatures()) {
       service->InitRSClient();
       // InitRSClient's async init will rebuild engines once data arrives.
       return;
@@ -248,7 +372,7 @@ void ContentClassifierService::Init() {
 
     rv = Preferences::RegisterCallback(
         &ContentClassifierService::OnPrefChange,
-        "privacy.trackingprotection.content.protection.list_names"_ns);
+        "privacy.trackingprotection.content.protection.engines"_ns);
     if (NS_FAILED(rv)) {
       mInitPhase = InitPhase::InitFailed;
       return;
@@ -256,7 +380,23 @@ void ContentClassifierService::Init() {
 
     rv = Preferences::RegisterCallback(
         &ContentClassifierService::OnPrefChange,
-        "privacy.trackingprotection.content.annotation.list_names"_ns);
+        "privacy.trackingprotection.content.annotation.engines"_ns);
+    if (NS_FAILED(rv)) {
+      mInitPhase = InitPhase::InitFailed;
+      return;
+    }
+
+    rv = Preferences::RegisterCallback(
+        &ContentClassifierService::OnPrefChange,
+        "privacy.trackingprotection.content.protection.engines.pbmode"_ns);
+    if (NS_FAILED(rv)) {
+      mInitPhase = InitPhase::InitFailed;
+      return;
+    }
+
+    rv = Preferences::RegisterCallback(
+        &ContentClassifierService::OnPrefChange,
+        "privacy.trackingprotection.content.annotation.engines.pbmode"_ns);
     if (NS_FAILED(rv)) {
       mInitPhase = InitPhase::InitFailed;
       return;
@@ -268,7 +408,7 @@ void ContentClassifierService::Init() {
   // Lock released; safe to call into JS.
   // Only initialize the RS client if list_names prefs are set,
   // to avoid interfering with the test-only HTTP loading path.
-  if (sEnabled && HasAnyListNames()) {
+  if (sEnabled && HasAnyConfiguredFeatures()) {
     InitRSClient();
   }
 
@@ -327,8 +467,11 @@ void ContentClassifierService::ShutdownRSClient() {
 
   MutexAutoLock lock(mLock);
   mFilterListData.Clear();
-  mBlockEngines.Clear();
+  mEngines.Clear();
+  mCancelEngines.Clear();
+  mCancelEnginesPBM.Clear();
   mAnnotateEngines.Clear();
+  mAnnotateEnginesPBM.Clear();
 }
 
 // static
@@ -390,10 +533,16 @@ NS_IMETHODIMP ContentClassifierService::BlockShutdown(
       "privacy.trackingprotection.content.annotation.test_list_urls"_ns);
   Preferences::UnregisterCallback(
       &ContentClassifierService::OnPrefChange,
-      "privacy.trackingprotection.content.protection.list_names"_ns);
+      "privacy.trackingprotection.content.protection.engines"_ns);
   Preferences::UnregisterCallback(
       &ContentClassifierService::OnPrefChange,
-      "privacy.trackingprotection.content.annotation.list_names"_ns);
+      "privacy.trackingprotection.content.annotation.engines"_ns);
+  Preferences::UnregisterCallback(
+      &ContentClassifierService::OnPrefChange,
+      "privacy.trackingprotection.content.protection.engines.pbmode"_ns);
+  Preferences::UnregisterCallback(
+      &ContentClassifierService::OnPrefChange,
+      "privacy.trackingprotection.content.annotation.engines.pbmode"_ns);
 
   content_classifier_teardown_domain_resolver();
 
@@ -412,22 +561,48 @@ void ContentClassifierService::RemoveBlocker() {
   mInitPhase = InitPhase::ShutdownEnded;
 }
 
+// Fold a single per-engine outcome into the aggregate. All matched engine
+// results are appended so callers can attribute per-feature annotations,
+// but the aggregate Status is promoted monotonically: a later
+// non-Important Hit cannot demote an earlier Exception, and Important
+// pins the status.
+void ContentClassifierResult::Accumulate(
+    ContentClassifierEngineResult aEngineResult) {
+  Status engineStatus = Status::Miss;
+  if (aEngineResult.Exception()) {
+    engineStatus = aEngineResult.Important() ? Status::ImportantException
+                                             : Status::Exception;
+  } else if (aEngineResult.Matched()) {
+    engineStatus =
+        aEngineResult.Important() ? Status::ImportantHit : Status::Hit;
+  }
+
+  if (engineStatus > mStatus) {
+    mStatus = engineStatus;
+  }
+  mEngineResults.AppendElement(std::move(aEngineResult));
+}
+
 ContentClassifierResult ContentClassifierService::ClassifyWithEngines(
-    const nsTArray<UniquePtr<ContentClassifierEngine>>& aEngines,
+    const nsTArray<RefPtr<ContentClassifierEngine>>& aEngines,
     const ContentClassifierRequest& aRequest) {
   MOZ_ASSERT(!NS_IsMainThread());
   mLock.AssertCurrentThreadOwns();
+  ContentClassifierResult result;
   if (mInitPhase != InitPhase::InitSucceeded) {
-    return ContentClassifierResult(NS_ERROR_NOT_INITIALIZED);
+    MOZ_LOG(gContentClassifierLog, LogLevel::Warning,
+            ("ClassifyWithEngines - service not initialized; returning Miss"));
+    return result;
   }
   if (!aRequest.Valid()) {
-    return ContentClassifierResult(NS_ERROR_INVALID_ARG);
+    MOZ_LOG(gContentClassifierLog, LogLevel::Warning,
+            ("ClassifyWithEngines - invalid request; returning Miss"));
+    return result;
   }
-  ContentClassifierResult result(NS_OK);
   for (const auto& engine : aEngines) {
-    ContentClassifierResult thisResult = engine->CheckNetworkRequest(aRequest);
-    result.Accumulate(thisResult);
-    if (result.Important()) {
+    result.Accumulate(engine->CheckNetworkRequest(aRequest));
+    if (result.GetStatus() ==
+        ContentClassifierResult::Status::ImportantException) {
       break;
     }
   }
@@ -447,8 +622,9 @@ NS_IMETHODIMP ContentClassifierService::GetState(nsIPropertyBag** aState) {
 ContentClassifierResult ContentClassifierService::ClassifyForAnnotate(
     const ContentClassifierRequest& aRequest) {
   MutexAutoLock lock(mLock);
-  ContentClassifierResult result =
-      ClassifyWithEngines(mAnnotateEngines, aRequest);
+  const nsTArray<RefPtr<ContentClassifierEngine>>& engines =
+      aRequest.PrivateBrowsing() ? mAnnotateEnginesPBM : mAnnotateEngines;
+  ContentClassifierResult result = ClassifyWithEngines(engines, aRequest);
   MOZ_LOG(gContentClassifierLog, LogLevel::Debug,
           ("ClassifyForAnnotate - url=%s hit=%d exception=%d",
            aRequest.Url().get(), result.Hit(), result.Exception()));
@@ -458,31 +634,75 @@ ContentClassifierResult ContentClassifierService::ClassifyForAnnotate(
 ContentClassifierResult ContentClassifierService::ClassifyForCancel(
     const ContentClassifierRequest& aRequest) {
   MutexAutoLock lock(mLock);
-  ContentClassifierResult result = ClassifyWithEngines(mBlockEngines, aRequest);
+  const nsTArray<RefPtr<ContentClassifierEngine>>& engines =
+      aRequest.PrivateBrowsing() ? mCancelEnginesPBM : mCancelEngines;
+  // Note: this processes all engines, even when we get an early block, out of
+  // caution.
+  ContentClassifierResult result = ClassifyWithEngines(engines, aRequest);
   MOZ_LOG(gContentClassifierLog, LogLevel::Debug,
           ("ClassifyForCancel - url=%s hit=%d exception=%d",
            aRequest.Url().get(), result.Hit(), result.Exception()));
   return result;
 }
 
-void ContentClassifierService::AnnotateChannel(nsIChannel* aChannel) {
+void ContentClassifierService::MaybeAnnotateChannel(
+    nsIChannel* aChannel, const ContentClassifierResult& aResult) {
   NS_ENSURE_TRUE_VOID(aChannel);
+  if (!aResult.Hit()) {
+    return;
+  }
 
   nsCOMPtr<nsIURI> uri;
   aChannel->GetURI(getter_AddRefs(uri));
-  if (uri) {
-    MOZ_LOG(gContentClassifierLog, LogLevel::Debug,
-            ("AnnotateChannel - url=%s", uri->GetSpecOrDefault().get()));
-  }
 
-  net::ChannelClassifierUtils::AnnotateChannel(
-      aChannel, nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
-      nsIWebProgressListener::STATE_LOADED_LEVEL_2_TRACKING_CONTENT);
+  for (const auto& engineResult : aResult.EngineResults()) {
+    if (!engineResult.Matched() || engineResult.Exception()) {
+      continue;
+    }
+    const ContentClassifierFeature& feature = engineResult.Feature();
+    if (feature.mLoadedState == 0) {
+      continue;
+    }
+    if (uri) {
+      MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Debug,
+                  "MaybeAnnotateChannel - url={} feature={}",
+                  uri->GetSpecOrDefault(), feature.mName);
+    }
+    net::ChannelClassifierUtils::AnnotateChannel(
+        aChannel, feature.mClassificationFlag, feature.mLoadedState);
+  }
 }
 
 net::ChannelBlockDecision ContentClassifierService::MaybeCancelChannel(
-    nsIChannel* aChannel) {
+    nsIChannel* aChannel, const ContentClassifierResult& aResult) {
   NS_ENSURE_TRUE(aChannel, net::ChannelBlockDecision::Allowed);
+  if (!aResult.Hit()) {
+    return net::ChannelBlockDecision::Allowed;
+  }
+
+  // Closest analogue to the URLClassifier's "first cancelling feature
+  // wins" rule. Classification itself keeps evaluating all engines (so
+  // exception rules can suppress a Hit), but at decision time we pick
+  // the first matched feature whose definition carries a non-NS_OK
+  // blocking error code. Iteration order is the order in
+  // ClassifyWithEngines, which is the order of the engines pref.
+  const ContentClassifierFeature* blockingFeature = nullptr;
+  for (const auto& engineResult : aResult.EngineResults()) {
+    if (!engineResult.Matched() || engineResult.Exception()) {
+      continue;
+    }
+    const ContentClassifierFeature& feature = engineResult.Feature();
+    if (feature.mBlockingErrorCode != NS_OK) {
+      blockingFeature = &feature;
+      break;
+    }
+  }
+  if (!blockingFeature) {
+    MOZ_LOG(gContentClassifierLog, LogLevel::Warning,
+            ("MaybeCancelChannel - no matched feature carries a blocking error "
+             "code; nothing to cancel"));
+    return net::ChannelBlockDecision::Allowed;
+  }
 
   nsCOMPtr<nsIURI> uri;
   aChannel->GetURI(getter_AddRefs(uri));
@@ -498,9 +718,8 @@ net::ChannelBlockDecision ContentClassifierService::MaybeCancelChannel(
   net::ChannelBlockDecision decision = net::ChannelBlockDecision::Allowed;
   net::ChannelClassifierUtils::MaybeBlockChannel(
       aChannel, "content-classifier"_ns, "content-classifier-block"_ns,
-      NS_ERROR_TRACKING_URI,
-      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
-      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT, &decision);
+      blockingFeature->mBlockingErrorCode, blockingFeature->mReplacedState,
+      blockingFeature->mAllowedState, &decision);
   return decision;
 }
 
@@ -533,6 +752,15 @@ NS_IMETHODIMP ContentClassifierService::RemoveFilterList(
     return NS_ERROR_NOT_INITIALIZED;
   }
   mFilterListData.Remove(nsCString(aName));
+  return NS_OK;
+}
+
+NS_IMETHODIMP ContentClassifierService::GetFeatureNames(
+    nsTArray<nsCString>& aNames) {
+  aNames.Clear();
+  for (const auto& feature : GetFeatures()) {
+    aNames.AppendElement(feature.mName);
+  }
   return NS_OK;
 }
 
@@ -573,70 +801,119 @@ static void ParseFilterListRules(const nsTArray<uint8_t>& aData,
   }
 }
 
+// static
+nsTArray<nsCString> ContentClassifierService::ActiveFeatureNames() {
+  nsTArray<nsCString> names;
+  for (const char* pref : kFeatureEnginesPrefs) {
+    AppendFeatureNamesFromPref(pref, names);
+  }
+  return names;
+}
+
+void ContentClassifierService::PopulateEngineListFromPref(
+    const char* aPref, nsTArray<RefPtr<ContentClassifierEngine>>& aOut) {
+  MOZ_ASSERT(NS_IsMainThread());
+  mLock.AssertCurrentThreadOwns();
+  nsTArray<nsCString> names;
+  AppendFeatureNamesFromPref(aPref, names);
+  for (const auto& name : names) {
+    auto entry = mEngines.Lookup(name);
+    if (entry) {
+      aOut.AppendElement(entry.Data());
+    }
+  }
+}
+
+void ContentClassifierService::RefreshActiveEngineLists() {
+  MOZ_ASSERT(NS_IsMainThread());
+  mLock.AssertCurrentThreadOwns();
+  mCancelEngines.Clear();
+  mCancelEnginesPBM.Clear();
+  mAnnotateEngines.Clear();
+  mAnnotateEnginesPBM.Clear();
+  PopulateEngineListFromPref(
+      "privacy.trackingprotection.content.protection.engines", mCancelEngines);
+  PopulateEngineListFromPref(
+      "privacy.trackingprotection.content.protection.engines.pbmode",
+      mCancelEnginesPBM);
+  PopulateEngineListFromPref(
+      "privacy.trackingprotection.content.annotation.engines",
+      mAnnotateEngines);
+  PopulateEngineListFromPref(
+      "privacy.trackingprotection.content.annotation.engines.pbmode",
+      mAnnotateEnginesPBM);
+}
+
 void ContentClassifierService::RebuildEnginesFromStoredData() {
   mLock.AssertCurrentThreadOwns();
+  MOZ_ASSERT(NS_IsMainThread());
 
-  nsAutoCString blockListPref;
-  Preferences::GetCString(
-      "privacy.trackingprotection.content.protection.list_names",
-      blockListPref);
+  if (mInitPhase != InitPhase::InitSucceeded) {
+    return;
+  }
 
-  nsAutoCString annotateListPref;
-  Preferences::GetCString(
-      "privacy.trackingprotection.content.annotation.list_names",
-      annotateListPref);
+  nsTArray<nsCString> referenced = ActiveFeatureNames();
 
   MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Debug,
-              "RebuildEnginesFromStoredData - block lists: \"{}\", "
-              "annotate lists: \"{}\", stored lists: {}",
-              blockListPref, annotateListPref, mFilterListData.Count());
+              "RebuildEnginesFromStoredData - {} referenced features, "
+              "{} stored lists",
+              referenced.Length(), mFilterListData.Count());
 
-  auto buildEngines =
-      [this](const nsACString& aListNamesPref,
-             nsTArray<UniquePtr<ContentClassifierEngine>>& aEngines)
-          MOZ_REQUIRES(mLock) {
-            aEngines.Clear();
-            for (const auto& name : aListNamesPref.Split(',')) {
-              nsAutoCString trimmedName(name);
-              trimmedName.Trim(" ");
-              if (trimmedName.IsEmpty()) {
-                continue;
-              }
+  mEngines.Clear();
 
-              auto entry = mFilterListData.Lookup(trimmedName);
-              if (!entry) {
-                MOZ_LOG_FMT(
-                    gContentClassifierLog, LogLevel::Warning,
-                    "RebuildEnginesFromStoredData - list \"{}\" not found "
-                    "in stored data",
-                    trimmedName);
-                continue;
-              }
+  for (const auto& name : referenced) {
+    Maybe<const ContentClassifierFeature&> maybeFeature =
+        GetFeatureByName(name);
+    if (maybeFeature.isNothing()) {
+      MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Warning,
+                  "RebuildEnginesFromStoredData - unknown feature \"{}\"",
+                  name);
+      continue;
+    }
+    const ContentClassifierFeature& feature = *maybeFeature;
 
-              nsTArray<nsCString> rules;
-              ParseFilterListRules(entry.Data(), rules);
+    nsTArray<nsCString> rules;
+    size_t presentLists = 0;
+    for (const auto& listId : feature.mListIds) {
+      auto entry = mFilterListData.Lookup(listId);
+      if (!entry) {
+        MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Warning,
+                    "RebuildEnginesFromStoredData - list \"{}\" for feature "
+                    "\"{}\" not found in stored data; engine will be built "
+                    "from the remaining lists",
+                    listId, feature.mName);
+        continue;
+      }
+      ParseFilterListRules(entry.Data(), rules);
+      ++presentLists;
+    }
+    if (presentLists == 0) {
+      MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Warning,
+                  "RebuildEnginesFromStoredData - no stored lists available "
+                  "for feature \"{}\"; skipping engine",
+                  feature.mName);
+      continue;
+    }
 
-              auto engine = MakeUnique<ContentClassifierEngine>();
-              nsresult rv = engine->InitFromRules(rules);
-              if (NS_FAILED(rv)) {
-                MOZ_LOG_FMT(
-                    gContentClassifierLog, LogLevel::Error,
-                    "RebuildEnginesFromStoredData - failed to init engine "
-                    "for \"{}\": {:#x}",
-                    trimmedName, static_cast<uint32_t>(rv));
-                continue;
-              }
+    RefPtr<ContentClassifierEngine> engine =
+        new ContentClassifierEngine(feature);
+    nsresult rv = engine->InitFromRules(rules);
+    if (NS_FAILED(rv)) {
+      MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Error,
+                  "RebuildEnginesFromStoredData - failed to init engine for "
+                  "feature \"{}\": {:#x}",
+                  feature.mName, static_cast<uint32_t>(rv));
+      continue;
+    }
 
-              MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Info,
-                          "RebuildEnginesFromStoredData - loaded engine "
-                          "for \"{}\" with {} rules",
-                          trimmedName, rules.Length());
-              aEngines.AppendElement(std::move(engine));
-            }
-          };
+    MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Info,
+                "RebuildEnginesFromStoredData - loaded engine for feature "
+                "\"{}\" with {} rules",
+                feature.mName, rules.Length());
+    mEngines.InsertOrUpdate(name, std::move(engine));
+  }
 
-  buildEngines(blockListPref, mBlockEngines);
-  buildEngines(annotateListPref, mAnnotateEngines);
+  RefreshActiveEngineLists();
 }
 
 // HTTP-based list loading (test only)
@@ -782,29 +1059,41 @@ void ContentClassifierService::LoadFilterLists() {
            blockFilterRules = std::move(blockFilterRules)](
               const GenericPromise::AllSettledPromiseType::ResolveOrRejectValue&
                   aResults) {
-            ReleasableMutexAutoLock lock(self->mLock);
-            self->mBlockEngines.Clear();
-            self->mAnnotateEngines.Clear();
-
-            for (const auto& rules : blockFilterRules) {
-              auto engine = MakeUnique<ContentClassifierEngine>();
-              nsresult rv = engine->InitFromRules(rules);
-              if (NS_FAILED(rv)) {
-                continue;
+            // Synthesize entries in mFilterListData for the test_block /
+            // test_annotate features so they go through the normal
+            // RebuildEnginesFromStoredData path.
+            auto serialize = [](const nsTArray<nsTArray<nsCString>>& aPerUrl,
+                                nsTArray<uint8_t>& aOut) {
+              for (const auto& rules : aPerUrl) {
+                for (const auto& rule : rules) {
+                  aOut.AppendElements(
+                      reinterpret_cast<const uint8_t*>(rule.BeginReading()),
+                      rule.Length());
+                  aOut.AppendElement('\n');
+                }
               }
-              self->mBlockEngines.AppendElement(std::move(engine));
-            }
+            };
 
-            for (const auto& rules : annotateFilterRules) {
-              auto engine = MakeUnique<ContentClassifierEngine>();
-              nsresult rv = engine->InitFromRules(rules);
-              if (NS_FAILED(rv)) {
-                continue;
+            {
+              ReleasableMutexAutoLock lock(self->mLock);
+              if (blockFilterRules.IsEmpty()) {
+                self->mFilterListData.Remove("test_block"_ns);
+              } else {
+                nsTArray<uint8_t> bytes;
+                serialize(blockFilterRules, bytes);
+                self->mFilterListData.InsertOrUpdate("test_block"_ns,
+                                                     std::move(bytes));
               }
-              self->mAnnotateEngines.AppendElement(std::move(engine));
+              if (annotateFilterRules.IsEmpty()) {
+                self->mFilterListData.Remove("test_annotate"_ns);
+              } else {
+                nsTArray<uint8_t> bytes;
+                serialize(annotateFilterRules, bytes);
+                self->mFilterListData.InsertOrUpdate("test_annotate"_ns,
+                                                     std::move(bytes));
+              }
+              self->RebuildEnginesFromStoredData();
             }
-
-            lock.Unlock();
             NotifyListsLoadedForTesting();
           });
 }

@@ -26,6 +26,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -154,7 +155,7 @@ private fun DataLimitSection(
             )
         } else {
             Text(
-                text = stringResource(R.string.ip_protection_data_limit_reached_description, state.maxDataGb),
+                text = stringResource(R.string.ip_protection_data_limit_reached_description, state.maxDataGb.toInt()),
                 style = FirefoxTheme.typography.body2,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -200,7 +201,7 @@ private fun VpnLocationSection() {
     Text(
         text = stringResource(R.string.ip_protection_location_section),
         style = FirefoxTheme.typography.headline8,
-        color = MaterialTheme.colorScheme.tertiary,
+        color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(
             horizontal = FirefoxTheme.layout.space.dynamic200,
             vertical = FirefoxTheme.layout.space.static150,
@@ -251,6 +252,9 @@ private fun VpnToggleRow(
             checked = checked,
             onCheckedChange = null,
             enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = MaterialTheme.colorScheme.tertiary,
+            ),
         )
     }
 }

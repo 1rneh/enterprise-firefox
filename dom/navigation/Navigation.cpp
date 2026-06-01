@@ -321,21 +321,29 @@ bool SupportsInterface(nsISupports* aSupports) {
   return ptr;
 }
 
+static bool IsNonBlankAboutPage(Document* aDocument) {
+  return aDocument->IsAboutPage() &&
+         !NS_IsAboutBlankAllowQueryAndFragment(aDocument->GetDocumentURI());
+}
+
 // https://html.spec.whatwg.org/#has-entries-and-events-disabled
 bool Navigation::HasEntriesAndEventsDisabled() const {
   Document* doc = GetAssociatedDocument();
   return !doc || !doc->IsCurrentActiveDocument() ||
          doc->IsEverInitialDocument() ||
          doc->GetPrincipal()->GetIsNullPrincipal() ||
-         // We explicitly disallow documents loaded through multipart and script
-         // channels from having events or entries. See bug 1996218 and bug
-         // 1996221
+         // We explicitly disallow documents loaded through multipart and
+         // script channels from having events or entries. See bug 1996218
+         // and bug 1996221
          SupportsInterface<nsIMultiPartChannel>(doc->GetChannel()) ||
          SupportsInterface<nsIScriptChannel>(doc->GetChannel()) ||
          // We also disallow documents embedded using <object>/<embed>. See bug
          // 1996215.
          !doc->GetBrowsingContext() ||
-         doc->GetBrowsingContext()->IsEmbedderTypeObjectOrEmbed();
+         doc->GetBrowsingContext()->IsEmbedderTypeObjectOrEmbed() ||
+         // Furthermore we disallow all about: documents that aren't non-initial
+         // about:blank. See bug 2043508.
+         IsNonBlankAboutPage(doc);
 }
 
 // https://html.spec.whatwg.org/#initialize-the-navigation-api-entries-for-a-new-document
@@ -460,6 +468,37 @@ void Navigation::UpdateEntriesForSameDocumentNavigation(
                                    ongoingAPIMethodTracker);
     }
   }
+}
+
+void Navigation::TruncateForwardEntries(uint32_t aNewLength) {
+  if (HasEntriesAndEventsDisabled()) {
+    return;
+  }
+
+  if (aNewLength >= mEntries.Length()) {
+    return;
+  }
+
+  if (mCurrentEntryIndex && *mCurrentEntryIndex >= aNewLength) {
+    return;
+  }
+
+  nsTArray<RefPtr<NavigationHistoryEntry>> disposedEntries;
+  disposedEntries.AppendElements(Span(mEntries).From(aNewLength));
+  mEntries.TruncateLength(aNewLength);
+
+  for (auto& entry : disposedEntries) {
+    entry->ResetIndexForDisposal();
+  }
+
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "Navigation::TruncateForwardEntries",
+      [oldEntries =
+           std::move(disposedEntries)]() MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA {
+        for (const RefPtr<NavigationHistoryEntry>& disposedNHE : oldEntries) {
+          MOZ_KnownLive(disposedNHE)->FireDisposeEvent();
+        }
+      }));
 }
 
 static bool Equals(nsIURI* aURI, nsIURI* aOtherURI) {

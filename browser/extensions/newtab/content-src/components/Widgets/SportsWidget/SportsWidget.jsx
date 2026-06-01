@@ -12,9 +12,11 @@ import React, {
 } from "react";
 import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { useIntersectionObserver } from "../../../lib/utils";
+import { useIntersectionObserver, useSizeSubmenu } from "../../../lib/utils";
 import { SportsMatchRow } from "./SportsMatchRow";
+import { LivePagination } from "./LivePagination";
 import { MoveSubmenu } from "../MoveSubmenu";
+import { WatchLiveModal } from "./WatchLiveModal";
 import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
 import { useLocalizedTeamNames } from "./useLocalizedTeamNames.jsx";
 import {
@@ -64,6 +66,7 @@ const USER_ACTION_TYPES = {
 const PREF_NOVA_ENABLED = "nova.enabled";
 const PREF_SPORTS_WIDGET_SIZE = "widgets.sportsWidget.size";
 const PREF_SPORTS_WIDGET_LIVE_ENABLED = "widgets.sportsWidget.live.enabled";
+const PREF_FORCE_LIVE_DATA_TRUSTABLE = "widgets.sports.forceLiveDataTrustable";
 
 // World Cup 2026 kickoff: June 11, 2026 at 19:00 UTC. Used as a temporary
 // guard to ignore /live data while the endpoint still serves mock matches
@@ -106,6 +109,7 @@ function getHighlightMatch({
   sortedPrevious,
   sortedCurrent,
   sortedNext,
+  liveIndex,
 }) {
   if (widgetState !== WIDGET_STATES.MATCHES) {
     return null;
@@ -114,7 +118,7 @@ function getHighlightMatch({
     return sortedPrevious[0] || null;
   }
   if (activeTab === MATCHES_TABS.NOW) {
-    return sortedCurrent[0] || null;
+    return sortedCurrent[liveIndex] || sortedCurrent[0] || null;
   }
   if (activeTab === MATCHES_TABS.UPCOMING && !showUpcomingList) {
     return sortedNext[0] || null;
@@ -142,27 +146,43 @@ function getFollowedGradient(match, selectedTeamsSet, teamColorsByKey) {
   return `linear-gradient(to right, ${colors.join(", ")})`;
 }
 
-// eslint-disable-next-line max-statements
+// When the Now tab has 2+ live games, the widget root is labelled by the
+// visible "Now" tab so screen readers can name the live-matches region.
+function getCarouselArticleAttrs(active) {
+  return active ? { "aria-labelledby": "sports-now-tab" } : null;
+}
+
+// eslint-disable-next-line max-statements, complexity
 function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
   const prefs = useSelector(state => state.Prefs.values);
   const sportsWidgetData = useSelector(state => state.SportsWidget);
 
   const widgetSize = resolveWidgetSize(SPORTS_WIDGET_REGISTRY_ENTRY, prefs);
-  const liveEnabled = prefs[PREF_SPORTS_WIDGET_LIVE_ENABLED];
+  // Mirror SportsFeed.liveEnabled — raw pref OR trainhopConfig.sports.liveEnabled.
+  // Reading the raw pref alone would leave a Nimbus-only rollout in a
+  // permanently-paused state: the feed would start polling, but tick()
+  // bails on empty visibleTabs and we'd never attach the observer to dispatch
+  // WIDGETS_SPORTS_LIVE_VISIBLE.
+  const liveEnabled =
+    prefs[PREF_SPORTS_WIDGET_LIVE_ENABLED] ||
+    prefs.trainhopConfig?.sports?.liveEnabled;
   const widgetsMayBeMaximized = prefs["widgets.system.maximized"];
   // /live currently serves mock data pre-kickoff, so ignore its contents
   // until the kickoff timestamp. Drop this guard once the backend returns
   // empty pre-kickoff.
-  const liveDataTrustable = Date.now() >= WORLD_CUP_KICKOFF_MS;
+  const liveDataTrustable =
+    Date.now() >= WORLD_CUP_KICKOFF_MS || prefs[PREF_FORCE_LIVE_DATA_TRUSTABLE];
   const hasLiveGames =
     liveDataTrustable && sportsWidgetData?.data?.live?.length > 0;
   const hasPreviousResults =
     sportsWidgetData?.data?.matches?.previous?.length > 0;
-  const hasUpcomingMatches = sportsWidgetData?.data?.matches?.next?.length > 0;
-  const tournamentStarted =
-    hasLiveGames || hasPreviousResults || hasUpcomingMatches;
+  // Upcoming matches alone don't mean the tournament has started — the backend
+  // surfaces them within a +/-21 day window around kickoff, so they appear
+  // pre-kickoff. Only live games or previous results are deterministic signals
+  // that the tournament is underway.
+  const tournamentStarted = hasLiveGames || hasPreviousResults;
   const savedWidgetState = sportsWidgetData.widgetState || WIDGET_STATES.INTRO;
-  // Once the backend has any match data (upcoming, live, or completed), skip
+  // Once the backend has any match data (live or completed), skip
   // the intro and open on the match schedule.
   const widgetState =
     tournamentStarted && savedWidgetState === WIDGET_STATES.INTRO
@@ -181,6 +201,16 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
   const hasUserSelectedTab = useRef(false);
   const activeTab =
     hasLiveGames && !hasUserSelectedTab.current ? MATCHES_TABS.NOW : matchesTab;
+
+  // Defensive clamp on the persisted live-pager index. The feed re-clamps
+  // after every fetch, but the restored cached index may briefly exceed the
+  // current live list (e.g. mid-flight between a fetch and the matching
+  // SET_LIVE_INDEX broadcast). When the live list is empty, the inner
+  // `Math.max((length ?? 0) - 1, 0)` collapses to 0, pinning liveIndex to 0.
+  const liveIndex = Math.min(
+    Math.max(sportsWidgetData.liveIndex ?? 0, 0),
+    Math.max((rawLive?.length ?? 0) - 1, 0)
+  );
 
   // Set of followed team keys that are still in the tournament. Eliminated
   // teams drop out so the rest of the UI (toggle, bubble-to-front sort,
@@ -250,6 +280,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     sortedPrevious,
     sortedCurrent,
     sortedNext,
+    liveIndex,
   });
   const followedGradient = getFollowedGradient(
     highlightMatch,
@@ -257,7 +288,6 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     teamColorsByKey
   );
   const impressionFired = useRef(false);
-  const sizeSubmenuRef = useRef(null);
   const introVideoRef = useRef(null);
   const playIntroVideo = useMemo(() => {
     const prefersReducedMotion =
@@ -275,6 +305,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
       video.play().catch(() => {});
     };
   }, []);
+  const [watchLiveOpen, setWatchLiveOpen] = useState(false);
 
   const handleIntersection = useCallback(() => {
     if (impressionFired.current) {
@@ -293,6 +324,50 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
   }, [dispatch, widgetSize]);
 
   const widgetRef = useIntersectionObserver(handleIntersection);
+  // Track the article element via state so the live-visibility effect below
+  // re-runs whenever React mounts a new node (e.g. after an early-return
+  // gate flips and the article appears for the first time). widgetRef is a
+  // stable useRef and can't drive re-runs on its own.
+  const [liveEl, setLiveEl] = useState(null);
+
+  // Live polling visibility gate. Separate from the one-shot impression
+  // observer above (which unobserves after the first intersect) — this one
+  // fires on every enter/leave so the feed can pause polling when no tab
+  // has the widget on-screen. Also listens for tab visibility changes:
+  // IntersectionObserver only reports viewport intersection, so a
+  // backgrounded tab would otherwise keep reporting VISIBLE forever.
+  useEffect(() => {
+    if (!liveEnabled || !liveEl) {
+      return undefined;
+    }
+    let isIntersecting = false;
+    const dispatchState = visible => {
+      dispatch(
+        ac.OnlyToMain({
+          type: visible
+            ? at.WIDGETS_SPORTS_LIVE_VISIBLE
+            : at.WIDGETS_SPORTS_LIVE_HIDDEN,
+        })
+      );
+    };
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isIntersecting = entry.isIntersecting;
+        dispatchState(isIntersecting && !document.hidden);
+      },
+      // Match the impression observer's threshold so "visible enough to
+      // count" means the same thing for both.
+      { threshold: 0.3 }
+    );
+    observer.observe(liveEl);
+    const onVisibilityChange = () =>
+      dispatchState(isIntersecting && !document.hidden);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [liveEnabled, dispatch, liveEl]);
 
   const handleInteraction = useCallback(
     () => handleUserInteraction("sportsWidget"),
@@ -457,20 +532,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     [dispatch]
   );
 
-  useEffect(() => {
-    const el = sizeSubmenuRef.current;
-    if (!el) {
-      return undefined;
-    }
-    const listener = e => {
-      const item = e.composedPath().find(node => node.dataset?.size);
-      if (item) {
-        handleChangeSize(item.dataset.size);
-      }
-    };
-    el.addEventListener("click", listener);
-    return () => el.removeEventListener("click", listener);
-  }, [handleChangeSize]);
+  const sizeSubmenuRef = useSizeSubmenu(handleChangeSize);
 
   function handleViewMatches(widgetSource) {
     batch(() => {
@@ -617,6 +679,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
       }
       ref={el => {
         widgetRef.current = [el];
+        setLiveEl(el);
       }}
       onMouseEnter={playIntroVideo}
       onFocus={e => {
@@ -624,6 +687,9 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
           playIntroVideo();
         }
       }}
+      {...getCarouselArticleAttrs(
+        activeTab === MATCHES_TABS.NOW && (rawLive?.length ?? 0) >= 2
+      )}
     >
       {widgetState === WIDGET_STATES.INTRO && (
         <video
@@ -666,6 +732,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
               ({ id, disabled }) => (
                 <button
                   key={id}
+                  id={`sports-${id}-tab`}
                   role="tab"
                   aria-selected={activeTab === id}
                   disabled={disabled}
@@ -783,11 +850,15 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
             dispatch={dispatch}
             matchesTab={activeTab}
             hasLiveGames={hasLiveGames}
+            hasLivePagination={
+              activeTab === MATCHES_TABS.NOW && (rawLive?.length ?? 0) >= 2
+            }
             size={displaySize}
             widgetSize={widgetSize}
             previous={sortedPrevious}
             current={sortedCurrent}
             next={sortedNext}
+            liveIndex={liveIndex}
             handleInteraction={handleInteraction}
             selectedTeamsSet={selectedTeamsSet}
             followedOnly={sportsWidgetData.followedOnly}
@@ -795,6 +866,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
             setShowResultsList={setShowResultsList}
             showUpcomingList={showUpcomingList}
             setShowUpcomingList={setShowUpcomingList}
+            onWatchClick={() => setWatchLiveOpen(true)}
           />
         )}
         {widgetState === WIDGET_STATES.KEY_DATES && (
@@ -826,6 +898,13 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
           </>
         )}
       </div>
+      {watchLiveOpen && (
+        <WatchLiveModal
+          onClose={() => setWatchLiveOpen(false)}
+          dispatch={dispatch}
+          widgetSize={widgetSize}
+        />
+      )}
     </article>
   );
 }
@@ -959,6 +1038,7 @@ function SportsMatchesView({
   dispatch,
   matchesTab,
   hasLiveGames,
+  hasLivePagination,
   // `size` is the *effective* display size — it may be forced to "large"
   // when the user has expanded the match list view, even if the user's
   // chosen pref is "medium". Use it for layout decisions inside the view.
@@ -970,6 +1050,7 @@ function SportsMatchesView({
   previous,
   current,
   next,
+  liveIndex,
   handleInteraction,
   selectedTeamsSet,
   followedOnly,
@@ -977,6 +1058,7 @@ function SportsMatchesView({
   setShowResultsList,
   showUpcomingList,
   setShowUpcomingList,
+  onWatchClick,
 }) {
   const resultsPanelRef = useRef(null);
   const upcomingPanelRef = useRef(null);
@@ -1124,22 +1206,32 @@ function SportsMatchesView({
           className="sports-matches-tab-panel"
           hidden={matchesTab !== MATCHES_TABS.NOW}
         >
-          {current[0] && (
+          {current[liveIndex] && (
             <>
               {size === "large" && (
-                <SportsSectionLabel match={current[0]} withLiveBadge={true} />
+                <SportsSectionLabel
+                  match={current[liveIndex]}
+                  withLiveBadge={true}
+                />
               )}
-              <div className="match-highlight-view">
+              <div
+                className="match-highlight-view"
+                {...(hasLivePagination && {
+                  "aria-live": "polite",
+                  "aria-atomic": "false",
+                })}
+              >
                 <SportsMatchRow
-                  match={current[0]}
+                  match={current[liveIndex]}
                   variant="now"
                   size={size}
                   handleInteraction={handleInteraction}
                   followedTeams={selectedTeamsSet}
                 />
               </div>
-              {/* TODO: Add onClick handler + play icon when we start implementing Watch dialog UI */}
+              {/* TODO: Replace play icon when finalized */}
               <moz-button
+                className="sports-watch-live-button"
                 type={size === "medium" ? "icon" : "default"}
                 size={size === "medium" ? "small" : undefined}
                 iconSrc="chrome://browser/skin/device-tv.svg"
@@ -1148,7 +1240,17 @@ function SportsMatchesView({
                     ? "newtab-sports-widget-watch-icon"
                     : "newtab-sports-widget-watch"
                 }
+                onClick={onWatchClick}
               ></moz-button>
+              {current.length >= 2 && (
+                <LivePagination
+                  dispatch={dispatch}
+                  liveIndex={liveIndex}
+                  liveCount={current.length}
+                  size={size}
+                  handleInteraction={handleInteraction}
+                />
+              )}
             </>
           )}
         </div>

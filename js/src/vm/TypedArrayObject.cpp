@@ -5101,6 +5101,14 @@ bool Uint8Buffer::maybeRealloc(JSContext* cx, size_t newLength) {
     length_ = newLength;
     return true;
   }
+  MOZ_ASSERT(ownedBuf_);
+
+  if (newLength <= InlineLength) {
+    std::copy_n(ownedBuf_.get(), newLength, inlineBuf_);
+    ownedBuf_ = nullptr;
+    length_ = newLength;
+    return true;
+  }
 
   // The initial byte size estimation is based on the complete string length,
   // so it includes trailing padding and interspersed whitespace characters.
@@ -7358,7 +7366,8 @@ bool TypedArrayObject::sort(JSContext* cx, unsigned argc, Value* vp) {
   // If we have a comparator argument, use the JIT trampoline implementation
   // instead. This avoids a performance cliff (especially with large arrays)
   // because C++ => JIT calls are much slower than Trampoline => JIT calls.
-  if (args.hasDefined(0) && jit::IsBaselineInterpreterEnabled()) {
+  if (args.hasDefined(0) && jit::IsBaselineInterpreterEnabled() &&
+      !jit::TooManyActualArguments(args.length())) {
     return CallTrampolineNativeJitCode(
         cx, jit::TrampolineNative::TypedArraySort, args);
   }

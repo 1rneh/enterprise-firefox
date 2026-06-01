@@ -1195,6 +1195,7 @@ main.newtab-main section {
   justify-content: center;
   grid-column: 2;
   grid-row: 2/span 2;
+  align-self: start;
 }
 
 .nova-enabled .sidebar-inline-end {
@@ -1269,6 +1270,16 @@ main.newtab-main section {
 .as-error-fallback a {
   color: var(--newtab-text-secondary-color);
   text-decoration: underline;
+}
+
+.logo-and-wordmark .football-bounce {
+  overflow: visible;
+  position: relative;
+}
+.logo-and-wordmark .football-bounce .football-bounce__sprite {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-208px, -103px);
 }
 
 .logo-and-wordmark .spin-ball-small .spin-ball-small__spin {
@@ -2442,7 +2453,35 @@ main.newtab-main section {
     width: calc(10 * var(--col-width) + 9 * var(--space-medium));
   }
 }
+.nova-enabled .sticky-search-sentinel {
+  grid-column: 1/-1;
+  block-size: 1px;
+  margin-block-end: -1px;
+  visibility: hidden;
+  pointer-events: none;
+}
+@media (height > 700px) {
+  .nova-enabled .search-wrapper {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 3;
+    padding-block: var(--space-xlarge);
+  }
+}
 
+@media (height > 700px) {
+  .nova-outer-wrapper.stuck-search::before {
+    content: "";
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: calc(52px + 2 * var(--space-xlarge));
+    background-color: var(--newtab-overlay-color);
+    border-block-end: var(--border-width) solid var(--border-color);
+    z-index: 2;
+    pointer-events: none;
+  }
+}
 @media (height > 700px) {
   .activity-stream .fixed-search .search-wrapper {
     border-block-end: solid 1px var(--border-color);
@@ -4716,6 +4755,10 @@ button.arrow-button:dir(rtl) {
   }
 }
 
+.nova-enabled .widget-draggable.is-dragging {
+  opacity: 0.5;
+}
+
 .widgets-feedback-link {
   display: inline-block;
   margin-block-start: var(--space-medium);
@@ -4766,6 +4809,62 @@ button.arrow-button:dir(rtl) {
   .nova-enabled .widgets-container[data-row-collapsed] .widget-wrapper[data-hidden-4] {
     display: none;
   }
+}
+
+@container content-grid (inline-size >= calc(8 * 75px + 7 * 0.75rem)) {
+  .nova-enabled .widgets-container:has(> :nth-child(2)):not(:has(> :nth-child(3))) > .widgets-add-button {
+    display: flex;
+  }
+}
+@container content-grid (inline-size >= calc(12 * 75px + 11 * 0.75rem)) {
+  .nova-enabled .widgets-container:has(> :nth-child(3)):not(:has(> :nth-child(4))) > .widgets-add-button {
+    display: flex;
+  }
+}
+@container content-grid (inline-size >= calc(16 * 75px + 15 * 0.75rem)) {
+  .nova-enabled .widgets-container:has(> :nth-child(4)):not(:has(> :nth-child(5))) > .widgets-add-button {
+    display: flex;
+  }
+}
+.nova-enabled .widgets-add-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background: var(--newtab-background-card);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius-large);
+  color: var(--icon-color-accent-primary-desaturated, light-dark(var(--color-violet-desaturated-60), var(--color-violet-desaturated-50)));
+}
+@media (prefers-reduced-motion: reduce) {
+  .nova-enabled .widgets-add-button {
+    transition: none;
+  }
+}
+.nova-enabled .widgets-add-button.medium-widget {
+  grid-row: span 2;
+}
+.nova-enabled .widgets-add-button.large-widget {
+  grid-row: span 4;
+}
+.nova-enabled .widgets-add-button:hover, .nova-enabled .widgets-add-button:focus-within {
+  opacity: 1;
+  background: var(--newtab-background-color-secondary);
+  outline: 1px solid var(--border-color-deemphasized);
+  box-shadow: var(--card-box-shadow-hover);
+}
+.nova-enabled .widgets-add-button:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+.nova-enabled .widgets-add-button .widgets-add-button-icon {
+  display: inline-block;
+  width: var(--icon-size-large);
+  height: var(--icon-size-large);
+  background-color: currentColor;
+  mask: url("chrome://global/skin/icons/plus.svg") center/contain no-repeat;
 }
 
 .feature-highlight .feature-highlight-modal.widget-highlight-wrapper {
@@ -5025,8 +5124,9 @@ button.arrow-button:dir(rtl) {
 .nova-enabled .lists {
   --widget-size-transition-duration: 180ms;
   --widget-size-transition-easing: ease;
+  background: var(--newtab-background-card);
+  transition: opacity 0.2s ease;
   padding: var(--space-medium);
-  background-color: var(--newtab-background-card);
   border-radius: var(--border-radius-large);
   box-shadow: var(--box-shadow-level-2);
   color: var(--text-color);
@@ -5034,6 +5134,9 @@ button.arrow-button:dir(rtl) {
   flex-direction: column;
   position: relative;
   transition: height var(--widget-size-transition-duration) var(--widget-size-transition-easing);
+}
+.nova-enabled .lists:hover {
+  background: var(--newtab-background-color-secondary);
 }
 .nova-enabled .lists.small-widget, .nova-enabled .lists.medium-widget {
   height: var(--newtab-card-height-small);
@@ -5732,8 +5835,9 @@ button.arrow-button:dir(rtl) {
 .nova-enabled .focus-timer {
   --widget-size-transition-duration: 180ms;
   --widget-size-transition-easing: ease;
+  background: var(--newtab-background-card);
+  transition: opacity 0.2s ease;
   padding: var(--space-medium);
-  background-color: var(--newtab-background-card);
   border-radius: var(--border-radius-large);
   box-shadow: var(--box-shadow-level-2);
   color: var(--text-color);
@@ -5741,6 +5845,9 @@ button.arrow-button:dir(rtl) {
   flex-direction: column;
   position: relative;
   transition: height var(--widget-size-transition-duration) var(--widget-size-transition-easing);
+}
+.nova-enabled .focus-timer:hover {
+  background: var(--newtab-background-color-secondary);
 }
 .nova-enabled .focus-timer.small-widget, .nova-enabled .focus-timer.medium-widget {
   height: var(--newtab-card-height-small);
@@ -6404,8 +6511,6 @@ button.arrow-button:dir(rtl) {
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 /* stylelint-disable stylelint-plugin-mozilla/use-design-tokens */
 .sports {
-  background: var(--newtab-background-card);
-  transition: opacity 0.2s ease;
   border-radius: var(--border-radius-large);
   padding: var(--space-medium);
   display: flex;
@@ -6415,8 +6520,9 @@ button.arrow-button:dir(rtl) {
   position: relative;
   --widget-size-transition-duration: 180ms;
   --widget-size-transition-easing: ease;
+  background: var(--newtab-background-card);
+  transition: opacity 0.2s ease;
   padding: var(--space-medium);
-  background-color: var(--newtab-background-card);
   border-radius: var(--border-radius-large);
   box-shadow: var(--box-shadow-level-2);
   color: var(--text-color);
@@ -6991,6 +7097,196 @@ button.arrow-button:dir(rtl) {
 }
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+.watch-live-modal-dialog {
+  border: none;
+  padding: 0;
+  border-radius: var(--border-radius-large);
+  background: var(--newtab-background-color-secondary);
+  color: var(--text-color);
+  box-shadow: var(--box-shadow-level-2);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 437px;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  height: 367px;
+  overflow: hidden;
+}
+.watch-live-modal-dialog::backdrop {
+  background: var(--background-color-overlay);
+}
+.watch-live-modal-dialog .watch-live-modal-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.watch-live-modal-dialog .watch-live-modal-header {
+  flex: 0 0 auto;
+  padding: var(--space-large) var(--space-large) var(--space-medium);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-medium);
+}
+.watch-live-modal-dialog .watch-live-modal-title {
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+.watch-live-modal-dialog .watch-live-modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  padding: 0 var(--space-large) var(--space-large);
+}
+.watch-live-modal-dialog .watch-live-modal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.watch-live-modal-dialog .watch-live-modal-row-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-medium);
+  padding: var(--space-small) var(--space-medium);
+  border-radius: var(--border-radius-medium);
+  color: inherit;
+  text-decoration: none;
+}
+.watch-live-modal-dialog .watch-live-modal-row-link:hover {
+  background: var(--newtab-element-hover-color);
+}
+.watch-live-modal-dialog .watch-live-modal-row-link:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-inset);
+}
+.watch-live-modal-dialog .watch-live-modal-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.watch-live-modal-dialog .watch-live-modal-product {
+  font-weight: var(--font-weight-bold);
+}
+.watch-live-modal-dialog .watch-live-modal-entitlement {
+  font-size: var(--font-size-small);
+  color: var(--text-color-deemphasized);
+}
+.watch-live-modal-dialog .watch-live-modal-play {
+  flex: 0 0 auto;
+  width: var(--icon-size-large);
+  height: var(--icon-size-large);
+  border-radius: var(--border-radius-circle);
+  border: var(--border-width) solid currentColor;
+  background: url("chrome://global/skin/media/play-fill.svg") center/var(--icon-size-xsmall) no-repeat;
+  color: var(--color-accent-primary, AccentColor);
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+.watch-live-modal-dialog .watch-live-modal-separator {
+  border: none;
+  border-block-start: var(--border-width) solid var(--border-color);
+  margin: var(--space-medium) 0;
+}
+.watch-live-modal-dialog .watch-live-modal-other-regions-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: var(--space-small) var(--space-medium);
+  border-radius: var(--border-radius-medium);
+  font: inherit;
+  cursor: pointer;
+}
+.watch-live-modal-dialog .watch-live-modal-other-regions-toggle:hover {
+  background: var(--newtab-element-hover-color);
+}
+.watch-live-modal-dialog .watch-live-modal-other-regions-toggle:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-inset);
+}
+.watch-live-modal-dialog .watch-live-modal-chevron {
+  width: var(--icon-size-small);
+  height: var(--icon-size-small);
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+.watch-live-modal-dialog .watch-live-modal-other-regions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-medium);
+  margin-block-start: var(--space-medium);
+}
+.watch-live-modal-dialog .watch-live-modal-region-title {
+  font-size: var(--font-size-root);
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--space-xsmall);
+  padding-inline: var(--space-medium);
+}
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+/* stylelint-disable stylelint-plugin-mozilla/use-design-tokens */
+.sports-matches-tab-panel:has(.sports-live-pagination) > moz-button {
+  inset-block-end: var(--space-xxlarge);
+}
+
+.medium-widget .sports-matches-tab-panel:has(.sports-live-pagination) .sports-watch-live-button {
+  inset-inline: unset;
+  inset-inline-start: var(--space-small);
+  inset-block-end: var(--space-xxsmall);
+}
+
+.sports-live-pagination {
+  position: absolute;
+  inset-block-end: var(--space-xxsmall);
+  inset-inline: 0;
+  margin-inline: auto;
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: var(--space-small);
+}
+
+.large-widget .sports-live-pagination {
+  inset-block-end: calc(var(--space-small) * -1);
+}
+
+.sports-live-pagination-dots {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xsmall);
+}
+
+.sports-live-pagination-dot {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--border-radius-circle);
+  background-color: var(--text-color-deemphasized);
+  opacity: 0.5;
+  transition: opacity 100ms;
+}
+.sports-live-pagination-dot:hover {
+  opacity: 0.85;
+}
+.sports-live-pagination-dot.is-active {
+  opacity: 1;
+  background-color: var(--color-accent-primary);
+}
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -7085,8 +7381,9 @@ button.arrow-button:dir(rtl) {
 .nova-enabled .weather-widget {
   --widget-size-transition-duration: 180ms;
   --widget-size-transition-easing: ease;
+  background: var(--newtab-background-card);
+  transition: opacity 0.2s ease;
   padding: var(--space-medium);
-  background-color: var(--newtab-background-card);
   border-radius: var(--border-radius-large);
   box-shadow: var(--box-shadow-level-2);
   color: var(--text-color);
@@ -7101,6 +7398,9 @@ button.arrow-button:dir(rtl) {
   --weather-rainy-background-color: light-dark(var(--color-blue-0), var(--color-blue-90));
   --weather-snowy-background-color: light-dark(var(--color-violet-0), var(--color-violet-90));
   --weather-hot-background-color: light-dark(var(--color-orange-0), var(--color-orange-90));
+}
+.nova-enabled .weather-widget:hover {
+  background: var(--newtab-background-color-secondary);
 }
 .nova-enabled .weather-widget.small-widget, .nova-enabled .weather-widget.medium-widget {
   height: var(--newtab-card-height-small);
@@ -7578,8 +7878,9 @@ button.arrow-button:dir(rtl) {
 .nova-enabled .clocks-widget {
   --widget-size-transition-duration: 180ms;
   --widget-size-transition-easing: ease;
+  background: var(--newtab-background-card);
+  transition: opacity 0.2s ease;
   padding: var(--space-medium);
-  background-color: var(--newtab-background-card);
   border-radius: var(--border-radius-large);
   box-shadow: var(--box-shadow-level-2);
   color: var(--text-color);
@@ -7589,6 +7890,9 @@ button.arrow-button:dir(rtl) {
   transition: height var(--widget-size-transition-duration) var(--widget-size-transition-easing);
   height: var(--newtab-card-height-small);
   transition: height var(--widget-size-transition-duration) var(--widget-size-transition-easing);
+}
+.nova-enabled .clocks-widget:hover {
+  background: var(--newtab-background-color-secondary);
 }
 .nova-enabled .clocks-widget.small-widget, .nova-enabled .clocks-widget.medium-widget {
   height: var(--newtab-card-height-small);

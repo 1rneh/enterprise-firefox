@@ -447,7 +447,7 @@ mozilla::ipc::IPCResult HttpTransactionParent::RecvOnStartRequest(
     const nsILoadInfo::IPAddressSpace& aTargetIPAddressSpace) {
   RefPtr<nsHttpConnectionInfo> cinfo =
       nsHttpConnectionInfo::DeserializeHttpConnectionInfoCloneArgs(aArgs);
-  mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
+  mEventQ->RunOrEnqueue(MakeUnique<NeckoTargetChannelFunctionEvent>(
       this,
       [self = UnsafePtr<HttpTransactionParent>(this), aStatus,
        aResponseHead = std::move(aResponseHead),
@@ -542,7 +542,8 @@ void HttpTransactionParent::DoOnStartRequest(
   }
 
   AutoEventEnqueuer ensureSerialDispatch(mEventQ);
-  nsresult rv = mChannel->OnStartRequest(this);
+  nsCOMPtr<nsIStreamListener> channel = mChannel;
+  nsresult rv = channel->OnStartRequest(this);
   mOnStartRequestCalled = true;
   if (NS_FAILED(rv)) {
     Cancel(rv);
@@ -581,7 +582,7 @@ mozilla::ipc::IPCResult HttpTransactionParent::RecvOnDataAvailable(
     return IPC_OK();
   }
 
-  mEventQ->RunOrEnqueue(new ChannelFunctionEvent(
+  mEventQ->RunOrEnqueue(MakeUnique<ChannelFunctionEvent>(
       [self = UnsafePtr<HttpTransactionParent>(this)]() {
         return self->GetODATarget();
       },
@@ -612,7 +613,8 @@ void HttpTransactionParent::DoOnDataAvailable(
 
   mOnDataAvailableStartTime = aOnDataAvailableStartTime;
   AutoEventEnqueuer ensureSerialDispatch(mEventQ);
-  rv = mChannel->OnDataAvailable(this, stringStream, aOffset, aData.Length());
+  nsCOMPtr<nsIStreamListener> channel = mChannel;
+  rv = channel->OnDataAvailable(this, stringStream, aOffset, aData.Length());
   if (NS_FAILED(rv)) {
     CancelOnMainThread(rv);
   }
@@ -655,7 +657,7 @@ mozilla::ipc::IPCResult HttpTransactionParent::RecvOnStopRequest(
     return IPC_OK();
   }
 
-  mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
+  mEventQ->RunOrEnqueue(MakeUnique<NeckoTargetChannelFunctionEvent>(
       this, [self = UnsafePtr<HttpTransactionParent>(this), aStatus,
              aResponseIsComplete, aTransferSize, aTimings, aResponseTrailers,
              aTransactionObserverResult{std::move(aTransactionObserverResult)},
@@ -702,7 +704,8 @@ void HttpTransactionParent::DoOnStopRequest(
   }
 
   AutoEventEnqueuer ensureSerialDispatch(mEventQ);
-  (void)mChannel->OnStopRequest(this, mStatus);
+  nsCOMPtr<nsIStreamListener> channel = mChannel;
+  (void)channel->OnStopRequest(this, mStatus);
   mOnStopRequestCalled = true;
 }
 
@@ -815,7 +818,7 @@ void HttpTransactionParent::DoNotifyListener() {
 
   // This is to make sure that ODA in the event queue can be processed before
   // OnStopRequest.
-  mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
+  mEventQ->RunOrEnqueue(MakeUnique<NeckoTargetChannelFunctionEvent>(
       this, [self = UnsafePtr<HttpTransactionParent>(this)] {
         self->ContinueDoNotifyListener();
       }));

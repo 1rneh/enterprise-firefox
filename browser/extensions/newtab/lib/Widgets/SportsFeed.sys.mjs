@@ -9,11 +9,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
   TemporaryMerinoClientShim:
     "resource://newtab/lib/TemporaryMerinoClientShim.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 import {
   actionTypes as at,
   actionCreators as ac,
+  actionUtils as au,
 } from "resource://newtab/common/Actions.mjs";
 
 const PREF_SPORTS_ENABLED = "widgets.sportsWidget.enabled";
@@ -27,6 +30,26 @@ const MERINO_CLIENT_KEY = "HNT_SPORTS_FEED";
 // widget-specific source later.
 const SEARCH_SAP_SOURCE = "about_newtab";
 
+// Adaptive live-polling prefs and constants
+const PREF_SPORTS_LIVE_ENABLED = "widgets.sportsWidget.live.enabled";
+const PREF_SPORTS_LIVE_ENDPOINT = "sports.worldCup.liveEndpoint";
+const PREF_POLL_IDLE_MS = "widgets.sportsWidget.pollIdleMs";
+const PREF_POLL_MATCH_DAY_MS = "widgets.sportsWidget.pollMatchDayMs";
+const PREF_POLL_LIVE_MS = "widgets.sportsWidget.pollLiveMs";
+const PREF_POLL_PREGAME_LEAD_MS = "widgets.sportsWidget.pollPregameLeadMs";
+
+const POLLING_STATE_IDLE = "IDLE";
+const POLLING_STATE_MATCH_DAY = "MATCH_DAY";
+const POLLING_STATE_LIVE = "LIVE";
+
+// Exponential-backoff retry cap for failed live fetches.
+const MAX_RETRY_DELAY_MS = 300000; // 5 minutes
+// Floor for any poll interval, to prevent a 0/negative pref or trainhopConfig
+// value from producing a tight network loop. Pregame lead allows 0 (= disabled)
+// but no negatives.
+const MIN_POLL_INTERVAL_MS = 10000; // 10 seconds
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 /**
  * Manages persistent state for the Sports widget (selected teams and widget
  * state), syncing with PersistentCache so state survives page refreshes.
@@ -37,6 +60,23 @@ export class SportsFeed {
     this.initialized = false;
     this.cache = this.PersistentCache(CACHE_KEY, true);
     this.merino = this.MerinoClient(MERINO_CLIENT_KEY);
+
+    // Adaptive live-polling state. visibleTabs is the set of port IDs that
+    // currently have the widget on-screen in an active (foreground) tab.
+    // Visibility is the sole driver of polling: the loop runs iff this set
+    // is non-empty. Tracked per-port so one tab going hidden doesn't pause
+    // polling while another still has the widget visible.
+    this.pollTimer = null;
+    this.retryTimer = null;
+    this.retryCount = 0;
+    this.pollingState = POLLING_STATE_IDLE;
+    this.visibleTabs = new Set();
+    this.lastLiveUpdated = null;
+    this.nextKickoffDeltaMs = null;
+    // Reentrancy guard: stops a second tick() from racing the first when
+    // fetchNow() is called back-to-back (e.g. a WIDGETS_SPORTS_LIVE_VISIBLE
+    // arriving while the resume tick is still awaiting its fetch).
+    this.ticking = false;
   }
 
   get enabled() {
@@ -47,10 +87,32 @@ export class SportsFeed {
     return userValue && (systemValue || experimentValue);
   }
 
+  // Live polling is a sub-feature of the Sports widget — the widget itself
+  // must be enabled first. Tunable independently via raw pref or
+  // trainhopConfig.sports.liveEnabled (Nimbus rollout).
+  get liveEnabled() {
+    if (!this.enabled) {
+      return false;
+    }
+    const prefs = this.store.getState()?.Prefs.values;
+    const userValue = !!prefs?.[PREF_SPORTS_LIVE_ENABLED];
+    const experimentValue = !!prefs?.trainhopConfig?.sports?.liveEnabled;
+    return userValue || experimentValue;
+  }
+
   async init() {
     this.initialized = true;
     await this.syncState();
     await this.fetchSportsData();
+    if (this.liveEnabled) {
+      // Compute the initial polling state from the data we just fetched
+      // (the /live array tells us whether a game is in progress), but do NOT
+      // arm a timer here. Polling always starts from the visibility path
+      // (WIDGETS_SPORTS_LIVE_VISIBLE). Arming a timer here would make the
+      // first VISIBLE see a pending pollTimer and skip its fetchNow, so the
+      // first live update wouldn't land until a full interval later.
+      this.updatePollingStateFromMatches();
+    }
   }
 
   // Handle a click on a match row. Resolves the user's default search engine
@@ -84,8 +146,14 @@ export class SportsFeed {
   // On startup, read whatever was saved to disk and send it to the UI.
   async syncState() {
     const cachedData = (await this.cache.get()) || {};
-    const { widgetState, selectedTeams, sportsData, matchesTab, followedOnly } =
-      cachedData;
+    const {
+      widgetState,
+      selectedTeams,
+      sportsData,
+      matchesTab,
+      followedOnly,
+      liveIndex,
+    } = cachedData;
     const { teams, matches, live } = sportsData || {};
 
     if (widgetState) {
@@ -124,6 +192,22 @@ export class SportsFeed {
       );
     }
 
+    // Restore the live-pager position. Clamp against the cached live list so a
+    // stale persisted index can't outlive its match — if the cached list has
+    // shrunk or is empty, reset to 0.
+    if (Number.isInteger(liveIndex)) {
+      const liveCount = Array.isArray(live) ? live.length : 0;
+      const clampedLiveIndex = liveCount
+        ? Math.min(Math.max(liveIndex, 0), liveCount - 1)
+        : 0;
+      this.store.dispatch(
+        ac.BroadcastToContent({
+          type: at.WIDGETS_SPORTS_SET_LIVE_INDEX,
+          data: clampedLiveIndex,
+        })
+      );
+    }
+
     if (teams || matches || live) {
       this.store.dispatch(
         ac.BroadcastToContent({
@@ -138,7 +222,10 @@ export class SportsFeed {
     }
   }
 
-  async fetchSportsData() {
+  // `live` lets a caller that already has a fresh /live payload (e.g. the
+  // post-match resync from fetchAndDispatch) reuse it instead of triggering
+  // a redundant /live fetch.
+  async fetchSportsData({ live: prefetchedLive } = {}) {
     const prefs = this.store.getState()?.Prefs.values;
     const teamsEndpoint =
       prefs?.trainhopConfig?.sports?.teamsEndpoint ||
@@ -172,6 +259,7 @@ export class SportsFeed {
       return;
     }
     if (
+      prefetchedLive === undefined &&
       liveEndpoint &&
       !allowedEndpoints.some(prefix => liveEndpoint.startsWith(prefix))
     ) {
@@ -188,18 +276,22 @@ export class SportsFeed {
         source: "newtab",
         endpointUrl: matchesEndpoint,
       }),
-      this.merino.fetchSportsLive({
-        source: "newtab",
-        endpointUrl: liveEndpoint,
-      }),
+      prefetchedLive !== undefined
+        ? Promise.resolve(prefetchedLive)
+        : this.merino.fetchSportsLive({
+            source: "newtab",
+            endpointUrl: liveEndpoint,
+          }),
     ]);
 
-    // The /live endpoint returns `{ matches: [...] }` and is pre-filtered to
-    // in-progress games by the backend, so we surface its array directly as
-    // `live` alongside `matches`. The "Now" tab reads from `data.live`, while
-    // `matches.previous` / `matches.next` continue to drive the Results and
-    // Upcoming tabs.
-    const liveMatches = Array.isArray(live?.matches) ? live.matches : [];
+    // The /live endpoint returns `{ matches: [...] }`. The backend is meant
+    // to pre-filter to in-progress games, but we re-filter on `status_type`
+    // here as a defensive guard — the Now tab must only ever surface matches
+    // that are actually live. `matches.previous` / `matches.next` continue to
+    // drive the Results and Upcoming tabs.
+    const liveMatches = Array.isArray(live?.matches)
+      ? live.matches.filter(match => match?.status_type === "live")
+      : [];
 
     if (teams?.teams || matches || live) {
       await this.cache.set("sportsData", {
@@ -219,17 +311,386 @@ export class SportsFeed {
         },
       })
     );
+
+    // Re-clamp the persisted live-pager index against the freshly fetched
+    // list. Live games come and go between fetches, so an index that was
+    // valid against the previous list may now point past the end.
+    const cached = (await this.cache.get()) || {};
+    const cachedLiveIndex = Number.isInteger(cached.liveIndex)
+      ? cached.liveIndex
+      : 0;
+    const clampedLiveIndex = liveMatches.length
+      ? Math.min(Math.max(cachedLiveIndex, 0), liveMatches.length - 1)
+      : 0;
+    if (clampedLiveIndex !== cachedLiveIndex) {
+      await this.cache.set("liveIndex", clampedLiveIndex);
+      this.store.dispatch(
+        ac.BroadcastToContent({
+          type: at.WIDGETS_SPORTS_SET_LIVE_INDEX,
+          data: clampedLiveIndex,
+        })
+      );
+    }
+  }
+
+  async fetchWatchLive() {
+    const prefs = this.store.getState()?.Prefs.values;
+    const watchLiveEndpoint =
+      prefs?.trainhopConfig?.sports?.watchLiveEndpoint ||
+      prefs?.["sports.worldCup.watchLiveEndpoint"];
+
+    const allowedEndpoints = (prefs?.["discoverystream.endpoints"] ?? "")
+      .split(",")
+      .map(item => item.trim())
+      .filter(item => item);
+
+    if (
+      watchLiveEndpoint &&
+      !allowedEndpoints.some(prefix => watchLiveEndpoint.startsWith(prefix))
+    ) {
+      console.error(
+        `Sports watch-live endpoint not in allowlist: ${watchLiveEndpoint}`
+      );
+      return;
+    }
+
+    const data = await this.merino.fetchWatchLive({
+      source: "newtab",
+      endpointUrl: watchLiveEndpoint,
+      acceptLanguage: Services.locale.appLocaleAsBCP47,
+    });
+
+    this.store.dispatch(
+      ac.BroadcastToContent({
+        type: at.WIDGETS_SPORTS_WATCH_LIVE_SET,
+        data,
+      })
+    );
+  }
+
+  // Write the current SportsWidget state to PersistentCache. Used by the
+  // LIVE-tick path so live scores survive browser shutdown; fetchSportsData
+  // caches directly from the fetched payload before dispatching.
+  async persistSportsData() {
+    const data = this.store.getState()?.SportsWidget?.data;
+    if (data?.teams?.length || data?.matches || data?.live) {
+      await this.cache.set("sportsData", {
+        teams: data.teams,
+        matches: data.matches,
+        live: data.live,
+      });
+    }
+  }
+
+  // Resolve the next poll interval from trainhopConfig, then the raw pref,
+  // then the hard-coded default. Lets Nimbus retune intervals without a ship.
+  resolvePollIntervalMs() {
+    const prefs = this.store.getState()?.Prefs.values ?? {};
+    const trainhop = prefs.trainhopConfig?.sports ?? {};
+    let raw;
+    switch (this.pollingState) {
+      case POLLING_STATE_LIVE:
+        raw = trainhop.pollLiveMs ?? prefs[PREF_POLL_LIVE_MS] ?? 60000;
+        break;
+      case POLLING_STATE_MATCH_DAY:
+        raw =
+          trainhop.pollMatchDayMs ?? prefs[PREF_POLL_MATCH_DAY_MS] ?? 1800000;
+        break;
+      default:
+        raw = trainhop.pollIdleMs ?? prefs[PREF_POLL_IDLE_MS] ?? 21600000;
+    }
+    return Math.max(MIN_POLL_INTERVAL_MS, raw);
+  }
+
+  resolvePregameLeadMs() {
+    const prefs = this.store.getState()?.Prefs.values ?? {};
+    const raw =
+      prefs.trainhopConfig?.sports?.pollPregameLeadMs ??
+      prefs[PREF_POLL_PREGAME_LEAD_MS] ??
+      600000;
+    return Math.max(0, raw);
+  }
+
+  // Fetch the /wcs/live endpoint. Returns the parsed response, or null on
+  // disallowed endpoint / fetch error so the caller can arm a retry.
+  async fetchLive() {
+    const prefs = this.store.getState()?.Prefs.values;
+    const liveEndpoint =
+      prefs?.trainhopConfig?.sports?.liveEndpoint ||
+      prefs?.[PREF_SPORTS_LIVE_ENDPOINT];
+
+    if (!liveEndpoint) {
+      return null;
+    }
+
+    const allowedEndpoints = (prefs?.["discoverystream.endpoints"] ?? "")
+      .split(",")
+      .map(item => item.trim())
+      .filter(item => item);
+
+    if (!allowedEndpoints.some(prefix => liveEndpoint.startsWith(prefix))) {
+      console.error(`Sports live endpoint not in allowlist: ${liveEndpoint}`);
+      return null;
+    }
+
+    return this.merino.fetchSportsLive({
+      source: "newtab",
+      endpointUrl: liveEndpoint,
+    });
+  }
+
+  // Drive one polling step. In LIVE state hit /wcs/live and merge updates
+  // into the current array. In IDLE / MATCH_DAY hit the matches endpoint
+  // via fetchSportsData. On empty-live (post-match), do an immediate matches
+  // resync to capture finals and the next kickoff.
+  // Returns true on success, false if a retry is armed.
+  async fetchAndDispatch() {
+    if (this.pollingState === POLLING_STATE_LIVE) {
+      const response = await this.fetchLive();
+      if (response === null) {
+        this.scheduleRetry();
+        return false;
+      }
+      const liveEvents = Array.isArray(response.matches)
+        ? response.matches
+        : [];
+      this.lastLiveUpdated = Date.now();
+
+      // Detect matches that crossed the live boundary in EITHER direction
+      // since the last poll:
+      // - someEnded: was in data.live, no longer in /wcs/live → needs a
+      //   matches resync to pull the final into matches.previous.
+      // - someStarted: appears in /wcs/live but wasn't in data.live → its
+      //   scheduled copy still sits in matches.next[] and needs to be removed.
+      // Either case triggers a wholesale matches resync.
+      const prevLive = this.store.getState()?.SportsWidget?.data?.live ?? [];
+      const prevLiveIds = new Set(prevLive.map(ev => ev.global_event_id));
+      const newLiveIds = new Set(liveEvents.map(ev => ev.global_event_id));
+      const someEnded = [...prevLiveIds].some(id => !newLiveIds.has(id));
+      const someStarted = [...newLiveIds].some(id => !prevLiveIds.has(id));
+
+      this.dispatchLive(liveEvents);
+      if (!liveEvents.length || someEnded || someStarted) {
+        // Resync: pulls definitive finals, removes new-live events from
+        // next[], and refreshes the next kickoff. fetchSportsData persists
+        // afterwards, so the cache write here would be redundant. Pass the
+        // /live response we just fetched so fetchSportsData skips a second
+        // /live call.
+        await this.fetchSportsData({ live: response });
+      } else {
+        // Persist the merged live snapshot so a browser shutdown mid-game
+        // doesn't lose the latest scores.
+        await this.persistSportsData();
+      }
+      this.updatePollingStateFromMatches();
+      this.retryCount = 0;
+      return true;
+    }
+    // IDLE or MATCH_DAY — a missed tick here is harmless because of the
+    // long intervals, so no retry/backoff on this branch.
+    await this.fetchSportsData();
+    this.updatePollingStateFromMatches();
+    this.retryCount = 0;
+    return true;
+  }
+
+  // Examine the schedule data in Redux state to choose the next polling
+  // state. Called after a successful fetch (live or matches). Stashes the
+  // delta to the next future kickoff on `this.nextKickoffDeltaMs` so
+  // scheduleNext can clamp MATCH_DAY intervals against it.
+  updatePollingStateFromMatches() {
+    this.nextKickoffDeltaMs = null;
+    const data = this.store.getState()?.SportsWidget?.data;
+    if ((data?.live ?? []).length) {
+      this.pollingState = POLLING_STATE_LIVE;
+      return;
+    }
+    const matches = data?.matches;
+    if (!matches) {
+      this.pollingState = POLLING_STATE_IDLE;
+      return;
+    }
+    // Backend ordering of matches.next is not guaranteed — pick the earliest
+    // future kickoff rather than trusting next[0].
+    const now = Date.now();
+    const futureDeltas = (matches.next ?? [])
+      .map(ev => (ev?.date ? new Date(ev.date).getTime() - now : NaN))
+      .filter(delta => Number.isFinite(delta) && delta > 0);
+    if (futureDeltas.length) {
+      const delta = Math.min(...futureDeltas);
+      this.nextKickoffDeltaMs = delta;
+      if (delta <= this.resolvePregameLeadMs()) {
+        this.pollingState = POLLING_STATE_LIVE;
+        return;
+      }
+      if (delta <= MS_PER_DAY) {
+        this.pollingState = POLLING_STATE_MATCH_DAY;
+        return;
+      }
+    }
+    this.pollingState = POLLING_STATE_IDLE;
+  }
+
+  // Periodic tick. Bails entirely (no rearm) when polling is paused —
+  // live disabled, or no tab has the widget visible. Polling resumes from
+  // WIDGETS_SPORTS_LIVE_VISIBLE or PREF_CHANGED. Rearming with nobody
+  // observing would orphan a background wakeup loop with no way to recompute
+  // state out of LIVE.
+  async tick() {
+    // Reentrancy: a second tick() while the first is still awaiting would
+    // double-dispatch and race two scheduleNext writes.
+    if (this.ticking) {
+      return;
+    }
+    if (!this.liveEnabled || this.visibleTabs.size === 0) {
+      return;
+    }
+    this.ticking = true;
+    try {
+      let ok;
+      try {
+        ok = await this.fetchAndDispatch();
+      } catch (e) {
+        // A throw from fetchSportsData (e.g. `new URL(matchesEndpoint)` with
+        // a malformed URL) would otherwise kill the IDLE/MATCH_DAY branch
+        // forever — that branch has no retry path of its own.
+        console.error("Sports widget poll tick failed", e);
+        this.scheduleRetry();
+        return;
+      }
+      if (!ok) {
+        // scheduleRetry already armed the retry timer; do not also arm a
+        // normal poll timer or we'd double-fire.
+        return;
+      }
+      // Re-check post-await: a PREF_CHANGED → stopLive() or a HIDDEN event
+      // that ran during the fetch cleared liveEnabled/visibility, and we
+      // must not resurrect polling by re-arming through scheduleNext().
+      if (!this.liveEnabled || this.visibleTabs.size === 0) {
+        return;
+      }
+      this.scheduleNext();
+    } finally {
+      this.ticking = false;
+    }
+  }
+
+  scheduleNext() {
+    this.clearTimeout(this.pollTimer);
+    this.clearTimeout(this.retryTimer);
+    this.retryTimer = null;
+    // Null the ID inside the callback so `this.pollTimer` is a reliable
+    // "a poll is still scheduled" signal — visibility resume logic depends
+    // on this to avoid preempting an already-armed timer.
+    this.pollTimer = this.setTimeout(() => {
+      this.pollTimer = null;
+      this.tick();
+    }, this.computeNextDelayMs());
+  }
+
+  // Pick the actual setTimeout delay. In MATCH_DAY we'd otherwise miss the
+  // LIVE-pregame transition by up to one full MATCH_DAY interval (default
+  // 30 min) when the kickoff is closer than that; clamp to the moment
+  // pregame escalation should kick in.
+  computeNextDelayMs() {
+    const base = this.resolvePollIntervalMs();
+    if (
+      this.pollingState === POLLING_STATE_MATCH_DAY &&
+      this.nextKickoffDeltaMs !== null
+    ) {
+      const timeToPregame =
+        this.nextKickoffDeltaMs - this.resolvePregameLeadMs();
+      if (timeToPregame > 0) {
+        return Math.max(MIN_POLL_INTERVAL_MS, Math.min(base, timeToPregame));
+      }
+    }
+    return base;
+  }
+
+  scheduleRetry() {
+    this.clearTimeout(this.pollTimer);
+    this.clearTimeout(this.retryTimer);
+    this.pollTimer = null;
+    const delay = Math.min(1000 * 2 ** this.retryCount, MAX_RETRY_DELAY_MS);
+    this.retryCount++;
+    this.retryTimer = this.setTimeout(() => {
+      this.retryTimer = null;
+      this.tick();
+    }, delay);
+  }
+
+  // Fetch immediately, cancelling any pending timers. Used when visibility
+  // is restored mid-LIVE so users don't have to wait for the next tick.
+  // Returns the tick promise so callers (and tests) can await completion.
+  fetchNow() {
+    this.clearTimeout(this.pollTimer);
+    this.clearTimeout(this.retryTimer);
+    this.pollTimer = null;
+    this.retryTimer = null;
+    return this.tick();
+  }
+
+  // Tear down live polling without affecting persistent-state behavior.
+  stopLive() {
+    this.clearTimeout(this.pollTimer);
+    this.clearTimeout(this.retryTimer);
+    this.pollTimer = null;
+    this.retryTimer = null;
+    this.retryCount = 0;
+    this.pollingState = POLLING_STATE_IDLE;
+  }
+
+  dispatchLive(live) {
+    this.store.dispatch(
+      ac.BroadcastToContent({
+        type: at.WIDGETS_SPORTS_LIVE_UPDATE,
+        data: {
+          live,
+          lastLiveUpdated: this.lastLiveUpdated,
+        },
+      })
+    );
   }
 
   async onPrefChangedAction(action) {
+    const { name } = action.data;
+    // First-time init when the widget turns on. init() itself will arm the
+    // poll timer if liveEnabled, so we return early to avoid double-scheduling.
     if (
-      (action.data.name === PREF_SPORTS_ENABLED ||
-        action.data.name === PREF_SYSTEM_SPORTS_ENABLED ||
-        action.data.name === "trainhopConfig") &&
+      (name === PREF_SPORTS_ENABLED ||
+        name === PREF_SYSTEM_SPORTS_ENABLED ||
+        name === "trainhopConfig") &&
       this.enabled &&
       !this.initialized
     ) {
       await this.init();
+      return;
+    }
+    // Any pref that can affect liveEnabled or the next poll interval should
+    // re-evaluate polling. This includes the parent widget prefs — toggling
+    // the widget off then back on must restart polling, not leave it stopped.
+    const POLL_RELATED_PREFS = [
+      PREF_SPORTS_ENABLED,
+      PREF_SYSTEM_SPORTS_ENABLED,
+      PREF_SPORTS_LIVE_ENABLED,
+      PREF_SPORTS_LIVE_ENDPOINT,
+      PREF_POLL_IDLE_MS,
+      PREF_POLL_MATCH_DAY_MS,
+      PREF_POLL_LIVE_MS,
+      PREF_POLL_PREGAME_LEAD_MS,
+      "discoverystream.endpoints",
+      "trainhopConfig",
+    ];
+    if (this.initialized && POLL_RELATED_PREFS.includes(name)) {
+      if (this.liveEnabled) {
+        // fetchNow (rather than just scheduleNext) so the resume path
+        // recomputes the time-based polling state from fresh data —
+        // stopLive() hard-set pollingState to IDLE, so a bare scheduleNext
+        // here would arm a 6h timer even if a match is currently live.
+        await this.fetchNow();
+      } else {
+        this.stopLive();
+      }
     }
   }
 
@@ -243,6 +704,77 @@ export class SportsFeed {
       case at.PREF_CHANGED:
         await this.onPrefChangedAction(action);
         break;
+      // ---------------------------------------------------------------------
+      // How live polling decides when to fetch /live (during a live game)
+      //
+      // The rule is simple: we poll only while the widget is actually being
+      // looked at. A tab counts as "looking" when the widget is on-screen in
+      // the foreground tab. The content side already enforces this — it only
+      // reports a tab visible when the widget is scrolled into view and the
+      // tab is in front (isIntersecting && !document.hidden). We keep the set
+      // of those tabs in `visibleTabs`. If the set is empty, we stop polling.
+      // There is no timestamp or "last fetched" tracking — just this set and
+      // the poll timer.
+      //
+      // What that means in practice:
+      //  1. You open New Tab on a live game: the widget shows up, we fetch
+      //     /live right away, and start the timer.
+      //  2. The timer runs out while you're looking at it: we fetch /live
+      //     again and restart the timer.
+      //  3. You scroll the widget off-screen: we stop, but we leave the timer
+      //     running. If it runs out while it's off-screen, we just skip that
+      //     fetch. When you scroll back, we fetch again only if the timer
+      //     already ran out; if it hasn't, we wait for it. (This is why
+      //     quickly scrolling away and back does NOT fire extra requests.)
+      //  4. Two tabs are open and a background tab has the widget on-screen:
+      //     it does not count, because it isn't the active tab. Only the tab
+      //     you're actually looking at drives a fetch.
+      //  5. You open a new tab while the timer is still running: the new tab
+      //     does not fetch on its own — it waits for the timer that's already
+      //     going.
+      // ---------------------------------------------------------------------
+
+      // A tab going hidden, or closing, just drops its port. NEW_TAB_UNLOAD is
+      // kept as a backstop because a closing tab won't reliably fire HIDDEN
+      // before its content process tears down — without it the port would
+      // linger in visibleTabs and tick() would keep fetching for a tab that no
+      // longer exists.
+      case at.NEW_TAB_UNLOAD:
+      case at.WIDGETS_SPORTS_LIVE_HIDDEN: {
+        const portId = au.getPortIdOfSender(action);
+        if (portId) {
+          this.visibleTabs.delete(portId);
+        }
+        // Deliberately do NOT clear pollTimer/retryTimer here. A pending
+        // timer represents the remaining poll interval; keeping it alive is
+        // what makes a quick scroll-off-and-back a no-op instead of an extra
+        // /live fetch. When the timer fires with an empty visibleTabs, tick()
+        // bails without rearming and the scheduleNext/scheduleRetry callbacks
+        // null the handle, so a later VISIBLE resumes cleanly.
+        break;
+      }
+      case at.WIDGETS_SPORTS_LIVE_VISIBLE: {
+        const portId = au.getPortIdOfSender(action);
+        if (portId) {
+          this.visibleTabs.add(portId);
+          // Resume polling only when it is actually paused. A pending timer
+          // (or in-flight tick) means the current interval has not elapsed,
+          // so we wait for it rather than firing an immediate /live — this
+          // is what keeps scroll-off-and-back, and opening new tabs, from
+          // issuing extra requests. The null-in-callback bookkeeping in
+          // scheduleNext/scheduleRetry makes these handle checks reliable
+          // after a timer has fired.
+          if (
+            this.liveEnabled &&
+            !this.ticking &&
+            !this.pollTimer &&
+            !this.retryTimer
+          ) {
+            this.fetchNow();
+          }
+        }
+        break;
+      }
       // User clicked a match row — run a search for the match's `query` using
       // their default search engine via SearchUIUtils.loadSearch.
       case at.WIDGETS_SPORTS_OPEN_MATCH_SEARCH:
@@ -280,6 +812,26 @@ export class SportsFeed {
           })
         );
         break;
+      // User paged to a different live match in the Now tab — clamp the
+      // index against the current live list, persist it, and broadcast.
+      case at.WIDGETS_SPORTS_CHANGE_LIVE_INDEX: {
+        const state = this.store.getState()?.SportsWidget;
+        const liveCount = Array.isArray(state?.data?.live)
+          ? state.data.live.length
+          : 0;
+        const requested = Number.isInteger(action.data) ? action.data : 0;
+        const nextIndex = liveCount
+          ? Math.min(Math.max(requested, 0), liveCount - 1)
+          : 0;
+        await this.cache.set("liveIndex", nextIndex);
+        this.store.dispatch(
+          ac.BroadcastToContent({
+            type: at.WIDGETS_SPORTS_SET_LIVE_INDEX,
+            data: nextIndex,
+          })
+        );
+        break;
+      }
       // User toggled the "Only followed teams" filter for a tab — merge into
       // the existing followedOnly object and persist.
       case at.WIDGETS_SPORTS_CHANGE_FOLLOWED_ONLY: {
@@ -294,6 +846,9 @@ export class SportsFeed {
         );
         break;
       }
+      case at.WIDGETS_SPORTS_WATCH_LIVE_REQUEST:
+        await this.fetchWatchLive();
+        break;
     }
   }
 }
@@ -305,3 +860,7 @@ SportsFeed.prototype.PersistentCache = (...args) => {
 SportsFeed.prototype.MerinoClient = name => {
   return new lazy.TemporaryMerinoClientShim(name);
 };
+
+// Attached to the prototype so tests can stub them.
+SportsFeed.prototype.setTimeout = (...args) => lazy.setTimeout(...args);
+SportsFeed.prototype.clearTimeout = (...args) => lazy.clearTimeout(...args);

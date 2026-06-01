@@ -50,6 +50,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
+  getAllModelsData:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs",
+  getCurrentModelChoiceId:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs",
   getCurrentModelName:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs",
   ToolUI: "moz-src:///browser/components/aiwindow/ui/modules/ToolUI.sys.mjs",
@@ -123,6 +127,7 @@ const PREF_MEMORIES_HISTORY =
   "browser.smartwindow.memories.generateFromHistory";
 const PREF_MEMORIES_HAS_SEEN_MEMORIES =
   "browser.smartwindow.memories.hasSeenMemories";
+const PREF_MODEL_CHOICE = "browser.smartwindow.firstrun.modelChoice";
 const TAB_FAVICON_CHAT =
   "chrome://browser/content/aiwindow/assets/ask-icon.svg";
 const PREF_CHAT_INTERACTION_COUNT = "browser.smartwindow.chat.interactionCount";
@@ -178,6 +183,8 @@ export class AIWindow extends MozLitElement {
     promoMessage: { type: Object, state: true },
     showDisclaimer: { type: Boolean, state: true },
     isGenerating: { type: Boolean, state: true },
+    availableModels: { type: Object, state: true },
+    selectedModelId: { type: String, state: true },
   };
 
   #browser;
@@ -200,6 +207,7 @@ export class AIWindow extends MozLitElement {
   #windowModeObserver = null;
   #swapDocShellsChromeWindow = null;
   #hasMemories = false;
+  #selectedModelChoiceId = null;
 
   get #kitMention() {
     return this.shadowRoot?.querySelector("kit-mention");
@@ -378,6 +386,8 @@ export class AIWindow extends MozLitElement {
     this.promoMessage = null;
     this.showDisclaimer = this.mode !== MODE.FULLPAGE;
     this.isGenerating = false;
+    this.selectedModelId = lazy.getCurrentModelName();
+    this.#selectedModelChoiceId = lazy.getCurrentModelChoiceId();
 
     // Apply chat-active immediately if restoring a conversation
     if (this.#hostBrowser?.getAttribute("data-conversation-id")) {
@@ -474,6 +484,7 @@ export class AIWindow extends MozLitElement {
   connectedCallback() {
     super.connectedCallback();
     this.setAttribute("mode", this.mode);
+    this.#loadAvailableModels();
 
     this.ownerDocument.addEventListener("OpenConversation", this);
     this.ownerDocument.addEventListener(
@@ -484,6 +495,19 @@ export class AIWindow extends MozLitElement {
     this.ownerDocument.addEventListener(
       "smartbar-stop-generation",
       this.#handleStopGeneration
+    );
+    this.ownerDocument.addEventListener(
+      "aiwindow-input-model-select:model-change",
+      this.#handleModelChange
+    );
+    this.ownerDocument.addEventListener(
+      "aiwindow-input-model-select:open-settings",
+      this.#handleOpenModelSettings
+    );
+
+    Services.prefs.addObserver(
+      PREF_MODEL_CHOICE,
+      this.#onModelChoicePrefChanged
     );
 
     this.#loadPendingConversation();
@@ -695,6 +719,12 @@ export class AIWindow extends MozLitElement {
       this.#windowModeObserver = null;
     }
 
+    // Clean up model choice preference observer
+    Services.prefs.removeObserver(
+      PREF_MODEL_CHOICE,
+      this.#onModelChoicePrefChanged
+    );
+
     // Clean up smartbar toggle button
     if (this.#smartbarToggleButton) {
       this.#smartbarToggleButton.remove();
@@ -710,6 +740,14 @@ export class AIWindow extends MozLitElement {
     this.ownerDocument.removeEventListener(
       "smartbar-stop-generation",
       this.#handleStopGeneration
+    );
+    this.ownerDocument.removeEventListener(
+      "aiwindow-input-model-select:model-change",
+      this.#handleModelChange
+    );
+    this.ownerDocument.removeEventListener(
+      "aiwindow-input-model-select:open-settings",
+      this.#handleOpenModelSettings
     );
     if (this.#smartbar) {
       this.#smartbar.removeEventListener(
@@ -746,6 +784,82 @@ export class AIWindow extends MozLitElement {
 
     super.disconnectedCallback();
   }
+
+  /**
+   * Loads all available models.
+   */
+  async #loadAvailableModels() {
+    const allModels = await lazy.getAllModelsData();
+
+    // Only show custom model option if a custom endpoint has been configured
+    if (lazy.openAIEngine.hasCustomEndpoint()) {
+      this.availableModels = allModels;
+      return;
+    }
+    const { 0: _unusedCustom, ...presetModels } = allModels;
+    void _unusedCustom;
+    this.availableModels = presetModels;
+  }
+
+  /**
+   * Updates the smartbar model select with available models.
+   *
+   * @param {Element} smartbar - The smartbar element
+   */
+  #updateSmartbarModels(smartbar) {
+    const modelSelect = smartbar?.querySelector("input-model-select");
+    if (modelSelect && this.availableModels) {
+      modelSelect.availableModels = this.availableModels;
+      modelSelect.selectedModelId = this.selectedModelId;
+      modelSelect.defaultModelChoiceId = lazy.getCurrentModelChoiceId();
+    }
+  }
+
+  #onModelChoicePrefChanged = async () => {
+    const defaultModelChoiceId = Services.prefs.getStringPref(
+      PREF_MODEL_CHOICE,
+      ""
+    );
+    const defaultModelData = this.availableModels[defaultModelChoiceId];
+    if (!defaultModelData) {
+      return;
+    }
+    await this.#switchModel({
+      modelId: defaultModelData.model,
+      modelChoiceId: defaultModelChoiceId,
+    });
+    this.#updateSmartbarModels(this.#smartbar);
+  };
+
+  #handleModelChange = async event => {
+    const { modelId, modelChoiceId } = event.detail;
+    await this.#switchModel({ modelId, modelChoiceId });
+  };
+
+  async #switchModel({ modelId, modelChoiceId }) {
+    this.selectedModelId = modelId;
+    this.#selectedModelChoiceId = modelChoiceId;
+
+    // Update the system prompt for the new model
+    if (this.#conversation?.messages.length) {
+      const engineInstance = await lazy.openAIEngine.build(
+        lazy.MODEL_FEATURES.CHAT,
+        this.conversationId,
+        modelChoiceId
+      );
+
+      // Model changed while building engine
+      if (this.#selectedModelChoiceId !== modelChoiceId) {
+        return;
+      }
+
+      await this.#conversation.updateSystemPromptForModel(engineInstance);
+    }
+  }
+
+  #handleOpenModelSettings = () => {
+    this.#topChromeWindow?.openPreferences("personalizeSmartWindow");
+  };
 
   /**
    * Loads a conversation if one is set on the data-conversation-id attribute.
@@ -1043,6 +1157,7 @@ export class AIWindow extends MozLitElement {
           this.#resolveSmartbarReady();
           this.#setupSmartbarFocus(smartbar);
           this.#observeSmartbarHeight();
+          this.#updateSmartbarModels(smartbar);
         },
         { once: true }
       );
@@ -1626,7 +1741,8 @@ export class AIWindow extends MozLitElement {
     try {
       const engineInstance = await lazy.openAIEngine.build(
         lazy.MODEL_FEATURES.CHAT,
-        this.conversationId
+        this.conversationId,
+        this.#selectedModelChoiceId
       );
 
       if (inputText) {
@@ -1692,6 +1808,9 @@ export class AIWindow extends MozLitElement {
       this.#getAIChatContentActor()?.setGeneratingOnChatContent(
         this.isGenerating
       );
+    }
+    if (changedProps.has("availableModels") && this.#smartbar) {
+      this.#updateSmartbarModels(this.#smartbar);
     }
   }
 

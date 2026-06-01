@@ -72,15 +72,31 @@ class FeltConsoleError(FeltConsoleErrorBase):
         # Port 1 is on Firefox's blocked-port list, producing a generic "network"
         # error key that resolves to "Unknown network error" via the felt-error-network
 
-        # This is failing in a way that does not load about:neterror
-        # Testing SSO timeout here.
-        """
-        self.assert_neterror(
-           login_location="http://127.0.0.1:1",
-           expected_heading="Unable to connect",
-           error_msg="Unknown network error",
-        )
-        """
+        # Trying to access :1 port will trigger a deniedPortAccess error. However
+        # because it is happening during Redirect phase, the error pops from
+        # nsHttpChannel directly and its handling bypasses about:neterror loading.
+        #
+        # Replicating the same behavior on Firefox show no page trying to load as well.
+        # To replicate, instantiate a python http.server and serve a 302 redirection
+        # to localhost:1.
+        #
+        # This allows to verify the handling of the SSO timeout logic.
+        with self._driver.using_prefs(
+            {
+                "enterprise.console.address": f"http://localhost:{self.console_port}",
+                "enterprise.sso.timeout_ms": 2000,
+            },
+            default_branch=True,
+        ):
+            self.login_location.value = "http://127.0.0.1:1"
+            self.submit_email()
+
+            self.assert_error_bar_message(
+                selector=".felt-browser-error-sso-timeout",
+                expected_heading="Sign-in timed out",
+                screenshot_name=f"{self._testMethodName}_sso",
+                source="reset",
+            )
 
         self.assert_xhrerror(
             login_location="http://127.0.0.1:1",

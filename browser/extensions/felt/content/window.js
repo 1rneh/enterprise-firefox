@@ -11,6 +11,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltErrorReport: "resource:///modules/FeltErrorReport.sys.mjs",
+  ERROR_SOURCE: "resource:///modules/FeltErrorReport.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
   Updates: "resource:///modules/enterprise/Updates.sys.mjs",
@@ -128,7 +129,12 @@ async function connectToConsole(email) {
     document
       .querySelector(".felt-login__email-pane")
       .classList.remove("is-hidden");
-    lazy.FeltErrorReport.update(errorType, details, cause);
+    lazy.FeltErrorReport.update(
+      errorType,
+      details,
+      cause,
+      lazy.ERROR_SOURCE.RESET
+    );
   }
 
   let ssoTimeout = setTimeout(() => {

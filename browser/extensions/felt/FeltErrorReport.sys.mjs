@@ -56,6 +56,9 @@ export const FeltErrorReport = {
       ].getService(Ci.nsINSSErrorsService);
       return nssErrorsService.getErrorName(status);
     } catch {
+      lazy.log.debug(
+        `getFluentIdForStatus(${status}) no nssErrorsService.getErrorName`
+      );
       // Not an NSS error, check common network error codes
 
       // Mapping here should follow what nsDocShell::DisplayLoadError uses.
@@ -67,6 +70,9 @@ export const FeltErrorReport = {
         [Cr.NS_ERROR_NET_INTERRUPT]: "netInterrupt",
         [Cr.NS_ERROR_OFFLINE]: "netOffline",
       };
+      lazy.log.debug(
+        `getFluentIdForStatus(${status}) networkErrors[status]:${networkErrors[status]}`
+      );
       return networkErrors[status] ?? "network";
     }
   },
@@ -91,6 +97,7 @@ export const FeltErrorReport = {
   },
 
   async _maybeResetErrorElement(errorElement) {
+    lazy.log.debug(`_maybeResetErrorElement()`);
     errorElement.dismiss();
     errorElement.removeAttribute("source");
 
@@ -128,9 +135,12 @@ export const FeltErrorReport = {
     context,
     detailsElement = null
   ) {
+    lazy.log.debug(`_applyErrorConfig(${errorCode})`);
+
     try {
       const errorConfig = lazy.getResolvedErrorConfig(errorCode, context);
       if (errorConfig.introContent) {
+        lazy.log.debug(`_applyErrorConfig(${errorCode}): resolved errorConfig`);
         this._document.l10n.setAttributes(
           detailsElement,
           errorConfig.introContent.dataL10nId,
@@ -138,6 +148,9 @@ export const FeltErrorReport = {
         );
       }
       if (errorConfig.customNetError && context.canUseCustomNetError) {
+        lazy.log.debug(
+          `_applyErrorConfig(${errorCode}): errorConfig.customNetError`
+        );
         errorElement.setAttribute(
           "heading",
           await this._document.l10n.formatValue(
@@ -177,6 +190,8 @@ export const FeltErrorReport = {
    * @param {string} source - The source of the error, from ERROR_SOURCE
    */
   async update(errorType, errorCode = null, context = null, source = null) {
+    lazy.log.debug(`update(${errorType}, ${errorCode})`);
+
     const errorElement = this._wrapper.querySelector(`.${errorType}`);
     if (!errorElement) {
       lazy.log.error(`Error element ${errorType} not found`);
@@ -201,6 +216,9 @@ export const FeltErrorReport = {
 
         const l10n = this._document.l10n.getAttributes(detailsElement);
         if (!l10n?.id) {
+          lazy.log.debug(
+            `update(${errorType}): this._applyErrorConfig missing, fallback to felt-error-${errorCode}`
+          );
           const message = await this._document.l10n.formatValue(
             `felt-error-${errorCode}`
           );
@@ -226,14 +244,23 @@ export const FeltErrorReport = {
    *                         'u' parameter.
    */
   async handleNetError(aData) {
+    const errorPageURI = aData.errorPageURI;
+    lazy.log.debug(`handleNetError(${errorPageURI})`);
+
     try {
-      const parsedErrorPage = new URL(aData.errorPageURI);
+      const parsedErrorPage = new URL(errorPageURI);
       const errorCode = (() => {
         const parsedErrorCode = parsedErrorPage.searchParams.get("e");
         const mappedErrorCode = this._errorCodesMapping[parsedErrorCode];
         if (mappedErrorCode) {
+          lazy.log.debug(
+            `handleNetError(${errorPageURI}): mapping ${parsedErrorCode} to ${mappedErrorCode}`
+          );
           return mappedErrorCode;
         }
+        lazy.log.debug(
+          `handleNetError(${errorPageURI}): returning ${parsedErrorCode}`
+        );
         return parsedErrorCode;
       })();
 
@@ -248,6 +275,9 @@ export const FeltErrorReport = {
         ERROR_SOURCE.NET
       );
     } catch (ex) {
+      lazy.log.debug(
+        `handleNetError: exception ${ex}, reverting to default network error`
+      );
       await this.updateNetworkError("network", null, ERROR_SOURCE.NET);
     }
 
@@ -266,10 +296,17 @@ export const FeltErrorReport = {
    *                          aError.cause.hostname.
    */
   async handleXhrError(aError) {
+    lazy.log.debug(
+      `handleXhrError(aError.message=${aError.message} aError.cause=${JSON.stringify(aError.cause)})`
+    );
     if (aError.cause) {
       const errorCode = this.getFluentIdForStatus(aError.cause.channelStatus);
+      lazy.log.debug(
+        `handleXhrError() using errorCode:${errorCode} for ${aError.cause.channelStatus}`
+      );
       await this.updateNetworkError(errorCode, aError.cause, ERROR_SOURCE.XHR);
     } else {
+      lazy.log.debug(`handleXhrError: received ${aError} without a cause`);
       await this.updateNetworkError("network", null, ERROR_SOURCE.XHR);
     }
   },
@@ -286,6 +323,8 @@ export const FeltErrorReport = {
    *                          ERROR_SOURCE.NET. Useful for assertions in tests.
    */
   async updateNetworkError(errorCode, context, source) {
+    lazy.log.debug(`updateNetworkError(${errorCode})`);
+
     if (this._noNetworkErrors.includes(errorCode)) {
       await this.update(
         "felt-browser-error-no-network",

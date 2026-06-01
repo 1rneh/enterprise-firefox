@@ -31,7 +31,7 @@ async function connectToConsole(email) {
   try {
     posture = await lazy.ConsoleClient.sendDevicePosture();
   } catch (err) {
-    lazy.log.error(`FeltExtension: Failed to connect to console: ${err}`);
+    lazy.log.error(`Failed to send device posture: ${err}`);
     await lazy.FeltErrorReport.handleXhrError(err);
     return;
   }
@@ -83,7 +83,7 @@ async function connectToConsole(email) {
   lazy.log.debug(
     `FeltExtension: created contentPrincipal with privateBrowsingId=${contentPrincipal.privateBrowsingId}`
   );
-  lazy.log.debug("Load SSO URI: ", ssoLoginURI);
+  lazy.log.debug("Load SSO URI: ", ssoLoginURI.spec);
   browser.fixupAndLoadURIString(ssoLoginURI.spec, {
     triggeringPrincipal: contentPrincipal,
   });

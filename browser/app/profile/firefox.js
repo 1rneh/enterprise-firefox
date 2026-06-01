@@ -330,6 +330,10 @@ pref("browser.startup.preXulSkeletonUI", true);
 pref("browser.startup.windowsLaunchOnLogin.enabled", true);
 // Whether to show the launch on login infobar notification
 pref("browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt", false);
+// Whether new installs should default to launching Firefox on Windows login.
+// Set to false by DefaultWindowsLaunchOnLogin.applyExperimentOverride when
+// Nimbus opts users out. Read by StartupOSIntegration on first run.
+pref("browser.startup.windowsLaunchOnLogin.defaultEnabled", true);
 #endif
 
 // Show an upgrade dialog on major upgrades.
@@ -3731,9 +3735,6 @@ pref("widget.support-xdg-config", true, locked);
 
 // A preference that enables Content Sharing
 pref("browser.contentsharing.enabled", false);
-
-// Controls whether the "New" badge is shown on the content sharing menu items
-pref("browser.contentsharing.newBadge.enabled", true);
 
 // When enabled, Firefox ignores the distribution.ini file if global.id is MozillaOnline.
 pref("distribution.mozillaonline.ignore", false);

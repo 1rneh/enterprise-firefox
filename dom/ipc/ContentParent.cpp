@@ -3001,7 +3001,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   Endpoint<PImageBridgeChild> imageBridge;
   Endpoint<PVRManagerChild> vrBridge;
   Endpoint<PRemoteMediaManagerChild> videoManager;
-  AutoTArray<uint32_t, 3> namespaces;
+  AutoTArray<uint32_t, 4> namespaces;
 
   if (NS_SUCCEEDED(gpuReadyRv) &&
       gpm->CreateContentBridges(OtherEndpointProcInfo(), &compositor,
@@ -3187,7 +3187,7 @@ void ContentParent::OnCompositorUnexpectedShutdown() {
   Endpoint<PImageBridgeChild> imageBridge;
   Endpoint<PVRManagerChild> vrBridge;
   Endpoint<PRemoteMediaManagerChild> videoManager;
-  AutoTArray<uint32_t, 3> namespaces;
+  AutoTArray<uint32_t, 4> namespaces;
 
   if (!gpm->CreateContentBridges(OtherEndpointProcInfo(), &compositor,
                                  &imageBridge, &vrBridge, &videoManager,
@@ -4149,6 +4149,10 @@ mozilla::ipc::IPCResult ContentParent::RecvCloneDocumentTreeInto(
 
   if (!CloneIsLegal(this, *source, *target)) {
     return IPC_FAIL(this, "Illegal subframe clone");
+  }
+
+  if (aPrintData.remotePrintJob()) {
+    return IPC_FAIL(this, "Shouldn't pass print jobs around this IPC call");
   }
 
   ContentParent* cp = source->GetContentParent();

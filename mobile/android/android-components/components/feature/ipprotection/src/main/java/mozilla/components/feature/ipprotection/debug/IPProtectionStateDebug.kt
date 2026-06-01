@@ -209,8 +209,7 @@ private fun IPProtectionStateDebugPreview() {
                 maxDataBytes = 5_000_000_000L,
                 resetDate = "2026-06-01",
                 accountState = AccountState(
-                    isFirstEnrollment = false,
-                    status = AccountStatus.Ready,
+                    status = AccountStatus.EnrolledAndEntitled,
                 ),
                 activate = true,
             ),

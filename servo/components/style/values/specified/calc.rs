@@ -252,6 +252,8 @@ bitflags! {
 pub struct AllowParse {
     /// Units allowed to be parsed.
     units: CalcUnits,
+    /// Whether relative color components are allowed.
+    pub color_components: bool,
     /// Additional functions allowed to be parsed in this context.
     additional_functions: AdditionalFunctions,
 }
@@ -261,6 +263,7 @@ impl AllowParse {
     pub fn new(units: CalcUnits) -> Self {
         Self {
             units,
+            color_components: false,
             additional_functions: AdditionalFunctions::empty(),
         }
     }
@@ -284,9 +287,8 @@ impl generic::CalcNodeLeaf for Leaf {
             Leaf::Angle(_) => CalcUnits::ANGLE,
             Leaf::Time(_) => CalcUnits::TIME,
             Leaf::Resolution(_) => CalcUnits::RESOLUTION,
-            Leaf::ColorComponent(_) => CalcUnits::COLOR_COMPONENT,
             Leaf::Percentage(_) => CalcUnits::PERCENTAGE,
-            Leaf::Number(_) => CalcUnits::empty(),
+            Leaf::ColorComponent(_) | Leaf::Number(_) => CalcUnits::empty(),
         }
     }
 
@@ -619,6 +621,7 @@ fn parse_anchor_function_fallback<'i, 't>(
         input,
         AllowParse {
             units: CalcUnits::LENGTH_PERCENTAGE,
+            color_components: false,
             additional_functions,
         },
     )?
@@ -767,19 +770,16 @@ impl CalcNode {
                     "-infinity" => Leaf::Number(NoCalcNumber::new(f32::NEG_INFINITY)),
                     "nan" => Leaf::Number(NoCalcNumber::new(f32::NAN)),
                     _ => {
-                        if crate::color::parsing::rcs_enabled() &&
-                            allowed.includes(CalcUnits::COLOR_COMPONENT)
-                        {
-                            if let Ok(channel_keyword) = ChannelKeyword::from_ident(&ident) {
-                                Leaf::ColorComponent(channel_keyword)
-                            } else {
-                                return Err(location
-                                    .new_unexpected_token_error(Token::Ident(ident.clone())));
-                            }
-                        } else {
+                        if !allowed.color_components {
                             return Err(
                                 location.new_unexpected_token_error(Token::Ident(ident.clone()))
                             );
+                        }
+                        if let Ok(channel_keyword) = ChannelKeyword::from_ident(&ident) {
+                            Leaf::ColorComponent(channel_keyword)
+                        } else {
+                            return Err(location
+                                .new_unexpected_token_error(Token::Ident(ident.clone())));
                         }
                     },
                 };
@@ -916,8 +916,11 @@ impl CalcNode {
                     Ok(Self::MinMax(arguments.into(), op))
                 },
                 MathFunction::Sin | MathFunction::Cos | MathFunction::Tan => {
-                    let node =
-                        Self::parse_argument(context, input, AllowParse::new(CalcUnits::ANGLE))?;
+                    let node = Self::parse_argument(
+                        context,
+                        input,
+                        allowed.new_including(CalcUnits::ANGLE),
+                    )?;
                     Ok(match function {
                         MathFunction::Sin => Self::Sin(Box::new(node)),
                         MathFunction::Cos => Self::Cos(Box::new(node)),
@@ -926,8 +929,7 @@ impl CalcNode {
                     })
                 },
                 MathFunction::Asin | MathFunction::Acos | MathFunction::Atan => {
-                    let node =
-                        Self::parse_argument(context, input, AllowParse::new(CalcUnits::empty()))?;
+                    let node = Self::parse_argument(context, input, allowed)?;
                     Ok(match function {
                         MathFunction::Asin => Self::Asin(Box::new(node)),
                         MathFunction::Acos => Self::Acos(Box::new(node)),
@@ -947,16 +949,13 @@ impl CalcNode {
                     Ok(Self::Atan2(Box::new(a), Box::new(b)))
                 },
                 MathFunction::Pow => {
-                    let a =
-                        Self::parse_argument(context, input, AllowParse::new(CalcUnits::empty()))?;
+                    let a = Self::parse_argument(context, input, allowed)?;
                     input.expect_comma()?;
-                    let b =
-                        Self::parse_argument(context, input, AllowParse::new(CalcUnits::empty()))?;
+                    let b = Self::parse_argument(context, input, allowed)?;
                     Ok(Self::Pow(Box::new(a), Box::new(b)))
                 },
                 MathFunction::Sqrt => {
-                    let a =
-                        Self::parse_argument(context, input, AllowParse::new(CalcUnits::empty()))?;
+                    let a = Self::parse_argument(context, input, allowed)?;
                     Ok(Self::Sqrt(Box::new(a)))
                 },
                 MathFunction::Hypot => {
@@ -968,23 +967,17 @@ impl CalcNode {
                     Ok(Self::Hypot(arguments.into()))
                 },
                 MathFunction::Log => {
-                    let a =
-                        Self::parse_argument(context, input, AllowParse::new(CalcUnits::empty()))?;
+                    let a = Self::parse_argument(context, input, allowed)?;
                     let b = input
                         .try_parse(|input| {
                             input.expect_comma()?;
-                            Self::parse_argument(
-                                context,
-                                input,
-                                AllowParse::new(CalcUnits::empty()),
-                            )
+                            Self::parse_argument(context, input, allowed)
                         })
                         .ok();
                     Ok(Self::Log(Box::new(a), b.map(Box::new).into()))
                 },
                 MathFunction::Exp => {
-                    let a =
-                        Self::parse_argument(context, input, AllowParse::new(CalcUnits::empty()))?;
+                    let a = Self::parse_argument(context, input, allowed)?;
                     Ok(Self::Exp(Box::new(a)))
                 },
                 MathFunction::Abs => {
@@ -1112,9 +1105,9 @@ impl CalcNode {
                                     return InPlaceDivisionResult::Merged;
                                 }
                             } else {
-                                // Color components are valid denominators, but they can't resolve
-                                // at parse time.
-                                return if resolved.unit().contains(CalcUnits::COLOR_COMPONENT) {
+                                // Unresolved components that are numbers are valid denominators,
+                                // but they can't resolve right now.
+                                return if resolved.unit().is_empty() {
                                     InPlaceDivisionResult::Unchanged
                                 } else {
                                     InPlaceDivisionResult::Invalid
@@ -1307,6 +1300,7 @@ impl CalcNode {
         } else {
             AllowParse {
                 units: CalcUnits::LENGTH_PERCENTAGE,
+                color_components: false,
                 additional_functions: match allow_anchor {
                     AllowAnchorPositioningFunctions::No => unreachable!(),
                     AllowAnchorPositioningFunctions::AllowAnchorSize => {

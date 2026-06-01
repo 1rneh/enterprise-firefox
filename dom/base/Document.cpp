@@ -1030,7 +1030,8 @@ ExternalResourceMap::PendingLoad::OnStartRequest(nsIRequest* aRequest) {
     return rv2;
   }
 
-  return mTargetListener->OnStartRequest(aRequest);
+  nsCOMPtr<nsIStreamListener> listener = mTargetListener;
+  return listener->OnStartRequest(aRequest);
 }
 
 nsresult ExternalResourceMap::PendingLoad::SetupViewer(
@@ -1113,7 +1114,8 @@ ExternalResourceMap::PendingLoad::OnDataAvailable(nsIRequest* aRequest,
   if (mDisplayDocument->ExternalResourceMap().HaveShutDown()) {
     return NS_BINDING_ABORTED;
   }
-  return mTargetListener->OnDataAvailable(aRequest, aStream, aOffset, aCount);
+  nsCOMPtr<nsIStreamListener> listener = mTargetListener;
+  return listener->OnDataAvailable(aRequest, aStream, aOffset, aCount);
 }
 
 NS_IMETHODIMP
@@ -1954,11 +1956,10 @@ void Document::ConstructUbiNode(void* storage) {
 }
 
 void Document::LoadEventFired() {
-  // Collect page load timings
+  // Collect page load timings. The pageload event itself is now submitted from
+  // Document::Destroy() so it can include the final LCP value and any other
+  // metrics that aren't stable at load time.
   AccumulatePageLoadTelemetry();
-
-  // Record page load event
-  RecordPageLoadEventTelemetry();
 
   // Release the JS bytecode cache from its wait on the load event, and
   // potentially dispatch the encoding of the bytecode.
@@ -1967,9 +1968,9 @@ void Document::LoadEventFired() {
   }
 }
 
-void Document::RecordPageLoadEventTelemetry() {
+void Document::ReportPageLoadEvent() {
   // If the page load time is empty, then the content wasn't something we want
-  // to report (i.e. not a top level document).
+  // to report (i.e. not a top level document, or load never completed).
   if (!mPageloadEventData.HasLoadTime()) {
     return;
   }
@@ -1999,6 +2000,19 @@ void Document::RecordPageLoadEventTelemetry() {
   // Return if we are not sending an event for this pageload.
   if (pageloadEventType == mozilla::PageloadEventType::kNone) {
     return;
+  }
+
+  // Refresh metrics that can change between the load event and document
+  // destruction. LCP in particular keeps updating until first user interaction
+  // or page teardown, so the value captured in AccumulatePageLoadTelemetry is
+  // not necessarily final.
+  if (const nsDOMNavigationTiming* timing = GetNavigationTiming()) {
+    if (TimeStamp navigationStart = timing->GetNavigationStartTimeStamp()) {
+      if (TimeStamp lcpTime = timing->GetLargestContentfulRenderTimeStamp()) {
+        mPageloadEventData.set_lcpTime(static_cast<uint32_t>(
+            (lcpTime - navigationStart).ToMilliseconds()));
+      }
+    }
   }
 
 #ifdef ACCESSIBILITY
@@ -2255,14 +2269,6 @@ void Document::AccumulatePageLoadTelemetry() {
       mPageloadEventData.set_fcpTime(
           static_cast<uint32_t>(fcpTime.ToMilliseconds()));
     }
-  }
-
-  // Report the most up to date LCP time. For our histogram we actually report
-  // this on page unload.
-  if (TimeStamp lcpTime =
-          GetNavigationTiming()->GetLargestContentfulRenderTimeStamp()) {
-    mPageloadEventData.set_lcpTime(
-        static_cast<uint32_t>((lcpTime - navigationStart).ToMilliseconds()));
   }
 
   // Load event
@@ -3764,6 +3770,15 @@ nsresult Document::InitPolicyContainer(nsIChannel* aChannel) {
 
   if (!mPolicyContainer) {
     mPolicyContainer = new PolicyContainer();
+  }
+
+  // Propagate the document's IP address space to the policy container so that
+  // workers inheriting this container can perform Local Network Access checks
+  // (workers don't have a browsing context to read this from).
+  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
+  nsILoadInfo::IPAddressSpace ipAddressSpace = loadInfo->GetIpAddressSpace();
+  if (ipAddressSpace != nsILoadInfo::Unknown) {
+    mPolicyContainer->SetIPAddressSpace(ipAddressSpace);
   }
 
   return NS_OK;
@@ -12273,6 +12288,10 @@ void Document::Destroy() {
 
   ReportDocumentUseCounters();
   ReportShadowedProperties();
+  // ReportPageLoadEvent must run before ReportLCP: ReportLCP skips submitting
+  // its histogram when mPageloadEventData.HasDomain() is true, and HasDomain()
+  // is set inside ReportPageLoadEvent.
+  ReportPageLoadEvent();
   ReportLCP();
   SetDevToolsWatchingDOMMutations(false);
 
@@ -17763,8 +17782,13 @@ void Document::ReportLCP() {
     return;
   }
 
-  mozilla::glean::perf::largest_contentful_paint.AccumulateRawDuration(
-      lcpTime - timing->GetNavigationStartTimeStamp());
+  // NOTE: lcpTime is subject to precision reduction (for anti-fingerprinting
+  // reasons) and so subtractions against 'earlier' timestamps could
+  // unexpectedly result in negative durations, hence the use of std::max().
+
+  const TimeStamp navStart = timing->GetNavigationStartTimeStamp();
+  const TimeDuration lcp = std::max(lcpTime - navStart, TimeDuration::Zero());
+  mozilla::glean::perf::largest_contentful_paint.AccumulateRawDuration(lcp);
 
   if (!GetChannel()) {
     return;
@@ -17778,20 +17802,20 @@ void Document::ReportLCP() {
   TimeStamp responseStart;
   timedChannel->GetResponseStart(&responseStart);
 
-  if (!responseStart) {
-    // This happens when getting a response from the cache.
-    mozilla::glean::perf::largest_contentful_paint_from_response_start
-        .AccumulateRawDuration(lcpTime - timing->GetNavigationStartTimeStamp());
-  } else {
-    mozilla::glean::perf::largest_contentful_paint_from_response_start
-        .AccumulateRawDuration(lcpTime - responseStart);
-  }
+  // responseStart can be "null" when the entire load has been satisfied from
+  // the cache and thus there is no response from the network. In that case
+  // we'll just report the entire LCP time for
+  // largest_contentful_paint_from_response_start.
+  const TimeDuration lcpFromResponseStart =
+      responseStart ? std::max(lcpTime - responseStart, TimeDuration::Zero())
+                    : lcp;
+  mozilla::glean::perf::largest_contentful_paint_from_response_start
+      .AccumulateRawDuration(lcpFromResponseStart);
 
   if (profiler_thread_is_being_profiled_for_markers()) {
     MarkerInnerWindowId innerWindowID =
         MarkerInnerWindowIdFromDocShell(GetDocShell());
-    GetNavigationTiming()->GetSharedLcpMarkerState()->MaybeAddLCPProfilerMarker(
-        innerWindowID);
+    timing->GetSharedLcpMarkerState()->MaybeAddLCPProfilerMarker(innerWindowID);
   }
 }
 

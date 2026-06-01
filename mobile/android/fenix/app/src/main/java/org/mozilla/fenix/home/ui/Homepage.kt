@@ -162,7 +162,10 @@ internal fun Homepage(
                         onStoriesTapped = { interactor.onDiscoverMoreClicked() },
                         onNewsAnimationShown = { settings.recordNewsButtonAnimationShown() },
                         onLogoClicked = {
-                            if (settings.showHomepageSportsWidget) showSportsCountrySelector = true
+                            if (settings.showHomepageSportsWidget) {
+                                interactor.onCountrySelectorShown(CountrySelectorSource.SPORTS_LOGO)
+                                showSportsCountrySelector = true
+                            }
                         },
                     )
                 }
@@ -224,7 +227,6 @@ internal fun Homepage(
                             }
 
                             if (sportsWidgetState.isShown) {
-                                interactor.onSportsWidgetShown()
                                 SportsWidget(
                                     sportsWidgetState = sportsWidgetState,
                                     onDismiss = interactor::onSportsWidgetDismissed,
@@ -242,6 +244,7 @@ internal fun Homepage(
                                     onMatchClicked = { homeTeam, awayTeam, date ->
                                         interactor.onMatchClicked(homeTeam, awayTeam, date)
                                     },
+                                    onCardShown = interactor::onSportsWidgetCardShown,
                                 )
                             }
 

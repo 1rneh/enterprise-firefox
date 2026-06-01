@@ -190,7 +190,7 @@ void WebAuthnTransactionParent::CompleteTransaction() {
 }
 
 void WebAuthnTransactionParent::DisconnectTransaction() {
-  mTransactionId.reset();
+  Maybe<uint64_t> transactionId = std::move(mTransactionId);
   mRegisterPromiseRequest.DisconnectIfExists();
   mSignPromiseRequest.DisconnectIfExists();
   if (mRelatedOriginCheckHandler) {
@@ -207,8 +207,8 @@ void WebAuthnTransactionParent::DisconnectTransaction() {
     mPendingSignInfo.reset();
     resolver(NS_ERROR_DOM_ABORT_ERR);
   }
-  if (mWebAuthnService) {
-    mWebAuthnService->Reset();
+  if (mWebAuthnService && transactionId.isSome()) {
+    mWebAuthnService->Cancel(transactionId.ref());
   }
 }
 
@@ -508,6 +508,16 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestSign(
     ContinueWithSign(origin, aTransactionInfo, std::move(aResolver));
     return IPC_OK();
   }
+
+  // Bug 2043449: A conditionally mediated request must not trigger a related
+  // origin request, which may prompt the user. Fail with a security error
+  // instead.
+  if (aTransactionInfo.ConditionallyMediated()) {
+    mTransactionId.reset();
+    aResolver(NS_ERROR_DOM_SECURITY_ERR);
+    return IPC_OK();
+  }
+
   rv = BeginRelatedOriginCheck(aTransactionInfo.RpId(), WebAuthnOp::Assert);
   if (NS_FAILED(rv)) {
     aResolver(NS_ERROR_DOM_SECURITY_ERR);

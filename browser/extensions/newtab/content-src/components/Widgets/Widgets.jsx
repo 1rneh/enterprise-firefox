@@ -19,6 +19,7 @@ import { SLOTS } from "../DiscoveryStreamComponents/FeatureHighlight/OMCHighligh
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import {
   WIDGET_REGISTRY,
+  isWidgetAddable,
   isWidgetEnabled,
   resolveWidgetSize,
   resolveWidgetOrder,
@@ -27,6 +28,7 @@ import {
 } from "common/WidgetsRegistry.mjs";
 import { WIDGET_ROW_COMPONENTS } from "./WidgetsComponentRegistry.jsx";
 import { WidgetWrapper } from "./WidgetWrapper";
+import { useWidgetDnD } from "./useWidgetDnD.jsx";
 
 const CONTAINER_ACTION_TYPES = {
   HIDE_ALL: "hide_all",
@@ -209,9 +211,35 @@ function Widgets() {
 
   const widgetOrder = resolveWidgetOrder(prefs);
 
+  const {
+    effectiveOrder,
+    draggedId,
+    previewOrderMap,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+    handleDragEnd,
+    handleMouseDown,
+  } = useWidgetDnD({
+    widgetOrder,
+    prefs,
+    dispatch,
+  });
+
   const anyWidgetInRow =
     WIDGET_REGISTRY.some(w => widgetEnabledMap[w.id]) ||
     (!novaEnabled && weatherForecastEnabled);
+
+  const allWidgetsAdded = WIDGET_REGISTRY.filter(w =>
+    isWidgetAddable(w, prefs)
+  ).every(w => prefs[w.enabledPref]);
+
+  const renderedWidgetSizes = WIDGET_REGISTRY.filter(
+    w => widgetEnabledMap[w.id]
+  ).map(w => resolveWidgetSize(w, prefs));
+  const addButtonSize = renderedWidgetSizes.includes("large")
+    ? "large"
+    : "medium";
 
   // Widget size is "small" only when maximize feature is enabled and widgets
   // are currently minimized. Otherwise defaults to "medium".
@@ -510,7 +538,8 @@ function Widgets() {
   // attribute is read by the @container rules in CSS.
   const sizes = [];
   const enabledWidgetIds = [];
-  for (const id of widgetOrder) {
+  // Use effectiveOrder (matches the render loop) so optimistic reorders aren't briefly mis-hidden.
+  for (const id of effectiveOrder) {
     if (!WIDGET_ROW_COMPONENTS[id] || !widgetEnabledMap[id]) {
       continue;
     }
@@ -601,7 +630,7 @@ function Widgets() {
           className={`widgets-container${isMaximized ? " is-maximized" : ""}`}
           data-row-collapsed={isCollapsed ? "" : undefined}
         >
-          {widgetOrder.map(id => {
+          {effectiveOrder.map(id => {
             if (novaEnabled) {
               const Component = WIDGET_ROW_COMPONENTS[id];
               if (!Component || !widgetEnabledMap[id]) {
@@ -632,11 +661,31 @@ function Widgets() {
                   ? ""
                   : undefined,
               };
+              const wrapperClassName = [
+                size && `${size}-widget`,
+                "widget-draggable",
+                draggedId === id && "is-dragging",
+              ]
+                .filter(Boolean)
+                .join(" ");
+              const dragProps = {
+                style: previewOrderMap
+                  ? { order: previewOrderMap[id] }
+                  : undefined,
+                draggable: true,
+                onDragStart: e => handleDragStart(e, id),
+                onDragOverCapture: handleDragOver,
+                onDrop: handleDrop,
+                onDragEnd: handleDragEnd,
+                onMouseDown: handleMouseDown,
+              };
               return (
                 <WidgetWrapper
                   key={id}
-                  className={size ? `${size}-widget` : ""}
+                  className={wrapperClassName}
+                  data-widget-id={id}
                   {...hiddenAttrs}
+                  {...dragProps}
                 >
                   <Component
                     dispatch={dispatch}
@@ -681,6 +730,18 @@ function Widgets() {
               </React.Fragment>
             );
           })}
+          {novaEnabled && !allWidgetsAdded && (
+            <button
+              type="button"
+              className={`widgets-add-button col-4 ${addButtonSize}-widget`}
+              style={{ order: WIDGET_REGISTRY.length + 1 }}
+              data-l10n-id="newtab-widget-add-widgets-button"
+              onClick={handleManageWidgetsClick}
+              tabIndex={-1}
+            >
+              <span className="widgets-add-button-icon" />
+            </button>
+          )}
         </div>
         {novaEnabled && (
           <moz-button

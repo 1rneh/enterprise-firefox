@@ -1059,6 +1059,11 @@
       "description": "Prevent Firefox from applying performance, stability, and feature changes between updates.",
       "examples": [true, false]
     },
+
+    "DisableRemoteSettingsAndAcceptSecurityConsequences": {
+      "type": "boolean"
+    },
+
     "DisableSafeMode": {
       "type": "boolean",
       "x-category": "Security",

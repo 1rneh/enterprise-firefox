@@ -165,12 +165,7 @@ class ContentSharingUtilsClass {
       return;
     }
 
-    const title = await lazy.contentSharingL10n.formatValue(
-      "content-sharing-tabs-title",
-      {
-        count: tabs.length,
-      }
-    );
+    const title = "tab share title";
 
     const shareObject = {
       type: "tabs",
@@ -181,6 +176,13 @@ class ContentSharingUtilsClass {
       })),
     };
     const result = this.buildShare(shareObject);
+
+    result.share.title = await lazy.contentSharingL10n.formatValue(
+      "content-sharing-tabs-title",
+      {
+        count: this.countItems(result.share),
+      }
+    );
     await this.#createLinkAndOpenModal(result, "tabs");
   }
 
@@ -344,6 +346,7 @@ class ContentSharingUtilsClass {
 
     share.links = links;
     shareResult.share = share;
+
     return shareResult;
   }
 
@@ -458,6 +461,7 @@ class ContentSharingUtilsClass {
     if (!this.serverURL) {
       console.error("ContentSharingUtils: server URL is not set");
       shareResult.error = ERRORS.GENERIC;
+      Glean.collectionShare.error.record({ error_type: ERRORS.GENERIC });
       return shareResult;
     }
 
@@ -515,8 +519,7 @@ class ContentSharingUtilsClass {
           canRetry = false;
           if (response.status === 401) {
             shareResult.error = ERRORS.UNAUTHORIZED;
-          }
-          if (response.status === 410) {
+          } else if (response.status === 410) {
             shareResult.error = ERRORS.DISABLED;
             this.disable();
           } else {
@@ -532,7 +535,10 @@ class ContentSharingUtilsClass {
       } catch (error) {
         console.error(error);
         canRetry = false;
-        shareResult.error = ERRORS.MAX_REQUEST_ATTEMPTS;
+        shareResult.error = ERRORS.MAX_RETRY_ATTEMPTS;
+        Glean.collectionShare.error.record({
+          error_type: ERRORS.MAX_RETRY_ATTEMPTS,
+        });
       }
 
       attempts += 1;
@@ -598,6 +604,7 @@ class ContentSharingUtilsClass {
     shareResult.isSchemaValid = result.valid;
     if (!result.valid || this.countItems(shareResult.share) > MAX_ITEM_COUNT) {
       shareResult.error = ERRORS.INVALID_SCHEMA;
+      Glean.collectionShare.error.record({ error_type: ERRORS.INVALID_SCHEMA });
     }
 
     return shareResult;

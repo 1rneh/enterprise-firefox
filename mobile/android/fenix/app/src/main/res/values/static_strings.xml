@@ -192,6 +192,7 @@
     <!-- Label for toggling the Tab Groups feature -->
     <string name="preferences_tab_groups_feature" translatable="false">Enable Tab Groups</string>
     <string name="preferences_tab_groups_drag_and_drop" translatable="false">Enable Tab Groups Drag and Drop</string>
+    <string name="preferences_tab_groups_onboarding" translatable="false">Enable Tab Groups Onboarding</string>
 
     <!-- Label for toggling the Tab Manager opening animation -->
     <string name="preferences_tab_manager_opening_animation" translatable="false">Enable Tab Manager opening animation</string>
@@ -352,8 +353,6 @@
         The "Labs" portion can be localized, "Firefox" must be treated as a brand and kept
         in English. -->
     <string name="firefox_labs_title" tools:ignore="BrandUsage">Firefox Labs</string>
-    <!-- Text displayed when no experimental features are available in the Firefox Labs screen. -->
-    <string name="firefox_labs_no_labs_available_description">No experimental features available</string>
     <!-- The name of an experimental feature displayed in theFirefox Labs screen. This features allows the user to open the homepage as a new tab. -->
     <string name="firefox_labs_homepage_as_a_new_tab">Homepage as a New Tab</string>
     <!-- The description of the "Homepage as a New Tab" feature in the Firefox Labs screen. -->

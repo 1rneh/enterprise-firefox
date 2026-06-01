@@ -8,6 +8,8 @@
 #ifndef jit_riscv64_MacroAssembler_riscv64_h
 #define jit_riscv64_MacroAssembler_riscv64_h
 
+#include "mozilla/Maybe.h"
+
 #include "jit/MoveResolver.h"
 #include "jit/riscv64/Assembler-riscv64.h"
 #include "wasm/WasmTypeDecls.h"
@@ -27,7 +29,7 @@ enum LoadStoreSize {
 
 enum LoadStoreExtension { ZeroExtend = 0, SignExtend = 1 };
 enum JumpKind { LongJump = 0, ShortJump = 1 };
-enum FloatFormat { SingleFloat, DoubleFloat };
+
 class ScratchTagScope {
   UseScratchRegisterScope temps_;
   Register scratch_;
@@ -274,13 +276,6 @@ class MacroAssemblerRiscv64 : public Assembler {
   void ma_cmp_set(Register dst, Address address, Imm32 imm, Condition c);
   void ma_cmp_set(Register dst, Address address, ImmWord imm, Condition c);
 
-  void ma_rotr_w(Register rd, Register rj, Imm32 shift);
-
-  void ma_fmovz(FloatFormat fmt, FloatRegister fd, FloatRegister fj,
-                Register rk);
-  void ma_fmovn(FloatFormat fmt, FloatRegister fd, FloatRegister fj,
-                Register rk);
-
   // arithmetic based ops
   void ma_add32TestCarry(Condition cond, Register rd, Register rj, Register rk,
                          Label* overflow);
@@ -328,7 +323,8 @@ class MacroAssemblerRiscv64 : public Assembler {
   void computeScaledAddress32(const BaseIndex& address, Register dest);
 
  private:
-  bool UseShortBranch(Label* L, JumpKind jumpKind, OffsetSize bits);
+  bool UseShortBranch(Label* L, JumpKind jumpKind, OffsetSize bits,
+                      mozilla::Maybe<AutoForbidNops>& maybeAfn);
 
   void Branch(Label* L, JumpKind jumpKind);
   void Branch(Label* L, Condition cond, Register rs, const Operand& rt,
@@ -624,16 +620,24 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
   }
   inline void retn(Imm32 n);
   void push(Imm32 imm) {
-    UseScratchRegisterScope temps(this);
-    Register scratch = temps.Acquire();
-    ma_li(scratch, imm);
-    ma_push(scratch);
+    if (imm.value == 0) {
+      ma_push(zero_reg);
+    } else {
+      UseScratchRegisterScope temps(this);
+      Register scratch = temps.Acquire();
+      ma_li(scratch, imm);
+      ma_push(scratch);
+    }
   }
   void push(ImmWord imm) {
-    UseScratchRegisterScope temps(this);
-    Register scratch = temps.Acquire();
-    ma_li(scratch, imm);
-    ma_push(scratch);
+    if (imm.value == 0) {
+      ma_push(zero_reg);
+    } else {
+      UseScratchRegisterScope temps(this);
+      Register scratch = temps.Acquire();
+      ma_li(scratch, imm);
+      ma_push(scratch);
+    }
   }
   void push(ImmGCPtr imm) {
     UseScratchRegisterScope temps(this);

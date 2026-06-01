@@ -11,9 +11,8 @@ ChromeUtils.defineESModuleGetters(this, {
   ProvidersManager:
     "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
-  UrlbarResult: "moz-src:///browser/components/urlbar/UrlbarResult.sys.mjs",
+  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
-  UrlbarView: "moz-src:///browser/components/urlbar/UrlbarView.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
 });
 
@@ -41,15 +40,11 @@ add_setup(async function headInit() {
 
       // Make sure maxRichResults is 10 for sanity.
       ["browser.urlbar.maxRichResults", MAX_RESULTS],
-    ],
-  });
 
-  // Increase the timeout of the remove-stale-rows timer so that it doesn't
-  // interfere with the tests.
-  let originalRemoveStaleRowsTimeout = UrlbarView.removeStaleRowsTimeout;
-  UrlbarView.removeStaleRowsTimeout = 30000;
-  registerCleanupFunction(() => {
-    UrlbarView.removeStaleRowsTimeout = originalRemoveStaleRowsTimeout;
+      // Increase the timeout of the remove-stale-rows timer so that it doesn't
+      // interfere with the tests.
+      ["browser.urlbar.removeStaleRowsTimeout", 30000],
+    ],
   });
 });
 

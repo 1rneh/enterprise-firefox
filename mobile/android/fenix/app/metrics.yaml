@@ -6944,9 +6944,9 @@ tabs_tray:
     description: |
       A user switched to tab group mode
     bugs:
-      - todocathy
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2026038
     data_reviews:
-      - todocathy
+      - https://phabricator.services.mozilla.com/D292785
     data_sensitivity:
       - interaction
     notification_emails:
@@ -7538,6 +7538,60 @@ tabs_tray:
     data_sensitivity:
       - interaction
     expires: never
+  tab_long_press:
+    type: event
+    description: |
+      A user long-pressed on a tab in the tabs tray.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2038021
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D301419
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Tabs
+  tab_long_press_drag:
+    type: event
+    description: |
+      A user dragged a tab in the tabs tray after long-pressing it.
+    extra_keys:
+      item_type:
+        description: |
+          The type of item dragged. One of "tab", "tab_group", or "unknown".
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2038021
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D301419
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Tabs
+  tab_long_press_drag_rearranged_position:
+    type: event
+    description: |
+      A user rearranged the position of a tab in the tabs tray by dragging
+      and dropping it after long-pressing it.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2038021
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D301419
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Tabs
 
 tab_search:
   tab_search_icon_clicked:
@@ -15836,10 +15890,26 @@ world_cup:
     notification_emails:
       - android-probes@mozilla.com
     expires: never
-  sports_widget_displayed:
+  sports_widget_card_shown:
     type: event
     description: |
-      The sports widget is displayed
+      A card is shown in the sports widget. Fires once per widget mount as an impression
+      and once per subsequent swipe to a different page.
+    extra_keys:
+      source:
+        description: |
+          How the card became visible. One of: impression, swipe.
+          `impression` fires once per widget mount for the first card seen; `swipe` fires
+          when the user lands on a different page in the sports pager.
+        type: string
+      card_type:
+        description: |
+          Which card variant was shown. One of: error_load_failed,
+          error_connection_interrupted, countdown_promo, follow_team_promo,
+          following_promo, champions_winner, champions_third_place, match_group_stage,
+          match_round_of_32, match_round_of_16, match_quarter_final, match_semi_final,
+          match_third_place_playoff, match_final.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2037817
     data_reviews:
@@ -15869,7 +15939,9 @@ world_cup:
     extra_keys:
       source:
         description: |
-          Where the interaction occurred. One of: live_match_header, live_match_error_button.
+          Where the interaction occurred. One of: live_match_header,
+          live_match_card_error_button (inside a match card),
+          sports_widget_card_error_button (standalone SportsWidgetErrorCard).
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2037817

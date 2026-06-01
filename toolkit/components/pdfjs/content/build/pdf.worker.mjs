@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.195
- * pdfjsBuild = e7661983f
+ * pdfjsVersion = 6.0.229
+ * pdfjsBuild = 145feeaa3
  */
 
 ;// ./src/shared/util.js
@@ -11554,12 +11554,12 @@ class Parser {
     if (lexer.beginInlineImagePos !== -1) {
       dictLength = stream.pos - lexer.beginInlineImagePos;
     }
-    const filter = this.xref.fetchIfRef(dictMap.F || dictMap.Filter);
+    const filter = this.#fetchIfRef(dictMap.F || dictMap.Filter);
     let filterName;
     if (filter instanceof Name) {
       filterName = filter.name;
     } else if (Array.isArray(filter)) {
-      const filterZero = this.xref.fetchIfRef(filter[0]);
+      const filterZero = this.#fetchIfRef(filter[0]);
       if (filterZero instanceof Name) {
         filterName = filterZero.name;
       }
@@ -11601,10 +11601,10 @@ class Parser {
       dict.set(key, dictMap[key]);
     }
     let imageStream = stream.makeSubStream(startPos, length, dict);
-    if (cipherTransform) {
+    if (cipherTransform && !this.#hasCryptFilter(filter)) {
       imageStream = cipherTransform.createStream(imageStream, length);
     }
-    imageStream = this.filter(imageStream, dict, length);
+    imageStream = this.filter(imageStream, dict, length, cipherTransform);
     imageStream.dict = dict;
     if (cacheKey !== undefined) {
       imageStream.cacheKey = `inline_img_${++this._imageId}`;
@@ -11613,6 +11613,20 @@ class Parser {
     this.buf2 = Cmd.get("EI");
     this.shift();
     return imageStream;
+  }
+  #fetchIfRef(obj) {
+    return this.xref ? this.xref.fetchIfRef(obj) : obj;
+  }
+  #hasCryptFilter(filter) {
+    if (!Array.isArray(filter)) {
+      return isName(filter, "Crypt");
+    }
+    for (const f of filter) {
+      if (isName(this.#fetchIfRef(f), "Crypt")) {
+        return true;
+      }
+    }
+    return false;
   }
   #findStreamLength(startPos) {
     const {
@@ -11694,42 +11708,43 @@ class Parser {
     }
     this.shift();
     stream = stream.makeSubStream(startPos, length, dict);
-    if (cipherTransform) {
+    const filter = dict.get("F", "Filter");
+    if (cipherTransform && !this.#hasCryptFilter(filter)) {
       stream = cipherTransform.createStream(stream, length);
     }
-    stream = this.filter(stream, dict, length);
+    stream = this.filter(stream, dict, length, cipherTransform);
     stream.dict = dict;
     return stream;
   }
-  filter(stream, dict, length) {
+  filter(stream, dict, length, cipherTransform = null) {
     let filter = dict.get("F", "Filter");
     let params = dict.get("DP", "DecodeParms");
     if (filter instanceof Name) {
       if (Array.isArray(params)) {
         warn("/DecodeParms should not be an Array, when /Filter is a Name.");
       }
-      return this.makeFilter(stream, filter.name, length, params);
+      return this.makeFilter(stream, filter.name, length, params, cipherTransform);
     }
     let maybeLength = length;
     if (Array.isArray(filter)) {
       const filterArray = filter;
       const paramsArray = params;
       for (let i = 0, ii = filterArray.length; i < ii; ++i) {
-        filter = this.xref.fetchIfRef(filterArray[i]);
+        filter = this.#fetchIfRef(filterArray[i]);
         if (!(filter instanceof Name)) {
           throw new FormatError(`Bad filter name "${filter}"`);
         }
         params = null;
         if (Array.isArray(paramsArray) && i in paramsArray) {
-          params = this.xref.fetchIfRef(paramsArray[i]);
+          params = this.#fetchIfRef(paramsArray[i]);
         }
-        stream = this.makeFilter(stream, filter.name, maybeLength, params);
+        stream = this.makeFilter(stream, filter.name, maybeLength, params, cipherTransform);
         maybeLength = null;
       }
     }
     return stream;
   }
-  makeFilter(stream, name, maybeLength, params) {
+  makeFilter(stream, name, maybeLength, params, cipherTransform = null) {
     if (maybeLength === 0) {
       warn(`Empty "${name}" stream.`);
       return new NullStream();
@@ -11774,6 +11789,16 @@ class Parser {
           return new Jbig2Stream(stream, maybeLength, params);
         case "BrotliDecode":
           return new BrotliStream(stream, maybeLength);
+        case "Crypt":
+          {
+            if (!cipherTransform) {
+              warn('Filter "Crypt" is missing a cipher transform.');
+              return stream;
+            }
+            const param = params instanceof Dict ? params.get("Name") : null;
+            const cryptName = param instanceof Name ? param : Name.get("Identity");
+            return cipherTransform.createStream(stream, maybeLength, cryptName);
+          }
       }
       warn(`Filter "${name}" is not supported.`);
       return stream;
@@ -17958,6 +17983,7 @@ class DataBuilder {
 
 
 
+
 const MAX_SUBR_NESTING = 10;
 function looksLikeUnsigned16BitNegative(coord) {
   return coord > 0x7fff && coord <= 0xffff;
@@ -18650,6 +18676,27 @@ class CFFParser {
     }
     if (expansionFactor === 0) {
       privateDict.setByName("ExpansionFactor", DEFAULT_EXPANSION_FACTOR);
+    }
+    if (blueScale > 0) {
+      let maxZoneHeight = 0;
+      for (const zones of [privateDict.getByName("BlueValues"), privateDict.getByName("OtherBlues")]) {
+        if (!zones) {
+          continue;
+        }
+        for (let i = 1; i < zones.length; i += 2) {
+          if (zones[i] > maxZoneHeight) {
+            maxZoneHeight = zones[i];
+          }
+        }
+      }
+      if (maxZoneHeight > 0) {
+        const minBlueScale = blueScale < DEFAULT_BLUE_SCALE ? 0.5 / maxZoneHeight : -Infinity;
+        const maxBlueScale = 1 / maxZoneHeight;
+        const clamped = MathClamp(blueScale, minBlueScale, maxBlueScale);
+        if (clamped !== blueScale) {
+          privateDict.setByName("BlueScale", clamped);
+        }
+      }
     }
     if (!privateDict.getByName("Subrs")) {
       return;
@@ -25599,6 +25646,214 @@ class Type1Parser {
     }
     return program;
   }
+  extractCidKeyedFontProgram(properties) {
+    const stream = this.stream;
+    const privateData = new Map([["lenIV", 4]]);
+    const program = {
+      subrs: [],
+      charstrings: [],
+      properties: {
+        privateData
+      }
+    };
+    let cidCount = 0;
+    let cidMapOffset = -1;
+    let fdBytes = 1;
+    let gdBytes = 0;
+    let subrMapOffset = -1;
+    let sdBytes = 0;
+    let subrCount = 0;
+    let startDataLength = 0;
+    let startDataIsHex = false;
+    let foundStartData = false;
+    const previousTokens = [];
+    function rememberToken(value) {
+      previousTokens.push(value);
+      if (previousTokens.length > 4) {
+        previousTokens.shift();
+      }
+    }
+    let token;
+    while ((token = this.getToken()) !== null) {
+      if (token === "StartData") {
+        const dataType = previousTokens.at(-3);
+        const dataLength = previousTokens.at(-1);
+        if (previousTokens.at(-4) !== "(" || previousTokens.at(-2) !== ")" || dataType !== "Binary" && dataType !== "Hex" || !/^\d+$/.test(dataLength)) {
+          return null;
+        }
+        startDataLength = parseInt(dataLength, 10);
+        if (startDataLength <= 0) {
+          return null;
+        }
+        startDataIsHex = dataType === "Hex";
+        foundStartData = true;
+        break;
+      }
+      rememberToken(token);
+      if (token !== "/") {
+        continue;
+      }
+      token = this.getToken();
+      rememberToken(token);
+      switch (token) {
+        case "FontMatrix":
+          properties.fontMatrix = this.readNumberArray();
+          break;
+        case "FontBBox":
+          const fontBBox = this.readNumberArray();
+          properties.ascent = Math.max(fontBBox[3], fontBBox[1]);
+          properties.descent = Math.min(fontBBox[1], fontBBox[3]);
+          properties.ascentScaled = true;
+          break;
+        case "CIDCount":
+          cidCount = this.readInt();
+          break;
+        case "CIDMapOffset":
+          cidMapOffset = this.readInt();
+          break;
+        case "FDBytes":
+          fdBytes = this.readInt();
+          break;
+        case "GDBytes":
+          gdBytes = this.readInt();
+          break;
+        case "SubrMapOffset":
+          subrMapOffset = this.readInt();
+          break;
+        case "SDBytes":
+          sdBytes = this.readInt();
+          break;
+        case "SubrCount":
+          subrCount = this.readInt();
+          break;
+        case "BlueValues":
+        case "OtherBlues":
+        case "FamilyBlues":
+        case "FamilyOtherBlues":
+          this.readNumberArray();
+          break;
+        case "StemSnapH":
+        case "StemSnapV":
+          privateData.set(token, this.readNumberArray());
+          break;
+        case "StdHW":
+        case "StdVW":
+          privateData.set(token, this.readNumberArray()[0]);
+          break;
+        case "BlueShift":
+        case "lenIV":
+        case "BlueFuzz":
+        case "BlueScale":
+        case "LanguageGroup":
+          privateData.set(token, this.readNumber());
+          break;
+        case "ExpansionFactor":
+          privateData.set(token, this.readNumber() || 0.06);
+          break;
+        case "ForceBold":
+          privateData.set(token, this.readBoolean());
+          break;
+      }
+    }
+    if (!foundStartData || cidCount <= 0 || cidMapOffset < 0 || fdBytes < 0 || fdBytes > 4 || gdBytes < 1 || gdBytes > 4) {
+      return null;
+    }
+    const maxLength = stream.end - stream.pos;
+    if (startDataLength > maxLength) {
+      if (!startDataIsHex) {
+        startDataLength = maxLength;
+      } else if (startDataLength > 2 * maxLength) {
+        return null;
+      }
+    }
+    let binary = stream.getBytes(startDataIsHex ? undefined : startDataLength);
+    if (startDataIsHex) {
+      const decoded = new Uint8Array(startDataLength);
+      let digit1 = -1,
+        j = 0;
+      for (let i = 0, ii = binary.length; i < ii && j < startDataLength; i++) {
+        const digit = binary[i];
+        if (!isHexDigit(digit)) {
+          continue;
+        }
+        if (digit1 < 0) {
+          digit1 = digit;
+          continue;
+        }
+        decoded[j++] = parseInt(String.fromCharCode(digit1, digit), 16);
+        digit1 = -1;
+      }
+      if (j !== startDataLength) {
+        return null;
+      }
+      binary = decoded;
+    }
+    const lenIV = privateData.get("lenIV");
+    const cidEntrySize = fdBytes + gdBytes;
+    const subrs = [];
+    function readUint(offset, byteCount) {
+      let n = 0;
+      for (let i = 0; i < byteCount; i++) {
+        n = n << 8 | binary[offset + i];
+      }
+      return n >>> 0;
+    }
+    if (cidMapOffset + (cidCount + 1) * cidEntrySize > binary.length || subrCount > 0 && (subrMapOffset < 0 || sdBytes < 1 || sdBytes > 4 || subrMapOffset + (subrCount + 1) * sdBytes > binary.length)) {
+      return null;
+    }
+    if (fdBytes > 0) {
+      for (let cid = 0; cid < cidCount; cid++) {
+        if (readUint(cidMapOffset + cid * cidEntrySize, fdBytes) !== 0) {
+          return null;
+        }
+      }
+    }
+    if (subrCount > 0) {
+      const subrOffsets = new Array(subrCount + 1);
+      for (let i = 0; i <= subrCount; i++) {
+        subrOffsets[i] = readUint(subrMapOffset + i * sdBytes, sdBytes);
+      }
+      for (let i = 0; i < subrCount; i++) {
+        const start = subrOffsets[i];
+        const end = subrOffsets[i + 1];
+        if (end > binary.length || end < start) {
+          subrs[i] = new Uint8Array(0);
+          continue;
+        }
+        subrs[i] = this.readCharStrings(binary.subarray(start, end), lenIV);
+      }
+    }
+    const charstrings = [];
+    let prevOffset = readUint(cidMapOffset + fdBytes, gdBytes);
+    for (let cid = 0; cid < cidCount; cid++) {
+      const nextOffset = readUint(cidMapOffset + (cid + 1) * cidEntrySize + fdBytes, gdBytes);
+      const glyphName = cid === 0 ? ".notdef" : `cid${cid}`;
+      if (nextOffset > prevOffset && nextOffset <= binary.length) {
+        const encoded = this.readCharStrings(binary.subarray(prevOffset, nextOffset), lenIV);
+        const charString = new Type1CharString();
+        const error = charString.convert(encoded, subrs, this.seacAnalysisEnabled);
+        charstrings.push({
+          glyphName,
+          charstring: error ? [14] : charString.output,
+          width: charString.width,
+          lsb: charString.lsb,
+          seac: charString.seac
+        });
+      } else {
+        const notDef = charstrings[0];
+        charstrings.push({
+          glyphName,
+          charstring: notDef?.charstring.slice() || [0x8b, 0x0e],
+          width: notDef?.width || 0,
+          lsb: notDef?.lsb || 0
+        });
+      }
+      prevOffset = nextOffset;
+    }
+    program.subrs = subrs;
+    program.charstrings = charstrings;
+    return program;
+  }
   extractFontHeader(properties) {
     let token;
     while ((token = this.getToken()) !== null) {
@@ -25740,9 +25995,33 @@ function getEexecBlock(stream, suggestedLength) {
     length: eexecBytes.length
   };
 }
+function isCidKeyedType1File(file) {
+  const sample = file.peekBytes(2048);
+  if (sample.length < 2 || sample[0] !== 0x25 || sample[1] !== 0x21) {
+    return false;
+  }
+  const text = bytesToString(sample);
+  return text.includes("Resource-CIDFont") || /\/CIDFontType\s+0\b/.test(text);
+}
 class Type1Font {
   #rawFileLength;
   constructor(name, file, properties) {
+    let data;
+    if (properties.composite && isCidKeyedType1File(file)) {
+      data = this.#parseCidKeyedType1(file, properties);
+    }
+    data ||= this.#parseType1(file, properties);
+    for (const key in data.properties) {
+      properties[key] = data.properties[key];
+    }
+    const charstrings = data.charstrings;
+    const type2Charstrings = this.getType2Charstrings(charstrings);
+    const subrs = this.getType2Subrs(data.subrs);
+    this.charstrings = charstrings;
+    this.data = this.wrap(name, type2Charstrings, this.charstrings, subrs, properties);
+    this.seacs = this.getSeacs(data.charstrings);
+  }
+  #parseType1(file, properties) {
     const PFB_HEADER_SIZE = 6;
     let headerBlockLength = properties.length1;
     let eexecBlockLength = properties.length2;
@@ -25762,16 +26041,21 @@ class Type1Font {
     const eexecBlock = getEexecBlock(file, eexecBlockLength);
     const eexecBlockParser = new Type1Parser(eexecBlock.stream, true, SEAC_ANALYSIS_ENABLED);
     const data = eexecBlockParser.extractFontProgram(properties);
-    for (const key in data.properties) {
-      properties[key] = data.properties[key];
-    }
     this.#rawFileLength = headerBlock.length + eexecBlock.length;
-    const charstrings = data.charstrings;
-    const type2Charstrings = this.getType2Charstrings(charstrings);
-    const subrs = this.getType2Subrs(data.subrs);
-    this.charstrings = charstrings;
-    this.data = this.wrap(name, type2Charstrings, this.charstrings, subrs, properties);
-    this.seacs = this.getSeacs(data.charstrings);
+    return data;
+  }
+  #parseCidKeyedType1(file, properties) {
+    const fileStart = file.pos;
+    const length = file.end - fileStart;
+    const parser = new Type1Parser(file, false, SEAC_ANALYSIS_ENABLED);
+    const data = parser.extractCidKeyedFontProgram(properties);
+    if (!data) {
+      file.pos = fileStart;
+      warn("Type1Font: unable to parse CID-keyed Type 1 font.");
+      return null;
+    }
+    this.#rawFileLength = length;
+    return data;
   }
   get numGlyphs() {
     return this.charstrings.length + 1;
@@ -33982,6 +34266,8 @@ class PartialEvaluator {
       if (smask?.backdrop) {
         colorSpace ||= ColorSpaceUtils.rgb;
         smask.backdrop = colorSpace.getRgbHex(smask.backdrop, 0);
+      } else if (smask?.subtype === "Luminosity") {
+        smask.backdrop = "#000000";
       }
       newOpList = new CheckedOperatorList();
     } else {
@@ -41286,6 +41572,206 @@ class Catalog {
       }
     }
   }
+}
+
+;// ./src/core/editor/pdf_images.js
+
+
+
+const FLATE_COLOR_COUNT_THRESHOLD = 16384;
+function createImageDict(xref, width, height, colorSpace) {
+  const image = new Dict(xref);
+  image.set("Type", Name.get("XObject"));
+  image.set("Subtype", Name.get("Image"));
+  image.set("BitsPerComponent", 8);
+  image.setIfName("ColorSpace", colorSpace);
+  image.set("Width", width);
+  image.set("Height", height);
+  return image;
+}
+function createRawImage(buffer, dict) {
+  return new Stream(buffer, 0, buffer.length, dict);
+}
+function paethPredictor(left, above, upperLeft) {
+  const p = left + above - upperLeft;
+  const pa = Math.abs(p - left);
+  const pb = Math.abs(p - above);
+  const pc = Math.abs(p - upperLeft);
+  if (pa <= pb && pa <= pc) {
+    return left;
+  }
+  return pb <= pc ? above : upperLeft;
+}
+function applyPNGOptimumFilter(data, width, height, bytesPerPixel) {
+  const rowSize = width * bytesPerPixel;
+  const out = new Uint8Array(height * (rowSize + 1));
+  const candidates = [new Uint8Array(rowSize), new Uint8Array(rowSize), new Uint8Array(rowSize), new Uint8Array(rowSize), new Uint8Array(rowSize)];
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * rowSize;
+    const prevRowOffset = rowOffset - rowSize;
+    const scores = [0, 0, 0, 0, 0];
+    for (let x = 0; x < rowSize; x++) {
+      const offset = rowOffset + x;
+      const cur = data[offset];
+      const left = x >= bytesPerPixel ? data[offset - bytesPerPixel] : 0;
+      const above = y > 0 ? data[prevRowOffset + x] : 0;
+      const upperLeft = y > 0 && x >= bytesPerPixel ? data[prevRowOffset + x - bytesPerPixel] : 0;
+      candidates[0][x] = cur;
+      candidates[1][x] = cur - left & 0xff;
+      candidates[2][x] = cur - above & 0xff;
+      candidates[3][x] = cur - (left + above >> 1) & 0xff;
+      candidates[4][x] = cur - paethPredictor(left, above, upperLeft) & 0xff;
+      for (let f = 0; f < 5; f++) {
+        const v = candidates[f][x];
+        scores[f] += v < 128 ? v : 256 - v;
+      }
+    }
+    let bestFilter = 0;
+    for (let f = 1; f < 5; f++) {
+      if (scores[f] < scores[bestFilter]) {
+        bestFilter = f;
+      }
+    }
+    const outOffset = y * (rowSize + 1);
+    out[outOffset] = bestFilter;
+    out.set(candidates[bestFilter], outOffset + 1);
+  }
+  return out;
+}
+async function deflate(bytes) {
+  const cs = new CompressionStream("deflate");
+  const writer = cs.writable.getWriter();
+  const writePromise = (async () => {
+    try {
+      await writer.ready;
+      await writer.write(bytes);
+      await writer.ready;
+      await writer.close();
+    } catch (reason) {
+      await writer.abort(reason).catch(() => {});
+      throw reason;
+    }
+  })();
+  const [compressed] = await Promise.all([new Response(cs.readable).bytes(), writePromise.then(() => null)]);
+  return compressed;
+}
+async function createPNGLikeImage(buffer, width, height, dict) {
+  const bytesPerPixel = buffer.length / (width * height);
+  let compressed;
+  if (typeof CompressionStream === "function") {
+    try {
+      const filtered = applyPNGOptimumFilter(buffer, width, height, bytesPerPixel);
+      compressed = await deflate(filtered);
+    } catch {}
+  }
+  if (!compressed) {
+    return createRawImage(buffer, dict);
+  }
+  dict.setIfName("Filter", "FlateDecode");
+  const decodeParms = new Dict(dict.xref);
+  decodeParms.set("Predictor", 15);
+  decodeParms.set("Columns", width);
+  decodeParms.set("Colors", bytesPerPixel);
+  decodeParms.set("BitsPerComponent", 8);
+  dict.set("DecodeParms", decodeParms);
+  return createRawImage(compressed, dict);
+}
+async function createImage(bitmap, xref, {
+  closeBitmap = false
+} = {}) {
+  const {
+    width,
+    height
+  } = bitmap;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    if (closeBitmap) {
+      bitmap.close?.();
+    }
+    throw new Error(`createImage: invalid bitmap dimensions ${width}x${height}`);
+  }
+  const canvas = new OffscreenCanvas(width, height);
+  const ctx = canvas.getContext("2d", {
+    alpha: true,
+    willReadFrequently: true
+  });
+  let data;
+  try {
+    ctx.drawImage(bitmap, 0, 0);
+    data = ctx.getImageData(0, 0, width, height).data;
+  } finally {
+    if (closeBitmap) {
+      bitmap.close?.();
+    }
+  }
+  const buf32 = new Uint32Array(data.buffer, data.byteOffset, data.byteLength >> 2);
+  const isLE = FeatureTest.isLittleEndian;
+  const rgbMask = isLE ? 0x00ffffff : 0xffffff00;
+  const colorCounter = new Set();
+  let hasAlpha = false;
+  let useFlate = true;
+  for (let i = 0, ii = buf32.length; i < ii; i++) {
+    const v = buf32[i];
+    if ((isLE ? v >>> 24 : v & 0xff) !== 0xff) {
+      hasAlpha = true;
+      break;
+    }
+    if (useFlate) {
+      colorCounter.add((v & rgbMask) >>> 0);
+      if (colorCounter.size > FLATE_COLOR_COUNT_THRESHOLD) {
+        useFlate = false;
+        colorCounter.clear();
+      }
+    }
+  }
+  if (hasAlpha) {
+    useFlate = true;
+  }
+  const image = createImageDict(xref, width, height, "DeviceRGB");
+  let imageStreamPromise;
+  let imageRenderStream = null;
+  if (useFlate) {
+    const rgbBuffer = new Uint8Array(width * height * 3);
+    for (let i = 0, j = 0, ii = data.length; i < ii; i += 4, j += 3) {
+      rgbBuffer[j] = data[i];
+      rgbBuffer[j + 1] = data[i + 1];
+      rgbBuffer[j + 2] = data[i + 2];
+    }
+    imageStreamPromise = createPNGLikeImage(rgbBuffer, width, height, image);
+    imageRenderStream = createRawImage(rgbBuffer, createImageDict(xref, width, height, "DeviceRGB"));
+  } else {
+    image.setIfName("Filter", "DCTDecode");
+    imageStreamPromise = canvas.convertToBlob({
+      type: "image/jpeg",
+      quality: 1
+    }).then(blob => blob.bytes()).then(bytes => createRawImage(bytes, image));
+  }
+  let smaskStreamPromise = Promise.resolve(null);
+  let smaskRenderStream = null;
+  if (hasAlpha) {
+    const alphaBuffer = new Uint8Array(buf32.length);
+    if (isLE) {
+      for (let i = 0, ii = buf32.length; i < ii; i++) {
+        alphaBuffer[i] = buf32[i] >>> 24;
+      }
+    } else {
+      for (let i = 0, ii = buf32.length; i < ii; i++) {
+        alphaBuffer[i] = buf32[i] & 0xff;
+      }
+    }
+    const smask = createImageDict(xref, width, height, "DeviceGray");
+    const smaskRenderDict = createImageDict(xref, width, height, "DeviceGray");
+    smaskStreamPromise = createPNGLikeImage(alphaBuffer, width, height, smask);
+    smaskRenderStream = createRawImage(alphaBuffer, smaskRenderDict);
+  }
+  const [imageStream, smaskStream] = await Promise.all([imageStreamPromise, smaskStreamPromise]);
+  return {
+    imageStream,
+    imageRenderStream,
+    smaskStream,
+    smaskRenderStream,
+    width,
+    height
+  };
 }
 
 ;// ./src/core/object_loader.js
@@ -52050,6 +52536,7 @@ class XFAFactory {
 
 
 
+
 class AnnotationFactory {
   static createGlobals(pdfManager) {
     return Promise.all([pdfManager.ensureCatalog("acroForm"), pdfManager.ensureDoc("xfaDatasets"), pdfManager.ensureCatalog("structTreeRoot"), pdfManager.ensureCatalog("baseUrl"), pdfManager.ensureCatalog("attachments"), pdfManager.ensureCatalog("globalColorSpaceCache")]).then(([acroForm, xfaDatasets, structTreeRoot, baseUrl, attachments, globalColorSpaceCache]) => ({
@@ -52209,7 +52696,7 @@ class AnnotationFactory {
         continue;
       }
       imagePromises ||= new Map();
-      imagePromises.set(bitmapId, StampAnnotation.createImage(bitmap, xref));
+      imagePromises.set(bitmapId, createImage(bitmap, xref));
     }
     return imagePromises;
   }
@@ -52270,7 +52757,10 @@ class AnnotationFactory {
             changes.put(imageRef, {
               data: imageStream
             });
-            image.imageStream = image.smaskStream = null;
+            image.imageStream = null;
+            image.imageRenderStream = null;
+            image.smaskStream = null;
+            image.smaskRenderStream = null;
           }
           promises.push(StampAnnotation.createNewAnnotation(xref, annotation, changes, {
             image
@@ -52327,13 +52817,19 @@ class AnnotationFactory {
           if (image?.imageStream) {
             const {
               imageStream,
-              smaskStream
+              imageRenderStream,
+              smaskStream,
+              smaskRenderStream
             } = image;
-            if (smaskStream) {
-              imageStream.dict.set("SMask", smaskStream);
+            const imageRef = imageRenderStream || new JpegStream(imageStream, imageStream.length);
+            if (smaskStream || smaskRenderStream) {
+              imageRef.dict.set("SMask", smaskRenderStream || smaskStream);
             }
-            image.imageRef = new JpegStream(imageStream, imageStream.length);
-            image.imageStream = image.smaskStream = null;
+            image.imageRef = imageRef;
+            image.imageStream = null;
+            image.imageRenderStream = null;
+            image.smaskStream = null;
+            image.smaskRenderStream = null;
           }
           promises.push(StampAnnotation.createNewPrintAnnotation(annotationGlobals, xref, annotation, {
             image,
@@ -55421,68 +55917,6 @@ class StampAnnotation extends MarkupAnnotation {
     }
     return !modifiedIds?.has(this.data.id);
   }
-  static async createImage(bitmap, xref) {
-    const {
-      width,
-      height
-    } = bitmap;
-    const canvas = new OffscreenCanvas(width, height);
-    const ctx = canvas.getContext("2d", {
-      alpha: true
-    });
-    ctx.drawImage(bitmap, 0, 0);
-    const data = ctx.getImageData(0, 0, width, height).data;
-    const buf32 = new Uint32Array(data.buffer);
-    const hasAlpha = buf32.some(FeatureTest.isLittleEndian ? x => x >>> 24 !== 0xff : x => (x & 0xff) !== 0xff);
-    if (hasAlpha) {
-      ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(bitmap, 0, 0);
-    }
-    const jpegBytesPromise = canvas.convertToBlob({
-      type: "image/jpeg",
-      quality: 1
-    }).then(blob => blob.bytes());
-    const xobjectName = Name.get("XObject");
-    const imageName = Name.get("Image");
-    const image = new Dict(xref);
-    image.set("Type", xobjectName);
-    image.set("Subtype", imageName);
-    image.set("BitsPerComponent", 8);
-    image.setIfName("ColorSpace", "DeviceRGB");
-    image.setIfName("Filter", "DCTDecode");
-    image.set("BBox", [0, 0, width, height]);
-    image.set("Width", width);
-    image.set("Height", height);
-    let smaskStream = null;
-    if (hasAlpha) {
-      const alphaBuffer = new Uint8Array(buf32.length);
-      if (FeatureTest.isLittleEndian) {
-        for (let i = 0, ii = buf32.length; i < ii; i++) {
-          alphaBuffer[i] = buf32[i] >>> 24;
-        }
-      } else {
-        for (let i = 0, ii = buf32.length; i < ii; i++) {
-          alphaBuffer[i] = buf32[i] & 0xff;
-        }
-      }
-      const smask = new Dict(xref);
-      smask.set("Type", xobjectName);
-      smask.set("Subtype", imageName);
-      smask.set("BitsPerComponent", 8);
-      smask.setIfName("ColorSpace", "DeviceGray");
-      smask.set("Width", width);
-      smask.set("Height", height);
-      smaskStream = new Stream(alphaBuffer, 0, 0, smask);
-    }
-    const imageStream = new Stream(await jpegBytesPromise, 0, 0, image);
-    return {
-      imageStream,
-      smaskStream,
-      width,
-      height
-    };
-  }
   static createNewDict(annotation, xref, {
     apRef,
     ap
@@ -56763,24 +57197,33 @@ class PDF20 extends PDFBase {
   }
 }
 class CipherTransform {
-  constructor(stringCipherConstructor, streamCipherConstructor) {
-    this.StringCipherConstructor = stringCipherConstructor;
-    this.StreamCipherConstructor = streamCipherConstructor;
+  #cipherCache = new Map();
+  constructor(resolveCipher, stringFilterName = null, streamFilterName = null) {
+    this.resolveCipher = resolveCipher;
+    this.streamFilterName = streamFilterName;
+    this.stringFilterName = stringFilterName;
   }
-  createStream(stream, length) {
-    const cipher = new this.StreamCipherConstructor();
+  #getCipher(filterName = null) {
+    const key = filterName instanceof Name ? filterName.name : "__default__";
+    return this.#cipherCache.getOrInsertComputed(key, () => this.resolveCipher(filterName));
+  }
+  createStream(stream, length, cryptFilterName = null) {
+    const Cipher = this.#getCipher(cryptFilterName || this.streamFilterName);
+    const cipher = new Cipher();
     return new DecryptStream(stream, length, function cipherTransformDecryptStream(data, finalize) {
       return cipher.decryptBlock(data, finalize);
     });
   }
   decryptString(s) {
-    const cipher = new this.StringCipherConstructor();
+    const Cipher = this.#getCipher(this.stringFilterName);
+    const cipher = new Cipher();
     let data = stringToBytes(s);
     data = cipher.decryptBlock(data, true);
     return bytesToString(data);
   }
   encryptString(s) {
-    const cipher = new this.StringCipherConstructor();
+    const Cipher = this.#getCipher(this.stringFilterName);
+    const cipher = new Cipher();
     if (cipher instanceof AESBaseCipher) {
       const strLen = s.length;
       const pad = 16 - strLen % 16;
@@ -56932,35 +57375,6 @@ class CipherTransformFactory {
     const hash = calculateMD5(key, 0, i);
     return hash.subarray(0, Math.min(n + 5, 16));
   }
-  #buildCipherConstructor(cf, name, num, gen, key) {
-    if (!(name instanceof Name)) {
-      throw new FormatError("Invalid crypt filter name.");
-    }
-    const self = this;
-    const cryptFilter = cf.get(name.name);
-    const cfm = cryptFilter?.get("CFM");
-    if (!cfm || cfm.name === "None") {
-      return function () {
-        return new NullCipher();
-      };
-    }
-    if (cfm.name === "V2") {
-      return function () {
-        return new ARCFourCipher(self.#buildObjectKey(num, gen, key, false));
-      };
-    }
-    if (cfm.name === "AESV2") {
-      return function () {
-        return new AES128Cipher(self.#buildObjectKey(num, gen, key, true));
-      };
-    }
-    if (cfm.name === "AESV3") {
-      return function () {
-        return new AES256Cipher(key);
-      };
-    }
-    throw new FormatError("Unknown crypto method");
-  }
   constructor(dict, fileId, password) {
     const filter = dict.get("Filter");
     if (!isName(filter, "Standard")) {
@@ -57056,13 +57470,30 @@ class CipherTransformFactory {
   }
   createCipherTransform(num, gen) {
     if (this.algorithm === 4 || this.algorithm === 5) {
-      return new CipherTransform(this.#buildCipherConstructor(this.cf, this.strf, num, gen, this.encryptionKey), this.#buildCipherConstructor(this.cf, this.stmf, num, gen, this.encryptionKey));
+      const resolveCipher = filterName => {
+        if (!(filterName instanceof Name)) {
+          throw new FormatError("Invalid crypt filter name.");
+        }
+        const cryptFilter = this.cf.get(filterName.name);
+        const cfm = cryptFilter?.get("CFM");
+        if (!cfm || cfm.name === "None") {
+          return NullCipher;
+        }
+        if (cfm.name === "V2") {
+          return ARCFourCipher.bind(null, this.#buildObjectKey(num, gen, this.encryptionKey, false));
+        }
+        if (cfm.name === "AESV2") {
+          return AES128Cipher.bind(null, this.#buildObjectKey(num, gen, this.encryptionKey, true));
+        }
+        if (cfm.name === "AESV3") {
+          return AES256Cipher.bind(null, this.encryptionKey);
+        }
+        throw new FormatError("Unknown crypto method");
+      };
+      return new CipherTransform(resolveCipher, this.strf, this.stmf);
     }
-    const key = this.#buildObjectKey(num, gen, this.encryptionKey, false);
-    const cipherConstructor = function () {
-      return new ARCFourCipher(key);
-    };
-    return new CipherTransform(cipherConstructor, cipherConstructor);
+    const resolveCipher = () => ARCFourCipher.bind(null, this.#buildObjectKey(num, gen, this.encryptionKey, false));
+    return new CipherTransform(resolveCipher);
   }
 }
 
@@ -59849,8 +60280,9 @@ async function writeStream(stream, buffer, transform) {
   const [filter, params] = await Promise.all([dict.getAsync("Filter"), dict.getAsync("DecodeParms")]);
   const filterZero = Array.isArray(filter) ? await dict.xref.fetchIfRefAsync(filter[0]) : filter;
   const isFilterZeroFlateDecode = isName(filterZero, "FlateDecode");
+  const isFilterZeroImageDecode = isName(filterZero, "DCTDecode") || isName(filterZero, "JPXDecode") || isName(filterZero, "JBIG2Decode") || isName(filterZero, "CCITTFaxDecode") || isName(filterZero, "LZWDecode");
   const MIN_LENGTH_FOR_COMPRESSING = 256;
-  if (bytes.length >= MIN_LENGTH_FOR_COMPRESSING && !isFilterZeroFlateDecode) {
+  if (!isFilterZeroFlateDecode && !isFilterZeroImageDecode && bytes.length >= MIN_LENGTH_FOR_COMPRESSING) {
     try {
       const cs = new CompressionStream("deflate");
       const writer = cs.writable.getWriter();
@@ -60234,6 +60666,8 @@ async function incrementalUpdate({
 
 
 
+
+
 const MAX_LEAVES_PER_PAGES_NODE = 16;
 const MAX_IN_NAME_TREE_NODE = 64;
 class PageData {
@@ -60300,7 +60734,6 @@ class XRefWrapper {
   }
 }
 class PDFEditor {
-  hasSingleFile = false;
   isSingleFile = false;
   #newAnnotationsParams = null;
   #primaryDocument = null;
@@ -60661,11 +61094,15 @@ class PDFEditor {
     const insertAfterList = [];
     for (let i = 0; i < pageInfos.length; i++) {
       const info = pageInfos[i];
-      if (!info.document) {
+      let count;
+      if (info.image) {
+        count = counts[i] = 1;
+      } else if (!info.document) {
         counts[i] = 0;
         continue;
+      } else {
+        count = counts[i] = this.#getFilteredPageIndices(info).length;
       }
-      const count = counts[i] = this.#getFilteredPageIndices(info).length;
       if (info.pageIndices) {
         continue;
       }
@@ -60684,18 +61121,19 @@ class PDFEditor {
     if (insertAfterList.length === 0) {
       return pageInfos;
     }
+    const hasContent = info => !!(info.document || info.image);
     for (let i = 0; i < pageInfos.length; i++) {
       const info = pageInfos[i];
-      if (info.document && info.pageIndices && info.pageIndices.length < counts[i]) {
+      if (hasContent(info) && info.pageIndices && info.pageIndices.length < counts[i]) {
         throw new Error("extractPages: partial pageIndices cannot be combined with insertAfter entries.");
       }
     }
     insertAfterList.sort((a, b) => a.insertAfter - b.insertAfter || a.i - b.i);
-    if (sequence.length === 0 && pageInfos.some(info => info.document && info.pageIndices)) {
+    if (sequence.length === 0 && pageInfos.some(info => hasContent(info) && info.pageIndices)) {
       const updatedPageInfos = pageInfos.slice();
       let maxExistingPos = -1;
       for (const info of pageInfos) {
-        if (!info.document || !info.pageIndices) {
+        if (!hasContent(info) || !info.pageIndices) {
           continue;
         }
         for (const idx of info.pageIndices) {
@@ -60713,7 +61151,7 @@ class PDFEditor {
         const threshold = Math.min(Math.max(insertAfter, -1) + offset, maxExistingPos);
         for (let j = 0; j < updatedPageInfos.length; j++) {
           const existingInfo = updatedPageInfos[j];
-          if (!existingInfo.document || !existingInfo.pageIndices || existingInfo.pageIndices.every(idx => idx <= threshold)) {
+          if (!hasContent(existingInfo) || !existingInfo.pageIndices || existingInfo.pageIndices.every(idx => idx <= threshold)) {
             continue;
           }
           updatedPageInfos[j] = {
@@ -60752,7 +61190,7 @@ class PDFEditor {
       (pageIndicesArr[infoIdx] ||= []).push(pos);
     }
     return pageInfos.map((info, i) => {
-      if (!info.document || info.pageIndices) {
+      if (!hasContent(info) || info.pageIndices) {
         return info;
       }
       const result = {
@@ -60768,8 +61206,17 @@ class PDFEditor {
     pageInfos = this.#resolveInsertAfterIndices(pageInfos);
     const promises = [];
     let newIndex = 0;
-    this.isSingleFile = pageInfos.length === 1 || pageInfos.every(info => info.document === pageInfos[0].document);
-    this.hasSingleFile = pageInfos.length === 1;
+    const reservePageSlot = newPageIndex => {
+      if (!Number.isInteger(newPageIndex) || newPageIndex < 0) {
+        throw new Error("extractPages: invalid page index.");
+      }
+      if (this.oldPages[newPageIndex] !== undefined) {
+        throw new Error("extractPages: overlapping pageIndices.");
+      }
+      this.oldPages[newPageIndex] = null;
+    };
+    const docPageInfos = pageInfos.filter(info => !!info.document);
+    this.isSingleFile = docPageInfos.length === 1 || docPageInfos.length > 0 && docPageInfos.every(info => info.document === docPageInfos[0].document);
     const allDocumentData = [];
     if (annotationStorage) {
       this.#newAnnotationsParams = {
@@ -60779,27 +61226,56 @@ class PDFEditor {
         imagesPromises: AnnotationFactory.generateImages(annotationStorage.values(), this.xrefWrapper, true)
       };
     }
-    for (const {
-      document,
-      includePages,
-      excludePages,
-      pageIndices
-    } of pageInfos) {
+    const imageEntries = [];
+    for (const pageInfo of pageInfos) {
+      const {
+        document,
+        image,
+        includePages,
+        excludePages,
+        pageIndices
+      } = pageInfo;
+      if (image) {
+        if (pageIndices) {
+          newIndex = -1;
+          if (pageIndices.length > 1) {
+            throw new Error("extractPages: too many pageIndices.");
+          }
+        }
+        let newPageIndex;
+        if (pageIndices?.length) {
+          newPageIndex = pageIndices[0];
+        } else if (newIndex !== -1) {
+          newPageIndex = newIndex++;
+        } else {
+          for (newPageIndex = 0; this.oldPages[newPageIndex] !== undefined; newPageIndex++) {}
+        }
+        reservePageSlot(newPageIndex);
+        imageEntries.push({
+          image,
+          slot: newPageIndex
+        });
+        continue;
+      }
       if (!document) {
         continue;
       }
       if (pageIndices) {
         newIndex = -1;
       }
+      const filteredPageIndices = this.#getFilteredPageIndices({
+        document,
+        includePages,
+        excludePages
+      });
+      if (pageIndices && pageIndices.length > filteredPageIndices.length) {
+        throw new Error("extractPages: too many pageIndices.");
+      }
       const documentData = new DocumentData(document);
       allDocumentData.push(documentData);
       promises.push(this.#collectDocumentData(documentData));
       let pageIndex = 0;
-      for (const i of this.#getFilteredPageIndices({
-        document,
-        includePages,
-        excludePages
-      })) {
+      for (const i of filteredPageIndices) {
         let newPageIndex;
         if (pageIndices) {
           newPageIndex = pageIndices[pageIndex++];
@@ -60811,25 +61287,42 @@ class PDFEditor {
             for (newPageIndex = 0; this.oldPages[newPageIndex] !== undefined; newPageIndex++) {}
           }
         }
-        this.oldPages[newPageIndex] = null;
+        reservePageSlot(newPageIndex);
         promises.push(document.getPage(i).then(page => {
           this.oldPages[newPageIndex] = new PageData(page, documentData);
         }));
       }
     }
     await Promise.all(promises);
+    for (let i = 0, ii = this.oldPages.length; i < ii; i++) {
+      if (this.oldPages[i] === undefined) {
+        throw new Error("extractPages: sparse pageIndices.");
+      }
+    }
     promises.length = 0;
     this.#collectValidDestinations(allDocumentData);
     this.#collectOutlineDestinations(allDocumentData);
     this.#collectPageLabels();
     for (const page of this.oldPages) {
-      promises.push(this.#postCollectPageData(page));
+      if (page) {
+        promises.push(this.#postCollectPageData(page));
+      }
     }
     await Promise.all(promises);
     this.#findDuplicateNamedDestinations();
     this.#setPostponedRefCopies(allDocumentData);
+    const imageSlots = new Map();
+    for (const entry of imageEntries) {
+      imageSlots.set(entry.slot, entry);
+    }
+    const modalPageSize = imageSlots.size > 0 ? this.#modalPageSize() : null;
     for (let i = 0, ii = this.oldPages.length; i < ii; i++) {
-      this.newPages[i] = await this.#makePageCopy(i, null);
+      const imageEntry = imageSlots.get(i);
+      if (imageEntry) {
+        this.newPages[i] = await this.#makeImagePage(imageEntry.image, modalPageSize);
+      } else {
+        this.newPages[i] = await this.#makePageCopy(i, null);
+      }
     }
     this.#fixPostponedRefCopies(allDocumentData);
     await this.#mergeStructTrees(allDocumentData);
@@ -60982,6 +61475,9 @@ class PDFEditor {
       parentTree: newParentTree
     } = this;
     for (let i = 0, ii = this.newPages.length; i < ii; i++) {
+      if (!this.oldPages[i]) {
+        continue;
+      }
       const {
         documentData: {
           parentTree,
@@ -61235,6 +61731,9 @@ class PDFEditor {
     };
     for (let i = 0, ii = this.oldPages.length; i < ii; i++) {
       const page = this.oldPages[i];
+      if (!page) {
+        continue;
+      }
       const {
         documentData: {
           destinations,
@@ -61755,7 +62254,11 @@ class PDFEditor {
     }
   }
   async #collectPageLabels() {
-    if (!this.hasSingleFile) {
+    if (!this.isSingleFile) {
+      return;
+    }
+    const firstRealPage = this.oldPages.find(p => !!p);
+    if (!firstRealPage) {
       return;
     }
     const {
@@ -61763,13 +62266,13 @@ class PDFEditor {
         document,
         pageLabels
       }
-    } = this.oldPages[0];
+    } = firstRealPage;
     if (!pageLabels) {
       return;
     }
     const numPages = document.numPages;
-    const oldPageLabels = [];
-    const oldPageIndices = new Set(this.oldPages.map(({
+    const labelsByPageIndex = new Map();
+    const oldPageIndices = new Set(this.oldPages.filter(p => !!p).map(({
       page: {
         pageIndex
       }
@@ -61791,19 +62294,24 @@ class PDFEditor {
         currentLabel.set("St", st + (i - stFirstIndex));
         stFirstIndex = -1;
       }
-      oldPageLabels.push(currentLabel);
+      labelsByPageIndex.set(i, currentLabel);
     }
-    currentLabel = oldPageLabels[0];
-    let currentIndex = 0;
-    const newPageLabels = this.pageLabels = [[0, currentLabel]];
-    for (let i = 0, ii = oldPageLabels.length; i < ii; i++) {
-      const label = oldPageLabels[i];
+    const defaultLabel = index => {
+      const label = new Dict();
+      label.setIfName("S", "D");
+      label.set("St", index + 1);
+      return label;
+    };
+    currentLabel = null;
+    const newPageLabels = this.pageLabels = [];
+    for (let i = 0, ii = this.oldPages.length; i < ii; i++) {
+      const pageData = this.oldPages[i];
+      const label = pageData ? labelsByPageIndex.get(pageData.page.pageIndex) || defaultLabel(i) : defaultLabel(i);
       if (label === currentLabel) {
         continue;
       }
-      currentIndex = i;
       currentLabel = label;
-      newPageLabels.push([currentIndex, currentLabel]);
+      newPageLabels.push([i, currentLabel]);
     }
   }
   async #makePageCopy(pageIndex) {
@@ -61900,6 +62408,118 @@ class PDFEditor {
       }
     }
     this.currentDocument = null;
+    return pageRef;
+  }
+  #modalPageSize() {
+    const counts = new Map();
+    for (const pageData of this.oldPages) {
+      if (!pageData) {
+        continue;
+      }
+      const {
+        page
+      } = pageData;
+      const [x0, y0, x1, y1] = page.view;
+      let width = x1 - x0;
+      let height = y1 - y0;
+      if (width <= 0 || height <= 0) {
+        continue;
+      }
+      if (page.rotate % 180 !== 0) {
+        [width, height] = [height, width];
+      }
+      const key = `${width}x${height}`;
+      const entry = counts.get(key);
+      if (entry) {
+        entry.count++;
+      } else {
+        counts.set(key, {
+          width,
+          height,
+          count: 1
+        });
+      }
+    }
+    if (counts.size === 0) {
+      const [,, width, height] = LETTER_SIZE_MEDIABOX;
+      return {
+        width,
+        height
+      };
+    }
+    let best = null;
+    for (const entry of counts.values()) {
+      if (!best || entry.count > best.count || entry.count === best.count && entry.width * entry.height > best.width * best.height) {
+        best = entry;
+      }
+    }
+    return {
+      width: best.width,
+      height: best.height
+    };
+  }
+  async #makeImagePage(bitmap, pageSize) {
+    const {
+      width: pageW,
+      height: pageH
+    } = pageSize;
+    const DEFAULT_MARGIN_RATIO = 0.1;
+    const margin = pageW * DEFAULT_MARGIN_RATIO;
+    const availW = Math.max(1, pageW - 2 * margin);
+    const availH = Math.max(1, pageH - 2 * margin);
+    const lastRef = this.newRefCount;
+    const {
+      imageStream,
+      smaskStream,
+      width: imgW,
+      height: imgH
+    } = await createImage(bitmap, this.xrefWrapper, {
+      closeBitmap: true
+    });
+    const scale = Math.min(availW / imgW, availH / imgH);
+    const drawW = imgW * scale;
+    const drawH = imgH * scale;
+    const tx = (pageW - drawW) / 2;
+    const ty = (pageH - drawH) / 2;
+    if (smaskStream) {
+      const smaskRef = this.newRef;
+      this.xref[smaskRef.num] = smaskStream;
+      imageStream.dict.set("SMask", smaskRef);
+    }
+    const imageRef = this.newRef;
+    this.xref[imageRef.num] = imageStream;
+    const xobjectDict = new Dict(this.xrefWrapper);
+    xobjectDict.set("Im0", imageRef);
+    const resourcesDict = new Dict(this.xrefWrapper);
+    resourcesDict.set("XObject", xobjectDict);
+    resourcesDict.set("ProcSet", [Name.get("PDF"), Name.get("ImageC")]);
+    const content = `q ${numberToString(drawW)} 0 0 ${numberToString(drawH)} ` + `${numberToString(tx)} ${numberToString(ty)} cm /Im0 Do Q`;
+    const contentsDict = new Dict(this.xrefWrapper);
+    const contentsStream = new Stream(stringToBytes(content), 0, 0, contentsDict);
+    const contentsRef = this.newRef;
+    this.xref[contentsRef.num] = contentsStream;
+    const pageRef = this.newRef;
+    const pageDict = this.xref[pageRef.num] = new Dict(this.xrefWrapper);
+    pageDict.setIfName("Type", "Page");
+    pageDict.set("MediaBox", [0, 0, pageW, pageH]);
+    pageDict.set("Resources", resourcesDict);
+    pageDict.set("Contents", contentsRef);
+    if (this.useObjectStreams) {
+      const newLastRef = this.newRefCount;
+      const pageObjectRefs = [];
+      for (let i = lastRef; i < newLastRef; i++) {
+        const obj = this.xref[i];
+        if (obj instanceof BaseStream) {
+          continue;
+        }
+        pageObjectRefs.push(Ref.get(i, 0));
+      }
+      for (let i = 0; i < pageObjectRefs.length; i += 0xffff) {
+        const objStreamRef = this.newRef;
+        this.objStreamRefs.add(objStreamRef.num);
+        this.xref[objStreamRef.num] = pageObjectRefs.slice(i, i + 0xffff);
+      }
+    }
     return pageRef;
   }
   #makePageTree() {
@@ -62169,11 +62789,12 @@ class PDFEditor {
   #makeInfo() {
     const infoMap = new Map();
     if (this.isSingleFile) {
+      const firstRealPage = this.oldPages.find(p => !!p);
       const {
         xref: {
           trailer
         }
-      } = this.oldPages[0].documentData.document;
+      } = firstRealPage.documentData.document;
       const oldInfoDict = trailer.get("Info");
       for (const [key, value] of oldInfoDict || []) {
         if (typeof value === "string") {
@@ -62200,9 +62821,10 @@ class PDFEditor {
     if (!this.isSingleFile) {
       return [null, null, null];
     }
+    const firstRealPage = this.oldPages.find(p => !!p);
     const {
       documentData
-    } = this.oldPages[0];
+    } = firstRealPage;
     const {
       document: {
         xref: {
@@ -62525,7 +63147,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.0.195";
+    const workerVersion = "6.0.229";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -62854,6 +63476,9 @@ class WorkerMessageHandler {
       }
       let newDocumentId = 0;
       for (const pageInfo of pageInfos) {
+        if (pageInfo.image) {
+          continue;
+        }
         if (pageInfo.document === null) {
           pageInfo.document = pdfManager.pdfDocument;
         } else if (ArrayBuffer.isView(pageInfo.document)) {

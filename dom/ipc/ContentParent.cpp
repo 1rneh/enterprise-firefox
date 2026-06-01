@@ -4198,6 +4198,10 @@ mozilla::ipc::IPCResult ContentParent::RecvCloneDocumentTreeInto(
     return IPC_FAIL(this, "Illegal subframe clone");
   }
 
+  if (aPrintData.remotePrintJob()) {
+    return IPC_FAIL(this, "Shouldn't pass print jobs around this IPC call");
+  }
+
   ContentParent* cp = source->GetContentParent();
   if (NS_WARN_IF(!cp)) {
     return IPC_OK();
@@ -5926,6 +5930,11 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreAndBroadcastBlobURLRegistration(
   if (!ValidatePrincipal(aPrincipal, {ValidatePrincipalOptions::AllowSystem})) {
     return PrincipalValidationIpcFail(aPrincipal, this, __func__);
   }
+
+  if (!BlobURLProtocolHandler::IsBlobURLValid(aPrincipal, aURI)) {
+    return IPC_FAIL(this, "Blob URL format is invalid.");
+  }
+
   RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aBlob);
   if (NS_WARN_IF(!blobImpl)) {
     return IPC_FAIL(this, "Blob deserialization failed.");
@@ -6188,9 +6197,9 @@ void ContentParent::TransmitBlobURLsForPrincipal(nsIPrincipal* aPrincipal) {
             return true;
           }
 
-          registrations.AppendElement(
-              BlobURLRegistrationData(nsCString(aURI), WrapNotNull(aPrincipal),
-                                      nsCString(aPartitionKey), aRevoked));
+          registrations.AppendElement(BlobURLRegistrationData(
+              nsCString(aURI), WrapNotNull(aBlobPrincipal),
+              nsCString(aPartitionKey), aRevoked));
 
           nsresult rv = TransmitPermissionsForPrincipal(aBlobPrincipal);
           (void)NS_WARN_IF(NS_FAILED(rv));

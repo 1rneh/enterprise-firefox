@@ -13,7 +13,9 @@ import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateI
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateInfo.Companion.PROXY_STATE_READY
 import mozilla.components.concept.engine.ipprotection.ServiceState
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
+import mozilla.components.feature.ipprotection.store.InternalAction
 import mozilla.components.feature.ipprotection.store.iPProtectionReducer
+import mozilla.components.feature.ipprotection.store.state.AccountState
 import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.Authorized
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
@@ -62,7 +64,7 @@ class IPProtectionReducerTest {
             defaultState.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.Idle,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(defaultState, IPProtectionAction.EngineStateChanged(info)),
         )
@@ -75,7 +77,7 @@ class IPProtectionReducerTest {
             defaultState.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.Activating,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(defaultState, IPProtectionAction.EngineStateChanged(info)),
         )
@@ -88,7 +90,7 @@ class IPProtectionReducerTest {
             defaultState.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.Active,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(defaultState, IPProtectionAction.EngineStateChanged(info)),
         )
@@ -101,7 +103,7 @@ class IPProtectionReducerTest {
             defaultState.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.DataLimitReached,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(defaultState, IPProtectionAction.EngineStateChanged(info)),
         )
@@ -114,7 +116,7 @@ class IPProtectionReducerTest {
             defaultState.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.ConnectionError,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(defaultState, IPProtectionAction.EngineStateChanged(info)),
         )
@@ -136,7 +138,7 @@ class IPProtectionReducerTest {
             state.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.Active,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(state, IPProtectionAction.EngineStateChanged(info)),
         )
@@ -150,7 +152,7 @@ class IPProtectionReducerTest {
             state.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.Activating,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(state, IPProtectionAction.EngineStateChanged(info)),
         )
@@ -164,7 +166,7 @@ class IPProtectionReducerTest {
             defaultState.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.Idle,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(state, IPProtectionAction.EngineStateChanged(info)),
         )
@@ -178,9 +180,62 @@ class IPProtectionReducerTest {
             defaultState.copy(
                 serviceStatus = ServiceState.Ready,
                 proxyStatus = Authorized.ConnectionError,
-                accountState = defaultState.accountState.copy(status = AccountStatus.Ready),
+                accountState = defaultState.accountState.copy(status = AccountStatus.EnrolledAndEntitled),
             ),
             iPProtectionReducer(state, IPProtectionAction.EngineStateChanged(info)),
+        )
+    }
+
+    @Test
+    fun `GIVEN AccountStatus is AwaitingAuthentication WHEN FinishingAuthFlow is dispatched THEN AccountStatus is NeedsAuthentication`() {
+        val initialState = buildIPProtectionState(accountStatus = AccountStatus.AwaitingAuthentication)
+
+        val resultState = iPProtectionReducer(initialState, InternalAction.FinishingAuthFlow)
+
+        assertEquals(AccountStatus.NeedsAuthentication, resultState.accountState.status)
+    }
+
+    @Test
+    fun `GIVEN AccountStatus is AwaitingAuthorization WHEN FinishingAuthFlow is dispatched THEN AccountStatus is NeedsAuthorization`() {
+        val initialState = buildIPProtectionState(accountStatus = AccountStatus.AwaitingAuthorization)
+
+        val resultState = iPProtectionReducer(initialState, InternalAction.FinishingAuthFlow)
+
+        assertEquals(AccountStatus.NeedsAuthorization, resultState.accountState.status)
+    }
+
+    @Test
+    fun `GIVEN AccountStatus is AwaitingEnrollment WHEN FinishingAuthFlow is dispatched THEN AccountStatus does not change`() {
+        val initialState = buildIPProtectionState(accountStatus = AccountStatus.AwaitingEnrollment)
+
+        val resultState = iPProtectionReducer(initialState, InternalAction.FinishingAuthFlow)
+
+        assertEquals(AccountStatus.AwaitingEnrollment, resultState.accountState.status)
+    }
+
+    @Test
+    fun `GIVEN successful enrollment WHEN FinishingEnrollment is dispatched THEN user is ready to use the feature`() {
+        val initialState = buildIPProtectionState(accountStatus = AccountStatus.AwaitingEnrollment)
+
+        val resultState = iPProtectionReducer(initialState, InternalAction.FinishingEnrollment(true))
+
+        assertEquals(AccountStatus.EnrolledAndEntitled, resultState.accountState.status)
+    }
+
+    @Test
+    fun `GIVEN unsuccessful enrollment WHEN FinishingEnrollment is dispatched THEN user has to authorize again`() {
+        val initialState = buildIPProtectionState(accountStatus = AccountStatus.AwaitingEnrollment)
+
+        val resultState = iPProtectionReducer(initialState, InternalAction.FinishingEnrollment(false))
+
+        assertEquals(AccountStatus.NeedsAuthorization, resultState.accountState.status)
+    }
+
+    private fun buildIPProtectionState(
+        accountStatus: AccountStatus = AccountStatus.Uninitialized,
+    ): IPProtectionState {
+        return IPProtectionState(
+            accountState = AccountState(accountStatus),
         )
     }
 }

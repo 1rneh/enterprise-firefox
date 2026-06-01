@@ -408,6 +408,42 @@ add_task(async function test_fetchSportsData_dispatches_teams_and_matches() {
   );
 });
 
+add_task(
+  async function test_fetchSportsData_filters_live_to_status_type_live() {
+    // The /live endpoint is meant to be pre-filtered by the backend, but the
+    // feed re-filters on `status_type === "live"` as a defensive guard so the
+    // Now tab only ever surfaces actually-live matches.
+    const feed = makeFeed();
+    const mockLive = {
+      matches: [
+        { id: "live1", status_type: "live", query: "team1 vs team2" },
+        { id: "scheduled1", status_type: "scheduled", query: "team3 vs team4" },
+        { id: "ended1", status_type: "ended", query: "team5 vs team6" },
+        { id: "live2", status_type: "live", query: "team7 vs team8" },
+      ],
+    };
+    sinon.stub(feed.merino, "fetchSportsTeams").resolves(null);
+    sinon.stub(feed.merino, "fetchSportsMatches").resolves(null);
+    sinon.stub(feed.merino, "fetchSportsLive").resolves(mockLive);
+
+    feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/teams";
+    feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/matches";
+    feed.store.state.Prefs.values["sports.worldCup.liveEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/live";
+
+    await feed.fetchSportsData();
+
+    const [dispatchedAction] = feed.store.dispatch.firstCall.args;
+    Assert.deepEqual(
+      dispatchedAction.data.live.map(m => m.id),
+      ["live1", "live2"],
+      "only matches with status_type === 'live' survive the filter"
+    );
+  }
+);
+
 add_task(async function test_fetchSportsData_reads_endpoint_prefs() {
   const feed = makeFeed();
   const teamsEndpoint = "https://merino.services.mozilla.com/api/v1/wcs/teams";
@@ -596,6 +632,58 @@ add_task(async function test_fetchSportsData_blocks_disallowed_live_endpoint() {
   );
 });
 
+// When a caller already has a fresh /live payload (post-match resync from
+// fetchAndDispatch), passing { live } reuses it and skips the second /live
+// fetch (and the live-endpoint allowlist check that gates it).
+add_task(
+  async function test_fetchSportsData_skips_live_fetch_with_prefetched() {
+    const feed = makeFeed();
+    feed.store.state.Prefs.values["discoverystream.endpoints"] =
+      "https://merino.services.mozilla.com/";
+    feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/teams";
+    feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/matches";
+    // Disallowed live endpoint — would normally cause a bail-out, but the
+    // prefetched payload bypasses the allowlist check.
+    feed.store.state.Prefs.values["sports.worldCup.liveEndpoint"] =
+      "https://evil.example.com/live";
+
+    const teamsStub = sinon
+      .stub(feed.merino, "fetchSportsTeams")
+      .resolves({ teams: [] });
+    const matchesStub = sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+      previous: [],
+      current: [],
+      next: [],
+    });
+    const liveStub = sinon.stub(feed.merino, "fetchSportsLive");
+
+    const prefetched = {
+      matches: [{ global_event_id: 1, status_type: "live" }],
+    };
+    await feed.fetchSportsData({ live: prefetched });
+
+    Assert.ok(teamsStub.calledOnce, "teams still fetched");
+    Assert.ok(matchesStub.calledOnce, "matches still fetched");
+    Assert.ok(
+      liveStub.notCalled,
+      "fetchSportsLive skipped when live prefetched"
+    );
+
+    const dispatched = feed.store.dispatch
+      .getCalls()
+      .map(c => c.args[0])
+      .find(a => a.type === actionTypes.WIDGETS_SPORTS_WIDGET_SET);
+    Assert.ok(dispatched, "WIDGETS_SPORTS_WIDGET_SET dispatched");
+    Assert.deepEqual(
+      dispatched.data.live,
+      prefetched.matches,
+      "prefetched live payload was dispatched"
+    );
+  }
+);
+
 add_task(async function test_fetchSportsData_caches_teams_and_matches() {
   const feed = makeFeed();
   const mockTeamsResponse = { teams: [{ id: "team1", name: "Team 1" }] };
@@ -670,6 +758,7 @@ add_task(async function test_init_calls_syncState_and_fetchSportsData() {
   sinon.stub(feed.cache, "get").resolves({});
   sinon.stub(feed.merino, "fetchSportsTeams").resolves([]);
   sinon.stub(feed.merino, "fetchSportsMatches").resolves([]);
+  sinon.stub(feed.merino, "fetchSportsLive").resolves(null);
 
   const syncStateSpy = sinon.spy(feed, "syncState");
   const fetchSportsDataSpy = sinon.spy(feed, "fetchSportsData");
@@ -912,6 +1001,83 @@ add_task(async function test_CHANGE_FOLLOWED_ONLY_merges_and_broadcasts() {
   setStub.restore();
 });
 
+add_task(async function test_CHANGE_LIVE_INDEX_persists_and_broadcasts() {
+  // The live pager dispatches an index; the feed must clamp it against the
+  // current live list, persist it, and broadcast the SET back to the UI.
+  const feed = makeFeed();
+  feed.store.state.SportsWidget = {
+    data: { live: [{ id: "a" }, { id: "b" }, { id: "c" }] },
+  };
+  const setStub = sinon.stub(feed.cache, "set").resolves();
+
+  info(
+    "CHANGE_LIVE_INDEX should persist the in-range index and broadcast SET_LIVE_INDEX"
+  );
+  await feed.onAction({
+    type: actionTypes.WIDGETS_SPORTS_CHANGE_LIVE_INDEX,
+    data: 2,
+  });
+
+  Assert.ok(setStub.calledOnce, "cache.set called once");
+  Assert.equal(setStub.firstCall.args[0], "liveIndex");
+  Assert.equal(setStub.firstCall.args[1], 2);
+
+  const [firstDispatch] = feed.store.dispatch.getCalls();
+  Assert.equal(
+    firstDispatch.args[0].type,
+    actionTypes.WIDGETS_SPORTS_SET_LIVE_INDEX,
+    "dispatches SET_LIVE_INDEX"
+  );
+  Assert.equal(firstDispatch.args[0].data, 2);
+
+  setStub.restore();
+});
+
+add_task(async function test_CHANGE_LIVE_INDEX_clamps_past_end() {
+  // If the UI somehow sends an index past the end (race with a fetch that
+  // shrinks the live list), the handler must clamp it to the last valid slot.
+  const feed = makeFeed();
+  feed.store.state.SportsWidget = {
+    data: { live: [{ id: "a" }, { id: "b" }] },
+  };
+  const setStub = sinon.stub(feed.cache, "set").resolves();
+
+  await feed.onAction({
+    type: actionTypes.WIDGETS_SPORTS_CHANGE_LIVE_INDEX,
+    data: 99,
+  });
+
+  Assert.equal(
+    setStub.firstCall.args[1],
+    1,
+    "clamps an out-of-range index to the last live match"
+  );
+  Assert.equal(feed.store.dispatch.firstCall.args[0].data, 1);
+
+  setStub.restore();
+});
+
+add_task(
+  async function test_CHANGE_LIVE_INDEX_empty_live_list_resets_to_zero() {
+    const feed = makeFeed();
+    feed.store.state.SportsWidget = { data: { live: [] } };
+    const setStub = sinon.stub(feed.cache, "set").resolves();
+
+    await feed.onAction({
+      type: actionTypes.WIDGETS_SPORTS_CHANGE_LIVE_INDEX,
+      data: 4,
+    });
+
+    Assert.equal(
+      setStub.firstCall.args[1],
+      0,
+      "with no live matches, the index resets to 0"
+    );
+
+    setStub.restore();
+  }
+);
+
 add_task(async function test_CHANGE_FOLLOWED_ONLY_starts_empty_cache() {
   // First-time toggle: cache.get may return undefined or an object with no
   // followedOnly entry. The handler must still write a complete partial.
@@ -933,4 +1099,1256 @@ add_task(async function test_CHANGE_FOLLOWED_ONLY_starts_empty_cache() {
 
   getStub.restore();
   setStub.restore();
+});
+
+// =============================================================================
+// Adaptive live-polling
+// =============================================================================
+
+const PREF_SPORTS_LIVE_ENABLED = "widgets.sportsWidget.live.enabled";
+const PREF_SPORTS_LIVE_ENDPOINT = "sports.worldCup.liveEndpoint";
+const PREF_POLL_LIVE_MS = "widgets.sportsWidget.pollLiveMs";
+const PREF_POLL_PREGAME_LEAD_MS = "widgets.sportsWidget.pollPregameLeadMs";
+
+const LIVE_ENDPOINT = "https://merino.services.mozilla.com/api/v1/wcs/live";
+
+// Stub setTimeout/clearTimeout on a feed so timers never actually fire and we
+// can inspect what would have been scheduled. Returns the stubs for assertions.
+function stubTimers(feed) {
+  const setTimeoutStub = sinon.stub(feed, "setTimeout").returns(123);
+  const clearTimeoutStub = sinon.stub(feed, "clearTimeout");
+  return { setTimeoutStub, clearTimeoutStub };
+}
+
+function makeLiveFeed({ liveEnabled = true, visible = true } = {}) {
+  const feed = makeFeed();
+  feed.store.state.Prefs.values[PREF_SPORTS_LIVE_ENABLED] = liveEnabled;
+  feed.store.state.Prefs.values[PREF_SPORTS_LIVE_ENDPOINT] = LIVE_ENDPOINT;
+  feed.store.state.SportsWidget = {
+    data: { matches: { previous: [], current: [], next: [] } },
+  };
+  // Wire the selector so updatePollingStateFromMatches can read live data.
+  feed.store.getState = function () {
+    return this.state;
+  };
+  // Visibility is the sole driver of polling: tick() bails on an empty
+  // visibleTabs. Seed one visible port so the feed is in the "polling" state
+  // unless a test explicitly opts out with { visible: false }.
+  if (visible) {
+    feed.visibleTabs = new Set(["port-default"]);
+  }
+  return feed;
+}
+
+function liveVisibleAction(portId) {
+  return {
+    type: actionTypes.WIDGETS_SPORTS_LIVE_VISIBLE,
+    meta: { fromTarget: portId },
+  };
+}
+
+function liveHiddenAction(portId) {
+  return {
+    type: actionTypes.WIDGETS_SPORTS_LIVE_HIDDEN,
+    meta: { fromTarget: portId },
+  };
+}
+
+function newTabUnloadAction(portId) {
+  return {
+    type: actionTypes.NEW_TAB_UNLOAD,
+    meta: { fromTarget: portId },
+  };
+}
+
+add_task(async function test_liveEnabled_requires_widget_and_live_pref() {
+  info("liveEnabled is true with both widget and live prefs on");
+  const onFeed = makeLiveFeed();
+  Assert.ok(onFeed.liveEnabled, "liveEnabled true when both prefs on");
+
+  info(
+    "liveEnabled is false when the widget is disabled, regardless of live pref"
+  );
+  const widgetOffFeed = makeLiveFeed();
+  widgetOffFeed.store.state.Prefs.values[PREF_SPORTS_ENABLED] = false;
+  Assert.ok(!widgetOffFeed.liveEnabled);
+
+  info("liveEnabled is false when live pref is off and no trainhopConfig");
+  const liveOffFeed = makeLiveFeed({ liveEnabled: false });
+  Assert.ok(!liveOffFeed.liveEnabled);
+
+  info("liveEnabled is true via trainhopConfig.sports.liveEnabled");
+  const trainhopFeed = makeLiveFeed({ liveEnabled: false });
+  trainhopFeed.store.state.Prefs.values.trainhopConfig = {
+    sports: { liveEnabled: true },
+  };
+  Assert.ok(trainhopFeed.liveEnabled);
+});
+
+add_task(async function test_resolvePollIntervalMs_per_state_and_trainhop() {
+  const feed = makeLiveFeed();
+
+  info("Defaults: IDLE = 6h, MATCH_DAY = 30min, LIVE = 60s");
+  feed.pollingState = "IDLE";
+  Assert.equal(feed.resolvePollIntervalMs(), 21600000);
+  feed.pollingState = "MATCH_DAY";
+  Assert.equal(feed.resolvePollIntervalMs(), 1800000);
+  feed.pollingState = "LIVE";
+  Assert.equal(feed.resolvePollIntervalMs(), 60000);
+
+  info("Raw prefs override defaults");
+  feed.store.state.Prefs.values[PREF_POLL_LIVE_MS] = 45000;
+  Assert.equal(feed.resolvePollIntervalMs(), 45000);
+
+  info("trainhopConfig overrides raw prefs");
+  feed.store.state.Prefs.values.trainhopConfig = {
+    sports: { pollLiveMs: 30000 },
+  };
+  Assert.equal(feed.resolvePollIntervalMs(), 30000);
+
+  info("resolvePregameLeadMs follows the same precedence");
+  feed.store.state.Prefs.values[PREF_POLL_PREGAME_LEAD_MS] = 700000;
+  Assert.equal(feed.resolvePregameLeadMs(), 700000);
+  feed.store.state.Prefs.values.trainhopConfig.sports.pollPregameLeadMs = 120000;
+  Assert.equal(feed.resolvePregameLeadMs(), 120000);
+});
+
+add_task(async function test_fetchLive_returns_null_without_endpoint() {
+  const feed = makeLiveFeed();
+  feed.store.state.Prefs.values[PREF_SPORTS_LIVE_ENDPOINT] = "";
+  const stub = sinon.stub(feed.merino, "fetchSportsLive").resolves({});
+
+  info(
+    "fetchLive returns null and does not call the shim when no endpoint is set"
+  );
+  const result = await feed.fetchLive();
+  Assert.equal(result, null);
+  Assert.ok(stub.notCalled);
+
+  stub.restore();
+});
+
+add_task(async function test_fetchLive_blocks_disallowed_endpoint() {
+  const feed = makeLiveFeed();
+  feed.store.state.Prefs.values["discoverystream.endpoints"] =
+    "https://allowed.example.com/";
+  const stub = sinon.stub(feed.merino, "fetchSportsLive").resolves({});
+
+  info("fetchLive bails when liveEndpoint is not in the allowlist");
+  const result = await feed.fetchLive();
+  Assert.equal(result, null);
+  Assert.ok(stub.notCalled);
+
+  stub.restore();
+});
+
+add_task(async function test_fetchLive_calls_shim_with_endpoint() {
+  const feed = makeLiveFeed();
+  const stub = sinon
+    .stub(feed.merino, "fetchSportsLive")
+    .resolves({ current: [] });
+
+  await feed.fetchLive();
+
+  Assert.ok(
+    stub.calledWith({ source: "newtab", endpointUrl: LIVE_ENDPOINT }),
+    "shim called with correct endpoint"
+  );
+
+  stub.restore();
+});
+
+add_task(async function test_updatePollingStateFromMatches() {
+  const feed = makeLiveFeed();
+  const now = Date.now();
+
+  info("Live event in data.live → LIVE");
+  feed.store.state.SportsWidget.data.live = [{ global_event_id: 1 }];
+  feed.store.state.SportsWidget.data.matches = {
+    previous: [],
+    current: [],
+    next: [],
+  };
+  feed.updatePollingStateFromMatches();
+  Assert.equal(feed.pollingState, "LIVE");
+
+  info("Next kickoff within pregame lead → LIVE");
+  feed.store.state.SportsWidget.data.live = [];
+  feed.store.state.SportsWidget.data.matches = {
+    previous: [],
+    current: [],
+    next: [
+      {
+        status_type: "scheduled",
+        date: new Date(now + 5 * 60 * 1000).toISOString(),
+      },
+    ],
+  };
+  feed.updatePollingStateFromMatches();
+  Assert.equal(feed.pollingState, "LIVE");
+
+  info("Next kickoff within 24h but outside pregame → MATCH_DAY");
+  feed.store.state.SportsWidget.data.live = [];
+  feed.store.state.SportsWidget.data.matches = {
+    previous: [],
+    current: [],
+    next: [
+      {
+        status_type: "scheduled",
+        date: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
+  };
+  feed.updatePollingStateFromMatches();
+  Assert.equal(feed.pollingState, "MATCH_DAY");
+
+  info("No live and next kickoff far away → IDLE");
+  feed.store.state.SportsWidget.data.live = [];
+  feed.store.state.SportsWidget.data.matches = {
+    previous: [],
+    current: [],
+    next: [
+      {
+        status_type: "scheduled",
+        date: new Date(now + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
+  };
+  feed.updatePollingStateFromMatches();
+  Assert.equal(feed.pollingState, "IDLE");
+
+  info("No matches at all → IDLE");
+  feed.store.state.SportsWidget.data.live = [];
+  feed.store.state.SportsWidget.data.matches = null;
+  feed.updatePollingStateFromMatches();
+  Assert.equal(feed.pollingState, "IDLE");
+});
+
+add_task(
+  async function test_fetchAndDispatch_live_dispatches_and_resets_retry() {
+    const feed = makeLiveFeed();
+    feed.pollingState = "LIVE";
+    feed.retryCount = 3;
+    const liveResponse = {
+      matches: [{ status_type: "live", global_event_id: 42 }],
+    };
+    sinon.stub(feed.merino, "fetchSportsLive").resolves(liveResponse);
+
+    const ok = await feed.fetchAndDispatch();
+
+    Assert.ok(ok, "fetchAndDispatch returned true");
+    const dispatchedAction = feed.store.dispatch
+      .getCalls()
+      .map(c => c.args[0])
+      .find(a => a.type === actionTypes.WIDGETS_SPORTS_LIVE_UPDATE);
+    Assert.ok(dispatchedAction, "WIDGETS_SPORTS_LIVE_UPDATE was dispatched");
+    Assert.deepEqual(dispatchedAction.data.live, liveResponse.matches);
+    Assert.equal(typeof dispatchedAction.data.lastLiveUpdated, "number");
+    Assert.equal(feed.retryCount, 0, "retryCount resets on success");
+  }
+);
+
+add_task(
+  async function test_fetchAndDispatch_live_empty_triggers_post_match_resync() {
+    const feed = makeLiveFeed();
+    feed.pollingState = "LIVE";
+    feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/teams";
+    feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/matches";
+    const liveResponse = { matches: [] };
+    const fetchLiveStub = sinon
+      .stub(feed.merino, "fetchSportsLive")
+      .resolves(liveResponse);
+    const fetchSportsDataSpy = sinon.spy(feed, "fetchSportsData");
+    sinon.stub(feed.merino, "fetchSportsTeams").resolves({ teams: [] });
+    sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+      previous: [{ status_type: "past", global_event_id: 7 }],
+      current: [],
+      next: [],
+    });
+
+    await feed.fetchAndDispatch();
+
+    Assert.ok(
+      fetchSportsDataSpy.calledOnce,
+      "fetchSportsData called for the post-match resync"
+    );
+    Assert.deepEqual(
+      fetchSportsDataSpy.firstCall.args[0],
+      { live: liveResponse },
+      "resync reused the already-fetched live payload"
+    );
+    Assert.ok(
+      fetchLiveStub.calledOnce,
+      "fetchSportsLive called only once (no redundant resync fetch)"
+    );
+  }
+);
+
+add_task(async function test_fetchAndDispatch_live_failure_arms_retry() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  const { setTimeoutStub } = stubTimers(feed);
+  sinon.stub(feed.merino, "fetchSportsLive").resolves(null);
+
+  const ok = await feed.fetchAndDispatch();
+
+  Assert.ok(!ok, "fetchAndDispatch returned false on failure");
+  Assert.equal(feed.retryCount, 1, "retryCount incremented");
+  Assert.ok(setTimeoutStub.called, "retry timer armed via setTimeout");
+});
+
+add_task(async function test_scheduleRetry_exponential_backoff_and_cap() {
+  const feed = makeLiveFeed();
+  const { setTimeoutStub } = stubTimers(feed);
+
+  feed.retryCount = 0;
+  feed.scheduleRetry();
+  Assert.equal(setTimeoutStub.lastCall.args[1], 1000, "first retry: 1s");
+
+  feed.scheduleRetry();
+  Assert.equal(setTimeoutStub.lastCall.args[1], 2000, "second retry: 2s");
+
+  feed.scheduleRetry();
+  Assert.equal(setTimeoutStub.lastCall.args[1], 4000, "third retry: 4s");
+
+  // Push retryCount high to hit the cap.
+  feed.retryCount = 20;
+  feed.scheduleRetry();
+  Assert.equal(
+    setTimeoutStub.lastCall.args[1],
+    300000,
+    "retry delay caps at 5 minutes"
+  );
+});
+
+add_task(async function test_fetchAndDispatch_idle_calls_fetchSportsData() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "IDLE";
+  feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/teams";
+  feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/matches";
+  sinon.stub(feed.merino, "fetchSportsLive").resolves({ matches: [] });
+  const teamsStub = sinon
+    .stub(feed.merino, "fetchSportsTeams")
+    .resolves({ teams: [] });
+  const matchesStub = sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+    previous: [],
+    current: [],
+    next: [],
+  });
+
+  await feed.fetchAndDispatch();
+
+  Assert.ok(
+    teamsStub.calledOnce && matchesStub.calledOnce,
+    "IDLE state goes through fetchSportsData (which fetches teams + matches)"
+  );
+});
+
+add_task(async function test_tick_no_op_when_live_disabled() {
+  const feed = makeLiveFeed({ liveEnabled: false });
+  feed.pollingState = "LIVE";
+  const { setTimeoutStub } = stubTimers(feed);
+  const fetchLiveStub = sinon.stub(feed.merino, "fetchSportsLive").resolves({});
+
+  await feed.tick();
+
+  Assert.ok(fetchLiveStub.notCalled);
+  Assert.ok(setTimeoutStub.notCalled, "no timer when liveEnabled is false");
+});
+
+add_task(async function test_scheduleNext_arms_timer_with_resolved_interval() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  const { setTimeoutStub } = stubTimers(feed);
+
+  feed.scheduleNext();
+
+  Assert.equal(setTimeoutStub.callCount, 1);
+  Assert.equal(setTimeoutStub.firstCall.args[1], 60000, "LIVE default 60s");
+  Assert.equal(typeof setTimeoutStub.firstCall.args[0], "function");
+});
+
+// Opening a new tab while a poll is already pending must NOT trigger an
+// extra fetch (heuristic 5). The new foreground tab dispatches LIVE_VISIBLE,
+// but the pending timer covers it — we just add the port and wait.
+add_task(
+  async function test_LIVE_VISIBLE_new_tab_with_pending_timer_no_fetch() {
+    const feed = makeLiveFeed({ visible: false });
+    feed.pollingState = "LIVE";
+    feed.pollTimer = 42; // a poll is already scheduled (another tab)
+    stubTimers(feed);
+    const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+    await feed.onAction(liveVisibleAction("port-newtab"));
+
+    Assert.ok(
+      feed.visibleTabs.has("port-newtab"),
+      "the new tab's port is tracked"
+    );
+    Assert.ok(
+      fetchNowStub.notCalled,
+      "no extra fetch — the pending timer covers the new tab"
+    );
+  }
+);
+
+// Several tabs opening in quick succession with a timer already armed must
+// produce exactly zero fetches (the armed timer covers them all).
+add_task(async function test_LIVE_VISIBLE_rapid_tabs_does_not_multifetch() {
+  const feed = makeLiveFeed({ visible: false });
+  feed.pollingState = "LIVE";
+  feed.pollTimer = 7;
+  stubTimers(feed);
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction(liveVisibleAction("port-1"));
+  await feed.onAction(liveVisibleAction("port-2"));
+  await feed.onAction(liveVisibleAction("port-3"));
+
+  Assert.equal(feed.visibleTabs.size, 3, "all three ports tracked");
+  Assert.ok(
+    fetchNowStub.notCalled,
+    "no fetchNow fired for any of the three rapid new tabs"
+  );
+});
+
+add_task(async function test_stopLive_clears_timers_and_resets() {
+  const feed = makeLiveFeed();
+  const { clearTimeoutStub } = stubTimers(feed);
+  feed.pollTimer = 1;
+  feed.retryTimer = 2;
+  feed.retryCount = 5;
+  feed.pollingState = "LIVE";
+
+  feed.stopLive();
+
+  Assert.equal(clearTimeoutStub.callCount, 2, "both timers cleared");
+  Assert.equal(feed.pollTimer, null);
+  Assert.equal(feed.retryTimer, null);
+  Assert.equal(feed.retryCount, 0);
+  Assert.equal(feed.pollingState, "IDLE");
+});
+
+// init() must NOT arm a poll timer, even when a tab already has the widget
+// visible. Arming here would make the first WIDGETS_SPORTS_LIVE_VISIBLE see a
+// pending pollTimer and skip its fetchNow, so the first live update wouldn't
+// land until a full interval later. Polling always starts from the
+// visibility path instead.
+add_task(async function test_init_does_not_arm_timer_when_visible() {
+  const feed = makeLiveFeed();
+  feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/teams";
+  feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/matches";
+  sinon.stub(feed.cache, "get").resolves({});
+  sinon.stub(feed.merino, "fetchSportsTeams").resolves({ teams: [] });
+  sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+    previous: [],
+    current: [],
+    next: [],
+  });
+  sinon.stub(feed.merino, "fetchSportsLive").resolves({ matches: [] });
+  const { setTimeoutStub } = stubTimers(feed);
+
+  await feed.init();
+
+  Assert.ok(
+    setTimeoutStub.notCalled,
+    "init does not arm a poll timer; visibility path starts polling"
+  );
+});
+
+add_task(async function test_init_does_not_arm_timer_when_not_visible() {
+  const feed = makeLiveFeed({ visible: false });
+  feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/teams";
+  feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/matches";
+  sinon.stub(feed.cache, "get").resolves({});
+  sinon.stub(feed.merino, "fetchSportsTeams").resolves({ teams: [] });
+  sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+    previous: [],
+    current: [],
+    next: [],
+  });
+  sinon.stub(feed.merino, "fetchSportsLive").resolves({ matches: [] });
+  const { setTimeoutStub } = stubTimers(feed);
+
+  await feed.init();
+
+  Assert.ok(
+    setTimeoutStub.notCalled,
+    "no timer armed at init when no tab is visible"
+  );
+});
+
+add_task(async function test_init_does_not_start_polling_when_live_off() {
+  const feed = makeLiveFeed({ liveEnabled: false });
+  feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/teams";
+  feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/matches";
+  sinon.stub(feed.cache, "get").resolves({});
+  sinon.stub(feed.merino, "fetchSportsTeams").resolves({ teams: [] });
+  sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+    previous: [],
+    current: [],
+    next: [],
+  });
+  sinon.stub(feed.merino, "fetchSportsLive").resolves({ matches: [] });
+  const { setTimeoutStub } = stubTimers(feed);
+
+  await feed.init();
+
+  Assert.ok(setTimeoutStub.notCalled, "no timer when liveEnabled is false");
+});
+
+add_task(
+  async function test_PREF_CHANGED_starts_polling_when_live_pref_flips() {
+    const feed = makeLiveFeed({ liveEnabled: false });
+    feed.initialized = true;
+    stubTimers(feed);
+    // Stub fetchNow so the resume call doesn't drive tick -> real network.
+    const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+    // Flip the pref on, then dispatch the PREF_CHANGED action.
+    feed.store.state.Prefs.values[PREF_SPORTS_LIVE_ENABLED] = true;
+    await feed.onAction({
+      type: actionTypes.PREF_CHANGED,
+      data: { name: PREF_SPORTS_LIVE_ENABLED, value: true },
+    });
+
+    Assert.ok(
+      fetchNowStub.calledOnce,
+      "fetchNow called when live pref flips on — recomputes state from fresh data"
+    );
+  }
+);
+
+// Regression: when stopLive() resets pollingState to IDLE while a match is
+// actually in progress, re-enabling must NOT just arm a 6h IDLE-interval
+// timer. Going through fetchNow ensures the state machine is recomputed
+// against fresh data on resume.
+add_task(async function test_PREF_CHANGED_resume_does_not_arm_stale_interval() {
+  const feed = makeLiveFeed({ liveEnabled: false });
+  feed.initialized = true;
+  // Simulate: stopLive() previously reset pollingState to IDLE while a
+  // match is actually live in Redux state.
+  feed.pollingState = "IDLE";
+  feed.store.state.SportsWidget = {
+    data: {
+      matches: { previous: [], current: [], next: [] },
+      live: [{ global_event_id: 99 }],
+    },
+  };
+  const { setTimeoutStub } = stubTimers(feed);
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  feed.store.state.Prefs.values[PREF_SPORTS_LIVE_ENABLED] = true;
+  await feed.onAction({
+    type: actionTypes.PREF_CHANGED,
+    data: { name: PREF_SPORTS_LIVE_ENABLED, value: true },
+  });
+
+  Assert.ok(
+    fetchNowStub.calledOnce,
+    "resume goes through fetchNow rather than bare scheduleNext"
+  );
+  Assert.ok(
+    setTimeoutStub.notCalled,
+    "no IDLE-interval timer was armed before fetch could recompute state"
+  );
+});
+
+add_task(
+  async function test_PREF_CHANGED_stops_polling_when_live_pref_flips_off() {
+    const feed = makeLiveFeed();
+    feed.initialized = true;
+    feed.pollTimer = 1;
+    feed.retryTimer = 2;
+    const { clearTimeoutStub } = stubTimers(feed);
+
+    feed.store.state.Prefs.values[PREF_SPORTS_LIVE_ENABLED] = false;
+    await feed.onAction({
+      type: actionTypes.PREF_CHANGED,
+      data: { name: PREF_SPORTS_LIVE_ENABLED, value: false },
+    });
+
+    Assert.ok(
+      clearTimeoutStub.called,
+      "stopLive cleared timers when live pref turned off"
+    );
+  }
+);
+
+// Regression: toggling the parent widget pref off should stop polling, and
+// toggling it back on while live.enabled is still true should restart polling.
+// onPrefChangedAction must watch PREF_SPORTS_ENABLED / PREF_SYSTEM_SPORTS_ENABLED,
+// not just the live-specific prefs.
+add_task(async function test_PREF_CHANGED_widget_toggle_restarts_polling() {
+  const feed = makeLiveFeed();
+  feed.initialized = true;
+  const { clearTimeoutStub } = stubTimers(feed);
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  info("Toggling the widget off should stop live polling");
+  feed.store.state.Prefs.values[PREF_SPORTS_ENABLED] = false;
+  await feed.onAction({
+    type: actionTypes.PREF_CHANGED,
+    data: { name: PREF_SPORTS_ENABLED, value: false },
+  });
+  Assert.ok(clearTimeoutStub.called, "timers cleared when widget turned off");
+
+  info("Toggling the widget back on should restart live polling");
+  fetchNowStub.resetHistory();
+  feed.store.state.Prefs.values[PREF_SPORTS_ENABLED] = true;
+  await feed.onAction({
+    type: actionTypes.PREF_CHANGED,
+    data: { name: PREF_SPORTS_ENABLED, value: true },
+  });
+  Assert.ok(
+    fetchNowStub.called,
+    "fetchNow was called when the widget was re-enabled"
+  );
+});
+
+// Regression: if a live match ends while another remains live, /wcs/live
+// will return just the still-live event. The reducer alone can't tell the
+// difference between "I'm only sending you what's still live" and "I lost a
+// match in transit", so the feed must trigger a matches resync whenever a
+// previously-live event disappears from the response.
+add_task(async function test_fetchAndDispatch_resyncs_when_a_live_event_ends() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/teams";
+  feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/matches";
+  // Two live events on record; the live response only returns one of them.
+  feed.store.state.SportsWidget.data.live = [
+    { global_event_id: 1 },
+    { global_event_id: 2 },
+  ];
+  feed.store.state.SportsWidget.data.matches = {
+    previous: [],
+    current: [],
+    next: [],
+  };
+  sinon.stub(feed.merino, "fetchSportsLive").resolves({
+    matches: [{ global_event_id: 1 }],
+  });
+  sinon.stub(feed.merino, "fetchSportsTeams").resolves({ teams: [] });
+  sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+    previous: [{ global_event_id: 2, status_type: "past" }],
+    current: [{ global_event_id: 1, status_type: "live" }],
+    next: [],
+  });
+  const fetchSportsDataSpy = sinon.spy(feed, "fetchSportsData");
+
+  await feed.fetchAndDispatch();
+
+  Assert.ok(
+    fetchSportsDataSpy.calledOnce,
+    "matches endpoint was re-fetched after a live event disappeared"
+  );
+});
+
+// If the live response contains the same events as before, no resync is
+// triggered — only the live-update broadcast.
+add_task(
+  async function test_fetchAndDispatch_no_resync_when_live_set_unchanged() {
+    const feed = makeLiveFeed();
+    feed.pollingState = "LIVE";
+    feed.store.state.SportsWidget.data.live = [
+      { global_event_id: 1, home_score: 0 },
+    ];
+    feed.store.state.SportsWidget.data.matches = {
+      previous: [],
+      current: [],
+      next: [],
+    };
+    sinon.stub(feed.merino, "fetchSportsLive").resolves({
+      matches: [{ global_event_id: 1, home_score: 1 }],
+    });
+    const fetchSportsDataSpy = sinon.spy(feed, "fetchSportsData");
+
+    await feed.fetchAndDispatch();
+
+    Assert.ok(
+      fetchSportsDataSpy.notCalled,
+      "no matches resync when the live set is unchanged"
+    );
+  }
+);
+
+// =============================================================================
+// Stage-2 hardening regressions
+// =============================================================================
+
+// #9: a 0 (or negative) interval pref / trainhopConfig override must not
+// produce a setTimeout(0) tight loop. resolvePollIntervalMs clamps to a
+// MIN_POLL_INTERVAL_MS floor; pregame lead clamps to 0 minimum.
+add_task(async function test_resolvePollIntervalMs_clamps_to_minimum() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  feed.store.state.Prefs.values[PREF_POLL_LIVE_MS] = 0;
+  Assert.equal(
+    feed.resolvePollIntervalMs(),
+    10000,
+    "pollLiveMs=0 is clamped to MIN_POLL_INTERVAL_MS"
+  );
+  feed.store.state.Prefs.values[PREF_POLL_LIVE_MS] = -5000;
+  Assert.equal(feed.resolvePollIntervalMs(), 10000, "negatives clamp too");
+  feed.store.state.Prefs.values[PREF_POLL_PREGAME_LEAD_MS] = -1;
+  Assert.equal(feed.resolvePregameLeadMs(), 0, "negative pregame lead clamps");
+});
+
+// #14: matches.next ordering isn't guaranteed by the backend. Pick the
+// earliest future kickoff rather than trusting next[0].
+add_task(async function test_updatePollingStateFromMatches_picks_earliest() {
+  const feed = makeLiveFeed();
+  const now = Date.now();
+  feed.store.state.SportsWidget.data.matches = {
+    previous: [],
+    current: [],
+    next: [
+      // Out of order: a far-future match listed before a near-future one.
+      {
+        status_type: "scheduled",
+        date: new Date(now + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        status_type: "scheduled",
+        date: new Date(now + 5 * 60 * 1000).toISOString(),
+      },
+    ],
+  };
+  feed.updatePollingStateFromMatches();
+  Assert.equal(
+    feed.pollingState,
+    "LIVE",
+    "earliest match drives the state machine"
+  );
+  Assert.lessOrEqual(
+    feed.nextKickoffDeltaMs,
+    5 * 60 * 1000,
+    "nextKickoffDeltaMs reflects the earliest kickoff"
+  );
+});
+
+// #11: retryCount is reset on the IDLE/MATCH_DAY success branch (not only
+// on LIVE-success) so a transient live failure followed by a state
+// transition doesn't preserve a stale backoff counter.
+add_task(async function test_fetchAndDispatch_idle_resets_retryCount() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "IDLE";
+  feed.retryCount = 4;
+  feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/teams";
+  feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+    "https://merino.services.mozilla.com/api/v1/wcs/matches";
+  sinon.stub(feed.cache, "set").resolves();
+  sinon.stub(feed.merino, "fetchSportsTeams").resolves({ teams: [] });
+  sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+    previous: [],
+    current: [],
+    next: [],
+  });
+  sinon.stub(feed.merino, "fetchSportsLive").resolves({ matches: [] });
+
+  await feed.fetchAndDispatch();
+
+  Assert.equal(feed.retryCount, 0, "retryCount reset on IDLE success");
+});
+
+// #13: discoverystream.endpoints is in POLL_RELATED_PREFS so flipping the
+// allowlist re-evaluates polling. Without this fix a stuck retry loop
+// couldn't be broken out of via pref push.
+add_task(
+  async function test_PREF_CHANGED_discoverystream_endpoints_reevaluates() {
+    const feed = makeLiveFeed();
+    feed.initialized = true;
+    stubTimers(feed);
+    const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+    await feed.onAction({
+      type: actionTypes.PREF_CHANGED,
+      data: {
+        name: "discoverystream.endpoints",
+        value: "https://merino.services.mozilla.com/",
+      },
+    });
+
+    Assert.ok(
+      fetchNowStub.calledOnce,
+      "discoverystream.endpoints triggers a re-eval"
+    );
+  }
+);
+
+// #7: MATCH_DAY interval is clamped to time-to-pregame so we don't miss
+// the LIVE-pregame transition when kickoff is closer than the MATCH_DAY
+// interval (default 30 min).
+add_task(async function test_computeNextDelayMs_clamps_MATCH_DAY_to_pregame() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "MATCH_DAY";
+  // Kickoff in 20 min; pregame lead 10 min. We should wake at the pregame
+  // boundary (10 min) rather than the full MATCH_DAY interval (30 min).
+  feed.nextKickoffDeltaMs = 20 * 60 * 1000;
+  feed.store.state.Prefs.values[PREF_POLL_PREGAME_LEAD_MS] = 10 * 60 * 1000;
+  Assert.equal(
+    feed.computeNextDelayMs(),
+    10 * 60 * 1000,
+    "clamped to delta - pregameLead"
+  );
+
+  // If kickoff is already inside pregame, no clamp (base interval).
+  feed.nextKickoffDeltaMs = 5 * 60 * 1000;
+  Assert.equal(
+    feed.computeNextDelayMs(),
+    1800000,
+    "no clamp when timeToPregame <= 0"
+  );
+});
+
+// #5+#6: a scheduled match that flips to live triggers a fetchSportsData
+// resync, so it doesn't end up duplicated in both current[] and next[].
+add_task(
+  async function test_fetchAndDispatch_resyncs_when_a_new_event_goes_live() {
+    const feed = makeLiveFeed();
+    feed.pollingState = "LIVE";
+    feed.store.state.Prefs.values["sports.worldCup.teamsEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/teams";
+    feed.store.state.Prefs.values["sports.worldCup.matchesEndpoint"] =
+      "https://merino.services.mozilla.com/api/v1/wcs/matches";
+    // No previously-live events; the response contains a brand-new live event.
+    feed.store.state.SportsWidget.data.live = [];
+    feed.store.state.SportsWidget.data.matches = {
+      previous: [],
+      current: [],
+      next: [{ global_event_id: 7, status_type: "scheduled" }],
+    };
+    const liveResponse = { matches: [{ global_event_id: 7 }] };
+    const fetchLiveStub = sinon
+      .stub(feed.merino, "fetchSportsLive")
+      .resolves(liveResponse);
+    sinon.stub(feed.cache, "set").resolves();
+    sinon.stub(feed.merino, "fetchSportsTeams").resolves({ teams: [] });
+    sinon.stub(feed.merino, "fetchSportsMatches").resolves({
+      previous: [],
+      current: [{ global_event_id: 7, status_type: "live" }],
+      next: [],
+    });
+    const fetchSportsDataSpy = sinon.spy(feed, "fetchSportsData");
+
+    await feed.fetchAndDispatch();
+
+    Assert.ok(
+      fetchSportsDataSpy.calledOnce,
+      "matches endpoint refetched on scheduled→live transition"
+    );
+    Assert.deepEqual(
+      fetchSportsDataSpy.firstCall.args[0],
+      { live: liveResponse },
+      "resync reused the already-fetched live payload"
+    );
+    Assert.ok(
+      fetchLiveStub.calledOnce,
+      "fetchSportsLive called only once (no redundant resync fetch)"
+    );
+  }
+);
+
+// #3: live updates are persisted to PersistentCache so a browser shutdown
+// mid-game doesn't lose scores. Steady-state ticks (no resync) write the
+// merged snapshot directly.
+add_task(async function test_persistSportsData_called_after_live_update() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  feed.store.state.SportsWidget.data = {
+    teams: [{ key: "ENG" }],
+    matches: { previous: [], current: [], next: [] },
+    live: [{ global_event_id: 1, home_score: 1 }],
+  };
+  sinon.stub(feed.merino, "fetchSportsLive").resolves({
+    matches: [{ global_event_id: 1, home_score: 2 }],
+  });
+  const setStub = sinon.stub(feed.cache, "set").resolves();
+  const persistSpy = sinon.spy(feed, "persistSportsData");
+
+  await feed.fetchAndDispatch();
+
+  Assert.ok(persistSpy.calledOnce, "persistSportsData called");
+  Assert.ok(setStub.calledOnce, "cache.set called once");
+  Assert.equal(setStub.firstCall.args[0], "sportsData");
+});
+
+// #10: reentrancy guard — two back-to-back tick() calls (e.g. a poll timer
+// firing just as a WIDGETS_SPORTS_LIVE_VISIBLE resume lands) must not stack
+// parallel tick()s issuing duplicate /wcs/live requests.
+add_task(async function test_tick_reentrancy_guard() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  stubTimers(feed);
+  feed.visibleTabs = new Set(["port-1"]);
+  sinon.stub(feed.cache, "set").resolves();
+  // Stub the post-tick resync so this test isolates the reentrancy guard
+  // from the empty-live-array resync path.
+  sinon.stub(feed, "fetchSportsData").resolves();
+
+  // A live response that doesn't resolve until we tell it to, so we can
+  // observe what happens if a second tick fires while the first is in flight.
+  let resolveLive;
+  sinon.stub(feed.merino, "fetchSportsLive").returns(
+    new Promise(r => {
+      resolveLive = r;
+    })
+  );
+
+  const first = feed.tick();
+  const second = feed.tick();
+  resolveLive({ matches: [] });
+  await first;
+  await second;
+
+  Assert.ok(
+    feed.merino.fetchSportsLive.calledOnce,
+    "second tick was suppressed by the reentrancy guard"
+  );
+});
+
+// #2: an in-flight tick that races stopLive() must NOT re-arm pollTimer
+// via scheduleNext when the await resolves.
+add_task(
+  async function test_tick_does_not_rearm_when_live_disabled_mid_fetch() {
+    const feed = makeLiveFeed();
+    feed.pollingState = "LIVE";
+    feed.visibleTabs = new Set(["port-1"]);
+    const { setTimeoutStub } = stubTimers(feed);
+    sinon.stub(feed.cache, "set").resolves();
+    // The empty-live-array path triggers a fetchSportsData() resync — stub
+    // it out so this test isolates the scheduleNext rearm-suppression logic.
+    sinon.stub(feed, "fetchSportsData").resolves();
+
+    let resolveLive;
+    sinon.stub(feed.merino, "fetchSportsLive").returns(
+      new Promise(r => {
+        resolveLive = r;
+      })
+    );
+
+    const inflight = feed.tick();
+    // Simulate stopLive() landing during the await.
+    feed.store.state.Prefs.values[PREF_SPORTS_LIVE_ENABLED] = false;
+    resolveLive({ matches: [] });
+    await inflight;
+
+    Assert.ok(
+      setTimeoutStub.notCalled,
+      "scheduleNext did NOT re-arm pollTimer after live was disabled"
+    );
+  }
+);
+
+// #1: a throw from fetchSportsData must not kill the polling loop. The
+// IDLE branch normally has no retry path; the try/catch in tick() reroutes
+// to scheduleRetry so we recover from a transient failure.
+add_task(async function test_tick_handles_throw_via_scheduleRetry() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "IDLE";
+  // tick() bails if visibleTabs is empty (C3 visibility gate), so populate it
+  // for this test which is exercising the post-await throw path.
+  feed.visibleTabs = new Set(["port-1"]);
+  const { setTimeoutStub } = stubTimers(feed);
+  sinon
+    .stub(feed, "fetchSportsData")
+    .rejects(new TypeError("Invalid URL: bogus"));
+
+  await feed.tick();
+
+  Assert.ok(
+    setTimeoutStub.called,
+    "retry timer armed even though IDLE branch threw"
+  );
+});
+
+// =============================================================================
+// Per-port visibility tracking
+// =============================================================================
+
+add_task(async function test_LIVE_VISIBLE_HIDDEN_track_per_port() {
+  const feed = makeLiveFeed();
+  feed.visibleTabs = new Set();
+  // VISIBLE on a 0->1 transition fires fetchNow (fire-and-forget) — stub it
+  // so the real /live fetch doesn't trip the non-local-connections kill
+  // switch after the test returns.
+  sinon.stub(feed, "fetchNow");
+
+  info("VISIBLE adds the sender port to visibleTabs");
+  await feed.onAction(liveVisibleAction("port-1"));
+  Assert.deepEqual([...feed.visibleTabs], ["port-1"]);
+
+  info("a second VISIBLE from the same port is a no-op (Set semantics)");
+  await feed.onAction(liveVisibleAction("port-1"));
+  Assert.equal(feed.visibleTabs.size, 1);
+
+  info("a VISIBLE from a different port adds to the set");
+  await feed.onAction(liveVisibleAction("port-2"));
+  Assert.equal(feed.visibleTabs.size, 2);
+
+  info("HIDDEN removes only that port");
+  await feed.onAction(liveHiddenAction("port-1"));
+  Assert.deepEqual([...feed.visibleTabs], ["port-2"]);
+
+  info("HIDDEN for a port that wasn't in the set is a no-op");
+  await feed.onAction(liveHiddenAction("never-was-visible"));
+  Assert.deepEqual([...feed.visibleTabs], ["port-2"]);
+});
+
+add_task(async function test_LIVE_VISIBLE_ignores_actions_without_portId() {
+  const feed = makeLiveFeed();
+  feed.visibleTabs = new Set();
+
+  info("an action with no meta.fromTarget is dropped (no crash, no add)");
+  await feed.onAction({ type: actionTypes.WIDGETS_SPORTS_LIVE_VISIBLE });
+  Assert.equal(feed.visibleTabs.size, 0);
+});
+
+// Regression for the per-tab safety issue: closing a tab that never
+// reported visible must NOT drop the visibility count to zero when a
+// different tab still has the widget visible.
+add_task(async function test_NEW_TAB_UNLOAD_only_clears_that_tabs_visibility() {
+  const feed = makeLiveFeed();
+  feed.visibleTabs = new Set();
+  // Same fire-and-forget fetchNow concern as test_LIVE_VISIBLE_HIDDEN_*.
+  sinon.stub(feed, "fetchNow");
+
+  await feed.onAction(liveVisibleAction("port-visible"));
+  Assert.deepEqual([...feed.visibleTabs], ["port-visible"]);
+
+  info("Closing a hidden tab should NOT remove the visible tab's entry");
+  await feed.onAction(newTabUnloadAction("port-hidden"));
+  Assert.deepEqual(
+    [...feed.visibleTabs],
+    ["port-visible"],
+    "visible-tab port is preserved when a hidden tab unloads"
+  );
+
+  info("Closing the visible tab does remove its entry");
+  await feed.onAction(newTabUnloadAction("port-visible"));
+  Assert.equal(feed.visibleTabs.size, 0);
+});
+
+add_task(async function test_tick_bails_when_no_visible_tab() {
+  // When nobody is observing the widget, tick stops fetching AND stops
+  // rearming, to avoid an orphaned background wakeup loop. Polling resumes
+  // from WIDGETS_SPORTS_LIVE_VISIBLE.
+  const feed = makeLiveFeed();
+  feed.visibleTabs = new Set();
+  feed.pollingState = "LIVE";
+  const { setTimeoutStub } = stubTimers(feed);
+  const fetchLiveStub = sinon.stub(feed.merino, "fetchSportsLive").resolves({
+    matches: [],
+  });
+
+  await feed.tick();
+
+  Assert.ok(
+    fetchLiveStub.notCalled,
+    "no fetch when visibleTabs is empty even with an open tab"
+  );
+  Assert.ok(
+    setTimeoutStub.notCalled,
+    "no timer rearmed — polling resumes from WIDGETS_SPORTS_LIVE_VISIBLE"
+  );
+});
+
+// Visibility appearing while polling is paused (no timer) resumes polling,
+// regardless of pollingState: tick bails when nobody is observing, so we
+// need a positive trigger to restart, and the stored state may be stale
+// after a long hidden period.
+add_task(async function test_LIVE_VISIBLE_resumes_polling_on_zero_to_one() {
+  for (const state of ["IDLE", "MATCH_DAY", "LIVE"]) {
+    const feed = makeLiveFeed();
+    feed.visibleTabs = new Set();
+    feed.pollingState = state;
+    stubTimers(feed);
+    // Stub (not spy) so fetchNow doesn't actually run tick → fetchLive,
+    // which would hit the real Merino endpoint and trip the
+    // non-local-connections kill switch.
+    const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+    await feed.onAction(liveVisibleAction("port-1"));
+
+    Assert.ok(
+      fetchNowStub.calledOnce,
+      `fetchNow called on visible 0->1 in ${state} state`
+    );
+  }
+});
+
+// A second tab becoming visible while polling is already active (another
+// tab is visible and a poll is scheduled) must not trigger an additional
+// fetch — the existing scheduled tick covers it.
+add_task(async function test_LIVE_VISIBLE_no_fetchNow_when_already_polling() {
+  const feed = makeLiveFeed();
+  feed.visibleTabs = new Set(["port-already-visible"]);
+  feed.pollingState = "LIVE";
+  feed.pollTimer = 1; // a poll is already scheduled
+  stubTimers(feed);
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction(liveVisibleAction("port-second"));
+
+  Assert.ok(
+    fetchNowStub.notCalled,
+    "no extra fetch when polling is already active"
+  );
+});
+
+// A VISIBLE 0->1 while a tick is in flight must not call fetchNow — the
+// running tick will schedule the next poll on completion. Preempting it
+// would discard the about-to-be-armed timer for no benefit (the tick()
+// reentrancy guard early-returns anyway).
+add_task(async function test_LIVE_VISIBLE_skips_fetchNow_when_ticking() {
+  const feed = makeLiveFeed();
+  feed.visibleTabs = new Set();
+  feed.pollingState = "LIVE";
+  feed.ticking = true;
+  stubTimers(feed);
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction(liveVisibleAction("port-1"));
+
+  Assert.ok(
+    fetchNowStub.notCalled,
+    "fetchNow skipped while a tick is in flight"
+  );
+  Assert.deepEqual(
+    [...feed.visibleTabs],
+    ["port-1"],
+    "port still added to visibleTabs even when fetch is skipped"
+  );
+});
+
+// Real-world rapid scroll: widget is visible, polling is running (pollTimer
+// armed), user scrolls off (HIDDEN) then immediately back (VISIBLE). The
+// pollTimer is still pending so we must NOT preempt it with a fresh fetch.
+add_task(
+  async function test_LIVE_VISIBLE_skips_fetchNow_when_pollTimer_armed() {
+    const feed = makeLiveFeed();
+    feed.visibleTabs = new Set();
+    feed.pollingState = "LIVE";
+    feed.pollTimer = 42; // simulate armed poll timer
+    stubTimers(feed);
+    const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+    await feed.onAction(liveVisibleAction("port-1"));
+
+    Assert.ok(
+      fetchNowStub.notCalled,
+      "fetchNow skipped when a poll timer is already armed"
+    );
+  }
+);
+
+// Heuristic 3 regression (the original "scroll off and back repeats
+// requests" bug): with a poll pending, scrolling the widget off-screen
+// (HIDDEN) must NOT clear the timer, and scrolling back (VISIBLE) within the
+// interval must NOT fetch. The pending timer is preserved across the round
+// trip so the interval is honored.
+add_task(
+  async function test_HIDDEN_then_VISIBLE_within_interval_preserves_timer() {
+    const feed = makeLiveFeed();
+    feed.visibleTabs = new Set(["port-1"]);
+    feed.pollingState = "LIVE";
+    feed.pollTimer = 555; // a poll is scheduled mid-interval
+    const { clearTimeoutStub } = stubTimers(feed);
+    const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+    await feed.onAction(liveHiddenAction("port-1"));
+    Assert.equal(feed.visibleTabs.size, 0, "HIDDEN removes the port");
+    Assert.equal(
+      feed.pollTimer,
+      555,
+      "HIDDEN does NOT clear the pending poll timer"
+    );
+    Assert.ok(clearTimeoutStub.notCalled, "no timer cleared on HIDDEN");
+
+    await feed.onAction(liveVisibleAction("port-1"));
+    Assert.ok(
+      fetchNowStub.notCalled,
+      "scroll-back within the interval does not refetch — waits for the timer"
+    );
+  }
+);
+
+// Backoff retries also count as a pending poll — don't preempt them.
+add_task(
+  async function test_LIVE_VISIBLE_skips_fetchNow_when_retryTimer_armed() {
+    const feed = makeLiveFeed();
+    feed.visibleTabs = new Set();
+    feed.pollingState = "LIVE";
+    feed.retryTimer = 99; // simulate armed retry timer
+    stubTimers(feed);
+    const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+    await feed.onAction(liveVisibleAction("port-1"));
+
+    Assert.ok(
+      fetchNowStub.notCalled,
+      "fetchNow skipped when a retry timer is already armed"
+    );
+  }
+);
+
+// scheduleNext's setTimeout callback must null pollTimer so that a later
+// VISIBLE event can correctly detect that polling is no longer scheduled.
+add_task(async function test_scheduleNext_callback_nulls_pollTimer() {
+  const feed = makeLiveFeed();
+  let firedCallback = null;
+  feed.setTimeout = (cb, _delay) => {
+    firedCallback = cb;
+    return 7;
+  };
+  feed.clearTimeout = () => {};
+  sinon.stub(feed, "tick");
+  sinon.stub(feed, "resolvePollIntervalMs").returns(60000);
+
+  feed.scheduleNext();
+  Assert.equal(feed.pollTimer, 7, "pollTimer set to the timer ID");
+
+  firedCallback();
+  Assert.strictEqual(
+    feed.pollTimer,
+    null,
+    "pollTimer nulled when the timer fires"
+  );
+});
+
+// scheduleRetry's setTimeout callback must null retryTimer for the same
+// reason.
+add_task(async function test_scheduleRetry_callback_nulls_retryTimer() {
+  const feed = makeLiveFeed();
+  let firedCallback = null;
+  feed.setTimeout = (cb, _delay) => {
+    firedCallback = cb;
+    return 11;
+  };
+  feed.clearTimeout = () => {};
+  sinon.stub(feed, "tick");
+
+  feed.scheduleRetry();
+  Assert.equal(feed.retryTimer, 11, "retryTimer set to the timer ID");
+
+  firedCallback();
+  Assert.strictEqual(
+    feed.retryTimer,
+    null,
+    "retryTimer nulled when the timer fires"
+  );
 });

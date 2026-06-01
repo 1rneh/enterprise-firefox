@@ -52,14 +52,12 @@ MOZ_SRC_FILES += [
     "UrlbarProviderTokenAliasEngines.sys.mjs",
     "UrlbarProviderTopSites.sys.mjs",
     "UrlbarProviderUnitConversion.sys.mjs",
-    "UrlbarResult.sys.mjs",
     "UrlbarSearchOneOffs.sys.mjs",
     "UrlbarSearchTermsPersistence.sys.mjs",
     "UrlbarSearchUtils.sys.mjs",
     "UrlbarTokenizer.sys.mjs",
     "UrlbarUtils.sys.mjs",
     "UrlbarValueFormatter.sys.mjs",
-    "UrlbarView.sys.mjs",
 ]
 
 MOZ_SRC_FILES += [

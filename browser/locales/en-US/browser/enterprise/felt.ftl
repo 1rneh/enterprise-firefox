@@ -28,6 +28,10 @@ felt-version-nightly = { $version } ({ $isodate })
 #   $version (String): version of Firefox for beta and release builds
 felt-version = { $version }
 
+# Copy of urlbar-web-authn-anchor: Felt relies on the WebAuthn prompter and its
+# mechanisms uses this string even if not visible in our UI. This is the only
+# string requiring pulling browser/browser.ftl, so make a copy here and use it
+# in our felt.xhtml
 felt-urlbar-web-authn-anchor =
     .tooltiptext = Open Web Authentication panel
 

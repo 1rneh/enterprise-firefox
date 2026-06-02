@@ -6,17 +6,17 @@ const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "localization", () => {
   return new Localization(
-    ["browser/enterprise/enterprise.ftl", "branding/brand.ftl"],
+    ["toolkit/enterprise/enterprise.ftl", "branding/brand.ftl"],
     true
   );
 });
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
-  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
-  isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {

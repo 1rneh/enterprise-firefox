@@ -6,7 +6,7 @@
 
 JAR_MANIFESTS += ["jar.mn"]
 
-EXTRA_JS_MODULES += [
+EXTRA_JS_MODULES.enterprise += [
     "FeltErrorReport.sys.mjs",
     "FeltStorage.sys.mjs",
 ]

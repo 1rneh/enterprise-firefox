@@ -18,7 +18,8 @@ const ID_THUNDERBIRD = "{3550f703-e582-4d05-9a08-453d09bdfdc6}";
  * @property {boolean} isWindows - Whether the application runs on Windows.
  * @property {boolean} isFirefox - Whether the application is Firefox.
  * @property {boolean} isThunderbird - Whether the application is Thunderbird.
- * @property {boolean} isEnterprise - Whether the application is Firefox Enterprise.
+ * @property {boolean} isFirefoxEnterprise - Whether the application is Firefox Enterprise.
+ * @property {boolean} isThunderbirdEnterprise - Whether the application is Thunderbird Enterprise.
  *
  * @since 88
  */
@@ -69,8 +70,12 @@ ChromeUtils.defineLazyGetter(AppInfo, "isThunderbird", () => {
   return Services.appinfo.ID == ID_THUNDERBIRD;
 });
 
-ChromeUtils.defineLazyGetter(AppInfo, "isEnterprise", () => {
+ChromeUtils.defineLazyGetter(AppInfo, "isFirefoxEnterprise", () => {
   return Services.appinfo.ID == ID_FIREFOX && AppConstants.MOZ_ENTERPRISE;
+});
+
+ChromeUtils.defineLazyGetter(AppInfo, "isThunderbirdEnterprise", () => {
+  return Services.appinfo.ID == ID_THUNDERBIRD && AppConstants.MOZ_ENTERPRISE;
 });
 
 ChromeUtils.defineLazyGetter(AppInfo, "isFeltUI", () => {
@@ -80,6 +85,9 @@ ChromeUtils.defineLazyGetter(AppInfo, "isFeltUI", () => {
 ChromeUtils.defineLazyGetter(AppInfo, "name", () => {
   if (Services.appinfo.ID == ID_FIREFOX && AppConstants.MOZ_ENTERPRISE) {
     return "Firefox";
+  }
+  if (Services.appinfo.ID == ID_THUNDERBIRD && AppConstants.MOZ_ENTERPRISE) {
+    return "Thunderbird";
   }
   return Services.appinfo.name;
 });

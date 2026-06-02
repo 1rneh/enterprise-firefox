@@ -1143,6 +1143,9 @@ SettingGroupManager.registerGroups({
             id: "urlBarSuggestionPermanentPBMessage",
             l10nId: "search-suggestions-cant-show-2",
             control: "moz-message-bar",
+            controlAttrs: {
+              role: "status",
+            },
           },
         ],
       },
@@ -1150,7 +1153,7 @@ SettingGroupManager.registerGroups({
   },
   firefoxSuggest: {
     id: "locationBarGroup",
-    subcategory: "firefoxSuggest",
+    subcategory: "locationBar",
     items: [
       {
         id: "locationBarGroupHeader",

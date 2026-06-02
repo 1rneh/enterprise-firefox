@@ -20,8 +20,14 @@ tags = "os_integration"
 
 ["browser_setting_group_in_progress.js"]
 
+["browser_legacy_pane_mappings.js"]
+
 ["browser_setting_pane_redesign_promo.js"]
 
+["browser_setting_pane_scroll_restoration.js"]
+
 ["browser_setting_pane_sub_pane.js"]
+
+["browser_setting_pane_sub_pane_search.js"]
 
 ["browser_sub_pane_navigation_selection.js"]

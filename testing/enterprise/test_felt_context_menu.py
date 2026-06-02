@@ -41,7 +41,7 @@ def close_context_menu(test_func):
     return wrapper
 
 
-class BrowserContextMenu(FeltTests):
+class AppContextMenu(FeltTests):
     OPEN_POPUP_STATES = ["showing", "open"]
 
     def test_browser_context_menu(self):

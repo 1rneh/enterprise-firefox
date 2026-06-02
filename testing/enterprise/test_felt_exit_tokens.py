@@ -12,7 +12,7 @@ from base_test import Environment
 from felt_tests import FeltTests
 
 
-class BrowserExitTokens(FeltTests):
+class AppExitTokens(FeltTests):
     def test_browser_exit_tokens(self):
         self.get_driver(Environment.FELT).set_prefs(
             # required to not close felt window when launching browser,
@@ -65,7 +65,7 @@ class BrowserExitTokens(FeltTests):
         )
         # browser should not have the refresh token
         assert self.browser_tokens[1] == "", (
-            "Browser refresh token should be empty: " + self.browser_tokens[1]
+            "App refresh token should be empty: " + self.browser_tokens[1]
         )
         assert self.felt_tokens[1] != "", (
             "Felt refresh token should not be empty: " + self.felt_tokens[1]
@@ -75,13 +75,13 @@ class BrowserExitTokens(FeltTests):
         self.new_browser_tokens = self.get_tokens(Environment.FIREFOX)
         self.new_felt_tokens = self.get_tokens(Environment.FELT)
         assert len(self.new_browser_tokens[0]) > 0, (
-            "Browser access token should not be empty"
+            "App access token should not be empty"
         )
         assert len(self.new_browser_tokens[1]) == 0, (
-            "Browser refresh token should be empty"
+            "App refresh token should be empty"
         )
         assert self.new_browser_tokens[0] != self.browser_tokens[0], (
-            f"Browser access token should differ after session refresh: {self.new_browser_tokens[0]} vs {self.browser_tokens[0]}"
+            f"App access token should differ after session refresh: {self.new_browser_tokens[0]} vs {self.browser_tokens[0]}"
         )
         assert self.new_felt_tokens[0] != self.felt_tokens[0], (
             f"Felt access token should differ after session refresh: {self.new_felt_tokens[0]} vs {self.felt_tokens[0]}"

@@ -12,7 +12,7 @@ from base_test import Environment
 from felt_tests import FeltTests
 
 
-class BrowserInitFailures(FeltTests):
+class AppInitFailures(FeltTests):
     def test_browser_init_policy_fetch_fail(self):
         self.policies_fail_request.value = 1
         # After SSO completion, FELT closes its auth window and spawns the

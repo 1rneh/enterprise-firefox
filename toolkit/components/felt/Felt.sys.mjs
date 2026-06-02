@@ -135,9 +135,7 @@ export class Felt {
       }
 
       if (!win) {
-        lazy.log.error(
-          "No browser window available to open URL"
-        );
+        lazy.log.error("No browser window available to open URL");
         return;
       }
 
@@ -265,9 +263,7 @@ export class Felt {
 
         lazy.ConsoleClient.performServerSignout()
           .catch(err => {
-            console.error(
-              `Failed to post signout on exit: ${err}`
-            );
+            console.error(`Failed to post signout on exit: ${err}`);
           })
           .finally(() => {
             Services.felt.clearTokens();
@@ -337,9 +333,7 @@ export class Felt {
       }
 
       case "FeltParent:ForceFeltFocus": {
-        lazy.log.debug(
-          `forcing window focus: this._win=${this._win}`
-        );
+        lazy.log.debug(`forcing window focus: this._win=${this._win}`);
         if (this._win) {
           this._win.focus();
         }

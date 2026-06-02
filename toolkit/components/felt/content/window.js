@@ -158,22 +158,16 @@ async function connectToConsole(email) {
           .sendQuery("ExtractTokens")
           .then(sent => {
             if (!sent) {
-              lazy.log.error(
-                "Fallback token extraction found no token data"
-              );
+              lazy.log.error("Fallback token extraction found no token data");
               resetToLoginPage("felt-browser-error-connection");
             }
           })
           .catch(err => {
-            lazy.log.error(
-              `Fallback token extraction failed: ${err}`
-            );
+            lazy.log.error(`Fallback token extraction failed: ${err}`);
             resetToLoginPage("felt-browser-error-connection");
           });
       } catch (err) {
-        lazy.log.error(
-          `Could not reach FeltWindow actor: ${err}`
-        );
+        lazy.log.error(`Could not reach FeltWindow actor: ${err}`);
         resetToLoginPage("felt-browser-error-connection");
       }
     },

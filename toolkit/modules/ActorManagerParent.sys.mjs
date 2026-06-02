@@ -700,9 +700,7 @@ let JSWINDOWACTORS = {
   },
 };
 
-if (
-  !AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltUI()
-) {
+if (!AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltUI()) {
   JSWINDOWACTORS.NetError = {
     parent: {
       esModuleURI: "resource://gre/actors/NetErrorParent.sys.mjs",
@@ -903,7 +901,6 @@ if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
         e => console.error("Felt: FeltWindow actor registration failed", e)
       );
     },
-
   };
 
   JSWINDOWACTORS.FeltErrorWindow = {

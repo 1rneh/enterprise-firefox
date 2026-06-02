@@ -892,9 +892,7 @@ let JSWINDOWACTORS = {
   },
 };
 
-if (
-  !AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltUI()
-) {
+if (!AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltUI()) {
   JSWINDOWACTORS.ContextMenu = {
     parent: {
       esModuleURI: "resource:///actors/ContextMenuParent.sys.mjs",

@@ -500,6 +500,7 @@ export const EnterpriseHandler = {
       params.wrappedJSObject = params;
       Services.ww.openWindow(
         null,
+        // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
         "chrome://browser/content/enterprise/enterprise-close-dialog.xhtml",
         "_blank",
         "chrome,centerscreen,modal,dialog",
@@ -510,6 +511,7 @@ export const EnterpriseHandler = {
         window.gDialogBox.replaceDialogIfOpen();
       }
       await window.gDialogBox.open(
+        // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
         "chrome://browser/content/enterprise/enterprise-close-dialog.xhtml",
         params
       );

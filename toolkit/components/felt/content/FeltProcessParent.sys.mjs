@@ -114,9 +114,7 @@ let gObserversRegistered = false;
  */
 export class FeltProcessParent extends JSProcessActorParent {
   constructor() {
-    lazy.log.debug(
-      `FeltParentProcess.sys.mjs: FeltProcessParent`
-    );
+    lazy.log.debug(`FeltParentProcess.sys.mjs: FeltProcessParent`);
     super();
 
     // Store instance globally
@@ -184,9 +182,7 @@ export class FeltProcessParent extends JSProcessActorParent {
                 return pendingUpdate;
               })
               .catch(err => {
-                lazy.log.debug(
-                  `ParentProcess: getReadyUpdate failed: ${err}`
-                );
+                lazy.log.debug(`ParentProcess: getReadyUpdate failed: ${err}`);
               })
               .then(pendingUpdate => {
                 lazy.log.debug(
@@ -208,9 +204,7 @@ export class FeltProcessParent extends JSProcessActorParent {
                       );
 
                       if (!restartDisabled && !pendingUpdate) {
-                        lazy.log.debug(
-                          `ParentProcess: Starting new Firefox`
-                        );
+                        lazy.log.debug(`ParentProcess: Starting new Firefox`);
                         gFeltProcessParentInstance.startFirefox(
                           PROCESS_START_REASON.RESTART
                         );
@@ -233,14 +227,10 @@ export class FeltProcessParent extends JSProcessActorParent {
                       }
                     })
                     .catch(err => {
-                      lazy.log.debug(
-                        `ParentProcess: Kill failed: ${err}`
-                      );
+                      lazy.log.debug(`ParentProcess: Kill failed: ${err}`);
                     });
                 } else {
-                  lazy.log.debug(
-                    `ParentProcess: No proc to kill!`
-                  );
+                  lazy.log.debug(`ParentProcess: No proc to kill!`);
                 }
               });
             break;
@@ -273,9 +263,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-refresh-tokens": {
-            lazy.log.debug(
-              `ParentProcess: Trigger a token refresh in FELT.`
-            );
+            lazy.log.debug(`ParentProcess: Trigger a token refresh in FELT.`);
             if (gFeltProcessParentInstance.logoutReported) {
               lazy.log.debug(
                 "ParentProcess: logout in progress, skipping token refresh."
@@ -312,10 +300,7 @@ export class FeltProcessParent extends JSProcessActorParent {
                   return;
                 }
                 // At this point, we need to reauthenticate.
-                lazy.log.error(
-                  "token refresh failed, reauthenticate",
-                  error
-                );
+                lazy.log.error("token refresh failed, reauthenticate", error);
                 Services.felt.clearTokens();
                 gFeltProcessParentInstance.logoutReported = true;
                 gFeltProcessParentInstance.proc.exitPromise.then(_ => {
@@ -722,9 +707,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     if (!Services.felt) {
-      lazy.log.error(
-        `Services.felt not available, cannot forward URLs`
-      );
+      lazy.log.error(`Services.felt not available, cannot forward URLs`);
       return;
     }
 
@@ -751,9 +734,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     if (gFeltProcessParentInstance.logoutReported) {
-      lazy.log.debug(
-        "logoutFirefox: logout already in progress, skipping."
-      );
+      lazy.log.debug("logoutFirefox: logout already in progress, skipping.");
       return;
     }
 

@@ -7,17 +7,27 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-  CONSOLE_ADDRESS_PREF: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-  isBuildAppBrowser: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+  CONSOLE_ADDRESS_PREF:
+    "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  isBuildAppBrowser:
+    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
-  gFeltPendingURLs: "resource:///modules/FeltURLHandler.sys.mjs",
-  resetFeltFirefoxWindowReady: "resource:///modules/FeltURLHandler.sys.mjs",
-  FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs", 
 });
+
+if (lazy.isBuildAppBrowser()) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    gFeltPendingURLs: "resource:///modules/FeltURLHandler.sys.mjs",
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    resetFeltFirefoxWindowReady: "resource:///modules/FeltURLHandler.sys.mjs",
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
+  });
+}
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return lazy.createEnterpriseLogger("FeltProcessParent");
@@ -52,7 +62,8 @@ let gFeltProcessParentInstance = null;
 function extractURLPayload(payload) {
   return {
     url: payload.url ?? "",
-    disposition: payload.disposition ?? lazy.FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
+    disposition:
+      payload.disposition ?? lazy.FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
   };
 }
 

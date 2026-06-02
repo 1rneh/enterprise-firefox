@@ -2,21 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-/* globals ExtensionAPI, Services, XPCOMUtils */
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   UpdateListener: "resource://gre/modules/UpdateListener.sys.mjs",
-  FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
-  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-  isBlockingShutdown: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  isBuildAppBrowser: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+  isBlockingShutdown:
+    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+  isBuildAppBrowser:
+    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   shouldNotCloseWindow:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
@@ -25,30 +21,66 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
 });
 
+if (lazy.isBuildAppBrowser()) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  });
+}
+
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return lazy.createEnterpriseLogger("Felt");
 });
 
-this.felt = class extends ExtensionAPI {
+/**
+ * Felt is an XPCOM component that manages the lifecycle of the
+ * Firefox Enterprise Launcher Tool (FELT) UI and its interaction with the
+ * regular Firefox browser process.
+ *
+ * It is instantiated as a singleton via profile-after-change
+ * and remains alive (as an nsIObserver) until xpcom-shutdown.
+ *
+ * Responsibilities include:
+ *  - Showing and closing the FELT chrome window (showWindow/closeWindow).
+ *  - Forwarding URLs opened by FELT to a normal browser window, or opening
+ *    a new (possibly private) browser window, via urlObserver.
+ *  - Listening for and reacting to update-ready notifications
+ *    (updateObserver) and WebAuthn prompts (webauthnObserver).
+ *  - Handling process-level messages sent from the FELT child process
+ *    (FeltParent:* messages) such as normal/abnormal exits, restarts for
+ *    updates, logout, transitioning to background, and forcing focus.
+ *  - Ensuring the application does not exit prematurely while FELT is
+ *    starting up or needs to remain alive, using
+ *    enter/exitLastWindowClosingSurvivalArea.
+ */
+export class Felt {
   FELT_PROCESS_ACTOR = "FeltProcess";
   FELT_WINDOW_ACTOR = "FeltWindow";
   FELT_ERROR_WINDOW_ACTOR = "FeltErrorWindow";
 
-  registerChrome() {
-    let aomStartup = Cc[
-      "@mozilla.org/addons/addon-manager-startup;1"
-    ].getService(Ci.amIAddonManagerStartup);
+  // XPCOM identity
+  static classID = Components.ID("{4a73d4d4-09fd-4f68-8c31-a6b39bfb36b7}");
+  static contractID = "@mozilla.org/felt;1";
+  static classDescription = "Felt";
 
-    const manifestURI = Services.io.newURI(
-      "manifest.json",
-      null,
-      this.extension.rootURI
-    );
+  // QI — implement nsISupports + nsIObserver
+  QueryInterface = ChromeUtils.generateQI(["nsIObserver"]);
 
-    this.chromeHandle = aomStartup.registerChrome(manifestURI, [
-      ["content", "felt", "content/"],
-    ]);
+  // nsIObserver
+  observe(_subject, topic, _data) {
+    switch (topic) {
+      case "profile-after-change":
+        Services.obs.addObserver(this, "xpcom-shutdown");
+        this.#init().catch(e => lazy.log.error("Felt init failed", e));
+        break;
+      case "xpcom-shutdown":
+        Services.obs.removeObserver(this, "xpcom-shutdown");
+        this.#handleShutdown();
+    }
   }
+
   async registerActors() {
     const { ConsoleClient } = ChromeUtils.importESModule(
       "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
@@ -250,13 +282,12 @@ this.felt = class extends ExtensionAPI {
     );
   }
 
-  async onStartup() {
+  async #init() {
     if (Services.felt.isFeltUI()) {
       // Disable QoS thread priority demotion: background content processes get
       // their main thread demoted to low-priority QoS, which can starve the
       // SSO callback's DOMContentLoaded event and prevent token extraction.
       Services.prefs.setBoolPref("threads.use_low_power.enabled", false);
-      this.registerChrome();
       await this.registerActors();
       await lazy.FeltStorage.init();
       this.showWindow();
@@ -266,7 +297,9 @@ this.felt = class extends ExtensionAPI {
       }
     } else if (Services.felt.isFeltBrowser()) {
       // In the real Firefox, register observer to handle URLs
-      Services.obs.addObserver(this.urlObserver, "felt-open-url");
+      if (lazy.isBuildAppBrowser()) {
+        Services.obs.addObserver(this.urlObserver, "felt-open-url");
+      }
       Services.obs.addObserver(this.updateObserver, "felt-update-ready");
       // Notify that extension is ready to receive URLs
       try {
@@ -426,15 +459,13 @@ this.felt = class extends ExtensionAPI {
     // of browsers with Marionette
   }
 
-  onShutdown(isAppShutdown) {
-    lazy.log.debug(`FeltExtension: onShutdown: ${isAppShutdown}`);
-
-    if (isAppShutdown) {
-      return;
-    }
+  #handleShutdown() {
+    lazy.log.debug(`handleShutdown()`);
 
     if (Services.felt.isFeltBrowser()) {
-      Services.obs.removeObserver(this.urlObserver, "felt-open-url");
+      if (lazy.isBuildAppBrowser()) {
+        Services.obs.removeObserver(this.urlObserver, "felt-open-url");
+      }
       Services.obs.removeObserver(this.updateObserver, "felt-update-ready");
     }
 
@@ -443,18 +474,11 @@ this.felt = class extends ExtensionAPI {
       if (!lazy.isBuildAppBrowser()) {
         Services.obs.removeObserver(this.webauthnObserver, "webauthn-prompt");
       }
-    }
 
-    if (this.chromeHandle) {
-      this.chromeHandle.destruct();
-      this.chromeHandle = null;
-    }
-
-    if (Services.felt.isFeltUI()) {
       ChromeUtils.unregisterWindowActor(this.FELT_WINDOW_ACTOR);
       ChromeUtils.unregisterWindowActor(this.FELT_ERROR_WINDOW_ACTOR);
       ChromeUtils.unregisterProcessActor(this.FELT_PROCESS_ACTOR);
       lazy.FeltStorage.uninit();
     }
   }
-};
+}

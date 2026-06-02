@@ -169,7 +169,7 @@ static bool ToNrIceCandidate(const nr_ice_candidate& candc,
 // defn of nr_ice_candidate but we pass by reference.
 static UniquePtr<NrIceCandidate> MakeNrIceCandidate(
     const nr_ice_candidate& candc) {
-  UniquePtr<NrIceCandidate> out(new NrIceCandidate());
+  auto out = MakeUnique<NrIceCandidate>();
 
   if (!ToNrIceCandidate(candc, out.get())) {
     return nullptr;
@@ -463,6 +463,8 @@ nsresult NrIceMediaStream::GetCandidatePairs(
         !ToNrIceCandidate(*(p1->remote), &pair.remote)) {
       return NS_ERROR_FAILURE;
     }
+    pair.local.username_fragment = stream_->ufrag;
+    pair.remote.username_fragment = peer_stream->ufrag;
 
     out_pairs->push_back(pair);
   }
@@ -497,6 +499,13 @@ nsresult NrIceMediaStream::GetDefaultCandidate(
   }
 
   return NS_OK;
+}
+
+std::string NrIceMediaStream::GetUfrag() const {
+  if (!stream_ || !stream_->ufrag) {
+    return "";
+  }
+  return stream_->ufrag;
 }
 
 std::vector<std::string> NrIceMediaStream::GetAttributes() const {

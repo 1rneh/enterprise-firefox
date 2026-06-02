@@ -480,6 +480,7 @@ macosx1500-64-tests-enterprise:
 
 macosx1500-aarch64-tests:
     - cppunittest
+    - firefox-ui-functional
     - jsreftest
     - marionette-integration
     - marionette-unittest
@@ -508,6 +509,7 @@ macosx1500-aarch64-tests:
     - web-platform-tests
     - web-platform-tests-canvas
     - web-platform-tests-crashtest
+    - web-platform-tests-eme
     - web-platform-tests-wdspec
     - web-platform-tests-webcodecs
     - xpcshell
@@ -532,7 +534,6 @@ macosx1500-aarch64-vms-tests:
 macosx1470-64-tests:
     - cppunittest
     - crashtest
-    - firefox-ui-functional
     - gtest
     - web-platform-tests-eme
     - web-platform-tests-print-reftest

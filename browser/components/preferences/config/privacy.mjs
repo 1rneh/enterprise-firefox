@@ -607,6 +607,7 @@ SettingGroupManager.registerGroups({
         controlAttrs: {
           type: "warning",
           dismissable: true,
+          role: "status",
         },
       },
     ],
@@ -657,6 +658,7 @@ SettingGroupManager.registerGroups({
         supportPage: "how-do-i-turn-do-not-track-feature",
         controlAttrs: {
           dismissable: true,
+          role: "status",
         },
       },
     ],
@@ -716,6 +718,9 @@ SettingGroupManager.registerGroups({
         id: "deleteOnCloseInfo",
         l10nId: "sitedata-delete-on-close-private-browsing3",
         control: "moz-message-bar",
+        controlAttrs: {
+          role: "status",
+        },
       },
       {
         id: "manageDataSettingsGroup",
@@ -843,7 +848,6 @@ SettingGroupManager.registerGroups({
     iconSrc: "chrome://devtools/skin/images/globe.svg",
     headingLevel: 1,
     supportPage: "prefs-connection-settings",
-    subcategory: "netsettings",
     items: [
       {
         id: "connectionSettings",
@@ -935,6 +939,9 @@ SettingGroupManager.registerGroups({
         id: "deleteOnCloseInfo",
         l10nId: "sitedata-delete-on-close-private-browsing4",
         control: "moz-message-bar",
+        controlAttrs: {
+          role: "status",
+        },
       },
       {
         id: "historyMode",
@@ -951,6 +958,7 @@ SettingGroupManager.registerGroups({
               {
                 id: "customHistoryButton",
                 control: "moz-box-button",
+                loadPane: "history",
                 l10nId: "history-custom-button",
               },
             ],
@@ -1033,6 +1041,7 @@ SettingGroupManager.registerGroups({
           },
           {
             id: "dohAdvancedButton",
+            loadPane: "dnsOverHttps",
             l10nId: "preferences-doh-advanced-button",
             control: "moz-box-button",
           },
@@ -1049,6 +1058,9 @@ SettingGroupManager.registerGroups({
       {
         id: "dohStatusBox",
         control: "moz-message-bar",
+        controlAttrs: {
+          role: "status",
+        },
       },
       {
         id: "dohRadioGroup",
@@ -1118,6 +1130,7 @@ SettingGroupManager.registerGroups({
           {
             id: "etpStatusAdvancedButton",
             l10nId: "preferences-etp-status-advanced-button",
+            loadPane: "etp",
             control: "moz-box-button",
           },
         ],
@@ -1187,6 +1200,7 @@ SettingGroupManager.registerGroups({
               {
                 id: "etpCustomizeButton",
                 l10nId: "preferences-etp-customize-button",
+                loadPane: "etpCustomize",
                 control: "moz-box-button",
               },
             ],
@@ -1387,12 +1401,14 @@ SettingGroupManager.registerGroups({
     ],
   },
   connectionLink: {
+    subcategory: "netsettings",
     l10nId: "preferences-connection-link-section",
     iconSrc: "chrome://devtools/skin/images/globe.svg",
     items: [
       {
         id: "connectionLinkButton",
         l10nId: "preferences-connection-link-button",
+        loadPane: "connectionSecurity",
         control: "moz-box-button",
       },
     ],

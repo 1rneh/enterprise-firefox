@@ -1615,7 +1615,7 @@ Maybe<JsepTransceiver> JsepSessionImpl::GetTransceiverForLocal(size_t level) {
       // Attempt to recycle. If this fails, the old transceiver stays put.
       transceiver->Disassociate();
       Maybe<JsepTransceiver> newTransceiver =
-          FindUnassociatedTransceiver(transceiver->GetMediaType(), false);
+          FindUnassociatedRtpTransceiver(transceiver->GetMediaType(), false);
       if (newTransceiver) {
         newTransceiver->SetLevel(level);
         transceiver->ClearLevel();
@@ -1661,14 +1661,31 @@ Maybe<JsepTransceiver> JsepSessionImpl::GetTransceiverForRemote(
     if (!transceiver->CanRecycleMyMsection()) {
       return transceiver;
     }
+    // Recycle
     transceiver->Disassociate();
     transceiver->ClearLevel();
     transceiver->mSendTrack.ClearRids();
     SetTransceiver(*transceiver);
+    // Shouldn't be strictly necessary to unset this, but it's clearer this way
+    transceiver = Nothing();
   }
 
   // No transceiver for |level|
-  transceiver = FindUnassociatedTransceiver(msection.GetMediaType(), true);
+  if (msection.GetMediaType() == SdpMediaSection::kApplication) {
+    // Other side has done something weird like rejecting the datachannel
+    // m-section. Try to recover.
+    for (auto& tx : mTransceivers) {
+      if (tx.GetMediaType() == SdpMediaSection::kApplication) {
+        tx.RestartDatachannelTransceiver();
+        transceiver = Some(tx);
+        break;
+      }
+    }
+  } else if (msection.IsReceiving()) {
+    transceiver = FindUnassociatedRtpTransceiver(msection.GetMediaType(), true);
+  }
+
+  // We found a transceiver to associate
   if (transceiver) {
     transceiver->SetLevel(level);
     SetTransceiver(*transceiver);
@@ -1751,15 +1768,15 @@ nsresult JsepSessionImpl::UpdateTransceiversFromRemoteDescription(
   return NS_OK;
 }
 
-Maybe<JsepTransceiver> JsepSessionImpl::FindUnassociatedTransceiver(
+Maybe<JsepTransceiver> JsepSessionImpl::FindUnassociatedRtpTransceiver(
     SdpMediaSection::MediaType type, bool magic) {
+  if (type == SdpMediaSection::kApplication) {
+    MOZ_ASSERT(false);
+    return Nothing();
+  }
+
   // Look through transceivers that are not mapped to an m-section
   for (auto& transceiver : mTransceivers) {
-    if (type == SdpMediaSection::kApplication &&
-        type == transceiver.GetMediaType()) {
-      transceiver.RestartDatachannelTransceiver();
-      return Some(transceiver);
-    }
     if (transceiver.IsFreeToUse() &&
         (!magic || transceiver.HasAddTrackMagic()) &&
         (transceiver.GetMediaType() == type)) {

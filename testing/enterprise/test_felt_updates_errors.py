@@ -114,11 +114,20 @@ class FeltUpdatesErrorHandling(FeltTests):
         )
 
     def run_error_unsupported_system(self):
+        app_name = self._driver.session_capabilities.get("browserName")
+        expected_branding_name = None
+        if app_name == "firefox":
+            expected_branding_name = "Firefox Enterprise"
+        elif app_name == "thunderbird":
+            expected_branding_name = "Thunderbird Enterprise"
+        else:
+            assert False, f"Unsupported app {app_name}"
+
         self.assert_error(
             "UNSUPPORTED_SYSTEM",
             "appUpdater",
             "felt-warning-unsupported-system-contact-admin",
-            "A new version of Firefox Enterprise is available, but your operating system is not supported. Contact your administrator for assistance.",
+            f"A new version of {expected_branding_name} is available, but your operating system is not supported. Contact your administrator for assistance.",
             "warning",
         )
 

@@ -99,11 +99,6 @@ run-if = [
   "buildapp == 'browser'", # open new tab
 ]
 
-["test_felt_browser_updates_errors.py"]
-run-if = [
-  "buildapp == 'browser'", # hardcoded app name
-]
-
 ["test_felt_browser_updates_forward.py"]
 run-if = [
   "buildapp == 'browser'", # browser specific: notification
@@ -144,6 +139,8 @@ run-if = [
 ["test_felt_updates_basic.py"]
 
 ["test_felt_updates_distIni.py"]
+
+["test_felt_updates_errors.py"]
 
 ["test_felt_version.py"]
 

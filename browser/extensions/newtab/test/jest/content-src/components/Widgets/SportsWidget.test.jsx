@@ -268,6 +268,34 @@ describe("<SportsWidget>", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides the get-updates lede on medium size", () => {
+    const { container } = render(
+      <WrapWithProvider state={makeState()}>
+        <SportsWidget {...defaultProps} />
+      </WrapWithProvider>
+    );
+    expect(
+      container.querySelector(
+        "[data-l10n-id='newtab-sports-widget-get-updates']"
+      )
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the get-updates lede on large size", () => {
+    const { container } = render(
+      <WrapWithProvider
+        state={makeState({ [PREF_SPORTS_WIDGET_SIZE]: "large" })}
+      >
+        <SportsWidget {...defaultProps} />
+      </WrapWithProvider>
+    );
+    expect(
+      container.querySelector(
+        "[data-l10n-id='newtab-sports-widget-get-updates']"
+      )
+    ).toBeInTheDocument();
+  });
+
   it("should render the view-matches button", () => {
     const { container } = render(
       <WrapWithProvider state={makeState()}>
@@ -2437,6 +2465,48 @@ describe("<SportsWidget> telemetry", () => {
     expect(handleUserInteraction).toHaveBeenCalledWith("sportsWidget");
   });
 
+  it("disables the widget without recording an interaction when the Hide widget menu item is clicked", () => {
+    const { container } = renderWidget();
+    fireEvent.click(
+      container.querySelector("[data-l10n-id='newtab-widget-menu-hide']")
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: at.SET_PREF,
+        data: { name: "widgets.sportsWidget.enabled", value: false },
+      })
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: at.WIDGETS_ENABLED,
+        data: expect.objectContaining({
+          widget_name: "sports",
+          widget_source: "context_menu",
+          enabled: false,
+        }),
+      })
+    );
+    expect(handleUserInteraction).not.toHaveBeenCalled();
+  });
+
+  it("opens the support link and records an interaction when the Learn more menu item is clicked", () => {
+    const { container } = renderWidget();
+    fireEvent.click(
+      container.querySelector(
+        "[data-l10n-id='newtab-sports-widget-menu-learn-more']"
+      )
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: at.OPEN_LINK,
+        data: expect.objectContaining({
+          url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
+        }),
+      })
+    );
+    expect(handleUserInteraction).toHaveBeenCalledWith("sportsWidget");
+  });
+
   it("should dispatch view_key_dates telemetry with context_menu source when the View schedule menu item is clicked", () => {
     const { container } = renderWidget();
     fireEvent.click(
@@ -2947,15 +3017,28 @@ describe("<SportsWidget> live polling visibility", () => {
     expect(findLiveObserver()).toBeUndefined();
   });
 
-  // Regression: SportsFeed.liveEnabled accepts trainhopConfig.sports.liveEnabled
+  // Regression: SportsFeed.liveEnabled accepts the trainhopConfig live override
   // as a Nimbus rollout signal. Until this fix the component only read the
   // raw pref, so a Nimbus-only enable started the feed's polling but never
   // attached the IntersectionObserver — visibleTabs stayed empty and tick()
   // bailed forever.
-  it("attaches the live visibility observer when only trainhopConfig enables live", () => {
+  it("attaches the live visibility observer when only legacy trainhopConfig.sports enables live", () => {
     const state = makeState({
       [PREF_SPORTS_WIDGET_LIVE_ENABLED]: false,
       trainhopConfig: { sports: { liveEnabled: true } },
+    });
+    render(
+      <WrapWithProvider state={state}>
+        <SportsWidget dispatch={jest.fn()} handleUserInteraction={jest.fn()} />
+      </WrapWithProvider>
+    );
+    expect(findLiveObserver()).toBeDefined();
+  });
+
+  it("attaches the live visibility observer when canonical trainhopConfig.widgets.sportsWidgetLiveEnabled enables live", () => {
+    const state = makeState({
+      [PREF_SPORTS_WIDGET_LIVE_ENABLED]: false,
+      trainhopConfig: { widgets: { sportsWidgetLiveEnabled: true } },
     });
     render(
       <WrapWithProvider state={state}>

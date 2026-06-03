@@ -505,24 +505,6 @@ impl ImageData {
     }
 }
 
-pub fn can_use_quad_shaders(
-    image_data: &ImageData,
-    resource_cache: &ResourceCache,
-) -> bool {
-    let image_properties = resource_cache.get_image_properties(image_data.key);
-    match &image_properties {
-        Some(_) => {
-            // See the comment in ps_quad_textured about ignoring the base color
-            // due to a driver issue.
-            if image_data.color != ColorF::WHITE {
-                return false;
-            }
-            true
-        }
-        None => false,
-    }
-}
-
 pub fn prepare_image_quads(
     prim_rect: &LayoutRect,
     common_data: &PrimTemplateCommonData,
@@ -625,6 +607,7 @@ pub fn prepare_image_quads(
                 src_is_opaque,
                 premultiplied,
                 sampler_kind,
+                color: image_data.color,
             };
 
             quad::prepare_repeatable_quad(
@@ -706,6 +689,7 @@ pub fn prepare_image_quads(
                         src_is_opaque,
                         premultiplied,
                         sampler_kind,
+                        color: image_data.color,
                     };
 
                     quad::prepare_quad(

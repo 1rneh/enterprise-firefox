@@ -2999,6 +2999,10 @@ void gfxPlatform::InitHardwareVideoConfig() {
     return;
   }
 
+#ifdef XP_MACOSX
+  const bool isXpcshell = !!PR_GetEnv("XPCSHELL_TEST_PROFILE_DIR");
+#endif
+
   // Collect the gfxVar updates into a single message.
   gfxVarsCollectUpdates collect;
 
@@ -3045,6 +3049,13 @@ void gfxPlatform::InitHardwareVideoConfig() {
                             "Force disabled by failed sanity test",
                             "FEATURE_FAILURE_SANITY_TEST_FAILED"_ns);
   }
+#ifdef XP_MACOSX
+  else if (isXpcshell) {
+    featureDec.ForceDisable(FeatureStatus::Unavailable,
+                            "Force disabled in xpcshell due to signing",
+                            "FEATURE_FAILURE_OSX_XPCSHELL_SIGNING"_ns);
+  }
+#endif
 
   FeatureState& featureEnc =
       gfxConfig::GetFeature(Feature::HARDWARE_VIDEO_ENCODING);
@@ -3087,6 +3098,13 @@ void gfxPlatform::InitHardwareVideoConfig() {
                             "Force disabled by failed sanity test",
                             "FEATURE_FAILURE_SANITY_TEST_FAILED"_ns);
   }
+#ifdef XP_MACOSX
+  else if (isXpcshell) {
+    featureEnc.ForceDisable(FeatureStatus::Unavailable,
+                            "Force disabled in xpcshell due to signing",
+                            "FEATURE_FAILURE_OSX_XPCSHELL_SIGNING"_ns);
+  }
+#endif
 
   FeatureState& featureHdr = gfxConfig::GetFeature(Feature::VIDEO_HDR);
   featureHdr.Reset();
@@ -3095,7 +3113,7 @@ void gfxPlatform::InitHardwareVideoConfig() {
                                           failureId, &status))) {
     featureHdr.Disable(FeatureStatus::BlockedNoGfxInfo, "gfxInfo is broken",
                        "FEATURE_FAILURE_NO_GFX_INFO"_ns);
-  } else if (status != nsIGfxInfo::FEATURE_ALLOW_ALWAYS) {
+  } else if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
     featureHdr.Disable(FeatureStatus::Blocklisted, "Blocklisted by gfxInfo",
                        failureId);
   }
@@ -3113,6 +3131,13 @@ void gfxPlatform::InitHardwareVideoConfig() {
         "User disabled via media.hardware-video-decoding-vulkan.enabled pref",
         "FEATURE_HARDWARE_VIDEO_DECODING_VULKAN_PREF_DISABLED"_ns);
   }
+#ifdef XP_MACOSX
+  if (isXpcshell) {
+    featureVulkanDec.ForceDisable(FeatureStatus::Unavailable,
+                                  "Force disabled in xpcshell due to signing",
+                                  "FEATURE_FAILURE_OSX_XPCSHELL_SIGNING"_ns);
+  }
+#endif
 
   bool canUseVulkanDecode = false;
   int32_t vulkanDecStatus = nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
@@ -3828,9 +3853,10 @@ void gfxPlatform::GetDisplayInfo(mozilla::widget::InfoObject& aObj) {
   for (auto& screen : screens) {
     const LayoutDeviceIntRect rect = screen->GetRect();
     nsPrintfCString value(
-        "%dx%d@%dHz scales:%f|%f %s", rect.width, rect.height,
+        "%dx%d@%dHz scales:%f|%f desktop:%s:video:%s", rect.width, rect.height,
         screen->GetRefreshRate(), screen->GetContentsScaleFactor(),
-        screen->GetDefaultCSSScaleFactor(), screen->GetIsHDR() ? "HDR" : "SDR");
+        screen->GetDefaultCSSScaleFactor(), screen->GetIsHDR() ? "HDR" : "SDR",
+        screen->GetIsVideoHDR() ? "HDR" : "SDR");
 
     aObj.DefineProperty(nsPrintfCString("Display%zu", i++).get(),
                         NS_ConvertUTF8toUTF16(value));

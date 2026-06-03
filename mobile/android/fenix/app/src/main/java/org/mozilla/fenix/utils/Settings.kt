@@ -276,6 +276,14 @@ class Settings(
         default = { homescreenSections[HomeScreenSection.PRIVACY_REPORT] == true },
     )
 
+    /**
+     * Indicates whether or not the privacy report should be shown in the tab manager.
+     */
+    var showPrivacyReportInTabManager by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_privacy_report_tab_manager),
+        default = true,
+    )
+
     private val homescreenSections: Map<HomeScreenSection, Boolean>
         get() = FxNimbus.features.homescreen.value().sectionsEnabled
 
@@ -435,6 +443,16 @@ class Settings(
 
     var isUserMetaAttributed by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_is_user_meta_attributed),
+        default = false,
+    )
+
+    var isUserTikTokAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_tiktok_attributed),
+        default = false,
+    )
+
+    var isUserRedditAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_reddit_attributed),
         default = false,
     )
 

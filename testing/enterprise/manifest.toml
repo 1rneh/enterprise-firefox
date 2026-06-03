@@ -64,9 +64,6 @@ run-if = [
   "os == 'mac' && buildapp == 'browser'",
 ]
 
-["test_felt_browser_restart_is_quit.py"]
-run-if = ["buildapp == 'browser'"]
-
 ["test_felt_browser_safe_mode.py"]
 run-if = [
   "buildapp == 'browser'",
@@ -139,6 +136,8 @@ run-if = [
 ]
 
 ["test_felt_init_failures.py"]
+
+["test_felt_restart_is_quit.py"]
 
 ["test_felt_restart_works.py"]
 

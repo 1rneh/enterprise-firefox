@@ -112,9 +112,6 @@ run-if = [
 ["test_felt_context_menu.py"]
 
 ["test_felt_device_posture.py"]
-run-if = [
-  "buildapp == 'browser'", # hardcoded app name
-]
 
 ["test_felt_email_input_focus.py"]
 

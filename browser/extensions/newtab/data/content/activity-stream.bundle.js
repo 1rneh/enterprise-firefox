@@ -13261,7 +13261,6 @@ function Lists({
         data: telemetryData
       }));
     });
-    handleListInteraction();
   }
   function handleCopyListToClipboard() {
     const currentList = lists[selected];
@@ -14674,7 +14673,13 @@ const FocusTimer = ({
     "data-l10n-id": novaEnabled ? "newtab-widget-timer-menu-hide" : "newtab-widget-menu-hide",
     onClick: () => {
       (0,external_ReactRedux_namespaceObject.batch)(() => {
-        handlePrefUpdate("widgets.focusTimer.enabled", false);
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.SET_PREF,
+          data: {
+            name: "widgets.focusTimer.enabled",
+            value: false
+          }
+        }));
         const telemetryData = {
           widget_name: "focus_timer",
           widget_source: "context_menu",
@@ -17152,12 +17157,15 @@ function SportsWidget_SportsWidget({
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const sportsWidgetData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.SportsWidget);
   const widgetSize = resolveWidgetSize(SPORTS_WIDGET_REGISTRY_ENTRY, prefs);
-  // Mirror SportsFeed.liveEnabled — raw pref OR trainhopConfig.sports.liveEnabled.
+  // Mirror SportsFeed.liveEnabled — raw pref OR the trainhop override. The
+  // canonical key is trainhopConfig.widgets.sportsWidgetLiveEnabled (the flat
+  // sportsWidget-prefixed convention shared by every widget); the legacy
+  // trainhopConfig.sports.liveEnabled is still honored for in-flight rollouts.
   // Reading the raw pref alone would leave a Nimbus-only rollout in a
   // permanently-paused state: the feed would start polling, but tick()
   // bails on empty visibleTabs and we'd never attach the observer to dispatch
   // WIDGETS_SPORTS_LIVE_VISIBLE.
-  const liveEnabled = prefs[PREF_SPORTS_WIDGET_LIVE_ENABLED] || prefs.trainhopConfig?.sports?.liveEnabled;
+  const liveEnabled = prefs[PREF_SPORTS_WIDGET_LIVE_ENABLED] || prefs.trainhopConfig?.widgets?.sportsWidgetLiveEnabled || prefs.trainhopConfig?.sports?.liveEnabled;
   const widgetsMayBeMaximized = prefs["widgets.system.maximized"];
   // /live currently serves mock data pre-kickoff, so ignore its contents
   // until the kickoff timestamp. Drop this guard once the backend returns
@@ -17456,7 +17464,6 @@ function SportsWidget_SportsWidget({
         }
       }));
     });
-    handleInteraction();
   }
   const handleChangeSize = (0,external_React_namespaceObject.useCallback)(size => {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
@@ -17517,6 +17524,7 @@ function SportsWidget_SportsWidget({
         data: telemetryData
       }));
     });
+    handleInteraction();
   }
 
   // Discard any team changes and go back to the intro state.
@@ -17651,7 +17659,7 @@ function SportsWidget_SportsWidget({
   }, /*#__PURE__*/external_React_default().createElement("h2", {
     className: "sports-intro-title",
     "data-l10n-id": "newtab-sports-widget-keep-tabs"
-  }), /*#__PURE__*/external_React_default().createElement("p", {
+  }), displaySize === "large" && /*#__PURE__*/external_React_default().createElement("p", {
     className: "sports-intro-lede",
     "data-l10n-id": "newtab-sports-widget-get-updates"
   })), widgetState === WIDGET_STATES.FOLLOW_TEAMS ? /*#__PURE__*/external_React_default().createElement("button", {

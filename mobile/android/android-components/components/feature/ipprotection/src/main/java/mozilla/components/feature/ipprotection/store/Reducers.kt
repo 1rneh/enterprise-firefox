@@ -26,7 +26,9 @@ internal fun iPProtectionReducer(
     }
 
     is IPProtectionAction.EngineStateChanged -> {
-        // Reset any state that can reflect incorrect capabilities (today, that is only "activate").
+        val newProxyStatus = action.info.asProxyStatus()
+
+        // Clear `activate` once the engine settles so a re-request reads as a new transition.
         val newActivate = when (action.info.serviceState) {
             ServiceState.Uninitialized,
                 -> {
@@ -41,8 +43,9 @@ internal fun iPProtectionReducer(
             }
 
             ServiceState.Ready,
-                -> {
-                state.activate
+                -> when (newProxyStatus) {
+                Authorized.Activating -> state.activate
+                else -> null
             }
         }
 
@@ -53,7 +56,6 @@ internal fun iPProtectionReducer(
             state.accountState.status
         }
 
-        val newProxyStatus = action.info.asProxyStatus()
         // We reset the shown status when it has been shown AND
         // the status is no longer Active or Activating.
         val newProxyActiveShown = if (state.proxyActiveShown) {
@@ -244,15 +246,14 @@ internal fun internalReducer(
 }
 
 private fun IPProtectionState.handleFinishingEnrollment(action: InternalAction.FinishingEnrollment): IPProtectionState {
-    return copy(
-        accountState = accountState.copy(
-            status = if (action.success) {
-                AccountStatus.EnrolledAndEntitled
-            } else {
-                AccountStatus.NeedsAuthorization
-            },
-        ),
-    )
+    return if (action.success) {
+        copy(
+            accountState = accountState.copy(status = AccountStatus.EnrolledAndEntitled),
+            activate = true,
+        )
+    } else {
+        copy(accountState = accountState.copy(status = AccountStatus.NeedsAuthorization))
+    }
 }
 
 private fun IPProtectionHandler.StateInfo.asProxyStatus(): ProxyStatus {

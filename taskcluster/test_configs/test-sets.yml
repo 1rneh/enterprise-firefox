@@ -510,6 +510,8 @@ macosx1500-aarch64-tests:
     - web-platform-tests-canvas
     - web-platform-tests-crashtest
     - web-platform-tests-eme
+    - web-platform-tests-print-reftest
+    - web-platform-tests-reftest
     - web-platform-tests-wdspec
     - web-platform-tests-webcodecs
     - xpcshell
@@ -526,6 +528,7 @@ macosx1500-aarch64-vms-tests:
     - crashtest
     - jittest
     - jsreftest
+    - marionette-integration
     - marionette-unittest
     - mochitest-remote
     - telemetry-tests-client
@@ -535,7 +538,6 @@ macosx1470-64-tests:
     - cppunittest
     - crashtest
     - gtest
-    - web-platform-tests-eme
     - web-platform-tests-print-reftest
     - web-platform-tests-reftest
 

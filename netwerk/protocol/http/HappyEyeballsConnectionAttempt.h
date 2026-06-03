@@ -170,7 +170,23 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
 
   nsresult ProcessConnectionResult(const NetAddr& aAddr, nsresult aStatus,
                                    uint64_t aId);
+
+  nsresult ProcessEchRetryConnectionResult(const NetAddr& aAddr, uint64_t aId,
+                                           const nsACString& aEchBytes);
+  Maybe<nsCString> MaybeExtractRetryEchConfig(
+      ConnectionEstablisher* aEstablisher, nsresult aStatus);
+
   nsresult ProcessHappyEyeballsOutput();
+
+  // Report the domain lookup span: domainLookupStart is the first DNS query
+  // (any type), domainLookupEnd is the start of the first connection attempt.
+  void DnsLookupTimings(TimeStamp& aStart, TimeStamp& aEnd) const;
+
+  // Fill the four connect-phase timings from the first-racer timestamps.
+  // For QUIC, tcpConnectEnd stays null and secureConnectionStart equals
+  // connectStart.
+  void FillConnectTimings(bool aIsQuic, TimingStruct& aTimings) const;
+
   void MaybeSendTransportStatus(nsresult aStatus,
                                 nsITransport* aTransport = nullptr,
                                 int64_t aProgress = 0);
@@ -195,7 +211,8 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
       nsHttpConnectionInfo* aInfo);
 
   nsresult EstablishTCPConnection(NetAddr aAddr, uint16_t aPort,
-                                  nsTArray<uint8_t>&& aEchConfig, uint64_t aId);
+                                  nsTArray<uint8_t>&& aEchConfig, uint64_t aId,
+                                  bool aIsEchRetry);
   void HandleTCPConnectionResult(
       Result<RefPtr<HttpConnectionBase>, nsresult> aResult,
       TCPConnectionEstablisher* aEstablisher, uint64_t aId);
@@ -205,7 +222,8 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
   void MaybeForward0RTTSecurityInfo(ConnectionEstablisher* aEstablisher);
   void CancelConnection(uint64_t aId);
   nsresult EstablishUDPConnection(NetAddr aAddr, uint16_t aPort,
-                                  nsTArray<uint8_t>&& aEchConfig, uint64_t aId);
+                                  nsTArray<uint8_t>&& aEchConfig, uint64_t aId,
+                                  bool aIsEchRetry);
   void HandleUDPConnectionResult(
       Result<RefPtr<HttpConnectionBase>, nsresult> aResult,
       UDPConnectionEstablisher* aEstablisher, uint64_t aId);
@@ -267,9 +285,21 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
   DnsMetadata mDnsMetadata;
   bool mTRRInfoForwarded = false;
 
-  TimeStamp mDomainLookupStart;
-  TimeStamp mDomainLookupEnd;
+  // domainLookupStart: when the first DNS query (A/AAAA/HTTPS) was issued.
+  // domainLookupEnd is reported as mFirstConnectionStart (the start of the
+  // first connection attempt).
+  TimeStamp mFirstDnsLookupStart;
   TimeStamp mFirstConnectionStart;
+
+  // First-racer connect timings, mirroring the domainLookup span: the first
+  // racer to reach each milestone across all racers (captured in
+  // MaybeSendTransportStatus). connectStart is mFirstConnectionStart;
+  // mFirstConnectEnd is the winning racer's completion (the first connection
+  // to fully succeed). For QUIC, tcpConnectEnd stays null and
+  // secureConnectionStart equals connectStart.
+  TimeStamp mFirstTcpConnectEnd;
+  TimeStamp mFirstSecureConnectionStart;
+  TimeStamp mFirstConnectEnd;
 };
 
 }  // namespace net

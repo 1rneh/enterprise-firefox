@@ -77,9 +77,7 @@ class AppExitTokens(FeltTests):
         assert len(self.new_browser_tokens[0]) > 0, (
             "App access token should not be empty"
         )
-        assert len(self.new_browser_tokens[1]) == 0, (
-            "App refresh token should be empty"
-        )
+        assert len(self.new_browser_tokens[1]) == 0, "App refresh token should be empty"
         assert self.new_browser_tokens[0] != self.browser_tokens[0], (
             f"App access token should differ after session refresh: {self.new_browser_tokens[0]} vs {self.browser_tokens[0]}"
         )

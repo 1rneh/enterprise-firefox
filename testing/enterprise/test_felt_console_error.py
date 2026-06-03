@@ -82,9 +82,19 @@ class FeltConsoleError(FeltTestsBase):
         # connectionFailure with host substitution so the console address appears in details.
         refused_port = find_free_port()
         console_addr = f"http://localhost:{refused_port}"
+
+        app_name = self._driver.session_capabilities.get("browserName")
+        expected_str = None
+        if app_name == "firefox":
+            expected_str = f"Firefox can’t establish a connection to the server at localhost:{refused_port}."
+        elif app_name == "thunderbird":
+            expected_str = f"The connection was refused when attempting to contact localhost:{refused_port}."
+        else:
+            assert False, f"Unsupported app {app_name}"
+
         return self.check_error_bar_message(
             console_addr,
             ".felt-browser-error-connection",
             "Unable to connect",
-            f"Firefox can’t establish a connection to the server at localhost:{refused_port}.",
+            expected_str,
         )

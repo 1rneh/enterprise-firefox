@@ -94,11 +94,6 @@ run-if = [
   "buildapp == 'browser'", # open new tab
 ]
 
-["test_felt_browser_starts_utf8.py"]
-run-if = [
-  "buildapp == 'browser'", # hardcoded file/path name
-]
-
 ["test_felt_browser_token_refresh.py"]
 run-if = [
   "buildapp == 'browser'", # open new tab
@@ -142,6 +137,8 @@ run-if = [
 ["test_felt_restart_works.py"]
 
 ["test_felt_starts_missing_bin.py"]
+
+["test_felt_starts_utf8.py"]
 
 ["test_felt_updater_errors.py"]
 

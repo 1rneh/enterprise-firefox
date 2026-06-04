@@ -3095,7 +3095,7 @@ void gfxPlatform::InitHardwareVideoConfig() {
                                           failureId, &status))) {
     featureHdr.Disable(FeatureStatus::BlockedNoGfxInfo, "gfxInfo is broken",
                        "FEATURE_FAILURE_NO_GFX_INFO"_ns);
-  } else if (status != nsIGfxInfo::FEATURE_ALLOW_ALWAYS) {
+  } else if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
     featureHdr.Disable(FeatureStatus::Blocklisted, "Blocklisted by gfxInfo",
                        failureId);
   }
@@ -3828,9 +3828,10 @@ void gfxPlatform::GetDisplayInfo(mozilla::widget::InfoObject& aObj) {
   for (auto& screen : screens) {
     const LayoutDeviceIntRect rect = screen->GetRect();
     nsPrintfCString value(
-        "%dx%d@%dHz scales:%f|%f %s", rect.width, rect.height,
+        "%dx%d@%dHz scales:%f|%f desktop:%s:video:%s", rect.width, rect.height,
         screen->GetRefreshRate(), screen->GetContentsScaleFactor(),
-        screen->GetDefaultCSSScaleFactor(), screen->GetIsHDR() ? "HDR" : "SDR");
+        screen->GetDefaultCSSScaleFactor(), screen->GetIsHDR() ? "HDR" : "SDR",
+        screen->GetIsVideoHDR() ? "HDR" : "SDR");
 
     aObj.DefineProperty(nsPrintfCString("Display%zu", i++).get(),
                         NS_ConvertUTF8toUTF16(value));

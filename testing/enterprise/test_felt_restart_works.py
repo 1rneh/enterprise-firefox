@@ -15,8 +15,8 @@ from marionette_driver.errors import (
 )
 
 
-class BrowserRestartWorks(FeltTests):
-    def test_browser_resart_works(self):
+class AppRestartWorks(FeltTests):
+    def test_app_resart_works(self):
         super().run_felt_base()
         self.run_felt_perform_restart()
         self.run_felt_restart_new_process()

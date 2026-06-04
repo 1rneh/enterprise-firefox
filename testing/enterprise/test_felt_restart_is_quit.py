@@ -17,11 +17,12 @@ from marionette_driver.errors import (
 )
 
 
-class BrowserRestartIsQuit(FeltTests):
+class AppRestartIsQuit(FeltTests):
     EXTRA_PREFS = {"enterprise.disable_restart": True}
 
-    def test_browser_signout(self):
+    def test_app_signout(self):
         super().run_felt_base()
+        self.app_name = self._driver.session_capabilities.get("browserName")
         self.run_felt_restart_is_quit()
         self.run_felt_restart_does_not_restart()
 
@@ -33,8 +34,8 @@ class BrowserRestartIsQuit(FeltTests):
 
         process = psutil.Process(pid=self._browser_pid)
         self._logger.info(f"PID {self._browser_pid}: {process.name()}")
-        assert os.path.basename(process.name()).startswith("firefox"), (
-            "Process is Firefox"
+        assert os.path.basename(process.name()).startswith(self.app_name), (
+            f"Process is {self.app_name}"
         )
 
         try:
@@ -73,8 +74,8 @@ class BrowserRestartIsQuit(FeltTests):
                 self._logger.info(
                     f"Found PID {self._browser_pid}: EXE:{process.exe()} :: NAME:{process.name()} :: CMDLINE:{process.cmdline()}"
                 )
-                assert os.path.basename(process.name()) != "firefox", (
-                    "Process is not Firefox"
+                assert os.path.basename(process.name()) != self.app_name, (
+                    f"Process is not {self.app_name}"
                 )
             except psutil.ZombieProcess:
                 self._logger.info(f"Zombie found as {self._browser_pid}")

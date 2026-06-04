@@ -47,8 +47,18 @@ class FeltDevicePosture(FeltTests):
         device_posture = self.get_device_posture()
         assert "name" in device_posture["os"], "Device posture reports OS name"
         assert "version" in device_posture["os"], "Device posture reports OS version"
-        assert device_posture["build"]["applicationName"] == "FirefoxEnterprise", (
-            "Device posture reports proper applicationName"
+
+        app_name = self._driver.session_capabilities.get("browserName")
+        expected_app_name = None
+        if app_name == "firefox":
+            expected_app_name = "FirefoxEnterprise"
+        elif app_name == "thunderbird":
+            expected_app_name = "ThunderbirdEnterprise"
+        else:
+            assert False, f"Unsupported app {app_name}"
+
+        assert device_posture["build"]["applicationName"] == expected_app_name, (
+            f"Expected device posture to report applicationName: '{expected_app_name}' but got '{device_posture['build']['applicationName']}'"
         )
         assert "secureBootEnabled" in device_posture
 

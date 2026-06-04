@@ -12,7 +12,7 @@ from base_test import Environment
 from felt_tests import FeltTests
 
 
-class FeltStartsBrowserMissingBin(FeltTests):
+class FeltStartsAppMissingBin(FeltTests):
     def mock_services_felt_binPath(self):
         self._driver.set_context("chrome")
         self._driver.execute_script(
@@ -42,7 +42,7 @@ class FeltStartsBrowserMissingBin(FeltTests):
         )
 
     def test_felt_browser_start_missing_binary(self):
-        # Browser is not being executed at all
+        # App is not being executed at all
         self._manually_closed_child = True
         self.mock_services_felt_binPath()
         # After SSO completion, FELT closes its auth window and tries to

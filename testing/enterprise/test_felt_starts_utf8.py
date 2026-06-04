@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(__file__))
 from felt_tests import FeltTests
 
 
-class FeltStartsBrowserUtf8(FeltTests):
+class FeltStartsUtf8(FeltTests):
     def setUp(self):
         super().setUp()
         self._root_dir = tempfile.TemporaryDirectory(
@@ -36,16 +36,13 @@ class FeltStartsBrowserUtf8(FeltTests):
 
         self._logger.info(f"Executing from {self._root_dir.name}")
         self._original_binary = self._driver.instance.binary
+        executable = os.path.basename(self._original_binary)
         if sys.platform == "darwin":
             self._driver.instance.binary = os.path.join(
-                self._root_dir.name, "Contents", "MacOS", "firefox"
-            )
-        elif sys.platform == "win":
-            self._driver.instance.binary = os.path.join(
-                self._root_dir.name, "firefox.exe"
+                self._root_dir.name, "Contents", "MacOS", executable
             )
         else:
-            self._driver.instance.binary = os.path.join(self._root_dir.name, "firefox")
+            self._driver.instance.binary = os.path.join(self._root_dir.name, executable)
         self._driver.start_session()
 
     def teardown(self):
@@ -57,4 +54,3 @@ class FeltStartsBrowserUtf8(FeltTests):
     def test_felt_browser_start_from_utf8_path(self):
         super().run_felt_base()
         self.connect_child_browser()
-        self.open_tab_child(f"http://localhost:{self.sso_port}/ping")

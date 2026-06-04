@@ -3,85 +3,148 @@
 subsuite = "enterprise"
 
 ["test_felt_browser_about_config_blocked.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_access_connector.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_close_warning.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_compulsory_restart.py"]
-
-["test_felt_browser_console_error.py"]
-
-["test_felt_browser_context_menu.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific
+]
 
 ["test_felt_browser_crash_abort_restart.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_crash_restart.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_enterprise_toolbar_button.py"]
-
-["test_felt_browser_exit_tokens.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific: enterprise panel
+]
 
 ["test_felt_browser_external_link.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific
+]
 
 ["test_felt_browser_fxa.py"]
-
-["test_felt_browser_init_failures.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific: enterprise panel
+]
 
 ["test_felt_browser_new_window_from_cli.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_rapid_new_tabs_from_cli.py"]
 run-if = [
-  "os == 'mac'",
+  "os == 'mac' && buildapp == 'browser'",
 ]
 
 ["test_felt_browser_rapid_new_windows_from_cli.py"]
 run-if = [
-  "os == 'mac'",
+  "os == 'mac' && buildapp == 'browser'",
 ]
 
-["test_felt_browser_restart_is_quit.py"]
-
-["test_felt_browser_restart_works.py"]
-
 ["test_felt_browser_safe_mode.py"]
+run-if = [
+  "buildapp == 'browser'",
+]
 
 ["test_felt_browser_shutdown_crash_exit.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_signout.py"]
+run-if = [
+  "buildapp == 'browser'",
+]
 
 ["test_felt_browser_signout_on_exit.py"]
+run-if = [
+  "buildapp == 'browser'", # broken on non browser app
+]
 
 ["test_felt_browser_signout_verify.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific: enterprise panel
+]
 
 ["test_felt_browser_starts.py"]
-
-["test_felt_browser_starts_missing_bin.py"]
-
-["test_felt_browser_starts_utf8.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_token_refresh.py"]
-
-["test_felt_browser_updater_errors.py"]
-
-["test_felt_browser_updates_apply.py"]
-
-["test_felt_browser_updates_basic.py"]
-
-["test_felt_browser_updates_distIni.py"]
-
-["test_felt_browser_updates_errors.py"]
+run-if = [
+  "buildapp == 'browser'", # open new tab
+]
 
 ["test_felt_browser_updates_forward.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific: notification
+]
+
+["test_felt_console_error.py"]
+
+["test_felt_context_menu.py"]
 
 ["test_felt_device_posture.py"]
 
 ["test_felt_email_input_focus.py"]
 
+["test_felt_exit_tokens.py"]
+
 ["test_felt_external_link.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific: feature
+]
 
 ["test_felt_harness_prefs.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific: hardcoded prefs
+]
+
+["test_felt_init_failures.py"]
+
+["test_felt_restart_is_quit.py"]
+
+["test_felt_restart_works.py"]
+
+["test_felt_starts_missing_bin.py"]
+
+["test_felt_starts_utf8.py"]
+
+["test_felt_updater_errors.py"]
+
+["test_felt_updates_apply.py"]
+
+["test_felt_updates_basic.py"]
+
+["test_felt_updates_distIni.py"]
+
+["test_felt_updates_errors.py"]
 
 ["test_felt_version.py"]
 
 ["test_firefox_start.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific
+]

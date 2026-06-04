@@ -25,7 +25,6 @@ from taskgraph.util.yaml import load_yaml
 
 from gecko_taskgraph import GECKO, TEST_CONFIGS
 from gecko_taskgraph.util.attributes import (
-    is_try,
     match_run_on_hg_branches,
     match_run_on_projects,
     match_run_on_repo_type,
@@ -851,6 +850,9 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
             if "windows11" in platform and "bing-search" in try_name:
                 return False
             if "browsertime" in try_name:
+                if "chrome" in try_name or "custom-car" in try_name:
+                    if "linux2404" in platform:
+                        return False
                 if "chrome" in try_name:
                     if "tp6" in try_name and "essential" not in try_name:
                         return False
@@ -862,6 +864,8 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
                             for x in ["speedometer3", "jetstream3", "motionmark"]
                         ):
                             return False
+                    if "wasm-godot" in try_name:
+                        return False
                     return True
                 # chromium-as-release has its own cron
                 if "custom-car" in try_name:
@@ -1813,7 +1817,7 @@ def target_tasks_os_integration(full_task_graph, parameters, graph_config):
         if not any(attrmatch(task.attributes, **c) for c in candidate_attrs):
             continue
 
-        if not is_try(parameters):
+        if parameters["try_mode"] is not None:
             # Only run hardware tasks if scheduled from try. We do this because
             # the `cron` task is designed to provide a base for testing worker
             # images, which isn't something that impacts our hardware pools.

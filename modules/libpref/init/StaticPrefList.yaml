@@ -516,7 +516,7 @@
 #     applies to touchpad scrolling)
 - name: apz.axis_lock.mode
   type: RelaxedAtomicInt32
-#if defined(XP_MACOSX)
+#if defined(XP_MACOSX) && !defined(NIGHTLY_BUILD)
   value: 3
 #else
   value: 2
@@ -7023,17 +7023,6 @@
   value: true
   mirror: always
 
-#if defined(XP_MACOSX)
-# Whether or not to interpret the MacOS geolocation permission value
-# NotDetermined as a reason to show a different permission request prompt.
-# This is currently disabled because the OS returns NotDetermined more
-# frequently than we expect.
--   name: geo.prompt.macos_use_not_determined
-    type: bool
-    value: false
-    mirror: always
-#endif
-
 #---------------------------------------------------------------------------
 # Prefs starting with "gfx."
 #---------------------------------------------------------------------------
@@ -11708,7 +11697,7 @@
 # https://drafts.csswg.org/css-position-3/#absolute-cb
 - name: layout.abspos.fragment-aware-inline-cb.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------

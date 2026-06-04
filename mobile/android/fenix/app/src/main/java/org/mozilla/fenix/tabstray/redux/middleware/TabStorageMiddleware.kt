@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted.Companion.Eagerly
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -84,7 +85,7 @@ class TabStorageMiddleware(
     private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) : Middleware<TabsTrayState, TabsTrayAction> {
 
-    private val combinedDataFlow: StateFlow<CombinedTabData> =
+    private val combinedDataFlow: StateFlow<CombinedTabData?> =
         if (tabGroupsEnabled) {
             combine(
                 flow = tabDataFlow.distinctUntilChanged(),
@@ -127,19 +128,21 @@ class TabStorageMiddleware(
             InitAction -> {
                 // Set up the tab data observer and set the Flow collection to the lifetime of main scope
                 mainScope.launch {
-                    combinedDataFlow.collect { data ->
-                        scope.launch {
-                            val transformedTabData = transformTabData(
-                                tabs = data.tabs,
-                                selectedTabId = data.selectedTabId,
-                                tabGroups = data.tabGroups,
-                                tabGroupAssignments = data.tabGroupAssignments,
-                            )
+                    combinedDataFlow
+                        .filterNotNull()
+                        .collect { data ->
+                            scope.launch {
+                                val transformedTabData = transformTabData(
+                                    tabs = data.tabs,
+                                    selectedTabId = data.selectedTabId,
+                                    tabGroups = data.tabGroups,
+                                    tabGroupAssignments = data.tabGroupAssignments,
+                                )
 
-                            mainScope.launch {
-                                store.dispatch(TabDataUpdateReceived(tabStorageUpdate = transformedTabData))
+                                mainScope.launch {
+                                    store.dispatch(TabDataUpdateReceived(tabStorageUpdate = transformedTabData))
+                                }
                             }
-                        }
                     }
                 }
             }
@@ -169,7 +172,7 @@ class TabStorageMiddleware(
                 handleTabAddedToGroup(groupId = action.groupId, tabId = action.tabId, store = store)
             }
 
-            is TabGroupAction.DeleteConfirmed -> handleDeleteClicked(action.group)
+            is TabGroupAction.DeleteConfirmed -> handleDeleteClicked(action.group, store)
 
             is TabGroupAction.DragAndDropCompleted -> {
                 handleDragAndDrop(action = action, store = store)
@@ -195,7 +198,7 @@ class TabStorageMiddleware(
             }
 
             is TabGroupAction.CloseTabAndDeleteGroupConfirmed -> {
-                handleDeleteClicked(action.group)
+                handleDeleteClicked(action.group, store)
             }
 
             is TabGroupAction.TabClosed -> {
@@ -673,11 +676,13 @@ class TabStorageMiddleware(
                 if (selectedTabIds.isNotEmpty()) {
                     // Obtain the ID of the selected tab that appears sequentially first in the tab data to sequence
                     // the rest of the selected tabs against it.
+                    // If the data is in a weird state, fallback to the first selected tab ID.
+                    // This is necessary until we can guarantee we always have tab data after the tab data refactor
+                    // to hoist tab data more globally.
                     val sequentiallyFirstTabId = combinedDataFlow
                         .value
-                        .tabs
-                        .first { it.id in selectedTabIds }
-                        .id
+                        ?.tabs
+                        ?.first { it.id in selectedTabIds }?.id ?: selectedTabIds.first()
 
                     sequenceGroupedTabsTogether(
                         tabIds = selectedTabIds - sequentiallyFirstTabId,
@@ -704,9 +709,22 @@ class TabStorageMiddleware(
         }
     }
 
-    private fun handleDeleteClicked(group: TabsTrayItem.TabGroup) {
+    private fun handleDeleteClicked(
+        group: TabsTrayItem.TabGroup,
+        store: Store<TabsTrayState, TabsTrayAction>,
+    ) {
         scope.launch {
-            removeTabsUseCase.invoke(ids = group.tabs.map { it.id })
+            val inactiveTabIds = if (inactiveTabsEnabled) {
+                store.state.inactiveTabs.tabs.map { it.id }.toSet()
+            } else {
+                emptySet()
+            }
+
+            removeTabsUseCase.invoke(
+                ids = group.tabs.map { it.id },
+                excludedTabIds = inactiveTabIds,
+            )
+
             tabGroupRepository.deleteTabGroupById(group.id)
         }
     }
@@ -735,10 +753,10 @@ class TabStorageMiddleware(
         )
     }
 
-    private fun Flow<CombinedTabData>.toCombinedDataStateFlow(): StateFlow<CombinedTabData> = stateIn(
+    private fun Flow<CombinedTabData>.toCombinedDataStateFlow(): StateFlow<CombinedTabData?> = stateIn(
         scope = mainScope,
         started = Eagerly,
-        initialValue = CombinedTabData(combinedData = Triple(TabData(), listOf(), mapOf())),
+        initialValue = null,
     )
 }
 

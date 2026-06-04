@@ -127,6 +127,11 @@ PER_PROJECT_PARAMETERS = {
         # branch, but for now just use the pull request target_tasks_method.
         "target_tasks_method": "firefox_pull_request_tasks",
     },
+    "firefox-dev": {
+        "enable_always_target": True,
+        "target_tasks_method": "try_tasks",
+        "release_type": "nightly",
+    },
     "staging-firefox": {
         "target_tasks_method": "default",
     },
@@ -173,17 +178,6 @@ def full_task_graph_to_manifests_by_task(full_task_json):
 
         manifests_by_task[label].extend(manifests)
     return manifests_by_task
-
-
-def try_syntax_from_message(message):
-    """
-    Parse the try syntax out of a commit message, returning '' if none is
-    found.
-    """
-    try_idx = message.find("try:")
-    if try_idx == -1:
-        return ""
-    return message[try_idx:].split("\n", 1)[0]
 
 
 def taskgraph_decision(options, parameters):
@@ -359,7 +353,6 @@ def get_decision_parameters(graph_config, options):
     parameters["build_number"] = 1
     parameters["version"] = get_version(product_dir)
     parameters["app_version"] = get_app_version(product_dir)
-    parameters["message"] = try_syntax_from_message(commit_message)
     parameters["next_version"] = None
     parameters["optimize_strategies"] = None
     parameters["optimize_target_tasks"] = True

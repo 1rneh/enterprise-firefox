@@ -406,6 +406,13 @@ tasks:
 
               in:
                   $let:
+                      repoType:
+                          $switch:
+                              'repoUrl == "https://github.com/mozilla/enterprise-firefox"': "enterprise"
+                              'repoUrl == "https://github.com/mozilla/firefox-dev"': "dev"
+                              'repoUrl == "https://github.com/mozilla-releng/staging-firefox"': "dev"
+                              'repoUrl == "https://github.com/mozilla-firefox/firefox"': "prod"
+                              $default: null
                       shortRef:
                           $if: 'ref[:11] == "refs/heads/"'
                           then: {$eval: 'ref[11:]'}
@@ -413,13 +420,13 @@ tasks:
                   in:
                       $if: >
                         eventType in ["action", "cron"]
-                        || (eventType == "push" && shortRef in ["enterprise-main", "enterprise-beta", "enterprise-release"])
+                        || (eventType == "push" && repoType == "enterprise" && shortRef in ["enterprise-main", "enterprise-beta", "enterprise-release"])
                         || (eventType == "push" && project == "enterprise-firefox-try")
                         || (isPullRequest && eventAction in ["opened", "reopened", "synchronize"])
                       then:
                           $let:
                               level:
-                                  $if: '(tasks_for == "action" || eventType in ["cron", "push"]) && repoUrl == "https://github.com/mozilla/enterprise-firefox" && project == "enterprise-firefox"'
+                                  $if: '(tasks_for == "action" || eventType in ["cron", "push"]) && repoType == "enterprise" && project == "enterprise-firefox"'
                                   then: 3
                                   else: 1
                           in:

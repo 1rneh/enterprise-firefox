@@ -871,10 +871,8 @@ void MediaTransportHandlerSTS::RemoveTransportsExcept(
         for (auto it = mTransports.begin(); it != mTransports.end();) {
           const std::string transportId(it->first);
           if (!aTransportIds.count(transportId)) {
-            if (it->second.mFlow) {
-              OnStateChange(transportId, TransportLayer::TS_NONE);
-              OnRtcpStateChange(transportId, TransportLayer::TS_NONE);
-            }
+            OnStateChange(transportId, TransportLayer::TS_CLOSED);
+            OnRtcpStateChange(transportId, TransportLayer::TS_CLOSED);
             // Erase the transport before destroying the ice stream so that
             // the close_notify alerts have a chance to be sent as the
             // TransportFlow destructors execute.
@@ -1021,11 +1019,7 @@ void MediaTransportHandler::OnStateChange(const std::string& aTransportId,
                                           TransportLayer::State aState) {
   {
     MutexAutoLock lock(mStateCacheMutex);
-    if (aState == TransportLayer::TS_NONE) {
-      mStateCache.erase(aTransportId);
-    } else {
-      mStateCache[aTransportId] = aState;
-    }
+    mStateCache[aTransportId] = aState;
   }
   mStateChange.Notify(aTransportId, aState);
 }
@@ -1034,11 +1028,7 @@ void MediaTransportHandler::OnRtcpStateChange(const std::string& aTransportId,
                                               TransportLayer::State aState) {
   {
     MutexAutoLock lock(mStateCacheMutex);
-    if (aState == TransportLayer::TS_NONE) {
-      mRtcpStateCache.erase(aTransportId);
-    } else {
-      mRtcpStateCache[aTransportId] = aState;
-    }
+    mRtcpStateCache[aTransportId] = aState;
   }
   mRtcpStateChange.Notify(aTransportId, aState);
 }
@@ -1248,7 +1238,7 @@ static void ToRTCIceCandidateStats(
     dom::RTCIceCandidateStats cand;
     cand.mType.Construct(candidateType);
     NS_ConvertASCIItoUTF16 codeword(candidate.codeword.c_str());
-    cand.mTransportId.Construct(transportId);
+    cand.mTransportId = transportId;
     cand.mId.Construct(codeword);
     cand.mTimestamp.Construct(now);
     cand.mCandidateType.Construct(dom::RTCIceCandidateType(candidate.type));
@@ -1329,7 +1319,7 @@ void MediaTransportHandlerSTS::GetIceStats(
 
     dom::RTCIceCandidatePairStats s;
     s.mId.Construct(codeword);
-    s.mTransportId.Construct(transportId);
+    s.mTransportId = transportId;
     s.mTimestamp.Construct(aNow);
     s.mType.Construct(dom::RTCStatsType::Candidate_pair);
     s.mLocalCandidateId.Construct(localCodeword);

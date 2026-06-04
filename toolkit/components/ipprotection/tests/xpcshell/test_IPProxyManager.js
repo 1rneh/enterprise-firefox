@@ -514,6 +514,63 @@ add_task(async function test_IPPProxyManager_quota_exceeded() {
 });
 
 /**
+ * Tests that an unlimited usage from a pass fetch is recorded and dispatched,
+ * and that the proxy activates instead of pausing despite a null remaining.
+ */
+add_task(async function test_IPPProxyManager_unlimited_usage() {
+  let sandbox = sinon.createSandbox();
+  setupStubs(sandbox, {
+    proxyUsage: new ProxyUsage(null, null, null, true),
+  });
+  Services.prefs.clearUserPref("browser.ipProtection.usageCache");
+
+  let capturedUsage = null;
+  const usageListener = event => {
+    capturedUsage = event.detail.usage;
+  };
+  IPPProxyManager.addEventListener(
+    "IPPProxyManager:UsageChanged",
+    usageListener
+  );
+
+  const waitForReady = waitForEvent(
+    IPProtectionService,
+    "IPProtectionService:StateChanged",
+    () => IPProtectionService.state === IPProtectionStates.READY
+  );
+
+  IPProtectionService.init();
+  await waitForReady;
+
+  await IPPProxyManager.start(false);
+
+  Assert.equal(
+    IPPProxyManager.state,
+    IPPProxyStates.ACTIVE,
+    "Proxy should activate for unlimited usage instead of pausing"
+  );
+  Assert.ok(
+    IPPProxyManager.usageInfo?.unlimited,
+    "Manager should record the unlimited usage from the pass fetch"
+  );
+  Assert.notEqual(
+    capturedUsage,
+    null,
+    "UsageChanged event should fire for unlimited usage"
+  );
+  Assert.ok(capturedUsage.unlimited, "Dispatched usage should be unlimited");
+
+  IPPProxyManager.removeEventListener(
+    "IPPProxyManager:UsageChanged",
+    usageListener
+  );
+  await IPPProxyManager.stop(false);
+  IPProtectionService.uninit();
+  Services.prefs.clearUserPref("browser.ipProtection.usageCache");
+  sandbox.restore();
+});
+
+/**
  * Tests the active state.
  */
 add_task(async function test_IPPProxytates_active() {
@@ -1183,6 +1240,71 @@ refreshUsageTestCases.forEach(testCase => {
   );
 });
 
+/**
+ * When Firefox launches with a cached usage metric updated in the past,
+ * IPPProxyManager should refresh usage info.
+ */
+add_task(
+  async function test_IPPProxyManager_refreshes_stale_startup_cache_on_init() {
+    Services.prefs.setBoolPref("browser.ipProtection.cacheDisabled", false);
+
+    let sandbox = sinon.createSandbox();
+
+    const pastReset = Temporal.Now.instant().subtract({ hours: 1 });
+
+    const staleCached = new ProxyUsage(
+      "53687091200",
+      "48318382080", // 45 GB remaining from last month
+      pastReset.toString()
+    );
+
+    const freshUsage = new ProxyUsage(
+      "53687091200",
+      "53687091200", // full quota for the new month
+      Temporal.Now.instant()
+        .add({ hours: 24 * 30 })
+        .toString()
+    );
+
+    setupStubs(sandbox, { validProxyPass: true, proxyUsage: freshUsage });
+    IPPStartupCache.storeUsageInfo(staleCached);
+
+    const usageRefreshed = new Promise(resolve => {
+      IPPProxyManager.addEventListener(
+        "IPPProxyManager:UsageChanged",
+        function listener(event) {
+          if (event.detail.usage.remaining === BigInt("53687091200")) {
+            IPPProxyManager.removeEventListener(
+              "IPPProxyManager:UsageChanged",
+              listener
+            );
+            resolve();
+          }
+        }
+      );
+    });
+
+    IPPProxyManager.init();
+
+    await usageRefreshed;
+
+    Assert.equal(
+      IPPProxyManager.usageInfo.remaining,
+      BigInt("53687091200"),
+      "Stale cached usage metric should be replaced by a newly fetched value"
+    );
+
+    await IPPProxyManager.reset();
+    IPPProxyManager.uninit();
+
+    Services.prefs.clearUserPref("browser.ipProtection.cacheDisabled");
+    Services.prefs.clearUserPref("browser.ipProtection.usageCache");
+    Services.prefs.clearUserPref("browser.ipProtection.stateCache");
+
+    sandbox.restore();
+  }
+);
+
 add_task(async function test_scheduleCallback_basic() {
   const now = Temporal.Now.instant();
   const triggerTime = now.add({ milliseconds: 100 });
@@ -1460,16 +1582,10 @@ add_task(async function test_scheduleCallback_abort_stops_loop_promptly() {
     setupStubs(sandbox, { validProxyPass: true });
 
     const oldIsolationKey = IPPProxyManager.isolationKey;
-    IPPProxyManager.handleProxyErrorEvent(
+    await IPPProxyManager.handleProxyErrorEvent(
       new CustomEvent("proxy-http-error", {
         detail: { level: "error", isolationKey, httpStatus },
       })
-    );
-
-    await waitForEvent(
-      IPPProxyManager,
-      "IPPProxyManager:UsageChanged",
-      () => true
     );
 
     Assert.notEqual(

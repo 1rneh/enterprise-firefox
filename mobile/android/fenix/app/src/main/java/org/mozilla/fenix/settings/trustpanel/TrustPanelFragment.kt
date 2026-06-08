@@ -23,6 +23,8 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,6 +44,8 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withContext
@@ -50,6 +54,7 @@ import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.lib.state.ext.consumeFlow
+import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import mozilla.components.support.base.log.logger.Logger
@@ -59,6 +64,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.components.menu.IPProtectionMenuBinding
 import org.mozilla.fenix.components.menu.compose.MenuDialogBottomSheet
+import org.mozilla.fenix.components.menu.compose.MenuHandleState
 import org.mozilla.fenix.components.menu.store.IPProtectionMenuStatus
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.runIfFragmentIsAttached
@@ -76,6 +82,8 @@ import org.mozilla.fenix.settings.trustpanel.ui.ProtectionPanel
 import org.mozilla.fenix.settings.trustpanel.ui.TrackerCategoryDetailsPanel
 import org.mozilla.fenix.settings.trustpanel.ui.TrackersBlockedPanel
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.trackingprotection.ProtectionsDashboardContent
+import org.mozilla.fenix.trackingprotection.TrackersBlockedFeature
 import org.mozilla.fenix.utils.DELAY_MS_MAIN_MENU
 import org.mozilla.fenix.utils.DELAY_MS_SUB_MENU
 import org.mozilla.fenix.utils.DURATION_MS_MAIN_MENU
@@ -85,6 +93,7 @@ import org.mozilla.fenix.utils.enterMenu
 import org.mozilla.fenix.utils.enterSubmenu
 import org.mozilla.fenix.utils.exitMenu
 import org.mozilla.fenix.utils.exitSubmenu
+import kotlin.time.Duration.Companion.seconds
 import com.google.android.material.R as materialR
 
 /**
@@ -93,6 +102,7 @@ import com.google.android.material.R as materialR
 class TrustPanelFragment : BottomSheetDialogFragment() {
 
     private val args by navArgs<TrustPanelFragmentArgs>()
+    private val trackersBlockedFeature = ViewBoundFeatureWrapper<TrackersBlockedFeature>()
     private val ipProtectionMenuBinding = ViewBoundFeatureWrapper<IPProtectionMenuBinding>()
     private lateinit var permissionsCallback: ((Map<String, Boolean>) -> Unit)
     private val requestPermissionsLauncher = registerForActivityResult(
@@ -174,15 +184,32 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
     ) = content {
         FirefoxTheme {
             val components = components
-            val trackingProtectionUseCases = components.useCases.trackingProtectionUseCases
             val settings = components.settings
+            val appStore = components.appStore
+
+            val initRoute = Route.ProtectionPanel
+            var contentState: Route by remember { mutableStateOf(initRoute) }
+            val isShowingProtectionsDashboard = remember(contentState) {
+                contentState == Route.TrackersProtectionDashboard
+            }
 
             MenuDialogBottomSheet(
                 modifier = Modifier
                     .padding(top = 8.dp, bottom = 5.dp)
                     .fillMaxWidth(0.1f),
                 onRequestDismiss = ::dismiss,
-                handlebarContentDescription = "",
+                menuHandleState = MenuHandleState(
+                    contentDescription = "",
+                    visible = !isShowingProtectionsDashboard,
+                ),
+                cornerShape = if (isShowingProtectionsDashboard) {
+                    MaterialTheme.shapes.extraLarge
+                } else {
+                    MaterialTheme.shapes.large
+                }.copy(
+                    bottomStart = CornerSize(0.dp),
+                    bottomEnd = CornerSize(0.dp),
+                ),
             ) {
                 val websiteInfoState by remember {
                     store.stateFlow.map { state -> state.websiteInfoState }
@@ -196,6 +223,9 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                 val numberOfTrackersBlocked by remember {
                     store.stateFlow.map { state -> state.numberOfTrackersBlocked }
                 }.collectAsState(initial = store.state.numberOfTrackersBlocked)
+                val numberOfTrackersBlockedThisWeek by remember {
+                    appStore.stateFlow.map { state -> state.trackersBlockedThisWeek.sumOf { it.count } }
+                }.collectAsState(initial = appStore.state.trackersBlockedThisWeek.sumOf { it.count })
                 val bucketedTrackers by remember {
                     store.stateFlow.map { state -> state.bucketedTrackers }
                 }.collectAsState(initial = store.state.bucketedTrackers)
@@ -240,10 +270,6 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                     }
                 }
 
-                val initRoute = Route.ProtectionPanel
-
-                var contentState: Route by remember { mutableStateOf(initRoute) }
-
                 BackHandler {
                     when (contentState) {
                         Route.TrackersPanel,
@@ -252,20 +278,25 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                         Route.TrackerCategoryDetailsPanel,
                         -> contentState = Route.TrackersPanel
 
+                        Route.TrackersProtectionDashboard,
+                        -> contentState = Route.TrackersPanel
+
                         else -> this@TrustPanelFragment.dismissAllowingStateLoss()
                     }
                 }
 
-                observeTrackersChange(components.core.store) {
-                    trackingProtectionUseCases.fetchTrackingLogs(
-                        tabId = args.sessionId,
-                        onSuccess = { trackerLogs ->
-                            store.dispatch(TrustPanelAction.UpdateTrackersBlocked(trackerLogs))
-                        },
-                        onError = {
-                            Logger.error("TrackingProtectionUseCases - fetchTrackingLogs onError", it)
-                        },
-                    )
+                LaunchedEffect(Unit) {
+                    observeTrackersChange(components.core.store) {
+                        components.useCases.trackingProtectionUseCases.fetchTrackingLogs(
+                            tabId = args.sessionId,
+                            onSuccess = { trackerLogs ->
+                                store.dispatch(TrustPanelAction.UpdateTrackersBlocked(trackerLogs))
+                            },
+                            onError = {
+                                Logger.error("TrackingProtectionUseCases - fetchTrackingLogs onError", it)
+                            },
+                        )
+                    }
                 }
 
                 LaunchedEffect(Unit) {
@@ -331,12 +362,16 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                             TrackersBlockedPanel(
                                 title = args.title,
                                 numberOfTrackersBlocked = numberOfTrackersBlocked,
+                                numberOfTrackersBlockedThisWeek = numberOfTrackersBlockedThisWeek,
                                 bucketedTrackers = bucketedTrackers,
                                 onTrackerCategoryClick = { detailedTrackerCategory ->
                                     store.dispatch(
                                         TrustPanelAction.UpdateDetailedTrackerCategory(detailedTrackerCategory),
                                     )
                                     contentState = Route.TrackerCategoryDetailsPanel
+                                },
+                                onTrackersBlockedThisWeekClicked = {
+                                    contentState = Route.TrackersProtectionDashboard
                                 },
                                 onBackButtonClick = {
                                     contentState = Route.ProtectionPanel
@@ -350,6 +385,20 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                                 detailedTrackerCategory = detailedTrackerCategory,
                                 bucketedTrackers = bucketedTrackers,
                                 onBackButtonClick = {
+                                    contentState = Route.TrackersPanel
+                                },
+                            )
+                        }
+
+                        Route.TrackersProtectionDashboard -> {
+                            val appStore = requireComponents.appStore
+                            val trackerBlockedThisWeek by appStore.observeAsComposableState { state ->
+                                state.trackersBlockedThisWeek
+                            }
+
+                            ProtectionsDashboardContent(
+                                trackersBlockedThisWeek = trackerBlockedThisWeek,
+                                onDismiss = {
                                     contentState = Route.TrackersPanel
                                 },
                             )
@@ -372,6 +421,20 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        if (requireComponents.settings.shouldUseTrackingProtection) {
+            trackersBlockedFeature.set(
+                feature = TrackersBlockedFeature(
+                    browserStore = requireComponents.core.store,
+                    appStore = requireComponents.appStore,
+                    currentSessionId = args.sessionId,
+                    trackingProtectionUseCases = requireComponents.useCases.trackingProtectionUseCases,
+                ),
+                owner = viewLifecycleOwner,
+                view = view,
+            )
+        }
+
         ipProtectionMenuBinding.set(
             feature = IPProtectionMenuBinding(
                 ipProtectionStore = requireComponents.ipProtection.store,
@@ -417,10 +480,17 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
         }
     }
 
+    @OptIn(FlowPreview::class)
     private fun observeTrackersChange(store: BrowserStore, onChange: (SessionState) -> Unit) {
+        val currentSession = store.state.findTabOrCustomTab(args.sessionId) ?: return
+
+        // Dispatch an immediate change signal to ensure an initial blocked trackers information fetch.
+        onChange(currentSession)
+
         consumeFlow(store) { flow ->
             flow.mapNotNull { state -> state.findTabOrCustomTab(args.sessionId) }
                 .ifAnyChanged { tab -> arrayOf(tab.trackingProtection.blockedTrackers) }
+                .debounce(1.seconds)
                 .collect(onChange)
         }
     }
@@ -433,5 +503,6 @@ enum class Route {
     ProtectionPanel,
     TrackersPanel,
     TrackerCategoryDetailsPanel,
+    TrackersProtectionDashboard,
     ClearSiteDataDialog,
 }

@@ -13,12 +13,15 @@ import React, {
 import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { useIntersectionObserver, useSizeSubmenu } from "../../../lib/utils";
-import { SportsMatchRow } from "./SportsMatchRow";
+import { SportsMatchRow, UpcomingMatchPlaceholder } from "./SportsMatchRow";
 import { LivePagination } from "./LivePagination";
 import { MoveSubmenu } from "../MoveSubmenu";
 import { WatchLiveModal } from "./WatchLiveModal";
 import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
-import { useLocalizedTeamNames } from "./useLocalizedTeamNames.jsx";
+import {
+  useLocalizedTeamNames,
+  useTbdTeamName,
+} from "./useLocalizedTeamNames.jsx";
 import {
   getMatchSectionL10nId,
   groupMatchesBySection,
@@ -84,8 +87,8 @@ function sortFollowedFirst(matches, selectedTeamsSet) {
     return matches;
   }
   const involvesFollowed = match =>
-    selectedTeamsSet.has(match.home_team.key) ||
-    selectedTeamsSet.has(match.away_team.key);
+    selectedTeamsSet.has(match.home_team?.key) ||
+    selectedTeamsSet.has(match.away_team?.key);
   return [...matches]
     .map((match, index) => ({ match, index }))
     .sort((a, b) => {
@@ -133,12 +136,14 @@ function getFollowedGradient(match, selectedTeamsSet, teamColorsByKey) {
   if (!match) {
     return null;
   }
-  const homeFollowed = selectedTeamsSet.has(match.home_team.key);
-  const awayFollowed = selectedTeamsSet.has(match.away_team.key);
+  const homeFollowed = selectedTeamsSet.has(match.home_team?.key);
+  const awayFollowed = selectedTeamsSet.has(match.away_team?.key);
   if (homeFollowed === awayFollowed) {
     return null;
   }
-  const followedKey = homeFollowed ? match.home_team.key : match.away_team.key;
+  const followedKey = homeFollowed
+    ? match.home_team?.key
+    : match.away_team?.key;
   const colors = teamColorsByKey.get(followedKey);
   if (!colors || colors.length < 2) {
     return null;
@@ -156,6 +161,9 @@ function getCarouselArticleAttrs(active) {
 function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
   const prefs = useSelector(state => state.Prefs.values);
   const sportsWidgetData = useSelector(state => state.SportsWidget);
+  // Resolved once here and passed down to every match row so a list of matches
+  // makes a single Fluent lookup for the undecided-team aria-label name.
+  const tbdTeamName = useTbdTeamName();
 
   const widgetSize = resolveWidgetSize(SPORTS_WIDGET_REGISTRY_ENTRY, prefs);
   // Mirror SportsFeed.liveEnabled — raw pref OR the trainhop override. The
@@ -306,12 +314,20 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
   const impressionFired = useRef(false);
   const errorFired = useRef(false);
   const introVideoRef = useRef(null);
+  // Caps the intro animation to two plays per widget mount.
+  // Toggling the widget off and back on remounts the component and resets this counter.
+  // You can also refresh the new tab page or open a new tab to reset the counter.
+  const introVideoPlayCount = useRef(0);
   const playIntroVideo = useMemo(() => {
     const prefersReducedMotion =
       globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
       false;
+    const maxIntroVideoPlays = 2;
     return () => {
       if (prefersReducedMotion) {
+        return;
+      }
+      if (introVideoPlayCount.current >= maxIntroVideoPlays) {
         return;
       }
       const video = introVideoRef.current;
@@ -319,7 +335,12 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
         return;
       }
       video.currentTime = 0;
-      video.play().catch(() => {});
+      video
+        .play()
+        .then(() => {
+          introVideoPlayCount.current += 1;
+        })
+        .catch(() => {});
     };
   }, []);
   const [watchLiveOpen, setWatchLiveOpen] = useState(false);
@@ -905,6 +926,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
             liveIndex={liveIndex}
             handleInteraction={handleInteraction}
             selectedTeamsSet={selectedTeamsSet}
+            tbdTeamName={tbdTeamName}
             followedOnly={sportsWidgetData.followedOnly}
             showResultsList={showResultsList}
             setShowResultsList={setShowResultsList}
@@ -1097,6 +1119,7 @@ function SportsMatchesView({
   liveIndex,
   handleInteraction,
   selectedTeamsSet,
+  tbdTeamName,
   followedOnly,
   showResultsList,
   setShowResultsList,
@@ -1140,8 +1163,8 @@ function SportsMatchesView({
   const filterFollowed = matches =>
     matches.filter(
       match =>
-        selectedTeamsSet.has(match.home_team.key) ||
-        selectedTeamsSet.has(match.away_team.key)
+        selectedTeamsSet.has(match.home_team?.key) ||
+        selectedTeamsSet.has(match.away_team?.key)
     );
   // Filtering is only meaningful when the user has followed at least one
   // team — otherwise we'd hide every match.
@@ -1200,7 +1223,7 @@ function SportsMatchesView({
                   <ul>
                     {section.matches.map(match => (
                       <li
-                        key={`${match.home_team.key}-${match.away_team.key}-${match.date}`}
+                        key={`${match.home_team?.key}-${match.away_team?.key}-${match.date}`}
                       >
                         <SportsMatchRow
                           match={match}
@@ -1208,6 +1231,7 @@ function SportsMatchesView({
                           size="list"
                           handleInteraction={handleInteraction}
                           followedTeams={selectedTeamsSet}
+                          tbdTeamName={tbdTeamName}
                         />
                       </li>
                     ))}
@@ -1227,6 +1251,7 @@ function SportsMatchesView({
                   size={size}
                   handleInteraction={handleInteraction}
                   followedTeams={selectedTeamsSet}
+                  tbdTeamName={tbdTeamName}
                 />
               </div>
             </>
@@ -1271,6 +1296,7 @@ function SportsMatchesView({
                   size={size}
                   handleInteraction={handleInteraction}
                   followedTeams={selectedTeamsSet}
+                  tbdTeamName={tbdTeamName}
                 />
               </div>
               {/* TODO: Replace play icon when finalized */}
@@ -1292,6 +1318,7 @@ function SportsMatchesView({
                   liveIndex={liveIndex}
                   liveCount={current.length}
                   size={size}
+                  widgetSize={widgetSize}
                   handleInteraction={handleInteraction}
                 />
               )}
@@ -1326,7 +1353,11 @@ function SportsMatchesView({
                   <ul>
                     {section.matches.map(match => (
                       <li
-                        key={`${match.home_team.key}-${match.away_team.key}-${match.date}`}
+                        // Fallback is for test fixtures, which omit global_event_id.
+                        key={
+                          match.global_event_id ??
+                          `${match.home_team?.key}-${match.away_team?.key}-${match.date}`
+                        }
                       >
                         <SportsMatchRow
                           match={match}
@@ -1334,6 +1365,7 @@ function SportsMatchesView({
                           size="list"
                           handleInteraction={handleInteraction}
                           followedTeams={selectedTeamsSet}
+                          tbdTeamName={tbdTeamName}
                         />
                       </li>
                     ))}
@@ -1343,20 +1375,29 @@ function SportsMatchesView({
             </div>
           </>
         ) : (
-          next[0] && (
-            <>
-              {size === "large" && <SportsSectionLabel match={next[0]} />}
+          <>
+            {next[0] && (
+              <>
+                {size === "large" && <SportsSectionLabel match={next[0]} />}
+                <div className="match-highlight-view">
+                  <SportsMatchRow
+                    match={next[0]}
+                    variant="upcoming"
+                    size={size}
+                    handleInteraction={handleInteraction}
+                    followedTeams={selectedTeamsSet}
+                    tbdTeamName={tbdTeamName}
+                  />
+                </div>
+              </>
+            )}
+            {/* No upcoming matches from the backend — show the placeholder. */}
+            {!next[0] && (
               <div className="match-highlight-view">
-                <SportsMatchRow
-                  match={next[0]}
-                  variant="upcoming"
-                  size={size}
-                  handleInteraction={handleInteraction}
-                  followedTeams={selectedTeamsSet}
-                />
+                <UpcomingMatchPlaceholder size={size} />
               </div>
-            </>
-          )
+            )}
+          </>
         )}
         {!!next.length && (
           <moz-button

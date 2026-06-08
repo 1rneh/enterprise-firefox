@@ -1530,6 +1530,7 @@ def x11_libs(webrtc):
         "xcb-shm",
         "x11-xcb",
         "xext",
+        "xfixes",
         "xrandr >= 1.4.0",
     ]
     if webrtc:
@@ -1539,7 +1540,6 @@ def x11_libs(webrtc):
             "xcomposite",
             "xcursor",
             "xdamage",
-            "xfixes",
             "xi",
         ]
     return libs

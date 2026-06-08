@@ -16294,6 +16294,13 @@ function SportsMatchRow_extends() { return SportsMatchRow_extends = Object.assig
 
 
 const SportsMatchRow_PREF_SPORTS_WIDGET_SIZE = "widgets.sportsWidget.size";
+const SportsMatchRow_USER_ACTION_TYPES = {
+  OPEN_MATCH_SEARCH: "open_match_search"
+};
+
+// Visible placeholder shown in place of a team's country code when the
+// match-up isn't decided yet.
+const TBD_PLACEHOLDER = "--";
 const STATUS_L10N_MAP = {
   delayed: "newtab-sports-widget-delayed",
   postponed: "newtab-sports-widget-postponed",
@@ -16327,12 +16334,74 @@ function ScorePill({
     className: "sports-score-penalty"
   }, "(", awayPenalty, ")"));
 }
+
+// Renders one side of a match row: the team flag and code, or a placeholder
+// when the team is not yet decided.
+function MatchTeam({
+  team,
+  isFollowed
+}) {
+  if (!team) {
+    return /*#__PURE__*/external_React_default().createElement("div", {
+      className: "sports-match-team"
+    }, /*#__PURE__*/external_React_default().createElement("span", {
+      className: "sports-match-flag-wrapper"
+    }, /*#__PURE__*/external_React_default().createElement("span", {
+      className: "sports-match-flag sports-match-flag-tbd",
+      "aria-hidden": "true"
+    })), /*#__PURE__*/external_React_default().createElement("span", {
+      className: "sports-match-code"
+    }, TBD_PLACEHOLDER));
+  }
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-match-team"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: `sports-match-flag-wrapper${isFollowed ? " is-followed" : ""}`
+  }, /*#__PURE__*/external_React_default().createElement("img", {
+    className: "sports-match-flag",
+    src: team.icon_url,
+    alt: team.name,
+    title: team.name
+  }), isFollowed && /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sports-match-flag-check",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sports-match-code"
+  }, isFollowed ? /*#__PURE__*/external_React_default().createElement("strong", null, team.key) : team.key));
+}
+
+// Fallback shown in the Upcoming tab if the backend returns no matches.
+function UpcomingMatchPlaceholder({
+  size = "large"
+}) {
+  return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+    className: `sports-match-row sports-match-row-${size} sports-match-row-placeholder`,
+    "aria-hidden": "true"
+  }, /*#__PURE__*/external_React_default().createElement(MatchTeam, {
+    team: null
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-match-upcoming"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sports-match-time sports-match-vs",
+    "data-l10n-id": "newtab-sports-widget-match-vs"
+  })), /*#__PURE__*/external_React_default().createElement(MatchTeam, {
+    team: null
+  })), size === "large" && /*#__PURE__*/external_React_default().createElement("p", {
+    className: "sports-upcoming-empty-info"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sports-upcoming-empty-info-icon",
+    "aria-hidden": "true"
+  }), /*#__PURE__*/external_React_default().createElement("span", {
+    "data-l10n-id": "newtab-sports-widget-no-upcoming-matches"
+  })));
+}
 function SportsMatchRow({
   match,
   variant,
   size = "large",
   handleInteraction,
-  followedTeams
+  followedTeams,
+  tbdTeamName = ""
 }) {
   const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
   // Read the widget size pref (not `size`, which can be "list" when the
@@ -16352,8 +16421,10 @@ function SportsMatchRow({
     away_penalty,
     query
   } = match;
-  const isHomeFollowed = !!followedTeams?.has(home_team.key);
-  const isAwayFollowed = !!followedTeams?.has(away_team.key);
+  const isHomeFollowed = !!(home_team && followedTeams?.has(home_team.key));
+  const isAwayFollowed = !!(away_team && followedTeams?.has(away_team.key));
+  const homeTeamName = home_team ? home_team.name : tbdTeamName;
+  const awayTeamName = away_team ? away_team.name : tbdTeamName;
   const dateTimestamp = new Date(date).getTime();
   // (developer note): Assumes home_score/away_score exclude extra time goals
   const displayHomeScore = home_score + (home_extra || 0);
@@ -16370,8 +16441,8 @@ function SportsMatchRow({
   // translatable.
   function getAriaLabelL10n() {
     const teams = {
-      homeTeam: home_team.name,
-      awayTeam: away_team.name
+      homeTeam: homeTeamName,
+      awayTeam: awayTeamName
     };
     if (variant === "results") {
       if (hasPenalties) {
@@ -16485,7 +16556,7 @@ function SportsMatchRow({
       data: {
         widget_name: "sports",
         widget_source: "widget",
-        user_action: "open_match_search",
+        user_action: SportsMatchRow_USER_ACTION_TYPES.OPEN_MATCH_SEARCH,
         action_value: variant,
         widget_size: widgetSize
       }
@@ -16522,35 +16593,13 @@ function SportsMatchRow({
     tabIndex: 0,
     onClick: openMatchSearch,
     onKeyDown
-  }), /*#__PURE__*/external_React_default().createElement("div", {
-    className: "sports-match-team"
-  }, /*#__PURE__*/external_React_default().createElement("span", {
-    className: `sports-match-flag-wrapper${isHomeFollowed ? " is-followed" : ""}`
-  }, /*#__PURE__*/external_React_default().createElement("img", {
-    className: "sports-match-flag",
-    src: home_team.icon_url,
-    alt: home_team.name,
-    title: home_team.name
-  }), isHomeFollowed && /*#__PURE__*/external_React_default().createElement("span", {
-    className: "sports-match-flag-check",
-    "aria-hidden": "true"
-  })), /*#__PURE__*/external_React_default().createElement("span", {
-    className: "sports-match-code"
-  }, isHomeFollowed ? /*#__PURE__*/external_React_default().createElement("strong", null, home_team.key) : home_team.key)), renderMiddle(), /*#__PURE__*/external_React_default().createElement("div", {
-    className: "sports-match-team"
-  }, /*#__PURE__*/external_React_default().createElement("span", {
-    className: `sports-match-flag-wrapper${isAwayFollowed ? " is-followed" : ""}`
-  }, /*#__PURE__*/external_React_default().createElement("img", {
-    className: "sports-match-flag",
-    src: away_team.icon_url,
-    alt: away_team.name,
-    title: away_team.name
-  }), isAwayFollowed && /*#__PURE__*/external_React_default().createElement("span", {
-    className: "sports-match-flag-check",
-    "aria-hidden": "true"
-  })), /*#__PURE__*/external_React_default().createElement("span", {
-    className: "sports-match-code"
-  }, isAwayFollowed ? /*#__PURE__*/external_React_default().createElement("strong", null, away_team.key) : away_team.key)));
+  }), /*#__PURE__*/external_React_default().createElement(MatchTeam, {
+    team: home_team,
+    isFollowed: isHomeFollowed
+  }), renderMiddle(), /*#__PURE__*/external_React_default().createElement(MatchTeam, {
+    team: away_team,
+    isFollowed: isAwayFollowed
+  }));
 }
 
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/SportsWidget/LivePagination.jsx
@@ -16561,20 +16610,34 @@ function SportsMatchRow({
 // eslint-disable-next-line no-unused-vars
 
 
+const LivePagination_USER_ACTION_TYPES = {
+  CHANGE_LIVE_MATCH: "change_live_match"
+};
 
-// Pager for the Now tab when 2+ live games are happening at once. Chevron
-// buttons step through the live matches (already sorted followed-first); dot
-// indicators show position and let the user jump directly to a match.
-// Chevron icon direction is mirrored under RTL via CSS (`:dir(rtl)`).
+// Arrow icons are mirrored under RTL via :dir(rtl) CSS.
 function LivePagination({
   dispatch,
   liveIndex,
   liveCount,
   size,
+  widgetSize,
   handleInteraction
 }) {
   const buttonSize = size === "medium" ? "small" : undefined;
   const goTo = nextIndex => {
+    if (nextIndex === liveIndex) {
+      return;
+    }
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.WIDGETS_USER_EVENT,
+      data: {
+        widget_name: "sports",
+        widget_source: "widget",
+        user_action: LivePagination_USER_ACTION_TYPES.CHANGE_LIVE_MATCH,
+        action_value: String(nextIndex + 1),
+        widget_size: widgetSize
+      }
+    }));
     dispatch(actionCreators.AlsoToMain({
       type: actionTypes.WIDGETS_SPORTS_CHANGE_LIVE_INDEX,
       data: nextIndex
@@ -16925,6 +16988,20 @@ function useLocalizedTeamNames(teams) {
   // Only expose names that match the current `teams` reference.
   return resolved.teams === teams ? resolved.names : null;
 }
+
+/**
+ * Resolves the localized "To be determined" placeholder name used in a match
+ * row's aria-label for an undecided team. Returns "" until resolved.
+ */
+function useTbdTeamName() {
+  const [tbdName, setTbdName] = (0,external_React_namespaceObject.useState)("");
+  (0,external_React_namespaceObject.useEffect)(() => {
+    document.l10n?.formatValues?.([{
+      id: "newtab-sports-widget-team-tbd"
+    }])?.then(([value]) => value && setTbdName(value));
+  }, []);
+  return tbdName;
+}
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/SportsWidget/stageLabels.mjs
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -17079,7 +17156,7 @@ function sortFollowedFirst(matches, selectedTeamsSet) {
   if (!selectedTeamsSet.size) {
     return matches;
   }
-  const involvesFollowed = match => selectedTeamsSet.has(match.home_team.key) || selectedTeamsSet.has(match.away_team.key);
+  const involvesFollowed = match => selectedTeamsSet.has(match.home_team?.key) || selectedTeamsSet.has(match.away_team?.key);
   return [...matches].map((match, index) => ({
     match,
     index
@@ -17127,12 +17204,12 @@ function getFollowedGradient(match, selectedTeamsSet, teamColorsByKey) {
   if (!match) {
     return null;
   }
-  const homeFollowed = selectedTeamsSet.has(match.home_team.key);
-  const awayFollowed = selectedTeamsSet.has(match.away_team.key);
+  const homeFollowed = selectedTeamsSet.has(match.home_team?.key);
+  const awayFollowed = selectedTeamsSet.has(match.away_team?.key);
   if (homeFollowed === awayFollowed) {
     return null;
   }
-  const followedKey = homeFollowed ? match.home_team.key : match.away_team.key;
+  const followedKey = homeFollowed ? match.home_team?.key : match.away_team?.key;
   const colors = teamColorsByKey.get(followedKey);
   if (!colors || colors.length < 2) {
     return null;
@@ -17156,6 +17233,9 @@ function SportsWidget_SportsWidget({
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const sportsWidgetData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.SportsWidget);
+  // Resolved once here and passed down to every match row so a list of matches
+  // makes a single Fluent lookup for the undecided-team aria-label name.
+  const tbdTeamName = useTbdTeamName();
   const widgetSize = resolveWidgetSize(SPORTS_WIDGET_REGISTRY_ENTRY, prefs);
   // Mirror SportsFeed.liveEnabled — raw pref OR the trainhop override. The
   // canonical key is trainhopConfig.widgets.sportsWidgetLiveEnabled (the flat
@@ -17274,10 +17354,18 @@ function SportsWidget_SportsWidget({
   const impressionFired = (0,external_React_namespaceObject.useRef)(false);
   const errorFired = (0,external_React_namespaceObject.useRef)(false);
   const introVideoRef = (0,external_React_namespaceObject.useRef)(null);
+  // Caps the intro animation to two plays per widget mount.
+  // Toggling the widget off and back on remounts the component and resets this counter.
+  // You can also refresh the new tab page or open a new tab to reset the counter.
+  const introVideoPlayCount = (0,external_React_namespaceObject.useRef)(0);
   const playIntroVideo = (0,external_React_namespaceObject.useMemo)(() => {
     const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const maxIntroVideoPlays = 2;
     return () => {
       if (prefersReducedMotion) {
+        return;
+      }
+      if (introVideoPlayCount.current >= maxIntroVideoPlays) {
         return;
       }
       const video = introVideoRef.current;
@@ -17285,7 +17373,9 @@ function SportsWidget_SportsWidget({
         return;
       }
       video.currentTime = 0;
-      video.play().catch(() => {});
+      video.play().then(() => {
+        introVideoPlayCount.current += 1;
+      }).catch(() => {});
     };
   }, []);
   const [watchLiveOpen, setWatchLiveOpen] = (0,external_React_namespaceObject.useState)(false);
@@ -17730,6 +17820,7 @@ function SportsWidget_SportsWidget({
     liveIndex: liveIndex,
     handleInteraction: handleInteraction,
     selectedTeamsSet: selectedTeamsSet,
+    tbdTeamName: tbdTeamName,
     followedOnly: sportsWidgetData.followedOnly,
     showResultsList: showResultsList,
     setShowResultsList: setShowResultsList,
@@ -17875,6 +17966,7 @@ function SportsMatchesView({
   liveIndex,
   handleInteraction,
   selectedTeamsSet,
+  tbdTeamName,
   followedOnly,
   showResultsList,
   setShowResultsList,
@@ -17910,7 +18002,7 @@ function SportsMatchesView({
       }
     }));
   });
-  const filterFollowed = matches => matches.filter(match => selectedTeamsSet.has(match.home_team.key) || selectedTeamsSet.has(match.away_team.key));
+  const filterFollowed = matches => matches.filter(match => selectedTeamsSet.has(match.home_team?.key) || selectedTeamsSet.has(match.away_team?.key));
   // Filtering is only meaningful when the user has followed at least one
   // team — otherwise we'd hide every match.
   const displayedPrevious = hasFollowedTeams && resultsFollowedOnly ? filterFollowed(previous) : previous;
@@ -17957,13 +18049,14 @@ function SportsMatchesView({
   }, /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: section.matches[0]
   }), /*#__PURE__*/external_React_default().createElement("ul", null, section.matches.map(match => /*#__PURE__*/external_React_default().createElement("li", {
-    key: `${match.home_team.key}-${match.away_team.key}-${match.date}`
+    key: `${match.home_team?.key}-${match.away_team?.key}-${match.date}`
   }, /*#__PURE__*/external_React_default().createElement(SportsMatchRow, {
     match: match,
     variant: "results",
     size: "list",
     handleInteraction: handleInteraction,
-    followedTeams: selectedTeamsSet
+    followedTeams: selectedTeamsSet,
+    tbdTeamName: tbdTeamName
   })))))))) : previous[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: previous[0]
   }), /*#__PURE__*/external_React_default().createElement("div", {
@@ -17973,7 +18066,8 @@ function SportsMatchesView({
     variant: "results",
     size: size,
     handleInteraction: handleInteraction,
-    followedTeams: selectedTeamsSet
+    followedTeams: selectedTeamsSet,
+    tbdTeamName: tbdTeamName
   }))), !!previous.length && /*#__PURE__*/external_React_default().createElement("moz-button", {
     type: "secondary",
     size: size === "medium" ? "small" : undefined,
@@ -17995,7 +18089,8 @@ function SportsMatchesView({
     variant: "now",
     size: size,
     handleInteraction: handleInteraction,
-    followedTeams: selectedTeamsSet
+    followedTeams: selectedTeamsSet,
+    tbdTeamName: tbdTeamName
   })), /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "sports-watch-live-button",
     type: size === "medium" ? "icon" : "default",
@@ -18008,6 +18103,7 @@ function SportsMatchesView({
     liveIndex: liveIndex,
     liveCount: current.length,
     size: size,
+    widgetSize: widgetSize,
     handleInteraction: handleInteraction
   }))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-matches-tab-panel",
@@ -18030,14 +18126,16 @@ function SportsMatchesView({
   }, /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: section.matches[0]
   }), /*#__PURE__*/external_React_default().createElement("ul", null, section.matches.map(match => /*#__PURE__*/external_React_default().createElement("li", {
-    key: `${match.home_team.key}-${match.away_team.key}-${match.date}`
+    // Fallback is for test fixtures, which omit global_event_id.
+    key: match.global_event_id ?? `${match.home_team?.key}-${match.away_team?.key}-${match.date}`
   }, /*#__PURE__*/external_React_default().createElement(SportsMatchRow, {
     match: match,
     variant: "upcoming",
     size: "list",
     handleInteraction: handleInteraction,
-    followedTeams: selectedTeamsSet
-  })))))))) : next[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
+    followedTeams: selectedTeamsSet,
+    tbdTeamName: tbdTeamName
+  })))))))) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, next[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: next[0]
   }), /*#__PURE__*/external_React_default().createElement("div", {
     className: "match-highlight-view"
@@ -18046,7 +18144,12 @@ function SportsMatchesView({
     variant: "upcoming",
     size: size,
     handleInteraction: handleInteraction,
-    followedTeams: selectedTeamsSet
+    followedTeams: selectedTeamsSet,
+    tbdTeamName: tbdTeamName
+  }))), !next[0] && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "match-highlight-view"
+  }, /*#__PURE__*/external_React_default().createElement(UpcomingMatchPlaceholder, {
+    size: size
   }))), !!next.length && /*#__PURE__*/external_React_default().createElement("moz-button", {
     type: "secondary",
     size: size === "medium" ? "small" : undefined,
@@ -19734,6 +19837,7 @@ function Widgets_extends() { return Widgets_extends = Object.assign ? Object.ass
 
 
 
+
 const CONTAINER_ACTION_TYPES = {
   HIDE_ALL: "hide_all",
   CHANGE_SIZE_ALL: "change_size_all",
@@ -20263,28 +20367,36 @@ function Widgets() {
         key: id,
         className: wrapperClassName,
         "data-widget-id": id
-      }, hiddenAttrs, dragProps), /*#__PURE__*/external_React_default().createElement(Component, {
+      }, hiddenAttrs, dragProps), /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
+        className: "widget-error-fallback"
+      }, /*#__PURE__*/external_React_default().createElement(Component, {
         dispatch: dispatch,
         handleUserInteraction: handleUserInteraction,
         isMaximized: isMaximized,
         widgetsMayBeMaximized: widgetsMayBeMaximized,
         widgetEnabledMap: widgetEnabledMap
-      }));
+      })));
     }
     // @nova-cleanup: remove below
     return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, {
       key: id
-    }, id === "lists" && listsEnabled && /*#__PURE__*/external_React_default().createElement(Lists, {
+    }, id === "lists" && listsEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
+      className: "widget-error-fallback"
+    }, /*#__PURE__*/external_React_default().createElement(Lists, {
       dispatch: dispatch,
       handleUserInteraction: handleUserInteraction,
       isMaximized: isMaximized,
       widgetsMayBeMaximized: widgetsMayBeMaximized
-    }), id === "focusTimer" && timerEnabled && /*#__PURE__*/external_React_default().createElement(FocusTimer, {
+    })), id === "focusTimer" && timerEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
+      className: "widget-error-fallback"
+    }, /*#__PURE__*/external_React_default().createElement(FocusTimer, {
       dispatch: dispatch,
       handleUserInteraction: handleUserInteraction,
       isMaximized: isMaximized,
       widgetsMayBeMaximized: widgetsMayBeMaximized
-    }), id === "weather" && renderWeather({
+    })), id === "weather" && weatherForecastEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
+      className: "widget-error-fallback"
+    }, renderWeather({
       novaEnabled,
       weatherEnabled,
       weatherForecastEnabled,
@@ -20293,7 +20405,7 @@ function Widgets() {
       handleUserInteraction,
       isMaximized,
       widgetsMayBeMaximized
-    }));
+    })));
   }), novaEnabled && !allWidgetsAdded && /*#__PURE__*/external_React_default().createElement("button", {
     type: "button",
     className: `widgets-add-button col-4 ${addButtonSize}-widget`,

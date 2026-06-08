@@ -870,11 +870,12 @@ static void global_registry_handler(void* data, wl_registry* registry,
   } else if (iface.EqualsLiteral("wl_fixes")) {
     // wl_fixes_interface was introduced in libwayland-client 1.24, but
     // Ubuntu 22.04 still ships 1.20.
+    // We force wl_fixes v.1 interface.
     static auto* sWlFixesInterface =
         (wl_interface*)dlsym(RTLD_DEFAULT, "wl_fixes_interface");
     if (sWlFixesInterface) {
-      auto* fixes = WaylandRegistryBind<wl_fixes>(
-          registry, id, sWlFixesInterface, MIN(version, 2));
+      auto* fixes =
+          WaylandRegistryBind<wl_fixes>(registry, id, sWlFixesInterface, 1);
       display->SetFixes(fixes);
     } else {
       LOG("wl_fixes_interface is missing!");
@@ -1268,11 +1269,18 @@ void nsWaylandDisplay::Init() {
   LOG("  init finished");
 
   // Check we have critical Wayland interfaces.
-  // Missing ones indicates a compositor bug and we can't continue.
+  // Missing ones indicates a compositor bug/missing feature and
+  // we can't continue.
   MOZ_RELEASE_ASSERT(GetShm(), "We're missing shm interface!");
   MOZ_RELEASE_ASSERT(GetCompositor(), "We're missing compositor interface!");
   MOZ_RELEASE_ASSERT(GetSubcompositor(),
                      "We're missing subcompositor interface!");
+  if (!GetViewporter()) {
+    NS_WARNING("Missing viewporter wayland protocol!");
+  }
+  if (!GetFractionalScaleManager()) {
+    NS_WARNING("Missing wp_fractional_scale_v1 wayland protocol!");
+  }
 }
 
 }  // namespace mozilla::widget

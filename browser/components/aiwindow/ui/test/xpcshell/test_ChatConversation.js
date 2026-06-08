@@ -961,7 +961,7 @@ add_task(
     const conversation = new ChatConversation({});
     conversation.addAssistantMessage("text", "some response");
     const assistantMsg = conversation.messages.at(-1);
-    assistantMsg._pendingMemoryIds = ["mem-1", "mem-1", "mem-2", "mem-2"];
+    assistantMsg.memoriesApplied = ["mem-1", "mem-1", "mem-2", "mem-2"];
 
     async function* emptyStream() {}
     await conversation.receiveResponse(emptyStream());
@@ -982,10 +982,6 @@ add_task(
       assistantMsg.memoriesApplied,
       mockMemories,
       "memoriesApplied should be set to the resolved memories"
-    );
-    Assert.ok(
-      !("_pendingMemoryIds" in assistantMsg),
-      "_pendingMemoryIds should be deleted after processing"
     );
 
     sandbox.restore();
@@ -1482,6 +1478,65 @@ add_task(async function test_generatePrompt_tableInstructions_pref_disabled() {
   );
   _setLoadPromptForTesting(null);
   sandbox.restore();
+});
+
+add_task(async function test_generatePrompt_persistsPromptVersion() {
+  const sandbox = lazy.sinon.createSandbox();
+  const loadPromptStub = lazy.sinon
+    .stub()
+    .onFirstCall()
+    .resolves({
+      prompt: "system prompt {tableInstructions}",
+      version: "chat-v1",
+    })
+    .onSecondCall()
+    .resolves("table instructions content");
+  _setLoadPromptForTesting(loadPromptStub);
+
+  const conversation = new ChatConversation({});
+  sandbox.stub(ChatConversation, "getRealTimeInfo").resolves(null);
+  sandbox.stub(conversation, "getMemoriesContext").resolves(null);
+
+  await conversation.generatePrompt("hello", null);
+
+  const systemMessage = conversation.messages.find(
+    m => m.role === MESSAGE_ROLE.SYSTEM
+  );
+  Assert.equal(
+    systemMessage.content.version,
+    "chat-v1",
+    "version is stored on the system message content"
+  );
+  Assert.equal(
+    conversation.chatPromptVersion,
+    "chat-v1",
+    "getter reads the version from the system message"
+  );
+
+  _setLoadPromptForTesting(null);
+  sandbox.restore();
+});
+
+add_task(function test_chatPromptVersion_readsFromExistingSystemMessage() {
+  const conversation = new ChatConversation({});
+  conversation.addSystemMessage(SYSTEM_PROMPT_TYPE.TEXT, "body", "chat-v2");
+
+  Assert.equal(
+    conversation.chatPromptVersion,
+    "chat-v2",
+    "getter returns the version from a pre-existing system message"
+  );
+});
+
+add_task(function test_chatPromptVersion_emptyForLegacyMessage() {
+  const conversation = new ChatConversation({});
+  // Simulate a system message persisted before this change shipped.
+  conversation.addSystemMessage(SYSTEM_PROMPT_TYPE.TEXT, "body");
+  Assert.equal(
+    conversation.chatPromptVersion,
+    "",
+    "getter returns empty string for legacy system messages with no version"
+  );
 });
 
 add_task(

@@ -86,6 +86,16 @@ struct ImmTag : public Imm32 {
   explicit ImmTag(JSValueTag mask) : Imm32(int32_t(mask)) {}
 };
 
+struct ImmTagSignExt : public Imm32 {
+  static constexpr int32_t signExtend(JSValueTag mask) {
+    int64_t tag = (int64_t(mask) << JSVAL_TAG_SHIFT) >> JSVAL_TAG_SHIFT;
+    MOZ_ASSERT(is_int12(tag));
+    return tag;
+  }
+
+  explicit ImmTagSignExt(JSValueTag mask) : Imm32(signExtend(mask)) {}
+};
+
 class MacroAssemblerRiscv64 : public Assembler {
  public:
   MacroAssemblerRiscv64() {}
@@ -160,6 +170,8 @@ class MacroAssemblerRiscv64 : public Assembler {
   void ma_li(Register dest, intptr_t imm) { RV_li(dest, imm); }
   void ma_li(Register dest, CodeLabel* label);
   void ma_li(Register dest, ImmWord imm);
+
+  void patchLi32(CodeOffset offset, Imm32 imm);
 
 #define DEFINE_INSTRUCTION(instr)                     \
   void instr(Register rd, Register rs, Imm64 imm);    \
@@ -267,8 +279,6 @@ class MacroAssemblerRiscv64 : public Assembler {
   void ma_pop(FloatRegister f);
   void ma_push(FloatRegister f);
 
-  Condition ma_cmp(Register rd, Register lhs, Register rhs, Condition c);
-  Condition ma_cmp(Register rd, Register lhs, Imm32 imm, Condition c);
   void ma_cmp_set(Register dst, Register lhs, ImmWord imm, Condition c);
   void ma_cmp_set(Register dst, Register lhs, ImmPtr imm, Condition c);
   void ma_cmp_set(Register dst, Register lhs, ImmGCPtr imm, Condition c);
@@ -467,7 +477,7 @@ class MacroAssemblerRiscv64 : public Assembler {
 
   // Change endianness
   void ByteSwap(Register dest, Register src, int operand_size,
-                Register scratch);
+                bool zeroExtend = false);
 
   void Rol(Register rd, Register rs, Imm32 rt);
   void Rol(Register rd, Register rs, Register rt);
@@ -714,16 +724,25 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
 
   void jump(TrampolinePtr code) { jump(ImmPtr(code.value)); }
 
-  void splitTag(Register src, Register dest) {
-    srli(dest, src, JSVAL_TAG_SHIFT);
+  void splitSignExtTag(Register src, Register dest) {
+    // As opposed to other architectures, splitTag is replaced by
+    // splitSignExtTag which extracts the tag with sign extension. This happens
+    // because a tag value is too large to fit in a 12-bit immediate value, and
+    // would require to add an extra instruction and require an extra scratch
+    // register to load the tag value.
+    //
+    // Instead, we compare with the sign-extended tag. The sign-extended tag is
+    // a negative value near zero and fits in 12 bits.
+
+    srai(dest, src, JSVAL_TAG_SHIFT);
   }
 
-  void splitTag(const ValueOperand& operand, Register dest) {
-    splitTag(operand.valueReg(), dest);
+  void splitSignExtTag(const ValueOperand& operand, Register dest) {
+    splitSignExtTag(operand.valueReg(), dest);
   }
 
   void splitTagForTest(const ValueOperand& value, ScratchTagScope& tag) {
-    splitTag(value, tag);
+    splitSignExtTag(value, tag);
   }
 
   void moveIfZero(Register dst, Register src, Register cond) {
@@ -883,7 +902,7 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
   [[nodiscard]] Register extractTag(const BaseIndex& address, Register scratch);
   [[nodiscard]] Register extractTag(const ValueOperand& value,
                                     Register scratch) {
-    splitTag(value, scratch);
+    splitSignExtTag(value, scratch);
     return scratch;
   }
 

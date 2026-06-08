@@ -670,7 +670,7 @@ newtab-widget-section-show-more =
 # Button shown when the widgets row is expanded to multiple rows,
 # allowing users to collapse it back to one row.
 newtab-widget-section-show-less =
-    .label = Show less widgets
+    .label = Show fewer widgets
 newtab-widget-lists-name-default = Checklist
 newtab-widget-lists-name-label-default =
     .label = Task list
@@ -927,6 +927,11 @@ newtab-sports-widget-match-full-time = Full time
 newtab-sports-widget-match-halftime = Halftime
 newtab-sports-widget-match-extra-time = Extra time
 newtab-sports-widget-match-penalties = Penalties
+# Separator shown between two teams in a placeholder match row when no upcoming
+# match details are available yet.
+newtab-sports-widget-match-vs = vs
+# Note shown in the Upcoming tab when no match details are available yet.
+newtab-sports-widget-no-upcoming-matches = Stay tuned for upcoming match details
 
 ## Accessible labels for match rows in the sports widget. These are read by
 ## screen readers to announce the match details and status.
@@ -994,6 +999,9 @@ newtab-sports-widget-team-name-label-eng =
     .label = England
 newtab-sports-widget-team-name-label-sco =
     .label = Scotland
+
+# Placeholder used in a match row's aria-label for an undecided team (shown visually as "--").
+newtab-sports-widget-team-tbd = To be determined
 
 ## Sports widget OMC messages
 ## Shown as on-screen messages promoting the Sports widget and World Cup wallpapers.

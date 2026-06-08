@@ -106,6 +106,11 @@
 #   changed at runtime.
 #   This option is only valid for javascript.options.* prefs.
 #
+# - `fuzzing_safe` indicates whether the SpiderMonkey pref is safe to toggle
+#   while fuzzing. Defaults to `true`. When set to `false`, the JS shell ignores
+#   attempts to change the pref while running with --fuzzing-safe.
+#   This option is only valid for prefs with `set_spidermonkey_pref`.
+#
 # The getter function's base name is the same as the pref's name, but with
 # '.' or '-' chars converted to '_', to make a valid identifier. For example,
 # the getter for `foo.bar_baz` is `foo_bar_baz()`. This is ugly but clear,
@@ -561,6 +566,13 @@
 - name: apz.enlarge_displayport_when_clipped
   type: RelaxedAtomicBool
   value: @IS_ANDROID@
+  mirror: always
+
+# Fast-path notify APZ on non-passive APZ-aware listener registration,
+# without waiting for the next paint.
+- name: apz.fastpath_apz_aware_listener.enabled
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # Test only.
@@ -4079,7 +4091,7 @@
   value: true
   mirror: always
 
-#if defined(MOZ_WIDGET_COCOA)
+#if defined(MOZ_WIDGET_COCOA) || defined(MOZ_WIDGET_GTK)
 # Whether to use the platform API to "lock" the native pointer for pointer lock.
 - name: dom.pointer-lock.native-lock.enabled
   type: bool
@@ -9317,6 +9329,14 @@
   mirror: always
   set_spidermonkey_pref: always
 
+# No-op pref for testing fuzzing-safe handling of the SpiderMonkey pref system.
+- name: javascript.options.tests.fuzzing-unsafe-pref
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: always
+  fuzzing_safe: false
+
 # The default amount of time to wait from the user being idle to starting a
 # shrinking GC. Measured in milliseconds.
 - name: javascript.options.compact_on_user_inactive_delay
@@ -9694,6 +9714,7 @@
     value: false
     mirror: always
     set_spidermonkey_pref: always
+    fuzzing_safe: false
 
 -   name: javascript.options.wasm_branch_hinting
     type: bool
@@ -9710,6 +9731,7 @@
     value: false
     mirror: always
     set_spidermonkey_pref: startup
+    fuzzing_safe: false
 
 -   name: javascript.options.wasm_compact_imports
     type: bool
@@ -9722,6 +9744,7 @@
   value: false
   mirror: always
   set_spidermonkey_pref: always
+  fuzzing_safe: false
 
 #if defined(ENABLE_WASM_SIMD)
 #if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
@@ -9772,6 +9795,7 @@
     value: false
     mirror: always
     set_spidermonkey_pref: always
+    fuzzing_safe: false
 
 # Enables lazy tiering for all modules. Use wasm_lazy_tiering_for_gc to only
 # enable this for GC modules.
@@ -10947,13 +10971,6 @@
 - name: layout.css.scroll-driven-animations.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
-  mirror: always
-  rust: true
-
-# Whether the ViewTimeline WebIDL interface is enabled.
-- name: layout.css.scroll-driven-animations.viewtimeline.enabled
-  type: bool
-  value: false
   mirror: always
   rust: true
 
@@ -12740,6 +12757,12 @@
   mirror: once
 
 - name: media.hardware-video-decoding-vulkan.enabled
+  type: bool
+  value: false
+  mirror: once
+
+# Whether to map Vulkan decoder output directly to DRM PRIME (zero-copy).
+- name: media.hardware-video-decoding-vulkan.direct-export.enabled
   type: bool
   value: false
   mirror: once

@@ -1187,40 +1187,6 @@ impl PrintableTree for SpatialTree {
     }
 }
 
-/// Calculate the accumulated external scroll offset for a given spatial node.
-pub fn get_external_scroll_offset<S: SpatialNodeContainer>(
-    spatial_tree: &S,
-    node_index: SpatialNodeIndex,
-) -> LayoutVector2D {
-    let mut offset = LayoutVector2D::zero();
-    let mut current_node = Some(node_index);
-
-    while let Some(node_index) = current_node {
-        let node_info = spatial_tree.get_node_info(node_index);
-
-        match node_info.node_type {
-            SpatialNodeType::ScrollFrame(ref scrolling) => {
-                offset += scrolling.external_scroll_offset;
-            }
-            SpatialNodeType::StickyFrame(ref sticky) => {
-                // Remove the sticky offset that was applied in the
-                // content process, so that primitive interning
-                // sees stable values, and doesn't invalidate unnecessarily.
-                offset -= sticky.previously_applied_offset;
-            }
-            SpatialNodeType::ReferenceFrame(..) => {
-                // External scroll offsets are not propagated across
-                // reference frames.
-                break;
-            }
-        }
-
-        current_node = node_info.parent;
-    }
-
-    offset
-}
-
 fn calculate_snapping_transform(
     parent_scale_offset: Option<ScaleOffset>,
     node_type: &SpatialNodeType,
@@ -1872,7 +1838,6 @@ fn test_find_scroll_root_sticky() {
             margins: euclid::SideOffsets2D::new(Some(0.0), None, None, None),
             vertical_offset_bounds: api::StickyOffsetBounds::new(0.0, 0.0),
             horizontal_offset_bounds: api::StickyOffsetBounds::new(0.0, 0.0),
-            previously_applied_offset: LayoutVector2D::zero(),
             current_offset: LayoutVector2D::zero(),
             transform: None
         },

@@ -7,7 +7,7 @@
 //! [calc]: https://drafts.csswg.org/css-values/#calc-notation
 
 use crate::derives::*;
-use crate::typed_om::{MathSum, NumericValue, ToTyped, TypedValue};
+use crate::typed_om::{MathValue, NumericValue, ToTyped, TypedValue};
 use crate::values::generics::length::GenericAnchorSizeFunction;
 use crate::values::generics::position::{GenericAnchorFunction, GenericAnchorSide};
 use crate::values::generics::Optional;
@@ -574,9 +574,7 @@ impl<L: CalcNodeLeaf> CalcNode<L> {
     pub fn unit(&self) -> Result<CalcUnits, ()> {
         Ok(match self {
             CalcNode::Leaf(l) => l.unit(),
-            CalcNode::Negate(child) | CalcNode::Invert(child) | CalcNode::Abs(child) => {
-                child.unit()?
-            },
+            CalcNode::Negate(child) | CalcNode::Abs(child) => child.unit()?,
             CalcNode::Sum(children) => {
                 let mut unit = children.first().unwrap().unit()?;
                 for child in children.iter().skip(1) {
@@ -692,7 +690,7 @@ impl<L: CalcNodeLeaf> CalcNode<L> {
                 }
                 CalcUnits::empty()
             },
-            CalcNode::Sqrt(ref c) | CalcNode::Exp(ref c) => {
+            CalcNode::Invert(ref c) | CalcNode::Sqrt(ref c) | CalcNode::Exp(ref c) => {
                 let child_unit = c.unit()?;
                 if !child_unit.is_empty() {
                     return Err(());
@@ -2452,16 +2450,18 @@ impl<L: CalcNodeLeaf> CalcNode<L> {
                         values.push(inner);
                     }
                 }
-                dest.push(TypedValue::Numeric(NumericValue::Sum(MathSum { values })));
+                dest.push(TypedValue::Numeric(NumericValue::Math(MathValue::Sum(
+                    values,
+                ))));
                 Ok(())
             },
             Self::Leaf(ref l) => match l.to_typed_value() {
                 Some(TypedValue::Numeric(inner)) => {
                     match level {
                         ArgumentLevel::CalculationRoot => {
-                            dest.push(TypedValue::Numeric(NumericValue::Sum(MathSum {
-                                values: ThinVec::from([inner]),
-                            })));
+                            dest.push(TypedValue::Numeric(NumericValue::Math(MathValue::Sum(
+                                ThinVec::from([inner]),
+                            ))));
                         },
                         ArgumentLevel::ArgumentRoot | ArgumentLevel::Nested => {
                             dest.push(TypedValue::Numeric(inner));

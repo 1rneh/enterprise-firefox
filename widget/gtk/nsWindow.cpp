@@ -673,7 +673,7 @@ bool nsWindow::WidgetTypeSupportsAcceleration() {
 }
 
 bool nsWindow::WidgetTypeSupportsNativeCompositing() {
-  if (mIsDragPopup) {
+  if (IsDragPopup()) {
     return false;
   }
 #if defined(NIGHTLY_BUILD)
@@ -1721,6 +1721,12 @@ void nsWindow::RecomputeBounds(bool aScaleChange) {
                      oldClientArea.TopLeft() != mClientArea.TopLeft();
   const bool resized = aScaleChange || clientMarginsChanged ||
                        oldClientArea.Size() != mClientArea.Size();
+
+#ifdef MOZ_X11
+  if ((moved || resized) && AsX11()) {
+    AsX11()->UpdateNativePointerBarriers();
+  }
+#endif
 
   if (moved) {
     NotifyWindowMoved(GetScreenBoundsUnscaled().TopLeft());
@@ -4418,9 +4424,8 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
 
 #ifdef MOZ_WAYLAND
   if (GdkIsWaylandDisplay()) {
-    mSurface = new WaylandSurface(
-        parentnsWindow ? MOZ_WL_SURFACE(parentnsWindow->GetMozContainer())
-                       : nullptr);
+    mSurface = new WaylandSurface();
+    mSurface->Init();
   }
   container = moz_container_new(this, mSurface);
 #else

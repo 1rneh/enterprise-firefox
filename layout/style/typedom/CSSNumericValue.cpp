@@ -7,19 +7,17 @@
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/ServoStyleConsts.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/CSSMathSum.h"
+#include "mozilla/dom/CSSMathValue.h"
 #include "mozilla/dom/CSSNumericValueBinding.h"
 #include "mozilla/dom/CSSUnitValue.h"
 
 namespace mozilla::dom {
-
-CSSNumericValue::CSSNumericValue(nsCOMPtr<nsISupports> aParent)
-    : CSSStyleValue(std::move(aParent)),
-      mNumericValueType(NumericValueType::Uninitialized) {}
 
 CSSNumericValue::CSSNumericValue(nsCOMPtr<nsISupports> aParent,
                                  NumericValueType aNumericValueType)
@@ -66,10 +64,10 @@ RefPtr<CSSNumericValue> CSSNumericValue::Create(
       break;
     }
 
-    case StyleNumericValue::Tag::Sum: {
-      const auto& mathSum = aNumericValue.AsSum();
+    case StyleNumericValue::Tag::Math: {
+      const auto& mathValue = aNumericValue.AsMath();
 
-      numericValue = CSSMathSum::Create(std::move(aParent), mathSum);
+      numericValue = CSSMathValue::Create(std::move(aParent), mathValue);
       break;
     }
   }
@@ -132,14 +130,13 @@ already_AddRefed<CSSUnitValue> CSSNumericValue::To(const nsACString& aUnit,
   // failure, throw a SyntaxError.
 
   // Step 2.
-  auto styleNumericValueResult = ToStyleNumericValue();
-  if (styleNumericValueResult.IsUnsupported()) {
+  auto styleNumericValue = ToStyleNumericValue();
+  if (styleNumericValue.isNothing()) {
     aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
     return nullptr;
   }
 
-  auto sumValue =
-      WrapUnique(Servo_SumValue_Create(&styleNumericValueResult.AsNumeric()));
+  auto sumValue = WrapUnique(Servo_SumValue_Create(styleNumericValue.ptr()));
   if (!sumValue) {
     aRv.ThrowTypeError("Failed to create a sum value");
     return nullptr;
@@ -199,17 +196,23 @@ bool CSSNumericValue::IsCSSUnitValue() const {
   return mNumericValueType == NumericValueType::UnitValue;
 }
 
-bool CSSNumericValue::IsCSSMathSum() const {
-  return mNumericValueType == NumericValueType::MathSum;
+bool CSSNumericValue::IsCSSMathValue() const {
+  return mNumericValueType == NumericValueType::MathValue;
 }
 
 void CSSNumericValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
                                             nsACString& aDest) const {
-  switch (GetNumericValueType()) {
-    case NumericValueType::MathSum: {
-      const CSSMathSum& mathSum = GetAsCSSMathSum();
+  ToCssTextWithProperty(aPropertyId, SerializationContext(), aDest);
+}
 
-      mathSum.ToCssTextWithProperty(aPropertyId, aDest);
+void CSSNumericValue::ToCssTextWithProperty(
+    const CSSPropertyId& aPropertyId, const SerializationContext& aContext,
+    nsACString& aDest) const {
+  switch (GetNumericValueType()) {
+    case NumericValueType::MathValue: {
+      const CSSMathValue& mathValue = GetAsCSSMathValue();
+
+      mathValue.ToCssTextWithProperty(aPropertyId, aContext, aDest);
       break;
     }
 
@@ -219,30 +222,27 @@ void CSSNumericValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
       unitValue.ToCssTextWithProperty(aPropertyId, aDest);
       break;
     }
-
-    case NumericValueType::Uninitialized:
-      break;
   }
 }
 
-StyleNumericValueResult CSSNumericValue::ToStyleNumericValue() const {
+Maybe<StyleNumericValue> CSSNumericValue::ToStyleNumericValue() const {
   switch (GetNumericValueType()) {
-    case NumericValueType::MathSum: {
-      const CSSMathSum& mathSum = GetAsCSSMathSum();
+    case NumericValueType::MathValue: {
+      const CSSMathValue& mathValue = GetAsCSSMathValue();
 
-      return StyleNumericValueResult::Numeric(
-          StyleNumericValue::Sum(mathSum.ToStyleMathSum()));
+      auto styleMathValue = mathValue.ToStyleMathValue();
+      if (styleMathValue.isNothing()) {
+        return Nothing();
+      }
+
+      return Some(StyleNumericValue::Math(styleMathValue.extract()));
     }
 
     case NumericValueType::UnitValue: {
       const CSSUnitValue& unitValue = GetAsCSSUnitValue();
 
-      return StyleNumericValueResult::Numeric(
-          StyleNumericValue::Unit(unitValue.ToStyleUnitValue()));
+      return Some(StyleNumericValue::Unit(unitValue.ToStyleUnitValue()));
     }
-
-    case NumericValueType::Uninitialized:
-      return StyleNumericValueResult::Unsupported();
   }
   MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("Bad numeric value type!");
 }

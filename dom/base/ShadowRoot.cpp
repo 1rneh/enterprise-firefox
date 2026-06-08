@@ -16,6 +16,7 @@
 #include "mozilla/ServoStyleRuleMap.h"
 #include "mozilla/ServoStyleSet.h"
 #include "mozilla/StyleSheet.h"
+#include "mozilla/css/Rule.h"
 #include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/CustomElementRegistry.h"
 #include "mozilla/dom/DirectionalityUtils.h"
@@ -63,7 +64,7 @@ ShadowRoot::ShadowRoot(Element* aElement, ShadowRootMode aMode,
                        IsClonable aIsClonable, IsSerializable aIsSerializable,
                        Declarative aDeclarative,
                        CustomSlotDispatch aCustomSlotDispatch,
-                       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
+                       already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo)
     : DocumentFragment(std::move(aNodeInfo)), DocumentOrShadowRoot(this) {
   // nsINode.h relies on this.
   MOZ_ASSERT(static_cast<nsINode*>(this) == reinterpret_cast<nsINode*>(this));
@@ -767,6 +768,19 @@ void ShadowRoot::MaybeReassignContent(nsIContent& aElementOrText) {
       assignment.mSlot->EnqueueSlotChangeEvent();
     }
   }
+}
+
+bool ShadowRoot::IsUAShadowRootSlow() const {
+  if (IsUAWidget()) {
+    return true;  // E.g., <details>, <video>, etc.
+  }
+  Element* const host = GetHost();
+  if (!host) {
+    return false;
+  }
+  // SVG <use>, etc cannot attach shadow root from JS so that the shadow root
+  // for them is always a UA ShadowRoot.
+  return !host->CanAttachShadowDOM();
 }
 
 Element* ShadowRoot::GetActiveElement() {

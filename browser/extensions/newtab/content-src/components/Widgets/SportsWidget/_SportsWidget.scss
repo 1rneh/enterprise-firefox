@@ -58,7 +58,9 @@
     }
 
     .sports-body {
-      padding-block-end: 0;
+      // Bleed into the widget padding so the View all button focus outline isn't clipped.
+      margin-block-end: calc(-1 * var(--space-xsmall));
+      padding-block-end: var(--space-xsmall);
       justify-content: space-between;
     }
 
@@ -385,6 +387,20 @@
   inset-block-end: 0;
   inset-inline: 0;
   width: fit-content;
+}
+
+.sports-upcoming-empty-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-small);
+
+  .sports-upcoming-empty-info-icon {
+    width: var(--icon-size);
+    height: var(--icon-size);
+    background: url('chrome://global/skin/icons/info.svg') no-repeat center / contain;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
 }
 
 .sports-matches-tab {

@@ -89,6 +89,8 @@ tags = "remote-settings searchmain"
 
 ["test_getSubmission_params_prefNimbus_invalid.js"]
 
+["test_hideOneOffButton.js"]
+
 ["test_identifiers.js"]
 
 ["test_ignorelist.js"]
@@ -263,6 +265,8 @@ support-files = [
 ["test_sort_orders.js"]
 
 ["test_telemetry_default.js"]
+
+["test_telemetry_installed_engine_counts.js"]
 
 ["test_userEngine.js"]
 

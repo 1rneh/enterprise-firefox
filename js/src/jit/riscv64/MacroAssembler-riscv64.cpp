@@ -36,8 +36,8 @@ const MacroAssembler& MacroAssemblerRiscv64::asMasm() const {
 
 void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, ImmWord imm,
                                        Condition c) {
-  if (imm.value <= INT32_MAX) {
-    ma_cmp_set(dst, lhs, Imm32(uint32_t(imm.value)), c);
+  if (is_int32(imm.value)) {
+    ma_cmp_set(dst, lhs, Imm32(int32_t(imm.value)), c);
   } else {
     UseScratchRegisterScope temps(this);
     Register scratch = temps.Acquire();
@@ -143,131 +143,139 @@ void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Imm32 imm,
         snez(dst, dst);
       }
       break;
-    case Zero:
-    case NonZero:
-    case Signed:
-    case NotSigned:
-      MOZ_CRASH("Invalid condition.");
-    default:
-      Condition cond = ma_cmp(dst, lhs, imm, c);
-      MOZ_ASSERT(cond == Equal || cond == NotEqual);
-
-      if (cond == Equal) {
+    case Above: {
+      if (imm.value == -1) {
+        // Always false.
+        mv(dst, zero);
+      } else if (imm.value == INT32_MAX) {
+        // True iff any bit in lhs[63:31] is set.
+        srli(dst, lhs, 31);
+        snez(dst, dst);
+      } else if (is_int12(imm.value + 1)) {
+        // lhs > rhs via not(lhs < rhs + 1) if rhs + 1 does not overflow.
+        sltiu(dst, lhs, imm.value + 1);
         NegateBool(dst, dst);
-      }
-  }
-}
-
-Assembler::Condition MacroAssemblerRiscv64::ma_cmp(Register rd, Register lhs,
-                                                   Register rhs, Condition c) {
-  switch (c) {
-    case Above:
-      // bgtu s,t,label =>
-      //   sltu at,t,s
-      //   bne at,$zero,offs
-      sltu(rd, rhs, lhs);
-      return NotEqual;
-    case AboveOrEqual:
-      // bgeu s,t,label =>
-      //   sltu at,s,t
-      //   beq at,$zero,offs
-      sltu(rd, lhs, rhs);
-      return Equal;
-    case Below:
-      // bltu s,t,label =>
-      //   sltu at,s,t
-      //   bne at,$zero,offs
-      sltu(rd, lhs, rhs);
-      return NotEqual;
-    case BelowOrEqual:
-      // bleu s,t,label =>
-      //   sltu at,t,s
-      //   beq at,$zero,offs
-      sltu(rd, rhs, lhs);
-      return Equal;
-    case GreaterThan:
-      // bgt s,t,label =>
-      //   slt at,t,s
-      //   bne at,$zero,offs
-      slt(rd, rhs, lhs);
-      return NotEqual;
-    case GreaterThanOrEqual:
-      // bge s,t,label =>
-      //   slt at,s,t
-      //   beq at,$zero,offs
-      slt(rd, lhs, rhs);
-      return Equal;
-    case LessThan:
-      // blt s,t,label =>
-      //   slt at,s,t
-      //   bne at,$zero,offs
-      slt(rd, lhs, rhs);
-      return NotEqual;
-    case LessThanOrEqual:
-      // ble s,t,label =>
-      //   slt at,t,s
-      //   beq at,$zero,offs
-      slt(rd, rhs, lhs);
-      return Equal;
-    default:
-      MOZ_CRASH("Invalid condition.");
-  }
-  return Always;
-}
-
-Assembler::Condition MacroAssemblerRiscv64::ma_cmp(Register rd, Register lhs,
-                                                   Imm32 imm, Condition c) {
-  UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  MOZ_RELEASE_ASSERT(lhs != scratch);
-
-  switch (c) {
-    case Above:
-    case BelowOrEqual:
-      if (imm.value != 0x7fffffff && is_int12(imm.value + 1) &&
-          imm.value != -1) {
-        // lhs <= rhs via lhs < rhs + 1 if rhs + 1 does not overflow
-        sltiu(rd, lhs, imm.value + 1);
-
-        return (c == BelowOrEqual ? NotEqual : Equal);
       } else {
+        // lhs > rhs via rhs < lhs
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
         ma_li(scratch, imm);
-        sltu(rd, scratch, lhs);
-        return (c == BelowOrEqual ? Equal : NotEqual);
+        sltu(dst, scratch, lhs);
       }
-    case AboveOrEqual:
-    case Below:
+      break;
+    }
+    case BelowOrEqual: {
+      if (imm.value == -1) {
+        // Always true.
+        ma_li(dst, Imm32(1));
+      } else if (imm.value == INT32_MAX) {
+        // True iff no bit in lhs[63:31] is set.
+        srli(dst, lhs, 31);
+        seqz(dst, dst);
+      } else if (is_int12(imm.value + 1)) {
+        // lhs <= rhs via lhs < rhs + 1 if rhs + 1 does not overflow.
+        sltiu(dst, lhs, imm.value + 1);
+      } else {
+        // lhs <= rhs via lhs < rhs + 1 if rhs + 1 does not overflow.
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
+        ma_li(scratch, Imm32(imm.value + 1));
+        sltu(dst, lhs, scratch);
+      }
+      break;
+    }
+    case AboveOrEqual: {
       if (is_int12(imm.value)) {
-        sltiu(rd, lhs, imm.value);
+        // lhs >= rhs via not(lhs < rhs).
+        sltiu(dst, lhs, imm.value);
+        NegateBool(dst, dst);
+      } else if (imm.value == INT32_MIN) {
+        // True iff any bit in lhs[63:31] is set.
+        srli(dst, lhs, 31);
+        snez(dst, dst);
       } else {
-        ma_li(scratch, imm);
-        sltu(rd, lhs, scratch);
+        // lhs >= rhs via (rhs - 1 < lhs) if rhs - 1 does not overflow.
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
+        ma_li(scratch, Imm32(imm.value - 1));
+        sltu(dst, scratch, lhs);
       }
-      return (c == AboveOrEqual ? Equal : NotEqual);
-    case GreaterThan:
-    case LessThanOrEqual:
-      if (imm.value != 0x7fffffff && is_int12(imm.value + 1)) {
+      break;
+    }
+    case Below: {
+      if (is_int12(imm.value)) {
+        sltiu(dst, lhs, imm.value);
+      } else {
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
+        ma_li(scratch, imm);
+        sltu(dst, lhs, scratch);
+      }
+      break;
+    }
+    case GreaterThan: {
+      if (imm.value != INT32_MAX && is_int12(imm.value + 1)) {
+        // lhs > rhs via not(lhs < rhs + 1) if rhs + 1 does not overflow.
+        slti(dst, lhs, imm.value + 1);
+        NegateBool(dst, dst);
+      } else {
+        // lhs > rhs via rhs < lhs
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
+        ma_li(scratch, imm);
+        slt(dst, scratch, lhs);
+      }
+      break;
+    }
+    case LessThanOrEqual: {
+      if (imm.value != INT32_MAX && is_int12(imm.value + 1)) {
+        // lhs <= rhs via lhs < rhs + 1 if rhs + 1 does not overflow.
+        slti(dst, lhs, imm.value + 1);
+      } else {
         // lhs <= rhs via lhs < rhs + 1.
-        slti(rd, lhs, imm.value + 1);
-        return (c == LessThanOrEqual ? NotEqual : Equal);
-      } else {
-        ma_li(scratch, imm);
-        slt(rd, scratch, lhs);
-        return (c == LessThanOrEqual ? Equal : NotEqual);
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
+        ma_li(scratch, Imm64(int64_t(imm.value) + 1));
+        slt(dst, lhs, scratch);
       }
-    case GreaterThanOrEqual:
-    case LessThan:
+      break;
+    }
+    case GreaterThanOrEqual: {
       if (is_int12(imm.value)) {
-        slti(rd, lhs, imm.value);
+        // lhs >= rhs via not(lhs < rhs).
+        slti(dst, lhs, imm.value);
+        NegateBool(dst, dst);
       } else {
-        ma_li(scratch, imm);
-        slt(rd, lhs, scratch);
+        // lhs >= rhs via (rhs - 1 < lhs).
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
+        ma_li(scratch, Imm64(int64_t(imm.value) - 1));
+        slt(dst, scratch, lhs);
       }
-      return (c == GreaterThanOrEqual ? Equal : NotEqual);
+      break;
+    }
+    case LessThan: {
+      if (is_int12(imm.value)) {
+        slti(dst, lhs, imm.value);
+      } else {
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
+        ma_li(scratch, imm);
+        slt(dst, lhs, scratch);
+      }
+      break;
+    }
     default:
       MOZ_CRASH("Invalid condition.");
   }
-  return Always;
 }
 
 void MacroAssemblerRiscv64::ma_cmp_set(Register dst, Register lhs, Register rhs,
@@ -1734,30 +1742,24 @@ void MacroAssemblerRiscv64Compat::testNullSet(Condition cond,
                                               const ValueOperand& value,
                                               Register dest) {
   MOZ_ASSERT(cond == Equal || cond == NotEqual);
-  UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  splitTag(value, scratch);
-  ma_cmp_set(dest, scratch, ImmTag(JSVAL_TAG_NULL), cond);
+  splitSignExtTag(value, dest);
+  ma_cmp_set(dest, dest, ImmTagSignExt(JSVAL_TAG_NULL), cond);
 }
 
 void MacroAssemblerRiscv64Compat::testObjectSet(Condition cond,
                                                 const ValueOperand& value,
                                                 Register dest) {
   MOZ_ASSERT(cond == Equal || cond == NotEqual);
-  UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  splitTag(value, scratch);
-  ma_cmp_set(dest, scratch, ImmTag(JSVAL_TAG_OBJECT), cond);
+  splitSignExtTag(value, dest);
+  ma_cmp_set(dest, dest, ImmTagSignExt(JSVAL_TAG_OBJECT), cond);
 }
 
 void MacroAssemblerRiscv64Compat::testUndefinedSet(Condition cond,
                                                    const ValueOperand& value,
                                                    Register dest) {
   MOZ_ASSERT(cond == Equal || cond == NotEqual);
-  UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  splitTag(value, scratch);
-  ma_cmp_set(dest, scratch, ImmTag(JSVAL_TAG_UNDEFINED), cond);
+  splitSignExtTag(value, dest);
+  ma_cmp_set(dest, dest, ImmTagSignExt(JSVAL_TAG_UNDEFINED), cond);
 }
 
 void MacroAssemblerRiscv64Compat::unboxInt32(const ValueOperand& operand,
@@ -1959,12 +1961,16 @@ void MacroAssemblerRiscv64Compat::boxValue(JSValueType type, Register src,
       // Loading the shifted tag requires only two instructions.
       ma_li(dest, ImmShiftedTag(type));
 
-      UseScratchRegisterScope temps(this);
-      Register scratch = temps.Acquire();
-
       // Insert low 32 bits as payload, removing all high bits from |src|.
-      ZeroExtendWord(scratch, src);
-      or_(dest, dest, scratch);
+      if (HasZbaExtension()) {
+        add_uw(dest, src, dest);
+      } else {
+        UseScratchRegisterScope temps(this);
+        Register scratch = temps.Acquire();
+
+        ZeroExtendWord(scratch, src);
+        or_(dest, dest, scratch);
+      }
       return;
     }
     case JSVAL_TYPE_BOOLEAN:
@@ -2049,11 +2055,15 @@ void MacroAssemblerRiscv64Compat::boxValue(Register type, Register src,
   slli(dest, dest, JSVAL_TAG_SHIFT);
 
   // Insert low 32 bits as payload, removing all high bits from |src|.
-  UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  ZeroExtendWord(scratch, src);
+  if (HasZbaExtension()) {
+    add_uw(dest, src, dest);
+  } else {
+    UseScratchRegisterScope temps(this);
+    Register scratch = temps.Acquire();
+    ZeroExtendWord(scratch, src);
 
-  or_(dest, dest, scratch);
+    or_(dest, dest, scratch);
+  }
 }
 
 void MacroAssemblerRiscv64Compat::loadConstantFloat32(float f,
@@ -2070,7 +2080,7 @@ void MacroAssemblerRiscv64Compat::loadInt32OrDouble(const Address& src,
   {
     // Inlined |branchTestInt32| to use a short-jump.
     Register tag = extractTag(src, scratch);
-    ma_b(tag, ImmTag(JSVAL_TAG_INT32), &notInt32, Assembler::NotEqual,
+    ma_b(tag, ImmTagSignExt(JSVAL_TAG_INT32), &notInt32, Assembler::NotEqual,
          ShortJump);
   }
   {
@@ -2111,7 +2121,7 @@ Register MacroAssemblerRiscv64Compat::extractObject(const Address& address,
 Register MacroAssemblerRiscv64Compat::extractTag(const Address& address,
                                                  Register scratch) {
   loadPtr(address, scratch);
-  ExtractBits(scratch, scratch, JSVAL_TAG_SHIFT, 64 - JSVAL_TAG_SHIFT);
+  splitSignExtTag(scratch, scratch);
   return scratch;
 }
 
@@ -2241,8 +2251,12 @@ void MacroAssemblerRiscv64Compat::tagValue(JSValueType type, Register payload,
         ma_li(scratch, ImmShiftedTag(type));
 
         // Insert low 32 bits as payload, removing all high bits from |payload|.
-        ZeroExtendWord(payload, payload);
-        or_(dest.valueReg(), payload, scratch);
+        if (HasZbaExtension()) {
+          add_uw(dest.valueReg(), payload, scratch);
+        } else {
+          ZeroExtendWord(payload, payload);
+          or_(dest.valueReg(), payload, scratch);
+        }
         break;
       }
       case JSVAL_TYPE_BOOLEAN:
@@ -2535,7 +2549,7 @@ CodeOffset MacroAssembler::moveNearAddressWithPatch(Register dest) {
 
 CodeOffset MacroAssembler::nopPatchableToCall() {
   // Generate a seven instruction sequence:
-  // - Six instructions for WriteLoad64Instructions.
+  // - Six instructions for WriteLiPtrInstructions.
   // - Plus one instruction for the final jalr.
   AutoForbidPoolsAndNops afp(this, 7);
   nop();  // lui(rd, (int32_t)high_20);
@@ -3611,6 +3625,8 @@ CodeOffset MacroAssembler::sub32FromMemAndBranchIfNegativeWithPatch(
   Register scratch = temps.Acquire();
   MOZ_ASSERT(scratch != address.base);
   ma_load(scratch, address);
+  // 128 is arbitrary, but makes `*address` count upwards, which may help to
+  // identify cases where the subsequent ::patch..() call was forgotten.
   addiw(scratch, scratch, 128);
   // Points immediately after the instruction to patch.
   CodeOffset patchPoint = CodeOffset(currentOffset());
@@ -3622,6 +3638,8 @@ CodeOffset MacroAssembler::sub32FromMemAndBranchIfNegativeWithPatch(
 void MacroAssembler::patchSub32FromMemAndBranchIfNegative(CodeOffset offset,
                                                           Imm32 imm) {
   int32_t val = imm.value;
+
+  // Patching it to zero would make the instruction pointless.
   MOZ_RELEASE_ASSERT(val >= 1 && val <= 127);
 
   auto* inst = getInstructionAt(BufferOffset(offset.offset() - kInstrSize));
@@ -3927,12 +3945,10 @@ void MacroAssembler::patchNearAddressMove(CodeLocationLabel loc,
 void MacroAssembler::patchNopToCall(uint8_t* call, uint8_t* target) {
   // See nopPatchableToCall() for the expected code layout.
 
+  // Write |target| to the six instruction sequence starting at |instr|.
   Instruction* instr = Instruction::At(call - 7 * kInstrSize);
-  Assembler::WriteLoad64Instructions(instr, SavedScratchRegister,
-                                     (uint64_t)target);
-  DEBUG_PRINTF("\tpatchNopToCall %" PRIu64 " %" PRIu64 "\n", (uint64_t)target,
-               ExtractLoad64Value(instr));
-  MOZ_ASSERT(ExtractLoad64Value(instr) == (uint64_t)target);
+  Assembler::WriteLiPtrInstructions(instr, SavedScratchRegister,
+                                    uintptr_t(target));
 
   Instruction* jalr = (instr + 6 * kInstrSize);
   jalr->SetIFormat(RO_JALR, ra.code(), SavedScratchRegister.code(), 0);
@@ -3988,7 +4004,7 @@ CodeOffset MacroAssembler::move32WithPatch(Register dest) {
 }
 
 void MacroAssembler::patchMove32(CodeOffset offset, Imm32 n) {
-  patchSub32FromStackPtr(offset, n);
+  patchLi32(offset, n);
 }
 
 void MacroAssembler::pushReturnAddress() { push(ra); }
@@ -4806,9 +4822,8 @@ CodeOffset MacroAssembler::wasmMarkedSlowCall(const wasm::CallSiteDesc& desc,
 }
 //}}} check_macroassembler_style
 
-// This method generates lui + addi instruction block that can be
-// modified by UpdateLoad64Value, either during compilation (eg.
-// Assembler::bind), or during execution (eg. jit::PatchJump).
+// This method generates lui + addi instruction block that can be modified by
+// patchLi32.
 BufferOffset MacroAssemblerRiscv64::ma_liPatchable(Register dest, Imm32 imm) {
   AutoForbidPoolsAndNops afp(this, 2);
   BufferOffset offset = nextOffset();
@@ -4818,6 +4833,27 @@ BufferOffset MacroAssemblerRiscv64::ma_liPatchable(Register dest, Imm32 imm) {
   addi(dest, dest, low_12);
 
   return offset;
+}
+
+void MacroAssemblerRiscv64::patchLi32(CodeOffset offset, Imm32 imm) {
+  Instruction* inst0 = getInstructionAt(BufferOffset(offset.offset()));
+  Instruction* inst1 =
+      getInstructionAt(BufferOffset(offset.offset() + kInstrSize));
+  MOZ_ASSERT(inst0->IsLui());
+  MOZ_ASSERT(inst1->IsAddi());
+
+  auto [high_20, low_12] = ToHigh20Low12(imm.value);
+
+  inst0->SetImm20UValue(high_20);
+  inst1->SetImm12Value(low_12);
+
+#ifdef JS_DISASM_RISCV64
+  disassembleInstr(inst0);
+  disassembleInstr(inst1);
+#endif /* JS_DISASM_RISCV64 */
+
+  MOZ_ASSERT((inst0->Imm20UValue() << kImm20Shift) + inst1->Imm12Value() ==
+             imm.value);
 }
 
 void MacroAssemblerRiscv64::ma_li(Register dest, ImmGCPtr ptr) {
@@ -6236,19 +6272,38 @@ void MacroAssemblerRiscv64::ma_mod_mask(Register src, Register dest,
 }
 
 void MacroAssemblerRiscv64::ByteSwap(Register dest, Register src,
-                                     int operand_size, Register scratch) {
-  MOZ_ASSERT(operand_size == 4 || operand_size == 8);
+                                     int operand_size, bool zeroExtend) {
+  MOZ_ASSERT(operand_size == 2 || operand_size == 4 || operand_size == 8);
+  MOZ_ASSERT_IF(zeroExtend, operand_size == 2);
+
   if (HasZbbExtension()) {
     rev8(dest, src);
     if (operand_size == 4) {
       srai(dest, dest, 32);
+    } else if (operand_size == 2) {
+      if (zeroExtend) {
+        srli(dest, dest, 48);
+      } else {
+        srai(dest, dest, 48);
+      }
     }
     return;
   }
 
-  MOZ_ASSERT(scratch != src);
-  MOZ_ASSERT(scratch != dest);
-  if (operand_size == 4) {
+  if (operand_size == 2) {
+    UseScratchRegisterScope temps(this);
+    Register scratch = temps.Acquire();
+
+    slli(scratch, src, 48);
+    srli(scratch, scratch, 56);
+    slli(dest, src, 56);
+    if (zeroExtend) {
+      srli(dest, dest, 48);
+    } else {
+      srai(dest, dest, 48);
+    }
+    or_(dest, dest, scratch);
+  } else if (operand_size == 4) {
     // TODO: It's unclear why forbidding pools is necessary here. It should
     // either be documented or pools should be allowed.
     AutoForbidPoolsAndNops afp(this, 17);
@@ -6257,10 +6312,9 @@ void MacroAssemblerRiscv64::ByteSwap(Register dest, Register src,
     // x0 = (x0 << 16 | x0 >> 16);
     // x0 = (((x0 & x1) << 8)  | ((x0 & (x1 << 8)) >> 8));
     UseScratchRegisterScope temps(this);
-    MOZ_ASSERT((dest != t6) && (src != t6));
     Register x0 = temps.Acquire();
     Register x1 = temps.Acquire();
-    Register x2 = scratch;
+    Register x2 = temps.Acquire();
     RV_li(x1, 0x00FF00FF);
     slliw(x0, src, 16);
     srliw(dest, src, 16);
@@ -6282,10 +6336,9 @@ void MacroAssemblerRiscv64::ByteSwap(Register dest, Register src,
     // x0 = (x0 & x1) << 16 | (x0 & (x1 << 16)) >> 16;
     // x0 = (x0 & x1) << 8  | (x0 & (x1 << 8)) >> 8;
     UseScratchRegisterScope temps(this);
-    MOZ_ASSERT((dest != t6) && (src != t6));
     Register x0 = temps.Acquire();
     Register x1 = temps.Acquire();
-    Register x2 = scratch;
+    Register x2 = temps.Acquire();
     RV_li(x1, 0x0000FFFF0000FFFFl);
     slli(x0, src, 32);
     srli(dest, src, 32);

@@ -65,8 +65,8 @@ use style::gecko_bindings::bindings::{
     Gecko_HaveSeenPtr, IterationCompositeOperation, Loader, LoaderReusableStyleSheets,
     MallocSizeOf as GeckoMallocSizeOf, NonCustomCSSPropertyId, OriginFlags, PropertyValuePair,
     PseudoStyleType, SeenPtrs, ServoElementSnapshotTable, ServoStyleSetSizes, ServoTraversalFlags,
-    ShadowRoot as RawShadowRoot, SheetLoadData, SheetLoadDataHolder, SheetParsingMode,
-    StyleRuleInclusion, StyleSheet as DomStyleSheet, URLExtraData,
+    ShadowRoot as RawShadowRoot, SheetLoadData, SheetLoadDataHolder, StyleRuleInclusion,
+    StyleSheet as DomStyleSheet, URLExtraData,
 };
 use style::gecko_bindings::structs;
 use style::gecko_bindings::sugar::ownership::Strong;
@@ -1586,18 +1586,9 @@ pub extern "C" fn Servo_Element_ReferencesAttribute(
     false
 }
 
-fn mode_to_origin(mode: SheetParsingMode) -> Origin {
-    match mode {
-        SheetParsingMode::eAuthorSheetFeatures => Origin::Author,
-        SheetParsingMode::eUserSheetFeatures => Origin::User,
-        SheetParsingMode::eAgentSheetFeatures => Origin::UserAgent,
-    }
-}
-
 #[no_mangle]
-pub extern "C" fn Servo_StyleSheet_Empty(mode: SheetParsingMode) -> Strong<StylesheetContents> {
+pub extern "C" fn Servo_StyleSheet_Empty(origin: Origin) -> Strong<StylesheetContents> {
     let global_style_data = &*GLOBAL_STYLE_DATA;
-    let origin = mode_to_origin(mode);
     let shared_lock = &global_style_data.shared_lock;
     StylesheetContents::from_str(
         "",
@@ -1622,7 +1613,7 @@ pub unsafe extern "C" fn Servo_StyleSheet_FromUTF8Bytes(
     stylesheet: *mut DomStyleSheet,
     load_data: *mut SheetLoadData,
     bytes: &nsACString,
-    mode: SheetParsingMode,
+    origin: Origin,
     extra_data: *mut URLExtraData,
     quirks_mode: nsCompatibility,
     reusable_sheets: *mut LoaderReusableStyleSheets,
@@ -1661,7 +1652,7 @@ pub unsafe extern "C" fn Servo_StyleSheet_FromUTF8Bytes(
     let contents = StylesheetContents::from_str(
         input,
         url_data.clone(),
-        mode_to_origin(mode),
+        origin,
         &global_style_data.shared_lock,
         loader,
         reporter.as_ref().map(|r| r as &dyn ParseErrorReporter),
@@ -1684,7 +1675,7 @@ pub unsafe extern "C" fn Servo_StyleSheet_FromUTF8BytesAsync(
     load_data: *mut SheetLoadDataHolder,
     extra_data: *mut URLExtraData,
     bytes: &nsACString,
-    mode: SheetParsingMode,
+    origin: Origin,
     quirks_mode: nsCompatibility,
     allow_import_rules: AllowImportRules,
 ) {
@@ -1698,7 +1689,7 @@ pub unsafe extern "C" fn Servo_StyleSheet_FromUTF8BytesAsync(
         load_data,
         extra_data,
         sheet_bytes,
-        mode_to_origin(mode),
+        origin,
         quirks_mode.into(),
         allow_import_rules,
     );
@@ -5804,7 +5795,7 @@ pub extern "C" fn Servo_DeclarationBlock_SetPropertyTypedValue(
         value,
         Origin::Author,
         unsafe { UrlExtraData::from_ptr_ref(&url_extra_data) },
-        ParsingMode::DEFAULT,
+        ParsingMode::DISALLOW_UNITLESS_ZERO_LENGTH,
         QuirksMode::NoQuirks,
         CssRuleType::Style,
         None,
@@ -9327,6 +9318,26 @@ pub unsafe extern "C" fn Servo_IsValidCSSColor(value: &nsACString) -> bool {
         /* attr_taint */ Default::default(),
     );
     specified::Color::is_valid(&context, &mut input)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_IsValidCSSImage(value: &nsACString) -> bool {
+    let mut input = ParserInput::new(value.as_str_unchecked());
+    let mut input = Parser::new(&mut input);
+    let context = ParserContext::new(
+        Origin::Author,
+        dummy_url_data(),
+        Some(CssRuleType::Style),
+        ParsingMode::DEFAULT,
+        QuirksMode::NoQuirks,
+        /* namespaces = */ Default::default(),
+        None,
+        None,
+        /* attr_taint */ Default::default(),
+    );
+    input
+        .parse_entirely(|input| specified::Image::parse(&context, input))
+        .is_ok()
 }
 
 struct ComputeColorResult {

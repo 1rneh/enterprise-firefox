@@ -5231,23 +5231,6 @@ static bool CheckRegExpSyntax(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-static bool IsPrefAvailable(const char* pref) {
-  if (!fuzzingSafe) {
-    // All prefs in fuzzing unsafe mode are enabled.
-    return true;
-  }
-#define WASM_FEATURE(NAME, LOWER_NAME, COMPILE_PRED, COMPILER_PRED, FLAG_PRED, \
-                     FLAG_FORCE_ON, FLAG_FUZZ_ON, PREF)                        \
-  if constexpr (!FLAG_FUZZ_ON) {                                               \
-    if (strcmp("wasm_" #PREF, pref) == 0) {                                    \
-      return false;                                                            \
-    }                                                                          \
-  }
-  JS_FOR_WASM_FEATURES(WASM_FEATURE)
-#undef WASM_FEATURE
-  return true;
-}
-
 template <typename T>
 static bool ParsePrefValue(const char* name, const char* val, T* result) {
   if constexpr (std::is_same_v<T, bool>) {
@@ -5277,7 +5260,8 @@ static bool ParsePrefValue(const char* name, const char* val, T* result) {
 static bool SetPrefToTrueForBool(const char* name) {
   // Search for a matching pref and try to set it to a default value for the
   // type.
-#define CHECK_PREF(NAME, CPP_NAME, TYPE, SETTER, IS_STARTUP_PREF)      \
+#define CHECK_PREF(NAME, CPP_NAME, TYPE, SETTER, IS_STARTUP_PREF,      \
+                   FUZZING_SAFE)                                       \
   if (strcmp(name, NAME) == 0) {                                       \
     if constexpr (std::is_same_v<TYPE, bool>) {                        \
       JS::Prefs::SETTER(true);                                         \
@@ -5331,8 +5315,9 @@ static bool SetPrefValue(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   // Search for a matching pref and try to set it to the provided value.
-#define CHECK_PREF(NAME, CPP_NAME, TYPE, SETTER, IS_STARTUP_PREF)             \
-  if (IsPrefAvailable(NAME) && StringEqualsLiteral(name, NAME)) {             \
+#define CHECK_PREF(NAME, CPP_NAME, TYPE, SETTER, IS_STARTUP_PREF,             \
+                   FUZZING_SAFE)                                              \
+  if (StringEqualsLiteral(name, NAME)) {                                      \
     if (IS_STARTUP_PREF) {                                                    \
       JS_ReportErrorASCII(cx, "%s is a startup pref and can't be set", NAME); \
       return false;                                                           \
@@ -5360,7 +5345,8 @@ static bool SetPrefValue(JSContext* cx, unsigned argc, Value* vp) {
 static bool SetPrefToValue(const char* name, size_t nameLen,
                            const char* value) {
   // Search for a matching pref and try to set it to the provided value.
-#define CHECK_PREF(NAME, CPP_NAME, TYPE, SETTER, IS_STARTUP_PREF)         \
+#define CHECK_PREF(NAME, CPP_NAME, TYPE, SETTER, IS_STARTUP_PREF,         \
+                   FUZZING_SAFE)                                          \
   if (nameLen == strlen(NAME) && memcmp(name, NAME, strlen(NAME)) == 0) { \
     TYPE v;                                                               \
     if (!ParsePrefValue<TYPE>(NAME, value, &v)) {                         \
@@ -5386,7 +5372,7 @@ static bool SetPrefToValue(const char* name, size_t nameLen,
 static bool SetPref(const char* pref) {
   const char* assign = strchr(pref, '=');
   if (!assign) {
-    if (IsPrefAvailable(pref) && !SetPrefToTrueForBool(pref)) {
+    if (!SetPrefToTrueForBool(pref)) {
       return false;
     }
     return true;
@@ -5395,30 +5381,29 @@ static bool SetPref(const char* pref) {
   size_t nameLen = assign - pref;
   const char* valStart = assign + 1;  // Skip '='.
 
-  if (IsPrefAvailable(pref) && !SetPrefToValue(pref, nameLen, valStart)) {
+  if (!SetPrefToValue(pref, nameLen, valStart)) {
     return false;
   }
   return true;
 }
 
 static void ListPrefs() {
-  auto printPref = [](const char* name, auto defaultVal) {
-    if (!IsPrefAvailable(name)) {
-      return;
-    }
+  auto printPref = [](const char* name, auto defaultVal, bool fuzzingSafe) {
+    const char* suffix = fuzzingSafe ? "" : "  [not fuzzing-safe]";
     using T = decltype(defaultVal);
     if constexpr (std::is_same_v<T, bool>) {
-      fprintf(stderr, "%s=%s\n", name, defaultVal ? "true" : "false");
+      fprintf(stderr, "%s=%s%s\n", name, defaultVal ? "true" : "false", suffix);
     } else if constexpr (std::is_same_v<T, int32_t>) {
-      fprintf(stderr, "%s=%d\n", name, defaultVal);
+      fprintf(stderr, "%s=%d%s\n", name, defaultVal, suffix);
     } else {
       static_assert(std::is_same_v<T, uint32_t>);
-      fprintf(stderr, "%s=%u\n", name, defaultVal);
+      fprintf(stderr, "%s=%u%s\n", name, defaultVal, suffix);
     }
   };
 
-#define PRINT_PREF(NAME, CPP_NAME, TYPE, SETTER, IS_STARTUP_PREF) \
-  printPref(NAME, JS::Prefs::CPP_NAME());
+#define PRINT_PREF(NAME, CPP_NAME, TYPE, SETTER, IS_STARTUP_PREF, \
+                   FUZZING_SAFE)                                  \
+  printPref(NAME, JS::Prefs::CPP_NAME(), FUZZING_SAFE);
   FOR_EACH_JS_PREF(PRINT_PREF)
 #undef PRINT_PREF
 }
@@ -13377,6 +13362,8 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
     fuzzingSafe =
         (getenv("MOZ_FUZZING_SAFE") && getenv("MOZ_FUZZING_SAFE")[0] != '0');
   }
+  JS::Prefs::setFuzzingSafe(fuzzingSafe);
+  JS::Prefs::setReportIgnoredFuzzingUnsafePrefs(true);
 
   if (op.getBoolOption("strict-benchmark-mode")) {
     sBenchmarkMode = BenchmarkMode::Strict;

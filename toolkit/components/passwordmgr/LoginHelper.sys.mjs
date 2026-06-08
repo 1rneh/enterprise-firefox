@@ -1698,7 +1698,7 @@ export const LoginHelper = {
     }
     // Use the OS auth dialog if there is no primary password
     // or if primary password is already unlocked and os auth is enabled.
-    if (isOSAuthEnabled && (!token.hasPassword || token.isLoggedIn())) {
+    if (isOSAuthEnabled && (!token.hasPassword || token.isLoggedIn)) {
       let result;
       try {
         isAuthorized = await this.verifyUserOSAuth(
@@ -1737,7 +1737,7 @@ export const LoginHelper = {
     // If enterprise storage management is enabled but the token is still locked,
     // bail out without prompting so callers can retry after the enterprise secret
     // (which the user does not know) becomes available.
-    if (isEnterpriseManagedPrimaryPassword && !token.isLoggedIn()) {
+    if (isEnterpriseManagedPrimaryPassword && !token.isLoggedIn) {
       console.warn(
         "LoginHelper.requestReauth: Enterprise-managed primary password is locked and OS auth is unavailable; deferring reauth."
       );
@@ -1761,23 +1761,22 @@ export const LoginHelper = {
       };
     }
 
-    // So there's a primary password. But since checkPassword didn't succeed,
-    // we're logged out (per nsIPKCS11Token.idl).
     try {
       if (isEnterpriseManagedPrimaryPassword) {
         // Enterprise builds rely on the backend-provided secret rather than forcing a logout.
         token.login();
       } else {
         // Force a logout and prompt even if the token had been unlocked earlier.
-        token.checkPassword("");
-        token.login(true);
+        token.logout();
+        token.login();
       }
       // clicking 'Cancel' or entering the correct password.
     } catch (e) {
-      // An exception will be thrown if the user cancels the login prompt dialog.
-      // User is also logged out of Software Security Device.
+      // An exception will be thrown if the user cancels the login prompt
+      // dialog. The user will still be logged out of Software Security Device
+      // in this case.
     }
-    isAuthorized = token.isLoggedIn();
+    isAuthorized = token.isLoggedIn;
     telemetryEvent = {
       name: "reauthenticateMasterPassword",
       value: isAuthorized ? "success" : "fail",

@@ -421,6 +421,10 @@ class TabManagementFragment : Fragment() {
                                             System.currentTimeMillis()
                                         TabsTray.inactiveTabsCfrDismissed.record(NoExtras())
                                     },
+                                    onTabGroupOnboardingDismiss = {
+                                        // TODO (Bug 2038234): Persistence will be handled later by the middleware.
+                                        tabsTrayStore.dispatch(TabGroupAction.OnboardingDismissed)
+                                    },
                                     onOpenNewNormalTabClicked = tabManagerInteractor::onNormalTabsFabClicked,
                                     onOpenNewPrivateTabClicked = tabManagerInteractor::onPrivateTabsFabClicked,
                                     onSyncedTabsFabClicked = tabManagerInteractor::onSyncedTabsFabClicked,
@@ -723,9 +727,10 @@ class TabManagementFragment : Fragment() {
         if (requireContext().settings().showPrivacyReportInTabManager) {
             trackersBlockedFeature.set(
                 feature = TrackersBlockedFeature(
+                    browserStore = requireComponents.core.store,
                     appStore = requireComponents.appStore,
-                    fetchTotalTrackersBlocked = requireComponents.useCases
-                        .trackingProtectionUseCases.fetchTotalTrackersBlocked,
+                    currentSessionId = requireComponents.core.store.state.selectedTabId,
+                    trackingProtectionUseCases = requireComponents.useCases.trackingProtectionUseCases,
                 ),
                 owner = this,
                 view = view,

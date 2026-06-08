@@ -5,7 +5,7 @@
 //! Typed OM Sum Value.
 
 use crate::typed_om::numeric_values::NoCalcNumeric;
-use crate::typed_om::{NumericValue, UnitValue};
+use crate::typed_om::{MathValue, NumericValue, UnitValue};
 use std::collections::HashMap;
 use style_traits::CssString;
 
@@ -86,12 +86,12 @@ impl SumValue {
             },
 
             // CSSMathSum
-            NumericValue::Sum(math_sum) => {
+            NumericValue::Math(MathValue::Sum(math_sum)) => {
                 // Step 1.
                 let mut values: Vec<SumValueItem> = Vec::new();
 
                 // Step 2.
-                for item in &math_sum.values {
+                for item in math_sum {
                     // Step 2.1.
                     let value = SumValue::try_from_numeric_value(item)?;
 

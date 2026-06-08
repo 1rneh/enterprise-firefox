@@ -2768,6 +2768,7 @@ ${
         }
       }
     }
+    Services.obs.notifyObservers(null, "urlbar-searchmodechanged");
   }
 
   /**
@@ -2905,8 +2906,6 @@ ${
 
   set searchMode(searchMode) {
     this.setSearchMode(searchMode, this.window.gBrowser.selectedBrowser);
-    this.searchModeSwitcher?.onSearchModeChanged();
-    lazy.UrlbarSearchTermsPersistence.onSearchModeChanged(this.window);
   }
 
   getBrowserState(browser) {
@@ -2951,9 +2950,8 @@ ${
       return;
     }
 
-    this.#updateTextboxPosition();
-
     this.toggleAttribute("breakout-extend", true);
+    this.#updateTextboxPosition();
 
     // Enable the animation only after the first extend call to ensure it
     // doesn't run when opening a new window.
@@ -2988,7 +2986,7 @@ ${
 
   updateLayoutExtend() {
     if (!Services.prefs.getBoolPref("browser.nova.enabled", false)) {
-      if (this.view.isOpen && this.view.visibleRowCount) {
+      if (this.view.isOpen) {
         this.startLayoutExtend();
       } else {
         this.endLayoutExtend();
@@ -2996,7 +2994,7 @@ ${
       return;
     }
 
-    if (this.focused || (this.view.isOpen && this.view.visibleRowCount)) {
+    if (this.focused || this.view.isOpen) {
       this.startLayoutExtend();
     } else {
       this.endLayoutExtend();
@@ -3301,10 +3299,7 @@ ${
   }
 
   #updateTextboxPosition() {
-    if (
-      !this.view.isOpen &&
-      !Services.prefs.getBoolPref("browser.nova.enabled", false)
-    ) {
+    if (!this.hasAttribute("breakout-extend")) {
       this.style.top = "";
       return;
     }
@@ -5299,6 +5294,12 @@ ${
 
   _on_auxclick(event) {
     switch (event.target) {
+      case this.inputField:
+      case this._inputContainer:
+        this.#maybeSelectAll();
+        this.#maybeUntrimUrl();
+        break;
+
       case this.goButton:
         this.handleCommand(event);
         break;

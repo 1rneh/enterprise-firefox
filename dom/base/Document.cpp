@@ -135,7 +135,6 @@
 #include "mozilla/css/ImageLoader.h"
 #include "mozilla/css/Loader.h"
 #include "mozilla/css/Rule.h"
-#include "mozilla/css/SheetParsingMode.h"
 #include "mozilla/dom/AncestorIterator.h"
 #include "mozilla/dom/AnonymousContent.h"
 #include "mozilla/dom/BindContext.h"
@@ -219,6 +218,7 @@
 #include "mozilla/dom/PageTransitionEvent.h"
 #include "mozilla/dom/PageTransitionEventBinding.h"
 #include "mozilla/dom/Performance.h"
+#include "mozilla/dom/PerformanceMainThread.h"
 #include "mozilla/dom/PermissionMessageUtils.h"
 #include "mozilla/dom/PictureInPictureEvent.h"
 #include "mozilla/dom/PictureInPictureService.h"
@@ -2015,6 +2015,32 @@ void Document::ReportPageLoadEvent() {
     }
   }
 
+  if (nsPIDOMWindowInner* inner = window->GetCurrentInnerWindow()) {
+    if (Performance* perf = inner->GetPerformance()) {
+      if (perf->IsGlobalObjectWindow()) {
+        const auto& t = static_cast<PerformanceMainThread*>(perf)
+                            ->GetInteractionTelemetry();
+        mPageloadEventData.set_interactionCount(static_cast<uint32_t>(
+            std::min<uint64_t>(perf->InteractionCount(), UINT32_MAX)));
+        if (t.inpLongest) {
+          mPageloadEventData.set_inpLongest(t.inpLongest);
+        }
+        if (t.keypressMaxDuration) {
+          mPageloadEventData.set_keypressMaxDuration(t.keypressMaxDuration);
+        }
+        if (t.mouseClick) {
+          mPageloadEventData.set_mouseClick(t.mouseClick);
+        }
+        const auto& durations = t.interactionEventDurations;
+        if (!durations.IsEmpty()) {
+          const size_t len = durations.Length();
+          mPageloadEventData.set_inpP98(durations[len - 1 - (len / 50)]);
+          mPageloadEventData.set_inpP75(durations[len - 1 - (len / 4)]);
+        }
+      }
+    }
+  }
+
 #ifdef ACCESSIBILITY
   if (GetAccService() != nullptr) {
     mPageloadEventData.SetUserFeature(
@@ -2797,9 +2823,6 @@ nsresult Document::Init(nsIPrincipal* aPrincipal,
     return NS_ERROR_ALREADY_INITIALIZED;
   }
 
-  // Force initialization.
-  mOnloadBlocker = new OnloadBlocker();
-
   mNodeInfoManager = new nsNodeInfoManager(this, aPrincipal);
 
   // mNodeInfo keeps NodeInfoManager alive!
@@ -2827,11 +2850,6 @@ nsresult Document::Init(nsIPrincipal* aPrincipal,
   if (!mLoadedAsData) {
     mScriptLoader = new dom::ScriptLoader(this);
   }
-
-  // we need to create a policy here so getting the policy within
-  // ::Policy() can *always* return a non null policy
-  mFeaturePolicy = new dom::FeaturePolicy(this);
-  mFeaturePolicy->SetDefaultOrigin(NodePrincipal());
 
   if (aPrincipal) {
     SetPrincipals(aPrincipal, aPartitionedPrincipal);
@@ -4100,13 +4118,12 @@ nsresult Document::InitDocPolicy(nsIChannel* aChannel) {
 void Document::InitFeaturePolicy(
     const Variant<Nothing, FeaturePolicyInfo, Element*>&
         aContainerFeaturePolicy) {
-  MOZ_ASSERT(mFeaturePolicy, "we should have FeaturePolicy created");
+  RefPtr<dom::FeaturePolicy> featurePolicy = FeaturePolicy();
 
-  mFeaturePolicy->ResetDeclaredPolicy();
+  featurePolicy->ResetDeclaredPolicy();
 
-  mFeaturePolicy->SetDefaultOrigin(NodePrincipal());
+  featurePolicy->SetDefaultOrigin(NodePrincipal());
 
-  RefPtr<dom::FeaturePolicy> featurePolicy = mFeaturePolicy;
   aContainerFeaturePolicy.match(
       [](const Nothing&) {},
       [featurePolicy](const FeaturePolicyInfo& aContainerFeaturePolicy) {
@@ -4166,8 +4183,8 @@ nsresult Document::InitFeaturePolicy(nsIChannel* aChannel) {
   nsAutoCString value;
   rv = httpChannel->GetResponseHeader("Feature-Policy"_ns, value);
   if (NS_SUCCEEDED(rv)) {
-    mFeaturePolicy->SetDeclaredPolicy(this, NS_ConvertUTF8toUTF16(value),
-                                      NodePrincipal(), nullptr);
+    FeaturePolicy()->SetDeclaredPolicy(this, NS_ConvertUTF8toUTF16(value),
+                                       NodePrincipal(), nullptr);
   }
 
   return NS_OK;
@@ -4546,7 +4563,7 @@ void Document::AssertDocGroupMatchesKey() const {
 }
 #endif
 
-nsresult Document::Dispatch(already_AddRefed<nsIRunnable>&& aRunnable) const {
+nsresult Document::Dispatch(already_AddRefed<nsIRunnable> aRunnable) const {
   return SchedulerGroup::Dispatch(std::move(aRunnable));
 }
 
@@ -8056,25 +8073,25 @@ nsresult Document::LoadAdditionalStyleSheet(additionalSheetType aType,
   // Loading the sheet sync.
   RefPtr<css::Loader> loader = new css::Loader(GetDocGroup());
 
-  css::SheetParsingMode parsingMode;
+  StyleOrigin origin;
   switch (aType) {
     case Document::eAgentSheet:
-      parsingMode = css::eAgentSheetFeatures;
+      origin = StyleOrigin::UserAgent;
       break;
 
     case Document::eUserSheet:
-      parsingMode = css::eUserSheetFeatures;
+      origin = StyleOrigin::User;
       break;
 
     case Document::eAuthorSheet:
-      parsingMode = css::eAuthorSheetFeatures;
+      origin = StyleOrigin::Author;
       break;
 
     default:
       MOZ_CRASH("impossible value for aType");
   }
 
-  auto result = loader->LoadSheetSync(aSheetURI, parsingMode,
+  auto result = loader->LoadSheetSync(aSheetURI, origin,
                                       css::Loader::UseSystemPrincipal::Yes);
   if (result.isErr()) {
     return result.unwrapErr();
@@ -8291,7 +8308,7 @@ void Document::SetScriptGlobalObject(
     mLayoutHistoryState = GetLayoutHistoryState();
 
     // Also make sure to remove our onload blocker now if we haven't done it yet
-    if (mOnloadBlockCount != 0) {
+    if (mOnloadBlockCount != 0 && mOnloadBlocker) {
       nsCOMPtr<nsILoadGroup> loadGroup = GetDocumentLoadGroup();
       if (loadGroup) {
         loadGroup->RemoveRequest(mOnloadBlocker, nullptr, NS_OK);
@@ -12393,18 +12410,23 @@ void Document::EnsureOnloadBlocker() {
   if (mOnloadBlockCount != 0 && mScriptGlobalObject) {
     nsCOMPtr<nsILoadGroup> loadGroup = GetDocumentLoadGroup();
     if (loadGroup) {
-      // Check first to see if mOnloadBlocker is in the loadgroup.
-      nsCOMPtr<nsISimpleEnumerator> requests;
-      loadGroup->GetRequests(getter_AddRefs(requests));
+      if (mOnloadBlocker) {
+        // Check first to see if mOnloadBlocker is already in the loadgroup.
+        nsCOMPtr<nsISimpleEnumerator> requests;
+        loadGroup->GetRequests(getter_AddRefs(requests));
 
-      bool hasMore = false;
-      while (NS_SUCCEEDED(requests->HasMoreElements(&hasMore)) && hasMore) {
-        nsCOMPtr<nsISupports> elem;
-        requests->GetNext(getter_AddRefs(elem));
-        nsCOMPtr<nsIRequest> request = do_QueryInterface(elem);
-        if (request && request == mOnloadBlocker) {
-          return;
+        bool hasMore = false;
+        while (NS_SUCCEEDED(requests->HasMoreElements(&hasMore)) && hasMore) {
+          nsCOMPtr<nsISupports> elem;
+          requests->GetNext(getter_AddRefs(elem));
+          nsCOMPtr<nsIRequest> request = do_QueryInterface(elem);
+          if (request && request == mOnloadBlocker) {
+            return;
+          }
         }
+      } else {
+        // Not created yet, so it can't be in the loadgroup.
+        mOnloadBlocker = new OnloadBlocker();
       }
 
       // Not in the loadgroup, so add it.
@@ -12428,6 +12450,9 @@ void Document::BlockOnload() {
       (mReadyState != ReadyState::READYSTATE_COMPLETE ||
        mInitialAboutBlankLoadCompleting)) {
     if (nsCOMPtr<nsILoadGroup> loadGroup = GetDocumentLoadGroup()) {
+      if (!mOnloadBlocker) {
+        mOnloadBlocker = new OnloadBlocker();
+      }
       loadGroup->AddRequest(mOnloadBlocker, nullptr);
     }
   }
@@ -12510,7 +12535,7 @@ void Document::DoUnblockOnload() {
 
   // If mScriptGlobalObject is null, we shouldn't be messing with the loadgroup
   // -- it's not ours.
-  if (mScriptGlobalObject) {
+  if (mScriptGlobalObject && mOnloadBlocker) {
     if (nsCOMPtr<nsILoadGroup> loadGroup = GetDocumentLoadGroup()) {
       loadGroup->RemoveRequest(mOnloadBlocker, nullptr, NS_OK);
     }
@@ -15134,10 +15159,10 @@ void Document::MaybeResolveReadyForIdle() {
 }
 
 mozilla::dom::FeaturePolicy* Document::FeaturePolicy() const {
-  // The policy is created when the document is initialized. We _must_ have a
-  // policy here even if the featurePolicy pref is off. If this assertion fails,
-  // it means that ::FeaturePolicy() is called before ::StartDocumentLoad().
-  MOZ_ASSERT(mFeaturePolicy);
+  if (!mFeaturePolicy) {
+    mFeaturePolicy = new dom::FeaturePolicy(const_cast<Document*>(this));
+    mFeaturePolicy->SetDefaultOrigin(NodePrincipal());
+  }
   return mFeaturePolicy;
 }
 

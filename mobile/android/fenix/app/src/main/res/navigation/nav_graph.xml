@@ -889,6 +889,9 @@
             android:name="start_auth_flow"
             android:defaultValue="false"
             app:argType="boolean" />
+        <argument
+            android:name="entrypoint"
+            app:argType="org.mozilla.fenix.components.accounts.FenixFxAEntryPoint" />
     </fragment>
     <fragment
         android:id="@+id/aiControlsFragment"
@@ -2000,8 +2003,12 @@
     </navigation>
 
     <dialog
-      android:id="@+id/global_protections_dashboard"
-      android:name="org.mozilla.fenix.trackingprotection.ProtectionsDashboard">
+        android:id="@+id/global_protections_dashboard"
+        android:name="org.mozilla.fenix.trackingprotection.ProtectionsDashboardFragment">
+        <argument
+            android:name="customTabSessionId"
+            app:argType="string"
+            app:nullable="true" />
     </dialog>
 
     <dialog

@@ -40,7 +40,7 @@ const { NimbusTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/NimbusTestUtils.sys.mjs"
 );
 
-const { Server } = ChromeUtils.importESModule(
+const { PrefServerList, Server } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs"
 );
 
@@ -540,6 +540,14 @@ async function putServerInRemoteSettings(
     code: "US",
     cities: [TEST_US_CITY],
   };
+  if (AppConstants.MOZ_ENTERPRISE) {
+    // Enterprise uses a pref-based server list instead of RemoteSettings.
+    Services.prefs.setStringPref(
+      PrefServerList.PREF_NAME,
+      JSON.stringify([US])
+    );
+    return;
+  }
   const client = RemoteSettings("vpn-serverlist");
   if (client && client.db) {
     await client.db.clear();

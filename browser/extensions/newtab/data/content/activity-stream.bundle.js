@@ -315,7 +315,9 @@ for (const type of [
   "WIDGETS_SPORTS_LIVE_HIDDEN",
   "WIDGETS_SPORTS_LIVE_UPDATE",
   "WIDGETS_SPORTS_LIVE_VISIBLE",
+  "WIDGETS_SPORTS_MARK_CELEBRATED",
   "WIDGETS_SPORTS_OPEN_MATCH_SEARCH",
+  "WIDGETS_SPORTS_SET_CELEBRATIONS",
   "WIDGETS_SPORTS_SET_FOLLOWED_ONLY",
   "WIDGETS_SPORTS_SET_LIVE_INDEX",
   "WIDGETS_SPORTS_SET_MATCHES_TAB",
@@ -6815,6 +6817,10 @@ const INITIAL_STATE = {
     lastLiveUpdated: null,
     // Index into the live matches list for the Now tab's single-card pager.
     liveIndex: 0,
+    // End-of-match celebration bookkeeping (set by the feed): `endedAt` maps a
+    // just-ended match's global_event_id to the ms timestamp it left /live;
+    // `celebrated` lists ids that have already triggered a celebration.
+    celebrations: { endedAt: {}, celebrated: [] },
   },
 };
 
@@ -7840,6 +7846,8 @@ function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
     }
     case actionTypes.WIDGETS_SPORTS_SET_LIVE_INDEX:
       return { ...prevState, liveIndex: action.data };
+    case actionTypes.WIDGETS_SPORTS_SET_CELEBRATIONS:
+      return { ...prevState, celebrations: action.data };
     default:
       return prevState;
   }
@@ -12390,10 +12398,123 @@ const DEFAULT_GRADIENT_STOPS = [{
   offset: "100%",
   color: "var(--color-pink-40)"
 }];
+const DEFAULT_CONFETTI_COUNT = 42;
+
+// Flat confetti shapes (border-radius + clip-path) used by the default "mixed"
+// confetti.
+const CONFETTI_SHAPES = [{
+  radius: "1px",
+  clip: "none"
+},
+// rectangle / streamer
+{
+  radius: "50%",
+  clip: "none"
+},
+// circle / oval
+{
+  radius: "0",
+  clip: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)"
+},
+// diamond
+{
+  radius: "0",
+  clip: "polygon(50% 0%, 0% 100%, 100% 100%)"
+} // triangle
+];
+
+// The "soccer" shape mode mixes team-colored soccer balls (the `ball` entries)
+// with the smaller flat shapes. Duplicate `{ ball: true }` to weight balls more
+// heavily relative to the flat confetti.
+const SOCCER_POOL = [{
+  ball: true
+}, {
+  ball: true
+}, {
+  ball: true
+}, {
+  ball: true
+}, ...CONFETTI_SHAPES];
+
+// Deterministic [0, 1) pseudo-random so confetti pieces stay stable across the
+// re-renders within a single celebration run (keyed by celebrationId) but vary
+// from one run to the next.
+const celebrationRandom = seed => {
+  const value = Math.sin(seed) * 10000;
+  return value - Math.floor(value);
+};
+
+// Builds the confetti pieces for one run from the supplied colors, randomizing
+// position/size/fall/spin per piece via CSS custom props. "soccer" draws from
+// SOCCER_POOL (team-colored balls mixed with flat shapes); otherwise from the
+// flat-only CONFETTI_SHAPES.
+const buildConfettiPieces = (run, colors, count, shapeMode) => {
+  const pool = shapeMode === "soccer" ? SOCCER_POOL : CONFETTI_SHAPES;
+  // Sports spreads its confetti into a continuous shower: pieces sit in even
+  // columns (no clumping) and enter staggered over ~1.1s rather than bursting
+  // together. delay + duration stays under the celebration lifecycle (hold +
+  // exit) so every piece still finishes before the overlay unmounts.
+  const spread = shapeMode === "soccer";
+  return Array.from({
+    length: count
+  }, (_, i) => {
+    const base = (run + 1) * 100 + i;
+    const color = colors[i % colors.length];
+    const shape = pool[Math.floor(celebrationRandom(base + 6) * pool.length)];
+    const isBall = !!shape.ball;
+    // Soccer balls are larger and square so the panel pattern reads; flat
+    // shapes are smaller thin slivers.
+    const width = isBall ? Math.round(12 + celebrationRandom(base + 0.5) * 5) : Math.round(6 + celebrationRandom(base + 0.5) * 4);
+    const height = isBall ? width : Math.round(width * (1.4 + celebrationRandom(base + 5) * 0.8));
+    // Even column placement (with sub-column jitter) for the shower; pure
+    // random otherwise. Capped at 98% so wide pieces don't overflow the edge.
+    const left = spread ? `${Math.min((i + celebrationRandom(base + 7)) / count * 100, 98).toFixed(2)}%` : `${(celebrationRandom(base) * 100).toFixed(2)}%`;
+    // Staggered entry (random across the run, so no left-to-right wipe) vs the
+    // tight 0-350ms burst the other widgets use.
+    const delay = spread ? `${Math.round(celebrationRandom(base + 1) * 1100)}ms` : `${Math.round(celebrationRandom(base + 1) * 350)}ms`;
+    // Slow fall, but delay + duration stays under the celebration lifecycle
+    // (hold + exit) so pieces finish before the overlay unmounts.
+    const duration = spread ? `${Math.round(2600 + celebrationRandom(base + 2) * 800)}ms` : `${Math.round(3000 + celebrationRandom(base + 2) * 1200)}ms`;
+    // Moderate sway + spin for the shower; wider tumble otherwise.
+    const rotate = spread ? `${Math.round(celebrationRandom(base + 3) * 400 - 200)}deg` : `${Math.round(celebrationRandom(base + 3) * 720 - 360)}deg`;
+    const drift = spread ? `${Math.round(celebrationRandom(base + 4) * 90 - 45)}px` : `${Math.round(celebrationRandom(base + 4) * 80 - 40)}px`;
+    return {
+      id: i,
+      ball: isBall,
+      color,
+      left,
+      delay,
+      duration,
+      rotate,
+      drift,
+      width: `${width}px`,
+      height: `${height}px`,
+      radius: isBall ? "50%" : shape.radius ?? "50%",
+      clip: isBall ? "none" : shape.clip ?? "none"
+    };
+  });
+};
+
+// Maps a piece's values onto the CSS custom props its rule reads.
+const confettiPieceStyle = piece => ({
+  "--confetti-x": piece.left,
+  "--confetti-w": piece.width,
+  "--confetti-h": piece.height,
+  "--confetti-color": piece.color,
+  "--confetti-delay": piece.delay,
+  "--confetti-duration": piece.duration,
+  "--confetti-rotate": piece.rotate,
+  "--confetti-drift": piece.drift,
+  "--confetti-radius": piece.radius,
+  "--confetti-clip": piece.clip
+});
 const WidgetCelebration = ({
   classNamePrefix = "widget-celebration",
   celebrationFrame,
   celebrationId,
+  confettiColors,
+  confettiCount = DEFAULT_CONFETTI_COUNT,
+  confettiShape = "mixed",
   gradientStops = DEFAULT_GRADIENT_STOPS,
   headlineL10nId,
   illustrationSrc,
@@ -12401,6 +12522,12 @@ const WidgetCelebration = ({
   subheadL10nId
 }) => {
   const className = suffix => suffix ? `${classNamePrefix}-${suffix}` : classNamePrefix;
+  // Only expose the live region when there's copy to announce; a copy-less
+  // celebration (e.g. sports) is purely decorative.
+  const hasCopy = !!(headlineL10nId || subheadL10nId);
+  // Deterministic, so it's safe to compute on every render without reshuffling.
+  const confettiPieces = confettiColors?.length ? buildConfettiPieces(celebrationId, confettiColors, confettiCount, confettiShape) : [];
+  const ballSymbolId = `${classNamePrefix}-ball-${celebrationId}`;
   const resolvedIllustrationSrc = illustrationSrc?.endsWith(".svg") ? `${illustrationSrc}?run=${celebrationId}` : illustrationSrc;
   const strokeSize = celebrationFrame.strokeInset * 2;
   const strokeWidth = celebrationFrame.width - strokeSize;
@@ -12408,8 +12535,8 @@ const WidgetCelebration = ({
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: className(),
     key: celebrationId,
-    role: "status",
-    "aria-live": "polite",
+    role: hasCopy ? "status" : undefined,
+    "aria-live": hasCopy ? "polite" : undefined,
     onAnimationEnd: event => {
       if (event.target === event.currentTarget && event.animationName === "widget-celebration-lifecycle") {
         onComplete?.();
@@ -12462,7 +12589,51 @@ const WidgetCelebration = ({
     rx: celebrationFrame.radius,
     ry: celebrationFrame.radius,
     pathLength: "100"
-  }))), /*#__PURE__*/external_React_default().createElement("div", {
+  }))), confettiPieces.length ? /*#__PURE__*/external_React_default().createElement("div", {
+    className: className("confetti"),
+    "aria-hidden": "true"
+  }, /*#__PURE__*/external_React_default().createElement("svg", {
+    className: className("confetti-defs"),
+    "aria-hidden": "true"
+  }, /*#__PURE__*/external_React_default().createElement("symbol", {
+    id: ballSymbolId,
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/external_React_default().createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "11",
+    fill: "currentColor",
+    stroke: "#1c1c1c",
+    strokeWidth: "1.4"
+  }), /*#__PURE__*/external_React_default().createElement("path", {
+    d: "M12 8.6 16 11.4 14.4 15.4 9.6 15.4 8 11.4Z",
+    fill: "#1c1c1c"
+  }), /*#__PURE__*/external_React_default().createElement("g", {
+    stroke: "#1c1c1c",
+    strokeWidth: "1.1",
+    fill: "none"
+  }, /*#__PURE__*/external_React_default().createElement("path", {
+    d: "M12 8.6V1.2"
+  }), /*#__PURE__*/external_React_default().createElement("path", {
+    d: "M16 11.4 22.6 8.6"
+  }), /*#__PURE__*/external_React_default().createElement("path", {
+    d: "M14.4 15.4 18.8 21"
+  }), /*#__PURE__*/external_React_default().createElement("path", {
+    d: "M9.6 15.4 5.2 21"
+  }), /*#__PURE__*/external_React_default().createElement("path", {
+    d: "M8 11.4 1.4 8.6"
+  })))), confettiPieces.map(piece => piece.ball ? /*#__PURE__*/external_React_default().createElement("svg", {
+    key: piece.id,
+    className: className("confetti-piece"),
+    viewBox: "0 0 24 24",
+    style: confettiPieceStyle(piece)
+  }, /*#__PURE__*/external_React_default().createElement("use", {
+    href: `#${ballSymbolId}`
+  })) : /*#__PURE__*/external_React_default().createElement("i", {
+    key: piece.id,
+    className: className("confetti-piece"),
+    style: confettiPieceStyle(piece)
+  }))) : null, hasCopy ? /*#__PURE__*/external_React_default().createElement("div", {
     className: className("copy")
   }, /*#__PURE__*/external_React_default().createElement("span", {
     className: className("headline"),
@@ -12470,7 +12641,7 @@ const WidgetCelebration = ({
   }), /*#__PURE__*/external_React_default().createElement("span", {
     className: className("subhead"),
     "data-l10n-id": subheadL10nId
-  })), resolvedIllustrationSrc && /*#__PURE__*/external_React_default().createElement("img", {
+  })) : null, resolvedIllustrationSrc && /*#__PURE__*/external_React_default().createElement("img", {
     alt: "",
     "aria-hidden": "true",
     className: className("illustration"),
@@ -17089,6 +17260,41 @@ function groupMatchesBySection(matches) {
   return sections;
 }
 
+;// CONCATENATED MODULE: ./content-src/components/Widgets/SportsWidget/matchResult.mjs
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+// Resolves the winning team's `key` for a finished match, or null for a draw.
+// Mirrors the score resolution used in SportsMatchRow: regular + extra time,
+// then a penalty shootout when the aggregate is level.
+const getMatchWinnerKey = match => {
+  if (!match) {
+    return null;
+  }
+  const homeScore = (match.home_score || 0) + (match.home_extra || 0);
+  const awayScore = (match.away_score || 0) + (match.away_extra || 0);
+  if (homeScore > awayScore) {
+    return match.home_team.key;
+  }
+  if (awayScore > homeScore) {
+    return match.away_team.key;
+  }
+  // Level aggregate: a shootout decides it only when both penalty scores are
+  // present (mirrors the SportsMatchRow `hasPenalties` guard).
+  const hasPenalties =
+    match.home_penalty !== null &&
+    match.home_penalty !== undefined &&
+    match.away_penalty !== null &&
+    match.away_penalty !== undefined;
+  if (hasPenalties && match.home_penalty !== match.away_penalty) {
+    return match.home_penalty > match.away_penalty
+      ? match.home_team.key
+      : match.away_team.key;
+  }
+  return null;
+};
+
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/SportsWidget/SportsWidget.jsx
 function SportsWidget_extends() { return SportsWidget_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, SportsWidget_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -17096,6 +17302,9 @@ function SportsWidget_extends() { return SportsWidget_extends = Object.assign ? 
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // eslint-disable-next-line no-unused-vars
+
+
+
 
 
 
@@ -17118,6 +17327,7 @@ const MATCHES_TABS = {
   NOW: "now",
   UPCOMING: "upcoming"
 };
+const SPORTS_CELEBRATION_ILLUSTRATION = "chrome://newtab/content/data/content/assets/firefox-motion-head-pop-up-no-bg.svg";
 function getVisibleMatchesTabs(hasLiveGames, hasPreviousResults) {
   return Object.values(MATCHES_TABS)
   // Only show the Now tab when there are live games.
@@ -17143,6 +17353,9 @@ const SportsWidget_PREF_NOVA_ENABLED = "nova.enabled";
 const SportsWidget_PREF_SPORTS_WIDGET_SIZE = "widgets.sportsWidget.size";
 const PREF_SPORTS_WIDGET_LIVE_ENABLED = "widgets.sportsWidget.live.enabled";
 const PREF_FORCE_LIVE_DATA_TRUSTABLE = "widgets.sports.forceLiveDataTrustable";
+const PREF_SPORTS_CELEBRATIONS_ENABLED = "widgets.sportsWidget.celebrations.enabled";
+const PREF_SPORTS_CELEBRATIONS_WINDOW_MS = "widgets.sportsWidget.celebrations.windowMs";
+const DEFAULT_CELEBRATION_WINDOW_MS = 86400000; // 24 hours
 
 // World Cup 2026 kickoff: June 11, 2026 at 19:00 UTC. Used as a temporary
 // guard to ignore /live data while the endpoint still serves mock matches
@@ -17168,6 +17381,49 @@ function sortFollowedFirst(matches, selectedTeamsSet) {
     }
     return a.index - b.index;
   }).map(entry => entry.match);
+}
+
+// The match that most recently ended and is still eligible to celebrate:
+// within the window and not yet celebrated. Keyed off the feed's `endedAt`
+// stamp rather than the display order, so the celebration targets the match
+// that actually ended even when it isn't the top result. Searches finished
+// (previous) and current matches, since a just-ended match can briefly remain
+// in `current` before the backend moves it to `previous`.
+function findCelebrationMatch(matches, celebrations, windowMs) {
+  const endedAt = celebrations?.endedAt;
+  if (!endedAt) {
+    return null;
+  }
+  const celebrated = new Set(celebrations?.celebrated ?? []);
+  const now = Date.now();
+  let best = null;
+  for (const match of matches) {
+    const id = match?.global_event_id;
+    const ts = id === null || id === undefined ? undefined : endedAt[id];
+    if (!ts || now - ts >= windowMs || celebrated.has(id)) {
+      continue;
+    }
+    if (!best || ts > endedAt[best.global_event_id]) {
+      best = match;
+    }
+  }
+  return best;
+}
+
+// Moves the match with `id` to the front of `matches` (used to surface the
+// just-ended match as the Results highlight). No-op when it isn't present.
+function bubbleMatchToFront(matches, id) {
+  if (id === null || id === undefined) {
+    return matches;
+  }
+  const index = matches.findIndex(match => match.global_event_id === id);
+  if (index <= 0) {
+    return matches;
+  }
+  const next = [...matches];
+  const [match] = next.splice(index, 1);
+  next.unshift(match);
+  return next;
 }
 
 // Returns the match shown in the highlight view for the active tab, or null
@@ -17308,8 +17564,21 @@ function SportsWidget_SportsWidget({
     return map;
   }, [teams]);
 
+  // Celebration window (trainhop > pref > default) and the match that just
+  // ended, keyed off the feed's `endedAt` stamp rather than the display order.
+  // It's surfaced as the Results highlight (below) and consumed by the
+  // celebration trigger, so the celebration targets the match that actually
+  // ended even when it isn't the top result.
+  const {
+    celebrations
+  } = sportsWidgetData;
+  const celebrationWindowMs = prefs.trainhopConfig?.sportsCelebrations?.windowMs ?? prefs.trainhopConfig?.widgets?.sportsWidgetCelebrationsWindowMs ?? prefs.trainhopConfig?.sports?.celebrationsWindowMs ?? prefs[PREF_SPORTS_CELEBRATIONS_WINDOW_MS] ?? DEFAULT_CELEBRATION_WINDOW_MS;
+  const celebrationMatch = (0,external_React_namespaceObject.useMemo)(() => findCelebrationMatch([...(rawMatches?.previous ?? []), ...(rawMatches?.current ?? [])], celebrations, celebrationWindowMs), [rawMatches, celebrations, celebrationWindowMs]);
+
   // Bubble followed teams to the front for the highlight view and list view
   // when the followed-only toggle is on; with it off, matches stay chronological.
+  // The just-ended celebration match always bubbles to the very front so the
+  // celebration plays over its result.
   const resultsFollowedOnly = sportsWidgetData.followedOnly?.results ?? true;
   const upcomingFollowedOnly = sportsWidgetData.followedOnly?.upcoming ?? true;
   const {
@@ -17320,11 +17589,11 @@ function SportsWidget_SportsWidget({
     const previous = rawMatches?.previous ?? [];
     const next = rawMatches?.next ?? [];
     return {
-      sortedPrevious: resultsFollowedOnly ? sortFollowedFirst(previous, selectedTeamsSet) : previous,
+      sortedPrevious: bubbleMatchToFront(resultsFollowedOnly ? sortFollowedFirst(previous, selectedTeamsSet) : previous, celebrationMatch?.global_event_id),
       sortedCurrent: sortFollowedFirst(rawLive ?? [], selectedTeamsSet),
       sortedNext: upcomingFollowedOnly ? sortFollowedFirst(next, selectedTeamsSet) : next
     };
-  }, [rawMatches, rawLive, selectedTeamsSet, resultsFollowedOnly, upcomingFollowedOnly]);
+  }, [rawMatches, rawLive, selectedTeamsSet, resultsFollowedOnly, upcomingFollowedOnly, celebrationMatch]);
 
   // List-view toggle states for the Results and Upcoming tabs are lifted up
   // here so we can tell whether a highlight match is currently visible (for
@@ -17398,6 +17667,116 @@ function SportsWidget_SportsWidget({
   // gate flips and the article appears for the first time). widgetRef is a
   // stable useRef and can't drive re-runs on its own.
   const [liveEl, setLiveEl] = (0,external_React_namespaceObject.useState)(null);
+
+  // End-of-match celebration.
+  const celebrationRef = (0,external_React_namespaceObject.useRef)(null);
+  const {
+    celebrationFrame,
+    celebrationId,
+    completeCelebration,
+    isCelebrating,
+    triggerCelebration
+  } = useWidgetCelebration(celebrationRef);
+  const [celebrationColors, setCelebrationColors] = (0,external_React_namespaceObject.useState)(null);
+  // Seam consumed by the detection layer (Patch 2): a followed-team win passes
+  // that team's colors; any other ended match passes none (generic). Celebrations
+  // are off by default and opt-in via the pref OR trainhopConfig, so they ship
+  // dark and can be enabled remotely without risking the rest of the widget.
+  // Canonical trainhop key is the dedicated trainhopConfig.sportsCelebrations
+  // namespace; the widgets/sports reads remain as fallbacks.
+  /**
+   * @backward-compat { version 153 }
+   * The trainhopConfig namespace migrated from the nested sports.* keys to the
+   * flat widgets.sportsWidget* keys (D303931). This celebration ships via the
+   * newtab XPI (train-hop), so it can run on a Firefox serving either
+   * namespace — read both. Remove the legacy
+   * trainhopConfig.sports.celebrationsEnabled read once 153 reaches Release.
+   */
+  const celebrationsEnabled = prefs[PREF_SPORTS_CELEBRATIONS_ENABLED] || prefs.trainhopConfig?.sportsCelebrations?.enabled || prefs.trainhopConfig?.widgets?.sportsWidgetCelebrationsEnabled || prefs.trainhopConfig?.sports?.celebrationsEnabled;
+  const celebrate = (0,external_React_namespaceObject.useCallback)((kind, colors = null) => {
+    if (!celebrationsEnabled) {
+      return;
+    }
+    setCelebrationColors(kind === "followed" ? colors : null);
+    triggerCelebration();
+  }, [triggerCelebration, celebrationsEnabled]);
+
+  // Celebration trigger: fire once for the match that just ended (the freshest
+  // endedAt within the window, surfaced as the Results highlight above) when
+  // the user is viewing the Results tab with the widget on-screen. Followed
+  // team won/tied -> team colors; no followed team -> generic; followed loss ->
+  // nothing. celebratedRef guards against re-firing within this session;
+  // `celebrations.celebrated` (persisted by the feed) guards across reloads.
+  const celebratedRef = (0,external_React_namespaceObject.useRef)(new Set());
+  const [isPageVisible, setIsPageVisible] = (0,external_React_namespaceObject.useState)(typeof document === "undefined" || document.visibilityState === "visible");
+  (0,external_React_namespaceObject.useEffect)(() => {
+    const onVisibility = () => setIsPageVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+  // Whether the widget itself is scrolled into view. Gating consumption on this
+  // (in addition to isPageVisible) prevents an off-screen widget from spending
+  // the one-shot celebration before the user can see it. Starts false so a
+  // never-observed widget can't fire; the observer reports the real state on
+  // attach. (isPageVisible is still needed: a backgrounded tab keeps reporting
+  // the element as intersecting.)
+  const [isWidgetVisible, setIsWidgetVisible] = (0,external_React_namespaceObject.useState)(false);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    // Only observe when celebrations are enabled — there's nothing to gate
+    // otherwise, and it avoids an idle observer on every sports widget.
+    if (!celebrationsEnabled || !liveEl) {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(([entry]) => setIsWidgetVisible(entry.isIntersecting), {
+      threshold: 0.3
+    });
+    observer.observe(liveEl);
+    return () => observer.disconnect();
+  }, [celebrationsEnabled, liveEl]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (!celebrationsEnabled || !isPageVisible || !isWidgetVisible || widgetState !== WIDGET_STATES.MATCHES || activeTab !== MATCHES_TABS.RESULTS || showResultsList) {
+      return;
+    }
+    const match = celebrationMatch;
+    if (!match || celebratedRef.current.has(match.global_event_id)) {
+      return;
+    }
+    const id = match.global_event_id;
+    const winnerKey = getMatchWinnerKey(match);
+    const homeKey = match.home_team.key;
+    const awayKey = match.away_team.key;
+    // Ownership uses the raw saved selections, not selectedTeamsSet (which
+    // drops eliminated teams). A followed team's knockout loss eliminates it,
+    // so selectedTeamsSet would make it look unfollowed and fire the generic
+    // celebration instead of suppressing it.
+    const homeFollowed = selectedTeams.includes(homeKey);
+    const awayFollowed = selectedTeams.includes(awayKey);
+    let followedKey = null;
+    if (homeFollowed && awayFollowed) {
+      // Both followed: celebrate the winner (home on a draw).
+      followedKey = winnerKey || homeKey;
+    } else if (homeFollowed) {
+      followedKey = homeKey;
+    } else if (awayFollowed) {
+      followedKey = awayKey;
+    }
+    // Consume the event up front so it never re-fires (and a suppressed
+    // followed loss can't replay as a generic celebration after an unfollow).
+    celebratedRef.current.add(id);
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_SPORTS_MARK_CELEBRATED,
+      data: id
+    }));
+    // A followed team that lost gets no animation (ties count as a win).
+    if (followedKey && winnerKey && winnerKey !== followedKey) {
+      return;
+    }
+    if (followedKey) {
+      celebrate("followed", teamColorsByKey.get(followedKey));
+    } else {
+      celebrate("generic");
+    }
+  }, [celebrationsEnabled, isPageVisible, isWidgetVisible, widgetState, activeTab, showResultsList, celebrationMatch, selectedTeams, teamColorsByKey, celebrate, dispatch]);
 
   // Live polling visibility gate. Separate from the one-shot impression
   // observer above (which unobserves after the first intersect) — this one
@@ -17672,13 +18051,28 @@ function SportsWidget_SportsWidget({
   if (!prefs[SportsWidget_PREF_NOVA_ENABLED]) {
     return null;
   }
-  return /*#__PURE__*/external_React_default().createElement("article", SportsWidget_extends({
-    className: `sports widget col-4 ${displaySize}-widget ${widgetState}${followedGradient ? " is-followed-highlight" : ""}`,
-    style: followedGradient ? {
+
+  // A followed-team celebration (team colors passed) gets a 2px linear-gradient
+  // border in the followed team's colors instead of the generic animated
+  // stroke. The gradient feeds --sports-celebration-border-gradient.
+  const isFollowedCelebration = isCelebrating && !!celebrationColors?.length;
+  // `to right` keeps the gradient's midpoint centered (green left -> white
+  // center -> red right), matching the followed-highlight border.
+  const celebrationBorderGradient = celebrationColors?.length ? `linear-gradient(to right, ${celebrationColors.join(", ")})` : null;
+  const widgetStyle = {
+    ...(followedGradient && {
       "--sports-followed-gradient": followedGradient
-    } : undefined,
+    }),
+    ...(celebrationBorderGradient && {
+      "--sports-celebration-border-gradient": celebrationBorderGradient
+    })
+  };
+  return /*#__PURE__*/external_React_default().createElement("article", SportsWidget_extends({
+    className: `sports widget col-4 ${displaySize}-widget ${widgetState}${followedGradient ? " is-followed-highlight" : ""}${isCelebrating ? " is-celebrating" : ""}${isFollowedCelebration ? " is-followed-celebration" : ""}`,
+    style: widgetStyle,
     ref: el => {
       widgetRef.current = [el];
+      celebrationRef.current = el;
       setLiveEl(el);
       // Only attach the error observer when there's something to report —
       // otherwise the first intersect with no fetchError adds the target to
@@ -17691,7 +18085,15 @@ function SportsWidget_SportsWidget({
         playIntroVideo();
       }
     }
-  }, getCarouselArticleAttrs(activeTab === MATCHES_TABS.NOW && (rawLive?.length ?? 0) >= 2)), widgetState === WIDGET_STATES.INTRO && /*#__PURE__*/external_React_default().createElement("video", {
+  }, getCarouselArticleAttrs(activeTab === MATCHES_TABS.NOW && (rawLive?.length ?? 0) >= 2)), isCelebrating && celebrationFrame ? /*#__PURE__*/external_React_default().createElement(WidgetCelebration, {
+    classNamePrefix: "sports-celebration",
+    celebrationFrame: celebrationFrame,
+    celebrationId: celebrationId,
+    confettiColors: celebrationColors ?? undefined,
+    confettiShape: "soccer",
+    illustrationSrc: SPORTS_CELEBRATION_ILLUSTRATION,
+    onComplete: completeCelebration
+  }) : null, widgetState === WIDGET_STATES.INTRO && /*#__PURE__*/external_React_default().createElement("video", {
     ref: introVideoRef,
     className: "sports-intro-video",
     muted: true,
@@ -18069,6 +18471,7 @@ function SportsMatchesView({
     followedTeams: selectedTeamsSet,
     tbdTeamName: tbdTeamName
   }))), !!previous.length && /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "sports-view-all",
     type: "secondary",
     size: size === "medium" ? "small" : undefined,
     "data-l10n-id": showResultsList ? "newtab-sports-widget-show-less" : "newtab-sports-widget-view-all",
@@ -18151,6 +18554,7 @@ function SportsMatchesView({
   }, /*#__PURE__*/external_React_default().createElement(UpcomingMatchPlaceholder, {
     size: size
   }))), !!next.length && /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "sports-view-all",
     type: "secondary",
     size: size === "medium" ? "small" : undefined,
     "data-l10n-id": showUpcomingList ? "newtab-sports-widget-show-less" : "newtab-sports-widget-view-all",
@@ -22698,7 +23102,7 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("label", {
       "data-l10n-id": "newtab-customize-panel-icon-button-label"
     }), /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("img", {
-      role: "presentation",
+      alt: "",
       src: "chrome://global/skin/icons/edit-outline.svg"
     })))), /*#__PURE__*/external_React_default().createElement(external_ReactTransitionGroup_namespaceObject.CSSTransition, {
       nodeRef: this.dialogRef,

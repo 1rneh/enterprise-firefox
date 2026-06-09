@@ -119,6 +119,29 @@ pub struct UnitValue {
 /// a `NumericValue`, allowing nested sums if needed.
 pub type MathSum = ThinVec<NumericValue>;
 
+/// A minimum expression over numeric values.
+///
+/// This corresponds to `CSSMathMin` in the Typed OM specification. A minimum
+/// expression represents constructs such as `min(10px, 20%)`. Each entry is
+/// itself a `NumericValue`, allowing nested math expressions if needed.
+pub type MathMin = ThinVec<NumericValue>;
+
+/// A maximum expression over numeric values.
+///
+/// This corresponds to `CSSMathMax` in the Typed OM specification. A maximum
+/// expression represents constructs such as `max(10px, 20%)`. Each entry is
+/// itself a `NumericValue`, allowing nested math expressions if needed.
+pub type MathMax = ThinVec<NumericValue>;
+
+/// A clamp expression over numeric values.
+///
+/// This corresponds to `CSSMathClamp` in the Typed OM specification. A clamp
+/// expression represents constructs such as `clamp(10px, 20%, 30px)`.
+///
+/// The array entries correspond to the lower bound, value, and upper bound,
+/// respectively.
+pub type MathClamp = crate::OwnedArray<NumericValue, 3>;
+
 /// A math expression used by the Typed OM.
 ///
 /// This corresponds to `CSSMathValue` and its subclasses in the Typed OM
@@ -130,6 +153,21 @@ pub enum MathValue {
     ///
     /// This corresponds to `CSSMathSum`.
     Sum(MathSum),
+
+    /// A minimum expression over numeric values.
+    ///
+    /// This corresponds to `CSSMathMin`.
+    Min(MathMin),
+
+    /// A maximum expression over numeric values.
+    ///
+    /// This corresponds to `CSSMathMax`.
+    Max(MathMax),
+
+    /// A clamp expression over numeric values.
+    ///
+    /// This corresponds to `CSSMathClamp`.
+    Clamp(MathClamp),
 }
 
 /// A numeric value used by the Typed OM.

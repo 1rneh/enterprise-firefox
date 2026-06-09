@@ -40,6 +40,27 @@ RefPtr<CSSMathValue> CSSMathValue::Create(nsCOMPtr<nsISupports> aParent,
       mathValue = CSSMathSum::Create(std::move(aParent), mathSum);
       break;
     }
+
+    case StyleMathValue::Tag::Min: {
+      const auto& mathMin = aMathValue.AsMin();
+
+      mathValue = CSSMathMin::Create(std::move(aParent), mathMin);
+      break;
+    }
+
+    case StyleMathValue::Tag::Max: {
+      const auto& mathMax = aMathValue.AsMax();
+
+      mathValue = CSSMathMax::Create(std::move(aParent), mathMax);
+      break;
+    }
+
+    case StyleMathValue::Tag::Clamp: {
+      const auto& mathClamp = aMathValue.AsClamp();
+
+      mathValue = CSSMathClamp::Create(std::move(aParent), mathClamp);
+      break;
+    }
   }
 
   return mathValue;
@@ -169,14 +190,28 @@ void CSSMathValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
 
 Maybe<StyleMathValue> CSSMathValue::ToStyleMathValue() const {
   switch (GetMathValueType()) {
-    case MathValueType::MathClamp:
-      return Nothing();
+    case MathValueType::MathClamp: {
+      const CSSMathClamp& mathClamp = GetAsCSSMathClamp();
 
-    case MathValueType::MathMax:
-      return Nothing();
+      auto styleMathClamp = mathClamp.ToStyleMathClamp();
+      if (styleMathClamp.isNothing()) {
+        return Nothing();
+      }
 
-    case MathValueType::MathMin:
-      return Nothing();
+      return Some(StyleMathValue::Clamp(styleMathClamp.ref()));
+    }
+
+    case MathValueType::MathMax: {
+      const CSSMathMax& mathMax = GetAsCSSMathMax();
+
+      return Some(StyleMathValue::Max(mathMax.ToStyleMathMax()));
+    }
+
+    case MathValueType::MathMin: {
+      const CSSMathMin& mathMin = GetAsCSSMathMin();
+
+      return Some(StyleMathValue::Min(mathMin.ToStyleMathMin()));
+    }
 
     case MathValueType::MathInvert:
       return Nothing();

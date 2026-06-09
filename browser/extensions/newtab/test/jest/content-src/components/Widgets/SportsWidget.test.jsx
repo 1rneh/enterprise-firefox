@@ -3898,3 +3898,495 @@ describe("<SportsWidget> matches missing a team (bug 2044931)", () => {
     expect(titles).toEqual(expect.arrayContaining(["England"]));
   });
 });
+
+describe("<SportsWidget> end-of-match celebration", () => {
+  let originalMatchMedia;
+  // Record IntersectionObserver instances so we can simulate the widget
+  // scrolling into view — the celebration only fires once it's on-screen.
+  let observerInstances;
+  let originalIntersectionObserver;
+
+  function mockMatchMedia(matches) {
+    window.matchMedia = jest.fn().mockImplementation(query => ({
+      matches,
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+  }
+
+  beforeEach(() => {
+    originalMatchMedia = window.matchMedia;
+    // <WidgetCelebration> bails out under prefers-reduced-motion: reduce.
+    mockMatchMedia(false);
+    observerInstances = [];
+    originalIntersectionObserver = global.IntersectionObserver;
+    global.IntersectionObserver = class {
+      constructor(callback) {
+        this.callback = callback;
+        observerInstances.push(this);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    // Another describe's afterEach (jest.restoreAllMocks) can tear down the
+    // suite-wide Date.now pin before this block runs; re-establish it so the
+    // celebration window math stays deterministic regardless of describe order.
+    dateNowSpy = jest.spyOn(Date, "now").mockReturnValue(POST_KICKOFF_MS);
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+    global.IntersectionObserver = originalIntersectionObserver;
+  });
+
+  // Fires every recorded observer's callback so the widget reports as visible
+  // (the trigger gates on intersection). JSDOM never fires these on its own.
+  function markWidgetVisible(intersecting = true) {
+    act(() => {
+      observerInstances.forEach(o =>
+        o.callback?.([
+          {
+            isIntersecting: intersecting,
+            // Other observers (impression/error) add entry.target to a WeakSet,
+            // so a real element is required even though we only care about the
+            // celebration-visibility observer here.
+            target: document.createElement("div"),
+          },
+        ])
+      );
+    });
+  }
+
+  const MATCH_ID = "evt-mex-rsa";
+  const SCORES = {
+    MEX: { home_score: 2, away_score: 1 },
+    RSA: { home_score: 1, away_score: 2 },
+    draw: { home_score: 1, away_score: 1 },
+  };
+
+  // Builds store state with a finished MEX vs RSA result on the Results tab plus
+  // a celebrations endedAt stamp, so the detection effect fires on mount. The
+  // mock `dispatch` can't update the store, so we seed state directly here
+  // rather than clicking the debug seed.
+  function celebrationState({
+    enabled = true,
+    followed = [],
+    winner = "MEX",
+    endedAt = POST_KICKOFF_MS,
+    celebrated = [],
+    eliminated = [],
+    extraPrefs = {},
+  } = {}) {
+    return makeState(
+      {
+        "widgets.sportsWidget.celebrations.enabled": enabled,
+        ...extraPrefs,
+      },
+      {
+        widgetState: "sports-matches",
+        matchesTab: "results",
+        selectedTeams: followed,
+        data: {
+          teams: [
+            {
+              key: "MEX",
+              name: "Mexico",
+              colors: ["#006847", "#ce1126"],
+              eliminated: eliminated.includes("MEX"),
+            },
+            {
+              key: "RSA",
+              name: "South Africa",
+              colors: ["#007749", "#ffb612"],
+              eliminated: eliminated.includes("RSA"),
+            },
+          ],
+          matches: {
+            previous: [
+              {
+                global_event_id: MATCH_ID,
+                home_team: { key: "MEX", name: "Mexico", group: "Group L" },
+                away_team: {
+                  key: "RSA",
+                  name: "South Africa",
+                  group: "Group L",
+                },
+                date: "2026-06-12T17:00:00+00:00",
+                status_type: "ended",
+                home_extra: null,
+                away_extra: null,
+                home_penalty: null,
+                away_penalty: null,
+                query: "Mexico vs South Africa",
+                ...SCORES[winner],
+              },
+            ],
+            current: [],
+            next: [],
+          },
+          live: [],
+        },
+        celebrations: { endedAt: { [MATCH_ID]: endedAt }, celebrated },
+      }
+    );
+  }
+
+  function renderState(
+    state,
+    dispatch = defaultProps.dispatch,
+    visible = true
+  ) {
+    const result = render(
+      <WrapWithProvider state={state}>
+        <SportsWidget {...defaultProps} dispatch={dispatch} />
+      </WrapWithProvider>
+    );
+    if (visible) {
+      markWidgetVisible();
+    }
+    return result;
+  }
+
+  it("celebrates a followed-team win on the Results highlight", () => {
+    const { container } = renderState(celebrationState({ followed: ["MEX"] }));
+    expect(container.querySelector(".sports-celebration")).toBeInTheDocument();
+    expect(
+      container.querySelector(".sports.is-followed-celebration")
+    ).toBeInTheDocument();
+  });
+
+  it("celebrates the just-ended match even when it is not the top result", () => {
+    // The display highlight (sortFollowedFirst's first entry) is an older
+    // result, but the freshly-ended match is what should celebrate and surface.
+    const ENDED_ID = "evt-kor-cze";
+    const dispatch = jest.fn();
+    const state = makeState(
+      { "widgets.sportsWidget.celebrations.enabled": true },
+      {
+        widgetState: "sports-matches",
+        matchesTab: "results",
+        selectedTeams: ["CZE"],
+        data: {
+          teams: [
+            { key: "KOR", name: "Korea", colors: ["#c60c30"] },
+            { key: "CZE", name: "Czechia", colors: ["#11457e"] },
+            { key: "MEX", name: "Mexico", colors: ["#006847"] },
+            { key: "RSA", name: "South Africa", colors: ["#007749"] },
+          ],
+          matches: {
+            previous: [
+              {
+                global_event_id: "evt-mex-rsa-old",
+                home_team: { key: "MEX", name: "Mexico", group: "Group A" },
+                away_team: {
+                  key: "RSA",
+                  name: "South Africa",
+                  group: "Group A",
+                },
+                date: "2026-06-11T17:00:00+00:00",
+                status_type: "ended",
+                home_score: 1,
+                away_score: 1,
+                home_extra: null,
+                away_extra: null,
+                home_penalty: null,
+                away_penalty: null,
+                query: "Mexico vs South Africa",
+              },
+              {
+                global_event_id: ENDED_ID,
+                home_team: { key: "KOR", name: "Korea", group: "Group B" },
+                away_team: { key: "CZE", name: "Czechia", group: "Group B" },
+                date: "2026-06-12T17:00:00+00:00",
+                status_type: "ended",
+                home_score: 0,
+                away_score: 1,
+                home_extra: null,
+                away_extra: null,
+                home_penalty: null,
+                away_penalty: null,
+                query: "Korea vs Czechia",
+              },
+            ],
+            current: [],
+            next: [],
+          },
+          live: [],
+        },
+        celebrations: {
+          endedAt: { [ENDED_ID]: POST_KICKOFF_MS },
+          celebrated: [],
+        },
+      }
+    );
+    const { container } = renderState(state, dispatch);
+    // The followed team (CZE) won the just-ended match, so it celebrates...
+    expect(
+      container.querySelector(".sports.is-followed-celebration")
+    ).toBeInTheDocument();
+    // ...and the consumed match is the just-ended one, not the top result.
+    const marked = dispatch.mock.calls.find(
+      ([action]) => action?.type === "WIDGETS_SPORTS_MARK_CELEBRATED"
+    );
+    expect(marked?.[0].data).toBe(ENDED_ID);
+  });
+
+  it("applies the followed team's colors to the border", () => {
+    const { container } = renderState(celebrationState({ followed: ["MEX"] }));
+    const widget = container.querySelector(".sports.is-followed-celebration");
+    const gradient = widget.style.getPropertyValue(
+      "--sports-celebration-border-gradient"
+    );
+    expect(gradient).toContain("#006847");
+    expect(gradient).toContain("#ce1126");
+  });
+
+  it("shows team-colored soccer-ball confetti for a followed win", () => {
+    const { container } = renderState(celebrationState({ followed: ["MEX"] }));
+    const balls = [
+      ...container.querySelectorAll(".sports-celebration-confetti-piece"),
+    ].filter(piece => piece.tagName === "svg");
+    expect(balls.length).toBeGreaterThan(0);
+    const palette = ["#006847", "#ce1126"];
+    balls.forEach(ball => {
+      expect(palette).toContain(
+        ball.style.getPropertyValue("--confetti-color")
+      );
+    });
+  });
+
+  it("celebrates a tie for a followed team", () => {
+    const { container } = renderState(
+      celebrationState({ followed: ["MEX"], winner: "draw" })
+    );
+    expect(
+      container.querySelector(".sports.is-followed-celebration")
+    ).toBeInTheDocument();
+  });
+
+  it("does NOT celebrate when the followed team lost", () => {
+    const { container } = renderState(
+      celebrationState({ followed: ["MEX"], winner: "RSA" })
+    );
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+  });
+
+  it("does NOT fall back to the generic celebration when a followed team is eliminated by the loss", () => {
+    // The losing followed team (MEX) is now eliminated, so it's absent from
+    // selectedTeamsSet. Ownership must come from the raw selection, otherwise
+    // the match looks unfollowed and leaks a generic celebration.
+    const { container } = renderState(
+      celebrationState({
+        followed: ["MEX"],
+        winner: "RSA",
+        eliminated: ["MEX"],
+      })
+    );
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+  });
+
+  it("consumes a suppressed followed loss (marks celebrated without animating)", () => {
+    const dispatch = jest.fn();
+    const { container } = renderState(
+      celebrationState({
+        followed: ["MEX"],
+        winner: "RSA",
+        eliminated: ["MEX"],
+      }),
+      dispatch
+    );
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+    const marked = dispatch.mock.calls.some(
+      ([action]) =>
+        action?.type === "WIDGETS_SPORTS_MARK_CELEBRATED" &&
+        action?.data === MATCH_ID
+    );
+    expect(marked).toBe(true);
+  });
+
+  it("uses the generic celebration when no followed team is in the match", () => {
+    const { container } = renderState(celebrationState({ followed: [] }));
+    expect(container.querySelector(".sports-celebration")).toBeInTheDocument();
+    expect(
+      container.querySelector(".sports.is-followed-celebration")
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector(".sports-celebration-confetti")
+    ).not.toBeInTheDocument();
+  });
+
+  it("does NOT celebrate a match that ended outside the window", () => {
+    const { container } = renderState(
+      celebrationState({
+        followed: ["MEX"],
+        // 25h ago, past the default 24h window.
+        endedAt: POST_KICKOFF_MS - 25 * 60 * 60 * 1000,
+      })
+    );
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+  });
+
+  it("does NOT celebrate a match already in the celebrated set", () => {
+    const { container } = renderState(
+      celebrationState({ followed: ["MEX"], celebrated: [MATCH_ID] })
+    );
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+  });
+
+  it("marks the match celebrated after firing", () => {
+    const dispatch = jest.fn();
+    renderState(celebrationState({ followed: ["MEX"] }), dispatch);
+    const marked = dispatch.mock.calls.some(
+      ([action]) =>
+        action?.type === "WIDGETS_SPORTS_MARK_CELEBRATED" &&
+        action?.data === MATCH_ID
+    );
+    expect(marked).toBe(true);
+  });
+
+  it("does NOT celebrate or consume while the widget is off-screen", () => {
+    const dispatch = jest.fn();
+    const { container } = renderState(
+      celebrationState({ followed: ["MEX"] }),
+      dispatch,
+      /* visible */ false
+    );
+    // Off-screen: no animation, and crucially not consumed, so it can still
+    // fire once the user scrolls it into view.
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+    const marked = dispatch.mock.calls.some(
+      ([action]) => action?.type === "WIDGETS_SPORTS_MARK_CELEBRATED"
+    );
+    expect(marked).toBe(false);
+
+    // Once it scrolls into view, it fires.
+    markWidgetVisible();
+    expect(container.querySelector(".sports-celebration")).toBeInTheDocument();
+  });
+
+  it("does not celebrate when celebrations are disabled (off by default)", () => {
+    const { container } = renderState(
+      celebrationState({ enabled: false, followed: ["MEX"] })
+    );
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+  });
+
+  it("celebrates when enabled via legacy trainhopConfig.sports", () => {
+    const { container } = renderState(
+      celebrationState({
+        enabled: false,
+        followed: ["MEX"],
+        extraPrefs: {
+          trainhopConfig: { sports: { celebrationsEnabled: true } },
+        },
+      })
+    );
+    expect(container.querySelector(".sports-celebration")).toBeInTheDocument();
+  });
+
+  it("celebrates when enabled via canonical trainhopConfig.widgets.sportsWidgetCelebrationsEnabled", () => {
+    const { container } = renderState(
+      celebrationState({
+        enabled: false,
+        followed: ["MEX"],
+        extraPrefs: {
+          trainhopConfig: {
+            widgets: { sportsWidgetCelebrationsEnabled: true },
+          },
+        },
+      })
+    );
+    expect(container.querySelector(".sports-celebration")).toBeInTheDocument();
+  });
+
+  it("honors the canonical trainhopConfig.widgets window override", () => {
+    // Canonical 1h window; the match ended 2h ago, so it's outside and the
+    // celebration is suppressed even though it's within the 24h default.
+    const { container } = renderState(
+      celebrationState({
+        followed: ["MEX"],
+        endedAt: POST_KICKOFF_MS - 2 * 60 * 60 * 1000,
+        extraPrefs: {
+          trainhopConfig: {
+            widgets: { sportsWidgetCelebrationsWindowMs: 60 * 60 * 1000 },
+          },
+        },
+      })
+    );
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+  });
+
+  it("celebrates when enabled via the dedicated trainhopConfig.sportsCelebrations namespace", () => {
+    const { container } = renderState(
+      celebrationState({
+        enabled: false,
+        followed: ["MEX"],
+        extraPrefs: {
+          trainhopConfig: { sportsCelebrations: { enabled: true } },
+        },
+      })
+    );
+    expect(container.querySelector(".sports-celebration")).toBeInTheDocument();
+  });
+
+  it("honors the dedicated trainhopConfig.sportsCelebrations window override", () => {
+    // 1h window; match ended 2h ago, so it's suppressed.
+    const { container } = renderState(
+      celebrationState({
+        followed: ["MEX"],
+        endedAt: POST_KICKOFF_MS - 2 * 60 * 60 * 1000,
+        extraPrefs: {
+          trainhopConfig: {
+            sportsCelebrations: { windowMs: 60 * 60 * 1000 },
+          },
+        },
+      })
+    );
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+  });
+
+  it("dedicated sportsCelebrations window wins over the canonical widgets window", () => {
+    // 24h dedicated admits the 2h-ended match; 1h widgets fallback would not.
+    const { container } = renderState(
+      celebrationState({
+        followed: ["MEX"],
+        endedAt: POST_KICKOFF_MS - 2 * 60 * 60 * 1000,
+        extraPrefs: {
+          trainhopConfig: {
+            sportsCelebrations: { windowMs: 24 * 60 * 60 * 1000 },
+            widgets: { sportsWidgetCelebrationsWindowMs: 60 * 60 * 1000 },
+          },
+        },
+      })
+    );
+    expect(container.querySelector(".sports-celebration")).toBeInTheDocument();
+  });
+
+  it("does not celebrate under prefers-reduced-motion", () => {
+    mockMatchMedia(true);
+    const { container } = renderState(celebrationState({ followed: ["MEX"] }));
+    expect(
+      container.querySelector(".sports-celebration")
+    ).not.toBeInTheDocument();
+  });
+});

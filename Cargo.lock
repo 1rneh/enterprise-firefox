@@ -2826,6 +2826,7 @@ dependencies = [
  "selectors",
  "servo_arc",
  "smallvec",
+ "static_prefs",
  "style",
  "style_traits",
  "thin-vec",

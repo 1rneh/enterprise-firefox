@@ -1,3 +1,18 @@
 [DEFAULT]
+head = "head.js"
+prefs = [
+  "enterprise.console.address=",
+  "browser.policies.testUseHttp=true",
+  "browser.policies.remote.enabled=true",
+]
+run-if = [
+  "enterprise",
+]
+
+["browser_live_policies_basic_tests.js"]
+
+["browser_live_policies_diffing.js"]
 
 ["browser_live_policies_restoring_preference_state.js"]
+
+["browser_live_policy_proxy.js"]

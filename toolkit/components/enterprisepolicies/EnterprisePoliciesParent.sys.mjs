@@ -49,6 +49,8 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 // To allow for cleaning up old policies
 const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
+const PREF_REMOTE_POLICIES_ENABLED = "browser.policies.remote.enabled";
+
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
     "resource://gre/modules/Console.sys.mjs"
@@ -111,6 +113,18 @@ EnterprisePoliciesManager.prototype = {
       }
       Services.prefs.clearUserPref(PREF_POLICIES_APPLIED);
     }
+  },
+
+  /**
+   * Remote polling is enabled always when we are in felt launched browser
+   * or if the preference is set explicitly
+   *
+   * @returns {boolean} whether polling remote policies is enabled
+   */
+  _isRemotePoliciesSupported() {
+    return (
+      AppConstants.MOZ_ENTERPRISE && (Services.felt.isFeltBrowser() || Services.prefs.getBoolPref(PREF_REMOTE_POLICIES_ENABLED, false))
+    );
   },
 
   async _initialize() {
@@ -182,7 +196,7 @@ EnterprisePoliciesManager.prototype = {
     jsonProvider.onPoliciesChanges(handler);
 
     let remoteProvider = null;
-    if (AppConstants.MOZ_ENTERPRISE) {
+    if (this._isRemotePoliciesSupported()) {
       remoteProvider = RemotePoliciesProvider.createInstance();
       // Fetch first set of remote policies during the
       // initialization of the policy engine

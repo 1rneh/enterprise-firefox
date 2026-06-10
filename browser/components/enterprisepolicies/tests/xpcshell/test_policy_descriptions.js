@@ -3,6 +3,9 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 async function fetchText(url) {
   let response = await fetch(url);
   return response.text();
@@ -40,6 +43,16 @@ add_task(async function test_policy_descriptions_present() {
   let messageIds = new Set();
   for (let item of resource.textElements()) {
     messageIds.add(item.id);
+  }
+
+  if (AppConstants.MOZ_ENTERPRISE) {
+    const enterpriseFtlText = await fetchText(
+      "resource://app/localization/en-US/browser/enterprise/enterprise-policies-descriptions.ftl"
+    );
+    const enterpriseResource = new FluentResource(enterpriseFtlText);
+    for (const item of enterpriseResource.textElements()) {
+      messageIds.add(item.id);
+    }
   }
 
   let aboutPoliciesSource = await fetchText(

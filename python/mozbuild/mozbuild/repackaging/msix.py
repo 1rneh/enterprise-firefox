@@ -10,6 +10,7 @@ r"""Repackage ZIP archives (or directories) into MSIX App Packages.
   this is an issue with plating.
 """
 
+import configparser
 import functools
 import itertools
 import logging
@@ -36,6 +37,7 @@ from mozpack.packager.unpack import UnpackFinder
 from mozbuild.configure import confvars
 from mozbuild.dirutils import ensureParentDir
 from mozbuild.repackaging.application_ini import get_application_ini_values
+from mozbuild.repackaging.utils import merge_distribution_ini
 
 
 def log_copy_result(log, elapsed, destdir, result):
@@ -251,6 +253,11 @@ def get_branding(use_official, topsrcdir, build_app, finder, log=None):
             if match:
                 branding_reason = "'--with-branding' set"
                 branding = match.group(1)
+
+            match_enterprise = re.search(r"--enable-enterprise", data)
+            if match_enterprise:
+                branding_reason = "'--enable-enterprise' set"
+                branding = "browser/branding/enterprise"
 
     log(
         logging.INFO,
@@ -727,6 +734,55 @@ def repackage_msix(
     result = copier.copy(
         output_dir, remove_empty_directories=True, skip_if_older=not force
     )
+
+    if os.path.isfile(dir_or_package):
+        repack_zip_ini = None
+        distribution_ini_target = None
+
+        for p, f in JarFinder(dir_or_package, JarReader(dir_or_package)):
+            if p.endswith("distribution/distribution.ini"):
+                log(
+                    logging.INFO,
+                    "msix",
+                    {"path": p},
+                    "Loading existing distribution.ini from {path}",
+                )
+                repack_zip_ini = configparser.ConfigParser()
+                repack_zip_ini.read_string(f.open().read().decode("utf-8"))
+                break
+
+        for p, f in FileFinder(output_dir):
+            if p.endswith("distribution/distribution.ini"):
+                log(
+                    logging.INFO,
+                    "msix",
+                    {"path": p},
+                    "Loading existing distribution.ini from {path}",
+                )
+                distribution_ini_target = mozpath.join(output_dir, p)
+                break
+
+        print(
+            f"repack_zip_ini:{repack_zip_ini} && {distribution_ini_target}:{distribution_ini_target}"
+        )
+        if repack_zip_ini and distribution_ini_target:
+            log(
+                logging.INFO,
+                "msix",
+                {"distribution_ini_target": distribution_ini_target},
+                "{distribution_ini_target} exists, merging",
+            )
+
+            msix_ini = configparser.ConfigParser()
+            msix_ini.read(distribution_ini_target)
+
+            merge_distribution_ini(msix_ini, repack_zip_ini, distribution_ini_target)
+
+            with open(distribution_ini_target, "w") as distribution_ini_modified:
+                repack_zip_ini.write(
+                    distribution_ini_modified, space_around_delimiters=False
+                )
+
     if log:
         log_copy_result(log, time.monotonic() - start, output_dir, result)
 

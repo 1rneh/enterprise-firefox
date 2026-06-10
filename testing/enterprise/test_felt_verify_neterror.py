@@ -88,7 +88,7 @@ class FeltVerifyNetError(FeltConsoleErrorBase):
         self.assert_error_bar_message(
             selector=".felt-browser-error-connection",
             expected_heading="Unable to connect. Please contact your administrator.",
-            error_msg="Firefox Enterprise spotted a potentially serious security issue with www.mozilla.org. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.",
+            error_msg=f"{self.get_brand_name()} spotted a potentially serious security issue with www.mozilla.org. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.",
             screenshot_name=f"{self._testMethodName}_MOZILLA_PKIX_ERROR_MITM_DETECTED",
         )
 

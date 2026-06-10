@@ -21,6 +21,7 @@ import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.concept.engine.ipprotection.ServiceState
 import mozilla.components.feature.ipprotection.IPProtectionFxaAuthFlow
 import mozilla.components.feature.ipprotection.IPProtectionFxaAuthFlow.Companion.INTENT_ON_COMPLETE
+import mozilla.components.feature.ipprotection.IPProtectionWarningBinding
 import mozilla.components.feature.ipprotection.debug.IPProtectionStateDebugContent
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
 import mozilla.components.feature.ipprotection.store.state.AccountStatus
@@ -33,7 +34,7 @@ import org.mozilla.fenix.components.components
 import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.hideToolbar
 import org.mozilla.fenix.ext.requireComponents
-import org.mozilla.fenix.ext.settings
+import org.mozilla.fenix.home.HomeFragmentDirections
 import org.mozilla.fenix.theme.FirefoxTheme
 
 /** Fragment hosting the IP Protection settings screen. */
@@ -43,6 +44,8 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
 
     private val args: IPProtectionFragmentArgs by navArgs()
     private val fxaAccountAuthFlow = ViewBoundFeatureWrapper<IPProtectionFxaAuthFlow>()
+
+    private val ipProtectionWarningBinding = ViewBoundFeatureWrapper<IPProtectionWarningBinding>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +74,7 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
                 syncingData = state.syncingData(),
                 onVpnToggle = { enabled ->
                     if (enabled) {
-                        requireContext().settings().hasAlreadyUsedVpn = true
+                        requireComponents.settings.hasAlreadyUsedVpn = true
                     }
                     requireComponents.ipProtection.store.dispatch(IPProtectionAction.Toggle)
                 },
@@ -89,7 +92,7 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
                 onGetStartedClick = {
                     requireComponents.ipProtection.store.dispatch(IPProtectionAction.Toggle)
                 },
-                showDebugAction = requireContext().settings().showSecretDebugMenuThisSession,
+                showDebugAction = requireComponents.settings.showSecretDebugMenuThisSession,
                 onDebugActionClick = { showDebugDialog = true },
                 onNavigateBack = { findNavController().popBackStack() },
             )
@@ -121,6 +124,19 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
             ),
             view = view,
             owner = this,
+        )
+
+        ipProtectionWarningBinding.set(
+            feature = IPProtectionWarningBinding(
+                store = requireComponents.ipProtection.store,
+                proxyUnavailable = {
+                    findNavController().navigate(
+                        HomeFragmentDirections.actionGlobalIpProtectionUnavailableDialog(),
+                    )
+                },
+            ),
+            owner = this,
+            view = view,
         )
     }
 

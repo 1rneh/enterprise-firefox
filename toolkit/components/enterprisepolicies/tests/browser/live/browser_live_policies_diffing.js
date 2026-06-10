@@ -3,30 +3,20 @@
 
 "use strict";
 
-add_setup(async function test_set_http_server_usage() {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.policies.live_polling_freq", 250],
-      ["browser.policies.testUseHttp", true],
-    ],
-  });
-
-  await EnterprisePolicyTesting.servePolicyWithJson(
-    {},
-    {},
-    registerCleanupFunction
-  );
-
-  if (Services.prefs.getBoolPref("browser.policies.testUseHttp")) {
-    assertOverHttp();
-  }
-});
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Policies: "resource:///modules/policies/Policies.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
+});
+
+add_setup(async () => {
+  registerCleanupFunction(async () => {
+    await clearPolicyEngine();
+  });
+  await EnterprisePolicyTesting.ensureRemotePoliciesMockServer(
+    registerCleanupFunction
+  );
 });
 
 add_task(async function test_simple_policy_removal() {
@@ -55,7 +45,7 @@ add_task(async function test_simple_policy_removal() {
     },
   };
 
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {
         BlockSomePage: true,
@@ -66,7 +56,7 @@ add_task(async function test_simple_policy_removal() {
 
   ok(blockSomePageApplied, "BlockSomePage enabled");
 
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {},
     },
@@ -92,13 +82,11 @@ add_task(async function test_simple_policy_stays() {
   // Inspired by BlockAboutConfig
   lazy.Policies.BlockAnotherPage = {
     onBeforeUIStartup(manager, param) {
-      info(`BlockAnotherPage.onBeforeUIStartup(${param})`);
       if (param) {
         blockAnotherPageApplied = true;
       }
     },
     onRemove(manager, oldParam) {
-      info(`BlockAnotherPage.onRemove(${oldParam})`);
       if (oldParam) {
         // Previous policy param was "true" so revert and disable the blocking
         blockAnotherPageApplied = false;
@@ -106,7 +94,7 @@ add_task(async function test_simple_policy_stays() {
     },
   };
 
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {
         BlockAnotherPage: true,
@@ -146,7 +134,7 @@ add_task(async function test_simple_policy_stays() {
   blockAnotherPageApplied = true;
 
   // Now publish a new instance where the policy has been removed
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {},
     },
@@ -157,8 +145,4 @@ add_task(async function test_simple_policy_stays() {
   ok(!blockAnotherPageApplied, "BlockAnotherPage disabled");
 
   delete lazy.Policies.BlockAnotherPage;
-});
-
-add_task(async function policy_cleanup() {
-  await EnterprisePolicyTesting.servePolicyWithJson({}, {});
 });

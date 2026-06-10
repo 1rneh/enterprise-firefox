@@ -2,7 +2,6 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 "use strict";
-
 /* eslint-disable mozilla/reject-import-preferences-module */
 const { Preferences } = ChromeUtils.importESModule(
   "resource://gre/modules/Preferences.sys.mjs"
@@ -45,18 +44,13 @@ function checkProxyPref(proxytype, address, port, unlocked = true) {
   }
 }
 
-add_setup(async function test_set_http_server_usage() {
-  await SpecialPowers.pushPrefEnv({
-    set: [["browser.policies.testUseHttp", true]],
+add_setup(async () => {
+  registerCleanupFunction(async () => {
+    await clearPolicyEngine();
   });
-
-  await EnterprisePolicyTesting.servePolicyWithJson(
-    {},
-    {},
+  await EnterprisePolicyTesting.ensureRemotePoliciesMockServer(
     registerCleanupFunction
   );
-
-  assertOverHttp();
 });
 
 add_task(async function test_apply_then_remove_proxy() {
@@ -72,7 +66,7 @@ add_task(async function test_apply_then_remove_proxy() {
     "changeProxySettings is allowed"
   );
 
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {
         Proxy: {
@@ -99,7 +93,7 @@ add_task(async function test_apply_then_remove_proxy() {
   );
 
   // New policy removing proxy
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {},
     },
@@ -132,7 +126,7 @@ add_task(async function test_apply_then_remove_proxy_locked() {
     "changeProxySettings is allowed"
   );
 
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {
         Proxy: {
@@ -160,7 +154,7 @@ add_task(async function test_apply_then_remove_proxy_locked() {
   );
 
   // New policy removing proxy
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {},
     },
@@ -181,7 +175,7 @@ add_task(async function test_apply_then_remove_proxy_locked() {
 });
 
 add_task(async function test_apply_proxy_then_change_proxy() {
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {
         Proxy: {
@@ -208,7 +202,7 @@ add_task(async function test_apply_proxy_then_change_proxy() {
   );
 
   // Network change from device posture? New policy
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {
         Proxy: {
@@ -233,8 +227,4 @@ add_task(async function test_apply_proxy_then_change_proxy() {
     true,
     "changeProxySettings is allowed"
   );
-});
-
-add_task(async function policy_cleanup() {
-  await EnterprisePolicyTesting.servePolicyWithJson({}, {});
 });

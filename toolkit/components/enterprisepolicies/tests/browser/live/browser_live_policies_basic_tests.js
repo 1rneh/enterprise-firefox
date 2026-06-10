@@ -3,7 +3,20 @@
 
 "use strict";
 
-add_task(async function test_simple_policies() {
+add_setup(async () => {
+  registerCleanupFunction(async () => {
+    await clearPolicyEngine();
+  });
+  await EnterprisePolicyTesting.ensureRemotePoliciesMockServer(
+    registerCleanupFunction
+  );
+});
+
+/**
+ * This is a copy of test_simple_policies from toolkit/components/enterprisepolicies/tests/browser/browser_policies_basic_tests.js
+ * except that the policies are served through the RemotePoliciesProvider polling from a mock server
+ */
+add_task(async function test_simple_remote_policies() {
   let { Policies } = ChromeUtils.importESModule(
     "resource:///modules/policies/Policies.sys.mjs"
   );
@@ -48,8 +61,8 @@ add_task(async function test_simple_policies() {
     },
   };
 
-  await setupPolicyEngineWithJson(
-    // policies.json
+  // Ensuring that the endpoint /api/browser/policies was hit
+  await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {
         simple_policy0: true,
@@ -123,18 +136,4 @@ add_task(async function test_simple_policies() {
   delete Policies.simple_policy1;
   delete Policies.simple_policy2;
   delete Policies.simple_policy3;
-});
-
-add_task(async function test_policy_cleanup() {
-  await EnterprisePolicyTesting.setupPolicyEngineWithJson("");
-  is(
-    Services.policies.getActivePolicies(),
-    undefined,
-    "No policies should be defined"
-  );
-  is(
-    Services.policies.status,
-    Ci.nsIEnterprisePolicies.INACTIVE,
-    "Engine is inactive at the end of the test"
-  );
 });

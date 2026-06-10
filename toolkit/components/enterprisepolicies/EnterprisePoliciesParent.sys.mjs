@@ -123,7 +123,9 @@ EnterprisePoliciesManager.prototype = {
    */
   _isRemotePoliciesSupported() {
     return (
-      AppConstants.MOZ_ENTERPRISE && (Services.felt.isFeltBrowser() || Services.prefs.getBoolPref(PREF_REMOTE_POLICIES_ENABLED, false))
+      AppConstants.MOZ_ENTERPRISE &&
+      (Services.felt.isFeltBrowser() ||
+        Services.prefs.getBoolPref(PREF_REMOTE_POLICIES_ENABLED, false))
     );
   },
 

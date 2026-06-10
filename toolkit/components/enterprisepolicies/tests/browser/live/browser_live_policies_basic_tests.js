@@ -14,7 +14,7 @@ add_setup(async () => {
 
 /**
  * This is a copy of test_simple_policies from toolkit/components/enterprisepolicies/tests/browser/browser_policies_basic_tests.js
- * except that the policies are served through the RemotePoliciesProvider polling from by a mock server
+ * except that the policies are served through the RemotePoliciesProvider polling from a mock server
  */
 add_task(async function test_simple_remote_policies() {
   let { Policies } = ChromeUtils.importESModule(
@@ -61,7 +61,7 @@ add_task(async function test_simple_remote_policies() {
     },
   };
 
-  // Ensuring that the endpoint /api/browser/policies was hiy
+  // Ensuring that the endpoint /api/browser/policies was hit
   await EnterprisePolicyTesting.servePolicyWithJson(
     {
       policies: {

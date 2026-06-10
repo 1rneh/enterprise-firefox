@@ -10,6 +10,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  FeltErrorReport: "resource:///modules/FeltErrorReport.sys.mjs",
+  ERROR_SOURCE: "resource:///modules/FeltErrorReport.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
   Updates: "resource:///modules/enterprise/Updates.sys.mjs",
@@ -24,103 +26,13 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 // Will at least make move forward marionette
 Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
 
-const ErrorReport = {
-  _wrapper: null,
-
-  init() {
-    this._wrapper = document.querySelector(".felt-browser-error");
-
-    this._stringBundles = {};
-    ChromeUtils.defineLazyGetter(this._stringBundles, "app", () => {
-      return Services.strings.createBundle(
-        "chrome://global/locale/appstrings.properties"
-      );
-    });
-
-    this._wrapper.addEventListener("message-bar:user-dismissed", e => {
-      e.preventDefault();
-      e.target.classList.add("is-hidden");
-    });
-  },
-
-  reset() {
-    if (!this._wrapper) {
-      return;
-    }
-    if (this._wrapper.classList.contains("is-hidden")) {
-      return;
-    }
-    this._wrapper.classList.add("is-hidden");
-    for (const bar of this._wrapper.querySelectorAll("moz-message-bar")) {
-      bar.classList.add("is-hidden");
-    }
-  },
-
-  async update(errorType, details = null, cause = null) {
-    if (!this._wrapper) {
-      return;
-    }
-    const errorElement = this._wrapper.querySelector(`.${errorType}`);
-    if (!errorElement) {
-      return;
-    }
-    if (details) {
-      const detailsElement = errorElement.querySelector(
-        ".felt-browser-error-details"
-      );
-      if (detailsElement) {
-        const message = await this.getLocalisedErrorString(details, cause);
-        detailsElement.textContent = message || details;
-      }
-    }
-    errorElement.classList.remove("is-hidden");
-    this._wrapper.classList.remove("is-hidden");
-  },
-
-  async getLocalisedErrorString(details, cause) {
-    const errorMessage = await document.l10n.formatValue(
-      `felt-error-${details}`
-    );
-    if (errorMessage) {
-      return errorMessage;
-    }
-    return this.formatStringBundle(details, cause);
-  },
-
-  formatStringBundle(msgId, cause) {
-    try {
-      return this._stringBundles.app.formatStringFromName(msgId, [cause?.host]);
-    } catch (ex) {
-      lazy.log.error(
-        `FELT error localization failed for '${msgId}'. Expected for NSS errors.`
-      );
-      return null;
-    }
-  },
-};
-
 async function connectToConsole(email) {
   let posture;
   try {
     posture = await lazy.ConsoleClient.sendDevicePosture();
   } catch (err) {
-    lazy.log.error(`FeltExtension: Failed to connect to console: ${err}`);
-
-    // Show simpler "No Network Connection" only for truly offline scenarios
-    // netOffline for offline mode, dnsNotFound2 for actual network disconnect
-    const NETWORK_ERRORS = new Set(["netOffline", "dnsNotFound2"]);
-    if (NETWORK_ERRORS.has(err.message)) {
-      ErrorReport.update(
-        "felt-browser-error-no-network",
-        "no-network-connection"
-      );
-    } else {
-      ErrorReport.update(
-        "felt-browser-error-connection",
-        err.message,
-        err.cause
-      );
-    }
+    lazy.log.error(`Failed to send device posture: ${err}`);
+    await lazy.FeltErrorReport.handleXhrError(err);
     return;
   }
 
@@ -171,7 +83,7 @@ async function connectToConsole(email) {
   lazy.log.debug(
     `FeltExtension: created contentPrincipal with privateBrowsingId=${contentPrincipal.privateBrowsingId}`
   );
-  lazy.log.debug("Load SSO URI: ", ssoLoginURI);
+  lazy.log.debug("Load SSO URI: ", ssoLoginURI.spec);
   browser.fixupAndLoadURIString(ssoLoginURI.spec, {
     triggeringPrincipal: contentPrincipal,
   });
@@ -203,7 +115,12 @@ async function connectToConsole(email) {
     document
       .querySelector(".felt-login__email-pane")
       .classList.remove("is-hidden");
-    ErrorReport.update(errorType, details, cause);
+    lazy.FeltErrorReport.update(
+      errorType,
+      details,
+      cause,
+      lazy.ERROR_SOURCE.RESET
+    );
   }
 
   let ssoTimeout = setTimeout(() => {
@@ -240,8 +157,8 @@ async function connectToConsole(email) {
         );
         resetToLoginPage(
           "felt-browser-error-connection",
-          lazy.ConsoleClient._getErrorNameForStatus(status),
-          { host: uri.host }
+          lazy.FeltErrorReport.getFluentIdForStatus(status),
+          { hostname: uri.host }
         );
         return;
       }
@@ -303,7 +220,7 @@ async function connectToConsole(email) {
     Ci.nsIWebProgress.NOTIFY_STATE_NETWORK | Ci.nsIWebProgress.NOTIFY_LOCATION
   );
 
-  ErrorReport.reset();
+  lazy.FeltErrorReport.reset();
   document.querySelector(".felt-updates-message").classList.add("is-hidden");
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
   document.querySelector(".felt-login__sso").classList.remove("is-hidden");
@@ -343,7 +260,7 @@ function informAboutPotentialStartupFailure() {
   if (window.location.search) {
     const errorClass = new URLSearchParams(window.location.search).get("error");
     if (errorClass) {
-      ErrorReport.update(errorClass);
+      lazy.FeltErrorReport.update(errorClass);
     }
   }
 }
@@ -544,8 +461,8 @@ window.addEventListener(
   "load",
   () => {
     setBuildVersion();
-    ErrorReport.init();
-    lazy.Updates.init(document, ErrorReport);
+    lazy.FeltErrorReport.init(document);
+    lazy.Updates.init(document);
     setupMarionetteEnvironment();
     setupPopupNotifications();
     setupContextMenu();

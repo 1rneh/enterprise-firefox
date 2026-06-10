@@ -62,6 +62,7 @@ felt-browser-error-no-network =
 
 felt-error-network = Unknown network error
 felt-error-no-network-connection = Please check your internet connection and try again.
+felt-error-neterror-dns-not-found-title = Server not found
 
 ## Updates messages and related errors messages
 

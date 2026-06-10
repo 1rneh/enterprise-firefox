@@ -8,93 +8,167 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
-from felt_tests import FeltTestsBase, find_free_port
+from felt_console_error import FeltConsoleErrorBase
+from felt_tests import find_free_port
 
 
-class FeltConsoleError(FeltTestsBase):
+class FeltConsoleError(FeltConsoleErrorBase):
     def teardown(self):
         if not hasattr(self, "_child_driver"):
             self._manually_closed_child = True
         return super().teardown()
 
-    def check_error_bar_message(
+    def assert_xhrerror(
         self,
-        console_addr,
-        selector,
+        login_location,
         expected_heading,
+        selector=".felt-browser-error-no-network",
         error_msg=None,
         error_msg_contains=None,
     ):
-
+        # Using wrong address as console address should trigger XHR error
+        # handling
         with self._driver.using_prefs(
-            {"enterprise.console.address": console_addr}, default_branch=True
+            {"enterprise.console.address": login_location}, default_branch=True
         ):
+            self.login_location.value = ""
             self.submit_email()
 
-            self._driver.set_context("chrome")
-            error = self.get_elem(selector)
-            message = error.get_attribute("heading").strip()
-            assert expected_heading in message, f"Unexpected error message: {message}"
+            self.assert_error_bar_message(
+                selector=selector,
+                expected_heading=expected_heading,
+                error_msg=error_msg,
+                error_msg_contains=error_msg_contains,
+                screenshot_name=f"{self._testMethodName}_xhrerror",
+                source="xhr",
+            )
 
-            if error_msg is not None:
-                details = self.get_elem(f"{selector} .felt-browser-error-details")
-                details_text = details.get_property("textContent").strip()
-                assert details_text == error_msg, (
-                    f"Correct error message: '{details_text}'"
-                )
+    def assert_neterror(
+        self,
+        login_location,
+        expected_heading,
+        selector=".felt-browser-error-connection",
+        error_msg=None,
+        error_msg_contains=None,
+    ):
+        # Using correct address as console address and incorrect host during
+        # login should trigger about:neterror error handling
+        with self._driver.using_prefs(
+            {"enterprise.console.address": f"http://localhost:{self.console_port}"},
+            default_branch=True,
+        ):
+            self.login_location.value = login_location
+            self.submit_email()
 
-            if error_msg_contains is not None:
-                details = self.get_elem(f"{selector} .felt-browser-error-details")
-                details_text = details.get_property("textContent").strip()
-                assert error_msg_contains in details_text, (
-                    f"Expected '{error_msg_contains}' in error details: '{details_text}'"
-                )
-
-            self._driver.set_context("content")
+            self.assert_error_bar_message(
+                selector=selector,
+                expected_heading=expected_heading,
+                error_msg=error_msg,
+                error_msg_contains=error_msg_contains,
+                screenshot_name=f"{self._testMethodName}_neterror",
+                source="net",
+            )
 
     def test_felt_unreachable_ip_shows_connection_error(self):
         # Port 1 is on Firefox's blocked-port list, producing a generic "network"
         # error key that resolves to "Unknown network error" via the felt-error-network
-        return self.check_error_bar_message(
-            "http://127.0.0.1:1",
-            ".felt-browser-error-connection",
-            "Unable to connect",
-            "Unknown network error",
+
+        # Trying to access :1 port will trigger a deniedPortAccess error. However
+        # because it is happening during Redirect phase, the error pops from
+        # nsHttpChannel directly and its handling bypasses about:neterror loading.
+        #
+        # Replicating the same behavior on Firefox show no page trying to load as well.
+        # To replicate, instantiate a python http.server and serve a 302 redirection
+        # to localhost:1.
+        #
+        # This allows to verify the handling of the SSO timeout logic.
+        with self._driver.using_prefs(
+            {
+                "enterprise.console.address": f"http://localhost:{self.console_port}",
+                "enterprise.sso.timeout_ms": 2000,
+            },
+            default_branch=True,
+        ):
+            self.login_location.value = "http://127.0.0.1:1"
+            self.submit_email()
+
+            self.assert_error_bar_message(
+                selector=".felt-browser-error-sso-timeout",
+                expected_heading="Sign-in timed out",
+                screenshot_name=f"{self._testMethodName}_sso",
+                source="reset",
+            )
+
+        self.assert_xhrerror(
+            login_location="http://127.0.0.1:1",
+            expected_heading="Unable to connect",
+            selector=".felt-browser-error-connection",
+            error_msg="Unknown network error",
         )
 
     def test_felt_nonexistent_domain_shows_no_network_error(self):
-        # dnsNotFound2 which renders the no-network bar rather than the connection error bar.
-        return self.check_error_bar_message(
-            "http://nonexistent.localdomain:80",
-            ".felt-browser-error-no-network",
-            "No network connection",
-            "Please check your internet connection and try again.",
+        self.assert_neterror(
+            login_location="http://nonexistent.localdomain:80",
+            expected_heading="Server not found",
+            error_msg="Try connecting on a different device. Check your modem or router. Disconnect and reconnect to Wi-Fi.",
+        )
+
+        # dnsNotFound which renders the no-network bar rather than the connection error bar
+        # XHR error handling was required to be different per UX request
+        self.assert_xhrerror(
+            login_location="http://nonexistent.localdomain:80",
+            expected_heading="No network connection",
+            error_msg="Please check your internet connection and try again.",
         )
 
     def test_felt_ssl_mismatch_shows_connection_error(self):
-        return self.check_error_bar_message(
-            f"https://localhost:{self.console_port}",
-            ".felt-browser-error-connection",
-            "Unable to connect",
+        self.assert_neterror(
+            login_location=f"https://localhost:{self.console_port}",
+            expected_heading="Secure Connection Failed",
+        )
+
+        self.assert_xhrerror(
+            login_location=f"https://localhost:{self.console_port}",
+            selector=".felt-browser-error-connection",
+            expected_heading="Unable to connect",
         )
 
     def test_felt_error_details_include_console_address(self):
         # connectionFailure with host substitution so the console address appears in details.
         refused_port = find_free_port()
-        console_addr = f"http://localhost:{refused_port}"
 
         app_name = self._driver.session_capabilities.get("browserName")
         expected_str = None
         if app_name == "firefox":
-            expected_str = f"Firefox can’t establish a connection to the server at localhost:{refused_port}."
+            expected_str = f"Firefox Enterprise can’t connect to the server at localhost:{refused_port}"
         elif app_name == "thunderbird":
             expected_str = f"The connection was refused when attempting to contact localhost:{refused_port}."
         else:
             assert False, f"Unsupported app {app_name}"
 
-        return self.check_error_bar_message(
-            console_addr,
-            ".felt-browser-error-connection",
-            "Unable to connect",
-            expected_str,
+        self.assert_neterror(
+            login_location=f"http://localhost:{refused_port}",
+            expected_heading="Unable to connect",
+            error_msg=expected_str,
+        )
+
+        self.assert_xhrerror(
+            login_location=f"http://localhost:{refused_port}",
+            selector=".felt-browser-error-connection",
+            expected_heading="Unable to connect",
+            error_msg=expected_str,
+        )
+
+    def test_felt_error_insecure_certs(self):
+        self.assert_neterror(
+            login_location="https://wrong.host.badssl.com/sso_url",
+            expected_heading="Unable to connect",
+            error_msg="Firefox Enterprise spotted a potentially serious security issue with wrong.host.badssl.com. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.",
+        )
+
+        self.assert_xhrerror(
+            login_location="https://wrong.host.badssl.com/sso_url",
+            selector=".felt-browser-error-connection",
+            expected_heading="Unable to connect",
+            error_msg="Firefox Enterprise spotted a potentially serious security issue with wrong.host.badssl.com. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.",
         )

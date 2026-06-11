@@ -889,7 +889,7 @@ workers:
             os: windows
             worker-type: '{alias}'
         win11-a64-25h2:
-            provisioner: 'gecko-t'
+            provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'

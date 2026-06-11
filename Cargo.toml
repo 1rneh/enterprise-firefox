@@ -343,9 +343,6 @@ core-graphics-types = { path = "build/rust/core-graphics-types" }
 # Patch `dispatch2` to an empty crate that cannot be built.
 dispatch2 = { path = "build/rust/dispatch2" }
 
-# Patch `half` 1.* to 2.
-half = { path = "build/rust/half" }
-
 # Upgrade `rusqlite` 0.31 to 0.33.
 rusqlite = { path = "build/rust/rusqlite" }
 
@@ -422,10 +419,3 @@ libcrux-traits = { path = "build/rust/libcrux-traits" }
 
 # Patching to build with windows 0.62.2 dep
 ipc-channel = { git = "https://github.com/mozilla/ipc-channel", rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e" }
-
-# Redirect any `nss-rs` git dependency (notably the one pinned inside upstream
-# `mls-rs-crypto-nss` in mozilla/mls-platform-api) to the in-tree vendored copy.
-# This way bumping nss-rs in tree does not require a matching update to the
-# pin in mls-platform-api on GitHub.
-[patch."https://github.com/mozilla/nss-rs"]
-nss-rs = { path = "third_party/rust/nss-rs" }

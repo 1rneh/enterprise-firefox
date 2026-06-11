@@ -416,14 +416,6 @@ user-id = 83100 # Max Inden (mxinden)
 start = "2025-01-29"
 end = "2026-09-24"
 
-[[wildcard-audits.nss-gk-api]]
-who = "John M. Schanck <jschanck@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 175410 # John Schanck (jschanck)
-start = "2022-11-14"
-end = "2024-06-20"
-notes = "Maintained by the CryptoEng team at Mozilla."
-
 [[wildcard-audits.ohttp]]
 who = "Martin Thomson <mt@lowentropy.net>"
 criteria = "safe-to-deploy"
@@ -4687,9 +4679,12 @@ criteria = "safe-to-deploy"
 delta = "0.15.0 -> 0.22.0"
 
 [[audits.mls-rs-provider-sqlite]]
-who = "Benjamin Beurdouche <beurdouche@mozilla.com>"
+who = [
+    "Benjamin Beurdouche <beurdouche@mozilla.com>",
+    "Lars Eggert <leggert@mozilla.com>",
+]
 criteria = "safe-to-deploy"
-delta = "0.22.0 -> 0.22.0@git:bbbf9d51d60e5f63ab2b791ffbfd884c4d1a317b"
+delta = "0.22.0 -> 0.22.0@git:2a2e344019bfc76b7e566ee6e0549cf668d90127"
 importable = false
 
 [[audits.mockito]]
@@ -4733,9 +4728,9 @@ criteria = "safe-to-deploy"
 delta = "0.3.0 -> 0.4.1"
 
 [[audits.mtu]]
-who = "Henrik Skupin <mail@hskupin.info>"
+who = ["Henrik Skupin <mail@hskupin.info>", "Lars Eggert <leggert@mozilla.com>"]
 criteria = "safe-to-deploy"
-delta = "0.4.1 -> 0.4.1@git:006442de909e35d9ab9d6fcb86155f77779d3090"
+delta = "0.4.1 -> 0.4.1@git:18832752db4700df4bdbb26f655b675931b234ac"
 importable = false
 
 [[audits.naga]]
@@ -6233,6 +6228,11 @@ version = "0.11.1"
 who = "John M. Schanck <jschanck@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.11.1 -> 0.11.2"
+
+[[audits.serde_cbor_2]]
+who = "John M. Schanck <jschanck@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.13.0"
 
 [[audits.serde_core]]
 who = "Erich Gubler <erichdongubler@gmail.com>"

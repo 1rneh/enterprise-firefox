@@ -95,3 +95,14 @@ class FeltConsoleErrorBase(FeltTests):
         self.maybe_save_screenshot(Environment.FELT, screenshot_name)
 
         self._driver.set_context("content")
+
+    def get_brand_name(self):
+        app_name = self._driver.session_capabilities.get("browserName")
+        brand = None
+        if app_name == "firefox":
+            brand = "Firefox Enterprise"
+        elif app_name == "thunderbird":
+            brand = "Thunderbird Enterprise"
+        else:
+            assert False, f"Unsupported app {app_name}"
+        return brand

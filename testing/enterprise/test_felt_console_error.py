@@ -137,38 +137,29 @@ class FeltConsoleError(FeltConsoleErrorBase):
         # connectionFailure with host substitution so the console address appears in details.
         refused_port = find_free_port()
 
-        app_name = self._driver.session_capabilities.get("browserName")
-        expected_str = None
-        if app_name == "firefox":
-            expected_str = f"Firefox Enterprise can’t connect to the server at localhost:{refused_port}"
-        elif app_name == "thunderbird":
-            expected_str = f"The connection was refused when attempting to contact localhost:{refused_port}."
-        else:
-            assert False, f"Unsupported app {app_name}"
-
         self.assert_neterror(
             login_location=f"http://localhost:{refused_port}",
             expected_heading="Unable to connect",
-            error_msg=expected_str,
+            error_msg=f"{self.get_brand_name()} can’t connect to the server at localhost:{refused_port}",
         )
 
         self.assert_xhrerror(
             login_location=f"http://localhost:{refused_port}",
             selector=".felt-browser-error-connection",
             expected_heading="Unable to connect",
-            error_msg=expected_str,
+            error_msg=f"{self.get_brand_name()} can’t connect to the server at localhost:{refused_port}",
         )
 
     def test_felt_error_insecure_certs(self):
         self.assert_neterror(
             login_location="https://wrong.host.badssl.com/sso_url",
             expected_heading="Unable to connect",
-            error_msg="Firefox Enterprise spotted a potentially serious security issue with wrong.host.badssl.com. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.",
+            error_msg=f"{self.get_brand_name()} spotted a potentially serious security issue with wrong.host.badssl.com. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.",
         )
 
         self.assert_xhrerror(
             login_location="https://wrong.host.badssl.com/sso_url",
             selector=".felt-browser-error-connection",
             expected_heading="Unable to connect",
-            error_msg="Firefox Enterprise spotted a potentially serious security issue with wrong.host.badssl.com. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.",
+            error_msg=f"{self.get_brand_name()} spotted a potentially serious security issue with wrong.host.badssl.com. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.",
         )

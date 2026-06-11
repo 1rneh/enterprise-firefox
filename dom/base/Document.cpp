@@ -5567,6 +5567,11 @@ bool Document::AutoEditorCommandTarget::IsEditable(Document* aDocument) const {
     doc->FlushPendingNotifications(FlushType::Frames);
   }
   EditorBase* targetEditor = GetTargetEditor();
+  if (targetEditor && targetEditor->GetEditContext()) {
+    // EditContext should be treated as non-editable for the purposes of
+    // execCommand: https://github.com/w3c/edit-context/issues/71
+    return false;
+  }
   if (targetEditor && targetEditor->IsTextEditor()) {
     // FYI: When `disabled` attribute is set, `TextEditor` treats it as
     //      "readonly" too.
@@ -15006,7 +15011,7 @@ bool Document::IsScrollingElement(Element* aElement) {
 
 class UnblockParsingPromiseHandler final : public PromiseNativeHandler {
  public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS_FINAL
   NS_DECL_CYCLE_COLLECTION_CLASS(UnblockParsingPromiseHandler)
 
   explicit UnblockParsingPromiseHandler(Document* aDocument, Promise* aPromise,

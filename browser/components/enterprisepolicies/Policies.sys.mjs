@@ -2610,16 +2610,19 @@ export var Policies = {
       if (!param) {
         blockAboutPage(manager, "about:logins", true);
         setAndLockPref("pref.privacy.disable_button.view_passwords", true);
+        setAndLockPref("browser.contextual-password-manager.enabled", false);
       } else {
         unblockAboutPage(manager, "about:logins");
         setAndLockPref("pref.privacy.disable_button.view_passwords", false);
+        setAndLockPref("browser.contextual-password-manager.enabled", true);
       }
       setAndLockPref("signon.rememberSignons", param);
     },
     onRemove(manager, _oldParams) {
       unblockAboutPage(manager, "about:logins");
-      unsetAndUnlockPref("pref.privacy.disable_button.view_passwords", true);
+      unsetAndUnlockPref("pref.privacy.disable_button.view_passwords");
       unsetAndUnlockPref("signon.rememberSignons");
+      unsetAndUnlockPref("browser.contextual-password-manager.enabled");
     },
   },
 

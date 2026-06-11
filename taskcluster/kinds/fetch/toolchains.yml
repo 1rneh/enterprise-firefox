@@ -242,12 +242,12 @@ wine:
         strip-components: 1
         add-prefix: wine-source/
 
-cbindgen-0.29.1:
-    description: cbindgen 0.29.1 source code
+cbindgen-0.29.4:
+    description: cbindgen 0.29.4 source code
     fetch:
         type: git
         repo: https://github.com/mozilla/cbindgen
-        revision: eef17769e2739ebb425fee0bbd88e6a52ac2a4e1
+        revision: b826cb8911488fe8a209d2b693492c0c673e8cca
     fetch-alias: cbindgen
 
 cctools-port:
@@ -337,8 +337,8 @@ sccache:
     fetch:
         type: git
         repo: https://github.com/mozilla/sccache
-        # 0.11.0 release
-        revision: 5709f069514a775ddb6604a6e9f5f5c91c0e9821
+        # 0.15.0 release
+        revision: c2e4b4ca035f91f8b63978afc8e2c71f174fe306
 
 fxc2:
     description: fxc2 source code

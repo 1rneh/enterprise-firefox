@@ -200,7 +200,14 @@ pref("app.update.langpack.enabled", true);
 #ifdef XP_MACOSX
   // If set to true, Firefox will automatically restart if it is left running
   // with no browser windows open.
-  pref("app.update.noWindowAutoRestart.enabled", true);
+  #if defined(MOZ_ENTERPRISE)
+    // Bug 2046862 : For Enterprise, FELT is running without a window, so it is
+    // required to disable this feature.
+    pref("app.update.noWindowAutoRestart.enabled", false);
+  #else
+    pref("app.update.noWindowAutoRestart.enabled", true);
+  #endif
+
   // How long to wait after all browser windows are closed before restarting,
   // in milliseconds. 5 min = 300000 ms
   pref("app.update.noWindowAutoRestart.delayMs", 300000);

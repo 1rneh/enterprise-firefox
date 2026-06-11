@@ -602,6 +602,7 @@ def make_job_description(config, jobs):
                 treeherder["symbol"] = f"MSI-Ent({repack_id})"
             else:
                 treeherder["symbol"] = "MSI({})".format(locale or "N")
+
             if display_name := job.get("msi", {}).get("display-name"):
                 attributes["msi_display_name"] = display_name
 

@@ -31,7 +31,6 @@
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_fission.h"
-#include "mozilla/StaticPrefs_webgl.h"
 #include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/glean/SecuritySandboxMetrics.h"
 #include "mozilla/Telemetry.h"
@@ -184,7 +183,6 @@
 #include "mozilla/LateWriteChecks.h"
 
 #include <stdlib.h>
-#include <locale.h>
 
 #ifdef XP_UNIX
 #  include <errno.h>
@@ -298,10 +296,12 @@ static const char kPrefSetDefaultBrowserUserChoicePref[] =
 
 #if defined(XP_WIN)
 static const char kPrefThemeId[] = "extensions.activeThemeID";
+#  if defined(MOZ_DEFAULT_BROWSER_AGENT)
 static const char kPrefBrowserStartupBlankWindow[] =
     "browser.startup.blankWindow";
 static const char kPrefPreXulSkeletonUI[] = "browser.startup.preXulSkeletonUI";
-#endif  // defined(XP_WIN)
+#  endif  // defined(MOZ_DEFAULT_BROWSER_AGENT)
+#endif    // defined(XP_WIN)
 
 #if defined(MOZ_WIDGET_GTK)
 constexpr nsLiteralCString kStartupTokenNames[] = {
@@ -706,8 +706,6 @@ static bool Win32kRequirementsUnsatisfied(
          aStatus ==
              nsIXULRuntime::ContentWin32kLockdownState::MissingWebRender ||
          aStatus ==
-             nsIXULRuntime::ContentWin32kLockdownState::MissingRemoteWebGL ||
-         aStatus ==
              nsIXULRuntime::ContentWin32kLockdownState::DecodersArentRemote;
 }
 
@@ -795,12 +793,6 @@ nsIXULRuntime::ContentWin32kLockdownState GetLiveWin32kLockdownState() {
   if (!IsWin10FallCreatorsUpdateOrLater()) {
     return nsIXULRuntime::ContentWin32kLockdownState::
         OperatingSystemNotSupported;
-  }
-
-  // Win32k Lockdown requires Remote WebGL, but it may be disabled on
-  // certain hardware or virtual machines.
-  if (!gfx::gfxVars::AllowWebglOop() || !StaticPrefs::webgl_out_of_process()) {
-    return nsIXULRuntime::ContentWin32kLockdownState::MissingRemoteWebGL;
   }
 
   // Some (not sure exactly which) decoders are not compatible
@@ -1192,6 +1184,19 @@ nsXULAppInfo::GetUpdateURL(nsACString& aResult) {
     return NS_OK;
   }
   aResult.Assign(gAppData->updateURL);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsXULAppInfo::GetRemotingName(nsACString& aResult) {
+  if (XRE_IsContentProcess()) {
+    MOZ_ASSERT(false,
+               "nsXULAppInfo::remotingName should not be accessed from the "
+               "content process");
+    return NS_ERROR_UNEXPECTED;
+  }
+  aResult.Assign(gAppData->remotingName);
 
   return NS_OK;
 }
@@ -2386,6 +2391,8 @@ ShowProfileSelectorObserver::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
+#  if defined(MOZ_DEFAULT_BROWSER_AGENT)
+
 static void SetupSkeletonUIPrefs() {
   ReflectSkeletonUIPrefToRegistry(nullptr, nullptr);
   Preferences::RegisterCallback(&ReflectSkeletonUIPrefToRegistry,
@@ -2401,6 +2408,8 @@ static void SetupSkeletonUIPrefs() {
   nsCOMPtr<nsIObserver> obs = new ShowProfileSelectorObserver();
   obsService->AddObserver(obs, "profile-show-selector-changed", false);
 }
+
+#  endif  // defined(MOZ_DEFAULT_BROWSER_AGENT)
 
 #  if defined(MOZ_LAUNCHER_PROCESS)
 
@@ -3538,7 +3547,7 @@ static ReturnAbortOnError HandleDetectedDowngrade(
     profileName.Append("-" MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL));
 #  endif
     nsCOMPtr<nsIToolkitProfile> newProfile;
-    rv = aProfileSvc->CreateUniqueProfile(nullptr, profileName,
+    rv = aProfileSvc->CreateUniqueProfile(nullptr, profileName, "downgrade"_ns,
                                           getter_AddRefs(newProfile));
     NS_ENSURE_SUCCESS(rv, rv);
     rv = aProfileSvc->SetDefaultProfile(newProfile);
@@ -4414,6 +4423,13 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   nsCOMPtr<nsIFile> xreBinDirectory;
   xreBinDirectory = mDirProvider.GetGREBinDir();
 
+  // Unconditionally set the ServerURL exception before we launch the crash
+  // helper or set the exception handler. This guarantees that the annotation
+  // will be populated when we need it.
+  if (mAppData->crashReporterURL) {
+    CrashReporter::SetServerURL(nsDependentCString(mAppData->crashReporterURL));
+  }
+
   if ((mAppData->flags & NS_XRE_ENABLE_CRASH_REPORTER) &&
       NS_FAILED(CrashReporter::OOPInit(xreBinDirectory))) {
     NS_WARNING("Could not launch the crash helper");
@@ -4425,10 +4441,6 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
     rv = nsXREDirProvider::GetUserAppDataDirectory(getter_AddRefs(file));
     if (NS_SUCCEEDED(rv)) {
       CrashReporter::SetUserAppDataDirectory(file);
-    }
-    if (mAppData->crashReporterURL) {
-      CrashReporter::SetServerURL(
-          nsDependentCString(mAppData->crashReporterURL));
     }
 
     // We overwrite this once we finish starting up.
@@ -4542,21 +4554,11 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   SetupMacApplicationDelegate(&gRestartedByOS);
 
   if (EnvHasValue("MOZ_LAUNCHED_CHILD")) {
-    // This is needed, on relaunch, to force the OS to use the "Cocoa Dock
-    // API".  Otherwise the call to ReceiveNextEvent() below will make it
-    // use the "Carbon Dock API".  For more info see bmo bug 377166.
+    // Initialize the shared NSApplication early on relaunch so the dock
+    // tile for the child process gets registered before the original
+    // process exits. `[NSApplication sharedApplication]` calls
+    // `_NSDoOneTimeDockRegistration` internally, which is enough.
     EnsureUseCocoaDockAPI();
-
-    // When the app relaunches, the original process exits.  This causes
-    // the dock tile to stop bouncing, lose the "running" triangle, and
-    // if the tile does not permanently reside in the Dock, even disappear.
-    // This can be confusing to the user, who is expecting the app to launch.
-    // Calling ReceiveNextEvent without requesting any event is enough to
-    // cause a dock tile for the child process to appear.
-    const EventTypeSpec kFakeEventList[] = {{INT_MAX, INT_MAX}};
-    EventRef event;
-    ::ReceiveNextEvent(GetEventTypeCount(kFakeEventList), kFakeEventList,
-                       kEventDurationNoWait, false, &event);
   }
 
   if (CheckArg("foreground")) {
@@ -4811,8 +4813,16 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
   }
 
 #  if defined(MOZ_ENTERPRISE)
+
+  // The "test-process-updates" argument (bug 2036826) allows
+  // tests like marAppApplyUpdateSuccess.js and
+  // marAppApplyUpdateStageSuccess.js to bypass this check and force update
+  // processing.
+  if (CheckArgExists("test-process-updates")) {
+    return Nothing();
+  }
   // Don't process updates when launching a Browser from FELT, only Felt should
-  // perform that step
+  // perform that step.
   if (!is_felt_ui()) {
     return Some(ShouldNotProcessUpdatesReason::FeltOnlyUpdates);
   }
@@ -5073,7 +5083,10 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
       if (!disableWaylandProxy && XRE_IsParentProcess() && waylandEnabled) {
         auto* proxyLog = getenv("WAYLAND_PROXY_LOG");
         WaylandProxy::SetVerbose(proxyLog && *proxyLog);
-        WaylandProxy::SetCompositorCrashHandler(WlCompositorCrashHandler);
+        WaylandProxy::SetCompositorUnavailableHandler(
+            WlCompositorUnavailableHandler);
+        WaylandProxy::SetCompositorSilentDisconnectHandler(
+            WlCompositorSilentDisconnectHandler);
         WaylandProxy::AddState(WAYLAND_PROXY_ENABLED);
         gWaylandProxy = WaylandProxy::Create();
         if (gWaylandProxy) {
@@ -6037,7 +6050,6 @@ nsresult XREMain::XRE_mainRun() {
           RegisterApplicationRestartChanged,
           PREF_WIN_REGISTER_APPLICATION_RESTART);
       SetupAlteredPrefetchPref();
-      SetupSkeletonUIPrefs();
 #  if defined(MOZ_LAUNCHER_PROCESS)
       SetupLauncherProcessPref();
 #  endif  // defined(MOZ_LAUNCHER_PROCESS)
@@ -6048,6 +6060,7 @@ nsresult XREMain::XRE_mainRun() {
       if (!BackgroundTasks::IsBackgroundTaskMode())
 #    endif  // defined(MOZ_BACKGROUNDTASKS)
       {
+        SetupSkeletonUIPrefs();
         Preferences::RegisterCallbackAndCall(
             &OnDefaultAgentTelemetryPrefChanged,
             kPrefHealthReportUploadEnabled);
@@ -6313,7 +6326,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   // We call this early because it will kick off a background-thread task
   // to register the fonts, and we'd like it to have a chance to complete
   // before gfxPlatform initialization actually requires it.
-  gfxPlatformMac::RegisterSupplementalFonts();
+  auto _supplementalFontThread = gfxPlatformMac::RegisterSupplementalFonts();
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID

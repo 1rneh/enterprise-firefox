@@ -591,7 +591,6 @@ static bool ReportCompileWarnings(JSContext* cx,
   return true;
 }
 
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
 // https://webassembly.github.io/esm-integration/js-api/index.html#esm-integration
 bool js::wasm::CompileForESM(JSContext* cx,
                              const JS::ReadOnlyCompileOptions& options,
@@ -753,7 +752,6 @@ bool js::wasm::CompileForESM(JSContext* cx,
   moduleObj.set(wasmModuleObject);
   return true;
 }
-#endif
 
 // ============================================================================
 // Common functions
@@ -1063,8 +1061,8 @@ static JSObject* CreateWasmConstructor(JSContext* cx, JSProtoKey key) {
     return nullptr;
   }
 
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
-  if (JS::Prefs::experimental_source_phase_imports()) {
+#ifdef NIGHTLY_BUILD
+  if (JS::Prefs::experimental_wasm_esm_integration()) {
     if constexpr (std::is_same_v<Class, WasmModuleObject>) {
       RootedObject proto(cx, GlobalObject::getOrCreateConstructor(
                                  cx, JSProto_AbstractModuleSource));
@@ -1077,7 +1075,6 @@ static JSObject* CreateWasmConstructor(JSContext* cx, JSProtoKey key) {
     }
   }
 #endif
-
   return NewNativeConstructor(cx, Class::construct, 1, className);
 }
 
@@ -1329,10 +1326,10 @@ const JSClass& WasmModuleObject::protoClass_ = PlainObject::class_;
 
 static constexpr char WasmModuleName[] = "Module";
 
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
 // https://webassembly.github.io/esm-integration/js-api/index.html#modules
 static JSObject* CreateWasmModulePrototype(JSContext* cx, JSProtoKey key) {
-  if (JS::Prefs::experimental_source_phase_imports()) {
+#ifdef NIGHTLY_BUILD
+  if (JS::Prefs::experimental_wasm_esm_integration()) {
     RootedObject abstractModuleSourceProto(
         cx,
         GlobalObject::getOrCreatePrototype(cx, JSProto_AbstractModuleSource));
@@ -1342,18 +1339,14 @@ static JSObject* CreateWasmModulePrototype(JSContext* cx, JSProtoKey key) {
     return GlobalObject::createBlankPrototypeInheriting(
         cx, &WasmModuleObject::protoClass_, abstractModuleSourceProto);
   }
+#endif
   return GlobalObject::createBlankPrototype(cx, cx->global(),
                                             &WasmModuleObject::protoClass_);
 }
-#endif
 
 const ClassSpec WasmModuleObject::classSpec_ = {
     CreateWasmConstructor<WasmModuleObject, WasmModuleName>,
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
     CreateWasmModulePrototype,
-#else
-    GenericCreatePrototype<WasmModuleObject>,
-#endif
     WasmModuleObject::static_methods,
     nullptr,
     WasmModuleObject::methods,

@@ -7645,7 +7645,6 @@ static bool GetMaxArgs(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
 static bool GetAbstractModuleSource(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   if (JS::Prefs::experimental_source_phase_imports()) {
@@ -7660,7 +7659,6 @@ static bool GetAbstractModuleSource(JSContext* cx, unsigned argc, Value* vp) {
   }
   return true;
 }
-#endif
 
 static bool IsHTMLDDA_Call(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -10403,11 +10401,9 @@ JS_FN_HELP("createUserArrayBuffer", CreateUserArrayBuffer, 1, 0,
 "getMaxArgs()",
 "  Return the maximum number of supported args for a call."),
 
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
     JS_FN_HELP("getAbstractModuleSource", GetAbstractModuleSource, 0, 0,
 "getAbstractModuleSource()",
 "  Return the %AbstractModuleSource% intrinsic constructor."),
-#endif
 
     JS_FN_HELP("createIsHTMLDDA", CreateIsHTMLDDA, 0, 0,
 "createIsHTMLDDA()",
@@ -13325,11 +13321,6 @@ bool InitOptionParser(OptionParser& op) {
       !op.addBoolOption('\0', "enable-import-text", "Enable import text") ||
       !op.addBoolOption('\0', "enable-promise-allkeyed",
                         "Enable Promise.allKeyed") ||
-      !op.addBoolOption(
-          '\0', "enable-promise-safe-resolve",
-          "Enable thenable-curtailment's safe-resolve second parameter on "
-          "Promise resolve functions") ||
-
       !op.addBoolOption('\0', "enable-arraybuffer-immutable",
                         "Enable immutable ArrayBuffers") ||
       !op.addBoolOption('\0', "enable-iterator-chunking",
@@ -13440,11 +13431,6 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
   if (op.getBoolOption("enable-promise-allkeyed")) {
     JS::Prefs::setAtStartup_experimental_promise_allkeyed(true);
   }
-#  ifdef NIGHTLY_BUILD
-  if (op.getBoolOption("enable-promise-safe-resolve")) {
-    JS::Prefs::setAtStartup_experimental_promise_safe_resolve(true);
-  }
-#  endif  // NIGHTLY_BUILD
   if (op.getBoolOption("enable-iterator-chunking")) {
     JS::Prefs::setAtStartup_experimental_iterator_chunking(true);
   }
@@ -13461,7 +13447,6 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
     JS::Prefs::set_experimental_wasm_esm_integration(true);
   }
 #endif
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
   if (op.getBoolOption("enable-source-phase-imports")) {
     JS::Prefs::set_experimental_source_phase_imports(true);
   }
@@ -13470,7 +13455,6 @@ bool SetGlobalOptionsPreJSInit(const OptionParser& op) {
         setAtStartup_experimental_source_phase_imports_test262_module_source(
             true);
   }
-#endif
 #ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
   if (op.getBoolOption("enable-explicit-resource-management")) {
     JS::Prefs::set_experimental_explicit_resource_management(true);

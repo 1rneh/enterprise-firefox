@@ -8,7 +8,7 @@ browser.jar:
   content/browser/enterprise/enterprise-badge.css           (content/enterprise-badge.css)
   content/browser/enterprise/alert.svg                      (content/icons/alert.svg)
   content/browser/enterprise/enterprise-urlbar-actions.css  (content/enterprise-urlbar-actions.css)
-  content/browser/enterprise/lockdown-mode.svg              (content/icons/lockdown-mode.svg)
+  content/browser/enterprise/site-restrictions.svg          (content/icons/site-restrictions.svg)
   content/browser/enterprise/user-avatar.svg                (content/icons/user-avatar.svg)
   content/browser/enterprise/enterprise-close-dialog.xhtml  (content/enterprise-close-dialog.xhtml)
   content/browser/enterprise/enterprise-close-dialog.js     (content/enterprise-close-dialog.js)

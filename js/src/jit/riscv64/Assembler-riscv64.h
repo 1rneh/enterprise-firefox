@@ -60,6 +60,9 @@
 #include "jit/riscv64/extension/extension-riscv-f.h"
 #include "jit/riscv64/extension/extension-riscv-m.h"
 #include "jit/riscv64/extension/extension-riscv-v.h"
+#include "jit/riscv64/extension/extension-riscv-zfa.h"
+#include "jit/riscv64/extension/extension-riscv-zfh.h"
+#include "jit/riscv64/extension/extension-riscv-zicond.h"
 #include "jit/riscv64/extension/extension-riscv-zicsr.h"
 #include "jit/riscv64/extension/extension-riscv-zifencei.h"
 #include "jit/riscv64/Register-riscv64.h"
@@ -70,22 +73,6 @@
 #include "wasm/WasmTypeDecls.h"
 namespace js {
 namespace jit {
-
-class RVFlags final {
- public:
-  static void Init();
-
-  static bool FlagsHaveBeenComputed() { return sComputed; }
-
-  static bool HasZbaExtension() { return sZbaExtension; }
-
-  static bool HasZbbExtension() { return sZbbExtension; }
-
- private:
-  static inline bool sZbaExtension = false;
-  static inline bool sZbbExtension = false;
-  static inline bool sComputed = false;
-};
 
 struct ScratchFloat32Scope : public AutoFloatRegisterScope {
   explicit ScratchFloat32Scope(MacroAssembler& masm)
@@ -146,6 +133,9 @@ class Assembler : public AssemblerShared,
                   public AssemblerRISCVD,
                   public AssemblerRISCVM,
                   public AssemblerRISCVC,
+                  public AssemblerRISCVZfa,
+                  public AssemblerRISCVZfh,
+                  public AssemblerRISCVZicond,
                   public AssemblerRISCVZicsr,
                   public AssemblerRISCVZifencei {
   GeneralRegisterSet scratch_register_list_;
@@ -504,6 +494,14 @@ class Assembler : public AssemblerShared,
   static bool HasZbaExtension() { return RVFlags::HasZbaExtension(); }
 
   static bool HasZbbExtension() { return RVFlags::HasZbbExtension(); }
+
+  static bool HasZbsExtension() { return RVFlags::HasZbsExtension(); }
+
+  static bool HasZfhminExtension() { return RVFlags::HasZfhminExtension(); }
+
+  static bool HasZfaExtension() { return RVFlags::HasZfaExtension(); }
+
+  static bool HasZicondExtension() { return RVFlags::HasZicondExtension(); }
 
   void verifyHeapAccessDisassembly(uint32_t begin, uint32_t end,
                                    const Disassembler::HeapAccess& heapAccess) {

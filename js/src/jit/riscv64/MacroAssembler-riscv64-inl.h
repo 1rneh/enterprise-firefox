@@ -1219,6 +1219,12 @@ void MacroAssembler::branchToComputedAddress(const BaseIndex& addr) {
 void MacroAssembler::branchTruncateDoubleMaybeModUint32(FloatRegister src,
                                                         Register dest,
                                                         Label* fail) {
+  // The Zfa fcvtmod.w.d instruction handles exactly this conversion.
+  if (HasZfaExtension()) {
+    fcvtmod_w_d(dest, src);
+    return;
+  }
+
   UseScratchRegisterScope temps(this);
 
   // Convert scalar to signed 64-bit fixed-point, rounding toward zero.
@@ -1407,18 +1413,12 @@ void MacroAssembler::cmp32LoadPtr(Condition cond, const Address& lhs, Imm32 rhs,
 
 void MacroAssembler::cmp32Move32(Condition cond, Register lhs, Imm32 rhs,
                                  Register src, Register dest) {
-  UseScratchRegisterScope temps(this);
-  Register scratch2 = temps.Acquire();
-  cmp32Set(cond, lhs, rhs, scratch2);
-  moveIfNotZero(dest, src, scratch2);
+  ma_cmp_mv(dest, lhs, rhs, src, cond);
 }
 
 void MacroAssembler::cmp32Move32(Condition cond, Register lhs, Register rhs,
                                  Register src, Register dest) {
-  UseScratchRegisterScope temps(this);
-  Register scratch2 = temps.Acquire();
-  cmp32Set(cond, lhs, rhs, scratch2);
-  moveIfNotZero(dest, src, scratch2);
+  ma_cmp_mv(dest, lhs, rhs, src, cond);
 }
 
 void MacroAssembler::cmp32Move32(Condition cond, Register lhs,
@@ -1432,10 +1432,7 @@ void MacroAssembler::cmp32Move32(Condition cond, Register lhs,
 }
 void MacroAssembler::cmp32MovePtr(Condition cond, Register lhs, Imm32 rhs,
                                   Register src, Register dest) {
-  UseScratchRegisterScope temps(this);
-  Register scratch2 = temps.Acquire();
-  cmp32Set(cond, lhs, rhs, scratch2);
-  moveIfNotZero(dest, src, scratch2);
+  ma_cmp_mv(dest, lhs, rhs, src, cond);
 }
 void MacroAssembler::cmp64Set(Condition cond, Register64 lhs, Register64 rhs,
                               Register dest) {
@@ -1723,10 +1720,12 @@ void MacroAssembler::moveGPRToFloat32(Register src, FloatRegister dest) {
   fmv_w_x(dest, src);
 }
 void MacroAssembler::moveFloat16ToGPR(FloatRegister src, Register dest) {
-  MOZ_CRASH("Not supported for this target");
+  MOZ_ASSERT(HasZfhminExtension());
+  fmv_x_h(dest, src);
 }
 void MacroAssembler::moveGPRToFloat16(Register src, FloatRegister dest) {
-  MOZ_CRASH("Not supported for this target");
+  MOZ_ASSERT(HasZfhminExtension());
+  fmv_h_x(dest, src);
 }
 void MacroAssembler::mul32(Register rhs, Register srcDest) {
   mulw(srcDest, srcDest, rhs);
@@ -2033,12 +2032,12 @@ void MacroAssembler::sqrtFloat32(FloatRegister src, FloatRegister dest) {
 
 FaultingCodeOffset MacroAssembler::storeFloat16(FloatRegister src,
                                                 const Address& dest, Register) {
-  MOZ_CRASH("Not supported for this target");
+  return ma_storeFloat16(src, dest);
 }
 FaultingCodeOffset MacroAssembler::storeFloat16(FloatRegister src,
                                                 const BaseIndex& dest,
                                                 Register) {
-  MOZ_CRASH("Not supported for this target");
+  return ma_storeFloat16(src, dest);
 }
 
 FaultingCodeOffset MacroAssembler::storeFloat32(FloatRegister src,

@@ -2447,7 +2447,9 @@ impl<L: CalcNodeLeaf> CalcNode<L> {
         dest: &mut ThinVec<TypedValue>,
         level: ArgumentLevel,
     ) -> Result<(), ()> {
-        // Note: Only supporting Leaf, Negate, Sum, MinMax and Clamp for now
+        // Note: Naturally, only nodes that can be reified into CSSUnitValue
+        // and CSSMathValue objects are supported here:
+        // Leaf, Negate, Invert, Sum, Product, MinMax, and Clamp.
         match *self {
             Self::Leaf(ref l) => match l.to_typed_value() {
                 Some(TypedValue::Numeric(inner)) => {
@@ -2476,9 +2478,15 @@ impl<L: CalcNodeLeaf> CalcNode<L> {
 
                 Err(())
             },
-            Self::Invert(_) => {
-                // TODO: Implement me! (once we have a test))
-                Err(())
+            Self::Invert(ref value) => {
+                let inner = CalcNodeWithLevel::nested(value)
+                    .to_numeric_value()
+                    .ok_or(())?;
+
+                dest.push(TypedValue::Numeric(NumericValue::Math(MathValue::Invert(
+                    Box::new(inner),
+                ))));
+                Ok(())
             },
             Self::Sum(ref children) => {
                 let mut values = ThinVec::new();
@@ -2495,40 +2503,40 @@ impl<L: CalcNodeLeaf> CalcNode<L> {
                                     // checked if the value inside is negative.
                                     negated.map(std::ops::Neg::neg).unwrap();
 
-                                    if let Some(inner) = negated.to_numeric_value() {
-                                        values.push(NumericValue::Math(MathValue::Negate(
-                                            Box::new(inner),
-                                        )));
-                                    }
-                                } else {
-                                    if let Some(inner) = l.to_numeric_value() {
-                                        values.push(inner);
-                                    }
-                                }
-                            },
-                            Self::Negate(n) => {
-                                if let Some(inner) =
-                                    CalcNodeWithLevel::nested(n.as_ref()).to_numeric_value()
-                                {
+                                    let inner = negated.to_numeric_value().ok_or(())?;
+
                                     values.push(NumericValue::Math(MathValue::Negate(Box::new(
                                         inner,
                                     ))));
-                                }
-                            },
-                            _ => {
-                                if let Some(inner) =
-                                    CalcNodeWithLevel::nested(child).to_numeric_value()
-                                {
+                                } else {
+                                    let inner = l.to_numeric_value().ok_or(())?;
+
                                     values.push(inner);
                                 }
+                            },
+                            Self::Negate(n) => {
+                                let inner = CalcNodeWithLevel::nested(n.as_ref())
+                                    .to_numeric_value()
+                                    .ok_or(())?;
+
+                                values.push(NumericValue::Math(MathValue::Negate(Box::new(inner))));
+                            },
+                            _ => {
+                                let inner = CalcNodeWithLevel::nested(child)
+                                    .to_numeric_value()
+                                    .ok_or(())?;
+
+                                values.push(inner);
                             },
                         }
                     } else {
                         first = false;
 
-                        if let Some(inner) = CalcNodeWithLevel::nested(child).to_numeric_value() {
-                            values.push(inner);
-                        }
+                        let inner = CalcNodeWithLevel::nested(child)
+                            .to_numeric_value()
+                            .ok_or(())?;
+
+                        values.push(inner);
                     }
                 }
 
@@ -2537,14 +2545,53 @@ impl<L: CalcNodeLeaf> CalcNode<L> {
                 ))));
                 Ok(())
             },
+            Self::Product(ref children) => {
+                let mut values = ThinVec::new();
+                let mut first = true;
+
+                for child in &**children {
+                    if !first {
+                        match child {
+                            Self::Invert(n) => {
+                                let inner = CalcNodeWithLevel::nested(n.as_ref())
+                                    .to_numeric_value()
+                                    .ok_or(())?;
+
+                                values.push(NumericValue::Math(MathValue::Invert(Box::new(inner))));
+                            },
+                            _ => {
+                                let inner = CalcNodeWithLevel::nested(child)
+                                    .to_numeric_value()
+                                    .ok_or(())?;
+
+                                values.push(inner);
+                            },
+                        }
+                    } else {
+                        first = false;
+
+                        let inner = CalcNodeWithLevel::nested(child)
+                            .to_numeric_value()
+                            .ok_or(())?;
+
+                        values.push(inner);
+                    }
+                }
+
+                dest.push(TypedValue::Numeric(NumericValue::Math(MathValue::Product(
+                    values,
+                ))));
+                Ok(())
+            },
             Self::MinMax(ref children, op) => {
                 let mut values = ThinVec::new();
 
                 for child in &**children {
-                    if let Some(inner) = CalcNodeWithLevel::argument_root(child).to_numeric_value()
-                    {
-                        values.push(inner);
-                    }
+                    let inner = CalcNodeWithLevel::argument_root(child)
+                        .to_numeric_value()
+                        .ok_or(())?;
+
+                    values.push(inner);
                 }
 
                 let math_value = match op {
@@ -2560,18 +2607,17 @@ impl<L: CalcNodeLeaf> CalcNode<L> {
                 ref center,
                 ref max,
             } => {
-                let Some(lower) = CalcNodeWithLevel::argument_root(min).to_numeric_value() else {
-                    return Err(());
-                };
+                let lower = CalcNodeWithLevel::argument_root(min)
+                    .to_numeric_value()
+                    .ok_or(())?;
 
-                let Some(value) = CalcNodeWithLevel::argument_root(center).to_numeric_value()
-                else {
-                    return Err(());
-                };
+                let value = CalcNodeWithLevel::argument_root(center)
+                    .to_numeric_value()
+                    .ok_or(())?;
 
-                let Some(upper) = CalcNodeWithLevel::argument_root(max).to_numeric_value() else {
-                    return Err(());
-                };
+                let upper = CalcNodeWithLevel::argument_root(max)
+                    .to_numeric_value()
+                    .ok_or(())?;
 
                 dest.push(TypedValue::Numeric(NumericValue::Math(MathValue::Clamp(
                     [lower, value, upper].into(),

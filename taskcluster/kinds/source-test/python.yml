@@ -45,6 +45,7 @@ task-defaults:
             - 'python/mach_commands.py'
 
 firefox-ci:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     description: taskcluster/gecko_taskgraph unit tests
     always-target: false
     treeherder:
@@ -77,6 +78,7 @@ fog:
             - 'browser/config/version.txt'
 
 mach:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     description: python/mach unit tests
     platform:
         - linux2404-64/opt
@@ -110,6 +112,7 @@ marionette-harness:
             - 'testing/mozbase/mozlog/setup.py'
 
 mochitest-harness:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     description: testing/mochitest unittests
     platform:
         - linux2404-64/opt
@@ -163,6 +166,7 @@ mochitest-harness:
 
 
 mozbase:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     description: testing/mozbase unit tests
     platform:
         - linux2404-64/opt
@@ -296,6 +300,7 @@ raptor:
             - 'testing/raptor/**'
 
 reftest-harness:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     description: layout/tools/reftest unittests
     platform:
         - linux2404-64/opt
@@ -347,6 +352,7 @@ reftest-harness:
             - 'testing/mozharness/mozharness/mozilla/testing/errors.py'
 
 taskgraph-tests:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     description: taskcluster/gecko_taskgraph unit tests
     treeherder:
         symbol: tg
@@ -360,6 +366,7 @@ taskgraph-tests:
             - 'taskcluster/requirements.txt'
 
 tryselect:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     description: tools/tryselect unit tests
     platform:
         - linux2404-64/opt
@@ -391,6 +398,7 @@ update-packaging:
             - 'tools/update-packaging/**'
 
 mozbuild:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     matrix:
         python: ['3.9', '3.11']
     description: mozbuild unit tests (python{matrix[python]})
@@ -450,6 +458,7 @@ coverage:
             - 'tools/code-coverage/**'
 
 mozperftest:
+    run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     description: mozperftest unit tests
     platform:
         - linux2404-64/opt

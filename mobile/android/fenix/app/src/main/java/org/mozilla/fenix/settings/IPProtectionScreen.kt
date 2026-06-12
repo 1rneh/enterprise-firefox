@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -75,6 +76,9 @@ private val PROMO_ILLUSTRATION_SIZE = 60.dp
  * @param state Current [IPProtectionHandler.StateInfo] to render.
  * @param readyToUse Whether the user is entitled to use the service.
  * @param syncingData Whether the data sync is in progress.
+ * @param promoDate Locale-formatted end date used by the promo copy when the user is on a metered
+ * plan. `null` means the promo cannot be rendered (e.g. Nimbus shipped a malformed date) and the
+ * card should fall back to the standard description.
  * @param onVpnToggle Called when the VPN switch is toggled.
  * @param onLearnMoreClick Called when any "Learn more" link is tapped.
  * @param onGetStartedClick Called when the "Get started" button is tapped.
@@ -82,11 +86,13 @@ private val PROMO_ILLUSTRATION_SIZE = 60.dp
  * @param onDebugActionClick Called when the debug menu action is tapped.
  * @param onNavigateBack Called when the back navigation icon is tapped.
  */
+@Suppress("LongParameterList")
 @Composable
 fun IPProtectionScreen(
     state: IPProtectionState,
     readyToUse: Boolean,
     syncingData: Boolean,
+    promoDate: String?,
     onVpnToggle: (Boolean) -> Unit,
     onLearnMoreClick: () -> Unit,
     onGetStartedClick: () -> Unit,
@@ -116,6 +122,7 @@ fun IPProtectionScreen(
 
                 VpnPromoCard(
                     isActive = state.proxyStatus is Authorized.Active,
+                    promoDate = promoDate.takeIf { state.maxDataGb <= 0F },
                     onLearnMoreClick = onLearnMoreClick,
                     modifier = Modifier.padding(horizontal = FirefoxTheme.layout.space.dynamic200),
                 )
@@ -131,30 +138,18 @@ fun IPProtectionScreen(
                 HorizontalDivider()
 
                 if (readyToUse) {
-                    DataLimitSection(state = state, onLearnMoreClick = onLearnMoreClick)
+                    if (state.maxDataBytes > 0) {
+                        DataLimitSection(state = state, onLearnMoreClick = onLearnMoreClick)
 
-                    HorizontalDivider()
+                        HorizontalDivider()
+                    }
 
                     VpnLocationSection()
                 } else {
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    val text = if (syncingData) {
-                        stringResource(R.string.ip_protection_connecting)
-                    } else {
-                        stringResource(R.string.ip_protection_get_started)
-                    }
-
-                    FilledButton(
-                        text = text,
-                        enabled = !syncingData,
-                        modifier = Modifier
-                            .padding(horizontal = FirefoxTheme.layout.space.static200)
-                            .fillMaxWidth(),
-                        onClick = onGetStartedClick,
+                    GetStartedSection(
+                        syncingData = syncingData,
+                        onGetStartedClick = onGetStartedClick,
                     )
-
-                    Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static400))
                 }
             }
         }
@@ -280,6 +275,31 @@ private fun DataLimitSection(
 }
 
 @Composable
+private fun ColumnScope.GetStartedSection(
+    syncingData: Boolean,
+    onGetStartedClick: () -> Unit,
+) {
+    Spacer(modifier = Modifier.weight(1f))
+
+    val text = if (syncingData) {
+        stringResource(R.string.ip_protection_connecting)
+    } else {
+        stringResource(R.string.ip_protection_get_started)
+    }
+
+    FilledButton(
+        text = text,
+        enabled = !syncingData,
+        modifier = Modifier
+            .padding(horizontal = FirefoxTheme.layout.space.static200)
+            .fillMaxWidth(),
+        onClick = onGetStartedClick,
+    )
+
+    Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static400))
+}
+
+@Composable
 private fun VpnLocationSection() {
     Text(
         text = stringResource(R.string.ip_protection_location_section),
@@ -343,11 +363,16 @@ private fun VpnToggleRow(
 @Composable
 private fun VpnPromoCard(
     isActive: Boolean,
+    promoDate: String?,
     onLearnMoreClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val learnMoreText = stringResource(R.string.ip_protection_learn_more)
-    val description = stringResource(R.string.ip_protection_promo_body_2, learnMoreText)
+    val description = if (promoDate != null) {
+        stringResource(R.string.ip_protection_onboarding_body_promo, promoDate, learnMoreText)
+    } else {
+        stringResource(R.string.ip_protection_promo_body_2, learnMoreText)
+    }
 
     PromoCard(
         description = null,
@@ -391,6 +416,7 @@ private fun IPProtectionScreenActivePreview(
             ),
             readyToUse = true,
             syncingData = false,
+            promoDate = null,
             onVpnToggle = {},
             onLearnMoreClick = {},
             onGetStartedClick = {},
@@ -412,9 +438,11 @@ private fun IPProtectionScreenNotEnrolledPreview(
             state = IPProtectionState(
                 eligibilityStatus = EligibilityStatus.Eligible,
                 serviceStatus = ServiceState.Unauthenticated,
+                maxDataBytes = 0L,
             ),
             readyToUse = false,
             syncingData = true,
+            promoDate = "January 31",
             onVpnToggle = {},
             onLearnMoreClick = {},
             onGetStartedClick = {},
@@ -441,6 +469,7 @@ private fun IPProtectionScreenPausedPreview(
             ),
             readyToUse = true,
             syncingData = false,
+            promoDate = null,
             onVpnToggle = {},
             onLearnMoreClick = {},
             onGetStartedClick = {},
@@ -467,6 +496,7 @@ private fun IPProtectionScreenConnectingPreview(
             ),
             readyToUse = false,
             syncingData = false,
+            promoDate = null,
             onVpnToggle = {},
             onLearnMoreClick = {},
             onGetStartedClick = {},

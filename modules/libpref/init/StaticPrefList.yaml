@@ -9492,19 +9492,6 @@
   mirror: always
   set_spidermonkey_pref: startup
 
-  # Experimental support for the second parameter to Promise resolve functions
-  # from https://tc39.es/proposal-thenable-curtailment/
-  #
-  # When true, a resolve function created by `new Promise((resolve, _) => ...)`
-  # accepts an optional second boolean argument `doSafeResolve`; passing `true`
-  # causes the resolution steps that would run user code to be deferred
-  # to a microtask while the resolving functions are latched synchronously.
-- name: javascript.options.experimental.promise_safe_resolve
-  type: bool
-  value: false
-  mirror: always
-  set_spidermonkey_pref: startup
-
   # Experimental support for Iterator Chunking in JavaScript.
 - name: javascript.options.experimental.iterator_chunking
   type: bool
@@ -9565,20 +9552,19 @@
     set_spidermonkey_pref: always
 #endif  // ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
 
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
   # Experimental support for source phase imports in JavaScript.
 - name: javascript.options.experimental.source_phase_imports
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   set_spidermonkey_pref: always
+
   # Enable support for <module source> module used in test262
 - name: javascript.options.experimental.source_phase_imports.test262_module_source
   type: bool
   value: false
   mirror: always
   set_spidermonkey_pref: startup
-#endif
 
 - name: javascript.options.experimental.error_capture_stack_trace
   type: bool
@@ -16172,13 +16158,6 @@
 - name: network.http.http3.enable_0rtt
   type: RelaxedAtomicBool
   value: true
-  mirror: always
-
-# When true, ZeroRttHandle::Finish0RTT treats the real transaction as gone to
-# simulate a transaction is cancelled during 0RTT handshake.
-- name: network.http.0rtt_force_txn_gone_for_testing
-  type: RelaxedAtomicBool
-  value: false
   mirror: always
 
 # Maximum time (ms) a session can remain in ZERORTT state before being

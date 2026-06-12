@@ -5,7 +5,6 @@
 #include "mozilla/dom/CSSMathValue.h"
 
 #include "mozilla/Assertions.h"
-#include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/ServoStyleConsts.h"
 #include "mozilla/dom/CSSMathClamp.h"
@@ -18,10 +17,6 @@
 #include "mozilla/dom/CSSMathValueBinding.h"
 
 namespace mozilla::dom {
-
-CSSMathValue::CSSMathValue(nsCOMPtr<nsISupports> aParent)
-    : CSSNumericValue(std::move(aParent), NumericValueType::MathValue),
-      mMathValueType(MathValueType::Uninitialized) {}
 
 CSSMathValue::CSSMathValue(nsCOMPtr<nsISupports> aParent,
                            MathValueType aMathValueType)
@@ -113,10 +108,6 @@ CSSMathOperator CSSMathValue::Operator() const {
 
     case MathValueType::MathSum:
       return CSSMathOperator::Sum;
-
-    case MathValueType::Uninitialized:
-      // This is only a temporary variant, return Sum for now.
-      return CSSMathOperator::Sum;
   }
   MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("Bad math value type!");
 }
@@ -203,73 +194,52 @@ void CSSMathValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
       mathSum.ToCssTextWithProperty(aPropertyId, aContext, aDest);
       break;
     }
-
-    case MathValueType::Uninitialized:
-      break;
   }
 }
 
-Maybe<StyleMathValue> CSSMathValue::ToStyleMathValue() const {
+StyleMathValue CSSMathValue::ToStyleMathValue() const {
   switch (GetMathValueType()) {
     case MathValueType::MathClamp: {
       const CSSMathClamp& mathClamp = GetAsCSSMathClamp();
 
-      auto styleMathClamp = mathClamp.ToStyleMathClamp();
-      if (styleMathClamp.isNothing()) {
-        return Nothing();
-      }
-
-      return Some(StyleMathValue::Clamp(styleMathClamp.ref()));
+      return StyleMathValue::Clamp(mathClamp.ToStyleMathClamp());
     }
 
     case MathValueType::MathMax: {
       const CSSMathMax& mathMax = GetAsCSSMathMax();
 
-      return Some(StyleMathValue::Max(mathMax.ToStyleMathMax()));
+      return StyleMathValue::Max(mathMax.ToStyleMathMax());
     }
 
     case MathValueType::MathMin: {
       const CSSMathMin& mathMin = GetAsCSSMathMin();
 
-      return Some(StyleMathValue::Min(mathMin.ToStyleMathMin()));
+      return StyleMathValue::Min(mathMin.ToStyleMathMin());
     }
 
     case MathValueType::MathInvert: {
       const CSSMathInvert& mathInvert = GetAsCSSMathInvert();
 
-      auto styleMathInvert = mathInvert.ToStyleMathInvert();
-      if (styleMathInvert.isNothing()) {
-        return Nothing();
-      }
-
-      return Some(StyleMathValue::Invert(styleMathInvert.extract()));
+      return StyleMathValue::Invert(mathInvert.ToStyleMathInvert());
     }
 
     case MathValueType::MathNegate: {
       const CSSMathNegate& mathNegate = GetAsCSSMathNegate();
 
-      auto styleMathNegate = mathNegate.ToStyleMathNegate();
-      if (styleMathNegate.isNothing()) {
-        return Nothing();
-      }
-
-      return Some(StyleMathValue::Negate(styleMathNegate.extract()));
+      return StyleMathValue::Negate(mathNegate.ToStyleMathNegate());
     }
 
     case MathValueType::MathProduct: {
       const CSSMathProduct& mathProduct = GetAsCSSMathProduct();
 
-      return Some(StyleMathValue::Product(mathProduct.ToStyleMathProduct()));
+      return StyleMathValue::Product(mathProduct.ToStyleMathProduct());
     }
 
     case MathValueType::MathSum: {
       const CSSMathSum& mathSum = GetAsCSSMathSum();
 
-      return Some(StyleMathValue::Sum(mathSum.ToStyleMathSum()));
+      return StyleMathValue::Sum(mathSum.ToStyleMathSum());
     }
-
-    case MathValueType::Uninitialized:
-      return Nothing();
   }
   MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("Bad math value type!");
 }

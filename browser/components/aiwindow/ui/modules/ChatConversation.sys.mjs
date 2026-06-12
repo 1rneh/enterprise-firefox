@@ -103,6 +103,23 @@ export class ChatConversation extends EventEmitter {
   activeBranchTipMessageId;
 
   /**
+   * Transient (not persisted): the submit_type of the most recent user
+   * submission, used to send telemetry to later tool-result events.
+   *
+   * @type {?string}
+   */
+  lastSubmitType = null;
+
+  /**
+   * Transient (not persisted): cached action_type categorization
+   * ("tab_mention", "description", "unsupported") of the most recent browser
+   * action request, used to send telemetry to later tool-result events.
+   *
+   * @type {?string}
+   */
+  lastBrowserActionType = null;
+
+  /**
    * A mapping of a URL to its unique URL token. URL tokens are used as shortened
    * versions of URLs to help the model deal with very long URLs. Very long URLs are
    * problematic since they are hard for a model to repeat back without making mistakes
@@ -608,6 +625,34 @@ export class ChatConversation extends EventEmitter {
       newTurnIndex,
       userOpts
     );
+  }
+
+  /**
+   * Resolves the pending tool-confirmation message for UI actions.
+   * Called by ToolUI when the user confirms or cancels via the UI.
+   *
+   * @param {object} outcomeBody - The new body for the tool message.
+   * @param {string} toolCallId - Only resolve when the message's tool_call_id matches.
+   * @returns {boolean} True if a pending message was resolved.
+   */
+  resolvePendingToolConfirmation(outcomeBody, toolCallId) {
+    const message = this.#messages.at(-1);
+
+    const isResolvableToolMessage =
+      message?.role === MESSAGE_ROLE.TOOL &&
+      message.content?.tool_call_id === toolCallId &&
+      message.content?.body?.pending;
+
+    if (!isResolvableToolMessage) {
+      return false;
+    }
+
+    message.content = { ...message.content, body: outcomeBody };
+    this.emit("chat-conversation:message-update", message);
+    lazy.ChatStore.updateConversation(this).catch(e => {
+      lazy.console.error("Failed to persist resolved tool confirmation", e);
+    });
+    return true;
   }
 
   /**
@@ -1117,6 +1162,19 @@ export class ChatConversation extends EventEmitter {
 
   get messageCount() {
     return this.#messages.filter(m => CHAT_ROLES.includes(m.role)).length;
+  }
+
+  /**
+   * Returns the contextMentions count from the most recent user message in
+   * the conversation, or 0 if none.
+   *
+   * @returns {number}
+   */
+  getLatestUserMentionCount() {
+    const lastUserMsg = this.#messages.findLast(
+      m => m?.role === MESSAGE_ROLE.USER
+    );
+    return lastUserMsg?.content?.contextMentions?.length ?? 0;
   }
 
   /**

@@ -19,7 +19,15 @@ document.addEventListener(
       .addEventListener("command", event => {
         switch (event.target.id) {
           case "cmd_newNavigator":
-            OpenBrowserWindow();
+            if (AIWindow.isDefaultWindow) {
+              AIWindow.launchWindow(
+                gBrowser?.selectedBrowser,
+                true,
+                "keyboard_shortcut"
+              );
+            } else {
+              OpenBrowserWindow();
+            }
             break;
           case "cmd_handleBackspace":
             BrowserCommands.handleBackspace();
@@ -182,6 +190,12 @@ document.addEventListener(
             break;
           case "Browser:ShowAllTabs":
             gTabsPanel.showAllTabsPanel();
+            break;
+          case "Browser:AddTabSplitView":
+            BrowserCommands.addTabSplitView();
+            break;
+          case "Browser:SeparateTabSplitView":
+            BrowserCommands.separateTabSplitView();
             break;
           case "cmd_fullZoomReduce":
             FullZoom.reduce();

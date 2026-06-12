@@ -12,6 +12,7 @@
 #include "mozilla/a11y/Role.h"
 #include "mozilla/a11y/SelectionManager.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPtr.h"
 
 #include "nsAtomHashKeys.h"
 #include "nsIContent.h"
@@ -57,8 +58,8 @@ SelectionManager* SelectionMgr();
 ApplicationAccessible* ApplicationAcc();
 xpcAccessibleApplication* XPCApplicationAcc();
 
-typedef LocalAccessible*(New_Accessible)(mozilla::dom::Element * aElement,
-                                         LocalAccessible* aContext);
+typedef already_AddRefed<LocalAccessible>(New_Accessible)(
+    mozilla::dom::Element* aElement, LocalAccessible* aContext);
 
 // These fields are not `nsStaticAtom* const` because MSVC doesn't like it.
 struct MarkupAttrInfo {
@@ -492,13 +493,15 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
   /**
    * Reference for accessibility service instance.
    */
-  static nsAccessibilityService* gAccessibilityService;
+  static mozilla::StaticRefPtr<nsAccessibilityService> gAccessibilityService;
 
   /**
    * Reference for application accessible instance.
    */
-  static mozilla::a11y::ApplicationAccessible* gApplicationAccessible;
-  static mozilla::a11y::xpcAccessibleApplication* gXPCApplicationAccessible;
+  static mozilla::StaticRefPtr<mozilla::a11y::ApplicationAccessible>
+      gApplicationAccessible;
+  static mozilla::StaticRefPtr<mozilla::a11y::xpcAccessibleApplication>
+      gXPCApplicationAccessible;
 
   /**
    * Contains a set of accessibility service consumers.

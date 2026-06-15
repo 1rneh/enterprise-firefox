@@ -31,6 +31,9 @@ const lazy = XPCOMUtils.declareLazy({
   SelectableProfileService:
     "resource:///modules/profiles/SelectableProfileService.sys.mjs",
 });
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 
 Preferences.addAll([
   // sync
@@ -391,6 +394,10 @@ Preferences.addSetting(
         },
       };
     }
+
+    visible() {
+      return !AppConstants.MOZ_ENTERPRISE;
+    }
   }
 );
 
@@ -398,6 +405,9 @@ Preferences.addSetting({
   id: "fxaUnlinkButton",
   onUserClick: () => {
     SyncHelpers.unlinkFirefoxAccount(true);
+  },
+  visible() {
+    return !AppConstants.MOZ_ENTERPRISE;
   },
 });
 
@@ -672,6 +682,9 @@ Preferences.addSetting({
         SyncHelpers.connectAnotherDeviceHref = connectURI;
         emitChange();
       });
+  },
+  visible() {
+    return !AppConstants.MOZ_ENTERPRISE;
   },
 });
 

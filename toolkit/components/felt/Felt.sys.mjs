@@ -128,7 +128,7 @@ export class Felt {
 
       if (!win) {
         lazy.log.error(
-          "FeltExtension: No browser window available to open URL"
+          "No browser window available to open URL"
         );
         return;
       }
@@ -137,7 +137,7 @@ export class Felt {
         win.openTrustedLinkIn(url, "tab");
         win.focus();
       } catch (err) {
-        lazy.log.error("FeltExtension: Failed to open forwarded URL", url, err);
+        lazy.log.error("Failed to open forwarded URL", url, err);
       }
     },
 
@@ -169,7 +169,7 @@ export class Felt {
           args,
         });
       } catch (err) {
-        lazy.log.error("FeltExtension: Failed to open forwarded window", err);
+        lazy.log.error("Failed to open forwarded window", err);
       }
     },
   };
@@ -241,13 +241,13 @@ export class Felt {
       try {
         Services.felt.sendExtensionReady();
       } catch (e) {
-        lazy.log.error("FeltExtension: Failed to send extension ready:", e);
+        lazy.log.error("Failed to send extension ready:", e);
       }
     }
   }
 
   receiveMessage(message) {
-    lazy.log.debug(`FeltExtension: ${message.name} handling ...`);
+    lazy.log.debug(`${message.name} handling ...`);
     switch (message.name) {
       case "FeltParent:FirefoxNormalExit": {
         Services.ppmm.removeMessageListener(
@@ -258,7 +258,7 @@ export class Felt {
         lazy.ConsoleClient.performServerSignout()
           .catch(err => {
             console.error(
-              `FeltExtension: Failed to post signout on exit: ${err}`
+              `Failed to post signout on exit: ${err}`
             );
           })
           .finally(() => {
@@ -290,7 +290,7 @@ export class Felt {
 
       case "FeltParent:FirefoxAbnormalExit": {
         const success = Services.felt.makeBackgroundProcess(false);
-        lazy.log.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
+        lazy.log.debug(`makeBackgroundProcess? ${success}`);
         this.showWindow("felt-browser-error-multiple-crashes");
         break;
       }
@@ -324,13 +324,13 @@ export class Felt {
         Services.startup.enterLastWindowClosingSurvivalArea();
         this.closeWindow();
         const success = Services.felt.makeBackgroundProcess(true);
-        lazy.log.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
+        lazy.log.debug(`makeBackgroundProcess? ${success}`);
         break;
       }
 
       case "FeltParent:ForceFeltFocus": {
         lazy.log.debug(
-          `FeltExtension: forcing window focus: this._win=${this._win}`
+          `forcing window focus: this._win=${this._win}`
         );
         if (this._win) {
           this._win.focus();
@@ -339,13 +339,13 @@ export class Felt {
       }
 
       default:
-        lazy.log.debug(`FeltExtension: ${message.name} NOT HANDLED`);
+        lazy.log.debug(`${message.name} NOT HANDLED`);
         break;
     }
   }
 
   windowObserver(subject, topic) {
-    lazy.log.debug(`FeltExtension: topic=${topic}`);
+    lazy.log.debug(`topic=${topic}`);
     if (topic === "domwindowopened") {
       Services.startup.exitLastWindowClosingSurvivalArea();
     }
@@ -359,7 +359,7 @@ export class Felt {
   }
 
   closeWindow() {
-    lazy.log.debug(`FeltExtension: closeWindow: this._win=${this._win}`);
+    lazy.log.debug(`closeWindow: this._win=${this._win}`);
     if (lazy.shouldNotCloseWindow()) {
       // Some tests needs to run code on FELT while Browser is running, and
       // this requires the window to be kept alive.

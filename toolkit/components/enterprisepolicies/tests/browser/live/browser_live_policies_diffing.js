@@ -3,108 +3,182 @@
 
 "use strict";
 
-const lazy = {};
+const customSchema = {
+  properties: {
+    TestPolicy: {
+      type: "string",
+    },
+  },
+};
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  Policies: "resource:///modules/policies/Policies.sys.mjs",
-  setTimeout: "resource://gre/modules/Timer.sys.mjs",
-});
+let policyValue = POLICY_PARAM_STATE.DEFAULT;
+
+const TestPolicy = {
+  onBeforeUIStartup(manager, param) {
+    policyValue = param;
+  },
+  onRemove(_manager, _oldParam) {
+    policyValue = POLICY_PARAM_STATE.REMOVED;
+  },
+};
 
 add_setup(async () => {
+  Policies.TestPolicy = TestPolicy;
+
   registerCleanupFunction(async () => {
-    await clearPolicyEngine();
+    delete Policies.TestPolicy;
   });
-  await EnterprisePolicyTesting.ensureRemotePoliciesMockServer(
-    registerCleanupFunction
-  );
 });
 
-add_task(async function test_simple_policy_removal() {
-  const customSchema = {
-    properties: {
-      BlockSomePage: {
-        type: "boolean",
-      },
-    },
-  };
+add_task(async function test_policy_update_apply_new_policy() {
+  policyValue = POLICY_PARAM_STATE.DEFAULT;
 
-  let blockSomePageApplied = false;
-
-  // Inspired by BlockAboutConfig
-  lazy.Policies.BlockSomePage = {
-    onBeforeUIStartup(manager, param) {
-      if (param) {
-        blockSomePageApplied = true;
-      }
-    },
-    onRemove(manager, oldParam) {
-      if (oldParam) {
-        // Previous policy param was "true" so revert and disable the blocking
-        blockSomePageApplied = false;
-      }
-    },
-  };
-
-  await EnterprisePolicyTesting.servePolicyWithJson(
-    {
-      policies: {
-        BlockSomePage: true,
-      },
-    },
-    customSchema
-  );
-
-  ok(blockSomePageApplied, "BlockSomePage enabled");
-
-  await EnterprisePolicyTesting.servePolicyWithJson(
+  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
     {
       policies: {},
     },
     customSchema
   );
 
-  ok(!blockSomePageApplied, "BlockSomePage disabled");
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    {},
+    "Expected no policies to be applied."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.DEFAULT,
+    "Expected the default policy parameter."
+  );
 
-  delete lazy.Policies.BlockSomePage;
+  const policies = {
+    policies: {
+      TestPolicy: POLICY_PARAM_STATE.APPLIED,
+    },
+  };
+
+  await EnterprisePolicyTesting.applyRemotePolicies(policies);
+
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    { TestPolicy: POLICY_PARAM_STATE.APPLIED },
+    "Expected remote policy TestPolicy with parameter APPLIED."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
+  );
 });
 
-add_task(async function test_simple_policy_stays() {
-  const customSchema = {
-    properties: {
-      BlockAnotherPage: {
-        type: "boolean",
-      },
-    },
-  };
+add_task(async function test_policy_update_apply_policy_param_update() {
+  policyValue = POLICY_PARAM_STATE.DEFAULT;
 
-  let blockAnotherPageApplied = false;
-
-  // Inspired by BlockAboutConfig
-  lazy.Policies.BlockAnotherPage = {
-    onBeforeUIStartup(manager, param) {
-      if (param) {
-        blockAnotherPageApplied = true;
-      }
-    },
-    onRemove(manager, oldParam) {
-      if (oldParam) {
-        // Previous policy param was "true" so revert and disable the blocking
-        blockAnotherPageApplied = false;
-      }
-    },
-  };
-
-  await EnterprisePolicyTesting.servePolicyWithJson(
+  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
     {
       policies: {
-        BlockAnotherPage: true,
+        TestPolicy: POLICY_PARAM_STATE.APPLIED,
       },
     },
     customSchema
   );
 
-  // We received payload and applied once
-  ok(blockAnotherPageApplied, "BlockAnotherPage enabled");
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    { TestPolicy: POLICY_PARAM_STATE.APPLIED },
+    "Expected remote policy TestPolicy with parameter APPLIED."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
+  );
+
+  policyValue = POLICY_PARAM_STATE.DEFAULT;
+
+  const policies = {
+    policies: {
+      TestPolicy: POLICY_PARAM_STATE.UPDATED,
+    },
+  };
+
+  await EnterprisePolicyTesting.applyRemotePolicies(policies);
+
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    { TestPolicy: POLICY_PARAM_STATE.UPDATED },
+    "Expected remote policy TestPolicy with parameter UPDATED."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.UPDATED,
+    `Expected the policy parameter "updated".`
+  );
+});
+
+add_task(async function test_policy_update_remove_old_policy() {
+  policyValue = POLICY_PARAM_STATE.DEFAULT;
+
+  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+    {
+      policies: {
+        TestPolicy: POLICY_PARAM_STATE.APPLIED,
+      },
+    },
+    customSchema
+  );
+
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    { TestPolicy: POLICY_PARAM_STATE.APPLIED },
+    "Expected remote policy TestPolicy with parameter APPLIED."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
+  );
+
+  const policies = {
+    policies: {},
+  };
+
+  await EnterprisePolicyTesting.applyRemotePolicies(policies);
+
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    {},
+    "Expected remote policy TestPolicy to be removed."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.REMOVED,
+    "Expected the policy parameter to be of state REMOVED."
+  );
+});
+
+add_task(async function test_policy_update_no_changes() {
+  policyValue = POLICY_PARAM_STATE.DEFAULT;
+
+  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+    {
+      policies: {
+        TestPolicy: POLICY_PARAM_STATE.APPLIED,
+      },
+    },
+    customSchema
+  );
+
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    { TestPolicy: POLICY_PARAM_STATE.APPLIED },
+    "Expected remote policy TestPolicy with parameter APPLIED."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
+  );
 
   // This is not really representative of how things can happen but rather to
   // verify that the policy's callback was not called a second time.
@@ -123,26 +197,38 @@ add_task(async function test_simple_policy_stays() {
   //    incorrect WRT policy at the moment)
   //
 
-  blockAnotherPageApplied = false;
+  // Revert back to DEFAULT (pref is unlocked)
+  policyValue = POLICY_PARAM_STATE.DEFAULT;
 
-  // polling happens on a specific frequency so wait enough to be certain
-  await new Promise(resolve => lazy.setTimeout(resolve, 500));
+  // Wait for next policy update to complete
+  await EnterprisePolicyTesting.awaitNextPolicyUpdate();
 
-  ok(!blockAnotherPageApplied, "BlockAnotherPage not re-enabled by policy");
-
-  // Set back the correct value
-  blockAnotherPageApplied = true;
-
-  // Now publish a new instance where the policy has been removed
-  await EnterprisePolicyTesting.servePolicyWithJson(
-    {
-      policies: {},
-    },
-    customSchema
+  // Verify that the policy's callback wasn't called a second time.
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    { TestPolicy: POLICY_PARAM_STATE.APPLIED },
+    "Expected no changes to the active policy specifications."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.DEFAULT,
+    "Expected local changes to policy parameters to not get overridden."
   );
 
-  // Policy being removed it means the blocking should get lifted
-  ok(!blockAnotherPageApplied, "BlockAnotherPage disabled");
+  const policies = {
+    policies: {},
+  };
 
-  delete lazy.Policies.BlockAnotherPage;
+  await EnterprisePolicyTesting.applyRemotePolicies(policies);
+
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    {},
+    "Expected remote policy TestPolicy to be removed."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.REMOVED,
+    "Expected the policy parameter to be of state REMOVED."
+  );
 });

@@ -4,20 +4,37 @@
 
 "use strict";
 
-const { EnterprisePolicyTesting } = ChromeUtils.importESModule(
-  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+const { EnterprisePolicyTesting, PoliciesPrefTracker } =
+  ChromeUtils.importESModule(
+    "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+  );
+
+const { Policies } = ChromeUtils.importESModule(
+  "resource:///modules/policies/Policies.sys.mjs"
 );
 
-async function clearPolicyEngine() {
-  await EnterprisePolicyTesting.servePolicyWithJson({ policies: {} }, {});
-  is(
-    Object.keys(Services.policies.getActivePolicies()).length,
-    0,
-    "No policies should be defined"
-  );
-  is(
-    Services.policies.status,
-    Ci.nsIEnterprisePolicies.INACTIVE,
-    "Engine is inactive at the end of the test"
-  );
-}
+EnterprisePolicyTesting.pathResolver = getTestFilePath;
+
+const POLICY_PARAM_STATE = {
+  DEFAULT: "default",
+  APPLIED: "applied",
+  APPLIED_LOCAL_POLICY: "applied-by-local-policy",
+  APPLIED_REMOTE_POLICY: "applied-by-remote-policy",
+  UPDATED: "updated",
+  REMOVED: "removed",
+};
+
+add_setup(async () => {
+  PoliciesPrefTracker.start();
+  registerCleanupFunction(() => {
+    PoliciesPrefTracker.stop();
+  });
+
+  registerCleanupFunction(async () => {
+    Services.obs.notifyObservers(null, "EnterprisePolicies:Reset");
+    if (EnterprisePolicyTesting.remotePoliciesStub) {
+      EnterprisePolicyTesting.remotePoliciesStub.restore();
+      EnterprisePolicyTesting.remotePoliciesStub = null;
+    }
+  });
+});

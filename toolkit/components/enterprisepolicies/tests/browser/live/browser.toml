@@ -1,9 +1,9 @@
 [DEFAULT]
 head = "head.js"
 prefs = [
-  "enterprise.console.address=",
-  "browser.policies.testUseHttp=true",
   "browser.policies.remote.enabled=true",
+  "browser.policies.live_polling.enabled=true",
+  "browser.policies.live_polling.frequency=500",
 ]
 run-if = [
   "enterprise",

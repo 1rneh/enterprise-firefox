@@ -243,11 +243,11 @@ export class Felt {
         Services.obs.addObserver(this.urlObserver, "felt-open-url");
       }
       Services.obs.addObserver(this.updateObserver, "felt-update-ready");
-      // Notify that extension is ready to receive URLs
+      // Notify that FELT is ready to receive URLs
       try {
-        Services.felt.sendExtensionReady();
+        Services.felt.sendFeltReady();
       } catch (e) {
-        lazy.log.error("Failed to send extension ready:", e);
+        lazy.log.error("Failed to send Felt ready:", e);
       }
     }
   }

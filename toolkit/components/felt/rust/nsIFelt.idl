@@ -70,7 +70,7 @@ interface nsIFelt : nsISupports {
   void clearTokens();
 
   [must_use]
-  void sendExtensionReady();
+  void sendFeltReady();
 
   [must_use]
   void openURL(in ACString url, in long disposition);

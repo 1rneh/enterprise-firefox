@@ -148,16 +148,16 @@ pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn firefox_felt_send_extension_ready() {
-    trace!("firefox_felt_send_extension_ready()");
+pub extern "C" fn firefox_felt_send_felt_ready() {
+    trace!("firefox_felt_send_felt_ready()");
     let guard = FELT_CLIENT.lock().expect("Could not get lock");
     match &*guard {
         Some(client) => {
-            trace!("firefox_felt_send_extension_ready(): sending message");
-            client.send_extension_ready();
+            trace!("firefox_felt_send_felt_ready(): sending message");
+            client.send_felt_ready();
         }
         None => {
-            trace!("firefox_felt_send_extension_ready(): missing client");
+            trace!("firefox_felt_send_felt_ready(): missing client");
         }
     }
 }

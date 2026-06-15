@@ -56,7 +56,7 @@ pub enum FeltMessage {
     StartupReady,
     AccessToken((String, i64)),
     RefreshTokens,
-    ExtensionReady,
+    FeltReady,
     OpenURL((String, i32, Option<FocusHint>)),
     RestartForced,
     Restarting,
@@ -72,4 +72,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 10;
+pub const FELT_IPC_VERSION: u32 = 11;

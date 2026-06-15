@@ -65,13 +65,13 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn send_extension_ready(&self) {
-        trace!("FeltIpcClient::send_extension_ready()");
-        let msg = FeltMessage::ExtensionReady;
+    pub fn send_felt_ready(&self) {
+        trace!("FeltIpcClient::send_felt_ready()");
+        let msg = FeltMessage::FeltReady;
         if let Some(tx) = &self.tx {
             match tx.send(msg) {
-                Ok(()) => trace!("FeltIpcClient::send_extension_ready() SENT"),
-                Err(err) => trace!("FeltIpcClient::send_extension_ready() TX ERROR: {}", err),
+                Ok(()) => trace!("FeltIpcClient::send_felt_ready() SENT"),
+                Err(err) => trace!("FeltIpcClient::send_felt_ready() TX ERROR: {}", err),
             }
         }
     }
@@ -458,10 +458,10 @@ impl FeltClientThread {
         self.startup_ready.load(Ordering::Acquire)
     }
 
-    pub fn send_extension_ready(&self) {
-        trace!("FeltClientThread::send_extension_ready()");
+    pub fn send_felt_ready(&self) {
+        trace!("FeltClientThread::send_felt_ready()");
         let client = self.ipc_client.borrow();
-        client.send_extension_ready();
+        client.send_felt_ready();
     }
 
     pub fn notify_signout(&self) {

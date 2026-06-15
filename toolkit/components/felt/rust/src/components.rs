@@ -273,14 +273,14 @@ impl FeltXPCOM {
         Ok(nsCString::from(token))
     }
 
-    fn SendExtensionReady(&self) -> nserror::nsresult {
-        trace!("FeltXPCOM::SendExtensionReady");
+    fn SendFeltReady(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::SendFeltReady");
         if self.is_felt_browser {
-            trace!("FeltXPCOM::SendExtensionReady: calling firefox_felt_send_extension_ready");
-            crate::firefox_felt_send_extension_ready();
+            trace!("FeltXPCOM::SendFeltReady: calling firefox_felt_send_felt_ready");
+            crate::firefox_felt_send_felt_ready();
             NS_OK
         } else {
-            trace!("FeltXPCOM::SendExtensionReady: not in browser, ignoring");
+            trace!("FeltXPCOM::SendFeltReady: not in browser, ignoring");
             NS_OK
         }
     }
@@ -417,9 +417,9 @@ impl FeltXPCOM {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Exiting");
                                 crate::utils::notify_observers("felt-firefox-exiting".to_string());
                             },
-                            Ok(FeltMessage::ExtensionReady) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): ExtensionReady");
-                                crate::utils::notify_observers("felt-extension-ready".to_string());
+                            Ok(FeltMessage::FeltReady) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): FeltReady");
+                                crate::utils::notify_observers("felt-ready".to_string());
                             },
                             Ok(FeltMessage::LogoutShutdown) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");

@@ -40,10 +40,10 @@ const PROCESS_START_REASON = {
 };
 
 export function queueURL(payload) {
-  // If Firefox AND extension are both ready, forward immediately
+  // If Firefox AND Felt are both ready, forward immediately
   if (
     gFeltProcessParentInstance?.firefoxReady &&
-    gFeltProcessParentInstance?.extensionReady
+    gFeltProcessParentInstance?.feltReady
   ) {
     gFeltProcessParentInstance.sendURLToFirefox(payload);
     // Ensure Felt launcher stays hidden when forwarding to running Firefox
@@ -72,7 +72,7 @@ let gFeltFirefoxReadyNotified = false;
 export function isFeltFirefoxWindowReady() {
   return (
     gFeltProcessParentInstance?.firefoxReady &&
-    gFeltProcessParentInstance?.extensionReady
+    gFeltProcessParentInstance?.feltReady
   );
 }
 
@@ -101,7 +101,7 @@ function notifyFirefoxReady() {
 const kBrowserObserverTopics = [
   "felt-firefox-exiting",
   "felt-firefox-restarting",
-  "felt-extension-ready",
+  "felt-ready",
   "felt-firefox-logout",
   "felt-firefox-tokens",
   "felt-firefox-refresh-tokens",
@@ -122,8 +122,8 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     // Track Firefox ready state (URLs remain in gFeltPendingURLs until ready)
     this.firefoxReady = false;
-    // Track extension ready state (extension must register its observer)
-    this.extensionReady = false;
+    // Track Felt ready state (it must register its observer)
+    this.feltReady = false;
     // Current loggedInUserInfo
     this.loggedInUserInfo = null;
 
@@ -235,9 +235,9 @@ export class FeltProcessParent extends JSProcessActorParent {
               });
             break;
           }
-          case "felt-extension-ready": {
+          case "felt-ready": {
             if (gFeltProcessParentInstance) {
-              gFeltProcessParentInstance.extensionReady = true;
+              gFeltProcessParentInstance.feltReady = true;
               if (lazy.isBuildAppBrowser()) {
                 gFeltProcessParentInstance.forwardPendingURLs().catch(err => {
                   lazy.log.error("Failed to forward pending URLs", err);
@@ -441,7 +441,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.logoutReported = false;
     this.exitReported = false;
     this.firefoxReady = false;
-    this.extensionReady = false;
+    this.feltReady = false;
     if (lazy.isBuildAppBrowser()) {
       // This also part of FeltURLHandler that cannot be loaded in non browser
       // applications.
@@ -481,7 +481,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         this.firefoxReady = true;
 
         if (lazy.isBuildAppBrowser()) {
-          // Try to forward pending URLs now (will only forward if extension is also ready)
+          // Try to forward pending URLs now (will only forward if felt is also ready)
           await this.forwardPendingURLs();
         }
         notifyFirefoxReady();
@@ -698,10 +698,10 @@ export class FeltProcessParent extends JSProcessActorParent {
       return;
     }
 
-    // Wait for both Firefox (prefs/cookies) AND extension (observer) to be ready
-    if (!this.firefoxReady || !this.extensionReady) {
+    // Wait for both Firefox (prefs/cookies) AND felt (observer) to be ready
+    if (!this.firefoxReady || !this.feltReady) {
       lazy.log.debug(
-        `Not ready to forward URLs (firefoxReady=${this.firefoxReady}, extensionReady=${this.extensionReady})`
+        `Not ready to forward URLs (firefoxReady=${this.firefoxReady}, feltReady=${this.feltReady})`
       );
       return;
     }
@@ -711,7 +711,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       return;
     }
 
-    // Forward all URLs directly via IPC (both Firefox and extension are ready)
+    // Forward all URLs directly via IPC (both Firefox and felt are ready)
     for (const payload of lazy.gFeltPendingURLs) {
       try {
         let { url, disposition } = extractURLPayload(payload);

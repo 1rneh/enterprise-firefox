@@ -22,6 +22,18 @@
   pref("browser.hiddenWindowChromeURL", "chrome://browser/content/hiddenWindowMac.xhtml");
 #endif
 
+// Default preferences for enterprise builds
+#ifdef MOZ_ENTERPRISE
+pref("enterprise.log_level", "Error");
+// Prompting the signout dialog on quitting/closing the app
+pref("enterprise.prompt_on_signout", true);
+// On Enterprise we want to enforce updates so we force it
+// Bug 2020768: Should those value be set/locked at runtime by FELT only
+//              or is it fine to apply it to any enterprise build?
+pref("app.update.checkOnlyInstance.enabled", false);
+pref("app.update.background.enabled", true);
+#endif
+
 // Set add-ons abuse report related prefs specific to Firefox Desktop.
 pref("extensions.abuseReport.enabled", true);
 
@@ -144,7 +156,7 @@ pref("app.update.notifyDuringDownload", false);
 // (which is in a file in the update directory). Because of this, this pref
 // should no longer be used directly. Instead, getAppUpdateAutoEnabled and
 // getAppUpdateAutoEnabled from UpdateUtils.sys.mjs should be used.
-#ifndef XP_WIN
+#if !defined(XP_WIN) || defined(MOZ_ENTERPRISE)
   pref("app.update.auto", true);
 #endif
 
@@ -3648,7 +3660,11 @@ pref("browser.backup.tab-flush-timeout", 5000);
 pref("browser.backup.enabled_on.profiles", "[]");
 
 // Pref to enable the new profiles
+#ifdef MOZ_ENTERPRISE
+pref("browser.profiles.enabled", false);
+#else
 pref("browser.profiles.enabled", true);
+#endif
 pref("browser.profiles.profile-name.updated", false);
 // Whether to allow the user to merge profile data
 pref("browser.profiles.sync.allow-danger-merge", false);

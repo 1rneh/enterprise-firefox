@@ -486,6 +486,10 @@ Preferences.addSetting({
   deps: ["uiStateUpdate"],
   visible() {
     return (
+      !(
+        AppConstants.MOZ_ENTERPRISE &&
+        !Services.policies.isAllowed("change-sync-state")
+      ) &&
       SyncHelpers.uiStateStatus === window.UIState.STATUS_SIGNED_IN &&
       !SyncHelpers.isSyncEnabled
     );
@@ -597,6 +601,12 @@ Preferences.addSetting({
   id: "syncDisconnect",
   onUserClick: () => {
     SyncHelpers.disconnectSync();
+  },
+  visible: () => {
+    return !(
+        AppConstants.MOZ_ENTERPRISE &&
+        !Services.policies.isAllowed("change-sync-state")
+      )
   },
 });
 

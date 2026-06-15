@@ -614,9 +614,9 @@ Preferences.addSetting({
   },
   visible: () => {
     return !(
-        AppConstants.MOZ_ENTERPRISE &&
-        !Services.policies.isAllowed("change-sync-state")
-      )
+      AppConstants.MOZ_ENTERPRISE &&
+      !Services.policies.isAllowed("change-sync-state")
+    );
   },
 });
 

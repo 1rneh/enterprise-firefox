@@ -437,14 +437,14 @@ impl FeltXPCOM {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Browser is requesting token refresh");
                                 crate::utils::notify_observers("felt-firefox-refresh-tokens".to_string());
                             },
-                            Err(ipc_channel::ipc::IpcError::Disconnected) => {
+                            Err(ipc_channel::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");
                                 break;
                             },
-                            Err(ipc_channel::ipc::IpcError::Bincode(deserializeErr)) => {
+                            Err(ipc_channel::IpcError::SerializationError(deserializeErr)) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): IPC DESERIALIZE ERROR {:?}", deserializeErr);
                             },
-                            Err(ipc_channel::ipc::IpcError::Io(ioErr)) => {
+                            Err(ipc_channel::IpcError::Io(ioErr)) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): IPC I/O ERROR {:?}", ioErr);
                             },
                             Ok(msg) => {

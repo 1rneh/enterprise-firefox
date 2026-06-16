@@ -23,6 +23,8 @@ JOB_CHOICES = {
     "macosx64-enterprise-debug",
     "macosx64-aarch64-opt",
     "macosx64-aarch64-debug",
+    "macosx64-aarch64-enterprise-opt",
+    "macosx64-aarch64-enterprise-debug",
     "win32-opt",
     "win32-debug",
     "win64-opt",

@@ -114,6 +114,7 @@ linux64-enterprise/opt:
         job-name: linux64-enterprise-opt
     attributes:
         enable-full-crashsymbols: true
+        code-review: true
     shipping-phase: build
     treeherder:
         platform: linux64-enterprise/opt
@@ -508,6 +509,7 @@ linux64-enterprise/debug:
         job-name: linux64-enterprise-debug
     attributes:
         enable-full-crashsymbols: true
+        code-review: true
     treeherder:
         platform: linux64-enterprise/debug
         symbol: Bent

@@ -77,6 +77,7 @@ macosx64-enterprise/debug:
     attributes:
         enable-build-signing: true
         enable-full-crashsymbols: true
+        code-review: true
     treeherder:
         platform: osx-cross-enterprise/debug
         symbol: Bent
@@ -475,6 +476,7 @@ macosx64-enterprise/opt:
     attributes:
         enable-build-signing: true
         enable-full-crashsymbols: true
+        code-review: true
     shipping-phase: build
     treeherder:
         platform: osx-cross-enterprise/opt

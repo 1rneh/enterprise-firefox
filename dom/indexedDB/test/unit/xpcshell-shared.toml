@@ -62,6 +62,8 @@ skip-if = [
 
 ["test_getAll.js"]
 
+["test_getAllRecords.js"]
+
 ["test_globalObjects_other.js"]
 skip-if = [
   "os == 'android'", # bug 1079278
@@ -104,10 +106,6 @@ skip-if = [
 
 ["test_keys.js"]
 requesttimeoutfactor = 2  # Slow on Linux TSan
-
-["test_locale_aware_index_getAll.js"]
-
-["test_locale_aware_index_getAllObjects.js"]
 
 ["test_multientry.js"]
 

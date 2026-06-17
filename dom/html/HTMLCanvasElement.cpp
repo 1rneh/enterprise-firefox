@@ -473,7 +473,7 @@ NS_IMPL_ISUPPORTS(HTMLCanvasElementObserver, nsIObserver)
 // ---------------------------------------------------------------------------
 
 HTMLCanvasElement::HTMLCanvasElement(
-    already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
+    already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo)
     : nsGenericHTMLElement(std::move(aNodeInfo)),
       mResetLayer(true),
       mMaybeModified(false),
@@ -1460,7 +1460,8 @@ nsresult HTMLCanvasElement::RegisterFrameCaptureListener(
 }
 
 bool HTMLCanvasElement::IsFrameCaptureRequested(const TimeStamp& aTime) const {
-  for (WeakPtr<FrameCaptureListener> listener : mRequestedFrameListeners) {
+  for (const WeakPtr<FrameCaptureListener>& listener :
+       mRequestedFrameListeners) {
     if (!listener) {
       continue;
     }
@@ -1488,7 +1489,8 @@ void HTMLCanvasElement::SetFrameCapture(
   RefPtr<SourceSurfaceImage> image =
       new SourceSurfaceImage(surface->GetSize(), surface);
 
-  for (WeakPtr<FrameCaptureListener> listener : mRequestedFrameListeners) {
+  for (const WeakPtr<FrameCaptureListener>& listener :
+       mRequestedFrameListeners) {
     if (!listener) {
       continue;
     }

@@ -360,7 +360,7 @@ WebRenderBridgeParent::WebRenderBridgeParent(
       mPipelineId(aPipelineId),
       mLateInit(Some(LateInit{
           .mApi = aApi,
-          .mAsyncImageManager = aImageMgr,
+          .mAsyncImageManager = std::move(aImageMgr),
           .mCompositorScheduler = aScheduler,
           .mIdNamespace = aApi->GetNamespace(),
       })),
@@ -388,7 +388,7 @@ WebRenderBridgeParent::WebRenderBridgeParent(const wr::PipelineId& aPipelineId,
           .mCompositorScheduler = nullptr,
           .mIdNamespace{0},
       })),
-      mInitError(aError),
+      mInitError(std::move(aError)),
       mDestroyed(true),
       mIsFirstPaint(false) {
   LOG("WebRenderBridgeParent::WebRenderBridgeParent() PipelineId %" PRIx64 "",
@@ -988,6 +988,12 @@ bool WebRenderBridgeParent::UpdateSharedExternalImage(
   if (!MatchesNamespace(aKey)) {
     MOZ_ASSERT_UNREACHABLE("Stale shared external image key (update)!");
     return true;
+  }
+
+  if (!GetCompositorBridge()->GetCompositorManager()->OwnsExternalImageId(
+          aExtId)) {
+    gfxCriticalNote << "We do not own extId:" << wr::AsUint64(aExtId);
+    return false;
   }
 
   auto key = wr::AsUint64(aKey);

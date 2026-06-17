@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { CustomKeys } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/customkeys/CustomKeys.sys.mjs"
-);
-
 var gSerialDeviceObserver = {
   _activePortCounts: new WeakMap(),
 
@@ -341,13 +337,6 @@ var gBrowserInit = {
 
     window.addEventListener("AppCommand", HandleAppCommandEvent, true);
 
-    // These routines add message listeners. They must run before
-    // loading the frame script to ensure that we don't miss any
-    // message sent between when the frame script is loaded and when
-    // the listener is registered.
-    CaptivePortalWatcher.init();
-    ZoomUI.init(window);
-
     if (!gMultiProcessBrowser) {
       // There is a Content:Click message manually sent from content.
       gBrowser.tabpanels.addEventListener("click", contentAreaClick, {
@@ -360,11 +349,15 @@ var gBrowserInit = {
     gBrowser.addProgressListener(window.XULBrowserWindow);
     gBrowser.addTabsProgressListener(window.TabsProgressListener);
 
-    SidebarController.init();
-
-    // We do this in onload because we want to ensure the button's state
-    // doesn't flicker as the window is being shown.
-    DownloadsButton.init();
+    // TODO bug 2038578: audit these consumers and move any that don't need
+    // to run before SessionStore's per-window init to 'browser-window-load'.
+    BrowserUtils.callModulesFromCategory(
+      {
+        categoryName: "browser-window-load-before-sessionstore-init",
+        jsGlobal: globalThis,
+      },
+      window
+    );
 
     // Certain kinds of automigration rely on this notification to complete
     // their tasks BEFORE the browser window is shown. SessionStore uses it to
@@ -380,20 +373,10 @@ var gBrowserInit = {
       gURLBar.readOnly = true;
     }
 
-    // Misc. inits.
-    gUIDensity.init();
-    Win10TabletModeUpdater.init();
-    CombinedStopReload.ensureInitialized();
-    // Initialize private browsing UI only if window is private
-    if (PrivateBrowsingUtils.isWindowPrivate(window)) {
-      PrivateBrowsingUI.init(window);
-    }
-    TaskbarTabsChrome.init(window);
-    BrowserPageActions.init();
-    if (gToolbarKeyNavEnabled) {
-      ToolbarKeyboardNavigator.init();
-    }
-    CustomKeys.initWindow(window);
+    BrowserUtils.callModulesFromCategory(
+      { categoryName: "browser-window-load", jsGlobal: globalThis },
+      window
+    );
 
     // Update UI if browser is under remote control.
     gRemoteControl.updateVisualCue();
@@ -1191,8 +1174,6 @@ var gBrowserInit = {
   },
 
   onUnload() {
-    gUIDensity.uninit();
-
     BrowserUtils.callModulesFromCategory(
       { categoryName: "browser-window-unload-begin", jsGlobal: globalThis },
       window
@@ -1204,11 +1185,6 @@ var gBrowserInit = {
     if (!this._loadHandled) {
       return;
     }
-
-    // First clean up services initialized in gBrowserInit.onLoad (or those whose
-    // uninit methods don't depend on the services having been initialized).
-
-    CombinedStopReload.uninit();
 
     gGestureSupport.init(false);
 
@@ -1228,19 +1204,6 @@ var gBrowserInit = {
     PlacesToolbarHelper.uninit();
 
     BookmarkingUI.uninit();
-
-    Win10TabletModeUpdater.uninit();
-
-    CaptivePortalWatcher.uninit();
-
-    SidebarController.uninit();
-
-    DownloadsButton.uninit();
-
-    if (gToolbarKeyNavEnabled) {
-      ToolbarKeyboardNavigator.uninit();
-    }
-    CustomKeys.uninitWindow(window);
 
     // Bug 1952900 to allow switching to unload category without leaking
     ChromeUtils.importESModule(

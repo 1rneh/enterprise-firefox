@@ -17,8 +17,10 @@ MacIOSurfaceTextureHostOGL::MacIOSurfaceTextureHostOGL(
     TextureFlags aFlags, const SurfaceDescriptorMacIOSurface& aDescriptor)
     : TextureHost(TextureHostType::MacIOSurface, aFlags),
       mSurface(MacIOSurface::LookupSurface(
-          aDescriptor.surfaceId(), !aDescriptor.isOpaque(),
-          aDescriptor.yUVColorSpace(), aDescriptor.transferFunction())),
+          aDescriptor.surfaceId(), aDescriptor.yUVColorSpace(),
+          aDescriptor.transferFunction(),
+          aDescriptor.isOpaque() ? MacIOSurface::AllowAlpha::No
+                                 : MacIOSurface::AllowAlpha::Yes)),
       mGpuFence(aDescriptor.gpuFence()) {
   MOZ_COUNT_CTOR(MacIOSurfaceTextureHostOGL);
   if (!mSurface) {
@@ -80,8 +82,8 @@ void MacIOSurfaceTextureHostOGL::CreateRenderTexture(
     const wr::ExternalImageId& aExternalImageId) {
   MOZ_ASSERT(mExternalImageId.isSome());
 
-  RefPtr<wr::RenderTextureHost> texture =
-      new wr::RenderMacIOSurfaceTextureHost(GetMacIOSurface(), mGpuFence);
+  RefPtr texture = MakeRefPtr<wr::RenderMacIOSurfaceTextureHost>(
+      GetMacIOSurface(), mGpuFence);
 
   bool isDRM = (bool)(mFlags & TextureFlags::DRM_SOURCE);
   texture->SetIsFromDRMSource(isDRM);

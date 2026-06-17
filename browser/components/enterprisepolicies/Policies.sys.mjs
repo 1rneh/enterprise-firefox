@@ -23,9 +23,12 @@ XPCOMUtils.defineLazyServiceGetters(lazy, {
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  AddonManagerPrivate: "resource://gre/modules/AddonManager.sys.mjs",
   BookmarksPolicies: "resource:///modules/policies/BookmarksPolicies.sys.mjs",
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
+  ExtensionPermissions: "resource://gre/modules/ExtensionPermissions.sys.mjs",
+  setEnterpriseGuards: "resource://gre/modules/ExtensionPermissions.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   ProxyPolicies: "resource:///modules/policies/ProxyPolicies.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
@@ -1052,7 +1055,8 @@ export var Policies = {
           "limit-foreign": Ci.nsICookieService.BEHAVIOR_LIMIT_FOREIGN,
           "reject-tracker": Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER,
           "reject-tracker-and-partition-foreign":
-            Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN,
+            Ci.nsICookieService.BEHAVIOR_PARTITION_FOREIGN,
+          "partition-foreign": Ci.nsICookieService.BEHAVIOR_PARTITION_FOREIGN,
         };
         if ("Behavior" in param) {
           newCookieBehavior = behaviors[param.Behavior];
@@ -1501,6 +1505,14 @@ export var Policies = {
         manager.disallowFeature("NimbusRollouts");
       } else {
         manager.allowFeature("NimbusRollouts");
+      }
+    },
+  },
+
+  DisableRemoteSettingsAndAcceptSecurityConsequences: {
+    onBeforeUIStartup(manager, param) {
+      if (param) {
+        manager.disallowFeature("remoteSettings");
       }
     },
   },
@@ -1959,6 +1971,14 @@ export var Policies = {
       } catch (e) {
         lazy.log.error("Invalid ExtensionSettings");
       }
+      try {
+        applyExtensionGuards(param);
+      } catch (e) {
+        lazy.log.error(
+          `Invalid runtime_blocked_hosts/runtime_allowed_hosts in ` +
+            `ExtensionSettings: ${e.message}`
+        );
+      }
     },
     async onBeforeUIStartup(manager, param) {
       let extensionSettings = param;
@@ -1990,7 +2010,10 @@ export var Policies = {
           );
         }
       }
-      let addons = await lazy.AddonManager.getAllAddons();
+      let addons = new Map();
+      for (let a of await lazy.AddonManager.getAllAddons()) {
+        addons.set(a.id, a);
+      }
       let allowedExtensions = [];
       for (let extensionID in extensionSettings) {
         if (extensionID == "*") {
@@ -2010,7 +2033,7 @@ export var Policies = {
             installAddonFromURL(
               extensionSettings[extensionID].install_url,
               extensionID,
-              addons.find(addon => addon.id == extensionID)
+              addons.get(extensionID)
             );
             manager.disallowFeature(`uninstall-extension:${extensionID}`);
             if (
@@ -2027,11 +2050,12 @@ export var Policies = {
           } else if (
             extensionSettings[extensionID].installation_mode == "blocked"
           ) {
-            if (addons.find(addon => addon.id == extensionID)) {
+            if (addons.has(extensionID)) {
               // Can't use the addon from getActiveAddons since it doesn't have uninstall.
               let addon = await lazy.AddonManager.getAddonByID(extensionID);
               try {
                 await addon.uninstall();
+                addons.delete(extensionID);
               } catch (e) {
                 // This can fail for add-ons that can't be uninstalled.
                 lazy.log.debug(
@@ -2042,8 +2066,9 @@ export var Policies = {
           }
         }
       }
-      if (blockAllExtensions) {
-        for (let addon of addons) {
+      let allowedTypes = extensionSettings["*"]?.allowed_types;
+      if (blockAllExtensions || allowedTypes) {
+        for (let addon of addons.values()) {
           if (
             addon.isSystem ||
             addon.isBuiltin ||
@@ -2051,13 +2076,21 @@ export var Policies = {
           ) {
             continue;
           }
-          if (!allowedExtensions.includes(addon.id)) {
+          // Match Chrome: any per-id ExtensionSettings entry (even empty)
+          // shadows the "*" defaults entirely, so an addon with its own
+          // entry is exempt from blockAllExtensions.
+          if (
+            !allowedExtensions.includes(addon.id) &&
+            !(blockAllExtensions && addon.id in extensionSettings) &&
+            (blockAllExtensions || !allowedTypes.includes(addon.type))
+          ) {
             try {
               // Can't use the addon from getActiveAddons since it doesn't have uninstall.
               let addonToUninstall = await lazy.AddonManager.getAddonByID(
                 addon.id
               );
               await addonToUninstall.uninstall();
+              addons.delete(addon.id);
             } catch (e) {
               // This can fail for add-ons that can't be uninstalled.
               lazy.log.debug(
@@ -2067,6 +2100,48 @@ export var Policies = {
           }
         }
       }
+
+      // Revoke any granted optional permissions that are now blocked. The
+      // appDisabled refresh below handles addons whose required permissions
+      // are blocked (via mayInstallAddon -> isUsableAddon).
+      for (let addon of addons.values()) {
+        if (
+          addon.isSystem ||
+          addon.isBuiltin ||
+          !(addon.scope & lazy.AddonManager.SCOPE_PROFILE)
+        ) {
+          continue;
+        }
+        let blockedPerms =
+          Services.policies.getExtensionSettings(addon.id)
+            ?.blocked_permissions ?? [];
+        if (!blockedPerms.length) {
+          continue;
+        }
+        try {
+          let granted = await lazy.ExtensionPermissions.get(addon.id);
+          let toRemove = granted.permissions.filter(perm =>
+            blockedPerms.includes(perm)
+          );
+          if (toRemove.length) {
+            let extension = WebExtensionPolicy.getByID(addon.id)?.extension;
+            await lazy.ExtensionPermissions.remove(
+              addon.id,
+              { permissions: toRemove, origins: [], data_collection: [] },
+              extension
+            );
+          }
+        } catch (e) {
+          lazy.log.debug(
+            `Could not revoke blocked optional permissions for ${addon.id}: ${e}`
+          );
+        }
+      }
+      // Recompute appDisabled across all addons against the new policy. This
+      // catches addons whose required permissions are now blocked (via
+      // mayInstallAddon) without persisting userDisabled, so an update that
+      // drops the blocked permission re-enables the addon automatically.
+      lazy.AddonManagerPrivate.updateAddonAppDisabledStates();
     },
   },
 
@@ -2588,16 +2663,19 @@ export var Policies = {
       if (!param) {
         blockAboutPage(manager, "about:logins", true);
         setAndLockPref("pref.privacy.disable_button.view_passwords", true);
+        setAndLockPref("browser.contextual-password-manager.enabled", false);
       } else {
         unblockAboutPage(manager, "about:logins");
         setAndLockPref("pref.privacy.disable_button.view_passwords", false);
+        setAndLockPref("browser.contextual-password-manager.enabled", true);
       }
       setAndLockPref("signon.rememberSignons", param);
     },
     onRemove(manager, _oldParams) {
       unblockAboutPage(manager, "about:logins");
-      unsetAndUnlockPref("pref.privacy.disable_button.view_passwords", true);
+      unsetAndUnlockPref("pref.privacy.disable_button.view_passwords");
       unsetAndUnlockPref("signon.rememberSignons");
+      unsetAndUnlockPref("browser.contextual-password-manager.enabled");
     },
   },
 
@@ -3864,93 +3942,140 @@ export var PoliciesUtils = {
    *
    * @typedef PreferenceState
    * @type {object}
-   * @property {Ci.nsIPrefBranch.PreferenceType} type - preference type
    * @property {number|boolean|string|null} defaultValue - default preference value
    * @property {number|boolean|string|null} userValue - user modified preference value
+   * @property {boolean} isLocked - whether the preference is locked
    */
 
   /** @type {PreferenceState} */
   _initialPrefState: {},
 
   /**
-   * Saves the current default and user values of a pref before a policy changes it.
+   * Reads a typed preference value from the given branch, returning null when
+   * the branch has no value for this pref.
+   *
+   * @param {nsIPrefBranch} branch  User or default branch.
+   * @param {string} prefName
+   * @param {Ci.nsIPrefBranch.PreferenceType} type
+   */
+  _readPref(branch, prefName, type) {
+    switch (type) {
+      case Ci.nsIPrefBranch.PREF_INT:
+        return branch.getIntPref(prefName, null);
+      case Ci.nsIPrefBranch.PREF_BOOL:
+        return branch.getBoolPref(prefName, null);
+      case Ci.nsIPrefBranch.PREF_STRING:
+        return branch.getStringPref(prefName, null);
+      case Ci.nsIPrefBranch.PREF_INVALID:
+        return null;
+    }
+    return null;
+  },
+
+  /**
+   * Writes a typed preference value to the given branch. No-op for
+   * Ci.nsIPrefBranch.PREF_INVALID.
+   *
+   * @param {nsIPrefBranch} branch  User or default branch.
+   * @param {string} prefName
+   * @param {Ci.nsIPrefBranch.PreferenceType} type
+   * @param {number|boolean|string} value
+   */
+  _writePref(branch, prefName, type, value) {
+    switch (type) {
+      case Ci.nsIPrefBranch.PREF_INT:
+        branch.setIntPref(prefName, value);
+        break;
+      case Ci.nsIPrefBranch.PREF_BOOL:
+        branch.setBoolPref(prefName, value);
+        break;
+      case Ci.nsIPrefBranch.PREF_STRING:
+        branch.setStringPref(prefName, value);
+        break;
+      case Ci.nsIPrefBranch.PREF_INVALID:
+        break;
+    }
+  },
+
+  /**
+   * Saves the current default and user values of a pref before a policy changes it,
+   * along with whether the applying policy will leave the pref locked.
    * No-op if the pref was already saved.
    *
    * @param {string} prefName
+   * @param {boolean} isLocked
    */
-  savePreferenceState(prefName) {
+  savePreferenceState(prefName, isLocked) {
     if (prefName in this._initialPrefState) {
       return;
     }
 
     const type = Services.prefs.getPrefType(prefName);
-    const prefState = { type, defaultValue: null, userValue: null };
 
     const defaults = Services.prefs.getDefaultBranch("");
-    switch (type) {
-      case Ci.nsIPrefBranch.PREF_INT:
-        prefState.defaultValue = defaults.getIntPref(prefName, null);
-        prefState.userValue = Services.prefs.getIntPref(prefName, null);
-        break;
-      case Ci.nsIPrefBranch.PREF_BOOL:
-        prefState.defaultValue = defaults.getBoolPref(prefName, null);
-        prefState.userValue = Services.prefs.getBoolPref(prefName, null);
-        break;
-      case Ci.nsIPrefBranch.PREF_STRING:
-        prefState.defaultValue = defaults.getStringPref(prefName, null);
-        prefState.userValue = Services.prefs.getStringPref(prefName, null);
-        break;
-      case Ci.nsIPrefBranch.PREF_INVALID:
-      default:
-        break;
-    }
+    const prefState = {
+      defaultValue: this._readPref(defaults, prefName, type),
+      userValue: Services.prefs.prefHasUserValue(prefName) // check needed since the default is returned in case no user value exists
+        ? this._readPref(Services.prefs, prefName, type)
+        : null,
+      isLocked,
+    };
 
     this._initialPrefState[prefName] = prefState;
   },
 
   /**
-   * Restores the default and user values of a pref to the state before any policy was applied.
-   * No-op if no state was saved for the pref.
+   * Restores the preference to the state before any policy was applied. The user
+   * value of a preference is only restored if the preference was locked by the policy
+   * or was locked even before
    *
    * @param {string} prefName
    */
   restorePreferenceState(prefName) {
     const prefState = this._initialPrefState[prefName];
 
+    delete this._initialPrefState[prefName];
+
     if (!prefState) {
       // Nothing to restore
       return;
     }
 
+    const type = Services.prefs.getPrefType(prefName);
     const defaults = Services.prefs.getDefaultBranch("");
-    switch (prefState.type) {
-      case Ci.nsIPrefBranch.PREF_INT:
-        if (prefState.defaultValue !== null) {
-          defaults.setIntPref(prefName, prefState.defaultValue);
-        }
-        if (prefState.userValue !== null) {
-          Services.prefs.setIntPref(prefName, prefState.userValue);
-        }
-        break;
-      case Ci.nsIPrefBranch.PREF_BOOL:
-        if (prefState.defaultValue !== null) {
-          defaults.setBoolPref(prefName, prefState.defaultValue);
-        }
-        if (prefState.userValue !== null) {
-          Services.prefs.setBoolPref(prefName, prefState.userValue);
-        }
-        break;
-      case Ci.nsIPrefBranch.PREF_STRING:
-        if (prefState.defaultValue !== null) {
-          defaults.setStringPref(prefName, prefState.defaultValue);
-        }
-        if (prefState.userValue !== null) {
-          Services.prefs.setStringPref(prefName, prefState.userValue);
-        }
-        break;
+
+    if (prefState.defaultValue === null) {
+      // There is no API to only clear the default value, hence we need to delete the
+      // preference and restore the user value later if needed.
+      const isClearUserValue =
+        (prefState.isLocked && prefState.userValue === null) ||
+        (!prefState.isLocked && !Services.prefs.prefHasUserValue(prefName));
+      const currentUserValue = Services.prefs.prefHasUserValue(prefName)
+        ? this._readPref(Services.prefs, prefName, type)
+        : null;
+      defaults.deleteBranch(prefName);
+      if (isClearUserValue) {
+        // Removing the preference also cleared the user value
+        return;
+      }
+      if (currentUserValue !== null) {
+        // Restoring the user value which recreates the preference but without the default value
+        this._writePref(Services.prefs, prefName, type, currentUserValue);
+      }
+    } else {
+      // Restore the default value
+      this._writePref(defaults, prefName, type, prefState.defaultValue);
     }
 
-    delete this._initialPrefState[prefName];
+    if (prefState.isLocked) {
+      if (prefState.userValue === null) {
+        // Remove the user value
+        Services.prefs.clearUserPref(prefName);
+      } else {
+        // Restoring user value since preference was locked.
+        this._writePref(Services.prefs, prefName, type, prefState.userValue);
+      }
+    }
   },
 
   /**
@@ -3967,14 +4092,14 @@ export var PoliciesUtils = {
    *        Optionally lock the pref
    */
   setDefaultPref(prefName, prefValue, locked) {
-    let prefWasLocked = Services.prefs.prefIsLocked(prefName);
+    const prefWasLocked = Services.prefs.prefIsLocked(prefName);
     if (prefWasLocked) {
       Services.prefs.unlockPref(prefName);
     }
 
-    this.savePreferenceState(prefName);
+    this.savePreferenceState(prefName, prefWasLocked || locked === true);
 
-    let defaults = Services.prefs.getDefaultBranch("");
+    const defaults = Services.prefs.getDefaultBranch("");
 
     switch (typeof prefValue) {
       case "boolean":
@@ -4178,6 +4303,55 @@ function replacePathVariables(path) {
     );
   }
   return path;
+}
+
+/**
+ * Validates a list of host patterns intended for runtime_blocked_hosts or
+ * runtime_allowed_hosts. These accept match patterns without a path
+ * component (e.g. `*://*.example.com` or `<all_urls>`), matching Chrome's
+ * ExtensionSettings policy format. Throws on the first invalid pattern.
+ */
+function validateExtensionGuardPatterns(patterns) {
+  for (let pattern of patterns) {
+    if (typeof pattern !== "string") {
+      throw new Error(`Expected a string, got ${typeof pattern}`);
+    }
+    if (pattern === "<all_urls>") {
+      continue;
+    }
+    if (!/^[a-z*][a-z0-9*+.-]*:\/\/[^/]+$/i.test(pattern)) {
+      throw new Error(`Host pattern must not include a path: ${pattern}`);
+    }
+  }
+  // MatchPatternSet throws on any other malformed pattern (bad scheme,
+  // malformed host, etc.). ignorePath:true mirrors the backend's parser
+  // in setEnterpriseGuards; restrictSchemes defaults to true.
+  new MatchPatternSet(patterns, { ignorePath: true });
+}
+
+/**
+ * Build the enterprise guards map from an ExtensionSettings policy value and
+ * apply it via setEnterpriseGuards from ExtensionPermissions.sys.mjs.
+ *
+ * Throws if any pattern is malformed; the caller logs and skips applying
+ * guards in that case.
+ */
+function applyExtensionGuards(extensionSettings) {
+  let guards = {};
+  for (let [extensionID, settings] of Object.entries(extensionSettings)) {
+    let blocked = settings.runtime_blocked_hosts;
+    let allowed = settings.runtime_allowed_hosts;
+    if (!blocked && !allowed) {
+      continue;
+    }
+    validateExtensionGuardPatterns(blocked ?? []);
+    validateExtensionGuardPatterns(allowed ?? []);
+    guards[extensionID] = {
+      runtime_blocked_hosts: blocked ?? [],
+      runtime_allowed_hosts: allowed ?? [],
+    };
+  }
+  lazy.setEnterpriseGuards(guards);
 }
 
 /**

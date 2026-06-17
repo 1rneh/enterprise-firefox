@@ -884,15 +884,22 @@ function getWebDriverBrowserName() {
     return "firefox";
   }
 
-  if (lazy.AppInfo.isEnterprise) {
+  if (lazy.AppInfo.isFirefoxEnterprise) {
     return "firefox";
+  }
+
+  if (lazy.AppInfo.isThunderbirdEnterprise) {
+    return "thunderbird";
   }
 
   return lazy.AppInfo.name?.toLowerCase();
 }
 
 function getBrowserFlavor() {
-  if (lazy.AppInfo.isEnterprise) {
+  if (
+    lazy.AppInfo.isFirefoxEnterprise ||
+    lazy.AppInfo.isThunderbirdEnterprise
+  ) {
     return "enterprise";
   }
   return null;

@@ -6169,10 +6169,9 @@ static ReturnCallTrampolineData MakeReturnCallTrampoline(MacroAssembler& masm) {
   ReturnCallTrampolineData data;
 
   {
-#if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64)
+#if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64) || \
+    defined(JS_CODEGEN_RISCV64)
     AutoForbidPoolsAndNops afp(&masm, 1);
-#elif defined(JS_CODEGEN_RISCV64)
-    BlockTrampolinePoolScope block_trampoline_pool(&masm, 1);
 #endif
 
     // Build simple trampoline code: load the instance slot from the frame,
@@ -8412,10 +8411,9 @@ void MacroAssembler::emitWeapMapBarrierFastPath(ValueOperand value,
   branchTestPtr(Assembler::NonZero, markWord, mask, barrier);
 
   // Otherwise, the tenured cell needs a barrier only if its zone is being
-  // marked by an incremental GC. The zone is stored on the cell's arena.
+  // marked by an incremental GC.
   Register zone = temp2;
-  andPtr(Imm32(int32_t(~gc::ArenaMask)), cell, zone);
-  loadPtr(Address(zone, gc::ArenaZoneOffset), zone);
+  loadPtr(Address(chunk, gc::ChunkZoneOffset), zone);
   branchTest32(Assembler::NonZero,
                Address(zone, Zone::offsetOfNeedsMarkingBarrier()), Imm32(0x1),
                barrier);
@@ -9815,6 +9813,11 @@ void MacroAssembler::maybeLoadIteratorFromShape(Register obj, Register dest,
   computeEffectiveAddress(BaseIndex(nativeIterator, temp3, ScalePointer,
                                     NativeIterator::offsetOfFirstProperty()),
                           nativeIterator);
+
+  if constexpr (sizeof(PropertyIndex) != alignof(GCPtr<Shape*>)) {
+    addPtr(Imm32(alignof(GCPtr<Shape*>) - 1), nativeIterator);
+    andPtr(Imm32(-int32_t(alignof(GCPtr<Shape*>))), nativeIterator);
+  }
 
   Register expectedProtoShape = nativeIterator;
 

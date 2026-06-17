@@ -250,7 +250,7 @@ internal fun sportsCardPages(
  * useful than an error banner. The error is only surfaced when the cache is empty —
  * i.e. the user has nothing else to look at.
  */
-@Suppress("LongParameterList", "ReturnCount")
+@Suppress("LongParameterList")
 private fun MutableList<SportsPage>.addCollapsedErrorPage(
     isOneWeekToWorldCup: Boolean,
     matchCardStates: List<MatchCardState>,

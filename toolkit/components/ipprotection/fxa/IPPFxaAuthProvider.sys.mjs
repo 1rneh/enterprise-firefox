@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { IPPFxaBaseAuthProvider } from "moz-src:///toolkit/components/ipprotection/fxa/IPPFxaBaseAuthProvider.sys.mjs";
 import { GUARDIAN_EXPERIMENT_TYPE } from "moz-src:///toolkit/components/ipprotection/fxa/GuardianClient.sys.mjs";
 
@@ -14,8 +13,6 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () =>
   ).getFxAccountsSingleton()
 );
 ChromeUtils.defineESModuleGetters(lazy, {
-  IPPProxyManager:
-    "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPProtectionService:
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
 });
@@ -100,21 +97,17 @@ class IPPFxaAuthProviderSingleton extends IPPFxaBaseAuthProvider {
 
   /**
    * @param {boolean} [forceRefetch=false]
-   * @returns {Promise<{entitlement?: object, error?: string}>}
+   * @returns {Promise<{entitlement?: object|null, error?: string}>}
    */
   async getEntitlement(forceRefetch = false) {
     const isLinked = await this.#isLinkedToGuardian(!forceRefetch);
     if (!isLinked) {
-      return {};
+      return { entitlement: null };
     }
     return super.getEntitlement();
   }
 
   async #isLinkedToGuardian(useCache = true) {
-    if (AppConstants.MOZ_ENTERPRISE) {
-      return true;
-    }
-
     try {
       const endpoint = Services.prefs.getCharPref(
         GUARDIAN_ENDPOINT_PREF,
@@ -178,20 +171,18 @@ class IPPFxaAuthProviderSingleton extends IPPFxaBaseAuthProvider {
       entitled.isEntitled = true;
     } else {
       const { entitlement, error } = await this.getEntitlement(forceRefetch);
-      if (error || !entitlement) {
-        this.#setEntitlement(null);
+      if (error) {
         entitled.error = error;
-      } else {
+        entitled.isEntitled = !!this.entitlement;
+      } else if (entitlement) {
         this.#setEntitlement(entitlement);
         entitled.isEntitled = true;
+      } else {
+        this.#setEntitlement(null);
       }
     }
 
     deferred.resolve(entitled);
-
-    if (entitled?.isEntitled) {
-      lazy.IPPProxyManager.refreshUsage();
-    }
 
     this.#entitlementPromise = null;
 

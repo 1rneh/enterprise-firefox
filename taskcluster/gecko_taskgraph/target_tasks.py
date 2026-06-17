@@ -25,7 +25,6 @@ from taskgraph.util.yaml import load_yaml
 
 from gecko_taskgraph import GECKO, TEST_CONFIGS
 from gecko_taskgraph.util.attributes import (
-    is_try,
     match_run_on_hg_branches,
     match_run_on_projects,
     match_run_on_repo_type,
@@ -517,16 +516,11 @@ def target_tasks_enterprise_firefox_with_tests(
             if task.kind == "complete":
                 return False
 
-            if build_platform and not "enterprise" in build_platform:
-                if "windows10" in build_platform:
-                    return False
+            if build_platform and "enterprise" not in build_platform:
+                return False
 
-                if "-asan" or "-tsan" in build_platform:
-                    return False
-
-            if test_platform and not "enterprise" in test_platform:
-                if "-asan" or "-tsan" in test_platform:
-                    return False
+            if test_platform and "enterprise" not in test_platform:
+                return False
 
         if not build_platform or not build_type:
             return True
@@ -573,18 +567,6 @@ def target_tasks_graphics(full_task_graph, parameters, graph_config):
 
 
 @register_target_task("mozilla_beta_tasks")
-def target_tasks_mozilla_beta(full_task_graph, parameters, graph_config):
-    """Select the set of tasks required for a promotable beta or release build
-    of desktop, plus android CI. The candidates build process involves a pipeline
-    of builds and signing, but does not include beetmover or balrog jobs."""
-
-    return [
-        l
-        for l, t in full_task_graph.tasks.items()
-        if filter_release_tasks(t, parameters) and standard_filter(t, parameters)
-    ]
-
-
 @register_target_task("mozilla_release_tasks")
 def target_tasks_mozilla_release(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a promotable beta or release build
@@ -868,6 +850,9 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
             if "windows11" in platform and "bing-search" in try_name:
                 return False
             if "browsertime" in try_name:
+                if "chrome" in try_name or "custom-car" in try_name:
+                    if "linux2404" in platform:
+                        return False
                 if "chrome" in try_name:
                     if "tp6" in try_name and "essential" not in try_name:
                         return False
@@ -879,6 +864,8 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
                             for x in ["speedometer3", "jetstream3", "motionmark"]
                         ):
                             return False
+                    if "wasm-godot" in try_name:
+                        return False
                     return True
                 # chromium-as-release has its own cron
                 if "custom-car" in try_name:
@@ -1224,12 +1211,13 @@ def target_tasks_build_linux64_clang_trunk_perf(
 ):
     """Select tasks required to run perf test on linux64 build with clang trunk"""
 
-    # Only keep tasks generated from platform `linux1804-64-clang-trunk-qr/opt`
+    # Only keep tasks generated from platform `linux2404-64-clang-trunk/opt`
     def filter(task_label):
         # Bug 1961141 - Disable unity webgl for linux1804-64-clang-trunk-qr
-        if "linux1804-64-clang-trunk-qr/opt" in task_label and "unity" in task_label:
+        # (changed to linux2404-64-clang-trunk since then)
+        if "linux2404-64-clang-trunk/opt" in task_label and "unity" in task_label:
             return False
-        if "linux1804-64-clang-trunk-qr/opt" in task_label and "live" not in task_label:
+        if "linux2404-64-clang-trunk/opt" in task_label and "live" not in task_label:
             return True
         return False
 
@@ -1829,7 +1817,7 @@ def target_tasks_os_integration(full_task_graph, parameters, graph_config):
         if not any(attrmatch(task.attributes, **c) for c in candidate_attrs):
             continue
 
-        if not is_try(parameters):
+        if parameters["try_mode"] is not None:
             # Only run hardware tasks if scheduled from try. We do this because
             # the `cron` task is designed to provide a base for testing worker
             # images, which isn't something that impacts our hardware pools.

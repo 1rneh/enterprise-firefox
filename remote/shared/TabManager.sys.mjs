@@ -84,7 +84,7 @@ class TabManagerClass {
 
     if (lazy.AppInfo.isAndroid) {
       return new lazy.MobileTabBrowser(win);
-    } else if (lazy.AppInfo.isFirefox) {
+    } else if (lazy.AppInfo.isFirefox || lazy.AppInfo.isFeltUI) {
       return win.gBrowser;
     }
 

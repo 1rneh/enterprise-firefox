@@ -613,13 +613,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
   }
 );
 
-XPCOMUtils.defineLazyPreferenceGetter(
-  this,
-  "gUseFeltPrivacyUI",
-  "browser.privatebrowsing.felt-privacy-v1",
-  false
-);
-
 customElements.setElementCreationCallback("screenshots-buttons", () => {
   Services.scriptloader.loadSubScript(
     "chrome://browser/content/screenshots/screenshots-buttons.js",
@@ -640,6 +633,16 @@ customElements.setElementCreationCallback("webrtc-preview", () => {
     { global: "current" }
   );
 });
+
+customElements.setElementCreationCallback(
+  "login-doorhanger-username-field",
+  () => {
+    ChromeUtils.importESModule(
+      "chrome://browser/content/passwordmgr/login-doorhanger-username-field.mjs",
+      { global: "current" }
+    );
+  }
+);
 
 var gBrowser;
 var gContextMenu = null; // nsContextMenu instance
@@ -1071,6 +1074,7 @@ const gStoragePressureObserver = {
     }
     this._lastNotificationTime = Date.now();
 
+    MozXULElement.insertFTLIfNeeded("branding/brand.ftl");
     MozXULElement.insertFTLIfNeeded("browser/preferences/preferences.ftl");
 
     const BYTES_IN_GIGABYTE = 1073741824;
@@ -1121,12 +1125,12 @@ const gStoragePressureObserver = {
 };
 
 var gKeywordURIFixup = {
-  check(browser, { fixedURI, keywordProviderName, preferredURI }) {
+  check(browser, { fixedURI, keywordProviderId, preferredURI }) {
     // We get called irrespective of whether we did a keyword search, or
     // whether the original input would be vaguely interpretable as a URL,
     // so figure that out first.
     if (
-      !keywordProviderName ||
+      !keywordProviderId ||
       !fixedURI ||
       !fixedURI.host ||
       UrlbarPrefs.get("browser.fixup.dns_first_for_single_words") ||
@@ -2248,7 +2252,6 @@ var XULBrowserWindow = {
       });
     }
 
-    BookmarkingUI.onLocationChange();
     // If we've actually changed document, update the toolbar visibility.
     if (!isSameDocument) {
       updateBookmarkToolbarVisibility();
@@ -2272,28 +2275,6 @@ var XULBrowserWindow = {
     // Ensure we close any remaining open locationspecific panels
     if (!isSameDocument) {
       closeOpenPanels(":is(panel, menupopup)[locationspecific='true']");
-    }
-
-    gPermissionPanel.onLocationChange();
-
-    gProtectionsHandler.onLocationChange();
-
-    BrowserPageActions.onLocationChange();
-
-    UrlbarProviderSearchTips.onLocationChange(
-      window,
-      aLocationURI,
-      aWebProgress,
-      aFlags
-    );
-
-    if (aLocationURI.scheme.startsWith("http")) {
-      ActionsProviderContextualSearch.onLocationChange(
-        window,
-        aLocationURI,
-        aWebProgress,
-        aFlags
-      );
     }
 
     this._updateElementsForContentType();
@@ -2323,12 +2304,13 @@ var XULBrowserWindow = {
       gCustomizeMode.exit();
     }
 
-    CFRPageActions.updatePageActions(gBrowser.selectedBrowser);
-
-    AboutReaderParent.updateReaderButton(gBrowser.selectedBrowser);
-    TranslationsParent.onLocationChange(gBrowser.selectedBrowser);
-
-    PictureInPicture.updateUrlbarToggle(gBrowser.selectedBrowser);
+    BrowserUtils.callModulesFromCategory(
+      { categoryName: "browser-window-location-change", jsGlobal: globalThis },
+      window,
+      aLocationURI,
+      aWebProgress,
+      aFlags
+    );
 
     if (!gMultiProcessBrowser) {
       // Bug 1108553 - Cannot rotate images with e10s
@@ -3165,7 +3147,7 @@ function updateToggleControlLabel(control) {
 
 // Propagates Win10's tablet mode into the browser CSS. (Win11's tablet mode is
 // more like non-tablet mode and has no need for this.)
-const Win10TabletModeUpdater = {
+var Win10TabletModeUpdater = {
   init() {
     if (AppConstants.platform == "win") {
       this.update(WindowsUIUtils.inWin10TabletMode);
@@ -3203,19 +3185,62 @@ var gUIDensity = {
   MODE_TOUCH: 2,
   uiDensityPref: "browser.uidensity",
   autoTouchModePref: "browser.touchmode.auto",
-  knownPrefs: new Set(["browser.uidensity", "browser.touchmode.auto"]),
+  autoCompactThresholdPref: "browser.compactmode.auto.threshold",
+  knownPrefs: new Set([
+    "browser.uidensity",
+    "browser.touchmode.auto",
+    "browser.compactmode.auto.threshold",
+  ]),
+
+  // Natural (non-compact) tabstrip height in CSS pixels. Used as the
+  // numerator of the auto-compact ratio so the trigger doesn't flap when
+  // compact mode itself shrinks the tabstrip.
+  AUTO_COMPACT_REFERENCE_TABSTRIP_HEIGHT: 40,
+
+  // Natural (non-compact) collapsed sidebar.revamp launcher width in CSS
+  // pixels: icon button width (--button-size-icon, 32px) plus outer inline
+  // padding on each side (--space-medium, 12px). Used as the numerator of
+  // the auto-compact width ratio so the trigger doesn't flap when compact
+  // mode shrinks the launcher (see sidebar-main.css).
+  AUTO_COMPACT_REFERENCE_SIDEBAR_LAUNCHER_WIDTH: 56,
 
   init() {
     this.update();
     Services.obs.addObserver(this, "tablet-mode-change");
     Services.prefs.addObserver(this.uiDensityPref, this);
     Services.prefs.addObserver(this.autoTouchModePref, this);
+    Services.prefs.addObserver(this.autoCompactThresholdPref, this);
+    window.addEventListener("resize", this);
+
+    // Re-evaluate auto-compact when the sidebar.revamp launcher opens,
+    // closes, or toggles between collapsed and expanded, since the
+    // collapsed launcher width feeds into the auto-compact ratio.
+    let sidebarMainContainer = document.getElementById("sidebar-main");
+    if (sidebarMainContainer) {
+      this._sidebarStateObserver = new MutationObserver(() => this.update());
+      this._sidebarStateObserver.observe(sidebarMainContainer, {
+        attributes: true,
+        attributeFilter: ["hidden", "sidebar-launcher-expanded"],
+      });
+    }
   },
 
   uninit() {
     Services.obs.removeObserver(this, "tablet-mode-change");
     Services.prefs.removeObserver(this.uiDensityPref, this);
     Services.prefs.removeObserver(this.autoTouchModePref, this);
+    Services.prefs.removeObserver(this.autoCompactThresholdPref, this);
+    window.removeEventListener("resize", this);
+    if (this._sidebarStateObserver) {
+      this._sidebarStateObserver.disconnect();
+      this._sidebarStateObserver = null;
+    }
+  },
+
+  handleEvent(event) {
+    if (event.type == "resize") {
+      this.update();
+    }
   },
 
   observe(aSubject, aTopic, aPrefName) {
@@ -3235,6 +3260,44 @@ var gUIDensity = {
     this.update();
   },
 
+  _shouldAutoCompact() {
+    const threshold = parseFloat(
+      Services.prefs.getCharPref(this.autoCompactThresholdPref, "0.05")
+    );
+    if (!(threshold > 0)) {
+      return false;
+    }
+    if (
+      window.innerHeight &&
+      this.AUTO_COMPACT_REFERENCE_TABSTRIP_HEIGHT / window.innerHeight >
+        threshold
+    ) {
+      return true;
+    }
+    if (
+      window.innerWidth &&
+      this._isSidebarLauncherCollapsed() &&
+      this.AUTO_COMPACT_REFERENCE_SIDEBAR_LAUNCHER_WIDTH / window.innerWidth >
+        threshold
+    ) {
+      return true;
+    }
+    return false;
+  },
+
+  // Whether the sidebar.revamp launcher is currently visible (sidebar is
+  // "open") but not expanded.
+  _isSidebarLauncherCollapsed() {
+    if (!Services.prefs.getBoolPref("sidebar.revamp", false)) {
+      return false;
+    }
+    if (!SidebarController.initialized) {
+      return false;
+    }
+    const state = SidebarController._state;
+    return Boolean(state && state.launcherVisible && !state.launcherExpanded);
+  },
+
   getCurrentDensity() {
     // Automatically override the uidensity to touch in Windows tablet mode
     // (either Win10 or Win11).
@@ -3244,6 +3307,15 @@ var gUIDensity = {
       if (inTablet && Services.prefs.getBoolPref(this.autoTouchModePref)) {
         return { mode: this.MODE_TOUCH, overridden: true };
       }
+    }
+    // Under nova, auto-compact in small windows, but only when the user
+    // hasn't explicitly chosen a uidensity value.
+    if (
+      Services.prefs.getBoolPref("browser.nova.enabled", false) &&
+      !Services.prefs.prefHasUserValue(this.uiDensityPref) &&
+      this._shouldAutoCompact()
+    ) {
+      return { mode: this.MODE_COMPACT, overridden: true };
     }
     return {
       mode: Services.prefs.getIntPref(this.uiDensityPref),
@@ -3257,10 +3329,16 @@ var gUIDensity = {
     }
 
     let docs = [document.documentElement];
-    let shouldUpdateSidebar =
-      SidebarController.initialized && SidebarController.isOpen;
-    if (shouldUpdateSidebar) {
-      docs.push(SidebarController.browser.contentDocument.documentElement);
+    // The sidebar's content document may have no documentElement yet while it
+    // is loading or being swapped, even though SidebarController reports it as
+    // open. update() can now run during those transitions (e.g. from the
+    // resize listener or sidebar-state observer), so guard against a null root.
+    let sidebarContentDoc =
+      SidebarController.initialized && SidebarController.isOpen
+        ? SidebarController.browser.contentDocument
+        : null;
+    if (sidebarContentDoc?.documentElement) {
+      docs.push(sidebarContentDoc.documentElement);
     }
     for (let doc of docs) {
       switch (mode) {
@@ -3275,10 +3353,8 @@ var gUIDensity = {
           break;
       }
     }
-    if (shouldUpdateSidebar) {
-      let tree = SidebarController.browser.contentDocument.querySelector(
-        ".sidebar-placesTree"
-      );
+    if (sidebarContentDoc) {
+      let tree = sidebarContentDoc.querySelector(".sidebar-placesTree");
       if (tree) {
         // Tree items don't update their styles without changing some property on the
         // parent tree element, like background-color or border. See bug 1407399.

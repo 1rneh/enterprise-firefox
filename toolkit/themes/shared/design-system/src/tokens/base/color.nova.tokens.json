@@ -53,9 +53,6 @@
     },
     "90": {
       "value": "#121114"
-    },
-    "05": {
-      "value": "#f7f6fb"
     }
   },
   "red": {
@@ -346,17 +343,6 @@
       "value": "#1e111b"
     }
   },
-  "purple-desaturated": {
-    "30": {
-      "value": "#c0a7d4"
-    },
-    "50": {
-      "value": "#816297"
-    },
-    "60": {
-      "value": "#624677"
-    }
-  },
   "violet-desaturated": {
     "0": {
       "value": "#f2f0f8"
@@ -394,21 +380,21 @@
       "@base": {
         "value": {
           "light": "{color.violet.50}",
-          "dark": "{color.violet.20}",
+          "dark": "{color.violet.30}",
           "forcedColors": "AccentColor"
         }
       },
       "hover": {
         "value": {
           "light": "{color.violet.60}",
-          "dark": "{color.violet.30}",
+          "dark": "{color.violet.20}",
           "forcedColors": "SelectedItem"
         }
       },
       "active": {
         "value": {
           "light": "{color.violet.70}",
-          "dark": "{color.violet.40}",
+          "dark": "{color.violet.10}",
           "forcedColors": "{color.accent.primary.hover}"
         }
       },

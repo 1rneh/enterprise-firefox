@@ -49,6 +49,8 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 // To allow for cleaning up old policies
 const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
+const PREF_REMOTE_POLICIES_ENABLED = "browser.policies.remote.enabled";
+
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
     "resource://gre/modules/Console.sys.mjs"
@@ -111,6 +113,20 @@ EnterprisePoliciesManager.prototype = {
       }
       Services.prefs.clearUserPref(PREF_POLICIES_APPLIED);
     }
+  },
+
+  /**
+   * Remote polling is enabled always when we are in felt launched browser
+   * or if the preference is set explicitly
+   *
+   * @returns {boolean} whether polling remote policies is enabled
+   */
+  _isRemotePoliciesSupported() {
+    return (
+      AppConstants.MOZ_ENTERPRISE &&
+      (Services.felt.isFeltBrowser() ||
+        Services.prefs.getBoolPref(PREF_REMOTE_POLICIES_ENABLED, false))
+    );
   },
 
   async _initialize() {
@@ -181,30 +197,42 @@ EnterprisePoliciesManager.prototype = {
     let jsonProvider = new JSONPoliciesProvider();
     jsonProvider.onPoliciesChanges(handler);
 
-    let remoteProvider = RemotePoliciesProvider.createInstance();
-    // Fetch first set of remote policies during the
-    // initialization of the policy engine
-    await remoteProvider.fetchPoliciesOnStartup();
-    if (Services.felt?.isFeltBrowser() && remoteProvider.failed) {
-      // bug 2027006 will move the fetching of policies to felt
-      // and not shutdown will be needed then
-      lazy.EnterpriseHandler.initiateShutdown();
+    let remoteProvider = null;
+    if (this._isRemotePoliciesSupported()) {
+      remoteProvider = RemotePoliciesProvider.createInstance();
+      // Fetch first set of remote policies during the
+      // initialization of the policy engine
+      await remoteProvider.fetchPoliciesOnStartup();
+      if (remoteProvider.failed) {
+        // bug 2027006 will move the fetching of policies to felt
+        // and not shutdown will be needed then
+        lazy.EnterpriseHandler.initiateShutdown();
+      }
+      remoteProvider.onPoliciesChanges(handler);
     }
-    remoteProvider.onPoliciesChanges(handler);
 
     if (platformProvider && platformProvider.hasPolicies) {
       if (jsonProvider.hasPolicies) {
-        return new CombinedProvider(
-          new CombinedProvider(remoteProvider, platformProvider),
-          jsonProvider
-        );
+        if (remoteProvider) {
+          return new CombinedProvider(
+            new CombinedProvider(remoteProvider, platformProvider),
+            jsonProvider
+          );
+        }
+        return new CombinedProvider(platformProvider, jsonProvider);
       }
-      return new CombinedProvider(remoteProvider, platformProvider);
+      if (remoteProvider) {
+        return new CombinedProvider(remoteProvider, platformProvider);
+      }
+      return platformProvider;
     }
     if (jsonProvider.hasPolicies) {
-      return new CombinedProvider(remoteProvider, jsonProvider);
+      if (remoteProvider) {
+        return new CombinedProvider(remoteProvider, jsonProvider);
+      }
+      return jsonProvider;
     }
-    return remoteProvider;
+    return remoteProvider ?? jsonProvider;
   },
 
   _activatePolicies(unparsedPolicies) {
@@ -634,7 +662,34 @@ EnterprisePoliciesManager.prototype = {
   },
 
   setExtensionSettings(extensionSettings) {
-    ExtensionSettings = extensionSettings;
+    // Filter blocked_permissions entries to the same shape Chrome's policy
+    // schema enforces:
+    //   "items": { "pattern": "^[a-z][a-zA-Z0-9._]*$", "type": "string" }
+    // This excludes:
+    //   - "internal:"-prefixed permissions (reserved, must not be controlled
+    //     via enterprise policy)
+    //   - match patterns and "<all_urls>" (host permissions are out of scope
+    //     for blocked_permissions; in Firefox, "<all_urls>" is stored under
+    //     the ExtensionPermissions "permissions" key so an unfiltered entry
+    //     would erroneously affect host permission semantics)
+    // Copies the input rather than mutating the caller's object.
+    // toolkit/components/extensions/test/xpcshell/test_ext_permissions.js
+    // asserts every API permission name matches this regex.
+    const VALID_PERM = /^[a-z][a-zA-Z0-9._]*$/;
+    const sanitized = {};
+    for (const [key, entry] of Object.entries(extensionSettings)) {
+      if (Array.isArray(entry?.blocked_permissions)) {
+        sanitized[key] = {
+          ...entry,
+          blocked_permissions: entry.blocked_permissions.filter(perm =>
+            VALID_PERM.test(perm)
+          ),
+        };
+      } else {
+        sanitized[key] = entry;
+      }
+    }
+    ExtensionSettings = sanitized;
     if (
       "*" in extensionSettings &&
       "install_sources" in extensionSettings["*"]
@@ -676,20 +731,35 @@ EnterprisePoliciesManager.prototype = {
     );
   },
 
+  // Note: addon parameter has different types (bug 2033101).
   mayInstallAddon(addon) {
     // See https://dev.chromium.org/administrators/policy-list-3/extension-settings-full
     if (!ExtensionSettings) {
       return true;
     }
+    // blocked_permissions takes precedence over installation_mode. Per Chrome,
+    // any per-id entry shadows "*" entirely; "*" only applies when there is no
+    // per-id entry. Host patterns and optional permissions are out of scope
+    // (host patterns are stripped in setExtensionSettings and optional perms
+    // are gated at permissions.request time).
+    let blockedPerms =
+      (addon.id in ExtensionSettings
+        ? ExtensionSettings[addon.id].blocked_permissions
+        : ExtensionSettings["*"]?.blocked_permissions) ?? [];
+    if (
+      blockedPerms.some(perm =>
+        addon.userPermissions?.permissions?.includes(perm)
+      )
+    ) {
+      return false;
+    }
+    // Match Chrome: any per-id ExtensionSettings entry (even empty) shadows
+    // the "*" defaults entirely.
     if (addon.id in ExtensionSettings) {
-      if ("installation_mode" in ExtensionSettings[addon.id]) {
-        switch (ExtensionSettings[addon.id].installation_mode) {
-          case "blocked":
-            return false;
-          default:
-            return true;
-        }
+      if (ExtensionSettings[addon.id].installation_mode === "blocked") {
+        return false;
       }
+      return true;
     }
     if ("*" in ExtensionSettings) {
       if (

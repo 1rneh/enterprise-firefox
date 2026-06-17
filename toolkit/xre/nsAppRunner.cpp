@@ -4510,8 +4510,7 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
     nsCOMPtr<nsIFile> userAppDataDir;
     if (NS_SUCCEEDED(mDirProvider.GetUserAppDataDirectory(
             getter_AddRefs(userAppDataDir)))) {
-      CrashReporter::SetupExtraData(userAppDataDir,
-                                    nsDependentCString(mAppData->buildID));
+      CrashReporter::SetupExtraData(userAppDataDir, mAppData->xreDirectory);
     }
   } else {
     // We might have registered a runtime exception module very early in process
@@ -5083,6 +5082,10 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
       if (!disableWaylandProxy && XRE_IsParentProcess() && waylandEnabled) {
         auto* proxyLog = getenv("WAYLAND_PROXY_LOG");
         WaylandProxy::SetVerbose(proxyLog && *proxyLog);
+        WaylandProxy::SetThreadStartCallback(
+            [] { PROFILER_REGISTER_THREAD("WaylandProxy"); });
+        WaylandProxy::SetThreadStopCallback(
+            [] { PROFILER_UNREGISTER_THREAD(); });
         WaylandProxy::SetCompositorUnavailableHandler(
             WlCompositorUnavailableHandler);
         WaylandProxy::SetCompositorSilentDisconnectHandler(
@@ -6100,6 +6103,13 @@ nsresult XREMain::XRE_mainRun() {
         tempArgv[i] = strdup(gArgv[i]);
       }
       CommandLineServiceMac::SetupMacCommandLine(gArgc, tempArgv, false);
+
+      // All startup URLs have been consumed by SetupMacCommandLine. From this
+      // point, any URLs received via Apple Events (application:openURLs:) will
+      // be handled immediately by nsICommandLineRunner instead of being
+      // buffered. See bug 2036237.
+      StartupURLCollectionComplete();
+
       rv = cmdLine->Init(gArgc, tempArgv, workingDir,
                          nsICommandLine::STATE_INITIAL_LAUNCH);
       free(tempArgv);

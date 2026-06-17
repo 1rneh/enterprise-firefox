@@ -224,6 +224,13 @@
 @BINPATH@/@MOZ_DXC_DLL_NAME@
 #endif
 
+; Bundled stub PDFs handed to the OS "Open with" picker by the
+; set-default-PDF-handler flow (see WindowsSetDefaultAppCmdHandler).
+#ifdef XP_WIN
+@RESPATH@/browser/confused_fox.pdf
+@RESPATH@/browser/blank.pdf
+#endif
+
 ; [Browser Chrome Files]
 @RESPATH@/browser/chrome.manifest
 @RESPATH@/browser/chrome/browser@JAREXT@
@@ -266,9 +273,6 @@
 ; All the pref files must be part of base to prevent migration bugs
 @RESPATH@/browser/@PREF_DIR@/firefox.js
 @RESPATH@/browser/@PREF_DIR@/firefox-branding.js
-#ifdef MOZ_ENTERPRISE
-@RESPATH@/browser/@PREF_DIR@/firefox-enterprise.js
-#endif
 @RESPATH@/greprefs.js
 @RESPATH@/defaults/autoconfig/prefcalls.js
 @RESPATH@/browser/defaults/permissions

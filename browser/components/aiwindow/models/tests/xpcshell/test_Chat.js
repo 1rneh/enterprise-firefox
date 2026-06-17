@@ -9,16 +9,23 @@ const { ChatConversation } = ChromeUtils.importESModule(
 const { SYSTEM_PROMPT_TYPE, MESSAGE_ROLE } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs"
 );
-const { Chat } = ChromeUtils.importESModule(
+const { Chat, executeToolByName } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs"
 );
 const { RunSearch, GetPageContent, toolFns } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs"
 );
-const { MODEL_FEATURES, openAIEngine, FEATURE_MAJOR_VERSIONS } =
-  ChromeUtils.importESModule(
-    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
-  );
+const {
+  MODEL_FEATURES,
+  openAIEngine,
+  FEATURE_MAJOR_VERSIONS,
+  SERVICE_TYPES,
+  PURPOSES,
+} = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
+);
+
+const TEST_MODEL = "test-model";
 
 function getVersionForFeature(feature) {
   const major = FEATURE_MAJOR_VERSIONS[feature] || 1;
@@ -33,6 +40,7 @@ const { sinon } = ChromeUtils.importESModule(
 const PREF_API_KEY = "browser.smartwindow.apiKey";
 const PREF_ENDPOINT = "browser.smartwindow.endpoint";
 const PREF_MODEL = "browser.smartwindow.model";
+const PREF_MODEL_CHOICE = "browser.smartwindow.firstrun.modelChoice";
 
 // Clean prefs after all tests
 registerCleanupFunction(() => {
@@ -76,6 +84,11 @@ add_task(async function test_Chat_real_tools_are_registered() {
     "function",
     "RunSearch.runSearch should be a function"
   );
+  Assert.strictEqual(
+    typeof toolFns.manageTabs,
+    "function",
+    "manageTabs should be a function"
+  );
 });
 
 add_task(
@@ -83,6 +96,7 @@ add_task(
     Services.prefs.setStringPref(PREF_API_KEY, "test-key-123");
     Services.prefs.setStringPref(PREF_ENDPOINT, "https://example.test/v1");
     Services.prefs.setStringPref(PREF_MODEL, "nonexistent-model");
+    Services.prefs.setStringPref(PREF_MODEL_CHOICE, "0");
 
     const sb = sinon.createSandbox();
     try {
@@ -95,7 +109,13 @@ add_task(
         .stub(openAIEngine, "_createEngine")
         .resolves(fakeEngineInstance);
 
-      const engine = await openAIEngine.build(MODEL_FEATURES.CHAT);
+      const engine = await openAIEngine.build({
+        model: "nonexistent-model",
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
 
       Assert.ok(
         engine instanceof openAIEngine,
@@ -169,9 +189,20 @@ add_task(async function test_Chat_fetchWithHistory_streams_and_forwards_args() {
     conversation.addAssistantMessage("text", "");
 
     // Build engine
-    const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+    const engineInstance = await openAIEngine.build({
+      model: TEST_MODEL,
+      serviceType: SERVICE_TYPES.AI,
+      purpose: PURPOSES.CHAT,
+      flowId: null,
+      feature: MODEL_FEATURES.CHAT,
+    });
 
-    await Chat.fetchWithHistory({ conversation, engineInstance });
+    const fakeCallContext = { parameters: { temperature: 0.7 } };
+    await Chat.fetchWithHistory({
+      conversation,
+      engineInstance,
+      callContext: fakeCallContext,
+    });
 
     Assert.equal(
       getLastAssistantResponse(conversation).content.body,
@@ -248,8 +279,19 @@ add_task(async function test_Chat_fetchWithHistory_handles_tool_calls() {
     conversation.addAssistantMessage("text", "");
 
     // Build engine
-    const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-    await Chat.fetchWithHistory({ conversation, engineInstance });
+    const engineInstance = await openAIEngine.build({
+      model: TEST_MODEL,
+      serviceType: SERVICE_TYPES.AI,
+      purpose: PURPOSES.CHAT,
+      flowId: null,
+      feature: MODEL_FEATURES.CHAT,
+    });
+    const fakeCallContext = { parameters: { temperature: 0.7 } };
+    await Chat.fetchWithHistory({
+      conversation,
+      engineInstance,
+      callContext: fakeCallContext,
+    });
 
     const toolCalls = conversation.messages.filter(
       message =>
@@ -312,9 +354,20 @@ add_task(
       conversation.addAssistantMessage("text", "");
 
       // Build engine
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
       const consume = async () => {
-        await Chat.fetchWithHistory({ conversation, engineInstance });
+        await Chat.fetchWithHistory({
+          conversation,
+          engineInstance,
+          callContext: fakeCallContext,
+        });
       };
 
       await Assert.rejects(
@@ -383,8 +436,19 @@ add_task(
       );
       conversation.addAssistantMessage("text", "");
 
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-      await Chat.fetchWithHistory({ conversation, engineInstance });
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
+      await Chat.fetchWithHistory({
+        conversation,
+        engineInstance,
+        callContext: fakeCallContext,
+      });
 
       Assert.equal(
         getLastAssistantResponse(conversation).content.body,
@@ -453,8 +517,19 @@ add_task(
       );
       conversation.addAssistantMessage("text", "");
 
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-      await Chat.fetchWithHistory({ conversation, engineInstance });
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
+      await Chat.fetchWithHistory({
+        conversation,
+        engineInstance,
+        callContext: fakeCallContext,
+      });
 
       // Find the assistant message with tool_calls
       const assistantToolCallMessage = conversation.messages.find(
@@ -561,8 +636,19 @@ add_task(
       );
       conversation.addAssistantMessage("text", "");
 
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-      await Chat.fetchWithHistory({ conversation, engineInstance });
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
+      await Chat.fetchWithHistory({
+        conversation,
+        engineInstance,
+        callContext: fakeCallContext,
+      });
 
       Assert.strictEqual(
         conversation.securityProperties.untrustedInput,
@@ -620,6 +706,12 @@ add_task(async function test_Chat_fetchWithHistory_uses_modelId_from_pref() {
         model: customModelId,
         is_default: true,
       },
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "generic",
+        is_default: false,
+      },
     ];
 
     const fakeClient = {
@@ -649,8 +741,19 @@ add_task(async function test_Chat_fetchWithHistory_uses_modelId_from_pref() {
     });
     conversation.addAssistantMessage("text", "");
 
-    const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-    await Chat.fetchWithHistory({ conversation, engineInstance });
+    const engineInstance = await openAIEngine.build({
+      model: customModelId,
+      serviceType: SERVICE_TYPES.AI,
+      purpose: PURPOSES.CHAT,
+      flowId: null,
+      feature: MODEL_FEATURES.CHAT,
+    });
+    const fakeCallContext = { parameters: { temperature: 0.7 } };
+    await Chat.fetchWithHistory({
+      conversation,
+      engineInstance,
+      callContext: fakeCallContext,
+    });
 
     Assert.ok(
       createEngineStub.calledOnce,
@@ -754,11 +857,19 @@ add_task(
         telemetry: { location: "home" },
       };
 
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
       await Chat.fetchWithHistory({
         conversation,
         engineInstance,
         browsingContext: context.browsingContext,
+        callContext: fakeCallContext,
       });
 
       Assert.ok(
@@ -775,6 +886,7 @@ add_task(
         conversation,
         engineInstance,
         browsingContext: context.browsingContext,
+        callContext: fakeCallContext,
       });
 
       Assert.ok(
@@ -804,6 +916,7 @@ add_task(
         conversation,
         engineInstance,
         browsingContext: context.browsingContext,
+        callContext: fakeCallContext,
       });
 
       Assert.ok(
@@ -854,7 +967,13 @@ add_task(
       sb.stub(openAIEngine, "build").resolves(fakeEngine);
       sb.stub(openAIEngine, "getFxAccountToken").resolves("mock_token");
 
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
 
       const conversation = new ChatConversation({
         title: "memories are enabled",
@@ -869,7 +988,12 @@ add_task(
       );
       conversation.addAssistantMessage("text", "");
 
-      await Chat.fetchWithHistory({ conversation, engineInstance });
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
+      await Chat.fetchWithHistory({
+        conversation,
+        engineInstance,
+        callContext: fakeCallContext,
+      });
 
       Assert.ok(
         toolFns.getUserMemories.calledOnce,
@@ -929,7 +1053,13 @@ add_task(
       sb.stub(openAIEngine, "build").resolves(fakeEngine);
       sb.stub(openAIEngine, "getFxAccountToken").resolves("mock_token");
 
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
 
       const conversation = new ChatConversation({
         title: "memories are enabled",
@@ -944,7 +1074,12 @@ add_task(
       );
       conversation.addAssistantMessage("text", "");
 
-      await Chat.fetchWithHistory({ conversation, engineInstance });
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
+      await Chat.fetchWithHistory({
+        conversation,
+        engineInstance,
+        callContext: fakeCallContext,
+      });
 
       Assert.ok(
         !toolFns.getUserMemories.calledOnce,
@@ -1005,13 +1140,21 @@ add_task(
       conversation.addUserMessage("Hi there", "https://www.firefox.com", 0);
       conversation.addAssistantMessage("text", "");
 
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
       const abortController = new AbortController();
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
 
       await Chat.fetchWithHistory({
         conversation,
         engineInstance,
         signal: abortController.signal,
+        callContext: fakeCallContext,
       });
 
       Assert.strictEqual(
@@ -1072,12 +1215,20 @@ add_task(
       conversation.addUserMessage("Hi there", "https://www.firefox.com", 0);
       conversation.addAssistantMessage("text", "");
 
-      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+      const engineInstance = await openAIEngine.build({
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.AI,
+        purpose: PURPOSES.CHAT,
+        flowId: null,
+        feature: MODEL_FEATURES.CHAT,
+      });
+      const fakeCallContext = { parameters: { temperature: 0.7 } };
 
       await Chat.fetchWithHistory({
         conversation,
         engineInstance,
         signal: abortController.signal,
+        callContext: fakeCallContext,
       });
 
       Assert.equal(
@@ -1088,5 +1239,24 @@ add_task(
     } finally {
       sb.restore();
     }
+  }
+);
+
+add_task(
+  async function test_Chat_executeToolByName_throws_unknownTool_clientReason() {
+    await Assert.rejects(
+      executeToolByName(
+        "no_such_tool",
+        {},
+        "tool-call-id",
+        /* conversation */ null,
+        /* browsingContext */ null,
+        "fullpage",
+        /* engineInstance */ null,
+        0
+      ),
+      err => err.clientReason === "unknownTool",
+      "executeToolByName should reject with clientReason unknownTool"
+    );
   }
 );

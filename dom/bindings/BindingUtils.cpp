@@ -75,6 +75,7 @@
 #include "nsIOService.h"
 #include "nsIPrincipal.h"
 #include "nsIXPConnect.h"
+#include "nsPIDOMWindowInlines.h"
 #include "nsPrintfCString.h"
 #include "nsReadableUtils.h"
 #include "nsUTF8Utils.h"
@@ -2067,7 +2068,7 @@ bool XrayAppendPropertyKeys(JSContext* cx, JS::Handle<JSObject*> obj,
     if (!prefIsEnabled) {
       infos += pref->specs - (pref - 1)->specs - 1;
     }
-  } while (1);
+  } while (true);
 
   return true;
 }
@@ -2097,7 +2098,7 @@ bool XrayAppendPropertyKeys<ConstantSpec>(
     if (!prefIsEnabled) {
       infos += pref->specs - (pref - 1)->specs - 1;
     }
-  } while (1);
+  } while (true);
 
   return true;
 }

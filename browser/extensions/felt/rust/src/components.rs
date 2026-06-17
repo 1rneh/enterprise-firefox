@@ -15,7 +15,7 @@ use xpcom::interfaces::{
     nsICategoryManager, nsIContentPolicy, nsICookie, nsILoadInfo, nsIObserver, nsIObserverService,
     nsISupports, nsIURI,
 };
-use xpcom::RefPtr;
+use xpcom::{xpcom_method, RefPtr};
 
 use log::{error, trace};
 
@@ -72,45 +72,75 @@ impl FeltXPCOM {
         }
     }
 
-    fn SendCookies(&self, cookies: *const ThinVec<Option<RefPtr<nsICookie>>>) -> nserror::nsresult {
-        let mut rv = NS_ERROR_FAILURE;
-        let cookies = unsafe { &*cookies };
+    xpcom_method!(send_cookies => SendCookies(cookies: *const ThinVec<Option<RefPtr<nsICookie>>>));
+    fn send_cookies(
+        &self,
+        cookies: &ThinVec<Option<RefPtr<nsICookie>>>,
+    ) -> Result<(), nserror::nsresult> {
+        let mut rv = Ok(());
+
         trace!("FeltXPCOM:SendCookies processing {}", cookies.len());
         if cookies.is_empty() {
-            return NS_OK;
+            return rv;
         }
 
         cookies.iter().flatten().for_each(|x| {
-            trace!("FeltXPCOM::SendCookies: oneCookie ....");
             let cookie = crate::utils::nsICookie_wrap(x);
             trace!("FeltXPCOM::SendCookies: oneCookie: {}", cookie.name);
-            rv = self.send(FeltMessage::Cookie(cookie));
+            let r = self.send(FeltMessage::Cookie(cookie.clone()));
+            if r.failed() {
+                rv = Err(r);
+            }
+            trace!(
+                "FeltXPCOM::SendCookies: oneCookie: {} => {:?}",
+                cookie.name,
+                rv
+            );
         });
 
         rv
     }
 
-    fn SendBoolPreference(&self, name: *const nsACString, value: bool) -> nserror::nsresult {
-        let name_s = unsafe { (*name).to_string() };
-        trace!("FeltXPCOM::SendBoolPreference: {}", name_s);
-        self.send(FeltMessage::BoolPreference((name_s, value)))
-    }
-
-    fn SendStringPreference(
-        &self,
+    xpcom_method!(send_bool_preference => SendBoolPreference(
         name: *const nsACString,
-        value: *const nsACString,
-    ) -> nserror::nsresult {
-        let name_s = unsafe { (*name).to_string() };
-        let value_s = unsafe { (*value).to_string() };
-        trace!("FeltXPCOM::SendStringPreference: {}", name_s);
-        self.send(FeltMessage::StringPreference((name_s, value_s)))
+        value: bool
+    ));
+    fn send_bool_preference(
+        &self,
+        name: &nsACString,
+        value: bool,
+    ) -> Result<(), nserror::nsresult> {
+        let name = name.to_string();
+        trace!("FeltXPCOM::SendBoolPreference: {}", name);
+        self.send(FeltMessage::BoolPreference((name, value)))
+            .to_result()
     }
 
-    fn SendIntPreference(&self, name: *const nsACString, value: i32) -> nserror::nsresult {
-        let name_s = unsafe { (*name).to_string() };
-        trace!("FeltXPCOM::SendIntPreference: {}", name_s);
-        self.send(FeltMessage::IntPreference((name_s, value)))
+    xpcom_method!(send_string_preference => SendStringPreference(
+        name: *const nsACString,
+        value: *const nsACString
+    ));
+    fn send_string_preference(
+        &self,
+        name: &nsACString,
+        value: &nsACString,
+    ) -> Result<(), nserror::nsresult> {
+        let name = name.to_string();
+        let value = value.to_string();
+        trace!("FeltXPCOM::SendStringPreference: {}", name);
+        self.send(FeltMessage::StringPreference((name, value)))
+            .to_result()
+    }
+
+    xpcom_method!(send_int_preference => SendIntPreference(
+        name: *const nsACString,
+        value: i32
+    ));
+    fn send_int_preference(&self, name: &nsACString, value: i32) -> Result<(), nserror::nsresult> {
+        let name = name.to_string();
+        trace!("FeltXPCOM::SendIntPreference: {}", name);
+        self.send(FeltMessage::IntPreference((name, value)))
+            .to_result()
     }
 
     fn SendReady(&self) -> nserror::nsresult {
@@ -151,7 +181,7 @@ impl FeltXPCOM {
         }
     }
 
-    fn set_tokens(
+    fn set_tokens_impl(
         &self,
         access_token: String,
         refresh_token: String,
@@ -165,14 +195,14 @@ impl FeltXPCOM {
                     expires_at,
                 };
                 trace!(
-                    "FeltXPCOM::set_tokens(): successfull set of token, expires_at={}",
+                    "FeltXPCOM::set_tokens_impl(): successfull set of token, expires_at={}",
                     expires_at
                 );
                 NS_OK
             }
             Err(_) => {
                 trace!(
-                    "FeltXPCOM::set_tokens(): failure while setting tokens, expires_at={}",
+                    "FeltXPCOM::set_tokens_impl(): failure while setting tokens, expires_at={}",
                     expires_at
                 );
                 NS_ERROR_FAILURE
@@ -180,28 +210,34 @@ impl FeltXPCOM {
         }
     }
 
-    fn SetTokens(
-        &self,
+    xpcom_method!(set_tokens => SetTokens(
         access_token: *const nsACString,
         refresh_token: *const nsACString,
+        expires_at: i64
+    ));
+    fn set_tokens(
+        &self,
+        access_token: &nsACString,
+        refresh_token: &nsACString,
         expires_at: i64,
-    ) -> nserror::nsresult {
+    ) -> Result<(), nserror::nsresult> {
         trace!(
             "FeltXPCOM::SetTokens(): setting tokens, expires_at={}",
             expires_at
         );
-        self.set_tokens(
-            unsafe { (*access_token).to_string() },
-            unsafe { (*refresh_token).to_string() },
+        self.set_tokens_impl(
+            access_token.to_string(),
+            refresh_token.to_string(),
             expires_at,
         )
+        .to_result()
     }
 
     // This clears access and refresh tokens only in the current process, i.e. there is
     // no propagation of the cleared tokens to other processes.
     fn ClearTokens(&self) -> nserror::nsresult {
         trace!("FeltXPCOM::ClearTokens(): clearing");
-        self.set_tokens("".to_string(), "".to_string(), 0)
+        self.set_tokens_impl("".to_string(), "".to_string(), 0)
     }
 
     fn RefreshTokens(&self) -> nserror::nsresult {
@@ -220,28 +256,21 @@ impl FeltXPCOM {
         }
     }
 
-    fn GetRefreshToken(&self, refresh_token: *mut nsACString) -> nserror::nsresult {
-        match TOKENS.read() {
-            Ok(t) => unsafe {
-                (*refresh_token).assign(t.refresh_token.as_str());
-                NS_OK
-            },
-            Err(_) => NS_ERROR_FAILURE,
-        }
+    xpcom_method!(get_refresh_token => GetRefreshToken() -> nsACString);
+    fn get_refresh_token(&self) -> Result<nsCString, nserror::nsresult> {
+        let t = TOKENS.read().map_err(|_| NS_ERROR_FAILURE)?;
+        Ok(nsCString::from(t.refresh_token.as_str()))
     }
 
-    fn GetAccessTokenIfValid(&self, access_token: *mut nsACString) -> nserror::nsresult {
-        match TOKENS.read() {
-            Ok(t) => unsafe {
-                (*access_token).assign(if token_needs_refresh(&t) {
-                    ""
-                } else {
-                    t.access_token.as_str()
-                });
-                NS_OK
-            },
-            Err(_) => NS_ERROR_FAILURE,
-        }
+    xpcom_method!(get_access_token_if_valid => GetAccessTokenIfValid() -> nsACString);
+    fn get_access_token_if_valid(&self) -> Result<nsCString, nserror::nsresult> {
+        let t = TOKENS.read().map_err(|_| NS_ERROR_FAILURE)?;
+        let token = if token_needs_refresh(&t) {
+            ""
+        } else {
+            t.access_token.as_str()
+        };
+        Ok(nsCString::from(token))
     }
 
     fn SendExtensionReady(&self) -> nserror::nsresult {
@@ -256,31 +285,32 @@ impl FeltXPCOM {
         }
     }
 
-    fn OpenURL(&self, url: *const nsACString, disposition: i32) -> nserror::nsresult {
-        let url_s = unsafe { (*url).to_string() };
+    xpcom_method!(open_url => OpenURL(url: *const nsACString, disposition: i32));
+    fn open_url(&self, url: &nsACString, disposition: i32) -> Result<(), nserror::nsresult> {
+        let url = url.to_string();
         #[cfg(target_os = "linux")]
         let focus_hint = utils::get_focus_hint();
         #[cfg(not(target_os = "linux"))]
         let focus_hint = None;
         trace!(
             "FeltXPCOM::OpenURL: {} {} {:?}",
-            url_s,
+            url,
             disposition,
             focus_hint
         );
-        self.send(FeltMessage::OpenURL((url_s, disposition, focus_hint)))
+        self.send(FeltMessage::OpenURL((url, disposition, focus_hint)))
+            .to_result()
     }
 
-    fn GetConsoleUrl(&self, console_url: *mut nsACString) -> nserror::nsresult {
-        if let Some(url) = CONSOLE_URL.get() {
-            unsafe {
-                (*console_url).assign(url.as_str());
-            }
-            NS_OK
-        } else {
-            trace!("FeltXPCOM::GetConsoleUrl called before initialized");
-            NS_ERROR_FAILURE
-        }
+    xpcom_method!(get_console_url => GetConsoleUrl() -> nsACString);
+    fn get_console_url(&self) -> Result<nsCString, nserror::nsresult> {
+        CONSOLE_URL
+            .get()
+            .ok_or_else(|| {
+                trace!("FeltXPCOM::GetConsoleUrl called before initialized");
+                NS_ERROR_FAILURE
+            })
+            .map(|url| nsCString::from(url.as_str()))
     }
 
     fn ShutdownFirefox(&self) -> nserror::nsresult {
@@ -435,7 +465,8 @@ impl FeltXPCOM {
         }
     }
 
-    fn BinPath(&self, bin: *mut nsAString) -> nserror::nsresult {
+    xpcom_method!(bin_path => BinPath() -> nsAString);
+    fn bin_path(&self) -> Result<nsString, nserror::nsresult> {
         match env::current_exe() {
             Ok(exe_path) => {
                 // Use separate code path between Windows and others platforms
@@ -451,18 +482,15 @@ impl FeltXPCOM {
                     Some(path) => path.encode_utf16().collect(),
                     None => {
                         trace!("FeltXPCOM: BinPath: to_str() failure");
-                        return NS_ERROR_FAILURE;
+                        return Err(NS_ERROR_FAILURE);
                     }
                 };
 
-                unsafe {
-                    (*bin).assign(&nsString::from(&wide[..]));
-                }
-                NS_OK
+                Ok(nsString::from(&wide[..]))
             }
             Err(err) => {
                 trace!("FeltXPCOM: BinPath: err={}", err);
-                NS_ERROR_FAILURE
+                Err(NS_ERROR_FAILURE)
             }
         }
     }
@@ -470,12 +498,10 @@ impl FeltXPCOM {
     // Transforms the browser application to a "background application",
     // i.e. no menu bar, and no dock icon. Or the other way round,
     // depending on the `background` parameter.
+    xpcom_method!(make_background_process => MakeBackgroundProcess(background: bool) -> bool);
     #[allow(unused_variables)]
-    fn MakeBackgroundProcess(&self, background: bool, success: *mut bool) -> nserror::nsresult {
+    fn make_background_process(&self, background: bool) -> Result<bool, nserror::nsresult> {
         trace!("FeltXPCOM: MakeBackgroundProcess");
-        unsafe {
-            *success = false;
-        }
         #[cfg(target_os = "macos")]
         {
             #[repr(C)]
@@ -511,44 +537,36 @@ impl FeltXPCOM {
                 )
             };
             trace!("FeltXPCOM: MakeBackgroundProcess: rv={:?}", rv);
-
-            unsafe {
-                *success = rv == 0;
-            }
+            return Ok(rv == 0);
         }
 
-        trace!("FeltXPCOM: MakeBackgroundProcess: {}", unsafe { *success });
-        NS_OK
+        #[cfg(not(target_os = "macos"))]
+        {
+            trace!("FeltXPCOM: MakeBackgroundProcess: no call done");
+            Ok(false)
+        }
     }
 
-    fn IsFeltUI(&self, is_felt_ui: *mut bool) -> nserror::nsresult {
-        trace!("FeltXPCOM: IsFeltUI");
-        unsafe {
-            *is_felt_ui = self.is_felt_ui;
-        }
+    xpcom_method!(is_felt_ui => IsFeltUI() -> bool);
+    fn is_felt_ui(&self) -> Result<bool, nserror::nsresult> {
         trace!("FeltXPCOM: IsFeltUI: {}", self.is_felt_ui);
-        NS_OK
+        Ok(self.is_felt_ui)
     }
 
-    fn IsFeltBrowser(&self, is_felt_browser: *mut bool) -> nserror::nsresult {
-        trace!("FeltXPCOM: IsFeltBrowser");
-        unsafe {
-            *is_felt_browser = self.is_felt_browser;
-        }
+    xpcom_method!(is_felt_browser => IsFeltBrowser() -> bool);
+    fn is_felt_browser(&self) -> Result<bool, nserror::nsresult> {
         trace!("FeltXPCOM: IsFeltBrowser: {}", self.is_felt_browser);
-        NS_OK
+        Ok(self.is_felt_browser)
     }
 
-    fn IsFeltSafeMode(&self, is_felt_safe_mode: *mut bool) -> nserror::nsresult {
-        trace!("FeltXPCOM: IsFeltSafeMode");
-        unsafe {
-            *is_felt_safe_mode = self.is_felt_safe_mode;
-        }
+    xpcom_method!(is_felt_safe_mode => IsFeltSafeMode() -> bool);
+    fn is_felt_safe_mode(&self) -> Result<bool, nserror::nsresult> {
         trace!("FeltXPCOM: IsFeltSafeMode: {}", self.is_felt_safe_mode);
-        NS_OK
+        Ok(self.is_felt_safe_mode)
     }
 
-    fn OneShotIpcServer(&self, channel: *mut nsACString) -> nserror::nsresult {
+    xpcom_method!(one_shot_ipc_server => OneShotIpcServer() -> nsACString);
+    fn one_shot_ipc_server(&self) -> Result<nsCString, nserror::nsresult> {
         if let Ok((felt_server, felt_server_name)) =
             ipc_channel::ipc::IpcOneShotServer::<ipc_channel::ipc::IpcSender<FeltMessage>>::new()
         {
@@ -556,13 +574,10 @@ impl FeltXPCOM {
                 "FeltXPCOM: IpcChannel(): felt_server_name={}",
                 felt_server_name
             );
-            unsafe {
-                (*channel).assign(&felt_server_name);
-            }
             self.one_shot_server.replace(Some(felt_server));
-            NS_OK
+            Ok(nsCString::from(&felt_server_name))
         } else {
-            NS_ERROR_FAILURE
+            Err(NS_ERROR_FAILURE)
         }
     }
 }
@@ -582,7 +597,7 @@ impl FeltRestartForced {
             restart_forced: restart_forced_control.clone(),
         });
 
-        let topic = CString::new("felt-restart-forced").unwrap();
+        let topic = cstr!("felt-restart-forced");
         let rv =
             unsafe { obssvc.AddObserver(xpcom.coerce::<nsIObserver>(), topic.as_ptr(), false) };
         assert!(rv.succeeded());
@@ -591,28 +606,24 @@ impl FeltRestartForced {
         let catMan: RefPtr<nsICategoryManager> =
             xpcom::components::CategoryManager::service().unwrap();
 
-        unsafe {
-            let mut category = nsCString::new();
-            (*category).assign("felt-restart-forced");
-            let mut contractID = nsCString::new();
-            (*contractID).assign("@mozilla-org/felt-restart-forced;1");
-            let mut retval = nsCString::new();
-            trace!(
-                "FeltRestartForced:new() register with nsICategoryManager: call in unsafe block"
-            );
-            let rv = catMan.AddCategoryEntry(
+        let category = nsCString::from("felt-restart-forced");
+        let contractID = nsCString::from("@mozilla-org/felt-restart-forced;1");
+        let mut retval = nsCString::new();
+        trace!("FeltRestartForced:new() register with nsICategoryManager: call");
+        let rv = unsafe {
+            catMan.AddCategoryEntry(
                 &*category,
                 &*contractID,
                 &*contractID,
                 false,
                 true,
                 &mut *retval,
-            );
-            trace!(
-                "FeltRestartForced:new() register with nsICategoryManager: rv={}",
-                rv
-            );
-        }
+            )
+        };
+        trace!(
+            "FeltRestartForced:new() register with nsICategoryManager: rv={}",
+            rv
+        );
 
         xpcom
     }
@@ -626,15 +637,16 @@ impl FeltRestartForced {
         topic: *const c_char,
         _data: *const u16,
     ) -> nsresult {
-        match unsafe { CStr::from_ptr(topic).to_str() } {
-            Ok("felt-restart-forced") => {
+        match topic.as_ref().map(|_| CStr::from_ptr(topic).to_str()) {
+            None => trace!("FeltRestartForced::observe() null topic"),
+            Some(Ok("felt-restart-forced")) => {
                 trace!("FeltRestartForced::observe() felt-restart-forced");
                 self.restart_forced.store(true, Ordering::Relaxed);
             }
-            Ok(topic) => {
+            Some(Ok(topic)) => {
                 trace!("FeltRestartForced::observe() topic: {}", topic);
             }
-            Err(err) => {
+            Some(Err(err)) => {
                 trace!("FeltRestartForced::observe() err: {}", err);
             }
         }
@@ -642,43 +654,42 @@ impl FeltRestartForced {
     }
 
     // nsIContentPolicy
-
-    fn ShouldLoad(
+    xpcom_method!(should_load => ShouldLoad(
+        a_content_location: *const nsIURI,
+        _a_load_info: *const nsILoadInfo
+    ) -> i16);
+    fn should_load(
         &self,
-        aContentLocation: *const nsIURI,
-        _aLoadInfo: *const nsILoadInfo,
-        retval: *mut i16,
-    ) -> ::nserror::nsresult {
+        a_content_location: &nsIURI,
+        _a_load_info: *const nsILoadInfo,
+    ) -> Result<i16, nsresult> {
         trace!("FeltRestartForced: ShouldLoad");
-        unsafe {
-            *retval = self.is_restart_forced(aContentLocation);
-        }
-        NS_OK
+        Ok(self.is_restart_forced(a_content_location))
     }
 
-    fn ShouldProcess(
+    xpcom_method!(should_process => ShouldProcess(
+        a_content_location: *const nsIURI,
+        _a_load_info: *const nsILoadInfo
+    ) -> i16);
+    fn should_process(
         &self,
-        aContentLocation: *const nsIURI,
-        _aLoadInfo: *const nsILoadInfo,
-        retval: *mut i16,
-    ) -> ::nserror::nsresult {
+        a_content_location: &nsIURI,
+        _a_load_info: *const nsILoadInfo,
+    ) -> Result<i16, nsresult> {
         trace!("FeltXPCOM: ShouldProcess");
-        unsafe {
-            *retval = self.is_restart_forced(aContentLocation);
-        }
-        NS_OK
+        Ok(self.is_restart_forced(a_content_location))
     }
 
-    fn is_scheme(aContentLocation: *const nsIURI, scheme: &str) -> bool {
+    fn is_scheme(aContentLocation: &nsIURI, scheme: &str) -> bool {
         let schemeStr = CString::new(scheme).unwrap();
         let mut isScheme = false;
         unsafe {
-            (*aContentLocation).SchemeIs(schemeStr.as_ptr(), &mut isScheme);
+            aContentLocation.SchemeIs(schemeStr.as_ptr(), &mut isScheme);
         }
         isScheme
     }
 
-    fn is_restart_forced(&self, aContentLocation: *const nsIURI) -> i16 {
+    fn is_restart_forced(&self, aContentLocation: &nsIURI) -> i16 {
         let isHttp = Self::is_scheme(aContentLocation, "http");
         let isHttps = Self::is_scheme(aContentLocation, "https");
 

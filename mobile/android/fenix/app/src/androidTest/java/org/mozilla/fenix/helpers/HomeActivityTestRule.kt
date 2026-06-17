@@ -16,7 +16,6 @@ import androidx.test.espresso.intent.rule.IntentsTestRule
 import androidx.test.rule.ActivityTestRule
 import mozilla.components.feature.sitepermissions.SitePermissionsRules
 import mozilla.components.support.base.log.logger.Logger
-import org.junit.rules.TestRule
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.components.initializeGlean
 import org.mozilla.fenix.ext.components
@@ -37,7 +36,7 @@ import org.mozilla.fenix.settings.PhoneFeature
 class HomeActivityTestRule(
     initialTouchMode: Boolean = false,
     launchActivity: Boolean = true,
-    private val skipOnboarding: Boolean = false,
+    private val skipOnboarding: Boolean = true,
 ) : ActivityTestRule<HomeActivity>(HomeActivity::class.java, initialTouchMode, launchActivity),
     FeatureSettingsHelper by FeatureSettingsHelperDelegate() {
 
@@ -47,7 +46,7 @@ class HomeActivityTestRule(
     constructor(
         initialTouchMode: Boolean = false,
         launchActivity: Boolean = true,
-        skipOnboarding: Boolean = false,
+        skipOnboarding: Boolean = true,
         isPocketEnabled: Boolean = settings.showPocketRecommendationsFeature,
         isRecentTabsFeatureEnabled: Boolean = settings.showRecentTabsFeature,
         isRecentlyVisitedFeatureEnabled: Boolean = settings.historyMetadataUIFeature,
@@ -68,8 +67,11 @@ class HomeActivityTestRule(
         isTermsOfServiceAccepted: Boolean = true,
         openLinksInExternalApp: OpenLinksInApp = getOpenLinksInApp(settings),
         hasSeenShakeToSummarizeToolbarCfr: Boolean = true,
+        shakeToSummarizeFeatureFlagEnabled: Boolean = settings.shakeToSummarizeFeatureFlagEnabled,
         isPrivateModeAndStoriesEntryPointEnabled: Boolean = false,
         shouldUseExpandedToolbar: Boolean = false,
+        nativeShareSheetEnabled: Boolean = false,
+        showVoiceSearchInDisplayToolbar: Boolean = false,
     ) : this(initialTouchMode, launchActivity, skipOnboarding) {
         this.isPocketEnabled = isPocketEnabled
         this.isRecentTabsFeatureEnabled = isRecentTabsFeatureEnabled
@@ -91,8 +93,11 @@ class HomeActivityTestRule(
         this.isTermsOfServiceAccepted = isTermsOfServiceAccepted
         this.openLinksInExternalApp = openLinksInExternalApp
         this.hasSeenShakeToSummarizeToolbarCfr = hasSeenShakeToSummarizeToolbarCfr
+        this.shakeToSummarizeFeatureFlagEnabled = shakeToSummarizeFeatureFlagEnabled
         this.isPrivateModeAndStoriesEntryPointEnabled = isPrivateModeAndStoriesEntryPointEnabled
         this.shouldUseExpandedToolbar = shouldUseExpandedToolbar
+        this.nativeShareSheetEnabled = nativeShareSheetEnabled
+        this.showVoiceSearchInDisplayToolbar = showVoiceSearchInDisplayToolbar
     }
 
     /**
@@ -138,7 +143,7 @@ class HomeActivityTestRule(
         fun withDefaultSettingsOverrides(
             initialTouchMode: Boolean = false,
             launchActivity: Boolean = true,
-            skipOnboarding: Boolean = false,
+            skipOnboarding: Boolean = true,
             useNewCrashReporterFlow: Boolean = false,
         ) = HomeActivityTestRule(
             initialTouchMode = initialTouchMode,
@@ -172,7 +177,7 @@ class HomeActivityTestRule(
 class HomeActivityIntentTestRule internal constructor(
     initialTouchMode: Boolean = false,
     launchActivity: Boolean = true,
-    private val skipOnboarding: Boolean = false,
+    private val skipOnboarding: Boolean = true,
 ) : IntentsTestRule<HomeActivity>(HomeActivity::class.java, initialTouchMode, launchActivity),
     FeatureSettingsHelper by FeatureSettingsHelperDelegate() {
     // Using a secondary constructor allows us to easily delegate the settings to FeatureSettingsHelperDelegate.
@@ -181,8 +186,7 @@ class HomeActivityIntentTestRule internal constructor(
     constructor(
         initialTouchMode: Boolean = false,
         launchActivity: Boolean = true,
-        skipOnboarding: Boolean = false,
-        isHomepageHeaderEnabled: Boolean = true,
+        skipOnboarding: Boolean = true,
         isPocketEnabled: Boolean = settings.showPocketRecommendationsFeature,
         isRecentTabsFeatureEnabled: Boolean = settings.showRecentTabsFeature,
         isRecentlyVisitedFeatureEnabled: Boolean = settings.historyMetadataUIFeature,
@@ -204,8 +208,11 @@ class HomeActivityIntentTestRule internal constructor(
         openLinksInExternalApp: OpenLinksInApp = getOpenLinksInApp(settings),
         tabManagerOpeningAnimationEnabled: Boolean = false,
         hasSeenShakeToSummarizeToolbarCfr: Boolean = true,
+        shakeToSummarizeFeatureFlagEnabled: Boolean = settings.shakeToSummarizeFeatureFlagEnabled,
         isPrivateModeAndStoriesEntryPointEnabled: Boolean = false,
         shouldUseExpandedToolbar: Boolean = false,
+        nativeShareSheetEnabled: Boolean = false,
+        showVoiceSearchInDisplayToolbar: Boolean = false,
     ) : this(initialTouchMode, launchActivity, skipOnboarding) {
         this.isPocketEnabled = isPocketEnabled
         this.isRecentTabsFeatureEnabled = isRecentTabsFeatureEnabled
@@ -228,8 +235,11 @@ class HomeActivityIntentTestRule internal constructor(
         this.openLinksInExternalApp = openLinksInExternalApp
         this.tabManagerOpeningAnimationEnabled = tabManagerOpeningAnimationEnabled
         this.hasSeenShakeToSummarizeToolbarCfr = hasSeenShakeToSummarizeToolbarCfr
+        this.shakeToSummarizeFeatureFlagEnabled = shakeToSummarizeFeatureFlagEnabled
         this.isPrivateModeAndStoriesEntryPointEnabled = isPrivateModeAndStoriesEntryPointEnabled
         this.shouldUseExpandedToolbar = shouldUseExpandedToolbar
+        this.nativeShareSheetEnabled = nativeShareSheetEnabled
+        this.showVoiceSearchInDisplayToolbar = showVoiceSearchInDisplayToolbar
     }
 
     private val longTapUserPreference = getLongPressTimeout()
@@ -305,6 +315,7 @@ class HomeActivityIntentTestRule internal constructor(
         tabManagerOpeningAnimationEnabled = settings.tabManagerOpeningAnimationEnabled
         hasSeenShakeToSummarizeToolbarCfr = settings.shakeToSummarizeToolbarCfrShown
         isPrivateModeAndStoriesEntryPointEnabled = settings.privateModeAndStoriesEntryPointEnabled
+        nativeShareSheetEnabled = settings.nativeShareSheetEnabled
     }
 
     companion object {
@@ -319,7 +330,7 @@ class HomeActivityIntentTestRule internal constructor(
         fun withDefaultSettingsOverrides(
             initialTouchMode: Boolean = false,
             launchActivity: Boolean = true,
-            skipOnboarding: Boolean = false,
+            skipOnboarding: Boolean = true,
         ) = HomeActivityIntentTestRule(
             initialTouchMode = initialTouchMode,
             launchActivity = launchActivity,

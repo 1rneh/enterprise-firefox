@@ -331,8 +331,7 @@ void nsNSSComponent::MaybeImportEnterpriseRoots() {
   }
   bool importEnterpriseRoots = StaticPrefs::security_enterprise_roots_enabled();
   if (importEnterpriseRoots) {
-    RefPtr<BackgroundImportEnterpriseCertsTask> task =
-        new BackgroundImportEnterpriseCertsTask(this);
+    RefPtr task = MakeRefPtr<BackgroundImportEnterpriseCertsTask>(this);
     (void)task->Dispatch();
   }
 }
@@ -1615,8 +1614,7 @@ void nsNSSComponent::PrepareForShutdown() {
 
   // Unload osclientcerts so it drops any held resources and stops its
   // background thread.
-  RefPtr<LoadOrUnloadOSClientCertsTask> task =
-      new LoadOrUnloadOSClientCertsTask(false);
+  RefPtr task = MakeRefPtr<LoadOrUnloadOSClientCertsTask>(false);
   (void)mNSSTaskQueue->Dispatch(task.forget());
 
   // We don't actually shut down NSS - XPCOM does, after all threads have been
@@ -1713,8 +1711,8 @@ nsNSSComponent::Observe(nsISupports* aSubject, const char* aTopic,
     } else if (prefName.Equals("security.osclientcerts.autoload")) {
       bool loadOSClientCertsModule =
           StaticPrefs::security_osclientcerts_autoload();
-      RefPtr<LoadOrUnloadOSClientCertsTask> task =
-          new LoadOrUnloadOSClientCertsTask(loadOSClientCertsModule);
+      RefPtr task =
+          MakeRefPtr<LoadOrUnloadOSClientCertsTask>(loadOSClientCertsModule);
       (void)mNSSTaskQueue->Dispatch(task.forget());
     } else if (prefName.EqualsLiteral("security.pki.mitm_canary_issuer")) {
       MutexAutoLock lock(mMutex);
@@ -1733,6 +1731,11 @@ nsNSSComponent::Observe(nsISupports* aSubject, const char* aTopic,
       ClearSSLExternalAndInternalSessionCache();
     }
   } else if (!nsCRT::strcmp(aTopic, "last-pb-context-exited")) {
+    RefPtr<SharedCertVerifier> certVerifier(
+        mozilla::psm::GetDefaultCertVerifier());
+    if (certVerifier) {
+      certVerifier->ClearPrivateBrowsingOCSPCache();
+    }
     return ClearSSLExternalAndInternalSessionCache();
   }
 
@@ -1754,13 +1757,14 @@ nsresult nsNSSComponent::GetNewPrompter(nsIPrompt** result) {
       do_GetService(NS_WINDOWWATCHER_CONTRACTID, &rv));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = wwatch->GetNewPrompter(0, result);
+  rv = wwatch->GetNewPrompter(nullptr, result);
   NS_ENSURE_SUCCESS(rv, rv);
 
   return rv;
 }
 
-nsresult nsNSSComponent::LogoutAuthenticatedPK11() {
+NS_IMETHODIMP
+nsNSSComponent::ClearTLSCacheAndCancelAllConnections() {
   ClearSSLExternalAndInternalSessionCache();
 
   nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();

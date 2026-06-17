@@ -165,7 +165,8 @@ class MOZ_STACK_CLASS gfxOTSMessageContext : public gfxOTSContext {
       }
     }
 
-    mMessages.AppendElement(gfxUserFontEntry::OTSMessage{msg, level});
+    mMessages.AppendElement(
+        gfxUserFontEntry::OTSMessage{std::move(msg), level});
   }
 
   bool Process(ots::OTSStream* aOutput, const uint8_t* aInput, size_t aLength,
@@ -183,7 +184,7 @@ class MOZ_STACK_CLASS gfxOTSMessageContext : public gfxOTSContext {
         msg.AppendInt(gid);
       }
       msg.Append(")");
-      mMessages.AppendElement(gfxUserFontEntry::OTSMessage{msg, 1});
+      mMessages.AppendElement(gfxUserFontEntry::OTSMessage{std::move(msg), 1});
       mBadBBoxGlyphs.Clear();
     }
     return std::move(mMessages);
@@ -461,7 +462,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aIsContinue) {
       gfxPlatformFontList* pfl = gfxPlatformFontList::PlatformFontList();
       pfl->AddUserFontSet(fontSet);
       // Don't look up local fonts if the font whitelist is being used.
-      gfxFontEntry* fe = nullptr;
+      RefPtr<gfxFontEntry> fe;
       if (!pfl->IsFontFamilyWhitelistActive()) {
         fe = gfxPlatform::GetPlatform()->LookupLocalFont(
             fontSet->GetFontVisibilityProvider(), currSrc.mLocalName, Weight(),
@@ -495,7 +496,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aIsContinue) {
         // local fonts are just available all the time.
         StoreUserFontData(fe, mCurrentSrcIndex, false, nsCString(), nullptr, 0,
                           gfxUserFontData::kUnknownCompression);
-        mPlatformFontEntry = fe;
+        mPlatformFontEntry = fe.forget();
         SetLoadState(STATUS_LOADED);
         glean::webfont::srctype.AccumulateSingleSample(currSrc.mSourceType + 1);
         return;
@@ -745,7 +746,7 @@ bool gfxUserFontEntry::LoadPlatformFont(uint32_t aSrcIndex,
   // it can be reported via the InspectorUtils API.
   nsAutoCString originalFullName;
 
-  gfxFontEntry* fe = nullptr;
+  RefPtr<gfxFontEntry> fe;
   uint32_t fontCompressionRatio = 0;
 
   if (aSanitizedFontData) {

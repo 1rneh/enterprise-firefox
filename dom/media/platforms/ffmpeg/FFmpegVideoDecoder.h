@@ -38,8 +38,8 @@
 #endif
 
 #ifdef CUSTOMIZED_BUFFER_ALLOCATION_ASSERT_ENABLED
-#  include "nsTHashSet.h"
 #  include "mozilla/DataMutex.h"
+#  include "nsTHashSet.h"
 #endif
 
 #if LIBAVCODEC_VERSION_MAJOR < 58 || defined(MOZ_WIDGET_ANDROID)

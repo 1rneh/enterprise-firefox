@@ -815,9 +815,7 @@ nsresult nsUnknownDecoder::ConvertEncodedData(nsIRequest* request,
 // nsIThreadRetargetableStreamListener methods
 //
 NS_IMETHODIMP
-nsUnknownDecoder::CheckListenerChain() {
-  return NS_ERROR_NO_INTERFACE;
-}
+nsUnknownDecoder::CheckListenerChain() { return NS_ERROR_NO_INTERFACE; }
 
 NS_IMETHODIMP
 nsUnknownDecoder::OnDataFinished(nsresult aStatus) {

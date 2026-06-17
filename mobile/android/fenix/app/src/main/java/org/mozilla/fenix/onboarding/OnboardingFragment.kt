@@ -53,7 +53,6 @@ import org.mozilla.fenix.ext.isLargeScreenSize
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.openSetDefaultBrowserOption
 import org.mozilla.fenix.ext.requireComponents
-import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.onboarding.redesign.view.OnboardingScreenRedesign
 import org.mozilla.fenix.onboarding.store.DefaultOnboardingPreferencesRepository
@@ -81,7 +80,7 @@ class OnboardingFragment : Fragment() {
     private val removeMarketingFeature = ViewBoundFeatureWrapper<MarketingPageRemovalSupport>()
 
     private val rtamoAttributionHandler by lazy {
-        RtamoAttributionHandler(requireContext(), requireContext().settings(), requireComponents.addonsProvider)
+        RtamoAttributionHandler(requireContext(), requireComponents.settings, requireComponents.addonsProvider)
     }
 
     private val termsOfServiceEventHandler by lazy {
@@ -89,7 +88,7 @@ class OnboardingFragment : Fragment() {
             telemetryRecorder = telemetryRecorder,
             openLink = this::launchSandboxCustomTab,
             showManagePrivacyPreferencesDialog = this::showPrivacyPreferencesDialog,
-            settings = requireContext().settings(),
+            settings = requireComponents.settings,
             startGlean = ::startGlean,
         )
     }
@@ -107,7 +106,7 @@ class OnboardingFragment : Fragment() {
     }
 
     private fun displayDefaultBrowserPage(context: Context): Boolean = with(context) {
-        isNotDefaultBrowser(this) && (!isDefaultBrowserPromptSupported() || settings().useOnboardingRedesign)
+        isNotDefaultBrowser(this) && (!isDefaultBrowserPromptSupported() || components.settings.useOnboardingRedesign)
     }
 
     private val telemetryRecorder by lazy {
@@ -179,7 +178,7 @@ class OnboardingFragment : Fragment() {
         savedInstanceState: Bundle?,
     ) = content {
         FirefoxTheme {
-            if (requireContext().settings().useOnboardingRedesign) {
+            if (requireComponents.settings.useOnboardingRedesign) {
                 ScreenContentRedesign()
             } else {
                 ScreenContent()
@@ -192,7 +191,7 @@ class OnboardingFragment : Fragment() {
             feature = MarketingPageRemovalSupport(
                 prefKey = requireContext().getString(R.string.pref_key_should_show_marketing_onboarding),
                 pagesToDisplay = pagesToDisplay,
-                settings = requireContext().settings(),
+                settings = requireComponents.settings,
                 lifecycleOwner = viewLifecycleOwner,
             ),
             owner = this,
@@ -302,7 +301,7 @@ class OnboardingFragment : Fragment() {
             onboardingStore = onboardingStore,
             termsOfServiceEventHandler = termsOfServiceEventHandler,
             onCustomizeToolbarClick = {
-                requireContext().settings().hasCompletedSetupStepToolbar = true
+                requireComponents.settings.hasCompletedSetupStepToolbar = true
 
                 telemetryRecorder.onSelectToolbarPlacementClick(
                     pagesToDisplay.telemetrySequenceId(),
@@ -323,7 +322,7 @@ class OnboardingFragment : Fragment() {
                 telemetryRecorder.onMarketingDataOptInToggled(optIn)
             },
             onMarketingDataContinueClick = { allowMarketingDataCollection ->
-                with(requireContext().settings()) {
+                with(requireComponents.settings) {
                     isMarketingTelemetryEnabled = allowMarketingDataCollection
                     hasMadeMarketingTelemetrySelection = true
                 }
@@ -420,7 +419,7 @@ class OnboardingFragment : Fragment() {
             onboardingStore = onboardingStore,
             termsOfServiceEventHandler = termsOfServiceEventHandler,
             onCustomizeToolbarClick = {
-                requireContext().settings().hasCompletedSetupStepToolbar = true
+                requireComponents.settings.hasCompletedSetupStepToolbar = true
 
                 telemetryRecorder.onSelectToolbarPlacementClick(
                     pagesToDisplay.telemetrySequenceId(),
@@ -441,7 +440,7 @@ class OnboardingFragment : Fragment() {
                 telemetryRecorder.onMarketingDataOptInToggled(optIn)
             },
             onMarketingDataContinueClick = { allowMarketingDataCollection ->
-                with(requireContext().settings()) {
+                with(requireComponents.settings) {
                     isMarketingTelemetryEnabled = allowMarketingDataCollection
                     hasMadeMarketingTelemetrySelection = true
                 }
@@ -451,7 +450,7 @@ class OnboardingFragment : Fragment() {
                 removeMarketingFeature.withFeature { it.currentPageIndex = index }
             },
             onCustomizeThemeClick = {
-                requireContext().settings().hasCompletedSetupStepTheme = true
+                requireComponents.settings.hasCompletedSetupStepTheme = true
 
                 telemetryRecorder.onSelectThemeClick(
                     onboardingStore.state.themeOptionSelected.id,
@@ -466,7 +465,7 @@ class OnboardingFragment : Fragment() {
     }
 
     private fun startGlean() {
-        val settings = requireContext().settings()
+        val settings = requireComponents.settings
         viewLifecycleOwner.lifecycleScope.launch {
             initializeGlean(
                 requireContext().applicationContext,
@@ -507,7 +506,7 @@ class OnboardingFragment : Fragment() {
 
         requireComponents.fenixOnboarding.finish()
 
-        val settings = requireContext().settings()
+        val settings = requireComponents.settings
         settings.onboardingCompletedTimestamp = System.currentTimeMillis()
 
         // Telemetry and daily usage ping get enabled after ToU acceptance.
@@ -582,7 +581,7 @@ class OnboardingFragment : Fragment() {
                 showDefaultBrowserPage,
                 showNotificationPage,
                 showAddWidgetPage,
-                requireContext().settings().isTabStripEnabled.not(),
+                requireComponents.settings.isTabStripEnabled.not(),
                 jexlConditions,
                 BuildManufacturerChecker(),
             ) { condition -> jexlHelper.evalJexlSafe(condition) }
@@ -591,8 +590,8 @@ class OnboardingFragment : Fragment() {
 
     private fun promptToSetAsDefaultBrowser() {
         activity?.openSetDefaultBrowserOption(useCustomTab = true)
-        requireContext().settings().coldStartsBetweenSetAsDefaultPrompts = 0
-        requireContext().settings().lastSetAsDefaultPromptShownTimeInMillis = System.currentTimeMillis()
+        requireComponents.settings.coldStartsBetweenSetAsDefaultPrompts = 0
+        requireComponents.settings.lastSetAsDefaultPromptShownTimeInMillis = System.currentTimeMillis()
         telemetryRecorder.onSetToDefaultClick(
             sequenceId = pagesToDisplay.telemetrySequenceId(),
             sequencePosition = pagesToDisplay.sequencePosition(OnboardingPageUiData.Type.DEFAULT_BROWSER),
@@ -620,5 +619,5 @@ class OnboardingFragment : Fragment() {
     }
 
     private fun shouldAddMenuNotification() =
-        with(requireContext()) { !settings().isDefaultBrowser && settings().shouldShowMenuBanner }
+        with(requireComponents) { !settings.isDefaultBrowser && settings.shouldShowMenuBanner }
 }

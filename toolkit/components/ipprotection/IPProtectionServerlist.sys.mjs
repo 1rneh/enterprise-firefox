@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
-
 /**
  * This file contains functions that work on top of the RemoteSettings
  * Bucket for the IP Protection server list.
  */
+
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 
@@ -391,6 +391,7 @@ export class RemoteSettingsServerlist extends IPProtectionServerlistBase {
  */
 export class PrefServerList extends IPProtectionServerlistBase {
   #observer = null;
+  #previousList = null;
 
   constructor() {
     super();
@@ -402,20 +403,32 @@ export class PrefServerList extends IPProtectionServerlistBase {
     this.maybeFetchList();
   }
 
-  async initOnStartupCompleted() {
-    Services.prefs.addObserver(
-      IPProtectionServerlist.PREF_NAME,
-      this.#observer
+  // Re-read the pref so that a policy activated after module load is picked up before #updateState() runs.
+  init() {
+    this.__list = IPProtectionServerlistBase.dataToList(
+      PrefServerList.prefValue
     );
   }
 
-  uninit() {
-    Services.prefs.removeObserver(
-      IPProtectionServerlist.PREF_NAME,
-      this.#observer
-    );
+  async initOnStartupCompleted() {
+    Services.prefs.addObserver(PrefServerList.PREF_NAME, this.#observer);
+    // If the pref changed between startup and registering the observer we have
+    // not handled it yet. If the value hasn't actually changed, this is a no-op.
+    this.maybeFetchList();
   }
-  maybeFetchList(_forceUpdate = false) {
+
+  uninit() {
+    Services.prefs.removeObserver(PrefServerList.PREF_NAME, this.#observer);
+  }
+
+  maybeFetchList(forceUpdate = false) {
+    const newList = Services.prefs.getStringPref(PrefServerList.PREF_NAME, "");
+
+    // If the list hasn't changed, we don't need to fetch it again.
+    if (!forceUpdate && newList === this.#previousList) {
+      return Promise.resolve();
+    }
+    this.#previousList = newList;
     this.__list = IPProtectionServerlistBase.dataToList(
       PrefServerList.prefValue
     );

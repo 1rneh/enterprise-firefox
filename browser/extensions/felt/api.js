@@ -16,10 +16,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   isBlockingShutdown: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  isBuildAppBrowser: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   shouldNotCloseWindow:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  WebAuthnPromptHelper:
+    "moz-src:///toolkit/modules/WebAuthnPromptHelper.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -29,6 +32,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 this.felt = class extends ExtensionAPI {
   FELT_PROCESS_ACTOR = "FeltProcess";
   FELT_WINDOW_ACTOR = "FeltWindow";
+  FELT_ERROR_WINDOW_ACTOR = "FeltErrorWindow";
 
   registerChrome() {
     let aomStartup = Cc[
@@ -63,6 +67,23 @@ this.felt = class extends ExtensionAPI {
       },
       allFrames: true,
       matches,
+    });
+
+    // Remove existing error handler installed by default so we can install
+    // our own to provide a dedicated UI.
+    ChromeUtils.unregisterWindowActor("NetError");
+    ChromeUtils.registerWindowActor(this.FELT_ERROR_WINDOW_ACTOR, {
+      child: {
+        esModuleURI: "chrome://felt/content/FeltErrorWindowChild.sys.mjs",
+        events: {
+          DOMContentLoaded: {},
+        },
+      },
+      parent: {
+        esModuleURI: "chrome://felt/content/FeltErrorWindowParent.sys.mjs",
+      },
+      allFrames: true,
+      matches: ["about:certerror?*", "about:neterror?*"],
     });
 
     // We use a much simpler version of the context menu so replace the default actor with our own.
@@ -199,6 +220,14 @@ this.felt = class extends ExtensionAPI {
     },
   };
 
+  webauthnObserver = {
+    observe(aSubject, aTopic, aData) {
+      if (aTopic === "webauthn-prompt") {
+        lazy.WebAuthnPromptHelper.observe(aSubject, aTopic, aData);
+      }
+    },
+  };
+
   _feltMessageListeners = [
     "FeltParent:FirefoxNormalExit",
     "FeltParent:FirefoxRestartUpdateExit",
@@ -232,6 +261,9 @@ this.felt = class extends ExtensionAPI {
       await lazy.FeltStorage.init();
       this.showWindow();
       this.addFeltMessageListeners();
+      if (!lazy.isBuildAppBrowser()) {
+        Services.obs.addObserver(this.webauthnObserver, "webauthn-prompt");
+      }
     } else if (Services.felt.isFeltBrowser()) {
       // In the real Firefox, register observer to handle URLs
       Services.obs.addObserver(this.urlObserver, "felt-open-url");
@@ -408,6 +440,9 @@ this.felt = class extends ExtensionAPI {
 
     if (Services.felt.isFeltUI()) {
       this.removeFeltMessageListeners();
+      if (!lazy.isBuildAppBrowser()) {
+        Services.obs.removeObserver(this.webauthnObserver, "webauthn-prompt");
+      }
     }
 
     if (this.chromeHandle) {
@@ -417,6 +452,7 @@ this.felt = class extends ExtensionAPI {
 
     if (Services.felt.isFeltUI()) {
       ChromeUtils.unregisterWindowActor(this.FELT_WINDOW_ACTOR);
+      ChromeUtils.unregisterWindowActor(this.FELT_ERROR_WINDOW_ACTOR);
       ChromeUtils.unregisterProcessActor(this.FELT_PROCESS_ACTOR);
       lazy.FeltStorage.uninit();
     }

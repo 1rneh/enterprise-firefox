@@ -2478,14 +2478,6 @@ class Settings(
     )
 
     /**
-     * Indicates if the Merino Manifest is enabled.
-     */
-    var enableMerinoManifest by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_enable_merino_manifest),
-        default = { FxNimbus.features.merinoManifest.value().enabled },
-    )
-
-    /**
      * Indicates if the Unified Trust Panel is enabled.
      */
     var enableUnifiedTrustPanel by booleanPreference(
@@ -3266,7 +3258,7 @@ class Settings(
     )
 
     /**
-     * Whether WebCompat Reporter enhancements is enabled.Í
+     * Whether WebCompat Reporter enhancements is enabled.
      */
     var webCompatReporterEnhancementsEnabled by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_webcompat_reporter_enhancements),

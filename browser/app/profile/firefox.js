@@ -1107,6 +1107,11 @@ pref("browser.tabs.tabMinWidth", 76);
 // false  return to the adjacent tab (old default)
 pref("browser.tabs.selectOwnerOnClose", true);
 
+// When the active tab is closed and no successor/owner directs the next
+// selection, switch to the most-recently-used tab instead of the adjacent
+// tab. Tabs are ordered by their lastAccessed timestamp.
+pref("browser.tabs.selectMRUOnClose", false);
+
 // This should match Chromium's audio indicator delay.
 pref("browser.tabs.delayHidingAudioPlayingIconMS", 3000);
 
@@ -2331,6 +2336,8 @@ pref("browser.ml.pageAssist.enabled", false);
 
 // Smart Window Feature
 pref("browser.smartwindow.enabled", false);
+// Default endpoint for preset models
+pref("browser.smartwindow.endpoint", "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net/v1");
 pref("browser.smartwindow.memories.generateFromHistory", true);
 pref("browser.smartwindow.memories.generateFromConversation", true);
 pref("browser.smartwindow.memories.hasSeenMemories", false);
@@ -3523,11 +3530,7 @@ pref("first-startup.category-tasks-enabled", true);
   pref("browser.menu.share_url.allow", false);
 #endif
 
-#ifdef NIGHTLY_BUILD
 pref("browser.shareqrcode.enabled", true);
-#else
-pref("browser.shareqrcode.enabled", false);
-#endif
 
 // Whether to embed a logo in the center of generated QR codes.
 pref("browser.shareqrcode.embed_logo", true);

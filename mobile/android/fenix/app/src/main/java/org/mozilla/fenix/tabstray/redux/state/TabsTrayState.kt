@@ -4,10 +4,17 @@
 
 package org.mozilla.fenix.tabstray.redux.state
 
+import androidx.annotation.VisibleForTesting
 import mozilla.components.lib.state.State
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.syncedtabs.SyncedTabsListItem
+
+@VisibleForTesting
+internal const val TAB_GROUP_ONBOARDING_IMPRESSION_LIMIT = 3
+
+@VisibleForTesting
+internal const val MIN_TABS_FOR_TAB_GROUP_ONBOARDING = 2
 
 /**
  * Value type that represents the state of the Tabs Tray.
@@ -180,6 +187,7 @@ data class TabsTrayState(
      * @property tabGroupsEnabled Whether the Tab Groups feature is enabled.
      * @property tabGroupsDragAndDropEnabled:  Whether drag and drop is enabled for Tab Groups.
      * @property tabGroupsOnboardingEnabled Whether the onboarding card for Tab Groups is enabled.
+     * @property tabGroupsLiveReorderEnabled Whether in-place reorder is enabled for drag and drop.
      * @property isInDebugMode Whether the app is in a debug state or has secret menu enabled.
      * @property showTabAutoCloseBanner Whether the banner for the tab auto-closer feature is visible.
      */
@@ -188,6 +196,7 @@ data class TabsTrayState(
         val tabGroupsEnabled: Boolean = false,
         val tabGroupsDragAndDropEnabled: Boolean = false,
         val tabGroupsOnboardingEnabled: Boolean = false,
+        val tabGroupsLiveReorderEnabled: Boolean = false,
         val isInDebugMode: Boolean = false,
         val showTabAutoCloseBanner: Boolean = false,
     )
@@ -197,10 +206,16 @@ data class TabsTrayState(
      *
      * @property groups The list of tab groups.
      * @property formState The state of the tab group edit form.
+     * @property hasUserDismissedTabGroupOnboarding Whether the user has previously dismissed the onboarding.
+     * @property tabGroupOnboardingImpressionCount How many times the user has been presented the onboarding.
+     * @property hasUserEverHadOneTabGroup Whether the user has ever had a tab group.
      */
     data class TabGroupState(
         val groups: List<TabsTrayItem.TabGroup> = emptyList(),
         val formState: TabGroupFormState? = null,
+        internal val hasUserDismissedTabGroupOnboarding: Boolean = false,
+        internal val tabGroupOnboardingImpressionCount: Int = 0,
+        internal val hasUserEverHadOneTabGroup: Boolean = false,
     )
 
     /**
@@ -226,17 +241,19 @@ data class TabsTrayState(
      *  - The user has a selected tab.
      *  - The user has no existing tab groups.
      *  - The user has at least [MIN_TABS_FOR_TAB_GROUP_ONBOARDING] tabs.
+     *  - The user has not dismissed the onboarding.
+     *  - The user has never had a tab group.
+     *  - The user has seen the onboarding fewer than [TAB_GROUP_ONBOARDING_IMPRESSION_LIMIT] instances.
      */
     val shouldShowTabGroupOnboarding: Boolean
         get() = config.tabGroupsOnboardingEnabled &&
             config.tabGroupsDragAndDropEnabled &&
             normalTabsState.selectedItemIndex in normalTabsState.items.indices &&
             tabGroupState.groups.isEmpty() &&
-            normalTabsState.items.count { it is TabsTrayItem.Tab } >= MIN_TABS_FOR_TAB_GROUP_ONBOARDING
-
-    private companion object {
-        const val MIN_TABS_FOR_TAB_GROUP_ONBOARDING = 2
-    }
+            normalTabsState.items.count { it is TabsTrayItem.Tab } >= MIN_TABS_FOR_TAB_GROUP_ONBOARDING &&
+            !tabGroupState.hasUserDismissedTabGroupOnboarding &&
+            !tabGroupState.hasUserEverHadOneTabGroup &&
+            tabGroupState.tabGroupOnboardingImpressionCount < TAB_GROUP_ONBOARDING_IMPRESSION_LIMIT
 
     /**
      * Whether the floating toolbar should be visible.

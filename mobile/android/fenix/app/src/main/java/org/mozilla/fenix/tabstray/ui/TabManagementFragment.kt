@@ -98,12 +98,14 @@ import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
+import org.mozilla.fenix.tabstray.redux.middleware.TabManagerUiStateStorageMiddleware
 import org.mozilla.fenix.tabstray.redux.middleware.TabSearchMiddleware
 import org.mozilla.fenix.tabstray.redux.middleware.TabSearchNavigationMiddleware
 import org.mozilla.fenix.tabstray.redux.middleware.TabStorageMiddleware
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
+import org.mozilla.fenix.tabstray.repository.uistate.DefaultTabManagerUiStateRepository
 import org.mozilla.fenix.tabstray.syncedtabs.SyncedTabsIntegration
 import org.mozilla.fenix.tabstray.ui.animation.defaultPredictivePopTransitionSpec
 import org.mozilla.fenix.tabstray.ui.animation.defaultTransitionSpec
@@ -157,9 +159,6 @@ class TabManagementFragment : Fragment() {
                         destinationId = targetKey,
                         placeAfter = placeAfter,
                     ),
-                )
-                tabsTrayStore.dispatch(
-                    TabsTrayAction.TabDragCancel,
                 )
             }
 
@@ -418,7 +417,6 @@ class TabManagementFragment : Fragment() {
                                     },
                                     onInactiveTabsCFRDismiss = tabManagerCfrController::onInactiveTabsCfrDismiss,
                                     onTabGroupOnboardingDismiss = {
-                                        // TODO (Bug 2038234): Persistence will be handled later by the middleware.
                                         tabsTrayStore.dispatch(TabGroupAction.OnboardingDismissed)
                                     },
                                     onOpenNewNormalTabClicked = tabManagerInteractor::onNormalTabsFabClicked,
@@ -575,6 +573,13 @@ class TabManagementFragment : Fragment() {
                         moveTabsUseCase = requireComponents.useCases.tabsUseCases.moveTabs,
                         mainScope = lifecycleScope,
                     ),
+                    TabManagerUiStateStorageMiddleware(
+                        uiStateRepository = DefaultTabManagerUiStateRepository(
+                            context = requireContext().applicationContext,
+                            stateFlowScope = lifecycleScope,
+                        ),
+                        scope = lifecycleScope,
+                    ),
                 ),
             )
         }
@@ -612,6 +617,7 @@ class TabManagementFragment : Fragment() {
             config = TabsTrayState.TabsTrayConfig(
                 tabGroupsEnabled = settings.tabGroupsEnabled,
                 tabGroupsDragAndDropEnabled = settings.tabGroupsDragAndDropEnabled,
+                tabGroupsLiveReorderEnabled = settings.tabGroupsLiveReorderEnabled,
                 tabGroupsOnboardingEnabled = settings.tabGroupsOnboardingEnabled,
                 displayTabsInGrid = settings.gridTabView,
                 isInDebugMode = Config.channel.isDebug || requireComponents.settings.showSecretDebugMenuThisSession,

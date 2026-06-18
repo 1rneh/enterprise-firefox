@@ -2276,14 +2276,6 @@ class Settings(
     )
 
     /**
-     * Indicates if the onboarding redesign should be used.
-     */
-    var useOnboardingRedesign by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_use_onboarding_redesign),
-        default = { FxNimbus.features.junoOnboarding.value().useOnboardingRedesign },
-    )
-
-    /**
      * Indicates if the marketing onboarding card should be shown to the user.
      */
     var shouldShowMarketingOnboarding by booleanPreference(
@@ -3166,6 +3158,14 @@ class Settings(
     var tabGroupsDragAndDropEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_tab_groups_drag_and_drop),
         default = { DefaultTabManagementFeatureHelper.tabGroupsDragAndDropEnabled },
+    )
+
+    /**
+     * Control whether reorder happens live during a drag and drop action for Tab Groups.
+     */
+    var tabGroupsLiveReorderEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_tab_groups_live_reorder),
+        default = { DefaultTabManagementFeatureHelper.tabGroupsLiveReorderEnabled },
     )
 
     /**

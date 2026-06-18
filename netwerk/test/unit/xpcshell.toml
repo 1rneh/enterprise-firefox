@@ -569,6 +569,7 @@ skip-if = [
 ["test_cookiejars_safebrowsing.js"]
 
 ["test_cookies_async_failure.js"]
+prefs = ["security.storage.encryption.sqlite.enabled=false"]
 requesttimeoutfactor = 2  # Slow on Windows
 run-sequentially = [
   "os == 'mac'", # frequent timeouts in parallel on Mac
@@ -600,6 +601,7 @@ skip-if = [
 requesttimeoutfactor = 2  # Slow on macOS
 
 ["test_cookies_upgrade_10.js"]
+prefs = ["security.storage.encryption.sqlite.enabled=false"]
 
 ["test_cookies_validation_epoch.js"]
 
@@ -809,6 +811,13 @@ skip-if = [
 ]
 
 ["test_happy_eyeballs_h3_fallback.js"]
+run-sequentially = ["true"] # node server exceptions dont replay well
+skip-if = [
+  "os == 'android'",
+  "os == 'win'",
+]
+
+["test_happy_eyeballs_zero_ip_blocked.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 skip-if = [
   "os == 'android'",

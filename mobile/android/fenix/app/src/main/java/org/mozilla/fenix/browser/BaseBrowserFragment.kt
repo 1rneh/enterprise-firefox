@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.getSystemService
@@ -52,6 +53,7 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mozilla.components.browser.state.action.ContentAction
+import mozilla.components.browser.state.action.SystemPermissionRequestAction
 import mozilla.components.browser.state.selector.findCustomTab
 import mozilla.components.browser.state.selector.findCustomTabOrSelectedTab
 import mozilla.components.browser.state.selector.findTabOrCustomTab
@@ -219,6 +221,7 @@ import org.mozilla.fenix.microsurvey.ui.MicrosurveyRequestPrompt
 import org.mozilla.fenix.microsurvey.ui.ext.MicrosurveyUIData
 import org.mozilla.fenix.microsurvey.ui.ext.toMicrosurveyUIData
 import org.mozilla.fenix.nimbus.FxNimbus
+import org.mozilla.fenix.pbmlock.BlackScreenOverlay
 import org.mozilla.fenix.pbmlock.NavigationOrigin
 import org.mozilla.fenix.pbmlock.observePrivateModeLock
 import org.mozilla.fenix.perf.MarkersFragmentLifecycleCallbacks
@@ -262,7 +265,7 @@ abstract class BaseBrowserFragment :
     private var creditCardSelectBar: AutocompletePrompt<CreditCardEntry>? = null
     private var suggestStrongPasswordBar: PasswordPromptView? = null
     private var emailMaskBar: EmailMaskPromptView? = null
-
+    internal var blackScreenOverlay: ComposeView? = null
     private lateinit var startForResult: ActivityResultLauncher<Intent>
 
     @VisibleForTesting
@@ -597,6 +600,10 @@ abstract class BaseBrowserFragment :
                 engineView = binding.engineView,
                 useCases = context.components.useCases.contextMenuUseCases,
                 tabId = customTabSessionId,
+                shouldHide = {
+                    val state = requireComponents.appStore.state
+                    state.isPrivateScreenLocked && state.mode.isPrivate
+                },
             ),
             owner = this,
             view = view,
@@ -1233,6 +1240,12 @@ abstract class BaseBrowserFragment :
                 ),
                 sessionId = customTabSessionId,
                 onNeedToRequestPermissions = { permissions ->
+                    store.dispatch(SystemPermissionRequestAction.SystemPermissionStateRequestInProgress)
+
+                    if (shouldAddBlackScreen()) {
+                        addBlackScreen()
+                    }
+
                     requestPermissions(permissions, REQUEST_CODE_APP_PERMISSIONS)
                 },
                 onShouldShowRequestPermissionRationale = {
@@ -1242,6 +1255,10 @@ abstract class BaseBrowserFragment :
                 },
                 shouldShowDoNotAskAgainCheckBox = context.components.appStore.state.mode != BrowsingMode.Private,
                 store = store,
+                shouldHide = {
+                    val state = requireComponents.appStore.state
+                    state.isPrivateScreenLocked && state.mode.isPrivate
+                },
             ),
             owner = this,
             view = view,
@@ -1404,6 +1421,31 @@ abstract class BaseBrowserFragment :
             },
             navigationBarContent = browserNavigationBar?.asComposable(),
         )
+    }
+
+    @VisibleForTesting
+    internal fun shouldAddBlackScreen(): Boolean =
+        requireComponents.settings.privateBrowsingModeLocked &&
+            requireComponents.appStore.state.mode.isPrivate &&
+            requireComponents.core.store.state.systemPermissionRequestInProgress &&
+            blackScreenOverlay == null
+
+    @VisibleForTesting
+    internal fun addBlackScreen(container: ViewGroup = binding.browserLayout) {
+        blackScreenOverlay = ComposeView(requireContext()).apply {
+            setContent {
+                FirefoxTheme {
+                    BlackScreenOverlay()
+                }
+            }
+        }
+        container.addView(blackScreenOverlay)
+    }
+
+    @VisibleForTesting
+    internal fun removeBlackScreen(container: ViewGroup = binding.browserLayout) {
+        container.removeView(blackScreenOverlay)
+        blackScreenOverlay = null
     }
 
     private fun buildTabStrip(
@@ -2043,7 +2085,14 @@ abstract class BaseBrowserFragment :
             REQUEST_CODE_APP_PERMISSIONS -> sitePermissionsFeature.get()
             else -> null
         }
+
         feature?.onPermissionsResult(permissions, grantResults)
+
+        val shouldRemoveBlackScreen =
+            !requireComponents.core.store.state.systemPermissionRequestInProgress && blackScreenOverlay != null
+        if (shouldRemoveBlackScreen) {
+            removeBlackScreen()
+        }
     }
 
     protected abstract fun navToQuickSettingsSheet(
@@ -2301,6 +2350,7 @@ abstract class BaseBrowserFragment :
         _browserToolbar = null
         awesomeBarComposable = null
         browserNavigationBar = null
+        blackScreenOverlay = null
         _binding = null
     }
 

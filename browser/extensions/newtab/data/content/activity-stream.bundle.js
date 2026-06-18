@@ -16723,7 +16723,8 @@ function ScorePill({
 // when the team is not yet decided.
 function MatchTeam({
   team,
-  isFollowed
+  isFollowed,
+  localizedName
 }) {
   if (!team) {
     return /*#__PURE__*/external_React_default().createElement("div", {
@@ -16737,6 +16738,7 @@ function MatchTeam({
       className: "sports-match-code"
     }, TBD_PLACEHOLDER));
   }
+  const displayName = localizedName ?? team.name;
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-match-team"
   }, /*#__PURE__*/external_React_default().createElement("span", {
@@ -16744,8 +16746,8 @@ function MatchTeam({
   }, /*#__PURE__*/external_React_default().createElement("img", {
     className: "sports-match-flag",
     src: team.icon_url,
-    alt: team.name,
-    title: team.name
+    alt: displayName,
+    title: displayName
   }), isFollowed && /*#__PURE__*/external_React_default().createElement("span", {
     className: "sports-match-flag-check",
     "aria-hidden": "true"
@@ -16785,7 +16787,8 @@ function SportsMatchRow({
   size = "large",
   handleInteraction,
   followedTeams,
-  tbdTeamName = ""
+  tbdTeamName = "",
+  localizedNames
 }) {
   const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
   // Read the widget size pref (not `size`, which can be "list" when the
@@ -16807,8 +16810,8 @@ function SportsMatchRow({
   } = match;
   const isHomeFollowed = !!(home_team && followedTeams?.has(home_team.key));
   const isAwayFollowed = !!(away_team && followedTeams?.has(away_team.key));
-  const homeTeamName = home_team ? home_team.name : tbdTeamName;
-  const awayTeamName = away_team ? away_team.name : tbdTeamName;
+  const homeTeamName = home_team ? localizedNames?.[home_team.key] ?? home_team.name : tbdTeamName;
+  const awayTeamName = away_team ? localizedNames?.[away_team.key] ?? away_team.name : tbdTeamName;
   const dateTimestamp = new Date(date).getTime();
   // (developer note): Assumes home_score/away_score exclude extra time goals
   const displayHomeScore = home_score + (home_extra || 0);
@@ -17000,10 +17003,12 @@ function SportsMatchRow({
     onKeyDown
   }), /*#__PURE__*/external_React_default().createElement(MatchTeam, {
     team: home_team,
-    isFollowed: isHomeFollowed
+    isFollowed: isHomeFollowed,
+    localizedName: localizedNames?.[home_team?.key]
   }), renderMiddle(), /*#__PURE__*/external_React_default().createElement(MatchTeam, {
     team: away_team,
-    isFollowed: isAwayFollowed
+    isFollowed: isAwayFollowed,
+    localizedName: localizedNames?.[away_team?.key]
   }));
 }
 
@@ -17287,10 +17292,15 @@ function WatchLiveModal({
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-// FIFA team code to ISO 3166-1 alpha-2 region code accepted by
+// Team code to ISO 3166-1 alpha-2 region code accepted by
 // Intl.DisplayNames. Covers the 43 qualified 2026 World Cup teams not
 // in FLUENT_OVERRIDE_KEYS (see useLocalizedTeamNames.jsx). Teams Merino
 // sends that are in neither map fall back to team.name.
+//
+// Production Merino sends a mix of FIFA codes and ISO 3166-1 alpha-3
+// codes (and a couple of non-standard ones like CVI for Cabo Verde),
+// so for teams where the two differ we list both keys mapping to the
+// same alpha-2 — that way the lookup hits whichever the API delivers.
 const TEAM_REGION_CODES = {
   ALG: "DZ",
   ARG: "AR",
@@ -17299,10 +17309,12 @@ const TEAM_REGION_CODES = {
   BEL: "BE",
   BRA: "BR",
   CAN: "CA",
+  CHE: "CH",
   COL: "CO",
   CPV: "CV",
   CRO: "HR",
   CUW: "CW",
+  CVI: "CV",
   CZE: "CZ",
   ECU: "EC",
   EGY: "EG",
@@ -17311,6 +17323,7 @@ const TEAM_REGION_CODES = {
   GER: "DE",
   GHA: "GH",
   HAI: "HT",
+  HRV: "HR",
   IRN: "IR",
   IRQ: "IQ",
   JOR: "JO",
@@ -17320,11 +17333,13 @@ const TEAM_REGION_CODES = {
   MAR: "MA",
   MEX: "MX",
   NED: "NL",
+  NLD: "NL",
   NOR: "NO",
   NZL: "NZ",
   PAN: "PA",
   PAR: "PY",
   POR: "PT",
+  PRT: "PT",
   QAT: "QA",
   RSA: "ZA",
   SEN: "SN",
@@ -17333,6 +17348,7 @@ const TEAM_REGION_CODES = {
   TUN: "TN",
   TUR: "TR",
   URU: "UY",
+  URY: "UY",
   USA: "US",
   UZB: "UZ",
 };
@@ -17345,11 +17361,18 @@ const TEAM_REGION_CODES = {
 
 
 
-// FIFA team codes whose localized names must come from Fluent because
+// Team codes whose localized names must come from Fluent because
 // Intl.DisplayNames cannot produce a usable result: England and Scotland
 // have no ISO 3166-1 code, and Bosnia and Herzegovina / Ivory Coast /
 // DR Congo differ in wording from what UX wants to show.
-const FLUENT_OVERRIDE_KEYS = new Set(["BIH", "CIV", "COD", "ENG", "SCO"]);
+//
+// CDR is the non-standard key the production Merino API uses for
+// DR Congo; it aliases to COD's Fluent string via FLUENT_OVERRIDE_ALIASES
+// so we don't ship a duplicate string.
+const FLUENT_OVERRIDE_KEYS = new Set(["BIH", "CDR", "CIV", "COD", "ENG", "SCO"]);
+const FLUENT_OVERRIDE_ALIASES = {
+  CDR: "COD"
+};
 
 /**
  * Resolves localized country names for `teams`. Returns `null` until
@@ -17370,9 +17393,9 @@ function useLocalizedTeamNames(teams) {
       // The override strings ship as attribute-only Fluent messages
       // (`.label = ...`), so we use formatMessages and read the label
       // attribute rather than formatValues (which would return null).
-      const messages = overrideKeys.length ? await document.l10n.formatMessages(overrideKeys.map(key => ({
-        id: `newtab-sports-widget-team-name-label-${key.toLowerCase()}`
-      }))) : [];
+      const messages = overrideKeys.length && (await document.l10n?.formatMessages?.(overrideKeys.map(key => ({
+        id: `newtab-sports-widget-team-name-label-${(FLUENT_OVERRIDE_ALIASES[key] || key).toLowerCase()}`
+      })))) || [];
       if (cancelled) {
         return;
       }
@@ -17781,6 +17804,7 @@ function SportsWidget_SportsWidget({
   const rawLive = liveDataTrustable ? sportsWidgetData?.data?.live : null;
   const selectedTeams = (0,external_React_namespaceObject.useMemo)(() => rawSelectedTeams || [], [rawSelectedTeams]);
   const teams = (0,external_React_namespaceObject.useMemo)(() => rawTeams ?? [], [rawTeams]);
+  const localizedNames = useLocalizedTeamNames(teams);
   const {
     matchesTab
   } = sportsWidgetData;
@@ -18480,7 +18504,8 @@ function SportsWidget_SportsWidget({
   }, widgetState === WIDGET_STATES.FOLLOW_TEAMS && /*#__PURE__*/external_React_default().createElement(SportsWidgetFollowTeams, {
     teams: teams,
     initialSelectedTeams: selectedTeams,
-    onSave: handleSaveSelection
+    onSave: handleSaveSelection,
+    localizedNames: localizedNames
   }), widgetState === WIDGET_STATES.MATCHES && /*#__PURE__*/external_React_default().createElement(SportsMatchesView, {
     dispatch: dispatch,
     matchesTab: activeTab,
@@ -18496,6 +18521,7 @@ function SportsWidget_SportsWidget({
     handleInteraction: handleInteraction,
     selectedTeamsSet: selectedTeamsSet,
     tbdTeamName: tbdTeamName,
+    localizedNames: localizedNames,
     followedOnly: sportsWidgetData.followedOnly,
     showResultsList: showResultsList,
     setShowResultsList: setShowResultsList,
@@ -18529,11 +18555,11 @@ function SportsWidget_SportsWidget({
 function SportsWidgetFollowTeams({
   teams,
   initialSelectedTeams,
-  onSave
+  onSave,
+  localizedNames
 }) {
   const [selectedTeams, setSelectedTeams] = (0,external_React_namespaceObject.useState)(initialSelectedTeams);
   const [searchQuery, setSearchQuery] = (0,external_React_namespaceObject.useState)("");
-  const localizedNames = useLocalizedTeamNames(teams);
   // Eliminated teams stay in the list (shown disabled with an "(eliminated)"
   // badge) but don't count toward the 3-team cap and aren't persisted on save
   // — otherwise the user could be stuck following a team they can no longer
@@ -18662,6 +18688,7 @@ function SportsMatchesView({
   handleInteraction,
   selectedTeamsSet,
   tbdTeamName,
+  localizedNames,
   followedOnly,
   showResultsList,
   setShowResultsList,
@@ -18824,7 +18851,8 @@ function SportsMatchesView({
     size: "list",
     handleInteraction: handleInteraction,
     followedTeams: selectedTeamsSet,
-    tbdTeamName: tbdTeamName
+    tbdTeamName: tbdTeamName,
+    localizedNames: localizedNames
   })))))))) : previous[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: previous[0]
   }), /*#__PURE__*/external_React_default().createElement("div", {
@@ -18835,7 +18863,8 @@ function SportsMatchesView({
     size: size,
     handleInteraction: handleInteraction,
     followedTeams: selectedTeamsSet,
-    tbdTeamName: tbdTeamName
+    tbdTeamName: tbdTeamName,
+    localizedNames: localizedNames
   }))), !!previous.length && /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "sports-view-all",
     type: "secondary",
@@ -18865,7 +18894,8 @@ function SportsMatchesView({
     size: size,
     handleInteraction: handleInteraction,
     followedTeams: selectedTeamsSet,
-    tbdTeamName: tbdTeamName
+    tbdTeamName: tbdTeamName,
+    localizedNames: localizedNames
   })), /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "sports-watch-live-button",
     type: size === "medium" ? "icon" : "default",
@@ -18909,7 +18939,8 @@ function SportsMatchesView({
     size: "list",
     handleInteraction: handleInteraction,
     followedTeams: selectedTeamsSet,
-    tbdTeamName: tbdTeamName
+    tbdTeamName: tbdTeamName,
+    localizedNames: localizedNames
   })))))))) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, next[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: next[0]
   }), /*#__PURE__*/external_React_default().createElement("div", {
@@ -18920,7 +18951,8 @@ function SportsMatchesView({
     size: size,
     handleInteraction: handleInteraction,
     followedTeams: selectedTeamsSet,
-    tbdTeamName: tbdTeamName
+    tbdTeamName: tbdTeamName,
+    localizedNames: localizedNames
   }))), !next[0] && /*#__PURE__*/external_React_default().createElement("div", {
     className: "match-highlight-view"
   }, /*#__PURE__*/external_React_default().createElement(UpcomingMatchPlaceholder, {
@@ -19838,6 +19870,7 @@ function EditClocksPanel({
 
 
 
+
 const Clocks_USER_ACTION_TYPES = {
   ADD_CLOCK: "add_clock",
   ADD_NICKNAME: "add_nickname",
@@ -19861,6 +19894,7 @@ const CLOCK_WIDGET_SOURCE = {
   ROW: "row",
   TOOLBAR: "toolbar"
 };
+const CLOCKS_WIDGET = WIDGET_REGISTRY.find(widget => widget.id === "clocks");
 function getClockWidgetDisplayState({
   activePanel,
   hourFormatPref,
@@ -19895,7 +19929,6 @@ function Clocks({
   const clocksZonesPref = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values[PREF_CLOCKS_ZONES]);
   const hourFormatPref = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values[PREF_CLOCKS_HOUR_FORMAT]);
   const [now, setNow] = (0,external_React_namespaceObject.useState)(null);
-  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
   const contextMenuRef = (0,external_React_namespaceObject.useRef)(null);
   const contextMenuButtonRef = (0,external_React_namespaceObject.useRef)(null);
   // Suppress hover-reveal after a menu action; cleared on mouseleave.
@@ -19928,10 +19961,15 @@ function Clocks({
     hourFormatPref,
     size
   });
-  const currentSizeRef = (0,external_React_namespaceObject.useRef)(currentSize);
-  (0,external_React_namespaceObject.useEffect)(() => {
-    currentSizeRef.current = currentSize;
-  }, [currentSize]);
+  const {
+    impressionRef,
+    recordUserAction,
+    recordEnabled
+  } = useWidgetTelemetry({
+    dispatch,
+    widget: CLOCKS_WIDGET,
+    widgetSize: currentSize
+  });
 
   // Each tick realigns to the next minute, so paused tabs or device sleep
   // can't compound drift. `now` starts null so the first render stays
@@ -19945,20 +19983,6 @@ function Clocks({
     tick();
     return () => clearTimeout(timeoutId);
   }, []);
-  const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
-    if (impressionFired.current) {
-      return;
-    }
-    impressionFired.current = true;
-    dispatch(actionCreators.AlsoToMain({
-      type: actionTypes.WIDGETS_IMPRESSION,
-      data: {
-        widget_name: "clocks",
-        widget_size: currentSizeRef.current
-      }
-    }));
-  }, [dispatch]);
-  const clocksRef = useIntersectionObserver(handleIntersection);
   const handleChangeSize = (0,external_React_namespaceObject.useCallback)(newSize => {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.OnlyToMain({
@@ -19968,19 +19992,14 @@ function Clocks({
           value: newSize
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: {
-          widget_name: "clocks",
-          widget_source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
-          user_action: Clocks_USER_ACTION_TYPES.CHANGE_SIZE,
-          action_value: newSize,
-          widget_size: newSize
-        }
-      }));
+      recordUserAction(Clocks_USER_ACTION_TYPES.CHANGE_SIZE, {
+        source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
+        value: newSize,
+        size: newSize
+      });
     });
     closeContextMenu();
-  }, [dispatch, closeContextMenu]);
+  }, [dispatch, recordUserAction, closeContextMenu]);
   const sizeSubmenuRef = useSizeSubmenu(handleChangeSize);
   const handleToggleHourFormat = (0,external_React_namespaceObject.useCallback)(() => {
     const nextFormat = use12HourFormat ? "24" : "12";
@@ -19992,19 +20011,13 @@ function Clocks({
           value: nextFormat
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: {
-          widget_name: "clocks",
-          widget_source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
-          user_action: Clocks_USER_ACTION_TYPES.CHANGE_HOUR_FORMAT,
-          action_value: nextFormat,
-          widget_size: currentSize
-        }
-      }));
+      recordUserAction(Clocks_USER_ACTION_TYPES.CHANGE_HOUR_FORMAT, {
+        source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
+        value: nextFormat
+      });
     });
     closeContextMenu();
-  }, [use12HourFormat, dispatch, currentSize, closeContextMenu]);
+  }, [use12HourFormat, dispatch, recordUserAction, closeContextMenu]);
   const handleHide = (0,external_React_namespaceObject.useCallback)(() => {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.OnlyToMain({
@@ -20014,18 +20027,12 @@ function Clocks({
           value: false
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_ENABLED,
-        data: {
-          widget_name: "clocks",
-          widget_source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
-          enabled: false,
-          widget_size: currentSize
-        }
-      }));
+      recordEnabled(false, {
+        source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU
+      });
     });
     closeContextMenu();
-  }, [dispatch, currentSize, closeContextMenu]);
+  }, [dispatch, recordEnabled, closeContextMenu]);
   const handleLearnMore = (0,external_React_namespaceObject.useCallback)(() => {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.OnlyToMain({
@@ -20034,18 +20041,12 @@ function Clocks({
           url: "https://support.mozilla.org/kb/firefox-new-tab-widgets"
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: {
-          widget_name: "clocks",
-          widget_source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
-          user_action: Clocks_USER_ACTION_TYPES.LEARN_MORE,
-          widget_size: currentSize
-        }
-      }));
+      recordUserAction(Clocks_USER_ACTION_TYPES.LEARN_MORE, {
+        source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU
+      });
     });
     closeContextMenu();
-  }, [dispatch, currentSize, closeContextMenu]);
+  }, [dispatch, recordUserAction, closeContextMenu]);
   const clockZones = (0,external_React_namespaceObject.useMemo)(() => parseClockZonesPref(clocksZonesPref) || buildDefaultZones(), [clocksZonesPref]);
   (0,external_React_namespaceObject.useEffect)(() => {
     if (!clockZones.some(clock => clock.label && !clock.labelColor)) {
@@ -20074,34 +20075,22 @@ function Clocks({
     setActivePanel(CLOCKS_PANEL.EDIT);
     setPanelOpenSource(source);
     setIsDismissed(false);
-    dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.WIDGETS_USER_EVENT,
-      data: {
-        widget_name: "clocks",
-        widget_source: source,
-        user_action: Clocks_USER_ACTION_TYPES.EXPAND,
-        widget_size: currentSize
-      }
-    }));
-  }, [currentSize, dispatch]);
+    recordUserAction(Clocks_USER_ACTION_TYPES.EXPAND, {
+      source
+    });
+  }, [recordUserAction]);
   const handleCloseDisplayPanel = (0,external_React_namespaceObject.useCallback)(() => {
     if (activePanel === CLOCKS_PANEL.EDIT) {
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: {
-          widget_name: "clocks",
-          widget_source: panelOpenSource,
-          user_action: Clocks_USER_ACTION_TYPES.COLLAPSE,
-          widget_size: currentSize
-        }
-      }));
+      recordUserAction(Clocks_USER_ACTION_TYPES.COLLAPSE, {
+        source: panelOpenSource
+      });
     }
     setActivePanel(null);
     resetAddClockForm();
     requestAnimationFrame(() => {
       (addButtonRef.current ?? contextMenuButtonRef.current)?.focus();
     });
-  }, [activePanel, panelOpenSource, currentSize, dispatch, resetAddClockForm]);
+  }, [activePanel, panelOpenSource, recordUserAction, resetAddClockForm]);
   const handleCloseClockForm = (0,external_React_namespaceObject.useCallback)(() => {
     if (formSource === CLOCK_WIDGET_SOURCE.MANAGE) {
       setActivePanel(CLOCKS_PANEL.EDIT);
@@ -20126,25 +20115,13 @@ function Clocks({
           value: JSON.stringify(buildNextClockZones(clockZones, editingClockIndex, zone))
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: {
-          widget_name: "clocks",
-          widget_source: formSource,
-          user_action: editingClockIndex !== null ? Clocks_USER_ACTION_TYPES.EDIT_CLOCK : Clocks_USER_ACTION_TYPES.ADD_CLOCK,
-          widget_size: currentSize
-        }
-      }));
+      recordUserAction(editingClockIndex !== null ? Clocks_USER_ACTION_TYPES.EDIT_CLOCK : Clocks_USER_ACTION_TYPES.ADD_CLOCK, {
+        source: formSource
+      });
       if (zone.label && !existingClock?.label) {
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_USER_EVENT,
-          data: {
-            widget_name: "clocks",
-            widget_source: formSource,
-            user_action: Clocks_USER_ACTION_TYPES.ADD_NICKNAME,
-            widget_size: currentSize
-          }
-        }));
+        recordUserAction(Clocks_USER_ACTION_TYPES.ADD_NICKNAME, {
+          source: formSource
+        });
       }
     });
     if (formSource === CLOCK_WIDGET_SOURCE.MANAGE) {
@@ -20153,7 +20130,7 @@ function Clocks({
       return;
     }
     handleCloseDisplayPanel();
-  }, [clockZones, formSource, currentSize, editingClockIndex, handleCloseDisplayPanel, resetAddClockForm, dispatch]);
+  }, [clockZones, formSource, editingClockIndex, handleCloseDisplayPanel, resetAddClockForm, dispatch, recordUserAction]);
   const handleRemoveClock = (0,external_React_namespaceObject.useCallback)((index, source = CLOCK_WIDGET_SOURCE.ROW) => {
     if (clockZones.length <= 1) {
       return;
@@ -20166,17 +20143,11 @@ function Clocks({
           value: JSON.stringify(removeClockZoneAtIndex(clockZones, index))
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: {
-          widget_name: "clocks",
-          widget_source: source,
-          user_action: Clocks_USER_ACTION_TYPES.REMOVE_CLOCK,
-          widget_size: currentSize
-        }
-      }));
+      recordUserAction(Clocks_USER_ACTION_TYPES.REMOVE_CLOCK, {
+        source
+      });
     });
-  }, [clockZones, currentSize, dispatch]);
+  }, [clockZones, dispatch, recordUserAction]);
   const isClockFormOpen = activePanel === CLOCKS_PANEL.FORM;
   const isEditingClocks = activePanel === CLOCKS_PANEL.EDIT;
   const hasAnyLabel = clockZones.some(c => !!c.label);
@@ -20184,10 +20155,7 @@ function Clocks({
     className: `clocks-widget col-4 ${panelDisplaySize}-widget${clockZones.length === 1 ? " is-hero" : ""}${isDismissed ? " is-dismissed" : ""}${isClockFormOpen ? " is-clock-form-open" : ""}${isEditingClocks ? " is-editing-clocks" : ""}${activePanel ? " is-panel-open" : ""}${hasAnyLabel ? "" : " has-no-labels"}`,
     "data-clock-count": clockZones.length,
     onMouseLeave: () => setIsDismissed(false),
-    ref: el => {
-      // useIntersectionObserver expects ref.current to be an array of targets.
-      clocksRef.current = [el];
-    }
+    ref: impressionRef
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "widget-toolbar",
     inert: !!activePanel

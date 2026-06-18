@@ -20,6 +20,7 @@
 #include "nsDNSService2.h"
 #include "nsHttpConnectionMgr.h"
 #include "nsHttpHandler.h"
+#include "NetworkConnectivityService.h"
 #include "nsQueryObject.h"
 #include "nsSocketTransport2.h"
 #include "nsSocketTransportService2.h"
@@ -83,6 +84,20 @@ HappyEyeballsConnectionAttempt::~HappyEyeballsConnectionAttempt() {
   LOG(("HappyEyeballsConnectionAttempt dtor %p", this));
 }
 
+// Returns true if the network connectivity service has positively determined
+// that IPv6 is unreachable on the current network while IPv4 works. The UNKNOWN
+// state (probes still in flight) is intentionally treated as "no signal" so we
+// stay optimistic.
+static bool ShouldPreferIPv4DueToNoIPv6Connectivity() {
+  RefPtr<NetworkConnectivityService> ncs =
+      NetworkConnectivityService::GetSingleton();
+  if (!ncs) {
+    return false;
+  }
+  return ncs->GetIPv6() == nsINetworkConnectivityService::NOT_AVAILABLE &&
+         ncs->GetIPv4() == nsINetworkConnectivityService::OK;
+}
+
 nsresult HappyEyeballsConnectionAttempt::CreateHappyEyeballs(
     ConnectionEntry* ent) {
   happy_eyeballs::IpPreference ipPref =
@@ -90,6 +105,9 @@ nsresult HappyEyeballsConnectionAttempt::CreateHappyEyeballs(
   if (mConnInfo->GetIPv6Disabled()) {
     ipPref = happy_eyeballs::IpPreference::Ipv4Only;
   } else if (ent->PreferenceKnown() && ent->mPreferIPv4) {
+    ipPref = happy_eyeballs::IpPreference::DualStackPreferV4;
+  } else if (!ent->PreferenceKnown() &&
+             ShouldPreferIPv4DueToNoIPv6Connectivity()) {
     ipPref = happy_eyeballs::IpPreference::DualStackPreferV4;
   }
 
@@ -485,6 +503,7 @@ nsresult HappyEyeballsConnectionAttempt::ProcessHappyEyeballsOutput() {
         LOG(("connect to:[%s] ech_config_len=%zu",
              res.unwrap().ToString().get(), echConfig.Length()));
         bool isEchRetry = event.attempt_connection.is_ech_retry;
+
         if (event.attempt_connection.http_version ==
             happy_eyeballs::ConnectionAttemptHttpVersions::H3) {
           EstablishUDPConnection(res.unwrap(), event.attempt_connection.port,
@@ -906,13 +925,6 @@ HappyEyeballsConnectionAttempt::CreateAttemptTransaction(
 nsresult HappyEyeballsConnectionAttempt::EstablishTCPConnection(
     NetAddr aAddr, uint16_t aPort, nsTArray<uint8_t>&& aEchConfig, uint64_t aId,
     bool aIsEchRetry) {
-  // Run the LNA check on the resolved address before opening any socket
-  // so we don't leak SNI / TCP SYNs to LNA-denied peers.
-  if (nsresult lna = CheckLNAForAddr(aAddr); NS_FAILED(lna)) {
-    ProcessConnectionResult(aAddr, lna, aId);
-    return NS_OK;
-  }
-
   // TODO: we always use happy_eyeballs::ConnectionAttemptHttpVersions::H2OrH1
   // for now. Do we really want to race H2 and H1?
   RefPtr<nsHttpConnectionInfo> info = mConnInfo->CloneAndAdoptPortAndAlpn(
@@ -961,12 +973,6 @@ nsresult HappyEyeballsConnectionAttempt::EstablishTCPConnection(
 nsresult HappyEyeballsConnectionAttempt::EstablishUDPConnection(
     NetAddr aAddr, uint16_t aPort, nsTArray<uint8_t>&& aEchConfig, uint64_t aId,
     bool aIsEchRetry) {
-  // Same pre-connect LNA check as EstablishTCPConnection.
-  if (nsresult lna = CheckLNAForAddr(aAddr); NS_FAILED(lna)) {
-    ProcessConnectionResult(aAddr, lna, aId);
-    return NS_OK;
-  }
-
   RefPtr<nsHttpConnectionInfo> info = mConnInfo->CloneAndAdoptPortAndAlpn(
       aPort, happy_eyeballs::ConnectionAttemptHttpVersions::H3);
   if (!aEchConfig.IsEmpty()) {

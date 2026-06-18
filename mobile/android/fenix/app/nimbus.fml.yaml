@@ -983,6 +983,24 @@ features:
       - channel: nightly
         value:
           enabled: false
+  tab-groups-live-reorder:
+    description: Control whether reorder happens live during a drag and drop action for Tab Groups.
+    variables:
+      enabled:
+        description: >
+          Whether or not to enable live reorder for tab groups drag and drop.
+        type: Boolean
+        default: false
+    defaults:
+      - channel: release
+        value:
+          enabled: false
+      - channel: beta
+        value:
+          enabled: false
+      - channel: nightly
+        value:
+          enabled: false
 
   marketing-onboarding-card:
     description: A temporary feature to control the marketing onboarding card shown during the onboarding flow.
@@ -1107,6 +1125,17 @@ features:
         description: The final date for the promotion to end. This needs to be an ISO 8601 formatted date (i.e. YYYY-MM-DD).
         type: String
         default: "2026-08-31"
+    defaults:
+      - channel: developer
+        value:
+          enabled: true
+          allowed-regions: ["XX"]
+      - channel: nightly
+        value:
+          enabled: true
+      - channel: beta
+        value:
+          enabled: true
 
   native-share-sheet:
     description: Feature to enable the Native Share Sheet for users on Firefox on Android.

@@ -988,6 +988,10 @@ instrumented-build-macrobenchmark-apk
 -------------------------------------
 Generate instrumented apks used to run Macrobenchmark for Android apps.
 
+submit-nightly-release-metadata
+-------------------------------
+Submits metadata (product, channel, version, buildid, locales) about Nightly releases to Ship It.
+
 enterprise-repack
 -----------------
 Generates customized versions of releases for enterprises.

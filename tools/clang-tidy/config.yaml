@@ -46,6 +46,8 @@ clang_checkers:
         value: false
   - name: modernize-use-bool-literals
     reliability: high
+  - name: bugprone-forwarding-reference-overload
+    reliability: high
   - name: bugprone-move-forwarding-reference
     reliability: high
   - name: bugprone-redundant-branch-condition
@@ -62,6 +64,8 @@ clang_checkers:
   - name: performance-inefficient-vector-operation
     reliability: high
   - name: performance-trivially-destructible
+    reliability: high
+  - name: modernize-use-nullptr
     reliability: high
 
 # clang_checkers:

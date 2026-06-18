@@ -2103,7 +2103,7 @@ pref("browser.newtabpage.activity-stream.discoverystream.sections.interestPicker
 pref("browser.newtabpage.activity-stream.discoverystream.sections.interestPicker.visibleSections", "");
 
 // List of regions for contextual ads.
-pref("browser.newtabpage.activity-stream.discoverystream.sections.contextualAds.region-config", "");
+pref("browser.newtabpage.activity-stream.discoverystream.sections.contextualAds.region-config", "US");
 // List of locales for contextual ads.
 pref("browser.newtabpage.activity-stream.discoverystream.sections.contextualAds.locale-config", "en-US,en-GB,en-CA");
 
@@ -2293,7 +2293,11 @@ pref("sidebar.expandOnHover", true);
 pref("sidebar.old-sidebar.has-used", false);
 pref("sidebar.new-sidebar.has-used", false);
 pref("sidebar.history.sortOption", "date");
+#ifdef NIGHTLY_BUILD
+pref("sidebar.updatedBookmarks.enabled", true);
+#else
 pref("sidebar.updatedBookmarks.enabled", false);
+#endif
 pref("sidebar.openTabsPanel.enabled", false);
 
 pref("sidebar.notification.badge.aichat", false);

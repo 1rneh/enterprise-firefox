@@ -284,7 +284,6 @@ EnterprisePoliciesManager.prototype = {
    * - Remove a policy if it's missing in the updated set.
    */
   _updatePolicies() {
-
     if (this._provider.isCombined) {
       this._provider.mergePolicies();
     }
@@ -304,14 +303,19 @@ EnterprisePoliciesManager.prototype = {
     this._schedulePolicyUpdates(previousPolicies);
     this._schedulePolicyRemovals(previousPolicies);
 
+    // Run removals first so that an updated policy is torn down (with its
+    // previous parameters) before it is re-applied with the new ones.
+    this._runPoliciesCallbacks("onRemove");
+
     for (const timing of Object.keys(this._callbacks)) {
-      if (timing !== "onRemove") {
-        const topic = this.topicByCallbackTiming[timing];
-        if (!this._topicsObserved.has(topic)) {
-          // Only run callbacks for a timing that
-          // has already been observed.
-          continue;
-        }
+      if (timing === "onRemove") {
+        continue;
+      }
+      const topic = this.topicByCallbackTiming[timing];
+      if (!this._topicsObserved.has(topic)) {
+        // Only run callbacks for a timing that
+        // has already been observed.
+        continue;
       }
       this._runPoliciesCallbacks(timing);
     }
@@ -348,6 +352,9 @@ EnterprisePoliciesManager.prototype = {
           // Policy already active. No changes to policy needed.
           continue;
         }
+        // Parameters changed: remove the policy (with its previous
+        // parameters) before re-applying it with the new ones.
+        this._schedulePolicyRemoval(policyName, previousPolicies[policyName]);
       }
 
       const policyImpl = lazy.Policies[policyName];
@@ -369,26 +376,36 @@ EnterprisePoliciesManager.prototype = {
         continue;
       }
 
-      const policyImpl = lazy.Policies[policyName];
-      if (!policyImpl) {
-        // This means there is an entry in the schema, but no implementation.
-        // We only do this when we deprecate policies.
-        lazy.log.warn(`The policy ${policyName} has been deprecated.`);
-        continue;
-      }
-
-      if (!policyImpl.onRemove) {
-        lazy.log.warn(`Unable to remove the policy ${policyName}.`);
-        continue;
-      }
-
-      this._schedulePolicyCallback("onRemove", [
-        policyImpl.onRemove,
-        policyImpl,
-        this /* the EnterprisePoliciesManager */,
-        policyParams,
-      ]);
+      this._schedulePolicyRemoval(policyName, policyParams);
     }
+  },
+
+  /**
+   * Schedule the onRemove callback for a single policy.
+   *
+   * @param {string} policyName policy name
+   * @param {object} params parameters the policy was last applied with
+   */
+  _schedulePolicyRemoval(policyName, params) {
+    const policyImpl = lazy.Policies[policyName];
+    if (!policyImpl) {
+      // This means there is an entry in the schema, but no implementation.
+      // We only do this when we deprecate policies.
+      lazy.log.warn(`The policy ${policyName} has been deprecated.`);
+      return;
+    }
+
+    if (!policyImpl.onRemove) {
+      lazy.log.warn(`Unable to remove the policy ${policyName}.`);
+      return;
+    }
+
+    this._schedulePolicyCallback("onRemove", [
+      policyImpl.onRemove,
+      policyImpl,
+      this /* the EnterprisePoliciesManager */,
+      params,
+    ]);
   },
 
   /**

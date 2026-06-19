@@ -111,6 +111,14 @@ EnterprisePoliciesManager.prototype = {
   // Caches latest set of parsed policies
   _parsedPolicies: {},
 
+  // Hash of the raw policy set last applied, used to skip re-parsing when an
+  // update carries identical policies.
+  _lastPoliciesHash: null,
+
+  // Per-policy hash of the raw parameters last applied,
+  // used to skip re-parsing individual unchanged policies on an update.
+  _lastParamsHashes: new Map(),
+
   _cleanupPolicies() {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
@@ -233,6 +241,24 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
+   * Compute a stable hash of a JSON-serialisable value. Used to detect
+   * whether a policy set (or a single policy's parameters) changed without
+   * having to re-parse and re-validate them.
+   *
+   * @param {object} value
+   * @returns {string} base64-encoded SHA-256 digest
+   */
+  _hash(value) {
+    const bytes = new TextEncoder().encode(JSON.stringify(value) ?? "");
+    const hasher = Cc["@mozilla.org/security/hash;1"].createInstance(
+      Ci.nsICryptoHash
+    );
+    hasher.init(Ci.nsICryptoHash.SHA256);
+    hasher.update(bytes, bytes.length);
+    return hasher.finish(true);
+  },
+
+  /**
    * The set of policies to apply both on initial activation
    * and remote updates.
    *
@@ -260,8 +286,10 @@ EnterprisePoliciesManager.prototype = {
    * Activates the policies that are provided during initialization.
    */
   _activatePolicies() {
+    const effectivePolicies = this._effectivePolicies();
+
     for (const [policyName, policyParams] of Object.entries(
-      this._effectivePolicies()
+      effectivePolicies
     )) {
       const { isValid, parsedParams } = this._validatePolicyParams(
         policyName,
@@ -273,11 +301,13 @@ EnterprisePoliciesManager.prototype = {
       }
 
       this._parsedPolicies[policyName] = parsedParams;
+      this._lastParamsHashes.set(policyName, this._hash(policyParams));
 
       const policyImpl = lazy.Policies[policyName];
       this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
     }
 
+    this._lastPoliciesHash = this._hash(effectivePolicies);
     this._updateStatus();
   },
 
@@ -294,6 +324,14 @@ EnterprisePoliciesManager.prototype = {
     if (this._provider.isCombined) {
       this._provider.mergePolicies();
     }
+
+    const policiesHash = this._hash(this._effectivePolicies());
+    if (policiesHash === this._lastPoliciesHash) {
+      // The policy set is identical to the one last applied,
+      // hence there is nothing to parse or schedule.
+      return;
+    }
+    this._lastPoliciesHash = policiesHash;
 
     let previousPolicies = null;
     try {
@@ -336,34 +374,43 @@ EnterprisePoliciesManager.prototype = {
    * @param {object} previousPolicies
    */
   _schedulePolicyUpdates(previousPolicies) {
-    this._parsedPolicies = {};
+    const parsedPolicies = {};
+    const paramsHashes = new Map();
 
     for (const [policyName, policyParams] of Object.entries(
       this._effectivePolicies()
     )) {
+      const paramsHash = this._hash(policyParams);
+
+      if (
+        this._lastParamsHashes.get(policyName) === paramsHash &&
+        policyName in previousPolicies
+      ) {
+        // Skip re-parsing a policy whose raw parameters are unchanged.
+        // Instead reuse the previously parsed value and leave it applied.
+        parsedPolicies[policyName] = previousPolicies[policyName];
+        paramsHashes.set(policyName, paramsHash);
+        continue;
+      }
+
       const { isValid, parsedParams } = this._validatePolicyParams(
         policyName,
         policyParams
       );
 
       if (!isValid) {
-        // Policy params are invalid. Keep the previously applied version (if any)
         if (policyName in previousPolicies) {
           // The updated policy params are invalid. Keep the previously applied policy version.
           parsedPolicies[policyName] = previousPolicies[policyName];
+          paramsHashes.set(policyName, this._lastParamsHashes.get(policyName));
         }
         continue;
       }
 
-      this._parsedPolicies[policyName] = parsedParams;
+      parsedPolicies[policyName] = parsedParams;
+      paramsHashes.set(policyName, paramsHash);
 
-      // verify the previous values
       if (policyName in previousPolicies) {
-        const previousParameters = JSON.stringify(previousPolicies[policyName]);
-        if (previousParameters == JSON.stringify(parsedParams)) {
-          // Policy already active. No changes to policy needed.
-          continue;
-        }
         // Parameters changed: remove the policy (with its previous
         // parameters) before re-applying it with the new ones.
         this._schedulePolicyRemoval(policyName, previousPolicies[policyName]);
@@ -372,6 +419,9 @@ EnterprisePoliciesManager.prototype = {
       const policyImpl = lazy.Policies[policyName];
       this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
     }
+
+    this._parsedPolicies = parsedPolicies;
+    this._lastParamsHashes = paramsHashes;
   },
 
   /**
@@ -576,6 +626,8 @@ EnterprisePoliciesManager.prototype = {
 
     this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = {};
+    this._lastPoliciesHash = null;
+    this._lastParamsHashes = new Map();
     if (this._isRemotePoliciesSupported()) {
       RemotePoliciesProvider.dropInstance();
     }

@@ -179,24 +179,7 @@ EnterprisePoliciesManager.prototype = {
       return;
     }
 
-    if (!this._provider.hasPolicies) {
-      this.status = Ci.nsIEnterprisePolicies.INACTIVE;
-      return;
-    }
-
-    // Because security.enterprise_roots.enabled is true by default, we can
-    // ignore attempts by Antivirus to try to set it via policy.
-    // We have to explicitly check for true or 1 because this happens before
-    // policy is parsed against the schema, so the value could be coming
-    // from the registry.
-    const policies = this._provider.policies;
-    if (
-      Object.keys(policies).length === 1 &&
-      policies.Certificates &&
-      Object.keys(policies.Certificates).length === 1 &&
-      (policies.Certificates.ImportEnterpriseRoots === true ||
-        policies.Certificates.ImportEnterpriseRoots === 1)
-    ) {
+    if (isEmptyObject(this._effectivePolicies())) {
       this.status = Ci.nsIEnterprisePolicies.INACTIVE;
       return;
     }
@@ -250,11 +233,35 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
+   * The set of policies to apply both on initial activation
+   * and remote updates.
+   *
+   * @returns {object} policies to apply
+   */
+  _effectivePolicies() {
+    const policies = this._provider.policies || {};
+    if (
+      Object.keys(policies).length === 1 &&
+      policies.Certificates &&
+      Object.keys(policies.Certificates).length === 1 &&
+      (policies.Certificates.ImportEnterpriseRoots === true ||
+        policies.Certificates.ImportEnterpriseRoots === 1)
+    ) {
+      // The ImportEnterpriseRoots certificate
+      // policy is ignored when it is the only policy present: it is already true
+      // by default, so this prevents e.g. antivirus software from activating the
+      // policy engine merely by setting it.
+      return {};
+    }
+    return policies;
+  },
+
+  /**
    * Activates the policies that are provided during initialization.
    */
   _activatePolicies() {
     for (const [policyName, policyParams] of Object.entries(
-      this._provider.policies || {}
+      this._effectivePolicies()
     )) {
       const { isValid, parsedParams } = this._validatePolicyParams(
         policyName,
@@ -332,7 +339,7 @@ EnterprisePoliciesManager.prototype = {
     this._parsedPolicies = {};
 
     for (const [policyName, policyParams] of Object.entries(
-      this._provider.policies || {}
+      this._effectivePolicies()
     )) {
       const { isValid, parsedParams } = this._validatePolicyParams(
         policyName,

@@ -150,17 +150,14 @@ EnterprisePoliciesManager.prototype = {
     if (this._isRemotePoliciesSupported()) {
       const remoteProvider = RemotePoliciesProvider.getInstance();
       try {
-        // Poll and ingest initial set of policies
+        // Ingest the startup policies.
         await remoteProvider.ingestPolicies();
-        if (Services.felt?.isFeltBrowser() && remoteProvider.failed) {
-          // bug 2027006 will move the fetching of policies to felt
-          // and not shutdown will be needed then
-          await lazy.EnterpriseHandler.initiateShutdown();
-        }
-        // Will apply policy updates once policies manager is initialized
-        remoteProvider.startPolling();
       } catch (e) {
-        console.error("Unable to find policies in payload.");
+        console.error(`Failed to fetch remote policies on startup: ${e}`);
+        remoteProvider._failed = true;
+        // bug 2027006 will move the fetching of policies to felt
+        // and no shutdown will be needed then
+        await lazy.EnterpriseHandler.initiateShutdown();
       }
       if (localProvider?.hasPolicies) {
         this._provider = new CombinedProvider(remoteProvider, localProvider);
@@ -287,10 +284,6 @@ EnterprisePoliciesManager.prototype = {
    * - Remove a policy if it's missing in the updated set.
    */
   _updatePolicies() {
-    if (this.status === Ci.nsIEnterprisePolicies.UNINITIALIZED) {
-      // Abort if we are still initializing or restarting the policy engine.
-      return;
-    }
 
     if (this._provider.isCombined) {
       this._provider.mergePolicies();
@@ -598,10 +591,14 @@ EnterprisePoliciesManager.prototype = {
 
     switch (aTopic) {
       case "policies-startup": {
-        // This keeps startup behavior effectively synchronous. // this observer doesn't return before initialization completes. // We spin a nested event loop until the promise resolves so // _initialize() does async work (fetching remote policies).
+        // _initialize() does async work (fetching remote policies).
+        // We spin a nested event loop until the promise resolves so
+        // this observer doesn't return before initialization completes.
+        // This keeps startup behavior effectively synchronous.
         const initializedPromise = this._initialize();
         this.spinResolve(initializedPromise);
         this._runPoliciesCallbacks("onBeforeAddons");
+        Services.obs.notifyObservers(null, "EnterprisePolicies:Initialized");
         break;
       }
       case "profile-after-change":
@@ -1104,7 +1101,6 @@ class JSONPoliciesProvider extends PoliciesProvider {
 class RemotePoliciesProvider extends PoliciesProvider {
   POLLING_FREQUENCY_PREF = "browser.policies.live_polling.frequency";
   POLLING_FREQUENCY_FALLBACK = 60_000;
-  POLLING_ENABLED_PREF = "browser.policies.live_polling.enabled";
 
   static #instance = null;
   static getInstance() {
@@ -1119,9 +1115,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
       // No instance was initialized.
       return;
     }
-    if (this.#instance._poller) {
-      this.#instance._stopPolling();
-    }
+    this.#instance._destroy();
     this.#instance = null;
   }
 
@@ -1132,17 +1126,23 @@ class RemotePoliciesProvider extends PoliciesProvider {
       this.POLLING_FREQUENCY_PREF,
       this.POLLING_FREQUENCY_FALLBACK
     );
-    this._isPollingEnabled = Services.prefs.getBoolPref(
-      this.POLLING_ENABLED_PREF,
-      false
-    );
     Services.prefs.addObserver(this.POLLING_FREQUENCY_PREF, this);
-    Services.prefs.addObserver(this.POLLING_ENABLED_PREF, this);
+    Services.obs.addObserver(this, "EnterprisePolicies:Initialized");
     Services.obs.addObserver(this, "xpcom-shutdown");
+  }
+
+  _destroy() {
+    this._stopPolling();
+    Services.prefs.removeObserver(this.POLLING_FREQUENCY_PREF, this);
+    Services.obs.removeObserver(this, "EnterprisePolicies:Initialized");
+    Services.obs.removeObserver(this, "xpcom-shutdown");
   }
 
   observe(aSubject, aTopic, aData) {
     switch (aTopic) {
+      case "EnterprisePolicies:Initialized":
+        this._startPolling();
+        break;
       case "nsPref:changed":
         if (aData === this.POLLING_FREQUENCY_PREF) {
           const p = this._pollingFrequency;
@@ -1155,30 +1155,11 @@ class RemotePoliciesProvider extends PoliciesProvider {
             return;
           }
           this._stopPolling();
-          this.startPolling();
-        } else if (aData === this.POLLING_ENABLED_PREF) {
-          const p = this._isPollingEnabled;
-          this._isPollingEnabled = Services.prefs.getBoolPref(
-            this.POLLING_ENABLED_PREF,
-            false
-          );
-          if (p === this._isPollingEnabled) {
-            return;
-          }
-          if (this._isPollingEnabled) {
-            this.startPolling();
-          } else {
-            this._stopPolling();
-          }
+          this._startPolling();
         }
         break;
       case "xpcom-shutdown":
-        if (this._poller) {
-          this._stopPolling();
-        }
-        Services.prefs.removeObserver(this.POLLING_FREQUENCY_PREF, this);
-        Services.prefs.removeObserver(this.POLLING_ENABLED_PREF, this);
-        Services.obs.removeObserver(this, "xpcom-shutdown");
+        this._destroy();
         break;
     }
   }
@@ -1202,8 +1183,9 @@ class RemotePoliciesProvider extends PoliciesProvider {
     }
   }
 
-  startPolling() {
-    if (!this._isPollingEnabled) {
+  _startPolling() {
+    if (this._poller) {
+      // Already polling.
       return;
     }
     this._performPolling();
@@ -1214,10 +1196,6 @@ class RemotePoliciesProvider extends PoliciesProvider {
   }
 
   async ingestPolicies() {
-    if (!this._isPollingEnabled) {
-      return;
-    }
-
     const res = await lazy.ConsoleClient.getRemotePolicies();
     if (!res?.policies) {
       console.error(

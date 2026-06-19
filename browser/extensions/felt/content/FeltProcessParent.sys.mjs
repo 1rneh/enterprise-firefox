@@ -337,12 +337,6 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.CONSOLE_ADDRESS_PREF,
       await lazy.ConsoleClient.consoleBaseURI
     );
-
-    // Enables remote policy polling
-    Services.felt.sendBoolPreference(
-      "browser.policies.live_polling.enabled",
-      true
-    );
   }
 
   /**

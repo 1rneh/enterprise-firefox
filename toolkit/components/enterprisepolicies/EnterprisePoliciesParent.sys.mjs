@@ -347,6 +347,11 @@ EnterprisePoliciesManager.prototype = {
       );
 
       if (!isValid) {
+        // Policy params are invalid. Keep the previously applied version (if any)
+        if (policyName in previousPolicies) {
+          // The updated policy params are invalid. Keep the previously applied policy version.
+          parsedPolicies[policyName] = previousPolicies[policyName];
+        }
         continue;
       }
 

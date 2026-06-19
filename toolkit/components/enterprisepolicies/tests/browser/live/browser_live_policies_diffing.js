@@ -180,23 +180,6 @@ add_task(async function test_policy_update_no_changes() {
     `Expected the policy parameter "applied".`
   );
 
-  // This is not really representative of how things can happen but rather to
-  // verify that the policy's callback was not called a second time.
-  //
-  // Intended behavior is:
-  //  - poll
-  //    + get policy1 with param X=Y
-  //    + apply policy1 with callback onBeforeUIStartup
-  //  - poll
-  //    + get policy1 with param X=Y
-  //    + no change to policy1 so no call to onBeforeUIStartup
-  //    + no state changed
-  //
-  // => This is where check happens because we locally changed the state, so
-  //    it is expected that the state stays this way (and is technically
-  //    incorrect WRT policy at the moment)
-  //
-
   // Revert back to DEFAULT (pref is unlocked)
   policyValue = POLICY_PARAM_STATE.DEFAULT;
 
@@ -230,5 +213,53 @@ add_task(async function test_policy_update_no_changes() {
     policyValue,
     POLICY_PARAM_STATE.REMOVED,
     "Expected the policy parameter to be of state REMOVED."
+  );
+});
+
+add_task(async function test_policy_update_invalid_params_keeps_previous() {
+  policyValue = POLICY_PARAM_STATE.DEFAULT;
+
+  // Apply the policy with valid parameters.
+  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+    {
+      policies: {
+        TestPolicy: POLICY_PARAM_STATE.APPLIED,
+      },
+    },
+    customSchema
+  );
+
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    { TestPolicy: POLICY_PARAM_STATE.APPLIED },
+    "Expected remote policy TestPolicy with parameter APPLIED."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
+  );
+
+  // Reset so we can detect whether any callback runs on the next update.
+  policyValue = POLICY_PARAM_STATE.DEFAULT;
+
+  // Update the policy with invalid parameters (an object where the schema
+  // requires a string). The previously applied policy must be kept, i.e.
+  // neither removed nor re-applied.
+  await EnterprisePolicyTesting.applyRemotePolicies({
+    policies: {
+      TestPolicy: { invalid: true },
+    },
+  });
+
+  Assert.deepEqual(
+    Services.policies.getActivePolicies(),
+    { TestPolicy: POLICY_PARAM_STATE.APPLIED },
+    "Expected the previously applied TestPolicy to be kept on invalid params."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.DEFAULT,
+    "Expected the policy to be neither removed nor re-applied."
   );
 });

@@ -998,21 +998,19 @@ static bool CyclicModuleResolveExport(JSContext* cx,
       }
       MOZ_ASSERT(importedModule->status() >= ModuleStatus::Unlinked);
 
-      // Step 6.a.iii. If e.[[ImportName]] is ALL, then:
-      if (!e.importName()) {
+      name = e.importName();
+      // Step 6.a.iii. If e.[[ImportName]] is ~namespace~, then:
+      if (e.importName() == cx->names().star_namespace_star_) {
         // Step 6.a.iii.1. Assert: module does not provide the direct binding
         //                 for this export.
         // Step 6.a.iii.2. Return ResolvedBinding Record { [[Module]]:
         //                 importedModule, [[BindingName]]: NAMESPACE }.
-        name = cx->names().star_namespace_star_;
         return CreateResolvedBindingObject(cx, importedModule, name, result);
       } else {
         // Step 6.a.iv.1. Assert: module imports a specific binding for this
         //                export.
         // Step 6.a.iv.2. Return ? importedModule.ResolveExport(e.[[ImportName]]
         //                , resolveSet).
-        name = e.importName();
-
         return ModuleResolveExportWithResolveSet(
             cx, importedModule, name, resolveSet, result, errorInfoOut);
       }
@@ -1456,8 +1454,8 @@ static bool ModuleInitializeEnvironment(JSContext* cx,
     localName = in.localName();
     importName = in.importName();
 
-    // Step 7.b. If in.[[ImportName]] is namespace-object, then:
-    if (!importName && moduleRequest->phase() == ImportPhase::Evaluation) {
+    // Step 7.b. If in.[[ImportName]] is ~namespace~, then:
+    if (importName == cx->names().star_namespace_star_) {
       // Step 7.b.i. Let namespace be ? GetModuleNamespace(importedModule).
       ModuleNamespaceObject* ns =
           GetOrCreateModuleNamespace(cx, importedModule);
@@ -1471,9 +1469,9 @@ static bool ModuleInitializeEnvironment(JSContext* cx,
       // Step 7.b.iii. Perform ! env.InitializeBinding(in.[[LocalName]],
       // namespace).
       InitNamespaceOrSourceBinding(cx, env, localName, ObjectValue(*ns));
-    } else if (moduleRequest->phase() == ImportPhase::Source) {
+    } else if (importName == cx->names().star_source_star_) {
       // https://tc39.es/ecma262/#sec-source-text-module-record-initialize-environment
-      // Step 7.c. Else if in.[[ImportName]] is source, then
+      // Step 7.c. Else if in.[[ImportName]] is ~source~, then
       // Step 7.c.i. Let moduleSourceObject be importedModule.[[ModuleSource]].
       JSObject* moduleSourceObject = importedModule->moduleSource();
 
@@ -1494,7 +1492,9 @@ static bool ModuleInitializeEnvironment(JSContext* cx,
                                    ObjectValue(*moduleSourceObject));
     } else {
       // Step 7.d. Else:
-      // Step 7.d.i. Let resolution be ?
+      // Step 7.d.i. Assert: in.[[ImportName]] is a String.
+      MOZ_ASSERT(importName && importName != cx->names().star_namespace_star_);
+      // Step 7.d.ii. Let resolution be ?
       // importedModule.ResolveExport(in.[[ImportName]]).
       ModuleErrorInfo errorInfo{in.lineNumber(), in.columnNumber()};
       if (!ModuleResolveExport(cx, importedModule, importName, &resolution,
@@ -1502,7 +1502,7 @@ static bool ModuleInitializeEnvironment(JSContext* cx,
         return false;
       }
 
-      // Step 7.d.ii. If resolution is null or ambiguous, throw a SyntaxError
+      // Step 7.d.iii. If resolution is null or ambiguous, throw a SyntaxError
       //              exception.
       if (!IsResolvedBinding(cx, resolution)) {
         ThrowResolutionError(cx, module, resolution, importName, &errorInfo);
@@ -1513,20 +1513,20 @@ static bool ModuleInitializeEnvironment(JSContext* cx,
       sourceModule = binding->module();
       bindingName = binding->bindingName();
 
-      // Step 7.d.iii. If resolution.[[BindingName]] is namespace, then:
+      // Step 7.d.iv. If resolution.[[BindingName]] is ~namespace~, then:
       if (bindingName == cx->names().star_namespace_star_) {
-        // Step 7.d.iii.1. Let namespace be ?
-        //                 GetModuleNamespace(resolution.[[Module]]).
+        // Step 7.d.iv.1. Let namespace be ?
+        //                GetModuleNamespace(resolution.[[Module]]).
         Rooted<ModuleNamespaceObject*> ns(
             cx, GetOrCreateModuleNamespace(cx, sourceModule));
         if (!ns) {
           return false;
         }
 
-        // Step 7.d.iii.2. Perform !
-        //                 env.CreateImmutableBinding(in.[[LocalName]], true).
-        // Step 7.d.iii.3. Perform ! env.InitializeBinding(in.[[LocalName]],
-        //                 namespace).
+        // Step 7.d.iv.2. Perform !
+        //                env.CreateImmutableBinding(in.[[LocalName]], true).
+        // Step 7.d.iv.3. Perform ! env.InitializeBinding(in.[[LocalName]],
+        //                namespace).
         //
         // This should be InitNamespaceBinding, but we have already generated
         // bytecode assuming an indirect binding. Instead, ensure a special
@@ -1539,9 +1539,9 @@ static bool ModuleInitializeEnvironment(JSContext* cx,
           return false;
         }
       } else {
-        // Step 7.d.iv. Else:
-        // Step 7.d.iv.1. 1. Perform env.CreateImportBinding(in.[[LocalName]],
-        //                   resolution.[[Module]], resolution.[[BindingName]]).
+        // Step 7.d.v. Else:
+        // Step 7.d.v.1. Perform env.CreateImportBinding(in.[[LocalName]],
+        //               resolution.[[Module]], resolution.[[BindingName]]).
         if (!env->createImportBinding(cx, localName, sourceModule,
                                       bindingName)) {
           return false;

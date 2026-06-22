@@ -1850,26 +1850,23 @@ bool ModuleBuilder::buildTables(frontend::StencilModuleMetadata& metadata) {
             js::ReportOutOfMemory(fc_);
             return false;
           }
-        } else if (!importEntry->importName) {
-          // This is a re-export of an imported module namespace object.
-          auto entry = frontend::StencilModuleEntry::exportNamespaceFromEntry(
-              importEntry->moduleRequest, exp.exportName, exp.lineno,
-              exp.column);
-          if (!metadata.indirectExportEntries.append(entry)) {
-            js::ReportOutOfMemory(fc_);
-            return false;
-          }
         } else {
-          auto entry = frontend::StencilModuleEntry::exportFromEntry(
-              importEntry->moduleRequest, importEntry->importName,
-              exp.exportName, exp.lineno, exp.column);
+          // Append ExportEntry { [[ModuleRequest]]: ie.[[ModuleRequest]],
+          // [[ImportName]]: ie.[[ImportName]], [[LocalName]]: null,
+          // [[ExportName]]: ee.[[ExportName]] } to indirectExportEntries.
+          frontend::StencilModuleEntry entry =
+              frontend::StencilModuleEntry::exportFromEntry(
+                  importEntry->moduleRequest, importEntry->importName,
+                  exp.exportName, exp.lineno, exp.column);
           if (!metadata.indirectExportEntries.append(entry)) {
             js::ReportOutOfMemory(fc_);
             return false;
           }
         }
       }
-    } else if (!exp.importName && !exp.exportName) {
+    } else if (exp.importName == frontend::TaggedParserAtomIndex::WellKnown::
+                                     star_all_but_default_star_() &&
+               !exp.exportName) {
       if (!metadata.starExportEntries.append(exp)) {
         js::ReportOutOfMemory(fc_);
         return false;
@@ -2187,9 +2184,10 @@ bool ModuleBuilder::processImport(frontend::BinaryNode* importNode) {
     eitherParser_.computeLineAndColumn(localNameNode->pn_pos.begin, &line,
                                        &column);
 
-    auto entry = StencilModuleEntry::importNamespaceEntry(
-        moduleRequestIndex, localName, line, JS::ColumnNumberOneOrigin(column));
-
+    auto entry = StencilModuleEntry::importEntry(
+        moduleRequestIndex, localName,
+        TaggedParserAtomIndex::WellKnown::star_source_star_(), line,
+        JS::ColumnNumberOneOrigin(column));
     return importEntries_.put(localName, entry);
   }
 
@@ -2239,8 +2237,9 @@ bool ModuleBuilder::processImport(frontend::BinaryNode* importNode) {
       localName = localNameNode->atom();
 
       markUsedByStencil(localName);
-      entry = StencilModuleEntry::importNamespaceEntry(
-          moduleRequestIndex, localName, line,
+      entry = StencilModuleEntry::importEntry(
+          moduleRequestIndex, localName,
+          TaggedParserAtomIndex::WellKnown::star_namespace_star_(), line,
           JS::ColumnNumberOneOrigin(column));
     }
 
@@ -2480,9 +2479,10 @@ bool ModuleBuilder::processExportFrom(frontend::BinaryNode* exportNode) {
       MOZ_ASSERT(exportNames_.has(exportName));
 
       markUsedByStencil(exportName);
-      entry = StencilModuleEntry::exportNamespaceFromEntry(
-          moduleRequestIndex, exportName, line,
-          JS::ColumnNumberOneOrigin(column));
+      entry = StencilModuleEntry::exportFromEntry(
+          moduleRequestIndex,
+          TaggedParserAtomIndex::WellKnown::star_namespace_star_(), exportName,
+          line, JS::ColumnNumberOneOrigin(column));
     } else {
       MOZ_ASSERT(spec->isKind(ParseNodeKind::ExportBatchSpecStmt));
 

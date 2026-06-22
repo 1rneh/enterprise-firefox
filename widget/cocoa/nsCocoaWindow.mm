@@ -7013,11 +7013,20 @@ void nsCocoaWindow::DispatchOcclusionEvent() {
   // it cannot truly be fully occluded; never treat it as occluded regardless of
   // what macOS reports so the window the user is interacting with keeps
   // rendering. See bug 2033230.
-  bool keyOrMain = [mWindow isKeyWindow] || [mWindow isMainWindow];
+  //
+  // Limit this override to windowed mode. Entering or exiting fullscreen
+  // legitimately drives the window through occluded and visible states (the
+  // docshell is deactivated and then reactivated), which the activation
+  // machinery relies on, and that re-evaluation happens while the window is
+  // still key and main. Applying the override there would suppress the
+  // reactivation and leave the docshell wedged.
+  bool keyOrMainNonFullscreen =
+      !mInFullScreenMode && !mHasStartedNativeFullscreen &&
+      ([mWindow isKeyWindow] || [mWindow isMainWindow]);
 
   // Our new occlusion state is true if the window is not visible.
   bool newOcclusionState =
-      !keyOrMain &&
+      !keyOrMainNonFullscreen &&
       !(mHasStartedNativeFullscreen ||
         ([mWindow occlusionState] & NSWindowOcclusionStateVisible));
 

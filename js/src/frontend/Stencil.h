@@ -670,12 +670,16 @@ class StencilModuleEntry {
  public:
   // clang-format off
   //
-  //               | RequestedModule | ImportEntry | ImportNamespaceEntry | ExportAs | ExportFrom | ExportNamespaceFrom | ExportBatchFrom |
-  //               |----------------------------------------------------------------------------------------------------------------------|
-  // moduleRequest | required        | required    | required             | null     | required   | required            | required        |
-  // localName     | null            | required    | required             | required | null       | null                | null            |
-  // importName    | null            | required    | null                 | null     | required   | null                | null            |
-  // exportName    | null            | null        | null                 | required | required   | required            | null            |
+  // (+/- = required/null, ns = *namespace*, abd = *all-but-default*,
+  //  src = *source*)
+  //
+  //                     | moduleRequest | localName | importName | exportName |
+  //                     |---------------|-----------|------------|------------|
+  // RequestedModule     | +             | -         | -          | -          |
+  // ImportEntry         | +             | +         | +/ns/src   | -          |
+  // ExportAs            | -             | +         | -          | +          |
+  // ExportFrom          | +             | -         | +/ns       | +          |
+  // ExportBatchFrom     | +             | -         | abd        | -          |
   //
   // clang-format on
   MaybeModuleRequestIndex moduleRequest;
@@ -749,17 +753,6 @@ class StencilModuleEntry {
     return entry;
   }
 
-  static StencilModuleEntry importNamespaceEntry(
-      MaybeModuleRequestIndex moduleRequest, TaggedParserAtomIndex localName,
-      uint32_t lineno, JS::ColumnNumberOneOrigin column) {
-    MOZ_ASSERT(moduleRequest.isSome());
-    MOZ_ASSERT(localName);
-    StencilModuleEntry entry(lineno, column);
-    entry.moduleRequest = moduleRequest;
-    entry.localName = localName;
-    return entry;
-  }
-
   static StencilModuleEntry exportAsEntry(TaggedParserAtomIndex localName,
                                           TaggedParserAtomIndex exportName,
                                           uint32_t lineno,
@@ -784,23 +777,14 @@ class StencilModuleEntry {
     return entry;
   }
 
-  static StencilModuleEntry exportNamespaceFromEntry(
-      MaybeModuleRequestIndex moduleRequest, TaggedParserAtomIndex exportName,
-      uint32_t lineno, JS::ColumnNumberOneOrigin column) {
-    MOZ_ASSERT(moduleRequest.isSome());
-    MOZ_ASSERT(exportName);
-    StencilModuleEntry entry(lineno, column);
-    entry.moduleRequest = MaybeModuleRequestIndex(moduleRequest);
-    entry.exportName = exportName;
-    return entry;
-  }
-
   static StencilModuleEntry exportBatchFromEntry(
       MaybeModuleRequestIndex moduleRequest, uint32_t lineno,
       JS::ColumnNumberOneOrigin column) {
     MOZ_ASSERT(moduleRequest.isSome());
     StencilModuleEntry entry(lineno, column);
     entry.moduleRequest = MaybeModuleRequestIndex(moduleRequest);
+    entry.importName =
+        TaggedParserAtomIndex::WellKnown::star_all_but_default_star_();
     return entry;
   }
 };

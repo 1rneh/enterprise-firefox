@@ -67,7 +67,9 @@ export class Felt {
   constructor() {
     if (Services.felt?.isFeltUI()) {
       // Felt UI XPCOM is triggered by profile-after-change, make sure to block
-      // closing until startup has been executed.
+      // closing until startup has been executed. Once FELT UI's window will
+      // open, its 'domwindowopened' handler will balance this call with
+      // a call to exitLastWindowClosingSurvivalArea().
       Services.startup.enterLastWindowClosingSurvivalArea();
     }
   }
@@ -325,6 +327,10 @@ export class Felt {
       }
 
       case "FeltParent:TransitionFeltToBackground": {
+        // FELT UI has been asked to transition to background, so issue a call
+        // to enterLastWindowClosingSurvivalArea() to make sure lack of window
+        // will not end up in process exit. This will be balanced by a call to
+        // exitLastWindowClosingSurvivalArea() next time the window is opened.
         Services.startup.enterLastWindowClosingSurvivalArea();
         this.closeWindow();
         const success = Services.felt.makeBackgroundProcess(true);

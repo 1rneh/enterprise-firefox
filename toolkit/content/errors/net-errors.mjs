@@ -408,8 +408,7 @@ export const NET_ERRORS = [
     category: "blocked",
     bodyTitleL10nId: "blocked-by-policy-title-enterprise",
     introContent: {
-      dataL10nId: "fp-neterror-offline-intro",
-      dataL10nArgs: { hostname: null },
+      dataL10nId: "fp-neterror-blocked-by-policy-intro",
     },
     descriptionParts: [
       {

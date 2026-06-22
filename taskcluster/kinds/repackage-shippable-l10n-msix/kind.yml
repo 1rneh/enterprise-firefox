@@ -17,13 +17,11 @@ kind-dependencies:
     # We're not going to generate tasks based on these.  But we are going to `depend` on and fetch
     # langpacks from these.
     - shippable-l10n-signing
+    - enterprise-repack
     - toolchain
 
 not-for-kind-dependencies:
     - shippable-l10n-signing
-
-task-defaults:
-    run-on-repo-type: [hg]
 
 only-for-build-platforms:
     - win32-shippable/opt
@@ -32,6 +30,8 @@ only-for-build-platforms:
     - win32-devedition/opt
     - win64-devedition/opt
     - win64-aarch64-devedition/opt
+    - win64-aarch64-shippable/opt
+    - win64-aarch64-enterprise-shippable/opt
 
 tasks:
     repackage-shippable-l10n-msix:
@@ -41,6 +41,7 @@ tasks:
         worker-type: b-linux
         worker:
             max-run-time: 2700
+        run-on-projects: ["enterprise-firefox"]
         mozharness:
             config:
                 by-build-platform:
@@ -64,6 +65,12 @@ tasks:
             vendor: Mozilla
             channel:
                 by-shipping-product:
+                    firefox-enterprise:
+                        by-release-type:
+                            release-enterprise: release-enterprise
+                            beta-enterprise: beta-enterprise
+                            nightly-enterprise: nightly-enterprise
+                            default: default-enterprise
                     devedition: aurora
                     default:
                         by-release-type:
@@ -73,10 +80,12 @@ tasks:
                             default: nightly
             identity-name:
                 by-shipping-product:
+                    firefox-enterprise: "Firefox Enterprise"
                     devedition:
                         by-package-format:
                             msix: MozillaFirefoxDevedition
                             msix-store: FirefoxDevedition
+                            default: MozillaFirefoxDevedition
                     default:
                         by-package-format:
                             msix:
@@ -91,6 +100,12 @@ tasks:
                                     release: Firefox
                                     esr.*: Firefox
                                     default: FirefoxNightly
+                            default:
+                                by-release-type:
+                                    beta.*: MozillaFirefoxBeta
+                                    release: MozillaFirefox
+                                    esr.*: MozillaFirefox
+                                    default: MozillaFirefoxNightly
             publisher:
                 by-package-format:
                     msix-store: "CN=082E9164-EE6C-4EC8-B62C-441FAE7BEFA1"

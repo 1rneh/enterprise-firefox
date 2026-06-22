@@ -85,10 +85,19 @@ def make_repackage_signing_description(config, jobs):
             "repackage-signing-msix",
             "repackage-signing-shippable-l10n-msix",
         ):
-            # Like "MSIXs(Bs-multi)".
-            treeherder["symbol"] = "MSIXs({})".format(
-                dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol", "B")
-            )
+            if "enterprise-repack" in dep_job.label:
+                dep_symbol = dep_job.task.get("extra").get("treeherder").get("symbol")
+                group_symbol = "MSIXs-Ent"
+            else:
+                # Like "MSIXs(Bs-multi)".
+                dep_symbol = (
+                    dep_job.task
+                    .get("extra", {})
+                    .get("treeherder", {})
+                    .get("symbol", "B")
+                )
+                group_symbol = "MSIXs"
+            treeherder["symbol"] = f"{group_symbol}({dep_symbol})"
 
         if "enterprise-repack" in dep_job.label:
             repack_id = (
@@ -98,6 +107,7 @@ def make_repackage_signing_description(config, jobs):
                 .get("symbol")
                 .replace("/", "_")
             )
+
             job["label"] = job["label"].replace(
                 "repackage-signing", f"repackage-signing-enterprise-repack-{repack_id}"
             )

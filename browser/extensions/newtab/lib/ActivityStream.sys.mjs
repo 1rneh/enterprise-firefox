@@ -5,7 +5,7 @@
 // We use importESModule here instead of static import so that
 // the Karma test environment won't choke on this module. This
 // is because the Karma test environment already stubs out
-// AppConstants, and overrides importESModule to be a no-op (which
+// XPCOMUtils, and overrides importESModule to be a no-op (which
 // can't be done for a static import statement).
 
 // eslint-disable-next-line mozilla/use-static-import
@@ -669,14 +669,6 @@ export const PREFS_CONFIG = new Map([
     {
       title: "Enable system error and usage data collection",
       value: true,
-      value_local_dev: false,
-    },
-  ],
-  [
-    "telemetry.ut.events",
-    {
-      title: "Enable Unified Telemetry event data collection",
-      value: AppConstants.EARLY_BETA_OR_EARLIER,
       value_local_dev: false,
     },
   ],

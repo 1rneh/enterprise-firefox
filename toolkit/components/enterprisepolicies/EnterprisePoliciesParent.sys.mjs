@@ -153,27 +153,15 @@ EnterprisePoliciesManager.prototype = {
 
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
-    let localProvider = this._chooseProvider();
-
-    if (this._isRemotePoliciesSupported()) {
-      const remoteProvider = RemotePoliciesProvider.getInstance();
-      try {
-        // Ingest the startup policies.
-        await remoteProvider.ingestPolicies();
-      } catch (e) {
-        console.error(`Failed to fetch remote policies on startup: ${e}`);
-        remoteProvider._failed = true;
+    try {
+      this._provider = await this._buildProvider();
+    } catch (e) {
+      console.error(`Failed to fetch remote policies on startup: ${e}`);
+      if (e.type === "RemotePolicyProviderInitError") {
         // bug 2027006 will move the fetching of policies to felt
         // and no shutdown will be needed then
         await lazy.EnterpriseHandler.initiateShutdown();
       }
-      if (localProvider?.hasPolicies) {
-        this._provider = new CombinedProvider(remoteProvider, localProvider);
-      } else {
-        this._provider = remoteProvider;
-      }
-    } else {
-      this._provider = localProvider;
     }
 
     if (!this._provider) {
@@ -205,7 +193,17 @@ EnterprisePoliciesManager.prototype = {
     Glean.policies.isEnterprise.set(this.isEnterprise);
   },
 
-  _chooseProvider() {
+  /**
+   * Build the policies provider by combining the available
+   * local sources (platform-specific and JSON) with the remote source in
+   * enterprise builds when remote policies are supported.
+   *
+   * @returns {Promise<PoliciesProvider>} the policies provider
+   * @throws {Error} Will throw an error of type RemotePolicyProviderInitError
+   *                 when the startup policies couldn't be fetched
+   */
+  async _buildProvider() {
+    const jsonProvider = new JSONPoliciesProvider();
     let platformProvider = null;
     if (AppConstants.MOZ_SYSTEM_POLICIES) {
       if (AppConstants.platform == "win") {
@@ -214,14 +212,35 @@ EnterprisePoliciesManager.prototype = {
         platformProvider = new macOSPoliciesProvider();
       }
     }
-    let jsonProvider = new JSONPoliciesProvider();
-    if (platformProvider && platformProvider.hasPolicies) {
+
+    let localProvider;
+    if (platformProvider?.hasPolicies) {
       if (jsonProvider.hasPolicies) {
-        return new CombinedProvider(platformProvider, jsonProvider);
+        localProvider = new CombinedProvider(platformProvider, jsonProvider);
+      } else {
+        localProvider = platformProvider;
       }
-      return platformProvider;
+    } else {
+      localProvider = jsonProvider;
     }
-    return jsonProvider;
+
+    if (this._isRemotePoliciesSupported()) {
+      const remoteProvider = RemotePoliciesProvider.getInstance();
+      try {
+        // Ingest the startup policies.
+        await remoteProvider.ingestPolicies();
+      } catch (e) {
+        remoteProvider._failed = true;
+        const err = new Error("Failed to fetch remote policies on startup");
+        err.type = "RemotePolicyProviderInitError";
+        throw err;
+      }
+      if (localProvider?.hasPolicies) {
+        return new CombinedProvider(remoteProvider, localProvider);
+      }
+      return remoteProvider;
+    }
+    return localProvider;
   },
 
   /**

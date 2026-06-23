@@ -85,7 +85,9 @@ const startupPhases = {
         "resource://gre/modules/Bookmarks.sys.mjs",
         "resource://gre/modules/ContextualIdentityService.sys.mjs",
         "resource://gre/modules/FxAccounts.sys.mjs",
-        "resource://gre/modules/FxAccountsStorage.sys.mjs",
+        AppConstants.MOZ_ENTERPRISE
+          ? "resource://gre/modules/EnterpriseAccountsStorage.sys.mjs"
+          : "resource://gre/modules/FxAccountsStorage.sys.mjs",
         "resource://gre/modules/PlacesSyncUtils.sys.mjs",
         "resource://gre/modules/PushComponents.sys.mjs",
       ]),

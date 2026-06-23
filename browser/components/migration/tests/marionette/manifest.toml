@@ -1,6 +1,7 @@
 [DEFAULT]
 run-if = [
-  "buildapp == 'browser'",
+  "buildapp == 'browser' && !enterprise", # Bug 2049096: test cannot run because EnterpriseAccountsStorage on enterprise builds lacks data, and depends on console server
+
 ]
 subsuite = "integration"
 tags = "os_integration"

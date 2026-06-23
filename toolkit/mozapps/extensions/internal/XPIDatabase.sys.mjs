@@ -1693,7 +1693,7 @@ const updatedAddonFluentIds = new Map([
         const l10n = new Localization(
           [
             "browser/appExtensionFields.ftl",
-            "browser/enterprise/enterprise.ftl",
+            "toolkit/enterprise/enterprise.ftl",
           ],
           true
         );

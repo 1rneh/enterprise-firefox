@@ -98,6 +98,8 @@ def make_repackage_signing_description(config, jobs):
                 )
                 group_symbol = "MSIXs"
             treeherder["symbol"] = f"{group_symbol}({dep_symbol})"
+            repack_label = dep_symbol.replace("/", "_")
+            attributes["repackage_type"] = f"{config.kind}-{repack_label}"
 
         if "enterprise-repack" in dep_job.label:
             repack_id = (

@@ -9,6 +9,11 @@
 // can't be done for a static import statement).
 
 // eslint-disable-next-line mozilla/use-static-import
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
+// eslint-disable-next-line mozilla/use-static-import
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
@@ -667,7 +672,6 @@ export const PREFS_CONFIG = new Map([
       value_local_dev: false,
     },
   ],
-  [
   ...(!AppConstants.MOZ_ENTERPRISE
     ? [
         [
@@ -679,7 +683,6 @@ export const PREFS_CONFIG = new Map([
         ],
       ]
     : []),
-  ],
   [
     "telemetry.privatePing.enabled",
     {

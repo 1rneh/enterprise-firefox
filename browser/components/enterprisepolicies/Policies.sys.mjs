@@ -1163,6 +1163,10 @@ export var Policies = {
         );
       }
     },
+    onRemove(_manager, _param) {
+      // Making sure WebSerial is always default opt-in when the policy engine is active
+      unsetAndUnlockPref("dom.webserial.enabled");
+    },
   },
 
   DisableAccounts: {

@@ -185,7 +185,7 @@ EnterprisePoliciesManager.prototype = {
       .getDefaultBranch("")
       .setBoolPref("dom.webserial.enabled", false);
 
-    this._activatePolicies();
+    this._activateStartupPolicies();
   },
 
   _reportEnterpriseTelemetry() {
@@ -302,9 +302,10 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
-   * Activates the policies that are provided during initialization.
+   * Activates the startup policies that are provided during 
+   * the initialization of the policy engine.
    */
-  _activatePolicies() {
+  _activateStartupPolicies() {
     const effectivePolicies = this._effectivePolicies();
 
     for (const [policyName, policyParams] of Object.entries(

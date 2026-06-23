@@ -156,7 +156,7 @@ EnterprisePoliciesManager.prototype = {
     try {
       this._provider = await this._buildProvider();
     } catch (e) {
-      console.error(`Failed to fetch remote policies on startup: ${e}`);
+      lazy.log.error(`Failed to fetch remote policies on startup: ${e}`);
       if (e.type === "RemotePolicyProviderInitError") {
         // bug 2027006 will move the fetching of policies to felt
         // and no shutdown will be needed then
@@ -715,11 +715,11 @@ EnterprisePoliciesManager.prototype = {
         break;
 
       case "EnterprisePolicies:Reset":
-        this._resetEngine().catch(console.error);
+        this._resetEngine().catch(lazy.log.error);
         break;
 
       case "EnterprisePolicies:Restart":
-        this._restart().catch(console.error);
+        this._restart().catch(lazy.log.error);
         break;
 
       case "EnterprisePolicies:Update": {
@@ -1308,8 +1308,8 @@ class RemotePoliciesProvider extends PoliciesProvider {
   async ingestPolicies() {
     const res = await lazy.ConsoleClient.getRemotePolicies();
     if (!res?.policies) {
-      console.error(
-        `Clearing remote policies because no policies were found in the response: ${JSON.stringify(res)}.`
+      lazy.log.error(
+        `No policies were found in the response: ${JSON.stringify(res)}.`
       );
       this._failed = true;
       return;

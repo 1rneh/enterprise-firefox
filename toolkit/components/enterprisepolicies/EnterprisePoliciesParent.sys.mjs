@@ -311,7 +311,7 @@ EnterprisePoliciesManager.prototype = {
     for (const [policyName, policyParams] of Object.entries(
       effectivePolicies
     )) {
-      const { isValid, parsedParams } = this._validatePolicyParams(
+      const { isValid, parsedParams } = this._validateAndParsePolicyParams(
         policyName,
         policyParams
       );
@@ -413,7 +413,7 @@ EnterprisePoliciesManager.prototype = {
         continue;
       }
 
-      const { isValid, parsedParams } = this._validatePolicyParams(
+      const { isValid, parsedParams } = this._validateAndParsePolicyParams(
         policyName,
         policyParams
       );
@@ -497,7 +497,7 @@ EnterprisePoliciesManager.prototype = {
    * @param {object} policyParams policy parameters
    * @returns {{ isValid: boolean, parsedParams: object|null}}
    */
-  _validatePolicyParams(policyName, policyParams) {
+  _validateAndParsePolicyParams(policyName, policyParams) {
     const policySchema = this._policiesSchema.properties[policyName];
 
     if (!policySchema) {

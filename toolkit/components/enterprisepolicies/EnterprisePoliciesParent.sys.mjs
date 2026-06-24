@@ -95,6 +95,24 @@ function isEmptyObject(obj) {
   return true;
 }
 
+/**
+ * Compute a stable hash of a JSON-serialisable value. Used to detect whether a
+ * policy set (or a single policy's parameters) changed without having to
+ * re-parse and re-validate them.
+ *
+ * @param {object} value
+ * @returns {string} base64-encoded SHA-256 digest
+ */
+function hashValue(value) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value) ?? "");
+  const hasher = Cc["@mozilla.org/security/hash;1"].createInstance(
+    Ci.nsICryptoHash
+  );
+  hasher.init(Ci.nsICryptoHash.SHA256);
+  hasher.update(bytes, bytes.length);
+  return hasher.finish(true);
+}
+
 export function EnterprisePoliciesManager() {
   Services.obs.addObserver(this, "profile-after-change", true);
   Services.obs.addObserver(this, "final-ui-startup", true);
@@ -117,10 +135,6 @@ EnterprisePoliciesManager.prototype = {
 
   // Caches latest set of parsed policies
   _parsedPolicies: {},
-
-  // Hash of the raw policy set last applied, used to skip re-parsing when an
-  // update carries identical policies.
-  _lastPoliciesHash: null,
 
   // Per-policy hash of the raw parameters last applied,
   // used to skip re-parsing individual unchanged policies on an update.
@@ -265,24 +279,6 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
-   * Compute a stable hash of a JSON-serialisable value. Used to detect
-   * whether a policy set (or a single policy's parameters) changed without
-   * having to re-parse and re-validate them.
-   *
-   * @param {object} value
-   * @returns {string} base64-encoded SHA-256 digest
-   */
-  _hash(value) {
-    const bytes = new TextEncoder().encode(JSON.stringify(value) ?? "");
-    const hasher = Cc["@mozilla.org/security/hash;1"].createInstance(
-      Ci.nsICryptoHash
-    );
-    hasher.init(Ci.nsICryptoHash.SHA256);
-    hasher.update(bytes, bytes.length);
-    return hasher.finish(true);
-  },
-
-  /**
    * The set of policies to apply both on initial activation
    * and remote updates.
    *
@@ -332,13 +328,12 @@ EnterprisePoliciesManager.prototype = {
 
       lazy.log.debug(`Parsed startup policy ${policyName}.`);
       this._parsedPolicies[policyName] = parsedParams;
-      this._lastParamsHashes.set(policyName, this._hash(policyParams));
+      this._lastParamsHashes.set(policyName, hashValue(policyParams));
 
       const policyImpl = lazy.Policies[policyName];
       this._schedulePolicyActivations(policyName, policyImpl, parsedParams);
     }
 
-    this._lastPoliciesHash = this._hash(effectivePolicies);
     this._updateStatus();
   },
 
@@ -355,18 +350,6 @@ EnterprisePoliciesManager.prototype = {
     if (this._provider.isCombined) {
       this._provider.mergePolicies();
     }
-
-    const policiesHash = this._hash(this._effectivePolicies());
-    if (policiesHash === this._lastPoliciesHash) {
-      // The policy set is identical to the one last applied,
-      // hence there is nothing to parse or schedule.
-      lazy.log.debug(
-        "Policy set unchanged since last applied, skipping update."
-      );
-      return;
-    }
-    lazy.log.debug("Policy set changed, parsing updated policies.");
-    this._lastPoliciesHash = policiesHash;
 
     let previousPolicies = null;
     try {
@@ -418,7 +401,7 @@ EnterprisePoliciesManager.prototype = {
     for (const [policyName, policyParams] of Object.entries(
       this._effectivePolicies()
     )) {
-      const paramsHash = this._hash(policyParams);
+      const paramsHash = hashValue(policyParams);
 
       if (
         this._lastParamsHashes.get(policyName) === paramsHash &&
@@ -675,7 +658,6 @@ EnterprisePoliciesManager.prototype = {
 
     this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = {};
-    this._lastPoliciesHash = null;
     this._lastParamsHashes = new Map();
     if (this._isRemotePoliciesSupported()) {
       RemotePoliciesProvider.dropInstance();
@@ -1254,6 +1236,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
     super();
     this._poller = null;
     this._updateInProgress = false;
+    this._lastPoliciesHash = null;
     this._pollingFrequency = Services.prefs.getIntPref(
       this.POLLING_FREQUENCY_PREF,
       this.POLLING_FREQUENCY_FALLBACK
@@ -1314,7 +1297,11 @@ class RemotePoliciesProvider extends PoliciesProvider {
     this._updateInProgress = true;
     try {
       lazy.log.debug("Polling for remote policies.");
-      await this.ingestPolicies();
+      const changed = await this.ingestPolicies();
+      if (!changed) {
+        lazy.log.debug("Remote policies unchanged, not firing an update.");
+        return;
+      }
       Services.obs.notifyObservers(null, "EnterprisePolicies:Update");
     } catch (e) {
       lazy.log.error(
@@ -1337,6 +1324,12 @@ class RemotePoliciesProvider extends PoliciesProvider {
     );
   }
 
+  /**
+   * Fetch the remote policies and store them.
+   *
+   * @returns {Promise<boolean>} whether the fetched policies differ from the
+   *   previously ingested set
+   */
   async ingestPolicies() {
     const res = await lazy.ConsoleClient.getRemotePolicies();
     if (!res?.policies) {
@@ -1344,10 +1337,18 @@ class RemotePoliciesProvider extends PoliciesProvider {
         `No policies were found in the response: ${JSON.stringify(res)}.`
       );
       this._failed = true;
-      return;
+      return false;
     }
     this._failed = false;
     this._policies = res.policies;
+
+    // The console returns byte-identical JSON when the remote policy set is
+    // unchanged, so hashing it lets us skip firing an update when nothing
+    // changed.
+    const policiesHash = hashValue(this._policies);
+    const changed = policiesHash !== this._lastPoliciesHash;
+    this._lastPoliciesHash = policiesHash;
+    return changed;
   }
 }
 

@@ -51,6 +51,13 @@ const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
 const PREF_REMOTE_POLICIES_ENABLED = "browser.policies.remote.enabled";
 
+const STATUS_NAMES = {
+  [Ci.nsIEnterprisePolicies.UNINITIALIZED]: "UNINITIALIZED",
+  [Ci.nsIEnterprisePolicies.INACTIVE]: "INACTIVE",
+  [Ci.nsIEnterprisePolicies.ACTIVE]: "ACTIVE",
+  [Ci.nsIEnterprisePolicies.FAILED]: "FAILED",
+};
+
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
     "resource://gre/modules/Console.sys.mjs"
@@ -123,7 +130,7 @@ EnterprisePoliciesManager.prototype = {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
         let policyImpl = lazy.Policies._cleanup;
-        this._scheduleActivationPolicyCallbacks(policyImpl);
+        this._scheduleActivationPolicyCallbacks("_cleanup", policyImpl);
       }
       Services.prefs.clearUserPref(PREF_POLICIES_APPLIED);
     }
@@ -207,8 +214,10 @@ EnterprisePoliciesManager.prototype = {
     let platformProvider = null;
     if (AppConstants.MOZ_SYSTEM_POLICIES) {
       if (AppConstants.platform == "win") {
+        lazy.log.debug("Creating Windows GPO platform provider.");
         platformProvider = new WindowsGPOPoliciesProvider();
       } else if (AppConstants.platform == "macosx") {
+        lazy.log.debug("Creating macOS platform provider.");
         platformProvider = new macOSPoliciesProvider();
       }
     }
@@ -216,30 +225,38 @@ EnterprisePoliciesManager.prototype = {
     let localProvider;
     if (platformProvider?.hasPolicies) {
       if (jsonProvider.hasPolicies) {
+        lazy.log.debug("Combining platform and JSON local provider.");
         localProvider = new CombinedProvider(platformProvider, jsonProvider);
       } else {
+        lazy.log.debug("Building platform local provider.");
         localProvider = platformProvider;
       }
     } else {
+      lazy.log.debug("Building JSON local provider.");
       localProvider = jsonProvider;
     }
 
     if (this._isRemotePoliciesSupported()) {
+      lazy.log.debug("Remote policies supported, fetching startup policies.");
       const remoteProvider = RemotePoliciesProvider.getInstance();
       try {
         // Ingest the startup policies.
         await remoteProvider.ingestPolicies();
       } catch (e) {
+        lazy.log.error(`Failed to fetch remote policies on startup: ${e}`);
         remoteProvider._failed = true;
         const err = new Error("Failed to fetch remote policies on startup");
         err.type = "RemotePolicyProviderInitError";
         throw err;
       }
       if (localProvider?.hasPolicies) {
+        lazy.log.debug("Combining remote and local provider.");
         return new CombinedProvider(remoteProvider, localProvider);
       }
+      lazy.log.debug("Building remote provider.");
       return remoteProvider;
     }
+    lazy.log.debug("Building local provider.");
     return localProvider;
   },
 
@@ -308,6 +325,10 @@ EnterprisePoliciesManager.prototype = {
   _activateStartupPolicies() {
     const effectivePolicies = this._effectivePolicies();
 
+    lazy.log.debug(
+      `Parsing ${Object.keys(effectivePolicies).length} startup policies.`
+    );
+
     for (const [policyName, policyParams] of Object.entries(
       effectivePolicies
     )) {
@@ -317,14 +338,20 @@ EnterprisePoliciesManager.prototype = {
       );
 
       if (!isValid) {
+        lazy.log.warn(`Invalid policy parameters provided for ${policyName}.`);
         continue;
       }
 
+      lazy.log.debug(`Parsed startup policy ${policyName}.`);
       this._parsedPolicies[policyName] = parsedParams;
       this._lastParamsHashes.set(policyName, this._hash(policyParams));
 
       const policyImpl = lazy.Policies[policyName];
-      this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
+      this._scheduleActivationPolicyCallbacks(
+        policyName,
+        policyImpl,
+        parsedParams
+      );
     }
 
     this._lastPoliciesHash = this._hash(effectivePolicies);
@@ -349,8 +376,12 @@ EnterprisePoliciesManager.prototype = {
     if (policiesHash === this._lastPoliciesHash) {
       // The policy set is identical to the one last applied,
       // hence there is nothing to parse or schedule.
+      lazy.log.debug(
+        "Policy set unchanged since last applied, skipping update."
+      );
       return;
     }
+    lazy.log.debug("Policy set changed, parsing updated policies.");
     this._lastPoliciesHash = policiesHash;
 
     let previousPolicies = null;
@@ -408,10 +439,13 @@ EnterprisePoliciesManager.prototype = {
       ) {
         // Skip re-parsing a policy whose raw parameters are unchanged.
         // Instead reuse the previously parsed value and leave it applied.
+        lazy.log.debug(`Policy ${policyName} unchanged.`);
         parsedPolicies[policyName] = previousPolicies[policyName];
         paramsHashes.set(policyName, paramsHash);
         continue;
       }
+
+      lazy.log.debug(`Parsing updated policy ${policyName}.`);
 
       const { isValid, parsedParams } = this._validateAndParsePolicyParams(
         policyName,
@@ -419,10 +453,12 @@ EnterprisePoliciesManager.prototype = {
       );
 
       if (!isValid) {
+        lazy.log.debug(`Updated policy params for ${policyName} are invalid.`);
         if (policyName in previousPolicies) {
           // The updated policy params are invalid. Keep the previously applied policy version.
           parsedPolicies[policyName] = previousPolicies[policyName];
           paramsHashes.set(policyName, this._lastParamsHashes.get(policyName));
+          lazy.log.debug(`Skipping policy update for ${policyName}.`);
         }
         continue;
       }
@@ -437,7 +473,11 @@ EnterprisePoliciesManager.prototype = {
       }
 
       const policyImpl = lazy.Policies[policyName];
-      this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
+      this._scheduleActivationPolicyCallbacks(
+        policyName,
+        policyImpl,
+        parsedParams
+      );
     }
 
     this._parsedPolicies = parsedPolicies;
@@ -458,6 +498,7 @@ EnterprisePoliciesManager.prototype = {
         continue;
       }
 
+      lazy.log.debug(`Removing policy ${policyName} no longer present.`);
       this._schedulePolicyRemoval(policyName, policyParams);
     }
   },
@@ -478,11 +519,11 @@ EnterprisePoliciesManager.prototype = {
     }
 
     if (!policyImpl.onRemove) {
-      lazy.log.warn(`Unable to remove the policy ${policyName}.`);
+      lazy.log.warn(`Policy ${policyName} does not support removal.`);
       return;
     }
 
-    this._schedulePolicyCallback("onRemove", [
+    this._schedulePolicyCallback(policyName, "onRemove", [
       policyImpl.onRemove,
       policyImpl,
       this /* the EnterprisePoliciesManager */,
@@ -548,10 +589,15 @@ EnterprisePoliciesManager.prototype = {
    * Schedule all "activating" callbacks, meaning any
    * "onRemove" callbacks are skipped
    *
+   * @param {string} policyName policy name
    * @param {PolicyImpl} policyImpl policy implementation
    * @param {object} [parsedParams] parsed policy parameters
    */
-  _scheduleActivationPolicyCallbacks(policyImpl, parsedParams = undefined) {
+  _scheduleActivationPolicyCallbacks(
+    policyName,
+    policyImpl,
+    parsedParams = undefined
+  ) {
     for (let timing of Object.keys(this._callbacks)) {
       if (timing === "onRemove") {
         // Callbacks that remove policies are explicitely scheduled.
@@ -560,7 +606,7 @@ EnterprisePoliciesManager.prototype = {
 
       let policyCallback = policyImpl[timing];
       if (policyCallback) {
-        this._schedulePolicyCallback(timing, [
+        this._schedulePolicyCallback(policyName, timing, [
           policyCallback,
           policyImpl,
           this /* the EnterprisePoliciesManager */,
@@ -594,7 +640,7 @@ EnterprisePoliciesManager.prototype = {
     onRemove: [],
   },
 
-  _schedulePolicyCallback(timing, callbackArgs) {
+  _schedulePolicyCallback(policyName, timing, callbackArgs) {
     // Check for existence of the same callback. Since callback are .bind()
     // they cannot be just pushed to the array and checked for existence with
     // .includes() as each bind is a new different object.
@@ -617,8 +663,12 @@ EnterprisePoliciesManager.prototype = {
         JSON.stringify(e[3]) == JSON.stringify(callbackArgs[3])
     );
     if (exists.length) {
+      lazy.log.debug(
+        `A ${timing} callback for policy ${policyName} was already scheduled.`
+      );
       return;
     }
+    lazy.log.debug(`Scheduling a ${timing} callback for policy ${policyName}.`);
     this._callbacks[timing].push(callbackArgs);
   },
 
@@ -787,6 +837,7 @@ EnterprisePoliciesManager.prototype = {
   _status: Ci.nsIEnterprisePolicies.UNINITIALIZED,
 
   set status(val) {
+    lazy.log.debug(`Setting engine status to ${STATUS_NAMES[val] ?? val}.`);
     this._status = val;
     if (val != Ci.nsIEnterprisePolicies.INACTIVE) {
       Services.ppmm.sharedData.set("EnterprisePolicies:Status", val);
@@ -1274,10 +1325,12 @@ class RemotePoliciesProvider extends PoliciesProvider {
     if (this._updateInProgress) {
       // A previous update (fetch and synchronous apply) is still in
       // progress; skip this tick to avoid overlapping updates.
+      lazy.log.debug("Skipping poll, a previous update is still in progress.");
       return;
     }
     this._updateInProgress = true;
     try {
+      lazy.log.debug("Polling for remote policies.");
       await this.ingestPolicies();
       Services.obs.notifyObservers(null, "EnterprisePolicies:Update");
     } catch (e) {

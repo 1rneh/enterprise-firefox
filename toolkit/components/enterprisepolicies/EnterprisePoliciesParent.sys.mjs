@@ -201,39 +201,30 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
-   * Build the policies provider by combining the available
-   * local sources (platform-specific and JSON) with the remote source in
-   * enterprise builds when remote policies are supported.
+   * Build the policies provider. Every available source (JSON, platform, and
+   * the remote source in enterprise builds) is added to a single
+   * CombinedProvider, in increasing order of precedence.
    *
-   * @returns {Promise<PoliciesProvider>} the policies provider
+   * @returns {Promise<CombinedProvider>} the combined policies provider
    * @throws {Error} Will throw an error of type RemotePolicyProviderInitError
    *                 when the startup policies couldn't be fetched
    */
   async _buildProvider() {
-    const jsonProvider = new JSONPoliciesProvider();
-    let platformProvider = null;
+    const provider = new CombinedProvider();
+
+    // Providers are added from lowest to highest precedence; each one takes
+    // precedence over those added before it when top-level policies conflict.
+    lazy.log.debug("Adding JSON provider.");
+    provider.push(new JSONPoliciesProvider());
+
     if (AppConstants.MOZ_SYSTEM_POLICIES) {
       if (AppConstants.platform == "win") {
-        lazy.log.debug("Creating Windows GPO platform provider.");
-        platformProvider = new WindowsGPOPoliciesProvider();
+        lazy.log.debug("Adding Windows GPO platform provider.");
+        provider.push(new WindowsGPOPoliciesProvider());
       } else if (AppConstants.platform == "macosx") {
-        lazy.log.debug("Creating macOS platform provider.");
-        platformProvider = new macOSPoliciesProvider();
+        lazy.log.debug("Adding macOS platform provider.");
+        provider.push(new macOSPoliciesProvider());
       }
-    }
-
-    let localProvider;
-    if (platformProvider?.hasPolicies) {
-      if (jsonProvider.hasPolicies) {
-        lazy.log.debug("Combining platform and JSON local provider.");
-        localProvider = new CombinedProvider(platformProvider, jsonProvider);
-      } else {
-        lazy.log.debug("Building platform local provider.");
-        localProvider = platformProvider;
-      }
-    } else {
-      lazy.log.debug("Building JSON local provider.");
-      localProvider = jsonProvider;
     }
 
     if (this._isRemotePoliciesSupported()) {
@@ -249,15 +240,12 @@ EnterprisePoliciesManager.prototype = {
         err.type = "RemotePolicyProviderInitError";
         throw err;
       }
-      if (localProvider?.hasPolicies) {
-        lazy.log.debug("Combining remote and local provider.");
-        return new CombinedProvider(remoteProvider, localProvider);
-      }
-      lazy.log.debug("Building remote provider.");
-      return remoteProvider;
+      lazy.log.debug("Adding remote provider.");
+      provider.push(remoteProvider);
     }
-    lazy.log.debug("Building local provider.");
-    return localProvider;
+
+    provider.mergePolicies();
+    return provider;
   },
 
   /**
@@ -1425,25 +1413,29 @@ class macOSPoliciesProvider extends PoliciesProvider {
 }
 
 class CombinedProvider extends PoliciesProvider {
-  constructor(primaryProvider, secondaryProvider) {
+  constructor() {
     super();
-    this._primaryProvider = primaryProvider;
-    this._secondaryProvider = secondaryProvider;
-    this.mergePolicies();
+    this._providers = [];
+  }
+
+  /**
+   * Add a provider. It takes precedence over any previously added providers
+   * when merging conflicting top-level policies.
+   *
+   * @param {PoliciesProvider} provider provider to add
+   */
+  push(provider) {
+    this._providers.push(provider);
   }
 
   mergePolicies() {
-    // Combine policies with primaryProvider taking precedence.
-    // We only do this for top level policies.
-    this._policies = Object.assign(
-      {},
-      this._secondaryProvider.policies ?? {},
-      this._primaryProvider.policies
-    );
+    // Combine the top-level policies of every provider, with providers added
+    // later taking precedence over those added earlier.
+    this._policies = Object.assign({}, ...this._providers.map(p => p.policies));
   }
 
   get failed() {
-    return this._primaryProvider.failed && this._secondaryProvider.failed;
+    return this._providers.some(p => p.failed);
   }
 
   get isCombined() {

@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
+import functools
 import itertools
 import logging
 import os
@@ -70,6 +71,7 @@ UNCOMMON_TRY_TASK_LABELS = [
 ]
 
 
+@functools.cache
 def index_exists(index_path, reason=""):
     print(f"Looking for existing index {index_path} {reason}...")
     try:
@@ -81,6 +83,23 @@ def index_exists(index_path, reason=""):
             raise
         print(f"Index {index_path} doesn't exist.")
         return False
+
+
+def cron_index_exists(graph_config, parameters, cron_name):
+    """Check the taskcluster index for an existing decision task with the same name on the same revision"""
+    if not os.environ.get("MOZ_AUTOMATION"):
+        return False
+    index_path = (
+        f"{graph_config['trust-domain']}.v2.{parameters['project']}.revision."
+        f"{parameters['head_rev']}.taskgraph.decision-{cron_name}"
+    )
+    return retry(
+        index_exists,
+        args=(index_path,),
+        kwargs={
+            "reason": f"to avoid triggering multiple {cron_name} off the same revision",
+        },
+    )
 
 
 def filter_out_shipping_phase(task, parameters):
@@ -580,8 +599,9 @@ def target_tasks_mozilla_release(full_task_graph, parameters, graph_config):
     ]
 
 
+@register_target_task("mozilla_esr153_tasks")
 @register_target_task("mozilla_esr140_tasks")
-def target_tasks_mozilla_esr140(full_task_graph, parameters, graph_config):
+def target_tasks_mozilla_esr(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a promotable beta or release build
     of desktop, without android CI. The candidates build process involves a pipeline
     of builds and signing, but does not include beetmover or balrog jobs."""
@@ -1035,6 +1055,10 @@ def target_tasks_nightly_linux(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a nightly build of linux. The
     nightly build process involves a pipeline of builds, signing,
     and, eventually, uploading the tasks to balrog."""
+    for platform in ("all", "desktop", "desktop-linux"):
+        if cron_index_exists(graph_config, parameters, f"nightly-{platform}"):
+            return []
+
     filter = make_desktop_nightly_filter({
         "linux64-shippable",
         "linux64-aarch64-shippable",
@@ -1047,6 +1071,9 @@ def target_tasks_nightly_macosx(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a nightly build of macosx. The
     nightly build process involves a pipeline of builds, signing,
     and, eventually, uploading the tasks to balrog."""
+    for platform in ("all", "desktop", "desktop-osx"):
+        if cron_index_exists(graph_config, parameters, f"nightly-{platform}"):
+            return []
     filter = make_desktop_nightly_filter({"macosx64-shippable"})
     return [l for l, t in full_task_graph.tasks.items() if filter(t, parameters)]
 
@@ -1056,6 +1083,9 @@ def target_tasks_nightly_win32(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a nightly build of win32 and win64.
     The nightly build process involves a pipeline of builds, signing,
     and, eventually, uploading the tasks to balrog."""
+    for platform in ("all", "desktop", "desktop-win32"):
+        if cron_index_exists(graph_config, parameters, f"nightly-{platform}"):
+            return []
     filter = make_desktop_nightly_filter({"win32-shippable"})
     return [l for l, t in full_task_graph.tasks.items() if filter(t, parameters)]
 
@@ -1065,6 +1095,9 @@ def target_tasks_nightly_win64(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a nightly build of win32 and win64.
     The nightly build process involves a pipeline of builds, signing,
     and, eventually, uploading the tasks to balrog."""
+    for platform in ("all", "desktop", "desktop-win64"):
+        if cron_index_exists(graph_config, parameters, f"nightly-{platform}"):
+            return []
     filter = make_desktop_nightly_filter({"win64-shippable"})
     return [l for l, t in full_task_graph.tasks.items() if filter(t, parameters)]
 
@@ -1074,6 +1107,9 @@ def target_tasks_nightly_win64_aarch64(full_task_graph, parameters, graph_config
     """Select the set of tasks required for a nightly build of win32 and win64.
     The nightly build process involves a pipeline of builds, signing,
     and, eventually, uploading the tasks to balrog."""
+    for platform in ("all", "desktop", "desktop-win64-aarch64"):
+        if cron_index_exists(graph_config, parameters, f"nightly-{platform}"):
+            return []
     filter = make_desktop_nightly_filter({"win64-aarch64-shippable"})
     return [l for l, t in full_task_graph.tasks.items() if filter(t, parameters)]
 
@@ -1095,17 +1131,7 @@ def target_tasks_nightly_desktop(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a nightly build of linux, mac,
     windows."""
     for platform in ("desktop", "all"):
-        index_path = (
-            f"{graph_config['trust-domain']}.v2.{parameters['project']}.revision."
-            f"{parameters['head_rev']}.taskgraph.decision-nightly-{platform}"
-        )
-        if os.environ.get("MOZ_AUTOMATION") and retry(
-            index_exists,
-            args=(index_path,),
-            kwargs={
-                "reason": "to avoid triggering multiple nightlies off the same revision",
-            },
-        ):
+        if cron_index_exists(graph_config, parameters, f"nightly-{platform}"):
             return []
 
     # Tasks that aren't platform specific
@@ -1131,17 +1157,7 @@ def target_tasks_nightly_desktop(full_task_graph, parameters, graph_config):
 @register_target_task("nightly_all")
 def target_tasks_nightly_all(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a nightly build of firefox desktop and android"""
-    index_path = (
-        f"{graph_config['trust-domain']}.v2.{parameters['project']}.revision."
-        f"{parameters['head_rev']}.taskgraph.decision-nightly-all"
-    )
-    if os.environ.get("MOZ_AUTOMATION") and retry(
-        index_exists,
-        args=(index_path,),
-        kwargs={
-            "reason": "to avoid triggering multiple nightlies off the same revision",
-        },
-    ):
+    if cron_index_exists(graph_config, parameters, "nightly-all"):
         return []
 
     return list(
@@ -1299,14 +1315,17 @@ def _filter_by_release_project(parameters):
         "nightly": "mozilla-central",
         "beta": "mozilla-beta",
         "release": "mozilla-release",
+        "esr153": "mozilla-esr153",
         "esr140": "mozilla-esr140",
     }
     target_project = project_by_release.get(parameters["release_type"])
     if target_project is None:
         raise Exception("Unknown or unspecified release type in simulation run.")
 
+    # Pretend we're running on the target project for purposes of run-on-projects filtering
     params = parameters.copy()
     params["project"] = target_project
+    params["level"] = "3"
     return lambda task: filter_for_project(task, params)
 
 
@@ -1379,17 +1398,7 @@ def target_tasks_daily_beta_perf(full_task_graph, parameters, graph_config):
     """
     Select performance tests on the beta branch to be run daily
     """
-    index_path = (
-        f"{graph_config['trust-domain']}.v2.{parameters['project']}.revision."
-        f"{parameters['head_rev']}.taskgraph.decision-daily-beta-perf"
-    )
-    if os.environ.get("MOZ_AUTOMATION") and retry(
-        index_exists,
-        args=(index_path,),
-        kwargs={
-            "reason": "to avoid triggering multiple daily beta perftests off of the same revision",
-        },
-    ):
+    if cron_index_exists(graph_config, parameters, "daily-beta-perf"):
         return []
 
     def filter(task):
@@ -1762,17 +1771,7 @@ def target_tasks_nightly_android(full_task_graph, parameters, graph_config):
         )
 
     for platform in ("android", "all"):
-        index_path = (
-            f"{graph_config['trust-domain']}.v2.{parameters['project']}.revision."
-            f"{parameters['head_rev']}.taskgraph.decision-nightly-{platform}"
-        )
-        if os.environ.get("MOZ_AUTOMATION") and retry(
-            index_exists,
-            args=(index_path,),
-            kwargs={
-                "reason": "to avoid triggering multiple nightlies off the same revision",
-            },
-        ):
+        if cron_index_exists(graph_config, parameters, f"nightly-{platform}"):
             return []
 
     return [l for l, t in full_task_graph.tasks.items() if filter(t, parameters)]

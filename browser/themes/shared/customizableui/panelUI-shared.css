@@ -2570,5 +2570,5 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 }
 
 #PanelUI-ipprotection-locations {
-  max-height: 43rem;
+  max-height: 43em;
 }

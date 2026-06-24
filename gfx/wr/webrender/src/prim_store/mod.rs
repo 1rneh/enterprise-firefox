@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{BorderRadius, ClipMode, ColorF};
+use api::ColorF;
 use api::{ImageRendering, PrimitiveFlags};
 use api::{FillRule, POLYGON_CLIP_VERTEX_MAX};
 use api::units::*;
@@ -11,7 +11,6 @@ use crate::clip::ClipLeafId;
 use crate::quad::QuadTileClassifier;
 use crate::renderer::{GpuBufferAddress, GpuBufferHandle, GpuBufferWriterF};
 use crate::segment::EdgeMask;
-use crate::border::BorderSegmentCacheKey;
 use crate::debug_item::{DebugItem, DebugMessage};
 use crate::debug_colors;
 use glyph_rasterizer::GlyphKey;
@@ -38,12 +37,12 @@ pub mod interned;
 pub mod storage;
 
 use backdrop::{BackdropCaptureDataHandle, BackdropRenderDataHandle};
-use borders::{ImageBorderDataHandle, ImageBorderScratch, NormalBorderDataHandle, NormalBorderScratch};
+use borders::{ImageBorderDataHandle, ImageBorderScratch, NormalBorderDataHandle};
 use gradient::{LinearGradientDataHandle, RadialGradientDataHandle, ConicGradientDataHandle};
 use image::{ImageDataHandle, ImageScratch, VisibleImageTile, YuvImageDataHandle};
 use line_dec::LineDecorationDataHandle;
 use picture::PictureDataHandle;
-use rectangle::RectangleDataHandle;
+use rectangle::{RectangleDataHandle, RectangleScratch};
 use text_run::{TextRunDataHandle, TextRunScratch};
 use crate::box_shadow::BoxShadowDataHandle;
 
@@ -262,13 +261,6 @@ pub struct PrimKey<T: MallocSizeOf> {
 #[derive(Debug)]
 pub struct PrimTemplateCommonData {
     pub flags: PrimitiveFlags,
-    pub opacity: PrimitiveOpacity,
-    /// Address of the per-primitive data in the GPU cache.
-    ///
-    /// TODO: This is only valid during the current frame and must
-    /// be overwritten each frame. We should move this out of the
-    /// common data to avoid accidental reuse.
-    pub gpu_buffer_address: GpuBufferAddress,
     pub aligned_aa_edges: EdgeMask,
     pub transformed_aa_edges: EdgeMask,
 }
@@ -277,8 +269,6 @@ impl PrimTemplateCommonData {
     pub fn with_key_common(common: PrimKeyCommonData) -> Self {
         PrimTemplateCommonData {
             flags: common.flags,
-            gpu_buffer_address: GpuBufferAddress::INVALID,
-            opacity: PrimitiveOpacity::translucent(),
             aligned_aa_edges: common.aligned_aa_edges,
             transformed_aa_edges: common.transformed_aa_edges,
         }
@@ -300,16 +290,6 @@ pub struct VisibleMaskImageTile {
     pub tile_offset: TileOffset,
     pub tile_rect: LayoutRect,
     pub task_id: RenderTaskId,
-}
-
-/// Information about how to cache a border segment,
-/// along with the current render task cache entry.
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, MallocSizeOf)]
-pub struct BorderSegmentInfo {
-    pub local_task_size: LayoutSize,
-    pub cache_key: BorderSegmentCacheKey,
 }
 
 /// Represents the visibility state of a segment (wrt clip masks).
@@ -361,167 +341,6 @@ impl BrushSegment {
 
     pub fn write_gpu_blocks(&self, writer: &mut GpuBufferWriterF) {
         writer.push(&self.gpu_data());
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(C)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-struct ClipRect {
-    rect: LayoutRect,
-    mode: f32,
-}
-
-#[derive(Debug, Clone)]
-#[repr(C)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-struct ClipCorner {
-    rect: LayoutRect,
-    outer_radius_x: f32,
-    outer_radius_y: f32,
-    inner_radius_x: f32,
-    inner_radius_y: f32,
-}
-
-impl ClipCorner {
-    fn uniform(rect: LayoutRect, outer_radius: f32, inner_radius: f32) -> ClipCorner {
-        ClipCorner {
-            rect,
-            outer_radius_x: outer_radius,
-            outer_radius_y: outer_radius,
-            inner_radius_x: inner_radius,
-            inner_radius_y: inner_radius,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(C)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-pub struct ClipData {
-    rect: ClipRect,
-    top_left: ClipCorner,
-    top_right: ClipCorner,
-    bottom_left: ClipCorner,
-    bottom_right: ClipCorner,
-}
-
-impl ClipData {
-    pub fn rounded_rect(size: LayoutSize, radii: &BorderRadius, mode: ClipMode) -> ClipData {
-        // TODO(gw): For simplicity, keep most of the clip GPU structs the
-        //           same as they were, even though the origin is now always
-        //           zero, since they are in the clip's local space. In future,
-        //           we could reduce the GPU cache size of ClipData.
-        let rect = LayoutRect::from_size(size);
-
-        ClipData {
-            rect: ClipRect {
-                rect,
-                mode: mode as u32 as f32,
-            },
-            top_left: ClipCorner {
-                rect: LayoutRect::from_origin_and_size(
-                    LayoutPoint::new(rect.min.x, rect.min.y),
-                    LayoutSize::new(radii.top_left.width, radii.top_left.height),
-                ),
-                outer_radius_x: radii.top_left.width,
-                outer_radius_y: radii.top_left.height,
-                inner_radius_x: 0.0,
-                inner_radius_y: 0.0,
-            },
-            top_right: ClipCorner {
-                rect: LayoutRect::from_origin_and_size(
-                    LayoutPoint::new(
-                        rect.max.x - radii.top_right.width,
-                        rect.min.y,
-                    ),
-                    LayoutSize::new(radii.top_right.width, radii.top_right.height),
-                ),
-                outer_radius_x: radii.top_right.width,
-                outer_radius_y: radii.top_right.height,
-                inner_radius_x: 0.0,
-                inner_radius_y: 0.0,
-            },
-            bottom_left: ClipCorner {
-                rect: LayoutRect::from_origin_and_size(
-                    LayoutPoint::new(
-                        rect.min.x,
-                        rect.max.y - radii.bottom_left.height,
-                    ),
-                    LayoutSize::new(radii.bottom_left.width, radii.bottom_left.height),
-                ),
-                outer_radius_x: radii.bottom_left.width,
-                outer_radius_y: radii.bottom_left.height,
-                inner_radius_x: 0.0,
-                inner_radius_y: 0.0,
-            },
-            bottom_right: ClipCorner {
-                rect: LayoutRect::from_origin_and_size(
-                    LayoutPoint::new(
-                        rect.max.x - radii.bottom_right.width,
-                        rect.max.y - radii.bottom_right.height,
-                    ),
-                    LayoutSize::new(radii.bottom_right.width, radii.bottom_right.height),
-                ),
-                outer_radius_x: radii.bottom_right.width,
-                outer_radius_y: radii.bottom_right.height,
-                inner_radius_x: 0.0,
-                inner_radius_y: 0.0,
-            },
-        }
-    }
-
-    pub fn uniform(size: LayoutSize, radius: f32, mode: ClipMode) -> ClipData {
-        // TODO(gw): For simplicity, keep most of the clip GPU structs the
-        //           same as they were, even though the origin is now always
-        //           zero, since they are in the clip's local space. In future,
-        //           we could reduce the GPU cache size of ClipData.
-        let rect = LayoutRect::from_size(size);
-
-        ClipData {
-            rect: ClipRect {
-                rect,
-                mode: mode as u32 as f32,
-            },
-            top_left: ClipCorner::uniform(
-                LayoutRect::from_origin_and_size(
-                    LayoutPoint::new(rect.min.x, rect.min.y),
-                    LayoutSize::new(radius, radius),
-                ),
-                radius,
-                0.0,
-            ),
-            top_right: ClipCorner::uniform(
-                LayoutRect::from_origin_and_size(
-                    LayoutPoint::new(rect.max.x - radius, rect.min.y),
-                    LayoutSize::new(radius, radius),
-                ),
-                radius,
-                0.0,
-            ),
-            bottom_left: ClipCorner::uniform(
-                LayoutRect::from_origin_and_size(
-                    LayoutPoint::new(rect.min.x, rect.max.y - radius),
-                    LayoutSize::new(radius, radius),
-                ),
-                radius,
-                0.0,
-            ),
-            bottom_right: ClipCorner::uniform(
-                LayoutRect::from_origin_and_size(
-                    LayoutPoint::new(
-                        rect.max.x - radius,
-                        rect.max.y - radius,
-                    ),
-                    LayoutSize::new(radius, radius),
-                ),
-                radius,
-                0.0,
-            ),
-        }
     }
 }
 
@@ -719,8 +538,10 @@ pub struct PrimitiveFrameScratch {
     /// visible primitive.
     pub draws: Vec<PrimitiveDrawHeader>,
 
-    /// Per-frame scratch for NormalBorder primitives.
-    pub normal_border: storage::Storage<NormalBorderScratch>,
+    /// Per-frame scratch for legacy-path Rectangle primitives. Holds the
+    /// per-instance GPU block address. Indexed by `kind_scratch` on
+    /// `PrimitiveKind::Rectangle`.
+    pub rectangle: storage::Storage<RectangleScratch>,
 
     /// Per-frame scratch for Picture primitives. Holds the picture's
     /// primary/secondary render task ids and any per-composite-mode
@@ -761,15 +582,6 @@ pub struct PrimitiveFrameScratch {
     /// prims.
     pub segment_instances: SegmentInstanceStorage,
 
-    /// Trailing-array store for per-segment cached render-task ids
-    /// referenced by NormalBorderScratch entries.
-    pub border_task_ids: storage::Storage<RenderTaskId>,
-
-    /// Per-frame BorderSegmentInfo arena. NormalBorder builds its
-    /// edge/corner segment list each frame against the prim's size and
-    /// stores the resulting range on `NormalBorderScratch`.
-    pub border_segments: storage::Storage<BorderSegmentInfo>,
-
     /// Per-frame scratch for ImageBorder primitives. Holds the range
     /// into `segments` for the nine-patch brush segments built each
     /// frame against the prim's size.
@@ -796,7 +608,7 @@ impl Default for PrimitiveFrameScratch {
     fn default() -> Self {
         PrimitiveFrameScratch {
             draws: Vec::new(),
-            normal_border: storage::Storage::new(0),
+            rectangle: storage::Storage::new(0),
             pictures: storage::Storage::new(0),
             images: storage::Storage::new(0),
             visible_image_tiles: storage::Storage::new(0),
@@ -804,8 +616,6 @@ impl Default for PrimitiveFrameScratch {
             glyph_keys: GlyphKeyStorage::new(0),
             segments: SegmentStorage::new(0),
             segment_instances: SegmentInstanceStorage::new(0),
-            border_task_ids: storage::Storage::new(0),
-            border_segments: storage::Storage::new(0),
             image_border: storage::Storage::new(0),
             clip_mask_instances: Vec::new(),
             debug_items: Vec::new(),
@@ -819,7 +629,7 @@ impl Default for PrimitiveFrameScratch {
 impl PrimitiveFrameScratch {
     pub fn recycle(&mut self, recycler: &mut Recycler) {
         recycler.recycle_vec(&mut self.draws);
-        self.normal_border.recycle(recycler);
+        self.rectangle.recycle(recycler);
         self.pictures.recycle(recycler);
         self.images.recycle(recycler);
         self.visible_image_tiles.recycle(recycler);
@@ -827,8 +637,6 @@ impl PrimitiveFrameScratch {
         self.glyph_keys.recycle(recycler);
         self.segments.recycle(recycler);
         self.segment_instances.recycle(recycler);
-        self.border_task_ids.recycle(recycler);
-        self.border_segments.recycle(recycler);
         self.image_border.recycle(recycler);
         recycler.recycle_vec(&mut self.clip_mask_instances);
         recycler.recycle_vec(&mut self.debug_items);
@@ -837,7 +645,7 @@ impl PrimitiveFrameScratch {
     }
 
     pub fn begin_frame(&mut self) {
-        self.normal_border.clear();
+        self.rectangle.clear();
         self.pictures.clear();
         self.images.clear();
         self.visible_image_tiles.clear();
@@ -845,8 +653,6 @@ impl PrimitiveFrameScratch {
         self.glyph_keys.clear();
         self.segments.clear();
         self.segment_instances.clear();
-        self.border_task_ids.clear();
-        self.border_segments.clear();
         self.image_border.clear();
 
         // Clear the clip mask tasks for the beginning of the frame. Append

@@ -15,6 +15,7 @@ import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
 import org.mozilla.fenix.tabstray.redux.action.TabManagerUiStateStorageAction
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction.InitAction
+import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.repository.uistate.TabManagerUiStateRepository
 
@@ -73,7 +74,16 @@ class TabManagerUiStateStorageMiddleware(
             }
 
             is TabsTrayAction.TabDataUpdateReceived -> {
-                recordUserHadTabGroup(userHasTabGroups = action.tabStorageUpdate.tabGroups.isNotEmpty())
+                val userHasTabGroups = action.tabStorageUpdate.tabGroups.isNotEmpty()
+                recordUserHadTabGroup(userHasTabGroups = userHasTabGroups)
+                dismissTabGroupOnboardingForExistingGroups(userHasTabGroups = userHasTabGroups)
+            }
+
+            is TabsTrayAction.PageSelected -> {
+                recordTabGroupsPageViewed(
+                    page = action.page,
+                    userHasTabGroups = store.state.tabGroupState.groups.isNotEmpty(),
+                )
             }
         }
     }
@@ -85,6 +95,31 @@ class TabManagerUiStateStorageMiddleware(
                 val success = uiStateRepository.recordUserHadTabGroup()
                 if (!success) {
                     logger.debug("Failed to update whether the user had a tab group")
+                }
+            }
+        }
+    }
+
+    private fun recordTabGroupsPageViewed(page: Page, userHasTabGroups: Boolean) {
+        if (page == Page.TabGroups &&
+            userHasTabGroups &&
+            uiStateRepository.uiState.value?.hasViewedTabGroupsPage != true
+        ) {
+            scope.launch {
+                val success = uiStateRepository.recordTabGroupsPageViewed()
+                if (!success) {
+                    logger.debug("Failed to update whether the tab groups page was viewed")
+                }
+            }
+        }
+    }
+
+    private fun dismissTabGroupOnboardingForExistingGroups(userHasTabGroups: Boolean) {
+        if (userHasTabGroups && uiStateRepository.uiState.value?.hasUserDismissedTabGroupOnboarding != true) {
+            scope.launch {
+                val success = uiStateRepository.dismissTabGroupOnboarding()
+                if (!success) {
+                    logger.debug("Failed to dismiss tab group onboarding for a user with a tab group")
                 }
             }
         }

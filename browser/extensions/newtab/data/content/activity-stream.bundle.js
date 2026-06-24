@@ -7847,11 +7847,19 @@ function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
         ...prevState,
         followedOnly: { ...prevState.followedOnly, ...action.data },
       };
-    case actionTypes.WIDGETS_SPORTS_WATCH_LIVE_REQUEST:
+    case actionTypes.WIDGETS_SPORTS_WATCH_LIVE_REQUEST: {
+      // Preserve any previously-fetched payload so a re-request (e.g. the modal
+      // refreshing links on open) doesn't drop the data the "Watch live" entry
+      // point is gated on. Only show the loading state when nothing is cached.
+      const existingWatchLiveData = prevState.watchLive?.data ?? null;
       return {
         ...prevState,
-        watchLive: { loaded: false, data: null },
+        watchLive: {
+          loaded: !!existingWatchLiveData,
+          data: existingWatchLiveData,
+        },
       };
+    }
     case actionTypes.WIDGETS_SPORTS_WATCH_LIVE_SET:
       return {
         ...prevState,
@@ -17863,6 +17871,12 @@ function SportsWidget_SportsWidget({
   // empty pre-kickoff.
   const liveDataTrustable = Date.now() >= WORLD_CUP_KICKOFF_MS || prefs[PREF_FORCE_LIVE_DATA_TRUSTABLE];
   const hasLiveGames = liveDataTrustable && sportsWidgetData?.data?.live?.length > 0;
+  // The watch-links endpoint only lists broadcasters for supported countries.
+  // The backend hoists the user's own country into `your_region`, so a
+  // non-empty `your_region` means the user's region is supported and the
+  // "Watch live" entry point should be shown; an empty one (e.g. Turkey) hides
+  // it.
+  const canWatchLive = sportsWidgetData?.watchLive?.data?.your_region?.length > 0;
   const hasPreviousResults = sportsWidgetData?.data?.matches?.previous?.length > 0;
   // Upcoming matches alone don't mean the tournament has started — the backend
   // surfaces them within a +/-21 day window around kickoff, so they appear
@@ -18603,6 +18617,7 @@ function SportsWidget_SportsWidget({
     showUpcomingList: showUpcomingList,
     setShowUpcomingList: setShowUpcomingList,
     loadMore: sportsWidgetData.loadMore,
+    canWatchLive: canWatchLive,
     onWatchClick: () => setWatchLiveOpen(true)
   }), widgetState === WIDGET_STATES.KEY_DATES && /*#__PURE__*/external_React_default().createElement(SportsWidgetKeyDates, {
     handleViewMatches: handleViewMatches
@@ -18814,6 +18829,7 @@ function SportsMatchesView({
   showUpcomingList,
   setShowUpcomingList,
   loadMore,
+  canWatchLive,
   onWatchClick
 }) {
   const resultsPanelRef = (0,external_React_namespaceObject.useRef)(null);
@@ -19058,7 +19074,7 @@ function SportsMatchesView({
     followedTeams: selectedTeamsSet,
     tbdTeamName: tbdTeamName,
     localizedNames: localizedNames
-  })), /*#__PURE__*/external_React_default().createElement("moz-button", {
+  })), canWatchLive && /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "sports-watch-live-button",
     type: size === "medium" ? "icon" : "default",
     size: size === "medium" ? "small" : undefined,
@@ -21157,62 +21173,30 @@ function Widgets() {
   }
 
   // CSS container queries on the widgets section decide whether the toggle
-  // button is shown — see _Widgets.scss. JS builds the ordered list of
-  // enabled widget sizes and, for each possible card-column count
-  // (1–4), checks whether the layout overflows: any large past the
-  // first N positions can't fit, and any medium past N needs a medium
-  // in the first N to pair with. The matching `data-overflow-N`
-  // attribute is read by the @container rules in CSS.
-  const sizes = [];
+  // button is shown — see _Widgets.scss. The collapsed row holds one widget
+  // per card-column slot regardless of size, so for each card-column count
+  // (1–4) anything past the first N positions overflows. This keeps mediums
+  // to a single (shorter) row rather than stacking them two-deep to fill a
+  // large-height band. The matching `data-overflow-N` attribute is read by
+  // the @container rules in CSS.
   const enabledWidgetIds = [];
   // Use effectiveOrder (matches the render loop) so optimistic reorders aren't briefly mis-hidden.
   for (const id of effectiveOrder) {
     if (!WIDGET_ROW_COMPONENTS[id] || !widgetEnabledMap[id]) {
       continue;
     }
-    const entry = WIDGET_REGISTRY.find(w => w.id === id);
-    let size = entry ? resolveWidgetSize(entry, prefs) : null;
-    // Mirrors the size override applied in the render loop below — when
-    // the sports follow-teams panel is active it always renders large.
-    if (id === "sportsWidget" && sportsWidgetState === "sports-follow-state") {
-      size = "large";
-    }
-    sizes.push(size);
     enabledWidgetIds.push(id);
   }
-  const overflowsAt = cols => {
-    if (sizes.length <= cols) {
-      return false;
-    }
-    const rest = sizes.slice(cols);
-    if (rest.some(s => s === "large")) {
-      return true;
-    }
-    const partnersAvailable = sizes.slice(0, cols).filter(s => s !== "large").length;
-    return rest.length > partnersAvailable;
-  };
+  const widgetCount = enabledWidgetIds.length;
+  const overflowsAt = cols => widgetCount > cols;
   // For each viewport (cols 1–4), returns the set of widget render indices
-  // that would be clipped when the row is collapsed: any large past the
-  // first `cols` positions, plus mediums past `cols` whose pair-partner
-  // in the first `cols` is already taken. CSS keys off the matching
-  // `data-hidden-N` to make them tab-out and a11y-hide via
-  // `visibility: hidden` at that viewport.
+  // that would be clipped when the row is collapsed: everything past the
+  // first `cols` slots. CSS keys off the matching `data-hidden-N` to make
+  // them tab-out and a11y-hide at that viewport.
   const hiddenIndicesAt = cols => {
     const set = new Set();
-    if (sizes.length <= cols) {
-      return set;
-    }
-    const partnersCount = sizes.slice(0, cols).filter(s => s !== "large").length;
-    let mediumOverflowSeen = 0;
-    for (let i = cols; i < sizes.length; i++) {
-      if (sizes[i] === "large") {
-        set.add(i);
-      } else {
-        if (mediumOverflowSeen >= partnersCount) {
-          set.add(i);
-        }
-        mediumOverflowSeen++;
-      }
+    for (let i = cols; i < widgetCount; i++) {
+      set.add(i);
     }
     return set;
   };
@@ -22097,9 +22081,7 @@ function SectionsMgmtPanel({
   let arrowIconSrc;
   if (novaEnabled) {
     const isRTL = typeof document !== "undefined" && document.dir === "rtl";
-    // @backward-compat { version 151 } Switch to chrome://global/skin/icons/shaft-arrow-${dir}.svg
-    // once Firefox 151 reaches Release (icons not available in toolkit until then).
-    arrowIconSrc = `chrome://newtab/content/data/content/assets/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
+    arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
   }
   const panelBody = /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("h3", {
     "data-l10n-id": "newtab-section-mangage-topics-followed-topics"
@@ -22642,9 +22624,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
     let arrowIconSrc;
     if (novaEnabled) {
       const isRTL = typeof document !== "undefined" && document.dir === "rtl";
-      // @backward-compat { version 151 } Switch to chrome://global/skin/icons/shaft-arrow-${dir}.svg
-      // once Firefox 151 reaches Release (icons not available in toolkit until then).
-      arrowIconSrc = `chrome://newtab/content/data/content/assets/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
+      arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
     }
     // Enable custom color select if pref'ed on
     let showColorPicker = prefs["newtabWallpapers.customColor.enabled"];
@@ -23006,9 +22986,7 @@ function WidgetsManagementPanel({
     clocksEnabled
   } = enabledWidgets;
   const isRTL = typeof document !== "undefined" && document.dir === "rtl";
-  // @backward-compat { version 151 } Switch to chrome://global/skin/icons/shaft-arrow-${dir}.svg
-  // once Firefox 151 reaches Release (icons not available in toolkit until then).
-  const arrowIconSrc = `chrome://newtab/content/data/content/assets/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
+  const arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
   return /*#__PURE__*/external_React_default().createElement("div", {
     id: "widgets-management-panel",
     className: "widgets-mgmt-panel-container"

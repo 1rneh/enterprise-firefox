@@ -8,6 +8,8 @@ run-if = [
   "enterprise",
 ]
 
+["browser_live_and_local_policies_merging.js"]
+
 ["browser_live_policies_basic_tests.js"]
 
 ["browser_live_policies_diffing.js"]

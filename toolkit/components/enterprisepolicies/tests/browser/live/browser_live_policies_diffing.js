@@ -11,14 +11,14 @@ const customSchema = {
   },
 };
 
-let policyValue = POLICY_PARAM_STATE.DEFAULT;
+let currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
 const TestPolicy = {
   onBeforeUIStartup(manager, param) {
-    policyValue = param;
+    currentPolicyValue = param;
   },
   onRemove(_manager, _oldParam) {
-    policyValue = POLICY_PARAM_STATE.REMOVED;
+    currentPolicyValue = POLICY_PARAM_STATE.REMOVED;
   },
 };
 
@@ -31,7 +31,7 @@ add_setup(async () => {
 });
 
 add_task(async function test_policy_update_apply_new_policy() {
-  policyValue = POLICY_PARAM_STATE.DEFAULT;
+  currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   await EnterprisePolicyTesting.servePolicyWithRemoteJson(
     {
@@ -46,7 +46,7 @@ add_task(async function test_policy_update_apply_new_policy() {
     "Expected no policies to be applied."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.DEFAULT,
     "Expected the default policy parameter."
   );
@@ -65,14 +65,14 @@ add_task(async function test_policy_update_apply_new_policy() {
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.APPLIED,
     `Expected the policy parameter "applied".`
   );
 });
 
 add_task(async function test_policy_update_apply_policy_param_update() {
-  policyValue = POLICY_PARAM_STATE.DEFAULT;
+  currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   await EnterprisePolicyTesting.servePolicyWithRemoteJson(
     {
@@ -89,12 +89,12 @@ add_task(async function test_policy_update_apply_policy_param_update() {
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.APPLIED,
     `Expected the policy parameter "applied".`
   );
 
-  policyValue = POLICY_PARAM_STATE.DEFAULT;
+  currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   const policies = {
     policies: {
@@ -110,14 +110,14 @@ add_task(async function test_policy_update_apply_policy_param_update() {
     "Expected remote policy TestPolicy with parameter UPDATED."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.UPDATED,
     `Expected the policy parameter "updated".`
   );
 });
 
 add_task(async function test_policy_update_remove_old_policy() {
-  policyValue = POLICY_PARAM_STATE.DEFAULT;
+  currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   await EnterprisePolicyTesting.servePolicyWithRemoteJson(
     {
@@ -134,7 +134,7 @@ add_task(async function test_policy_update_remove_old_policy() {
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.APPLIED,
     `Expected the policy parameter "applied".`
   );
@@ -151,14 +151,14 @@ add_task(async function test_policy_update_remove_old_policy() {
     "Expected remote policy TestPolicy to be removed."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.REMOVED,
     "Expected the policy parameter to be of state REMOVED."
   );
 });
 
 add_task(async function test_policy_update_no_changes() {
-  policyValue = POLICY_PARAM_STATE.DEFAULT;
+  currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   await EnterprisePolicyTesting.servePolicyWithRemoteJson(
     {
@@ -175,13 +175,13 @@ add_task(async function test_policy_update_no_changes() {
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.APPLIED,
     `Expected the policy parameter "applied".`
   );
 
   // Revert back to DEFAULT (pref is unlocked)
-  policyValue = POLICY_PARAM_STATE.DEFAULT;
+  currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   // Wait for next policy update to complete
   await EnterprisePolicyTesting.awaitNextPolicyUpdate();
@@ -193,7 +193,7 @@ add_task(async function test_policy_update_no_changes() {
     "Expected no changes to the active policy specifications."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.DEFAULT,
     "Expected local changes to policy parameters to not get overridden."
   );
@@ -210,14 +210,14 @@ add_task(async function test_policy_update_no_changes() {
     "Expected remote policy TestPolicy to be removed."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.REMOVED,
     "Expected the policy parameter to be of state REMOVED."
   );
 });
 
 add_task(async function test_policy_update_invalid_params_keeps_previous() {
-  policyValue = POLICY_PARAM_STATE.DEFAULT;
+  currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   // Apply the policy with valid parameters.
   await EnterprisePolicyTesting.servePolicyWithRemoteJson(
@@ -235,13 +235,13 @@ add_task(async function test_policy_update_invalid_params_keeps_previous() {
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.APPLIED,
     `Expected the policy parameter "applied".`
   );
 
   // Reset so we can detect whether any callback runs on the next update.
-  policyValue = POLICY_PARAM_STATE.DEFAULT;
+  currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   // Update the policy with invalid parameters (an object where the schema
   // requires a string). The previously applied policy must be kept, i.e.
@@ -258,7 +258,7 @@ add_task(async function test_policy_update_invalid_params_keeps_previous() {
     "Expected the previously applied TestPolicy to be kept on invalid params."
   );
   Assert.equal(
-    policyValue,
+    currentPolicyValue,
     POLICY_PARAM_STATE.DEFAULT,
     "Expected the policy to be neither removed nor re-applied."
   );

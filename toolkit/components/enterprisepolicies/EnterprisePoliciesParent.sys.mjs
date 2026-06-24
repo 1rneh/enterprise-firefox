@@ -269,8 +269,6 @@ EnterprisePoliciesManager.prototype = {
     if (this._provider.failed) {
       this.status = Ci.nsIEnterprisePolicies.FAILED;
     } else if (!isEmptyObject(this._effectivePolicies())) {
-      // The browser is managed when it has a non-empty effective policy set,
-      // even if some individual policies are unknown or fail to apply.
       this.status = Ci.nsIEnterprisePolicies.ACTIVE;
       Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, true);
     } else {
@@ -303,7 +301,7 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
-   * Activates the startup policies that are provided during 
+   * Activates the startup policies that are provided during
    * the initialization of the policy engine.
    */
   _activateStartupPolicies() {
@@ -524,7 +522,7 @@ EnterprisePoliciesManager.prototype = {
 
     const policyImpl = lazy.Policies[policyName];
     if (!policyImpl) {
-      // This means there is an entry in the schema, but no implementaton.
+      // This means there is an entry in the schema, but no implementation.
       // We only do this when we deprecate policies.
       lazy.log.info(`${policyName} has been deprecated.`);
       return { isValid: false, parsedParams: null };
@@ -562,7 +560,7 @@ EnterprisePoliciesManager.prototype = {
   _schedulePolicyActivations(policyName, policyImpl, parsedParams = undefined) {
     for (let timing of Object.keys(this._callbacks)) {
       if (timing === "onRemove") {
-        // Callbacks that remove policies are explicitely scheduled.
+        // Callbacks that remove policies are explicitly scheduled.
         continue;
       }
 

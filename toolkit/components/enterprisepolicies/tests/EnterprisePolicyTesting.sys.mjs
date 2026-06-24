@@ -32,10 +32,10 @@ export var EnterprisePolicyTesting = {
   },
 
   /**
-   * Observe for all policies to be applied. This notification
-   * is sent when the policy engine is started up or reseted.
+   * Listens for all policies to be applied. This notification
+   * is sent when the policy engine is started up or reset.
    *
-   * @param {Function} resolve Callback invoked once all policies are applied.
+   * @param {Function} resolve a promise's resolve callback invoked once all policies are applied.
    */
   resolveOnceAllPoliciesApplied(resolve) {
     Services.obs.addObserver(function observer() {
@@ -48,10 +48,10 @@ export var EnterprisePolicyTesting = {
   },
 
   /**
-   * Observe for a policy update. This notification is sent once
+   * Listens for a policy update. This notification is sent once
    * we check the console for updated policies.
    *
-   * @param {Function} resolve Callback invoked once the policy update is handled.
+   * @param {Function} resolve a promise's resolve callback invoked once all policy updates are applied.
    */
   resolveOnceAllPolicyUpdatesApplied(resolve) {
     Services.obs.addObserver(function observer() {
@@ -125,13 +125,11 @@ export var EnterprisePolicyTesting = {
   },
 
   /**
-   * Restore tracked preferences to their default values, apply the custom
-   * schema, setup the remote policies stub and trigger a restart of the policy
-   * engine.
+   * Sets up policy engine with initial set of startup policies provided remotely
    *
-   * @param {object} policies
-   * @param {object} customSchema
-   * @returns {Promise} Promise that resolves once the set of policies are applied
+   * @param {object} policies set of remote policies served by the stubbed ConsoleClient.getRemotePolicies
+   * @param {object} customSchema custom policy schema
+   * @returns {Promise} Promise that resolves once the intial set of policies are applied
    */
   async servePolicyWithRemoteJson(policies, customSchema) {
     PoliciesPrefTracker.restoreDefaultValues();
@@ -148,7 +146,7 @@ export var EnterprisePolicyTesting = {
   /**
    * Listen for the policies to be applied and stub the remote policies.
    *
-   * @param {object} policies
+   * @param {object} policies set of remote policies served by the stubbed ConsoleClient.getRemotePolicies
    * @param {boolean} isUpdate Whether the promise resolves once all policies are
    *                           applied on startup or once the policy update is complete
    * @returns {Promise} Promise that resolves once the set of policies are applied

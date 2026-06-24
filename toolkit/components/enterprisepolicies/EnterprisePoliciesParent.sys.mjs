@@ -185,19 +185,8 @@ EnterprisePoliciesManager.prototype = {
       }
     }
 
-    if (!this._provider) {
-      // Both local and remote policy provision is disabled.
-      this.status = Ci.nsIEnterprisePolicies.INACTIVE;
-      return;
-    }
-
-    if (this._provider.failed) {
-      this.status = Ci.nsIEnterprisePolicies.FAILED;
-      return;
-    }
-
-    if (isEmptyObject(this._effectivePolicies())) {
-      this.status = Ci.nsIEnterprisePolicies.INACTIVE;
+    this._updateStatus();
+    if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
       return;
     }
 

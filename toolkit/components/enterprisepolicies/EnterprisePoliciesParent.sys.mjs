@@ -1219,7 +1219,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
   constructor() {
     super();
     this._poller = null;
-    this._requestInFlight = false;
+    this._updateInProgress = false;
     this._pollingFrequency = Services.prefs.getIntPref(
       this.POLLING_FREQUENCY_PREF,
       this.POLLING_FREQUENCY_FALLBACK
@@ -1271,12 +1271,12 @@ class RemotePoliciesProvider extends PoliciesProvider {
   }
 
   async _performPolling() {
-    if (this._requestInFlight) {
-      // A previous request is still in flight; skip this tick to avoid
-      // overlapping requests to the console.
+    if (this._updateInProgress) {
+      // A previous update (fetch and synchronous apply) is still in
+      // progress; skip this tick to avoid overlapping updates.
       return;
     }
-    this._requestInFlight = true;
+    this._updateInProgress = true;
     try {
       await this.ingestPolicies();
       Services.obs.notifyObservers(null, "EnterprisePolicies:Update");
@@ -1285,7 +1285,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
         `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error ${e}`
       );
     } finally {
-      this._requestInFlight = false;
+      this._updateInProgress = false;
     }
   }
 

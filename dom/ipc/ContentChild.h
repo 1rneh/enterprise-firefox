@@ -589,6 +589,10 @@ class ContentChild final : public PContentChild,
       const MaybeDiscarded<BrowsingContext>& aContext,
       const MediaControlAction& aAction);
 
+  mozilla::ipc::IPCResult RecvUpdateMediaSessionInterrupt(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      const AudioFocusInterruptAction& aAction);
+
   // See `BrowsingContext::mEpochs` for an explanation of this field.
   uint64_t GetBrowsingContextFieldEpoch() const {
     return mBrowsingContextFieldEpoch;
@@ -831,6 +835,9 @@ class ContentChild final : public PContentChild,
 
  private:
   void AddProfileToProcessName(const nsACString& aProfile);
+  mozilla::ipc::IPCResult RecvCreateFOGTransport(
+      Endpoint<PFOGTransportChild>&& aChildEndpoint);
+
   mozilla::ipc::IPCResult RecvFlushFOGData(FlushFOGDataResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvSystemPermissionChanged(PermissionName aName,

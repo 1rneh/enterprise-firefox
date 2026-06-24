@@ -88,6 +88,10 @@ pub struct ImageScratch {
     /// the resolved stretch size and adjustment-mapped values vary per
     /// instance, even when many instances share a single template.
     pub gpu_address: GpuBufferAddress,
+    /// Per-instance opacity. Recomputed each frame from the image's
+    /// resource-cache properties (and tile-spacing padding); lives here
+    /// rather than on the now-immutable template's common data.
+    pub opacity: PrimitiveOpacity,
 }
 
 impl ImageScratch {
@@ -100,6 +104,7 @@ impl ImageScratch {
             tight_local_clip_rect: LayoutRect::zero(),
             may_need_repetition: true,
             gpu_address: GpuBufferAddress::INVALID,
+            opacity: PrimitiveOpacity::translucent(),
         }
     }
 }
@@ -223,8 +228,7 @@ impl ImageData {
     /// template. The initial request call to the GPU cache ensures that work is only
     /// done if the cache entry is invalid (due to first use or eviction).
     pub fn update(
-        &mut self,
-        common: &mut PrimTemplateCommonData,
+        &self,
         prim_instance_index: PrimitiveInstanceIndex,
         prim_spatial_node_index: SpatialNodeIndex,
         frame_state: &mut FrameBuildingState,
@@ -236,17 +240,6 @@ impl ImageData {
         let image_properties = frame_state
             .resource_cache
             .get_image_properties(self.key);
-
-        common.opacity = match &image_properties {
-            Some(properties) => {
-                if properties.descriptor.is_opaque() {
-                    PrimitiveOpacity::from_alpha(self.color.a)
-                } else {
-                    PrimitiveOpacity::translucent()
-                }
-            }
-            None => PrimitiveOpacity::opaque(),
-        };
 
         let request = ImageRequest {
             key: self.key,
@@ -269,6 +262,16 @@ impl ImageData {
 
         let mut image_scratch = ImageScratch::empty();
         image_scratch.tight_local_clip_rect = tight_clip_rect;
+        image_scratch.opacity = match &image_properties {
+            Some(properties) => {
+                if properties.descriptor.is_opaque() {
+                    PrimitiveOpacity::from_alpha(self.color.a)
+                } else {
+                    PrimitiveOpacity::translucent()
+                }
+            }
+            None => PrimitiveOpacity::opaque(),
+        };
         if effective_stretch_size.width >= prim_rect.size().width
             && effective_stretch_size.height >= prim_rect.size().height
         {
@@ -343,7 +346,7 @@ impl ImageData {
                     size.height += padding.vertical();
 
                     if padding != DeviceIntSideOffsets::zero() {
-                        common.opacity = PrimitiveOpacity::translucent();
+                        image_scratch.opacity = PrimitiveOpacity::translucent();
                     }
 
                     let image_cache_key = ImageCacheKey {
@@ -528,7 +531,6 @@ pub fn prepare_image_quads(
     };
 
     let src_is_opaque = image_properties.descriptor.is_opaque()
-        && common_data.opacity.is_opaque
         && image_data.color.a >= 0.9999;
 
     let premultiplied = image_data.alpha_type == AlphaType::PremultipliedAlpha;
@@ -1039,9 +1041,9 @@ fn test_struct_sizes() {
     // (b) You made a structure larger. This is not necessarily a problem, but should only
     //     be done with care, and after checking if talos performance regresses badly.
     assert_eq!(mem::size_of::<Image>(), 36, "Image size changed");
-    assert_eq!(mem::size_of::<ImageTemplate>(), 56, "ImageTemplate size changed");
+    assert_eq!(mem::size_of::<ImageTemplate>(), 52, "ImageTemplate size changed");
     assert_eq!(mem::size_of::<ImageKey>(), 40, "ImageKey size changed");
     assert_eq!(mem::size_of::<YuvImage>(), 32, "YuvImage size changed");
-    assert_eq!(mem::size_of::<YuvImageTemplate>(), 76, "YuvImageTemplate size changed");
+    assert_eq!(mem::size_of::<YuvImageTemplate>(), 72, "YuvImageTemplate size changed");
     assert_eq!(mem::size_of::<YuvImageKey>(), 36, "YuvImageKey size changed");
 }

@@ -36,6 +36,7 @@
 #include "mozilla/dom/ipc/IdType.h"
 #include "mozilla/gfx/GPUProcessListener.h"
 #include "mozilla/gfx/gfxVarReceiver.h"
+#include "mozilla/glean/FOGTransportParent.h"
 #include "mozilla/ipc/BackgroundUtils.h"
 #include "mozilla/ipc/GeckoChildProcessHost.h"
 #include "mozilla/ipc/InputStreamUtils.h"
@@ -64,7 +65,6 @@ class nsITimer;
 class ParentIdleListener;
 class nsIOriginsListLoadCallback;
 class nsIWidget;
-class nsIX509Cert;
 
 namespace CrashReporter {
 class CrashReporterInitArgs;
@@ -1216,11 +1216,6 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvBHRThreadHang(const HangDetails& aHangDetails);
 
-  mozilla::ipc::IPCResult RecvAddCertException(
-      nsIX509Cert* aCert, const nsACString& aHostName, int32_t aPort,
-      const OriginAttributes& aOriginAttributes, bool aIsTemporary,
-      AddCertExceptionResolver&& aResolver);
-
   mozilla::ipc::IPCResult RecvAutomaticStorageAccessPermissionCanBeGranted(
       nsIPrincipal* aPrincipal,
       AutomaticStorageAccessPermissionCanBeGrantedResolver&& aResolver);
@@ -1404,6 +1399,8 @@ class ContentParent final : public PContentParent,
 #endif
 
   mozilla::ipc::IPCResult RecvFOGData(ByteBuf&& buf);
+
+  RefPtr<FlushFOGDataPromise> DoFlushFOGData();
 
   mozilla::ipc::IPCResult RecvGeckoTraceExport(ByteBuf&& aBuf);
 
@@ -1603,6 +1600,8 @@ class ContentParent final : public PContentParent,
 
   UniquePtr<gfx::DriverCrashGuard> mDriverCrashGuard;
   UniquePtr<MemoryReportRequestHost> mMemoryReportRequest;
+
+  RefPtr<glean::FOGTransportParent> mFOGTransportParentActor;
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
   RefPtr<SandboxBroker> mSandboxBroker;

@@ -3239,6 +3239,18 @@ var gUIDensity = {
 
   handleEvent(event) {
     if (event.type == "resize") {
+      // Window size only affects the resolved density through auto-compact,
+      // which applies only under nova when the user hasn't explicitly chosen a
+      // uidensity value. When it can't apply, a resize can't change the
+      // density, so skip update() entirely: this listener runs on every resize
+      // event, and doing per-resize work there regressed tresize (bug
+      // 2049353).
+      if (
+        !this.novaEnabled ||
+        Services.prefs.prefHasUserValue(this.uiDensityPref)
+      ) {
+        return;
+      }
       this.update();
     }
   },
@@ -3311,7 +3323,7 @@ var gUIDensity = {
     // Under nova, auto-compact in small windows, but only when the user
     // hasn't explicitly chosen a uidensity value.
     if (
-      Services.prefs.getBoolPref("browser.nova.enabled", false) &&
+      this.novaEnabled &&
       !Services.prefs.prefHasUserValue(this.uiDensityPref) &&
       this._shouldAutoCompact()
     ) {
@@ -3379,6 +3391,13 @@ var gUIDensity = {
     window.dispatchEvent(new CustomEvent("uidensitychanged"));
   },
 };
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  gUIDensity,
+  "novaEnabled",
+  "browser.nova.enabled",
+  false
+);
 
 const DynamicShortcutTooltip = {
   nodeToTooltipMap: {

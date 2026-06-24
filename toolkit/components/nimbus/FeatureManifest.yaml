@@ -2826,6 +2826,12 @@ gleanInternalSdk:
       setPref:
         branch: user
         pref: telemetry.glean.internal.maxPingsPerMinute
+    enableFOGTransport:
+      type: "boolean"
+      description: "Enables FOGTransport parent/child for IPC"
+      setPref:
+        branch: user
+        pref: telemetry.fog.enable_fog_transport
 
 legacyTelemetry:
   description: "Controls for the Legacy Telemetry data collection system"
@@ -5212,18 +5218,6 @@ fxms_bmb_button:
     uri: chrome://browser/content/asrouter/schemas/MessagingExperiment.schema.json
     path: browser/components/asrouter/content-src/schemas/MessagingExperiment.schema.json
   variables: {}
-
-contentProcessSandbox:
-  description: Prefs that control the content process sandbox.
-  owner: bowen@mozilla.com
-  hasExposure: false
-  variables:
-    Level:
-      description: Content process sandbox level
-      type: int
-      setPref:
-        branch: user
-        pref: security.sandbox.content.level
 
 certificateTransparency:
   description: Certificate Transparency configuration

@@ -1254,6 +1254,10 @@ class RemotePoliciesProvider extends PoliciesProvider {
   }
 
   static dropInstance() {
+    if (!this.#instance) {
+      // No instance was initialized.
+      return;
+    }
     this.#instance._destroy();
     this.#instance = null;
   }

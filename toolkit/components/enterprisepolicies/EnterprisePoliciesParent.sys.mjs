@@ -334,6 +334,12 @@ EnterprisePoliciesManager.prototype = {
    * - Remove a policy if it's missing in the updated set.
    */
   _updatePolicies() {
+    if (!this._provider) {
+      // The engine was probably reset while a polling request was
+      // in flight. There is nothing to update.
+      return;
+    }
+
     if (this._provider.isCombined) {
       this._provider.mergePolicies();
     }

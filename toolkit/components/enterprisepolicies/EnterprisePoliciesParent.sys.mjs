@@ -1320,8 +1320,8 @@ class RemotePoliciesProvider extends PoliciesProvider {
   /**
    * Fetch the remote policies and store them.
    *
-   * @returns {Promise<boolean>} whether the fetched policies differ from the
-   *   previously ingested set
+   * @returns {Promise<boolean>} whether the policies or the failure state
+   *   changed, i.e. whether the engine should re-evaluate
    */
   async ingestPolicies() {
     const res = await lazy.ConsoleClient.getRemotePolicies();
@@ -1329,17 +1329,22 @@ class RemotePoliciesProvider extends PoliciesProvider {
       lazy.log.error(
         `No policies were found in the response: ${JSON.stringify(res)}.`
       );
+      const wasFailed = this._failed;
       this._failed = true;
-      return false;
+      // A new failure must refresh the engine status to FAILED
+      return !wasFailed;
     }
+
+    const wasFailed = this._failed;
     this._failed = false;
     this._policies = res.policies;
 
     // The console returns byte-identical JSON when the remote policy set is
     // unchanged, so hashing it lets us skip firing an update when nothing
-    // changed.
+    // changed. Recovering from a failure must refresh the status too, even if
+    // the payload matches the last good set.
     const policiesHash = hashValue(this._policies);
-    const changed = policiesHash !== this._lastPoliciesHash;
+    const changed = policiesHash !== this._lastPoliciesHash || wasFailed;
     this._lastPoliciesHash = policiesHash;
     return changed;
   }

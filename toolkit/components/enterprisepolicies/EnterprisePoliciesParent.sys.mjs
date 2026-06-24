@@ -130,7 +130,7 @@ EnterprisePoliciesManager.prototype = {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
         let policyImpl = lazy.Policies._cleanup;
-        this._scheduleActivationPolicyCallbacks("_cleanup", policyImpl);
+        this._schedulePolicyActivations("_cleanup", policyImpl);
       }
       Services.prefs.clearUserPref(PREF_POLICIES_APPLIED);
     }
@@ -347,11 +347,7 @@ EnterprisePoliciesManager.prototype = {
       this._lastParamsHashes.set(policyName, this._hash(policyParams));
 
       const policyImpl = lazy.Policies[policyName];
-      this._scheduleActivationPolicyCallbacks(
-        policyName,
-        policyImpl,
-        parsedParams
-      );
+      this._schedulePolicyActivations(policyName, policyImpl, parsedParams);
     }
 
     this._lastPoliciesHash = this._hash(effectivePolicies);
@@ -397,6 +393,7 @@ EnterprisePoliciesManager.prototype = {
     }
 
     this._schedulePolicyUpdates(previousPolicies);
+
     this._schedulePolicyRemovals(previousPolicies);
 
     // Run removals first so that an updated policy is torn down (with its
@@ -420,9 +417,11 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
-   * Parse and schedule a policy update
+   * Parse and schedule a policy update. This also schedules removals for
+   * changed policies so that updates are applied on a clean state.
    *
-   * @param {object} previousPolicies
+   * @param {object} previousPolicies the set of policies parsed and applied
+   *   before this update
    */
   _schedulePolicyUpdates(previousPolicies) {
     const parsedPolicies = {};
@@ -473,11 +472,7 @@ EnterprisePoliciesManager.prototype = {
       }
 
       const policyImpl = lazy.Policies[policyName];
-      this._scheduleActivationPolicyCallbacks(
-        policyName,
-        policyImpl,
-        parsedParams
-      );
+      this._schedulePolicyActivations(policyName, policyImpl, parsedParams);
     }
 
     this._parsedPolicies = parsedPolicies;
@@ -485,13 +480,13 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
-   * Schedule policy removals
+   * Schedule callbacks to remove policies that are no longer present in the
+   * latest set of parsed policies.
    *
-   * @param {object} previousPolicies
+   * @param {object} previousPolicies the set of policies parsed and applied
+   *   before this update
    */
   _schedulePolicyRemovals(previousPolicies) {
-    // Schedule callbacks to remove policies that are no longer present
-    // in the latest set of parsed policies.
     for (const [policyName, policyParams] of Object.entries(previousPolicies)) {
       if (this._parsedPolicies[policyName] !== undefined) {
         // Policy remains active.
@@ -523,12 +518,12 @@ EnterprisePoliciesManager.prototype = {
       return;
     }
 
-    this._schedulePolicyCallback(policyName, "onRemove", [
-      policyImpl.onRemove,
-      policyImpl,
-      this /* the EnterprisePoliciesManager */,
+    this._schedulePolicyCallback("onRemove", {
+      policyName,
+      callback: policyImpl.onRemove,
+      impl: policyImpl,
       params,
-    ]);
+    });
   },
 
   /**
@@ -582,7 +577,7 @@ EnterprisePoliciesManager.prototype = {
    * @property {Function} [onProfileAfterChange] - callback that is invoked when notified of a profile-after-change event
    * @property {Function} [onBeforeUIStartup] - callback that is invoked when notified of a final-ui-startup event
    * @property {Function} [onAllWindowsRestored] - callback that is invoked when notified of a sessionstore-windows-restored event
-   * @property {Function} [onRemove] - callback that is invoked when a policy is explicitely removed
+   * @property {Function} [onRemove] - callback that is invoked when a policy is explicitly removed
    */
 
   /**
@@ -593,11 +588,7 @@ EnterprisePoliciesManager.prototype = {
    * @param {PolicyImpl} policyImpl policy implementation
    * @param {object} [parsedParams] parsed policy parameters
    */
-  _scheduleActivationPolicyCallbacks(
-    policyName,
-    policyImpl,
-    parsedParams = undefined
-  ) {
+  _schedulePolicyActivations(policyName, policyImpl, parsedParams = undefined) {
     for (let timing of Object.keys(this._callbacks)) {
       if (timing === "onRemove") {
         // Callbacks that remove policies are explicitely scheduled.
@@ -606,12 +597,12 @@ EnterprisePoliciesManager.prototype = {
 
       let policyCallback = policyImpl[timing];
       if (policyCallback) {
-        this._schedulePolicyCallback(policyName, timing, [
-          policyCallback,
-          policyImpl,
-          this /* the EnterprisePoliciesManager */,
-          parsedParams,
-        ]);
+        this._schedulePolicyCallback(timing, {
+          policyName,
+          callback: policyCallback,
+          impl: policyImpl,
+          params: parsedParams,
+        });
       }
     }
   },
@@ -640,48 +631,48 @@ EnterprisePoliciesManager.prototype = {
     onRemove: [],
   },
 
-  _schedulePolicyCallback(policyName, timing, callbackArgs) {
-    // Check for existence of the same callback. Since callback are .bind()
-    // they cannot be just pushed to the array and checked for existence with
-    // .includes() as each bind is a new different object.
-    //
-    // Instead the array contains everything:
-    //  - policyCallback,
-    //  - policyImpl,
-    //  - this reference
-    //  - parsedParameters
-    //
-    // And we manually check for pre-existence of all. The parsedParameters
-    // may differ at the object level so we force the comparison with
-    // JSON.stringify()
-
-    const exists = this._callbacks[timing].filter(
+  /**
+   * Schedule a single policy callback for a given timing, skipping it if the
+   * same policy's callback with the same parameters is already scheduled.
+   *
+   * @param {string} timing callback timing, a key of `_callbacks`
+   * @param {object} entry callback entry to schedule
+   * @param {string} entry.policyName policy name
+   * @param {Function} entry.callback the policy's callback for this timing
+   * @param {PolicyImpl} entry.impl the policy implementation
+   * @param {object} [entry.params] parsed policy parameters
+   */
+  _schedulePolicyCallback(timing, entry) {
+    // For a given timing, a policy name uniquely identifies its callback, so
+    // an entry is a duplicate when both the policy name and the parameters
+    // match. Parameters may differ at the object level, so compare them with
+    // JSON.stringify().
+    const alreadyScheduled = this._callbacks[timing].some(
       e =>
-        e[0] == callbackArgs[0] &&
-        e[1] == callbackArgs[1] &&
-        e[2] == callbackArgs[2] &&
-        JSON.stringify(e[3]) == JSON.stringify(callbackArgs[3])
+        e.policyName === entry.policyName &&
+        JSON.stringify(e.params) === JSON.stringify(entry.params)
     );
-    if (exists.length) {
+    if (alreadyScheduled) {
       lazy.log.debug(
-        `A ${timing} callback for policy ${policyName} was already scheduled.`
+        `A ${timing} callback for policy ${entry.policyName} was already scheduled.`
       );
       return;
     }
-    lazy.log.debug(`Scheduling a ${timing} callback for policy ${policyName}.`);
-    this._callbacks[timing].push(callbackArgs);
+    lazy.log.debug(
+      `Scheduling a ${timing} callback for policy ${entry.policyName}.`
+    );
+    this._callbacks[timing].push(entry);
   },
 
   _runPoliciesCallbacks(timing) {
     let callbacks = this._callbacks[timing];
     while (callbacks.length) {
-      let [policyCallback, policyImpl, self, parsedParameters] =
-        callbacks.shift();
-      const callback = policyCallback.bind(policyImpl, self, parsedParameters);
+      let { callback, impl, params } = callbacks.shift();
+      const boundCallback = callback.bind(impl, this, params);
       try {
-        callback();
+        boundCallback();
       } catch (ex) {
-        lazy.log.error("Error running ", callback, `for ${timing}:`, ex);
+        lazy.log.error("Error running ", boundCallback, `for ${timing}:`, ex);
       }
     }
   },

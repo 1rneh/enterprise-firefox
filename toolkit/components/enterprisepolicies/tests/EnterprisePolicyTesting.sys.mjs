@@ -129,7 +129,7 @@ export var EnterprisePolicyTesting = {
    *
    * @param {object} policies set of remote policies served by the stubbed ConsoleClient.getRemotePolicies
    * @param {object} customSchema custom policy schema
-   * @returns {Promise} Promise that resolves once the intial set of policies are applied
+   * @returns {Promise} Promise that resolves once the initial set of policies are applied
    */
   async servePolicyWithRemoteJson(policies, customSchema) {
     PoliciesPrefTracker.restoreDefaultValues();

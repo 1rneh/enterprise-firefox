@@ -181,7 +181,7 @@ EnterprisePoliciesManager.prototype = {
       if (e.type === "RemotePolicyProviderInitError") {
         // bug 2027006 will move the fetching of policies to felt
         // and no shutdown will be needed then
-        await lazy.EnterpriseHandler.initiateShutdown();
+        lazy.EnterpriseHandler.initiateShutdown();
       }
     }
 

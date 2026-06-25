@@ -1435,6 +1435,6 @@ class CombinedProvider extends PoliciesProvider {
   }
 
   get failed() {
-    return this._providers.some(p => p.failed);
+    return this._providers.some(p => p.failed) && !this.hasPolicies;
   }
 }

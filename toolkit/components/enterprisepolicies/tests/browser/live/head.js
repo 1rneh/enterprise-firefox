@@ -61,7 +61,11 @@ async function setupPolicyEngineWithCombinedPolicyProvider(
     EnterprisePolicyTesting.applyRemotePolicies(remotePolicies, false);
 
   // Put local policies in place (local policies.json file).
-  const localPoliciesAppliedPromise = EnterprisePolicyTesting.setupPolicyEngineWithJson(localPolicies, customSchema);
+  const localPoliciesAppliedPromise =
+    EnterprisePolicyTesting.setupPolicyEngineWithJson(
+      localPolicies,
+      customSchema
+    );
 
   return Promise.all([
     localPoliciesAppliedPromise,

@@ -340,9 +340,7 @@ EnterprisePoliciesManager.prototype = {
       return;
     }
 
-    if (this._provider.isCombined) {
-      this._provider.mergePolicies();
-    }
+    this._provider.mergePolicies();
 
     let previousPolicies = null;
     try {
@@ -1069,10 +1067,6 @@ class PoliciesProvider {
   get failed() {
     return this._failed;
   }
-
-  get isCombined() {
-    return false;
-  }
 }
 
 /*
@@ -1435,9 +1429,5 @@ class CombinedProvider extends PoliciesProvider {
 
   get failed() {
     return this._providers.some(p => p.failed);
-  }
-
-  get isCombined() {
-    return true;
   }
 }

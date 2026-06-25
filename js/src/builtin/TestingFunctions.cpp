@@ -9927,6 +9927,11 @@ static bool ResetFallbackStubStates(JSContext* cx, unsigned argc, Value* vp) {
   for (uint32_t i = 0; i < numEntries; i++) {
     jit::ICFallbackStub* stub = script->jitScript()->fallbackStub(i);
     stub->discardStubs(zone, &icScript->icEntry(i));
+
+    if (icScript->hasInlinedChild(stub->pcOffset())) {
+      icScript->removeInlinedChild(stub->pcOffset());
+    }
+
     stub->state().reset();
   }
   script->jitScript()->notePurgedStubs();
@@ -10319,6 +10324,26 @@ static bool GetLastOOMStackTrace(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   args.rval().setString(str);
+  return true;
+}
+
+static bool ValueAsRawBits(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  if (js::SupportDifferentialTesting()) {
+    RootedObject callee(cx, &args.callee());
+    ReportUsageErrorASCII(cx, callee,
+                          "Function unavailable in differential testing mode.");
+    return false;
+  }
+
+  uint64_t rawBits = args.get(0).asRawBits();
+  auto* bigInt = BigInt::createFromUint64(cx, rawBits);
+  if (!bigInt) {
+    return false;
+  }
+
+  args.rval().setBigInt(bigInt);
   return true;
 }
 
@@ -11501,6 +11526,10 @@ JS_FN_HELP("isSmallFunction", IsSmallFunction, 1, 0,
 JS_FN_HELP("supportDifferentialTesting", TestingFunc_SupportDifferentialTesting, 0, 0,
 "supportDifferentialTesting()",
 "  Return the value of JS::SupportDifferentialTesting."),
+
+  JS_FN_HELP("valueAsRawBits", ValueAsRawBits, 1, 0,
+"valueAsRawBits(value)",
+"  Return the raw bits of the input value as a BigInt."),
 
   JS_FS_HELP_END
 };

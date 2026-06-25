@@ -41,11 +41,14 @@ hr {
   margin-block-start: var(--space-small);
   moz-button {
     --button-alignment: start;
-    --button-border-radius: var(--border-radius-small);
     --button-font-weight: var(--font-weight);
     --button-padding: var(--space-small);
     --focus-outline-offset: calc(-1 * var(--focus-outline-width));
     width: 100%;
+
+    @media not -moz-pref("browser.nova.enabled") {
+      --button-border-radius: var(--border-radius-small);
+    }
   }
 }
 
@@ -175,6 +178,7 @@ ipprotection-message-bar.vpn-top-content {
 
 #enrolling-container {
   background-color: var(--skeleton-container-bg-color);
+  border: var(--border-width) solid var(--border-color-deemphasized);
   border-radius: var(--border-radius-medium);
   display: flex;
   flex-direction: column;
@@ -182,8 +186,6 @@ ipprotection-message-bar.vpn-top-content {
   padding: var(--space-medium);
 
   @media -moz-pref("browser.nova.enabled") {
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/no-base-design-tokens, stylelint-plugin-mozilla/use-design-tokens */
-    border: var(--border-width) solid light-dark(var(--color-black-alpha-10), var(--color-white-alpha-20));
     border-radius: var(--border-radius-xlarge);
   }
 }

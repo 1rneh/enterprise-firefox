@@ -1344,6 +1344,7 @@ dependencies = [
  "nix",
  "num-derive",
  "num-traits",
+ "process_reader",
  "thiserror 2.0.12",
  "windows-sys",
  "yaml-rust2",
@@ -3106,9 +3107,9 @@ dependencies = [
 
 [[package]]
 name = "glean"
-version = "67.3.2"
+version = "68.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e56d343bededa04fa8b318a3f2e44183c84dbade49a62aa8463a5d63146cbe5a"
+checksum = "084ef06681d8bea99c9f54eeb3408d474a884ba13977b766496c86fcaca1e9ca"
 dependencies = [
  "crossbeam-channel",
  "glean-core",
@@ -3121,9 +3122,9 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "67.3.2"
+version = "68.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7a962f0419b8391725f096514323218cac6d8cc5f4ad0b70c8d583721bded5a"
+checksum = "e574db5249173c3aa8c83565b8d7181cae8ad2eda840b0be35688d92d237c251"
 dependencies = [
  "android_logger",
  "bincode",
@@ -3267,8 +3268,8 @@ dependencies = [
 
 [[package]]
 name = "happy-eyeballs"
-version = "0.8.0"
-source = "git+https://github.com/mozilla/happy-eyeballs?tag=v0.8.0#d2788ca7dc997e4490f76e891a2fdcddea6b7ca8"
+version = "0.9.0"
+source = "git+https://github.com/mozilla/happy-eyeballs?tag=v0.9.0#3e6295e543eddd218fc10fef6d31561e008f2057"
 dependencies = [
  "log",
  "thiserror 2.0.12",
@@ -5383,7 +5384,7 @@ checksum = "a2983372caf4480544083767bf2d27defafe32af49ab4df3a0b7fc90793a3664"
 [[package]]
 name = "naga"
 version = "29.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3#6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+source = "git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976#43981de526bffe6773403029c2e26f18d9c0a976"
 dependencies = [
  "arrayvec",
  "bit-set",
@@ -5392,10 +5393,11 @@ dependencies = [
  "cfg_aliases",
  "codespan-reporting",
  "half",
- "hashbrown 0.16.999",
+ "hashbrown 0.17.1",
  "indexmap",
  "libm",
  "log",
+ "naga-types",
  "num-traits",
  "once_cell",
  "rustc-hash 1.999.999",
@@ -5403,6 +5405,18 @@ dependencies = [
  "spirv",
  "thiserror 2.0.12",
  "unicode-ident",
+]
+
+[[package]]
+name = "naga-types"
+version = "29.0.0"
+source = "git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976#43981de526bffe6773403029c2e26f18d9c0a976"
+dependencies = [
+ "hashbrown 0.17.1",
+ "indexmap",
+ "rustc-hash 1.999.999",
+ "serde",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -5677,8 +5691,8 @@ dependencies = [
 
 [[package]]
 name = "nss-rs"
-version = "0.13.2"
-source = "git+https://github.com/mozilla/nss-rs#a77e4287a92ba310b1542be2f53fcde3552a79e3"
+version = "0.13.4"
+source = "git+https://github.com/mozilla/nss-rs#da11b438d142cdcb71a2b152a9c5d13efe59d8b6"
 dependencies = [
  "bindgen 0.72.0",
  "enum-map",
@@ -7945,7 +7959,7 @@ checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 [[package]]
 name = "test-fixture"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/nss-rs#a77e4287a92ba310b1542be2f53fcde3552a79e3"
+source = "git+https://github.com/mozilla/nss-rs#da11b438d142cdcb71a2b152a9c5d13efe59d8b6"
 dependencies = [
  "log",
  "nss-rs",
@@ -9100,7 +9114,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "29.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3#6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+source = "git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976#43981de526bffe6773403029c2e26f18d9c0a976"
 dependencies = [
  "arrayvec",
  "bit-set",
@@ -9109,11 +9123,12 @@ dependencies = [
  "bytemuck",
  "cfg_aliases",
  "document-features",
- "hashbrown 0.16.999",
+ "hashbrown 0.17.1",
  "indexmap",
  "log",
  "macro_rules_attribute",
  "naga",
+ "naga-types",
  "once_cell",
  "parking_lot",
  "profiling",
@@ -9133,7 +9148,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core-deps-apple"
 version = "29.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3#6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+source = "git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976#43981de526bffe6773403029c2e26f18d9c0a976"
 dependencies = [
  "wgpu-hal",
 ]
@@ -9141,7 +9156,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core-deps-windows-linux-android"
 version = "29.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3#6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+source = "git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976#43981de526bffe6773403029c2e26f18d9c0a976"
 dependencies = [
  "wgpu-hal",
 ]
@@ -9149,7 +9164,7 @@ dependencies = [
 [[package]]
 name = "wgpu-hal"
 version = "29.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3#6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+source = "git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976#43981de526bffe6773403029c2e26f18d9c0a976"
 dependencies = [
  "android_system_properties",
  "arrayvec",
@@ -9161,11 +9176,12 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "gpu-allocator",
- "hashbrown 0.16.999",
+ "hashbrown 0.17.1",
  "libc",
  "libloading",
  "log",
  "naga",
+ "naga-types",
  "objc2",
  "objc2-core-foundation",
  "objc2-foundation",
@@ -9190,7 +9206,7 @@ dependencies = [
 [[package]]
 name = "wgpu-naga-bridge"
 version = "29.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3#6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+source = "git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976#43981de526bffe6773403029c2e26f18d9c0a976"
 dependencies = [
  "naga",
  "wgpu-types",
@@ -9199,12 +9215,13 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "29.0.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3#6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+source = "git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976#43981de526bffe6773403029c2e26f18d9c0a976"
 dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
  "js-sys",
  "log",
+ "naga-types",
  "raw-window-handle",
  "serde",
  "static_assertions",

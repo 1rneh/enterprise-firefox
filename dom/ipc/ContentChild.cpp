@@ -18,6 +18,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/BackgroundHangMonitor.h"
 #include "mozilla/BasePrincipal.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/ClipboardContentAnalysisChild.h"
 #include "mozilla/ClipboardReadRequestChild.h"
 #include "mozilla/Components.h"
@@ -38,6 +39,7 @@
 #include "mozilla/SharedStyleSheetCache.h"
 #include "mozilla/SimpleEnumerator.h"
 #include "mozilla/SpinEventLoopUntil.h"
+#include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_fission.h"
@@ -94,6 +96,7 @@
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/gfx/gfxVars.h"
+#include "mozilla/glean/FOGTransportChild.h"
 #include "mozilla/hal_sandbox/PHalChild.h"
 #include "mozilla/image/FetchDecodedImage.h"
 #include "mozilla/image/RemoteImageProtocolHandler.h"
@@ -2735,6 +2738,22 @@ mozilla::ipc::IPCResult ContentChild::RecvAppInfo(
   return IPC_OK();
 }
 
+static StaticMutex sCurrentRemoteTypeMutex;
+static StaticAutoPtr<nsCString> sCurrentRemoteType
+    MOZ_GUARDED_BY(sCurrentRemoteTypeMutex);
+
+nsCString CurrentRemoteType() {
+  if (XRE_IsContentProcess()) {
+    StaticMutexAutoLock lock(sCurrentRemoteTypeMutex);
+    if (sCurrentRemoteType) {
+      return *sCurrentRemoteType;
+    }
+    return PREALLOC_REMOTE_TYPE;
+  }
+
+  return NOT_REMOTE_TYPE;
+}
+
 mozilla::ipc::IPCResult ContentChild::RecvRemoteType(
     const nsCString& aRemoteType, const nsCString& aProfile) {
   if (aRemoteType == mRemoteType) {
@@ -2769,6 +2788,18 @@ mozilla::ipc::IPCResult ContentChild::RecvRemoteType(
 
   // Must do before SetProcessName
   mRemoteType.Assign(aRemoteType);
+
+  {
+    StaticMutexAutoLock lock(sCurrentRemoteTypeMutex);
+    if (!sCurrentRemoteType) {
+      sCurrentRemoteType = new nsCString();
+      RunOnShutdown([] {
+        StaticMutexAutoLock lock(sCurrentRemoteTypeMutex);
+        sCurrentRemoteType = nullptr;
+      });
+    }
+    sCurrentRemoteType->Assign(mRemoteType);
+  }
 
   // Update the process name so about:memory's process names are more obvious.
   if (aRemoteType == FILE_REMOTE_TYPE) {
@@ -3677,6 +3708,18 @@ mozilla::ipc::IPCResult ContentChild::RecvUpdateMediaControlAction(
 
   ContentMediaControlKeyHandler::HandleMediaControlAction(aContext.get(),
                                                           aAction);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvUpdateMediaSessionInterrupt(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    const AudioFocusInterruptAction& aAction) {
+  if (NS_WARN_IF(aContext.IsNullOrDiscarded())) {
+    return IPC_OK();
+  }
+
+  ContentMediaControlKeyHandler::HandleAudioFocusInterrupt(aContext.get(),
+                                                           aAction);
   return IPC_OK();
 }
 
@@ -4784,6 +4827,17 @@ NS_IMETHODIMP ContentChild::GetCanSend(bool* aCanSend) {
 ContentChild* ContentChild::AsContentChild() { return this; }
 
 JSActorManager* ContentChild::AsJSActorManager() { return this; }
+
+IPCResult ContentChild::RecvCreateFOGTransport(
+    Endpoint<PFOGTransportChild>&& aChildEndpoint) {
+  if (glean::FOGTransportChild::GetSingleton()) {
+    return IPC_FAIL(this, "FOGTransportChild already created");
+  }
+
+  glean::FOGTransportChild::Create(std::move(aChildEndpoint));
+
+  return IPC_OK();
+}
 
 IPCResult ContentChild::RecvFlushFOGData(FlushFOGDataResolver&& aResolver) {
   glean::FlushFOGData(std::move(aResolver));

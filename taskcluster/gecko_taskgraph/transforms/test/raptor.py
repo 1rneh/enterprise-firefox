@@ -600,17 +600,6 @@ def select_tasks_to_lambda(config, tasks):
             th["tier"] = max(th.get("tier", 1), 2)
         return task
 
-    def make_sp3_lt_copy(task):
-        lt_task = deepcopy(task)
-        lt_task["label"] = lt_task["label"].replace("-a55-", "-a55-lt-")
-        if "treeherder" in lt_task:
-            group, symbol = split_symbol(lt_task["treeherder"]["symbol"])
-            lt_task["treeherder"]["symbol"] = join_symbol(group, f"{symbol}-LT")
-            lt_task["treeherder"]["platform"] = lt_task["treeherder"][
-                "platform"
-            ].replace("-a55-", "-a55-lt-")
-        return redirect_to_lt(lt_task)
-
     for task in tasks:
         if not ("android" in task["label"] and "a55" in task["label"]):
             yield task
@@ -621,16 +610,7 @@ def select_tasks_to_lambda(config, tasks):
         if task["worker-type"] != "t-bitbar-gw-perf-a55":
             yield task
             continue
-        if "speedometer3" in task["label"]:
-            # Bug 2017152 - temporary: run SP3 on both BitBar and LT for comparison
-            # deepcopy must happen before yielding task, as downstream transforms
-            # mutate task["routes"] in-place.
-            # Copying after yield picks up those mutations.
-            lt_task = make_sp3_lt_copy(task)
-            yield task
-            yield lt_task
-        else:
-            yield redirect_to_lt(task)
+        yield redirect_to_lt(task)
 
 
 @transforms.add
@@ -804,3 +784,14 @@ def handle_native_profiling_symbol(config, tests):
             group, symbol = split_symbol(test["treeherder-symbol"])
             test["treeherder-symbol"] = join_symbol(group, f"{symbol}-p")
         yield test
+
+
+@task_transforms.add
+def setup_native_profiling_autoland_retriggers(config, tasks):
+    for task in tasks:
+        if config.params["project"] == "autoland":
+            attrs = task.setdefault("attributes", {})
+            raptor_try_name = attrs.get("raptor_try_name", "")
+            if "native-profiling" in raptor_try_name and "task_duplicates" in attrs:
+                attrs["task_duplicates"] = 1
+        yield task

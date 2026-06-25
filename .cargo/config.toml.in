@@ -20,9 +20,9 @@ git = "https://github.com/franziskuskiefer/cose-rust"
 rev = "43c22248d136c8b38fe42ea709d08da6355cf04b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+rev = "43981de526bffe6773403029c2e26f18d9c0a976"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/allocator-api2?rev=ad5f3d56a5a4519eff52af4ff85293431466ef5c"]
@@ -90,9 +90,9 @@ git = "https://github.com/mozilla/ipc-channel"
 rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.8.0"]
+[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.9.0"]
 git = "https://github.com/mozilla/happy-eyeballs"
-tag = "v0.8.0"
+tag = "v0.9.0"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=2e47e642b34aebfaaf953497c3834f96c365c8a0"]

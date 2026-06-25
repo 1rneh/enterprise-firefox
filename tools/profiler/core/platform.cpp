@@ -70,6 +70,7 @@
 #include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/ExtensionPolicyService.h"
 #include "mozilla/extensions/WebExtensionPolicy.h"
+#include "mozilla/FOGIPC.h"
 #include "mozilla/glean/ProcesstoolsMetrics.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/Preferences.h"
@@ -80,10 +81,12 @@
 #include "mozilla/ProfileBufferChunkManagerWithLocalLimit.h"
 #include "mozilla/ProfileChunkedBuffer.h"
 #include "mozilla/ProfilerBandwidthCounter.h"
+#include "mozilla/ProfilerDumpOrCrash.h"
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/SharedLibraries.h"
 #include "mozilla/Services.h"
 #include "mozilla/StackWalk.h"
+#include "mozilla/SyncRunnable.h"
 #include "mozilla/Try.h"
 #ifdef XP_WIN
 #  include "mozilla/NativeNt.h"
@@ -6602,6 +6605,41 @@ void profiler_save_profile_to_file(const char* aFilename) {
                                        preRecordedMetaInformation);
 }
 
+void profiler_request_dump_and_quit_for_test(const nsACString& aReason) {
+  if (!profiler_is_active()) {
+    return;
+  }
+
+  nsCString reason(aReason);
+  auto notify = [reason] {
+    MOZ_RELEASE_ASSERT(NS_IsMainThread());
+    if (nsCOMPtr<nsIObserverService> os = services::GetObserverService()) {
+      os->NotifyObservers(nullptr, "profiler-dump-and-quit",
+                          NS_ConvertUTF8toUTF16(reason).get());
+    }
+  };
+
+  if (NS_IsMainThread()) {
+    notify();
+    return;
+  }
+
+  // The notification, the profile gathering it triggers, and the process exit
+  // all have to happen on the main thread, so dispatch there and block this
+  // thread until the harness has handled it. When handled, the harness ends the
+  // process, so this normally does not return.
+  //
+  // There is a slight risk of deadlock here: if the main thread is blocked (for
+  // example waiting on this thread, or wedged), it will never run the
+  // dispatched runnable and we will block forever. We accept this because
+  // gathering a multi-process profile fundamentally requires the main thread's
+  // event loop; in that case the test harness timeout will eventually kill the
+  // process.
+  nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction(
+      "profiler_request_dump_and_quit_for_test", std::move(notify));
+  SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(), runnable);
+}
+
 uint32_t profiler_get_available_features() {
   MOZ_RELEASE_ASSERT(CorePS::Exists());
   return AvailableFeatures();
@@ -7738,11 +7776,34 @@ void profiler_record_wakeup_count(const nsACString& aProcessType) {
   }
 
 #ifdef NIGHTLY_BUILD
-  ThreadRegistry::LockedRegistry lockedRegistry;
-  for (ThreadRegistry::OffThreadRef offThreadRef : lockedRegistry) {
-    const ThreadRegistry::UnlockedConstReaderAndAtomicRW& threadData =
-        offThreadRef.UnlockedConstReaderAndAtomicRWRef();
-    threadData.RecordWakeCount();
+  struct ThreadWakeData {
+    nsCString mThreadName;
+    uint64_t mCpuTimeMs;
+    uint64_t mWakeCount;
+  };
+  // Collect the per-thread data under the ThreadRegistry lock, then report it
+  // to Glean below once the lock has been released: recording it while holding
+  // the lock would create a lock-order inversion with the Glean/Telemetry
+  // locks.
+  nsTArray<ThreadWakeData> threadWakeData;
+  {
+    ThreadRegistry::LockedRegistry lockedRegistry;
+    for (ThreadRegistry::OffThreadRef offThreadRef : lockedRegistry) {
+      const ThreadRegistry::UnlockedConstReaderAndAtomicRW& threadData =
+          offThreadRef.UnlockedConstReaderAndAtomicRWRef();
+      nsAutoCString threadName;
+      uint64_t cpuTimeMs;
+      uint64_t wakeCount;
+      if (threadData.RecordWakeCount(threadName, cpuTimeMs, wakeCount)) {
+        threadWakeData.AppendElement(
+            ThreadWakeData{std::move(threadName), cpuTimeMs, wakeCount});
+      }
+    }
+  }
+
+  for (const ThreadWakeData& data : threadWakeData) {
+    mozilla::glean::RecordThreadCpuUse(data.mThreadName, data.mCpuTimeMs,
+                                       data.mWakeCount);
   }
 #endif
 }

@@ -79,13 +79,14 @@ semanticdb-kotlinc = "0.9.0"
 tomlj = "1.1.1"
 
 # Linters
+androidx-lint = "1.0.0"
 detekt = "1.23.8"
 google-java-format = "1.28.0"
 ktlint = "1.8.0"
 spotless = "8.7.0"
 
 # Mozilla
-glean = "67.3.2"
+glean = "68.0.0"
 
 # Testing libraries
 androidx-test = "1.7.0"
@@ -163,6 +164,7 @@ androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", vers
 androidx-fragment = { module = "androidx.fragment:fragment", version.ref = "fragment" }
 androidx-fragment-compose = { module = "androidx.fragment:fragment-compose", version.ref = "fragment" }
 androidx-fragment-ktx = { module = "androidx.fragment:fragment-ktx", version.ref = "fragment" }
+androidx-fragment-testing = { module = "androidx.fragment:fragment-testing", version.ref = "fragment" }
 androidx-lifecycle-common = { module = "androidx.lifecycle:lifecycle-common", version.ref = "lifecycle" }
 androidx-lifecycle-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-lifecycle-livedata = { module = "androidx.lifecycle:lifecycle-livedata", version.ref = "lifecycle" }
@@ -253,6 +255,7 @@ android-lint = { module = "com.android.tools.lint:lint", version.ref = "android-
 android-lint-api = { module = "com.android.tools.lint:lint-api", version.ref = "android-lint" }
 android-lint-checks = { module = "com.android.tools.lint:lint-checks", version.ref = "android-lint" }
 android-lint-tests = { module = "com.android.tools.lint:lint-tests", version.ref = "android-lint" }
+androidx-lint = { module = "androidx.lint:lint-gradle", version.ref = "androidx-lint" }
 detekt-api = { module = "io.gitlab.arturbosch.detekt:detekt-api", version.ref = "detekt" }
 detekt-cli = { module = "io.gitlab.arturbosch.detekt:detekt-cli", version.ref = "detekt" }
 detekt-test = { module = "io.gitlab.arturbosch.detekt:detekt-test", version.ref = "detekt" }
@@ -306,6 +309,7 @@ zxing = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "android-gradle-plugin" }
+android-lint-plugin = { id = "com.android.lint", version.ref = "android-gradle-plugin" }
 dependency-analysis = { id = "com.autonomousapps.dependency-analysis", version.ref = "dependency-analysis" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

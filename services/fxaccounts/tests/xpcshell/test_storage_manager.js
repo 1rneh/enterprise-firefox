@@ -5,9 +5,23 @@
 
 // Tests for the FxA storage manager.
 
-const { FxAccountsStorageManager } = ChromeUtils.importESModule(
-  "resource://gre/modules/FxAccountsStorage.sys.mjs"
-);
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
+});
+
+ChromeUtils.defineLazyGetter(lazy, "AccountsStorageManager", () => {
+  if (lazy.AppConstants.MOZ_ENTERPRISE) {
+    return ChromeUtils.importESModule(
+      "resource://gre/modules/EnterpriseAccountsStorage.sys.mjs"
+    ).EnterpriseStorageManager;
+  }
+  return ChromeUtils.importESModule(
+    "resource://gre/modules/FxAccountsStorage.sys.mjs"
+  ).FxAccountsStorageManager;
+});
+
 const { DATA_FORMAT_VERSION, log } = ChromeUtils.importESModule(
   "resource://gre/modules/FxAccountsCommon.sys.mjs"
 );
@@ -84,11 +98,11 @@ MockedSecureStorage.prototype = {
 function add_storage_task(testFunction) {
   add_task(async function () {
     print("Starting test with secure storage manager");
-    await testFunction(new FxAccountsStorageManager());
+    await testFunction(new lazy.AccountsStorageManager());
   });
   add_task(async function () {
     print("Starting test with simple storage manager");
-    await testFunction(new FxAccountsStorageManager({ useSecure: false }));
+    await testFunction(new lazy.AccountsStorageManager({ useSecure: false }));
   });
 }
 
@@ -307,7 +321,7 @@ add_storage_task(async function checkDelete(sm) {
 
 // Some tests only for the secure storage manager.
 add_task(async function checkNullUpdatesRemovedLocked() {
-  let sm = new FxAccountsStorageManager();
+  let sm = new lazy.AccountsStorageManager();
   sm.plainStorage = new MockedPlainStorage({
     uid: "uid",
     email: "someone@somewhere.com",
@@ -341,7 +355,7 @@ add_task(async function checkNullUpdatesRemovedLocked() {
 });
 
 add_task(async function checkEverythingReadSecure() {
-  let sm = new FxAccountsStorageManager();
+  let sm = new lazy.AccountsStorageManager();
   sm.plainStorage = new MockedPlainStorage({
     uid: "uid",
     email: "someone@somewhere.com",
@@ -359,7 +373,7 @@ add_task(async function checkEverythingReadSecure() {
 });
 
 add_task(async function checkExplicitGet() {
-  let sm = new FxAccountsStorageManager();
+  let sm = new lazy.AccountsStorageManager();
   sm.plainStorage = new MockedPlainStorage({
     uid: "uid",
     email: "someone@somewhere.com",
@@ -378,7 +392,7 @@ add_task(async function checkExplicitGet() {
 });
 
 add_task(async function checkExplicitGetNoSecureRead() {
-  let sm = new FxAccountsStorageManager();
+  let sm = new lazy.AccountsStorageManager();
   sm.plainStorage = new MockedPlainStorage({
     uid: "uid",
     email: "someone@somewhere.com",
@@ -399,7 +413,7 @@ add_task(async function checkExplicitGetNoSecureRead() {
 });
 
 add_task(async function checkLockedUpdates() {
-  let sm = new FxAccountsStorageManager();
+  let sm = new lazy.AccountsStorageManager();
   sm.plainStorage = new MockedPlainStorage({
     uid: "uid",
     email: "someone@somewhere.com",
@@ -441,7 +455,7 @@ add_task(async function checkLockedUpdates() {
 // an unresolved promise. The tests then do additional setup and checks, then
 // resolves or rejects the blocked promise.
 async function setupStorageManagerForQueueTest() {
-  let sm = new FxAccountsStorageManager();
+  let sm = new lazy.AccountsStorageManager();
   sm.plainStorage = new MockedPlainStorage({
     uid: "uid",
     email: "someone@somewhere.com",

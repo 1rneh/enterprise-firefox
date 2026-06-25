@@ -38,15 +38,18 @@ use windows::Win32::{Foundation, Graphics::Direct3D12};
 #[cfg(target_os = "linux")]
 use ash::{khr, vk};
 
-// The seemingly redundant u64 suffixes help cbindgen with generating the right C++ code.
-// See https://github.com/mozilla/cbindgen/issues/849.
+// The seemingly redundant u64 suffix helps cbindgen with generating the right C++ code.
+// See https://github.com/mozilla/cbindgen/issues/849#issuecomment-4759987548.
 
 /// We limit the size of buffer allocations for stability reason.
 /// We can reconsider this limit in the future. Note that some drivers (mesa for example),
 /// have issues when the size of a buffer, mapping or copy command does not fit into a
 /// signed 32 bits integer, so beyond a certain size, large allocations will need some form
 /// of driver allow/blocklist.
-pub const MAX_BUFFER_SIZE: wgt::BufferAddress = 1u64 << 30u64;
+///
+/// Buffer sizes don't have to be aligned, but storage bindings do, and we clamp
+/// maxStorageBufferBindingSize to MAX_BUFFER_SIZE, so use an aligned limit.
+pub const MAX_BUFFER_SIZE: wgt::BufferAddress = (1u64 << 31) - 4;
 
 // Mesa has issues with height/depth that don't fit in a 16 bits signed integers.
 const MAX_TEXTURE_EXTENT: u32 = std::i16::MAX as u32;
@@ -3608,6 +3611,7 @@ mod macos {
             desc.array_layer_count(),
             desc.mip_level_count,
             wgh::CopyExtent::map_extent_to_copy_size(&desc.size, desc.dimension),
+            None,
         );
 
         let (_, error) = unsafe {
@@ -3720,6 +3724,7 @@ mod macos {
                         height: desc.size.height,
                         depth: 1,
                     },
+                    None,
                 )
             };
 

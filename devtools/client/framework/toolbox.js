@@ -408,6 +408,8 @@ class Toolbox extends EventEmitter {
       }.bind(this)
     );
 
+    this.#descriptorFront.on("descriptor-destroyed", this.destroy);
+
     this.on("host-changed", this.#refreshHostTitle);
     this.on("select", this.#onToolSelected);
 
@@ -960,6 +962,10 @@ class Toolbox extends EventEmitter {
       this.commands.targetCommand.on(
         "target-thread-wrong-order-on-resume",
         this.#onTargetThreadFrontResumeWrongOrder
+      );
+      this.commands.targetCommand.on(
+        "target-location-updated",
+        this.#onTargetLocationUpdated.bind(this)
       );
       registerStoreObserver(
         this.commands.targetCommand.store,
@@ -2483,31 +2489,23 @@ class Toolbox extends EventEmitter {
   updateToolboxButtonsVisibility({ fromWillNavigate = false } = {}) {
     const inspectorFront = this.target.getCachedFront("inspector");
 
-    let hasHighlighters = false;
+    let toggledHighlighters = false;
     for (const button of this.toolbarButtons) {
       button.isVisible = this.#commandIsVisible(button);
 
+      // We want to hide highlighters when the toolbox button is disabled from the options panel
       if (
         inspectorFront &&
-        // We want to destroy highlighters associated with the toolbox button when:
-        // - the button gets hidden (from the Settings panel)
-        // - or when we're going to navigate
-        (!button.isVisible || fromWillNavigate)
+        button.highlighterTypes &&
+        !button.isVisible &&
+        button.isChecked
       ) {
-        if (!button.highlighterTypes) {
-          continue;
-        }
-
-        for (const type of button.highlighterTypes) {
-          if (inspectorFront.getKnownHighlighter(type)?.isShown()) {
-            inspectorFront.destroyHighlighterByType(type);
-            hasHighlighters = true;
-          }
-        }
+        button.onClick({});
+        toggledHighlighters = true;
       }
     }
 
-    if (hasHighlighters || !fromWillNavigate) {
+    if (toggledHighlighters || !fromWillNavigate) {
       this.#renderToolboxButtons();
     }
   }
@@ -4363,6 +4361,8 @@ class Toolbox extends EventEmitter {
     // skip their destroy.
     this.commands.client.isToolboxDestroy = true;
 
+    this.#descriptorFront.off("descriptor-destroyed", this.destroy);
+
     this.off("select", this.#onToolSelected);
     this.off("host-changed", this.#refreshHostTitle);
 
@@ -5055,39 +5055,6 @@ class Toolbox extends EventEmitter {
         errors = 0;
       }
 
-      if (
-        resourceType === TYPES.DOCUMENT_EVENT &&
-        !resource.isFrameSwitching &&
-        // `url` is set on the targetFront when we receive dom-loading, and `title` when
-        // `dom-interactive` is received. Here we're only updating the window title in
-        // the "newer" event.
-        resource.name === "dom-interactive"
-      ) {
-        // the targetFront title and url are updated on dom-interactive, so delay refreshing
-        // the host title a bit in order for the event listener in targetCommand to be
-        // executed.
-        setTimeout(() => {
-          if (resource.targetFront.isDestroyed()) {
-            // The resource's target might have been destroyed in between and
-            // would no longer have a valid actorID available.
-            return;
-          }
-
-          this.#updateFrames({
-            frameData: {
-              id: resource.targetFront.actorID,
-              url: resource.targetFront.url,
-              title: resource.targetFront.title,
-            },
-          });
-
-          if (resource.targetFront.isTopLevel) {
-            this.#refreshHostTitle();
-            this.#setDebugTargetData();
-          }
-        }, 0);
-      }
-
       if (resourceType == TYPES.THREAD_STATE) {
         this.#onThreadStateChanged(resource);
       }
@@ -5116,6 +5083,25 @@ class Toolbox extends EventEmitter {
 
     this.setErrorCount(errors);
   };
+
+  /**
+   * Called by TargetCommand whenever the top level target navigated to a new document
+   * and its `url` and `title` are guaranteed to be updated to the new location.
+   */
+  #onTargetLocationUpdated(targetFront) {
+    this.#updateFrames({
+      frameData: {
+        id: targetFront.actorID,
+        url: targetFront.url,
+        title: targetFront.title,
+      },
+    });
+
+    if (targetFront.isTopLevel) {
+      this.#refreshHostTitle();
+      this.#setDebugTargetData();
+    }
+  }
 
   /**
    * Set the number of errors in the toolbar icon.

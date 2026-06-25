@@ -192,6 +192,7 @@
 #include "mozilla/dom/HTMLMediaElement.h"
 #include "mozilla/dom/HTMLMetaElement.h"
 #include "mozilla/dom/HTMLObjectElement.h"
+#include "mozilla/dom/HTMLSelectElement.h"
 #include "mozilla/dom/HTMLSharedElement.h"
 #include "mozilla/dom/HTMLTextAreaElement.h"
 #include "mozilla/dom/HTMLVideoElement.h"
@@ -1523,91 +1524,22 @@ already_AddRefed<mozilla::dom::Promise> Document::AddCertException(
     return nullptr;
   }
 
-  nsresult rv = NS_OK;
-  if (NS_WARN_IF(!mFailedChannel)) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
+  WindowGlobalChild* wgc = GetWindowGlobalChild();
+  if (!wgc) {
+    return nullptr;
   }
+  wgc->SendAddCertException(aIsTemporary)
+      ->Then(GetCurrentSerialEventTarget(), __func__,
+             [promise](const mozilla::MozPromise<
+                       nsresult, mozilla::ipc::ResponseRejectReason,
+                       true>::ResolveOrRejectValue& aValue) {
+               if (aValue.IsResolve() && NS_SUCCEEDED(aValue.ResolveValue())) {
+                 promise->MaybeResolveWithUndefined();
+               } else {
+                 promise->MaybeReject(NS_ERROR_FAILURE);
+               }
+             });
 
-  nsCOMPtr<nsIURI> failedChannelURI;
-  NS_GetFinalChannelURI(mFailedChannel, getter_AddRefs(failedChannelURI));
-  if (!failedChannelURI) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
-  }
-
-  nsCOMPtr<nsIURI> innerURI = NS_GetInnermostURI(failedChannelURI);
-  if (!innerURI) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
-  }
-
-  nsAutoCString host;
-  innerURI->GetAsciiHost(host);
-  int32_t port;
-  innerURI->GetPort(&port);
-
-  nsCOMPtr<nsITransportSecurityInfo> tsi;
-  rv = mFailedChannel->GetSecurityInfo(getter_AddRefs(tsi));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    promise->MaybeReject(rv);
-    return promise.forget();
-  }
-  if (NS_WARN_IF(!tsi)) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
-  }
-
-  nsCOMPtr<nsIX509Cert> cert;
-  rv = tsi->GetServerCert(getter_AddRefs(cert));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    promise->MaybeReject(rv);
-    return promise.forget();
-  }
-  if (NS_WARN_IF(!cert)) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
-  }
-
-  if (XRE_IsContentProcess()) {
-    ContentChild* cc = ContentChild::GetSingleton();
-    MOZ_ASSERT(cc);
-    OriginAttributes const& attrs = NodePrincipal()->OriginAttributesRef();
-    cc->SendAddCertException(cert, host, port, attrs, aIsTemporary)
-        ->Then(GetCurrentSerialEventTarget(), __func__,
-               [promise](const mozilla::MozPromise<
-                         nsresult, mozilla::ipc::ResponseRejectReason,
-                         true>::ResolveOrRejectValue& aValue) {
-                 if (aValue.IsResolve()) {
-                   promise->MaybeResolve(aValue.ResolveValue());
-                 } else {
-                   promise->MaybeRejectWithUndefined();
-                 }
-               });
-    return promise.forget();
-  }
-
-  if (XRE_IsParentProcess()) {
-    nsCOMPtr<nsICertOverrideService> overrideService =
-        do_GetService(NS_CERTOVERRIDE_CONTRACTID);
-    if (!overrideService) {
-      promise->MaybeReject(NS_ERROR_FAILURE);
-      return promise.forget();
-    }
-
-    OriginAttributes const& attrs = NodePrincipal()->OriginAttributesRef();
-    rv = overrideService->RememberValidityOverride(host, port, attrs, cert,
-                                                   aIsTemporary);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      promise->MaybeReject(rv);
-      return promise.forget();
-    }
-
-    promise->MaybeResolveWithUndefined();
-    return promise.forget();
-  }
-
-  promise->MaybeReject(NS_ERROR_FAILURE);
   return promise.forget();
 }
 
@@ -2368,7 +2300,8 @@ Document::~Document() {
   // Clear mObservers to keep it in sync with the mutationobserver list
   mObservers.Clear();
 
-  mIntersectionObservers.Clear();
+  mIntersectionObservers.clear();
+  mResizeObservers.clear();
 
   if (mStyleSheetSetList) {
     mStyleSheetSetList->Disconnect();
@@ -2751,7 +2684,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreloadingImages)
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mIntersectionObservers)
+  tmp->mIntersectionObservers.clear();
+  tmp->mResizeObservers.clear();
 
   if (tmp->mListenerManager) {
     tmp->mListenerManager->Disconnect();
@@ -16534,6 +16468,7 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
 
   if (PopoverData* popoverData = popoverHTMLEl->GetPopoverData()) {
     // 14. Set element's popover trigger to null.
+    RefPtr<Element> invoker = popoverData->GetInvoker();
     popoverData->SetInvoker(nullptr);
 
     // 15. Set element's opened in popover mode to null.
@@ -16542,6 +16477,10 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
     // 16. Set element's popover visibility state to hidden.
     popoverHTMLEl->PopoverPseudoStateUpdate(false, true);
     popoverData->SetPopoverVisibilityState(PopoverVisibilityState::Hidden);
+
+    if (auto* select = HTMLSelectElement::FromNodeOrNull(invoker)) {
+      select->OnPopoverStateChanged(false);
+    }
   }
 
   // 17. If element is document's hint stack parent, or document's showing hint
@@ -17444,10 +17383,6 @@ void Document::DocAddSizeOfExcludingThis(nsWindowSizes& aWindowSizes) const {
         mCSSLoader->SizeOfIncludingThis(aWindowSizes.mState.mMallocSizeOf);
   }
 
-  aWindowSizes.mDOMSizes.mDOMResizeObserverControllerSize +=
-      mResizeObservers.ShallowSizeOfExcludingThis(
-          aWindowSizes.mState.mMallocSizeOf);
-
   if (mAttributeStyles) {
     aWindowSizes.mDOMSizes.mDOMOtherSize +=
         mAttributeStyles->DOMSizeOfIncludingThis(
@@ -18224,7 +18159,7 @@ WindowContext* Document::GetWindowContextForPageUseCounters() const {
 }
 
 void Document::UpdateIntersections(TimeStamp aNowTime) {
-  if (!mIntersectionObservers.IsEmpty()) {
+  if (!mIntersectionObservers.isEmpty()) {
     DOMHighResTimeStamp time = 0;
     if (nsPIDOMWindowInner* win = GetInnerWindow()) {
       if (Performance* perf = win->GetPerformance()) {
@@ -18351,9 +18286,25 @@ void Document::SynchronouslyUpdateRemoteBrowserDimensions(
   UpdateRemoteFrameEffects(aIncludeInactive);
 }
 
+void Document::AddIntersectionObserver(DOMIntersectionObserver& aObserver) {
+  MOZ_DIAGNOSTIC_ASSERT(!aObserver.isInList(),
+                        "Intersection observer already in a list");
+  mIntersectionObservers.insertBack(&aObserver);
+}
+
+void Document::RemoveIntersectionObserver(DOMIntersectionObserver& aObserver) {
+  if (aObserver.isInList()) {
+    aObserver.remove();
+  }
+}
+
 void Document::NotifyIntersectionObservers() {
-  const auto observers = ToTArray<nsTArray<RefPtr<DOMIntersectionObserver>>>(
-      mIntersectionObservers);
+  // Snapshot the observers: the callbacks can register/unregister observers,
+  // and the RefPtrs keep them alive across the notification.
+  AutoTArray<RefPtr<DOMIntersectionObserver>, 8> observers;
+  for (DOMIntersectionObserver* observer : mIntersectionObservers) {
+    observers.AppendElement(observer);
+  }
   for (const auto& observer : observers) {
     // MOZ_KnownLive because the 'observers' array guarantees to keep it
     // alive.
@@ -19413,6 +19364,18 @@ void Document::DetermineProximityToViewportAndNotifyResizeObservers() {
   ps->NotifyFontFaceSetOnRefresh();
 }
 
+void Document::AddResizeObserver(ResizeObserver& aObserver) {
+  MOZ_DIAGNOSTIC_ASSERT(!aObserver.isInList(),
+                        "Resize observer already in a list");
+  mResizeObservers.insertBack(&aObserver);
+}
+
+void Document::RemoveResizeObserver(ResizeObserver& aObserver) {
+  if (aObserver.isInList()) {
+    aObserver.remove();
+  }
+}
+
 void Document::GatherAllActiveResizeObservations(uint32_t aDepth) {
   for (ResizeObserver* observer : mResizeObservers) {
     observer->GatherActiveObservations(aDepth);
@@ -19424,8 +19387,10 @@ uint32_t Document::BroadcastAllActiveResizeObservations() {
 
   // Copy the observers as this invokes the callbacks and could register and
   // unregister observers at will.
-  const auto observers =
-      ToTArray<nsTArray<RefPtr<ResizeObserver>>>(mResizeObservers);
+  AutoTArray<RefPtr<ResizeObserver>, 8> observers;
+  for (ResizeObserver* observer : mResizeObservers) {
+    observers.AppendElement(observer);
+  }
   for (const auto& observer : observers) {
     // MOZ_KnownLive because 'observers' is guaranteed to keep it
     // alive.
@@ -19443,7 +19408,7 @@ uint32_t Document::BroadcastAllActiveResizeObservations() {
 }
 
 bool Document::HasAnySkippedResizeObservations() const {
-  for (const auto& observer : mResizeObservers) {
+  for (const auto* observer : mResizeObservers) {
     if (observer->HasSkippedObservations()) {
       return true;
     }
@@ -19452,7 +19417,7 @@ bool Document::HasAnySkippedResizeObservations() const {
 }
 
 bool Document::HasAnyActiveResizeObservations() const {
-  for (const auto& observer : mResizeObservers) {
+  for (const auto* observer : mResizeObservers) {
     if (observer->HasActiveObservations()) {
       return true;
     }

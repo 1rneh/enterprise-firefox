@@ -49,6 +49,10 @@
         app:destination="@id/microsurveyDialogFragment" />
 
     <action
+        android:id="@+id/action_global_uninstall_survey_dialog"
+        app:destination="@id/uninstallSurveyBottomSheetFragment" />
+
+    <action
         android:id="@+id/action_global_terms_of_use_dialog"
         app:destination="@+id/termsOfUseDialogFragment"
         app:launchSingleTop="true" />
@@ -351,6 +355,15 @@
     </dialog>
 
     <dialog
+      android:id="@+id/uninstallSurveyBottomSheetFragment"
+      android:name="org.mozilla.fenix.experiments.UninstallSurveyBottomSheetFragment">
+      <argument
+        android:name="microsurvey_id"
+        app:argType="string"
+        app:nullable="false" />
+    </dialog>
+
+    <dialog
         android:id="@+id/termsOfUseDialogFragment"
         android:name="org.mozilla.fenix.termsofuse.ui.TermsOfUseBottomSheetFragment">
         <argument
@@ -583,10 +596,6 @@
         <action
             android:id="@+id/action_settingsFragment_to_settingsSearchFragment"
             app:destination="@id/settingsSearchFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
-            app:popEnterAnim="@anim/slide_in_left"
-            app:popExitAnim="@anim/slide_out_right"
             app:popUpTo="@id/settingsFragment" />
         <action
             android:id="@+id/action_settingsFragment_to_dataChoicesFragment"
@@ -1054,10 +1063,6 @@
         <action
             android:id="@+id/action_secretSettingsFragment_to_secretSettingsSearchFragment"
             app:destination="@id/secretSettingsSearchFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
-            app:popEnterAnim="@anim/slide_in_left"
-            app:popExitAnim="@anim/slide_out_right"
             app:popUpTo="@id/secretSettingsPreference" />
         <action
             android:id="@+id/action_secretSettingsFragment_to_remoteSettingsServerFragment"

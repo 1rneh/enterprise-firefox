@@ -75,7 +75,10 @@ interface ChannelWrapper : EventTarget {
 
   /**
    * Returns the wrapper instance for the given channel. The same wrapper is
-   * always returned for a given channel.
+   * always returned for a given channel, provided that the extension was
+   * registered with the channel via registerTraceableChannel() first, and
+   * then called from the process that the extension runs in.
+   * Stops returning the channel after onStartRequest / onStopRequest.
    */
   static ChannelWrapper? getRegisteredChannel(unsigned long long aChannelId,
                                              WebExtensionPolicy extension,
@@ -196,10 +199,14 @@ interface ChannelWrapper : EventTarget {
 
 
   /**
-   * Register's this channel as traceable by the given add-on when accessed
-   * via the process of the given RemoteTab.
+   * Register's this channel as traceable by the given add-on. This is a
+   * prerequisite for enabling the use of ChannelWrapper.getRegisteredChannel
+   * and StreamFilter (webRequest.filterResponseData) later.
+   *
+   * Can only be called when the channel has been opened, not received a
+   * response yet, and has not failed. Ignored otherwise.
    */
-  undefined registerTraceableChannel(WebExtensionPolicy extension, RemoteTab? remoteTab);
+  undefined registerTraceableChannel(WebExtensionPolicy extension);
 
   /**
    * The current HTTP status code of the request. This will be 0 if a response

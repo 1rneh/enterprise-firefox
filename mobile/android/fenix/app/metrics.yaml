@@ -5498,6 +5498,22 @@ bookmarks_management:
     metadata:
       tags:
         - Bookmarks
+  import_cancelled:
+    type: event
+    description: |
+      The user cancelled an import operation
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2048941
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D307770
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Bookmarks
   import_failed:
     type: event
     description: |
@@ -5511,6 +5527,26 @@ bookmarks_management:
     notification_emails:
       - android-probes@mozilla.com
     expires: never
+    extra_keys:
+      error_code:
+        description: |
+          The error code describing what occurred during import.
+          Current values are:
+            1xxx - errors imply a file reading error
+            1001 - file read error
+
+            2xxx - errors imply an error encountered during parsing
+            2001 - parsing error - unsupported content type (like an html file that is not netscape
+          format)
+            2002 - parsing error - invalid format (content type is supported, but has a bad format)
+            2003 - parsing error - an unexpected error related to parsing
+
+            3xxx - errors imply an error encountered during bookmark insertion
+            3001 - bookmarks save error
+
+            4xxx - other errors not yet handled/classified
+            4001 - general unknown error
+        type: string
     metadata:
       tags:
         - Bookmarks
@@ -14081,7 +14117,7 @@ customization_settings:
       item:
         description: |
           A string containing the name of the shortcut the user selected. These items include:
-          new_tab, share, bookmark, translate, homepage, back, none.
+          new_tab, share, bookmark, translate, homepage, back, summarize, none.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2002636
@@ -15542,7 +15578,7 @@ toolbar:
           add_new_tab, add_new_tab_long_press, add_new_private_tab, tab_counter, tab_counter_long_press,
           menu, share, clear, refresh, stop, add_bookmark, edit_bookmark, security_indicator, qr_code,
           home, reader_mode, microphone, open_in_fenix, close, site_custom, search_engine_selector,
-          search_engine_selected, translate.
+          search_engine_selected, translate, summarize.
         type: string
       extra:
         description: |
@@ -15564,6 +15600,11 @@ ai_summarize:
     description: |
       Recorded when the user cancels or closes the summarization at any point.
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       model:
         description: The name of the model used for summarization.
         type: string
@@ -15576,6 +15617,7 @@ ai_summarize:
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
       - https://phabricator.services.mozilla.com/D300181
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15586,6 +15628,11 @@ ai_summarize:
     description: |
       Recorded when the summarizer service returns the summary or errors out.
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       success:
         description: True for success, false for failure.
         type: boolean
@@ -15630,8 +15677,10 @@ ai_summarize:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2025523
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2036474
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15643,13 +15692,20 @@ ai_summarize:
       Recorded when the consent flow concludes, either by the user
       accepting, declining, or dismissing the dialogue.
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       agreed:
         description: Whether the user accepted the consent.
         type: boolean
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2025523
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15661,6 +15717,11 @@ ai_summarize:
       Records when the user initiates summarization.
       (e.g. taps menu button, toolbar icon or shakes the device).
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       trigger:
         description: |
           How the user initiated summarization. Possible values:
@@ -15669,8 +15730,10 @@ ai_summarize:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2025523
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2036474
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15681,6 +15744,11 @@ ai_summarize:
     description: |
       Recorded when the summarizer service starts processing the page's text content.
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       trigger:
         description: |
           How the user initiated summarization. Possible values:
@@ -15702,10 +15770,58 @@ ai_summarize:
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2025523
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  provider_initialized:
+    type: event
+    description: |
+      Recorded when the LLM provider finishes initializing and is ready to
+      receive a prompt.
+    extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
+      model:
+        description: The name of the model used for summarization.
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D306314
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  first_response:
+    type: event
+    description: |
+      Recorded when the first chunk of the response is received back from the
+      LLM after the prompt is sent.
+    extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
+      model:
+        description: The name of the model used for summarization.
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D306314
+    data_sensitivity:
+      - technical
     notification_emails:
       - android-probes@mozilla.com
     expires: never

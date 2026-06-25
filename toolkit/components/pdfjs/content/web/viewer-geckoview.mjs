@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.401
- * pdfjsBuild = 124228e31
+ * pdfjsVersion = 6.0.429
+ * pdfjsBuild = e6539f651
  */
 
 ;// ./web/ui_utils.js
@@ -985,7 +985,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "ad3e0a25-4c2b-414a-816c-f3e03ab5d537";
+const INTERNAL_EVT = "1dd86b1c-2a32-4818-8f60-4acd2ffeae2f";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -3735,6 +3735,7 @@ class PasswordPrompt {
     this.input.addEventListener("keydown", e => {
       if (e.keyCode === 13) {
         this.#verify();
+        e.preventDefault();
       }
     });
     this.overlayManager.register(this.dialog, true);
@@ -6194,6 +6195,7 @@ class AnnotationLayerBuilder {
     this._cancelled = true;
     this.#eventAC?.abort();
     this.#eventAC = null;
+    this.annotationLayer?.destroy();
   }
   refreshCanvases() {
     this.annotationLayer?.refreshCanvases();
@@ -6236,7 +6238,7 @@ class AnnotationLayerBuilder {
         return;
     }
     for (const section of this.div.childNodes) {
-      if (section.hasAttribute("data-internal-link")) {
+      if (section.hasAttribute("data-internal-link") || section.classList.contains("mediaAnnotation")) {
         continue;
       }
       section.inert = disableFormElements;
@@ -8673,7 +8675,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.0.401";
+    const viewerVersion = "6.0.429";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }

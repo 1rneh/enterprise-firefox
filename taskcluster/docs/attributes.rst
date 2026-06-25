@@ -55,6 +55,7 @@ Project names are the repositories.  They can be:
 * `mozilla-beta`
 * `mozilla-release`
 * `mozilla-esr140`
+* `mozilla-esr153`
 * ... A partial list can be found in taskcluster/gecko_taskgraph/util/attributes.py
 
 For try, this attribute applies only if ``-p all`` is specified.  All jobs can
@@ -613,3 +614,8 @@ msi_display_name
 The human-readable product name for the MSI installer (e.g. ``Firefox Nightly``,
 ``Firefox Beta``, ``Firefox``). Used by downstream signing tasks to construct
 the Authenticode comment embedded in the installer signature.
+
+msix_identity_name
+==================
+
+Similar to msi_display_name but for MSIX packaging.

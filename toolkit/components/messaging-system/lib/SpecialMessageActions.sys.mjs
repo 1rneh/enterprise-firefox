@@ -176,13 +176,11 @@ export const SpecialMessageActions = {
     };
 
     try {
-      const result = await lazy.TaskbarTabs.findOrCreateTaskbarTab(uri, 0, {
+      await lazy.TaskbarTabs.findOrCreateTaskbarTab(uri, 0, {
         manifest,
+        ensurePinned: true,
       });
-      if (result.created) {
-        return true;
-      }
-      return null;
+      return true;
     } catch (e) {
       console.error("Failed to pin Taskbar Tab:", e);
       return false;
@@ -876,8 +874,9 @@ export const SpecialMessageActions = {
             let newTab = window.gBrowser.getTabForBrowser(newBrowser);
             window.gBrowser.addTabGroup([newTab], {
               insertBefore: tab.group.nextElementSibling,
-              isUserTriggered: true,
-              telemetryUserCreateSource: "messaging",
+              ...window.gBrowser.TabMetrics.userTriggeredContext(
+                window.gBrowser.TabMetrics.METRIC_SOURCE.MESSAGING
+              ),
             });
           }
           Services.obs.addObserver(observer, "browser-open-newtab-start");
@@ -886,8 +885,9 @@ export const SpecialMessageActions = {
           // Add the current tab to a new tab group in place.
           window.gBrowser.addTabGroup([tab], {
             insertBefore: tab,
-            isUserTriggered: true,
-            telemetryUserCreateSource: "messaging",
+            ...window.gBrowser.TabMetrics.userTriggeredContext(
+              window.gBrowser.TabMetrics.METRIC_SOURCE.MESSAGING
+            ),
           });
         }
         break;

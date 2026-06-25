@@ -4,6 +4,7 @@ subsuite = "devtools"
 support-files = [
   "reload/*",
   "local-mode/index.html",
+  "local-mode/folder/test.html",
   "browser_toolbox_options_disable_js.html",
   "browser_toolbox_options_disable_js_iframe.html",
   "browser_toolbox_options_disable_cache.sjs",
@@ -139,6 +140,8 @@ skip-if = [
 
 ["browser_target_support.js"]
 
+["browser_toolbox_adopted_tab.js"]
+
 ["browser_toolbox_backward_forward_navigation.js"]
 
 ["browser_toolbox_broken_xml_frame.js"]
@@ -227,6 +230,8 @@ skip-if = [
 
 ["browser_toolbox_options_local_mode.js"]
 
+["browser_toolbox_options_local_mode_notice.js"]
+
 ["browser_toolbox_options_multiple_tabs.js"]
 
 ["browser_toolbox_options_panel_toggle.js"]
@@ -245,6 +250,8 @@ disabled = "Bug 962258"
 ["browser_toolbox_ready.js"]
 
 ["browser_toolbox_remoteness_change.js"]
+
+["browser_toolbox_rulers_button_highlighter_reload.js"]
 
 ["browser_toolbox_screenshot_tool.js"]
 

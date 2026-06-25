@@ -23,12 +23,18 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     ]
 
     SOURCES += [
-        "nsMacShellService.cpp",
+        "nsMacShellService.mm",
     ]
 
     LOCAL_INCLUDES += [
         # For CocoaFileUtils
         "/xpcom/io"
+    ]
+
+    # UniformTypeIdentifiers only exists on macOS 11+; weak-link it so builds
+    # targeting older macOS still load (its use is guarded by @available).
+    OS_LIBS += [
+        "-weak_framework UniformTypeIdentifiers",
     ]
 elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
     XPIDL_SOURCES += [
@@ -65,6 +71,9 @@ elif CONFIG["OS_ARCH"] == "WINNT":
         "WindowsUIElement.cpp",
         "WindowsUIOverlayImage.cpp",
         "WindowsUserChoice.cpp",
+    ]
+    MOZ_SRC_FILES += [
+        "CustomIconManager.sys.mjs",
     ]
     LOCAL_INCLUDES += [
         "../../../other-licenses/nsis/Contrib/CityHash/cityhash",

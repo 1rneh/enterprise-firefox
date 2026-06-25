@@ -93,18 +93,6 @@ class LocalHttpRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(bytes(payload, "utf8"))
 
-    def do_POST(self):
-        print("POST", self.path)
-
-        if self.path == "/:shutdown":
-            print("Shutting down as requested")
-            self.reply("OK")
-            setattr(self.server, "_BaseServer__shutdown_request", True)
-            self.server.server_close()
-            return json.dumps({})
-
-        return None
-
     def not_found(self, path=None):
         self.send_response(404, "Not Found")
         self.send_header("Content-Length", "0")
@@ -444,7 +432,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
     def do_POST(self):
         print("POST", self.path)
-        m = super().do_POST()
+        m = None
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -810,13 +798,23 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
             self._logger.info("Browser was already manually closed.")
 
         self._logger.info("Shutting down console")
-        requests.post(f"http://localhost:{self.console_port}/:shutdown", timeout=2)
+        self.console_httpd.terminate()
+        self.console_httpd.join(timeout=5)
+        if self.console_httpd.is_alive():
+            self._logger.warning(
+                "Console process did not exit after terminate; sending SIGKILL"
+            )
+            self.console_httpd.kill()
+            self.console_httpd.join(timeout=2)
         self._logger.info("Shutting down SSO")
-        requests.post(f"http://localhost:{self.sso_port}/:shutdown", timeout=2)
-        self._logger.info("Stopping process console")
-        self.console_httpd.join()
-        self._logger.info("Stopping process SSO")
-        self.sso_httpd.join()
+        self.sso_httpd.terminate()
+        self.sso_httpd.join(timeout=5)
+        if self.sso_httpd.is_alive():
+            self._logger.warning(
+                "SSO process did not exit after terminate; sending SIGKILL"
+            )
+            self.sso_httpd.kill()
+            self.sso_httpd.join(timeout=2)
         self._logger.info("All stopped")
 
         # If the test never started a child browser, this would not exists

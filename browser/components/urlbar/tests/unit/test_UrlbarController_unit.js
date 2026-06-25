@@ -57,23 +57,23 @@ add_setup(function () {
 
 add_task(function test_constructor_throws() {
   Assert.throws(
-    () => new UrlbarController(),
+    () => new UrlbarParentController(),
     /options is undefined/,
     "Should throw if the input was not supplied"
   );
   Assert.throws(
-    () => new UrlbarController({ input: {} }),
+    () => new UrlbarParentController({ input: {} }),
     /input is missing 'window' property/,
     "Should throw if the input is not a UrlbarInput"
   );
   Assert.throws(
-    () => new UrlbarController({ input: { window: {} } }),
+    () => new UrlbarParentController({ input: { window: {} } }),
     /input.window should be an actual browser window/,
     "Should throw if the input.window is not a window"
   );
   Assert.throws(
     () =>
-      new UrlbarController({
+      new UrlbarParentController({
         input: {
           window: {
             location: "about:fake",
@@ -85,7 +85,7 @@ add_task(function test_constructor_throws() {
   );
   Assert.throws(
     () =>
-      new UrlbarController({
+      new UrlbarParentController({
         input: {
           window: {
             location: {
@@ -99,7 +99,7 @@ add_task(function test_constructor_throws() {
   );
   Assert.throws(
     () =>
-      new UrlbarController({
+      new UrlbarParentController({
         input: {
           window: {
             location: {
@@ -114,7 +114,7 @@ add_task(function test_constructor_throws() {
 
   Assert.throws(
     () =>
-      new UrlbarController({
+      new UrlbarParentController({
         input: {
           isPrivate: false,
           window: {
@@ -128,7 +128,7 @@ add_task(function test_constructor_throws() {
     "Should throw if input.sapName is not set"
   );
 
-  new UrlbarController({
+  new UrlbarParentController({
     input: {
       isPrivate: false,
       window: {
@@ -156,13 +156,15 @@ add_task(function test_add_and_remove_listeners() {
     "Should throw for a non-object listener"
   );
 
-  const listener = {};
+  const listener = { onFake: sandbox.stub() };
 
   controller.addListener(listener);
 
-  Assert.ok(
-    controller._listeners.has(listener),
-    "Should have added the listener to the list."
+  controller.notify("onFake");
+  Assert.equal(
+    listener.onFake.callCount,
+    1,
+    "Should have notified the added listener."
   );
 
   // Adding a non-existent listener shouldn't throw.
@@ -170,9 +172,11 @@ add_task(function test_add_and_remove_listeners() {
 
   controller.removeListener(listener);
 
-  Assert.ok(
-    !controller._listeners.has(listener),
-    "Should have removed the listener from the list"
+  controller.notify("onFake");
+  Assert.equal(
+    listener.onFake.callCount,
+    1,
+    "Should not have notified the removed listener."
   );
 
   sandbox.resetHistory();
@@ -243,8 +247,8 @@ add_task(function test_handle_query_starts_search() {
   assertContextMatches(fPM.startQuery.args[0][0], {});
   Assert.equal(
     fPM.startQuery.args[0][1],
-    controller,
-    "Should have passed the controller as the second argument"
+    controller.parentController,
+    "Should have passed the parent controller as the second argument"
   );
 
   Assert.equal(
@@ -283,8 +287,8 @@ add_task(async function test_handle_query_starts_search_sets_allowAutofill() {
   });
   Assert.equal(
     fPM.startQuery.args[0][1],
-    controller,
-    "Should have passed the controller as the second argument"
+    controller.parentController,
+    "Should have passed the parent controller as the second argument"
   );
 
   sandbox.resetHistory();

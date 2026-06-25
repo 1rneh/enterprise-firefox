@@ -113,12 +113,6 @@ module.exports = function (config) {
               functions: 8,
               branches: 0,
             },
-            "lib/UTEventReporting.sys.mjs": {
-              statements: 100,
-              lines: 100,
-              functions: 100,
-              branches: 75,
-            },
             "lib/Screenshots.sys.mjs": {
               statements: 94,
               lines: 94,
@@ -378,6 +372,13 @@ module.exports = function (config) {
             },
             // Coverage for this component lives in Jest (test/jest/content-src/components/Widgets/Clocks.test.jsx)
             "content-src/components/Widgets/Clocks/Clocks.jsx": {
+              statements: 0,
+              lines: 0,
+              functions: 0,
+              branches: 0,
+            },
+            // Coverage for this component lives in Jest (test/jest/content-src/components/Widgets/Privacy.test.jsx)
+            "content-src/components/Widgets/Privacy/Privacy.jsx": {
               statements: 0,
               lines: 0,
               functions: 0,

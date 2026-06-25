@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { ActorManagerParent } from "resource://gre/modules/ActorManagerParent.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 
@@ -421,22 +422,6 @@ let JSWINDOWACTORS = {
       "about:test-about-content-search-ui",
     ],
     remoteTypes: ["privilegedabout"],
-  },
-
-  ContextMenu: {
-    parent: {
-      esModuleURI: "resource:///actors/ContextMenuParent.sys.mjs",
-    },
-
-    child: {
-      esModuleURI: "resource:///actors/ContextMenuChild.sys.mjs",
-      events: {
-        contextmenu: { mozSystemGroup: true },
-      },
-    },
-
-    allFrames: true,
-    safeForUntrustedWebProcess: true,
   },
 
   CustomKeys: {
@@ -894,6 +879,18 @@ let JSWINDOWACTORS = {
     safeForUntrustedWebProcess: true,
   },
 
+  Urlbar: {
+    parent: {
+      esModuleURI: "resource:///actors/UrlbarParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "resource:///actors/UrlbarChild.sys.mjs",
+    },
+    includeChrome: true,
+    matches: ["chrome://browser/content/browser.xhtml"],
+    remoteTypes: ["parent"],
+  },
+
   WebRTC: {
     parent: {
       esModuleURI: "resource:///actors/WebRTCParent.sys.mjs",
@@ -906,6 +903,24 @@ let JSWINDOWACTORS = {
     safeForUntrustedWebProcess: true,
   },
 };
+
+if (!AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltUI()) {
+  JSWINDOWACTORS.ContextMenu = {
+    parent: {
+      esModuleURI: "resource:///actors/ContextMenuParent.sys.mjs",
+    },
+
+    child: {
+      esModuleURI: "resource:///actors/ContextMenuChild.sys.mjs",
+      events: {
+        contextmenu: { mozSystemGroup: true },
+      },
+    },
+
+    allFrames: true,
+    safeForUntrustedWebProcess: true,
+  };
+}
 
 export let DesktopActorRegistry = {
   init() {

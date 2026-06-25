@@ -180,7 +180,7 @@ object MainMenuSelectors {
         strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
         value = getStringResource(R.string.browser_menu_change_wallpaper),
         description = "Change wallpaper Settings button",
-        groups = listOf("requiredForPage", "homePageMainMenuItems", "browserViewMainMenuItems"),
+        groups = listOf("homePageMainMenuItems"),
     )
 
     val SAVE_TO_COLLECTIONS_BUTTON = Selector(
@@ -188,6 +188,13 @@ object MainMenuSelectors {
         value = getStringResource(R.string.browser_menu_save_to_collection_2),
         description = "Save to collections button",
         groups = listOf("moreMainMenuItems"),
+    )
+
+    val ADD_TO_SHORTCUTS_BUTTON = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
+        value = getStringResource(R.string.browser_menu_add_to_shortcuts),
+        description = "Main menu Add to shortcuts button",
+        groups = listOf("browserViewMainMenuMoreItems"),
     )
 
     val all = listOf(
@@ -213,5 +220,6 @@ object MainMenuSelectors {
         MORE_BUTTON,
         CHANGE_WALLPAPER_BUTTON,
         SAVE_TO_COLLECTIONS_BUTTON,
+        ADD_TO_SHORTCUTS_BUTTON,
     )
 }

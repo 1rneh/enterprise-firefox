@@ -2,7 +2,7 @@
 head = "head.js"
 support-files = ["config_broken_json.json"]
 prefs = [
-  "browser.policies.remote.enabled=false",
+  "enterprise.policies.live.enabled=false",
 ]
 
 ["browser_policies_basic_tests.js"]

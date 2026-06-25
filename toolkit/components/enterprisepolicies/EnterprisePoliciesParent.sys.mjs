@@ -49,7 +49,7 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 // To allow for cleaning up old policies
 const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
-const PREF_REMOTE_POLICIES_ENABLED = "browser.policies.remote.enabled";
+const PREF_REMOTE_POLICIES_ENABLED = "enterprise.policies.live.enabled";
 
 const STATUS_NAMES = {
   [Ci.nsIEnterprisePolicies.UNINITIALIZED]: "UNINITIALIZED",
@@ -1205,7 +1205,7 @@ class JSONPoliciesProvider extends PoliciesProvider {
  */
 
 class RemotePoliciesProvider extends PoliciesProvider {
-  POLLING_FREQUENCY_PREF = "browser.policies.live_polling.frequency";
+  POLLING_FREQUENCY_PREF = "enterprise.policies.live.polling_interval";
   POLLING_FREQUENCY_FALLBACK = 60_000;
 
   static #instance = null;

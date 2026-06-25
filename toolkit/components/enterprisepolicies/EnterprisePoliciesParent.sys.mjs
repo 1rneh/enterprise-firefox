@@ -182,6 +182,7 @@ EnterprisePoliciesManager.prototype = {
         // and no shutdown will be needed then
         lazy.EnterpriseHandler.initiateShutdown();
       }
+      return;
     }
 
     this._updateStatus();

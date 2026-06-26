@@ -26,16 +26,24 @@ const POLICY_PARAM_STATE = {
 
 add_setup(async () => {
   PoliciesPrefTracker.start();
-  registerCleanupFunction(() => {
-    PoliciesPrefTracker.stop();
+
+  // The engine initializes during browser startup, before this setup runs.
+  // Enabling remote policies via the manifest would make the startup init
+  // attempt an unstubbed remote fetch, fail, and shut the browser down. Instead
+  // enable remote here, serve an empty policy set, the policy engines get
+  // restarted in each test file
+  EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
+  await SpecialPowers.pushPrefEnv({
+    set: [["enterprise.policies.live.enabled", true]],
   });
 
-  registerCleanupFunction(async () => {
+  registerCleanupFunction(() => {
     Services.obs.notifyObservers(null, "EnterprisePolicies:Reset");
     if (EnterprisePolicyTesting.remotePoliciesStub) {
       EnterprisePolicyTesting.remotePoliciesStub.restore();
       EnterprisePolicyTesting.remotePoliciesStub = null;
     }
+    PoliciesPrefTracker.stop();
   });
 });
 
@@ -54,8 +62,6 @@ async function setupPolicyEngineWithCombinedPolicyProvider(
   remotePolicies,
   customSchema
 ) {
-  PoliciesPrefTracker.restoreDefaultValues();
-
   // Stub the remote policies endpoint before the restart so the remote provider
   // serves them during startup.
   EnterprisePolicyTesting.stubRemotePolicies(remotePolicies);

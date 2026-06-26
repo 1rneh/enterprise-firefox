@@ -1,7 +1,6 @@
 [DEFAULT]
 head = "head.js"
 prefs = [
-  "enterprise.policies.live.enabled=true",
   "enterprise.policies.live.polling_interval=500",
 ]
 run-if = [

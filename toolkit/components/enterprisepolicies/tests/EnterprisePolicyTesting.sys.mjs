@@ -13,7 +13,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchTestUtils: "resource://testing-common/SearchTestUtils.sys.mjs",
   modifySchemaForTests: "resource:///modules/policies/schema.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
-  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
 });
 
 export var EnterprisePolicyTesting = {

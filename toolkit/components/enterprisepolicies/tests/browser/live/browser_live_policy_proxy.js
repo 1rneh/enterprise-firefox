@@ -58,7 +58,7 @@ add_task(async function test_apply_then_remove_proxy() {
   );
 
   info("Setting up policy engine.");
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         Proxy: {
@@ -117,7 +117,7 @@ add_task(async function test_apply_then_remove_proxy_locked() {
     "changeProxySettings is allowed"
   );
 
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         Proxy: {
@@ -165,7 +165,7 @@ add_task(async function test_apply_then_remove_proxy_locked() {
 });
 
 add_task(async function test_apply_proxy_then_change_proxy() {
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         Proxy: {

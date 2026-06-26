@@ -33,7 +33,7 @@ add_setup(async () => {
 add_task(async function test_policy_update_apply_new_policy() {
   currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {},
     },
@@ -76,7 +76,7 @@ add_task(async function test_policy_update_apply_new_policy() {
 add_task(async function test_policy_update_apply_policy_param_update() {
   currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         TestPolicy: POLICY_PARAM_STATE.APPLIED,
@@ -123,7 +123,7 @@ add_task(async function test_policy_update_apply_policy_param_update() {
 add_task(async function test_policy_update_remove_old_policy() {
   currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         TestPolicy: POLICY_PARAM_STATE.APPLIED,
@@ -166,7 +166,7 @@ add_task(async function test_policy_update_remove_old_policy() {
 add_task(async function test_policy_update_no_changes() {
   currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         TestPolicy: POLICY_PARAM_STATE.APPLIED,
@@ -252,7 +252,7 @@ add_task(async function test_policy_update_invalid_params_keeps_previous() {
   currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
   // Apply the policy with valid parameters.
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         TestPolicy: POLICY_PARAM_STATE.APPLIED,

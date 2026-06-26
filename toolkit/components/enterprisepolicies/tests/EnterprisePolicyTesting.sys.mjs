@@ -137,7 +137,7 @@ export var EnterprisePolicyTesting = {
    * @param {object} customSchema custom policy schema
    * @returns {Promise} Promise that resolves once the initial set of policies are applied
    */
-  async servePolicyWithRemoteJson(policies, customSchema) {
+  async setupEngineWithRemotePolicies(policies, customSchema) {
     PoliciesPrefTracker.restoreDefaultValues();
 
     lazy.modifySchemaForTests(customSchema || null);

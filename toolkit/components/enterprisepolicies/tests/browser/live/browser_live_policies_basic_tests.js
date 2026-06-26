@@ -48,7 +48,7 @@ add_task(async function test_simple_remote_policies() {
     },
   };
 
-  await EnterprisePolicyTesting.servePolicyWithRemoteJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         simple_policy0: true,

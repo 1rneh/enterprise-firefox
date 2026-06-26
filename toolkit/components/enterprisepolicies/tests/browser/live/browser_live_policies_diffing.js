@@ -186,11 +186,35 @@ add_task(async function test_policy_update_no_changes() {
     `Expected the policy parameter "applied".`
   );
 
-  // Revert back to DEFAULT (pref is unlocked)
+  // Revert the tracked value locally. A subsequent poll that returns the same
+  // remote policies must not re-apply the policy since the payload is
+  // unchanged.
   currentPolicyValue = POLICY_PARAM_STATE.DEFAULT;
 
-  // Wait for next policy update to complete
-  await EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  let updateDispatched = false;
+  const onUpdate = () => {
+    updateDispatched = true;
+  };
+  Services.obs.addObserver(onUpdate, "EnterprisePolicies:PolicyUpdatesApplied");
+
+  // Wait for two more polls. Once the second poll fetches, the first poll's
+  // full cycle (fetch and any update dispatch) has completed.
+  const pollsBefore = EnterprisePolicyTesting.remotePoliciesStub.callCount;
+  await TestUtils.waitForCondition(
+    () =>
+      EnterprisePolicyTesting.remotePoliciesStub.callCount > pollsBefore + 1,
+    "Waiting for the poller to fetch the unchanged remote policies twice"
+  );
+
+  Services.obs.removeObserver(
+    onUpdate,
+    "EnterprisePolicies:PolicyUpdatesApplied"
+  );
+
+  Assert.ok(
+    !updateDispatched,
+    "Expected no policy update to be dispatched for unchanged remote policies."
+  );
 
   // Verify that the policy's callback wasn't called a second time.
   Assert.deepEqual(

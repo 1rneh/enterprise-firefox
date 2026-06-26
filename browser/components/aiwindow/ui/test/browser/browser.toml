@@ -112,6 +112,8 @@ skip-if = [
 
 ["browser_aiwindow_smartbar_placeholder.js"]
 
+["browser_aiwindow_smartbar_quicksuggest.js"]
+
 ["browser_aiwindow_smartbar_suggestions.js"]
 
 ["browser_aiwindow_smartbar_tab_switch.js"]
@@ -257,5 +259,7 @@ skip-if = [
   "os == 'win' && os_version == '11.26200' && arch == 'x86'", # Bug 2024015
   "os == 'win' && os_version == '11.26200' && arch == 'x86_64'", # Bug 2024015
 ]
+
+["browser_smartwindow_topsites.js"]
 
 ["browser_smartwindow_uitool_telemetry.js"]

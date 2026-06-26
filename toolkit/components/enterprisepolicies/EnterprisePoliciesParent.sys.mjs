@@ -166,11 +166,6 @@ EnterprisePoliciesManager.prototype = {
   async _initialize() {
     this._cleanupPolicies();
 
-    this._policiesSchema = ChromeUtils.importESModule(
-      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-      "resource:///modules/policies/schema.sys.mjs"
-    ).schema;
-
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
     try {
@@ -496,7 +491,11 @@ EnterprisePoliciesManager.prototype = {
    * @returns {{ isValid: boolean, parsedParams: object|null}}
    */
   _validateAndParsePolicyParams(policyName, policyParams) {
-    const policySchema = this._policiesSchema.properties[policyName];
+    const { schema } = ChromeUtils.importESModule(
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      "resource:///modules/policies/schema.sys.mjs"
+    );
+    const policySchema = schema.properties[policyName];
 
     if (!policySchema) {
       lazy.log.error(`Unknown policy: ${policyName}`);

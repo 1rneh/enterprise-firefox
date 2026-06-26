@@ -56,19 +56,13 @@ async function setupPolicyEngineWithCombinedPolicyProvider(
 ) {
   PoliciesPrefTracker.restoreDefaultValues();
 
-  // Stub the remote policies endpoint.
-  const remotePoliciesAppliedPromise =
-    EnterprisePolicyTesting.applyRemotePolicies(remotePolicies, false);
+  // Stub the remote policies endpoint before the restart so the remote provider
+  // serves them during startup.
+  EnterprisePolicyTesting.stubRemotePolicies(remotePolicies);
 
-  // Put local policies in place (local policies.json file).
-  const localPoliciesAppliedPromise =
-    EnterprisePolicyTesting.setupPolicyEngineWithJson(
-      localPolicies,
-      customSchema
-    );
-
-  return Promise.all([
-    localPoliciesAppliedPromise,
-    remotePoliciesAppliedPromise,
-  ]);
+  // Apply the local policies (via policies.json) and restart the engine.
+  return EnterprisePolicyTesting.setupPolicyEngineWithJson(
+    localPolicies,
+    customSchema
+  );
 }

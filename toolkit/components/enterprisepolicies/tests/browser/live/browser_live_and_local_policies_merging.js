@@ -81,7 +81,9 @@ add_task(async function test_remote_policy_overrides_local_policy() {
     },
   };
 
-  await EnterprisePolicyTesting.applyRemotePolicies(remotePolicies);
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies(remotePolicies);
+  await updateApplied;
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
@@ -95,7 +97,9 @@ add_task(async function test_remote_policy_overrides_local_policy() {
   );
 
   // Remove remote policies, re-apply local policy
-  await EnterprisePolicyTesting.applyRemotePolicies({ policies: {} });
+  const removalApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
+  await removalApplied;
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),

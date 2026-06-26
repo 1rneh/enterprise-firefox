@@ -124,6 +124,12 @@ export var EnterprisePolicyTesting = {
     return promise;
   },
 
+  awaitAllPoliciesApplied() {
+    const { promise, resolve } = Promise.withResolvers();
+    this.resolveOnceAllPoliciesApplied(resolve);
+    return promise;
+  },
+
   /**
    * Sets up policy engine with initial set of startup policies provided remotely
    *
@@ -136,7 +142,9 @@ export var EnterprisePolicyTesting = {
 
     lazy.modifySchemaForTests(customSchema || null);
 
-    const policiesAppliedPromise = this.applyRemotePolicies(policies, false);
+    const policiesAppliedPromise = this.awaitAllPoliciesApplied();
+
+    this.stubRemotePolicies(policies);
 
     Services.obs.notifyObservers(null, "EnterprisePolicies:Restart");
 
@@ -144,23 +152,12 @@ export var EnterprisePolicyTesting = {
   },
 
   /**
-   * Listen for the policies to be applied and stub the remote policies.
+   * Stub ConsoleClient.getRemotePolicies so the remote provider serves the
+   * given policies.
    *
-   * @param {object} policies set of remote policies served by the stubbed ConsoleClient.getRemotePolicies
-   * @param {boolean} isUpdate Whether the promise resolves once all policies are
-   *                           applied on startup or once the policy update is complete
-   * @returns {Promise} Promise that resolves once the set of policies are applied
+   * @param {object} policies set of remote policies to serve
    */
-  async applyRemotePolicies(policies, isUpdate = true) {
-    const { promise, resolve } = Promise.withResolvers();
-    if (isUpdate) {
-      // Resolve once policies are updated
-      this.resolveOnceAllPolicyUpdatesApplied(resolve);
-    } else {
-      // Resolve once all policies are applied on initial activation
-      this.resolveOnceAllPoliciesApplied(resolve);
-    }
-
+  stubRemotePolicies(policies) {
     if (this.remotePoliciesStub) {
       this.remotePoliciesStub.restore();
     }
@@ -168,14 +165,7 @@ export var EnterprisePolicyTesting = {
       lazy.ConsoleClient,
       "getRemotePolicies"
     );
-
-    const returnRemotePolicies = () => {
-      return Promise.resolve(policies);
-    };
-
-    this.remotePoliciesStub.callsFake(returnRemotePolicies);
-
-    return promise;
+    this.remotePoliciesStub.callsFake(() => Promise.resolve(policies));
   },
 
   checkPolicyPref(prefName, expectedValue, expectedLockedness) {

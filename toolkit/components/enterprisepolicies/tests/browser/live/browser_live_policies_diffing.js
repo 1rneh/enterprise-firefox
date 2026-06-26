@@ -57,7 +57,9 @@ add_task(async function test_policy_update_apply_new_policy() {
     },
   };
 
-  await EnterprisePolicyTesting.applyRemotePolicies(policies);
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies(policies);
+  await updateApplied;
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
@@ -102,7 +104,9 @@ add_task(async function test_policy_update_apply_policy_param_update() {
     },
   };
 
-  await EnterprisePolicyTesting.applyRemotePolicies(policies);
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies(policies);
+  await updateApplied;
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
@@ -143,7 +147,9 @@ add_task(async function test_policy_update_remove_old_policy() {
     policies: {},
   };
 
-  await EnterprisePolicyTesting.applyRemotePolicies(policies);
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies(policies);
+  await updateApplied;
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
@@ -202,7 +208,9 @@ add_task(async function test_policy_update_no_changes() {
     policies: {},
   };
 
-  await EnterprisePolicyTesting.applyRemotePolicies(policies);
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies(policies);
+  await updateApplied;
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
@@ -246,11 +254,13 @@ add_task(async function test_policy_update_invalid_params_keeps_previous() {
   // Update the policy with invalid parameters (an object where the schema
   // requires a string). The previously applied policy must be kept, i.e.
   // neither removed nor re-applied.
-  await EnterprisePolicyTesting.applyRemotePolicies({
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({
     policies: {
       TestPolicy: { invalid: true },
     },
   });
+  await updateApplied;
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),

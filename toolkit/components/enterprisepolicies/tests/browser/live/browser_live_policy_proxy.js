@@ -85,9 +85,11 @@ add_task(async function test_apply_then_remove_proxy() {
   );
 
   // Remove Proxy policy
-  await EnterprisePolicyTesting.applyRemotePolicies({
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({
     policies: {},
   });
+  await updateApplied;
 
   // Assert proxy settings are removed
   checkProxyPref("http", "", 0);
@@ -143,9 +145,11 @@ add_task(async function test_apply_then_remove_proxy_locked() {
   );
 
   // Remove Proxy policy
-  await EnterprisePolicyTesting.applyRemotePolicies({
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({
     policies: {},
   });
+  await updateApplied;
 
   // Assert proxy settings are removed
   checkProxyPref("http", "", 0);
@@ -188,7 +192,8 @@ add_task(async function test_apply_proxy_then_change_proxy() {
   );
 
   // Network change from device posture? New policy
-  await EnterprisePolicyTesting.applyRemotePolicies({
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({
     policies: {
       Proxy: {
         HTTPProxy: "http.proxy2.example.com:10",
@@ -198,6 +203,7 @@ add_task(async function test_apply_proxy_then_change_proxy() {
       },
     },
   });
+  await updateApplied;
 
   // Assert proxy settings are set
   checkProxyPref("http", "http.proxy2.example.com", 10);

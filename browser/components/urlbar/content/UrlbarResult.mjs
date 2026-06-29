@@ -13,6 +13,8 @@
  * it is not possible to rely on instanceof checks or global state.
  */
 
+import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -50,8 +52,8 @@ export class UrlbarResult {
 
   /**
    * @param {object} params
-   * @param {Values<typeof lazy.UrlbarUtils.RESULT_TYPE>} params.type
-   * @param {Values<typeof lazy.UrlbarUtils.RESULT_SOURCE>} params.source
+   * @param {Values<typeof UrlbarShared.RESULT_TYPE>} params.type
+   * @param {Values<typeof UrlbarShared.RESULT_SOURCE>} params.source
    * @param {UrlbarAutofillData} [params.autofill]
    * @param {number} [params.exposureTelemetry]
    * @param {Values<typeof lazy.UrlbarUtils.RESULT_GROUP>} [params.group]
@@ -97,14 +99,14 @@ export class UrlbarResult {
   }) {
     // Type describes the payload and visualization that should be used for
     // this result.
-    if (!Object.values(lazy.UrlbarUtils.RESULT_TYPE).includes(type)) {
+    if (!Object.values(UrlbarShared.RESULT_TYPE).includes(type)) {
       throw new Error("Invalid result type");
     }
     this.#type = type;
 
     // Source describes which data has been used to derive this result. In case
     // multiple sources are involved, use the more privacy restricted.
-    if (!Object.values(lazy.UrlbarUtils.RESULT_SOURCE).includes(source)) {
+    if (!Object.values(UrlbarShared.RESULT_SOURCE).includes(source)) {
       throw new Error("Invalid result source");
     }
     this.#source = source;
@@ -142,7 +144,7 @@ export class UrlbarResult {
     this.#showFeedbackMenu = showFeedbackMenu;
     this.#suggestedIndex = suggestedIndex;
 
-    if (this.#type == lazy.UrlbarUtils.RESULT_TYPE.TIP) {
+    if (this.#type == UrlbarShared.RESULT_TYPE.TIP) {
       this.#isRichSuggestion = true;
       this.#richSuggestionIconSize = 24;
     }
@@ -415,8 +417,7 @@ export class UrlbarResult {
     let result = lazy.JsonSchemaValidator.validate(payload, schema, {
       allowExplicitUndefinedProperties: true,
       allowNullAsUndefinedProperties: true,
-      allowAdditionalProperties:
-        this.type == lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC,
+      allowAdditionalProperties: this.type == UrlbarShared.RESULT_TYPE.DYNAMIC,
     });
     if (!result.valid) {
       throw result.error;

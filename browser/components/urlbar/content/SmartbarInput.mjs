@@ -70,8 +70,6 @@ const lazy = XPCOMUtils.declareLazy({
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarQueryContext:
     "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
-  UrlbarProviderGlobalActions:
-    "moz-src:///browser/components/urlbar/UrlbarProviderGlobalActions.sys.mjs",
   UrlbarProviderHeuristicFallback:
     "moz-src:///browser/components/urlbar/UrlbarProviderHeuristicFallback.sys.mjs",
   UrlbarProviderOpenTabs:
@@ -1370,7 +1368,7 @@ ${
       } else {
         this.searchMode = {
           engineName: state.persist.originalEngineName,
-          source: lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
+          source: UrlbarShared.RESULT_SOURCE.SEARCH,
           isPreview: false,
         };
       }
@@ -1583,7 +1581,7 @@ ${
    * @param {Event} event - The triggering event.
    */
   #handleSuppressedNavigation(event) {
-    if (this._resultForCurrentValue?.type == lazy.UrlbarUtils.RESULT_TYPE.URL) {
+    if (this._resultForCurrentValue?.type == UrlbarShared.RESULT_TYPE.URL) {
       // pickResult() reads _lastSearchString for engagement telemetry. The
       // suppressed branch of startQuery() intentionally leaves it untouched
       // during typing, so set it here for the committed value only.
@@ -1721,7 +1719,7 @@ ${
     // when the view is open.
     let selectedPrivateResult =
       result &&
-      result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH &&
+      result.type == UrlbarShared.RESULT_TYPE.SEARCH &&
       result.payload.inPrivateWindow;
     let selectedPrivateEngineResult =
       selectedPrivateResult && result.payload.isPrivateEngine;
@@ -1732,8 +1730,8 @@ ${
       result &&
       (result.heuristic ||
         !this.valueIsTyped ||
-        result.type == lazy.UrlbarUtils.RESULT_TYPE.TIP ||
-        result.type == lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT ||
+        result.type == UrlbarShared.RESULT_TYPE.TIP ||
+        result.type == UrlbarShared.RESULT_TYPE.AI_CHAT ||
         this.value == this.#getValueFromResult(result));
     if (
       !isComposing &&
@@ -2032,7 +2030,7 @@ ${
     }
 
     if (
-      result.providerName == lazy.UrlbarProviderGlobalActions.name &&
+      result.providerName == "UrlbarProviderGlobalActions" &&
       this.#providesSearchMode(result) &&
       !this.view.selectedElement?.dataset.immediateSearch
     ) {
@@ -2051,7 +2049,7 @@ ${
     // engineering effort. See review discussion at bug 1667766.
     if (
       (this.searchMode?.isPreview &&
-        result.providerName == lazy.UrlbarProviderGlobalActions.name &&
+        result.providerName == "UrlbarProviderGlobalActions" &&
         !this.view.selectedElement?.dataset.immediateSearch) ||
       (result.heuristic &&
         this.searchMode?.isPreview &&
@@ -2063,7 +2061,7 @@ ${
     }
 
     if (
-      result.type == lazy.UrlbarUtils.RESULT_TYPE.TIP &&
+      result.type == UrlbarShared.RESULT_TYPE.TIP &&
       result.payload.type == "dismissalAcknowledgment"
     ) {
       // The user clicked the "Got it" button inside the dismissal
@@ -2132,7 +2130,7 @@ ${
     let isSplitViewActive = this.window.gBrowser.selectedTab.splitview;
 
     switch (result.type) {
-      case lazy.UrlbarUtils.RESULT_TYPE.URL: {
+      case UrlbarShared.RESULT_TYPE.URL: {
         if (result.heuristic) {
           // Bug 1578856: both the provider and the docshell run heuristics to
           // decide how to handle a non-url string, either fixing it to a url, or
@@ -2166,13 +2164,13 @@ ${
         }
         break;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.KEYWORD: {
+      case UrlbarShared.RESULT_TYPE.KEYWORD: {
         // If this result comes from a bookmark keyword, let it inherit the
         // current document's principal, otherwise bookmarklets would break.
         openParams.allowInheritPrincipal = true;
         break;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.TAB_SWITCH: {
+      case UrlbarShared.RESULT_TYPE.TAB_SWITCH: {
         // Behaviour is reversed with SecondaryActions, default behaviour is to navigate
         // and button is provided to switch to tab.
         if (
@@ -2245,7 +2243,7 @@ ${
 
         return;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.SEARCH: {
+      case UrlbarShared.RESULT_TYPE.SEARCH: {
         if (result.payload.providesSearchMode) {
           this.controller.engagementEvent.record(event, {
             result,
@@ -2297,8 +2295,7 @@ ${
 
         const actionDetails = {
           isSuggestion: !!result.payload.suggestion,
-          isFormHistory:
-            result.source == lazy.UrlbarUtils.RESULT_SOURCE.HISTORY,
+          isFormHistory: result.source == UrlbarShared.RESULT_SOURCE.HISTORY,
           alias: result.payload.keyword,
         };
         const engine = lazy.SearchService.getEngineByName(
@@ -2332,7 +2329,7 @@ ${
         }
         break;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.TIP: {
+      case UrlbarShared.RESULT_TYPE.TIP: {
         if (url) {
           break;
         }
@@ -2348,7 +2345,7 @@ ${
         });
         return;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC: {
+      case UrlbarShared.RESULT_TYPE.DYNAMIC: {
         if (!url) {
           // If we're not loading a URL, the engagement is done. First revert
           // and then record the engagement since providers expect the urlbar to
@@ -2370,7 +2367,7 @@ ${
         }
         break;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.OMNIBOX: {
+      case UrlbarShared.RESULT_TYPE.OMNIBOX: {
         this.controller.engagementEvent.record(event, {
           result,
           element,
@@ -2397,7 +2394,7 @@ ${
         );
         return;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.RESTRICT: {
+      case UrlbarShared.RESULT_TYPE.RESTRICT: {
         this.handleRevert();
         this.controller.engagementEvent.record(event, {
           result,
@@ -2415,7 +2412,7 @@ ${
 
         return;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT: {
+      case UrlbarShared.RESULT_TYPE.AI_CHAT: {
         this.controller.engagementEvent.record(event, {
           result,
           element,
@@ -2496,10 +2493,10 @@ ${
       let action;
       if (!result.heuristic) {
         switch (result.type) {
-          case lazy.UrlbarUtils.RESULT_TYPE.SEARCH:
+          case UrlbarShared.RESULT_TYPE.SEARCH:
             action = "search";
             break;
-          case lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT:
+          case UrlbarShared.RESULT_TYPE.AI_CHAT:
             action = "chat";
             break;
           default:
@@ -3095,7 +3092,7 @@ ${
           {
             engineName: searchEngine.name,
             entry: "searchbutton",
-            source: lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
+            source: UrlbarShared.RESULT_SOURCE.SEARCH,
             isPreview: false,
           },
           this.window.gBrowser.selectedBrowser
@@ -3182,7 +3179,7 @@ ${
    *   A search mode object.
    * @param {string} searchMode.engineName
    *   The name of the search engine to restrict to.
-   * @param {UrlbarUtils.RESULT_SOURCE} searchMode.source
+   * @param {Values<typeof UrlbarShared.RESULT_SOURCE>} searchMode.source
    *   A result source to restrict to.
    * @param {string} searchMode.entry
    *   How search mode was entered. This is recorded in event telemetry. One of
@@ -3239,7 +3236,7 @@ ${
         // History results for general-purpose search engines are often not
         // useful, so we hide them in search mode. See bug 1658646 for
         // discussion.
-        searchMode.source = lazy.UrlbarUtils.RESULT_SOURCE.SEARCH;
+        searchMode.source = UrlbarShared.RESULT_SOURCE.SEARCH;
       }
     } else if (source) {
       let sourceName = lazy.UrlbarUtils.getResultSourceName(source);
@@ -3353,7 +3350,7 @@ ${
     // We restrict to search results when entering search mode from this
     // shortcut to honor historical behaviour.
     this.searchMode = {
-      source: lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
+      source: UrlbarShared.RESULT_SOURCE.SEARCH,
       engineName: lazy.UrlbarSearchUtils.getDefaultEngine(this.isPrivate)?.name,
       entry: "shortcut",
     };
@@ -3864,7 +3861,7 @@ ${
     }
     if (
       this.view.selectedElement &&
-      result.providerName == lazy.UrlbarProviderGlobalActions.name
+      result.providerName == "UrlbarProviderGlobalActions"
     ) {
       return this.view.selectedElement.dataset.providesSearchmode == "true";
     }
@@ -4126,9 +4123,9 @@ ${
    */
   #getValueFromResult(result, { urlOverride = null, element = null } = {}) {
     switch (result.type) {
-      case lazy.UrlbarUtils.RESULT_TYPE.KEYWORD:
+      case UrlbarShared.RESULT_TYPE.KEYWORD:
         return result.payload.input;
-      case lazy.UrlbarUtils.RESULT_TYPE.SEARCH: {
+      case UrlbarShared.RESULT_TYPE.SEARCH: {
         let value = "";
         if (result.payload.keyword) {
           value += result.payload.keyword + " ";
@@ -4136,9 +4133,9 @@ ${
         value += result.payload.suggestion || result.payload.query;
         return value;
       }
-      case lazy.UrlbarUtils.RESULT_TYPE.OMNIBOX:
+      case UrlbarShared.RESULT_TYPE.OMNIBOX:
         return result.payload.content;
-      case lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC:
+      case UrlbarShared.RESULT_TYPE.DYNAMIC:
         return (
           element?.dataset.query ||
           element?.dataset.url ||
@@ -4146,11 +4143,11 @@ ${
           result.payload.query ||
           ""
         );
-      case lazy.UrlbarUtils.RESULT_TYPE.RESTRICT:
+      case UrlbarShared.RESULT_TYPE.RESTRICT:
         return result.payload.autofillKeyword + " ";
-      case lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT:
+      case UrlbarShared.RESULT_TYPE.AI_CHAT:
         return result.payload.query ?? "";
-      case lazy.UrlbarUtils.RESULT_TYPE.TIP: {
+      case UrlbarShared.RESULT_TYPE.TIP: {
         let value = element?.dataset.url || element?.dataset.input;
         if (value) {
           return value;
@@ -4209,9 +4206,9 @@ ${
    */
   #getActionTypeFromResult(result) {
     switch (result.type) {
-      case lazy.UrlbarUtils.RESULT_TYPE.TAB_SWITCH:
+      case UrlbarShared.RESULT_TYPE.TAB_SWITCH:
         return "switchtab";
-      case lazy.UrlbarUtils.RESULT_TYPE.OMNIBOX:
+      case UrlbarShared.RESULT_TYPE.OMNIBOX:
         return "extension";
       default:
         return undefined;
@@ -4243,7 +4240,7 @@ ${
     let allowAutofill =
       this.selectionEnd == value.length &&
       !this.searchMode?.engineName &&
-      this.searchMode?.source != lazy.UrlbarUtils.RESULT_SOURCE.SEARCH &&
+      this.searchMode?.source != UrlbarShared.RESULT_SOURCE.SEARCH &&
       !this.inputField.isHandlingMentions;
 
     if (!allowAutofill) {
@@ -4890,11 +4887,11 @@ ${
    *   Whether the search/URL term was without an explicit scheme.
    * @param {object} [resultDetails]
    *   Details of the selected result, if any.
-   * @param {Values<typeof lazy.UrlbarUtils.RESULT_TYPE>} [resultDetails.type]
+   * @param {Values<typeof UrlbarShared.RESULT_TYPE>} [resultDetails.type]
    *   Details of the result type, if any.
    * @param {string} [resultDetails.searchTerm]
    *   Search term of the result source, if any.
-   * @param {Values<typeof lazy.UrlbarUtils.RESULT_SOURCE>} [resultDetails.source]
+   * @param {Values<typeof UrlbarShared.RESULT_SOURCE>} [resultDetails.source]
    *   Details of the result source, if any.
    * @param {object} browser [optional] the browser to use for the load.
    */
@@ -5349,7 +5346,7 @@ ${
     }
 
     if (searchMode) {
-      if (result.type == lazy.UrlbarUtils.RESULT_TYPE.RESTRICT) {
+      if (result.type == UrlbarShared.RESULT_TYPE.RESTRICT) {
         searchMode.restrictType = "keyword";
       } else if (
         UrlbarShared.SEARCH_MODE_RESTRICT.has(result.payload.keyword)
@@ -6356,7 +6353,7 @@ ${
     // When we are in actions search mode we can show more results so
     // increase the limit.
     let maxResults =
-      this.searchMode?.source != lazy.UrlbarUtils.RESULT_SOURCE.ACTIONS
+      this.searchMode?.source != UrlbarShared.RESULT_SOURCE.ACTIONS
         ? lazy.UrlbarPrefs.get("maxRichResults")
         : UNLIMITED_MAX_RESULTS;
     let options = {
@@ -6919,14 +6916,14 @@ ${
       detectedAction = this.value ? "chat" : "";
     } else {
       switch (firstResult.type) {
-        case lazy.UrlbarUtils.RESULT_TYPE.URL:
-        case lazy.UrlbarUtils.RESULT_TYPE.KEYWORD:
+        case UrlbarShared.RESULT_TYPE.URL:
+        case UrlbarShared.RESULT_TYPE.KEYWORD:
           detectedAction = "navigate";
           break;
-        case lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT:
+        case UrlbarShared.RESULT_TYPE.AI_CHAT:
           detectedAction = "chat";
           break;
-        case lazy.UrlbarUtils.RESULT_TYPE.SEARCH:
+        case UrlbarShared.RESULT_TYPE.SEARCH:
           detectedAction = "search";
           break;
         default:

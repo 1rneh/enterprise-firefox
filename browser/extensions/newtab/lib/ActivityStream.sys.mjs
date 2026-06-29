@@ -18,6 +18,12 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
+// Eager (not lazy) — the pref default below reads it unconditionally at load.
+// eslint-disable-next-line mozilla/use-static-import
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -47,6 +53,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SectionsFeed: "resource://newtab/lib/SectionsManager.sys.mjs",
   SectionsLayoutFeed: "resource://newtab/lib/SectionsLayoutFeed.sys.mjs",
   SportsFeed: "resource://newtab/lib/Widgets/SportsFeed.sys.mjs",
+  PrivacyFeed: "resource://newtab/lib/Widgets/PrivacyFeed.sys.mjs",
   StartupCacheInit: "resource://newtab/lib/StartupCacheInit.sys.mjs",
   Store: "resource://newtab/lib/Store.sys.mjs",
   SystemTickFeed: "resource://newtab/lib/SystemTickFeed.sys.mjs",
@@ -645,6 +652,17 @@ export const PREFS_CONFIG = new Map([
     {
       title: "Max number of Top Sites to display per row",
       value: 8,
+    },
+  ],
+  [
+    "topSitesGroupedPins",
+    {
+      title:
+        "Group pinned Top Sites into a contiguous block with restricted drag-and-drop reordering",
+      // Channel-derived (resolves on the host), so it's on in Nightly but stays
+      // dark after the XPI train-hops to Beta/Release. A literal true would ride
+      // inside the XPI and wrongly activate.
+      value: AppConstants.NIGHTLY_BUILD,
     },
   ],
   [
@@ -1467,6 +1485,13 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.stocks.enabled",
+    {
+      title: "Enables the stocks widget",
+      value: true,
+    },
+  ],
+  [
     "widgets.system.privacy.enabled",
     {
       title: "Enables the privacy widget experiment in Nimbus",
@@ -1481,6 +1506,13 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.system.stocks.enabled",
+    {
+      title: "Enables the stocks widget experiment in Nimbus",
+      value: false,
+    },
+  ],
+  [
     "widgets.privacy.size",
     {
       title: "Size of the privacy widget (medium or large)",
@@ -1488,9 +1520,23 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.privacy.maxCount",
+    {
+      title: "Max trackers-blocked count shown before the '+' cap",
+      value: 100,
+    },
+  ],
+  [
     "widgets.crossword.size",
     {
       title: "Size of the crossword widget (medium or large)",
+      value: "",
+    },
+  ],
+  [
+    "widgets.stocks.size",
+    {
+      title: "Size of the stocks widget (small, medium, or large)",
       value: "",
     },
   ],
@@ -2060,6 +2106,13 @@ const FEEDS_DATA = [
     name: "sportsfeed",
     factory: () => new lazy.SportsFeed(),
     title: "Handles persistent state for the Sports widget",
+    value: true,
+  },
+  {
+    name: "privacyfeed",
+    factory: () => new lazy.PrivacyFeed(),
+    title:
+      "Handles fetching the daily tracker-blocked count for the Privacy widget",
     value: true,
   },
   {

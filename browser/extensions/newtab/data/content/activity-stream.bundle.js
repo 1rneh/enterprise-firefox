@@ -183,6 +183,7 @@ for (const type of [
   "NEW_TAB_INITIAL_STATE",
   "NEW_TAB_LOAD",
   "NEW_TAB_REHYDRATED",
+  "NEW_TAB_SCROLL",
   "NEW_TAB_STATE_REQUEST",
   "NEW_TAB_STATE_REQUEST_STARTUPCACHE",
   "NEW_TAB_STATE_REQUEST_WITHOUT_STARTUPCACHE",
@@ -308,6 +309,7 @@ for (const type of [
   "WIDGETS_LISTS_USER_EVENT",
   "WIDGETS_LISTS_USER_IMPRESSION",
   "WIDGETS_OPT_IN",
+  "WIDGETS_PRIVACY_UPDATE",
   "WIDGETS_SPORTS_CHANGE_FOLLOWED_ONLY",
   "WIDGETS_SPORTS_CHANGE_LIVE_INDEX",
   "WIDGETS_SPORTS_CHANGE_MATCHES_TAB",
@@ -6857,6 +6859,15 @@ const INITIAL_STATE = {
       results: { loading: false, exhausted: false, lastFetchedDate: null },
     },
   },
+  PrivacyWidget: {
+    initialized: false,
+    // Count of trackers blocked today, fetched by PrivacyFeed.
+    trackersToday: 0,
+    // Count of distinct sites visited today (Places-based proxy for
+    // "sites where we blocked something"; see PrivacyFeed).
+    sitesToday: 0,
+    lastUpdated: null,
+  },
 };
 
 function App(prevState = INITIAL_STATE.App, action) {
@@ -7720,6 +7731,21 @@ function Weather(prevState = INITIAL_STATE.Weather, action) {
   }
 }
 
+function PrivacyWidget(prevState = INITIAL_STATE.PrivacyWidget, action) {
+  switch (action.type) {
+    case actionTypes.WIDGETS_PRIVACY_UPDATE:
+      return {
+        ...prevState,
+        trackersToday: action.data.trackersToday,
+        sitesToday: action.data.sitesToday,
+        lastUpdated: action.data.lastUpdated,
+        initialized: true,
+      };
+    default:
+      return prevState;
+  }
+}
+
 function Ads(prevState = INITIAL_STATE.Ads, action) {
   switch (action.type) {
     case actionTypes.ADS_INIT:
@@ -7975,6 +8001,7 @@ const reducers = {
   Weather,
   ExternalComponents,
   SportsWidget,
+  PrivacyWidget,
 };
 
 ;// CONCATENATED MODULE: ./content-src/components/TopSites/TopSiteFormInput.jsx
@@ -8057,6 +8084,111 @@ function TopSiteFormInput({
     className: "error-tooltip",
     "data-l10n-id": errorMessageId
   })));
+}
+;// CONCATENATED MODULE: ./content-src/components/TopSites/PinnedAreaOverlay.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+// Sort pinned tiles by absolute slot index and group them into rows by top edge,
+// so multi-row pinned groups (wrapping at a breakpoint) work.
+function tilesToRows(tiles) {
+  const entries = tiles.map(el => ({
+    index: parseInt(el.dataset.index, 10),
+    rect: el.getBoundingClientRect()
+  })).sort((a, b) => a.index - b.index);
+  const rows = [];
+  for (const entry of entries) {
+    const row = rows.find(r => Math.abs(r[0].rect.top - entry.rect.top) < entry.rect.height / 2);
+    if (row) {
+      row.push(entry);
+    } else {
+      rows.push([entry]);
+    }
+  }
+  return rows;
+}
+
+// Min/max edges of a row of tile entries.
+function rowBounds(row) {
+  return {
+    top: Math.min(...row.map(e => e.rect.top)),
+    bottom: Math.max(...row.map(e => e.rect.bottom)),
+    left: Math.min(...row.map(e => e.rect.left)),
+    right: Math.max(...row.map(e => e.rect.right))
+  };
+}
+
+/**
+ * Per-row bounding boxes for the pinned group, relative to `containerEl`, for the
+ * drag-time drop overlay. Pinned tiles can wrap, so it's a set of row rects; each
+ * carries `startAbsIdx` (first slot index on that row).
+ */
+function computePinnedRowRects(tiles, containerEl) {
+  if (!tiles.length || !containerEl) {
+    return [];
+  }
+  const containerRect = containerEl.getBoundingClientRect();
+  return tilesToRows(tiles).map(row => {
+    const {
+      top: rowTop,
+      bottom,
+      left,
+      right
+    } = rowBounds(row);
+    return {
+      startAbsIdx: row[0].index,
+      top: rowTop - containerRect.top,
+      left: left - containerRect.left,
+      width: right - left,
+      height: bottom - rowTop
+    };
+  });
+}
+
+// The "Pinned Area" drop-zone box drawn around the pinned region during a drag.
+// Self-measuring: it reads the currently rendered `.pinned-cell` tiles from its
+// parent list, so it tracks the live reorder preview (growing/shrinking as the
+// dragged tile joins or leaves the group) without the drag hook owning any
+// geometry. `revision` changes whenever the previewed order does, to re-measure.
+function PinnedAreaOverlay({
+  active,
+  revision
+}) {
+  const rootRef = (0,external_React_namespaceObject.useRef)(null);
+  const [rowRects, setRowRects] = (0,external_React_namespaceObject.useState)([]);
+  (0,external_React_namespaceObject.useLayoutEffect)(() => {
+    const list = rootRef.current?.parentElement;
+    if (!list) {
+      return;
+    }
+    const cells = [...list.querySelectorAll(".top-site-outer.pinned-cell:not(.drag-ghost)")];
+    setRowRects(computePinnedRowRects(cells, list));
+  }, [active, revision]);
+  if (!active) {
+    return null;
+  }
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: "pinned-drag-overlay",
+    ref: rootRef
+  }, rowRects.map((row, rowIdx) => /*#__PURE__*/external_React_default().createElement("div", {
+    key: row.startAbsIdx,
+    className: "pinned-drop-box",
+    style: {
+      top: `${row.top}px`,
+      left: `${row.left}px`,
+      width: `${row.width}px`,
+      height: `${row.height}px`
+    }
+  }, rowIdx === 0 && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "pinned-area-label"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "icon icon-pin-small"
+  }), /*#__PURE__*/external_React_default().createElement("span", {
+    "data-l10n-id": "newtab-shortcuts-pinned-area"
+  })))));
 }
 ;// CONCATENATED MODULE: ./content-src/components/TopSites/TopSiteImpressionWrapper.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -8535,7 +8667,40 @@ function TopSite_extends() { return TopSite_extends = Object.assign ? Object.ass
 
 
 
+
 const NEWTAB_SOURCE = "newtab";
+
+// Tilt so the lifted drag ghost reads as "picked up" (counter-clockwise).
+const DRAG_GHOST_ROTATION_DEG = -7.5;
+// Cursor relative to the ghost's top edge; negative = cursor sits just above it.
+const DRAG_GHOST_CURSOR_INSET = -12;
+
+/**
+ * Clones the dragged tile, styles it (size + rotation, pin/menu chrome hidden via
+ * `.drag-ghost`), and hands it to native setDragImage so the platform draws and
+ * follows it. Mounted off-screen under the tile's parent to keep the cascade.
+ * Caller MUST call destroy() on dragend.
+ */
+function createDragGhost(e, el) {
+  const restingSize = Math.round(el.getBoundingClientRect().width);
+  const mountPoint = el.parentElement || document.body;
+  const clone = el.cloneNode(true);
+  clone.classList.add("drag-ghost", "active");
+  // Drop any open context menu from the clone so only the tile is lifted.
+  clone.querySelector(".context-menu")?.remove();
+  // Size the ghost to the hover/expanded tile (--col-width, per Figma), falling
+  // back to the resting size where that token isn't defined.
+  clone.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:var(--col-width, ${restingSize}px);height:var(--col-width, ${restingSize}px);margin:0;pointer-events:none;transform:rotate(${DRAG_GHOST_ROTATION_DEG}deg)`;
+  mountPoint.appendChild(clone);
+
+  // offsetWidth is the layout width, unaffected by the rotate transform.
+  e.dataTransfer.setDragImage(clone, clone.offsetWidth / 2, DRAG_GHOST_CURSOR_INSET);
+  return {
+    destroy() {
+      clone.remove();
+    }
+  };
+}
 class TopSiteLink extends (external_React_default()).PureComponent {
   constructor(props) {
     super(props);
@@ -8552,7 +8717,15 @@ class TopSiteLink extends (external_React_default()).PureComponent {
    * or the add shortcut button as their position is fixed.
    */
   _allowDrop(e) {
-    return (this.dragged || !isSponsored(this.props.link) && !this.props.isAddButton) && e.dataTransfer.types.includes("text/topsite-index");
+    if (!e.dataTransfer.types.includes("text/topsite-index")) {
+      return false;
+    }
+    // Grouped reorder is bounded to the pinned block: only pinned tiles are
+    // valid drop targets, so a tile can't be dropped out into the frecent area.
+    if (this.props.groupedPinsEnabled) {
+      return !!this.props.link.isPinned;
+    }
+    return this.dragged || !isSponsored(this.props.link) && !this.props.isAddButton;
   }
   onDragEvent(event) {
     switch (event.type) {
@@ -8571,9 +8744,15 @@ class TopSiteLink extends (external_React_default()).PureComponent {
         this.dragged = true;
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/topsite-index", this.props.index);
+        if (this.props.groupedPinsEnabled) {
+          // Lift a styled clone (rotated, hover-sized) as the drag image.
+          this._dragGhost = createDragGhost(event, event.currentTarget);
+        }
         this.props.onDragEvent(event, this.props.index, this.props.link, this.props.title);
         break;
       case "dragend":
+        this._dragGhost?.destroy();
+        this._dragGhost = null;
         this.props.onDragEvent(event);
         break;
       case "dragenter":
@@ -8715,7 +8894,7 @@ class TopSiteLink extends (external_React_default()).PureComponent {
       isAddButton,
       visibleTopSites
     } = this.props;
-    const topSiteOuterClassName = `top-site-outer${className ? ` ${className}` : ""}${link.isDragged ? " dragged" : ""}${link.searchTopSite ? " search-shortcut" : ""}`;
+    const topSiteOuterClassName = `top-site-outer${className ? ` ${className}` : ""}${link.isDragged ? " dragged" : ""}${link.isCollapsed ? " collapsed" : ""}${link.searchTopSite ? " search-shortcut" : ""}`;
     const [letterFallback] = title;
     const {
       showSmallFavicon,
@@ -8801,11 +8980,17 @@ class TopSiteLink extends (external_React_default()).PureComponent {
     }
     return /*#__PURE__*/external_React_default().createElement("li", TopSite_extends({
       className: topSiteOuterClassName,
+      ref: this.props.setRef
+    }, this.props.groupedPinsEnabled && {
+      // The drop-zone overlay measures the pinned block by data-index.
+      "data-index": this.props.index
+    }, !this.props.dropsOnList && {
+      // Per-tile drop targets (classic + grouped reorder). Zero-pin moves
+      // these to the list, since it has a single synthetic target.
       onDrop: this.onDragEvent,
       onDragOver: this.onDragEvent,
       onDragEnter: this.onDragEvent,
-      onDragLeave: this.onDragEvent,
-      ref: this.props.setRef
+      onDragLeave: this.onDragEvent
     }, draggableProps), /*#__PURE__*/external_React_default().createElement("div", {
       className: "top-site-inner"
     }, /*#__PURE__*/external_React_default().createElement("a", TopSite_extends({
@@ -9122,6 +9307,17 @@ class TopSitePlaceholder extends (external_React_default()).PureComponent {
     }));
   }
 }
+
+// The classic path renders this mode-agnostically. The grouped-pins path extends
+// it through an explicit, opt-in prop contract (all inert when groupedPinsEnabled
+// is false), kept here intentionally rather than composed via children/render-prop:
+//   - groupedPinsEnabled: turns on the grouped-mode behavior below
+//   - listProps / dropsOnList: zero-pin variant makes the whole <ul> one drop target
+//   - decorations: zero-pin placeholder slot (zeroPinSlot/overZeroPin/setZeroPinRef)
+//   - listRef: hands the <ul> back for the zero-pin drop geometry
+//   - PinnedAreaOverlay (rendered inside the <ul>) self-measures .pinned-cell tiles
+// Longer term these could be composed from the container (children/render-prop)
+// so this list goes back to being fully mode-agnostic.
 class _TopSiteList extends (external_React_default()).PureComponent {
   static get DEFAULT_STATE() {
     return {
@@ -9190,8 +9386,14 @@ class _TopSiteList extends (external_React_default()).PureComponent {
     const topSitesUI = [];
     const commonProps = {
       onDragEvent: this.props.onDragEvent,
-      dispatch: props.dispatch
+      dispatch: props.dispatch,
+      groupedPinsEnabled: this.props.groupedPinsEnabled,
+      // Zero-pin drops on the list (single target); everything else per-tile.
+      dropsOnList: !!this.props.listProps
     };
+    const {
+      decorations
+    } = this.props;
     // We assign a key to each placeholder slot. We need it to be independent
     // of the slot index (i below) so that the keys used stay the same during
     // drag and drop reordering and the underlying DOM nodes are reused.
@@ -9204,6 +9406,17 @@ class _TopSiteList extends (external_React_default()).PureComponent {
     const maxNarrowVisibleIndex = props.TopSitesRows * 6;
     const maxSmallVisibleIndex = props.TopSitesRows * 8;
     for (let i = 0, l = topSites.length; i < l; i++) {
+      // Zero-pin grouped drag: with no pins there are no slots to reorder, so
+      // open the pin area with one placeholder at the first pinnable slot.
+      if (decorations && i === decorations.zeroPinSlot) {
+        topSitesUI.push(/*#__PURE__*/external_React_default().createElement(TopSitePlaceholder, TopSite_extends({
+          key: "pinned-zero-drop",
+          index: i
+        }, commonProps, {
+          className: `zero-pin-placeholder pinned-cell${decorations.overZeroPin ? " over" : ""}`,
+          setRef: decorations.setZeroPinRef
+        })));
+      }
       const link = topSites[i] && Object.assign({}, topSites[i], {
         iconType: this.props.topSiteIconType(topSites[i])
       });
@@ -9222,6 +9435,11 @@ class _TopSiteList extends (external_React_default()).PureComponent {
         slotProps.className = "hide-for-small";
       } else if (i >= maxNarrowVisibleIndex) {
         slotProps.className = "hide-for-narrow";
+      }
+      // Marker (no styles) the drop-zone overlay measures to size the box. The
+      // preview marks a joining frecent isPinned, so the box grows with it.
+      if (this.props.groupedPinsEnabled && link?.isPinned) {
+        slotProps.className = `${slotProps.className ? `${slotProps.className} ` : ""}pinned-cell`;
       }
       const {
         key: slotKey,
@@ -9276,19 +9494,24 @@ class _TopSiteList extends (external_React_default()).PureComponent {
     }
     return /*#__PURE__*/external_React_default().createElement("div", {
       className: "top-sites-list-wrapper"
-    }, /*#__PURE__*/external_React_default().createElement("ul", {
+    }, /*#__PURE__*/external_React_default().createElement("ul", TopSite_extends({
       role: "group",
       "aria-label": "Shortcuts",
       onFocus: this.onWrapperFocus,
-      onBlur: this.onWrapperBlur,
+      onBlur: this.onWrapperBlur
+    }, this.props.listProps, {
       ref: el => {
         this.focusRef = el;
+        this.props.listRef?.(el);
       },
       className: `top-sites-list${this.props.draggedSite ? " dnd-active" : ""}`,
       style: {
         "--top-sites-max-per-row": this.props.topSitesMaxSitesPerRow ?? TOP_SITES_MAX_SITES_PER_ROW
       }
-    }, topSitesUI));
+    }), topSitesUI, this.props.groupedPinsEnabled && /*#__PURE__*/external_React_default().createElement(PinnedAreaOverlay, {
+      active: !!this.props.draggedSite,
+      revision: topSites
+    })));
   }
 }
 const TopSiteList = (0,external_ReactRedux_namespaceObject.connect)(state => ({
@@ -9598,7 +9821,9 @@ function useTopSitesDnD({
   isShiftable,
   // anchored site that slides to make room
   onDragStart,
-  onReorder // ({ site, title, fromIndex, toIndex }) — caller persists it
+  onReorder,
+  // ({ site, title, fromIndex, toIndex }) — caller persists it
+  pinInPlace // let a movable tile commit at its own slot (grouped pins only)
 }) {
   const [draggedIndex, setDraggedIndex] = (0,external_React_namespaceObject.useState)(null);
   const [draggedSite, setDraggedSite] = (0,external_React_namespaceObject.useState)(null);
@@ -9667,14 +9892,17 @@ function useTopSitesDnD({
         }
         break;
       case "dragenter":
-        if (index === draggedIndex) {
+        // Dropping on the dragged tile's own slot is a no-op when reordering,
+        // but with pinInPlace a movable tile dropped there still gets pinned,
+        // so preview the reflow instead of clearing it.
+        if (index === draggedIndex && !(pinInPlace && isMovable(draggedSite))) {
           setPreviewSites(null);
         } else {
           setPreviewSites(makeTopSitesPreview(index));
         }
         break;
       case "drop":
-        if (index !== draggedIndex) {
+        if (index !== draggedIndex || pinInPlace && isMovable(draggedSite)) {
           droppedRef.current = true;
           onReorder?.({
             site: draggedSite,
@@ -9685,14 +9913,18 @@ function useTopSitesDnD({
         }
         break;
     }
-  }, [draggedIndex, draggedSite, draggedTitle, makeTopSitesPreview, onDragStart, onReorder, resetDrag]);
+  }, [draggedIndex, draggedSite, draggedTitle, isMovable, pinInPlace, makeTopSitesPreview, onDragStart, onReorder, resetDrag]);
 
-  // Clear the drag once the committed order arrives (the dragged url left its
-  // old slot). Layout effect so the preview doesn't flash first.
+  // Clear the drag once the committed order arrives. Usually the dragged url has
+  // left its old slot; a pin-in-place drop commits at the same slot, so also
+  // clear when a drop happened and new rows arrived. Layout effect so the
+  // preview doesn't flash first.
   const prevRowsRef = (0,external_React_namespaceObject.useRef)(rows);
   (0,external_React_namespaceObject.useLayoutEffect)(() => {
     const prevRows = prevRowsRef.current;
-    if (draggedSite && prevRows && prevRows[draggedIndex] && prevRows[draggedIndex].url === draggedSite.url && (!rows[draggedIndex] || rows[draggedIndex].url !== draggedSite.url)) {
+    const movedFromSlot = prevRows?.[draggedIndex]?.url === draggedSite?.url && rows[draggedIndex]?.url !== draggedSite?.url;
+    const committedInPlace = droppedRef.current && prevRows && prevRows !== rows;
+    if (draggedSite && (movedFromSlot || committedInPlace)) {
       resetDrag();
     }
     prevRowsRef.current = rows;
@@ -9809,11 +10041,266 @@ function TopSiteListContainer(props) {
     draggedSite: draggedSite
   });
 }
+;// CONCATENATED MODULE: ./content-src/components/TopSites/useZeroPinDrop.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+// Drag-and-drop for the zero-pin case: with no pins there's nothing to reorder,
+// so this is just "drag one tile onto one target." A single placeholder marks
+// the first pinnable slot; dropping on it pins the tile there. No slots, no
+// geometry, no reorder preview — once there's a group, reordering is the classic
+// useTopSitesDnD hook. Domain bits are injected, as elsewhere.
+function useZeroPinDrop({
+  baseSites,
+  isSponsored,
+  // leading anchors the pin sits behind
+  onDragStart,
+  onReorder // ({ site, title, fromIndex, toIndex }) — caller persists it
+}) {
+  const [draggedIndex, setDraggedIndex] = (0,external_React_namespaceObject.useState)(null);
+  const [draggedSite, setDraggedSite] = (0,external_React_namespaceObject.useState)(null);
+  const [draggedTitle, setDraggedTitle] = (0,external_React_namespaceObject.useState)(null);
+  const [over, setOver] = (0,external_React_namespaceObject.useState)(false);
+  // Set on drop so the trailing dragend doesn't un-collapse the source before
+  // the pin commits (which swaps this container out entirely).
+  const droppedRef = (0,external_React_namespaceObject.useRef)(false);
+  const placeholderElRef = (0,external_React_namespaceObject.useRef)(null);
+  const setZeroPinRef = (0,external_React_namespaceObject.useCallback)(el => {
+    placeholderElRef.current = el;
+  }, []);
+
+  // First pinnable slot (after any leading sponsored); the backend lands it at
+  // group position 0.
+  const slot = baseSites.findIndex(site => site && !isSponsored(site));
+  const insertIndex = slot === -1 ? 0 : slot;
+  const isOver = (0,external_React_namespaceObject.useCallback)(event => {
+    const rect = placeholderElRef.current?.getBoundingClientRect();
+    return !!rect && event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }, []);
+  const resetDrag = (0,external_React_namespaceObject.useCallback)(() => {
+    setDraggedIndex(null);
+    setDraggedSite(null);
+    setDraggedTitle(null);
+    setOver(false);
+  }, []);
+  const onDragEvent = (0,external_React_namespaceObject.useCallback)((event, index, link, title) => {
+    switch (event.type) {
+      case "dragstart":
+        droppedRef.current = false;
+        setDraggedIndex(index);
+        setDraggedSite(link);
+        setDraggedTitle(title);
+        onDragStart?.(index);
+        break;
+      case "dragend":
+        if (!droppedRef.current) {
+          resetDrag();
+        } else {
+          // Keep the source collapsed until the pin commits and this unmounts.
+          setOver(false);
+        }
+        break;
+    }
+  }, [onDragStart, resetDrag]);
+  const onDragOver = (0,external_React_namespaceObject.useCallback)(event => {
+    if (!draggedSite) {
+      return;
+    }
+    const nowOver = isOver(event);
+    if (nowOver) {
+      event.preventDefault();
+    }
+    if (over !== nowOver) {
+      setOver(nowOver);
+    }
+  }, [draggedSite, isOver, over]);
+  const onDrop = (0,external_React_namespaceObject.useCallback)(event => {
+    if (!draggedSite || !isOver(event)) {
+      return;
+    }
+    event.preventDefault();
+    droppedRef.current = true;
+    onReorder?.({
+      site: draggedSite,
+      title: draggedTitle,
+      fromIndex: draggedIndex,
+      toIndex: insertIndex
+    });
+  }, [draggedSite, draggedTitle, draggedIndex, isOver, onReorder, insertIndex]);
+  const onDragLeave = (0,external_React_namespaceObject.useCallback)(event => {
+    if (event.currentTarget.contains(event.relatedTarget)) {
+      return;
+    }
+    if (over) {
+      setOver(false);
+    }
+  }, [over]);
+
+  // Collapse the dragged source out of flow; the placeholder stands in for it
+  // (net-zero cells, so a full row won't overflow).
+  const sites = draggedSite ? baseSites.map(site => site && site.url === draggedSite.url ? {
+    ...site,
+    isCollapsed: true
+  } : site) : baseSites;
+  return {
+    sites,
+    draggedSite,
+    onDragEvent,
+    listProps: {
+      onDragOver,
+      onDrop,
+      onDragLeave
+    },
+    decorations: {
+      // Only open the drop placeholder while actually dragging; otherwise it
+      // would sit in the grid as an invisible (visibility:hidden) blank slot.
+      zeroPinSlot: draggedSite ? insertIndex : -1,
+      overZeroPin: over,
+      setZeroPinRef
+    }
+  };
+}
+;// CONCATENATED MODULE: ./content-src/components/TopSites/GroupedTopSiteListContainer.jsx
+function GroupedTopSiteListContainer_extends() { return GroupedTopSiteListContainer_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, GroupedTopSiteListContainer_extends.apply(null, arguments); }
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+
+
+
+
+
+
+// Grouped reorder uses the classic DnD hook: `isShiftable = isPinned` already
+// slides the pinned block, and the constant-cell preview already grows the block
+// when a frecent joins — natively, no geometry. Grouping itself (contiguity, the
+// drop-zone box) lives in the feed and PinnedAreaOverlay, not here.
+const GroupedTopSiteListContainer_isMovable = site => !site.isPinned && !isSponsored(site) && !site.isAddButton;
+const GroupedTopSiteListContainer_isShiftable = site => !!site.isPinned;
+
+// The TOP_SITES_INSERT + telemetry dispatch both grouped variants commit on a
+// drop. Identical shape to the classic container's, kept domain-side here.
+function useGroupedInsert() {
+  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
+  const onDragStart = (0,external_React_namespaceObject.useCallback)(index => dispatch(actionCreators.UserEvent({
+    event: "DRAG",
+    source: TOP_SITES_SOURCE,
+    action_position: index
+  })), [dispatch]);
+  const onReorder = (0,external_React_namespaceObject.useCallback)(({
+    site,
+    title,
+    fromIndex,
+    toIndex
+  }) => {
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.TOP_SITES_INSERT,
+      data: {
+        site: {
+          url: site.url,
+          label: title,
+          customScreenshotURL: site.customScreenshotURL,
+          ...(site.searchTopSite && {
+            searchTopSite: true
+          })
+        },
+        index: toIndex,
+        draggedFromIndex: fromIndex
+      }
+    }));
+    dispatch(actionCreators.UserEvent({
+      event: "DROP",
+      source: TOP_SITES_SOURCE,
+      action_position: toIndex
+    }));
+  }, [dispatch]);
+  return {
+    onDragStart,
+    onReorder
+  };
+}
+function useBaseSites(props) {
+  return (0,external_React_namespaceObject.useMemo)(() => buildTopSitesList(props.TopSites.rows, props.TopSitesRows, props.topSitesMaxSitesPerRow), [props.TopSites.rows, props.TopSitesRows, props.topSitesMaxSitesPerRow]);
+}
+
+// At least one pin present: a drag reorders within / joins the contiguous group.
+function ReorderTopSiteListContainer(props) {
+  const baseSites = useBaseSites(props);
+  const {
+    onDragStart,
+    onReorder
+  } = useGroupedInsert();
+  const {
+    previewSites,
+    onDragEvent,
+    draggedSite
+  } = useTopSitesDnD({
+    baseSites,
+    rows: props.TopSites.rows,
+    isMovable: GroupedTopSiteListContainer_isMovable,
+    isShiftable: GroupedTopSiteListContainer_isShiftable,
+    onDragStart,
+    onReorder,
+    pinInPlace: true
+  });
+  return /*#__PURE__*/external_React_default().createElement(TopSiteList, GroupedTopSiteListContainer_extends({}, props, {
+    sites: previewSites || baseSites,
+    onDragEvent: onDragEvent,
+    draggedSite: draggedSite,
+    groupedPinsEnabled: true
+  }));
+}
+
+// No pins yet: a drag just pins one tile at the front of a fresh group.
+function ZeroPinTopSiteListContainer(props) {
+  const baseSites = useBaseSites(props);
+  const {
+    onDragStart,
+    onReorder
+  } = useGroupedInsert();
+  const {
+    sites,
+    onDragEvent,
+    draggedSite,
+    listProps,
+    decorations
+  } = useZeroPinDrop({
+    baseSites,
+    isSponsored: isSponsored,
+    onDragStart,
+    onReorder
+  });
+  return /*#__PURE__*/external_React_default().createElement(TopSiteList, GroupedTopSiteListContainer_extends({}, props, {
+    sites: sites,
+    onDragEvent: onDragEvent,
+    draggedSite: draggedSite,
+    groupedPinsEnabled: true,
+    listProps: listProps,
+    decorations: decorations
+  }));
+}
+
+// Routes to the right grouped DnD variant. Zero existing pins is a fundamentally
+// simpler interaction (drag one tile onto one target), so it gets its own hook;
+// with pins present it's slot reordering. `hasPins` only flips on a pin/unpin
+// commit (never mid-drag), so swapping containers here is safe.
+function GroupedTopSiteListContainer(props) {
+  const hasPins = props.TopSites.rows.some(site => site?.isPinned);
+  return hasPins ? /*#__PURE__*/external_React_default().createElement(ReorderTopSiteListContainer, props) : /*#__PURE__*/external_React_default().createElement(ZeroPinTopSiteListContainer, props);
+}
 ;// CONCATENATED MODULE: ./content-src/components/TopSites/TopSites.jsx
 function TopSites_extends() { return TopSites_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, TopSites_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -9946,6 +10433,7 @@ class _TopSites extends (external_React_default()).PureComponent {
     } = props.TopSites;
     let visibleTopSites;
     const colors = props.Prefs.values["newNewtabExperience.colors"];
+    const ListContainer = props.Prefs.values.topSitesGroupedPins ? GroupedTopSiteListContainer : TopSiteListContainer;
 
     // do not run this function when for startup cache
     if (!props.App.isForStartupCache.TopSites) {
@@ -9960,7 +10448,7 @@ class _TopSites extends (external_React_default()).PureComponent {
       "data-section-id": "topsites"
     }, /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
       className: "section-body-fallback"
-    }, /*#__PURE__*/external_React_default().createElement(TopSiteListContainer, {
+    }, /*#__PURE__*/external_React_default().createElement(ListContainer, {
       TopSites: props.TopSites,
       TopSitesRows: props.TopSitesRows,
       topSitesMaxSitesPerRow: props.TopSitesMaxSitesPerRow,
@@ -12347,6 +12835,10 @@ const PREF_WIDGETS_CROSSWORD_ENABLED = "widgets.crossword.enabled";
 const PREF_CROSSWORD_SIZE = "widgets.crossword.size";
 const PREF_WIDGETS_SYSTEM_CROSSWORD_ENABLED =
   "widgets.system.crossword.enabled";
+const PREF_WIDGETS_STOCKS_ENABLED = "widgets.stocks.enabled";
+const PREF_STOCKS_SIZE = "widgets.stocks.size";
+const PREF_WIDGETS_SYSTEM_STOCKS_ENABLED =
+  "widgets.system.stocks.enabled";
 
 /**
  * @typedef {object} WidgetRegistryEntry
@@ -12479,6 +12971,22 @@ const WIDGET_REGISTRY = [
     trainhopSidebarKey: null,
     widgetsSettingsVisibleKey: "crosswordVisible",
     widgetsSettingsEnabledKey: "crosswordEnabled",
+  },
+  {
+    id: "stocks",
+    telemetryName: "stocks",
+    order: 7,
+    enabledPref: PREF_WIDGETS_STOCKS_ENABLED,
+    sizePref: PREF_STOCKS_SIZE,
+    defaultSize: "medium",
+    validSizes: ["small", "medium", "large"],
+    hasSidebar: false,
+    systemEnabledPref: PREF_WIDGETS_SYSTEM_STOCKS_ENABLED,
+    trainhopEnabledKey: "stocksEnabled",
+    trainhopSizeKey: "stocksSize",
+    trainhopSidebarKey: null,
+    widgetsSettingsVisibleKey: "stocksVisible",
+    widgetsSettingsEnabledKey: "stocksEnabled",
   },
 ];
 
@@ -16319,7 +16827,7 @@ function Weather_Weather({
       size: "small"
     }), /*#__PURE__*/external_React_default().createElement("panel-list", {
       id: "weather-widget-context-menu"
-    }, !showOptInState && !isOptInEnabled && (prefs["weather.temperatureUnits"] === "f" ? /*#__PURE__*/external_React_default().createElement("panel-item", {
+    }, !showOptInState && (prefs["weather.temperatureUnits"] === "f" ? /*#__PURE__*/external_React_default().createElement("panel-item", {
       "data-l10n-id": "newtab-weather-menu-change-temperature-units-celsius",
       onClick: () => handleChangeTempUnit("c")
     }) : /*#__PURE__*/external_React_default().createElement("panel-item", {
@@ -20583,17 +21091,52 @@ const Privacy_USER_ACTION_TYPES = {
   CHANGE_SIZE: "change_size"
 };
 const PRIVACY_ENTRY = WIDGET_REGISTRY.find(w => w.id === "privacy");
+const ICON_BASE_URL = "chrome://newtab/content/data/content/assets/";
+
+// Renders a widget icon by asset filename. The wrapper div is the alignment
+// hook. TEMP (Bug 2049390): callers pass a static filename for now; the
+// per-message icon mapping (shield/planet/star/bolt/kit) is a follow-up commit.
+const privacyImage = filename => /*#__PURE__*/external_React_default().createElement("div", {
+  className: "privacy-image"
+}, /*#__PURE__*/external_React_default().createElement("img", {
+  className: "privacy-image-icon",
+  src: `${ICON_BASE_URL}${filename}`,
+  alt: ""
+}));
+const PREF_PRIVACY_MAX_COUNT = "widgets.privacy.maxCount";
+const DEFAULT_PRIVACY_MAX_COUNT = 100;
+
+// Resolves the count at which the readout caps to "N+". trainhopConfig wins so
+// an experiment can override the pref's default; then the pref
+// (widgets.privacy.maxCount, default 100); then a defensive fallback. Routed
+// through a helper (never the raw pref) per the trainhop-gate convention.
+function resolvePrivacyMaxCount(prefs) {
+  return prefs.trainhopConfig?.widgets?.privacyMaxCount || prefs[PREF_PRIVACY_MAX_COUNT] || DEFAULT_PRIVACY_MAX_COUNT;
+}
 function Privacy({
   dispatch,
   widgetsMayBeMaximized,
   widgetEnabledMap
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
+  const privacyData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.PrivacyWidget);
 
   // Size comes from the registry helper: user-set pref > trainhop suggestion
   // > registry defaultSize. Never read the size pref directly.
   const widgetSize = resolveWidgetSize(PRIVACY_ENTRY, prefs);
   const impressionFired = (0,external_React_namespaceObject.useRef)(false);
+  const trackersToday = privacyData?.trackersToday ?? 0;
+  const sitesToday = privacyData?.sitesToday ?? 0;
+  // Gate the metric UI on a real feed update. Before the first broadcast — or
+  // when it's skipped (e.g. the backward-compat guard in PrivacyFeed on older
+  // platforms) — show no metric state rather than a misleading empty/zero one.
+  const initialized = privacyData?.initialized ?? false;
+  // Ceiling the readout at "{maxCount}+" so the number stays a tidy single line.
+  const maxCount = resolvePrivacyMaxCount(prefs);
+  const displayCount = trackersToday > maxCount ? `${maxCount}+` : `${trackersToday}`;
+  const isEmptyState = trackersToday === 0;
+  const showTip = !isEmptyState;
+  const isLarge = widgetSize === "large";
   const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
     if (impressionFired.current) {
       return;
@@ -20670,7 +21213,7 @@ function Privacy({
     });
   }
   return /*#__PURE__*/external_React_default().createElement("article", {
-    className: `privacy widget col-4 ${widgetSize}-widget`,
+    className: `privacy widget col-4 ${widgetSize}-widget${initialized && isEmptyState ? " is-empty" : ""}${initialized && showTip ? " has-tip-msg" : ""}`,
     ref: el => {
       widgetRef.current = [el];
     }
@@ -20710,7 +21253,37 @@ function Privacy({
     onClick: handleLearnMore
   })))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "privacy-body"
-  }));
+  }, initialized && (isEmptyState ? /*#__PURE__*/external_React_default().createElement("div", {
+    className: "privacy-empty"
+  }, privacyImage("widget-privacy-shield.svg"), /*#__PURE__*/external_React_default().createElement("p", {
+    className: "privacy-empty-message",
+    "data-l10n-id": "newtab-privacy-empty"
+  })) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "privacy-count"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "privacy-count-number-wrapper"
+  }, !isLarge && privacyImage("widget-privacy-shield-check.svg"), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "privacy-count-number"
+  }, displayCount)), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "privacy-count-label",
+    "data-l10n-id": "newtab-privacy-trackers-blocked-today",
+    "data-l10n-args": JSON.stringify({
+      count: trackersToday
+    })
+  }), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "privacy-count-sites",
+    "data-l10n-id": "newtab-privacy-across-sites",
+    "data-l10n-args": JSON.stringify({
+      count: sitesToday
+    })
+  })), showTip && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("hr", {
+    className: "privacy-divider"
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "privacy-tip"
+  }, isLarge && privacyImage("widget-privacy-shield-check.svg"), /*#__PURE__*/external_React_default().createElement("p", {
+    className: "privacy-tip-message",
+    "data-l10n-id": "newtab-privacy-message-informed-5"
+  })))))));
 }
 
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/Crossword/Crossword.jsx
@@ -20858,10 +21431,176 @@ function Crossword({
   }));
 }
 
+;// CONCATENATED MODULE: ./content-src/components/Widgets/Stocks/Stocks.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+// eslint-disable-next-line no-unused-vars
+
+
+
+
+
+
+const Stocks_USER_ACTION_TYPES = {
+  CHANGE_SIZE: "change_size",
+  SEARCH_TICKERS: "search_tickers",
+  LEARN_MORE: "learn_more"
+};
+const STOCKS_ENTRY = WIDGET_REGISTRY.find(w => w.id === "stocks");
+function Stocks({
+  dispatch,
+  widgetsMayBeMaximized,
+  widgetEnabledMap
+}) {
+  const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
+
+  // Resolve size through the registry helper, not the pref, so trainhop and the
+  // default can apply.
+  const widgetSize = resolveWidgetSize(STOCKS_ENTRY, prefs);
+  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
+  const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
+    if (impressionFired.current) {
+      return;
+    }
+    impressionFired.current = true;
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_IMPRESSION,
+      data: {
+        widget_name: "stocks",
+        widget_size: widgetSize
+      }
+    }));
+  }, [dispatch, widgetSize]);
+  const widgetRef = useIntersectionObserver(handleIntersection);
+  function handleStocksHide() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: STOCKS_ENTRY.enabledPref,
+          value: false
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_ENABLED,
+        data: {
+          widget_name: "stocks",
+          widget_source: "context_menu",
+          enabled: false,
+          widget_size: widgetSize
+        }
+      }));
+    });
+  }
+  const handleChangeSize = (0,external_React_namespaceObject.useCallback)(size => {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: STOCKS_ENTRY.sizePref,
+          value: size
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "stocks",
+          widget_source: "context_menu",
+          user_action: Stocks_USER_ACTION_TYPES.CHANGE_SIZE,
+          action_value: size,
+          widget_size: size
+        }
+      }));
+    });
+  }, [dispatch]);
+  const sizeSubmenuRef = useSizeSubmenu(handleChangeSize);
+
+  // Placeholder: a real ticker search will replace this telemetry-only stub in
+  // a follow-up.
+  function handleSearchTickers() {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.WIDGETS_USER_EVENT,
+      data: {
+        widget_name: "stocks",
+        widget_source: "context_menu",
+        user_action: Stocks_USER_ACTION_TYPES.SEARCH_TICKERS,
+        widget_size: widgetSize
+      }
+    }));
+  }
+  function handleLearnMore() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.OPEN_LINK,
+        data: {
+          url: "https://support.mozilla.org/kb/firefox-new-tab-widgets"
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "stocks",
+          widget_source: "context_menu",
+          user_action: Stocks_USER_ACTION_TYPES.LEARN_MORE,
+          widget_size: widgetSize
+        }
+      }));
+    });
+  }
+  return /*#__PURE__*/external_React_default().createElement("article", {
+    className: `stocks widget col-4 ${widgetSize}-widget`,
+    ref: el => {
+      widgetRef.current = [el];
+    }
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "stocks-title-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "stocks-context-menu-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "stocks-context-menu-button",
+    iconSrc: "chrome://global/skin/icons/more.svg",
+    menuId: "stocks-context-menu",
+    type: "ghost"
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+    id: "stocks-context-menu"
+  }, /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-stocks-menu-search",
+    onClick: handleSearchTickers
+  }), /*#__PURE__*/external_React_default().createElement("hr", null), widgetsMayBeMaximized && /*#__PURE__*/external_React_default().createElement("panel-item", {
+    submenu: "stocks-size-submenu"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    "data-l10n-id": "newtab-widget-menu-change-size"
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+    ref: sizeSubmenuRef,
+    slot: "submenu",
+    id: "stocks-size-submenu"
+  }, ["small", "medium", "large"].map(size => /*#__PURE__*/external_React_default().createElement("panel-item", {
+    key: size,
+    type: "checkbox",
+    checked: widgetSize === size || undefined,
+    "data-size": size,
+    "data-l10n-id": `newtab-widget-size-${size}`
+  })))), /*#__PURE__*/external_React_default().createElement(MoveSubmenu, {
+    widgetId: "stocks",
+    widgetEnabledMap: widgetEnabledMap
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-stocks-menu-hide",
+    onClick: handleStocksHide
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-stocks-menu-learn-more",
+    onClick: handleLearnMore
+  })))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "stocks-body"
+  }));
+}
+
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/WidgetsComponentRegistry.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -20918,7 +21657,8 @@ const WIDGET_ROW_COMPONENTS = {
   sportsWidget: SportsWidget_SportsWidget,
   clocks: ClocksRowWidget,
   privacy: Privacy,
-  crossword: Crossword
+  crossword: Crossword,
+  stocks: Stocks
 };
 const WIDGET_SIDEBAR_COMPONENTS = {
   weather: WeatherSidebarWidget
@@ -21329,7 +22069,8 @@ function Widgets() {
     sportsWidget: isWidgetEnabled(WIDGET_REGISTRY.find(w => w.id === "sportsWidget"), prefs, widgetsEnabled),
     clocks: isWidgetEnabled(WIDGET_REGISTRY.find(w => w.id === "clocks"), prefs, widgetsEnabled),
     privacy: isWidgetEnabled(WIDGET_REGISTRY.find(w => w.id === "privacy"), prefs, widgetsEnabled),
-    crossword: isWidgetEnabled(WIDGET_REGISTRY.find(w => w.id === "crossword"), prefs, widgetsEnabled)
+    crossword: isWidgetEnabled(WIDGET_REGISTRY.find(w => w.id === "crossword"), prefs, widgetsEnabled),
+    stocks: isWidgetEnabled(WIDGET_REGISTRY.find(w => w.id === "stocks"), prefs, widgetsEnabled)
   };
   const widgetOrder = resolveWidgetOrder(prefs);
   const {
@@ -23333,6 +24074,7 @@ function WidgetsManagementPanel({
   mayHaveClocksWidget,
   mayHavePrivacyWidget,
   mayHaveCrosswordWidget,
+  mayHaveStocksWidget,
   setPref
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
@@ -23387,6 +24129,9 @@ function WidgetsManagementPanel({
         case "WIDGET_CROSSWORD":
           widgetName = "crossword";
           break;
+        case "WIDGET_STOCKS":
+          widgetName = "stocks";
+          break;
       }
       if (widgetName) {
         const widget = WIDGET_REGISTRY.find(w => w.telemetryName === widgetName);
@@ -23413,7 +24158,8 @@ function WidgetsManagementPanel({
     sportsWidgetEnabled,
     clocksEnabled,
     privacyEnabled,
-    crosswordEnabled
+    crosswordEnabled,
+    stocksEnabled
   } = enabledWidgets;
   const isRTL = typeof document !== "undefined" && document.dir === "rtl";
   const arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
@@ -23517,6 +24263,16 @@ function WidgetsManagementPanel({
     "data-preference": "widgets.crossword.enabled",
     "data-event-source": "WIDGET_CROSSWORD",
     label: "Crossword"
+  })), mayHaveStocksWidget && /*#__PURE__*/external_React_default().createElement("div", {
+    id: "stocks-widget-section",
+    className: "section"
+  }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
+    id: "stocks-toggle",
+    pressed: stocksEnabled || null,
+    ontoggle: onToggleWidget,
+    "data-preference": "widgets.stocks.enabled",
+    "data-event-source": "WIDGET_STOCKS",
+    "data-l10n-id": "newtab-custom-widget-stocks-toggle"
   })))))));
 }
 
@@ -23576,6 +24332,9 @@ class ContentSection extends (external_React_default()).PureComponent {
           break;
         case "WIDGET_CROSSWORD":
           widgetName = "crossword";
+          break;
+        case "WIDGET_STOCKS":
+          widgetName = "stocks";
           break;
       }
       if (widgetName) {
@@ -23680,6 +24439,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       mayHaveClocksWidget,
       mayHavePrivacyWidget,
       mayHaveCrosswordWidget,
+      mayHaveStocksWidget,
       mayHaveWeatherForecast,
       openPreferences,
       wallpapersUserEnabled,
@@ -23710,7 +24470,8 @@ class ContentSection extends (external_React_default()).PureComponent {
       listsEnabled,
       clocksEnabled,
       privacyEnabled,
-      crosswordEnabled
+      crosswordEnabled,
+      stocksEnabled
     } = enabledWidgets;
 
     // @nova-cleanup(remove-conditional): Remove novaEnabled check and newtab-custom-stories-toggle, default to newtab-recommended-stories-toggle
@@ -23808,6 +24569,16 @@ class ContentSection extends (external_React_default()).PureComponent {
       "data-preference": "widgets.crossword.enabled",
       "data-event-source": "WIDGET_CROSSWORD",
       label: "Crossword"
+    })), mayHaveStocksWidget && /*#__PURE__*/external_React_default().createElement("div", {
+      id: "stocks-widget-section",
+      className: "section"
+    }, /*#__PURE__*/external_React_default().createElement("moz-toggle", {
+      id: "stocks-toggle",
+      pressed: stocksEnabled || null,
+      ontoggle: this.onPreferenceSelect,
+      "data-preference": "widgets.stocks.enabled",
+      "data-event-source": "WIDGET_STOCKS",
+      "data-l10n-id": "newtab-custom-widget-stocks-toggle"
     })))), /*#__PURE__*/external_React_default().createElement("div", {
       className: "settings-toggles"
     },
@@ -23899,6 +24670,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       mayHaveClocksWidget: mayHaveClocksWidget,
       mayHavePrivacyWidget: mayHavePrivacyWidget,
       mayHaveCrosswordWidget: mayHaveCrosswordWidget,
+      mayHaveStocksWidget: mayHaveStocksWidget,
       mayHaveWeatherForecast: mayHaveWeatherForecast,
       weatherDisplay: weatherDisplay,
       setPref: setPref,
@@ -24124,6 +24896,7 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
       mayHaveClocksWidget: this.props.mayHaveClocksWidget,
       mayHavePrivacyWidget: this.props.mayHavePrivacyWidget,
       mayHaveCrosswordWidget: this.props.mayHaveCrosswordWidget,
+      mayHaveStocksWidget: this.props.mayHaveStocksWidget,
       dispatch: this.props.dispatch,
       onSubpanelToggle: this.onSubpanelToggle,
       toggleSectionsMgmtPanel: this.props.toggleSectionsMgmtPanel,
@@ -26706,6 +27479,8 @@ function Base_extends() { return Base_extends = Object.assign ? Object.assign.bi
 
 const Base_VISIBLE = "visible";
 const Base_VISIBILITY_CHANGE_EVENT = "visibilitychange";
+// Minimum scroll distance in pixels to record a scroll telemetry event.
+const SCROLL_TELEMETRY_THRESHOLD = 50;
 const PREF_INFERRED_PERSONALIZATION_SYSTEM = "discoverystream.sections.personalization.inferred.enabled";
 const Base_PREF_INFERRED_PERSONALIZATION_USER = "discoverystream.sections.personalization.inferred.user.enabled";
 // @nova-cleanup(remove-pref): Remove PREF_NOVA_ENABLED
@@ -26778,6 +27553,7 @@ class BaseContent extends (external_React_default()).PureComponent {
     this.attachSearchSentinel = this.attachSearchSentinel.bind(this);
     this.onSearchSentinelIntersect = this.onSearchSentinelIntersect.bind(this);
     this.searchStickyObserver = null;
+    this._hasScrolledForSession = false;
     this.state = {
       fixedSearch: false,
       colorMode: "",
@@ -27048,6 +27824,12 @@ class BaseContent extends (external_React_default()).PureComponent {
     }
   }
   onWindowScroll() {
+    if (!this._hasScrolledForSession && __webpack_require__.g.scrollY > SCROLL_TELEMETRY_THRESHOLD) {
+      this._hasScrolledForSession = true;
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.NEW_TAB_SCROLL
+      }));
+    }
     if (this.props.Prefs.values[Base_PREF_NOVA_ENABLED]) {
       // Nova restores sticky search via IntersectionObserver
       // (attachSearchSentinel); the scroll-based fixed-search math below
@@ -27396,6 +28178,7 @@ class BaseContent extends (external_React_default()).PureComponent {
     const mayHaveSportsWidget = widgetVisibleById("sportsWidget");
     const mayHavePrivacyWidget = widgetVisibleById("privacy");
     const mayHaveCrosswordWidget = widgetVisibleById("crossword");
+    const mayHaveStocksWidget = widgetVisibleById("stocks");
 
     // These prefs set the initial values on the Customize panel toggle switches
     const enabledWidgets = {
@@ -27406,6 +28189,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       sportsWidgetEnabled: prefs["widgets.sportsWidget.enabled"],
       privacyEnabled: prefs["widgets.privacy.enabled"],
       crosswordEnabled: prefs["widgets.crossword.enabled"],
+      stocksEnabled: prefs["widgets.stocks.enabled"],
       widgetsMaximized: prefs["widgets.maximized"],
       widgetsMayBeMaximized: prefs["widgets.system.maximized"]
     };
@@ -27541,6 +28325,7 @@ class BaseContent extends (external_React_default()).PureComponent {
         mayHaveClocksWidget: mayHaveClocksWidget,
         mayHavePrivacyWidget: mayHavePrivacyWidget,
         mayHaveCrosswordWidget: mayHaveCrosswordWidget,
+        mayHaveStocksWidget: mayHaveStocksWidget,
         mayHaveWeatherForecast: prefs["widgets.system.weatherForecast.enabled"],
         weatherDisplay: prefs["weather.display"],
         showing: customizeMenuVisible,
@@ -27633,6 +28418,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       mayHaveClocksWidget: mayHaveClocksWidget,
       mayHavePrivacyWidget: mayHavePrivacyWidget,
       mayHaveCrosswordWidget: mayHaveCrosswordWidget,
+      mayHaveStocksWidget: mayHaveStocksWidget,
       mayHaveWeatherForecast: prefs["widgets.system.weatherForecast.enabled"],
       weatherDisplay: prefs["weather.display"],
       showing: customizeMenuVisible,

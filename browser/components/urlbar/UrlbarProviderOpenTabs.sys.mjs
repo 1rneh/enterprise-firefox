@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ProvidersManager:
     "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logger", () =>
@@ -342,8 +343,8 @@ export class UrlbarProviderOpenTabs extends UrlbarProvider {
         addCallback(
           this,
           new lazy.UrlbarResult({
-            type: UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
-            source: UrlbarUtils.RESULT_SOURCE.TABS,
+            type: lazy.UrlbarShared.RESULT_TYPE.TAB_SWITCH,
+            source: lazy.UrlbarShared.RESULT_SOURCE.TABS,
             payload: {
               url: row.getResultByName("url"),
               userContextId: row.getResultByName("userContextId"),

@@ -77,7 +77,6 @@ MSG_DEF(JSMSG_OFFSET_LARGER_THAN_FILESIZE, 0, JSEXN_RANGEERR, "offset is larger 
 MSG_DEF(JSMSG_OFFSET_OUT_OF_BUFFER,    0, JSEXN_RANGEERR, "start offset is outside the bounds of the buffer")
 MSG_DEF(JSMSG_OFFSET_OUT_OF_DATAVIEW,  0, JSEXN_RANGEERR, "offset is outside the bounds of the DataView")
 MSG_DEF(JSMSG_SPREAD_TOO_LARGE,        0, JSEXN_RANGEERR, "array too large due to spread operand(s)")
-MSG_DEF(JSMSG_BAD_WEAKMAP_KEY,         0, JSEXN_TYPEERR, "cannot use the given object as a weak map key")
 MSG_DEF(JSMSG_WEAKMAP_KEY_CANT_BE_HELD_WEAKLY, 1, JSEXN_TYPEERR, "WeakMap key {0} must be an object or an unregistered symbol")
 MSG_DEF(JSMSG_WEAKSET_VAL_CANT_BE_HELD_WEAKLY, 1, JSEXN_TYPEERR, "WeakSet value {0} must be an object or an unregistered symbol")
 MSG_DEF(JSMSG_WEAKMAP_KEY_MUST_BE_AN_OBJECT, 1, JSEXN_TYPEERR, "WeakMap key {0} must be an object")
@@ -845,7 +844,6 @@ MSG_DEF(JSMSG_NOT_A_FINALIZATION_REGISTRY,               1, JSEXN_TYPEERR, "{0} 
 MSG_DEF(JSMSG_BAD_FINALIZATION_REGISTRY_TARGET,          0, JSEXN_TYPEERR, "The target registered with a finalization registry must be either an object or a symbol")
 MSG_DEF(JSMSG_BAD_HELD_VALUE,                            0, JSEXN_TYPEERR, "The heldValue parameter passed to FinalizationRegistry.register must not be the same as the target parameter")
 MSG_DEF(JSMSG_BAD_UNREGISTER_TOKEN,                      1, JSEXN_TYPEERR, "Invalid unregister token passed to {0}")
-MSG_DEF(JSMSG_BAD_FINALIZATION_REGISTRY_OBJECT,          0, JSEXN_TYPEERR, "cannot register the given object with a FinalizationRegistry")
 
 // WeakRef
 MSG_DEF(JSMSG_NOT_A_WEAK_REF,                            1, JSEXN_TYPEERR, "{0} is not a WeakRef")
@@ -854,7 +852,9 @@ MSG_DEF(JSMSG_BAD_WEAKREF_TARGET,                        0, JSEXN_TYPEERR, "cann
 // Iterator Helpers
 MSG_DEF(JSMSG_NEGATIVE_LIMIT,                            0, JSEXN_RANGEERR, "Iterator limits cannot be negative")
 MSG_DEF(JSMSG_INVALID_CHUNKSIZE,                         0, JSEXN_RANGEERR, "Iterator chunkSize must be an integer between 1 and 2**32-1 inclusive")
+MSG_DEF(JSMSG_CHUNK_SIZE_NOT_INTEGER,                    0, JSEXN_TYPEERR, "Iterator chunkSize must be an integral Number")
 MSG_DEF(JSMSG_INVALID_WINDOWSIZE,                        0, JSEXN_RANGEERR, "Iterator windowSize must be an integer between 1 and 2**32-1 inclusive")
+MSG_DEF(JSMSG_WINDOW_SIZE_NOT_INTEGER,                   0, JSEXN_TYPEERR, "Iterator windowSize must be an integral Number")
 MSG_DEF(JSMSG_INVALID_SKIP_COUNT,                        0, JSEXN_TYPEERR, "Iterator skippedElements must be +Infinity, -Infinity, or an integral Number")
 MSG_DEF(JSMSG_SKIP_COUNT_TOO_LARGE,                      0, JSEXN_RANGEERR, "Iterator skippedElements cannot be greater than 2**53-1")
 MSG_DEF(JSMSG_INVALID_UNDERSIZED_OPTION_VALUE,           2, JSEXN_TYPEERR, "invalid value for \"{0}\" option: {1}")

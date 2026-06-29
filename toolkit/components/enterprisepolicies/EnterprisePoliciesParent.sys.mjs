@@ -96,6 +96,17 @@ function isEmptyObject(obj) {
 }
 
 /**
+ * Error thrown when the remote policies provider fails to fetch
+ * the startup policies while building the combined provider.
+ */
+class RemotePolicyProviderInitError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = "RemotePolicyProviderInitError";
+  }
+}
+
+/**
  * Compute a stable hash of a JSON-serialisable value. Used to detect whether a
  * policy set (or a single policy's parameters) changed without having to
  * re-parse and re-validate them.
@@ -174,7 +185,7 @@ EnterprisePoliciesManager.prototype = {
     try {
       this._provider = await this._buildProvider();
     } catch (e) {
-      if (e.type === "RemotePolicyProviderInitError") {
+      if (e instanceof RemotePolicyProviderInitError) {
         lazy.log.error(
           `Failed to fetch startup policies when building the policies provider: ${e}`
         );
@@ -211,8 +222,8 @@ EnterprisePoliciesManager.prototype = {
    * CombinedProvider, in increasing order of precedence.
    *
    * @returns {Promise<CombinedProvider>} the combined policies provider
-   * @throws {Error} Will throw an error of type RemotePolicyProviderInitError
-   *                 when the startup policies couldn't be fetched
+   * @throws {RemotePolicyProviderInitError} when the startup policies couldn't
+   *                 be fetched
    */
   async _buildProvider() {
     const provider = new CombinedProvider();
@@ -241,9 +252,10 @@ EnterprisePoliciesManager.prototype = {
       } catch (e) {
         lazy.log.error(`Failed to fetch remote policies on startup: ${e}`);
         remoteProvider._failed = true;
-        const err = new Error("Failed to fetch remote policies on startup");
-        err.type = "RemotePolicyProviderInitError";
-        throw err;
+        throw new RemotePolicyProviderInitError(
+          "Failed to fetch remote policies on startup",
+          { cause: e }
+        );
       }
       lazy.log.debug("Adding remote provider.");
       provider.push(remoteProvider);

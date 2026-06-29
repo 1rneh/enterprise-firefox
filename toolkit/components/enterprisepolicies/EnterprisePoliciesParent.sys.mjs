@@ -174,11 +174,15 @@ EnterprisePoliciesManager.prototype = {
     try {
       this._provider = await this._buildProvider();
     } catch (e) {
-      lazy.log.error(`Failed to fetch remote policies on startup: ${e}`);
       if (e.type === "RemotePolicyProviderInitError") {
+        lazy.log.error(
+          `Failed to fetch startup policies when building the policies provider: ${e}`
+        );
         // bug 2027006 will move the fetching of policies to felt
         // and no shutdown will be needed then
         lazy.EnterpriseHandler.initiateShutdown();
+      } else {
+        lazy.log.error(`Failed to build the policies provider: ${e}`);
       }
       return;
     }

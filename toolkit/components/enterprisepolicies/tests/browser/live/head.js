@@ -20,7 +20,7 @@ const POLICY_PARAM_STATE = {
   APPLIED: "applied",
   APPLIED_LOCAL_POLICY: "applied-by-local-policy",
   APPLIED_REMOTE_POLICY: "applied-by-remote-policy",
-  UPDATED: "updated",
+  UPDATED_BY_REMOTE_POLICY: "updated-by-remote-policy",
   REMOVED: "removed",
 };
 

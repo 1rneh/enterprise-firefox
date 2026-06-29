@@ -100,7 +100,7 @@ add_task(async function test_policy_update_apply_policy_param_update() {
 
   const policies = {
     policies: {
-      TestPolicy: POLICY_PARAM_STATE.UPDATED,
+      TestPolicy: POLICY_PARAM_STATE.UPDATED_BY_REMOTE_POLICY,
     },
   };
 
@@ -110,12 +110,12 @@ add_task(async function test_policy_update_apply_policy_param_update() {
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
-    { TestPolicy: POLICY_PARAM_STATE.UPDATED },
+    { TestPolicy: POLICY_PARAM_STATE.UPDATED_BY_REMOTE_POLICY },
     "Expected remote policy TestPolicy with parameter UPDATED."
   );
   Assert.equal(
     currentPolicyValue,
-    POLICY_PARAM_STATE.UPDATED,
+    POLICY_PARAM_STATE.UPDATED_BY_REMOTE_POLICY,
     `Expected the policy parameter "updated".`
   );
 });

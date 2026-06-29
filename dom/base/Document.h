@@ -276,6 +276,7 @@ class ServiceWorkerDescriptor;
 class ShadowRoot;
 class SimpleContentList;
 class SpeculationRules;
+class SpeculationRuleSet;
 class SVGDocument;
 class SVGElement;
 class SVGSVGElement;
@@ -2402,13 +2403,23 @@ class Document : public nsINode,
    * Create an element with the specified name, prefix and namespace ID.
    * Returns null if element name parsing failed.
    */
-  already_AddRefed<Element> CreateElem(const nsAString& aName, nsAtom* aPrefix,
-                                       int32_t aNamespaceID,
-                                       const nsAString* aIs = nullptr);
+  already_AddRefed<Element> CreateElem(
+      const nsAString& aName, nsAtom* aPrefix, int32_t aNamespaceID,
+      const nsAString* aIs = nullptr,
+      mozilla::Maybe<RefPtr<mozilla::dom::CustomElementRegistry>>
+          aCustomElementRegistry = mozilla::Nothing());
 
   // https://dom.spec.whatwg.org/#effective-global-custom-element-registry
   mozilla::dom::CustomElementRegistry*
   GetEffectiveGlobalCustomElementRegistry();
+
+  // Whether this document is the key of a scoped custom element registry.
+  bool HasScopedCustomElementRegistry() const {
+    return mHasScopedCustomElementRegistry;
+  }
+  void SetHasScopedCustomElementRegistry(bool aValue) {
+    mHasScopedCustomElementRegistry = aValue;
+  }
 
   /**
    * Get the security info (i.e. SSL state etc) that the document got
@@ -4315,6 +4326,10 @@ class Document : public nsINode,
   virtual bool UseWidthDeviceWidthFallbackViewport() const;
 
  private:
+  void FlattenElementCreationOptions(
+      const ElementCreationOptionsOrString& aOptions, const nsString*& aIs,
+      Maybe<RefPtr<CustomElementRegistry>>& aDocumentRegistry, ErrorResult& rv);
+
   bool IsErrorPage() const;
 
   // Notifies the pres context that an image we track may have started or
@@ -5332,6 +5347,10 @@ class Document : public nsINode,
   // previous sibling in the flat tree.
   bool mWasFocusedElementRemoved : 1;
 
+  // True if this document is the key of a scoped custom element registry. Lets
+  // HasScopedRegistry() answer cheaply without a hash lookup.
+  bool mHasScopedCustomElementRegistry : 1;
+
   // The fingerprinting protections overrides for this document. The value will
   // override the default enabled fingerprinting protections for this document.
   // This will only get populated if these is one that comes from the local
@@ -5892,8 +5911,7 @@ class Document : public nsINode,
   nsCOMPtr<nsIURI> mTLSCertificateBindingURI;
 
   // https://html.spec.whatwg.org/#document-sr-sets
-  nsClassHashtable<nsRefPtrHashKey<nsIScriptElement>, SpeculationRules>
-      mSpeculationRulesFromScript;
+  RefPtr<class SpeculationRules> mSpeculationRules;
 
  public:
   // Needs to be public because the bindings code pokes at it.
@@ -5918,10 +5936,7 @@ class Document : public nsINode,
                                               const SetHTMLOptions& aOptions,
                                               ErrorResult& aError);
 
-  void RegisterSpeculationRulesFromScript(
-      nsIScriptElement* aScriptElement,
-      UniquePtr<SpeculationRules> aSpeculationRules);
-  void UnregisterSpeculationRules(nsIScriptElement* aScriptElement);
+  class SpeculationRules& SpeculationRules();
 
   nsIURI* GetTlsCertificateBindingURI() const {
     return mTLSCertificateBindingURI;

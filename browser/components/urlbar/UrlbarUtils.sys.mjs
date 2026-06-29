@@ -1828,118 +1828,6 @@ export var UrlbarUtils = {
   },
 
   /**
-   * Extracts a telemetry type from a result, used by scalars and event
-   * telemetry.
-   *
-   * @param {UrlbarResult} result The result to analyze.
-   * @returns {string} A string type for telemetry.
-   */
-  telemetryTypeFromResult(result) {
-    if (!result) {
-      return "unknown";
-    }
-    switch (result.type) {
-      case this.RESULT_TYPE.TAB_SWITCH:
-        return "switchtab";
-      case this.RESULT_TYPE.SEARCH:
-        if (result.providerName == "UrlbarProviderRecentSearches") {
-          return "recent_search";
-        }
-        if (result.source == this.RESULT_SOURCE.HISTORY) {
-          return "formhistory";
-        }
-        if (result.providerName == "UrlbarProviderTabToSearch") {
-          return "tabtosearch";
-        }
-        if (result.providerName == "UrlbarProviderAiChat") {
-          return "ai_search_fallback";
-        }
-        if (result.payload.suggestion) {
-          let type = result.payload.trending ? "trending" : "searchsuggestion";
-          if (result.isRichSuggestion) {
-            type += "_rich";
-          }
-          return type;
-        }
-        return "searchengine";
-      case this.RESULT_TYPE.URL:
-        if (result.autofill) {
-          let { type } = result.autofill;
-          if (!type) {
-            type = "other";
-            console.error(
-              new Error(
-                "`result.autofill.type` not set, falling back to 'other'"
-              )
-            );
-          }
-          return `autofill_${type}`;
-        }
-        if (
-          result.source == this.RESULT_SOURCE.OTHER_LOCAL &&
-          result.heuristic
-        ) {
-          return "visiturl";
-        }
-        if (result.providerName == "UrlbarProviderQuickSuggest") {
-          return "quicksuggest";
-        }
-        if (result.providerName == "UrlbarProviderClipboard") {
-          return "clipboard";
-        }
-        {
-          let type =
-            result.source == this.RESULT_SOURCE.BOOKMARKS
-              ? "bookmark"
-              : "history";
-          if (result.providerName == "UrlbarProviderInputHistory") {
-            return type + "adaptive";
-          }
-          return type;
-        }
-      case this.RESULT_TYPE.KEYWORD:
-        return "keyword";
-      case this.RESULT_TYPE.OMNIBOX:
-        return "extension";
-      case this.RESULT_TYPE.REMOTE_TAB:
-        return "remotetab";
-      case this.RESULT_TYPE.TIP:
-        return "tip";
-      case this.RESULT_TYPE.DYNAMIC:
-        if (result.providerName == "UrlbarProviderTabToSearch") {
-          // This is the onboarding result.
-          return "tabtosearch";
-        }
-        return "dynamic";
-      case this.RESULT_TYPE.RESTRICT:
-        if (
-          result.payload.keyword === lazy.UrlbarShared.RESTRICT_TOKENS.BOOKMARK
-        ) {
-          return "restrict_keyword_bookmarks";
-        }
-        if (
-          result.payload.keyword === lazy.UrlbarShared.RESTRICT_TOKENS.OPENPAGE
-        ) {
-          return "restrict_keyword_tabs";
-        }
-        if (
-          result.payload.keyword === lazy.UrlbarShared.RESTRICT_TOKENS.HISTORY
-        ) {
-          return "restrict_keyword_history";
-        }
-        if (
-          result.payload.keyword === lazy.UrlbarShared.RESTRICT_TOKENS.ACTION
-        ) {
-          return "restrict_keyword_actions";
-        }
-        break;
-      case this.RESULT_TYPE.AI_CHAT:
-        return "ai_chat";
-    }
-    return "unknown";
-  },
-
-  /**
    * Unescape the given uri to use as UI.
    * NOTE: If the length of uri is over MAX_TEXT_LENGTH,
    *       return the given uri as it is.
@@ -3187,7 +3075,8 @@ export class UrlbarQueryContext {
      */
     const optionalProperties = [
       ["currentPage", v => typeof v == "string" && !!v.length],
-      ["prohibitRemoteResults", () => true, false],
+      ["excludeSponsoredResults", v => typeof v == "boolean", false],
+      ["prohibitRemoteResults", v => typeof v == "boolean", false],
       ["providers", v => Array.isArray(v) && !!v.length],
       ["searchMode", v => v && typeof v == "object"],
       ["sources", v => Array.isArray(v) && !!v.length],
@@ -3278,6 +3167,12 @@ export class UrlbarQueryContext {
    *   The name of the muxer to use for this query.
    */
   muxer;
+
+  /**
+   * @type {boolean}
+   *   Whether or not to exclude sponsored results.
+   */
+  excludeSponsoredResults;
 
   /**
    * @type {boolean}
@@ -3566,7 +3461,7 @@ export class UrlbarProvider {
    *
    * @param {UrlbarQueryContext} [_queryContext]
    *   The query context object
-   * @param {UrlbarController} [_controller]
+   * @param {UrlbarParentController} [_controller]
    *   The current controller.
    * @returns {Promise<boolean>}
    *   Whether this provider should be invoked for the search.
@@ -3601,7 +3496,7 @@ export class UrlbarProvider {
    *   The query context object
    * @param {(provider: UrlbarProvider, result: UrlbarResult) => void} _addCallback
    *   Callback invoked by the provider to add a new result.
-   * @param {UrlbarController} _controller
+   * @param {UrlbarParentController} _controller
    *   The current controller.
    * @returns {void|Promise<void>}
    * @abstract
@@ -3630,7 +3525,7 @@ export class UrlbarProvider {
    * @param {UrlbarQueryContext} _queryContext
    *   The engagement's query context. It will always be defined for
    *   "engagement" and "abandonment".
-   * @param {UrlbarController} _controller
+   * @param {UrlbarParentController} _controller
    *  The associated controller.
    * @param {object} _details
    *   This object is non-empty only when `state` is "engagement" or
@@ -3675,7 +3570,7 @@ export class UrlbarProvider {
    *
    * @param {UrlbarQueryContext} _queryContext
    *    The query context at the time of abandonment.
-   * @param {UrlbarController} _controller
+   * @param {UrlbarParentController} _controller
    * The associated controller.
    *
    * onAbandonment(_queryContext, _controller) {}
@@ -3695,7 +3590,7 @@ export class UrlbarProvider {
    *    The state of the user interaction, either "engagement" or "abandonment".
    * @param {UrlbarQueryContext} _queryContext
    *    The current query context.
-   * @param {UrlbarController} _controller
+   * @param {UrlbarParentController} _controller
    *    The associated controller.
    * @param {Array} _providerVisibleResults
    *    Array of visible results at the time of either an engagement or
@@ -3720,7 +3615,7 @@ export class UrlbarProvider {
    *
    * @param {UrlbarQueryContext} _queryContext
    *    The current query context.
-   * @param {UrlbarController} _controller
+   * @param {UrlbarParentController} _controller
    *    The associated controller.
    *
    * onSearchSessionEnd(_queryContext, _controller) {}

@@ -1227,10 +1227,7 @@ ${
     }
 
     let url;
-    let selType = this.controller.engagementEvent.typeFromElement(
-      result,
-      element
-    );
+    let selType = this.view.telemetryTypeFromElement(result, element);
     let typedValue = this.value;
     if (oneOffParams?.engine) {
       selType = "oneoff";
@@ -1720,10 +1717,7 @@ ${
           element,
           searchString,
           searchMode,
-          selType: this.controller.engagementEvent.typeFromElement(
-            result,
-            element
-          ),
+          selType: this.view.telemetryTypeFromElement(result, element),
           searchSource: this.getSearchSource(event),
           windowMode: this.windowMode,
         });
@@ -1774,10 +1768,7 @@ ${
             result,
             element,
             searchString: this._lastSearchString,
-            selType: this.controller.engagementEvent.typeFromElement(
-              result,
-              element
-            ),
+            selType: this.view.telemetryTypeFromElement(result, element),
             searchSource: this.getSearchSource(event),
             windowMode: this.windowMode,
           });
@@ -1889,10 +1880,7 @@ ${
             element,
             searchMode,
             searchString: this._lastSearchString,
-            selType: this.controller.engagementEvent.typeFromElement(
-              result,
-              element
-            ),
+            selType: this.view.telemetryTypeFromElement(result, element),
             searchSource: this.getSearchSource(event),
             windowMode: this.windowMode,
           });
@@ -1932,10 +1920,7 @@ ${
           result,
           element,
           searchString: this._lastSearchString,
-          selType: this.controller.engagementEvent.typeFromElement(
-            result,
-            element
-          ),
+          selType: this.view.telemetryTypeFromElement(result, element),
           searchSource: this.getSearchSource(event),
           windowMode: this.windowMode,
         });
@@ -1952,10 +1937,7 @@ ${
           result,
           element,
           searchString: this._lastSearchString,
-          selType: this.controller.engagementEvent.typeFromElement(
-            result,
-            element
-          ),
+          selType: this.view.telemetryTypeFromElement(result, element),
           searchSource: this.getSearchSource(event),
           windowMode: this.windowMode,
         });
@@ -2039,10 +2021,7 @@ ${
         result,
         element,
         searchString: this._lastSearchString,
-        selType: this.controller.engagementEvent.typeFromElement(
-          result,
-          element
-        ),
+        selType: this.view.telemetryTypeFromElement(result, element),
         searchSource: this.getSearchSource(event),
         windowMode: this.windowMode,
       })
@@ -2052,7 +2031,7 @@ ${
       result,
       element,
       searchString: this._lastSearchString,
-      selType: this.controller.engagementEvent.typeFromElement(result, element),
+      selType: this.view.telemetryTypeFromElement(result, element),
       searchSource: this.getSearchSource(event),
       windowMode: this.windowMode,
     });
@@ -4700,9 +4679,16 @@ ${
     insertLocation.insertAdjacentElement("afterend", separator);
 
     contextMenu.addEventListener("popupshowing", () => {
-      let browser = this.window.gBrowser?.selectedBrowser;
+      let gBrowser = this.window.gBrowser;
+      let browser = gBrowser?.selectedBrowser;
       if (browser) {
-        lazy.SharingUtils.ensureShareMenu(browser, null, separator);
+        lazy.SharingUtils.ensureShareMenu(
+          browser,
+          gBrowser.selectedTabs.length > 1
+            ? gBrowser.selectedTabs.map(t => t.linkedBrowser)
+            : null,
+          separator
+        );
       }
     });
   }
@@ -5753,11 +5739,12 @@ ${
       ),
       tabGroup: this.window.gBrowser.selectedTab.group?.id ?? null,
       currentPage: this.window.gBrowser.currentURI.spec,
-      prohibitRemoteResults:
+      prohibitRemoteResults: !!(
         event &&
         lazy.UrlbarUtils.isPasteEvent(event) &&
         lazy.UrlbarPrefs.get("maxCharsForSearchSuggestions") <
-          event.data?.length,
+          event.data?.length
+      ),
     };
 
     if (this.searchMode) {

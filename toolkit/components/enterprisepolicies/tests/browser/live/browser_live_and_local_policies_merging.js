@@ -77,7 +77,7 @@ add_task(async function test_remote_policy_overrides_local_policy() {
 
   remotePolicies = {
     policies: {
-      simple_policy0: POLICY_PARAM_STATE.UPDATED,
+      simple_policy0: POLICY_PARAM_STATE.UPDATED_BY_REMOTE_POLICY,
     },
   };
 
@@ -87,12 +87,12 @@ add_task(async function test_remote_policy_overrides_local_policy() {
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
-    { simple_policy0: POLICY_PARAM_STATE.UPDATED },
+    { simple_policy0: POLICY_PARAM_STATE.UPDATED_BY_REMOTE_POLICY },
     "Expected remote policy update to override local policies."
   );
   Assert.equal(
     policy_value0,
-    POLICY_PARAM_STATE.UPDATED,
+    POLICY_PARAM_STATE.UPDATED_BY_REMOTE_POLICY,
     "Expected remote policy update to override local policies."
   );
 

@@ -4192,6 +4192,13 @@
   value: true
   mirror: always
 
+# Whether the parent process should reset pointer when pointer lock is
+# requested.
+- name: dom.pointer-lock.reset-to-center-from-parent.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # re-SAB: Whether to allow postMessage of a SharedArrayBuffer if various
 # preconditions related to COOP and COEP are met
 - name: dom.postMessage.sharedArrayBuffer.withCOOP_COEP
@@ -9550,6 +9557,13 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+  # Experimental support for Iterator Chunking in JavaScript.
+- name: javascript.options.experimental.iterator_chunking
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
 #ifdef NIGHTLY_BUILD
   # Experimental support for Async Iterator Helpers in JavaScript.
 -   name: javascript.options.experimental.async_iterator_helpers
@@ -9581,13 +9595,6 @@
 
   # Experimental support for Promise.allKeyed in JavaScript.
 - name: javascript.options.experimental.promise_allkeyed
-  type: bool
-  value: false
-  mirror: always
-  set_spidermonkey_pref: startup
-
-  # Experimental support for Iterator Chunking in JavaScript.
-- name: javascript.options.experimental.iterator_chunking
   type: bool
   value: false
   mirror: always
@@ -11208,7 +11215,7 @@
 # https://drafts.csswg.org/css-inline-3/#text-box-shorthand
 - name: layout.css.text-box.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Maximum number of lines to try balancing.
@@ -11230,6 +11237,14 @@
 - name: layout.css.text-decoration-inset.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Support the percentage value for text-decoration-inset.
+# https://github.com/w3c/csswg-drafts/issues/8403
+- name: layout.css.text-decoration-inset-percentage.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -13855,6 +13870,14 @@
 - name: media.geckoview.autoplay.request.testing
   type: uint32_t
   value: 0
+  mirror: always
+
+ # When true, GeckoView shapes its platform audio-focus request after the tab's
+ # W3C Audio Session type. When false, GeckoView keeps requesting durable
+ # media-playback focus regardless of the type, preserving existing behaviour.
+- name: media.geckoview.audio_session_type.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 - name: media.mediacontrol.testingevents.enabled

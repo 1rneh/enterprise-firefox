@@ -1731,50 +1731,15 @@ export const tokensTable = {
     },
     {
       value: {
-        brand: {
-          default: "0.733rem",
-          comment:
-            "11px / Note this token is to be used in rare cases because its hard to read. Please consult with the Design Systems and A11y teams for case-by-case feedback.",
-        },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-xsmall",
-    },
-    {
-      value: {
-        brand: { default: "0.867rem", comment: "13px" },
+        brand: { default: "0.867rem", comment: "13px (in-content)" },
         platform: { default: "unset" },
       },
       name: "--font-size-small",
     },
-    {
-      value: {
-        brand: { default: "1.133rem", comment: "17px" },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-large",
-    },
-    {
-      value: {
-        brand: { default: "1.467rem", comment: "22px" },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-xlarge",
-    },
-    {
-      value: {
-        brand: { default: "1.6rem", comment: "24px" },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-xxlarge",
-    },
-    {
-      value: {
-        brand: { default: "2.2rem", comment: "33px" },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-xxxlarge",
-    },
+    { value: "1.133rem", name: "--font-size-large" },
+    { value: "1.467rem", name: "--font-size-xlarge" },
+    { value: "1.6rem", name: "--font-size-xxlarge" },
+    { value: "2.2rem", name: "--font-size-xxxlarge" },
     { value: "var(--font-size-xxlarge)", name: "--font-size-heading-xlarge" },
     { value: "var(--font-size-xlarge)", name: "--font-size-heading-large" },
     { value: "var(--font-size-large)", name: "--font-size-heading-medium" },
@@ -1782,6 +1747,7 @@ export const tokensTable = {
     { value: "var(--font-size-small)", name: "--button-font-size-small" },
     { value: "10px", name: "--toolbarbutton-badge-font-size" },
     { value: "var(--button-font-size)", name: "--select-font-size" },
+    { value: "var(--select-font-size)", name: "--select-font-size-small" },
   ],
   "font-weight": [
     { value: "normal", name: "--font-weight" },
@@ -1849,6 +1815,7 @@ export const tokensTable = {
     },
     { value: "2px", name: "--reorderable-list-indicator-size" },
     { value: "var(--button-min-height)", name: "--select-min-height" },
+    { value: "var(--select-min-height)", name: "--select-min-height-small" },
     { value: "var(--size-item-small)", name: "--toggle-height" },
     { value: "var(--size-item-large)", name: "--toggle-width" },
     {
@@ -1991,6 +1958,10 @@ export const tokensTable = {
       name: "--reorderable-list-indicator-margin",
     },
     { value: "var(--space-xsmall)", name: "--segmented-control-padding" },
+    { value: "var(--space-small)", name: "--select-padding-block" },
+    { value: "var(--icon-size)", name: "--select-padding-icon" },
+    { value: "var(--space-large)", name: "--select-space-inline" },
+    { value: "var(--space-large)", name: "--select-space-inline-small" },
     { value: "1px", name: "--toggle-dot-margin" },
     { value: "calc(-1 * var(--dimension-2))", name: "--toggle-inset" },
     { value: "var(--space-large)", name: "--box-padding" },
@@ -3645,34 +3616,14 @@ export const variableLookupTable = {
     brand: { default: "15px" },
     platform: { default: "unset" },
   },
-  "font-size-xsmall": {
-    brand: {
-      default: "0.733rem",
-      comment:
-        "11px / Note this token is to be used in rare cases because its hard to read. Please consult with the Design Systems and A11y teams for case-by-case feedback.",
-    },
-    platform: { default: "unset" },
-  },
   "font-size-small": {
-    brand: { default: "0.867rem", comment: "13px" },
+    brand: { default: "0.867rem", comment: "13px (in-content)" },
     platform: { default: "unset" },
   },
-  "font-size-large": {
-    brand: { default: "1.133rem", comment: "17px" },
-    platform: { default: "unset" },
-  },
-  "font-size-xlarge": {
-    brand: { default: "1.467rem", comment: "22px" },
-    platform: { default: "unset" },
-  },
-  "font-size-xxlarge": {
-    brand: { default: "1.6rem", comment: "24px" },
-    platform: { default: "unset" },
-  },
-  "font-size-xxxlarge": {
-    brand: { default: "2.2rem", comment: "33px" },
-    platform: { default: "unset" },
-  },
+  "font-size-large": "1.133rem",
+  "font-size-xlarge": "1.467rem",
+  "font-size-xxlarge": "1.6rem",
+  "font-size-xxxlarge": "2.2rem",
   "font-size-heading-xlarge": "var(--font-size-xxlarge)",
   "font-size-heading-large": "var(--font-size-xlarge)",
   "font-size-heading-medium": "var(--font-size-large)",
@@ -4794,12 +4745,18 @@ export const variableLookupTable = {
   "select-border-color-disabled": "var(--button-border-color-disabled)",
   "select-border-radius": "var(--button-border-radius)",
   "select-font-size": "var(--button-font-size)",
+  "select-font-size-small": "var(--select-font-size)",
   "select-font-weight": "var(--button-font-weight)",
   "select-icon-fill": "var(--button-icon-fill)",
   "select-min-height": "var(--button-min-height)",
+  "select-min-height-small": "var(--select-min-height)",
   "select-opacity-disabled": "var(--button-opacity-disabled)",
   "select-option-font-weight": "var(--font-weight)",
   "select-option-text-color": "var(--text-color)",
+  "select-padding-block": "var(--space-small)",
+  "select-padding-icon": "var(--icon-size)",
+  "select-space-inline": "var(--space-large)",
+  "select-space-inline-small": "var(--space-large)",
   "select-text-color": "var(--button-text-color)",
   "select-text-color-hover": "var(--button-text-color-hover)",
   "select-text-color-disabled": "var(--button-text-color-disabled)",

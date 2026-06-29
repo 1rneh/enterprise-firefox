@@ -5991,18 +5991,33 @@ pub extern "C" fn Servo_NumericType_Create(unit: &nsACString, result: &mut Numer
     }
 }
 
-#[no_mangle]
-pub extern "C" fn Servo_NumericType_AddTypes(
-    numeric_types: &nsTArray<&NumericType>,
-    result: &mut NumericType,
-) -> bool {
-    match NumericType::add_types(numeric_types) {
+fn add_numeric_types<'a, I>(types: I, result: &mut NumericType) -> bool
+where
+    I: Iterator<Item = &'a NumericType>,
+{
+    match NumericType::add_types(types) {
         Ok(numeric_type) => {
             *result = numeric_type;
             true
         },
         Err(..) => false,
     }
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_NumericType_AddTypes(
+    numeric_types: &nsTArray<&NumericType>,
+    result: &mut NumericType,
+) -> bool {
+    add_numeric_types(numeric_types.iter().copied(), result)
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_NumericType_AddTypesFromValues(
+    numeric_types: &nsTArray<NumericType>,
+    result: &mut NumericType,
+) -> bool {
+    add_numeric_types(numeric_types.iter(), result)
 }
 
 #[no_mangle]
@@ -7462,11 +7477,7 @@ pub extern "C" fn Servo_GetComputedKeyframeValues(
                 let guard = declarations.read_with(&guard);
                 for decl in guard.normal_declaration_iter() {
                     if let PropertyDeclaration::Custom(ref declaration) = *decl {
-                        builder.cascade(
-                            &mut context,
-                            declaration,
-                            priority,
-                        );
+                        builder.cascade(&mut context, declaration, priority);
                     }
                 }
             }

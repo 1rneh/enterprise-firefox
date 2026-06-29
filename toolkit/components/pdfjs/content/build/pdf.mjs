@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.429
- * pdfjsBuild = e6539f651
+ * pdfjsVersion = 6.1.202
+ * pdfjsBuild = f2f3a7fdc
  */
 
 ;// ./src/shared/util.js
@@ -534,6 +534,9 @@ class FeatureTest {
     input.setAttribute("alpha", "");
     input.value = "#ff000080";
     return shadow(this, "isAlphaColorInputSupported", input.value !== "#ff0000");
+  }
+  static get isBackdropFilterSupported() {
+    return shadow(this, "isBackdropFilterSupported", typeof CSS !== "undefined" && CSS.supports("backdrop-filter", "blur(1px)"));
   }
 }
 class Util {
@@ -1998,7 +2001,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "1dd86b1c-2a32-4818-8f60-4acd2ffeae2f";
+const INTERNAL_EVT = "cbe7e2e4-d795-4cce-ad51-6e6178985b77";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -14214,7 +14217,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.0.429",
+    apiVersion: "6.1.202",
     data,
     password,
     disableAutoFetch,
@@ -15863,8 +15866,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.0.429";
-const build = "e6539f651";
+const version = "6.1.202";
+const build = "f2f3a7fdc";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -20415,7 +20418,7 @@ class FreeTextEditor extends AnnotationEditor {
           }
         }
       } = data;
-      if (!textContent || textContent.length === 0) {
+      if (!textContent?.length) {
         return null;
       }
       initialData = data = {
@@ -22765,7 +22768,7 @@ class InkDrawOutliner {
     return Outline._normalizePoint(x, y, this.#parentWidth, this.#parentHeight, this.#rotation);
   }
   isEmpty() {
-    return !this.#lines || this.#lines.length === 0;
+    return !this.#lines?.length;
   }
   isCancellable() {
     return this.#points.length <= 10;

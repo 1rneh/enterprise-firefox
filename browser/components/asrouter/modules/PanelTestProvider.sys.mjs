@@ -220,6 +220,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           content: {
             position: "center",
+            zap_border: true,
+            zap_shadow: true,
             screen_style: {
               width: "650px",
               height: "500px",
@@ -282,8 +284,6 @@ const MESSAGES = () => [
                     text: {
                       string_id: "create-backup-screen-1-flair",
                       fontSize: "0.625em",
-                      fontWeight: "600",
-                      top: "revert",
                       lineHeight: "normal",
                     },
                   },
@@ -442,6 +442,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           content: {
             position: "center",
+            zap_border: true,
+            zap_shadow: true,
             screen_style: {
               width: "650px",
               height: "560px",
@@ -662,6 +664,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "!isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             logo: {
               imageURL:
                 "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/0706f067-eaf8-4537-a9e1-6098d990f511.svg",
@@ -711,6 +715,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             isEncryptedBackup: true,
             logo: {
               imageURL:
@@ -759,6 +765,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             isEncryptedBackup: true,
             title: {
               raw: "Create a backup file password",
@@ -808,6 +816,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "!isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             screen_style: {
               width: "664px",
               height: "620px",
@@ -900,6 +910,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             isEncryptedBackup: true,
             screen_style: {
               width: "664px",
@@ -3097,7 +3109,6 @@ const MESSAGES = () => [
                       string_id: "create-backup-screen-1-flair",
                       fontSize: "0.625em",
                       fontWeight: "600",
-                      top: "revert",
                       lineHeight: "normal",
                     },
                   },
@@ -4113,6 +4124,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           content: {
             position: "split",
+            zap_border: true,
+            zap_shadow: true,
             main_content_style: {
               paddingBlockStart: "40px",
             },

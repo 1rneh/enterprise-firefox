@@ -46,29 +46,3 @@ add_setup(async () => {
     PoliciesPrefTracker.stop();
   });
 });
-
-/**
- * Set up a policy engine that combines local policies (read from a local
- * policies.json) and remote policies (fetched from the stubbed ConsoleClient
- * endpoint).
- *
- * @param {object} localPolicies Policies to be read from a local policies.json
- * @param {object} remotePolicies Policies to be fetched from the stubbed endpoint
- * @param {object} customSchema
- * @returns {Promise} Resolves once local and remote policies are applied after a restart.
- */
-async function setupPolicyEngineWithCombinedPolicyProvider(
-  localPolicies,
-  remotePolicies,
-  customSchema
-) {
-  // Stub the remote policies endpoint before the restart so the remote provider
-  // serves them during startup.
-  EnterprisePolicyTesting.stubRemotePolicies(remotePolicies);
-
-  // Apply the local policies (via policies.json) and restart the engine.
-  return EnterprisePolicyTesting.setupPolicyEngineWithJson(
-    localPolicies,
-    customSchema
-  );
-}

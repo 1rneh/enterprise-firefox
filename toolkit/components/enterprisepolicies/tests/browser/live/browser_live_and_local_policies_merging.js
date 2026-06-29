@@ -58,7 +58,7 @@ add_task(async function test_remote_policy_overrides_local_policy() {
     policies: {},
   };
 
-  await setupPolicyEngineWithCombinedPolicyProvider(
+  await EnterprisePolicyTesting.setupPolicyEngineWithCombinedPolicyProvider(
     localPolicies,
     remotePolicies,
     customSchema
@@ -127,7 +127,7 @@ add_task(async function test_remote_and_local_policy_merged() {
     },
   };
 
-  await setupPolicyEngineWithCombinedPolicyProvider(
+  await EnterprisePolicyTesting.setupPolicyEngineWithCombinedPolicyProvider(
     localPolicies,
     remotePolicies,
     customSchema

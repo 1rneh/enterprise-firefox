@@ -7,6 +7,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  CanonicalJSON: "resource://gre/modules/CanonicalJSON.sys.mjs",
   EnterpriseHandler:
     "resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
@@ -103,7 +104,9 @@ function isEmptyObject(obj) {
  * @returns {string} base64-encoded SHA-256 digest
  */
 function hashValue(value) {
-  const bytes = new TextEncoder().encode(JSON.stringify(value) ?? "");
+  const bytes = new TextEncoder().encode(
+    lazy.CanonicalJSON.stringify(value) ?? ""
+  );
   const hasher = Cc["@mozilla.org/security/hash;1"].createInstance(
     Ci.nsICryptoHash
   );

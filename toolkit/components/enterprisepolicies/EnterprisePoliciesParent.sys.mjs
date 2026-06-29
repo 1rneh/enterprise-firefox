@@ -259,6 +259,10 @@ EnterprisePoliciesManager.prototype = {
       }
       lazy.log.debug("Adding remote provider.");
       provider.push(remoteProvider);
+    } else {
+      lazy.log.debug(
+        "Remote policies not supported; skipping remote provider."
+      );
     }
 
     provider.mergePolicies();
@@ -355,6 +359,12 @@ EnterprisePoliciesManager.prototype = {
     }
 
     this._provider.mergePolicies();
+
+    lazy.log.debug(
+      `Applying policy update with ${
+        Object.keys(this._effectivePolicies()).length
+      } effective policies.`
+    );
 
     let previousPolicies = null;
     try {
@@ -658,6 +668,7 @@ EnterprisePoliciesManager.prototype = {
   },
 
   async _resetEngine() {
+    lazy.log.debug("Resetting policy engine.");
     DisallowedFeatures = {};
     SitePolicies = [];
 
@@ -679,6 +690,7 @@ EnterprisePoliciesManager.prototype = {
   },
 
   async _restart() {
+    lazy.log.debug("Restarting policy engine.");
     await this._resetEngine();
 
     // Simulate the startup process. This step-by-step is a bit ugly but it
@@ -708,6 +720,7 @@ EnterprisePoliciesManager.prototype = {
 
   // nsIObserver implementation
   observe(aSubject, aTopic) {
+    lazy.log.debug(`Observed topic: ${aTopic}.`);
     this._topicsObserved.add(aTopic);
 
     switch (aTopic) {
@@ -1281,6 +1294,9 @@ class RemotePoliciesProvider extends PoliciesProvider {
             // Nothing changed
             return;
           }
+          lazy.log.debug(
+            `Remote policy polling interval changed from ${p}ms to ${this._pollingFrequency}ms.`
+          );
           this._stopPolling();
           this._startPolling();
         }
@@ -1295,6 +1311,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
     if (!this._poller) {
       return;
     }
+    lazy.log.debug("Stopping live policy polling.");
     lazy.clearInterval(this._poller);
     this._poller = null;
   }
@@ -1314,6 +1331,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
         lazy.log.debug("Remote policies unchanged, not firing an update.");
         return;
       }
+      lazy.log.debug("Remote policies changed; firing update.");
       Services.obs.notifyObservers(null, "EnterprisePolicies:Update");
     } catch (e) {
       lazy.log.error(
@@ -1329,6 +1347,9 @@ class RemotePoliciesProvider extends PoliciesProvider {
       // Already polling.
       return;
     }
+    lazy.log.debug(
+      `Starting live policy polling every ${this._pollingFrequency}ms.`
+    );
     this._performPolling();
     this._poller = lazy.setInterval(
       this._performPolling.bind(this),
@@ -1357,6 +1378,12 @@ class RemotePoliciesProvider extends PoliciesProvider {
     const wasFailed = this._failed;
     this._failed = false;
     this._policies = res.policies;
+
+    if (wasFailed) {
+      lazy.log.warn(
+        "RemotePoliciesProvider recovered after a previous failure."
+      );
+    }
 
     // The console returns byte-identical JSON when the remote policy set is
     // unchanged, so hashing it lets us skip firing an update when nothing

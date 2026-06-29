@@ -9,11 +9,6 @@
 // can't be done for a static import statement).
 
 // eslint-disable-next-line mozilla/use-static-import
-const { AppConstants } = ChromeUtils.importESModule(
-  "resource://gre/modules/AppConstants.sys.mjs"
-);
-
-// eslint-disable-next-line mozilla/use-static-import
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );

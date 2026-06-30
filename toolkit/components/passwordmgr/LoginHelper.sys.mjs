@@ -1718,8 +1718,6 @@ export const LoginHelper = {
         telemetryEvent,
       };
     }
-    // We'll attempt to re-auth via Primary Password, so log out.
-    await token.logout();
 
     const isEnterpriseManagedPrimaryPassword =
       this.isEnterpriseManagedPrimaryPassword();

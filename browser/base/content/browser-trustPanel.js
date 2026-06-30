@@ -303,10 +303,11 @@ class TrustPanel {
         .addEventListener("command", () => this.#changeHttpsOnlyPermission());
 
       this.#popup.addEventListener("popupshown", this);
+      this.#popup.addEventListener("popuphidden", this);
     }
   }
 
-  async showPopup(opts = {}) {
+  async showPopup({ event, reason }) {
     this.#initializePopup();
 
     // Kick off background determination of QWAC status.
@@ -328,10 +329,11 @@ class TrustPanel {
 
     await this.#updatePopup();
 
-    this.#openingReason = opts.reason;
+    this.#openingReason = reason;
 
     PanelMultiView.openPopup(this.#popup, this.#anchor(), {
       position: "bottomleft topleft",
+      triggerEvent: event,
     });
 
     const applicableBreaches = await this.#getApplicableBreaches(this.#host);
@@ -1595,13 +1597,35 @@ class TrustPanel {
   // We handle focus here when the panel is shown.
   handleEvent(event) {
     switch (event.type) {
+      case "focus": {
+        let elem = document.activeElement;
+        let position = elem.compareDocumentPosition(this.#popup);
+        if (
+          !(
+            position &
+            (Node.DOCUMENT_POSITION_CONTAINS |
+              Node.DOCUMENT_POSITION_CONTAINED_BY)
+          ) &&
+          !this.#popup.hasAttribute("noautohide")
+        ) {
+          // Hide the panel when focusing an element that is
+          // neither an ancestor nor descendant unless the panel has
+          // @noautohide (e.g. for a tour).
+          PanelMultiView.hidePopup(this.#popup);
+        }
+        break;
+      }
       case "popupshown":
         this.onPopupShown(event);
+        break;
+      case "popuphidden":
+        this.onPopupHidden(event);
         break;
     }
   }
 
   onPopupShown() {
+    window.addEventListener("focus", this, true);
     PopupNotifications.suppressWhileOpen(this.#popup);
     // Disable the toggles for a short time after opening via SmartBlock placeholder button
     // to prevent clickjacking.
@@ -1611,6 +1635,10 @@ class TrustPanel {
         this.#enablePopupToggles();
       }, popupClickjackDelay);
     }
+  }
+
+  onPopupHidden() {
+    window.removeEventListener("focus", this, true);
   }
 
   /**

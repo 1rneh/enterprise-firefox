@@ -592,14 +592,10 @@ class UseScratchRegisterScope {
   ~UseScratchRegisterScope();
 
   Register Acquire();
-  void Release(const Register& reg);
+  void Acquire(Register reg);
+  void Release(Register reg);
   bool hasAvailable() const;
-  void Include(const GeneralRegisterSet& list) {
-    *available_ = GeneralRegisterSet::Union(*available_, list);
-  }
-  void Exclude(const GeneralRegisterSet& list) {
-    *available_ = GeneralRegisterSet::Subtract(*available_, list);
-  }
+  uint32_t countAvailable() const;
 
  private:
   GeneralRegisterSet* available_;

@@ -1718,6 +1718,8 @@ export const LoginHelper = {
         telemetryEvent,
       };
     }
+    // We'll attempt to re-auth via Primary Password, so log out.
+    await token.logout();
 
     const isEnterpriseManagedPrimaryPassword =
       this.isEnterpriseManagedPrimaryPassword();
@@ -1751,11 +1753,11 @@ export const LoginHelper = {
     try {
       if (isEnterpriseManagedPrimaryPassword) {
         // Enterprise builds rely on the backend-provided secret rather than forcing a logout.
-        token.login();
+        await token.login();
       } else {
         // Force a logout and prompt even if the token had been unlocked earlier.
-        token.logout();
-        token.login();
+        await token.logout();
+        await token.login();
       }
       // clicking 'Cancel' or entering the correct password.
     } catch (e) {

@@ -10100,25 +10100,6 @@
   value: true
   mirror: always
 
-# asm.js
-- name: javascript.options.asmjs
-  type: bool
-  value: false
-  mirror: always
-
-# Whether to throw a TypeError if asm.js code hits validation failure.
-- name: javascript.options.throw_on_asmjs_validation_failure
-  type: bool
-  value: false
-  mirror: always
-
-# Whether to show a warning if asm.js is used.
-- name: javascript.options.warn_asmjs_deprecation
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: always
-
 # Whether to disable the jit within the main process
 - name: javascript.options.main_process_disable_jit
   type: bool
@@ -11707,11 +11688,22 @@
 
 # Is support for CSS Typed Object Model API enabled?
 #
-# Note that this feature is experimental and under active development.
-# Enabling this pref will only expose some interfaces that are already
-# implemented and is intended solely to enable WPT coverage during
-# incremental development.
+# This feature is still under development. The pref is enabled on Nightly so
+# Firefox results show up on wpt.fyi alongside other engines, and to gather
+# real-world feedback. Only interfaces that are implemented are exposed.
+# Color interfaces are additionally gated by layout.css.typed-om-color.enabled.
 - name: layout.css.typed-om.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for CSS Typed Object Model color interfaces enabled?
+#
+# Additional gate on top of layout.css.typed-om.enabled. Color interfaces
+# (CSSColorValue and related) require both prefs to be true. Kept separate so
+# color work can progress independently from the rest of Typed OM.
+- name: layout.css.typed-om-color.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -16823,12 +16815,24 @@
   type: RelaxedAtomicUint32
   value: 50
   mirror: always
+  rust: true
 
 # The time to wait between successive connection attempts (ms).
 - name: network.http.happy_eyeballs_connection_attempt_delay
   type: RelaxedAtomicUint32
-  value: 250
+  value: 50
   mirror: always
+  rust: true
+
+# Multiplier applied to the connection attempt delay for each additional
+# concurrent attempt, growing the delay exponentially. A value of 1 keeps the
+# delay constant. With a 50ms base delay and a multiplier of 2, attempts are
+# scheduled at t=0, 50, 150, 350, 750, ... ms.
+- name: network.http.happy_eyeballs_connection_attempt_delay_multiplier
+  type: RelaxedAtomicUint32
+  value: 2
+  mirror: always
+  rust: true
 
 # If true, it will include extra tags to be sniffed by nsUnknownDecoder
 # These tags were previously sniffed by Firefox for legacy/webcompat but

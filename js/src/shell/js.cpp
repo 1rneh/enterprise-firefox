@@ -873,7 +873,6 @@ bool shell::offthreadBaselineCompilation = false;
 bool shell::offthreadIonCompilation = false;
 JS::DelazificationOption shell::defaultDelazificationMode =
     JS::DelazificationOption::OnDemandOnly;
-bool shell::enableAsmJS = false;
 bool shell::enableWasm = false;
 bool shell::enableSharedMemory = SHARED_MEMORY_DEFAULT;
 bool shell::enableWasmBaseline = false;
@@ -2553,51 +2552,29 @@ static bool IgnoreUnhandledRejections(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+// Deprecated: all JS engine options have been removed. Returns an empty string
+// with no arguments; throws for any unknown option name provided.
 static bool Options(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
-  JS::ContextOptions oldContextOptions = JS::ContextOptionsRef(cx);
-  for (unsigned i = 0; i < args.length(); i++) {
-    RootedString str(cx, JS::ToString(cx, args[i]));
+  if (args.length() >= 1) {
+    RootedString str(cx, JS::ToString(cx, args[0]));
     if (!str) {
       return false;
     }
-
     Rooted<JSLinearString*> opt(cx, str->ensureLinear(cx));
     if (!opt) {
       return false;
     }
-
-    if (StringEqualsLiteral(opt, "throw_on_asmjs_validation_failure")) {
-      JS::ContextOptionsRef(cx).toggleThrowOnAsmJSValidationFailure();
-    } else {
-      UniqueChars optChars = QuoteString(cx, opt, '"');
-      if (!optChars) {
-        return false;
-      }
-
-      JS_ReportErrorASCII(cx,
-                          "unknown option name %s."
-                          " The valid name is "
-                          "throw_on_asmjs_validation_failure.",
-                          optChars.get());
+    UniqueChars optChars = QuoteString(cx, opt, '"');
+    if (!optChars) {
       return false;
     }
-  }
-
-  UniqueChars names = DuplicateString("");
-  bool found = false;
-  if (names && oldContextOptions.throwOnAsmJSValidationFailure()) {
-    names = JS_sprintf_append(std::move(names), "%s%s", found ? "," : "",
-                              "throw_on_asmjs_validation_failure");
-    found = true;
-  }
-  if (!names) {
-    JS_ReportOutOfMemory(cx);
+    JS_ReportErrorASCII(cx, "unknown option name %s.", optChars.get());
     return false;
   }
 
-  JSString* str = JS_NewStringCopyZ(cx, names.get());
+  JSString* str = JS_NewStringCopyZ(cx, "");
   if (!str) {
     return false;
   }
@@ -2833,10 +2810,6 @@ static bool ConvertTranscodeResultToJSException(JSContext* cx,
     case JS::TranscodeResult::Failure_BadBuildId:
       MOZ_ASSERT(!cx->isExceptionPending());
       JS_ReportErrorASCII(cx, "the build-id does not match");
-      return false;
-    case JS::TranscodeResult::Failure_AsmJSNotSupported:
-      MOZ_ASSERT(!cx->isExceptionPending());
-      JS_ReportErrorASCII(cx, "Asm.js is not supported by XDR");
       return false;
     case JS::TranscodeResult::Failure_BadDecode:
       MOZ_ASSERT(!cx->isExceptionPending());
@@ -5999,6 +5972,22 @@ static bool InstantiateModuleStencilXDR(JSContext* cx, uint32_t argc,
   return true;
 }
 
+static bool CheckModuleFunctionAllowed(JSContext* cx) {
+  // These module functions are provided for testing purposes only. In a real
+  // implementation they are not accessible to user scripts and are called as
+  // part of the module loader itself.
+  //
+  // They should not be allowed in places where their use can break module
+  // loader invariants, for example from debugger hooks.
+
+  if (cx->noExecuteDebuggerTop) {
+    JS_ReportErrorASCII(cx, "Function not allowed inside debugger hooks");
+    return false;
+  }
+
+  return true;
+}
+
 static bool RegisterModule(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   if (!args.requireAtLeast(cx, "registerModule", 2)) {
@@ -6028,6 +6017,10 @@ static bool RegisterModule(JSContext* cx, unsigned argc, Value* vp) {
 
   Rooted<JSAtom*> specifier(cx, AtomizeString(cx, args[0].toString()));
   if (!specifier) {
+    return false;
+  }
+
+  if (!CheckModuleFunctionAllowed(cx)) {
     return false;
   }
 
@@ -6088,6 +6081,10 @@ static bool ModuleLink(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
+  if (!CheckModuleFunctionAllowed(cx)) {
+    return false;
+  }
+
   AutoRealm ar(cx, object);
 
   Rooted<ModuleObject*> module(cx,
@@ -6117,6 +6114,10 @@ static bool ModuleEvaluate(JSContext* cx, unsigned argc, Value* vp) {
   if (!object->is<ShellModuleObjectWrapper>()) {
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_INVALID_ARGS,
                               "moduleEvaluate");
+    return false;
+  }
+
+  if (!CheckModuleFunctionAllowed(cx)) {
     return false;
   }
 
@@ -12150,7 +12151,6 @@ auto minVal(T a, Ts... args) {
 static void SetWorkerContextOptions(JSContext* cx) {
   // Copy option values from the main thread.
   JS::ContextOptionsRef(cx)
-      .setAsmJS(enableAsmJS)
       .setWasm(enableWasm)
       .setWasmBaseline(enableWasmBaseline)
       .setWasmIon(enableWasmOptimizing)
@@ -12885,7 +12885,6 @@ bool InitOptionParser(OptionParser& op) {
                        -1) ||
       !op.addBoolOption('\0', "only-inline-selfhosted",
                         "Only inline selfhosted functions") ||
-      !op.addBoolOption('\0', "asmjs", "Enable asm.js compilation") ||
       !op.addStringOption(
           '\0', "wasm-compiler", "[option]",
           "Choose to enable a subset of the wasm compilers, valid options are "
@@ -13772,8 +13771,6 @@ bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 }
 
 bool SetContextWasmOptions(JSContext* cx, const OptionParser& op) {
-  enableAsmJS = op.getBoolOption("asmjs");
-
   enableWasm = true;
   enableWasmBaseline = true;
   enableWasmOptimizing = true;
@@ -13781,8 +13778,6 @@ bool SetContextWasmOptions(JSContext* cx, const OptionParser& op) {
   if (const char* str = op.getStringOption("wasm-compiler")) {
     if (strcmp(str, "none") == 0) {
       enableWasm = false;
-      // Disable asm.js -- no wasm compilers available.
-      enableAsmJS = false;
     } else if (strcmp(str, "baseline") == 0) {
       MOZ_ASSERT(enableWasmBaseline);
       enableWasmOptimizing = false;
@@ -13808,7 +13803,6 @@ bool SetContextWasmOptions(JSContext* cx, const OptionParser& op) {
   enableTestWasmAwaitTier2 = op.getBoolOption("test-wasm-await-tier2");
 
   JS::ContextOptionsRef(cx)
-      .setAsmJS(enableAsmJS)
       .setWasm(enableWasm)
       .setWasmForTrustedPrinciples(enableWasm)
       .setWasmBaseline(enableWasmBaseline)

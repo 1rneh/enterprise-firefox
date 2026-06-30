@@ -8,8 +8,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Utils: "resource://services-settings/Utils.sys.mjs",
 });
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
-
 import {
   actionTypes as at,
   actionCreators as ac,
@@ -35,9 +33,6 @@ const PREF_SELECTED_WALLPAPER =
 const PREF_WALLPAPERS_USER_ENABLED_MIGRATED =
   "browser.newtabpage.activity-stream.newtabWallpapers.user.enabled.migrated";
 
-const RS_FALLBACK_BASE_URL = AppConstants.MOZ_ENTERPRISE
-  ? ""
-  : "https://firefox-settings-attachments.cdn.mozilla.net/";
 export class WallpaperFeed {
   constructor() {
     this.loaded = false;
@@ -169,15 +164,7 @@ export class WallpaperFeed {
       PREF_WALLPAPERS_CUSTOM_WALLPAPER_ENABLED
     );
 
-    let baseAttachmentURL = RS_FALLBACK_BASE_URL;
-    try {
-      baseAttachmentURL = await lazy.Utils.baseAttachmentsURL();
-    } catch (error) {
-      console.error(
-        `Error fetching remote settings base url from CDN. Falling back to ${RS_FALLBACK_BASE_URL}`,
-        error
-      );
-    }
+    const baseAttachmentURL = await lazy.Utils.baseAttachmentsURL();
 
     const wallpapers = [
       ...records.map(record => {

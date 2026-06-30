@@ -1550,15 +1550,25 @@ Register UseScratchRegisterScope::Acquire() {
   return index;
 }
 
-void UseScratchRegisterScope::Release(const Register& reg) {
+void UseScratchRegisterScope::Acquire(Register reg) {
+  MOZ_ASSERT(available_ != nullptr);
+  MOZ_ASSERT(available_->hasRegisterIndex(reg));
+  available_->takeRegisterIndex(reg);
+}
+
+void UseScratchRegisterScope::Release(Register reg) {
   MOZ_ASSERT(available_ != nullptr);
   MOZ_ASSERT(old_available_.hasRegisterIndex(reg));
   MOZ_ASSERT(!available_->hasRegisterIndex(reg));
-  Include(GeneralRegisterSet(1 << reg.code()));
+  available_->addRegisterIndex(reg);
 }
 
 bool UseScratchRegisterScope::hasAvailable() const {
   return (available_->size()) != 0;
+}
+
+uint32_t UseScratchRegisterScope::countAvailable() const {
+  return available_->size();
 }
 
 void Assembler::retarget(Label* label, Label* target) {

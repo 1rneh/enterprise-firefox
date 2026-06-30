@@ -2624,15 +2624,6 @@ bool JS::OwningCompileOptions::copy(JS::FrontendContext* fc,
 JS::CompileOptions::CompileOptions(JSContext* cx) {
   prefableOptions_ = cx->options().compileOptions();
 
-  if (cx->options().asmJSOption() == AsmJSOption::Enabled) {
-    if (!js::IsAsmJSCompilationAvailable(cx)) {
-      prefableOptions_.setAsmJSOption(AsmJSOption::DisabledByNoWasmCompiler);
-    } else if (cx->realm() && (cx->realm()->debuggerObservesWasm() ||
-                               cx->realm()->debuggerObservesAsmJS())) {
-      prefableOptions_.setAsmJSOption(AsmJSOption::DisabledByDebugger);
-    }
-  }
-
   // Certain modes of operation disallow syntax parsing in general.
   if (coverage::IsLCovEnabled()) {
     eagerDelazificationStrategy_ = DelazificationOption::ParseEverythingEagerly;

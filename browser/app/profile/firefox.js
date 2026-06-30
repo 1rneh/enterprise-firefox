@@ -2309,6 +2309,7 @@ pref("sidebar.updatedBookmarks.enabled", true);
 pref("sidebar.updatedBookmarks.enabled", false);
 #endif
 pref("sidebar.openTabsPanel.enabled", false);
+pref("sidebar.openTabsPanel.collapsedWindows", "{}");
 
 pref("sidebar.notification.badge.aichat", false);
 
@@ -3646,13 +3647,8 @@ pref("browser.backup.enabled", true);
 pref("browser.backup.scheduled.enabled", false);
 
 // Prefs to control visibility and usability of the create backup and restore from backup features.
-#ifndef XP_MACOSX
-  pref("browser.backup.archive.enabled", true);
-  pref("browser.backup.restore.enabled", true);
-#else
-  pref("browser.backup.archive.enabled", false);
-  pref("browser.backup.restore.enabled", false);
-#endif
+pref("browser.backup.archive.enabled", true);
+pref("browser.backup.restore.enabled", true);
 
 // The number of SQLite database pages to backup per step.
 pref("browser.backup.sqlite.pages_per_step", 50);

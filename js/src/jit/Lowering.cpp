@@ -1986,7 +1986,7 @@ void LIRGenerator::visitMinMax(MMinMax* ins) {
   }
 
   // Input reuse is OK (for now) even on ARM64: floating min/max are fairly
-  // expensive due to SNaN -> QNaN conversion, and int min/max is for asm.js.
+  // expensive due to SNaN -> QNaN conversion.
   defineReuseInput(lir, ins, 0);
 }
 
@@ -7061,7 +7061,9 @@ void LIRGenerator::visitWasmDerivedIndexPointer(MWasmDerivedIndexPointer* ins) {
 void LIRGenerator::visitWasmStoreRef(MWasmStoreRef* ins) {
   LAllocation instance = useRegister(ins->instance());
   LAllocation valueBase = useFixed(ins->valueBase(), PreBarrierReg);
-  LAllocation value = useRegister(ins->value());
+  LAllocation value = ins->value()->isWasmNullConstant()
+                          ? LAllocation()
+                          : useRegister(ins->value());
   uint32_t valueOffset = ins->offset();
   add(new (alloc())
           LWasmStoreRef(instance, valueBase, value, temp(), valueOffset,
@@ -7071,6 +7073,11 @@ void LIRGenerator::visitWasmStoreRef(MWasmStoreRef* ins) {
 
 void LIRGenerator::visitWasmPostWriteBarrierWholeCell(
     MWasmPostWriteBarrierWholeCell* ins) {
+  // No post-write barrier needed for null stores.
+  if (ins->value()->isWasmNullConstant()) {
+    return;
+  }
+
   LWasmPostWriteBarrierWholeCell* lir = new (alloc())
       LWasmPostWriteBarrierWholeCell(useFixed(ins->instance(), InstanceReg),
                                      useRegister(ins->object()),
@@ -7081,6 +7088,11 @@ void LIRGenerator::visitWasmPostWriteBarrierWholeCell(
 
 void LIRGenerator::visitWasmPostWriteBarrierEdgeAtIndex(
     MWasmPostWriteBarrierEdgeAtIndex* ins) {
+  // No post-write barrier needed for null stores.
+  if (ins->value()->isWasmNullConstant()) {
+    return;
+  }
+
   LWasmPostWriteBarrierEdgeAtIndex* lir =
       new (alloc()) LWasmPostWriteBarrierEdgeAtIndex(
           useFixed(ins->instance(), InstanceReg), useRegister(ins->object()),
@@ -8379,6 +8391,10 @@ void LIRGenerator::visitConstantProto(MConstantProto* ins) {
 }
 
 void LIRGenerator::visitWasmNullConstant(MWasmNullConstant* ins) {
+  if (ins->canEmitAtUses()) {
+    emitAtUses(ins);
+    return;
+  }
   define(new (alloc()) LWasmNullConstant(), ins);
 }
 
@@ -8787,7 +8803,9 @@ void LIRGenerator::visitWasmStoreField(MWasmStoreField* ins) {
 void LIRGenerator::visitWasmStoreFieldRef(MWasmStoreFieldRef* ins) {
   LAllocation instance = useRegister(ins->instance());
   LAllocation base = useFixed(ins->base(), PreBarrierReg);
-  LAllocation value = useRegister(ins->value());
+  LAllocation value = ins->value()->isWasmNullConstant()
+                          ? LAllocation()
+                          : useRegister(ins->value());
   uint32_t offset = ins->offset();
   add(new (alloc()) LWasmStoreRef(instance, base, value, temp(), offset,
                                   ins->maybeTrap(), ins->preBarrierKind()),
@@ -8825,7 +8843,9 @@ void LIRGenerator::visitWasmStoreElementRef(MWasmStoreElementRef* ins) {
   LAllocation instance = useRegister(ins->instance());
   LAllocation base = useFixed(ins->base(), PreBarrierReg);
   LAllocation index = useRegister(ins->index());
-  LAllocation value = useRegister(ins->value());
+  LAllocation value = ins->value()->isWasmNullConstant()
+                          ? LAllocation()
+                          : useRegister(ins->value());
   bool needTemps = ins->preBarrierKind() == WasmPreBarrierKind::Normal;
   LDefinition temp0 = needTemps ? temp() : LDefinition::BogusTemp();
   LDefinition temp1 = needTemps ? temp() : LDefinition::BogusTemp();

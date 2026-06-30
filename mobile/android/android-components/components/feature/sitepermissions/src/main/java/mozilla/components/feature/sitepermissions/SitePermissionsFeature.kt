@@ -37,6 +37,7 @@ import mozilla.components.browser.state.action.ContentAction.UpdatePermissionHig
 import mozilla.components.browser.state.action.ContentAction.UpdatePermissionHighlightsStateAction.MicrophoneChangedAction
 import mozilla.components.browser.state.action.ContentAction.UpdatePermissionHighlightsStateAction.NotificationChangedAction
 import mozilla.components.browser.state.action.ContentAction.UpdatePermissionHighlightsStateAction.PersistentStorageChangedAction
+import mozilla.components.browser.state.action.SystemPermissionRequestAction
 import mozilla.components.browser.state.selector.findTabOrCustomTabOrSelectedTab
 import mozilla.components.browser.state.state.ContentState
 import mozilla.components.browser.state.state.SessionState
@@ -99,7 +100,8 @@ internal const val PROMPT_FRAGMENT_TAG = "mozac_feature_sitepermissions_prompt_d
  * the ActivityCompat.shouldShowRequestPermissionRationale or the Fragment.shouldShowRequestPermissionRationale values.
  * @property exitFullscreenUseCase optional the use case in charge of exiting fullscreen
  * @property shouldShowDoNotAskAgainCheckBox optional Visibility for Do not ask again Checkbox
- **/
+ * @property shouldHide Whether the site permissions prompt should be hidden.
+ */
 
 @Suppress("TooManyFunctions", "LargeClass")
 class SitePermissionsFeature(
@@ -118,6 +120,7 @@ class SitePermissionsFeature(
     private val shouldShowDoNotAskAgainCheckBox: Boolean = true,
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val shouldHide: () -> Boolean = { false },
 ) : LifecycleAwareFeature, PermissionsFeature {
     @VisibleForTesting
     internal val selectOrAddUseCase by lazy {
@@ -267,6 +270,9 @@ class SitePermissionsFeature(
         loadingScope?.cancel()
         storage.clearTemporaryPermissions()
         learnMoreUrlProvider = null
+        if (shouldHide()) {
+            hideSitePermissionsPrompt()
+        }
     }
 
     /**
@@ -278,11 +284,13 @@ class SitePermissionsFeature(
     @Suppress("NestedBlockDepth")
     override fun onPermissionsResult(permissions: Array<String>, grantResults: IntArray) {
         val currentContentState = getCurrentContentState()
-        val appPermissionRequest = findRequestedAppPermission(permissions)
+        val appPermissionRequest = findRequestedAppPermission(permissions) ?: return
 
-        if (appPermissionRequest == null || currentContentState == null) {
+        if (currentContentState == null) {
+            store.dispatch(SystemPermissionRequestAction.SystemPermissionStateRequestNotInProgress)
             return
         }
+
         if (grantResults.isNotEmpty() && areAllPermissionsGranted(permissions, grantResults)) {
             appPermissionRequest.grant()
         } else {
@@ -298,6 +306,7 @@ class SitePermissionsFeature(
                 }
             }
         }
+        store.dispatch(SystemPermissionRequestAction.SystemPermissionStateRequestNotInProgress)
         consumeAppPermissionRequest(appPermissionRequest)
     }
 
@@ -439,7 +448,11 @@ class SitePermissionsFeature(
         sessionId: String,
     ) {
         findRequestedPermission(permissionId)?.let { permissionRequest ->
-            consumePermissionRequest(permissionRequest, sessionId)
+            // When the screen is locked, shouldHide() is true.
+            // Interactions with the UnlockScreen should not dismiss the prompt.
+            if (!shouldHide()) {
+                consumePermissionRequest(permissionRequest, sessionId)
+            }
             onContentPermissionDeny(permissionRequest, false)
         }
     }
@@ -1137,6 +1150,14 @@ class SitePermissionsFeature(
             // Re-assign the feature instance so that the fragment can invoke us once the
             // user makes a selection or cancels the dialog.
             fragment.feature = this
+        }
+    }
+
+    internal fun hideSitePermissionsPrompt() {
+        fragmentManager.findFragmentByTag(PROMPT_FRAGMENT_TAG)?.let { fragment ->
+            fragmentManager.beginTransaction()
+                .remove(fragment)
+                .commitAllowingStateLoss()
         }
     }
 

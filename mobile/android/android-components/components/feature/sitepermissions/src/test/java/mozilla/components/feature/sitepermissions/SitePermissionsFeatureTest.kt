@@ -27,6 +27,7 @@ import mozilla.components.browser.state.action.ContentAction.UpdatePermissionHig
 import mozilla.components.browser.state.action.ContentAction.UpdatePermissionHighlightsStateAction.MicrophoneChangedAction
 import mozilla.components.browser.state.action.ContentAction.UpdatePermissionHighlightsStateAction.NotificationChangedAction
 import mozilla.components.browser.state.action.ContentAction.UpdatePermissionHighlightsStateAction.PersistentStorageChangedAction
+import mozilla.components.browser.state.action.SystemPermissionRequestAction
 import mozilla.components.browser.state.engine.EngineMiddleware
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.ContentState
@@ -1730,6 +1731,75 @@ class SitePermissionsFeatureTest {
             assertNull(prompt)
             assertFalse(grantWasCalled)
         }
+    }
+
+    @Test
+    fun `stop will hide site permissions prompt if shouldHide returns true`() {
+        val fragment: SitePermissionsDialogFragment = mock()
+        val transaction: FragmentTransaction = mock()
+
+        doReturn(fragment).`when`(mockFragmentManager).findFragmentByTag(PROMPT_FRAGMENT_TAG)
+        doReturn(transaction).`when`(mockFragmentManager).beginTransaction()
+        doReturn(transaction).`when`(transaction).remove(any())
+
+        val feature = spy(
+            SitePermissionsFeature(
+                context = testContext,
+                onNeedToRequestPermissions = mock(),
+                onShouldShowRequestPermissionRationale = { false },
+                store = browserStore,
+                fragmentManager = mockFragmentManager,
+                shouldHide = { true },
+            ),
+        )
+
+        feature.stop()
+
+        verify(feature).hideSitePermissionsPrompt()
+        verify(transaction).remove(fragment)
+        verify(transaction).commitAllowingStateLoss()
+    }
+
+    @Test
+    fun `stop will not hide site permissions prompt if shouldHide returns false`() {
+        val fragment: SitePermissionsDialogFragment = mock()
+        val transaction: FragmentTransaction = mock()
+
+        doReturn(fragment).`when`(mockFragmentManager).findFragmentByTag(PROMPT_FRAGMENT_TAG)
+        doReturn(transaction).`when`(mockFragmentManager).beginTransaction()
+        doReturn(transaction).`when`(transaction).remove(any())
+
+        val feature = spy(
+            SitePermissionsFeature(
+                context = testContext,
+                onNeedToRequestPermissions = mock(),
+                onShouldShowRequestPermissionRationale = { false },
+                store = browserStore,
+                fragmentManager = mockFragmentManager,
+                shouldHide = { false },
+            ),
+        )
+
+        feature.stop()
+
+        verify(feature, never()).hideSitePermissionsPrompt()
+        verify(mockFragmentManager, never()).beginTransaction()
+        verify(transaction, never()).remove(any())
+    }
+
+    @Test
+    fun `WHEN permission result handled THEN permission request state is reset`() {
+        doReturn(mockAppPermissionRequest).`when`(sitePermissionFeature)
+            .findRequestedAppPermission(any())
+
+        sitePermissionFeature.onPermissionsResult(
+            arrayOf("permission"),
+            arrayOf(PERMISSION_GRANTED).toIntArray(),
+        )
+
+        captureActionsMiddleware.assertLastAction(
+            SystemPermissionRequestAction.SystemPermissionStateRequestNotInProgress::class,
+        )
     }
 
     private fun mockFragmentManager(): FragmentManager {

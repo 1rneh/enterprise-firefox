@@ -3023,6 +3023,10 @@ pref("signon.firefoxRelay.terms_of_service_url", "https://www.mozilla.org/%LOCAL
 pref("signon.firefoxRelay.privacy_policy_url", "https://www.mozilla.org/%LOCALE%/privacy/subscription-services/");
 pref("signon.signupDetection.confidenceThreshold",     "0.75");
 
+pref("signon.storage.rust.enabled", false);
+pref("signon.storage.rust.active", false);
+pref("signon.storage.rust.migrationAttempts", 0);
+
 // Satchel (Form Manager) prefs
 pref("browser.formfill.debug",            false);
 pref("browser.formfill.enable",           true);
@@ -3860,6 +3864,10 @@ pref("services.common.log.logger.tokenserverclient", "Debug");
   // The URL of the Firefox Accounts auth server backend
   pref("identity.fxaccounts.auth.uri", "https://api.accounts.firefox.com/v1");
 
+  // Authenticate FxA token requests with the auth-server's typed Bearer scheme
+  // instead of Hawk. Kill-switch for the Hawk-to-Bearer migration.
+  pref("identity.fxaccounts.auth.useBearer", true);
+
   // Percentage chance we skip an extension storage sync (kinto life support).
   pref("services.sync.extension-storage.skipPercentageChance", 50);
 #endif // MOZ_SERVICES_SYNC
@@ -3966,8 +3974,7 @@ pref("devtools.debugger.force-local", true);
 // Possible values:
 // 0 => the response body has no limit
 // n => represents max number of bytes stored
-pref("devtools.netmonitor.responseBodyLimit", 1048576);
-pref("devtools.netmonitor.requestBodyLimit", 1048576);
+pref("devtools.netmonitor.bodyLimit", 1048576);
 
 // Limit for WebSocket/EventSource messages (100 KB).
 pref("devtools.netmonitor.msg.messageDataLimit", 100000);

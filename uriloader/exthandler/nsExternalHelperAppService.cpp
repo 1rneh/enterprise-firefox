@@ -17,6 +17,7 @@
 #include "mozilla/RandomNum.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/StaticPtr.h"
 #include "nsXULAppAPI.h"
@@ -871,6 +872,13 @@ NS_IMETHODIMP nsExternalHelperAppService::ApplyDecodingForExtension(
     const nsACString& aExtension, const nsACString& aEncodingType,
     bool* aApplyDecoding) {
   *aApplyDecoding = true;
+  // By default we decode the Content-Encoding even when the file extension
+  // matches the encoding, to avoid saving double-compressed files (bug 610679,
+  // bug 1470011). The legacy behavior can be restored via the pref.
+  if (StaticPrefs::
+          network_http_decode_content_for_known_compressed_extensions()) {
+    return NS_OK;
+  }
   uint32_t i;
   for (i = 0; i < std::size(nonDecodableExtensions); ++i) {
     if (aExtension.LowerCaseEqualsASCII(
@@ -1028,11 +1036,13 @@ nsExternalHelperAppService::LoadURI(nsIURI* aURI,
                                     bool aHasValidUserGestureActivation,
                                     bool aNewWindowTarget) {
   NS_ENSURE_ARG_POINTER(aURI);
+  NS_ENSURE_ARG_POINTER(aTriggeringPrincipal);
 
   if (XRE_IsContentProcess()) {
     mozilla::dom::ContentChild::GetSingleton()->SendLoadURIExternal(
-        aURI, aTriggeringPrincipal, aRedirectPrincipal, aBrowsingContext,
-        aTriggeredExternally, aHasValidUserGestureActivation, aNewWindowTarget);
+        WrapNotNull(aURI), WrapNotNull(aTriggeringPrincipal),
+        aRedirectPrincipal, aBrowsingContext, aTriggeredExternally,
+        aHasValidUserGestureActivation, aNewWindowTarget);
     return NS_OK;
   }
 
@@ -1100,7 +1110,7 @@ nsExternalHelperAppService::LoadURI(nsIURI* aURI,
   // links can always navigate everywhere, so this is a minor additional
   // restriction, only aiming to prevent some types of spoofing attacks
   // from otherwise disjoint browsingcontext trees.
-  if (aBrowsingContext && aTriggeringPrincipal &&
+  if (aBrowsingContext &&
       // Add-on principals are always allowed:
       !BasePrincipal::Cast(aTriggeringPrincipal)->AddonPolicy() &&
       // As is chrome code:

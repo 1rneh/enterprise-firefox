@@ -308,7 +308,7 @@
 #ifdef MOZ_ENABLE_SKIA_PDF
 - name: accessibility.tagged_pdf_output.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 #endif
 
@@ -7472,6 +7472,22 @@
 - name: gfx.color_management.hdr.force_enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Use a shader as a fallback if the regular video processor does not support a
+# format combination (e.g. YUV BT.2100 HLG to RGB BT.2100 PQ), this may use more
+# energy than using the regular video processor
+- name: gfx.color_management.hdr.yuv_to_rgb_video_shader.fallback
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Use a shader to convert YUV video to RGB video in all cases, this uses more
+# power than using VideoProcessorBlt but does make it look identical across
+# drivers.
+- name: gfx.color_management.hdr.yuv_to_rgb_video_shader.always
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 #ifdef XP_MACOSX
@@ -14729,6 +14745,15 @@
   value: 393216
   mirror: always
 
+# When true (default), decode Content-Encoding (e.g. gzip) when saving to disk
+# even if the URL extension matches the encoding (.gz, .tgz, .zip, .z, .svgz),
+# avoiding double-compressed files. When false, restore the legacy behavior of
+# not decoding. See bug 610679, bug 1470011.
+- name: network.http.decode_content_for_known_compressed_extensions
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Whether or not we give more priority to active tab.
 - name: network.http.active_tab_priority
   type: RelaxedAtomicBool
@@ -16656,7 +16681,7 @@
 # Can be set to false to disable the feature if regressions are observed.
 - name: network.cache.no_vary_search
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # When this pref is true, AddStorageEntry will return an error if the

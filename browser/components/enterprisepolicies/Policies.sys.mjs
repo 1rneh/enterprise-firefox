@@ -90,24 +90,34 @@ export var Policies = {
   _cleanup: {
     onBeforeAddons() {
       if (Cu.isInAutomation || isXpcshell) {
-        console.log("_cleanup from onBeforeAddons");
         clearBlockedAboutPages();
       }
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Cleanup",
+        "onBeforeAddons"
+      );
     },
     onProfileAfterChange() {
-      if (Cu.isInAutomation || isXpcshell) {
-        console.log("_cleanup from onProfileAfterChange");
-      }
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Cleanup",
+        "onProfileAfterChange"
+      );
     },
     onBeforeUIStartup() {
-      if (Cu.isInAutomation || isXpcshell) {
-        console.log("_cleanup from onBeforeUIStartup");
-      }
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Cleanup",
+        "onBeforeUIStartup"
+      );
     },
     onAllWindowsRestored() {
-      if (Cu.isInAutomation || isXpcshell) {
-        console.log("_cleanup from onAllWindowsRestored");
-      }
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Cleanup",
+        "onAllWindowsRestored"
+      );
     },
     onRemove() {
       if (Cu.isInAutomation || isXpcshell) {
@@ -1000,6 +1010,24 @@ export var Policies = {
   Cookies: {
     onBeforeUIStartup(manager, param) {
       addAllowDenyPermissions("cookie", param.Allow, param.Block);
+
+      // Backwards-compat shim (Bug 2051574): before Bug 1767271, Cookies.Allow
+      // doubled as the clear-on-shutdown exception list. Sites are now exempted
+      // via the dedicated SanitizeOnShutdown.Exceptions key. If an admin hasn't
+      // adopted that key yet, treat Cookies.Allow entries as shutdown exceptions
+      // too. Remove this shim once admins have had a couple of releases to
+      // migrate.
+      if (
+        param.Allow?.length &&
+        !manager.getActivePolicies()?.SanitizeOnShutdown?.Exceptions?.length
+      ) {
+        lazy.log.warn(
+          "Using Cookies.Allow to exempt sites from clear-on-shutdown is " +
+            "deprecated and will stop working in a future release. Use the " +
+            "SanitizeOnShutdown.Exceptions policy instead."
+        );
+        addAllowDenyPermissions("persist-data-on-shutdown", param.Allow);
+      }
 
       if (param.AllowSession) {
         for (let origin of param.AllowSession) {

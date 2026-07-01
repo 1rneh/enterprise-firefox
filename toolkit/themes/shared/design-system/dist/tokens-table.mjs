@@ -254,7 +254,8 @@ export const tokensTable = {
     {
       value: {
         default: "transparent",
-        brand: { forcedColors: "var(--button-background-color)" },
+        forcedColors: "ButtonFace",
+        brand: { forcedColors: "ButtonFace" },
         nativeTheme: "transparent",
         platform: { default: "transparent", browserTheme: {} },
       },
@@ -2177,6 +2178,11 @@ export const tokensTable = {
       value: {
         default: "var(--button-text-color-ghost-selected)",
         forcedColors: "var(--button-text-color-primary-selected)",
+        nativeTheme: "currentColor",
+        platform: {
+          default: "currentColor",
+          browserTheme: { default: "var(--button-text-color-ghost-selected)" },
+        },
       },
       name: "--button-text-color-menu-selected",
     },
@@ -3772,7 +3778,8 @@ export const variableLookupTable = {
     "var(--button-background-color-destructive-active)",
   "button-background-color-ghost": {
     default: "transparent",
-    brand: { forcedColors: "var(--button-background-color)" },
+    forcedColors: "ButtonFace",
+    brand: { forcedColors: "ButtonFace" },
     nativeTheme: "transparent",
     platform: { default: "transparent", browserTheme: {} },
   },
@@ -4010,6 +4017,11 @@ export const variableLookupTable = {
   "button-text-color-menu-selected": {
     default: "var(--button-text-color-ghost-selected)",
     forcedColors: "var(--button-text-color-primary-selected)",
+    nativeTheme: "currentColor",
+    platform: {
+      default: "currentColor",
+      browserTheme: { default: "var(--button-text-color-ghost-selected)" },
+    },
   },
   "button-text-color-primary": {
     forcedColors: "ButtonFace",

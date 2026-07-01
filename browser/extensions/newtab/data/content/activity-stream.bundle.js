@@ -15101,6 +15101,10 @@ const FocusTimer = ({
   } = useWidgetCelebration(widgetCelebrationRef);
   // Guards against a double-fire that would re-toggle SET_TYPE.
   const celebrationCompletedRef = (0,external_React_namespaceObject.useRef)(false);
+  // The timer is shared across open newtab/home pages, but each page fires its
+  // own end-of-session switch. Set the next type directly rather than toggling
+  // the shared value, so two pages don't toggle it and cancel out.
+  const completingTypeRef = (0,external_React_namespaceObject.useRef)(timerType);
   (0,external_React_namespaceObject.useEffect)(() => {
     if (isCelebrating) {
       celebrationCompletedRef.current = false;
@@ -15120,14 +15124,16 @@ const FocusTimer = ({
     }
     celebrationCompletedRef.current = true;
     resetProgressCircle();
+    const completedType = completingTypeRef.current;
+    const nextType = completedType === "focus" ? "break" : "focus";
+    const userAction = completedType === "focus" ? FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_BREAK : FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS;
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.AlsoToMain({
         type: actionTypes.WIDGETS_TIMER_SET_TYPE,
         data: {
-          timerType: timerType === "focus" ? "break" : "focus"
+          timerType: nextType
         }
       }));
-      const userAction = timerType === "focus" ? FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_BREAK : FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS;
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.WIDGETS_TIMER_USER_EVENT,
         data: {
@@ -15145,7 +15151,7 @@ const FocusTimer = ({
       }));
     });
     completeCelebration();
-  }, [completeCelebration, dispatch, resetProgressCircle, timerType, widgetSize]);
+  }, [completeCelebration, dispatch, resetProgressCircle, widgetSize]);
   const showSystemNotifications = prefs["widgets.focusTimer.showSystemNotifications"];
 
   // Held in a ref so the ticker effect below doesn't re-arm whenever
@@ -15178,6 +15184,7 @@ const FocusTimer = ({
         }
       }));
     });
+    completingTypeRef.current = timerType;
     celebrationCompletedRef.current = false;
 
     // animate the progress circle to turn solid green
@@ -17399,14 +17406,6 @@ const UPCOMING_STATUS_L10N_MAP = {
   cancelled: "newtab-sports-widget-cancelled",
   canceled: "newtab-sports-widget-cancelled"
 };
-
-// Keep the keys in sync with LIVE_STATUS_TYPES in SportsFeed.sys.mjs so any
-// new in-progress status either gets a localized footer here or is filtered
-// out at the feed before reaching the row.
-const LIVE_STATUS_L10N_MAP = {
-  halftime: "newtab-sports-widget-match-halftime",
-  "extra time": "newtab-sports-widget-match-extra-time"
-};
 const RESULTS_STATUS_L10N_MAP = {
   final: "newtab-sports-widget-match-full-time"
 };
@@ -17417,6 +17416,31 @@ const UPCOMING_STATUS_ARIA_L10N_MAP = {
   cancelled: "newtab-sports-widget-match-aria-label-upcoming-cancelled",
   canceled: "newtab-sports-widget-match-aria-label-upcoming-cancelled"
 };
+
+// status_type is always "live" on the /wcs/live endpoint, so the actual
+// sub-state has to be read from `period` and `status`. Matching rules mirror
+// Fenix's MatchesResponseMapper.kt. Returns null when no rule matches.
+function liveStatusL10nId({
+  period,
+  status: matchStatus,
+  home_penalty,
+  away_penalty
+}) {
+  const normalisedPeriod = (period || "").toLowerCase().replace(/\s+/g, "");
+  const inShootout = normalisedPeriod === "pen" || normalisedPeriod === "penaltyshootout" || home_penalty !== null && home_penalty !== undefined || away_penalty !== null && away_penalty !== undefined;
+  const isExtraTime = /et/i.test(period || "") || /extra/i.test(period || "");
+  const isHalftime = matchStatus?.toLowerCase() === "break";
+  if (inShootout) {
+    return "newtab-sports-widget-match-penalties";
+  }
+  if (isExtraTime) {
+    return "newtab-sports-widget-match-extra-time";
+  }
+  if (isHalftime) {
+    return "newtab-sports-widget-match-halftime";
+  }
+  return null;
+}
 function ScorePill({
   homeScore,
   awayScore,
@@ -17459,6 +17483,9 @@ function MatchTeam({
     }, TBD_PLACEHOLDER));
   }
   const displayName = localizedName ?? team.name;
+  // Display the ISO region to match other platforms; team.key stays the
+  // internal identity key. Fall back to key when region is absent.
+  const displayCode = team.region ?? team.key;
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-match-team"
   }, /*#__PURE__*/external_React_default().createElement("span", {
@@ -17473,7 +17500,7 @@ function MatchTeam({
     "aria-hidden": "true"
   })), /*#__PURE__*/external_React_default().createElement("span", {
     className: "sports-match-code"
-  }, isFollowed ? /*#__PURE__*/external_React_default().createElement("strong", null, team.key) : team.key));
+  }, isFollowed ? /*#__PURE__*/external_React_default().createElement("strong", null, displayCode) : displayCode));
 }
 
 // Fallback shown in the Upcoming tab if the backend returns no matches.
@@ -17520,6 +17547,8 @@ function SportsMatchRow({
     away_team,
     date,
     status_type,
+    period,
+    status: matchStatus,
     home_score,
     away_score,
     home_extra,
@@ -17599,12 +17628,19 @@ function SportsMatchRow({
     switch (variant) {
       case "now":
         {
-          const liveStatusL10nId = LIVE_STATUS_L10N_MAP[status_type?.toLowerCase()];
+          const liveL10nId = liveStatusL10nId({
+            period,
+            status: matchStatus,
+            home_penalty,
+            away_penalty
+          });
           // The Now tab's live status footer is only shown in the large widget.
-          if (!liveStatusL10nId || size !== "large") {
+          if (!liveL10nId || size !== "large") {
             return /*#__PURE__*/external_React_default().createElement(ScorePill, {
               homeScore: displayHomeScore,
               awayScore: displayAwayScore,
+              homePenalty: home_penalty,
+              awayPenalty: away_penalty,
               variant: "now"
             });
           }
@@ -17613,11 +17649,13 @@ function SportsMatchRow({
           }, /*#__PURE__*/external_React_default().createElement(ScorePill, {
             homeScore: displayHomeScore,
             awayScore: displayAwayScore,
+            homePenalty: home_penalty,
+            awayPenalty: away_penalty,
             variant: "now"
           }), /*#__PURE__*/external_React_default().createElement("div", {
             className: "sports-match-live-footer"
           }, /*#__PURE__*/external_React_default().createElement("span", {
-            "data-l10n-id": liveStatusL10nId
+            "data-l10n-id": liveL10nId
           })));
         }
       case "results":
@@ -17627,6 +17665,10 @@ function SportsMatchRow({
           // stale live-state value that leaks into this bucket doesn't render
           // raw API text in the UI.
           const resultsStatusL10nId = RESULTS_STATUS_L10N_MAP[status_type?.toLowerCase()] || "newtab-sports-widget-match-full-time";
+          // The medium widget lacks room for "Full time • Penalties", so for a
+          // penalty shootout it shows "Penalties" alone instead. Large keeps
+          // both; list shows only the status (as in the "view all" view).
+          const mediumPenaltiesOnly = hasPenalties && size === "medium";
           return /*#__PURE__*/external_React_default().createElement("div", {
             className: "sports-match-result"
           }, /*#__PURE__*/external_React_default().createElement(ScorePill, {
@@ -17638,8 +17680,8 @@ function SportsMatchRow({
           }), /*#__PURE__*/external_React_default().createElement("div", {
             className: "sports-match-result-footer"
           }, /*#__PURE__*/external_React_default().createElement("span", {
-            "data-l10n-id": resultsStatusL10nId
-          }), hasPenalties && size !== "list" && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("span", {
+            "data-l10n-id": mediumPenaltiesOnly ? "newtab-sports-widget-match-penalties" : resultsStatusL10nId
+          }), hasPenalties && size === "large" && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("span", {
             "aria-hidden": "true"
           }, "\u2022"), /*#__PURE__*/external_React_default().createElement("span", {
             "data-l10n-id": "newtab-sports-widget-match-penalties"
@@ -20652,38 +20694,48 @@ function EditClocksPanel({
     onClick: onShowAddClock
   })), /*#__PURE__*/external_React_default().createElement("ul", {
     className: "clocks-edit-list"
-  }, clockZones.map((clock, i) => /*#__PURE__*/external_React_default().createElement("li", {
-    className: "clocks-edit-item",
-    key: `${clock.timeZone}-${i}`,
-    tabIndex: 0
-  }, /*#__PURE__*/external_React_default().createElement("div", {
-    className: "clocks-edit-top-row"
-  }, /*#__PURE__*/external_React_default().createElement("span", {
-    className: "clocks-edit-city"
-  }, clock.city || getCityFromTimeZone(clock.timeZone)), /*#__PURE__*/external_React_default().createElement("div", {
-    className: "clocks-edit-item-actions"
-  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
-    className: "clocks-edit-item-button clocks-edit-item-edit-button",
-    type: "icon ghost",
-    size: "small",
-    iconSrc: "chrome://global/skin/icons/edit-outline.svg",
-    "data-l10n-id": "newtab-clock-widget-button-edit-clock",
-    onClick: () => onEditClock(i)
-  }), clockZones.length > 1 && /*#__PURE__*/external_React_default().createElement("moz-button", {
-    className: "clocks-edit-item-button clocks-edit-item-remove-button",
-    type: "icon ghost",
-    size: "small",
-    iconSrc: "chrome://global/skin/icons/delete.svg",
-    "data-l10n-id": "newtab-clock-widget-button-remove-clock",
-    onClick: () => onRemoveClock(i)
-  }))), /*#__PURE__*/external_React_default().createElement("span", {
-    "aria-hidden": !clock.label,
-    className: "clocks-edit-subtitle",
-    "data-l10n-id": clock.label ? "newtab-clock-widget-label-nickname-with-value" : undefined,
-    "data-l10n-args": clock.label ? JSON.stringify({
-      nickname: clock.label
-    }) : undefined
-  }, clock.label ? null : " ")))));
+  }, clockZones.map((clock, i) => {
+    const city = clock.city || getCityFromTimeZone(clock.timeZone);
+    return /*#__PURE__*/external_React_default().createElement("li", {
+      className: "clocks-edit-item",
+      key: `${clock.timeZone}-${i}`,
+      tabIndex: 0,
+      "data-l10n-id": clock.label ? "newtab-clock-widget-edit-item-with-nickname" : "newtab-clock-widget-edit-item",
+      "data-l10n-args": JSON.stringify(clock.label ? {
+        city,
+        nickname: clock.label
+      } : {
+        city
+      })
+    }, /*#__PURE__*/external_React_default().createElement("div", {
+      className: "clocks-edit-top-row"
+    }, /*#__PURE__*/external_React_default().createElement("span", {
+      className: "clocks-edit-city"
+    }, city), /*#__PURE__*/external_React_default().createElement("div", {
+      className: "clocks-edit-item-actions"
+    }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+      className: "clocks-edit-item-button clocks-edit-item-edit-button",
+      type: "icon ghost",
+      size: "small",
+      iconSrc: "chrome://global/skin/icons/edit-outline.svg",
+      "data-l10n-id": "newtab-clock-widget-button-edit-clock",
+      onClick: () => onEditClock(i)
+    }), clockZones.length > 1 && /*#__PURE__*/external_React_default().createElement("moz-button", {
+      className: "clocks-edit-item-button clocks-edit-item-remove-button",
+      type: "icon ghost",
+      size: "small",
+      iconSrc: "chrome://global/skin/icons/delete.svg",
+      "data-l10n-id": "newtab-clock-widget-button-remove-clock",
+      onClick: () => onRemoveClock(i)
+    }))), /*#__PURE__*/external_React_default().createElement("span", {
+      "aria-hidden": "true",
+      className: "clocks-edit-subtitle",
+      "data-l10n-id": clock.label ? "newtab-clock-widget-label-nickname-with-value" : undefined,
+      "data-l10n-args": clock.label ? JSON.stringify({
+        nickname: clock.label
+      }) : undefined
+    }, clock.label ? null : " "));
+  })));
 }
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/Clocks/Clocks.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public

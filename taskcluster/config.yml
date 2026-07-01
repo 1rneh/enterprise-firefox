@@ -389,6 +389,7 @@ treeherder:
         'service-merino-manifest': 'service-merino-manifest'
         'service-nimbus': 'service-nimbus'
         'service-pocket': 'service-pocket'
+        'service-sync': 'service-sync'
         'service-sync-autofill': 'service-sync-autofill'
         'service-sync-logins': 'service-sync-logins'
         'support-android-test': 'support-android-test'
@@ -413,6 +414,7 @@ treeherder:
         'tooling-detekt': 'tooling-detekt'
         'tooling-fetch-tests': 'tooling-fetch-tests'
         'tooling-lint': 'tooling-lint'
+        'ui-animation': 'ui-animation'
         'ui-autocomplete': 'ui-autocomplete'
         'ui-colors': 'ui-colors'
         'ui-fonts': 'ui-fonts'
@@ -443,6 +445,7 @@ index:
         - 'static-analysis'
         - 'devedition'
         - 'source'
+        - 'test'
         - 'system-symbols'
         - 'geckodriver'
 

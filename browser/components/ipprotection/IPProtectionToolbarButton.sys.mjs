@@ -255,7 +255,8 @@ export class IPProtectionToolbarButton {
       lazy.IPPExceptionsManager.canManage(principal) &&
       lazy.IPPExceptionsManager.getPrincipalRule(principal) ===
         lazy.IPPPrincipalRules.EXCLUDED;
-    let isIncluded = !!principal &&
+    let isIncluded =
+      !!principal &&
       lazy.IPPExceptionsManager.canManage(principal) &&
       lazy.IPPExceptionsManager.getPrincipalRule(principal) ===
         lazy.IPPPrincipalRules.INCLUDED;

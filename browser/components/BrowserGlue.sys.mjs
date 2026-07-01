@@ -1145,7 +1145,7 @@ BrowserGlue.prototype = {
           if (!pk11token.hasPassword) {
             // Token doesn't need login (empty password), set it to primarySecret
             try {
-              pk11token.changePassword("", primarySecret);
+              await pk11token.changePassword("", primarySecret);
             } catch (e) {
               console.error(
                 "EnterpriseStorageEncryption.load: Failed to change password from empty to primarySecret: " +

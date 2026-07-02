@@ -805,15 +805,14 @@ let ShellServiceInternal = {
     // Currently this only works on certain Windows versions.
     try {
       // First check if we can even pin the app where an exception means no.
-      await this.shellService
-        .QueryInterface(Ci.nsIWindowsShellService)
-        .checkPinCurrentAppToTaskbarAsync(privateBrowsing);
+      this.shellService.canPinToTaskbar();
+
       let winTaskbar = Cc["@mozilla.org/windows-taskbar;1"].getService(
         Ci.nsIWinTaskbar
       );
 
       // Then check if we're already pinned.
-      return !(await this.shellService.isCurrentAppPinnedToTaskbarAsync(
+      return !(await this.shellService.isCurrentAppPinnedToTaskbar(
         privateBrowsing
           ? winTaskbar.defaultPrivateGroupId
           : winTaskbar.defaultGroupId
@@ -833,21 +832,30 @@ let ShellServiceInternal = {
 
   /**
    * Pin Firefox app to the OS "taskbar."
+   *
+   * @param {bool} privateBrowsing - Pin a private browser window.
+   * @param {bool} fireAndForget - Return after pin attempt is tried, but before
+   * result is known if user input is necessary.
+   * @returns {Promise} - Resolves either when pin attempt resolves, or when pin
+   * request has been sent if fireAndForget is true.
    */
   async pinToTaskbar(privateBrowsing = false, fireAndForget = false) {
-    if (await this.doesAppNeedPin(privateBrowsing)) {
-      try {
-        if (AppConstants.platform == "win") {
-          await this.shellService.pinCurrentAppToTaskbarAsync(
-            privateBrowsing,
-            fireAndForget
-          );
-        } else if (AppConstants.platform == "macosx") {
-          this.macDockSupport.ensureAppIsPinnedToDock();
-        }
-      } catch (ex) {
-        console.error(ex);
+    let needsPin = await this.doesAppNeedPin(privateBrowsing);
+    if (!needsPin) {
+      return;
+    }
+
+    try {
+      if (AppConstants.platform == "win") {
+        await this.shellService.pinCurrentAppToTaskbar(
+          privateBrowsing,
+          fireAndForget
+        );
+      } else if (AppConstants.platform == "macosx") {
+        this.macDockSupport.ensureAppIsPinnedToDock();
       }
+    } catch (ex) {
+      console.error(ex);
     }
   },
 
@@ -861,12 +869,11 @@ let ShellServiceInternal = {
   async pinToStartMenu() {
     if (await this.doesAppNeedStartMenuPin()) {
       try {
-        let pinSuccess =
-          await this.shellService.pinCurrentAppToStartMenuAsync(false);
+        let pinSuccess = await this.shellService.pinCurrentAppToStartMenu();
         Services.prefs.setBoolPref(MSIX_PREVIOUSLY_PINNED_PREF, pinSuccess);
         return pinSuccess;
       } catch (err) {
-        lazy.log.warn("Error thrown during pinCurrentAppToStartMenuAsync", err);
+        lazy.log.warn("Error thrown during pinCurrentAppToStartMenu", err);
         Services.prefs.setBoolPref(MSIX_PREVIOUSLY_PINNED_PREF, false);
       }
     }
@@ -902,7 +909,7 @@ let ShellServiceInternal = {
       return (
         AppConstants.platform === "win" &&
         Services.sysinfo.getProperty("hasWinPackageId") &&
-        !(await this.shellService.isCurrentAppPinnedToStartMenuAsync())
+        !(await this.shellService.isCurrentAppPinnedToStartMenu())
       );
     } catch (ex) {}
     return false;
@@ -919,7 +926,7 @@ let ShellServiceInternal = {
     if (!Services.sysinfo.getProperty("hasWinPackageId")) {
       return;
     }
-    let isPinned = await this.shellService.isCurrentAppPinnedToStartMenuAsync();
+    let isPinned = await this.shellService.isCurrentAppPinnedToStartMenu();
     if (
       !isPinned &&
       Services.prefs.getBoolPref(MSIX_PREVIOUSLY_PINNED_PREF, false)

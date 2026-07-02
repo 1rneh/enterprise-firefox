@@ -1152,7 +1152,7 @@ first_visit_node: {
   ropeBarrierDuringFlattening<usingBarrier>(str);
 
   JSString& left = *str->d.s.u2.left;
-  str->d.s.u2.parent = parent;
+  setField(&str->d.s.u2.parent, parent);
   str->setFlagBit(parentFlag);
   parent = nullptr;
   parentFlag = 0;
@@ -1205,8 +1205,11 @@ finish_node: {
   uint32_t flags = StringFlags::dependentStringFlags(encoding);
   flags |= str->flags() & StringFlags::PRESERVE_ROPE_BITS_ON_REPLACE;
   str->changeStringType(str->length(), flags);
-  str->d.s.u3.base =
-      reinterpret_cast<JSLinearString*>(root); /* will be true on exit */
+  {
+    // Will be true on exit.
+    auto* newBase = reinterpret_cast<JSLinearString*>(root);
+    setField(&str->d.s.u3.base, newBase);
+  }
   newRootFlags |= StringFlags::DEPENDED_ON_BIT;
 
   // Every interior (rope) node in the rope's tree will be visited during
@@ -2927,7 +2930,7 @@ bool JSString::tryReplaceWithAtomRef(JSAtom* atom) {
            (isRope() ? StringFlags::PRESERVE_ROPE_BITS_ON_REPLACE
                      : StringFlags::PRESERVE_LINEAR_NONATOM_BITS_ON_REPLACE);
   changeStringType(length(), flags);
-  d.s.u3.atom = atom;
+  d.s.u3.base = atom;
   if (atom->hasLatin1Chars()) {
     setNonInlineChars(atom->chars<Latin1Char>(nogc), atom->hasStringBuffer());
   } else {
@@ -2937,6 +2940,7 @@ bool JSString::tryReplaceWithAtomRef(JSAtom* atom) {
   // Redundant, but just a reminder that this needs to be true or else we need
   // to check and conditionally put ourselves in the store buffer
   MOZ_ASSERT(atom->isTenured());
+
   return true;
 }
 

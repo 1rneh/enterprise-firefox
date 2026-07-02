@@ -2294,6 +2294,11 @@ pref("sidebar.main.tools", "");
 pref("sidebar.installed.extensions", "");
 pref("sidebar.verticalTabs", false);
 pref("sidebar.verticalTabs.dragToPinPromo.dismissed", false);
+// One value per behavior, none shared across tab orientations. Vertical tabs:
+// "always-show", "expand-on-hover", "hide-sidebar". Horizontal tabs:
+// "hide-on-close" (default) and "hide-launcher" (switcher-only). The default
+// here is the vertical default; SidebarManager normalizes to the right value
+// for the current orientation.
 pref("sidebar.visibility", "always-show");
 // Sidebar UI state is stored per-window via session restore. Use this pref
 // as a backup to restore the sidebar UI state when a user has PPB mode on
@@ -3351,6 +3356,8 @@ pref("devtools.webconsole.filter.debug", true);
 pref("devtools.webconsole.filter.css", false);
 pref("devtools.webconsole.filter.net", false);
 pref("devtools.webconsole.filter.netxhr", false);
+pref("devtools.webconsole.filter.chrome", true);
+pref("devtools.webconsole.filter.content", true);
 
 // Webconsole autocomplete preference
 pref("devtools.webconsole.input.autocomplete",true);
@@ -3368,6 +3375,10 @@ pref("devtools.browserconsole.filter.debug", true);
 pref("devtools.browserconsole.filter.css", false);
 pref("devtools.browserconsole.filter.net", false);
 pref("devtools.browserconsole.filter.netxhr", false);
+// Origin filters allow to separately show or hide messages emitted by the
+// browser itself (privileged code) and those emitted by web content.
+pref("devtools.browserconsole.filter.chrome", true);
+pref("devtools.browserconsole.filter.content", true);
 
 // Max number of inputs to store in web console history.
 pref("devtools.webconsole.inputHistoryCount", 300);

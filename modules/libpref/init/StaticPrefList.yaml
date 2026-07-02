@@ -308,7 +308,7 @@
 #ifdef MOZ_ENABLE_SKIA_PDF
 - name: accessibility.tagged_pdf_output.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 #endif
 
@@ -1130,6 +1130,15 @@
 - name: browser.cache.disk.index.min_dump_interval_ms
   type: RelaxedAtomicUint32
   value: 20000
+  mirror: always
+
+# Maximum delay in milliseconds before the disk cache index is written back when
+# there is at least one dirty entry, regardless of min_unwritten_changes. This
+# bounds how much recently-updated frecency can be lost on a crash or Android
+# process kill under light browsing. Must be >= min_dump_interval_ms.
+- name: browser.cache.disk.index.max_dump_interval_ms
+  type: RelaxedAtomicUint32
+  value: 60000
   mirror: always
 
 # Delay in milliseconds after startup before the disk cache index build/update
@@ -2031,6 +2040,12 @@
 #endif
   mirror: once
   do_not_use_directly: true
+
+# Enables file IO for testing Windows shortcut and shortcut log.
+- name: browser.shell.shortcut.test
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 # Whether to show an about:blank window as early as possible for quick startup feedback.
 # Held to nightly on Linux due to bug 1450626.
@@ -10916,7 +10931,7 @@
 #   2 - Symmetrical spacing, half added to each side
 - name: layout.css.letter-spacing.model
   type: int32_t
-#if defined(MOZ_DEV_EDITION) || defined(EARLY_BETA_OR_EARLIER)
+#ifdef NIGHTLY_BUILD
   value: 2
 #else
   value: 0
@@ -11336,7 +11351,7 @@
 # Are dynamic reflow roots enabled?
 - name: layout.dynamic-reflow-roots.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Enables the mechanism to optimize away flex item's final reflow.
@@ -17647,6 +17662,13 @@
   type: String
   value: "Warn"
   mirror: never
+
+# When true, disable the URLClassifier while the ContentClassifier (channel
+# classifier) engine is active.
+- name: privacy.trackingprotection.urlclassifier.disable_for_channel_classifier
+  type: bool
+  value: false
+  mirror: always
 
 # Enable the "baseline" allow-list for fixing severe site breakage (e.g. blank
 # page).

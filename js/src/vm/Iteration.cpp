@@ -1394,7 +1394,8 @@ PlainObject* GlobalObject::getOrCreateIterResultTemplateObject(JSContext* cx) {
 /* static */
 PlainObject* GlobalObject::createIterResultTemplateObject(JSContext* cx) {
   // Create template plain object
-  Rooted<PlainObject*> templateObject(cx, NewPlainObject(cx, TenuredObject));
+  Rooted<PlainObject*> templateObject(
+      cx, NewPlainObject(cx, {.newKind = TenuredObject}));
   if (!templateObject) {
     return nullptr;
   }
@@ -1484,7 +1485,8 @@ ArrayIteratorObject* js::NewArrayIteratorTemplate(JSContext* cx) {
     return nullptr;
   }
 
-  return NewTenuredObjectWithGivenProto<ArrayIteratorObject>(cx, proto);
+  return NewObjectWithGivenProto<ArrayIteratorObject>(
+      cx, proto, {.newKind = TenuredObject});
 }
 
 ArrayIteratorObject* js::NewArrayIterator(JSContext* cx) {
@@ -1533,7 +1535,8 @@ StringIteratorObject* js::NewStringIteratorTemplate(JSContext* cx) {
     return nullptr;
   }
 
-  return NewTenuredObjectWithGivenProto<StringIteratorObject>(cx, proto);
+  return NewObjectWithGivenProto<StringIteratorObject>(
+      cx, proto, {.newKind = TenuredObject});
 }
 
 StringIteratorObject* js::NewStringIterator(JSContext* cx) {
@@ -1615,7 +1618,8 @@ RegExpStringIteratorObject* js::NewRegExpStringIteratorTemplate(JSContext* cx) {
     return nullptr;
   }
 
-  return NewTenuredObjectWithGivenProto<RegExpStringIteratorObject>(cx, proto);
+  return NewObjectWithGivenProto<RegExpStringIteratorObject>(
+      cx, proto, {.newKind = TenuredObject});
 }
 
 RegExpStringIteratorObject* js::NewRegExpStringIterator(JSContext* cx) {

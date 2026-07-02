@@ -1235,7 +1235,6 @@ class JSONPoliciesProvider extends PoliciesProvider {
  *
  * Uses JSON like JSONPoliciesProvider
  */
-
 class RemotePoliciesProvider extends PoliciesProvider {
   POLLING_FREQUENCY_PREF = "enterprise.policies.live.polling_interval";
   POLLING_FREQUENCY_FALLBACK = 60_000;
@@ -1457,7 +1456,7 @@ class macOSPoliciesProvider extends PoliciesProvider {
   }
 }
 
-class CombinedProvider extends PoliciesProvider {
+export class CombinedProvider extends PoliciesProvider {
   constructor() {
     super();
     this._providers = [];
@@ -1480,6 +1479,9 @@ class CombinedProvider extends PoliciesProvider {
   }
 
   get failed() {
+    // A failed provider only fails the engine if it left us without any
+    // policies to apply. If any provider supplied policies we proceed
+    // and ignore the failed source.
     return this._providers.some(p => p.failed) && !this.hasPolicies;
   }
 }

@@ -29,7 +29,8 @@ support-files = [
   "test_website_confirmation.mjs",
   "test_aiwindow_tab_close_integration.html",
   "test_context_url_page.html",
-  "test_context_url_page2.html"
+  "test_context_url_page2.html",
+  "test_context_url_injection_page.html"
 ]
 
 ["browser_actor_user_prompt.js"]
@@ -240,6 +241,8 @@ skip-if = [
 ["browser_smartwindow_sidebar_auto_open_pref_prompt.js"]
 
 ["browser_smartwindow_smartbar_glow.js"]
+
+["browser_smartwindow_smartbar_mentions_filter.js"]
 
 ["browser_smartwindow_smartbar_model_select.js"]
 

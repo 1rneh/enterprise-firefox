@@ -51,6 +51,13 @@ const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
 const PREF_REMOTE_POLICIES_ENABLED = "enterprise.policies.live.enabled";
 
+// A policy that, when present and set to true in the remote policies, causes
+// every local policy provider (policies.json, Windows GPO and macOS plist) to
+// be skipped. It is scanned while the provider is built, before any local
+// provider is added. It is also a regular policy (see its schema entry and
+// Policies.DisableLocalPolicies), so it is validated and reported as active.
+const POLICY_DISABLE_LOCAL_POLICIES = "DisableLocalPolicies";
+
 const STATUS_NAMES = {
   [Ci.nsIEnterprisePolicies.UNINITIALIZED]: "UNINITIALIZED",
   [Ci.nsIEnterprisePolicies.INACTIVE]: "INACTIVE",
@@ -199,6 +206,7 @@ EnterprisePoliciesManager.prototype = {
     }
 
     this._updateStatus();
+
     if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
       return;
     }
@@ -228,24 +236,12 @@ EnterprisePoliciesManager.prototype = {
   async _buildProvider() {
     const provider = new CombinedProvider();
 
-    // Providers are added from lowest to highest precedence; each one takes
-    // precedence over those added before it when top-level policies conflict.
-    lazy.log.debug("Adding JSON provider.");
-    provider.push(new JSONPoliciesProvider());
-
-    if (AppConstants.MOZ_SYSTEM_POLICIES) {
-      if (AppConstants.platform == "win") {
-        lazy.log.debug("Adding Windows GPO platform provider.");
-        provider.push(new WindowsGPOPoliciesProvider());
-      } else if (AppConstants.platform == "macosx") {
-        lazy.log.debug("Adding macOS platform provider.");
-        provider.push(new macOSPoliciesProvider());
-      }
-    }
-
+    // The remote provider is built first so we can perform an early lookup
+    // whether the DisableLocalPolicies policy is present.
+    let remoteProvider = null;
     if (this._isRemotePoliciesSupported()) {
       lazy.log.debug("Remote policies supported, fetching startup policies.");
-      const remoteProvider = RemotePoliciesProvider.getInstance();
+      remoteProvider = RemotePoliciesProvider.getInstance();
       try {
         // Ingest the startup policies.
         await remoteProvider.ingestPolicies();
@@ -257,12 +253,34 @@ EnterprisePoliciesManager.prototype = {
           { cause: e }
         );
       }
-      lazy.log.debug("Adding remote provider.");
-      provider.push(remoteProvider);
     } else {
       lazy.log.debug(
         "Remote policies not supported; skipping remote provider."
       );
+    }
+
+    if (!remoteProvider?.disablesLocalPolicies) {
+      lazy.log.debug("Adding JSON provider.");
+      provider.push(new JSONPoliciesProvider());
+
+      if (AppConstants.MOZ_SYSTEM_POLICIES) {
+        if (AppConstants.platform == "win") {
+          lazy.log.debug("Adding Windows GPO platform provider.");
+          provider.push(new WindowsGPOPoliciesProvider());
+        } else if (AppConstants.platform == "macosx") {
+          lazy.log.debug("Adding macOS platform provider.");
+          provider.push(new macOSPoliciesProvider());
+        }
+      }
+    } else {
+      lazy.log.debug("Local policies disabled; skipping local providers.");
+    }
+
+    if (remoteProvider) {
+      // The remote provider takes precedence over the local ones,
+      // so it is added last.
+      lazy.log.debug("Adding remote provider.");
+      provider.push(remoteProvider);
     }
 
     provider.mergePolicies();
@@ -1276,6 +1294,16 @@ class RemotePoliciesProvider extends PoliciesProvider {
     Services.prefs.removeObserver(this.POLLING_FREQUENCY_PREF, this);
     Services.obs.removeObserver(this, "EnterprisePolicies:Initialized");
     Services.obs.removeObserver(this, "xpcom-shutdown");
+  }
+
+  /**
+   * Whether the remote policies request that all local policy providers be
+   * disabled.
+   *
+   * @returns {boolean}
+   */
+  get disablesLocalPolicies() {
+    return this._policies?.[POLICY_DISABLE_LOCAL_POLICIES] === true;
   }
 
   observe(aSubject, aTopic, aData) {

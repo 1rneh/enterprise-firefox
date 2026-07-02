@@ -1023,6 +1023,12 @@
       "description": "Turn off saving information on web forms and the search bar.",
       "examples": [true, false]
     },
+    "DisableLocalPolicies": {
+      "type": "boolean",
+      "x-category": "Policy engine",
+      "description": "Disable all local policy sources (policies.json, Windows GPO and macOS plist).",
+      "examples": [true, false]
+    },
     "DisableMasterPasswordCreation": {
       "type": "boolean",
       "x-category": "Password manager",

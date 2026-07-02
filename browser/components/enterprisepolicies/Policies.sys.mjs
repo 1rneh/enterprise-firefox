@@ -1463,6 +1463,10 @@ export var Policies = {
     },
   },
 
+  // The effect of this policy (suppressing the local policy providers) is
+  // applied by the policy engine while it builds its providers.
+  DisableLocalPolicies: {},
+
   DisableMasterPasswordCreation: {
     onBeforeUIStartup(manager, param) {
       if (param) {

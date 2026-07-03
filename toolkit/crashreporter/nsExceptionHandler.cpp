@@ -1904,17 +1904,9 @@ static void TeardownAppNotes() {
 nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   if (gExceptionHandler) return NS_ERROR_ALREADY_INITIALIZED;
 
-#if defined(DEBUG)
-  // In debug builds, disable the crash reporter by default, and allow to
-  // enable it with the MOZ_CRASHREPORTER environment variable.
-  const char* envvar = PR_GetEnv("MOZ_CRASHREPORTER");
-  if ((!envvar || !*envvar) && !force) return NS_OK;
-#else
-  // In other builds, enable the crash reporter by default, and allow
-  // disabling it with the MOZ_CRASHREPORTER_DISABLE environment variable.
-  const char* envvar = PR_GetEnv("MOZ_CRASHREPORTER_DISABLE");
-  if (envvar && *envvar && !force) return NS_OK;
-#endif
+  if (!CrashReporterIsEnabled(force)) {
+    return NS_OK;
+  }
 
   // Initialize the launch-client decision from the environment. Policies and
   // other callers can update it later via UpdateShouldReport().
@@ -3175,7 +3167,23 @@ static bool MoveToPending(nsIFile* dumpFile, nsIFile* extraFile,
   return true;
 }
 
-nsresult OOPInit(nsIFile* aXREDirectory) {
+nsresult OOPInit(nsIFile* aXREDirectory, bool force /*=false*/) {
+  // Android is exempt from early return because the helper has already been
+  // started and is unconditionally expecting a rendezvous.
+#if !defined(MOZ_WIDGET_ANDROID)
+  if (!CrashReporterIsEnabled(force)) {
+    return NS_OK;
+  }
+#endif
+
+  {
+    // It's already started, no work to do here!
+    StaticMutexAutoLock lock(gCrashHelperClientMutex);
+    if (gCrashHelperClient) {
+      return NS_OK;
+    }
+  }
+
   CrashHelperClient* crashHelperClient;
 
   PathString tempPath;
@@ -3255,6 +3263,14 @@ void OOPDeinit() {
     crash_helper_shutdown(gCrashHelperClient);
     gCrashHelperClient = nullptr;
   }
+}
+
+uint32_t GetCrashHelperPid() {
+  StaticMutexAutoLock lock(gCrashHelperClientMutex);
+  if (!gCrashHelperClient) {
+    return 0;
+  }
+  return static_cast<uint32_t>(crash_helper_pid(gCrashHelperClient));
 }
 
 // Parent-side API for children

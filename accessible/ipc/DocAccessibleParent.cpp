@@ -166,10 +166,6 @@ mozilla::ipc::IPCResult DocAccessibleParent::ProcessShowEvent(
 #endif
     }
 
-    if (parent->IsOuterDoc()) {
-      return IPC_FAIL(this, "Cannot attach non-doc to OuterDoc");
-    }
-
     lastParent = parent;
     lastParentID = accData.ParentID();
 
@@ -287,6 +283,11 @@ RemoteAccessible* DocAccessibleParent::CreateAcc(
           "Attempt to move RemoteAccessible which still has a parent!");
       return nullptr;
     }
+    if (aAccData.ID() == mPendingShowChild) {
+      MOZ_ASSERT_UNREACHABLE(
+          "Attempt to move RemoteAccessible which has a pending parent");
+      return nullptr;
+    }
     return newProxy;
   }
 
@@ -319,6 +320,21 @@ RemoteAccessible* DocAccessibleParent::CreateAcc(
 bool DocAccessibleParent::AttachChild(RemoteAccessible* aParent,
                                       uint32_t aIndex,
                                       RemoteAccessible* aChild) {
+  if (!aParent || !aChild) {
+    MOZ_ASSERT_UNREACHABLE("Null parent or child");
+    return false;
+  }
+
+  if (aParent->IsOuterDoc()) {
+    MOZ_ASSERT_UNREACHABLE("Cannot attach non-doc to OuterDoc");
+    return false;
+  }
+
+  if (aIndex > aParent->ChildCount()) {
+    MOZ_ASSERT_UNREACHABLE("Invalid index for attached child");
+    return false;
+  }
+
   if (aChild->RemoteParent()) {
     MOZ_ASSERT_UNREACHABLE(
         "Attempt to attach child which already has a parent!");
@@ -410,6 +426,10 @@ mozilla::ipc::IPCResult DocAccessibleParent::ProcessHideEvent(
   ACQUIRE_ANDROID_LOCK
 
   MOZ_ASSERT(CheckDocTree());
+
+  if (mPendingShowChild) {
+    return IPC_FAIL(this, "Hide during split show");
+  }
 
   // We shouldn't actually need this because mAccessibles shouldn't have an
   // entry for the document itself, but it doesn't hurt to be explicit.

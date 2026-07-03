@@ -2037,7 +2037,9 @@ export var Policies = {
       try {
         manager.setExtensionSettings(param);
       } catch (e) {
-        lazy.log.error("Invalid ExtensionSettings");
+        lazy.log.error(
+          `Some ExtensionSettings could not be applied: ${e.message}`
+        );
       }
       try {
         applyExtensionGuards(param);
@@ -4586,11 +4588,13 @@ function installAddonFromURL(url, extensionID, addon) {
           );
           install.removeListener(listener);
           install.cancel();
+          return;
         }
         if (install.addon.appDisabled) {
           lazy.log.error(`Incompatible add-on - ${url}`);
           install.removeListener(listener);
           install.cancel();
+          return;
         }
         if (
           addon &&
@@ -4601,6 +4605,7 @@ function installAddonFromURL(url, extensionID, addon) {
           );
           install.removeListener(listener);
           install.cancel();
+          return;
         }
 
         // Cancel install if the addon version downloaded is detected

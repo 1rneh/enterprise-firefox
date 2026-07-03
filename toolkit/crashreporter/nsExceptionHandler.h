@@ -206,6 +206,13 @@ nsresult AppendObjCExceptionInfoToAppNotes(void* inException);
 nsresult GetSubmitReports(bool* aSubmitReport);
 nsresult SetSubmitReports(bool aSubmitReport);
 
+// Re-evaluate environment variables that gate whether the crash reporter
+// client is launched after a crash. Call this after modifying any of the
+// MOZ_CRASHREPORTER_NO_REPORT / MOZ_CRASHREPORTER_FULLDUMP environment
+// variables so the cached, signal-safe value used by the crash callback
+// stays in sync.
+void UpdateShouldReport();
+
 // Out-of-process crash reporter API.
 
 // Return true if a dump was found for |aChildID|, and return the

@@ -1975,6 +1975,12 @@ nsXULAppInfo::SetSubmitReports(bool aEnabled) {
 }
 
 NS_IMETHODIMP
+nsXULAppInfo::UpdateShouldReport() {
+  CrashReporter::UpdateShouldReport();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsXULAppInfo::UpdateCrashEventsDir() {
   CrashReporter::UpdateCrashEventsDir();
   return NS_OK;

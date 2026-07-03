@@ -855,13 +855,16 @@
       "description": "Configure crash report submission settings.",
       "examples": [
         {
-          "ForceAutoSubmit": true
+          "Enabled": false
+        },
+        {
+          "Enabled": true
         }
       ],
       "x-category": "Cloud reporting",
       "type": "object",
       "properties": {
-        "ForceAutoSubmit": {
+        "Enabled": {
           "type": "boolean"
         }
       }

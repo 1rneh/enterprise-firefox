@@ -165,6 +165,8 @@ nsresult SetSubmitReports(bool aSubmitReports) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
+void UpdateShouldReport() {}
+
 void SetProfileDirectory(nsIFile* aDir) {}
 
 void SetUserAppDataDirectory(nsIFile* aDir) {}

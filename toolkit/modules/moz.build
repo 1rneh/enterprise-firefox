@@ -223,6 +223,12 @@ MOZ_SRC_FILES += [
     "InputPickerPanelCommon.sys.mjs",
 ]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    EXTRA_JS_MODULES.enterprise += [
+        "EdrDetection.sys.mjs",
+        "MachineId.sys.mjs",
+    ]
+
 if CONFIG["MOZ_ASAN_REPORTER"]:
     EXTRA_JS_MODULES += [
         "AsanReporter.sys.mjs",

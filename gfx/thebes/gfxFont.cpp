@@ -60,6 +60,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <numeric>
 #include <cmath>
 
 using namespace mozilla;
@@ -1923,8 +1924,8 @@ class GlyphBufferAzure {
 
         RefPtr<gfxPattern> fillPattern;
         if (mFontParams.contextPaint) {
-          fillPattern = mFontParams.contextPaint->GetFillPattern(
-              mRunParams.context->GetDrawTarget(),
+          fillPattern = mFontParams.contextPaint->GetPattern(
+              SVGContextPaint::Tag::Fill, mRunParams.context->GetDrawTarget(),
               mRunParams.context->CurrentMatrixDouble(), mImgParams);
         }
         if (!fillPattern) {
@@ -2330,9 +2331,9 @@ void gfxFont::DrawEmphasisMarks(const gfxTextRun* aShapedText, gfx::Point* aPt,
     inlineCoord += aParams.direction * aShapedText->GetAdvanceForGlyph(idx);
     if (shouldDrawEmphasisMark &&
         (i + 1 == aCount || aShapedText->IsClusterStart(idx + 1))) {
-      float clusterAdvance = inlineCoord - clusterStart;
+      gfxFloat clusterAdvance = inlineCoord - clusterStart;
       // Move the coord backward to get the needed start point.
-      float delta = (clusterAdvance + aParams.advance) / 2;
+      float delta = std::midpoint(clusterAdvance, aParams.advance);
       inlineCoord -= delta;
       aParams.mark->Draw(markRange, *aPt, params, aImgParams);
       inlineCoord += delta;
@@ -2516,10 +2517,8 @@ void gfxFont::Draw(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
     // If no pattern is specified for fill, use the current pattern
     NS_ASSERTION((int(aRunParams.drawMode) & int(DrawMode::GLYPH_STROKE)) == 0,
                  "no pattern supplied for stroking text");
-    RefPtr<gfxPattern> fillPattern = aRunParams.context->GetPattern();
-    contextPaint = new SimpleTextContextPaint(
-        fillPattern, nullptr, aRunParams.context->CurrentMatrixDouble());
-    fontParams.contextPaint = contextPaint.get();
+    contextPaint = MakeRefPtr<SVGContextPaint>(aRunParams.context);
+    fontParams.contextPaint = contextPaint;
   }
 
   // Synthetic-bold strikes are each offset one device pixel in run direction

@@ -1282,6 +1282,17 @@ ipc::IPCResult WebGPUParent::GetFrontBufferSnapshot(
   RawId bufferId = 0;
   const auto bufferSize = data->mBufferSize;
 
+  // The swap chain owns exactly MAX_SWAPCHAIN_BUFFER_COUNT staging-buffer IDs.
+  // Each ID must always be in exactly one of mUnassignedBufferIds,
+  // mAvailableBufferIds, mQueuedBufferIds, or a pending
+  // ReadbackSnapshotCallback. In error cases, be sure to release the buffer ID
+  // back to the available pool.
+  const auto bufferIdGuard = mozilla::MakeScopeExit([&] {
+    if (bufferId) {
+      data->mAvailableBufferIds.push_back(bufferId);
+    }
+  });
+
   // step 1: find an available staging buffer, or create one
   {
     if (!data->mAvailableBufferIds.empty()) {
@@ -1299,6 +1310,9 @@ ipc::IPCResult WebGPUParent::GetFrontBufferSnapshot(
                                             bufferId, nullptr, bufferSize,
                                             usage, false, error.ToFFI());
       if (ForwardError(error)) {
+        ffi::wgpu_server_buffer_drop(mContext.get(), bufferId);
+        data->mUnassignedBufferIds.push_back(bufferId);
+        bufferId = 0;
         return IPC_OK();
       }
     } else {
@@ -1381,6 +1395,8 @@ ipc::IPCResult WebGPUParent::GetFrontBufferSnapshot(
       ffi::WGPUHostMap_Read);
   ReadbackSnapshotCallback(
       reinterpret_cast<uint8_t*>(snapshotRequest.release()), status);
+  // bufferId was transferred to ReadbackSnapshotCallback.
+  bufferId = 0;
 
   // Check if ReadbackSnapshotCallback is called.
   MOZ_RELEASE_ASSERT(data->mReadbackSnapshotCallbackCalled == true);
@@ -1487,6 +1503,8 @@ void WebGPUParent::SwapChainPresent(
                                             bufferId, nullptr, bufferSize,
                                             usage, false, error.ToFFI());
       if (ForwardError(error)) {
+        ffi::wgpu_server_buffer_drop(mContext.get(), bufferId);
+        data->mUnassignedBufferIds.push_back(bufferId);
         return;
       }
     } else {
@@ -1797,6 +1815,21 @@ void WebGPUParent::DisableSharedTextureForSwapChain(
   data->mUseSharedTextureInSwapChain = false;
 }
 
+static bool SwapChainFormatMatches(
+    gfx::SurfaceFormat aSurfaceFormat,
+    const ffi::WGPUTextureFormat& aTextureFormat) {
+  switch (aSurfaceFormat) {
+    case gfx::SurfaceFormat::B8G8R8A8:
+      return aTextureFormat.tag == ffi::WGPUTextureFormat_Bgra8Unorm ||
+             aTextureFormat.tag == ffi::WGPUTextureFormat_Bgra8UnormSrgb;
+    case gfx::SurfaceFormat::R8G8B8A8:
+      return aTextureFormat.tag == ffi::WGPUTextureFormat_Rgba8Unorm ||
+             aTextureFormat.tag == ffi::WGPUTextureFormat_Rgba8UnormSrgb;
+    default:
+      return false;
+  }
+}
+
 bool WebGPUParent::EnsureSharedTextureForSwapChain(
     ffi::WGPUSwapChainId aSwapChainId, ffi::WGPUDeviceId aDeviceId,
     ffi::WGPUTextureId aTextureId, uint32_t aWidth, uint32_t aHeight,
@@ -1813,6 +1846,11 @@ bool WebGPUParent::EnsureSharedTextureForSwapChain(
     MOZ_ASSERT_UNREACHABLE("unexpected to be called");
     return false;
   }
+
+  MOZ_RELEASE_ASSERT(aWidth == static_cast<uint32_t>(data->mDesc.size().width));
+  MOZ_RELEASE_ASSERT(aHeight ==
+                     static_cast<uint32_t>(data->mDesc.size().height));
+  MOZ_RELEASE_ASSERT(SwapChainFormatMatches(data->mDesc.format(), aFormat));
 
   // Recycled SharedTexture if it exists.
   if (!data->mRecycledSharedTextures.empty()) {
@@ -1850,6 +1888,11 @@ void WebGPUParent::EnsureSharedTextureForReadBackPresent(
     MOZ_ASSERT_UNREACHABLE("unexpected to be called");
     return;
   }
+
+  MOZ_RELEASE_ASSERT(aWidth == static_cast<uint32_t>(data->mDesc.size().width));
+  MOZ_RELEASE_ASSERT(aHeight ==
+                     static_cast<uint32_t>(data->mDesc.size().height));
+  MOZ_RELEASE_ASSERT(SwapChainFormatMatches(data->mDesc.format(), aFormat));
 
   UniquePtr<SharedTexture> texture =
       SharedTextureReadBackPresent::Create(aWidth, aHeight, aFormat, aUsage);

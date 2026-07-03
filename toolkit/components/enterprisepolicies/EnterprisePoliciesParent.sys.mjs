@@ -531,13 +531,18 @@ EnterprisePoliciesManager.prototype = {
       return { isValid: false, parsedParams: null };
     }
 
-    const { valid: isValid, parsedValue: parsedParams } =
-      lazy.PolicySchemaValidator.validate(policyParams, policySchema, {
-        allowAdditionalProperties: true,
-      });
+    const {
+      valid: isValid,
+      parsedValue: parsedParams,
+      error: validationError,
+    } = lazy.PolicySchemaValidator.validate(policyParams, policySchema, {
+      allowAdditionalProperties: true,
+    });
 
     if (!isValid) {
-      lazy.log.error(`Invalid parameters specified for ${policyName}.`);
+      lazy.log.error(
+        `Invalid parameters specified for ${policyName}: ${validationError.message}`
+      );
       return { isValid: false, parsedParams: null };
     }
 

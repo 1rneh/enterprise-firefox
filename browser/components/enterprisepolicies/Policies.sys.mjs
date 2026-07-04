@@ -1463,8 +1463,8 @@ export var Policies = {
     },
   },
 
-  // The effect of this policy (suppressing the local policy providers) is
-  // applied by the policy engine while it builds its providers.
+  // The policy got applied by the policy engine when building the CombinedPoliciesProvider.
+  // It skipped any local policy provider (policies.json, Windows GPO and macOS plist)
   DisableLocalPolicies: {},
 
   DisableMasterPasswordCreation: {

@@ -51,11 +51,6 @@ const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
 const PREF_REMOTE_POLICIES_ENABLED = "enterprise.policies.live.enabled";
 
-// A policy that, when present and set to true in the remote policies, causes
-// every local policy provider (policies.json, Windows GPO and macOS plist) to
-// be skipped. It is scanned while the provider is built, before any local
-// provider is added. It is also a regular policy (see its schema entry and
-// Policies.DisableLocalPolicies), so it is validated and reported as active.
 const POLICY_DISABLE_LOCAL_POLICIES = "DisableLocalPolicies";
 
 const STATUS_NAMES = {

@@ -2301,11 +2301,6 @@ pref("sidebar.main.tools", "");
 pref("sidebar.installed.extensions", "");
 pref("sidebar.verticalTabs", false);
 pref("sidebar.verticalTabs.dragToPinPromo.dismissed", false);
-// One value per behavior, none shared across tab orientations. Vertical tabs:
-// "always-show", "expand-on-hover", "hide-sidebar". Horizontal tabs:
-// "hide-on-close" (default) and "hide-launcher" (switcher-only). The default
-// here is the vertical default; SidebarManager normalizes to the right value
-// for the current orientation.
 pref("sidebar.visibility", "always-show");
 // Sidebar UI state is stored per-window via session restore. Use this pref
 // as a backup to restore the sidebar UI state when a user has PPB mode on
@@ -3769,8 +3764,6 @@ pref("browser.ipProtection.bandwidthThreshold", 0);
 pref("browser.ipProtection.bandwidthWarningDismissedThreshold", "");
 // Pref to track if the "NEW" badge on the location selection button should be visible.
 pref("browser.ipProtection.locationButtonBadgeDismissed", false);
-// Pref to use the FxA activate flow as the auth provider.
-pref("browser.ipProtection.fxa.useActivateFlow", true);
 
 // Pref to enable aboug:glean redesign.
 pref("about.glean.redesign.enabled", false);

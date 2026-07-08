@@ -16900,7 +16900,7 @@
 # to the connection phase (ms).
 - name: network.http.happy_eyeballs_resolution_delay
   type: RelaxedAtomicUint32
-  value: 50
+  value: 25
   mirror: always
   rust: true
 
@@ -16920,6 +16920,15 @@
   value: 2
   mirror: always
   rust: true
+
+# When Happy Eyeballs is enabled and all TRR-resolved addresses fail to
+# connect, retry the connection with TRR disabled (native DNS). This is the
+# connection-time equivalent of the legacy nsSocketTransport native-DNS
+# fallback.
+- name: network.http.happy_eyeballs_retry_without_trr
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 # If true, it will include extra tags to be sniffed by nsUnknownDecoder
 # These tags were previously sniffed by Firefox for legacy/webcompat but

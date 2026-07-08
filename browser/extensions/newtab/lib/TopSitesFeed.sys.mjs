@@ -15,6 +15,10 @@ import {
 import { TippyTopProvider } from "resource:///modules/topsites/TippyTopProvider.sys.mjs";
 import { insertPinned } from "resource:///modules/topsites/TopSites.sys.mjs";
 import { TOP_SITES_MAX_SITES_PER_ROW } from "resource:///modules/topsites/constants.mjs";
+// @backward-compat { version 154 }
+// Sourced from Reducers for its fallback shim. When 154 hits Release, import
+// TOP_SITES_MAX_ROWS from the constants.mjs import above instead.
+import { TOP_SITES_MAX_ROWS } from "resource://newtab/common/Reducers.sys.mjs";
 import { Dedupe } from "resource:///modules/Dedupe.sys.mjs";
 
 import {
@@ -29,6 +33,7 @@ import {
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AdsClient: "resource://newtab/lib/AdsClient.sys.mjs",
   ContextId: "moz-src:///browser/modules/ContextId.sys.mjs",
   FilterAdult: "resource:///modules/FilterAdult.sys.mjs",
   LinksCache: "resource:///modules/LinksCache.sys.mjs",
@@ -926,6 +931,7 @@ export class TopSitesFeed {
       getShortHostnameForCurrentSearch
     );
     this.ranker = new RankShortcutsProvider();
+    this.adsClient = null;
 
     this.dedupe = new Dedupe(this._dedupeKey);
     this.frecentCache = new lazy.LinksCache(
@@ -2294,8 +2300,19 @@ export class TopSitesFeed {
       // position instead of jumping to the end.
       pins.splice(existingIndex, 0, toPin);
     } else {
-      // A fresh pin (context-menu / search) appends to the group.
+      // A fresh pin (context-menu / search / add button) appends to the group.
       pins.push(toPin);
+      // Grouped-pins growth (classic mode grows in pin() instead). Adding to the
+      // group pushes the last frecency tile off the visible grid. If the grid is
+      // already full of pins there's nothing to push off, so grow by a row instead.
+      const prefs = this.store.getState().Prefs.values;
+      const { rows } = this.store.getState().TopSites;
+      if (
+        rows[getTopSitesCount(prefs) - 1]?.isPinned &&
+        prefs[ROWS_PREF] < TOP_SITES_MAX_ROWS
+      ) {
+        this.store.dispatch(ac.SetPref(ROWS_PREF, prefs[ROWS_PREF] + 1));
+      }
     }
     this._saveGroupedPins(pins);
 
@@ -2318,10 +2335,22 @@ export class TopSitesFeed {
    */
   async pin(action) {
     let { site, index } = action.data;
+    // Grow keys on the requested slot, not the sponsor-adjusted pin position.
+    const requestedIndex = index;
     index = this._adjustPinIndexForSponsoredLinks(site, index);
     // If valid index provided, pin at that position
     if (index >= 0) {
       await this._pinSiteAt(site, index);
+      // Classic grow: pinning past the visible grid adds a row (grouped mode
+      // grows in _pinSiteAtGrouped instead).
+      const prefs = this.store.getState().Prefs.values;
+      if (
+        !this._groupedPinsEnabled &&
+        requestedIndex >= getTopSitesCount(prefs) &&
+        prefs[ROWS_PREF] < TOP_SITES_MAX_ROWS
+      ) {
+        this.store.dispatch(ac.SetPref(ROWS_PREF, prefs[ROWS_PREF] + 1));
+      }
       this._broadcastPinnedSitesUpdated();
     } else {
       // Bug 1458658. If the top site is being pinned from an 'Add a Top Site' option,
@@ -2574,6 +2603,9 @@ export class TopSitesFeed {
       case at.INIT:
         this.init();
         this.updateCustomSearchShortcuts(true /* isStartup */);
+        if (lazy.AdsClient.isEnabled(this.store.getState().Prefs.values)) {
+          this.adsClient = lazy.AdsClient.getClient();
+        }
         break;
       case at.DISCOVERY_STREAM_DEV_SYSTEM_TICK:
       case at.DISCOVERY_STREAM_DEV_EXPIRE_CACHE:

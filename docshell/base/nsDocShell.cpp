@@ -2439,8 +2439,9 @@ void nsDocShell::MaybeCreateInitialClientSource(nsIPrincipal* aPrincipal) {
   MaybeInheritController(mInitialClientSource.get(), principal);
 }
 
-void VerifyCientPrincipalInfosMatch(const mozilla::ipc::PrincipalInfo& aLeft,
-                                    const mozilla::ipc::PrincipalInfo& aRight) {
+void VerifyClientPrincipalInfosMatch(
+    const mozilla::ipc::PrincipalInfo& aLeft,
+    const mozilla::ipc::PrincipalInfo& aRight) {
   // Inheriting a controller when the principals don't match would cause a
   // crash. Let's do the checks earlier to crash here already instead of
   // ClientSource::SetController. And assert each condition separately. See bug
@@ -2453,9 +2454,25 @@ void VerifyCientPrincipalInfosMatch(const mozilla::ipc::PrincipalInfo& aLeft,
           aLeft.get_ContentPrincipalInfo();
       const mozilla::ipc::ContentPrincipalInfo& rightContent =
           aRight.get_ContentPrincipalInfo();
-      MOZ_RELEASE_ASSERT(leftContent.attrs() == rightContent.attrs() &&
-                         leftContent.originNoSuffix() ==
-                             rightContent.originNoSuffix());
+      {
+        // The most likely mismatch is the foreign bit in the partition key.
+        // See bug 2006265 and 2013379.
+        nsAutoString scheme;
+        nsAutoString baseDomain;
+        int32_t port;
+        bool leftForeignBit;
+        bool rightForeignBit;
+        OriginAttributes::ParsePartitionKey(leftContent.attrs().mPartitionKey,
+                                            scheme, baseDomain, port,
+                                            leftForeignBit);
+        OriginAttributes::ParsePartitionKey(rightContent.attrs().mPartitionKey,
+                                            scheme, baseDomain, port,
+                                            rightForeignBit);
+        MOZ_RELEASE_ASSERT(leftForeignBit == rightForeignBit);
+      }
+      MOZ_RELEASE_ASSERT(leftContent.attrs() == rightContent.attrs());
+      MOZ_RELEASE_ASSERT(leftContent.originNoSuffix() ==
+                         rightContent.originNoSuffix());
       return;
     }
     case mozilla::ipc::PrincipalInfo::TNullPrincipalInfo: {
@@ -2490,8 +2507,8 @@ void nsDocShell::MaybeInheritController(
     return;
   }
 
-  VerifyCientPrincipalInfosMatch(aClientSource->Info().PrincipalInfo(),
-                                 controller->PrincipalInfo());
+  VerifyClientPrincipalInfosMatch(aClientSource->Info().PrincipalInfo(),
+                                  controller->PrincipalInfo());
   aClientSource->InheritController(controller.ref());
 }
 

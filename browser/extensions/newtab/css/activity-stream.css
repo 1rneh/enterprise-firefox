@@ -15476,10 +15476,18 @@ hr {
   font-size: var(--font-size-root);
   margin: 0;
 }
+.nova-enabled .highlight-popover-body .button-wrapper {
+  align-self: flex-start;
+}
 .nova-enabled .highlight-popover-image {
   width: 100%;
   height: auto;
   border-radius: var(--border-radius-small);
+}
+.nova-enabled .widgets-survey-callout .highlight-popover-image {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 169px;
+  align-self: center;
 }
 
 .nova-enabled .omc-highlight-slot {
@@ -16612,6 +16620,8 @@ hr {
   /** card **/
   --card-border-color: light-dark(rgba(0, 0, 0, 6%), rgba(255, 255, 255, 4%));
   --card-gap: var(--space-medium);
+  --card-header-background-color: var(--button-background-color);
+  --card-header-border-color: transparent;
   /** checkbox **/
   --checkbox-border-radius: var(--border-radius-xsmall);
   /** color **/
@@ -16885,6 +16895,7 @@ hr {
     --button-text-color-selected: SelectedItemText;
     /** card **/
     --card-border-color: CanvasText;
+    --card-header-border-color: var(--button-border-color);
     /** color **/
     --color-accent-attention: AccentColor;
     --color-accent-primary: AccentColor;

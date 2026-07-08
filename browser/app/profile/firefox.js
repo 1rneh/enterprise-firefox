@@ -339,6 +339,8 @@ pref("browser.shell.focusSetDefaultBrowserButton", false);
 // - "animated": Display an animated image.
 pref("browser.shell.displayKitImageBehindSetDefaultBrowserButton", "off");
 
+pref("browser.shell.customIcon.enabled", false);
+
 // After a failed UserChoice attempt, show the OS "Open with" picker via the
 // undocumented IOpenWithLauncher API so the user can pick Firefox themselves.
 pref("browser.shell.setDefaultPDFHandler.useOpenWith", true);
@@ -377,6 +379,7 @@ pref("browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt", false);
 // by default for everyone. A Nimbus enrollment overrides this in either
 // direction.
 pref("browser.startup.windowsLaunchOnLogin.defaultEnabled", false);
+pref("browser.startup.windowsLaunchOnLogin.alreadyApplied", false);
 #endif
 
 // Show an upgrade dialog on major upgrades.
@@ -1210,6 +1213,9 @@ pref("browser.tabs.searchclipboardfor.middleclick", true);
 #else
 pref("browser.tabs.searchclipboardfor.middleclick", false);
 #endif
+
+// Use default or new-and-improved tab context menu structure
+pref("browser.tabs.contextmenu.altstructure.enabled", false);
 
 #if defined(XP_MACOSX)
   // During low memory periods, poll with this frequency (milliseconds)

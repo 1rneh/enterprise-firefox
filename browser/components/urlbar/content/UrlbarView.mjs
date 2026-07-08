@@ -9,7 +9,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   ContextualIdentityService:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   ObjectUtils: "resource://gre/modules/ObjectUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   UrlbarProviderOpenTabs:
@@ -857,7 +857,7 @@ export class UrlbarView {
     this.controller.engagementEvent.discard();
     queryOptions.searchString = this.input.value;
     queryOptions.autofillIgnoresSelection = true;
-    queryOptions.event.interactionType = "returned";
+    queryOptions.interactionType = "returned";
 
     // Opening the panel now will show the rows from the previous query, so to
     // avoid flicker, open it only if the search string hasn't changed. Also

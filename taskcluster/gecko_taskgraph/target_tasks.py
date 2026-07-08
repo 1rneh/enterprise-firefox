@@ -1014,13 +1014,25 @@ def make_desktop_nightly_filter(platforms):
     """Returns a filter that gets all nightly tasks on the given platform."""
 
     def filter(task, parameters):
+        # _filter_by_release_project is used instead of filter_for_project
+        # because it fakes things a bit for Try, and allows tasks that
+        # otherwise wouldn't run there to be run
+        filter_for_target_project = _filter_by_release_project(parameters)
+
         return all([
             filter_on_platforms(task, platforms),
-            filter_for_project(task, parameters),
+            filter_for_target_project(task),
             task.attributes.get("shippable", False),
-            # Tests and nightly only builds don't have `shipping_product` set
-            task.attributes.get("shipping_product") in {None, "firefox", "thunderbird"},
+            task.attributes.get("shipping_product") in {"firefox", "thunderbird"},
             task.kind not in {"l10n"},  # no on-change l10n
+            task.kind
+            not in {
+                "browsertime",
+                "mochitest",
+                "reftest",
+                "test",
+                "web-platform-tests",
+            },  # tests should not get pulled in accidentally
         ])
 
     return filter

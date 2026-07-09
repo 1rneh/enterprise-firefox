@@ -44,21 +44,11 @@ class AppInitFailures(FeltTests):
         # key_fail_request set until the failure is observed: the getPrimarySecret
         # fetch happens after run_felt_base() returns, so resetting it earlier
         # races the fetch and lets the launch succeed.
+        self.await_felt_auth_window()
+        self.force_window()
         self._driver.set_context("chrome")
+        error_msg = self.get_elem(".felt-error-primary-secret")
 
-        def launch_failure_shown(_):
-            try:
-                handles = self._driver.chrome_window_handles
-                if len(handles) != 1:
-                    return False
-                self._driver.switch_to_window(handles[0])
-                self._driver.set_context("chrome")
-                error = self.get_elem(".felt-error-primary-secret")
-                return error if error.is_displayed() else False
-            except Exception:
-                return False
-
-        error_msg = self._longwait.until(launch_failure_shown)
         self.key_fail_request.value = 0
         self.maybe_save_screenshot(Environment.FELT, self._testMethodName)
         assert error_msg.is_displayed(), (

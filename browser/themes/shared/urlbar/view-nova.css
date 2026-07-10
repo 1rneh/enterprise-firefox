@@ -42,6 +42,9 @@
   --urlbarView-favicon-margin-start: calc((var(--urlbarView-rich-search-suggestion-icon-size) - var(--urlbarview-favicon-size)) / 2);
   --urlbarView-favicon-margin-end: calc(var(--urlbarView-icon-margin-end-base) + var(--urlbarView-favicon-margin-start));
 
+  --urlbarView-favicon-mask-size: 24px;
+  --urlbarView-favicon-mask-position: calc((var(--urlbarview-favicon-size) - var(--urlbarView-favicon-mask-size)) / 2);
+
   --urlbarView-result-button-size: 24px;
   --urlbarView-result-button-background-opacity: 60%;
   --urlbarView-result-button-selected-color: var(--toolbar-field-text-color-focus);
@@ -99,6 +102,7 @@
 
 .urlbarView-results {
   white-space: nowrap;
+  container-type: inline-size;
 
   .urlbar:not([noresults]) > .urlbarView > .urlbarView-body-outer > .urlbarView-body-inner > & {
     padding-block-start: var(--urlbarView-padding);
@@ -190,7 +194,6 @@
 .urlbarView-row-body-top-no-wrap {
   display: flex;
   align-items: baseline;
-  flex: 0 0 auto;
   min-width: 0;
   max-width: 100%;
 }
@@ -231,10 +234,15 @@
      but not too short, since wrapping in that case would cause fewer rows to be
      shown. Wrap the URL under the title and other no-wrap elements. */
   .urlbarView-results[wrap] > .urlbarView-row[has-url] > .urlbarView-row-inner > .urlbarView-row-body > .urlbarView-row-body-top {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 0;
+    grid-template-areas:
+      "title title"
+      "url   explanation";
+    row-gap: 2px;
 
     > .urlbarView-row-body-top-no-wrap {
-      flex-basis: 100%;
+      grid-area: title;
       max-width: 100%;
 
       > .urlbarView-title-separator {
@@ -242,10 +250,27 @@
       }
     }
 
-    > .urlbarView-url,
-    > .urlbarView-explanation {
-      margin-top: 2px;
+    > .urlbarView-url {
+      grid-area: url;
     }
+
+    > .urlbarView-explanation {
+      grid-area: explanation;
+    }
+  }
+}
+
+@container (width >= 450px) {
+  .urlbarView-row[has-explanation]:is([selected], :hover) > .urlbarView-row-inner > .urlbarView-row-body > .urlbarView-row-body-top > .urlbarView-explanation {
+    visibility: visible;
+  }
+
+  .urlbarView-results[wrap]
+    > .urlbarView-row[has-explanation]:is([selected], :hover)
+    > .urlbarView-row-inner
+    > .urlbarView-row-body
+    > .urlbarView-row-body-top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
   }
 }
 
@@ -280,6 +305,7 @@
   background-repeat: no-repeat;
   background-size: contain;
   object-fit: contain;
+  mask-position: var(--urlbarView-favicon-mask-position);
   -moz-context-properties: fill, fill-opacity;
 
   .urlbarView-row[tail-suggestion] > .urlbarView-row-inner > & {
@@ -299,26 +325,13 @@
 
 .urlbarView-type-icon {
   position: absolute;
-  width: var(--icon-size-xsmall);
-  height: var(--icon-size-xsmall);
+  width: var(--urlbarView-favicon-mask-size);
+  height: var(--urlbarView-favicon-mask-size);
   align-self: center;
-  margin-top: var(--urlbarview-favicon-size);
-  margin-inline-start: calc(var(--urlbarView-icon-margin-start) + var(--urlbarview-favicon-size) - 6px);
+  margin-inline-start: calc(var(--urlbarView-icon-margin-start) + var(--urlbarView-favicon-mask-position));
   background-repeat: no-repeat;
-  background-size: contain;
   -moz-context-properties: fill, stroke;
-  stroke: var(--toolbar-field-background-color-focus);
-
-  /* Favicon badges have this priority: pinned > bookmark. */
-  .urlbarView-row[type="bookmark"] > .urlbarView-row-inner > & {
-    background-image: url(chrome://browser/skin/bookmark-12.svg);
-    fill: var(--toolbarbutton-icon-fill-attention);
-  }
-
-  .urlbarView-row[pinned] > .urlbarView-row-inner > & {
-    background-image: url(chrome://browser/skin/pin-12.svg);
-    fill: light-dark(rgb(91, 91, 102), rgb(251, 251, 254));
-  }
+  fill: var(--toolbarbutton-icon-fill-attention);
 
   /* The following badges are used for debugging purposes */
   @media -moz-pref("browser.urlbar.showDebuggingIcons") {
@@ -340,6 +353,68 @@
     }
     .urlbarView-row[type="semantic-history"] > .urlbarView-row-inner > &::before {
       content: "S";
+    }
+  }
+}
+
+.urlbarView-row:is([type="bookmark"], [type^="bookmark_"]) > .urlbarView-row-inner {
+  > .urlbarView-favicon {
+    mask-image: url(chrome://browser/skin/urlbar/badge-bookmark.svg#ltr-mask);
+    &:-moz-locale-dir(rtl) {
+      mask-image: url(chrome://browser/skin/urlbar/badge-bookmark.svg#rtl-mask);
+    }
+  }
+  > .urlbarView-type-icon {
+    background-image: url(chrome://browser/skin/urlbar/badge-bookmark.svg#ltr-icon);
+    &:-moz-locale-dir(rtl) {
+      background-image: url(chrome://browser/skin/urlbar/badge-bookmark.svg#rtl-icon);
+    }
+  }
+}
+
+.urlbarView-row:is([type="adaptive-history"], [type="history"], [type^="history_"], [type="semantic-history"]) > .urlbarView-row-inner {
+  > .urlbarView-favicon {
+    mask-image: url(chrome://browser/skin/urlbar/badge-history.svg#ltr-mask);
+    &:-moz-locale-dir(rtl) {
+      mask-image: url(chrome://browser/skin/urlbar/badge-history.svg#rtl-mask);
+    }
+  }
+  > .urlbarView-type-icon {
+    background-image: url(chrome://browser/skin/urlbar/badge-history.svg#ltr-icon);
+    &:-moz-locale-dir(rtl) {
+      background-image: url(chrome://browser/skin/urlbar/badge-history.svg#rtl-icon);
+    }
+  }
+}
+
+.urlbarView-row:is([type="remotetab"], [type="switchtab"], [type="tab"], [type^="tab_"]) > .urlbarView-row-inner {
+  > .urlbarView-favicon {
+    mask-image: url(chrome://browser/skin/urlbar/badge-tab.svg#ltr-mask);
+    &:-moz-locale-dir(rtl) {
+      mask-image: url(chrome://browser/skin/urlbar/badge-tab.svg#rtl-mask);
+    }
+  }
+  > .urlbarView-type-icon {
+    background-image: url(chrome://browser/skin/urlbar/badge-tab.svg#ltr-icon);
+    &:-moz-locale-dir(rtl) {
+      background-image: url(chrome://browser/skin/urlbar/badge-tab.svg#rtl-icon);
+    }
+  }
+}
+
+/* `pinned` is currently only set on top sites, which have `type="top_site"`, so
+   this rule is mutually exclusive with the other badge rules. */
+.urlbarView-row[pinned] > .urlbarView-row-inner {
+  > .urlbarView-favicon {
+    mask-image: url(chrome://browser/skin/urlbar/badge-pin.svg#ltr-mask);
+    &:-moz-locale-dir(rtl) {
+      mask-image: url(chrome://browser/skin/urlbar/badge-pin.svg#rtl-mask);
+    }
+  }
+  > .urlbarView-type-icon {
+    background-image: url(chrome://browser/skin/urlbar/badge-pin.svg#ltr-icon);
+    &:-moz-locale-dir(rtl) {
+      background-image: url(chrome://browser/skin/urlbar/badge-pin.svg#rtl-icon);
     }
   }
 }
@@ -440,6 +515,12 @@
       font-size: 0;
     }
   }
+}
+
+/* This should be supported within panel-{item,list} rather than modifying it, to be fixed by
+   https://bugzilla.mozilla.org/show_bug.cgi?id=1826841 */
+.urlbarView-result-menuitem::part(button) {
+  padding-inline-start: 12px;
 }
 
 /* Button with label, e.g. tip button */
@@ -572,6 +653,7 @@
   /* Explicitly set line-height to avoid excessively tall rows if the title triggers use of
      fallback fonts with extreme metrics. */
   line-height: 1.4;
+  flex: 1;
 }
 
 /* user context box */
@@ -771,7 +853,6 @@
 
 .urlbarView-url,
 .urlbarView-explanation {
-  flex: auto;
   font-size: var(--urlbarView-small-font-size);
   /* Increase line-height to avoid cutting overhanging glyphs due to masking on
      the element */
@@ -791,17 +872,25 @@
   }
 }
 
-.urlbarView-explanation {
-  visibility: collapse;
+.urlbarView-url {
+  flex: 1 1 auto;
 }
 
-.urlbarView-row[has-explanation]:is([selected], :hover) > .urlbarView-row-inner > .urlbarView-row-body > .urlbarView-row-body-top {
-  > .urlbarView-explanation {
-    visibility: visible;
+.urlbarView-explanation {
+  visibility: collapse;
+  margin-inline: calc(var(--urlbarView-row-padding-inline) + var(--urlbarView-icon-margin-start));
+  flex: 0 0 auto;
+
+  .urlbarView-row[has-menu-button] & {
+    margin-inline-end: 0;
   }
-  > .urlbarView-url {
-    visibility: collapse;
-  }
+}
+
+.urlbarView-url[overflow] ~ .urlbarView-explanation::before,
+.urlbarView-explanation-bookmarked:not(:empty) + .urlbarView-explanation-last-visited:not(:empty)::before {
+  content: var(--urlbarView-separator-char);
+  margin: 0 var(--urlbarView-separator-margin-inline);
+  opacity: var(--opacity-deemphasized-strong);
 }
 
 .urlbarView-title[is-url]:-moz-locale-dir(rtl),

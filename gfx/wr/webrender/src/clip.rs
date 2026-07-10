@@ -124,6 +124,15 @@ pub struct ClipTreeNode {
     /// pixel grid). Snapped on demand by `ClipTreeNode::snapped_clip_rect`
     /// during clip-chain construction.
     pub unsnapped_clip_rect: LayoutRect,
+    /// Snap "outset". Zero means snap `unsnapped_clip_rect` directly. Non-zero
+    /// anchors the clip to a snapped source rect: inflate the clip by the
+    /// outset to recover that source, snap it, then inset by the outset again.
+    /// Used by the box-shadow fast path so the inner `ClipOut` edge tracks the
+    /// snapped element rect at a constant `spread` offset, instead of rounding
+    /// each edge on its own — which would make the fake-border sides thicken at
+    /// different times as the spread animates, and the ring width breathe as
+    /// the element re-snaps under motion (bug 2052033).
+    pub snap_outset: Au,
     pub parent: ClipNodeId,
 
     children: FastHashMap<ClipEntry, ClipNodeId>,
@@ -147,7 +156,16 @@ impl ClipTreeNode {
     ) -> LayoutRect {
         debug_assert!(self.spatial_node_index != SpatialNodeIndex::INVALID);
         snapper.set_target_spatial_node(self.spatial_node_index, spatial_tree);
-        snapper.snap_rect(&self.unsnapped_clip_rect)
+        let outset = self.snap_outset.to_f32_px();
+        if outset != 0.0 {
+            // Anchor to the snapped source rect: inflate out by the outset to
+            // recover it (e.g. the box-shadow element), snap that, then inset
+            // by the outset. See `snap_outset`.
+            let anchor = self.unsnapped_clip_rect.inflate(outset, outset);
+            snapper.snap_rect(&anchor).inflate(-outset, -outset)
+        } else {
+            snapper.snap_rect(&self.unsnapped_clip_rect)
+        }
     }
 }
 
@@ -241,6 +259,7 @@ impl ClipTree {
                     handle: ClipDataHandle::INVALID,
                     spatial_node_index: SpatialNodeIndex::INVALID,
                     unsnapped_clip_rect: LayoutRect::zero(),
+                    snap_outset: Au(0),
                     children: FastHashMap::default(),
                     parent: ClipNodeId::NONE,
                 }
@@ -258,6 +277,7 @@ impl ClipTree {
             handle: ClipDataHandle::INVALID,
             spatial_node_index: SpatialNodeIndex::INVALID,
             unsnapped_clip_rect: LayoutRect::zero(),
+            snap_outset: Au(0),
             children: FastHashMap::default(),
             parent: ClipNodeId::NONE,
         });
@@ -296,6 +316,7 @@ impl ClipTree {
                         handle: key.handle,
                         spatial_node_index: key.spatial_node_index,
                         unsnapped_clip_rect: key.clip_rect.into(),
+                        snap_outset: key.snap_outset,
                         children: FastHashMap::default(),
                         parent: id,
                     });
@@ -473,6 +494,8 @@ pub struct ClipEntry {
     pub handle: ClipDataHandle,
     pub spatial_node_index: SpatialNodeIndex,
     pub clip_rect: RectKey,
+    /// Propagated to `ClipTreeNode::snap_outset`. See that field.
+    pub snap_outset: Au,
 }
 
 /// Represents a clip-chain as defined by the public API that we decompose in to
@@ -563,7 +586,7 @@ impl ClipTreeBuilder {
         spatial_node_index: SpatialNodeIndex,
         clip_rect: LayoutRect,
     ) {
-        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect: clip_rect.into() });
+        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect: clip_rect.into(), snap_outset: Au(0) });
     }
 
     /// Define a new rounded rect clip
@@ -574,7 +597,7 @@ impl ClipTreeBuilder {
         spatial_node_index: SpatialNodeIndex,
         clip_rect: LayoutRect,
     ) {
-        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect: clip_rect.into() });
+        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect: clip_rect.into(), snap_outset: Au(0) });
     }
 
     /// Define a image mask clip
@@ -585,7 +608,7 @@ impl ClipTreeBuilder {
         spatial_node_index: SpatialNodeIndex,
         clip_rect: LayoutRect,
     ) {
-        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect: clip_rect.into() });
+        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect: clip_rect.into(), snap_outset: Au(0) });
     }
 
     /// Define a clip-chain
@@ -736,7 +759,18 @@ impl ClipTreeBuilder {
                 }
             }
 
-            let clip_chain_index = self.clip_chain_map[&clip_chain_id];
+            // Bug 1782001: a miss means an item referenced a clip-chain that was never
+            // defined in this scene. Report the id, pipeline and number of defined chains
+            // so crash reports can tell a builder bug (small, in-range id) from a corrupt
+            // display list (garbage id / near-empty map) rather than "no entry found for key".
+            let clip_chain_index = match self.clip_chain_map.get(&clip_chain_id) {
+                Some(index) => *index,
+                None => panic!(
+                    "webrender: missing clip-chain {:?} in build_clip_set (defined_chains={})",
+                    clip_chain_id,
+                    self.clip_chain_map.len(),
+                ),
+            };
 
             self.clip_handles_buffer.clear();
 
@@ -795,7 +829,14 @@ impl ClipTreeBuilder {
         clip_chain_id: ClipChainId,
         interners: &Interners,
     ) -> bool {
-        let clip_chain_index = self.clip_chain_map[&clip_chain_id];
+        let clip_chain_index = match self.clip_chain_map.get(&clip_chain_id) {
+            Some(index) => *index,
+            None => panic!(
+                "webrender: missing clip-chain {:?} in clip_chain_has_complex_clips (defined_chains={})",
+                clip_chain_id,
+                self.clip_chain_map.len(),
+            ),
+        };
         self.has_complex_clips_impl(clip_chain_index, interners)
     }
 
@@ -809,7 +850,14 @@ impl ClipTreeBuilder {
         interners: &Interners,
         spatial_tree: &SceneSpatialTree,
     ) -> bool {
-        let clip_chain_index = self.clip_chain_map[&clip_chain_id];
+        let clip_chain_index = match self.clip_chain_map.get(&clip_chain_id) {
+            Some(index) => *index,
+            None => panic!(
+                "webrender: missing clip-chain {:?} in clip_chain_complex_clips_are_promotable (defined_chains={})",
+                clip_chain_id,
+                self.clip_chain_map.len(),
+            ),
+        };
         self.complex_clips_are_promotable_impl(clip_chain_index, interners, spatial_tree)
     }
 
@@ -1002,6 +1050,7 @@ impl ClipTreeBuilder {
                     handle,
                     spatial_node_index: clip_item_entry.spatial_node_index,
                     clip_rect: clip_item_entry.clip_rect.into(),
+                    snap_outset: clip_item_entry.snap_outset,
                 });
             }
 
@@ -1893,6 +1942,8 @@ pub struct ClipItemEntry {
     pub key: ClipItemKey,
     pub spatial_node_index: SpatialNodeIndex,
     pub clip_rect: LayoutRect,
+    /// Propagated to `ClipTreeNode::snap_outset`. See that field.
+    pub snap_outset: Au,
 }
 
 /// The data available about an interned clip node during scene building

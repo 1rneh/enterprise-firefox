@@ -305,6 +305,7 @@
 #include "mozilla/net/NeckoChannelParams.h"
 #include "mozilla/net/RequestContextService.h"
 #include "nsAboutProtocolUtils.h"
+#include "nsAnimationManager.h"
 #include "nsAtom.h"
 #include "nsAttrValue.h"
 #include "nsAttrValueInlines.h"
@@ -19391,6 +19392,9 @@ void Document::DetermineProximityToViewportAndNotifyResizeObservers() {
   //
   // Bug 2040244 - Move this into RO loop.
   // https://github.com/whatwg/html/pull/11613
+  if (auto* pc = GetPresContext()) {
+    pc->AnimationManager()->UpdateDeferredTimelineChanges();
+  }
   if (mTimelinesController.UpdateStaleTimelines()) {
     FlushPendingNotifications(ctf);
   }

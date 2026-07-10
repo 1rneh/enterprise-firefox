@@ -7,6 +7,7 @@
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/NotNull.h"
 #include "mozilla/ServoStyleConsts.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/CSSMathMaxBinding.h"
@@ -18,8 +19,10 @@
 namespace mozilla::dom {
 
 CSSMathMax::CSSMathMax(nsCOMPtr<nsISupports> aParent,
+                       MovingNotNull<UniquePtr<StyleNumericType>> aNumericType,
                        RefPtr<CSSNumericArray> aValues)
-    : CSSMathValue(std::move(aParent), MathValueType::MathMax),
+    : CSSMathValue(std::move(aParent), std::move(aNumericType),
+                   MathValueType::MathMax),
       mValues(std::move(aValues)) {}
 
 // static
@@ -27,13 +30,16 @@ RefPtr<CSSMathMax> CSSMathMax::Create(nsCOMPtr<nsISupports> aParent,
                                       const StyleMathMax& aMathMax) {
   nsTArray<RefPtr<CSSNumericValue>> values;
 
-  for (const auto& value : aMathMax) {
+  for (const auto& value : aMathMax.values) {
     values.AppendElement(CSSNumericValue::Create(aParent, value));
   }
 
   auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(values));
 
-  return MakeRefPtr<CSSMathMax>(std::move(aParent), std::move(array));
+  return MakeRefPtr<CSSMathMax>(
+      std::move(aParent),
+      WrapMovingNotNull(MakeUnique<StyleNumericType>(aMathMax.numeric_type)),
+      std::move(array));
 }
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(CSSMathMax, CSSMathValue)
@@ -80,8 +86,8 @@ already_AddRefed<CSSMathMax> CSSMathMax::Constructor(
     numericTypes.AppendElement(&value->GetNumericType());
   }
 
-  StyleNumericType numericType;
-  if (!Servo_NumericType_AddTypes(&numericTypes, &numericType)) {
+  auto numericType = MakeUnique<StyleNumericType>();
+  if (!Servo_NumericType_AddTypes(&numericTypes, numericType.get())) {
     aRv.ThrowTypeError("Incompatible types");
     return nullptr;
   }
@@ -90,7 +96,8 @@ already_AddRefed<CSSMathMax> CSSMathMax::Constructor(
 
   auto array = MakeRefPtr<CSSNumericArray>(global, std::move(values));
 
-  return MakeAndAddRef<CSSMathMax>(global, std::move(array));
+  return MakeAndAddRef<CSSMathMax>(
+      global, WrapMovingNotNull(std::move(numericType)), std::move(array));
 }
 
 CSSNumericArray* CSSMathMax::Values() const { return mValues; }
@@ -116,14 +123,14 @@ void CSSMathMax::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
   aDest.Append(")"_ns);
 }
 
-StyleMathMin CSSMathMax::ToStyleMathMax() const {
+StyleMathMax CSSMathMax::ToStyleMathMax() const {
   nsTArray<StyleNumericValue> values;
 
   for (const RefPtr<CSSNumericValue>& value : mValues->GetValues()) {
     values.AppendElement(value->ToStyleNumericValue());
   }
 
-  return StyleMathMax{std::move(values)};
+  return StyleMathMax{GetNumericType(), std::move(values)};
 }
 
 const CSSMathMax& CSSMathValue::GetAsCSSMathMax() const {

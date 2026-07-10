@@ -241,8 +241,6 @@ var allowlist = [
   { file: "resource://builtin-addons/ipp-activator/breakages/tab.json" },
 
   // Starting from here, files in the allowlist are bugs that need fixing.
-  // Bug 2042933 - consumed by PermissionUI.sys.mjs in a follow-up patch.
-  { file: "resource://app/modules/PermissionPromptTargeting.sys.mjs" },
   // Bug 1339424 (wontfix?)
   {
     file: "chrome://browser/locale/taskbar.properties",
@@ -347,6 +345,15 @@ var allowlist = [
   // Preparation for future use in ASRouter
   {
     file: "resource://app/modules/asrouter/MessagingTargetingConstants.sys.mjs",
+  },
+
+  // Bug 2051554 - Added a new FirefoxThemesList.sys.mjs as single source of truth for the Nova themes
+  // to be shown in the new Firefox Themes Picker UI components.
+  //
+  // TODO: remove this exception once the first patch using the new module has been landed
+  // (e.g. Bug 2050529 and/or Bug 2051571)
+  {
+    file: "moz-src:///browser/themes/ThemesList.sys.mjs",
   },
 ];
 

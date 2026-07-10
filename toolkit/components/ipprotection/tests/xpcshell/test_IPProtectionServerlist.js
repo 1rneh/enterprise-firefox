@@ -128,9 +128,16 @@ add_setup(async function () {
   }
   await client.db.importChanges({}, Date.now());
 
+  maybeSetEnterpriseServerlistOverride(TEST_COUNTRIES);
   await IPProtectionServerlist.maybeFetchList();
   await IPProtectionServerlist.initOnStartupCompleted();
-  Assert.ok(IPProtectionServerlist instanceof RemoteSettingsServerlist);
+  const expected = AppConstants.MOZ_ENTERPRISE
+    ? PrefServerList
+    : RemoteSettingsServerlist;
+  Assert.ok(
+    IPProtectionServerlist instanceof expected,
+    "Factory returns the serverlist implementation for this build"
+  );
 });
 
 add_task(async function test_getRecommendedLocation() {
@@ -266,17 +273,27 @@ add_task(async function test_listChangedEvent() {
   );
 
   try {
-    await client.emit("sync", { data: {} });
+    if (AppConstants.MOZ_ENTERPRISE) {
+      Services.prefs.setStringPref(
+        PrefServerList.PREF_NAME,
+        JSON.stringify([])
+      );
+    } else {
+      await client.emit("sync", { data: {} });
+    }
     Assert.greater(
       fired,
       0,
-      "ListChanged event is dispatched when RS sync triggers a refetch"
+      "ListChanged event is dispatched when the serverlist source changes"
     );
   } finally {
     IPProtectionServerlist.removeEventListener(
       "IPProtectionServerlist:ListChanged",
       onChanged
     );
+    if (AppConstants.MOZ_ENTERPRISE) {
+      Services.prefs.clearUserPref(PrefServerList.PREF_NAME);
+    }
   }
 });
 
@@ -333,37 +350,40 @@ add_task(async function test_selectServer() {
   Assert.equal(selected, null, "No server should be selected");
 });
 
-add_task(async function test_syncRespected() {
-  let { country, city } = IPProtectionServerlist.getLocation("US");
-  Assert.equal(country.code, "US", "getLocation('US') returns the US entry");
-  Assert.deepEqual(city, TEST_US_CITY, "The correct city should be returned");
+add_task(
+  { skip_if: () => AppConstants.MOZ_ENTERPRISE },
+  async function test_syncRespected() {
+    let { country, city } = IPProtectionServerlist.getLocation("US");
+    Assert.equal(country.code, "US", "getLocation('US') returns the US entry");
+    Assert.deepEqual(city, TEST_US_CITY, "The correct city should be returned");
 
-  // Now, update the server list: keep only an updated US entry.
-  const updated_server = {
-    ...TEST_SERVER_1,
-    hostname: "updated.example.com",
-  };
-  const updated_city = {
-    ...TEST_US_CITY,
-    servers: [updated_server],
-  };
-  const updated_country = {
-    name: "United States",
-    code: "US",
-    cities: [updated_city],
-  };
+    // Now, update the server list: keep only an updated US entry.
+    const updated_server = {
+      ...TEST_SERVER_1,
+      hostname: "updated.example.com",
+    };
+    const updated_city = {
+      ...TEST_US_CITY,
+      servers: [updated_server],
+    };
+    const updated_country = {
+      name: "United States",
+      code: "US",
+      cities: [updated_city],
+    };
 
-  await client.db.clear();
-  await client.db.create(updated_country);
-  await client.db.importChanges({}, Date.now());
-  await client.emit("sync", { data: {} });
+    await client.db.clear();
+    await client.db.create(updated_country);
+    await client.db.importChanges({}, Date.now());
+    await client.emit("sync", { data: {} });
 
-  await IPProtectionServerlist.maybeFetchList();
+    await IPProtectionServerlist.maybeFetchList();
 
-  ({ country, city } = IPProtectionServerlist.getLocation("US"));
-  Assert.equal(country.code, "US", "getLocation('US') still returns US");
-  Assert.deepEqual(city, updated_city, "The updated city should be returned");
-});
+    ({ country, city } = IPProtectionServerlist.getLocation("US"));
+    Assert.equal(country.code, "US", "getLocation('US') still returns US");
+    Assert.deepEqual(city, updated_city, "The updated city should be returned");
+  }
+);
 
 add_task(async function test_PrefServerList() {
   registerCleanupFunction(() => {
@@ -435,10 +455,16 @@ add_task(async function test_IPProtectionServerlistFactory() {
   registerCleanupFunction(() => {
     Services.prefs.clearUserPref(PrefServerList.PREF_NAME);
   });
-  // Without the pref set, it should return RemoteSettingsServerlist
+  // Without the pref set, non-enterprise builds return a
+  // RemoteSettingsServerlist; MOZ_ENTERPRISE builds always return a
+  // PrefServerList regardless of the pref.
   Services.prefs.clearUserPref(PrefServerList.PREF_NAME);
   let instance = IPProtectionServerlistFactory();
-  Assert.ok(instance instanceof RemoteSettingsServerlist);
+  if (AppConstants.MOZ_ENTERPRISE) {
+    Assert.ok(instance instanceof PrefServerList);
+  } else {
+    Assert.ok(instance instanceof RemoteSettingsServerlist);
+  }
   Services.prefs.setCharPref(
     PrefServerList.PREF_NAME,
     JSON.stringify(TEST_COUNTRIES)

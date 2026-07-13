@@ -23,13 +23,19 @@ body {
 
 .felt {
   display: flex;
+  flex-direction: column;
   flex: 1 0 0;
   overflow: hidden;
+  background-image: var(--felt-logo-background-gradient);
+}
+
+.felt-body {
+  display: flex;
+  flex: 1 0 0;
 }
 
 .felt-logo {
   display: flex;
-  background-image: var(--felt-logo-background-gradient);
   overflow: hidden;
   flex-direction: column;
   justify-content: center;
@@ -53,6 +59,7 @@ body {
 .felt-login,
 .felt-updates {
   display: flex;
+  flex-direction: column;
   background: var(--background-color-box);
   flex: 1 0 0;
   justify-content: center;
@@ -197,6 +204,7 @@ moz-input-text::part(label) {
 
 .felt-login__sso {
   display: flex;
+  flex-grow: 1;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: 400px;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
@@ -209,22 +217,31 @@ moz-input-text::part(label) {
   flex: 1 1 auto;
 }
 
-.felt-powered-by {
-  position: absolute;
-  /* stylelint-disable-next-line */
-  bottom: 8px;
-  /* stylelint-disable-next-line */
-  left: 8px;
-  font-size: small;
+.felt-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--space-medium) var(--space-xsmall);
 }
 
-.felt-version {
-  position: absolute;
-  /* stylelint-disable-next-line */
-  right: 8px;
-  /* stylelint-disable-next-line */
-  bottom: 8px;
+#felt-footer-content {
+  display: flex;
+  flex-direction: column;
   font-size: small;
+  /* On the blue footer gradient in both themes; must stay white. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--color-white);
+}
+
+#felt-back-button {
+  padding: 0;
+  border: none;
+  background: none;
+  /* On the blue footer gradient in both themes; must stay white. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--color-white);
+  font-size: small;
+  text-decoration: underline;
 }
 
 .is-hidden {
@@ -260,6 +277,7 @@ body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt)
 
 .felt-updates-message {
   position: absolute;
+  align-self: center;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   bottom: 64px;
 }

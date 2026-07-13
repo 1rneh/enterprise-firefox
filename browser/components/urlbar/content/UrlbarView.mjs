@@ -119,6 +119,13 @@ export class UrlbarView {
     return this.input.hasAttribute("open");
   }
 
+  /**
+   * @returns {UrlbarQueryContext} The context of the most recent query.
+   */
+  get queryContext() {
+    return this.#queryContext;
+  }
+
   get allowEmptySelection() {
     let { heuristicResult } = this.#queryContext || {};
     return !heuristicResult || !this.#shouldShowHeuristic(heuristicResult);
@@ -1708,7 +1715,7 @@ export class UrlbarView {
 
   #createRowContentForDynamicType(item, result) {
     let { dynamicType } = result.payload;
-    let viewTemplate = this.controller.getViewTemplate(result);
+    let viewTemplate = result.viewTemplate;
     if (!viewTemplate) {
       console.error(`No viewTemplate found for ${result.providerName}`);
       return;
@@ -2194,8 +2201,8 @@ export class UrlbarView {
 
       if (
         !lazy.ObjectUtils.deepEqual(
-          this.controller.getViewTemplate(oldResult),
-          this.controller.getViewTemplate(newResult)
+          oldResult.viewTemplate,
+          newResult.viewTemplate
         )
       ) {
         return true;
@@ -2693,7 +2700,7 @@ export class UrlbarView {
 
     // Get the view update from the result's provider.
     let viewUpdate = await this.controller.getViewUpdate(result, idsByName);
-    if (item.result != result) {
+    if (item.result != result || !viewUpdate) {
       return;
     }
 
@@ -3884,10 +3891,7 @@ export class UrlbarView {
     /**
      * @type {?UrlbarResultCommand[]}
      */
-    let commands = this.controller.getResultCommands(
-      result,
-      this.#queryContext?.isPrivate
-    );
+    let commands = result.commands;
     if (commands) {
       this.#resultMenuCommands.set(result, commands);
       return commands;

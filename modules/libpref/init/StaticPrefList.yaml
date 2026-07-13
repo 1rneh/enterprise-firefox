@@ -6397,12 +6397,6 @@
   value: false
   mirror: always
 
-# Whether to make the document name getter follow the spec.
-- name: dom.document.name_getter_follow_spec.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Whether to block the shadowing of known document properties.
 - name: dom.document.name_getter_prevent_shadowing.enabled
   type: bool
@@ -15559,11 +15553,9 @@
   mirror: always
 
 # This preference controls if we need to fail transactions for Local Network Access (LNA) failures.
-# Currently it is enabled only for nightly builds.
-# For beta and release users we will be enabling it only for ETP strict users using network.lna.etp.enabled
 - name: network.lna.blocking
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # When this pref is true, loads triggered by scripts classified as trackers
@@ -18549,15 +18541,6 @@
     value: @IS_NIGHTLY_BUILD@
     mirror: always
 
-  # This controls the depth of stack trace that is logged when Windows sandbox
-  # logging is turned on. This is only currently available for the content
-  # process because the only other sandbox (for GMP) has too strict a policy to
-  # allow stack tracing. This does not require a restart to take effect.
--   name: security.sandbox.windows.log.stackTraceDepth
-    type: RelaxedAtomicUint32
-    value: 0
-    mirror: always
-
   # Whether \Device\KsecDD is closed in content process. We are closing this
   # using a pref to give users a work-around if they have issues.
 -   name: security.sandbox.content.close-ksecdd-handle
@@ -20690,7 +20673,7 @@
 # Use xdg-session-management-v1 for session restore on Wayland.
 - name: widget.wayland.session-management.enabled
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: once
 
 # Use native D&D session type on Wayland instead of Gtk.

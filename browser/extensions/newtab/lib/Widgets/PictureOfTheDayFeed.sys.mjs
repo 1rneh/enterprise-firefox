@@ -2,6 +2,43 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/**
+ * Picture of the Day widget - data flow overview
+ *
+ * Fetch / render:
+ *   Once per day this feed fetches the picture from Merino (via
+ *   TemporaryMerinoClientShim), stores it in PersistentCache, maps the payload
+ *   onto our internal shape with normalize(), and broadcasts it into the Redux
+ *   store, where PictureOfTheDay.jsx renders it. The Merino backend refreshes the
+ *   picture on a daily cron (around midnight PST); when a fresh image is not
+ *   available it serves the previous day's picture rather than nothing, so the
+ *   client can legitimately receive the same picture across days. Whether the
+ *   widget runs at all is gated by isEnabled() (isWidgetEnabled: widgets container
+ *   on, the widget addable / trainhop-enabled, and the user's enabled pref).
+ *
+ * Set as wallpaper:
+ *   The "Set wallpaper" CTA - shown only when the feature gate pref
+ *   (widgets.pictureOfTheDay.setAsWallpaper.enabled, or its trainhopConfig
+ *   override) is on AND newtabWallpapers.enabled + customWallpaper.enabled are on
+ *   - dispatches WIDGETS_PICTURE_SET_WALLPAPER. setWallpaper() then fetches the
+ *   image, derives a theme, applies it as the custom wallpaper (newtabWallpapers.*),
+ *   and records the picture's published date in
+ *   widgets.pictureOfTheDay.wallpaperActive.
+ *
+ * State reset:
+ *   The JSX shows the "already set" checkmark only while wallpaperActive equals the
+ *   current picture's published date, so a new day's picture re-offers the CTA on
+ *   its own. wallpaperActive is also cleared when the user switches to a non-custom
+ *   wallpaper (onPrefChangedAction) or replaces the custom wallpaper with a
+ *   different image (onWallpaperUpload). Toggling wallpapers off in the Content
+ *   section does not clear it (the picture stays selected) - the JSX just hides the
+ *   checkmark while newtabWallpapers.user.enabled is off and shows it again on.
+ *
+ * Two distinct prefs: setAsWallpaper.enabled is the config gate (does the CTA
+ * exist); wallpaperActive stores the published date of the picture that is the
+ * active wallpaper ("" = none).
+ */
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PersistentCache: "resource://newtab/lib/PersistentCache.sys.mjs",
@@ -46,6 +83,9 @@ export class PictureOfTheDayFeed {
     this.loaded = false;
     this.merino = null;
     this.currentImageUrl = "";
+    // Set while this feed is applying its own wallpaper so the WALLPAPER_UPLOAD
+    // it triggers isn't mistaken for the user replacing the wallpaper.
+    this.settingWallpaper = false;
     this.cache = this.PersistentCache(CACHE_KEY, true);
   }
 
@@ -225,14 +265,17 @@ export class PictureOfTheDayFeed {
       const blob = await response.blob();
       let theme = "light";
       try {
-        // calculateTheme only reads image-decoding APIs (createImageBitmap,
-        // OffscreenCanvas) off the global to sample luminance; it never
-        // mutates the global.
-        // eslint-disable-next-line mozilla/reject-globalThis-modification
-        theme = await lazy.calculateTheme(globalThis, blob);
+        // calculateTheme samples luminance via createImageBitmap/OffscreenCanvas,
+        // which the sys.mjs global doesn't provide - use the parent's hidden DOM
+        // window, which does. Falls back to "light" if decoding fails.
+        theme = await lazy.calculateTheme(
+          Services.appShell.hiddenDOMWindow,
+          blob
+        );
       } catch (e) {
         console.error("PictureOfTheDayFeed: theme calculation failed", e);
       }
+      this.settingWallpaper = true;
       this.store.dispatch({
         type: at.WALLPAPER_UPLOAD,
         data: { file: blob, theme },
@@ -246,7 +289,10 @@ export class PictureOfTheDayFeed {
       this.store.dispatch(ac.SetPref("newtabWallpapers.wallpaper", "custom"));
       this.store.dispatch(ac.SetPref("newtabWallpapers.initialWallpaper", ""));
       this.store.dispatch(
-        ac.SetPref("widgets.pictureOfTheDay.setAsWallpaper", true)
+        ac.SetPref(
+          "widgets.pictureOfTheDay.wallpaperActive",
+          this.store.getState().PictureOfTheDay?.publishedDate || ""
+        )
       );
     } catch (e) {
       console.error("PictureOfTheDayFeed: failed to set wallpaper", e);
@@ -277,11 +323,11 @@ export class PictureOfTheDayFeed {
         // different (non-custom) wallpaper.
         const { values } = this.store.getState().Prefs;
         if (
-          values["widgets.pictureOfTheDay.setAsWallpaper"] &&
+          values["widgets.pictureOfTheDay.wallpaperActive"] &&
           values["newtabWallpapers.wallpaper"] !== "custom"
         ) {
           this.store.dispatch(
-            ac.SetPref("widgets.pictureOfTheDay.setAsWallpaper", false)
+            ac.SetPref("widgets.pictureOfTheDay.wallpaperActive", "")
           );
         }
         break;
@@ -307,6 +353,27 @@ export class PictureOfTheDayFeed {
       case at.WIDGETS_PICTURE_SET_WALLPAPER:
         await this.setWallpaper();
         break;
+      case at.WALLPAPER_UPLOAD:
+        this.onWallpaperUpload();
+        break;
+    }
+  }
+
+  // A WALLPAPER_UPLOAD this feed didn't initiate means the user replaced the
+  // custom wallpaper with a different image, so the current picture is no longer
+  // the active wallpaper - clear the "already set" state. Our own
+  // setWallpaper sets `settingWallpaper` and re-records the date right after, so
+  // it must not clear here.
+  onWallpaperUpload() {
+    if (this.settingWallpaper) {
+      this.settingWallpaper = false;
+      return;
+    }
+    const { values } = this.store.getState().Prefs;
+    if (values["widgets.pictureOfTheDay.wallpaperActive"]) {
+      this.store.dispatch(
+        ac.SetPref("widgets.pictureOfTheDay.wallpaperActive", "")
+      );
     }
   }
 }

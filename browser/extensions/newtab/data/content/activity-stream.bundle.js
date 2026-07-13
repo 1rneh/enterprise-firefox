@@ -300,6 +300,9 @@ for (const type of [
   "WEATHER_USER_OPT_IN_LOCATION",
   "WEBEXT_CLICK",
   "WEBEXT_DISMISS",
+  "WEB_NOTIFICATIONS_ERROR",
+  "WEB_NOTIFICATIONS_REQUEST",
+  "WEB_NOTIFICATIONS_UPDATED",
   "WIDGETS_CONTAINER_ACTION",
   "WIDGETS_ENABLED",
   "WIDGETS_ERROR",
@@ -6783,6 +6786,17 @@ const INITIAL_STATE = {
     // For can be a queue in the future, but for now is one item
     toastQueue: [],
   },
+  // Snapshot of the platform NotificationDB (persisted web notifications).
+  // Distinct from `Notifications` above, which is in-newtab toast UI state.
+  // Normalized: `notifications` is the canonical id-keyed table; `byOrigin`
+  // is an id-only index. Fed by WebNotificationsFeed.
+  WebNotifications: {
+    initialized: false,
+    lastUpdated: null,
+    notifications: {},
+    byOrigin: {},
+    error: null,
+  },
   InferredPersonalization: {
     initialized: false,
     lastUpdated: null,
@@ -7768,6 +7782,27 @@ function Notifications(prevState = INITIAL_STATE.Notifications, action) {
   }
 }
 
+function WebNotifications(prevState = INITIAL_STATE.WebNotifications, action) {
+  switch (action.type) {
+    case actionTypes.WEB_NOTIFICATIONS_UPDATED:
+      return {
+        ...prevState,
+        initialized: true,
+        lastUpdated: action.data.lastUpdated,
+        notifications: action.data.notifications,
+        byOrigin: action.data.byOrigin,
+        error: null,
+      };
+    case actionTypes.WEB_NOTIFICATIONS_ERROR:
+      return {
+        ...prevState,
+        error: action.data,
+      };
+    default:
+      return prevState;
+  }
+}
+
 function Weather(prevState = INITIAL_STATE.Weather, action) {
   switch (action.type) {
     case actionTypes.WEATHER_UPDATE:
@@ -8087,6 +8122,7 @@ const reducers = {
   Sections,
   Messages,
   Notifications,
+  WebNotifications,
   Pocket,
   InferredPersonalization,
   DiscoveryStream,
@@ -12356,6 +12392,61 @@ const CURATED_RECOMMENDATIONS_FEED_URL = "https://merino.services.mozilla.com/ap
 
 // Divides evenly by 2, 3, and 4 to avoid orphan cards in any column layout.
 const DEFAULT_MAX_TILES = 12;
+
+// Each card's footprint in grid units, sized so a medium reads as the square it
+// is: a small is half a medium (2x1), a large is two mediums wide (4x2). A grid
+// column is 2 units wide, so a full row spans columnCount * 2 units.
+const CARD_SIZE = {
+  small: {
+    width: 2,
+    height: 1
+  },
+  medium: {
+    width: 2,
+    height: 2
+  },
+  large: {
+    width: 4,
+    height: 2
+  }
+};
+const sizeOf = tile => CARD_SIZE[tile.size] ?? CARD_SIZE.medium;
+
+// Return the tileIndexes that fall into an incomplete final row at this
+// breakpoint. These are the orphan cards to hide.
+function getOrphanTileIndexes(tiles, columnCount) {
+  const rowWidth = columnCount * 2; // a grid column is 2 units wide
+  let currentRow = []; // tile indexes in the row we're filling
+  let filled = 0; // units used in this row, including tall cards from above
+  let carry = 0; // units this row's tall cards reserve in the next row
+
+  // Walks each tile, filling currentRow until the row is filled,
+  // then clears it and goes to the next row.
+  // At the end if currentRow is not empty, we have a remainder.
+  tiles.forEach((tile, index) => {
+    const {
+      width,
+      height
+    } = sizeOf(tile);
+    currentRow.push(index);
+    filled += width;
+    if (height > 1) {
+      carry += width;
+    }
+
+    // This row is complete, we can reset and keep looking.
+    if (filled >= rowWidth) {
+      currentRow = [];
+      filled = carry; // next row starts seeded by tall cards from above
+      carry = 0;
+      // The carry alone filled the whole next row (all-tall row), so reset it.
+      if (filled >= rowWidth) {
+        filled = 0;
+      }
+    }
+  });
+  return new Set(currentRow);
+}
 function getLayoutData(responsiveLayouts, index) {
   let layoutData = {
     classNames: [],
@@ -12364,8 +12455,12 @@ function getLayoutData(responsiveLayouts, index) {
     allowsWidget: false
   };
   responsiveLayouts.forEach(layout => {
+    const orphanTiles = getOrphanTileIndexes(layout.tiles, layout.columnCount);
     layout.tiles.forEach((tile, tileIndex) => {
       if (tile.position === index) {
+        if (orphanTiles.has(tileIndex)) {
+          layoutData.classNames.push(`col-${layout.columnCount}-hidden`);
+        }
         layoutData.classNames.push(`col-${layout.columnCount}-${tile.size}`);
         layoutData.classNames.push(`col-${layout.columnCount}-position-${tileIndex}`);
         layoutData.imageSizes[layout.columnCount] = tile.size;
@@ -13108,6 +13203,7 @@ const PREF_WIDGETS_SYSTEM_PICTURE_OF_THE_DAY_ENABLED =
  * @property {string|null} trainhopSidebarKey - Key in trainhopConfig.widgets.* for the hasSidebar override.
  * @property {string} widgetsSettingsVisibleKey - Key in trainhopConfig.widgetsSettings.* that additively reveals this widget's toggle in the settings UIs (does not enable the widget).
  * @property {string} widgetsSettingsEnabledKey - Key in trainhopConfig.widgetsSettings.* that overrides this widget's default enabled value (written to the pref default branch; an explicit user toggle still wins).
+ * @property {string|null} [trainhopNamespace] - When set, the widget ships its whole config in one dedicated object at trainhopConfig.<namespace>. Its `enabled` overrides the default value of enabledPref on the default branch (user toggle still wins, like widgetsSettings.*Enabled); `visible` reveals the widget (isWidgetAddable) without writing a pref; `size` is read by resolveWidgetSize. Only Picture of the Day uses this today.
  */
 
 /** @type {WidgetRegistryEntry[]} */
@@ -13255,6 +13351,7 @@ const WIDGET_REGISTRY = [
     trainhopSidebarKey: null,
     widgetsSettingsVisibleKey: "pictureOfTheDayVisible",
     widgetsSettingsEnabledKey: "pictureOfTheDayEnabled",
+    trainhopNamespace: "widgetPictureOfTheDay",
   },
 ];
 
@@ -13310,6 +13407,8 @@ function resolveWidgetOrder(prefs) {
  */
 function isWidgetAddable(widget, prefs) {
   return Boolean(
+    (widget.trainhopNamespace &&
+      prefs.trainhopConfig?.[widget.trainhopNamespace]?.visible) ||
     prefs.trainhopConfig?.widgets?.[widget.trainhopEnabledKey] ||
     prefs.trainhopConfig?.widgetsSettings?.[widget.widgetsSettingsVisibleKey] ||
     prefs[widget.systemEnabledPref]
@@ -13387,10 +13486,13 @@ function resolveWidgetSize(widget, prefs) {
   if (userPref) {
     return userPref;
   }
+  const dedicatedSize = widget.trainhopNamespace
+    ? prefs.trainhopConfig?.[widget.trainhopNamespace]?.size
+    : null;
   const trainhopSize = widget.trainhopSizeKey
     ? prefs.trainhopConfig?.widgets?.[widget.trainhopSizeKey]
     : null;
-  return trainhopSize || widget.defaultSize;
+  return dedicatedSize || trainhopSize || widget.defaultSize;
 }
 
 /**
@@ -14926,7 +15028,7 @@ function Lists({
     })
   })), /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "lists-panel-button",
-    "data-l10n-id": "newtab-menu-section-tooltip",
+    "data-l10n-id": "newtab-widget-lists-menu-button",
     iconSrc: "chrome://global/skin/icons/more.svg",
     menuId: "lists-panel",
     type: "ghost"
@@ -22444,6 +22546,22 @@ function Stocks_Stocks({
 
 const PICTURE_OF_THE_DAY_ENTRY = WIDGET_REGISTRY.find(w => w.id === "pictureOfTheDay");
 
+// Whether the "Set as wallpaper" feature is enabled. The dedicated
+// widgetPictureOfTheDay trainhop object wins, then the legacy widgets.* key, then
+// the pref (each checked with !== undefined so a trainhop `false` can turn the
+// feature off even when the pref default is `true`).
+function resolveSetAsWallpaperEnabled(prefs) {
+  const dedicated = prefs.trainhopConfig?.widgetPictureOfTheDay?.setAsWallpaperEnabled;
+  if (dedicated !== undefined) {
+    return dedicated;
+  }
+  const shared = prefs.trainhopConfig?.widgets?.pictureOfTheDaySetAsWallpaperEnabled;
+  if (shared !== undefined) {
+    return shared;
+  }
+  return Boolean(prefs["widgets.pictureOfTheDay.setAsWallpaper.enabled"]);
+}
+
 // How long the confirmation checkmark shows after setting the wallpaper.
 const JUST_SET_CHECKMARK_MS = 2000;
 
@@ -22463,11 +22581,11 @@ const PictureOfTheDay_PictureOfTheDay = ({
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const pictureData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.PictureOfTheDay);
   const widgetSize = resolveWidgetSize(PICTURE_OF_THE_DAY_ENTRY, prefs);
-  const isSetAsWallpaper = Boolean(prefs["widgets.pictureOfTheDay.setAsWallpaper"]);
 
-  // Only offer the "Set wallpaper" CTA when wallpapers are on and custom
-  // wallpapers are allowed, since this action sets a custom wallpaper.
-  const canSetWallpaper = Boolean(prefs["newtabWallpapers.enabled"] && prefs["newtabWallpapers.customWallpaper.enabled"]);
+  // Only offer the "Set wallpaper" CTA when the feature is enabled and wallpapers
+  // are on and custom wallpapers are allowed, since this action sets a custom
+  // wallpaper.
+  const canSetWallpaper = Boolean(resolveSetAsWallpaperEnabled(prefs) && prefs["newtabWallpapers.enabled"] && prefs["newtabWallpapers.customWallpaper.enabled"]);
 
   // Fall back to the empty state when the picture fails to load (e.g. a cached
   // URL opened offline, or a broken/404 image) instead of showing a broken
@@ -22484,6 +22602,12 @@ const PictureOfTheDay_PictureOfTheDay = ({
   // undated picture restores at local midnight even if Merino hasn't rotated it.
   const pictureDate = pictureData.publishedDate || new Date().toDateString();
   const dismissed = pictureDate === prefs["widgets.pictureOfTheDay.dismissedDate"];
+  // The picture is the active wallpaper only while the stored published date
+  // matches the currently-shown picture (mirrors the dismissed check above, so a
+  // new day's picture automatically re-offers the CTA) AND wallpapers are toggled
+  // on. Toggling wallpapers off in the Content section keeps the picture selected
+  // but hidden, so the checkmark hides while off and returns when toggled back on.
+  const isSetAsWallpaper = Boolean(prefs["newtabWallpapers.user.enabled"]) && pictureDate === prefs["widgets.pictureOfTheDay.wallpaperActive"];
   const hasPicture = Boolean(pictureData.imageUrl) && !dismissed && !imageFailed;
 
   // Show a brief checkmark right after the user sets the wallpaper, then settle
@@ -22616,6 +22740,11 @@ const PictureOfTheDay_PictureOfTheDay = ({
   // derives the theme, and applies it as the custom wallpaper; show a checkmark
   // confirmation immediately.
   const handleSetWallpaper = () => {
+    // Once the picture is the active wallpaper the button is just a status
+    // checkmark, so clicking it is a no-op.
+    if (isSetAsWallpaper) {
+      return;
+    }
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.WIDGETS_PICTURE_SET_WALLPAPER
@@ -22802,9 +22931,9 @@ const PictureOfTheDay_PictureOfTheDay = ({
   }, pictureData.description ? /*#__PURE__*/external_React_default().createElement("p", {
     className: "picture-of-the-day-description"
   }, pictureData.description) : null, canSetWallpaper ? /*#__PURE__*/external_React_default().createElement("moz-button", {
-    className: `picture-of-the-day-set-wallpaper${justSet || isSetAsWallpaper ? " is-collapsed" : ""}${suppressExpand ? " no-expand" : ""}`,
+    className: `picture-of-the-day-set-wallpaper${justSet || isSetAsWallpaper ? " is-collapsed" : ""}${suppressExpand || isSetAsWallpaper ? " no-expand" : ""}`,
     type: "primary",
-    iconSrc: justSet ? SET_WALLPAPER_CHECK_ICON : SET_WALLPAPER_ICON,
+    iconSrc: justSet || isSetAsWallpaper ? SET_WALLPAPER_CHECK_ICON : SET_WALLPAPER_ICON,
     onClick: handleSetWallpaper,
     "data-l10n-id": "newtab-picture-set-wallpaper"
   }) : null)) : /*#__PURE__*/external_React_default().createElement("div", {

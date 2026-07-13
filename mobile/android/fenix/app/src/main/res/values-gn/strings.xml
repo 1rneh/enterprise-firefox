@@ -651,6 +651,8 @@
     %1$s is replaced by an active link, using nova_onboarding_marketing_body_link_text_1 as text (“Learn More”).
   -->
   <string name="nova_onboarding_marketing_body_7" tools:ignore="BrandUsage">Ore pytyvõ roguahẽ hag̃ua hetave tapichápe ehejávo Mozilla toikuaauka pyendavusu eikehague guive eiporúvo Firefox. %1$s</string>
+  <!-- Marketing onboarding additional body text. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_marketing_body_line_two" tools:ignore="BrandUsage">Firefox ojerovu ijehegui rupi omba’apo omoakãrapu’ã hag̃ua ñanduti hekosãsóva umi ojagarrapaséva renondépe.</string>
   <!--
     Marketing onboarding additional body text. 'Firefox' is intentionally hardcoded.
     “Allowing” refers to the main button “Allow and Continue”; the ask for the user is to allow communicating back to the platform.
@@ -663,9 +665,13 @@
   <!-- Marketing onboarding primary button text. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage,UnusedResources">Eipytyvõ Firefox-pe</string>
   <!-- Marketing onboarding primary button text. -->
+  <string name="nova_onboarding_marketing_primary_button_text_3">Héẽ</string>
+  <!-- Marketing onboarding primary button text. -->
   <string name="nova_onboarding_marketing_primary_button_text_2">Emoneĩ ha Eku’ejey</string>
   <!-- Marketing onboarding secondary button text. -->
   <string name="nova_onboarding_marketing_secondary_button_text" tools:ignore="UnusedResources">Nahániri, aguyje</string>
+  <!-- Marketing onboarding secondary button text. -->
+  <string name="nova_onboarding_marketing_secondary_button_text_2">Nahániri</string>
   <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Umi marandu ne pytyvõta eime hag̃ua tekorosãme Firefox ndive</string>
   <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
@@ -1982,6 +1988,8 @@
   <!-- The button text for the cancel button to leave the Web Compat Reporter feature. -->
   <string name="webcompat_reporter_cancel">Heja</string>
   <!-- The button text for the send button to submit the provided form data. -->
+  <string name="webcompat_reporter_send_report">Emondo marandu’i</string>
+  <!-- The button text for the send button to submit the provided form data. -->
   <string name="webcompat_reporter_send">Mondo</string>
   <!-- Text for a snackbar to confirm the successful submission of a WebCompat report. -->
   <string name="webcompat_reporter_success_snackbar_text_2">Marandu’i mondopyre</string>
@@ -2449,6 +2457,8 @@
   <string name="preferences_take_survey">Ejapo encuesta</string>
   <!-- Preference for not taking the short survey. -->
   <string name="preferences_not_take_survey">Nahániri, aguyje</string>
+  <!-- Error message shown in a Toast when the system fails to trigger the device uninstallation prompt. -->
+  <string name="uninstall_survey_error_failed">Ndaikatúi embojuruja ovetã ñemohendape’aha apopyvusu. Eipuru pe apopyvusu ñemohendape’aha.</string>
   <!--
     Snackbar
 
@@ -2597,7 +2607,11 @@
     Link displayed in enhanced tracking protection panel to access tracking protection settings
   -->
   <string name="etp_settings">Ñemboheko ñemo’ãgua</string>
-  <!-- Preference title for enhanced tracking protection settings -->
+  <!--
+    Enhanced Tracking Protection
+
+    Preference title for enhanced tracking protection settings
+  -->
   <string name="preference_enhanced_tracking_protection">Tapykueho mo’ãha iporãvéva</string>
   <!-- Preference summary for enhanced tracking protection settings on/off switch -->
   <string name="preference_enhanced_tracking_protection_summary">Ko’ág̃a Total Cookie Protection ñemo’ã ndive, ore mba’ejokoha imbaretevéva jehapykueho tenda juasapyréva rovake.</string>
@@ -3106,6 +3120,12 @@
   <string name="ip_protection_onboarding_body">%1$s oñomi ne rendaite, taha’e Wi-Fi jepera’e. Eiporu %2$d GB reiete jasy pukukue.</string>
   <!-- Used as text for a link in ip_protection_onboarding_body. Make sure to adapt capitalization if the link is in the middle of the sentence. -->
   <string name="ip_protection_onboarding_body_link">Eikundaha ñemo’ã jo’a reheve</string>
+  <!--
+    The body of the VPN onboarding card for a promotion that provides unlimited data bandwidth for a certain time.
+    %1$s is a localized date (for example "Jun 9") indicating the end of the promotional period.
+    %2$s is a link using ip_protection_onboarding_body_link_promo (“Learn more”) as text. It links to a support article about VPN on Firefox.
+  -->
+  <string name="ip_protection_onboarding_body_promo">Emyandy ne ñeikundaha hekoñemi ha hasyve hag̃ua ijehapykueko. Eiporu ko’ág̃a ancho de banda opa’ỹva %1$s. %2$s rupive</string>
   <!-- Used as text for a link in ip_protection_onboarding_body. Make sure to adapt capitalization if the link is in the middle of the sentence. -->
   <string name="ip_protection_onboarding_body_link_promo">Eikuaave</string>
   <!-- Label for the dismiss button on the onboarding bottom sheet. -->
@@ -4071,17 +4091,7 @@
   -->
   <string name="microsurvey_uninstall_survey_title">Ne remiandu iporã oréve. ¿Mba’ére reipe’ahína?</string>
   <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_1">Apañuái ñanduti roguéndi</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_2">Apañuái ta’ãngamýi ha mboguejýndi</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_3">Apañuái jejapogua</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_4">Apañuái tembiapoite ha moha’ãngagua</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_5">Apañuái tekoñemi rehegua</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_6">Apañuái hepyme’ẽ ha mboheraguapygua</string>
+  <string name="uninstall_survey_option_1_v2">Imbegue térã naiporãi</string>
   <!-- Button label shown at the bottom of the uninstall survey -->
   <string name="uninstall_survey_button_label">Emondo temiandu ha eipe’aite</string>
   <!--
@@ -4675,6 +4685,16 @@
   <string name="context_menu_open_image_with_google_lens">Eheka Google Lens ndive</string>
   <!-- Toast shown when the user denies the camera permission requested by the Lens camera screen -->
   <string name="lens_camera_permission_denied">Ñemoneĩ mbotovepyre</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the photo they capture will be sent to Google Lens for a visual search.
+  -->
+  <string name="lens_camera_title_lens">Google Lens</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the camera is being used to scan a QR code.
+  -->
+  <string name="lens_camera_title_qr">QR ayvu</string>
   <!-- Title for the Google Lens AI feature toggle -->
   <string name="ai_controls_google_lens_title">Google Lens</string>
   <!-- Description for the Google Lens AI feature toggle -->

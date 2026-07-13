@@ -1041,7 +1041,6 @@ pref("permissions.default.desktop-notification", 0);
 pref("permissions.default.shortcuts", 0);
 
 pref("permissions.desktop-notification.postPrompt.enabled", true);
-pref("permissions.desktop-notification.notNow.enabled", false);
 
 pref("permissions.fullscreen.allowed", false);
 

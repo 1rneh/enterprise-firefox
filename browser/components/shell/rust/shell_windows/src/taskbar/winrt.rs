@@ -37,40 +37,22 @@
 //!
 //! Additionally the app must be focused when pinning is requested.
 
-use crate::util::thread::MainThreadGuard;
 use nserror::{NS_ERROR_NOT_AVAILABLE, NS_ERROR_UNEXPECTED, nsresult};
-use nsstring::{nsAString, nsCString};
+use nsstring::nsAString;
 use std::sync::LazyLock;
 use windows::{ApplicationModel::Package, UI::Shell::TaskbarManager, core::Error as WinError};
-use xpcom::{RefPtr, interfaces::nsILimitedAccessFeatureService};
 
 use super::PinResult;
-use crate::util::async_timer;
+use crate::{
+    limited_access_features::LimitedAccessFeatureService,
+    util::{async_timer, thread::MainThreadGuard},
+};
 
 static LAF_LOCK: LazyLock<Result<(), nsresult>> = LazyLock::new(|| {
-    let svc: RefPtr<nsILimitedAccessFeatureService> =
-        xpcom::create_instance(c"@mozilla.org/limited-access-feature-service;1")
-            .ok_or(NS_ERROR_UNEXPECTED)?;
-
-    let mut feature_id = nsCString::new();
-    // SAFETY: nsCString points to valid, initialized memory defined above.
-    unsafe { svc.GetTaskbarPinFeatureId(&mut *feature_id) }.to_result()?;
-
-    // SAFETY: nsCString points to valid, initialized memory defined above.
-    let feature =
-        xpcom::getter_addrefs(|p| unsafe { svc.GenerateLimitedAccessFeature(&*feature_id, p) })
-            .inspect_err(|_| {
-                log::info!("Error generating taskbar pin Limited Access Feature ID. May not be available for this version of Windows or have graduated to no longer being necessary.");
-            })?;
-
-    let mut unlocked = false;
-    // SAFETY: bool points to valid, initialized memory defined above.
-    unsafe { feature.Unlock(&mut unlocked) }.to_result()?;
-    if !unlocked {
-        Err(NS_ERROR_UNEXPECTED)
-    } else {
-        Ok(())
-    }
+    let svc = LimitedAccessFeatureService::new();
+    let feature_id = svc.get_taskbar_pin_feature_id()?;
+    let feature = svc.generate_limited_access_feature(&feature_id)?;
+    feature.unlock()?.then_some(()).ok_or(NS_ERROR_UNEXPECTED)
 });
 
 pub(super) fn is_pinning_allowed() -> bool {
@@ -223,7 +205,7 @@ mod aumid {
         /// Attempts to acquire a lock to set the current process AUMID, then
         /// set it to the provided AUMID.
         #[must_use]
-        pub async fn set_aumid(temp_aumid: &nsAString) -> Result<Self, nsresult> {
+        pub(super) async fn set_aumid(temp_aumid: &nsAString) -> Result<Self, nsresult> {
             // Block while AUMID is temporarily modified.
             let default_aumid_lock = DEFAULT_AUMID.as_ref().map_err(|e| *e)?.lock().await;
             let original_aumid = &*default_aumid_lock;
@@ -247,7 +229,7 @@ mod aumid {
 
         /// Drops self to trigger the AUMID to revert to the default and release
         /// the lock to set the default AUMID.
-        pub fn restore_aumid(self) {}
+        pub(super) fn restore_aumid(self) {}
     }
 
     impl Drop for Holder<'_> {

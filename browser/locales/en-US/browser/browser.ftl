@@ -100,6 +100,17 @@ urlbar-result-menu-report-inaccurate-location2 = Report inaccurate location
 urlbar-result-menu-show-less-frequently2 = Show less frequently
 urlbar-result-menu-dont-show-weather-suggestions2 = Don’t show weather suggestions
 
+# Shown in the urlbar input field context menu to dismiss an adaptive autofill
+# suggestion.
+urlbar-input-dismiss-autofill =
+    .label = Dismiss this suggestion
+    .accesskey = i
+# Shown in the urlbar input field context menu to remove an adaptive autofill
+# URL from history.
+urlbar-input-remove-from-history =
+    .label = Remove from history
+    .accesskey = e
+
 # Used for Split Button.
 urlbar-splitbutton-dropmarker =
     .title = Open menu
@@ -872,10 +883,14 @@ urlbar-searchmode-no-keyword2 =
 
 urlbar-searchmode-dropmarker2 =
     .title = Pick a Search Engine
-urlbar-searchmode-bookmarks2 = Bookmarks
-urlbar-searchmode-tabs2 = Tabs
-urlbar-searchmode-history2 = History
-urlbar-searchmode-actions2 = Actions
+urlbar-searchmode-bookmarks3 = Bookmarks
+    .accesskey = B
+urlbar-searchmode-tabs3 = Tabs
+    .accesskey = T
+urlbar-searchmode-history3 = History
+    .accesskey = H
+urlbar-searchmode-actions3 = Actions
+    .accesskey = A
 urlbar-searchmode-exit-button2 =
     .title = Close
 urlbar-searchmode-default2 =
@@ -893,8 +908,10 @@ urlbar-searchmode-popup-one-off-header = This time search with:
 # Label shown on the top of Searchmode Switcher popup when the search engine won't automatically
 # reset after submitting.
 urlbar-searchmode-popup-header = Search with:
-urlbar-searchmode-popup-search-settings-panelitem = Search Settings
-urlbar-searchmode-popup-settings-panelitem = Settings
+urlbar-searchmode-popup-search-settings = Search Settings
+    .accesskey = S
+urlbar-searchmode-popup-settings = Settings
+    .accesskey = S
 
 # Label prompting user to search with a particular search engine.
 #  $engine (String): the name of a search engine that searches a specific site

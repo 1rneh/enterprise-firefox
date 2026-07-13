@@ -85,6 +85,8 @@ skip-if = [
 
 ["browser_aiwindow_kit_mention.js"]
 
+["browser_aiwindow_last_usage_timestamp.js"]
+
 ["browser_aiwindow_memories.js"]
 
 ["browser_aiwindow_memories_toggle_prefs.js"]
@@ -241,6 +243,8 @@ skip-if = [
 ["browser_smartwindow_sidebar.js"]
 
 ["browser_smartwindow_sidebar_auto_open_pref_prompt.js"]
+
+["browser_smartwindow_smartbar_contextmenu_autofill_dismiss.js"]
 
 ["browser_smartwindow_smartbar_glow.js"]
 

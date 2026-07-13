@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
+import { UrlbarChildTelemetry } from "chrome://browser/content/urlbar/UrlbarChildTelemetry.mjs";
+import { UrlbarParentControllerProxy } from "chrome://browser/content/urlbar/UrlbarParentControllerProxy.mjs";
 
 const { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
@@ -11,6 +13,8 @@ const { AppConstants } = ChromeUtils.importESModule(
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  UrlbarParentController:
+    "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
 });
@@ -31,12 +35,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * per-instance bookkeeping (instance id, lifetime); this wrapper just
  * holds the controller it hands back.
  *
- * Today both chrome `<moz-urlbar>` instances live in the parent process,
- * so the actor pair hands the real `UrlbarParentController` reference
- * back and method calls happen synchronously. The wrapper exists so that
- * a future content-process `<moz-urlbar>` (e.g. on about:newtab) can
- * swap in async/message-passing implementations of the same surface
- * without touching `UrlbarInput`, `UrlbarView`, or other callers.
+ * The wrapper abstracts the transport: on the direct path (chrome `<moz-urlbar>`)
+ * the actor pair hands back the real `UrlbarParentController` and calls happen
+ * synchronously, while on the message path (a content-process `<moz-urlbar>`, or
+ * chrome with the pref) it gets a proxy implementing the same surface. Callers
+ * (`UrlbarInput`, `UrlbarView`) don't distinguish them.
  */
 export class UrlbarChildController {
   /** @type {Console} */
@@ -51,6 +54,8 @@ export class UrlbarChildController {
     return UrlbarChildController.#logger;
   }
 
+  // TODO: rename to `#parentController` to mirror the public getter and avoid
+  // confusion with the `UrlbarParent` actor.
   /** @type {UrlbarParentController} */
   #parent;
 
@@ -59,14 +64,17 @@ export class UrlbarChildController {
   /** @type {UrlbarView} */
   #view = null;
 
-  // Listeners (the view, the event bufferer, the search one-offs) live here,
-  // on the input's side, rather than on the parent controller. The parent
-  // delegates its notifications to us via setChild(). This keeps dispatch on
-  // the side where the listeners are, which is required once `<moz-urlbar>`
-  // runs in a content process.
+  // Listeners (the view, the event bufferer, the search one-offs) live here, on
+  // the child's side; the parent delegates its notifications to us via
+  // setChild(). Keeping dispatch where the listeners are is what lets
+  // `<moz-urlbar>` run in a content process.
   #listeners = new Set();
 
   #userSelectionBehavior = /** @type {"arrow"|"tab"|"none"} */ ("none");
+
+  // The content-side engagement-telemetry collector, created lazily on the
+  // message path (where the parent stand-in has no `engagementEvent`).
+  #childTelemetry = null;
 
   /**
    * @param {object} options
@@ -82,21 +90,49 @@ export class UrlbarChildController {
         options.input.window.windowGlobalChild.getActor("Urlbar")
       )
     );
-    this.#parent = actor.getOrCreateController(options.input);
+    let { sapName, isPrivate } = options.input;
+    // The message path builds a proxy that trades actor messages with the
+    // parent-side controller; the direct path builds the real controller in
+    // place (both live in the same process, and it only needs the actor to
+    // resolve the chrome window). Either way the child owns construction.
+    this.#parent = actor.usesMessagePath
+      ? new UrlbarParentControllerProxy(
+          actor,
+          actor.registerMessagePathInput(options.input),
+          { sapName, isPrivate }
+        )
+      : new lazy.UrlbarParentController({ sapName, isPrivate, actor });
     this.#parent.setChild(this);
   }
 
   get input() {
     return this.#input;
   }
-  get browserWindow() {
+  // The window the input lives in. For a chrome `<moz-urlbar>` this is the
+  // browser window; for a content-process one it's the content window.
+  get window() {
     return this.#input.window;
   }
   get view() {
     return this.#view;
   }
+  /**
+   * The paired parent controller -- the real `UrlbarParentController` on the
+   * direct path, or the `UrlbarParentControllerProxy` on the message path.
+   *
+   * @type {UrlbarParentController}
+   */
+  get parentController() {
+    return this.#parent;
+  }
   get engagementEvent() {
-    return this.#parent.engagementEvent;
+    // Direct path: the real parent controller's recorder. Message path: the
+    // parent stand-in has none, so use a content-side collector that ships
+    // engagements to the parent recorder.
+    return (
+      this.#parent.engagementEvent ??
+      (this.#childTelemetry ??= new UrlbarChildTelemetry(this))
+    );
   }
   get platform() {
     return AppConstants.platform;
@@ -127,9 +163,6 @@ export class UrlbarChildController {
   setView(view) {
     this.#view = view;
   }
-  getViewTemplate(result) {
-    return this.#parent.getViewTemplate(result);
-  }
   getViewUpdate(result, idsByName) {
     return this.#parent.getViewUpdate(result, idsByName);
   }
@@ -138,9 +171,6 @@ export class UrlbarChildController {
   }
   onSelection(result, element) {
     return this.#parent.onSelection(result, element);
-  }
-  getResultCommands(result, isPrivate) {
-    return this.#parent.getResultCommands(result, isPrivate);
   }
   getHeuristicResult(queryContext) {
     return this.#parent.getHeuristicResult(queryContext);
@@ -155,6 +185,16 @@ export class UrlbarChildController {
     this.#listeners.delete(listener);
   }
   notify(notification, ...params) {
+    // When the first results arrive, pre-warm a connection to the heuristic
+    // result. This runs content-side on both transports (the input has already
+    // reacted to the first result before we're notified) and reaches the
+    // parent's window the same way a mousedown speculative connect does.
+    if (
+      notification === UrlbarShared.NOTIFICATIONS.QUERY_RESULTS &&
+      params[0].firstResultChanged
+    ) {
+      this.speculativeConnect(params[0].results[0], params[0], "resultsadded");
+    }
     for (let listener of this.#listeners) {
       // Can't use "in" because some tests proxify these.
       if (typeof listener[notification] != "undefined") {
@@ -165,6 +205,18 @@ export class UrlbarChildController {
         }
       }
     }
+  }
+  recordEngagement(wire) {
+    return this.#parent.recordEngagement(wire);
+  }
+  resetEngagement() {
+    return this.#parent.resetEngagement();
+  }
+  handleBounceTrigger(payload) {
+    return this.#parent.handleBounceTrigger(payload);
+  }
+  trackBounceBrowser(browserId) {
+    return this.#parent.trackBounceBrowser(browserId);
   }
   startQuery(queryContext) {
     return this.#parent.startQuery(queryContext);
@@ -253,17 +305,21 @@ export class UrlbarChildController {
           if (this.view.isOpen) {
             this.view.close();
           } else if (
+            // Moving focus into the content document only makes sense for a
+            // chrome moz-urlbar; a content-process one already has focus in
+            // content. Only a browser window has `gBrowser`.
+            this.window.gBrowser &&
             lazy.UrlbarPrefs.get("focusContentDocumentOnEsc") &&
             !this.input.searchMode &&
             (this.input.sapName == "searchbar"
               ? this.input.value == ""
               : this.input.getAttribute("pageproxystate") == "valid" ||
                 (this.input.value == "" &&
-                  this.browserWindow.isBlankPageURL(
-                    this.browserWindow.gBrowser.currentURI.spec
+                  this.window.isBlankPageURL(
+                    this.window.gBrowser.currentURI.spec
                   )))
           ) {
-            this.browserWindow.gBrowser.selectedBrowser.focus();
+            this.window.gBrowser.selectedBrowser.focus();
           } else {
             this.input.handleRevert();
           }

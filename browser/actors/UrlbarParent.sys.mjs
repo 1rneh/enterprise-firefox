@@ -10,7 +10,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarQueryContext:
     "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
-  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
 
 /**
@@ -18,52 +17,24 @@ ChromeUtils.defineESModuleGetters(lazy, {
  */
 
 /**
- * Parent-process counterpart of `UrlbarChild`. Owns the
- * `UrlbarParentController` instances created for the `<moz-urlbar>`
- * elements served by this window global, across both transports:
+ * Parent-process endpoint of the `UrlbarChild` actor pair, for the message path.
+ * A content-side `UrlbarChildController` (content-process `<moz-urlbar>`, or
+ * chrome with `browser.urlbar.ipc.chromeMessagePassing`) holds a
+ * `UrlbarParentControllerProxy` and trades actor messages with us: we build the
+ * `UrlbarParentController` from the `Init` payload and retain it in a `Map` keyed
+ * by the child-assigned `instanceId`, routing subsequent messages to it. The
+ * controller's notifications go back to the child as `Notify` messages
+ * (dispatched through a parent-side `UrlbarChildControllerProxy` stand-in). The
+ * controller is dropped on the `Destroy` message the child sends when its input
+ * is collected (via a `FinalizationRegistry`).
  *
- * - Direct path (chrome `<moz-urlbar>`, default): `getOrCreateController`
- *   hands the real `UrlbarParentController` back to the in-process child,
- *   cached in a `WeakMap` keyed by the input element so a controller's
- *   lifetime tracks its element rather than the actor's. Reconnecting the
- *   same element (e.g. toggling customize mode) reuses the same controller.
- *
- * - Message path (content-process `<moz-urlbar>`, or chrome with
- *   `browser.urlbar.ipc.chromeMessagePassing`): the child holds a
- *   `UrlbarParentControllerProxy` and trades actor messages with us. We build
- *   the controller from the `Init` payload and retain it in a `Map` keyed by
- *   the child-assigned `instanceId`, routing subsequent messages to it. The
- *   controller's notifications go back to the child as `Notify` messages
- *   (dispatched through a parent-side `UrlbarChildControllerProxy` stand-in).
- *   The controller is dropped on the `Destroy` message the child sends when its
- *   input is collected (via a `FinalizationRegistry`).
+ * The direct path (in-process chrome `<moz-urlbar>`) doesn't go through this
+ * actor at all: `UrlbarChildController` builds its `UrlbarParentController` in
+ * place, since both live in the same process.
  */
 export class UrlbarParent extends JSWindowActorParent {
-  /** @type {WeakMap<object, UrlbarParentController>} */
-  #controllers = new WeakMap();
-
   /** @type {Map<number, UrlbarParentController>} */
   #messageControllers = new Map();
-
-  /**
-   * Direct path only: returns the in-process controller for an input,
-   * creating it on demand.
-   *
-   * @param {object} input
-   *   The `UrlbarInput`/`SmartbarInput` owning the controller.
-   * @returns {UrlbarParentController}
-   */
-  getOrCreateController(input) {
-    let controller = this.#controllers.get(input);
-    if (!controller) {
-      controller = new lazy.UrlbarParentController({
-        sapName: input.sapName,
-        isPrivate: input.isPrivate,
-      });
-      this.#controllers.set(input, controller);
-    }
-    return controller;
-  }
 
   /**
    * Message path: routes child->parent messages to the controller identified
@@ -77,13 +48,15 @@ export class UrlbarParent extends JSWindowActorParent {
 
     if (message.name == "Init") {
       let { sapName, isPrivate } = message.data;
-      let controller = new lazy.UrlbarParentController({ sapName, isPrivate });
+      let controller = new lazy.UrlbarParentController({
+        sapName,
+        isPrivate,
+        actor: this,
+      });
       // The real child controller lives across the boundary, so hand the
       // parent controller a proxy that forwards its notifications over the
       // actor.
-      controller.setChild(
-        new UrlbarChildControllerProxy(this, instanceId, controller)
-      );
+      controller.setChild(new UrlbarChildControllerProxy(this, instanceId));
       this.#messageControllers.set(instanceId, controller);
       return undefined;
     }
@@ -110,6 +83,18 @@ export class UrlbarParent extends JSWindowActorParent {
             lazy.UrlbarQueryContext.fromWire(message.data.queryContext)
           )
           .then(result => result?.toWire() ?? null);
+      case "RecordEngagement":
+        controller.recordEngagement(message.data.wire);
+        break;
+      case "ResetEngagement":
+        controller.resetEngagement();
+        break;
+      case "HandleBounceTrigger":
+        controller.handleBounceTrigger(message.data.payload);
+        break;
+      case "TrackBounceBrowser":
+        controller.trackBounceBrowser(message.data.browserId);
+        break;
       case "StartQuery":
         // Round-trips so the proxy's startQuery resolves at true completion with
         // the finished context. The context's results keep their data in private
@@ -121,6 +106,13 @@ export class UrlbarParent extends JSWindowActorParent {
           .then(context => context.toWire());
       case "CancelQuery":
         controller.cancelQuery();
+        break;
+      case "SpeculativeConnect":
+        controller.speculativeConnect(
+          lazy.UrlbarResult.fromWire(message.data.result),
+          lazy.UrlbarQueryContext.fromWire(message.data.queryContext),
+          message.data.reason
+        );
         break;
       case "RemoveResult":
         controller.removeResult(
@@ -167,17 +159,13 @@ class UrlbarChildControllerProxy {
   /** @type {number} */
   #instanceId;
 
-  /** @type {UrlbarParentController} */
-  #controller;
-
-  constructor(actor, instanceId, controller) {
+  constructor(actor, instanceId) {
     this.#actor = actor;
     this.#instanceId = instanceId;
-    this.#controller = controller;
   }
 
   notify(name, ...params) {
-    let data = {
+    this.#actor.sendAsyncMessage("Notify", {
       instanceId: this.#instanceId,
       name,
       params: params.map(param =>
@@ -185,23 +173,6 @@ class UrlbarChildControllerProxy {
           ? { serializedQueryContext: param.toWire() }
           : param
       ),
-    };
-    // The view fetches a result's template and menu commands synchronously,
-    // which can't cross the boundary on demand, so pre-fetch them here for the
-    // results we're about to deliver and ship them alongside.
-    if (name == lazy.UrlbarShared.NOTIFICATIONS.QUERY_RESULTS) {
-      let queryContext = params[0];
-      data.resultViewData = queryContext.results.map(result => ({
-        viewTemplate:
-          result.type == lazy.UrlbarShared.RESULT_TYPE.DYNAMIC
-            ? this.#controller.getViewTemplate(result)
-            : undefined,
-        resultCommands: this.#controller.getResultCommands(
-          result,
-          queryContext.isPrivate
-        ),
-      }));
-    }
-    this.#actor.sendAsyncMessage("Notify", data);
+    });
   }
 }

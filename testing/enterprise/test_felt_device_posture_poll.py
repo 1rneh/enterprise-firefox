@@ -52,9 +52,18 @@ class FeltDevicePosturePoll(FeltTests):
                 "force-installed extension within the timeout"
             )
 
+        app_name = self._driver.session_capabilities.get("browserName")
+        expected_app_name = None
+        if app_name == "firefox":
+            expected_app_name = "FirefoxEnterprise"
+        elif app_name == "thunderbird":
+            expected_app_name = "ThunderbirdEnterprise"
+        else:
+            assert False, f"Unsupported app {app_name}"
+
         assert "name" in posture["os"], "Posture from poll reports OS name"
-        assert posture["build"]["applicationName"] == "FirefoxEnterprise", (
-            "Posture from poll reports proper applicationName"
+        assert posture["build"]["applicationName"] == expected_app_name, (
+            f"Expected posture from poll to report applicationName: '{expected_app_name}' but got '{posture['build']['applicationName']}'"
         )
 
         tst = next(e for e in extensions if e["id"] == "treestyletab@piro.sakura.ne.jp")

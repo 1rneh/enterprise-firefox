@@ -195,14 +195,17 @@ class BrowserAccessConnector(FeltTests):
             UnknownException,
             r"Reached error page: about:neterror\?e=proxyResolveFailure&u=https%3A//www\.mozilla\.org",
         ):
-            self.open_tab_child("https://www.mozilla.org/en-US/about/this-sitel")
+            self.open_tab_child("https://www.mozilla.org/en-US/about/this-site")
             assert self.get_access_connector_icon_is_displayed(), (
                 "Access Connector icon is displayed"
             )
         self.run_load_page_ok(f"http://localhost:{self.console_port}/ping", "Pong!")
 
     def run_load_page_without_access_connector(self):
-        self.run_load_page_ok("https://www.mozilla.org/en-US/about/this-site/", "About this site — Mozilla")
+        self.run_load_page_ok(
+            "https://www.mozilla.org/en-US/about/this-site/",
+            "About this site — Mozilla",
+        )
         assert not self.get_access_connector_icon_is_displayed(), (
             "Access Connector icon is not displayed"
         )

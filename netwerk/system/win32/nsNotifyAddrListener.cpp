@@ -42,6 +42,7 @@
 #include "nsComponentManagerUtils.h"
 #include "nsIObserverService.h"
 #include "nsNetAddr.h"
+#include "nsNetworkInterface.h"
 #include "nsPrintfCString.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"

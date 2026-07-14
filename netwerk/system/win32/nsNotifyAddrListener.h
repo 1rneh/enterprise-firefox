@@ -19,13 +19,14 @@
 #include "nsINetworkLinkService.h"
 #include "nsIObserver.h"
 #include "nsIRunnable.h"
-#include "nsNetworkInterface.h"
 #include "nsString.h"
 #include "nsTArray.h"
 #include "nsThreadPool.h"
 #include "nsThreadUtils.h"
 
 class nsIThreadPool;
+
+class NetworkInterface;
 
 class nsNotifyAddrListener : public nsINetworkLinkService,
                              public nsIRunnable,

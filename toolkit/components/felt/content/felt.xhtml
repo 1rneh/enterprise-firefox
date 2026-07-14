@@ -190,6 +190,19 @@
                 maychangeremoteness="true"
               ></browser>
             </div>
+            <div class="felt-login__portal is-hidden">
+              <!-- No remote="true": it would spin up a content process at every
+                   startup. Loading the portal URL switches it to one then
+                   (URL-driven, gated on maychangeremoteness here). -->
+              <browser
+                xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+                id="portal-browser"
+                type="content"
+                disablehistory="true"
+                disableglobalhistory="true"
+                maychangeremoteness="true"
+              ></browser>
+            </div>
           </div>
           <div id="felt-statuspanel" class="is-hidden">
             <span
@@ -242,6 +255,18 @@
             dismissable="true"
           >
             <span slot="message" class="felt-browser-error-details"></span>
+          </moz-message-bar>
+          <moz-message-bar
+            class="felt-browser-error-captive-portal is-hidden"
+            data-l10n-id="felt-browser-error-captive-portal"
+            type="info"
+          >
+            <moz-button
+              slot="actions"
+              id="felt-open-network-login"
+              data-l10n-id="felt-captive-portal-open-login"
+              size="small"
+            ></moz-button>
           </moz-message-bar>
           <moz-message-bar
             class="felt-browser-error-connection is-hidden"

@@ -153,6 +153,11 @@ run-if = [
 
 ["test_felt_restart_is_quit.py"]
 
+["test_felt_restart_persists_session.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific: SessionStore tab restore
+]
+
 ["test_felt_restart_works.py"]
 
 ["test_felt_starts_missing_bin.py"]

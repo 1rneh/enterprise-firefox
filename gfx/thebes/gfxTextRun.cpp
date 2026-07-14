@@ -243,11 +243,13 @@ gfxTextRun::LigatureData gfxTextRun::ComputeLigatureData(
   LigatureData result;
   const CompressedGlyph* charGlyphs = mCharacterGlyphs;
 
-  uint32_t i;
-  for (i = aPartRange.start; !charGlyphs[i].IsLigatureGroupStart(); --i) {
-    NS_ASSERTION(i > 0, "Ligature at the start of the run??");
+  uint32_t i = aPartRange.start;
+  while (i && !charGlyphs[i].IsLigatureGroupStart()) {
+    --i;
   }
+  NS_ASSERTION(charGlyphs[i].IsLigatureGroupStart(), "Ligature at run start?");
   result.mRange.start = i;
+
   for (i = aPartRange.start + 1;
        i < GetLength() && !charGlyphs[i].IsLigatureGroupStart(); ++i) {
   }
@@ -1398,8 +1400,8 @@ void gfxTextRun::SanitizeGlyphRuns() {
     // ligature glyphs from wrong font (seen with U+FEFF in reftest 474417-1, as
     // Core Text eliminates the glyph, which makes it appear as if a ligature
     // has been formed)
-    while (charGlyphs[aRun.mCharacterOffset].IsLigatureContinuation() &&
-           aRun.mCharacterOffset < GetLength()) {
+    while (aRun.mCharacterOffset < GetLength() &&
+           charGlyphs[aRun.mCharacterOffset].IsLigatureContinuation()) {
       aRun.mCharacterOffset++;
     }
 

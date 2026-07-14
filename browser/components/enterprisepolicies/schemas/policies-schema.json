@@ -1810,6 +1810,9 @@
         "StartPage": {
           "type": "string",
           "enum": ["none", "homepage", "previous-session", "homepage-locked"]
+        },
+        "NewTabOnRestore": {
+          "type": "boolean"
         }
       }
     },

@@ -2282,6 +2282,16 @@ const LinkMenuOptions = {
       data: { index },
     },
   }),
+  // Opens the "New Shortcut" dialog. index -1 routes through the feed's insert
+  // path (append to the pinned group / first free slot), like the add button.
+  AddTopSite: () => ({
+    id: "newtab-menu-add-topsite",
+    ariaHasPopup: "dialog",
+    action: {
+      type: actionTypes.TOP_SITES_EDIT,
+      data: { index: -1 },
+    },
+  }),
   CheckBookmark: site =>
     site.bookmarkGuid
       ? LinkMenuOptions.RemoveBookmark(site)
@@ -2476,7 +2486,7 @@ const LinkMenuOptions = {
 
 
 
-const DEFAULT_SITE_MENU_OPTIONS = ["CheckPinTopSite", "EditTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl"];
+const DEFAULT_SITE_MENU_OPTIONS = ["CheckPinTopSite", "EditTopSite", "AddTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl"];
 class _LinkMenu extends (external_React_default()).PureComponent {
   getOptions() {
     const {
@@ -3070,6 +3080,7 @@ const TOP_SITES_SOURCE = "TOP_SITES";
 const TOP_SITES_CONTEXT_MENU_OPTIONS = [
   "CheckPinTopSite",
   "EditTopSite",
+  "AddTopSite",
   "Separator",
   "OpenInNewWindow",
   "OpenInPrivateWindow",
@@ -13209,9 +13220,26 @@ const PREF_WIDGETS_SYSTEM_PICTURE_OF_THE_DAY_ENABLED =
 /** @type {WidgetRegistryEntry[]} */
 const WIDGET_REGISTRY = [
   {
+    id: "pictureOfTheDay",
+    telemetryName: "picture_of_the_day",
+    order: 0,
+    enabledPref: PREF_WIDGETS_PICTURE_OF_THE_DAY_ENABLED,
+    sizePref: PREF_PICTURE_OF_THE_DAY_SIZE,
+    defaultSize: "medium",
+    validSizes: ["medium", "large"],
+    hasSidebar: false,
+    systemEnabledPref: PREF_WIDGETS_SYSTEM_PICTURE_OF_THE_DAY_ENABLED,
+    trainhopEnabledKey: "pictureOfTheDayEnabled",
+    trainhopSizeKey: "pictureOfTheDaySize",
+    trainhopSidebarKey: null,
+    widgetsSettingsVisibleKey: "pictureOfTheDayVisible",
+    widgetsSettingsEnabledKey: "pictureOfTheDayEnabled",
+    trainhopNamespace: "widgetPictureOfTheDay",
+  },
+  {
     id: "sportsWidget",
     telemetryName: "sports",
-    order: 0,
+    order: 1,
     enabledPref: PREF_WIDGETS_SPORTS_WIDGET_ENABLED,
     sizePref: PREF_SPORTS_WIDGET_SIZE,
     defaultSize: "medium",
@@ -13227,7 +13255,7 @@ const WIDGET_REGISTRY = [
   {
     id: "clocks",
     telemetryName: "clocks",
-    order: 1,
+    order: 2,
     enabledPref: PREF_WIDGETS_CLOCKS_ENABLED,
     sizePref: PREF_CLOCKS_SIZE,
     defaultSize: "medium",
@@ -13243,7 +13271,7 @@ const WIDGET_REGISTRY = [
   {
     id: "lists",
     telemetryName: "lists",
-    order: 2,
+    order: 3,
     enabledPref: PREF_WIDGETS_LISTS_ENABLED,
     sizePref: PREF_LISTS_SIZE,
     defaultSize: "medium",
@@ -13259,7 +13287,7 @@ const WIDGET_REGISTRY = [
   {
     id: "focusTimer",
     telemetryName: "focus_timer",
-    order: 3,
+    order: 4,
     enabledPref: PREF_WIDGETS_TIMER_ENABLED,
     sizePref: PREF_FOCUS_TIMER_SIZE,
     defaultSize: "medium",
@@ -13275,7 +13303,7 @@ const WIDGET_REGISTRY = [
   {
     id: "weather",
     telemetryName: "weather",
-    order: 4,
+    order: 5,
     enabledPref: PREF_WIDGETS_WEATHER_ENABLED,
     sizePref: PREF_WEATHER_SIZE,
     defaultSize: "small",
@@ -13291,7 +13319,7 @@ const WIDGET_REGISTRY = [
   {
     id: "privacy",
     telemetryName: "privacy",
-    order: 5,
+    order: 6,
     enabledPref: PREF_WIDGETS_PRIVACY_ENABLED,
     sizePref: PREF_PRIVACY_SIZE,
     defaultSize: "medium",
@@ -13307,7 +13335,7 @@ const WIDGET_REGISTRY = [
   {
     id: "crossword",
     telemetryName: "crossword",
-    order: 6,
+    order: 7,
     enabledPref: PREF_WIDGETS_CROSSWORD_ENABLED,
     sizePref: PREF_CROSSWORD_SIZE,
     defaultSize: "medium",
@@ -13323,7 +13351,7 @@ const WIDGET_REGISTRY = [
   {
     id: "stocks",
     telemetryName: "stocks",
-    order: 7,
+    order: 8,
     enabledPref: PREF_WIDGETS_STOCKS_ENABLED,
     sizePref: PREF_STOCKS_SIZE,
     defaultSize: "medium",
@@ -13335,23 +13363,6 @@ const WIDGET_REGISTRY = [
     trainhopSidebarKey: null,
     widgetsSettingsVisibleKey: "stocksVisible",
     widgetsSettingsEnabledKey: "stocksEnabled",
-  },
-  {
-    id: "pictureOfTheDay",
-    telemetryName: "picture_of_the_day",
-    order: 8,
-    enabledPref: PREF_WIDGETS_PICTURE_OF_THE_DAY_ENABLED,
-    sizePref: PREF_PICTURE_OF_THE_DAY_SIZE,
-    defaultSize: "medium",
-    validSizes: ["medium", "large"],
-    hasSidebar: false,
-    systemEnabledPref: PREF_WIDGETS_SYSTEM_PICTURE_OF_THE_DAY_ENABLED,
-    trainhopEnabledKey: "pictureOfTheDayEnabled",
-    trainhopSizeKey: "pictureOfTheDaySize",
-    trainhopSidebarKey: null,
-    widgetsSettingsVisibleKey: "pictureOfTheDayVisible",
-    widgetsSettingsEnabledKey: "pictureOfTheDayEnabled",
-    trainhopNamespace: "widgetPictureOfTheDay",
   },
 ];
 
@@ -22610,6 +22621,11 @@ const PictureOfTheDay_PictureOfTheDay = ({
   const isSetAsWallpaper = Boolean(prefs["newtabWallpapers.user.enabled"]) && pictureDate === prefs["widgets.pictureOfTheDay.wallpaperActive"];
   const hasPicture = Boolean(pictureData.imageUrl) && !dismissed && !imageFailed;
 
+  // Show the "New" badge until the user first interacts with the widget;
+  // handleInteraction flips widgets.pictureOfTheDay.interaction on any action,
+  // which removes it.
+  const hasInteracted = prefs["widgets.pictureOfTheDay.interaction"];
+
   // Show a brief checkmark right after the user sets the wallpaper, then settle
   // into the collapsed "already set" state.
   const [justSet, setJustSet] = (0,external_React_namespaceObject.useState)(false);
@@ -22875,10 +22891,15 @@ const PictureOfTheDay_PictureOfTheDay = ({
     className: "picture-of-the-day-toolbar"
   }, hasPicture ? /*#__PURE__*/external_React_default().createElement("div", {
     className: "picture-of-the-day-heading"
-  }, /*#__PURE__*/external_React_default().createElement("p", {
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "picture-of-the-day-title-row"
+  }, !hasInteracted && /*#__PURE__*/external_React_default().createElement("moz-badge", {
+    className: "picture-of-the-day-new-badge",
+    "data-l10n-id": "newtab-widget-lists-label-new"
+  }), /*#__PURE__*/external_React_default().createElement("p", {
     className: "picture-of-the-day-source",
     "data-l10n-id": "newtab-picture-header-main"
-  }), renderAttribution()) : null, /*#__PURE__*/external_React_default().createElement("div", {
+  })), renderAttribution()) : null, /*#__PURE__*/external_React_default().createElement("div", {
     className: "picture-of-the-day-context-menu-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "picture-of-the-day-context-menu-button",

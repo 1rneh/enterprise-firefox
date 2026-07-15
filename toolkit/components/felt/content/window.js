@@ -37,26 +37,23 @@ function clearSsoSessionData() {
   });
 }
 
-async function resetToLogin(errorType = null, details = null, cause = null) {
+function resetToLoginPage() {
   cancelActiveSso?.();
-  await clearSsoSessionData();
-  document.getElementById("browser").fixupAndLoadURIString("about:blank", {
-    triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-  });
   document.querySelector(".felt-login__sso").classList.add("is-hidden");
   document
     .querySelector(".felt-login__email-pane")
     .classList.remove("is-hidden");
   document.getElementById("felt-back-button").classList.add("is-hidden");
+}
 
-  if (errorType) {
-    lazy.FeltErrorReport.update(
-      errorType,
-      details,
-      cause,
-      lazy.ERROR_SOURCE.RESET
-    );
-  }
+function resetToLoginPageWithError(errorType, details = null, cause = null) {
+  resetToLoginPage();
+  lazy.FeltErrorReport.update(
+    errorType,
+    details,
+    cause,
+    lazy.ERROR_SOURCE.RESET
+  );
 }
 
 async function connectToConsole(email) {
@@ -128,7 +125,7 @@ async function connectToConsole(email) {
 
   let ssoTimeout = setTimeout(() => {
     lazy.log.error("SSO login timed out");
-    resetToLogin("felt-browser-error-sso-timeout");
+    resetToLoginPageWithError("felt-browser-error-sso-timeout");
   }, SSO_TIMEOUT_MS);
 
   const progressListener = {
@@ -156,7 +153,7 @@ async function connectToConsole(email) {
         lazy.log.error(
           `SSO callback page failed to load: 0x${status.toString(16)}`
         );
-        resetToLogin(
+        resetToLoginPageWithError(
           "felt-browser-error-connection",
           lazy.FeltErrorReport.getFluentIdForStatus(status),
           { hostname: uri.host }
@@ -167,7 +164,7 @@ async function connectToConsole(email) {
       const windowGlobal = browser.browsingContext?.currentWindowGlobal;
       if (!windowGlobal) {
         lazy.log.error("No WindowGlobal for SSO callback page");
-        resetToLogin("felt-browser-error-connection");
+        resetToLoginPageWithError("felt-browser-error-connection");
         return;
       }
 
@@ -181,23 +178,23 @@ async function connectToConsole(email) {
           .then(sent => {
             if (!sent) {
               lazy.log.error("Fallback token extraction found no token data");
-              resetToLogin("felt-browser-error-connection");
+              resetToLoginPageWithError("felt-browser-error-connection");
             }
           })
           .catch(err => {
             lazy.log.error(`Fallback token extraction failed: ${err}`);
-            resetToLogin("felt-browser-error-connection");
+            resetToLoginPageWithError("felt-browser-error-connection");
           });
       } catch (err) {
         lazy.log.error(`Could not reach FeltWindow actor: ${err}`);
-        resetToLogin("felt-browser-error-connection");
+        resetToLoginPageWithError("felt-browser-error-connection");
       }
     },
 
     onLocationChange(_webProgress, _request, _location, flags) {
       if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
         clearTimeout(ssoTimeout);
-        resetToLogin("felt-browser-error-connection");
+        resetToLoginPageWithError("felt-browser-error-connection");
         return;
       }
       // Reset the timeout on each navigation so the limit applies per-page
@@ -206,7 +203,7 @@ async function connectToConsole(email) {
       clearTimeout(ssoTimeout);
       ssoTimeout = setTimeout(() => {
         lazy.log.error("SSO login timed out");
-        resetToLogin("felt-browser-error-sso-timeout");
+        resetToLoginPageWithError("felt-browser-error-sso-timeout");
       }, SSO_TIMEOUT_MS);
     },
   };
@@ -456,7 +453,11 @@ function macosActivateApplication() {
 function setupBackButton() {
   const backButton = document.getElementById("felt-back-button");
   backButton.addEventListener("click", async () => {
-    await resetToLogin();
+    resetToLoginPage();
+    await clearSsoSessionData();
+    document.getElementById("browser").fixupAndLoadURIString("about:blank", {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    });
   });
 }
 

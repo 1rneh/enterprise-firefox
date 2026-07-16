@@ -20,6 +20,7 @@
 #  include "mozilla/toolkit/components/felt/felt.h"
 #endif
 #include "ScopedNSSTypes.h"
+#include "nsNSSComponent.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsAppRunner.h"
 #include "nsCOMPtr.h"
@@ -409,7 +410,22 @@ void EnsureNSSInitializedForEncryptionIfReady() {
       return;
     }
   }
-  (void)EnsureNSSInitializedChromeOrContent();
+  // EnsureNSSInitializedChromeOrContent returns as soon as the PSM component
+  // exists, but NSS's LoadLoadableCertsTask (loadable roots, EV info and the
+  // trust-domain cache) keeps running on a background thread. Bringing NSS up
+  // this early -- during storage init -- lets that task's softoken/SQLite use
+  // race mozStorage's own SQLite bring-up, which trips SQLite's global-mutex
+  // assertions (sqlite3_initialize and the static mutex subsystem are not safe
+  // to race; the crash surfaces on the cert-loading thread inside cert9.db).
+  // Block here, on the main thread, until loadable certs have finished so
+  // nothing proceeds against a still-initializing NSS. Deadlock-safe:
+  // LoadLoadableCertsTask runs entirely off the main thread and always sets its
+  // latch (even on failure), so this cannot wait forever once NSS init has been
+  // kicked off; gate on init success so a failed init (which never dispatches
+  // the task) can't hang here.
+  if (EnsureNSSInitializedChromeOrContent()) {
+    (void)::BlockUntilLoadableCertsLoaded();
+  }
 }
 
 // Ensure the (destination/runtime) keystore handle is open against
@@ -820,6 +836,23 @@ nsresult GetDatabaseEncryptionStatus(const nsACString& aDatabasePath,
 
 nsresult GetEncryptionKey(const nsACString& aDatabasePath, OpenIntent aIntent,
                           nsACString& aOutHexKey) {
+  // Defense in depth: this can run on a worker thread (the QuotaManager /
+  // IndexedDB IO threads) and is about to drive NSS PK11 -- keystore_open ->
+  // lockstore just below, and NSSCipherStrategy::Init in obfsOpen right after
+  // we return. The main-thread pre-init in
+  // EnsureNSSInitializedForEncryptionIfReady already blocks until NSS's
+  // LoadLoadableCertsTask has finished, so in the common flow this is an
+  // already-satisfied, near-free latch check; it guards the corner case where a
+  // worker open races ahead of that pre-init. Once loaded the latch stays set.
+  // Fail-open on error: a failed roots load is an unrelated NSS problem and
+  // must not block opening an in-profile encrypted database.
+  if (nsresult brv = ::BlockUntilLoadableCertsLoaded(); NS_FAILED(brv)) {
+    MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Warning,
+            ("BlockUntilLoadableCertsLoaded failed (0x%" PRIx32
+             "); proceeding with key lookup",
+             static_cast<uint32_t>(brv)));
+  }
+
   // The caller has already established via GetDatabaseEncryptionStatus that
   // this database lives under the profile; resolve the profile path again to
   // derive the lockstore collection name.

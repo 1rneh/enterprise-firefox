@@ -303,10 +303,13 @@ export class Felt {
 
       case "FeltParent:FirefoxLaunchFailure": {
         Services.felt.makeBackgroundProcess(false);
+        const errorClassByType = {
+          primarySecret: "felt-error-primary-secret",
+          sdrTokenUnlockFailed: "felt-error-sdr-token-unlock-failed",
+        };
         const errorClass =
-          message.data?.errorType === "primarySecret"
-            ? "felt-error-primary-secret"
-            : "felt-browser-error-launch-failure";
+          errorClassByType[message.data?.errorType] ??
+          "felt-browser-error-launch-failure";
         this.showWindow(errorClass);
         break;
       }

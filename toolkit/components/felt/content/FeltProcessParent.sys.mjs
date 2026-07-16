@@ -572,6 +572,21 @@ export class FeltProcessParent extends JSProcessActorParent {
    * again or to inform the user of the set of crashes.
    */
   handleRestartAfterAbnormalExit() {
+    if (
+      this.proc.exitCode ===
+      Ci.nsIFelt.FeltEncryptionExitCode_SdrTokenUnlockFailed
+    ) {
+      // The profile could not be unlocked (missing or rejected primary secret).
+      // Restarting cannot fix a wrong or rotated secret, so surface a clear
+      // error instead of counting this as a crash (Bug 2021342).
+      this.abnormalExitCounter = 0;
+      this.abnormalExitFirstTime = 0;
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+        errorType: "sdrTokenUnlockFailed",
+      });
+      return;
+    }
+
     if (this.proc.exitCode === Ci.nsIFelt.FeltEncryptionExitCode_Delete) {
       // Firefox encryption explicitely reported to delete the profile folder
       // The profile service should do it but it may be incomplete depending

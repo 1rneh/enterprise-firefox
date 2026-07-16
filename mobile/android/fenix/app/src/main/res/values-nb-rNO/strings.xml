@@ -4094,18 +4094,6 @@
     Title text for the uninstall survey dialog, asking the user for the reason they are removing the app
   -->
   <string name="microsurvey_uninstall_survey_title">Din tilbakemelding er viktig. Hvorfor avinstallerer du?</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_1_v2">Den er treg eller upålitelig</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_2_v2">Nettsteder fungerte ikke som de skulle</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_3_v2">Manglende funksjoner jeg trenger</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_4_v2">Videoer, nedlastinger eller media fungerte ikke</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_5_v2">Den er vanskelig å bruke eller dårlig utformet</string>
-  <!-- Uninstall survey answer option -->
-  <string name="uninstall_survey_option_6_v2">Bekymringer knyttet til personvern eller sikkerhet</string>
   <!-- Button label shown at the bottom of the uninstall survey -->
   <string name="uninstall_survey_button_label">Send tilbakemelding og avinstaller</string>
   <!--

@@ -4725,10 +4725,6 @@
   <string name="preferences_debug_settings_google_lens_integration">Povolit integraci Google Lens</string>
   <!-- Lens image search button content description -->
   <string name="lens_search_content_description">Vyhledat pomocí obrázku</string>
-  <!-- Content description for the gallery picker button in the Lens camera screen -->
-  <string name="content_description_gallery">Vybrat z galerie a odeslat do Google Lens</string>
-  <!-- Content description for the shutter button in the Lens camera screen -->
-  <string name="content_description_take_photo">Pořídit snímek a odeslat do Google Lens</string>
   <!-- Image context menu entry that sends the long-pressed image to Google Lens -->
   <string name="context_menu_open_image_with_google_lens">Vyhledávání pomocí Google Lens</string>
   <!-- Toast shown when the user denies the camera permission requested by the Lens camera screen -->

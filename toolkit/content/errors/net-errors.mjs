@@ -352,6 +352,34 @@ export const NET_ERRORS = [
     },
     customNetError: {
       titleL10nId: "neterror-dns-not-found-title",
+      whatCanYouDoItems: [
+        "neterror-http-empty-response",
+        "neterror-dns-not-found-hint-check-network-2",
+        "neterror-dns-not-found-hint-firewall-2",
+      ],
+      learnMoreL10nId: "neterror-learn-more-link",
+      learnMoreSupportPage: "server-not-found-connection-problem",
+    },
+    hasNoUserFix: false,
+    checkTrrOnly: true,
+    image: NET_ERROR_ILLUSTRATIONS.noConnection,
+  },
+  {
+    id: "dnsNotFound-enterprise",
+    errorCode: "dnsNotFound-enterprise",
+    category: "net",
+    bodyTitleL10nId: "neterror-dns-not-found-title",
+    introContent: {
+      dataL10nId: "fp-neterror-offline-intro",
+      dataL10nArgs: { hostname: null },
+    },
+    descriptionParts: DESCRIPTION_PARTS_MAP.dnsNotFoundDescription,
+    buttons: {
+      showTryAgain: true,
+      showGoBack: false,
+    },
+    customNetError: {
+      titleL10nId: "felt-error-neterror-dns-not-found-title",
       whatCanYouDoL10nId: "fp-neterror-offline-what-can-you-do-body",
       learnMoreL10nId: "neterror-learn-more-link",
       learnMoreSupportPage: "server-not-found-connection-problem",

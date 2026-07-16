@@ -297,6 +297,7 @@ function generateDocumentation() {
     SkipTermsOfUse: "SkipTermsOfUse2",
     WindowsSSO: "Windows10SSO",
     BrowserDataBackup: "Backup",
+    AccessConnector: "AccessConnector2",
   };
   let deprecated_policies = ["DisablePocket"];
 
@@ -408,7 +409,7 @@ function show(button) {
   content.hidden = false;
 
   let title = document.getElementById("sectionTitle");
-  title.textContent = button.textContent;
+  title.textContent = button.textContent.trim();
   location.hash = category;
   restoreScrollPosition(category);
 }

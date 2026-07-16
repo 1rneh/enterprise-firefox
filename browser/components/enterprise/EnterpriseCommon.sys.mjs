@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const IS_TESTING_ENVIRONMENT = "enterprise.is_testing";
 const IS_BLOCKING_SHUTDOWN = "enterprise.felt_tests.is_blocking_shutdown";
 const IS_UPDATES_TESTING = "enterprise.felt_tests.is_updates_testing";
@@ -21,6 +23,10 @@ export const isBlockingShutdown = () => {
 
 export const shouldNotCloseWindow = () => {
   return Services.prefs.getBoolPref(SHOULD_NOT_CLOSE_WINDOW, false);
+};
+
+export const isBuildAppBrowser = () => {
+  return AppConstants.MOZ_BUILD_APP == "browser";
 };
 
 const ENTERPRISE_LOG_LEVEL_PREF = "enterprise.log_level";

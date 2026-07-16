@@ -28,6 +28,9 @@ felt-version-nightly = { $version } ({ $isodate })
 #   $version (String): version of Firefox for beta and release builds
 felt-version = { $version }
 
+felt-urlbar-web-authn-anchor =
+    .tooltiptext = Open Web Authentication panel
+
 ## Error details when launching the browser crashes
 
 felt-browser-error-sso-timeout2 =
@@ -59,6 +62,7 @@ felt-browser-error-no-network =
 
 felt-error-network = Unknown network error
 felt-error-no-network-connection = Please check your internet connection and try again.
+felt-error-neterror-dns-not-found-title = Server not found
 
 ## Updates messages and related errors messages
 

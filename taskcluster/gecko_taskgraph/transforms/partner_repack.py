@@ -7,9 +7,7 @@ Transform the partner repack task into an actual task description.
 
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.dependencies import get_dependencies
-from taskgraph.util.schema import resolve_keyed_by
 
-from gecko_taskgraph.util.attributes import release_level
 from gecko_taskgraph.util.partners import (
     apply_partner_priority,
     check_if_partners_enabled,
@@ -65,15 +63,6 @@ def populate_repack_manifests_url(config, tasks):
         else:
             if config.params["level"] == 3:
                 raise Exception("Can't find partner REPACK_MANIFESTS_URL")
-
-        for property in ("limit-locales",):
-            property = f"extra.{property}"
-            resolve_keyed_by(
-                task,
-                property,
-                property,
-                **{"release-level": release_level(config.params)},
-            )
 
         if repack_manifests_url:
             task["worker"].setdefault("env", {})["REPACK_MANIFESTS_URL"] = (

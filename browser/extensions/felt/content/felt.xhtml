@@ -19,6 +19,10 @@
     <link rel="localization" href="branding/brand.ftl" />
     <link rel="localization" href="toolkit/global/textActions.ftl" />
     <link rel="localization" href="browser/browser.ftl" />
+    <link rel="localization" href="browser/enterprise/enterprise.ftl" />
+    <link rel="localization" href="toolkit/neterror/certError.ftl" />
+    <link rel="localization" href="toolkit/neterror/netError.ftl" />
+    <link rel="localization" href="toolkit/neterror/nsserrors.ftl" />
     <script
       type="application/javascript"
       src="chrome://global/content/customElements.js"
@@ -107,7 +111,7 @@
         id="webauthn-notification-icon"
         class="notification-anchor-icon"
         role="button"
-        data-l10n-id="urlbar-web-authn-anchor"
+        data-l10n-id="felt-urlbar-web-authn-anchor"
       />
     </xul:box>
 
@@ -117,7 +121,7 @@
       </div>
       <div class="felt-updates is-hidden">
         <div class="felt-updates-pane">
-          <img class="firefox-enterprise-wordmark" />
+          <img class="enterprise-wordmark" />
           <div class="felt-updates__infos">
             <h1
               class="felt-updates__title"
@@ -153,7 +157,7 @@
       </div>
       <div class="felt-login">
         <div class="felt-login__email-pane">
-          <img class="firefox-enterprise-wordmark" />
+          <img class="enterprise-wordmark" />
           <form class="felt-form">
             <h1 class="felt-form__title" data-l10n-id="felt-sso-title"></h1>
             <div class="felt-form__elements">
@@ -179,7 +183,7 @@
           >
           </span>
         </div>
-        <div class="felt-browser-error is-hidden">
+        <div class="felt-browser-error">
           <moz-message-bar
             class="felt-browser-error-multiple-crashes is-hidden"
             data-l10n-id="felt-browser-error-multiple-crashes2"

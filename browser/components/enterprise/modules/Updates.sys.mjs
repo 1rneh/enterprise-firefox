@@ -9,6 +9,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   isUpdatesTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  FeltErrorReport: "resource:///modules/FeltErrorReport.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -22,11 +23,10 @@ const FELT_UPDATE_APPLY_PERCENT_DOWNLOAD_END = 90;
 const FELT_UPDATE_APPLY_PERCENT_STAGING_END = 100;
 
 export const Updates = {
-  async init(doc, errorReporter) {
+  async init(doc) {
     // Make sure that we always refer to the correct document, so we can show
     // back the login UI in any circumstance
     this._document = doc;
-    this._errorReporter = errorReporter;
 
     this.maybeShowUpdateSuccess();
     // Check this early to avoid re-downloading updates when it would fail
@@ -68,7 +68,6 @@ export const Updates = {
     this.unobserve();
     this.cancelDelayedUpdateCheckUI();
     this._document = undefined;
-    this._errorReporter = undefined;
     this._initialized = false;
   },
 
@@ -333,13 +332,13 @@ export const Updates = {
 
   displayLoginStateWithUpdateError(errorMsg) {
     this.hide(".felt-updates-message");
-    this._errorReporter.update("felt-updates-error-messages", errorMsg);
+    lazy.FeltErrorReport.update("felt-updates-error-messages", errorMsg);
     this.displayLoginState();
   },
 
   displayLoginStateWithUpdateWarning(warningTitle, warningMsg) {
     this.hide(".felt-updates-message");
-    this._errorReporter.update("felt-updates-warning-messages", warningMsg);
+    lazy.FeltErrorReport.update("felt-updates-warning-messages", warningMsg);
     const warning = this._document.querySelector(
       ".felt-updates-warning-messages"
     );

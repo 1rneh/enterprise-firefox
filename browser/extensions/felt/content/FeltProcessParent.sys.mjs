@@ -8,6 +8,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   CONSOLE_ADDRESS_PREF: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  isBuildAppBrowser: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
@@ -43,7 +44,9 @@ export function queueURL(payload) {
     Services.felt.makeBackgroundProcess(true);
   } else {
     // Queue at module level until ready
-    gFeltPendingURLs.push(payload);
+    gFeltPendingURLs.push(payload).catch(err => {
+      lazy.log.error("Failed to persist pending Felt URL", err);
+    });
     Services.cpmm.sendAsyncMessage("FeltParent:ForceFeltFocus", {});
   }
 }
@@ -238,7 +241,11 @@ export class FeltProcessParent extends JSProcessActorParent {
           case "felt-extension-ready": {
             if (gFeltProcessParentInstance) {
               gFeltProcessParentInstance.extensionReady = true;
-              gFeltProcessParentInstance.forwardPendingURLs();
+              if (lazy.isBuildAppBrowser()) {
+                gFeltProcessParentInstance.forwardPendingURLs().catch(err => {
+                  lazy.log.error("Failed to forward pending URLs", err);
+                });
+              }
               notifyFirefoxReady();
             }
             break;
@@ -443,7 +450,11 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.exitReported = false;
     this.firefoxReady = false;
     this.extensionReady = false;
-    resetFeltFirefoxWindowReady();
+    if (lazy.isBuildAppBrowser()) {
+      // This also part of FeltURLHandler that cannot be loaded in non browser
+      // applications.
+      resetFeltFirefoxWindowReady();
+    }
     gFeltFirefoxReadyNotified = false;
 
     // There is no message being sent to the message listener on restart phases
@@ -478,7 +489,9 @@ export class FeltProcessParent extends JSProcessActorParent {
         this.firefoxReady = true;
 
         // Try to forward pending URLs now (will only forward if extension is also ready)
-        this.forwardPendingURLs();
+        if (lazy.isBuildAppBrowser()) {
+          await this.forwardPendingURLs();
+        }
         notifyFirefoxReady();
       })
       .then(() => {
@@ -686,7 +699,9 @@ export class FeltProcessParent extends JSProcessActorParent {
   /**
    * Forward all pending URLs to Firefox
    */
-  forwardPendingURLs() {
+  async forwardPendingURLs() {
+    await gFeltPendingURLs.init();
+
     if (gFeltPendingURLs.length === 0) {
       return;
     }
@@ -717,7 +732,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     // Clear the queue
-    gFeltPendingURLs.length = 0;
+    gFeltPendingURLs.clear();
   }
 
   /**

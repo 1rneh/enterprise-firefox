@@ -208,6 +208,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 return
 
             location = f"http://localhost:{self.server.sso_port}/sso_url"
+            if self.server.login_location.value != "":
+                location = self.server.login_location.value
             self.send_response(302, "Found")  # or 301/308 as needed
             self.send_header("Location", location)
             self.send_header("Content-Length", "0")
@@ -546,6 +548,7 @@ def serve(
     is_console,
     cookie_name=None,
     cookie_value=None,
+    login_location=None,
     policy_block_about_config=None,
     policy_extensions=None,
     policy_access_token=None,
@@ -568,6 +571,8 @@ def serve(
         httpd.cookie_name = cookie_name
     if cookie_value is not None:
         httpd.cookie_value = cookie_value
+    if login_location is not None:
+        httpd.login_location = login_location
     if policy_block_about_config is not None:
         httpd.policy_block_about_config = policy_block_about_config
     if policy_extensions is not None:
@@ -685,6 +690,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         # Private; use console_port and sso_port properties from ConsoleSSOPortMixin instead
         self._console_port = Value("i", 0)
         self._sso_port = Value("i", 0)
+        self.login_location = SharedString("")
         self.policy_block_about_config = Value("b", 1)
         self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
@@ -705,6 +711,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 sso_port=self._sso_port,
                 console_port=self._console_port,
                 is_console=True,
+                login_location=self.login_location,
                 policy_block_about_config=self.policy_block_about_config,
                 policy_extensions=self.policy_extensions,
                 policy_access_token=self.policy_access_token,

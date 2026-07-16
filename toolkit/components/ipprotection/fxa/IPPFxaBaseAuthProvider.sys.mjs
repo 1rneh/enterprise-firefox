@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { IPPAuthProvider } from "moz-src:///toolkit/components/ipprotection/IPPAuthProvider.sys.mjs";
 import { GuardianClient } from "moz-src:///toolkit/components/ipprotection/fxa/GuardianClient.sys.mjs";
 
@@ -92,20 +91,22 @@ export class IPPFxaBaseAuthProvider extends IPPAuthProvider {
       lazy.IPProtectionService.updateState();
       return;
     }
-    this.updateEntitlement();
+    // Force rechecking the entitlement when sign-in state changes.
+    this.updateEntitlement(true);
   }
 
-  updateEntitlement() {}
+  // eslint-disable-next-line no-unused-vars
+  updateEntitlement(forceRefetch = false) {}
 
   async getEntitlement() {
     try {
       using tokenHandle = await this.getToken();
       const { status, entitlement, error } =
         await this.guardian.fetchUserInfo(tokenHandle);
-      if (error || !entitlement || status != 200) {
+      if (error || status != 200) {
         return { error: error || `Status: ${status}` };
       }
-      return { entitlement };
+      return { entitlement: entitlement ?? null };
     } catch (error) {
       return { error: error.message };
     }
@@ -131,12 +132,6 @@ export class IPPFxaBaseAuthProvider extends IPPAuthProvider {
    * @returns {Promise<{token: string} & Disposable>}
    */
   async getToken(abortSignal = null) {
-    if (AppConstants.MOZ_ENTERPRISE) {
-      return {
-        token: Services.felt.getAccessTokenIfValid(),
-        [Symbol.dispose]: () => {},
-      };
-    }
     let tasks = [
       lazy.fxAccounts.getOAuthToken({
         scope: ["profile", "https://identity.mozilla.com/apps/vpn"],

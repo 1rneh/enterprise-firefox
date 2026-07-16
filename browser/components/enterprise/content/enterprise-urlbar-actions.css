@@ -3,7 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #lockdown-mode-button .urlbar-icon {
-  list-style-image: url("chrome://browser/content/enterprise/lockdown-mode.svg");
+  list-style-image: url("chrome://browser/content/enterprise/site-restrictions.svg");
 }
 
 /* use theme colors for HCM */

@@ -6,21 +6,23 @@
 
 extern "C" {
 
-void felt_set_startup_token_or_timestamp(const char* aToken, uint32_t aTimestamp) {
+void felt_set_startup_token_or_timestamp(const char* aToken,
+                                         uint32_t aTimestamp) {
   nsGTKToolkit* toolkit = nsGTKToolkit::GetToolkit();
   if (!toolkit) {
     return;
   }
   if (aToken && *aToken) {
-    toolkit->SetStartupToken(nsDependentCString(aToken));
+    toolkit->SetActivationToken(nsDependentCString(aToken));
   }
   if (aTimestamp) {
     toolkit->SetFocusTimestamp(aTimestamp);
   }
 }
 
-void felt_get_startup_token_or_timestamp(const char** aOutToken, uint32_t* aOutTokenLen,
-                         uint32_t* aOutTimestamp) {
+void felt_get_startup_token_or_timestamp(const char** aOutToken,
+                                         uint32_t* aOutTokenLen,
+                                         uint32_t* aOutTimestamp) {
   *aOutToken = nullptr;
   *aOutTokenLen = 0;
   *aOutTimestamp = 0;
@@ -28,7 +30,7 @@ void felt_get_startup_token_or_timestamp(const char** aOutToken, uint32_t* aOutT
   if (!toolkit) {
     return;
   }
-  const nsCString& token = toolkit->GetStartupToken();
+  const nsCString& token = toolkit->GetActivationToken();
   if (!token.IsEmpty()) {
     *aOutToken = token.get();
     *aOutTokenLen = token.Length();

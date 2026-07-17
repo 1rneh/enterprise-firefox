@@ -160,8 +160,8 @@ class TaskDescriptionSchema(Schema, kw_only=True):
     # https://firefox-ci-tc.services.mozilla.com/schemas/taskcluster-treeherder/v1/task-treeherder-config.json
     # If not specified, no treeherder extra information or routes will be
     # added to the task
-    treeherder: TOptional[TreeherderSchema] = None
-    treeherder_group: TOptional[str] = None
+    treeherder: Optional[TreeherderSchema] = None
+    treeherder_group: Optional[str] = None
     # information for indexing this build so its artifacts can be discovered;
     # if omitted, the build will not be indexed.
     index: Optional[IndexSchema] = None

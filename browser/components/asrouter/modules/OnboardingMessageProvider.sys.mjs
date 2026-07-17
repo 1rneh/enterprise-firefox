@@ -2604,7 +2604,7 @@ const BASE_MESSAGES = () => [
         type: "PIN_FIREFOX_TO_TASKBAR",
       },
     },
-    targeting: `source == 'startup' && !previousSessionEnd && doesAppNeedPin && ${WIN_OS_PIN_PROMPT_ENABLED} && (unhandledCampaignAction != 'PIN_FIREFOX_TO_TASKBAR') && (unhandledCampaignAction != 'PIN_AND_DEFAULT')`,
+    targeting: `!('browser.bypassAutoTriggerActions' | preferenceValue) && source == 'startup' && !previousSessionEnd && doesAppNeedPin && ${WIN_OS_PIN_PROMPT_ENABLED} && (unhandledCampaignAction != 'PIN_FIREFOX_TO_TASKBAR') && (unhandledCampaignAction != 'PIN_AND_DEFAULT')`,
     trigger: {
       id: "defaultBrowserCheck",
     },
@@ -3716,6 +3716,39 @@ export const OnboardingMessageProvider = {
 
   getPreonboardingMessages() {
     return PREONBOARDING_MESSAGES();
+  },
+
+  /**
+   * Fill in Nimbus `preonboarding` feature variables from the default
+   * preonboarding message when preonboarding is the unconfigured default
+   * (`enabled === null`) or enabled without screens. Supplied values win,
+   * except nulls and empty arrays, which fall back to the default message's
+   * values. Explicitly disabled (`enabled === false`) variables are returned
+   * unchanged.
+   *
+   * @param {object} variables Nimbus `preonboarding` feature variables.
+   * @return {object} the variables, merged over the default message if needed.
+   */
+  getPreonboardingVariablesWithDefaults(variables) {
+    if (
+      variables.enabled !== null &&
+      !(variables.enabled && !variables.screens?.length)
+    ) {
+      return variables;
+    }
+
+    const preonboardingMessage = this.getPreonboardingMessages().find(
+      m => m.id === "NEW_USER_TOU_ONBOARDING"
+    );
+    return {
+      ...preonboardingMessage,
+      ...Object.fromEntries(
+        Object.entries(variables).filter(
+          ([_, value]) =>
+            value !== null && !(Array.isArray(value) && !value.length)
+        )
+      ),
+    };
   },
 
   // If the user has restored from a backup, mutate the restore from backup message to appear once per backup by using the restoration timestamp as the unique message id

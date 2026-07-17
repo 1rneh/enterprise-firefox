@@ -6244,7 +6244,8 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
   bool startupCacheValid = true;
 
   if (!cachesOK || !versionOK) {
-    QuotaManager::InvalidateQuotaCache();
+    QuotaManager::InvalidateQuotaCache(
+        QuotaManager::CacheInvalidationLevel::Soft);
 
     startupCacheValid = RemoveComponentRegistries(mProfD, mProfLD, false);
 

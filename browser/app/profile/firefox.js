@@ -2396,10 +2396,21 @@ pref("places.semanticHistory.smartwindow.featureGate", false);
 // TODO Bug 2053495: remove with mistral release pref
 pref("browser.smartwindow.mistralRelease", false);
 
+// Smart Window: Auto Tab Grouping (bug 2054500).
+pref("browser.smartwindow.autoTabGrouping.enabled", false);
+pref("browser.smartwindow.autoTabGrouping.maxGroups", 3);
+pref("browser.smartwindow.autoTabGrouping.minTabsPerGroup", 2);
+pref("browser.smartwindow.autoTabGrouping.minCandidateTabs", 4);
+pref("browser.smartwindow.autoTabGrouping.loglevel", "Warn");
+
 // Smart Window: Merino World Cup Soccer tool call (bug 2038266)
 pref("browser.smartwindow.worldcup.enabled", true);
 pref("browser.smartwindow.worldcup.endpointURL", "https://merino.services.mozilla.com");
 pref("browser.smartwindow.worldcup.timeoutMs", 2000);
+
+// Smart Window: Exa search endpoint, used by the search_the_web agentic flow (bug 2037948)
+pref("browser.smartwindow.searchQuery.endpointURL", "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net/v1/search");
+pref("browser.smartwindow.searchQuery.apiKey", "");
 
 // Smart Window Logging
 pref("browser.smartwindow.chatHistory.loglevel", "Error");
@@ -3807,6 +3818,11 @@ pref("widget.support-xdg-config", true, locked);
 
 // A preference that enables Content Sharing
 pref("browser.contentsharing.enabled", false);
+
+// Preferences for the Firefox Referral program #2051647).
+pref("browser.referrals.enabled", false);
+// Per-profile referral code, locked at runtime once generated.
+pref("browser.referrals.code", "");
 
 // When enabled, Firefox ignores the distribution.ini file if global.id is MozillaOnline.
 pref("distribution.mozillaonline.ignore", true);

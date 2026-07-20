@@ -1313,6 +1313,20 @@
   value: false
   mirror: always
 
+# If true, content analysis uses an in-process WebAssembly DLP module
+# instead of an external agent.
+- name: browser.contentanalysis.use_wasm_backend
+  type: bool
+  value: false
+  mirror: always
+
+# If true, the content analysis extension must be signed before Firefox will
+# read and run its DLP module. Should only be set to false for testing.
+- name: browser.contentanalysis.wasm_module_extension_require_signature
+  type: bool
+  value: true
+  mirror: never
+
 # On Windows, whether to bring the foreground window to the front when printing
 # to avoid a DLP agent stealing focus and cancelling the print (bug 1980225)
 - name: browser.contentanalysis.print_set_foreground_window
@@ -2838,11 +2852,6 @@
 # Make sure cases like bug 1795380 work before trying to turn this off. See
 # bug 1680721 for some other context that might be relevant.
 - name: dom.delay.block_external_protocol_in_iframes.enabled
-  type: bool
-  value: true
-  mirror: always
-
-- name: dom.details_group.enabled
   type: bool
   value: true
   mirror: always
@@ -8382,7 +8391,7 @@
 
 - name: gfx.webrender.compositor
   type: bool
-#if defined(XP_WIN) || defined(XP_DARWIN)
+#if defined(XP_WIN) || defined(XP_DARWIN) || defined(MOZ_WIDGET_GTK)
   value: true
 #else
   value: false
@@ -8823,12 +8832,10 @@
 # Prefs starting with "gl." (OpenGL)
 #---------------------------------------------------------------------------
 
-#ifdef XP_MACOSX
 - name: gl.allow-high-power
   type: RelaxedAtomicBool
   value: true
   mirror: always
-#endif
 
 #ifdef XP_WIN
 - name: gl.ignore-dx-interop2-blacklist
@@ -10608,13 +10615,6 @@
 # Whether to enable CSS Anchor Positioning support.
 # https://drafts.csswg.org/css-anchor-position-1/
 - name: layout.css.anchor-positioning.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
-# Whether to enable position-try-order
-- name: layout.css.anchor-positioning.position-try-order.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -18792,6 +18792,16 @@
   value: false
   mirror: always
 
+# How long (in milliseconds) security-sensitive notifications delay before
+# their buttons become enabled, to guard against clickjacking. Native file
+# pickers reuse this value to ignore a confirmation that arrives too soon after
+# the picker is shown, keeping the picker open instead of accepting it. Set to
+# 0 to disable.
+- name: security.notification_enable_delay
+  type: RelaxedAtomicUint32
+  value: 500
+  mirror: always
+
 # Whether or not to import and trust third party root certificates from the OS.
 - name: security.enterprise_roots.enabled
   type: RelaxedAtomicBool
@@ -19021,6 +19031,12 @@
   value: true
   mirror: always
   rust: true
+
+# Whether to enable the CNSA 2.0 ML-KEM-1024 key agreement in TLS.
+- name: security.tls.enable_mlkem1024
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 - name: security.tls.client_hello.send_p256_keyshare
   type: RelaxedAtomicBool

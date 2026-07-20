@@ -387,13 +387,18 @@ void IMEContentObserver::ObserveEditableNode() {
           ("0x%p ObserveEditableNode(), starting to observe 0x%p (%s)", this,
            mRootElement.get(), ToString(*mRootElement).c_str()));
 
-  mRootElement->AddMutationObserver(this);
-  // If it's in a document (should be so), we can use document observer to
-  // reduce redundant computation of text change offsets.
-  Document* doc = mRootElement->GetComposedDoc();
-  if (doc) {
-    RefPtr<DocumentObserver> documentObserver = mDocumentObserver;
-    documentObserver->Observe(doc);
+  // For EditContext, we shouldn't observe the element for mutations,
+  // since updating the text is only done through the updateText() method
+  // or text input.
+  if (!mRootElement->HasFlag(ELEMENT_HAS_EDIT_CONTEXT)) {
+    mRootElement->AddMutationObserver(this);
+    // If it's in a document (should be so), we can use document observer to
+    // reduce redundant computation of text change offsets.
+    Document* doc = mRootElement->GetComposedDoc();
+    if (doc) {
+      RefPtr<DocumentObserver> documentObserver = mDocumentObserver;
+      documentObserver->Observe(doc);
+    }
   }
 
   if (mDocShell) {
@@ -622,7 +627,17 @@ bool IMEContentObserver::IsObservingElement(const nsPresContext& aPresContext,
     return !aElement->IsInDesignMode() &&
            aElement == mRootEditableNodeOrTextControlElement;
   }
-  if (!mRootEditableNodeOrTextControlElement) {
+  if (!mRootEditableNodeOrTextControlElement || !mRootElement) [[unlikely]] {
+    return false;
+  }
+  // If mRootElement is not an inclusive descendant of the root editable node,
+  // it means that mRootElement was a nested editing host in the focused editing
+  // host, but now it's moved outside the editing host. In this case, we should
+  // not reuse this instance because we need to observe the focused editing
+  // host, but we have observed the nested editing host which is now not
+  // focused.
+  if (!mRootElement->IsInclusiveDescendantOf(
+          mRootEditableNodeOrTextControlElement)) [[unlikely]] {
     return false;
   }
   // If design mode state has been changed, IMEContentObserver shouldn't be
@@ -721,6 +736,12 @@ nsresult IMEContentObserver::GetSelectionAndRoot(Selection** aSelection,
 
 void IMEContentObserver::OnSelectionChange(Selection& aSelection) {
   if (!mIsObserving || !mWidget) {
+    return;
+  }
+  if (mRootElement->HasFlag(ELEMENT_HAS_EDIT_CONTEXT)) {
+    // For EditContext, we notify the IME of selection change only when
+    // EditContext.updateSelection() is called, since the DOM selection
+    // should not be used by the IME.
     return;
   }
 

@@ -22,7 +22,7 @@ mod winrt;
 
 // Result from the attempt to pin to taskbar.
 enum PinResult {
-    // Pin request affirmed by user or system.
+    // Pin request affirmed by user.
     Pinned,
     // Pin request rejected by user or system.
     Rejected,
@@ -41,6 +41,25 @@ impl From<PinResult> for u8 {
     }
 }
 
+impl TryFrom<PinResult> for RefPtr<nsIWritableVariant> {
+    type Error = nsresult;
+
+    fn try_from(result: PinResult) -> Result<Self, Self::Error> {
+        let variant = xpcom::create_instance::<nsIWritableVariant>(c"@mozilla.org/variant;1")
+            .ok_or_else(|| {
+                log::error!("Failed to create writable variant.");
+                NS_ERROR_UNEXPECTED
+            })?;
+
+        // SAFETY: No invariants to uphold as parameter is POD.
+        unsafe { variant.SetAsUint8(result.into()) }
+            .to_result()
+            .inspect_err(|e| log::error!("Failed to set Uint8 on nsIWritableVariant: {e:?}"))?;
+
+        Ok(variant)
+    }
+}
+
 /// Pins the shortcut with matching AUMID to the taskbar.
 async fn pin_app(
     aumid: &nsAString,
@@ -49,12 +68,37 @@ async fn pin_app(
     main_guard: MainThreadGuard,
 ) -> Result<PinResult, nsresult> {
     // Attempt to use the documented WinRT pinning API.
-    winrt::pin_to_taskbar(aumid, fire_and_forget, main_guard)
-        .await
-        .or_else(|_| {
-            // Fallback to undocumented COM API.
-            com::modify_taskbar(com::PinOp::Pin, shortcut_path, main_guard)
-        })
+    let winrt_pin = winrt::pin_to_taskbar(aumid, fire_and_forget, main_guard).await;
+
+    record_winrt_pin_telemetry(&winrt_pin);
+
+    winrt_pin.or_else(|e| {
+        use winrt::WinRtPinError::GetTaskbarManager;
+        match e {
+            GetTaskbarManager(_) => log::debug!("Error pinning with WinRT API: {e:?}"),
+            _ => log::error!("Error pinning with WinRT API: {e:?}"),
+        }
+
+        // Fallback to undocumented COM API.
+        com::modify_taskbar(com::PinOp::Pin, shortcut_path, main_guard)
+    })
+}
+
+/// Records Glean telemetry for the attempted pin to taskbar using WinRT.
+fn record_winrt_pin_telemetry(pin_result: &Result<PinResult, winrt::WinRtPinError>) {
+    use firefox_on_glean::metrics::taskbar::{self, PinWinrtExtra};
+
+    use PinResult::*;
+    let metric_extra = match pin_result {
+        Ok(Pinned) => "success_pinned",
+        Ok(Rejected) => "success_rejected",
+        Ok(Unknown) => "success_fire_and_forget",
+        Err(e) => e.to_metric_taskbar_pin_winrt(),
+    };
+
+    taskbar::pin_winrt.record(PinWinrtExtra {
+        result: Some(metric_extra.into()),
+    });
 }
 
 /// FFI accessible interface to check if taskbar pinning APIs are available.
@@ -105,23 +149,11 @@ pub unsafe extern "C" fn shell_windows_taskbar_pin_app_to_taskbar(
     let promise = RefPtr::new(promise);
 
     moz_task::spawn_local("Pin to Taskbar", async move {
-        let result = pin_app(&aumid, &shortcut_path, fire_and_forget, main_guard)
-            .await
-            .and_then(|result| {
-                let variant =
-                    xpcom::create_instance::<nsIWritableVariant>(c"@mozilla.org/variant;1")
-                        .ok_or_else(|| {
-                            log::error!("Failed to create writable variant.");
-                            NS_ERROR_UNEXPECTED
-                        })?;
-                // SAFETY: No invariants to uphold as parameter is POD.
-                unsafe { variant.SetAsUint8(result.into()) }
-                    .to_result()
-                    .inspect_err(|e| {
-                        log::error!("Failed to set Uint8 on nsIWritableVariant: {e:?}")
-                    })?;
-                Ok(variant)
-            });
+        let result: Result<RefPtr<nsIWritableVariant>, nsresult> =
+            pin_app(&aumid, &shortcut_path, fire_and_forget, main_guard)
+                .await
+                .and_then(TryInto::try_into);
+
         match result {
             Ok(variant) => promise.resolve_with_variant(&variant),
             Err(e) => promise.reject_with_nsresult(e),

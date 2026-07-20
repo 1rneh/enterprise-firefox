@@ -54,6 +54,8 @@ skip-if = [
   "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix && verify-standalone",
 ]
 
+["browser_aboutDialog_referrals.js"]
+
 ["browser_aboutNetError.js"]
 
 ["browser_aboutNetError_basicHttpAuth.js"]
@@ -106,6 +108,11 @@ support-files = [
 support-files = [
   "http_error.sjs",
   "server_error.sjs",
+]
+
+["browser_aboutNetError_sslKeyLogging.js"]
+support-files = [
+  "sslKeyLogging_processScript.js",
 ]
 
 ["browser_aboutNetError_telemetry.js"]

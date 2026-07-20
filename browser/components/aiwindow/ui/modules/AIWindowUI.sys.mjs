@@ -9,6 +9,13 @@ import {
   AIWindow,
 } from "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs";
 
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  AutoTabGrouping:
+    "moz-src:///browser/components/aiwindow/ui/modules/AutoTabGrouping.sys.mjs",
+});
+
 const gFadingWindows = new WeakSet();
 const gSidebarAnimations = new WeakMap();
 const gSidebarWidthHandlers = new WeakMap();
@@ -457,6 +464,15 @@ export const AIWindowUI = {
   },
 
   /**
+   * Toggle the "Group my tabs" panel anchored to its toolbar button.
+   *
+   * @param {Window} win
+   */
+  toggleGroupTabsPanel(win) {
+    lazy.AutoTabGrouping.toggleGroupTabsPanel(win);
+  },
+
+  /**
    * Toggle the AI Window sidebar
    *
    * @param {Window} win
@@ -604,6 +620,31 @@ export const AIWindowUI = {
     }
 
     aiWindowEl.restoreModelChoiceOverride(modelChoiceId);
+  },
+
+  /**
+   * Restores the per-tab context chips on the sidebar ai-window.
+   *
+   * @param {Window} win
+   * @param {ContextWebsite[]} [contextChips] - The user-added chips to restore.
+   * @param {boolean} [removedImplicitContextChip] - Restored dismissal of the
+   *   implicit current-tab chip.
+   */
+  updateSidebarContextChips(
+    win,
+    contextChips = [],
+    removedImplicitContextChip = false
+  ) {
+    if (!this.isSidebarOpen(win)) {
+      return;
+    }
+
+    const aiWindowEl = this._getSidebarAiWindow(win);
+    if (!aiWindowEl?.restoreContextChips) {
+      return;
+    }
+
+    aiWindowEl.restoreContextChips(contextChips, removedImplicitContextChip);
   },
 
   /**

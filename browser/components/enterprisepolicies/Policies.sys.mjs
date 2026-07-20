@@ -895,6 +895,12 @@ export var Policies = {
     },
   },
 
+  CNSA2KeyAgreementEnabled: {
+    onBeforeAddons(manager, param) {
+      lazy.PoliciesUtils.setAndLockPref("security.tls.enable_mlkem1024", param);
+    },
+  },
+
   Containers: {
     // Queried directly by ContextualIdentityService.sys.mjs
   },
@@ -1057,6 +1063,15 @@ export var Policies = {
         // to be consistent.
         Services.prefs.lockPref("browser.contentanalysis.enabled");
       }
+      // This will eventually be set by policy.
+      lazy.PoliciesUtils.setAndLockPref(
+        "browser.contentanalysis.use_wasm_backend",
+        false
+      );
+      lazy.PoliciesUtils.setAndLockPref(
+        "browser.contentanalysis.wasm_module_extension_require_signature",
+        true
+      );
     },
   },
 

@@ -2464,6 +2464,14 @@ class Settings(
     )
 
     /**
+     * Whether the universal edge-to-edge wallpapers treatment is enabled.
+     */
+    var enableUniversalEdgeToEdgeWallpapers by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_universal_edge_to_edge_wallpapers),
+        default = { FxNimbus.features.universalEdgeToEdgeWallpapers.value().enabled },
+    )
+
+    /**
      * Indicates if the Homepage Search Bar is enabled.
      */
     var enableHomepageSearchBar by booleanPreference(

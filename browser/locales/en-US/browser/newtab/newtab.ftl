@@ -68,7 +68,7 @@ newtab-topsites-clear-input =
     .aria-label = Clear text
 
 newtab-topsites-image-url-label = Custom Image URL
-newtab-topsites-use-image-link = Use a custom image…
+newtab-topsites-use-custom-image-link = Use a custom image
 newtab-topsites-image-validation = Image failed to load. Try a different URL.
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
@@ -590,11 +590,6 @@ newtab-download-mobile-highlight-body-variant-b = Pick up where you left off whe
 newtab-download-mobile-highlight-body-variant-c = Did you know you can take { -brand-product-name } on the go? Same browser. In your pocket.
 newtab-download-mobile-highlight-image =
     .aria-label = QR code to download { -brand-product-name } for mobile
-
-## Strings for shortcuts highlight
-
-newtab-shortcuts-highlight-title = Your favorites at your fingertips
-newtab-shortcuts-highlight-subtitle = Add a shortcut to keep your favorite sites one click away.
 
 ## Strings for reporting issues with ads and content
 
@@ -1559,6 +1554,9 @@ newtab-stocks-menu-search = Search ticker symbols
 
 # Context menu item linking to more information about the Stocks widget.
 newtab-stocks-menu-learn-more = Learn more
+
+# Shown in the Stocks widget when its data could not be loaded.
+newtab-stocks-error-not-available = Stock data is not available.
 
 # "Stocks widget options" is an icon-only button in the widget toolbar — the
 # attributes are consumed as tooltip/screen-reader label only. The button

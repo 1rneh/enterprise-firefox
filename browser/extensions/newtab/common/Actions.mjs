@@ -106,6 +106,7 @@ for (const type of [
   "MESSAGE_NOTIFY_VISIBILITY",
   "MESSAGE_SET",
   "MESSAGE_TOGGLE_VISIBILITY",
+  "MULTIPLE_PREFS_CHANGED",
   "NEW_TAB_INIT",
   "NEW_TAB_INITIAL_STATE",
   "NEW_TAB_LOAD",
@@ -121,6 +122,7 @@ for (const type of [
   "OPEN_PRIVATE_WINDOW",
   "OPEN_WEBEXT_SETTINGS",
   "PARTNER_LINK_ATTRIBUTION",
+  "PICTURE_OF_THE_DAY_UPDATE",
   "PLACES_BOOKMARKS_REMOVED",
   "PLACES_BOOKMARK_ADDED",
   "PLACES_HISTORY_CLEARED",
@@ -159,6 +161,7 @@ for (const type of [
   "SECTION_UPDATE_CARD",
   "SETTINGS_CLOSE",
   "SETTINGS_OPEN",
+  "SET_MULTIPLE_PREFS",
   "SET_PREF",
   "SHOW_DOWNLOAD_FILE",
   "SHOW_FIREFOX_ACCOUNTS",
@@ -224,6 +227,9 @@ for (const type of [
   "WEATHER_USER_OPT_IN_LOCATION",
   "WEBEXT_CLICK",
   "WEBEXT_DISMISS",
+  "WEB_NOTIFICATIONS_ERROR",
+  "WEB_NOTIFICATIONS_REQUEST",
+  "WEB_NOTIFICATIONS_UPDATED",
   "WIDGETS_CONTAINER_ACTION",
   "WIDGETS_ENABLED",
   "WIDGETS_ERROR",
@@ -236,6 +242,7 @@ for (const type of [
   "WIDGETS_LISTS_USER_EVENT",
   "WIDGETS_LISTS_USER_IMPRESSION",
   "WIDGETS_OPT_IN",
+  "WIDGETS_PICTURE_SET_WALLPAPER",
   "WIDGETS_PRIVACY_UPDATE",
   "WIDGETS_SPORTS_CHANGE_FOLLOWED_ONLY",
   "WIDGETS_SPORTS_CHANGE_LIVE_INDEX",
@@ -259,6 +266,7 @@ for (const type of [
   "WIDGETS_SPORTS_WATCH_LIVE_REQUEST",
   "WIDGETS_SPORTS_WATCH_LIVE_SET",
   "WIDGETS_SPORTS_WIDGET_SET",
+  "WIDGETS_STOCKS_UPDATE",
   "WIDGETS_TIMER_END",
   "WIDGETS_TIMER_PAUSE",
   "WIDGETS_TIMER_PLAY",
@@ -476,6 +484,15 @@ function SetPref(prefName, value, importContext = globalImportContext) {
   return importContext === UI_CODE ? AlsoToMain(action) : action;
 }
 
+// Routed to main, which applies all values and echoes one MULTIPLE_PREFS_CHANGED.
+const SetMultiplePrefs = (values, importContext = globalImportContext) => {
+  const action = {
+    type: actionTypes.SET_MULTIPLE_PREFS,
+    data: { values },
+  };
+  return importContext === UI_CODE ? AlsoToMain(action) : action;
+};
+
 function WebExtEvent(type, data, importContext = globalImportContext) {
   if (!data || !data.source) {
     throw new Error(
@@ -497,6 +514,7 @@ export const actionCreators = {
   OnlyToMain,
   AlsoToPreloaded,
   SetPref,
+  SetMultiplePrefs,
   WebExtEvent,
   DiscoveryStreamImpressionStats,
   DiscoveryStreamLoadedContent,

@@ -102,7 +102,7 @@ static constexpr uint32_t JitStackAlignment = 16;
 static constexpr uint32_t JitStackValueAlignment =
     JitStackAlignment / sizeof(Value);
 static const uint32_t WasmStackAlignment = 16;
-static const uint32_t WasmTrapInstructionLength = 2 * kInstrSize;
+static const uint32_t WasmTrapInstructionLength = kInstrSize;
 // See comments in wasm::GenerateFunctionPrologue.  The difference between these
 // is the size of the largest callable prologue on the platform.
 static constexpr uint32_t WasmCheckedCallEntryOffset = 0u;
@@ -163,11 +163,6 @@ class Assembler : public AssemblerShared,
   CompactBufferWriter dataRelocations_;
   Buffer m_buffer;
   bool isFinished = false;
-
-  // Return the Instruction at a given byte offset.
-  Instruction* getInstructionAt(BufferOffset offset) {
-    return m_buffer.getInst(offset);
-  }
 
   struct RelativePatch {
     // the offset within the code buffer where the value is loaded that
@@ -262,6 +257,11 @@ class Assembler : public AssemblerShared,
                              BufferOffset dest);
 
   void processCodeLabels(uint8_t* rawCode);
+
+  // Return the Instruction at a given byte offset.
+  Instruction* getInstructionAt(BufferOffset offset) {
+    return m_buffer.getInst(offset);
+  }
 
   // Get the next usable buffer offset. Note that a constant pool may be placed
   // here before the next instruction is emitted.
@@ -490,16 +490,14 @@ class Assembler : public AssemblerShared,
 
   // Assembler Pseudo Instructions (Tables 25.2, 25.3, RISC-V Unprivileged ISA)
   void break_(uint32_t code, bool break_as_stop = false);
+
+  // Load an immediate. A variable number of instructions is generated.
+  //
+  // In most cases the immediate is 32-bit and 2 instructions are generated. If
+  // a temporary register is available, in the worst case, 6 instructions are
+  // generated for a full 64-bit immediate. If temporay register isn't available
+  // the maximum will be 8 instructions.
   void RV_li(Register rd, int64_t imm);
-  static int RV_li_count(int64_t imm, bool is_get_temp_reg = false);
-  void GeneralLi(Register rd, int64_t imm);
-  static int GeneralLiCount(int64_t imm, bool is_get_temp_reg = false);
-  void RecursiveLiImpl(Register rd, int64_t imm);
-  void RecursiveLi(Register rd, int64_t imm);
-  static int RecursiveLiCount(int64_t imm);
-  static int RecursiveLiImplCount(int64_t imm);
-  // Returns the number of instructions required to load the immediate
-  static int li_estimate(int64_t imm, bool is_get_temp_reg = false);
 
   // Loads an immediate, always using 8 instructions, regardless of the value,
   // so that it can be modified later.

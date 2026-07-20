@@ -6,7 +6,6 @@
 #define GLCONTEXTCGL_H_
 
 #include "GLContext.h"
-
 #include "OpenGL/OpenGL.h"
 
 #ifdef __OBJC__
@@ -70,6 +69,10 @@ class GLContextCGL : public GLContext {
   virtual void GetWSIInfo(nsCString* const out) const override;
 
   Maybe<SymbolLoader> GetSymbolLoader() const override;
+
+  GLenum GetPreferredMacIOSurfaceTextureTarget() const override {
+    return LOCAL_GL_TEXTURE_RECTANGLE_ARB;
+  }
 };
 
 }  // namespace gl

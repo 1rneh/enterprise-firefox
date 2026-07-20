@@ -35,6 +35,8 @@ support-files = [
 
 ["test_CreditCard.js"]
 
+["test_DateNormalizationUtils.js"]
+
 ["test_DeferredTask.js"]
 skip-if = [
   "os == 'android'",
@@ -94,6 +96,8 @@ tags = "remote-settings"
 ["test_Log_nsIStackFrame.js"]
 
 ["test_Log_stackTrace.js"]
+
+["test_MachineId.js"]
 
 ["test_MatchURLFilters.js"]
 

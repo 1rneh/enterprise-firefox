@@ -19,11 +19,8 @@ appmenuitem-banner-update-unsupported =
 appmenuitem-banner-update-restart =
     .label = Update available — restart now
 
-# Fresh Firefox refers to the new updated UI
-appmenu-nova-update-promo =
-    .message = Get a fresh { -brand-short-name }. Keep all your tabs.
-
-appmenu-nova-update-link = Restart to update
+appmenu-nova-update-title = Restart to update { -brand-short-name }
+appmenu-nova-update-description = Your tabs will reopen.
 
 appmenu-nova-fxa-sign-in = Sign in
 
@@ -239,6 +236,10 @@ profiler-popup-presets-networking-description = Preset for investigating network
 profiler-popup-presets-networking-label =
   .label = Networking
 
+profiler-popup-presets-networking-with-logs-description = Preset for investigating networking bugs in { -brand-shorter-name }, including networking logs. These logs may contain sensitive information such as the URLs you visit.
+profiler-popup-presets-networking-with-logs-label =
+  .label = Networking with Logs
+
 profiler-popup-presets-power-description = Preset for investigating power use bugs in { -brand-shorter-name }, with low overhead.
 # "Power" is used in the sense of energy (electricity used by the computer).
 profiler-popup-presets-power-label =
@@ -330,30 +331,52 @@ appmenuitem-report-broken-site =
 
 appmenuitem-sign-in-account = Sign in to your account
 
-appmenuitem-monitor-title = { -monitor-brand-short-name }
-appmenuitem-monitor-description = Get data breach alerts
+appmenuitem-monitor-title2 = Stay Ahead of Identity Theft
+appmenuitem-monitor-description2 = Get alerts about data breaches
 appmenuitem-relay-title = { -relay-brand-short-name }
-appmenuitem-relay-description = Mask your real email and phone
+appmenuitem-relay-title2 = Keep Your Email Private
+appmenuitem-relay-description2 = Helps prevent spam in your inbox
 appmenuitem-services-relay-description = Launch email masks dashboard
-appmenuitem-vpn-title = { -mozilla-vpn-brand-name }
-appmenuitem-vpn-description-2 = Get whole-device protection
+appmenuitem-vpn-title2 = Hide Your Location with { -mozilla-vpn-brand-name }
+appmenuitem-vpn-description3 = Make your browsing harder to trace
 
 appmenu-services-header = My services
 # "Mozilla" is intentionally hardcoded to prevent forks from replacing it
 # with their own vendor name, since these tools are created and maintained by
 # Mozilla.
-appmenu-other-protection-header2 = Try other protection tools from Mozilla:
+appmenu-other-protection-header3 = Privacy tools
 
 ## Profiles panel
+
+appmenu-profiles-header = Profiles
+appmenu-all-profiles =
+    .label = All Profiles
+appmenu-secure-sync-header = Secure sync
 
 appmenu-profiles-2 =
     .label = Profiles
 appmenu-other-profiles = Other profiles
 appmenu-manage-profiles =
-    .label = Manage profiles
+    .label = Manage Profiles
 appmenu-copy-profile =
-    .label = Copy this profile
-appmenu-create-profile =
-    .label = New profile
+    .label = Copy This Profile
+appmenu-create-profile2 =
+    .label = Create a New Profile
 appmenu-edit-profile =
     .aria-label = Edit profile
+appmenu-edit-this-profile =
+    .label = Edit This Profile
+appmenu-profile-current-in-use = Current profile in use
+
+fxa-menu-create-profile-subpanel =
+    .title = Create a new profile
+
+fxa-menu-create-profile-heading = Level up your browsing with a new profile
+
+fxa-menu-create-profile-description = Keep your bookmarks, passwords, and history separate for work and personal browsing.
+
+fxa-menu-create-profile-confirm =
+    .label = Create New profile
+
+fxa-menu-create-profile-learn-more =
+    .label = What Are Profiles?

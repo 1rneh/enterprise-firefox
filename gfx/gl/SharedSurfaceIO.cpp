@@ -6,10 +6,10 @@
 
 #include "GLContextCGL.h"
 #include "MozFramebuffer.h"
+#include "ScopedGLHelpers.h"
 #include "mozilla/gfx/MacIOSurface.h"
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor, etc
 #include "mozilla/layers/LayersTypes.h"
-#include "ScopedGLHelpers.h"
 
 namespace mozilla {
 namespace gl {
@@ -31,7 +31,7 @@ static Maybe<GLenum> BackTextureWithIOSurf(GLContext* const gl,
                                            MacIOSurface* const ioSurf) {
   MOZ_ASSERT(gl->IsCurrent());
 
-  GLenum target = MacIOSurface::GetTextureTarget(gl);
+  const GLenum target = gl->GetPreferredMacIOSurfaceTextureTarget();
 
   ScopedBindTexture texture(gl, tex, target);
 

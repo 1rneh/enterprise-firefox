@@ -61,6 +61,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.Toolbar
+import org.mozilla.fenix.GleanMetrics.ToolbarGoogleLensButton
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.BrowserFragmentDirections
@@ -1376,6 +1377,29 @@ class BrowserToolbarSearchMiddlewareTest {
     }
 
     @Test
+    fun `GIVEN Google search engine and Lens enabled WHEN in private mode THEN the QR scanner button is shown instead of the Lens button`() {
+        every { settings.googleLensIntegrationEnabled } returns true
+        every { settings.googleLensIntegrationUserEnabled } returns true
+        val browsingModeManager: BrowsingModeManager = mockk {
+            every { mode } returns Private
+        }
+        val appStore: AppStore = mockk(relaxed = true) {
+            every { state.searchState.selectedSearchEngine?.searchEngine } returns googleSearchEngine()
+        }
+        val (_, store) = buildMiddlewareAndAddToStore(
+            appStore = appStore,
+            browsingModeManager = browsingModeManager,
+        )
+
+        store.dispatch(EnterEditMode(false))
+        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery("")))
+
+        val actions = store.state.editState.editActionsEnd.filterIsInstance<ActionButtonRes>()
+        assertEquals(null, actions.find { it.onClick == LensButtonClicked })
+        assertEquals(expectedQrButton, actions.find { it.onClick == QrScannerClicked })
+    }
+
+    @Test
     fun `WHEN the Lens button is clicked THEN dispatch LensRequested and record telemetry`() {
         every { settings.googleLensIntegrationEnabled } returns true
         every { settings.googleLensIntegrationUserEnabled } returns true
@@ -1397,6 +1421,7 @@ class BrowserToolbarSearchMiddlewareTest {
 
         store.dispatch(lensButton.onClick as BrowserToolbarEvent)
         assertTelemetryRecorded(ACTION_LENS_CLICKED)
+        assertNotNull(ToolbarGoogleLensButton.tapped.testGetValue())
         verify { appStore.dispatch(LensRequested) }
     }
 
@@ -1492,55 +1517,6 @@ class BrowserToolbarSearchMiddlewareTest {
     }
 
     @Test
-    fun `GIVEN Lens scan in private mode WHEN receiving a result THEN open it as a new private tab`() {
-        val appStoreActionsCaptor = CaptureActionsMiddleware<AppState, AppAction>()
-        val appStore = AppStore(
-            initialState = AppState(
-                searchState = AppSearchState.EMPTY.copy(
-                    selectedSearchEngine = SelectedSearchEngine(
-                        searchEngine = googleSearchEngine(),
-                        isUserSelected = false,
-                    ),
-                ),
-            ),
-            middlewares = listOf(appStoreActionsCaptor),
-        )
-        val browserUseCases: FenixBrowserUseCases = mockk(relaxed = true)
-        every { components.useCases.fenixBrowserUseCases } returns browserUseCases
-        every { settings.googleLensIntegrationEnabled } returns true
-        every { settings.googleLensIntegrationUserEnabled } returns true
-        val browsingModeManager: BrowsingModeManager = mockk(relaxed = true) {
-            every { mode } returns Private
-        }
-        val (_, store) = buildMiddlewareAndAddToStore(
-            appStore = appStore,
-            components = components,
-            browsingModeManager = browsingModeManager,
-        )
-        store.dispatch(EnterEditMode(true))
-        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery("")))
-
-        val lensButton = store.state.editState.editActionsEnd
-            .filterIsInstance<ActionButtonRes>()
-            .find { it.onClick == LensButtonClicked }!!
-
-        store.dispatch(lensButton.onClick as BrowserToolbarEvent)
-        appStore.dispatch(LensResultAvailable("https://lens.google.com/results"))
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        appStoreActionsCaptor.assertLastAction(LensResultConsumed::class)
-        verify {
-            browserUseCases.loadUrlOrSearch(
-                searchTermOrURL = "https://lens.google.com/results",
-                newTab = true,
-                flags = EngineSession.LoadUrlFlags.external(),
-                private = true,
-            )
-        }
-        verify { navController.navigate(R.id.action_global_browser) }
-    }
-
-    @Test
     fun `WHEN the voice action is tapped THEN add a new voice input request to the AppStore`() {
         val appStore: AppStore = mockk(relaxed = true) {
             every { state } returns mockk(relaxed = true)
@@ -1581,7 +1557,7 @@ class BrowserToolbarSearchMiddlewareTest {
     )
 
     private val expectedLensButton = ActionButtonRes(
-        drawableResId = R.drawable.ic_logo_google_lens_24,
+        drawableResId = iconsR.drawable.mozac_ic_logo_google_lens_24,
         contentDescription = R.string.lens_search_content_description,
         state = ActionButton.State.DEFAULT,
         onClick = LensButtonClicked,

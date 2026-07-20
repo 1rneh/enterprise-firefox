@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.1.208
- * pdfjsBuild = 25eae30e4
+ * pdfjsVersion = 6.1.321
+ * pdfjsBuild = e39b23904
  */
 
 ;// ./src/shared/util.js
@@ -32,7 +32,7 @@ const F32_BBOX_INIT = new Float32Array(BBOX_INIT);
 const FONT_IDENTITY_MATRIX = [0.001, 0, 0, 0.001, 0, 0];
 const LINE_FACTOR = 1.35;
 const LINE_DESCENT_FACTOR = 0.35;
-const BASELINE_FACTOR = LINE_DESCENT_FACTOR / LINE_FACTOR;
+const BASELINE_FACTOR = (/* unused pure expression or super */ null && (LINE_DESCENT_FACTOR / LINE_FACTOR));
 const SVG_NS = "http://www.w3.org/2000/svg";
 const RenderingIntentFlag = {
   ANY: 0x01,
@@ -789,6 +789,7 @@ function _isValidExplicitDest(validRef, validName, dest) {
 const makeArr = () => [];
 const makeMap = () => new Map();
 const makeObj = () => Object.create(null);
+const makeSet = () => new Set();
 
 ;// ./src/shared/math_clamp.js
 function MathClamp(v, min, max) {
@@ -2001,7 +2002,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "eb370c1c-46d0-449b-862e-05d691979336";
+const INTERNAL_EVT = "d91782db-ac22-4aac-9fdd-85eb05e73e9b";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -2625,7 +2626,7 @@ class AnnotationEditorUIManager {
       capture: true,
       signal
     });
-    window.addEventListener("beforeunload", this.#beforeUnload.bind(this), {
+    window.addEventListener("beforeunload", this.endCurrentEditing.bind(this), {
       capture: true,
       signal
     });
@@ -2981,7 +2982,7 @@ class AnnotationEditorUIManager {
   commentSelection(methodOfCreation = "") {
     this.highlightSelection(methodOfCreation, true);
   }
-  #beforeUnload(e) {
+  endCurrentEditing() {
     this.commitOrRemove();
     this.currentLayer?.endDrawingSession(false);
   }
@@ -12365,13 +12366,6 @@ for (const op in OPS) {
   }
 }
 
-;// ./src/display/stubs.js
-const DOMBinaryDataFactory = null;
-const getNetworkStream = null;
-const NodeBinaryDataFactory = null;
-const NodeCanvasFactory = null;
-const NodeFilterFactory = null;
-
 ;// ./src/display/canvas_factory.js
 
 class BaseCanvasFactory {
@@ -12601,7 +12595,7 @@ class DOMFilterFactory extends BaseFilterFactory {
     fgColor = Util.makeHexColor(...fgRGB);
     const bgRGB = this.#getRGB(bgColor);
     bgColor = Util.makeHexColor(...bgRGB);
-    this.#defs.style.color = "";
+    this.#resetDefsColor();
     if (fgColor === "#000000" && bgColor === "#ffffff" || fgColor === bgColor) {
       return info.url;
     }
@@ -12741,7 +12735,7 @@ class DOMFilterFactory extends BaseFilterFactory {
     if (bgGray < fgGray) {
       [fgGray, bgGray, newFgRGB, newBgRGB] = [bgGray, fgGray, newBgRGB, newFgRGB];
     }
-    this.#defs.style.color = "";
+    this.#resetDefsColor();
     const getSteps = (fg, bg, n) => {
       const arr = new Array(256);
       const step = (bgGray - fgGray) / n;
@@ -12818,12 +12812,18 @@ class DOMFilterFactory extends BaseFilterFactory {
     this.#appendFeFunc(feComponentTransfer, "feFuncA", aTable);
   }
   #getRGB(color) {
-    this.#defs.style.color = color;
-    return getRGB(getComputedStyle(this.#defs).getPropertyValue("color"));
+    this.#defs.style.color = "CanvasText";
+    this.#defs.style.backgroundColor = color;
+    return getRGB(getComputedStyle(this.#defs).getPropertyValue("background-color"));
   }
   #getRGBA(color) {
-    this.#defs.style.color = color;
-    return getRGBA(getComputedStyle(this.#defs).getPropertyValue("color"));
+    this.#defs.style.color = "CanvasText";
+    this.#defs.style.backgroundColor = color;
+    return getRGBA(getComputedStyle(this.#defs).getPropertyValue("background-color"));
+  }
+  #resetDefsColor() {
+    this.#defs.style.color = "";
+    this.#defs.style.backgroundColor = "";
   }
   #getOpaqueTextColor(color) {
     const [r, g, b, alpha] = this.#getRGBA(color);
@@ -13930,7 +13930,7 @@ class TextLayer {
           this.#container = document.createElement("span");
           this.#container.classList.add("markedContent");
           if (item.id) {
-            this.#container.setAttribute("id", `${item.id}`);
+            this.#container.setAttribute("id", item.id);
           }
           if (item.tag === "Artifact") {
             this.#container.ariaHidden = true;
@@ -14174,10 +14174,10 @@ function getDocument(src = {}) {
   const wasmUrl = getFactoryUrlProp(src.wasmUrl);
   const ignoreErrors = src.stopAtErrors !== true;
   const maxImageSize = Number.isInteger(src.maxImageSize) && src.maxImageSize > -1 ? src.maxImageSize : -1;
-  const isOffscreenCanvasSupported = typeof src.isOffscreenCanvasSupported === "boolean" ? src.isOffscreenCanvasSupported : !isNodeJS;
-  const isImageDecoderSupported = typeof src.isImageDecoderSupported === "boolean" ? src.isImageDecoderSupported : !isNodeJS;
+  const isOffscreenCanvasSupported = typeof src.isOffscreenCanvasSupported === "boolean" ? src.isOffscreenCanvasSupported : !(/* inlined export .isNodeJS */false);
+  const isImageDecoderSupported = typeof src.isImageDecoderSupported === "boolean" ? src.isImageDecoderSupported : !(/* inlined export .isNodeJS */false);
   const canvasMaxAreaInBytes = Number.isInteger(src.canvasMaxAreaInBytes) ? src.canvasMaxAreaInBytes : -1;
-  const disableFontFace = typeof src.disableFontFace === "boolean" ? src.disableFontFace : isNodeJS;
+  const disableFontFace = typeof src.disableFontFace === "boolean" ? src.disableFontFace : (/* inlined export .isNodeJS */false);
   const fontExtraProperties = src.fontExtraProperties === true;
   const enableXfa = src.enableXfa === true;
   const ownerDocument = src.ownerDocument || globalThis.document;
@@ -14187,13 +14187,13 @@ function getDocument(src = {}) {
   const pdfBug = src.pdfBug === true;
   const CanvasFactory = src.CanvasFactory || DOMCanvasFactory;
   const FilterFactory = src.FilterFactory || DOMFilterFactory;
-  const BinaryDataFactory = src.BinaryDataFactory || DOMBinaryDataFactory;
+  const BinaryDataFactory = src.BinaryDataFactory || (/* inlined export .DOMBinaryDataFactory */null);
   const enableHWA = src.enableHWA === true;
   const enableWebGPU = src.enableWebGPU === true;
   const gpuPromise = enableWebGPU ? initGPU() : Promise.resolve(false);
   const useWasm = src.useWasm !== false;
   const pagesMapper = src.pagesMapper || new PagesMapper();
-  const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !isNodeJS && !disableFontFace;
+  const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !(/* inlined export .isNodeJS */false) && !disableFontFace;
   const useWorkerFetch = typeof src.useWorkerFetch === "boolean" ? src.useWorkerFetch : true;
   const styleElement = null;
   setVerbosityLevel(verbosity);
@@ -14217,7 +14217,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.1.208",
+    apiVersion: "6.1.321",
     data,
     password,
     disableAutoFetch,
@@ -14479,6 +14479,12 @@ class PDFDocumentProxy {
   }
   getFieldObjects() {
     return this._transport.getFieldObjects();
+  }
+  getSignatures() {
+    return this._transport.getSignatures();
+  }
+  getSignatureData(id) {
+    return this._transport.getSignatureData(id);
   }
   hasJSActions() {
     return this._transport.hasJSActions();
@@ -15566,6 +15572,12 @@ class WorkerTransport {
   getFieldObjects() {
     return this.#cacheSimpleMethod("GetFieldObjects");
   }
+  getSignatures() {
+    return this.#cacheSimpleMethod("GetSignatures");
+  }
+  getSignatureData(id) {
+    return this.messageHandler.sendWithPromise("GetSignatureData", id);
+  }
   hasJSActions() {
     return this.#cacheSimpleMethod("HasJSActions");
   }
@@ -15866,8 +15878,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.1.208";
-const build = "25eae30e4";
+const version = "6.1.321";
+const build = "e39b23904";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -17208,9 +17220,7 @@ class LinkAnnotationElement extends AnnotationElement {
     if (data.overlaidText) {
       link.title = data.overlaidText;
     }
-    if (!link.onclick) {
-      link.onclick = () => false;
-    }
+    link.onclick ||= () => false;
     this.#setInternalLink();
   }
   _bindResetFormAction(link, resetForm) {
@@ -17415,12 +17425,12 @@ class WidgetAnnotationElement extends AnnotationElement {
     const roundToOneDecimal = x => Math.round(10 * x) / 10;
     if (this.data.multiLine) {
       const height = Math.abs(this.data.rect[3] - this.data.rect[1] - BORDER_SIZE);
-      const numberOfLines = Math.round(height / (LINE_FACTOR * fontSize)) || 1;
+      const numberOfLines = Math.round(height / ((/* inlined export .LINE_FACTOR */1.35) * fontSize)) || 1;
       const lineHeight = height / numberOfLines;
-      computedFontSize = Math.min(fontSize, roundToOneDecimal(lineHeight / LINE_FACTOR));
+      computedFontSize = Math.min(fontSize, roundToOneDecimal(lineHeight / (/* inlined export .LINE_FACTOR */1.35)));
     } else {
       const height = Math.abs(this.data.rect[3] - this.data.rect[1] - BORDER_SIZE);
-      computedFontSize = Math.min(fontSize, roundToOneDecimal(height / LINE_FACTOR));
+      computedFontSize = Math.min(fontSize, roundToOneDecimal(height / (/* inlined export .LINE_FACTOR */1.35)));
     }
     style.fontSize = `calc(${computedFontSize}px * var(--total-scale-factor))`;
     style.color = Util.makeHexColor(...fontColor);
@@ -19138,10 +19148,10 @@ class InkAnnotationElement extends AnnotationElement {
     g.setAttribute("stroke", "transparent");
     g.setAttribute("fill", "transparent");
     g.setAttribute("transform", transform);
-    for (let i = 0, ii = inkLists.length; i < ii; i++) {
+    for (const inkList of inkLists) {
       const polyline = this.svgFactory.createElement(this.svgElementName);
       this.#polylines.push(polyline);
-      polyline.setAttribute("points", inkLists[i].join(","));
+      polyline.setAttribute("points", inkList.join(","));
       g.append(polyline);
     }
     if (!popupRef && this.hasPopupData) {
@@ -24998,9 +25008,7 @@ class StampEditor extends AnnotationEditor {
     }
   }
   copyCanvas(maxDataDimension, maxPreviewDimension, createImageData = false) {
-    if (!maxDataDimension) {
-      maxDataDimension = 224;
-    }
+    maxDataDimension ||= 224;
     const {
       width: bitmapWidth,
       height: bitmapHeight
@@ -26825,6 +26833,7 @@ globalThis.pdfjsLib = {
   makeArr: makeArr,
   makeMap: makeMap,
   makeObj: makeObj,
+  makeSet: makeSet,
   MathClamp: MathClamp,
   noContextMenu: noContextMenu,
   normalizeUnicode: normalizeUnicode,
@@ -26855,4 +26864,4 @@ globalThis.pdfjsLib = {
   XfaLayer: XfaLayer
 };
 
-export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, version };
+export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, version };

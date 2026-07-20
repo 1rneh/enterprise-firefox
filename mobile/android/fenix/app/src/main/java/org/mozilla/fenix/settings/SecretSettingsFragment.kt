@@ -41,6 +41,7 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.showToolbar
 import org.mozilla.fenix.ext.showToolbarWithIconButton
+import org.mozilla.fenix.home.sports.hasWorldCupEnded
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.utils.SecretSettingsPrefDefaults
 import mozilla.components.ui.icons.R as iconsR
@@ -213,13 +214,8 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_mozilla_ads_client).apply {
-            isChecked = settings.enableMozillaAdsClient
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_unified_trust_panel).apply {
-            isChecked = settings.enableUnifiedTrustPanel
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_ads_client_for_stories).apply {
+            isChecked = settings.enableAdsClientForStories
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
@@ -359,6 +355,16 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_homepage_customization).apply {
+            isChecked = settings.enableHomepageCustomization
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_homepage_trending_recent_search).apply {
+            isChecked = settings.enableHomepageTrendingRecentSearch
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_persistent_debug_menu).apply {
             isVisible = true
             isChecked = settings.isDebugMenuPersistentlyRevealed
@@ -465,6 +471,8 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_homepage_sports_widget).apply {
+            // Hide the toggle once the World Cup is over — the widget is retired.
+            isVisible = !hasWorldCupEnded()
             isChecked = settings.enableHomepageSportsWidget
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }

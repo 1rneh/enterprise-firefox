@@ -16,9 +16,12 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.filter
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyChild
 import androidx.compose.ui.test.hasAnySibling
 import androidx.compose.ui.test.hasParent
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -65,10 +68,8 @@ import androidx.test.uiautomator.UiSelector
 import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.not
 import org.hamcrest.Matchers.containsString
-import org.mozilla.fenix.compose.snackbar.SNACKBAR_TEST_TAG
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper
-import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
@@ -342,43 +343,6 @@ abstract class BasePage(
         }
         rep?.endCmd(success = false, message = "No '${selector.description}' with child text '$text' after ${timeout}ms")
         throw AssertionError("No '${selector.description}' found with a child containing text '$text' after ${timeout}ms")
-    }
-
-    fun verifySnackbarText(text: String): BasePage {
-        val rep = rep()
-        rep?.startCmd(safeId("verify_snackbar", text), "Verifying snackbar with text '$text' is present...", 1)
-
-        val selector = Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
-            value = text,
-            description = "Snackbar with text '$text'",
-            groups = listOf("snackbar"),
-        )
-
-        try {
-            mozVerify(selector)
-            rep?.endCmd(success = true, message = "Snackbar with text '$text' verified")
-        } catch (e: Throwable) {
-            rep?.endCmd(success = false, message = "Snackbar with text '$text' not found")
-            throw e
-        }
-        return this
-    }
-
-    fun waitForSnackbarToBeDismissed(): BasePage {
-        val rep = rep()
-        rep?.startCmd(safeId("wait_snackbar", "snackbar"), "Waiting for snackbar to be dismissed...", 1)
-
-        try {
-            mDevice.findObject(
-                UiSelector().resourceId(SNACKBAR_TEST_TAG),
-            ).waitUntilGone(waitingTime)
-            rep?.endCmd(success = true, message = "Snackbar was dismissed")
-        } catch (e: Throwable) {
-            rep?.endCmd(success = false, message = "Snackbar did not dismiss within timeout")
-            throw e
-        }
-        return this
     }
 
     fun mozVerifyNoneContainText(selector: Selector, text: String): BasePage {
@@ -1148,6 +1112,14 @@ abstract class BasePage(
                 }
             }
 
+            SelectorStrategy.COMPOSE_EDITABLE_BY_ANCESTOR_TAG -> {
+                try {
+                    composeRule.onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag(selector.value)))
+                } catch (_: Exception) {
+                    Log.i("mozGetElement", "Editable compose node not found under tag: ${selector.value}"); null
+                }
+            }
+
             SelectorStrategy.ESPRESSO_BY_ID -> {
                 val resId = selector.toResourceId()
                 if (resId == 0) {
@@ -1225,6 +1197,19 @@ abstract class BasePage(
                 val obj = mDevice.findObject(UiSelector().resourceId(fullResId).text(textToMatch))
 
                 if (!obj.exists()) null else obj
+            }
+
+            SelectorStrategy.COMPOSE_BY_TEXT_SUBSTRING -> {
+                val node = composeRule
+                    .onAllNodesWithText(selector.value, substring = true, useUnmergedTree = true)
+                    .onFirst()
+                try {
+                    node.assertExists()
+                    node
+                } catch (_: AssertionError) {
+                    Log.i("mozGetElement", "Compose node not found for text substring: ${selector.value}")
+                    null
+                }
             }
         }
     }

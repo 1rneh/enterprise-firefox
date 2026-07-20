@@ -630,7 +630,7 @@ class MOZ_STACK_CLASS nsFrameConstructorState {
   nsCOMPtr<nsILayoutHistoryState> mFrameState;
   // These bits will be added to the state bits of any frame we construct
   // using this state.
-  nsFrameState mAdditionalStateBits{0};
+  nsFrameState mAdditionalStateBits = NS_FRAME_STATE_NONE;
 
   // If false (which is the default) then call SetPrimaryFrame() as needed
   // during frame construction.  If true, don't make any SetPrimaryFrame()
@@ -1065,7 +1065,7 @@ void nsFrameConstructorState::AddChild(
     bool aInsertAfter, nsIFrame* aInsertAfterFrame) {
   MOZ_ASSERT(!aNewFrame->GetNextSibling(), "Shouldn't happen");
 
-  nsFrameState placeholderType;
+  nsFrameState placeholderType = NS_FRAME_STATE_NONE;
   AbsoluteFrameList* outOfFlowFrameList = GetOutOfFlowFrameList(
       aNewFrame, aCanBePositioned, aCanBeFloated, &placeholderType);
 
@@ -1079,10 +1079,10 @@ void nsFrameConstructorState::AddChild(
     frameList = outOfFlowFrameList;
   } else {
     frameList = &aFrameList;
-    placeholderType = nsFrameState(0);
+    placeholderType = NS_FRAME_STATE_NONE;
   }
 
-  if (placeholderType) {
+  if (placeholderType != NS_FRAME_STATE_NONE) {
     NS_ASSERTION(frameList != &aFrameList,
                  "Putting frame in-flow _and_ want a placeholder?");
     nsIFrame* placeholderFrame =
@@ -4546,7 +4546,7 @@ nsCSSFrameConstructor::FindMathMLData(const Element& aElement,
   return &sMrowData;
 }
 
-nsContainerFrame* nsCSSFrameConstructor::ConstructFrameWithAnonymousChild(
+nsContainerFrame* nsCSSFrameConstructor::ConstructSVGFrameWithAnonymousChild(
     nsFrameConstructorState& aState, FrameConstructionItem& aItem,
     nsContainerFrame* aParentFrame, nsFrameList& aFrameList,
     ContainerFrameCreationFunc aConstructor,
@@ -4597,8 +4597,8 @@ nsContainerFrame* nsCSSFrameConstructor::ConstructFrameWithAnonymousChild(
         aState, aItem.mChildItems, innerFrame,
         aItem.mFCData->mBits & FCDATA_IS_WRAPPER_ANON_BOX, childList);
   } else {
-    ProcessChildren(aState, content, computedStyle, innerFrame, true, childList,
-                    false);
+    ProcessChildren(aState, content, computedStyle, innerFrame,
+                    /* aCanHaveGeneratedContent = */ false, childList, false);
   }
 
   // Set the inner wrapper frame's initial primary list
@@ -4612,7 +4612,7 @@ nsIFrame* nsCSSFrameConstructor::ConstructOuterSVG(
     nsFrameConstructorState& aState, FrameConstructionItem& aItem,
     nsContainerFrame* aParentFrame, const nsStyleDisplay* aDisplay,
     nsFrameList& aFrameList) {
-  return ConstructFrameWithAnonymousChild(
+  return ConstructSVGFrameWithAnonymousChild(
       aState, aItem, aParentFrame, aFrameList, NS_NewSVGOuterSVGFrame,
       NS_NewSVGOuterSVGAnonChildFrame, PseudoStyleType::MozSvgOuterSvgAnonChild,
       true);
@@ -4622,7 +4622,7 @@ nsIFrame* nsCSSFrameConstructor::ConstructMarker(
     nsFrameConstructorState& aState, FrameConstructionItem& aItem,
     nsContainerFrame* aParentFrame, const nsStyleDisplay* aDisplay,
     nsFrameList& aFrameList) {
-  return ConstructFrameWithAnonymousChild(
+  return ConstructSVGFrameWithAnonymousChild(
       aState, aItem, aParentFrame, aFrameList, NS_NewSVGMarkerFrame,
       NS_NewSVGMarkerAnonChildFrame, PseudoStyleType::MozSvgMarkerAnonChild,
       false);
@@ -5011,13 +5011,12 @@ nsCSSFrameConstructor::FindElementData(const Element& aElement,
                                        ItemFlags aFlags) {
   // Don't create frames for non-SVG element children of SVG elements.
   if (!aElement.IsSVGElement()) {
-    // NOTE: ::backdrop is explicitly allowed because it's out of flow, but we
-    // get here with other generated content and drop it here. We have
-    // mechanisms to drop this at the caller instead, which we should probably
-    // use.
+    // NOTE: Anon content is allowed, the native code should know what it's
+    // doing. In practice we care about ::backdrop and the
+    // custom-content-container.
     if (aParentFrame && IsFrameForSVG(aParentFrame) &&
         !aParentFrame->IsSVGForeignObjectFrame() &&
-        aStyle.GetPseudoType() != PseudoStyleType::Backdrop) {
+        !aElement.IsRootOfNativeAnonymousSubtree()) {
       return nullptr;
     }
     if (aFlags.contains(ItemFlag::IsWithinSVGText)) {
@@ -7407,13 +7406,14 @@ nsIFrame* nsCSSFrameConstructor::CreateContinuingFrame(
     newFrame = NS_NewBlockFrame(mPresShell, computedStyle);
     newFrame->Init(content, aParentFrame, aFrame);
   } else if (LayoutFrameType::ColumnSetWrapper == frameType) {
-    newFrame =
-        NS_NewColumnSetWrapperFrame(mPresShell, computedStyle, nsFrameState(0));
+    newFrame = NS_NewColumnSetWrapperFrame(mPresShell, computedStyle,
+                                           NS_FRAME_STATE_NONE);
     newFrame->Init(content, aParentFrame, aFrame);
   } else if (LayoutFrameType::ColumnSet == frameType) {
     MOZ_ASSERT(!aFrame->IsTableCaption(),
                "no support for fragmenting table captions yet");
-    newFrame = NS_NewColumnSetFrame(mPresShell, computedStyle, nsFrameState(0));
+    newFrame =
+        NS_NewColumnSetFrame(mPresShell, computedStyle, NS_FRAME_STATE_NONE);
     newFrame->Init(content, aParentFrame, aFrame);
   } else if (LayoutFrameType::PrintedSheet == frameType) {
     newFrame = ConstructPrintedSheetFrame(mPresShell, aParentFrame, aFrame);

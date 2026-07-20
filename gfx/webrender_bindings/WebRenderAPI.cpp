@@ -4,25 +4,24 @@
 
 #include "WebRenderAPI.h"
 
+#include "GLContext.h"
+#include "TextDrawTarget.h"
+#include "malloc_decls.h"
 #include "mozilla/Logging.h"
-#include "mozilla/ipc/ByteBuf.h"
-#include "mozilla/webrender/RendererOGL.h"
-#include "mozilla/gfx/gfxVars.h"
-#include "mozilla/layers/CompositorThread.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_webgl.h"
 #include "mozilla/ToString.h"
-#include "mozilla/webrender/RenderCompositor.h"
-#include "mozilla/widget/CompositorWidget.h"
-#include "mozilla/layers/CompositorBridgeParent.h"
-#include "mozilla/layers/SynchronousTask.h"
 #include "mozilla/XREAppData.h"
+#include "mozilla/gfx/gfxVars.h"
+#include "mozilla/ipc/ByteBuf.h"
+#include "mozilla/layers/CompositorBridgeParent.h"
+#include "mozilla/layers/CompositorThread.h"
+#include "mozilla/layers/SynchronousTask.h"
+#include "mozilla/webrender/RenderCompositor.h"
+#include "mozilla/webrender/RendererOGL.h"
+#include "mozilla/widget/CompositorWidget.h"
 #include "nsDisplayList.h"
 #include "nsThreadUtils.h"
-#include "TextDrawTarget.h"
-#include "malloc_decls.h"
-#include "GLContext.h"
-
 #include "source-repo.h"
 
 #ifdef MOZ_WIDGET_ANDROID
@@ -70,7 +69,7 @@ TransactionBuilder::TransactionBuilder(
     : mRemoteTextureTxnScheduler(aRemoteTextureTxnScheduler),
       mRemoteTextureTxnId(aRemoteTextureTxnId),
       mUseSceneBuilderThread(aUseSceneBuilderThread),
-      mApiBackend(aApi->GetBackendType()),
+      mCapabilities(aApi->GetCapabilities()),
       mOwnsData(true) {
   mTxn = wr_transaction_new(mUseSceneBuilderThread);
 }
@@ -84,7 +83,7 @@ TransactionBuilder::TransactionBuilder(
       mRemoteTextureTxnId(aRemoteTextureTxnId),
       mTxn(aTxn),
       mUseSceneBuilderThread(aUseSceneBuilderThread),
-      mApiBackend(aApi->GetBackendType()),
+      mCapabilities(aApi->GetCapabilities()),
       mOwnsData(aOwnsData) {}
 
 TransactionBuilder::~TransactionBuilder() {
@@ -343,10 +342,29 @@ RefPtr<WebRenderAPI::CreatePromise> WebRenderAPI::Create(
         // which block on the WebRenderAPI work can proceed immediately.
         renderThread->BeginShaderWarmupIfNeeded();
 
-        RefPtr<WebRenderAPI> api = new WebRenderAPI(
-            docHandle, aWindowId, backend, compositorType, maxTextureSize,
-            useANGLE, useDComp, useLayerCompositor, useTripleBuffering,
-            supportsExternalBufferTextures, syncHandle);
+#ifdef XP_DARWIN
+        wr::ImageBufferKind ioSurfaceImageKind = wr::ImageBufferKind::Texture2D;
+        if (gl && gl->GetPreferredMacIOSurfaceTextureTarget() ==
+                      LOCAL_GL_TEXTURE_RECTANGLE) {
+          ioSurfaceImageKind = wr::ImageBufferKind::TextureRect;
+        }
+#endif
+
+        const WebRenderCapabilities capabilities{
+            .mBackendType = backend,
+            .mCompositorType = compositorType,
+            .mMaxTextureSize = maxTextureSize,
+            .mUseANGLE = useANGLE,
+            .mUseDComp = useDComp,
+            .mUseLayerCompositor = useLayerCompositor,
+            .mUseTripleBuffering = useTripleBuffering,
+            .mSupportsExternalBufferTextures = supportsExternalBufferTextures,
+#ifdef XP_DARWIN
+            .mIOSurfaceImageKind = ioSurfaceImageKind,
+#endif
+        };
+        RefPtr<WebRenderAPI> api =
+            new WebRenderAPI(docHandle, aWindowId, capabilities, syncHandle);
         return CreatePromise::CreateAndResolve(std::move(api), __func__);
       });
 }
@@ -355,10 +373,8 @@ already_AddRefed<WebRenderAPI> WebRenderAPI::Clone() {
   wr::DocumentHandle* docHandle = nullptr;
   wr_api_clone(mDocHandle, &docHandle);
 
-  RefPtr<WebRenderAPI> renderApi = new WebRenderAPI(
-      docHandle, mId, mBackend, mCompositor, mMaxTextureSize, mUseANGLE,
-      mUseDComp, mUseLayerCompositor, mUseTripleBuffering,
-      mSupportsExternalBufferTextures, mSyncHandle, this, this);
+  RefPtr<WebRenderAPI> renderApi =
+      new WebRenderAPI(docHandle, mId, mCapabilities, mSyncHandle, this, this);
 
   return renderApi.forget();
 }
@@ -367,22 +383,14 @@ wr::WrIdNamespace WebRenderAPI::GetNamespace() {
   return wr_api_get_namespace(mDocHandle);
 }
 
-WebRenderAPI::WebRenderAPI(
-    wr::DocumentHandle* aHandle, wr::WindowId aId, WebRenderBackend aBackend,
-    WebRenderCompositor aCompositor, uint32_t aMaxTextureSize, bool aUseANGLE,
-    bool aUseDComp, bool aUseLayerCompositor, bool aUseTripleBuffering,
-    bool aSupportsExternalBufferTextures, layers::SyncHandle aSyncHandle,
-    wr::WebRenderAPI* aRootApi, wr::WebRenderAPI* aRootDocumentApi)
+WebRenderAPI::WebRenderAPI(wr::DocumentHandle* aHandle, wr::WindowId aId,
+                           WebRenderCapabilities aCapabilities,
+                           layers::SyncHandle aSyncHandle,
+                           wr::WebRenderAPI* aRootApi,
+                           wr::WebRenderAPI* aRootDocumentApi)
     : mDocHandle(aHandle),
       mId(aId),
-      mBackend(aBackend),
-      mCompositor(aCompositor),
-      mMaxTextureSize(aMaxTextureSize),
-      mUseANGLE(aUseANGLE),
-      mUseDComp(aUseDComp),
-      mUseLayerCompositor(aUseLayerCompositor),
-      mUseTripleBuffering(aUseTripleBuffering),
-      mSupportsExternalBufferTextures(aSupportsExternalBufferTextures),
+      mCapabilities(std::move(aCapabilities)),
       mCaptureSequence(false),
       mSyncHandle(aSyncHandle),
       mRendererDestroyed(false),

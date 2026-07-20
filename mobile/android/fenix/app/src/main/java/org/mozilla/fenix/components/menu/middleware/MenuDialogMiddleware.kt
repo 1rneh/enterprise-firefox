@@ -35,12 +35,15 @@ import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.BookmarkAction
 import org.mozilla.fenix.components.appstate.AppAction.FindInPageAction
 import org.mozilla.fenix.components.appstate.AppAction.ReaderViewAction
+import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
 import org.mozilla.fenix.components.bookmarks.BookmarksUseCase
 import org.mozilla.fenix.components.menu.store.BookmarkState
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
 import org.mozilla.fenix.components.menu.store.SummarizationMenuState
 import org.mozilla.fenix.components.metrics.MetricsUtils
+import org.mozilla.fenix.home.topsites.AddShortcutEntryPoint
+import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.summarization.eligibility.SummarizationEligibilityChecker
 import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryConfiguration
 import org.mozilla.fenix.summarization.onboarding.SummarizeDiscoveryEvent
@@ -154,18 +157,17 @@ class MenuDialogMiddleware(
     }
 
     private suspend fun setupPageSummarizationState(store: Store<MenuState, MenuAction>) {
-        val isNormalTab = store.state.browserMenuState?.selectedTab?.isNormalTab() ?: false
-        val isLoading = store.state.browserMenuState?.isLoading ?: false
+        val selectedTab = store.state.browserMenuState?.selectedTab
+        val isNormalTab = selectedTab?.isNormalTab() ?: false
+        val isSummarizationEligible = selectedTab.checkSummarizationEligibility()
+        val showMenuItem = summarizeMenuSettings.showMenuItem
 
         val summarizationState = SummarizationMenuState.Default.copy(
-            visible = summarizeMenuSettings.showMenuItem,
+            visible = showMenuItem,
             highlighted = summarizeMenuSettings.shouldHighlightMenuItem && isNormalTab,
             overflowMenuHighlighted = summarizeMenuSettings.shouldHighlightOverflowMenuItem && isNormalTab,
             showNewFeatureBadge = true,
-            enabled = summarizeMenuSettings.showMenuItem &&
-                    isNormalTab &&
-                    !isLoading &&
-                    store.state.browserMenuState?.selectedTab.checkSummarizationEligibility(),
+            enabled = showMenuItem && isNormalTab && isSummarizationEligible,
         )
         store.dispatch(
             MenuAction.InitializeSummarizationMenuState(summarizationState),
@@ -317,7 +319,10 @@ class MenuDialogMiddleware(
         )
 
         appStore.dispatch(
-            AppAction.ShortcutAction.ShortcutAdded,
+            ShortcutAction.ShortcutAdded(
+                source = AddShortcutSource.MANUAL,
+                entryPoint = AddShortcutEntryPoint.PAGE_MENU,
+            ),
         )
 
         onDismiss()

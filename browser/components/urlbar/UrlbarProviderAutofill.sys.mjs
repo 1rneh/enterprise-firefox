@@ -535,10 +535,10 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
       UrlbarUtils.clearAutofillBackspaceEntryForUrl(result.payload.url);
 
       // Upon removing the autofill, we should do another search.
-      controller.input._setValue(queryContext.searchString);
+      controller.input.setValue(queryContext.searchString);
       controller.input.startQuery({
         searchString: queryContext.searchString,
-        allowAutofill: false,
+        allowAutofill: true,
         resetSearchState: false,
       });
     }
@@ -563,7 +563,7 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
         resultArray.push({
           name: RESULT_MENU_COMMANDS.DISMISS_AUTOFILL,
           l10n: {
-            id: "urlbar-result-menu-dismiss-suggestion",
+            id: "urlbar-result-menu-dismiss-suggestion2",
           },
         });
       }
@@ -573,7 +573,7 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
         resultArray.push({
           name: RESULT_MENU_COMMANDS.DISMISS,
           l10n: {
-            id: "urlbar-result-menu-remove-from-history",
+            id: "urlbar-result-menu-remove-from-history2",
           },
         });
       }
@@ -1231,7 +1231,7 @@ export class UrlbarProviderAutofill extends UrlbarProvider {
         title: title ?? originUrl,
         icon: UrlbarUtils.getIconForUrl(originUrl),
         isBlockable: true,
-        blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+        blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
         helpUrl:
           Services.urlFormatter.formatURLPref("app.support.baseURL") +
           "awesome-bar-result-menu",

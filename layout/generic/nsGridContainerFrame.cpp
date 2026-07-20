@@ -433,6 +433,7 @@ enum class GridLineSide {
 
 struct nsGridContainerFrame::TrackSize {
   enum StateBits : uint16_t {
+    eNone = 0,
     eAutoMinSizing = 1 << 0,
     eMinContentMinSizing = 1 << 1,
     eMaxContentMinSizing = 1 << 2,
@@ -2540,7 +2541,7 @@ struct nsGridContainerFrame::Tracks {
   explicit Tracks(LogicalAxis aAxis)
       : mContentBoxSize(NS_UNCONSTRAINEDSIZE),
         mGridGap(NS_UNCONSTRAINEDSIZE),
-        mStateUnion(TrackSize::StateBits{0}),
+        mStateUnion(TrackSize::StateBits::eNone),
         mAxis(aAxis),
         mCanResolveLineRangeSize(false),
         mIsMasonry(false) {
@@ -6260,7 +6261,7 @@ void nsGridContainerFrame::Tracks::CalculateSizes(
 TrackSize::StateBits nsGridContainerFrame::Tracks::StateBitsForRange(
     const LineRange& aRange) const {
   MOZ_ASSERT(!aRange.IsAuto(), "must have a definite range");
-  TrackSize::StateBits state = TrackSize::StateBits{0};
+  TrackSize::StateBits state = TrackSize::StateBits::eNone;
   for (auto i : aRange.Range()) {
     state |= mSizes[i].mState;
   }
@@ -7246,7 +7247,7 @@ void nsGridContainerFrame::Tracks::ResolveIntrinsicSize(
     // one span size.
     for (; spanGroupStart != end; spanGroupStart = spanGroupEnd) {
       const uint32_t span = spanGroupStart->mSpan;
-      TrackSize::StateBits stateBitsForSpan{0};
+      TrackSize::StateBits stateBitsForSpan = TrackSize::StateBits::eNone;
       MOZ_ASSERT(spanGroupEnd == spanGroupStart);
       // Find the end of this group if items with the same span size.
       // Accumulate state bits for the items with this span size to avoid
@@ -7317,7 +7318,7 @@ void nsGridContainerFrame::Tracks::ResolveIntrinsicSize(
     }
 
     // Step 4
-    TrackSize::StateBits stateBitsForSpan{0};
+    TrackSize::StateBits stateBitsForSpan = TrackSize::StateBits::eNone;
     for (const SpanningItemData& spanningData : flexSpanningItems) {
       const TrackSize::StateBits bits =
           StateBitsForRange(spanningData.mLineRange);
@@ -8776,9 +8777,10 @@ nscoord nsGridContainerFrame::MasonryLayout(GridReflowInput& aGridRI,
       //  don't affect intrinsic sizing in any way)
       GridItemInfo* item = nullptr;
       auto* ph = static_cast<nsPlaceholderFrame*>(child);
-      if (ph->GetOutOfFlowFrame()->GetParent() == this) {
+      auto* oof = ph->GetOutOfFlowFrame();
+      if (oof && oof->GetParent() == this) {
         item = &aGridRI.mAbsPosItems[absposIndex++];
-        MOZ_RELEASE_ASSERT(item->mFrame == ph->GetOutOfFlowFrame());
+        MOZ_RELEASE_ASSERT(item->mFrame == oof);
         auto masonryStart = item->mArea.LineRangeForAxis(masonryAxis).mStart;
         // If the item was placed by the author at line 1 (masonryStart == 0)
         // then include it to be placed at the masonry-box start.  If it's
@@ -10049,7 +10051,7 @@ void nsGridContainerFrame::UpdateSubgridFrameState() {
 }
 
 nsFrameState nsGridContainerFrame::ComputeSelfSubgridMasonryBits() const {
-  nsFrameState bits = nsFrameState(0);
+  nsFrameState bits = NS_FRAME_STATE_NONE;
   const auto* pos = StylePosition();
 
   // We can only have masonry layout in one axis.
@@ -10132,7 +10134,7 @@ void nsGridContainerFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
     AddStateBits(NS_FRAME_FONT_INFLATION_FLOW_ROOT);
   }
 
-  nsFrameState bits = nsFrameState(0);
+  nsFrameState bits = NS_FRAME_STATE_NONE;
   if (MOZ_LIKELY(!aPrevInFlow)) {
     bits = ComputeSelfSubgridMasonryBits();
   } else {

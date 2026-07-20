@@ -149,6 +149,8 @@
   <string name="home_screen_shortcut_open_new_private_tab_2">Νέα ιδιωτική καρτέλα</string>
   <!-- Shortcut action to open Passwords screen -->
   <string name="home_screen_shortcut_passwords">Κωδικοί πρόσβασης</string>
+  <!-- Shortcut action to open uninstall survey -->
+  <string name="home_screen_shortcut_uninstall_survey">Απεγκατάσταση, γιατί;</string>
   <!--
     Recent Tabs
 
@@ -626,12 +628,12 @@
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
   <string name="nova_onboarding_marketing_body_2" tools:ignore="BrandUsage">Μοιραστείτε πώς ανακαλύψατε το Firefox και δηλώστε ότι το χρησιμοποιείτε στους συνεργάτες μάρκετινγκ της Mozilla. Αυτά τα δεδομένα δεν θα πωληθούν ποτέ.</string>
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage">Μπορείτε να μας βοηθήσετε να διευρύνουμε τη βάση των χρηστών μας επιτρέποντας στη Mozilla να ενημερώνει τα κανάλια στα οποία προωθούμε το Firefox, ότι είστε χρήστης του Firefox.</string>
+  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage,UnusedResources">Μπορείτε να μας βοηθήσετε να διευρύνουμε τη βάση των χρηστών μας επιτρέποντας στη Mozilla να ενημερώνει τα κανάλια στα οποία προωθούμε το Firefox, ότι είστε χρήστης του Firefox.</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
   -->
-  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage">Μπορείτε να μας βοηθήσετε να διευρύνουμε τη βάση των χρηστών μας επιτρέποντας στη Mozilla να ενημερώσει την πλατφόρμα από την οποία ήρθατε, ότι χρησιμοποιείτε το Firefox.</string>
+  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage,UnusedResources">Μπορείτε να μας βοηθήσετε να διευρύνουμε τη βάση των χρηστών μας επιτρέποντας στη Mozilla να ενημερώσει την πλατφόρμα από την οποία ήρθατε, ότι χρησιμοποιείτε το Firefox.</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
@@ -661,11 +663,15 @@
   <!-- Marketing onboarding body link text. -->
   <string name="nova_onboarding_marketing_body_link_text_1">Μάθετε περισσότερα</string>
   <!-- Marketing onboarding primary button text. 'Firefox' is intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage">Βοηθήστε το Firefox</string>
+  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage,UnusedResources">Βοηθήστε το Firefox</string>
+  <!-- Marketing onboarding primary button text. -->
+  <string name="nova_onboarding_marketing_primary_button_text_3">Ναι</string>
   <!-- Marketing onboarding primary button text. -->
   <string name="nova_onboarding_marketing_primary_button_text_2">Αποδοχή και συνέχεια</string>
   <!-- Marketing onboarding secondary button text. -->
-  <string name="nova_onboarding_marketing_secondary_button_text">Όχι, ευχαριστώ</string>
+  <string name="nova_onboarding_marketing_secondary_button_text" tools:ignore="UnusedResources">Όχι, ευχαριστώ</string>
+  <!-- Marketing onboarding secondary button text. -->
+  <string name="nova_onboarding_marketing_secondary_button_text_2">Όχι</string>
   <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Οι ειδοποιήσεις σάς βοηθούν να παραμένετε ασφαλείς με το Firefox</string>
   <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
@@ -1535,6 +1541,8 @@
   <string name="add_tab">Προσθήκη καρτέλας</string>
   <!-- Content description (not visible, for screen readers etc.): Add tab button. Adds a news tab when pressed -->
   <string name="add_private_tab">Προσθήκη ιδιωτικής καρτέλας</string>
+  <!-- Content description (not visible, for screen readers etc.): Create tab group button. Opens the create tab group sheet when pressed -->
+  <string name="create_tab_group_content_description">Δημιουργία ομάδας καρτελών</string>
   <!-- Text for the tab search bar placeholder -->
   <string name="tab_manager_search_bar_placeholder">Αναζήτηση καρτελών</string>
   <!-- Text shown in the menu to view recently closed tabs -->
@@ -1965,6 +1973,10 @@
   <string name="webcompat_reporter_label_whats_broken_3">Τι δεν λειτουργεί;</string>
   <!-- Content description for the icon button that clears the selected broken site reason in the WebCompat Reporter. -->
   <string name="webcompat_reporter_clear_reason_content_description">Απαλοιφή επιλεγμένου λόγου</string>
+  <!-- The error message of the description when the user selects "Something else" as the reason, but left the description empty or too short. -->
+  <string name="webcompat_reporter_description_error">Εισαγάγετε τουλάχιστον 10 χαρακτήρες</string>
+  <!-- The label/title of a mandatory field in the Web Compat Reporter feature for adding additional information. -->
+  <string name="webcompat_reporter_label_mandatory_description">Περιγράψτε το πρόβλημα λεπτομερώς για να μας βοηθήσετε να διερευνήσουμε το ζήτημα</string>
   <!-- The label/title of a field in the Web Compat Reporter feature for explaining a high-level reason why the site is broken. -->
   <string name="webcompat_reporter_label_whats_broken_2">Τι δεν λειτουργεί;</string>
   <!-- The placeholder text for the dropdown where a user selects a high-level reason why the site is broken. -->
@@ -1979,6 +1991,8 @@
   <string name="webcompat_reporter_add_more_info">Προσθήκη περισσότερων πληροφοριών</string>
   <!-- The button text for the cancel button to leave the Web Compat Reporter feature. -->
   <string name="webcompat_reporter_cancel">Ακύρωση</string>
+  <!-- The button text for the send button to submit the provided form data. -->
+  <string name="webcompat_reporter_send_report">Αποστολή αναφοράς</string>
   <!-- The button text for the send button to submit the provided form data. -->
   <string name="webcompat_reporter_send">Αποστολή</string>
   <!-- Text for a snackbar to confirm the successful submission of a WebCompat report. -->
@@ -2447,6 +2461,8 @@
   <string name="preferences_take_survey">Έναρξη έρευνας</string>
   <!-- Preference for not taking the short survey. -->
   <string name="preferences_not_take_survey">Όχι, ευχαριστώ</string>
+  <!-- Error message shown in a Toast when the system fails to trigger the device uninstallation prompt. -->
+  <string name="uninstall_survey_error_failed">Αποτυχία ανοίγματος της προτροπής απεγκατάστασης, χρησιμοποιήστε απευθείας την ενέργεια απεγκατάστασης του συστήματος.</string>
   <!--
     Snackbar
 
@@ -2595,7 +2611,11 @@
     Link displayed in enhanced tracking protection panel to access tracking protection settings
   -->
   <string name="etp_settings">Ρυθμίσεις προστασίας</string>
-  <!-- Preference title for enhanced tracking protection settings -->
+  <!--
+    Enhanced Tracking Protection
+
+    Preference title for enhanced tracking protection settings
+  -->
   <string name="preference_enhanced_tracking_protection">Ενισχυμένη προστασία από καταγραφή</string>
   <!-- Preference summary for enhanced tracking protection settings on/off switch -->
   <string name="preference_enhanced_tracking_protection_summary">Τώρα με Ολική προστασία cookie, η πιο ισχυρή μας φύλαξη ενάντια στους ιχνηλάτες μεταξύ ιστοτόπων.</string>
@@ -3943,6 +3963,8 @@
     %s is a placeholder for the name of the certificate authority that issued the certificate.
   -->
   <string name="connection_security_panel_verified_by">Επαλήθευση από %s</string>
+  <!-- Content description (not visible, for screen readers etc.) for the handle used to drag the protections dashboard to the bottom of the screen and close it. -->
+  <string name="tracker_protections_dashboard_close_handlebar_content_description">Κλείσιμο πίνακα ελέγχου</string>
   <!--
     Text for the connection security panel when the site uses a QWAC.
     %s is a placeholder for the organization for which the certificate was issued.
@@ -4066,6 +4088,26 @@
   <string name="microsurvey_sync_title" tools:ignore="BrandUsage,UnusedResources">Πόσο ικανοποιημένοι είστε με την εμπειρία συγχρονισμού στο Firefox;</string>
   <!-- Text shown in the survey title for 'describe your experience so far' microsurvey. Note: The word "Firefox" should NOT be translated. -->
   <string name="microsurvey_describe_your_experience_title" tools:ignore="BrandUsage,UnusedResources">Βοηθήστε μας να βελτιώσουμε το Firefox. Τι περιγράφει καλύτερα την εμπειρία σας μέχρι στιγμής;</string>
+  <!--
+    Uninstall Survey
+
+    Title text for the uninstall survey dialog, asking the user for the reason they are removing the app
+  -->
+  <string name="microsurvey_uninstall_survey_title">Τα σχόλιά σας έχουν σημασία. Γιατί κάνετε απεγκατάσταση;</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_1_v2">Είναι αργό ή αναξιόπιστο</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_2_v2">Οι ιστοσελίδες δεν λειτουργούσαν σωστά</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_3_v2">Χρειάζομαι λειτουργίες που λείπουν</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_4_v2">Τα βίντεο, οι λήψεις ή τα πολυμέσα δεν λειτουργούσαν</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_5_v2">Είναι δύσκολο στη χρήση ή κακοσχεδιασμένο</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_6_v2">Ανησυχίες σχετικά με το απόρρητο ή την ασφάλεια</string>
+  <!-- Button label shown at the bottom of the uninstall survey -->
+  <string name="uninstall_survey_button_label">Υποβολή σχολίων και απεγκατάσταση</string>
   <!--
     Accessibility
 
@@ -4657,6 +4699,22 @@
   <string name="context_menu_open_image_with_google_lens">Αναζήτηση με Google Lens</string>
   <!-- Toast shown when the user denies the camera permission requested by the Lens camera screen -->
   <string name="lens_camera_permission_denied">Απαγορεύεται η πρόσβαση</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the photo they capture will be sent to Google Lens for a visual search.
+  -->
+  <string name="lens_camera_title_lens">Google Lens</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the camera is being used to scan a QR code.
+  -->
+  <string name="lens_camera_title_qr">Κωδικός QR</string>
+  <!-- Title for the Google Lens Search Settings page feature toggle -->
+  <string name="search_settings_google_lens_title">Ενεργοποίηση αναζήτησης Google Lens</string>
+  <!-- Description for the Google Lens Search Settings page feature toggle -->
+  <string name="search_settings_google_lens_description">Στέλνει εικόνες και φωτογραφίες στην Google για οπτική αναζήτηση.</string>
+  <!-- Caption shown under the Google Lens toggle clarifying when the feature is available -->
+  <string name="preferences_google_lens_availability_caption">Διατίθεται μόνο όταν το Google είναι ενεργοποιημένο παραπάνω και αποτελεί την ενεργή μηχανή αναζήτησης κατά την περιήγηση.</string>
   <!-- Title for the Google Lens AI feature toggle -->
   <string name="ai_controls_google_lens_title">Google Lens</string>
   <!-- Description for the Google Lens AI feature toggle -->
@@ -4703,6 +4761,8 @@
   <string name="firefox_labs_feature_enable_dialog_message">Για να ενεργοποιήσετε αυτήν τη λειτουργία, επανεκκινήστε το %s.</string>
   <!-- The description text that is displayed in the confirmation dialog on the Firefox Labs screen for toggling "off" experimental features. %s is the name of the app (for example "Firefox Nightly") -->
   <string name="firefox_labs_feature_disable_dialog_message">Για να απενεργοποιήσετε αυτήν τη λειτουργία, επανεκκινήστε το %s.</string>
+  <!-- Helper text shown beneath a Firefox Labs item when it is blocked from being turned on. -->
+  <string name="firefox_labs_feature_conflict">Η λειτουργία δεν είναι διαθέσιμη για δοκιμή.</string>
   <!-- Text displayed on the Firefox Labs screen when there are no Labs experimental features present. -->
   <string name="firefox_labs_no_labs_available_description">Δεν υπάρχουν πειραματικές λειτουργίες αυτήν τη στιγμή</string>
 </resources>

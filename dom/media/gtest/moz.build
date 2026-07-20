@@ -22,13 +22,16 @@ LOCAL_INCLUDES += [
 
 UNIFIED_SOURCES += [
     "MockMediaResource.cpp",
+    "TestADTSDemuxer.cpp",
     "TestAOMDecoder.cpp",
     "TestAsyncLogger.cpp",
     "TestAudioBuffer.cpp",
     "TestAudioBufferAddWithScale.cpp",
     "TestAudioBuffers.cpp",
     "TestAudioCallbackDriver.cpp",
+    "TestAudioClock.cpp",
     "TestAudioCompactor.cpp",
+    "TestAudioConfig.cpp",
     "TestAudioData.cpp",
     "TestAudioDecoderInputTrack.cpp",
     "TestAudioInputSource.cpp",
@@ -135,6 +138,7 @@ if CONFIG["MOZ_WEBRTC"] and CONFIG["OS_TARGET"] != "Android":
     ]
 
 TEST_HARNESS_FILES.gtest += [
+    "../test/adts.aac",
     "../test/av1.mp4",
     "../test/gizmo-frag.mp4",
     "../test/gizmo.mp4",

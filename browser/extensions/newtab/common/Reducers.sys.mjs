@@ -4,11 +4,22 @@
 
 import { actionTypes as at } from "resource://newtab/common/Actions.mjs";
 import { Dedupe } from "resource:///modules/Dedupe.sys.mjs";
+// Namespace import: a named import of an export missing on older train-hop
+// platforms is a link error; a namespace member is just undefined.
+import * as PlatformTopSitesConstants from "resource:///modules/topsites/constants.mjs";
 
 export {
   TOP_SITES_DEFAULT_ROWS,
   TOP_SITES_MAX_SITES_PER_ROW,
 } from "resource:///modules/topsites/constants.mjs";
+
+// @backward-compat { version 154 }
+// TOP_SITES_MAX_ROWS lands in platform constants.mjs in 154; until that reaches
+// Release it's absent on train-hop, so fall back to 4. At 154-Release: drop the
+// namespace import above, delete this shim, and add TOP_SITES_MAX_ROWS to the
+// re-export block above.
+export const TOP_SITES_MAX_ROWS =
+  PlatformTopSitesConstants.TOP_SITES_MAX_ROWS ?? 4;
 
 const dedupe = new Dedupe(site => site && site.url);
 
@@ -135,6 +146,17 @@ export const INITIAL_STATE = {
     // For can be a queue in the future, but for now is one item
     toastQueue: [],
   },
+  // Snapshot of the platform NotificationDB (persisted web notifications).
+  // Distinct from `Notifications` above, which is in-newtab toast UI state.
+  // Normalized: `notifications` is the canonical id-keyed table; `byOrigin`
+  // is an id-only index. Fed by WebNotificationsFeed.
+  WebNotifications: {
+    initialized: false,
+    lastUpdated: null,
+    notifications: {},
+    byOrigin: {},
+    error: null,
+  },
   InferredPersonalization: {
     initialized: false,
     lastUpdated: null,
@@ -179,6 +201,24 @@ export const INITIAL_STATE = {
     suggestedLocations: [],
   },
   // Widgets
+  Stocks: {
+    tickers: [],
+    lastUpdated: null,
+  },
+  PictureOfTheDay: {
+    initialized: false,
+    lastUpdated: null,
+    imageUrl: "",
+    thumbnailUrl: "",
+    title: "",
+    description: "",
+    publishedDate: "",
+    sourceUrl: "",
+    author: "",
+    licenseLabel: "",
+    licenseUrl: "",
+    error: null,
+  },
   ListsWidget: {
     // value pointing to last selectled list
     selected: "taskList",
@@ -465,6 +505,10 @@ function Prefs(prevState = INITIAL_STATE.Prefs, action) {
       newValues = Object.assign({}, prevState.values);
       newValues[action.data.name] = action.data.value;
       return Object.assign({}, prevState, { values: newValues });
+    case at.MULTIPLE_PREFS_CHANGED:
+      return Object.assign({}, prevState, {
+        values: Object.assign({}, prevState.values, action.data.values),
+      });
     default:
       return prevState;
   }
@@ -1098,6 +1142,27 @@ function Notifications(prevState = INITIAL_STATE.Notifications, action) {
   }
 }
 
+function WebNotifications(prevState = INITIAL_STATE.WebNotifications, action) {
+  switch (action.type) {
+    case at.WEB_NOTIFICATIONS_UPDATED:
+      return {
+        ...prevState,
+        initialized: true,
+        lastUpdated: action.data.lastUpdated,
+        notifications: action.data.notifications,
+        byOrigin: action.data.byOrigin,
+        error: null,
+      };
+    case at.WEB_NOTIFICATIONS_ERROR:
+      return {
+        ...prevState,
+        error: action.data,
+      };
+    default:
+      return prevState;
+  }
+}
+
 function Weather(prevState = INITIAL_STATE.Weather, action) {
   switch (action.type) {
     case at.WEATHER_UPDATE:
@@ -1121,6 +1186,29 @@ function Weather(prevState = INITIAL_STATE.Weather, action) {
       return prevState;
   }
 }
+
+const PictureOfTheDay = (prevState = INITIAL_STATE.PictureOfTheDay, action) => {
+  switch (action.type) {
+    case at.PICTURE_OF_THE_DAY_UPDATE:
+      return {
+        ...prevState,
+        imageUrl: action.data.imageUrl ?? "",
+        thumbnailUrl: action.data.thumbnailUrl ?? "",
+        title: action.data.title ?? "",
+        description: action.data.description ?? "",
+        publishedDate: action.data.publishedDate ?? "",
+        sourceUrl: action.data.sourceUrl ?? "",
+        author: action.data.author ?? "",
+        licenseLabel: action.data.licenseLabel ?? "",
+        licenseUrl: action.data.licenseUrl ?? "",
+        lastUpdated: action.data.lastUpdated ?? null,
+        error: action.data.error ?? null,
+        initialized: true,
+      };
+    default:
+      return prevState;
+  }
+};
 
 function PrivacyWidget(prevState = INITIAL_STATE.PrivacyWidget, action) {
   switch (action.type) {
@@ -1232,6 +1320,19 @@ function TimerWidget(prevState = INITIAL_STATE.TimerWidget, action) {
           startTime: null,
           isRunning: false,
         },
+      };
+    default:
+      return prevState;
+  }
+}
+
+function Stocks(prevState = INITIAL_STATE.Stocks, action) {
+  switch (action.type) {
+    case at.WIDGETS_STOCKS_UPDATE:
+      return {
+        ...prevState,
+        tickers: action.data.tickers,
+        lastUpdated: action.data.lastUpdated,
       };
     default:
       return prevState;
@@ -1381,6 +1482,7 @@ export const reducers = {
   Sections,
   Messages,
   Notifications,
+  WebNotifications,
   Pocket,
   InferredPersonalization,
   DiscoveryStream,
@@ -1390,7 +1492,9 @@ export const reducers = {
   Wallpapers,
   SectionsLayout,
   Weather,
+  Stocks,
   ExternalComponents,
   SportsWidget,
   PrivacyWidget,
+  PictureOfTheDay,
 };

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "builtin/WeakMapObject-inl.h"
+#include "js/WeakMap.h"
 
 #include "builtin/WeakSetObject.h"
 #include "gc/GC.h"
@@ -10,12 +10,12 @@
 #include "jit/InlinableNatives.h"
 #include "js/friend/ErrorMessages.h"  // JSMSG_*
 #include "js/PropertySpec.h"
-#include "js/WeakMap.h"
 #include "vm/Compartment.h"
 #include "vm/JSContext.h"
 #include "vm/SelfHosting.h"
 
 #include "builtin/MapObject-inl.h"
+#include "builtin/WeakMapObject-inl.h"
 #include "gc/GCContext-inl.h"
 #include "gc/WeakMap-inl.h"
 #include "vm/NativeObject-inl.h"
@@ -279,7 +279,8 @@ void WeakCollectionObject::trace(JSTracer* trc, JSObject* obj) {
 }
 
 JS_PUBLIC_API JSObject* JS::NewWeakMapObject(JSContext* cx) {
-  JSObject* obj = NewTenuredBuiltinClassInstance<WeakMapObject>(cx);
+  JSObject* obj =
+      NewBuiltinClassInstance<WeakMapObject>(cx, {.newKind = TenuredObject});
   MOZ_ASSERT_IF(obj, obj->isTenured());
   return obj;
 }
@@ -378,8 +379,8 @@ bool WeakMapObject::construct(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  Rooted<WeakMapObject*> obj(cx, NewObjectWithClassProtoAndKind<WeakMapObject>(
-                                     cx, proto, TenuredObject));
+  Rooted<WeakMapObject*> obj(cx, NewObjectWithClassProto<WeakMapObject>(
+                                     cx, proto, {.newKind = TenuredObject}));
   if (!obj) {
     return false;
   }

@@ -17,6 +17,8 @@ const FIRSTRUN_URL = "chrome://browser/content/aiwindow/firstrun.html";
 const FIRSTRUN_URI = Services.io.newURI(FIRSTRUN_URL);
 const PREF_SMARTWINDOW_ENABLED = "browser.smartwindow.enabled";
 const PREF_SMARTWINDOW_CONSENT_TIME = "browser.smartwindow.tos.consentTime";
+const PREF_SMARTWINDOW_LAST_USAGE_TIME =
+  "browser.smartwindow.lastSmartWindowUsageTime";
 const PREF_AI_CONTROL_SMARTWINDOW = "browser.ai.control.smartWindow";
 const PREF_AI_CONTROL_DEFAULT = "browser.ai.control.default";
 const PREF_MEMORIES_CONVERSATION =
@@ -42,10 +44,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
   ChatStore:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs",
+  CustomizableUI:
+    "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   MemoryStore:
     "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs",
   NewTabPagePreloading:
     "moz-src:///browser/components/tabbrowser/NewTabPagePreloading.sys.mjs",
+  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   ONLOGOUT_NOTIFICATION: "resource://gre/modules/FxAccountsCommon.sys.mjs",
   PanelMultiView:
     "moz-src:///browser/components/customizableui/PanelMultiView.sys.mjs",
@@ -76,6 +81,7 @@ export const AIWindow = {
   _initialized: false,
   _windowStates: new WeakMap(),
   _aiWindowMenu: null,
+  _switcherWidgetCreated: false,
 
   /**
    * A WeakMap<window, AIWindowTabStatesManager> that keeps references
@@ -90,8 +96,7 @@ export const AIWindow = {
   init(win) {
     if (!this._windowStates.has(win)) {
       this._windowStates.set(win, {});
-      this.initializeAITabsToolbar(win);
-      this._updateToolbarButtonPositions(win);
+      this._updateHamburgerMenuPosition(win);
       this._initializeAskButtonOnToolbox(win);
       const windowArgs = win?.arguments?.[1];
       if (
@@ -130,7 +135,9 @@ export const AIWindow = {
     Services.obs.addObserver(this, "tabstrip-orientation-change");
     lazy.SmartWindowTelemetry.init();
     lazy.getAllModelsData(); // loads model data into cache for about:preferences
+    lazy.NimbusFeatures.smartWindow.onUpdate(this.onNimbusUpdate);
     this._initialized = true;
+    this._updateSwitcherWidgetRegistration();
 
     // On startup/restart, if the first window initialized is an
     // AI window, we need to start the memories schedulers.
@@ -173,7 +180,15 @@ export const AIWindow = {
       this.handlePlacesEvents
     );
 
+    lazy.NimbusFeatures.smartWindow.offUpdate(this.onNimbusUpdate);
+
     this._initialized = false;
+  },
+
+  onNimbusUpdate() {
+    if (lazy.NimbusFeatures.smartWindow.getVariable("enabled")) {
+      Services.prefs.setBoolPref(PREF_SMARTWINDOW_ENABLED, true);
+    }
   },
 
   observe(_subject, topic) {
@@ -267,7 +282,11 @@ export const AIWindow = {
   },
 
   _onAIWindowEnabledPrefChange() {
-    this._forEachWindow(win => this._updateButtonVisibility(win));
+    this._updateSwitcherWidgetRegistration();
+    const widget = lazy.CustomizableUI.getWidget("ai-window-toggle");
+    for (const { node } of widget?.instances ?? []) {
+      this._updateButtonVisibility(node);
+    }
     Services.prefs.setBoolPref(
       PREF_SEMANTIC_HISTORY_SMARTWINDOW_FEATURE_GATE,
       this.isAvailable
@@ -277,20 +296,27 @@ export const AIWindow = {
     }
   },
 
-  _updateButtonVisibility(win) {
-    const isPrivateWindow = lazy.PrivateBrowsingUtils.isWindowPrivate(win);
-    const modeSwitcherButton = win.document.getElementById("ai-window-toggle");
-    if (modeSwitcherButton) {
-      modeSwitcherButton.hidden = !this.isAIWindowEnabled() || isPrivateWindow;
+  _updateButtonVisibility(node) {
+    if (node) {
+      node.hidden = !this.isAIWindowEnabled();
     }
   },
 
   _onTabstripOrientationChange() {
-    this._forEachWindow(win => this._updateToolbarButtonPositions(win));
+    this._forEachWindow(win => this._updateHamburgerMenuPosition(win));
   },
 
-  _updateToolbarButtonPositions(win, { isToggling = false } = {}) {
-    const modeSwitcherButton = win.document.getElementById("ai-window-toggle");
+  /**
+   * Move the hamburger menu next to the window controls on Smart Window and Vertical
+   * tabs, and restores it to its default nav-bar position for Classic.
+   * The mode switcher button itself is a customizable widget, so its
+   * placement is owned by CustomizableUI and not touched here.
+   *
+   * @param {Window} win The window to update.
+   * @param {object} [options]
+   * @param {boolean} [options.isToggling]
+   */
+  _updateHamburgerMenuPosition(win, { isToggling = false } = {}) {
     const hamburgerMenu = win.document.getElementById("PanelUI-button");
     const targetToolbar = win.document.getElementById(
       this.verticalTabsEnabled ? "nav-bar" : "TabsToolbar"
@@ -299,10 +325,8 @@ export const AIWindow = {
       ".titlebar-buttonbox-container"
     );
 
-    titlebarContainer.after(modeSwitcherButton);
-
     if (this.isAIWindowActive(win) || this.verticalTabsEnabled) {
-      modeSwitcherButton.after(hamburgerMenu);
+      titlebarContainer.after(hamburgerMenu);
     } else if (isToggling) {
       // Restore hamburger menu to its original position in nav-bar.
       const postTabsSpacer = win.document
@@ -357,6 +381,7 @@ export const AIWindow = {
     ) {
       return;
     }
+
     if (this.isAIWindowActive(win)) {
       // Window already opened as Smart via the BrowserContentHandler
       // startup gate, which uses ToS consentTime as a synchronous proxy for
@@ -369,6 +394,19 @@ export const AIWindow = {
       return;
     }
     await this._authorizeAndToggleWindow(win, "startup");
+  },
+
+  /**
+   * Records the current time (in seconds) as the last time a Smart Window was
+   * in use. Called whenever a Smart Window goes away — either by switching back
+   * to classic or by closing the window — so message targeting can measure how
+   * long it has been since the user last had a Smart Window open.
+   */
+  _recordSmartWindowUsage() {
+    Services.prefs.setIntPref(
+      PREF_SMARTWINDOW_LAST_USAGE_TIME,
+      Math.floor(Date.now() / 1000)
+    );
   },
 
   /**
@@ -452,6 +490,7 @@ export const AIWindow = {
     );
     if (willOpenImmersive) {
       propBag.setPropertyAsBool("aiwindow-immersive-view", true);
+      propBag.setPropertyAsBool("aiwindow-new-window", true);
     }
 
     return args;
@@ -502,29 +541,6 @@ export const AIWindow = {
     });
 
     windowState.viewInitialized = true;
-  },
-
-  /**
-   * Show Window Switcher button in tabs toolbar
-   *
-   * @param {Window} win caller window
-   */
-  initializeAITabsToolbar(win) {
-    const modeSwitcherButton = win.document.getElementById("ai-window-toggle");
-    if (!modeSwitcherButton) {
-      return;
-    }
-
-    this._updateButtonVisibility(win);
-
-    modeSwitcherButton.addEventListener("command", event => {
-      if (win.PanelUI.panel.state == "open") {
-        win.PanelUI.hide();
-      } else if (win.PanelUI.panel.state == "closed") {
-        this.handleAIWindowSwitcher(win);
-        win.PanelUI.showSubView("ai-window-toggle-view", event.target, event);
-      }
-    });
   },
 
   /**
@@ -736,7 +752,7 @@ export const AIWindow = {
       win.document.documentElement.toggleAttribute("ai-window");
 
       this._reconcileNewTabPages(win, newTabPref, homePagePref);
-      this._updateToolbarButtonPositions(win, { isToggling: true });
+      this._updateHamburgerMenuPosition(win, { isToggling: true });
       this._initializeAskButtonOnToolbox(win);
       Services.obs.notifyObservers(
         win,
@@ -770,6 +786,7 @@ export const AIWindow = {
         // SessionStore entry before closeSidebar fires.
         this._uninitTabStateManager(win);
         lazy.AIWindowUI.closeSidebar(win);
+        this._recordSmartWindowUsage();
         Glean.smartWindow.classicSwitch.record({ duration_ms, opened_tabs });
       }
     }
@@ -790,11 +807,31 @@ export const AIWindow = {
     );
   },
 
+  _getTabStateManager(win) {
+    return this._aiWindowTabStateManagers.get(win) ?? null;
+  },
+
+  /**
+   * Restore a conversation with the tab of the given browser
+   *
+   * @param {MozBrowser} browser The browser whose tab is being updated
+   * @param {ChatConversation} conversation
+   */
+  restoreTabConversation(browser, conversation) {
+    const win = browser.documentGlobal;
+    const tab = win?.gBrowser.getTabForBrowser(browser);
+    if (!tab) {
+      return;
+    }
+    this._getTabStateManager(win)?.setTabStateConversation(tab, conversation);
+  },
+
   unloadWindow(win) {
     if (this.isAIWindowActive(win)) {
       const duration_ms = this._consumeActiveDuration(win);
       const opened_tabs = win.gBrowser?.tabs.length ?? 0;
       Glean.smartWindow.closeWindow.record({ duration_ms, opened_tabs });
+      this._recordSmartWindowUsage();
     }
     this._uninitTabStateManager(win);
     this._windowStates.delete(win);
@@ -927,6 +964,7 @@ export const AIWindow = {
     if (!this.isAIWindowActiveAndEnabled(win)) {
       root.toggleAttribute("hide-ai-sidebar", shouldHideSidebarForNewtab);
       root.removeAttribute("aiwindow-immersive-view");
+      root.removeAttribute("aiwindow-new-window");
       root.removeAttribute("aiwindow-has-nav-forward");
       return;
     }
@@ -942,14 +980,31 @@ export const AIWindow = {
 
     /* sets attr only for first run for css reasons */
     const isFirstRun = currentURI.equalsExceptRef(FIRSTRUN_URI);
+    // A new window has a single tab; once more tabs are open the window is no
+    // longer in dedicated new-window mode and the navbar reappears.
+    const isNewWindow = win.gBrowser.tabs.length === 1;
     root.toggleAttribute("aiwindow-first-run", isFirstRun && isImmersiveView);
     root.toggleAttribute("aiwindow-immersive-view", isImmersiveView);
+    const wasNewWindow = root.hasAttribute("aiwindow-new-window");
+    root.toggleAttribute("aiwindow-new-window", isImmersiveView && isNewWindow);
+    if (wasNewWindow && !root.hasAttribute("aiwindow-new-window")) {
+      Services.obs.notifyObservers(
+        win,
+        "ai-window-state-changed",
+        "nav-bar-visible"
+      );
+    }
 
     const canGoForward =
       isImmersiveView &&
       !isFirstRun &&
       (win.gBrowser.selectedBrowser?.webNavigation?.canGoForward ?? false);
     root.toggleAttribute("aiwindow-has-nav-forward", canGoForward);
+
+    const askButton = win.document.getElementById("smartwindow-ask-button");
+    if (askButton) {
+      askButton.hidden = isImmersiveView;
+    }
 
     // Set attr on the specific browser that has content to override color scheme
     win.gBrowser.selectedBrowser?.toggleAttribute(
@@ -996,6 +1051,55 @@ export const AIWindow = {
     let { contentDocument } = window.gBrowser.selectedBrowser;
     let aiWindowCE = contentDocument?.querySelector("ai-window");
     return aiWindowCE?.shadowRoot.getElementById("ai-window-smartbar");
+  },
+
+  _createSwitcherWidget() {
+    if (this._switcherWidgetCreated) {
+      return;
+    }
+
+    lazy.CustomizableUI.createWidget({
+      id: "ai-window-toggle",
+      l10nId: "toolbar-switcher-customizable-label",
+      type: "button",
+      defaultArea: lazy.CustomizableUI.AREA_TABSTRIP,
+      removable: true,
+      showInPrivateBrowsing: false,
+      onCreated: node => {
+        node.setAttribute("aria-haspopup", "true");
+        this._updateButtonVisibility(node);
+      },
+      onCommand: event => {
+        const win = event.view;
+        if (win.PanelUI.panel.state == "open") {
+          win.PanelUI.hide();
+        } else if (win.PanelUI.panel.state == "closed") {
+          this.handleAIWindowSwitcher(win);
+          win.PanelUI.showSubView("ai-window-toggle-view", event.target, event);
+        }
+      },
+    });
+    this._switcherWidgetCreated = true;
+  },
+
+  _destroySwitcherWidget() {
+    if (!this._switcherWidgetCreated) {
+      return;
+    }
+
+    lazy.CustomizableUI.destroyWidget("ai-window-toggle");
+    this._switcherWidgetCreated = false;
+  },
+
+  // The window switcher must not appear anywhere in the customizable UI (toolbar or
+  // customize palette) when Smart Window is blocked by the browser.ai.control
+  // or browser.ai.control.smartWindow.
+  _updateSwitcherWidgetRegistration() {
+    if (this.isBlocked) {
+      this._destroySwitcherWidget();
+    } else {
+      this._createSwitcherWidget();
+    }
   },
 
   // AIFeature interface implementation

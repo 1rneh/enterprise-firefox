@@ -324,7 +324,7 @@ function makeUrlbarResult(queryContext, info) {
           payload: {
             engine: action.params.engineName,
             isBlockable: true,
-            blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+            blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
             helpUrl:
               Services.urlFormatter.formatURLPref("app.support.baseURL") +
               "awesome-bar-result-menu",
@@ -382,7 +382,7 @@ function makeUrlbarResult(queryContext, info) {
   } else {
     source = lazy.UrlbarShared.RESULT_SOURCE.HISTORY;
     isBlockable = true;
-    blockL10n = { id: "urlbar-result-menu-remove-from-history" };
+    blockL10n = { id: "urlbar-result-menu-remove-from-history2" };
     helpUrl =
       Services.urlFormatter.formatURLPref("app.support.baseURL") +
       "awesome-bar-result-menu";
@@ -485,7 +485,7 @@ class Search {
     this.#userContextId = queryContext.userContextId;
     this.#currentPage = queryContext.currentPage;
     this.#searchModeEngine = queryContext.searchMode?.engineName;
-    if (this.#searchModeEngine) {
+    if (this.#searchModeEngine && queryContext.restrictInSearchMode()) {
       // Filter Places results on host.
       let engine = lazy.SearchService.getEngineByName(this.#searchModeEngine);
       this.#filterOnHost = engine.searchUrlDomain;

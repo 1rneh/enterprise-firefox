@@ -26,6 +26,36 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 // Will at least make move forward marionette
 Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
 
+let cancelActiveSso = null;
+
+function clearSsoSessionData() {
+  return new Promise(resolve => {
+    Services.clearData.deleteDataFromOriginAttributesPattern(
+      { privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID },
+      { onDataDeleted: resolve }
+    );
+  });
+}
+
+function resetToLoginPage() {
+  cancelActiveSso?.();
+  document.querySelector(".felt-login__sso").classList.add("is-hidden");
+  document
+    .querySelector(".felt-login__email-pane")
+    .classList.remove("is-hidden");
+  document.getElementById("felt-back-button").classList.add("is-hidden");
+}
+
+function resetToLoginPageWithError(errorType, details = null, cause = null) {
+  resetToLoginPage();
+  lazy.FeltErrorReport.update(
+    errorType,
+    details,
+    cause,
+    lazy.ERROR_SOURCE.RESET
+  );
+}
+
 async function connectToConsole(email) {
   let posture;
   try {
@@ -82,7 +112,7 @@ async function connectToConsole(email) {
 
   let ssoCompleted = false;
 
-  function resetToLoginPage(errorType, details = null, cause = null) {
+  cancelActiveSso = () => {
     if (!ssoCompleted) {
       ssoCompleted = true;
       clearTimeout(ssoTimeout);
@@ -90,21 +120,12 @@ async function connectToConsole(email) {
         browser.removeProgressListener(progressListener);
       } catch (_) {}
     }
-    document.querySelector(".felt-login__sso").classList.add("is-hidden");
-    document
-      .querySelector(".felt-login__email-pane")
-      .classList.remove("is-hidden");
-    lazy.FeltErrorReport.update(
-      errorType,
-      details,
-      cause,
-      lazy.ERROR_SOURCE.RESET
-    );
-  }
+    cancelActiveSso = null;
+  };
 
   let ssoTimeout = setTimeout(() => {
     lazy.log.error("SSO login timed out");
-    resetToLoginPage("felt-browser-error-sso-timeout");
+    resetToLoginPageWithError("felt-browser-error-sso-timeout");
   }, SSO_TIMEOUT_MS);
 
   const progressListener = {
@@ -126,15 +147,13 @@ async function connectToConsole(email) {
         return;
       }
 
-      clearTimeout(ssoTimeout);
-      browser.removeProgressListener(progressListener);
-      ssoCompleted = true;
+      cancelActiveSso?.();
 
       if (!Components.isSuccessCode(status)) {
         lazy.log.error(
           `SSO callback page failed to load: 0x${status.toString(16)}`
         );
-        resetToLoginPage(
+        resetToLoginPageWithError(
           "felt-browser-error-connection",
           lazy.FeltErrorReport.getFluentIdForStatus(status),
           { hostname: uri.host }
@@ -145,7 +164,7 @@ async function connectToConsole(email) {
       const windowGlobal = browser.browsingContext?.currentWindowGlobal;
       if (!windowGlobal) {
         lazy.log.error("No WindowGlobal for SSO callback page");
-        resetToLoginPage("felt-browser-error-connection");
+        resetToLoginPageWithError("felt-browser-error-connection");
         return;
       }
 
@@ -159,23 +178,23 @@ async function connectToConsole(email) {
           .then(sent => {
             if (!sent) {
               lazy.log.error("Fallback token extraction found no token data");
-              resetToLoginPage("felt-browser-error-connection");
+              resetToLoginPageWithError("felt-browser-error-connection");
             }
           })
           .catch(err => {
             lazy.log.error(`Fallback token extraction failed: ${err}`);
-            resetToLoginPage("felt-browser-error-connection");
+            resetToLoginPageWithError("felt-browser-error-connection");
           });
       } catch (err) {
         lazy.log.error(`Could not reach FeltWindow actor: ${err}`);
-        resetToLoginPage("felt-browser-error-connection");
+        resetToLoginPageWithError("felt-browser-error-connection");
       }
     },
 
     onLocationChange(_webProgress, _request, _location, flags) {
       if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
         clearTimeout(ssoTimeout);
-        resetToLoginPage("felt-browser-error-connection");
+        resetToLoginPageWithError("felt-browser-error-connection");
         return;
       }
       // Reset the timeout on each navigation so the limit applies per-page
@@ -184,7 +203,7 @@ async function connectToConsole(email) {
       clearTimeout(ssoTimeout);
       ssoTimeout = setTimeout(() => {
         lazy.log.error("SSO login timed out");
-        resetToLoginPage("felt-browser-error-sso-timeout");
+        resetToLoginPageWithError("felt-browser-error-sso-timeout");
       }, SSO_TIMEOUT_MS);
     },
   };
@@ -197,6 +216,7 @@ async function connectToConsole(email) {
   document.querySelector(".felt-updates-message").classList.add("is-hidden");
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
   document.querySelector(".felt-login__sso").classList.remove("is-hidden");
+  document.getElementById("felt-back-button").classList.remove("is-hidden");
 
   const ssoBrowsingContext = document.querySelector("browser");
   ssoBrowsingContext.focus();
@@ -430,6 +450,17 @@ function macosActivateApplication() {
   }
 }
 
+function setupBackButton() {
+  const backButton = document.getElementById("felt-back-button");
+  backButton.addEventListener("click", async () => {
+    resetToLoginPage();
+    await clearSsoSessionData();
+    document.getElementById("browser").fixupAndLoadURIString("about:blank", {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    });
+  });
+}
+
 window.addEventListener(
   "load",
   () => {
@@ -439,6 +470,7 @@ window.addEventListener(
     setupMarionetteEnvironment();
     setupPopupNotifications();
     setupContextMenu();
+    setupBackButton();
     listenFormEmailSubmission();
     focusEmailOnLoginVisible();
     informAboutPotentialStartupFailure();

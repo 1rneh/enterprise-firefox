@@ -135,6 +135,7 @@ class ProviderTabGroups extends ActionsProvider {
 
   #makeResult({ key, l10nId, l10nArgs, color, dataset }) {
     return new ActionsResult({
+      providerName: this.name,
       key,
       l10nId,
       l10nArgs,
@@ -142,9 +143,9 @@ class ProviderTabGroups extends ActionsProvider {
       dataset: {
         ...dataset,
         style: {
-          "--tab-group-color": `var(--tab-group-color-${color})`,
-          "--tab-group-color-invert": `var(--tab-group-color-${color}-invert)`,
-          "--tab-group-color-pale": `var(--tab-group-color-${color}-pale)`,
+          "--tab-group-color": `var(--tab-group-${color})`,
+          "--tab-group-color-invert": `var(--tab-group-${color}-invert)`,
+          "--tab-group-color-pale": `var(--tab-group-${color}-pale)`,
           "--tab-group-background-color": `var(--tab-group-${color})`,
           "--tab-group-text-color": `var(--tab-group-${color}-text)`,
           "--tab-group-background-color-hover": `var(--tab-group-${color}-hover)`,

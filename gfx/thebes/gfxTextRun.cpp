@@ -4,6 +4,8 @@
 
 #include "gfxTextRun.h"
 
+#include "SharedFontList-impl.h"
+#include "TextDrawTarget.h"
 #include "gfx2DGlue.h"
 #include "gfxContext.h"
 #include "gfxFontConstants.h"
@@ -13,13 +15,6 @@
 #include "gfxPlatformFontList.h"
 #include "gfxUserFontSet.h"
 #include "mozilla/ClearOnShutdown.h"
-#include "mozilla/dom/WorkerCommon.h"
-#include "mozilla/gfx/2D.h"
-#include "mozilla/gfx/Logging.h"  // for gfxCriticalError
-#include "mozilla/gfx/PathHelpers.h"
-#include "mozilla/intl/Locale.h"
-#include "mozilla/intl/String.h"
-#include "mozilla/intl/UnicodeProperties.h"
 #include "mozilla/Likely.h"
 #include "mozilla/MruCache.h"
 #include "mozilla/ServoStyleSet.h"
@@ -27,12 +22,17 @@
 #include "mozilla/StaticPresData.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Utf16.h"
+#include "mozilla/dom/WorkerCommon.h"
+#include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/Logging.h"  // for gfxCriticalError
+#include "mozilla/gfx/PathHelpers.h"
+#include "mozilla/intl/Locale.h"
+#include "mozilla/intl/String.h"
+#include "mozilla/intl/UnicodeProperties.h"
 #include "nsLayoutUtils.h"
 #include "nsStyleConsts.h"
 #include "nsStyleUtil.h"
 #include "nsUnicodeProperties.h"
-#include "SharedFontList-impl.h"
-#include "TextDrawTarget.h"
 
 #ifdef XP_WIN
 #  include "gfxWindowsPlatform.h"
@@ -244,11 +244,13 @@ gfxTextRun::LigatureData gfxTextRun::ComputeLigatureData(
   LigatureData result;
   const CompressedGlyph* charGlyphs = mCharacterGlyphs;
 
-  uint32_t i;
-  for (i = aPartRange.start; !charGlyphs[i].IsLigatureGroupStart(); --i) {
-    NS_ASSERTION(i > 0, "Ligature at the start of the run??");
+  uint32_t i = aPartRange.start;
+  while (i && !charGlyphs[i].IsLigatureGroupStart()) {
+    --i;
   }
+  NS_ASSERTION(charGlyphs[i].IsLigatureGroupStart(), "Ligature at run start?");
   result.mRange.start = i;
+
   for (i = aPartRange.start + 1;
        i < GetLength() && !charGlyphs[i].IsLigatureGroupStart(); ++i) {
   }
@@ -942,14 +944,22 @@ uint32_t gfxTextRun::BreakAndMeasureText(
   AutoTArray<HyphenType, 4096> hyphenBuffer;
   HyphenationState wordState;
   wordState.mostRecentBoundary = aStart;
+  // GetHyphensOption() is a virtual call returning a value that is constant
+  // for the whole measurement, so fetch it once instead of on every use.
+  const StyleHyphens hyphensOption = aProvider.GetHyphensOption();
+  // Hyphenation data is only consulted in the break-detection block below,
+  // which is skipped entirely when all breaks are suppressed. In that case we
+  // avoid fetching and classifying hyphenation data (which can involve per-word
+  // dictionary lookups) since it would never be used.
   bool haveHyphenation =
-      (aProvider.GetHyphensOption() == StyleHyphens::Auto ||
-       (aProvider.GetHyphensOption() == StyleHyphens::Manual &&
+      aSuppressBreak != eSuppressAllBreaks &&
+      (hyphensOption == StyleHyphens::Auto ||
+       (hyphensOption == StyleHyphens::Manual &&
         !!(mFlags & gfx::ShapedTextFlags::TEXT_ENABLE_HYPHEN_BREAKS)));
   if (haveHyphenation) {
     if (hyphenBuffer.AppendElements(bufferRange.Length(), fallible)) {
       aProvider.GetHyphenationBreaks(bufferRange, hyphenBuffer.Elements());
-      if (aProvider.GetHyphensOption() == StyleHyphens::Auto) {
+      if (hyphensOption == StyleHyphens::Auto) {
         ClassifyAutoHyphenations(aStart, bufferRange, hyphenBuffer, &wordState);
       }
     } else {
@@ -978,6 +988,15 @@ uint32_t gfxTextRun::BreakAndMeasureText(
   Range ligatureRange(aStart, end);
   ShrinkToLigatureBoundaries(&ligatureRange);
 
+  // Cache the glyph array pointer in a local so the compiler doesn't reload
+  // the member on every iteration across the calls made in the loop below;
+  // it does not change while we're measuring.
+  const CompressedGlyph* charGlyphs = mCharacterGlyphs;
+
+  // LetterSpacing() is a virtual call returning a value that is constant for
+  // the whole measurement, so hoist it out of the per-character loop.
+  const nscoord letterSpacing = aProvider.LetterSpacing();
+
   // We may need to move `i` backwards in the following loop, and re-scan
   // part of the textrun; we'll use `rescanLimit` so we can tell when that
   // is happening: if `i < rescanLimit` then we're rescanning.
@@ -1005,7 +1024,7 @@ uint32_t gfxTextRun::BreakAndMeasureText(
         if (hyphenBuffer.AppendElements(bufferRange.Length(), fallible)) {
           aProvider.GetHyphenationBreaks(
               bufferRange, hyphenBuffer.Elements() + oldHyphenBufferLength);
-          if (aProvider.GetHyphensOption() == StyleHyphens::Auto) {
+          if (hyphensOption == StyleHyphens::Auto) {
             uint32_t prevMostRecentWordBoundary = wordState.mostRecentBoundary;
             ClassifyAutoHyphenations(aStart, bufferRange, hyphenBuffer,
                                      &wordState);
@@ -1031,7 +1050,7 @@ uint32_t gfxTextRun::BreakAndMeasureText(
     // would trigger an infinite loop.
     if (aSuppressBreak != eSuppressAllBreaks &&
         (aSuppressBreak != eSuppressInitialBreak || i > aStart)) {
-      bool atNaturalBreak = mCharacterGlyphs[i].CanBreakBefore() ==
+      bool atNaturalBreak = charGlyphs[i].CanBreakBefore() ==
                             CompressedGlyph::FLAG_BREAK_TYPE_NORMAL;
       // atHyphenationBreak indicates we're at a "soft" hyphen, where an extra
       // hyphen glyph will need to be painted. It is NOT set for breaks at an
@@ -1049,15 +1068,15 @@ uint32_t gfxTextRun::BreakAndMeasureText(
       bool wordWrapping =
           (aCanWordWrap ||
            (aCanWhitespaceWrap &&
-            mCharacterGlyphs[i].CanBreakBefore() ==
+            charGlyphs[i].CanBreakBefore() ==
                 CompressedGlyph::FLAG_BREAK_TYPE_EMERGENCY_WRAP)) &&
-          mCharacterGlyphs[i].IsClusterStart() &&
+          charGlyphs[i].IsClusterStart() &&
           aBreakPriority <= gfxBreakPriority::eWordWrapBreak;
 
       bool whitespaceWrapping = false;
       if (i > aStart) {
         // The spec says the breaking opportunity is *after* whitespace.
-        auto const& g = mCharacterGlyphs[i - 1];
+        auto const& g = charGlyphs[i - 1];
         whitespaceWrapping =
             aIsBreakSpaces &&
             (g.CharIsSpace() || g.CharIsTab() || g.CharIsNewline());
@@ -1119,8 +1138,7 @@ uint32_t gfxTextRun::BreakAndMeasureText(
 
     gfxFloat charAdvance;
     if (i >= ligatureRange.start && i < ligatureRange.end) {
-      charAdvance =
-          GetAdvanceForGlyphs(Range(i, i + 1), aProvider.LetterSpacing());
+      charAdvance = GetAdvanceForGlyph(i, letterSpacing);
       if (haveSpacing) {
         PropertyProvider::Spacing* space =
             &spacingBuffer[i - bufferRange.start];
@@ -1132,7 +1150,7 @@ uint32_t gfxTextRun::BreakAndMeasureText(
 
     advance += charAdvance;
     if (aOutTrimmableWhitespace) {
-      if (mCharacterGlyphs[i].CharIsSpace()) {
+      if (charGlyphs[i].CharIsSpace()) {
         ++trimmableChars;
         trimmableAdvance += charAdvance;
       } else {
@@ -1414,8 +1432,8 @@ void gfxTextRun::SanitizeGlyphRuns() {
     // ligature glyphs from wrong font (seen with U+FEFF in reftest 474417-1, as
     // Core Text eliminates the glyph, which makes it appear as if a ligature
     // has been formed)
-    while (charGlyphs[aRun.mCharacterOffset].IsLigatureContinuation() &&
-           aRun.mCharacterOffset < GetLength()) {
+    while (aRun.mCharacterOffset < GetLength() &&
+           charGlyphs[aRun.mCharacterOffset].IsLigatureContinuation()) {
       aRun.mCharacterOffset++;
     }
 

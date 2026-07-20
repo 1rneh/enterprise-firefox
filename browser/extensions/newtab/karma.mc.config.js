@@ -398,6 +398,21 @@ module.exports = function (config) {
               functions: 0,
               branches: 0,
             },
+            // Coverage for this component lives in Jest (test/jest/content-src/components/Widgets/StockTicker.test.jsx)
+            "content-src/components/Widgets/Stocks/StockTicker.jsx": {
+              statements: 0,
+              lines: 0,
+              functions: 0,
+              branches: 0,
+            },
+            // Coverage for this component lives in Jest (test/jest/content-src/components/Widgets/PictureOfTheDay.test.jsx)
+            "content-src/components/Widgets/PictureOfTheDay/PictureOfTheDay.jsx":
+              {
+                statements: 0,
+                lines: 0,
+                functions: 0,
+                branches: 0,
+              },
             // Coverage for this component lives in Jest (test/jest/content-src/components/Widgets/AddClockForm.test.jsx)
             "content-src/components/Widgets/Clocks/AddClockForm.jsx": {
               statements: 0,
@@ -521,6 +536,21 @@ module.exports = function (config) {
               functions: 0,
               branches: 0,
             },
+            // Coverage for this component lives in Jest (test/jest/content-src/components/Widgets/SportsResultCelebration.test.jsx)
+            "content-src/components/Widgets/SportsWidget/SportsResultCelebration.jsx":
+              {
+                statements: 0,
+                lines: 0,
+                functions: 0,
+                branches: 0,
+              },
+            // Coverage for this component lives in Jest (test/jest/content-src/components/Widgets/WidgetCelebration.test.jsx)
+            "content-src/components/Widgets/WidgetCelebration.jsx": {
+              statements: 0,
+              lines: 0,
+              functions: 0,
+              branches: 0,
+            },
             "content-src/components/Widgets/Widgets.jsx": {
               statements: 51.1,
               lines: 52,
@@ -564,6 +594,12 @@ module.exports = function (config) {
               branches: 0,
             },
             "content-src/components/TopSites/useZeroPinDrop.jsx": {
+              statements: 0,
+              lines: 0,
+              functions: 0,
+              branches: 0,
+            },
+            "content-src/components/TopSites/useAppendPinDrop.jsx": {
               statements: 0,
               lines: 0,
               functions: 0,

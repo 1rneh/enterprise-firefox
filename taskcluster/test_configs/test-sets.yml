@@ -107,6 +107,7 @@ browsertime:
     - browsertime-benchmark-wasm
     - browsertime-youtube-playback
     - browsertime-youtube-playback-power
+    - browsertime-media-seek
     - browsertime-custom
     - browsertime-first-install
     - browsertime-responsiveness
@@ -122,6 +123,7 @@ browsertime:
     - browsertime-network-bench
     - browsertime-webcodecs
     - browsertime-trr-performance
+    - browsertime-hev3-connection
 
 browsertime-clang:
     - browsertime-tp6
@@ -206,6 +208,7 @@ linux-tests:
     - xpcshell
 
 linux-tests-enterprise:
+    - gtest
     - marionette-integration
     - marionette-enterprise
     - mochitest-browser-chrome
@@ -363,6 +366,7 @@ windows11-25h2-tests:
     - xpcshell
 
 windows11-25h2-tests-enterprise:
+    - gtest
     - marionette-integration
     - marionette-enterprise
     - mochitest-browser-chrome
@@ -476,6 +480,7 @@ macosx1500-64-tests:
     - web-platform-tests-eme
 
 macosx1500-64-tests-enterprise:
+    - gtest
     - marionette-integration
     - marionette-enterprise
     - mochitest-browser-chrome
@@ -645,6 +650,7 @@ android-hw-browsertime:
     - browsertime-video-playback-latency-mobile
     - browsertime-youtube-playback-power-mobile
     - browsertime-trr-performance-m
+    - browsertime-hev3-connection-m
 
 android-hw-browsertime-profiling:
     - browsertime-tp6m-profiling

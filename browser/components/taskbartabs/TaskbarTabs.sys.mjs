@@ -8,11 +8,7 @@
  * the Taskbar Tabs systems should interact with it through this interface.
  */
 
-import {
-  TaskbarTabsRegistry,
-  TaskbarTabsRegistryStorage,
-  kTaskbarTabsRegistryEvents,
-} from "resource:///modules/taskbartabs/TaskbarTabsRegistry.sys.mjs";
+import { TaskbarTabsRegistryStorage } from "resource:///modules/taskbartabs/TaskbarTabsRegistry.sys.mjs";
 import { TaskbarTabsWindowManager } from "resource:///modules/taskbartabs/TaskbarTabsWindowManager.sys.mjs";
 import { TaskbarTabsPin } from "resource:///modules/taskbartabs/TaskbarTabsPin.sys.mjs";
 import { TaskbarTabsUtils } from "resource:///modules/taskbartabs/TaskbarTabsUtils.sys.mjs";
@@ -20,9 +16,9 @@ import { TaskbarTabsUtils } from "resource:///modules/taskbartabs/TaskbarTabsUti
 let lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  ManifestIcons: "resource://gre/modules/ManifestIcons.sys.mjs",
-  ManifestObtainer: "resource://gre/modules/ManifestObtainer.sys.mjs",
-  ManifestProcessor: "resource://gre/modules/ManifestProcessor.sys.mjs",
+  ManifestIcons: "moz-src:///dom/manifest/ManifestIcons.sys.mjs",
+  ManifestObtainer: "moz-src:///dom/manifest/ManifestObtainer.sys.mjs",
+  ManifestProcessor: "moz-src:///dom/manifest/ManifestProcessor.sys.mjs",
   ShellService: "moz-src:///browser/components/shell/ShellService.sys.mjs",
 });
 
@@ -109,12 +105,9 @@ export const TaskbarTabs = new (class {
 
     if (result.created || aDetails.ensurePinned) {
       // Don't wait for the pinning to complete.
-      TaskbarTabsPin.pinTaskbarTab(
-        result.taskbarTab,
-        this.#registry,
-        result.icon,
-        { window: aDetails.window ?? null }
-      );
+      this.#pinTaskbarTab(result.taskbarTab, result.icon, {
+        window: aDetails.window ?? null,
+      });
     }
 
     return {
@@ -141,6 +134,18 @@ export const TaskbarTabs = new (class {
       result.icon = await loadSavedTaskbarTabIcon(result.taskbarTab.id);
     }
 
+    return result;
+  }
+
+  async #pinTaskbarTab(aTaskbarTab, aIcon, aDetails) {
+    let result = await TaskbarTabsPin.pinTaskbarTab(
+      aTaskbarTab,
+      aIcon,
+      aDetails
+    );
+    this.#registry.patchTaskbarTab(aTaskbarTab, {
+      shortcutRelativePath: result,
+    });
     return result;
   }
 
@@ -197,7 +202,7 @@ export const TaskbarTabs = new (class {
     if (created) {
       // Don't wait for pinning to complete. (This is separate so we can call
       // it with the newly-created window.)
-      TaskbarTabsPin.pinTaskbarTab(taskbarTab, this.#registry, icon, win);
+      this.#pinTaskbarTab(taskbarTab, icon, win);
     }
 
     return {
@@ -218,7 +223,7 @@ export const TaskbarTabs = new (class {
     this.#updateMetrics();
 
     // Don't wait for unpinning to finish.
-    TaskbarTabsPin.unpinTaskbarTab(taskbarTab, this.#registry);
+    TaskbarTabsPin.unpinTaskbarTab(taskbarTab);
   }
 
   async openWindow(aTaskbarTab) {
@@ -257,26 +262,7 @@ async function initRegistry() {
   let registryFile = TaskbarTabsUtils.getTaskbarTabsFolder();
   registryFile.append(kRegistryFilename);
 
-  let init = {};
-  if (registryFile.exists()) {
-    init.loadFile = registryFile;
-  }
-
-  let registry = await TaskbarTabsRegistry.create(init);
-
-  // Initialize persistent storage.
-  let storage = new TaskbarTabsRegistryStorage(registry, registryFile);
-  registry.on(kTaskbarTabsRegistryEvents.created, () => {
-    storage.save();
-  });
-  registry.on(kTaskbarTabsRegistryEvents.patched, () => {
-    storage.save();
-  });
-  registry.on(kTaskbarTabsRegistryEvents.removed, () => {
-    storage.save();
-  });
-
-  return registry;
+  return await new TaskbarTabsRegistryStorage(registryFile).load();
 }
 
 /**

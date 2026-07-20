@@ -342,14 +342,14 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
       return /** @type {UrlbarResultCommand[]} */ ([
         {
           name: RESULT_MENU_COMMANDS.TRENDING_BLOCK,
-          l10n: { id: "urlbar-result-menu-trending-dont-show" },
+          l10n: { id: "urlbar-result-menu-trending-dont-show2" },
         },
         {
           name: "separator",
         },
         {
           name: RESULT_MENU_COMMANDS.TRENDING_HELP,
-          l10n: { id: "urlbar-result-menu-learn-more" },
+          l10n: { id: "urlbar-result-menu-learn-more2" },
         },
       ]);
     }
@@ -662,15 +662,22 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
     let resultsToRemove = controller.view.visibleResults.filter(
       result => result.payload.trending
     );
-    if (resultsToRemove.length) {
-      // Show an acknowledgement tip for the first result.
-      resultsToRemove[0].acknowledgeDismissalL10n = {
-        id: "urlbar-trending-dismissal-acknowledgment",
-      };
-    }
+    // Show an acknowledgement tip for the first result.
+    let acknowledgedResult = resultsToRemove[0];
     // Remove results in reverse order so the acknowledgment tip isn't removed.
     resultsToRemove.reverse();
-    resultsToRemove.forEach(result => controller.removeResult(result));
+    resultsToRemove.forEach(result =>
+      controller.removeResult(
+        result,
+        result == acknowledgedResult
+          ? {
+              acknowledgeDismissalL10n: {
+                id: "urlbar-trending-dismissal-acknowledgment",
+              },
+            }
+          : undefined
+      )
+    );
   }
 }
 
@@ -684,7 +691,7 @@ function makeFormHistoryResult(queryContext, engine, entry) {
       title: entry.value,
       lowerCaseSuggestion: entry.value.toLocaleLowerCase(),
       isBlockable: true,
-      blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+      blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
       helpUrl:
         Services.urlFormatter.formatURLPref("app.support.baseURL") +
         "awesome-bar-result-menu",

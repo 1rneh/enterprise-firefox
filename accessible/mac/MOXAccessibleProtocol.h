@@ -155,8 +155,8 @@
 // AXLinkedUIElements
 - (NSArray* _Nullable)moxLinkedUIElements;
 
-// AXARIAControls
-- (NSArray* _Nullable)moxARIAControls;
+// AXDetailsElements
+- (NSArray* _Nullable)moxDetailsElements;
 
 // AXDOMIdentifier
 - (NSString* _Nullable)moxDOMIdentifier;

@@ -10,9 +10,9 @@
 #  include <QuartzCore/QuartzCore.h>
 #  include <dlfcn.h>
 
-#  include "mozilla/gfx/Types.h"
-#  include "mozilla/Maybe.h"
 #  include "CFTypeRefPtr.h"
+#  include "mozilla/Maybe.h"
+#  include "mozilla/gfx/Types.h"
 
 namespace mozilla {
 namespace gl {
@@ -66,10 +66,6 @@ class MacIOSurface final
       ChromaSubsampling aChromaSubsampling, YUVColorSpace aColorSpace,
       TransferFunction aTransferFunction, ColorRange aColorRange,
       ColorDepth aColorDepth, AllowAlpha aAllowAlpha);
-  static already_AddRefed<MacIOSurface> CreateSinglePlanarSurface(
-      const IntSize& aSize, YUVColorSpace aColorSpace,
-      TransferFunction aTransferFunction, ColorRange aColorRange,
-      AllowAlpha aAllowAlpha);
   static void ReleaseIOSurface(MacIOSurface* aIOSurface);
   static already_AddRefed<MacIOSurface> LookupSurface(
       IOSurfaceID aSurfaceID, YUVColorSpace aColorSpace,
@@ -135,9 +131,6 @@ class MacIOSurface final
   bool IsHDRSurface() {
     return mozilla::gfx::IsHDRTransferFunction(mTransferFunction);
   }
-
-  // Returns the GL texture target the IOSurface should be bound to.
-  static GLenum GetTextureTarget(mozilla::gl::GLContext* aGL);
 
   // Bind this IOSurface to a texture using the most efficient mechanism
   // available on the current platform.

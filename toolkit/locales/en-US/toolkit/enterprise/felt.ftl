@@ -48,6 +48,9 @@ felt-browser-error-multiple-crashes2 =
 felt-browser-error-launch-failure =
     .heading = { -brand-short-name } cannot start
     .message = Please contact your administrator if the problem persists.
+felt-error-primary-secret =
+    .heading = { -brand-short-name } cannot start securely
+    .message = Your secure profile key could not be retrieved. Please try again, or contact your administrator if the problem persists.
 
 ## Logout messages
 
@@ -87,3 +90,5 @@ felt-error-warning-elevation-attempt-failed-contact-admin = An update couldn’t
 felt-warning-title-download-attempt-failed =
     .heading = Update couldn’t be downloaded
 felt-error-warning-download-attempt-failed-contact-admin = The latest update couldn’t be downloaded. If this problem persists, contact your administrator for help.
+
+felt-back-button = Back to login

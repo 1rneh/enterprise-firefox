@@ -2,16 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <cmath>
-#include "DataSurfaceHelpers.h"
 #include "FilterNodeSoftware.h"
-#include "2D.h"
-#include "Tools.h"
-#include "Blur.h"
+
+#include <cmath>
 #include <map>
 #include <numeric>
+
+#include "2D.h"
+#include "Blur.h"
+#include "DataSurfaceHelpers.h"
 #include "FilterProcessing.h"
 #include "Logging.h"
+#include "Tools.h"
 #include "mozilla/PodOperations.h"
 
 // #define DEBUG_DUMP_SURFACES
@@ -2709,8 +2711,11 @@ IntRect FilterNodeDisplacementMapSoftware::InflatedSourceOrDestRect(
 
   RectDouble destOrSourceRect(aDestOrSourceRect);
   destOrSourceRect.Inflate(ceil(fabs(mScale) / 2));
-  return RectIsInt32Safe(destOrSourceRect) ? TruncatedToInt(destOrSourceRect)
-                                           : aDestOrSourceRect;
+  if (!RectIsInt32Safe(destOrSourceRect)) {
+    return IntRect();
+  }
+
+  return TruncatedToInt(destOrSourceRect);
 }
 
 IntRect FilterNodeDisplacementMapSoftware::GetOutputRectInRect(

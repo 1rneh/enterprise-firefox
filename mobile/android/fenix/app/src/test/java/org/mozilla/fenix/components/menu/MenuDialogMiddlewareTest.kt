@@ -47,6 +47,7 @@ import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.BookmarkAction
 import org.mozilla.fenix.components.appstate.AppAction.FindInPageAction
 import org.mozilla.fenix.components.appstate.AppAction.ReaderViewAction
+import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
 import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.bookmarks.BookmarksUseCase.AddBookmarksUseCase
 import org.mozilla.fenix.components.bookmarks.LastSavedFolderCache
@@ -56,6 +57,8 @@ import org.mozilla.fenix.components.menu.store.BrowserMenuState
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
 import org.mozilla.fenix.components.menu.store.MenuStore
+import org.mozilla.fenix.home.topsites.AddShortcutEntryPoint
+import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.settings.summarize.FakeSummarizationFeatureConfiguration
 import org.mozilla.fenix.summarization.eligibility.SummarizationEligibilityChecker
 import org.mozilla.fenix.utils.Settings
@@ -421,7 +424,10 @@ class MenuDialogMiddlewareTest {
         coVerify { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify {
             appStore.dispatch(
-                AppAction.ShortcutAction.ShortcutAdded,
+                ShortcutAction.ShortcutAdded(
+                    source = AddShortcutSource.MANUAL,
+                    entryPoint = AddShortcutEntryPoint.PAGE_MENU,
+                ),
             )
         }
         assertTrue(dismissedWasCalled)
@@ -472,7 +478,10 @@ class MenuDialogMiddlewareTest {
         coVerify(exactly = 0) { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify(exactly = 0) {
             appStore.dispatch(
-                AppAction.ShortcutAction.ShortcutAdded,
+                ShortcutAction.ShortcutAdded(
+                    source = AddShortcutSource.MANUAL,
+                    entryPoint = AddShortcutEntryPoint.PAGE_MENU,
+                ),
             )
         }
         assertFalse(dismissedWasCalled)
@@ -604,7 +613,10 @@ class MenuDialogMiddlewareTest {
         coVerify(exactly = 0) { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify(exactly = 0) {
             appStore.dispatch(
-                AppAction.ShortcutAction.ShortcutAdded,
+                ShortcutAction.ShortcutAdded(
+                    source = AddShortcutSource.MANUAL,
+                    entryPoint = AddShortcutEntryPoint.PAGE_MENU,
+                ),
             )
         }
         assertTrue(dismissedWasCalled)
@@ -985,22 +997,6 @@ class MenuDialogMiddlewareTest {
         }
 
     @Test
-    fun `GIVEN a page is loading, WHEN menu is initialized, THEN the the summarization menu item is disabled`() =
-        runTest(testDispatcher) {
-            summarizeFeatureSettings.showMenuItem = true
-
-            val store = createStore(isTabLoading = true)
-            store.dispatch(MenuAction.InitAction)
-
-            testScheduler.advanceUntilIdle()
-
-            assertFalse(
-                "Expected the menu item to be disabled because the page is loading",
-                store.state.summarizationMenuState.enabled,
-            )
-        }
-
-    @Test
     fun `GIVEN summarization feature setting indicates that menu item is not highlighted, WHEN menu is initialized, THEN the menu item is not highlighted`() =
         runTest(testDispatcher) {
             summarizeFeatureSettings.shouldHighlightMenuItem = false
@@ -1139,7 +1135,6 @@ class MenuDialogMiddlewareTest {
 
     private fun createStore(
         appStore: AppStore = AppStore(),
-        isTabLoading: Boolean = false,
         summarizationEligibilityChecker: SummarizationEligibilityChecker = TestSummarizationEligibilityChecker(),
         menuState: MenuState = MenuState(
             browserMenuState = BrowserMenuState(
@@ -1147,7 +1142,6 @@ class MenuDialogMiddlewareTest {
                     url = "https://mozilla.org",
                     engineSession = TestEngineSession(),
                 ),
-                isLoading = isTabLoading,
             ),
         ),
         onDismiss: suspend () -> Unit = {},

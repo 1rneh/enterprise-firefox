@@ -37,6 +37,7 @@ import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.layoutDirection
 import androidx.core.view.doOnLayout
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.NavDirections
@@ -159,6 +160,7 @@ import org.mozilla.fenix.messaging.FenixMessageSurfaceId
 import org.mozilla.fenix.messaging.MessageNotificationWorker
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.onboarding.ensureMarketingChannelExists
+import org.mozilla.fenix.onboarding.seedOnboardingCompletedTimestampForDebugIfNeeded
 import org.mozilla.fenix.pbmlock.DefaultPrivateBrowsingLockStorage
 import org.mozilla.fenix.pbmlock.PrivateBrowsingLockFeature
 import org.mozilla.fenix.perf.DefaultStartupPathProvider
@@ -182,6 +184,7 @@ import org.mozilla.fenix.splashscreen.SplashScreenOperation
 import org.mozilla.fenix.tabhistory.TabHistoryDialogFragment
 import org.mozilla.fenix.theme.DefaultThemeManager
 import org.mozilla.fenix.theme.StatusBarColorManager
+import org.mozilla.fenix.theme.TabStripStatusBarView
 import org.mozilla.fenix.theme.ThemeManager
 import org.mozilla.fenix.translations.TranslationsAIControllableFeatureRegistrar
 import org.mozilla.fenix.translations.TranslationsEnabledSettings
@@ -463,6 +466,8 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
 
         Performance.processIntentIfPerformanceTest(intent, this)
 
+        components.settings.seedOnboardingCompletedTimestampForDebugIfNeeded()
+
         val shouldShowOnboarding = !intent.isAllowedDuringOnboardingIntent(packageName) &&
             with(components) {
                 settings.shouldShowOnboarding(fenixOnboarding.userHasBeenOnboarded())
@@ -586,16 +591,11 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             extensionsProcessDisabledForegroundController,
             extensionsProcessDisabledBackgroundController,
             serviceWorkerSupport,
-            aboutHomeBinding,
             crashReporterBinding,
             defaultTopSitesBinding,
             TopSitesRefresher(
                 settings = components.settings,
-                topSitesProvider = if (components.settings.enableMozillaAdsClient) {
-                    components.core.macTopSitesProvider
-                } else {
-                    components.core.marsTopSitesProvider
-                },
+                topSitesProvider = components.core.macTopSitesProvider,
                 startupPathProvider = startupPathProvider,
                 visualCompletenessQueue = components.performance.visualCompletenessQueue,
             ),
@@ -607,6 +607,8 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             translationsAIControllableFeatureRegistrar,
             ipProtectionPrompter,
         )
+
+        addAboutHomeBinding(lifecycle)
 
         if (!isCustomTabIntent(intent)) {
             lifecycle.addObserver(webExtensionPromptFeature)
@@ -628,7 +630,13 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         components.core.requestInterceptor.setNavigationController(navHost.navController)
 
         supportFragmentManager.registerFragmentLifecycleCallbacks(
-            StatusBarColorManager(themeManager, this, components.settings.isTabStripEnabled),
+            StatusBarColorManager(
+                themeManager = themeManager,
+                activity = this,
+                appStore = components.appStore,
+                settings = components.settings,
+                tabStripStatusBarView = TabStripStatusBarView(rootView = window.decorView as ViewGroup),
+            ),
             true,
         )
 
@@ -671,11 +679,12 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             onBackPressedCallback = onBackPressedCallback,
         )
 
+        lifecycleScope.launch(IO) {
+            uninstallSurveyManager.updateUninstallSurveyShortcut()
+        }
+
         if (components.settings.uninstallSurveyFeatureFlagEnabled) {
-            lifecycleScope.launch(IO) {
-                uninstallSurveyManager.updateUninstallSurveyShortcut()
-            }
-            uninstallSurveyManager.showUninstallSurvey(intent.action, navHost.navController)
+            uninstallSurveyManager.showUninstallSurvey(intent, navHost.navController)
         }
 
         StartupTimeline.onActivityCreateEndHome(this) // DO NOT MOVE ANYTHING BELOW HERE.
@@ -1435,6 +1444,11 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         }
 
         navController.navigate(NavGraphDirections.actionStartupHome())
+    }
+
+    @VisibleForTesting
+    internal open fun addAboutHomeBinding(lifecycle: Lifecycle) {
+        lifecycle.addObserver(aboutHomeBinding)
     }
 
     final override fun attachBaseContext(base: Context) {

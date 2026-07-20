@@ -118,7 +118,7 @@ export class UrlbarProviderTabToSearch extends UrlbarProvider {
     return (
       queryContext.searchString &&
       queryContext.tokens.length == 1 &&
-      !queryContext.searchMode &&
+      !queryContext.restrictInSearchMode() &&
       lazy.UrlbarPrefs.get("suggest.engines") &&
       !(
         (await this.queryInstance
@@ -217,19 +217,6 @@ export class UrlbarProviderTabToSearch extends UrlbarProvider {
       }
 
       UrlbarProviderTabToSearch.onboardingInteractionAtTime = Date.now();
-    }
-  }
-
-  onEngagement(queryContext, controller, details) {
-    let { result, element } = details;
-    if (result.type == lazy.UrlbarShared.RESULT_TYPE.DYNAMIC) {
-      // Confirm search mode, but only for the onboarding (dynamic) result. The
-      // input will handle confirming search mode for the non-onboarding
-      // `RESULT_TYPE.SEARCH` result since it sets `providesSearchMode`.
-      element.documentGlobal.gURLBar.maybeConfirmSearchModeFromResult({
-        result,
-        checkValue: false,
-      });
     }
   }
 

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "wasm/WasmInstance-inl.h"
-
 #include "mozilla/CheckedInt.h"
 #include "mozilla/DebugOnly.h"
 
@@ -70,6 +68,7 @@
 #include "vm/ArrayBufferObject-inl.h"
 #include "vm/JSObject-inl.h"
 #include "wasm/WasmGcObject-inl.h"
+#include "wasm/WasmInstance-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -2632,8 +2631,14 @@ bool Instance::init(JSContext* cx, const JSObjectVector& funcImports,
   // Create and initialize alloc sites, they are all the same for Wasm.
   uint32_t allocSitesCount = codeTailMeta().numAllocSites;
   if (allocSitesCount > 0) {
-    allocSites_ =
-        (gc::AllocSite*)js_malloc(sizeof(gc::AllocSite) * allocSitesCount);
+    mozilla::CheckedInt<size_t> numBytesRequired =
+        mozilla::CheckedInt<size_t>(allocSitesCount) *
+        mozilla::CheckedInt<size_t>(sizeof(gc::AllocSite));
+    if (!numBytesRequired.isValid()) {
+      ReportOutOfMemory(cx);
+      return false;
+    }
+    allocSites_ = (gc::AllocSite*)js_malloc(numBytesRequired.value());
     if (!allocSites_) {
       ReportOutOfMemory(cx);
       return false;
@@ -3963,6 +3968,7 @@ bool Instance::getExportedFunction(JSContext* cx, uint32_t funcIndex,
     const FuncExport& funcExport = codeBlock.lookupFuncExport(funcIndex);
     if (!funcExport.hasEagerStubs()) {
       if (!EnsureBuiltinThunksInitialized()) {
+        ReportOutOfMemory(cx);
         return false;
       }
       void* provisionalLazyJitEntryStub = ProvisionalLazyJitEntryStub();

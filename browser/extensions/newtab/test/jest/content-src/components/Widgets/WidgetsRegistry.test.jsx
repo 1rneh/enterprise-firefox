@@ -108,6 +108,7 @@ describe("getWidgetOrder", () => {
       "clocks",
       "privacy",
       "crossword",
+      "pictureOfTheDay",
       "stocks",
     ]);
   });
@@ -115,6 +116,7 @@ describe("getWidgetOrder", () => {
   it("appends missing registry IDs after saved ones", () => {
     expect(getWidgetOrder("weather")).toEqual([
       "weather",
+      "pictureOfTheDay",
       "sportsWidget",
       "clocks",
       "lists",
@@ -129,6 +131,7 @@ describe("getWidgetOrder", () => {
     expect(getWidgetOrder("unknownWidget,lists,weather")).toEqual([
       "lists",
       "weather",
+      "pictureOfTheDay",
       "sportsWidget",
       "clocks",
       "focusTimer",
@@ -149,6 +152,7 @@ describe("getWidgetOrder", () => {
     expect(result).toEqual([
       "focusTimer",
       "lists",
+      "pictureOfTheDay",
       "sportsWidget",
       "clocks",
       "weather",
@@ -174,6 +178,7 @@ describe("resolveWidgetOrder", () => {
       "weather",
       "lists",
       "focusTimer",
+      "pictureOfTheDay",
       "sportsWidget",
       "clocks",
       "privacy",
@@ -192,6 +197,7 @@ describe("resolveWidgetOrder", () => {
       "focusTimer",
       "weather",
       "lists",
+      "pictureOfTheDay",
       "sportsWidget",
       "clocks",
       "privacy",
@@ -210,6 +216,7 @@ describe("resolveWidgetOrder", () => {
       "lists",
       "focusTimer",
       "weather",
+      "pictureOfTheDay",
       "sportsWidget",
       "clocks",
       "privacy",
@@ -263,6 +270,16 @@ describe("isWidgetAddable", () => {
       isWidgetAddable(listsWidget, {
         [listsWidget.systemEnabledPref]: true,
         [listsWidget.enabledPref]: false,
+      })
+    ).toBe(true);
+  });
+
+  it("is addable when revealed via the dedicated widgetPictureOfTheDay namespace", () => {
+    const potd = WIDGET_REGISTRY.find(w => w.id === "pictureOfTheDay");
+    expect(
+      isWidgetAddable(potd, {
+        [potd.systemEnabledPref]: false,
+        trainhopConfig: { widgetPictureOfTheDay: { visible: true } },
       })
     ).toBe(true);
   });
@@ -375,6 +392,29 @@ describe("resolveWidgetSize", () => {
         },
       })
     ).toBe("medium");
+  });
+
+  it("prefers the dedicated widgetPictureOfTheDay size over the shared widgets key", () => {
+    const potd = WIDGET_REGISTRY.find(w => w.id === "pictureOfTheDay");
+    expect(
+      resolveWidgetSize(potd, {
+        [potd.sizePref]: "",
+        trainhopConfig: {
+          widgetPictureOfTheDay: { size: "large" },
+          widgets: { [potd.trainhopSizeKey]: "medium" },
+        },
+      })
+    ).toBe("large");
+  });
+
+  it("falls back to the shared widgets size key for POTD when no dedicated size", () => {
+    const potd = WIDGET_REGISTRY.find(w => w.id === "pictureOfTheDay");
+    expect(
+      resolveWidgetSize(potd, {
+        [potd.sizePref]: "",
+        trainhopConfig: { widgets: { [potd.trainhopSizeKey]: "large" } },
+      })
+    ).toBe("large");
   });
 });
 

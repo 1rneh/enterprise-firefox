@@ -48,32 +48,32 @@ data class WebCompatReporterState(
     enum class BrokenSiteReason(
         @param:StringRes val displayStringId: Int,
     ) {
+        NotSupported(
+            displayStringId = R.string.webcompat_reporter_reason_notsupported_2,
+        ),
         Load(
             displayStringId = R.string.webcompat_reporter_reason_load,
-        ),
-        Checkout(
-            displayStringId = R.string.webcompat_reporter_reason_checkout,
-        ),
-        Slow(
-            displayStringId = R.string.webcompat_reporter_reason_slow2,
         ),
         Media(
             displayStringId = R.string.webcompat_reporter_reason_media2,
         ),
+        DeceptiveSite(
+            displayStringId = R.string.webcompat_reporter_reason_site_is_deceptive,
+        ),
         Content(
             displayStringId = R.string.webcompat_reporter_reason_content2,
+        ),
+        Slow(
+            displayStringId = R.string.webcompat_reporter_reason_slow2,
+        ),
+        Checkout(
+            displayStringId = R.string.webcompat_reporter_reason_checkout,
         ),
         Account(
             displayStringId = R.string.webcompat_reporter_reason_account2,
         ),
         AdBlocker(
             displayStringId = R.string.webcompat_reporter_reason_turn_off_adblocker,
-        ),
-        NotSupported(
-            displayStringId = R.string.webcompat_reporter_reason_notsupported_2,
-        ),
-        DeceptiveSite(
-            displayStringId = R.string.webcompat_reporter_reason_site_is_deceptive,
         ),
         Other(
             displayStringId = R.string.webcompat_reporter_reason_other,
@@ -213,24 +213,9 @@ sealed class WebCompatReporterAction : Action {
     data class PreviewJSONUpdated(val previewJSON: String) : WebCompatReporterAction()
 
     /**
-     * Dispatched when the WebCompat "Send More Info" report has been submitted.
-     */
-    data object SendMoreInfoSubmitted : WebCompatReporterAction(), NavigationAction
-
-    /**
-     * Dispatched when the user requests to add more info.
-     */
-    data object AddMoreInfoClicked : WebCompatReporterAction(), WebCompatReporterStorageAction
-
-    /**
      * Dispatched when the user requests to cancel the report.
      */
     data object CancelClicked : WebCompatReporterAction(), WebCompatReporterStorageAction, NavigationAction
-
-    /**
-     * Dispatched when the user requests to navigate to the previous page.
-     */
-    data object BackPressed : WebCompatReporterAction(), WebCompatReporterStorageAction, NavigationAction
 
     /**
      * Dispatched when the user clicks the field to open the Edit Url Dialog.
@@ -270,8 +255,7 @@ private fun reduce(
     )
     is WebCompatReporterAction.DeceptiveSiteReportSelected -> state
     is WebCompatReporterAction.NavigationAction -> state
-    WebCompatReporterAction.SendReportClicked -> state // UPDATED: Just return state here!
-    WebCompatReporterAction.AddMoreInfoClicked -> state
+    WebCompatReporterAction.SendReportClicked -> state
     WebCompatReporterAction.LearnMoreClicked -> state
     is WebCompatReporterAction.IncludeEtpBlockedUrlsChanged -> state.copy(includeEtpBlockedUrls = action.include)
     is WebCompatReporterAction.EditUrlChanged -> state.copy(

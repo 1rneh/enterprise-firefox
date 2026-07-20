@@ -6,8 +6,6 @@
  * JavaScript bytecode interpreter.
  */
 
-#include "vm/Interpreter-inl.h"
-
 #include "mozilla/DebugOnly.h"
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/Maybe.h"
@@ -43,6 +41,8 @@
 #include "vm/BigIntType.h"
 #include "vm/BytecodeUtil.h"  // JSDVG_SEARCH_STACK
 #include "vm/ConstantCompareOperand.h"
+
+#include "vm/Interpreter-inl.h"
 #ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
 #  include "vm/ErrorObject.h"
 #endif
@@ -5171,7 +5171,7 @@ JSObject* js::NewObjectOperation(JSContext* cx, HandleScript script,
   uint8_t propCount = GET_UINT8(pc);
   if (propCount > 0) {
     gc::AllocKind allocKind = gc::GetGCObjectKind(propCount);
-    return NewPlainObjectWithAllocKind(cx, allocKind);
+    return NewPlainObject(cx, {.allocKind = allocKind});
   }
   return NewPlainObject(cx);
 }

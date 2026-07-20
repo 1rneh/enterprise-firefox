@@ -27,7 +27,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logger", function () {
-  return UrlbarUtils.getLogger({ prefix: "SemanticHistorySearch" });
+  return lazy.UrlbarShared.getLogger({ prefix: "SemanticHistorySearch" });
 });
 
 /**
@@ -99,8 +99,8 @@ export class UrlbarProviderSemanticHistorySearch extends UrlbarProvider {
     if (
       lazy.UrlbarPrefs.get("suggest.history") &&
       queryContext.searchString.length >= minSearchStringLength &&
-      (!queryContext.searchMode ||
-        queryContext.searchMode.source ==
+      (!queryContext.restrictInSearchMode() ||
+        queryContext.searchMode?.source ==
           lazy.UrlbarShared.RESULT_SOURCE.HISTORY)
     ) {
       // The smartbar (SW-only surface) is gated on the SW pref so it can light
@@ -156,7 +156,7 @@ export class UrlbarProviderSemanticHistorySearch extends UrlbarProvider {
             url: res.url,
             icon: UrlbarUtils.getIconForUrl(res.url),
             isBlockable: true,
-            blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+            blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
             helpUrl:
               Services.urlFormatter.formatURLPref("app.support.baseURL") +
               "awesome-bar-result-menu",

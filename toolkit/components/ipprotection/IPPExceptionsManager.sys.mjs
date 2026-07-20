@@ -332,9 +332,6 @@ class ExceptionsManager extends EventTarget {
     }
     try {
       const uri = principal?.URI;
-      if (uri && this.#inclusionSet.matches(uri)) {
-        return IPPPrincipalRules.INCLUDED;
-      }
       // Exclude non-http(s) schemes (about:, file:, etc.), but NOT null
       // principals: a null principal's scheme is moz-nullprincipal even when it
       // backs real http(s) content (e.g. a sandboxed iframe), so its scheme says
@@ -349,10 +346,15 @@ class ExceptionsManager extends EventTarget {
       if (ExceptionsManager.isLocal(principal)) {
         return IPPPrincipalRules.EXCLUDED;
       }
-      if (this.hasExclusion(principal)) {
+      // Infrastructure origins the VPN itself depends on (guardian endpoint,
+      // captive detection). These must beat inclusion.
+      if (uri && this.#excludedOrigins.matches(uri)) {
         return IPPPrincipalRules.EXCLUDED;
       }
-      if (uri && this.#excludedOrigins.matches(uri)) {
+      if (uri && this.#inclusionSet.matches(uri)) {
+        return IPPPrincipalRules.INCLUDED;
+      }
+      if (this.hasExclusion(principal)) {
         return IPPPrincipalRules.EXCLUDED;
       }
       return IPPPrincipalRules.DEFAULT;
@@ -374,11 +376,15 @@ class ExceptionsManager extends EventTarget {
     if (!principal) {
       return false;
     }
-    // about:/resource: pages and the system principal are not user-manageable sites.
-    // Loopback/local hosts are always excluded by the proxy so the user cannot
-    // toggle them either.
+    // about:/chrome:/resource: pages and the system principal are not
+    // user-manageable sites. The chrome: check matters because the UI derives
+    // this principal from the URL bar URI via createContentPrincipal, which
+    // yields a chrome-scoped content principal rather than the system principal
+    // gBrowser.contentPrincipal used to surface. Loopback/local hosts are
+    // always excluded by the proxy so the user cannot toggle them either.
     return (
       !principal.schemeIs("about") &&
+      !principal.schemeIs("chrome") &&
       !principal.schemeIs("resource") &&
       !principal.isSystemPrincipal &&
       !ExceptionsManager.isLocal(principal)

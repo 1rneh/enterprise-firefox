@@ -1237,6 +1237,8 @@ static const uint32_t MaxComponentFlagLabels = 32;
 static const uint32_t MaxComponentEnumCases = 10000;
 static const uint32_t MaxComponentParams = 1000;
 static const uint32_t MaxComponentCanonOpts = 1000;
+static const uint32_t MaxComponentFlatteningDepth = 63;
+static const uint32_t MaxComponentInlineExports = MaxComponentImports;
 #endif
 
 // These limits pertain to our WebAssembly implementation only.

@@ -137,6 +137,23 @@
           "value": "{button.background.color.ghost.active}"
         }
       },
+      "muted": {
+        "@base": {
+          "value": "{button.background.color.@base}"
+        },
+        "active": {
+          "value": "{button.background.color.active}"
+        },
+        "hover": {
+          "value": "{button.background.color.hover}"
+        },
+        "disabled": {
+          "value": "{button.background.color.disabled}"
+        },
+        "selected": {
+          "value": "{button.background.color.muted.active}"
+        }
+      },
       "menu": {
         "@base": {
           "value": "{button.background.color.ghost.@base}"
@@ -195,6 +212,16 @@
       }
     }
   },
+  "badge": {
+    "background": {
+      "color": {
+        "value": "{color.accent.attention}"
+      }
+    },
+    "size": {
+      "value": "6px"
+    }
+  },
   "border": {
     "@base": {
       "value": "{border.width} solid {button.border.color.@base}"
@@ -251,7 +278,8 @@
       "ghost": {
         "@base": {
           "value": {
-            "default": "{button.border.color.@base}"
+            "default": "{button.border.color.@base}",
+            "prefersContrast": "{button.border.color.@base}"
           }
         },
         "active": {
@@ -296,6 +324,23 @@
         },
         "selected": {
           "value": "{button.border.color.menu.active}"
+        }
+      },
+      "muted": {
+        "@base": {
+          "value": "{button.border.color.@base}"
+        },
+        "active": {
+          "value": "{button.border.color.active}"
+        },
+        "hover": {
+          "value": "{button.border.color.hover}"
+        },
+        "disabled": {
+          "value": "{button.border.color.disabled}"
+        },
+        "selected": {
+          "value": "{button.border.color.muted.active}"
         }
       },
       "hover": {
@@ -361,6 +406,11 @@
     },
     "radius": {
       "value": "{border.radius.medium}"
+    }
+  },
+  "content": {
+    "alignment": {
+      "value": "center"
     }
   },
   "font": {
@@ -539,6 +589,23 @@
         },
         "selected": {
           "value": "{button.text.color.ghost.active}"
+        }
+      },
+      "muted": {
+        "@base": {
+          "value": "{button.text.color.@base}"
+        },
+        "active": {
+          "value": "{button.text.color.active}"
+        },
+        "hover": {
+          "value": "{button.text.color.hover}"
+        },
+        "disabled": {
+          "value": "{button.text.color.disabled}"
+        },
+        "selected": {
+          "value": "{button.text.color.muted.active}"
         }
       },
       "hover": {

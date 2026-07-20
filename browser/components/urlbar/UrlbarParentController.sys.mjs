@@ -24,23 +24,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarProviderSemanticHistorySearch:
     "moz-src:///browser/components/urlbar/UrlbarProviderSemanticHistorySearch.sys.mjs",
   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
+  UrlbarTelemetryUtils:
+    "chrome://browser/content/urlbar/UrlbarTelemetryUtils.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
-  UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logger", () =>
-  lazy.UrlbarUtils.getLogger({ prefix: "Controller" })
+  lazy.UrlbarShared.getLogger({ prefix: "Controller" })
 );
-
-const NOTIFICATIONS = {
-  QUERY_STARTED: "onQueryStarted",
-  QUERY_RESULTS: "onQueryResults",
-  QUERY_RESULT_REMOVED: "onQueryResultRemoved",
-  QUERY_CANCELLED: "onQueryCancelled",
-  QUERY_FINISHED: "onQueryFinished",
-  VIEW_OPEN: "onViewOpen",
-  VIEW_CLOSE: "onViewClose",
-};
 
 /**
  * The address bar controller handles queries from the address bar, obtains
@@ -48,12 +39,9 @@ const NOTIFICATIONS = {
  *
  * In the parent/child controller split, this class owns the bits that must
  * run in the parent process: the {@link ProvidersManager}, query lifecycle,
- * and parent-only telemetry. It is reached by `UrlbarChildController`
- * through the `Urlbar` JSWindowActor pair. For chrome `<moz-urlbar>`
- * instances both controllers are in the parent process and
- * `UrlbarChildController` holds a direct reference to this class; future
- * content-process consumers (e.g. about:newtab) will route calls through
- * the actor pair instead.
+ * and parent-only telemetry. `UrlbarChildController` reaches it directly when
+ * both run in the parent process (chrome `<moz-urlbar>`), or through the
+ * `Urlbar` JSWindowActor pair when the child runs in a content process.
  *
  * Listeners may be added to listen for the results. They may support the
  * following methods which may be called when a query is run:
@@ -70,55 +58,48 @@ export class UrlbarParentController {
   // The paired UrlbarChildController, which registers itself via setChild().
   // Listener registration and notification dispatch live on it, keeping
   // dispatch on the side where the listeners (the view, the event bufferer)
-  // live — required once `<moz-urlbar>` runs in a content process. The child
-  // is always set before any query runs.
+  // live. The child is always set before any query runs.
   #child = null;
 
+  // The owning JSWindowActor, used to resolve the chrome window parent-side
+  // (see `browserWindow`). Unlike the input and view, the browser window is a
+  // parent-process object, so we don't reach through the content-side child
+  // for it.
+  #actor = null;
+
   /**
-   * Initialises the class. The manager may be overridden here, this is for
-   * test purposes.
+   * Initialises the controller from standalone data; the live input/view are
+   * reached at runtime through the paired `UrlbarChildController`.
    *
    * @param {object} options
    *   The initial options for UrlbarParentController.
-   * @param {UrlbarInput} options.input
-   *   The input this controller is operating with.
+   * @param {string} options.sapName
+   *   The search access point name, e.g. `urlbar`, `searchbar`.
+   * @param {boolean} [options.isPrivate]
+   *   Whether the controller serves a private-browsing input.
+   * @param {object} [options.actor]
+   *   The owning `UrlbarParent` JSWindowActor, used to resolve the chrome
+   *   window. Omitted in unit tests.
    * @param {object} [options.manager]
    *   Optional fake providers manager to override the built-in providers manager.
    *   Intended for use in unit tests only.
    */
-  constructor(options) {
-    if (!options.input) {
-      throw new Error("Missing options: input");
-    }
-    if (!options.input.window) {
-      throw new Error("input is missing 'window' property.");
-    }
-    if (
-      !options.input.window.location ||
-      options.input.window.location.href != AppConstants.BROWSER_CHROME_URL
-    ) {
-      throw new Error("input.window should be an actual browser window.");
-    }
-    if (!("isPrivate" in options.input)) {
-      throw new Error("input.isPrivate must be set.");
-    }
-    if (!options.input.sapName) {
-      throw new Error("input needs a non-empty 'sapName' property.");
+  constructor({ sapName, isPrivate = false, actor, manager }) {
+    if (!sapName) {
+      throw new Error("Missing options: sapName");
     }
 
-    this.sapName = options.input.sapName;
+    this.sapName = sapName;
+    this.isPrivate = isPrivate;
+    this.#actor = actor;
 
     /**
      * @type {ProvidersManager}
      */
     this.manager =
-      options.manager || lazy.ProvidersManager.getInstanceForSap(this.sapName);
+      manager || lazy.ProvidersManager.getInstanceForSap(this.sapName);
 
     this.engagementEvent = new TelemetryEvent(this);
-  }
-
-  get NOTIFICATIONS() {
-    return NOTIFICATIONS;
   }
 
   /**
@@ -131,11 +112,8 @@ export class UrlbarParentController {
   }
 
   /**
-   * The input, owned by the paired `UrlbarChildController`. The parent no
-   * longer holds the input, browser window, or view directly; it reads them
-   * through the child for the query-lifecycle and telemetry call sites that
-   * still need them. These getters go away together with the `#child`
-   * back-reference once those call sites get their data another way.
+   * The input, owned by the paired `UrlbarChildController` and read through it
+   * for the query-lifecycle and telemetry call sites that need it.
    *
    * @type {UrlbarInput}
    */
@@ -144,12 +122,14 @@ export class UrlbarParentController {
   }
 
   /**
-   * The browser window the input lives in.
+   * The chrome window the urlbar lives in, resolved parent-side from the actor.
+   * Parent-side providers read this (icons, speculative connect, opening help
+   * links), so it can't come from the content-side child.
    *
    * @type {ChromeWindow}
    */
   get browserWindow() {
-    return this.#child?.browserWindow;
+    return this.#actor?.browsingContext?.topChromeWindow;
   }
 
   /**
@@ -162,19 +142,6 @@ export class UrlbarParentController {
   }
 
   /**
-   * Returns the view template a dynamic result's provider uses to build its
-   * row. Mediates the view's access to the (parent-process) provider.
-   *
-   * @param {UrlbarResult} result The dynamic result.
-   * @returns {object} The view template.
-   */
-  getViewTemplate(result) {
-    return this.manager
-      .getProvider(result.providerName)
-      .getViewTemplate(result);
-  }
-
-  /**
    * Returns the view update a dynamic result's provider produces for the
    * given node ids. Mediates the view's access to the (parent-process)
    * provider.
@@ -184,9 +151,14 @@ export class UrlbarParentController {
    * @returns {Promise<object>} The view update.
    */
   getViewUpdate(result, idsByName) {
+    // On the message path this round-trips asynchronously, so the provider can
+    // be unregistered by the time it runs. In practice this only happens in
+    // tests, which unregister providers mid-run while a superseded query's row
+    // is still tearing down. The update is then moot; return nothing and let
+    // the view skip it.
     return this.manager
       .getProvider(result.providerName)
-      .getViewUpdate(result, idsByName);
+      ?.getViewUpdate(result, idsByName);
   }
 
   /**
@@ -213,20 +185,6 @@ export class UrlbarParentController {
     this.manager
       .getProvider(result?.providerName)
       ?.tryMethod("onSelection", result, element);
-  }
-
-  /**
-   * Returns the result menu commands a result's provider offers, if any.
-   * Mediates the view's access to the (parent-process) provider.
-   *
-   * @param {UrlbarResult} result The result.
-   * @param {boolean} isPrivate Whether the query is private.
-   * @returns {?UrlbarResultCommand[]} The commands, or null/undefined.
-   */
-  getResultCommands(result, isPrivate) {
-    return this.manager
-      .getProvider(result.providerName)
-      ?.tryMethod("getResultCommands", result, isPrivate);
   }
 
   /**
@@ -271,7 +229,7 @@ export class UrlbarParentController {
     // For proper functionality we must ensure this notification is fired
     // synchronously, as soon as startQuery is invoked, but after any
     // notifications related to the previous query.
-    this.notify(NOTIFICATIONS.QUERY_STARTED, queryContext);
+    this.notify(lazy.UrlbarShared.NOTIFICATIONS.QUERY_STARTED, queryContext);
     await this.manager.startQuery(queryContext, this);
 
     // If the query has been cancelled, onQueryFinished was notified already.
@@ -283,10 +241,57 @@ export class UrlbarParentController {
       contextWrapper.done = true;
       // TODO (Bug 1549936) this is necessary to avoid leaks in PB tests.
       this.manager.cancelQuery(queryContext);
-      this.notify(NOTIFICATIONS.QUERY_FINISHED, queryContext);
+      this.notify(lazy.UrlbarShared.NOTIFICATIONS.QUERY_FINISHED, queryContext);
     }
 
     return queryContext;
+  }
+
+  /**
+   * Records an engagement shipped by a message-path child collector. The
+   * counterpart to the proxy's `recordEngagement()`: deserializes the payload
+   * and hands it to the recorder. On the direct path the child collector isn't
+   * used, so this isn't called.
+   *
+   * @param {object} wire
+   *   The payload from `UrlbarTelemetryUtils.recordedEngagementToWire()`.
+   */
+  recordEngagement(wire) {
+    this.engagementEvent.recordFromChild(
+      lazy.UrlbarTelemetryUtils.recordedEngagementFromWire(wire)
+    );
+  }
+
+  /**
+   * Resets the recorder's cross-session telemetry state. The counterpart to the
+   * proxy's `resetEngagement()`.
+   */
+  resetEngagement() {
+    this.engagementEvent.reset();
+  }
+
+  /**
+   * Records a bounce a message-path child collector triggered. The counterpart
+   * to the proxy's `handleBounceTrigger()`.
+   *
+   * @param {object} payload
+   *   `{snapshot, startTime, browsingContextId, contentData}`.
+   * @returns {Promise<void>}
+   */
+  handleBounceTrigger(payload) {
+    return this.engagementEvent.handleBounceTrigger(payload);
+  }
+
+  /**
+   * Caches the live browser behind a bounce the message-path collector is
+   * tracking, so `handleBounceTrigger()` can resolve it once the tab is gone.
+   * The counterpart to the proxy's `trackBounceBrowser()`.
+   *
+   * @param {number} browserId
+   *   The bounce browser's stable browser id.
+   */
+  trackBounceBrowser(browserId) {
+    this.engagementEvent.trackBounceBrowser(browserId);
   }
 
   /**
@@ -309,8 +314,8 @@ export class UrlbarParentController {
     queryContext.sixthTimerId = 0;
 
     this.manager.cancelQuery(queryContext);
-    this.notify(NOTIFICATIONS.QUERY_CANCELLED, queryContext);
-    this.notify(NOTIFICATIONS.QUERY_FINISHED, queryContext);
+    this.notify(lazy.UrlbarShared.NOTIFICATIONS.QUERY_CANCELLED, queryContext);
+    this.notify(lazy.UrlbarShared.NOTIFICATIONS.QUERY_FINISHED, queryContext);
   }
 
   /**
@@ -332,23 +337,21 @@ export class UrlbarParentController {
       queryContext.sixthTimerId = 0;
     }
 
-    if (queryContext.firstResultChanged) {
-      // Notify the input so it can make adjustments based on the first result.
+    // When the input is in-process (direct path), let it react to the first
+    // result and bail before notifying if it took over (e.g. entered search
+    // mode and restarted the query). On the message path the input lives across
+    // the boundary, so it runs `onFirstResult` content-side when it receives the
+    // results instead. On the message path `this.input` is a forwarding
+    // stand-in without `onFirstResult`, so the capability check also
+    // distinguishes the paths.
+    if (queryContext.firstResultChanged && this.input?.onFirstResult) {
       if (this.input.onFirstResult(queryContext.results[0])) {
         // The input canceled the query and started a new one.
         return;
       }
-
-      // The first time we receive results try to connect to the heuristic
-      // result.
-      this.speculativeConnect(
-        queryContext.results[0],
-        queryContext,
-        "resultsadded"
-      );
     }
 
-    this.notify(NOTIFICATIONS.QUERY_RESULTS, queryContext);
+    this.notify(lazy.UrlbarShared.NOTIFICATIONS.QUERY_RESULTS, queryContext);
     // Update lastResultCount after notifying, so the view can use it.
     queryContext.lastResultCount = queryContext.results.length;
   }
@@ -378,18 +381,18 @@ export class UrlbarParentController {
    * @param {string} reason Reason for the speculative connect request.
    */
   speculativeConnect(result, context, reason) {
-    // Never speculative connect in private contexts.
-    if (!this.input || context.isPrivate || !context.results.length) {
+    // browserWindow is null only during teardown. Never speculative connect in
+    // private contexts.
+    if (!this.browserWindow || context.isPrivate || !context.results.length) {
       return;
     }
 
     switch (reason) {
       case "resultsadded": {
-        // We should connect to an heuristic result, if it exists.
-        if (
-          (result == context.results[0] && result.heuristic) ||
-          result.autofill
-        ) {
+        // We should connect to an heuristic result, if it exists. The result
+        // passed for this reason is always the first one, so its own flags
+        // identify it.
+        if (result.heuristic || result.autofill) {
           if (result.type == lazy.UrlbarShared.RESULT_TYPE.SEARCH) {
             // Speculative connect only if search suggestions are enabled.
             if (
@@ -443,8 +446,15 @@ export class UrlbarParentController {
    *
    * @param {UrlbarResult} result
    *   The result to remove.
+   * @param {object} [options]
+   *   Options object.
+   * @param {object} [options.acknowledgeDismissalL10n]
+   *   When the result is being dismissed, the l10n for the acknowledgment tip
+   *   that should replace its row. Passed through to the view rather than set on
+   *   the result so the result stays identical on both sides of the actor
+   *   boundary.
    */
-  removeResult(result) {
+  removeResult(result, { acknowledgeDismissalL10n } = {}) {
     if (!result || result.heuristic) {
       return;
     }
@@ -457,12 +467,23 @@ export class UrlbarParentController {
 
     let index = queryContext.results.indexOf(result);
     if (index < 0) {
+      // On the actor message path `result` is reconstructed from the wire, so
+      // it isn't identity-equal to the context's instance; its row index, which
+      // matches the results order, locates it instead. Bug 2052875 will match by
+      // a stable result id so this doesn't rely on that ordering.
+      index = result.rowIndex ?? -1;
+    }
+    if (index < 0 || index >= queryContext.results.length) {
       console.error("Failed to find the selected result in the results");
       return;
     }
 
     queryContext.results.splice(index, 1);
-    this.notify(NOTIFICATIONS.QUERY_RESULT_REMOVED, index);
+    this.notify(
+      lazy.UrlbarShared.NOTIFICATIONS.QUERY_RESULT_REMOVED,
+      index,
+      acknowledgeDismissalL10n
+    );
   }
 
   /**
@@ -503,7 +524,7 @@ export class UrlbarParentController {
  *
  * @see Events.yaml
  */
-class TelemetryEvent {
+export class TelemetryEvent {
   /**
    * @param {UrlbarParentController} controller
    *  The associated UrlbarParentController.
@@ -526,19 +547,21 @@ class TelemetryEvent {
    * @param {string} [searchString] Pass a search string related to the event if
    *        you have one.  The event by itself sometimes isn't enough to
    *        determine the telemetry details we should record.
+   * @param {string} [interactionType] An explicit interaction type for the
+   *        session, used in preference to one derived from the event. The view
+   *        passes this when reopening a prior search ("returned").
    * @throws This should never throw, or it may break the urlbar.
    * @see {@link https://firefox-source-docs.mozilla.org/browser/urlbar/telemetry.html}
    */
-  start(event, queryContext, searchString = null) {
+  start(event, queryContext, searchString = null, interactionType = null) {
     if (this._startEventInfo) {
       if (this._startEventInfo.interactionType == "topsites") {
         // If the most recent event came from opening the results pane with an
         // empty string replace the interactionType (that would be "topsites")
         // with one for the current event to better measure the user flow.
-        this._startEventInfo.interactionType = this._getStartInteractionType(
-          event,
-          searchString
-        );
+        this._startEventInfo.interactionType =
+          interactionType ||
+          lazy.UrlbarTelemetryUtils.startInteractionType(event, searchString);
         this._startEventInfo.searchString = searchString;
       } else if (
         this._startEventInfo.interactionType == "returned" &&
@@ -582,7 +605,9 @@ class TelemetryEvent {
 
     this._startEventInfo = {
       timeStamp: event.timeStamp || ChromeUtils.now(),
-      interactionType: this._getStartInteractionType(event, searchString),
+      interactionType:
+        interactionType ||
+        lazy.UrlbarTelemetryUtils.startInteractionType(event, searchString),
       searchString,
     };
   }
@@ -595,6 +620,9 @@ class TelemetryEvent {
    * @property {UrlbarResult} [result]
    *   The engaged result. This should be set to the result related to the
    *   picked element.
+   * @property {UrlbarResult[]} [visibleResults]
+   *   The visible results captured when a deferred (disable/bounce) recording
+   *   is tracked, so `selIndex` indexes into the same set the recording reports.
    * @property {boolean} [isSessionOngoing]
    *   Set to true if the search session is still ongoing.
    * @property {object} [searchMode]
@@ -679,117 +707,59 @@ class TelemetryEvent {
   }
 
   /**
-   * Internal record method, see the record function.
+   * Internal record method, see the record function. Builds the engagement the
+   * same way the content-side collector does, then records it through the shared
+   * `recordFromChild()`; the only in-process difference is that exposures are
+   * resolved here from the parent's own queue rather than shipped.
    *
    * @param {Event} event
    * @param {ActionDetails} details
    */
   #internalRecord(event, details) {
-    const startEventInfo = this._startEventInfo;
-
-    if (!startEventInfo) {
-      return;
-    }
-    if (
-      !event &&
-      startEventInfo.interactionType != "pasted" &&
-      startEventInfo.interactionType != "dropped"
-    ) {
-      // If no event is passed, we must be executing either paste&go or drop&go.
-      throw new Error("Event must be defined, unless input was pasted/dropped");
-    }
-    if (!details) {
-      throw new Error("Invalid event details: " + details);
-    }
-
-    let action = this.#getActionFromEvent(
+    let snapshot = lazy.UrlbarTelemetryUtils.collectSnapshot(
       event,
       details,
-      startEventInfo.interactionType
+      this._startEventInfo
     );
-
-    /** @type {"abandonment" | "engagement"} */
-    let method =
-      action == "blur" || action == "tab_switch" ? "abandonment" : "engagement";
-
-    if (method == "engagement") {
-      // Not all engagements end the search session. The session remains ongoing
-      // when certain commands are picked (like dismissal) and results that
-      // enter search mode are picked. We should find a generalized way to
-      // determine this instead of listing all the cases like this.
-      details.isSessionOngoing = !!(
-        [
-          "dismiss",
-          "inaccurate_location",
-          "not_interested",
-          "not_now",
-          "opt_in",
-          "show_less_frequently",
-        ].includes(details.selType) ||
-        details.result?.payload.providesSearchMode
-      );
+    if (!snapshot) {
+      return;
     }
 
-    // numWords is not a perfect measurement, since it will return an incorrect
-    // value for languages that do not use spaces or URLs containing spaces in
-    // its query parameters, for example.
-    let { numChars, numWords, searchWords } = this._parseSearchString(
-      details.searchString
-    );
+    // `details.isSessionOngoing` was set by collectSnapshot() above.
+    let engagementData = this.#engagementData;
+    let { built, previousSearchWords } =
+      lazy.UrlbarTelemetryUtils.buildRecordedEngagement(
+        snapshot,
+        engagementData,
+        this.#smartbarData,
+        this.#previousSearchWordsSet
+      );
+    this.#previousSearchWordsSet = previousSearchWords;
 
-    let internalDetails = {
-      ...details,
-      event,
-      provider: details.result?.providerName,
-      selIndex: details.result?.rowIndex ?? -1,
-      pickedActionKey: details.element?.dataset.action ?? null,
-    };
+    let disableBuilt = engagementData.visibleResults.some(
+      r => r.providerName == "UrlbarProviderQuickSuggest"
+    )
+      ? lazy.UrlbarTelemetryUtils.buildRecordedDisableCandidate(
+          snapshot,
+          engagementData,
+          this.#smartbarData,
+          this.#previousSearchWordsSet
+        )
+      : null;
 
     let { queryContext } = this._controller._lastQueryContextWrapper || {};
+    let exposures = details.isSessionOngoing
+      ? null
+      : this.#resolveExposureList(queryContext, engagementData.visibleResults);
 
-    this.#recordSearchEngagementTelemetry(method, startEventInfo, {
-      action,
-      numChars,
-      numWords,
-      searchWords,
-      provider: internalDetails.provider,
-      searchSource: internalDetails.searchSource,
-      searchMode: internalDetails.searchMode,
-      selIndex: internalDetails.selIndex,
-      selType: internalDetails.selType,
-      pickedActionKey: internalDetails.pickedActionKey,
-      location: internalDetails.location,
-      windowMode: internalDetails.windowMode,
-      ...this.#getOptionalSmartbarTelemetry(internalDetails.searchSource),
+    this.recordFromChild({
+      built,
+      disableBuilt,
+      method: snapshot.method,
+      searchSource: snapshot.internalDetails.searchSource,
+      internalDetails: snapshot.internalDetails,
+      exposures,
     });
-
-    if (!internalDetails.isSessionOngoing) {
-      this.#recordExposures(queryContext);
-    }
-
-    const visibleResults = this._controller.view?.visibleResults ?? [];
-
-    // Start tracking for a disable event if there was a Suggest result
-    // during an engagement or abandonment event.
-    if (
-      (method == "engagement" || method == "abandonment") &&
-      visibleResults.some(r => r.providerName == "UrlbarProviderQuickSuggest")
-    ) {
-      this.startTrackingDisableSuggest(event, internalDetails);
-    }
-
-    try {
-      this._controller.manager.notifyEngagementChange(
-        method,
-        queryContext,
-        internalDetails,
-        this._controller
-      );
-    } catch (error) {
-      // We handle and report any error here to avoid hitting the record()
-      // handler, that would look like we didn't send telemetry at all.
-      console.error(error);
-    }
   }
 
   /**
@@ -807,7 +777,6 @@ class TelemetryEvent {
    *   already started closing. In that case, no telemetry should be recorded.
    */
   #searchSourceToSap(searchSource) {
-    let browserWindow = this._controller.browserWindow;
     if (searchSource === "urlbar_handoff") {
       return "handoff";
     }
@@ -818,6 +787,7 @@ class TelemetryEvent {
     if (searchSource === "smartbar") {
       return "smartbar";
     }
+    let browserWindow = this._controller.browserWindow;
     if (browserWindow.closed) {
       // If the browser window has already started closing, then we bail-out.
       // We would rather return no telemetry than have telemetry with an
@@ -833,6 +803,113 @@ class TelemetryEvent {
       return "urlbar_addonpage";
     }
     return "urlbar";
+  }
+
+  /**
+   * The input/view state the engagement-telemetry recording needs. Read from
+   * the live input/view: only the direct path and the parent-side bounce/disable
+   * recording reach this getter, and both have the live objects. (Message-path
+   * engagement builds its event content-side, so nothing is injected here.)
+   *
+   * @type {{searchMode: object, visibleResults: UrlbarResult[], viewIsOpen: boolean, searchSource: string}}
+   */
+  get #engagementData() {
+    return lazy.UrlbarTelemetryUtils.engagementData(
+      this._controller.input,
+      this._controller.view
+    );
+  }
+
+  /**
+   * The smartbar-only telemetry fields, from the live input.
+   *
+   * @type {{chatId: string, intent: string, model: string}}
+   */
+  get #smartbarData() {
+    return lazy.UrlbarTelemetryUtils.smartbarData(this._controller.input);
+  }
+
+  /**
+   * Records an engagement a message-path child collector built and shipped via
+   * `RecordEngagement`. The child already built the Glean event; the parent
+   * fills the fields that need parent-only services and makes the `Glean` call,
+   * records the shipped exposures, and runs the parent-side provider steps
+   * (disable-tracking and `notifyEngagementChange`) from the shipped result.
+   *
+   * @param {object} data
+   *   The deserialized `recordedEngagementToWire()` payload.
+   * @param {?{metric: string, eventInfo: object}} data.built
+   *   The built Glean event (metric + partial event), or null.
+   * @param {?object} data.disableBuilt
+   *   The built disable-suggest candidate event when a Suggest result showed, or
+   *   null.
+   * @param {"engagement"|"abandonment"} data.method
+   *   The engagement method.
+   * @param {string} data.searchSource
+   *   The search source.
+   * @param {object} data.internalDetails
+   *   The interaction details (picked result reconstructed; event/element null).
+   * @param {?object[]} data.exposures
+   *   The resolved exposure list, or null when the session stays open.
+   */
+  recordFromChild({
+    built,
+    disableBuilt,
+    method,
+    searchSource,
+    internalDetails,
+    exposures,
+  }) {
+    try {
+      let { queryContext } = this._controller._lastQueryContextWrapper || {};
+      let sap = this.#searchSourceToSap(searchSource);
+
+      if (built && sap) {
+        this.#fillAndRecord(built, sap);
+      }
+
+      if (sap && exposures?.length) {
+        this.#recordExposureList(exposures, sap);
+      }
+
+      // Start tracking for a disable event if a Suggest result showed during
+      // this engagement or abandonment (the candidate was built content-side).
+      if (disableBuilt) {
+        this.startTrackingDisableSuggest(disableBuilt, searchSource);
+      }
+
+      this._controller.manager.notifyEngagementChange(
+        method,
+        queryContext,
+        internalDetails,
+        this._controller
+      );
+    } catch (ex) {
+      console.error("Could not record engagement: ", ex);
+    }
+  }
+
+  /**
+   * Fills the fields a built Glean event needs from parent-only services and
+   * records it. Shared by the engagement/abandonment recorder, the disable and
+   * bounce recorders, and the message-path bounce trigger.
+   *
+   * @param {{metric: string, eventInfo: object}} built
+   *   The built event from `UrlbarTelemetryUtils.buildEventInfo()`.
+   * @param {string} sap
+   *   The already-resolved search access point.
+   */
+  #fillAndRecord(built, sap) {
+    let { metric, eventInfo } = built;
+    eventInfo.sap = sap;
+    eventInfo.search_engine_default_id =
+      lazy.SearchService.defaultEngine.telemetryId;
+    if (metric === "engagement" || metric === "abandonment") {
+      eventInfo.available_semantic_sources =
+        this.#getAvailableSemanticSources().join();
+    }
+    lazy.logger.info(`${metric} event:`, eventInfo);
+    Glean.urlbar[metric].record(eventInfo);
   }
 
   /**
@@ -858,6 +935,10 @@ class TelemetryEvent {
    *   The searchMode object to record.
    * @param {number} details.selIndex
    *   The index of the selected result.
+   * @param {UrlbarResult[]} details.visibleResults
+   *   The results shown when the engagement was captured. Passed in (rather than
+   *   read fresh here) so a deferred recording indexes `selIndex` into the same
+   *   results it was captured against.
    * @param {string} details.selType
    *   The Type of the selected element, undefined for "blur".
    *   One of "unknown", "autofill", "visiturl", "bookmark", "help", "history",
@@ -894,6 +975,7 @@ class TelemetryEvent {
       searchSource,
       searchMode,
       selIndex,
+      visibleResults,
       selType,
       pickedActionKey = null,
       viewTime = 0,
@@ -908,6 +990,7 @@ class TelemetryEvent {
     if (!sap) {
       return;
     }
+    let engagementData = this.#engagementData;
     // The extra_key `location` is optional, but required for the smartbar.
     // TODO (bug 2024631): Support location for all SAPs.
     if (this._controller.sapName === "smartbar" && !location) {
@@ -915,179 +998,45 @@ class TelemetryEvent {
         "Telemetry extra_key `location` is required for smartbar"
       );
     }
-    searchMode = searchMode ?? this._controller.input.searchMode;
+    searchMode = searchMode ?? engagementData.searchMode;
 
-    // Distinguish user typed search strings from persisted search terms.
-    const interaction = this.#getInteractionType(
+    // Distinguish user typed search strings from persisted search terms. The
+    // "refined" check compares against the previous session's search words, so
+    // thread that state through and store what comes back.
+    let { interaction, previousSearchWords } =
+      lazy.UrlbarTelemetryUtils.getInteractionType(
+        method,
+        startEventInfo,
+        searchSource,
+        searchWords,
+        searchMode,
+        this.#previousSearchWordsSet
+      );
+    this.#previousSearchWordsSet = previousSearchWords;
+
+    let built = lazy.UrlbarTelemetryUtils.buildEventInfo({
       method,
-      startEventInfo,
+      action,
+      interaction,
+      numChars,
+      numWords,
+      provider,
       searchSource,
-      searchWords,
-      searchMode
-    );
-    const search_mode = this.#getSearchMode(searchMode);
-    const currentResults = this._controller.view?.visibleResults ?? [];
-    let numResults = currentResults.length;
-    let groups = currentResults
-      .map(r => lazy.UrlbarUtils.searchEngagementTelemetryGroup(r))
-      .join(",");
-    let results = currentResults
-      .map(r => lazy.UrlbarUtils.searchEngagementTelemetryType(r))
-      .join(",");
-    let actions = currentResults
-      .map(r => lazy.UrlbarUtils.searchEngagementTelemetryAction(r))
-      .filter(v => v)
-      .join(",");
-    let available_semantic_sources = this.#getAvailableSemanticSources().join();
-    const search_engine_default_id =
-      lazy.SearchService.defaultEngine.telemetryId;
-
-    switch (method) {
-      case "engagement": {
-        let selected_result = lazy.UrlbarUtils.searchEngagementTelemetryType(
-          currentResults[selIndex],
-          selType
-        );
-
-        if (selType == "action") {
-          let actionKey = lazy.UrlbarUtils.searchEngagementTelemetryAction(
-            currentResults[selIndex],
-            pickedActionKey
-          );
-          selected_result = `action_${actionKey}`;
-        }
-
-        if (
-          selected_result === "input_field" &&
-          !this._controller.view?.isOpen
-        ) {
-          numResults = 0;
-          groups = "";
-          results = "";
-        }
-
-        let eventInfo = {
-          sap,
-          interaction,
-          search_mode,
-          n_chars: numChars.toString(),
-          n_words: numWords.toString(),
-          n_results: numResults.toString(),
-          selected_position: (selIndex + 1).toString(),
-          selected_result,
-          provider,
-          engagement_type:
-            selType === "help" ||
-            selType === "dismiss" ||
-            selType === "ask_button" ||
-            selType === "navigate_button" ||
-            selType === "search_button"
-              ? selType
-              : action,
-          search_engine_default_id,
-          groups,
-          results,
-          actions,
-          available_semantic_sources,
-          window_mode: windowMode,
-          ...(sap === "smartbar"
-            ? { location, chat_id: chatId, intent, model }
-            : {}),
-        };
-        lazy.logger.info(`engagement event:`, eventInfo);
-        Glean.urlbar.engagement.record(eventInfo);
-        break;
-      }
-      case "abandonment": {
-        let eventInfo = {
-          abandonment_type: action,
-          sap,
-          interaction,
-          search_mode,
-          n_chars: numChars.toString(),
-          n_words: numWords.toString(),
-          n_results: numResults.toString(),
-          search_engine_default_id,
-          groups,
-          results,
-          actions,
-          available_semantic_sources,
-          window_mode: windowMode,
-          ...(sap === "smartbar"
-            ? { location, chat_id: chatId, intent, model }
-            : {}),
-        };
-        lazy.logger.info(`abandonment event:`, eventInfo);
-        Glean.urlbar.abandonment.record(eventInfo);
-        break;
-      }
-      case "disable": {
-        const previousEvent =
-          action == "blur" || action == "tab_switch"
-            ? "abandonment"
-            : "engagement";
-        let selected_result = "none";
-        if (previousEvent == "engagement") {
-          selected_result = lazy.UrlbarUtils.searchEngagementTelemetryType(
-            currentResults[selIndex],
-            selType
-          );
-        }
-        let eventInfo = {
-          sap,
-          interaction,
-          search_mode,
-          search_engine_default_id,
-          n_chars: numChars.toString(),
-          n_words: numWords.toString(),
-          n_results: numResults.toString(),
-          selected_result,
-          results,
-          feature: "suggest",
-          window_mode: windowMode,
-          ...(sap === "smartbar"
-            ? { location, chat_id: chatId, intent, model }
-            : {}),
-        };
-        lazy.logger.info(`disable event:`, eventInfo);
-        Glean.urlbar.disable.record(eventInfo);
-        break;
-      }
-      case "bounce": {
-        let selected_result = lazy.UrlbarUtils.searchEngagementTelemetryType(
-          currentResults[selIndex],
-          selType
-        );
-        let eventInfo = {
-          sap,
-          interaction,
-          search_mode,
-          search_engine_default_id,
-          n_chars: numChars.toString(),
-          n_words: numWords.toString(),
-          n_results: numResults.toString(),
-          selected_result,
-          selected_position: (selIndex + 1).toString(),
-          provider,
-          engagement_type:
-            selType === "help" || selType === "dismiss" ? selType : action,
-          results,
-          view_time: viewTime.toString(),
-          threshold: lazy.UrlbarPrefs.get(
-            "events.bounce.maxSecondsFromLastSearch"
-          ),
-          window_mode: windowMode,
-          ...(sap === "smartbar"
-            ? { location, chat_id: chatId, intent, model }
-            : {}),
-        };
-        lazy.logger.info(`bounce event:`, eventInfo);
-        Glean.urlbar.bounce.record(eventInfo);
-        break;
-      }
-      default: {
-        console.error(`Unknown telemetry event method: ${method}`);
-      }
+      searchMode,
+      selIndex,
+      visibleResults,
+      viewIsOpen: engagementData.viewIsOpen,
+      selType,
+      pickedActionKey,
+      viewTime,
+      location,
+      chatId,
+      intent,
+      model,
+      windowMode,
+    });
+    if (built) {
+      this.#fillAndRecord(built, sap);
     }
   }
 
@@ -1104,15 +1053,7 @@ class TelemetryEvent {
     if (!isSmartbar) {
       return null;
     }
-    // If SAP is `smartbar` we can safely cast to type `SmartbarInput`.
-    const input = /** @type {SmartbarInput} */ (
-      /** @type {unknown} */ (this._controller.input)
-    );
-    return {
-      chatId: input.conversationTelemetryInfo?.chat_id ?? "",
-      intent: input.smartbarAction ?? "",
-      model: input.modelName ?? "",
-    };
+    return this.#smartbarData;
   }
 
   /**
@@ -1146,35 +1087,53 @@ class TelemetryEvent {
   }
 
   /**
+   * Resolves the queued exposures to their recordable form (computing the
+   * terminal flag against the live results and query context) and clears the
+   * queues. `recordFromChild()` records the returned list, so the direct and
+   * message paths record exposures the same way.
+   *
    * @param {UrlbarQueryContext} queryContext
+   *   The query the exposures belong to.
+   * @param {UrlbarResult[]} visibleResults
+   *   The results shown at session end.
+   * @returns {Array<{resultType: string, keyword: ?string, terminal: boolean}>}
+   *   The resolved exposures (empty when none were queued).
    */
-  #recordExposures(queryContext) {
+  #resolveExposureList(queryContext, visibleResults) {
     let exposures = this.#exposures;
     this.#exposures = [];
     this.#tentativeExposures = [];
-    if (!exposures.length) {
-      return;
-    }
-    let sap = this.#searchSourceToSap(this._controller.input.getSearchSource());
-    if (!sap) {
-      // Window started closing.
-      return;
-    }
-
-    let terminalByType = new Map();
-    let keywordExposureRecorded = false;
-    for (let { weakResult, resultType, keyword } of exposures) {
-      let terminal = false;
+    return exposures.map(({ weakResult, resultType, keyword }) => {
       let result = weakResult.get();
+      let terminal = false;
       if (result) {
         this.#exposureResults.delete(result);
-
-        let endResults = result.isHiddenExposure
-          ? queryContext.results
-          : this._controller.view?.visibleResults;
-        terminal = endResults?.includes(result);
+        terminal = lazy.UrlbarTelemetryUtils.exposureTerminal(
+          result,
+          queryContext,
+          visibleResults
+        );
       }
+      return { resultType, keyword, terminal };
+    });
+  }
 
+  /**
+   * Records the `exposure` Glean event (and any `keyword_exposure` events and
+   * the `urlbar-keyword-exposure` ping) from a resolved exposure list. The
+   * parent-side recording half of exposure telemetry; fed either by
+   * `#recordExposures()` on the direct path or by the list a child collector
+   * ships on the message path.
+   *
+   * @param {Array<{resultType: string, keyword: ?string, terminal: boolean}>} list
+   *   The resolved exposures.
+   * @param {string} sap
+   *   The search access point.
+   */
+  #recordExposureList(list, sap) {
+    let terminalByType = new Map();
+    let keywordExposureRecorded = false;
+    for (let { resultType, keyword, terminal } of list) {
       terminalByType.set(resultType, terminal);
 
       // Record the `keyword_exposure` event if there's a keyword.
@@ -1280,175 +1239,16 @@ class TelemetryEvent {
     // its update process, but we should record at most one exposure per result.
     if (!this.#exposureResults.has(result)) {
       this.#exposureResults.add(result);
-      let resultType = lazy.UrlbarUtils.searchEngagementTelemetryType(result);
+      let { resultType, keyword } = lazy.UrlbarTelemetryUtils.exposureEntry(
+        result,
+        queryContext
+      );
       this.#exposures.push({
         resultType,
+        keyword,
         weakResult: Cu.getWeakReference(result),
-        keyword:
-          !queryContext.isPrivate &&
-          lazy.UrlbarPrefs.get("keywordExposureResults").has(resultType)
-            ? queryContext.trimmedLowerCaseSearchString
-            : null,
       });
     }
-  }
-
-  #getInteractionType(
-    method,
-    startEventInfo,
-    searchSource,
-    searchWords,
-    searchMode
-  ) {
-    if (searchMode?.entry === "topsites_newtab") {
-      return "topsite_search";
-    }
-
-    let interaction = startEventInfo.interactionType;
-    if (
-      (interaction === "returned" || interaction === "restarted") &&
-      this._isRefined(new Set(searchWords), this.#previousSearchWordsSet)
-    ) {
-      interaction = "refined";
-    }
-
-    if (searchSource === "urlbar_persisted") {
-      switch (interaction) {
-        case "returned": {
-          interaction = "persisted_search_terms";
-          break;
-        }
-        case "restarted":
-        case "refined": {
-          interaction = `persisted_search_terms_${interaction}`;
-          break;
-        }
-      }
-    }
-
-    if (
-      (method === "engagement" &&
-        lazy.UrlbarPrefs.isPersistedSearchTermsEnabled()) ||
-      method === "abandonment"
-    ) {
-      this.#previousSearchWordsSet = new Set(searchWords);
-    } else if (method === "engagement") {
-      this.#previousSearchWordsSet = null;
-    }
-
-    return interaction;
-  }
-
-  #getSearchMode(searchMode) {
-    if (!searchMode) {
-      return "";
-    }
-
-    if (searchMode.engineName) {
-      return "search_engine";
-    }
-
-    const source = lazy.UrlbarUtils.LOCAL_SEARCH_MODES.find(
-      m => m.source == searchMode.source
-    )?.telemetryLabel;
-    return source ?? "unknown";
-  }
-
-  #getActionFromEvent(event, details, defaultInteractionType) {
-    if (!event) {
-      return defaultInteractionType === "dropped" ? "drop_go" : "paste_go";
-    }
-    if (event.type === "blur") {
-      return "blur";
-    }
-    if (event.type === "tabswitch") {
-      return "tab_switch";
-    }
-    // dismiss_autofill temporarily blocks autofill suggestions rather than
-    // removing history, but we still want to report it "dismiss" in telemetry.
-    if (details.element?.dataset.command === "dismiss_autofill") {
-      return "dismiss";
-    }
-    if (
-      details.element?.dataset.command &&
-      details.element.dataset.command !== "help"
-    ) {
-      return details.element.dataset.command;
-    }
-    if (details.selType === "dismiss") {
-      return "dismiss";
-    }
-    if (MouseEvent.isInstance(event)) {
-      // TODO (Bug 2018250): Don’t rely on `event` and use `selType` or
-      // `details.element` if possible.
-      return /** @type {HTMLElement} */ (event.target).classList.contains(
-        "urlbar-go-button"
-      )
-        ? "go_button"
-        : "click";
-    }
-    return "enter";
-  }
-
-  _parseSearchString(searchString) {
-    let numChars = searchString.length.toString();
-    let searchWords = searchString
-      .substring(0, lazy.UrlbarUtils.MAX_TEXT_LENGTH)
-      .trim()
-      .split(lazy.UrlUtils.REGEXP_SPACES)
-      .filter(t => t);
-    let numWords = searchWords.length.toString();
-
-    return {
-      numChars,
-      numWords,
-      searchWords,
-    };
-  }
-
-  /**
-   * Checks whether re-searched by modifying some of the keywords from the
-   * previous search. Concretely, returns true if there is intersects between
-   * both keywords, otherwise returns false. Also, returns false even if both
-   * are the same.
-   *
-   * @param {Set} currentSet The current keywords.
-   * @param {Set} [previousSet] The previous keywords.
-   * @returns {boolean} true if current searching are refined.
-   */
-  _isRefined(currentSet, previousSet = null) {
-    if (!previousSet) {
-      return false;
-    }
-
-    const intersect = (setA, setB) => {
-      let count = 0;
-      for (const word of setA.values()) {
-        if (setB.has(word)) {
-          count += 1;
-        }
-      }
-      return count > 0 && count != setA.size;
-    };
-
-    return (
-      intersect(currentSet, previousSet) || intersect(previousSet, currentSet)
-    );
-  }
-
-  _getStartInteractionType(event, searchString) {
-    if (event.interactionType) {
-      return event.interactionType;
-    } else if (event.type == "input") {
-      return lazy.UrlbarUtils.isPasteEvent(event) ? "pasted" : "typed";
-    } else if (event.type == "drop") {
-      return "dropped";
-    } else if (event.type == "paste") {
-      return "pasted";
-    } else if (searchString) {
-      return "typed";
-    }
-    return "topsites";
   }
 
   /**
@@ -1561,88 +1361,42 @@ class TelemetryEvent {
   #exposureResults = new WeakSet();
 
   /**
-   * Start tracking a potential disable suggest event after user has seen a
-   * suggest result.
+   * Start tracking a potential disable suggest event after the user has seen a
+   * suggest result. The candidate event is built content-side at engagement
+   * time, so the deferred recording needs neither the DOM event nor an
+   * in-process input.
    *
-   * @param {event} event
-   *   A DOM event.
-   * @param {InternalActionDetails} details
-   *   An object describing interaction details.
+   * @param {{metric: string, eventInfo: object}} built
+   *   The built disable event from `buildRecordedDisableCandidate()`.
+   * @param {string} searchSource
+   *   The search source, resolved to a sap when the event is recorded.
    */
-  startTrackingDisableSuggest(event, details) {
+  startTrackingDisableSuggest(built, searchSource) {
     this._lastSearchDetailsForDisableSuggestTracking = {
       // The time when a user interacts a suggest result, either through
       // an engagement or an abandonment.
       interactionTime: this.getCurrentTime(),
-      event,
-      details,
+      built,
+      searchSource,
     };
   }
 
   handleDisableSuggest() {
     let state = this._lastSearchDetailsForDisableSuggestTracking;
+    this._lastSearchDetailsForDisableSuggestTracking = null;
     if (
       !state ||
       this.getCurrentTime() - state.interactionTime >
         lazy.UrlbarPrefs.get("events.disableSuggest.maxSecondsFromLastSearch") *
           1000
     ) {
-      this._lastSearchDetailsForDisableSuggestTracking = null;
       return;
     }
 
-    let event = state.event;
-    let details = state.details;
-
-    let startEventInfo = {
-      interactionType: this._getStartInteractionType(
-        event,
-        details.searchString
-      ),
-      searchString: details.searchString,
-    };
-
-    if (
-      !event &&
-      startEventInfo.interactionType != "pasted" &&
-      startEventInfo.interactionType != "dropped"
-    ) {
-      // If no event is passed, we must be executing either paste&go or drop&go.
-      throw new Error("Event must be defined, unless input was pasted/dropped");
+    let sap = this.#searchSourceToSap(state.searchSource);
+    if (sap) {
+      this.#fillAndRecord(state.built, sap);
     }
-    if (!details) {
-      throw new Error("Invalid event details: " + details);
-    }
-
-    let action = this.#getActionFromEvent(
-      event,
-      details,
-      startEventInfo.interactionType
-    );
-
-    let { numChars, numWords, searchWords } = this._parseSearchString(
-      details.searchString
-    );
-
-    details.provider = details.result?.providerName;
-    details.selIndex = details.result?.rowIndex ?? -1;
-
-    this.#recordSearchEngagementTelemetry("disable", startEventInfo, {
-      action,
-      numChars,
-      numWords,
-      searchWords,
-      provider: details.provider,
-      searchSource: details.searchSource,
-      searchMode: details.searchMode,
-      selIndex: details.selIndex,
-      selType: details.selType,
-      location: details.location,
-      windowMode: details.windowMode,
-      ...this.#getOptionalSmartbarTelemetry(details.searchSource),
-    });
-
-    this._lastSearchDetailsForDisableSuggestTracking = null;
   }
 
   getCurrentTime() {
@@ -1653,8 +1407,8 @@ class TelemetryEvent {
    * Start tracking a potential bounce event after the user has engaged
    * with a URL bar result.
    *
-   * @param {object} browser
-   *   The browser object.
+   * @param {MozBrowser} browser
+   *   The chrome <browser> for the tab the engagement happened in.
    * @param {event} event
    *   A DOM event.
    * @param {ActionDetails} details
@@ -1672,9 +1426,12 @@ class TelemetryEvent {
 
     state.bounceEventTracking = {
       startTime: Date.now(),
-      pickEvent: event,
-      resultDetails: details,
-      startEventInfo,
+      snapshot: lazy.UrlbarTelemetryUtils.collectBounceSnapshot(
+        event,
+        details,
+        startEventInfo,
+        this.#engagementData.visibleResults
+      ),
     };
   }
 
@@ -1684,8 +1441,8 @@ class TelemetryEvent {
    * browser chrome (this includes clicking on history or bookmark entries,
    * and engaging with the URL bar).
    *
-   * @param {object} browser
-   *   The browser object.
+   * @param {MozBrowser} browser
+   *   The chrome <browser> for the tab the trigger happened in.
    */
   async handleBounceEventTrigger(browser) {
     let state = this._controller.input.getBrowserState(browser);
@@ -1727,62 +1484,119 @@ class TelemetryEvent {
   /**
    * Record a bounce event
    *
-   * @param {object} browser
-   *   The browser object.
+   * @param {MozBrowser} browser
+   *   The chrome <browser> for the tab the engagement happened in.
    * @param {number} viewTime
    *  The time spent on a tab after a URL bar engagement before
    *  navigating away via browser chrome or closing the tab.
    */
   recordBounceEvent(browser, viewTime) {
-    let state = this._controller.input.getBrowserState(browser);
-    let event = state.bounceEventTracking.pickEvent;
-    let details = state.bounceEventTracking.resultDetails;
+    let { snapshot } =
+      this._controller.input.getBrowserState(browser).bounceEventTracking;
+    this.#recordBounce(snapshot, viewTime);
+  }
 
-    let startEventInfo = state.bounceEventTracking.startEventInfo;
-
-    if (!startEventInfo) {
+  /**
+   * Records a bounce telemetry event from a bounce snapshot. The parent-side
+   * recording half; fed either by `recordBounceEvent()` on the direct path or
+   * by the snapshot a child collector ships on the message path.
+   *
+   * @param {?object} snapshot
+   *   The bounce snapshot from `UrlbarTelemetryUtils.collectBounceSnapshot()`.
+   * @param {number} viewTime
+   *   The time spent on the tab before navigating away, in milliseconds.
+   */
+  #recordBounce(snapshot, viewTime) {
+    if (!snapshot) {
       return;
     }
 
-    if (
-      !event &&
-      startEventInfo.interactionType != "pasted" &&
-      startEventInfo.interactionType != "dropped"
-    ) {
-      // If no event is passed, we must be executing either paste&go or drop&go.
-      throw new Error("Event must be defined, unless input was pasted/dropped");
-    }
-    if (!details) {
-      throw new Error("Invalid event details: " + details);
-    }
-
-    let action = this.#getActionFromEvent(
-      event,
-      details,
-      startEventInfo.interactionType
-    );
-
-    let { numChars, numWords, searchWords } = this._parseSearchString(
-      details.searchString
-    );
-
-    details.provider = details.result?.providerName;
-    details.selIndex = details.result?.rowIndex ?? -1;
-
-    this.#recordSearchEngagementTelemetry("bounce", startEventInfo, {
-      action,
-      numChars,
-      numWords,
-      searchWords,
-      provider: details.provider,
-      searchSource: details.searchSource,
-      searchMode: details.searchMode,
-      selIndex: details.selIndex,
-      selType: details.selType,
+    this.#recordSearchEngagementTelemetry("bounce", snapshot.startEventInfo, {
+      action: snapshot.action,
+      numChars: snapshot.numChars,
+      numWords: snapshot.numWords,
+      searchWords: snapshot.searchWords,
+      provider: snapshot.provider,
+      searchSource: snapshot.searchSource,
+      searchMode: snapshot.searchMode,
+      selIndex: snapshot.selIndex,
+      visibleResults: snapshot.visibleResults,
+      selType: snapshot.selType,
       viewTime: viewTime / 1000,
-      location: details.location,
-      windowMode: details.windowMode,
-      ...this.#getOptionalSmartbarTelemetry(details.searchSource),
+      location: snapshot.location,
+      windowMode: snapshot.windowMode,
+      ...this.#getOptionalSmartbarTelemetry(snapshot.searchSource),
     });
+  }
+
+  // Browsers behind message-path bounces still being tracked, keyed by their
+  // stable browser id, captured while alive so a tab-close trigger can still
+  // resolve one after the tab is gone.
+  #bounceBrowsers = new Map();
+
+  /**
+   * Caches the browser behind a bounce a message-path collector is tracking,
+   * keyed by its stable browser id, while the tab is still alive. On a tab-close
+   * trigger the browser is gone before the async trigger message is handled, so
+   * it can no longer be resolved then; the preserved reference lets
+   * `handleBounceTrigger()` record the bounce anyway. Keyed by browser id rather
+   * than browsing context id because a navigation between tracking and the
+   * trigger can replace the browsing context.
+   *
+   * @param {number} browserId
+   *   The bounce browser's stable browser id.
+   */
+  trackBounceBrowser(browserId) {
+    let browser =
+      BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement;
+    if (browser) {
+      this.#bounceBrowsers.set(browserId, browser);
+    }
+  }
+
+  /**
+   * Records a bounce shipped by a message-path child collector. The collector
+   * owns the bounce tracking content-side; on a trigger it sends the resolved
+   * snapshot, the tracking start time, the embedder browser's id, and the
+   * content the recording reads. Here we resolve the browser, ask
+   * `Interactions` how long the tab was viewed, and record a bounce if it falls
+   * under the threshold.
+   *
+   * @param {object} payload
+   *   `{built, searchSource, startTime, browserId}` from the child collector,
+   *   where `built` is the Glean event minus `view_time`.
+   */
+  async handleBounceTrigger(payload) {
+    let { built, searchSource, startTime, browserId } = payload;
+    let browser =
+      this.#bounceBrowsers.get(browserId) ??
+      BrowsingContext.getCurrentTopByBrowserId(browserId)?.embedderElement;
+    this.#bounceBrowsers.delete(browserId);
+    if (!browser || !built) {
+      return;
+    }
+
+    const interactions =
+      (await lazy.Interactions.getRecentInteractionsForBrowser(browser)) ?? [];
+    let totalViewTime = 0;
+    for (let interaction of interactions) {
+      if (interaction.created_at >= startTime) {
+        totalViewTime += interaction.totalViewTime || 0;
+      }
+    }
+
+    if (
+      totalViewTime != 0 &&
+      totalViewTime <
+        lazy.UrlbarPrefs.get("events.bounce.maxSecondsFromLastSearch") * 1000
+    ) {
+      let sap = this.#searchSourceToSap(searchSource);
+      if (!sap) {
+        return;
+      }
+      // view_time is only known now, once Interactions has reported it.
+      built.eventInfo.view_time = (totalViewTime / 1000).toString();
+      this.#fillAndRecord(built, sap);
+    }
   }
 }

@@ -17,8 +17,13 @@ ChromeUtils.defineESModuleGetters(this, {
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   IntentClassifier:
     "moz-src:///browser/components/aiwindow/models/IntentClassifier.sys.mjs",
+  MENTION_TYPE:
+    "moz-src:///browser/components/urlbar/SmartbarMentionsPanelSearch.sys.mjs",
   openAIEngine: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  SmartbarMentionsPanelSearch:
+    "moz-src:///browser/components/urlbar/SmartbarMentionsPanelSearch.sys.mjs",
   PlacesTestUtils: "resource://testing-common/PlacesTestUtils.sys.mjs",
+  Region: "resource://gre/modules/Region.sys.mjs",
   SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
   SessionWindowUI: "resource:///modules/sessionstore/SessionWindowUI.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
@@ -52,7 +57,7 @@ const MOCK_RS_RECORDS = [
   ["chat", 7],
   ["title-generation", 1],
   ["conversation-starters-sidebar-system", 1],
-  ["conversation-suggestions-sidebar-starter", 2],
+  ["conversation-suggestions-sidebar-starter", 3],
   ["conversation-suggestions-followup", 1],
   ["conversation-suggestions-assistant-limitations", 1],
   ["conversation-suggestions-memories", 1],
@@ -88,6 +93,13 @@ const MOCK_RS_RECORDS = [
       feature: "chat",
       model: "gemini-3.1-flash-lite",
       model_choice_id: "1",
+      model_details: {
+        model: "gemini-3.1-flash-lite",
+        ownerName: "Google",
+        labelId: "fast",
+        shortName: "Gemini 3.1 Flash Lite",
+        brandName: "Gemini",
+      },
       service_type: "ai",
       purpose: "chat",
       parameters: {},
@@ -98,6 +110,13 @@ const MOCK_RS_RECORDS = [
       feature: "chat",
       model: "qwen3-235b-a22b-instruct-2507-maas",
       model_choice_id: "2",
+      model_details: {
+        model: "qwen3-235b-a22b-instruct-2507-maas",
+        ownerName: "Alibaba",
+        labelId: "allpurpose",
+        shortName: "Qwen 3 235B",
+        brandName: "Qwen",
+      },
       service_type: "ai",
       purpose: "chat",
       parameters: {},
@@ -108,11 +127,80 @@ const MOCK_RS_RECORDS = [
       feature: "chat",
       model: "gpt-oss-120b",
       model_choice_id: "3",
+      model_details: {
+        model: "gpt-oss-120b",
+        ownerName: "OpenAI",
+        labelId: "personal",
+        shortName: "GPT OSS 120B",
+        brandName: "GPT OSS",
+      },
       service_type: "ai",
       purpose: "chat",
       parameters: {},
       prompts: "Test system prompt.",
       version: "v7.0",
+    },
+    // TODO 2053495
+    // v9 records for mistral release (browser.smartwindow.mistralRelease pref)
+    {
+      feature: "chat",
+      model: "generic",
+      service_type: "ai",
+      parameters: {},
+      prompts: "Test system prompt.",
+      version: "v8.0",
+      is_default: true,
+    },
+    {
+      feature: "chat",
+      model: "mistral-small-2603",
+      model_choice_id: "1",
+      model_details: {
+        model: "mistral-small-2603",
+        ownerName: "Mistral",
+        labelId: "personal",
+        shortName: "Mistral Small 4",
+        brandName: "Mistral",
+      },
+      service_type: "ai",
+      purpose: "chat",
+      parameters: {},
+      prompts: "Test system prompt.",
+      version: "v8.0",
+    },
+    {
+      feature: "chat",
+      model: "gemini-3.1-flash-lite",
+      model_choice_id: "2",
+      model_details: {
+        model: "gemini-3.1-flash-lite",
+        ownerName: "Google",
+        labelId: "fast",
+        shortName: "Gemini 3.1 Flash Lite",
+        brandName: "Gemini",
+      },
+      service_type: "ai",
+      purpose: "chat",
+      parameters: {},
+      prompts: "Test system prompt.",
+      version: "v8.0",
+    },
+    {
+      feature: "chat",
+      model: "qwen3-235b-a22b-instruct-2507-maas",
+      model_choice_id: "3",
+      model_details: {
+        model: "qwen3-235b-a22b-instruct-2507-maas",
+        ownerName: "Alibaba",
+        labelId: "allpurpose",
+        shortName: "Qwen 3 235B",
+        brandName: "Qwen",
+      },
+      service_type: "ai",
+      purpose: "chat",
+      parameters: {},
+      prompts: "Test system prompt.",
+      version: "v8.0",
     },
   ]);
 
@@ -233,26 +321,25 @@ async function waitForSidebarOpen(win) {
  * Opens a new AI Window with about:blank
  * and the chat assistant sidebar open
  *
+ * @param {string} [url] - URL to navigate the tab to
  * @returns {Promise<{win: Window, sidebarBrowser: MozBrowser}>}
  */
-async function openAIWindowWithSidebar() {
+async function openAIWindowWithSidebar(url = "about:blank") {
   const win = await openAIWindow();
-  return openAIWindowSidebar(win);
+  return openAIWindowSidebar(win, url);
 }
 
 /**
- * Navigates an AI Window to about:blank and opens the sidebar.
+ * Navigates an AI Window to the given URL and opens the sidebar.
  *
  * @param {Window} win
+ * @param {string} [url] - URL to navigate the tab to
  * @returns {Promise<{win: Window, sidebarBrowser: MozBrowser}>}
  */
-async function openAIWindowSidebar(win) {
-  BrowserTestUtils.startLoadingURIString(
-    win.gBrowser.selectedBrowser,
-    "about:blank"
-  );
+async function openAIWindowSidebar(win, url = "about:blank") {
+  BrowserTestUtils.startLoadingURIString(win.gBrowser.selectedBrowser, url);
   await BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser, {
-    wantLoad: "about:blank",
+    wantLoad: url,
   });
   if (!AIWindowUI.isSidebarOpen(win)) {
     info("Opening sidebar");

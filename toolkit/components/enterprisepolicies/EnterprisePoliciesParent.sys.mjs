@@ -544,13 +544,18 @@ EnterprisePoliciesManager.prototype = {
       return { isValid: false, parsedParams: null };
     }
 
-    const { valid: isValid, parsedValue: parsedParams } =
-      lazy.PolicySchemaValidator.validate(policyParams, policySchema, {
-        allowAdditionalProperties: true,
-      });
+    const {
+      valid: isValid,
+      parsedValue: parsedParams,
+      error: validationError,
+    } = lazy.PolicySchemaValidator.validate(policyParams, policySchema, {
+      allowAdditionalProperties: true,
+    });
 
     if (!isValid) {
-      lazy.log.error(`Invalid parameters specified for ${policyName}.`);
+      lazy.log.error(
+        `Invalid parameters specified for ${policyName}: ${validationError.message}`
+      );
       return { isValid: false, parsedParams: null };
     }
 
@@ -1248,7 +1253,6 @@ class JSONPoliciesProvider extends PoliciesProvider {
  *
  * Uses JSON like JSONPoliciesProvider
  */
-
 class RemotePoliciesProvider extends PoliciesProvider {
   POLLING_FREQUENCY_PREF = "enterprise.policies.live.polling_interval";
   POLLING_FREQUENCY_FALLBACK = 60_000;
@@ -1349,7 +1353,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
     this._updateInProgress = true;
     try {
       lazy.log.debug("Polling for remote policies.");
-      const changed = await this.ingestPolicies();
+      const changed = await this.ingestPolicies({ isStartup: false });
       if (!changed) {
         lazy.log.debug("Remote policies unchanged, not firing an update.");
         return;
@@ -1358,7 +1362,8 @@ class RemotePoliciesProvider extends PoliciesProvider {
       Services.obs.notifyObservers(null, "EnterprisePolicies:Update");
     } catch (e) {
       lazy.log.error(
-        `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error ${e}`
+        `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error`,
+        e
       );
     } finally {
       this._updateInProgress = false;
@@ -1383,11 +1388,14 @@ class RemotePoliciesProvider extends PoliciesProvider {
   /**
    * Fetch the remote policies and store them.
    *
+   * @param {object} [options]
+   * @param {boolean} [options.isStartup=true] passed through to
+   *   ConsoleClient.getRemotePolicies(); see its documentation.
    * @returns {Promise<boolean>} whether the policies or the failure state
    *   changed, i.e. whether the engine should re-evaluate
    */
-  async ingestPolicies() {
-    const res = await lazy.ConsoleClient.getRemotePolicies();
+  async ingestPolicies({ isStartup = true } = {}) {
+    const res = await lazy.ConsoleClient.getRemotePolicies({ isStartup });
     if (!res?.policies) {
       lazy.log.error(
         `No policies were found in the response: ${JSON.stringify(res)}.`
@@ -1480,7 +1488,7 @@ class macOSPoliciesProvider extends PoliciesProvider {
   }
 }
 
-class CombinedProvider extends PoliciesProvider {
+export class CombinedProvider extends PoliciesProvider {
   constructor() {
     super();
     this._providers = [];
@@ -1503,6 +1511,9 @@ class CombinedProvider extends PoliciesProvider {
   }
 
   get failed() {
+    // A failed provider only fails the engine if it left us without any
+    // policies to apply. If any provider supplied policies we proceed
+    // and ignore the failed source.
     return this._providers.some(p => p.failed) && !this.hasPolicies;
   }
 }

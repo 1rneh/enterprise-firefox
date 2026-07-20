@@ -6,9 +6,10 @@ use crate::{
     error::{error_to_string, ErrMsg, ErrorBuffer, ErrorBufferType, OwnedErrorBuffer},
     make_byte_buf,
     telemetry::build_telemetry_struct,
-    wgpu_string, AdapterInformation, BufferMapResult, ByteBuf, CommandEncoderAction, DeviceAction,
-    FfiSlice, Message, PipelineError, QueueWriteAction, QueueWriteDataSource, ServerMessage,
-    ShaderModuleCompilationMessage, SwapChainId, TextureAction,
+    wgpu_string, AdapterInformation, BindingCommand, BufferMapResult, ByteBuf,
+    CommandEncoderCommand, DebugCommand, DeviceAction, FfiSlice, Message, PipelineError,
+    QueueWriteAction, QueueWriteDataSource, RenderBundleEncoderCommand, RenderCommand,
+    ServerMessage, ShaderModuleCompilationMessage, SwapChainId, TextureAction,
 };
 
 use nsstring::{nsACString, nsCString};
@@ -20,13 +21,14 @@ use wgh::Instance;
 use wgt::error::{ErrorType, WebGpuError};
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 #[allow(unused_imports)]
 use std::mem;
 #[cfg(target_os = "linux")]
 use std::os::fd::{FromRawFd, IntoRawFd, OwnedFd, RawFd};
 use std::os::raw::c_char;
 use std::ptr;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 #[allow(unused_imports)]
@@ -87,8 +89,7 @@ fn get_linux_dmabuf_modifiers() -> Option<Vec<u64>> {
     }
 
     // The pointer is owned by gfxVars storage and copied immediately.
-    let modifiers =
-        unsafe { std::slice::from_raw_parts(modifiers_ptr, modifier_count as usize) };
+    let modifiers = unsafe { std::slice::from_raw_parts(modifiers_ptr, modifier_count as usize) };
     Some(modifiers.to_vec())
 }
 
@@ -133,6 +134,31 @@ pub struct WebGPUParentPtr(*mut core::ffi::c_void);
 pub struct Global {
     owner: WebGPUParentPtr,
     global: wgc::global::Global,
+    swap_chain_configs: Mutex<HashMap<SwapChainId, SwapChainConfig>>,
+}
+
+/// Values for the descriptor when creating textures for an active swap chain.
+#[derive(Clone)]
+struct SwapChainConfig {
+    size: wgt::Extent3d,
+    format: wgt::TextureFormat,
+    usage: wgt::TextureUsages,
+    view_formats: Vec<wgt::TextureFormat>,
+}
+
+impl SwapChainConfig {
+    fn to_texture_descriptor(&self) -> wgc::resource::TextureDescriptor<'static> {
+        wgt::TextureDescriptor {
+            label: Some(Cow::Borrowed("swap chain texture")),
+            size: self.size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgt::TextureDimension::D2,
+            format: self.format,
+            usage: self.usage,
+            view_formats: self.view_formats.clone(),
+        }
+    }
 }
 
 impl std::ops::Deref for Global {
@@ -200,7 +226,11 @@ pub extern "C" fn wgpu_server_new(owner: WebGPUParentPtr) -> *mut Global {
         },
         Some(build_telemetry_struct()),
     );
-    let global = Global { owner, global };
+    let global = Global {
+        owner,
+        global,
+        swap_chain_configs: Mutex::new(HashMap::new()),
+    };
     Box::into_raw(Box::new(global))
 }
 
@@ -410,142 +440,6 @@ fn create_next_numbered_dir(dir: &std::path::Path) -> std::io::Result<std::path:
     }
 }
 
-fn sanitize_limits(limits: &mut wgt::Limits) {
-    // Copy the value of a WebGPU-defined limit without modifying it.
-    macro_rules! transfer_limit {
-        ($limit:tt) => {
-            let $limit = limits.$limit;
-        };
-    }
-    // Ignore or `debug_assert` the requested value of a limit related to `wgpu` extensions,
-    // then use the default value. (In most cases the default value of `wgpu`-defined limits
-    // is zero, but `max_non_sampler_bindings` is a special case.)
-    macro_rules! sanitize_limit {
-        ($limit:tt) => {
-            debug_assert_eq!(limits.$limit, wgt::Limits::default().$limit);
-            let $limit = wgt::Limits::default().$limit;
-        };
-    }
-
-    transfer_limit!(max_texture_dimension_1d);
-    transfer_limit!(max_texture_dimension_2d);
-    transfer_limit!(max_texture_dimension_3d);
-    transfer_limit!(max_texture_array_layers);
-    transfer_limit!(max_bind_groups);
-    transfer_limit!(max_bind_groups_plus_vertex_buffers);
-    transfer_limit!(max_bindings_per_bind_group);
-    transfer_limit!(max_dynamic_uniform_buffers_per_pipeline_layout);
-    transfer_limit!(max_dynamic_storage_buffers_per_pipeline_layout);
-    transfer_limit!(max_sampled_textures_per_shader_stage);
-    transfer_limit!(max_samplers_per_shader_stage);
-    transfer_limit!(max_storage_buffers_per_shader_stage);
-    transfer_limit!(max_storage_textures_per_shader_stage);
-    transfer_limit!(max_uniform_buffers_per_shader_stage);
-    transfer_limit!(max_uniform_buffer_binding_size);
-    transfer_limit!(max_storage_buffer_binding_size);
-    transfer_limit!(max_vertex_buffers);
-    transfer_limit!(max_buffer_size);
-    transfer_limit!(max_vertex_attributes);
-    transfer_limit!(max_vertex_buffer_array_stride);
-    transfer_limit!(max_inter_stage_shader_variables);
-    transfer_limit!(min_uniform_buffer_offset_alignment);
-    transfer_limit!(min_storage_buffer_offset_alignment);
-    transfer_limit!(max_color_attachments);
-    transfer_limit!(max_color_attachment_bytes_per_sample);
-    transfer_limit!(max_compute_workgroup_storage_size);
-    transfer_limit!(max_compute_invocations_per_workgroup);
-    transfer_limit!(max_compute_workgroup_size_x);
-    transfer_limit!(max_compute_workgroup_size_y);
-    transfer_limit!(max_compute_workgroup_size_z);
-    transfer_limit!(max_compute_workgroups_per_dimension);
-    transfer_limit!(max_immediate_size);
-
-    sanitize_limit!(max_binding_array_acceleration_structure_elements_per_shader_stage);
-    sanitize_limit!(max_binding_array_sampler_elements_per_shader_stage);
-    sanitize_limit!(max_binding_array_elements_per_shader_stage);
-    sanitize_limit!(max_non_sampler_bindings);
-    sanitize_limit!(max_task_workgroup_total_count);
-    sanitize_limit!(max_task_workgroups_per_dimension);
-    sanitize_limit!(max_mesh_workgroup_total_count);
-    sanitize_limit!(max_mesh_workgroups_per_dimension);
-    sanitize_limit!(max_task_invocations_per_workgroup);
-    sanitize_limit!(max_task_invocations_per_dimension);
-    sanitize_limit!(max_mesh_invocations_per_workgroup);
-    sanitize_limit!(max_mesh_invocations_per_dimension);
-    sanitize_limit!(max_task_payload_size);
-    sanitize_limit!(max_mesh_output_vertices);
-    sanitize_limit!(max_mesh_output_primitives);
-    sanitize_limit!(max_mesh_output_layers);
-    sanitize_limit!(max_mesh_multiview_view_count);
-    sanitize_limit!(max_blas_primitive_count);
-    sanitize_limit!(max_blas_geometry_count);
-    sanitize_limit!(max_tlas_instance_count);
-    sanitize_limit!(max_acceleration_structures_per_shader_stage);
-    sanitize_limit!(max_multiview_view_count);
-
-    // This exhaustive struct literal ensures new limits are considered in this function. Set them
-    // above with `transfer_limit!` if they're standard WebGPU limits, or with `sanitize_limit!` if
-    // they're `wgpu` extensions.
-    let sanitized_limits = wgt::Limits {
-        max_texture_dimension_1d,
-        max_texture_dimension_2d,
-        max_texture_dimension_3d,
-        max_texture_array_layers,
-        max_bind_groups,
-        max_bind_groups_plus_vertex_buffers,
-        max_bindings_per_bind_group,
-        max_dynamic_uniform_buffers_per_pipeline_layout,
-        max_dynamic_storage_buffers_per_pipeline_layout,
-        max_sampled_textures_per_shader_stage,
-        max_samplers_per_shader_stage,
-        max_storage_buffers_per_shader_stage,
-        max_storage_textures_per_shader_stage,
-        max_uniform_buffers_per_shader_stage,
-        max_binding_array_acceleration_structure_elements_per_shader_stage,
-        max_binding_array_sampler_elements_per_shader_stage,
-        max_binding_array_elements_per_shader_stage,
-        max_uniform_buffer_binding_size,
-        max_storage_buffer_binding_size,
-        max_vertex_buffers,
-        max_buffer_size,
-        max_vertex_attributes,
-        max_vertex_buffer_array_stride,
-        max_inter_stage_shader_variables,
-        min_uniform_buffer_offset_alignment,
-        min_storage_buffer_offset_alignment,
-        max_color_attachments,
-        max_color_attachment_bytes_per_sample,
-        max_compute_workgroup_storage_size,
-        max_compute_invocations_per_workgroup,
-        max_compute_workgroup_size_x,
-        max_compute_workgroup_size_y,
-        max_compute_workgroup_size_z,
-        max_compute_workgroups_per_dimension,
-        max_immediate_size,
-        max_non_sampler_bindings,
-        max_task_workgroup_total_count,
-        max_task_workgroups_per_dimension,
-        max_mesh_workgroup_total_count,
-        max_mesh_workgroups_per_dimension,
-        max_task_invocations_per_workgroup,
-        max_task_invocations_per_dimension,
-        max_mesh_invocations_per_workgroup,
-        max_mesh_invocations_per_dimension,
-        max_task_payload_size,
-        max_mesh_output_vertices,
-        max_mesh_output_primitives,
-        max_mesh_output_layers,
-        max_mesh_multiview_view_count,
-        max_blas_primitive_count,
-        max_blas_geometry_count,
-        max_tlas_instance_count,
-        max_acceleration_structures_per_shader_stage,
-        max_multiview_view_count,
-    };
-
-    *limits = sanitized_limits;
-}
-
 unsafe fn adapter_request_device(
     global: &Global,
     self_id: id::AdapterId,
@@ -556,8 +450,8 @@ unsafe fn adapter_request_device(
     let mut sanitized_desc = {
         let wgc::device::DeviceDescriptor {
             label,
-            mut required_features,
-            mut required_limits,
+            required_features,
+            required_limits,
             experimental_features,
             memory_hints,
             trace,
@@ -570,10 +464,9 @@ unsafe fn adapter_request_device(
         assert!(matches!(memory_hints, wgt::MemoryHints::Performance));
         assert!(matches!(trace, wgt::Trace::Off));
 
-        // Note that there is logic below that adds back some native features that
-        // are used internally to implement external textures.
-        required_features.features_wgpu = wgt::FeaturesWGPU::empty();
-        sanitize_limits(&mut required_limits);
+        // Note that wgpu-core will generally ignore all required features and limits that
+        // are not part of the spec. See docs of `InstanceFlags::STRICT_WEBGPU_COMPLIANCE`
+        // for exceptions and actual behavior.
 
         wgc::device::DeviceDescriptor {
             label,
@@ -2156,7 +2049,7 @@ impl Global {
                 // Don't trust the graphics driver with buffer sizes larger than our conservative max buffer size.
                 if shmem_allocation_failed || desc.size > MAX_BUFFER_SIZE {
                     error_buf.init(ErrMsg::oom(), device_id);
-                    self.create_buffer_error(Some(buffer_id), &desc);
+                    self.create_buffer_error(device_id, Some(buffer_id), &desc);
                     return;
                 }
 
@@ -2185,6 +2078,18 @@ impl Global {
             }
             #[allow(unused_variables)]
             DeviceAction::CreateTexture(id, desc, swap_chain_id) => {
+                let desc = if let Some(swap_chain_id) = swap_chain_id {
+                    self.swap_chain_configs
+                        .lock()
+                        .unwrap()
+                        .get(&swap_chain_id)
+                        .cloned()
+                        .expect("CreateTexture for unknown swap chain {swap_chain_id:?}")
+                        .to_texture_descriptor()
+                } else {
+                    desc
+                };
+
                 unsafe {
                     assert!(wgpu_texture_format_is_valid_for_webidl(&nsCString::from(
                         serde_json::to_value(&desc.format)
@@ -2199,7 +2104,7 @@ impl Global {
                     || desc.size.height > max
                     || desc.size.depth_or_array_layers > max
                 {
-                    self.create_texture_error(Some(id), &desc);
+                    self.create_texture_error(device_id, Some(id), &desc);
                     error_buf.init(ErrMsg::oom(), device_id);
                     return;
                 }
@@ -2211,7 +2116,7 @@ impl Global {
                 ]
                 .contains(&0)
                 {
-                    self.create_texture_error(Some(id), &desc);
+                    self.create_texture_error(device_id, Some(id), &desc);
                     error_buf.init(
                         ErrMsg {
                             message: "size is zero".into(),
@@ -2233,7 +2138,7 @@ impl Global {
                     if desc.size.width > limits.max_texture_dimension_2d
                         || desc.size.height > limits.max_texture_dimension_2d
                     {
-                        self.create_texture_error(Some(id), &desc);
+                        self.create_texture_error(device_id, Some(id), &desc);
                         error_buf.init(
                             ErrMsg {
                                 message: "size exceeds limits.max_texture_dimension_2d".into(),
@@ -2249,7 +2154,7 @@ impl Global {
                         && desc.usage.contains(wgt::TextureUsages::STORAGE_BINDING)
                         && !features.contains(wgt::Features::BGRA8UNORM_STORAGE)
                     {
-                        self.create_texture_error(Some(id), &desc);
+                        self.create_texture_error(device_id, Some(id), &desc);
                         error_buf.init(
                             ErrMsg {
                                 message: concat!(
@@ -2387,7 +2292,7 @@ impl Global {
                             sample_transform: Default::default(),
                             load_transform: Default::default(),
                         };
-                        self.create_external_texture_error(Some(id), &desc);
+                        self.create_external_texture_error(device_id, Some(id), &desc);
                     }
                 }
             }
@@ -2404,7 +2309,7 @@ impl Global {
                 }
             }
             DeviceAction::CreateBindGroupLayoutError(id, label) => {
-                self.create_bind_group_layout_error(Some(id), label);
+                self.create_bind_group_layout_error(device_id, Some(id), label);
             }
             DeviceAction::RenderPipelineGetBindGroupLayout(pipeline_id, index, bgl_id) => {
                 let (_, error) =
@@ -2522,18 +2427,12 @@ impl Global {
                     }
                 }
             }
-            DeviceAction::CreateRenderBundle(id, encoder, desc) => {
+            DeviceAction::CreateRenderBundleEncoder(id, desc) => {
                 let (_, error) =
-                    self.render_bundle_encoder_finish(Box::new(encoder), &desc, Some(id));
+                    self.device_create_render_bundle_encoder_with_id(device_id, &desc, Some(id));
                 if let Some(err) = error {
                     error_buf.init(err, device_id);
                 }
-            }
-            DeviceAction::CreateRenderBundleError(buffer_id, label) => {
-                self.create_render_bundle_error(
-                    Some(buffer_id),
-                    &wgt::RenderBundleDescriptor { label },
-                );
             }
             DeviceAction::CreateQuerySet(id, desc) => {
                 let (_, error) = self.device_create_query_set(device_id, &desc, Some(id));
@@ -2591,114 +2490,237 @@ impl Global {
         }
     }
 
-    fn command_encoder_action(
+    fn render_bundle_encoder_command(
         &self,
         device_id: id::DeviceId,
-        self_id: id::CommandEncoderId,
-        action: CommandEncoderAction,
+        id: id::RenderBundleEncoderId,
+        cmd: RenderBundleEncoderCommand,
         error_buf: &mut OwnedErrorBuffer,
     ) {
-        match action {
-            CommandEncoderAction::CopyBufferToBuffer {
-                src,
-                src_offset,
-                dst,
-                dst_offset,
+        let res = match cmd {
+            RenderBundleEncoderCommand::BindingCommand(binding_command) => match binding_command {
+                BindingCommand::SetBindGroup {
+                    index,
+                    bind_group,
+                    dynamic_offsets,
+                } => self.render_bundle_encoder_set_bind_group_with_id(
+                    id,
+                    index,
+                    bind_group,
+                    &dynamic_offsets,
+                ),
+                BindingCommand::SetImmediates { range_offset, data } => {
+                    self.render_bundle_encoder_set_immediates_with_id(id, range_offset, &data)
+                }
+            },
+            RenderBundleEncoderCommand::RenderCommand(render_command) => match render_command {
+                RenderCommand::SetPipeline(pipeline_id) => {
+                    self.render_bundle_encoder_set_pipeline_with_id(id, pipeline_id)
+                }
+                RenderCommand::SetIndexBuffer {
+                    buffer,
+                    index_format,
+                    offset,
+                    size,
+                } => self.render_bundle_encoder_set_index_buffer_with_id(
+                    id,
+                    buffer,
+                    index_format,
+                    offset,
+                    size.and_then(core::num::NonZeroU64::new), // pass size directly once https://github.com/gfx-rs/wgpu/issues/3170 is resolved
+                ),
+                RenderCommand::SetVertexBuffer {
+                    slot,
+                    buffer,
+                    offset,
+                    size,
+                } => self.render_bundle_encoder_set_vertex_buffer_with_id(
+                    id,
+                    slot,
+                    buffer,
+                    offset,
+                    size.and_then(core::num::NonZeroU64::new), // pass size directly once https://github.com/gfx-rs/wgpu/issues/3170 is resolved
+                ),
+                RenderCommand::Draw {
+                    vertex_count,
+                    instance_count,
+                    first_vertex,
+                    first_instance,
+                } => self.render_bundle_encoder_draw_with_id(
+                    id,
+                    vertex_count,
+                    instance_count,
+                    first_vertex,
+                    first_instance,
+                ),
+                RenderCommand::DrawIndexed {
+                    index_count,
+                    instance_count,
+                    first_index,
+                    base_vertex,
+                    first_instance,
+                } => self.render_bundle_encoder_draw_indexed_with_id(
+                    id,
+                    index_count,
+                    instance_count,
+                    first_index,
+                    base_vertex,
+                    first_instance,
+                ),
+                RenderCommand::DrawIndirect {
+                    indirect_buffer,
+                    indirect_offset,
+                } => self.render_bundle_encoder_draw_indirect_with_id(
+                    id,
+                    indirect_buffer,
+                    indirect_offset,
+                ),
+                RenderCommand::DrawIndexedIndirect {
+                    indirect_buffer,
+                    indirect_offset,
+                } => self.render_bundle_encoder_draw_indexed_indirect_with_id(
+                    id,
+                    indirect_buffer,
+                    indirect_offset,
+                ),
+            },
+            RenderBundleEncoderCommand::DebugCommand(debug_command) => match debug_command {
+                DebugCommand::PushDebugGroup(label) => {
+                    self.render_bundle_encoder_push_debug_group_with_id(id, &label)
+                }
+                DebugCommand::PopDebugGroup => {
+                    self.render_bundle_encoder_pop_debug_group_with_id(id)
+                }
+                DebugCommand::InsertDebugMarker(label) => {
+                    self.render_bundle_encoder_insert_debug_marker_with_id(id, &label)
+                }
+            },
+            RenderBundleEncoderCommand::Finish {
+                desc,
+                render_bundle_id,
+            } => {
+                let (_, error) =
+                    self.render_bundle_encoder_finish_with_id(id, &desc, Some(render_bundle_id));
+                if let Some(err) = error {
+                    error_buf.init(err, device_id);
+                }
+                Ok(())
+            }
+        };
+        if let Err(err) = res {
+            error_buf.init(err, device_id);
+        }
+    }
+
+    fn command_encoder_command(
+        &self,
+        device_id: id::DeviceId,
+        id: id::CommandEncoderId,
+        cmd: CommandEncoderCommand,
+        error_buf: &mut OwnedErrorBuffer,
+    ) {
+        let res = match cmd {
+            CommandEncoderCommand::BeginRenderPass {
+                desc,
+                render_pass_encoder_id,
+            } => {
+                let (_, err) = self.command_encoder_begin_render_pass_with_id(
+                    id,
+                    &desc,
+                    Some(render_pass_encoder_id),
+                );
+                if let Some(err) = err {
+                    error_buf.init(err, device_id);
+                }
+                Ok(())
+            }
+            CommandEncoderCommand::BeginComputePass {
+                desc,
+                compute_pass_encoder_id,
+            } => {
+                let (_, err) = self.command_encoder_begin_compute_pass_with_id(
+                    id,
+                    &desc,
+                    Some(compute_pass_encoder_id),
+                );
+                if let Some(err) = err {
+                    error_buf.init(err, device_id);
+                }
+                Ok(())
+            }
+            CommandEncoderCommand::CopyBufferToBuffer {
+                source,
+                source_offset,
+                destination,
+                destination_offset,
                 size,
+            } => self.command_encoder_copy_buffer_to_buffer(
+                id,
+                source,
+                source_offset,
+                destination,
+                destination_offset,
+                size,
+            ),
+            CommandEncoderCommand::CopyBufferToTexture {
+                source,
+                destination,
+                copy_size,
+            } => self.command_encoder_copy_buffer_to_texture(id, &source, &destination, &copy_size),
+            CommandEncoderCommand::CopyTextureToBuffer {
+                source,
+                destination,
+                copy_size,
+            } => self.command_encoder_copy_texture_to_buffer(id, &source, &destination, &copy_size),
+            CommandEncoderCommand::CopyTextureToTexture {
+                source,
+                destination,
+                copy_size,
             } => {
-                if let Err(err) = self.command_encoder_copy_buffer_to_buffer(
-                    self_id, src, src_offset, dst, dst_offset, size,
-                ) {
-                    error_buf.init(err, device_id);
-                }
+                self.command_encoder_copy_texture_to_texture(id, &source, &destination, &copy_size)
             }
-            CommandEncoderAction::CopyBufferToTexture { src, dst, size } => {
-                if let Err(err) =
-                    self.command_encoder_copy_buffer_to_texture(self_id, &src, &dst, &size)
-                {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::CopyTextureToBuffer { src, dst, size } => {
-                if let Err(err) =
-                    self.command_encoder_copy_texture_to_buffer(self_id, &src, &dst, &size)
-                {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::CopyTextureToTexture { src, dst, size } => {
-                if let Err(err) =
-                    self.command_encoder_copy_texture_to_texture(self_id, &src, &dst, &size)
-                {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::RunComputePass { .. } => unimplemented!(),
-            CommandEncoderAction::WriteTimestamp {
+            CommandEncoderCommand::ClearBuffer {
+                buffer,
+                offset,
+                size,
+            } => self.command_encoder_clear_buffer(id, buffer, offset, size),
+            CommandEncoderCommand::ResolveQuerySet {
                 query_set,
-                query_index,
-            } => {
-                if let Err(err) =
-                    self.command_encoder_write_timestamp(self_id, query_set, query_index)
-                {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::ResolveQuerySet {
-                query_set,
-                start_query,
+                first_query,
                 query_count,
                 destination,
                 destination_offset,
+            } => self.command_encoder_resolve_query_set(
+                id,
+                query_set,
+                first_query,
+                query_count,
+                destination,
+                destination_offset,
+            ),
+            CommandEncoderCommand::DebugCommand(debug_command) => match debug_command {
+                DebugCommand::PushDebugGroup(label) => {
+                    self.command_encoder_push_debug_group(id, &label)
+                }
+                DebugCommand::PopDebugGroup => self.command_encoder_pop_debug_group(id),
+                DebugCommand::InsertDebugMarker(label) => {
+                    self.command_encoder_insert_debug_marker(id, &label)
+                }
+            },
+            CommandEncoderCommand::Finish {
+                desc,
+                command_buffer_id,
             } => {
-                if let Err(err) = self.command_encoder_resolve_query_set(
-                    self_id,
-                    query_set,
-                    start_query,
-                    query_count,
-                    destination,
-                    destination_offset,
-                ) {
+                let (_, label_and_error) =
+                    self.command_encoder_finish(id, &desc, Some(command_buffer_id));
+                if let Some((_label, err)) = label_and_error {
                     error_buf.init(err, device_id);
                 }
+                Ok(())
             }
-            CommandEncoderAction::RunRenderPass { .. } => unimplemented!(),
-            CommandEncoderAction::ClearBuffer { dst, offset, size } => {
-                if let Err(err) = self.command_encoder_clear_buffer(self_id, dst, offset, size) {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::ClearTexture {
-                dst,
-                ref subresource_range,
-            } => {
-                if let Err(err) =
-                    self.command_encoder_clear_texture(self_id, dst, subresource_range)
-                {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::PushDebugGroup(marker) => {
-                if let Err(err) = self.command_encoder_push_debug_group(self_id, &marker) {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::PopDebugGroup => {
-                if let Err(err) = self.command_encoder_pop_debug_group(self_id) {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::InsertDebugMarker(marker) => {
-                if let Err(err) = self.command_encoder_insert_debug_marker(self_id, &marker) {
-                    error_buf.init(err, device_id);
-                }
-            }
-            CommandEncoderAction::BuildAccelerationStructures { .. } => {
-                unreachable!("internal error: attempted to build acceleration structures")
-            }
-            CommandEncoderAction::TransitionResources { .. } => {
-                unreachable!("internal error: attempted to transition resources")
-            }
+        };
+        if let Err(err) = res {
+            error_buf.init(err, device_id);
         }
     }
 }
@@ -2931,7 +2953,7 @@ unsafe fn process_message(
                     driver,
                     driver_info,
                     backend,
-                    transient_saves_memory,
+                    transient_saves_memory: _,
                     device_pci_bus_id: _,
                     subgroup_min_size,
                     subgroup_max_size,
@@ -2973,7 +2995,6 @@ unsafe fn process_message(
                     driver_info: Cow::Owned(driver_info),
                     backend,
                     support_use_shared_texture_in_swap_chain,
-                    transient_saves_memory,
                     subgroup_min_size,
                     subgroup_max_size,
                 };
@@ -3007,21 +3028,17 @@ unsafe fn process_message(
         Message::Texture(device_id, id, action) => {
             global.texture_action(device_id, id, action, error_buf)
         }
-        Message::CommandEncoder(device_id, id, action) => {
-            global.command_encoder_action(device_id, id, action, error_buf)
+        Message::RenderBundleEncoder(device_id, id, cmd) => {
+            global.render_bundle_encoder_command(device_id, id, cmd, error_buf)
         }
-        Message::CommandEncoderFinish(device_id, command_encoder_id, command_buffer_id, desc) => {
-            let (_, label_and_error) =
-                global.command_encoder_finish(command_encoder_id, &desc, Some(command_buffer_id));
-            if let Some((_label, err)) = label_and_error {
-                error_buf.init(err, device_id);
-            }
+        Message::CommandEncoder(device_id, id, cmd) => {
+            global.command_encoder_command(device_id, id, cmd, error_buf)
         }
-        Message::ReplayRenderPass(device_id, id, pass) => {
-            crate::command::replay_render_pass(global, device_id, id, &pass, error_buf);
+        Message::RenderPassEncoder(device_id, id, cmd) => {
+            crate::command::render_pass_encoder_command(global, device_id, id, cmd, error_buf);
         }
-        Message::ReplayComputePass(device_id, id, pass) => {
-            crate::command::replay_compute_pass(global, device_id, id, &pass, error_buf);
+        Message::ComputePassEncoder(device_id, id, cmd) => {
+            crate::command::compute_pass_encoder_command(global, device_id, id, cmd, error_buf);
         }
         Message::QueueWrite {
             device_id,
@@ -3097,10 +3114,26 @@ unsafe fn process_message(
             width,
             height,
             format,
+            texture_format,
+            usage,
+            view_formats,
             buffer_ids,
             remote_texture_owner_id,
             use_shared_texture_in_swap_chain,
         } => {
+            global.swap_chain_configs.lock().unwrap().insert(
+                SwapChainId(remote_texture_owner_id.0),
+                SwapChainConfig {
+                    size: wgt::Extent3d {
+                        width: width as u32,
+                        height: height as u32,
+                        depth_or_array_layers: 1,
+                    },
+                    format: texture_format,
+                    usage,
+                    view_formats,
+                },
+            );
             wgpu_parent_create_swap_chain(
                 global.owner,
                 device_id,
@@ -3135,6 +3168,11 @@ unsafe fn process_message(
             txn_type,
             txn_id,
         } => {
+            global
+                .swap_chain_configs
+                .lock()
+                .unwrap()
+                .remove(&SwapChainId(remote_texture_owner_id.0));
             wgpu_parent_swap_chain_drop(global.owner, remote_texture_owner_id, txn_type, txn_id);
         }
 
@@ -3163,9 +3201,9 @@ unsafe fn process_message(
             global.buffer_drop(id)
         }
         Message::DropCommandEncoder(id) => global.command_encoder_drop(id),
-        Message::DropRenderPassEncoder(_id) => {}
-        Message::DropComputePassEncoder(_id) => {}
-        Message::DropRenderBundleEncoder(_id) => {}
+        Message::DropRenderPassEncoder(id) => global.render_pass_drop(id),
+        Message::DropComputePassEncoder(id) => global.compute_pass_drop(id),
+        Message::DropRenderBundleEncoder(id) => global.render_bundle_encoder_drop(id),
         Message::DropCommandBuffer(id) => global.command_buffer_drop(id),
         Message::DropRenderBundle(id) => global.render_bundle_drop(id),
         Message::DropBindGroupLayout(id) => global.bind_group_layout_drop(id),
@@ -3434,7 +3472,7 @@ pub unsafe extern "C" fn wgpu_server_device_import_texture_from_shared_handle(
 
     let Some(hal_device) = global.device_as_hal::<wgc::api::Dx12>(device_id) else {
         emit_critical_invalid_note("dx12 device");
-        global.create_texture_error(Some(id_in), &desc);
+        global.create_texture_error(device_id, Some(id_in), &desc);
         return;
     };
     let dx12_device = hal_device.raw_device();
@@ -3449,7 +3487,7 @@ pub unsafe extern "C" fn wgpu_server_device_import_texture_from_shared_handle(
             },
             device_id,
         );
-        global.create_texture_error(Some(id_in), &desc);
+        global.create_texture_error(device_id, Some(id_in), &desc);
         return;
     }
 
@@ -3549,13 +3587,13 @@ mod macos {
 
         let Some(surface) = IOSurfaceRef::lookup(io_surface_id) else {
             emit_critical_invalid_note("IOSurface");
-            global.create_texture_error(Some(id_in), &desc);
+            global.create_texture_error(device_id, Some(id_in), &desc);
             return;
         };
 
         let Some(hal_device) = global.device_as_hal::<wgc::api::Metal>(device_id) else {
             emit_critical_invalid_note("metal device");
-            global.create_texture_error(Some(id_in), &desc);
+            global.create_texture_error(device_id, Some(id_in), &desc);
             return;
         };
         let metal_device = hal_device.raw_device();
@@ -3600,7 +3638,7 @@ mod macos {
             metal_device.newTextureWithDescriptor_iosurface_plane(&metal_desc, &surface, plane)
         else {
             emit_critical_invalid_note("IOSurface");
-            global.create_texture_error(Some(id_in), &desc);
+            global.create_texture_error(device_id, Some(id_in), &desc);
             return;
         };
 

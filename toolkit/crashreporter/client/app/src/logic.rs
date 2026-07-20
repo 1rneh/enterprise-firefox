@@ -700,7 +700,10 @@ impl ReportCrash {
     /// Form the extra data, taking into account user input.
     fn current_extra_data(&self) -> serde_json::Value {
         let include_address = self.settings.borrow().include_url;
-        let comment = if !self.config.auto_submit {
+        let get_comment = !self.config.auto_submit;
+        #[cfg(feature = "enterprise")]
+        let get_comment = get_comment && !self.config.policy_auto_submit;
+        let comment = if get_comment {
             self.ui().wait(|r| r.comment.get())
         } else {
             Default::default()

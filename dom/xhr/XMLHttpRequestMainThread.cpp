@@ -2628,13 +2628,13 @@ nsresult XMLHttpRequestMainThread::CreateChannel() {
                        nullptr,  // aCallbacks
                        loadFlags, nullptr, sandboxFlags);
   } else if (mClientInfo.isSome()) {
-    rv = NS_NewChannel(getter_AddRefs(mChannel), mRequestURL, mPrincipal,
-                       mClientInfo.ref(), mController, secFlags,
-                       contentPolicyType, mCookieJarSettings,
-                       mPerformanceStorage,  // aPerformanceStorage
-                       loadGroup,
-                       nullptr,  // aCallbacks
-                       loadFlags, nullptr, sandboxFlags);
+    rv = NS_NewChannel(
+        getter_AddRefs(mChannel), mRequestURL, mPrincipal, mClientInfo.ref(),
+        mController, secFlags, contentPolicyType, mCookieJarSettings,
+        mPerformanceStorage,  // aPerformanceStorage
+        loadGroup,
+        nullptr,  // aCallbacks
+        loadFlags, nullptr, sandboxFlags, mAssociatedBrowsingContextID);
   } else {
     // Otherwise use the principal.
     rv = NS_NewChannel(getter_AddRefs(mChannel), mRequestURL, mPrincipal,
@@ -2791,8 +2791,7 @@ nsresult XMLHttpRequestMainThread::InitiateFetch(
       nsCOMPtr<nsIUploadChannel2> uploadChannel(do_QueryInterface(httpChannel));
       NS_ASSERTION(uploadChannel, "http must support nsIUploadChannel");
       rv = uploadChannel->ExplicitSetUploadStream(
-          uploadStream, aUploadContentType, mUploadTotal, mRequestMethod,
-          PR_FALSE);
+          uploadStream, aUploadContentType, mUploadTotal, mRequestMethod);
     }
   }
 

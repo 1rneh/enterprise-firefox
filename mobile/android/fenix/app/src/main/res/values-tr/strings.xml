@@ -149,6 +149,8 @@
   <string name="home_screen_shortcut_open_new_private_tab_2">Yeni gizli sekme</string>
   <!-- Shortcut action to open Passwords screen -->
   <string name="home_screen_shortcut_passwords">Parolalar</string>
+  <!-- Shortcut action to open uninstall survey -->
+  <string name="home_screen_shortcut_uninstall_survey">Kaldır (ama neden?)</string>
   <!--
     Recent Tabs
 
@@ -626,12 +628,12 @@
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
   <string name="nova_onboarding_marketing_body_2" tools:ignore="BrandUsage">Firefox’u nasıl keşfettiğinizi ve kullandığınızı Mozilla’nın pazarlama iş ortaklarıyla paylaşın. Bu verileri asla satmayız.</string>
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage">Mozilla’nın Firefox’u tanıttığı kanallarda Firefox kullanıcısı olduğunuzu bildirmemize izin vererek daha fazla kişiye ulaşmamıza yardımcı olabilirsiniz.</string>
+  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage,UnusedResources">Mozilla’nın Firefox’u tanıttığı kanallarda Firefox kullanıcısı olduğunuzu bildirmemize izin vererek daha fazla kişiye ulaşmamıza yardımcı olabilirsiniz.</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
   -->
-  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage">Firefox kullandığınızı Mozilla’nın geldiğiniz platforma bildirmesine izin vererek daha fazla kişiye ulaşmamıza yardımcı olabilirsiniz.</string>
+  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage,UnusedResources">Firefox kullandığınızı Mozilla’nın geldiğiniz platforma bildirmesine izin vererek daha fazla kişiye ulaşmamıza yardımcı olabilirsiniz.</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
@@ -649,16 +651,27 @@
     %1$s is replaced by an active link, using nova_onboarding_marketing_body_link_text_1 as text (“Learn More”).
   -->
   <string name="nova_onboarding_marketing_body_7" tools:ignore="BrandUsage">Firefox kullandığınızı Mozilla’nın geldiğiniz platforma bildirmesine izin vererek daha fazla kişiye ulaşmamıza yardımcı olabilirsiniz. %1$s</string>
+  <!-- Marketing onboarding additional body text. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_marketing_body_line_two" tools:ignore="BrandUsage">Firefox bağımsız olmaktan gurur duyuyor ve açık web’i teknoloji tekellerine karşı savunuyor.</string>
+  <!--
+    Marketing onboarding additional body text. 'Firefox' is intentionally hardcoded.
+    “Allowing” refers to the main button “Allow and Continue”; the ask for the user is to allow communicating back to the platform.
+  -->
+  <string name="nova_onboarding_marketing_body_line_three" tools:ignore="BrandUsage">Firefox’a destek olmak isterseniz lütfen izin verin.</string>
   <!-- Marketing onboarding body link text. -->
   <string name="nova_onboarding_marketing_body_link_text">Bu verileri nasıl kullanıyoruz?</string>
   <!-- Marketing onboarding body link text. -->
   <string name="nova_onboarding_marketing_body_link_text_1">Daha fazla bilgi al</string>
   <!-- Marketing onboarding primary button text. 'Firefox' is intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage">Firefox’a yardım edin</string>
+  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage,UnusedResources">Firefox’a yardım edin</string>
+  <!-- Marketing onboarding primary button text. -->
+  <string name="nova_onboarding_marketing_primary_button_text_3">Evet</string>
   <!-- Marketing onboarding primary button text. -->
   <string name="nova_onboarding_marketing_primary_button_text_2">İzin ver ve devam et</string>
   <!-- Marketing onboarding secondary button text. -->
-  <string name="nova_onboarding_marketing_secondary_button_text">Hayır</string>
+  <string name="nova_onboarding_marketing_secondary_button_text" tools:ignore="UnusedResources">Hayır</string>
+  <!-- Marketing onboarding secondary button text. -->
+  <string name="nova_onboarding_marketing_secondary_button_text_2">Hayır</string>
   <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Bildirimler Firefox ile daha güvende kalmanızı sağlar</string>
   <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
@@ -1528,6 +1541,8 @@
   <string name="add_tab">Sekme ekle</string>
   <!-- Content description (not visible, for screen readers etc.): Add tab button. Adds a news tab when pressed -->
   <string name="add_private_tab">Gizli sekme ekle</string>
+  <!-- Content description (not visible, for screen readers etc.): Create tab group button. Opens the create tab group sheet when pressed -->
+  <string name="create_tab_group_content_description">Sekme grubu oluştur</string>
   <!-- Text for the tab search bar placeholder -->
   <string name="tab_manager_search_bar_placeholder">Sekmelerimde ara</string>
   <!-- Text shown in the menu to view recently closed tabs -->
@@ -1958,6 +1973,10 @@
   <string name="webcompat_reporter_label_whats_broken_3">Ne çalışmıyor?</string>
   <!-- Content description for the icon button that clears the selected broken site reason in the WebCompat Reporter. -->
   <string name="webcompat_reporter_clear_reason_content_description">Seçilen nedeni temizle</string>
+  <!-- The error message of the description when the user selects "Something else" as the reason, but left the description empty or too short. -->
+  <string name="webcompat_reporter_description_error">Lütfen en az 10 karakter yazın</string>
+  <!-- The label/title of a mandatory field in the Web Compat Reporter feature for adding additional information. -->
+  <string name="webcompat_reporter_label_mandatory_description">Sorunu inceleyebilmemiz için problemi ayrıntılı olarak anlatın</string>
   <!-- The label/title of a field in the Web Compat Reporter feature for explaining a high-level reason why the site is broken. -->
   <string name="webcompat_reporter_label_whats_broken_2">Bozuk olan nedir?</string>
   <!-- The placeholder text for the dropdown where a user selects a high-level reason why the site is broken. -->
@@ -1972,6 +1991,8 @@
   <string name="webcompat_reporter_add_more_info">Daha fazla bilgi ekle</string>
   <!-- The button text for the cancel button to leave the Web Compat Reporter feature. -->
   <string name="webcompat_reporter_cancel">İptal</string>
+  <!-- The button text for the send button to submit the provided form data. -->
+  <string name="webcompat_reporter_send_report">Raporu gönder</string>
   <!-- The button text for the send button to submit the provided form data. -->
   <string name="webcompat_reporter_send">Gönder</string>
   <!-- Text for a snackbar to confirm the successful submission of a WebCompat report. -->
@@ -2440,6 +2461,8 @@
   <string name="preferences_take_survey">Ankete katıl</string>
   <!-- Preference for not taking the short survey. -->
   <string name="preferences_not_take_survey">Hayır</string>
+  <!-- Error message shown in a Toast when the system fails to trigger the device uninstallation prompt. -->
+  <string name="uninstall_survey_error_failed">Sistem kaldırma istemi açılamadı. Lütfen doğrudan sistem kaldırma eylemini kullanın.</string>
   <!--
     Snackbar
 
@@ -2588,7 +2611,11 @@
     Link displayed in enhanced tracking protection panel to access tracking protection settings
   -->
   <string name="etp_settings">Koruma ayarları</string>
-  <!-- Preference title for enhanced tracking protection settings -->
+  <!--
+    Enhanced Tracking Protection
+
+    Preference title for enhanced tracking protection settings
+  -->
   <string name="preference_enhanced_tracking_protection">Gelişmiş izlenme koruması</string>
   <!-- Preference summary for enhanced tracking protection settings on/off switch -->
   <string name="preference_enhanced_tracking_protection_summary">Siteler arası takip kodlarına karşı en güçlü korumamız olan Komple Çerez Koruması da içinde.</string>
@@ -3936,6 +3963,8 @@
     %s is a placeholder for the name of the certificate authority that issued the certificate.
   -->
   <string name="connection_security_panel_verified_by">Doğrulayan: %s</string>
+  <!-- Content description (not visible, for screen readers etc.) for the handle used to drag the protections dashboard to the bottom of the screen and close it. -->
+  <string name="tracker_protections_dashboard_close_handlebar_content_description">Kontrol panelini kapat</string>
   <!--
     Text for the connection security panel when the site uses a QWAC.
     %s is a placeholder for the organization for which the certificate was issued.
@@ -4059,6 +4088,26 @@
   <string name="microsurvey_sync_title" tools:ignore="BrandUsage,UnusedResources">Firefox’taki eşitleme özelliğinden ne kadar memnunsunuz?</string>
   <!-- Text shown in the survey title for 'describe your experience so far' microsurvey. Note: The word "Firefox" should NOT be translated. -->
   <string name="microsurvey_describe_your_experience_title" tools:ignore="BrandUsage,UnusedResources">Firefox’u geliştirmemize yardım edin. Şimdiye kadarki deneyiminizi hangisi en iyi şekilde tanımlar?</string>
+  <!--
+    Uninstall Survey
+
+    Title text for the uninstall survey dialog, asking the user for the reason they are removing the app
+  -->
+  <string name="microsurvey_uninstall_survey_title">Geri bildiriminiz bizim için önemli. Neden kaldırıyorsunuz?</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_1_v2">Yavaş veya stabil değil</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_2_v2">Web siteleri düzgün çalışmıyor</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_3_v2">İhtiyacım olan özellikler eksik</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_4_v2">Videolar, indirilen dosyalar veya medya dosyaları çalışmıyor</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_5_v2">Kullanımı zor veya kötü tasarlanmış</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_6_v2">Gizlilik veya güvenlik endişeleri</string>
+  <!-- Button label shown at the bottom of the uninstall survey -->
+  <string name="uninstall_survey_button_label">Geri bildirim gönder ve kaldır</string>
   <!--
     Accessibility
 
@@ -4642,14 +4691,34 @@
   <string name="preferences_debug_settings_google_lens_integration">Google Lens entegrasyonunu etkinleştir</string>
   <!-- Lens image search button content description -->
   <string name="lens_search_content_description">Resimle ara</string>
+  <!-- Content description for the gallery picker button in the Lens camera screen -->
+  <string name="content_description_gallery">Galeriden seçip Google Lens’e gönder</string>
   <!-- Content description for the shutter button in the Lens camera screen -->
   <string name="content_description_take_photo">Fotoğraf çekip Google Lens’e gönder</string>
   <!-- Image context menu entry that sends the long-pressed image to Google Lens -->
   <string name="context_menu_open_image_with_google_lens">Google Lens ile ara</string>
   <!-- Toast shown when the user denies the camera permission requested by the Lens camera screen -->
   <string name="lens_camera_permission_denied">İzin reddedildi</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the photo they capture will be sent to Google Lens for a visual search.
+  -->
+  <string name="lens_camera_title_lens">Google Lens</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the camera is being used to scan a QR code.
+  -->
+  <string name="lens_camera_title_qr">QR kodu</string>
+  <!-- Title for the Google Lens Search Settings page feature toggle -->
+  <string name="search_settings_google_lens_title">Google Lens aramasını etkinleştir</string>
+  <!-- Description for the Google Lens Search Settings page feature toggle -->
+  <string name="search_settings_google_lens_description">Resimleri ve fotoğrafları görsel arama için Google’a gönderir.</string>
+  <!-- Caption shown under the Google Lens toggle clarifying when the feature is available -->
+  <string name="preferences_google_lens_availability_caption">Yalnızca yukarıdan Google etkinleştirildiğinde ve aktif arama motorunuz olarak ayarlandığında kullanılabilir.</string>
   <!-- Title for the Google Lens AI feature toggle -->
   <string name="ai_controls_google_lens_title">Google Lens</string>
+  <!-- Description for the Google Lens AI feature toggle -->
+  <string name="ai_controls_google_lens_description">Resimleri ve fotoğrafları görsel arama için Google’a gönderir.</string>
   <!-- Content description for the Google Lens half of the camera mode toggle -->
   <string name="lens_camera_mode_lens">Google Lens</string>
   <!-- Content description for the QR scanner half of the camera mode toggle -->
@@ -4692,6 +4761,8 @@
   <string name="firefox_labs_feature_enable_dialog_message">Bu özelliği açmak için %s uygulamasını yeniden başlatın.</string>
   <!-- The description text that is displayed in the confirmation dialog on the Firefox Labs screen for toggling "off" experimental features. %s is the name of the app (for example "Firefox Nightly") -->
   <string name="firefox_labs_feature_disable_dialog_message">Bu özelliği kapatmak için %s uygulamasını yeniden başlatın.</string>
+  <!-- Helper text shown beneath a Firefox Labs item when it is blocked from being turned on. -->
+  <string name="firefox_labs_feature_conflict">Bu özellik denenemiyor.</string>
   <!-- Text displayed on the Firefox Labs screen when there are no Labs experimental features present. -->
   <string name="firefox_labs_no_labs_available_description">Şu anda denenebilecek deneysel özellik yok</string>
 </resources>

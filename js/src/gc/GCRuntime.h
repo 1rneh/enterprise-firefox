@@ -244,20 +244,22 @@ class BufferAllocatorRuntime {
   // sweeping.
   MainThreadOrGCTaskData<LargeAllocMap> largeAllocMap;
 
-  // Atomic count of buffer allocators whose minor state is sweeping plus those
-  // whose major state is sweeping. Used to decide whether the mutex is
-  // required.
-  mozilla::Atomic<size_t, mozilla::ReleaseAcquire> allocatorSweepCount;
+  // Atomic count of:
+  //  - buffer allocators whose minor state is sweeping, plus
+  //  - buffer allocators whose major state is sweeping, plus
+  //  - number of concurrent marking threads (zero or one)
+  // Used to decide whether the mutex is required to access |largeAllocMap|.
+  mozilla::Atomic<size_t, mozilla::ReleaseAcquire> offThreadAccessCount;
 
  public:
   BufferAllocatorRuntime();
 
   void checkGCStateNotInUse();
 
- private:
-  void incSweepCount();
-  void decSweepCount();
+  void incOffThreadCount();
+  void decOffThreadCount();
 
+ private:
   bool needLockToAccessBufferMap() const;
 
   // Lookup a large buffer by pointer in the map.
@@ -566,6 +568,9 @@ class GCRuntime {
     return *markers[1];
   }
 
+  bool haveAllImplicitEdges() const { return haveAllImplicitEdges_; }
+  void clearHaveAllImplicitEdges() { haveAllImplicitEdges_ = false; }
+
   JS::Zone* getCurrentSweepGroup() { return currentSweepGroup; }
   unsigned getCurrentSweepGroupIndex() {
     MOZ_ASSERT_IF(unsigned(state()) < unsigned(State::Sweep),
@@ -747,8 +752,8 @@ class GCRuntime {
 
   static bool isFinalizationObserverTarget(const Value& target);
 
-  static bool relocateFinalizationObserverTarget(const Value& oldTarget,
-                                                 const Value& newTarget);
+  bool relocateFinalizationObserverTarget(const Value& oldTarget,
+                                          const Value& newTarget);
 
   static void clearWeakRefTargets(JS::Compartment* source, const Value& target);
   static void clearWeakRefTargets(const CompartmentFilter& sourceFilter,
@@ -1307,6 +1312,9 @@ class GCRuntime {
   MainThreadData<bool> preparedForSweepInThisSlice;
 
   MainThreadData<size_t> markSliceCount;
+
+  /* Whether we successfully added all edges to the implicit edges table. */
+  mozilla::Atomic<bool, mozilla::ReleaseAcquire> haveAllImplicitEdges_{false};
 
 #ifdef JS_GC_CONCURRENT_MARKING
   MainThreadData<size_t> concurrentMarkingFinishedCount;

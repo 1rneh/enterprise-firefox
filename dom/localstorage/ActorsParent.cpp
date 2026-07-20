@@ -1096,7 +1096,7 @@ nsresult UpdateUsageFile(nsIFile* aUsageFile, nsIFile* aUsageJournalFile,
 
   QM_TRY(MOZ_TO_RESULT(binaryStream->Write64(aUsage)));
 
-#if defined(EARLY_BETA_OR_EARLIER) || defined(DEBUG)
+#if defined(NIGHTLY_BUILD) || defined(DEBUG)
   QM_TRY(MOZ_TO_RESULT(stream->Flush()));
 #endif
 
@@ -3158,7 +3158,7 @@ bool VerifyPrincipalInfo(ThreadsafeContentParentHandle* aContentParentHandle,
 
   if (aContentParentHandle &&
       NS_WARN_IF(!ValidatePrincipalCouldPotentiallyBeLoadedBy(
-          prinResult.inspect(), aContentParentHandle->GetRemoteType(), {}))) {
+          prinResult.inspect(), aContentParentHandle->GetRemoteType()))) {
     return false;
   }
 

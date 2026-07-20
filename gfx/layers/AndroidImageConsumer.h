@@ -8,11 +8,11 @@
 #define MOZILLA_LAYERS_AndroidImageConsumer
 
 #include "GLTypes.h"
-#include "mozilla/gfx/Types.h"
-#include "mozilla/gfx/2D.h"
-#include "mozilla/layers/LayersTypes.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/Types.h"
+#include "mozilla/layers/LayersTypes.h"
 #include "nsISupportsImpl.h"
 
 namespace mozilla {
@@ -41,6 +41,8 @@ class AndroidImageConsumer final {
                        const GLuint aTextureHandle);
 
   void UpdateTexImage(const AndroidMediaCodecFrameId aFrameId);
+
+  bool HasImage() { return !!mCurrentImage; }
 
   GLuint GetGlTextureHandle() { return mTextureHandle; }
   gfx::SurfaceFormat GetFormat();

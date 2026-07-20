@@ -2,39 +2,39 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "CacheLog.h"
 #include "CacheStorageService.h"
+
+#include "CacheEntry.h"
 #include "CacheFileIOManager.h"
-#include "CacheObserver.h"
+#include "CacheFileUtils.h"
 #include "CacheIndex.h"
 #include "CacheIndexIterator.h"
+#include "CacheLog.h"
+#include "CacheObserver.h"
 #include "CacheStorage.h"
-#include "CacheEntry.h"
-#include "CacheFileUtils.h"
-#include "mozilla/net/NoVarySearchUtils.h"
-
-#include "nsQueryObject.h"
 #include "ErrorList.h"
-#include "nsICacheStorageVisitor.h"
-#include "nsIObserverService.h"
-#include "nsIFile.h"
-#include "nsIURI.h"
-#include "nsCOMPtr.h"
-#include "nsContentUtils.h"
-#include "nsNetCID.h"
-#include "nsNetUtil.h"
-#include "nsServiceManagerUtils.h"
-#include "nsXULAppAPI.h"
 #include "mozilla/AtomicBitfields.h"
-#include "mozilla/TimeStamp.h"
 #include "mozilla/DebugOnly.h"
+#include "mozilla/IntegerPrintfMacros.h"
+#include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_network.h"
+#include "mozilla/StoragePrincipalHelper.h"
+#include "mozilla/TimeStamp.h"
+#include "mozilla/glean/NetwerkCache2Metrics.h"
 #include "mozilla/glean/NetwerkMetrics.h"
 #include "mozilla/glean/NetwerkProtocolHttpMetrics.h"
-#include "mozilla/Services.h"
-#include "mozilla/StoragePrincipalHelper.h"
-#include "mozilla/IntegerPrintfMacros.h"
-#include "mozilla/glean/NetwerkCache2Metrics.h"
-#include "mozilla/StaticPrefs_network.h"
+#include "mozilla/net/NoVarySearchUtils.h"
+#include "nsCOMPtr.h"
+#include "nsContentUtils.h"
+#include "nsICacheStorageVisitor.h"
+#include "nsIFile.h"
+#include "nsIObserverService.h"
+#include "nsIURI.h"
+#include "nsNetCID.h"
+#include "nsNetUtil.h"
+#include "nsQueryObject.h"
+#include "nsServiceManagerUtils.h"
+#include "nsXULAppAPI.h"
 
 namespace mozilla::net {
 
@@ -2571,6 +2571,42 @@ CacheStorageService::Flush(nsIObserver* aObserver) {
                                                        CacheEntry::PURGE_WHOLE);
 
   return thread->Dispatch(r, CacheIOThread::WRITE);
+}
+
+NS_IMETHODIMP
+CacheStorageService::ShutdownCacheForTesting() {
+  // Drop the in-memory entry table so that entries must be re-loaded from disk
+  // after the simulated restart; otherwise post-restart opens would find the
+  // original CacheEntry objects (with their data/metadata still in memory) and
+  // never exercise the disk index rebuild / metadata reload paths.
+  {
+    StaticMutexAutoLock lock(sLock);
+    if (sGlobalEntryTables) {
+#ifdef NS_FREE_PERMANENT_DATA
+      // Break the pending-callback prevent-release cycle before dropping the
+      // table; ClearCallbacks() only exists in NS_FREE_PERMANENT_DATA builds.
+      for (const auto& table : sGlobalEntryTables->Values()) {
+        for (const auto& entry : table->Values()) {
+          entry->ClearCallbacks();
+        }
+      }
+#endif
+      sGlobalEntryTables->Clear();
+    }
+  }
+  return CacheFileIOManager::Shutdown();
+}
+
+NS_IMETHODIMP
+CacheStorageService::StartupCacheForTesting() {
+  // ShutdownCacheForTesting() went through CacheFileIOManager::Shutdown(),
+  // which permanently shuts the DictionaryCache down; undo that so it works
+  // again.
+  DictionaryCache::ResetShutdownForTesting();
+
+  nsresult rv = CacheFileIOManager::Init();
+  NS_ENSURE_SUCCESS(rv, rv);
+  return CacheFileIOManager::OnProfile();
 }
 
 NS_IMETHODIMP

@@ -31,6 +31,8 @@
   <string name="history_search_hint">پیتینیڌن ویرگار</string>
   <!-- Placeholder text shown in search bar when using bookmarks search -->
   <string name="bookmark_search_hint">پیتینیڌن نشووکا</string>
+  <!-- Content description for the toolbar back button while searching bookmarks -->
+  <string name="bookmark_close_search_description">وورگشتن وو بستن پیتینیڌن</string>
   <!-- Placeholder text shown in search bar when using tabs search -->
   <string name="tab_search_hint">پیتینیڌن بلگه یل</string>
   <!-- Placeholder text shown in the search bar when using application search engines -->
@@ -628,12 +630,12 @@
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
   <string name="nova_onboarding_marketing_body_2" tools:ignore="BrandUsage">بارت آشنایی خوت وا Firefox وو یو ک و کارس اگیری ن وا هومکورووݩ بازارجۊری Mozilla یک رسۊوی کۊنین. ای داده یل هرگشت فوروهڌه نؽبۊن.</string>
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage">ایسا ترین وا هشتن Mozilla سی وارسۊوی و تورگه یلی ک من هونووݩ Firefox ن تبلیغ اکۊنیم، و ری یو ک ایسا منتور Firefox هڌین، و ایما هیاری بڌین تا و آڌوما قلوه ای دسرسی داشته بۊیم.</string>
+  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage,UnusedResources">ایسا ترین وا هشتن Mozilla سی وارسۊوی و تورگه یلی ک من هونووݩ Firefox ن تبلیغ اکۊنیم، و ری یو ک ایسا منتور Firefox هڌین، و ایما هیاری بڌین تا و آڌوما قلوه ای دسرسی داشته بۊیم.</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
   -->
-  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage">ایسا ترین وا هشتن Mozilla سی وارسۊوی و پلتفورمی ک ایسا ز منس ٱوۊڌین، و ری یو ک ایسا منتور Firefox هڌین، و ایما هیاری بڌین تا و آڌوما قلوه ای دسرسی داشته بۊیم.</string>
+  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage,UnusedResources">ایسا ترین وا هشتن Mozilla سی وارسۊوی و پلتفورمی ک ایسا ز منس ٱوۊڌین، و ری یو ک ایسا منتور Firefox هڌین، و ایما هیاری بڌین تا و آڌوما قلوه ای دسرسی داشته بۊیم.</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
@@ -663,11 +665,15 @@
   <!-- Marketing onboarding body link text. -->
   <string name="nova_onboarding_marketing_body_link_text_1">قلوه دووسته بۊین</string>
   <!-- Marketing onboarding primary button text. 'Firefox' is intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage">هیاری و Firefox</string>
+  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage,UnusedResources">هیاری و Firefox</string>
+  <!-- Marketing onboarding primary button text. -->
+  <string name="nova_onboarding_marketing_primary_button_text_3">هری</string>
   <!-- Marketing onboarding primary button text. -->
   <string name="nova_onboarding_marketing_primary_button_text_2">هشتن وو رئڌن وا پؽش</string>
   <!-- Marketing onboarding secondary button text. -->
-  <string name="nova_onboarding_marketing_secondary_button_text">ن ممنووݩ</string>
+  <string name="nova_onboarding_marketing_secondary_button_text" tools:ignore="UnusedResources">ن ممنووݩ</string>
+  <!-- Marketing onboarding secondary button text. -->
+  <string name="nova_onboarding_marketing_secondary_button_text_2">ن</string>
   <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">وارسۊویا هیاری اکونن تا وا Firefox ٱمن تر بۊین</string>
   <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
@@ -1537,6 +1543,8 @@
   <string name="add_tab">ٱووردن بلگه</string>
   <!-- Content description (not visible, for screen readers etc.): Add tab button. Adds a news tab when pressed -->
   <string name="add_private_tab">ٱووردن بلگه سیخومی</string>
+  <!-- Content description (not visible, for screen readers etc.): Create tab group button. Opens the create tab group sheet when pressed -->
+  <string name="create_tab_group_content_description">وورکل بونکۊ بلگه</string>
   <!-- Text for the tab search bar placeholder -->
   <string name="tab_manager_search_bar_placeholder">بلگه یل خوتووݩ ن بپیتینین</string>
   <!-- Text shown in the menu to view recently closed tabs -->
@@ -1827,7 +1835,7 @@
   <!-- Text for the button to rename the download file -->
   <string name="download_rename_file">آلشت نوم فایل</string>
   <!-- Alert dialog confirmation before deleting multiple download items, this is the title. -->
-  <string name="download_delete_multi_select_dialog_confirmation">الن اخۊی مووردا پسند بیڌه پاک بۊن؟</string>
+  <string name="download_delete_multi_select_dialog_confirmation">الن اخۊین مووردا پسند بیڌه ن پاک کۊنین؟</string>
   <!-- Alert dialog confirmation before deleting multiple download items, this is the positive action. -->
   <string name="download_delete_multi_select_dialog_confirm">پاک کردن</string>
   <!-- Alert dialog confirmation before deleting multiple download items, this is the negative action. -->
@@ -1967,6 +1975,10 @@
   <string name="webcompat_reporter_label_whats_broken_3">چ چیه کار نؽکونه؟</string>
   <!-- Content description for the icon button that clears the selected broken site reason in the WebCompat Reporter. -->
   <string name="webcompat_reporter_clear_reason_content_description">دلیل پسند بیڌه ن پاک کۊنین</string>
+  <!-- The error message of the description when the user selects "Something else" as the reason, but left the description empty or too short. -->
+  <string name="webcompat_reporter_description_error">ٱقلن 10 کاراکتر بزنین</string>
+  <!-- The label/title of a mandatory field in the Web Compat Reporter feature for adding additional information. -->
+  <string name="webcompat_reporter_label_mandatory_description">موشکل ن وا جۊزعیات بۊگۊین تا و ایما من واجۊری وو هل کردنس هیاری بڌه</string>
   <!-- The label/title of a field in the Web Compat Reporter feature for explaining a high-level reason why the site is broken. -->
   <string name="webcompat_reporter_label_whats_broken_2">چ موشکلی پؽش ٱووڌه؟</string>
   <!-- The placeholder text for the dropdown where a user selects a high-level reason why the site is broken. -->
@@ -1976,11 +1988,13 @@
   <!-- The label/title of an optional field in the Web Compat Reporter feature for adding additional information. -->
   <string name="webcompat_reporter_label_description_2">موشکل ن وا جۊزعیات بۊگۊین تا و ایما من واجۊری وو هل کردنس هیاری بڌه (اختیاری)</string>
   <!-- The label/title of an optional field in the Web Compat Reporter feature for adding additional information. -->
-  <string name="webcompat_reporter_label_description">موشکلتووه بۊگۊین (دل ب خایی)</string>
+  <string name="webcompat_reporter_label_description">موشکلتووه بۊگۊین (اختیاری)</string>
   <!-- The button text for navigating away from the feature to provide more information on the broken site's bug report. -->
   <string name="webcompat_reporter_add_more_info">ٱووردن دووسمندیا قلوه</string>
   <!-- The button text for the cancel button to leave the Web Compat Reporter feature. -->
   <string name="webcompat_reporter_cancel">لقو</string>
+  <!-- The button text for the send button to submit the provided form data. -->
+  <string name="webcompat_reporter_send_report">فشناڌن گوزارش</string>
   <!-- The button text for the send button to submit the provided form data. -->
   <string name="webcompat_reporter_send">فشناڌن</string>
   <!-- Text for a snackbar to confirm the successful submission of a WebCompat report. -->
@@ -2073,7 +2087,7 @@
 
     Confirmation message for a dialog confirming if the user wants to delete multiple items.
   -->
-  <string name="bookmark_delete_folders_confirmation_dialog">الن اخۊی مووردا پسند بیڌه ن پاک کۊنی؟</string>
+  <string name="bookmark_delete_folders_confirmation_dialog">الن اخۊین مووردا پسند بیڌه ن پاک کۊنین؟</string>
   <!-- Text for the cancel button on delete bookmark dialog -->
   <string name="bookmark_delete_negative">لقو</string>
   <!-- Screen title for adding a bookmarks folder -->
@@ -2187,11 +2201,15 @@
   <!-- Text for the button to navigate to sync authentication -->
   <string name="bookmark_empty_list_guest_cta">سی هوم گوم کردن و من بیاین</string>
   <!-- Description for the bookmark list empty state when you're in an empty folder. -->
-  <string name="bookmark_empty_list_folder_description">نشووکا ن مجال گشتن ازاف کۊنین تا ترسته بۊین دیندا تر وبگه ک اخۊینه بجۊرین.</string>
+  <string name="bookmark_empty_list_folder_description">نشووکا ن مجال گشتن ازاف کۊنین تا ترسته بۊین دیندا تر وبگهی ک اخۊین ن بجۊرین.</string>
   <!-- Description for the add new folder button when selecting a folder. -->
   <string name="bookmark_select_folder_new_folder_button_title">دوبلگه نۊ</string>
   <!-- Bookmark snackbar message for moving a single item. %1$s is the title of the item being moved and %2$s is the new parent folder of the bookmark -->
   <string name="bookmark_moved_single_item">جاگورویی %1$s و %2$s</string>
+  <!-- Text for bookmark search page when there are no results. -->
+  <string name="bookmark_no_search_results">هیچ ی جۊر بیڌنی نجۊرست.</string>
+  <!-- Additional text for bookmark search page when there are no results. -->
+  <string name="bookmark_no_search_results_additional_text">ی پیتینیڌن دیری ن امتهووݩ کۊنین!</string>
   <!--
     Site Permissions
 
@@ -2599,7 +2617,11 @@
     Link displayed in enhanced tracking protection panel to access tracking protection settings
   -->
   <string name="etp_settings">سامووا زفت کردنی</string>
-  <!-- Preference title for enhanced tracking protection settings -->
+  <!--
+    Enhanced Tracking Protection
+
+    Preference title for enhanced tracking protection settings
+  -->
   <string name="preference_enhanced_tracking_protection">زفت وابیڌن پؽش رئڌه جلاو رڌجۊری</string>
   <!-- Preference summary for enhanced tracking protection settings on/off switch -->
   <string name="preference_enhanced_tracking_protection_summary">سکو زفت وابیڌن کامل ن ری و ری کۊکی داره؛ زۊردار ترین سد ایما زد رڌجۊرا منجا وبگهی.</string>
@@ -2998,9 +3020,9 @@
   <!-- Title of PIN verification dialog to direct users to re-enter their device credentials to access their logins -->
   <string name="logins_biometric_prompt_message_pin">گۊشیڌن رزم دسگا</string>
   <!-- Title for Accessibility Force Enable Zoom Preference -->
-  <string name="preference_accessibility_force_enable_zoom">گپ نمایی من پوی وبگه یل</string>
+  <string name="preference_accessibility_force_enable_zoom">زۊم کردن من پوی وبگه یل</string>
   <!-- Summary for Accessibility Force Enable Zoom Preference -->
-  <string name="preference_accessibility_force_enable_zoom_summary">هتا من وبگه یلی ک ز ای هرکت جلاوگری اکونن، ترین خرج کردن وو گپ نمایی ن فعال کۊنین.</string>
+  <string name="preference_accessibility_force_enable_zoom_summary">هتا من وبگه یلی ک ز ای هرکت جلاوگری اکونن، ترین خرج کردن وو زۊم کردن ن فعال کۊنین.</string>
   <!-- Saved logins sorting strategy menu item -by name- (if selected, it will sort saved logins alphabetically) -->
   <string name="saved_logins_sort_strategy_alphabetically">نوم (A-Z)</string>
   <!-- Saved logins sorting strategy menu item -by last used- (if selected, it will sort saved logins by last used) -->
@@ -3127,6 +3149,14 @@
   <string name="ip_protection_data_limit_reached_snackbar">%1$d گیگابایت داده VPN و کار گرؽڌه وابی. دسرسی ما پؽش ری وورنشۊوی ابۊ.</string>
   <!-- Snackbar (in-app pop-up notification) action button text that takes the user to the VPN settings screen. -->
   <string name="ip_protection_data_limit_reached_snackbar_action">سامووا</string>
+  <!-- Title shown on the browser VPN settings screen for location selection section. -->
+  <string name="ip_protection_location_title" tools:ignore="UnusedResources">جاگه</string>
+  <!-- Label for the Recommended server location option which is automatically selected by the browser. -->
+  <string name="ip_protection_recommended_location" tools:ignore="UnusedResources">پؽشنهاڌ وابیڌه</string>
+  <!-- Label for the button that takes the user to get the standalone Mozilla VPN product. -->
+  <string name="ip_protection_mozilla_vpn_upsell_button" tools:ignore="UnusedResources,BrandUsage">گرؽڌن Mozilla VPN</string>
+  <!-- Title for the browser VPN location picker screen. -->
+  <string name="ip_protection_location_picker_title" tools:ignore="UnusedResources">پسند جاگه VPN</string>
   <!--
     Autofill
 
@@ -3314,7 +3344,7 @@
   <!-- Accessibility description for the form in which details about the custom search engine are entered -->
   <string name="search_add_custom_engine_form_description">جۊزعیات موتور پیتینیڌن سفارشی</string>
   <!-- Label for the TextField in which user enters custom search engine suggestion URL -->
-  <string name="search_add_custom_engine_suggest_url_label">API پؽشنهاڌ پیتینیڌن (دل ب خایی)</string>
+  <string name="search_add_custom_engine_suggest_url_label">API پؽشنهاڌ پیتینیڌن (اختیاری)</string>
   <!-- Placeholder text shown in the Search Suggestion String TextField before a user enters text -->
   <string name="search_add_custom_engine_suggest_string_hint">نشۊوی اینترنتی API پؽشنهاڌی پیتینیڌن</string>
   <!-- Description text for the Search Suggestion String TextField. The %s is part of the string -->
@@ -3344,13 +3374,13 @@
   <!-- Label to clear site data -->
   <string name="clear_site_data">پاک کردن کۊکیا وو داده یل وبگه</string>
   <!-- Confirmation message for a dialog confirming if the user wants to delete all data for current site. %s is the domain of the site. -->
-  <string name="confirm_clear_site_data"><![CDATA[الن اخۊی پوی کۊکیا وو داده یل وبگه <b>%s</b> ن پاک کۊنی؟]]></string>
+  <string name="confirm_clear_site_data"><![CDATA[الن اخۊین پوی کۊکیا وو داده یل وبگه <b>%s</b> ن پاک کۊنین؟]]></string>
   <!-- Confirmation message for a dialog confirming if the user wants to delete all the permissions for all sites -->
-  <string name="confirm_clear_permissions_on_all_sites">اخۊی ک پوی دسرسیا ن من پوی وبگه یل پاک کۊنی؟</string>
+  <string name="confirm_clear_permissions_on_all_sites">اخۊین ک پوی دسرسیا ن من پوی وبگه یل پاک کۊنین؟</string>
   <!-- Confirmation message for a dialog confirming if the user wants to delete all the permissions for a site -->
-  <string name="confirm_clear_permissions_site">اخۊی ک پوی دسرسیا ن سی ای وبگه یل پاک کۊنی؟</string>
+  <string name="confirm_clear_permissions_site">اخۊین ک پوی دسرسیا ن سی ای وبگه یل پاک کۊنین؟</string>
   <!-- Confirmation message for a dialog confirming if the user wants to set default value a permission for a site -->
-  <string name="confirm_clear_permission_site">اخۊی ک ای دسرسی ن سی ای وبگه پاک کۊنی؟</string>
+  <string name="confirm_clear_permission_site">اخۊین ک ای دسرسی ن سی ای وبگه پاک کۊنین؟</string>
   <!-- label shown when there are not site exceptions to show in the site exception settings -->
   <string name="no_site_exceptions">بؽ استسنا وبگه</string>
   <!-- Browser menu button that adds a shortcut to the home fragment -->
@@ -3363,7 +3393,7 @@
   -->
   <string name="certificate_info_verified_by">تاییڌ وابی و دست: %1$s</string>
   <!-- Message in delete confirmation dialog for password -->
-  <string name="login_deletion_confirmation_2">الن اخۊی ک ای رزم ن پاک کۊنی؟</string>
+  <string name="login_deletion_confirmation_2">الن اخۊین ک ای رزم ن پاک کۊنین؟</string>
   <!-- Positive action of a dialog asking to delete -->
   <string name="dialog_delete_positive">پاک کردن</string>
   <!-- Negative action of a dialog asking to delete login -->
@@ -3947,6 +3977,8 @@
     %s is a placeholder for the name of the certificate authority that issued the certificate.
   -->
   <string name="connection_security_panel_verified_by">تاییڌ وابیڌه و دست %s</string>
+  <!-- Content description (not visible, for screen readers etc.) for the handle used to drag the protections dashboard to the bottom of the screen and close it. -->
+  <string name="tracker_protections_dashboard_close_handlebar_content_description">بستن داشبورد</string>
   <!--
     Text for the connection security panel when the site uses a QWAC.
     %s is a placeholder for the organization for which the certificate was issued.
@@ -4070,7 +4102,25 @@
   <string name="microsurvey_sync_title" tools:ignore="BrandUsage,UnusedResources">چندؽ ز هوم گوم کردن من Firefox رازی هڌین؟</string>
   <!-- Text shown in the survey title for 'describe your experience so far' microsurvey. Note: The word "Firefox" should NOT be translated. -->
   <string name="microsurvey_describe_your_experience_title" tools:ignore="BrandUsage,UnusedResources">و ایما من بؽڌر وابیڌن Firefox هیاری بڌین. کو موورد بؽڌر اگو ک تجروبه ایسا تا سکو چ بؽڌه؟</string>
-  <!-- Uninstall Survey -->
+  <!--
+    Uninstall Survey
+
+    Title text for the uninstall survey dialog, asking the user for the reason they are removing the app
+  -->
+  <string name="microsurvey_uninstall_survey_title">منشڌ ایسا موهم هڌ. سیچه هونی ای برنومه ن لقو پۊرنیڌن اکۊنین؟</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_1_v2">کوند یا قیر قابل ائتماڌ هڌ</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_2_v2">وبگه یل و خۊوی کار نؽکردن</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_3_v2">ویژیی یلی ک مو اخوم وۊجۊد نڌارن</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_4_v2">ویدیو یل، دانلودا یا وارسگرا کار نکردن</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_5_v2">و کار گرؽڌنس سخته یا تراهی زعیفی داره</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_6_v2">دل نگروویا سی ٱمنیت یا هریم سیخومی</string>
+  <!-- Button label shown at the bottom of the uninstall survey -->
   <string name="uninstall_survey_button_label">فشناڌن منشڌ وو لقو پۊرنیڌن</string>
   <!--
     Accessibility
@@ -4239,7 +4289,7 @@
   -->
   <string name="setup_checklist_subtitle_3_steps_initial_state">سی سامووݩ %1$s سی بؽڌرین تجروبه گشتن، ای 3 مرهله ن کامل کۊنین.</string>
   <!-- Subtitle for a setup checklist with 3 steps when the first task is completed. -->
-  <string name="setup_checklist_subtitle_3_steps_first_step">ی ر اۊفتاڌن خۊو! ایسا یکی ز س مرهله ن ٱنجوم داڌین.</string>
+  <string name="setup_checklist_subtitle_3_steps_first_step">ی ره اۊفتاڌن خۊو! ایسا یکی ز س مرهله ن ٱنجوم داڌین.</string>
   <!-- Subtitle for a setup checklist with 3 steps when two of the tasks are completed. -->
   <string name="setup_checklist_subtitle_3_steps_second_step">تقریبن رسیڌیم! دو مرهله تموم وابیڌه وو ی مرهله دی باقی منده.</string>
   <!-- Subtitle for a setup checklist with 3 steps completed state. %1$s is the name of the app (for example "Firefox"). -->
@@ -4251,7 +4301,7 @@
   -->
   <string name="setup_checklist_subtitle_6_steps_initial_state">سی بؽڌر وابیڌن تجروبه گشتن، هر شیش مرهله ن سی سامووݩ %1$s کامل کۊنین.</string>
   <!-- Subtitle for a setup checklist with 6 steps when the first task is completed. -->
-  <string name="setup_checklist_subtitle_6_steps_first_step">ی ر اۊفتاڌن خۊو! ایسا 1 مرهله ز 6 مرهله ن ٱنجوم داڌین.</string>
+  <string name="setup_checklist_subtitle_6_steps_first_step">ی ره اۊفتاڌن خۊو! ایسا 1 مرهله ز 6 مرهله ن ٱنجوم داڌین.</string>
   <!-- Subtitle for the setup checklist when the second task is completed. -->
   <string name="setup_checklist_subtitle_6_steps_second_step">ایسا 2 مرهله ز 6 مرهله ن ٱنجوم داڌین. پؽش رئڌن تووݩ هرف نڌاره!</string>
   <!-- Subtitle for a setup checklist with 6 steps when three of the tasks are completed. -->
@@ -4269,7 +4319,7 @@
   -->
   <string name="setup_checklist_subtitle_5_steps_initial_state">سی بؽڌر وابیڌن تجروبه گشتن، هر 5 مرهله ن سی سامووݩ %1$s کامل کۊنین.</string>
   <!-- Subtitle for a setup checklist with 5 steps when the first task is completed. -->
-  <string name="setup_checklist_subtitle_5_steps_first_step">ی ر اۊفتاڌن خۊو! ایسا یکی ز پنج مرهله ن ٱنجوم داڌین.</string>
+  <string name="setup_checklist_subtitle_5_steps_first_step">ی ره اۊفتاڌن خۊو! ایسا یکی ز پنج مرهله ن ٱنجوم داڌین.</string>
   <!-- Subtitle for the setup checklist when the second task is completed. -->
   <string name="setup_checklist_subtitle_5_steps_second_step">ایسا 2 مرهله ز 5 مرهله ن ٱنجوم داڌین. پؽش رئڌن تووݩ هرف نڌاره!</string>
   <!-- Subtitle for a setup checklist with 5 steps when three of the tasks are completed. -->
@@ -4663,6 +4713,22 @@
   <string name="context_menu_open_image_with_google_lens">پیتینیڌن وا گۊگل لنز</string>
   <!-- Toast shown when the user denies the camera permission requested by the Lens camera screen -->
   <string name="lens_camera_permission_denied">موجوز رڌ وابی</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the photo they capture will be sent to Google Lens for a visual search.
+  -->
+  <string name="lens_camera_title_lens">گۊگل لنز</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the camera is being used to scan a QR code.
+  -->
+  <string name="lens_camera_title_qr">QR کود</string>
+  <!-- Title for the Google Lens Search Settings page feature toggle -->
+  <string name="search_settings_google_lens_title">و کار وندن پیتینیڌن گۊگل لنز</string>
+  <!-- Description for the Google Lens Search Settings page feature toggle -->
+  <string name="search_settings_google_lens_description">شؽواتا ن سی پیتینیڌن بسری و گۊگل افشنه.</string>
+  <!-- Caption shown under the Google Lens toggle clarifying when the feature is available -->
+  <string name="preferences_google_lens_availability_caption">تینا مجالی من دسرس هڌ ک گۊگل ای روء و کار ونده بۊ وو موتور پیتینیڌن و کار ونده ایسا مجال گشتن بۊوس.</string>
   <!-- Title for the Google Lens AI feature toggle -->
   <string name="ai_controls_google_lens_title">گۊگل لنز</string>
   <!-- Description for the Google Lens AI feature toggle -->
@@ -4709,6 +4775,8 @@
   <string name="firefox_labs_feature_enable_dialog_message">سی فعال کردن ای ویژیی، %s ن ز نۊ ره ونین.</string>
   <!-- The description text that is displayed in the confirmation dialog on the Firefox Labs screen for toggling "off" experimental features. %s is the name of the app (for example "Firefox Nightly") -->
   <string name="firefox_labs_feature_disable_dialog_message">سی غیرفعال کردن ای ویژیی، %s ن ز نۊ ره ونین.</string>
+  <!-- Helper text shown beneath a Firefox Labs item when it is blocked from being turned on. -->
+  <string name="firefox_labs_feature_conflict">ای ویژیی سی امتهووݩ کردن من دسرس نؽ.</string>
   <!-- Text displayed on the Firefox Labs screen when there are no Labs experimental features present. -->
   <string name="firefox_labs_no_labs_available_description">سکو هیچ ویژیی آزمایشی سی امتهووݩ کردن نؽ</string>
 </resources>

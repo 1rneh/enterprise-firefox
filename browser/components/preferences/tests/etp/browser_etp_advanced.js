@@ -164,6 +164,19 @@ add_task(async function test_reload_tabs_message_bar() {
   let reloadButton = reloadTabsHint.querySelector("moz-button");
   ok(reloadButton, "Reload button exists in the message bar");
 
+  info("Click the message bar body (not the button) should not reload tabs");
+  // Disable a11y checks on the message bar click: we're deliberately verifying
+  // that this isn't interactive by clicking it and verifying no effect.
+  AccessibilityUtils.setEnv({ mustHaveAccessibleRule: false });
+  synthesizeClick(reloadTabsHint);
+  // Give any potential reload/hide logic a chance to run before checking.
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  ok(
+    BrowserTestUtils.isVisible(reloadTabsHint),
+    "Reload tabs message bar remains visible after clicking its body"
+  );
+  AccessibilityUtils.resetEnv();
+
   info("Click reload button to hide the message bar");
   synthesizeClick(reloadButton);
 

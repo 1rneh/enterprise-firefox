@@ -509,3 +509,152 @@ add_task(async function test_window_close_drops_pref_entry() {
 
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_search_filters_visible_rows() {
+  const appleTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "data:text/html,<title>Apple</title>"
+  );
+  const bananaTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "data:text/html,<title>Banana</title>"
+  );
+
+  const component = await showOpenTabsPanel();
+  const allTabsCount = getVisibleTabCount();
+  await waitForRowCount(getTabList(component), allTabsCount);
+
+  const searchBox = component.shadowRoot.querySelector("moz-input-search");
+  Assert.ok(searchBox, "Search input is present in the panel.");
+
+  // Searching shows the results header and filters the window card rows.
+  searchBox.dispatchEvent(
+    new CustomEvent("MozInputSearch:search", { detail: { query: "Apple" } })
+  );
+  await BrowserTestUtils.waitForMutationCondition(
+    component.shadowRoot,
+    { childList: true, subtree: true },
+    () =>
+      component.shadowRoot.querySelector(
+        "[data-l10n-id='sidebar-search-results-header']"
+      )
+  );
+  await waitForRowCount(getTabList(component), 1);
+  Assert.ok(
+    getTabList(component).rowEls[0].url.includes("Apple"),
+    "Only the matching tab is shown while searching."
+  );
+  const count = component.shadowRoot.querySelector("[slot='secondary-header']");
+  Assert.equal(
+    JSON.parse(count.getAttribute("data-l10n-args")).count,
+    1,
+    "The results count reflects the single match."
+  );
+
+  // Clearing removes the header and restores all rows.
+  searchBox.dispatchEvent(
+    new CustomEvent("MozInputSearch:search", { detail: { query: "" } })
+  );
+  await BrowserTestUtils.waitForMutationCondition(
+    component.shadowRoot,
+    { childList: true, subtree: true },
+    () =>
+      !component.shadowRoot.querySelector(
+        "[data-l10n-id='sidebar-search-results-header']"
+      )
+  );
+  await waitForRowCount(getTabList(component), allTabsCount);
+  Assert.equal(
+    getTabList(component).rowEls.length,
+    allTabsCount,
+    "Clearing the query restores all tab rows."
+  );
+
+  BrowserTestUtils.removeTab(appleTab);
+  BrowserTestUtils.removeTab(bananaTab);
+  SidebarTestUtils.closePanel(window);
+});
+
+add_task(async function test_medium_view_shows_domain_and_time() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "https://example.com/"
+  );
+
+  const component = await showOpenTabsPanel();
+  const tabList = getTabList(component);
+  await waitForRowCount(tabList, getVisibleTabCount());
+
+  const row = [...tabList.rowEls].find(r => r.url === "https://example.com/");
+  Assert.ok(row, "Found the row for the opened tab.");
+
+  const domain = row.domainEl;
+  Assert.ok(domain, "The row renders a domain in the medium view.");
+  Assert.equal(
+    domain.textContent.trim(),
+    "example.com",
+    "The domain shows the base domain of the tab URL."
+  );
+
+  const time = row.timeEl;
+  Assert.ok(time, "The row renders a time in the medium view.");
+  Assert.equal(
+    time.getAttribute("data-l10n-id"),
+    "fxviewtabrow-time",
+    "The time uses the clock-time format."
+  );
+
+  // about: pages have no base domain, so the row falls back to the formatted
+  // URI instead of showing nothing (matching Firefox View).
+  const aboutTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:robots"
+  );
+  await waitForRowCount(tabList, getVisibleTabCount());
+  const aboutRow = [...tabList.rowEls].find(r => r.url === "about:robots");
+  Assert.ok(aboutRow, "Found the row for the about: tab.");
+  Assert.equal(
+    aboutRow.domainEl.textContent.trim(),
+    "about:robots",
+    "An about: page shows its formatted URI, not an empty domain."
+  );
+  BrowserTestUtils.removeTab(aboutTab);
+  await waitForRowCount(tabList, getVisibleTabCount());
+
+  // The domain and time are revealed by container-query breakpoints on the
+  // row width, so constrain the list width to exercise each state.
+  tabList.style.width = "240px";
+  await TestUtils.waitForCondition(
+    () => !BrowserTestUtils.isVisible(domain),
+    "Domain is hidden when the panel is narrow."
+  );
+  Assert.ok(
+    !BrowserTestUtils.isVisible(time),
+    "Time is hidden when the panel is narrow."
+  );
+
+  tabList.style.width = "370px";
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isVisible(domain),
+    "Domain becomes visible past the first breakpoint."
+  );
+  Assert.ok(
+    !BrowserTestUtils.isVisible(time),
+    "Time is still hidden before the second breakpoint."
+  );
+
+  tabList.style.width = "520px";
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isVisible(time),
+    "Time becomes visible past the second breakpoint."
+  );
+  Assert.ok(
+    BrowserTestUtils.isVisible(domain),
+    "Domain remains visible when the panel is wide."
+  );
+
+  tabList.style.width = "";
+
+  BrowserTestUtils.removeTab(tab);
+  SidebarTestUtils.closePanel(window);
+});

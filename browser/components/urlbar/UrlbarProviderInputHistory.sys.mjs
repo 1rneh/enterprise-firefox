@@ -91,7 +91,7 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
       (lazy.UrlbarPrefs.get("suggest.history") ||
         lazy.UrlbarPrefs.get("suggest.bookmark") ||
         lazy.UrlbarPrefs.get("suggest.openpage")) &&
-      !queryContext.searchMode
+      !queryContext.restrictInSearchMode()
     );
   }
 
@@ -188,7 +188,7 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
           icon: UrlbarUtils.getIconForUrl(url),
           isBlockable,
           blockL10n: isBlockable
-            ? { id: "urlbar-result-menu-remove-from-history" }
+            ? { id: "urlbar-result-menu-remove-from-history2" }
             : undefined,
           helpUrl: isBlockable
             ? Services.urlFormatter.formatURLPref("app.support.baseURL") +
@@ -202,7 +202,6 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
           tags: UrlbarUtils.HIGHLIGHT.TYPED,
         },
       });
-
       addCallback(this, result);
     }
   }

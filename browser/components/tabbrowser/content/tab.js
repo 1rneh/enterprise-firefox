@@ -196,11 +196,7 @@
       // in e10s we want to only pseudo-select a tab before its rendering is done, so that
       // the rest of the system knows that the tab is selected, but we don't want to update its
       // visual status to selected until after we receive confirmation that its content has painted.
-      if (val) {
-        this.setAttribute("selected", "true");
-      } else {
-        this.removeAttribute("selected");
-      }
+      this.toggleAttribute("selected", val);
 
       // If we're non-e10s we need to update the visual selection at the same
       // time, otherwise AsyncTabSwitcher will take care of this.
@@ -580,7 +576,19 @@
       }
 
       if (eventMaySelectTab) {
+        let prevTab = gBrowser.selectedTab;
+        // super.on_mousedown sets gBrowser.selectedTab via the property setter,
+        // which calls setSelectedTab(val) without a metricsContext. We detect
+        // the change after the fact so we can supply the TAB_STRIP source.
         super.on_mousedown(event);
+        if (gBrowser.selectedTab !== prevTab) {
+          gBrowser.recordTabMetrics(
+            gBrowser.TabMetrics.METRIC_ACTION.ACTIVATE,
+            gBrowser.TabMetrics.userTriggeredContext(
+              gBrowser.TabMetrics.METRIC_SOURCE.TAB_STRIP
+            )
+          );
+        }
       }
     }
 
@@ -695,6 +703,9 @@
         gBrowser.removeTab(this, {
           animate: true,
           triggeringEvent: event,
+          metricsContext: lazy.TabMetrics.userTriggeredContext(
+            lazy.TabMetrics.METRIC_SOURCE.TAB_STRIP
+          ),
         });
       }
     }

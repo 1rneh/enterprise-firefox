@@ -224,7 +224,7 @@ template <TreeKind aKind, typename Dummy>
 Element* nsINode::GetClosestFlatTreeAncestorElementForNonFlatTreeNode() const {
   const ShadowRoot* const asShadowRoot = ShadowRoot::FromNode(this);
   MOZ_ASSERT_IF(aKind == TreeKind::FlatForSelection && asShadowRoot,
-                !asShadowRoot->IsUAShadowRootSlow());
+                !asShadowRoot->IsUAWidget());
   const nsINode* childNode = IsShadowRoot() ? asShadowRoot->GetHost() : this;
   if (!childNode || childNode->IsRootOfNativeAnonymousSubtree()) [[unlikely]] {
     return nullptr;
@@ -375,10 +375,8 @@ class ChildIndexCache {
     return entry->GetChildAt(aParent, aIndex);
   }
 
-  static uint32_t ComputeIndexOf(const nsINode* aParent,
-                                 const nsIContent* aChild) {
-    MOZ_ASSERT(aChild->GetParentNode() == aParent,
-               "Child is not actually a child of parent");
+  static Maybe<uint32_t> ComputeIndexOf(const nsINode* aParent,
+                                        const nsIContent* aChild) {
     Entry* entry = GetOrCreateEntry(aParent);
     return entry->ComputeIndexOf(aParent, aChild);
   }
@@ -454,7 +452,8 @@ class ChildIndexCache {
       return mChildren[aIndex];
     }
 
-    uint32_t ComputeIndexOf(const nsINode* aParent, const nsIContent* aChild) {
+    Maybe<uint32_t> ComputeIndexOf(const nsINode* aParent,
+                                   const nsIContent* aChild) {
       TruncateStaleElements();
 
       // Only grow the hash map if the parent has enough children to make it
@@ -463,7 +462,7 @@ class ChildIndexCache {
       const bool useHashMap = aParent->GetChildCount() >= kHashMapThreshold;
 
       if (auto result = mIndexMap.MaybeGet(aChild)) {
-        return *result;
+        return result;
       }
 
       // Scan the already-populated array portion past the map prefix, building
@@ -474,7 +473,7 @@ class ChildIndexCache {
           mIndexMap.InsertOrUpdate(mChildren[index], index);
         }
         if (mChildren[index] == aChild) {
-          return index;
+          return Some(index);
         }
       }
 
@@ -490,12 +489,11 @@ class ChildIndexCache {
           mIndexMap.InsertOrUpdate(current, index);
         }
         if (current == aChild) {
-          return index;
+          return Some(index);
         }
         current = current->GetNextSibling();
       }
-      MOZ_ASSERT_UNREACHABLE("Child is not actually a child of parent");
-      return 0;
+      return Nothing();
     }
 
    private:
@@ -1116,7 +1114,6 @@ nsIContent* nsINode::GetSelectionRootContent(
   // If there is no host element, perhaps, the shadow is a UA shadow and was
   // detached since content shadow cannot be deatched.
   if (!hostElement) [[unlikely]] {
-    MOZ_ASSERT(shadowRoot->IsUAShadowRootSlow());
     return content;
   }
   return bool(aAllowCrossShadowBoundary)
@@ -1359,7 +1356,11 @@ void nsINode::GetDebugDescription(nsACString& aOutput,
           // So, we want to print this if the previous node is a non-assigned
           // slottable node.
           aOutput.AppendFmt("(has a {}shadow)",
-                            shadowRoot->IsUAShadowRootSlow() ? "UA " : "");
+                            shadowRoot->IsUAWidget() ||
+                                    !shadowRoot->GetHost() ||
+                                    !shadowRoot->GetHost()->CanAttachShadowDOM()
+                                ? "UA "
+                                : "");
         }
       }
       if (element->HasFlag(ELEMENT_HAS_EDIT_CONTEXT)) {
@@ -1369,7 +1370,10 @@ void nsINode::GetDebugDescription(nsACString& aOutput,
       aOutput.AppendLiteral("[designMode=\"on\"]");
     } else if (const ShadowRoot* shadowRoot = ShadowRoot::FromNode(curr)) {
       aOutput.AppendFmt("({}shadow root)",
-                        shadowRoot->IsUAShadowRootSlow() ? "UA " : "");
+                        shadowRoot->IsUAWidget() || !shadowRoot->GetHost() ||
+                                !shadowRoot->GetHost()->CanAttachShadowDOM()
+                            ? "UA "
+                            : "");
     } else if (const CharacterData* const charData =
                    CharacterData::FromNode(curr)) {
       // Don't export the text data in a text control because it may be a
@@ -2381,7 +2385,7 @@ Maybe<uint32_t> nsINode::ComputeIndexOf(const nsINode* aPossibleChild) const {
   const bool isMainThread = NS_IsMainThread();
   if (contentChild && GetChildCount() >= ChildIndexCache::kThreshold &&
       isMainThread) {
-    return Some(ChildIndexCache::ComputeIndexOf(this, contentChild));
+    return ChildIndexCache::ComputeIndexOf(this, contentChild);
   }
 
   if (isMainThread && MaybeCachesComputedIndex()) {
@@ -4557,7 +4561,7 @@ void nsINode::NotifyDevToolsOfRemovalsOfChildren() {
 
 ShadowRoot* nsINode::GetShadowRootForSelection() const {
   ShadowRoot* shadowRoot = GetShadowRoot();
-  return shadowRoot && !shadowRoot->IsUAShadowRootSlow() ? shadowRoot : nullptr;
+  return shadowRoot && !shadowRoot->IsUAWidget() ? shadowRoot : nullptr;
 }
 
 HTMLSlotElement* nsINode::GetAsHTMLSlotElementIfFilled() {
@@ -4583,7 +4587,7 @@ const HTMLSlotElement* nsINode::GetAsHTMLSlotElementIfFilledForSelection()
     return nullptr;
   }
   const ShadowRoot* const shadowRoot = slot->GetContainingShadow();
-  return shadowRoot && !shadowRoot->IsUAShadowRootSlow() ? slot : nullptr;
+  return shadowRoot && !shadowRoot->IsUAWidget() ? slot : nullptr;
 }
 
 void nsINode::QueueAncestorRevealingAlgorithm() {

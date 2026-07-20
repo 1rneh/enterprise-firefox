@@ -35,9 +35,9 @@ notes = "This is a first-party crate which is no longer published through crates
 audit-as-crates-io = true
 notes = "This is the upstream code plus a few local fixes, see bug 1685697."
 
-[policy."bindgen:0.72.0@git:9366e0af8da529c958b4cd4fcbe492d951c86f5c"]
+[policy."bindgen:0.72.0@git:5274da5a06411accb266c10819b989ac25a81b7d"]
 audit-as-crates-io = true
-notes = "This is the upstream code not yet released"
+notes = "This is the upstream code not yet released plus a local fix"
 
 [policy.cose]
 audit-as-crates-io = true
@@ -218,7 +218,8 @@ audit-as-crates-io = true
 notes = "Part of the wgpu repository, pinned as the rest of wgpu crates."
 
 [policy.naga-types]
-notes = "Part of the wgpu repository, pinned as the rest of wgpu crates. New crate; add `audit-as-crates-io = true` when it is published to crates.io."
+audit-as-crates-io = true
+notes = "Part of the wgpu repository, pinned as the rest of wgpu crates."
 
 [policy.nimbus-sdk]
 audit-as-crates-io = false
@@ -327,10 +328,6 @@ audit-as-crates-io = true
 notes = "Upstream project which we pin."
 
 [policy.wgpu-core-deps-apple]
-audit-as-crates-io = true
-notes = "Upstream project which we pin."
-
-[policy.wgpu-core-deps-windows-linux-android]
 audit-as-crates-io = true
 notes = "Upstream project which we pin."
 

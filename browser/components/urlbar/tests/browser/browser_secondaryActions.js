@@ -79,7 +79,12 @@ add_task(async function test_switchtab() {
   EventUtils.synthesizeKey("KEY_Tab", {}, win);
   EventUtils.synthesizeKey("KEY_Enter", {}, win);
 
-  is(win.gBrowser.tabs.length, 1, "We switched to previous tab");
+  // The switch-to-tab action runs parent-side; await the switch (async on the
+  // message path) before asserting.
+  await TestUtils.waitForCondition(
+    () => win.gBrowser.tabs.length == 1,
+    "We switched to previous tab"
+  );
   is(
     win.gBrowser.currentURI.spec,
     "https://example.com/",
@@ -204,6 +209,7 @@ add_task(async function enter_action_search_mode() {
       "about:preferences"
     );
     EventUtils.synthesizeKey(keyword, {}, window);
+    await UrlbarTestUtils.promiseSearchComplete(window);
     EventUtils.synthesizeKey("KEY_Tab");
     EventUtils.synthesizeKey("KEY_Enter");
     await promiseNewTab;

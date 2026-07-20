@@ -58,7 +58,6 @@ import mozilla.components.compose.browser.toolbar.store.BrowserToolbarState
 import mozilla.components.compose.browser.toolbar.store.ProgressBarConfig
 import mozilla.components.compose.browser.toolbar.ui.BrowserToolbarQuery
 import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
-import mozilla.components.concept.engine.cookiehandling.CookieBannersStorage
 import mozilla.components.concept.engine.permission.SitePermissions
 import mozilla.components.concept.engine.permission.SitePermissionsStorage
 import mozilla.components.concept.engine.prompt.ShareData
@@ -104,10 +103,15 @@ import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchEnded
 import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchStarted
 import org.mozilla.fenix.components.appstate.AppAction.SnackbarAction.SnackbarDismissed
 import org.mozilla.fenix.components.appstate.AppAction.URLCopiedToClipboard
+import org.mozilla.fenix.components.appstate.SupportedMenuNotifications.NotDefaultBrowser
 import org.mozilla.fenix.components.appstate.snackbar.SnackbarState
 import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.metrics.MetricsUtils
 import org.mozilla.fenix.components.share.ShareSource
+import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_LOCAL_FILE
+import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_SECURE
+import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_UNKNOWN
+import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_UNSECURE
 import org.mozilla.fenix.components.toolbar.DisplayActions.AddBookmarkClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.EditBookmarkClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.HomepageClicked
@@ -134,7 +138,6 @@ import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.navigateSafe
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.settings.ShortcutType
-import org.mozilla.fenix.settings.quicksettings.protections.cookiebanners.getCookieBannerUIMode
 import org.mozilla.fenix.summarization.SummarizationNavigator
 import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryConfiguration
 import org.mozilla.fenix.tabstray.ext.isActiveDownload
@@ -191,6 +194,13 @@ internal sealed class PageEndActionsInteractions(override val source: Source) : 
     ) : PageEndActionsInteractions(Source.AddressBar.PageEnd)
 }
 
+internal object BrowserToolbarTestTags {
+    const val SITE_INFO_LOCAL_FILE = "browser.toolbar.site.info.local.file"
+    const val SITE_INFO_UNKNOWN = "browser.toolbar.site.info.unknown"
+    const val SITE_INFO_SECURE = "browser.toolbar.site.info.secure"
+    const val SITE_INFO_UNSECURE = "browser.toolbar.site.info.unsecure"
+}
+
 /**
  * [Middleware] responsible for configuring and handling interactions with the composable toolbar.
  *
@@ -200,7 +210,6 @@ internal sealed class PageEndActionsInteractions(override val source: Source) : 
  * @param browserStore [BrowserStore] to sync from.
  * @param ipProtectionStore [IPProtectionStore] to observe IP protection proxy status.
  * @param permissionsStorage [SitePermissionsStorage] to find currently selected tab site permissions.
- * @param cookieBannersStorage [CookieBannersStorage] to get the current status of cookie banner ui mode.
  * @param bookmarksStorage [BookmarksStorage] to read and write bookmark data related to the current site.
  * @param trackingProtectionUseCases [TrackingProtectionUseCases] allowing to query tracking protection data
  * of the current tab.
@@ -230,7 +239,6 @@ class BrowserToolbarMiddleware(
     private val browserStore: BrowserStore,
     private val ipProtectionStore: IPProtectionStore,
     private val permissionsStorage: SitePermissionsStorage,
-    private val cookieBannersStorage: CookieBannersStorage,
     private val bookmarksStorage: BookmarksStorage,
     private val trackingProtectionUseCases: TrackingProtectionUseCases,
     private val useCases: UseCases,
@@ -657,15 +665,9 @@ class BrowserToolbarMiddleware(
             scope.launch(Dispatchers.Main) {
                 trackingProtectionUseCases.containsException(tab.id) { hasTrackingProtectionException ->
                     scope.launch {
-                        val cookieBannerUIMode = cookieBannersStorage.getCookieBannerUIMode(
-                            tab = tab,
-                            isFeatureEnabledInPrivateMode = settings.shouldUseCookieBannerPrivateMode,
-                            publicSuffixList = publicSuffixList,
-                        )
-
                         val isTrackingProtectionEnabled =
                             tab.trackingProtection.enabled && !hasTrackingProtectionException
-                        val directions = if (settings.enableUnifiedTrustPanel) {
+                        val directions =
                             BrowserFragmentDirections.actionBrowserFragmentToTrustPanelFragment(
                                 sessionId = tab.id,
                                 url = tab.content.url,
@@ -676,23 +678,7 @@ class BrowserToolbarMiddleware(
                                 certificate = tab.content.securityInfo.certificate,
                                 permissionHighlights = tab.content.permissionHighlights,
                                 isTrackingProtectionEnabled = isTrackingProtectionEnabled,
-                                cookieBannerUIMode = cookieBannerUIMode,
                             )
-                        } else {
-                            BrowserFragmentDirections.actionBrowserFragmentToQuickSettingsSheetDialogFragment(
-                                sessionId = tab.id,
-                                url = tab.content.url,
-                                title = tab.content.title,
-                                isLocalPdf = tab.content.url.isContentUrl(),
-                                isSecured = tab.content.securityInfo.isSecure,
-                                sitePermissions = sitePermissions,
-                                gravity = settings.toolbarPosition.androidGravity,
-                                certificateName = tab.content.securityInfo.issuer,
-                                permissionHighlights = tab.content.permissionHighlights,
-                                isTrackingProtectionEnabled = isTrackingProtectionEnabled,
-                                cookieBannerUIMode = cookieBannerUIMode,
-                            )
-                        }
                         navController.nav(
                             R.id.browserFragment,
                             directions,
@@ -769,7 +755,7 @@ class BrowserToolbarMiddleware(
     private fun buildEndPageActions(): List<Action> {
         val isWideScreen = isWideScreen()
         val tabStripEnabled = settings.isTabStripEnabled
-        val simpleShortcut = ShortcutType.fromValue(settings.toolbarSimpleShortcutKey)
+        val simpleShortcut = ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey)
         val translateShortcutEnabled = simpleShortcut == ShortcutType.TRANSLATE
         val shareShortcutEnabled = simpleShortcut == ShortcutType.SHARE
 
@@ -796,7 +782,7 @@ class BrowserToolbarMiddleware(
         val isWideWindow = isWideScreen()
         val isTallWindow = isTallScreen()
         val shouldUseExpandedToolbar = settings.shouldUseExpandedToolbar
-        val primarySlotAction = ShortcutType.fromValue(settings.toolbarSimpleShortcutKey)?.toToolbarAction()
+        val primarySlotAction = ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey)?.toToolbarAction()
 
         val configs = listOfNotNull(
             primarySlotAction?.let {
@@ -901,7 +887,8 @@ class BrowserToolbarMiddleware(
                 private = browsingMode.isPrivate,
             )
         } else {
-            val focusOnAddressBar = !settings.enableHomepageSearchBar
+            val focusOnAddressBar =
+                !settings.enableHomepageSearchBar && !settings.enableHomepageTrendingRecentSearch
 
             browsingModeManager.mode = browsingMode
             navController.navigate(
@@ -1044,7 +1031,7 @@ class BrowserToolbarMiddleware(
             distinctUntilChangedBy { it.pageTranslationStatus }
                 .collect {
                     updateEndPageActions(store)
-                    if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.TRANSLATE) {
+                    if (ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey) == ShortcutType.TRANSLATE) {
                         updateEndBrowserActions(store)
                     }
                     if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.TRANSLATE) {
@@ -1063,7 +1050,7 @@ class BrowserToolbarMiddleware(
                 )
             }.collect {
                 updateStartBrowserActions(store)
-                if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.BACK) {
+                if (ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey) == ShortcutType.BACK) {
                     updateEndBrowserActions(store)
                 }
                 if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.BACK) {
@@ -1097,7 +1084,7 @@ class BrowserToolbarMiddleware(
                 it.snackbarState is SnackbarState.BookmarkAdded ||
                         it.snackbarState is SnackbarState.BookmarkDeleted
             }.collect { isBookmarked ->
-                if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.BOOKMARK) {
+                if (ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey) == ShortcutType.BOOKMARK) {
                     updateEndBrowserActions(store)
                 }
                 if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.BOOKMARK) {
@@ -1213,7 +1200,8 @@ class BrowserToolbarMiddleware(
         ToolbarAction.Menu -> ActionButtonRes(
             drawableResId = iconsR.drawable.mozac_ic_ellipsis_vertical_24,
             contentDescription = R.string.content_description_menu,
-            highlighted = appStore.state.supportedMenuNotifications.isNotEmpty(),
+            highlighted = appStore.state.supportedMenuNotifications
+                .filterNot { it == NotDefaultBrowser }.isNotEmpty(),
             onClick = MenuClicked(source),
         )
 
@@ -1284,6 +1272,7 @@ class BrowserToolbarMiddleware(
                     contentDescription = toolbarR.string.mozac_browser_toolbar_content_description_site_info,
                     highlighted = highlight,
                     onClick = StartPageActions.SiteInfoClicked,
+                    testTag = SITE_INFO_LOCAL_FILE,
                 )
             } else if (selectedTab?.content?.securityInfo == null ||
                 selectedTab.content.securityInfo == SecurityInfo.Unknown
@@ -1293,6 +1282,7 @@ class BrowserToolbarMiddleware(
                     contentDescription = toolbarR.string.mozac_browser_toolbar_content_description_site_info,
                     highlighted = highlight,
                     onClick = object : BrowserToolbarEvent {},
+                    testTag = SITE_INFO_UNKNOWN,
                 )
             } else if (
                 selectedTab.content.securityInfo.isSecure &&
@@ -1304,6 +1294,7 @@ class BrowserToolbarMiddleware(
                     contentDescription = toolbarR.string.mozac_browser_toolbar_content_description_site_info,
                     highlighted = highlight,
                     onClick = StartPageActions.SiteInfoClicked,
+                    testTag = SITE_INFO_SECURE,
                 )
             } else {
                 buildSiteInfoAction(
@@ -1311,6 +1302,7 @@ class BrowserToolbarMiddleware(
                     contentDescription = toolbarR.string.mozac_browser_toolbar_content_description_site_info,
                     highlighted = highlight,
                     onClick = StartPageActions.SiteInfoClicked,
+                    testTag = SITE_INFO_UNSECURE,
                 )
             }
         }
@@ -1360,6 +1352,7 @@ class BrowserToolbarMiddleware(
         contentDescription: Int,
         highlighted: Boolean = false,
         onClick: BrowserToolbarInteraction,
+        testTag: String? = null,
     ): Action {
         return if (ipProtectionStore.state.proxyStatus == Authorized.Active) {
             Action.AnimatedPillActionRes(
@@ -1370,6 +1363,7 @@ class BrowserToolbarMiddleware(
                 animated = !ipProtectionStore.state.proxyActiveShown,
                 highlighted = highlighted,
                 onClick = onClick,
+                testTag = testTag,
             ).also {
                 ipProtectionStore.dispatch(IPProtectionAction.ProxyActiveShown)
             }
@@ -1379,6 +1373,7 @@ class BrowserToolbarMiddleware(
                 contentDescription = contentDescription,
                 highlighted = highlighted,
                 onClick = onClick,
+                testTag = testTag,
             )
         }
     }
@@ -1404,8 +1399,10 @@ class BrowserToolbarMiddleware(
         ShortcutType.TRANSLATE -> ToolbarAction.Translate
         ShortcutType.HOMEPAGE -> ToolbarAction.Homepage
         ShortcutType.BACK -> ToolbarAction.Back
-        ShortcutType.SUMMARIZE -> when (summarizationFeatureSettings.canShowFeature) {
-            true -> ToolbarAction.Summarize
+        ShortcutType.SUMMARIZE -> when {
+            summarizationFeatureSettings.canShowFeature -> ToolbarAction.Summarize
+            // The tab strip already provides a new tab button, so fall back to the default tab strip shortcut.
+            settings.isTabStripEnabled -> ToolbarAction.Share
             else -> ToolbarAction.NewTab
         }
         ShortcutType.NONE -> null

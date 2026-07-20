@@ -1638,6 +1638,17 @@ class BrowsingContextModule extends RootBiDiModule {
 
     const context = this._getNavigable(contextId);
 
+    // Disallow refreshing privileged URLs
+    // unless system access is enabled.
+    if (
+      !lazy.RemoteAgent.allowSystemAccess &&
+      !lazy.isWebdriverSafeNavigationURL(context.currentURI, context)
+    ) {
+      throw new lazy.error.UnsupportedOperationError(
+        lazy.truncate`Reloading "${context.currentURI.spec}" is not allowed in this context`
+      );
+    }
+
     // webProgress will be stable even if the context navigates, retrieve it
     // immediately before doing any asynchronous call.
     const { webProgress } = context;
@@ -2166,6 +2177,18 @@ class BrowsingContextModule extends RootBiDiModule {
       );
     }
 
+    if (!lazy.RemoteAgent.allowSystemAccess) {
+      const targetEntry = sessionHistory.getEntryAtIndex(targetIndex);
+
+      // Disallow traversing to privileged URLs
+      // unless system access is enabled.
+      if (!lazy.isWebdriverSafeNavigationURL(targetEntry.URI, context)) {
+        throw new lazy.error.UnsupportedOperationError(
+          lazy.truncate`Navigation to "${targetEntry.URI.spec}" is not allowed in this context`
+        );
+      }
+    }
+
     context.goToIndex(targetIndex);
 
     // On some platforms the requested index isn't set immediately.
@@ -2485,6 +2508,7 @@ class BrowsingContextModule extends RootBiDiModule {
       const {
         canceled,
         contextId,
+        downloadId,
         filepath,
         navigableId,
         navigationId,
@@ -2494,6 +2518,7 @@ class BrowsingContextModule extends RootBiDiModule {
 
       const browsingContextInfo = {
         context: navigableId,
+        download: downloadId,
         navigation: navigationId,
         status: canceled
           ? DownloadEndStatus.canceled
@@ -2521,6 +2546,7 @@ class BrowsingContextModule extends RootBiDiModule {
     if (this.#subscribedEvents.has("browsingContext.downloadWillBegin")) {
       const {
         contextId,
+        downloadId,
         navigationId,
         navigableId,
         suggestedFilename,
@@ -2530,6 +2556,7 @@ class BrowsingContextModule extends RootBiDiModule {
 
       const browsingContextInfo = {
         context: navigableId,
+        download: downloadId,
         navigation: navigationId,
         suggestedFilename,
         timestamp,

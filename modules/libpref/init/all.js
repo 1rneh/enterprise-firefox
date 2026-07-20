@@ -1742,7 +1742,7 @@ pref("font.blacklist.underline_offset", "FangSong,Gulim,GulimChe,MingLiU,MingLiU
 pref("security.dialog_enable_delay", 1000);
 pref("security.notification_enable_delay", 500);
 
-#ifdef EARLY_BETA_OR_EARLIER
+#ifdef NIGHTLY_BUILD
   // Disallow web documents loaded with the SystemPrincipal
   pref("security.disallow_non_local_systemprincipal_in_tests", false);
 #endif
@@ -3775,6 +3775,14 @@ pref("services.common.log.logger.tokenserverclient", "Debug");
   pref("services.sync.lastversion", "firstrun");
   pref("services.sync.sendVersionInfo", true);
 
+#ifdef MOZ_ENTERPRISE
+  // Enterprise: when enabled, the clients engine resets the FxA device
+  // registration on sync startup if it detects the machine ID changed (e.g. a
+  // profile cloned onto new hardware). Off by default; flip via enterprise
+  // policy or pref to enable.
+  pref("services.sync.client.machineId.detectChange", false);
+#endif
+
   pref("services.sync.scheduler.idleInterval", 3600);  // 1 hour
   pref("services.sync.scheduler.activeInterval", 600);   // 10 minutes
   pref("services.sync.scheduler.immediateInterval", 90);    // 1.5 minutes
@@ -4005,12 +4013,19 @@ pref("dom.postMessage.sharedArrayBuffer.bypassCOOP_COEP.insecure.enabled", false
 pref("dom.postMessage.sharedArrayBuffer.bypassCOOP_COEP.insecure.enabled", false, locked);
 #endif
 
-// Locked so end users cannot toggle SQLite encryption from about:config or
-// user.js. Enterprise policies (Preferences allowlist) and our keystore
-// auto-recovery use the unlock/setDefault/relock dance to override.
-// Defined in StaticPrefList.yaml; locked here because the YAML has no
-// "locked" attribute.
-pref("security.storage.encryption.sqlite.enabled", false, locked);
+#if defined(MOZ_ENTERPRISE) && !defined(MOZ_THUNDERBIRD)
+// SQLite at-rest encryption enabled by default on enterprise Firefox builds.
+// Per-DB DEKs are wrapped under a Password KEK keyed by the enterprise
+// primarySecret. Intentionally not `locked`: the authoritative profile-local
+// signal that gates obfsvfs's default-VFS registration is compatibility.ini's
+// EncryptedDatabases marker (set eagerly in CheckEncryptionCompatibility,
+// read back via IsProfileEncryptedDatabases()), and a declarative `locked`
+// here would silently mask the test-manifest `prefs = [..]` overrides that
+// the encryption-aware xpcshell tests rely on. Gated on !MOZ_THUNDERBIRD so
+// Thunderbird (which can in principle be built with --enable-enterprise too)
+// stays plaintext for now.
+pref("security.storage.encryption.sqlite.enabled", true);
+#endif
 
 // Preferences for the form autofill toolkit component.
 // The truthy values of "extensions.formautofill.addresses.available"
@@ -4021,7 +4036,7 @@ pref("security.storage.encryption.sqlite.enabled", false, locked);
 // is not being used in form autofill, but need to exist for migration purposes.
 pref("extensions.formautofill.available", "detect");
 
-#if defined(NIGHTLY_BUILD) && !defined(ANDROID)
+#if !defined(ANDROID)
 pref("extensions.formautofill.addresses.supported", "on");
 // Use ML for address form field detection.
 pref("extensions.formautofill.useml", true);

@@ -2713,6 +2713,7 @@ NS_IMETHODIMP EditorBase::DeleteNode(nsINode* aNode, bool aPreserveSelection,
 
 nsresult EditorBase::DeleteNodeWithTransaction(nsIContent& aContent) {
   MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(!GetEditActionEditContext());
   MOZ_ASSERT_IF(IsTextEditor(), !aContent.IsText());
 
   // Do nothing if the node is read-only.
@@ -4130,16 +4131,21 @@ nsresult EditorBase::OnCompositionChange(
     TextComposition::CompositionChangeEventHandlingMarker
         compositionChangeEventHandlingMarker(mComposition,
                                              &aCompositionChangeEvent);
-    AutoPlaceholderBatch treatAsOneTransaction(*this, *nsGkAtoms::IMETxnName,
-                                               ScrollSelectionIntoView::Yes,
-                                               __FUNCTION__);
-
+    Maybe<AutoPlaceholderBatch> treatAsOneTransaction;
+    // We don't need the placeholder transaction for EditContext, and it
+    // causes issues to create one here since InsertTextAsSubAction
+    // can blur the editor (in the textupdate handler) which
+    // recursively calls OnCompositionChange.
+    if (!GetEditActionEditContext()) {
+      treatAsOneTransaction.emplace(*this, *nsGkAtoms::IMETxnName,
+                                    ScrollSelectionIntoView::Yes, __FUNCTION__);
+      MOZ_ASSERT(mIsInEditSubAction,
+                 "AutoPlaceholderBatch should've notified the observers of "
+                 "before-edit");
+    }
     // XXX Why don't we get caret after the DOM mutation?
     RefPtr<nsCaret> caret = GetCaretForSelection();
 
-    MOZ_ASSERT(
-        mIsInEditSubAction,
-        "AutoPlaceholderBatch should've notified the observes of before-edit");
     // If we're updating composition, we need to ignore normal selection
     // which may be updated by the web content.
     const auto purpose = [&]() -> InsertTextFor {
@@ -4161,14 +4167,18 @@ nsresult EditorBase::OnCompositionChange(
     }
   }
 
-  if (RefPtr<EditContext> editContext = GetEditContext()) {
-    RefPtr<TextRangeArray> ranges = mComposition->GetRanges();
-    editContext->FireTextFormatUpdate(
-        ranges, mComposition->ClampedStartOffsetInTextNode());
+  if (RefPtr editContext = editActionData.GetEditContext()) {
+    RefPtr<TextRangeArray> ranges;
+    uint32_t offset = 0;
+    if (mComposition) {
+      ranges = mComposition->GetRanges();
+      offset = mComposition->ClampedStartOffsetInTextNode();
+    }
+    editContext->FireTextFormatUpdate(ranges, offset);
     if (NS_WARN_IF(Destroyed())) {
       return Err(NS_ERROR_EDITOR_DESTROYED);
     }
-    if (editContext != GetEditContext()) {
+    if (editActionData.EditContextHasBeenChanged()) {
       // textformatupdate handler deactivated this EditContext
       return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
     }
@@ -4179,13 +4189,13 @@ nsresult EditorBase::OnCompositionChange(
   // compositionend event, we don't need to notify editor observes of this
   // change even if it's preferred by the pref.
   // NOTE: We must notify after the auto batch will be gone.
-  if (!aCompositionChangeEvent.IsFollowedByCompositionEnd()) {
+  if (!aCompositionChangeEvent.IsFollowedByCompositionEnd() && mComposition) {
     // If we're a TextEditor, we'll be initialized with a new anonymous subtree,
     // which can be caused by reframing from a "input" event listener.  At that
     // time, we'll move composition from current text node to the new text node
     // with using mComposition's data.  Therefore, it's important that
     // mComposition already has the latest information here.
-    MOZ_ASSERT_IF(mComposition, mComposition->String() == data);
+    MOZ_ASSERT(mComposition->String() == data);
     NotifyEditorObservers(eNotifyEditorObserversOfEnd);
   }
   // NOTE: When the pref is enabled, the last `input` event which will be fired
@@ -4929,7 +4939,8 @@ nsresult EditorBase::DeleteSelectionAsSubAction(
     return NS_ERROR_FAILURE;
   }
   if (IsHTMLEditor() && atNewStartOfSelection.IsInTextNode() &&
-      !atNewStartOfSelection.GetContainer()->Length()) {
+      !atNewStartOfSelection.GetContainer()->Length() &&
+      !GetEditActionEditContext()) {
     nsresult rv = DeleteNodeWithTransaction(
         MOZ_KnownLive(*atNewStartOfSelection.ContainerAs<Text>()));
     if (NS_FAILED(rv)) {
@@ -5765,6 +5776,13 @@ nsresult EditorBase::ReplaceTextAsAction(
     restorer.Abort();
   }
 
+  if (editActionData.GetEditContext()) {
+    // For EditContext, we only dispatch beforeinput - we don't
+    // try to do the replacement.
+    // https://w3c.github.io/edit-context/#example-how-beforeinput-can-be-used-to-catch-insertreplacementtext-to-apply-spelling-changes
+    return NS_OK;
+  }
+
   AutoPlaceholderBatch treatAsOneTransaction(
       *this, ScrollSelectionIntoView::Yes, __FUNCTION__);
 
@@ -5886,7 +5904,14 @@ nsresult EditorBase::InitializeSelection(
   NS_WARNING_ASSERTION(
       NS_SUCCEEDED(rvIgnored),
       "nsISelectionController::SetCaretReadOnly() failed, but ignored");
-  rvIgnored = selectionController->SetCaretEnabled(true);
+  const bool isCanvasEditContext =
+      selectionRootContent->HasFlag(ELEMENT_HAS_EDIT_CONTEXT) &&
+      selectionRootContent->IsHTMLElement(nsGkAtoms::canvas);
+  // <canvas>-based EditContext shouldn't enable the caret, even in
+  // caret browsing mode, since it's the web app's responsibility to
+  // render it, and the arrow keys should be interacting with the text
+  // rendered to the canvas.
+  rvIgnored = selectionController->SetCaretEnabled(!isCanvasEditContext);
   NS_WARNING_ASSERTION(
       NS_SUCCEEDED(rvIgnored),
       "nsISelectionController::SetCaretEnabled() failed, but ignored");
@@ -6466,7 +6491,7 @@ template <typename PT, typename CT>
 EditorBase::AutoCaretBidiLevelManager::AutoCaretBidiLevelManager(
     const EditorBase& aEditorBase, nsIEditor::EDirection aDirectionAndAmount,
     const EditorDOMPointBase<PT, CT>& aPointAtCaret) {
-  if (EditContext* editContext = aEditorBase.GetEditContext()) {
+  if (EditContext* editContext = aEditorBase.GetEditActionEditContext()) {
     InitForEditContext(aEditorBase, aDirectionAndAmount, *editContext);
   } else {
     Init(aEditorBase, aDirectionAndAmount, aPointAtCaret);
@@ -6476,7 +6501,7 @@ EditorBase::AutoCaretBidiLevelManager::AutoCaretBidiLevelManager(
 void EditorBase::AutoCaretBidiLevelManager::InitForEditContext(
     const EditorBase& aEditorBase, nsIEditor::EDirection aDirectionAndAmount,
     const EditContext&) {
-  MOZ_ASSERT(aEditorBase.GetEditContext());
+  MOZ_ASSERT(aEditorBase.GetEditActionEditContext());
   // Get bidi level from selection for EditContext. Since we only
   // do deletion as a top-level subaction for EditContext,
   // this should be okay.
@@ -6662,7 +6687,9 @@ nsresult EditorBase::InsertTextAsAction(const nsAString& aStringToInsert,
 nsresult EditorBase::InsertTextAsSubAction(const nsAString& aStringToInsert,
                                            InsertTextFor aPurpose) {
   MOZ_ASSERT(IsEditActionDataAvailable());
-  MOZ_ASSERT(mPlaceholderBatch);
+  // For EditContext, we don't need a placeholder batch since
+  // there is no undo/redo.
+  MOZ_ASSERT(mPlaceholderBatch || GetEditActionEditContext());
   MOZ_ASSERT(IsHTMLEditor() ||
              aStringToInsert.FindChar(nsCRT::CR) == kNotFound);
   MOZ_ASSERT_IF(aPurpose == InsertTextFor::CompositionStart ||
@@ -6782,6 +6809,13 @@ EditorBase::AutoEditActionDataSetter::AutoEditActionDataSetter(
       mTopLevelEditSubActionData.mCachedPendingStyles.emplace();
     }
   }
+
+  if (aEditAction != EditAction::eNone &&
+      aEditAction != EditAction::eNotEditing &&
+      aEditAction != EditAction::eInitializing) {
+    mEditContext = aEditorBase.ComputeEditContext();
+  }
+
   mEditorBase.mEditActionData = this;
 
   if (aEditorBase.IsHTMLEditor() &&

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{ColorF, NormalBorder, PremultipliedColorF, RasterSpace, RepeatMode, Shadow};
+use api::{ColorF, NormalBorder, PremultipliedColorF, RepeatMode};
 use api::units::*;
 use smallvec::SmallVec;
 use crate::border::{build_border_instances, NormalBorderSegment, MAX_BORDER_RESOLUTION};
@@ -11,11 +11,11 @@ use crate::clip::{ClipChainInstance, ClipIntern};
 use crate::command_buffer::CommandBufferIndex;
 use crate::gpu_types::ImageBrushPrimitiveData;
 use crate::pattern::image::ImagePattern;
-use crate::quad::{prepare_repeatable_quad, QuadTransformState};
+use crate::quad::{self, QuadTransformState};
 use crate::render_backend::DataStores;
 use crate::render_task_cache::{RenderTaskCacheKey, RenderTaskCacheKeyKind, RenderTaskParent, to_cache_size};
 use crate::renderer::{GpuBufferAddress, GpuBufferWriterF};
-use crate::scene_building::{CreateShadow, IsVisible};
+use crate::scene_building::{IsVisible};
 use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureContext};
 use crate::intern::{self, DataStore};
 use crate::internal_types::LayoutPrimitiveInfo;
@@ -95,6 +95,30 @@ impl NormalBorderData {
         // power-of-2 boundary ensures we never scale up, only down --- avoiding
         // jaggies. It also ensures we never scale down by more than a factor of
         // 2, avoiding bad downscaling quality.
+        // Snap the thickness of a border the author declared at >= 1 CSS pixel
+        // to a whole device pixel. Border edges are composited onto their
+        // layout-space rects, so a transform makes a 1px edge a fractional
+        // device thickness: under a downscale it can shrink below a device
+        // pixel and be antialiased away entirely, until whole sides of the
+        // border vanish (bug 1258112); at other scales the four sides land at
+        // different sub-pixel phases and render with visibly uneven thickness
+        // (bug 1950029). Rounding the device thickness to the nearest pixel
+        // (floored at 1 so a real border can't disappear) makes every side a
+        // consistent whole-pixel width. Genuinely sub-CSS-pixel edges are left
+        // untouched. Uses the unclamped world scale factors, since that is the
+        // transform the edge is actually composited with, not the power-of-2
+        // rasterization scale.
+        let snap_width = |w: f32, s: f32| {
+            if w >= 1.0 && s > 0.0 { (w * s).round().max(1.0) / s } else { w }
+        };
+        let device_scale_x = scale.0 * device_pixel_scale.0;
+        let device_scale_y = scale.1 * device_pixel_scale.0;
+        let mut widths = self.widths;
+        widths.left = snap_width(widths.left, device_scale_x);
+        widths.right = snap_width(widths.right, device_scale_x);
+        widths.top = snap_width(widths.top, device_scale_y);
+        widths.bottom = snap_width(widths.bottom, device_scale_y);
+
         let scale_width = clamp_to_scale_factor(scale.0, false);
         let scale_height = clamp_to_scale_factor(scale.1, false);
         // Pick the maximum dimension as scale
@@ -109,7 +133,7 @@ impl NormalBorderData {
         crate::border::create_border_segments(
             *local_rect,
             &self.border,
-            &self.widths,
+            &widths,
             &mut |segment| segments.push(segment.clone()),
         );
 
@@ -121,102 +145,18 @@ impl NormalBorderData {
         scale.0 = scale.0.min(max_scale.0);
 
         for segment in &segments {
-                // Update the cache key device size based on requested scale.
-                let cache_size = to_cache_size(segment.task_size, &mut scale);
-                let cache_key = RenderTaskCacheKey {
-                    kind: RenderTaskCacheKeyKind::BorderSegment(segment.cache_key.clone()),
-                    origin: DeviceIntPoint::zero(),
-                    size: cache_size,
-                };
+            let local_clip_rect = match segment.clip_rect {
+                Some(clip_rect) => clip_chain.local_clip_rect
+                    .intersection(&clip_rect)
+                    .unwrap_or(LayoutRect::zero()),
+                None => clip_chain.local_clip_rect,
+            };
 
-                // TODO(gw): We don't calculate opacity for borders yet!
-                let is_opaque = false;
-
-                let task_id = frame_state.resource_cache.request_render_task(
-                    Some(cache_key),
-                    is_opaque,
-                    RenderTaskParent::Surface,
-                    &mut frame_state.frame_gpu_data.f32,
-                    frame_state.rg_builder,
-                    &mut frame_state.surface_builder,
-                    &mut |rg_builder, gpu_buffer_builder| {
-                        rg_builder.add().init(RenderTask::new_dynamic(
-                            cache_size,
-                            RenderTaskKind::new_border_segment(
-                                build_border_instances(
-                                    &segment.cache_key,
-                                    cache_size,
-                                    &self.border,
-                                    scale,
-                                    gpu_buffer_builder,
-                                )
-                            ),
-                        ))
-                    }
-                );
-
-                let pattern = ImagePattern {
-                    src_task_id: task_id,
-                    src_is_opaque: is_opaque,
-                    premultiplied: true,
-                    sampler_kind: api::ImageBufferKind::Texture2D,
-                    color: ColorF::WHITE,
-                };
-
-                // The texture is drawn across the full segment rect (for
-                // corners that is the natural corner-image size, which may
-                // extend past the visible area). `clip_rect` crops it back to
-                // the visible part for corners whose adjacent corner overlaps.
-                let segment_local_rect = segment.local_rect;
-                let local_clip_rect = match segment.clip_rect {
-                    Some(clip_rect) => clip_chain.local_clip_rect
-                        .intersection(&clip_rect)
-                        .unwrap_or(LayoutRect::zero()),
-                    None => clip_chain.local_clip_rect,
-                };
-
-                let mut stretch_size = segment_local_rect.size();
-                let mut spacing = LayoutSize::zero();
-                let mut _repeat_offset = LayoutVector2D::zero();
-                crate::border::compute_border_repetition(
-                    segment_local_rect.size(),
-                    cache_size.to_f32(),
-                    segment.repeat_x,
-                    segment.repeat_y,
-                    &mut stretch_size,
-                    &mut spacing,
-                    &mut _repeat_offset,
-                );
-
-                // The positioning and size of the dashes and dots is not specified
-                // but browsers are encouraged to make the pattern symetrical.
-                // One way to do this is to apply the repeat offset computed
-                // by compute_border_repetition. However the pattern that we
-                // are repeating is meant to be instead stretched to so that
-                // an integer number of repetitions fills the space.
-
-                if segment.repeat_x == RepeatMode::Repeat {
-                    let w = segment_local_rect.width();
-                    let sw = stretch_size.width;
-                    let scale = w / ((w / sw).round() * sw);
-
-                    stretch_size.width *= scale;
-                }
-
-                if segment.repeat_y == RepeatMode::Repeat {
-                    let h = segment_local_rect.height();
-                    let sh = stretch_size.height;
-                    let scale = h / ((h / sh).round() * sh);
-
-                    stretch_size.height *= scale;
-                }
-
-                prepare_repeatable_quad(
-                    &pattern,
-                    &segment_local_rect,
+            if let Some(color) = &segment.is_solid {
+                quad::prepare_quad(
+                    color,
+                    &segment.local_rect,
                     &local_clip_rect,
-                    stretch_size,
-                    spacing,
                     segment.edge_flags & aligned_aa_edges,
                     segment.edge_flags & transformed_aa_edges,
                     prim_instance_index,
@@ -230,6 +170,113 @@ impl NormalBorderData {
                     frame_state,
                     scratch,
                 );
+
+                continue;
+            }
+
+            // Update the cache key device size based on requested scale.
+            let cache_size = to_cache_size(segment.task_size, &mut scale);
+            let cache_key = RenderTaskCacheKey {
+                kind: RenderTaskCacheKeyKind::BorderSegment(segment.cache_key.clone()),
+                origin: DeviceIntPoint::zero(),
+                size: cache_size,
+            };
+
+            // TODO(gw): We don't calculate opacity for borders yet!
+            let is_opaque = false;
+
+            let task_id = frame_state.resource_cache.request_render_task(
+                Some(cache_key),
+                is_opaque,
+                RenderTaskParent::Surface,
+                &mut frame_state.frame_gpu_data.f32,
+                frame_state.rg_builder,
+                &mut frame_state.surface_builder,
+                &mut |rg_builder, gpu_buffer_builder| {
+                    rg_builder.add().init(RenderTask::new_dynamic(
+                        cache_size,
+                        RenderTaskKind::new_border_segment(
+                            build_border_instances(
+                                &segment.cache_key,
+                                cache_size,
+                                &self.border,
+                                scale,
+                                gpu_buffer_builder,
+                            )
+                        ),
+                    ))
+                }
+            );
+
+            let pattern = ImagePattern {
+                src_task_id: task_id,
+                src_is_opaque: is_opaque,
+                premultiplied: true,
+                sampler_kind: api::ImageBufferKind::Texture2D,
+                color: ColorF::WHITE,
+            };
+
+            // The texture is drawn across the full segment rect (for
+            // corners that is the natural corner-image size, which may
+            // extend past the visible area). `clip_rect` crops it back to
+            // the visible part for corners whose adjacent corner overlaps.
+            let segment_local_rect = segment.local_rect;
+
+            let mut stretch_size = segment_local_rect.size();
+            let mut spacing = LayoutSize::zero();
+            let mut _repeat_offset = LayoutVector2D::zero();
+            crate::border::compute_border_repetition(
+                segment_local_rect.size(),
+                cache_size.to_f32(),
+                segment.repeat_x,
+                segment.repeat_y,
+                &mut stretch_size,
+                &mut spacing,
+                &mut _repeat_offset,
+            );
+
+            // The positioning and size of the dashes and dots is not specified
+            // but browsers are encouraged to make the pattern symetrical.
+            // One way to do this is to apply the repeat offset computed
+            // by compute_border_repetition. However the pattern that we
+            // are repeating is meant to be instead stretched to so that
+            // an integer number of repetitions fills the space.
+
+            if segment.repeat_x == RepeatMode::Repeat {
+                let w = segment_local_rect.width();
+                let sw = stretch_size.width;
+                let scale = w / ((w / sw).round() * sw);
+
+                stretch_size.width *= scale;
+            }
+
+            if segment.repeat_y == RepeatMode::Repeat {
+                let h = segment_local_rect.height();
+                let sh = stretch_size.height;
+                let scale = h / ((h / sh).round() * sh);
+
+                stretch_size.height *= scale;
+            }
+
+            quad::prepare_repeatable_quad(
+                &pattern,
+                &segment_local_rect,
+                &local_clip_rect,
+                stretch_size,
+                spacing,
+                segment.edge_flags & aligned_aa_edges,
+                segment.edge_flags & transformed_aa_edges,
+                prim_instance_index,
+                &None,
+                clip_chain,
+                quad_transform,
+                frame_context,
+                pic_context,
+                targets,
+                interned_clips,
+                frame_state,
+                scratch,
+            );
         }
     }
 }
@@ -287,20 +334,6 @@ impl InternablePrimitive for NormalBorderPrim {
     }
 }
 
-impl CreateShadow for NormalBorderPrim {
-    fn create_shadow(
-        &self,
-        shadow: &Shadow,
-        _: bool,
-        _: RasterSpace,
-    ) -> Self {
-        let border = self.border.with_color(shadow.color.into());
-        NormalBorderPrim {
-            border,
-            widths: self.widths,
-        }
-    }
-}
 
 impl IsVisible for NormalBorderPrim {
     fn is_visible(&self) -> bool {

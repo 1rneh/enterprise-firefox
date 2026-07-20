@@ -24,7 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PopupAndRedirectBlocker:
     "resource://gre/actors/PopupAndRedirectBlockingParent.sys.mjs",
   SelectParentHelper: "resource://gre/actors/SelectParent.sys.mjs",
-  RemoteWebNavigation: "resource://gre/modules/RemoteWebNavigation.sys.mjs",
+  RemoteWebNavigation:
+    "moz-src:///toolkit/components/remotebrowserutils/RemoteWebNavigation.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "blankURI", () =>
@@ -631,7 +632,9 @@ export class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
 
   get browsingContext() {
     if (this.frameLoader) {
-      return this.frameLoader.browsingContext;
+      return /** @type {CanonicalBrowsingContext} */ (
+        this.frameLoader.browsingContext
+      );
     }
     return null;
   }

@@ -62,7 +62,7 @@ import org.mozilla.fenix.components.appstate.setup.checklist.getSetupChecklistCo
 import org.mozilla.fenix.components.appstate.sports.SportsWidgetState
 import org.mozilla.fenix.components.bookmarks.lastSavedFolderCache
 import org.mozilla.fenix.components.ipprotection.IPProtection
-import org.mozilla.fenix.components.lens.GoogleLensAIControlFeature
+import org.mozilla.fenix.components.ipprotection.IPProtectionAuthSources
 import org.mozilla.fenix.components.llm.Llm
 import org.mozilla.fenix.components.llm.ext.accessTokenProvider
 import org.mozilla.fenix.components.metrics.MetricsMiddleware
@@ -89,6 +89,7 @@ import org.mozilla.fenix.home.sports.SportsWidgetMiddleware
 import org.mozilla.fenix.home.sports.WorldCupMatchesRepository
 import org.mozilla.fenix.home.sports.client.AppServicesWorldCupMatchesClient
 import org.mozilla.fenix.home.sports.client.mockWorldCupBaseHost
+import org.mozilla.fenix.home.sports.hasWorldCupEnded
 import org.mozilla.fenix.ipprotection.store.DefaultIPProtectionPromptRepository
 import org.mozilla.fenix.messaging.state.MessagingMiddleware
 import org.mozilla.fenix.nimbus.FxNimbus
@@ -361,7 +362,6 @@ class Components(private val context: Context) {
                         val continuousOnboardingCompleted = settings.seventhDayOnboardingCompletedTimestamp != -1L
                         settings.continuousOnboardingFeatureEnabled && !continuousOnboardingCompleted
                     },
-                    shouldUseNewTriggerCriteria = { settings.newReviewPromptTriggerCriteriaEnabled },
                     shouldShowCustomPrompt = { settings.customReviewPromptUiEnabled && settings.isTelemetryEnabled },
                     disableCustomPrompt = { settings.customReviewPromptUiEnabled = false },
                     createJexlHelper = nimbus::createJexlHelper,
@@ -449,7 +449,7 @@ class Components(private val context: Context) {
         DefaultFenixSettingsIndexer(
             context = context,
             excludedPreferenceKeys = {
-                if (!settings.enableHomepageSportsWidget) {
+                if (!settings.enableHomepageSportsWidget || hasWorldCupEnded()) {
                     setOf(context.getString(R.string.pref_key_show_homepage_sports_widget))
                 } else {
                     emptySet()
@@ -523,9 +523,6 @@ class Components(private val context: Context) {
                     onUpdateWidget = { VoiceSearchAIControlFeature.updateWidget(context) },
                 ),
             )
-            if (settings.googleLensIntegrationEnabled) {
-                it.register(GoogleLensAIControlFeature(settings = settings))
-            }
         }
     }
 
@@ -554,7 +551,10 @@ class Components(private val context: Context) {
             engine = core.engine,
             browserStore = core.store,
             syncStore = backgroundServices.syncStore,
-            lazyFxaAccountManager = lazy { backgroundServices.accountManager },
+            authSources = IPProtectionAuthSources(
+                fxaAccountManager = lazy { backgroundServices.accountManager },
+                integrityClient = lazy { integrityClient },
+            ),
             lazyAppStore = lazy { appStore },
             settings = settings,
             context = context,

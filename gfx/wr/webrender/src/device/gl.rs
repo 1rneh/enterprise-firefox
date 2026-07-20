@@ -190,14 +190,6 @@ impl VertexAttribute {
         }
     }
 
-    pub const fn u16(name: &'static str) -> Self {
-        VertexAttribute {
-            name,
-            count: 1,
-            kind: VertexAttributeKind::U16,
-        }
-    }
-
     pub const fn u16x2(name: &'static str) -> Self {
         VertexAttribute {
             name,
@@ -4074,12 +4066,6 @@ impl Device {
         self.set_blend_factors(
             (gl::ONE, gl::ONE_MINUS_SRC1_COLOR),
             (gl::ONE, gl::ONE_MINUS_SRC1_ALPHA),
-        );
-    }
-    pub fn set_blend_mode_multiply_dual_source(&mut self) {
-        self.set_blend_factors(
-            (gl::ONE_MINUS_DST_ALPHA, gl::ONE_MINUS_SRC1_COLOR),
-            (gl::ONE, gl::ONE_MINUS_SRC_ALPHA),
         );
     }
     pub fn set_blend_mode_screen(&mut self) {

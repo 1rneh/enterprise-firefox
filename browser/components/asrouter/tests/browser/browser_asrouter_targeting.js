@@ -8,11 +8,11 @@ ChromeUtils.defineESModuleGetters(this, {
   ASRouterTargeting: "resource:///modules/asrouter/ASRouterTargeting.sys.mjs",
   AttributionCode:
     "moz-src:///browser/components/attribution/AttributionCode.sys.mjs",
+  BrowserInitState: "resource:///modules/BrowserGlue.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
   CFRMessageProvider: "resource:///modules/asrouter/CFRMessageProvider.sys.mjs",
   ClientID: "resource://gre/modules/ClientID.sys.mjs",
-  ExperimentAPI: "resource://nimbus/ExperimentAPI.sys.mjs",
   FxAccounts: "resource://gre/modules/FxAccounts.sys.mjs",
   HomePage: "resource:///modules/HomePage.sys.mjs",
   InfoBar: "resource:///modules/asrouter/InfoBar.sys.mjs",
@@ -42,6 +42,11 @@ ChromeUtils.defineESModuleGetters(this, {
 const { DefaultBrowserCheck } = ChromeUtils.importESModule(
   "moz-src:///browser/components/DefaultBrowserCheck.sys.mjs"
 );
+
+const FirefoxViewTestUtils = ChromeUtils.importESModule(
+  "resource://testing-common/FirefoxViewTestUtils.sys.mjs"
+);
+FirefoxViewTestUtils.init(this);
 
 const testFeatureCallout = {
   id: "TEST_MESSAGE",
@@ -1291,6 +1296,33 @@ add_task(async function check_pinned_tabs() {
   );
 });
 
+add_task(async function check_has_active_ai_window() {
+  is(
+    await ASRouterTargeting.Environment.hasActiveAIWindow,
+    false,
+    "No active Smart Window without one open"
+  );
+});
+
+add_task(async function check_has_active_ai_window_true() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.smartwindow.enabled", true]],
+  });
+
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  win.document.documentElement.setAttribute("ai-window", "");
+
+  is(
+    await ASRouterTargeting.Environment.hasActiveAIWindow,
+    true,
+    "Should detect an active Smart Window while one is open"
+  );
+
+  win.document.documentElement.removeAttribute("ai-window");
+  await BrowserTestUtils.closeWindow(win);
+  await SpecialPowers.popPrefEnv();
+});
+
 add_task(async function check_tabsOpenInTopWindow() {
   const baseline = await ASRouterTargeting.Environment.tabsOpenInTopWindow;
 
@@ -1763,6 +1795,8 @@ add_task(async function test_distributionId() {
 });
 
 add_task(async function test_fxViewButtonAreaType_default() {
+  FirefoxViewTestUtils.enableFirefoxViewButton(window);
+
   is(
     typeof (await ASRouterTargeting.Environment.fxViewButtonAreaType),
     "string",
@@ -2753,6 +2787,16 @@ add_task(async function test_newtabAddonVersion() {
 });
 
 add_task(async function check_backupsInfo() {
+  if (AppConstants.platform === "macosx") {
+    // Bug 2033325: backupsInfo short-circuits on macOS.
+    Assert.deepEqual(
+      await ASRouterTargeting.Environment.backupsInfo,
+      { found: false },
+      "Should return {found: false} on macOS"
+    );
+    return;
+  }
+
   const sandbox = sinon.createSandbox();
   registerCleanupFunction(() => sandbox.restore());
 
@@ -3066,4 +3110,24 @@ add_task(async function check_daysSinceLastCrash_returnsDaysSinceLastCrash() {
   } finally {
     sandbox.restore();
   }
+});
+
+add_task(async function check_isLaunchOnLogin() {
+  const result = ASRouterTargeting.Environment.isLaunchOnLogin;
+  is(typeof result, "boolean", "isLaunchOnLogin should be a boolean");
+  is(
+    result,
+    BrowserInitState.isLaunchOnLogin,
+    "isLaunchOnLogin should reflect BrowserInitState.isLaunchOnLogin"
+  );
+
+  const message = {
+    id: "check_isLaunchOnLogin",
+    targeting: `isLaunchOnLogin == ${BrowserInitState.isLaunchOnLogin}`,
+  };
+  is(
+    (await ASRouterTargeting.findMatchingMessage({ messages: [message] })).id,
+    message.id,
+    "should select message matching current isLaunchOnLogin value"
+  );
 });

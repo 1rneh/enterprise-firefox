@@ -803,12 +803,12 @@ export const SpecialMessageActions = {
         );
         break;
       case "OPEN_ABOUT_PAGE": {
-        if (!ALLOWED_ABOUT_PAGES.has(action.data.args)) {
+        let aboutPageURL = new URL(`about:${action.data.args}`);
+        if (!ALLOWED_ABOUT_PAGES.has(aboutPageURL.pathname)) {
           throw new Error(
             `SpecialMessageActions: OPEN_ABOUT_PAGE disallows about:${action.data.args}`
           );
         }
-        let aboutPageURL = new URL(`about:${action.data.args}`);
         if (action.data.entrypoint) {
           aboutPageURL.search = action.data.entrypoint;
         }
@@ -900,6 +900,13 @@ export const SpecialMessageActions = {
           "resource://gre/modules/WindowsLaunchOnLogin.sys.mjs"
         );
         await WindowsLaunchOnLogin.createLaunchOnLogin();
+        break;
+      }
+      case "REMOVE_LAUNCH_ON_LOGIN": {
+        const { WindowsLaunchOnLogin } = ChromeUtils.importESModule(
+          "resource://gre/modules/WindowsLaunchOnLogin.sys.mjs"
+        );
+        await WindowsLaunchOnLogin.removeLaunchOnLogin();
         break;
       }
       case "CREATE_GROUP_FROM_CURRENT_TAB": {

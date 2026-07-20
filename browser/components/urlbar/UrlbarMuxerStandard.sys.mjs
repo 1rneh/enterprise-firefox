@@ -27,7 +27,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logger", () =>
-  UrlbarUtils.getLogger({ prefix: "MuxerUnifiedComplete" })
+  lazy.UrlbarShared.getLogger({ prefix: "MuxerUnifiedComplete" })
 );
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -1082,7 +1082,11 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
 
     // When in an engine search mode, discard URL results whose hostnames don't
     // include the root domain of the search mode engine.
-    if (state.context.searchMode?.engineName && result.payload.url) {
+    if (
+      state.context.searchMode?.engineName &&
+      result.payload.url &&
+      state.context.restrictInSearchMode()
+    ) {
       let engine = lazy.SearchService.getEngineByName(
         state.context.searchMode.engineName
       );

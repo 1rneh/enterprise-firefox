@@ -2,13 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsDragService.h"
 #include "nsDragServiceGtk.h"
-#include "nsWindow.h"
+
 #include "WidgetUtilsGtk.h"
-#include "mozilla/gfx/2D.h"
 #include "mozilla/AutoRestore.h"
 #include "mozilla/StaticPrefs_widget.h"
+#include "mozilla/gfx/2D.h"
+#include "nsDragService.h"
+#include "nsWindow.h"
 
 using namespace mozilla;
 using namespace mozilla::widget;
@@ -308,19 +309,10 @@ void nsDragSessionGtk::DragDataReceived(GtkWidget* aWidget,
     const char* data = reinterpret_cast<const char*>(
         gtk_selection_data_get_data(aSelectionData));
     int len = gtk_selection_data_get_length(aSelectionData);
-    if (data && IsTextFlavor(target)) {
-      if (int(strnlen(data, len)) == len) {
-        LOGDRAGSERVICE(
-            " DragDataReceived() failed - text is supposed to be terminated "
-            "with zero char");
-        return;
-      }
-    }
     if (len < 0 || !data) {
       LOGDRAGSERVICE(" DragDataReceived() failed");
       return;
     }
-
     dragData = MakeRefPtr<DragData>(target, data, len);
     LOGDRAGSERVICE("  DragDataReceived(): plain data, MIME %s len = %d",
                    GUniquePtr<gchar>(gdk_atom_name(target)).get(), len);

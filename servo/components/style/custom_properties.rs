@@ -18,6 +18,7 @@ use crate::properties_and_values::{
         SpecifiedValue as SpecifiedRegisteredValue,
     },
 };
+use crate::stylesheets::container_rule::AttrReferenceSet;
 use crate::stylesheets::UrlExtraData;
 use crate::stylist::Stylist;
 use crate::typed_om::{
@@ -475,6 +476,14 @@ impl ComputedCustomProperties {
         } else {
             self.non_inherited.get(name)
         }
+    }
+
+    /// Returns a property just by the name. Slightly less efficient than get(), if you already have
+    /// a custom registration handy, thus the longer name.
+    pub fn get_for_cssom(&self, name: &Name) -> Option<&ComputedRegisteredValue> {
+        self.inherited
+            .get(name)
+            .or_else(|| self.non_inherited.get(name))
     }
 }
 
@@ -1041,6 +1050,23 @@ impl VariableValue {
     /// variables.
     pub fn has_references(&self) -> bool {
         self.references.has_references()
+    }
+
+    /// Returns the attribute references in this variable value, if any.
+    pub fn collect_attribute_references(&self, references: &mut AttrReferenceSet) {
+        self.references.refs.iter().for_each(|r| {
+            if r.substitution_kind == SubstitutionFunctionKind::Attr {
+                // For a non-ascii-lowercase attribute, whether we match
+                // case-sensitively depends on whether the element we're
+                // matching against is an HTML element in an HTML document.
+                // So to simplify invalidation we collect both potential
+                // references here.
+                references.insert(LocalName::new(r.name.clone()));
+                if !r.name.is_ascii_lowercase() {
+                    references.insert(LocalName::new(r.name.to_ascii_lowercase()));
+                }
+            }
+        })
     }
 }
 

@@ -219,8 +219,6 @@
  * this bitmap is managed.
  */
 
-#include "gc/GC-inl.h"
-
 #include "mozilla/Attributes.h"
 #include "mozilla/glue/Debug.h"
 #include "mozilla/ScopeExit.h"
@@ -268,6 +266,7 @@
 #include "vm/SymbolType.h"
 #include "vm/Time.h"
 
+#include "gc/GC-inl.h"
 #include "gc/Heap-inl.h"
 #include "gc/Nursery-inl.h"
 #include "gc/ObjectKind-inl.h"
@@ -2372,7 +2371,7 @@ void js::gc::BackgroundDecommitTask::run(AutoLockHelperThreadState& lock) {
 
       // To help minimize the total number of chunks needed over time, sort the
       // available chunks list so that we allocate into more-used chunks first.
-      for (AllZonesIter zone(gc->rt); !zone.done(); zone.next()) {
+      for (AllZonesIter zone(gc); !zone.done(); zone.next()) {
         zone->availableChunks(gcLock).sort();
       }
 
@@ -3394,6 +3393,7 @@ void GCRuntime::beginMarkPhase(AutoGCSession& session) {
 
   MOZ_ASSERT(!hasDelayedMarking());
   MOZ_ASSERT(!hasAnyDeferredWeakMaps());
+  haveAllImplicitEdges_ = true;
   for (auto& marker : markers) {
     marker->start();
   }
@@ -3744,8 +3744,9 @@ GCRuntime::MarkQueueProgress GCRuntime::processTestMarkQueue() {
       }
 
       // Mark the object.
+      bool hadDelayed = delayedMarkingWorkAdded;
       marker().markOneObjectForTest(obj);
-      if (delayedMarkingWorkAdded) {
+      if (!hadDelayed && delayedMarkingWorkAdded) {
         // If we overflowed the stack here and delayed marking, then we won't be
         // testing what we think we're testing.
         MOZ_ASSERT(obj->asTenured().arena()->onDelayedMarkingList());

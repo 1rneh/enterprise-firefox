@@ -200,6 +200,7 @@ windows-launch-on-login =
     .accesskey = O
 windows-launch-on-login-disabled = This preference has been disabled in Windows. To change, visit <a data-l10n-name="startup-link">Startup Apps</a> in System settings.
 
+# Option to also opens a new tab, in addition to restoring previous tabs and windows
 windows-launch-on-login-open-new-tab =
     .label = Also open a new tab
     .accesskey = n
@@ -415,8 +416,8 @@ preferences-contrast-control-custom =
     .label = Custom
     .accesskey = C
 
-preferences-colors-manage-button =
-    .label = Manage Colors…
+preferences-colors-manage-button2 =
+    .label = Manage colors
     .accesskey = C
 
 preferences-fonts-header2 =
@@ -799,7 +800,7 @@ update-setting-write-failure-title2 = Error saving Update settings
 # The newlines between the main text and the line containing the path is
 # intentional so the path is easier to identify.
 update-setting-write-failure-message2 =
-    { -brand-short-name } encountered an error and didn’t save this change. Note that changing this update setting requires permission to write to the file below. You or a system administrator may be able resolve the error by granting the Users group full control to this file.
+    { -brand-short-name } encountered an error and didn’t save this change. Note that changing this update setting requires permission to write to the file below. You or a system administrator may be able to resolve the error by granting the Users group full control to this file.
 
     Could not write to file: { $path }
 
@@ -2705,13 +2706,13 @@ security-privacy-issue-warning-safe-browsing =
   .label = Dangerous and deceptive content is not blocked
   .description = Your exposure to scams and malware from websites is increased.
 
-security-privacy-issue-warning-doh =
+security-privacy-issue-warning-doh2 =
   .label = DNS over HTTPS is disabled
-  .description = DNS over HTTPS hides what sites you visit from your network provider.
+  .description = DNS over HTTPS helps hide what sites you’re about to visit from your network provider.
 
-security-privacy-issue-warning-ech =
+security-privacy-issue-warning-ech2 =
   .label = Encrypted Client Hello is disabled
-  .description = Encrypted Client Hello hides what sites you visit from your network provider.
+  .description = Encrypted Client Hello helps hide what sites you’re about to visit from your network provider.
 
 security-privacy-issue-warning-proxy-autodetection =
   .label = Proxy auto-configuration is enabled

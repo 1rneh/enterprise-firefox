@@ -184,6 +184,35 @@ export class PrivacySettingHelpers {
     Preferences.getSetting("reloadTabsHint").value = true;
   }
 
+  /**
+   * Forces the URL classifier to refresh the cryptomining tracker tables so the
+   * change takes effect immediately rather than at the next scheduled update.
+   */
+  static updateCryptominingLists() {
+    let listValue = [
+      "urlclassifier.features.cryptomining.blacklistTables",
+      "urlclassifier.features.cryptomining.whitelistTables",
+    ]
+      .map(l => Services.prefs.getStringPref(l))
+      .join(",");
+    lazy.listManager.forceUpdates(listValue);
+  }
+
+  /**
+   * Forces the URL classifier to refresh the fingerprinting tracker tables so
+   * the change takes effect immediately rather than at the next scheduled
+   * update.
+   */
+  static updateFingerprintingLists() {
+    let listValue = [
+      "urlclassifier.features.fingerprinting.blacklistTables",
+      "urlclassifier.features.fingerprinting.whitelistTables",
+    ]
+      .map(l => Services.prefs.getStringPref(l))
+      .join(",");
+    lazy.listManager.forceUpdates(listValue);
+  }
+
   static async onBaselineAllowListSettingChange(value, setting) {
     if (value) {
       PrivacySettingHelpers.maybeNotifyUserToReload();
@@ -1257,8 +1286,9 @@ SettingGroupManager.registerGroups({
         id: "reloadTabsHint",
         control: "moz-message-bar",
         l10nId: "preferences-etp-reload-tabs-hint",
-        options: [
+        items: [
           {
+            id: "reloadTabsHintButton",
             control: "moz-button",
             l10nId: "preferences-etp-reload-tabs-hint-button",
             slot: "actions",
@@ -1315,8 +1345,9 @@ SettingGroupManager.registerGroups({
         id: "reloadTabsHint",
         control: "moz-message-bar",
         l10nId: "preferences-etp-reload-tabs-hint",
-        options: [
+        items: [
           {
+            id: "reloadTabsHintButton",
             control: "moz-button",
             l10nId: "preferences-etp-reload-tabs-hint-button",
             slot: "actions",
@@ -1867,11 +1898,11 @@ if (SECURITY_PRIVACY_STATUS_CARD_ENABLED) {
       id: "warningSafeBrowsing",
     },
     {
-      l10nId: "security-privacy-issue-warning-doh",
+      l10nId: "security-privacy-issue-warning-doh2",
       id: "warningDoH",
     },
     {
-      l10nId: "security-privacy-issue-warning-ech",
+      l10nId: "security-privacy-issue-warning-ech2",
       id: "warningECH",
     },
 
@@ -3481,30 +3512,36 @@ Preferences.addSetting({
 
 Preferences.addSetting({
   id: "dohCustomProvider",
-  deps: ["dohProviderSelect", "dohURL", "dohMode"],
+  pref: "network.trr.custom_uri",
+  deps: ["dohProviderSelect", "dohMode", "dohURL"],
   visible: deps => {
     return deps.dohProviderSelect.value == "custom";
   },
   disabled: ({ dohMode, dohURL }) => dohMode.locked || dohURL.locked,
-  get(_val, deps) {
-    return deps.dohURL.value;
-  },
   set(val, deps) {
-    deps.dohURL.value = val.trim();
+    // Apply the edit to the effective TRR URI as well; otherwise
+    // network.trr.uri would still match a built-in provider and
+    // dohProviderSelect would flip off "custom" the moment the user
+    // committed the edit.
+    // We also can't set the value to an empty string or the DoH
+    // service ignores the dohURL pref. So we use a single space
+    // that tells the service "there is an empty value here"
+    let newValue = val?.trim() || " ";
+    deps.dohURL.value = newValue;
+    return newValue;
   },
 });
 
 Preferences.addSetting({
   id: "dohProviderSelect",
-  deps: ["dohURL", "dohDefaultURL", "dohMode"],
-  _custom: false,
+  deps: ["dohURL", "dohCustomProvider", "dohDefaultURL", "dohMode"],
   disabled: ({ dohMode, dohURL }) => dohMode.locked || dohURL.locked,
   onUserChange: value => {
     Glean.securityDohSettings.providerChoiceValue.record({
       value,
     });
   },
-  getControlConfig(config, deps) {
+  getControlConfig(config) {
     let options = [];
 
     let resolvers = lazy.DoHConfigController.currentConfig.providerList;
@@ -3515,10 +3552,6 @@ Preferences.addSetting({
       // the default value for the pref isn't included in the resolvers list
       // so we'll make a stub for it. Without an id, we'll have to use the url as the label
       resolvers.unshift({ uri: defaultURI });
-    }
-    let currentURI = deps.dohURL.value;
-    if (currentURI && !resolvers.some(p => p.uri == currentURI)) {
-      this._custom = true;
     }
 
     options = resolvers.map(resolver => {
@@ -3546,23 +3579,46 @@ Preferences.addSetting({
     };
   },
   get(_val, deps) {
-    if (this._custom) {
-      return "custom";
-    }
     let currentURI = deps.dohURL.value || deps.dohDefaultURL.value;
     let resolvers = lazy.DoHConfigController.currentConfig.providerList;
-    if (!resolvers.some(p => p.uri == currentURI)) {
-      this._custom = true;
+    // We always show the custom state if the current URI matches the custom pref,
+    // or if it is not in the list of resolvers.
+    if (
+      currentURI == deps.dohCustomProvider.value ||
+      !resolvers.some(p => p.uri == currentURI)
+    ) {
       return "custom";
     }
     return currentURI;
   },
   set(val, deps, setting) {
-    if (val != "custom") {
-      this._custom = false;
-      deps.dohURL.value = val;
+    if (val == "custom") {
+      let customURI = Services.prefs.getStringPref(
+        "network.trr.custom_uri",
+        ""
+      );
+      // If we have a value from the pref, take it.
+      // Otherwise, steal the current provider's URI.
+      if (customURI?.trim()) {
+        deps.dohURL.value = customURI?.trim();
+      } else {
+        deps.dohCustomProvider.value = deps.dohURL.value;
+      }
     } else {
-      this._custom = true;
+      deps.dohURL.value = val;
+      // Clear the custom pref if it matches one of the resolvers in the dropdown
+      let resolvers = lazy.DoHConfigController.currentConfig.providerList;
+      if (resolvers.some(p => p.uri == deps.dohCustomProvider.value)) {
+        // Setting the pref to empty string will make it have the default
+        // pref value which makes us fallback to using the default TRR
+        // resolver in network.trr.default_provider_uri.
+        // Instead, we set it to "(space)" which is then
+        // treated as an entered value that fails to parse as a URI.
+        // Regardless, this should never be actually assigned to
+        // network.trr.uri, and this is just used to clear out a URI
+        // taken from a provider in the list.
+        deps.dohCustomProvider.value = " ";
+      }
     }
     setting.emit("change");
     return val;
@@ -3694,6 +3750,10 @@ Preferences.addSetting({
   visible(_, setting) {
     return setting.value;
   },
+});
+
+Preferences.addSetting({
+  id: "reloadTabsHintButton",
   onUserClick() {
     PrivacySettingHelpers.reloadAllOtherTabs();
   },
@@ -3821,9 +3881,43 @@ Preferences.addSetting({
   pref: "privacy.trackingprotection.pbmode.enabled",
 });
 
+// We don't expose email tracking protection directly on the privacy UI;
+// instead it follows the tracking protection controls. The all-windows email
+// pref mirrors the all-windows tracking protection pref, and the private
+// windows email pref mirrors the private windows tracking protection pref.
+Preferences.addSetting({
+  id: "trackingProtectionEmailEnabled",
+  pref: "privacy.trackingprotection.emailtracking.enabled",
+});
+
+Preferences.addSetting({
+  id: "trackingProtectionEmailEnabledPBM",
+  pref: "privacy.trackingprotection.emailtracking.pbmode.enabled",
+});
+
+// Social tracking protection isn't exposed directly either; it follows the
+// all-windows tracking protection control, but only when the user is blocking
+// social tracking cookies (socialBlockCookies). This mirrors the old UI.
+Preferences.addSetting({
+  id: "trackingProtectionSocialEnabled",
+  pref: "privacy.trackingprotection.socialtracking.enabled",
+});
+
+Preferences.addSetting({
+  id: "socialBlockCookies",
+  pref: "privacy.socialtracking.block_cookies.enabled",
+});
+
 Preferences.addSetting({
   id: "etpCustomTrackingProtectionEnabledContext",
-  deps: ["trackingProtectionEnabled", "trackingProtectionEnabledPBM"],
+  deps: [
+    "trackingProtectionEnabled",
+    "trackingProtectionEnabledPBM",
+    "trackingProtectionEmailEnabled",
+    "trackingProtectionEmailEnabledPBM",
+    "trackingProtectionSocialEnabled",
+    "socialBlockCookies",
+  ],
   get(_, { trackingProtectionEnabled, trackingProtectionEnabledPBM }) {
     if (trackingProtectionEnabled.value && trackingProtectionEnabledPBM.value) {
       return "all";
@@ -3832,20 +3926,47 @@ Preferences.addSetting({
     }
     return null;
   },
-  set(value, { trackingProtectionEnabled, trackingProtectionEnabledPBM }) {
+  set(
+    value,
+    {
+      trackingProtectionEnabled,
+      trackingProtectionEnabledPBM,
+      trackingProtectionEmailEnabled,
+      trackingProtectionEmailEnabledPBM,
+      trackingProtectionSocialEnabled,
+      socialBlockCookies,
+    }
+  ) {
     if (value == "all") {
       trackingProtectionEnabled.value = true;
       trackingProtectionEnabledPBM.value = true;
+      trackingProtectionEmailEnabled.value = true;
+      trackingProtectionEmailEnabledPBM.value = true;
+      if (socialBlockCookies.value) {
+        trackingProtectionSocialEnabled.value = true;
+      }
     } else if (value == "pbmOnly") {
       trackingProtectionEnabled.value = false;
       trackingProtectionEnabledPBM.value = true;
+      trackingProtectionEmailEnabled.value = false;
+      trackingProtectionEmailEnabledPBM.value = true;
+      if (socialBlockCookies.value) {
+        trackingProtectionSocialEnabled.value = false;
+      }
     }
   },
 });
 
 Preferences.addSetting({
   id: "etpCustomTrackingProtectionEnabled",
-  deps: ["trackingProtectionEnabled", "trackingProtectionEnabledPBM"],
+  deps: [
+    "trackingProtectionEnabled",
+    "trackingProtectionEnabledPBM",
+    "trackingProtectionEmailEnabled",
+    "trackingProtectionEmailEnabledPBM",
+    "trackingProtectionSocialEnabled",
+    "socialBlockCookies",
+  ],
   disabled: ({ trackingProtectionEnabled, trackingProtectionEnabledPBM }) => {
     return (
       trackingProtectionEnabled.locked || trackingProtectionEnabledPBM.locked
@@ -3856,13 +3977,32 @@ Preferences.addSetting({
       trackingProtectionEnabled.value || trackingProtectionEnabledPBM.value
     );
   },
-  set(value, { trackingProtectionEnabled, trackingProtectionEnabledPBM }) {
+  set(
+    value,
+    {
+      trackingProtectionEnabled,
+      trackingProtectionEnabledPBM,
+      trackingProtectionEmailEnabled,
+      trackingProtectionEmailEnabledPBM,
+      trackingProtectionSocialEnabled,
+      socialBlockCookies,
+    }
+  ) {
     if (value) {
       trackingProtectionEnabled.value = false;
       trackingProtectionEnabledPBM.value = true;
+      trackingProtectionEmailEnabled.value = false;
+      trackingProtectionEmailEnabledPBM.value = true;
     } else {
       trackingProtectionEnabled.value = false;
       trackingProtectionEnabledPBM.value = false;
+      trackingProtectionEmailEnabled.value = false;
+      trackingProtectionEmailEnabledPBM.value = false;
+    }
+    // Neither toggle branch enables all-windows tracking protection, so social
+    // trackers are never blocked here; clear the pref to match the old UI.
+    if (socialBlockCookies.value) {
+      trackingProtectionSocialEnabled.value = false;
     }
   },
 });
@@ -3870,11 +4010,17 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "etpCustomCryptominingProtectionEnabled",
   pref: "privacy.trackingprotection.cryptomining.enabled",
+  onUserChange() {
+    PrivacySettingHelpers.updateCryptominingLists();
+  },
 });
 
 Preferences.addSetting({
   id: "etpCustomKnownFingerprintingProtectionEnabled",
   pref: "privacy.trackingprotection.fingerprinting.enabled",
+  onUserChange() {
+    PrivacySettingHelpers.updateFingerprintingLists();
+  },
 });
 
 Preferences.addSetting({
@@ -3929,6 +4075,9 @@ Preferences.addSetting({
       etpCustomFingerprintingProtectionEnabledPBM.value = false;
     }
   },
+  onUserChange(value) {
+    Glean.privacyUiFppClick.checkbox.record({ checked: value });
+  },
 });
 
 Preferences.addSetting({
@@ -3968,5 +4117,8 @@ Preferences.addSetting({
       etpCustomFingerprintingProtectionEnabled.value = false;
       etpCustomFingerprintingProtectionEnabledPBM.value = true;
     }
+  },
+  onUserChange(value) {
+    Glean.privacyUiFppClick.menu.record({ value });
   },
 });

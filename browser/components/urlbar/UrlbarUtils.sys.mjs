@@ -22,7 +22,7 @@ const lazy = XPCOMUtils.declareLazy({
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
   ContextualIdentityService:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   DEFAULT_FORM_HISTORY_PARAM:
     "moz-src:///toolkit/components/search/SearchSuggestionController.sys.mjs",
   FaviconUtils: "moz-src:///toolkit/modules/FaviconUtils.sys.mjs",
@@ -42,6 +42,7 @@ const lazy = XPCOMUtils.declareLazy({
     "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
   UrlbarProviderSearchTips:
     "moz-src:///browser/components/urlbar/UrlbarProviderSearchTips.sys.mjs",
+  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
@@ -53,6 +54,26 @@ const lazy = XPCOMUtils.declareLazy({
     default: true,
   },
 });
+
+/**
+ * @typedef {object} LocalSearchMode
+ *   Represents a local search mode, e.g. bookmarks.
+ *
+ * @property {Values<typeof UrlbarShared.RESULT_SOURCE>} source
+ *   The source which the search mode will search.
+ * @property {Values<typeof UrlbarShared.RESTRICT_TOKENS>} restrict
+ *   The restrict token that is associated with the search (*, %, $ etc).
+ * @property {string} icon
+ *   The URL of the icon associated with the search mode in preferences.
+ * @property {string} pref
+ *   The suffix of the preference associated with if the mode is displayed
+ *   in the lists or not (prefix with `browser.urlbar.`).
+ * @property {string} telemetryLabel
+ *   The telemetry label for recording searches in this mode.
+ * @property {string} uiLabel
+ *   The L10n ID to use for the UI label.
+ *   Has a value and an accesskey attribute.
+ */
 
 /**
  * Parses a URL and returns the origin parts needed for moz_origins lookups.
@@ -220,23 +241,6 @@ export var UrlbarUtils = {
   // Search mode objects corresponding to the local shortcuts in the view, in
   // order they appear.  Pref names are relative to the `browser.urlbar` branch.
   get LOCAL_SEARCH_MODES() {
-    /**
-     * @typedef {object} LocalSearchMode
-     * @property {Values<typeof UrlbarShared.RESULT_SOURCE>} source
-     *   The source which the search mode will search.
-     * @property {Values<typeof UrlbarShared.RESTRICT_TOKENS>} restrict
-     *   The restrict token that is associated with the search (*, %, $ etc).
-     * @property {string} icon
-     *   The URL of the icon associated with the search mode in preferences.
-     * @property {string} pref
-     *   The suffix of the preference associated with if the mode is displayed
-     *   in the lists or not (prefix with `browser.urlbar.`).
-     * @property {string} telemetryLabel
-     *   The telemetry label for recording searches in this mode.
-     * @property {string} uiLabel
-     *   The string to use for the UI label.
-     */
-
     return /** @type {LocalSearchMode[]} */ ([
       {
         source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
@@ -244,7 +248,7 @@ export var UrlbarUtils = {
         icon: "chrome://browser/skin/bookmark.svg",
         pref: "shortcuts.bookmarks",
         telemetryLabel: "bookmarks",
-        uiLabel: "urlbar-searchmode-bookmarks2",
+        uiLabel: "urlbar-searchmode-bookmarks3",
       },
       {
         source: UrlbarShared.RESULT_SOURCE.TABS,
@@ -252,7 +256,7 @@ export var UrlbarUtils = {
         icon: "chrome://browser/skin/tabs.svg",
         pref: "shortcuts.tabs",
         telemetryLabel: "tabs",
-        uiLabel: "urlbar-searchmode-tabs2",
+        uiLabel: "urlbar-searchmode-tabs3",
       },
       {
         source: UrlbarShared.RESULT_SOURCE.HISTORY,
@@ -260,7 +264,7 @@ export var UrlbarUtils = {
         icon: "chrome://browser/skin/history.svg",
         pref: "shortcuts.history",
         telemetryLabel: "history",
-        uiLabel: "urlbar-searchmode-history2",
+        uiLabel: "urlbar-searchmode-history3",
       },
       {
         source: UrlbarShared.RESULT_SOURCE.ACTIONS,
@@ -268,7 +272,7 @@ export var UrlbarUtils = {
         icon: "chrome://browser/skin/quickactions.svg",
         pref: "shortcuts.actions",
         telemetryLabel: "actions",
-        uiLabel: "urlbar-searchmode-actions2",
+        uiLabel: "urlbar-searchmode-actions3",
       },
     ]);
   },
@@ -1624,30 +1628,6 @@ export var UrlbarUtils = {
   },
 
   /**
-   * Creates a console logger.
-   * Logging level can be controlled through the `browser.urlbar.loglevel`
-   * preference.
-   *
-   * @param {object} [options] Options for the logger.
-   * @param {string} [options.prefix] Prefix to use for the logged messages.
-   * @returns {ConsoleInstance} The console logger.
-   */
-  getLogger({ prefix = "" } = {}) {
-    if (!this._loggers) {
-      this._loggers = new Map();
-    }
-    let logger = this._loggers.get(prefix);
-    if (!logger) {
-      logger = console.createInstance({
-        prefix: `URLBar${prefix ? " - " + prefix : ""}`,
-        maxLogLevelPref: "browser.urlbar.loglevel",
-      });
-      this._loggers.set(prefix, logger);
-    }
-    return logger;
-  },
-
-  /**
    * Returns the name of a result source.  The name is the lowercase name of the
    * corresponding property in the RESULT_SOURCE object.
    *
@@ -2707,6 +2687,9 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       subtype: {
         type: "string",
       },
+      suggestionId: {
+        type: "string",
+      },
       suggestionObject: {
         type: "object",
       },
@@ -3162,6 +3145,23 @@ export class UrlbarQueryContext {
   searchMode;
 
   /**
+   * Utility function to determine whether we should use the existence of
+   * searchMode to restrict the type of results to only search suggestions
+   * or the new behaviour behind `historyInSearchMode` pref that shows all
+   * types of results in searchMode, treating engine searchMode as
+   * "temporarily changed default search engine".
+   *
+   * @returns {boolean}
+   */
+  restrictInSearchMode() {
+    if (lazy.UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode")) {
+      // We still want to restrict local searchModes even if the pref is on.
+      return !!this.searchMode && !this.searchMode.engineName;
+    }
+    return !!this.searchMode;
+  }
+
+  /**
    * @type {string}
    *   The string the user entered in autocomplete.
    */
@@ -3298,6 +3298,41 @@ export class UrlbarQueryContext {
     // Allow remote results.
     return true;
   }
+
+  /**
+   * Serializes this context to a plain, structured-cloneable object for sending
+   * across the Urlbar actor boundary. The context's own fields survive
+   * structured-clone on their own, but its nested UrlbarResults keep their data
+   * in private fields, so they're replaced with their wire forms.
+   *
+   * @returns {object} The wire representation; reconstruct with fromWire().
+   */
+  toWire() {
+    return {
+      ...this,
+      results: this.results?.map(result => result.toWire()),
+      heuristicResult: this.heuristicResult?.toWire(),
+    };
+  }
+
+  /**
+   * Reconstructs a UrlbarQueryContext from the plain object produced by
+   * toWire(), e.g. after it has crossed the Urlbar actor boundary: structured-
+   * clone preserved the context's own fields but dropped its class identity and
+   * its results' private-field data, so restore the prototype and rebuild the
+   * results.
+   *
+   * @param {object} wire The wire representation from toWire().
+   * @returns {UrlbarQueryContext} The reconstructed context.
+   */
+  static fromWire(wire) {
+    Object.setPrototypeOf(wire, UrlbarQueryContext.prototype);
+    wire.results = wire.results?.map(lazy.UrlbarResult.fromWire) ?? [];
+    if (wire.heuristicResult) {
+      wire.heuristicResult = lazy.UrlbarResult.fromWire(wire.heuristicResult);
+    }
+    return wire;
+  }
 }
 
 /**
@@ -3334,7 +3369,7 @@ export class UrlbarMuxer {
  */
 export class UrlbarProvider {
   #lazy = XPCOMUtils.declareLazy({
-    logger: () => UrlbarUtils.getLogger({ prefix: `Provider.${this.name}` }),
+    logger: () => UrlbarShared.getLogger({ prefix: `Provider.${this.name}` }),
   });
 
   get logger() {
@@ -3807,7 +3842,7 @@ export class SkippableTimer {
    * @param {number} [options.time] A delay in milliseconds to wait for
    * @param {boolean} [options.reportErrorOnTimeout] If true and the timer times
    *                  out, an error will be logged with Cu.reportError
-   * @param {ConsoleInstance} [options.logger] An optional logger
+   * @param {Console} [options.logger] An optional logger
    */
   constructor({
     name = "<anonymous timer>",

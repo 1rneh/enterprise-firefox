@@ -11,7 +11,7 @@ use api::ClipMode;
 use crate::border_image::prepare_border_image_nine_patch;
 use crate::pattern::cutout::Cutout;
 use crate::render_task_graph::RenderTaskId;
-use crate::util::clamp_to_scale_factor;
+use crate::util::{ScaleOffset, clamp_to_scale_factor};
 use crate::util::MaxRect;
 use crate::box_shadow::{BoxShadowCacheKey, BLUR_SAMPLE_SCALE};
 use crate::pattern::box_shadow::BoxShadowPatternData;
@@ -26,12 +26,14 @@ use crate::composite::CompositorSurfaceKind;
 use crate::command_buffer::{CommandBufferIndex, PrimitiveCommand};
 use crate::border;
 use crate::clip::{ClipStore, ClipNodeRange};
-use crate::pattern::image::ImagePattern;
+use crate::pattern::image::{ImagePattern, ShadowPattern};
+use crate::pattern::filter::BlendFilterPattern;
 use crate::pattern::yuv::YuvPattern;
 use crate::pattern::backdrop::BackdropPattern;
+use crate::pattern::mix_blend::{FixedFunctionMixBlendPattern, MixBlendPattern};
 use crate::picture::calculate_screen_uv;
 use crate::space::SpaceMapper;
-use crate::renderer::{GpuBufferAddress, GpuBufferWriterF};
+use crate::renderer::{BlendMode, GpuBufferAddress};
 use crate::spatial_tree::SpatialNodeIndex;
 use crate::clip::{clamped_radius, ClipNodeFlags, ClipChainInstance, ClipItemKind};
 use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureContext, PictureState};
@@ -43,7 +45,6 @@ use crate::picture::{PrimitiveList, PrimitiveCluster, SurfaceIndex, SubpixelMode
 use crate::tile_cache::{SliceId, TileCacheInstance};
 use crate::prim_store::*;
 use crate::prim_store::borders::ImageBorderScratch;
-use crate::prim_store::rectangle::RectangleScratch;
 use crate::quad::{self, QuadTransformState};
 use crate::render_backend::DataStores;
 use crate::render_task_cache::RenderTaskCacheKeyKind;
@@ -71,6 +72,11 @@ pub fn prepare_picture(
     tile_caches: &mut FastHashMap<SliceId, Box<TileCacheInstance>>,
     prim_instances: &mut Vec<PrimitiveInstance>,
 ) -> Option<storage::Index<PictureScratch>> {
+    // Only successfully-prepared pictures are cached here, so a cache hit is
+    // always a valid scratch handle. Pictures that yielded no scratch are not
+    // memoized: take_context's only None path (invisible picture) is a cheap,
+    // side-effect-free query that is stable within a frame, so re-consulting it
+    // on a repeat visit is fine and avoids caching an invalid handle.
     if let Some(handle) = frame_state.picture_scratch_handles[pic_index.0] {
         return Some(handle);
     }
@@ -86,10 +92,6 @@ pub fn prepare_picture(
         scratch,
         tile_caches,
     ) else {
-        // Mark as visited-without-scratch so subsequent visits short-circuit
-        // with the same INVALID handle the existing code already exposed via
-        // PictureInstance.primary_render_task_id == None.
-        frame_state.picture_scratch_handles[pic_index.0] = Some(storage::Index::INVALID);
         return None;
     };
 
@@ -212,6 +214,30 @@ fn yuv_planes_sampler_kind(
     }
     ImageBufferKind::Texture2D
 }
+
+/// Maps a filter to the (filter_mode, parameter) pair consumed by the
+/// blend shader.
+fn blend_filter_param(filter: &Filter, extra_gpu_data: &[GpuBufferAddress]) -> Option<(i32, i32)> {
+    let param = match filter {
+        Filter::Contrast(amount)
+        | Filter::Grayscale(amount)
+        | Filter::Invert(amount)
+        | Filter::Saturate(amount)
+        | Filter::Sepia(amount)
+        | Filter::Brightness(amount)
+        => (amount * 65536.0) as i32,
+        Filter::HueRotate(angle) => (0.01745329251 * angle * 65536.0) as i32,
+        Filter::ColorMatrix(..)
+        | Filter::Flood(..)
+        => extra_gpu_data[0].as_int(),
+        Filter::SrgbToLinear
+        | Filter::LinearToSrgb
+        => 0,
+        // Component transfer is handled separately.
+        _ => return None,
+    };
+    Some((filter.as_int(), param))
+ }
 
 fn prepare_prim_for_render(
     store: &mut PrimitiveStore,
@@ -546,46 +572,21 @@ fn prepare_prim_for_render(
                 }
             );
 
-            // Compensate for the rounding `create_quad_primitive` applies to
-            // prim_rect when `aa_flags` is empty: the shader receives the
-            // rounded p0 as `local_prim_rect.p0` (after the round-trip through
-            // device space and back via `pattern_scale_offset`) and
-            // reconstructs absolute positions via `local_prim_rect.p0 +
-            // offset`. Computing offsets against the un-rounded p0 mismatches
-            // by up to half a device pixel and produces a one-pixel seam on
-            // trailing edges (bug 2035734). The round must be done in device
-            // space to match `create_quad_primitive` for non-identity
-            // transforms (e.g. Gecko at 125% display scaling).
-            let prim_min_rounded = match quad_transform.as_2d_scale_offset() {
-                Some(local_to_device) => {
-                    // Use Point2D::round (euclid's Round trait, defined as
-                    // (n+0.5).floor()) to match what create_quad_primitive
-                    // uses on the rendered quad bounds. f32::round here would
-                    // round half-away-from-zero and disagree at negative
-                    // half-integer device-x values, causing a 1-pixel shift
-                    // when the shader reconstructs dest_rect.min as
-                    // local_prim_rect.p0 + dest_rect_offset.
-                    let dev: DevicePoint = local_to_device.map_point(&prim_rect.min);
-                    local_to_device.unmap_point::<DevicePixel, LayoutPixel>(&dev.round())
-                }
-                None => prim_rect.min,
-            };
-
             // For outset, prim_rect == dest_rect so offset is zero.
             // For inset, prim_rect is the element rect; dest_rect (outer_shadow_rect)
             // may be offset and smaller, so we pass its size and offset separately.
             let dest_rect = outer_shadow_rect;
             let dest_rect_offset = LayoutVector2D::new(
-                dest_rect.min.x - prim_min_rounded.x,
-                dest_rect.min.y - prim_min_rounded.y,
+                dest_rect.min.x - prim_rect.min.x,
+                dest_rect.min.y - prim_rect.min.y,
             );
             let dest_rect_size = dest_rect.size();
 
             let mut element_radius = shadow_data.element_radius;
             border::ensure_no_corner_overlap(&mut element_radius, element_rect.size());
             let element_offset_rel_prim = LayoutVector2D::new(
-                element_rect.min.x - prim_min_rounded.x,
-                element_rect.min.y - prim_min_rounded.y,
+                element_rect.min.x - prim_rect.min.x,
+                element_rect.min.y - prim_rect.min.y,
             );
 
             let pattern = BoxShadowPatternData {
@@ -818,56 +819,29 @@ fn prepare_prim_for_render(
         PrimitiveKind::Rectangle { data_handle, .. } => {
             profile_scope!("Rectangle");
 
-            if use_legacy_path {
-                let prim_data = &data_stores.prim[*data_handle];
+            let prim_data = &data_stores.prim[*data_handle];
+            let prim_rect = prim_info.snapped_local_rect;
+            let color = prim_data.resolve(frame_context.scene_properties);
 
-                // Update the template this instane references, which may refresh the GPU
-                // cache with any shared template data.
-                let (gpu_address, opacity) = prim_data.update(
-                    frame_state,
-                    frame_context.scene_properties,
-                );
-                let rect_handle = scratch.frame.rectangle.push(RectangleScratch {
-                    gpu_address,
-                    opacity,
-                });
-                scratch.frame.draws[prim_instance_index.0 as usize].kind_scratch =
-                    KindScratchHandle::Rectangle(rect_handle);
+            quad::prepare_quad(
+                &color,
+                &prim_rect,
+                &prim_info.clip_chain.local_clip_rect,
+                prim_data.common.aligned_aa_edges,
+                prim_data.common.transformed_aa_edges,
+                prim_instance_index,
+                &None,
+                &prim_info.clip_chain,
+                quad_transform,
+                frame_context,
+                pic_context,
+                targets,
+                &data_stores.clip,
+                frame_state,
+                scratch,
+            );
 
-                write_segment(
-                    prim_info.segment_instance_index,
-                    frame_state,
-                    &mut scratch.frame.segments,
-                    &mut scratch.frame.segment_instances,
-                    |request| {
-                        request.push_one(frame_context.scene_properties.resolve_color(&prim_data.kind.color).premultiplied());
-                    }
-                );
-            } else {
-                let prim_data = &data_stores.prim[*data_handle];
-                let prim_rect = prim_info.snapped_local_rect;
-                let color = prim_data.resolve(frame_context.scene_properties);
-
-                quad::prepare_quad(
-                    &color,
-                    &prim_rect,
-                    &prim_info.clip_chain.local_clip_rect,
-                    prim_data.common.aligned_aa_edges,
-                    prim_data.common.transformed_aa_edges,
-                    prim_instance_index,
-                    &None,
-                    &prim_info.clip_chain,
-                    quad_transform,
-                    frame_context,
-                    pic_context,
-                    targets,
-                    &data_stores.clip,
-                    frame_state,
-                    scratch,
-                );
-
-                return;
-            }
+            return;
         }
         PrimitiveKind::YuvImage { data_handle, .. } => {
             profile_scope!("YuvImage");
@@ -1268,6 +1242,104 @@ fn prepare_prim_for_render(
             let pic_scratch_handle = prim_info.kind_scratch.unwrap_picture();
             let pic = &mut store.pictures[pic_index.0];
 
+            let Some(raster_config) = &pic.raster_config else {
+                return;
+            };
+
+            let pic_scratch = &mut scratch.frame.pictures[pic_scratch_handle];
+
+            // Write the composite-mode gpu blocks first: the filter eligibility
+            // check below reads the resulting extra_gpu_data.
+            raster_config.composite_mode.write_gpu_blocks(
+                &frame_state.surfaces[raster_config.surface_index.0],
+                &mut frame_state.frame_gpu_data,
+                data_stores,
+                &mut pic_scratch.extra_gpu_data,
+            );
+
+            // Decide whether this picture's compositing is migrated to the quad
+            // path. This is computed before clip-mask handling so that target
+            // masks (those applied while compositing, rather than baked onto the
+            // source task) can be routed to the quad path rather than the legacy
+            // brush path.
+            //
+            // Pictures that are part of a 3D context are composited through the
+            // plane splitter, so they are left on the legacy path here.
+            let mut opacity = 1.0;
+            // (filter_mode, amount-or-gpu-address) for CSS/SVG filters that map
+            // to the ps_quad_blend shader.
+            let mut filter = None;
+            // Software mix-blend mode mapping to the ps_quad_mix_blend shader.
+            let mut mix_blend = None;
+            // GPU-blend-equation mix-blend mode (Screen/Exclusion/PlusLighter)
+            // drawn as a blended image quad.
+            let mut hw_blend = None;
+
+            let is_3d_out = matches!(pic.context_3d, Picture3DContext::Out);
+            let use_quads = is_3d_out && match raster_config.composite_mode {
+                // Identity is a no-op filter: composite it as a plain image
+                // copy (the same emission as Blit).
+                PictureCompositeMode::Filter(Filter::Identity)
+                | PictureCompositeMode::Filter(Filter::Blur { .. })
+                | PictureCompositeMode::Filter(Filter::DropShadows(..))
+                | PictureCompositeMode::SVGFEGraph(..)
+                | PictureCompositeMode::Blit(..) => true,
+                PictureCompositeMode::MixBlend(mode) => {
+                    match BlendMode::from_mix_blend_mode(
+                        mode,
+                        frame_context.fb_config.gpu_supports_advanced_blend,
+                        frame_context.fb_config.advanced_blend_is_coherent,
+                    ) {
+                        // No GPU blend equation available: composite via a
+                        // software readback of the backdrop (ps_quad_mix_blend).
+                        None => {
+                            mix_blend = Some(mode);
+                        }
+                        // Advanced blend equation, or a fixed-function blend
+                        // (Screen / Exclusion / PlusLighter): draw the picture
+                        // content as a blended image quad.
+                        Some(bm) => {
+                            hw_blend = Some(bm);
+                        }
+                    }
+
+                    true
+                }
+                PictureCompositeMode::Filter(Filter::Opacity(_, amount)) => {
+                    opacity = amount;
+                    true
+                }
+                PictureCompositeMode::Filter(ref f) => {
+                    let extra_gpu_data = pic_scratch
+                        .extra_gpu_data
+                        .as_slice();
+                    filter = blend_filter_param(f, extra_gpu_data);
+                    filter.is_some()
+                }
+                PictureCompositeMode::ComponentTransferFilter(handle) => {
+                    let filter_data = &data_stores.filter_data[handle];
+                    let filter_mode: i32 = Filter::ComponentTransfer.as_int()
+                        | ((filter_data.data.r_func.to_int() << 28
+                            | filter_data.data.g_func.to_int() << 24
+                            | filter_data.data.b_func.to_int() << 20
+                            | filter_data.data.a_func.to_int() << 16)
+                            as i32);
+                    let addr = pic_scratch
+                        .extra_gpu_data[0]
+                        .as_int();
+                    filter = Some((filter_mode, addr));
+                    true
+                }
+                _ => false,
+            };
+
+            // Clip masks are split into "source" masks (baked onto the picture's
+            // source task) and "target" masks (applied while compositing). When
+            // the picture composites via the quad path, target masks are carried
+            // here and applied by that path; otherwise the legacy brush path
+            // renders a screen-space alpha mask task.
+            let mut composite_target_clip_range: Option<ClipNodeRange> = None;
+
             if prim_info.clip_chain.needs_mask {
                 // TODO(gw): Much of the code in this branch could be moved in to a common
                 //           function as we move more primitives to the new clip-mask paths.
@@ -1317,7 +1389,7 @@ fn prepare_prim_for_render(
                 // (b) All masks if the surface and parent are axis-aligned
                 if !source_masks.is_empty() {
                     let first_clip_node_index = frame_state.clip_store.clip_node_instances.len() as u32;
-                    let parent_task_id = scratch.frame.pictures[pic_scratch_handle].primary_render_task_id.expect("bug: no composite mode");
+                    let parent_task_id = pic_scratch.primary_render_task_id.expect("bug: no composite mode");
 
                     // Construct a new clip node range, also add image-mask dependencies as needed
                     for instance in source_masks {
@@ -1339,7 +1411,7 @@ fn prepare_prim_for_render(
                     };
 
                     // Add the mask as a sub-pass of the picture
-                    let pic_task_id = scratch.frame.pictures[pic_scratch_handle].primary_render_task_id.expect("uh oh");
+                    let pic_task_id = pic_scratch.primary_render_task_id.expect("uh oh");
                     let pic_task = frame_state.rg_builder.get_task_mut(pic_task_id);
 
                     let RenderTaskKind::Picture(info) = &pic_task.kind else { unreachable!() };
@@ -1366,144 +1438,310 @@ fn prepare_prim_for_render(
                     );
                 }
 
-                // Handle masks on the target. This is the rare case, and occurs for:
-                // Masks in parent space when non-axis-aligned to source space
+                // Handle masks on the target: clips applied while compositing the
+                // picture. This is forced for some composite modes and otherwise
+                // occurs for masks in parent space when non-axis-aligned to the
+                // source space.
                 if !target_masks.is_empty() {
-                    let surface = &frame_state.surfaces[pic_context.surface_index.0];
-                    let coverage_rect = prim_info.clip_chain.pic_coverage_rect;
-
-                    let device_pixel_scale = surface.device_pixel_scale;
-                    let raster_spatial_node_index = surface.raster_spatial_node_index;
-
-                    let Some(clipped_surface_rect) = surface.get_surface_rect(
-                        &coverage_rect,
-                        frame_context.spatial_tree,
-                    ) else {
-                        return;
-                    };
-
-                    // Draw a normal screens-space mask to an alpha target that
-                    // can be sampled when compositing this picture.
-                    let empty_task = EmptyTask {
-                        content_origin: clipped_surface_rect.min.to_f32(),
-                        device_pixel_scale,
-                        raster_spatial_node_index,
-                    };
-
-                    let task_size = clipped_surface_rect.size();
-
-                    let clip_task_id = frame_state.rg_builder.add().init(RenderTask::new_dynamic(
-                        task_size,
-                        RenderTaskKind::Empty(empty_task),
-                    ));
-
-                    // Construct a new clip node range, also add image-mask dependencies as needed
+                    // Build a contiguous clip node range for the target masks.
                     let first_clip_node_index = frame_state.clip_store.clip_node_instances.len() as u32;
                     for instance in target_masks {
                         let clip_instance = frame_state.clip_store.get_instance_from_range(&prim_info.clip_chain.clips_range, instance);
-
-                        for tile in frame_state.clip_store.visible_mask_tiles(clip_instance) {
-                            frame_state.rg_builder.add_dependency(
-                                clip_task_id,
-                                tile.task_id,
-                            );
-                        }
-
                         frame_state.clip_store.clip_node_instances.push(clip_instance.clone());
                     }
-
                     let clip_node_range = ClipNodeRange {
                         first: first_clip_node_index,
                         count: frame_state.clip_store.clip_node_instances.len() as u32 - first_clip_node_index,
                     };
 
-                    let task_rect = clipped_surface_rect.to_f32();
+                    if use_quads {
+                        // The quad compositing path applies these clips directly
+                        // (it renders/depends on any image-mask tiles itself).
+                        composite_target_clip_range = Some(clip_node_range);
+                    } else {
+                        // Legacy brush path: draw a screen-space alpha mask that is
+                        // sampled when compositing this picture.
+                        let surface = &frame_state.surfaces[pic_context.surface_index.0];
+                        let coverage_rect = prim_info.clip_chain.pic_coverage_rect;
 
-                    quad::prepare_clip_range(
-                        clip_node_range,
-                        clip_task_id,
-                        &task_rect,
-                        &prim_local_rect,
-                        prim_spatial_node_index,
-                        raster_spatial_node_index,
-                        device_pixel_scale,
-                        &data_stores.clip,
-                        frame_state.clip_store,
-                        frame_context.spatial_tree,
-                        frame_state.rg_builder,
-                        &mut frame_state.frame_gpu_data.f32,
-                        frame_state.transforms,
-                    );
+                        let device_pixel_scale = surface.device_pixel_scale;
+                        let raster_spatial_node_index = surface.raster_spatial_node_index;
 
-                    let clip_task_index = ClipTaskIndex(scratch.frame.clip_mask_instances.len() as _);
-                    scratch.frame.clip_mask_instances.push(ClipMaskKind::Mask(clip_task_id));
-                    scratch.frame.draws[prim_instance_index.0 as usize].clip_task_index = clip_task_index;
-                    frame_state.surface_builder.add_child_render_task(
-                        clip_task_id,
-                        frame_state.rg_builder,
-                    );
+                        let Some(clipped_surface_rect) = surface.get_surface_rect(
+                            &coverage_rect,
+                            frame_context.spatial_tree,
+                        ) else {
+                            return;
+                        };
+
+                        let empty_task = EmptyTask {
+                            content_origin: clipped_surface_rect.min.to_f32(),
+                            device_pixel_scale,
+                            raster_spatial_node_index,
+                        };
+
+                        let task_size = clipped_surface_rect.size();
+
+                        let clip_task_id = frame_state.rg_builder.add().init(RenderTask::new_dynamic(
+                            task_size,
+                            RenderTaskKind::Empty(empty_task),
+                        ));
+
+                        // Add image-mask tile dependencies to the mask task.
+                        for i in 0 .. clip_node_range.count {
+                            let clip_instance = frame_state.clip_store.get_instance_from_range(&clip_node_range, i);
+                            for tile in frame_state.clip_store.visible_mask_tiles(clip_instance) {
+                                frame_state.rg_builder.add_dependency(
+                                    clip_task_id,
+                                    tile.task_id,
+                                );
+                            }
+                        }
+
+                        let task_rect = clipped_surface_rect.to_f32();
+
+                        quad::prepare_clip_range(
+                            clip_node_range,
+                            clip_task_id,
+                            &task_rect,
+                            &prim_local_rect,
+                            prim_spatial_node_index,
+                            raster_spatial_node_index,
+                            device_pixel_scale,
+                            &data_stores.clip,
+                            frame_state.clip_store,
+                            frame_context.spatial_tree,
+                            frame_state.rg_builder,
+                            &mut frame_state.frame_gpu_data.f32,
+                            frame_state.transforms,
+                        );
+
+                        let clip_task_index = ClipTaskIndex(scratch.frame.clip_mask_instances.len() as _);
+                        scratch.frame.clip_mask_instances.push(ClipMaskKind::Mask(clip_task_id));
+                        scratch.frame.draws[prim_instance_index.0 as usize].clip_task_index = clip_task_index;
+                        frame_state.surface_builder.add_child_render_task(
+                            clip_task_id,
+                            frame_state.rg_builder,
+                        );
+                    }
                 }
             }
 
-            pic.write_gpu_blocks(
-                frame_state,
-                data_stores,
-                &mut scratch.frame.pictures[pic_scratch_handle],
-            );
+            let is_same_coord_system = {
+                let surface = &frame_state.surfaces[raster_config.surface_index.0];
+                surface.surface_spatial_node_index == surface.raster_spatial_node_index
+            };
 
-            if let Some(raster_config) = &pic.raster_config {
-                // Pictures that are rasterized in a different spatial node than
-                // they are composited in need a dedicated compositing transform
-                // on the quad path; they are handled in a followup patch.
-                let is_same_coord_system = {
+            if use_quads {
+                // Detached snapshot pictures are not composited.
+                let detached = pic.snapshot.map_or(false, |s| s.detached);
+                if !detached {
+                    let pic_task_id = pic_scratch
+                        .primary_render_task_id
+                        .expect("bug: no render task for composited picture");
+
                     let surface = &frame_state.surfaces[raster_config.surface_index.0];
-                    surface.surface_spatial_node_index == surface.raster_spatial_node_index
-                };
+                    let pic_local_rect = raster_config.composite_mode.get_rect(surface, None);
+                    let surface_spatial_node_index = surface.surface_spatial_node_index;
 
-                let mut opacity = 1.0;
-                let use_quads = if is_same_coord_system && matches!(pic.context_3d, Picture3DContext::Out) {
-                    match raster_config.composite_mode {
-                        PictureCompositeMode::Filter(Filter::Blur { .. })
-                        | PictureCompositeMode::SVGFEGraph(..) => true,
-                        PictureCompositeMode::Filter(Filter::Opacity(_, amount)) => {
-                            opacity = amount;
-                            true
+                    // For a raster root, the baked raster transform must not
+                    // be applied again at composite time, so use a dedicated
+                    // local-to-raster scale-offset transform (and the clip
+                    // rect it implies) rather than the cluster's transform.
+                    let mut local_transform;
+                    let (local_clip_rect, transform) = if is_same_coord_system {
+                        (prim_info.clip_chain.local_clip_rect, quad_transform)
+                    } else {
+                        let map_local_to_raster = SpaceMapper::new_with_target(
+                            pic_context.raster_spatial_node_index,
+                            surface_spatial_node_index,
+                            LayoutRect::max_rect(),
+                            frame_context.spatial_tree,
+                        );
+
+                        let raster_rect = map_local_to_raster.map(&pic_local_rect).unwrap();
+
+                        // TODO(nical): This matches what the brush code does in batch.rs but
+                        // it does not make sense to me.
+                        let sx = raster_rect.width() / pic_local_rect.width();
+                        let sy = raster_rect.height() / pic_local_rect.height();
+                        let tx = raster_rect.min.x - sx * pic_local_rect.min.x;
+                        let ty = raster_rect.min.y - sy * pic_local_rect.min.y;
+                        let local_to_raster_so = ScaleOffset::new(sx, sy, tx, ty);
+
+                        let local_clip_rect = prim_info.clip_chain.local_clip_rect;
+                        let raster_clip_rect = map_local_to_raster.map(&local_clip_rect).unwrap();
+                        let adjusted_clip_rect = local_to_raster_so.unmap_rect(&raster_clip_rect);
+
+                        local_transform = QuadTransformState::from_scale_offset(
+                            local_to_raster_so,
+                            prim_spatial_node_index,
+                            pic_context.raster_spatial_node_index,
+                            quad_transform.device_pixel_scale(),
+                        );
+
+                        (adjusted_clip_rect, &mut local_transform)
+                    };
+
+                    // Source clip masks (if any) were drawn onto the picture's
+                    // source task above, so the compositing quad must not
+                    // re-apply them (which would mask twice). Target clip masks
+                    // are applied here by the quad path via their own clip
+                    // range.
+                    let mut composite_clip_chain = prim_info.clip_chain;
+                    match composite_target_clip_range {
+                        Some(clips_range) => {
+                            composite_clip_chain.needs_mask = true;
+                            composite_clip_chain.clips_range = clips_range;
                         }
-                        _ => false,
+                        None => {
+                            composite_clip_chain.needs_mask = false;
+                        }
                     }
-                } else {
-                    false
-                };
 
-                if use_quads {
-                    // Detached snapshot pictures are not composited.
-                    let detached = pic.snapshot.map_or(false, |s| s.detached);
-                    if !detached {
-                        let pic_task_id = scratch.frame.pictures[pic_scratch_handle]
-                            .primary_render_task_id
-                            .expect("bug: no render task for composited picture");
+                    if let Some(mode) = mix_blend {
+                        // The backdrop was captured into a readback task during
+                        // composite-mode setup; blend the picture (source) over it.
+                        let backdrop_task_id = pic_scratch
+                            .secondary_render_task_id
+                            .expect("bug: no backdrop readback task for mix-blend");
 
-                        let surface = &frame_state.surfaces[raster_config.surface_index.0];
-                        let pic_local_rect = raster_config.composite_mode.get_rect(surface, None);
-
-                        let pattern = ImagePattern {
+                        let mix_blend_pattern = MixBlendPattern {
+                            backdrop_task_id,
                             src_task_id: pic_task_id,
-                            src_is_opaque: false,
-                            premultiplied: true,
-                            sampler_kind: ImageBufferKind::Texture2D,
-                            color: ColorF::new(1.0, 1.0, 1.0, opacity),
+                            mode,
                         };
 
                         quad::prepare_quad(
-                            &pattern,
+                            &mix_blend_pattern,
                             &pic_local_rect,
-                            &prim_info.clip_chain.local_clip_rect,
+                            &local_clip_rect,
                             EdgeMask::empty(),
                             EdgeMask::all(),
                             prim_instance_index,
                             &None,
-                            &prim_info.clip_chain,
-                            quad_transform,
+                            &composite_clip_chain,
+                            transform,
+                            frame_context,
+                            pic_context,
+                            targets,
+                            &data_stores.clip,
+                            frame_state,
+                            scratch,
+                        );
+                    } else if let Some(blend_mode) = hw_blend {
+                        quad::prepare_quad(
+                            &FixedFunctionMixBlendPattern {
+                                src_task_id: pic_task_id,
+                                blend_mode,
+                            },
+                            &pic_local_rect,
+                            &local_clip_rect,
+                            EdgeMask::empty(),
+                            EdgeMask::all(),
+                            prim_instance_index,
+                            &None,
+                            &composite_clip_chain,
+                            transform,
+                            frame_context,
+                            pic_context,
+                            targets,
+                            &data_stores.clip,
+                            frame_state,
+                            scratch,
+                        );
+                    } else if let PictureCompositeMode::Filter(Filter::DropShadows(ref shadows)) =
+                        raster_config.composite_mode
+                    {
+                        // Draw each shadow (the blurred source tinted by the
+                        // shadow color, sampled through its alpha) and then
+                        // the unblurred content on top.
+                        for shadow in shadows {
+                            let shadow_rect = pic_local_rect.translate(shadow.offset);
+                            let shadow_pattern = ShadowPattern {
+                                src_task_id: pic_task_id,
+                                color: shadow.color,
+                            };
+                            quad::prepare_quad(
+                                &shadow_pattern,
+                                &shadow_rect,
+                                &local_clip_rect,
+                                EdgeMask::empty(),
+                                EdgeMask::all(),
+                                prim_instance_index,
+                                &None,
+                                &composite_clip_chain,
+                                transform,
+                                frame_context,
+                                pic_context,
+                                targets,
+                                &data_stores.clip,
+                                frame_state,
+                                scratch,
+                            );
+                        }
+
+                        let content_task_id = scratch.frame.pictures[pic_scratch_handle]
+                            .secondary_render_task_id
+                            .expect("bug: no content task for drop shadow");
+                        let content_pattern = ImagePattern {
+                            src_task_id: content_task_id,
+                            src_is_opaque: false,
+                            premultiplied: true,
+                            sampler_kind: ImageBufferKind::Texture2D,
+                            color: ColorF::WHITE,
+                        };
+                        quad::prepare_quad(
+                            &content_pattern,
+                            &pic_local_rect,
+                            &local_clip_rect,
+                            EdgeMask::empty(),
+                            EdgeMask::all(),
+                            prim_instance_index,
+                            &None,
+                            &composite_clip_chain,
+                            transform,
+                            frame_context,
+                            pic_context,
+                            targets,
+                            &data_stores.clip,
+                            frame_state,
+                            scratch,
+                        );
+                    } else {
+                        let image_pattern;
+                        let filter_pattern;
+                        let pattern: &dyn PatternBuilder = match filter {
+                            Some((filter_mode, param)) => {
+                                filter_pattern = BlendFilterPattern {
+                                    src_task_id: pic_task_id,
+                                    filter_mode,
+                                    param,
+                                };
+                                &filter_pattern
+                            }
+                            None => {
+                                image_pattern = ImagePattern {
+                                    src_task_id: pic_task_id,
+                                    src_is_opaque: false,
+                                    premultiplied: true,
+                                    sampler_kind: ImageBufferKind::Texture2D,
+                                    color: ColorF::new(1.0, 1.0, 1.0, opacity),
+                                };
+                                &image_pattern
+                            }
+                        };
+
+                        quad::prepare_quad(
+                            pattern,
+                            &pic_local_rect,
+                            &local_clip_rect,
+                            EdgeMask::empty(),
+                            EdgeMask::all(),
+                            prim_instance_index,
+                            &None,
+                            &composite_clip_chain,
+                            transform,
                             frame_context,
                             pic_context,
                             targets,
@@ -1512,17 +1750,15 @@ fn prepare_prim_for_render(
                             scratch,
                         );
                     }
-
-                    return;
                 }
-            }
 
-            if let Picture3DContext::In { root_data: None, plane_splitter_index, ancestor_index, .. } = pic.context_3d {
+                return;
+            } else if let Picture3DContext::In { root_data: None, plane_splitter_index, ancestor_index, .. } = pic.context_3d {
                 let dirty_rect = frame_state.current_dirty_region().combined;
                 let visibility_spatial_node = frame_state.current_dirty_region().visibility_spatial_node;
 
                 let splitter = &mut frame_state.plane_splitters[plane_splitter_index.0];
-                let surface_index = pic.raster_config.as_ref().unwrap().surface_index;
+                let surface_index = raster_config.surface_index;
                 let surface = &frame_state.surfaces[surface_index.0];
                 let local_prim_rect = surface.clipped_local_rect.cast_unit();
 
@@ -1537,6 +1773,9 @@ fn prepare_prim_for_render(
                     dirty_rect,
                     plane_split_anchor,
                 );
+
+                // The PrimitiveCommand is pushed by PictureInstance::restore_context.
+                return;
             }
         }
         PrimitiveKind::BackdropCapture { .. } => {
@@ -1599,10 +1838,17 @@ fn prepare_prim_for_render(
                         }
                     };
                     let device_pixel_scale = info.device_pixel_scale;
-                    let surface_spatial_node_index = info.surface_spatial_node_index;
+
+                    // `content_origin`/`backdrop_rect` are in the surface's raster
+                    // device space (world space when the raster root is the scene
+                    // root). Map the prim into that same raster space rather than the
+                    // surface's own spatial node, otherwise the readback is offset by
+                    // the surface node's origin whenever snapping promotes the raster
+                    // root away from the surface node.
+                    let raster_spatial_node_index = info.raster_spatial_node_index;
 
                     let map_prim_to_backdrop = SpaceMapper::new_with_target(
-                        surface_spatial_node_index,
+                        raster_spatial_node_index,
                         prim_spatial_node_index,
                         WorldRect::max_rect(),
                         frame_context.spatial_tree,
@@ -1681,30 +1927,6 @@ fn prepare_prim_for_render(
     }
 }
 
-
-fn write_segment<F>(
-    segment_instance_index: SegmentInstanceIndex,
-    frame_state: &mut FrameBuildingState,
-    segments: &mut SegmentStorage,
-    segment_instances: &mut SegmentInstanceStorage,
-    f: F,
-) where F: Fn(&mut GpuBufferWriterF) {
-    debug_assert_ne!(segment_instance_index, SegmentInstanceIndex::INVALID);
-    if segment_instance_index != SegmentInstanceIndex::UNUSED {
-        let segment_instance = &mut segment_instances[segment_instance_index];
-
-        let segments = &segments[segment_instance.segments_range];
-        let mut writer = frame_state.frame_gpu_data.f32.write_blocks(3 + segments.len() * VECS_PER_SEGMENT);
-
-        f(&mut writer);
-
-        for segment in segments {
-            segment.write_gpu_blocks(&mut writer);
-        }
-
-        segment_instance.gpu_data = writer.finish();
-    }
-}
 
 fn update_clip_task_for_brush(
     instance: &PrimitiveInstance,

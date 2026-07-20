@@ -9,19 +9,17 @@
       <vbox id="appMenu-addon-banners"/>
       <toolbarbutton id="appMenu-update-banner" class="panel-banner-item subviewbutton"
                      wrap="true"
-                     hidden="true"/>
-      <html:moz-promo id="appMenu-nova-update-promo"
-                      type="vibrant"
-                      imagedisplay="padded"
-                      imagesrc="chrome://browser/skin/update-badge.svg"
-                      data-l10n-id="appmenu-nova-update-promo"
-                      data-l10n-attrs="message"
-                      hidden="true">
-        <html:a id="appMenu-nova-update-link"
-                slot="support-link"
-                href="#"
-                data-l10n-id="appmenu-nova-update-link"></html:a>
-      </html:moz-promo>
+                     hidden="true">
+        <box class="appMenu-update-banner-pulse-ring"/>
+        <box class="appMenu-update-banner-text" orient="vertical">
+          <label id="appMenu-update-banner-title"
+                 class="appMenu-update-banner-title text-box-trim-start"
+                 data-l10n-id="appmenu-nova-update-title"/>
+          <label id="appMenu-update-banner-description"
+                 class="appMenu-update-banner-description"
+                 data-l10n-id="appmenu-nova-update-description"/>
+        </box>
+      </toolbarbutton>
 
       <toolbaritem id="appMenu-menu-message"
                    closemenu="none">
@@ -41,13 +39,13 @@
         </toolbarbutton>
         <html:moz-button id="appMenu-nova-fxa-label"/>
       </toolbaritem>
-      <toolbarbutton id="appMenu-empty-profiles-button"
-                     class="subviewbutton subviewbutton-nav"
+      <toolbarbutton id="appMenu-create-profile-button"
+                     class="subviewbutton subviewbutton-iconic subviewbutton-nav"
                      closemenu="none"
-                     data-l10n-id="appmenu-profiles-2"
+                     data-l10n-id="appmenu-create-profile2"
                      hidden="true"/>
       <toolbarbutton id="appMenu-profiles-button"
-                     class="subviewbutton subviewbutton-nav subviewbutton-iconic"
+                     class="subviewbutton subviewbutton-iconic subviewbutton-nav profile-item"
                      closemenu="none"
                      hidden="true"/>
       <toolbarseparator id="appMenu-fxa-separator" class="proton-zap"/>
@@ -251,7 +249,7 @@
              flex="1"
              has-custom-header="true">
     <box id="PanelUI-profiles-header"
-         class="panel-header panel-header-with-additional-element">
+         class="panel-header">
       <toolbarbutton class="subviewbutton subviewbutton-iconic subviewbutton-back"
                      id="profiles-appmenu-back-button"
                      tabindex="0"
@@ -260,20 +258,12 @@
       <html:h1 id="profiles-header-title">
         <html:span id="profiles-header-content"></html:span>
       </html:h1>
-      <toolbarbutton id="profiles-edit-this-profile-button"
-                     class="subviewbutton subviewbutton-iconic"
-                     data-l10n-id="appmenu-edit-profile"
-                     />
     </box>
     <vbox class="panel-subview-body">
       <vbox id="current-profile">
         <box id="half-height-profile"></box>
         <image id="profile-icon-image"></image>
       </vbox>
-      <html:h2 id="profiles-subtitle"
-               class="subview-subheader"
-               data-l10n-id="appmenu-other-profiles" />
-      <vbox id="profiles-list"></vbox>
     </vbox>
   </panelview>
 
@@ -698,16 +688,11 @@
               data-l10n-id="fxa-menu-sign-out"
               hidden="true"/>
       </vbox>
-      <toolbarbutton id="PanelUI-fxa-menu-empty-profiles-button"
-                     class="subviewbutton subviewbutton-nav"
-                     closemenu="none"
-                     data-l10n-id="appmenu-profiles-2"
-                     hidden="true"/>
-      <toolbarbutton id="PanelUI-fxa-menu-profiles-button"
-                     class="subviewbutton subviewbutton-nav subviewbutton-iconic"
-                     closemenu="none"
-                     hidden="true"/>
-      <toolbarseparator id="PanelUI-fxa-menu-profiles-separator" class="proton-zap" hidden="true"/>
+      <toolbarseparator id="PanelUI-fxa-menu-profiles-header-separator"/>
+      <label id="PanelUI-fxa-menu-profiles-header-label" crop="end" class="subview-subheader" data-l10n-id="appmenu-profiles-header" />
+      <vbox id="PanelUI-fxa-menu-profile-buttons" hidden="true"/>
+      <toolbarseparator id="PanelUI-fxa-menu-profiles-separator" hidden="true"/>
+      <label id="PanelUI-fxa-menu-secure-sync-header" crop="end" class="subview-subheader" data-l10n-id="appmenu-secure-sync-header" hidden="true"/>
       <!-- My Services panel - visible if the user has any of the listed services below set up on their account-->
       <vbox id="PanelUI-fxa-menu-services" hidden="true">
         <toolbarseparator />
@@ -728,33 +713,33 @@
       <!-- updateCTAPanel will control if we show this panel -->
       <vbox id="PanelUI-fxa-cta-menu" hidden="true">
         <toolbarseparator id="PanelUI-products-separator" />
-        <label crop="end" class="subview-subheader" data-l10n-id="appmenu-other-protection-header2" />
+        <label crop="end" class="subview-subheader" data-l10n-id="appmenu-other-protection-header3" />
         <toolbarbutton id="PanelUI-fxa-menu-monitor-button" class="fxa-cta-button subviewbutton subviewbutton-iconic">
-          <vbox flex="1">
-            <hbox align="center">
-              <image class="PanelUI-fxa-menu-monitor-button ctaMenuLogo" role="presentation" />
-              <label id="fxa-menu-header-title" crop="end" data-l10n-id="appmenuitem-monitor-title" />
-            </hbox>
-            <label id="cta-menu-header-description" crop="end" data-l10n-id="appmenuitem-monitor-description" />
-          </vbox>
+          <hbox align="center">
+            <image class="PanelUI-fxa-menu-monitor-button ctaMenuLogo" role="presentation" />
+            <vbox flex="1">
+              <label id="fxa-menu-header-title" crop="end" data-l10n-id="appmenuitem-monitor-title2" />
+              <label id="cta-menu-header-description" crop="end" data-l10n-id="appmenuitem-monitor-description2" />
+            </vbox>
+          </hbox>
         </toolbarbutton>
         <toolbarbutton id="PanelUI-fxa-menu-relay-button" class="fxa-cta-button subviewbutton subviewbutton-iconic">
-          <vbox flex="1">
-            <hbox align="center">
-              <image class="PanelUI-fxa-menu-relay-button ctaMenuLogo" role="presentation" />
-              <label id="fxa-menu-header-title" crop="end" data-l10n-id="appmenuitem-relay-title" />
-            </hbox>
-            <label id="cta-menu-header-description" crop="end" data-l10n-id="appmenuitem-relay-description" />
-          </vbox>
+          <hbox align="center">
+            <image class="PanelUI-fxa-menu-relay-button ctaMenuLogo" role="presentation" />
+            <vbox flex="1">
+              <label id="fxa-menu-header-title" crop="end" data-l10n-id="appmenuitem-relay-title2" />
+              <label id="cta-menu-header-description" crop="end" data-l10n-id="appmenuitem-relay-description2" />
+            </vbox>
+          </hbox>
         </toolbarbutton>
         <toolbarbutton id="PanelUI-fxa-menu-vpn-button" class="fxa-cta-button subviewbutton subviewbutton-iconic">
-          <vbox flex="1">
-            <hbox align="center">
-              <image class="PanelUI-fxa-menu-vpn-button ctaMenuLogo" role="presentation" />
-              <label id="fxa-menu-header-title" crop="end" data-l10n-id="appmenuitem-vpn-title" />
-            </hbox>
-            <label id="cta-menu-header-description" crop="end" data-l10n-id="appmenuitem-vpn-description-2" />
-          </vbox>
+          <hbox align="center">
+            <image class="PanelUI-fxa-menu-vpn-button ctaMenuLogo" role="presentation" />
+            <vbox flex="1">
+              <label id="fxa-menu-header-title" crop="end" data-l10n-id="appmenuitem-vpn-title2" />
+              <label id="cta-menu-header-description" crop="end" data-l10n-id="appmenuitem-vpn-description3" />
+            </vbox>
+          </hbox>
         </toolbarbutton>
       </vbox>
       <deck id="PanelUI-fxa-remotetabs-deck">
@@ -780,6 +765,49 @@
                      data-l10n-id="fxa-menu-send-tab-to-device-syncnotready"
                      disabled="true"/>
     </vbox>
+  </panelview>
+
+  <panelview id="PanelUI-fxa-menu-all-profiles" class="PanelUI-subView">
+    <vbox class="panel-subview-body">
+      <vbox id="PanelUI-fxa-menu-all-profiles-list"/>
+    </vbox>
+    <toolbarseparator id="PanelUI-fxa-menu-all-profiles-footer-separator"/>
+    <toolbarbutton id="PanelUI-fxa-menu-all-profiles-manage-button"
+                   class="subviewbutton"
+                   data-l10n-id="appmenu-manage-profiles"/>
+    <toolbarbutton id="PanelUI-fxa-menu-all-profiles-create-button"
+                   class="subviewbutton panel-subview-footer-button"
+                   data-l10n-id="appmenu-create-profile2"/>
+  </panelview>
+
+  <panelview id="PanelUI-fxa-menu-create-profile"
+             class="PanelUI-subView"
+             data-l10n-id="fxa-menu-create-profile-subpanel">
+    <vbox class="panel-subview-body">
+      <vbox id="PanelUI-fxa-menu-create-profile-content" align="center">
+        <image id="PanelUI-fxa-menu-create-profile-illustration"
+               role="presentation"/>
+        <vbox id="PanelUI-fxa-menu-create-profile-text">
+          <description id="PanelUI-fxa-menu-create-profile-heading"
+                       data-l10n-id="fxa-menu-create-profile-heading"/>
+          <description id="PanelUI-fxa-menu-create-profile-description"
+                       data-l10n-id="fxa-menu-create-profile-description"/>
+        </vbox>
+        <html:moz-button type="primary"
+                         id="PanelUI-fxa-menu-create-profile-confirm-button"
+                         data-l10n-id="fxa-menu-create-profile-confirm"/>
+      </vbox>
+    </vbox>
+    <toolbarseparator id="PanelUI-fxa-menu-create-profile-footer-separator"/>
+    <toolbarbutton id="PanelUI-fxa-menu-create-profile-learn-more-button"
+                   class="subviewbutton"
+                   data-l10n-id="fxa-menu-create-profile-learn-more"/>
+    <toolbarbutton id="PanelUI-fxa-menu-create-profile-copy-button"
+                   class="subviewbutton"
+                   data-l10n-id="appmenu-copy-profile"/>
+    <toolbarbutton id="PanelUI-fxa-menu-create-profile-manage-button"
+                   class="subviewbutton panel-subview-footer-button"
+                   data-l10n-id="appmenu-manage-profiles"/>
   </panelview>
 
   <panelview id="PanelUI-fxa-menu-sendtab-sign-in" class="PanelUI-subView">
@@ -891,10 +919,14 @@
              mainview-with-header="true"
              has-custom-header="true">
     <hbox id="PanelUI-ipprotection-header"
-         class="panel-header">
+         class="panel-header panel-header-with-info-button">
         <html:h1>
           <html:span id="ipprotection-header-content"
-                     data-l10n-id="enterprise-access-connector-heading2"></html:span>
+                     data-l10n-id="ipprotection-title"></html:span>
+            <html:moz-badge
+              id="ipprotection-experiment-badge"
+              data-l10n-id="ipprotection-experiment-badge"
+            ></html:moz-badge>
         </html:h1>
         <html:moz-button
           id="ipprotection-header-button"

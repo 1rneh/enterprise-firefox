@@ -146,10 +146,6 @@ pub const VERTEX_DATA_TEXTURE_COUNT: usize = 3;
 /// Number of GPU blocks per UV rectangle provided for an image.
 pub const BLOCKS_PER_UV_RECT: usize = 2;
 
-const GPU_TAG_BRUSH_OPACITY: GpuProfileTag = GpuProfileTag {
-    label: "B_Opacity",
-    color: debug_colors::DARKMAGENTA,
-};
 const GPU_TAG_BRUSH_YUV_IMAGE: GpuProfileTag = GpuProfileTag {
     label: "B_YuvImage",
     color: debug_colors::DARKGREEN,
@@ -158,17 +154,9 @@ const GPU_TAG_BRUSH_MIXBLEND: GpuProfileTag = GpuProfileTag {
     label: "B_MixBlend",
     color: debug_colors::MAGENTA,
 };
-const GPU_TAG_BRUSH_BLEND: GpuProfileTag = GpuProfileTag {
-    label: "B_Blend",
-    color: debug_colors::ORANGE,
-};
 const GPU_TAG_BRUSH_IMAGE: GpuProfileTag = GpuProfileTag {
     label: "B_Image",
     color: debug_colors::SPRINGGREEN,
-};
-const GPU_TAG_BRUSH_SOLID: GpuProfileTag = GpuProfileTag {
-    label: "B_Solid",
-    color: debug_colors::RED,
 };
 const GPU_TAG_CACHE_CLIP: GpuProfileTag = GpuProfileTag {
     label: "C_Clip",
@@ -263,12 +251,8 @@ impl BatchKind {
             BatchKind::SplitComposite => GPU_TAG_PRIM_SPLIT_COMPOSITE,
             BatchKind::Brush(kind) => {
                 match kind {
-                    BrushBatchKind::Solid => GPU_TAG_BRUSH_SOLID,
                     BrushBatchKind::Image(..) => GPU_TAG_BRUSH_IMAGE,
-                    BrushBatchKind::Blend => GPU_TAG_BRUSH_BLEND,
                     BrushBatchKind::MixBlend { .. } => GPU_TAG_BRUSH_MIXBLEND,
-                    BrushBatchKind::YuvImage(..) => GPU_TAG_BRUSH_YUV_IMAGE,
-                    BrushBatchKind::Opacity => GPU_TAG_BRUSH_OPACITY,
                 }
             }
             BatchKind::TextRun(_) => GPU_TAG_PRIM_TEXT_RUN,
@@ -284,6 +268,8 @@ impl BatchKind {
             BatchKind::Quad(PatternKind::YuvTextureExternalBT709) => GPU_TAG_BRUSH_YUV_IMAGE,
             BatchKind::Quad(PatternKind::YuvTextureRect) => GPU_TAG_BRUSH_YUV_IMAGE,
             BatchKind::Quad(PatternKind::Backdrop) => GPU_TAG_PRIMITIVE,
+            BatchKind::Quad(PatternKind::Blend) => GPU_TAG_PRIMITIVE,
+            BatchKind::Quad(PatternKind::MixBlend) => GPU_TAG_PRIMITIVE,
             BatchKind::Quad(PatternKind::Mask) => GPU_TAG_INDIRECT_MASK,
         }
     }
@@ -304,8 +290,6 @@ pub enum ShaderColorMode {
     SubpixelDualSource = 1,
     BitmapShadow = 2,
     ColorBitmap = 3,
-    Image = 4,
-    MultiplyDualSource = 5,
 }
 
 impl From<GlyphFormat> for ShaderColorMode {
@@ -646,7 +630,6 @@ pub enum BlendMode {
     PremultipliedDestOut,
     SubpixelDualSource,
     Advanced(MixBlendMode),
-    MultiplyDualSource,
     Screen,
     Exclusion,
     PlusLighter,
@@ -660,7 +643,6 @@ impl BlendMode {
         mode: MixBlendMode,
         advanced_blend: bool,
         coherent: bool,
-        dual_source: bool,
     ) -> Option<BlendMode> {
         // If we emulate a mix-blend-mode via simple or dual-source blending,
         // care must be taken to output alpha As + Ad*(1-As) regardless of what
@@ -674,8 +656,6 @@ impl BlendMode {
             MixBlendMode::Exclusion => BlendMode::Exclusion,
             // PlusLighter is basically a clamped add.
             MixBlendMode::PlusLighter => BlendMode::PlusLighter,
-            // Multiply can be implemented as Cs*Cd + Cs*(1-Ad) + Cd*(1-As) => Cs*(1-Ad) + Cd*(1 - SRC1=(As-Cs))
-            MixBlendMode::Multiply if dual_source => BlendMode::MultiplyDualSource,
             // Otherwise, use advanced blend without coherency if available.
             _ if advanced_blend => BlendMode::Advanced(mode),
             // If advanced blend is not available, then we have to use brush_mix_blend.
@@ -3114,9 +3094,6 @@ impl Renderer {
                             }
                             self.device.set_blend_mode_advanced(mode);
                         }
-                        BlendMode::MultiplyDualSource => {
-                            self.device.set_blend_mode_multiply_dual_source();
-                        }
                         BlendMode::Screen => {
                             self.device.set_blend_mode_screen();
                         }
@@ -3140,6 +3117,16 @@ impl Renderer {
                         uses_scissor,
                         &render_tasks[task_id],
                         &render_tasks[backdrop_id],
+                    );
+                }
+
+                if let Some(readback) = batch.readback {
+                    debug_assert_eq!(batch.instances.len(), 1);
+                    self.handle_readback_composite(
+                        draw_target,
+                        uses_scissor,
+                        &render_tasks[readback.src_task_id],
+                        &render_tasks[readback.readback_task_id],
                     );
                 }
 

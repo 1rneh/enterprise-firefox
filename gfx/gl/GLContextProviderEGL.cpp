@@ -29,6 +29,7 @@
 #  ifdef MOZ_WIDGET_ANDROID
 #    include <android/native_window.h>
 #    include <android/native_window_jni.h>
+
 #    include "mozilla/jni/Utils.h"
 #    include "mozilla/widget/AndroidCompositorWidget.h"
 #  endif
@@ -46,33 +47,34 @@
 #  error "Platform not recognized"
 #endif
 
-#include "gfxCrashReporterUtils.h"
-#include "gfxFailure.h"
-#include "gfxPlatform.h"
-#include "gfxUtils.h"
 #include "GLBlitHelper.h"
 #include "GLContextEGL.h"
 #include "GLContextProvider.h"
 #include "GLLibraryEGL.h"
 #include "GLLibraryLoader.h"
+#include "ScopedGLHelpers.h"
+#include "gfxCrashReporterUtils.h"
+#include "gfxFailure.h"
+#include "gfxPlatform.h"
+#include "gfxUtils.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_gfx.h"
-#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/BuildConstants.h"
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/layers/CompositorOptions.h"
 #include "mozilla/widget/CompositorWidget.h"
 #include "nsDebug.h"
 #include "nsIWidget.h"
 #include "nsThreadUtils.h"
-#include "ScopedGLHelpers.h"
 
 #if defined(MOZ_WIDGET_GTK)
 #  include "mozilla/widget/GtkCompositorWidget.h"
 #  if defined(MOZ_WAYLAND)
 #    include <gdk/gdkwayland.h>
 #    include <wayland-egl.h>
+
 #    include "mozilla/WidgetUtilsGtk.h"
 #    include "mozilla/widget/nsWaylandDisplay.h"
 #  endif
@@ -564,7 +566,7 @@ bool GLContextEGL::HasKhrPartialUpdate() const {
   return mEgl->IsExtensionSupported(EGLExtension::KHR_partial_update);
 }
 
-EGLint GLContextEGL::GetBindToTextureTargetANGLE() {
+EGLint GLContextEGL::GetBindToTextureTargetANGLE() const {
   if (mBindToTextureTargetANGLE) {
     return *mBindToTextureTargetANGLE;
   }
@@ -589,6 +591,22 @@ EGLint GLContextEGL::GetBindToTextureTargetANGLE() {
   }
   mBindToTextureTargetANGLE.emplace(eglTarget);
   return eglTarget;
+}
+
+GLenum GLContextEGL::GetPreferredMacIOSurfaceTextureTarget() const {
+  const auto eglTarget = GetBindToTextureTargetANGLE();
+  switch (eglTarget) {
+    case LOCAL_EGL_TEXTURE_2D:
+      return LOCAL_GL_TEXTURE_2D;
+      break;
+    case LOCAL_EGL_TEXTURE_RECTANGLE_ANGLE:
+      return LOCAL_GL_TEXTURE_RECTANGLE_ARB;
+      break;
+    default:
+      gfxCriticalErrorOnce() << "Unexpected EGL_BIND_TO_TEXTURE_TARGET_ANGLE: "
+                             << gfx::hexa(eglTarget);
+      return LOCAL_GL_TEXTURE_2D;
+  }
 }
 
 GLint GLContextEGL::GetBufferAge() const {

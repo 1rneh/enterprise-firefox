@@ -25,7 +25,6 @@
 #include "js/RefCounted.h"
 #include "js/Utility.h"
 #include "js/Vector.h"
-
 #include "wasm/WasmCompileArgs.h"
 #include "wasm/WasmConstants.h"
 #include "wasm/WasmExprType.h"
@@ -117,6 +116,20 @@ struct NameHasher {
 
   static bool match(const Key& aKey, const Lookup& aLookup) {
     return aKey == aLookup;
+  }
+};
+
+// A variant of the same hash policy for tables/sets that own their keys.
+struct CacheableNameHasher {
+  using Key = CacheableName;
+  using Lookup = mozilla::Span<const char>;
+
+  static HashNumber hash(const Lookup& aLookup) {
+    return mozilla::HashString(aLookup.data(), aLookup.Length());
+  }
+
+  static bool match(const Key& aKey, const Lookup& aLookup) {
+    return aKey.utf8Bytes() == aLookup;
   }
 };
 
@@ -540,6 +553,12 @@ class GlobalDesc {
 
   size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
   WASM_DECLARE_FRIEND_SERIALIZE(GlobalDesc);
+
+  // Checks whether the `src` global's type is compatible with the `dst` global
+  // type. This is a subtyping relationship on the value type + extra rules for
+  // mutability.
+  // https://webassembly.github.io/spec/core/valid/matching.html#global-types
+  static bool matches(const GlobalDesc& src, const GlobalDesc& dst);
 };
 
 using GlobalDescVector = Vector<GlobalDesc, 0, SystemAllocPolicy>;
@@ -844,6 +863,12 @@ struct Limits {
         maximum(maximum),
         shared(shared),
         pageSize(pageSize) {}
+
+  // Checks whether the `src` limits are compatible with the `dst` limits; i.e.
+  // that a memory or table with the `src` limits can be used in a context where
+  // the `dst` limits are expected:
+  // https://webassembly.github.io/spec/core/valid/matching.html#match-limits
+  static bool matches(Limits src, Limits dst);
 };
 
 WASM_DECLARE_CACHEABLE_POD(Limits);
@@ -896,6 +921,10 @@ struct MemoryDesc {
   MemoryDesc() = default;
   explicit MemoryDesc(Limits limits)
       : limits(limits), importIndex(mozilla::Nothing()) {}
+
+  // Checks if the `src` memory's type is compatible with the `dst` memory type:
+  // https://webassembly.github.io/spec/core/valid/matching.html#memory-types
+  static bool matches(const MemoryDesc& src, const MemoryDesc& dst);
 };
 
 WASM_DECLARE_CACHEABLE_POD(MemoryDesc);
@@ -917,6 +946,11 @@ struct TableType {
   TableType() = default;
   TableType(Limits limits, RefType elemType)
       : limits(limits), elemType(elemType) {}
+
+  // Checks if the `src` table type is compatible with the `dst` table type,
+  // e.g. for imports:
+  // https://webassembly.github.io/spec/core/valid/matching.html#table-types
+  static bool matches(TableType src, TableType dst);
 };
 
 struct TableDesc {

@@ -226,6 +226,14 @@ bool JitRuntime::generateTrampolines(JSContext* cx) {
   generateIonGenericCallStub(masm, IonGenericCallKind::Construct);
   rangeRecorder.recordOffset("Trampoline: IonGenericConstruct");
 
+  JitSpew(JitSpew_Codegen, "# Emitting megamorphic load stub");
+  generateMegamorphicLoadStub(masm);
+  rangeRecorder.recordOffset("Trampoline: MegamorphicLoad");
+
+  JitSpew(JitSpew_Codegen, "# Emitting permissive megamorphic load stub");
+  generateMegamorphicLoadStubPermissive(masm);
+  rangeRecorder.recordOffset("Trampoline: MegamorphicLoadPermissive");
+
   JitSpew(JitSpew_Codegen, "# Emitting trampoline natives");
   TrampolineNativeJitEntryOffsets nativeOffsets;
   generateTrampolineNatives(masm, nativeOffsets, rangeRecorder);
@@ -761,9 +769,7 @@ IonScript* IonScript::New(JSContext* cx, IonCompilationId compilationId,
 }
 
 void IonScript::trace(JSTracer* trc) {
-  if (method_) {
-    TraceEdge(trc, &method_, "method");
-  }
+  TraceEdge(trc, &method_, "method");
 
   for (size_t i = 0; i < numConstants(); i++) {
     TraceEdge(trc, &getConstant(i), "constant");
@@ -844,7 +850,7 @@ void IonScript::copyICEntries(const uint32_t* icEntries) {
 }
 
 const SafepointIndex* IonScript::getSafepointIndex(uint32_t disp) const {
-  MOZ_ASSERT(numSafepointIndices() > 0);
+  MOZ_RELEASE_ASSERT(numSafepointIndices() > 0);
 
   const SafepointIndex* table = safepointIndices();
   if (numSafepointIndices() == 1) {
@@ -858,7 +864,7 @@ const SafepointIndex* IonScript::getSafepointIndex(uint32_t disp) const {
   uint32_t max = table[maxEntry].displacement();
 
   // Raise if the element is not in the list.
-  MOZ_ASSERT(min <= disp && disp <= max);
+  MOZ_RELEASE_ASSERT(min <= disp && disp <= max);
 
   // Approximate the location of the FrameInfo.
   size_t guess = (disp - min) * (maxEntry - minEntry) / (max - min) + minEntry;
@@ -914,6 +920,9 @@ const OsiIndex* IonScript::getOsiIndex(uint8_t* retAddr) const {
 }
 
 void IonScript::Destroy(JS::GCContext* gcx, IonScript* script) {
+  // Trigger write barrier since we are destroying this outside GC.
+  script->method_ = nullptr;
+
   // Destroy the HeapPtrs to ensure there are no pointers into the IonScript's
   // nursery objects list or constants list in the store buffer. Because this
   // can be called during sweeping when discarding JIT code, we have to lock the

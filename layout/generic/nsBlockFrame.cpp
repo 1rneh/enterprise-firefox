@@ -1094,8 +1094,15 @@ static nsBlockFrame* GetAsLineClampDescendant(nsIFrame* aFrame) {
       GetAsLineClampDescendant(const_cast<const nsIFrame*>(aFrame)));
 }
 
+static uint32_t GetLineClampMaxLines(const StyleLineClamp& aLineClamp) {
+  if (aLineClamp.max_lines.lines.IsSome()) {
+    return static_cast<uint32_t>(aLineClamp.max_lines.lines.AsSome());
+  }
+  return 0;
+}
+
 static bool IsLineClampRoot(const nsBlockFrame* aFrame) {
-  if (!aFrame->StyleDisplay()->mWebkitLineClamp) {
+  if (!GetLineClampMaxLines(aFrame->StyleDisplay()->mWebkitLineClamp)) {
     return false;
   }
 
@@ -1354,7 +1361,7 @@ void nsBlockFrame::ReflowAbsoluteDescendantsInInlineFrame(
     OverflowAreas lineAbsposOverflow;
     for (nsIFrame* kid : line.ChildFrames()) {
       if (auto kidOverflow = WalkInlineDescendantsToReflowAbsoluteFrames(
-              kid, aPresContext, aReflowInput, aStatus)) {
+              kid, aPresContext, aReflowInput, aReflowOutput, aStatus)) {
         foundAbspos = true;
         lineAbsposOverflow.UnionWithAbsoluteOverflowAreas(*kidOverflow +
                                                           kid->GetPosition());
@@ -1375,16 +1382,25 @@ void nsBlockFrame::ReflowAbsoluteDescendantsInInlineFrame(
     }
   }
 
-  if (!foundAbspos) {
-    // Remove NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT bit if we didn't find any
-    // abspos descendants after a full walk over all our inline lines.
+  if (nsIFrame* prev = GetPrevInFlow()) {
+    // We are a continuation, carry NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT from
+    // our prev-in-flow, because we can have abspos descendants if any of them
+    // were pushed from a previous fragmentainer.
+    AddOrRemoveStateBits(
+        NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT,
+        prev->HasAnyStateBits(NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT));
+  } else if (!foundAbspos) {
+    // We are a first-in-flow. Remove NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT bit
+    // if we didn't find any abspos descendants after a full walk over all our
+    // inline lines.
     RemoveStateBits(NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT);
   }
 }
 
 Maybe<OverflowAreas> nsBlockFrame::WalkInlineDescendantsToReflowAbsoluteFrames(
     nsIFrame* aFrame, nsPresContext* aPresContext,
-    const ReflowInput& aReflowInput, nsReflowStatus& aStatus) {
+    const ReflowInput& aReflowInput, const ReflowOutput& aReflowOutput,
+    nsReflowStatus& aStatus) {
   if (!aFrame->IsLineParticipant() || aFrame->IsLeaf()) {
     // Recurse only into non-leaf inline content (e.g. inline boxes and ruby
     // content) that can have abspos descendants. Inline-block, inline-flex,
@@ -1403,7 +1419,7 @@ Maybe<OverflowAreas> nsBlockFrame::WalkInlineDescendantsToReflowAbsoluteFrames(
   for (nsIFrame* kid : aFrame->PrincipalChildList()) {
     if (auto absposOverflowFromKid =
             WalkInlineDescendantsToReflowAbsoluteFrames(
-                kid, aPresContext, aReflowInput, aStatus)) {
+                kid, aPresContext, aReflowInput, aReflowOutput, aStatus)) {
       foundAbspos = true;
       absposOverflow.UnionWithAbsoluteOverflowAreas(*absposOverflowFromKid +
                                                     kid->GetPosition());
@@ -1414,7 +1430,7 @@ Maybe<OverflowAreas> nsBlockFrame::WalkInlineDescendantsToReflowAbsoluteFrames(
     // If aFrame is an inline frame (or a subclass of inline frame), reflow its
     // abspos kids, and accumulate their overflow areas.
     if (auto absposOverflowFromInlineFrame = ReflowAbsoluteFramesInInlineFrame(
-            inlineFrame, aPresContext, aReflowInput, aStatus)) {
+            inlineFrame, aPresContext, aReflowInput, aReflowOutput, aStatus)) {
       foundAbspos = true;
       absposOverflow.UnionWithAbsoluteOverflowAreas(
           *absposOverflowFromInlineFrame);
@@ -1437,30 +1453,75 @@ Maybe<OverflowAreas> nsBlockFrame::WalkInlineDescendantsToReflowAbsoluteFrames(
   return Some(absposOverflow);
 }
 
+// Return true if aInlineFrame (an absolute containing block that has abspos
+// kids under aBlockFrame) is complete in current fragmentainer (column/page).
+static bool IsInlineFrameCompleteInCurrentFragmentainer(
+    const nsBlockFrame* aBlockFrame, const nsInlineFrame* aInlineFrame) {
+  MOZ_ASSERT(aInlineFrame->HasAbsolutelyPositionedChildren());
+
+  // Walk up from aInlineFrame's last continuation to the line-level frame that
+  // is a direct child of a nearest block frame.
+  nsIFrame* lineLevel =
+      nsLayoutUtils::LastContinuationOrIBSplitSibling(aInlineFrame);
+  nsIFrame* blockAncestor = lineLevel->GetParent();
+  while (blockAncestor && !blockAncestor->IsBlockFrameOrSubclass()) {
+    lineLevel = lineLevel->GetParent();
+    blockAncestor = blockAncestor->GetParent();
+  }
+
+  if (aBlockFrame != blockAncestor) {
+    // The last fragment lives in a different block in a later fragmentainer.
+    return false;
+  }
+
+  // aInlineFrame is complete unless its last continuation is in overflow lines.
+  const nsBlockFrame::FrameLines* overflowLines =
+      aBlockFrame->GetOverflowLines();
+  return !overflowLines || !overflowLines->mFrames.ContainsFrame(lineLevel);
+}
+
 Maybe<OverflowAreas> nsBlockFrame::ReflowAbsoluteFramesInInlineFrame(
     nsInlineFrame* aInlineFrame, nsPresContext* aPresContext,
-    const ReflowInput& aReflowInput, nsReflowStatus& aStatus) {
+    const ReflowInput& aReflowInput, const ReflowOutput& aReflowOutput,
+    nsReflowStatus& aStatus) {
   auto* absCB = aInlineFrame->GetAbsoluteContainingBlock();
   if (!absCB || !absCB->PrepareAbsoluteFrames(aInlineFrame)) {
     return Nothing();
   }
 
-  // TODO(Bug 2038072): After we support splitting abspos frames in multicol or
-  // printing, a later inline continuation might have abspos kids.
-  MOZ_ASSERT(!aInlineFrame->GetPrevInFlow(),
-             "Only the first inline continuation can have absolute kids!");
-
   const nsRect cbRect = ComputeInlineAbsoluteCBRect(aInlineFrame);
   const WritingMode cbwm = aInlineFrame->GetWritingMode();
 
-  // TODO(Bug 2038072): Pass an actual available block-size to split the abspos
-  // frames correctly in multicol or printing.
-  const LogicalSize availSize(cbwm, aInlineFrame->ISize(cbwm),
-                              NS_UNCONSTRAINEDSIZE);
-  ReflowInput inlineRI(aPresContext, aReflowInput, aInlineFrame, availSize);
+  // The inline-size in availSize is not important because abspos kids use
+  // cbRect to resolve their inline-size.
+  //
+  // For an inline CB in fragmentation context, AbsoluteContainingBlock stores
+  // kid's unfragmented position in *this* block's coordinate space. Therefore,
+  // using this block frame's available block-size is correct, and we don't need
+  // to subtract the inline CB's position.
+  LogicalSize availSize =
+      aReflowInput.AvailableSize().ConvertTo(cbwm, GetWritingMode());
 
-  // TODO(Bug 2038072): Add AbsPosReflowFlag::AllowFragmentation flag.
-  AbsPosReflowFlags flags{AbsPosReflowFlag::CBWidthChanged,
+  if (availSize.BSize(cbwm) != NS_UNCONSTRAINEDSIZE &&
+      (HasColumnSpanSiblings() ||
+       IsInlineFrameCompleteInCurrentFragmentainer(this, aInlineFrame))) {
+    // FIXME: Disallow splitting abspos kids by setting the available block-size
+    // to an unconstrained size, as a workaround for the following scenarios:
+    //
+    // 1. This block frame has a column-span sibling, since we don't yet support
+    // abspos kids's fragmentation across a column-span boundary (Bug 2048784).
+    //
+    // 2. This block frame holds the inline CB's last fragment, and we have an
+    // architectural limitation that inline frames have no overflow container to
+    // hold overflowing abspos kids. As such, kids may overflow the
+    // fragmentainer if they are too tall.
+    availSize.BSize(cbwm) = NS_UNCONSTRAINEDSIZE;
+  }
+  ReflowInput inlineRI(aPresContext, aReflowInput, aInlineFrame, availSize,
+                       Some(aReflowOutput.Size(cbwm)));
+
+  AbsPosReflowFlags flags{AbsPosReflowFlag::AllowFragmentation,
+                          AbsPosReflowFlag::CBWidthChanged,
                           AbsPosReflowFlag::CBHeightChanged};
 
   // absoluteOverflow is in aInlineFrame's coordinate space.
@@ -1656,15 +1717,16 @@ void nsBlockFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
   // `balanceStep` is the increment to adjust it by for the next iteration.
   nscoord balanceStep = 0;
 
-  // text-wrap: balance loop, executed only once if balancing is not required.
   nsReflowStatus reflowStatus;
+  nsFloatManager::SavedState floatManagerState;
   TrialReflowState trialState(consumedBSize, effectiveContentBoxBSize,
                               needFloatManager);
+
+  // text-wrap: balance loop, executed only once if balancing is not required.
   while (true) {
     // Save the initial floatManager state for repeated trial reflows.
     // We'll restore (and re-save) the initial state each time we repeat the
     // reflow.
-    nsFloatManager::SavedState floatManagerState;
     aReflowInput.mFloatManager->PushState(&floatManagerState);
 
     aMetrics = ReflowOutput(aMetrics.GetWritingMode());
@@ -1697,7 +1759,8 @@ void nsBlockFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
       // number of lines in the block.
       if (StaticPrefs::layout_css_text_wrap_balance_after_clamp_enabled() &&
           IsLineClampRoot(this)) {
-        uint32_t lineClampCount = aReflowInput.mStyleDisplay->mWebkitLineClamp;
+        uint32_t lineClampCount =
+            GetLineClampMaxLines(aReflowInput.mStyleDisplay->mWebkitLineClamp);
         if (uint32_t(balanceTarget.mOffset) > lineClampCount) {
           auto t = getClampPosition(lineClampCount);
           if (t.mContent) {
@@ -1718,7 +1781,8 @@ void nsBlockFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
         return false;
       }
       if (balanceTarget.mContent) {
-        auto t = getClampPosition(aReflowInput.mStyleDisplay->mWebkitLineClamp);
+        auto t = getClampPosition(
+            GetLineClampMaxLines(aReflowInput.mStyleDisplay->mWebkitLineClamp));
         return t == balanceTarget;
       }
       int32_t numLines =
@@ -1759,6 +1823,16 @@ void nsBlockFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
     // going to keep. So the saved state is just dropped.
     break;
   }  // End of text-wrap: balance retry loop
+
+  // Handle the text-box-trim end retry, if the frame requested a second pass
+  // in order to properly trim a line at a fragment boundary.
+  if (aMetrics.mNeedsTextBoxTrimAtFragmentEndRetry) {
+    trialState.Reset();
+    aReflowInput.mFloatManager->PopState(&floatManagerState);
+    aMetrics = ReflowOutput(aMetrics.GetWritingMode());
+    reflowStatus =
+        TrialReflow(aPresContext, aMetrics, aReflowInput, trialState);
+  }
 
   // If the block direction is right-to-left, we need to update the bounds of
   // lines that were placed relative to mContainerSize during reflow, as
@@ -2148,6 +2222,11 @@ nsReflowStatus nsBlockFrame::TrialReflow(nsPresContext* aPresContext,
 
   CheckFloats(state);
 
+  // If this block frame indicated that it needs to be reflowed to apply
+  // text-box-trim on the trim-end side, propagate that signal up to the parent.
+  aMetrics.mNeedsTextBoxTrimAtFragmentEndRetry =
+      state.mNeedsTextBoxTrimAtFragmentEndRetry;
+
   // Compute our final size (for this trial layout)
   aTrialState.mBlockEndEdgeOfChildren =
       ComputeFinalSize(aReflowInput, state, aMetrics);
@@ -2173,7 +2252,7 @@ bool nsBlockFrame::CheckForCollapsedBEndMarginFromClearanceLine() {
 
 std::pair<nsBlockFrame*, nsLineBox*> FindLineClampTarget(
     nsBlockFrame* const aRootFrame, const nsBlockFrame* const aStopAtFrame,
-    StyleLineClamp aLineNumber) {
+    uint32_t aLineNumber) {
   MOZ_ASSERT(aLineNumber > 0);
 
   nsLineBox* targetLine = nullptr;
@@ -2230,7 +2309,7 @@ nscoord nsBlockFrame::ApplyLineClamp(nscoord aContentBlockEndEdge) {
     return aContentBlockEndEdge;
   }
 
-  auto lineClamp = root->StyleDisplay()->mWebkitLineClamp;
+  auto lineClamp = GetLineClampMaxLines(root->StyleDisplay()->mWebkitLineClamp);
   auto [target, line] = FindLineClampTarget(root, this, lineClamp);
   if (!line) {
     // The number of lines did not exceed the -webkit-line-clamp value.
@@ -3316,11 +3395,7 @@ bool nsBlockFrame::ReflowDirtyLines(BlockReflowState& aState) {
 
     if (!line->IsDirty()) {
       const bool isPaginated =
-          // Last column can be reflowed unconstrained during column balancing.
-          // Hence the additional NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR bit check
-          // as a fail-safe fallback.
-          aState.mReflowInput.AvailableBSize() != NS_UNCONSTRAINEDSIZE ||
-          HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR) ||
+          aState.mReflowInput.IsInFragmentedContext() ||
           // Table can also be reflowed unconstrained during printing.
           aState.mPresContext->IsPaginated();
       if (isPaginated) {
@@ -3962,11 +4037,6 @@ bool nsBlockFrame::ReflowLine(BlockReflowState& aState, LineIterator aLine,
     return false;
   }
 
-  // Clear the trim-start flag if the line is not the first formatted line
-  if (aState.mFlags.mShouldApplyTextBoxTrimStart && aState.mLineNumber > 0) {
-    aState.mFlags.mShouldApplyTextBoxTrimStart = false;
-  }
-
   // Now that we know what kind of line we have, reflow it
   bool usedOverflowWrap = false;
   if (aLine->IsBlock()) {
@@ -4003,7 +4073,8 @@ bool nsBlockFrame::ReflowLine(BlockReflowState& aState, LineIterator aLine,
     aState.mFlags.mShouldApplyTextBoxTrimStart = false;
   }
   if (aLine->TextBoxTrimEndApplied()) {
-    aState.mFlags.mShouldApplyTextBoxTrimEnd = false;
+    aState.mFlags.mShouldApplyTextBoxTrimAtBlockEnd = false;
+    aState.mFlags.mShouldApplyTextBoxTrimAtFragmentEnd = false;
   }
 
   return usedOverflowWrap;
@@ -4297,6 +4368,34 @@ bool nsBlockFrame::ShouldApplyBStartMargin(BlockReflowState& aState,
   // block. Therefore its block-start margin will be collapsed by the
   // generational collapsing logic with its parent (us).
   return false;
+}
+
+static bool IsFirstNonEmptyColumnSetOrSpanner(nsIFrame* aFrame) {
+  MOZ_ASSERT(aFrame->IsColumnSetFrame() || aFrame->IsColumnSpan());
+  if (aFrame->IsEmpty()) {
+    return false;
+  }
+  nsIFrame* curr = aFrame;
+  while ((curr = curr->GetPrevSibling())) {
+    if (!curr->IsEmpty()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool IsLastNonEmptyColumnSetOrSpanner(nsIFrame* aFrame) {
+  MOZ_ASSERT(aFrame->IsColumnSetFrame() || aFrame->IsColumnSpan());
+  if (aFrame->IsEmpty()) {
+    return false;
+  }
+  nsIFrame* curr = aFrame;
+  while ((curr = curr->GetNextSibling())) {
+    if (!curr->IsEmpty()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void nsBlockFrame::ReflowBlockFrame(BlockReflowState& aState,
@@ -4611,16 +4710,36 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowState& aState,
     // Propagate requested text-box-trim sides down to the reflowing child.
     // Any intervening border and padding on the corresponding trim side
     // prevents application of trimming.
-    // https://drafts.csswg.org/css-inline-3/#text-box-trim
     const WritingMode childWM = frame->GetWritingMode();
     const LogicalMargin childBP =
         childReflowInput->ComputedLogicalBorderPadding(childWM);
+
+    // Note, if the current block establishes a new block formatting context,
+    // then any ancestor's trimming request does not propagate into the block,
+    // *unless* it's a multi-column container, which explicitly propagates to
+    // each column. https://drafts.csswg.org/css-inline-3/#text-box-trim
+    //
+    // TODO(Bug 2049484) - Clarify BFC propagation in the specification/WPTs.
+    const bool shouldPropagateTextBoxTrim =
+        !frame->HasAnyStateBits(NS_BLOCK_BFC) || IsColumnSetWrapperFrame() ||
+        IsColumnSpan();
+
     childReflowInput->mFlags.mShouldApplyTextBoxTrimStart =
+        shouldPropagateTextBoxTrim &&
         aState.mFlags.mShouldApplyTextBoxTrimStart &&
-        childBP.BStart(childWM) == 0 && aState.mLineNumber == 0;
-    childReflowInput->mFlags.mShouldApplyTextBoxTrimEnd =
-        aState.mFlags.mShouldApplyTextBoxTrimEnd &&
-        childBP.BEnd(childWM) == 0 && IsLastFormattedLine(aLine);
+        childBP.BStart(childWM) == 0 &&
+        (IsColumnSetWrapperFrame() ? IsFirstNonEmptyColumnSetOrSpanner(frame)
+                                   : aState.mLineNumber == 0);
+    childReflowInput->mFlags.mShouldApplyTextBoxTrimAtBlockEnd =
+        shouldPropagateTextBoxTrim &&
+        aState.mFlags.mShouldApplyTextBoxTrimAtBlockEnd &&
+        childBP.BEnd(childWM) == 0 &&
+        (IsColumnSetWrapperFrame() ? IsLastNonEmptyColumnSetOrSpanner(frame)
+                                   : IsLastFormattedLine(aLine));
+    childReflowInput->mFlags.mShouldApplyTextBoxTrimAtFragmentEnd =
+        (IsColumnSetWrapperFrame() && IsLastNonEmptyColumnSetOrSpanner(frame) &&
+         aState.mFlags.mShouldApplyTextBoxTrimAtBlockEnd) ||
+        aState.mFlags.mShouldApplyTextBoxTrimAtFragmentEnd;
 
     if (aLine->MovedFragments()) {
       // We only need to set this the first reflow, since if we reflow
@@ -5716,8 +5835,8 @@ bool nsBlockFrame::PlaceLine(BlockReflowState& aState,
   // Determines if the current line is the last formatted line of the block.
   // As this is required only for text-box-trim, this value is only meaningful
   // when the block is requesting trimming on the block end side.
-  bool isLastFormattedLine =
-      aState.mFlags.mShouldApplyTextBoxTrimEnd && IsLastFormattedLine(aLine);
+  bool isLastFormattedLine = aState.mFlags.mShouldApplyTextBoxTrimAtBlockEnd &&
+                             IsLastFormattedLine(aLine);
   aLineLayout.VerticalAlignLine(&aFlowArea, isLastFormattedLine);
 
   // We want to consider the floats in the current line when determining
@@ -5881,6 +6000,23 @@ bool nsBlockFrame::PlaceLine(BlockReflowState& aState,
       aState.ContentBSize() != NS_UNCONSTRAINEDSIZE &&
       newBCoord > aState.ContentBEnd()) {
     NS_ASSERTION(aState.mCurrentLine == aLine, "oops");
+
+    // If the line doesn't fit, but this block should be trimmed on the
+    // block-end side at this fragment boundary, determine if trimming
+    // would have made the line fit. If so, request a retry with that
+    // line forced to trim; otherwise, the previous line was the last
+    // formatted line of this fragment and should be trimmed.
+    if (aState.mFlags.mShouldApplyTextBoxTrimAtFragmentEnd &&
+        !aLine->TextBoxTrimEndApplied()) {
+      const nscoord potentialTrimEndAmount =
+          aLineLayout.PotentialTextBoxTrimEndAmount();
+      const bool doesLineFitWithTrimEnd =
+          newBCoord - potentialTrimEndAmount <= aState.ContentBEnd();
+      nsLineBox* targetLine = doesLineFitWithTrimEnd ? aLine : aLine.prev();
+      targetLine->SetTextBoxTrimEndForced();
+      aState.mNeedsTextBoxTrimAtFragmentEndRetry = true;
+    }
+
     if (ShouldAvoidBreakInside(aState.mReflowInput)) {
       // All our content doesn't fit, start on the next page.
       SetBreakBeforeStatusBeforeLine(aState, aLine, aKeepReflowGoing);
@@ -7982,6 +8118,52 @@ static void DisplayLine(nsDisplayListBuilder* aBuilder,
   collection.MoveTo(aLists);
 }
 
+// Walk aFrame's inline descendants and, for each inline that is an absolute
+// containing block, build the display items for its abspos children that are
+// continuations. Note the first continuation of the abspos children is built
+// through its placeholder.
+static void WalkInlineDescendantsToDisplayAbsoluteFrames(
+    nsDisplayListBuilder* aBuilder, nsBlockFrame* aBlockFrame, nsIFrame* aFrame,
+    const nsDisplayListSet& aLists) {
+  if (!aFrame->IsLineParticipant() || aFrame->IsLeaf()) {
+    // Recurse only into non-leaf inline content (e.g. inline boxes and ruby
+    // content) that can have abspos descendants. Inline-block, inline-flex,
+    // inline-grid, etc. manage their own abspos descendants.
+    return;
+  }
+
+  for (nsIFrame* kid : aFrame->PrincipalChildList()) {
+    WalkInlineDescendantsToDisplayAbsoluteFrames(aBuilder, aBlockFrame, kid,
+                                                 aLists);
+  }
+
+  for (nsIFrame* kid : aFrame->GetChildList(FrameChildListID::Absolute)) {
+    if (kid->GetPrevContinuation()) {
+      aBlockFrame->BuildDisplayListForChild(aBuilder, kid, aLists);
+    }
+  }
+}
+
+// Build absolutely positioned descendants' display items for all the frames in
+// aBlockFrame's inline lines.
+static void DisplayAbsoluteDescendantsInInlineFrame(
+    nsDisplayListBuilder* aBuilder, nsBlockFrame* aBlockFrame,
+    const nsDisplayListSet& aLists) {
+  if (!aBlockFrame->HasAnyStateBits(NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT)) {
+    return;
+  }
+
+  for (auto& line : aBlockFrame->Lines()) {
+    if (line.IsBlock()) {
+      continue;
+    }
+    for (nsIFrame* kid : line.ChildFrames()) {
+      WalkInlineDescendantsToDisplayAbsoluteFrames(aBuilder, aBlockFrame, kid,
+                                                   aLists);
+    }
+  }
+}
+
 void nsBlockFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                     const nsDisplayListSet& aLists) {
   int32_t drawnLines;  // Will only be used if set (gLamePaintMetrics).
@@ -8198,6 +8380,7 @@ void nsBlockFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     }
 
     if (GetPrevInFlow() || GetNextInFlow()) {
+      DisplayAbsoluteDescendantsInInlineFrame(aBuilder, this, aLists);
       DisplayAbsoluteFramesNotBuiltByPlaceholder(aBuilder, aLists);
     }
 

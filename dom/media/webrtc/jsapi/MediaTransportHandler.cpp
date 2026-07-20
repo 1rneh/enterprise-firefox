@@ -1001,8 +1001,9 @@ void MediaTransportHandler::OnGatheringStateChange(
 }
 
 void MediaTransportHandler::OnConnectionStateChange(
-    const std::string& aTransportId, dom::RTCIceTransportState aState) {
-  mConnectionStateChange.Notify(aTransportId, aState);
+    const std::string& aTransportId, dom::RTCIceTransportState aState,
+    const Maybe<dom::IceCandidateAttributePair>& aSelectedPair) {
+  mConnectionStateChange.Notify(aTransportId, aState, aSelectedPair);
 }
 
 void MediaTransportHandler::OnPacketReceived(std::string&& aTransportId,
@@ -1033,21 +1034,23 @@ void MediaTransportHandler::OnEncryptedSending(const std::string& aTransportId,
 
 void MediaTransportHandler::OnStateChange(
     const std::string& aTransportId, TransportLayer::State aState,
-    nsTArray<nsTArray<uint8_t>>&& aRemoteCerts) {
+    nsTArray<nsTArray<uint8_t>>&& aRemoteCerts,
+    Maybe<dom::RTCErrorParams> aError) {
   {
     MutexAutoLock lock(mStateCacheMutex);
     mStateCache[aTransportId] = aState;
   }
-  mStateChange.Notify(aTransportId, aState, std::move(aRemoteCerts));
+  mStateChange.Notify(aTransportId, aState, std::move(aRemoteCerts), aError);
 }
 
-void MediaTransportHandler::OnRtcpStateChange(const std::string& aTransportId,
-                                              TransportLayer::State aState) {
+void MediaTransportHandler::OnRtcpStateChange(
+    const std::string& aTransportId, TransportLayer::State aState,
+    Maybe<dom::RTCErrorParams> aError) {
   {
     MutexAutoLock lock(mStateCacheMutex);
     mRtcpStateCache[aTransportId] = aState;
   }
-  mRtcpStateChange.Notify(aTransportId, aState);
+  mRtcpStateChange.Notify(aTransportId, aState, aError);
 }
 
 static uint16_t ToDtlsWireVersion(uint16_t aProtocolVersion) {
@@ -1622,7 +1625,22 @@ static mozilla::dom::RTCIceTransportState toDomIceTransportState(
 
 void MediaTransportHandlerSTS::OnConnectionStateChange(
     NrIceMediaStream* aIceStream, NrIceCtx::ConnectionState aState) {
-  OnConnectionStateChange(aIceStream->GetId(), toDomIceTransportState(aState));
+  // Capture the currently-selected pair (if any) at the same time the state
+  // change is observed, so the spec's unified "change the selected candidate
+  // pair and state" algorithm can run with both bits of information
+  // atomically.
+  Maybe<dom::IceCandidateAttributePair> selectedPair;
+  std::string localAttr;
+  std::string remoteAttr;
+  // Only get the pair for the RTP component (1). webrtc-pc has no way of
+  // surfacing a separate pair for RTCP when rtcp-mux is not in use.
+  if (NS_SUCCEEDED(
+          aIceStream->GetActivePairAsAttributes(1, &localAttr, &remoteAttr))) {
+    selectedPair = Some(dom::IceCandidateAttributePair(nsCString(localAttr),
+                                                       nsCString(remoteAttr)));
+  }
+  OnConnectionStateChange(aIceStream->GetId(), toDomIceTransportState(aState),
+                          selectedPair);
 }
 
 // The stuff below here will eventually go into the MediaTransportChild class
@@ -1684,25 +1702,54 @@ void MediaTransportHandlerSTS::OnCandidateError(NrIceMediaStream* aStream,
   OnCandidateError(std::move(info));
 }
 
+dom::RTCErrorParams GetErrorInfo(const TransportLayerDtls& aDtlsLayer) {
+  dom::RTCErrorInit error;
+  if (aDtlsLayer.HasFingerprintError()) {
+    // We might have sent an alert for this, but webrtc-pc says sendAlert is
+    // only set when the error detail is "dtls-failure".
+    error.mErrorDetail = dom::RTCErrorDetailType::Fingerprint_failure;
+  } else {
+    error.mErrorDetail = dom::RTCErrorDetailType::Dtls_failure;
+    // Spec says these cannot be set in the "fingerprint-failure" case
+    aDtlsLayer.GetSentAlert().apply(
+        [&](auto value) { error.mSentAlert.Construct(value); });
+    aDtlsLayer.GetReceivedAlert().apply(
+        [&](auto value) { error.mReceivedAlert.Construct(value); });
+  }
+
+  return dom::RTCErrorParams{error, aDtlsLayer.GetErrorDescription()};
+}
+
 void MediaTransportHandlerSTS::OnStateChange(TransportLayer* aLayer,
                                              TransportLayer::State aState) {
   nsTArray<nsTArray<uint8_t>> remoteCerts;
+
+  MOZ_ASSERT(aLayer->id() == TransportLayerDtls::ID());
+  Maybe<dom::RTCErrorParams> error;
+  TransportLayerDtls* dtlsLayer = static_cast<TransportLayerDtls*>(aLayer);
   if (aState == TransportLayer::TS_OPEN) {
-    MOZ_ASSERT(aLayer->id() == TransportLayerDtls::ID());
-    TransportLayerDtls* dtlsLayer = static_cast<TransportLayerDtls*>(aLayer);
     OnAlpnNegotiated(dtlsLayer->GetNegotiatedAlpn());
     remoteCerts = dtlsLayer->GetPeerCertChainDer();
+  } else if (aState == TransportLayer::TS_ERROR) {
+    error = Some(GetErrorInfo(*dtlsLayer));
   }
 
   // DTLS state indicates the readiness of the transport as a whole, because
   // SRTP uses the keys from the DTLS handshake.
   MediaTransportHandler::OnStateChange(aLayer->flow_id(), aState,
-                                       std::move(remoteCerts));
+                                       std::move(remoteCerts), error);
 }
 
 void MediaTransportHandlerSTS::OnRtcpStateChange(TransportLayer* aLayer,
                                                  TransportLayer::State aState) {
-  MediaTransportHandler::OnRtcpStateChange(aLayer->flow_id(), aState);
+  MOZ_ASSERT(aLayer->id() == TransportLayerDtls::ID());
+  Maybe<dom::RTCErrorParams> error;
+  TransportLayerDtls* dtlsLayer = static_cast<TransportLayerDtls*>(aLayer);
+  if (aState == TransportLayer::TS_ERROR) {
+    error = Some(GetErrorInfo(*dtlsLayer));
+  }
+
+  MediaTransportHandler::OnRtcpStateChange(aLayer->flow_id(), aState, error);
 }
 
 void MediaTransportHandlerSTS::PacketReceived(TransportLayer* aLayer,

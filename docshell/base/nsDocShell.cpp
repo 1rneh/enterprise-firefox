@@ -2439,8 +2439,9 @@ void nsDocShell::MaybeCreateInitialClientSource(nsIPrincipal* aPrincipal) {
   MaybeInheritController(mInitialClientSource.get(), principal);
 }
 
-void VerifyCientPrincipalInfosMatch(const mozilla::ipc::PrincipalInfo& aLeft,
-                                    const mozilla::ipc::PrincipalInfo& aRight) {
+void VerifyClientPrincipalInfosMatch(
+    const mozilla::ipc::PrincipalInfo& aLeft,
+    const mozilla::ipc::PrincipalInfo& aRight) {
   // Inheriting a controller when the principals don't match would cause a
   // crash. Let's do the checks earlier to crash here already instead of
   // ClientSource::SetController. And assert each condition separately. See bug
@@ -2453,9 +2454,25 @@ void VerifyCientPrincipalInfosMatch(const mozilla::ipc::PrincipalInfo& aLeft,
           aLeft.get_ContentPrincipalInfo();
       const mozilla::ipc::ContentPrincipalInfo& rightContent =
           aRight.get_ContentPrincipalInfo();
-      MOZ_RELEASE_ASSERT(leftContent.attrs() == rightContent.attrs() &&
-                         leftContent.originNoSuffix() ==
-                             rightContent.originNoSuffix());
+      {
+        // The most likely mismatch is the foreign bit in the partition key.
+        // See bug 2006265 and 2013379.
+        nsAutoString scheme;
+        nsAutoString baseDomain;
+        int32_t port;
+        bool leftForeignBit;
+        bool rightForeignBit;
+        OriginAttributes::ParsePartitionKey(leftContent.attrs().mPartitionKey,
+                                            scheme, baseDomain, port,
+                                            leftForeignBit);
+        OriginAttributes::ParsePartitionKey(rightContent.attrs().mPartitionKey,
+                                            scheme, baseDomain, port,
+                                            rightForeignBit);
+        MOZ_RELEASE_ASSERT(leftForeignBit == rightForeignBit);
+      }
+      MOZ_RELEASE_ASSERT(leftContent.attrs() == rightContent.attrs());
+      MOZ_RELEASE_ASSERT(leftContent.originNoSuffix() ==
+                         rightContent.originNoSuffix());
       return;
     }
     case mozilla::ipc::PrincipalInfo::TNullPrincipalInfo: {
@@ -2490,8 +2507,8 @@ void nsDocShell::MaybeInheritController(
     return;
   }
 
-  VerifyCientPrincipalInfosMatch(aClientSource->Info().PrincipalInfo(),
-                                 controller->PrincipalInfo());
+  VerifyClientPrincipalInfosMatch(aClientSource->Info().PrincipalInfo(),
+                                  controller->PrincipalInfo());
   aClientSource->InheritController(controller.ref());
 }
 
@@ -4300,13 +4317,17 @@ nsDocShell::LoadPageAsViewSource(nsIDocShell* aOtherDocShell,
   if (!aOtherDocShell) {
     return NS_ERROR_INVALID_POINTER;
   }
+  auto* otherDocShell = nsDocShell::Cast(aOtherDocShell);
+
+  Document* otherDoc = otherDocShell->GetDocument();
+  NS_ENSURE_TRUE(otherDoc, NS_ERROR_UNEXPECTED);
+
   nsCOMPtr<nsIURI> newURI;
   nsresult rv = NS_NewURI(getter_AddRefs(newURI), aURI);
   if (NS_FAILED(rv)) {
     return rv;
   }
 
-  auto* otherDocShell = nsDocShell::Cast(aOtherDocShell);
   RefPtr loadState = MakeRefPtr<nsDocShellLoadState>(newURI);
   if (!otherDocShell->FillLoadStateFromCurrentEntry(*loadState)) {
     return NS_ERROR_INVALID_POINTER;
@@ -4317,8 +4338,10 @@ nsDocShell::LoadPageAsViewSource(nsIDocShell* aOtherDocShell,
   // is only exposed to system code.  The triggering principal for this load
   // should be the system principal.
   loadState->SetTriggeringPrincipal(nsContentUtils::GetSystemPrincipal());
-  loadState->SetPrincipalToInherit(nullptr);
-  loadState->SetPartitionedPrincipalToInherit(nullptr);
+  RefPtr<nsIPrincipal> nullPrincipal =
+      NullPrincipal::CreateWithInheritedAttributes(otherDoc->NodePrincipal());
+  loadState->SetPrincipalToInherit(nullPrincipal);
+  loadState->SetPartitionedPrincipalToInherit(nullPrincipal);
   loadState->SetOriginalURI(nullptr);
   loadState->SetResultPrincipalURI(nullptr);
 
@@ -10465,7 +10488,9 @@ nsresult nsDocShell::OpenRedirectedChannel(nsDocShellLoadState* aLoadState) {
     // that forwards functionality as needed, and then we register
     // it under the provided identifier.
     RefPtr wrapper = MakeRefPtr<ParentChannelWrapper>(channel, loader);
-    wrapper->Register(aLoadState->GetPendingRedirectChannelRegistrarId());
+    // We're in the parent process, so the redirect is owned by the parent
+    // process (ContentParentId 0).
+    wrapper->Register(aLoadState->GetPendingRedirectChannelRegistrarId(), 0);
 
     mLoadGroup->AddRequest(channel, nullptr);
   } else if (nsCOMPtr<nsIChildChannel> childChannel =
@@ -10744,10 +10769,7 @@ bool nsDocShell::OnNewURI(nsIURI* aURI, nsIChannel* aChannel,
     SetCacheKeyOnHistoryEntry(cacheKey);
   }
 
-  // If this is a POST request, we do not want to include this in global
-  // history.
-  if (ShouldAddURIVisit(aChannel) && updateGHistory && aAddToGlobalHistory &&
-      !net::ChannelIsPost(aChannel)) {
+  if (ShouldAddURIVisit(aChannel) && updateGHistory && aAddToGlobalHistory) {
     nsCOMPtr<nsIURI> previousURI;
     uint32_t previousFlags = 0;
 
@@ -10758,7 +10780,8 @@ bool nsDocShell::OnNewURI(nsIURI* aURI, nsIChannel* aChannel,
       ExtractLastVisit(aChannel, getter_AddRefs(previousURI), &previousFlags);
     }
 
-    AddURIVisit(aURI, previousURI, previousFlags, responseStatus);
+    AddURIVisit(aURI, previousURI, previousFlags, responseStatus,
+                net::ChannelIsPost(aChannel));
   }
 
   // aCloneSHChildren exactly means "we are not loading a new document".
@@ -11610,7 +11633,7 @@ void nsDocShell::SaveLastVisit(nsIChannel* aChannel, nsIURI* aURI,
 /* static */ void nsDocShell::InternalAddURIVisit(
     nsIURI* aURI, nsIURI* aPreviousURI, uint32_t aChannelRedirectFlags,
     uint32_t aResponseStatus, BrowsingContext* aBrowsingContext,
-    nsIWidget* aWidget, uint32_t aLoadType, bool aWasUpgraded) {
+    nsIWidget* aWidget, uint32_t aLoadType, bool aWasUpgraded, bool aIsPost) {
   MOZ_ASSERT(aURI, "Visited URI is null!");
   MOZ_ASSERT(aLoadType != LOAD_ERROR_PAGE && aLoadType != LOAD_BYPASS_HISTORY,
              "Do not add error or bypass pages to global history");
@@ -11666,6 +11689,10 @@ void nsDocShell::SaveLastVisit(nsIChannel* aChannel, nsIURI* aURI,
           IHistory::REDIRECT_SOURCE | IHistory::REDIRECT_SOURCE_UPGRADED;
     }
 
+    if (aIsPost) {
+      visitURIFlags |= IHistory::SOURCE_IS_POST_RESPONSE;
+    }
+
     (void)history->VisitURI(aWidget, aURI, aPreviousURI, visitURIFlags,
                             aBrowsingContext->BrowserId());
   }
@@ -11673,13 +11700,13 @@ void nsDocShell::SaveLastVisit(nsIChannel* aChannel, nsIURI* aURI,
 
 void nsDocShell::AddURIVisit(nsIURI* aURI, nsIURI* aPreviousURI,
                              uint32_t aChannelRedirectFlags,
-                             uint32_t aResponseStatus) {
+                             uint32_t aResponseStatus, bool aIsPost) {
   nsPIDOMWindowOuter* outer = GetWindow();
   nsCOMPtr<nsIWidget> widget = widget::WidgetUtils::DOMWindowToWidget(outer);
 
   InternalAddURIVisit(aURI, aPreviousURI, aChannelRedirectFlags,
                       aResponseStatus, mBrowsingContext, widget, mLoadType,
-                      false);
+                      false, aIsPost);
 }
 
 //*****************************************************************************

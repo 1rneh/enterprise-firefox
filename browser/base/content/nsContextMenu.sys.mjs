@@ -12,7 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   ContextualIdentityService:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   GenAI: "resource:///modules/GenAI.sys.mjs",
@@ -97,7 +97,14 @@ const ALLOWED_CHROME_IMAGE_URLS = new Set([
   "chrome://global/skin/illustrations/no-connection.svg",
 ]);
 
-const IMAGE_ONLY_PROTOCOLS = ["moz-icon:", "page-icon:", "moz-remote-image:"];
+const IMAGE_ONLY_PROTOCOLS = [
+  "cached-favicon:",
+  "moz-icon:",
+  "moz-newtab-wallpaper:",
+  "moz-page-thumb:",
+  "moz-remote-image:",
+  "page-icon:",
+];
 
 export class nsContextMenu {
   /**
@@ -2475,7 +2482,8 @@ export class nsContextMenu {
       this.onTextInput &&
       this.onSearchField &&
       !this.isLoginForm() &&
-      (uri.schemeIs("http") || uri.schemeIs("https"))
+      (uri.schemeIs("http") || uri.schemeIs("https")) &&
+      Services.policies.isAllowed("installSearchEngine")
     );
   }
 

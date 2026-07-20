@@ -420,11 +420,27 @@ export class AboutPreferences {
         type: "bool",
       },
       {
+        id: "browser.newtabpage.activity-stream.widgets.system.crossword.enabled",
+        type: "bool",
+      },
+      {
+        id: "browser.newtabpage.activity-stream.widgets.crossword.enabled",
+        type: "bool",
+      },
+      {
         id: "browser.newtabpage.activity-stream.widgets.system.stocks.enabled",
         type: "bool",
       },
       {
         id: "browser.newtabpage.activity-stream.widgets.stocks.enabled",
+        type: "bool",
+      },
+      {
+        id: "browser.newtabpage.activity-stream.widgets.system.pictureOfTheDay.enabled",
+        type: "bool",
+      },
+      {
+        id: "browser.newtabpage.activity-stream.widgets.pictureOfTheDay.enabled",
         type: "bool",
       },
       {
@@ -1370,6 +1386,18 @@ export class AboutPreferences {
     });
 
     Preferences.addSetting({
+      id: "crosswordEnabled",
+      pref: "browser.newtabpage.activity-stream.widgets.system.crossword.enabled",
+    });
+
+    Preferences.addSetting({
+      id: "crossword",
+      pref: "browser.newtabpage.activity-stream.widgets.crossword.enabled",
+      deps: ["crosswordEnabled"],
+      visible: widgetToggleVisible("crossword"),
+    });
+
+    Preferences.addSetting({
       id: "stocksEnabled",
       pref: "browser.newtabpage.activity-stream.widgets.system.stocks.enabled",
     });
@@ -1379,6 +1407,18 @@ export class AboutPreferences {
       pref: "browser.newtabpage.activity-stream.widgets.stocks.enabled",
       deps: ["stocksEnabled"],
       visible: widgetToggleVisible("stocks"),
+    });
+
+    Preferences.addSetting({
+      id: "pictureOfTheDayEnabled",
+      pref: "browser.newtabpage.activity-stream.widgets.system.pictureOfTheDay.enabled",
+    });
+
+    Preferences.addSetting({
+      id: "pictureOfTheDay",
+      pref: "browser.newtabpage.activity-stream.widgets.pictureOfTheDay.enabled",
+      deps: ["pictureOfTheDayEnabled"],
+      visible: widgetToggleVisible("pictureOfTheDay"),
     });
 
     // Shortcuts
@@ -1599,8 +1639,16 @@ export class AboutPreferences {
               l10nId: "home-prefs-privacy-header",
             },
             {
+              id: "crossword",
+              l10nId: "home-prefs-crossword-widget-header",
+            },
+            {
               id: "stocks",
               l10nId: "home-prefs-stocks-header",
+            },
+            {
+              id: "pictureOfTheDay",
+              l10nId: "home-prefs-picture-header",
             },
             ...(novaEnabled && widgetsSystemEnabled ? [weatherItem] : []),
           ],

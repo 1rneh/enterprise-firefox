@@ -19,6 +19,10 @@ const { AppConstants } = ChromeUtils.importESModule(
 );
 
 import { FeatureCalloutMessages } from "resource:///modules/asrouter/FeatureCalloutMessages.sys.mjs";
+import {
+  WIN_OS_PIN_PROMPT_ENABLED,
+  FXA_NOT_SIGNED_IN,
+} from "resource:///modules/asrouter/MessagingTargetingConstants.sys.mjs";
 
 const lazy = {};
 
@@ -61,6 +65,76 @@ const isMSIX =
   Services.sysinfo.getProperty("hasWinPackageId", false);
 
 const BASE_MESSAGES = () => [
+  {
+    id: "LOGIN_STATUS_ADVISORY",
+    template: "feature_callout",
+    groups: ["cfr"],
+    content: {
+      id: "LOGIN_STATUS_ADVISORY",
+      template: "multistage",
+      backdrop: "transparent",
+      transitions: false,
+      disableHistoryUpdates: true,
+      screens: [
+        {
+          id: "LOGIN_STATUS_ADVISORY_A",
+          anchors: [
+            {
+              selector: "#fxa-toolbar-menu-button",
+              panel_position: {
+                anchor_attachment: "bottomcenter",
+                callout_attachment: "topright",
+                panel_position_string: "bottomcenter topright",
+              },
+              no_open_on_anchor: true,
+              arrow_width: "19.79899",
+            },
+          ],
+          content: {
+            position: "callout",
+            width: "fit-content",
+            padding: "0",
+            autohide: true,
+            title: {
+              string_id: "login-status-advisory-title",
+              marginInline: "16px",
+              marginBlock: "10px",
+              fontWeight: "normal",
+              fontSize: "0.6875em",
+              lineHeight: "1",
+              letterSpacing: "0",
+            },
+            page_event_listeners: [
+              {
+                params: {
+                  type: "tourend",
+                  options: {
+                    once: true,
+                  },
+                },
+                action: {
+                  dismiss: true,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+    targeting: `source == 'startup' && previousSessionEnd && !willShowDefaultPrompt && !activeNotifications && ${FXA_NOT_SIGNED_IN} && (currentDate|date - profileAgeCreated|date) / 86400000 >= 7`,
+    frequency: {
+      custom: [
+        {
+          cap: 1,
+          period: 604800000,
+        },
+      ],
+      lifetime: 3,
+    },
+    trigger: {
+      id: "defaultBrowserCheck",
+    },
+  },
   {
     id: "MENU_MESSAGE_DEFAULT_CTA_ILLUSTRATION_LAYOUT",
     template: "menu_message",
@@ -2520,6 +2594,25 @@ const BASE_MESSAGES = () => [
     },
   },
   {
+    // Silently pins for users Windows will itself ask to consent to pin via
+    // an OS-level prompt, in lieu of the AW_EASY_SETUP pin checkbox.
+    id: "PIN_FIREFOX_TASKBAR_WIN_OS_PROMPT",
+    template: "action_only",
+    skip_in_tests: "it silently triggers a real OS-level pin request",
+    content: {
+      action: {
+        type: "PIN_FIREFOX_TO_TASKBAR",
+      },
+    },
+    targeting: `!('browser.bypassAutoTriggerActions' | preferenceValue) && source == 'startup' && !previousSessionEnd && doesAppNeedPin && ${WIN_OS_PIN_PROMPT_ENABLED} && (unhandledCampaignAction != 'PIN_FIREFOX_TO_TASKBAR') && (unhandledCampaignAction != 'PIN_AND_DEFAULT')`,
+    trigger: {
+      id: "defaultBrowserCheck",
+    },
+    frequency: {
+      lifetime: 1,
+    },
+  },
+  {
     id: "SET_DEFAULT_BROWSER_GUIDANCE_NOTIFICATION_WIN10",
     template: "toast_notification",
     content: {
@@ -2839,6 +2932,7 @@ const BASE_MESSAGES = () => [
                   action: {
                     type: "MULTI_ACTION",
                     dismiss: true,
+                    sendDismissTelemetry: true,
                     data: {
                       actions: [
                         {
@@ -2884,240 +2978,29 @@ const BASE_MESSAGES = () => [
                 },
               ],
             },
-          },
-        },
-      ],
-    },
-    priority: 3,
-    targeting:
-      "'messaging-system-action.easyChecklist.open' | preferenceValue == true",
-    trigger: {
-      id: "preferenceObserver",
-      params: ["messaging-system-action.easyChecklist.open"],
-    },
-  },
-  {
-    id: "FINISH_SETUP_CHECKLIST",
-    template: "feature_callout",
-    content: {
-      id: "FINISH_SETUP_CHECKLIST",
-      template: "multistage",
-      backdrop: "transparent",
-      transitions: false,
-      disableHistoryUpdates: true,
-      screens: [
-        {
-          id: "FINISH_SETUP_CHECKLIST",
-          anchors: [
-            {
-              selector: "#fxms-bmb-button",
-              panel_position: {
-                anchor_attachment: "bottomcenter",
-                callout_attachment: "topright",
-                offset_y: 4,
-              },
-              no_open_on_anchor: true,
-            },
-            {
-              selector: "#FINISH_SETUP_BUTTON",
-              panel_position: {
-                anchor_attachment: "bottomcenter",
-                callout_attachment: "topright",
-                offset_y: 4,
-              },
-              no_open_on_anchor: true,
-            },
-            {
-              selector: "#PersonalToolbar",
-              panel_position: {
-                anchor_attachment: "bottomright",
-                callout_attachment: "topright",
-                offset_x: -24,
-                offset_y: 24,
-              },
-              no_open_on_anchor: true,
-              hide_arrow: true,
-            },
-          ],
-          content: {
-            page_event_listeners: [
-              {
-                params: {
-                  type: "tourend",
-                },
-                action: {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "messaging-system-action.easyChecklist.open",
-                      value: "false",
-                    },
-                  },
-                },
-              },
-            ],
-            position: "callout",
-            title: {
-              string_id: "onboarding-checklist-title",
-              marginInline: "3px 40px",
-              fontWeight: "600",
-              fontSize: "16px",
-            },
-            title_logo: {
-              alignment: "top",
-              imageURL: "chrome://branding/content/about-logo.png",
-            },
-            action_checklist_subtitle: {
-              string_id: "onboarding-checklist-subtitle",
-            },
-            tiles: {
-              type: "action_checklist",
-              data: [
-                {
-                  id: "action-checklist-set-to-default",
-                  targeting: "isDefaultBrowserUncached",
-                  label: {
-                    string_id: "onboarding-checklist-set-default",
-                  },
-                  action: {
-                    type: "SET_DEFAULT_BROWSER",
-                  },
-                },
-                {
-                  id: "action-checklist-pin-to-taskbar",
-                  targeting: "!doesAppNeedPinUncached",
-                  label: {
-                    string_id: "onboarding-checklist-pin",
-                  },
-                  action: {
-                    type: "MULTI_ACTION",
-                    data: {
-                      actions: [
-                        {
-                          type: "PIN_FIREFOX_TO_TASKBAR",
-                        },
-                        {
-                          type: "PIN_FIREFOX_TO_START_MENU",
-                        },
-                      ],
-                    },
-                  },
-                },
-                {
-                  id: "action-checklist-import-data",
-                  targeting:
-                    "hasMigratedBookmarks || hasMigratedCSVPasswords || hasMigratedHistory || hasMigratedPasswords",
-                  label: {
-                    string_id: "onboarding-checklist-import",
-                  },
-                  action: {
-                    type: "SHOW_MIGRATION_WIZARD",
-                  },
-                },
-                {
-                  id: "action-checklist-explore-extensions",
-                  targeting:
-                    "'messaging-system-action.hasOpenedExtensions'|preferenceValue || addonsInfo.hasInstalledAddons",
-                  label: {
-                    string_id: "onboarding-checklist-extension",
-                  },
-                  action: {
-                    type: "MULTI_ACTION",
-                    data: {
-                      actions: [
-                        {
-                          type: "SET_PREF",
-                          data: {
-                            pref: {
-                              name: "messaging-system-action.hasOpenedExtensions",
-                              value: "true",
-                            },
-                          },
-                        },
-                        {
-                          type: "OPEN_URL",
-                          data: {
-                            args: "https://addons.mozilla.org/en-US/firefox/collections/4757633/b4d5649fb087446aa05add5f0258c3/?page=1&collection_sort=-popularity",
-                            where: "current",
-                          },
-                        },
-                      ],
-                    },
-                  },
-                },
-                {
-                  id: "action-checklist-sign-in",
-                  targeting: "isFxASignedIn",
-                  label: {
-                    string_id: "onboarding-checklist-sign-up",
-                  },
-                  action: {
-                    type: "FXA_SIGNIN_FLOW",
-                    data: {
-                      entrypoint: "fx-onboarding-checklist",
-                      extraParams: {
-                        utm_content: "migration-onboarding",
-                        utm_source: "fx-new-device-sync",
-                        utm_medium: "firefox-desktop",
-                        utm_campaign: "migration",
+            remove_checklist_button: {
+              label: { string_id: "onboarding-checklist-remove-2" },
+              source_id: "remove_checklist_button",
+              action: {
+                type: "MULTI_ACTION",
+                dismiss: true,
+                data: {
+                  actions: [
+                    {
+                      type: "BLOCK_MESSAGE",
+                      data: {
+                        id: "FINISH_SETUP_CHECKLIST",
                       },
                     },
-                  },
-                },
-              ],
-            },
-            more_button: {
-              submenu: [
-                {
-                  type: "action",
-                  label: { string_id: "onboarding-checklist-minimize" },
-                  action: {
-                    type: "MULTI_ACTION",
-                    dismiss: true,
-                    data: {
-                      actions: [
-                        {
-                          type: "SET_PREF",
-                          data: {
-                            pref: {
-                              name: "messaging-system-action.easyChecklist.open",
-                              value: false,
-                            },
-                          },
-                        },
-                      ],
+                    {
+                      type: "DESTROY_UIWIDGET",
+                      data: {
+                        widget_id: "fxms-bmb-button",
+                      },
                     },
-                  },
-                  id: "minimize",
+                  ],
                 },
-                {
-                  type: "action",
-                  label: {
-                    string_id: "onboarding-checklist-remove",
-                  },
-                  action: {
-                    type: "MULTI_ACTION",
-                    dismiss: true,
-                    data: {
-                      actions: [
-                        {
-                          type: "BLOCK_MESSAGE",
-                          data: {
-                            id: "FINISH_SETUP_CHECKLIST",
-                          },
-                        },
-                        {
-                          type: "DESTROY_UIWIDGET",
-                          data: {
-                            widget_id: "fxms-bmb-button",
-                          },
-                        },
-                      ],
-                    },
-                  },
-                  id: "remove_checklist",
-                },
-              ],
+              },
             },
           },
         },
@@ -3126,9 +3009,13 @@ const BASE_MESSAGES = () => [
     priority: 3,
     targeting:
       "'messaging-system-action.easyChecklist.open' | preferenceValue == true",
-    trigger: {
-      id: "messagesLoaded",
-    },
+    triggers: [
+      {
+        id: "preferenceObserver",
+        params: ["messaging-system-action.easyChecklist.open"],
+      },
+      { id: "messagesLoaded" },
+    ],
   },
   {
     id: "MULTIPROFILE_DATA_COLLECTION_CHANGED_INFOBAR",
@@ -3396,7 +3283,7 @@ const BASE_MESSAGES = () => [
                   id: "chat-log-preview",
                   content: "",
                   style: {
-                    backgroundColor: "#F9F9FB",
+                    backgroundColor: "var(--background-color-box)",
                     maxHeight: "130px",
                   },
                 },
@@ -3542,7 +3429,7 @@ const BASE_MESSAGES = () => [
                   id: "chat-log-preview",
                   content: "",
                   style: {
-                    backgroundColor: "#F9F9FB",
+                    backgroundColor: "var(--background-color-box)",
                     maxHeight: "130px",
                   },
                 },
@@ -3829,6 +3716,39 @@ export const OnboardingMessageProvider = {
 
   getPreonboardingMessages() {
     return PREONBOARDING_MESSAGES();
+  },
+
+  /**
+   * Fill in Nimbus `preonboarding` feature variables from the default
+   * preonboarding message when preonboarding is the unconfigured default
+   * (`enabled === null`) or enabled without screens. Supplied values win,
+   * except nulls and empty arrays, which fall back to the default message's
+   * values. Explicitly disabled (`enabled === false`) variables are returned
+   * unchanged.
+   *
+   * @param {object} variables Nimbus `preonboarding` feature variables.
+   * @return {object} the variables, merged over the default message if needed.
+   */
+  getPreonboardingVariablesWithDefaults(variables) {
+    if (
+      variables.enabled !== null &&
+      !(variables.enabled && !variables.screens?.length)
+    ) {
+      return variables;
+    }
+
+    const preonboardingMessage = this.getPreonboardingMessages().find(
+      m => m.id === "NEW_USER_TOU_ONBOARDING"
+    );
+    return {
+      ...preonboardingMessage,
+      ...Object.fromEntries(
+        Object.entries(variables).filter(
+          ([_, value]) =>
+            value !== null && !(Array.isArray(value) && !value.length)
+        )
+      ),
+    };
   },
 
   // If the user has restored from a backup, mutate the restore from backup message to appear once per backup by using the restoration timestamp as the unique message id

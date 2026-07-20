@@ -30,6 +30,10 @@ support-files = ["data/engine.xml"]
 
 ["test_UrlbarResult_getDisplayableValueAndHighlights.js"]
 
+["test_UrlbarResult_wireSerialization.js"]
+
+["test_UrlbarTelemetryUtils_wireSerialization.js"]
+
 ["test_UrlbarSearchUtils.js"]
 
 ["test_UrlbarUtils_addToInputHistoryWhenReady.js"]
@@ -210,6 +214,8 @@ skip-if = [
 ]
 
 ["test_resultGroups.js"]
+
+["test_resultGroups_smartbar.js"]
 
 ["test_result_highlights.js"]
 

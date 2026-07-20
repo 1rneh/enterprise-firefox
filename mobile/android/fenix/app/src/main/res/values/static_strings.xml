@@ -99,6 +99,9 @@
     <string name="preferences_sync_debug_oauth_token_scopes_title">Scopes (space-separated)</string>
     <string name="preferences_sync_debug_oauth_token_fetch_title">Fetch Token</string>
     <string name="preferences_sync_debug_oauth_token_result_title">Result</string>
+    <string name="preferences_sync_debug_pairing_category">Pairing (debug)</string>
+    <string name="preferences_sync_debug_pairing_url_title">Pairing URL (from QR)</string>
+    <string name="preferences_sync_debug_pairing_start_title">Begin pairing</string>
     <!-- Label for enabling Homepage as a New Tab -->
     <string name="preferences_debug_settings_homepage_as_new_tab" translatable="false">Enable Homepage as a New Tab</string>
     <!-- Label for enabling Firefox Labs -->
@@ -109,8 +112,8 @@
     <string name="preferences_debug_settings_add_shortcuts_improvement" translatable="false">Enable Add Shortcuts Improvement</string>
     <!-- Label for enabling Merino Client -->
     <string name="preferences_debug_settings_merino_client" translatable="false">Enable Merino Client</string>
-    <!-- Label for enabling Mozilla Ads Client -->
-    <string name="preferences_debug_settings_mozilla_ads_client" translatable="false">Enable Mozilla Ads Client</string>
+    <!-- Label for enabling Mozilla Ads Client for Sponsored Stories -->
+    <string name="preferences_debug_settings_ads_client_for_stories" translatable="false">Enable Ads Client for Stories</string>
     <!-- Label for enabling the custom tab extension -->
     <string name="preferences_debug_settings_custom_tab_extensions" translatable="false">Enable Custom Tab Extension List</string>
     <!-- Label for enabling Firefox Suggest -->
@@ -129,8 +132,6 @@
     <string name="preferences_debug_settings_microsurvey_feature" translatable="false">Enable Microsurvey Feature</string>
     <!-- Label for enabling shake to summarize -->
     <string name="preferences_key_enable_shake_to_summarize" translatable="false">Enable Shake to Summarize Feature Flag</string>
-    <!-- Label for enabling Unified Trust Panel -->
-    <string name="preferences_debug_settings_unified_trust_panel" translatable="false">Enable Unified Trust Panel</string>
     <!-- Label for enabling remote search configuration -->
     <string name="preferences_debug_settings_remote_search_configuration" translatable="false">Enable Remote Search Configuration (requires restart)</string>
     <!-- Label for enabling Address Sync -->
@@ -141,6 +142,10 @@
     <string name="preferences_debug_settings_enable_persistent_onboarding" translatable="false">Show onboarding on each app cold open</string>
     <!-- Label for enabling Homepage Sports Widget -->
     <string name="preferences_debug_settings_homepage_sports_widget" translatable="false">Enable Homepage Sports Widget</string>
+    <!-- Label for enabling Homepage Customization -->
+    <string name="preferences_debug_settings_homepage_customization" translatable="false">Enable Homepage Customization</string>
+    <!-- Label for enabling trending and recent searches on the Homepage Search -->
+    <string name="preferences_debug_settings_homepage_trending_recent_search" translatable="false">Enable Trending and Recent Search on Homepage</string>
 
     <!-- Search Optimization Secret Settings -->
     <string name="preferences_debug_settings_search_optimization" translatable="false">Search Optimization Feature</string>
@@ -179,7 +184,7 @@
     <string name="preferences_terms_of_use_debug_timer" translatable="false">30s ToU timer enabled</string>
     <string name="preferences_terms_of_use_latest_update_date" translatable="false">Set latest ToU update date to now</string>
 
-  <!-- Label for enabling IPProtection through secret settings -->
+    <!-- Label for enabling IPProtection through secret settings -->
     <string name="preferences_debug_settings_ip_protection" translatable="false">Enable IP Protection UI</string>
 
     <!-- Label for enabling LNA blocking -->

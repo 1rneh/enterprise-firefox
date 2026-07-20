@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MacIOSurfaceTextureHostOGL.h"
-#include "mozilla/gfx/gfxVars.h"
+
 #include "mozilla/gfx/MacIOSurface.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/layers/GpuFence.h"
 #include "mozilla/webrender/RenderMacIOSurfaceTextureHost.h"
 #include "mozilla/webrender/RenderThread.h"
@@ -126,8 +127,8 @@ void MacIOSurfaceTextureHostOGL::PushResourceUpdates(
   auto method = aOp == TextureHost::ADD_IMAGE
                     ? &wr::TransactionBuilder::AddExternalImage
                     : &wr::TransactionBuilder::UpdateExternalImage;
-  auto imageType =
-      wr::ExternalImageType::TextureHandle(wr::ImageBufferKind::TextureRect);
+  auto imageType = wr::ExternalImageType::TextureHandle(
+      aResources.GetCapabilities().mIOSurfaceImageKind);
 
   switch (GetFormat()) {
     case gfx::SurfaceFormat::B8G8R8A8:
@@ -138,10 +139,10 @@ void MacIOSurfaceTextureHostOGL::PushResourceUpdates(
       }
       // The internal pixel format of MacIOSurface is always BGRX or BGRA
       // format.
-      auto format = GetFormat() == gfx::SurfaceFormat::B8G8R8A8
-                        ? gfx::SurfaceFormat::B8G8R8A8
-                        : gfx::SurfaceFormat::B8G8R8X8;
-      wr::ImageDescriptor descriptor(GetSize(), format);
+      wr::ImageDescriptor descriptor(GetSize(), wr::ImageFormat::BGRA8,
+                                     GetFormat() == gfx::SurfaceFormat::B8G8R8A8
+                                         ? wr::OpacityType::HasAlphaChannel
+                                         : wr::OpacityType::Opaque);
       (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0,
                            /* aNormalizedUvs */ false);
       break;
@@ -155,7 +156,8 @@ void MacIOSurfaceTextureHostOGL::PushResourceUpdates(
         MOZ_ASSERT_UNREACHABLE("unexpected key length or plane count");
         return;
       }
-      wr::ImageDescriptor descriptor(GetSize(), gfx::SurfaceFormat::B8G8R8X8);
+      wr::ImageDescriptor descriptor(GetSize(), wr::ImageFormat::BGRA8,
+                                     wr::OpacityType::Opaque);
       (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0,
                            /* aNormalizedUvs */ false);
       break;
@@ -169,11 +171,11 @@ void MacIOSurfaceTextureHostOGL::PushResourceUpdates(
       wr::ImageDescriptor descriptor0(
           gfx::IntSize(mSurface->GetDevicePixelWidth(0),
                        mSurface->GetDevicePixelHeight(0)),
-          gfx::SurfaceFormat::A8);
+          wr::ImageFormat::R8, wr::OpacityType::HasAlphaChannel);
       wr::ImageDescriptor descriptor1(
           gfx::IntSize(mSurface->GetDevicePixelWidth(1),
                        mSurface->GetDevicePixelHeight(1)),
-          gfx::SurfaceFormat::R8G8);
+          wr::ImageFormat::RG8, wr::OpacityType::Opaque);
       (aResources.*method)(aImageKeys[0], descriptor0, aExtID, imageType, 0,
                            /* aNormalizedUvs */ false);
       (aResources.*method)(aImageKeys[1], descriptor1, aExtID, imageType, 1,
@@ -190,11 +192,11 @@ void MacIOSurfaceTextureHostOGL::PushResourceUpdates(
       wr::ImageDescriptor descriptor0(
           gfx::IntSize(mSurface->GetDevicePixelWidth(0),
                        mSurface->GetDevicePixelHeight(0)),
-          gfx::SurfaceFormat::A16);
+          wr::ImageFormat::R16, wr::OpacityType::HasAlphaChannel);
       wr::ImageDescriptor descriptor1(
           gfx::IntSize(mSurface->GetDevicePixelWidth(1),
                        mSurface->GetDevicePixelHeight(1)),
-          gfx::SurfaceFormat::R16G16);
+          wr::ImageFormat::RG16, wr::OpacityType::HasAlphaChannel);
       (aResources.*method)(aImageKeys[0], descriptor0, aExtID, imageType, 0,
                            /* aNormalizedUvs */ false);
       (aResources.*method)(aImageKeys[1], descriptor1, aExtID, imageType, 1,

@@ -118,6 +118,7 @@ open class FxaAccountManager(
     private val accountOnDisk by lazy { getStorageWrapper().account() }
     private val account by lazy { accountOnDisk.account() }
     private val accountStateEventsObserver = AccountStateEventsObserver(this::queueEvent)
+    private val accountScopeAccessor by lazy { AccountScopeAccessor(getAccountStorage()) }
 
     // Note on threading: we use a single-threaded executor, so there's no concurrent access possible.
     // However, that executor doesn't guarantee that it'll always use the same thread, and so vars
@@ -222,7 +223,7 @@ open class FxaAccountManager(
             FxaState.Connected -> {
                 // Make sure auth cache is populated before we try to sync.
                 try {
-                    maybeUpdateSyncAuthInfoCache()
+                    updateSyncAuthInfoCache()
                 } catch (e: AccessTokenUnexpectedlyWithoutKey) {
                     crashReporter?.submitCaughtException(
                         AccountManagerException.MissingKeyFromSyncScopedAccessToken("syncNow"),
@@ -257,6 +258,28 @@ open class FxaAccountManager(
      */
     suspend fun setEngineEnabled(engine: SyncEngine, enabled: Boolean) = withContext(coroutineContext) {
         syncManager?.setEngineEnabled(engine, enabled)
+    }
+
+    /**
+     * Checks whether the given OAuth [scope] is granted to the persisted account. Only consults the
+     * stored account when it is in an accessible state; otherwise `false` is returned.
+     *
+     * @param scope The OAuth scope to look for.
+     * @return `true` if the scope is granted, `false` otherwise.
+     */
+    suspend fun containsScope(scope: String): Boolean {
+        if (authenticatedAccount() == null) {
+            return false
+        }
+        return when (val status = accountScopeAccessor.containsScope(scope)) {
+            ScopeStatus.Granted -> true
+            ScopeStatus.NotGranted -> false
+            is ScopeStatus.Unavailable -> {
+                logger.warn("Unable to determine scope status for account.", status.cause)
+                crashReporter?.submitCaughtException(status.cause ?: ScopeUnavailableException(status.reason))
+                false
+            }
+        }
     }
 
     /**
@@ -598,15 +621,9 @@ open class FxaAccountManager(
         clearSyncState(context)
     }
 
-    private suspend fun maybeUpdateSyncAuthInfoCache() {
+    private suspend fun updateSyncAuthInfoCache() {
         // Update cached sync auth info only if we have a syncConfig (e.g. sync is enabled)...
         if (syncConfig == null) {
-            return
-        }
-
-        // .. and our cache is stale.
-        val cache = SyncAuthInfoCache(context)
-        if (!cache.expired()) {
             return
         }
 
@@ -679,7 +696,7 @@ open class FxaAccountManager(
     private suspend fun authenticationSideEffects(operation: String): Boolean {
         // Make sure our SyncAuthInfo cache is hot, background sync worker needs it to function.
         try {
-            maybeUpdateSyncAuthInfoCache()
+            updateSyncAuthInfoCache()
         } catch (e: AccessTokenUnexpectedlyWithoutKey) {
             crashReporter?.submitCaughtException(
                 AccountManagerException.MissingKeyFromSyncScopedAccessToken(operation),

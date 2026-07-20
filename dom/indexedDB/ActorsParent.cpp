@@ -128,7 +128,6 @@
 #include "mozilla/dom/quota/DecryptingInputStream_impl.h"
 #include "mozilla/dom/quota/DirectoryLock.h"
 #include "mozilla/dom/quota/DirectoryLockInlines.h"
-#include "mozilla/dom/quota/DirectoryMetadata.h"
 #include "mozilla/dom/quota/EncryptingOutputStream_impl.h"
 #include "mozilla/dom/quota/ErrorHandling.h"
 #include "mozilla/dom/quota/FileStreams.h"
@@ -6355,6 +6354,16 @@ nsAutoCString GetSortKeyClause(const ComparisonOperator aComparisonOperator,
                                const nsLiteralCString& aStmtParamName) {
   return GetKeyClause(kColumnNameAliasSortKey, aComparisonOperator,
                       aStmtParamName);
+}
+
+nsAutoCString GetRowValueClause(const nsACString& aColumn1,
+                                const nsACString& aColumn2,
+                                const ComparisonOperator aComparisonOperator,
+                                const nsLiteralCString& aStmtParamName1,
+                                const nsLiteralCString& aStmtParamName2) {
+  return "("_ns + aColumn1 + ", "_ns + aColumn2 + ") "_ns +
+         GetComparisonOperatorString(aComparisonOperator) + " (:"_ns +
+         aStmtParamName1 + ", :"_ns + aStmtParamName2 + ")"_ns;
 }
 
 template <IDBCursorType CursorType>
@@ -13651,9 +13660,9 @@ nsresult Maintenance::DirectoryWork() {
 
               if (!databasePaths.IsEmpty()) {
                 if (!persistent) {
-                  auto maybeOriginStateMetadata =
-                      quotaManager->GetOriginStateMetadata(metadata);
-                  auto originStateMetadata = maybeOriginStateMetadata.extract();
+                  auto maybeFullOriginMetadata =
+                      quotaManager->GetFullOriginMetadata(metadata);
+                  auto fullOriginMetadata = maybeFullOriginMetadata.extract();
 
                   // Skip origin maintenance if the origin hasn't been accessed
                   // since its last recorded maintenance. This avoids
@@ -13664,23 +13673,23 @@ nsresult Maintenance::DirectoryWork() {
                   // This early-out is safe because maintenance is only needed
                   // when something has changed (e.g., new access or activity).
                   const Date accessDate =
-                      Date::FromTimestamp(originStateMetadata.mLastAccessTime);
+                      Date::FromTimestamp(fullOriginMetadata.mLastAccessTime);
                   const Date maintenanceDate =
-                      Date::FromDays(originStateMetadata.mLastMaintenanceDate);
+                      Date::FromDays(fullOriginMetadata.mLastMaintenanceDate);
 
                   if (accessDate <= maintenanceDate) {
                     return Ok{};
                   }
 
-                  originStateMetadata.mLastMaintenanceDate =
+                  fullOriginMetadata.mLastMaintenanceDate =
                       Date::Today().ToDays();
-                  originStateMetadata.mAccessed = true;
+                  fullOriginMetadata.mAccessed = true;
 
-                  QM_TRY(MOZ_TO_RESULT(SaveDirectoryMetadataHeader(
-                      *originDir, originStateMetadata)));
+                  QM_TRY(MOZ_TO_RESULT(quotaManager->CreateDirectoryMetadata2(
+                      *originDir, fullOriginMetadata)));
 
                   quotaManager->UpdateOriginMaintenanceDate(
-                      metadata, originStateMetadata.mLastMaintenanceDate);
+                      metadata, fullOriginMetadata.mLastMaintenanceDate);
                   quotaManager->UpdateOriginAccessed(metadata);
                 }
 
@@ -20977,57 +20986,41 @@ void IndexOpenOpHelper<CursorType>::PrepareIndexKeyConditionClause(
 
   nsCString continueQuery, continueToQuery, continuePrimaryKeyQuery;
 
+  const ComparisonOperator comparisonOperatorStrict =
+      isIncreasingOrder ? ComparisonOperator::GreaterThan
+                        : ComparisonOperator::LessThan;
+  const ComparisonOperator comparisonOperatorNonStrict =
+      isIncreasingOrder ? ComparisonOperator::GreaterOrEquals
+                        : ComparisonOperator::LessOrEquals;
+
   continueToQuery =
       aQueryStart + " AND "_ns +
-      GetSortKeyClause(isIncreasingOrder ? ComparisonOperator::GreaterOrEquals
-                                         : ComparisonOperator::LessOrEquals,
-                       kStmtParamNameCurrentKey);
+      GetSortKeyClause(comparisonOperatorNonStrict, kStmtParamNameCurrentKey);
 
   switch (GetCursor().mDirection) {
     case IDBCursorDirection::Next:
     case IDBCursorDirection::Prev:
       continueQuery =
           aQueryStart + " AND "_ns +
-          GetSortKeyClause(isIncreasingOrder
-                               ? ComparisonOperator::GreaterOrEquals
-                               : ComparisonOperator::LessOrEquals,
-                           kStmtParamNameCurrentKey) +
-          " AND ( "_ns +
-          GetSortKeyClause(isIncreasingOrder ? ComparisonOperator::GreaterThan
-                                             : ComparisonOperator::LessThan,
-                           kStmtParamNameCurrentKey) +
-          " OR "_ns +
-          GetKeyClause(aObjectDataKeyPrefix + "object_data_key"_ns,
-                       isIncreasingOrder ? ComparisonOperator::GreaterThan
-                                         : ComparisonOperator::LessThan,
-                       kStmtParamNameObjectStorePosition) +
-          " ) "_ns;
+          GetRowValueClause(kColumnNameAliasSortKey,
+                            aObjectDataKeyPrefix + "object_data_key"_ns,
+                            comparisonOperatorStrict, kStmtParamNameCurrentKey,
+                            kStmtParamNameObjectStorePosition);
 
       continuePrimaryKeyQuery =
-          aQueryStart +
-          " AND ("
-          "("_ns +
-          GetSortKeyClause(ComparisonOperator::Equals,
-                           kStmtParamNameCurrentKey) +
-          " AND "_ns +
-          GetKeyClause(aObjectDataKeyPrefix + "object_data_key"_ns,
-                       isIncreasingOrder ? ComparisonOperator::GreaterOrEquals
-                                         : ComparisonOperator::LessOrEquals,
-                       kStmtParamNameObjectStorePosition) +
-          ") OR "_ns +
-          GetSortKeyClause(isIncreasingOrder ? ComparisonOperator::GreaterThan
-                                             : ComparisonOperator::LessThan,
-                           kStmtParamNameCurrentKey) +
-          ")"_ns;
+          aQueryStart + " AND "_ns +
+          GetRowValueClause(kColumnNameAliasSortKey,
+                            aObjectDataKeyPrefix + "object_data_key"_ns,
+                            comparisonOperatorNonStrict,
+                            kStmtParamNameCurrentKey,
+                            kStmtParamNameObjectStorePosition);
       break;
 
     case IDBCursorDirection::Nextunique:
     case IDBCursorDirection::Prevunique:
       continueQuery =
           aQueryStart + " AND "_ns +
-          GetSortKeyClause(isIncreasingOrder ? ComparisonOperator::GreaterThan
-                                             : ComparisonOperator::LessThan,
-                           kStmtParamNameCurrentKey);
+          GetSortKeyClause(comparisonOperatorStrict, kStmtParamNameCurrentKey);
       break;
 
     default:

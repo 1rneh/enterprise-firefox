@@ -59,6 +59,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
   getAllModelsData:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  refreshModelsDataCache:
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   getCurrentModelChoiceId:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   getCurrentModelName:
@@ -144,6 +146,8 @@ const PREF_MEMORIES_HAS_SEEN_MEMORIES =
   "browser.smartwindow.memories.hasSeenMemories";
 const PREF_MODEL_CHOICE = "browser.smartwindow.firstrun.modelChoice";
 const PREF_CUSTOM_ENDPOINT = "browser.smartwindow.customEndpoint";
+// TODO Bug 2053495: remove with mistral release pref
+const PREF_MISTRAL_RELEASE = "browser.smartwindow.mistralRelease";
 const TAB_FAVICON_CHAT =
   "chrome://browser/content/aiwindow/assets/ask-icon.svg";
 const PREF_CHAT_INTERACTION_COUNT = "browser.smartwindow.chat.interactionCount";
@@ -406,6 +410,17 @@ export class AIWindow extends MozLitElement {
       false,
       () => this.#syncTopSites()
     );
+    // TODO Bug 2053495: remove with mistral release pref
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "mistralReleasePref",
+      PREF_MISTRAL_RELEASE,
+      false,
+      () => this.#onMistralReleasePrefChanged()
+    );
+    // defineLazyPreferenceGetter registers its pref observer on first read, so
+    // touch the value here to arm the onUpdate callback above.
+    void this.mistralReleasePref;
 
     this.userPrompt = "";
     this.#browser = null;
@@ -452,9 +467,6 @@ export class AIWindow extends MozLitElement {
       "chat-conversation:seen-urls-updated",
       this.#onSeenUrlsUpdated
     );
-    this.#conversation.setHistoryResultsDispatcher(
-      this.#dispatchHistoryResults
-    );
   }
 
   #removeConversationListeners() {
@@ -474,7 +486,6 @@ export class AIWindow extends MozLitElement {
       "chat-conversation:seen-urls-updated",
       this.#onSeenUrlsUpdated
     );
-    this.#conversation.setHistoryResultsDispatcher(null);
   }
 
   #onSeenUrlsUpdated = () => {
@@ -483,9 +494,6 @@ export class AIWindow extends MozLitElement {
       this.#dispatchSeenUrls(actor);
     }
   };
-
-  #dispatchHistoryResults = payload =>
-    this.#getAIChatContentActor()?.dispatchHistoryResultsToChatContent(payload);
 
   #onMessageUpdate = (_event, message) => {
     // In fullpage, Kit must anchor to the chrome viewport (bottom of the
@@ -909,6 +917,23 @@ export class AIWindow extends MozLitElement {
     this.#updateSmartbarModels(this.#smartbar);
   };
 
+  // TODO Bug 2053495: remove with mistral release pref.
+  #onMistralReleasePrefChanged = async () => {
+    await lazy.refreshModelsDataCache();
+    await this.#loadAvailableModels();
+    // The model backing a choice can change across the flip, so re-resolve the
+    // current choice's model to keep selectedModelId valid; otherwise the select
+    // can't find the selected model and renders in a stale/blank state.
+    const defaultModelChoiceId = lazy.getCurrentModelChoiceId();
+    if (
+      !this.#hasModelChoiceOverride &&
+      this.availableModels[defaultModelChoiceId]
+    ) {
+      await this.#switchModel(defaultModelChoiceId, { isTabOverride: false });
+    }
+    this.#updateSmartbarModels(this.#smartbar);
+  };
+
   /**
    * Sets the selected model choice.
    *
@@ -1135,13 +1160,15 @@ export class AIWindow extends MozLitElement {
     try {
       const gBrowser = window.browsingContext?.topChromeWindow.gBrowser;
       const tabCount = gBrowser?.tabs.length || 0;
-      starters = await lazy.NewTabStarterGenerator.getPrompts(tabCount).catch(
-        e => {
-          lazy.log.error("[Prompts] Failed to load initial starters:", e);
-          return [];
-        }
-      );
 
+      const newTabStarterIds =
+        await lazy.NewTabStarterGenerator.getPrompts(tabCount);
+
+      // Kick off the sidebar generation concurrently so its request is issued
+      // before the l10n await can be interrupted by a re-entrant call.
+      let sidebarStartersPromise = null;
+      let startersKey = null;
+      let sidebarStarters = null;
       if (this.mode === MODE.SIDEBAR && gBrowser) {
         const { contextWebsites } = this.#smartbar.getCurrentContextData();
         const contextTabs = contextWebsites.map(contextWebsite => ({
@@ -1152,14 +1179,14 @@ export class AIWindow extends MozLitElement {
         // Get memories setting from user preferences
         const memoriesEnabled =
           this.#memoriesToggled ?? this.#memoriesIconShown;
-        const startersKey = JSON.stringify({
+        startersKey = JSON.stringify({
           contextTabs,
           memoriesEnabled,
         });
-        let sidebarStarters = this.#sidebarStarterCache.get(startersKey);
+        sidebarStarters = this.#sidebarStarterCache.get(startersKey);
 
         if (!sidebarStarters) {
-          sidebarStarters = await lazy
+          sidebarStartersPromise = lazy
             .generateConversationStartersSidebar(
               contextTabs,
               2,
@@ -1174,6 +1201,22 @@ export class AIWindow extends MozLitElement {
               );
               return null;
             });
+        }
+      }
+
+      starters = await this.ownerDocument.l10n
+        .formatValues(newTabStarterIds.map(({ l10nId }) => ({ id: l10nId })))
+        .then(texts =>
+          texts.map((text, i) => ({ text, type: newTabStarterIds[i].type }))
+        )
+        .catch(e => {
+          lazy.log.error("[Prompts] Failed to load initial starters:", e);
+          return [];
+        });
+
+      if (this.mode === MODE.SIDEBAR && gBrowser) {
+        if (sidebarStartersPromise) {
+          sidebarStarters = await sidebarStartersPromise;
 
           if (sidebarStarters) {
             this.#sidebarStarterCache.delete(startersKey);
@@ -2692,6 +2735,22 @@ export class AIWindow extends MozLitElement {
       withPageContent: { log: messages },
       withoutPageContent: hasPageContent ? { log: withoutPageContent } : null,
     };
+  }
+
+  /**
+   * Cache resolved history-result page assets (thumbnail/favicon) onto the
+   * conversation's pool so later message snapshots carry them. Called by the
+   * actor after it resolves assets requested by a rendered grid.
+   *
+   * @param {string} conversationId
+   * @param {Array<{url: string, image: ?string, hasFavicon: boolean}>} assets
+   */
+  applyHistoryAssets(conversationId, assets) {
+    if (this.conversationId !== conversationId) {
+      return;
+    }
+
+    this.#conversation?.applyHistoryAssets(assets);
   }
 
   #openFeedbackModal(type) {

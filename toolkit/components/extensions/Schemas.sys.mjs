@@ -1029,7 +1029,7 @@ class InjectionContext extends Context {
    * @param {string} _namespace The full path to the namespace of the API, minus
    *     the name of the method or property. E.g. "storage.local".
    * @param {string} _name The name of the method, property or event.
-   * @returns {import("ExtensionCommon.sys.mjs").SchemaAPIInterface}
+   * @returns {import("./ExtensionCommon.sys.mjs").SchemaAPIInterface}
    *          The implementation of the API.
    */
   getImplementation(_namespace, _name) {
@@ -1278,8 +1278,8 @@ const FORMATS = {
   },
 
   contentSecurityPolicy(string, context) {
-    // Manifest V3 extension_pages allows WASM.  When sandbox is
-    // implemented, or any other V3 or later directive, the flags
+    // Manifest V3 extension_pages allows WASM. When any other V3
+    // or later directive is implemented, the flags
     // logic will need to be updated.
 
     let flags =
@@ -1318,6 +1318,14 @@ const FORMATS = {
       // to see and fix the extension CSP.
       context.logError(`Error processing ${context.currentTarget}: ${error}`);
       return null;
+    }
+    return string;
+  },
+
+  contentSecurityPolicySandbox(string) {
+    const error = lazy.contentPolicyService.validateAddonSandboxCSP(string);
+    if (error != null) {
+      throw new Error(error);
     }
     return string;
   },

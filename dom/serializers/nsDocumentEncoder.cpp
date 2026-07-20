@@ -1641,34 +1641,6 @@ class nsHTMLCopyEncoder final : public nsDocumentEncoder {
                : TreeKind::DOM;
   }
   nsresult PromoteRange(nsRange* inRange);
-  struct MOZ_STACK_CLASS RangeInNode {
-    [[nodiscard]] RawRangeBoundary StartRef() const {
-      return RawRangeBoundary(mContainer, mStartOffset,
-                              // Do not compute previous sibling of the child at
-                              // mStartOffset immediately.
-                              RangeBoundarySetBy::Offset, mTreeKind);
-    }
-    [[nodiscard]] RawRangeBoundary EndRef() const {
-      return RawRangeBoundary(mContainer, mEndOffset,
-                              // Do not compute previous sibling of the child at
-                              // mEndOffset immediately.
-                              RangeBoundarySetBy::Offset, mTreeKind);
-    }
-
-    [[nodiscard]] nsINode* GetParentNode() const {
-      MOZ_ASSERT(mContainer);
-      return mTreeKind == TreeKind::FlatForSelection
-                 ? mContainer->GetFlattenedTreeParentNodeForSelection()
-                 : mContainer->GetParentNode();
-    }
-
-    nsINode* mContainer = nullptr;
-    uint32_t mStartOffset = 0;
-    uint32_t mEndOffset = 0;
-    const TreeKind mTreeKind;
-  };
-  Result<RangeInNode, nsresult> PromoteAncestorChain(
-      const RangeInNode& aRangeInNode) const;
 
   /**
    * Return a promoted start point which may be extended to a point at an
@@ -1969,27 +1941,38 @@ nsresult nsHTMLCopyEncoder::PromoteRange(nsRange* inRange) {
     return NS_ERROR_UNEXPECTED;
   }
   const RawRangeBoundary startRef = [&]() -> RawRangeBoundary {
-    const auto& ref = inRange->MayCrossShadowBoundaryStartRef();
-    // XXX If GetTreeKind() returns TreeKind::DOM but ref.GetTreeKind() returns
-    // TreeKind::FlatForSelection, what should we do?  The result may cross the
-    // shadow DOM boundaries even though the our user do not want that.
-    if (GetTreeKind() == TreeKind::FlatForSelection &&
-        ref.GetTreeKind() == TreeKind::DOM) {
-      return ref.AsRaw().AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
-          inRange->Collapsed() ? RangeBoundaryFor::Collapsed
-                               : RangeBoundaryFor::Start);
+    if (GetTreeKind() == TreeKind::DOM) {
+      // XXX If GetTreeKind() returns TreeKind::DOM but
+      // inRange->MayCrossShadowBoundaryStartRef().GetTreeKind() returns
+      // TreeKind::FlatForSelection, what should we do?  The result may cross
+      // the shadow DOM boundaries even though the our user do not want that.
+      return inRange->MayCrossShadowBoundaryStartRef().AsRaw();
     }
-    return ref.AsRaw();
+    MOZ_ASSERT(GetTreeKind() == TreeKind::FlatForSelection);
+    const RangeBoundaryFor startBoundaryIsFor =
+        inRange->Collapsed() ? RangeBoundaryFor::Collapsed
+                             : RangeBoundaryFor::Start;
+    // Ensure the range boundary is in a flattened node.
+    return inRange->MayCrossShadowBoundaryStartRef()
+        .AsRaw()
+        .GetRangeBoundaryInFlatTree(startBoundaryIsFor);
   }();
   const RawRangeBoundary endRef = [&]() -> RawRangeBoundary {
-    const auto& ref = inRange->MayCrossShadowBoundaryEndRef();
-    if (GetTreeKind() == TreeKind::FlatForSelection &&
-        ref.GetTreeKind() == TreeKind::DOM) {
-      return ref.AsRaw().AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
-          inRange->Collapsed() ? RangeBoundaryFor::Collapsed
-                               : RangeBoundaryFor::End);
+    if (GetTreeKind() == TreeKind::DOM) {
+      // XXX If GetTreeKind() returns TreeKind::DOM but
+      // inRange->MayCrossShadowBoundaryEndRef().GetTreeKind() returns
+      // TreeKind::FlatForSelection, what should we do?  The result may cross
+      // the shadow DOM boundaries even though the our user do not want that.
+      return inRange->MayCrossShadowBoundaryEndRef().AsRaw();
     }
-    return ref.AsRaw();
+    MOZ_ASSERT(GetTreeKind() == TreeKind::FlatForSelection);
+    const RangeBoundaryFor endBoundaryIsFor = inRange->Collapsed()
+                                                  ? RangeBoundaryFor::Collapsed
+                                                  : RangeBoundaryFor::End;
+    // Ensure the range boundary is in a flattened node.
+    return inRange->MayCrossShadowBoundaryEndRef()
+        .AsRaw()
+        .GetRangeBoundaryInFlatTree(endBoundaryIsFor);
   }();
   MOZ_ASSERT(startRef.GetTreeKind() == endRef.GetTreeKind());
   const nsINode* const commonAncestor =
@@ -2014,28 +1997,6 @@ nsresult nsHTMLCopyEncoder::PromoteRange(nsRange* inRange) {
   RawRangeBoundary promotedEndPoint = promotedEndPointOrError.unwrap();
   MOZ_ASSERT(promotedEndPoint.IsSet());
 
-  // if both range endpoints are at the common ancestor, check for possible
-  // inclusion of ancestors
-  using OffsetFilter = RawRangeBoundary::OffsetFilter;
-  if (StaticPrefs::dom_serializer_includeCommonAncestor_enabled() &&
-      promotedStartPoint.GetContainer() == commonAncestor &&
-      promotedEndPoint.GetContainer() == commonAncestor) {
-    MOZ_ASSERT(promotedStartPoint.GetTreeKind() ==
-               promotedEndPoint.GetTreeKind());
-    Result<RangeInNode, nsresult> promotedRangeOrError =
-        PromoteAncestorChain(RangeInNode{
-            promotedStartPoint.GetContainer(),
-            *promotedStartPoint.Offset(OffsetFilter::kValidOrInvalidOffsets),
-            *promotedEndPoint.Offset(OffsetFilter::kValidOrInvalidOffsets),
-            promotedStartPoint.GetTreeKind()});
-    if (MOZ_UNLIKELY(promotedRangeOrError.isErr())) {
-      return promotedRangeOrError.propagateErr();
-    }
-    const RangeInNode promotedRange = promotedRangeOrError.unwrap();
-    promotedStartPoint = promotedRange.StartRef();
-    promotedEndPoint = promotedRange.EndRef();
-  }
-
   // set the range to the new values
   ErrorResult err;
   inRange->SetStart(promotedStartPoint.AsRangeBoundaryInDOMTree(), err,
@@ -2049,54 +2010,6 @@ nsresult nsHTMLCopyEncoder::PromoteRange(nsRange* inRange) {
     return err.StealNSResult();
   }
   return NS_OK;
-}
-
-// PromoteAncestorChain will promote a range represented by aRangeInNode.
-// The promotion is different from that found in GetPromoted(Start|End)Point: it
-// will only promote one endpoint if it can promote the other.  Thus,
-// RangeInNode has only one nsINode* member, mContainer.
-Result<nsHTMLCopyEncoder::RangeInNode, nsresult>
-nsHTMLCopyEncoder::PromoteAncestorChain(const RangeInNode& aRangeInNode) const {
-  MOZ_ASSERT(aRangeInNode.mContainer);
-  using OffsetFilter = RawRangeBoundary::OffsetFilter;
-  RangeInNode rangeInNode = aRangeInNode;
-  while (true) {
-    nsINode* const parentNode = rangeInNode.GetParentNode();
-    if (MOZ_UNLIKELY(!parentNode)) {
-      break;
-    }
-    // passing parent as last param to GetPromotedStartPoint() allows it to
-    // promote only one level up the hierarchy.
-    Result<RawRangeBoundary, nsresult> promotedStartPointOrError =
-        GetPromotedStartPoint(rangeInNode.StartRef(), parentNode);
-    if (NS_WARN_IF(promotedStartPointOrError.isErr())) {
-      return Err(NS_ERROR_FAILURE);
-    }
-    // then we make the same attempt with the endpoint
-    Result<RawRangeBoundary, nsresult> promotedEndPointOrError =
-        GetPromotedEndPoint(rangeInNode.EndRef(), parentNode);
-    if (NS_WARN_IF(promotedEndPointOrError.isErr())) {
-      return Err(NS_ERROR_FAILURE);
-    }
-    const RawRangeBoundary promotedStartPoint =
-        promotedStartPointOrError.unwrap();
-    MOZ_ASSERT(promotedStartPoint.IsSet());
-    const RawRangeBoundary promotedEndPoint = promotedEndPointOrError.unwrap();
-    MOZ_ASSERT(promotedEndPoint.IsSet());
-    // if both endpoints were promoted one level and isEditable is the same as
-    // the original node, keep looping - otherwise we are done.
-    if (promotedStartPoint.GetContainer() != parentNode ||
-        promotedEndPoint.GetContainer() != parentNode ||
-        parentNode->IsEditable() != aRangeInNode.mContainer->IsEditable()) {
-      break;
-    }
-    rangeInNode.mContainer = parentNode;
-    rangeInNode.mStartOffset =
-        *promotedStartPoint.Offset(OffsetFilter::kValidOrInvalidOffsets);
-    rangeInNode.mEndOffset =
-        *promotedEndPoint.Offset(OffsetFilter::kValidOrInvalidOffsets);
-  }
-  return rangeInNode;
 }
 
 Result<RawRangeBoundary, nsresult> nsHTMLCopyEncoder::GetPromotedStartPoint(

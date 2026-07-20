@@ -4,10 +4,11 @@
 
 #include "MacIOSurface.h"
 #ifdef XP_MACOSX
-#  include <OpenGL/gl.h>
 #  include <OpenGL/CGLIOSurface.h>
+#  include <OpenGL/gl.h>
 #endif
 #include <QuartzCore/QuartzCore.h>
+
 #include "GLConsts.h"
 #ifdef XP_MACOSX
 #  include "GLContextCGL.h"
@@ -16,11 +17,11 @@
 #  include "GLContextEAGL.h"
 #endif
 #include "gfxMacUtils.h"
-#include "nsPrintfCString.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/RefPtr.h"
-#include "mozilla/gfx/Logging.h"
 #include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/gfx/Logging.h"
+#include "nsPrintfCString.h"
 
 using namespace mozilla;
 
@@ -272,51 +273,6 @@ already_AddRefed<MacIOSurface> MacIOSurface::CreateBiPlanarSurface(
       CFArrayCreate(kCFAllocatorDefault, (const void**)planeProps, 2,
                     &kCFTypeArrayCallBacks));
   ::CFDictionaryAddValue(props.get(), kIOSurfacePlaneInfo, array.get());
-
-  CFTypeRefPtr<IOSurfaceRef> surfaceRef =
-      CFTypeRefPtr<IOSurfaceRef>::WrapUnderCreateRule(
-          ::IOSurfaceCreate(props.get()));
-
-  if (!surfaceRef) {
-    return nullptr;
-  }
-
-  SetIOSurfaceCommonProperties(surfaceRef, aColorSpace, aTransferFunction);
-
-  RefPtr<MacIOSurface> ioSurface = new MacIOSurface(
-      std::move(surfaceRef), aColorSpace, aTransferFunction, aAllowAlpha);
-
-  return ioSurface.forget();
-}
-
-/* static */
-already_AddRefed<MacIOSurface> MacIOSurface::CreateSinglePlanarSurface(
-    const IntSize& aSize, YUVColorSpace aColorSpace,
-    TransferFunction aTransferFunction, ColorRange aColorRange,
-    AllowAlpha aAllowAlpha) {
-  MOZ_ASSERT(aColorSpace == YUVColorSpace::BT601 ||
-             aColorSpace == YUVColorSpace::BT709);
-  MOZ_ASSERT(aColorRange == ColorRange::LIMITED ||
-             aColorRange == ColorRange::FULL);
-
-  auto props = CFTypeRefPtr<CFMutableDictionaryRef>::WrapUnderCreateRule(
-      ::CFDictionaryCreateMutable(kCFAllocatorDefault, 4,
-                                  &kCFTypeDictionaryKeyCallBacks,
-                                  &kCFTypeDictionaryValueCallBacks));
-  if (!props) return nullptr;
-
-  MOZ_ASSERT((size_t)aSize.width <= GetMaxWidth());
-  MOZ_ASSERT((size_t)aSize.height <= GetMaxHeight());
-
-  SetSizeProperties(props, aSize.width, aSize.height, 2);
-
-  if (aColorRange == ColorRange::LIMITED) {
-    AddDictionaryInt(props, kIOSurfacePixelFormat,
-                     (uint32_t)kCVPixelFormatType_422YpCbCr8_yuvs);
-  } else {
-    AddDictionaryInt(props, kIOSurfacePixelFormat,
-                     (uint32_t)kCVPixelFormatType_422YpCbCr8FullRange);
-  }
 
   CFTypeRefPtr<IOSurfaceRef> surfaceRef =
       CFTypeRefPtr<IOSurfaceRef>::WrapUnderCreateRule(
@@ -633,35 +589,6 @@ ColorDepth MacIOSurface::GetColorDepth() const {
   return Nothing();
 }
 #endif
-
-/* static */ GLenum MacIOSurface::GetTextureTarget(
-    mozilla::gl::GLContext* aGL) {
-  switch (aGL->GetContextType()) {
-#ifdef XP_MACOSX
-    case mozilla::gl::GLContextType::CGL:
-      return LOCAL_GL_TEXTURE_RECTANGLE_ARB;
-
-    case mozilla::gl::GLContextType::EGL: {
-      auto* gle = gl::GLContextEGL::Cast(aGL);
-      const auto eglTarget = gle->GetBindToTextureTargetANGLE();
-
-      switch (eglTarget) {
-        case LOCAL_EGL_TEXTURE_2D:
-          return LOCAL_GL_TEXTURE_2D;
-        case LOCAL_EGL_TEXTURE_RECTANGLE_ANGLE:
-          return LOCAL_GL_TEXTURE_RECTANGLE_ARB;
-        default:
-          gfxCriticalErrorOnce()
-              << "Unexpected EGL_BIND_TO_TEXTURE_TARGET_ANGLE: "
-              << gfx::hexa(eglTarget);
-          return LOCAL_GL_TEXTURE_2D;
-      }
-    }
-#endif
-    default:
-      MOZ_CRASH("unimplemented");
-  }
-}
 
 bool MacIOSurface::BindTexImage(mozilla::gl::GLContext* aGL, size_t aPlane,
                                 mozilla::gfx::SurfaceFormat* aOutReadFormat) {

@@ -8,10 +8,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -93,10 +93,12 @@ fun ProtectionsDashboardContent(
 
             BottomSheetHandle(
                 onRequestDismiss = onDismiss,
-                contentDescription = "",
+                contentDescription = stringResource(
+                    R.string.tracker_protections_dashboard_close_handlebar_content_description,
+                ),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = FirefoxTheme.layout.size.static200)
+                    .minimumInteractiveComponentSize()
                     .semantics { traversalIndex = 1f },
             )
         }
@@ -116,7 +118,7 @@ private fun ProtectionsDashboardContentPreview(
             category = TrackerCategory.CROSS_SITE_COOKIES,
         ),
         TrackersBlockedCategory(
-            icon = iconsR.drawable.mozac_ic_social_tracker_24,
+            icon = iconsR.drawable.mozac_ic_thumbs_down_24,
             name = R.plurals.trackers_blocked_panel_num_social_media_trackers,
             count = 241,
             category = TrackerCategory.SOCIAL_MEDIA_TRACKERS,

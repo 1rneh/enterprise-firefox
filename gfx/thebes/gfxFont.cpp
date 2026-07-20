@@ -4,63 +4,57 @@
 
 #include "gfxFont.h"
 
-#include "mozilla/DebugOnly.h"
-#include "mozilla/FontPropertyTypes.h"
-#include "mozilla/gfx/2D.h"
-#include "mozilla/intl/Segmenter.h"
-#include "mozilla/StaticPrefs_gfx.h"
-#include "mozilla/ScopeExit.h"
-#include "mozilla/SVGContextPaint.h"
-
-#include "mozilla/Logging.h"
-
-#include "nsITimer.h"
-
-#include "gfxGlyphExtents.h"
-#include "gfxPlatform.h"
-#include "gfxTextRun.h"
-#include "nsGkAtoms.h"
-
-#include "gfxTypes.h"
+#include "COLRFonts.h"
+#include "GreekCasing.h"
+#include "TextDrawTarget.h"
+#include "ThebesRLBox.h"
+#include "cairo.h"
+#include "gfx2DGlue.h"
 #include "gfxContext.h"
 #include "gfxFontMissingGlyphs.h"
+#include "gfxGlyphExtents.h"
 #include "gfxGraphiteShaper.h"
 #include "gfxHarfBuzzShaper.h"
+#include "gfxMathTable.h"
+#include "gfxPlatform.h"
+#include "gfxSVGGlyphs.h"
+#include "gfxTextRun.h"
+#include "gfxTypes.h"
 #include "gfxUserFontSet.h"
+#include "mozilla/AppUnits.h"
+#include "mozilla/DebugOnly.h"
+#include "mozilla/FontPropertyTypes.h"
+#include "mozilla/HashTable.h"
+#include "mozilla/Likely.h"
+#include "mozilla/Logging.h"
+#include "mozilla/MemoryReporting.h"
+#include "mozilla/Preferences.h"
+#include "mozilla/SVGContextPaint.h"
+#include "mozilla/ScopeExit.h"
+#include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/Utf16.h"
+#include "mozilla/gfx/2D.h"
+#include "mozilla/glean/GfxMetrics.h"
+#include "mozilla/intl/Segmenter.h"
 #include "nsCRT.h"
 #include "nsContentUtils.h"
+#include "nsGkAtoms.h"
+#include "nsITimer.h"
 #include "nsSpecialCasingData.h"
+#include "nsStyleConsts.h"
 #include "nsTextRunTransformations.h"
 #include "nsUGenCategory.h"
 #include "nsUnicodeProperties.h"
-#include "nsStyleConsts.h"
-#include "mozilla/AppUnits.h"
-#include "mozilla/HashTable.h"
-#include "mozilla/Likely.h"
-#include "mozilla/MemoryReporting.h"
-#include "mozilla/Preferences.h"
-#include "mozilla/Services.h"
-#include "mozilla/glean/GfxMetrics.h"
-#include "mozilla/Utf16.h"
-#include "gfxMathTable.h"
-#include "gfxSVGGlyphs.h"
-#include "gfx2DGlue.h"
-#include "TextDrawTarget.h"
-#include "COLRFonts.h"
-
-#include "ThebesRLBox.h"
-
-#include "GreekCasing.h"
-
-#include "cairo.h"
 #ifdef XP_WIN
 #  include "cairo-win32.h"
 #  include "gfxWindowsPlatform.h"
 #endif
 
 #include <algorithm>
-#include <limits>
 #include <cmath>
+#include <limits>
+#include <numeric>
 
 using namespace mozilla;
 using namespace mozilla::gfx;
@@ -800,9 +794,20 @@ void gfxShapedText::SetupClusterBoundaries(uint32_t aOffset,
   }
 }
 
+void gfxShapedText::ClearGlyphs() {
+  auto* cg = GetCharacterGlyphs();
+  const auto* end = cg + GetLength();
+  while (cg < end) {
+    cg->ClearGlyph();
+    ++cg;
+  }
+  mDetailedGlyphs = nullptr;
+}
+
 gfxShapedText::DetailedGlyph* gfxShapedText::AllocateDetailedGlyphs(
     uint32_t aIndex, uint32_t aCount) {
-  NS_ASSERTION(aIndex < GetLength(), "Index out of range");
+  MOZ_ASSERT(aIndex < GetLength(), "Index out of range");
+  MOZ_ASSERT(aCount <= CompressedGlyph::GLYPH_COUNT_MASK);
 
   if (!mDetailedGlyphs) {
     mDetailedGlyphs = MakeUnique<DetailedGlyphStore>();
@@ -817,6 +822,13 @@ void gfxShapedText::SetDetailedGlyphs(uint32_t aIndex, uint32_t aGlyphCount,
 
   MOZ_ASSERT(aIndex > 0 || g.IsLigatureGroupStart(),
              "First character can't be a ligature continuation!");
+
+  // Clamp the (potentially font-controlled) glyph count to the 16-bit field
+  // in CompressedGlyph, so that it cannot overflow into the flag bits.
+  // Any additional items in aGlyphs will be discarded. No real-world use case
+  // should need >64K component glyphs to represent a single character.
+  aGlyphCount =
+      std::min<uint32_t>(aGlyphCount, CompressedGlyph::GLYPH_COUNT_MASK);
 
   if (aGlyphCount > 0) {
     DetailedGlyph* details = AllocateDetailedGlyphs(aIndex, aGlyphCount);
@@ -1923,8 +1935,8 @@ class GlyphBufferAzure {
 
         RefPtr<gfxPattern> fillPattern;
         if (mFontParams.contextPaint) {
-          fillPattern = mFontParams.contextPaint->GetFillPattern(
-              mRunParams.context->GetDrawTarget(),
+          fillPattern = mFontParams.contextPaint->GetPattern(
+              SVGContextPaint::Tag::Fill, mRunParams.context->GetDrawTarget(),
               mRunParams.context->CurrentMatrixDouble(), mImgParams);
         }
         if (!fillPattern) {
@@ -2330,9 +2342,9 @@ void gfxFont::DrawEmphasisMarks(const gfxTextRun* aShapedText, gfx::Point* aPt,
     inlineCoord += aParams.direction * aShapedText->GetAdvanceForGlyph(idx);
     if (shouldDrawEmphasisMark &&
         (i + 1 == aCount || aShapedText->IsClusterStart(idx + 1))) {
-      float clusterAdvance = inlineCoord - clusterStart;
+      gfxFloat clusterAdvance = inlineCoord - clusterStart;
       // Move the coord backward to get the needed start point.
-      float delta = (clusterAdvance + aParams.advance) / 2;
+      float delta = std::midpoint(clusterAdvance, aParams.advance);
       inlineCoord -= delta;
       aParams.mark->Draw(markRange, *aPt, params, aImgParams);
       inlineCoord += delta;
@@ -2516,10 +2528,8 @@ void gfxFont::Draw(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
     // If no pattern is specified for fill, use the current pattern
     NS_ASSERTION((int(aRunParams.drawMode) & int(DrawMode::GLYPH_STROKE)) == 0,
                  "no pattern supplied for stroking text");
-    RefPtr<gfxPattern> fillPattern = aRunParams.context->GetPattern();
-    contextPaint = new SimpleTextContextPaint(
-        fillPattern, nullptr, aRunParams.context->CurrentMatrixDouble());
-    fontParams.contextPaint = contextPaint.get();
+    contextPaint = MakeRefPtr<SVGContextPaint>(aRunParams.context);
+    fontParams.contextPaint = contextPaint;
   }
 
   // Synthetic-bold strikes are each offset one device pixel in run direction
@@ -3330,8 +3340,8 @@ static uint8_t IsBoundarySpace(uint8_t aChar, uint8_t aNextChar) {
 
 template <typename T, typename Func>
 bool gfxFont::ProcessShapedWordInternal(
-    const T* aText, uint32_t aLength, uint32_t aHash, Script aRunScript,
-    nsAtom* aLanguage, bool aVertical, int32_t aAppUnitsPerDevUnit,
+    const T* aText, uint8_t aLength, uint32_t aHash, Script aRunScript,
+    nsAtom* aLanguage, bool aVertical, uint16_t aAppUnitsPerDevUnit,
     gfx::ShapedTextFlags aFlags, RoundingFlags aRounding,
     gfxTextPerfMetrics* aTextPerf GFX_MAYBE_UNUSED, Func aCallback) {
   WordCacheKey key(aText, aLength, aHash, aRunScript, aLanguage,
@@ -3452,14 +3462,14 @@ bool gfxFont::WordCacheKey::HashPolicy::match(const Key& aKey,
 }
 
 bool gfxFont::ProcessSingleSpaceShapedWord(
-    bool aVertical, int32_t aAppUnitsPerDevUnit, gfx::ShapedTextFlags aFlags,
+    bool aVertical, uint16_t aAppUnitsPerDevUnit, gfx::ShapedTextFlags aFlags,
     RoundingFlags aRounding,
     const std::function<void(gfxShapedWord*)>& aCallback) {
   static const uint8_t space = ' ';
   return ProcessShapedWordInternal(
-      &space, 1, gfxShapedWord::HashMix(0, ' '), Script::LATIN,
-      /* aLanguage = */ nullptr, aVertical, aAppUnitsPerDevUnit, aFlags,
-      aRounding, nullptr, aCallback);
+      &space, 1, gfxShapedWord::HashMix(gfxShapedWord::sHashInitialValue, ' '),
+      Script::LATIN, /* aLanguage = */ nullptr, aVertical, aAppUnitsPerDevUnit,
+      aFlags, aRounding, nullptr, aCallback);
 }
 
 bool gfxFont::ShapeText(const uint8_t* aText, uint32_t aOffset,
@@ -3726,8 +3736,10 @@ bool gfxFont::SplitAndInitTextRun(
   }
 #endif
 
-  uint32_t wordCacheCharLimit =
-      gfxPlatform::GetPlatform()->WordCacheCharLimit();
+  // TODO: Is there really a good reason to have this tied to a pref?
+  const uint32_t wordCacheCharLimit =
+      std::min(gfxPlatform::GetPlatform()->WordCacheCharLimit(),
+               static_cast<uint32_t>(std::numeric_limits<uint8_t>::max()));
 
   bool vertical = aOrientation == ShapedTextFlags::TEXT_ORIENT_VERTICAL_UPRIGHT;
 
@@ -3764,9 +3776,9 @@ bool gfxFont::SplitAndInitTextRun(
   }
 
   uint32_t wordStart = 0;
-  uint32_t hash = 0;
+  uint32_t hash = gfxShapedWord::sHashInitialValue;
   bool wordIs8Bit = true;
-  int32_t appUnitsPerDevUnit = aTextRun->GetAppUnitsPerDevUnit();
+  uint16_t appUnitsPerDevUnit = aTextRun->GetAppUnitsPerDevUnit();
 
   T nextCh = aString[0];
   for (uint32_t i = 0; i <= aRunLength; ++i) {
@@ -3810,9 +3822,10 @@ bool gfxFont::SplitAndInitTextRun(
           wordFlags |= gfx::ShapedTextFlags::TEXT_IS_8BIT;
         }
       }
+      MOZ_ASSERT(length <= std::numeric_limits<uint8_t>::max());
       bool processed = ProcessShapedWordInternal(
-          aString + wordStart, length, hash, aRunScript, aLanguage, vertical,
-          appUnitsPerDevUnit, wordFlags, rounding, tp,
+          aString + wordStart, static_cast<uint8_t>(length), hash, aRunScript,
+          aLanguage, vertical, appUnitsPerDevUnit, wordFlags, rounding, tp,
           [&](gfxShapedWord* aShapedWord) {
             aTextRun->CopyGlyphDataFrom(aShapedWord, aRunStart + wordStart);
           });
@@ -3835,8 +3848,9 @@ bool gfxFont::SplitAndInitTextRun(
         DebugOnly<char16_t> boundary16 = boundary;
         NS_ASSERTION(boundary16 < 256, "unexpected boundary!");
         bool processed = ProcessShapedWordInternal(
-            &boundary, 1, gfxShapedWord::HashMix(0, boundary), aRunScript,
-            aLanguage, vertical, appUnitsPerDevUnit,
+            &boundary, 1,
+            gfxShapedWord::HashMix(gfxShapedWord::sHashInitialValue, boundary),
+            aRunScript, aLanguage, vertical, appUnitsPerDevUnit,
             flags | gfx::ShapedTextFlags::TEXT_IS_8BIT, rounding, tp,
             [&](gfxShapedWord* aShapedWord) {
               aTextRun->CopyGlyphDataFrom(aShapedWord, aRunStart + i);
@@ -3848,7 +3862,7 @@ bool gfxFont::SplitAndInitTextRun(
           return false;
         }
       }
-      hash = 0;
+      hash = gfxShapedWord::sHashInitialValue;
       wordStart = i + 1;
       wordIs8Bit = true;
       continue;
@@ -3880,7 +3894,7 @@ bool gfxFont::SplitAndInitTextRun(
       }
     }
 
-    hash = 0;
+    hash = gfxShapedWord::sHashInitialValue;
     wordStart = i + 1;
     wordIs8Bit = true;
   }

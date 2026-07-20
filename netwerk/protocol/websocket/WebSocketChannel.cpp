@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <algorithm>
-
 #include "WebSocketChannel.h"
+
+#include <algorithm>
 
 #include "WebSocketConnectionBase.h"
 #include "WebSocketFrame.h"
@@ -18,9 +18,9 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPrefs_privacy.h"
-#include "mozilla/glean/NetwerkProtocolWebsocketMetrics.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Utf8.h"
+#include "mozilla/glean/NetwerkProtocolWebsocketMetrics.h"
 #include "mozilla/net/WebSocketEventService.h"
 #include "nsCRT.h"
 #include "nsCharSeparatedTokenizer.h"
@@ -3010,6 +3010,13 @@ nsresult WebSocketChannel::StartWebsocketData() {
   mIOThread->Dispatch(NS_NewRunnableFunction(
       "WebSocketChannel::StartWebsocketData", [self{std::move(self)}] {
         LOG(("WebSocketChannel::DoStartWebsocketData() %p", self.get()));
+        {
+          MutexAutoLock lock(self->mMutex);
+          if (self->mStopped) {
+            return;
+          }
+          self->mDataStarted = true;
+        }
 
         NS_DispatchToMainThread(
             NewRunnableMethod("net::WebSocketChannel::NotifyOnStart", self,
@@ -3043,7 +3050,6 @@ void WebSocketChannel::NotifyOnStart() {
       GetListenerMT();
   LOG(("WebSocketChannel::NotifyOnStart Notifying Listener %p",
        listener ? listener->mListener.get() : nullptr));
-  mDataStarted = true;
   if (listener) {
     nsresult rv = listener->mListener->OnStart(listener->mContext);
     if (NS_FAILED(rv)) {
@@ -3584,21 +3590,12 @@ WebSocketChannel::AsyncOpenNative(nsIURI* aURI, const nsACString& aOrigin,
     return rv;
   }
 
-  // Ideally we'd call newChannelFromURIWithLoadInfo here, but that doesn't
-  // allow setting proxy uri/flags
-  rv = ioService->NewChannelFromURIWithProxyFlags(
+  rv = ioService->NewChannelFromURIWithProxyFlagsAndLoadInfo(
       localURI, mURI,
       nsIProtocolProxyService::RESOLVE_PREFER_SOCKS_PROXY |
           nsIProtocolProxyService::RESOLVE_PREFER_HTTPS_PROXY |
           nsIProtocolProxyService::RESOLVE_ALWAYS_TUNNEL,
-      mLoadInfo->LoadingNode(), mLoadInfo->GetLoadingPrincipal(),
-      mLoadInfo->TriggeringPrincipal(), mLoadInfo->GetSecurityFlags(),
-      mLoadInfo->InternalContentPolicyType(), getter_AddRefs(localChannel));
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // Please note that we still call SetLoadInfo on the channel because
-  // we want the same instance of the loadInfo to be set on the channel.
-  rv = localChannel->SetLoadInfo(mLoadInfo);
+      mLoadInfo, getter_AddRefs(localChannel));
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Pass most GetInterface() requests through to our instantiator, but handle

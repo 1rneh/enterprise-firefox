@@ -12,6 +12,7 @@ use fluent_fallback::{
 };
 use fluent_ffi::{convert_args, FluentArgs, FluentArgument, L10nArg};
 use l10nregistry_ffi::{
+    coverage::l10nregistry_clear_coverage_cache,
     env::GeckoEnvironment,
     registry::{get_l10n_registry, GeckoL10nRegistry, GeckoResourceId},
 };
@@ -289,14 +290,15 @@ impl LocalizationRc {
         &self,
         id: &nsACString,
         args: &ThinVec<L10nArg>,
-        closure: *mut c_void,
-        callback: extern "C" fn(*mut c_void, &nsACString, &ThinVec<nsCString>),
+        promise: &xpcom::Promise,
+        callback: extern "C" fn(&xpcom::Promise, &nsACString, &ThinVec<nsCString>),
     ) {
         let bundles = self.inner.borrow().bundles().clone();
 
         let args = convert_args_to_owned(&args);
 
         let id = nsCString::from(id);
+        let strong_promise = RefPtr::new(promise);
 
         moz_task::TaskBuilder::new("LocalizationRc::format_value", async move {
             let mut errors = vec![];
@@ -317,7 +319,7 @@ impl LocalizationRc {
                 .into_iter()
                 .map(|err| err.to_string().into())
                 .collect();
-            callback(closure, &value, &errors);
+            callback(&strong_promise, &value, &errors);
         })
         .priority(nsIRunnablePriority::PRIORITY_RENDER_BLOCKING as u32)
         .spawn_local()
@@ -327,12 +329,14 @@ impl LocalizationRc {
     pub fn format_values(
         &self,
         keys: &ThinVec<L10nKey>,
-        closure: *mut c_void,
-        callback: extern "C" fn(*mut c_void, &ThinVec<nsCString>, &ThinVec<nsCString>),
+        promise: &xpcom::Promise,
+        callback: extern "C" fn(&xpcom::Promise, &ThinVec<nsCString>, &ThinVec<nsCString>),
     ) {
         let bundles = self.inner.borrow().bundles().clone();
 
         let keys: Vec<FluentL10nKey> = keys.into_iter().map(|k| k.into()).collect();
+
+        let strong_promise = RefPtr::new(promise);
 
         moz_task::TaskBuilder::new("LocalizationRc::format_values", async move {
             let mut errors = vec![];
@@ -360,7 +364,7 @@ impl LocalizationRc {
                 .map(|err| err.to_string().into())
                 .collect();
 
-            callback(closure, &ret_val, &errors);
+            callback(&strong_promise, &ret_val, &errors);
         })
         .priority(nsIRunnablePriority::PRIORITY_RENDER_BLOCKING as u32)
         .spawn_local()
@@ -370,9 +374,9 @@ impl LocalizationRc {
     pub fn format_messages(
         &self,
         keys: &ThinVec<L10nKey>,
-        closure: *mut c_void,
+        promise: &xpcom::Promise,
         callback: extern "C" fn(
-            *mut c_void,
+            &xpcom::Promise,
             &ThinVec<OptionalL10nMessage>,
             &ThinVec<nsCString>,
         ),
@@ -380,6 +384,8 @@ impl LocalizationRc {
         let bundles = self.inner.borrow().bundles().clone();
 
         let keys: Vec<FluentL10nKey> = keys.into_iter().map(|k| k.into()).collect();
+
+        let strong_promise = RefPtr::new(promise);
 
         moz_task::TaskBuilder::new("LocalizationRc::format_messages", async move {
             let mut errors = vec![];
@@ -412,7 +418,7 @@ impl LocalizationRc {
                 .map(|err| err.to_string().into())
                 .collect();
 
-            callback(closure, &ret_val, &errors);
+            callback(&strong_promise, &ret_val, &errors);
         })
         .priority(nsIRunnablePriority::PRIORITY_RENDER_BLOCKING as u32)
         .spawn_local()
@@ -539,30 +545,30 @@ pub extern "C" fn localization_format_value(
     loc: &LocalizationRc,
     id: &nsACString,
     args: &ThinVec<L10nArg>,
-    closure: *mut c_void,
-    callback: extern "C" fn(*mut c_void, &nsACString, &ThinVec<nsCString>),
+    promise: &xpcom::Promise,
+    callback: extern "C" fn(&xpcom::Promise, &nsACString, &ThinVec<nsCString>),
 ) {
-    loc.format_value(id, args, closure, callback);
+    loc.format_value(id, args, promise, callback);
 }
 
 #[no_mangle]
 pub extern "C" fn localization_format_values(
     loc: &LocalizationRc,
     keys: &ThinVec<L10nKey>,
-    closure: *mut c_void,
-    callback: extern "C" fn(*mut c_void, &ThinVec<nsCString>, &ThinVec<nsCString>),
+    promise: &xpcom::Promise,
+    callback: extern "C" fn(&xpcom::Promise, &ThinVec<nsCString>, &ThinVec<nsCString>),
 ) {
-    loc.format_values(keys, closure, callback);
+    loc.format_values(keys, promise, callback);
 }
 
 #[no_mangle]
 pub extern "C" fn localization_format_messages(
     loc: &LocalizationRc,
     keys: &ThinVec<L10nKey>,
-    closure: *mut c_void,
-    callback: extern "C" fn(*mut c_void, &ThinVec<OptionalL10nMessage>, &ThinVec<nsCString>),
+    promise: &xpcom::Promise,
+    callback: extern "C" fn(&xpcom::Promise, &ThinVec<OptionalL10nMessage>, &ThinVec<nsCString>),
 ) {
-    loc.format_messages(keys, closure, callback);
+    loc.format_messages(keys, promise, callback);
 }
 
 #[no_mangle]
@@ -577,6 +583,7 @@ pub extern "C" fn localization_is_sync(loc: &LocalizationRc) -> bool {
 
 #[no_mangle]
 pub extern "C" fn localization_on_change(loc: &LocalizationRc) {
+    l10nregistry_clear_coverage_cache();
     loc.on_change();
 }
 

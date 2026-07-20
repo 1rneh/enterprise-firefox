@@ -1,11 +1,12 @@
 "use strict";
 
 ChromeUtils.defineESModuleGetters(this, {
-  CONTAINER_COLORS: "resource://gre/modules/ContextualIdentityService.sys.mjs",
+  CONTAINER_COLORS:
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   CONTAINER_COLOR_ALIASES:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   ContextualIdentityService:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   ExtensionPreferencesManager:
     "resource://gre/modules/ExtensionPreferencesManager.sys.mjs",
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
@@ -109,12 +110,12 @@ add_task(async function test_contextualIdentities_supported_colors_and_icons() {
         browser.test.fail(`Failed to load image: ${img.src} - ${e}`);
       }
       browser.test.assertEq(
-        16,
+        32,
         img.naturalWidth,
         `Expected width for ${entry.icon}`
       );
       browser.test.assertEq(
-        16,
+        32,
         img.naturalHeight,
         `Expected height for ${entry.icon}`
       );
@@ -863,7 +864,7 @@ add_task(async function test_contextualIdentity_color_aliases_api() {
     cyan = await browser.contextualIdentities.get(cyan.cookieStoreId);
     browser.test.assertEq("cyan", cyan.color, "name stays cyan with nova on");
     browser.test.assertEq(
-      "#4cc4e1",
+      "#10a4ca",
       cyan.colorCode,
       "nova on: the same container returns the refreshed code"
     );

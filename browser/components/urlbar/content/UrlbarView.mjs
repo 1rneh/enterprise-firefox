@@ -9,7 +9,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   ContextualIdentityService:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   ObjectUtils: "resource://gre/modules/ObjectUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   UrlbarProviderOpenTabs:
@@ -70,8 +70,8 @@ export class UrlbarView {
     this.#rows.addEventListener("overflow", this);
     this.#rows.addEventListener("underflow", this);
 
-    this.resultMenu.addEventListener("command", this);
-    this.resultMenu.addEventListener("popupshowing", this);
+    this.resultMenu.addEventListener("click", this);
+    this.resultMenu.addEventListener("showing", this);
 
     this.input.toggleAttribute("noresults", true);
 
@@ -117,6 +117,13 @@ export class UrlbarView {
    */
   get isOpen() {
     return this.input.hasAttribute("open");
+  }
+
+  /**
+   * @returns {UrlbarQueryContext} The context of the most recent query.
+   */
+  get queryContext() {
+    return this.#queryContext;
   }
 
   get allowEmptySelection() {
@@ -554,10 +561,16 @@ export class UrlbarView {
     if (!row) {
       return;
     }
+    // Compare against the row's own result rather than `result`: across the
+    // actor boundary `result` is a wire copy, so an identity check would always
+    // fail. This still guards against the row's result changing during the
+    // async l10n fetch below, though it can't confirm the row still matches the
+    // dismissed result -- that needs a stable result id (Bug 2052875).
+    let { result: rowResult } = row;
 
     let l10n = { id: "urlbar-feedback-acknowledgment" };
     await this.#l10nCache.ensure(l10n);
-    if (row.result != result) {
+    if (row.result != rowResult) {
       return;
     }
 
@@ -664,7 +677,7 @@ export class UrlbarView {
       this.chromeWindow.gBrowser.userTypedValue = null;
     }
 
-    this.resultMenu.hidePopup();
+    this.resultMenu.hide?.();
     this.removeAccessibleFocus();
     this.input.inputField.setAttribute("aria-expanded", "false");
     this.#openPanelInstance = null;
@@ -684,7 +697,7 @@ export class UrlbarView {
     this.window.removeEventListener("resize", this);
     this.window.removeEventListener("blur", this);
 
-    this.controller.notify(this.controller.NOTIFICATIONS.VIEW_CLOSE);
+    this.controller.notify(UrlbarShared.NOTIFICATIONS.VIEW_CLOSE);
 
     // Revoke icon blob URLs that were created while the view was open.
     if (this.#blobUrlsByResultUrl) {
@@ -857,7 +870,7 @@ export class UrlbarView {
     this.controller.engagementEvent.discard();
     queryOptions.searchString = this.input.value;
     queryOptions.autofillIgnoresSelection = true;
-    queryOptions.event.interactionType = "returned";
+    queryOptions.interactionType = "returned";
 
     // Opening the panel now will show the rows from the previous query, so to
     // avoid flicker, open it only if the search string hasn't changed. Also
@@ -1076,14 +1089,20 @@ export class UrlbarView {
    * This assumes that the result rows are in index order.
    *
    * @param {number} index The index of the result that has been removed.
+   * @param {object} [acknowledgeDismissalL10n]
+   *   The dismissal-acknowledgment l10n the dismissing provider set on the
+   *   result, supplied by the caller. It isn't read from this row's result
+   *   because the provider sets it after the results were serialized to this
+   *   process, so this row's result -- a query-time snapshot -- never received
+   *   it. Undefined when the row is removed without acknowledgment.
    */
-  onQueryResultRemoved(index) {
+  onQueryResultRemoved(index, acknowledgeDismissalL10n) {
     let rowToRemove = this.#rows.children[index];
 
     let { result } = rowToRemove;
-    if (result.acknowledgeDismissalL10n) {
+    if (acknowledgeDismissalL10n) {
       // Replace the result's row with a dismissal acknowledgment tip.
-      this.#acknowledgeDismissal(result, result.acknowledgeDismissalL10n);
+      this.#acknowledgeDismissal(result, acknowledgeDismissalL10n);
       return;
     }
 
@@ -1099,31 +1118,17 @@ export class UrlbarView {
     if (index >= this.#queryContext.results.length) {
       newSelectionIndex = this.#queryContext.results.length - 1;
     }
-    if (newSelectionIndex >= 0) {
-      this.selectedRowIndex = newSelectionIndex;
-    }
+    // A negative index clears the selection, which resets the input value
+    // when no results remain.
+    this.selectedRowIndex = newSelectionIndex;
   }
 
   openResultMenu(result, anchor) {
     this.#resultMenuResult = result;
-
     let event = new CustomEvent("ResultMenuTriggered", {
       detail: { target: anchor },
     });
-
-    this.resultMenu.openPopup(anchor, {
-      position: "bottomright topright",
-      triggerEvent: event,
-    });
-
-    anchor.toggleAttribute("open", true);
-    let listener = event => {
-      if (event.target == this.resultMenu) {
-        anchor.removeAttribute("open");
-        this.resultMenu.removeEventListener("popuphidden", listener);
-      }
-    };
-    this.resultMenu.addEventListener("popuphidden", listener);
+    this.resultMenu.toggle(event, anchor);
   }
 
   /**
@@ -1212,7 +1217,7 @@ export class UrlbarView {
     this.window.addEventListener("resize", this);
     this.window.addEventListener("blur", this);
 
-    this.controller.notify(this.controller.NOTIFICATIONS.VIEW_OPEN);
+    this.controller.notify(UrlbarShared.NOTIFICATIONS.VIEW_OPEN);
 
     this.maybeRollupPopups();
   }
@@ -1559,15 +1564,83 @@ export class UrlbarView {
     item._content.appendChild(url);
     item._elements.set("url", url);
 
-    if (lazy.UrlbarPrefs.get("resultExplanationsFeatureGate")) {
-      let explanation = this.#createElement("span");
-      explanation.classList.add(
-        "urlbarView-explanation",
-        "urlbarView-overflowable"
-      );
-      item._content.appendChild(explanation);
-      item._elements.set("explanation", explanation);
+    this.#createExplanation(item._content, item);
+  }
+
+  #createExplanation(parentNode, item) {
+    if (!lazy.UrlbarPrefs.get("resultExplanationsFeatureGate")) {
+      return;
     }
+
+    let explanation = this.#createElement("span");
+    explanation.classList.add(
+      "urlbarView-explanation",
+      "urlbarView-overflowable"
+    );
+    parentNode.appendChild(explanation);
+    item._elements.set("explanation", explanation);
+
+    let bookmarked = this.#createElement("span");
+    bookmarked.className = "urlbarView-explanation-bookmarked";
+    explanation.appendChild(bookmarked);
+    item._elements.set("explanationBookmarked", bookmarked);
+
+    let lastVisited = this.#createElement("span");
+    lastVisited.className = "urlbarView-explanation-last-visited";
+    explanation.appendChild(lastVisited);
+    item._elements.set("explanationLastVisited", lastVisited);
+  }
+
+  /**
+   * Updates the "last visited" and "bookmarked" explanation of a row.
+   *
+   * @param {Element} item
+   *   The row.
+   * @param {UrlbarResult} result
+   *   The row's result.
+   * @param {boolean} setURL
+   *   Whether the row is showing its URL.
+   */
+  #updateExplanation(item, result, setURL) {
+    let explanation = item._elements.get("explanation");
+    if (!explanation) {
+      return;
+    }
+
+    let bookmarked = item._elements.get("explanationBookmarked");
+    let hasBookmark = setURL && !!result.payload.bookmarkDateMs;
+    if (hasBookmark) {
+      let { formattedDate } = lazy.UrlbarUtils.formatDate(
+        new Date(result.payload.bookmarkDateMs),
+        { forceAbsoluteDate: true }
+      );
+      this.document.l10n.setAttributes(
+        bookmarked,
+        "urlbar-result-explanation-bookmarked",
+        { date: formattedDate }
+      );
+    } else {
+      this.#l10nCache.removeElementL10n(bookmarked);
+    }
+
+    let lastVisited = item._elements.get("explanationLastVisited");
+    let hasLastVisit = setURL && !!result.payload.lastVisit;
+    if (hasLastVisit) {
+      let { isRelative, formattedDate } = lazy.UrlbarUtils.formatDate(
+        new Date(result.payload.lastVisit)
+      );
+      this.document.l10n.setAttributes(
+        lastVisited,
+        isRelative
+          ? "urlbar-result-explanation-last-visited-relative-2"
+          : "urlbar-result-explanation-last-visited-absolute-2",
+        { date: formattedDate }
+      );
+    } else {
+      this.#l10nCache.removeElementL10n(lastVisited);
+    }
+
+    item.toggleAttribute("has-explanation", hasLastVisit || hasBookmark);
   }
 
   /**
@@ -1654,7 +1727,7 @@ export class UrlbarView {
 
   #createRowContentForDynamicType(item, result) {
     let { dynamicType } = result.payload;
-    let viewTemplate = this.controller.getViewTemplate(result);
+    let viewTemplate = result.viewTemplate;
     if (!viewTemplate) {
       console.error(`No viewTemplate found for ${result.providerName}`);
       return;
@@ -1804,15 +1877,7 @@ export class UrlbarView {
     bodyTop.appendChild(url);
     item._elements.set("url", url);
 
-    if (lazy.UrlbarPrefs.get("resultExplanationsFeatureGate")) {
-      let explanation = this.#createElement("span");
-      explanation.classList.add(
-        "urlbarView-explanation",
-        "urlbarView-overflowable"
-      );
-      bodyTop.appendChild(explanation);
-      item._elements.set("explanation", explanation);
-    }
+    this.#createExplanation(bodyTop, item);
 
     let description = this.#createElement("div");
     description.classList.add("urlbarView-row-body-description");
@@ -1962,7 +2027,9 @@ export class UrlbarView {
       item._buttons.get("tip").textContent = result.payload.buttonText;
     }
 
-    if (this.#getResultMenuCommands(result)) {
+    let hasResultMenu = !!this.#getResultMenuCommands(result);
+    item.toggleAttribute("has-menu-button", hasResultMenu);
+    if (hasResultMenu) {
       this.#addRowButton(item, {
         name: "result-menu",
         classList: ["urlbarView-button-menu"],
@@ -2146,8 +2213,8 @@ export class UrlbarView {
 
       if (
         !lazy.ObjectUtils.deepEqual(
-          this.controller.getViewTemplate(oldResult),
-          this.controller.getViewTemplate(newResult)
+          oldResult.viewTemplate,
+          newResult.viewTemplate
         )
       ) {
         return true;
@@ -2529,33 +2596,7 @@ export class UrlbarView {
       this.#updateOverflowTooltip(url, "");
     }
 
-    let explanation = item._elements.get("explanation");
-    if (explanation && setURL && result.payload.lastVisit) {
-      item.toggleAttribute("has-explanation", true);
-      let { isRelative, formattedDate } = lazy.UrlbarUtils.formatDate(
-        new Date(result.payload.lastVisit)
-      );
-      if (isRelative) {
-        this.document.l10n.setAttributes(
-          explanation,
-          "urlbar-result-explanation-last-visited-relative",
-          { date: formattedDate }
-        );
-      } else {
-        this.document.l10n.setAttributes(
-          explanation,
-          "urlbar-result-explanation-last-visited-absolute",
-          { date: formattedDate }
-        );
-      }
-    } else {
-      if (explanation) {
-        explanation.removeAttribute("data-l10n-id");
-        explanation.removeAttribute("data-l10n-args");
-        explanation.textContent = "";
-      }
-      item.toggleAttribute("has-explanation", false);
-    }
+    this.#updateExplanation(item, result, setURL);
 
     title.toggleAttribute("is-url", isVisitAction);
     if (isVisitAction) {
@@ -2661,6 +2702,22 @@ export class UrlbarView {
   }
 
   async #updateRowForDynamicType(item, result) {
+    // The update is applied asynchronously (getViewUpdate round-trips to
+    // another process on the message path), so expose a promise that resolves
+    // once it lands. Callers that read the updated DOM await it via
+    // UrlbarTestUtils.waitForAutocompleteResultAt.
+    let resolveViewUpdate;
+    item._dynamicViewUpdatePromise = new Promise(
+      resolve => (resolveViewUpdate = resolve)
+    );
+    try {
+      await this.#applyDynamicTypeViewUpdate(item, result);
+    } finally {
+      resolveViewUpdate();
+    }
+  }
+
+  async #applyDynamicTypeViewUpdate(item, result) {
     item.setAttribute("dynamicType", result.payload.dynamicType);
 
     let idsByName = new Map();
@@ -2671,7 +2728,7 @@ export class UrlbarView {
 
     // Get the view update from the result's provider.
     let viewUpdate = await this.controller.getViewUpdate(result, idsByName);
-    if (item.result != result) {
+    if (item.result != result || !viewUpdate) {
       return;
     }
 
@@ -3054,6 +3111,10 @@ export class UrlbarView {
       if (tagsContainer) {
         this.#setElementOverflowing(tagsContainer, false);
       }
+      let explanation = row._elements.get("explanation");
+      if (explanation) {
+        this.#setElementOverflowing(explanation, false);
+      }
     }
   }
 
@@ -3159,7 +3220,9 @@ export class UrlbarView {
     }
 
     let result = row?.result;
-    this.controller.onBeforeSelection(result, element);
+    if (result) {
+      this.controller.onBeforeSelection(result, element);
+    }
 
     this.#setAccessibleFocus(setAccessibleFocus && element);
     this.#rawSelectedElement = element;
@@ -3175,7 +3238,9 @@ export class UrlbarView {
       this.input.setResultForCurrentValue(result);
     }
 
-    this.controller.onSelection(result, element);
+    if (result) {
+      this.controller.onSelection(result, element);
+    }
   }
 
   /**
@@ -3854,10 +3919,7 @@ export class UrlbarView {
     /**
      * @type {?UrlbarResultCommand[]}
      */
-    let commands = this.controller.getResultCommands(
-      result,
-      this.#queryContext?.isPrivate
-    );
+    let commands = result.commands;
     if (commands) {
       this.#resultMenuCommands.set(result, commands);
       return commands;
@@ -3868,7 +3930,7 @@ export class UrlbarView {
       commands.push({
         name: RESULT_MENU_COMMANDS.DISMISS,
         l10n: result.payload.blockL10n || {
-          id: "urlbar-result-menu-dismiss-suggestion",
+          id: "urlbar-result-menu-dismiss-suggestion2",
         },
       });
     }
@@ -3876,7 +3938,7 @@ export class UrlbarView {
       commands.push({
         name: RESULT_MENU_COMMANDS.HELP,
         l10n: result.payload.helpL10n || {
-          id: "urlbar-result-menu-learn-more",
+          id: "urlbar-result-menu-learn-more2",
         },
       });
     }
@@ -3884,7 +3946,7 @@ export class UrlbarView {
       commands.push({
         name: RESULT_MENU_COMMANDS.MANAGE,
         l10n: {
-          id: "urlbar-result-menu-manage-firefox-suggest",
+          id: "urlbar-result-menu-manage-firefox-suggest2",
         },
       });
     }
@@ -3898,33 +3960,22 @@ export class UrlbarView {
    * Popuplates the result menu with commands.
    *
    * @param {object} options
-   * @param {XULTextElement} options.menupopup
+   * @param {PanelList} options.panel
    * @param {UrlbarResultCommand[]} options.commands
    */
-  #populateResultMenu({ menupopup = this.resultMenu, commands }) {
-    menupopup.textContent = "";
+  async #populateResultMenu({ panel = this.resultMenu, commands }) {
+    panel.textContent = "";
+    await this.#l10nCache.ensureAll(commands.map(e => e.l10n).filter(e => e));
     for (let data of commands) {
-      if (data.children) {
-        let popup = this.document.createXULElement("menupopup");
-        this.#populateResultMenu({
-          menupopup: popup,
-          commands: data.children,
-        });
-        let menu = this.document.createXULElement("menu");
-        this.#l10nCache.setElementL10n(menu, data.l10n);
-        menu.appendChild(popup);
-        menupopup.appendChild(menu);
-        continue;
-      }
       if (data.name == "separator") {
-        menupopup.appendChild(this.document.createXULElement("menuseparator"));
+        panel.appendChild(this.document.createElement("separator"));
         continue;
       }
-      let menuitem = this.document.createXULElement("menuitem");
+      let menuitem = this.document.createElement("panel-item");
       menuitem.dataset.command = data.name;
       menuitem.classList.add("urlbarView-result-menuitem");
       this.#l10nCache.setElementL10n(menuitem, data.l10n);
-      menupopup.appendChild(menuitem);
+      panel.appendChild(menuitem);
     }
   }
 
@@ -4225,49 +4276,53 @@ export class UrlbarView {
     this.#enableOrDisableRowWrap();
   }
 
+  // Currently the resultMenu is the only element to consume click events, the context
+  // menu uses command events (below).
+  on_click(event) {
+    let result = this.#resultMenuResult;
+    this.#resultMenuResult = null;
+    let menuitem = event.target;
+    switch (menuitem.dataset.command) {
+      case RESULT_MENU_COMMANDS.HELP:
+        menuitem.dataset.url =
+          result.payload.helpUrl ||
+          Services.urlFormatter.formatURLPref("app.support.baseURL") +
+            "awesome-bar-result-menu";
+        break;
+    }
+    this.input.pickResult(result, event, menuitem);
+  }
+
   on_command(event) {
     let contextMenu;
-    if (event.currentTarget == this.resultMenu) {
-      let result = this.#resultMenuResult;
-      this.#resultMenuResult = null;
-      let menuitem = event.target;
-      switch (menuitem.dataset.command) {
-        case RESULT_MENU_COMMANDS.HELP:
-          menuitem.dataset.url =
-            result.payload.helpUrl ||
-            Services.urlFormatter.formatURLPref("app.support.baseURL") +
-              "awesome-bar-result-menu";
-          break;
-      }
-      this.input.pickResult(result, event, menuitem);
-    } else if (
-      (contextMenu = event.target.closest("#urlbarView-context-menu"))
-    ) {
+    if ((contextMenu = event.target.closest("#urlbarView-context-menu"))) {
       let row = contextMenu.triggerNode.closest(".urlbarView-row");
       this.input.pickResult(row.result, event, event.target);
     }
   }
 
+  on_showing(event) {
+    let commands;
+    let splitButton = event.target.triggeringEvent.detail.target.closest(
+      ".urlbarView-splitbutton"
+    );
+
+    if (splitButton) {
+      // Show the commands the are defined in its Split Button.
+      let mainButton = splitButton.firstElementChild;
+      let buttonName = mainButton.dataset.name;
+      commands = this.#resultMenuResult.payload.buttons.find(
+        b => b.name == buttonName
+      ).menu;
+    } else {
+      commands = this.#getResultMenuCommands(this.#resultMenuResult);
+    }
+
+    this.#populateResultMenu({ commands });
+  }
+
   on_popupshowing(event) {
-    if (event.target == this.resultMenu) {
-      let commands;
-
-      let splitButton = event.triggerEvent?.detail.target?.closest(
-        ".urlbarView-splitbutton"
-      );
-      if (splitButton) {
-        // Show the commands the are defined in its Split Button.
-        let mainButton = splitButton.firstElementChild;
-        let buttonName = mainButton.dataset.name;
-        commands = this.#resultMenuResult.payload.buttons.find(
-          b => b.name == buttonName
-        ).menu;
-      } else {
-        commands = this.#getResultMenuCommands(this.#resultMenuResult);
-      }
-
-      this.#populateResultMenu({ commands });
-    } else if (event.target.id == "urlbarView-context-menu") {
+    if (event.target.id == "urlbarView-context-menu") {
       if (!lazy.UrlbarPrefs.get("contextMenu.featureGate")) {
         event.preventDefault();
         return;

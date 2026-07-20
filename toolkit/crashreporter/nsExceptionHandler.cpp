@@ -238,7 +238,7 @@ static MOZ_GLIBCXX_CONSTINIT xpstring memoryReportPath;
 static MOZ_GLIBCXX_CONSTINIT xpstring eventsDirectory;
 
 // If this is false, we don't launch the crash reporter
-static bool doReport = true;
+static mozilla::Atomic<bool> doReport(true);
 
 // if this is true, we pass the exception on to the OS crash reporter
 static bool showOSCrashReporter = false;
@@ -1319,36 +1319,35 @@ static void WriteAnnotationsForMainProcessCrash(PlatformWriter& pw,
   JSONAnnotationWriter writer(pw);
 
   for (auto key : MakeEnumeratedRange(Annotation::Count)) {
-    AnnotationContents contents = {};
+    uint32_t contents = 0;
+    size_t len = 0;
     size_t address =
-        mozannotation_get_contents(static_cast<uint32_t>(key), &contents);
+        mozannotation_get_contents(static_cast<uint32_t>(key), &contents, &len);
     if (address != 0) {
       switch (TypeOfAnnotation(key)) {
         case AnnotationType::String:
-          switch (contents.tag) {
-            case AnnotationContents::Tag::NSCStringPointer: {
+          switch (contents) {
+            case ANNOTATION_CONTENTS_NSCSTRINGPOINTER: {
               const nsCString* string =
                   reinterpret_cast<const nsCString*>(address);
               writer.Write(key, string->Data(), string->Length());
             } break;
-            case AnnotationContents::Tag::CStringPointer:
+            case ANNOTATION_CONTENTS_CSTRINGPOINTER:
               address = *(reinterpret_cast<size_t*>(address));
               if (address == 0) {
                 break;
               }
               // FALLTHROUGH
-            case AnnotationContents::Tag::CString: {
+            case ANNOTATION_CONTENTS_CSTRING: {
               writer.Write(key, reinterpret_cast<const char*>(address));
             } break;
-            case AnnotationContents::Tag::ByteBuffer:
-              writer.Write(key, reinterpret_cast<const char*>(address),
-                           static_cast<size_t>(contents.byte_buffer._0));
+            case ANNOTATION_CONTENTS_BYTEBUFFER:
+              writer.Write(key, reinterpret_cast<const char*>(address), len);
               break;
-            case AnnotationContents::Tag::OwnedByteBuffer:
-              writer.Write(key, reinterpret_cast<const char*>(address),
-                           static_cast<size_t>(contents.owned_byte_buffer._0));
+            case ANNOTATION_CONTENTS_OWNEDBYTEBUFFER:
+              writer.Write(key, reinterpret_cast<const char*>(address), len);
               break;
-            case AnnotationContents::Tag::Empty:
+            case ANNOTATION_CONTENTS_EMPTY:
               break;
           }
           break;
@@ -1904,20 +1903,12 @@ static void TeardownAppNotes() {
 nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   if (gExceptionHandler) return NS_ERROR_ALREADY_INITIALIZED;
 
-#if defined(DEBUG)
-  // In debug builds, disable the crash reporter by default, and allow to
-  // enable it with the MOZ_CRASHREPORTER environment variable.
-  const char* envvar = PR_GetEnv("MOZ_CRASHREPORTER");
-  if ((!envvar || !*envvar) && !force) return NS_OK;
-#else
-  // In other builds, enable the crash reporter by default, and allow
-  // disabling it with the MOZ_CRASHREPORTER_DISABLE environment variable.
-  const char* envvar = PR_GetEnv("MOZ_CRASHREPORTER_DISABLE");
-  if (envvar && *envvar && !force) return NS_OK;
-#endif
+  if (!CrashReporterIsEnabled(force)) {
+    return NS_OK;
+  }
 
-  // this environment variable prevents us from launching
-  // the crash reporter client
+  // Initialize the launch-client decision from the environment. Policies and
+  // other callers can update it later via UpdateShouldReport().
   doReport = ShouldReport();
 
   RegisterRuntimeExceptionModule();
@@ -2805,6 +2796,8 @@ nsresult SetSubmitReports(bool aSubmitReports) {
   return NS_OK;
 }
 
+void UpdateShouldReport() { doReport = ShouldReport(); }
+
 static void SetCrashEventsDir(nsIFile* aDir) {
   static const XP_CHAR eventsDirectoryEnv[] =
       XP_TEXT("MOZ_CRASHREPORTER_EVENTS_DIRECTORY");
@@ -3173,7 +3166,23 @@ static bool MoveToPending(nsIFile* dumpFile, nsIFile* extraFile,
   return true;
 }
 
-nsresult OOPInit(nsIFile* aXREDirectory) {
+nsresult OOPInit(nsIFile* aXREDirectory, bool force /*=false*/) {
+  // Android is exempt from early return because the helper has already been
+  // started and is unconditionally expecting a rendezvous.
+#if !defined(MOZ_WIDGET_ANDROID)
+  if (!CrashReporterIsEnabled(force)) {
+    return NS_OK;
+  }
+#endif
+
+  {
+    // It's already started, no work to do here!
+    StaticMutexAutoLock lock(gCrashHelperClientMutex);
+    if (gCrashHelperClient) {
+      return NS_OK;
+    }
+  }
+
   CrashHelperClient* crashHelperClient;
 
   PathString tempPath;
@@ -3253,6 +3262,14 @@ void OOPDeinit() {
     crash_helper_shutdown(gCrashHelperClient);
     gCrashHelperClient = nullptr;
   }
+}
+
+uint32_t GetCrashHelperPid() {
+  StaticMutexAutoLock lock(gCrashHelperClientMutex);
+  if (!gCrashHelperClient) {
+    return 0;
+  }
+  return static_cast<uint32_t>(crash_helper_pid(gCrashHelperClient));
 }
 
 // Parent-side API for children

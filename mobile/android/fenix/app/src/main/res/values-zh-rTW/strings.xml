@@ -628,12 +628,12 @@
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
   <string name="nova_onboarding_marketing_body_2" tools:ignore="BrandUsage">與 Mozilla 的行銷夥伴分享您如何發現 Firefox 以及是如何使用的，我們絕不會販售此資料。</string>
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage">您可以透過讓 Mozilla 告知我們用來宣傳 Firefox 的平台您是 Firefox 使用者，幫助我們接觸更多人。</string>
+  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage,UnusedResources">您可以透過讓 Mozilla 告知我們用來宣傳 Firefox 的平台您是 Firefox 使用者，幫助我們接觸更多人。</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
   -->
-  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage">您可以透過讓 Mozilla 知道您是從哪個平台下載 Firefox 的，幫助我們接觸更多人。</string>
+  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage,UnusedResources">您可以透過讓 Mozilla 知道您是從哪個平台下載 Firefox 的，幫助我們接觸更多人。</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
@@ -663,11 +663,15 @@
   <!-- Marketing onboarding body link text. -->
   <string name="nova_onboarding_marketing_body_link_text_1">更多資訊</string>
   <!-- Marketing onboarding primary button text. 'Firefox' is intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage">幫助 Firefox</string>
+  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage,UnusedResources">幫助 Firefox</string>
+  <!-- Marketing onboarding primary button text. -->
+  <string name="nova_onboarding_marketing_primary_button_text_3">是</string>
   <!-- Marketing onboarding primary button text. -->
   <string name="nova_onboarding_marketing_primary_button_text_2">允許並繼續</string>
   <!-- Marketing onboarding secondary button text. -->
-  <string name="nova_onboarding_marketing_secondary_button_text">不要，謝謝</string>
+  <string name="nova_onboarding_marketing_secondary_button_text" tools:ignore="UnusedResources">不要，謝謝</string>
+  <!-- Marketing onboarding secondary button text. -->
+  <string name="nova_onboarding_marketing_secondary_button_text_2">否</string>
   <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">透過通知功能，讓您使用 Firefox 更安全</string>
   <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
@@ -1536,6 +1540,8 @@
   <string name="add_tab">新增分頁</string>
   <!-- Content description (not visible, for screen readers etc.): Add tab button. Adds a news tab when pressed -->
   <string name="add_private_tab">開新隱私瀏覽分頁</string>
+  <!-- Content description (not visible, for screen readers etc.): Create tab group button. Opens the create tab group sheet when pressed -->
+  <string name="create_tab_group_content_description">建立分頁群組</string>
   <!-- Text for the tab search bar placeholder -->
   <string name="tab_manager_search_bar_placeholder">搜尋您的分頁</string>
   <!-- Text shown in the menu to view recently closed tabs -->
@@ -1962,6 +1968,10 @@
   <string name="webcompat_reporter_label_whats_broken_3">哪個部分不正常？</string>
   <!-- Content description for the icon button that clears the selected broken site reason in the WebCompat Reporter. -->
   <string name="webcompat_reporter_clear_reason_content_description">清除選擇的原因</string>
+  <!-- The error message of the description when the user selects "Something else" as the reason, but left the description empty or too short. -->
+  <string name="webcompat_reporter_description_error">請輸入至少 10 個字元</string>
+  <!-- The label/title of a mandatory field in the Web Compat Reporter feature for adding additional information. -->
+  <string name="webcompat_reporter_label_mandatory_description">請詳細描述問題，幫助我們調查問題</string>
   <!-- The label/title of a field in the Web Compat Reporter feature for explaining a high-level reason why the site is broken. -->
   <string name="webcompat_reporter_label_whats_broken_2">哪個部分故障了？</string>
   <!-- The placeholder text for the dropdown where a user selects a high-level reason why the site is broken. -->
@@ -1976,6 +1986,8 @@
   <string name="webcompat_reporter_add_more_info">加入更多資訊</string>
   <!-- The button text for the cancel button to leave the Web Compat Reporter feature. -->
   <string name="webcompat_reporter_cancel">取消</string>
+  <!-- The button text for the send button to submit the provided form data. -->
+  <string name="webcompat_reporter_send_report">傳送報告</string>
   <!-- The button text for the send button to submit the provided form data. -->
   <string name="webcompat_reporter_send">傳送</string>
   <!-- Text for a snackbar to confirm the successful submission of a WebCompat report. -->
@@ -2594,7 +2606,11 @@
     Link displayed in enhanced tracking protection panel to access tracking protection settings
   -->
   <string name="etp_settings">保護設定</string>
-  <!-- Preference title for enhanced tracking protection settings -->
+  <!--
+    Enhanced Tracking Protection
+
+    Preference title for enhanced tracking protection settings
+  -->
   <string name="preference_enhanced_tracking_protection">加強型追蹤保護</string>
   <!-- Preference summary for enhanced tracking protection settings on/off switch -->
   <string name="preference_enhanced_tracking_protection_summary">現在提供 Total Cookie Protection 功能，這是我們針對跨網站追蹤器迄今最強大的屏障。</string>
@@ -3932,6 +3948,8 @@
     %s is a placeholder for the name of the certificate authority that issued the certificate.
   -->
   <string name="connection_security_panel_verified_by">由 %s 驗證</string>
+  <!-- Content description (not visible, for screen readers etc.) for the handle used to drag the protections dashboard to the bottom of the screen and close it. -->
+  <string name="tracker_protections_dashboard_close_handlebar_content_description">關閉儀表板</string>
   <!--
     Text for the connection security panel when the site uses a QWAC.
     %s is a placeholder for the organization for which the certificate was issued.
@@ -4055,7 +4073,25 @@
   <string name="microsurvey_sync_title" tools:ignore="BrandUsage,UnusedResources">您對 Firefox 的同步功能使用體驗滿意嗎？</string>
   <!-- Text shown in the survey title for 'describe your experience so far' microsurvey. Note: The word "Firefox" should NOT be translated. -->
   <string name="microsurvey_describe_your_experience_title" tools:ignore="BrandUsage,UnusedResources">請幫助我們改進 Firefox。下列選項當中哪一項最符合您目前為止的使用體驗？</string>
-  <!-- Uninstall Survey -->
+  <!--
+    Uninstall Survey
+
+    Title text for the uninstall survey dialog, asking the user for the reason they are removing the app
+  -->
+  <string name="microsurvey_uninstall_survey_title">您的意見對我們很重要。請讓我們知道移除原因？</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_1_v2">網站速度很慢或不穩定</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_2_v2">網站無法正常運作</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_3_v2">缺少我需要的功能</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_4_v2">無法影片、下載檔案或播放媒體內容</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_5_v2">很難使用，或設計不良</string>
+  <!-- Uninstall survey answer option -->
+  <string name="uninstall_survey_option_6_v2">有隱私權或安全性疑慮</string>
+  <!-- Button label shown at the bottom of the uninstall survey -->
   <string name="uninstall_survey_button_label">送出意見回饋並移除</string>
   <!--
     Accessibility
@@ -4648,6 +4684,22 @@
   <string name="context_menu_open_image_with_google_lens">使用 Google 智慧鏡頭搜尋</string>
   <!-- Toast shown when the user denies the camera permission requested by the Lens camera screen -->
   <string name="lens_camera_permission_denied">存取被拒</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the photo they capture will be sent to Google Lens for a visual search.
+  -->
+  <string name="lens_camera_title_lens">Google 智慧鏡頭</string>
+  <!--
+    Title shown at the top of the camera screen, next to the close button, telling the
+    user that the camera is being used to scan a QR code.
+  -->
+  <string name="lens_camera_title_qr">QR Code</string>
+  <!-- Title for the Google Lens Search Settings page feature toggle -->
+  <string name="search_settings_google_lens_title">開啟 Google 智慧鏡頭搜尋功能</string>
+  <!-- Description for the Google Lens Search Settings page feature toggle -->
+  <string name="search_settings_google_lens_description">將圖片或照片傳送到 Google 進行圖片搜尋。</string>
+  <!-- Caption shown under the Google Lens toggle clarifying when the feature is available -->
+  <string name="preferences_google_lens_availability_caption">僅在上方有開啟 Google，且 Google 也是您當下選用的搜尋引擎時可以使用。</string>
   <!-- Title for the Google Lens AI feature toggle -->
   <string name="ai_controls_google_lens_title">Google 智慧鏡頭</string>
   <!-- Description for the Google Lens AI feature toggle -->
@@ -4694,6 +4746,8 @@
   <string name="firefox_labs_feature_enable_dialog_message">重新啟動 %s 才能開啟此功能。</string>
   <!-- The description text that is displayed in the confirmation dialog on the Firefox Labs screen for toggling "off" experimental features. %s is the name of the app (for example "Firefox Nightly") -->
   <string name="firefox_labs_feature_disable_dialog_message">重新啟動 %s 才能關閉此功能。</string>
+  <!-- Helper text shown beneath a Firefox Labs item when it is blocked from being turned on. -->
+  <string name="firefox_labs_feature_conflict">無法試用此功能。</string>
   <!-- Text displayed on the Firefox Labs screen when there are no Labs experimental features present. -->
   <string name="firefox_labs_no_labs_available_description">目前沒有可以嘗試的實驗性功能</string>
 </resources>

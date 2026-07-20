@@ -8,6 +8,8 @@ prefs = [
 support-files = [
   "head.js",
   "head_history_thumbnails.js",
+  "test_agent_monitor_item_page.html",
+  "test_agent_monitor_item.mjs",
   "test_ai_action_result_page.html",
   "test_ai_action_result.mjs",
   "test_assistant_message_footer_page.html",
@@ -29,7 +31,8 @@ support-files = [
   "test_website_confirmation.mjs",
   "test_aiwindow_tab_close_integration.html",
   "test_context_url_page.html",
-  "test_context_url_page2.html"
+  "test_context_url_page2.html",
+  "test_context_url_injection_page.html"
 ]
 
 ["browser_actor_user_prompt.js"]
@@ -55,6 +58,8 @@ support-files = [
 ["browser_aichat_same_link_click.js"]
 
 ["browser_aiwindow_account_auth.js"]
+
+["browser_aiwindow_agent_monitor_item.js"]
 
 ["browser_aiwindow_ai_action_result.js"]
 
@@ -84,6 +89,8 @@ skip-if = [
 
 ["browser_aiwindow_kit_mention.js"]
 
+["browser_aiwindow_last_usage_timestamp.js"]
+
 ["browser_aiwindow_memories.js"]
 
 ["browser_aiwindow_memories_toggle_prefs.js"]
@@ -97,6 +104,8 @@ skip-if = [
 ["browser_aiwindow_smartbar.js"]
 
 ["browser_aiwindow_smartbar_ask.js"]
+
+["browser_aiwindow_smartbar_autofill.js"]
 
 ["browser_aiwindow_smartbar_chat_active_navigate.js"]
 
@@ -239,7 +248,11 @@ skip-if = [
 
 ["browser_smartwindow_sidebar_auto_open_pref_prompt.js"]
 
+["browser_smartwindow_smartbar_contextmenu_autofill_dismiss.js"]
+
 ["browser_smartwindow_smartbar_glow.js"]
+
+["browser_smartwindow_smartbar_mentions_filter.js"]
 
 ["browser_smartwindow_smartbar_model_select.js"]
 

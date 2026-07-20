@@ -67,7 +67,7 @@ const kSubviewEvents = ["ViewShowing", "ViewHiding"];
  * The current version. We can use this to auto-add new default widgets as necessary.
  * (would be const but isn't because of testing purposes)
  */
-var kVersion = 24;
+var kVersion = 25;
 
 /**
  * Buttons removed from built-ins by version they were removed. kVersion must be
@@ -379,10 +379,7 @@ var CustomizableUIInternal = {
         type: CustomizableUI.TYPE_TOOLBAR,
         overflowable: true,
         defaultPlacements: navbarPlacements,
-        verticalTabsDefaultPlacements: [
-          "firefox-view-button",
-          "alltabs-button",
-        ],
+        verticalTabsDefaultPlacements: ["alltabs-button", "ai-window-toggle"],
         defaultCollapsed: false,
       },
       true
@@ -405,10 +402,10 @@ var CustomizableUIInternal = {
       {
         type: CustomizableUI.TYPE_TOOLBAR,
         defaultPlacements: [
-          "firefox-view-button",
           "tabbrowser-tabs",
           "new-tab-button",
           "alltabs-button",
+          "ai-window-toggle",
         ],
         verticalTabsDefaultPlacements: [],
         defaultCollapsed: null,
@@ -852,6 +849,31 @@ var CustomizableUIInternal = {
         !navbarPlacements.includes("reset-pbm-toolbar-button")
       ) {
         navbarPlacements.push("reset-pbm-toolbar-button");
+      }
+    }
+
+    // Remove firefox view button for new profiles and users who have barely
+    // interacted with it (<=2 recorded clicks).
+    if (currentVersion < 25) {
+      let firefoxViewArea = CustomizableUI.verticalTabsEnabled
+        ? gSavedState.placements[CustomizableUI.AREA_NAVBAR]
+        : gSavedState.placements[CustomizableUI.AREA_TABSTRIP];
+      let defaultIndex = CustomizableUI.verticalTabsEnabled
+        ? firefoxViewArea?.indexOf("alltabs-button") - 1
+        : 0;
+      if (firefoxViewArea?.[defaultIndex] === "firefox-view-button") {
+        let shouldKeepFirefoxView = false;
+        try {
+          let { count } = JSON.parse(
+            Services.prefs.getStringPref("browser.firefox-view.button-clicks")
+          );
+          shouldKeepFirefoxView = count > 2;
+        } catch (e) {
+          console.error(e);
+        }
+        if (!shouldKeepFirefoxView) {
+          firefoxViewArea.splice(defaultIndex, 1);
+        }
       }
     }
   },
@@ -3955,14 +3977,14 @@ var CustomizableUIInternal = {
   /**
    * @see CustomizableUI.createWidget
    * @param {CustomizableUICreateWidgetProperties} aProperties
+   * @param {string} [aSource]
+   *   One of the CustomizableUI.SOURCE_* constants; defaults to
+   *   CustomizableUI.SOURCE_EXTERNAL.
    * @returns {string}
    *   The ID of the created widget.
    */
-  createWidget(aProperties) {
-    let widget = this.normalizeWidget(
-      aProperties,
-      CustomizableUI.SOURCE_EXTERNAL
-    );
+  createWidget(aProperties, aSource = CustomizableUI.SOURCE_EXTERNAL) {
+    let widget = this.normalizeWidget(aProperties, aSource);
     // XXXunf This should probably throw.
     if (!widget) {
       lazy.log.error("unable to normalize widget");
@@ -6181,11 +6203,14 @@ export var CustomizableUI = {
    *
    * @param {CustomizableUICreateWidgetProperties} aProperties
    *   The properties for the widget to be created.
+   * @param {string} [aSource]
+   *   One of the CustomizableUI.SOURCE_* constants; defaults to
+   *   CustomizableUI.SOURCE_EXTERNAL.
    * @returns {WidgetGroupWrapper|XULWidgetGroupWrapper}
    */
-  createWidget(aProperties) {
+  createWidget(aProperties, aSource) {
     return CustomizableUIInternal.wrapWidget(
-      CustomizableUIInternal.createWidget(aProperties)
+      CustomizableUIInternal.createWidget(aProperties, aSource)
     );
   },
   /**
@@ -7141,7 +7166,11 @@ function WidgetGroupWrapper(aWidget) {
   });
 
   this.__defineGetter__("areaType", function () {
-    let areaProps = gAreas.get(aWidget.currentArea);
+    let { currentArea } = aWidget;
+    if (!currentArea) {
+      return null;
+    }
+    let areaProps = gAreas.get(currentArea);
     return areaProps && areaProps.get("type");
   });
 

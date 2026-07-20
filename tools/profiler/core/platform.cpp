@@ -64,6 +64,7 @@
 #include "memory_counter.h"
 #include "memory_hooks.h"
 #include "memory_markers.h"
+#include "mozilla/AppShutdown.h"
 #include "mozilla/ArrayAlgorithm.h"
 #include "mozilla/BaseAndGeckoProfilerDetail.h"
 #include "mozilla/BaseProfiler.h"
@@ -113,6 +114,7 @@
 #include "nsSystemInfo.h"
 #include "nsThreadUtils.h"
 #include "nsXULAppAPI.h"
+#include "xpcpublic.h"
 #include "nsDirectoryServiceUtils.h"
 #include "Tracing.h"
 #include "prdtoa.h"
@@ -462,8 +464,8 @@ static uint32_t AvailableFeatures() {
 // Default features common to all contexts (even if not available).
 static constexpr uint32_t DefaultFeatures() {
   return ProfilerFeature::Java | ProfilerFeature::JS |
-         ProfilerFeature::StackWalk | ProfilerFeature::CPUUtilization |
-         ProfilerFeature::Screenshots | ProfilerFeature::ProcessCPU;
+         ProfilerFeature::StackWalk | ProfilerFeature::Screenshots |
+         ProfilerFeature::ProcessCPU;
 }
 
 // Extra default features when MOZ_PROFILER_STARTUP is set (even if not
@@ -1001,11 +1003,16 @@ class CorePS {
     MOZ_ASSERT(sInstance);
     return sInstance->mScheduledDumpPath;
   }
+  static bool ScheduledDumpExitAfter(PSLockRef) {
+    MOZ_ASSERT(sInstance);
+    return sInstance->mScheduledDumpExitAfter;
+  }
   static void ScheduleDumpToFile(PSLockRef, const TimeStamp& aDeadline,
-                                 const nsACString& aPath) {
+                                 const nsACString& aPath, bool aExitAfterDump) {
     MOZ_ASSERT(sInstance);
     sInstance->mScheduledDumpDeadline = aDeadline;
     sInstance->mScheduledDumpPath = aPath;
+    sInstance->mScheduledDumpExitAfter = aExitAfterDump;
   }
   static void CancelScheduledDump(PSLockRef) {
     MOZ_ASSERT(sInstance);
@@ -1070,6 +1077,9 @@ class CorePS {
   // file to write it to. Null deadline when none is scheduled.
   TimeStamp mScheduledDumpDeadline;
   nsAutoCString mScheduledDumpPath;
+  // Whether the sampler thread should exit the process once it has written the
+  // scheduled dump. Only meaningful while a dump is scheduled.
+  bool mScheduledDumpExitAfter = false;
 
   // This memory buffer is used by the MergeStacks mechanism. Previously it was
   // stack allocated, but this led to a stack overflow, as it was too much
@@ -1133,12 +1143,7 @@ class ActivePS {
       aFeatures |= ProfilerFeature::MainThreadIO;
     }
 
-    if (aFeatures & ProfilerFeature::CPUAllThreads) {
-      aFeatures |= ProfilerFeature::CPUUtilization;
-    }
-
     if (aFeatures & ProfilerFeature::Tracing) {
-      aFeatures &= ~ProfilerFeature::CPUUtilization;
       aFeatures &= ~ProfilerFeature::Memory;
       aFeatures |= ProfilerFeature::NoStackSampling;
       aFeatures |= ProfilerFeature::JS;
@@ -4647,6 +4652,51 @@ static SamplerThread* NewSamplerThread(PSLockRef aLock, uint32_t aGeneration,
   return new SamplerThread(aLock, aGeneration, aInterval, aFeatures);
 }
 
+// Held by the sampler thread while it writes a scheduled off-main-thread dump
+// (profiler_schedule_dump_to_file). profiler_wait_for_scheduled_dump() takes it
+// to wait for an in-progress dump to finish; on the exit-after-dump path the
+// sampler exits the process while holding it, so such a waiter never resumes.
+static mozilla::StaticMutex sScheduledDumpMutex;
+
+// Save a profile to a file like profiler_save_profile_to_file(), but route the
+// given shared progress cell into the streaming code so its 0..1 progress can
+// be observed from another thread while the (long) dump runs.
+static void profiler_save_profile_to_file_with_progress(
+    const char* aFilename, RefPtr<ProgressLogger::SharedProgress> aProgress);
+
+// A scheduled off-main-thread dump can take a long time to build in memory
+// while the output file stays flat at ~350 KB (everything is spliced into the
+// file only at the end), so file size cannot distinguish a slow-but-progressing
+// dump from a hung one. The streaming code updates mProgress as it walks the
+// profile buffer; this helper thread polls that cell and writes the 0..1
+// fraction to a "<profile>.progress" sidecar file for a consumer that can't
+// read our memory (e.g. an out-of-process test harness). If it ever blocks
+// (say on the allocator the dump is contending for) the sidecar simply stops
+// advancing, which a consumer already treats as a stall.
+struct ScheduledDumpProgressEmitter {
+  RefPtr<ProgressLogger::SharedProgress> mProgress;
+  nsCString mSidecarPath;
+  Atomic<bool, MemoryOrdering::Relaxed> mDone{false};
+};
+
+static void ScheduledDumpProgressEmitterThread(void* aArg) {
+  NS_SetCurrentThreadName("ProfilerDumpProgress");
+  auto* emitter = static_cast<ScheduledDumpProgressEmitter*>(aArg);
+  // Poll the progress atomic on mProgress and write its current 0..1 value to
+  // the sidecar file until the dump signals completion via mDone.
+  while (!emitter->mDone) {
+    {
+      std::ofstream stream(emitter->mSidecarPath.get());
+      stream << emitter->mProgress->Progress().ToDouble() << "\n";
+    }
+    // ~1s cadence (a consumer polls far less often), split into short steps so
+    // the join on the non-exit-after-dump path returns promptly once mDone set.
+    for (int i = 0; i < 10 && !emitter->mDone; ++i) {
+      PR_Sleep(PR_MillisecondsToInterval(100));
+    }
+  }
+}
+
 // This function is the sampler thread.  This implementation is used for all
 // targets.
 void SamplerThread::Run() {
@@ -4666,8 +4716,6 @@ void SamplerThread::Run() {
 
   // Not *no*-stack-sampling means we do want stack sampling.
   const bool stackSampling = !ProfilerFeature::HasNoStackSampling(features);
-
-  const bool cpuUtilization = ProfilerFeature::HasCPUUtilization(features);
 
   // Use local ProfileBuffer and underlying buffer to capture the stack.
   // (This is to avoid touching the core buffer lock while a thread is
@@ -4697,6 +4745,7 @@ void SamplerThread::Run() {
   // (profiler_save_profile_to_file takes the profiler lock itself).
   bool scheduledDumpDue = false;
   nsAutoCString scheduledDumpPath;
+  bool scheduledDumpExitAfter = false;
 
   const TimeDuration sampleInterval =
       TimeDuration::FromMicroseconds(mIntervalMicroseconds);
@@ -4775,6 +4824,7 @@ void SamplerThread::Run() {
           !deadline.IsNull() && sampleStart >= deadline) {
         scheduledDumpDue = true;
         scheduledDumpPath = CorePS::ScheduledDumpPath(lock);
+        scheduledDumpExitAfter = CorePS::ScheduledDumpExitAfter(lock);
         CorePS::CancelScheduledDump(lock);
       }
 
@@ -4864,7 +4914,10 @@ void SamplerThread::Run() {
         }
         TimeStamp countersSampled = TimeStamp::Now();
 
-        if (stackSampling || cpuUtilization) {
+        {
+          // Thread CPU utilization is always gathered, even when periodic
+          // stack sampling is disabled, so we always run a sampling pass
+          // (bug 2033816).
           samplingState = SamplingState::SamplingCompleted;
 
           // Prevent threads from ending (or starting) and allow access to all
@@ -4884,10 +4937,8 @@ void SamplerThread::Run() {
 
             const ThreadProfilingFeatures whatToProfile =
                 unlockedThreadData.ProfilingFeatures();
-            const bool threadCPUUtilization =
-                cpuUtilization &&
-                DoFeaturesIntersect(whatToProfile,
-                                    ThreadProfilingFeatures::CPUUtilization);
+            const bool threadCPUUtilization = DoFeaturesIntersect(
+                whatToProfile, ThreadProfilingFeatures::CPUUtilization);
             const bool threadStackSampling =
                 stackSampling &&
                 DoFeaturesIntersect(whatToProfile,
@@ -5163,7 +5214,7 @@ void SamplerThread::Run() {
                              currentEventRunning.ToMilliseconds());
                   });
 
-              if (cpuUtilization) {
+              if (threadCPUUtilization) {
                 // Suspending the thread for sampling could have added some
                 // running time to it, discard any since the call to
                 // GetThreadRunningTimesDiff above.
@@ -5216,8 +5267,6 @@ void SamplerThread::Run() {
             localBuffer.Clear();
             previousState = localBuffer.GetState();
           }
-        } else {
-          samplingState = SamplingState::NoStackSamplingCompleted;
         }
 
 #if defined(USE_LUL_STACKWALK)
@@ -5257,7 +5306,35 @@ void SamplerThread::Run() {
     // profiler_save_profile_to_file outside the lock to avoid a deadlock.
     if (scheduledDumpDue) {
       scheduledDumpDue = false;
-      profiler_save_profile_to_file(scheduledDumpPath.get());
+      // Hold sScheduledDumpMutex across the whole write so a caller in
+      // profiler_wait_for_scheduled_dump() blocks until this write finishes
+      // (and, on the exit-after path, until the process is gone) rather than
+      // acting while the profile is half-written.
+      mozilla::StaticMutexAutoLock dumpLock(sScheduledDumpMutex);
+
+      // Emit streaming progress to a "<profile>.progress" sidecar while the
+      // dump runs, so a consumer can tell a slow-but-progressing dump from a
+      // hung one instead of watching the (flat) profile file size.
+      auto dumpProgress = MakeRefPtr<ProgressLogger::SharedProgress>();
+      ScheduledDumpProgressEmitter emitter{dumpProgress};
+      emitter.mSidecarPath = scheduledDumpPath;
+      emitter.mSidecarPath.AppendLiteral(".progress");
+      PRThread* emitterThread = PR_CreateThread(
+          PR_USER_THREAD, ScheduledDumpProgressEmitterThread, &emitter,
+          PR_PRIORITY_LOW, PR_GLOBAL_THREAD, PR_JOINABLE_THREAD, 0);
+
+      profiler_save_profile_to_file_with_progress(scheduledDumpPath.get(),
+                                                  dumpProgress);
+      emitter.mDone = true;
+      if (scheduledDumpExitAfter) {
+        // The profile is fully written; exit now as requested. A caller parked
+        // in profiler_wait_for_scheduled_dump() stays blocked on the mutex
+        // until the process exits here, so it never runs its abort.
+        AppShutdown::DoImmediateExit();
+      }
+      if (emitterThread) {
+        PR_JoinThread(emitterThread);
+      }
     }
 
     ProfilerChild::ProcessPendingUpdate();
@@ -5921,8 +5998,7 @@ void profiler_start_from_signal() {
     // Enabling the JS feature leaks an 8-byte object during testing, but is too
     // useful to disable. See Bug 1904897, Bug 1699681, and browser.toml for
     // more details.
-    uint32_t features = ProfilerFeature::JS | ProfilerFeature::StackWalk |
-                        ProfilerFeature::CPUUtilization;
+    uint32_t features = ProfilerFeature::JS | ProfilerFeature::StackWalk;
     // as we often don't know what threads we'll care about, tell the
     // profiler to profile all threads.
     const char* filters[] = {"*"};
@@ -6309,7 +6385,8 @@ void profiler_init(void* aStackTop) {
 static void locked_profiler_save_profile_to_file(
     PSLockRef aLock, const char* aFilename,
     const PreRecordedMetaInformation& aPreRecordedMetaInformation,
-    bool aIsShuttingDown);
+    bool aIsShuttingDown = false,
+    RefPtr<ProgressLogger::SharedProgress> aProgress = nullptr);
 
 static SamplerThread* locked_profiler_stop(PSLockRef aLock);
 
@@ -6593,7 +6670,7 @@ Vector<ProfileAndAdditionalInformation> profiler_move_exit_profiles() {
 static void locked_profiler_save_profile_to_file(
     PSLockRef aLock, const char* aFilename,
     const PreRecordedMetaInformation& aPreRecordedMetaInformation,
-    bool aIsShuttingDown = false) {
+    bool aIsShuttingDown, RefPtr<ProgressLogger::SharedProgress> aProgress) {
   nsAutoCString processedFilename(aFilename);
   const auto processInsertionIndex = processedFilename.Find("%p");
   if (processInsertionIndex != kNotFound) {
@@ -6618,7 +6695,7 @@ static void locked_profiler_save_profile_to_file(
     {
       (void)locked_profiler_stream_json_for_this_process(
           aLock, w, /* sinceTime */ 0, aPreRecordedMetaInformation,
-          aIsShuttingDown, nullptr, ProgressLogger{});
+          aIsShuttingDown, nullptr, ProgressLogger{std::move(aProgress)});
 
       w.StartArrayProperty("processes");
       Vector<ProfileAndAdditionalInformation> exitProfiles =
@@ -6638,7 +6715,11 @@ static void locked_profiler_save_profile_to_file(
 
 void profiler_save_profile_to_file(const char* aFilename) {
   LOG("profiler_save_profile_to_file(%s)", aFilename);
+  profiler_save_profile_to_file_with_progress(aFilename, nullptr);
+}
 
+static void profiler_save_profile_to_file_with_progress(
+    const char* aFilename, RefPtr<ProgressLogger::SharedProgress> aProgress) {
   MOZ_RELEASE_ASSERT(CorePS::Exists());
 
   const auto preRecordedMetaInformation = PreRecordMetaInformation();
@@ -6649,12 +6730,13 @@ void profiler_save_profile_to_file(const char* aFilename) {
     return;
   }
 
-  locked_profiler_save_profile_to_file(lock, aFilename,
-                                       preRecordedMetaInformation);
+  locked_profiler_save_profile_to_file(
+      lock, aFilename, preRecordedMetaInformation,
+      /* aIsShuttingDown */ false, std::move(aProgress));
 }
 
-void profiler_schedule_dump_to_file(double aDelaySeconds,
-                                    const char* aFilename) {
+void profiler_schedule_dump_to_file(double aDelaySeconds, const char* aFilename,
+                                    bool aExitAfterDump) {
   if (!aFilename || !CorePS::Exists()) {
     return;
   }
@@ -6665,7 +6747,8 @@ void profiler_schedule_dump_to_file(double aDelaySeconds,
       TimeStamp::Now() + TimeDuration::FromSeconds(aDelaySeconds);
 
   PSAutoLock lock;
-  CorePS::ScheduleDumpToFile(lock, deadline, nsDependentCString(aFilename));
+  CorePS::ScheduleDumpToFile(lock, deadline, nsDependentCString(aFilename),
+                             aExitAfterDump);
 }
 
 void profiler_cancel_scheduled_dump() {
@@ -6675,6 +6758,18 @@ void profiler_cancel_scheduled_dump() {
 
   PSAutoLock lock;
   CorePS::CancelScheduledDump(lock);
+}
+
+void profiler_wait_for_scheduled_dump() {
+  // No-op outside automation. A scheduled dump is only ever armed by test
+  // harnesses, and this can block indefinitely (until the dump finishes or, on
+  // the exit-after path, until the process exits), so it must never delay a
+  // fatal-abort path in a shipped browser; in automation the harness's own
+  // timeout is the ultimate backstop.
+  if (!xpc::IsInAutomation()) {
+    return;
+  }
+  mozilla::StaticMutexAutoLock lock(sScheduledDumpMutex);
 }
 
 void profiler_request_dump_and_quit_for_test(const nsACString& aReason) {

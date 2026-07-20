@@ -188,13 +188,7 @@ var allowlist = [
   },
 
   // SpiderMonkey parser API, currently unused in browser/ and toolkit/
-  { file: "resource://gre/modules/reflect.sys.mjs" },
-
-  // UniFFI bindings for the sponsored content client component.
-  // The bindings landed in bug 2048346; consumers are added in follow-ups.
-  {
-    file: "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAdsClient.sys.mjs",
-  },
+  { file: "moz-src:///toolkit/components/reflect/reflect.sys.mjs" },
 
   // extensions/pref/autoconfig/src/nsReadConfig.cpp
   { file: "resource://gre/defaults/autoconfig/prefcalls.js" },
@@ -247,8 +241,6 @@ var allowlist = [
   { file: "resource://builtin-addons/ipp-activator/breakages/tab.json" },
 
   // Starting from here, files in the allowlist are bugs that need fixing.
-  // Bug 2042933 - consumed by PermissionUI.sys.mjs in a follow-up patch.
-  { file: "resource://app/modules/PermissionPromptTargeting.sys.mjs" },
   // Bug 1339424 (wontfix?)
   {
     file: "chrome://browser/locale/taskbar.properties",
@@ -257,7 +249,7 @@ var allowlist = [
   // Bug 1348559
   { file: "chrome://pippki/content/resetpassword.xhtml" },
   // Bug 1337345
-  { file: "resource://gre/modules/Manifest.sys.mjs" },
+  { file: "moz-src:///dom/manifest/Manifest.sys.mjs" },
   // Bug 1494170
   // (The references to these files are dynamically generated, so the test can't
   // find the references)
@@ -348,12 +340,6 @@ var allowlist = [
   // `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`
   { file: "chrome://global/skin/icons/shaft-arrow-left.svg" },
   { file: "chrome://global/skin/icons/shaft-arrow-right.svg" },
-
-  // Bug 1907594 - Created an inital set of messaging system targeting constants
-  // Preparation for future use in ASRouter
-  {
-    file: "resource://app/modules/asrouter/MessagingTargetingConstants.sys.mjs",
-  },
 ];
 
 if (AppConstants.NIGHTLY_BUILD) {

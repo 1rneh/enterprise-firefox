@@ -707,8 +707,9 @@ JS_PUBLIC_API JSObject* JS_TransplantObject(JSContext* cx, HandleObject origobj,
   if (origobj->compartment() != destination) {
     // If origobj is a weak ref or finalization registry target, relocate the
     // map entries to newIdentity before the swap turns origobj into a CCW.
-    if (!gc::GCRuntime::relocateFinalizationObserverTarget(
-            ObjectValue(*origobj), ObjectValue(*newIdentity))) {
+    gc::GCRuntime* gc = &cx->runtime()->gc;
+    if (!gc->relocateFinalizationObserverTarget(ObjectValue(*origobj),
+                                                ObjectValue(*newIdentity))) {
       oomUnsafe.crash("JS_TransplantObject finalization observer relocation");
     }
 
@@ -802,9 +803,16 @@ JS_PUBLIC_API void js::RemapRemoteWindowProxies(
     target.set(targetCompartmentProxy);
   }
 
+  gc::GCRuntime* gc = &cx->runtime()->gc;
   RootedField<JSObject*, 2> deadWrapper(roots);
   for (JSObject*& obj : otherProxies) {
     deadWrapper = obj;
+
+    if (!gc->relocateFinalizationObserverTarget(ObjectValue(*deadWrapper),
+                                                ObjectValue(*target))) {
+      oomUnsafe.crash("js::RemapRemoteWindowProxies");
+    }
+
     js::RemapDeadWrapper(cx, deadWrapper, target);
   }
 }
@@ -1973,8 +1981,8 @@ JS_PUBLIC_API JSObject* JS_NewObjectWithGivenProtoAndUseAllocSite(
   MOZ_ASSERT(clasp != &ArrayObject::class_);
   MOZ_ASSERT(!(clasp->flags & JSCLASS_IS_GLOBAL));
 
-  return NewObjectWithGivenProtoAndAllocSite(cx, clasp, proto,
-                                             cx->realm()->localAllocSite);
+  return NewObjectWithGivenProto(cx, clasp, proto,
+                                 {.site = cx->realm()->localAllocSite});
 }
 
 JS_PUBLIC_API JSObject* JS_NewPlainObject(JSContext* cx) {

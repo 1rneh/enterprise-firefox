@@ -159,6 +159,24 @@ export class UrlbarResult {
    */
   rowIndex = undefined;
 
+  /**
+   * A dynamic result's view template, computed eagerly when the result is
+   * finalized so the view can read it synchronously without asking the
+   * provider (which, on the actor message path, lives in another process).
+   * Undefined for non-dynamic results.
+   *
+   * @type {object|undefined}
+   */
+  viewTemplate = undefined;
+
+  /**
+   * The result menu commands the result's provider offers, computed eagerly
+   * alongside `viewTemplate`. Undefined if the provider offers none.
+   *
+   * @type {?UrlbarResultCommand[]|undefined}
+   */
+  commands = undefined;
+
   get type() {
     return this.#type;
   }
@@ -445,6 +463,61 @@ export class UrlbarResult {
       return this.payload.engine + " - " + this.payload.query;
     }
     return JSON.stringify(this);
+  }
+
+  /**
+   * Serializes this result to a plain, structured-cloneable object for sending
+   * across the Urlbar actor boundary. Most data lives in private fields that a
+   * bare structuredClone() would drop, so capture it explicitly; `rowIndex`,
+   * `viewTemplate`, and `commands` are the public own properties.
+   *
+   * @returns {object} The wire representation; reconstruct with fromWire().
+   */
+  toWire() {
+    return {
+      type: this.#type,
+      source: this.#source,
+      autofill: this.#autofill,
+      exposureTelemetry: this.#exposureTelemetry,
+      group: this.#group,
+      heuristic: this.#heuristic,
+      hideRowLabel: this.#hideRowLabel,
+      isBestMatch: this.#isBestMatch,
+      isBottomUrlSuggestion: this.#isBottomUrlSuggestion,
+      isRichSuggestion: this.#isRichSuggestion,
+      isSuggestedIndexRelativeToGroup: this.#isSuggestedIndexRelativeToGroup,
+      providerName: this.#providerName,
+      providerType: this.#providerType,
+      resultSpan: this.#resultSpan,
+      richSuggestionIconSize: this.#richSuggestionIconSize,
+      richSuggestionIconVariation: this.#richSuggestionIconVariation,
+      rowLabel: this.#rowLabel,
+      showFeedbackMenu: this.#showFeedbackMenu,
+      suggestedIndex: this.#suggestedIndex,
+      testForceNewContent: this.#testForceNewContent,
+      payload: this.#payload,
+      highlights: this.#highlights,
+      rowIndex: this.rowIndex,
+      viewTemplate: this.viewTemplate,
+      commands: this.commands,
+    };
+  }
+
+  /**
+   * Reconstructs a UrlbarResult from the plain object produced by toWire(),
+   * e.g. after it has crossed the Urlbar actor boundary.
+   *
+   * @param {object} wire The wire representation from toWire().
+   * @returns {UrlbarResult} The reconstructed result.
+   */
+  static fromWire(wire) {
+    let result = new UrlbarResult(wire);
+    // providerType and rowIndex aren't constructor parameters, so re-apply them.
+    result.providerType = wire.providerType;
+    result.rowIndex = wire.rowIndex;
+    result.viewTemplate = wire.viewTemplate;
+    result.commands = wire.commands;
+    return result;
   }
 
   #type;

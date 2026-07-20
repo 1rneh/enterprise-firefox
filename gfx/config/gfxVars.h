@@ -5,6 +5,7 @@
 #define mozilla_gfx_config_gfxVars_h
 
 #include <stdint.h>
+
 #include "mozilla/Assertions.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/gfx/GraphicsMessages.h"
@@ -125,6 +126,7 @@ class MOZ_STACK_CLASS gfxVarsCollectUpdates;
   _(AdapterDeviceID, nsCString, nsCString())                       \
   _(AdapterDriverVersion, nsCString, nsCString())                  \
   _(UseAImageReaderVideoGpuProcessAndroid, bool, false)            \
+  _(AllowMetalAngleWebGL, bool, false)                             \
 /* Add new entries above this line. */
 
 // Some graphics settings are computed on the UI process and must be

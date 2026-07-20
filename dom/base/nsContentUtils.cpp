@@ -387,6 +387,7 @@
 #include "nsQueryFrame.h"
 #include "nsQueryObject.h"
 #include "nsRange.h"
+#include "nsReadableUtils.h"
 #include "nsRefPtrHashtable.h"
 #include "nsSandboxFlags.h"
 #include "nsScriptSecurityManager.h"
@@ -5952,14 +5953,8 @@ void nsContentUtils::ReportDeprecation(
   MOZ_ASSERT(aGlobal);
   MOZ_ASSERT(aURI);
 
-  // If the URI has the data scheme, report that instead of the spec,
-  // as the spec may be arbitrarily long and we would like to avoid
-  // copying it.
-  nsAutoCString specOrScheme;
-  nsresult rv = nsContentUtils::AnonymizeURI(aURI, specOrScheme);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return;
-  }
+  nsAutoCString url;
+  ReportingUtils::StripURL(aURI, url);
 
   const char* operation =
       kDeprecatedOperations[static_cast<size_t>(aOperation)];
@@ -5972,25 +5967,27 @@ void nsContentUtils::ReportDeprecation(
 
   // XXX do we really want the localized string for deprecation report?
   nsAutoString msg;
-  rv = nsContentUtils::GetMaybeLocalizedString(PropertiesFile::DOM_PROPERTIES,
-                                               key.get(), aDoc, msg);
+  nsresult rv = nsContentUtils::GetMaybeLocalizedString(
+      PropertiesFile::DOM_PROPERTIES, key.get(), aDoc, msg);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
 
   Nullable<uint32_t> lineNumber;
   Nullable<uint32_t> columnNumber;
+  nsAutoCString sourceFile;
   if (aLocation) {
     lineNumber.SetValue(aLocation.mLine);
     columnNumber.SetValue(aLocation.mColumn);
+    ReportingUtils::StripLocationFileName(aLocation, sourceFile);
   }
 
   RefPtr<DeprecationReportBody> body =
       new DeprecationReportBody(aGlobal, type, nullptr /* date */, msg,
-                                aLocation.FileName(), lineNumber, columnNumber);
+                                sourceFile, lineNumber, columnNumber);
 
   ReportingUtils::Report(aGlobal, nsGkAtoms::deprecation, u"default"_ns,
-                         NS_ConvertUTF8toUTF16(specOrScheme), body);
+                         NS_ConvertUTF8toUTF16(url), body);
 }
 
 void nsContentUtils::LogMessageToConsole(const char* aMsg) {
@@ -9722,6 +9719,18 @@ bool nsContentUtils::IPCTransferableDataItemHasKnownFlavor(
     }
   }
 
+  // Clipboard custom type. Only recognise "web foo/bar" as a known flavor
+  // when the web custom format feature is enabled; otherwise DnD or other
+  // callers must not be able to slip web custom flavors through this helper.
+  const nsCString& flavor = aItem.flavor();
+  if (StaticPrefs::dom_clipboard_customFormatSupport_enabled() &&
+      StringBeginsWith(flavor, nsLiteralCString(kWebCustomFormatPrefix))) {
+    if (RefPtr<CMimeType> parsedType = CMimeType::Parse(Substring(
+            flavor, strlen(kWebCustomFormatPrefix), flavor.Length()))) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -10469,6 +10478,10 @@ Result<bool, nsresult> nsContentUtils::SynthesizeMouseEvent(
     }
   } else if (aOptions.mIsAsyncEnabled ||
              StaticPrefs::test_events_async_enabled()) {
+    // The event is dispatched asynchronously via WebDriver when it is not
+    // targeted directly at a window and async dispatching is requested.
+    mouseOrPointerEvent.mFlags.mIsAsyncSynthesizedForTests =
+        aOptions.mIsDOMEventSynthesized;
     status = aWidget->DispatchInputEvent(&mouseOrPointerEvent).mContentStatus;
   } else {
     status = aWidget->DispatchEvent(&mouseOrPointerEvent);
@@ -13114,21 +13127,6 @@ void nsContentUtils::InnerOrOuterWindowDestroyed() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(sInnerOrOuterWindowCount > 0);
   --sInnerOrOuterWindowCount;
-}
-
-/* static */
-nsresult nsContentUtils::AnonymizeURI(nsIURI* aURI, nsCString& aAnonymizedURI) {
-  MOZ_ASSERT(aURI);
-
-  if (aURI->SchemeIs("data")) {
-    aAnonymizedURI.Assign("data:..."_ns);
-    return NS_OK;
-  }
-  // Anonymize the URL.
-  // Strip the URL of any possible username/password and make it ready to be
-  // presented in the UI.
-  nsCOMPtr<nsIURI> exposableURI = net::nsIOService::CreateExposableURI(aURI);
-  return exposableURI->GetSpec(aAnonymizedURI);
 }
 
 static bool JSONCreator(const char16_t* aBuf, uint32_t aLen, void* aData) {

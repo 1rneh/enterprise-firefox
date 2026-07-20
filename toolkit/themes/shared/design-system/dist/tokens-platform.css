@@ -43,6 +43,9 @@
     --font-size-root: unset;
     --font-size-small: unset;
 
+    /** info-bar **/
+    --info-bar-border-color: var(--toolbarseparator-color);
+
     /** input **/
     --input-text-background-color: Field;
     --input-text-color: FieldText;
@@ -95,7 +98,7 @@
    until Bug 1879349 lands */
 @layer tokens-browser-theme {
   @media not ((forced-colors) or (-moz-native-theme)) {
-    :root:not([lwtheme]),
+    :root:is([theme-in-app], :not([lwtheme])),
     :host(.anonymous-content-host) {
       /** background-color **/
       --background-color-dimmed: light-dark(color-mix(in srgb, currentColor 12%, transparent), color-mix(in srgb, currentColor 17%, transparent));
@@ -117,12 +120,17 @@
       --color-accent-primary-active: light-dark(var(--color-blue-80), var(--color-cyan-10));
       --color-accent-primary-selected: light-dark(var(--color-blue-60), var(--color-cyan-30));
 
+      /** info-bar **/
+      --info-bar-border-color: light-dark(var(--color-violet-desaturated-20), var(--color-gray-60));
+
       /** input **/
       --input-text-background-color: light-dark(var(--color-white), #42414d);
       --input-text-color: light-dark(rgb(21, 20, 26), rgb(251, 251, 254));
 
       /** link **/
-      --link-color: light-dark(var(--color-blue-60), var(--color-cyan-30));
+      --link-color: var(--color-accent-primary);
+      --link-color-hover: var(--color-accent-primary-hover);
+      --link-color-active: var(--color-accent-primary-active);
 
       /** panel **/
       --panel-background-color: light-dark(var(--color-white), rgb(66, 65, 77));
@@ -176,9 +184,6 @@
       --color-accent-primary-active: color-mix(in srgb, black 20%, var(--color-accent-primary));
       --color-accent-primary-selected: SelectedItem;
 
-      /** link **/
-      --link-color: LinkText;
-
       /** panel **/
       --panel-background-color: Field;
       --panel-border-color: var(--border-color-deemphasized);
@@ -209,7 +214,7 @@
    until Bug 1879349 lands */
   @layer tokens-browser-theme-nova {
     @media not ((forced-colors) or (-moz-native-theme)) {
-      :root:not([lwtheme]),
+      :root:is([theme-in-app], :not([lwtheme])),
       :host(.anonymous-content-host) {
         /** button **/
         /* TODO Bug 1821203 - Gray use needs to be consolidated */
@@ -227,9 +232,6 @@
         --color-accent-primary-hover: light-dark(var(--color-violet-60), var(--color-violet-20));
         --color-accent-primary-active: light-dark(var(--color-violet-70), var(--color-violet-10));
         --color-accent-primary-selected: var(--button-background-color-primary-active);
-
-        /** link **/
-        --link-color: var(--color-accent-primary);
 
         /** panel **/
         --panel-background-color: var(--background-color-box);

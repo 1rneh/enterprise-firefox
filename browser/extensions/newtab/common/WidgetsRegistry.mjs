@@ -105,6 +105,12 @@ export const PREF_WIDGETS_STOCKS_ENABLED = "widgets.stocks.enabled";
 export const PREF_STOCKS_SIZE = "widgets.stocks.size";
 export const PREF_WIDGETS_SYSTEM_STOCKS_ENABLED =
   "widgets.system.stocks.enabled";
+export const PREF_CROSSWORD_ENDPOINT = "widgets.crossword.endpoint";
+export const PREF_WIDGETS_PICTURE_OF_THE_DAY_ENABLED =
+  "widgets.pictureOfTheDay.enabled";
+export const PREF_PICTURE_OF_THE_DAY_SIZE = "widgets.pictureOfTheDay.size";
+export const PREF_WIDGETS_SYSTEM_PICTURE_OF_THE_DAY_ENABLED =
+  "widgets.system.pictureOfTheDay.enabled";
 
 /**
  * @typedef {object} WidgetRegistryEntry
@@ -122,14 +128,32 @@ export const PREF_WIDGETS_SYSTEM_STOCKS_ENABLED =
  * @property {string|null} trainhopSidebarKey - Key in trainhopConfig.widgets.* for the hasSidebar override.
  * @property {string} widgetsSettingsVisibleKey - Key in trainhopConfig.widgetsSettings.* that additively reveals this widget's toggle in the settings UIs (does not enable the widget).
  * @property {string} widgetsSettingsEnabledKey - Key in trainhopConfig.widgetsSettings.* that overrides this widget's default enabled value (written to the pref default branch; an explicit user toggle still wins).
+ * @property {string|null} [trainhopNamespace] - When set, the widget ships its whole config in one dedicated object at trainhopConfig.<namespace>. Its `enabled` overrides the default value of enabledPref on the default branch (user toggle still wins, like widgetsSettings.*Enabled); `visible` reveals the widget (isWidgetAddable) without writing a pref; `size` is read by resolveWidgetSize. Only Picture of the Day uses this today.
  */
 
 /** @type {WidgetRegistryEntry[]} */
 export const WIDGET_REGISTRY = [
   {
+    id: "pictureOfTheDay",
+    telemetryName: "picture_of_the_day",
+    order: 0,
+    enabledPref: PREF_WIDGETS_PICTURE_OF_THE_DAY_ENABLED,
+    sizePref: PREF_PICTURE_OF_THE_DAY_SIZE,
+    defaultSize: "medium",
+    validSizes: ["medium", "large"],
+    hasSidebar: false,
+    systemEnabledPref: PREF_WIDGETS_SYSTEM_PICTURE_OF_THE_DAY_ENABLED,
+    trainhopEnabledKey: "pictureOfTheDayEnabled",
+    trainhopSizeKey: "pictureOfTheDaySize",
+    trainhopSidebarKey: null,
+    widgetsSettingsVisibleKey: "pictureOfTheDayVisible",
+    widgetsSettingsEnabledKey: "pictureOfTheDayEnabled",
+    trainhopNamespace: "widgetPictureOfTheDay",
+  },
+  {
     id: "sportsWidget",
     telemetryName: "sports",
-    order: 0,
+    order: 1,
     enabledPref: PREF_WIDGETS_SPORTS_WIDGET_ENABLED,
     sizePref: PREF_SPORTS_WIDGET_SIZE,
     defaultSize: "medium",
@@ -145,7 +169,7 @@ export const WIDGET_REGISTRY = [
   {
     id: "clocks",
     telemetryName: "clocks",
-    order: 1,
+    order: 2,
     enabledPref: PREF_WIDGETS_CLOCKS_ENABLED,
     sizePref: PREF_CLOCKS_SIZE,
     defaultSize: "medium",
@@ -161,7 +185,7 @@ export const WIDGET_REGISTRY = [
   {
     id: "lists",
     telemetryName: "lists",
-    order: 2,
+    order: 3,
     enabledPref: PREF_WIDGETS_LISTS_ENABLED,
     sizePref: PREF_LISTS_SIZE,
     defaultSize: "medium",
@@ -177,7 +201,7 @@ export const WIDGET_REGISTRY = [
   {
     id: "focusTimer",
     telemetryName: "focus_timer",
-    order: 3,
+    order: 4,
     enabledPref: PREF_WIDGETS_TIMER_ENABLED,
     sizePref: PREF_FOCUS_TIMER_SIZE,
     defaultSize: "medium",
@@ -193,7 +217,7 @@ export const WIDGET_REGISTRY = [
   {
     id: "weather",
     telemetryName: "weather",
-    order: 4,
+    order: 5,
     enabledPref: PREF_WIDGETS_WEATHER_ENABLED,
     sizePref: PREF_WEATHER_SIZE,
     defaultSize: "small",
@@ -209,7 +233,7 @@ export const WIDGET_REGISTRY = [
   {
     id: "privacy",
     telemetryName: "privacy",
-    order: 5,
+    order: 6,
     enabledPref: PREF_WIDGETS_PRIVACY_ENABLED,
     sizePref: PREF_PRIVACY_SIZE,
     defaultSize: "medium",
@@ -225,7 +249,7 @@ export const WIDGET_REGISTRY = [
   {
     id: "crossword",
     telemetryName: "crossword",
-    order: 6,
+    order: 7,
     enabledPref: PREF_WIDGETS_CROSSWORD_ENABLED,
     sizePref: PREF_CROSSWORD_SIZE,
     defaultSize: "medium",
@@ -241,7 +265,7 @@ export const WIDGET_REGISTRY = [
   {
     id: "stocks",
     telemetryName: "stocks",
-    order: 7,
+    order: 8,
     enabledPref: PREF_WIDGETS_STOCKS_ENABLED,
     sizePref: PREF_STOCKS_SIZE,
     defaultSize: "medium",
@@ -308,6 +332,8 @@ export function resolveWidgetOrder(prefs) {
  */
 export function isWidgetAddable(widget, prefs) {
   return Boolean(
+    (widget.trainhopNamespace &&
+      prefs.trainhopConfig?.[widget.trainhopNamespace]?.visible) ||
     prefs.trainhopConfig?.widgets?.[widget.trainhopEnabledKey] ||
     prefs.trainhopConfig?.widgetsSettings?.[widget.widgetsSettingsVisibleKey] ||
     prefs[widget.systemEnabledPref]
@@ -385,10 +411,13 @@ export function resolveWidgetSize(widget, prefs) {
   if (userPref) {
     return userPref;
   }
+  const dedicatedSize = widget.trainhopNamespace
+    ? prefs.trainhopConfig?.[widget.trainhopNamespace]?.size
+    : null;
   const trainhopSize = widget.trainhopSizeKey
     ? prefs.trainhopConfig?.widgets?.[widget.trainhopSizeKey]
     : null;
-  return trainhopSize || widget.defaultSize;
+  return dedicatedSize || trainhopSize || widget.defaultSize;
 }
 
 /**
@@ -408,6 +437,22 @@ export function resolveWidgetHasSidebar(widget, prefs) {
     }
   }
   return widget.hasSidebar;
+}
+
+/**
+ * Returns the Merino endpoint the Crossword widget iframe should load.
+ * A trainhopConfig.widgets.crosswordEndpoint override wins over the raw pref so
+ * the endpoint can be swapped (e.g. staging to production) without a release.
+ * The raw pref is never read directly by the component.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {string}
+ */
+export function resolveCrosswordEndpoint(prefs) {
+  return (
+    prefs.trainhopConfig?.widgets?.crosswordEndpoint ||
+    prefs[PREF_CROSSWORD_ENDPOINT]
+  );
 }
 
 /**

@@ -106,24 +106,29 @@ already_AddRefed<Buffer> Device::CreateBuffer(
   return Buffer::Create(this, GetId(), aDesc, aRv);
 }
 
-already_AddRefed<Texture> Device::CreateTextureForSwapChain(
-    const dom::GPUCanvasConfiguration* const aConfig,
-    const gfx::IntSize& aCanvasSize, layers::RemoteTextureOwnerId aOwnerId) {
-  MOZ_ASSERT(aConfig);
-
+/* static */ dom::GPUTextureDescriptor Device::SwapChainTextureDescriptor(
+    const dom::GPUCanvasConfiguration& aConfig,
+    const gfx::IntSize& aCanvasSize) {
   dom::GPUTextureDescriptor desc;
   desc.mDimension = dom::GPUTextureDimension::_2d;
   auto& sizeDict = desc.mSize.SetAsGPUExtent3DDict();
   sizeDict.mWidth = aCanvasSize.width;
   sizeDict.mHeight = aCanvasSize.height;
   sizeDict.mDepthOrArrayLayers = 1;
-  desc.mFormat = aConfig->mFormat;
+  desc.mFormat = aConfig.mFormat;
   desc.mMipLevelCount = 1;
   desc.mSampleCount = 1;
-  desc.mUsage = aConfig->mUsage | dom::GPUTextureUsage_Binding::COPY_SRC;
-  desc.mViewFormats = aConfig->mViewFormats;
+  desc.mUsage = aConfig.mUsage | dom::GPUTextureUsage_Binding::COPY_SRC;
+  desc.mViewFormats = aConfig.mViewFormats;
+  return desc;
+}
 
-  return CreateTexture(desc, Some(aOwnerId));
+already_AddRefed<Texture> Device::CreateTextureForSwapChain(
+    const dom::GPUCanvasConfiguration* const aConfig,
+    const gfx::IntSize& aCanvasSize, layers::RemoteTextureOwnerId aOwnerId) {
+  MOZ_ASSERT(aConfig);
+  return CreateTexture(SwapChainTextureDescriptor(*aConfig, aCanvasSize),
+                       Some(aOwnerId));
 }
 
 already_AddRefed<Texture> Device::CreateTexture(
@@ -269,9 +274,37 @@ already_AddRefed<CommandEncoder> Device::CreateCommandEncoder(
 
 already_AddRefed<RenderBundleEncoder> Device::CreateRenderBundleEncoder(
     const dom::GPURenderBundleEncoderDescriptor& aDesc) {
-  auto id = ffi::wgpu_client_make_render_bundle_encoder_id(GetClient());
-  RefPtr<RenderBundleEncoder> encoder =
-      new RenderBundleEncoder(this, id, aDesc);
+  ffi::WGPURenderBundleEncoderDescriptor desc = {};
+  desc.sample_count = aDesc.mSampleCount;
+
+  webgpu::StringHelper label(aDesc.mLabel);
+  desc.label = label.Get();
+
+  ffi::WGPUTextureFormat depthStencilFormat = {ffi::WGPUTextureFormat_Sentinel};
+  if (aDesc.mDepthStencilFormat.WasPassed()) {
+    depthStencilFormat =
+        ConvertTextureFormat(aDesc.mDepthStencilFormat.Value());
+    desc.depth_stencil_format = &depthStencilFormat;
+  }
+
+  std::vector<ffi::WGPUFfiOption_TextureFormat> colorFormats = {};
+  for (const auto i : IntegerRange(aDesc.mColorFormats.Length())) {
+    ffi::WGPUFfiOption_TextureFormat opt = {};
+    if (aDesc.mColorFormats[i].IsNull()) {
+      opt.tag = ffi::WGPUFfiOption_TextureFormat_None_TextureFormat;
+    } else {
+      opt.tag = ffi::WGPUFfiOption_TextureFormat_Some_TextureFormat;
+      opt.some = ConvertTextureFormat(aDesc.mColorFormats[i].Value());
+    }
+    colorFormats.push_back(opt);
+  }
+
+  desc.color_formats = {colorFormats.data(), colorFormats.size()};
+
+  RawId id = ffi::wgpu_client_create_render_bundle_encoder(GetClient(), GetId(),
+                                                           &desc);
+
+  RefPtr<RenderBundleEncoder> encoder = new RenderBundleEncoder(this, id);
   encoder->SetLabel(aDesc.mLabel);
   return encoder.forget();
 }
@@ -990,14 +1023,22 @@ already_AddRefed<Texture> Device::InitSwapChain(
                                       gfx::ColorSpace2::SRGB,
                                       gfx::TransferFunction::SRGB);
 
+  const auto textureDesc = SwapChainTextureDescriptor(*aConfig, aCanvasSize);
+  AutoTArray<ffi::WGPUTextureFormat, 8> viewFormats;
+  for (auto format : textureDesc.mViewFormats) {
+    viewFormats.AppendElement(ConvertTextureFormat(format));
+  }
+
   ffi::wgpu_client_create_swap_chain(
       GetClient(), GetId(), mQueue->GetId(), rgbDesc.size().Width(),
-      rgbDesc.size().Height(), (int8_t)rgbDesc.format(), aOwnerId.mId,
+      rgbDesc.size().Height(), (int8_t)rgbDesc.format(),
+      ConvertTextureFormat(textureDesc.mFormat), textureDesc.mUsage,
+      {viewFormats.Elements(), viewFormats.Length()}, aOwnerId.mId,
       aUseSharedTextureInSwapChain);
 
   // TODO: `mColorSpace`: <https://bugzilla.mozilla.org/show_bug.cgi?id=1846608>
   // TODO: `mAlphaMode`: <https://bugzilla.mozilla.org/show_bug.cgi?id=1846605>
-  return CreateTextureForSwapChain(aConfig, aCanvasSize, aOwnerId);
+  return CreateTexture(textureDesc, Some(aOwnerId));
 }
 
 bool Device::CheckNewWarning(const nsACString& aMessage) {

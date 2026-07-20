@@ -9,8 +9,6 @@
 // real Rust engine stays live, driven via its FFI inputs; an IP-literal origin
 // avoids DNS.
 
-#include "gtest/gtest.h"
-
 #include "ConnectionEntry.h"
 #include "ConnectionEstablisher.h"
 #include "HappyEyeballsConnMgrDelegate.h"
@@ -21,14 +19,16 @@
 #include "NullHttpTransaction.h"
 #include "PendingTransactionInfo.h"
 #include "ZeroRttHandle.h"
+#include "gtest/gtest.h"
+#include "mozilla/Preferences.h"
 #include "mozilla/net/ClassOfService.h"
 #include "mozilla/net/DNS.h"
 #include "nsHttpConnectionInfo.h"
 #include "nsHttpRequestHead.h"
 #include "nsHttpTransaction.h"
+#include "nsIHttpProtocolHandler.h"
 #include "nsISeekableStream.h"
 #include "nsISocketTransportService.h"
-#include "nsIHttpProtocolHandler.h"
 #include "nsNetAddr.h"
 #include "nsServiceManagerUtils.h"
 #include "nsSocketTransportService2.h"
@@ -141,7 +141,7 @@ class FakeConnectionEstablisher final : public ConnectionEstablisher {
     mCallback = std::move(aCallback);
     return true;
   }
-  void Close(nsresult) override {}
+  void Close(nsresult) override { ++mCloseCount; }
   void ResetSpeculativeFlags() override {}
   bool IsUDP() const override { return mIsUDP; }
 
@@ -150,6 +150,8 @@ class FakeConnectionEstablisher final : public ConnectionEstablisher {
     mCallback(RefPtr<HttpConnectionBase>(aConn));
   }
   void FireError(nsresult aError) { mCallback(Err(aError)); }
+
+  uint32_t mCloseCount = 0;
 
  private:
   ~FakeConnectionEstablisher() = default;
@@ -219,7 +221,10 @@ class RecordingConnMgrDelegate final : public HappyEyeballsConnMgrDelegate {
   void RecordIPFamilyPreference(ConnectionEntry*, uint16_t) override {
     mCalls.AppendElement("RecordIPFamilyPreference"_ns);
   }
-  bool MaybeProcessCoalescingKeys(ConnectionEntry*, nsIDNSAddrRecord*,
+  void ResetIPFamilyPreference(ConnectionEntry*) override {
+    mCalls.AppendElement("ResetIPFamilyPreference"_ns);
+  }
+  bool MaybeProcessCoalescingKeys(ConnectionEntry*, const nsTArray<NetAddr>&,
                                   bool) override {
     mCalls.AppendElement("MaybeProcessCoalescingKeys"_ns);
     return false;
@@ -227,6 +232,11 @@ class RecordingConnMgrDelegate final : public HappyEyeballsConnMgrDelegate {
   bool RemoveTransFromPendingQ(ConnectionEntry*, nsHttpTransaction*) override {
     mCalls.AppendElement("RemoveTransFromPendingQ"_ns);
     return false;
+  }
+  nsresult StartRetryWithoutTRR(ConnectionEntry*, nsHttpTransaction*, uint32_t,
+                                bool, bool, bool) override {
+    mCalls.AppendElement("StartRetryWithoutTRR"_ns);
+    return mStartRetryWithoutTRRRv;
   }
 
   int32_t Count(const char* aName) const {
@@ -250,6 +260,7 @@ class RecordingConnMgrDelegate final : public HappyEyeballsConnMgrDelegate {
   nsTArray<nsCString> mCalls;
   RefPtr<PendingTransactionInfo> mFindResult;
   nsresult mDispatchRv = NS_OK;
+  nsresult mStartRetryWithoutTRRRv = NS_OK;
   bool mSimulateDispatchBindsConnection = false;
   nsTArray<RefPtr<ConnectionHandle>> mDispatchHandles;
 };
@@ -538,6 +549,78 @@ TEST(HappyEyeballsConnectionAttempt, ProcessTCPConnSkipsRequeueWhenConnected)
   });
 }
 
+// Bug 2051415: on H2->H1 fallback the connection manager abandons the stale
+// in-flight attempt. Verifies the property the fix relies on: Abandon() closes
+// the establisher, so a late success can't fire and re-queue the transaction.
+TEST(HappyEyeballsConnectionAttempt, AbandonClosesInFlightEstablisher)
+{
+  EnsureHttpHandler();
+  RunOnSocketThread([]() {
+    RefPtr<nsHttpConnectionInfo> ci =
+        new nsHttpConnectionInfo("127.0.0.1"_ns, 443, ""_ns, ""_ns, nullptr,
+                                 OriginAttributes(), /*endToEndSSL*/ true);
+    RefPtr<nsHttpTransaction> realTrans = new nsHttpTransaction();
+    // Stand-in for the WebSocket upgrade.
+    realTrans->SetIsForWebTransport(true);
+    nsTHashSet<ConnectionEntry*> pendingQSet;
+
+    RefPtr<ConnectionEntry> entry = new ConnectionEntry(ci, pendingQSet);
+    RefPtr<FakeConnectionEstablisherFactory> factory =
+        new FakeConnectionEstablisherFactory();
+    RefPtr<RecordingConnMgrDelegate> delegate = new RecordingConnMgrDelegate();
+    RefPtr<HappyEyeballsConnectionAttempt> hca =
+        new HappyEyeballsConnectionAttempt(ci, realTrans, /*caps*/ 0,
+                                           /*speculative*/ false,
+                                           /*urgentStart*/ false);
+    hca->SetConnectionEstablisherFactoryForTesting(factory);
+    hca->SetConnMgrDelegateForTesting(delegate);
+    hca->Init(entry);
+    ASSERT_GE(factory->mTCP.Length(), 1u);
+    EXPECT_FALSE(hca->IsTerminal());
+    EXPECT_EQ(factory->mTCP[0]->mCloseCount, 0u)
+        << "the establisher is still in flight before abandonment";
+
+    // The connection manager abandons the stale attempt on H2->H1 fallback.
+    hca->Abandon();
+
+    EXPECT_TRUE(hca->IsTerminal())
+        << "an abandoned attempt is terminal and cannot reach ProcessTCPConn";
+    EXPECT_EQ(factory->mTCP[0]->mCloseCount, 1u)
+        << "abandoning closes the in-flight establisher, so a late success "
+           "can't fire and re-queue the restarted transaction (bug 2051415)";
+    EXPECT_FALSE(realTrans->Closed())
+        << "abandoning the attempt must not close the restarted transaction";
+  });
+}
+
+// Bug 2051415, 0-RTT corner. The manager detaches the transaction
+// (ForgetRealTransaction) before abandoning, so EnterDone's "0-RTT started, no
+// winner" path can't re-queue it (cf. ZeroRttNoWinnerFallback, which does).
+TEST(HappyEyeballsConnectionAttempt,
+     ForgetRealTransactionPreventsAbandonRequeue)
+{
+  EnsureHttpHandler();
+  RunOnSocketThread([]() {
+    TestHarness h(/*caps*/ 0, /*realTransaction*/ true);
+    h.Init();
+    ASSERT_GE(h.mFactory->mTCP.Length(), 1u);
+
+    // A racer entered 0-RTT but never won -- the case EnterDone re-queues.
+    h.mHE->ZeroRttHandleForTesting()->SetAnyStartedForTesting();
+
+    // Manager takes over the transaction, detaching it before abandoning.
+    h.mHE->ForgetRealTransaction();
+    h.mHE->Abandon();
+
+    EXPECT_TRUE(h.mHE->IsTerminal());
+    EXPECT_EQ(h.mDelegate->Count("AddTransaction"), 0)
+        << "a detached, abandoned attempt must not re-queue the transaction "
+           "the connection manager is restarting (bug 2051415)";
+    EXPECT_EQ(h.mFactory->mTCP[0]->mCloseCount, 1u)
+        << "abandoning still closes the in-flight establisher";
+  });
+}
+
 // 0-RTT winner-offset handling: several racers each advance the real
 // transaction's request stream to a different Request0RttStreamOffset (the
 // bytes that racer sent as early data). When one wins via Finish0RTT(accept),
@@ -562,7 +645,7 @@ TEST(HappyEyeballsConnectionAttempt, ZeroRttWinnerUsesItsOwnStreamOffset)
     RefPtr<nsHttpTransaction> realTrans = new nsHttpTransaction();
     nsresult rv = realTrans->Init(
         NS_HTTP_USE_HAPPY_EYEBALLS, ci, &reqHead, /*reqBody*/ nullptr,
-        /*reqContentLength*/ 0, /*reqBodyHasHeaders*/ false,
+        /*reqContentLength*/ 0,
         /*target*/ gSocketTransportService, /*callbacks*/ nullptr,
         /*eventsink*/ nullptr, /*browserId*/ 0, HttpTrafficCategory::eInvalid,
         /*requestContext*/ nullptr, ClassOfService(), /*initialRwin*/ 0,
@@ -630,6 +713,125 @@ TEST(HappyEyeballsConnectionAttempt, ZeroRttWinnerUsesItsOwnStreamOffset)
     realTrans->SetConnection(nullptr);
     winnerHandle->Reset();
   });
+}
+
+// Helper: a real, 0-RTT-capable transaction for the ZeroRttHandle tests.
+static already_AddRefed<nsHttpTransaction> MakeRealTransaction(
+    nsHttpConnectionInfo* aCi, nsHttpRequestHead* aReqHead) {
+  aReqHead->SetMethod("GET"_ns);
+  aReqHead->SetVersion(HttpVersion::v1_1);
+  aReqHead->SetRequestURI("/"_ns);
+  RefPtr<nsHttpTransaction> trans = new nsHttpTransaction();
+  nsresult rv = trans->Init(
+      NS_HTTP_USE_HAPPY_EYEBALLS, aCi, aReqHead, /*reqBody*/ nullptr,
+      /*reqContentLength*/ 0, /*target*/ gSocketTransportService,
+      /*callbacks*/ nullptr,
+      /*eventsink*/ nullptr, /*browserId*/ 0, HttpTrafficCategory::eInvalid,
+      /*requestContext*/ nullptr, ClassOfService(), /*initialRwin*/ 0,
+      /*responseTimeoutEnabled*/ false, /*channelId*/ 0,
+      /*transactionObserver*/ nullptr, nsILoadInfo::IPAddressSpace::Unknown,
+      LNAPerms{});
+  MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
+  return trans.forget();
+}
+
+// Regression for bug 2051776 (winner-then-loser). Once a winner is declared,
+// ZeroRttHandle::Cleanup() nulls mWinner and leaves mState == CleanedUp, so a
+// late Finish0RTT from a losing racer must be a no-op -- not trip the
+// MOZ_ASSERT(mState == State::Open) in ZeroRttHandle::Finish0RTT.
+TEST(HappyEyeballsConnectionAttempt, ZeroRttLateLoserFinish0RTTAfterWinner)
+{
+  EnsureHttpHandler();
+  RunOnSocketThread([]() {
+    RefPtr<nsHttpConnectionInfo> ci =
+        new nsHttpConnectionInfo("127.0.0.1"_ns, 443, ""_ns, ""_ns, nullptr,
+                                 OriginAttributes(), /*endToEndSSL*/ true);
+    // The request head is held by weak reference; it must outlive realTrans.
+    nsHttpRequestHead reqHead;
+    RefPtr<nsHttpTransaction> realTrans = MakeRealTransaction(ci, &reqHead);
+
+    RefPtr<HappyEyeballsConnectionAttempt> hca =
+        new HappyEyeballsConnectionAttempt(ci, realTrans, /*caps*/ 0,
+                                           /*speculative*/ false,
+                                           /*urgentStart*/ false);
+    ZeroRttHandle* zrh = hca->ZeroRttHandleForTesting();
+    ASSERT_TRUE(zrh);
+
+    auto noStatus = [](nsITransport*, nsresult, int64_t) {};
+    auto noAuth = []() {};
+    RefPtr<HappyEyeballsTransaction> hetWinner =
+        new HappyEyeballsTransaction(ci, nullptr, /*caps*/ 0, /*browserId*/ 0,
+                                     noStatus, noAuth, noAuth, zrh);
+    RefPtr<HappyEyeballsTransaction> hetLoser =
+        new HappyEyeballsTransaction(ci, nullptr, /*caps*/ 0, /*browserId*/ 0,
+                                     noStatus, noAuth, noAuth, zrh);
+    hetWinner->Request0RttStreamOffset() = Some<uint64_t>(0);
+    hetLoser->Request0RttStreamOffset() = Some<uint64_t>(0);
+
+    RefPtr<FakeHttpConnection> winnerConn =
+        new FakeHttpConnection(/*usingHttp3*/ false, /*usingSpdy*/ true);
+    RefPtr<ConnectionHandle> winnerHandle = new ConnectionHandle(winnerConn);
+    hetWinner->SetConnection(winnerHandle);
+    hetWinner->SetConnectedCallback([](nsresult) {});
+
+    // Declare the winner -> Cleanup() nulls mWinner, mState = CleanedUp.
+    hetWinner->Finish0RTT(/*aRestart*/ false, /*aAlpnChanged*/ false);
+
+    // Late loser Finish0RTT after cleanup: must be a no-op (asserts before
+    // fix).
+    hetLoser->Finish0RTT(/*aRestart*/ false, /*aAlpnChanged*/ false);
+
+    EXPECT_FALSE(realTrans->Closed());
+
+    realTrans->SetConnection(nullptr);
+    winnerHandle->Reset();
+  });
+}
+
+// Regression for bug 2051776 (real-txn-gone path). The first Finish0RTT takes
+// the !realTxn branch and calls Cleanup() without ever declaring a winner
+// (mHadWinner stays false), so a second Finish0RTT must still be a no-op. Only
+// a state-based guard covers this path.
+TEST(HappyEyeballsConnectionAttempt, ZeroRttLateLoserFinish0RTTAfterRealTxnGone)
+{
+  EnsureHttpHandler();
+  Preferences::SetBool("network.http.0rtt_force_txn_gone_for_testing", true);
+  RunOnSocketThread([]() {
+    RefPtr<nsHttpConnectionInfo> ci =
+        new nsHttpConnectionInfo("127.0.0.1"_ns, 443, ""_ns, ""_ns, nullptr,
+                                 OriginAttributes(), /*endToEndSSL*/ true);
+    nsHttpRequestHead reqHead;
+    RefPtr<nsHttpTransaction> realTrans = MakeRealTransaction(ci, &reqHead);
+
+    RefPtr<HappyEyeballsConnectionAttempt> hca =
+        new HappyEyeballsConnectionAttempt(ci, realTrans, /*caps*/ 0,
+                                           /*speculative*/ false,
+                                           /*urgentStart*/ false);
+    ZeroRttHandle* zrh = hca->ZeroRttHandleForTesting();
+    ASSERT_TRUE(zrh);
+
+    auto noStatus = [](nsITransport*, nsresult, int64_t) {};
+    auto noAuth = []() {};
+    RefPtr<HappyEyeballsTransaction> het1 =
+        new HappyEyeballsTransaction(ci, nullptr, /*caps*/ 0, /*browserId*/ 0,
+                                     noStatus, noAuth, noAuth, zrh);
+    RefPtr<HappyEyeballsTransaction> het2 =
+        new HappyEyeballsTransaction(ci, nullptr, /*caps*/ 0, /*browserId*/ 0,
+                                     noStatus, noAuth, noAuth, zrh);
+    het1->Request0RttStreamOffset() = Some<uint64_t>(0);
+    het2->Request0RttStreamOffset() = Some<uint64_t>(0);
+
+    // First Finish0RTT: the force pref makes the real txn "gone", taking the
+    // !realTxn branch -> Cleanup() without declaring a winner.
+    het1->Finish0RTT(/*aRestart*/ false, /*aAlpnChanged*/ false);
+
+    // Second Finish0RTT after that cleanup: must be a no-op (asserts before
+    // fix).
+    het2->Finish0RTT(/*aRestart*/ false, /*aAlpnChanged*/ false);
+
+    realTrans->SetConnection(nullptr);
+  });
+  Preferences::ClearUser("network.http.0rtt_force_txn_gone_for_testing");
 }
 
 }  // namespace net

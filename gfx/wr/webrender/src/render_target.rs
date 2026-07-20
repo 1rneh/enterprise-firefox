@@ -51,7 +51,6 @@ pub struct RenderTargetContext<'a, 'rc> {
     pub prim_store: &'a PrimitiveStore,
     pub resource_cache: &'rc mut ResourceCache,
     pub use_dual_source_blending: bool,
-    pub use_advanced_blending: bool,
     pub break_advanced_blend_batches: bool,
     pub batch_lookback_count: usize,
     pub spatial_tree: &'a SpatialTree,
@@ -365,6 +364,7 @@ impl RenderTarget {
                     info.texture_input,
                     ZBufferId(0),
                     BlendMode::None, // This parameter is ignored
+                    None,
                     render_tasks,
                     gpu_buffer_builder,
                     |key, instance| {
@@ -486,6 +486,7 @@ impl RenderTarget {
                     [RenderTaskId::INVALID; 3],
                     ZBufferId(0),
                     BlendMode::None, // This parameter is ignored.
+                    None,
                     render_tasks,
                     gpu_buffer_builder,
                     |_, prim| {
@@ -903,6 +904,7 @@ fn add_rect_clip_task_to_batch(
         [RenderTaskId::INVALID; 3],
         ZBufferId(0),
         BlendMode::None, // This parameter is ignored.
+        None,
         render_tasks,
         gpu_buffers,
         |_, prim| {
@@ -965,6 +967,7 @@ fn add_image_clip_task_to_batch(
         [task.src_task, RenderTaskId::INVALID, RenderTaskId::INVALID],
         ZBufferId(0),
         BlendMode::None, // This parameter is ignored.
+        None,
         render_tasks,
         gpu_buffers,
         |_, prim| {

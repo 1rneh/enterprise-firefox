@@ -423,6 +423,12 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyTheTabStripCloseTabButton: Verified close button for tab in tab strip is displayed")
     }
 
+    fun verifyTheTabStripAddTabButton() {
+        Log.i(TAG, "verifyTheTabStripAddTabButton: Trying to verify the tab strip \"Add tab\" button is displayed")
+        composeTestRule.onNodeWithContentDescription("Add tab").assertIsDisplayed()
+        Log.i(TAG, "verifyTheTabStripAddTabButton: Verified the tab strip \"Add tab\" button is displayed")
+    }
+
     fun verifyTheBackButton() {
         Log.i(TAG, "verifyTheBackButton: Trying to verify that the \"Back\" nav bar button is displayed in landscape mode.")
         composeTestRule.onNodeWithContentDescription("Back").assertIsDisplayed()
@@ -689,9 +695,9 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
         }
 
         fun openUnifiedTrustPanel(interact: UnifiedTrustPanelRobot.() -> Unit): UnifiedTrustPanelRobot.Transition {
-            Log.i(TAG, "openSiteSecuritySheet: Trying to click the site security toolbar button and wait for $waitingTime ms for a new window")
+            Log.i(TAG, "openUnifiedTrustPanel: Trying to click the site information button and wait for $waitingTime ms for a new window")
             composeTestRule.onNodeWithContentDescription("Site information").performClick()
-            Log.i(TAG, "openSiteSecuritySheet: Clicked the site security toolbar button and waited for $waitingTime ms for a new window")
+            Log.i(TAG, "openUnifiedTrustPanel: Clicked the site information button and waited for $waitingTime ms for a new window")
             waitForAppWindowToBeUpdated()
 
             UnifiedTrustPanelRobot().interact()

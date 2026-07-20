@@ -40,8 +40,9 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1 0 0;
+  position: relative;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  background-color: var(--background-color-tabstrip);
+  background-color: var(--felt-background-color-tabstrip);
 }
 
 .felt-card {
@@ -74,7 +75,6 @@ body {
 .felt-updates {
   display: flex;
   flex-direction: column;
-  background: var(--background-color-box);
   flex: 1 0 0;
   justify-content: center;
   position: relative;

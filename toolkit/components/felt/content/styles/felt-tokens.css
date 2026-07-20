@@ -24,5 +24,5 @@
 }
 
 :root {
-  --background-color-tabstrip: light-dark(var(--color-gray-20), var(--color-gray-90));
+  --felt-background-color-tabstrip: light-dark(var(--color-gray-20), var(--color-gray-90));
 }

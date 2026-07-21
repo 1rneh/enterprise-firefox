@@ -90,11 +90,6 @@ git = "https://github.com/mozilla/cubeb-pulse-rs"
 rev = "88194f91c8778fa608a19af7b91306094525595d"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
-git = "https://github.com/mozilla/ipc-channel"
-rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
-replace-with = "vendored-sources"
-
 [source."git+https://github.com/mozilla/glean?tag=v68.0.0"]
 git = "https://github.com/mozilla/glean"
 tag = "v68.0.0"

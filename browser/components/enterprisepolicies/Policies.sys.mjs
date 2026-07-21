@@ -4332,7 +4332,3 @@ export var Policies = {
     },
   },
 };
-
-if (!AppConstants.MOZ_ENTERPRISE) {
-  delete Policies.Sync;
-}

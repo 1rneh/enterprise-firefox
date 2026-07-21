@@ -87,6 +87,9 @@ if CONFIG["USE_LIBZ_RS"]:
 if CONFIG["MOZ_ENTERPRISE"]:
     gkrust_features += ["felt"]
 
+if CONFIG["MOZ_FONTATIONS"]:
+    gkrust_features += ["fontations"]
+
 if CONFIG["MOZ_JXL"]:
     gkrust_features += ["jxl_decoder"]
 

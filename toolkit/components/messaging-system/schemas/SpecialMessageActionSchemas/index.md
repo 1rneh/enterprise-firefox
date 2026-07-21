@@ -241,13 +241,32 @@ Action for configuring the user homepage and restoring defaults.
 
 Action for pinning Firefox to the user's taskbar.
 
-* args: (none)
+- args:
+
+```ts
+{
+  privatePin?: boolean; // Pin private browsing mode
+  fireAndForget?: boolean; // Don't wait for user confirmation before resolving the action
+}
+```
 
 ### `PIN_FIREFOX_TO_START_MENU`
 
 Action for pinning Firefox to the user's Windows Start Menu in Windows MSIX builds only.
 
 - args: (none)
+
+### `PIN_AND_DEFAULT`
+Action for pinning Firefox to the user's taskbar and setting it as the default browser.
+
+- args:
+
+```ts
+{
+  privatePin?: boolean; // Pin private browsing mode
+  fireAndForget?: boolean; // Don't wait for user confirmation before resolving the action
+}
+```
 
 ### `SET_DEFAULT_BROWSER`
 
@@ -618,3 +637,14 @@ Configures Firefox to launch on Windows login.
 Removes Firefox from Windows login items.
 
 - args: (none)
+
+### `SET_BROWSER_ICON`
+
+Changes the browser icon to the one identified by `id` using `CustomIconManager`. Icon ids that are not present in the catalog are ignored. The `"default"` id reverts to the browser's own icon. Windows only, and not supported on MSIX (packaged) builds.
+
+- args:
+```ts
+{
+  id: string;  // The id of the icon to switch to, as listed in the CustomIconManager ICON_CATALOG
+}
+```

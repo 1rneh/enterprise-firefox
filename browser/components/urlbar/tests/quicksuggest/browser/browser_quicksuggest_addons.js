@@ -293,8 +293,8 @@ async function doShowLessFrequently({ input, expected, keepViewOpen = false }) {
       gURLBar.view.isOpen,
       "The view should remain open clicking the command"
     );
-    Assert.ok(
-      details.element.row.hasAttribute("feedback-acknowledgment"),
+    await TestUtils.waitForCondition(
+      () => details.element.row.hasAttribute("feedback-acknowledgment"),
       "Row should have feedback acknowledgment after clicking command"
     );
   } catch (e) {
@@ -331,22 +331,24 @@ async function doDismissTest(command, allDismissed) {
   let dismissalPromise = TestUtils.topicObserved(
     "quicksuggest-dismissals-changed"
   );
+  // The row is replaced by the acknowledgment tip via onQueryResultRemoved,
+  // which round-trips over the actor on the message path.
+  let removalPromise = UrlbarTestUtils.promiseControllerNotification(
+    window,
+    "onQueryResultRemoved"
+  );
   await UrlbarTestUtils.openResultMenuAndClickItem(window, [command], {
     resultIndex: EXPECTED_RESULT_INDEX,
     openByMouse: true,
   });
   info("Awaiting dismissal promise");
   await dismissalPromise;
+  await removalPromise;
 
   Assert.equal(
     UrlbarPrefs.get("suggest.addons"),
     !allDismissed,
     "suggest.addons should be true iff all suggestions weren't dismissed"
-  );
-  Assert.equal(
-    await QuickSuggest.isResultDismissed(details.result),
-    !allDismissed,
-    "Result should be dismissed iff all suggestions weren't dismissed"
   );
 
   // The row should be a tip now.

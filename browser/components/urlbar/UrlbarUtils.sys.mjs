@@ -56,26 +56,6 @@ const lazy = XPCOMUtils.declareLazy({
 });
 
 /**
- * @typedef {object} LocalSearchMode
- *   Represents a local search mode, e.g. bookmarks.
- *
- * @property {Values<typeof UrlbarShared.RESULT_SOURCE>} source
- *   The source which the search mode will search.
- * @property {Values<typeof UrlbarShared.RESTRICT_TOKENS>} restrict
- *   The restrict token that is associated with the search (*, %, $ etc).
- * @property {string} icon
- *   The URL of the icon associated with the search mode in preferences.
- * @property {string} pref
- *   The suffix of the preference associated with if the mode is displayed
- *   in the lists or not (prefix with `browser.urlbar.`).
- * @property {string} telemetryLabel
- *   The telemetry label for recording searches in this mode.
- * @property {string} uiLabel
- *   The L10n ID to use for the UI label.
- *   Has a value and an accesskey attribute.
- */
-
-/**
  * Parses a URL and returns the origin parts needed for moz_origins lookups.
  * Returns null if the URL is unparseable.
  *
@@ -93,190 +73,6 @@ function parseOriginParts(url) {
 }
 
 export var UrlbarUtils = {
-  // Results are categorized into groups to help the muxer compose them.  See
-  // UrlbarUtils.getResultGroup.  Since result groups are stored in result
-  // groups and result groups are stored in prefs, additions and changes to
-  // result groups may require adding UI migrations to BrowserGlue.  Be careful
-  // about making trivial changes to existing groups, like renaming them,
-  // because we don't want to make downgrades unnecessarily hard.
-  RESULT_GROUP: Object.freeze({
-    ABOUT_PAGES: "aboutPages",
-    AI: "ai",
-    GENERAL: "general",
-    GENERAL_PARENT: "generalParent",
-    FORM_HISTORY: "formHistory",
-    HEURISTIC_AUTOFILL: "heuristicAutofill",
-    HEURISTIC_AI_CHAT: "heuristicAiChat",
-    HEURISTIC_ENGINE_ALIAS: "heuristicEngineAlias",
-    HEURISTIC_EXTENSION: "heuristicExtension",
-    HEURISTIC_FALLBACK: "heuristicFallback",
-    HEURISTIC_BOOKMARK_KEYWORD: "heuristicBookmarkKeyword",
-    HEURISTIC_HISTORY_URL: "heuristicHistoryUrl",
-    HEURISTIC_OMNIBOX: "heuristicOmnibox",
-    HEURISTIC_RESTRICT_KEYWORD_AUTOFILL: "heuristicRestrictKeywordAutofill",
-    HEURISTIC_SEARCH_TIP: "heuristicSearchTip",
-    HEURISTIC_TEST: "heuristicTest",
-    HEURISTIC_TOKEN_ALIAS_ENGINE: "heuristicTokenAliasEngine",
-    INPUT_HISTORY: "inputHistory",
-    OMNIBOX: "extension",
-    RECENT_SEARCH: "recentSearch",
-    REMOTE_SUGGESTION: "remoteSuggestion",
-    REMOTE_TAB: "remoteTab",
-    RESTRICT_SEARCH_KEYWORD: "restrictSearchKeyword",
-    SEMANTIC_HISTORY: "semanticHistory",
-    SUGGESTED_INDEX: "suggestedIndex",
-    TAIL_SUGGESTION: "tailSuggestion",
-  }),
-
-  // Defines provider types.
-  PROVIDER_TYPE: Object.freeze({
-    // Should be executed immediately, because it returns heuristic results
-    // that must be handed to the user asap.
-    // WARNING: these providers must be extremely fast, because the urlbar will
-    // await for them before returning results to the user. In particular it is
-    // critical to reply quickly to isActive and startQuery.
-    HEURISTIC: 1,
-    // Can be delayed, contains results coming from the session or the profile.
-    PROFILE: 2,
-    // Can be delayed, contains results coming from the network.
-    NETWORK: 3,
-    // Can be delayed, contains results coming from unknown sources.
-    EXTENSION: 4,
-  }),
-
-  // Per-result exposure telemetry.
-  EXPOSURE_TELEMETRY: {
-    // Exposure telemetry will not be recorded for the result.
-    NONE: 0,
-    // Exposure telemetry will be recorded for the result and the result will be
-    // visible in the view as usual.
-    SHOWN: 1,
-    // Exposure telemetry will be recorded for the result but the result will
-    // not be present in the view.
-    HIDDEN: 2,
-  },
-
-  // This defines icon locations that are commonly used in the UI.
-  ICON: {
-    // DEFAULT is defined lazily so it doesn't eagerly initialize PlacesUtils.
-    EXTENSION: "chrome://mozapps/skin/extensions/extension.svg",
-    HISTORY: "chrome://browser/skin/history.svg",
-    SEARCH_GLASS: "chrome://global/skin/icons/search-glass.svg",
-    TRENDING: "chrome://global/skin/icons/trending.svg",
-    TIP: "chrome://global/skin/icons/lightbulb.svg",
-    GLOBE: "chrome://global/skin/icons/defaultFavicon.svg",
-  },
-
-  // The number of results by which Page Up/Down move the selection.
-  PAGE_UP_DOWN_DELTA: 5,
-
-  // IME composition states.
-  COMPOSITION: {
-    NONE: 1,
-    COMPOSING: 2,
-    COMMIT: 3,
-    CANCELED: 4,
-  },
-
-  // Limit the length of titles and URLs we display so layout doesn't spend too
-  // much time building text runs.
-  MAX_TEXT_LENGTH: 255,
-
-  // Whether a result should be highlighted up to the point the user has typed
-  // or after that point.
-  HIGHLIGHT: Object.freeze({
-    TYPED: 1,
-    SUGGESTED: 2,
-    ALL: 3,
-  }),
-
-  // UrlbarProviderPlaces's autocomplete results store their titles and tags
-  // together in their comments.  This separator is used to separate them.
-  // After bug 1717511, we should stop using this old hack and store titles and
-  // tags separately.  It's important that this be a character that no title
-  // would ever have.  We use \x1F, the non-printable unit separator.
-  TITLE_TAGS_SEPARATOR: "\x1F",
-
-  // Regex matching single word hosts with an optional port; no spaces, auth or
-  // path-like chars are admitted.
-  REGEXP_SINGLE_WORD: /^[^\s@:/?#]+(:\d+)?$/,
-
-  // Valid entry points for search mode. If adding a value here, please update
-  // telemetry documentation and metrics.yaml.
-  SEARCH_MODE_ENTRY: new Set([
-    "bookmarkmenu",
-    "handoff",
-    "keywordoffer",
-    "messagingSystem",
-    "oneoff",
-    "historymenu",
-    "other",
-    "searchbutton",
-    "shortcut",
-    "tabmenu",
-    "tabtosearch",
-    "tabtosearch_onboard",
-    "topsites_newtab",
-    "topsites_urlbar",
-    "touchbar",
-    "typed",
-  ]),
-
-  // The favicon service stores icons for URLs with the following protocols.
-  PROTOCOLS_WITH_ICONS: ["about:", "http:", "https:", "file:"],
-
-  // Valid URI schemes that are considered safe but don't contain
-  // an authority component (e.g host:port). There are many URI schemes
-  // that do not contain an authority, but these in particular have
-  // some likelihood of being entered or bookmarked by a user.
-  // `file:` is an exceptional case because an authority is optional
-  PROTOCOLS_WITHOUT_AUTHORITY: [
-    "about:",
-    "data:",
-    "file:",
-    "javascript:",
-    "view-source:",
-  ],
-
-  // Search mode objects corresponding to the local shortcuts in the view, in
-  // order they appear.  Pref names are relative to the `browser.urlbar` branch.
-  get LOCAL_SEARCH_MODES() {
-    return /** @type {LocalSearchMode[]} */ ([
-      {
-        source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
-        restrict: UrlbarShared.RESTRICT_TOKENS.BOOKMARK,
-        icon: "chrome://browser/skin/bookmark.svg",
-        pref: "shortcuts.bookmarks",
-        telemetryLabel: "bookmarks",
-        uiLabel: "urlbar-searchmode-bookmarks3",
-      },
-      {
-        source: UrlbarShared.RESULT_SOURCE.TABS,
-        restrict: UrlbarShared.RESTRICT_TOKENS.OPENPAGE,
-        icon: "chrome://browser/skin/tabs.svg",
-        pref: "shortcuts.tabs",
-        telemetryLabel: "tabs",
-        uiLabel: "urlbar-searchmode-tabs3",
-      },
-      {
-        source: UrlbarShared.RESULT_SOURCE.HISTORY,
-        restrict: UrlbarShared.RESTRICT_TOKENS.HISTORY,
-        icon: "chrome://browser/skin/history.svg",
-        pref: "shortcuts.history",
-        telemetryLabel: "history",
-        uiLabel: "urlbar-searchmode-history3",
-      },
-      {
-        source: UrlbarShared.RESULT_SOURCE.ACTIONS,
-        restrict: UrlbarShared.RESTRICT_TOKENS.ACTION,
-        icon: "chrome://browser/skin/quickactions.svg",
-        pref: "shortcuts.actions",
-        telemetryLabel: "actions",
-        uiLabel: "urlbar-searchmode-actions3",
-      },
-    ]);
-  },
-
   /**
    * Returns the payload schema for the given type of result.
    *
@@ -405,7 +201,7 @@ export var UrlbarUtils = {
    *
    * @param {Array} tokens The tokens to search for.
    * @param {string} str The string to match against.
-   * @param {Values<typeof this.HIGHLIGHT>} highlightType
+   * @param {Values<typeof UrlbarShared.HIGHLIGHT>} highlightType
    *   One of the HIGHLIGHT values:
    *     TYPED: match ranges matching the tokens; or
    *     SUGGESTED: match ranges for words not matching the tokens and the
@@ -420,7 +216,7 @@ export var UrlbarUtils = {
    *          The array is sorted by match indexes ascending.
    */
   getTokenMatches(tokens, str, highlightType) {
-    if (highlightType == this.HIGHLIGHT.ALL) {
+    if (highlightType == UrlbarShared.HIGHLIGHT.ALL) {
       return [[0, str.length]];
     }
 
@@ -431,12 +227,12 @@ export var UrlbarUtils = {
     // Only search a portion of the string, because not more than a certain
     // amount of characters are visible in the UI, matching over what is visible
     // would be expensive and pointless.
-    str = str.substring(0, this.MAX_TEXT_LENGTH).toLocaleLowerCase();
+    str = str.substring(0, UrlbarShared.MAX_TEXT_LENGTH).toLocaleLowerCase();
     // To generate non-overlapping ranges, we start from a 0-filled array with
     // the same length of the string, and use it as a collision marker, setting
     // 1 where the text should be highlighted.
     let hits = new Array(str.length).fill(
-      highlightType == this.HIGHLIGHT.SUGGESTED ? 1 : 0
+      highlightType == UrlbarShared.HIGHLIGHT.SUGGESTED ? 1 : 0
     );
     let compareIgnoringDiacritics;
     for (let i = 0, totalTokensLength = 0; i < tokens.length; i++) {
@@ -456,7 +252,7 @@ export var UrlbarUtils = {
           break;
         }
 
-        if (highlightType == this.HIGHLIGHT.SUGGESTED) {
+        if (highlightType == UrlbarShared.HIGHLIGHT.SUGGESTED) {
           // We de-emphasize the match only if it's preceded by a space, thus
           // it's a perfect match or the beginning of a longer word.
           let previousSpaceIndex = str.lastIndexOf(" ", index) + 1;
@@ -470,7 +266,7 @@ export var UrlbarUtils = {
         }
 
         hits.fill(
-          highlightType == this.HIGHLIGHT.SUGGESTED ? 0 : 1,
+          highlightType == UrlbarShared.HIGHLIGHT.SUGGESTED ? 0 : 1,
           index,
           index + needle.length
         );
@@ -496,7 +292,7 @@ export var UrlbarUtils = {
         while (index < str.length) {
           let hay = str.substr(index, needle.length);
           if (compareIgnoringDiacritics(needle, hay) === 0) {
-            if (highlightType == this.HIGHLIGHT.SUGGESTED) {
+            if (highlightType == UrlbarShared.HIGHLIGHT.SUGGESTED) {
               let previousSpaceIndex = str.lastIndexOf(" ", index) + 1;
               if (index != previousSpaceIndex) {
                 index += needle.length;
@@ -504,7 +300,7 @@ export var UrlbarUtils = {
               }
             }
             hits.fill(
-              highlightType == this.HIGHLIGHT.SUGGESTED ? 0 : 1,
+              highlightType == UrlbarShared.HIGHLIGHT.SUGGESTED ? 0 : 1,
               index,
               index + needle.length
             );
@@ -516,7 +312,7 @@ export var UrlbarUtils = {
       }
 
       totalTokensLength += needle.length;
-      if (totalTokensLength > this.MAX_TEXT_LENGTH) {
+      if (totalTokensLength > UrlbarShared.MAX_TEXT_LENGTH) {
         // Limit the number of tokens to reduce calculate time.
         break;
       }
@@ -540,7 +336,7 @@ export var UrlbarUtils = {
    *
    * @param {UrlbarResult} result
    *   The result.
-   * @returns {Values<typeof this.RESULT_GROUP>}
+   * @returns {Values<typeof UrlbarShared.RESULT_GROUP>}
    *   The result's group.
    */
   getResultGroup(result) {
@@ -550,53 +346,53 @@ export var UrlbarUtils = {
     }
 
     if (result.hasSuggestedIndex && !result.isSuggestedIndexRelativeToGroup) {
-      return this.RESULT_GROUP.SUGGESTED_INDEX;
+      return UrlbarShared.RESULT_GROUP.SUGGESTED_INDEX;
     }
     if (result.heuristic) {
       switch (result.providerName) {
         case "UrlbarProviderAiChat":
-          return this.RESULT_GROUP.HEURISTIC_AI_CHAT;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_AI_CHAT;
         case "UrlbarProviderAliasEngines":
-          return this.RESULT_GROUP.HEURISTIC_ENGINE_ALIAS;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_ENGINE_ALIAS;
         case "UrlbarProviderAutofill":
-          return this.RESULT_GROUP.HEURISTIC_AUTOFILL;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_AUTOFILL;
         case "UrlbarProviderBookmarkKeywords":
-          return this.RESULT_GROUP.HEURISTIC_BOOKMARK_KEYWORD;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_BOOKMARK_KEYWORD;
         case "UrlbarProviderHeuristicFallback":
-          return this.RESULT_GROUP.HEURISTIC_FALLBACK;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_FALLBACK;
         case "UrlbarProviderHistoryUrlHeuristic":
-          return this.RESULT_GROUP.HEURISTIC_HISTORY_URL;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_HISTORY_URL;
         case "UrlbarProviderOmnibox":
-          return this.RESULT_GROUP.HEURISTIC_OMNIBOX;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_OMNIBOX;
         case "UrlbarProviderRestrictKeywordsAutofill":
-          return this.RESULT_GROUP.HEURISTIC_RESTRICT_KEYWORD_AUTOFILL;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_RESTRICT_KEYWORD_AUTOFILL;
         case "UrlbarProviderTokenAliasEngines":
-          return this.RESULT_GROUP.HEURISTIC_TOKEN_ALIAS_ENGINE;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_TOKEN_ALIAS_ENGINE;
         case "UrlbarProviderSearchTips":
-          return this.RESULT_GROUP.HEURISTIC_SEARCH_TIP;
+          return UrlbarShared.RESULT_GROUP.HEURISTIC_SEARCH_TIP;
         default:
           if (result.providerName.startsWith("TestProvider")) {
-            return this.RESULT_GROUP.HEURISTIC_TEST;
+            return UrlbarShared.RESULT_GROUP.HEURISTIC_TEST;
           }
           break;
       }
-      if (result.providerType == this.PROVIDER_TYPE.EXTENSION) {
-        return this.RESULT_GROUP.HEURISTIC_EXTENSION;
+      if (result.providerType == UrlbarShared.PROVIDER_TYPE.EXTENSION) {
+        return UrlbarShared.RESULT_GROUP.HEURISTIC_EXTENSION;
       }
       console.error(
         "Returning HEURISTIC_FALLBACK for unrecognized heuristic result: ",
         result
       );
-      return this.RESULT_GROUP.HEURISTIC_FALLBACK;
+      return UrlbarShared.RESULT_GROUP.HEURISTIC_FALLBACK;
     }
 
     switch (result.providerName) {
       case "UrlbarProviderAboutPages":
-        return this.RESULT_GROUP.ABOUT_PAGES;
+        return UrlbarShared.RESULT_GROUP.ABOUT_PAGES;
       case "UrlbarProviderInputHistory":
-        return this.RESULT_GROUP.INPUT_HISTORY;
+        return UrlbarShared.RESULT_GROUP.INPUT_HISTORY;
       case "UrlbarProviderQuickSuggest":
-        return this.RESULT_GROUP.GENERAL_PARENT;
+        return UrlbarShared.RESULT_GROUP.GENERAL_PARENT;
       default:
         break;
     }
@@ -605,24 +401,24 @@ export var UrlbarUtils = {
       case UrlbarShared.RESULT_TYPE.SEARCH:
         if (result.source == UrlbarShared.RESULT_SOURCE.HISTORY) {
           return result.providerName == "UrlbarProviderRecentSearches"
-            ? this.RESULT_GROUP.RECENT_SEARCH
-            : this.RESULT_GROUP.FORM_HISTORY;
+            ? UrlbarShared.RESULT_GROUP.RECENT_SEARCH
+            : UrlbarShared.RESULT_GROUP.FORM_HISTORY;
         }
         if (result.payload.tail && !result.isRichSuggestion) {
-          return this.RESULT_GROUP.TAIL_SUGGESTION;
+          return UrlbarShared.RESULT_GROUP.TAIL_SUGGESTION;
         }
         if (result.payload.suggestion) {
-          return this.RESULT_GROUP.REMOTE_SUGGESTION;
+          return UrlbarShared.RESULT_GROUP.REMOTE_SUGGESTION;
         }
         break;
       case UrlbarShared.RESULT_TYPE.OMNIBOX:
-        return this.RESULT_GROUP.OMNIBOX;
+        return UrlbarShared.RESULT_GROUP.OMNIBOX;
       case UrlbarShared.RESULT_TYPE.REMOTE_TAB:
-        return this.RESULT_GROUP.REMOTE_TAB;
+        return UrlbarShared.RESULT_GROUP.REMOTE_TAB;
       case UrlbarShared.RESULT_TYPE.RESTRICT:
-        return this.RESULT_GROUP.RESTRICT_SEARCH_KEYWORD;
+        return UrlbarShared.RESULT_GROUP.RESTRICT_SEARCH_KEYWORD;
       case UrlbarShared.RESULT_TYPE.AI_CHAT:
-        return this.RESULT_GROUP.AI;
+        return UrlbarShared.RESULT_GROUP.AI;
     }
     // When enabled, semantic history results (both history URLs and
     // switch-to-tab results) get their own group so they fill only the space
@@ -632,9 +428,9 @@ export var UrlbarUtils = {
       result.providerName == "UrlbarProviderSemanticHistorySearch" &&
       lazy.UrlbarPrefs.get("suggest.semanticHistory.separateGroup")
     ) {
-      return this.RESULT_GROUP.SEMANTIC_HISTORY;
+      return UrlbarShared.RESULT_GROUP.SEMANTIC_HISTORY;
     }
-    return this.RESULT_GROUP.GENERAL;
+    return UrlbarShared.RESULT_GROUP.GENERAL;
   },
 
   /**
@@ -738,28 +534,6 @@ export var UrlbarUtils = {
         return 3;
     }
     return 1;
-  },
-
-  /**
-   * Gets a default icon for a URL.
-   *
-   * @param {string|URL} url
-   *   The URL to get the icon for.
-   * @returns {string} A URI pointing to an icon for `url`.
-   */
-  getIconForUrl(url) {
-    if (typeof url == "string") {
-      return this.PROTOCOLS_WITH_ICONS.some(p => url.startsWith(p))
-        ? "page-icon:" + url
-        : this.ICON.DEFAULT;
-    }
-    if (
-      URL.isInstance(url) &&
-      this.PROTOCOLS_WITH_ICONS.includes(url.protocol)
-    ) {
-      return "page-icon:" + url.href;
-    }
-    return this.ICON.DEFAULT;
   },
 
   /**
@@ -1500,23 +1274,6 @@ export var UrlbarUtils = {
   },
 
   /**
-   * Given a string, checks if it looks like a single word host, not containing
-   * spaces nor dots (apart from a possible trailing one).
-   *
-   * Note: This matching should stay in sync with the related code in
-   * URIFixup::KeywordURIFixup
-   *
-   * @param {string} value
-   *   The string to check.
-   * @returns {boolean}
-   *   Whether the value looks like a single word host.
-   */
-  looksLikeSingleWordHost(value) {
-    let str = value.trim();
-    return this.REGEXP_SINGLE_WORD.test(str);
-  },
-
-  /**
    * Returns the portion of a string starting at the index where another string
    * begins.
    *
@@ -1572,7 +1329,7 @@ export var UrlbarUtils = {
     }
     if (
       prefix.endsWith(":") &&
-      !this.PROTOCOLS_WITHOUT_AUTHORITY.includes(prefix.toLowerCase())
+      !UrlbarShared.PROTOCOLS_WITHOUT_AUTHORITY.includes(prefix.toLowerCase())
     ) {
       // Something that looks like a URI scheme but we won't treat as one:
       // e.g. "localhost:8888"
@@ -1767,7 +1524,7 @@ export var UrlbarUtils = {
    * @returns {string} Unescaped uri.
    */
   unEscapeURIForUI(uri) {
-    return uri.length > this.MAX_TEXT_LENGTH
+    return uri.length > UrlbarShared.MAX_TEXT_LENGTH
       ? uri
       : Services.textToSubURI.unEscapeURIForUI(uri);
   },
@@ -1851,17 +1608,17 @@ export var UrlbarUtils = {
     }
 
     switch (this.getResultGroup(result)) {
-      case this.RESULT_GROUP.INPUT_HISTORY: {
+      case UrlbarShared.RESULT_GROUP.INPUT_HISTORY: {
         return "adaptive_history";
       }
-      case this.RESULT_GROUP.RECENT_SEARCH: {
+      case UrlbarShared.RESULT_GROUP.RECENT_SEARCH: {
         return "recent_search";
       }
-      case this.RESULT_GROUP.FORM_HISTORY: {
+      case UrlbarShared.RESULT_GROUP.FORM_HISTORY: {
         return "search_history";
       }
-      case this.RESULT_GROUP.TAIL_SUGGESTION:
-      case this.RESULT_GROUP.REMOTE_SUGGESTION: {
+      case UrlbarShared.RESULT_GROUP.TAIL_SUGGESTION:
+      case UrlbarShared.RESULT_GROUP.REMOTE_SUGGESTION: {
         let group = result.payload.trending
           ? "trending_search"
           : "search_suggest";
@@ -1870,34 +1627,34 @@ export var UrlbarUtils = {
         }
         return group;
       }
-      case this.RESULT_GROUP.REMOTE_TAB: {
+      case UrlbarShared.RESULT_GROUP.REMOTE_TAB: {
         return "remote_tab";
       }
-      case this.RESULT_GROUP.HEURISTIC_EXTENSION:
-      case this.RESULT_GROUP.HEURISTIC_OMNIBOX:
-      case this.RESULT_GROUP.OMNIBOX: {
+      case UrlbarShared.RESULT_GROUP.HEURISTIC_EXTENSION:
+      case UrlbarShared.RESULT_GROUP.HEURISTIC_OMNIBOX:
+      case UrlbarShared.RESULT_GROUP.OMNIBOX: {
         return "addon";
       }
       // Semantic history results have their own group for sorting purposes but
       // are reported as "general" results, as they were before the group split.
-      case this.RESULT_GROUP.GENERAL:
-      case this.RESULT_GROUP.SEMANTIC_HISTORY: {
+      case UrlbarShared.RESULT_GROUP.GENERAL:
+      case UrlbarShared.RESULT_GROUP.SEMANTIC_HISTORY: {
         return "general";
       }
       // Group of UrlbarProviderQuickSuggest is GENERAL_PARENT.
-      case this.RESULT_GROUP.GENERAL_PARENT: {
+      case UrlbarShared.RESULT_GROUP.GENERAL_PARENT: {
         return "suggest";
       }
-      case this.RESULT_GROUP.ABOUT_PAGES: {
+      case UrlbarShared.RESULT_GROUP.ABOUT_PAGES: {
         return "about_page";
       }
-      case this.RESULT_GROUP.SUGGESTED_INDEX: {
+      case UrlbarShared.RESULT_GROUP.SUGGESTED_INDEX: {
         return "suggested_index";
       }
-      case this.RESULT_GROUP.RESTRICT_SEARCH_KEYWORD: {
+      case UrlbarShared.RESULT_GROUP.RESTRICT_SEARCH_KEYWORD: {
         return "restrict_keyword";
       }
-      case this.RESULT_GROUP.AI: {
+      case UrlbarShared.RESULT_GROUP.AI: {
         return "ai";
       }
     }
@@ -1920,7 +1677,7 @@ export var UrlbarUtils = {
     // While product doesn't use experimental addons anymore, tests may still do
     // for testing purposes.
     if (
-      result.providerType === this.PROVIDER_TYPE.EXTENSION &&
+      result.providerType === UrlbarShared.PROVIDER_TYPE.EXTENSION &&
       result.providerName != "UrlbarProviderOmnibox"
     ) {
       return "experimental_addon";
@@ -2290,6 +2047,10 @@ export var UrlbarUtils = {
    * @param {boolean} [options.forceAbsoluteDate]
    *   Pass true to force the formatted date to be absolute ("May 11") when it
    *   otherwise would be formatted as relative ("tomorrow").
+   * @param {boolean} [options.forceMonthAndDayWhenAbsolute]
+   *   When the date format is absolute, normally the formatted date will simply
+   *   be the weekday name when the date is in the near future, e.g., "Mon"
+   *   instead of "May 11". Pass true to format it as a month and day instead.
    * @param {boolean} [options.capitalizeRelativeDate]
    *   Whether relative dates should be capitalized ("Tomorrow" instead of
    *   "tomorrow").
@@ -2305,9 +2066,13 @@ export var UrlbarUtils = {
    * @property {?string} formattedTime
    *   The formatted time. Depending on the passed-in date, a formatted time
    *   might not be generated, and in that case this will be undefined.
+   * @property {string} dateFormatType
+   *   The type of the formatted date. See `DATE_FORMAT_TYPE` values.
    * @property {boolean} isRelative
-   *   Whether the formatted date is relative ("tomorrow") rather than absolute
-   *   ("May 11").
+   *   Whether the formatted date is relative rather than absolute. Relative
+   *   date examples: "tomorrow", "5 days ago", "1 week ago", "2 months ago".
+   *   Absolute date examples: "Mon" (this coming Monday), "May 11" (this year),
+   *   "May 11, 2013"
    * @property {ParseDateResult} parseDateResult
    *   This function calls `parseDate()` as part of its operation, and the
    *   result is included here in case it's useful.
@@ -2316,33 +2081,59 @@ export var UrlbarUtils = {
     date,
     {
       forceAbsoluteDate = false,
+      forceMonthAndDayWhenAbsolute = false,
       capitalizeRelativeDate = false,
       includeTimeZone = false,
     } = {}
   ) {
     let parseDateResult = this.parseDate(date);
-    let { zonedNow, zonedDate, daysUntil, isFuture } = parseDateResult;
+    let { zonedNow, zonedDate, daysAgo, weeksAgo, monthsAgo, isFuture } =
+      parseDateResult;
 
     // First, format the date.
     let formattedDate;
-    let isRelative = false;
-    if (Math.abs(daysUntil) <= 1) {
-      // The date is recent. Format it as relative, e.g.: "today", "tomorrow"
-      isRelative = true;
-      formattedDate = new Intl.RelativeTimeFormat(undefined, {
-        numeric: "auto",
-      }).format(daysUntil, "day");
-      if (capitalizeRelativeDate) {
+    let dateFormatType;
+    let isRelative = true;
+    if (!forceAbsoluteDate) {
+      if (Math.abs(daysAgo) <= 1) {
+        // "yesterday", "today", or "tomorrow"
+        dateFormatType = this.DATE_FORMAT_TYPE.YESTERDAY_TODAY_TOMORROW;
+        formattedDate = new Intl.RelativeTimeFormat(undefined, {
+          numeric: "auto",
+        }).format(-daysAgo, "day");
+      } else if (0 < daysAgo && daysAgo <= 6) {
+        // <= 6 days ago: "{n} days ago"
+        dateFormatType = this.DATE_FORMAT_TYPE.DAYS_WEEKS_MONTHS_AGO;
+        formattedDate = new Intl.RelativeTimeFormat(undefined, {
+          numeric: "always",
+        }).format(-daysAgo, "day");
+      } else if (0 < weeksAgo && (weeksAgo <= 4 || monthsAgo == 0)) {
+        // <= 4 weeks ago or same month: "{n} weeks ago"
+        dateFormatType = this.DATE_FORMAT_TYPE.DAYS_WEEKS_MONTHS_AGO;
+        formattedDate = new Intl.RelativeTimeFormat(undefined, {
+          numeric: "always",
+        }).format(-weeksAgo, "week");
+      } else if (0 < monthsAgo && monthsAgo <= 11) {
+        // <= 11 months ago: "{n} months ago"
+        dateFormatType = this.DATE_FORMAT_TYPE.DAYS_WEEKS_MONTHS_AGO;
+        formattedDate = new Intl.RelativeTimeFormat(undefined, {
+          numeric: "always",
+        }).format(-monthsAgo, "month");
+      }
+
+      if (capitalizeRelativeDate && formattedDate) {
         formattedDate =
           formattedDate[0].toLocaleUpperCase() + formattedDate.substring(1);
       }
-    } else {
-      // The date is not recent. Format it with some combination of year, month,
-      // day, and weekday, e.g.: "May 11", "May 11, 2026", "Mon"
+    }
+
+    if (!formattedDate) {
+      // Format the date as an absolute date with some combination of year,
+      // month, day, and weekday, e.g.: "May 11", "May 11, 2026", "Mon"
       let opts = {
         timeZone: zonedNow.timeZoneId,
       };
-      if (!forceAbsoluteDate && 0 < daysUntil && daysUntil < 7) {
+      if (!forceMonthAndDayWhenAbsolute && 0 < -daysAgo && -daysAgo < 7) {
         // Include only the weekday.
         opts.weekday = "short";
       } else {
@@ -2354,6 +2145,8 @@ export var UrlbarUtils = {
         }
       }
       formattedDate = new Intl.DateTimeFormat(undefined, opts).format(date);
+      dateFormatType = this.DATE_FORMAT_TYPE.ABSOLUTE;
+      isRelative = false;
     }
 
     // Now format the time.
@@ -2369,14 +2162,28 @@ export var UrlbarUtils = {
 
     return {
       isRelative,
+      dateFormatType,
       formattedDate,
       formattedTime,
       parseDateResult,
     };
   },
 
+  // Date format types returned by `formatDate()`.
+  DATE_FORMAT_TYPE: Object.freeze({
+    // "yesterday", "today", or "tomorrow"
+    YESTERDAY_TODAY_TOMORROW: "yesterday_today_tomorrow",
+    // "{n} days ago", "{n} weeks ago", or "{n} months ago"
+    DAYS_WEEKS_MONTHS_AGO: "days_weeks_months_ago",
+    // "Mon" (this coming Monday), "May 11" (this year), or "May 11, 2013"
+    ABSOLUTE: "absolute",
+  }),
+
   /**
-   * Parses a `Date` and returns some info about it.
+   * Parses a `Date` and returns some info about it relative to today.
+   *
+   * For the "ago" values, a value will be positive if the date is in the past
+   * and negative if the date is in the future.
    *
    * @param {Date} date
    *   A JS `Date` object.
@@ -2390,10 +2197,18 @@ export var UrlbarUtils = {
    *   The passed-in date as a `ZonedDateTime`.
    * @property {boolean} isFuture
    *   Whether the date is in the future.
-   * @property {number} daysUntil
-   *   The number of calendar days from today to the date. If the date is in the
-   *   future, this number will be positive. If the date is in the past, it will
-   *   be negative. If the date is today, it will be zero.
+   * @property {number} daysAgo
+   *   The number of calendar days from the date to today. If the date is also
+   *   today, this value will be zero.
+   * @property {number} weeksAgo
+   *   The number of calendar weeks from the date to today. If the date is in
+   *   the same calendar week as today, this value will be zero. If the date is
+   *   in the previous calendar week, this value will be 1, and so on. The start
+   *   of the calendar week is determined by `UrlbarUtils._firstDayOfWeek()`.
+   * @property {number} monthsAgo
+   *   The number of calendar months from the date to today. If the date is in
+   *   the same calendar month as today, this value will be zero. If the date is
+   *   in the previous calendar month, this value will be 1, and so on.
    */
   parseDate(date) {
     let zonedNow = this._zonedDateTimeISO();
@@ -2403,28 +2218,60 @@ export var UrlbarUtils = {
     let today = zonedNow.startOfDay();
     let dateDay = zonedDate.startOfDay();
 
-    let duration = today.until(dateDay).round("days");
-    let daysUntil = duration.days;
+    let daysAgo = today.since(dateDay).round("days").days;
+    let firstDayOfWeek = this._firstDayOfWeek();
+    let thisWeek = today.subtract({
+      days: (today.dayOfWeek - firstDayOfWeek + 7) % 7,
+    });
+    let dateWeek = dateDay.subtract({
+      days: (dateDay.dayOfWeek - firstDayOfWeek + 7) % 7,
+    });
+    let weeksAgo = thisWeek.since(dateWeek).round({
+      smallestUnit: "weeks",
+      relativeTo: thisWeek,
+    }).weeks;
+
+    let thisMonth = today.with({ day: 1 });
+    let dateMonth = dateDay.with({ day: 1 });
+    let monthsAgo = thisMonth.since(dateMonth).round({
+      smallestUnit: "months",
+      relativeTo: thisMonth,
+    }).months;
 
     return {
       zonedNow,
       zonedDate,
       isFuture,
-      daysUntil,
+      daysAgo,
+      weeksAgo,
+      monthsAgo,
     };
   },
 
   // Thin wrapper around `zonedDateTimeISO` so that tests can easily set a mock
-  // "now" date and time. Use `UrlbarTestUtils.stubNowZonedDateTime()` to stub a
-  // "now".
+  // "now" date and time. See `UrlbarTestUtils.stubNowZonedDateTime()`.
   _zonedDateTimeISO() {
     return Temporal.Now.zonedDateTimeISO();
   },
-};
 
-ChromeUtils.defineLazyGetter(UrlbarUtils.ICON, "DEFAULT", () => {
-  return lazy.PlacesUtils.favicons.defaultFavicon.spec;
-});
+  // Thin wrapper around `getWeekInfo` so that tests can easily set a mock first
+  // day of the week. See `UrlbarTestUtils.stubFirstDayOfWeek()`.
+  _firstDayOfWeek() {
+    // Getting locale info can be expensive, so cache this value. We don't re-
+    // cache it on locale change. That should be OK because we use it only to
+    // generate "{n} weeks ago" UI strings, which aren't very precise anyway.
+    if (this.__firstDayOfWeek === undefined) {
+      this.__firstDayOfWeek = new Intl.Locale(
+        Services.locale.appLocaleAsBCP47
+      ).getWeekInfo().firstDay;
+
+      // Make sure we always have a valid value in case the locale doesn't
+      // define one for whatever reason. 7 = Sunday.
+      this.__firstDayOfWeek ??= 7;
+    }
+    return this.__firstDayOfWeek;
+  },
+};
 
 ChromeUtils.defineLazyGetter(UrlbarUtils, "strings", () => {
   return Services.strings.createBundle(
@@ -3387,9 +3234,9 @@ export class UrlbarProvider {
   }
 
   /**
-   * The type of the provider, must be one of UrlbarUtils.PROVIDER_TYPE.
+   * The type of the provider, must be one of UrlbarShared.PROVIDER_TYPE.
    *
-   * @returns {Values<typeof UrlbarUtils.PROVIDER_TYPE>}
+   * @returns {Values<typeof UrlbarShared.PROVIDER_TYPE>}
    * @abstract
    */
   get type() {

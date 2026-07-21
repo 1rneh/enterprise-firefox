@@ -521,7 +521,7 @@ GCRuntime::GCRuntime(JSRuntime* rt)
       incrementalState(gc::State::NotActive),
       initialState(gc::State::NotActive),
       useZeal(false),
-      lastMarkSlice(false),
+      didYieldAtEndOfMarkPhase(false),
       safeToYield(true),
       markOnBackgroundThreadDuringSweeping(false),
       useBackgroundThreads(false),
@@ -3415,8 +3415,6 @@ void GCRuntime::beginMarkPhase(AutoGCSession& session) {
           atomMarking.getOrMarkAtomsUsedByUncollectedZones(this);
     }
   }
-
-  preparedForSweepInThisSlice = true;
 }
 
 void GCRuntime::findDeadCompartments() {
@@ -3592,6 +3590,12 @@ IncrementalProgress GCRuntime::markSynchronously(
     ShouldReportMarkTime reportTime) {
   // Run a marking slice for as long as the budget allows and return whether
   // marking is finished.
+
+  // Trace wrapper rooters before marking. These don't obey the same rules as
+  // other roots (in an attempt to avoid keeping dead wrappers alive) so they
+  // must be marked in any slice where we may end up sweeping. Conservatively
+  // mark them in every slice since they are likely to be few.
+  rt->mainContextFromOwnThread()->traceWrapperGCRooters(marker().tracer());
 
   AutoMajorGCProfilerEntry s(this);
 
@@ -3816,6 +3820,7 @@ void GCRuntime::finishCollection() {
 
   MOZ_ASSERT(!hasDelayedMarking());
   MOZ_ASSERT(!hasAnyDeferredWeakMaps());
+  size_t maxMarkStackCapacity = 0;
   for (size_t i = 0; i < markers.length(); i++) {
     const auto& marker = markers[i];
     marker->stop();
@@ -3824,7 +3829,12 @@ void GCRuntime::finishCollection() {
     } else {
       marker->freeStack();
     }
+    maxMarkStackCapacity =
+        std::max(maxMarkStackCapacity, marker->stackHighWaterMark());
+    marker->resetStackHighWaterMark();
   }
+  stats().setStat(gcstats::STAT_MARK_STACK_MAX_CAPACITY,
+                  uint32_t(maxMarkStackCapacity));
 
   maybeStopPretenuring();
 
@@ -3862,7 +3872,7 @@ void GCRuntime::checkGCStateNotInUse() {
   }
   MOZ_ASSERT(!hasDelayedMarking());
   MOZ_ASSERT(!hasAnyDeferredWeakMaps());
-  MOZ_ASSERT(!lastMarkSlice);
+  MOZ_ASSERT(!didYieldAtEndOfMarkPhase);
 
   MOZ_ASSERT(!disableBarriersForSweeping);
   MOZ_ASSERT(foregroundFinalizedArenas.ref().isNothing());
@@ -4156,7 +4166,7 @@ GCRuntime::IncrementalResult GCRuntime::resetIncrementalGC(
         lifoBlocksToFree.ref().freeAll();
       }
 
-      lastMarkSlice = false;
+      didYieldAtEndOfMarkPhase = false;
       incrementalState = State::Finish;
 
 #ifdef DEBUG
@@ -4376,7 +4386,6 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
   initialState = incrementalState;
   isIncremental = !budget.isUnlimited();
   useBackgroundThreads = ShouldUseBackgroundThreads(isIncremental, reason);
-  preparedForSweepInThisSlice = false;
 
 #ifdef JS_GC_ZEAL
   // Do the incremental collection type specified by zeal mode if the collection
@@ -4449,11 +4458,6 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
       [[fallthrough]];
 
     case State::Mark:
-      if (!preparedForSweepInThisSlice &&
-          mightSweepInThisSlice(budget.isUnlimited())) {
-        prepareForSweepSlice();
-      }
-
       if (markPhase(budget) == NotFinished) {
         break;
       }
@@ -4465,41 +4469,21 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
 
       assertNoMarkingWork();
 
-      /*
-       * There are a number of reasons why we break out of collection here,
-       * ending the slice.
-       *
-       * In incremental GCs where we have already marked in more than one
-       * slice we yield after marking with the aim of starting the sweep in
-       * the next slice, since the first slice of sweeping can be expensive.
-       *
-       * This is modified by the various zeal modes. We don't yield in modes
-       * which set a specific yield point (e.g. YieldBeforeMarking) except that
-       * always yield in YieldBeforeSweeping mode.
-       *
-       * We will need to mark anything new on the stack when we resume, so
-       * we stay in Mark state.
-       */
-      if (isIncremental && !lastMarkSlice) {
-        if ((markSliceCount > 1 && !zealModeControlsYieldPoint()) ||
-            (useZeal && hasZealMode(ZealMode::YieldBeforeSweeping))) {
-          lastMarkSlice = true;
-          break;
-        }
+      // There are a number of reasons why we can break out of collection here,
+      // ending the slice.
+      if (shouldYieldAtEndOfMarkPhase()) {
+        didYieldAtEndOfMarkPhase = true;
+        break;
       }
 
       incrementalState = State::Sweep;
-      lastMarkSlice = false;
+      didYieldAtEndOfMarkPhase = false;
 
       beginSweepPhase(session);
 
       [[fallthrough]];
 
     case State::Sweep:
-      if (initialState == State::Sweep) {
-        prepareForSweepSlice();
-      }
-
       if (sweepPhase(budget) == NotFinished) {
         break;
       }
@@ -4613,6 +4597,29 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
   MOZ_ASSERT(marker().markColor() == MarkColor::Black);
   MOZ_ASSERT(!rt->gcContext()->hasJitCodeToPoison());
 #endif
+}
+
+bool GCRuntime::shouldYieldAtEndOfMarkPhase() const {
+  // We can't yield in non-incremental collections.
+  if (!isIncremental) {
+    return false;
+  }
+
+  // Don't yield here if we did so in a previous slice.
+  if (didYieldAtEndOfMarkPhase) {
+    return false;
+  }
+
+  // Various zeal modes set specific yield points and this overrides other
+  // logic.
+  if (zealModeControlsYieldPoint()) {
+    return useZeal && hasZealMode(ZealMode::YieldBeforeSweeping);
+  }
+
+  // If we have already had more than one marking slice we yield with the aim of
+  // starting the sweep in the next slice, since the first slice of sweeping can
+  // be expensive.
+  return markSliceCount > 1;
 }
 
 void GCRuntime::collectNurseryFromMajorGC(JS::GCReason reason) {
@@ -5072,12 +5079,6 @@ MOZ_NEVER_INLINE GCRuntime::IncrementalResult GCRuntime::gcCycle(
   MOZ_ASSERT_IF(result == IncrementalResult::Reset,
                 !isIncrementalGCInProgress());
   return result;
-}
-
-inline bool GCRuntime::mightSweepInThisSlice(bool nonIncremental) {
-  MOZ_ASSERT(incrementalState < State::Sweep);
-  return nonIncremental || markSliceCount == 0 || lastMarkSlice ||
-         zealModeControlsYieldPoint();
 }
 
 #ifdef JS_GC_ZEAL

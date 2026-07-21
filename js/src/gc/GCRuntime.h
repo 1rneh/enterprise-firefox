@@ -251,6 +251,12 @@ class BufferAllocatorRuntime {
   // Used to decide whether the mutex is required to access |largeAllocMap|.
   mozilla::Atomic<size_t, mozilla::ReleaseAcquire> offThreadAccessCount;
 
+  // Totals of buffer allocator used/free/admin bytes for retained chunks after
+  // the last GC (so not an up-to-date total). Used for telemetry.
+  MainThreadData<size_t> usedBytesInRetainedChunks;
+  MainThreadData<size_t> freeBytesInRetainedChunks;
+  MainThreadData<size_t> adminBytesInRetainedChunks;
+
  public:
   BufferAllocatorRuntime();
 
@@ -259,7 +265,14 @@ class BufferAllocatorRuntime {
   void incOffThreadCount();
   void decOffThreadCount();
 
+  // Report/reset the used/free/admin byte totals described above.
+  void getRetainedStats(size_t* usedBytesOut, size_t* freeBytesOut,
+                        size_t* adminBytesOut);
+  void resetRetainedStats();
+
  private:
+  void addRetainedStats(size_t usedBytes, size_t freeBytes, size_t adminBytes);
+
   bool needLockToAccessBufferMap() const;
 
   // Lookup a large buffer by pointer in the map.
@@ -877,7 +890,7 @@ class GCRuntime {
   void incrementalSlice(JS::SliceBudget& budget, JS::GCReason reason,
                         bool budgetWasIncreased);
 
-  bool mightSweepInThisSlice(bool nonIncremental);
+  bool shouldYieldAtEndOfMarkPhase() const;
   void collectNurseryFromMajorGC(JS::GCReason reason);
   void collectNursery(JS::GCOptions options, JS::GCReason reason,
                       gcstats::PhaseKind phase);
@@ -1030,7 +1043,6 @@ class GCRuntime {
   void startBackgroundFree();
   void freeFromBackgroundThread(AutoLockHelperThreadState& lock);
   void sweepBackgroundThings(ZoneList& zones);
-  void prepareForSweepSlice();
   void disableIncrementalBarriers();
   void enableIncrementalBarriers();
   void assertBackgroundSweepingFinished();
@@ -1290,8 +1302,8 @@ class GCRuntime {
   const bool useZeal;
 #endif
 
-  /* Indicates that the last incremental slice exhausted the mark stack. */
-  MainThreadData<bool> lastMarkSlice;
+  /* Indicates that we previously yielded after finishing marking work. */
+  MainThreadData<bool> didYieldAtEndOfMarkPhase;
 
   // Whether it's currently safe to yield to the mutator in an incremental GC.
   MainThreadData<bool> safeToYield;
@@ -1304,12 +1316,6 @@ class GCRuntime {
   // Whether any sweeping and decommitting will run on a separate GC helper
   // thread.
   MainThreadData<bool> useBackgroundThreads;
-
-  /*
-   * We're ready to start sweeping in this slice. Either we just marked roots in
-   * this slice or we called prepareForSweepSlice().
-   */
-  MainThreadData<bool> preparedForSweepInThisSlice;
 
   MainThreadData<size_t> markSliceCount;
 

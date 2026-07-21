@@ -605,6 +605,10 @@
       }
     },
 
+    "CNSA2KeyAgreementEnabled": {
+      "type": "boolean"
+    },
+
     "Containers": {
       "type": "object",
       "x-category": "Extensions",

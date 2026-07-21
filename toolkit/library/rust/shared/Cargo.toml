@@ -182,6 +182,7 @@ for_xul = [
 felt = ["dep:felt", "fog_control/felt"]
 webrender_debugger = ["webrender_bindings/debugger"]
 shell_windows = ["dep:shell_windows"]
+enable_tests = ["shell_windows/enable_tests"]
 
 [lib]
 path = "lib.rs"

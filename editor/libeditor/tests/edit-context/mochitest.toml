@@ -19,11 +19,15 @@ support-files = ["common.js"]
 
 ["test_editcontext_format_commands.html"]
 
+["test_editcontext_ime_notifications.html"]
+
 ["test_editcontext_query_characters.html"]
 
 ["test_editcontext_query_editor.html"]
 
 ["test_editcontext_query_selection.html"]
+
+["test_editcontext_redundant_characterboundsupdate.html"]
 
 ["test_editcontext_resist_fingerprinting.html"]
 support-files = ["file_editcontext_resist_fingerprinting.html"]

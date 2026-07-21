@@ -250,18 +250,44 @@ export class FirefoxProfileMigrator extends MigratorBase {
       "cookies.sqlite",
       "cookies.sqlite-wal",
     ]);
-    let passwords = getFileResource(types.PASSWORDS, [
-      "logins.json",
-      // logins.db is the Rust-backed login store, an at-rest-encrypted SQLite
-      // database. It travels alongside logins.json; its DEK is re-wrapped into
-      // this profile's keystore by the storage layer the first time it is
-      // opened, using the refresh-source marker written below. Absent when the
-      // Rust backend is off.
-      "logins.db",
-      "logins.db-wal",
-      "key3.db",
-      "key4.db",
-    ]);
+    let passwords = {
+      name: "passwords", // name is used only by tests.
+      type: types.PASSWORDS,
+      migrate: async aCallback => {
+        try {
+          for (let fileName of [
+            "logins.json",
+            "logins.db",
+            "logins.db-wal",
+            "key3.db",
+            "key4.db",
+          ]) {
+            let file = this._getFileObject(sourceProfileDir, fileName);
+            if (file) {
+              file.copyTo(currentProfileDir, "");
+            }
+          }
+
+          // If the source profile had the Rust logins backend active, carry
+          // that state over so the new profile adopts the copied logins.db
+          // directly instead of re-migrating from the (now stale) logins.json
+          // and wiping the copied store.
+          let oldRawPrefs = await readOldPrefs();
+          if (
+            /^user_pref\("signon\.storage\.rust\.active",\s*true\)/m.test(
+              oldRawPrefs
+            )
+          ) {
+            Services.prefs.setBoolPref("signon.storage.rust.active", true);
+            savePrefs();
+          }
+        } catch (e) {
+          aCallback(false);
+          return;
+        }
+        aCallback(true);
+      },
+    };
     let formData = getFileResource(types.FORMDATA, [
       "formhistory.sqlite",
       "autofill-profiles.json",

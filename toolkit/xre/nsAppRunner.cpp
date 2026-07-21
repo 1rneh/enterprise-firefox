@@ -5290,6 +5290,7 @@ enum struct ShouldNotProcessUpdatesReason {
   OtherInstanceRunning,
   FirstStartup,
   FeltOnlyUpdates,
+  DisabledByEnvironment
 };
 
 const char* ShouldNotProcessUpdatesReasonAsString(
@@ -5303,6 +5304,8 @@ const char* ShouldNotProcessUpdatesReasonAsString(
       return "OtherInstanceRunning";
     case ShouldNotProcessUpdatesReason::FeltOnlyUpdates:
       return "FeltOnlyUpdates";
+    case ShouldNotProcessUpdatesReason::DisabledByEnvironment:
+      return "DisabledByEnvironment";
     default:
       MOZ_CRASH("impossible value for ShouldNotProcessUpdatesReason");
   }
@@ -5339,6 +5342,12 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
     return Some(ShouldNotProcessUpdatesReason::FeltOnlyUpdates);
   }
 #  endif
+  // Bug 2055849: Don't process updates if MOZ_DISABLE_UPDATE_PROCESSING is set.
+  // Set by default when using https://github.com/mozilla/firefox-devtools-mcp.
+  if (EnvHasValue("MOZ_DISABLE_UPDATE_PROCESSING")) {
+    NS_WARNING("ShouldNotProcessUpdates(): DisabledByEnvironment");
+    return Some(ShouldNotProcessUpdatesReason::DisabledByEnvironment);
+  }
 
   // Do not process updates if we're launching devtools, as evidenced by
   // "--chrome ..." with the browser toolbox chrome document URL.

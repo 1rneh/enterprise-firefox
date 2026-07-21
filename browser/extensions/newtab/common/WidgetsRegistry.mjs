@@ -66,6 +66,24 @@
  *    user-pref-wins pattern as resolveWidgetSize().
  * 3. Update components to call the helper instead of reading the pref directly.
  *
+ * DEVTOOLS ADMIN INTEGRATION
+ * The New Tab admin devtools panel (DiscoveryStreamAdmin.jsx, shown when
+ * browser.newtabpage.activity-stream.asrouter.devtoolsEnabled is true) drives a
+ * "Widgets" section directly off this registry: it maps WIDGET_REGISTRY to render
+ * one system-enable toggle per widget (from systemEnabledPref), plus "Enable all"
+ * / "Disable all" and reset controls. Any widget added here appears there
+ * automatically -- no devtools edit needed.
+ *
+ * To expose an extra pref-gated widget feature in that panel (e.g. an internal
+ * feature that defaults off but QA/devs want to flip, such as
+ * widgets.pictureOfTheDay.setAsWallpaper.enabled or
+ * widgets.sportsWidget.live.enabled), add an entry to the hand-maintained
+ * WIDGET_EXTRA_FEATURES map in DiscoveryStreamAdmin.jsx keyed by widget id:
+ *   sportsWidget: [{ pref: "widgets.sportsWidget.live.enabled", label: "Live scores" }]
+ * Each entry becomes a boolean toggle nested under that widget's row. This map is
+ * intentionally kept in the devtools component, not the registry, so shipping code
+ * carries no dependency on dev-only feature lists.
+ *
  * The widgets.order pref (CSV of widget IDs) persists user-defined order.
  * It is only written when the user explicitly reorders widgets — never on
  * enable/disable. Disabled widgets keep their slot so they reappear in the
@@ -128,7 +146,7 @@ export const PREF_WIDGETS_SYSTEM_PICTURE_OF_THE_DAY_ENABLED =
  * @property {string|null} trainhopSidebarKey - Key in trainhopConfig.widgets.* for the hasSidebar override.
  * @property {string} widgetsSettingsVisibleKey - Key in trainhopConfig.widgetsSettings.* that additively reveals this widget's toggle in the settings UIs (does not enable the widget).
  * @property {string} widgetsSettingsEnabledKey - Key in trainhopConfig.widgetsSettings.* that overrides this widget's default enabled value (written to the pref default branch; an explicit user toggle still wins).
- * @property {string|null} [trainhopNamespace] - When set, the widget ships its whole config in one dedicated object at trainhopConfig.<namespace>. Its `enabled` overrides the default value of enabledPref on the default branch (user toggle still wins, like widgetsSettings.*Enabled); `visible` reveals the widget (isWidgetAddable) without writing a pref; `size` is read by resolveWidgetSize. Only Picture of the Day uses this today.
+ * @property {string|null} [trainhopNamespace] - When set, the widget ships its whole config in one dedicated object at trainhopConfig.<namespace>. Its `enabled` overrides the default value of enabledPref on the default branch (user toggle still wins, like widgetsSettings.*Enabled); `visible` reveals the widget (isWidgetAddable) without writing a pref; `size` is read by resolveWidgetSize. Picture of the Day and Crossword use this today.
  */
 
 /** @type {WidgetRegistryEntry[]} */
@@ -261,6 +279,7 @@ export const WIDGET_REGISTRY = [
     trainhopSidebarKey: null,
     widgetsSettingsVisibleKey: "crosswordVisible",
     widgetsSettingsEnabledKey: "crosswordEnabled",
+    trainhopNamespace: "widgetCrossword",
   },
   {
     id: "stocks",
@@ -441,15 +460,17 @@ export function resolveWidgetHasSidebar(widget, prefs) {
 
 /**
  * Returns the Merino endpoint the Crossword widget iframe should load.
- * A trainhopConfig.widgets.crosswordEndpoint override wins over the raw pref so
- * the endpoint can be swapped (e.g. staging to production) without a release.
- * The raw pref is never read directly by the component.
+ * The dedicated widgetCrossword trainhop object wins, then the legacy
+ * widgets.crosswordEndpoint key, then the raw pref, so the endpoint can be
+ * swapped (e.g. staging to production) without a release. The raw pref is never
+ * read directly by the component.
  *
  * @param {object} prefs - current pref values from the Redux store
  * @returns {string}
  */
 export function resolveCrosswordEndpoint(prefs) {
   return (
+    prefs.trainhopConfig?.widgetCrossword?.endpoint ||
     prefs.trainhopConfig?.widgets?.crosswordEndpoint ||
     prefs[PREF_CROSSWORD_ENDPOINT]
   );

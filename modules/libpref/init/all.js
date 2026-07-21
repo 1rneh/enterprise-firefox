@@ -645,9 +645,11 @@ pref("devtools.performance.recording.child.timeout_s", 15);
   // Use a more advanced preset on Nightly and local builds.
   pref("devtools.performance.recording.preset", "firefox-platform");
   pref("devtools.performance.recording.preset.remote", "firefox-platform");
+  pref("devtools.performance.recording.preset.aboutlogging", "firefox-platform");
 #else
   pref("devtools.performance.recording.preset", "web-developer");
   pref("devtools.performance.recording.preset.remote", "web-developer");
+  pref("devtools.performance.recording.preset.aboutlogging", "web-developer");
 #endif
 // The profiler's active tab view has a few issues. Disable it until the issues
 // are ironed out.
@@ -656,23 +658,28 @@ pref("devtools.performance.recording.active-tab-view.enabled", false);
 // profiler's buffer. 10000000 is ~80mb.
 pref("devtools.performance.recording.entries", 10000000);
 pref("devtools.performance.recording.entries.remote", 10000000);
+pref("devtools.performance.recording.entries.aboutlogging", 10000000);
 // Profiler interval in microseconds. 1000µs is 1ms
 pref("devtools.performance.recording.interval", 1000);
 pref("devtools.performance.recording.interval.remote", 1000);
+pref("devtools.performance.recording.interval.aboutlogging", 1000);
 // Profiler duration of entries in the profiler's buffer in seconds.
 // `0` means no time limit for the markers, they roll off naturally from the
 // circular buffer.
 pref("devtools.performance.recording.duration", 0);
 pref("devtools.performance.recording.duration.remote", 0);
+pref("devtools.performance.recording.duration.aboutlogging", 0);
 // Profiler feature set. See tools/profiler/core/platform.cpp for features and
 // explanations. Remote profiling also includes the java feature by default.
 // If the remote debuggee isn't an Android phone, then this feature will
 // be ignored.
 pref("devtools.performance.recording.features", "[\"js\",\"stackwalk\",\"cpu\",\"screenshots\",\"memory\"]");
 pref("devtools.performance.recording.features.remote", "[\"js\",\"stackwalk\",\"cpu\",\"screenshots\",\"memory\",\"java\"]");
+pref("devtools.performance.recording.features.aboutlogging", "[\"js\",\"stackwalk\",\"cpu\",\"screenshots\",\"memory\"]");
 // Threads to be captured by the profiler.
 pref("devtools.performance.recording.threads", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
 pref("devtools.performance.recording.threads.remote", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
+pref("devtools.performance.recording.threads.aboutlogging", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
 // A JSON array of strings, where each string is a file path to an objdir on
 // the host machine. This is used in order to look up symbol information from
 // build artifacts of local builds.
@@ -1474,6 +1481,10 @@ pref("network.proxy.autoconfig_retry_interval_min", 5);    // 5 seconds
 pref("network.proxy.autoconfig_retry_interval_max", 300);  // 5 minutes
 pref("network.proxy.enable_wpad_over_dhcp", true);
 
+// When true, a warning banner will be displayed on error pages when
+// SSLKEYLOGFILE is set
+pref("network.sslkeylog_warning", true);
+
 pref("converter.html2txt.structs",          true); // Output structured phrases (strong, em, code, sub, sup, b, i, u)
 pref("converter.html2txt.header_strategy",  1); // 0 = no indention; 1 = indention, increased with header level; 2 = numbering and slight indention
 
@@ -1740,7 +1751,6 @@ pref("font.blacklist.underline_offset", "FangSong,Gulim,GulimChe,MingLiU,MingLiU
 
 // security-sensitive dialogs should delay button enabling. In milliseconds.
 pref("security.dialog_enable_delay", 1000);
-pref("security.notification_enable_delay", 500);
 
 #ifdef NIGHTLY_BUILD
   // Disallow web documents loaded with the SystemPrincipal
@@ -3023,7 +3033,9 @@ pref("signon.firefoxRelay.terms_of_service_url", "https://www.mozilla.org/%LOCAL
 pref("signon.firefoxRelay.privacy_policy_url", "https://www.mozilla.org/%LOCALE%/privacy/subscription-services/");
 pref("signon.signupDetection.confidenceThreshold",     "0.75");
 
-pref("signon.storage.rust.enabled", false);
+// Logins Rust storage backend is enabled by default
+pref("signon.storage.rust.enabled", true);
+// The following two prefs are managed by Fx internally:
 pref("signon.storage.rust.active", false);
 pref("signon.storage.rust.migrationAttempts", 0);
 

@@ -5856,7 +5856,6 @@ AMTelemetry = {
 
     let addon_id = this.getAddonIdFromInstall(install);
     let addonName = this.getAddonNameFromInstall(install);
-    let object = this.getEventObjectFromInstall(install);
 
     let install_id = String(install.installId);
     let eventMethod = install.existingAddon ? "update" : "install";
@@ -5906,22 +5905,22 @@ AMTelemetry = {
     if (
       AppConstants.MOZ_ENTERPRISE &&
       eventMethod == "install" &&
-      extra.step == "completed"
+      extraVars?.step == "completed"
     ) {
       Glean.addonsManager.installComplete.record(
         this.formatExtraVars({
-          addon_id: extra.addon_id,
+          addon_id,
           addon_name: addonName,
-          addon_type: object,
-          install_id: installId,
-          download_time: extra.download_time,
-          error: extra.error,
-          source: extra.source,
-          source_method: extra.method,
-          num_strings: extra.num_strings,
-          updated_from: extra.updated_from,
-          install_origins: extra.install_origins,
-          step: extra.step,
+          addon_type: this.getInstallAddonTypeForTelemetry(install),
+          install_id,
+          download_time: extraVars?.download_time,
+          error,
+          source,
+          source_method,
+          num_strings: extraVars?.num_strings,
+          updated_from,
+          install_origins,
+          step: extraVars?.step,
         })
       );
       GleanPings.enterprise.submit();

@@ -355,7 +355,7 @@ document.addEventListener(
         "#ipprotection-button",
         "#split-view-button",
         "#smartwindow-ask-button",
-        "#smartwindow-group-tabs-button"
+        "#smartwindow-group-tabs-button",
       ];
 
       if (AppConstants.MOZ_ENTERPRISE) {

@@ -36,6 +36,9 @@ skip-if = [
 ["test_keys.js"]
 
 ["test_loginmgr_storage.js"]
+skip-if = [
+  "enterprise", # Bug 2049098: There is no LoginStorageManager in EnterpriseStorageManager
+]
 
 ["test_oauth_flow.js"]
 

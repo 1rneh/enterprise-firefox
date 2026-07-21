@@ -1,0 +1,102 @@
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsICookie.idl"
+
+[scriptable, uuid(373195cb-bbb9-4e01-b276-b799a18ca355)]
+interface nsIFelt : nsISupports {
+  const unsigned long FeltEncryptionExitCode_Archive = 0x93;
+  const unsigned long FeltEncryptionExitCode_Delete = 0x94;
+
+  [must_use]
+  ACString oneShotIpcServer();
+
+  [must_use]
+  AString binPath();
+
+  [must_use]
+  boolean makeBackgroundProcess(in boolean background);
+
+  [must_use]
+  boolean isFeltUI();
+
+  [must_use]
+  boolean isFeltBrowser();
+
+  [must_use]
+  boolean isFeltSafeMode();
+
+  [must_use]
+  void ipcChannel();
+
+  [must_use]
+  void sendBoolPreference(in ACString name, in boolean value);
+
+  [must_use]
+  void sendStringPreference(in ACString name, in ACString value);
+
+  [must_use]
+  void sendIntPreference(in ACString name, in int32_t value);
+
+  [must_use]
+  void sendCookies(in Array<nsICookie> cookies);
+
+  [must_use]
+  void sendReady();
+
+  [must_use]
+  void sendRestartForced();
+
+  [must_use]
+  void sendUpdateReady();
+
+  [must_use]
+  void sendAccessToken();
+
+  [must_use]
+  void refreshTokens();
+
+  [must_use]
+  ACString getRefreshToken();
+
+  [must_use]
+  ACString getAccessTokenIfValid();
+
+  // expires_at is a Unix timestamp in seconds (UTC).
+  [must_use]
+  void setTokens(in ACString access_token, in ACString refresh_token, in long long expires_at);
+
+  [must_use]
+  void clearTokens();
+
+  /**
+   * Send the console-supplied primarySecret (64-char hex) to the spawned
+   * Firefox over the existing Felt IPC channel. The Felt UI process fetches it
+   * via ConsoleClient.getPrimarySecret() and calls this right after spawning
+   * Firefox. The secret is never stored on the Felt side: the browser hands it
+   * straight to storage/SQLiteEncryption.cpp on receipt. Must be sent BEFORE
+   * the spawned Firefox initializes mozStorage encryption (the storage layer
+   * blocks at `profile-do-change` waiting for it), so it is sent ahead of
+   * `sendAccessToken()` / `sendReady()`.
+   */
+  [must_use]
+  void sendPrimarySecret(in ACString hex);
+
+  [must_use]
+  void sendFeltReady();
+
+  [must_use]
+  void openURL(in ACString url, in long disposition);
+
+  [must_use]
+  ACString getConsoleUrl();
+
+  [must_use]
+  void performSignout();
+
+  [must_use]
+  void shutdownFirefox();
+};

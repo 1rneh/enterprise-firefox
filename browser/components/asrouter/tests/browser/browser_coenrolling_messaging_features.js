@@ -8,9 +8,6 @@ const { ASRouter, MessageLoaderUtils } = ChromeUtils.importESModule(
 const { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"
 );
-const { ExperimentAPI } = ChromeUtils.importESModule(
-  "resource://nimbus/ExperimentAPI.sys.mjs"
-);
 const { NimbusTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/NimbusTestUtils.sys.mjs"
 );
@@ -106,7 +103,7 @@ add_task(async function testCoenrollingMessagingFeatures() {
   });
   await ExperimentAPI._rsLoader.updateRecipes("test");
 
-  const enrollment1 = await BrowserTestUtils.waitForCondition(
+  const enrollment1 = await TestUtils.waitForCondition(
     () =>
       [...featureAPI.getAllEnrollments()].find(
         ({ meta }) => meta.slug === "experiment-1"
@@ -114,7 +111,7 @@ add_task(async function testCoenrollingMessagingFeatures() {
     "Should be enrolled in experiment-1"
   );
 
-  let messages = await BrowserTestUtils.waitForCondition(
+  let messages = await TestUtils.waitForCondition(
     () => ASRouter.state.messages.find(m => m._nimbusFeature === featureId),
     "Should load the test messages"
   );
@@ -228,7 +225,7 @@ add_task(async function testCoenrollingMessagingFeatures() {
   });
   await ExperimentAPI._rsLoader.updateRecipes("test");
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       ASRouter.state.messages.filter(m => m._nimbusFeature === featureId)
         .length > 2,
@@ -241,7 +238,7 @@ add_task(async function testCoenrollingMessagingFeatures() {
   is(nimbusMessages.length, 5, "Should have messages from both experiments");
   // Check that there are two _nimbusSlug values among the messages, one for
   // each experiment, and that they match the enrolled branches.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       [...featureAPI.getAllEnrollments()].find(
         ({ meta }) => meta.slug === "experiment-2"
@@ -268,7 +265,7 @@ add_task(async function testCoenrollingMessagingFeatures() {
   MessageLoaderUtils._recordedReachIds.clear();
   await ASRouter._updateMessageProviders();
   sandbox.restore();
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => ![...featureAPI.getAllEnrollments()].length,
     "Wait for unenrollment"
   );

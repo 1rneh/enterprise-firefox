@@ -21,6 +21,7 @@ export default {
     RPMGetFormatURLPref: "readonly",
     RPMIsTRROnlyFailure: "readonly",
     RPMIsFirefox: "readonly",
+    RPMIsEnterprise: "readonly",
     RPMIsWindowPrivate: "readonly",
     RPMSendAsyncMessage: "readonly",
     RPMSendQuery: "readonly",
@@ -38,5 +39,6 @@ export default {
     RPMIsSiteSpecificTRRError: "readonly",
     RPMSetTRRDisabledLoadFlags: "readonly",
     RPMShowOSXLocalNetworkPermissionWarning: "readonly",
+    RPMIsSSLKeyLoggingEnabled: "readonly",
   },
 };

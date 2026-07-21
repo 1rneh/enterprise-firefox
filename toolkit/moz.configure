@@ -2703,10 +2703,10 @@ def nasm_asflags(target):
 set_config("NASM_ASFLAGS", nasm_asflags)
 
 
-# ANGLE OpenGL->D3D translator for WebGL
+# ANGLE renderer
 # ==============================================================
 
-with only_when(compile_environment & target_is_windows):
+with only_when(compile_environment & (target_is_windows | target_is_osx)):
     set_config("MOZ_ANGLE_RENDERER", True)
 
 with only_when(target_is_windows):
@@ -4176,9 +4176,7 @@ with only_when(compile_environment):
 with only_when(target_has_linux_kernel & compile_environment):
     option(
         env="MOZ_LINKER",
-        default=depends(target.os, when="--enable-jemalloc")(
-            lambda os: os == "Android"
-        ),
+        default=False,
         help="{Enable|Disable} custom dynamic linker",
     )
 
@@ -4535,3 +4533,26 @@ def enable_appservices_in_tree(value):
 
 
 set_config("MOZ_APPSERVICES_IN_TREE", enable_appservices_in_tree)
+
+
+# Firefox Enterprise
+# ==============================================================
+
+option(
+    "--enable-enterprise",
+    default=False,
+    help="Build with enterprise support",
+)
+
+
+@depends("--enable-enterprise")
+def enable_enterprise(value):
+    if value:
+        return True
+
+
+set_config("MOZ_ENTERPRISE", enable_enterprise)
+set_define("MOZ_ENTERPRISE", enable_enterprise)
+
+# Clear the default value to avoid mozilla.com url compiled into product
+imply_option("--with-crashreporter-url", "", when="--enable-enterprise")

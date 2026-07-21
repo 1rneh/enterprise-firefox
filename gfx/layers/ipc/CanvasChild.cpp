@@ -5,28 +5,28 @@
 #include "CanvasChild.h"
 
 #include "MainThreadUtils.h"
+#include "RecordedCanvasEventImpl.h"
+#include "mozilla/AppShutdown.h"
+#include "mozilla/Mutex.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRef.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/gfx/CanvasManagerChild.h"
 #include "mozilla/gfx/CanvasShutdownManager.h"
 #include "mozilla/gfx/DrawTargetRecording.h"
-#include "mozilla/gfx/gfxVars.h"
-#include "mozilla/gfx/Tools.h"
-#include "mozilla/gfx/Rect.h"
 #include "mozilla/gfx/Point.h"
+#include "mozilla/gfx/Rect.h"
+#include "mozilla/gfx/Tools.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/ipc/Endpoint.h"
 #include "mozilla/ipc/ProcessChild.h"
 #include "mozilla/ipc/SharedMemoryHandle.h"
 #include "mozilla/layers/CanvasDrawEventRecorder.h"
 #include "mozilla/layers/ImageDataSerializer.h"
 #include "mozilla/layers/SourceSurfaceSharedData.h"
-#include "mozilla/AppShutdown.h"
-#include "mozilla/Mutex.h"
-#include "mozilla/StaticPrefs_gfx.h"
-#include "nsIObserverService.h"
 #include "nsICanvasRenderingContextInternal.h"
-#include "RecordedCanvasEventImpl.h"
+#include "nsIObserverService.h"
 
 namespace mozilla {
 namespace layers {
@@ -135,7 +135,17 @@ class SourceSurfaceCanvasRecording final : public gfx::SourceSurface {
         });
   }
 
-  gfx::SurfaceType GetType() const final { return mRecordedSurface->GetType(); }
+  gfx::SurfaceType GetType() const final {
+    return gfx::SurfaceType::CANVAS_RECORDING;
+  }
+
+  gfx::SurfaceType GetUnderlyingType() const final {
+    return mRecordedSurface->GetType();
+  }
+
+  already_AddRefed<SourceSurface> GetUnderlyingSurface() final {
+    return do_AddRef(mRecordedSurface);
+  }
 
   gfx::IntSize GetSize() const final { return mRecordedSurface->GetSize(); }
 

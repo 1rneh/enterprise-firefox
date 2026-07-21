@@ -10,6 +10,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 import { RemotePageChild } from "resource://gre/actors/RemotePageChild.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 export class NetErrorChild extends RemotePageChild {
   actorCreated() {
@@ -34,6 +35,8 @@ export class NetErrorChild extends RemotePageChild {
       "RPMSetTRRDisabledLoadFlags",
       "RPMGetCurrentTRRMode",
       "RPMShowOSXLocalNetworkPermissionWarning",
+      "RPMIsEnterprise",
+      "RPMIsSSLKeyLoggingEnabled",
     ];
     this.exportFunctions(exportableFunctions);
   }
@@ -204,6 +207,10 @@ export class NetErrorChild extends RemotePageChild {
     return lazy.AppInfo.isFirefox;
   }
 
+  RPMIsEnterprise() {
+    return AppConstants.MOZ_ENTERPRISE;
+  }
+
   RPMHasConnectivity() {
     // Whether the browser has active network interfaces or not.
     return Services.io.connectivity;
@@ -239,6 +246,10 @@ export class NetErrorChild extends RemotePageChild {
   RPMSetTRRDisabledLoadFlags() {
     this.contentWindow.docShell.browsingContext.defaultLoadFlags |=
       Ci.nsIRequest.LOAD_TRR_DISABLED_MODE;
+  }
+
+  RPMIsSSLKeyLoggingEnabled() {
+    return Services.env.exists("SSLKEYLOGFILE");
   }
 
   RPMShowOSXLocalNetworkPermissionWarning() {

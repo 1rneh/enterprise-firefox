@@ -97,7 +97,6 @@ ml-llama-summarizer-perf:
             --hooks toolkit/components/ml/tests/tools/hooks_local_hub.py
             toolkit/components/ml/tests/browser/browser_ml_llama_summarizer_perf.js
 
-
 ml-security-perf:
     fetches:
         fetch:

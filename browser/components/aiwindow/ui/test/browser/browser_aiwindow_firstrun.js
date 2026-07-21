@@ -11,6 +11,121 @@ async function openFirstrunPage() {
   return tab;
 }
 
+function withHomeRegion(region) {
+  const originalRegion = Region.home;
+  Region._setHomeRegion(region, false);
+  registerCleanupFunction(() => {
+    if (originalRegion) {
+      Region._setHomeRegion(originalRegion, false);
+    } else {
+      Services.prefs.clearUserPref("browser.search.region");
+    }
+  });
+}
+
+add_task(async function test_firstrun_europe_promotes_mistral() {
+  withHomeRegion("DE");
+
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.smartwindow.firstrun.autoAdvanceMS", 0],
+      ["browser.smartwindow.mistralRelease", true],
+      ["browser.smartwindow.firstrun.modelChoice", ""],
+    ],
+  });
+
+  const tab = await openFirstrunPage();
+
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
+    const root = content.document.documentElement;
+
+    await ContentTaskUtils.waitForMutationCondition(
+      root,
+      { childList: true, subtree: true, attributes: true },
+      () => content.document.querySelector(".screen.AI_WINDOW_CHOOSE_MODEL")
+    );
+
+    const firstItem = content.document.querySelectorAll(".select-item")[0];
+    Assert.ok(firstItem, "First model card exists");
+
+    await ContentTaskUtils.waitForCondition(
+      () => firstItem.querySelector(".flair"),
+      "Recommended badge appears on the first (Mistral) card"
+    );
+    Assert.ok(
+      firstItem.querySelector(".flair"),
+      "First card has the Recommended flair badge"
+    );
+
+    const radio = firstItem.querySelector(".input");
+    await ContentTaskUtils.waitForCondition(
+      () => radio.checked,
+      "First (Mistral) card is preselected by default"
+    );
+    Assert.ok(radio.checked, "First card is the default selection");
+  });
+
+  Assert.equal(
+    Services.prefs.getStringPref(
+      "browser.smartwindow.firstrun.modelChoice",
+      ""
+    ),
+    "3",
+    "Promoted Mistral model is committed as the default choice"
+  );
+
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_firstrun_non_europe_no_promotion() {
+  // "US" is outside the EEA, so there should be no promoted treatment.
+  withHomeRegion("US");
+
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.smartwindow.firstrun.autoAdvanceMS", 0],
+      ["browser.smartwindow.mistralRelease", true],
+      ["browser.smartwindow.firstrun.modelChoice", ""],
+    ],
+  });
+
+  const tab = await openFirstrunPage();
+
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
+    const root = content.document.documentElement;
+
+    await ContentTaskUtils.waitForMutationCondition(
+      root,
+      { childList: true, subtree: true, attributes: true },
+      () => content.document.querySelector(".screen.AI_WINDOW_CHOOSE_MODEL")
+    );
+
+    const items = [...content.document.querySelectorAll(".select-item")];
+    Assert.ok(items.length, "Model cards exist");
+    Assert.ok(
+      !items.some(item => item.querySelector(".flair")),
+      "No Recommended badge is shown outside Europe"
+    );
+    Assert.ok(
+      !items.some(item => item.querySelector(".input").checked),
+      "No model is preselected outside Europe"
+    );
+  });
+
+  Assert.equal(
+    Services.prefs.getStringPref(
+      "browser.smartwindow.firstrun.modelChoice",
+      ""
+    ),
+    "",
+    "No default model is committed outside Europe"
+  );
+
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
 add_task(async function test_firstrun_welcome_screen_renders() {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.smartwindow.firstrun.autoAdvanceMS", 0]],
@@ -66,7 +181,7 @@ add_task(async function test_launchWindow_shows_firstrun_when_not_completed() {
 
   await AIWindow.launchWindow(gBrowser.selectedBrowser);
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => gBrowser.selectedBrowser.currentURI.spec === FIRSTRUN_URL,
     "Should navigate to firstrun.html"
   );
@@ -118,7 +233,7 @@ add_task(async function test_switcher_shows_firstrun_when_not_completed() {
     "Window should have ai-window attribute after switching"
   );
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => gBrowser.selectedBrowser.currentURI.spec === FIRSTRUN_URL,
     "Should navigate to firstrun.html"
   );
@@ -225,7 +340,7 @@ add_task(async function test_firstrun_explainer_page_opens() {
 
   await AIWindow.launchWindow(gBrowser.selectedBrowser);
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => gBrowser.selectedBrowser.currentURI.spec === FIRSTRUN_URL,
     "Should navigate to firstrun.html"
   );
@@ -282,7 +397,7 @@ add_task(async function test_firstrun_explainer_page_opens() {
     EventUtils.synthesizeMouseAtCenter(letsGoButton, {}, content);
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => calls.length,
     "openLinkIn function was called"
   );
@@ -379,7 +494,7 @@ add_task(async function test_firstrun_telemetry() {
     EventUtils.synthesizeMouseAtCenter(letsGoButton, {}, content);
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => calls.length,
     "openLinkIn was called after onboarding completion"
   );
@@ -630,7 +745,7 @@ add_task(async function test_firstrun_telemetry_unchecked() {
     EventUtils.synthesizeMouseAtCenter(letsGoButton, {}, content);
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => calls.length,
     "openLinkIn was called after onboarding completion"
   );

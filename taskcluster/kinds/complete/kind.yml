@@ -12,6 +12,7 @@ transforms:
 kind-dependencies:
     - repackage-deb
     - repackage-signing-msi
+    - repackage-signing-msix
     - enterprise-repack-mac-notarization
 
 task-defaults:
@@ -41,6 +42,7 @@ tasks:
             kinds:
                 - repackage-deb
                 - repackage-signing-msi
+                - repackage-signing-msix
                 - enterprise-repack-mac-notarization
             with-attributes:
                 shipping_product: firefox-enterprise

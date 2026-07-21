@@ -3,26 +3,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "gfxFontUtils.h"
+
 #include "gfxFontEntry.h"
 #include "gfxFontVariations.h"
 #include "gfxUtils.h"
-
-#include "nsServiceManagerUtils.h"
-
-#include "mozilla/Preferences.h"
+#include "mozilla/Base64.h"
 #include "mozilla/BinarySearch.h"
+#include "mozilla/Encoding.h"
 #include "mozilla/EndianUtils.h"
+#include "mozilla/Logging.h"
+#include "mozilla/Preferences.h"
+#include "mozilla/ServoStyleSet.h"
 #include "mozilla/Sprintf.h"
-
+#include "mozilla/dom/WorkerCommon.h"
 #include "nsCOMPtr.h"
 #include "nsIUUIDGenerator.h"
-#include "mozilla/Encoding.h"
-
-#include "mozilla/ServoStyleSet.h"
-#include "mozilla/dom/WorkerCommon.h"
-
-#include "mozilla/Logging.h"
-#include "mozilla/Base64.h"
+#include "nsServiceManagerUtils.h"
 
 #ifdef XP_DARWIN
 #  include <CoreFoundation/CoreFoundation.h>
@@ -74,11 +70,8 @@ void gfxSparseBitSet::Dump(const char* aPrefix, eGfxLog aWhichLog) const {
       continue;
     }
     const Block* block = &mBlocks[mBlockIndex[b]];
-    const int BUFSIZE = 256;
-    char outStr[BUFSIZE];
-    int index = 0;
-    index += snprintf(&outStr[index], BUFSIZE - index, "%s u+%6.6x [", aPrefix,
-                      (b * BLOCK_SIZE_BITS));
+    nsAutoCString outStr;
+    outStr.AppendPrintf("%s u+%6.6x [", aPrefix, (b * BLOCK_SIZE_BITS));
     for (int i = 0; i < 32; i += 4) {
       for (int j = i; j < i + 4; j++) {
         uint8_t bits = block->mBits[j];
@@ -86,12 +79,12 @@ void gfxSparseBitSet::Dump(const char* aPrefix, eGfxLog aWhichLog) const {
         uint8_t flip2 = ((flip1 & 0xcc) >> 2) | ((flip1 & 0x33) << 2);
         uint8_t flipped = ((flip2 & 0xf0) >> 4) | ((flip2 & 0x0f) << 4);
 
-        index += snprintf(&outStr[index], BUFSIZE - index, "%2.2x", flipped);
+        outStr.AppendPrintf("%2.2x", flipped);
       }
-      if (i + 4 != 32) index += snprintf(&outStr[index], BUFSIZE - index, " ");
+      if (i + 4 != 32) outStr.Append(' ');
     }
-    (void)snprintf(&outStr[index], BUFSIZE - index, "]");
-    LOG(aWhichLog, ("%s", outStr));
+    outStr.Append(']');
+    LOG(aWhichLog, ("%s", outStr.get()));
   }
 }
 

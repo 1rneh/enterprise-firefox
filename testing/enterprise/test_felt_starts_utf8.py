@@ -49,7 +49,13 @@ class FeltStartsUtf8(FeltTests):
         super().teardown()
         self._driver.instance.binary = self._original_binary
         if os.path.isdir(self._root_dir.name):
-            self._root_dir.cleanup()
+            if sys.platform == "win32":
+                shutil.rmtree(
+                    "\\\\?\\" + os.path.abspath(self._root_dir.name), ignore_errors=True
+                )
+                self._root_dir._finalizer.detach()
+            else:
+                self._root_dir.cleanup()
 
     def test_felt_browser_start_from_utf8_path(self):
         super().run_felt_base()

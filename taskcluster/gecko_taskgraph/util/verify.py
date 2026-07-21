@@ -75,13 +75,13 @@ def verify_docs(filename, identifiers, appearing_as):
 
     if appearing_as == "inline-literal":
         expression_list = [
-            "``" + identifier + "``"
+            "`" + identifier + "`"
             for identifier in identifiers
             if not identifier.startswith("_")
         ]
     elif appearing_as == "heading":
         expression_list = [
-            "\n" + identifier + "\n(?:(?:(?:-+\n)+)|(?:(?:.+\n)+))"
+            "\n#+ " + identifier + "\n"
             for identifier in identifiers
             if not identifier.startswith("_")
         ]
@@ -101,7 +101,7 @@ def verify_run_using():
     from gecko_taskgraph.transforms.job import registry
 
     verify_docs(
-        filename="transforms/job.rst",
+        filename="transforms/job.md",
         identifiers=registry.keys(),
         appearing_as="inline-literal",
     )
@@ -114,7 +114,7 @@ def verify_parameters_docs(parameters):
 
     parameters_dict = dict(**parameters)
     verify_docs(
-        filename="parameters.rst",
+        filename="parameters.md",
         identifiers=list(parameters_dict),
         appearing_as="inline-literal",
     )
@@ -122,14 +122,14 @@ def verify_parameters_docs(parameters):
 
 @verifications.add("kinds")
 def verify_kinds_docs(kinds):
-    verify_docs(filename="kinds.rst", identifiers=kinds.keys(), appearing_as="heading")
+    verify_docs(filename="kinds.md", identifiers=kinds.keys(), appearing_as="heading")
 
 
 @verifications.add("full_task_set")
 def verify_attributes(task, taskgraph, scratch_pad, graph_config, parameters):
     if task is None:
         verify_docs(
-            filename="attributes.rst",
+            filename="attributes.md",
             identifiers=list(scratch_pad["attribute_set"]),
             appearing_as="heading",
         )
@@ -255,14 +255,14 @@ def verify_task_graph_symbol_enterprise(
                         task_matcher_exception_generator(
                             "repacks MSI",
                             task.label,
-                            "repackage-enterprise-repack-msi",
+                            "repackage-enterprise-repack-msi-",
                             group_symbol=group_symbol,
                             expected_group="MSI-Ent",
                         )
                         task_matcher_exception_generator(
                             "repacks MSI signed",
                             task.label,
-                            "repackage-signing-enterprise-repack-msi",
+                            "repackage-signing-enterprise-repack-msi-",
                             group_symbol=group_symbol,
                             expected_group="MSIs-Ent",
                         )
@@ -271,14 +271,14 @@ def verify_task_graph_symbol_enterprise(
                             task_matcher_exception_generator(
                                 "repacks MSI",
                                 task.label,
-                                "repackage-enterprise-repack-msi",
+                                "repackage-enterprise-repack-msi-",
                                 symbol=symbol,
                                 expected_symbol="moz/stageGCP",
                             )
                             task_matcher_exception_generator(
                                 "repacks MSI signed",
                                 task.label,
-                                "repackage-signing-enterprise-repack-msi",
+                                "repackage-signing-enterprise-repack-msi-",
                                 symbol=symbol,
                                 expected_symbol="moz/stageGCP",
                             )
@@ -287,14 +287,62 @@ def verify_task_graph_symbol_enterprise(
                             task_matcher_exception_generator(
                                 "repacks MSI",
                                 task.label,
-                                "repackage-enterprise-repack-msi",
+                                "repackage-enterprise-repack-msi-",
                                 symbol=symbol,
                                 expected_symbol="moz/prodGCP",
                             )
                             task_matcher_exception_generator(
                                 "repacks MSI signed",
                                 task.label,
-                                "repackage-signing-enterprise-repack-msi",
+                                "repackage-signing-enterprise-repack-msi-",
+                                symbol=symbol,
+                                expected_symbol="moz/prodGCP",
+                            )
+
+                    if "-msix-" in task.label:
+                        task_matcher_exception_generator(
+                            "repacks MSIX",
+                            task.label,
+                            "repackage-enterprise-repack-msix-",
+                            group_symbol=group_symbol,
+                            expected_group="MSIX-Ent",
+                        )
+                        task_matcher_exception_generator(
+                            "repacks MSIX signed",
+                            task.label,
+                            "repackage-signing-enterprise-repack-msix-",
+                            group_symbol=group_symbol,
+                            expected_group="MSIXs-Ent",
+                        )
+
+                        if "stageMozGCP" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks MSIX",
+                                task.label,
+                                "repackage-enterprise-repack-msix-",
+                                symbol=symbol,
+                                expected_symbol="moz/stageGCP",
+                            )
+                            task_matcher_exception_generator(
+                                "repacks MSIX signed",
+                                task.label,
+                                "repackage-signing-enterprise-repack-msix-",
+                                symbol=symbol,
+                                expected_symbol="moz/stageGCP",
+                            )
+
+                        if "prodMozGCP" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks MSIX",
+                                task.label,
+                                "repackage-enterprise-repack-msix-",
+                                symbol=symbol,
+                                expected_symbol="moz/prodGCP",
+                            )
+                            task_matcher_exception_generator(
+                                "repacks MSIX signed",
+                                task.label,
+                                "repackage-signing-enterprise-repack-msix-",
                                 symbol=symbol,
                                 expected_symbol="moz/prodGCP",
                             )

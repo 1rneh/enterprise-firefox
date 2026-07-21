@@ -9,6 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.coroutineScope
 import androidx.navigation.NavController
+import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.CustomTabSessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.browser.thumbnails.BrowserThumbnails
@@ -32,6 +33,7 @@ import org.mozilla.fenix.ext.isTallWindow
 import org.mozilla.fenix.ext.isWideWindow
 import org.mozilla.fenix.search.BrowserToolbarSearchMiddleware
 import org.mozilla.fenix.search.BrowserToolbarSearchStatusSyncMiddleware
+import org.mozilla.fenix.summarization.SummarizationNavigator
 
 /**
  * Delegate for building the [BrowserToolbarStore] used in the browser screen.
@@ -93,7 +95,6 @@ object BrowserToolbarStoreBuilder {
                         browserStore = browserStore,
                         ipProtectionStore = components.ipProtection.store,
                         permissionsStorage = components.core.geckoSitePermissionsStorage,
-                        cookieBannersStorage = components.core.cookieBannersStorage,
                         bookmarksStorage = activity.components.core.bookmarksStorage,
                         trackingProtectionUseCases = components.useCases.trackingProtectionUseCases,
                         useCases = components.useCases,
@@ -101,8 +102,14 @@ object BrowserToolbarStoreBuilder {
                         clipboard = activity.components.clipboardHandler,
                         publicSuffixList = components.publicSuffixList,
                         settings = components.settings,
+                        summarizationFeatureSettings = components.core.summarizeFeatureSettings,
                         shareUseCases = components.useCases.shareUseCases,
                         navController = navController,
+                        summarizationNavigator = SummarizationNavigator(
+                            summarizationSettings = components.core.summarizationSettings,
+                            eligibilityChecker = components.core.summarizationEligibilityChecker,
+                            getCurrentTab = { browserStore.state.selectedTab },
+                        ),
                         browsingModeManager = browsingModeManager,
                         readerModeController = readerModeController,
                         thumbnailsFeature = thumbnailsFeature,
@@ -136,14 +143,12 @@ object BrowserToolbarStoreBuilder {
                         appStore = appStore,
                         ipProtectionStore = components.ipProtection.store,
                         permissionsStorage = components.core.geckoSitePermissionsStorage,
-                        cookieBannersStorage = components.core.cookieBannersStorage,
                         useCases = components.useCases.customTabsUseCases,
                         trackingProtectionUseCases = components.useCases.trackingProtectionUseCases,
                         publicSuffixList = components.publicSuffixList,
                         clipboard = activity.components.clipboardHandler,
                         navController = navController,
                         closeTabDelegate = { activity.finishAndRemoveTask() },
-                        settings = components.settings,
                         scope = lifecycleScope,
                         isSandboxCustomTab = isSandboxCustomTab,
                     ),

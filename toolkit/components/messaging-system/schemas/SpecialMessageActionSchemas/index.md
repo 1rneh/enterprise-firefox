@@ -283,6 +283,26 @@ Windows only.
 
 - args: (none)
 
+### `SET_DEFAULT_PROTOCOL_HANDLER`
+
+Action for setting Firefox as the default handler for a protocol (scheme), such
+as `mailto`, on the user's system.
+
+Windows only.
+
+- args:
+```ts
+{
+  // The protocol to claim, e.g. "mailto".
+  protocol: string;
+  // URL passed to the OS default-app picker.
+  url?: string;
+  // If the OS hands the URL back to Firefox after the user picks Firefox in the
+  // open-with dialog, open the protocol's default URL in a new tab.
+  openInFirefox?: boolean;
+}
+```
+
 ### `SHOW_SPOTLIGHT`
 
 Action for opening a spotlight tab or window modal using the content passed to the dialog.
@@ -360,6 +380,17 @@ Example:
       "name": "browser.startup.homepage"
     }
   }
+}
+```
+
+### `DESTROY_UIWIDGET`
+
+Destroys a customizable UI widget by ID. Only widgets in the allowlist are permitted.
+
+- args:
+```ts
+{
+  widget_id: string; // The id of the widget to destroy (e.g. "fxms-bmb-button")
 }
 ```
 
@@ -479,11 +510,11 @@ interface SearchMode {
   // The name of the search engine to restrict to. Can be left empty to use source
   // restriction instead.
   engineName?: string;
-  // A result source to restrict to. One of the values in UrlbarUtils.RESULT_SOURCE.
+  // A result source to restrict to. One of the values in UrlbarShared.RESULT_SOURCE.
   // Defaults to 3 (SEARCH).
   source?: number;
   // How search mode was entered. This is recorded in event telemetry. One of the
-  // values in UrlbarUtils.SEARCH_MODE_ENTRY. Defaults to "other".
+  // values in UrlbarShared.SEARCH_MODE_ENTRY. Defaults to "other".
   entry?: string;
   // If true, we will preview search mode. Search mode preview does not record
   // telemetry and has slighly different UI behavior. The preview is exited in

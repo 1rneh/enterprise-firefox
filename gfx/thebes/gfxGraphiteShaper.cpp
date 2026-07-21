@@ -3,20 +3,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "gfxGraphiteShaper.h"
-#include "nsString.h"
+
+#include "ThebesRLBox.h"
 #include "gfxContext.h"
 #include "gfxFontConstants.h"
 #include "gfxTextRun.h"
-
 #include "graphite2/Font.h"
 #include "graphite2/GraphiteExtra.h"
 #include "graphite2/Segment.h"
-
 #include "harfbuzz/hb.h"
-
 #include "mozilla/ScopeExit.h"
-
-#include "ThebesRLBox.h"
+#include "mozilla/Utf16.h"
+#include "nsString.h"
 
 #define FloatToFixed(f) (65536 * (f))
 #define FixedToFloat(f) ((f) * (1.0 / 65536.0))
@@ -116,8 +114,8 @@ static inline size_t CountUnicodes(const char16_t* aText, uint32_t aLength) {
   size_t total = 0;
   const char16_t* end = aText + aLength;
   while (aText < end) {
-    if (NS_IS_HIGH_SURROGATE(*aText) && aText + 1 < end &&
-        NS_IS_LOW_SURROGATE(*(aText + 1))) {
+    if (mozilla::IsHighSurrogate(*aText) && aText + 1 < end &&
+        mozilla::IsLowSurrogate(*(aText + 1))) {
       aText += 2;
     } else {
       aText++;

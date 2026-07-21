@@ -298,7 +298,9 @@ class DefaultTabManagerController(
         } else {
             navController.popBackStack()
             navController.navigate(
-                TabManagementFragmentDirections.actionGlobalHome(focusOnAddressBar = true),
+                TabManagementFragmentDirections.actionGlobalHome(
+                    focusOnAddressBar = !settings.enableHomepageTrendingRecentSearch,
+                ),
             )
         }
 
@@ -633,6 +635,10 @@ class DefaultTabManagerController(
             handleNavigateToHome()
         } else {
             handleNavigateToBrowser()
+        }
+
+        if (!appStore.state.mode.isPrivate && settings.privateBrowsingLockedFeatureEnabled) {
+            appStore.dispatch(AppAction.PrivateBrowsingLockAction.UpdatePrivateBrowsingLock(isLocked = true))
         }
     }
 

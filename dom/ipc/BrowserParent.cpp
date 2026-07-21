@@ -1215,7 +1215,7 @@ void BrowserParent::Deactivate(bool aWindowLowering, uint64_t aActionId) {
 #ifdef ACCESSIBILITY
 a11y::PDocAccessibleParent* BrowserParent::AllocPDocAccessibleParent(
     PDocAccessibleParent* aParent, const uint64_t&,
-    const MaybeDiscardedBrowsingContext&) {
+    const MaybeDiscardedBrowsingContext&, const bool&) {
   // Reference freed in DeallocPDocAccessibleParent.
   return a11y::DocAccessibleParent::New().take();
 }
@@ -1229,11 +1229,13 @@ bool BrowserParent::DeallocPDocAccessibleParent(PDocAccessibleParent* aParent) {
 mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
     PDocAccessibleParent* aDoc, PDocAccessibleParent* aParentDoc,
     const uint64_t& aParentID,
-    const MaybeDiscardedBrowsingContext& aBrowsingContext) {
+    const MaybeDiscardedBrowsingContext& aBrowsingContext,
+    const bool& aIsPrintDoc) {
 #  if defined(ANDROID)
   MonitorAutoLock mal(nsAccessibilityService::GetAndroidMonitor());
 #  endif
   auto doc = static_cast<a11y::DocAccessibleParent*>(aDoc);
+  doc->SetIsPrintDoc(aIsPrintDoc);
 
   // If this tab is already shutting down just mark the new actor as shutdown
   // and ignore it.  When the tab actor is destroyed it will be too.
@@ -1297,7 +1299,9 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
     // In this case, we don't get aParentDoc and aParentID.
     MOZ_ASSERT(!aParentDoc && !aParentID);
     doc->SetTopLevelInContentProcess();
-    a11y::ProxyCreated(doc);
+    if (!doc->IsPrintDoc()) {
+      a11y::ProxyCreated(doc);
+    }
     // It's possible the embedder accessible hasn't been set yet; e.g.
     // a hidden iframe. In that case, embedderDoc will be null and this will
     // be handled when the embedder is set.
@@ -1321,7 +1325,9 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
     doc->SetTopLevel();
     a11y::DocManager::RemoteDocAdded(doc);
 #  ifdef XP_WIN
-    doc->MaybeInitWindowEmulation();
+    if (!aIsPrintDoc) {
+      doc->MaybeInitWindowEmulation();
+    }
 #  endif
   }
   return IPC_OK();
@@ -2064,6 +2070,11 @@ mozilla::ipc::IPCResult BrowserParent::RecvSynthesizeNativeTouchpadPan(
 
 mozilla::ipc::IPCResult BrowserParent::RecvLockNativePointer(
     const nsIWidget::NativePointerLockMode& aNativePointerLockMode) {
+  // XXX(edgar): LockNativePointer IPC message can be removed if pointer lock
+  // is handled mainly from parent process.
+  MOZ_ASSERT(
+      !StaticPrefs::dom_pointer_lock_reset_to_center_from_parent_enabled());
+
   if (nsCOMPtr<nsIWidget> widget = GetWidget()) {
     mLockedNativePointer = true;
     widget->LockNativePointer(aNativePointerLockMode);
@@ -2082,6 +2093,10 @@ void BrowserParent::UnlockNativePointer() {
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvUnlockNativePointer() {
+  // XXX(edgar): LockNativePointer IPC message can be removed if pointer lock
+  // is handled mainly from parent process.
+  MOZ_ASSERT(
+      !StaticPrefs::dom_pointer_lock_reset_to_center_from_parent_enabled());
   UnlockNativePointer();
   return IPC_OK();
 }
@@ -4258,9 +4273,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvIsWindowSupportingWebVR(
   return IPC_OK();
 }
 
-static BrowserParent* GetTopLevelBrowserParent(BrowserParent* aBrowserParent) {
-  MOZ_ASSERT(aBrowserParent);
-  BrowserParent* parent = aBrowserParent;
+BrowserParent* BrowserParent::TopLevelBrowserParent() {
+  BrowserParent* parent = this;
   while (BrowserBridgeParent* bridge = parent->GetBrowserBridgeParent()) {
     parent = bridge->Manager();
   }
@@ -4268,14 +4282,14 @@ static BrowserParent* GetTopLevelBrowserParent(BrowserParent* aBrowserParent) {
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvRequestPointerLock(
-    RequestPointerLockResolver&& aResolve) {
-  if (sTopLevelWebFocus != GetTopLevelBrowserParent(this)) {
+    const bool& aUnadjustedMovement, RequestPointerLockResolver&& aResolve) {
+  if (sTopLevelWebFocus != TopLevelBrowserParent()) {
     aResolve("PointerLockDeniedNotFocused"_ns);
     return IPC_OK();
   }
 
   nsCString error;
-  PointerLockManager::SetLockedRemoteTarget(this, error);
+  PointerLockManager::SetLockedRemoteTarget(this, aUnadjustedMovement, error);
   aResolve(std::move(error));
   return IPC_OK();
 }

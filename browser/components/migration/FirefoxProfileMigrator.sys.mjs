@@ -177,7 +177,16 @@ export class FirefoxProfileMigrator extends MigratorBase {
         type: aMigrationType,
         migrate(aCallback) {
           for (let file of files) {
-            file.copyTo(currentProfileDir, "");
+            // Skip files already present in the destination. A refreshed
+            // profile can already hold some of these (e.g. the NSS key
+            // databases, which the storage-encryption path copies earlier so
+            // NSS initializes from the source SDR key); copyTo() would otherwise
+            // throw NS_ERROR_FILE_ALREADY_EXISTS and abort the remaining copies.
+            let dest = currentProfileDir.clone();
+            dest.append(file.leafName);
+            if (!dest.exists()) {
+              file.copyTo(currentProfileDir, "");
+            }
           }
           aCallback(true);
         },
@@ -241,11 +250,44 @@ export class FirefoxProfileMigrator extends MigratorBase {
       "cookies.sqlite",
       "cookies.sqlite-wal",
     ]);
-    let passwords = getFileResource(types.PASSWORDS, [
-      "logins.json",
-      "key3.db",
-      "key4.db",
-    ]);
+    let passwords = {
+      name: "passwords", // name is used only by tests.
+      type: types.PASSWORDS,
+      migrate: async aCallback => {
+        try {
+          for (let fileName of [
+            "logins.json",
+            "logins.db",
+            "logins.db-wal",
+            "key3.db",
+            "key4.db",
+          ]) {
+            let file = this._getFileObject(sourceProfileDir, fileName);
+            if (file) {
+              file.copyTo(currentProfileDir, "");
+            }
+          }
+
+          // If the source profile had the Rust logins backend active, carry
+          // that state over so the new profile adopts the copied logins.db
+          // directly instead of re-migrating from the (now stale) logins.json
+          // and wiping the copied store.
+          let oldRawPrefs = await readOldPrefs();
+          if (
+            /^user_pref\("signon\.storage\.rust\.active",\s*true\)/m.test(
+              oldRawPrefs
+            )
+          ) {
+            Services.prefs.setBoolPref("signon.storage.rust.active", true);
+            savePrefs();
+          }
+        } catch (e) {
+          aCallback(false);
+          return;
+        }
+        aCallback(true);
+      },
+    };
     let formData = getFileResource(types.FORMDATA, [
       "formhistory.sqlite",
       "autofill-profiles.json",

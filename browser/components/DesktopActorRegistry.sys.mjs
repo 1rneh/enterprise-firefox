@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { ActorManagerParent } from "resource://gre/modules/ActorManagerParent.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 
@@ -31,6 +32,7 @@ let JSPROCESSACTORS = {
         "recording-window-ended",
       ],
     },
+    safeForUntrustedWebProcess: true,
   },
 
   MozCachedOHTTP: {
@@ -68,6 +70,7 @@ let JSPROCESSACTORS = {
         }
       });
     },
+    safeForUntrustedWebProcess: true,
   },
 };
 
@@ -189,6 +192,7 @@ let JSWINDOWACTORS = {
       },
     },
     messageManagerGroups: ["browsers"],
+    safeForUntrustedWebProcess: true,
   },
 
   AboutTabCrashed: {
@@ -266,6 +270,7 @@ let JSWINDOWACTORS = {
     includeChrome: true,
     allFrames: true,
     enablePreference: "browser.smartwindow.enabled",
+    remoteTypes: ["parent"],
   },
 
   BackupUI: {
@@ -292,6 +297,8 @@ let JSWINDOWACTORS = {
         },
         "BackupUI:ErrorBarDismissed": { wantUntrusted: true },
         "BackupUI:FindBackupsInWellKnownLocations": { wantUntrusted: true },
+        "BackupUI:ProbeDefaultBackupDir": { wantUntrusted: true },
+        "BackupUI:PrepareRestoreDialog": { wantUntrusted: true },
       },
     },
     includeChrome: true,
@@ -320,6 +327,7 @@ let JSWINDOWACTORS = {
     },
     matches: ["about:blocked?*"],
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   BrowserTab: {
@@ -328,6 +336,7 @@ let JSWINDOWACTORS = {
     },
 
     messageManagerGroups: ["browsers"],
+    safeForUntrustedWebProcess: true,
   },
 
   CanonicalURL: {
@@ -356,6 +365,7 @@ let JSWINDOWACTORS = {
         );
       }
     },
+    safeForUntrustedWebProcess: true,
   },
 
   ClickHandler: {
@@ -370,6 +380,7 @@ let JSWINDOWACTORS = {
     },
 
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   /* Note: this uses the same JSMs as ClickHandler, but because it
@@ -391,6 +402,7 @@ let JSWINDOWACTORS = {
     enablePreference: "middlemouse.contentLoadURL",
 
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   ContentSearch: {
@@ -411,21 +423,6 @@ let JSWINDOWACTORS = {
       "about:test-about-content-search-ui",
     ],
     remoteTypes: ["privilegedabout"],
-  },
-
-  ContextMenu: {
-    parent: {
-      esModuleURI: "resource:///actors/ContextMenuParent.sys.mjs",
-    },
-
-    child: {
-      esModuleURI: "resource:///actors/ContextMenuChild.sys.mjs",
-      events: {
-        contextmenu: { mozSystemGroup: true },
-      },
-    },
-
-    allFrames: true,
   },
 
   CustomKeys: {
@@ -454,6 +451,7 @@ let JSWINDOWACTORS = {
 
     messageManagerGroups: ["browsers"],
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   DOMFullscreen: {
@@ -476,6 +474,7 @@ let JSWINDOWACTORS = {
 
     messageManagerGroups: ["browsers"],
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   EncryptedMedia: {
@@ -490,6 +489,7 @@ let JSWINDOWACTORS = {
 
     messageManagerGroups: ["browsers"],
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   FormValidation: {
@@ -508,6 +508,7 @@ let JSWINDOWACTORS = {
     },
 
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   GenAI: {
@@ -552,6 +553,7 @@ let JSWINDOWACTORS = {
       );
       maybeRegister();
     },
+    safeForUntrustedWebProcess: true,
   },
 
   LightweightTheme: {
@@ -606,6 +608,7 @@ let JSWINDOWACTORS = {
     },
 
     messageManagerGroups: ["browsers"],
+    safeForUntrustedWebProcess: true,
   },
 
   LinkPreview: {
@@ -617,6 +620,7 @@ let JSWINDOWACTORS = {
     },
     includeChrome: true,
     enablePreference: "browser.ml.linkPreview.enabled",
+    safeForUntrustedWebProcess: true,
   },
 
   PageAssist: {
@@ -628,6 +632,7 @@ let JSWINDOWACTORS = {
     },
     includeChrome: true,
     enablePreference: "browser.ml.pageAssist.enabled",
+    safeForUntrustedWebProcess: true,
   },
 
   PageInfo: {
@@ -636,12 +641,14 @@ let JSWINDOWACTORS = {
     },
 
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   PageInfoPreview: {
     child: {
       esModuleURI: "resource:///actors/PageInfoPreviewChild.sys.mjs",
     },
+    safeForUntrustedWebProcess: true,
   },
 
   PageStyle: {
@@ -657,6 +664,7 @@ let JSWINDOWACTORS = {
 
     messageManagerGroups: ["browsers"],
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   Pdfjs: {
@@ -667,6 +675,7 @@ let JSWINDOWACTORS = {
       esModuleURI: "resource://pdf.js/PdfjsChild.sys.mjs",
     },
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   // GMP crash reporting
@@ -682,6 +691,7 @@ let JSWINDOWACTORS = {
     },
 
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   PointerLock: {
@@ -698,6 +708,7 @@ let JSWINDOWACTORS = {
 
     messageManagerGroups: ["browsers"],
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   Profiles: {
@@ -720,6 +731,7 @@ let JSWINDOWACTORS = {
     },
     includeChrome: true,
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   RefreshBlocker: {
@@ -732,6 +744,7 @@ let JSWINDOWACTORS = {
 
     messageManagerGroups: ["browsers"],
     enablePreference: "accessibility.blockautorefresh",
+    safeForUntrustedWebProcess: true,
   },
 
   ScreenshotsComponent: {
@@ -753,6 +766,7 @@ let JSWINDOWACTORS = {
       },
     },
     enablePreference: "screenshots.browser.component.enabled",
+    safeForUntrustedWebProcess: true,
   },
 
   ScreenshotsHelper: {
@@ -766,6 +780,7 @@ let JSWINDOWACTORS = {
     },
     allFrames: true,
     enablePreference: "screenshots.browser.component.enabled",
+    safeForUntrustedWebProcess: true,
   },
 
   SearchSERPTelemetry: {
@@ -784,6 +799,7 @@ let JSWINDOWACTORS = {
       },
     },
     matches: ["https://*/*"],
+    safeForUntrustedWebProcess: true,
   },
 
   ShieldFrame: {
@@ -799,6 +815,7 @@ let JSWINDOWACTORS = {
       },
     },
     matches: ["about:studies*"],
+    safeForUntrustedWebProcess: true,
   },
 
   SpeechDispatcher: {
@@ -813,6 +830,7 @@ let JSWINDOWACTORS = {
 
     messageManagerGroups: ["browsers"],
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   ASRouter: {
@@ -843,6 +861,7 @@ let JSWINDOWACTORS = {
     },
 
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 
   UITour: {
@@ -858,6 +877,19 @@ let JSWINDOWACTORS = {
 
     enablePreference: "browser.uitour.enabled",
     messageManagerGroups: ["browsers"],
+    safeForUntrustedWebProcess: true,
+  },
+
+  Urlbar: {
+    parent: {
+      esModuleURI: "resource:///actors/UrlbarParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "resource:///actors/UrlbarChild.sys.mjs",
+    },
+    includeChrome: true,
+    matches: ["chrome://browser/content/browser.xhtml"],
+    remoteTypes: ["parent"],
   },
 
   WebRTC: {
@@ -869,8 +901,27 @@ let JSWINDOWACTORS = {
     },
 
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 };
+
+if (!AppConstants.MOZ_ENTERPRISE || !Services.felt?.isFeltUI()) {
+  JSWINDOWACTORS.ContextMenu = {
+    parent: {
+      esModuleURI: "resource:///actors/ContextMenuParent.sys.mjs",
+    },
+
+    child: {
+      esModuleURI: "resource:///actors/ContextMenuChild.sys.mjs",
+      events: {
+        contextmenu: { mozSystemGroup: true },
+      },
+    },
+
+    allFrames: true,
+    safeForUntrustedWebProcess: true,
+  };
+}
 
 export let DesktopActorRegistry = {
   init() {

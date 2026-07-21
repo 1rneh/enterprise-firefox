@@ -3,18 +3,30 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #lockdown-mode-button .urlbar-icon {
-  list-style-image: url("chrome://browser/content/enterprise/site-restrictions.svg");
+  list-style-image: var(--lockdown-mode-icon);
 }
 
-/* use theme colors for HCM */
+#access-connector-button .urlbar-icon {
+  list-style-image: var(--access-connector-icon);
+}
+
+#access-connector-button[error] .urlbar-icon {
+  list-style-image: var(--access-connector-error-icon);
+}
+
 @media not (forced-colors) {
-  #lockdown-mode-button .urlbar-icon {
+  #lockdown-mode-button .urlbar-icon,
+  #access-connector-button .urlbar-icon {
     -moz-context-properties: fill;
     fill: var(--icon-color-information);
   }
+
+  #access-connector-button[error] .urlbar-icon {
+    fill: var(--icon-color-critical);
+  }
 }
 
-.lockdown-mode-subview {
+.enterprise-urlbar-panel-subview {
   max-width: var(--size-layout-large);
 
   & .panel-subview-body {

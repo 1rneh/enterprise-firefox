@@ -27,6 +27,7 @@ extern crate cubeb_coreaudio;
 extern crate cubeb_pulse;
 extern crate data_storage;
 extern crate dom_fragmentdirectives;
+extern crate dom_speculationrules;
 extern crate encoding_glue;
 #[cfg(feature = "felt")]
 extern crate felt;
@@ -53,6 +54,7 @@ extern crate processtools;
 extern crate profiler_helper;
 extern crate rsdparsa_capi;
 extern crate signature_cache;
+extern crate sitecategories;
 extern crate static_prefs;
 extern crate storage;
 extern crate webrender_bindings;

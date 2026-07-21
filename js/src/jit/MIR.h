@@ -368,9 +368,9 @@ class AliasSet {
     DynamicSlot = 1 << 3,       // A Value member of obj->slots.
     FixedSlot = 1 << 4,         // A Value member of obj->fixedSlots().
     DOMProperty = 1 << 5,       // A DOM property
-    WasmInstanceData = 1 << 6,  // An asm.js/wasm private global var
-    WasmHeap = 1 << 7,          // An asm.js/wasm heap load
-    WasmHeapMeta = 1 << 8,      // The asm.js/wasm heap base pointer and
+    WasmInstanceData = 1 << 6,  // A wasm private global var
+    WasmHeap = 1 << 7,          // A wasm heap load
+    WasmHeapMeta = 1 << 8,      // The wasm heap base pointer and
                                 // bounds check limit, in Instance.
     ArrayBufferViewLengthOrOffset =
         1 << 9,                  // An array buffer view's length or byteOffset
@@ -6011,9 +6011,6 @@ class MPhi final : public MDefinition,
   // the phi operand along the loop backedge.
   MDefinition* getLoopBackedgeOperand() const;
 
-  // Whether this phi's type already includes information for def.
-  bool typeIncludes(MDefinition* def);
-
   // Mark all phis in |iterators|, and the phis they flow into, as having
   // implicit uses.
   [[nodiscard]] static bool markIteratorPhis(const PhiVector& iterators);
@@ -9413,6 +9410,11 @@ class MCanonicalizeNaN : public MUnaryInstruction, public NoTypePolicy::Data {
   }
 
   bool canProduceFloat32() const override { return type() == MIRType::Float32; }
+
+  [[nodiscard]] bool writeRecoverData(
+      CompactBufferWriter& writer) const override;
+
+  bool canRecoverOnBailout() const override { return true; }
 
   ALLOW_CLONE(MCanonicalizeNaN)
 };

@@ -48,6 +48,7 @@
 #include "vm/StringObject.h"
 #include "vm/Watchtower.h"
 #include "vm/WrapperObject.h"
+
 #include "gc/Marking-inl.h"
 #include "vm/Compartment-inl.h"  // JS::Compartment::wrap
 #include "vm/JSObject-inl.h"
@@ -127,7 +128,7 @@ JS_PUBLIC_API JSPrincipals* JS::GetRealmPrincipals(JS::Realm* realm) {
 }
 
 JS_PUBLIC_API bool JS::GetDebuggerObservesWasm(JS::Realm* realm) {
-  return realm->debuggerObservesAsmJS();
+  return realm->debuggerObservesWasm();
 }
 
 JS_PUBLIC_API void JS::SetRealmPrincipals(JS::Realm* realm,

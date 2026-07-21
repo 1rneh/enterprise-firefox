@@ -66,6 +66,7 @@
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/StaticPrefs_network.h"
+#include "mozilla/StaticPrefs_telemetry.h"
 #include "mozilla/StaticPrefs_threads.h"
 #include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/StorageAccessAPIHelper.h"
@@ -139,8 +140,10 @@
 #  include "mozilla/glean/DomMediaPlatformsWmfMetrics.h"
 #endif
 #include "mozilla/glean/DomMetrics.h"
+#include "mozilla/glean/FOGTransportParent.h"
 #include "mozilla/glean/GleanPings.h"
 #include "mozilla/glean/IpcMetrics.h"
+#include "mozilla/glean/PFOGTransport.h"
 #include "mozilla/hal_sandbox/PHalParent.h"
 #include "mozilla/intl/L10nRegistry.h"
 #include "mozilla/intl/LocaleService.h"
@@ -2666,6 +2669,7 @@ ContentParent::ContentParent(const nsACString& aRemoteType)
       mShutdownPending(false),
       mLaunchResolved(false),
       mLaunchResolvedOk(false),
+      mIsUntrusted(false),
       mIsRemoteInputEventQueueEnabled(false),
       mIsInputPriorityEventEnabled(false),
       mIsInPool(false),
@@ -2967,6 +2971,30 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
     // Sending all information to content process.
     (void)SendAppInfo(version, buildID, name, UAName, ID, vendor, sourceURL,
                       updateURL);
+  }
+
+  MOZ_LOG(
+      ContentParent::GetLog(), LogLevel::Verbose,
+      ("FOG transport enabled: %s",
+       StaticPrefs::telemetry_fog_enable_fog_transport() ? "true" : "false"));
+  if (StaticPrefs::telemetry_fog_enable_fog_transport()) {
+    // Set up FOGTransport
+    Endpoint<PFOGTransportParent> parentEndpoint;
+    Endpoint<PFOGTransportChild> childEndpoint;
+    MOZ_ALWAYS_SUCCEEDS(
+        glean::PFOGTransport::CreateEndpoints(&parentEndpoint, &childEndpoint));
+    (void)SendCreateFOGTransport(std::move(childEndpoint));
+
+    nsCOMPtr<nsISerialEventTarget> queue =
+        glean::FOGTransportParent::GetQueue();
+    mFOGTransportParentActor = MakeRefPtr<glean::FOGTransportParent>();
+    queue->Dispatch(
+        NS_NewRunnableFunction("Bind FOGTransportParent",
+                               [parentEndpoint = std::move(parentEndpoint),
+                                actor = mFOGTransportParentActor]() mutable {
+                                 parentEndpoint.Bind(actor);
+                               }),
+        NS_DISPATCH_NORMAL);
   }
 
   // Send the child its remote type. On Mac, this needs to be sent prior
@@ -3813,7 +3841,7 @@ ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
 NS_IMETHODIMP
 ContentParent::GetName(nsAString& aName) {
   aName.AssignLiteral("ContentParent:");
-  aName.AppendPrintf(" id=%p", this);
+  aName.AppendPrintf(" id=%" PRIu64, (uint64_t)ChildID());
   return NS_OK;
 }
 
@@ -7846,6 +7874,25 @@ already_AddRefed<JSActor> ContentParent::InitJSActor(
 IPCResult ContentParent::RecvFOGData(ByteBuf&& buf) {
   glean::FOGData(std::move(buf));
   return IPC_OK();
+}
+
+RefPtr<FlushFOGDataPromise> ContentParent::DoFlushFOGData() {
+  MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
+          ("FOGTransportActor exists: %s",
+           !!mFOGTransportParentActor ? "true" : "false"));
+  if (mFOGTransportParentActor) {
+    nsCOMPtr<nsISerialEventTarget> queue =
+        glean::FOGTransportParent::GetQueue();
+    MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
+            ("Calling FOGtransportParentActor->SendFlushFOGData()"));
+    return InvokeAsync(queue, __func__,
+                       [transport = RefPtr{mFOGTransportParentActor}] {
+                         return transport->SendFlushFOGData();
+                       });
+  }
+  MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
+          ("Calling ContentParent->SendFlushFOGData()"));
+  return SendFlushFOGData();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvGeckoTraceExport(ByteBuf&& aBuf) {

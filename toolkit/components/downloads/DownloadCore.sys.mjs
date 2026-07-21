@@ -1736,6 +1736,12 @@ DownloadSource.prototype = {
   url: null,
 
   /**
+   * True if the body of a large data URI was stripped from url after the
+   * download completed, to avoid holding a large string in memory.
+   */
+  isDataURICleared: false,
+
+  /**
    * String containing the original URL for the download source.
    */
   originalUrl: null,
@@ -1816,6 +1822,10 @@ DownloadSource.prototype = {
    * @return A JavaScript object that can be serialized to JSON.
    */
   toSerializable() {
+    if (this.isDataURICleared) {
+      return null;
+    }
+
     if (this.adjustChannel) {
       // If the callback was used, we can't reproduce this across sessions.
       return null;

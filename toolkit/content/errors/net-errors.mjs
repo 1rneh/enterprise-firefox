@@ -412,8 +412,7 @@ export const NET_ERRORS = [
     category: "blocked",
     bodyTitleL10nId: "blocked-by-policy-title-enterprise",
     introContent: {
-      dataL10nId: "fp-neterror-offline-intro",
-      dataL10nArgs: { hostname: null },
+      dataL10nId: "fp-neterror-blocked-by-policy-intro",
     },
     descriptionParts: [
       {
@@ -855,6 +854,26 @@ export const NET_ERRORS = [
       titleL10nId: "fp-neterror-vpn-error-title",
     },
     image: NET_ERROR_ILLUSTRATIONS.noConnection,
+    hasNoUserFix: false,
+  },
+  {
+    id: "accessConnectorFailure",
+    errorCode: "accessConnectorFailure",
+    category: "net",
+    introContent: {
+      dataL10nId: "fp-neterror-access-connector-error-description",
+    },
+    buttons: {
+      showTryAgain: true,
+    },
+    customNetError: {
+      titleL10nId: "fp-neterror-access-connector-error-title",
+      whatCanYouDoL10nId: "fp-neterror-access-connector-error-contact-admin",
+    },
+    image: {
+      src: "chrome://global/skin/enterprise/access-connector-neterror.svg",
+      className: "access-connector-error",
+    },
     hasNoUserFix: false,
   },
   {

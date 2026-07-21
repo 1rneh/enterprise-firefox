@@ -45,19 +45,19 @@ bool CheckContentProcessSecurity(ThreadsafeContentParentHandle* aParent,
 
   RefPtr<ContentParent> contentParent = aParent->GetContentParent();
   if (!contentParent) {
-    return true;
+    return false;
   }
 
   PNeckoParent* neckoParent =
       LoneManagedOrNullAsserts(contentParent->ManagedPNeckoParent());
   if (!neckoParent) {
-    return true;
+    return false;
   }
 
   PCookieServiceParent* csParent =
       LoneManagedOrNullAsserts(neckoParent->ManagedPCookieServiceParent());
   if (!csParent) {
-    return true;
+    return false;
   }
 
   auto* cs = static_cast<CookieServiceParent*>(csParent);
@@ -214,7 +214,7 @@ mozilla::ipc::IPCResult CookieStoreParent::RecvGetSubscriptionsRequest(
   RefPtr<ThreadsafeContentParentHandle> parent =
       BackgroundParent::GetContentParentHandle(Manager());
   if (parent && !ValidatePrincipalCouldPotentiallyBeLoadedBy(
-                    principal, parent->GetRemoteType(), {})) {
+                    principal, parent->GetRemoteType())) {
     return IPC_FAIL(this, "principal not allowed for remote type");
   }
 
@@ -264,7 +264,7 @@ mozilla::ipc::IPCResult CookieStoreParent::RecvSubscribeOrUnsubscribeRequest(
   RefPtr<ThreadsafeContentParentHandle> parent =
       BackgroundParent::GetContentParentHandle(Manager());
   if (parent && !ValidatePrincipalCouldPotentiallyBeLoadedBy(
-                    principal, parent->GetRemoteType(), {})) {
+                    principal, parent->GetRemoteType())) {
     return IPC_FAIL(this, "principal not allowed for remote type");
   }
 

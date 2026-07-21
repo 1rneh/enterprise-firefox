@@ -29,6 +29,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   AIChatbotPolicies: "resource:///modules/policies/AIChatbotPolicies.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
+  WatermarkPolicy: "resource:///modules/policies/WatermarkPolicy.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
   SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
 
@@ -4308,6 +4309,23 @@ export var Policies = {
         "browser.search.visualSearch.featureGate",
         param
       );
+    },
+  },
+
+  Watermark: {
+    onBeforeUIStartup(manager, param) {
+      lazy.WatermarkPolicy.init({
+        match: param.Match,
+        copy: param.Copy,
+        color: param.Color,
+        fontSize: param.FontSize,
+        angle: param.Angle,
+        secondaryCopy: param.SecondaryCopy,
+        size: param.Size,
+      });
+    },
+    onRemove() {
+      lazy.WatermarkPolicy.cleanup();
     },
   },
 

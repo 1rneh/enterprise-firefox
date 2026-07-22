@@ -4195,7 +4195,7 @@ Result<Ok, nsresult> QuotaManager::InitializeOriginDirectory(
                 QM_OR_ELSE_WARN_IF(
                     // Expression
                     LoadFullOriginMetadataWithRestore(aChildDirectory)
-                        .map([](auto metadata) -> Maybe<FullOriginMetadata> {
+                        .map([](auto&& metadata) -> Maybe<FullOriginMetadata> {
                           return Some(std::move(metadata));
                         }),
                     // Predicate.
@@ -7600,7 +7600,7 @@ nsresult QuotaManager::FlagOriginInfoAsDirtyOnDisk(
     // If we are already on the IO thread, run the task directly to avoid
     // deadlock.
     runnable->Run();
-    return sharedState->mResult;
+    return sharedState->WaitForResult();
   }
 
   nsresult rv = mIOThread->get()->Dispatch(runnable, NS_DISPATCH_NORMAL);

@@ -21,10 +21,19 @@ use crate::api::{HitTestResult, HitTesterRequest, ApiHitTester, PropertyValue, D
 use crate::api::{SampledScrollOffset, TileSize, NotificationRequest, DebugFlags};
 use crate::api::{GlyphDimensionRequest, GlyphIndexRequest, GlyphIndex, GlyphDimensions};
 use crate::api::{FontInstanceOptions, FontInstancePlatformOptions, FontVariation, RenderReasons};
+use crate::api::{RenderBackendId, RenderNotifier};
 use crate::api::DEFAULT_TILE_SIZE;
 use crate::api::units::*;
 use crate::api_resources::ApiResources;
-use glyph_rasterizer::SharedFontResources;
+use crate::api::ImageFormat;
+use crate::bump_allocator::ChunkPool;
+use crate::device::{TextureFilter, TextureFormatPair};
+use crate::frame_builder::FrameBuilderConfig;
+use crate::internal_types::{ResultMsg, SwizzleSettings};
+use crate::texture_cache::TextureCacheConfig;
+use crate::AsyncPropertySampler;
+use glyph_rasterizer::{GlyphRasterThread, SharedFontResources};
+use rayon::ThreadPool;
 use crate::scene_builder_thread::{SceneBuilderRequest, SceneBuilderResult};
 use crate::intern::InterningMemoryReport;
 use crate::profiler::{self, TransactionProfile};
@@ -996,22 +1005,93 @@ pub enum DebugCommand {
     CaptureRenderDoc(Sender<crate::api::debugger::RenderDocReply>),
 }
 
+/// Initial state handed to `RenderBackend::register_window`.
+///
+/// Sent across the api channel via `ApiMsg::RegisterWindow`, so all fields
+/// must be `Send`. The `ResourceCache` itself isn't carried here — instead
+/// we ship the [`ResourceCacheInit`] params so that the backend thread
+/// constructs `ResourceCache` (and its sub-caches) locally. This keeps the
+/// allocations attributed to the thread that ultimately owns them.
+pub struct WindowRegistration {
+    /// The id assigned to the window. Used to route subsequent messages.
+    pub id: RenderBackendId,
+    /// Channel the backend uses to publish frames / texture updates back
+    /// to the `Renderer` that owns this window.
+    pub result_tx: Sender<ResultMsg>,
+    /// Notifier used to wake up the renderer when frames are ready.
+    pub notifier: Box<dyn RenderNotifier>,
+    /// Optional sampler invoked just before frame building.
+    pub sampler: Option<Box<dyn AsyncPropertySampler + Send>>,
+    /// Params used to construct the window's `ResourceCache` on the
+    /// render-backend thread.
+    pub resource_cache: ResourceCacheInit,
+    /// Pool of large memory chunks used by per-frame allocators.
+    pub chunk_pool: Arc<ChunkPool>,
+    /// Initial frame-builder configuration.
+    pub frame_config: FrameBuilderConfig,
+    /// Initial debug flags.
+    pub debug_flags: DebugFlags,
+}
+
+/// Parameters needed to construct a window's `ResourceCache` (plus its
+/// sub-caches) on the render backend thread.
+pub struct ResourceCacheInit {
+    /// Maximum texture size for the texture cache.
+    pub max_internal_texture_size: i32,
+    /// Threshold above which images get tiled.
+    pub image_tiling_threshold: i32,
+    /// Preferred color formats reported by the device.
+    pub color_cache_formats: TextureFormatPair<ImageFormat>,
+    /// Swizzle settings reported by the device.
+    pub swizzle_settings: Option<SwizzleSettings>,
+    /// Per-window texture cache budget configuration.
+    pub texture_cache_config: TextureCacheConfig,
+    /// Tile size used for picture caches.
+    pub picture_tile_size: api::units::DeviceIntSize,
+    /// Filter used for picture-cache textures.
+    pub picture_texture_filter: TextureFilter,
+    /// Worker thread pool used by the glyph rasterizer.
+    pub workers: Arc<ThreadPool>,
+    /// Optional dedicated glyph raster thread handle.
+    pub dedicated_glyph_raster_thread: Option<GlyphRasterThread>,
+    /// Whether the device supports r8 texture uploads.
+    pub supports_r8_texture_upload: bool,
+    /// Shared font resources used by the scene builder and frame builder.
+    pub fonts: SharedFontResources,
+    /// Optional blob image handler used to rasterize blob images for this window.
+    pub blob_image_handler: Option<Box<dyn crate::api::BlobImageHandler>>,
+    /// Whether the resource cache may use parallel work.
+    pub enable_multithreading: bool,
+}
+
 /// Message sent by the `RenderApi` to the render backend thread.
 pub enum ApiMsg {
     /// Adds a new document namespace.
     CloneApi(Sender<IdNamespace>),
     /// Adds a new document namespace.
     CloneApiByClient(IdNamespace),
-    /// Adds a new document with given initial size.
-    AddDocument(DocumentId, DeviceIntSize),
+    /// Register a new window on this backend thread. Sent once per window,
+    /// before any `AddDocument` referencing the same `RenderBackendId`.
+    RegisterWindow(Box<WindowRegistration>),
+    /// Unregister a window from this render backend thread.
+    ///
+    /// If a channel is passed via the second argument, an empty message will
+    /// be sent on it after the window is unregistered. It can be used for
+    /// synchronzation.
+    UnregisterWindow(RenderBackendId, Option<Sender<()>>),
+    /// Adds a new document with given initial size, owned by the given window.
+    AddDocument(DocumentId, DeviceIntSize, RenderBackendId),
     /// A message targeted at a particular document.
     UpdateDocuments(Vec<Box<TransactionMsg>>),
     /// Flush from the caches anything that isn't necessary, to free some memory.
     MemoryPressure,
     /// Collects a memory report.
     ReportMemory(Sender<Box<MemoryReport>>),
-    /// Change debugging options.
-    DebugCommand(DebugCommand),
+    /// Change debugging options, scoped to a specific window. The command
+    /// only affects documents that belong to the given `RenderBackendId`,
+    /// so callers can target one window in a shared backend pool without
+    /// disturbing others.
+    DebugCommand(RenderBackendId, DebugCommand),
     /// Message from the scene builder thread.
     SceneBuilderResult(SceneBuilderResult),
 }
@@ -1021,6 +1101,8 @@ impl fmt::Debug for ApiMsg {
         f.write_str(match *self {
             ApiMsg::CloneApi(..) => "ApiMsg::CloneApi",
             ApiMsg::CloneApiByClient(..) => "ApiMsg::CloneApiByClient",
+            ApiMsg::RegisterWindow(..) => "ApiMsg::RegisterWindow",
+            ApiMsg::UnregisterWindow(..) => "ApiMsg::UnregisterWindow",
             ApiMsg::AddDocument(..) => "ApiMsg::AddDocument",
             ApiMsg::UpdateDocuments(..) => "ApiMsg::UpdateDocuments",
             ApiMsg::MemoryPressure => "ApiMsg::MemoryPressure",
@@ -1039,8 +1121,19 @@ pub struct RenderApiSender {
     api_sender: Sender<ApiMsg>,
     scene_sender: Sender<SceneBuilderRequest>,
     low_priority_scene_sender: Sender<SceneBuilderRequest>,
+    /// The render backend window this sender (and any `RenderApi` cloned from
+    /// it) routes documents to.
+    backend_id: RenderBackendId,
     blob_image_handler: Option<Box<dyn BlobImageHandler>>,
     fonts: SharedFontResources,
+    /// Keeps the `RenderBackendPool` (and therefore its backend / scene
+    /// builder threads) alive for the lifetime of this sender and every
+    /// `RenderApi` cloned from it. Without this the pool can drop while
+    /// `RenderApi` instances still hold sender clones, and any `send` they
+    /// issue during their own destructor (e.g. `delete_document` from
+    /// `WebRenderAPI::~WebRenderAPI`) would panic on a receiver-closed
+    /// channel.
+    render_backend_pool: Arc<crate::render_backend_pool::RenderBackendPool>,
 }
 
 impl RenderApiSender {
@@ -1049,16 +1142,25 @@ impl RenderApiSender {
         api_sender: Sender<ApiMsg>,
         scene_sender: Sender<SceneBuilderRequest>,
         low_priority_scene_sender: Sender<SceneBuilderRequest>,
+        backend_id: RenderBackendId,
         blob_image_handler: Option<Box<dyn BlobImageHandler>>,
         fonts: SharedFontResources,
+        render_backend_pool: Arc<crate::render_backend_pool::RenderBackendPool>,
     ) -> Self {
         RenderApiSender {
             api_sender,
             scene_sender,
             low_priority_scene_sender,
+            backend_id,
             blob_image_handler,
             fonts,
+            render_backend_pool,
         }
+    }
+
+    /// Returns the `RenderBackendId` of the window this sender routes to.
+    pub fn backend_id(&self) -> RenderBackendId {
+        self.backend_id
     }
 
     /// Creates a new resource API object with a dedicated namespace.
@@ -1071,12 +1173,14 @@ impl RenderApiSender {
             api_sender: self.api_sender.clone(),
             scene_sender: self.scene_sender.clone(),
             low_priority_scene_sender: self.low_priority_scene_sender.clone(),
+            backend_id: self.backend_id,
             namespace_id,
             next_id: Cell::new(ResourceId(0)),
             resources: ApiResources::new(
                 self.blob_image_handler.as_ref().map(|handler| handler.create_similar()),
                 self.fonts.clone(),
             ),
+            render_backend_pool: self.render_backend_pool.clone(),
         }
     }
 
@@ -1092,12 +1196,14 @@ impl RenderApiSender {
             api_sender: self.api_sender.clone(),
             scene_sender: self.scene_sender.clone(),
             low_priority_scene_sender: self.low_priority_scene_sender.clone(),
+            backend_id: self.backend_id,
             namespace_id,
             next_id: Cell::new(ResourceId(0)),
             resources: ApiResources::new(
                 self.blob_image_handler.as_ref().map(|handler| handler.create_similar()),
                 self.fonts.clone(),
             ),
+            render_backend_pool: self.render_backend_pool.clone(),
         }
     }
 }
@@ -1107,15 +1213,27 @@ pub struct RenderApi {
     api_sender: Sender<ApiMsg>,
     scene_sender: Sender<SceneBuilderRequest>,
     low_priority_scene_sender: Sender<SceneBuilderRequest>,
+    backend_id: RenderBackendId,
     namespace_id: IdNamespace,
     next_id: Cell<ResourceId>,
     resources: ApiResources,
+    /// Keeps the `RenderBackendPool` alive as long as this `RenderApi` is
+    /// alive. The pool's `Drop` impl tears down the backend / scene-builder
+    /// threads, so until every `RenderApi` is gone we must keep those
+    /// threads (and their receivers) running — otherwise the senders here
+    /// would panic on a closed channel.
+    render_backend_pool: Arc<crate::render_backend_pool::RenderBackendPool>,
 }
 
 impl RenderApi {
     /// Returns the namespace ID used by this API object.
     pub fn get_namespace_id(&self) -> IdNamespace {
         self.namespace_id
+    }
+
+    /// Returns the `RenderBackendId` of the window this API targets.
+    pub fn backend_id(&self) -> RenderBackendId {
+        self.backend_id
     }
 
     /// Returns a clone of the API message sender for internal use
@@ -1130,8 +1248,10 @@ impl RenderApi {
             self.api_sender.clone(),
             self.scene_sender.clone(),
             self.low_priority_scene_sender.clone(),
+            self.backend_id,
             self.resources.blob_image_handler.as_ref().map(|handler| handler.create_similar()),
             self.resources.get_fonts(),
+            self.render_backend_pool.clone(),
         )
     }
 
@@ -1159,10 +1279,10 @@ impl RenderApi {
         // the render backend knows about the existence of the corresponding document id.
         // It may not be necessary, though.
         self.api_sender.send(
-            ApiMsg::AddDocument(document_id, initial_size)
+            ApiMsg::AddDocument(document_id, initial_size, self.backend_id)
         ).unwrap();
         self.scene_sender.send(
-            SceneBuilderRequest::AddDocument(document_id, initial_size)
+            SceneBuilderRequest::AddDocument(document_id, initial_size, self.backend_id)
         ).unwrap();
 
         document_id
@@ -1198,7 +1318,7 @@ impl RenderApi {
         glyph_indices: Vec<GlyphIndex>,
     ) -> Vec<Option<GlyphDimensions>> {
         let (sender, rx) = single_msg_channel();
-        let msg = SceneBuilderRequest::GetGlyphDimensions(GlyphDimensionRequest {
+        let msg = SceneBuilderRequest::GetGlyphDimensions(self.backend_id, GlyphDimensionRequest {
             key,
             glyph_indices,
             sender
@@ -1211,7 +1331,7 @@ impl RenderApi {
     /// can be used to construct GlyphKeys.
     pub fn get_glyph_indices(&self, key: FontKey, text: &str) -> Vec<Option<u32>> {
         let (sender, rx) = single_msg_channel();
-        let msg = SceneBuilderRequest::GetGlyphIndices(GlyphIndexRequest {
+        let msg = SceneBuilderRequest::GetGlyphIndices(self.backend_id, GlyphIndexRequest {
             key,
             text: text.to_string(),
             sender,
@@ -1235,7 +1355,7 @@ impl RenderApi {
     /// `Renderer`'s thread, mostly replaced by `NotificationHandler`. You should
     /// probably use the latter instead.
     pub fn send_external_event(&self, evt: ExternalEvent) {
-        let msg = SceneBuilderRequest::ExternalEvent(evt);
+        let msg = SceneBuilderRequest::ExternalEvent(self.backend_id, evt);
         self.low_priority_scene_sender.send(msg).unwrap();
     }
 
@@ -1256,24 +1376,57 @@ impl RenderApi {
     pub fn set_debug_flags(&mut self, flags: DebugFlags) {
         self.resources.set_debug_flags(flags);
         let cmd = DebugCommand::SetFlags(flags);
-        self.api_sender.send(ApiMsg::DebugCommand(cmd)).unwrap();
+        self.api_sender.send(ApiMsg::DebugCommand(self.backend_id, cmd)).unwrap();
         self.scene_sender.send(SceneBuilderRequest ::SetFlags(flags)).unwrap();
         self.low_priority_scene_sender.send(SceneBuilderRequest ::SetFlags(flags)).unwrap();
     }
 
-    /// Stop RenderBackend's task until shut down
+    /// Drain barrier for shutdown.
+    ///
+    /// Synchronously round-trips a flush through the scene builder so that
+    /// every transaction submitted before this call has been built and its
+    /// result delivered to the render backend (and from there, written to
+    /// `result_tx`). After this returns it is safe for the caller to drop
+    /// the `Renderer` (and its `result_rx`).
+    ///
+    /// The window stays registered. The render backend thread keeps
+    /// running so `RunOnRenderThread` (which delivers events via
+    /// `notifier.external_event` *through* the backend) still works. Call
+    /// `shut_down(true)` afterwards to actually unregister the window.
     pub fn stop_render_backend(&self) {
-        self.low_priority_scene_sender.send(SceneBuilderRequest::StopRenderBackend).unwrap();
+        let (tx, rx) = single_msg_channel();
+        if self.low_priority_scene_sender
+            .send(SceneBuilderRequest::Flush(tx))
+            .is_ok()
+        {
+            let _ = rx.recv();
+        }
     }
 
     /// Shut the WebRender instance down.
+    ///
+    /// `synchronously` controls whether the call blocks for the backend
+    /// to fully drop the window's state. When `true` this provides the
+    /// same drain-before-destroy guarantee as `stop_render_backend`.
+    ///
+    /// Calling `stop_render_backend` followed by `shut_down(true)` is
+    /// safe — by the time `shut_down` runs the backend may have already
+    /// exited (and closed the api channel). In that case the send is a
+    /// no-op and the function returns immediately.
     pub fn shut_down(&self, synchronously: bool) {
         if synchronously {
             let (tx, rx) = single_msg_channel();
-            self.low_priority_scene_sender.send(SceneBuilderRequest::ShutDown(Some(tx))).unwrap();
-            rx.recv().unwrap();
+            if self.api_sender
+                .send(ApiMsg::UnregisterWindow(self.backend_id, Some(tx)))
+                .is_ok()
+            {
+                let _ = rx.recv();
+            }
         } else {
-            self.low_priority_scene_sender.send(SceneBuilderRequest::ShutDown(None)).unwrap();
+            // Fire-and-forget: the caller opted out of the drain barrier.
+            let _ = self.api_sender.send(
+                ApiMsg::UnregisterWindow(self.backend_id, None),
+            );
         }
     }
 
@@ -1407,7 +1560,7 @@ impl RenderApi {
 
     /// Save a capture of the current frame state for debugging.
     pub fn save_capture(&self, path: PathBuf, bits: CaptureBits) {
-        let msg = ApiMsg::DebugCommand(DebugCommand::SaveCapture(path, bits));
+        let msg = ApiMsg::DebugCommand(self.backend_id, DebugCommand::SaveCapture(path, bits));
         self.send_message(msg);
     }
 
@@ -1418,7 +1571,7 @@ impl RenderApi {
         self.flush_scene_builder();
 
         let (tx, rx) = unbounded_channel();
-        let msg = ApiMsg::DebugCommand(DebugCommand::LoadCapture(path, ids, tx));
+        let msg = ApiMsg::DebugCommand(self.backend_id, DebugCommand::LoadCapture(path, ids, tx));
         self.send_message(msg);
 
         let mut documents = Vec::new();
@@ -1430,27 +1583,27 @@ impl RenderApi {
 
     /// Start capturing a sequence of frames.
     pub fn start_capture_sequence(&self, path: PathBuf, bits: CaptureBits) {
-        let msg = ApiMsg::DebugCommand(DebugCommand::StartCaptureSequence(path, bits));
+        let msg = ApiMsg::DebugCommand(self.backend_id, DebugCommand::StartCaptureSequence(path, bits));
         self.send_message(msg);
     }
 
     /// Stop capturing sequences of frames.
     pub fn stop_capture_sequence(&self) {
-        let msg = ApiMsg::DebugCommand(DebugCommand::StopCaptureSequence);
+        let msg = ApiMsg::DebugCommand(self.backend_id, DebugCommand::StopCaptureSequence);
         self.send_message(msg);
     }
 
     /// Get the current debug flags
     pub fn get_debug_flags(&self) -> DebugFlags {
         let (tx, rx) = unbounded_channel();
-        let msg = ApiMsg::DebugCommand(DebugCommand::GetDebugFlags(tx));
+        let msg = ApiMsg::DebugCommand(self.backend_id, DebugCommand::GetDebugFlags(tx));
         self.send_message(msg);
         rx.recv().unwrap()
     }
 
     /// Update the state of builtin debugging facilities.
     pub fn send_debug_cmd(&self, cmd: DebugCommand) {
-        let msg = ApiMsg::DebugCommand(cmd);
+        let msg = ApiMsg::DebugCommand(self.backend_id, cmd);
         self.send_message(msg);
     }
 
@@ -1461,14 +1614,14 @@ impl RenderApi {
         }
 
         let _ = self.low_priority_scene_sender.send(
-            SceneBuilderRequest::SetParameter(parameter)
+            SceneBuilderRequest::SetParameter(self.backend_id, parameter)
         );
     }
 }
 
 impl Drop for RenderApi {
     fn drop(&mut self) {
-        let msg = SceneBuilderRequest::ClearNamespace(self.namespace_id);
+        let msg = SceneBuilderRequest::ClearNamespace(self.backend_id, self.namespace_id);
         let _ = self.low_priority_scene_sender.send(msg);
     }
 }

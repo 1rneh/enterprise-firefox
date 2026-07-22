@@ -1199,6 +1199,68 @@ function getPseudoClassCheckbox(view, pseudo) {
 }
 
 /**
+ * Open the emulation panel.
+ *
+ * @param {RuleView} view
+ *        Instance of RuleView.
+ */
+async function openEmulationPanel(view) {
+  info("Check that the toggle button exists");
+  const button = view.inspector.panelDoc.getElementById(
+    "emulation-panel-toggle"
+  );
+  ok(button, "The emulation panel toggle button exists");
+  is(view.emulationToggle, button, "The rule-view refers to the right element");
+  is(
+    view.inspector.panelDoc.getElementById(
+      button.getAttribute("aria-controls")
+    ),
+    view.emulationPanel,
+    "The emulation panel toggle button has valid aria-controls attribute"
+  );
+
+  await assertEmulationPanelClosed(view);
+
+  info("Toggle the emulation panel open");
+  view.emulationToggle.click();
+  await assertEmulationPanelOpened(view);
+}
+
+/**
+ * Check that the emulation panel is opened.
+ *
+ * @param {RuleView} view
+ *        Instance of RuleView.
+ */
+async function assertEmulationPanelOpened(view) {
+  info("Check the opened state of the emulation panel");
+  ok(!view.emulationPanel.inert, "Emulation panel is not inert");
+  ok(!view.emulationPanel.hidden, "Emulation panel opened");
+  is(
+    view.emulationToggle.getAttribute("aria-pressed"),
+    "true",
+    "The toggle button is pressed"
+  );
+}
+
+/**
+ * Check that the emulation panel is closed.
+ *
+ * @param {RuleView} view
+ *        Instance of RuleView.
+ */
+async function assertEmulationPanelClosed(view) {
+  info("Check the closed state of the emulation panel");
+  ok(view.emulationPanel.inert, "Emulation panel is inert");
+  ok(view.emulationPanel.hidden, "Emulation panel hidden");
+  is(
+    view.emulationToggle.getAttribute("aria-pressed"),
+    "false",
+    "The toggle button is not pressed"
+  );
+}
+
+/**
  * Check that the CSS variable output has the expected class name and data attribute.
  *
  * @param {RulesView} view
@@ -1438,13 +1500,17 @@ function getSmallIncrementKey() {
  * @param {string} expectedElements[].header - If we're expecting a header (Inherited from,
  *        Pseudo-elements, …), the text of said header.
  * @param {string[]} expectedElements[].highlighted - List of highlighted text (when using filter input).
+ * @param {string|undefined} message - Optional string to be displayed as prefix of any test log message,
+ *        in order to help distinguish multiple calls made to this helper.
  */
-function checkRuleViewContent(view, expectedElements) {
+function checkRuleViewContent(view, expectedElements, message = "") {
+  const prefix = message ? `[${message}] - ` : "";
+
   const elementsInView = _getRuleViewElements(view);
   is(
     elementsInView.length,
     expectedElements.length,
-    "All expected elements are displayed"
+    `${prefix}All expected elements are displayed`
   );
 
   expectedElements.forEach((expectedElement, i) => {
@@ -1456,12 +1522,12 @@ function checkRuleViewContent(view, expectedElements) {
       is(
         elementInView.getAttribute("role"),
         "heading",
-        `Element #${i} is a header`
+        `${prefix}Element #${i} is a header`
       );
       is(
         elementInView.textContent,
         expectedElement.header,
-        `Expected header text for element #${i}`
+        `${prefix}Expected header text for element #${i}`
       );
       return;
     }
@@ -1487,19 +1553,19 @@ function checkRuleViewContent(view, expectedElements) {
     is(
       selector,
       expectedElement.selector,
-      `Expected selector for element #${i}`
+      `${prefix}Expected selector for element #${i}`
     );
     is(
       elementInView.querySelector(
         `.ruleview-selectors-container:not(.uneditable-selector)`
       ) !== null,
       expectedElement.selectorEditable ?? true,
-      `Selector for element #${i} (${selector}) ${(expectedElement.selectorEditable ?? true) ? "is" : "isn't"} editable`
+      `${prefix}Selector for element #${i} (${selector}) ${(expectedElement.selectorEditable ?? true) ? "is" : "isn't"} editable`
     );
     is(
       elementInView.querySelector(`.ruleview-selectorhighlighter`) !== null,
       expectedElement.hasSelectorHighlighterButton ?? true,
-      `Element #${i} (${selector}) ${(expectedElement.hasSelectorHighlighterButton ?? true) ? "has" : "does not have"} a selector highlighter button`
+      `${prefix}Element #${i} (${selector}) ${(expectedElement.hasSelectorHighlighterButton ?? true) ? "has" : "does not have"} a selector highlighter button`
     );
 
     const ancestorData = elementInView.querySelector(
@@ -1509,13 +1575,13 @@ function checkRuleViewContent(view, expectedElements) {
       is(
         ancestorData,
         null,
-        `No ancestor rules data displayed for ${selector}`
+        `${prefix}No ancestor rules data displayed for ${selector}`
       );
     } else {
       is(
         ancestorData.innerText,
         expectedElement.ancestorRulesData.join("\n"),
-        `Expected ancestor rules data displayed for ${selector}`
+        `${prefix}Expected ancestor rules data displayed for ${selector}`
       );
     }
 
@@ -1523,7 +1589,7 @@ function checkRuleViewContent(view, expectedElements) {
     is(
       isInherited,
       expectedElement.inherited ?? false,
-      `Element #${i} ("${selector}") is ${expectedElement.inherited ? "inherited" : "not inherited"}`
+      `${prefix}Element #${i} ("${selector}") is ${expectedElement.inherited ? "inherited" : "not inherited"}`
     );
 
     const highlightedElements = Array.from(
@@ -1547,7 +1613,7 @@ function checkRuleViewContent(view, expectedElements) {
     is(
       ruleViewPropertyElements.length,
       expectedElement.declarations.length,
-      `Got the expected number of declarations for expected element #${i} (${selector})`
+      `${prefix}Got the expected number of declarations for expected element #${i} (${selector})`
     );
     ruleViewPropertyElements.forEach((ruleViewPropertyElement, j) => {
       const [propName, propValue] = Array.from(
@@ -1560,7 +1626,7 @@ function checkRuleViewContent(view, expectedElements) {
       is(
         propName.innerText,
         expectedDeclaration?.name,
-        "Got expected property name"
+        `${prefix}Got expected property name`
       );
       if (propName.innerText !== expectedDeclaration?.name) {
         // We don't have the expected property name, don't run the other assertions to
@@ -1568,27 +1634,29 @@ function checkRuleViewContent(view, expectedElements) {
         return;
       }
 
+      const value = propValue ? propValue.innerText : "";
       is(
-        propValue.innerText,
+        value,
         expectedDeclaration?.value,
-        "Got expected property value"
+        `${prefix}Got expected property value`
       );
+      const propPrefix = `${prefix}Element #${i} ("${selector}") declaration #${j} ("${propName.innerText}: ${value}") is `;
       is(
         ruleViewPropertyElement.classList.contains("ruleview-overridden"),
         !!expectedDeclaration?.overridden,
-        `Element #${i} ("${selector}") declaration #${j} ("${propName.innerText}: ${propValue.innerText}") is ${expectedDeclaration?.overridden ? "overridden" : "not overridden"} `
+        `${propPrefix}${expectedDeclaration?.overridden ? "overridden" : "not overridden"} `
       );
       const expectedEnabled = expectedDeclaration?.enabled ?? true;
       is(
         ruleViewPropertyElement.querySelector("input.ruleview-enableproperty")
-          .checked,
+          ?.checked || false,
         expectedEnabled,
-        `Element #${i} ("${selector}") declaration #${j} ("${propName.innerText}: ${propValue.innerText}") is ${expectedEnabled ? "enabled" : "disabled"} `
+        `${propPrefix}${expectedEnabled ? "enabled" : "disabled"} `
       );
       is(
         ruleViewPropertyElement.classList.contains("inactive-css"),
         !!expectedDeclaration?.inactiveCSS,
-        `Element #${i} ("${selector}") declaration #${j} ("${propName.innerText}: ${propValue.innerText}") is ${expectedDeclaration?.inactiveCSS ? "inactive" : "not inactive"} `
+        `${propPrefix}${expectedDeclaration?.inactiveCSS ? "inactive" : "not inactive"} `
       );
       const isWarningIconDisplayed = !!ruleViewPropertyElement.querySelector(
         ".ruleview-warning:not([hidden])"
@@ -1597,14 +1665,26 @@ function checkRuleViewContent(view, expectedElements) {
       is(
         !isWarningIconDisplayed,
         expectedValid,
-        `Element #${i} ("${selector}") declaration #${j} ("${propName.innerText}: ${propValue.innerText}") is ${expectedValid ? "valid" : "invalid"}`
+        `${propPrefix}${expectedValid ? "valid" : "invalid"}`
       );
       is(
         !!ruleViewPropertyElement.hasAttribute("dirty"),
         !!expectedDeclaration?.dirty,
-        `Element #${i} ("${selector}") declaration #${j} ("${propName.innerText}: ${propValue.innerText}") is ${expectedDeclaration?.dirty ? "dirty" : "not dirty"}`
+        `${propPrefix}${expectedDeclaration?.dirty ? "dirty" : "not dirty"}`
       );
     });
+  });
+}
+
+/**
+ * Check whether the current preferred color scheme is dark.
+ *
+ * @return {Promise} A promise that resolves to a boolean indicating whether the current preferred color scheme is dark.
+ */
+function getCurrentPrefersDark() {
+  return SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
+    const { matches } = content.matchMedia("(prefers-color-scheme: dark)");
+    return matches;
   });
 }
 

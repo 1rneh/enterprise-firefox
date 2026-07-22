@@ -5146,83 +5146,74 @@ pub extern "C" fn Servo_ParseProperty(
     )
 }
 
+macro_rules! parse_for {
+    (
+        $input:ident,
+        $parse_func:path
+    ) => {{
+        let s = unsafe { $input.as_str_unchecked() };
+        let mut input = ParserInput::new(&s);
+        let mut parser = Parser::new(&mut input);
+        let context = ParserContext::new(
+            Origin::Author,
+            unsafe { dummy_url_data() },
+            Some(CssRuleType::Style),
+            ParsingMode::DEFAULT,
+            QuirksMode::NoQuirks,
+            /* namespaces = */ Default::default(),
+            None,
+            None,
+            /* attr_taint */ Default::default(),
+        );
+        parser.parse_entirely(|p| $parse_func(&context, p))
+    }};
+}
+
 #[no_mangle]
-pub extern "C" fn Servo_ParseAndComputeViewTimelineInset(
+pub extern "C" fn Servo_ParseLengthPercentageForAbsoluteLengths(
+    lp: &nsACString,
+    output: &mut computed::LengthPercentage,
+) -> bool {
+    let Ok(specified) = parse_for!(lp, specified::LengthPercentage::parse) else {
+        return false;
+    };
+
+    match specified.compute_without_context() {
+        Some(value) => {
+            *output = value;
+            true
+        },
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_ParseViewTimelineInset(
     inset: &nsACString,
-    // view timeline subject doesn't support pseudo element, so only element here.
-    subject: &RawGeckoElement,
-    style: Option<&ComputedValues>,
-    raw_data: &PerDocumentStyleData,
     output: &mut computed::ViewTimelineInset,
 ) -> bool {
     use style::properties::longhands::view_timeline_inset;
     use style::values::specified::length::LengthPercentageOrAuto;
 
-    let inset = unsafe { inset.as_str_unchecked() };
-    let mut input = ParserInput::new(&inset);
-    let mut parser = Parser::new(&mut input);
-    let context = ParserContext::new(
-        Origin::Author,
-        unsafe { dummy_url_data() },
-        Some(CssRuleType::Style),
-        ParsingMode::DEFAULT,
-        QuirksMode::NoQuirks,
-        /* namespaces = */ Default::default(),
-        None,
-        None,
-        /* attr_taint */ Default::default(),
-    );
-    let Ok(specified) =
-        parser.parse_entirely(|p| view_timeline_inset::single_value::parse(&context, p))
-    else {
+    let Ok(specified) = parse_for!(inset, view_timeline_inset::single_value::parse) else {
         return false;
     };
 
-    // If the subject is detached from the document, we don't have the style so we cannot get the
-    // computed value. However, we still can convert the specified value into the computed value
-    // for some simple cases (as the fallback way), e.g. auto, px only, or percentage only. This is
-    // not spec'ed so we just follow Blink's behavior here.
-    let Some(style) = style else {
-        let to_computed_value_without_context = |lp: &LengthPercentageOrAuto| {
-            let LengthPercentageOrAuto::LengthPercentage(ref lp) = lp else {
-                return Some(computed::LengthPercentageOrAuto::Auto);
-            };
-            lp.compute_without_context()
-                .map(computed::LengthPercentageOrAuto::LengthPercentage)
+    let to_computed_value_without_context = |lp: &LengthPercentageOrAuto| {
+        let LengthPercentageOrAuto::LengthPercentage(ref lp) = lp else {
+            return Some(computed::LengthPercentageOrAuto::Auto);
         };
-        let Some(start) = to_computed_value_without_context(&specified.start) else {
-            return false;
-        };
-        let Some(end) = to_computed_value_without_context(&specified.end) else {
-            return false;
-        };
-        output.start = start;
-        output.end = end;
-        return true;
+        lp.compute_without_context()
+            .map(computed::LengthPercentageOrAuto::LengthPercentage)
     };
-
-    let data = raw_data.borrow();
-    let element = GeckoElement(subject);
-    let parent_element = element.inheritance_parent();
-    let parent_data = parent_element.as_ref().and_then(|e| e.borrow_data());
-    let parent_style = parent_data
-        .as_ref()
-        .map(|d| d.styles.primary())
-        .map(|x| &**x);
-    let container_size_query =
-        ContainerSizeQuery::for_element(element, None, /* is_pseudo = */ false);
-    let mut conditions = Default::default();
-    let mut tree_counting_caches = TreeCountingCaches::default();
-    let context = create_context_for_animation(
-        &data,
-        &style,
-        parent_style,
-        &mut conditions,
-        container_size_query,
-        &element,
-        &mut tree_counting_caches,
-    );
-    *output = specified.to_computed_value(&context);
+    let Some(start) = to_computed_value_without_context(&specified.start) else {
+        return false;
+    };
+    let Some(end) = to_computed_value_without_context(&specified.end) else {
+        return false;
+    };
+    output.start = start;
+    output.end = end;
     true
 }
 
@@ -5233,29 +5224,12 @@ pub extern "C" fn Servo_ParseEasing(
 ) -> bool {
     use style::properties::longhands::transition_timing_function;
 
-    let context = ParserContext::new(
-        Origin::Author,
-        unsafe { dummy_url_data() },
-        Some(CssRuleType::Style),
-        ParsingMode::DEFAULT,
-        QuirksMode::NoQuirks,
-        /* namespaces = */ Default::default(),
-        None,
-        None,
-        /* attr_taint */ Default::default(),
-    );
-    let easing = easing.to_string();
-    let mut input = ParserInput::new(&easing);
-    let mut parser = Parser::new(&mut input);
-    let result =
-        parser.parse_entirely(|p| transition_timing_function::single_value::parse(&context, p));
-    match result {
-        Ok(parsed_easing) => {
-            *output = parsed_easing.to_computed_value_without_context();
-            true
-        },
-        Err(_) => false,
-    }
+    let Ok(specified) = parse_for!(easing, transition_timing_function::single_value::parse) else {
+        return false;
+    };
+
+    *output = specified.to_computed_value_without_context();
+    true
 }
 
 #[no_mangle]
@@ -5267,23 +5241,7 @@ pub extern "C" fn Servo_ParseKeyframeSelector(
     use style::stylesheets::keyframes_rule::KeyframeOffset;
     use style::values::specified::animation::TimelineRangeName;
 
-    let selector = unsafe { selector.as_str_unchecked() };
-    let mut input = ParserInput::new(&selector);
-    let mut parser = Parser::new(&mut input);
-
-    // We don't care about these consts for now since we only accept a pure percentage value.
-    let context = ParserContext::new(
-        Origin::Author,
-        unsafe { dummy_url_data() },
-        Some(CssRuleType::Style),
-        ParsingMode::DEFAULT,
-        QuirksMode::NoQuirks,
-        /* namespaces = */ Default::default(),
-        None,
-        None,
-        /* attr_taint */ Default::default(),
-    );
-    let Ok(specified) = parser.parse_entirely(|i| KeyframeOffset::parse(&context, i)) else {
+    let Ok(specified) = parse_for!(selector, KeyframeOffset::parse) else {
         return false;
     };
 
@@ -7757,23 +7715,7 @@ pub extern "C" fn Servo_ParseAnimationRangeStart(
     value: &nsACString,
     output: &mut computed::AnimationRangeStart,
 ) -> bool {
-    let context = ParserContext::new(
-        Origin::Author,
-        unsafe { dummy_url_data() },
-        Some(CssRuleType::Style),
-        ParsingMode::DEFAULT,
-        QuirksMode::NoQuirks,
-        /* namespaces = */ Default::default(),
-        None,
-        None,
-        /* attr_taint */ Default::default(),
-    );
-    let value = unsafe { value.as_str_unchecked() };
-    let mut input = ParserInput::new(&value);
-    let mut parser = Parser::new(&mut input);
-    let Ok(specified) =
-        parser.parse_entirely(|i| specified::animation::AnimationRangeStart::parse(&context, i))
-    else {
+    let Ok(specified) = parse_for!(value, specified::AnimationRangeStart::parse) else {
         return false;
     };
     let Some(lp) = specified.0.lp.compute_without_context() else {
@@ -7789,23 +7731,7 @@ pub extern "C" fn Servo_ParseAnimationRangeEnd(
     value: &nsACString,
     output: &mut computed::AnimationRangeEnd,
 ) -> bool {
-    let context = ParserContext::new(
-        Origin::Author,
-        unsafe { dummy_url_data() },
-        Some(CssRuleType::Style),
-        ParsingMode::DEFAULT,
-        QuirksMode::NoQuirks,
-        /* namespaces = */ Default::default(),
-        None,
-        None,
-        /* attr_taint */ Default::default(),
-    );
-    let value = unsafe { value.as_str_unchecked() };
-    let mut input = ParserInput::new(&value);
-    let mut parser = Parser::new(&mut input);
-    let Ok(specified) =
-        parser.parse_entirely(|i| specified::animation::AnimationRangeEnd::parse(&context, i))
-    else {
+    let Ok(specified) = parse_for!(value, specified::AnimationRangeEnd::parse) else {
         return false;
     };
     let Some(lp) = specified.0.lp.compute_without_context() else {

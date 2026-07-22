@@ -1718,6 +1718,29 @@ autofill-addresses-manage-addresses-title =
 addresses-no-addresses-stored-message =
     .label = No addresses added
 
+personal-info-group =
+    .label = Personal info
+autofill-personal-info-checkbox-message =
+    .label = Save and autofill personal info
+autofill-personal-info-manage-button =
+    .label = Manage personal info
+passports-list-header =
+    .label = Passports
+passports-delete-passport-button-label =
+    .aria-label = Delete
+passports-edit-passport-button-label =
+    .aria-label = Edit
+passports-delete-passport-prompt-title = Delete this passport?
+passports-delete-passport-prompt-confirm-button = Delete
+passports-delete-passport-prompt-cancel-button = Cancel
+autofill-passports-add-button = Add new passport
+autofill-personal-info-manage-title =
+    .heading = Manage personal info
+
+# This message is displayed when no passports are stored in Firefox
+passports-no-passports-stored-message =
+    .label = No passports added
+
 pane-passwords-autofill-title2 = Passwords and autofill
   .title = Passwords and autofill
 preferences-passwords-autofill-header =
@@ -2111,13 +2134,6 @@ collection-backlogged-crash-reports2 =
     .label = Automatically send crash reports
     .accesskey = c
 collection-backlogged-crash-reports-description = This helps { -vendor-short-name } diagnose and fix issues with the browser. Reports may include personal or sensitive data.
-
-# Promotional message displayed in the Settings panes to inform users of the new redesign
-settings-redesign-promo =
-    .heading = Same settings, new look!
-    .message = We reorganized this page so it’s easier to scan and explore. Your personal settings haven’t changed, and everything’s still here. Tip: use search to jump straight to what you need.
-settings-redesign-promo-dismiss-button =
-    .label = Got it
 
 privacy-segmentation-section-header = New features that enhance your browsing
 
@@ -2595,6 +2611,9 @@ preferences-etp-level-custom =
 
 preferences-etp-status-advanced-button =
     .label = Advanced settings
+
+preferences-etp-tracker-count-enabled =
+    .label = Show trackers blocked in address bar
 
 preferences-etp-status-protections-dashboard-link =
         .label = View your personalized protections dashboard

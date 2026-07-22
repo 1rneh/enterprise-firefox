@@ -10,6 +10,7 @@
 #include "InternalResponse.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/dom/ClientInfo.h"
+#include "mozilla/dom/ClientValidation.h"
 #include "mozilla/dom/FetchTypes.h"
 #include "mozilla/dom/PerformanceTimingTypes.h"
 #include "mozilla/dom/ProcessIsolation.h"
@@ -39,7 +40,7 @@ NS_IMETHODIMP FetchParent::FetchParentCSPEventListener::OnCSPViolationEvent(
 
   nsAutoString json(aJSON);
   nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-      __func__, [actorID = mActorID, json,
+      __func__, [actorID = mActorID, json = std::move(json),
                  reportGroup = nsString{aReportGroupName}]() mutable {
         FETCH_LOG(
             ("FetchParentCSPEventListener::OnCSPViolationEvent, Runnale"));
@@ -121,6 +122,11 @@ IPCResult FetchParent::RecvFetchOp(FetchOpArgs&& aArgs) {
                                                      options)) {
       return IPC_FAIL(this,
                       "RecvFetchOp principal not allowed for remote type");
+    }
+    if (!ClientIsValidPrincipalInfo(aArgs.clientInfo().principalInfo(),
+                                    remoteType)) {
+      return IPC_FAIL(
+          this, "RecvFetchOp clientInfo principal not allowed for remote type");
     }
   }
 

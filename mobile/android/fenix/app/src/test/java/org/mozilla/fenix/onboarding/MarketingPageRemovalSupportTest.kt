@@ -77,7 +77,7 @@ class MarketingPageRemovalSupportTest {
 
         removePage.start()
 
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         assertTrue(pages.size == 2)
     }
@@ -96,7 +96,7 @@ class MarketingPageRemovalSupportTest {
 
         removePage.start()
 
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         assertTrue(pages.size == 1)
     }
@@ -152,16 +152,15 @@ class MarketingPageRemovalSupportTest {
         every { prefs.getBoolean("my_key", false) } returns true
 
         val results = mutableListOf<Boolean>()
-        val job = launch {
+        backgroundScope.launch {
             prefs.flowScopedBooleanPreference(lifecycleOwner, testScheduler, "my_key", false)
                 .toList(results)
         }
 
         lifecycleOwner.onResume()
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         assertEquals(listOf(true), results)
-        job.cancel()
     }
 
     @Test
@@ -175,18 +174,17 @@ class MarketingPageRemovalSupportTest {
         every { prefs.getBoolean("my_key", false) } returnsMany listOf(true, false)
 
         val results = mutableListOf<Boolean>()
-        val job = launch {
+        backgroundScope.launch {
             prefs.flowScopedBooleanPreference(lifecycleOwner, testScheduler, "my_key", false)
                 .toList(results)
         }
 
         lifecycleOwner.onResume()
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         listenerSlot.captured.onSharedPreferenceChanged(prefs, "my_key")
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         assertEquals(listOf(true, false), results)
-        job.cancel()
     }
 }

@@ -1678,12 +1678,14 @@ setting-pane[onsearchpane] {
 }
 
 #addresses-list-header,
-#payments-list-header {
+#payments-list-header,
+#passports-list-header {
   --box-label-font-weight: var(--font-weight-heading);
 }
 
 #no-addresses-stored,
-#no-payments-stored {
+#no-payments-stored,
+#no-passports-stored {
   color: var(--text-color-deemphasized);
 }
 
@@ -1694,9 +1696,13 @@ setting-pane[onsearchpane] {
 .containers-identity-item {
   --box-icon-start-fill: var(--identity-icon-color);
   --box-icon-size: var(--icon-size-xlarge);
-  --box-icon-padding: var(--space-small);
-  --box-icon-border-radius: var(--border-radius-circle);
-  --box-icon-background: color-mix(in srgb, var(--identity-icon-color) 15%, transparent);
+
+  @media -moz-pref("browser.nova.enabled") {
+    --box-icon-start-fill: var(--identity-fill-color);
+    --box-icon-padding: var(--space-small);
+    --box-icon-border-radius: var(--border-radius-circle);
+    --box-icon-background: var(--identity-fill-tint);
+  }
 }
 
 .products-grid {

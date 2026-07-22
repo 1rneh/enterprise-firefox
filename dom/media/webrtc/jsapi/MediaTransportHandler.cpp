@@ -1159,11 +1159,17 @@ RefPtr<dom::RTCStatsPromise> MediaTransportHandlerSTS::GetIceStats(
               // XXX(Bug 1225723) Determine if dtlsState should be `required`.
               transport.mDtlsState = dom::RTCDtlsTransportState::New;
               auto transportIt = mTransports.find(stream->GetId());
+              // The DTLS role is not known until it has been negotiated (via
+              // a=setup) and a DTLS transport exists. Until then, report
+              // "unknown" rather than leaving the member unset. This is
+              // overridden below once the DTLS transport is available.
+              transport.mDtlsRole.Construct(dom::RTCDtlsRole::Unknown);
               if (transportIt != mTransports.end() &&
                   transportIt->second.mFlow) {
                 if (auto* dtlsLayer = static_cast<TransportLayerDtls*>(
                         transportIt->second.mFlow->GetLayer(
                             TransportLayerDtls::ID()))) {
+                  transport.mDtlsRole.Reset();
                   transport.mDtlsRole.Construct(
                       dtlsLayer->role() == TransportLayerDtls::CLIENT
                           ? dom::RTCDtlsRole::Client
@@ -1736,8 +1742,8 @@ void MediaTransportHandlerSTS::OnStateChange(TransportLayer* aLayer,
 
   // DTLS state indicates the readiness of the transport as a whole, because
   // SRTP uses the keys from the DTLS handshake.
-  MediaTransportHandler::OnStateChange(aLayer->flow_id(), aState,
-                                       std::move(remoteCerts), error);
+  MediaTransportHandler::OnStateChange(
+      aLayer->flow_id(), aState, std::move(remoteCerts), std::move(error));
 }
 
 void MediaTransportHandlerSTS::OnRtcpStateChange(TransportLayer* aLayer,
@@ -1749,7 +1755,8 @@ void MediaTransportHandlerSTS::OnRtcpStateChange(TransportLayer* aLayer,
     error = Some(GetErrorInfo(*dtlsLayer));
   }
 
-  MediaTransportHandler::OnRtcpStateChange(aLayer->flow_id(), aState, error);
+  MediaTransportHandler::OnRtcpStateChange(aLayer->flow_id(), aState,
+                                           std::move(error));
 }
 
 void MediaTransportHandlerSTS::PacketReceived(TransportLayer* aLayer,

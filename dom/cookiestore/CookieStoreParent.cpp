@@ -93,7 +93,7 @@ mozilla::ipc::IPCResult CookieStoreParent::RecvGetRequest(
        aOriginAttributes, aPartitionedOriginAttributes, aThirdPartyContext,
        aPartitionForeign, aUsingStorageAccess, aIsOn3PCBExceptionList,
        aMatchName, aName, aPath, aOnlyFirstMatch]() {
-        CopyableTArray<CookieStruct> results;
+        CopyableTArray<CookieStoreGetItem> results;
         self->GetRequestOnMainThread(
             parent, uri, aOriginAttributes, aPartitionedOriginAttributes,
             aThirdPartyContext, aPartitionForeign, aUsingStorageAccess,
@@ -311,7 +311,7 @@ void CookieStoreParent::GetRequestOnMainThread(
     bool aThirdPartyContext, bool aPartitionForeign, bool aUsingStorageAccess,
     bool aIsOn3PCBExceptionList, bool aMatchName, const nsAString& aName,
     const nsACString& aPath, bool aOnlyFirstMatch,
-    nsTArray<CookieStruct>& aResults) {
+    nsTArray<CookieStoreGetItem>& aResults) {
   nsresult rv;
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -349,7 +349,7 @@ void CookieStoreParent::GetRequestOnMainThread(
     attrsList.AppendElement(aPartitionedOriginAttributes.value());
   }
 
-  nsTArray<CookieStruct> list;
+  nsTArray<CookieStoreGetItem> list;
 
   bool hasBothPartitionedAndUnpartitioned =
       aPartitionedOriginAttributes.isSome();
@@ -357,6 +357,7 @@ void CookieStoreParent::GetRequestOnMainThread(
   for (const OriginAttributes& attrs : attrsList) {
     nsTArray<RefPtr<Cookie>> cookies;
     service->GetCookiesFromHost(baseDomain, attrs, cookies);
+    list.SetCapacity(list.Length() + cookies.Length());
 
     for (Cookie* cookie : cookies) {
       if (!CookieCommons::DomainMatches(cookie, hostName)) {
@@ -389,7 +390,7 @@ void CookieStoreParent::GetRequestOnMainThread(
         continue;
       }
 
-      list.AppendElement(cookie->ToIPC());
+      list.AppendElement(CookieStoreGetItem(cookie->Name(), cookie->Value()));
 
       if (aOnlyFirstMatch) {
         break;
@@ -540,7 +541,7 @@ bool CookieStoreParent::DeleteRequestOnMainThread(
 
   nsAutoCString cookiesForDomain;
   if (aDomain.IsEmpty()) {
-    cookiesForDomain = hostName;
+    cookiesForDomain = std::move(hostName);
   } else {
     cookiesForDomain = NS_ConvertUTF16toUTF8(aDomain);
   }

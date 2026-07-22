@@ -775,7 +775,9 @@ auto DocumentLoadListener::Open(nsDocShellLoadState* aLoadState,
 
   if (aLoadState->GetRemoteTypeOverride()) {
     if (!mIsDocumentLoad || !NS_IsAboutBlank(aLoadState->URI()) ||
-        !loadingContext->IsTopContent()) {
+        !loadingContext->IsTopContent() ||
+        aLoadState->GetEffectiveTriggeringRemoteType() != NOT_REMOTE_TYPE ||
+        aLoadState->LoadIsFromSessionHistory()) {
       LOG(
           ("DocumentLoadListener::Open with invalid remoteTypeOverride "
            "[this=%p]",
@@ -1412,7 +1414,8 @@ void DocumentLoadListener::RedirectToRealChannelFinished(nsresult aRv) {
   redirectReg->GetParentChannel(mRedirectChannelId,
                                 getter_AddRefs(redirectParentChannel));
   if (!redirectParentChannel) {
-    FinishReplacementChannelSetup(NS_ERROR_FAILURE);
+    FinishReplacementChannelSetup(
+        NS_ERROR_DOCUMENT_LOAD_LISTENER_NO_PARENT_CHANNEL);
     return;
   }
 
@@ -1459,7 +1462,7 @@ void DocumentLoadListener::FinishReplacementChannelSetup(nsresult aResult) {
   nsresult rv = registrar->GetParentChannel(mRedirectChannelId,
                                             getter_AddRefs(redirectChannel));
   if (NS_FAILED(rv) || !redirectChannel) {
-    aResult = NS_ERROR_FAILURE;
+    aResult = NS_ERROR_DOCUMENT_LOAD_LISTENER_NO_PARENT_CHANNEL;
   }
 
   // Release all previously registered channels, they are no longer needed to
@@ -3317,8 +3320,10 @@ NS_IMETHODIMP DocumentLoadListener::OnStatus(nsIRequest* aRequest,
   }
 
   if (webProgress) {
-    NS_DispatchToMainThread(
-        NS_NewRunnableFunction("DocumentLoadListener::OnStatus", [=]() {
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        "DocumentLoadListener::OnStatus",
+        [webProgress = std::move(webProgress), channel = std::move(channel),
+         aStatus, message = std::move(message)]() {
           webProgress->OnStatusChange(webProgress, channel, aStatus,
                                       message.get());
         }));

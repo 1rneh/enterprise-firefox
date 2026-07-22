@@ -451,7 +451,7 @@
   -moz-context-properties: fill, fill-opacity;
   border-radius: var(--border-radius-circle);
 
-  &:not(:hover, [selected], [primary], [open]) {
+  &:not(:hover, [selected], [primary], [aria-expanded="true"]) {
     @media (prefers-contrast) {
       outline: 1px solid currentColor;
       outline-offset: -1px;
@@ -471,12 +471,12 @@
     }
   }
 
-  .urlbarView-row:is([row-selectable]:hover, [selected]) > &:not(:hover, [open]) {
+  .urlbarView-row:is([row-selectable]:hover, [selected]) > &:not(:hover, [aria-expanded="true"]) {
     color: var(--urlbarView-result-button-selected-color);
     background-color: var(--urlbarView-result-button-selected-background-color);
   }
 
-  &:is(:hover, [open]) {
+  &:is(:hover, [aria-expanded="true"]) {
     color: var(--urlbarView-result-button-hover-color);
     background-color: var(--urlbarView-result-button-hover-background-color);
   }
@@ -495,7 +495,7 @@
   .urlbarView-results:not([disable-resultmenu-autohide])
     > .urlbarView-row:not(:hover, [selected], [descendant-selected])
     > .urlbarView-row-buttons
-    > &:not([open]):first-child:empty {
+    > &:not([aria-expanded="true"]):first-child:empty {
     /* The realtime suggestions' style will be broken if the width will be
        changed by hover. Thus we use the visibility instead of display to keep
        the element size */
@@ -550,7 +550,7 @@
   flex-basis: initial;
   flex-shrink: 0;
 
-  &:not(:hover, [open]) {
+  &:not(:hover, [aria-expanded="true"]) {
     background-color: var(--button-background-color);
   }
 
@@ -666,11 +666,6 @@
      fallback fonts with extreme metrics. */
   line-height: 1.4;
   flex: 1;
-}
-
-/* user context box */
-.urlbarView-userContext {
-  border-top: 4px solid var(--identity-stroke-color);
 }
 
 .urlbarView-userContext-icon {
@@ -813,10 +808,6 @@
 
     :root[uidensity="compact"] & {
       padding-block: 3px;
-
-      &.urlbarView-userContext {
-        border-block-start-width: 3px;
-      }
     }
 
     &.urlbarView-tabGroup {
@@ -838,6 +829,27 @@
 
       &:-moz-locale-dir(rtl) {
         background-position-x: right var(--space-medium);
+      }
+    }
+
+    /* The container indicator is shown as the container icon on a background
+       tinted with the container color, rather than a bordered chiclet. */
+    &.action-contextualidentity {
+      border: none;
+      border-radius: var(--border-radius-circle);
+      background-color: var(--identity-fill-tint);
+      padding: 4px;
+
+      .urlbarView-userContext-textMode {
+        display: none;
+      }
+
+      .urlbarView-userContext-iconMode {
+        display: inline-flex;
+      }
+
+      .urlbarView-userContext-icon {
+        fill: var(--identity-fill-color);
       }
     }
 
@@ -1226,10 +1238,6 @@
   &[selected],
   &:hover:active {
     outline: var(--focus-outline);
-  }
-
-  &.urlbarView-userContext {
-    border-top-color: var(--identity-stroke-color);
   }
 
   .urlbarView[action-override] &[data-action="tabswitch"] {

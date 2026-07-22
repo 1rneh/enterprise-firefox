@@ -8,6 +8,7 @@ import org.junit.Ignore
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.MockBrowserDataHelper
+import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestAssetHelper.firstForeignWebPageAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.pdfFormAsset
@@ -261,6 +262,7 @@ class MainMenuTest : BaseTest(
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080111
     @SmokeTest
+    @Ignore("Failing: https://bugzilla.mozilla.org/show_bug.cgi?id=2056644")
     @Test
     fun verifyTheTranslatePageSubMenuOptionTest() {
         val testPage = mockWebServer.firstForeignWebPageAsset
@@ -270,7 +272,7 @@ class MainMenuTest : BaseTest(
             .mozClick(MainMenuSelectors.MORE_BUTTON)
             .mozClick(MainMenuSelectors.TRANSLATE_BUTTON)
             .mozClickIfPresent(BrowserPageSelectors.TRANSLATION_SHEET_TRANSLATE_BUTTON)
-            .mozWaitUntilAbsent(BrowserPageSelectors.TRANSLATION_SHEET_TRANSLATE_BUTTON)
+            .mozWaitUntilAbsent(BrowserPageSelectors.TRANSLATION_SHEET_TRANSLATE_BUTTON, TestAssetHelper.waitingTimeLong)
         on.browserPage
             .openMainMenu()
             .mozClick(MainMenuSelectors.MORE_BUTTON)

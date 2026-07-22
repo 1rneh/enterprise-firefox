@@ -562,7 +562,8 @@ void nsHtml5TreeOperation::SetHTMLElementAttributesFast(
 nsIContent* nsHtml5TreeOperation::CreateHTMLElement(
     nsAtom* aName, nsHtml5HtmlAttributes* aAttributes, FromParser aFromParser,
     nsNodeInfoManager* aNodeInfoManager, nsHtml5DocumentBuilder* aBuilder,
-    HTMLContentCreatorFunction aCreator, nsINode* aIntendedParent) {
+    HTMLContentCreatorFunction aCreator, nsINode* aIntendedParent,
+    Maybe<RefPtr<CustomElementRegistry>> aContextRegistry) {
   // https://html.spec.whatwg.org/#create-an-element-for-the-token
   // 1. If the active speculative HTML parser is not null, then return the
   // result of creating a speculative mock element given namespace, token's tag
@@ -594,11 +595,17 @@ nsIContent* nsHtml5TreeOperation::CreateHTMLElement(
 
   // 6. Let registry be the result of looking up a custom element registry given
   // intendedParent.
-  Maybe<RefPtr<CustomElementRegistry>> customElementRegistry = Nothing();
-  if (aIntendedParent && aIntendedParent->HasScopedRegistry()) {
-    if (auto* reg = nsContentUtils::GetCustomElementRegistry(aIntendedParent)) {
-      customElementRegistry = Some(reg);
-    }
+  //
+  // (intendedParent may specify its own registry (the common case during
+  // fragment parsing). It might specify a scoped or "null" registry
+  // (Some(nullptr)). Both of these are valid and must be propagated to the
+  // node. In some cases, intendedParent will have an unspecified "global"
+  // registry (Nothing()); in these cases we assume registry from context and
+  // fall back to aContextRegistry).
+  Maybe<RefPtr<CustomElementRegistry>> customElementRegistry =
+      nsContentUtils::GetCustomElementRegistry(aIntendedParent);
+  if (customElementRegistry.isNothing()) {
+    customElementRegistry = std::move(aContextRegistry);
   }
 
   // 7. Let definition be the result of looking up a custom element definition
@@ -1078,9 +1085,9 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
           intendedParent ? intendedParent->NodeInfoManager()
                          : mBuilder->GetNodeInfoManager();
 
-      *target =
-          CreateHTMLElement(name, attributes, aOperation.mFromNetwork,
-                            nodeInfoManager, mBuilder, creator, intendedParent);
+      *target = CreateHTMLElement(name, attributes, aOperation.mFromNetwork,
+                                  nodeInfoManager, mBuilder, creator,
+                                  intendedParent, mozilla::Nothing());
       return NS_OK;
     }
 

@@ -774,6 +774,10 @@ void MarkingTracerT<opts>::markEphemeronEdges(EphemeronEdgeVector& edges,
   DebugOnly<size_t> initialLength = edges.length();
 
   for (auto& edge : edges) {
+    if (!edge.target()) {
+      continue;
+    }
+
     MarkColor targetColor = std::min(srcColor, MarkColor(edge.color()));
     MOZ_ASSERT(markColor() >= targetColor);
     if (targetColor == markColor()) {
@@ -1408,6 +1412,15 @@ void GCMarker::freeStack() {
   MOZ_ASSERT(!isActive());
   MOZ_ASSERT(markColor_ == gc::MarkColor::Black);
   stack.clearAndFreeStack();
+}
+
+size_t GCMarker::stackHighWaterMark() const {
+  return std::max(stack.highWaterMark(), otherStack.highWaterMark());
+}
+
+void GCMarker::resetStackHighWaterMark() {
+  stack.resetHighWaterMark();
+  otherStack.resetHighWaterMark();
 }
 
 bool GCMarker::markUntilBudgetExhausted(SliceBudget& budget,
@@ -2198,6 +2211,10 @@ bool MarkStack::resetStackCapacity() {
   return resize(capacity);
 }
 
+size_t MarkStack::highWaterMark() const { return highWaterMark_; }
+
+void MarkStack::resetHighWaterMark() { highWaterMark_ = capacity_; }
+
 #ifdef JS_GC_ZEAL
 void MarkStack::setMaxCapacity(size_t maxCapacity) {
   MOZ_ASSERT(maxCapacity != 0);
@@ -2489,6 +2506,7 @@ bool MarkStack::resize(size_t newCapacity) {
 
   stack_ = newStack;
   capacity_ = newCapacity;
+  highWaterMark_ = std::max<size_t>(highWaterMark_, capacity_);
   return true;
 }
 

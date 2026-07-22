@@ -50,7 +50,7 @@ ChromeUtils.defineLazyGetter(lazy, "logger", () =>
  * - onQueryResults(queryContext)
  * - onQueryCancelled(queryContext)
  * - onQueryFinished(queryContext)
- * - onQueryResultRemoved(index)
+ * - onQueryResultRemoved(resultId)
  * - onViewOpen()
  * - onViewClose()
  */
@@ -465,15 +465,8 @@ export class UrlbarParentController {
     }
     let { queryContext } = this._lastQueryContextWrapper;
 
-    let index = queryContext.results.indexOf(result);
+    let index = queryContext.results.findIndex(r => r.id === result.id);
     if (index < 0) {
-      // On the actor message path `result` is reconstructed from the wire, so
-      // it isn't identity-equal to the context's instance; its row index, which
-      // matches the results order, locates it instead. Bug 2052875 will match by
-      // a stable result id so this doesn't rely on that ordering.
-      index = result.rowIndex ?? -1;
-    }
-    if (index < 0 || index >= queryContext.results.length) {
       console.error("Failed to find the selected result in the results");
       return;
     }
@@ -481,7 +474,7 @@ export class UrlbarParentController {
     queryContext.results.splice(index, 1);
     this.notify(
       lazy.UrlbarShared.NOTIFICATIONS.QUERY_RESULT_REMOVED,
-      index,
+      result.id,
       acknowledgeDismissalL10n
     );
   }
@@ -759,6 +752,7 @@ export class TelemetryEvent {
       searchSource: snapshot.internalDetails.searchSource,
       internalDetails: snapshot.internalDetails,
       exposures,
+      visibleResults: engagementData.visibleResults,
     });
   }
 
@@ -851,6 +845,9 @@ export class TelemetryEvent {
    *   The interaction details (picked result reconstructed; event/element null).
    * @param {?object[]} data.exposures
    *   The resolved exposure list, or null when the session stays open.
+   * @param {?UrlbarResult[]} data.visibleResults
+   *   The results shown at engagement, for the provider impression/abandonment
+   *   hooks (the parent's own view has none on the message path).
    */
   recordFromChild({
     built,
@@ -859,6 +856,7 @@ export class TelemetryEvent {
     searchSource,
     internalDetails,
     exposures,
+    visibleResults,
   }) {
     try {
       let { queryContext } = this._controller._lastQueryContextWrapper || {};
@@ -878,11 +876,33 @@ export class TelemetryEvent {
         this.startTrackingDisableSuggest(disableBuilt, searchSource);
       }
 
+      // On the message path internalDetails.result was reconstructed from
+      // structured clone, which strips data that doesn't survive it (e.g. a Rust
+      // suggestion's UniFFI class) and yields an object distinct from the
+      // parent's authoritative result. Resolve it back to the live result by id
+      // so provider engagement handling -- notably dismissal against the Rust
+      // store -- operates on the live object, and carry the view-assigned
+      // rowIndex the wire preserves so the selection ping's position is right
+      // (the live result never went through a view). visibleResults stay as the
+      // wire results; the impression/abandonment hooks match them by id.
+      // TODO(bug 2055935): remove this or bake the resolution into the actor
+      // result deserialization.
+      let liveResult = queryContext?.results?.find(
+        r => r.id === internalDetails.result?.id
+      );
+      if (liveResult) {
+        if (internalDetails.result.rowIndex != null) {
+          liveResult.rowIndex = internalDetails.result.rowIndex;
+        }
+        internalDetails.result = liveResult;
+      }
+
       this._controller.manager.notifyEngagementChange(
         method,
         queryContext,
         internalDetails,
-        this._controller
+        this._controller,
+        visibleResults
       );
     } catch (ex) {
       console.error("Could not record engagement: ", ex);

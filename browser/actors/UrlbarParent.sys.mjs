@@ -217,12 +217,16 @@ class ViewProxy {
     this.#invoke("acknowledgeFeedback", [result.toWire()]);
   }
 
-  close() {
-    this.#invoke("close", []);
+  close(options) {
+    this.#invoke("close", options ? [options] : []);
   }
 
   startTail150() {
     this.#invoke("startTail150", []);
+  }
+
+  updateResultMenuCommands(resultId, commands) {
+    this.#invoke("updateResultMenuCommands", [resultId, commands]);
   }
 }
 

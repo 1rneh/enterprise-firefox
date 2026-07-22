@@ -8,6 +8,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
 });
 
@@ -89,7 +90,7 @@ export class UrlbarTelemetryUtils {
   static parseSearchString(searchString) {
     let numChars = searchString.length.toString();
     let searchWords = searchString
-      .substring(0, lazy.UrlbarUtils.MAX_TEXT_LENGTH)
+      .substring(0, lazy.UrlbarShared.MAX_TEXT_LENGTH)
       .trim()
       .split(lazy.UrlUtils.REGEXP_SPACES)
       .filter(t => t);
@@ -297,7 +298,8 @@ export class UrlbarTelemetryUtils {
    * source, and the resolved exposure list.
    *
    * @param {object} data
-   *   `{built, disableBuilt, method, searchSource, internalDetails, exposures}`.
+   *   `{built, disableBuilt, method, searchSource, internalDetails, exposures,
+   *   visibleResults}`.
    * @returns {object} The wire payload; reconstruct with
    *   `recordedEngagementFromWire()`.
    */
@@ -309,6 +311,10 @@ export class UrlbarTelemetryUtils {
     delete internalDetails.element;
     return {
       ...data,
+      // The results shown at engagement, in wire form, so the parent can notify
+      // providers' impression/abandonment hooks (which key off them) -- the
+      // parent's own view has none on the message path.
+      visibleResults: data.visibleResults?.map(r => r.toWire()) ?? null,
       internalDetails: {
         ...internalDetails,
         result: result?.toWire() ?? null,
@@ -327,6 +333,8 @@ export class UrlbarTelemetryUtils {
   static recordedEngagementFromWire(wire) {
     return {
       ...wire,
+      visibleResults:
+        wire.visibleResults?.map(r => lazy.UrlbarResult.fromWire(r)) ?? [],
       internalDetails: {
         ...wire.internalDetails,
         event: null,
@@ -413,7 +421,7 @@ export class UrlbarTelemetryUtils {
     if (searchMode.engineName) {
       return "search_engine";
     }
-    const source = lazy.UrlbarUtils.LOCAL_SEARCH_MODES.find(
+    const source = lazy.UrlbarShared.LOCAL_SEARCH_MODES.find(
       m => m.source == searchMode.source
     )?.telemetryLabel;
     return source ?? "unknown";

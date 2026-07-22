@@ -1042,6 +1042,8 @@ void Statistics::sendGCTelemetry() {
   runtime->metrics().GC_IS_COMPARTMENTAL(!gc->fullGCRequested);
   runtime->metrics().GC_ZONE_COUNT(zoneStats.zoneCount);
   runtime->metrics().GC_ZONES_COLLECTED(zoneStats.collectedZoneCount);
+  runtime->metrics().GC_MARK_STACK_MAX_CAPACITY(
+      getStat(STAT_MARK_STACK_MAX_CAPACITY) * sizeof(uintptr_t));
 
   TimeDuration prepareTotal = phaseTimes[Phase::PREPARE];
   TimeDuration markTotal = SumPhase(PhaseKind::MARK, phaseTimes);
@@ -1131,6 +1133,22 @@ void Statistics::sendGCTelemetry() {
       double effectiveness =
           (double(bytesFreed) / BYTES_PER_MB) / clampedTotal.ToSeconds();
       runtime->metrics().GC_EFFECTIVENESS(uint32_t(effectiveness));
+    }
+  }
+
+  {
+    size_t usedBytes, freeBytes, adminBytes;
+    gc->bufferRuntime().getRetainedStats(&usedBytes, &freeBytes, &adminBytes);
+
+    // Buffer allocator heap size.
+    size_t totalBytes = usedBytes + freeBytes + adminBytes;
+    runtime->metrics().GC_BUFFER_ALLOC_HEAP_BYTES(totalBytes);
+
+    // Buffer allocator heap density. Skipped for small heaps.
+    if (totalBytes >= 2 * ChunkSize) {
+      double density = 100.0 * double(usedBytes) / double(totalBytes);
+      runtime->metrics().GC_BUFFER_ALLOC_HEAP_DENSITY(
+          std::clamp(density, 0.0, 100.0));
     }
   }
 

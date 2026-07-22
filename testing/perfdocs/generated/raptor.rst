@@ -64,204 +64,6 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **test url**: `<http://\<host\>:\<port\>/ARES-6/index.html?raptor>`__
    * **type**: benchmark
    * **unit**: ms
-   * **Test Task**:
-
-   .. list-table:: **test-linux2404-64-clang-trunk/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-linux2404-64-shippable/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-chrome-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-benchmark-firefox-ares6**
-        - ✅
-        - ✅
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-linux2404-64/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-macosx1470-64-shippable/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-chrome-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-benchmark-firefox-ares6**
-        - ✅
-        - ✅
-        - ❌
-        - ❌
-      * - **browsertime-benchmark-safari-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-macosx1470-64/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-macosx1500-aarch64-nightlyasrelease/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows11-64-24h2-shippable/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-chrome-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows11-64-24h2/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-ares6**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
 
 .. dropdown:: assorted-dom
    :class-container: anchor-id-assorted-dom-b
@@ -5514,204 +5316,6 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **test url**: `<http://\<host\>:\<port\>/SunSpider/sunspider-1.0.1/sunspider-1.0.1/driver.html?raptor>`__
    * **type**: benchmark
    * **unit**: ms
-   * **Test Task**:
-
-   .. list-table:: **test-linux2404-64-clang-trunk/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-linux2404-64-nightlyasrelease/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-linux2404-64-shippable/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-chrome-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ✅
-        - ✅
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-linux2404-64/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-macosx1470-64-nightlyasrelease/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-macosx1470-64-shippable/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-chrome-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ✅
-        - ✅
-        - ❌
-        - ❌
-      * - **browsertime-benchmark-safari-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-macosx1470-64/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-macosx1500-aarch64-nightlyasrelease/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows11-64-24h2-nightlyasrelease/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows11-64-24h2-shippable/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-chrome-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows11-64-24h2/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-benchmark-firefox-sunspider**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
 
 .. dropdown:: twitch-animation
    :class-container: anchor-id-twitch-animation-b
@@ -20574,6 +20178,134 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
 
 
+.. dropdown:: prefetch-list-conservative
+   :class-container: anchor-id-prefetch-list-conservative-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t prefetch-list-conservative
+
+   **Owner**: Network Team, Performance Team
+
+   **Description**: Speculation Rules prefetch test using a list-source rule (conservative eagerness): the inline speculationrules script lists the target URLs explicitly; matching links are present so the prefetch can be triggered on pointerdown, which is held so the prefetch can complete before release navigates (list-rule eagerness is browser-defined).
+
+   * **alert threshold**: 10.0
+   * **apps**: firefox, chrome
+   * **browser cycles**: 1
+   * **browsertime args**: --browsertime.source=list --browsertime.eagerness=conservative
+   * **cold**: true
+   * **custom data**: true
+   * **expected**: pass
+   * **gecko profile interval**: 1
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-speculation-rules.toml#41`
+   * **lower is better**: true
+   * **page cycles**: 1
+   * **page timeout**: 60000
+   * **support class**: speculation_rules.py
+   * **test script**: speculation-rules-prefetch.js
+   * **test url**: `<None>`__
+   * **type**: pageload
+   * **unit**: ms
+   * **use live sites**: true
+
+.. dropdown:: prefetch-list-eager
+   :class-container: anchor-id-prefetch-list-eager-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t prefetch-list-eager
+
+   **Owner**: Network Team, Performance Team
+
+   **Description**: Speculation Rules prefetch test using a list-source rule (eager eagerness): the inline speculationrules script lists the target URLs explicitly; matching links are present so the prefetch can be triggered on the slightest hover (list-rule eagerness is browser-defined), then the link is clicked to serve the navigation from the prefetch cache.
+
+   * **alert threshold**: 10.0
+   * **apps**: firefox, chrome
+   * **browser cycles**: 1
+   * **browsertime args**: --browsertime.source=list --browsertime.eagerness=eager
+   * **cold**: true
+   * **custom data**: true
+   * **expected**: pass
+   * **gecko profile interval**: 1
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-speculation-rules.toml#35`
+   * **lower is better**: true
+   * **page cycles**: 1
+   * **page timeout**: 60000
+   * **support class**: speculation_rules.py
+   * **test script**: speculation-rules-prefetch.js
+   * **test url**: `<None>`__
+   * **type**: pageload
+   * **unit**: ms
+   * **use live sites**: true
+
+.. dropdown:: prefetch-list-immediate
+   :class-container: anchor-id-prefetch-list-immediate-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t prefetch-list-immediate
+
+   **Owner**: Network Team, Performance Team
+
+   **Description**: Speculation Rules prefetch test using a list-source rule (immediate eagerness): the inline speculationrules script lists the target URLs explicitly, so a prefetch-capable browser prefetches them as soon as the rules are parsed, then the link is clicked to serve the navigation from the prefetch cache.
+
+   * **alert threshold**: 10.0
+   * **apps**: firefox, chrome
+   * **browser cycles**: 1
+   * **browsertime args**: --browsertime.source=list --browsertime.eagerness=immediate
+   * **cold**: true
+   * **custom data**: true
+   * **expected**: pass
+   * **gecko profile interval**: 1
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-speculation-rules.toml#32`
+   * **lower is better**: true
+   * **page cycles**: 1
+   * **page timeout**: 60000
+   * **support class**: speculation_rules.py
+   * **test script**: speculation-rules-prefetch.js
+   * **test url**: `<None>`__
+   * **type**: pageload
+   * **unit**: ms
+   * **use live sites**: true
+
+.. dropdown:: prefetch-list-moderate
+   :class-container: anchor-id-prefetch-list-moderate-c
+
+   * Command to Run Locally
+
+   .. code-block::
+
+      ./mach raptor -t prefetch-list-moderate
+
+   **Owner**: Network Team, Performance Team
+
+   **Description**: Speculation Rules prefetch test using a list-source rule (moderate eagerness): the inline speculationrules script lists the target URLs explicitly; matching links are present so the prefetch can be triggered after ~200 ms of sustained hover (list-rule eagerness is browser-defined), then the link is clicked to serve the navigation from the prefetch cache.
+
+   * **alert threshold**: 10.0
+   * **apps**: firefox, chrome
+   * **browser cycles**: 1
+   * **browsertime args**: --browsertime.source=list --browsertime.eagerness=moderate
+   * **cold**: true
+   * **custom data**: true
+   * **expected**: pass
+   * **gecko profile interval**: 1
+   * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-speculation-rules.toml#38`
+   * **lower is better**: true
+   * **page cycles**: 1
+   * **page timeout**: 60000
+   * **support class**: speculation_rules.py
+   * **test script**: speculation-rules-prefetch.js
+   * **test url**: `<None>`__
+   * **type**: pageload
+   * **unit**: ms
+   * **use live sites**: true
+
 .. dropdown:: prefetch-moderate
    :class-container: anchor-id-prefetch-moderate-c
 
@@ -24040,16 +23772,6 @@ Browsertime tests that use a custom pageload test script. These use the pageload
         - autoland
         - mozilla-release
         - mozilla-beta
-      * - **browsertime-webcodecs-chrome-ve-av1-q-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-webcodecs-custom-car-ve-av1-q-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
       * - **browsertime-webcodecs-firefox-ve-av1-q-cam**
         - ✅
         - ✅
@@ -24675,16 +24397,6 @@ Browsertime tests that use a custom pageload test script. These use the pageload
         - autoland
         - mozilla-release
         - mozilla-beta
-      * - **browsertime-webcodecs-chrome-ve-av1-rt-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-webcodecs-custom-car-ve-av1-rt-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
       * - **browsertime-webcodecs-firefox-ve-av1-rt-cam**
         - ✅
         - ✅
@@ -26824,16 +26536,6 @@ Browsertime tests that use a custom pageload test script. These use the pageload
         - autoland
         - mozilla-release
         - mozilla-beta
-      * - **browsertime-webcodecs-chrome-ve-vp8-q-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-webcodecs-custom-car-ve-vp8-q-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
       * - **browsertime-webcodecs-firefox-ve-vp8-q-cam**
         - ✅
         - ✅
@@ -27459,16 +27161,6 @@ Browsertime tests that use a custom pageload test script. These use the pageload
         - autoland
         - mozilla-release
         - mozilla-beta
-      * - **browsertime-webcodecs-chrome-ve-vp8-rt-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-webcodecs-custom-car-ve-vp8-rt-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
       * - **browsertime-webcodecs-firefox-ve-vp8-rt-cam**
         - ✅
         - ✅
@@ -28094,16 +27786,6 @@ Browsertime tests that use a custom pageload test script. These use the pageload
         - autoland
         - mozilla-release
         - mozilla-beta
-      * - **browsertime-webcodecs-chrome-ve-vp9-q-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-webcodecs-custom-car-ve-vp9-q-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
       * - **browsertime-webcodecs-firefox-ve-vp9-q-cam**
         - ✅
         - ✅
@@ -28729,16 +28411,6 @@ Browsertime tests that use a custom pageload test script. These use the pageload
         - autoland
         - mozilla-release
         - mozilla-beta
-      * - **browsertime-webcodecs-chrome-ve-vp9-rt-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-webcodecs-custom-car-ve-vp9-rt-cam**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
       * - **browsertime-webcodecs-firefox-ve-vp9-rt-cam**
         - ✅
         - ✅

@@ -2698,6 +2698,14 @@ static void AccumulateTelemetryCallback(JSMetric id,
       glean::javascript_gc::effectiveness.AccumulateSingleSample(
           sample.as<size_t>());
       break;
+    case JSMetric::GC_BUFFER_ALLOC_HEAP_BYTES:
+      glean::javascript_gc::buffer_alloc_heap_bytes.ProcessGet().Accumulate(
+          sample.as<size_t>());
+      break;
+    case JSMetric::GC_BUFFER_ALLOC_HEAP_DENSITY:
+      glean::javascript_gc::buffer_alloc_heap_density.AccumulateSingleSample(
+          sample.as<size_t>());
+      break;
     case JSMetric::GC_ZONE_COUNT:
       glean::javascript_gc::zone_count.AccumulateSingleSample(
           sample.as<size_t>());
@@ -2708,6 +2716,10 @@ static void AccumulateTelemetryCallback(JSMetric id,
       break;
     case JSMetric::GC_PRETENURE_COUNT_2:
       glean::javascript_gc::pretenure_count.AccumulateSingleSample(
+          sample.as<size_t>());
+      break;
+    case JSMetric::GC_MARK_STACK_MAX_CAPACITY:
+      glean::javascript_gc::mark_stack_max_capacity.ProcessGet().Accumulate(
           sample.as<size_t>());
       break;
     case JSMetric::GC_MARK_RATE_2:

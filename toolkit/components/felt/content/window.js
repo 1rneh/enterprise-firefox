@@ -28,6 +28,27 @@ Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
 
 let cancelActiveSso = null;
 
+const FeltStatusPanel = {
+  get _panel() {
+    return document.getElementById("felt-statuspanel");
+  },
+  get _label() {
+    return document.getElementById("felt-statuspanel-label");
+  },
+  update(text) {
+    if (text) {
+      this._label.textContent = text;
+      this._panel.classList.remove("is-hidden");
+    } else {
+      this._panel.classList.add("is-hidden");
+      this._label.textContent = "";
+    }
+  },
+  clear() {
+    this.update("");
+  },
+};
+
 function clearSsoSessionData() {
   return new Promise(resolve => {
     Services.clearData.deleteDataFromOriginAttributesPattern(
@@ -39,6 +60,7 @@ function clearSsoSessionData() {
 
 function resetToLoginPage() {
   cancelActiveSso?.();
+  FeltStatusPanel.clear();
   document.querySelector(".felt-login__sso").classList.add("is-hidden");
   document
     .querySelector(".felt-login__email-pane")
@@ -142,6 +164,9 @@ async function connectToConsole(email) {
         return;
       }
 
+      // Clear status panel. onStatusChange stops firing once the load stops.
+      FeltStatusPanel.clear();
+
       const uri = webProgress.browsingContext?.currentWindowGlobal?.documentURI;
       if (!uri || !callbackPattern.matches(uri.spec)) {
         return;
@@ -191,6 +216,14 @@ async function connectToConsole(email) {
       }
     },
 
+    onStatusChange(_webProgress, _request, _status, message) {
+      if (browser.webProgress.isLoadingDocument) {
+        FeltStatusPanel.update(message);
+      } else {
+        FeltStatusPanel.clear();
+      }
+    },
+
     onLocationChange(_webProgress, _request, _location, flags) {
       if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
         clearTimeout(ssoTimeout);
@@ -209,7 +242,9 @@ async function connectToConsole(email) {
   };
   browser.addProgressListener(
     progressListener,
-    Ci.nsIWebProgress.NOTIFY_STATE_NETWORK | Ci.nsIWebProgress.NOTIFY_LOCATION
+    Ci.nsIWebProgress.NOTIFY_STATE_NETWORK |
+      Ci.nsIWebProgress.NOTIFY_LOCATION |
+      Ci.nsIWebProgress.NOTIFY_STATUS
   );
 
   lazy.FeltErrorReport.reset();
@@ -260,6 +295,8 @@ function informAboutPotentialStartupFailure() {
 
 function setupMarionetteEnvironment() {
   window.fullScreen = false;
+
+  window.FeltStatusPanel = FeltStatusPanel;
 
   window.FullScreen = {
     exitDomFullScreen() {},

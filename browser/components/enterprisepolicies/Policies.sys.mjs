@@ -3504,10 +3504,17 @@ export var Policies = {
       if (param.Locked) {
         manager.disallowFeature("changeProxySettings");
       }
-      lazy.ProxyPolicies.configureProxySettings(
-        param,
-        lazy.PoliciesUtils.setDefaultPref.bind(lazy.PoliciesUtils)
+      const setDefaultPref = lazy.PoliciesUtils.setDefaultPref.bind(
+        lazy.PoliciesUtils
       );
+      lazy.ProxyPolicies.configureProxySettings(param, setDefaultPref);
+
+      if (AppConstants.MOZ_ENTERPRISE) {
+        lazy.ProxyPolicies.excludeConsoleFromProxy(param, setDefaultPref).then(
+          null,
+          lazy.log.error
+        );
+      }
     },
     onRemove(manager, oldParams) {
       if (oldParams.Locked) {
@@ -3517,6 +3524,10 @@ export var Policies = {
         oldParams,
         lazy.PoliciesUtils.setDefaultPref.bind(lazy.PoliciesUtils)
       );
+
+      if (AppConstants.MOZ_ENTERPRISE) {
+        lazy.PoliciesUtils.unsetDefaultPref("network.proxy.no_proxies_on");
+      }
     },
   },
 

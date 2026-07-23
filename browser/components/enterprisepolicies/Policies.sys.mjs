@@ -1204,6 +1204,15 @@ export var Policies = {
         param.Locked
       );
     },
+    onRemove() {
+      Services.perms.removePolicyPermissionsByType("cookie");
+      Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
+      lazy.clearRunOnceModification("clearCookiesForBlockedHosts");
+      lazy.PoliciesUtils.unsetDefaultPref("network.cookie.cookieBehavior");
+      lazy.PoliciesUtils.unsetDefaultPref(
+        "network.cookie.cookieBehavior.pbmode"
+      );
+    },
   },
 
   CrashReportsSubmit: {

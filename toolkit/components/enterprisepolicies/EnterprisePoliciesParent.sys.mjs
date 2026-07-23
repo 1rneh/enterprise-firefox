@@ -681,7 +681,8 @@ EnterprisePoliciesManager.prototype = {
         boundCallback();
       } catch (ex) {
         lazy.log.error(
-          `Error running ${timing} callback for policy ${policyName}: ${ex}`
+          `Error running ${timing} callback for policy ${policyName}: ${ex}`,
+          ex
         );
       }
     }

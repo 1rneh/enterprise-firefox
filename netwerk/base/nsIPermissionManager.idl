@@ -32,7 +32,7 @@
 interface nsIPrincipal;
 interface nsIPermission;
 
-[scriptable, builtinclass, uuid(4dcb3851-eba2-4e42-b236-82d2596fca22)]
+[scriptable, builtinclass, uuid(affcef68-0d38-4206-b928-e485810a0540)]
 interface nsIPermissionManager : nsISupports
 {
   /**

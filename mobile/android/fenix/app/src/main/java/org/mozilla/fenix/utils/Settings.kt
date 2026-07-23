@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import android.content.pm.ShortcutManager
+import android.content.res.Resources
 import android.os.Environment
 import android.view.accessibility.AccessibilityManager
 import androidx.annotation.VisibleForTesting
@@ -472,6 +473,11 @@ class Settings(
 
     var isUserXTwitterAttributed by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_is_user_x_twitter_attributed),
+        default = false,
+    )
+
+    var isUserMolocoAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_moloco_attributed),
         default = false,
     )
 
@@ -2644,20 +2650,22 @@ class Settings(
 
     /**
      * Returns the height of the browser toolbar height.
+     *
+     * @param uiContext Activity/Fragment/View [Context] with [Resources] matching the display
+     * the UI is currently rendered on. Don't use application's context!
      */
-    val browserToolbarHeight: Int
-        get() {
-            val isTallWindow = appContext.resources.configuration.screenHeightDp > TALL_SCREEN_HEIGHT_DP
-            val isWideWindow = appContext.resources.configuration.screenWidthDp > WIDE_SCREEN_WIDTH_DP
-            val isBottomExpandedOnTallNarrowWindow = toolbarPosition == ToolbarPosition.BOTTOM &&
-                shouldUseExpandedToolbar && isTallWindow && !isWideWindow
-            val dimen = if (isBottomExpandedOnTallNarrowWindow) {
-                R.dimen.composable_browser_toolbar_height_small
-            } else {
-                R.dimen.composable_browser_toolbar_height
-            }
-            return appContext.pixelSizeFor(dimen)
+    fun getBrowserToolbarHeight(uiContext: Context): Int {
+        val isTallWindow = uiContext.resources.configuration.screenHeightDp > TALL_SCREEN_HEIGHT_DP
+        val isWideWindow = uiContext.resources.configuration.screenWidthDp > WIDE_SCREEN_WIDTH_DP
+        val isBottomExpandedOnTallNarrowWindow = toolbarPosition == ToolbarPosition.BOTTOM &&
+            shouldUseExpandedToolbar && isTallWindow && !isWideWindow
+        val dimen = if (isBottomExpandedOnTallNarrowWindow) {
+            R.dimen.composable_browser_toolbar_height_small
+        } else {
+            R.dimen.composable_browser_toolbar_height
         }
+        return uiContext.pixelSizeFor(dimen)
+    }
 
     /**
      * Indicates if the microsurvey feature is enabled.

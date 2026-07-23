@@ -136,6 +136,16 @@ macro_rules! declare_data_stores {
                     );
                 )+
             }
+
+            /// Fill in any data store slots that are missing relative to the
+            /// interners. Used when loading a capture, where the serialized
+            /// data store can lag the interners by a scene build.
+            #[cfg(feature = "replay")]
+            fn reconcile_from_interners(&mut self, interners: &Interners) {
+                $(
+                    interners.$name.reconcile_datastore(&mut self.$name);
+                )+
+            }
         }
     }
 }
@@ -1378,7 +1388,9 @@ impl RenderBackend {
                         // glyphs/images re-rasterize and re-upload, and force a full
                         // invalidated rebuild so all picture cache tiles re-rasterize.
                         // Then forward the command so the renderer captures that frame.
-                        self.resource_cache.clear(ClearCache::all());
+                        for win in self.windows.values_mut() {
+                            win.resource_cache.clear(ClearCache::all());
+                        }
 
                         let documents: Vec<DocumentId> = self.documents.keys()
                             .cloned()
@@ -2339,8 +2351,15 @@ impl RenderBackend {
                 .expect(&format!("Unable to open {}.ron", interners_name));
 
             let data_stores_name = format!("data-stores-{}-{}", id.namespace_id.0, id.id);
-            let data_stores = config.deserialize_for_frame::<DataStores, _>(&data_stores_name)
+            let mut data_stores = config.deserialize_for_frame::<DataStores, _>(&data_stores_name)
                 .expect(&format!("Unable to open {}.ron", data_stores_name));
+
+            // This is a band-aid to work around the fact that there isn't a
+            // proper synchronization between the serialization of the frame
+            // and the scene, which can cause the data store snapshot to lag
+            // the interners by one or even several scene builds, leaving
+            // slots for last-frame interned items empty.
+            data_stores.reconcile_from_interners(&interners);
 
             let properties_name = format!("properties-{}-{}", id.namespace_id.0, id.id);
             let properties = config.deserialize_for_frame::<SceneProperties, _>(&properties_name)

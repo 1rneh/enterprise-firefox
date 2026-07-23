@@ -100,9 +100,8 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
   const sessionOrigin = "https://session.example.com";
 
   registerCleanupFunction(() => {
-    for (let origin of [allowOrigin, blockOrigin, sessionOrigin]) {
-      Services.perms.removeFromPrincipal(principalFor(origin), "cookie");
-    }
+    Services.perms.removePolicyPermissionsByType("cookie");
+    Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
   });
 
   info("Applying a Cookies policy config with Allow/Block/AllowSession lists.");
@@ -162,9 +161,8 @@ add_task(async function test_cookie_permissions_reconciled_on_update() {
   const droppedOrigin = "https://dropped.example.com";
 
   registerCleanupFunction(() => {
-    for (let origin of [keptOrigin, droppedOrigin]) {
-      Services.perms.removeFromPrincipal(principalFor(origin), "cookie");
-    }
+    Services.perms.removePolicyPermissionsByType("cookie");
+    Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
   });
 
   info("Applying a Cookies policy config allowing two origins.");

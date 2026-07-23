@@ -1079,7 +1079,7 @@
     },
     "DisableLocalPolicies": {
       "type": "boolean",
-      "x-category": "Policy engine",
+      "x-category": "Miscellaneous",
       "description": "Disable all local policy sources (policies.json, Windows GPO and macOS plist).",
       "examples": [true, false]
     },

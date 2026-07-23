@@ -10,6 +10,7 @@ support-files = [
   "translations-tester-es-mismatch-short.html",
   "translations-tester-es-mismatch.html",
   "translations-tester-es-short.html",
+  "translations-tester-iframe-es.html",
   "translations-tester-es-undeclared-short.html",
   "translations-tester-es-undeclared.html",
   "translations-tester-es-2.html",
@@ -112,6 +113,8 @@ skip-if = [
 ["browser_translations_ai_feature.js"]
 
 ["browser_translations_full_page.js"]
+
+["browser_translations_full_page_iframe.js"]
 
 ["browser_translations_lang_tags.js"]
 

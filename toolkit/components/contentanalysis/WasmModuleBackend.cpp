@@ -35,44 +35,19 @@ extern LazyLogModule gContentAnalysisLog;
 
 namespace {
 
-// An example DLP rule set, in the same JSON format as the enterprise DLP
-// rules config. In the future, rules will come from enterprise policy, but
-// for now these rules are hard-coded to allow experimentation. Rule matching
-// (operation, domain, content) happens in the module.
-static constexpr auto kExampleRulesJSON = R"JSON({
-  "DLPRules": {
-    "Rules": [
-      {
-        "Name": "warn-ai-paste",
-        "Enabled": true,
-        "Actions": ["TextPaste", "FileUpload"],
-        "Domains": ["chatgpt.com", "claude.ai", "gemini.google.com"],
-        "Type": "warn",
-        "Message": "Pasting work data into AI services may violate company policy."
-      },
-      {
-        "Name": "block-cloud-uploads",
-        "Enabled": true,
-        "Actions": ["FileUpload"],
-        "Domains": ["drive.google.com", "dropbox.com", "wetransfer.com"],
-        "Type": "block"
-      },
-      {
-        "Name": "block-confidential-content",
-        "Enabled": true,
-        "ContentPatterns": ["\\bCONFIDENTIAL\\b"],
-        "Type": "block",
-        "Message": "Content marked CONFIDENTIAL may not leave the organization."
-      }
-    ]
-  }
-})JSON";
+// The pref carrying the built-in DLP rule set (the DLPRules JSON), set by the
+// DataLossPrevention enterprise policy.
+static constexpr char kDlpRulesPref[] = "browser.contentanalysis.dlp_rules";
 
-static nsTArray<RefPtr<nsIContentAnalysisRule>> BuildExampleRules() {
-  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
-  MOZ_ALWAYS_SUCCEEDS(ParseContentAnalysisRules(
-      NS_ConvertUTF8toUTF16(kExampleRulesJSON), rules));
-  return rules;
+static nsresult LoadDlpRules(nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules) {
+  nsAutoString rulesJSON;
+  nsresult rv = Preferences::GetString(kDlpRulesPref, rulesJSON);
+  NS_ENSURE_SUCCESS(rv, rv);
+  if (rulesJSON.IsEmpty()) {
+    // No rules configured: nothing to enforce.
+    return NS_OK;
+  }
+  return ParseContentAnalysisRules(rulesJSON, aRules);
 }
 
 // Recover the nsresult from a rejected wasm-runner promise. The runner
@@ -168,7 +143,9 @@ nsresult WasmModuleBackend::Analyze(
     return NS_ERROR_FAILURE;
   }
 
-  nsTArray<RefPtr<nsIContentAnalysisRule>> rules = BuildExampleRules();
+  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
+  rv = LoadDlpRules(rules);
+  NS_ENSURE_SUCCESS(rv, rv);
 
   nsIContentAnalysisRequest::AnalysisType type =
       nsIContentAnalysisRequest::AnalysisType::eUnspecified;

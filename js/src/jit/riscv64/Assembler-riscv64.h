@@ -339,20 +339,22 @@ class Assembler : public AssemblerShared,
   static void disassembleInstr(Instruction* instr) {}
 #endif
 
+ private:
   BufferOffset jumpChainGetNextLink(BufferOffset pos);
 
   void jumpChainPutTargetAt(BufferOffset pos, BufferOffset target_pos);
 
- private:
+ public:
+  // Branch offset for short or long branches.
   int32_t branchOffset(Label* L, OffsetSize bits,
                        BufferOffset next_instr_offset);
 
- public:
-  // Branch offset for short branches (jal, branch, etc.).
-  int32_t branchOffset(Label* L, OffsetSize bits);
-
   // Branch offset for long branches (auipc + jalr).
   int32_t branchOffset(Label* L);
+
+  // Register branch deadline for forward branches.
+  void registerBranchDeadline(Label* L, OffsetSize bits,
+                              BufferOffset next_instr_offset);
 
   void nopAlign(int m) { m_buffer.align(m); }
 
@@ -512,17 +514,26 @@ class Assembler : public AssemblerShared,
       sext_b(rd, rs);
       return;
     }
-    slli(rd, rs, xlen - 8);
-    srai(rd, rd, xlen - 8);
+    slli(rd, rs, 56);
+    srai(rd, rd, 56);
   }
+  void ZeroExtendByte(Register rd, Register rs) { zext_b(rd, rs); }
 
   void SignExtendShort(Register rd, Register rs) {
     if (HasZbbExtension()) {
       sext_h(rd, rs);
       return;
     }
-    slli(rd, rs, xlen - 16);
-    srai(rd, rd, xlen - 16);
+    slli(rd, rs, 48);
+    srai(rd, rd, 48);
+  }
+  void ZeroExtendShort(Register rd, Register rs) {
+    if (HasZbbExtension()) {
+      zext_h(rd, rs);
+      return;
+    }
+    slli(rd, rs, 48);
+    srli(rd, rd, 48);
   }
 
   void SignExtendWord(Register rd, Register rs) { sext_w(rd, rs); }

@@ -474,7 +474,7 @@ Arena* GCRuntime::releaseSomeEmptyArenas(Zone* zone, Arena* emptyArenas) {
   for (size_t i = 0; i < count; i++) {
     Arena* arena = arenasToRelease[i];
     if (isAtomsZone) {
-      atomMarking.freeIndex(atomsBitmapIndexes[i], lock);
+      atomReferences.freeIndex(atomsBitmapIndexes[i], lock);
     }
     arena->chunk()->releaseArena(this, arena, lock);
   }
@@ -701,9 +701,8 @@ void GCRuntime::markIncomingGraySymbolEdgesFromUncollectedZones() {
   // We need to mark through ephemeron edges where the source is a live symbol
   // that is referenced from an uncollected zone and which may not have been
   // marked in this GC. At the same time we want to avoid unnecessarily holding
-  // on to symbols in zone GCs (by marking them as referenced in the atom
-  // marking bitmap), which is why we don't just mark all such symbols at the
-  // start of GC.
+  // on to symbols in zone GCs (by recording them in the atom reference bitmap),
+  // which is why we don't just mark all such symbols at the start of GC.
   //
   // This situation arises because WeakMap::markEntry may find an unmarked
   // symbol key that is marked gray by uncollected zones while it is currently
@@ -1391,12 +1390,13 @@ static size_t ImmediateSweepWeakCache(GCRuntime* gc,
 }
 
 void GCRuntime::updateAtomsBitmap() {
-  atomMarking.refineZoneBitmapsForCollectedZones(this);
+  atomReferences.refineZoneBitmapsForCollectedZones(this);
 
   // Mark atoms used by uncollected zones after refining the atoms bitmaps.
   auto& atomsToMark = atomsUsedByUncollectedZones.ref();
   if (atomsToMark) {
-    atomMarking.markAtomsUsedByUncollectedZones(this, std::move(atomsToMark));
+    atomReferences.markAtomsUsedByUncollectedZones(this,
+                                                   std::move(atomsToMark));
   }
 
   // For convenience sweep these tables non-incrementally as part of bitmap
@@ -1751,7 +1751,7 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JS::GCContext* gcx,
     }
   }
 
-  // Updating the atom marking bitmaps. This marks atoms referenced by
+  // Updating the atom reference bitmaps. This marks atoms referenced by
   // uncollected zones so cannot be done in parallel with the other sweeping
   // work below.
   if (sweepingAtoms) {

@@ -1309,6 +1309,74 @@ void MacroAssemblerLOONG64::ma_cmp_set(Register rd, Address address,
   ma_cmp_set(rd, Register(scratch), imm, c);
 }
 
+void MacroAssemblerLOONG64::ma_cselz(Register rd, Register rj, Register rk,
+                                     Register rc, Register rtmp) {
+  // rd = (rc == 0) ? rj : rk
+
+  MOZ_ASSERT(rd != rtmp);
+
+  if (rj == rk) {
+    if (rd != rj) {
+      as_or(rd, rj, zero);
+    }
+    return;
+  }
+
+  if (rd == rc) {
+    if (rj != rtmp) {
+      as_maskeqz(rtmp, rk, rc);
+      as_masknez(rd, rj, rc);
+    } else {
+      as_masknez(rtmp, rj, rc);
+      as_maskeqz(rd, rk, rc);
+    }
+  } else {
+    if (rd == rk) {
+      as_maskeqz(rd, rk, rc);
+      as_masknez(rtmp, rj, rc);
+    } else {
+      as_masknez(rd, rj, rc);
+      as_maskeqz(rtmp, rk, rc);
+    }
+  }
+
+  as_or(rd, rd, rtmp);
+}
+
+void MacroAssemblerLOONG64::ma_cselnz(Register rd, Register rj, Register rk,
+                                      Register rc, Register rtmp) {
+  // rd = (rc != 0) ? rj : rk
+
+  MOZ_ASSERT(rd != rtmp);
+
+  if (rj == rk) {
+    if (rd != rj) {
+      as_or(rd, rj, zero);
+    }
+    return;
+  }
+
+  if (rd == rc) {
+    if (rj != rtmp) {
+      as_masknez(rtmp, rk, rc);
+      as_maskeqz(rd, rj, rc);
+    } else {
+      as_maskeqz(rtmp, rj, rc);
+      as_masknez(rd, rk, rc);
+    }
+  } else {
+    if (rd == rk) {
+      as_masknez(rd, rk, rc);
+      as_maskeqz(rtmp, rj, rc);
+    } else {
+      as_maskeqz(rd, rj, rc);
+      as_masknez(rtmp, rk, rc);
+    }
+  }
+
+  as_or(rd, rd, rtmp);
+}
+
 // fp instructions
 void MacroAssemblerLOONG64::ma_lid(FloatRegister dest, double value) {
   ImmWord imm(mozilla::BitwiseCast<uint64_t>(value));
@@ -2009,11 +2077,25 @@ void MacroAssemblerLOONG64::ma_cmp_set_double(Register dest, FloatRegister lhs,
   as_movcf2gr(dest, FCC0);
 }
 
+void MacroAssemblerLOONG64::ma_cmp_set_double(FPConditionBit fcc,
+                                              FloatRegister lhs,
+                                              FloatRegister rhs,
+                                              DoubleCondition c) {
+  compareFloatingPoint(DoubleFloat, lhs, rhs, c, fcc);
+}
+
 void MacroAssemblerLOONG64::ma_cmp_set_float32(Register dest, FloatRegister lhs,
                                                FloatRegister rhs,
                                                DoubleCondition c) {
   compareFloatingPoint(SingleFloat, lhs, rhs, c);
   as_movcf2gr(dest, FCC0);
+}
+
+void MacroAssemblerLOONG64::ma_cmp_set_float32(FPConditionBit fcc,
+                                               FloatRegister lhs,
+                                               FloatRegister rhs,
+                                               DoubleCondition c) {
+  compareFloatingPoint(SingleFloat, lhs, rhs, c, fcc);
 }
 
 void MacroAssemblerLOONG64::ma_cmp_set(Register rd, Register rj, Imm32 imm,

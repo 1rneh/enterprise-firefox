@@ -2281,7 +2281,8 @@ void Document::AccumulatePageLoadTelemetry() {
         nsICacheInfoChannel::kCacheUnknown;
     if (NS_SUCCEEDED(cacheInfoChannel->GetCacheDisposition(&disposition))) {
       mPageloadEventData.set_cacheDisposition(disposition);
-      isCacheHit = disposition == nsICacheInfoChannel::kCacheHit;
+      isCacheHit = disposition == nsICacheInfoChannel::kCacheHit ||
+                   disposition == nsICacheInfoChannel::kCacheHitViaReval;
     }
   }
 
@@ -3343,37 +3344,39 @@ void Document::FillStyleSetUserAndUASheets() {
     styleSet.AppendStyleSheet(*sheet);
   }
 
-  StyleSheet* sheet = IsInChromeDocShell() ? cache->GetUserChromeSheet()
-                                           : cache->GetUserContentSheet();
-  if (sheet) {
-    styleSet.AppendStyleSheet(*sheet);
-  }
+  auto MaybeAppend = [&](StyleSheet* aSheet) {
+    if (aSheet) {
+      styleSet.AppendStyleSheet(*aSheet);
+    }
+  };
 
-  styleSet.AppendStyleSheet(*cache->UASheet());
+  MaybeAppend(IsInChromeDocShell() ? cache->GetUserChromeSheet()
+                                   : cache->GetUserContentSheet());
+  MaybeAppend(cache->GetUASheet());
 
   if (MOZ_LIKELY(NodeInfoManager()->MathMLEnabled())) {
-    styleSet.AppendStyleSheet(*cache->MathMLSheet());
+    MaybeAppend(cache->GetMathMLSheet());
   }
 
   if (MOZ_LIKELY(NodeInfoManager()->SVGEnabled())) {
-    styleSet.AppendStyleSheet(*cache->SVGSheet());
+    MaybeAppend(cache->GetSVGSheet());
   }
 
-  styleSet.AppendStyleSheet(*cache->HTMLSheet());
+  MaybeAppend(cache->GetHTMLSheet());
 
   if (nsLayoutUtils::ShouldUseNoFramesSheet(this)) {
-    styleSet.AppendStyleSheet(*cache->NoFramesSheet());
+    MaybeAppend(cache->GetNoFramesSheet());
   }
 
-  styleSet.AppendStyleSheet(*cache->CounterStylesSheet());
+  MaybeAppend(cache->GetCounterStylesSheet());
 
   // Only load the full XUL sheet if we'll need it.
   if (LoadsFullXULStyleSheetUpFront()) {
-    styleSet.AppendStyleSheet(*cache->XULSheet());
+    MaybeAppend(cache->GetXULSheet());
   }
 
-  styleSet.AppendStyleSheet(*cache->FormsSheet());
-  styleSet.AppendStyleSheet(*cache->ScrollbarsSheet());
+  MaybeAppend(cache->GetFormsSheet());
+  MaybeAppend(cache->GetScrollbarsSheet());
 
   for (StyleSheet* sheet : *sheetService->AgentStyleSheets()) {
     styleSet.AppendStyleSheet(*sheet);
@@ -3381,7 +3384,7 @@ void Document::FillStyleSetUserAndUASheets() {
 
   MOZ_ASSERT(!mQuirkSheetAdded);
   if (NeedsQuirksSheet()) {
-    styleSet.AppendStyleSheet(*cache->QuirkSheet());
+    MaybeAppend(cache->GetQuirkSheet());
     mQuirkSheetAdded = true;
   }
 }
@@ -3452,11 +3455,12 @@ void Document::CompatibilityModeChanged() {
     return;
   }
   auto* cache = GlobalStyleSheetCache::Singleton();
-  StyleSheet* sheet = cache->QuirkSheet();
-  if (mQuirkSheetAdded) {
-    mStyleSet->RemoveStyleSheet(*sheet);
-  } else {
-    mStyleSet->AppendStyleSheet(*sheet);
+  if (StyleSheet* sheet = cache->GetQuirkSheet()) [[likely]] {
+    if (mQuirkSheetAdded) {
+      mStyleSet->RemoveStyleSheet(*sheet);
+    } else {
+      mStyleSet->AppendStyleSheet(*sheet);
+    }
   }
   mQuirkSheetAdded = !mQuirkSheetAdded;
   ApplicableStylesChanged();
@@ -6876,14 +6880,12 @@ void Document::UpdateTextEditContext() {
   if (oldActiveEditContext) {
     oldActiveEditContext->Deactivate();
   }
-  // 4. If newActiveEditContext is not null, then:
-  if (newActiveEditContext) {
-    // 1. Update the Text Edit Context's text state to match the values in
-    //    newActiveEditContext's text state.
-    // TODO
-  }
   // 5. Set the document's active EditContext to newActiveEditContext.
   mActiveEditContext = newActiveEditContext;
+  // 4. If newActiveEditContext is not null, then:
+  //   1. Update the Text Edit Context's text state to match the values in
+  //      newActiveEditContext's text state.
+  EditContext::NotifyActiveEditContextChanged(*this);
 }
 
 void Document::MaybeDispatchCheckKeyPressEventModelEvent() {

@@ -692,7 +692,38 @@ class MediaFormatReader final
     // on reader's task queue,
     bool mHasReportedVideoHardwareSupportTelemtry = false;
 
-    CumulativeAverage<double> mMeanRate;
+    // Running frame-rate estimate over valid demuxed samples for the current
+    // stream source.
+    class FrameRateEstimator {
+     public:
+      double Rate() const {
+        MOZ_ASSERT_IF(!mMeanDuration.empty(), mMeanDuration.mean() > 0.0);
+        return mMeanDuration.empty() ? 0.0 : 1.0 / mMeanDuration.mean();
+      }
+
+      void Observe(const MediaRawData& aSample) {
+        // mTrackInfo is a sparse stream-change marker.
+        if (aSample.mTrackInfo &&
+            (mSourceID.isNothing() ||
+             mSourceID.ref() != aSample.mTrackInfo->GetID())) {
+          Reset();
+          mSourceID = Some(aSample.mTrackInfo->GetID());
+        }
+
+        const media::TimeUnit& duration = aSample.mDuration;
+        if (!duration.IsValid() || !duration.IsPositive() ||
+            duration.IsInfinite()) {
+          return;
+        }
+        mMeanDuration.insert(duration.ToSeconds());
+      }
+
+      void Reset() { mMeanDuration.reset(); }
+
+     private:
+      CumulativeAverage<double> mMeanDuration;
+      Maybe<uint32_t> mSourceID;
+    } mFrameRateEstimator;
   };
 
   template <typename Type>

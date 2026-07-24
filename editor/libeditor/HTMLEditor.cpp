@@ -604,8 +604,8 @@ bool HTMLEditor::UpdateMetaCharsetWithTransaction(
     nsAutoString currentValue;
     metaElement->GetAttr(nsGkAtoms::httpEquiv, currentValue);
 
-    if (!FindInReadable(u"content-type"_ns, currentValue,
-                        nsCaseInsensitiveStringComparator)) {
+    // XXX: Should this use AsciiCaseInsensitive?
+    if (!CaseInsensitiveFindInReadable(u"content-type"_ns, currentValue)) {
       continue;
     }
 
@@ -615,8 +615,7 @@ bool HTMLEditor::UpdateMetaCharsetWithTransaction(
     nsAString::const_iterator originalStart, start, end;
     originalStart = currentValue.BeginReading(start);
     currentValue.EndReading(end);
-    if (!FindInReadable(charsetEquals, start, end,
-                        nsCaseInsensitiveStringComparator)) {
+    if (!CaseInsensitiveFindInReadable(charsetEquals, start, end)) {
       continue;
     }
 
@@ -865,7 +864,8 @@ nsresult HTMLEditor::OnFocus(const nsINode& aOriginalEventTargetNode) {
   mIsInDesignMode = aOriginalEventTargetNode.IsInDesignMode();
   if (StaticPrefs::dom_editcontext_enabled() && EditContext::IsAnyAttached()) {
     // Active EditContext may have changed
-    aOriginalEventTargetNode.OwnerDoc()->UpdateTextEditContext();
+    RefPtr doc = aOriginalEventTargetNode.OwnerDoc();
+    doc->UpdateTextEditContext();
   }
 
   return NS_OK;
@@ -1026,7 +1026,8 @@ nsresult HTMLEditor::OnBlur(const EventTarget* aEventTarget) {
   if (StaticPrefs::dom_editcontext_enabled() && EditContext::IsAnyAttached() &&
       eventTargetAsElement) {
     // Active EditContext may have changed
-    eventTargetAsElement->OwnerDoc()->UpdateTextEditContext();
+    RefPtr doc = eventTargetAsElement->OwnerDoc();
+    doc->UpdateTextEditContext();
   }
 
   return rv;

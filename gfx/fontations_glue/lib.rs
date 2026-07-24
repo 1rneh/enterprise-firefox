@@ -4,4 +4,98 @@
 //!
 //! Glue for using Fontations in Gecko.
 
+extern crate nsstring;
 extern crate skrifa;
+use nsstring::nsCString;
+use skrifa::prelude::*;
+use skrifa::string::StringId;
+use std::slice;
+
+/// Type used to represent a Skrifa FontRef in C++ as an opaque struct.
+#[derive(Clone)]
+pub struct SkrifaFontRef<'a>(skrifa::FontRef<'a>);
+
+/// Create a SkrifaFontRef object for the given font data; returns null on failure.
+#[no_mangle]
+pub extern "C" fn skrifa_font_new<'a>(data: *const u8, length: usize) -> *mut SkrifaFontRef<'a> {
+    let data = unsafe { slice::from_raw_parts(data, length) };
+    if let Ok(font) = skrifa::FontRef::<'a>::new(data) {
+        Box::into_raw(Box::new(SkrifaFontRef(font)))
+    } else {
+        std::ptr::null_mut() as *mut _
+    }
+}
+
+/// Create a SkrifaFontRef object for the face with the given index in a collection; returns null on failure.
+#[no_mangle]
+pub extern "C" fn skrifa_font_new_from_index<'a>(
+    data: *const u8,
+    length: usize,
+    index: u32,
+) -> *mut SkrifaFontRef<'a> {
+    let data = unsafe { slice::from_raw_parts(data, length) };
+    if let Ok(font) = skrifa::FontRef::<'a>::from_index(data, index) {
+        Box::into_raw(Box::new(SkrifaFontRef(font)))
+    } else {
+        std::ptr::null_mut() as *mut _
+    }
+}
+
+/// Delete a SkrifaFontRef object.
+#[no_mangle]
+pub extern "C" fn skrifa_font_delete<'a>(font: *mut SkrifaFontRef) {
+    if !font.is_null() {
+        unsafe { drop(Box::from_raw(font)) };
+    }
+}
+
+/// Map the given unicode codepoint to a glyph ID; returns 0 for unsupported codepoints.
+#[no_mangle]
+pub extern "C" fn skrifa_font_map_char_to_glyph(font: &SkrifaFontRef, unicode: u32) -> u32 {
+    let charmap = font.0.charmap();
+    charmap.map(unicode).unwrap_or(GlyphId::NOTDEF).into()
+}
+
+/// Get a name (identified by OpenType name ID) from a Skrifa font as a Gecko string.
+/// Returns false if unable to find a name for the given name_id.
+#[no_mangle]
+pub extern "C" fn skrifa_font_get_preferred_name(
+    font: &SkrifaFontRef,
+    name_id: u16,
+    ret_val: &mut nsCString,
+) -> bool {
+    if let Some(name) = font
+        .0
+        .localized_strings(StringId::new(name_id))
+        .english_or_first()
+    {
+        *ret_val = name.to_string().into();
+        return true;
+    }
+    false
+}
+
+/// Type to represent a reference to a table in a Skrifa font.
+/// The data is immutable and remains owned by the Skrifa font ref.
+#[repr(C)]
+pub struct SkrifaFontTable {
+    length: usize,
+    data: *const u8,
+}
+
+/// Get a (read-only) reference to the table with the given tag.
+/// Returns an empty (0-length) table if the tag is not present.
+#[no_mangle]
+pub extern "C" fn skrifa_font_get_table(font: &SkrifaFontRef, tag: u32) -> SkrifaFontTable {
+    if let Some(data) = font.0.table_data(skrifa::Tag::from_u32(tag)) {
+        SkrifaFontTable {
+            length: data.len(),
+            data: data.as_bytes().as_ptr(),
+        }
+    } else {
+        SkrifaFontTable {
+            length: 0,
+            data: std::ptr::null(),
+        }
+    }
+}

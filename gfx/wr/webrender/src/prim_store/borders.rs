@@ -2,25 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{ColorF, NormalBorder, PremultipliedColorF, RepeatMode};
+use api::{ColorF, NormalBorder, RepeatMode};
 use api::units::*;
 use smallvec::SmallVec;
 use crate::border::{build_border_instances, NormalBorderSegment, MAX_BORDER_RESOLUTION};
-use crate::border::NinePatchDescriptorExt;
 use crate::clip::{ClipChainInstance, ClipIntern};
 use crate::command_buffer::CommandBufferIndex;
-use crate::gpu_types::ImageBrushPrimitiveData;
 use crate::pattern::image::ImagePattern;
 use crate::quad::{self, QuadTransformState};
-use crate::render_backend::DataStores;
 use crate::render_task_cache::{RenderTaskCacheKey, RenderTaskCacheKeyKind, RenderTaskParent, to_cache_size};
-use crate::renderer::{GpuBufferAddress, GpuBufferWriterF};
 use crate::scene_building::{IsVisible};
 use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureContext};
 use crate::intern::{self, DataStore};
 use crate::internal_types::LayoutPrimitiveInfo;
 use crate::prim_store::{
-    BrushSegment, InternablePrimitive, NinePatchDescriptor, PrimKey, PrimTemplate, PrimTemplateCommonData, PrimitiveInstanceIndex, PrimitiveKind, PrimitiveScratchBuffer, PrimitiveStore, VECS_PER_SEGMENT
+    InternablePrimitive, NinePatchDescriptor, PrimKey, PrimTemplate, PrimTemplateCommonData, PrimitiveInstanceIndex, PrimitiveKind, PrimitiveScratchBuffer, PrimitiveStore
 };
 use crate::resource_cache::ImageRequest;
 use crate::render_task::{RenderTask, RenderTaskKind};
@@ -28,9 +24,6 @@ use crate::render_task_graph::RenderTaskId;
 use crate::segment::EdgeMask;
 use crate::spatial_tree::SpatialNodeIndex;
 use crate::util::clamp_to_scale_factor;
-use crate::visibility::KindScratchHandle;
-
-use crate::prim_store::storage;
 
 // `NormalBorderPrim` now lives in `webrender_api::interned_prims` so content-process
 // interning can hold it. Re-exported to keep existing references working.
@@ -342,64 +335,6 @@ pub type ImageBorderKey = PrimKey<ImageBorder>;
 
 impl intern::InternDebug for ImageBorderKey {}
 
-/// Per-frame scratch data for an ImageBorder primitive.
-#[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-pub struct ImageBorderScratch {
-    /// Range into `PrimitiveFrameScratch::segments` holding the per-
-    /// frame nine-patch brush segments for this border. Built fresh
-    /// each frame against the prim's current size in
-    /// `prepare_prim_for_render`.
-    pub brush_segments_range: storage::Range<BrushSegment>,
-    /// Per-instance GPU buffer address for the brush + segment blocks
-    /// written by `ImageBorderData::write_brush_gpu_blocks`. Per-instance
-    /// because the block contents (stretch_size and segments) depend on
-    /// the prim's per-instance size.
-    pub gpu_address: GpuBufferAddress,
-    /// Per-instance source image render task, recomputed each frame in
-    /// `ImageBorderData::update`. Lives here rather than on the now-
-    /// immutable template.
-    pub src_color: Option<RenderTaskId>,
-    /// Whether the source image is opaque. Derived each frame from the
-    /// resource-cache image properties.
-    pub is_opaque: bool,
-}
-
-impl ImageBorderScratch {
-    /// Build the per-frame nine-patch brush segments for an ImageBorder
-    /// prim, push the resulting `ImageBorderScratch` entry, and wire it
-    /// up to the prim's `PrimitiveDrawHeader.kind_scratch`.
-    ///
-    /// Called from the prep early pass before `update_clip_task` runs,
-    /// since `update_clip_task_for_brush` reads the brush segments via
-    /// the scratch entry allocated here.
-    pub fn build_for_prim(
-        data_handle: ImageBorderDataHandle,
-        prim_instance_index: PrimitiveInstanceIndex,
-        prim_size: LayoutSize,
-        data_stores: &DataStores,
-        scratch: &mut PrimitiveScratchBuffer,
-    ) {
-        let prim_data = &data_stores.image_border[data_handle];
-        let nine_patch = &prim_data.kind.nine_patch;
-
-        let brush_open = scratch.frame.segments.open_range();
-        scratch.frame.segments.data_mut().extend(
-            nine_patch.create_brush_segments(prim_size),
-        );
-        let brush_segments_range = scratch.frame.segments.close_range(brush_open);
-
-        let handle = scratch.frame.image_border.push(ImageBorderScratch {
-            brush_segments_range,
-            gpu_address: GpuBufferAddress::INVALID,
-            src_color: None,
-            is_opaque: false,
-        });
-        scratch.frame.draws[prim_instance_index.0 as usize].kind_scratch =
-            KindScratchHandle::ImageBorder(handle);
-    }
-}
-
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 #[derive(MallocSizeOf)]
@@ -410,23 +345,6 @@ pub struct ImageBorderData {
 }
 
 impl ImageBorderData {
-    /// Update the GPU cache for a given primitive template. This may be called multiple
-    /// times per frame, by each primitive reference that refers to this interned
-    /// template. The initial request call to the GPU cache ensures that work is only
-    /// done if the cache entry is invalid (due to first use or eviction).
-    pub fn write_brush_gpu_blocks(
-        &self,
-        prim_size: LayoutSize,
-        brush_segments: &[BrushSegment],
-        frame_state: &mut FrameBuildingState,
-    ) -> GpuBufferAddress {
-        let mut writer = frame_state.frame_gpu_data.f32.write_blocks(3 + brush_segments.len() * VECS_PER_SEGMENT);
-        self.write_prim_gpu_blocks(&mut writer, &prim_size);
-        Self::write_segment_gpu_blocks(&mut writer, brush_segments);
-        writer.finish()
-    }
-
-
     pub fn update(
         &self,
         frame_state: &mut FrameBuildingState,
@@ -447,30 +365,6 @@ impl ImageBorderData {
             .unwrap_or(true);
 
         (task_id, size, is_opaque)
-    }
-
-    fn write_prim_gpu_blocks(
-        &self,
-        writer: &mut GpuBufferWriterF,
-        prim_size: &LayoutSize,
-    ) {
-        // Border primitives currently used for
-        // image borders, and run through the
-        // normal brush_image shader.
-        writer.push(&ImageBrushPrimitiveData {
-            color: PremultipliedColorF::WHITE,
-            background_color: PremultipliedColorF::WHITE,
-            stretch_size: *prim_size,
-        });
-    }
-
-    fn write_segment_gpu_blocks(
-        writer: &mut GpuBufferWriterF,
-        brush_segments: &[BrushSegment],
-    ) {
-        for segment in brush_segments {
-            segment.write_gpu_blocks(writer);
-        }
     }
 }
 

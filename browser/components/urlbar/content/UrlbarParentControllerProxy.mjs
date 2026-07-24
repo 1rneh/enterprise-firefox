@@ -5,8 +5,7 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  UrlbarQueryContext:
-    "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+  UrlbarQueryContext: "chrome://browser/content/urlbar/UrlbarQueryContext.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
 });
 
@@ -193,6 +192,20 @@ export class UrlbarParentControllerProxy {
       result: result.toWire(),
       queryContext: context.toWire(),
       reason,
+    });
+  }
+
+  /**
+   * Loads a URL in the embedder browser. The params are structured-cloned to
+   * the parent; the target browser is resolved there from `loadData.browserId`.
+   *
+   * @param {object} loadData The serializable load parameters.
+   * @returns {Promise<{reverted: boolean}>} Whether the input should revert.
+   */
+  loadURL(loadData) {
+    return this.#actor.sendQuery("LoadURL", {
+      instanceId: this.#instanceId,
+      loadData,
     });
   }
 

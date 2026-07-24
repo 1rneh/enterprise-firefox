@@ -26,6 +26,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * @import {SmartbarInput} from "moz-src:///browser/components/urlbar/content/SmartbarInput.mjs"
  */
 
+import { SearchEngineStore } from "chrome://browser/content/urlbar/SearchEngineStore.mjs";
+
 /**
  * The in-process face of the address bar controller. Lives next to the
  * `<moz-urlbar>` custom element and forwards work that has to happen in
@@ -102,6 +104,8 @@ export class UrlbarChildController {
         )
       : new lazy.UrlbarParentController({ sapName, isPrivate, actor });
     this.#parent.setChild(this);
+
+    this.engineStore = new SearchEngineStore(this);
   }
 
   get input() {
@@ -633,6 +637,11 @@ export class UrlbarChildController {
   speculativeConnect(result, context, reason) {
     return this.#parent.speculativeConnect(result, context, reason);
   }
+
+  loadURL(loadData) {
+    return this.#parent.loadURL(loadData);
+  }
+
   focusOnUnifiedSearchButton() {
     this.input.setUnifiedSearchButtonAvailability(true);
 
@@ -669,5 +678,23 @@ export class UrlbarChildController {
       },
       { once: true }
     );
+  }
+
+  initEngineStore() {
+    this.#parent.initEngineStore();
+  }
+
+  maybeInitEngineStore() {
+    return this.#parent.maybeInitEngineStore();
+  }
+
+  /** @type {typeof UrlbarParentController.prototype.openSERP} */
+  openSERP(engineId, searchTerms, where, inBackground) {
+    this.#parent.openSERP(engineId, searchTerms, where, inBackground);
+  }
+
+  /** @type {typeof UrlbarParentController.prototype.openSearchForm} */
+  openSearchForm(engineId, where, inBackground) {
+    this.#parent.openSearchForm(engineId, where, inBackground);
   }
 }

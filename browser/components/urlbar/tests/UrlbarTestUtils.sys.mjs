@@ -150,6 +150,27 @@ class UrlbarInputTestUtils {
   }
 
   /**
+   * Waits until an `UrlbarPrefs` preference holds the given value, checking the
+   * current value first and otherwise observing subsequent changes, then
+   * records an assertion. Handy for prefs a provider updates parent-side, which
+   * land asynchronously over the actor message path.
+   *
+   * @param {string} pref
+   *   The preference name, relative to the `browser.urlbar.` branch.
+   * @param {number|string|boolean} value
+   *   The value to wait for.
+   * @param {string} message
+   *   The message for the assertion recorded once the value is reached.
+   */
+  async waitForPrefValue(pref, value, message) {
+    await lazy.TestUtils.waitForCondition(
+      () => lazy.UrlbarPrefs.get(pref) === value,
+      `Waiting for pref "${pref}" to become ${JSON.stringify(value)}`
+    );
+    this.Assert?.equal(lazy.UrlbarPrefs.get(pref), value, message);
+  }
+
+  /**
    * Starts a search for a given string and waits for the search to be complete.
    *
    * @param {object} options The options object.
@@ -721,6 +742,29 @@ class UrlbarInputTestUtils {
    */
   getResultsContainer(win) {
     return this.#urlbar(win).view.panel.querySelector(".urlbarView-results");
+  }
+
+  /**
+   * Returns a promise resolved when the picked result's provider has handled the
+   * engagement (its `onEngagement` hook ran). Set it up before triggering the
+   * engagement, since the notification can land as soon as the pick is processed
+   * (and a round-trip later on the actor message path). Lets a test await a
+   * provider's parent-side engagement side effect.
+   *
+   * @param {ChromeWindow} win The window containing the urlbar.
+   * @returns {Promise} Resolved when a provider's `onEngagement` has run.
+   */
+  promiseProviderEngagement(win) {
+    let { controller } = this.#urlbar(win);
+    let { promise, resolve } = Promise.withResolvers();
+    let listener = {
+      onProviderEngagement() {
+        controller.removeListener(listener);
+        resolve();
+      },
+    };
+    controller.addListener(listener);
+    return promise;
   }
 
   /**

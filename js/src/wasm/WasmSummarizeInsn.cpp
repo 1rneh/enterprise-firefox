@@ -17,10 +17,6 @@
 
 using namespace js::jit;
 
-using mozilla::Maybe;
-using mozilla::Nothing;
-using mozilla::Some;
-
 namespace js {
 namespace wasm {
 
@@ -1661,6 +1657,19 @@ SummarizeResult SummarizeTrapInstruction(const InstructionBytes& insn) {
     }
   }
 
+  if (INSN(6, 0) == AMO) {
+    switch (INSN(31, 27)) {
+      case 0b00001:  // AMOSWAP.W/D
+      case 0b00000:  // AMOADD.W/D
+      case 0b00100:  // AMOXOR.W/D
+      case 0b01100:  // AMOAND.W/D
+      case 0b01000:  // AMOOR.W/D
+        return SummarizeResult(TrapMachineInsn::Atomic, 4);
+      default:
+        break;
+    }
+  }
+
 #  undef INSN
 
   return SummarizeResult();
@@ -1670,23 +1679,23 @@ SummarizeResult SummarizeTrapInstruction(const InstructionBytes& insn) {
 
 #elif defined(JS_CODEGEN_LOONG64)
 
-Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
+SummarizeResult SummarizeTrapInstruction(const InstructionBytes& insn) {
   // Check instruction alignment.
-  MOZ_ASSERT(0 == (uintptr_t(insnAddr) & 3));
+  MOZ_ASSERT(insn.isU32aligned());
 
-  const uint32_t insn = *(uint32_t*)insnAddr;
+  const uint32_t insnBits = insn.getU32LittleEndian(0);
 
 #  define INSN(_maxIx, _minIx) \
-    ((insn >> (_minIx)) & ((uint32_t(1) << ((_maxIx) - (_minIx) + 1)) - 1))
+    ((insnBits >> (_minIx)) & ((uint32_t(1) << ((_maxIx) - (_minIx) + 1)) - 1))
 
   // LoongArch instructions encoding document:
   // https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN#table-of-instruction-encoding
 
   // MacroAssembler::wasmTrapInstruction uses this to create SIGILL.
   // break 0x6
-  if (insn == 0x002A0006) {
+  if (insnBits == 0x002A0006) {
     static_assert(WasmTrapInstructionLength == 4);
-    return Some(TrapMachineInsn::OfficialUD);
+    return SummarizeResult(TrapMachineInsn::OfficialUD, 4);
   }
 
   // Loads/stores with reg + offset (si12).
@@ -1694,52 +1703,52 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
     switch (INSN(25, 22)) {
       // ld.b  rd, rj, si12
       case 0b0000:
-        return Some(TrapMachineInsn::Load8);
+        return SummarizeResult(TrapMachineInsn::Load8, 4);
       // ld.h  rd, rj, si12
       case 0b0001:
-        return Some(TrapMachineInsn::Load16);
+        return SummarizeResult(TrapMachineInsn::Load16, 4);
       // ld.w  rd, rj, si12
       case 0b0010:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // ld.d  rd, rj, si12
       case 0b0011:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // st.b  rd, rj, si12
       case 0b0100:
-        return Some(TrapMachineInsn::Store8);
+        return SummarizeResult(TrapMachineInsn::Store8, 4);
       // st.h  rd, rj, si12
       case 0b0101:
-        return Some(TrapMachineInsn::Store16);
+        return SummarizeResult(TrapMachineInsn::Store16, 4);
       // st.w  rd, rj, si12
       case 0b0110:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // st.d  rd, rj, si12
       case 0b0111:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       // ld.bu  rd, rj, si12
       case 0b1000:
-        return Some(TrapMachineInsn::Load8);
+        return SummarizeResult(TrapMachineInsn::Load8, 4);
       // ld.hu  rd, rj, si12
       case 0b1001:
-        return Some(TrapMachineInsn::Load16);
+        return SummarizeResult(TrapMachineInsn::Load16, 4);
       // ld.wu  rd, rj, si12
       case 0b1010:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // preld  hint, rj, si12
       case 0b1011:
         break;
       // fld.s  fd, rj, si12
       case 0b1100:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // fst.s  fd, rj, si12
       case 0b1101:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // fld.d  fd, rj, si12
       case 0b1110:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // fst.s  fd, rj, si12
       case 0b1111:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       default:
         break;
     }
@@ -1750,52 +1759,52 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
     switch (INSN(21, 18)) {
       // ldx.b  rd, rj, rk
       case 0b0000:
-        return Some(TrapMachineInsn::Load8);
+        return SummarizeResult(TrapMachineInsn::Load8, 4);
       // ldx.h  rd, rj, rk
       case 0b0001:
-        return Some(TrapMachineInsn::Load16);
+        return SummarizeResult(TrapMachineInsn::Load16, 4);
       // ldx.w  rd, rj, rk
       case 0b0010:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // ldx.d  rd, rj, rk
       case 0b0011:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // stx.b  rd, rj, rk
       case 0b0100:
-        return Some(TrapMachineInsn::Store8);
+        return SummarizeResult(TrapMachineInsn::Store8, 4);
       // stx.h  rd, rj, rk
       case 0b0101:
-        return Some(TrapMachineInsn::Store16);
+        return SummarizeResult(TrapMachineInsn::Store16, 4);
       // stx.w  rd, rj, rk
       case 0b0110:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // stx.d  rd, rj, rk
       case 0b0111:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       // ldx.bu  rd, rj, rk
       case 0b1000:
-        return Some(TrapMachineInsn::Load8);
+        return SummarizeResult(TrapMachineInsn::Load8, 4);
       // ldx.hu  rd, rj, rk
       case 0b1001:
-        return Some(TrapMachineInsn::Load16);
+        return SummarizeResult(TrapMachineInsn::Load16, 4);
       // ldx.wu  rd, rj, rk
       case 0b1010:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // preldx  hint, rj, rk
       case 0b1011:
         break;
       // fldx.s  fd, rj, rk
       case 0b1100:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // fldx.d  fd, rj, rk
       case 0b1101:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // fstx.s  fd, rj, rk
       case 0b1110:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // fstx.d  fd, rj, rk
       case 0b1111:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       default:
         break;
     }
@@ -1808,22 +1817,22 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
     switch (INSN(26, 24)) {
       // ll.w  rd, rj, si14
       case 0b000:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // ll.d  rd, rj, si14
       case 0b010:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // ldptr.w  rd, rj, si14
       case 0b100:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // stptr.w  rd, rj, si14
       case 0b101:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // ldptr.d  rd, rj, si14
       case 0b110:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // stptr.d  rd, rj, si14
       case 0b111:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       default:
         break;
         // We are never asked to examine store-exclusive instructions, because
@@ -1836,21 +1845,21 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
 
 #  undef INSN
 
-  return Nothing();
+  return SummarizeResult();
 }
 
 // ================================================================ mips64 ====
 
 #elif defined(JS_CODEGEN_MIPS64)
 
-Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
+SummarizeResult SummarizeTrapInstruction(const InstructionBytes& insn) {
   // Check instruction alignment.
-  MOZ_ASSERT(0 == (uintptr_t(insnAddr) & 3));
+  MOZ_ASSERT(insn.isU32aligned());
 
-  const uint32_t insn = *(uint32_t*)insnAddr;
+  const uint32_t insnBits = insn.getU32LittleEndian(0);
 
 #  define INSN(_maxIx, _minIx) \
-    ((insn >> (_minIx)) & ((uint32_t(1) << ((_maxIx) - (_minIx) + 1)) - 1))
+    ((insnBits >> (_minIx)) & ((uint32_t(1) << ((_maxIx) - (_minIx) + 1)) - 1))
 
   // MIPS64R2 instruction encoding document:
   // https://scc.ustc.edu.cn/_upload/article/files/c6/06/45556c084631b2855f0022175eaf/W020100308600769158777.pdf#G254.1001018
@@ -1862,9 +1871,9 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
 
   // MacroAssembler::wasmTrapInstruction uses this to create SIGILL.
   // teq zero, zero, 0x6
-  if (insn == 0x000001b4) {
+  if (insnBits == 0x000001b4) {
     static_assert(WasmTrapInstructionLength == 4);
-    return Some(TrapMachineInsn::OfficialUD);
+    return SummarizeResult(TrapMachineInsn::OfficialUD, 4);
   }
 
   // MIPS64 Encoding of the Opcode Field of memory access instructions.
@@ -1905,20 +1914,20 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
     switch (INSN(5, 0)) {
       // lwxc1
       case 0b000000:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // ldxc1
       case 0b000001:
       // luxc1
       case 0b000101:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // swxc1
       case 0b001000:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // sdxc1
       case 0b001001:
       // suxc1
       case 0b001101:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       default:
         break;
     }
@@ -1928,7 +1937,7 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
       case 0b010:
       // ldr
       case 0b011:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       default:
         break;
     }
@@ -1936,48 +1945,48 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
     switch (INSN(28, 26)) {
       // lb
       case 0b000:
-        return Some(TrapMachineInsn::Load8);
+        return SummarizeResult(TrapMachineInsn::Load8, 4);
       // lh
       case 0b001:
-        return Some(TrapMachineInsn::Load16);
+        return SummarizeResult(TrapMachineInsn::Load16, 4);
       // lwl
       case 0b010:
       // lw
       case 0b011:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // lbu
       case 0b100:
-        return Some(TrapMachineInsn::Load8);
+        return SummarizeResult(TrapMachineInsn::Load8, 4);
       // lhu
       case 0b101:
-        return Some(TrapMachineInsn::Load16);
+        return SummarizeResult(TrapMachineInsn::Load16, 4);
       // lwr
       case 0b110:
       // lwu
       case 0b111:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
     }
   } else if (INSN(31, 29) == 0b101) {
     switch (INSN(28, 26)) {
       // sb
       case 0b000:
-        return Some(TrapMachineInsn::Store8);
+        return SummarizeResult(TrapMachineInsn::Store8, 4);
       // sh
       case 0b001:
-        return Some(TrapMachineInsn::Store16);
+        return SummarizeResult(TrapMachineInsn::Store16, 4);
       // swl
       case 0b010:
       // sw
       case 0b011:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // sdl
       case 0b100:
       // sdr
       case 0b101:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       // swr
       case 0b110:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // cache
       case 0b111:
         break;
@@ -1988,7 +1997,7 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
       case 0b000:
       // lwc1
       case 0b001:
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // lwc2
       case 0b010:
         if (jit::isLoongson()) {
@@ -1997,18 +2006,18 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
             case 0b100:
             // gslsr
             case 0b101:
-              return Some(TrapMachineInsn::Load32);
+              return SummarizeResult(TrapMachineInsn::Load32, 4);
             // gsldl
             case 0b110:
             // gsldr
             case 0b111:
-              return Some(TrapMachineInsn::Load64);
+              return SummarizeResult(TrapMachineInsn::Load64, 4);
             // invalid
             default:
-              return Nothing();
+              return SummarizeResult();
           }
         }
-        return Some(TrapMachineInsn::Load32);
+        return SummarizeResult(TrapMachineInsn::Load32, 4);
       // pref
       case 0b011:
         break;
@@ -2016,36 +2025,36 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
       case 0b100:
       // ldc1
       case 0b101:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // ldc2
       case 0b110:
         if (jit::isLoongson()) {
           switch (INSN(2, 0)) {
             // gslbx
             case 0b000:
-              return Some(TrapMachineInsn::Load8);
+              return SummarizeResult(TrapMachineInsn::Load8, 4);
             // gslhx
             case 0b001:
-              return Some(TrapMachineInsn::Load16);
+              return SummarizeResult(TrapMachineInsn::Load16, 4);
             // gslwx
             case 0b010:
             // gslwx (float)
             case 0b110:
-              return Some(TrapMachineInsn::Load32);
+              return SummarizeResult(TrapMachineInsn::Load32, 4);
             // gsldx
             case 0b011:
             // gsldx (double)
             case 0b111:
-              return Some(TrapMachineInsn::Load64);
+              return SummarizeResult(TrapMachineInsn::Load64, 4);
             // invalid
             default:
-              return Nothing();
+              return SummarizeResult();
           }
         }
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
       // ld
       case 0b111:
-        return Some(TrapMachineInsn::Load64);
+        return SummarizeResult(TrapMachineInsn::Load64, 4);
     }
   } else if (INSN(31, 29) == 0b111) {
     switch (INSN(28, 26)) {
@@ -2053,7 +2062,7 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
       case 0b000:
       // swc1
       case 0b001:
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // swc2
       case 0b010:
         if (jit::isLoongson()) {
@@ -2062,18 +2071,18 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
             case 0b100:
             // gsssr
             case 0b101:
-              return Some(TrapMachineInsn::Store32);
+              return SummarizeResult(TrapMachineInsn::Store32, 4);
             // gssdl
             case 0b110:
             // gssdr
             case 0b111:
-              return Some(TrapMachineInsn::Store64);
+              return SummarizeResult(TrapMachineInsn::Store64, 4);
             // invalid
             default:
-              return Nothing();
+              return SummarizeResult();
           }
         }
-        return Some(TrapMachineInsn::Store32);
+        return SummarizeResult(TrapMachineInsn::Store32, 4);
       // reserved encoding
       case 0b011:
         break;
@@ -2081,41 +2090,41 @@ Maybe<TrapMachineInsn> SummarizeTrapInstruction(const uint8_t* insnAddr) {
       case 0b100:
       // sdc1
       case 0b101:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       // sdc2
       case 0b110:
         if (jit::isLoongson()) {
           switch (INSN(2, 0)) {
             // gssbx
             case 0b000:
-              return Some(TrapMachineInsn::Store8);
+              return SummarizeResult(TrapMachineInsn::Store8, 4);
             // gsshx
             case 0b001:
-              return Some(TrapMachineInsn::Store16);
+              return SummarizeResult(TrapMachineInsn::Store16, 4);
             // gsswx
             case 0b010:
             // gsswx (float)
             case 0b110:
-              return Some(TrapMachineInsn::Store32);
+              return SummarizeResult(TrapMachineInsn::Store32, 4);
             // gssdx
             case 0b011:
             // gssdx (double)
             case 0b111:
-              return Some(TrapMachineInsn::Store64);
+              return SummarizeResult(TrapMachineInsn::Store64, 4);
             // invalid
             default:
-              return Nothing();
+              return SummarizeResult();
           }
         }
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
       // sd
       case 0b111:
-        return Some(TrapMachineInsn::Store64);
+        return SummarizeResult(TrapMachineInsn::Store64, 4);
     }
   }
 
 #  undef INSN
-  return Nothing();
+  return SummarizeResult();
 }
 
 // ================================================================== none ====

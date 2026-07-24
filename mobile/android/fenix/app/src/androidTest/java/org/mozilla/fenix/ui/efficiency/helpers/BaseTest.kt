@@ -6,8 +6,10 @@ package org.mozilla.fenix.ui.efficiency.helpers
 
 import android.util.Log
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.test.espresso.Espresso
 import androidx.test.espresso.IdlingResourceTimeoutException
 import androidx.test.espresso.NoMatchingViewException
+import androidx.test.espresso.base.DefaultFailureHandler
 import androidx.test.uiautomator.UiObjectNotFoundException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -27,6 +29,7 @@ import org.mozilla.fenix.helpers.TestHelper.appContext
 import org.mozilla.fenix.helpers.TestHelper.exitMenu
 import org.mozilla.fenix.ui.efficiency.logging.LoggingBridge
 import org.mozilla.fenix.ui.efficiency.logging.TestLogging
+import org.mozilla.fenix.ui.efficiency.navigation.LaunchConfig
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
 import org.mozilla.fenix.ui.efficiency.navigation.PageCatalog
 import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
@@ -57,6 +60,17 @@ abstract class BaseTest(
     private val isRecentlyVisitedFeatureEnabled: Boolean = true,
 ) {
 
+    // Default launch built from the constructor args (back-compat for every existing subclass).
+    private val defaultLaunchConfig = LaunchConfig(
+        skipOnboarding = skipOnboarding,
+        isPageLoadTranslationsPromptEnabled = isPageLoadTranslationsPromptEnabled,
+        isPocketEnabled = isPocketEnabled,
+        isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled,
+    )
+
+    /** Override to vary the launch per run/case (e.g. the reachability shard uses the case's config). */
+    protected open fun launchConfig(): LaunchConfig = defaultLaunchConfig
+
     @get:Rule(order = 0)
     val fenixTestRule: FenixTestRule = FenixTestRule()
 
@@ -77,12 +91,13 @@ abstract class BaseTest(
         object : Statement() {
             override fun evaluate() {
                 repeat(1 + MAX_RETRIES) { attempt ->
+                    val cfg = launchConfig()
                     _composeRule = AndroidComposeTestRuleV2(
                         HomeActivityIntentTestRule(
-                            skipOnboarding = skipOnboarding,
-                            isPageLoadTranslationsPromptEnabled = isPageLoadTranslationsPromptEnabled,
-                            isPocketEnabled = isPocketEnabled,
-                            isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled,
+                            skipOnboarding = cfg.skipOnboarding,
+                            isPageLoadTranslationsPromptEnabled = cfg.isPageLoadTranslationsPromptEnabled,
+                            isPocketEnabled = cfg.isPocketEnabled,
+                            isRecentlyVisitedFeatureEnabled = cfg.isRecentlyVisitedFeatureEnabled,
                         ),
                     ) { it.activity }
                     try {
@@ -125,6 +140,19 @@ abstract class BaseTest(
      */
     @Before
     fun setUp() {
+        // Disable Espresso's screenshot-on-failure locally.
+        //
+        // Why: Espresso's DefaultFailureHandler captures a screenshot when an interaction fails.
+        // On a debug build on a REAL device, that bitmap capture (DeviceCapture ->
+        // takeScreenshotOnNextFrame) trips Fenix's StrictMode penaltyDeath and KILLS the process
+        // before the real assertion error is reported — so the genuine failure is swallowed and the
+        // test looks like an opaque crash. It does not reproduce on Firebase (no penaltyDeath /
+        // different capture path), which is why these only fail locally. Installing the default
+        // handler with captureScreenshotOnFailure = false keeps failure messages intact without the
+        // fatal screenshot. We still get the real error (and our own ScreenDump) for debugging.
+        // Second arg is captureScreenshotOnFailure = false.
+        Espresso.setFailureHandler(DefaultFailureHandler(appContext, false))
+
         if (TestLogging.reporter == null) {
             TestLogging.reporter = LoggingBridge.createReporter()
         }

@@ -295,8 +295,6 @@ var gBrowserInit = {
       window
     );
 
-    gURLBar.initPlaceHolder();
-
     // Hack to ensure that the various initial pages favicon is loaded
     // instantaneously, to avoid flickering and improve perceived performance.
     this._callWithURIToLoad(uriToLoad => {
@@ -558,10 +556,6 @@ var gBrowserInit = {
     );
 
     UpdateUrlbarSearchSplitterState();
-
-    if (Services.prefs.getBoolPref("browser.search.widget.new", false)) {
-      document.getElementById("searchbar-new")?.delayedStartupInit();
-    }
 
     let safeMode = document.getElementById("helpSafeMode");
     if (Services.appinfo.inSafeMode) {

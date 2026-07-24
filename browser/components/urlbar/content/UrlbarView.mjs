@@ -10,9 +10,6 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ContextualIdentityService:
     "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
-  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
-  UrlbarProviderOpenTabs:
-    "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarProviderTopSites:
     "moz-src:///browser/components/urlbar/UrlbarProviderTopSites.sys.mjs",
@@ -670,7 +667,7 @@ export class UrlbarView {
     // implicitly unselected.
     if (this.input.searchMode?.isPreview) {
       this.input.searchMode = null;
-      this.chromeWindow.gBrowser.userTypedValue = null;
+      this.input.userTypedValue = null;
     }
 
     this.resultMenu.hide?.();
@@ -3066,7 +3063,7 @@ export class UrlbarView {
     }
 
     let engineName =
-      row.result.payload.engine || lazy.SearchService.defaultEngine.name;
+      row.result.payload.engine || this.controller.engineStore.default?.name;
 
     if (row.result.payload.trending) {
       return {
@@ -3584,9 +3581,7 @@ export class UrlbarView {
 
     if (
       result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH &&
-      lazy.UrlbarProviderOpenTabs.isContainerUserContextId(
-        result.payload.userContextId
-      )
+      UrlbarShared.isContainerUserContextId(result.payload.userContextId)
     ) {
       if (!contextualIdentityAction) {
         contextualIdentityAction = actionNode.cloneNode(true);
@@ -3905,23 +3900,13 @@ export class UrlbarView {
     // ongoing. Generally there's no reason for our string-caching paths to be
     // async and it may even be a bad idea (except for the final necessary
     // `this.#l10nCache.ensureAll()` call).
-    if (!lazy.SearchService.hasSuccessfullyInitialized) {
+    if (!this.controller.engineStore.initialized) {
       return [];
     }
 
     let idArgs = [];
 
-    let { defaultEngine, defaultPrivateEngine } = lazy.SearchService;
-    let engineNames = [defaultEngine?.name, defaultPrivateEngine?.name].filter(
-      engineName => engineName
-    );
-
-    if (defaultPrivateEngine) {
-      idArgs.push({
-        id: "urlbar-result-action-search-in-private-w-engine",
-        args: { engine: defaultPrivateEngine.name },
-      });
-    }
+    let defaultEngineName = this.controller.engineStore.default.name;
 
     let engineStringIDs = [
       "urlbar-result-action-tabtosearch-web",
@@ -3929,21 +3914,17 @@ export class UrlbarView {
       "urlbar-result-action-search-w-engine",
     ];
     for (let id of engineStringIDs) {
-      idArgs.push(
-        ...engineNames.map(engineName => ({
-          id,
-          args: { engine: engineName },
-        }))
-      );
+      idArgs.push({
+        id,
+        args: { engine: defaultEngineName },
+      });
     }
 
     if (lazy.UrlbarPrefs.get("groupLabels.enabled")) {
-      idArgs.push(
-        ...engineNames.map(engineName => ({
-          id: "urlbar-group-search-suggestions",
-          args: { engine: engineName },
-        }))
-      );
+      idArgs.push({
+        id: "urlbar-group-search-suggestions",
+        args: { engine: defaultEngineName },
+      });
     }
 
     return idArgs;

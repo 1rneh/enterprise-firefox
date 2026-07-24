@@ -5,14 +5,12 @@
 #ifndef jit_PerfSpewer_h
 #define jit_PerfSpewer_h
 
-#include "mozilla/Maybe.h"
-
 #ifdef JS_ION_PERF
 #  include <stdio.h>
 #endif
+#include "jit/JitCodeSourceInfo.h"  // JitCodeSourceInfo, JitCodeSourceInfoVector
 #include "js/AllocPolicy.h"
 #include "js/ColumnNumber.h"
-#include "js/JitCodeAPI.h"
 #include "js/Vector.h"
 
 #ifdef JS_JITSPEW
@@ -42,14 +40,9 @@ class MIRGraph;
 class LInstruction;
 enum class CacheOp : uint16_t;
 
-using ProfilerJitCodeVector = Vector<JS::JitCodeRecord, 0, SystemAllocPolicy>;
-
 void ResetPerfSpewer(bool enabled);
 
-class AutoLockPerfSpewer {
-  mozilla::Maybe<AutoSuppressProfilerSampling> asps;
-
- public:
+struct AutoLockPerfSpewer {
   AutoLockPerfSpewer();
   ~AutoLockPerfSpewer();
 };
@@ -95,20 +88,16 @@ class PerfSpewer {
 
   // Save the debugInfo_ vector to the JIT dump file.
   void saveDebugInfo(const char* filename, uintptr_t base,
-                     JS::JitCodeRecord* maybeProfilerRecord,
                      AutoLockPerfSpewer& lock);
 
   // Save the generated IR file, if any, and the debug info to the JIT dump
   // file.
   void saveJitCodeDebugInfo(JSScript* script, JitCode* code,
-                            JS::JitCodeRecord* maybeProfilerRecord,
                             AutoLockPerfSpewer& lock);
 
   // Save the generated IR file, if any, and the debug info to the JIT dump
   // file.
-  void saveWasmCodeDebugInfo(uintptr_t codeBase,
-                             JS::JitCodeRecord* maybeProfilerRecord,
-                             AutoLockPerfSpewer& lock);
+  void saveWasmCodeDebugInfo(uintptr_t codeBase, AutoLockPerfSpewer& lock);
 
   void saveJSProfile(JitCode* code, JS::UniqueChars& desc, JSScript* script);
   void saveWasmProfile(uintptr_t codeBase, size_t codeSize,
@@ -138,11 +127,9 @@ class PerfSpewer {
   static void Init();
 
   static void CollectJitCodeInfo(JS::UniqueChars& function_name, JitCode* code,
-                                 JS::JitCodeRecord* maybeProfilerRecord,
                                  AutoLockPerfSpewer& lock);
   static void CollectJitCodeInfo(JS::UniqueChars& function_name,
                                  void* code_addr, uint64_t code_size,
-                                 JS::JitCodeRecord* maybeProfilerRecord,
                                  AutoLockPerfSpewer& lock);
 
   // Explicitly free heap memory allocated using the system allocator. This must
@@ -153,6 +140,13 @@ class PerfSpewer {
     debugInfo_.clearAndFree();
     irFileName_ = JS::UniqueChars();
   }
+
+  // Build a (nativeOffset, line, column) table from the per-op recordings
+  // accumulated in debugInfo_ during compilation. It dedupes consecutive
+  // entries that share the same (line, column). Returns an empty vector
+  // when nothing was recorded (e.g. the profiler was off at compile time)
+  // or on allocation failure.
+  JitCodeSourceInfoVector extractSourceInfo() const;
 };
 
 void CollectPerfSpewerJitCodeProfile(JitCode* code, const char* msg);

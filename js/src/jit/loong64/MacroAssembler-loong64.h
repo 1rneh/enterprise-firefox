@@ -224,22 +224,10 @@ class MacroAssemblerLOONG64 : public Assembler {
   void ma_cmp_set(Register dst, Address address, Imm32 imm, Condition c);
   void ma_cmp_set(Register dst, Address address, ImmWord imm, Condition c);
 
-  void moveIfZero(Register dst, Register src, Register cond) {
-    UseScratchRegisterScope temps(*this);
-    Register scratch = temps.Acquire();
-    MOZ_ASSERT(dst != scratch && cond != scratch);
-    as_masknez(scratch, src, cond);
-    as_maskeqz(dst, dst, cond);
-    as_or(dst, dst, scratch);
-  }
-  void moveIfNotZero(Register dst, Register src, Register cond) {
-    UseScratchRegisterScope temps(*this);
-    Register scratch = temps.Acquire();
-    MOZ_ASSERT(dst != scratch && cond != scratch);
-    as_maskeqz(scratch, src, cond);
-    as_masknez(dst, dst, cond);
-    as_or(dst, dst, scratch);
-  }
+  void ma_cselz(Register rd, Register rs1, Register rs2, Register rc,
+                Register rtmp);
+  void ma_cselnz(Register rd, Register rs1, Register rs2, Register rc,
+                 Register rtmp);
 
   // These functions abstract the access to high part of the double precision
   // float register. They are intended to work on both 32 bit and 64 bit
@@ -354,8 +342,12 @@ class MacroAssemblerLOONG64 : public Assembler {
   void ma_cmp_set(Register dst, Register lhs, Imm32 imm, Condition c);
   void ma_cmp_set_double(Register dst, FloatRegister lhs, FloatRegister rhs,
                          DoubleCondition c);
+  void ma_cmp_set_double(FPConditionBit fcc, FloatRegister lhs,
+                         FloatRegister rhs, DoubleCondition c);
   void ma_cmp_set_float32(Register dst, FloatRegister lhs, FloatRegister rhs,
                           DoubleCondition c);
+  void ma_cmp_set_float32(FPConditionBit fcc, FloatRegister lhs,
+                          FloatRegister rhs, DoubleCondition c);
 
   void moveToFloat32(Register src, FloatRegister dest) {
     as_movgr2fr_w(dest, src);

@@ -826,20 +826,14 @@ void CodeGenerator::visitWasmSelectI64(LWasmSelectI64* lir) {
   MOZ_ASSERT(lir->mir()->type() == MIRType::Int64);
 
   Register cond = ToRegister(lir->condExpr());
-  LInt64Allocation falseExpr = lir->falseExpr();
+  Register64 trueExpr = ToRegister64(lir->trueExpr());
+  Register64 falseExpr = ToRegister64(lir->falseExpr());
+  Register64 output = ToOutRegister64(lir);
 
-  Register64 out = ToOutRegister64(lir);
-  MOZ_ASSERT(ToRegister64(lir->trueExpr()) == out,
-             "true expr is reused for input");
+  UseScratchRegisterScope temps(masm);
+  Register scratch = temps.Acquire();
 
-  if (falseExpr.value().isGeneralReg()) {
-    masm.moveIfZero(out.reg, ToRegister(falseExpr.value()), cond);
-  } else {
-    Label done;
-    masm.ma_b(cond, cond, &done, Assembler::NonZero, ShortJump);
-    masm.loadPtr(ToAddress(falseExpr.value()), out.reg);
-    masm.bind(&done);
-  }
+  masm.ma_cselnz(output.reg, trueExpr.reg, falseExpr.reg, cond, scratch);
 }
 
 void CodeGenerator::visitExtendInt32ToInt64(LExtendInt32ToInt64* lir) {
@@ -2227,20 +2221,20 @@ void CodeGenerator::visitWasmSelect(LWasmSelect* ins) {
   MIRType mirType = ins->mir()->type();
 
   Register cond = ToRegister(ins->condExpr());
-  const LAllocation* falseExpr = ins->falseExpr();
 
   if (mirType == MIRType::Int32 || mirType == MIRType::WasmAnyRef) {
-    Register out = ToRegister(ins->output());
-    MOZ_ASSERT(ToRegister(ins->trueExpr()) == out,
-               "true expr input is reused for output");
-    if (falseExpr->isGeneralReg()) {
-      masm.moveIfZero(out, ToRegister(falseExpr), cond);
-    } else {
-      masm.cmp32Load32(Assembler::Zero, cond, cond, ToAddress(falseExpr), out);
-    }
+    Register trueExpr = ToRegister(ins->trueExpr());
+    Register falseExpr = ToRegister(ins->falseExpr());
+    Register output = ToRegister(ins->output());
+
+    UseScratchRegisterScope temps(masm);
+    Register scratch = temps.Acquire();
+
+    masm.ma_cselnz(output, trueExpr, falseExpr, cond, scratch);
     return;
   }
 
+  const LAllocation* falseExpr = ins->falseExpr();
   FloatRegister out = ToFloatRegister(ins->output());
   MOZ_ASSERT(ToFloatRegister(ins->trueExpr()) == out,
              "true expr input is reused for output");
@@ -2271,29 +2265,72 @@ void CodeGenerator::visitWasmSelect(LWasmSelect* ins) {
   }
 }
 
-// We expect to handle only the case where compare is {U,}Int32 and select is
-// {U,}Int32, and the "true" input is reused for the output.
+// We expect to handle these cases (as in "compare x select"):
+// {{U,}Int32, {U,}Int64}, Float32, Double}
+// x
+// {{U,}Int32, {U,}Int64}, Float32, Double}
 void CodeGenerator::visitWasmCompareAndSelect(LWasmCompareAndSelect* ins) {
-  bool cmpIs32bit = ins->compareType() == MCompare::Compare_Int32 ||
-                    ins->compareType() == MCompare::Compare_UInt32;
-  bool selIs32bit = ins->mir()->type() == MIRType::Int32;
-
+  const MCompare::CompareType compTy = ins->compareType();
   MOZ_RELEASE_ASSERT(
-      cmpIs32bit && selIs32bit,
-      "CodeGenerator::visitWasmCompareAndSelect: unexpected types");
+      compTy == MCompare::Compare_Int32 || compTy == MCompare::Compare_UInt32 ||
+          compTy == MCompare::Compare_Int64 ||
+          compTy == MCompare::Compare_UInt64 ||
+          compTy == MCompare::Compare_Float32 ||
+          compTy == MCompare::Compare_Double,
+      "CodeGenerator::visitWasmCompareAndSelect: unexpected compare type");
+  const bool compTyIsFloat =
+      compTy == MCompare::Compare_Float32 || compTy == MCompare::Compare_Double;
 
-  Register trueExprAndDest = ToRegister(ins->output());
-  MOZ_ASSERT(ToRegister(ins->ifTrueExpr()) == trueExprAndDest,
-             "true expr input is reused for output");
+  const MIRType insTy = ins->mir()->type();
+  MOZ_RELEASE_ASSERT(
+      insTy == MIRType::Int32 || insTy == MIRType::Int64 ||
+          insTy == MIRType::Float32 || insTy == MIRType::Double,
+      "CodeGenerator::visitWasmCompareAndSelect: unexpected select type");
+  const bool insTyIsFloat =
+      insTy == MIRType::Float32 || insTy == MIRType::Double;
 
-  Assembler::Condition cond = Assembler::InvertCondition(
-      JSOpToCondition(ins->compareType(), ins->jsop()));
-  const LAllocation* rhs = ins->rightExpr();
-  const LAllocation* falseExpr = ins->ifFalseExpr();
-  Register lhs = ToRegister(ins->leftExpr());
+  UseScratchRegisterScope temps(masm);
+  Register scratch = temps.Acquire();
 
-  masm.cmp32Move32(cond, lhs, ToRegister(rhs), ToRegister(falseExpr),
-                   trueExprAndDest);
+  if (compTyIsFloat) {
+    FloatRegister lhs = ToFloatRegister(ins->leftExpr());
+    FloatRegister rhs = ToFloatRegister(ins->rightExpr());
+    Assembler::DoubleCondition cond = JSOpToDoubleCondition(ins->jsop());
+
+    if (compTy == MCompare::Compare_Float32) {
+      masm.ma_cmp_set_float32(Assembler::FCC0, lhs, rhs, cond);
+    } else {
+      masm.ma_cmp_set_double(Assembler::FCC0, lhs, rhs, cond);
+    }
+    if (!insTyIsFloat) {
+      // For later use in mask{eq,ne}z.
+      masm.as_movcf2gr(scratch, Assembler::FCC0);
+    }
+  } else {
+    Register lhs = ToRegister(ins->leftExpr());
+    Register rhs = ToRegister(ins->rightExpr());
+    Assembler::Condition cond = JSOpToCondition(compTy, ins->jsop());
+
+    masm.ma_cmp_set(scratch, lhs, rhs, cond);
+    if (insTyIsFloat) {
+      // For later use in fsel.
+      masm.as_movgr2cf(Assembler::FCC0, scratch);
+    }
+  }
+
+  if (insTyIsFloat) {
+    FloatRegister trueExpr = ToFloatRegister(ins->ifTrueExpr());
+    FloatRegister falseExpr = ToFloatRegister(ins->ifFalseExpr());
+    FloatRegister output = ToFloatRegister(ins->output());
+
+    masm.as_fsel(output, falseExpr, trueExpr, Assembler::FCC0);
+  } else {
+    Register trueExpr = ToRegister(ins->ifTrueExpr());
+    Register falseExpr = ToRegister(ins->ifFalseExpr());
+    Register output = ToRegister(ins->output());
+
+    masm.ma_cselnz(output, trueExpr, falseExpr, scratch, scratch);
+  }
 }
 
 void CodeGenerator::visitUDivConstant(LUDivConstant* ins) {

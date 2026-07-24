@@ -12,7 +12,6 @@ use crate::command_buffer::{CommandBufferList, QuadFlags};
 use crate::pattern::{Pattern, PatternKind, PatternShaderInput};
 use crate::segment::EdgeMask;
 use crate::spatial_tree::SpatialTree;
-use crate::frame_builder::FrameGlobalResources;
 use crate::gpu_types::{BorderInstance, SVGFEFilterInstance, BlurDirection, BlurInstance, PrimitiveHeaders, ScalingInstance};
 use crate::gpu_types::{ZBufferIdGenerator, MaskInstance, BlurEdgeMode, ClipSpace};
 use crate::gpu_types::{ZBufferId, PrimitiveInstanceData};
@@ -20,7 +19,7 @@ use crate::transform::GpuTransformId;
 use crate::util::ScaleOffset;
 use crate::internal_types::{CacheTextureId, FastHashMap, FrameAllocator, FrameMemory, FrameVec, TextureSource};
 use crate::svg_filter::FilterGraphOp;
-use crate::picture::{SurfaceInfo, ResolvedSurfaceTexture};
+use crate::picture::ResolvedSurfaceTexture;
 use crate::tile_cache::{SliceId, TileCacheInstance};
 use crate::transform::TransformPalette;
 use crate::quad;
@@ -55,10 +54,8 @@ pub struct RenderTargetContext<'a, 'rc> {
     pub batch_lookback_count: usize,
     pub spatial_tree: &'a SpatialTree,
     pub data_stores: &'a DataStores,
-    pub surfaces: &'a [SurfaceInfo],
     pub scratch: &'a PrimitiveScratchBuffer,
     pub screen_world_rect: WorldRect,
-    pub globals: &'a FrameGlobalResources,
     pub tile_caches: &'a FastHashMap<SliceId, Box<TileCacheInstance>>,
     pub root_spatial_node_index: SpatialNodeIndex,
     pub frame_memory: &'a mut FrameMemory,

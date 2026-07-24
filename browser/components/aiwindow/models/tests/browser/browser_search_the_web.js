@@ -8,6 +8,7 @@ const { SEARCH_ANSWER_SCHEMA, runSearchTheWeb } = ChromeUtils.importESModule(
 );
 
 const {
+  GetPageContent,
   GET_PAGE_CONTENT,
   SEARCH_QUERY_ENDPOINT_PREF,
   SEARCH_QUERY_APIKEY_PREF,
@@ -204,16 +205,6 @@ add_task(async function test_search_the_web_end_to_end() {
       [],
       "No tools are offered during final generation"
     );
-    Assert.deepEqual(
-      answerTurn.request.inferenceParams,
-      {
-        response_format: {
-          type: "json_schema",
-          json_schema: SEARCH_ANSWER_SCHEMA,
-        },
-      },
-      "The final generation requests the search answer schema"
-    );
     const expectedAnswer = {
       answer: "The widget is nine dollars.",
       could_answer: true,
@@ -230,6 +221,7 @@ add_task(async function test_search_the_web_end_to_end() {
         ...expectedAnswer,
         searched_urls: [pageUrl],
         read_urls: [pageUrl],
+        requiresSearchHandoff: false,
       },
       "The workflow returns the validated answer and code-tracked URLs"
     );
@@ -523,92 +515,150 @@ add_task(async function test_search_the_web_no_results_returns_failure() {
   }
 });
 
-add_task(async function test_search_the_web_offers_run_search_fallback() {
-  // Tool gating end behavior: run_search is not offered up front, but once
-  // search_the_web has executed the dispatcher swaps it in as the fallback.
-  // Empty search results keep the tool fast; the tool still ran, which is what
-  // triggers the swap.
-  // NOTE: this drives the full Chat loop, which records the smart_window.tool_call
-  // Glean event. That metric is present in full/CI builds (metrics.yaml) but is
-  // absent from local artifact builds, so this task only passes under a full
-  // build or on CI. The existing chat-loop tool tests in
-  // browser_conversation_stream.js share this constraint.
+add_task(async function test_search_the_web_second_call_escalates_to_handoff() {
+  // The first search_the_web call answers in chat and marks the turn as having
+  // searched; a second call in the same turn escalates to the handoff (kind
+  // HANDOFF) without running another retrieval. Empty results keep the first
+  // call fast — the tool still ran, which is what marks the turn.
   await pushSearchPrefs();
+
   const mockSearchManager = new MockSearchManager();
+  const conversation = new ChatConversation({
+    pageUrl: new URL("https://example.com"),
+    pageMeta: {},
+  });
 
-  const { AIWindow } = ChromeUtils.importESModule(
-    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs"
-  );
-  const isAIWindowActiveStub = sinon
-    .stub(AIWindow, "isAIWindowActive")
-    .callsFake(win => win === window);
-
-  const requestBodies = [];
   try {
-    await withServer(
-      {
-        toolCall: {
-          name: "search_the_web",
-          args: JSON.stringify({ query: "weather" }),
-        },
-        followupChunks: ["Here is what I found."],
-        onRequest: body => requestBodies.push(body),
-      },
-      async () => {
-        const engine = await openAIEngine.build({
-          model: TEST_MODEL,
-          serviceType: SERVICE_TYPES.AI,
-          purpose: PURPOSES.CHAT,
-          flowId: null,
-          feature: MODEL_FEATURES.CHAT,
-        });
-        const conversation = new ChatConversation({
-          pageUrl: new URL("https://example.com"),
-          pageMeta: {},
-        });
-        conversation.engine = engine;
-        conversation.addUserMessage(
-          "what's the weather",
-          "https://example.com",
-          0
-        );
-        conversation.addAssistantMessage("text", "");
-
-        const chatPromise = Chat.fetchWithHistory({ conversation });
-        (await mockSearchManager.captureRequest()).respond({ results: [] });
-        await chatPromise;
-      }
+    const firstPromise = runSearchTheWeb({ query: "weather" }, conversation);
+    (await mockSearchManager.captureRequest()).respond({ results: [] });
+    const first = await firstPromise;
+    Assert.equal(
+      first.requiresSearchHandoff,
+      false,
+      "The first call answers in chat (ANSWER), not a handoff"
+    );
+    Assert.equal(
+      conversation._searchTheWebTurn,
+      conversation.currentTurnIndex(),
+      "The first call marks the current turn as having searched"
     );
 
-    const firstTools = (
-      requestBodies.find(body => Array.isArray(body.tools))?.tools ?? []
-    ).map(tool => tool.function?.name);
-    Assert.ok(
-      firstTools.includes("search_the_web"),
-      "search_the_web is offered on the first turn"
+    // No captureRequest() is set up for the second call: had it tried to
+    // retrieve again, this await would hang. Its resolving is the proof that the
+    // handoff short-circuits before any Exa search.
+    const second = await runSearchTheWeb(
+      { query: "weather again" },
+      conversation
     );
-    Assert.ok(
-      !firstTools.includes("run_search"),
-      "run_search is not offered up front"
+    Assert.equal(
+      second.requiresSearchHandoff,
+      true,
+      "A second call in the same turn escalates to the handoff"
     );
 
-    const lastTools = (
-      requestBodies.filter(body => Array.isArray(body.tools)).at(-1)?.tools ??
-      []
-    ).map(tool => tool.function?.name);
-    Assert.ok(
-      lastTools.includes("run_search"),
-      "run_search is offered as a fallback after search_the_web runs"
-    );
-    Assert.ok(
-      !lastTools.includes("search_the_web"),
-      "search_the_web is removed once it has run"
-    );
     mockSearchManager.assertAllRequestsHandled();
   } finally {
-    isAIWindowActiveStub.restore();
     mockSearchManager.rejectAllRequests();
     mockSearchManager.cleanupMocks();
     await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_search_the_web_page_read_timeout_does_not_hang() {
+  // A headless page load that never settles must not hang the answer flow:
+  // readPage races the fetch against a resolving timeout, so a stuck read
+  // yields a fallback and generateAnswer still produces an answer. The read
+  // timeout pref is shrunk so the test doesn't wait the 15s default.
+  await pushSearchPrefs();
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.smartwindow.search.readTimeoutMs", 50]],
+  });
+
+  const sb = sinon.createSandbox();
+  const mockEngineManager = new MockEngineManager();
+  const mockSearchManager = new MockSearchManager();
+  const conversation = new ChatConversation({
+    pageUrl: new URL("https://example.com"),
+    pageMeta: {},
+  });
+
+  // Simulate a stuck headless load: getPageContent never settles.
+  const hangStub = sb
+    .stub(GetPageContent, "getPageContent")
+    .callsFake(() => new Promise(() => {}));
+
+  try {
+    const runPromise = runSearchTheWeb({ query: "widgets" }, conversation);
+
+    (await mockSearchManager.captureRequest()).respond({
+      results: [
+        {
+          title: "Widget Store",
+          url: "https://widgets.example/store",
+          text: "A page with widget prices.",
+        },
+      ],
+    });
+
+    // First answer-generation turn: the model asks to read the result page.
+    (
+      await mockEngineManager.captureRequest({ purpose: PURPOSES.CHAT })
+    ).respond({
+      text: "",
+      tokens: null,
+      isPrompt: false,
+      toolCalls: [
+        {
+          id: "read_1",
+          function: {
+            name: GET_PAGE_CONTENT,
+            arguments: JSON.stringify({ result_ids: ["result_1"] }),
+          },
+        },
+      ],
+    });
+
+    // The read hangs and times out (~50ms). The fallback text is fed back as
+    // the tool result, so the next request's args must contain it — proof the
+    // stuck read resolved instead of hanging the flow.
+    const afterReadTurn = await mockEngineManager.captureRequest({
+      purpose: PURPOSES.CHAT,
+    });
+    Assert.ok(
+      JSON.stringify(afterReadTurn.request.args).includes("Timed out reading"),
+      "A stuck page read resolves to the timeout fallback"
+    );
+    afterReadTurn.respond("The results are enough to answer.");
+
+    // Final structured-answer turn.
+    (
+      await mockEngineManager.captureRequest({ purpose: PURPOSES.CHAT })
+    ).respond(
+      JSON.stringify({
+        answer: "Widgets vary in price.",
+        could_answer: true,
+        confidence: 0.6,
+      })
+    );
+
+    const result = await runPromise;
+    Assert.ok(
+      result.could_answer,
+      "The workflow still produces an answer despite the stuck read"
+    );
+    Assert.ok(
+      hangStub.called,
+      "getPageContent was invoked (and abandoned on timeout)"
+    );
+    mockEngineManager.assertAllRequestsHandled();
+    mockSearchManager.assertAllRequestsHandled();
+  } finally {
+    sb.restore();
+    mockEngineManager.rejectAllRequests();
+    mockSearchManager.rejectAllRequests();
+    mockEngineManager.cleanupMocks();
+    mockSearchManager.cleanupMocks();
+    await SpecialPowers.popPrefEnv(); // read-timeout pref
+    await SpecialPowers.popPrefEnv(); // search prefs
   }
 });

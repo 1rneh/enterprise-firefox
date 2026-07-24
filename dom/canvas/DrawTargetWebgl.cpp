@@ -50,6 +50,8 @@ static Atomic<size_t> gReportedHeapData;
 static Atomic<size_t> gReportedContextCount;
 static Atomic<size_t> gReportedTargetCount;
 
+constexpr size_t kUploadBufferSize = 1 * 1024 * 1024;
+
 class AcceleratedCanvas2DMemoryReporter final : public nsIMemoryReporter {
   ~AcceleratedCanvas2DMemoryReporter() = default;
 
@@ -240,6 +242,7 @@ SharedContextWebgl::~SharedContextWebgl() {
     mPathVertexBuffer = nullptr;
   }
   ClearZeroBuffer();
+  ClearUploadBuffer();
   ClearAllTextures();
   UnlinkSurfaceTextures(true);
   UnlinkGlyphCaches();
@@ -401,6 +404,14 @@ void SharedContextWebgl::ClearZeroBuffer() {
   }
 }
 
+void SharedContextWebgl::ClearUploadBuffer() {
+  if (mUploadBuffer) {
+    RemoveUntrackedTextureMemory(mUploadBuffer);
+    mUploadBuffer = nullptr;
+  }
+  mUploadBufferOffset = 0;
+}
+
 // If there is a request to clear out the caches because of memory pressure,
 // then first clear out all the texture handles in the texture cache. If there
 // are still empty texture pages being kept around, then clear those too.
@@ -414,6 +425,7 @@ void SharedContextWebgl::ClearCachesIfNecessary() {
     ClearEmptyTextureMemory();
   }
   ClearLastTexture();
+  ClearUploadBuffer();
   ClearSnapshotPBOs();
 }
 
@@ -1255,13 +1267,14 @@ bool SharedContextWebgl::ReadInto(uint8_t* aDstData, int32_t aDstStride,
   desc.srcOffset = *ivec2::From(aBounds);
   desc.size = *uvec2::FromSize(aBounds);
   desc.packState.rowLength = aDstStride / BytesPerPixel(aFormat);
+  bool success = true;
   if (aBuffer) {
     mWebgl->BindBuffer(LOCAL_GL_PIXEL_PACK_BUFFER, aBuffer);
     mWebgl->ReadPixelsPbo(desc, 0);
     mWebgl->BindBuffer(LOCAL_GL_PIXEL_PACK_BUFFER, nullptr);
   } else {
     Range<uint8_t> range = {aDstData, size_t(aDstStride) * aBounds.height};
-    mWebgl->ReadPixelsInto(desc, range);
+    success = !mWebgl->ReadPixelsInto(desc, range).subrect.IsEmpty();
   }
 
   // Restore the actual framebuffer after reading is done.
@@ -1269,7 +1282,7 @@ bool SharedContextWebgl::ReadInto(uint8_t* aDstData, int32_t aDstStride,
     RestoreCurrentTarget();
   }
 
-  return true;
+  return success;
 }
 
 already_AddRefed<DataSourceSurface> SharedContextWebgl::ReadSnapshot(
@@ -2585,6 +2598,7 @@ bool SharedContextWebgl::UploadSurface(DataSourceSurface* aData,
   webgl::TexUnpackBlobDesc texDesc = {LOCAL_GL_TEXTURE_2D};
   IntRect srcRect(aSrcRect);
   IntPoint dstOffset(aDstOffset);
+  bool usingPBO = false;
   if (srcRect.IsEmpty()) {
     return true;
   }
@@ -2619,7 +2633,46 @@ bool SharedContextWebgl::UploadSurface(DataSourceSurface* aData,
     Span<const uint8_t> range(
         map->GetData() + srcRect.y * size_t(stride) + srcRect.x * bpp,
         std::max(srcRect.height - 1, 0) * size_t(stride) + srcRect.width * bpp);
-    texDesc.cpuData = Some(range);
+    // Use the shared upload PBO if the data can fit within it. We always use a
+    // fixed size to help allocation performance. Avoid on D3D ANGLE where
+    // testing has shown this to be a performance loss.
+    if (range.Length() <= kUploadBufferSize && !mWebgl->GL()->IsD3DANGLE()) {
+      CheckedInt<size_t> uploadOffset =
+          RoundUpToMultipleOf(CheckedInt<size_t>(mUploadBufferOffset), 4);
+      if (!uploadOffset.isValid()) {
+        return false;
+      }
+      CheckedInt<size_t> requiredSize = uploadOffset + range.Length();
+      if (!requiredSize.isValid()) {
+        return false;
+      }
+      // If the existing buffer doesn't have enough room left for this upload
+      // then orphan it and create a new one.
+      if (!mUploadBuffer || requiredSize.value() > kUploadBufferSize) {
+        if (!mUploadBuffer) {
+          mUploadBuffer = mWebgl->CreateBuffer();
+          if (!mUploadBuffer) {
+            return false;
+          }
+          AddUntrackedTextureMemory(mUploadBuffer);
+        }
+        mWebgl->BindBuffer(LOCAL_GL_PIXEL_UNPACK_BUFFER, mUploadBuffer);
+        mWebgl->BufferData(LOCAL_GL_PIXEL_UNPACK_BUFFER, kUploadBufferSize,
+                           nullptr, LOCAL_GL_STREAM_DRAW);
+        uploadOffset = 0;
+        requiredSize = range.Length();
+      } else {
+        mWebgl->BindBuffer(LOCAL_GL_PIXEL_UNPACK_BUFFER, mUploadBuffer);
+      }
+      mUploadBuffer->BufferSubData(LOCAL_GL_PIXEL_UNPACK_BUFFER,
+                                   uploadOffset.value(), range.Length(),
+                                   range.data(), true);
+      mUploadBufferOffset = requiredSize.value();
+      texDesc.pboOffset = Some(uploadOffset.value());
+      usingPBO = true;
+    } else {
+      texDesc.cpuData = Some(range);
+    }
     // If the stride happens to be 4 byte aligned, assume that is the
     // desired alignment regardless of format (even A8). Otherwise, we
     // default to byte alignment.
@@ -2658,6 +2711,7 @@ bool SharedContextWebgl::UploadSurface(DataSourceSurface* aData,
       mWebgl->BindBuffer(LOCAL_GL_PIXEL_UNPACK_BUFFER, mZeroBuffer);
     }
     texDesc.pboOffset = Some(0);
+    usingPBO = true;
   }
   texDesc.size = uvec3(uint32_t(srcRect.width), uint32_t(srcRect.height), 1);
   // Upload as RGBA8 to avoid swizzling during upload. Surfaces provide
@@ -2679,7 +2733,7 @@ bool SharedContextWebgl::UploadSurface(DataSourceSurface* aData,
   if (aTex) {
     mWebgl->BindTexture(LOCAL_GL_TEXTURE_2D, mLastTexture);
   }
-  if (!aData && aZero) {
+  if (usingPBO) {
     mWebgl->BindBuffer(LOCAL_GL_PIXEL_UNPACK_BUFFER, nullptr);
   }
   return true;
@@ -2778,6 +2832,10 @@ void SharedContextWebgl::BindScratchFramebuffer(TextureHandle* aHandle,
 already_AddRefed<TextureHandle> SharedContextWebgl::AllocateTextureHandle(
     SurfaceFormat aFormat, const IntSize& aSize, bool aAllowShared,
     bool aRenderable, const WebGLTexture* aAvoid) {
+  // Don't allow allocating textures bigger than the reported limit.
+  if (size_t(std::max(aSize.width, aSize.height)) > mMaxTextureSize) {
+    return nullptr;
+  }
   RefPtr<TextureHandle> handle;
   // Calculate the bytes that would be used by this texture handle, and prune
   // enough other textures to ensure we have that much usable texture space

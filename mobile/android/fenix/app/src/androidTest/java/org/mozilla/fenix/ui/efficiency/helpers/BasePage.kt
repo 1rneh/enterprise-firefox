@@ -24,6 +24,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -68,10 +69,16 @@ import androidx.test.uiautomator.UiSelector
 import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.not
 import org.hamcrest.Matchers.containsString
+import org.mozilla.fenix.helpers.AppAndSystemHelper
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.TestHelper.packageName
+import org.mozilla.fenix.ui.efficiency.core.ComposeUiElement
+import org.mozilla.fenix.ui.efficiency.core.EspressoUiElement
+import org.mozilla.fenix.ui.efficiency.core.UiElement
+import org.mozilla.fenix.ui.efficiency.core.UiObject2UiElement
+import org.mozilla.fenix.ui.efficiency.core.UiObjectUiElement
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationStep
 import androidx.compose.ui.test.longClick as composeLongClick
@@ -174,6 +181,10 @@ abstract class BasePage(
             return this
         } catch (t: Throwable) {
             rep?.endStep(success = false, message = "Navigation to '$pageName' failed: ${t.message ?: "exception"}")
+            // Navigation failures (esp. a page-arrival timeout on the requiredForPage anchor) previously
+            // produced no screen snapshot, leaving these undebuggable. Dump the current screen so the
+            // failing state (which page we actually landed on, what handles exist) is captured.
+            ScreenDump.dump(composeRule, "navigateToPage failed: $pageName")
             throw t
         }
     }
@@ -303,6 +314,7 @@ abstract class BasePage(
             SystemClock.sleep(interval)
         }
         rep?.endCmd(success = false, message = "'${selector.description}' not found after ${timeout}ms")
+        ScreenDump.dump(composeRule, "mozVerify failed: ${selector.description}")
         throw AssertionError("'${selector.description}' not found on screen after ${timeout}ms")
     }
 
@@ -368,38 +380,103 @@ abstract class BasePage(
         rep?.startCmd(safeId("click", selector.description), "Attempting to click '${selector.description}'...", 1)
         rep?.startLoc(safeId("loc", selector.description), "Attempting to locate '${selector.description}'...", 2)
 
-        val element = mozGetElement(selector)
+        composeRule.waitForIdle()
+        val element = resolve(selector)
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "Click '${selector.description}' failed: element not found")
+            ScreenDump.dump(composeRule, "mozClick target not found: ${selector.description}")
             throw AssertionError("Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})")
-        } else {
-            rep?.endLoc(success = true, message = found(selector.description))
         }
+        rep?.endLoc(success = true, message = found(selector.description))
 
         try {
-            when (element) {
-                is ViewInteraction -> element.perform(click())
-                is UiObject -> {
-                    if (!element.exists()) throw AssertionError("UiObject does not exist for selector: ${selector.description}")
-                    if (!element.click()) throw AssertionError("Failed to click UiObject for selector: ${selector.description}")
-                }
-                is UiObject2 -> element.click()
-                is SemanticsNodeInteraction -> {
-                    composeRule.waitForIdle()
-                    element.assertExists()
-                    element.assertIsDisplayed()
-                    element.performClick()
-                }
-                else -> throw AssertionError("Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}")
-            }
-
+            element.click()
             rep?.endCmd(success = true, message = "Clicked '${selector.description}'")
             return this
         } catch (e: Throwable) {
             rep?.endCmd(success = false, message = "Click '${selector.description}' failed: ${e.message ?: "exception"}")
+            ScreenDump.dump(composeRule, "mozClick failed: ${selector.description}")
             throw e
         }
+    }
+
+    // --- Resolution facade (pilot: used by mozClick; other verbs migrate onto this over time) -------
+    //
+    // resolve() is the single seam between "locate" and "interact": it fetches the candidate node(s)
+    // for a selector and applies ONE consistent selection policy — prefer the *displayed* match, else
+    // the first — then returns a backend-agnostic UiElement. Verbs just call element.click()/etc. and
+    // never switch on the underlying Compose/Espresso/UiAutomator node type. This replaces the
+    // one-off, text-only mozClickDisplayed with a general rule that works for tag and text selectors
+    // (and is easy to extend to more strategies).
+    private fun resolve(selector: Selector, applyPreconditions: Boolean = true): UiElement? {
+        if (selector.value.isBlank()) return null
+        if (applyPreconditions && requiresScroll(selector.groups)) {
+            ensureReachable(selector)
+        }
+        // Compose: resolve tag/text/content-description to the displayed match, trying BOTH the
+        // merged and unmerged semantics trees so callers never have to know which one an element
+        // lives in. (The merged/unmerged mismatch on COMPOSE_BY_TEXT is what broke navigation after
+        // the resolve() pilot; content-description had the same latent trap.)
+        resolveComposeNode(selector)?.let { return ComposeUiElement(it) }
+        // Everything else (Espresso / UiAutomator, plus exotic compose strategies): reuse the existing
+        // single-node fetch (preconditions already applied above) and wrap it in the facade.
+        return toUiElement(mozGetElement(selector, applyPreconditions = false))
+    }
+
+    /** Return the first *displayed* node in the collection, else the first node, else null. */
+    private fun pickDisplayed(collection: SemanticsNodeInteractionCollection): SemanticsNodeInteraction? {
+        val count = try {
+            collection.fetchSemanticsNodes().size
+        } catch (_: Throwable) {
+            0
+        }
+        if (count == 0) return null
+        for (i in 0 until count) {
+            val node = collection[i]
+            try {
+                node.assertIsDisplayed()
+                return node
+            } catch (_: AssertionError) {
+                // not the on-screen match; keep looking
+            }
+        }
+        return collection[0]
+    }
+
+    /**
+     * Resolve a Compose selector (tag / text / content-description) to the displayed match, hiding
+     * the merged-vs-unmerged tree distinction from callers. Tries the strategy's historical primary
+     * tree first (text -> unmerged; tag/content-description -> merged), then the OTHER tree as a
+     * fallback, so a caller just supplies a testTag/text/description and the facade finds it wherever
+     * it lives. Returns null for non-Compose strategies (handled via mozGetElement).
+     */
+    private fun resolveComposeNode(selector: Selector): SemanticsNodeInteraction? {
+        fun candidates(unmerged: Boolean): SemanticsNodeInteractionCollection? = when (selector.strategy) {
+            SelectorStrategy.COMPOSE_BY_TAG ->
+                composeRule.onAllNodesWithTag(selector.value, useUnmergedTree = unmerged)
+            SelectorStrategy.COMPOSE_BY_TEXT,
+            SelectorStrategy.COMPOSE_BY_TEXT_MERGED,
+            -> composeRule.onAllNodesWithText(selector.value, useUnmergedTree = unmerged)
+            SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION ->
+                composeRule.onAllNodesWithContentDescription(selector.value, useUnmergedTree = unmerged)
+            else -> null
+        }
+        // COMPOSE_BY_TEXT historically resolved on the unmerged tree; tag/content-description on the
+        // merged tree. Try each strategy's proven primary tree first (no behavior change), then the
+        // other tree only if the primary yields nothing.
+        val primaryUnmerged = selector.strategy == SelectorStrategy.COMPOSE_BY_TEXT
+        return candidates(primaryUnmerged)?.let { pickDisplayed(it) }
+            ?: candidates(!primaryUnmerged)?.let { pickDisplayed(it) }
+    }
+
+    /** Wrap a raw located node (from mozGetElement) into the backend-agnostic UiElement facade. */
+    private fun toUiElement(any: Any?): UiElement? = when (any) {
+        is SemanticsNodeInteraction -> ComposeUiElement(any)
+        is ViewInteraction -> EspressoUiElement(any)
+        is UiObject -> UiObjectUiElement(any)
+        is UiObject2 -> UiObject2UiElement(any)
+        else -> null
     }
 
     fun mozLongClick(selector: Selector): BasePage {
@@ -1215,26 +1292,36 @@ abstract class BasePage(
     }
 
     private fun mozVerifyElement(selector: Selector, applyPreconditions: Boolean = true): Boolean {
-        val element = mozGetElement(selector, applyPreconditions = applyPreconditions)
+        // This is a *presence check*: it answers "is this element displayed right now?" and must
+        // NEVER throw. Callers rely on that contract — mozIsOnPageNow()/mozWaitForPageToLoad() poll
+        // it before navigation even starts. If it throws (e.g. mozGetElement hits an ambiguous match,
+        // or a backend asserts eagerly), that exception escapes into navigateToPage(), which on real
+        // hardware triggers the failure-screenshot path and a StrictMode penaltyDeath that MASKS the
+        // real error. So we resolve + probe entirely inside try/catch and degrade to `false`.
+        return try {
+            val element = mozGetElement(selector, applyPreconditions = applyPreconditions)
 
-        return when (element) {
-            is ViewInteraction -> {
-                try {
-                    element.check(matches(isDisplayed())); true
-                } catch (_: Exception) {
-                    false
+            when (element) {
+                is ViewInteraction -> {
+                    try {
+                        element.check(matches(isDisplayed())); true
+                    } catch (_: Throwable) {
+                        false
+                    }
                 }
-            }
-            is UiObject -> element.exists()
-            is UiObject2 -> true
-            is SemanticsNodeInteraction -> {
-                try {
-                    element.assertExists(); element.assertIsDisplayed(); true
-                } catch (_: AssertionError) {
-                    false
+                is UiObject -> element.exists()
+                is UiObject2 -> true
+                is SemanticsNodeInteraction -> {
+                    try {
+                        element.assertExists(); element.assertIsDisplayed(); true
+                    } catch (_: Throwable) {
+                        false
+                    }
                 }
+                else -> false
             }
-            else -> false
+        } catch (_: Throwable) {
+            false
         }
     }
 
@@ -1292,6 +1379,22 @@ abstract class BasePage(
     fun mozClearAndEnterText(text: String, selector: Selector): BasePage {
         mozClear(selector)
         return mozEnterText(text, selector)
+    }
+
+    fun mozVerifyFileOpensInExternalApp(appPackageName: String): BasePage {
+        val rep = rep()
+        rep?.startCmd(
+            safeId("verify_file_opens_in_external_app", appPackageName),
+            "Verifying external app '$appPackageName' opens...",
+        )
+        try {
+            AppAndSystemHelper.assertExternalAppOpens(appPackageName)
+            rep?.endCmd(success = true, message = "Asserted external app '$appPackageName' open flow")
+        } catch (e: Throwable) {
+            rep?.endCmd(success = false, message = "External app assertion failed for '$appPackageName': ${e.message}")
+            throw e
+        }
+        return this
     }
 
     private fun ensureReachable(selector: Selector) {

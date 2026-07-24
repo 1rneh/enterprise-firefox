@@ -4035,6 +4035,47 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **unit**: score
    * **Test Task**:
 
+   .. list-table:: **test-android-em-14-arm64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-benchmark-speedometer3-mobile-chrome-m-nofis**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-cstm-car-m-nofis**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-fenix**
+        - ❌
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-fenix-nofis**
+        - ❌
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-geckoview**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-geckoview-nofis**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
    .. list-table:: **test-android-hw-a55-14-0-aarch64-shippable/opt**
       :widths: 30 15 15 15 15
       :header-rows: 1
@@ -4564,6 +4605,47 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **type**: benchmark
    * **unit**: score
    * **Test Task**:
+
+   .. list-table:: **test-android-em-14-arm64-shippable/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-benchmark-speedometer3-mobile-chrome-m-nofis**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-cstm-car-m-nofis**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-fenix**
+        - ❌
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-fenix-nofis**
+        - ❌
+        - ✅
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-geckoview**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-benchmark-speedometer3-mobile-geckoview-nofis**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
 
    .. list-table:: **test-android-hw-a55-14-0-aarch64-shippable/opt**
       :widths: 30 15 15 15 15
@@ -13612,7 +13694,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
 
    **Owner**: PerfTest Team
 
-   **Description**: Used to run vanilla browsertime tests through raptor. For example: `./mach raptor -t browsertime --browsertime-arg url=https://www.sitespeed.io --browsertime-arg iterations=3`
+   **Description**: Used to run vanilla Browsertime tests through Raptor. For example: `./mach raptor -t browsertime --browsertime-arg url=https://www.sitespeed.io --browsertime-arg iterations=3`
 
    * **alert on**: `fcp <raptor-metrics.html#first-paint>`__, `loadtime <raptor-metrics.html#load-time>`__
    * **alert threshold**: 2.0

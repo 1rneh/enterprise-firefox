@@ -373,6 +373,9 @@
       "chrome://browser/content/urlbar/L10nCache.mjs": [
         "../../../browser/components/urlbar/content/L10nCache.mjs"
       ],
+      "chrome://browser/content/urlbar/SearchEngineStore.mjs": [
+        "../../../browser/components/urlbar/content/SearchEngineStore.mjs"
+      ],
       "chrome://browser/content/urlbar/SearchModeSwitcher.mjs": [
         "../../../browser/components/urlbar/content/SearchModeSwitcher.mjs"
       ],
@@ -399,6 +402,9 @@
       ],
       "chrome://browser/content/urlbar/UrlbarParentControllerProxy.mjs": [
         "../../../browser/components/urlbar/content/UrlbarParentControllerProxy.mjs"
+      ],
+      "chrome://browser/content/urlbar/UrlbarQueryContext.mjs": [
+        "../../../browser/components/urlbar/content/UrlbarQueryContext.mjs"
       ],
       "chrome://browser/content/urlbar/UrlbarResult.mjs": [
         "../../../browser/components/urlbar/content/UrlbarResult.mjs"
@@ -628,9 +634,6 @@
       "chrome://global/content/ml/backends/LlamaCppPipeline.mjs": [
         "../../../toolkit/components/ml/content/backends/LlamaCppPipeline.mjs"
       ],
-      "chrome://global/content/ml/backends/LlamaPipeline.mjs": [
-        "../../../toolkit/components/ml/content/backends/LlamaPipeline.mjs"
-      ],
       "chrome://global/content/ml/backends/ONNXPipeline.mjs": [
         "../../../toolkit/components/ml/content/backends/ONNXPipeline.mjs"
       ],
@@ -675,12 +678,6 @@
       ],
       "chrome://global/content/ml/transformers.js": [
         "../../../toolkit/components/ml/vendor/transformers.js"
-      ],
-      "chrome://global/content/ml/wllama-module-dev.mjs": [
-        "../../../toolkit/components/ml/vendor/wllama-module-dev.mjs"
-      ],
-      "chrome://global/content/ml/wllama-module.mjs": [
-        "../../../toolkit/components/ml/vendor/wllama-module.mjs"
       ],
       "chrome://global/content/net-error-card.mjs": [
         "../../../toolkit/content/net-error-card.mjs"
@@ -6477,6 +6474,9 @@
       ],
       "resource://gre/modules/RemoteSettingsCrashPull.sys.mjs": [
         "../../../toolkit/components/crashes/RemoteSettingsCrashPull.sys.mjs"
+      ],
+      "resource://gre/modules/RemoteWebNavigation.sys.mjs": [
+        "../../../toolkit/components/remotebrowserutils/RemoteWebNavigation.sys.mjs"
       ],
       "resource://gre/modules/ResetProfile.sys.mjs": [
         "../../../toolkit/modules/ResetProfile.sys.mjs"

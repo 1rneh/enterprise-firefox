@@ -1,8 +1,8 @@
 ===========
-Mozperftest
+MozPerftest
 ===========
 
-**Mozperftest** can be used to run performance tests.
+**MozPerftest** can be used to run performance tests.
 
 
 .. toctree::
@@ -13,7 +13,7 @@ Mozperftest
    developing
    vision
 
-The following documents all testing we have for mozperftest.
+The following documents all testing we have for MozPerftest.
 If the owner does not specify the Usage and Description, it's marked N/A.
 
 accessible/tests/browser/performance
@@ -766,7 +766,7 @@ browser_ml_llama_summarizer_perf.js
  --manifest-flavor browser-chrome
  --try-platform linux, mac, win
 
-**Template test for latency for Summarizer model using Llama.cpp WASM**
+**Template test for latency for Summarizer model using llama.cpp**
 
 browser_ml_smart_tab_perf.js
 ============================

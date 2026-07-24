@@ -8833,7 +8833,7 @@
 # member round-robin at creation time.
 - name: gfx.webrender.render-backend-thread-count
   type: uint32_t
-  value: 0
+  value: 2
   mirror: once
 
 # Enable dithering in hardware WebRender
@@ -11807,7 +11807,7 @@
 # Per-domain blocklist for ::-webkit-scrollbar pseudo element
 - name: layout.css.fake-webkit-scrollbar.disabled-domains
   type: DataMutexString
-  value: "discord.com,shitposter.world"
+  value: "discord.com,shitposter.world,gemini.google.com"
   mirror: always
   rust: true
 
@@ -13441,31 +13441,6 @@
 - name: media.media-capabilities.screen.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-- name: media.benchmark.vp9.fps
-  type: RelaxedAtomicUint32
-  value: 0
-  mirror: always
-
-- name: media.benchmark.vp9.threshold
-  type: RelaxedAtomicUint32
-  value: 150
-  mirror: always
-
-- name: media.benchmark.vp9.versioncheck
-  type: RelaxedAtomicUint32
-  value: 0
-  mirror: always
-
-- name: media.benchmark.frames
-  type: RelaxedAtomicUint32
-  value: 300
-  mirror: always
-
-- name: media.benchmark.timeout
-  type: RelaxedAtomicUint32
-  value: 1000
   mirror: always
 
 - name: media.test.video-suspend

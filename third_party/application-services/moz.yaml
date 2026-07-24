@@ -59,7 +59,6 @@ vendoring:
     - gradlew.bat
     - build.gradle
     - gradle.properties
-    - proguard-rules-consumer-jna.pro
     - install-nimbus-cli.sh
     - rust-toolchain.toml
     - .cargo/**
@@ -78,3 +77,5 @@ vendoring:
     - taskcluster/**
     # hacks which only make sense in app-services.
     - monorepo-hacks/**
+    # moz.build files only matter to the mozilla-central build, so we maintain them here rather than vendoring from upstream.
+    - "**/moz.build"

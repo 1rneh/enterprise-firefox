@@ -23,6 +23,13 @@ function getCurrentCookiePermission(origin) {
   );
 }
 
+function getPersistDataPermission(origin) {
+  return Services.perms.testPermissionFromPrincipal(
+    principalFor(origin),
+    "persist-data-on-shutdown"
+  );
+}
+
 function checkBehaviorPref(prefName, expectedValue, expectedLocked) {
   Assert.strictEqual(
     Services.prefs.getIntPref(prefName),
@@ -206,5 +213,101 @@ add_task(async function test_cookie_permissions_reconciled_on_update() {
     getCurrentCookiePermission(droppedOrigin),
     UNKNOWN,
     "dropped origin's stale entry was reconciled away on live update"
+  );
+});
+
+// The Cookies.Allow back-compat shim mirrors Allow origins into
+// persist-data-on-shutdown permissions; onRemove must clear those too when the
+// policy is removed live.
+add_task(
+  async function test_persist_data_on_shutdown_cleared_on_policy_removal() {
+    const allowOrigin = "https://persist.example.com";
+
+    registerCleanupFunction(() => {
+      Services.perms.removePolicyPermissionsByType("cookie");
+      Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
+    });
+
+    info(
+      "Applying a Cookies policy config with an Allow list; no SanitizeOnShutdown policy is present."
+    );
+    await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+      {
+        policies: {
+          Cookies: {
+            Allow: [allowOrigin],
+          },
+        },
+      },
+      null
+    );
+
+    Assert.equal(
+      getPersistDataPermission(allowOrigin),
+      ALLOW,
+      "persist-data-on-shutdown entry was added by the Allow shim"
+    );
+
+    info("Removing the Cookies policy.");
+    await updatePolicies({ policies: {} });
+
+    Assert.equal(
+      getPersistDataPermission(allowOrigin),
+      UNKNOWN,
+      "persist-data-on-shutdown entry was cleared on live removal"
+    );
+  }
+);
+
+// When SanitizeOnShutdown.Exceptions is present the Cookies.Allow shim defers
+// persist-data-on-shutdown to SanitizeOnShutdown, and removing the Cookies
+// policy must leave SanitizeOnShutdown's persist-data-on-shutdown entry intact.
+add_task(async function test_persist_data_deferred_to_sanitize_on_shutdown() {
+  const cookieOrigin = "https://cookie.example.com";
+  const sanitizeOrigin = "https://sanitize.example.com";
+
+  registerCleanupFunction(() => {
+    Services.perms.removePolicyPermissionsByType("cookie");
+    Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
+  });
+
+  info("Applying Cookies.Allow together with SanitizeOnShutdown.Exceptions.");
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    {
+      policies: {
+        Cookies: { Allow: [cookieOrigin] },
+        SanitizeOnShutdown: { Exceptions: [sanitizeOrigin] },
+      },
+    },
+    null
+  );
+
+  Assert.equal(
+    getPersistDataPermission(cookieOrigin),
+    UNKNOWN,
+    "Cookies.Allow shim deferred persist-data-on-shutdown to SanitizeOnShutdown"
+  );
+  Assert.equal(
+    getPersistDataPermission(sanitizeOrigin),
+    ALLOW,
+    "SanitizeOnShutdown added its persist-data-on-shutdown entry"
+  );
+
+  info("Removing the Cookies policy but keeping SanitizeOnShutdown.");
+  await updatePolicies({
+    policies: {
+      SanitizeOnShutdown: { Exceptions: [sanitizeOrigin] },
+    },
+  });
+
+  Assert.equal(
+    getCurrentCookiePermission(cookieOrigin),
+    UNKNOWN,
+    "Cookies permission was cleared when the Cookies policy was removed"
+  );
+  Assert.equal(
+    getPersistDataPermission(sanitizeOrigin),
+    ALLOW,
+    "SanitizeOnShutdown's persist-data-on-shutdown entry survived Cookies removal"
   );
 });

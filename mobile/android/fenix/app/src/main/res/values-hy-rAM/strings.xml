@@ -980,6 +980,12 @@
   <string name="notifications_allowed_summary">Թույլատրված</string>
   <!-- Summary for notification preference indicating notifications are not allowed -->
   <string name="notifications_not_allowed_summary">Չթույլատրված</string>
+  <!-- Preference for local network access / nearby devices in Android 17 -->
+  <string name="preferences_local_network_access">Տեղային ցանցի մատչում / Մոտակա սարքեր</string>
+  <!-- Summary for local network access preference indicating access is allowed -->
+  <string name="local_network_access_allowed_summary">Թույլատրված</string>
+  <!-- Summary for local network access preference indicating access is not allowed -->
+  <string name="local_network_access_not_allowed_summary">Չթույլատրված</string>
   <!--
     Add-on Permissions
 
@@ -1702,6 +1708,14 @@
   <string name="close_tab_and_delete_group_confirmation_dialog_confirm">Ջնջել խումբը</string>
   <!-- Text shown on the cancel button in the Close last tab and delete tab group confirmation dialog. -->
   <string name="close_tab_and_delete_group_confirmation_dialog_cancel">Չեղարկել</string>
+  <!-- Content description for the three dot button next to a tab group" -->
+  <string name="tab_group_three_dot_button_content_description">Լրացուցիչ ընտրանքներ</string>
+  <!-- Text shown on the edit button for a tab group on the three dot menu -->
+  <string name="tab_group_three_dot_menu_edit">Խմբագրել</string>
+  <!-- Text shown on the delete button for a tab group on the three dot menu -->
+  <string name="tab_group_three_dot_menu_delete">Ջնջել</string>
+  <!-- Text shown on the close button for a tab group on the three dot menu -->
+  <string name="tab_group_three_dot_menu_close">Փակել</string>
   <!--
     Color labels for tab groups, used for accessibility and selection UI.
 
@@ -1977,6 +1991,8 @@
   <string name="webcompat_reporter_description_error">Խնդրում ենք մուտքագրել առնվազն 10 նիշ</string>
   <!-- The label/title of a mandatory field in the Web Compat Reporter feature for adding additional information. -->
   <string name="webcompat_reporter_label_mandatory_description">Մանրամասն նկարագրեք խնդիրը, որպեսզի մենք կարողանանք այն ուսումնասիրել</string>
+  <!-- The label/title of a optional field in the Web Compat Reporter feature for adding additional information. -->
+  <string name="webcompat_reporter_label_optional_description">Մանրամասն նկարագրեք խնդիրը, որպեսզի մենք կարողանանք այն ուսումնասիրել (լրացուցիչ):</string>
   <!-- The label/title of a field in the Web Compat Reporter feature for explaining a high-level reason why the site is broken. -->
   <string name="webcompat_reporter_label_whats_broken_2">Ի՞նչն է խոտանվել:</string>
   <!-- The placeholder text for the dropdown where a user selects a high-level reason why the site is broken. -->
@@ -2625,8 +2641,8 @@
 
       Text shown on the trackers blocked card. %d is the number of trackers blocked.
     -->
-    <item quantity="one">%d հետագծիչն արգելափակված է</item>
-    <item quantity="other">%d հետագծիչներն արգելափակված են</item>
+    <item quantity="one">%d հետագծիչ արգելափակված է</item>
+    <item quantity="other">%d հետագծիչներ արգելափակված են</item>
   </plurals>
   <!-- Text shown on the trackers blocked card when no trackers have been blocked yet -->
   <string name="trackers_blocked_empty">Դուք պաշտպանված եք</string>

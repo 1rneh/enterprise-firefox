@@ -909,13 +909,12 @@ export var Policies = {
   },
 
   ContentAnalysis: {
-    onBeforeAddons(manager, param) {
-      // The external agent is authoritative only when it is actually enabled; a
-      // ContentAnalysis block that does not enable an agent doesn't suppress
-      // built-in DLP.
-      if (param?.Enabled === true) {
-        lazy.ContentAnalysisPolicies.applyExternalContentAnalysis(param);
-      }
+    onBeforeAddons(manager) {
+      // All Content Analysis prefs -- external-agent-only, the prefs shared with
+      // the built-in DataLossPrevention policy, and common (non-backend) prefs --
+      // are set and locked by reconcileContentAnalysis so the two policies
+      // arbitrate consistently, including on live policy updates.
+      lazy.ContentAnalysisPolicies.reconcileContentAnalysis(manager);
     },
   },
 
@@ -1191,8 +1190,7 @@ export var Policies = {
       ).errors) {
         lazy.log.error(error);
       }
-
-      lazy.ContentAnalysisPolicies.applyBuiltinDlp(param);
+      lazy.ContentAnalysisPolicies.reconcileContentAnalysis(manager);
     },
   },
 

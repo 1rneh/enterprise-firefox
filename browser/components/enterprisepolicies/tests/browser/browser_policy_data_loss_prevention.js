@@ -5,8 +5,9 @@
 
 // Verifies the DataLossPrevention policy and its arbitration with the external
 // ContentAnalysis policy, as implemented by reconcileContentAnalysis in
-// Policies.sys.mjs. Assertions are on the browser.contentanalysis.* prefs the
-// handler sets; the built-in WASM backend consumes them.
+// ContentAnalysisPolicies.sys.mjs. Assertions are on the
+// browser.contentanalysis.* prefs the handler sets; the built-in WASM backend
+// consumes them.
 
 const CA_PREFIX = "browser.contentanalysis.";
 
@@ -83,6 +84,37 @@ add_task(async function test_builtin_dlp_only() {
   let rules = getSerializedRules();
   is(rules.length, 1, "one rule serialized to dlp_rules");
   is(rules[0].Name, "warn-ai-paste", "correct rule serialized");
+});
+
+add_task(async function test_external_suppresses_builtin() {
+  await setupPolicyEngineWithJson({
+    policies: {
+      ContentAnalysis: { Enabled: true },
+      DataLossPrevention: {
+        Rules: [
+          {
+            Name: "warn-ai-paste",
+            Enabled: true,
+            Actions: ["TextPaste"],
+            Domains: ["chatgpt.com"],
+            Type: "warn",
+          },
+        ],
+      },
+    },
+  });
+
+  is(Services.prefs.getBoolPref(CA_PREFIX + "enabled"), true, "CA enabled");
+  is(
+    Services.prefs.getBoolPref(CA_PREFIX + "use_wasm_backend"),
+    false,
+    "external agent backend selected when ContentAnalysis is enabled"
+  );
+  is(
+    Services.prefs.getStringPref(CA_PREFIX + "dlp_rules", ""),
+    "",
+    "built-in rules not delivered while the external agent is authoritative"
+  );
 });
 
 add_task(async function test_builtin_active_when_external_disabled() {

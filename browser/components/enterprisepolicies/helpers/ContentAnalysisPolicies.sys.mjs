@@ -54,115 +54,21 @@ const CA_PLAIN_TEXT_POINTS = [
 ];
 
 export const ContentAnalysisPolicies = {
-  // Apply prefs for setting up the external-agent provider.
-  applyExternalContentAnalysis(caParam) {
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), true);
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), false);
-    lazy.PoliciesUtils.setAndLockPref(
-      caPrefName("wasm_module_extension_require_signature"),
-      true
-    );
+  reconcileContentAnalysis(manager) {
+    let active = manager.getActivePolicies() ?? {};
+    let caParam = active.ContentAnalysis;
+    let dlpParam = active.DataLossPrevention;
 
-    applyContentAnalysisConfig(caParam);
-    lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName("dlp_rules"));
-    markContentAnalysisPolicyControlled();
-  },
-
-  // Apply prefs for setting up the built-in DLP provider.
-  applyBuiltinDlp(dlpParam) {
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), true);
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), true);
-    lazy.PoliciesUtils.setAndLockPref(
-      caPrefName("wasm_module_extension_require_signature"),
-      true
-    );
-
-    // The external agent isn't running, so these prefs are released.
-    for (let suffix of [
-      "pipe_path_name",
-      "client_signature",
-      "max_connections",
-      "is_per_user",
-    ]) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName(suffix));
+    // The external agent is authoritative only when it is actually enabled; a
+    // ContentAnalysis block that does not enable an agent doesn't suppress
+    // built-in DLP.
+    if (caParam?.Enabled === true) {
+      applyExternalContentAnalysis(caParam);
+    } else if (dlpParam) {
+      applyBuiltinDlp(dlpParam);
+    } else {
+      disableContentAnalysis(caParam);
     }
-
-    // Built-in DLP policy does not have an explicit deny list, but encodes
-    // domain deny behavior in the DLP rules for processing by the engine.
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("deny_url_regex_list"), "");
-    // The request timeout stays generous (the in-process module completes quickly)
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("agent_timeout"), 300);
-    // Built-in DLP needs to show blocked results in Firefox
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("show_blocked_result"), true);
-    // Built-in DLP does not allow bypassing same-tab operations
-    lazy.PoliciesUtils.setAndLockPref(
-      caPrefName("bypass_for_same_tab_operations"),
-      false
-    );
-    lazy.PoliciesUtils.setAndLockPref(
-      caPrefName("agent_name"),
-      "Firefox Enterprise DLP Engine"
-    );
-
-    // Derive interception points from the union of enabled rules' Actions, using
-    // only rules whose ContentPatterns are valid regexes (the invalid ones are
-    // reported to about:policies#errors and dropped here so they are neither
-    // enforced nor serialized).
-    let rules = this.validateDlpRules(dlpParam.Rules ?? []).valid;
-    // DLP Action -> the interception-point pref suffixes it needs enabled.
-    const DLP_ACTION_INTERCEPTION_POINTS = {
-      TextPaste: ["clipboard", "drag_and_drop"],
-      TextCopy: ["clipboard", "drag_and_drop"],
-      FileUpload: ["file_upload", "drag_and_drop"],
-      FileDownload: ["download"],
-      Print: ["print"],
-    };
-    let activeInterceptionPoints = new Set();
-    for (let rule of rules) {
-      if (rule.Enabled !== true) {
-        continue;
-      }
-      for (let action of rule.Actions ?? []) {
-        for (let suffix of DLP_ACTION_INTERCEPTION_POINTS[action] ?? []) {
-          activeInterceptionPoints.add(suffix);
-        }
-      }
-    }
-    for (let [, suffix] of CA_INTERCEPTION_POINTS) {
-      lazy.PoliciesUtils.setAndLockPref(
-        caPrefName(`interception_point.${suffix}.enabled`),
-        activeInterceptionPoints.has(suffix)
-      );
-    }
-
-    // Only look at plain-text interception points to avoid duplicate
-    // block/warn dialogs for the same action.
-    for (let [, suffix] of CA_PLAIN_TEXT_POINTS) {
-      lazy.PoliciesUtils.setAndLockPref(
-        caPrefName(`interception_point.${suffix}.plain_text_only`),
-        true
-      );
-    }
-
-    lazy.PoliciesUtils.setPrefIfPresentAndLock(
-      dlpParam,
-      "AllowUrlRegexList",
-      caPrefName("allow_url_regex_list")
-    );
-
-    // Map FallbackResult to the ContentAnalysis numeric result (0 = block/deny,
-    // 1 = warn, 2 = allow).
-    const DLP_FALLBACK_RESULT = { block: 0, warn: 1, allow: 2 };
-    let fallback = DLP_FALLBACK_RESULT[dlpParam.FallbackResult ?? "block"] ?? 0;
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("default_result"), fallback);
-    lazy.PoliciesUtils.setAndLockPref(caPrefName("timeout_result"), fallback);
-
-    lazy.PoliciesUtils.setAndLockPref(
-      caPrefName("dlp_rules"),
-      JSON.stringify({ DLPRules: { Rules: rules } })
-    );
-
-    markContentAnalysisPolicyControlled();
   },
 
   // Validate DLP rules' ContentPatterns as regular expressions (a JS-regex
@@ -193,6 +99,169 @@ export const ContentAnalysisPolicies = {
     return { valid, errors };
   },
 };
+
+// Apply prefs for setting up the external-agent provider.
+function applyExternalContentAnalysis(caParam) {
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), true);
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), false);
+  lazy.PoliciesUtils.setAndLockPref(
+    caPrefName("wasm_module_extension_require_signature"),
+    true
+  );
+
+  applyContentAnalysisConfig(caParam);
+  lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName("dlp_rules"));
+  markContentAnalysisPolicyControlled();
+}
+
+// Apply prefs for setting up the built-in DLP provider.
+function applyBuiltinDlp(dlpParam) {
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), true);
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), true);
+  lazy.PoliciesUtils.setAndLockPref(
+    caPrefName("wasm_module_extension_require_signature"),
+    true
+  );
+
+  // The external agent isn't running, so these prefs are released.
+  for (let suffix of [
+    "pipe_path_name",
+    "client_signature",
+    "max_connections",
+    "is_per_user",
+  ]) {
+    lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName(suffix));
+  }
+
+  // Built-in DLP policy does not have an explicit deny list, but encodes
+  // domain deny behavior in the DLP rules for processing by the engine.
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("deny_url_regex_list"), "");
+  // The request timeout stays generous (the in-process module completes quickly)
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("agent_timeout"), 300);
+  // Built-in DLP needs to show blocked results in Firefox
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("show_blocked_result"), true);
+  // Built-in DLP does not allow bypassing same-tab operations
+  lazy.PoliciesUtils.setAndLockPref(
+    caPrefName("bypass_for_same_tab_operations"),
+    false
+  );
+  lazy.PoliciesUtils.setAndLockPref(
+    caPrefName("agent_name"),
+    "Firefox Enterprise DLP Engine"
+  );
+
+  // Derive interception points from the union of enabled rules' Actions, using
+  // only rules whose ContentPatterns are valid regexes (the invalid ones are
+  // reported to about:policies#errors and dropped here so they are neither
+  // enforced nor serialized).
+  let rules = ContentAnalysisPolicies.validateDlpRules(
+    dlpParam.Rules ?? []
+  ).valid;
+  // DLP Action -> the interception-point pref suffixes it needs enabled.
+  const DLP_ACTION_INTERCEPTION_POINTS = {
+    TextPaste: ["clipboard", "drag_and_drop"],
+    TextCopy: ["clipboard", "drag_and_drop"],
+    FileUpload: ["file_upload", "drag_and_drop"],
+    FileDownload: ["download"],
+    Print: ["print"],
+  };
+  let activeInterceptionPoints = new Set();
+  for (let rule of rules) {
+    if (rule.Enabled !== true) {
+      continue;
+    }
+    for (let action of rule.Actions ?? []) {
+      for (let suffix of DLP_ACTION_INTERCEPTION_POINTS[action] ?? []) {
+        activeInterceptionPoints.add(suffix);
+      }
+    }
+  }
+  for (let [, suffix] of CA_INTERCEPTION_POINTS) {
+    lazy.PoliciesUtils.setAndLockPref(
+      caPrefName(`interception_point.${suffix}.enabled`),
+      activeInterceptionPoints.has(suffix)
+    );
+  }
+
+  // Only look at plain-text interception points to avoid duplicate
+  // block/warn dialogs for the same action.
+  for (let [, suffix] of CA_PLAIN_TEXT_POINTS) {
+    lazy.PoliciesUtils.setAndLockPref(
+      caPrefName(`interception_point.${suffix}.plain_text_only`),
+      true
+    );
+  }
+
+  lazy.PoliciesUtils.setPrefIfPresentAndLock(
+    dlpParam,
+    "AllowUrlRegexList",
+    caPrefName("allow_url_regex_list")
+  );
+
+  // Map FallbackResult to the ContentAnalysis numeric result (0 = block/deny,
+  // 1 = warn, 2 = allow).
+  const DLP_FALLBACK_RESULT = { block: 0, warn: 1, allow: 2 };
+  let fallback = DLP_FALLBACK_RESULT[dlpParam.FallbackResult ?? "block"] ?? 0;
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("default_result"), fallback);
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("timeout_result"), fallback);
+
+  lazy.PoliciesUtils.setAndLockPref(
+    caPrefName("dlp_rules"),
+    JSON.stringify({ DLPRules: { Rules: rules } })
+  );
+
+  markContentAnalysisPolicyControlled();
+}
+
+// Turn both providers off. A still-present (disabled) ContentAnalysis policy
+// keeps its config locked with the service disabled to match previous behavior.
+function disableContentAnalysis(caParam) {
+  if (!caParam) {
+    for (let suffix of [
+      "enabled",
+      "use_wasm_backend",
+      "wasm_module_extension_require_signature",
+      "default_result",
+      "timeout_result",
+      "dlp_rules",
+      "allow_url_regex_list",
+      "deny_url_regex_list",
+      "agent_timeout",
+      "show_blocked_result",
+      "bypass_for_same_tab_operations",
+      "agent_name",
+      "pipe_path_name",
+      "client_signature",
+      "max_connections",
+      "is_per_user",
+    ]) {
+      lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName(suffix));
+    }
+    for (let [, suffix] of CA_INTERCEPTION_POINTS) {
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        caPrefName(`interception_point.${suffix}.enabled`)
+      );
+    }
+    for (let [, suffix] of CA_PLAIN_TEXT_POINTS) {
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        caPrefName(`interception_point.${suffix}.plain_text_only`)
+      );
+    }
+    return;
+  }
+
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), false);
+  lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), false);
+  lazy.PoliciesUtils.setAndLockPref(
+    caPrefName("wasm_module_extension_require_signature"),
+    true
+  );
+  applyContentAnalysisConfig(caParam);
+  lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName("dlp_rules"));
+  if ("Enabled" in caParam) {
+    markContentAnalysisPolicyControlled();
+  }
+}
 
 // Set and lock the Content Analysis prefs for an active ContentAnalysis policy.
 // Used for the external agent and for an explicitly-disabled ContentAnalysis policy.

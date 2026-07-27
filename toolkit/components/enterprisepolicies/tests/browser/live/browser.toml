@@ -17,6 +17,6 @@ run-if = [
 
 ["browser_live_policies_restoring_preference_state.js"]
 
-["browser_live_policy_cookies.js"]
+["browser_live_policy_Cookies.js"]
 
 ["browser_live_policy_proxy.js"]

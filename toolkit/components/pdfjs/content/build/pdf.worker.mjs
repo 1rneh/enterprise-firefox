@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.2.36
- * pdfjsBuild = 0c8f67059
+ * pdfjsVersion = 6.2.52
+ * pdfjsBuild = 05e100c76
  */
 
 ;// ./src/shared/util.js
@@ -480,9 +480,6 @@ function stringToBytes(str) {
     bytes[i] = str.charCodeAt(i) & 0xff;
   }
   return bytes;
-}
-function objectSize(obj) {
-  return Object.keys(obj).length;
 }
 class FeatureTest {
   static get isLittleEndian() {
@@ -975,15 +972,14 @@ class Dict {
   }
 }
 class Ref {
-  constructor(num, gen) {
+  #str;
+  constructor(str, num, gen) {
+    this.#str = str;
     this.num = num;
     this.gen = gen;
   }
   toString() {
-    if (this.gen === 0) {
-      return `${this.num}R`;
-    }
-    return `${this.num}R${this.gen}`;
+    return this.#str;
   }
   static fromString(str) {
     const ref = RefCache[str];
@@ -994,11 +990,13 @@ class Ref {
     if (!m || m[1] === "0") {
       return null;
     }
-    return RefCache[str] = new Ref(parseInt(m[1], 10), !m[2] ? 0 : parseInt(m[2], 10));
+    const num = parseInt(m[1], 10),
+      gen = !m[2] ? 0 : parseInt(m[2], 10);
+    return RefCache[str] = new Ref(str, num, gen);
   }
   static get(num, gen) {
-    const key = gen === 0 ? `${num}R` : `${num}R${gen}`;
-    return RefCache[key] ||= new Ref(num, gen);
+    const str = gen === 0 ? `${num}R` : `${num}R${gen}`;
+    return RefCache[str] ||= new Ref(str, num, gen);
   }
 }
 class RefSet {
@@ -1550,7 +1548,7 @@ function collectActions(xref, dict, eventType) {
       actions.Action = list;
     }
   }
-  return objectSize(actions) > 0 ? actions : null;
+  return Object.keys(actions).length ? actions : null;
 }
 const XMLEntities = {
   0x3c: "&lt;",
@@ -41019,7 +41017,7 @@ class Catalog {
   }
   get openAction() {
     const obj = this.#catDict.get("OpenAction");
-    const openAction = Object.create(null);
+    const openAction = new Map();
     if (obj instanceof Dict) {
       const destDict = new Dict(this.xref);
       destDict.set("A", obj);
@@ -41033,14 +41031,14 @@ class Catalog {
         resultObj
       });
       if (Array.isArray(resultObj.dest)) {
-        openAction.dest = resultObj.dest;
+        openAction.set("dest", resultObj.dest);
       } else if (resultObj.action) {
-        openAction.action = resultObj.action;
+        openAction.set("action", resultObj.action);
       }
     } else if (isValidExplicitDest(obj)) {
-      openAction.dest = obj;
+      openAction.set("dest", obj);
     }
-    return shadow(this, "openAction", objectSize(openAction) > 0 ? openAction : null);
+    return shadow(this, "openAction", openAction.size ? openAction : null);
   }
   get attachments() {
     const obj = this.#catDict.get("Names");
@@ -58117,6 +58115,9 @@ class XRef {
     this.pdfManager = pdfManager;
     this.entries = [];
     this._xrefStms = new Set();
+    this._xrefSectionOffsets = new Set();
+    this._xrefSectionsComplete = true;
+    this._parsedWithRecovery = false;
     this._cacheMap = new Map();
     this._pendingRefs = new RefSet();
     this._newPersistentRefNum = null;
@@ -58157,6 +58158,7 @@ class XRef {
     this.startXRefQueue = [startXRef];
   }
   parse(recoveryMode = false) {
+    this._parsedWithRecovery = recoveryMode;
     let trailerDict;
     if (!recoveryMode) {
       trailerDict = this.readXRef();
@@ -58651,6 +58653,7 @@ class XRef {
         } else {
           throw new FormatError("Invalid XRef stream header");
         }
+        this._xrefSectionOffsets.add(startXRef);
         obj = dict.get("Prev");
         if (Number.isInteger(obj)) {
           this.startXRefQueue.push(obj);
@@ -58661,6 +58664,7 @@ class XRef {
         if (e instanceof MissingDataException) {
           throw e;
         }
+        this._xrefSectionsComplete = false;
         info("(while reading XRef): " + e);
       }
       this.startXRefQueue.shift();
@@ -58672,6 +58676,19 @@ class XRef {
       return undefined;
     }
     throw new XRefParseException();
+  }
+  countUpdatesAfter(offset) {
+    if (this._parsedWithRecovery || !this._xrefSectionsComplete) {
+      return null;
+    }
+    const relativeOffset = offset - this.stream.start;
+    let count = 0;
+    for (const sectionOffset of this._xrefSectionOffsets) {
+      if (sectionOffset >= relativeOffset && !this._xrefStms.has(sectionOffset)) {
+        count++;
+      }
+    }
+    return count;
   }
   getEntry(i) {
     const xrefEntry = this.entries[i];
@@ -58871,6 +58888,7 @@ class XRef {
 
 
 const LETTER_SIZE_MEDIABOX = [0, 0, 612, 792];
+const SIGNATURE_TAIL_CHUNK_SIZE = 65536;
 class Page {
   #resourcesPromise = null;
   constructor({
@@ -60240,7 +60258,7 @@ class PDFDocument {
       }
       await Promise.all(allPromises);
       return {
-        allFields: objectSize(allFields) > 0 ? allFields : null,
+        allFields: Object.keys(allFields).length ? allFields : null,
         orphanFields
       };
     });
@@ -60275,7 +60293,33 @@ class PDFDocument {
       }
     }
   }
-  static #WHOLE_DOCUMENT_TAIL_FUZZ = 100;
+  async #getByteRange(begin, end) {
+    try {
+      return this.stream.getByteRange(begin, end);
+    } catch (ex) {
+      if (!(ex instanceof MissingDataException)) {
+        throw ex;
+      }
+      await this.pdfManager.requestRange(begin, end);
+      return this.#getByteRange(begin, end);
+    }
+  }
+  async #coversWholeDocument(signedEnd, modificationsAfterSignature) {
+    if (modificationsAfterSignature > 0) {
+      return false;
+    }
+    const fileLength = this.stream.end;
+    for (let begin = signedEnd; begin < fileLength; begin += SIGNATURE_TAIL_CHUNK_SIZE) {
+      const end = Math.min(begin + SIGNATURE_TAIL_CHUNK_SIZE, fileLength);
+      const tail = await this.#getByteRange(begin, end);
+      for (const byte of tail) {
+        if (byte !== 0x00 && byte !== 0x09 && byte !== 0x0a && byte !== 0x0c && byte !== 0x0d && byte !== 0x20) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
   #parseSignatureDict(field, sigDict, fieldRef) {
     const byteRange = sigDict.get("ByteRange");
     if (!Array.isArray(byteRange) || byteRange.length !== 4 || byteRange.some(n => !Number.isInteger(n) || n < 0)) {
@@ -60298,10 +60342,9 @@ class PDFDocument {
     const [a, b, c, d] = byteRange;
     const stream = this.stream;
     const fileLength = stream.end || 0;
-    if (a !== 0 || b <= 0 || d < 0 || a + b > c || c + d > fileLength || fileLength === 0) {
+    if (a !== 0 || b <= 0 || a + b > c || c + d > fileLength || fileLength === 0) {
       return null;
     }
-    const data = [stream.getByteRange(a, a + b), stream.getByteRange(c, c + d)];
     const pkcs7 = stringToBytes(contents);
     const t = field.get("T");
     const fieldName = typeof t === "string" ? stringToPDFString(t) : "";
@@ -60312,7 +60355,6 @@ class PDFDocument {
     const m = sigDict.get("M");
     const refKey = fieldRef instanceof Ref ? fieldRef.toString() : "inline";
     const id = `${refKey}:${a}-${b}-${c}-${d}`;
-    const tailGap = fileLength - (c + d);
     return {
       id,
       fieldName,
@@ -60326,10 +60368,8 @@ class PDFDocument {
       signatureType,
       byteRange,
       pkcs7,
-      data,
       revisionIndex: 0,
-      parentId: null,
-      coversWholeDocument: tailGap >= 0 && tailGap <= PDFDocument.#WHOLE_DOCUMENT_TAIL_FUZZ
+      parentId: null
     };
   }
   get signatures() {
@@ -60344,6 +60384,11 @@ class PDFDocument {
       const fields = annotationGlobals.acroForm.get("Fields");
       const collected = [];
       this.#collectSignatureFields(fields, collected, new RefSet());
+      await Promise.all(collected.map(async signature => {
+        const signedEnd = signature.byteRange[2] + signature.byteRange[3];
+        signature.modificationsAfterSignature = this.xref.countUpdatesAfter?.(signedEnd) ?? null;
+        signature.coversWholeDocument = await this.#coversWholeDocument(signedEnd, signature.modificationsAfterSignature);
+      }));
       collected.sort((a, b) => b.byteRange[2] + b.byteRange[3] - (a.byteRange[2] + a.byteRange[3]));
       for (let i = 0, ii = collected.length; i < ii; i++) {
         const sig = collected[i];
@@ -60359,12 +60404,11 @@ class PDFDocument {
       const signatureData = new Map();
       const metadata = collected.map(sig => {
         const {
-          data,
           pkcs7,
           ...rest
         } = sig;
         signatureData.set(sig.id, {
-          data,
+          byteRange: sig.byteRange,
           pkcs7
         });
         return rest;
@@ -60376,7 +60420,20 @@ class PDFDocument {
   }
   async getSignatureData(id) {
     await this.signatures;
-    return this.#signatureData?.get(id) ?? null;
+    const signature = this.#signatureData?.get(id);
+    if (!signature) {
+      return null;
+    }
+    const {
+      byteRange,
+      pkcs7
+    } = signature;
+    const [a, b, c, d] = byteRange;
+    const data = await Promise.all([this.#getByteRange(a, a + b), this.#getByteRange(c, c + d)]);
+    return {
+      data,
+      pkcs7
+    };
   }
   get hasJSActions() {
     const promise = this.pdfManager.ensureDoc("_parseHasJSActions");
@@ -63052,7 +63109,7 @@ class PDFEditor {
       if (data.parentRef) {
         newKid.set("Parent", data.parentRef);
       }
-      if (acroFormDefaultAppearance && isName(newKid.get("FT"), "Tx") && !newKid.has("DA")) {
+      if (acroFormDefaultAppearance && !newKid.has("DA")) {
         daToFix.push(newKid);
       }
       if (acroFormDefaultResources && !newKid.has("Kids") && newKid.get("AP") instanceof Dict) {
@@ -63063,6 +63120,13 @@ class PDFEditor {
       }
     }
     for (const field of daToFix) {
+      const fieldType = getInheritableProperty({
+        dict: field,
+        key: "FT"
+      });
+      if (!isName(fieldType, "Tx")) {
+        continue;
+      }
       const da = getInheritableProperty({
         dict: field,
         key: "DA"
@@ -64009,7 +64073,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.2.36";
+    const workerVersion = "6.2.52";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }

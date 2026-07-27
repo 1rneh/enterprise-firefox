@@ -1236,6 +1236,16 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
 #  endif
   auto doc = static_cast<a11y::DocAccessibleParent*>(aDoc);
   doc->SetIsPrintDoc(aIsPrintDoc);
+  auto allow = doc->ShouldAllowConstruction();
+  if (allow == a11y::DocAccessibleParent::AllowConstruction::Disallow) {
+    return IPC_FAIL(
+        this,
+        "Attempt to construct PDocAccessible when accessibility not in use");
+  } else if (allow ==
+             a11y::DocAccessibleParent::AllowConstruction::AllowButIgnore) {
+    doc->MarkAsShutdown();
+    return IPC_OK();
+  }
 
   // If this tab is already shutting down just mark the new actor as shutdown
   // and ignore it.  When the tab actor is destroyed it will be too.
@@ -1392,13 +1402,20 @@ IPCResult BrowserParent::RecvNewWindowGlobal(
   // NOTE: Keep this in sync with the similar check in
   // DocumentLoadListener::TriggerRedirectToRealChannel.
   EnumSet<ValidatePrincipalOptions> validationOptions = {};
-  // FIXME(bug 1698087): chrome://devtools/**/webextension-fallback.html
-  // Automation-Only: chrome://reftest/** + blank subframes
-  if (docURI->SchemeIs("chrome") ||
-      (xpc::IsInAutomation() && NS_IsAboutBlank(docURI) && parentWgp &&
-       parentWgp->Manager() == this &&
-       parentWgp->DocumentPrincipal()->IsSystemPrincipal())) {
-    validationOptions += ValidatePrincipalOptions::AllowSystem;
+  if (xpc::IsInAutomation()) {
+    // Automation-Only: chrome://reftest/** + blank subframes
+    bool isChromeReftest = false;
+    if (docURI->SchemeIs("chrome")) {
+      nsAutoCString host;
+      docURI->GetHost(host);
+      isChromeReftest = host.EqualsLiteral("reftest");
+    }
+
+    if (isChromeReftest ||
+        (NS_IsAboutBlank(docURI) && parentWgp && parentWgp->Manager() == this &&
+         parentWgp->DocumentPrincipal()->IsSystemPrincipal())) {
+      validationOptions += ValidatePrincipalOptions::AllowSystem;
+    }
   }
   if (!Manager()->ValidatePrincipal(aInit.principal(), validationOptions)) {
     return ContentParent::PrincipalValidationIpcFail(aInit.principal(), this,

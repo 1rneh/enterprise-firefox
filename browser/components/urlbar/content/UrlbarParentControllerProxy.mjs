@@ -11,6 +11,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 /**
  * @import {UrlbarChild} from "../../../actors/UrlbarChild.sys.mjs"
+ * @import {UrlbarParentController} from "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs"
  */
 
 /**
@@ -119,6 +120,60 @@ export class UrlbarParentControllerProxy {
     });
   }
 
+  /**
+   * Ships a search-mode entry to the parent recorder. The counterpart to the
+   * controller's `recordSearchMode()`.
+   *
+   * @param {object} searchMode The search mode being entered.
+   */
+  recordSearchMode(searchMode) {
+    this.#actor.sendAsyncMessage("RecordSearchMode", {
+      instanceId: this.#instanceId,
+      searchMode,
+    });
+  }
+
+  /**
+   * Ships a search-form visit to the parent recorder, which resolves the engine
+   * by name. The counterpart to the controller's `recordSearchForm()`.
+   *
+   * @param {string} engineName The name of the engine whose form was visited.
+   */
+  recordSearchForm(engineName) {
+    this.#actor.sendAsyncMessage("RecordSearchForm", {
+      instanceId: this.#instanceId,
+      engineName,
+    });
+  }
+
+  /**
+   * Ships a search to the parent recorder, which resolves the engine by name
+   * and the browser by id. The counterpart to the controller's `recordSearch()`.
+   *
+   * @param {object} options
+   *   `{engineName, searchSource, browserId, details}`.
+   */
+  recordSearch(options) {
+    this.#actor.sendAsyncMessage("RecordSearch", {
+      instanceId: this.#instanceId,
+      ...options,
+    });
+  }
+
+  /**
+   * Records a search opening in a new tab, against that tab's browser resolved
+   * parent-side. The counterpart to the controller's `recordSearchInOpenedTab()`.
+   *
+   * @param {Parameters<UrlbarParentController["recordSearch"]>[0]} searchData
+   *   The data for `recordSearch`.
+   */
+  recordSearchInOpenedTab(searchData) {
+    this.#actor.sendAsyncMessage("RecordSearchInOpenedTab", {
+      instanceId: this.#instanceId,
+      searchData,
+    });
+  }
+
   // Named to match the controller property the child controller forwards to.
   get _lastQueryContextWrapper() {
     return this.#lastQueryContextWrapper;
@@ -171,6 +226,23 @@ export class UrlbarParentControllerProxy {
     return wire ? lazy.UrlbarResult.fromWire(wire) : null;
   }
 
+  /**
+   * Resolves an Enter with no result available to pick parent-side, returning
+   * either a heuristic result to pick or a fixup URL to load.
+   *
+   * @param {object} details The serializable resolve parameters.
+   * @returns {Promise<object>} `{ heuristicResult }`, `{ fixup }`, or `{}`.
+   */
+  async resolveFallbackNavigation(details) {
+    let outcome = await this.#actor.sendQuery("ResolveFallbackNavigation", {
+      instanceId: this.#instanceId,
+      details,
+    });
+    return outcome.heuristicResult
+      ? { heuristicResult: lazy.UrlbarResult.fromWire(outcome.heuristicResult) }
+      : outcome;
+  }
+
   cancelQuery() {
     this.#actor.sendAsyncMessage("CancelQuery", {
       instanceId: this.#instanceId,
@@ -204,6 +276,33 @@ export class UrlbarParentControllerProxy {
    */
   loadURL(loadData) {
     return this.#actor.sendQuery("LoadURL", {
+      instanceId: this.#instanceId,
+      loadData,
+    });
+  }
+
+  /**
+   * Focuses the browser a deferred-Enter load targeted, resolved parent-side
+   * from `browserId`.
+   *
+   * @param {number} [browserId] The browser the load resolved to, as returned by `loadURL`.
+   * @returns {Promise<{focused: boolean}>} Whether the browser was focused.
+   */
+  focusBrowser(browserId) {
+    return this.#actor.sendQuery("FocusBrowser", {
+      instanceId: this.#instanceId,
+      browserId,
+    });
+  }
+
+  /**
+   * Switches to a tab already showing the URL (or opens it), resolved
+   * parent-side, along with the follow-up history/open-tab writes.
+   *
+   * @param {object} loadData The serializable switch parameters.
+   */
+  switchToTab(loadData) {
+    this.#actor.sendAsyncMessage("SwitchToTab", {
       instanceId: this.#instanceId,
       loadData,
     });
@@ -277,6 +376,33 @@ export class UrlbarParentControllerProxy {
       instanceId: this.#instanceId,
       result: result.toWire(),
       idsByName,
+    });
+  }
+
+  /**
+   * {@link UrlbarParentController#initEngineStore}
+   */
+  initEngineStore() {
+    return this.#actor.sendAsyncMessage("InitEngineStore", {
+      instanceId: this.#instanceId,
+    });
+  }
+
+  /**
+   * @type {UrlbarParentController["getEngineIconURL"]}
+   */
+  getEngineIconURL(engineId) {
+    return this.#actor.sendQuery("GetEngineIconURL", {
+      instanceId: this.#instanceId,
+      engineId,
+    });
+  }
+
+  /** @type {UrlbarParentController["markEngineAsUsed"]} */
+  markEngineAsUsed(engineId) {
+    this.#actor.sendAsyncMessage("MarkEngineAsUsed", {
+      instanceId: this.#instanceId,
+      engineId,
     });
   }
 }

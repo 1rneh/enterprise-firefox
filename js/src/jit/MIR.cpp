@@ -6229,6 +6229,29 @@ MDefinition* MStrictConstantCompareBoolean::foldsTo(TempAllocator& alloc) {
   return MConstant::NewBoolean(alloc, jsop() == JSOp::StrictNe);
 }
 
+MDefinition* MStrictConstantCompareString::foldsTo(TempAllocator& alloc) {
+  if (!value()->isBox()) {
+    return this;
+  }
+  MDefinition* unboxed = value()->toBox()->input();
+
+  if (unboxed->type() == MIRType::String) {
+    if (unboxed->isConstant()) {
+      int32_t comp =
+          CompareStrings(unboxed->toConstant()->toString(), constant());
+      bool result = FoldComparison(jsop(), comp, 0);
+      return MConstant::NewBoolean(alloc, result);
+    }
+
+    auto* cst = MConstant::NewString(alloc, constant()->unwrap());
+    block()->insertBefore(this, cst);
+
+    return MCompare::New(alloc, unboxed, cst, jsop(), MCompare::Compare_String);
+  }
+
+  return MConstant::NewBoolean(alloc, jsop() == JSOp::StrictNe);
+}
+
 MDefinition* MSameValue::foldsTo(TempAllocator& alloc) {
   MDefinition* lhs = left();
   if (lhs->isBox()) {
@@ -7901,6 +7924,8 @@ MDefinition* MTimeClip::foldsTo(TempAllocator& alloc) {
   auto clipped = JS::TimeClip(time->toConstant()->toDouble());
   return MConstant::NewDouble(alloc, JS::CanonicalizeNaN(clipped.toDouble()));
 }
+
+JSOp MBinaryCache::jsop() const { return JSOp(*resumePoint()->pc()); }
 
 // Returns `false` if it can be proven that (1) both `mtyA` and `mtyB` are
 // struct types and (2) they are not related by inheritance.  Returns `true` in

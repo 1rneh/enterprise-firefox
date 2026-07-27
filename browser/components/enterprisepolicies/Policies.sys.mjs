@@ -1204,16 +1204,12 @@ export var Policies = {
         param.Locked
       );
     },
-    onRemove(manager, oldParams) {
+    onRemove() {
       Services.perms.removePolicyPermissionsByType("cookie");
-      if (
-        oldParams.Allow?.length &&
-        !manager.getActivePolicies()?.SanitizeOnShutdown?.Exceptions?.length
-      ) {
-        Services.perms.removePolicyPermissionsByType(
-          "persist-data-on-shutdown"
-        );
-      }
+      // persist-data-on-shutdown entries added by the deprecated Allow shim
+      // (see onBeforeUIStartup) are left in place as the shim is being removed
+      // in one of the next releases, and SanitizeOnShutdown.Exceptions
+      // owns these entries going forward.
       lazy.clearRunOnceModification("clearCookiesForBlockedHosts");
       lazy.PoliciesUtils.unsetDefaultPref("network.cookie.cookieBehavior");
       lazy.PoliciesUtils.unsetDefaultPref(

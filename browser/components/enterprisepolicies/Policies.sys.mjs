@@ -1204,9 +1204,16 @@ export var Policies = {
         param.Locked
       );
     },
-    onRemove() {
+    onRemove(manager, oldParams) {
       Services.perms.removePolicyPermissionsByType("cookie");
-      Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
+      if (
+        oldParams.Allow?.length &&
+        !manager.getActivePolicies()?.SanitizeOnShutdown?.Exceptions?.length
+      ) {
+        Services.perms.removePolicyPermissionsByType(
+          "persist-data-on-shutdown"
+        );
+      }
       lazy.clearRunOnceModification("clearCookiesForBlockedHosts");
       lazy.PoliciesUtils.unsetDefaultPref("network.cookie.cookieBehavior");
       lazy.PoliciesUtils.unsetDefaultPref(

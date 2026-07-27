@@ -1965,7 +1965,7 @@ nsresult PermissionManager::AddInternal(
     int64_t aID, uint32_t aExpireType, int64_t aExpireTime,
     int64_t aModificationTime, NotifyOperationType aNotifyOperation,
     DBOperationType aDBOperation, const nsACString* aOriginString,
-    const bool aAllowPersistInPrivateBrowsing, const bool aAllowPolicyChange) {
+    const bool aAllowPersistInPrivateBrowsing) {
   MOZ_ASSERT_IF(!IsChildProcess(), NS_IsMainThread());
 
   // If this is a default permission, no changes should not be written to disk.
@@ -2152,15 +2152,6 @@ nsresult PermissionManager::AddInternal(
       PermissionEntry oldPermissionEntry = entry->GetPermissions()[index];
       id = oldPermissionEntry.mID;
 
-      // If the type we want to remove is EXPIRE_POLICY, we need to reject
-      // attempts to remove the permission, unless the caller is the policy
-      // engine explicitly reconciling policy permissions.
-      if (entry->GetPermissions()[index].mExpireType == EXPIRE_POLICY &&
-          !aAllowPolicyChange) {
-        NS_WARNING("Attempting to remove EXPIRE_POLICY permission");
-        break;
-      }
-
       entry->GetPermissions().RemoveElementAt(index);
 
       if (aDBOperation == eWriteToDB) {
@@ -2201,13 +2192,6 @@ nsresult PermissionManager::AddInternal(
 
     case eOperationChanging: {
       id = entry->GetPermissions()[index].mID;
-
-      // If the existing type is EXPIRE_POLICY, we need to reject attempts to
-      // change the permission.
-      if (entry->GetPermissions()[index].mExpireType == EXPIRE_POLICY) {
-        NS_WARNING("Attempting to modify EXPIRE_POLICY permission");
-        break;
-      }
 
       PermissionEntry oldPermissionEntry = entry->GetPermissions()[index];
 
@@ -2441,7 +2425,7 @@ nsresult PermissionManager::RemovePermissionEntries(
     const std::function<bool(const PermissionEntry& aPermEntry,
                              const nsCOMPtr<nsIPrincipal>& aPrincipal)>&
         aCondition,
-    bool aComputePrincipalForCondition, bool aAllowPolicyChange) {
+    bool aComputePrincipalForCondition) {
   EnsureReadCompleted();
 
   Vector<std::tuple<nsCOMPtr<nsIPrincipal>, nsCString, nsCString>, 10> array;
@@ -2484,22 +2468,20 @@ nsresult PermissionManager::RemovePermissionEntries(
     AddInternal(
         std::get<0>(i), std::get<1>(i), nsIPermissionManager::UNKNOWN_ACTION, 0,
         nsIPermissionManager::EXPIRE_NEVER, 0, 0, PermissionManager::eNotify,
-        PermissionManager::eWriteToDB, &std::get<2>(i),
-        /* aAllowPersistInPrivateBrowsing */ false, aAllowPolicyChange);
+        PermissionManager::eWriteToDB, &std::get<2>(i));
   }
 
   return NS_OK;
 }
 
 nsresult PermissionManager::RemovePermissionEntries(
-    const std::function<bool(const PermissionEntry& aPermEntry)>& aCondition,
-    bool aAllowPolicyChange) {
+    const std::function<bool(const PermissionEntry& aPermEntry)>& aCondition) {
   return RemovePermissionEntries(
       [&](const PermissionEntry& aPermEntry,
           const nsCOMPtr<nsIPrincipal>& aPrincipal) {
         return aCondition(aPermEntry);
       },
-      false, aAllowPolicyChange);
+      false);
 }
 
 NS_IMETHODIMP
@@ -2525,33 +2507,6 @@ PermissionManager::RemoveByType(const nsACString& aType) {
         RemovePermissionEntries([typeIndex](const PermissionEntry& aPermEntry) {
           return static_cast<uint32_t>(typeIndex) == aPermEntry.mType;
         });
-  }
-
-  CleanupOrphanedInteractionRecords();
-  return rv;
-}
-
-NS_IMETHODIMP
-PermissionManager::RemovePolicyPermissionsByType(const nsACString& aType) {
-  ENSURE_NOT_CHILD_PROCESS;
-
-  nsresult rv;
-  {
-    MonitorAutoLock lock{mMonitor};
-
-    EnsureReadCompleted();
-
-    int32_t typeIndex = GetTypeIndex(aType, false);
-    if (typeIndex == -1) {
-      return NS_OK;
-    }
-
-    rv = RemovePermissionEntries(
-        [typeIndex](const PermissionEntry& aPermEntry) {
-          return static_cast<uint32_t>(typeIndex) == aPermEntry.mType &&
-                 aPermEntry.mExpireType == nsIPermissionManager::EXPIRE_POLICY;
-        },
-        /* aAllowPolicyChange */ true);
   }
 
   CleanupOrphanedInteractionRecords();

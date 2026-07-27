@@ -200,14 +200,6 @@ interface nsIPermissionManager : nsISupports
   void removeByType(in ACString type);
 
   /**
-   * Clear all permissions of the passed type that were set by enterprise
-   * policy (i.e. with EXPIRE_POLICY expiry). This is the only way to remove
-   * policy permissions at runtime; Parent process only, and intended for the
-   * enterprise policy engine when a policy is updated or removed live.
-   */
-  void removePolicyPermissionsByType(in ACString type);
-
-  /**
    * Clear all permissions not of the passed types.
    */
   void removeAllExceptTypes(in Array<ACString> typeExceptions);

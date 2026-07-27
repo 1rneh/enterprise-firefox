@@ -1204,8 +1204,25 @@ export var Policies = {
         param.Locked
       );
     },
-    onRemove() {
-      Services.perms.removePolicyPermissionsByType("cookie");
+    onRemove(manager, param) {
+      for (let origin of [
+        ...(param.Allow ?? []),
+        ...(param.Block ?? []),
+        ...(param.AllowSession ?? []),
+      ]) {
+        try {
+          Services.perms.removeFromPrincipal(
+            Services.scriptSecurityManager.createContentPrincipalFromOrigin(
+              origin
+            ),
+            "cookie"
+          );
+        } catch (ex) {
+          lazy.log.error(
+            `Unable to remove cookie permission - ${origin.href || origin}`
+          );
+        }
+      }
       // persist-data-on-shutdown entries added by the deprecated Allow shim
       // (see onBeforeUIStartup) are left in place as the shim is being removed
       // in one of the next releases, and SanitizeOnShutdown.Exceptions

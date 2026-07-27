@@ -107,8 +107,8 @@ add_task(async function test_cookie_permissions_removed_on_remove() {
   const sessionOrigin = "https://session.example.com";
 
   registerCleanupFunction(() => {
-    Services.perms.removePolicyPermissionsByType("cookie");
-    Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
+    Services.perms.removeByType("cookie");
+    Services.perms.removeByType("persist-data-on-shutdown");
   });
 
   info("Applying a Cookies policy config with Allow/Block/AllowSession lists.");
@@ -168,8 +168,8 @@ add_task(async function test_cookie_permissions_reconciled_on_update() {
   const droppedOrigin = "https://dropped.example.com";
 
   registerCleanupFunction(() => {
-    Services.perms.removePolicyPermissionsByType("cookie");
-    Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
+    Services.perms.removeByType("cookie");
+    Services.perms.removeByType("persist-data-on-shutdown");
   });
 
   info("Applying a Cookies policy config allowing two origins.");
@@ -224,8 +224,8 @@ add_task(
     const allowOrigin = "https://persist.example.com";
 
     registerCleanupFunction(() => {
-      Services.perms.removePolicyPermissionsByType("cookie");
-      Services.perms.removePolicyPermissionsByType("persist-data-on-shutdown");
+      Services.perms.removeByType("cookie");
+      Services.perms.removeByType("persist-data-on-shutdown");
     });
 
     info(

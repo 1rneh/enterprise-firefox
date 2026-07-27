@@ -564,20 +564,18 @@ class PermissionManager final : public nsIPermissionManager,
   nsresult RemoveAllForPrivateBrowsing() MOZ_REQUIRES(mMonitor);
 
   // Helper function which removes all permissions for which aCondition
-  // evaluates to true. aAllowPolicyChange lets EXPIRE_POLICY permissions be
-  // removed.
+  // evaluates to true.
   nsresult RemovePermissionEntries(
       const std::function<bool(const PermissionEntry& aPermEntry,
                                const nsCOMPtr<nsIPrincipal>& aPrincipal)>&
           aCondition,
-      bool aComputePrincipalForCondition = true,
-      bool aAllowPolicyChange = false) MOZ_REQUIRES(mMonitor);
+      bool aComputePrincipalForCondition = true) MOZ_REQUIRES(mMonitor);
 
   // Overload of RemovePermissionEntries allowing aCondition not to take
   // aPrincipal as an argument.
   nsresult RemovePermissionEntries(
-      const std::function<bool(const PermissionEntry& aPermEntry)>& aCondition,
-      bool aAllowPolicyChange = false) MOZ_REQUIRES(mMonitor);
+      const std::function<bool(const PermissionEntry& aPermEntry)>& aCondition)
+      MOZ_REQUIRES(mMonitor);
 
   // Helper function which returns all permissions for which aCondition
   // evaluates to true.
@@ -596,8 +594,7 @@ class PermissionManager final : public nsIPermissionManager,
                        NotifyOperationType aNotifyOperation,
                        DBOperationType aDBOperation,
                        const nsACString* aOriginString = nullptr,
-                       const bool aAllowPersistInPrivateBrowsing = false,
-                       const bool aAllowPolicyChange = false)
+                       const bool aAllowPersistInPrivateBrowsing = false)
       MOZ_REQUIRES(mMonitor);
 
   void MaybeAddReadEntryFromMigration(const nsACString& aOrigin,

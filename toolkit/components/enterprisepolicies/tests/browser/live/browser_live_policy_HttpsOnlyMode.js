@@ -130,3 +130,34 @@ add_task(async function test_https_only_mode_live_removal() {
     }
   );
 });
+
+// "allowed" is the default and never touches the pref, so removing it
+// must preserve the pref state
+add_task(
+  async function test_https_only_mode_allowed_removal_preserves_pref_state() {
+    // Simulate the pref being locked prior to applying the policy
+    Services.prefs.lockPref(PREF_NAME);
+    checkPref(true, false);
+
+    info("Applying HttpsOnlyMode: allowed");
+    await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+      {
+        policies: {
+          HttpsOnlyMode: "allowed",
+        },
+      },
+      null
+    );
+
+    // "allowed" is a no-op on the pref.
+    checkPref(true, false);
+
+    info("Removing HttpsOnlyMode");
+    await updatePoliciesLive({});
+
+    // The externally-set lock is preserved since "allowed" never changed it.
+    checkPref(true, false);
+
+    Services.prefs.unlockPref(PREF_NAME);
+  }
+);

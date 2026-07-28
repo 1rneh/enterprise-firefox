@@ -42,15 +42,8 @@ async function removePolicies() {
   );
 }
 
-add_setup(async () => {
-  // Blocking a redirect records enterprise telemetry and would otherwise
-  // submit a Glean ping; disable submission for the duration of this test.
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.policies.enterprise.telemetry.testing.disableSubmit", true],
-    ],
-  });
-});
+// Blocking a redirect records enterprise telemetry into FOG.
+registerCleanupFunction(() => Services.fog.testResetFOG());
 
 // Applying the policy live blocks the configured pages (including redirects),
 // and removing it live stops blocking them.

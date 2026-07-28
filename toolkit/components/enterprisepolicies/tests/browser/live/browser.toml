@@ -18,3 +18,5 @@ run-if = [
 ["browser_live_policies_restoring_preference_state.js"]
 
 ["browser_live_policy_proxy.js"]
+
+["browser_live_policy_WebsiteFilter.js"]

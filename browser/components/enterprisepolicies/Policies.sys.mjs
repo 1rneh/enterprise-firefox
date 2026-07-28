@@ -4344,6 +4344,9 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       lazy.WebsiteFilter.init(param.Block || [], param.Exceptions || []);
     },
+    onRemove(_manager, _oldParams) {
+      lazy.WebsiteFilter.uninit();
+    },
   },
 
   WindowsSSO: {

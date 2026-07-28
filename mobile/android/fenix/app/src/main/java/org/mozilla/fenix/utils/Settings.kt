@@ -2336,7 +2336,7 @@ class Settings(
      */
     var shouldShowMarketingOnboarding by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_should_show_marketing_onboarding),
-        default = true,
+        default = false,
     )
 
     var shouldUseMinimalBottomToolbarWhenEnteringText by booleanPreference(
@@ -2822,6 +2822,15 @@ class Settings(
     var importPasswordsFeatureFlagEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_import_passwords),
         default = Config.channel.isDebug,
+    )
+
+    /**
+     * Feature flag that indicates if the "Check Archived Version" button is shown on eligible
+     * error pages. Off by default; the toggle is only exposed via secret settings on Nightly.
+     */
+    var isWaybackMachineEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_wayback_machine),
+        default = false,
     )
 
     /**

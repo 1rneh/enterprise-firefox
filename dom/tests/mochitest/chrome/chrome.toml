@@ -18,8 +18,7 @@ support-files = [
   "focus_frameset.html",
   "focus_window2.xhtml",
   "focus_dialog.xhtml",
-  "queryCaretRectUnix.html",
-  "queryCaretRectWin.html",
+  "queryCaretRect.html",
   "selectAtPoint.html",
   "selectAtPoint-innerframe.html",
   "sizemode_attribute.xhtml",
@@ -108,6 +107,9 @@ tags = "os_integration"
 ["test_popup_blocker_chrome.xhtml"]
 
 ["test_queryCaretRect.html"]
+skip-if = [
+  "nova", # Bug 2057931
+]
 
 ["test_resize_move_windows.xhtml"]
 support-files = [

@@ -11,6 +11,8 @@ import "chrome://browser/content/aiwindow/components/chat-assistant-error.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/chat-assistant-loader.mjs";
 // eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/chat-assistant-citations.mjs";
+// eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/website-chip-container.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/ai-website-confirmation.mjs";
@@ -18,6 +20,8 @@ import "chrome://browser/content/aiwindow/components/ai-website-confirmation.mjs
 import "chrome://browser/content/aiwindow/components/kit-mention.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/agent-monitor-item.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://global/content/elements/moz-textarea.mjs";
 
 const FOLLOW_UP_QTY = 2;
 /**
@@ -1270,7 +1274,8 @@ export class AIChatContent extends MozLitElement {
       wasRestored
     );
 
-    let canUndo = !wasRestored && !!confirmedData.operationId;
+    const undoOperationIds = confirmedData.operationIds ?? [];
+    let canUndo = !wasRestored && !!undoOperationIds.length;
     // Override can undo if explicitly dismissed
     if (toolUIData.properties?.undoDismissed) {
       canUndo = false;
@@ -1286,7 +1291,7 @@ export class AIChatContent extends MozLitElement {
               toolCallId: toolUIData.toolCallId,
               updateType: undoUpdateType,
               updateData: {
-                operationId: confirmedData.operationId,
+                operationIds: undoOperationIds,
                 selectedTabs: confirmedData.selectedTabs || [],
                 actionTimestamp: confirmedData.actionTimestamp,
               },

@@ -2139,6 +2139,9 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void testBigIntSet(Condition cond, const T& src,
                             Register dest) PER_SHARED_ARCH;
 
+  void testValueSet(Condition cond, const ValueOperand& lhs, const Value& rhs,
+                    Register dest) PER_ARCH;
+
  public:
   // The fallibleUnbox* methods below combine a Value type check with an unbox.
   // Especially on 64-bit platforms this can be implemented more efficiently
@@ -5816,6 +5819,13 @@ class MacroAssembler : public MacroAssemblerSpecific {
   // everything else.
   void compareStrings(JSOp op, Register left, Register right, Register result,
                       Label* fail);
+
+  // Compares two strings for equality based on the JSOP.
+  // This checks for identical pointers, atoms, and length. If |str| is short
+  // enough for inline comparison (cf. |canCompareStringCharsInline|),
+  // string characters are compared directly, otherwise jumps to |fail|.
+  void equalStrings(JSOp op, Register input, const JSOffThreadAtom* str,
+                    Register result, Label* fail);
 
   // Result of the typeof operation. Falls back to slow-path for proxies.
   void typeOfObject(Register objReg, Register scratch, Label* slow,

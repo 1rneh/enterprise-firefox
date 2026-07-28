@@ -6,6 +6,7 @@ package org.mozilla.fenix.home
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -35,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
@@ -153,8 +156,7 @@ import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.onboarding.OnboardingFragmentDirections
 import org.mozilla.fenix.onboarding.OnboardingReason
 import org.mozilla.fenix.onboarding.OnboardingTelemetryRecorder
-import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingFeatureDefault
-import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingStageProviderDefault
+import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingFeature
 import org.mozilla.fenix.pbmlock.NavigationOrigin
 import org.mozilla.fenix.pbmlock.observePrivateModeLock
 import org.mozilla.fenix.perf.MarkersFragmentLifecycleCallbacks
@@ -181,6 +183,7 @@ import org.mozilla.fenix.utils.showAddSearchWidgetPromptIfSupported
 import org.mozilla.fenix.wallpapers.LocalWallpaperState
 import org.mozilla.fenix.wallpapers.Wallpaper
 import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import org.mozilla.fenix.ipprotection.store.Surface as IPProtectionSurface
 
 /**
@@ -244,6 +247,9 @@ class HomeFragment : Fragment() {
     private val toolbarView: FenixHomeToolbar
         get() = nullableToolbarView!!
 
+    // Bounds of the homepage content (excluding the toolbar and system bar padding) used to crop the tab thumbnail.
+    private var homepageContentBounds: Rect? = null
+
     @VisibleForTesting
     internal val messagingFeatureHomescreen = ViewBoundFeatureWrapper<MessagingFeature>()
 
@@ -262,6 +268,7 @@ class HomeFragment : Fragment() {
     private val trackersBlockedFeature = ViewBoundFeatureWrapper<TrackersBlockedFeature>()
     private val ipProtectionWarningBinding = ViewBoundFeatureWrapper<IPProtectionWarningBinding>()
     private val ipProtectionOnboardingPrompt = ViewBoundFeatureWrapper<IPProtectionOnboardingPrompt>()
+    private val continuousOnboardingFeature = ViewBoundFeatureWrapper<ContinuousOnboardingFeature>()
 
     private val homepageEdgeToEdgeFeature = ViewBoundFeatureWrapper<HomepageEdgeToEdgeFeature>()
     private var qrScanFenixFeature: ViewBoundFeatureWrapper<QrScanFenixFeature>? =
@@ -314,10 +321,7 @@ class HomeFragment : Fragment() {
 
     private val continuousOnboardingDefaultBrowserLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            continuousOnboardingFeature.onDefaultBrowserStepCompleted(
-                activity = requireActivity(),
-                resultCode = result.resultCode,
-            )
+            continuousOnboardingFeature.get()?.onDefaultBrowserStepCompleted(result.resultCode)
         }
 
     private val telemetryRecorder by lazy {
@@ -331,23 +335,6 @@ class HomeFragment : Fragment() {
                 packageManager = requireContext().application.packageManager,
                 packageName = requireContext().application.packageName,
             ),
-        )
-    }
-
-    private val continuousOnboardingFeature by lazy {
-        val settings = requireComponents.settings
-        ContinuousOnboardingFeatureDefault(
-            settings = settings,
-            telemetryRecorder = telemetryRecorder,
-            stageProvider = ContinuousOnboardingStageProviderDefault(settings),
-            navigateToSyncSignIn = {
-                findNavController().nav(
-                    id = R.id.homeFragment,
-                    directions = OnboardingFragmentDirections.actionGlobalTurnOnSync(
-                        entrypoint = FenixFxAEntryPoint.NewUserOnboarding,
-                    ),
-                )
-            },
         )
     }
 
@@ -529,6 +516,7 @@ class HomeFragment : Fragment() {
         initTabsCleanupFeature(view = view)
         initSnackbarBinding(view = view)
         initIpProtectionBindings(view = view)
+        initContinuousOnboardingFeature()
 
         privacyNoticeBannerStore = PrivacyNoticeBannerStore(
             initialState = PrivacyNoticeBannerState(
@@ -713,7 +701,16 @@ class HomeFragment : Fragment() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .onGloballyPositioned { coordinates ->
+                    val bounds = coordinates.boundsInRoot()
+                    homepageContentBounds = Rect(
+                        bounds.left.roundToInt(),
+                        bounds.top.roundToInt(),
+                        bounds.right.roundToInt(),
+                        bounds.bottom.roundToInt(),
+                    )
+                },
         ) {
             Homepage(
                 state = HomepageState.build(
@@ -975,11 +972,6 @@ class HomeFragment : Fragment() {
 
         hideToolbar()
 
-        continuousOnboardingFeature.maybeRunContinuousOnboarding(
-            activity = requireActivity(),
-            launcher = continuousOnboardingDefaultBrowserLauncher,
-        )
-
         val components = requireComponents
         // Whenever a tab is selected its last access timestamp is automatically updated by A-C.
         // However, in the case of resuming the app to the home fragment, we already have an
@@ -1186,6 +1178,7 @@ class HomeFragment : Fragment() {
                 view = view,
                 store = requireComponents.core.store,
                 appStore = requireComponents.appStore,
+                homepageContentBounds = { homepageContentBounds },
             ),
             owner = this,
             view = view,
@@ -1275,6 +1268,23 @@ class HomeFragment : Fragment() {
             ),
             owner = this,
             view = view,
+        )
+    }
+
+    private fun initContinuousOnboardingFeature() {
+        ContinuousOnboardingFeature.register(
+            fragment = this,
+            binding = continuousOnboardingFeature,
+            launcher = continuousOnboardingDefaultBrowserLauncher,
+            telemetryRecorder = telemetryRecorder,
+            navigateToSyncSignIn = {
+                findNavController().nav(
+                    id = R.id.homeFragment,
+                    directions = OnboardingFragmentDirections.actionGlobalTurnOnSync(
+                        entrypoint = FenixFxAEntryPoint.NewUserOnboarding,
+                    ),
+                )
+            },
         )
     }
 

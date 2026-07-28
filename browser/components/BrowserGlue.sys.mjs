@@ -407,8 +407,9 @@ BrowserGlue.prototype = {
     // check if we're in safe mode
     if (
       Services.appinfo.inSafeMode &&
-      Services.felt &&
-      !Services.felt.isFeltUI()
+      (!AppConstants.MOZ_ENTERPRISE ||
+        (Services.felt?.isFeltBrowser() &&
+          !Services.prefs.getBoolPref("enterprise.is_testing", false)))
     ) {
       Services.ww.openWindow(
         null,

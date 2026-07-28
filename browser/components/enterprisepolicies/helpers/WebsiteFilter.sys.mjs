@@ -245,7 +245,7 @@ export let WebsiteFilter = {
         );
       } catch (reportEx) {
         // ChromeUtils.reportError may not be available in all contexts
-        lazy.log.error(
+        console.error(
           `[DownloadsTelemetryEnterprise] Could not report error:`,
           reportEx
         );

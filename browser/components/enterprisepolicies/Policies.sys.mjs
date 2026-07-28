@@ -3521,13 +3521,8 @@ export var Policies = {
         manager.allowFeature("changeProxySettings");
       }
       lazy.ProxyPolicies.resetProxySettings(
-        oldParams,
-        lazy.PoliciesUtils.setDefaultPref.bind(lazy.PoliciesUtils)
+        lazy.PoliciesUtils.unsetDefaultPref.bind(lazy.PoliciesUtils)
       );
-
-      if (AppConstants.MOZ_ENTERPRISE) {
-        lazy.PoliciesUtils.unsetDefaultPref("network.proxy.no_proxies_on");
-      }
     },
   },
 

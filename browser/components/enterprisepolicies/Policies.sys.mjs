@@ -2781,6 +2781,9 @@ export var Policies = {
           break;
       }
     },
+    onRemove() {
+      lazy.PoliciesUtils.unsetDefaultPref("dom.security.https_only_mode");
+    },
   },
 
   InstallAddonsPermission: {

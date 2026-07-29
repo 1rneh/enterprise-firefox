@@ -69,15 +69,21 @@ export const ContentAnalysisUtils = {
    *                       If this is undefined, this method will get the URI from the browsingContext.
    */
   setupContentAnalysisEventsForTextElement(textElement, browsingContext, url) {
-    // Do not use a lazy service getter for this, because tests set up different mocks,
-    // so if multiple tests run that call into this we can end up calling into an old mock.
-    const contentAnalysis = Cc["@mozilla.org/contentanalysis;1"].getService(
-      Ci.nsIContentAnalysis
-    );
-    if (!textElement || !contentAnalysis.isActive) {
+    if (!textElement) {
       return;
     }
     let caEventChecker = async event => {
+      // Fetch the service (and re-check isActive) per event rather than once at
+      // setup: Content Analysis can be turned on or off at runtime by an
+      // enterprise-policy update, so an element wired while inactive must still
+      // enforce once activated (and stop once deactivated). Fetching per event
+      // also avoids caching a stale mock across tests.
+      const contentAnalysis = Cc["@mozilla.org/contentanalysis;1"].getService(
+        Ci.nsIContentAnalysis
+      );
+      if (!contentAnalysis.isActive) {
+        return;
+      }
       let isPaste = event.type == "paste";
       let dataTransfer = isPaste ? event.clipboardData : event.dataTransfer;
       let data = dataTransfer.getData("text/plain");

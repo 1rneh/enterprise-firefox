@@ -134,17 +134,9 @@ bool SourceIsSameTab(nsIContentAnalysisRequest* aRequest) {
 }  // anonymous namespace
 
 /* static */ bool nsIContentAnalysis::MightBeActive() {
-  // A DLP connection is not permitted to be added/removed while the
-  // browser is running, so we can cache this.
-  // Furthermore, if this is set via enterprise policy the pref will be locked
-  // so users won't be able to change it.
-  // Ideally we would make this a mirror: once pref, but this interacts in
-  // some weird ways with the enterprise policy for testing purposes.
-  static bool sIsEnabled =
-      mozilla::StaticPrefs::browser_contentanalysis_enabled();
   // Note that we can't check gAllowContentAnalysis here because it
   // only gets set in the parent process.
-  return sIsEnabled;
+  return mozilla::StaticPrefs::browser_contentanalysis_enabled();
 }
 
 namespace mozilla::contentanalysis {
@@ -738,8 +730,14 @@ ContentAnalysis::ContentAnalysis() : mSetByEnterprise(false) {
     return;
   }
   obsServ->AddObserver(this, "xpcom-shutdown-threads", false);
+  // React to live enterprise-policy updates so the backend can be swapped,
+  // (de)activated, or refreshed without a browser restart.
+  obsServ->AddObserver(this, "EnterprisePolicies:PolicyUpdatesApplied", false);
 
   mBackend = contentanalysis::CreateBackend();
+  if (mBackend->Kind() == ContentAnalysisBackend::BackendKind::eExternalAgent) {
+    SnapshotExternalConnectionConfig();
+  }
 
   // Forward max-connections pref changes to the backend, for testing (otherwise
   // it is locked). We cannot use RegisterCallbackAndCall since the callback
@@ -769,9 +767,16 @@ NS_IMETHODIMP
 ContentAnalysis::Observe(nsISupports* subject, const char* topic,
                          const char16_t* data) {
   AssertIsOnMainThread();
-  MOZ_ASSERT(nsCString("xpcom-shutdown-threads") == topic);
-  LOGD("Content Analysis received xpcom-shutdown-threads");
-  Close();
+  nsDependentCString topicStr(topic);
+  if (topicStr == "xpcom-shutdown-threads") {
+    LOGD("Content Analysis received xpcom-shutdown-threads");
+    Close();
+  } else if (topicStr == "EnterprisePolicies:PolicyUpdatesApplied") {
+    LOGD("Content Analysis received EnterprisePolicies:PolicyUpdatesApplied");
+    MaybeUpdateBackend();
+  } else {
+    MOZ_ASSERT_UNREACHABLE("Unexpected topic");
+  }
   return NS_OK;
 }
 
@@ -791,6 +796,7 @@ void ContentAnalysis::Close() {
       mozilla::services::GetObserverService();
   if (obsServ) {
     obsServ->RemoveObserver(this, "xpcom-shutdown-threads");
+    obsServ->RemoveObserver(this, "EnterprisePolicies:PolicyUpdatesApplied");
   }
 
   // The userActionMap must be cleared before the object is destroyed.
@@ -799,6 +805,97 @@ void ContentAnalysis::Close() {
   MOZ_ASSERT(mBackend);
   mBackend->Shutdown();
   LOGD("Content Analysis service is closed");
+}
+
+void ContentAnalysis::MaybeUpdateBackend() {
+  AssertIsOnMainThread();
+  if (IsShutDown()) {
+    // Already torn down for xpcom-shutdown; nothing to reconcile.
+    return;
+  }
+
+  // The allow/deny URL filter lists are consulted for every request by either
+  // backend (see FilterByUrlLists) and are compiled and cached once. A policy
+  // update may have changed them, so drop the cache; the next request re-parses
+  // from the (updated) prefs.
+  mParsedUrlLists = false;
+  mAllowUrlList.clear();
+  mDenyUrlList.clear();
+
+  // The backend should be live when Content Analysis is enabled and either the
+  // enterprise policy or the command-line arg turned it on -- mirroring
+  // GetIsActive. When live, the policy chooses the WASM or external backend.
+  bool wantActive = StaticPrefs::browser_contentanalysis_enabled() &&
+                    (mSetByEnterprise || gAllowContentAnalysisArgPresent);
+  ContentAnalysisBackend::BackendKind wantKind =
+      StaticPrefs::browser_contentanalysis_use_wasm_backend()
+          ? ContentAnalysisBackend::BackendKind::eWasmModule
+          : ContentAnalysisBackend::BackendKind::eExternalAgent;
+
+  // Even when the selection is unchanged, an external backend that stays
+  // external must be rebuilt if its connection prefs (pipe name, signature,
+  // per-user flag, thread limit) changed, since those are baked in at
+  // construction. Recreating -- rather than reconnecting in place -- also
+  // resizes the agent thread pool, which is only sized in the ctor.
+  bool externalConfigChanged =
+      wantActive && mBackendActive &&
+      wantKind == ContentAnalysisBackend::BackendKind::eExternalAgent &&
+      mBackend->Kind() == ContentAnalysisBackend::BackendKind::eExternalAgent &&
+      ExternalConnectionConfigChanged();
+
+  bool noChange = wantActive == mBackendActive &&
+                  (!wantActive || mBackend->Kind() == wantKind) &&
+                  !externalConfigChanged;
+  if (noChange) {
+    return;
+  }
+
+  // Activation, backend kind, or external connection config changed. Drain
+  // in-flight requests first so no stale verdict lands (the drained backend
+  // also drops any late resolution via its mInert flag), tear down the current
+  // backend if live, then build a fresh one for the new selection.
+  CancelAllRequests(/* aForbidFutureRequests */ false);
+  if (mBackendActive) {
+    mBackend->Shutdown();
+    mBackendActive = false;
+  }
+  if (wantActive) {
+    mBackend = contentanalysis::CreateBackend();
+    mBackendActive = true;
+    ++mBackendGeneration;
+    mBackend->EnsureReady();
+    if (mBackend->Kind() ==
+        ContentAnalysisBackend::BackendKind::eExternalAgent) {
+      SnapshotExternalConnectionConfig();
+    }
+  }
+}
+
+void ContentAnalysis::SnapshotExternalConnectionConfig() {
+  AssertIsOnMainThread();
+  Preferences::GetCString("browser.contentanalysis.pipe_path_name",
+                          mExternalPipePathName);
+  Preferences::GetString("browser.contentanalysis.client_signature",
+                         mExternalClientSignature);
+  mExternalIsPerUser = StaticPrefs::browser_contentanalysis_is_per_user();
+  mExternalMaxConnections =
+      StaticPrefs::browser_contentanalysis_max_connections();
+}
+
+bool ContentAnalysis::ExternalConnectionConfigChanged() const {
+  AssertIsOnMainThread();
+  nsCString pipePathName;
+  Preferences::GetCString("browser.contentanalysis.pipe_path_name",
+                          pipePathName);
+  nsString clientSignature;
+  Preferences::GetString("browser.contentanalysis.client_signature",
+                         clientSignature);
+  return pipePathName != mExternalPipePathName ||
+         clientSignature != mExternalClientSignature ||
+         StaticPrefs::browser_contentanalysis_is_per_user() !=
+             mExternalIsPerUser ||
+         StaticPrefs::browser_contentanalysis_max_connections() !=
+             mExternalMaxConnections;
 }
 
 bool ContentAnalysis::IsShutDown() {
@@ -826,6 +923,27 @@ bool ContentAnalysis::GetCreatingClientForTest() {
 NS_IMETHODIMP ContentAnalysis::ForceRecreateClientForTest() {
   MOZ_ASSERT(mBackend);
   return mBackend->ForceReinitializeForTest();
+}
+
+NS_IMETHODIMP ContentAnalysis::GetBackendKindForTest(nsACString& aResult) {
+  AssertIsOnMainThread();
+  if (!mBackendActive) {
+    aResult.AssignLiteral("none");
+    return NS_OK;
+  }
+  MOZ_ASSERT(mBackend);
+  if (mBackend->Kind() == ContentAnalysisBackend::BackendKind::eWasmModule) {
+    aResult.AssignLiteral("wasm-module");
+  } else {
+    aResult.AssignLiteral("external-agent");
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP ContentAnalysis::GetBackendGenerationForTest(uint32_t* aResult) {
+  AssertIsOnMainThread();
+  *aResult = mBackendGeneration;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -2195,6 +2313,17 @@ ContentAnalysis::AnalyzeContentRequestsCallback(
   // Wrap callback in a ContentAnalysisCallback, which will assert if the
   // callback is not called exactly once.
   auto safeCallback = MakeRefPtr<ContentAnalysisCallback>(aCallback);
+
+  bool isActive = false;
+  nsresult rv = GetIsActive(&isActive);
+  NS_ENSURE_SUCCESS(rv, rv);
+  if (!isActive) {
+    LOGD("Content analysis is not active, allowing request");
+    auto result = MakeRefPtr<ContentAnalysisNoResult>(
+        NoContentAnalysisResult::ALLOW_DUE_TO_CONTENT_ANALYSIS_NOT_ACTIVE);
+    safeCallback->ContentResult(result);
+    return NS_OK;
+  }
 
   // If any member of aRequests has a different user action ID than another,
   // throw an error.  If the user action IDs are empty, generate one and set

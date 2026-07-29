@@ -529,6 +529,20 @@ interface nsIContentAnalysis : nsISupports
    * Force the content analysis client to be recreated. For use in tests only.
    */
   void forceRecreateClientForTest();
+
+  /**
+   * Which backend currently services requests: "external-agent", "wasm-module",
+   * or "none" while Content Analysis is deactivated by policy. For use in
+   * tests only.
+   */
+  readonly attribute ACString backendKindForTest;
+
+  /**
+   * Incremented every time a fresh backend is built. Lets a test distinguish a
+   * live policy update that rebuilt the backend from one that only changed
+   * prefs the existing backend reads live. For use in tests only.
+   */
+  readonly attribute uint32_t backendGenerationForTest;
 };
 
 /**

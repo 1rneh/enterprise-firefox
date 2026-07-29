@@ -463,6 +463,9 @@ ExternalAgentBackend::~ExternalAgentBackend() {
 void ExternalAgentBackend::Shutdown() {
   AssertIsOnMainThread();
 
+  // Drop any agent response that arrives after this point
+  mInert = true;
+
   // Reject the promise to avoid assertions when it gets destroyed
   // No-op if the promise has already been resolved or rejected
   mClientPromise->Reject(NS_ERROR_ILLEGAL_DURING_SHUTDOWN, __func__);
@@ -941,8 +944,13 @@ void ExternalAgentBackend::HandleResponseFromAgent(
   NS_DispatchToMainThread(NS_NewRunnableFunction(
       __func__,
       [self = RefPtr{this}, aResponse = std::move(aResponse)]() mutable {
+        AssertIsOnMainThread();
         LOGD("HandleResponseFromAgent on main thread");
         LogResponse(&aResponse);
+        if (self->mInert) {
+          // Backend may be swapped out or shutting down
+          return;
+        }
         RefPtr<ContentAnalysis> owner =
             ContentAnalysis::GetContentAnalysisFromService();
         if (!owner) {

@@ -8,6 +8,7 @@
 #include "MainThreadUtils.h"
 #include "js/TypeDecls.h"
 #include "nsCOMPtr.h"
+#include "nsString.h"
 #include "nsTArray.h"
 
 namespace content_analysis::sdk {
@@ -33,6 +34,7 @@ class WasmModuleBackend final : public ContentAnalysisBackend {
   WasmModuleBackend(const WasmModuleBackend&) = delete;
   WasmModuleBackend& operator=(const WasmModuleBackend&) = delete;
 
+  BackendKind Kind() const override { return BackendKind::eWasmModule; }
   nsresult EnsureReady() override;
   nsresult Analyze(nsCOMPtr<nsIContentAnalysisRequest> aRequest,
                    bool aAutoAcknowledge) override;
@@ -59,6 +61,10 @@ class WasmModuleBackend final : public ContentAnalysisBackend {
                         const nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules,
                         const nsACString& aUserActionId, bool aAutoAcknowledge);
 
+  // Fill aRules with the built-in rule set from the dlp_rules pref, parsing it
+  // only when it differs from what is already cached.
+  nsresult LoadDlpRules(nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules);
+
   // Number of Analyze() calls made so far, for GetDiagnosticInfo.
   int64_t mRequestCount MOZ_GUARDED_BY(sMainThreadCapability) = 0;
 
@@ -70,6 +76,21 @@ class WasmModuleBackend final : public ContentAnalysisBackend {
   // extension is not signed.
   bool mFailedSignatureVerification MOZ_GUARDED_BY(sMainThreadCapability) =
       false;
+
+  // Set once Shutdown() runs (e.g. when the service swaps this backend out on a
+  // live policy change). A runner promise that resolves afterward is dropped so
+  // it can't deliver a stale verdict through the still-alive service.
+  bool mInert MOZ_GUARDED_BY(sMainThreadCapability) = false;
+
+  // The rules parsed from the dlp_rules pref, and the exact pref string they
+  // came from. Comparing the string is what keeps them current across live
+  // policy updates: a policy-locked pref does not reliably notify observers, so
+  // there is nothing to invalidate the cache from. Only assigned together, and
+  // only after a successful parse, so an unparsable rule set is retried on the
+  // next request instead of being cached as "no rules".
+  nsString mCachedRulesJSON MOZ_GUARDED_BY(sMainThreadCapability);
+  nsTArray<RefPtr<nsIContentAnalysisRule>> mCachedRules
+      MOZ_GUARDED_BY(sMainThreadCapability);
 };
 
 }  // namespace mozilla::contentanalysis

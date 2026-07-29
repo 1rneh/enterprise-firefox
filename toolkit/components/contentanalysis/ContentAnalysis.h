@@ -314,6 +314,18 @@ class ContentAnalysis final : public nsIContentAnalysis,
   // Destroy the service.  Happens during xpcom-shutdown-threads.
   void Close();
 
+  // Re-select and refresh the backend after a live enterprise-policy update
+  // (driven by the EnterprisePolicies:PolicyUpdatesApplied notification).
+  void MaybeUpdateBackend();
+
+  // Record the current external-agent connection prefs into the mExternal*
+  // snapshot. Called after (re)building a live external-agent backend.
+  void SnapshotExternalConnectionConfig();
+
+  // True if the current external-agent connection prefs differ from the
+  // snapshot taken when the live external backend was built.
+  bool ExternalConnectionConfigChanged() const;
+
   // Did the URL filter completely handle the request or do we need to check
   // with the agent.
   enum UrlFilterResult { eCheck, eDeny, eAllow };
@@ -389,6 +401,24 @@ class ContentAnalysis final : public nsIContentAnalysis,
 
   // Backend engine that produces analysis verdicts.
   RefPtr<ContentAnalysisBackend> mBackend;
+
+  // Whether mBackend is a live (not shut-down) backend. False while the service
+  // is deactivated by policy; mBackend still points at the last (shut-down)
+  // backend so it stays non-null for the callers that assume it.
+  bool mBackendActive = true;
+
+  // Snapshot of the external-agent connection prefs the current external
+  // backend was built with. Consulted on a live policy update to decide whether
+  // a still-external backend must be rebuilt to pick up changed connection
+  // settings. Only meaningful while mBackend is a live external-agent backend.
+  nsCString mExternalPipePathName;
+  nsString mExternalClientSignature;
+  bool mExternalIsPerUser = false;
+  uint32_t mExternalMaxConnections = 0;
+
+  // Number of backends built so far, exposed to tests so they can tell a
+  // rebuild apart from an update the existing backend absorbed live.
+  uint32_t mBackendGeneration = 1;
 
   struct UserActionData final {
     nsCOMPtr<nsIContentAnalysisCallback> mCallback;

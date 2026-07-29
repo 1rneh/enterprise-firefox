@@ -9,10 +9,11 @@
 // and hands both to the in-process wasm DLP module via nsIContentAnalysisWasmRunner.
 //
 // The wasm module is bundled in a WebExtension and read through the real
-// production path, exactly as test_wasm_runner.js does. This test depends on the
-// example rule set hard-coded in WasmModuleBackend::BuildExampleRules (block
-// uploads to cloud-storage domains, warn on AI domains).
-// TODO - refactor the rules code so we can just specify them from the test here
+// production path, exactly as test_wasm_runner.js does. The rules below are
+// delivered the way the DataLossPrevention policy delivers them in production,
+// through the browser.contentanalysis.dlp_rules pref that WasmModuleBackend
+// reads (block uploads to cloud-storage domains, warn on AI domains, block
+// content marked CONFIDENTIAL).
 
 const { AddonManager } = ChromeUtils.importESModule(
   "resource://gre/modules/AddonManager.sys.mjs"
@@ -20,6 +21,36 @@ const { AddonManager } = ChromeUtils.importESModule(
 
 const REQUIRE_SIGNATURE_PREF =
   "browser.contentanalysis.wasm_module_extension_require_signature";
+
+const DLP_RULES = {
+  DLPRules: {
+    Rules: [
+      {
+        Name: "warn-ai-paste",
+        Enabled: true,
+        Actions: ["TextPaste", "FileUpload"],
+        Domains: ["chatgpt.com", "claude.ai", "gemini.google.com"],
+        Type: "warn",
+        Message:
+          "Pasting work data into AI services may violate company policy.",
+      },
+      {
+        Name: "block-cloud-uploads",
+        Enabled: true,
+        Actions: ["FileUpload"],
+        Domains: ["drive.google.com", "dropbox.com", "wetransfer.com"],
+        Type: "block",
+      },
+      {
+        Name: "block-confidential-content",
+        Enabled: true,
+        ContentPatterns: ["\\bCONFIDENTIAL\\b"],
+        Type: "block",
+        Message: "Content marked CONFIDENTIAL may not leave the organization.",
+      },
+    ],
+  },
+};
 
 // Prefs must be set before the ContentAnalysis service is first instantiated,
 // since the backend is chosen once in its constructor.
@@ -43,6 +74,10 @@ Services.prefs.setStringPref(
   ""
 );
 Services.prefs.setStringPref("browser.contentanalysis.deny_url_regex_list", "");
+Services.prefs.setStringPref(
+  "browser.contentanalysis.dlp_rules",
+  JSON.stringify(DLP_RULES)
+);
 
 const contentAnalysis = Cc["@mozilla.org/contentanalysis;1"].getService(
   Ci.nsIContentAnalysis
@@ -85,6 +120,19 @@ function makeRequest({
     sourceWindowGlobal: null,
     testOnlyIgnoreCanceledAndAlwaysSubmitToAgent: false,
   };
+}
+
+const DLP_RULES_PREF = "browser.contentanalysis.dlp_rules";
+
+function setDlpRules(rules) {
+  Services.prefs.setStringPref(
+    DLP_RULES_PREF,
+    JSON.stringify({ DLPRules: { Rules: rules } })
+  );
+}
+
+function restoreDefaultDlpRules() {
+  Services.prefs.setStringPref(DLP_RULES_PREF, JSON.stringify(DLP_RULES));
 }
 
 // Write a temp file with the given contents and return its absolute path,
@@ -422,5 +470,115 @@ add_task(async function test_succeeds_with_signature_check_if_signed() {
   );
 
   Services.prefs.setBoolPref(REQUIRE_SIGNATURE_PREF, false);
+  await extension.unload();
+});
+
+// Upload the same file to the same domain repeatedly; only the rule set varies.
+async function uploadToExample() {
+  const filePath = await makeTempFile(
+    "dlp_rule_cache.txt",
+    "ordinary file contents"
+  );
+  return contentAnalysis.analyzeContentRequests(
+    [
+      makeRequest({
+        analysisType: Ci.nsIContentAnalysisRequest.eFileAttached,
+        reason: Ci.nsIContentAnalysisRequest.eFilePickerDialog,
+        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eUpload,
+        fileNameForDisplay: "dlp_rule_cache.txt",
+        urlSpec: "https://example.com/upload",
+        filePath,
+      }),
+    ],
+    true
+  );
+}
+
+// Whether a request was allowed, treating a failure to analyze as "not allowed"
+// so a fail-closed error and an explicit block are both reported as blocked.
+async function uploadWasAllowed() {
+  try {
+    return (await uploadToExample()).shouldAllowContent;
+  } catch (e) {
+    return false;
+  }
+}
+
+// WasmModuleBackend caches the parsed rules keyed on the dlp_rules pref string.
+// A policy-locked pref does not reliably notify observers, so that string
+// comparison is the only thing keeping the rules current after a live policy
+// update -- if it regressed, the first rule set would be enforced forever.
+add_task(async function test_changed_rules_take_effect_without_invalidation() {
+  const extension = await installModuleExtension();
+
+  setDlpRules([
+    {
+      Name: "block-example-uploads",
+      Enabled: true,
+      Actions: ["FileUpload"],
+      Domains: ["example.com"],
+      Type: "block",
+    },
+  ]);
+  Assert.ok(
+    !(await uploadWasAllowed()),
+    "the rule blocking example.com uploads is enforced"
+  );
+
+  // Reuse the cached rules for an identical second request.
+  Assert.ok(
+    !(await uploadWasAllowed()),
+    "the cached rule set is still enforced on a repeat request"
+  );
+
+  // Same request, but the rule set no longer covers example.com.
+  setDlpRules([
+    {
+      Name: "block-dropbox-uploads",
+      Enabled: true,
+      Actions: ["FileUpload"],
+      Domains: ["dropbox.com"],
+      Type: "block",
+    },
+  ]);
+  Assert.ok(
+    await uploadWasAllowed(),
+    "a replaced rule set is picked up instead of the cached one"
+  );
+
+  restoreDefaultDlpRules();
+  await extension.unload();
+});
+
+// A rule set that fails to parse must not be cached as "no rules", which would
+// turn a single bad policy into a silent allow-everything from the second
+// request onward. Both requests below must fail closed.
+add_task(async function test_unparsable_rules_are_not_cached_as_no_rules() {
+  const extension = await installModuleExtension();
+
+  Services.prefs.setStringPref(DLP_RULES_PREF, "{ this is not valid JSON");
+
+  Assert.ok(!(await uploadWasAllowed()), "an unparsable rule set fails closed");
+  Assert.ok(
+    !(await uploadWasAllowed()),
+    "it still fails closed on the next request rather than caching as no rules"
+  );
+
+  // A valid rule set must still be adopted after the failures.
+  setDlpRules([
+    {
+      Name: "block-example-uploads",
+      Enabled: true,
+      Actions: ["FileUpload"],
+      Domains: ["example.com"],
+      Type: "block",
+    },
+  ]);
+  Assert.ok(
+    !(await uploadWasAllowed()),
+    "a valid rule set is parsed again after a failed parse"
+  );
+
+  restoreDefaultDlpRules();
   await extension.unload();
 });

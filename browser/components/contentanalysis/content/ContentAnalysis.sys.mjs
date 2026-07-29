@@ -160,11 +160,11 @@ export const ContentAnalysis = {
    * @param {Window} window - The window to monitor
    */
   initialize(window) {
-    if (!this.contentAnalysis.isActive) {
-      this.uninitialize();
-      return;
-    }
-    let doc = window.document;
+    // Register unconditionally (not gated on isActive): Content Analysis can be
+    // turned on or off at runtime by an enterprise-policy update, so the
+    // observers must already be listening when a later update activates it. The
+    // observers are process-global and registered once; the handlers no-op when
+    // nothing is pending. Teardown happens on quit-application.
     if (!this.isInitialized) {
       this.isInitialized = true;
       this.initializeObservers();
@@ -177,16 +177,41 @@ export const ContentAnalysis = {
       });
     }
 
-    // Do this even if initialized so the icon shows up on new windows, not just the
-    // first one.
-    for (let indicator of doc.getElementsByClassName(
-      "content-analysis-indicator"
-    )) {
-      doc.l10n.setAttributes(indicator, "content-analysis-indicator-tooltip", {
-        agentName: lazy.agentName,
-      });
+    // Reflect the current active state in this window's indicator. Done for
+    // every window (not just the first) so the icon shows up on new windows,
+    // and re-run for all windows on a policy update (see observe()).
+    this.updateWindowContentAnalysisState(window);
+  },
+
+  /**
+   * Show or hide the Content Analysis indicator in a window to match the
+   * service's current active state.
+   *
+   * @param {Window} window - The window to update
+   */
+  updateWindowContentAnalysisState(window) {
+    let doc = window.document;
+    // Check the enabled pref before touching this.contentAnalysis so an
+    // unrelated policy update doesn't construct the service (and its backend)
+    // for a profile that never turns Content Analysis on. isActive still
+    // requires the pref, so this short-circuit changes nothing when active.
+    let isActive =
+      Services.prefs.getBoolPref("browser.contentanalysis.enabled", false) &&
+      this.contentAnalysis.isActive;
+    if (isActive) {
+      for (let indicator of doc.getElementsByClassName(
+        "content-analysis-indicator"
+      )) {
+        doc.l10n.setAttributes(
+          indicator,
+          "content-analysis-indicator-tooltip",
+          { agentName: lazy.agentName }
+        );
+      }
+      doc.documentElement.setAttribute("contentanalysisactive", "true");
+    } else {
+      doc.documentElement.removeAttribute("contentanalysisactive");
     }
-    doc.documentElement.setAttribute("contentanalysisactive", "true");
   },
 
   async uninitialize() {
@@ -209,6 +234,7 @@ export const ContentAnalysis = {
     Services.obs.addObserver(this, "quit-application");
     Services.obs.addObserver(this, "quit-application-granted");
     Services.obs.addObserver(this, "quit-application-requested");
+    Services.obs.addObserver(this, "EnterprisePolicies:PolicyUpdatesApplied");
   },
 
   /**
@@ -221,6 +247,10 @@ export const ContentAnalysis = {
     Services.obs.removeObserver(this, "quit-application");
     Services.obs.removeObserver(this, "quit-application-granted");
     Services.obs.removeObserver(this, "quit-application-requested");
+    Services.obs.removeObserver(
+      this,
+      "EnterprisePolicies:PolicyUpdatesApplied"
+    );
   },
 
   // nsIObserver
@@ -307,6 +337,14 @@ export const ContentAnalysis = {
       }
       case "quit-application": {
         this.uninitialize();
+        break;
+      }
+      // An enterprise-policy update may have activated or deactivated Content
+      // Analysis; refresh every window's indicator to match the new state.
+      case "EnterprisePolicies:PolicyUpdatesApplied": {
+        for (let window of lazy.BrowserWindowTracker.orderedWindows) {
+          this.updateWindowContentAnalysisState(window);
+        }
         break;
       }
       case "dlp-request-made":

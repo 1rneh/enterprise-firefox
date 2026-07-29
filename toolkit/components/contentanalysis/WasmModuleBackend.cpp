@@ -39,17 +39,6 @@ namespace {
 // DataLossPrevention enterprise policy.
 static constexpr char kDlpRulesPref[] = "browser.contentanalysis.dlp_rules";
 
-static nsresult LoadDlpRules(nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules) {
-  nsAutoString rulesJSON;
-  nsresult rv = Preferences::GetString(kDlpRulesPref, rulesJSON);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (rulesJSON.IsEmpty()) {
-    // No rules configured: nothing to enforce.
-    return NS_OK;
-  }
-  return ParseContentAnalysisRules(rulesJSON, aRules);
-}
-
 // Recover the nsresult from a rejected wasm-runner promise. The runner
 // rejects with a Components.Exception carrying the failure code in its
 // `result`.
@@ -121,6 +110,28 @@ nsresult WasmModuleBackend::EnsureReady() {
   return runner ? NS_OK : NS_ERROR_NOT_AVAILABLE;
 }
 
+nsresult WasmModuleBackend::LoadDlpRules(
+    nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules) {
+  AssertIsOnMainThread();
+  nsAutoString rulesJSON;
+  nsresult rv = Preferences::GetString(kDlpRulesPref, rulesJSON);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (rulesJSON != mCachedRulesJSON) {
+    nsTArray<RefPtr<nsIContentAnalysisRule>> parsed;
+    // An empty pref means no rules are configured, so there is nothing to
+    // enforce and nothing to parse.
+    if (!rulesJSON.IsEmpty()) {
+      MOZ_TRY(ParseContentAnalysisRules(rulesJSON, parsed));
+    }
+    mCachedRules = std::move(parsed);
+    mCachedRulesJSON = rulesJSON;
+  }
+
+  aRules = mCachedRules.Clone();
+  return NS_OK;
+}
+
 nsresult WasmModuleBackend::Analyze(
     nsCOMPtr<nsIContentAnalysisRequest> aRequest, bool aAutoAcknowledge) {
   AssertIsOnMainThread();
@@ -171,6 +182,11 @@ nsresult WasmModuleBackend::Analyze(
                            contentBytes = std::move(contentBytes),
                            rules = std::move(rules), userActionId,
                            aAutoAcknowledge]() mutable {
+                  AssertIsOnMainThread();
+                  if (self->mInert) {
+                    // Backend may be swapped out or shutting down
+                    return;
+                  }
                   RefPtr<ContentAnalysis> owner =
                       ContentAnalysis::GetContentAnalysisFromService();
                   if (!owner) {
@@ -231,6 +247,10 @@ void WasmModuleBackend::HandleWasmResponse(JSContext* aCx,
                                            bool aAutoAcknowledge) {
   AssertIsOnMainThread();
 
+  if (mInert) {
+    // Backend may be swapped out or shutting down
+    return;
+  }
   RefPtr<ContentAnalysis> owner =
       ContentAnalysis::GetContentAnalysisFromService();
   if (!owner) {
@@ -309,14 +329,20 @@ nsresult WasmModuleBackend::InvokeRunner(
       [self = RefPtr{this}, userActionId = nsCString(aUserActionId)](
           JSContext* aCx, JS::Handle<JS::Value> aValue, ErrorResult&) {
         AssertIsOnMainThread();
+        if (self->mInert) {
+          // Backend may be swapped out or shutting down
+          return;
+        }
+        RefPtr<ContentAnalysis> owner =
+            ContentAnalysis::GetContentAnalysisFromService();
+        if (!owner) {
+          // Shutting down.
+          return;
+        }
         nsresult rv = ExtractExceptionResult(aCx, aValue);
         self->mConnectedToAgent = false;
         self->mFailedSignatureVerification = rv == NS_ERROR_INVALID_SIGNATURE;
-        RefPtr<ContentAnalysis> owner =
-            ContentAnalysis::GetContentAnalysisFromService();
-        if (owner) {
-          owner->CancelWithError(nsCString(userActionId), rv);
-        }
+        owner->CancelWithError(nsCString(userActionId), rv);
       });
   return NS_OK;
 }
@@ -331,7 +357,11 @@ WasmModuleBackend::GetDiagnosticInfo() {
   return DiagnosticInfoPromise::CreateAndResolve(info, __func__);
 }
 
-void WasmModuleBackend::Shutdown() {}
+void WasmModuleBackend::Shutdown() {
+  AssertIsOnMainThread();
+  // Drop any runner promise that resolves after this point
+  mInert = true;
+}
 
 #undef WASM_RUNNER_CONTRACTID
 

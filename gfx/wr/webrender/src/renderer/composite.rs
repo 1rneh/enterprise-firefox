@@ -806,6 +806,7 @@ impl Renderer {
                     segment_builder.push_clip_rect(
                         clip.rect.cast_unit(),
                         Some(clip.radius),
+                        None,
                         ClipMode::Clip,
                     );
                     segment_builder.build(|segment| {
@@ -1060,6 +1061,7 @@ impl Renderer {
                     segment_builder.push_clip_rect(
                         clip.rect.cast_unit(),
                         Some(clip.radius),
+                        None,
                         ClipMode::Clip,
                     );
                     segment_builder.build(|segment| {
@@ -1223,7 +1225,7 @@ impl Renderer {
         results: &mut RenderResults,
         present_mode: Option<PartialPresentMode>,
     ) {
-        profile_scope!("main target");
+        tracy_rs::profile_scope!("main target");
         if let Some(device_size) = device_size {
             if let Some(history) = &mut self.command_log {
                 history.begin_render_target("Window", device_size);

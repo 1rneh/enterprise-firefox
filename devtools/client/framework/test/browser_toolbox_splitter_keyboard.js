@@ -26,7 +26,7 @@ add_task(async function () {
     ".devtools-toolbox-iframe.bottom-host"
   );
   is(
-    bottomIframe.clientHeight,
+    bottomIframe.getBoundingClientRect().height,
     TOOLBOX_INITIAL_SIZE,
     "The bottom toolbox iframe has the expected height"
   );
@@ -44,6 +44,9 @@ add_task(async function () {
     bottomIframe.id,
     "The horizontal splitter's aria-controls attribute points to the toolbox"
   );
+
+  // Wait for the initial calls that sets the aria-valuemax attribute
+  await waitFor(() => horzSplitter.ariaValueMax);
 
   info("Move focus to the content page");
   Services.focus.setFocus(gBrowser.selectedBrowser, Services.focus.FLAG_BYKEY);
@@ -107,7 +110,7 @@ add_task(async function () {
   const sideIframe = panel.querySelector(".devtools-toolbox-iframe.side-host");
   sideIframe.style.minWidth = "1px"; // Disable the min width set in css
   is(
-    sideIframe.clientWidth,
+    sideIframe.getBoundingClientRect().width,
     TOOLBOX_INITIAL_SIZE,
     "The iframe is resized properly"
   );

@@ -4,7 +4,36 @@
 
 //! # Prepare pass
 //!
-//! TODO: document this!
+//! The second frame building traversal of the picture tree. It runs after the
+//! [visibility pass](crate::visibility).
+//! Where visibility decides what is drawn, prepare decides how: it turns each
+//! visible primitive into the render tasks, GPU data and draw commands needed
+//! to render it.
+//!
+//! Its outputs are:
+//!
+//! - Render tasks and their dependencies in the render task graph.
+//! - GPU buffer data.
+//! - [`PrimitiveCommand`]s pushed into the command buffers of the surfaces and
+//!   tiles the primitive is drawn into. `batch.rs` replays these at the
+//!   end of frame building to produce the actual draw calls.
+//!
+//! ## Traversal
+//!
+//! [`prepare_picture`] is the entry point. It does a recursive traversal of
+//! the picture and it's visible items.
+//!
+//! ## Per-primitive work
+//!
+//! The bulk of the module is a large match over [`PrimitiveKind`] in
+//! `prepare_prim_for_render`, where each kind:
+//!
+//! - Requests the resources it needs, such as texture cache entries (images,
+//!   glyphs) or render tasks (rasterized borders, blurred box shadow,cached
+//!   gradients, etc.).
+//! - Writes the GPU data for the primitive.
+//! - Push potentially multiple commands to command buffers.
+//!
 
 use api::{ColorF, DebugFlags, ExtendMode, ExternalImageData, ExternalImageType, GradientStop, ImageBufferKind};
 use crate::border_image::prepare_border_image_nine_patch;
@@ -129,7 +158,7 @@ fn prepare_primitives(
     tile_caches: &mut FastHashMap<SliceId, Box<TileCacheInstance>>,
     prim_instances: &mut Vec<PrimitiveInstance>,
 ) {
-    profile_scope!("prepare_primitives");
+    tracy_rs::profile_scope!("prepare_primitives");
     let mut cmd_buffer_targets = Vec::new();
 
     let mut quad_transform = QuadTransformState::new();
@@ -138,7 +167,7 @@ fn prepare_primitives(
         if !cluster.flags.contains(ClusterFlags::IS_VISIBLE) {
             continue;
         }
-        profile_scope!("cluster");
+        tracy_rs::profile_scope!("cluster");
         pic_state.map_local_to_pic.set_target_spatial_node(
             cluster.spatial_node_index,
             frame_context.spatial_tree,
@@ -225,7 +254,7 @@ fn prepare_prim_for_render(
     prim_instances: &mut Vec<PrimitiveInstance>,
     targets: &[CommandBufferIndex],
 ) {
-    profile_scope!("prepare_prim_for_render");
+    tracy_rs::profile_scope!("prepare_prim_for_render");
 
     // If we have dependencies, we need to prepare them first, in order
     // to know the actual rect of this primitive.
@@ -323,7 +352,7 @@ fn prepare_prim_for_render(
 
     match &mut prim_instance.kind {
         PrimitiveKind::BoxShadow { data_handle, .. } => {
-            profile_scope!("BoxShadow");
+            tracy_rs::profile_scope!("BoxShadow");
 
             let prim_data = &data_stores.box_shadow[*data_handle];
 
@@ -347,7 +376,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::LineDecoration { data_handle } => {
-            profile_scope!("LineDecoration");
+            tracy_rs::profile_scope!("LineDecoration");
             let prim_data = &data_stores.line_decoration[*data_handle];
             let line_dec_data = &prim_data.kind;
 
@@ -413,7 +442,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::TextRun { data_handle } => {
-            profile_scope!("TextRun");
+            tracy_rs::profile_scope!("TextRun");
 
             let prim_data = &data_stores.text_run[*data_handle];
 
@@ -481,7 +510,7 @@ fn prepare_prim_for_render(
                 KindScratchHandle::TextRun(text_run_handle);
         }
         PrimitiveKind::NormalBorder { data_handle } => {
-            profile_scope!("NormalBorder");
+            tracy_rs::profile_scope!("NormalBorder");
             let prim_data = &data_stores.normal_border[*data_handle];
             let aligned_aa_edges = prim_data.common.aligned_aa_edges;
             let transformed_aa_edges = prim_data.common.transformed_aa_edges;
@@ -510,7 +539,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::ImageBorder { data_handle, .. } => {
-            profile_scope!("ImageBorder");
+            tracy_rs::profile_scope!("ImageBorder");
             let prim_data = &data_stores.image_border[*data_handle];
             let aligned_aa_edges = prim_data.common.aligned_aa_edges;
             let transformed_aa_edges = prim_data.common.transformed_aa_edges;
@@ -552,7 +581,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::Rectangle { data_handle, .. } => {
-            profile_scope!("Rectangle");
+            tracy_rs::profile_scope!("Rectangle");
 
             let prim_data = &data_stores.prim[*data_handle];
             let prim_rect = prim_info.snapped_local_rect;
@@ -581,7 +610,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::YuvImage { data_handle, .. } => {
-            profile_scope!("YuvImage");
+            tracy_rs::profile_scope!("YuvImage");
             let prim_data = &data_stores.yuv_image[*data_handle];
             let common_data = &prim_data.common;
             let yuv_image_data = &prim_data.kind;
@@ -647,7 +676,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::Image { data_handle, .. } => {
-            profile_scope!("Image");
+            tracy_rs::profile_scope!("Image");
 
             let prim_data = &data_stores.image[*data_handle];
             let common_data = &prim_data.common;
@@ -697,7 +726,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::LinearGradient { data_handle, .. } => {
-            profile_scope!("LinearGradient");
+            tracy_rs::profile_scope!("LinearGradient");
             let prim_data = &data_stores.linear_grad[*data_handle];
             let prim_rect = prim_info.snapped_local_rect;
             let stretch_size = LayoutSize::new(
@@ -852,7 +881,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::RadialGradient { data_handle, .. } => {
-            profile_scope!("RadialGradient");
+            tracy_rs::profile_scope!("RadialGradient");
             let prim_data = &data_stores.radial_grad[*data_handle];
             let local_rect = prim_info.snapped_local_rect;
             let stretch_size = LayoutSize::new(
@@ -908,7 +937,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::ConicGradient { data_handle, .. } => {
-            profile_scope!("ConicGradient");
+            tracy_rs::profile_scope!("ConicGradient");
             let prim_data = &data_stores.conic_grad[*data_handle];
             let prim_rect = prim_info.snapped_local_rect;
             let stretch_size = LayoutSize::new(
@@ -998,7 +1027,7 @@ fn prepare_prim_for_render(
             return;
         }
         PrimitiveKind::Picture { pic_index, .. } => {
-            profile_scope!("Picture");
+            tracy_rs::profile_scope!("Picture");
             let pic_scratch_handle = prim_info.kind_scratch.unwrap_picture();
             let pic = &mut store.pictures[pic_index.0];
 

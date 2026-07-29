@@ -641,21 +641,6 @@ let JSWINDOWACTORS = {
     safeForUntrustedWebProcess: true,
   },
 
-  WebChannel: {
-    parent: {
-      esModuleURI: "resource://gre/actors/WebChannelParent.sys.mjs",
-    },
-    child: {
-      esModuleURI: "resource://gre/actors/WebChannelChild.sys.mjs",
-      events: {
-        WebChannelMessageToChrome: { capture: true, wantUntrusted: true },
-      },
-    },
-
-    allFrames: true,
-    safeForUntrustedWebProcess: true,
-  },
-
   Thumbnails: {
     child: {
       esModuleURI: "resource://gre/actors/ThumbnailsChild.sys.mjs",
@@ -895,6 +880,22 @@ if (AppConstants.platform != "android") {
     },
 
     includeChrome: true,
+    allFrames: true,
+    safeForUntrustedWebProcess: true,
+  };
+
+  // GeckoView implements WebChannel communication at the embedder-level.
+  JSWINDOWACTORS.WebChannel = {
+    parent: {
+      esModuleURI: "resource://gre/actors/WebChannelParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "resource://gre/actors/WebChannelChild.sys.mjs",
+      events: {
+        WebChannelMessageToChrome: { capture: true, wantUntrusted: true },
+      },
+    },
+
     allFrames: true,
     safeForUntrustedWebProcess: true,
   };

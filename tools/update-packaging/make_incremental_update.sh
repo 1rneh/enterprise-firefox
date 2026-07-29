@@ -299,6 +299,22 @@ for ((i=0; $i<$num_olddirs; i=$i+1)); do
   fi
 done
 
+# https://bugzilla.mozilla.org/show_bug.cgi?id=2058197
+# Order MAR instructions in a way that minimizes the chance of hitting
+# start-up crashes.
+notice ""
+notice "Reordering MAR instructions to a safer order"
+{
+  grep -E '^type '                 "$updatemanifestv3"
+  grep -E '"dependentlibs\.list"$' "$updatemanifestv3"
+  grep -vE '^type |"(dependentlibs\.list|browser/omni\.ja|omni\.ja|xul\.dll|firefox\.exe)"$' "$updatemanifestv3"
+  grep -E '"xul\.dll"$'            "$updatemanifestv3"
+  grep -E '"browser/omni\.ja"$'    "$updatemanifestv3"
+  grep -E '"omni\.ja"$'            "$updatemanifestv3"
+  grep -E '"firefox\.exe"$'        "$updatemanifestv3"
+} > "$updatemanifestv3.reordered"
+mv -f "$updatemanifestv3.reordered" "$updatemanifestv3"
+
 $XZ $XZ_OPT --compress $BCJ_OPTIONS --lzma2 --format=xz --check=crc64 --force "$updatemanifestv3" && mv -f "$updatemanifestv3.xz" "$updatemanifestv3"
 
 mar_command="$mar_command -C \"$workdir\" -c output.mar"

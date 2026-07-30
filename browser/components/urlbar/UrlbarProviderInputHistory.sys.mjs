@@ -19,8 +19,6 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarProviderOpenTabs:
-    "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
@@ -39,6 +37,9 @@ ChromeUtils.defineLazyGetter(lazy, "SQL_ADAPTIVE_QUERY", () => {
           ( SELECT title FROM moz_bookmarks WHERE fk = h.id AND title NOTNULL
             ORDER BY lastModified DESC LIMIT 1
           ) AS bookmark_title,
+          ( SELECT dateAdded FROM moz_bookmarks WHERE fk = h.id
+            ORDER BY dateAdded DESC LIMIT 1
+          ) AS bookmarkDate,
           ( SELECT GROUP_CONCAT(t.title ORDER BY t.title)
             FROM moz_bookmarks b
             JOIN moz_bookmarks t ON t.id = +b.parent AND t.parent = :parent
@@ -129,6 +130,10 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
       let lastVisit = lastVisitPRTime
         ? lazy.PlacesUtils.toDate(lastVisitPRTime).getTime()
         : undefined;
+      let bookmarkDatePRTime = row.getResultByName("bookmarkDate");
+      let bookmarkDateMs = bookmarkDatePRTime
+        ? lazy.PlacesUtils.toDate(bookmarkDatePRTime).getTime()
+        : undefined;
       let resultTitle = historyTitle;
 
       if (openPageCount > 0 && lazy.UrlbarPrefs.get("suggest.openpage")) {
@@ -195,6 +200,7 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
               "awesome-bar-result-menu"
             : undefined,
           lastVisit,
+          bookmarkDateMs,
         },
         highlights: {
           url: lazy.UrlbarShared.HIGHLIGHT.TYPED,
@@ -241,11 +247,10 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
         search_string: queryContext.lowerCaseSearchString,
         matchBehavior: Ci.mozIPlacesAutoComplete.MATCH_ANYWHERE,
         searchBehavior: lazy.UrlbarPrefs.get("defaultBehavior"),
-        userContextId:
-          lazy.UrlbarProviderOpenTabs.getUserContextIdForOpenPagesTable(
-            null,
-            queryContext.isPrivate
-          ),
+        userContextId: lazy.UrlbarShared.getUserContextIdForOpenPagesTable(
+          null,
+          queryContext.isPrivate
+        ),
         maxResults: queryContext.maxResults,
       },
     ];

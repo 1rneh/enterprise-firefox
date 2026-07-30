@@ -494,6 +494,8 @@ identity-description-passive-loaded-insecure2 = This website contains content th
 identity-description-passive-loaded-mixed2 = Although { -brand-short-name } has blocked some content, there is still content on the page that is not secure (such as images).
 identity-description-active-loaded = This website contains content that is not secure (such as scripts) and your connection to it is not private.
 identity-description-active-loaded-insecure = Information you share with this site could be viewed by others (like passwords, messages, credit cards, etc.).
+identity-description-tls-key-logging-heading = Your connection may not be private
+identity-description-tls-key-logging-message = An app or service may see your encrypted traffic from this site.
 identity-more-info-link-text =
     .label = More information
 
@@ -1330,6 +1332,17 @@ private-browsing-indicator-label = Private browsing
 # Tooltip for the indicator shown in the private browsing window titlebar.
 private-browsing-indicator-tooltip =
     .tooltiptext = Private browsing
+
+# Tooltip for the private browsing indicator button that opens the info panel.
+private-browsing-indicator-button =
+    .tooltiptext = Private browsing info
+
+# Title shown in the private browsing info panel.
+private-browsing-info-panel-title = You’re in a Private Window
+
+# Body copy shown in the private browsing info panel. The learn-more link text
+# is embedded in the sentence.
+private-browsing-info-panel-description = This helps keep your browsing hidden from others on this device, but doesn’t make you invisible online. <a data-l10n-name="learn-more">Who might be able to see my activity?</a>
 
 # Tooltip for the indicator shown in the window titlebar when content analysis is active.
 # Variables:

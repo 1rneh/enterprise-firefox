@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.2.24
- * pdfjsBuild = 028c02f53
+ * pdfjsVersion = 6.2.80
+ * pdfjsBuild = 2ea8820d9
  */
 
 ;// ./web/ui_utils.js
@@ -700,6 +700,12 @@ const defaultOptions = {
     value: 0,
     kind: OptionKind.VIEWER + OptionKind.PREFERENCE
   },
+  ...{
+    featuresNotificationDismissed: {
+      value: false,
+      kind: OptionKind.VIEWER + OptionKind.PREFERENCE + OptionKind.EVENT_DISPATCH
+    }
+  },
   highlightEditorColors: {
     value: "yellow=#FFFF98,green=#53FFBC,blue=#80EBFF,pink=#FFCBE6,red=#FF4F5F," + "yellow_HCM=#FFFFCC,green_HCM=#53FFBC,blue_HCM=#80EBFF,pink_HCM=#F6B8FF,red_HCM=#C50043",
     kind: OptionKind.VIEWER + OptionKind.PREFERENCE
@@ -990,7 +996,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "e0edf590-5cba-4a59-8ef8-54cc6e53bf5e";
+const INTERNAL_EVT = "0d288276-083d-4230-bddf-4113e91c0fb0";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -2165,7 +2171,8 @@ class SignatureVerifier {
         errorCode: "SUBFILTER_NOT_SUPPORTED",
         message: signature.subFilter,
         certificate: null,
-        documentModifiedAfterSigning: !signature.coversWholeDocument
+        documentModifiedAfterSigning: !signature.coversWholeDocument,
+        modificationsAfterSignature: signature.modificationsAfterSignature
       };
     }
     let response;
@@ -2181,7 +2188,8 @@ class SignatureVerifier {
         errorCode: "BRIDGE_ERROR",
         message: ex?.message ?? null,
         certificate: null,
-        documentModifiedAfterSigning: !signature.coversWholeDocument
+        documentModifiedAfterSigning: !signature.coversWholeDocument,
+        modificationsAfterSignature: signature.modificationsAfterSignature
       };
     }
     if (!response || response.error) {
@@ -2190,7 +2198,8 @@ class SignatureVerifier {
         errorCode: response?.error ?? "EMPTY_RESPONSE",
         message: null,
         certificate: null,
-        documentModifiedAfterSigning: !signature.coversWholeDocument
+        documentModifiedAfterSigning: !signature.coversWholeDocument,
+        modificationsAfterSignature: signature.modificationsAfterSignature
       };
     }
     const entry = Array.isArray(response) ? response[0] : response;
@@ -2200,7 +2209,8 @@ class SignatureVerifier {
         errorCode: "EMPTY_RESPONSE",
         message: null,
         certificate: null,
-        documentModifiedAfterSigning: !signature.coversWholeDocument
+        documentModifiedAfterSigning: !signature.coversWholeDocument,
+        modificationsAfterSignature: signature.modificationsAfterSignature
       };
     }
     const {
@@ -2212,7 +2222,8 @@ class SignatureVerifier {
       errorCode,
       message: entry.message ?? null,
       certificate: entry.certificate ?? null,
-      documentModifiedAfterSigning: !signature.coversWholeDocument
+      documentModifiedAfterSigning: !signature.coversWholeDocument,
+      modificationsAfterSignature: signature.modificationsAfterSignature
     };
   }
   async viewCertificate(certificate) {
@@ -2314,6 +2325,9 @@ class ExternalServices extends BaseExternalServices {
   }
   dispatchGlobalEvent(event) {
     FirefoxCom.request("dispatchGlobalEvent", event);
+  }
+  openAboutPdfFeatures() {
+    FirefoxCom.request("openAboutPdfFeatures", null);
   }
 }
 
@@ -13225,7 +13239,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.2.24";
+    const viewerVersion = "6.2.80";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -16276,7 +16290,8 @@ class SignaturePropertiesManager {
         errorCode: null,
         message: null,
         certificate: null,
-        documentModifiedAfterSigning: !sig.coversWholeDocument
+        documentModifiedAfterSigning: !sig.coversWholeDocument,
+        modificationsAfterSignature: sig.modificationsAfterSignature
       });
     }
     this.#render();
@@ -16577,7 +16592,8 @@ class SignaturePropertiesManager {
         errorCode: "BRIDGE_ERROR",
         message: ex?.message ?? null,
         certificate: null,
-        documentModifiedAfterSigning: !signature.coversWholeDocument
+        documentModifiedAfterSigning: !signature.coversWholeDocument,
+        modificationsAfterSignature: signature.modificationsAfterSignature
       };
     }
     this.#pendingVerify.delete(signature.id);
@@ -17631,6 +17647,53 @@ const PDFViewerApplication = {
     if (appConfig.editorUndoBar) {
       this.editorUndoBar = new EditorUndoBar(appConfig.editorUndoBar, eventBus);
     }
+    if (!this.isViewerEmbedded && appConfig.featuresNotification && !AppOptions.get("featuresNotificationDismissed")) {
+      const {
+        featuresNotification
+      } = appConfig;
+      customElements.whenDefined("pdf-features-notification").then(() => {
+        if (AppOptions.get("featuresNotificationDismissed")) {
+          return;
+        }
+        featuresNotification.addEventListener("click", event => {
+          if (!event.target.closest(".cta")) {
+            return;
+          }
+          event.preventDefault();
+          externalServices.openAboutPdfFeatures();
+        }, {
+          signal: abortSignal
+        });
+        const barResizeObserver = new ResizeObserver(entries => {
+          const box = entries[0]?.borderBoxSize?.[0];
+          const height = box ? box.blockSize : entries[0]?.contentRect.height ?? 0;
+          docStyle.setProperty("--pfn-bar-height", `${Math.ceil(height)}px`);
+        });
+        barResizeObserver.observe(featuresNotification);
+        const hideBar = () => {
+          barResizeObserver.disconnect();
+          docStyle.setProperty("--pfn-bar-height", "0px");
+          featuresNotification.hidden = true;
+        };
+        featuresNotification.addEventListener("pdf-features-notification:dismissed", () => {
+          hideBar();
+          this.preferences.set("featuresNotificationDismissed", true);
+        }, {
+          once: true
+        });
+        eventBus.on("featuresnotificationdismissed", ({
+          value
+        }) => {
+          if (value) {
+            hideBar();
+          }
+        }, {
+          signal: abortSignal,
+          ...internalOpt
+        });
+        featuresNotification.show();
+      });
+    }
     const signatureManager = AppOptions.get("enableSignatureEditor") && appConfig.addSignatureDialog ? new SignatureManager(appConfig.addSignatureDialog, appConfig.editSignatureDialog, appConfig.annotationEditorParams?.editorSignatureAddSignature || null, overlayManager, l10n, externalServices.createSignatureStorage(eventBus, abortSignal), eventBus) : null;
     const commentManager = AppOptions.get("enableComment") && appConfig.editCommentDialog ? new CommentManager(appConfig.editCommentDialog, {
       learnMoreUrl: AppOptions.get("commentLearnMoreUrl"),
@@ -18240,7 +18303,7 @@ const PDFViewerApplication = {
         this._initializePdfHistory({
           fingerprint: pdfDocument.fingerprints[0],
           viewOnLoad,
-          initialDest: openAction?.dest
+          initialDest: openAction?.get("dest")
         });
         const initialBookmark = this.initialBookmark;
         const zoom = AppOptions.get("defaultZoomValue");
@@ -18384,7 +18447,7 @@ const PDFViewerApplication = {
     if (pdfDocument !== this.pdfDocument) {
       return;
     }
-    let triggerAutoPrint = openAction?.action === "Print";
+    let triggerAutoPrint = openAction?.get("action") === "Print";
     if (jsActions) {
       console.warn("Warning: JavaScript support is not enabled");
       for (const name in jsActions) {
@@ -19717,6 +19780,9 @@ function getViewerConfiguration() {
       message: document.getElementById("editorUndoBarMessage"),
       undoButton: document.getElementById("editorUndoBarUndoButton"),
       closeButton: document.getElementById("editorUndoBarCloseButton")
+    },
+    ...{
+      featuresNotification: document.getElementById("pdfFeaturesNotification")
     },
     editCommentDialog: {
       dialog: document.getElementById("commentManagerDialog"),

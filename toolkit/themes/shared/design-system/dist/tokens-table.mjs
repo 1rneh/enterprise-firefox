@@ -363,6 +363,7 @@ export const tokensTable = {
       value: "var(--color-accent-attention)",
       name: "--button-badge-background-color",
     },
+    { value: "transparent", name: "--button-split-separator-background-color" },
     { value: "var(--background-color-box)", name: "--card-background-color" },
     {
       value: {
@@ -1321,7 +1322,17 @@ export const tokensTable = {
       value: "var(--button-border-color-disabled)",
       name: "--select-border-color-disabled",
     },
-    { value: "var(--border-color-interactive)", name: "--toggle-border-color" },
+    {
+      value: {
+        light: "var(--color-gray-70)",
+        dark: "var(--border-color-interactive)",
+        prefersContrast: "var(--border-color-interactive)",
+        forcedColors: "var(--border-color-interactive)",
+        default:
+          "light-dark(var(--color-gray-70), var(--border-color-interactive))",
+      },
+      name: "--toggle-border-color",
+    },
     {
       value: {
         default: "var(--toggle-border-color)",
@@ -1366,6 +1377,10 @@ export const tokensTable = {
     {
       value: "var(--border-radius-medium)",
       name: "--input-text-border-radius",
+    },
+    {
+      value: "var(--input-text-border-radius)",
+      name: "--input-search-border-radius",
     },
     {
       value: "var(--border-radius-small)",
@@ -1433,6 +1448,7 @@ export const tokensTable = {
   ],
   "border-width": [
     { value: "1px", name: "--border-width" },
+    { value: "var(--border-width)", name: "--button-border-width-split" },
     { value: "var(--border-width)", name: "--card-border-width" },
     { value: "1px", name: "--badge-border-width" },
     { value: "var(--border-width)", name: "--message-bar-border-width" },
@@ -2008,6 +2024,7 @@ export const tokensTable = {
     { value: "var(--dimension-relative-100)", name: "--space-large" },
     { value: "var(--dimension-relative-150)", name: "--space-xlarge" },
     { value: "var(--dimension-relative-200)", name: "--space-xxlarge" },
+    { value: "var(--space-xxsmall)", name: "--button-gap-split" },
     {
       value: "var(--button-padding-block) var(--button-padding-inline)",
       name: "--button-padding",
@@ -4166,10 +4183,12 @@ export const variableLookupTable = {
   "button-border-color-toolbar-selected":
     "var(--button-border-color-ghost-active)",
   "button-border-radius": "var(--border-radius-medium)",
+  "button-border-width-split": "var(--border-width)",
   "button-content-alignment": "center",
   "button-font-size": "var(--font-size-root)",
   "button-font-size-small": "var(--font-size-small)",
   "button-font-weight": "var(--font-weight-semibold)",
+  "button-gap-split": "var(--space-xxsmall)",
   "button-icon-fill": "currentColor",
   "button-icon-stroke": "var(--button-icon-fill)",
   "button-min-height": "var(--size-item-large)",
@@ -4187,6 +4206,7 @@ export const variableLookupTable = {
   "button-size-icon": "var(--button-min-height)",
   "button-size-icon-small": "var(--button-min-height-small)",
   "button-size-icon-large": "var(--button-min-height-large)",
+  "button-split-separator-background-color": "transparent",
   "button-text-color": {
     forcedColors: "ButtonText",
     brand: {
@@ -4510,6 +4530,7 @@ export const variableLookupTable = {
   "input-text-icon-size": "var(--icon-size-xsmall)",
   "input-text-min-height": "var(--button-min-height)",
   "input-text-opacity-disabled": "var(--button-opacity-disabled)",
+  "input-search-border-radius": "var(--input-text-border-radius)",
   "input-width": "var(--size-item-small)",
   "link-color": {
     forcedColors: "LinkText",
@@ -5123,7 +5144,14 @@ export const variableLookupTable = {
   "toggle-background-color-pressed-hover": "var(--color-accent-primary-hover)",
   "toggle-background-color-pressed-active":
     "var(--color-accent-primary-active)",
-  "toggle-border-color": "var(--border-color-interactive)",
+  "toggle-border-color": {
+    light: "var(--color-gray-70)",
+    dark: "var(--border-color-interactive)",
+    prefersContrast: "var(--border-color-interactive)",
+    forcedColors: "var(--border-color-interactive)",
+    default:
+      "light-dark(var(--color-gray-70), var(--border-color-interactive))",
+  },
   "toggle-border-color-hover": {
     default: "var(--toggle-border-color)",
     forcedColors: "var(--border-color-interactive-hover)",

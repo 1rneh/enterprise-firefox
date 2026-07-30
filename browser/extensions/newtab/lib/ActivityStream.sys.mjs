@@ -994,10 +994,17 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "discoverystream.sections.layout",
+    "discoverystream.sections.ordering",
     {
-      title: "CSV string of section layouts configs",
-      value: "7-double-row-2-ad",
+      title: "Name of the sections ordering to render from Remote Settings",
+      value: "",
+    },
+  ],
+  [
+    "discoverystream.sections.adAllowedRanks",
+    {
+      title: "An ordered, comma-separated list of section ranks that allow ads",
+      value: "",
     },
   ],
   [
@@ -1990,19 +1997,6 @@ export const PREFS_CONFIG = new Map([
       title:
         "Set to true to enable the RemoteSettings backed renderer for newtab. See RemoteRenderer.sys.mjs for more details.",
       value: false,
-    },
-  ],
-  /**
-   * @backward-compat { version 153 }
-   * Remove this pref entry after Firefox 153 hits Release — it's only
-   * needed while the 2026 World Cup logo variation is live.
-   */
-  [
-    "logo.variation",
-    {
-      title:
-        "Variant ID of a logo variation to render in place of the standard newtab logo (e.g. 'spin-ball-small'). Empty string disables. Overridden by trainhopConfig.logo.variation when set.",
-      value: "",
     },
   ],
 ]);

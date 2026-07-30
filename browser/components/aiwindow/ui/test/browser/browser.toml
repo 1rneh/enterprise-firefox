@@ -21,6 +21,8 @@ support-files = [
   "test_memories_icon_button.mjs",
   "test_grouped_chips_page.html",
   "test_grouped_chips.mjs",
+  "test_smartwindow_prompts_page.html",
+  "test_smartwindow_prompts.mjs",
   "test_smartwindow_panel_list_page.html",
   "test_smartwindow_panel_list.mjs",
   "test_website_chip_page.html",
@@ -34,6 +36,9 @@ support-files = [
   "test_context_url_page2.html",
   "test_context_url_injection_page.html"
 ]
+skip-if = [
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && tsan && nova", # Bug 2057552
+]
 
 ["browser_actor_user_prompt.js"]
 
@@ -42,6 +47,8 @@ support-files = [
 ["browser_aichat_content_actors.js"]
 
 ["browser_aichat_content_background_token.js"]
+
+["browser_aichat_content_loader_suppression.js"]
 
 ["browser_aichat_content_message_event.js"]
 
@@ -62,6 +69,8 @@ support-files = [
 ["browser_aiwindow_agent_monitor_chat.js"]
 
 ["browser_aiwindow_agent_monitor_item.js"]
+
+["browser_aiwindow_agentui_command.js"]
 
 ["browser_aiwindow_ai_action_result.js"]
 
@@ -86,6 +95,8 @@ skip-if = [
 ["browser_aiwindow_group_tabs_button.js"]
 
 ["browser_aiwindow_grouped_chips.js"]
+
+["browser_aiwindow_history_menu.js"]
 
 ["browser_aiwindow_immersive.js"]
 
@@ -118,6 +129,9 @@ skip-if = [
 ["browser_aiwindow_smartbar_context_chips.js"]
 
 ["browser_aiwindow_smartbar_context_paste.js"]
+skip-if = [
+  "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && opt && nova", # Bug 2057548
+]
 
 ["browser_aiwindow_smartbar_focus.js"]
 
@@ -138,6 +152,10 @@ skip-if = [
 ["browser_aiwindow_smartbar_tab_switch.js"]
 
 ["browser_aiwindow_smartbar_telemetry.js"]
+skip-if = [
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && tsan && nova", # Bug 2057553
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && ccov && nova", # Bug 2057553
+]
 
 ["browser_aiwindow_stop_generation.js"]
 
@@ -189,12 +207,19 @@ skip-if = [
 ["browser_smartwindow_assistant_ui_errors.js"]
 
 ["browser_smartwindow_beta_badge.js"]
+skip-if = [
+  "nova", # Bug 2057549
+]
+
+["browser_smartwindow_bookmarks_toolbar.js"]
 
 ["browser_smartwindow_chat_browser_tabbable.js"]
 
 ["browser_smartwindow_chat_markdown_parser.js"]
 
 ["browser_smartwindow_classic_mode_switch.js"]
+
+["browser_smartwindow_client_error_telemetry.js"]
 
 ["browser_smartwindow_content.js"]
 
@@ -251,6 +276,9 @@ skip-if = [
 ["browser_smartwindow_shortcut.js"]
 
 ["browser_smartwindow_sidebar.js"]
+skip-if = [
+  "nova", # Bug 2057925
+]
 
 ["browser_smartwindow_sidebar_auto_open_pref_prompt.js"]
 

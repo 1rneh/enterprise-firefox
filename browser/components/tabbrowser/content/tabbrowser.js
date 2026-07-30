@@ -57,8 +57,9 @@
     let userContextId = gBrowser.selectedBrowser.getAttribute("usercontextid");
     if (!userContextId) {
       // The container-creation panel can temporarily reveal this indicator to
-      // use it as its anchor; don't hide it again while that's the case.
-      if (window.gContainerCreation?.isPillPinned) {
+      // use it as its anchor; don't hide it again while that panel is up.
+      let creationPanel = document.getElementById("containerCreation-panel");
+      if (creationPanel && creationPanel.state != "closed") {
         return;
       }
       replaceContainerClass("color", hbox, "");
@@ -1311,8 +1312,9 @@
           // Notification box is already in the container.
           return;
         }
-        let browserStack = browserContainer.querySelector(".browserStack");
-        browserContainer.insertBefore(box, browserStack);
+        // Display the notification box as the first item in .browserContainer, so it will
+        // be placed before the Responsive Design Mode toolbar when it's displayed.
+        browserContainer.prepend(box);
         return;
       }
       this.getTabNotificationDeck().append(box);
@@ -2880,7 +2882,7 @@
       stack.className = "browserStack";
       stack.appendChild(b);
 
-      let browserContainer = document.createXULElement("vbox");
+      let browserContainer = document.createXULElement("box");
       browserContainer.className = "browserContainer";
       browserContainer.appendChild(stack);
 

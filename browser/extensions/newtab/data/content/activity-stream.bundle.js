@@ -189,6 +189,7 @@ for (const type of [
   "NEW_TAB_STATE_REQUEST_STARTUPCACHE",
   "NEW_TAB_STATE_REQUEST_WITHOUT_STARTUPCACHE",
   "NEW_TAB_UNLOAD",
+  "OPEN_ABOUT_ADDONS_THEMES",
   "OPEN_DOWNLOAD_FILE",
   "OPEN_LINK",
   "OPEN_NEW_WINDOW",
@@ -1740,6 +1741,32 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     const feed = feeds.data[url].data;
     return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("h4", null, "Feed url: ", url), /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, feed.recommendations?.map(story => this.renderStoryData(story)))));
   }
+  renderTrainhop() {
+    const {
+      trainhopConfig = {},
+      trainhopVersion,
+      nimbusDebug
+    } = this.props.otherPrefs;
+    return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("table", {
+      className: "minimal-table trainhop-info"
+    }, /*#__PURE__*/external_React_default().createElement("tbody", null, /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
+      className: "min"
+    }, "Installed version"), /*#__PURE__*/external_React_default().createElement("td", null, trainhopVersion ?? "unknown")), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
+      className: "min"
+    }, "nimbus.debug"), /*#__PURE__*/external_React_default().createElement("td", null, nimbusDebug ? "true" : "false")))), /*#__PURE__*/external_React_default().createElement("p", null, "Manage the experiments and rollouts that populate this config in", " ", /*#__PURE__*/external_React_default().createElement("a", {
+      target: "_blank",
+      rel: "noopener noreferrer",
+      href: "about:studies"
+    }, "about:studies"), ", or install the", " ", /*#__PURE__*/external_React_default().createElement("a", {
+      target: "_blank",
+      rel: "noopener noreferrer",
+      href: "https://github.com/mozilla-extensions/nimbus-devtools/releases"
+    }, "Nimbus devtools extension"), "."), Object.keys(trainhopConfig || {}).length ? /*#__PURE__*/external_React_default().createElement("pre", {
+      className: "trainhop-config"
+    }, JSON.stringify(trainhopConfig, null, 2)) : /*#__PURE__*/external_React_default().createElement("p", {
+      className: "trainhop-empty"
+    }, "No train-hop config. This build isn't enrolled in any newtabTrainhop experiment or rollout."));
+  }
   renderFeedsData() {
     const {
       feeds
@@ -1925,6 +1952,8 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
       ontoggle: this.handleSectionsToggle,
       label: "Toggle DS Sections"
     })), /*#__PURE__*/external_React_default().createElement("details", {
+      className: "details-section"
+    }, /*#__PURE__*/external_React_default().createElement("summary", null, "Train Hop"), this.renderTrainhop()), /*#__PURE__*/external_React_default().createElement("details", {
       className: "details-section"
     }, /*#__PURE__*/external_React_default().createElement("summary", null, "IAB Banner Ad Sizes"), /*#__PURE__*/external_React_default().createElement("div", {
       className: "toggle-wrapper"
@@ -7480,6 +7509,7 @@ const INITIAL_STATE = {
   },
   SectionsLayout: {
     configs: {},
+    orderings: {},
   },
   Weather: {
     initialized: false,
@@ -8405,7 +8435,11 @@ function Wallpapers(prevState = INITIAL_STATE.Wallpapers, action) {
 function SectionsLayout(prevState = INITIAL_STATE.SectionsLayout, action) {
   switch (action.type) {
     case actionTypes.SECTIONS_LAYOUT_UPDATE:
-      return { ...prevState, configs: action.data.configs };
+      return {
+        ...prevState,
+        configs: action.data.configs,
+        orderings: action.data.orderings ?? prevState.orderings,
+      };
     default:
       return prevState;
   }
@@ -12766,7 +12800,7 @@ function MessageWrapper({
     }));
     onDismiss?.();
   }, [dispatch, message, onDismiss]);
-  function handleDismiss() {
+  const handleDismiss = (0,external_React_namespaceObject.useCallback)(() => {
     const {
       id
     } = message.messageData;
@@ -12779,8 +12813,8 @@ function MessageWrapper({
       }));
     }
     handleClose();
-  }
-  function handleBlock() {
+  }, [dispatch, message, handleClose]);
+  const handleBlock = (0,external_React_namespaceObject.useCallback)(() => {
     const {
       id
     } = message.messageData;
@@ -12790,8 +12824,8 @@ function MessageWrapper({
         data: id
       }));
     }
-  }
-  function handleClick(elementId) {
+  }, [dispatch, message]);
+  const handleClick = (0,external_React_namespaceObject.useCallback)(elementId => {
     const {
       id
     } = message.messageData;
@@ -12804,7 +12838,7 @@ function MessageWrapper({
         }
       }));
     }
-  }
+  }, [dispatch, message]);
   if (!message || !hiddenOverride && !message.isVisible) {
     return null;
   }
@@ -17201,6 +17235,25 @@ const Weather_USER_ACTION_TYPES = {
   OPT_IN_ACCEPTED: "opt_in_accepted",
   PROVIDER_LINK_CLICK: "provider_link_click"
 };
+const WEATHER_PROVIDER = "AccuWeather®";
+function SponsoredText({
+  size
+}) {
+  if (size === "small") {
+    return /*#__PURE__*/external_React_default().createElement("span", {
+      className: "sponsored-text",
+      "aria-hidden": "true"
+    }, WEATHER_PROVIDER);
+  }
+  return /*#__PURE__*/external_React_default().createElement("span", {
+    className: "sponsored-text",
+    "aria-hidden": "true",
+    "data-l10n-id": "newtab-weather-sponsored",
+    "data-l10n-args": JSON.stringify({
+      provider: WEATHER_PROVIDER
+    })
+  });
+}
 function Weather_Weather({
   dispatch,
   size,
@@ -17292,9 +17345,13 @@ function Weather_Weather({
   const weatherOptIn = prefs["system.showWeatherOptIn"];
   const nimbusWeatherOptInEnabled = prefs.trainhopConfig?.weather?.weatherOptInEnabled;
   const isOptInEnabled = weatherOptIn || nimbusWeatherOptInEnabled;
-  const optInDisplayed = prefs["weather.optInDisplayed"];
   const optInUserChoice = prefs["weather.optInAccepted"];
-  const showOptInState = isOptInEnabled && optInDisplayed && !optInUserChoice;
+  // Show the opt-in prompt whenever opt-in is required and the user has not yet
+  // accepted, independent of weather.optInDisplayed. The Nova widget has no
+  // reject button, so the only path to optInDisplayed=false is acceptance (which
+  // sets optInAccepted=true); gating on optInDisplayed previously let real
+  // location weather render for users migrated from a legacy reject (Bug 2046143).
+  const showOptInState = isOptInEnabled && !optInUserChoice;
   const {
     searchActive
   } = weatherData;
@@ -17529,7 +17586,9 @@ function Weather_Weather({
     className: "weather-conditions-view"
   }, /*#__PURE__*/external_React_default().createElement("a", {
     "data-l10n-id": "newtab-weather-see-forecast-description",
-    "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}",
+    "data-l10n-args": JSON.stringify({
+      provider: WEATHER_PROVIDER
+    }),
     "data-l10n-attrs": "aria-description",
     href: WEATHER_SUGGESTION.forecast.url,
     className: "weather-info-link",
@@ -17558,7 +17617,9 @@ function Weather_Weather({
     "data-l10n-id": "newtab-weather-low"
   }), WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]], "\xB0"))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "weather-info-description"
-  }, WEATHER_SUGGESTION.current_conditions.summary)))), !hasError && showForecast && /*#__PURE__*/external_React_default().createElement("div", {
+  }, WEATHER_SUGGESTION.current_conditions.summary))), size === "medium" && /*#__PURE__*/external_React_default().createElement(SponsoredText, {
+    size: size
+  })), !hasError && showForecast && /*#__PURE__*/external_React_default().createElement("div", {
     className: "forecast-row"
   }, /*#__PURE__*/external_React_default().createElement("p", {
     className: "today-forecast",
@@ -17575,13 +17636,10 @@ function Weather_Weather({
     const date = new Date(slot.date_time);
     const hours = date.getHours() % 12 || 12;
     return `${hours}:${String(date.getMinutes()).padStart(2, "0")}`;
-  })())))))), !hasError && /*#__PURE__*/external_React_default().createElement("div", {
+  })())))))), !hasError && size !== "medium" && /*#__PURE__*/external_React_default().createElement("div", {
     className: "forecast-footer"
-  }, /*#__PURE__*/external_React_default().createElement("span", {
-    className: "sponsored-text",
-    "aria-hidden": "true",
-    "data-l10n-id": "newtab-weather-sponsored",
-    "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}"
+  }, /*#__PURE__*/external_React_default().createElement(SponsoredText, {
+    size: size
   }), showForecast && /*#__PURE__*/external_React_default().createElement("a", {
     className: "full-forecast",
     href: HOURLY_FORECASTS[0]?.url || "#",
@@ -23092,7 +23150,7 @@ const PictureOfTheDay_PictureOfTheDay = ({
   const [imageFailed, setImageFailed] = (0,external_React_namespaceObject.useState)(false);
   (0,external_React_namespaceObject.useEffect)(() => {
     setImageFailed(false);
-  }, [pictureData.imageUrl]);
+  }, [pictureData.thumbnailUrl]);
 
   // Dismissal is keyed to the picture's date so a new day's picture shows again
   // automatically (Bug 2050972). Edge case: Merino may omit published_date, and
@@ -23107,7 +23165,7 @@ const PictureOfTheDay_PictureOfTheDay = ({
   // on. Toggling wallpapers off in the Content section keeps the picture selected
   // but hidden, so the checkmark hides while off and returns when toggled back on.
   const isSetAsWallpaper = Boolean(prefs["newtabWallpapers.user.enabled"]) && pictureDate === prefs["widgets.pictureOfTheDay.wallpaperActive"];
-  const hasPicture = Boolean(pictureData.imageUrl) && !dismissed && !imageFailed;
+  const hasPicture = Boolean(pictureData.thumbnailUrl) && !dismissed && !imageFailed;
 
   // Show the "New" badge until the user first interacts with the widget;
   // handleInteraction flips widgets.pictureOfTheDay.interaction on any action,
@@ -23340,7 +23398,7 @@ const PictureOfTheDay_PictureOfTheDay = ({
   };
   const pictureImage = /*#__PURE__*/external_React_default().createElement("img", {
     className: "picture-of-the-day-image",
-    src: pictureData.imageUrl,
+    src: pictureData.thumbnailUrl,
     alt: imageAlt,
     onError: () => setImageFailed(true)
   });
@@ -24603,6 +24661,20 @@ function Widgets() {
  */
 // eslint-disable-next-line no-unsanitized/method
 const defaultImportModule = url => import(/* webpackIgnore: true */url);
+
+/**
+ * Assigns each prop as a property on the custom element. Lit-based elements
+ * already skip re-rendering when a reactive property is assigned an unchanged
+ * value, so we don't guard against that here.
+ *
+ * @param {Element} element The custom element to update.
+ * @param {object} props Properties to assign, keyed by property name.
+ */
+function applyProps(element, props) {
+  for (const [propName, propValue] of Object.entries(props)) {
+    element[propName] = propValue;
+  }
+}
 function ExternalComponentWrapper({
   type,
   className,
@@ -24617,6 +24689,10 @@ function ExternalComponentWrapper({
   const styleRef = external_React_default().useRef(null);
   const shadowRootRef = external_React_default().useRef(null);
   const l10nLinksRef = external_React_default().useRef([]);
+  // Holds the latest props so the custom element can be created with current
+  // values even though loadComponent runs asynchronously (kept updated by the
+  // sync effect below).
+  const latestPropsRef = external_React_default().useRef(props);
   const [error, setError] = external_React_default().useState(null);
   const {
     components
@@ -24683,11 +24759,7 @@ function ExternalComponentWrapper({
               element.style.setProperty(variable, style);
             }
           }
-          if (props) {
-            for (let [propName, propValue] of Object.entries(props)) {
-              element[propName] = propValue;
-            }
-          }
+          applyProps(element, latestPropsRef.current);
           customElementRef.current = element;
           containerRef.current.appendChild(element);
         }
@@ -24727,6 +24799,17 @@ function ExternalComponentWrapper({
     // which is guarded by the !customElementRef.current check.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, components, importModule]);
+
+  // Keep the latest props tracked (for asynchronous element creation above) and
+  // forward prop updates to the already-created custom element. The creation
+  // effect only assigns props once, so without this, later changes to props
+  // like `isIntersecting` would never reach the element.
+  external_React_default().useEffect(() => {
+    latestPropsRef.current = props;
+    if (customElementRef.current) {
+      applyProps(customElementRef.current, props);
+    }
+  });
   if (error) {
     return null;
   }
@@ -25355,6 +25438,85 @@ function SectionsMgmtPanel({
   }, /*#__PURE__*/external_React_default().createElement("h1", {
     "data-l10n-id": "newtab-section-mangage-topics-title"
   })), panelBody))));
+}
+
+;// CONCATENATED MODULE: ./content-src/components/CustomizeMenu/ThemesManagementPanel/ThemesManagementPanel.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+// eslint-disable-next-line no-shadow
+
+
+// Full browser theme selection sub-panel. The compact `theme-picker` lives in
+// the customize panel row; the "See more themes" box-button opens this sliding
+// panel, which shows the full `theme-picker` (appearance chooser + all themes)
+// and a link out to the about:addons themes list.
+function ThemesManagementPanel({
+  onSubpanelToggle,
+  togglePanel,
+  showPanel
+}) {
+  const arrowButtonRef = (0,external_React_namespaceObject.useRef)(null);
+  const panelRef = (0,external_React_namespaceObject.useRef)(null);
+  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
+
+  // Notify parent menu when subpanel opens/closes
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (onSubpanelToggle) {
+      onSubpanelToggle(showPanel);
+    }
+  }, [showPanel, onSubpanelToggle]);
+  const handlePanelEntered = () => {
+    arrowButtonRef.current?.focus();
+  };
+  const openAboutAddonsThemes = () => {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.OPEN_ABOUT_ADDONS_THEMES
+    }));
+  };
+  const isRTL = typeof document !== "undefined" && document.dir === "rtl";
+  const arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    id: "themes-management-panel",
+    className: "themes-mgmt-panel-container"
+  }, /*#__PURE__*/external_React_default().createElement("moz-box-button", {
+    onClick: togglePanel,
+    "data-l10n-id": "newtab-appearance-more-themes-button"
+  }), /*#__PURE__*/external_React_default().createElement(external_ReactTransitionGroup_namespaceObject.CSSTransition, {
+    nodeRef: panelRef,
+    in: showPanel,
+    timeout: 300,
+    classNames: "themes-mgmt-panel",
+    unmountOnExit: true,
+    onEntered: handlePanelEntered
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    ref: panelRef,
+    className: "themes-mgmt-panel"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "panel-content"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "arrow-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    ref: arrowButtonRef,
+    type: "ghost",
+    className: "arrow-button",
+    iconSrc: arrowIconSrc,
+    onClick: togglePanel
+  }), /*#__PURE__*/external_React_default().createElement("h2", {
+    "data-l10n-id": "newtab-appearance-manage-title"
+  })), /*#__PURE__*/external_React_default().createElement("theme-picker", {
+    layout: "full",
+    showLabels: false,
+    installsource: "about:newtab"
+  }), /*#__PURE__*/external_React_default().createElement("button", {
+    className: "external-link",
+    onClick: openAboutAddonsThemes,
+    "data-l10n-id": "newtab-appearance-explore-more-themes-button"
+  })))));
 }
 
 ;// CONCATENATED MODULE: ./lib/Wallpapers/WallpaperThemeUtils.mjs
@@ -26428,8 +26590,19 @@ function ContentSection_extends() { return ContentSection_extends = Object.assig
 
 
 
+
 // @nova-cleanup(move-directory): Update import path after WidgetsManagementPanel moves to components/CustomizeMenu/
 
+
+// `theme-picker` is imported lazily, so it may still be an undefined custom element
+// when React renders it. In that state React sets props as attributes, and the lit
+// `showLabels` boolean (default true) can't be turned off via an attribute — so set the
+// property directly via a ref; lit preserves it across element upgrade.
+function hideThemePickerLabels(el) {
+  if (el) {
+    el.showLabels = false;
+  }
+}
 class ContentSection extends (external_React_default()).PureComponent {
   constructor(props) {
     super(props);
@@ -26598,6 +26771,9 @@ class ContentSection extends (external_React_default()).PureComponent {
       showSectionsMgmtPanel,
       // @nova-cleanup(remove-conditional): Remove novaEnabled
       novaEnabled,
+      browserNovaEnabled,
+      toggleThemesPanel,
+      showThemesPanel,
       wallpapersEnabled,
       toggleWidgetsManagementPanel,
       showWidgetsManagementPanel,
@@ -26633,7 +26809,19 @@ class ContentSection extends (external_React_default()).PureComponent {
     // @nova-cleanup(remove-conditional): This conditional adds the toggle for wallpaper visibility.
     return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
       className: "home-section"
-    }, wallpapersEnabled && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+    }, browserNovaEnabled && /*#__PURE__*/external_React_default().createElement("div", {
+      className: "appearance-section section"
+    }, /*#__PURE__*/external_React_default().createElement("h2", {
+      "data-l10n-id": "newtab-custom-appearance-section-title"
+    }), /*#__PURE__*/external_React_default().createElement("theme-picker", {
+      ref: hideThemePickerLabels,
+      layout: "compact",
+      installsource: "about:newtab"
+    }), /*#__PURE__*/external_React_default().createElement(ThemesManagementPanel, {
+      onSubpanelToggle: onSubpanelToggle,
+      togglePanel: toggleThemesPanel,
+      showPanel: showThemesPanel
+    })), wallpapersEnabled && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
       className: "wallpapers-section"
     }, novaEnabled && /*#__PURE__*/external_React_default().createElement("moz-toggle", {
       id: "wallpapers-toggle",
@@ -26908,6 +27096,33 @@ class ContentSection extends (external_React_default()).PureComponent {
 const CustomizeMenu_PREF_NOVA_ENABLED = "nova.enabled";
 // eslint-disable-next-line no-shadow
 
+const THEME_PICKER_ELEMENTS = ["chrome://global/content/elements/moz-visual-picker.mjs", "chrome://global/content/elements/moz-segmented-control.mjs", "chrome://global/content/elements/theme-picker.mjs"];
+const THEME_PICKER_FTL = "locales-preview/theme-picker.ftl";
+let themePickerElementsLoaded = false;
+
+/**
+ * @backward-compat { version 155 }
+ * The `theme-picker` element, its `moz-visual-picker` / `moz-segmented-control`
+ * dependencies, and its `theme-picker.ftl` only exist in Firefox 155+. Load them lazily
+ * and only on a supported host (callers gate on `browserNovaEnabled`, which encodes the
+ * 155+ check) so their `chrome://` URLs / l10n resources are never referenced when
+ * newtab train-hops onto an older host — there a missing chrome URL is a fatal
+ * `CheckForBrokenChromeURL` process crash, not a catchable load error. The element's own
+ * `insertFTLIfNeeded` does not run in the newtab content context (no `MozXULElement`), so
+ * the ftl is registered here instead of via a static `<link>`. Remove once 155 reaches
+ * Release.
+ */
+function loadThemePickerElements() {
+  if (themePickerElementsLoaded) {
+    return;
+  }
+  themePickerElementsLoaded = true;
+  document.l10n?.addResourceIds([THEME_PICKER_FTL]);
+  for (const url of THEME_PICKER_ELEMENTS) {
+    // eslint-disable-next-line no-unsanitized/method
+    import(/* webpackIgnore: true */url).catch(() => {});
+  }
+}
 class _CustomizeMenu extends (external_React_default()).PureComponent {
   constructor(props) {
     super(props);
@@ -26928,8 +27143,16 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
       subpanelOpen: isOpen
     });
   }
+  componentDidMount() {
+    if (this.props.showing && this.props.Prefs.values.browserNovaEnabled) {
+      loadThemePickerElements();
+    }
+  }
   componentDidUpdate(prevProps) {
     if (this.props.showing && !prevProps.showing) {
+      if (this.props.Prefs.values.browserNovaEnabled) {
+        loadThemePickerElements();
+      }
       if (!this.dialogRef.current?.open) {
         this.dialogRef.current?.showModal();
       }
@@ -26968,6 +27191,10 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
     const activationWindowClass = activationWindowVariant ? `activation-window-variant-${activationWindowVariant}` : "";
     // @nova-cleanup(remove-pref): remove nova pref
     const novaEnabled = this.props.Prefs.values[CustomizeMenu_PREF_NOVA_ENABLED];
+    // Browser-wide Nova gate for the theme picker (distinct from novaEnabled).
+    const {
+      browserNovaEnabled
+    } = this.props.Prefs.values;
     return /*#__PURE__*/external_React_default().createElement("span", null, /*#__PURE__*/external_React_default().createElement(external_ReactTransitionGroup_namespaceObject.CSSTransition, {
       nodeRef: this.personalizeButtonRef,
       timeout: 300,
@@ -27053,6 +27280,9 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
       toggleSectionsMgmtPanel: this.props.toggleSectionsMgmtPanel,
       showSectionsMgmtPanel: this.props.showSectionsMgmtPanel,
       novaEnabled: novaEnabled,
+      browserNovaEnabled: browserNovaEnabled,
+      toggleThemesPanel: this.props.toggleThemesPanel,
+      showThemesPanel: this.props.showThemesPanel,
       toggleWidgetsManagementPanel: this.props.toggleWidgetsManagementPanel,
       showWidgetsManagementPanel: this.props.showWidgetsManagementPanel,
       widgetsEnabled: this.props.widgetsEnabled
@@ -27063,1047 +27293,20 @@ const CustomizeMenu = (0,external_ReactRedux_namespaceObject.connect)(state => (
   DiscoveryStream: state.DiscoveryStream,
   Prefs: state.Prefs
 }))(_CustomizeMenu);
-;// CONCATENATED MODULE: ./content-src/components/Logo/variants/FootballBounce.jsx
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this file,
- * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-/**
- * @backward-compat { version 153 }
- * The entire logo-variation feature can be removed after Firefox 153 hits
- * Release, when the 2026 World Cup is over. Delete this file, the
- * `football-bounce` entry in `LOGO_VARIATIONS` (in `Logo.jsx`), the
- * `football-bounce.webp` asset under `data/content/assets/`, and the
- * `logo.variation` pref entry in `ActivityStream.sys.mjs`.
- */
-
-
-const SPRITE_URL = "chrome://newtab/content/data/content/assets/football-bounce.webp";
-
-// 56 frames laid out as an 8-column x 7-row grid of 480x270 cells inside a
-// 3840x1890 sprite sheet. Each value is "<x> <y>" in source-image pixels.
-// Read in scanline order: top-left across to top-right, then row by row down
-// to bottom-right.
-const TRANSFORM_VALUES = "0 0;-480 0;-960 0;-1440 0;-1920 0;-2400 0;-2880 0;-3360 0;0 -270;-480 -270;-960 -270;-1440 -270;-1920 -270;-2400 -270;-2880 -270;-3360 -270;0 -540;-480 -540;-960 -540;-1440 -540;-1920 -540;-2400 -540;-2880 -540;-3360 -540;0 -810;-480 -810;-960 -810;-1440 -810;-1920 -810;-2400 -810;-2880 -810;-3360 -810;0 -1080;-480 -1080;-960 -1080;-1440 -1080;-1920 -1080;-2400 -1080;-2880 -1080;-3360 -1080;0 -1350;-480 -1350;-960 -1350;-1440 -1350;-1920 -1350;-2400 -1350;-2880 -1350;-3360 -1350;0 -1620;-480 -1620;-960 -1620;-1440 -1620;-1920 -1620;-2400 -1620;-2880 -1620;-3360 -1620";
-
-/**
- * The "football bounce" logo variation. Windows onto a 3840x1890 WebP
- * sprite sheet (56 frames, 8 columns x 7 rows of 480x270 cells). Unlike
- * the square logo variations, each cell is 16:9 — the animation is
- * deliberately wider and taller than the logo slot. To avoid disturbing
- * the surrounding layout the outer element is a fixed-size container
- * matching the standard logo slot, and the SVG inside it renders at the
- * sprite's natural cell size (480x270) and overflows the container so
- * the football's bounce trajectory can extend beyond the standard logo
- * bounds. The container's `overflow: visible` plus the SVG's absolute
- * positioning are defined in `_FootballBounce.scss`; aligning the
- * sprite's "rest" cell to the standard logo position is a job for those
- * CSS offsets.
- *
- * LTR only: the football bounces left-to-right, which would read
- * incorrectly when mirrored for RTL. The variation registry sets
- * `requiresLTR: true` and falls back to `spin-smooth` in RTL locales.
- *
- * The WebP is served from
- * `chrome://newtab/content/data/content/assets/football-bounce.webp` —
- * `chrome:` is permitted by the newtab CSP's `img-src` list. A single
- * SMIL `<animateTransform>` element pans the image through all 56 cells
- * in 3.752 seconds. `fill="freeze"` keeps the final cell (bottom-right
- * of the sprite — the "rest" pose) visible after the animation ends,
- * unlike the other variations which return to frame 0 via the default
- * `fill="remove"`.
- *
- * Click semantics match the other click-triggered variations:
- *  - First click plays the animation.
- *  - Clicks while the animation is in flight are ignored.
- *  - Clicks after the animation finishes replay it cleanly (SMIL
- *    `restart="always"` default means `beginElement()` rewinds to t=0).
- *  - Clicks under `prefers-reduced-motion: reduce` are a no-op.
- *
- * The click target is the 64x64 container, not the wider SVG — so only
- * the logo-slot area triggers replay, not the airborne football itself.
- *
- * @returns {React.ReactElement} The container div wrapping the
- *   sprite-window SVG and its indefinitely-begun SMIL animation.
- */
-function FootballBounce() {
-  const animRef = (0,external_React_namespaceObject.useRef)(null);
-  const isRunningRef = (0,external_React_namespaceObject.useRef)(false);
-  const [isAnimating, setIsAnimating] = (0,external_React_namespaceObject.useState)(false);
-  (0,external_React_namespaceObject.useEffect)(() => {
-    const anim = animRef.current;
-    if (!anim) {
-      return undefined;
-    }
-    const onBegin = () => {
-      isRunningRef.current = true;
-      setIsAnimating(true);
-    };
-    const onEnd = () => {
-      isRunningRef.current = false;
-      setIsAnimating(false);
-    };
-    anim.addEventListener("beginEvent", onBegin);
-    anim.addEventListener("endEvent", onEnd);
-    return () => {
-      anim.removeEventListener("beginEvent", onBegin);
-      anim.removeEventListener("endEvent", onEnd);
-    };
-  }, []);
-
-  /**
-   * Plays the SMIL animation once, unless the user has reduced motion
-   * enabled or the animation is already running.
-   */
-  const handleClick = () => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-    if (!animRef.current || isRunningRef.current) {
-      return;
-    }
-    animRef.current.beginElement();
-  };
-  return /*#__PURE__*/external_React_default().createElement("div", {
-    className: `logo-variation-small football-bounce${isAnimating ? " is-animating" : ""}`,
-    onClick: handleClick
-  }, /*#__PURE__*/external_React_default().createElement("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    viewBox: "0 0 480 270",
-    width: "480",
-    height: "270",
-    className: "football-bounce__sprite",
-    "aria-hidden": "true"
-  }, /*#__PURE__*/external_React_default().createElement("g", {
-    transform: "translate(-3360 -1620)"
-  }, /*#__PURE__*/external_React_default().createElement("image", {
-    width: "3840",
-    height: "1890",
-    x: "0",
-    y: "0",
-    imageRendering: "optimizeQuality",
-    href: SPRITE_URL
-  }), /*#__PURE__*/external_React_default().createElement("animateTransform", {
-    ref: animRef,
-    attributeName: "transform",
-    type: "translate",
-    calcMode: "discrete",
-    dur: "3.752s",
-    begin: "indefinite",
-    fill: "freeze",
-    values: TRANSFORM_VALUES
-  }))));
-}
-
-;// CONCATENATED MODULE: ./content-src/components/Logo/variants/RotatingBall.jsx
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this file,
- * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-/**
- * @backward-compat { version 153 }
- * The entire logo-variation feature can be removed after Firefox 153 hits
- * Release, when the 2026 World Cup is over. Delete this file, the
- * `rotating-ball` entry in `LOGO_VARIATIONS` (in `Logo.jsx`), the
- * `rotating-ball.webp` asset under `data/content/assets/`, and the
- * `logo.variation` pref entry in `ActivityStream.sys.mjs`.
- */
-
-
-const RotatingBall_SPRITE_URL = "chrome://newtab/content/data/content/assets/rotating-ball.webp";
-
-// 30 frames (one entry per sprite cell).
-const RotatingBall_TRANSFORM_VALUES = "0,0;-200,0;-400,0;-600,0;-800,0;-1000,0;-1200,0;-1400,0;-1600,0;-1800,0;-2000,0;-2200,0;-2400,0;-2600,0;-2800,0;-3000,0;-3200,0;-3400,0;-3600,0;-3800,0;-4000,0;-4200,0;-4400,0;-4600,0;-4800,0;-5000,0;-5200,0;-5400,0;-5600,0;-5800,0";
-
-/**
- * The "rotating ball" logo variation. Renders a 200x200 SVG that windows
- * onto a 6000x200 WebP sprite sheet (30 frames in a single row, each
- * 200x200 to match `spin-smooth.webp`). The WebP is served from
- * `chrome://newtab/content/data/content/assets/rotating-ball.webp` —
- * `chrome:` is permitted by the newtab CSP's `img-src` list. A SMIL
- * `<animateTransform>` element pans the image through all 30 frames in
- * 2.9333 seconds. The animation runs **on click**, not automatically —
- * it's authored with `begin="indefinite"` and triggered via
- * `beginElement()` from the click handler. Default `fill="remove"` means
- * the sprite snaps back to frame 0 once the animation completes, ready
- * for the next click.
- *
- * Click semantics match the other click-triggered variations:
- *  - First click plays the animation.
- *  - Clicks while the animation is in flight are ignored (so the sprite
- *    doesn't jump back mid-spin).
- *  - Clicks after the animation finishes replay it cleanly.
- *  - Clicks under `prefers-reduced-motion: reduce` are a no-op; the SVG
- *    stays at frame 0 (left-most cell of the sprite). This preserves the
- *    visual presence and click affordance for reduced-motion users
- *    without forcing them through the spin.
- *
- * @returns {React.ReactElement} The SVG element wrapping the sprite +
- *   the indefinitely-begun SMIL animation.
- */
-function RotatingBall() {
-  const animRef = (0,external_React_namespaceObject.useRef)(null);
-  const isRunningRef = (0,external_React_namespaceObject.useRef)(false);
-  const [isAnimating, setIsAnimating] = (0,external_React_namespaceObject.useState)(false);
-  (0,external_React_namespaceObject.useEffect)(() => {
-    const anim = animRef.current;
-    if (!anim) {
-      return undefined;
-    }
-    const onBegin = () => {
-      isRunningRef.current = true;
-      setIsAnimating(true);
-    };
-    const onEnd = () => {
-      isRunningRef.current = false;
-      setIsAnimating(false);
-    };
-    anim.addEventListener("beginEvent", onBegin);
-    anim.addEventListener("endEvent", onEnd);
-    return () => {
-      anim.removeEventListener("beginEvent", onBegin);
-      anim.removeEventListener("endEvent", onEnd);
-    };
-  }, []);
-
-  /**
-   * Plays the SMIL animation once, unless the user has reduced motion
-   * enabled or the animation is already running. `beginElement()` is the
-   * SMIL equivalent of `Animation.play()` for the Web Animations API.
-   */
-  const handleClick = () => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-    if (!animRef.current || isRunningRef.current) {
-      return;
-    }
-    animRef.current.beginElement();
-  };
-  return /*#__PURE__*/external_React_default().createElement("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    viewBox: "0 0 200 200",
-    className: `logo-variation-small rotating-ball${isAnimating ? " is-animating" : ""}`,
-    "aria-hidden": "true",
-    onClick: handleClick
-  }, /*#__PURE__*/external_React_default().createElement("defs", null, /*#__PURE__*/external_React_default().createElement("clipPath", {
-    id: "rotating-ball-clip"
-  }, /*#__PURE__*/external_React_default().createElement("rect", {
-    x: "0",
-    y: "0",
-    width: "200",
-    height: "200"
-  }))), /*#__PURE__*/external_React_default().createElement("g", {
-    clipPath: "url(#rotating-ball-clip)"
-  }, /*#__PURE__*/external_React_default().createElement("g", null, /*#__PURE__*/external_React_default().createElement("image", {
-    width: "6000",
-    height: "200",
-    imageRendering: "smooth",
-    href: RotatingBall_SPRITE_URL
-  }), /*#__PURE__*/external_React_default().createElement("animateTransform", {
-    ref: animRef,
-    attributeName: "transform",
-    type: "translate",
-    calcMode: "discrete",
-    dur: "2.9333s",
-    begin: "indefinite",
-    values: RotatingBall_TRANSFORM_VALUES
-  }))));
-}
-
-;// CONCATENATED MODULE: ./content-src/components/Logo/variants/SpinBallSmall.jsx
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this file,
- * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-/**
- * @backward-compat { version 153 }
- * The entire logo-variation feature can be removed after Firefox 153 hits
- * Release, when the 2026 World Cup is over. Delete this file, the
- * `logo-variation-small`/`spin-ball-small` SCSS blocks plus their
- * `@keyframes`, the `logo.variation` pref entry in
- * `ActivityStream.sys.mjs`, and the logo-variation selection logic in
- * `Logo.jsx` (Logo reverts to its original default-only rendering).
- */
-
-
-
-/**
- * The "spin ball, small" logo variation. Renders the supplied animated
- * Firefox SVG (inline JSX) into the newtab logo slot. The SVG is purely
- * decorative — it's `aria-hidden`, has no interactive ARIA role, and is not
- * keyboard-focusable. Mouse users discover the click affordance via
- * `cursor: pointer` (defined in `_Logo.scss`).
- *
- * All animations declared on the SVG's children load `paused` (per the
- * `animation-play-state: paused` rule in `_Logo.scss`). They begin running
- * on the first click and re-run on each subsequent click (see the click
- * handler below).
- *
- * @returns {React.ReactElement} The animated SVG element.
- */
-function SpinBallSmall() {
-  const svgRef = (0,external_React_namespaceObject.useRef)(null);
-  const [isAnimating, setIsAnimating] = (0,external_React_namespaceObject.useState)(false);
-
-  // Track whether any of the SVG's CSS animations are in flight. The SVG
-  // contains four parallel animations (spin, blur, classic-fade, nova-fade);
-  // count starts and ends so we only clear `isAnimating` once they're all
-  // done. CSS `animationstart`/`animationend` events bubble from the
-  // animated children up to the SVG ref.
-  (0,external_React_namespaceObject.useEffect)(() => {
-    const svg = svgRef.current;
-    if (!svg) {
-      return undefined;
-    }
-    let inflight = 0;
-    const onStart = () => {
-      inflight += 1;
-      setIsAnimating(true);
-    };
-    const onEnd = () => {
-      inflight = Math.max(0, inflight - 1);
-      if (inflight === 0) {
-        setIsAnimating(false);
-      }
-    };
-    svg.addEventListener("animationstart", onStart);
-    svg.addEventListener("animationend", onEnd);
-    return () => {
-      svg.removeEventListener("animationstart", onStart);
-      svg.removeEventListener("animationend", onEnd);
-    };
-  }, []);
-
-  /**
-   * Plays every CSS animation declared on the SVG (and its descendants),
-   * resetting them to t=0 first so the cross-fade between the classic and
-   * "nova" Firefox icons stays synchronised across replays.
-   *
-   * Two guards:
-   *  - `prefers-reduced-motion: reduce` short-circuits without invoking
-   *    `play()`. The SVG remains visible at its frame-0 keyframe state
-   *    (effectively the static Firefox logo), preserving the click
-   *    affordance for users who have reduced motion enabled while
-   *    honouring their preference.
-   *  - `playState !== "running"` makes the variation one-shot per click.
-   *    Clicking again while the animation is in flight does nothing;
-   *    clicking after it finishes restarts cleanly thanks to the
-   *    explicit `currentTime = 0` reset.
-   */
-  const handleClick = () => {
-    const svg = svgRef.current;
-    if (!svg) {
-      return;
-    }
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-    const animations = svg.getAnimations({
-      subtree: true
-    });
-    if (animations.length && animations[0].playState !== "running") {
-      animations.forEach(a => {
-        a.currentTime = 0;
-        a.play();
-      });
-    }
-  };
-  return /*#__PURE__*/external_React_default().createElement("svg", {
-    ref: svgRef,
-    xmlns: "http://www.w3.org/2000/svg",
-    viewBox: "0 0 1000 1000",
-    className: `logo-variation-small spin-ball-small${isAnimating ? " is-animating" : ""}`,
-    "aria-hidden": "true",
-    onClick: handleClick
-  }, /*#__PURE__*/external_React_default().createElement("defs", null, /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-0",
-    x1: "309.4",
-    y1: "12.5",
-    x2: "368.1",
-    y2: "337.9",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: "0",
-    stopColor: "#fff44f"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".3",
-    stopColor: "#ffd94d"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".7",
-    stopColor: "#ffb04b"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: "1",
-    stopColor: "#ff980e"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-1",
-    x1: ".4",
-    y1: "397.2",
-    x2: "55.6",
-    y2: "397.2",
-    gradientUnits: "userSpaceOnUse",
-    gradientTransform: "matrix(1 0 0 -1 0 523.6)"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".2",
-    stopColor: "#af16c0"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".9",
-    stopColor: "#00053d"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-2",
-    x1: "283.1",
-    y1: "397.1",
-    x2: "338.1",
-    y2: "397.1",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".2",
-    stopColor: "#af16c0"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".9",
-    stopColor: "#00053d"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-3",
-    x1: "112.2",
-    y1: "498.8",
-    x2: "226.6",
-    y2: "498.8",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".2",
-    stopColor: "#af16c0"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".9",
-    stopColor: "#00053d"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-4",
-    x1: "39.6",
-    y1: "236.6",
-    x2: "134.2",
-    y2: "236.6",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".2",
-    stopColor: "#af16c0"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".9",
-    stopColor: "#00053d"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-5",
-    x1: "204.5",
-    y1: "236.8",
-    x2: "299.2",
-    y2: "236.8",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".2",
-    stopColor: "#af16c0"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".9",
-    stopColor: "#00053d"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-6",
-    x1: "112.6",
-    y1: "359.2",
-    x2: "226.1",
-    y2: "359.2",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".2",
-    stopColor: "#af16c0"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".9",
-    stopColor: "#00053d"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-7",
-    x1: "-137.6",
-    y1: "457.7",
-    x2: "-0.8",
-    y2: "320.9",
-    gradientUnits: "userSpaceOnUse",
-    gradientTransform: "matrix(.7 .7 .7 -0.7 -226.3 307.5)"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: "0",
-    stopColor: "#929497"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: "1",
-    stopColor: "#929497"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-8",
-    x1: "-49.2",
-    y1: "116.8",
-    x2: "47",
-    y2: "-111.8",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".3",
-    stopColor: "#3a8ee6"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".7",
-    stopColor: "#9059ff"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: "1",
-    stopColor: "#c139e6"
-  })), /*#__PURE__*/external_React_default().createElement("radialGradient", {
-    id: "spin-ball-small-gradient-9",
-    cx: "1.8",
-    cy: "-36.9",
-    r: "137.5",
-    fx: "1.8",
-    fy: "-36.9",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".2",
-    stopColor: "#9059ff",
-    stopOpacity: "0"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: "1",
-    stopColor: "#6e008b",
-    stopOpacity: ".6"
-  })), /*#__PURE__*/external_React_default().createElement("radialGradient", {
-    id: "spin-ball-small-gradient-10",
-    cx: "-1767.7",
-    cy: "2465",
-    r: "2.9",
-    fx: "-1767.7",
-    fy: "2465",
-    gradientUnits: "userSpaceOnUse",
-    gradientTransform: "matrix(58.5 0 0 -58.7 103677 144814)"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".1",
-    stopColor: "#ffe226"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".8",
-    stopColor: "#ff7139"
-  })), /*#__PURE__*/external_React_default().createElement("radialGradient", {
-    id: "spin-ball-small-gradient-11",
-    cx: "-1788.7",
-    cy: "2446.5",
-    r: "3.1",
-    fx: "-1788.7",
-    fy: "2446.5",
-    gradientUnits: "userSpaceOnUse",
-    gradientTransform: "matrix(178.6 0 0 -159.8 319794 391016)"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".1",
-    stopColor: "#fff44f"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".6",
-    stopColor: "#ff980e"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-12",
-    x1: "420.4",
-    y1: "80.8",
-    x2: "71.7",
-    y2: "389",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".1",
-    stopColor: "#fff44f"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".6",
-    stopColor: "#ff980e"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".9",
-    stopColor: "#ff3647"
-  })), /*#__PURE__*/external_React_default().createElement("linearGradient", {
-    id: "spin-ball-small-gradient-13",
-    x1: "475.9",
-    y1: "184.4",
-    x2: "50.9",
-    y2: "413.4",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: "0",
-    stopColor: "#ffe743"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".3",
-    stopColor: "#ff980e"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".5",
-    stopColor: "#ff3750"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".8",
-    stopColor: "#eb0878"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: "1",
-    stopColor: "#e50080"
-  })), /*#__PURE__*/external_React_default().createElement("radialGradient", {
-    id: "spin-ball-small-gradient-14",
-    cx: "291.4",
-    cy: "184",
-    r: "311.4",
-    fx: "291.4",
-    fy: "184",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".1",
-    stopColor: "#fff44f"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".6",
-    stopColor: "#ff980e"
-  }), /*#__PURE__*/external_React_default().createElement("stop", {
-    offset: ".8",
-    stopColor: "#ff3647"
-  }))), /*#__PURE__*/external_React_default().createElement("g", {
-    className: "spin-ball-small__spin"
-  }, /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M438.4 180.4c-27.2-67.7-73.2-95-110.9-154.5c-1.9-3-3.8-6-5.6-9.2c-1-1.6-1.9-3.3-2.7-4.9c-1.5-3.1-2.8-6.3-3.6-9.6c0-0.3-0.2-0.6-0.5-0.6c-0.2 0-0.3 0-0.4 0c.2-0.1 .4-0.3 .6-0.4c0 0 .1-0.1 .1-0.1c-60.4 35.4-80.9 100.8-82.7 133.5c2.8-0.2 5.5-0.4 8.4-0.4c30.7 0 58.7 11.5 80 30.4c1.2 1.2 2.3 2.4 3.5 3.6c8.8 8.6 16.3 18.4 22.3 29.1c1.3 1 2.6 2 3.6 2.9c54.5 50.2 26 121.2 23.8 126.3c44.3-36.5 72.6-90.4 64.1-146.1Z",
-    fill: "url(#spin-ball-small-gradient-0)"
-  }), /*#__PURE__*/external_React_default().createElement("g", {
-    className: "spin-ball-small__classic",
-    transform: "translate(241.1,255.7) scale(.739424,.739424) translate(-169.3,-169.3)"
-  }, /*#__PURE__*/external_React_default().createElement("g", {
-    "data-name": "Layer 1"
-  }, /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M55.6 132.2l-0.2-60c0 0-9.6 1.5-15.6 3.1c-5.4 1.4-14.1 4.3-14.1 4.3c-14.2 22.8-23.2 49.2-25.3 77.5c0 0 5.4 7.6 8.3 11.1c4 4.9 11.5 12.4 11.5 12.4l35.4-48.4Z",
-    fill: "url(#spin-ball-small-gradient-1)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M283.1 132.1l35.4 48.5c0 0 7.2-7.7 11.4-13.3c4.4-5.9 8.2-12.2 8.2-12.2c-2.3-27.4-11.1-53-24.9-75.2c0 0-6.5-2.4-14.6-4.6c-7.5-2-15.3-3.1-15.3-3.1l-0.2 59.9Z",
-    fill: "url(#spin-ball-small-gradient-2)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M169.3 49.5l57.3-18.6c0 0-4.5-8.7-8.5-14.6c-4.6-6.9-8.5-11.5-8.5-11.5c-12.9-3.1-26.4-4.8-40.3-4.8c-13.9 0-27.8 1.7-40.9 5c0 0-5.5 7.5-8.4 11.9c-3.3 5.3-7.8 14-7.8 14l57.1 18.6Z",
-    fill: "url(#spin-ball-small-gradient-3)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M99 265.9l-57.1-18.5c0 0-1.5 10-1.9 15.2c-0.4 5.6-0.4 15.5-0.4 15.5c17.8 21.3 40.7 38.1 66.9 48.5c0 0 7.9-2.5 13.9-5.1c7-3.1 13.8-6.9 13.8-6.9l-35.2-48.7Z",
-    fill: "url(#spin-ball-small-gradient-4)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M239.7 265.9l-35.2 48.7c0 0 7.8 4 13.8 6.5c7.3 2.9 14.8 5.1 14.8 5.1c25.8-10.5 48.4-27.1 66.1-48.1c-0.1 0 .2-8.1-0.3-14.6c-0.6-7.3-2.1-16.1-2.1-16.1l-57.1 18.6Z",
-    fill: "url(#spin-ball-small-gradient-5)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M204.5 314.6c0-0.1 11.4-10.5 20.2-22.8c9.5-13.3 15-25.9 15-25.9l-35.3-48.5h-70.1l-35.3 48.5c0 0 6.3 14.3 14.9 25.9c9.1 12.4 20.3 22.8 20.3 22.8c0 0 15.2 4.3 35.2 4.3c18.5 0 35.1-4.4 35.1-4.4Z",
-    fill: "#dcdddd"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M318.5 180.6c0 0-6.1-13.6-15.9-27c-8.6-11.8-19.5-21.5-19.5-21.5l-57 18.6l-21.7 66.7l35.3 48.5c0 0 15.5-1.7 29.6-6.3c15.1-5 27.5-12.2 27.5-12.2c0 0 9-13.9 14.9-31.9c5.9-18 6.8-34.9 6.8-34.9Z",
-    fill: "#d4d5d5"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M20.2 180.6c0 0 5.9-13.6 15.2-26.2c9.2-12.5 20.1-22.2 20.1-22.2l57 18.5l21.7 66.7l-35.2 48.5c0 0-14.6-1.5-29.9-6.3c-14.9-4.7-27.3-12.2-27.3-12.2c0 0-9.1-12.9-14.9-31.7c-6.1-19.6-6.7-35.1-6.7-35.1Z",
-    fill: "#eeefef"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M55.4 72.2c0 0-3 14.5-3 28.3c0 16.9 3.2 31.7 3.2 31.7l57 18.5l56.7-41.3v-59.9c0 0-12.7-7.4-28.8-12.6c-15-4.9-28.3-6-28.3-6c0 0-14 5-30.5 16.9c-16.2 11.6-26.3 24.4-26.3 24.4Z",
-    fill: "#f9f9f9"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M169.3 109.4v-59.9c0 0 13.4-7.7 28.2-12.5c15.4-4.9 29.1-6.2 29.1-6.2c0 0 13.3 5 30.2 16.9c15.5 11 26.5 24.5 26.5 24.5c0 0 3 12.6 3 29.6c0 17-3.2 30.3-3.2 30.3l-57 18.6l-56.8-41.3Z",
-    fill: "#ececec"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M134.2 217.4c.1 0-9.8-24.1-13-34c-3.3-10-8.6-32.7-8.6-32.7c0 0 17.7-15.2 27.3-22.3c9.3-6.8 29.4-19 29.4-19c0 0 20.6 12.8 30 19.6c8.7 6.2 26.8 21.7 26.8 21.7c0 0-5.5 22.4-9 33.4c-3.4 11-12.7 33.3-12.7 33.3c0 0-23.3 1.9-35.8 1.9c-11.7 0-34.3-1.9-34.3-1.9Z",
-    fill: "url(#spin-ball-small-gradient-6)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M204.5 314.6v-0.1l-0.1 .1c0-0.1-16.5 4.3-35.1 4.3c-19.9 0-35-4.3-35.1-4.3c0 0-6.8 3.8-13.8 6.9c-6 2.6-13.9 5.1-13.9 5.1c-1.6-0.6 26.4 12.1 62.8 12.1c22.6 0 44.1-4.5 63.8-12.5c0 0-7.6-2.2-14.8-5.1c-6.1-2.4-13.8-6.5-13.8-6.5h-0.1Z",
-    fill: "#cacbcb"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M318.5 180.6c0 0-0.9 16.9-6.8 34.9c-5.9 18-14.9 31.9-14.9 31.9c0 0 1.6 8.8 2.1 16.1c.5 6.4 .3 14.5 .3 14.6c24.6-29.5 39.5-67.4 39.5-108.8c0-4.8-0.2-9.5-0.6-14.2c-0.1 .1-3.9 6.4-8.2 12.2c-4.2 5.6-11.4 13.3-11.4 13.3Z",
-    fill: "#cacbcb"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M39.6 278.1c0 0 0-9.9 .4-15.5c.3-5.1 1.8-15.1 1.8-15.2c0 0-9.1-12.9-14.9-31.8c-6.1-19.6-6.7-35-6.7-35c0 0-7.5-7.6-11.5-12.4c-2.7-3.3-7.5-10.1-8.3-11.1c-0.2 4.1-0.4 8.1-0.4 12.2c0 62 33.3 116.2 82.9 145.7c-16.4-9.8-31.1-22.3-43.3-36.9Z",
-    fill: "#f3f4f4"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M55.4 72.2c0 0 10.1-12.8 26.3-24.4c16.5-11.9 30.5-16.9 30.5-16.9c0 0 4.4-8.8 7.8-14c2.9-4.4 8.4-11.9 8.4-11.9c1.6-0.4 3.3-0.8 4.9-1.2c-45.3 9.8-83.8 37.8-107.6 75.8c1.4-0.4 9.2-3.1 14.1-4.3c5.9-1.6 15.5-3.1 15.6-3.1Z",
-    fill: "#f6f6f6"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M226.6 30.9c0 0 13.3 4.9 30.2 16.9c15.5 10.9 26.5 24.4 26.5 24.4c0 0 7.8 1.1 15.3 3.1c8.1 2.2 14.5 4.6 14.6 4.6c-23.1-37-60-64.4-103.6-75.1c.1 .1 3.9 4.6 8.5 11.5c4 5.9 8.4 14.6 8.4 14.6Z",
-    fill: "#f1f1f1"
-  }), /*#__PURE__*/external_React_default().createElement("ellipse", {
-    rx: "123.4",
-    ry: "115.8",
-    fill: "url(#spin-ball-small-gradient-7)",
-    transform: "translate(-57.4,146.1) rotate(-45) translate(147.7,142.3)",
-    style: {
-      isolation: "isolate",
-      mixBlendMode: "hard-light"
-    }
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M338.7 169.3c0 93.5-75.9 169.4-169.4 169.4c-64.5-0.1-120.6-36.2-149.2-89.3c28.8 24.7 66.3 39.7 107.3 39.7c90.8 0 164.4-73.2 164.4-163.4c-0.1-38.6-13.5-74-35.9-101.9c49.5 29.5 82.7 83.7 82.7 145.5h.1Z",
-    opacity: ".6",
-    fill: "#696969",
-    style: {
-      isolation: "isolate",
-      mixBlendMode: "hard-light"
-    }
-  }))), /*#__PURE__*/external_React_default().createElement("g", {
-    className: "spin-ball-small__nova"
-  }, /*#__PURE__*/external_React_default().createElement("ellipse", {
-    rx: "130",
-    ry: "130",
-    fill: "url(#spin-ball-small-gradient-8)",
-    transform: "translate(240,263.6)"
-  }), /*#__PURE__*/external_React_default().createElement("ellipse", {
-    rx: "130",
-    ry: "130",
-    fill: "url(#spin-ball-small-gradient-9)",
-    transform: "translate(240,263.6)"
-  })), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M153.6 151.7c1.7 1.1 3.3 2.2 5 3.3c-5.5-19.1-5.7-39.4-0.7-58.7c-24.7 11.2-43.9 29-57.9 44.7c1.2 0 36.1-0.7 53.6 10.7Z",
-    fill: "url(#spin-ball-small-gradient-10)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M132.7 278.5c0 0 11.1-41.4 79.4-41.4c7.4 0 28.5-20.6 28.9-26.6c.4-5.9-43.7 18.4-90.2-3.5c-50.3-23.6-88.4 3.5-88.4 3.5c0 0 14.5 35.9 56.9 35.9c-4.4 39.2 16.4 85 66.6 109.1c1.2 .5 2.2 1.1 3.4 1.6c-29.4-15.2-53.6-43.8-56.6-78.6Z",
-    fill: "url(#spin-ball-small-gradient-11)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M2.2 262.7c18.5 109.6 117.8 193.2 230.6 196.4c104.4 3 171-57.6 198.6-116.7c17.8-38.2 30.1-100.7 7.5-162.2c0 0-0.1-0.2-0.1-0.2c0-0.2 0-0.3 0-0.3c0 .1 0 .2 0 .4c8.6 55.7-19.8 109.6-64 146.1l-0.1 .3c-86.3 70.2-168.8 42.4-185.5 31c-1.2-0.6-2.4-1.2-3.5-1.8c-50.3-24-71.1-69.8-66.6-109.1c-42.5 0-57-35.8-57-35.8c0 0 38.2-27.2 88.4-3.6c46.5 21.9 90.2 3.6 90.2 3.6c-0.1-2-41.9-18.6-58.2-34.7c-8.7-8.6-12.8-12.7-16.5-15.8c-2-1.7-4.1-3.3-6.2-4.7c-1.7-1.1-3.3-2.2-5-3.3c-17.5-11.4-52.4-10.8-53.5-10.7h-0.2c-9.5-12.1-8.8-51.9-8.3-60.2c-0.1-0.5-7.1 3.6-8 4.2c-8.4 6-16.3 12.8-23.5 20.1c-8.2 8.4-15.7 17.4-22.4 27c0 0 0 0 0 0c0 0 0 0 0 0c-15.5 21.9-26.4 46.6-32.3 72.8c-0.1 .5-8.6 37.8-4.4 57.2Z",
-    fill: "url(#spin-ball-small-gradient-12)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M462.7 166.4c-10.4-25.2-31.6-52.3-48.2-60.9c13.5 26.5 21.4 53.1 24.3 73c0-0.1 0 0 .1 .2c0 .1 0 .2 0 .3c22.7 61.4 10.3 123.9-7.5 162.1c-27.5 59.1-94.2 119.7-198.6 116.8c-112.7-3.2-212-86.9-230.6-196.5c-3.4-17.3 0-26 1.7-40.1c-2.1 10.9-2.8 14-3.9 33.2c0 .4 0 .8 0 1.2c0 132.7 107.6 240.3 240.3 240.3c118.9 0 217.6-86.3 236.9-199.6c.4-3.1 .7-6.2 1.1-9.3c4.8-41.2-0.5-84.5-15.6-120.7Z",
-    fill: "url(#spin-ball-small-gradient-13)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M350 200.4c-1-1-2.3-2-3.6-2.9c-0.5-0.4-0.9-0.8-1.5-1.1c-12.8-9.1-35.8-18-57.9-14.1c86.4 43.2 63.2 192-56.6 186.4c-10.6-0.5-21.2-2.5-31.2-6c-2.4-0.9-4.8-1.9-7.1-2.9c-1.4-0.7-2.7-1.3-4-2c0 .1 .1 .1 .1 .1c16.7 11.4 99.3 39.3 185.5-30.9l.1-0.3c2.2-5.1 30.7-76.1-23.8-126.3Z",
-    fill: "url(#spin-ball-small-gradient-14)"
-  }), /*#__PURE__*/external_React_default().createElement("path", {
-    d: "M438 180.2c-27.2-67.7-73.3-95-110.9-154.5c-1.9-3-3.8-6-5.7-9.2c-0.9-1.6-1.8-3.3-2.6-5c-1.6-3-2.8-6.2-3.6-9.5c0-0.3-0.2-0.6-0.5-0.6c-0.2-0.1-0.3-0.1-0.5 0c0 0-0.1 0-0.1 0c-0.1 .1-0.1 .1-0.2 .1c-9.3 4.5-64.4 91.7 10.3 166.4c8.8 8.6 16.3 18.4 22.3 29.1c1.3 1 2.6 2 3.6 3c54.5 50.2 26 121.2 23.8 126.2c44.3-36.4 72.6-90.3 64.1-146Z",
-    opacity: ".05",
-    fill: "#060605"
-  })));
-}
-
-;// CONCATENATED MODULE: ./content-src/components/Logo/variants/SpinSmooth.jsx
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this file,
- * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-/**
- * @backward-compat { version 153 }
- * The entire logo-variation feature can be removed after Firefox 153 hits
- * Release, when the 2026 World Cup is over. Delete this file, the
- * `spin-smooth` entry in `LOGO_VARIATIONS` (in `Logo.jsx`), the
- * `spin-smooth.webp` asset under `data/content/assets/`, and the
- * `logo.variation` pref entry in `ActivityStream.sys.mjs`.
- */
-
-
-const SpinSmooth_SPRITE_URL = "chrome://newtab/content/data/content/assets/spin-smooth.webp";
-const SpinSmooth_TRANSFORM_VALUES = "0 0;-200 0;-400 0;-600 0;-800 0;-1000 0;0 -200;-200 -200;-400 -200;-600 -200;-800 -200;-1000 -200;0 -400;-200 -400;-400 -400;-600 -400;-800 -400;-1000 -400;0 -600;-200 -600;-400 -600;-600 -600;-800 -600;-1000 -600;0 -800;-200 -800;-400 -800;-600 -800;-800 -800;-1000 -800;0 -1000;-200 -1000;-400 -1000;-600 -1000;-800 -1000;-1000 -1000;0 -1200;-200 -1200;-400 -1200;-600 -1200;-800 -1200;-1000 -1200;0 -1400;-200 -1400;-400 -1400;-600 -1400;-800 -1400;-1000 -1400;0 -1600;-200 -1600;-400 -1600;-600 -1600;-800 -1600;-1000 -1600;0 -1800;-200 -1800;-400 -1800;-600 -1800;-800 -1800;-1000 -1800";
-
-/**
- * The "logo spin smooth" logo variation. Renders a 200x200 SVG that
- * windows onto a 1200x2000 WebP sprite sheet (60 frames, 6 columns x
- * 10 rows). The WebP is served from
- * `chrome://newtab/content/data/content/assets/spin-smooth.webp` —
- * `chrome:` is permitted by the newtab CSP's `img-src` list. A SMIL
- * `<animateTransform>` element pans the image through all 60 cells in
- * 6.67 seconds. The animation runs **on click**, not automatically — it's
- * authored with `begin="indefinite"` and triggered via `beginElement()`
- * from the click handler below. Default `fill="remove"` means the sprite
- * snaps back to frame 0 once the animation completes, ready for the next
- * click.
- *
- * Click semantics match `<SpinBallSmall>`:
- *  - First click plays the animation.
- *  - Clicks while the animation is in flight are ignored (so the sprite
- *    doesn't jump back mid-spin).
- *  - Clicks after the animation finishes replay it cleanly.
- *  - Clicks under `prefers-reduced-motion: reduce` are a no-op; the SVG
- *    stays at frame 0 (top-left cell of the sprite). This preserves the
- *    visual presence and click affordance for reduced-motion users
- *    without forcing them through the spin.
- *
- * The variation has no script: the only JS involvement is in the React
- * click handler. The animation itself is SMIL-declarative.
- *
- * @returns {React.ReactElement} The SVG element wrapping the sprite +
- *   the indefinitely-begun SMIL animation.
- */
-function SpinSmooth() {
-  const animRef = (0,external_React_namespaceObject.useRef)(null);
-  const isRunningRef = (0,external_React_namespaceObject.useRef)(false);
-  const [isAnimating, setIsAnimating] = (0,external_React_namespaceObject.useState)(false);
-  (0,external_React_namespaceObject.useEffect)(() => {
-    const anim = animRef.current;
-    if (!anim) {
-      return undefined;
-    }
-    const onBegin = () => {
-      isRunningRef.current = true;
-      setIsAnimating(true);
-    };
-    const onEnd = () => {
-      isRunningRef.current = false;
-      setIsAnimating(false);
-    };
-    anim.addEventListener("beginEvent", onBegin);
-    anim.addEventListener("endEvent", onEnd);
-    return () => {
-      anim.removeEventListener("beginEvent", onBegin);
-      anim.removeEventListener("endEvent", onEnd);
-    };
-  }, []);
-
-  /**
-   * Plays the SMIL animation once, unless the user has reduced motion
-   * enabled or the animation is already running. `beginElement()` is the
-   * SMIL equivalent of `Animation.play()` for the Web Animations API.
-   */
-  const handleClick = () => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-    if (!animRef.current || isRunningRef.current) {
-      return;
-    }
-    animRef.current.beginElement();
-  };
-  return /*#__PURE__*/external_React_default().createElement("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    viewBox: "0 0 200 200",
-    className: `logo-variation-small spin-smooth${isAnimating ? " is-animating" : ""}`,
-    "aria-hidden": "true",
-    onClick: handleClick
-  }, /*#__PURE__*/external_React_default().createElement("defs", null, /*#__PURE__*/external_React_default().createElement("clipPath", {
-    id: "spin-smooth-clip"
-  }, /*#__PURE__*/external_React_default().createElement("rect", {
-    x: "0",
-    y: "0",
-    width: "200",
-    height: "200"
-  }))), /*#__PURE__*/external_React_default().createElement("g", {
-    clipPath: "url(#spin-smooth-clip)"
-  }, /*#__PURE__*/external_React_default().createElement("g", null, /*#__PURE__*/external_React_default().createElement("image", {
-    width: "1200",
-    height: "2000",
-    x: "0",
-    y: "0",
-    href: SpinSmooth_SPRITE_URL
-  }), /*#__PURE__*/external_React_default().createElement("animateTransform", {
-    ref: animRef,
-    attributeName: "transform",
-    type: "translate",
-    calcMode: "discrete",
-    dur: "6.67s",
-    begin: "indefinite",
-    values: SpinSmooth_TRANSFORM_VALUES
-  }))));
-}
-
 ;// CONCATENATED MODULE: ./content-src/components/Logo/Logo.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * @backward-compat { version 153 }
- * Everything below tagged with the same marker — the logo-variation
- * registry, `pickVariant`, the hook, and the variation-selection block
- * inside `Logo()` — can be removed after Firefox 153 hits Release, when
- * the 2026 World Cup is over. After cleanup, `Logo()` reverts to its
- * original shape: just the wrapper + `.logo` div + `.wordmark`.
- */
 
-
-
-
-
-
-
-
-/**
- * @backward-compat { version 153 }
- * Pref consulted (after `trainhopConfig.logo.variation`) to choose a logo
- * variation. Empty string disables. Useful for local QA — set it via
- * `about:config` to preview a variation without an experiment.
- */
-const PREF_LOGO_VARIATION = "logo.variation";
-const Logo_PREF_WIDGETS_ENABLED = "widgets.enabled";
-
-/**
- * @backward-compat { version 153 }
- * Registry of all available logo variations.
- *
- * The key is the variant's string ID — the value that
- * `trainhopConfig.logo.variation` or the pref must equal for this variant
- * to be selected. Adding a new variant means:
- *   1. Implementing a `<Variant />` component under `./variants/`.
- *   2. Adding an entry here with its constraints and fallback target.
- *
- * Each entry has:
- *  - `component`: the React component to render.
- *  - `minViewportWidth`: minimum viewport width in CSS pixels for this
- *      variant to be considered usable. `0` means no width restriction.
- *  - `requiresLTR`: when `true`, this variant is skipped in RTL locales.
- *  - `fallback`: another variant ID to try when this variant's constraints
- *      aren't met, or `null` to fall through to the default newtab logo.
- *
- * Universal constraints that apply to every variant (e.g.
- * `prefers-reduced-motion: reduce` handling) are NOT encoded here; they
- * are handled at the call site or inside the variation component instead.
- */
-const LOGO_VARIATIONS = {
-  "spin-ball-small": {
-    component: SpinBallSmall,
-    minViewportWidth: 0,
-    requiresLTR: false,
-    fallback: null
-  },
-  "spin-smooth": {
-    component: SpinSmooth,
-    minViewportWidth: 0,
-    requiresLTR: false,
-    fallback: null
-  },
-  "rotating-ball": {
-    component: RotatingBall,
-    minViewportWidth: 0,
-    requiresLTR: false,
-    fallback: null
-  },
-  "football-bounce": {
-    component: FootballBounce,
-    minViewportWidth: 0,
-    requiresLTR: true,
-    fallback: "spin-smooth"
-  }
-};
-const VARIANT_THRESHOLDS = Object.values(LOGO_VARIATIONS).map(v => v.minViewportWidth);
-
-/**
- * @backward-compat { version 153 }
- * Walk the fallback chain starting at `variantId`, returning the first
- * variant whose per-variant constraints are satisfied by the supplied
- * environment, or `null` if none are.
- *
- * Cycle-safe: a fallback chain that loops back on itself terminates as soon
- * as a previously-seen ID is encountered.
- *
- * @param {string|null|undefined} variantId
- *   The variant ID to start walking from (typically the value of the
- *   trainhopConfig or pref). Falsy values short-circuit to `null`.
- * @param {object} env
- *   The current rendering environment.
- * @param {number} env.viewportWidth
- *   The largest `min-width` breakpoint the viewport currently satisfies, in
- *   CSS pixels. A variant passes the width gate when its `minViewportWidth`
- *   is at or below this number.
- * @param {boolean} env.isLTR
- *   `true` if the document direction is LTR. A variant whose `requiresLTR`
- *   is `true` is skipped when this is `false`.
- * @returns {object|null}
- *   The selected variant entry from `LOGO_VARIATIONS`, or `null` when no
- *   variant in the chain is usable (callers should render the default logo).
- */
-function pickVariant(variantId, {
-  viewportWidth,
-  isLTR
-}) {
-  let id = variantId;
-  const seen = new Set();
-  while (id && !seen.has(id)) {
-    seen.add(id);
-    const v = LOGO_VARIATIONS[id];
-    if (!v) {
-      return null;
-    }
-    const widthOk = viewportWidth >= v.minViewportWidth;
-    const dirOk = !v.requiresLTR || isLTR;
-    if (widthOk && dirOk) {
-      return v;
-    }
-    id = v.fallback;
-  }
-  return null;
-}
-
-/**
- * @backward-compat { version 153 }
- * Subscribe to a set of `(min-width: Npx)` media queries and return the
- * largest threshold currently matched. Useful for picking a behaviour based
- * on the current viewport size while only re-rendering on breakpoint
- * crossings (not on every `resize` tick).
- *
- * @param {number[]} thresholds
- *   The breakpoints to observe, in CSS pixels. Duplicates are deduplicated.
- *   Pass a stable array reference (e.g. a module-level constant) so the
- *   underlying `MediaQueryList` instances aren't recreated on every render.
- * @returns {number}
- *   The largest threshold in `thresholds` whose query currently matches, or
- *   `0` if none of them do.
- */
-function useMaxMatchedMinWidth(thresholds) {
-  const queries = (0,external_React_namespaceObject.useMemo)(() => {
-    const unique = [...new Set(thresholds)].sort((a, b) => a - b);
-    return unique.map(px => ({
-      px,
-      mql: window.matchMedia(`(min-width: ${px}px)`)
-    }));
-  }, [thresholds]);
-  const computeMax = () => {
-    let max = 0;
-    for (const {
-      px,
-      mql
-    } of queries) {
-      if (mql.matches) {
-        max = px;
-      }
-    }
-    return max;
-  };
-  const [max, setMax] = (0,external_React_namespaceObject.useState)(computeMax);
-  (0,external_React_namespaceObject.useEffect)(() => {
-    const onChange = () => setMax(computeMax());
-    for (const {
-      mql
-    } of queries) {
-      mql.addEventListener("change", onChange);
-    }
-    setMax(computeMax());
-    return () => {
-      for (const {
-        mql
-      } of queries) {
-        mql.removeEventListener("change", onChange);
-      }
-    };
-    // computeMax is recreated each render but closes over the stable
-    // `queries` array, so depending on `queries` alone is correct.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queries]);
-  return max;
-}
-
-/**
- * The newtab logo. Renders either the default Firefox logo + wordmark, or a
- * registered logo variation when one is selected and its environmental
- * constraints are met.
- *
- * Variant selection priority (first non-empty wins):
- *   1. `prefs.trainhopConfig.logo.variation` (experiment-driven).
- *   2. `prefs[PREF_LOGO_VARIATION]` (user pref — for local testing).
- *   3. None → default logo.
- *
- * Reduced-motion users still get the variant rendered (statically, at its
- * frame-0 keyframe state); the variant's click handler is responsible for
- * not invoking `play()` when motion is suppressed. This keeps the visual
- * presence consistent across users without forcing animation on anyone.
- */
 function Logo() {
-  // @backward-compat { version 153 }
-  // The four lines below (useSelector + useMaxMatchedMinWidth + isLTR +
-  // the pickVariant/VariantComponent block) can be removed after Firefox
-  // 153 hits Release. Logo() reverts to a plain render of the default
-  // logo + wordmark.
-  const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
-  const viewportWidth = useMaxMatchedMinWidth(VARIANT_THRESHOLDS);
-  const isLTR = document.dir === "ltr";
-  const trainhopVariant = prefs.trainhopConfig?.logo?.variation;
-  const prefVariant = prefs[PREF_LOGO_VARIATION];
-  const variantId = trainhopVariant || prefVariant || null;
-
-  // All logo variations are gated on the Sports Widget being enabled —
-  // when the widget is off, the variations are conceptually
-  // inapplicable and the standard logo is shown regardless of any
-  // trainhopConfig/pref selection.
-  const widgetsEnabled = prefs[Logo_PREF_WIDGETS_ENABLED];
-  const sportsWidget = WIDGET_REGISTRY.find(w => w.id === "sportsWidget");
-  const sportsWidgetEnabled = isWidgetEnabled(sportsWidget, prefs, widgetsEnabled);
-  const variant = sportsWidgetEnabled && variantId ? pickVariant(variantId, {
-    viewportWidth,
-    isLTR
-  }) : null;
-  const VariantComponent = variant?.component;
   return /*#__PURE__*/external_React_default().createElement("h1", {
     className: "logo-and-wordmark-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "logo-and-wordmark",
     role: "img",
     "data-l10n-id": "newtab-logo-and-wordmark"
-  }, VariantComponent ? /*#__PURE__*/external_React_default().createElement(VariantComponent, null) : /*#__PURE__*/external_React_default().createElement("div", {
+  }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "logo"
   }), /*#__PURE__*/external_React_default().createElement("div", {
     className: "wordmark"
@@ -29728,6 +28931,7 @@ class BaseContent extends (external_React_default()).PureComponent {
     this.applyBodyClasses = this.applyBodyClasses.bind(this);
     this.toggleSectionsMgmtPanel = this.toggleSectionsMgmtPanel.bind(this);
     this.toggleWidgetsManagementPanel = this.toggleWidgetsManagementPanel.bind(this);
+    this.toggleThemesPanel = this.toggleThemesPanel.bind(this);
     this.openWidgetsPanel = this.openWidgetsPanel.bind(this);
     this.attachSearchSentinel = this.attachSearchSentinel.bind(this);
     this.onSearchSentinelIntersect = this.onSearchSentinelIntersect.bind(this);
@@ -29741,7 +28945,8 @@ class BaseContent extends (external_React_default()).PureComponent {
       showDownloadHighlightOverride: null,
       visible: false,
       showSectionsMgmtPanel: false,
-      showWidgetsManagementPanel: false
+      showWidgetsManagementPanel: false,
+      showThemesPanel: false
     };
     this.spocPlaceholderStartTime = null;
   }
@@ -30156,6 +29361,8 @@ class BaseContent extends (external_React_default()).PureComponent {
   }
   async updateWallpaper() {
     const prefs = this.props.Prefs.values;
+    // Bump every call so a newer selection supersedes an in-flight decode.
+    const applyToken = this.nextWallpaperToken();
     const novaEnabled = prefs[Base_PREF_NOVA_ENABLED];
     const wallpapersEnabled = prefs["newtabWallpapers.enabled"];
     const wallpapersUserEnabled = prefs["newtabWallpapers.user.enabled"];
@@ -30179,6 +29386,11 @@ class BaseContent extends (external_React_default()).PureComponent {
       __webpack_require__.g.document?.body.style.removeProperty("--newtab-wallpaper-color");
       __webpack_require__.g.document?.body.style.removeProperty("--newtab-wallpaper-backgroundPosition");
       __webpack_require__.g.document?.body.classList.remove("lightWallpaper", "darkWallpaper");
+      return;
+    }
+
+    // Keep the current background until the custom wallpaper's URL hydrates.
+    if (selectedWallpaper === "custom" && !uploadedWallpaperUrl) {
       return;
     }
 
@@ -30213,11 +29425,36 @@ class BaseContent extends (external_React_default()).PureComponent {
         }
       }
     }
+
+    // Decode a replacement before swapping so the current wallpaper stays up
+    // until it's ready; initial renders (nothing painted) apply synchronously.
+    if (selectedWallpaper === "custom" && url && __webpack_require__.g.document?.body.style.getPropertyValue("--newtab-wallpaper") && !(await this.decodeWallpaper(url, applyToken))) {
+      return;
+    }
     __webpack_require__.g.document?.body.style.setProperty("--newtab-wallpaper", `url(${url})`);
     __webpack_require__.g.document?.body.style.setProperty("--newtab-wallpaper-backgroundPosition", backgroundPosition);
     __webpack_require__.g.document?.body.style.setProperty("--newtab-wallpaper-color", color || "transparent");
     __webpack_require__.g.document?.body.classList.remove("lightWallpaper", "darkWallpaper");
     __webpack_require__.g.document?.body.classList.add(newTheme === "dark" ? "darkWallpaper" : "lightWallpaper");
+  }
+
+  // Monotonic token to detect if a newer updateWallpaper ran mid-decode.
+  nextWallpaperToken() {
+    this._wallpaperApplyToken = (this._wallpaperApplyToken ?? 0) + 1;
+    return this._wallpaperApplyToken;
+  }
+
+  // Returns false if decode fails or a newer update supersedes this one, so the
+  // current wallpaper stays painted.
+  async decodeWallpaper(url, applyToken) {
+    try {
+      const image = new __webpack_require__.g.Image();
+      image.src = url;
+      await image.decode();
+    } catch {
+      return false;
+    }
+    return applyToken === this._wallpaperApplyToken;
   }
   toggleDownloadHighlight() {
     this.setState(prevState => {
@@ -30262,6 +29499,11 @@ class BaseContent extends (external_React_default()).PureComponent {
   toggleWidgetsManagementPanel() {
     this.setState(prevState => ({
       showWidgetsManagementPanel: !prevState.showWidgetsManagementPanel
+    }));
+  }
+  toggleThemesPanel() {
+    this.setState(prevState => ({
+      showThemesPanel: !prevState.showThemesPanel
     }));
   }
   openWidgetsPanel() {
@@ -30515,6 +29757,8 @@ class BaseContent extends (external_React_default()).PureComponent {
         showSectionsMgmtPanel: this.state.showSectionsMgmtPanel,
         showWidgetsManagementPanel: this.state.showWidgetsManagementPanel,
         toggleWidgetsManagementPanel: this.toggleWidgetsManagementPanel,
+        toggleThemesPanel: this.toggleThemesPanel,
+        showThemesPanel: this.state.showThemesPanel,
         widgetsEnabled: prefs["widgets.enabled"],
         dispatch: this.props.dispatch
       }), (shouldShowOMCHighlight(this.props.Messages, "CustomWallpaperHighlight") || shouldShowOMCHighlight(this.props.Messages, "WorldCupWallpaperHighlight") || shouldShowOMCHighlight(this.props.Messages, "WorldCupSemiFinalWallpaperHighlight")) && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
@@ -30606,7 +29850,9 @@ class BaseContent extends (external_React_default()).PureComponent {
       weatherDisplay: prefs["weather.display"],
       showing: customizeMenuVisible,
       toggleSectionsMgmtPanel: this.toggleSectionsMgmtPanel,
-      showSectionsMgmtPanel: this.state.showSectionsMgmtPanel
+      showSectionsMgmtPanel: this.state.showSectionsMgmtPanel,
+      toggleThemesPanel: this.toggleThemesPanel,
+      showThemesPanel: this.state.showThemesPanel
     }), shouldShowOMCHighlight(this.props.Messages, "CustomWallpaperHighlight") && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
       dispatch: this.props.dispatch
     }, /*#__PURE__*/external_React_default().createElement(WallpaperFeatureHighlight, {

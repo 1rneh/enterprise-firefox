@@ -487,7 +487,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
     const nsAString& aURL, nsIPrincipal* aPrincipal,
     const uint64_t& aBrowsingContextID, const IPCClientInfo& aClientInfo,
     const bool& aDedicated, const bool& aRequireUnreliable,
-    const uint32_t& aCongestionControl,
+    const uint32_t& aCongestionControl, nsTArray<nsString>&& aProtocols,
     nsTArray<WebTransportHash>&& aServerCertHashes,
     Endpoint<PWebTransportParent>&& aParentEndpoint,
     CreateWebTransportParentResolver&& aResolver) {
@@ -508,7 +508,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
   RefPtr<mozilla::dom::WebTransportParent> webt =
       new mozilla::dom::WebTransportParent();
   webt->Create(aURL, aPrincipal, aBrowsingContextID, aClientInfo, aDedicated,
-               aRequireUnreliable, aCongestionControl,
+               aRequireUnreliable, aCongestionControl, std::move(aProtocols),
                std::move(aServerCertHashes), std::move(aParentEndpoint),
                std::move(aResolver));
   return IPC_OK();
@@ -1473,6 +1473,10 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPLockManagerConstructor(
   if (aPrincipalInfo->IsSystemPrincipal() &&
       BackgroundParent::IsOtherProcessActor(this)) {
     return IPC_FAIL_NO_REASON(this);
+  }
+
+  if (!BackgroundParent::ValidatePrincipal(this, aPrincipalInfo)) {
+    return IPC_FAIL(this, "Invalid principal for PLockManager");
   }
 
   return IPC_OK();

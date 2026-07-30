@@ -6,13 +6,14 @@
 #define mozilla_dom_EditContext_h
 
 #include "mozilla/DOMEventTargetHelper.h"
+#include "mozilla/WeakPtr.h"
 #include "mozilla/dom/EditContextBinding.h"
 
 class nsTextNode;
 
 namespace mozilla::dom {
 
-class EditContext final : public DOMEventTargetHelper {
+class EditContext final : public DOMEventTargetHelper, public SupportsWeakPtr {
  public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(EditContext, DOMEventTargetHelper)
@@ -27,8 +28,8 @@ class EditContext final : public DOMEventTargetHelper {
   void UpdateText(uint32_t aRangeStart, uint32_t aRangeEnd,
                   const nsAString& aText, ErrorResult& aRv);
   void UpdateSelection(uint32_t aStart, uint32_t aEnd);
-  void UpdateControlBounds(DOMRect& aControlBounds);
-  void UpdateSelectionBounds(DOMRect& aSelectionBounds);
+  void UpdateControlBounds(const DOMRect& aControlBounds);
+  void UpdateSelectionBounds(const DOMRect& aSelectionBounds);
   void UpdateCharacterBounds(
       uint32_t aRangeStart,
       const Sequence<OwningNonNull<DOMRect>>& aCharacterBounds);
@@ -145,6 +146,18 @@ class EditContext final : public DOMEventTargetHelper {
 
   bool IsFiringTextUpdate() const { return mIsFiringTextUpdate; }
 
+  static MOZ_CAN_RUN_SCRIPT void NotifyActiveEditContextChanged(
+      Document& aDocument);
+
+  void LastRelease() override { UnsuppressNotifyingIME(); }
+
+  // Returns true if this is a canvas-based EditContext.
+  bool IsCanvas() const;
+
+  // Gets character bound at aOffset, but doesn't fire characterboundsupdate
+  // if it's not available, instead just returns Nothing().
+  Maybe<LayoutDeviceIntRect> GetCharacterBound(uint32_t aOffset) const;
+
  private:
   EditContext(nsIGlobalObject* aGlobalObject, const EditContextInit& aInit,
               ErrorResult& aRv);
@@ -167,8 +180,34 @@ class EditContext final : public DOMEventTargetHelper {
   static LayoutDeviceIntRect ToRootRelativeDeviceRect(
       const nsPresContext& aPresContext, const nsRect& aRect);
 
+  class AutoSuppressIMENotifications;
+  MOZ_CAN_RUN_SCRIPT nsresult FireCharacterBoundsUpdateIfNeeded(
+      uint32_t aStart, uint32_t aEnd,
+      AutoSuppressIMENotifications* aSuppressIMENotifications);
+
+  // Cancel the timer to unsuppress IME notifications, and unsuppress
+  // them immediately.
+  void UnsuppressNotifyingIME();
+
+  // Returns the end index of the codepoint rects, avoiding overflow
+  // and clamping to the text length.
+  uint32_t CodepointRectsEndIndex() const {
+    // XXX: Maybe this should already be clamped to the text length?
+    //      https://github.com/w3c/edit-context/issues/142
+    CheckedUint32 end =
+        CheckedUint32(mCodepointRectsStartIndex) + mCodepointRects.Length();
+    return end.isValid() ? std::min(end.value(), TextLength()) : TextLength();
+  }
+
+  friend std::ostream& operator<<(std::ostream& aStream,
+                                  const EditContext& aEditContext);
+
   RefPtr<nsGenericHTMLElement> mAssociatedElement;
   RefPtr<nsGenericHTMLElement> mTextContainer;
+  // When character bounds are requested, we suppress notifying the IME
+  // of anything until updateCharacterBounds() is called. However, if this
+  // timer expires first, we give up and unsuppress notifications anyways.
+  nsCOMPtr<nsITimer> mSuppressNotifyingIMETimer;
   nsTArray<Rect> mCodepointRects;
   Maybe<Rect> mControlBounds;
   Maybe<Rect> mSelectionBounds;
@@ -187,8 +226,14 @@ class EditContext final : public DOMEventTargetHelper {
   bool mIsFiringTextUpdate = false;
   // Set to true if the text which corresponds to mCodepointRects has changed.
   bool mCodepointRectsTextChanged = false;
+  // Keeps track of whether we warned about character bounds not being
+  // provided synchronously, so we don't spam the console.
+  bool mWarnedAboutUpdateCharacterBoundsNotCalled = false;
 };
 
 }  // namespace mozilla::dom
+
+template <>
+struct fmt::formatter<mozilla::dom::EditContext> : fmt::ostream_formatter {};
 
 #endif

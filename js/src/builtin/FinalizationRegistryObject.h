@@ -110,12 +110,15 @@ using RootedFinalizationQueueObject = Rooted<FinalizationQueueObject*>;
 // reasons.
 
 class FinalizationRecordObject : public gc::ObserverListObject {
-  enum {
-    QueueSlot = ObserverListObject::SlotCount,
-    HeldValueSlot,
-    DebugStateSlot,  // Used for assertions only.
-    SlotCount
-  };
+  static constexpr auto QUEUE_SLOT =
+      TypedSlot<ValueType::Object, ValueType::Undefined>(
+          ObserverListObject::SlotCount + 0);
+  static constexpr uint32_t HELD_VALUE_SLOT = ObserverListObject::SlotCount + 1;
+  // Used for assertions only.
+  static constexpr auto DEBUG_STATE_SLOT =
+      TypedSlot<ValueType::Int32, ValueType::Undefined>(
+          ObserverListObject::SlotCount + 2);
+  static constexpr uint32_t SLOT_COUNT = ObserverListObject::SlotCount + 3;
 
  public:
   enum State { Unknown, InRecordMap, InQueue };
@@ -152,7 +155,13 @@ using FinalizationRecordVector =
 
 // The JS FinalizationRegistry object itself.
 class FinalizationRegistryObject : public NativeObject {
-  enum { QueueSlot = 0, RegistrationsSlot, RecordsWithoutTokenSlot, SlotCount };
+  static constexpr auto QUEUE_SLOT =
+      TypedSlot<ValueType::Object, ValueType::Undefined>(0);
+  static constexpr auto REGISTRATIONS_SLOT =
+      TypedSlot<ValueType::Double, ValueType::Undefined>(1);
+  static constexpr auto RECORDS_WITHOUT_TOKEN_SLOT =
+      TypedSlot<ValueType::Double, ValueType::Undefined>(2);
+  static constexpr uint32_t SLOT_COUNT = 3;
 
  public:
   using RegistrationsMap =
@@ -195,27 +204,35 @@ class FinalizationRegistryObject : public NativeObject {
 // Contains information about the cleanup callback and the records queued to
 // be cleaned up. This is not exposed to content JS.
 class FinalizationQueueObject : public NativeObject {
-  enum {
-    CleanupCallbackSlot = 0,
-    IncumbentGlobalRepresentative,
-    RecordsToBeCleanedUpSlot,
-    IsQueuedForCleanupSlot,
-    DoCleanupFunctionSlot,
-    HasRegistrySlot,
-    SlotCount
-  };
+  static constexpr auto CLEANUP_CALLBACK_SLOT =
+      TypedSlot<ValueType::Object, ValueType::Undefined>(0);
+  static constexpr auto INCUMBENT_GLOBAL_REPRESENTATIVE_SLOT =
+      TypedSlot<ValueType::Object, ValueType::Null, ValueType::Undefined>(1);
+  static constexpr auto RECORDS_TO_BE_CLEANED_UP_SLOT =
+      TypedSlot<ValueType::Double, ValueType::Undefined>(2);
+  static constexpr auto IS_QUEUED_FOR_CLEANUP_SLOT =
+      TypedSlot<ValueType::Boolean>(3);
+  static constexpr auto DO_CLEANUP_FUNCTION_SLOT =
+      TypedSlot<ValueType::Object, ValueType::Undefined>(4);
+  static constexpr auto HAS_REGISTRY_SLOT = TypedSlot<ValueType::Boolean>(5);
+  static constexpr uint32_t SLOT_COUNT = 6;
 
   enum DoCleanupFunctionSlots {
     DoCleanupFunction_QueueSlot = 0,
   };
 
  public:
+  // Don't track memory for this vector against the zone as it can grow and be
+  // deleted in the same GC cycle.
+  using QueuedRecordVector =
+      GCVector<HeapPtr<FinalizationRecordObject*>, 1, SystemAllocPolicy>;
+
   static const JSClass class_;
 
   JSObject* cleanupCallback() const;
   JSObject* getIncumbentGlobalRepresentative() const;
   bool hasRecordsToCleanUp() const;
-  FinalizationRecordVector* recordsToBeCleanedUp() const;
+  QueuedRecordVector* recordsToBeCleanedUp() const;
   bool isQueuedForCleanup() const;
   JSFunction* doCleanupFunction() const;
   bool hasRegistry() const;

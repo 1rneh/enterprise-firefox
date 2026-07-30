@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{ColorF, DebugFlags, ExternalScrollId, FontRenderMode, ImageKey, MinimapData, PremultipliedColorF};
+use api::{ColorF, DebugFlags, ExternalScrollId, FontRenderMode, ImageKey, MinimapData};
 use api::units::*;
 use plane_split::BspSplitter;
 use crate::batch::{BatchBuilder, AlphaBatchBuilder, AlphaBatchContainer};
@@ -13,21 +13,22 @@ use crate::spatial_node::SpatialNodeType;
 use crate::spatial_tree::{SpatialTree, SpatialNodeIndex};
 use crate::composite::{CompositorKind, CompositeState, CompositeStatePreallocator};
 use crate::debug_item::DebugItem;
-use crate::gpu_types::{ImageBrushPrimitiveData, PrimitiveHeaders, ZBufferIdGenerator};
+use crate::gpu_types::{PrimitiveHeaders, ZBufferIdGenerator};
 use crate::gpu_types::QuadSegment;
 use crate::internal_types::{FastHashMap, PlaneSplitter, FrameStamp};
 use crate::invalidation::DirtyRegion;
 use crate::tile_cache::{SliceId, TileCacheInstance};
 use crate::picture::PictureInstance;
-use crate::picture::{SurfaceInfo, SurfaceIndex, ResolvedSurfaceTexture};
-use crate::picture::{SubpixelMode, RasterConfig, PictureCompositeMode, PictureScratch};
+use crate::picture::ResolvedSurfaceTexture;
+use crate::picture::{RasterConfig, PictureScratch};
+use crate::picture_composite_mode::PictureCompositeMode;
 use crate::prepare::prepare_picture;
 use crate::prim_store::{PictureIndex, PrimitiveScratchBuffer};
 use crate::prim_store::{DeferredResolve, PrimitiveInstance};
 use crate::prim_store::storage;
 use crate::profiler::{self, TransactionProfile};
 use crate::render_backend::{DataStores, ScratchBuffer};
-use crate::renderer::{GpuBufferAddress, GpuBufferBuilder, GpuBufferBuilderF, GpuBufferBuilderI, GpuBufferF, GpuBufferI, GpuBufferDataF};
+use crate::renderer::{GpuBufferBuilder, GpuBufferBuilderF, GpuBufferBuilderI, GpuBufferF, GpuBufferI};
 use crate::render_target::{PictureCacheTarget, PictureCacheTargetKind};
 use crate::render_target::{RenderTargetContext, RenderTargetKind, RenderTarget};
 use crate::render_task_graph::{Pass, RenderTaskGraph, RenderTaskId, SubPassSurface};
@@ -36,8 +37,7 @@ use crate::render_task::{RenderTaskKind, StaticRenderTaskSurface};
 use crate::resource_cache::ResourceCache;
 use crate::scene::{BuiltScene, SceneProperties};
 use crate::space::SpaceMapper;
-use crate::segment::SegmentBuilder;
-use crate::surface::SurfaceBuilder;
+use crate::surface::{SubpixelMode, SurfaceBuilder, SurfaceIndex, SurfaceInfo};
 use crate::transform::{TransformPalette, TransformData};
 use std::sync::Arc;
 use std::{f32, mem};
@@ -72,31 +72,6 @@ pub struct FrameBuilderConfig {
     pub low_quality_pinch_zoom: bool,
     pub max_shared_surface_size: i32,
     pub enable_dithering: bool,
-}
-
-/// A set of default / global resources that are re-built each frame.
-#[cfg_attr(feature = "capture", derive(Serialize))]
-pub struct FrameGlobalResources {
-    /// The image shader block for the most common / default
-    /// set of image parameters (color white, stretch == rect.size).
-    pub default_image_data: GpuBufferAddress,
-}
-
-impl FrameGlobalResources {
-    pub fn new(gpu_buffers: &mut GpuBufferBuilder) -> Self {
-        let mut writer = gpu_buffers.f32.write_blocks(ImageBrushPrimitiveData::NUM_BLOCKS);
-        writer.push(&ImageBrushPrimitiveData {
-            color: PremultipliedColorF::WHITE,
-            background_color: PremultipliedColorF::WHITE,
-            // -ve means use prim rect for stretch size
-            stretch_size: LayoutSize::new(-1.0, 0.0),
-        });
-        let default_image_data = writer.finish();
-
-        FrameGlobalResources {
-            default_image_data,
-        }
-    }
 }
 
 pub struct FrameScratchBuffer {
@@ -147,7 +122,6 @@ pub struct FrameBuildingState<'a> {
     pub clip_store: &'a mut ClipStore,
     pub resource_cache: &'a mut ResourceCache,
     pub transforms: &'a mut TransformPalette,
-    pub segment_builder: SegmentBuilder,
     pub surfaces: &'a mut Vec<SurfaceInfo>,
     pub dirty_region_stack: Vec<DirtyRegion>,
     pub composite_state: &'a mut CompositeState,
@@ -283,7 +257,7 @@ impl FrameBuilder {
         frame_memory: &FrameMemory,
         profile: &mut TransactionProfile,
     ) {
-        profile_scope!("build_layer_screen_rects_and_cull_layers");
+        tracy_rs::profile_scope!("build_layer_screen_rects_and_cull_layers");
 
         let render_picture_cache_slices = present;
 
@@ -377,7 +351,6 @@ impl FrameBuilder {
         }
 
         {
-            profile_scope!("UpdateVisibility");
             profile_marker!("UpdateVisibility");
             profile.start_time(profiler::FRAME_VISIBILITY_TIME);
 
@@ -536,7 +509,6 @@ impl FrameBuilder {
             clip_store: &mut scene.clip_store,
             resource_cache,
             transforms: transform_palette,
-            segment_builder: SegmentBuilder::new(),
             surfaces: &mut scene.surfaces,
             dirty_region_stack: scratch.frame.dirty_region_stack.take(),
             composite_state,
@@ -663,7 +635,6 @@ impl FrameBuilder {
         minimap_data: FastHashMap<ExternalScrollId, MinimapData>,
         chunk_pool: Arc<ChunkPool>,
     ) -> Frame {
-        profile_scope!("build");
         profile_marker!("BuildFrame");
 
         let mut frame_memory = FrameMemory::new(chunk_pool, stamp.frame_id());
@@ -681,8 +652,6 @@ impl FrameBuilder {
         // TODO(gw): Follow up patches won't clear this, as they'll be assigned
         //           statically during scene building.
         scene.surfaces.clear();
-
-        let globals = FrameGlobalResources::new(&mut gpu_buffer_builder);
 
         spatial_tree.update_tree(scene_properties);
         let mut transform_palette = spatial_tree.build_transform_palette(&frame_memory);
@@ -767,10 +736,8 @@ impl FrameBuilder {
                     batch_lookback_count: scene.config.batch_lookback_count,
                     spatial_tree,
                     data_stores,
-                    surfaces: &scene.surfaces,
                     scratch: &mut scratch.primitive,
                     screen_world_rect,
-                    globals: &globals,
                     tile_caches,
                     root_spatial_node_index: spatial_tree.root_reference_frame_index(),
                     frame_memory: &mut frame_memory,
@@ -805,10 +772,8 @@ impl FrameBuilder {
                     batch_lookback_count: scene.config.batch_lookback_count,
                     spatial_tree,
                     data_stores,
-                    surfaces: &scene.surfaces,
                     scratch: &mut scratch.primitive,
                     screen_world_rect,
-                    globals: &globals,
                     tile_caches,
                     root_spatial_node_index: spatial_tree.root_reference_frame_index(),
                     frame_memory: &mut frame_memory,
@@ -1135,7 +1100,7 @@ pub fn build_render_pass(
     prim_instances: &[PrimitiveInstance],
     cmd_buffers: &CommandBufferList,
 ) -> RenderPass {
-    profile_scope!("build_render_pass");
+    tracy_rs::profile_scope!("build_render_pass");
 
     // TODO(gw): In this initial frame graph work, we try to maintain the existing
     //           build_render_pass code as closely as possible, to make the review

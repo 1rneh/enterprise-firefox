@@ -28,6 +28,9 @@ skip-if = [
 ]
 
 ["browser_aboutwelcome_configurable_ui.js"]
+skip-if = [
+  "os == 'mac' && nova", # Bug 2057535
+]
 
 ["browser_aboutwelcome_embedded_browser.js"]
 
@@ -78,6 +81,8 @@ skip-if = [
 ]
 
 ["browser_aboutwelcome_screen_targeting.js"]
+
+["browser_aboutwelcome_theme_picker.js"]
 
 ["browser_aboutwelcome_toolbar_button.js"]
 

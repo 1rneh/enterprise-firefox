@@ -807,6 +807,27 @@
       }
     },
 
+    "ContentAnalysisTelemetry": {
+      "type": "object",
+      "x-category": "Cloud reporting",
+      "description": "Enable and configure security logging/telemetry when a DLP rule is triggered.",
+      "examples": [
+        {
+          "Enabled": true,
+          "UrlLogging": "domain"
+        }
+      ],
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        }
+      }
+    },
+
     "Cookies": {
       "type": "object",
       "x-category": "Network security",
@@ -1079,7 +1100,7 @@
     },
     "DisableLocalPolicies": {
       "type": "boolean",
-      "x-category": "Policy engine",
+      "x-category": "Miscellaneous",
       "description": "Disable all local policy sources (policies.json, Windows GPO and macOS plist).",
       "examples": [true, false]
     },

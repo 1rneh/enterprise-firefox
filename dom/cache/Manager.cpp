@@ -26,6 +26,7 @@
 #include "mozilla/dom/quota/Client.h"
 #include "mozilla/dom/quota/ClientDirectoryLock.h"
 #include "mozilla/dom/quota/ClientImpl.h"
+#include "mozilla/dom/quota/QuotaCommon.h"
 #include "mozilla/dom/quota/QuotaManager.h"
 #include "mozilla/dom/quota/ScopedLogExtraInfo.h"
 #include "mozilla/dom/quota/StringifyUtils.h"
@@ -126,6 +127,8 @@ class SetupAction final : public SyncDBAction {
       // Clean up orphaned Cache objects
       QM_TRY_INSPECT(const auto& orphanedCacheIdList,
                      db::FindOrphanedCacheIds(*aConn));
+
+      QM_SCOPED_CONTEXT("CacheSetupAction::OrphanCleanupFailed"_ns);
 
       QM_TRY_INSPECT(
           const CheckedInt64& overallDeletedPaddingSize,

@@ -11,7 +11,6 @@
  * @import {Query} from "./UrlbarProvidersManager.sys.mjs"
  * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  * @import {SmartbarInput} from "chrome://browser/content/urlbar/SmartbarInput.mjs"
- * @import {UrlbarSearchStringTokenData} from "./UrlbarTokenizer.sys.mjs"
  */
 
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
@@ -23,6 +22,8 @@ const lazy = XPCOMUtils.declareLazy({
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
   ContextualIdentityService:
     "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
+  CustomizableUI:
+    "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   DEFAULT_FORM_HISTORY_PARAM:
     "moz-src:///toolkit/components/search/SearchSuggestionController.sys.mjs",
   FaviconUtils: "moz-src:///toolkit/modules/FaviconUtils.sys.mjs",
@@ -38,11 +39,8 @@ const lazy = XPCOMUtils.declareLazy({
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarProviderInterventions:
     "moz-src:///browser/components/urlbar/UrlbarProviderInterventions.sys.mjs",
-  UrlbarProviderOpenTabs:
-    "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
   UrlbarProviderSearchTips:
     "moz-src:///browser/components/urlbar/UrlbarProviderSearchTips.sys.mjs",
-  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
@@ -507,36 +505,6 @@ export var UrlbarUtils = {
   },
 
   /**
-   * Gets the number of rows a result should span in the view.
-   *
-   * @param {UrlbarResult} result
-   *   The result.
-   * @param {object} [options]
-   * @param {boolean} [options.includeHiddenExposures]
-   *   Whether a span should be returned if the result is a hidden exposure. If
-   *   false and `result.isHiddenExposure` is true, zero will be returned since
-   *   the result should be hidden and not take up any rows at all. Otherwise
-   *   the result's true span is returned.
-   * @returns {number}
-   *   The number of rows the result should span in the view.
-   */
-  getSpanForResult(result, { includeHiddenExposures = false } = {}) {
-    if (!includeHiddenExposures && result.isHiddenExposure) {
-      return 0;
-    }
-
-    if (result.resultSpan) {
-      return result.resultSpan;
-    }
-
-    switch (result.type) {
-      case UrlbarShared.RESULT_TYPE.TIP:
-        return 3;
-    }
-    return 1;
-  },
-
-  /**
    * Converts a given icon URL to a remote icon URL if it's not a trusted
    * protocol.
    *
@@ -634,65 +602,6 @@ export var UrlbarUtils = {
       return { base: uri.specIgnoringRef, ref: uri.ref };
     }
     return { base: url };
-  },
-
-  /**
-   * Strips parts of a URL defined in `options`.
-   *
-   * @param {string} spec
-   *        The text to modify.
-   * @param {object} [options]
-   *        The options object.
-   * @param {boolean} [options.stripHttp]
-   *        Whether to strip http.
-   * @param {boolean} [options.stripHttps]
-   *        Whether to strip https.
-   * @param {boolean} [options.stripWww]
-   *        Whether to strip `www.`.
-   * @param {boolean} [options.trimSlash]
-   *        Whether to trim the trailing slash.
-   * @param {boolean} [options.trimEmptyQuery]
-   *        Whether to trim a trailing `?`.
-   * @param {boolean} [options.trimEmptyHash]
-   *        Whether to trim a trailing `#`.
-   * @param {boolean} [options.trimTrailingDot]
-   *        Whether to trim a trailing '.'.
-   * @returns {string[]} [modified, prefix, suffix]
-   *          modified: {string} The modified spec.
-   *          prefix: {string} The parts stripped from the prefix, if any.
-   *          suffix: {string} The parts trimmed from the suffix, if any.
-   */
-  stripPrefixAndTrim(spec, options = {}) {
-    let prefix = "";
-    let suffix = "";
-    if (options.stripHttp && spec.startsWith("http://")) {
-      spec = spec.slice(7);
-      prefix = "http://";
-    } else if (options.stripHttps && spec.startsWith("https://")) {
-      spec = spec.slice(8);
-      prefix = "https://";
-    }
-    if (options.stripWww && spec.startsWith("www.")) {
-      spec = spec.slice(4);
-      prefix += "www.";
-    }
-    if (options.trimEmptyHash && spec.endsWith("#")) {
-      spec = spec.slice(0, -1);
-      suffix = "#" + suffix;
-    }
-    if (options.trimEmptyQuery && spec.endsWith("?")) {
-      spec = spec.slice(0, -1);
-      suffix = "?" + suffix;
-    }
-    if (options.trimSlash && spec.endsWith("/")) {
-      spec = spec.slice(0, -1);
-      suffix = "/" + suffix;
-    }
-    if (options.trimTrailingDot && spec.endsWith(".")) {
-      spec = spec.slice(0, -1);
-      suffix = "." + suffix;
-    }
-    return [spec, prefix, suffix];
   },
 
   /**
@@ -1150,9 +1059,16 @@ export var UrlbarUtils = {
    *   Resolves after the threshold-triggered blockAutofill DB write completes.
    *   Resolves immediately when the URL is unparseable or the count is still
    *   below threshold (no DB write in either case). Tests can await this to
-   *   sequence on the block.
+   *   sequence on the block, or await `_lastRecordAutofillBackspacePromise`
+   *   when they can't reach the return value.
    */
-  async recordAutofillBackspace(url) {
+  recordAutofillBackspace(url) {
+    this._lastRecordAutofillBackspacePromise =
+      this._doRecordAutofillBackspace(url);
+    return this._lastRecordAutofillBackspacePromise;
+  },
+
+  async _doRecordAutofillBackspace(url) {
     let key = this._backspaceBlockKey(url);
     if (!key) {
       return;
@@ -1260,16 +1176,15 @@ export var UrlbarUtils = {
   },
 
   /**
-   * Whether the passed-in input event is paste event.
+   * Return whether or not persisted search terms is enabled.
    *
-   * @param {InputEvent} event an input DOM event.
-   * @returns {boolean} Whether the event is a paste event.
+   * @returns {boolean} true: if enabled.
    */
-  isPasteEvent(event) {
+  isPersistedSearchTermsEnabled() {
     return (
-      event.inputType &&
-      (event.inputType.startsWith("insertFromPaste") ||
-        event.inputType == "insertFromYank")
+      lazy.UrlbarPrefs.getScotchBonnetPref("showSearchTerms.featureGate") &&
+      lazy.UrlbarPrefs.get("showSearchTerms.enabled") &&
+      !lazy.CustomizableUI.getPlacementOfWidget("search-container")
     );
   },
 
@@ -1339,71 +1254,6 @@ export var UrlbarUtils = {
   },
 
   /**
-   * Runs a search for the given string, and returns the heuristic result.
-   *
-   * @param {string} searchString The string to search for.
-   * @param {UrlbarInput} urlbarInput The input requesting it.
-   * @returns {Promise<UrlbarResult>} an heuristic result.
-   */
-  async getHeuristicResultFor(searchString, urlbarInput) {
-    if (!searchString) {
-      throw new Error("Must pass a non-null search string");
-    }
-
-    let gBrowser = urlbarInput.window.gBrowser;
-    let options = {
-      allowAutofill: false,
-      isPrivate: urlbarInput.isPrivate,
-      sapName: urlbarInput.sapName,
-      maxResults: 1,
-      searchString,
-      userContextId: parseInt(
-        gBrowser.selectedBrowser.getAttribute("usercontextid") || 0
-      ),
-      tabGroup: gBrowser.selectedTab.group?.id ?? null,
-      prohibitRemoteResults: true,
-      providers: [
-        "UrlbarProviderAliasEngines",
-        "UrlbarProviderBookmarkKeywords",
-        "UrlbarProviderHeuristicFallback",
-      ],
-    };
-    if (urlbarInput.searchMode) {
-      let searchMode = urlbarInput.searchMode;
-      options.searchMode = searchMode;
-      if (searchMode.source) {
-        options.sources = [searchMode.source];
-      }
-    }
-    let context = new UrlbarQueryContext(options);
-    let heuristicResult =
-      await urlbarInput.controller.getHeuristicResult(context);
-    if (!heuristicResult) {
-      throw new Error("There should always be an heuristic result");
-    }
-    return heuristicResult;
-  },
-
-  /**
-   * Returns the name of a result source.  The name is the lowercase name of the
-   * corresponding property in the RESULT_SOURCE object.
-   *
-   * @param {Values<typeof UrlbarShared.RESULT_SOURCE>} source
-   *   A UrlbarShared.RESULT_SOURCE value.
-   * @returns {string}
-   *   The token's name, a lowercased name in the RESULT_SOURCE object.
-   */
-  getResultSourceName(source) {
-    if (!this._resultSourceNamesBySource) {
-      this._resultSourceNamesBySource = new Map();
-      for (let [name, src] of Object.entries(UrlbarShared.RESULT_SOURCE)) {
-        this._resultSourceNamesBySource.set(src, name.toLowerCase());
-      }
-    }
-    return this._resultSourceNamesBySource.get(source);
-  },
-
-  /**
    * Add the search to form history.  This also updates any existing form
    * history for the search.
    *
@@ -1445,74 +1295,6 @@ export var UrlbarUtils = {
       op: "remove",
       fieldname: lazy.DEFAULT_FORM_HISTORY_PARAM,
     });
-  },
-
-  /**
-   * Returns whether a URL can be autofilled from a candidate string. This
-   * function is specifically designed for origin and up-to-the-next-slash URL
-   * autofill. It should not be used for other types of autofill.
-   *
-   * @param {string} urlString
-   *                 The URL to test
-   * @param {string} candidateString
-   *                 The candidate string to test against
-   * @param {boolean} [checkFragmentOnly]
-   *                 If want to check the fragment only, pass true.
-   *                 Otherwise, check whole url.
-   * @returns {boolean} true: can autofill
-   */
-  canAutofillURL(urlString, candidateString, checkFragmentOnly = false) {
-    // If the URL does not start with the candidate, it can't be autofilled.
-    // The length check is an optimization to short-circuit the `startsWith()`.
-    if (
-      !checkFragmentOnly &&
-      (urlString.length <= candidateString.length ||
-        !urlString
-          .toLocaleLowerCase()
-          .startsWith(candidateString.toLocaleLowerCase()))
-    ) {
-      return false;
-    }
-
-    // Create `URL` objects to make the logic below easier. The strings must
-    // include schemes for this to work.
-    if (!lazy.UrlUtils.REGEXP_PREFIX.test(urlString)) {
-      urlString = "http://" + urlString;
-    }
-    if (!lazy.UrlUtils.REGEXP_PREFIX.test(candidateString)) {
-      candidateString = "http://" + candidateString;
-    }
-
-    let url = URL.parse(urlString);
-    let candidate = URL.parse(candidateString);
-    if (!url || !candidate) {
-      return false;
-    }
-
-    if (checkFragmentOnly) {
-      return url.hash.startsWith(candidate.hash);
-    }
-
-    // For both origin and URL autofill, autofill should stop when the user
-    // types a trailing slash. This is a fundamental part of autofill's
-    // up-to-the-next-slash behavior. We handle that here in the else-if branch.
-    // The length and hash checks in the else-if condition aren't strictly
-    // necessary -- the else-if branch could simply be an else-branch that
-    // returns false -- but they mean this function will return true when the
-    // URL and candidate have the same case-insenstive path and no hash. In
-    // other words, we allow a URL to autofill itself.
-    if (!candidate.href.endsWith("/")) {
-      // The candidate doesn't end in a slash. The URL can't be autofilled if
-      // its next slash is not at the end.
-      let nextSlashIndex = url.pathname.indexOf("/", candidate.pathname.length);
-      if (nextSlashIndex >= 0 && nextSlashIndex != url.pathname.length - 1) {
-        return false;
-      }
-    } else if (url.pathname.length > candidate.pathname.length || url.hash) {
-      return false;
-    }
-
-    return url.hash.startsWith(candidate.hash);
   },
 
   /**
@@ -1571,7 +1353,7 @@ export var UrlbarUtils = {
 
     if (displayString) {
       if (schemeless) {
-        displayString = this.stripPrefixAndTrim(displayString, {
+        displayString = UrlbarShared.stripPrefixAndTrim(displayString, {
           stripHttp: true,
           stripHttps: true,
         })[0];
@@ -1926,46 +1708,6 @@ export var UrlbarUtils = {
   },
 
   /**
-   * Adds text content to a node, placing substrings that should be highlighted
-   * inside <strong> nodes.
-   *
-   * @param {Element} parentNode
-   *   The text content will be added to this node.
-   * @param {string} textContent
-   *   The text content to give the node.
-   * @param {Array} highlights
-   *   Array of highlights as returned by `UrlbarUtils.getTokenMatches()` or
-   *   `UrlbarResult.getDisplayableValueAndHighlights()`.
-   */
-  addTextContentWithHighlights(parentNode, textContent, highlights) {
-    parentNode.textContent = "";
-    if (!textContent) {
-      return;
-    }
-
-    highlights = (highlights || []).concat([[textContent.length, 0]]);
-    let index = 0;
-    for (let [highlightIndex, highlightLength] of highlights) {
-      if (highlightIndex - index > 0) {
-        parentNode.appendChild(
-          parentNode.ownerDocument.createTextNode(
-            textContent.substring(index, highlightIndex)
-          )
-        );
-      }
-      if (highlightLength > 0) {
-        let strong = parentNode.ownerDocument.createElement("strong");
-        strong.textContent = textContent.substring(
-          highlightIndex,
-          highlightIndex + highlightLength
-        );
-        parentNode.appendChild(strong);
-      }
-      index = highlightIndex + highlightLength;
-    }
-  },
-
-  /**
    * Gets the URL bar element that should be focused for the given window.
    * Returns window.gURLBar for regular browser windows, or the smartbar
    * for AI windows in immersive view.
@@ -2033,243 +1775,6 @@ export var UrlbarUtils = {
       maximumSignificantDigits: MAX_SIG_FIGURES,
       numberingSystem: "latn",
     }).format(result);
-  },
-
-  /**
-   * Formats a date and time for display. This is not a general formatting
-   * function. It uses some heuristics to generate formatted strings as used in
-   * urlbar UI. The format chosen will depend on the date.
-   *
-   * @param {Date} date
-   *   A JS `Date` object.
-   * @param {object} options
-   *   Options object
-   * @param {boolean} [options.forceAbsoluteDate]
-   *   Pass true to force the formatted date to be absolute ("May 11") when it
-   *   otherwise would be formatted as relative ("tomorrow").
-   * @param {boolean} [options.forceMonthAndDayWhenAbsolute]
-   *   When the date format is absolute, normally the formatted date will simply
-   *   be the weekday name when the date is in the near future, e.g., "Mon"
-   *   instead of "May 11". Pass true to format it as a month and day instead.
-   * @param {boolean} [options.capitalizeRelativeDate]
-   *   Whether relative dates should be capitalized ("Tomorrow" instead of
-   *   "tomorrow").
-   * @param {boolean} [options.includeTimeZone]
-   *   When a formatted time is generated, it will include the time zone only if
-   *   this param is true.
-   * @returns {FormatDateResult}
-   *   The result.
-   *
-   * @typedef {object} FormatDateResult
-   * @property {string} formattedDate
-   *   The formatted date.
-   * @property {?string} formattedTime
-   *   The formatted time. Depending on the passed-in date, a formatted time
-   *   might not be generated, and in that case this will be undefined.
-   * @property {string} dateFormatType
-   *   The type of the formatted date. See `DATE_FORMAT_TYPE` values.
-   * @property {boolean} isRelative
-   *   Whether the formatted date is relative rather than absolute. Relative
-   *   date examples: "tomorrow", "5 days ago", "1 week ago", "2 months ago".
-   *   Absolute date examples: "Mon" (this coming Monday), "May 11" (this year),
-   *   "May 11, 2013"
-   * @property {ParseDateResult} parseDateResult
-   *   This function calls `parseDate()` as part of its operation, and the
-   *   result is included here in case it's useful.
-   */
-  formatDate(
-    date,
-    {
-      forceAbsoluteDate = false,
-      forceMonthAndDayWhenAbsolute = false,
-      capitalizeRelativeDate = false,
-      includeTimeZone = false,
-    } = {}
-  ) {
-    let parseDateResult = this.parseDate(date);
-    let { zonedNow, zonedDate, daysAgo, weeksAgo, monthsAgo, isFuture } =
-      parseDateResult;
-
-    // First, format the date.
-    let formattedDate;
-    let dateFormatType;
-    let isRelative = true;
-    if (!forceAbsoluteDate) {
-      if (Math.abs(daysAgo) <= 1) {
-        // "yesterday", "today", or "tomorrow"
-        dateFormatType = this.DATE_FORMAT_TYPE.YESTERDAY_TODAY_TOMORROW;
-        formattedDate = new Intl.RelativeTimeFormat(undefined, {
-          numeric: "auto",
-        }).format(-daysAgo, "day");
-      } else if (0 < daysAgo && daysAgo <= 6) {
-        // <= 6 days ago: "{n} days ago"
-        dateFormatType = this.DATE_FORMAT_TYPE.DAYS_WEEKS_MONTHS_AGO;
-        formattedDate = new Intl.RelativeTimeFormat(undefined, {
-          numeric: "always",
-        }).format(-daysAgo, "day");
-      } else if (0 < weeksAgo && (weeksAgo <= 4 || monthsAgo == 0)) {
-        // <= 4 weeks ago or same month: "{n} weeks ago"
-        dateFormatType = this.DATE_FORMAT_TYPE.DAYS_WEEKS_MONTHS_AGO;
-        formattedDate = new Intl.RelativeTimeFormat(undefined, {
-          numeric: "always",
-        }).format(-weeksAgo, "week");
-      } else if (0 < monthsAgo && monthsAgo <= 11) {
-        // <= 11 months ago: "{n} months ago"
-        dateFormatType = this.DATE_FORMAT_TYPE.DAYS_WEEKS_MONTHS_AGO;
-        formattedDate = new Intl.RelativeTimeFormat(undefined, {
-          numeric: "always",
-        }).format(-monthsAgo, "month");
-      }
-
-      if (capitalizeRelativeDate && formattedDate) {
-        formattedDate =
-          formattedDate[0].toLocaleUpperCase() + formattedDate.substring(1);
-      }
-    }
-
-    if (!formattedDate) {
-      // Format the date as an absolute date with some combination of year,
-      // month, day, and weekday, e.g.: "May 11", "May 11, 2026", "Mon"
-      let opts = {
-        timeZone: zonedNow.timeZoneId,
-      };
-      if (!forceMonthAndDayWhenAbsolute && 0 < -daysAgo && -daysAgo < 7) {
-        // Include only the weekday.
-        opts.weekday = "short";
-      } else {
-        // Include the month and day and the year if it's not this year.
-        opts.month = "short";
-        opts.day = "numeric";
-        if (zonedDate.year != zonedNow.year) {
-          opts.year = "numeric";
-        }
-      }
-      formattedDate = new Intl.DateTimeFormat(undefined, opts).format(date);
-      dateFormatType = this.DATE_FORMAT_TYPE.ABSOLUTE;
-      isRelative = false;
-    }
-
-    // Now format the time.
-    let formattedTime;
-    if (isFuture) {
-      formattedTime = new Intl.DateTimeFormat(undefined, {
-        hour: "numeric",
-        minute: "numeric",
-        timeZoneName: includeTimeZone ? "short" : undefined,
-        timeZone: zonedNow.timeZoneId,
-      }).format(date);
-    }
-
-    return {
-      isRelative,
-      dateFormatType,
-      formattedDate,
-      formattedTime,
-      parseDateResult,
-    };
-  },
-
-  // Date format types returned by `formatDate()`.
-  DATE_FORMAT_TYPE: Object.freeze({
-    // "yesterday", "today", or "tomorrow"
-    YESTERDAY_TODAY_TOMORROW: "yesterday_today_tomorrow",
-    // "{n} days ago", "{n} weeks ago", or "{n} months ago"
-    DAYS_WEEKS_MONTHS_AGO: "days_weeks_months_ago",
-    // "Mon" (this coming Monday), "May 11" (this year), or "May 11, 2013"
-    ABSOLUTE: "absolute",
-  }),
-
-  /**
-   * Parses a `Date` and returns some info about it relative to today.
-   *
-   * For the "ago" values, a value will be positive if the date is in the past
-   * and negative if the date is in the future.
-   *
-   * @param {Date} date
-   *   A JS `Date` object.
-   * @returns {ParseDateResult}
-   *   The result.
-   *
-   * @typedef {object} ParseDateResult
-   * @property {Temporal.ZonedDateTime} zonedNow
-   *   The "now" date as a `ZonedDateTime`.
-   * @property {Temporal.ZonedDateTime} zonedDate
-   *   The passed-in date as a `ZonedDateTime`.
-   * @property {boolean} isFuture
-   *   Whether the date is in the future.
-   * @property {number} daysAgo
-   *   The number of calendar days from the date to today. If the date is also
-   *   today, this value will be zero.
-   * @property {number} weeksAgo
-   *   The number of calendar weeks from the date to today. If the date is in
-   *   the same calendar week as today, this value will be zero. If the date is
-   *   in the previous calendar week, this value will be 1, and so on. The start
-   *   of the calendar week is determined by `UrlbarUtils._firstDayOfWeek()`.
-   * @property {number} monthsAgo
-   *   The number of calendar months from the date to today. If the date is in
-   *   the same calendar month as today, this value will be zero. If the date is
-   *   in the previous calendar month, this value will be 1, and so on.
-   */
-  parseDate(date) {
-    let zonedNow = this._zonedDateTimeISO();
-    let zonedDate = date.toTemporalInstant().toZonedDateTimeISO(zonedNow);
-    let isFuture = Temporal.ZonedDateTime.compare(zonedNow, zonedDate) < 0;
-
-    let today = zonedNow.startOfDay();
-    let dateDay = zonedDate.startOfDay();
-
-    let daysAgo = today.since(dateDay).round("days").days;
-    let firstDayOfWeek = this._firstDayOfWeek();
-    let thisWeek = today.subtract({
-      days: (today.dayOfWeek - firstDayOfWeek + 7) % 7,
-    });
-    let dateWeek = dateDay.subtract({
-      days: (dateDay.dayOfWeek - firstDayOfWeek + 7) % 7,
-    });
-    let weeksAgo = thisWeek.since(dateWeek).round({
-      smallestUnit: "weeks",
-      relativeTo: thisWeek,
-    }).weeks;
-
-    let thisMonth = today.with({ day: 1 });
-    let dateMonth = dateDay.with({ day: 1 });
-    let monthsAgo = thisMonth.since(dateMonth).round({
-      smallestUnit: "months",
-      relativeTo: thisMonth,
-    }).months;
-
-    return {
-      zonedNow,
-      zonedDate,
-      isFuture,
-      daysAgo,
-      weeksAgo,
-      monthsAgo,
-    };
-  },
-
-  // Thin wrapper around `zonedDateTimeISO` so that tests can easily set a mock
-  // "now" date and time. See `UrlbarTestUtils.stubNowZonedDateTime()`.
-  _zonedDateTimeISO() {
-    return Temporal.Now.zonedDateTimeISO();
-  },
-
-  // Thin wrapper around `getWeekInfo` so that tests can easily set a mock first
-  // day of the week. See `UrlbarTestUtils.stubFirstDayOfWeek()`.
-  _firstDayOfWeek() {
-    // Getting locale info can be expensive, so cache this value. We don't re-
-    // cache it on locale change. That should be OK because we use it only to
-    // generate "{n} weeks ago" UI strings, which aren't very precise anyway.
-    if (this.__firstDayOfWeek === undefined) {
-      this.__firstDayOfWeek = new Intl.Locale(
-        Services.locale.appLocaleAsBCP47
-      ).getWeekInfo().firstDay;
-
-      // Make sure we always have a valid value in case the locale doesn't
-      // define one for whatever reason. 7 = Sunday.
-      this.__firstDayOfWeek ??= 7;
-    }
-    return this.__firstDayOfWeek;
   },
 };
 
@@ -2569,6 +2074,9 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
     type: "object",
     required: ["keyword", "url"],
     properties: {
+      bookmarkDateMs: {
+        type: "number",
+      },
       icon: {
         type: "string",
       },
@@ -2774,413 +2282,6 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
     },
   },
 };
-
-/**
- * @typedef UrlbarSearchModeData
- * @property {Values<typeof UrlbarShared.RESULT_SOURCE>} source
- *   The source from which search mode was entered.
- * @property {string} [engineName]
- *   The search engine name associated with the search mode.
- */
-
-/**
- * UrlbarQueryContext defines a user's autocomplete input from within the urlbar.
- * It supplements it with details of how the search results should be obtained
- * and what they consist of.
- */
-export class UrlbarQueryContext {
-  /**
-   * Constructs the UrlbarQueryContext instance.
-   *
-   * @param {object} options
-   *   The initial options for UrlbarQueryContext.
-   * @param {string} options.sapName
-   *   The search access point name of the UrlbarInput for use with telemetry or
-   *   logging, e.g. `urlbar`, `searchbar`.
-   * @param {string} options.searchString
-   *   The string the user entered in autocomplete. Could be the empty string
-   *   in the case of the user opening the popup via the mouse.
-   * @param {boolean} options.isPrivate
-   *   Set to true if this query was started from a private browsing window.
-   * @param {number} options.maxResults
-   *   The maximum number of results that will be displayed for this query.
-   * @param {boolean} options.allowAutofill
-   *   Whether or not to allow providers to include autofill results.
-   * @param {number} [options.userContextId]
-   *   The container id where this context was generated, if any.
-   * @param {string | null} [options.tabGroup]
-   *   The tab group where this context was generated, if any.
-   * @param {Array} [options.sources]
-   *   A list of acceptable UrlbarShared.RESULT_SOURCE for the context.
-   * @param {object} [options.searchMode]
-   *   The input's current search mode.  See UrlbarInput.setSearchMode for a
-   *   description.
-   * @param {boolean} [options.prohibitRemoteResults]
-   *   This provides a short-circuit override for `context.allowRemoteResults`.
-   *   If it's false, then `allowRemoteResults` will do its usual checks to
-   *   determine whether remote results are allowed. If it's true, then
-   *   `allowRemoteResults` will immediately return false. Defaults to false.
-   */
-  constructor(options) {
-    // Clone to make sure all properties belong to the system realm.
-    // This is required because this method is called from a window.
-    // Not doing this causes a window leak if providers don't properly
-    // clean up after a query and keep references to UrlbarQueryContext
-    // properties (e.g. ProviderPlaces).
-    options = structuredClone(options);
-
-    this._checkRequiredOptions(options, [
-      "allowAutofill",
-      "isPrivate",
-      "maxResults",
-      "sapName",
-      "searchString",
-    ]);
-
-    if (isNaN(options.maxResults)) {
-      throw new Error(
-        `Invalid maxResults property provided to UrlbarQueryContext`
-      );
-    }
-
-    /**
-     * @type {[string, (v: any) => boolean, any?][]}
-     */
-    const optionalProperties = [
-      ["currentPage", v => typeof v == "string" && !!v.length],
-      ["excludeSponsoredResults", v => typeof v == "boolean", false],
-      ["prohibitRemoteResults", v => typeof v == "boolean", false],
-      ["providers", v => Array.isArray(v) && !!v.length],
-      ["searchMode", v => v && typeof v == "object"],
-      ["sources", v => Array.isArray(v) && !!v.length],
-    ];
-
-    // Manage optional properties of options.
-    for (let [prop, checkFn, defaultValue] of optionalProperties) {
-      if (prop in options) {
-        if (!checkFn(options[prop])) {
-          throw new Error(`Invalid value for option "${prop}"`);
-        }
-        this[prop] = options[prop];
-      } else if (defaultValue !== undefined) {
-        this[prop] = defaultValue;
-      }
-    }
-
-    this.lastResultCount = 0;
-    // Note that Set is not serializable through JSON, so these may not be
-    // easily shared with add-ons.
-    this.pendingHeuristicProviders = new Set();
-    this.deferUserSelectionProviders = new Set();
-    this.trimmedSearchString = this.searchString.trim();
-    this.lowerCaseSearchString = this.searchString.toLowerCase();
-    this.trimmedLowerCaseSearchString = this.trimmedSearchString.toLowerCase();
-    this.userContextId =
-      lazy.UrlbarProviderOpenTabs.getUserContextIdForOpenPagesTable(
-        options.userContextId,
-        this.isPrivate
-      ) || Ci.nsIScriptSecurityManager.DEFAULT_USER_CONTEXT_ID;
-    this.tabGroup = options.tabGroup || null;
-
-    // Used to store glean timing distribution timer ids.
-    this.firstTimerId = 0;
-    this.sixthTimerId = 0;
-  }
-
-  /**
-   * @type {boolean}
-   *   Whether or not to allow providers to include autofill results.
-   */
-  allowAutofill;
-
-  /**
-   * @type {boolean}
-   *   Whether or not the query has been cancelled.
-   */
-  canceled = false;
-
-  /**
-   * @type {string}
-   *   URL of the page that was loaded when the search began.
-   */
-  currentPage;
-
-  /**
-   * @type {UrlbarResult}
-   *   The current firstResult.
-   */
-  firstResult;
-
-  /**
-   * @type {boolean}
-   *   Indicates if the first result has been changed changed.
-   */
-  firstResultChanged = false;
-
-  /**
-   * @type {UrlbarResult}
-   *   The heuristic result associated with the context.
-   */
-  heuristicResult;
-
-  /**
-   * @type {boolean}
-   *   True if this query was started from a private browsing window.
-   */
-  isPrivate;
-
-  /**
-   * @type {number}
-   *   The maximum number of results that will be displayed for this query.
-   */
-  maxResults;
-
-  /**
-   * @type {string}
-   *   The name of the muxer to use for this query.
-   */
-  muxer;
-
-  /**
-   * @type {boolean}
-   *   Whether or not to exclude sponsored results.
-   */
-  excludeSponsoredResults;
-
-  /**
-   * @type {boolean}
-   *   Whether or not to prohibit remote results.
-   */
-  prohibitRemoteResults;
-
-  /**
-   * @type {string[]}
-   *   List of registered provider names. Providers can be registered through
-   *   the ProvidersManager.
-   */
-  providers;
-
-  /**
-   * @type {?Values<typeof UrlbarShared.RESULT_SOURCE>}
-   *   Set if this context is restricted to a single source.
-   */
-  restrictSource;
-
-  /**
-   * @type {UrlbarSearchStringTokenData}
-   *   The restriction token used to restrict the sources for this search.
-   */
-  restrictToken;
-
-  /**
-   * @type {UrlbarResult[]}
-   *   The results associated with this context.
-   */
-  results;
-
-  /**
-   * @type {string}
-   *   The search access point name of the UrlbarInput for use with telemetry or
-   *   logging, e.g. `urlbar`, `searchbar`.
-   */
-  sapName;
-
-  /**
-   * @type {UrlbarSearchModeData}
-   *   Details about the search mode associated with this context.
-   */
-  searchMode;
-
-  /**
-   * Utility function to determine whether we should use the existence of
-   * searchMode to restrict the type of results to only search suggestions
-   * or the new behaviour behind `historyInSearchMode` pref that shows all
-   * types of results in searchMode, treating engine searchMode as
-   * "temporarily changed default search engine".
-   *
-   * @returns {boolean}
-   */
-  restrictInSearchMode() {
-    if (lazy.UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode")) {
-      // We still want to restrict local searchModes even if the pref is on.
-      return !!this.searchMode && !this.searchMode.engineName;
-    }
-    return !!this.searchMode;
-  }
-
-  /**
-   * @type {string}
-   *   The string the user entered in autocomplete.
-   */
-  searchString;
-
-  /**
-   * @type {Values<typeof UrlbarShared.RESULT_SOURCE>[]}
-   *   The possible sources of results for this context.
-   */
-  sources;
-
-  /**
-   * @type {UrlbarSearchStringTokenData[]}
-   *   A list of tokens extracted from the search string.
-   */
-  tokens;
-
-  /**
-   * Checks the required options, saving them as it goes.
-   *
-   * @param {object} options The options object to check.
-   * @param {Array} optionNames The names of the options to check for.
-   * @throws {Error} Throws if there is a missing option.
-   */
-  _checkRequiredOptions(options, optionNames) {
-    for (let optionName of optionNames) {
-      if (!(optionName in options)) {
-        throw new Error(
-          `Missing or empty ${optionName} provided to UrlbarQueryContext`
-        );
-      }
-      this[optionName] = options[optionName];
-    }
-  }
-
-  /**
-   * Caches and returns fixup info from URIFixup for the current search string.
-   * Only returns a subset of the properties from URIFixup. This is both to
-   * reduce the memory footprint of UrlbarQueryContexts and to keep them
-   * serializable so they can be sent to extensions.
-   */
-  get fixupInfo() {
-    if (!this._fixupError && !this._fixupInfo && this.trimmedSearchString) {
-      let flags =
-        Ci.nsIURIFixup.FIXUP_FLAG_FIX_SCHEME_TYPOS |
-        Ci.nsIURIFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP;
-      if (this.isPrivate) {
-        flags |= Ci.nsIURIFixup.FIXUP_FLAG_PRIVATE_CONTEXT;
-      }
-
-      try {
-        let info = Services.uriFixup.getFixupURIInfo(this.searchString, flags);
-
-        this._fixupInfo = {
-          href: info.fixedURI.spec,
-          isSearch: !!info.keywordAsSent,
-          scheme: info.fixedURI.scheme,
-        };
-      } catch (ex) {
-        this._fixupError = ex.result;
-      }
-    }
-
-    return this._fixupInfo || null;
-  }
-
-  /**
-   * Returns the error that was thrown when fixupInfo was fetched, if any. If
-   * fixupInfo has not yet been fetched for this queryContext, it is fetched
-   * here.
-   *
-   * @returns {any?}
-   */
-  get fixupError() {
-    if (!this.fixupInfo) {
-      return this._fixupError;
-    }
-
-    return null;
-  }
-
-  /**
-   * Returns whether results from remote services are generally allowed for the
-   * context. Callers can impose further restrictions as appropriate, but
-   * typically they should not fetch remote results if this returns false.
-   *
-   * @param {string} [searchString]
-   *   Usually this is just the context's search string, but if you need to
-   *   fetch remote results based on a modified version, you can pass it here.
-   * @param {boolean} [allowEmptySearchString]
-   *   Whether to check for the minimum length of the search string.
-   * @returns {boolean}
-   *   Whether remote results are allowed.
-   */
-  allowRemoteResults(
-    searchString = this.searchString,
-    allowEmptySearchString = false
-  ) {
-    if (this.prohibitRemoteResults) {
-      return false;
-    }
-
-    // We're unlikely to get useful remote results for a single character.
-    if (
-      searchString.length < 2 &&
-      !(!searchString.length && allowEmptySearchString)
-    ) {
-      return false;
-    }
-
-    // Prohibit remote results if the search string is likely an origin to avoid
-    // disclosing sites the user visits. If the search string may or may not be
-    // an origin but we've determined a search is allowed, then allow it.
-    if (this.tokens.length == 1) {
-      switch (this.tokens[0].type) {
-        case UrlbarShared.TOKEN_TYPE.POSSIBLE_ORIGIN:
-          return false;
-        case UrlbarShared.TOKEN_TYPE.POSSIBLE_ORIGIN_BUT_SEARCH_ALLOWED:
-          return true;
-      }
-    }
-
-    // Disallow remote results for strings containing tokens that look like URIs
-    // to avoid disclosing information about networks and passwords.
-    // (Unless the search is happening in the searchbar.)
-    if (
-      this.sapName != "searchbar" &&
-      this.fixupInfo?.href &&
-      !this.fixupInfo?.isSearch
-    ) {
-      return false;
-    }
-
-    // Allow remote results.
-    return true;
-  }
-
-  /**
-   * Serializes this context to a plain, structured-cloneable object for sending
-   * across the Urlbar actor boundary. The context's own fields survive
-   * structured-clone on their own, but its nested UrlbarResults keep their data
-   * in private fields, so they're replaced with their wire forms.
-   *
-   * @returns {object} The wire representation; reconstruct with fromWire().
-   */
-  toWire() {
-    return {
-      ...this,
-      results: this.results?.map(result => result.toWire()),
-      heuristicResult: this.heuristicResult?.toWire(),
-    };
-  }
-
-  /**
-   * Reconstructs a UrlbarQueryContext from the plain object produced by
-   * toWire(), e.g. after it has crossed the Urlbar actor boundary: structured-
-   * clone preserved the context's own fields but dropped its class identity and
-   * its results' private-field data, so restore the prototype and rebuild the
-   * results.
-   *
-   * @param {object} wire The wire representation from toWire().
-   * @returns {UrlbarQueryContext} The reconstructed context.
-   */
-  static fromWire(wire) {
-    Object.setPrototypeOf(wire, UrlbarQueryContext.prototype);
-    wire.results = wire.results?.map(lazy.UrlbarResult.fromWire) ?? [];
-    if (wire.heuristicResult) {
-      wire.heuristicResult = lazy.UrlbarResult.fromWire(wire.heuristicResult);
-    }
-    return wire;
-  }
-}
 
 /**
  * Base class for a muxer.

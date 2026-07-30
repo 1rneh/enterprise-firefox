@@ -101,11 +101,13 @@ body {
     min-width: 804px;
   }
 
+  /* z-indices that fight on the browser container */
+  --browser-container-z-index-devtools-toolbox: 1;
+  --browser-container-z-index-devtools-splitter: 2;
+
   /* z-indices that fight on the browser stack */
-  --browser-stack-z-index-devtools-splitter: 1;
   --browser-stack-z-index-dialog-stack: 2;
-  --browser-stack-z-index-rdm-toolbar: 3;
-  --browser-stack-z-index-screenshots-panel: 4;
+  --browser-stack-z-index-screenshots-panel: 3;
 
   /* z-indices that fight in the general browser / toolbox area */
   --browser-area-z-index-toolbox: 0;
@@ -823,12 +825,88 @@ menupopup::part(drop-indicator) {
       display: none;
     }
   }
+
+  /* Nova replaces this labeled indicator with the icon-only button. */
+  @media -moz-pref("browser.nova.enabled") {
+    display: none;
+  }
 }
 
 .private-browsing-indicator-icon {
   list-style-image: url("chrome://global/skin/icons/indicator-private-browsing.svg");
   width: var(--icon-size);
   height: var(--icon-size);
+}
+
+/* The icon-only indicator button opens an info panel; it replaces the labeled
+   indicator when the design-refresh pref is enabled. */
+.private-browsing-indicator-button {
+  list-style-image: url("chrome://browser/skin/privatebrowsing/pbm-logo.svg");
+  border-radius: var(--border-radius-medium);
+
+  :root:not([privatebrowsingmode="temporary"]) &,
+  #navigator-toolbox:not([tabs-hidden]) #nav-bar > & {
+    display: none;
+  }
+
+  @media not -moz-pref("browser.nova.enabled") {
+    display: none;
+  }
+
+  > .toolbarbutton-icon {
+    --private-browsing-indicator-border-color: var(--border-color-interactive-hover);
+    padding: var(--toolbarbutton-padding-inner);
+    /* The logo circle uses context-fill; set it here so it isn't washed out by
+       the toolbar's default icon fill. */
+    -moz-context-properties: fill;
+    /* Fixed brand purple for the logo circle (matches the SVG fallback and
+       about:privatebrowsing); accent tokens are theme-adaptive so unsuitable. */
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    fill: #7338e2;
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    border: var(--border-width) solid var(--private-browsing-indicator-border-color);
+
+    @media not (forced-colors) {
+      --private-browsing-indicator-border-color: color-mix(in srgb, var(--color-violet-desaturated-50) 15%, transparent);
+    }
+  }
+}
+
+.private-browsing-info-panel {
+  .private-browsing-info-body {
+    padding: var(--space-small);
+    max-width: 30em;
+  }
+
+  .private-browsing-info-header {
+    gap: var(--space-small);
+    margin-block-end: var(--space-large);
+  }
+
+  .private-browsing-info-icon {
+    width: var(--icon-size-small);
+    height: var(--icon-size-small);
+    -moz-context-properties: fill;
+    /* The logo badge is always black to match branding, regardless of theme. */
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    fill: var(--color-black);
+    list-style-image: url("chrome://browser/skin/privatebrowsing/pbm-logo.svg");
+  }
+
+  .private-browsing-info-title {
+    font-size: var(--font-size-root);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .private-browsing-info-description {
+    color: var(--text-color-deemphasized);
+    font-size: var(--font-size-root);
+  }
+
+  .private-browsing-info-description > a {
+    display: inline-block;
+    margin-block-start: var(--space-xsmall);
+  }
 }
 
 /* Content analysis indicator */
@@ -1577,7 +1655,7 @@ popupnotificationcontent {
   border-radius: var(--border-radius-medium);
   padding-inline-end: var(--toolbarbutton-padding-inner);
 
-  > .toolbarbutton-icon {
+  &:is([cui-areatype="toolbar"]):not([overflowedItem]) > .toolbarbutton-icon {
     padding: var(--toolbarbutton-padding-inner);
 
     @media not -moz-pref("browser.nova.enabled") {
@@ -1601,11 +1679,11 @@ popupnotificationcontent {
     }
   }
 
-  /* Smart Window toggle */
+  /* Smart Window toggle in Smart Window */
   :root[ai-window] & {
     list-style-image: url("chrome://browser/skin/smart-window-simplified.svg");
 
-    > .toolbarbutton-icon {
+    &[cui-areatype="toolbar"]:not([overflowedItem]) > .toolbarbutton-icon {
       @media not -moz-pref("browser.nova.enabled") {
         /* Smart Window icon has additional 2px padding per side, to be slightly smaller than Classic Window icon when used in Switcher */
         padding: var(--toolbarbutton-padding-inner);
@@ -1725,6 +1803,11 @@ popupnotificationcontent {
   margin-inline-start: auto;
 }
 
+/* Smart Window Toolbar styling. */
+:root[ai-window] #nav-bar {
+  padding-inline-end: var(--toolbar-padding-inline);
+}
+
 /* AI window: hide nav bar on new window or firstrun */
 :root[ai-window][aiwindow-new-window],
 :root[ai-window][aiwindow-first-run] {
@@ -1756,15 +1839,13 @@ popupnotificationcontent {
   }
 }
 
-/* immersive view styles exclusive for first run (nav-bar/urlbar hiding is
-   shared with new-window above) */
 :root[ai-window][aiwindow-first-run] {
   #sidebar-button,
   #PanelUI-button {
     display: none;
   }
 
-  #TabsToolbar > .toolbar-items {
+  #TabsToolbar-customization-target > *:not(#ai-window-toggle) {
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
     opacity: 0.2;
     pointer-events: none;

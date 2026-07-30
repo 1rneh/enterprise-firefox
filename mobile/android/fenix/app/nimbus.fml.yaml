@@ -44,7 +44,7 @@ import:
             enabled: true
         - channel: beta
           value:
-            enabled: false
+            enabled: true
         - channel: release
           value:
             enabled: false
@@ -1127,7 +1127,7 @@ features:
       show-onboarding-bottom-sheet:
         description: If true, the IP Protection onboarding bottom sheet is shown to the user.
         type: Boolean
-        default: false
+        default: true
       data-limit-gigabyte:
         description: Specifies the VPN data limit for unpaid users in GB (e.g. 50 GB).
         type: Int
@@ -1337,6 +1337,14 @@ features:
       - channel: developer
         value:
           enabled: true
+
+  collections-to-tab-groups-migration:
+    description: Feature to migrate Collections to Tab Groups for users on Firefox for Android.
+    variables:
+      hide-collections-ui:
+        description: If true, the Collections UI is hidden.
+        type: Boolean
+        default: false
 
 types:
   objects:

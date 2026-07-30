@@ -1611,15 +1611,17 @@ void CodeGenerator::visitCompare(LCompare* comp) {
 void CodeGenerator::visitStrictConstantCompareInt32(
     LStrictConstantCompareInt32* comp) {
   ValueOperand value = ToValue(comp->value());
-  int32_t constantVal = comp->mir()->constant();
-  JSOp op = comp->mir()->jsop();
   Register temp = ToRegister(comp->temp0());
   Register output = ToRegister(comp->output());
 
-  masm.cmp64Set(JSOpToCondition(op, false), value.toRegister64(),
-                Imm64(Int32Value(constantVal).asRawBits()), output);
-  masm.cmp64Set(JSOpToCondition(op, false), value.toRegister64(),
-                Imm64(DoubleValue(constantVal).asRawBits()), temp);
+  int32_t constantVal = comp->mir()->constant();
+  JSOp op = comp->mir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+
+  masm.testValueSet(JSOpToCondition(op, false), value, Int32Value(constantVal),
+                    output);
+  masm.testValueSet(JSOpToCondition(op, false), value, DoubleValue(constantVal),
+                    temp);
 
   if (op == JSOp::StrictEq) {
     masm.or32(temp, output);
@@ -1628,8 +1630,8 @@ void CodeGenerator::visitStrictConstantCompareInt32(
   }
 
   if (constantVal == 0) {
-    masm.cmp64Set(JSOpToCondition(op, false), value.toRegister64(),
-                  Imm64(DoubleValue(-0.0).asRawBits()), temp);
+    masm.testValueSet(JSOpToCondition(op, false), value, DoubleValue(-0.0),
+                      temp);
 
     if (op == JSOp::StrictEq) {
       masm.or32(temp, output);
@@ -1642,8 +1644,10 @@ void CodeGenerator::visitStrictConstantCompareInt32(
 void CodeGenerator::visitStrictConstantCompareInt32AndBranch(
     LStrictConstantCompareInt32AndBranch* comp) {
   ValueOperand value = ToValue(comp->value());
+
   int32_t constantVal = comp->cmpMir()->constant();
   JSOp op = comp->cmpMir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
   Assembler::Condition cond = JSOpToCondition(op, false);
 
   MBasicBlock* ifTrue = comp->ifTrue();
@@ -1680,19 +1684,24 @@ void CodeGenerator::visitStrictConstantCompareInt32AndBranch(
 void CodeGenerator::visitStrictConstantCompareBoolean(
     LStrictConstantCompareBoolean* comp) {
   ValueOperand value = ToValue(comp->value());
-  bool constantVal = comp->mir()->constant();
-  JSOp op = comp->mir()->jsop();
   Register output = ToRegister(comp->output());
 
-  masm.cmp64Set(JSOpToCondition(op, false), value.toRegister64(),
-                Imm64(BooleanValue(constantVal).asRawBits()), output);
+  bool constantVal = comp->mir()->constant();
+  JSOp op = comp->mir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+
+  masm.testValueSet(JSOpToCondition(op, false), value,
+                    BooleanValue(constantVal), output);
 }
 
 void CodeGenerator::visitStrictConstantCompareBooleanAndBranch(
     LStrictConstantCompareBooleanAndBranch* comp) {
   ValueOperand value = ToValue(comp->value());
+
   bool constantVal = comp->cmpMir()->constant();
-  Assembler::Condition cond = JSOpToCondition(comp->cmpMir()->jsop(), false);
+  JSOp op = comp->cmpMir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+  Assembler::Condition cond = JSOpToCondition(op, false);
 
   MBasicBlock* ifTrue = comp->ifTrue();
   MBasicBlock* ifFalse = comp->ifFalse();
@@ -3738,7 +3747,7 @@ void CodeGenerator::visitBinaryValueCache(LBinaryValueCache* lir) {
   TypedOrValueRegister rhs = TypedOrValueRegister(ToValue(lir->rhs()));
   ValueOperand output = ToOutValue(lir);
 
-  JSOp jsop = JSOp(*lir->mirRaw()->toInstruction()->resumePoint()->pc());
+  JSOp jsop = lir->mir()->jsop();
 
   switch (jsop) {
     case JSOp::Add:
@@ -3768,7 +3777,7 @@ void CodeGenerator::visitBinaryBoolCache(LBinaryBoolCache* lir) {
   TypedOrValueRegister rhs = TypedOrValueRegister(ToValue(lir->rhs()));
   Register output = ToRegister(lir->output());
 
-  JSOp jsop = JSOp(*lir->mirRaw()->toInstruction()->resumePoint()->pc());
+  JSOp jsop = lir->mir()->jsop();
 
   switch (jsop) {
     case JSOp::Lt:
@@ -11894,14 +11903,36 @@ void CodeGenerator::visitModD(LModD* ins) {
 
   FloatRegister lhs = ToFloatRegister(ins->lhs());
   FloatRegister rhs = ToFloatRegister(ins->rhs());
+  FloatRegister output = ToFloatRegister(ins->output());
+  Register temp1 = ToRegister(ins->temp0());
+  Register temp2 = ToRegister(ins->temp1());
 
-  MOZ_ASSERT(ToFloatRegister(ins->output()) == ReturnDoubleReg);
+  LiveRegisterSet liveRegisterSet = liveVolatileRegs(ins);
 
-  using Fn = double (*)(double a, double b);
-  masm.setupAlignedABICall();
-  masm.passABIArg(lhs, ABIType::Float64);
-  masm.passABIArg(rhs, ABIType::Float64);
-  masm.callWithABI<Fn, NumberMod>(ABIType::Float64);
+  Label call, done;
+  // The fast path's internal integer division may itself call out to a runtime
+  // routine (on ARM without a hardware divide), and needs the volatile live set
+  // to know which of our registers to preserve across that call.
+  masm.modDoubleIntegerFastPath(lhs, rhs, output, temp1, temp2, liveRegisterSet,
+                                &call);
+  masm.jump(&done);
+
+  masm.bind(&call);
+  {
+    LiveRegisterSet save = liveRegisterSet;
+    save.takeUnchecked(output);
+
+    masm.PushRegsInMask(save);
+    using Fn = double (*)(double a, double b);
+    masm.setupUnalignedABICall(temp1);
+    masm.passABIArg(lhs, ABIType::Float64);
+    masm.passABIArg(rhs, ABIType::Float64);
+    masm.callWithABI<Fn, NumberMod>(ABIType::Float64);
+    masm.storeCallFloatResult(output);
+    masm.PopRegsInMask(save);
+  }
+
+  masm.bind(&done);
 }
 
 void CodeGenerator::visitModPowTwoD(LModPowTwoD* ins) {
@@ -12865,72 +12896,7 @@ void CodeGenerator::visitCompareSInline(LCompareSInline* lir) {
         lir, ArgList(ImmGCPtr(str), input), StoreRegisterTo(output));
   }
 
-  Label compareChars;
-  {
-    Label notPointerEqual;
-
-    // If operands point to the same instance, the strings are trivially equal.
-    masm.branchPtr(Assembler::NotEqual, input, ImmGCPtr(str), &notPointerEqual);
-    masm.move32(Imm32(op == JSOp::Eq || op == JSOp::StrictEq), output);
-    masm.jump(ool->rejoin());
-
-    masm.bind(&notPointerEqual);
-
-    Label setNotEqualResult;
-
-    if (str->isAtom()) {
-      // Atoms cannot be equal to each other if they point to different strings.
-      Imm32 atomBit(StringFlags::ATOM_BIT);
-      masm.branchTest32(Assembler::NonZero,
-                        Address(input, JSString::offsetOfFlags()), atomBit,
-                        &setNotEqualResult);
-    }
-
-    if (str->hasTwoByteChars()) {
-      // Pure two-byte strings can't be equal to Latin-1 strings.
-      JS::AutoCheckCannotGC nogc;
-      if (!mozilla::IsUtf16Latin1(str->twoByteRange(nogc))) {
-        masm.branchLatin1String(input, &setNotEqualResult);
-      }
-    }
-
-    // Strings of different length can never be equal.
-    masm.branch32(Assembler::NotEqual,
-                  Address(input, JSString::offsetOfLength()),
-                  Imm32(str->length()), &setNotEqualResult);
-
-    if (str->isAtom()) {
-      Label forwardedPtrEqual;
-      masm.tryFastAtomize(input, output, output, &compareChars);
-
-      // We now have two atoms. Just check pointer equality.
-      masm.branchPtr(Assembler::Equal, output, ImmGCPtr(str),
-                     &forwardedPtrEqual);
-
-      masm.move32(Imm32(op == JSOp::Ne || op == JSOp::StrictNe), output);
-      masm.jump(ool->rejoin());
-
-      masm.bind(&forwardedPtrEqual);
-      masm.move32(Imm32(op == JSOp::Eq || op == JSOp::StrictEq), output);
-      masm.jump(ool->rejoin());
-    } else {
-      masm.jump(&compareChars);
-    }
-
-    masm.bind(&setNotEqualResult);
-    masm.move32(Imm32(op == JSOp::Ne || op == JSOp::StrictNe), output);
-    masm.jump(ool->rejoin());
-  }
-
-  masm.bind(&compareChars);
-
-  // Load the input string's characters.
-  Register stringChars = output;
-  masm.loadStringCharsForCompare(input, str, stringChars, ool->entry());
-
-  // Start comparing character by character.
-  masm.compareStringChars(op, stringChars, str, output);
-
+  masm.equalStrings(op, input, str, output, ool->entry());
   masm.bind(ool->rejoin());
 }
 
@@ -13021,6 +12987,48 @@ void CodeGenerator::visitCompareSSingle(LCompareSSingle* lir) {
                 Address(input, JSString::offsetOfLength()), Imm32(1), output);
 
   masm.bind(&done);
+}
+
+void CodeGenerator::visitStrictConstantCompareString(
+    LStrictConstantCompareString* lir) {
+  ValueOperand value = ToValue(lir->value());
+  Register output = ToRegister(lir->output());
+  Register temp = ToRegister(lir->temp0());
+
+  JSOffThreadAtom* str = lir->mir()->constant();
+  JSOp op = lir->mir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+
+  OutOfLineCode* ool = nullptr;
+
+  using Fn = bool (*)(JSContext*, HandleString, HandleString, bool*);
+  if (op == JSOp::StrictEq) {
+    ool = oolCallVM<Fn, jit::StringsEqual<EqualityKind::Equal>>(
+        lir, ArgList(temp, ImmGCPtr(str)), StoreRegisterTo(output));
+  } else {
+    MOZ_ASSERT(op == JSOp::StrictNe);
+    ool = oolCallVM<Fn, jit::StringsEqual<EqualityKind::NotEqual>>(
+        lir, ArgList(temp, ImmGCPtr(str)), StoreRegisterTo(output));
+  }
+
+  masm.move32(Imm32(op == JSOp::StrictNe), output);
+  masm.fallibleUnboxString(value, temp, ool->rejoin());
+
+  masm.equalStrings(op, temp, str, output, ool->entry());
+  masm.bind(ool->rejoin());
+}
+
+void CodeGenerator::visitStrictConstantCompareObject(
+    LStrictConstantCompareObject* lir) {
+  ValueOperand value = ToValue(lir->value());
+  Register output = ToRegister(lir->output());
+
+  JSObject* obj = lir->mir()->constant();
+  JSOp op = lir->mir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+
+  masm.testValueSet(JSOpToCondition(MCompare::Compare_Object, op), value,
+                    JS::ObjectValue(*obj), output);
 }
 
 void CodeGenerator::visitCompareBigInt(LCompareBigInt* lir) {
@@ -21629,7 +21637,7 @@ void CodeGenerator::visitNewTarget(LNewTarget* ins) {
 
   Label useNFormals;
 
-  size_t numFormalArgs = ins->mirRaw()->block()->info().nargs();
+  size_t numFormalArgs = ins->mir()->block()->info().nargs();
   masm.branchPtr(Assembler::Below, argvLen, Imm32(numFormalArgs), &useNFormals);
 
   size_t argsOffset = JitFrameLayout::offsetOfActualArgs();
@@ -23352,7 +23360,6 @@ void CodeGenerator::visitWasmStoreInstanceScratch2xI32(
 }
 #endif
 
-#ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
 void CodeGenerator::visitAddDisposableResource(LAddDisposableResource* lir) {
   Register environment = ToRegister(lir->environment());
   ValueOperand resource = ToValue(lir->resource());
@@ -23381,7 +23388,6 @@ void CodeGenerator::visitTakeDisposeCapability(LTakeDisposeCapability* lir) {
   masm.loadValue(capabilityAddr, output);
   masm.storeValue(JS::UndefinedValue(), capabilityAddr);
 }
-#endif
 
 #ifdef FUZZING_JS_FUZZILLI
 void CodeGenerator::emitFuzzilliHashObject(LInstruction* lir, Register obj,

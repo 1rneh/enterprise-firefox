@@ -263,11 +263,6 @@
   value: false
   mirror: always
 
-- name: accessibility.ARIAElementReflection.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Whether to enable automatic details relationships for
 # anchor positioned content.
 - name: accessibility.anchorPositionedAsDetails.enabled
@@ -3882,15 +3877,17 @@
 #endif
   mirror: always
 
+#if !defined(XP_DARWIN)
 # Whether a native event loop should be used in the content process.
-- name: dom.ipc.useNativeEventProcessing.content
-  type: RelaxedAtomicBool
-#if defined(XP_WIN) || defined(XP_DARWIN)
-  value: false
-#else
-  value: true
-#endif
-  mirror: always
+-   name: dom.ipc.useNativeEventProcessing.content
+    type: RelaxedAtomicBool
+  #if defined(XP_WIN)
+    value: false
+  #else
+    value: true
+  #endif
+    mirror: always
+#endif /* XP_DARWIN */
 
 # If this is true, keypress events for non-printable keys are dispatched only
 # for event listeners of the system event group in web content.
@@ -5148,13 +5145,6 @@
   value: false
   mirror: always
 
-# pref controls credential chooser UI for testing. When true, UI is not shown and
-# either a credential with ID `wpt-pick-me` is selected, or none.
-- name: dom.security.credentialmanagement.chooser.testing.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # pref controls `digital` credentials being exposed
 - name: dom.security.credentialmanagement.digital.enabled
   type: bool
@@ -5321,7 +5311,7 @@
 
 - name: dom.workers.throttling.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_BUILD@
   mirror: once
 
 - name: dom.workers.serialized-sab-access
@@ -5794,14 +5784,6 @@
 - name: dom.vr.autoactivate.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Minimum number of milliseconds that the browser will wait before
-# attempting to poll again for connected VR controllers.  The browser
-# will not attempt to poll for VR controllers until it needs to use them.
-- name: dom.vr.controller.enumerate.interval
-  type: RelaxedAtomicInt32
-  value: 1000
   mirror: always
 
 # The threshold value of trigger inputs for VR controllers.
@@ -8169,6 +8151,14 @@
   value: false
   mirror: once
 
+# Experimental paused-window memory trimming. 0 disables trimming, 1 releases
+# inactive WebRender render targets, and 2 also releases transient upload
+# buffers when a renderer is paused.
+- name: gfx.webrender.trim-paused-renderers.mode
+  type: RelaxedAtomicUint32
+  value: 2
+  mirror: always
+
 - name: gfx.webrender.enable-angle
   type: bool
 #if defined(XP_WIN)
@@ -8833,7 +8823,7 @@
 # member round-robin at creation time.
 - name: gfx.webrender.render-backend-thread-count
   type: uint32_t
-  value: 0
+  value: 2
   mirror: once
 
 # Enable dithering in hardware WebRender
@@ -9779,15 +9769,6 @@
   mirror: always
   set_spidermonkey_pref: startup
 
-#ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
-  # Experimental support for Explicit Resource Management in JavaScript.
--   name: javascript.options.experimental.explicit_resource_management
-    type: bool
-    value: true
-    mirror: always
-    set_spidermonkey_pref: always
-#endif  // ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
-
   # Experimental support for source phase imports in JavaScript.
 - name: javascript.options.experimental.source_phase_imports
   type: RelaxedAtomicBool
@@ -10669,7 +10650,7 @@
 # https://drafts.csswg.org/css-values-5/#attr-notation
 - name: layout.css.attr.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -11165,7 +11146,7 @@
 # https://drafts.csswg.org/css-values-5/#progress
 - name: layout.css.progress-function.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -11807,7 +11788,7 @@
 # Per-domain blocklist for ::-webkit-scrollbar pseudo element
 - name: layout.css.fake-webkit-scrollbar.disabled-domains
   type: DataMutexString
-  value: "discord.com,shitposter.world"
+  value: "discord.com,shitposter.world,gemini.google.com"
   mirror: always
   rust: true
 
@@ -13441,31 +13422,6 @@
 - name: media.media-capabilities.screen.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-- name: media.benchmark.vp9.fps
-  type: RelaxedAtomicUint32
-  value: 0
-  mirror: always
-
-- name: media.benchmark.vp9.threshold
-  type: RelaxedAtomicUint32
-  value: 150
-  mirror: always
-
-- name: media.benchmark.vp9.versioncheck
-  type: RelaxedAtomicUint32
-  value: 0
-  mirror: always
-
-- name: media.benchmark.frames
-  type: RelaxedAtomicUint32
-  value: 300
-  mirror: always
-
-- name: media.benchmark.timeout
-  type: RelaxedAtomicUint32
-  value: 1000
   mirror: always
 
 - name: media.test.video-suspend
@@ -15354,6 +15310,15 @@
 #else
   value: true
 #endif
+
+# When a protocol would be launched externally without a prompt (i.e. the
+# network.protocol-handler.external.<scheme> pref is set), require transient
+# user activation. Without activation we fall back to the external protocol
+# prompt instead of launching silently. See bug 299116.
+- name: network.protocol-handler.prompt-without-user-activation
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 # Whether we can send OnDataAvailable to content process directly.
 - name: network.send_ODA_to_content_directly
@@ -18478,6 +18443,13 @@
   value: false
   mirror: always
 
+# Don't enable this! Temporary rollout pref to always allow unsafe
+# Services.scriptloader.loadSubScript() uses.
+- name: security.allow_unsafe_subscript_loads
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Pref to block mixed scripts (fonts, plugin content, scripts, stylesheets,
 # iframes, websockets, XHR).
 - name: security.mixed_content.block_active_content
@@ -18848,7 +18820,7 @@
 # Whether or not to enable the test trust anchor list when verifying PDF signatures
 - name: security.pdf_signature_verification.enable_test_trust_anchors
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -18884,11 +18856,7 @@
 # 2: Enforce CT.
 - name: security.pki.certificate_transparency.mode
   type: RelaxedAtomicUint32
-#if defined(ANDROID) && !defined(EARLY_BETA_OR_EARLIER)
-  value: 0
-#else
   value: 2
-#endif
   mirror: always
 
 # A comma-separated list of host names to not enforce certificate transparency

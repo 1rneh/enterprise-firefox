@@ -3631,6 +3631,23 @@ template <TreeKind aKind, typename Dummy>
 Maybe<int32_t> nsContentUtils::CompareChildNodes(
     const nsINode& aParent, const nsIContent* aChild1,
     const nsIContent* aChild2, NodeIndexCache* aIndexCache /* = nullptr */) {
+  MOZ_ASSERT_IF(aKind != TreeKind::DOM && aChild1,
+                GetParentNodeForComparison<aKind>::Get(aChild1) == &aParent);
+  MOZ_ASSERT_IF(aKind != TreeKind::DOM && aChild2,
+                GetParentNodeForComparison<aKind>::Get(aChild2) == &aParent);
+  // See the explanation of TreeKindToCompareChildren. aParent may be computed
+  // with TreeKind::ShadowIncludingDOM if aKind is TreeKind::DOM.
+  MOZ_ASSERT_IF(
+      aKind == TreeKind::DOM && aChild1,
+      GetParentNodeForComparison<TreeKind::DOM>::Get(aChild1) == &aParent ||
+          GetParentNodeForComparison<TreeKind::ShadowIncludingDOM>::Get(
+              aChild1) == &aParent);
+  MOZ_ASSERT_IF(
+      aKind == TreeKind::DOM && aChild2,
+      GetParentNodeForComparison<TreeKind::DOM>::Get(aChild2) == &aParent ||
+          GetParentNodeForComparison<TreeKind::ShadowIncludingDOM>::Get(
+              aChild2) == &aParent);
+
   // FIXME: bug 1946003 and bug 1946008.
   if ((aChild1 && NS_WARN_IF(aChild1->IsDocumentFragment())) ||
       (aChild2 && NS_WARN_IF(aChild2->IsDocumentFragment()))) [[unlikely]] {
@@ -3884,6 +3901,23 @@ template <TreeKind aKind, typename Dummy>
 Maybe<int32_t> nsContentUtils::CompareClosestCommonAncestorChildren(
     const nsINode& aParent, const nsIContent* aChild1,
     const nsIContent* aChild2, nsContentUtils::NodeIndexCache* aIndexCache) {
+  MOZ_ASSERT_IF(aKind != TreeKind::DOM && aChild1,
+                GetParentNodeForComparison<aKind>::Get(aChild1) == &aParent);
+  MOZ_ASSERT_IF(aKind != TreeKind::DOM && aChild2,
+                GetParentNodeForComparison<aKind>::Get(aChild2) == &aParent);
+  // See the explanation of TreeKindToCompareChildren. aParent may be computed
+  // with TreeKind::ShadowIncludingDOM if aKind is TreeKind::DOM.
+  MOZ_ASSERT_IF(
+      aKind == TreeKind::DOM && aChild1,
+      GetParentNodeForComparison<TreeKind::DOM>::Get(aChild1) == &aParent ||
+          GetParentNodeForComparison<TreeKind::ShadowIncludingDOM>::Get(
+              aChild1) == &aParent);
+  MOZ_ASSERT_IF(
+      aKind == TreeKind::DOM && aChild2,
+      GetParentNodeForComparison<TreeKind::DOM>::Get(aChild2) == &aParent ||
+          GetParentNodeForComparison<TreeKind::ShadowIncludingDOM>::Get(
+              aChild2) == &aParent);
+
   if (aChild1 && aChild2) {
     if (MOZ_UNLIKELY(aChild1->IsShadowRoot())) {
       // Shadow roots come before light DOM per
@@ -4001,6 +4035,16 @@ template <TreeKind aKind, typename Dummy>
 Maybe<int32_t> nsContentUtils::CompareChildOffsetAndChildNode(
     const nsINode& aParent, uint32_t aOffset1, const nsIContent& aChild2,
     NodeIndexCache* aIndexCache /* = nullptr */) {
+  MOZ_ASSERT_IF(aKind != TreeKind::DOM,
+                GetParentNodeForComparison<aKind>::Get(&aChild2) == &aParent);
+  // See the explanation of TreeKindToCompareChildren. aParent may be computed
+  // with TreeKind::ShadowIncludingDOM if aKind is TreeKind::DOM.
+  MOZ_ASSERT_IF(
+      aKind == TreeKind::DOM,
+      GetParentNodeForComparison<TreeKind::DOM>::Get(&aChild2) == &aParent ||
+          GetParentNodeForComparison<TreeKind::ShadowIncludingDOM>::Get(
+              &aChild2) == &aParent);
+
   if (NS_WARN_IF(aChild2.IsDocumentFragment())) {
     return Nothing();
   }
@@ -4358,6 +4402,14 @@ Maybe<int32_t> nsContentUtils::ComparePoints(
     MOZ_ASSERT_IF(child1, !child1->IsShadowRoot());
     const nsIContent* const child2 = aBoundary2.GetChildAtOffset();
     MOZ_ASSERT_IF(child2, !child2->IsShadowRoot());
+    // But aBoundary1 and aBoundary2 may be not updated for the latest DOM.
+    // In such case, we need to return Nothing.
+    if (NS_WARN_IF(child1 && GetParentNodeForComparison<aKind>::Get(child1) !=
+                                 aBoundary1.GetContainer()) ||
+        NS_WARN_IF(child2 && GetParentNodeForComparison<aKind>::Get(child2) !=
+                                 aBoundary2.GetContainer())) [[unlikely]] {
+      return Nothing{};
+    }
     return CompareClosestCommonAncestorChildren<
         TreeKindToCompareChildren<aKind>()>(*aBoundary1.GetContainer(), child1,
                                             child2, aIndexCache);
@@ -8548,18 +8600,16 @@ bool nsContentUtils::MatchClassNames(Element* aElement, int32_t aNamespaceID,
 
   // need to match *all* of the classes
   ClassMatchingInfo* info = static_cast<ClassMatchingInfo*>(aData);
-  uint32_t length = info->mClasses.Length();
-  if (!length) {
+  if (info->mClasses.IsEmpty()) {
     // If we actually had no classes, don't match.
     return false;
   }
-  uint32_t i;
-  for (i = 0; i < length; ++i) {
-    if (!classAttr->Contains(info->mClasses[i], info->mCaseTreatment)) {
+
+  for (nsAtom* cls : info->mClasses) {
+    if (!classAttr->Contains(cls, info->mCaseTreatment)) {
       return false;
     }
   }
-
   return true;
 }
 
@@ -8577,7 +8627,7 @@ void* nsContentUtils::AllocClassMatchingInfo(nsINode* aRootNode,
   // nsAttrValue::Equals is sensitive to order, so we'll send an array
   auto* info = new ClassMatchingInfo;
   if (attrValue.Type() == nsAttrValue::eAtomArray) {
-    info->mClasses = attrValue.GetAtomArrayValue()->mArray.Clone();
+    info->mClasses.AppendElements(attrValue.GetAtomArrayValue()->Array());
   } else if (attrValue.Type() == nsAttrValue::eAtom) {
     info->mClasses.AppendElement(attrValue.GetAtomValue());
   }
@@ -12260,8 +12310,7 @@ nsresult nsContentUtils::NewXULOrHTMLElement(
         }
         (*aResult)->SetDefined(false);
         // Set the fallback element's registry even on failure.
-        if (StaticPrefs::dom_scoped_custom_element_registries_enabled() &&
-            *aResult) {
+        if (StaticPrefs::dom_scoped_custom_element_registries_enabled()) {
           if (aCustomElementRegistry.isSome()) {
             if (CustomElementRegistry* registry =
                     aCustomElementRegistry.ref()) {
@@ -13516,6 +13565,7 @@ nsContentUtils::GetSubresourceCacheValidationInfo(nsIRequest* aRequest,
       return false;
     }
     if (aURI->SchemeIs("data") || aURI->SchemeIs("moz-page-thumb") ||
+        aURI->SchemeIs("moz-newtab-wallpaper") ||
         aURI->SchemeIs("moz-extension")) {
       return true;
     }

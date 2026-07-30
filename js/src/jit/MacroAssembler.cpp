@@ -1420,6 +1420,80 @@ void MacroAssembler::compareStrings(JSOp op, Register left, Register right,
   }
 }
 
+void MacroAssembler::equalStrings(JSOp op, Register input,
+                                  const JSOffThreadAtom* str, Register result,
+                                  Label* fail) {
+  MOZ_ASSERT(IsEqualityOp(op));
+  MOZ_ASSERT(str->isAtom());
+  MOZ_ASSERT(input != result);
+
+  bool isEqual = op == JSOp::Eq || op == JSOp::StrictEq;
+  auto cond = JSOpToCondition(op, /*isSigned =*/false);
+
+  if (str->empty()) {
+    cmp32Set(cond, Address(input, JSString::offsetOfLength()), Imm32(0),
+             result);
+    return;
+  }
+
+  // If operands point to the same instance, the strings are trivially equal.
+  Label notPointerEqual, done;
+  branchPtr(Assembler::NotEqual, input, ImmGCPtr(str), &notPointerEqual);
+  {
+    move32(Imm32(isEqual), result);
+    jump(&done);
+  }
+  bind(&notPointerEqual);
+  {
+    Label setNotEqualResult;
+
+    // Atoms cannot be equal to each other if they point to different strings.
+    branchTest32(Assembler::NonZero, Address(input, JSString::offsetOfFlags()),
+                 Imm32(StringFlags::ATOM_BIT), &setNotEqualResult);
+
+    if (str->hasTwoByteChars()) {
+      // Pure two-byte strings can't be equal to Latin-1 strings.
+      JS::AutoCheckCannotGC nogc;
+      if (!mozilla::IsUtf16Latin1(str->twoByteRange(nogc))) {
+        branchLatin1String(input, &setNotEqualResult);
+      }
+    }
+
+    // Strings of different length can never be equal.
+    branch32(Assembler::NotEqual, Address(input, JSString::offsetOfLength()),
+             Imm32(str->length()), &setNotEqualResult);
+
+    Label compareChars;
+    Label* compareCharsOrFail =
+        canCompareStringCharsInline(str) ? &compareChars : fail;
+
+    Label forwardedPtrEqual;
+    tryFastAtomize(input, result, result, compareCharsOrFail);
+    {
+      // We now have two atoms. Just check pointer equality.
+      cmpPtrSet(cond, result, ImmGCPtr(str), result);
+      jump(&done);
+    }
+
+    bind(&setNotEqualResult);
+    move32(Imm32(!isEqual), result);
+
+    if (canCompareStringCharsInline(str)) {
+      jump(&done);
+      bind(&compareChars);
+
+      // Load the input string's characters.
+      Register stringChars = result;
+      loadStringCharsForCompare(input, str, stringChars, fail);
+
+      // Start comparing character by character.
+      compareStringChars(op, stringChars, str, result);
+    }
+  }
+
+  bind(&done);
+}
+
 void MacroAssembler::loadStringChars(Register str, Register dest,
                                      CharEncoding encoding) {
   MOZ_ASSERT(str != dest);
@@ -5354,6 +5428,39 @@ void MacroAssembler::powPtr(Register base, Register power, Register dest,
   branchRshift32(Assembler::NonZero, Imm32(1), temp2, &loop);
 
   bind(&done);
+}
+
+void MacroAssembler::modDoubleIntegerFastPath(
+    FloatRegister lhs, FloatRegister rhs, FloatRegister output, Register temp1,
+    Register temp2, const LiveRegisterSet& volatileLiveRegs, Label* fail) {
+  MOZ_ASSERT(temp1 != temp2);
+
+  // Bail out unless both operands are integer-valued and in range.
+  //
+  // convertDoubleToPtr does a convert-and-round-trip check, and will fail
+  // for any double that isn't exactly representable in a signed intptr_t:
+  //
+  // On 32-bit platforms that means anything outside the Int32 range falls
+  // through to the generic path.
+  convertDoubleToPtr(rhs, temp2, fail, /* negativeZeroCheck = */ false);
+
+  // Reject a zero divisor (gives NaN) and a -1 divisor.
+  branchTestPtr(Assembler::Zero, temp2, temp2, fail);
+  branchPtr(Assembler::Equal, temp2, Imm32(-1), fail);
+
+  convertDoubleToPtr(lhs, temp1, fail, /* negativeZeroCheck = */ false);
+
+  flexibleRemainderPtr(temp1, temp2, temp2, /* isUnsigned = */ false,
+                       volatileLiveRegs);
+
+  // The exact remainder of two integer-valued doubles is itself always
+  // representable as a double, so this conversion never rounds.
+  convertIntPtrToDouble(temp2, output);
+
+  // The remainder always takes the sign of the dividend, so copying the sign is
+  // a no-op for a non-zero remainder and produces -0 for a zero remainder with
+  // a negative dividend.
+  copySignDouble(output, lhs, output);
 }
 
 void MacroAssembler::signInt32(Register input, Register output) {

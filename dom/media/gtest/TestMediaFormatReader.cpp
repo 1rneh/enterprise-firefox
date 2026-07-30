@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <initializer_list>
+
 #include "ImageContainer.h"
 #include "MediaFormatReader.h"
 #include "MockDecoderModule.h"
@@ -76,6 +78,8 @@ class TestMediaFormatReader : public ::testing::Test {
                                       ));
     MediaFormatReaderInit init;
     init.mVideoFrameContainer = container;
+    mFrameStats = new FrameStatistics();
+    init.mFrameStats = mFrameStats;
     mReader = new MediaFormatReader(init, mDataDemuxer);
     mProxy = new ReaderProxy(AbstractThread::MainThread(), mReader);
     EXPECT_NS_SUCCEEDED(mReader->Init());
@@ -185,6 +189,7 @@ class TestMediaFormatReader : public ::testing::Test {
   RefPtr<MockMediaTrackDemuxer> mTrackDemuxer;
   RefPtr<MockDecoderModule> mPdm;
   std::unique_ptr<MockMediaDecoderOwner> mOwner;
+  RefPtr<FrameStatistics> mFrameStats;
   RefPtr<MediaFormatReader> mReader;
   RefPtr<ReaderProxy> mProxy;
   // Thread scheduling provides ordering for thread initializations before
@@ -359,4 +364,489 @@ TEST_F(TestMediaFormatReader, VideoSkipDoesNotReenterAcrossErrorRecovery) {
   EXPECT_EQ(pendingResult.Code(), NS_ERROR_DOM_MEDIA_CANCELED);
 
   WaitForResolve(mProxy->Shutdown());
+}
+
+class RecreateOnNthDecodeDecoder final : public MockVideoDataDecoder {
+ public:
+  RecreateOnNthDecodeDecoder(const CreateDecoderParams& aParams,
+                             uint32_t aDecodeNumber)
+      : MockVideoDataDecoder(aParams), mDecodeNumber(aDecodeNumber) {
+    MOZ_ASSERT(aDecodeNumber > 0);
+  }
+
+  RefPtr<DecodePromise> Decode(MediaRawData* aSample) override {
+    if (++mDecodeCount == mDecodeNumber) {
+      return DecodePromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER,
+                                            __func__);
+    }
+    return DummyMediaDataDecoder::Decode(aSample);
+  }
+
+ private:
+  ~RecreateOnNthDecodeDecoder() override = default;
+  const uint32_t mDecodeNumber;
+  uint32_t mDecodeCount = 0;
+};
+
+class VideoRateTest : public TestMediaFormatReader {
+ protected:
+  enum class SampleType { Keyframe, DeltaFrame };
+
+  static constexpr uint32_t kFirstStreamID = 1;
+  static constexpr uint32_t kSecondStreamID = 2;
+
+  static double ExpectedRate(std::initializer_list<TimeUnit> aDurations) {
+    MOZ_ASSERT(aDurations.size() > 0);
+    double totalDuration = 0.0;
+    for (const auto& duration : aDurations) {
+      MOZ_ASSERT(duration.IsValid() && duration.IsPositive() &&
+                 !duration.IsInfinite());
+      totalDuration += duration.ToSeconds();
+    }
+    return static_cast<double>(aDurations.size()) / totalDuration;
+  }
+
+  struct SampleSpec {
+    TimeUnit mTime;
+    TimeUnit mDuration;
+    Maybe<uint32_t> mStreamID;
+    SampleType mType;
+    Maybe<gfx::IntSize> mVideoSize;
+  };
+
+  void SetUp() override {
+    TestMediaFormatReader::SetUp();
+    mTrackInfo = mTrackDemuxer->GetInfo();
+    ASSERT_TRUE(mTrackInfo);
+    ON_CALL(*mDataDemuxer, IsSeekable).WillByDefault(Return(true));
+    ON_CALL(*mTrackDemuxer, Seek).WillByDefault([](const TimeUnit& aTime) {
+      return SeekPromise::CreateAndResolve(aTime, __func__);
+    });
+  }
+
+  void TearDown() override { ShutdownReader(); }
+
+  void ShutdownReader() {
+    if (!mProxy) {
+      return;
+    }
+    WaitForResolve(mProxy->Shutdown());
+    mProxy = nullptr;
+    mReader = nullptr;
+  }
+
+  void AddSample(const TimeUnit& aDuration, uint32_t aStreamID,
+                 SampleType aType = SampleType::Keyframe) {
+    AddSampleAt(mNextSampleTime, aDuration, Some(aStreamID), aType);
+  }
+
+  void AddSample(const TimeUnit& aDuration, uint32_t aStreamID,
+                 const gfx::IntSize& aVideoSize,
+                 SampleType aType = SampleType::Keyframe) {
+    AddSampleAt(mNextSampleTime, aDuration, Some(aStreamID), aType,
+                Some(aVideoSize));
+  }
+
+  void AddSampleAt(const TimeUnit& aTime, const TimeUnit& aDuration,
+                   Maybe<uint32_t> aStreamID,
+                   SampleType aType = SampleType::Keyframe,
+                   Maybe<gfx::IntSize> aVideoSize = Nothing()) {
+    mSamples.AppendElement(
+        SampleSpec{aTime, aDuration, aStreamID, aType, aVideoSize});
+    mNextSampleTime = aTime + aDuration;
+  }
+
+  void AddSampleWithoutTrackInfo(const TimeUnit& aDuration) {
+    AddSampleAt(mNextSampleTime, aDuration, Nothing());
+  }
+
+  void RecreateFirstDecoderOnDecode(uint32_t aDecodeNumber) {
+    MOZ_ASSERT(aDecodeNumber > 0);
+    mFirstDecoderFailureAtDecode = Some(aDecodeNumber);
+  }
+
+  void InitReader() {
+    EXPECT_CALL(*mPdm, CreateVideoDecoder)
+        .Times(testing::AnyNumber())
+        .WillRepeatedly([this](const CreateDecoderParams& aParams) {
+          mDecoderRates.AppendElement(aParams.mRate.mValue);
+          mDecoderConfigs.AppendElement(aParams.VideoConfig());
+          RefPtr<MockVideoDataDecoder> decoder;
+          if (mFirstDecoderFailureAtDecode.isSome() &&
+              mDecoderRates.Length() == 1) {
+            decoder = new RecreateOnNthDecodeDecoder(
+                aParams, mFirstDecoderFailureAtDecode.ref());
+          } else {
+            decoder = new MockVideoDataDecoder(aParams);
+          }
+          EXPECT_CALL(*decoder, Drain).Times(testing::AnyNumber());
+          EXPECT_CALL(*decoder, IsHardwareAccelerated)
+              .Times(testing::AnyNumber());
+          return do_AddRef(decoder);
+        });
+    EXPECT_CALL(*mTrackDemuxer, MockGetSamples)
+        .Times(testing::AnyNumber())
+        .WillRepeatedly([this]() {
+          if (mNextSample == mSamples.Length()) {
+            return SamplesPromise::CreateAndReject(
+                NS_ERROR_DOM_MEDIA_END_OF_STREAM, __func__);
+          }
+          const SampleSpec& spec = mSamples[mNextSample++];
+          RefPtr sample = new MediaRawData;
+          sample->mKeyframe = spec.mType == SampleType::Keyframe;
+          sample->mTime = spec.mTime;
+          sample->mTimecode = TimeUnit::Zero();
+          sample->mDuration = spec.mDuration;
+          if (spec.mStreamID.isSome()) {
+            if (spec.mVideoSize.isSome()) {
+              VideoInfo info(*mTrackInfo->GetAsVideoInfo());
+              info.mDisplay = info.mImage = spec.mVideoSize.ref();
+              sample->mTrackInfo =
+                  new TrackInfoSharedPtr(info, spec.mStreamID.ref());
+            } else {
+              sample->mTrackInfo =
+                  new TrackInfoSharedPtr(*mTrackInfo, spec.mStreamID.ref());
+            }
+          }
+          RefPtr<SamplesHolder> samples = new SamplesHolder;
+          samples->AppendSample(std::move(sample));
+          return SamplesPromise::CreateAndResolve(samples, __func__);
+        });
+
+    TestMediaFormatReader::InitReader();
+    (void)WaitForResolve(mProxy->ReadMetadata());
+  }
+
+  void ReadFrame() {
+    (void)WaitForResolve(mProxy->RequestVideoData(TimeUnit(), false));
+  }
+
+  void ReadToEnd() {
+    bool reachedEndOfStream = false;
+    for (size_t i = 0; i < mSamples.Length() + 10; ++i) {
+      auto result = WaitFor(mProxy->RequestVideoData(TimeUnit(), false));
+      if (result.isErr()) {
+        EXPECT_EQ(result.unwrapErr().Code(), NS_ERROR_DOM_MEDIA_END_OF_STREAM);
+        reachedEndOfStream = true;
+        break;
+      }
+    }
+    EXPECT_TRUE(reachedEndOfStream);
+    EXPECT_EQ(mNextSample, mSamples.Length());
+  }
+
+  void SetNullDecode(bool aEnabled) {
+    mProxy->SetVideoBlankDecode(aEnabled);
+    mReader->OwnerThread()->AwaitIdle();
+  }
+
+  void SeekToStart() {
+    (void)WaitForResolve(mProxy->Seek(SeekTarget(
+        TimeUnit::Zero(), SeekTarget::Accurate, SeekTarget::Track::VideoOnly)));
+  }
+
+  double VideoRate() {
+    dom::MediaFormatReaderDebugInfo info;
+    (void)WaitForResolve(mReader->RequestDebugInfo(info));
+    return info.mVideoRate;
+  }
+
+  UniquePtr<TrackInfo> mTrackInfo;
+  nsTArray<SampleSpec> mSamples;
+  nsTArray<float> mDecoderRates;
+  nsTArray<VideoInfo> mDecoderConfigs;
+  TimeUnit mNextSampleTime = TimeUnit::Zero();
+  size_t mNextSample = 0;
+  Maybe<uint32_t> mFirstDecoderFailureAtDecode;
+};
+
+TEST_F(VideoRateTest, InitialDecoderAndFinalDiagnosticShareEstimator) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto shortDuration = TimeUnit(10, 1000);
+  const auto longDuration = TimeUnit(100, 1000);
+  AddSample(shortDuration, kFirstStreamID);
+  AddSample(shortDuration, kFirstStreamID);
+  AddSample(longDuration, kFirstStreamID);
+  InitReader();
+  ReadToEnd();
+
+  const double initialRate = ExpectedRate({shortDuration});
+  const double finalRate =
+      ExpectedRate({shortDuration, shortDuration, longDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 1U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(initialRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), finalRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, StreamChangeResetsRateAndRecreatesDecoder) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto firstDuration = TimeUnit(10, 1000);
+  const auto firstSparseDuration = TimeUnit(90, 1000);
+  const auto secondDuration = TimeUnit(100, 1000);
+  const auto secondSparseDuration = TimeUnit(200, 1000);
+  AddSample(firstDuration, kFirstStreamID);
+  AddSampleWithoutTrackInfo(firstSparseDuration);
+  AddSample(secondDuration, kSecondStreamID);
+  AddSampleWithoutTrackInfo(secondSparseDuration);
+  InitReader();
+  ReadToEnd();
+
+  const double firstRate = ExpectedRate({firstDuration});
+  const double secondInitialRate = ExpectedRate({secondDuration});
+  const double secondFinalRate =
+      ExpectedRate({secondDuration, secondSparseDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 2U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(firstRate));
+  EXPECT_FLOAT_EQ(mDecoderRates[1], static_cast<float>(secondInitialRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), secondFinalRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, AnonymousSamplesRemainInOneEstimatorEpoch) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto firstDuration = TimeUnit(10, 1000);
+  const auto secondDuration = TimeUnit(90, 1000);
+  AddSampleWithoutTrackInfo(firstDuration);
+  AddSampleWithoutTrackInfo(secondDuration);
+  InitReader();
+  ReadToEnd();
+
+  const double initialRate = ExpectedRate({firstDuration});
+  const double finalRate = ExpectedRate({firstDuration, secondDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 1U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(initialRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), finalRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, FirstExplicitStreamIDResetsAnonymousRate) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  constexpr uint32_t explicitStreamID = 0;
+  const auto anonymousDuration = TimeUnit(10, 1000);
+  const auto explicitDuration = TimeUnit(100, 1000);
+  const auto sparseDuration = TimeUnit(200, 1000);
+  AddSampleWithoutTrackInfo(anonymousDuration);
+  AddSample(explicitDuration, explicitStreamID);
+  AddSampleWithoutTrackInfo(sparseDuration);
+  InitReader();
+  ReadToEnd();
+
+  const double anonymousRate = ExpectedRate({anonymousDuration});
+  const double explicitInitialRate = ExpectedRate({explicitDuration});
+  const double explicitFinalRate =
+      ExpectedRate({explicitDuration, sparseDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 2U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(anonymousRate));
+  EXPECT_FLOAT_EQ(mDecoderRates[1], static_cast<float>(explicitInitialRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), explicitFinalRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, SameStreamDecoderRecreationUsesCurrentRate) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto firstDuration = TimeUnit(10, 1000);
+  const auto secondDuration = TimeUnit(90, 1000);
+  const auto thirdDuration = TimeUnit(100, 1000);
+  const auto fourthDuration = TimeUnit(200, 1000);
+  AddSample(firstDuration, kFirstStreamID);
+  AddSample(secondDuration, kFirstStreamID);
+  AddSample(thirdDuration, kFirstStreamID);
+  AddSample(fourthDuration, kFirstStreamID);
+  InitReader();
+
+  // Decode two frames with the initial decoder, then consume the third through
+  // a null decoder to force recreation without changing the stream ID.
+  ReadFrame();
+  ReadFrame();
+  SetNullDecode(true);
+  ReadFrame();
+  // Resume real decoding on the fourth frame so the recreated decoder receives
+  // the current rate accumulated for the same stream.
+  SetNullDecode(false);
+  ReadFrame();
+  ReadToEnd();
+
+  const double initialRate = ExpectedRate({firstDuration});
+  const double recreatedRate = ExpectedRate(
+      {firstDuration, secondDuration, thirdDuration, fourthDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 2U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(initialRate));
+  EXPECT_FLOAT_EQ(mDecoderRates[1], static_cast<float>(recreatedRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), recreatedRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, DecodeErrorRecreationUsesCurrentRate) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto firstDuration = TimeUnit(10, 1000);
+  const auto secondDuration = TimeUnit(90, 1000);
+  const auto thirdDuration = TimeUnit(100, 1000);
+  const auto fourthDuration = TimeUnit(200, 1000);
+  AddSample(firstDuration, kFirstStreamID);
+  AddSample(secondDuration, kFirstStreamID);
+  AddSample(thirdDuration, kFirstStreamID);
+  AddSample(fourthDuration, kFirstStreamID);
+  RecreateFirstDecoderOnDecode(2);
+  ON_CALL(*mTrackDemuxer, GetNextRandomAccessPoint)
+      .WillByDefault([](TimeUnit* aTime) {
+        *aTime = TimeUnit(100, 1000);
+        return NS_OK;
+      });
+  EXPECT_CALL(*mTrackDemuxer, SkipToNextRandomAccessPoint)
+      .WillOnce([](const TimeUnit&) {
+        return MediaTrackDemuxer::SkipAccessPointPromise::CreateAndResolve(
+            0, __func__);
+      });
+  InitReader();
+  ReadToEnd();
+
+  const double initialRate = ExpectedRate({firstDuration});
+  const double recreatedRate =
+      ExpectedRate({firstDuration, secondDuration, thirdDuration});
+  const double finalRate = ExpectedRate(
+      {firstDuration, secondDuration, thirdDuration, fourthDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 2U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(initialRate));
+  EXPECT_FLOAT_EQ(mDecoderRates[1], static_cast<float>(recreatedRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), finalRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, NonKeyframeStreamChangeCountsDemuxedSample) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto firstStreamDuration = TimeUnit(40, 1000);
+  const auto nonKeyframeDuration = TimeUnit(100, 1000);
+  const auto keyframeDuration = TimeUnit(20, 1000);
+  AddSample(firstStreamDuration, kFirstStreamID);
+  AddSample(nonKeyframeDuration, kSecondStreamID, SampleType::DeltaFrame);
+  AddSample(keyframeDuration, kSecondStreamID);
+  EXPECT_CALL(*mTrackDemuxer, Seek).WillOnce([](const TimeUnit& aTime) {
+    return SeekPromise::CreateAndResolve(aTime, __func__);
+  });
+  InitReader();
+  ReadToEnd();
+
+  const double firstRate = ExpectedRate({firstStreamDuration});
+  const double secondRate =
+      ExpectedRate({nonKeyframeDuration, keyframeDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 2U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(firstRate));
+  EXPECT_FLOAT_EQ(mDecoderRates[1], static_cast<float>(secondRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), secondRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, ZeroDurationSamplesAreIgnored) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto zeroDuration = TimeUnit::Zero();
+  const auto firstValidDuration = TimeUnit(10, 1000);
+  const auto secondValidDuration = TimeUnit(100, 1000);
+  AddSample(zeroDuration, kFirstStreamID);
+  AddSample(firstValidDuration, kFirstStreamID);
+  AddSample(secondValidDuration, kFirstStreamID);
+  InitReader();
+  ReadToEnd();
+
+  const double finalRate =
+      ExpectedRate({firstValidDuration, secondValidDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 1U);
+  EXPECT_EQ(mDecoderRates[0], 0.0f);
+  EXPECT_DOUBLE_EQ(VideoRate(), finalRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, SeekReplayCountsAsAnotherDemuxObservation) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto firstDuration = TimeUnit(10, 1000);
+  const auto replayedDuration = TimeUnit(10, 1000);
+  const auto finalDuration = TimeUnit(90, 1000);
+  AddSample(firstDuration, kFirstStreamID);
+  AddSampleAt(TimeUnit::Zero(), replayedDuration, Some(kFirstStreamID));
+  AddSample(finalDuration, kFirstStreamID);
+  EXPECT_CALL(*mTrackDemuxer, Seek).WillOnce([](const TimeUnit& aTime) {
+    return SeekPromise::CreateAndResolve(aTime, __func__);
+  });
+  InitReader();
+
+  ReadFrame();
+  SeekToStart();
+  ReadToEnd();
+
+  const double initialRate = ExpectedRate({firstDuration});
+  const double finalRate =
+      ExpectedRate({firstDuration, replayedDuration, finalDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 1U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(initialRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), finalRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, StreamAndConfigChangeUseNewRateAndConfig) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto* initialInfo = mTrackInfo->GetAsVideoInfo();
+  ASSERT_TRUE(initialInfo);
+  const auto initialSize = initialInfo->mDisplay;
+  const gfx::IntSize newSize{320, 180};
+  ASSERT_NE(initialSize, newSize);
+  const auto firstDuration = TimeUnit(10, 1000);
+  const auto firstSparseDuration = TimeUnit(90, 1000);
+  const auto secondDuration = TimeUnit(100, 1000);
+  const auto secondSparseDuration = TimeUnit(200, 1000);
+  AddSample(firstDuration, kFirstStreamID);
+  AddSample(firstSparseDuration, kFirstStreamID);
+  AddSample(secondDuration, kSecondStreamID, newSize);
+  AddSample(secondSparseDuration, kSecondStreamID, newSize);
+  InitReader();
+  ReadToEnd();
+
+  const double firstRate = ExpectedRate({firstDuration});
+  const double secondInitialRate = ExpectedRate({secondDuration});
+  const double secondFinalRate =
+      ExpectedRate({secondDuration, secondSparseDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 2U);
+  ASSERT_EQ(mDecoderConfigs.Length(), 2U);
+  EXPECT_EQ(mDecoderConfigs[0].mDisplay, initialSize);
+  EXPECT_EQ(mDecoderConfigs[1].mDisplay, newSize);
+  EXPECT_EQ(mDecoderConfigs[1].mImage, newSize);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(firstRate));
+  EXPECT_FLOAT_EQ(mDecoderRates[1], static_cast<float>(secondInitialRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), secondFinalRate);
+  ShutdownReader();
+}
+
+TEST_F(VideoRateTest, StreamChangeWhileNullDecodingUsesNewRateOnResume) {
+  PDMFactory::AutoForcePDM autoForcePDM(mPdm);
+  const auto firstDuration = TimeUnit(10, 1000);
+  const auto firstSparseDuration = TimeUnit(90, 1000);
+  const auto secondDuration = TimeUnit(100, 1000);
+  const auto secondSparseDuration = TimeUnit(200, 1000);
+  AddSample(firstDuration, kFirstStreamID);
+  AddSample(firstSparseDuration, kFirstStreamID);
+  AddSample(secondDuration, kSecondStreamID);
+  AddSample(secondSparseDuration, kSecondStreamID);
+  InitReader();
+
+  // Decode the first frame with a real decoder, then consume the rest of the
+  // first stream and the first frame of the second through a null decoder.
+  ReadFrame();
+  SetNullDecode(true);
+  ReadFrame();
+  ReadFrame();
+  const double secondInitialRate = ExpectedRate({secondDuration});
+  EXPECT_DOUBLE_EQ(VideoRate(), secondInitialRate);
+  // Resume real decoding on the second frame of the new stream so the recreated
+  // decoder receives the rate accumulated since the estimator reset.
+  SetNullDecode(false);
+  ReadFrame();
+  ReadToEnd();
+
+  const double firstRate = ExpectedRate({firstDuration});
+  const double secondFinalRate =
+      ExpectedRate({secondDuration, secondSparseDuration});
+  ASSERT_EQ(mDecoderRates.Length(), 2U);
+  EXPECT_FLOAT_EQ(mDecoderRates[0], static_cast<float>(firstRate));
+  EXPECT_FLOAT_EQ(mDecoderRates[1], static_cast<float>(secondFinalRate));
+  EXPECT_DOUBLE_EQ(VideoRate(), secondFinalRate);
+  ShutdownReader();
 }

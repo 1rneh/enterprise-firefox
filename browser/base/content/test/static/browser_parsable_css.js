@@ -150,10 +150,13 @@ let propNameAllowlist = [
 
   // These are referenced from devtools files.
   {
-    propName: "--browser-stack-z-index-devtools-splitter",
+    propName: "--browser-container-z-index-devtools-toolbox",
     isFromDevTools: false,
   },
-  { propName: "--browser-stack-z-index-rdm-toolbar", isFromDevTools: false },
+  {
+    propName: "--browser-container-z-index-devtools-splitter",
+    isFromDevTools: false,
+  },
 
   // These variables are specified from devtools but read from non-devtools
   // styles, which confuses the test.
@@ -260,6 +263,10 @@ let propNameAllowlist = [
   /* Allow design tokens in devtools without all variables being used there */
   { sourceName: /\/design-system\/tokens-.*\.css$/, isFromDevTools: true },
   { sourceName: /\/in-content\/common-shared\.css/, isFromDevTools: true },
+
+  // `--icon-stroke` is defined in commonDialog.css and used in stringified CSS
+  // within adjustableTitle.js. The latter isn't statically parsed.
+  { propName: "--icon-stroke", isFromDevTools: false },
 
   // Ignore token properties that follow the patterns --color-[name], --color-[name]-[number], or --color-[name]-alpha-[number]
   // This enables us to provide our full color palette for developers.

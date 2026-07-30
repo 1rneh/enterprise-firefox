@@ -757,7 +757,7 @@ nsresult SheetLoadData::VerifySheetReadyToParse(nsresult aStatus,
     }
     mLoader->mReporter->AddConsoleReport(
         flag, "CSS Loader"_ns, PropertiesFile::CSS_PROPERTIES, referrerSpec, 0,
-        0, errorMessage, {sheetUri, contentType16});
+        0, errorMessage, {std::move(sheetUri), std::move(contentType16)});
     if (flag == nsIScriptError::errorFlag) {
       LOG_WARN(
           ("  Ignoring sheet with improper MIME type %s", contentType.get()));
@@ -1573,14 +1573,19 @@ void Loader::NotifyObservers(SheetLoadData& aData, nsresult aStatus,
   RefPtr loadDispatcher = aData.PrepareLoadEventIfNeeded();
   if (aData.mURI) {
     aData.NotifyStop(aStatus);
-    // NOTE(emilio): This needs to happen before notifying observers, as
-    // FontFaceSet for example checks for pending sheet loads from the
-    // StyleSheetLoaded callback.
+    // NOTE(emilio): DecrementOngoingLoadCountAndMaybeUnblockOnload() needs to
+    // happen before notifying observers, as FontFaceSet for example checks for
+    // pending sheet loads from the StyleSheetLoaded callback.
     if (aData.BlocksLoadEvent()) {
       DecrementOngoingLoadCountAndMaybeUnblockOnload();
       if (mPendingLoadCount && mPendingLoadCount == mOngoingLoadCount) {
         LOG(("  No more loading sheets; starting deferred loads"));
-        StartDeferredLoads();
+        if (aCanFireEvents) {
+          StartDeferredLoads();
+        } else {
+          NS_DispatchToMainThread(NewRunnableMethod(
+              "Loader::StartDeferredLoads", this, &Loader::StartDeferredLoads));
+        }
       }
     }
   }

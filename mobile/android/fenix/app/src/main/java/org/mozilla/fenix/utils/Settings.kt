@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import android.content.pm.ShortcutManager
+import android.content.res.Resources
 import android.os.Environment
 import android.view.accessibility.AccessibilityManager
 import androidx.annotation.VisibleForTesting
@@ -88,6 +89,7 @@ private const val MAX_ANIMATION_FOREGROUND = 5
  * @param packageName Package name of the application.
  * @param packageManagerCompatHelper Helper for accessing [android.content.pm.PackageManager] methods.
  * @param isBenchmarkBuild Boolean that will be true only when the app is built for Baseline Profile or Macrobenchmark.
+ * @param currentTimeMillis provider for the current time in milliseconds, injectable for testing.
  */
 @Suppress("LargeClass", "TooManyFunctions")
 class Settings(
@@ -95,6 +97,7 @@ class Settings(
     private val packageName: String = appContext.packageName,
     private val packageManagerCompatHelper: PackageManagerCompatHelper = appContext.packageManagerCompatHelper,
     private val isBenchmarkBuild: Boolean = BuildConfig.IS_BENCHMARK_BUILD,
+    private val currentTimeMillis: () -> Long = { System.currentTimeMillis() },
 ) : PreferencesHolder {
     companion object {
         const val FENIX_PREFERENCES = "fenix_preferences"
@@ -277,6 +280,14 @@ class Settings(
         get() = FxNimbus.features.homescreen.value().sectionsEnabled[HomeScreenSection.COLLECTIONS] == true
 
     /**
+     * Whether the Collections UI should be hidden.
+     */
+    var hideCollectionsUi by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_hide_collections),
+        default = { FxNimbus.features.collectionsToTabGroupsMigration.value().hideCollectionsUi },
+    )
+
+    /**
      * Indicates whether or not the Firefox Japan Guide default site should be shown.
      */
     val showFirefoxJpGuideDefaultSite: Boolean
@@ -383,7 +394,7 @@ class Settings(
     )
 
     val canShowCfr: Boolean
-        get() = (System.currentTimeMillis() - lastCfrShownTimeInMillis) > THREE_DAYS_MS
+        get() = (currentTimeMillis() - lastCfrShownTimeInMillis) > THREE_DAYS_MS
 
     val cfrPopupsEnabled by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_cfr_popups_enabled),
@@ -417,6 +428,15 @@ class Settings(
 
     var adjustCreative by stringPreference(
         appContext.getPreferenceKey(R.string.pref_key_adjust_creative),
+        default = "",
+    )
+
+    /**
+     * The Glean debug view tag that may be persisted across app restarts. Empty when no tag is persisted. Only
+     * captured from a tag set through Glean's debug intent using `persistDebugViewTag` at startup.
+     */
+    var gleanDebugViewTag by stringPreference(
+        appContext.getPreferenceKey(R.string.pref_key_glean_debug_view_tag),
         default = "",
     )
 
@@ -472,6 +492,21 @@ class Settings(
 
     var isUserXTwitterAttributed by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_is_user_x_twitter_attributed),
+        default = false,
+    )
+
+    var isUserMolocoAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_moloco_attributed),
+        default = false,
+    )
+
+    var isUserRakutenAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_rakuten_attributed),
+        default = false,
+    )
+
+    var isUserSkyflagAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_skyflag_attributed),
         default = false,
     )
 
@@ -917,6 +952,13 @@ class Settings(
     )
 
     /**
+     * Records the current time as the last time the user interacted with the [BrowserFragment].
+     */
+    fun recordLastBrowseActivity() {
+        lastBrowseActivity = currentTimeMillis()
+    }
+
+    /**
      * Indicates the last time when the user was interacting with the [HomeFragment],
      * This is useful to determine if the user has to start on the [HomeFragment]
      * or it should go directly to the [BrowserFragment].
@@ -928,6 +970,13 @@ class Settings(
         appContext.getPreferenceKey(R.string.pref_key_last_home_activity_time),
         default = 0L,
     )
+
+    /**
+     * Records the current time as the last time the user interacted with the [HomeFragment].
+     */
+    fun recordLastHomeActivity() {
+        lastHomeActivity = currentTimeMillis()
+    }
 
     private val openingScreenDefault: OpeningScreenOption
         get() = FxNimbus.features.homepageOpeningScreenDefault.value().defaultOption
@@ -1060,7 +1109,7 @@ class Settings(
     )
 
     @VisibleForTesting
-    internal fun timeNowInMillis(): Long = System.currentTimeMillis()
+    internal fun timeNowInMillis(): Long = currentTimeMillis()
 
     fun getTabTimeout(): Long = when {
         closeTabsAfterOneDay -> ONE_DAY_MS
@@ -1152,15 +1201,6 @@ class Settings(
             }
             appContext.getString(R.string.remote_settings_server_dev) -> {
                 appContext.getString(R.string.preferences_remote_settings_server_dev_label)
-            }
-            appContext.getString(R.string.remote_settings_server_prod_v2) -> {
-                appContext.getString(R.string.preferences_remote_settings_server_prod_label_v2)
-            }
-            appContext.getString(R.string.remote_settings_server_stage_v2) -> {
-                appContext.getString(R.string.preferences_remote_settings_server_stage_label_v2)
-            }
-            appContext.getString(R.string.remote_settings_server_dev_v2) -> {
-                appContext.getString(R.string.preferences_remote_settings_server_dev_label_v2)
             }
             else -> {
                 appContext.getString(R.string.preferences_remote_settings_server_prod_label)
@@ -2244,11 +2284,19 @@ class Settings(
      *
      * @param hasUserBeenOnboarded Boolean to indicate whether the user has been onboarded.
      * @param featureEnabled Boolean to indicate whether the feature is enabled.
+     * @param forceOnboardingForBenchmark Boolean that opts a Baseline Profile generator back into
+     * onboarding. In benchmark builds onboarding is suppressed by default so generators don't spend
+     * emulator time dismissing it; ignored in every shipped build.
      */
     fun shouldShowOnboarding(
         hasUserBeenOnboarded: Boolean,
         featureEnabled: Boolean = onboardingFeatureEnabled,
+        forceOnboardingForBenchmark: Boolean = false,
     ): Boolean {
+        if (isBenchmarkBuild && !forceOnboardingForBenchmark) {
+            return false
+        }
+
         val shouldShowByDefaultConditions = featureEnabled && !hasUserBeenOnboarded
 
         val shouldShow = shouldShowByDefaultConditions || enablePersistentOnboarding
@@ -2294,6 +2342,13 @@ class Settings(
     )
 
     /**
+     * Records the current time as the completion timestamp of the initial onboarding flow.
+     */
+    fun recordOnboardingCompleted() {
+        onboardingCompletedTimestamp = currentTimeMillis()
+    }
+
+    /**
      * Indicates if the continuous onboarding feature is enabled.
      */
     var continuousOnboardingFeatureEnabled by booleanPreference(
@@ -2330,7 +2385,7 @@ class Settings(
      */
     var shouldShowMarketingOnboarding by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_should_show_marketing_onboarding),
-        default = true,
+        default = false,
     )
 
     var shouldUseMinimalBottomToolbarWhenEnteringText by booleanPreference(
@@ -2644,20 +2699,22 @@ class Settings(
 
     /**
      * Returns the height of the browser toolbar height.
+     *
+     * @param uiContext Activity/Fragment/View [Context] with [Resources] matching the display
+     * the UI is currently rendered on. Don't use application's context!
      */
-    val browserToolbarHeight: Int
-        get() {
-            val isTallWindow = appContext.resources.configuration.screenHeightDp > TALL_SCREEN_HEIGHT_DP
-            val isWideWindow = appContext.resources.configuration.screenWidthDp > WIDE_SCREEN_WIDTH_DP
-            val isBottomExpandedOnTallNarrowWindow = toolbarPosition == ToolbarPosition.BOTTOM &&
-                shouldUseExpandedToolbar && isTallWindow && !isWideWindow
-            val dimen = if (isBottomExpandedOnTallNarrowWindow) {
-                R.dimen.composable_browser_toolbar_height_small
-            } else {
-                R.dimen.composable_browser_toolbar_height
-            }
-            return appContext.pixelSizeFor(dimen)
+    fun getBrowserToolbarHeight(uiContext: Context): Int {
+        val isTallWindow = uiContext.resources.configuration.screenHeightDp > TALL_SCREEN_HEIGHT_DP
+        val isWideWindow = uiContext.resources.configuration.screenWidthDp > WIDE_SCREEN_WIDTH_DP
+        val isBottomExpandedOnTallNarrowWindow = toolbarPosition == ToolbarPosition.BOTTOM &&
+            shouldUseExpandedToolbar && isTallWindow && !isWideWindow
+        val dimen = if (isBottomExpandedOnTallNarrowWindow) {
+            R.dimen.composable_browser_toolbar_height_small
+        } else {
+            R.dimen.composable_browser_toolbar_height
         }
+        return uiContext.pixelSizeFor(dimen)
+    }
 
     /**
      * Indicates if the microsurvey feature is enabled.
@@ -2720,12 +2777,28 @@ class Settings(
     )
 
     /**
+     * Indicates if the IPProtection onboarding bottom sheet feature variable is enabled via Nimbus.
+     */
+    val shouldShowIPProtectionOnboardingBottomSheet: Boolean
+        get() = FxNimbus.features.ipProtection.value().showOnboardingBottomSheet
+
+    /**
      * Indicates if the IPProtection feature is available for the user.
      *
      * The flag is backed by a Nimbus `ip-protection` feature, with an option to override it through secret settings.
      */
     val isIPProtectionAvailable: Boolean
         get() = FxNimbus.features.ipProtection.value().enabled || isIPProtectionEnabled
+
+    /**
+     * Persists IPProtection locations state set through Secret Settings.
+     *
+     * `true` makes the IPProtection location UI elements interactable.
+     */
+    var isIPProtectionLocationsEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_ip_protection_locations),
+        default = Config.channel.isDebug,
+    )
 
     /**
      * Tracks how many times the summarize menu item has been shown.
@@ -2779,6 +2852,13 @@ class Settings(
     )
 
     /**
+     * Records the current time as the last time the Set as default Browser prompt was shown.
+     */
+    fun recordSetAsDefaultPromptShownTime() {
+        lastSetAsDefaultPromptShownTimeInMillis = currentTimeMillis()
+    }
+
+    /**
      * Number of times the Set as default Browser prompt has been displayed to the user.
      */
     var numberOfSetAsDefaultPromptShownTimes by intPreference(
@@ -2811,6 +2891,15 @@ class Settings(
     )
 
     /**
+     * Feature flag that indicates if the "Check Archived Version" button is shown on eligible
+     * error pages. Off by default; the toggle is only exposed via secret settings on Nightly.
+     */
+    var isWaybackMachineEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_wayback_machine),
+        default = false,
+    )
+
+    /**
      * Indicates if the Set as default Browser prompt should be displayed to the user.
      */
     fun shouldShowSetAsDefaultPrompt(
@@ -2818,7 +2907,7 @@ class Settings(
     ): Boolean {
         if (!nimbusFeature.enabled) return false
 
-        val now = System.currentTimeMillis()
+        val now = currentTimeMillis()
 
         val daysOk = nimbusFeature.daysBetweenPrompts?.let { intervalDays ->
             (now - lastSetAsDefaultPromptShownTimeInMillis) > intervalDays * ONE_DAY_MS
@@ -2844,7 +2933,7 @@ class Settings(
      */
     fun setAsDefaultPromptCalled() {
         numberOfSetAsDefaultPromptShownTimes += 1
-        lastSetAsDefaultPromptShownTimeInMillis = System.currentTimeMillis()
+        recordSetAsDefaultPromptShownTime()
         coldStartsBetweenSetAsDefaultPrompts = 0
     }
 
@@ -3085,7 +3174,7 @@ class Settings(
      */
     fun shouldShowNewsButtonAnimation(): Boolean {
         return (newsButtonForegroundCount % MAX_ANIMATION_FOREGROUND == 0) &&
-            (System.currentTimeMillis() - newsButtonAnimationLastShownMillis >= ONE_WEEK_MS)
+            (currentTimeMillis() - newsButtonAnimationLastShownMillis >= ONE_WEEK_MS)
     }
 
     /**
@@ -3093,7 +3182,7 @@ class Settings(
      * and resetting [newsButtonForegroundCount].
      */
     fun recordNewsButtonAnimationShown() {
-        newsButtonAnimationLastShownMillis = System.currentTimeMillis()
+        newsButtonAnimationLastShownMillis = currentTimeMillis()
         newsButtonForegroundCount = 0
     }
 

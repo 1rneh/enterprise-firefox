@@ -7,6 +7,7 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   SmartTabGroupingManager:
     "moz-src:///browser/components/tabbrowser/SmartTabGrouping.sys.mjs",
 });
@@ -29,6 +30,18 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "minTabsPerGroup",
   "browser.smartwindow.autoTabGrouping.minTabsPerGroup",
   2
+);
+
+// Drop clusters whose cohesion (average pairwise cosine similarity of the tabs'
+// embeddings, 0..1, set by SmartTabGrouping) is below this, so weakly-related
+// tabs are not offered as a group. See SmartTabGroupingResult.getCohesion.
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "minCohesion",
+  "browser.smartwindow.autoTabGrouping.minCohesion",
+  "0.1",
+  null,
+  value => parseFloat(value)
 );
 
 // Tab-group color names, mirroring MozTabbrowserTabGroupMenu.COLORS. Each name
@@ -56,8 +69,21 @@ const TAB_GROUP_COLORS = [
  * free of any DOM so the pure parts stay unit-testable and every model call is
  * guarded against throwing.
  */
+const MAX_LABEL_CACHE_ENTRIES = 50;
+
 export const AutoTabGroupingSuggestions = {
   _manager: null,
+
+  // Reopening the panel over an unchanged set of tabs reuses the title
+  // instead of re-running the labeling model.
+  _labelCache: new Map(),
+
+  get isAvailable() {
+    return (
+      Services.prefs.getBoolPref("browser.ml.enable", false) &&
+      lazy.SmartTabGroupingManager.isAllowed
+    );
+  },
 
   get manager() {
     if (!this._manager) {
@@ -77,6 +103,9 @@ export const AutoTabGroupingSuggestions = {
   getCandidateTabs(win) {
     return win.gBrowser.tabs.filter(tab => {
       if (tab.pinned || tab.closing || tab.group || tab.hidden) {
+        return false;
+      }
+      if (tab.hasAttribute("busy") || !tab.label) {
         return false;
       }
       const uri = tab.linkedBrowser?.currentURI;
@@ -106,31 +135,62 @@ export const AutoTabGroupingSuggestions = {
     for (const cluster of clusters) {
       let label = "";
       try {
-        label = await this.manager.getPredictedLabelForGroup(
-          cluster.tabs,
-          otherTabs
-        );
+        label = await this._labelForGroup(cluster.tabs, otherTabs);
       } catch (e) {
         lazy.console.warn("Label generation failed", e);
       }
-      proposals.push({ label: label || "", tabs: cluster.tabs });
+      // Drop groups the model left unlabeled: an empty title usually flags
+      // content it declined to label (often a Trust & Safety case).
+      const trimmed = label?.trim();
+      if (trimmed) {
+        proposals.push({ label: trimmed, tabs: cluster.tabs });
+      }
     }
     return proposals;
   },
 
   /**
-   * Keep clusters big enough to be worth grouping, largest first, capped at
-   * maxGroups. Pure so it can be unit tested without the ML model.
+   * Predicted label for a group, cached by its source tabs' URLs.
    *
-   * @param {Array<{tabs: object[]}>} [clusterRepresentations]
-   * @returns {Array<{tabs: object[]}>}
+   * @param {MozTabbrowserTab[]} tabs
+   * @param {MozTabbrowserTab[]} otherTabs
+   * @returns {Promise<string>}
+   */
+  async _labelForGroup(tabs, otherTabs) {
+    const key = tabs
+      .map(t => t.linkedBrowser?.currentURI?.spec ?? "")
+      .sort()
+      .join("\n");
+    if (this._labelCache.has(key)) {
+      return this._labelCache.get(key);
+    }
+    const label = await this.manager.getPredictedLabelForGroup(tabs, otherTabs);
+    if (this._labelCache.size >= MAX_LABEL_CACHE_ENTRIES) {
+      this._labelCache.delete(this._labelCache.keys().next().value);
+    }
+    this._labelCache.set(key, label);
+    return label;
+  },
+
+  /**
+   * Keep clusters big enough and cohesive enough to be worth grouping, largest
+   * first, capped at maxGroups. Pure so it can be unit tested without the ML
+   * model.
+   *
+   * @param {Array<{tabs: object[], cohesion: number}>} [clusterRepresentations]
+   * @returns {Array<{tabs: object[], cohesion: number}>}
    */
   selectClusters(clusterRepresentations) {
     if (!clusterRepresentations?.length) {
       return [];
     }
     return clusterRepresentations
-      .filter(c => c.tabs && c.tabs.length >= lazy.minTabsPerGroup)
+      .filter(
+        c =>
+          c.tabs &&
+          c.tabs.length >= lazy.minTabsPerGroup &&
+          c.cohesion >= lazy.minCohesion
+      )
       .sort((a, b) => b.tabs.length - a.tabs.length)
       .slice(0, lazy.maxGroups);
   },
@@ -154,23 +214,27 @@ export const AutoTabGroupingSuggestions = {
   },
 
   _tabInfo(tab) {
-    let host = "";
-    try {
-      host = tab.linkedBrowser?.currentURI?.host || "";
-    } catch (e) {
-      host = "";
+    // Derive a user-visible site label from the tab's URI.
+    const uri = tab.linkedBrowser?.currentURI;
+    let site = "";
+    if (uri) {
+      try {
+        site = lazy.BrowserUtils.formatURIForDisplay(uri, {
+          onlyBaseDomain: true,
+        });
+      } catch (e) {
+        site = "";
+      }
     }
-    host = host.replace(/^www\./, "");
-    const title = tab.label || host || "Tab";
-    const brandSource = host || title;
-    const brand = brandSource
-      ? brandSource.split(".")[0].replace(/^./, c => c.toUpperCase())
-      : "";
-    const letter = (brand || title || "•").trim()[0] || "•";
+    const title = tab.label || site;
+    // Only show the site next to the title when it adds information.
+    const siteName = site && site !== title ? site : "";
+    const identifier = site || title;
+    const letter = identifier.trim()[0]?.toUpperCase() || "•";
     const colorName =
-      TAB_GROUP_COLORS[this._hash(brandSource) % TAB_GROUP_COLORS.length];
+      TAB_GROUP_COLORS[this._hash(identifier) % TAB_GROUP_COLORS.length];
     const tileColor = `var(--tab-group-${colorName})`;
-    return { letter, tileColor, host, title, brand: host ? brand : "" };
+    return { letter, tileColor, title, siteName };
   },
 
   _hash(str) {

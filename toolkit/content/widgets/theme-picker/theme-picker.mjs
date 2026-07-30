@@ -7,6 +7,11 @@ window.MozXULElement?.insertFTLIfNeeded("locales-preview/theme-picker.ftl");
 import { html, styleMap } from "../vendor/lit.all.mjs";
 import { MozLitElement } from "../lit-utils.mjs";
 import { ThemePickerStorybookController } from "chrome://global/content/elements/theme-picker-storybook-controller.mjs";
+import { ThemePickerRemoteController } from "chrome://global/content/elements/theme-picker-remote-controller.mjs";
+
+/**
+ * @import { ThemePickerDirectController } from "chrome://global/content/elements/theme-picker-direct-controller.mjs"
+ */
 
 const THEME_L10N_IDS = {
   "default-theme@mozilla.org": "theme-picker-default",
@@ -23,17 +28,23 @@ const THEME_L10N_IDS = {
   "nova-smoke@mozilla.org": "theme-picker-smoke",
 };
 
-const XPCOMUtils = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-).XPCOMUtils;
-
-const lazy = XPCOMUtils.declareLazy({
-  ThemePickerDirectController: () =>
-    ChromeUtils.importESModule(
-      "chrome://global/content/elements/theme-picker-direct-controller.mjs",
-      { global: "current" }
-    ).ThemePickerDirectController,
-});
+/** @type {typeof ThemePickerDirectController | null} */
+let ThemePickerDirectControllerClass = null;
+function getThemePickerController() {
+  if (window.IS_STORYBOOK) {
+    return ThemePickerStorybookController;
+  }
+  if (typeof ChromeUtils !== "undefined") {
+    if (!ThemePickerDirectControllerClass) {
+      ThemePickerDirectControllerClass = ChromeUtils.importESModule(
+        "chrome://global/content/elements/theme-picker-direct-controller.mjs",
+        { global: "current" }
+      ).ThemePickerDirectController;
+    }
+    return ThemePickerDirectControllerClass;
+  }
+  return ThemePickerRemoteController;
+}
 
 const DEFAULT_THEME_ID = "default-theme@mozilla.org";
 
@@ -73,6 +84,8 @@ const DEFAULT_THEME_ID = "default-theme@mozilla.org";
  * @property {boolean} showLabels
  *   Whether to show visible text labels outside the theme swatches. When false,
  *   aria-labels are provided for accessibility.
+ * @property {boolean} showNativeThemeOption
+ *   Whether to show the native theme checkbox. Only applies on Linux.
  * @fires themechange - Fired when appearance, theme, or nativeTheme changes.
  * Detail contains {property, value}
  */
@@ -84,6 +97,11 @@ export class ThemePicker extends MozLitElement {
     themes: { type: Array },
     layout: { type: String },
     showLabels: { type: Boolean },
+    showNativeThemeOption: { type: Boolean },
+  };
+
+  static queries = {
+    pickerEl: "moz-visual-picker",
   };
 
   constructor() {
@@ -96,11 +114,14 @@ export class ThemePicker extends MozLitElement {
     this.showLabels = true;
     this.controller = ThemePicker.createController(this);
     this.layout = "full";
+    this.showNativeThemeOption = false;
   }
 
   /**
    * Builds the ReactiveController backing this picker: the lightweight
    * storybook controller when platform APIs are unavailable (e.g. Storybook),
+   * the remote controller for unprivileged contexts (e.g. about:editprofile,
+   * about:welcome),
    * and otherwise the direct controller that talks to AddonManager and prefs.
    * Overridable so tests can exercise a specific controller.
    *
@@ -108,9 +129,7 @@ export class ThemePicker extends MozLitElement {
    * @returns {ReactiveController}
    */
   static createController(host) {
-    return typeof Services === "undefined"
-      ? new ThemePickerStorybookController(host)
-      : new lazy.ThemePickerDirectController(host);
+    return new (getThemePickerController())(host);
   }
 
   /**
@@ -197,7 +216,7 @@ export class ThemePicker extends MozLitElement {
   }
 
   defaultThemeTemplate() {
-    if (this.layout == "compact") {
+    if (this.layout == "compact" || !this.showNativeThemeOption) {
       return "";
     }
     return html`<moz-checkbox

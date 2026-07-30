@@ -5,6 +5,7 @@
 package mozilla.components.feature.ipprotection.store
 
 import mozilla.components.ExperimentalAndroidComponentsApi
+import mozilla.components.concept.engine.ipprotection.IPProtectionHandler
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateInfo
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateInfo.Companion.PROXY_STATE_ACTIVATING
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler.StateInfo.Companion.PROXY_STATE_ACTIVE
@@ -127,10 +128,36 @@ class IPProtectionReducerTest {
     }
 
     @Test
-    fun `WHEN ActivationFailed is dispatched THEN activate is cleared`() {
+    fun `WHEN ToggleFailed is dispatched THEN activate is cleared`() {
         val state = buildIPProtectionState().copy(activate = true)
         assertEquals(
             state.copy(activate = null),
+            iPProtectionReducer(state, IPProtectionAction.ToggleFailed),
+        )
+    }
+
+    @Test
+    fun `GIVEN user has already finished auth flow successfully but service is still unauthenticated WHEN ToggleFailed is dispatched THEN activate is cleared and account is set for another check`() {
+        val state = buildIPProtectionState().copy(
+            activate = true,
+            accountState = AccountState(status = AccountStatus.EnrolledAndEntitled),
+            serviceStatus = ServiceState.Unauthenticated,
+        )
+        assertEquals(
+            state.copy(activate = null, accountState = state.accountState.copy(status = AccountStatus.TryAgain)),
+            iPProtectionReducer(state, IPProtectionAction.ToggleFailed),
+        )
+    }
+
+    @Test
+    fun `GIVEN user is entitled and service is ready WHEN ToggleFailed is dispatched THEN activate is cleared and account does not do extra checks`() {
+        val state = buildIPProtectionState().copy(
+            activate = true,
+            accountState = AccountState(status = AccountStatus.EnrolledAndEntitled),
+            serviceStatus = ServiceState.Ready,
+        )
+        assertEquals(
+            state.copy(activate = null, accountState = state.accountState),
             iPProtectionReducer(state, IPProtectionAction.ToggleFailed),
         )
     }
@@ -578,5 +605,25 @@ class IPProtectionReducerTest {
         val resultState = iPProtectionReducer(initialState, InternalAction.FinishingAuthFlow)
 
         assertEquals(AccountStatus.NeedsAuthentication, resultState.accountState.status)
+    }
+
+    @Test
+    fun `WHEN CountryListChanged is dispatched THEN country list is updated`() {
+        val initialState = buildIPProtectionState()
+        val countries = listOf(
+            IPProtectionHandler.Country(code = "dk", available = true),
+            IPProtectionHandler.Country(code = "fr", available = true),
+            IPProtectionHandler.Country(code = "gb", available = false),
+            IPProtectionHandler.Country(code = "us", available = true),
+        )
+
+        assertEquals(emptyList<IPProtectionHandler.Country>(), initialState.countries)
+
+        val resultState = iPProtectionReducer(
+            state = initialState,
+            action = IPProtectionAction.CountryListChanged(countries),
+        )
+
+        assertEquals(countries, resultState.countries)
     }
 }

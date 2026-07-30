@@ -798,7 +798,8 @@ static nsCSSBorderRenderer ConstructBorderRenderer(
 
   return nsCSSBorderRenderer(
       aPresContext, aDrawTarget, dirtyRect, joinedBorderAreaPx, borderStyles,
-      borderWidths, bgRadii, borderColors, !aForFrame->BackfaceIsHidden(),
+      borderWidths, bgRadii, /* aInset = */ Margin(), borderColors,
+      !aForFrame->BackfaceIsHidden(),
       *aNeedsClip ? Some(NSRectToRect(aBorderArea, oneDevPixel)) : Nothing());
 }
 
@@ -984,6 +985,8 @@ nsCSSRendering::CreateBorderRendererForNonThemedOutline(
       Float(width) / oneDevPixel, Float(width) / oneDevPixel,
       Float(width) / oneDevPixel, Float(width) / oneDevPixel);
 
+  Margin outlineInset;
+
   // convert the radii
   nsRectCornerRadii twipsRadii;
 
@@ -999,6 +1002,11 @@ nsCSSRendering::CreateBorderRendererForNonThemedOutline(
                         outlineWidths.right + devPxOffset.Width(),
                         outlineWidths.bottom + devPxOffset.Height(),
                         outlineWidths.left + devPxOffset.Width());
+
+    // Pass down the computed inset for the correct rendering of
+    // corner-shape contoured superellipses.
+    outlineInset = -widths;
+
     nsCSSBorderRenderer::ComputeOuterRadii(innerRadii, widths, &outlineRadii);
   }
 
@@ -1014,9 +1022,10 @@ nsCSSRendering::CreateBorderRendererForNonThemedOutline(
 
   Rect dirtyRect = NSRectToRect(aDirtyRect, oneDevPixel);
 
-  return Some(nsCSSBorderRenderer(
-      aPresContext, aDrawTarget, dirtyRect, oRect, outlineStyles, outlineWidths,
-      outlineRadii, outlineColors, !aForFrame->BackfaceIsHidden(), Nothing()));
+  return Some(nsCSSBorderRenderer(aPresContext, aDrawTarget, dirtyRect, oRect,
+                                  outlineStyles, outlineWidths, outlineRadii,
+                                  outlineInset, outlineColors,
+                                  !aForFrame->BackfaceIsHidden(), Nothing()));
 }
 
 void nsCSSRendering::PaintNonThemedOutline(nsPresContext* aPresContext,
@@ -1064,8 +1073,9 @@ nsCSSBorderRenderer nsCSSRendering::GetBorderRendererForFocus(
   // to a ComputedStyle and can use the same logic that PaintBorder
   // and PaintOutline do.)
   return nsCSSBorderRenderer(pc, aDrawTarget, focusRect, focusRect, focusStyles,
-                             focusWidths, focusRadii, focusColors,
-                             !aForFrame->BackfaceIsHidden(), Nothing());
+                             focusWidths, focusRadii, /* aInset = */ Margin(),
+                             focusColors, !aForFrame->BackfaceIsHidden(),
+                             Nothing());
 }
 
 // Thebes Border Rendering Code End
@@ -3909,8 +3919,7 @@ static sk_sp<const SkTextBlob> CreateTextBlob(
       // if it's detailed, potentially add multiple into run.glyphs
       uint32_t count = aCompressedGlyph[currIndex].GetGlyphCount();
       if (count > 0) {
-        gfxTextRun::DetailedGlyph* detailGlyph =
-            aTextRun->GetDetailedGlyphs(currIndex);
+        const auto* detailGlyph = aTextRun->GetDetailedGlyphs(currIndex, count);
         for (uint32_t d = isRTL ? count - 1 : 0; count; count--, d += step) {
           MOZ_ASSERT(i < len, "glyph count error!");
           AddDetailedGlyph(run, detailGlyph[d], i, aAppUnitsPerDevPixel,

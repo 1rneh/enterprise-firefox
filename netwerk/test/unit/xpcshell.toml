@@ -863,6 +863,12 @@ skip-if = [
 ["test_happy_eyeballs_ip_preference.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 
+["test_happy_eyeballs_local_addr_retry.js"]
+skip-if = [
+  "os == 'android'",
+  "os == 'win' && msix",
+]
+
 ["test_happy_eyeballs_tcp_fallback.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 skip-if = [
@@ -1019,6 +1025,15 @@ run-sequentially = ["true"] # http3server
 # Some platform consumers may default speculative-parallel-limit to 0, which
 # disables the speculative connect this test exercises. Enforce the value the
 # test requires to pass.
+prefs = ["network.http.speculative-parallel-limit=20"]
+skip-if = [
+  "os == 'android' && os_version == '14' && arch == 'x86_64'",
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix", # Bug 1807931
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix", # Bug 1807931
+]
+
+["test_http3_alt_svc_validation.js"]
+run-sequentially = ["true"] # http3server
 prefs = ["network.http.speculative-parallel-limit=20"]
 skip-if = [
   "os == 'android' && os_version == '14' && arch == 'x86_64'",

@@ -383,6 +383,23 @@ nsresult BounceTrackingState::HasBounceTrackingStateForSite(
       continue;
     }
 
+    // This active-site purge guard filters by the cached OriginAttributes but
+    // reads the live document principal. For track-worthy documents the two
+    // must agree, otherwise the guard would protect (or fail to protect) the
+    // wrong container's data. They only diverge if a tab's userContextId
+    // changes during its lifetime. Documents BTP does not track are excluded:
+    // the system principal is a process-wide singleton whose OriginAttributes
+    // report the default (non-private) values regardless of the window, and
+    // non-http(s) documents (e.g. about:, moz-extension:) are not partitioned
+    // like the http(s) content BTP records bounces for. See Bug 2054941.
+    MOZ_ASSERT(
+        !ShouldTrackPrincipal(principal) ||
+            principal->OriginAttributesRef().EqualsIgnoringFPD(
+                state->mOriginAttributes),
+        "BTP: active-site purge guard sees a live document whose container "
+        "differs from the cached BounceTrackingState OriginAttributes (Bug "
+        "2054941).");
+
     // Lastly, check if the site matches.
     nsAutoCString baseDomain;
     nsresult rv = principal->GetBaseDomain(baseDomain);
@@ -417,6 +434,26 @@ nsresult BounceTrackingState::OnDocumentStartRequest(nsIChannel* aChannel) {
   nsCOMPtr<nsILoadInfo> loadInfo;
   nsresult rv = aChannel->GetLoadInfo(getter_AddRefs(loadInfo));
   NS_ENSURE_SUCCESS(rv, rv);
+
+  // For http(s) loads the channel we record bounces for must live in the same
+  // container as the BounceTrackingState which owns the per-tab record and
+  // selects the storage partition. This relies on a tab's userContextId staying
+  // constant for its whole lifetime. If that ever changes mid-load, bounces
+  // would be recorded under the tab's original container rather than the one
+  // the load ends up in, and BTP would need to account for the transition.
+  // Non-http(s) channels (e.g. the initial about:blank) are excluded because
+  // they do not necessarily carry the tab's OriginAttributes. See Bug 2054941.
+#ifdef DEBUG
+  if (nsCOMPtr<nsIURI> channelURIForAssert;
+      NS_SUCCEEDED(aChannel->GetURI(getter_AddRefs(channelURIForAssert))) &&
+      channelURIForAssert &&
+      mozilla::net::SchemeIsHttpOrHttps(channelURIForAssert)) {
+    MOZ_ASSERT(
+        loadInfo->GetOriginAttributes().EqualsIgnoringFPD(mOriginAttributes),
+        "BTP: channel OriginAttributes (userContextId/PBM) diverged from the "
+        "cached BounceTrackingState OriginAttributes (Bug 2054941).");
+  }
+#endif
 
   // Used to keep track of whether we added entries to the site list that are
   // not "null".
@@ -530,7 +567,26 @@ BounceTrackingState::OnStateChange(nsIWebProgress* aWebProgress,
       browsingContext->Canonical()->GetCurrentWindowGlobal();
   NS_ENSURE_TRUE(windowGlobalParent, NS_ERROR_FAILURE);
 
-  return OnDocumentLoaded(windowGlobalParent->DocumentPrincipal());
+  nsCOMPtr<nsIPrincipal> documentPrincipal =
+      windowGlobalParent->DocumentPrincipal();
+
+  // For track-worthy documents the committed document must live in the same
+  // container as the BounceTrackingState, i.e. the tab's userContextId has not
+  // changed during its lifetime. This also catches a container change on paths
+  // without a channel hook (e.g. bfcache / session restore). Documents BTP does
+  // not track are excluded: the system principal is a process-wide singleton
+  // whose OriginAttributes report the default (non-private) values regardless
+  // of the window, and non-http(s) documents (e.g. about:, moz-extension:) are
+  // not partitioned like the http(s) content BTP records bounces for. See the
+  // note in OnDocumentStartRequest and Bug 2054941.
+  MOZ_ASSERT(
+      !documentPrincipal || !ShouldTrackPrincipal(documentPrincipal) ||
+          documentPrincipal->OriginAttributesRef().EqualsIgnoringFPD(
+              mOriginAttributes),
+      "BTP: committed document OriginAttributes (userContextId/PBM) diverged "
+      "from the cached BounceTrackingState OriginAttributes (Bug 2054941).");
+
+  return OnDocumentLoaded(documentPrincipal);
 }
 
 NS_IMETHODIMP
@@ -577,8 +633,21 @@ BounceTrackingState::OnContentBlockingEvent(nsIWebProgress* aWebProgress,
 
 nsresult BounceTrackingState::OnStartNavigation(
     nsIPrincipal* aTriggeringPrincipal,
-    const bool aHasValidUserGestureActivation) {
+    const bool aHasValidUserGestureActivation, uint64_t aLoadId) {
   NS_ENSURE_ARG_POINTER(aTriggeringPrincipal);
+
+  // A single logical navigation can reach this method more than once: it may go
+  // through a speculative parent load, switch process, or get re-opened, and
+  // each of these carries the same load id. Only advance the state machine for
+  // the first call of a given load id, otherwise we would double count and
+  // corrupt the extended navigation.
+  if (aLoadId != 0 && mLastStartedLoadId == Some(aLoadId)) {
+    MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
+                "{}: skipping duplicate call for load id {}", __FUNCTION__,
+                aLoadId);
+    return NS_OK;
+  }
+  mLastStartedLoadId = Some(aLoadId);
 
   // Logging
   if (MOZ_LOG_TEST(gBounceTrackingProtectionLog, LogLevel::Debug)) {
@@ -694,15 +763,14 @@ nsresult BounceTrackingState::OnResponseReceived(
                 siteListStr);
   }
 
-  // Record should exist by now. It gets created in OnStartNavigation.
-  // TODO: Bug 1894936
-  if (!mBounceTrackingRecord) {
+  // Record should exist by now. It gets created in OnStartNavigation which
+  // runs for every top level document load before the response is received.
+  if (NS_WARN_IF(!mBounceTrackingRecord)) {
     return NS_ERROR_FAILURE;
   }
 
   // Check if there is still an active timeout. This shouldn't happen since
   // OnStartNavigation already cancels it.
-  // TODO: Bug 1894936
   if (mClientBounceDetectionTimeout) {
     MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
                 "{}: mClientBounceDetectionTimeout->Cancel()", __FUNCTION__);
@@ -783,9 +851,10 @@ nsresult BounceTrackingState::OnDocumentLoaded(
                                                             this);
   }
 
-  // Assert: navigable’s bounce tracking record is not null.
-  // TODO: Bug 1894936
-  if (!mBounceTrackingRecord) {
+  // Assert: navigable’s bounce tracking record is not null. It gets created in
+  // OnStartNavigation which runs for every top level navigation before the
+  // document loads.
+  if (NS_WARN_IF(!mBounceTrackingRecord)) {
     return NS_ERROR_FAILURE;
   }
 

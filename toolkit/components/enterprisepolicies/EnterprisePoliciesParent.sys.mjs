@@ -675,12 +675,15 @@ EnterprisePoliciesManager.prototype = {
   _runPoliciesCallbacks(timing) {
     let callbacks = this._callbacks[timing];
     while (callbacks.length) {
-      let { callback, impl, params } = callbacks.shift();
+      let { callback, impl, params, policyName } = callbacks.shift();
       const boundCallback = callback.bind(impl, this, params);
       try {
         boundCallback();
       } catch (ex) {
-        lazy.log.error("Error running ", boundCallback, `for ${timing}:`, ex);
+        lazy.log.error(
+          `Error running ${timing} callback for policy ${policyName}: ${ex}`,
+          ex
+        );
       }
     }
   },

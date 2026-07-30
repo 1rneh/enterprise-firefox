@@ -93,7 +93,6 @@
   --urlbar-input-container-outline-offset-breakout: calc(-1 * var(--urlbar-input-container-border-width-breakout));
   --urlbar-margin-block-start-breakout: calc((var(--urlbar-container-height) - var(--urlbar-height)) / 2);
   --urlbar-searchmode-switcher-panel-list-min-width: 17em;
-  --urlbar-selection-border-radius: var(--border-radius-xsmall);
 
   @media not -moz-pref("browser.nova.enabled") {
     --urlbar-background-border: var(--urlbar-input-container-border-width) solid var(--toolbar-field-border-color);
@@ -113,7 +112,6 @@
     --urlbar-input-container-outline-offset-breakout: 0px;
     --urlbar-margin-block-start-breakout: 0px;
     --urlbar-searchmode-switcher-panel-list-min-width: auto;
-    --urlbar-selection-border-radius: 0;
   }
 }
 
@@ -351,12 +349,6 @@ toolbar[inactive="true"] .urlbar,
   margin: 0;
   padding: 0;
   outline: none;
-}
-
-.searchbar-textbox::selection,
-.urlbar-input::selection {
-  /* urlbar and searchbar */
-  border-radius: var(--urlbar-selection-border-radius);
 }
 
 #urlbar-input {
@@ -1383,6 +1375,18 @@ toolbar[inactive="true"] .urlbar,
     @media (not -moz-pref("browser.urlbar.searchModeSwitcher.featureGate")) and (not -moz-pref("browser.urlbar.scotchBonnet.enableOverride")) {
       display: none;
     }
+  }
+
+  &[addengines]::part(button)::after {
+    content: "";
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    inset-block-start: var(--space-xxsmall);
+    inset-inline-start: var(--icon-size);
+    background: url(chrome://browser/skin/search-indicator-badge-add.svg) no-repeat center;
+    background-size: contain;
+    pointer-events: none;
   }
 }
 

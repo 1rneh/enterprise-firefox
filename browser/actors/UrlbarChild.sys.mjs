@@ -5,9 +5,9 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarQueryContext:
-    "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+  UrlbarQueryContext: "chrome://browser/content/urlbar/UrlbarQueryContext.mjs",
 });
 
 // The content-side input/view methods a parent-side provider hook may invoke
@@ -86,6 +86,28 @@ export class UrlbarChild extends JSWindowActorChild {
   }
 
   /**
+   * Expose UrlbarPrefs on the window for UrlbarPrefs.mjs.
+   * This is only needed in child processes. In the parent process,
+   * it can be imported directly from the system global.
+   */
+  exposeUrlbarPrefs() {
+    let xrayedWin = Cu.waiveXrays(this.contentWindow);
+    xrayedWin.UrlbarPrefs = Cu.cloneInto(
+      {
+        get: name => Cu.cloneInto(lazy.UrlbarPrefs.get(name), xrayedWin),
+        addObserver: observer => lazy.UrlbarPrefs.addObserver(observer),
+        removeObserver: observer => lazy.UrlbarPrefs.removeObserver(observer),
+      },
+      xrayedWin,
+      { cloneFunctions: true }
+    );
+  }
+
+  actorCreated() {
+    this.exposeUrlbarPrefs();
+  }
+
+  /**
    * Registers a message-path `<moz-urlbar>` input for teardown -- so the parent
    * drops the controller once the input is collected -- and returns the instance
    * id the child controller pairs with the proxy it builds.
@@ -114,6 +136,20 @@ export class UrlbarChild extends JSWindowActorChild {
     this.#childControllers.set(instanceId, new WeakRef(child));
   }
 
+  /**
+   * Forwards to `BrowserUtils.whereToOpenLink`. `UrlbarChildController.whereToOpen`
+   * computes the destination itself but can't import `BrowserUtils` (a system
+   * module) from its content-web scope, so it routes this one call through the
+   * actor, which is privileged and runs in the input's own process.
+   *
+   * @param {Event} event
+   *   The event that triggered the opening.
+   * @returns {"current" | "tabshifted" | "tab" | "save" | "window"}
+   */
+  whereToOpenLink(event) {
+    return lazy.BrowserUtils.whereToOpenLink(event, false, false);
+  }
+
   receiveMessage(message) {
     switch (message.name) {
       case "Notify":
@@ -121,6 +157,9 @@ export class UrlbarChild extends JSWindowActorChild {
         break;
       case "InvokeContentAction":
         this.#invokeContentAction(message.data);
+        break;
+      case "UpdateEngineStore":
+        this.#updateEngineStore(message.data);
         break;
     }
   }
@@ -181,5 +220,15 @@ export class UrlbarChild extends JSWindowActorChild {
       return;
     }
     child[target]?.[method](...args);
+  }
+
+  #updateEngineStore({ instanceId, args }) {
+    let child = this.#childControllers.get(instanceId)?.deref();
+    if (!child) {
+      this.#childControllers.delete(instanceId);
+      return;
+    }
+
+    child.updateEngineStore(...args);
   }
 }

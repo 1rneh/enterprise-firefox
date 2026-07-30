@@ -459,7 +459,6 @@ bool WebGLContext::EnsureDefaultFB() {
     return true;
   }
 
-  const bool depthStencil = mOptions.depth || mOptions.stencil;
   auto attemptSize = gfx::IntSize{mRequestedSize.x, mRequestedSize.y};
 
   while (attemptSize.width || attemptSize.height) {
@@ -469,14 +468,15 @@ bool WebGLContext::EnsureDefaultFB() {
     [&]() {
       if (mOptions.antialias) {
         MOZ_ASSERT(!mDefaultFB);
-        mDefaultFB = gl::MozFramebuffer::Create(gl, attemptSize, mMsaaSamples,
-                                                depthStencil);
+        mDefaultFB = gl::MozFramebuffer::Create(
+            gl, attemptSize, mMsaaSamples, mOptions.depth, mOptions.stencil);
         if (mDefaultFB) return;
         if (mOptionsFrozen) return;
       }
 
       MOZ_ASSERT(!mDefaultFB);
-      mDefaultFB = gl::MozFramebuffer::Create(gl, attemptSize, 0, depthStencil);
+      mDefaultFB = gl::MozFramebuffer::Create(gl, attemptSize, 0,
+                                              mOptions.depth, mOptions.stencil);
     }();
 
     if (mDefaultFB) break;
@@ -1978,7 +1978,7 @@ const gl::MozFramebuffer* WebGLContext::GetDefaultFBForRead(
 
   if (!mResolvedDefaultFB) {
     mResolvedDefaultFB =
-        gl::MozFramebuffer::Create(gl, mDefaultFB->mSize, 0, false);
+        gl::MozFramebuffer::Create(gl, mDefaultFB->mSize, 0, false, false);
     if (!mResolvedDefaultFB) {
       gfxCriticalNote << FuncName() << ": Failed to create mResolvedDefaultFB.";
       return nullptr;
@@ -2154,21 +2154,21 @@ bool Intersect(const int32_t srcSize, const int32_t read0,
 
 // --
 
-uint64_t AvailGroups(const uint64_t totalAvailItems,
+uint64_t AvailGroups(const uint64_t totalAvailItemBytes,
                      const uint64_t firstItemOffset, const uint32_t groupSize,
                      const uint32_t groupStride) {
   MOZ_ASSERT(groupSize && groupStride);
-  MOZ_ASSERT(groupSize <= groupStride);
 
-  if (totalAvailItems <= firstItemOffset) return 0;
-  const size_t availItems = totalAvailItems - firstItemOffset;
-
-  size_t availGroups = availItems / groupStride;
-  const size_t tailItems = availItems % groupStride;
-  if (tailItems >= groupSize) {
-    availGroups += 1;
+  if (totalAvailItemBytes <= firstItemOffset) {
+    return 0;
   }
-  return availGroups;
+
+  const size_t availItemBytes = totalAvailItemBytes - firstItemOffset;
+  if (availItemBytes < groupSize) {
+    return 0;
+  }
+
+  return (availItemBytes - groupSize) / groupStride + 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

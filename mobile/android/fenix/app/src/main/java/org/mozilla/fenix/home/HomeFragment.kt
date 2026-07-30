@@ -6,6 +6,7 @@ package org.mozilla.fenix.home
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -29,12 +30,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
@@ -64,7 +65,6 @@ import mozilla.components.feature.tab.collections.TabCollection
 import mozilla.components.feature.top.sites.presenter.DefaultTopSitesPresenter
 import mozilla.components.lib.state.ext.flow
 import mozilla.components.lib.state.ext.observeAsComposableState
-import mozilla.components.service.nimbus.messaging.Message
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import mozilla.components.support.ktx.android.view.createWindowInsetsController
 import mozilla.components.support.ktx.android.view.toScope
@@ -148,13 +148,12 @@ import org.mozilla.fenix.messaging.DefaultMessageController
 import org.mozilla.fenix.messaging.FenixMessageSurfaceId
 import org.mozilla.fenix.messaging.MessagingFeature
 import org.mozilla.fenix.microsurvey.ui.MicrosurveyRequestPrompt
-import org.mozilla.fenix.microsurvey.ui.ext.toMicrosurveyUIData
+import org.mozilla.fenix.microsurvey.ui.ext.MicrosurveyUIData
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.onboarding.OnboardingFragmentDirections
 import org.mozilla.fenix.onboarding.OnboardingReason
 import org.mozilla.fenix.onboarding.OnboardingTelemetryRecorder
-import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingFeatureDefault
-import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingStageProviderDefault
+import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingFeature
 import org.mozilla.fenix.pbmlock.NavigationOrigin
 import org.mozilla.fenix.pbmlock.observePrivateModeLock
 import org.mozilla.fenix.perf.MarkersFragmentLifecycleCallbacks
@@ -181,6 +180,7 @@ import org.mozilla.fenix.utils.showAddSearchWidgetPromptIfSupported
 import org.mozilla.fenix.wallpapers.LocalWallpaperState
 import org.mozilla.fenix.wallpapers.Wallpaper
 import java.lang.ref.WeakReference
+import kotlin.math.roundToInt
 import org.mozilla.fenix.ipprotection.store.Surface as IPProtectionSurface
 
 /**
@@ -244,6 +244,9 @@ class HomeFragment : Fragment() {
     private val toolbarView: FenixHomeToolbar
         get() = nullableToolbarView!!
 
+    // Bounds of the homepage content (excluding the toolbar and system bar padding) used to crop the tab thumbnail.
+    private var homepageContentBounds: Rect? = null
+
     @VisibleForTesting
     internal val messagingFeatureHomescreen = ViewBoundFeatureWrapper<MessagingFeature>()
 
@@ -262,6 +265,7 @@ class HomeFragment : Fragment() {
     private val trackersBlockedFeature = ViewBoundFeatureWrapper<TrackersBlockedFeature>()
     private val ipProtectionWarningBinding = ViewBoundFeatureWrapper<IPProtectionWarningBinding>()
     private val ipProtectionOnboardingPrompt = ViewBoundFeatureWrapper<IPProtectionOnboardingPrompt>()
+    private val continuousOnboardingFeature = ViewBoundFeatureWrapper<ContinuousOnboardingFeature>()
 
     private val homepageEdgeToEdgeFeature = ViewBoundFeatureWrapper<HomepageEdgeToEdgeFeature>()
     private var qrScanFenixFeature: ViewBoundFeatureWrapper<QrScanFenixFeature>? =
@@ -314,10 +318,7 @@ class HomeFragment : Fragment() {
 
     private val continuousOnboardingDefaultBrowserLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            continuousOnboardingFeature.onDefaultBrowserStepCompleted(
-                activity = requireActivity(),
-                resultCode = result.resultCode,
-            )
+            continuousOnboardingFeature.get()?.onDefaultBrowserStepCompleted(result.resultCode)
         }
 
     private val telemetryRecorder by lazy {
@@ -331,23 +332,6 @@ class HomeFragment : Fragment() {
                 packageManager = requireContext().application.packageManager,
                 packageName = requireContext().application.packageName,
             ),
-        )
-    }
-
-    private val continuousOnboardingFeature by lazy {
-        val settings = requireComponents.settings
-        ContinuousOnboardingFeatureDefault(
-            settings = settings,
-            telemetryRecorder = telemetryRecorder,
-            stageProvider = ContinuousOnboardingStageProviderDefault(settings),
-            navigateToSyncSignIn = {
-                findNavController().nav(
-                    id = R.id.homeFragment,
-                    directions = OnboardingFragmentDirections.actionGlobalTurnOnSync(
-                        entrypoint = FenixFxAEntryPoint.NewUserOnboarding,
-                    ),
-                )
-            },
         )
     }
 
@@ -388,7 +372,7 @@ class HomeFragment : Fragment() {
         }
 
         nullableToolbarView = buildToolbar(activity, view)
-        initComposeHomepage(view = view, activity = activity)
+        initComposeHomepage(view = view)
 
         // DO NOT MOVE ANYTHING BELOW THIS addMarker CALL!
         requireComponents.core.engine.profiler?.addMarker(
@@ -529,6 +513,7 @@ class HomeFragment : Fragment() {
         initTabsCleanupFeature(view = view)
         initSnackbarBinding(view = view)
         initIpProtectionBindings(view = view)
+        initContinuousOnboardingFeature()
 
         privacyNoticeBannerStore = PrivacyNoticeBannerStore(
             initialState = PrivacyNoticeBannerState(
@@ -545,11 +530,6 @@ class HomeFragment : Fragment() {
         initController()
         initInteractor()
 
-        continuousOnboardingFeature.maybeRunContinuousOnboarding(
-            activity = requireActivity(),
-            launcher = continuousOnboardingDefaultBrowserLauncher,
-        )
-
         // DO NOT MOVE ANYTHING BELOW THIS addMarker CALL!
         requireComponents.core.engine.profiler?.addMarker(
             MarkersFragmentLifecycleCallbacks.MARKER_NAME,
@@ -561,7 +541,6 @@ class HomeFragment : Fragment() {
     @Suppress("LongMethod", "CognitiveComplexMethod")
     private fun initComposeHomepage(
         view: ComposeView,
-        activity: HomeActivity,
     ) {
         view.setContent {
             FirefoxTheme {
@@ -580,17 +559,9 @@ class HomeFragment : Fragment() {
                 )
                 val isToolbarAtTop = settings.toolbarPosition == ToolbarPosition.TOP
 
-                val isMicrosurveyDismissed by activity.isMicrosurveyPromptDismissed
-                val microsurveyVisible by remember(isMicrosurveyDismissed) {
-                    derivedStateOf {
-                        settings.microsurveyFeatureEnabled &&
-                            !appState.value.mode.isPrivate &&
-                            !isMicrosurveyDismissed &&
-                            appState.value.messaging.messageToShow.containsKey(
-                                FenixMessageSurfaceId.MICROSURVEY,
-                            )
-                    }
-                }
+                val microsurveyVisible = settings.microsurveyFeatureEnabled &&
+                    !appState.value.mode.isPrivate &&
+                    appState.value.microsurvey.current != null
 
                 LaunchedEffect(microsurveyVisible) {
                     settings.shouldShowMicrosurveyPrompt = microsurveyVisible
@@ -602,7 +573,7 @@ class HomeFragment : Fragment() {
 
                 LaunchedEffect(currentWallpaper.name, isPrivateMode, universalEdgeToEdge) {
                     if (universalEdgeToEdge) {
-                        applyWallpaperSystemBarsTheme(activity, settings, isPrivateMode)
+                        applyWallpaperSystemBarsTheme(activity as HomeActivity, settings, isPrivateMode)
                     }
                 }
 
@@ -665,12 +636,7 @@ class HomeFragment : Fragment() {
                                 settings = settings,
                                 innerPadding = innerPadding,
                                 microsurveyVisible = microsurveyVisible,
-                                microsurveyMessage = appState.value.messaging.messageToShow[
-                                    FenixMessageSurfaceId.MICROSURVEY,
-                                ],
-                                onMicrosurveyDismiss = {
-                                    activity.isMicrosurveyPromptDismissed.value = true
-                                },
+                                microsurvey = appState.value.microsurvey.current,
                             )
                         }
                     }
@@ -712,13 +678,21 @@ class HomeFragment : Fragment() {
         settings: Settings,
         innerPadding: PaddingValues,
         microsurveyVisible: Boolean,
-        microsurveyMessage: Message?,
-        onMicrosurveyDismiss: () -> Unit,
+        microsurvey: MicrosurveyUIData?,
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .onGloballyPositioned { coordinates ->
+                    val bounds = coordinates.boundsInRoot()
+                    homepageContentBounds = Rect(
+                        bounds.left.roundToInt(),
+                        bounds.top.roundToInt(),
+                        bounds.right.roundToInt(),
+                        bounds.bottom.roundToInt(),
+                    )
+                },
         ) {
             Homepage(
                 state = HomepageState.build(
@@ -735,9 +709,8 @@ class HomeFragment : Fragment() {
 
             if (microsurveyVisible) {
                 MicrosurveyPrompt(
-                    message = microsurveyMessage,
+                    microsurvey = microsurvey,
                     modifier = Modifier.align(Alignment.BottomCenter),
-                    onDismiss = onMicrosurveyDismiss,
                 )
             }
 
@@ -752,11 +725,10 @@ class HomeFragment : Fragment() {
 
     @Composable
     private fun MicrosurveyPrompt(
-        message: Message?,
+        microsurvey: MicrosurveyUIData?,
         modifier: Modifier = Modifier,
-        onDismiss: () -> Unit,
     ) {
-        val microsurvey = remember(message?.id) { message?.toMicrosurveyUIData() } ?: return
+        if (microsurvey == null) return
         val appStore = requireComponents.appStore
         val navController = findNavController()
 
@@ -774,7 +746,6 @@ class HomeFragment : Fragment() {
                 },
                 onCloseButtonClicked = {
                     appStore.dispatch(MicrosurveyAction.Dismissed(microsurvey.id))
-                    onDismiss()
                 },
             )
         }
@@ -1186,6 +1157,7 @@ class HomeFragment : Fragment() {
                 view = view,
                 store = requireComponents.core.store,
                 appStore = requireComponents.appStore,
+                homepageContentBounds = { homepageContentBounds },
             ),
             owner = this,
             view = view,
@@ -1275,6 +1247,23 @@ class HomeFragment : Fragment() {
             ),
             owner = this,
             view = view,
+        )
+    }
+
+    private fun initContinuousOnboardingFeature() {
+        ContinuousOnboardingFeature.register(
+            fragment = this,
+            binding = continuousOnboardingFeature,
+            launcher = continuousOnboardingDefaultBrowserLauncher,
+            telemetryRecorder = telemetryRecorder,
+            navigateToSyncSignIn = {
+                findNavController().nav(
+                    id = R.id.homeFragment,
+                    directions = OnboardingFragmentDirections.actionGlobalTurnOnSync(
+                        entrypoint = FenixFxAEntryPoint.NewUserOnboarding,
+                    ),
+                )
+            },
         )
     }
 
@@ -1439,7 +1428,7 @@ class HomeFragment : Fragment() {
      */
     @VisibleForTesting
     internal fun updateLastHomeActivity() {
-        requireComponents.settings.lastHomeActivity = System.currentTimeMillis()
+        requireComponents.settings.recordLastHomeActivity()
     }
 
     companion object {

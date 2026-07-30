@@ -4,7 +4,29 @@
 
 //! # Visibility pass
 //!
-//! TODO: document what this pass does!
+//! The first of the two frame building traversals of the picture tree, the
+//! second being the [prepare pass](crate::prepare). It is driven by
+//! `FrameBuilder::build_layer_screen_rects_and_cull_layers`, which calls
+//! [`update_prim_visibility`] once per snapshot picture and once per tile cache
+//! slice. From there the pass walks down the picture tree, pushing and popping
+//! off-screen surfaces as it goes.
+//!
+//! For each primitive instance it visits, the pass works out whether the
+//! primitive is drawn this frame and under which clips, and records the answer
+//! in the primitive's [`PrimitiveDrawHeader`], stored in
+//! `scratch.primitive.frame.draws` and indexed by primitive instance index.
+//! Later passes read those headers instead of re-deriving the information.
+//! In addition to visibility calculation, this pass performs snapping and
+//! builds clip chain instances.
+//!
+//! ## Surface bookkeeping
+//!
+//! Alongside the per-primitive state, the traversal accumulates the exact
+//! (clipped) local rect of each off-screen surface from the coverage rects of
+//! the primitives drawn into it, and propagates culling rects from parent to
+//! child surfaces. The prepare pass sizes the surfaces' render tasks from those
+//! accumulated rects, so they must be complete before it runs, which is the
+//! main reason visibility is a separate pass.
 //!
 
 use api::DebugFlags;
@@ -18,14 +40,15 @@ use crate::spatial_tree::{SpatialTree, SpatialNodeIndex};
 use crate::clip::{ClipChainInstance, ClipTree, ClipNodeId};
 use crate::composite::CompositorSurfaceKind;
 use crate::frame_builder::FrameBuilderConfig;
-use crate::picture::{PictureCompositeMode, ClusterFlags, SurfaceInfo};
+use crate::picture::ClusterFlags;
+use crate::picture_composite_mode::PictureCompositeMode;
+use crate::surface::SurfaceInfo;
 use crate::tile_cache::TileCacheInstance;
-use crate::picture::{PictureScratch, SurfaceIndex, RasterConfig};
+use crate::picture::{PictureScratch, RasterConfig};
+use crate::surface::SurfaceIndex;
 use crate::tile_cache::SubSliceIndex;
-use crate::prim_store::{ClipSnap, ClipTaskIndex, PictureIndex, PrimitiveKind, SegmentInstanceIndex};
+use crate::prim_store::{ClipSnap, ClipTaskIndex, PictureIndex, PrimitiveKind};
 use crate::prim_store::{PrimitiveStore, PrimitiveInstance, PrimitiveInstanceIndex};
-use crate::prim_store::borders::ImageBorderScratch;
-use crate::prim_store::image::ImageScratch;
 use crate::prim_store::storage;
 use crate::prim_store::text_run::TextRunScratch;
 use crate::render_backend::{DataStores, ScratchBuffer};
@@ -122,28 +145,11 @@ pub enum DrawState {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 pub enum KindScratchHandle {
     None,
-    ImageBorder(storage::Index<ImageBorderScratch>),
-    Image(storage::Index<ImageScratch>),
     TextRun(storage::Index<TextRunScratch>),
     Picture(storage::Index<PictureScratch>),
 }
 
 impl KindScratchHandle {
-    /// Extract the specific scratch index. Panics if the variant
-    /// doesn't match — readers in the specific arm of the
-    /// PrimitiveKind match know the variant by construction.
-    pub fn unwrap_image_border(&self) -> storage::Index<ImageBorderScratch> {
-        match *self {
-            KindScratchHandle::ImageBorder(h) => h,
-            _ => panic!("kind_scratch mismatch: expected ImageBorder, got {:?}", self),
-        }
-    }
-    pub fn unwrap_image(&self) -> storage::Index<ImageScratch> {
-        match *self {
-            KindScratchHandle::Image(h) => h,
-            _ => panic!("kind_scratch mismatch: expected Image, got {:?}", self),
-        }
-    }
     pub fn unwrap_text_run(&self) -> storage::Index<TextRunScratch> {
         match *self {
             KindScratchHandle::TextRun(h) => h,
@@ -192,13 +198,6 @@ pub struct PrimitiveDrawHeader {
     /// BoxShadow, Rectangle/YuvImage).
     pub kind_scratch: KindScratchHandle,
 
-    /// Index into PrimitiveFrameScratch.segment_instances for prims
-    /// that opt into segmented brush rendering (Rectangle, YuvImage,
-    /// non-tiled Image). UNUSED for prims that don't segment, or for
-    /// the trivial single-segment case. Built fresh each frame in
-    /// build_segments_if_needed.
-    pub segment_instance_index: SegmentInstanceIndex,
-
     /// Per-frame compositing decision for Image / YuvImage primitives.
     /// Set during the visibility pass by tile-cache promotion logic;
     /// `Blit` for kinds that aren't candidates for compositor surfaces
@@ -222,7 +221,6 @@ impl PrimitiveDrawHeader {
             clip_chain: ClipChainInstance::empty(),
             clip_task_index: ClipTaskIndex::INVALID,
             kind_scratch: KindScratchHandle::None,
-            segment_instance_index: SegmentInstanceIndex::UNUSED,
             compositor_surface_kind: CompositorSurfaceKind::Blit,
             snapped_local_rect: LayoutRect::zero(),
         }
@@ -232,7 +230,6 @@ impl PrimitiveDrawHeader {
         self.state = DrawState::Culled;
         self.clip_task_index = ClipTaskIndex::INVALID;
         self.kind_scratch = KindScratchHandle::None;
-        self.segment_instance_index = SegmentInstanceIndex::UNUSED;
         self.compositor_surface_kind = CompositorSurfaceKind::Blit;
     }
 }
@@ -323,7 +320,7 @@ pub fn update_prim_visibility(
     let mut clip_snapper = snapper.clone();
 
     for cluster in &pic.prim_list.clusters {
-        profile_scope!("cluster");
+        tracy_rs::profile_scope!("cluster");
 
         // Each prim instance must have reset called each frame, to clear
         // indices into various scratch buffers. If this doesn't occur,

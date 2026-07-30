@@ -434,7 +434,18 @@ int FFmpegVideoDecoder<LIBAV_VER>::ChooseVulkanPixelFormatFromContext(
           (mVulkanDecoder.mDrmModifiers[0] == DRM_FORMAT_MOD_LINEAR) &&
           (mVulkanDecoder.mDrmModifiers.size() == 1);
     }
-    if (VulkanDirectDecodeExportEnabled() && !drmModsAreLinearOrEmpty) {
+    // Forced BL means ImageFormatProperties2 rejected YCbCr tiled modifiers, so
+    // the decode image cannot reliably use DRM-modifier tiling. Keep BL only
+    // for the copy-path export buffers; skip direct export (avoids GL import
+    // hangs and a useless LINEAR decode path that would double-copy).
+    if (VulkanDirectDecodeExportEnabled() &&
+        mVulkanDecoder.mForcedNvidiaBlockLinear) {
+      FFMPEGV_LOG(
+          "[VULKAN] Direct export disabled: forced NVIDIA BL after "
+          "ImageFormatProperties2 left only LINEAR");
+    }
+    if (VulkanDirectDecodeExportEnabled() &&
+        !mVulkanDecoder.mForcedNvidiaBlockLinear && !drmModsAreLinearOrEmpty) {
       AVVulkanFramesContext* hwfc = (AVVulkanFramesContext*)frames_ctx->hwctx;
       void* const originalCreatePnext = hwfc->create_pnext;
       int formatCount = 0;
@@ -614,6 +625,18 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitVulkanDecoder() {
     FFMPEG_LOG("Vulkan FFmpeg decoder disabled by pref");
     return NS_ERROR_NOT_AVAILABLE;
   }
+
+#    if LIBAVCODEC_VERSION_MAJOR == 60
+  // libavcodec 60 only supports the experimental VK_MESA_video_decode_av1,
+  // but RADV replaced it with stable VK_KHR_video_decode_av1 in Mesa 24.1.
+  // Skip Vulkan AV1 decoding so VA-API can take over.
+  if (mCodecID == AV_CODEC_ID_AV1) {
+    FFMPEG_LOG(
+        "Vulkan AV1 decode KHR extension is unavailable with libavcodec 60; "
+        "falling back");
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+#    endif
 
   FFMPEG_LOG("Initialising Vulkan FFmpeg decoder");
 

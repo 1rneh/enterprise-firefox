@@ -402,9 +402,7 @@ void MediaFormatReader::DecoderFactory::DoCreateDecoder(Data& aData) {
            CreateDecoderParams::UseNullDecoder(ownerData.mIsNullDecode),
            TrackType::kVideoTrack, std::move(onWaitingForKeyEvent),
            CreateDecoderParams::VideoFrameRate(
-               ownerData.mMeanRate.empty()
-                   ? 0.0f
-                   : static_cast<float>(ownerData.mMeanRate.mean())),
+               static_cast<float>(ownerData.mFrameRateEstimator.Rate())),
            OptionSet(ownerData.mHardwareDecodingDisabled
                          ? Option::HardwareDecoderNotAllowed
                          : Option::Default,
@@ -1634,6 +1632,9 @@ void MediaFormatReader::OnVideoDemuxCompleted(
   mVideo.mDemuxRequest.Complete();
   MOZ_ASSERT(mVideo.mQueuedSamples.IsEmpty());
   mVideo.mQueuedSamples = aSamples->GetMovableSamples();
+  for (const auto& sample : mVideo.mQueuedSamples) {
+    mVideo.mFrameRateEstimator.Observe(*sample);
+  }
   ScheduleUpdate(TrackInfo::kVideoTrack);
 }
 
@@ -2227,8 +2228,6 @@ void MediaFormatReader::HandleDemuxedSamples(
       mWorkingInfoChanged = true;
     }
 
-    decoder.mMeanRate.reset();
-
     if (sample->mKeyframe) {
       if (samples.Length()) {
         decoder.mQueuedSamples = std::move(samples);
@@ -2242,12 +2241,6 @@ void MediaFormatReader::HandleDemuxedSamples(
       InternalSeek(aTrack, seekTarget);
       return;
     }
-  }
-
-  // Calculate the average frame rate. The first frame will be accounted
-  // for twice.
-  if (sample->mDuration != media::TimeUnit::Zero()) {
-    decoder.mMeanRate.insert(1.0 / sample->mDuration.ToSeconds());
   }
 
   if (!decoder.mDecoder) {
@@ -3511,7 +3504,7 @@ void MediaFormatReader::GetDebugInfo(dom::MediaFormatReaderDebugInfo& aInfo) {
       videoInfo.mDisplay.width < 0 ? 0 : videoInfo.mDisplay.width;
   aInfo.mVideoHeight =
       videoInfo.mDisplay.height < 0 ? 0 : videoInfo.mDisplay.height;
-  aInfo.mVideoRate = mVideo.mMeanRate.empty() ? 0.0 : mVideo.mMeanRate.mean();
+  aInfo.mVideoRate = mVideo.mFrameRateEstimator.Rate();
   aInfo.mVideoHardwareAccelerated = VideoIsHardwareAccelerated();
   aInfo.mVideoNumSamplesOutputTotal = mVideo.mNumSamplesOutputTotal;
   aInfo.mVideoNumSamplesSkippedTotal = mVideo.mNumSamplesSkippedTotal;

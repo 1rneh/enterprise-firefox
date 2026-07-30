@@ -165,7 +165,7 @@ function makeMapKeyForResult(url, match) {
   return UrlbarUtils.tupleString(
     url,
     action?.type == "switchtab" &&
-      lazy.UrlbarProviderOpenTabs.isNonPrivateUserContextId(match.userContextId)
+      lazy.UrlbarShared.isNonPrivateUserContextId(match.userContextId)
       ? match.userContextId
       : undefined
   );
@@ -186,7 +186,7 @@ function makeKeyForMatch(match) {
   let key, prefix;
   let action = lazy.PlacesUtils.parseActionUrl(match.value);
   if (!action) {
-    [key, prefix] = UrlbarUtils.stripPrefixAndTrim(match.value, {
+    [key, prefix] = lazy.UrlbarShared.stripPrefixAndTrim(match.value, {
       stripHttp: true,
       stripHttps: true,
       stripWww: true,
@@ -211,7 +211,7 @@ function makeKeyForMatch(match) {
       ].join(",");
       break;
     default:
-      [key, prefix] = UrlbarUtils.stripPrefixAndTrim(
+      [key, prefix] = lazy.UrlbarShared.stripPrefixAndTrim(
         action.params.url || match.value,
         {
           stripHttp: true,
@@ -1377,11 +1377,10 @@ class Search {
       maxResults: this.#maxResults,
       switchTabsEnabled: this.hasBehavior("openpage"),
     };
-    params.userContextId =
-      lazy.UrlbarProviderOpenTabs.getUserContextIdForOpenPagesTable(
-        null,
-        this.#inPrivateWindow
-      );
+    params.userContextId = lazy.UrlbarShared.getUserContextIdForOpenPagesTable(
+      null,
+      this.#inPrivateWindow
+    );
 
     if (this.#filterOnHost) {
       params.host = this.#filterOnHost;
@@ -1405,11 +1404,10 @@ class Search {
         // We only want to search the tokens that we are left with - not the
         // original search string.
         searchString: this.#keywordFilteredSearchString,
-        userContextId:
-          lazy.UrlbarProviderOpenTabs.getUserContextIdForOpenPagesTable(
-            null,
-            this.#inPrivateWindow
-          ),
+        userContextId: lazy.UrlbarShared.getUserContextIdForOpenPagesTable(
+          null,
+          this.#inPrivateWindow
+        ),
         maxResults: this.#maxResults,
       },
     ];

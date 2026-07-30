@@ -41,7 +41,8 @@ use crate::intern::DataStore;
 use crate::internal_types::DebugOutput;
 use crate::internal_types::{FastHashMap, FrameId, FrameStamp, RenderedDocument, ResultMsg};
 use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
-use crate::picture::{PictureScratchBuffer, SurfaceInfo, RasterConfig};
+use crate::picture::{PictureScratchBuffer, RasterConfig};
+use crate::surface::SurfaceInfo;
 use crate::tile_cache::{SliceId, TileCacheInstance, TileCacheParams};
 use crate::picture::PictureInstance;
 use crate::prim_store::{PrimitiveScratchBuffer, PrimitiveInstance};
@@ -134,6 +135,16 @@ macro_rules! declare_data_stores {
                         updates.$name,
                         profile,
                     );
+                )+
+            }
+
+            /// Fill in any data store slots that are missing relative to the
+            /// interners. Used when loading a capture, where the serialized
+            /// data store can lag the interners by a scene build.
+            #[cfg(feature = "replay")]
+            fn reconcile_from_interners(&mut self, interners: &Interners) {
+                $(
+                    interners.$name.reconcile_datastore(&mut self.$name);
                 )+
             }
         }
@@ -456,7 +467,7 @@ impl Document {
                 tx.send(self.shared_hit_tester.clone()).unwrap();
             }
             FrameMsg::SetScrollOffsets(id, offset) => {
-                profile_scope!("SetScrollOffset");
+                tracy_rs::profile_scope!("SetScrollOffset");
 
                 if self.set_scroll_offsets(id, offset) {
                     self.hit_tester_is_valid = false;
@@ -1032,7 +1043,7 @@ impl RenderBackend {
                         }
                         status = RenderBackendStatus::ShutDown(sender);
                         break;
-                   }
+                    }
                     _ => {},
                 }
             }
@@ -1284,6 +1295,46 @@ impl RenderBackend {
                 debug_assert!(old.is_none());
                 self.document_to_window.insert(document_id, backend_id);
             }
+            ApiMsg::TrimTransientResources {
+                backend_id,
+                trim_upload_buffers,
+            } => {
+                // Render targets in this pool are inactive and can be freed
+                // without clearing persistent caches. The last published frame
+                // may still reference them, so the renderer discards that frame
+                // before applying the resulting texture frees.
+                let document_ids = self.documents_for_window(backend_id);
+                for document_id in document_ids {
+                    if let Some(doc) = self.documents.get_mut(&document_id) {
+                        // The built frame graph can reference the cleared render
+                        // targets. Ensure the first GenerateFrame after Resume
+                        // builds and publishes a replacement instead of only
+                        // requesting a composite of the now-discarded frame.
+                        doc.frame_is_valid = false;
+                    }
+                }
+
+                if let Some(win) = self.windows.get_mut(&backend_id) {
+                    win.resource_cache.clear(ClearCache::RENDER_TARGETS);
+
+                    // A paused renderer may not produce another frame, so
+                    // forward the texture frees and wake it immediately.
+                    //
+                    // RenderBackend is the sole ResultMsg producer for this
+                    // window's result channel. This update is therefore a FIFO
+                    // barrier before any replacement PublishDocument generated
+                    // after Resume.
+                    let resource_updates = win.resource_cache.pending_updates();
+                    let msg = ResultMsg::UpdateResources {
+                        resource_updates,
+                        memory_pressure: false,
+                        discard_active_documents: true,
+                        trim_upload_buffers,
+                    };
+                    win.result_tx.send(msg).unwrap();
+                    win.notifier.wake_up(false);
+                }
+            }
             ApiMsg::MemoryPressure => {
                 // This is drastic. It will basically flush everything out of the cache,
                 // and the next frame will have to rebuild all of its resources.
@@ -1308,6 +1359,8 @@ impl RenderBackend {
                     let msg = ResultMsg::UpdateResources {
                         resource_updates,
                         memory_pressure: true,
+                        discard_active_documents: false,
+                        trim_upload_buffers: false,
                     };
                     win.result_tx.send(msg).unwrap();
                     win.notifier.wake_up(false);
@@ -1378,7 +1431,9 @@ impl RenderBackend {
                         // glyphs/images re-rasterize and re-upload, and force a full
                         // invalidated rebuild so all picture cache tiles re-rasterize.
                         // Then forward the command so the renderer captures that frame.
-                        self.resource_cache.clear(ClearCache::all());
+                        for win in self.windows.values_mut() {
+                            win.resource_cache.clear(ClearCache::all());
+                        }
 
                         let documents: Vec<DocumentId> = self.documents.keys()
                             .cloned()
@@ -1592,7 +1647,7 @@ impl RenderBackend {
         msg: SceneBuilderResult,
         frame_counter: &mut u32,
     ) -> RenderBackendStatus {
-        profile_scope!("sb_msg");
+        tracy_rs::profile_scope!("sb_msg");
 
         match msg {
             SceneBuilderResult::Transactions(txns, result_tx) => {
@@ -1894,7 +1949,7 @@ impl RenderBackend {
             if start_time.is_some() {
               Telemetry::record_time_to_frame_build(Duration::from_nanos(zeitstempel::now() - start_time.unwrap()));
             }
-            profile_scope!("generate frame");
+            tracy_rs::profile_scope!("generate frame");
 
             *frame_counter += 1;
 
@@ -2226,6 +2281,8 @@ impl RenderBackend {
             let msg_update_resources = ResultMsg::UpdateResources {
                 resource_updates: win.resource_cache.pending_updates(),
                 memory_pressure: false,
+                discard_active_documents: false,
+                trim_upload_buffers: false,
             };
             win.result_tx.send(msg_update_resources).unwrap();
             // Save the texture/glyph/image caches.
@@ -2339,8 +2396,15 @@ impl RenderBackend {
                 .expect(&format!("Unable to open {}.ron", interners_name));
 
             let data_stores_name = format!("data-stores-{}-{}", id.namespace_id.0, id.id);
-            let data_stores = config.deserialize_for_frame::<DataStores, _>(&data_stores_name)
+            let mut data_stores = config.deserialize_for_frame::<DataStores, _>(&data_stores_name)
                 .expect(&format!("Unable to open {}.ron", data_stores_name));
+
+            // This is a band-aid to work around the fact that there isn't a
+            // proper synchronization between the serialization of the frame
+            // and the scene, which can cause the data store snapshot to lag
+            // the interners by one or even several scene builds, leaving
+            // slots for last-frame interned items empty.
+            data_stores.reconcile_from_interners(&interners);
 
             let properties_name = format!("properties-{}-{}", id.namespace_id.0, id.id);
             let properties = config.deserialize_for_frame::<SceneProperties, _>(&properties_name)

@@ -4,9 +4,14 @@
 
 package org.mozilla.fenix.ui.efficiency.tests
 
+import mozilla.components.support.ktx.util.PromptAbuserDetector
+import org.junit.After
+import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
+import org.mozilla.fenix.helpers.Constants
+import org.mozilla.fenix.helpers.Constants.PackageName.PRINT_SPOOLER
 import org.mozilla.fenix.helpers.MockBrowserDataHelper
 import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestAssetHelper.firstForeignWebPageAsset
@@ -18,6 +23,7 @@ import org.mozilla.fenix.ui.efficiency.selectors.BookmarksSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.BookmarksSelectors.DELETE_BOOKMARK_BUTTON
 import org.mozilla.fenix.ui.efficiency.selectors.BrowserPageSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.CollectionsSelectors
+import org.mozilla.fenix.ui.efficiency.selectors.DownloadsSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.HistorySelectors.NAVIGATE_BACK_BUTTON
 import org.mozilla.fenix.ui.efficiency.selectors.HomeSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors
@@ -28,12 +34,38 @@ import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.DESKTOP_SITE_
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.DESKTOP_SITE_ON
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.EDIT_BOOKMARK_BUTTON
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.FORWARD_BUTTON
+import org.mozilla.fenix.ui.efficiency.selectors.TabHistorySelectors
 
 class MainMenuTest : BaseTest(
     isPageLoadTranslationsPromptEnabled = false,
 ) {
 
     private val mockWebServer get() = fenixTestRule.mockWebServer
+
+    @Before
+    fun disablePromptAbuserDetector() {
+        PromptAbuserDetector.validationsEnabled = false
+    }
+
+    @After
+    fun restorePromptAbuserDetector() {
+        PromptAbuserDetector.validationsEnabled = true
+    }
+
+    // Converted from legacy MainMenuTest.verifyTheBookmarksMainMenuItemTest
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080137
+    @SmokeTest
+    @Test
+    fun verifyTheBookmarksMainMenuItemTest() {
+        val testPage = mockWebServer.getGenericAsset(1)
+        on.browserPage.navigateToPage(testPage.url.toString())
+        on.mainMenu.navigateToPage()
+            .mozClick(MainMenuSelectors.BOOKMARKS_BUTTON)
+        // Reaching the Bookmarks view is the verification that the menu item opened it.
+        on.bookmarks.navigateToPage()
+        // Parity gap: legacy also returned to the browser and re-verified page content; the nav graph has
+        // no stateful BookmarksPage -> BrowserPage return edge yet.
+    }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080168
     @SmokeTest
@@ -301,7 +333,9 @@ class MainMenuTest : BaseTest(
         on.home.navigateToPage()
             .mozVerify(HomeSelectors.TOP_SITE_ITEM(testPage.title))
             .mozClick(HomeSelectors.TOP_SITE_ITEM(testPage.title))
-        on.browserPage.navigateToPage()
+        on.browserPage
+            .mozVerify(BrowserPageSelectors.ENGINE_VIEW)
+            .navigateToPage()
         on.mainMenu.navigateToPage()
             .mozClick(MainMenuSelectors.MORE_BUTTON)
             .mozClick(MainMenuSelectors.REMOVE_FROM_SHORTCUTS_BUTTON)
@@ -326,5 +360,98 @@ class MainMenuTest : BaseTest(
             .mozClickIfPresent(AddToHomeScreenSelectors.HOME_SCREEN_SHORTCUT(testPage.title))
         on.browserPage.navigateToPage()
             .verifyPageContent(testPage.content)
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080118
+    @SmokeTest
+    @Test
+    fun verifyTheSaveAsPDFSubMenuOptionTest() {
+        val testPage = mockWebServer.getGenericAsset(1)
+
+        on.browserPage.navigateToPage(testPage.url.toString())
+        on.mainMenu.navigateToPage()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozClick(MainMenuSelectors.SAVE_AS_PDF_BUTTON)
+        on.downloads
+            .mozVerifyElementsByGroup("downloadDialog")
+            .mozClick(DownloadsSelectors.DOWNLOAD_DIALOG_CONFIRM_BUTTON)
+            .mozVerify(DownloadsSelectors.DOWNLOAD_COMPLETE_SNACKBAR, timeout = 15_000)
+            .mozClick(DownloadsSelectors.DOWNLOAD_SNACK_BAR_OPEN_BUTTON)
+            .mozVerifyFileOpensInExternalApp(Constants.PackageName.GOOGLE_DOCS)
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080128
+    @SmokeTest
+    @Test
+    fun verifyTheShareButtonTest() {
+        val testPage = mockWebServer.getGenericAsset(1)
+
+        on.browserPage.navigateToPage(testPage.url.toString())
+        on.mainMenu.navigateToPage()
+            .mozClick(MainMenuSelectors.SHARE_BUTTON)
+        on.shareOverlay.mozVerifyElementsByGroup("shareTabLayout")
+        on.shareOverlay.verifySharingWithSelectedApp(
+            appName = Constants.GMAIL_APP_NAME,
+            appPackageName = Constants.PackageName.GMAIL_APP,
+            content = testPage.url.toString(),
+            subject = testPage.title,
+        )
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080119
+    @SmokeTest
+    @Test
+    fun verifyThePrintSubMenuOptionTest() {
+        val defaultWebPage = mockWebServer.getGenericAsset(1)
+
+        on.browserPage.navigateToPage(defaultWebPage.url.toString())
+        on.mainMenu.navigateToPage()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozClick(MainMenuSelectors.PRINT_BUTTON)
+            .mozVerifyNativeAppOpens(PRINT_SPOOLER)
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4245654
+    @SmokeTest
+    @Test
+    fun verifyTheMainMenuBackButtonLongPressTest() {
+        val firstWebPage = mockWebServer.getGenericAsset(1)
+        val nextWebPage = mockWebServer.getGenericAsset(2)
+
+        on.browserPage
+            .navigateToPage(firstWebPage.url.toString())
+            .navigateToPage(nextWebPage.url.toString(), forceNavigation = true)
+
+        on.mainMenu.navigateToPage()
+            .mozLongClick(MainMenuSelectors.BACK_BUTTON)
+
+        on.tabHistory
+            .mozVerify(TabHistorySelectors.TAB_HISTORY_LIST)
+            .mozVerify(TabHistorySelectors.TAB_HISTORY_ITEM(nextWebPage.url.toString()))
+            .mozVerify(TabHistorySelectors.TAB_HISTORY_ITEM(firstWebPage.url.toString()))
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4245662
+    @SmokeTest
+    @Test
+    fun verifyTheMainMenuForwardButtonLongPressTest() {
+        val firstWebPage = mockWebServer.getGenericAsset(1)
+        val nextWebPage = mockWebServer.getGenericAsset(2)
+
+        on.browserPage
+            .navigateToPage(firstWebPage.url.toString())
+            .navigateToPage(nextWebPage.url.toString(), forceNavigation = true)
+
+        on.mainMenu.navigateToPage()
+            .mozClick(MainMenuSelectors.BACK_BUTTON)
+
+        on.browserPage.navigateToPage()
+
+        on.mainMenu.navigateToPage()
+            .mozLongClick(MainMenuSelectors.FORWARD_BUTTON)
+        on.tabHistory
+            .mozVerify(TabHistorySelectors.TAB_HISTORY_LIST)
+            .mozVerify(TabHistorySelectors.TAB_HISTORY_ITEM(nextWebPage.url.toString()))
+            .mozVerify(TabHistorySelectors.TAB_HISTORY_ITEM(firstWebPage.url.toString()))
     }
 }

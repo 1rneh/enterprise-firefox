@@ -19,6 +19,8 @@ let internalContentAnalysisService = undefined;
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  ContentAnalysisTelemetry:
+    "moz-src:///browser/components/contentanalysis/content/ContentAnalysisTelemetry.sys.mjs",
   PanelMultiView:
     "moz-src:///browser/components/customizableui/PanelMultiView.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -104,6 +106,14 @@ export const ContentAnalysis = {
   requestTokenToRequestInfo: new Map(),
 
   /**
+   * Whether we are resolving warn dialogs because the application is quitting,
+   * in which case the resolutions aren't choices the user made.
+   *
+   * @type {boolean}
+   */
+  _isRespondingToWarnDialogsForQuit: false,
+
+  /**
    * @type {Set<string>}
    */
   warnDialogRequestTokens: new Set(),
@@ -183,6 +193,7 @@ export const ContentAnalysis = {
     if (this.isInitialized) {
       this.isInitialized = false;
       this.requestTokenToRequestInfo.clear();
+      lazy.ContentAnalysisTelemetry.reset();
       this.userActionToBusyDialogMap.clear();
       this.uninitializeObservers();
     }
@@ -194,6 +205,7 @@ export const ContentAnalysis = {
   initializeObservers() {
     Services.obs.addObserver(this, "dlp-request-made");
     Services.obs.addObserver(this, "dlp-response");
+    Services.obs.addObserver(this, "dlp-warn-resolved");
     Services.obs.addObserver(this, "quit-application");
     Services.obs.addObserver(this, "quit-application-granted");
     Services.obs.addObserver(this, "quit-application-requested");
@@ -205,13 +217,14 @@ export const ContentAnalysis = {
   uninitializeObservers() {
     Services.obs.removeObserver(this, "dlp-request-made");
     Services.obs.removeObserver(this, "dlp-response");
+    Services.obs.removeObserver(this, "dlp-warn-resolved");
     Services.obs.removeObserver(this, "quit-application");
     Services.obs.removeObserver(this, "quit-application-granted");
     Services.obs.removeObserver(this, "quit-application-requested");
   },
 
   // nsIObserver
-  async observe(aSubj, aTopic, _aData) {
+  async observe(aSubj, aTopic, aData) {
     switch (aTopic) {
       case "quit-application-requested": {
         if (aSubj.data) {
@@ -277,11 +290,18 @@ export const ContentAnalysis = {
         // Clear this first so the handler showing the dialog will know not
         // to call respondToWarnDialog() again.
         this.warnDialogRequestTokens = new Set();
-        for (let warnDialogRequestToken of requestTokensToCancel) {
-          this.contentAnalysis.respondToWarnDialog(
-            warnDialogRequestToken,
-            false
-          );
+        // Tells ContentAnalysisTelemetry.recordWarnResolution() that these
+        // resolutions are not choices the user made.
+        this._isRespondingToWarnDialogsForQuit = true;
+        try {
+          for (let warnDialogRequestToken of requestTokensToCancel) {
+            this.contentAnalysis.respondToWarnDialog(
+              warnDialogRequestToken,
+              false
+            );
+          }
+        } finally {
+          this._isRespondingToWarnDialogsForQuit = false;
         }
         break;
       }
@@ -316,6 +336,9 @@ export const ContentAnalysis = {
           this.requestTokenToRequestInfo.set(request.requestToken, {
             browsingContext,
             resourceNameOrOperationType,
+            url: request.url?.spec ?? "",
+            analysisType: request.analysisType,
+            reason: request.reason,
           });
           this._queueSlowCAMessage(
             request,
@@ -334,9 +357,10 @@ export const ContentAnalysis = {
           );
         }
 
-        let windowAndResourceNameOrOperationType =
-          this.requestTokenToRequestInfo.get(response.requestToken);
-        if (!windowAndResourceNameOrOperationType) {
+        let requestInfo = this.requestTokenToRequestInfo.get(
+          response.requestToken
+        );
+        if (!requestInfo) {
           // We may get multiple responses, for example, if we are blocked or
           // canceled after receiving our verdict because we were part of a
           // multipart transaction.  Just ignore that.
@@ -347,9 +371,10 @@ export const ContentAnalysis = {
         }
         this.requestTokenToRequestInfo.delete(response.requestToken);
         this._removeSlowCAMessage(response.userActionId, response.requestToken);
+        lazy.ContentAnalysisTelemetry.recordVerdict(requestInfo, response);
         if (
-          windowAndResourceNameOrOperationType.resourceNameOrOperationType
-            ?.operationType === Ci.nsIContentAnalysisRequest.eDownload
+          requestInfo.resourceNameOrOperationType?.operationType ===
+          Ci.nsIContentAnalysisRequest.eDownload
         ) {
           // Don't show warn/block/error dialogs for downloads; they're shown
           // inside the downloads panel.
@@ -360,8 +385,8 @@ export const ContentAnalysis = {
         // Don't show dialog if this is a cached response
         if (!response?.isCachedResponse) {
           await this._showCAResult(
-            windowAndResourceNameOrOperationType.resourceNameOrOperationType,
-            windowAndResourceNameOrOperationType.browsingContext,
+            requestInfo.resourceNameOrOperationType,
+            requestInfo.browsingContext,
             response.requestToken,
             response.userActionId,
             responseResult,
@@ -369,6 +394,20 @@ export const ContentAnalysis = {
             response.cancelError
           );
         }
+        break;
+      }
+      case "dlp-warn-resolved": {
+        const response = aSubj.QueryInterface(Ci.nsIContentAnalysisResponse);
+        if (!response) {
+          throw new Error(
+            "Got dlp-warn-resolved message but no response object was passed"
+          );
+        }
+        lazy.ContentAnalysisTelemetry.recordWarnResolution(
+          response,
+          aData,
+          this._isRespondingToWarnDialogsForQuit
+        );
         break;
       }
     }

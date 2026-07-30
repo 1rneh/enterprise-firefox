@@ -185,6 +185,16 @@ let JSWINDOWACTORS = {
 
     child: {
       esModuleURI: "resource://gre/actors/AutoCompleteChild.sys.mjs",
+      // On GeckoView the autocomplete popup is a delegated native prompt; we
+      // listen for pagehide (which also fires for bfcache) to tear it down so
+      // it can't outlive its document. Other platforms close the popup via
+      // nsFormFillController, so the listener is GeckoView-only to avoid
+      // instantiating the actor on every navigation elsewhere.
+      ...(AppConstants.MOZ_GECKOVIEW && {
+        events: {
+          pagehide: { mozSystemGroup: true },
+        },
+      }),
     },
 
     allFrames: true,
@@ -631,21 +641,6 @@ let JSWINDOWACTORS = {
     safeForUntrustedWebProcess: true,
   },
 
-  WebChannel: {
-    parent: {
-      esModuleURI: "resource://gre/actors/WebChannelParent.sys.mjs",
-    },
-    child: {
-      esModuleURI: "resource://gre/actors/WebChannelChild.sys.mjs",
-      events: {
-        WebChannelMessageToChrome: { capture: true, wantUntrusted: true },
-      },
-    },
-
-    allFrames: true,
-    safeForUntrustedWebProcess: true,
-  },
-
   Thumbnails: {
     child: {
       esModuleURI: "resource://gre/actors/ThumbnailsChild.sys.mjs",
@@ -885,6 +880,22 @@ if (AppConstants.platform != "android") {
     },
 
     includeChrome: true,
+    allFrames: true,
+    safeForUntrustedWebProcess: true,
+  };
+
+  // GeckoView implements WebChannel communication at the embedder-level.
+  JSWINDOWACTORS.WebChannel = {
+    parent: {
+      esModuleURI: "resource://gre/actors/WebChannelParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "resource://gre/actors/WebChannelChild.sys.mjs",
+      events: {
+        WebChannelMessageToChrome: { capture: true, wantUntrusted: true },
+      },
+    },
+
     allFrames: true,
     safeForUntrustedWebProcess: true,
   };

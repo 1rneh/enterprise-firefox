@@ -15,4 +15,6 @@ doc = false
 harness = false
 
 [dependencies]
+nsstring = { path = "../../xpcom/rust/nsstring/" }
 skrifa = { version = "0.44.0" }
+thin-vec = { version = "0.2.1" }

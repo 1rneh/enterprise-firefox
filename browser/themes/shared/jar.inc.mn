@@ -261,7 +261,6 @@
   skin/classic/browser/sidebar-expanded-right.svg     (../shared/icons/sidebar-expanded-right.svg)
   skin/classic/browser/smart-window.svg               (../shared/icons/smart-window.svg)
   skin/classic/browser/smart-window-dot.svg           (../shared/icons/smart-window-dot.svg)
-  skin/classic/browser/smart-window-filled.svg        (../shared/icons/smart-window-filled.svg)
   skin/classic/browser/smart-window-mono.svg          (../shared/icons/smart-window-mono.svg)
   skin/classic/browser/smart-window-simplified.svg    (../shared/icons/smart-window-simplified.svg)
   skin/classic/browser/sort.svg                       (../shared/icons/sort.svg)
@@ -291,7 +290,9 @@
   skin/classic/browser/sidebar/foxy.svg                        (../shared/sidebar/foxy.svg)
   skin/classic/browser/sidebar/gmail.svg                       (../shared/sidebar/gmail.svg)
   skin/classic/browser/sidebar/slack.svg                       (../shared/sidebar/slack.svg)
-
+  skin/classic/browser/sidebar/kit-page-history.svg           (../shared/sidebar/kit-page-history.svg)
+  skin/classic/browser/sidebar/kit-tabs-devices.svg           (../shared/sidebar/kit-tabs-devices.svg)
+  skin/classic/browser/sidebar/kit-tabs-devices-error.svg     (../shared/sidebar/kit-tabs-devices-error.svg)
   skin/classic/browser/tabbrowser/content-area.css             (../shared/tabbrowser/content-area.css)
   skin/classic/browser/tabbrowser/crashed.svg                  (../shared/tabbrowser/crashed.svg)
   skin/classic/browser/tabbrowser/ctrlTab.css                  (../shared/tabbrowser/ctrlTab.css)

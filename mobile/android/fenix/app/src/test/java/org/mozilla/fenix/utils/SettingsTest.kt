@@ -879,6 +879,45 @@ class SettingsTest {
     }
 
     @Test
+    fun `GIVEN a benchmark build WHEN onboarding is not forced THEN shouldShowOnboarding returns false`() {
+        val settings = Settings(appContext = testContext, isBenchmarkBuild = true)
+
+        assertFalse(
+            settings.shouldShowOnboarding(
+                featureEnabled = true,
+                hasUserBeenOnboarded = false,
+                forceOnboardingForBenchmark = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `GIVEN a benchmark build WHEN onboarding is forced THEN shouldShowOnboarding returns true`() {
+        val settings = Settings(appContext = testContext, isBenchmarkBuild = true)
+
+        assertTrue(
+            settings.shouldShowOnboarding(
+                featureEnabled = true,
+                hasUserBeenOnboarded = false,
+                forceOnboardingForBenchmark = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `GIVEN a benchmark build WHEN onboarding is forced and user is already onboarded THEN shouldShowOnboarding returns false`() {
+        val settings = Settings(appContext = testContext, isBenchmarkBuild = true)
+
+        assertFalse(
+            settings.shouldShowOnboarding(
+                featureEnabled = true,
+                hasUserBeenOnboarded = true,
+                forceOnboardingForBenchmark = true,
+            ),
+        )
+    }
+
+    @Test
     fun `GIVEN Https-only mode is disabled THEN the engine mode is HttpsOnlyMode#DISABLED`() {
         settings.shouldUseHttpsOnly = false
 
@@ -1065,7 +1104,7 @@ class SettingsTest {
         val settings = spyk(settings)
         every { settings.toolbarPosition } returns ToolbarPosition.TOP
 
-        assertEquals(64, settings.browserToolbarHeight)
+        assertEquals(64, settings.getBrowserToolbarHeight(testContext))
     }
 
     @Test
@@ -1074,7 +1113,7 @@ class SettingsTest {
         every { settings.toolbarPosition } returns ToolbarPosition.BOTTOM
         every { settings.shouldUseExpandedToolbar } returns false
 
-        assertEquals(64, settings.browserToolbarHeight)
+        assertEquals(64, settings.getBrowserToolbarHeight(testContext))
     }
 
     @Test fun `GIVEN bottom composable toolbar is enabled and navigation bar is enabled WHEN querying the toolbar height THEN get the height of the composable toolbar`() {
@@ -1086,7 +1125,7 @@ class SettingsTest {
         every { settings.toolbarPosition } returns ToolbarPosition.BOTTOM
         every { settings.shouldUseExpandedToolbar } returns true
 
-        assertEquals(56, settings.browserToolbarHeight)
+        assertEquals(56, settings.getBrowserToolbarHeight(testContext))
     }
 
     @Test
@@ -1100,7 +1139,7 @@ class SettingsTest {
         every { settings.toolbarPosition } returns ToolbarPosition.BOTTOM
         every { settings.shouldUseExpandedToolbar } returns true
 
-        assertEquals(64, settings.browserToolbarHeight)
+        assertEquals(64, settings.getBrowserToolbarHeight(testContext))
     }
 
     @Test
@@ -1114,7 +1153,7 @@ class SettingsTest {
         every { settings.toolbarPosition } returns ToolbarPosition.BOTTOM
         every { settings.shouldUseExpandedToolbar } returns true
 
-        assertEquals(64, settings.browserToolbarHeight)
+        assertEquals(64, settings.getBrowserToolbarHeight(testContext))
     }
 
     @Test
@@ -1436,5 +1475,15 @@ class SettingsTest {
 
         val result = settings.deleteDownloadBehavior
         assertEquals(Settings.DeleteDownloadBehavior.REMOVE_FROM_HISTORY, result)
+    }
+
+    @Test
+    fun `WHEN recordLastBrowseActivity is called THEN it stores the injected current time`() {
+        val fixedTime = 1234L
+        val settings = Settings(testContext, currentTimeMillis = { fixedTime })
+
+        settings.recordLastBrowseActivity()
+
+        assertEquals(fixedTime, settings.lastBrowseActivity)
     }
 }

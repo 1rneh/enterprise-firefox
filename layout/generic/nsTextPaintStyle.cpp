@@ -6,7 +6,6 @@
 
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/RelativeLuminanceUtils.h"
-#include "mozilla/dom/Document.h"
 #include "nsCSSColorUtils.h"
 #include "nsCSSRendering.h"
 #include "nsFrameSelection.h"
@@ -460,12 +459,10 @@ bool nsTextPaintStyle::InitSelectionColorsAndShadow() {
   if (RefPtr<ComputedStyle> style =
           mFrame->ComputeSelectionStyle(selectionStatus)) {
     mSelectionPseudoStyle = std::move(style);
-
-    if (nscolor bgColor = mSelectionPseudoStyle->GetVisitedDependentColor(
-            &nsStyleBackground::mBackgroundColor);
-        mSelectionPseudoStyle->HasAuthorSpecifiedTextColor() ||
-        NS_GET_A(bgColor) > 0) {
-      mSelectionBGColor = bgColor;
+    if (mSelectionPseudoStyle->HasAuthorSpecifiedTextColor() ||
+        mSelectionPseudoStyle->HasAuthorSpecifiedBorderOrBackground()) {
+      mSelectionBGColor = mSelectionPseudoStyle->GetVisitedDependentColor(
+          &nsStyleBackground::mBackgroundColor);
       mSelectionTextColor =
           mSelectionPseudoStyle->GetVisitedDependentColor(&nsStyleText::mColor);
       return true;

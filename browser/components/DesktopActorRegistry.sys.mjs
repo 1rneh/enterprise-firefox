@@ -249,6 +249,7 @@ let JSWINDOWACTORS = {
         "AIChatContent:RequestAssets": { wantUntrusted: true },
         "AIChatContent:HistoryGridRender": { wantUntrusted: true },
         "AIChatContent:HistoryGridItemClick": { wantUntrusted: true },
+        "AIChatContent:ClientError": { wantUntrusted: true },
       },
     },
     allFrames: true,
@@ -287,6 +288,7 @@ let JSWINDOWACTORS = {
         "SmartWindowTasks:RequestDeleteMonitor": { wantUntrusted: true },
         "SmartWindowTasks:RequestUpdateMonitor": { wantUntrusted: true },
         "SmartWindowTasks:RequestRunMonitor": { wantUntrusted: true },
+        "SmartWindowTasks:RequestPauseMonitor": { wantUntrusted: true },
         "SmartWindowTasks:RequestConstants": { wantUntrusted: true },
       },
     },
@@ -748,6 +750,29 @@ let JSWINDOWACTORS = {
       },
     },
     matches: ["about:editprofile", "about:deleteprofile", "about:newprofile"],
+    remoteTypes: ["privilegedabout"],
+  },
+
+  ThemePicker: {
+    parent: {
+      esModuleURI: "resource:///actors/ThemePickerParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "resource:///actors/ThemePickerChild.sys.mjs",
+      events: {
+        ThemePickerGetInitialState: { wantUntrusted: true },
+        ThemePickerUpdateTheme: { wantUntrusted: true },
+        ThemePickerUpdateAppearance: { wantUntrusted: true },
+        ThemePickerUpdateNativeTheme: { wantUntrusted: true },
+      },
+    },
+    matches: [
+      "about:editprofile",
+      "about:newprofile",
+      "about:newtab",
+      "about:home",
+      "about:welcome",
+    ],
     remoteTypes: ["privilegedabout"],
   },
 

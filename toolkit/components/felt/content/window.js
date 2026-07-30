@@ -352,8 +352,23 @@ function setupMarionetteEnvironment() {
     },
   };
 
-  // Last notification required for marionette to work
-  Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
+  // Last notification required for marionette to work.
+  const observer = {
+    observe(_aSubject, _aTopic) {
+      Services.obs.removeObserver(observer, "final-ui-startup");
+      Services.tm.dispatchToMainThread(() =>
+        Services.obs.notifyObservers(
+          window,
+          "browser-idle-startup-tasks-finished"
+        )
+      );
+    },
+  };
+  if (Services.startup.startingUp) {
+    Services.obs.addObserver(observer, "final-ui-startup");
+  } else {
+    Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
+  }
 }
 
 function setupContextMenu() {

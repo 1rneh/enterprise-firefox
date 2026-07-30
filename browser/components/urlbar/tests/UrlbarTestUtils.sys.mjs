@@ -13,6 +13,8 @@ import {
   UrlbarUtils,
 } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
 
+import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -33,7 +35,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarChildController:
     "chrome://browser/content/urlbar/UrlbarChildController.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -147,6 +148,27 @@ class UrlbarInputTestUtils {
       );
     }
     return context;
+  }
+
+  /**
+   * Waits until an `UrlbarPrefs` preference holds the given value, checking the
+   * current value first and otherwise observing subsequent changes, then
+   * records an assertion. Handy for prefs a provider updates parent-side, which
+   * land asynchronously over the actor message path.
+   *
+   * @param {string} pref
+   *   The preference name, relative to the `browser.urlbar.` branch.
+   * @param {number|string|boolean} value
+   *   The value to wait for.
+   * @param {string} message
+   *   The message for the assertion recorded once the value is reached.
+   */
+  async waitForPrefValue(pref, value, message) {
+    await lazy.TestUtils.waitForCondition(
+      () => lazy.UrlbarPrefs.get(pref) === value,
+      `Waiting for pref "${pref}" to become ${JSON.stringify(value)}`
+    );
+    this.Assert?.equal(lazy.UrlbarPrefs.get(pref), value, message);
   }
 
   /**
@@ -544,13 +566,13 @@ class UrlbarInputTestUtils {
    *
    * @param {ChromeWindow} win The window containing the urlbar.
    * @param {string} url The URL to match against the result's payload.
-   * @param {number} [type] The lazy.UrlbarShared.RESULT_TYPE to match.
+   * @param {number} [type] The UrlbarShared.RESULT_TYPE to match.
    *   Defaults to RESULT_TYPE.URL.
    */
   async pickResultAndWaitForLoad(
     win,
     url,
-    type = lazy.UrlbarShared.RESULT_TYPE.URL
+    type = UrlbarShared.RESULT_TYPE.URL
   ) {
     let resultCount = this.getResultCount(win);
     let targetIndex = -1;
@@ -634,7 +656,7 @@ class UrlbarInputTestUtils {
       title: element.getElementsByClassName("urlbarView-title")[0],
       url: element.getElementsByClassName("urlbarView-url")[0],
     };
-    if (details.type == lazy.UrlbarShared.RESULT_TYPE.SEARCH) {
+    if (details.type == UrlbarShared.RESULT_TYPE.SEARCH) {
       details.searchParams = {
         engine: result.payload.engine,
         keyword: result.payload.keyword,
@@ -643,9 +665,9 @@ class UrlbarInputTestUtils {
         inPrivateWindow: result.payload.inPrivateWindow,
         isPrivateEngine: result.payload.isPrivateEngine,
       };
-    } else if (details.type == lazy.UrlbarShared.RESULT_TYPE.KEYWORD) {
+    } else if (details.type == UrlbarShared.RESULT_TYPE.KEYWORD) {
       details.keyword = result.payload.keyword;
-    } else if (details.type == lazy.UrlbarShared.RESULT_TYPE.DYNAMIC) {
+    } else if (details.type == UrlbarShared.RESULT_TYPE.DYNAMIC) {
       details.dynamicType = result.payload.dynamicType;
     }
     return details;
@@ -724,6 +746,29 @@ class UrlbarInputTestUtils {
   }
 
   /**
+   * Returns a promise resolved when the picked result's provider has handled the
+   * engagement (its `onEngagement` hook ran). Set it up before triggering the
+   * engagement, since the notification can land as soon as the pick is processed
+   * (and a round-trip later on the actor message path). Lets a test await a
+   * provider's parent-side engagement side effect.
+   *
+   * @param {ChromeWindow} win The window containing the urlbar.
+   * @returns {Promise} Resolved when a provider's `onEngagement` has run.
+   */
+  promiseProviderEngagement(win) {
+    let { controller } = this.#urlbar(win);
+    let { promise, resolve } = Promise.withResolvers();
+    let listener = {
+      onProviderEngagement() {
+        controller.removeListener(listener);
+        resolve();
+      },
+    };
+    controller.addListener(listener);
+    return promise;
+  }
+
+  /**
    * Gets the number of results.
    * You must wait for the query to be complete before using this.
    *
@@ -750,8 +795,7 @@ class UrlbarInputTestUtils {
     return this.promiseSearchComplete(win).then(context => {
       // Look for search suggestions.
       let firstSearchSuggestionIndex = context.results.findIndex(
-        r =>
-          r.type == lazy.UrlbarShared.RESULT_TYPE.SEARCH && r.payload.suggestion
+        r => r.type == UrlbarShared.RESULT_TYPE.SEARCH && r.payload.suggestion
       );
       if (firstSearchSuggestionIndex == -1) {
         throw new Error("Cannot find a search suggestion");
@@ -1025,7 +1069,7 @@ class UrlbarInputTestUtils {
       () =>
         results.hasAttribute("actionmode") ==
         (this.#urlbar(window).searchMode?.source ==
-          lazy.UrlbarShared.RESULT_SOURCE.ACTIONS)
+          UrlbarShared.RESULT_SOURCE.ACTIONS)
     );
     this.Assert.ok(true, "Urlbar results have proper actionmode attribute");
 
@@ -1120,7 +1164,7 @@ class UrlbarInputTestUtils {
       if (expectedSearchMode.engineName) {
         expectedTextContent = expectedSearchMode.engineName;
       } else if (expectedSearchMode.source) {
-        let name = UrlbarUtils.getResultSourceName(expectedSearchMode.source);
+        let name = UrlbarShared.getResultSourceName(expectedSearchMode.source);
         this.Assert.ok(name, "Expected result source should have a name");
         expectedL10n = { id: `urlbar-search-mode-${name}`, args: null };
       } else {
@@ -1159,7 +1203,7 @@ class UrlbarInputTestUtils {
         args: { name: expectedSearchMode.engineName },
       };
     } else if (expectedSearchMode.source) {
-      let name = UrlbarUtils.getResultSourceName(expectedSearchMode.source);
+      let name = UrlbarShared.getResultSourceName(expectedSearchMode.source);
       expectedPlaceholderL10n = {
         id: `urlbar-placeholder-search-mode-other-${name}`,
         args: null,
@@ -1183,7 +1227,7 @@ class UrlbarInputTestUtils {
       let resultCount = this.getResultCount(window);
       for (let i = 0; i < resultCount; i++) {
         let result = await this.getDetailsOfResultAt(window, i);
-        if (result.source == lazy.UrlbarShared.RESULT_SOURCE.SEARCH) {
+        if (result.source == UrlbarShared.RESULT_SOURCE.SEARCH) {
           this.Assert.equal(
             expectedSearchMode.engineName,
             result.searchParams.engine,
@@ -1240,7 +1284,7 @@ class UrlbarInputTestUtils {
       searchMode = { engineName: buttons[0].engine.name };
       let engine = lazy.SearchService.getEngineByName(searchMode.engineName);
       if (engine.isGeneralPurposeEngine) {
-        searchMode.source = lazy.UrlbarShared.RESULT_SOURCE.SEARCH;
+        searchMode.source = UrlbarShared.RESULT_SOURCE.SEARCH;
       }
     }
 
@@ -1867,8 +1911,24 @@ class UrlbarInputTestUtils {
   }
 
   /**
-   * Stubs `UrlbarUtils._zonedDateTimeISO()`. Helpful for tests that use
-   * `UrlbarUtils.formatDate()`.
+   * Returns the `UrlbarShared` instance the urlbar UI in the given window uses.
+   * `UrlbarShared` is a content module, so each realm that imports it gets its
+   * own copy; the system-realm copy this module imports is not the one
+   * `UrlbarInput` and `UrlbarView` call into.
+   *
+   * @param {ChromeWindow} win
+   * @returns {typeof UrlbarShared}
+   */
+  getUrlbarShared(win) {
+    return win.ChromeUtils.importESModule(
+      "chrome://browser/content/urlbar/UrlbarShared.mjs",
+      { global: "current" }
+    ).UrlbarShared;
+  }
+
+  /**
+   * Stubs `UrlbarShared._zonedDateTimeISO()`. Helpful for tests that use
+   * `UrlbarShared.formatDate()`.
    *
    * Browser tests should call this again with a falsey value during cleanup to
    * remove the stub.
@@ -1889,12 +1949,12 @@ class UrlbarInputTestUtils {
 
     if (!this.#zonedDateTimeISOStub) {
       this.#zonedDateTimeISOStub = lazy.sinon.stub(
-        UrlbarUtils,
+        UrlbarShared,
         "_zonedDateTimeISO"
       );
     }
 
-    let global = Cu.getGlobalForObject(UrlbarUtils);
+    let global = Cu.getGlobalForObject(UrlbarShared);
     let zonedNow = global.Temporal.ZonedDateTime.from(nowStr);
     this.#zonedDateTimeISOStub.returns(zonedNow);
 
@@ -1902,8 +1962,8 @@ class UrlbarInputTestUtils {
   }
 
   /**
-   * Stubs `UrlbarUtils._firstDayOfWeek()`. Helpful for tests that use
-   * `UrlbarUtils.formatDate()`.
+   * Stubs `UrlbarShared._firstDayOfWeek()`. Helpful for tests that use
+   * `UrlbarShared.formatDate()`.
    *
    * Browser tests should call this again with a falsey value during cleanup to
    * remove the stub.
@@ -1921,7 +1981,7 @@ class UrlbarInputTestUtils {
 
     if (!this.#firstDayOfWeekStub) {
       this.#firstDayOfWeekStub = lazy.sinon.stub(
-        UrlbarUtils,
+        UrlbarShared,
         "_firstDayOfWeek"
       );
     }
@@ -2020,7 +2080,7 @@ class TestProvider extends UrlbarProvider {
    *   An array of UrlbarResult objects that will be the provider's results.
    * @param {string} [options.name]
    *   The provider's name.  Provider names should be unique.
-   * @param {Values<typeof lazy.UrlbarShared.PROVIDER_TYPE>} [options.type]
+   * @param {Values<typeof UrlbarShared.PROVIDER_TYPE>} [options.type]
    *   The provider's type.
    * @param {number} [options.priority]
    *   The provider's priority.  Built-in providers have a priority of zero.
@@ -2054,7 +2114,7 @@ class TestProvider extends UrlbarProvider {
   constructor({
     results = [],
     name = "TestProvider" + Services.uuid.generateUUID(),
-    type = lazy.UrlbarShared.PROVIDER_TYPE.PROFILE,
+    type = UrlbarShared.PROVIDER_TYPE.PROFILE,
     priority = 0,
     addTimeout = 0,
     getViewTemplate = null,
@@ -2085,7 +2145,7 @@ class TestProvider extends UrlbarProvider {
     // As this has been a common source of mistakes, auto-upgrade the provider
     // type to heuristic if any result is heuristic.
     if (!type && this.results?.some(r => r.heuristic)) {
-      this._type = lazy.UrlbarShared.PROVIDER_TYPE.HEURISTIC;
+      this._type = UrlbarShared.PROVIDER_TYPE.HEURISTIC;
     }
 
     if (getViewTemplate) {

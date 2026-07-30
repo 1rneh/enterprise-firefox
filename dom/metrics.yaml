@@ -300,8 +300,16 @@ perf:
         unit: integer
       domain:
         description: |
-          ETLD+1 domain of website visited.
+          ETLD+1 domain of website visited. For a small allowlist of
+          well-known public domains, the full hostname is recorded instead
+          (e.g. docs.google.com, mail.google.com, support.microsoft.com).
         type: string
+      is_first_daily_load:
+        description: |
+          Reports true if domain has not been visited yet today by this
+          user, and false for any other scenario (i.e. failure, no browsing
+          history, etc).
+        type: boolean
       channel:
         description: |
           Release channel of the build. Either "nightly" or "release" only.

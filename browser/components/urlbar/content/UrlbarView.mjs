@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 import { L10nCache } from "chrome://browser/content/urlbar/L10nCache.mjs";
 
@@ -10,16 +11,11 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ContextualIdentityService:
     "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
-  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
-  UrlbarProviderOpenTabs:
-    "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
-  UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarProviderTopSites:
     "moz-src:///browser/components/urlbar/UrlbarProviderTopSites.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarSearchOneOffs:
     "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs",
-  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
 });
 
@@ -498,7 +494,7 @@ export class UrlbarView {
       let skipAnnouncement =
         result?.providerName == "UrlbarProviderTabToSearch" &&
         !this.#announceTabToSearchOnSelection &&
-        lazy.UrlbarPrefs.get("accessibility.tabToSearch.announceResults");
+        UrlbarPrefs.get("accessibility.tabToSearch.announceResults");
       if (skipAnnouncement) {
         // Once we skip setting aria-activedescendant once, we should not skip
         // it again if the user returns to that result.
@@ -670,7 +666,7 @@ export class UrlbarView {
     // implicitly unselected.
     if (this.input.searchMode?.isPreview) {
       this.input.searchMode = null;
-      this.chromeWindow.gBrowser.userTypedValue = null;
+      this.input.userTypedValue = null;
     }
 
     this.resultMenu.hide?.();
@@ -1027,7 +1023,7 @@ export class UrlbarView {
     let secondResult = queryContext.results[1];
     if (
       secondResult?.providerName == "UrlbarProviderTabToSearch" &&
-      lazy.UrlbarPrefs.get("accessibility.tabToSearch.announceResults") &&
+      UrlbarPrefs.get("accessibility.tabToSearch.announceResults") &&
       this.#previousTabToSearchEngine != secondResult.payload.engine
     ) {
       let engine = secondResult.payload.engine;
@@ -1072,7 +1068,7 @@ export class UrlbarView {
       });
     }
 
-    if (lazy.UrlbarPrefs.get("unifiedSearchButton.always")) {
+    if (UrlbarPrefs.get("unifiedSearchButton.always")) {
       // Update the search mode switcher icon to reflect what pressing Enter will do after new results show.
       this.input.searchModeSwitcher?.updateSearchIcon();
     }
@@ -1249,7 +1245,7 @@ export class UrlbarView {
    */
   maybeRollupPopups() {
     if (
-      lazy.UrlbarPrefs.get("closeOtherPanelsOnOpen") &&
+      UrlbarPrefs.get("closeOtherPanelsOnOpen") &&
       !this.input.inOverflowPanel
     ) {
       this.window.docShell.treeOwner
@@ -1264,7 +1260,7 @@ export class UrlbarView {
       throw new Error("A heuristic result must be given");
     }
     return (
-      !lazy.UrlbarPrefs.get("experimental.hideHeuristic") ||
+      !UrlbarPrefs.get("experimental.hideHeuristic") ||
       result.type == UrlbarShared.RESULT_TYPE.TIP
     );
   }
@@ -1369,7 +1365,7 @@ export class UrlbarView {
     while (rowIndex < this.#rows.children.length && resultsToInsert.length) {
       let row = this.#rows.children[rowIndex];
       if (this.#isElementVisible(row)) {
-        visibleSpanCount += lazy.UrlbarUtils.getSpanForResult(row.result);
+        visibleSpanCount += UrlbarShared.getSpanForResult(row.result);
       }
 
       if (!seenMisplacedResult) {
@@ -1418,7 +1414,7 @@ export class UrlbarView {
       let row = this.#rows.children[rowIndex];
       row.setAttribute("stale", "true");
       if (this.#isElementVisible(row)) {
-        visibleSpanCount += lazy.UrlbarUtils.getSpanForResult(row.result);
+        visibleSpanCount += UrlbarShared.getSpanForResult(row.result);
       }
     }
 
@@ -1455,7 +1451,7 @@ export class UrlbarView {
       }
       let newSpanCount =
         visibleSpanCount +
-        lazy.UrlbarUtils.getSpanForResult(result, {
+        UrlbarShared.getSpanForResult(result, {
           includeHiddenExposures: true,
         });
       let canBeVisible =
@@ -1588,7 +1584,7 @@ export class UrlbarView {
   }
 
   #createExplanation(parentNode, item) {
-    if (!lazy.UrlbarPrefs.get("resultExplanationsFeatureGate")) {
+    if (!UrlbarPrefs.get("resultExplanationsFeatureGate")) {
       return;
     }
 
@@ -1628,9 +1624,9 @@ export class UrlbarView {
     }
 
     let bookmarked = item._elements.get("explanationBookmarked");
-    let hasBookmark = setURL && !!result.payload.bookmarkDateMs;
+    let hasBookmark = !!result.payload.bookmarkDateMs;
     if (hasBookmark) {
-      let { formattedDate } = lazy.UrlbarUtils.formatDate(
+      let { formattedDate } = UrlbarShared.formatDate(
         new Date(result.payload.bookmarkDateMs),
         { forceAbsoluteDate: true }
       );
@@ -1646,19 +1642,19 @@ export class UrlbarView {
     let lastVisited = item._elements.get("explanationLastVisited");
     let hasLastVisit = setURL && !!result.payload.lastVisit;
     if (hasLastVisit) {
-      let { formattedDate, dateFormatType } = lazy.UrlbarUtils.formatDate(
+      let { formattedDate, dateFormatType } = UrlbarShared.formatDate(
         new Date(result.payload.lastVisit)
       );
       let l10nId;
       switch (dateFormatType) {
-        case lazy.UrlbarUtils.DATE_FORMAT_TYPE.YESTERDAY_TODAY_TOMORROW:
+        case UrlbarShared.DATE_FORMAT_TYPE.YESTERDAY_TODAY_TOMORROW:
           l10nId = "urlbar-result-explanation-last-visited-relative-2";
           break;
-        case lazy.UrlbarUtils.DATE_FORMAT_TYPE.DAYS_WEEKS_MONTHS_AGO:
+        case UrlbarShared.DATE_FORMAT_TYPE.DAYS_WEEKS_MONTHS_AGO:
           l10nId =
             "urlbar-result-explanation-last-visited-days-weeks-months-ago";
           break;
-        case lazy.UrlbarUtils.DATE_FORMAT_TYPE.ABSOLUTE:
+        case UrlbarShared.DATE_FORMAT_TYPE.ABSOLUTE:
           l10nId = "urlbar-result-explanation-last-visited-absolute-2";
           break;
         default:
@@ -2067,7 +2063,7 @@ export class UrlbarView {
         l10n: result.showFeedbackMenu
           ? { id: "urlbar-result-menu-button-feedback" }
           : { id: "urlbar-result-menu-button" },
-        attributes: lazy.UrlbarPrefs.get("resultMenu.keyboardAccessible")
+        attributes: UrlbarPrefs.get("resultMenu.keyboardAccessible")
           ? null
           : {
               "keyboard-inaccessible": true,
@@ -2434,7 +2430,7 @@ export class UrlbarView {
           ...tags.map((tag, i) => {
             const element = this.#createElement("span");
             element.className = "urlbarView-tag";
-            lazy.UrlbarUtils.addTextContentWithHighlights(
+            UrlbarShared.addTextContentWithHighlights(
               element,
               tag,
               highlights[i]
@@ -2453,7 +2449,7 @@ export class UrlbarView {
     switch (result.type) {
       case UrlbarShared.RESULT_TYPE.TAB_SWITCH:
         // Hide chiclet when showing secondaryActions.
-        if (!lazy.UrlbarPrefs.get("secondaryActions.switchToTab")) {
+        if (!UrlbarPrefs.get("secondaryActions.switchToTab")) {
           actionSetter = () => {
             this.#setSwitchTabActionChiclet(result, action);
           };
@@ -2614,11 +2610,7 @@ export class UrlbarView {
         displayedUrl = "\u200e" + displayedUrl;
         highlights = this.#offsetHighlights(highlights, 1);
       }
-      lazy.UrlbarUtils.addTextContentWithHighlights(
-        url,
-        displayedUrl,
-        highlights
-      );
+      UrlbarShared.addTextContentWithHighlights(url, displayedUrl, highlights);
     } else {
       url.textContent = "";
       this.#updateOverflowTooltip(url, "");
@@ -2674,7 +2666,7 @@ export class UrlbarView {
       (result.type == UrlbarShared.RESULT_TYPE.SEARCH ||
         result.type == UrlbarShared.RESULT_TYPE.KEYWORD)
     ) {
-      return lazy.UrlbarShared.ICON.HISTORY;
+      return UrlbarShared.ICON.HISTORY;
     }
 
     if (iconUrlOverride) {
@@ -2695,17 +2687,17 @@ export class UrlbarView {
       result.type == UrlbarShared.RESULT_TYPE.SEARCH &&
       result.payload.trending
     ) {
-      return lazy.UrlbarShared.ICON.TRENDING;
+      return UrlbarShared.ICON.TRENDING;
     }
 
     if (
       result.type == UrlbarShared.RESULT_TYPE.SEARCH ||
       result.type == UrlbarShared.RESULT_TYPE.KEYWORD
     ) {
-      return lazy.UrlbarShared.ICON.SEARCH_GLASS;
+      return UrlbarShared.ICON.SEARCH_GLASS;
     }
 
-    return lazy.UrlbarShared.ICON.DEFAULT;
+    return UrlbarShared.ICON.DEFAULT;
   }
 
   #getBlobUrlForResult(result, blob) {
@@ -2783,7 +2775,7 @@ export class UrlbarView {
         this.#l10nCache.setElementL10n(node, update.l10n);
       } else if (update.hasOwnProperty("textContent")) {
         this.#l10nCache.removeElementL10n(node);
-        lazy.UrlbarUtils.addTextContentWithHighlights(
+        UrlbarShared.addTextContentWithHighlights(
           node,
           update.textContent,
           update.highlights
@@ -3057,7 +3049,7 @@ export class UrlbarView {
    *   returns an l10n object for the label's l10n string: `{ id, args }`
    */
   #rowLabel(row) {
-    if (!lazy.UrlbarPrefs.get("groupLabels.enabled")) {
+    if (!UrlbarPrefs.get("groupLabels.enabled")) {
       return null;
     }
 
@@ -3066,7 +3058,7 @@ export class UrlbarView {
     }
 
     let engineName =
-      row.result.payload.engine || lazy.SearchService.defaultEngine.name;
+      row.result.payload.engine || this.controller.engineStore.default?.name;
 
     if (row.result.payload.trending) {
       return {
@@ -3203,7 +3195,7 @@ export class UrlbarView {
     this.#removeStaleRowsTimer = this.window.setTimeout(() => {
       this.#removeStaleRowsTimer = null;
       this.#removeStaleRows();
-    }, lazy.UrlbarPrefs.get("removeStaleRowsTimeout"));
+    }, UrlbarPrefs.get("removeStaleRowsTimeout"));
   }
 
   #cancelRemoveStaleRowsTimer() {
@@ -3515,9 +3507,7 @@ export class UrlbarView {
         });
       } else if (
         result.providerName == "UrlbarProviderTokenAliasEngines" &&
-        lazy.UrlbarPrefs.getScotchBonnetPref(
-          "searchRestrictKeywords.featureGate"
-        )
+        UrlbarPrefs.getScotchBonnetPref("searchRestrictKeywords.featureGate")
       ) {
         this.#l10nCache.setElementL10n(titleNode, {
           id: "urlbar-result-search-with-engine-keywords",
@@ -3545,7 +3535,7 @@ export class UrlbarView {
     let titleAndHighlights = result.getDisplayableValueAndHighlights("title", {
       tokens: this.#queryContext.tokens,
     });
-    lazy.UrlbarUtils.addTextContentWithHighlights(
+    UrlbarShared.addTextContentWithHighlights(
       titleNode,
       titleAndHighlights.value,
       titleAndHighlights.highlights
@@ -3584,9 +3574,7 @@ export class UrlbarView {
 
     if (
       result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH &&
-      lazy.UrlbarProviderOpenTabs.isContainerUserContextId(
-        result.payload.userContextId
-      )
+      UrlbarShared.isContainerUserContextId(result.payload.userContextId)
     ) {
       if (!contextualIdentityAction) {
         contextualIdentityAction = actionNode.cloneNode(true);
@@ -3873,14 +3861,14 @@ export class UrlbarView {
       { id: "urlbar-result-action-move-tab-to-split-view" },
     ];
 
-    if (lazy.UrlbarPrefs.get("groupLabels.enabled")) {
+    if (UrlbarPrefs.get("groupLabels.enabled")) {
       idArgs.push({ id: "urlbar-group-firefox-suggest" });
       idArgs.push({ id: "urlbar-group-best-match" });
     }
 
     let suggestSponsoredEnabled =
-      lazy.UrlbarPrefs.get("quickSuggestEnabled") &&
-      lazy.UrlbarPrefs.get("suggest.quicksuggest.sponsored");
+      UrlbarPrefs.get("quickSuggestEnabled") &&
+      UrlbarPrefs.get("suggest.quicksuggest.sponsored");
     if (suggestSponsoredEnabled) {
       idArgs.push({ id: "urlbar-result-action-sponsored" });
     }
@@ -3905,23 +3893,13 @@ export class UrlbarView {
     // ongoing. Generally there's no reason for our string-caching paths to be
     // async and it may even be a bad idea (except for the final necessary
     // `this.#l10nCache.ensureAll()` call).
-    if (!lazy.SearchService.hasSuccessfullyInitialized) {
+    if (!this.controller.engineStore.initialized) {
       return [];
     }
 
     let idArgs = [];
 
-    let { defaultEngine, defaultPrivateEngine } = lazy.SearchService;
-    let engineNames = [defaultEngine?.name, defaultPrivateEngine?.name].filter(
-      engineName => engineName
-    );
-
-    if (defaultPrivateEngine) {
-      idArgs.push({
-        id: "urlbar-result-action-search-in-private-w-engine",
-        args: { engine: defaultPrivateEngine.name },
-      });
-    }
+    let defaultEngineName = this.controller.engineStore.default.name;
 
     let engineStringIDs = [
       "urlbar-result-action-tabtosearch-web",
@@ -3929,21 +3907,17 @@ export class UrlbarView {
       "urlbar-result-action-search-w-engine",
     ];
     for (let id of engineStringIDs) {
-      idArgs.push(
-        ...engineNames.map(engineName => ({
-          id,
-          args: { engine: engineName },
-        }))
-      );
+      idArgs.push({
+        id,
+        args: { engine: defaultEngineName },
+      });
     }
 
-    if (lazy.UrlbarPrefs.get("groupLabels.enabled")) {
-      idArgs.push(
-        ...engineNames.map(engineName => ({
-          id: "urlbar-group-search-suggestions",
-          args: { engine: engineName },
-        }))
-      );
+    if (UrlbarPrefs.get("groupLabels.enabled")) {
+      idArgs.push({
+        id: "urlbar-group-search-suggestions",
+        args: { engine: defaultEngineName },
+      });
     }
 
     return idArgs;
@@ -4036,7 +4010,7 @@ export class UrlbarView {
 
     let localSearchMode;
     if (source) {
-      localSearchMode = lazy.UrlbarShared.LOCAL_SEARCH_MODES.find(
+      localSearchMode = UrlbarShared.LOCAL_SEARCH_MODES.find(
         m => m.source == source
       );
     }
@@ -4134,7 +4108,7 @@ export class UrlbarView {
           history: "urlbar-result-action-search-history",
           tabs: "urlbar-result-action-search-tabs",
         };
-        let sourceName = lazy.UrlbarUtils.getResultSourceName(
+        let sourceName = UrlbarShared.getResultSourceName(
           localSearchMode.source
         );
         this.#l10nCache.setElementL10n(action, {
@@ -4155,7 +4129,7 @@ export class UrlbarView {
         if (item._originalActionSetter) {
           item._originalActionSetter();
           if (result.heuristic) {
-            favicon.src = result.payload.icon || lazy.UrlbarShared.ICON.DEFAULT;
+            favicon.src = result.payload.icon || UrlbarShared.ICON.DEFAULT;
           }
         } else {
           console.error("An item is missing the action setter");
@@ -4176,7 +4150,7 @@ export class UrlbarView {
       if (!iconOverride && (localSearchMode || engine)) {
         // For one-offs without an icon, do not allow restyled URL results to
         // use their own icons.
-        iconOverride = lazy.UrlbarShared.ICON.SEARCH_GLASS;
+        iconOverride = UrlbarShared.ICON.SEARCH_GLASS;
       }
       if (
         result.heuristic ||
@@ -4195,7 +4169,7 @@ export class UrlbarView {
     // If the view is open without the input being focused, it will not close
     // automatically when the window loses focus. We might be in this state
     // after a Search Tip is shown on an engine homepage.
-    if (!lazy.UrlbarPrefs.get("ui.popup.disable_autohide")) {
+    if (!UrlbarPrefs.get("ui.popup.disable_autohide")) {
       this.close();
     }
   }
@@ -4367,7 +4341,7 @@ export class UrlbarView {
 
   on_popupshowing(event) {
     if (event.target.id == "urlbarView-context-menu") {
-      if (!lazy.UrlbarPrefs.get("contextMenu.featureGate")) {
+      if (!UrlbarPrefs.get("contextMenu.featureGate")) {
         event.preventDefault();
         return;
       }
@@ -4417,7 +4391,7 @@ export class UrlbarView {
     event.preventDefault();
 
     if (
-      !lazy.UrlbarPrefs.get("contextMenu.featureGate") ||
+      !UrlbarPrefs.get("contextMenu.featureGate") ||
       !event.target.closest(".urlbarView-row")
     ) {
       // Don't show the context menu from the background or the group label etc.

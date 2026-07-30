@@ -448,15 +448,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
         },
         secondary_button_top: [
           {
-            label: { string_id: "mr1-onboarding-sign-in-button-label" },
-            action: {
-              data: { entrypoint: "activity-stream-firstrun", where: "tab" },
-              type: "SHOW_FIREFOX_ACCOUNTS",
-              addFlowParams: true,
-            },
-            targeting: "!isFxASignedIn",
-          },
-          {
             label: { string_id: "restore-from-backup-secondary-top-button" },
             action: {
               type: "SET_PREF",
@@ -466,6 +457,15 @@ const MR_ABOUT_WELCOME_DEFAULT = {
               navigate: true,
             },
             targeting: "backupRestoreEnabled",
+          },
+          {
+            label: { string_id: "mr1-onboarding-sign-in-button-label" },
+            action: {
+              data: { entrypoint: "activity-stream-firstrun", where: "tab" },
+              type: "SHOW_FIREFOX_ACCOUNTS",
+              addFlowParams: true,
+            },
+            targeting: "!isFxASignedIn",
           },
         ],
       },
@@ -591,6 +591,18 @@ const MR_ABOUT_WELCOME_DEFAULT = {
         },
         secondary_button_top: [
           {
+            label: { string_id: "restore-from-backup-secondary-top-button" },
+            action: {
+              type: "SET_PREF",
+              data: {
+                pref: { name: "showRestoreFromBackup", value: true },
+              },
+              navigate: true,
+            },
+            targeting:
+              "backupRestoreEnabled && isDefaultBrowser && !doesAppNeedPin",
+          },
+          {
             label: {
               string_id: "mr1-onboarding-sign-in-button-label",
             },
@@ -604,19 +616,43 @@ const MR_ABOUT_WELCOME_DEFAULT = {
             },
             targeting: "!isFxASignedIn",
           },
-          {
-            label: { string_id: "restore-from-backup-secondary-top-button" },
-            action: {
-              type: "SET_PREF",
-              data: {
-                pref: { name: "showRestoreFromBackup", value: true },
-              },
-              navigate: true,
-            },
-            targeting:
-              "backupRestoreEnabled && isDefaultBrowser && !doesAppNeedPin",
-          },
         ],
+      },
+    },
+    {
+      id: "AW_THEME_PICKER",
+      targeting: "'browser.nova.enabled'|preferenceValue",
+      content: {
+        fullscreen: true,
+        position: "split",
+        tiles: { type: "theme-picker" },
+        title: {
+          string_id: "onboarding-theme-picker-title",
+        },
+        subtitle: {
+          string_id: "onboarding-theme-picker-subtitle",
+        },
+        background:
+          "url('chrome://activity-stream/content/data/content/assets/br-amo-fox-paint.svg') var(--mr-secondary-position) no-repeat light-dark(rgba(252, 245, 240, 1), rgba(33, 3, 64, 1))",
+        progress_bar: true,
+        hide_secondary_section: "responsive",
+        primary_button: {
+          label: {
+            string_id: "onboarding-theme-picker-button-label",
+          },
+          action: {
+            navigate: true,
+          },
+        },
+        secondary_button: {
+          label: {
+            string_id: "mr2022-onboarding-secondary-skip-button-label",
+          },
+          action: {
+            navigate: true,
+          },
+          has_arrow_icon: true,
+        },
       },
     },
     {

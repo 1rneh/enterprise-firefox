@@ -34,10 +34,10 @@
 //! up the scissor, are accepting already transformed coordinates, which we can get by
 //! calling `DrawTarget::to_framebuffer_rect`
 
-use api::{ColorF, ColorU, MixBlendMode, TextureCacheCategory};
+use api::{ColorF, MixBlendMode, TextureCacheCategory};
 use api::{DocumentId, Epoch, ExternalImageHandler, RenderReasons};
-use api::{PipelineId, ImageRendering, Checkpoint, NotificationRequest, ImageBufferKind};
-use api::{FramePublishId, ImageFormat};
+use api::{PipelineId, Checkpoint, NotificationRequest, ImageBufferKind};
+use api::{FramePublishId, ImageFormat, RenderBackendId};
 #[cfg(any(feature = "capture", feature = "replay"))]
 use api::{ExternalImageSource, ExternalImageType};
 #[cfg(feature = "replay")]
@@ -49,13 +49,13 @@ use core::time::Duration;
 
 use crate::pattern::PatternKind;
 use crate::render_api::{DebugCommand, ApiMsg, MemoryReport};
-use crate::batch::{AlphaBatchContainer, BatchKind, BatchFeatures, BatchTextures, BrushBatchKind, TextureSet};
+use crate::batch::{AlphaBatchContainer, BatchKind, BatchFeatures, BatchTextures, TextureSet};
 use crate::batch::ClipMaskInstanceList;
 #[cfg(any(feature = "capture", feature = "replay"))]
 use crate::capture::{CaptureConfig, ExternalCaptureImage, PlainExternalImage};
-use crate::composite::{CompositeState, CompositeTileSurface, CompositorSurfaceTransform};
+use crate::composite::{CompositeState, CompositeTileSurface};
 use crate::composite::{CompositorKind, Compositor, NativeTileId};
-use crate::composite::{CompositorConfig, NativeSurfaceOperationDetails, NativeSurfaceId, NativeSurfaceOperation, ClipRadius};
+use crate::composite::{CompositorConfig, NativeSurfaceOperationDetails, NativeSurfaceId, NativeSurfaceOperation};
 #[cfg(feature = "debugger")]
 use api::debugger::{CompositorDebugInfo, DebuggerTextureContent};
 use crate::debug_colors;
@@ -93,7 +93,7 @@ use crate::debugger::{Debugger, DebugQueryKind};
 use upload::{upload_to_texture_cache, UploadTexturePool};
 use init::*;
 
-use euclid::{rect, Transform3D, Scale, default};
+use euclid::{Transform3D, Scale, default};
 use gleam::gl;
 use malloc_size_of::MallocSizeOfOps;
 
@@ -122,6 +122,7 @@ mod upload;
 pub(crate) mod init;
 
 use composite::LayerCompositorFrameState;
+use debug::DebugOverlayState;
 
 pub use debug::DebugRenderer;
 pub use shade::{PendingShadersToPrecache, Shaders, SharedShaders};
@@ -149,13 +150,9 @@ const GPU_TAG_BRUSH_YUV_IMAGE: GpuProfileTag = GpuProfileTag {
     label: "B_YuvImage",
     color: debug_colors::DARKGREEN,
 };
-const GPU_TAG_BRUSH_MIXBLEND: GpuProfileTag = GpuProfileTag {
+const GPU_TAG_MIXBLEND: GpuProfileTag = GpuProfileTag {
     label: "B_MixBlend",
     color: debug_colors::MAGENTA,
-};
-const GPU_TAG_BRUSH_IMAGE: GpuProfileTag = GpuProfileTag {
-    label: "B_Image",
-    color: debug_colors::SPRINGGREEN,
 };
 const GPU_TAG_CACHE_CLIP: GpuProfileTag = GpuProfileTag {
     label: "C_Clip",
@@ -248,12 +245,6 @@ impl BatchKind {
     fn sampler_tag(&self) -> GpuProfileTag {
         match *self {
             BatchKind::SplitComposite => GPU_TAG_PRIM_SPLIT_COMPOSITE,
-            BatchKind::Brush(kind) => {
-                match kind {
-                    BrushBatchKind::Image(..) => GPU_TAG_BRUSH_IMAGE,
-                    BrushBatchKind::MixBlend { .. } => GPU_TAG_BRUSH_MIXBLEND,
-                }
-            }
             BatchKind::TextRun(_) => GPU_TAG_PRIM_TEXT_RUN,
             BatchKind::Quad(PatternKind::ColorOrTexture) => GPU_TAG_PRIMITIVE,
             BatchKind::Quad(PatternKind::TextureExternal) => GPU_TAG_PRIMITIVE,
@@ -268,7 +259,7 @@ impl BatchKind {
             BatchKind::Quad(PatternKind::YuvTextureRect) => GPU_TAG_BRUSH_YUV_IMAGE,
             BatchKind::Quad(PatternKind::Backdrop) => GPU_TAG_PRIMITIVE,
             BatchKind::Quad(PatternKind::Blend) => GPU_TAG_PRIMITIVE,
-            BatchKind::Quad(PatternKind::MixBlend) => GPU_TAG_PRIMITIVE,
+            BatchKind::Quad(PatternKind::MixBlend) => GPU_TAG_MIXBLEND,
             BatchKind::Quad(PatternKind::Mask) => GPU_TAG_INDIRECT_MASK,
         }
     }
@@ -657,31 +648,9 @@ impl BlendMode {
             MixBlendMode::PlusLighter => BlendMode::PlusLighter,
             // Otherwise, use advanced blend without coherency if available.
             _ if advanced_blend => BlendMode::Advanced(mode),
-            // If advanced blend is not available, then we have to use brush_mix_blend.
+            // If advanced blend is not available, then we have to use mix_blend.
             _ => return None,
         })
-    }
-}
-
-/// Information about the state of the debugging / profiler overlay in native compositing mode.
-struct DebugOverlayState {
-    /// True if any of the current debug flags will result in drawing a debug overlay.
-    is_enabled: bool,
-
-    /// The current size of the debug overlay surface. None implies that the
-    /// debug surface isn't currently allocated.
-    current_size: Option<DeviceIntSize>,
-
-    layer_index: usize,
-}
-
-impl DebugOverlayState {
-    fn new() -> Self {
-        DebugOverlayState {
-            is_enabled: false,
-            current_size: None,
-            layer_index: 0,
-        }
     }
 }
 
@@ -739,6 +708,8 @@ impl BufferDamageTracker {
 pub struct Renderer {
     result_rx: Receiver<ResultMsg>,
     api_tx: Sender<ApiMsg>,
+    /// Identifies this renderer's window on a potentially shared backend.
+    backend_id: RenderBackendId,
     /// Keep the `RenderBackendPool` alive for the lifetime of this
     /// `Renderer`. For the private-pool case (pref=0) this is the only
     /// owner, so dropping the renderer drops the pool and triggers its
@@ -979,7 +950,7 @@ impl Renderer {
     ///
     /// Should be called before `render()`, as texture cache updates are done here.
     pub fn update(&mut self) {
-        profile_scope!("update");
+        tracy_rs::profile_scope!("update");
 
         // Pull any pending results and return the most recent.
         while let Some(msg) = self.get_next_result_msg() {
@@ -1049,17 +1020,23 @@ impl Renderer {
                 ResultMsg::UpdateResources {
                     resource_updates,
                     memory_pressure,
+                    discard_active_documents,
+                    trim_upload_buffers,
                 } => {
-                    if memory_pressure {
-                        // If a memory pressure event arrives _after_ a new scene has
-                        // been published that writes persistent targets (i.e. cached
+                    if memory_pressure || discard_active_documents {
+                        // Resource cleanup can arrive _after_ a new scene has been
+                        // published that writes persistent targets (i.e. cached
                         // render tasks to the texture cache, or picture cache tiles)
-                        // but _before_ the next update/render loop, those targets
-                        // will not be updated due to the active_documents list being
-                        // cleared at the end of this message. To work around that,
-                        // if any of the existing documents have not rendered yet, and
-                        // have picture/texture cache targets, force a render so that
-                        // those targets are updated.
+                        // but _before_ the next update/render loop. Render any such
+                        // document offscreen before discarding it so those persistent
+                        // targets are updated while all referenced textures still
+                        // exist. Paused-window trimming also has to discard already
+                        // rendered documents because their frames may reference pooled
+                        // render targets that are about to be freed; Resume() forces a
+                        // freshly generated frame.
+                        //
+                        // UpdateResources and PublishDocument share the backend's FIFO
+                        // result queue, so the replacement cannot overtake these frees.
                         let active_documents = mem::replace(
                             &mut self.active_documents,
                             FastHashMap::default(),
@@ -1087,20 +1064,9 @@ impl Renderer {
                     self.update_texture_cache();
                     self.update_native_surfaces();
 
-                    // Flush the render target pool on memory pressure.
-                    //
-                    // This needs to be separate from the block below because
-                    // the device module asserts if we delete textures while
-                    // not in a frame.
-                    if memory_pressure {
-                        self.texture_upload_pbo_pool.on_memory_pressure(&mut self.device);
-                        self.staging_texture_pool.delete_textures(&mut self.device);
-                        if let Some(texture) = self.gpu_buffer_texture_f.take() {
-                            self.device.delete_texture(texture);
-                        }
-                        if let Some(texture) = self.gpu_buffer_texture_i.take() {
-                            self.device.delete_texture(texture);
-                        }
+                    // The device asserts if textures are deleted outside a frame.
+                    if memory_pressure || trim_upload_buffers {
+                        self.trim_upload_buffers();
                     }
 
                     self.device.end_frame();
@@ -1312,9 +1278,28 @@ impl Renderer {
         }
     }
 
+    fn trim_upload_buffers(&mut self) {
+        self.texture_upload_pbo_pool.on_memory_pressure(&mut self.device);
+        self.staging_texture_pool.delete_textures(&mut self.device);
+        if let Some(texture) = self.gpu_buffer_texture_f.take() {
+            self.device.delete_texture(texture);
+        }
+        if let Some(texture) = self.gpu_buffer_texture_i.take() {
+            self.device.delete_texture(texture);
+        }
+    }
+
     /// Set a callback for handling external images.
     pub fn set_external_image_handler(&mut self, handler: Box<dyn ExternalImageHandler>) {
         self.external_image_handler = Some(handler);
+    }
+
+    /// Release transient resources while preserving persistent caches.
+    pub fn trim_transient_resources(&self, trim_upload_buffers: bool) {
+        let _ = self.api_tx.send(ApiMsg::TrimTransientResources {
+            backend_id: self.backend_id,
+            trim_upload_buffers,
+        });
     }
 
     /// Retrieve (and clear) the current list of recorded frame profiles.
@@ -1436,157 +1421,9 @@ impl Renderer {
 
         self.external_composite_debug_items = Vec::new();
 
-        tracy_frame_marker!();
+        tracy_rs::tracy_frame_marker!();
 
         result
-    }
-
-    /// Update the state of any debug / profiler overlays. This is currently only needed
-    /// when running with the native compositor enabled.
-    fn update_debug_overlay(
-        &mut self,
-        framebuffer_size: DeviceIntSize,
-        has_debug_items: bool,
-    ) {
-        // If any of the following debug flags are set, something will be drawn on the debug overlay.
-        self.debug_overlay_state.is_enabled = has_debug_items || self.debug_flags.intersects(
-            DebugFlags::PROFILER_DBG |
-            DebugFlags::RENDER_TARGET_DBG |
-            DebugFlags::TEXTURE_CACHE_DBG |
-            DebugFlags::EPOCHS |
-            DebugFlags::PICTURE_CACHING_DBG |
-            DebugFlags::PICTURE_BORDERS |
-            DebugFlags::ZOOM_DBG |
-            DebugFlags::WINDOW_VISIBILITY_DBG |
-            DebugFlags::EXTERNAL_COMPOSITE_BORDERS
-        );
-
-        // Update the debug overlay surface, if we are running in native compositor mode.
-        if let CompositorKind::Native { .. } = self.current_compositor_kind {
-            let compositor = self.compositor_config.compositor().unwrap();
-
-            // If there is a current surface, destroy it if we don't need it for this frame, or if
-            // the size has changed.
-            if let Some(current_size) = self.debug_overlay_state.current_size {
-                if !self.debug_overlay_state.is_enabled || current_size != framebuffer_size {
-                    compositor.destroy_surface(&mut self.device, NativeSurfaceId::DEBUG_OVERLAY);
-                    self.debug_overlay_state.current_size = None;
-                }
-            }
-
-            // Allocate a new surface, if we need it and there isn't one.
-            if self.debug_overlay_state.is_enabled && self.debug_overlay_state.current_size.is_none() {
-                compositor.create_surface(
-                    &mut self.device,
-                    NativeSurfaceId::DEBUG_OVERLAY,
-                    DeviceIntPoint::zero(),
-                    framebuffer_size,
-                    false,
-                );
-                compositor.create_tile(
-                    &mut self.device,
-                    NativeTileId::DEBUG_OVERLAY,
-                );
-                self.debug_overlay_state.current_size = Some(framebuffer_size);
-            }
-        }
-    }
-
-    /// Bind a draw target for the debug / profiler overlays, if required.
-    fn bind_debug_overlay(&mut self, device_size: DeviceIntSize) -> Option<DrawTarget> {
-        // Debug overlay setup are only required in native compositing mode
-        if self.debug_overlay_state.is_enabled {
-            match self.current_compositor_kind {
-                CompositorKind::Native { .. } => {
-                    let compositor = self.compositor_config.compositor().unwrap();
-                    let surface_size = self.debug_overlay_state.current_size.unwrap();
-
-                    // Ensure old surface is invalidated before binding
-                    compositor.invalidate_tile(
-                        &mut self.device,
-                        NativeTileId::DEBUG_OVERLAY,
-                        DeviceIntRect::from_size(surface_size),
-                    );
-                    // Bind the native surface
-                    let surface_info = compositor.bind(
-                        &mut self.device,
-                        NativeTileId::DEBUG_OVERLAY,
-                        DeviceIntRect::from_size(surface_size),
-                        DeviceIntRect::from_size(surface_size),
-                    );
-
-                    // Bind the native surface to current FBO target
-                    let draw_target = DrawTarget::NativeSurface {
-                        offset: surface_info.origin,
-                        external_fbo_id: surface_info.fbo_id,
-                        dimensions: surface_size,
-                    };
-                    self.device.bind_draw_target(draw_target);
-
-                    // When native compositing, clear the debug overlay each frame.
-                    self.device.clear_target(
-                        Some([0.0, 0.0, 0.0, 0.0]),
-                        None, // debug renderer does not use depth
-                        None,
-                    );
-
-                    Some(draw_target)
-                }
-                CompositorKind::Layer { .. } => {
-                    let compositor = self.compositor_config.layer_compositor().unwrap();
-                    compositor.bind_layer(self.debug_overlay_state.layer_index, &[]);
-
-                    self.device.clear_target(
-                        Some([0.0, 0.0, 0.0, 0.0]),
-                        None, // debug renderer does not use depth
-                        None,
-                    );
-
-                    Some(DrawTarget::new_default(device_size, self.device.surface_origin_is_top_left()))
-                }
-                CompositorKind::Draw { .. } => {
-                    // If we're not using the native compositor, then the default
-                    // frame buffer is already bound. Create a DrawTarget for it and
-                    // return it.
-                    Some(DrawTarget::new_default(device_size, self.device.surface_origin_is_top_left()))
-                }
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Unbind the draw target for debug / profiler overlays, if required.
-    fn unbind_debug_overlay(&mut self) {
-        // Debug overlay setup are only required in native compositing mode
-        if self.debug_overlay_state.is_enabled {
-            match self.current_compositor_kind {
-                CompositorKind::Native { .. } => {
-                    let compositor = self.compositor_config.compositor().unwrap();
-                    // Unbind the draw target and add it to the visual tree to be composited
-                    compositor.unbind(&mut self.device);
-
-                    let clip_rect = DeviceIntRect::from_size(
-                        self.debug_overlay_state.current_size.unwrap(),
-                    );
-
-                    compositor.add_surface(
-                        &mut self.device,
-                        NativeSurfaceId::DEBUG_OVERLAY,
-                        CompositorSurfaceTransform::identity(),
-                        clip_rect,
-                        ImageRendering::Auto,
-                        clip_rect,
-                        ClipRadius::EMPTY,
-                    );
-                }
-                CompositorKind::Draw { .. } => {}
-                CompositorKind::Layer { .. } => {
-                    let compositor = self.compositor_config.layer_compositor().unwrap();
-                    compositor.present_layer(self.debug_overlay_state.layer_index, &[]);
-                }
-            }
-        }
     }
 
     // If device_size is None, don't render to the main frame buffer. This is useful to
@@ -1600,7 +1437,7 @@ impl Renderer {
         mut device_size: Option<DeviceIntSize>,
         buffer_age: usize,
     ) -> Result<RenderResults, Vec<RendererError>> {
-        profile_scope!("render");
+        tracy_rs::profile_scope!("render");
         let mut results = RenderResults::default();
         self.profile.end_time_if_started(profiler::FRAME_SEND_TIME);
         self.profile.start_time(profiler::RENDERER_TIME);
@@ -1686,7 +1523,15 @@ impl Renderer {
 
             // Update the state of the debug overlay surface, ensuring that
             // the compositor mode has a suitable surface to draw to, if required.
-            self.update_debug_overlay(device_size, !active_doc.frame.debug_items.is_empty());
+            debug::update_debug_overlay(
+                &mut self.device,
+                &mut self.compositor_config,
+                self.current_compositor_kind,
+                &mut self.debug_overlay_state,
+                self.debug_flags,
+                device_size,
+                !active_doc.frame.debug_items.is_empty(),
+            );
         }
 
         let frame = &mut active_doc.frame;
@@ -1729,7 +1574,11 @@ impl Renderer {
         }
 
         if device_size.is_some() {
-            self.draw_frame_debug_items(&frame.debug_items);
+            debug::draw_frame_debug_items(
+                &mut self.device,
+                &mut self.debug,
+                &frame.debug_items,
+            );
         }
 
         self.profile.merge(profile);
@@ -1754,13 +1603,53 @@ impl Renderer {
 
         let debug_overlay = device_size.and_then(|device_size| {
             // Bind a surface to draw the debug / profiler information to.
-            self.bind_debug_overlay(device_size).map(|draw_target| {
-                self.draw_render_target_debug(&draw_target);
-                self.draw_texture_cache_debug(&draw_target);
-                self.draw_zoom_debug(device_size);
-                self.draw_epoch_debug();
-                self.draw_window_visibility_debug();
-                self.draw_external_composite_borders_debug();
+            debug::bind_debug_overlay(
+                &mut self.device,
+                &mut self.compositor_config,
+                self.current_compositor_kind,
+                &self.debug_overlay_state,
+                device_size,
+            ).map(|draw_target| {
+                debug::draw_render_target_debug(
+                    &mut self.device,
+                    &mut self.debug,
+                    self.debug_flags,
+                    &self.texture_resolver,
+                    &draw_target,
+                );
+                debug::draw_texture_cache_debug(
+                    &mut self.device,
+                    &mut self.debug,
+                    self.debug_flags,
+                    &self.texture_resolver,
+                    &draw_target,
+                );
+                debug::draw_zoom_debug(
+                    &mut self.device,
+                    &mut self.debug,
+                    self.debug_flags,
+                    &mut self.zoom_debug_texture,
+                    self.cursor_position,
+                    device_size,
+                );
+                debug::draw_epoch_debug(
+                    &mut self.device,
+                    &mut self.debug,
+                    self.debug_flags,
+                    &self.pipeline_info,
+                );
+                debug::draw_window_visibility_debug(
+                    &mut self.device,
+                    &mut self.debug,
+                    self.debug_flags,
+                    &mut self.compositor_config,
+                );
+                debug::draw_external_composite_borders_debug(
+                    &mut self.device,
+                    &mut self.debug,
+                    self.debug_flags,
+                    &self.external_composite_debug_items,
+                );
                 draw_target
             })
         });
@@ -1897,7 +1786,12 @@ impl Renderer {
 
             // Unbind the target for the debug overlay. No debug or profiler drawing
             // can occur afer this point.
-            self.unbind_debug_overlay();
+            debug::unbind_debug_overlay(
+                &mut self.device,
+                &mut self.compositor_config,
+                self.current_compositor_kind,
+                &self.debug_overlay_state,
+            );
         }
 
         if device_size.is_some() {
@@ -1910,7 +1804,7 @@ impl Renderer {
                     compositor.end_frame();
                 }
                 CompositorKind::Native { .. } => {
-                    profile_scope!("compositor.end_frame");
+                    tracy_rs::profile_scope!("compositor.end_frame");
                     let compositor = self.compositor_config.compositor().unwrap();
                     compositor.end_frame(&mut self.device);
                 }
@@ -1973,7 +1867,7 @@ impl Renderer {
     }
 
     fn update_texture_cache(&mut self) {
-        profile_scope!("update_texture_cache");
+        tracy_rs::profile_scope!("update_texture_cache");
 
         let _gm = self.gpu_profiler.start_marker("texture cache update");
         let mut pending_texture_updates = mem::replace(&mut self.pending_texture_updates, vec![]);
@@ -2877,7 +2771,7 @@ impl Renderer {
         render_tasks: &RenderTaskGraph,
         stats: &mut RendererStats,
     ) {
-        profile_scope!("draw_picture_cache_target");
+        tracy_rs::profile_scope!("draw_picture_cache_target");
         if let Some(history) = &mut self.command_log {
             history.begin_render_target("Picture tile", draw_target.dimensions());
         }
@@ -3048,7 +2942,7 @@ impl Renderer {
                     }
 
                     self.shaders.borrow_mut()
-                        .get(&batch.key, batch.features, self.debug_flags, &self.device)
+                        .get(&batch.key, batch.features, self.debug_flags)
                         .bind(
                             &mut self.device, projection, None,
                             &mut self.renderer_errors,
@@ -3090,7 +2984,6 @@ impl Renderer {
                     &batch.key,
                     batch.features | BatchFeatures::ALPHA_PASS,
                     self.debug_flags,
-                    &self.device,
                 );
 
                 if batch.key.blend_mode != prev_blend_mode {
@@ -3131,19 +3024,6 @@ impl Renderer {
                         }
                     }
                     prev_blend_mode = batch.key.blend_mode;
-                }
-
-                // Handle special case readback for composites.
-                if let BatchKind::Brush(BrushBatchKind::MixBlend { task_id, backdrop_id }) = batch.key.kind {
-                    // composites can't be grouped together because
-                    // they may overlap and affect each other.
-                    debug_assert_eq!(batch.instances.len(), 1);
-                    self.handle_readback_composite(
-                        draw_target,
-                        uses_scissor,
-                        &render_tasks[task_id],
-                        &render_tasks[backdrop_id],
-                    );
                 }
 
                 if let Some(readback) = batch.readback {
@@ -3364,7 +3244,7 @@ impl Renderer {
             self.device.ortho_far_plane(),
         );
 
-        profile_scope!("draw_render_target");
+        tracy_rs::profile_scope!("draw_render_target");
         let _gm = self.gpu_profiler.start_marker("render target");
 
         let counter = match target.target_kind {
@@ -3622,7 +3502,7 @@ impl Renderer {
 
     /// Draw all the instances in a clip batcher list to the current target.
     fn bind_frame_data(&mut self, frame: &mut Frame) {
-        profile_scope!("bind_frame_data");
+        tracy_rs::profile_scope!("bind_frame_data");
 
         let _timer = self.gpu_profiler.start_timer(GPU_TAG_SETUP_DATA);
 
@@ -3652,7 +3532,7 @@ impl Renderer {
     }
 
     fn update_native_surfaces(&mut self) {
-        profile_scope!("update_native_surfaces");
+        tracy_rs::profile_scope!("update_native_surfaces");
 
         match self.compositor_config {
             CompositorConfig::Native { ref mut compositor, .. } => {
@@ -3791,7 +3671,7 @@ impl Renderer {
         buffer_age: usize,
         results: &mut RenderResults,
     ) {
-        profile_scope!("draw_frame");
+        tracy_rs::profile_scope!("draw_frame");
 
         // These markers seem to crash a lot on Android, see bug 1559834
         #[cfg(not(target_os = "android"))]
@@ -3899,7 +3779,7 @@ impl Renderer {
             #[cfg(not(target_os = "android"))]
             let _gm = self.gpu_profiler.start_marker(&format!("pass {}", _pass_index));
 
-            profile_scope!("offscreen target");
+            tracy_rs::profile_scope!("offscreen target");
 
             // If this frame has already been drawn, then any texture
             // cache targets have already been updated and can be
@@ -4073,392 +3953,6 @@ impl Renderer {
 
     pub fn set_profiler_ui(&mut self, ui_str: &str) {
         self.profiler.set_ui(ui_str);
-    }
-
-    fn draw_frame_debug_items(&mut self, items: &[DebugItem]) {
-        if items.is_empty() {
-            return;
-        }
-
-        let debug_renderer = match self.debug.get_mut(&mut self.device) {
-            Some(render) => render,
-            None => return,
-        };
-
-        for item in items {
-            match item {
-                DebugItem::Rect { rect, outer_color, inner_color, thickness } => {
-                    if inner_color.a > 0.001 {
-                        let rect = rect.inflate(-thickness as f32, -thickness as f32);
-                        debug_renderer.add_quad(
-                            rect.min.x,
-                            rect.min.y,
-                            rect.max.x,
-                            rect.max.y,
-                            (*inner_color).into(),
-                            (*inner_color).into(),
-                        );
-                    }
-
-                    if outer_color.a > 0.001 {
-                        debug_renderer.add_rect(
-                            &rect.to_i32(),
-                            *thickness,
-                            (*outer_color).into(),
-                        );
-                    }
-                }
-                DebugItem::Text { ref msg, position, color } => {
-                    debug_renderer.add_text(
-                        position.x,
-                        position.y,
-                        msg,
-                        (*color).into(),
-                        None,
-                    );
-                }
-            }
-        }
-    }
-
-    fn draw_render_target_debug(&mut self, draw_target: &DrawTarget) {
-        if !self.debug_flags.contains(DebugFlags::RENDER_TARGET_DBG) {
-            return;
-        }
-
-        let debug_renderer = match self.debug.get_mut(&mut self.device) {
-            Some(render) => render,
-            None => return,
-        };
-
-        let textures = self.texture_resolver
-            .texture_cache_map
-            .values()
-            .filter(|item| item.category == TextureCacheCategory::RenderTarget)
-            .map(|item| &item.texture)
-            .collect::<Vec<&Texture>>();
-
-        Self::do_debug_blit(
-            &mut self.device,
-            debug_renderer,
-            textures,
-            draw_target,
-            0,
-            &|_| [0.0, 1.0, 0.0, 1.0], // Use green for all RTs.
-        );
-    }
-
-    fn draw_zoom_debug(
-        &mut self,
-        device_size: DeviceIntSize,
-    ) {
-        if !self.debug_flags.contains(DebugFlags::ZOOM_DBG) {
-            return;
-        }
-
-        let debug_renderer = match self.debug.get_mut(&mut self.device) {
-            Some(render) => render,
-            None => return,
-        };
-
-        let source_size = DeviceIntSize::new(64, 64);
-        let target_size = DeviceIntSize::new(1024, 1024);
-
-        let source_origin = DeviceIntPoint::new(
-            (self.cursor_position.x - source_size.width / 2)
-                .min(device_size.width - source_size.width)
-                .max(0),
-            (self.cursor_position.y - source_size.height / 2)
-                .min(device_size.height - source_size.height)
-                .max(0),
-        );
-
-        let source_rect = DeviceIntRect::from_origin_and_size(
-            source_origin,
-            source_size,
-        );
-
-        let target_rect = DeviceIntRect::from_origin_and_size(
-            DeviceIntPoint::new(
-                device_size.width - target_size.width - 64,
-                device_size.height - target_size.height - 64,
-            ),
-            target_size,
-        );
-
-        let texture_rect = FramebufferIntRect::from_size(
-            source_rect.size().cast_unit(),
-        );
-
-        debug_renderer.add_rect(
-            &target_rect.inflate(1, 1),
-            1,
-            debug_colors::RED.into(),
-        );
-
-        if self.zoom_debug_texture.is_none() {
-            let texture = self.device.create_texture(
-                ImageBufferKind::Texture2D,
-                ImageFormat::BGRA8,
-                source_rect.width(),
-                source_rect.height(),
-                TextureFilter::Nearest,
-                Some(RenderTargetInfo { has_depth: false }),
-            );
-
-            self.zoom_debug_texture = Some(texture);
-        }
-
-        // Copy frame buffer into the zoom texture
-        let read_target = DrawTarget::new_default(device_size, self.device.surface_origin_is_top_left());
-        self.device.blit_render_target(
-            read_target.into(),
-            read_target.to_framebuffer_rect(source_rect),
-            DrawTarget::from_texture(
-                self.zoom_debug_texture.as_ref().unwrap(),
-                false,
-            ),
-            texture_rect,
-            TextureFilter::Nearest,
-        );
-
-        // Draw the zoom texture back to the framebuffer
-        self.device.blit_render_target(
-            ReadTarget::from_texture(
-                self.zoom_debug_texture.as_ref().unwrap(),
-            ),
-            texture_rect,
-            read_target,
-            read_target.to_framebuffer_rect(target_rect),
-            TextureFilter::Nearest,
-        );
-    }
-
-    fn draw_texture_cache_debug(&mut self, draw_target: &DrawTarget) {
-        if !self.debug_flags.contains(DebugFlags::TEXTURE_CACHE_DBG) {
-            return;
-        }
-
-        let debug_renderer = match self.debug.get_mut(&mut self.device) {
-            Some(render) => render,
-            None => return,
-        };
-
-        let textures = self.texture_resolver
-            .texture_cache_map
-            .values()
-            .filter(|item| item.category == TextureCacheCategory::Atlas)
-            .map(|item| &item.texture)
-            .collect::<Vec<&Texture>>();
-
-        fn select_color(texture: &Texture) -> [f32; 4] {
-            if texture.flags().contains(TextureFlags::IS_SHARED_TEXTURE_CACHE) {
-                [1.0, 0.5, 0.0, 1.0] // Orange for shared.
-            } else {
-                [1.0, 0.0, 1.0, 1.0] // Fuchsia for standalone.
-            }
-        }
-
-        Self::do_debug_blit(
-            &mut self.device,
-            debug_renderer,
-            textures,
-            draw_target,
-            if self.debug_flags.contains(DebugFlags::RENDER_TARGET_DBG) { 544 } else { 0 },
-            &select_color,
-        );
-    }
-
-    fn do_debug_blit(
-        device: &mut Device,
-        debug_renderer: &mut DebugRenderer,
-        mut textures: Vec<&Texture>,
-        draw_target: &DrawTarget,
-        bottom: i32,
-        select_color: &dyn Fn(&Texture) -> [f32; 4],
-    ) {
-        let mut spacing = 16;
-        let mut size = 512;
-
-        let device_size = draw_target.dimensions();
-        let fb_width = device_size.width;
-        let fb_height = device_size.height;
-        let surface_origin_is_top_left = draw_target.surface_origin_is_top_left();
-
-        let num_textures = textures.len() as i32;
-
-        if num_textures * (size + spacing) > fb_width {
-            let factor = fb_width as f32 / (num_textures * (size + spacing)) as f32;
-            size = (size as f32 * factor) as i32;
-            spacing = (spacing as f32 * factor) as i32;
-        }
-
-        let text_height = 14; // Visually approximated.
-        let text_margin = 1;
-        let tag_height = text_height + text_margin * 2;
-        let tag_y = fb_height - (bottom + spacing + tag_height);
-        let image_y = tag_y - size;
-
-        // Sort the display by size (in bytes), so that left-to-right is
-        // largest-to-smallest.
-        //
-        // Note that the vec here is in increasing order, because the elements
-        // get drawn right-to-left.
-        textures.sort_by_key(|t| t.size_in_bytes());
-
-        let mut i = 0;
-        for texture in textures.iter() {
-            let dimensions = texture.get_dimensions();
-            let src_rect = FramebufferIntRect::from_size(
-                FramebufferIntSize::new(dimensions.width as i32, dimensions.height as i32),
-            );
-
-            let x = fb_width - (spacing + size) * (i as i32 + 1);
-
-            // If we have more targets than fit on one row in screen, just early exit.
-            if x > fb_width {
-                return;
-            }
-
-            // Draw the info tag.
-            let tag_rect = rect(x, tag_y, size, tag_height).to_box2d();
-            let tag_color = select_color(texture);
-            device.clear_target(
-                Some(tag_color),
-                None,
-                Some(draw_target.to_framebuffer_rect(tag_rect)),
-            );
-
-            // Draw the dimensions onto the tag.
-            let dim = texture.get_dimensions();
-            let text_rect = tag_rect.inflate(-text_margin, -text_margin);
-            debug_renderer.add_text(
-                text_rect.min.x as f32,
-                text_rect.max.y as f32, // Top-relative.
-                &format!("{}x{}", dim.width, dim.height),
-                ColorU::new(0, 0, 0, 255),
-                Some(tag_rect.to_f32())
-            );
-
-            // Blit the contents of the texture.
-            let dest_rect = draw_target.to_framebuffer_rect(rect(x, image_y, size, size).to_box2d());
-            let read_target = ReadTarget::from_texture(texture);
-
-            if surface_origin_is_top_left {
-                device.blit_render_target(
-                    read_target,
-                    src_rect,
-                    *draw_target,
-                    dest_rect,
-                    TextureFilter::Linear,
-                );
-            } else {
-                 // Invert y.
-                 device.blit_render_target_invert_y(
-                    read_target,
-                    src_rect,
-                    *draw_target,
-                    dest_rect,
-                );
-            }
-            i += 1;
-        }
-    }
-
-    fn draw_epoch_debug(&mut self) {
-        if !self.debug_flags.contains(DebugFlags::EPOCHS) {
-            return;
-        }
-
-        let debug_renderer = match self.debug.get_mut(&mut self.device) {
-            Some(render) => render,
-            None => return,
-        };
-
-        let dy = debug_renderer.line_height();
-        let x0: f32 = 30.0;
-        let y0: f32 = 30.0;
-        let mut y = y0;
-        let mut text_width = 0.0;
-        for ((pipeline, document_id), epoch) in  &self.pipeline_info.epochs {
-            y += dy;
-            let w = debug_renderer.add_text(
-                x0, y,
-                &format!("({:?}, {:?}): {:?}", pipeline, document_id, epoch),
-                ColorU::new(255, 255, 0, 255),
-                None,
-            ).size.width;
-            text_width = f32::max(text_width, w);
-        }
-
-        let margin = 10.0;
-        debug_renderer.add_quad(
-            x0 - margin,
-            y0 - margin,
-            x0 + text_width + margin,
-            y + margin,
-            ColorU::new(25, 25, 25, 200),
-            ColorU::new(51, 51, 51, 200),
-        );
-    }
-
-    fn draw_window_visibility_debug(&mut self) {
-        if !self.debug_flags.contains(DebugFlags::WINDOW_VISIBILITY_DBG) {
-            return;
-        }
-
-        let debug_renderer = match self.debug.get_mut(&mut self.device) {
-            Some(render) => render,
-            None => return,
-        };
-
-        let x: f32 = 30.0;
-        let y: f32 = 40.0;
-
-        if let CompositorConfig::Native { ref mut compositor, .. } = self.compositor_config {
-            let visibility = compositor.get_window_visibility(&mut self.device);
-            let color = if visibility.is_fully_occluded {
-                ColorU::new(255, 0, 0, 255)
-
-            } else {
-                ColorU::new(0, 0, 255, 255)
-            };
-
-            debug_renderer.add_text(
-                x, y,
-                &format!("{:?}", visibility),
-                color,
-                None,
-            );
-        }
-
-
-    }
-
-    fn draw_external_composite_borders_debug(&mut self) {
-        if !self.debug_flags.contains(DebugFlags::EXTERNAL_COMPOSITE_BORDERS) {
-            return;
-        }
-
-        let debug_renderer = match self.debug.get_mut(&mut self.device) {
-            Some(render) => render,
-            None => return,
-        };
-
-        for item in &self.external_composite_debug_items {
-            match item {
-                DebugItem::Rect { rect, outer_color, inner_color: _, thickness } => {
-                    if outer_color.a > 0.001 {
-                        debug_renderer.add_rect(
-                            &rect.to_i32(),
-                            *thickness,
-                            (*outer_color).into(),
-                        );
-                    }
-                }
-                DebugItem::Text { .. } => {}
-            }
-        }
     }
 
     /// Pass-through to `Device::read_pixels_into`, used by Gecko's WR bindings.
@@ -5012,6 +4506,8 @@ impl Renderer {
             image_handler.data.insert((ext.id, ext.channel_index), value);
         }
 
+        self.device.begin_frame();
+
         if let Some(external_resources) = config.deserialize_for_resource::<PlainExternalResources, _>("external_resources") {
             info!("loading external texture-backed images");
             let mut native_map = FastHashMap::<String, gl::GLuint>::default();
@@ -5052,8 +4548,6 @@ impl Renderer {
                 image_handler.data.insert(key, value);
             }
         }
-
-        self.device.begin_frame();
 
         if let Some(renderer) = config.deserialize_for_resource::<PlainRenderer, _>("renderer") {
             info!("loading cached textures");
@@ -5101,6 +4595,9 @@ fn should_skip_batch(kind: &BatchKind, flags: DebugFlags) -> bool {
     match kind {
         BatchKind::TextRun(_) => {
             flags.contains(DebugFlags::DISABLE_TEXT_PRIMS)
+        }
+        BatchKind::Quad(PatternKind::Gradient) => {
+            flags.contains(DebugFlags::DISABLE_GRADIENT_PRIMS)
         }
         _ => false,
     }

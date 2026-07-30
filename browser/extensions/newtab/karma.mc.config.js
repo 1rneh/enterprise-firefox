@@ -156,6 +156,15 @@ module.exports = function (config) {
               functions: 0,
               branches: 0,
             },
+            /**
+             * SectionsLayoutFeed.sys.mjs is tested via an xpcshell test
+             */
+            "lib/SectionsLayoutFeed.sys.mjs": {
+              statements: 0,
+              lines: 0,
+              functions: 0,
+              branches: 0,
+            },
             "content-src/components/DiscoveryStreamComponents/PersonalizedCard/PersonalizedCard.jsx":
               {
                 statements: 0,
@@ -174,6 +183,17 @@ module.exports = function (config) {
              * (see test/jest/content-src/components/DiscoveryStreamAdmin.test.jsx).
              */
             "content-src/components/DiscoveryStreamAdmin/DiscoveryStreamAdmin.jsx":
+              {
+                statements: 0,
+                lines: 0,
+                functions: 0,
+                branches: 0,
+              },
+            /**
+             * ThemesManagementPanel.jsx is tested via Jest (see
+             * test/jest/content-src/components/CustomizeMenu/ThemesManagementPanel.test.jsx).
+             */
+            "content-src/components/CustomizeMenu/ThemesManagementPanel/ThemesManagementPanel.jsx":
               {
                 statements: 0,
                 lines: 0,
@@ -478,9 +498,9 @@ module.exports = function (config) {
               branches: 76,
             },
             "content-src/components/CustomizeMenu/ContentSection/*.jsx": {
-              statements: 82,
-              lines: 82,
-              functions: 100,
+              statements: 80,
+              lines: 80,
+              functions: 90,
               branches: 67,
             },
             "content-src/components/CustomizeMenu/**/*.jsx": {

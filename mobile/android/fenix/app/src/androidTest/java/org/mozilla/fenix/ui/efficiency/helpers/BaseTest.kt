@@ -6,8 +6,10 @@ package org.mozilla.fenix.ui.efficiency.helpers
 
 import android.util.Log
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.test.espresso.Espresso
 import androidx.test.espresso.IdlingResourceTimeoutException
 import androidx.test.espresso.NoMatchingViewException
+import androidx.test.espresso.base.DefaultFailureHandler
 import androidx.test.uiautomator.UiObjectNotFoundException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -20,6 +22,7 @@ import org.junit.rules.TestRule
 import org.junit.runners.model.Statement
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.AppAndSystemHelper.deleteBookmarksStorage
+import org.mozilla.fenix.helpers.AppAndSystemHelper.deletePinnedSitesStorage
 import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.IdlingResourceHelper.unregisterAllIdlingResources
@@ -27,6 +30,7 @@ import org.mozilla.fenix.helpers.TestHelper.appContext
 import org.mozilla.fenix.helpers.TestHelper.exitMenu
 import org.mozilla.fenix.ui.efficiency.logging.LoggingBridge
 import org.mozilla.fenix.ui.efficiency.logging.TestLogging
+import org.mozilla.fenix.ui.efficiency.navigation.LaunchConfig
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
 import org.mozilla.fenix.ui.efficiency.navigation.PageCatalog
 import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
@@ -55,7 +59,20 @@ abstract class BaseTest(
     private val isPageLoadTranslationsPromptEnabled: Boolean = false,
     private val isPocketEnabled: Boolean = true,
     private val isRecentlyVisitedFeatureEnabled: Boolean = true,
+    private val shouldUseExpandedToolbar: Boolean = false,
 ) {
+
+    // Default launch built from the constructor args (back-compat for every existing subclass).
+    private val defaultLaunchConfig = LaunchConfig(
+        skipOnboarding = skipOnboarding,
+        isPageLoadTranslationsPromptEnabled = isPageLoadTranslationsPromptEnabled,
+        isPocketEnabled = isPocketEnabled,
+        isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled,
+        shouldUseExpandedToolbar = shouldUseExpandedToolbar,
+    )
+
+    /** Override to vary the launch per run/case (e.g. the reachability shard uses the case's config). */
+    protected open fun launchConfig(): LaunchConfig = defaultLaunchConfig
 
     @get:Rule(order = 0)
     val fenixTestRule: FenixTestRule = FenixTestRule()
@@ -77,20 +94,35 @@ abstract class BaseTest(
         object : Statement() {
             override fun evaluate() {
                 repeat(1 + MAX_RETRIES) { attempt ->
+                    val cfg = launchConfig()
                     _composeRule = AndroidComposeTestRuleV2(
                         HomeActivityIntentTestRule(
-                            skipOnboarding = skipOnboarding,
-                            isPageLoadTranslationsPromptEnabled = isPageLoadTranslationsPromptEnabled,
-                            isPocketEnabled = isPocketEnabled,
-                            isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled,
+                            skipOnboarding = cfg.skipOnboarding,
+                            isPageLoadTranslationsPromptEnabled = cfg.isPageLoadTranslationsPromptEnabled,
+                            isPocketEnabled = cfg.isPocketEnabled,
+                            isRecentlyVisitedFeatureEnabled = cfg.isRecentlyVisitedFeatureEnabled,
+                            shouldUseExpandedToolbar = cfg.shouldUseExpandedToolbar,
                         ),
                     ) { it.activity }
                     try {
                         Log.i("BaseTest", "RetryTestRule: Started try #${attempt + 1}.")
                         runBlocking {
                             deleteBookmarksStorage()
+                            deletePinnedSitesStorage()
                             withContext(Dispatchers.IO) {
                                 appContext.components.core.sessionStorage.clear()
+                                // Clear saved autofill addresses so every attempt starts from a clean
+                                // screen. A leftover address (e.g. from a failed first attempt) changes
+                                // the Autofill settings layout and can push "Add address" off-screen,
+                                // turning a one-off failure into a retry that fails differently.
+                                // Best-effort: a storage error must not fail the attempt on its own, but
+                                // it is logged — a silent failure here looks identical to a state leak.
+                                runCatching {
+                                    val autofill = appContext.components.core.autofillStorage
+                                    autofill.getAllAddresses().forEach { autofill.deleteAddress(it.guid) }
+                                }.onFailure {
+                                    Log.i("BaseTest", "RetryTestRule: autofill clear failed: ${it.message}")
+                                }
                             }
                         }
                         appContext.components.useCases.tabsUseCases.removeAllTabs()
@@ -125,6 +157,19 @@ abstract class BaseTest(
      */
     @Before
     fun setUp() {
+        // Disable Espresso's screenshot-on-failure locally.
+        //
+        // Why: Espresso's DefaultFailureHandler captures a screenshot when an interaction fails.
+        // On a debug build on a REAL device, that bitmap capture (DeviceCapture ->
+        // takeScreenshotOnNextFrame) trips Fenix's StrictMode penaltyDeath and KILLS the process
+        // before the real assertion error is reported — so the genuine failure is swallowed and the
+        // test looks like an opaque crash. It does not reproduce on Firebase (no penaltyDeath /
+        // different capture path), which is why these only fail locally. Installing the default
+        // handler with captureScreenshotOnFailure = false keeps failure messages intact without the
+        // fatal screenshot. We still get the real error (and our own ScreenDump) for debugging.
+        // Second arg is captureScreenshotOnFailure = false.
+        Espresso.setFailureHandler(DefaultFailureHandler(appContext, false))
+
         if (TestLogging.reporter == null) {
             TestLogging.reporter = LoggingBridge.createReporter()
         }

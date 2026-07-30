@@ -645,6 +645,20 @@ customElements.setElementCreationCallback(
   }
 );
 
+// The "Group my tabs" panel and flyout (Smart Window) render their content with
+// these light-DOM custom elements; both live in one module.
+for (const smartwindowGroupTabsTag of [
+  "smartwindow-group-tabs-card",
+  "smartwindow-group-tabs-flyout",
+]) {
+  customElements.setElementCreationCallback(smartwindowGroupTabsTag, () => {
+    ChromeUtils.importESModule(
+      "chrome://browser/content/aiwindow/components/smartwindow-group-tabs.mjs",
+      { global: "current" }
+    );
+  });
+}
+
 var gBrowser;
 var gContextMenu = null; // nsContextMenu instance
 var gMultiProcessBrowser = window.docShell.QueryInterface(
@@ -1519,96 +1533,6 @@ function CreateContainerTabMenu(event) {
     showDefaultTab: true,
   });
 }
-
-// Shared entry point for the "Add new container" menu items. Shows a panel,
-// hosting the same editor as the about:preferences container dialog, anchored
-// to the URL-bar container indicator (revealing it temporarily when the
-// current tab has no container).
-var gContainerCreation = {
-  _editor: null,
-
-  get _panel() {
-    return document.getElementById("containerCreation-panel");
-  },
-
-  get _anchorEl() {
-    return document.getElementById("userContext-icons");
-  },
-
-  // Honored by updateUserContextUIIndicator() so the temporarily-revealed
-  // indicator isn't hidden again while the panel is open.
-  isPillPinned: false,
-
-  async open() {
-    let panel = this._panel;
-    if (panel.state == "open" || panel.state == "showing") {
-      return;
-    }
-
-    let { ContainerEditor } =
-      await import("chrome://browser/content/usercontext/ContainerEditor.mjs");
-
-    let body = document.getElementById("containerCreation-panel-body");
-    body.replaceChildren();
-    this._editor = new ContainerEditor(body);
-    this._editor.render();
-
-    let createButton = document.getElementById(
-      "containerCreation-create-button"
-    );
-    let cancelButton = document.getElementById(
-      "containerCreation-cancel-button"
-    );
-
-    let updateValidity = () => {
-      createButton.disabled = !this._editor.isValid;
-    };
-    this._editor.form.addEventListener("input", updateValidity);
-    updateValidity();
-
-    let onCreate = () => {
-      this._editor.commit();
-      panel.hidePopup();
-    };
-    let onCancel = () => panel.hidePopup();
-    createButton.addEventListener("click", onCreate);
-    cancelButton.addEventListener("click", onCancel);
-
-    panel.addEventListener("popupshown", () => this._editor?.focus(), {
-      once: true,
-    });
-    panel.addEventListener(
-      "popuphidden",
-      () => {
-        createButton.removeEventListener("click", onCreate);
-        cancelButton.removeEventListener("click", onCancel);
-        body.replaceChildren();
-        this._editor = null;
-        this._unpinAnchor();
-      },
-      { once: true }
-    );
-
-    let anchor = this._anchorEl;
-    if (anchor.hidden) {
-      anchor.classList.add("container-anchor-pinned");
-      anchor.hidden = false;
-      this.isPillPinned = true;
-    }
-
-    panel.openPopup(anchor, "bottomright topright");
-  },
-
-  _unpinAnchor() {
-    if (!this.isPillPinned) {
-      return;
-    }
-    this.isPillPinned = false;
-    let anchor = this._anchorEl;
-    anchor.hidden = true;
-    anchor.classList.remove("container-anchor-pinned");
-  },
-};
 
 function FillHistoryMenu(event) {
   let parent = event.target;
@@ -3200,16 +3124,29 @@ var gUIDensity = {
   uiDensityPref: "browser.uidensity",
   autoTouchModePref: "browser.touchmode.auto",
   autoCompactThresholdPref: "browser.compactmode.auto.threshold",
+  // Prefs that turn on RFP window-size protections. When any is set the content
+  // area must stay a fixed, deterministic size, so auto-compact must bail (see
+  // _shouldAutoCompact and bug 2054792).
+  rfpWindowSizingPrefs: [
+    "privacy.resistFingerprinting",
+    "privacy.resistFingerprinting.pbmode",
+    "privacy.resistFingerprinting.letterboxing",
+  ],
   knownPrefs: new Set([
     "browser.uidensity",
     "browser.touchmode.auto",
     "browser.compactmode.auto.threshold",
+    "privacy.resistFingerprinting",
+    "privacy.resistFingerprinting.pbmode",
+    "privacy.resistFingerprinting.letterboxing",
   ]),
 
-  // Natural (non-compact) tabstrip height in CSS pixels. Used as the
-  // numerator of the auto-compact ratio so the trigger doesn't flap when
-  // compact mode itself shrinks the tabstrip.
-  AUTO_COMPACT_REFERENCE_TABSTRIP_HEIGHT: 40,
+  // Compact-mode tabstrip height in CSS pixels: compact tab min-height
+  // (--tab-min-height, 28px) plus tab block margin on each side
+  // (--tab-margin-block, 4px). Used as a fixed numerator of the auto-compact
+  // ratio so the trigger doesn't flap as compact mode changes the live
+  // tabstrip height (see tabs.css).
+  AUTO_COMPACT_REFERENCE_TABSTRIP_HEIGHT: 36,
 
   // Natural (non-compact) collapsed sidebar.revamp launcher width in CSS
   // pixels: icon button width (--button-size-icon, 32px) plus outer inline
@@ -3224,6 +3161,9 @@ var gUIDensity = {
     Services.prefs.addObserver(this.uiDensityPref, this);
     Services.prefs.addObserver(this.autoTouchModePref, this);
     Services.prefs.addObserver(this.autoCompactThresholdPref, this);
+    for (let pref of this.rfpWindowSizingPrefs) {
+      Services.prefs.addObserver(pref, this);
+    }
     window.addEventListener("resize", this);
 
     this._sidebarShownHandler = () => this.update();
@@ -3247,6 +3187,9 @@ var gUIDensity = {
     Services.prefs.removeObserver(this.uiDensityPref, this);
     Services.prefs.removeObserver(this.autoTouchModePref, this);
     Services.prefs.removeObserver(this.autoCompactThresholdPref, this);
+    for (let pref of this.rfpWindowSizingPrefs) {
+      Services.prefs.removeObserver(pref, this);
+    }
     window.removeEventListener("resize", this);
     if (this._sidebarShownHandler) {
       window.removeEventListener("SidebarShown", this._sidebarShownHandler);
@@ -3302,6 +3245,19 @@ var gUIDensity = {
     if (!window.toolbar.visible) {
       return false;
     }
+    // RFP window-size protections (letterboxing, and the maxInner* rounding
+    // enabled by resistFingerprinting) quantize the content area to a fixed
+    // size that must be deterministic regardless of the chrome. Auto-compact
+    // reclaims chrome space in response to resizes, which shifts the content
+    // area by a few pixels mid-flight and races with those size updates (bug
+    // 2054792). Bail so the two don't fight.
+    if (
+      this.rfpWindowSizingPrefs.some(pref =>
+        Services.prefs.getBoolPref(pref, false)
+      )
+    ) {
+      return false;
+    }
     const threshold = parseFloat(
       Services.prefs.getCharPref(this.autoCompactThresholdPref, "0.05")
     );
@@ -3339,13 +3295,31 @@ var gUIDensity = {
     return Boolean(state && state.launcherVisible && !state.launcherExpanded);
   },
 
+  // Whether the device is currently in a tablet mode that should influence the
+  // UI density. Only Windows (Win10 or Win11) exposes such a signal.
+  _inTabletMode() {
+    if (AppConstants.platform != "win") {
+      return false;
+    }
+    return WindowsUIUtils.inWin10TabletMode || WindowsUIUtils.inWin11TabletMode;
+  },
+
   getCurrentDensity() {
-    // Automatically override the uidensity to touch in Windows tablet mode
-    // (either Win10 or Win11).
-    if (AppConstants.platform == "win") {
-      const inTablet =
-        WindowsUIUtils.inWin10TabletMode || WindowsUIUtils.inWin11TabletMode;
-      if (inTablet && Services.prefs.getBoolPref(this.autoTouchModePref)) {
+    // Automatically override the uidensity to touch in tablet mode. This
+    // happens when the density is automatic (the nova "Automatic" option, i.e.
+    // no explicit uidensity value) regardless of the browser.touchmode.auto
+    // pref, or when browser.touchmode.auto is set and the configured density is
+    // normal. The pref is the standard density's "use touch spacing for tablet
+    // mode" checkbox, so it must not override an explicit compact or touch
+    // choice.
+    if (this._inTabletMode()) {
+      const isAutomatic =
+        this.novaEnabled &&
+        !Services.prefs.prefHasUserValue(this.uiDensityPref);
+      const normalWithAutoTouch =
+        Services.prefs.getIntPref(this.uiDensityPref) == this.MODE_NORMAL &&
+        Services.prefs.getBoolPref(this.autoTouchModePref);
+      if (isAutomatic || normalWithAutoTouch) {
         return { mode: this.MODE_TOUCH, overridden: true };
       }
     }
@@ -3362,26 +3336,6 @@ var gUIDensity = {
       mode: Services.prefs.getIntPref(this.uiDensityPref),
       overridden: false,
     };
-  },
-
-  /**
-   * Sets the configured UI density to an explicit mode. If the density is
-   * currently overridden (e.g. forced to touch by tablet mode via the
-   * auto-touch-mode pref), the override is cleared so the explicit choice
-   * takes effect.
-   *
-   * @param {number} mode
-   *   One of the density mode constants - MODE_NORMAL, MODE_COMPACT or
-   *   MODE_TOUCH.
-   */
-  setUIDensity(mode) {
-    let overridden = this.getCurrentDensity().overridden;
-    Services.prefs.setIntPref(this.uiDensityPref, mode);
-    // If the user is choosing a UI density mode while the mode is overridden,
-    // remove the override so their explicit choice isn't ignored.
-    if (overridden) {
-      Services.prefs.setBoolPref(this.autoTouchModePref, false);
-    }
   },
 
   update(mode) {

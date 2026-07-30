@@ -1310,7 +1310,7 @@
   operands:
     lhs: WordSized
     rhs: WordSized
-  call_instruction: true
+  num_temps: 2
   mir_op: Mod
 
 - name: ModPowTwoD
@@ -2297,7 +2297,7 @@
     elements: WordSized
     index: WordSized
     value: Int64
-#ifndef JS_CODEGEN_X86
+#if !defined(JS_CODEGEN_X86) && !defined(JS_CODEGEN_RISCV64)
   num_temps64: 1
 #endif
   mir_op: AtomicTypedArrayElementBinop
@@ -2308,7 +2308,7 @@
     elements: WordSized
     index: WordSized
     value: Int64
-#ifndef JS_CODEGEN_X64
+#if !defined(JS_CODEGEN_X64) && !defined(JS_CODEGEN_RISCV64)
   num_temps64: 1
 #endif
   mir_op: AtomicTypedArrayElementBinop
@@ -3820,7 +3820,7 @@
     input: WordSized
   arguments:
     type: MIRType
-  num_temps: 2
+  num_temps: 1
   extra_name: true
 
 - name: DivOrModI64
@@ -3997,7 +3997,6 @@
     input: WordSized
   arguments:
     type: MIRType
-  num_temps: 1
   extra_name: true
 
 - name: DivOrModI64
@@ -4625,7 +4624,6 @@
     ptr: WordSized
     value: Int64
     memoryBase: WordSized
-  num_temps64: 1
   mir_op: WasmAtomicBinopHeap
 
 - name: WasmAtomicExchangeI64

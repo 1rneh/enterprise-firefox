@@ -15,7 +15,7 @@ Services.scriptloader.loadSubScript(
 const { FX_RELAY_OAUTH_CLIENT_ID } = ChromeUtils.importESModule(
   "resource://gre/modules/FxAccountsCommon.sys.mjs"
 );
-const { SyncedTabs } = ChromeUtils.importESModule(
+const { SyncedTabs, SyncedTabsManagement } = ChromeUtils.importESModule(
   "resource://services-sync/SyncedTabs.sys.mjs"
 );
 
@@ -670,40 +670,129 @@ add_task(async function test_sync_promo_state() {
 
   // Iterate through cases we expect to see the promo
   const cases = [
-    { desc: "FxA disabled", fxaEnabled: false, expected: null },
     {
-      desc: "signed out",
+      desc: "history menu promo - FxA disabled",
+      fxaEnabled: false,
+      expected: null,
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - signed out",
       status: UIState.STATUS_NOT_CONFIGURED,
       expected: "signin",
+      promoEngine: ["tabs"],
     },
     {
-      desc: "unverified",
+      desc: "history menu promo - unverified",
       status: UIState.STATUS_NOT_VERIFIED,
       expected: "signin",
+      promoEngine: ["tabs"],
     },
     {
-      desc: "login failed",
+      desc: "history menu promo - login failed",
       status: UIState.STATUS_LOGIN_FAILED,
       expected: null,
+      promoEngine: ["tabs"],
     },
-    { desc: "sync disabled", syncEnabled: false, expected: "turnonsync" },
     {
-      desc: "tabs engine off in CWTS",
+      desc: "history menu promo - sync disabled",
+      syncEnabled: false,
+      expected: "turnonsync",
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - tabs engine off in CWTS",
       tabsEngine: false,
       expected: "turnonsync",
+      promoEngine: ["tabs"],
     },
     {
       desc: "history engine off does not gate tabs promo",
       historyEngine: false,
       expected: null,
+      promoEngine: ["tabs"],
     },
-    { desc: "device list still loading", devices: null, expected: null },
-    { desc: "no other devices", devices: SELF, expected: "connectdevice" },
-    { desc: "has another device", expected: null },
     {
-      desc: "only a remote device, current not yet in list",
+      desc: "history menu promo - device list still loading",
+      devices: null,
+      expected: null,
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - no other devices",
+      devices: SELF,
+      expected: "connectdevice",
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - has another device",
+      expected: null,
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - only a remote device, current not yet in list",
       devices: [{ isCurrentDevice: false }],
       expected: null,
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "bookmarks menu promo - FxA disabled",
+      fxaEnabled: false,
+      expected: null,
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - signed out",
+      status: UIState.STATUS_NOT_CONFIGURED,
+      expected: "signin",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - unverified",
+      status: UIState.STATUS_NOT_VERIFIED,
+      expected: "signin",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - login failed",
+      status: UIState.STATUS_LOGIN_FAILED,
+      expected: null,
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - sync disabled",
+      syncEnabled: false,
+      expected: "turnonsync",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - bookmarks engine off in CWTS",
+      bookmarksEngine: false,
+      expected: "turnonsync",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - device list still loading",
+      devices: null,
+      expected: null,
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - no other devices",
+      devices: SELF,
+      expected: "connectdevice",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - has another device",
+      expected: null,
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - only a remote device, current not yet in list",
+      devices: [{ isCurrentDevice: false }],
+      expected: null,
+      promoEngine: ["bookmarks"],
     },
   ];
 
@@ -713,8 +802,10 @@ add_task(async function test_sync_promo_state() {
       fxaEnabled = true,
       status = UIState.STATUS_SIGNED_IN,
       syncEnabled = true,
+      bookmarksEngine = true,
       historyEngine = true,
       tabsEngine = true,
+      promoEngine = [],
       devices = SELF_AND_OTHER,
       expected,
     } = c;
@@ -723,16 +814,21 @@ add_task(async function test_sync_promo_state() {
     sandbox.stub(gSync, "FXA_ENABLED").get(() => fxaEnabled);
     sandbox.stub(UIState, "get").returns({ status, syncEnabled });
     sandbox.stub(fxAccounts.device, "recentDeviceList").get(() => devices);
+    Services.prefs.setBoolPref(
+      "services.sync.engine.bookmarks",
+      bookmarksEngine
+    );
     Services.prefs.setBoolPref("services.sync.engine.history", historyEngine);
     Services.prefs.setBoolPref("services.sync.engine.tabs", tabsEngine);
 
     Assert.equal(
-      gSync.getSyncPromoState(["tabs"]),
+      gSync.getSyncPromoState(promoEngine),
       expected,
       `Promo state when ${desc}`
     );
 
     sandbox.restore();
+    Services.prefs.clearUserPref("services.sync.engine.bookmarks");
     Services.prefs.clearUserPref("services.sync.engine.history");
     Services.prefs.clearUserPref("services.sync.engine.tabs");
   }
@@ -840,6 +936,57 @@ add_task(async function test_history_menu_remote_tabs_promo() {
     "Legacy item shares the 'Tabs from Other Devices' label"
   );
   await closeHistoryMenu();
+  sandbox.restore();
+});
+
+add_task(async function test_bookmarks_menu_remote_tabs_promo() {
+  if (AppConstants.platform === "macosx") {
+    info(
+      "skipping test because the bookmarks menu can't be opened in tests on mac"
+    );
+    return;
+  }
+
+  const bookmarksMenubarItem = document.getElementById("bookmarksMenu");
+  const bookmarksMenu = document.getElementById("bookmarksMenuPopup");
+  const promo = document.getElementById("bookmarksRemoteTabsPromo");
+
+  async function openBookmarksMenu() {
+    const shown = BrowserTestUtils.waitForEvent(bookmarksMenu, "popupshown");
+    bookmarksMenubarItem.openMenu(true);
+    await shown;
+  }
+  async function closeBookmarksMenu() {
+    const hidden = BrowserTestUtils.waitForEvent(bookmarksMenu, "popuphidden");
+    bookmarksMenu.hidePopup();
+    await hidden;
+  }
+
+  // Signed out: promo visible offering sign-in.
+  let uiState = sinon
+    .stub(UIState, "get")
+    .returns({ status: UIState.STATUS_NOT_CONFIGURED });
+  await openBookmarksMenu();
+  Assert.ok(!promo.hidden, "Promo is visible when signed out");
+  Assert.equal(
+    promo.dataset.action,
+    "signin",
+    "Promo offers sign-in when signed out"
+  );
+  await closeBookmarksMenu();
+  uiState.restore();
+
+  // Signed in with another device: promo hidden.
+  const sandbox = sinon.createSandbox();
+  sandbox
+    .stub(UIState, "get")
+    .returns({ status: UIState.STATUS_SIGNED_IN, syncEnabled: true });
+  sandbox
+    .stub(fxAccounts.device, "recentDeviceList")
+    .get(() => [{ isCurrentDevice: true }, { isCurrentDevice: false }]);
+  await openBookmarksMenu();
+  Assert.ok(promo.hidden, "Promo hidden when other devices are available");
+  await closeBookmarksMenu();
   sandbox.restore();
 });
 
@@ -1501,18 +1648,32 @@ add_task(async function test_device_list_hidden_when_sync_disabled() {
  * with the Add / Manage / Don't-see-your-device actions.
  */
 add_task(async function test_all_devices_button_and_panel() {
+  await promiseSyncReady();
   const sandbox = sinon.createSandbox();
   sandbox.stub(UIState, "get").returns({
     status: UIState.STATUS_SIGNED_IN,
     syncEnabled: true,
   });
+  // The device list is driven by the full FxA account device list; each
+  // account device here also has a matching Sync tab-client.
+  let devices = [1, 2, 3, 4].map(i => ({
+    id: `dev${i}`,
+    name: `Device ${i}`,
+    isCurrentDevice: false,
+    lastAccessTime: Date.now(),
+    availableCommands: {},
+  }));
   let clients = [1, 2, 3, 4].map(i => ({
     id: `client${i}`,
     name: `Device ${i}`,
     lastModified: Date.now(),
     tabs: [],
   }));
+  sandbox.stub(fxAccounts.device, "recentDeviceList").get(() => devices);
   sandbox.stub(SyncedTabs, "getTabClients").resolves(clients);
+  sandbox
+    .stub(Weave.Service.clientsEngine, "getClientFxaDeviceId")
+    .callsFake(clientId => clientId.replace("client", "dev"));
   // Keep the panel's own init from racing with the manual update below.
   sandbox.stub(SyncedTabs, "isConfiguredToSyncTabs").get(() => false);
 
@@ -1557,8 +1718,8 @@ add_task(async function test_all_devices_button_and_panel() {
   );
   Assert.equal(
     allDevicesList.querySelectorAll(".PanelUI-fxa-menu-device-entry").length,
-    clients.length,
-    "Every device is listed in the All Devices panel"
+    devices.length,
+    "Every account device is listed in the All Devices panel"
   );
 
   for (const id of [
@@ -1571,6 +1732,114 @@ add_task(async function test_all_devices_button_and_panel() {
       `${id} is visible in the All Devices panel`
     );
   }
+
+  await closeFxaPanel();
+  sandbox.restore();
+});
+
+/**
+ * Every device on the account is shown in the connected devices list, including
+ * a device that has not synced any tabs (and therefore has no Sync tab-client).
+ * The current device is excluded, and a device that has synced tabs keeps them.
+ */
+add_task(async function test_device_list_shows_all_account_devices() {
+  await promiseSyncReady();
+  const sandbox = sinon.createSandbox();
+  sandbox.stub(UIState, "get").returns({
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+  });
+  // Keep the panel's own init from racing with the manual update below.
+  sandbox.stub(SyncedTabs, "isConfiguredToSyncTabs").get(() => false);
+
+  let devices = [
+    {
+      id: "dev-with-tabs",
+      name: "Laptop",
+      isCurrentDevice: false,
+      lastAccessTime: Date.now(),
+      availableCommands: {},
+    },
+    {
+      // No synced tabs, but Send Tab-compatible, so it is still shown.
+      id: "dev-no-tabs",
+      name: "Phone",
+      isCurrentDevice: false,
+      lastAccessTime: Date.now(),
+      availableCommands: {
+        "https://identity.mozilla.com/cmd/open-uri": "encrypted-payload",
+      },
+    },
+    {
+      id: "dev-current",
+      name: "This Device",
+      isCurrentDevice: true,
+      lastAccessTime: Date.now(),
+      availableCommands: {},
+    },
+  ];
+  // Only the laptop has synced tabs, so only it has a matching Sync tab-client.
+  let clients = [
+    {
+      id: "client-laptop",
+      name: "Laptop",
+      lastModified: Date.now(),
+      tabs: [
+        {
+          title: "Example",
+          url: "https://example.com/",
+          icon: "",
+          lastUsed: Date.now(),
+          inactive: false,
+        },
+      ],
+    },
+  ];
+  sandbox.stub(fxAccounts.device, "recentDeviceList").get(() => devices);
+  sandbox.stub(SyncedTabs, "getTabClients").resolves(clients);
+  sandbox
+    .stub(Weave.Service.clientsEngine, "getClientFxaDeviceId")
+    .callsFake(clientId =>
+      clientId === "client-laptop" ? "dev-with-tabs" : null
+    );
+
+  gSync.updateAllUI({
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+    email: "foo@bar.com",
+  });
+  await openFxaPanel();
+
+  let panelview = PanelMultiView.getViewNode(document, "PanelUI-fxa");
+  let devicesList = PanelMultiView.getViewNode(
+    document,
+    "PanelUI-fxa-menu-devices-list"
+  );
+  await panelview.syncedTabsPanelList._doUpdateDeviceList();
+
+  let entries = Array.from(
+    devicesList.querySelectorAll(".PanelUI-fxa-menu-device-entry")
+  );
+  Assert.deepEqual(
+    entries.map(e => e.getAttribute("label")).sort(),
+    ["Laptop", "Phone"],
+    "Both the tab-syncing device and the Send Tab-compatible device without synced tabs are shown, and the current device is excluded"
+  );
+
+  // The device without synced tabs must be functional: opening it shows the
+  // recent tabs subview with the "no open tabs" empty state.
+  let phoneEntry = entries.find(e => e.getAttribute("label") == "Phone");
+  let subviewShown = BrowserTestUtils.waitForEvent(
+    PanelMultiView.getViewNode(document, "PanelUI-fxa-device-recent-tabs"),
+    "ViewShown"
+  );
+  phoneEntry.click();
+  await subviewShown;
+  ok(
+    !PanelMultiView.getViewNode(document, "PanelUI-fxa-device-no-open-tabs")
+      .hidden,
+    "The device with no synced tabs shows the 'no open tabs' label"
+  );
 
   await closeFxaPanel();
   sandbox.restore();
@@ -1788,6 +2057,286 @@ add_task(async function test_recent_tabs_panel_no_open_tabs() {
       .hidden,
     "No open tabs label is shown when the device has no open tabs"
   );
+
+  await closeFxaPanel();
+  sandbox.restore();
+});
+
+/**
+ * When a device has no open tabs but a tab can still be sent to it, the footer
+ * separator is kept so it visually divides the "no open tabs" label from the
+ * "Send Current Page to This Device" button.
+ */
+add_task(async function test_recent_tabs_panel_no_open_tabs_can_send() {
+  const sandbox = sinon.createSandbox();
+  sandbox.stub(UIState, "get").returns({
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+  });
+  sandbox.stub(BrowserUtils, "getShareableURL").returnsArg(0);
+  sandbox.stub(fxAccounts.commands.sendTab, "isDeviceCompatible").returns(true);
+  sandbox
+    .stub(fxAccounts.commands.closeTab, "isDeviceCompatible")
+    .returns(false);
+
+  gSync.updateAllUI({
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+    email: "foo@bar.com",
+  });
+  await openFxaPanel();
+
+  let panelview = PanelMultiView.getViewNode(document, "PanelUI-fxa");
+  let devicesListContainer = PanelMultiView.getViewNode(
+    document,
+    "PanelUI-fxa-menu-devices-list"
+  );
+  let mockDevice = {
+    id: 1,
+    name: "Device 1",
+    availableCommands: {
+      "https://identity.mozilla.com/cmd/open-uri": "encrypted-payload",
+    },
+  };
+  let mockClient = {
+    id: "client1",
+    name: "Device 1",
+    lastModified: Date.now(),
+    tabs: [],
+  };
+
+  let subviewShown = BrowserTestUtils.waitForEvent(
+    PanelMultiView.getViewNode(document, "PanelUI-fxa-device-recent-tabs"),
+    "ViewShown"
+  );
+  panelview.syncedTabsPanelList._showDeviceRecentTabs(
+    mockClient,
+    mockDevice,
+    devicesListContainer,
+    new PointerEvent("click")
+  );
+  await subviewShown;
+
+  ok(
+    !PanelMultiView.getViewNode(document, "PanelUI-fxa-device-no-open-tabs")
+      .hidden,
+    "No open tabs label is shown when the device has no open tabs"
+  );
+  ok(
+    !PanelMultiView.getViewNode(
+      document,
+      "PanelUI-fxa-device-send-current-page"
+    ).hidden,
+    "Send Current Page button is shown when a tab can be sent to the device"
+  );
+  ok(
+    !PanelMultiView.getViewNode(
+      document,
+      "PanelUI-fxa-device-recent-tabs-footer-separator"
+    ).hidden,
+    "Footer separator is kept between the no-open-tabs label and the send button"
+  );
+
+  await closeFxaPanel();
+  sandbox.restore();
+});
+
+/**
+ * The FxA device list is refreshed asynchronously, so it may not be populated
+ * when a device entry is first created (e.g. on the first menu open right after
+ * signing in). Clicking the entry must resolve the device again so the "Send
+ * Current Page to This Device" button shows as soon as the device is known to
+ * be sendTab-capable, rather than only on a later open.
+ */
+add_task(
+  async function test_send_page_button_visible_when_device_resolved_late() {
+    const sandbox = sinon.createSandbox();
+    sandbox.stub(UIState, "get").returns({
+      status: UIState.STATUS_SIGNED_IN,
+      syncEnabled: true,
+    });
+    sandbox.stub(SyncedTabs, "isConfiguredToSyncTabs").get(() => false);
+    sandbox.stub(BrowserUtils, "getShareableURL").returnsArg(0);
+    sandbox
+      .stub(fxAccounts.commands.sendTab, "isDeviceCompatible")
+      .returns(true);
+    sandbox
+      .stub(fxAccounts.commands.closeTab, "isDeviceCompatible")
+      .returns(false);
+
+    let device = {
+      id: "dev-1",
+      name: "Device 1",
+      isCurrentDevice: false,
+      lastAccessTime: Date.now(),
+      availableCommands: {
+        "https://identity.mozilla.com/cmd/open-uri": "encrypted-payload",
+      },
+    };
+    let client = {
+      id: "client-1",
+      name: "Device 1",
+      lastModified: Date.now(),
+      tabs: [],
+    };
+
+    // The device list is not populated yet when the entry is created, then the
+    // async refresh completes before the user clicks.
+    let deviceListReady = false;
+    sandbox
+      .stub(fxAccounts.device, "recentDeviceList")
+      .get(() => (deviceListReady ? [device] : null));
+    sandbox
+      .stub(Weave.Service.clientsEngine, "getClientFxaDeviceId")
+      .callsFake(id => (id === "client-1" ? "dev-1" : null));
+
+    gSync.updateAllUI({
+      status: UIState.STATUS_SIGNED_IN,
+      syncEnabled: true,
+      email: "foo@bar.com",
+    });
+    await openFxaPanel();
+
+    let panelview = PanelMultiView.getViewNode(document, "PanelUI-fxa");
+    let devicesList = PanelMultiView.getViewNode(
+      document,
+      "PanelUI-fxa-menu-devices-list"
+    );
+    let list = panelview.syncedTabsPanelList;
+
+    // Create the entry while the device list is still unresolved.
+    let entry = list._createDeviceEntry(
+      client,
+      list._getDeviceForClient(client)
+    );
+    devicesList.appendChild(entry);
+
+    // The async device refresh completes before the click.
+    deviceListReady = true;
+
+    let subviewShown = BrowserTestUtils.waitForEvent(
+      PanelMultiView.getViewNode(document, "PanelUI-fxa-device-recent-tabs"),
+      "ViewShown"
+    );
+    entry.click();
+    await subviewShown;
+
+    ok(
+      !PanelMultiView.getViewNode(
+        document,
+        "PanelUI-fxa-device-send-current-page"
+      ).hidden,
+      "Send Current Page button is visible on first click once the device is resolved"
+    );
+
+    await closeFxaPanel();
+    sandbox.restore();
+  }
+);
+
+/**
+ * Regression test for bug 2057197: in the FxA menu's per-device recent tabs
+ * panel, closing a tab disables its row (a toolbarbutton that also serves as the
+ * row container holding the close/undo buttons). The Undo button is nested
+ * inside that row, so it must remain clickable even though the row is disabled -
+ * otherwise the close can never be undone. This synthesizes real mouse events so
+ * that pointer-events are honored (element.click() would bypass them).
+ */
+add_task(async function test_recent_tabs_close_then_undo() {
+  const sandbox = sinon.createSandbox();
+  sandbox.stub(UIState, "get").returns({
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+  });
+  sandbox.stub(BrowserUtils, "getShareableURL").returnsArg(0);
+  sandbox
+    .stub(fxAccounts.commands.sendTab, "isDeviceCompatible")
+    .returns(false);
+  sandbox
+    .stub(fxAccounts.commands.closeTab, "isDeviceCompatible")
+    .returns(true);
+
+  // Avoid touching the real remote command store; just observe the calls.
+  let enqueueStub = sandbox
+    .stub(SyncedTabsManagement, "enqueueTabToClose")
+    .resolves();
+  let removeStub = sandbox
+    .stub(SyncedTabsManagement, "removePendingTabToClose")
+    .resolves();
+
+  gSync.updateAllUI({
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+    email: "foo@bar.com",
+  });
+  await openFxaPanel();
+
+  let panelview = PanelMultiView.getViewNode(document, "PanelUI-fxa");
+  let devicesListContainer = PanelMultiView.getViewNode(
+    document,
+    "PanelUI-fxa-menu-devices-list"
+  );
+  let mockDevice = {
+    id: "dev-1",
+    name: "Device 1",
+    availableCommands: {
+      "https://identity.mozilla.com/cmd/close-uri": "baz",
+    },
+  };
+  let mockClient = {
+    id: "client-1",
+    name: "Device 1",
+    lastModified: Date.now(),
+    tabs: [
+      {
+        title: "Tab 1",
+        url: "https://example.com/",
+        icon: "",
+        lastUsed: Date.now(),
+        inactive: false,
+      },
+    ],
+  };
+
+  let subviewShown = BrowserTestUtils.waitForEvent(
+    PanelMultiView.getViewNode(document, "PanelUI-fxa-device-recent-tabs"),
+    "ViewShown"
+  );
+  panelview.syncedTabsPanelList._showDeviceRecentTabs(
+    mockClient,
+    mockDevice,
+    devicesListContainer,
+    new PointerEvent("click")
+  );
+  await subviewShown;
+
+  let tabsList = PanelMultiView.getViewNode(
+    document,
+    "PanelUI-fxa-device-recent-tabs-list"
+  );
+  let tabItem = tabsList.querySelector('toolbarbutton[itemtype="tab"]');
+  let closeBtn = tabItem.querySelector(".all-tabs-close-button");
+  let undoBtn = tabItem.querySelector(".remote-tabs-undo-button");
+  ok(closeBtn, "Close button is present");
+  ok(undoBtn, "Undo button is present");
+  ok(undoBtn.hidden, "Undo button is hidden before closing");
+
+  EventUtils.synthesizeMouseAtCenter(closeBtn, {}, window);
+
+  ok(enqueueStub.calledOnce, "Closing the tab queued a remote close");
+  is(tabItem.disabled, true, "Tab row is disabled after closing");
+  ok(closeBtn.hidden, "Close button is hidden after closing");
+  ok(!undoBtn.hidden, "Undo button is shown after closing");
+
+  EventUtils.synthesizeMouseAtCenter(undoBtn, {}, window);
+
+  ok(
+    removeStub.calledOnce,
+    "Clicking Undo removed the pending remote close (bug 2057197)"
+  );
+  is(tabItem.disabled, false, "Tab row is re-enabled after undo");
+  ok(undoBtn.hidden, "Undo button is hidden after undo");
+  ok(!closeBtn.hidden, "Close button is shown again after undo");
 
   await closeFxaPanel();
   sandbox.restore();

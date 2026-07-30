@@ -280,6 +280,51 @@ add_task(async function test_mixed_l10n_and_plain_strings() {
   });
 });
 
+add_task(async function test_label_links_render_and_do_not_toggle() {
+  const HREF = "https://support.mozilla.org/kb/smart-window-exa";
+  const link = { l10nName: "exa-link", href: HREF };
+
+  await withTestPage(async browser => {
+    // Render the Exa link in both places at once: the header label and an
+    // expanded row.
+    await setProps(browser, {
+      labelL10nId: "action-log-searching-web-with-exa",
+      labelLink: link,
+      isExpanded: true,
+      rows: [
+        { labelL10nId: "action-log-searched-web-with-exa", link, items: [] },
+      ],
+    });
+
+    await SpecialPowers.spawn(browser, [HREF], async href => {
+      const el = content.document.getElementById("test-action-result");
+      const shadow = el.shadowRoot;
+      const anchors = shadow.querySelectorAll("a.action-result-label-link");
+
+      Assert.equal(anchors.length, 2, "Header and row each render a link");
+      for (const anchor of anchors) {
+        Assert.equal(anchor.getAttribute("data-l10n-name"), "exa-link");
+        Assert.equal(anchor.getAttribute("href"), href);
+        Assert.equal(
+          anchor.getAttribute("target"),
+          "_blank",
+          "opens a new tab"
+        );
+      }
+
+      // The header anchor is inside the toggle button; clicking it must not
+      // toggle the card. Cancel the native target=_blank navigation first so
+      // the test doesn't open a real tab.
+      content.document.addEventListener("click", e => e.preventDefault(), {
+        capture: true,
+        once: true,
+      });
+      shadow.querySelector(".action-result-label a").click();
+      Assert.ok(el.isExpanded, "Clicking the link does not toggle the card");
+    });
+  });
+});
+
 add_task(async function test_toggle_dispatches_event() {
   await withTestPage(async browser => {
     await setProps(browser, { label: "Closed tabs", isExpanded: false });
@@ -305,6 +350,79 @@ add_task(async function test_toggle_dispatches_event() {
         events,
         [true, false],
         "action-result-toggle should fire on each click with the new isExpanded value"
+      );
+    });
+  });
+});
+
+add_task(async function test_loading_state_shimmer_and_swap() {
+  // Force reduced motion so the completion transition is deterministic: the
+  // shimmer loop is disabled and the scripted sweep short-circuits (no running
+  // animation to finish), so the swap to the completed label happens promptly
+  // instead of waiting on animation/timer callbacks that can stall in CI.
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+
+  await withTestPage(async browser => {
+    // Enter the loading state with a pending label.
+    await setProps(browser, { label: "Searching tabs", isLoading: true });
+
+    await SpecialPowers.spawn(browser, [], async () => {
+      const el = content.document.getElementById("test-action-result");
+      const shadow = el.shadowRoot;
+
+      Assert.ok(
+        el.hasAttribute("is-loading"),
+        "is-loading is reflected while loading"
+      );
+      Assert.ok(
+        el.hasAttribute("shimmering"),
+        "shimmering treatment is applied while loading"
+      );
+      Assert.equal(
+        shadow.querySelector(".action-result-label").textContent.trim(),
+        "Searching tabs",
+        "The pending label is shown while loading"
+      );
+      // The expand chevron is hidden while loading (not interactive yet).
+      Assert.equal(
+        content.getComputedStyle(
+          shadow.querySelector(".action-result-header"),
+          "::after"
+        ).display,
+        "none",
+        "The expand chevron is hidden while loading"
+      );
+    });
+
+    // Completing swaps the label to the completed text.
+    await setProps(browser, { label: "Completed 2 steps", isLoading: false });
+
+    await SpecialPowers.spawn(browser, [], async () => {
+      const el = content.document.getElementById("test-action-result");
+      const shadow = el.shadowRoot;
+
+      await ContentTaskUtils.waitForCondition(
+        () => !el.hasAttribute("shimmering"),
+        "shimmering clears once the action completes"
+      );
+
+      Assert.ok(
+        !el.hasAttribute("is-loading"),
+        "is-loading is removed once completed"
+      );
+      Assert.equal(
+        shadow.querySelector(".action-result-label").textContent.trim(),
+        "Completed 2 steps",
+        "The label swaps to the completed text"
+      );
+      // The chevron returns once the card is interactive again.
+      Assert.notEqual(
+        content.getComputedStyle(
+          shadow.querySelector(".action-result-header"),
+          "::after"
+        ).display,
+        "none",
+        "The expand chevron is shown again once completed"
       );
     });
   });

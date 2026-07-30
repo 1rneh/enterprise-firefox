@@ -295,7 +295,7 @@ bool BaselineCompiler::compileImpl() {
 
   AutoCreatedBy acb(masm, "BaselineCompiler::compile");
 
-  perfSpewer_.startRecording();
+  perfSpewer_.startRecording(runtime);
   perfSpewer_.recordOffset(masm, "Prologue");
   if (!emitPrologue()) {
     return false;
@@ -397,7 +397,8 @@ bool BaselineCompiler::finishCompile(JSContext* cx) {
             script->filename(), script->lineno(),
             script->column().oneOriginValue(), baselineScript.get());
 
-    if (!AddBaselineJitcodeGlobalEntry(cx, script, code)) {
+    if (!AddBaselineJitcodeGlobalEntry(cx, script, code,
+                                       perfSpewer_.extractSourceInfo())) {
       return false;
     }
   }
@@ -5316,7 +5317,6 @@ bool BaselineCodeGen<Handler>::emit_LeaveWith() {
   return callVM<Fn, jit::LeaveWith>();
 }
 
-#ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_AddDisposable() {
   frame.syncStack(0);
@@ -5379,7 +5379,6 @@ bool BaselineCodeGen<Handler>::emit_CreateSuppressedError() {
   frame.push(R0);
   return true;
 }
-#endif
 
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_Exception() {
@@ -7073,7 +7072,7 @@ bool BaselineCompiler::emitBody() {
       return false;
     }
 
-    if (PerfEnabled()) {
+    if (perfSpewer_.perfEnabled()) {
       perfSpewer_.recordInstruction(masm, handler.pc(), handler.line(),
                                     handler.column(), frame);
     }

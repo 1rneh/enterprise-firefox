@@ -98,6 +98,7 @@ static const char* sEGLExtensionNames[] = {
     "EGL_MESA_image_dma_buf_export",
     "EGL_KHR_no_config_context",
     "EGL_ANGLE_iosurface_client_buffer",
+    "EGL_ANGLE_metal_commands_scheduled_sync",
 };
 
 PRLibrary* LoadApitraceLibrary() {
@@ -680,6 +681,7 @@ bool GLLibraryEGL::Init(nsACString* const out_failureId) {
 
   // Check the ANGLE support the system has
   mIsANGLE = IsExtensionSupported(EGLLibExtension::ANGLE_platform_angle);
+  mIsD3DANGLE = IsExtensionSupported(EGLLibExtension::ANGLE_platform_angle_d3d);
 
   // Client exts are ready. (But not display exts!)
 

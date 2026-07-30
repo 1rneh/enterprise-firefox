@@ -4,10 +4,16 @@
 
 import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
-import { AddonManagerListenerHandler } from "../aboutaddons-utils.mjs";
+import {
+  AddonManagerListenerHandler,
+  isBrowserNovaEnabled,
+} from "../aboutaddons-utils.mjs";
 
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
+);
+const { getL10nIdForThemeProp, themeIdPrefix } = ChromeUtils.importESModule(
+  "resource://gre/modules/addons/ThemesBundledLocalization.sys.mjs"
 );
 
 const PREF_ACTIVE_THEME_ID = "extensions.activeThemeID";
@@ -32,34 +38,7 @@ const lazy = XPCOMUtils.declareLazy({
 });
 
 export function isNovaThemesPickerEnabled() {
-  return lazy.novaThemesPickerEnabled;
-}
-
-// Maps each curated theme id to its name's Fluent id. These follow the same
-// `extension-${idPrefix}-name` convention XPIDatabase.sys.mjs uses for
-// built-in themes (idPrefix being the addon id minus "@mozilla.org").
-//
-// As a separate followups we plan to extend the theme fluent localization logic
-// provided by XPIDatabase.sys.mjs to make it handle also the Nova themes selection
-// hosted on AMO, so that both this picker and addon-card.mjs resolve the same
-// localized string.
-export const THEMES_L10N_MAP = new Map([
-  ["default-theme@mozilla.org", "extension-default-theme-name2"],
-  ["nova-sun@mozilla.org", "extension-nova-sun-name"],
-  ["nova-spark@mozilla.org", "extension-nova-spark-name"],
-  ["nova-flame@mozilla.org", "extension-nova-flame-name"],
-  ["nova-flare@mozilla.org", "extension-nova-flare-name"],
-  ["nova-lavender@mozilla.org", "extension-nova-lavender-name"],
-  ["nova-dusk@mozilla.org", "extension-nova-dusk-name"],
-  ["nova-lagoon@mozilla.org", "extension-nova-lagoon-name"],
-  ["nova-pine@mozilla.org", "extension-nova-pine-name"],
-  ["nova-tide@mozilla.org", "extension-nova-tide-name"],
-  ["nova-ash@mozilla.org", "extension-nova-ash-name"],
-  ["nova-smoke@mozilla.org", "extension-nova-smoke-name"],
-]);
-
-export function themeIdPrefix(themeId) {
-  return themeId.replace("@mozilla.org", "");
+  return lazy.novaThemesPickerEnabled && isBrowserNovaEnabled();
 }
 
 export class AboutaddonsThemesPicker extends MozLitElement {
@@ -67,12 +46,14 @@ export class AboutaddonsThemesPicker extends MozLitElement {
     currentThemeId: { type: String },
     visibleRows: { type: Number },
     _expanded: { state: true },
+    _hasError: { state: true },
   };
 
   static queries = {
     pickerCard: "moz-card",
     themeCards: { all: ".theme-card" },
     expandToggle: ".expand-toggle",
+    errorBar: "moz-message-bar",
   };
 
   #prefObserver = {
@@ -110,6 +91,7 @@ export class AboutaddonsThemesPicker extends MozLitElement {
     this.currentThemeId = "";
     this.visibleRows = 3;
     this._expanded = false;
+    this._hasError = false;
   }
 
   connectedCallback() {
@@ -133,6 +115,12 @@ export class AboutaddonsThemesPicker extends MozLitElement {
       // of this component explicitly (and it would render as `nothing` anyway).
       return;
     }
+    // TODO(Bug 2052034): lazily insert appExtensionFields.ftl in the doc here
+    // once the new theme names localized strings are being moved there from
+    // locales-preview/nova-aboutAddons.ftl to browser-level fluent file
+    // appExtensionFields.ftl.
+    //
+    // MozXULElement.insertFTLIfNeeded("browser/appExtensionFields.ftl");
     const [manager, installedThemes] = await Promise.all([
       lazy.getThemesList({ installSource: "about:addons" }),
       lazy.AddonManager.getAddonsByTypes(["theme"]),
@@ -185,9 +173,12 @@ export class AboutaddonsThemesPicker extends MozLitElement {
   }
 
   async #onButtonClick(themeId) {
-    // TODO(Bug 2054548): account for download/install failures of the Nova Themes
-    // hosted on AMO
-    await this.#manager.updateThemeState(themeId, !this.#isActive(themeId));
+    this._hasError = false;
+    const success = await this.#manager.updateThemeState(
+      themeId,
+      !this.#isActive(themeId)
+    );
+    this._hasError = !success;
     await this.#loadThemes();
   }
 
@@ -196,7 +187,7 @@ export class AboutaddonsThemesPicker extends MozLitElement {
   }
 
   render() {
-    if (!lazy.novaThemesPickerEnabled) {
+    if (!isNovaThemesPickerEnabled()) {
       return nothing;
     }
     return html`
@@ -204,6 +195,17 @@ export class AboutaddonsThemesPicker extends MozLitElement {
         rel="stylesheet"
         href="chrome://mozapps/content/extensions/components/aboutaddons-themes-picker.css"
       />
+      ${this._hasError
+        ? html`
+            <moz-message-bar
+              class="picker-error-bar"
+              type="error"
+              dismissable
+              data-l10n-id="aboutaddons-themes-picker-error-message"
+              @message-bar:user-dismissed=${() => (this._hasError = false)}
+            ></moz-message-bar>
+          `
+        : nothing}
       <moz-card
         id="aboutaddons-themes-picker-card"
         data-l10n-id="aboutaddons-themes-picker-heading"
@@ -224,7 +226,7 @@ export class AboutaddonsThemesPicker extends MozLitElement {
                 <div class="theme-card-footer">
                   <span
                     class="theme-name"
-                    data-l10n-id=${THEMES_L10N_MAP.get(themeId)}
+                    data-l10n-id=${getL10nIdForThemeProp(themeId, "name")}
                   ></span>
                   <moz-button
                     size="small"

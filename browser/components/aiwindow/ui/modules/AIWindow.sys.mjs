@@ -39,6 +39,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowAccountAuth.sys.mjs",
   AIWindowMenu:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowMenu.sys.mjs",
+  AutoTabGroupingSuggestions:
+    "moz-src:///browser/components/aiwindow/ui/modules/AutoTabGroupingSuggestions.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   HomePage: "resource:///modules/HomePage.sys.mjs",
   AIWindowUI:
@@ -361,7 +363,11 @@ export const AIWindow = {
       return;
     }
     const enabled = Services.prefs.getBoolPref(PREF_AUTO_TAB_GROUPING, false);
-    button.hidden = !(enabled && this.isAIWindowActive(win));
+    button.hidden = !(
+      enabled &&
+      this.isAIWindowActive(win) &&
+      lazy.AutoTabGroupingSuggestions.isAvailable
+    );
   },
 
   get isDefaultWindow() {
@@ -608,6 +614,17 @@ export const AIWindow = {
     return (
       AIWINDOW_URI.equalsExceptRef(uri) || FIRSTRUN_URI.equalsExceptRef(uri)
     );
+  },
+
+  /**
+   * Is the given URI the Smart Window new tab page. Unlike
+   * isAIWindowContentPage, this excludes the firstrun page.
+   *
+   * @param {nsIURI} uri current URI
+   * @returns {boolean} whether the URI is the Smart Window new tab page
+   */
+  isAIWindowNewTabPage(uri) {
+    return AIWINDOW_URI.equalsExceptRef(uri);
   },
 
   /**
@@ -1032,7 +1049,8 @@ export const AIWindow = {
         PREF_AUTO_TAB_GROUPING,
         false
       );
-      groupTabsButton.hidden = isImmersiveView || !groupTabsEnabled;
+      groupTabsButton.hidden =
+        !groupTabsEnabled || !lazy.AutoTabGroupingSuggestions.isAvailable;
     }
 
     // Set attr on the specific browser that has content to override color scheme
@@ -1090,7 +1108,8 @@ export const AIWindow = {
     lazy.CustomizableUI.createWidget({
       id: "ai-window-toggle",
       l10nId: "toolbar-switcher-customizable-label",
-      type: "button",
+      type: "view",
+      viewId: "ai-window-toggle-view",
       defaultArea: lazy.CustomizableUI.AREA_TABSTRIP,
       removable: true,
       showInPrivateBrowsing: false,
@@ -1098,14 +1117,9 @@ export const AIWindow = {
         node.setAttribute("aria-haspopup", "true");
         this._updateButtonVisibility(node);
       },
-      onCommand: event => {
-        const win = event.view;
-        if (win.PanelUI.panel.state == "open") {
-          win.PanelUI.hide();
-        } else if (win.PanelUI.panel.state == "closed") {
-          this.handleAIWindowSwitcher(win);
-          win.PanelUI.showSubView("ai-window-toggle-view", event.target, event);
-        }
+      onViewShowing: event => {
+        const win = event.target.documentGlobal;
+        this.handleAIWindowSwitcher(win);
       },
     });
     this._switcherWidgetCreated = true;

@@ -97,6 +97,11 @@ pref("browser.cache.frecency_half_life_hours", 6);
 // Don't show "Open with" option on download dialog if true.
 pref("browser.download.forbid_open_with", false);
 
+// Number of milliseconds to wait after requesting character bounds from EditContext
+// for updateCharacterBounds() to be called before giving up and unsuppressing
+// IME notifications.
+pref("dom.editcontext.suppress_notifying_ime_timeout", 300);
+
 // Enable indexedDB logging.
 pref("dom.indexedDB.logging.enabled", true);
 // Detailed output in log messages.
@@ -3944,6 +3949,13 @@ pref("services.common.log.logger.tokenserverclient", "Debug");
   // Enable retrying to execute commands in the child process in case the
   // JSWindowActor gets destroyed.
   pref("remote.retry-on-abort", true);
+
+  // Debugging aid: capture WebDriver/Marionette screenshots by reading back the
+  // actual WebRender composited framebuffer (real on-screen pixels) instead of
+  // re-rendering the document through the software drawSnapshot path. This makes
+  // captured screenshots reflect WebRender-specific rendering, at the cost of
+  // every capture degrading to the composited viewport of the foreground tab.
+  pref("remote.screenshot.use_readback", false);
 #endif
 
 // Enable the JSON View tool (an inspector for application/json documents).

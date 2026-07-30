@@ -4,8 +4,8 @@
 
 use jxl::api::{
     Endianness, JxlBitstreamInput, JxlColorEncoding, JxlColorProfile, JxlColorType, JxlDataFormat,
-    JxlDecoderInner, JxlDecoderOptions, JxlOutputBuffer, JxlPixelFormat, ProcessingResult,
-    VisibleFrameInfo,
+    JxlDecoderInner, JxlDecoderOptions, JxlOutputBuffer, JxlPixelFormat, JxlPrimaries,
+    JxlTransferFunction, JxlWhitePoint, ProcessingResult, VisibleFrameInfo,
 };
 use jxl::headers::extra_channels::ExtraChannel;
 
@@ -140,6 +140,44 @@ impl JxlApiDecoder {
         &self.icc_profile_cache
     }
 
+    /// Returns the CICP (colour_primaries, transfer_characteristics,
+    /// rendering_intent) codes for the output color profile when it is a simple
+    /// RGB encoding that maps to standard CICP values. Returns None for embedded
+    /// ICC profiles, grayscale, XYB, and custom primaries / white points / gamma
+    /// that don't correspond to a CICP enum value. The rendering_intent uses the
+    /// ICC codes (0=perceptual, 1=relative, 2=saturation, 3=absolute).
+    pub fn get_output_cicp(&self) -> Option<(u8, u8, u8)> {
+        let JxlColorProfile::Simple(JxlColorEncoding::RgbColorSpace {
+            white_point,
+            primaries,
+            transfer_function,
+            rendering_intent,
+        }) = self.inner.output_color_profile()?
+        else {
+            return None;
+        };
+
+        let primaries_val: u8 = match (white_point, primaries) {
+            (JxlWhitePoint::D65, JxlPrimaries::SRGB) => 1,
+            (JxlWhitePoint::D65, JxlPrimaries::BT2100) => 9,
+            (JxlWhitePoint::D65, JxlPrimaries::P3) => 12,
+            (JxlWhitePoint::DCI, JxlPrimaries::P3) => 11,
+            _ => return None,
+        };
+        let transfer_val: u8 = match transfer_function {
+            JxlTransferFunction::BT709 => 1,
+            JxlTransferFunction::Linear => 8,
+            JxlTransferFunction::SRGB => 13,
+            JxlTransferFunction::PQ => 16,
+            JxlTransferFunction::DCI => 17,
+            JxlTransferFunction::HLG => 18,
+            // Custom gamma has no CICP code.
+            JxlTransferFunction::Gamma(_) => return None,
+        };
+
+        Some((primaries_val, transfer_val, *rendering_intent as u8))
+    }
+
     /// Flush partially-decoded pixels into `output_buffer`. Returns true if any new
     /// pixels were written since the previous call; false if nothing new was
     /// rendered and the buffer is unchanged.
@@ -158,10 +196,7 @@ impl JxlApiDecoder {
             .checked_mul(self.bytes_per_pixel())
             .ok_or(Error::Overflow)?;
 
-        log::trace!(
-            "flush_pixels: {width}x{height} bytes_per_row={bytes_per_row} completed_passes={}",
-            self.num_completed_passes()
-        );
+        log::trace!("flush_pixels: {width}x{height} bytes_per_row={bytes_per_row}");
 
         let result = match k_buffer {
             Some(k) if self.has_black_channel => {
@@ -183,10 +218,6 @@ impl JxlApiDecoder {
             Err(e) => log::debug!("flush_pixels: error: {e:?}"),
         }
         result
-    }
-
-    pub fn num_completed_passes(&self) -> usize {
-        self.inner.num_completed_passes().unwrap_or(0)
     }
 
     pub fn get_basic_info(&self) -> Option<BasicInfo> {

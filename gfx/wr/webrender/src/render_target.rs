@@ -12,7 +12,6 @@ use crate::command_buffer::{CommandBufferList, QuadFlags};
 use crate::pattern::{Pattern, PatternKind, PatternShaderInput};
 use crate::segment::EdgeMask;
 use crate::spatial_tree::SpatialTree;
-use crate::frame_builder::FrameGlobalResources;
 use crate::gpu_types::{BorderInstance, SVGFEFilterInstance, BlurDirection, BlurInstance, PrimitiveHeaders, ScalingInstance};
 use crate::gpu_types::{ZBufferIdGenerator, MaskInstance, BlurEdgeMode, ClipSpace};
 use crate::gpu_types::{ZBufferId, PrimitiveInstanceData};
@@ -20,7 +19,7 @@ use crate::transform::GpuTransformId;
 use crate::util::ScaleOffset;
 use crate::internal_types::{CacheTextureId, FastHashMap, FrameAllocator, FrameMemory, FrameVec, TextureSource};
 use crate::svg_filter::FilterGraphOp;
-use crate::picture::{SurfaceInfo, ResolvedSurfaceTexture};
+use crate::picture::ResolvedSurfaceTexture;
 use crate::tile_cache::{SliceId, TileCacheInstance};
 use crate::transform::TransformPalette;
 use crate::quad;
@@ -55,10 +54,8 @@ pub struct RenderTargetContext<'a, 'rc> {
     pub batch_lookback_count: usize,
     pub spatial_tree: &'a SpatialTree,
     pub data_stores: &'a DataStores,
-    pub surfaces: &'a [SurfaceInfo],
     pub scratch: &'a PrimitiveScratchBuffer,
     pub screen_world_rect: WorldRect,
-    pub globals: &'a FrameGlobalResources,
     pub tile_caches: &'a FastHashMap<SliceId, Box<TileCacheInstance>>,
     pub root_spatial_node_index: SpatialNodeIndex,
     pub frame_memory: &'a mut FrameMemory,
@@ -245,11 +242,11 @@ impl RenderTarget {
         cmd_buffers: &CommandBufferList,
         gpu_buffer_builder: &mut GpuBufferBuilder,
     ) {
-        profile_scope!("build");
+        tracy_rs::profile_scope!("build");
         let mut merged_batches = AlphaBatchContainer::new(None, &ctx.frame_memory);
 
         for task_id in &self.alpha_tasks {
-            profile_scope!("alpha_task");
+            tracy_rs::profile_scope!("alpha_task");
             let task = &render_tasks[*task_id];
 
             match task.kind {
@@ -337,7 +334,7 @@ impl RenderTarget {
         render_tasks: &RenderTaskGraph,
         transforms: &mut TransformPalette,
     ) {
-        profile_scope!("add_task");
+        tracy_rs::profile_scope!("add_task");
         let task = &render_tasks[task_id];
         let target_rect = task.get_target_rect();
 
@@ -451,6 +448,7 @@ impl RenderTarget {
                     &mut gpu_buffer_builder.f32,
                     region_task.clip_rect,
                     &region_task.radius,
+                    region_task.inset,
                     region_task.mode,
                 );
 

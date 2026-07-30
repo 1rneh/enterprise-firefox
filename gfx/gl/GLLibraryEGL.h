@@ -123,6 +123,7 @@ enum class EGLExtension {
   MESA_image_dma_buf_export,
   KHR_no_config_context,
   ANGLE_iosurface_client_buffer,
+  ANGLE_metal_commands_scheduled_sync,
   Max
 };
 
@@ -151,6 +152,7 @@ class GLLibraryEGL final {
   PRLibrary* mEGLLibrary = nullptr;
   PRLibrary* mGLLibrary = nullptr;
   bool mIsANGLE = false;
+  bool mIsD3DANGLE = false;
   std::bitset<UnderlyingValue(EGLLibExtension::Max)> mAvailableExtensions;
   std::weak_ptr<EglDisplay> mDefaultDisplay;
   std::unordered_map<EGLDisplay, std::weak_ptr<EglDisplay>> mActiveDisplays;
@@ -191,6 +193,7 @@ class GLLibraryEGL final {
   }
 
   bool IsANGLE() const { return mIsANGLE; }
+  bool IsD3DANGLE() const { return mIsD3DANGLE; }
 
   // -
   // PFN wrappers

@@ -4858,7 +4858,10 @@ pub extern "C" fn Servo_ComputedValues_SpecifiesAnimationsOrTransitions(
     values: &ComputedValues,
 ) -> bool {
     let ui = values.get_ui();
-    ui.specifies_animations() || ui.specifies_transitions()
+    ui.specifies_animations()
+        || ui.specifies_transitions()
+        || ui.specifies_scroll_timelines()
+        || ui.specifies_view_timelines()
 }
 
 #[repr(u8)]
@@ -5925,14 +5928,12 @@ pub unsafe extern "C" fn Servo_DeclarationBlock_RemoveProperty(
 #[no_mangle]
 pub extern "C" fn Servo_DeclarationBlock_RemovePropertyById(
     declarations: &LockedDeclarationBlock,
-    property: NonCustomCSSPropertyId,
+    property_id: &structs::CSSPropertyId,
     before_change_closure: DeclarationBlockMutationClosure,
 ) -> bool {
-    remove_property(
-        declarations,
-        get_property_id_from_noncustomcsspropertyid!(property, false),
-        before_change_closure,
-    )
+    let property_id = get_property_id_from_csspropertyid!(property_id, false);
+
+    remove_property(declarations, property_id, before_change_closure)
 }
 
 #[no_mangle]

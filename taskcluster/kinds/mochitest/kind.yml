@@ -25,8 +25,8 @@ task-defaults:
     run-on-repo-type: ["hg", "git"]
     attributes:
         retrigger: true
-    use-python: default
-    use-uv: true
+    use-python: system
+    use-uv: false
     worker-type:
         by-test-platform:
             windows11.*-asan/.*: win11-64-25h2-large
@@ -330,8 +330,8 @@ tasks:
             - inc-origin-init
             - trainhop-beta
             - trainhop-release
-            - nova
-            - nova+vertical-tabs
+            - no-nova
+            - no-nova+vertical-tabs
         run-on-projects:
             by-variant:
                 trainhop-beta:
@@ -388,23 +388,24 @@ tasks:
                         windows1.*-64.*(-shippable)?/.*: ['autoland', 'mozilla-central']
                         default: []
                 inc-origin-init: []
-                nova:
+                no-nova:
                     by-test-platform:
                         .*-artifact.*: []
                         .*-asan.*: []
                         .*-ccov.*: []
-                        linux.*64(-shippable)?/opt: ['mozilla-central']
+                        linux.*64(-shippable)?/opt: ['trunk']
+                        # limited testing pool
                         macosx1[45].*64(-shippable)?(-qr)?/opt: ['mozilla-central']
-                        windows11.*-64.*(-shippable)?/opt: ['mozilla-central']
+                        windows11.*-64.*(-shippable)?/opt: ['trunk']
                         default: []
-                nova+vertical-tabs:
+                no-nova+vertical-tabs:
                     by-test-platform:
                         .*-artifact.*: []
                         .*-asan.*: []
                         .*-ccov.*: []
-                        linux.*64(-shippable)?/opt: ['mozilla-central']
-                        macosx1[45].*64(-shippable)?(-qr)?/opt: ['mozilla-central']
-                        windows11.*-64.*(-shippable)?/opt: ['mozilla-central']
+                        linux.*64(-shippable)?/opt: ['trunk']
+                        macosx1[45].*64(-shippable)?(-qr)?/opt: ['trunk']
+                        windows11.*-64.*(-shippable)?/opt: ['trunk']
                         default: []
                 default:
                     by-test-platform:
@@ -638,7 +639,7 @@ tasks:
             - webrender-sw+1proc
             - standalone
             - inc-origin-init
-            - nova
+            - no-nova
         run-on-projects:
             by-variant:
                 webrender-sw+1proc:
@@ -664,14 +665,14 @@ tasks:
                         windows.*-64-[^-/]+/opt: ['autoland']
                         default: []
                 inc-origin-init: []
-                nova:
+                no-nova:
                     by-test-platform:
                         .*-artifact.*: []
                         .*-asan.*: []
                         .*-ccov.*: []
-                        linux.*64(-shippable)?/opt: ['mozilla-central']
-                        macosx1[45].*64(-shippable)?(-qr)?/opt: ['mozilla-central']
-                        windows11.*-64.*(-shippable)?/opt: ['mozilla-central']
+                        linux.*64(-shippable)?/opt: ['trunk']
+                        macosx1[45].*64(-shippable)?(-qr)?/opt: ['trunk']
+                        windows11.*-64.*(-shippable)?/opt: ['trunk']
                         default: []
         chunks: dynamic
         default-chunks:

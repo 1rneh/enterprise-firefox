@@ -2812,6 +2812,12 @@ export var Policies = {
           break;
       }
     },
+    onRemove(manager, oldParams) {
+      // "allowed" is the default and doesn't touch the pref on apply
+      if (oldParams !== "allowed") {
+        lazy.PoliciesUtils.unsetDefaultPref("dom.security.https_only_mode");
+      }
+    },
   },
 
   InstallAddonsPermission: {

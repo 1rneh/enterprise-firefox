@@ -4188,6 +4188,10 @@ export var Policies = {
 
       manager.updateSitePolicies(sitePolicies);
     },
+
+    onRemove(manager) {
+      manager.updateSitePolicies([]);
+    },
   },
 
   SkipTermsOfUse: {

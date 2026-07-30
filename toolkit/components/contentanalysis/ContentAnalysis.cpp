@@ -453,10 +453,12 @@ nsresult ContentAnalysisRequest::GetFileDigest(const nsAString& aFilePath,
 
 ContentAnalysisResponse::ContentAnalysisResponse(
     Action aAction, const nsACString& aRequestToken,
-    const nsACString& aUserActionId, bool aIsSynthetic)
+    const nsACString& aUserActionId, bool aIsSynthetic,
+    const nsAString& aRuleName)
     : mAction(aAction),
       mRequestToken(aRequestToken),
       mUserActionId(aUserActionId),
+      mRuleName(aRuleName),
       mIsSyntheticResponse(aIsSynthetic) {
   MOZ_ASSERT(mAction != Action::eUnspecified);
 }
@@ -482,6 +484,12 @@ ContentAnalysisResponse::GetAction(Action* aAction) {
 NS_IMETHODIMP
 ContentAnalysisResponse::GetCancelError(CancelError* aCancelError) {
   *aCancelError = mCancelError;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ContentAnalysisResponse::GetRuleName(nsAString& aRuleName) {
+  aRuleName = mRuleName;
   return NS_OK;
 }
 
@@ -2421,7 +2429,7 @@ ContentAnalysis::CancelAllRequests(bool aForbidFutureRequests) {
         "Responding to warn dialog (from CancelAllRequests) for "
         "request %s",
         requestToken.get());
-    RespondToWarnDialog(requestToken, false);
+    RespondToWarnDialogInternal(requestToken, false, /* aFromCancel */ true);
   }
   return NS_OK;
 }
@@ -2429,6 +2437,12 @@ ContentAnalysis::CancelAllRequests(bool aForbidFutureRequests) {
 NS_IMETHODIMP
 ContentAnalysis::RespondToWarnDialog(const nsACString& aRequestToken,
                                      bool aAllowContent) {
+  return RespondToWarnDialogInternal(aRequestToken, aAllowContent,
+                                     /* aFromCancel */ false);
+}
+
+nsresult ContentAnalysis::RespondToWarnDialogInternal(
+    const nsACString& aRequestToken, bool aAllowContent, bool aFromCancel) {
   MOZ_ASSERT(NS_IsMainThread());
   nsCString token(aRequestToken);
   LOGD("Content analysis getting warn response %d for request %s",
@@ -2443,6 +2457,17 @@ ContentAnalysis::RespondToWarnDialog(const nsACString& aRequestToken,
   }
 
   entry->mResponse->ResolveWarnAction(aAllowContent);
+
+  // Let observers (e.g. telemetry) know what the user chose in response to
+  // the warn dialog, since IssueResponse() below does not fire another
+  // "dlp-response" notification for the resolved action.
+  if (nsCOMPtr<nsIObserverService> obsServ =
+          mozilla::services::GetObserverService()) {
+    obsServ->NotifyObservers(
+        static_cast<nsIContentAnalysisResponse*>(entry->mResponse.get()),
+        "dlp-warn-resolved", aFromCancel ? u"cancel" : u"user");
+  }
+
   if (entry->mWasTimeout) {
     LOGD(
         "Warn response was for a previous timeout, inserting into "

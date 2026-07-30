@@ -1076,6 +1076,37 @@ export var Policies = {
     },
   },
 
+  ContentAnalysisTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        if (typeof param.Enabled === "boolean") {
+          lazy.PoliciesUtils.setAndLockPref(
+            "browser.contentanalysis.enterprise.telemetry.enabled",
+            param.Enabled
+          );
+        }
+
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          lazy.PoliciesUtils.setAndLockPref(
+            "browser.contentanalysis.enterprise.telemetry.urlLogging",
+            param.UrlLogging
+          );
+        }
+      }
+    },
+    onRemove(_manager, _oldParams) {
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        "browser.contentanalysis.enterprise.telemetry.enabled"
+      );
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        "browser.contentanalysis.enterprise.telemetry.urlLogging"
+      );
+    },
+  },
+
   Cookies: {
     onBeforeUIStartup(manager, param) {
       lazy.addAllowDenyPermissions("cookie", param.Allow, param.Block);
@@ -2779,6 +2810,12 @@ export var Policies = {
         case "allowed":
           // The default case.
           break;
+      }
+    },
+    onRemove(manager, oldParams) {
+      // "allowed" is the default and doesn't touch the pref on apply
+      if (oldParams !== "allowed") {
+        lazy.PoliciesUtils.unsetDefaultPref("dom.security.https_only_mode");
       }
     },
   },

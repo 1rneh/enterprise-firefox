@@ -125,6 +125,7 @@ import org.mozilla.fenix.crashes.UnsubmittedCrashDialog
 import org.mozilla.fenix.customtabs.ExternalAppBrowserActivity
 import org.mozilla.fenix.databinding.ActivityHomeBinding
 import org.mozilla.fenix.debugsettings.data.DefaultDebugSettingsRepository
+import org.mozilla.fenix.debugsettings.gleandebugtools.DefaultGleanDebugToolsStorage
 import org.mozilla.fenix.debugsettings.ui.FenixOverlay
 import org.mozilla.fenix.downloads.DownloadSnackbar
 import org.mozilla.fenix.e2e.EdgeToEdgeFragmentLifecycleCallbacks
@@ -471,11 +472,17 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
 
         Performance.processIntentIfPerformanceTest(intent, this)
 
+        // Persist or clear a Glean debug view tag across restarts (Nightly/Debug only).
+        DefaultGleanDebugToolsStorage.persistDebugViewTagIfRequested(intent, components.settings)
+
         components.settings.seedOnboardingCompletedTimestampForDebugIfNeeded()
 
         val shouldShowOnboarding = !intent.isAllowedDuringOnboardingIntent(packageName) &&
             with(components) {
-                settings.shouldShowOnboarding(fenixOnboarding.userHasBeenOnboarded())
+                settings.shouldShowOnboarding(
+                    hasUserBeenOnboarded = fenixOnboarding.userHasBeenOnboarded(),
+                    forceOnboardingForBenchmark = intent.getBooleanExtra(EXTRA_FORCE_ONBOARDING, false),
+                )
             }
 
         SplashScreenManager(
@@ -996,6 +1003,9 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         if (this is ExternalAppBrowserActivity) {
             return
         }
+
+        // Warm-launch path for the Glean debug intent; onCreate handles cold start (Nightly/Debug only).
+        DefaultGleanDebugToolsStorage.persistDebugViewTagIfRequested(intent, components.settings)
 
         if (intent.action == SEND_TO_DEVICES_ACTION) {
             val url = intent.getStringExtra(SendToDevicesDialogFragment.EXTRA_URL) ?: return
@@ -1677,6 +1687,9 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         const val OPEN_PASSWORD_MANAGER = "open_password_manager"
         const val UNINSTALL_SURVEY = "uninstall_survey"
         const val APP_ICON = "APP_ICON"
+
+        // Intent extra to force onboarding to show in the benchmark build, where it is otherwise suppressed
+        const val EXTRA_FORCE_ONBOARDING = "EXTRA_FORCE_ONBOARDING"
 
         // PWA must have been used within last 30 days to be considered "recently used" for the
         // telemetry purposes.

@@ -18,6 +18,7 @@ const ALLOWED_ABOUT_PAGES = new Set([
   "preferences",
   "privatebrowsing",
   "protections",
+  "referrals",
   "settings",
   "welcome",
   "newtab",
@@ -47,6 +48,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   IPProtection:
     // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
     "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
+  MessagingSystemAllowlists:
+    "resource://messaging-system/lib/MessagingSystemAllowlists.sys.mjs",
   MigrationUtils: "resource:///modules/MigrationUtils.sys.mjs",
   ON_SERVICE_ENABLED_NOTIFICATION:
     "resource://gre/modules/FxAccountsCommon.sys.mjs",
@@ -55,6 +58,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUIUtils: "moz-src:///browser/components/places/PlacesUIUtils.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+  Referrals: "resource:///modules/referrals/Referrals.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   SelectableProfileService:
     "resource:///modules/profiles/SelectableProfileService.sys.mjs",
@@ -427,12 +432,28 @@ export const SpecialMessageActions = {
       "termsofuse.acceptedDate",
     ];
 
-    const allowedPrefsList = onImpression
-      ? allowedSetOnImpressionPrefs
-      : allowedPrefs;
+    // The in-tree baseline allowlist can be extended off-train via Remote
+    // Settings, but not for onImpression prefs, which stay deliberately
+    // restricted to prefs reviewed in-tree. This check is synchronous and does
+    // not wait on the Remote Settings collection to load (see
+    // MessagingSystemAllowlists.ensureInit). Callers that dispatch SET_PREF
+    // outside of ASRouter's own message routing, namely about:welcome and
+    // Spotlight, do not await ASRouter's init sequence, so a pref granted only
+    // through Remote Settings may not be recognized yet if it fires before the
+    // collection has loaded for this session. If that happens the pref is
+    // simply namespaced like any other unlisted pref rather than being set
+    // under its real name. Note this case is unlikely outside of automated
+    // scenarios since user action is required to fire a SET_PREF action in
+    // these scenarios (onImpression prefs are not extendable via this method).
+    const allowedPrefsSet = onImpression
+      ? new Set(allowedSetOnImpressionPrefs)
+      : new Set([
+          ...allowedPrefs,
+          ...lazy.MessagingSystemAllowlists.getAllowedPrefs(),
+        ]);
 
     if (
-      !allowedPrefsList.includes(pref.name) &&
+      !allowedPrefsSet.has(pref.name) &&
       !pref.name.startsWith("messaging-system-action.")
     ) {
       pref.name = `messaging-system-action.${pref.name}`;
@@ -494,7 +515,7 @@ export const SpecialMessageActions = {
     if (!(await lazy.FxAccounts.canConnectAccount())) {
       return false;
     }
-    // In practice, all FxA signin flows will have a "ervice", because that param dictates the
+    // In practice, all FxA signin flows will have a "service", because that param dictates the
     // UI shown by FxA. But to be extra cautious, this code treats it as optional.
     let neededService = data?.extraParams?.service;
     const url = await lazy.FxAccounts.config.promiseConnectAccountURI(
@@ -1129,12 +1150,39 @@ export const SpecialMessageActions = {
         }
         break;
       }
-      case "IPPROTECTION_ENROLL":
+      case "IPPROTECTION_ENROLL": {
         await lazy.IPProtection.getPanel(window)?.enroll();
         break;
-      case "SET_BROWSER_ICON":
+      }
+      case "SET_BROWSER_ICON": {
         await this.setBrowserIcon(action.data.id);
         break;
+      }
+      case "GET_REFERRAL_CODE": {
+        let referralsEnabled = Services.prefs.getBoolPref(
+          "browser.referrals.enabled"
+        );
+        let referralCode = lazy.Referrals.getReferralCode();
+        let aboutPageURL = new URL(`about:referrals`);
+
+        if (!referralsEnabled) {
+          throw new Error(
+            "Cannot generate referral code; referrals disabled by pref"
+          );
+        }
+
+        if (action.data.entrypoint) {
+          aboutPageURL.searchParams.set("entrypoint", action.data.entrypoint);
+        }
+
+        aboutPageURL.searchParams.set("ref_key", referralCode);
+
+        window.openTrustedLinkIn(
+          aboutPageURL.toString(),
+          action.data.where || "tab"
+        );
+        break;
+      }
       default:
         throw new Error(
           `Special message action with type ${action.type} is unsupported.`

@@ -498,6 +498,7 @@ scheme = "https"
 skip-if = [
   "http2",
   "http3",
+  "nova", # Bug 2058203
 ]
 
 ["test_ext_tabs_connect.html"]
@@ -658,6 +659,14 @@ skip-if = [
 
 ["test_ext_webrequest_worker.html"]
 https_first_disabled = true
+
+["test_ext_webrequest_worker_importscripts.html"]
+https_first_disabled = true
+support-files = [
+  "file_worker_importscripts.html",
+  "file_worker_importscripts_frame.html",
+  "worker_importscripts.js",
+]
 
 ["test_ext_window_postMessage.html"]
 skip-if = [

@@ -304,6 +304,13 @@ class ContentAnalysis final : public nsIContentAnalysis,
       ContentAnalysisResponse* aResponse, nsCString&& aUserActionId,
       bool aAutoAcknowledge);
 
+  // Implementation of RespondToWarnDialog(). aFromCancel indicates that the
+  // response is not the user's choice but the result of the request being
+  // cancelled (for example at shutdown), which observers of
+  // "dlp-warn-resolved" are told about via the notification's data.
+  nsresult RespondToWarnDialogInternal(const nsACString& aRequestToken,
+                                       bool aAllowContent, bool aFromCancel);
+
   // Destroy the service.  Happens during xpcom-shutdown-threads.
   void Close();
 
@@ -473,7 +480,8 @@ class ContentAnalysisResponse final : public nsIContentAnalysisResponse,
   virtual ~ContentAnalysisResponse() = default;
   ContentAnalysisResponse(Action aAction, const nsACString& aRequestToken,
                           const nsACString& aUserActionId,
-                          bool aIsSynthetic = false);
+                          bool aIsSynthetic = false,
+                          const nsAString& aRuleName = u""_ns);
 
   // Use MakeRefPtr as factory.
   template <typename T, typename... Args>
@@ -491,6 +499,9 @@ class ContentAnalysisResponse final : public nsIContentAnalysisResponse,
   // If mAction is eCanceled, this is the error explaining why the request was
   // canceled, or eUserInitiated if the user canceled it.
   CancelError mCancelError = CancelError::eUserInitiated;
+
+  // The name of the rule that determined mAction, or empty if none did.
+  nsString mRuleName;
 
   // ContentAnalysis (or, more precisely, its Client object) must outlive
   // the transaction.

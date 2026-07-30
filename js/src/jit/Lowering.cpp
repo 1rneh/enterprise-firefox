@@ -1566,6 +1566,23 @@ void LIRGenerator::visitStrictConstantCompareBoolean(
   define(lir, ins);
 }
 
+void LIRGenerator::visitStrictConstantCompareString(
+    MStrictConstantCompareString* ins) {
+  MDefinition* value = ins->value();
+
+  auto* lir = new (alloc()) LStrictConstantCompareString(useBox(value), temp());
+  define(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
+void LIRGenerator::visitStrictConstantCompareObject(
+    MStrictConstantCompareObject* ins) {
+  MDefinition* value = ins->value();
+
+  auto* lir = new (alloc()) LStrictConstantCompareObject(useBox(value));
+  define(lir, ins);
+}
+
 void LIRGenerator::visitSameValueDouble(MSameValueDouble* ins) {
   MDefinition* lhs = ins->lhs();
   MDefinition* rhs = ins->rhs();
@@ -8973,7 +8990,6 @@ void LIRGenerator::visitWasmMulI64WideHI64(MWasmMulI64WideHI64* ins) {
 #endif
 }
 
-#ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
 void LIRGenerator::visitAddDisposableResource(MAddDisposableResource* ins) {
   MDefinition* env = ins->environment();
 
@@ -8998,7 +9014,6 @@ void LIRGenerator::visitTakeDisposeCapability(MTakeDisposeCapability* ins) {
   defineBox(lir, ins);
   assignSafepoint(lir, ins);
 }
-#endif
 
 #ifdef FUZZING_JS_FUZZILLI
 void LIRGenerator::visitFuzzilliHash(MFuzzilliHash* ins) {

@@ -39,6 +39,9 @@
     <string name="secret_settings_category_features_title" translatable="false">Features</string>
     <string name="secret_settings_category_debug_title" translatable="false">Debug</string>
 
+    <!-- Title for the secret setting that enables the "Check Archived Version" button on error pages. -->
+    <string name="preferences_debug_settings_wayback_machine" translatable="false">Show Archived Version Button On Error Pages</string>
+
     <!-- Label for remote settings server preference -->
     <string name="preferences_debug_settings_remote_settings_server_label" translatable="false">Remote Settings Server (requires restart)</string>
     <!-- Label for Production server option -->
@@ -47,12 +50,6 @@
     <string name="preferences_remote_settings_server_stage_label" translatable="false">Staging</string>
     <!-- Label for Development server option -->
     <string name="preferences_remote_settings_server_dev_label" translatable="false">Development</string>
-    <!-- Label for Production server with v2 route option -->
-    <string name="preferences_remote_settings_server_prod_label_v2" translatable="false">Production V2</string>
-    <!-- Label for Staging server with v2 route option -->
-    <string name="preferences_remote_settings_server_stage_label_v2" translatable="false">Staging V2</string>
-    <!-- Label for Development server with v2 route option -->
-    <string name="preferences_remote_settings_server_dev_label_v2" translatable="false">Development V2</string>
     <!-- Toast message shown when starting to sync remote settings -->
     <string name="preferences_remote_settings_syncing" translatable="false">Syncing remote settings…</string>
     <!-- Toast message shown when remote settings sync completes successfully -->
@@ -393,6 +390,10 @@
 
     <!-- Label for the secret settings preference to enable Import Passwords -->
     <string name="preferences_debug_settings_import_passwords">Enable Import Passwords</string>
+
+    <!-- Summary for secret settings that are still being developed and not recommended to be enabled by nightly users. -->
+    <string name="preferences_debug_settings_development_phase_summary" translatable="false">In development phase</string>
+
     <!--  Firefox brand name  -->
     <string name="app_name_firefox" tools:ignore="BrandUsage">Firefox</string>
 </resources>

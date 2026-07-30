@@ -255,13 +255,18 @@ select::picker-icon {
   vertical-align: top;
 }
 
+/* NOTE(emilio): The :not(:-moz-select-list-box) is needed, for now, because
+ * this rule otherwise would be less specific than the [popover] rules.
+ * We should probably find a better solution than this (probably ::picker()
+ * should be more specific? Or we could use cascade layers). See also
+ * https://github.com/w3c/csswg-drafts/issues/13108 */
 /* stylelint-disable-next-line selector-pseudo-element-no-unknown */
 select:not(:-moz-select-list-box)::picker(select) {
   box-sizing: border-box;
   border: 1px solid;
   padding: 0;
-  /* color/background-color intentionally inherits here so that options
-   * into the picker inherit the <select>'s colours in legacy appearance. */
+  /* color intentionally inherits here so that options into the picker inherit
+   * the <select>'s colours in legacy appearance. */
   color: inherit;
   background-color: transparent;
   margin: 0;
@@ -275,11 +280,6 @@ select:not(:-moz-select-list-box)::picker(select) {
     self-block-start span-self-inline-end,
     self-block-end span-self-inline-start,
     self-block-start span-self-inline-start;
-}
-
-/* stylelint-disable-next-line selector-pseudo-element-no-unknown */
-select:-moz-select-list-box::picker-icon {
-  display: none;
 }
 
 select:-moz-select-list-box {
@@ -297,10 +297,15 @@ select:-moz-select-list-box {
   }
 }
 
+select:-moz-select-list-box::-moz-select-content,
+/* stylelint-disable-next-line selector-pseudo-element-no-unknown */
+select:-moz-select-list-box::picker-icon {
+  display: none !important;
+}
+
 /* stylelint-disable-next-line selector-pseudo-element-no-unknown */
 select:-moz-select-list-box::picker(select) {
   display: contents !important;
-  background: inherit;
   color: inherit;
 }
 

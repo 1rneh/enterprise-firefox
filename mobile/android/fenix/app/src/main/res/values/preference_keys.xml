@@ -122,6 +122,7 @@
     <string name="pref_key_onboarding_completed_timestamp" translatable="false">pref_key_onboarding_completed_timestamp</string>
     <string name="pref_key_onboarding_current_page_index" translatable="false">pref_key_onboarding_current_page_index</string>
     <string name="pref_key_enable_import_passwords" translatable="false">pref_key_enable_import_passwords</string>
+    <string name="pref_key_enable_wayback_machine" translatable="false">pref_key_enable_wayback_machine</string>
 
     <!-- Continuous onboarding -->
     <string name="pref_key_continuous_onboarding_enabled" translatable="false">pref_key_continuous_onboarding_enabled</string>
@@ -207,9 +208,6 @@
     <string name="pref_key_remote_settings_server_prod" translatable="false">pref_key_remote_settings_server_prod</string>
     <string name="pref_key_remote_settings_server_stage" translatable="false">pref_key_remote_settings_server_stage</string>
     <string name="pref_key_remote_settings_server_dev" translatable="false">pref_key_remote_settings_server_dev</string>
-    <string name="pref_key_remote_settings_server_stage_v2" translatable="false">pref_key_remote_settings_server_stage_v2</string>
-    <string name="pref_key_remote_settings_server_prod_v2" translatable="false">pref_key_remote_settings_server_prod_v2</string>
-    <string name="pref_key_remote_settings_server_dev_v2" translatable="false">pref_key_remote_settings_server_dev_v2</string>
 
     <!-- Theme Settings -->
     <string name="pref_key_light_theme" translatable="false">pref_key_light_theme</string>
@@ -355,6 +353,7 @@
     <string name="pref_key_is_user_reddit_attributed" translatable="false">pref_key_is_user_reddit_attributed</string>
     <string name="pref_key_is_user_x_twitter_attributed" translatable="false">pref_key_is_user_x_twitter_attributed</string>
     <string name="pref_key_is_user_moloco_attributed" translatable="false">pref_key_is_user_moloco_attributed</string>
+    <string name="pref_key_is_user_rakuten_attributed" translatable="false">pref_key_is_user_rakuten_attributed</string>
 
     <!-- Return to AMO - addon to install at the first app launch -->
     <string name="pref_key_rtamo_addon_download_url" translatable="false">pref_key_rtamo_addon_download_url</string>
@@ -470,6 +469,7 @@
     <string name="pref_key_nimbus_use_preview" translatable="false">pref_key_nimbus_use_preview</string>
     <string name="pref_key_history_metadata_feature" translatable="false">pref_key_history_metadata_feature</string>
     <string name="pref_key_custom_glean_server_url" translatable="false">pref_key_custom_glean_server_url</string>
+    <string name="pref_key_glean_debug_view_tag" translatable="false">pref_key_glean_debug_view_tag</string>
     <string name="pref_key_enable_homepage_searchbar2" translatable="false">pref_key_enable_homepage_searchbar2</string>
     <string name="pref_key_should_show_custom_tab_extensions" translatable="false">pref_key_should_show_custom_tab_extensions</string>
     <string name="pref_key_enable_homepage_as_new_tab" translatable="false">pref_key_enable_homepage_as_new_tab</string>

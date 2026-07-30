@@ -914,10 +914,10 @@ impl SpatialTree {
             if index == self.root_reference_frame_index {
                 CoordinateSpaceMapping::Local
             } else {
-              match scroll {
-                TransformScroll::Scrolled => CoordinateSpaceMapping::ScaleOffset(child.content_transform),
-                TransformScroll::Unscrolled => CoordinateSpaceMapping::ScaleOffset(child.viewport_transform),
-              }
+                match scroll {
+                    TransformScroll::Scrolled => CoordinateSpaceMapping::ScaleOffset(child.content_transform),
+                    TransformScroll::Unscrolled => CoordinateSpaceMapping::ScaleOffset(child.viewport_transform),
+                }
             }
         } else {
             let system = &self.coord_systems[child.coordinate_system_id.0 as usize];
@@ -979,7 +979,7 @@ impl SpatialTree {
             return;
         }
 
-        profile_scope!("update_tree");
+        tracy_rs::profile_scope!("update_tree");
         self.coord_systems.clear();
         self.coord_systems.push(CoordinateSystem::root());
 
@@ -1043,7 +1043,7 @@ impl SpatialTree {
     }
 
     pub fn build_transform_palette(&self, memory: &FrameMemory) -> TransformPalette {
-        profile_scope!("build_transform_palette");
+        tracy_rs::profile_scope!("build_transform_palette");
         TransformPalette::new(self.spatial_nodes.len(), memory)
     }
 

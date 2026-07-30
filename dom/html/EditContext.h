@@ -151,6 +151,13 @@ class EditContext final : public DOMEventTargetHelper, public SupportsWeakPtr {
 
   void LastRelease() override { UnsuppressNotifyingIME(); }
 
+  // Returns true if this is a canvas-based EditContext.
+  bool IsCanvas() const;
+
+  // Gets character bound at aOffset, but doesn't fire characterboundsupdate
+  // if it's not available, instead just returns Nothing().
+  Maybe<LayoutDeviceIntRect> GetCharacterBound(uint32_t aOffset) const;
+
  private:
   EditContext(nsIGlobalObject* aGlobalObject, const EditContextInit& aInit,
               ErrorResult& aRv);
@@ -182,6 +189,19 @@ class EditContext final : public DOMEventTargetHelper, public SupportsWeakPtr {
   // them immediately.
   void UnsuppressNotifyingIME();
 
+  // Returns the end index of the codepoint rects, avoiding overflow
+  // and clamping to the text length.
+  uint32_t CodepointRectsEndIndex() const {
+    // XXX: Maybe this should already be clamped to the text length?
+    //      https://github.com/w3c/edit-context/issues/142
+    CheckedUint32 end =
+        CheckedUint32(mCodepointRectsStartIndex) + mCodepointRects.Length();
+    return end.isValid() ? std::min(end.value(), TextLength()) : TextLength();
+  }
+
+  friend std::ostream& operator<<(std::ostream& aStream,
+                                  const EditContext& aEditContext);
+
   RefPtr<nsGenericHTMLElement> mAssociatedElement;
   RefPtr<nsGenericHTMLElement> mTextContainer;
   // When character bounds are requested, we suppress notifying the IME
@@ -212,5 +232,8 @@ class EditContext final : public DOMEventTargetHelper, public SupportsWeakPtr {
 };
 
 }  // namespace mozilla::dom
+
+template <>
+struct fmt::formatter<mozilla::dom::EditContext> : fmt::ostream_formatter {};
 
 #endif

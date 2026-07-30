@@ -359,7 +359,7 @@ void EditContext::UpdateText(uint32_t aRangeStart, uint32_t aRangeEnd,
   // If the text being changed is after the last stored codepoint rect,
   // then the codepoint rects most likely won't be affected, so we don't
   // need to fire characterboundsupdate again.
-  if (start < mCodepointRectsStartIndex + mCodepointRects.Length()) {
+  if (start < CodepointRectsEndIndex()) {
     mCodepointRectsTextChanged = true;
   }
   // XXX: Perhaps mSelectionStart/End should be clamped to new length
@@ -679,7 +679,7 @@ nsresult EditContext::FireCharacterBoundsUpdateIfNeeded(
         mControlBoundsAtLastUpdateCharacterBounds !=
             GetControlBoundsOrClientRect() ||
         aStart < mCodepointRectsStartIndex ||
-        aEnd > mCodepointRectsStartIndex + mCodepointRects.Length())) {
+        aEnd > CodepointRectsEndIndex())) {
     return NS_OK;
   }
 
@@ -709,8 +709,7 @@ nsresult EditContext::FireCharacterBoundsUpdateIfNeeded(
   event->SetTrusted(true);
   DispatchEvent(*event);
   if ((mCodepointRectsStartIndex > startExtendedToGraphemeCluster ||
-       mCodepointRectsStartIndex + mCodepointRects.Length() <
-           endExtendedToGraphemeCluster) &&
+       CodepointRectsEndIndex() < endExtendedToGraphemeCluster) &&
       !mWarnedAboutUpdateCharacterBoundsNotCalled) {
     // characterboundsupdate handler didn't provide the requested bounds
     // synchronously.
@@ -898,6 +897,50 @@ void EditContext::NotifyActiveEditContextChanged(Document& aDocument) {
   IMEStateManager::UpdateIMEState(newStateOrError.unwrapOr(defaultState),
                                   focusedElement, *editor);
   // (Note that window may have been destroyed by UpdateIMEState.)
+}
+
+bool EditContext::IsCanvas() const {
+  return mAssociatedElement &&
+         mAssociatedElement->IsHTMLElement(nsGkAtoms::canvas);
+}
+
+Maybe<LayoutDeviceIntRect> EditContext::GetCharacterBound(
+    uint32_t aOffset) const {
+  if (!mAssociatedElement || !mAssociatedElement->GetPrimaryFrame()) {
+    return Nothing();
+  }
+  nsPresContext* presContext =
+      mAssociatedElement->GetPrimaryFrame()->PresContext();
+  if (aOffset >= mCodepointRectsStartIndex &&
+      aOffset < CodepointRectsEndIndex()) {
+    return Some(ToRootRelativeDeviceRect(
+        *presContext, mCodepointRects[aOffset - mCodepointRectsStartIndex]));
+  } else {
+    return Nothing();
+  }
+}
+
+std::ostream& operator<<(std::ostream& aStream,
+                         const EditContext& aEditContext) {
+  nsAutoString debugText;
+  aEditContext.GetText(debugText);
+  if (debugText.Length() > 15) {
+    debugText.Truncate(12);
+    debugText.AppendLiteral(u"...");
+  }
+  debugText.ReplaceSubstring(u"\"", u"\\\"");
+  debugText.ReplaceSubstring(u"\\", u"\\\\");
+  debugText.ReplaceSubstring(u"\n", u"\\n");
+  aStream << "EditContext@" << &aEditContext << " { text=\"" << debugText
+          << "\", selection=" << aEditContext.SelectionStart() << "-"
+          << aEditContext.SelectionEnd() << ", associatedElement=";
+  if (Element* element = aEditContext.GetAssociatedElement()) {
+    aStream << *element;
+  } else {
+    aStream << "none";
+  }
+  return aStream << ", isComposing=" << TrueOrFalse(aEditContext.mIsComposing)
+                 << " }";
 }
 
 }  // namespace mozilla::dom

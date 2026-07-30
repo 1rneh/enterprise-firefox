@@ -19,8 +19,9 @@ use crate::internal_types::{FastHashMap, PlaneSplitter, FrameStamp};
 use crate::invalidation::DirtyRegion;
 use crate::tile_cache::{SliceId, TileCacheInstance};
 use crate::picture::PictureInstance;
-use crate::picture::{SurfaceInfo, SurfaceIndex, ResolvedSurfaceTexture};
-use crate::picture::{SubpixelMode, RasterConfig, PictureCompositeMode, PictureScratch};
+use crate::picture::ResolvedSurfaceTexture;
+use crate::picture::{RasterConfig, PictureScratch};
+use crate::picture_composite_mode::PictureCompositeMode;
 use crate::prepare::prepare_picture;
 use crate::prim_store::{PictureIndex, PrimitiveScratchBuffer};
 use crate::prim_store::{DeferredResolve, PrimitiveInstance};
@@ -36,7 +37,7 @@ use crate::render_task::{RenderTaskKind, StaticRenderTaskSurface};
 use crate::resource_cache::ResourceCache;
 use crate::scene::{BuiltScene, SceneProperties};
 use crate::space::SpaceMapper;
-use crate::surface::SurfaceBuilder;
+use crate::surface::{SubpixelMode, SurfaceBuilder, SurfaceIndex, SurfaceInfo};
 use crate::transform::{TransformPalette, TransformData};
 use std::sync::Arc;
 use std::{f32, mem};
@@ -256,7 +257,7 @@ impl FrameBuilder {
         frame_memory: &FrameMemory,
         profile: &mut TransactionProfile,
     ) {
-        profile_scope!("build_layer_screen_rects_and_cull_layers");
+        tracy_rs::profile_scope!("build_layer_screen_rects_and_cull_layers");
 
         let render_picture_cache_slices = present;
 
@@ -350,7 +351,6 @@ impl FrameBuilder {
         }
 
         {
-            profile_scope!("UpdateVisibility");
             profile_marker!("UpdateVisibility");
             profile.start_time(profiler::FRAME_VISIBILITY_TIME);
 
@@ -635,7 +635,6 @@ impl FrameBuilder {
         minimap_data: FastHashMap<ExternalScrollId, MinimapData>,
         chunk_pool: Arc<ChunkPool>,
     ) -> Frame {
-        profile_scope!("build");
         profile_marker!("BuildFrame");
 
         let mut frame_memory = FrameMemory::new(chunk_pool, stamp.frame_id());
@@ -1101,7 +1100,7 @@ pub fn build_render_pass(
     prim_instances: &[PrimitiveInstance],
     cmd_buffers: &CommandBufferList,
 ) -> RenderPass {
-    profile_scope!("build_render_pass");
+    tracy_rs::profile_scope!("build_render_pass");
 
     // TODO(gw): In this initial frame graph work, we try to maintain the existing
     //           build_render_pass code as closely as possible, to make the review

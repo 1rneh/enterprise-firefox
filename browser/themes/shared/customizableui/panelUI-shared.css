@@ -1182,6 +1182,12 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
   list-style-image: url(chrome://browser/content/logos/relay-monochrome.svg);
 }
 
+.PanelUI-fxa-menu-share-firefox-button {
+  list-style-image: url(chrome://browser/content/logos/share-firefox.svg);
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
 #PanelUI-fxa-menu-vpn-button {
   list-style-image: url("chrome://browser/skin/preferences/vpn-logo.svg");
   -moz-context-properties: fill;
@@ -1803,6 +1809,13 @@ toolbarbutton[itemtype="tab"].PanelUI-tabitem-container > .toolbarbutton-icon,
 
     &[disabled] {
       pointer-events: none;
+
+      /* When the tab button doubles as the row container, the Undo button is
+         nested inside it and would inherit pointer-events: none once the row is
+         disabled on close. Keep it clickable so the close can be undone. */
+      > .remote-tabs-undo-button {
+        pointer-events: auto;
+      }
     }
   }
 }

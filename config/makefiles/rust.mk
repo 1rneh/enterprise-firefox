@@ -621,7 +621,7 @@ else
 rust_test_profile_dir := $(if $(MOZ_DEBUG_RUST),debug,release)
 endif
 rust_test_bindir := $(CARGO_TARGET_DIR)/$(RUST_TARGET)/$(rust_test_profile_dir)/deps
-stage_test_libs = mkdir -p $(rust_test_bindir) && cp $(ABS_DIST)/bin/*$(DLL_SUFFIX) $(rust_test_bindir)/
+stage_test_libs = mkdir -p $(rust_test_bindir)$(if $(wildcard $(ABS_DIST)/bin/*$(DLL_SUFFIX)), && cp $(ABS_DIST)/bin/*$(DLL_SUFFIX) $(rust_test_bindir)/)
 else
 force-cargo-test-run: RUSTFLAGS += -C link-arg=-Wl,-rpath,$(ABS_DIST)/bin
 stage_test_libs = :

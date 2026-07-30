@@ -8,6 +8,8 @@ run-if = [
   "buildapp == 'browser'",
 ]
 
+["test_felt_back_button.py"]
+
 ["test_felt_browser_about_config_blocked.py"]
 run-if = [
   "buildapp == 'browser'", # open new tab
@@ -117,8 +119,6 @@ run-if = [
 run-if = [
   "buildapp == 'browser'", # browser specific: watermark drawn on a tab
 ]
-
-["test_felt_back_button.py"]
 
 ["test_felt_console_error.py"]
 

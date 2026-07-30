@@ -600,6 +600,22 @@ class nsLayoutUtils {
   static mozilla::ScrollContainerFrame* GetNearestScrollableFrameForDirection(
       nsIFrame* aFrame, mozilla::layers::ScrollDirections aDirections);
 
+  /**
+   * GetNearestScrollContainerFrameToScrollTowards locates the first ancestor of
+   * aFrame (or aFrame itself) that is scrollable and whose current scroll
+   * position can still move toward the given physical edge (i.e. it isn't
+   * already scrolled to that edge).
+   * The search extends across document boundaries, but does not cross process
+   * boundaries; callers should handle cross-process scroll handoff themselves.
+   *
+   * @param  aFrame the frame to start with
+   * @param  aSideBits the physical edge we want to scroll toward
+   * @return the nearest scroll container frame or nullptr if not found
+   */
+  static mozilla::ScrollContainerFrame*
+  GetNearestScrollContainerFrameToScrollTowards(nsIFrame* aFrame,
+                                                mozilla::SideBits aSideBits);
+
   enum {
     /**
      * If the SCROLLABLE_SAME_DOC flag is set, then we only walk the frame tree
@@ -1459,7 +1475,7 @@ class nsLayoutUtils {
   /**
    * Find the nearest ancestor that's a block
    */
-  static nsBlockFrame* FindNearestBlockAncestor(nsIFrame* aFrame);
+  static nsBlockFrame* FindNearestBlockAncestor(const nsIFrame* aFrame);
 
   /*
    * Whether the frame is an nsBlockFrame which is not a wrapper block.

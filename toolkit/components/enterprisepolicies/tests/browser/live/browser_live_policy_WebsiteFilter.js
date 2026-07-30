@@ -21,7 +21,7 @@ async function isBlockedSite(url, isExpectedBlocked) {
     BrowserTestUtils.startLoadingURIString(browser, url);
     await loaded;
     let blocked = browser.documentURI.spec.startsWith(
-      "about:neterror?e=blockedByPolicy"
+      "about:neterror?e=blockedByPolicyEnterprise"
     );
     is(
       blocked,

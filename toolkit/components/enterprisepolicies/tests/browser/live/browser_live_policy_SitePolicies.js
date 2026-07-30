@@ -29,25 +29,49 @@ function assertHasSitePolicy(url, expected) {
   );
 }
 
-function assertSharedDataSitePolicyCount(expected) {
+// Assert the site-policy shared data in parent and content
+async function assertSitePolicyCount(urls, expected) {
   let shared = Services.ppmm.sharedData.get("EnterprisePolicies:SitePolicies");
   Assert.equal(
     shared?.length ?? 0,
     expected,
-    `Expected ${expected} site policies in the shared data sent to content`
+    `Parent should hold ${expected} site policies`
   );
+
+  // updateSitePolicies stages the shared data change but relies on an idle
+  // flush to reach content.
+  Services.ppmm.sharedData.flush();
+
+  for (let url of urls) {
+    await BrowserTestUtils.withNewTab(url, browser =>
+      SpecialPowers.spawn(browser, [expected, url], async (count, tabUrl) => {
+        const { ContentTaskUtils } = ChromeUtils.importESModule(
+          "resource://testing-common/ContentTaskUtils.sys.mjs"
+        );
+        await ContentTaskUtils.waitForCondition(() => {
+          let contentShared = Services.cpmm.sharedData.get(
+            "EnterprisePolicies:SitePolicies"
+          );
+          return (contentShared?.length ?? 0) === count;
+        }, `Content process for ${tabUrl} should see ${count} site policies`);
+      })
+    );
+  }
 }
 
-function assertNoSitePolicies() {
+async function assertNoSitePolicies() {
   assertHasSitePolicy("https://example.com/", false);
   assertHasSitePolicy("https://example.org/", false);
   assertJitAllowed("https://example.com/", true);
   assertJitAllowed("https://example.org/", true);
-  assertSharedDataSitePolicyCount(0);
+  await assertSitePolicyCount(
+    ["https://example.com/", "https://example.org/"],
+    0
+  );
 }
 
 add_task(async function test_apply_then_remove_sitepolicies() {
-  assertNoSitePolicies();
+  await assertNoSitePolicies();
 
   info("Applying SitePolicies remotely.");
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
@@ -68,7 +92,10 @@ add_task(async function test_apply_then_remove_sitepolicies() {
   assertHasSitePolicy("https://example.org/", false);
   assertJitAllowed("https://example.com/", false);
   assertJitAllowed("https://example.org/", true);
-  assertSharedDataSitePolicyCount(1);
+  await assertSitePolicyCount(
+    ["https://example.com/", "https://example.org/"],
+    1
+  );
 
   info("Removing SitePolicies.");
   let updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
@@ -77,11 +104,11 @@ add_task(async function test_apply_then_remove_sitepolicies() {
 
   // onRemove must reset both the parent's internal state and
   // the shared data snapshot read by content processes.
-  assertNoSitePolicies();
+  await assertNoSitePolicies();
 });
 
 add_task(async function test_apply_then_update_sitepolicies() {
-  assertNoSitePolicies();
+  await assertNoSitePolicies();
 
   info("Applying SitePolicies matching example.com.");
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
@@ -100,7 +127,10 @@ add_task(async function test_apply_then_update_sitepolicies() {
 
   assertJitAllowed("https://example.com/", false);
   assertJitAllowed("https://example.org/", true);
-  assertSharedDataSitePolicyCount(1);
+  await assertSitePolicyCount(
+    ["https://example.com/", "https://example.org/"],
+    1
+  );
 
   info("Updating SitePolicies to match example.org instead.");
   let updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
@@ -120,18 +150,21 @@ add_task(async function test_apply_then_update_sitepolicies() {
   assertHasSitePolicy("https://example.org/", true);
   assertJitAllowed("https://example.com/", true);
   assertJitAllowed("https://example.org/", false);
-  assertSharedDataSitePolicyCount(1);
+  await assertSitePolicyCount(
+    ["https://example.com/", "https://example.org/"],
+    1
+  );
 
   info("Removing SitePolicies.");
   updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
   EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
   await updateApplied;
 
-  assertNoSitePolicies();
+  await assertNoSitePolicies();
 });
 
 add_task(async function test_live_update_exceptions() {
-  assertNoSitePolicies();
+  await assertNoSitePolicies();
 
   info("Applying an Exceptions-based SitePolicies remotely.");
   await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
@@ -148,7 +181,10 @@ add_task(async function test_live_update_exceptions() {
     null
   );
 
-  assertSharedDataSitePolicyCount(1);
+  await assertSitePolicyCount(
+    ["https://example.com/", "https://example.org/"],
+    1
+  );
   assertJitAllowed("https://example.com/", true);
 
   info("Updating the exception to example.org so the diff re-applies it.");
@@ -165,7 +201,10 @@ add_task(async function test_live_update_exceptions() {
   });
   await updateApplied;
 
-  assertSharedDataSitePolicyCount(1);
+  await assertSitePolicyCount(
+    ["https://example.com/", "https://example.org/"],
+    1
+  );
   assertJitAllowed("https://example.com/", false);
   assertJitAllowed("https://example.org/", true);
 
@@ -174,5 +213,5 @@ add_task(async function test_live_update_exceptions() {
   EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
   await updateApplied;
 
-  assertNoSitePolicies();
+  await assertNoSitePolicies();
 });

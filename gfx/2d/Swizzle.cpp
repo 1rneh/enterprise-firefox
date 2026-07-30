@@ -81,6 +81,14 @@ void SwizzleRow_SSE2(const uint8_t*, uint8_t*, int32_t);
         SwizzleRow_SSE2<ShouldSwapRB(aSrcFormat, aDstFormat), \
                         ShouldForceOpaque(aSrcFormat, aDstFormat)>)
 
+template <bool aSwapRB, bool aInverted>
+void SwizzleCmykRow_SSE2(const uint8_t*, uint8_t*, int32_t);
+
+#  define SWIZZLE_CMYK_ROW_SSE2(aSrcFormat, aDstFormat)                       \
+    FORMAT_CASE_ROW(aSrcFormat, aDstFormat,                                   \
+                    SwizzleCmykRow_SSE2<ShouldSwapRB(aSrcFormat, aDstFormat), \
+                                        ShouldInvert(aSrcFormat)>)
+
 template <bool aSwapRB, bool aOpaqueAlpha>
 void Swizzle_SSSE3(const uint8_t*, int32_t, uint8_t*, int32_t, IntSize);
 
@@ -163,6 +171,14 @@ void UnpackRowRGB24_AVX2(const uint8_t*, uint8_t*, int32_t);
         SurfaceFormat::R8G8B8, aDstFormat, \
         UnpackRowRGB24_AVX2<ShouldSwapRB(SurfaceFormat::R8G8B8, aDstFormat)>)
 
+template <bool aSwapRB, bool aInverted>
+void SwizzleCmykRow_AVX2(const uint8_t*, uint8_t*, int32_t);
+
+#  define SWIZZLE_CMYK_ROW_AVX2(aSrcFormat, aDstFormat)                       \
+    FORMAT_CASE_ROW(aSrcFormat, aDstFormat,                                   \
+                    SwizzleCmykRow_AVX2<ShouldSwapRB(aSrcFormat, aDstFormat), \
+                                        ShouldInvert(aSrcFormat)>)
+
 #endif
 
 #ifdef USE_NEON
@@ -226,6 +242,14 @@ void UnpackRowRGB24_NEON(const uint8_t*, uint8_t*, int32_t);
     FORMAT_CASE_ROW(                       \
         SurfaceFormat::R8G8B8, aDstFormat, \
         UnpackRowRGB24_NEON<ShouldSwapRB(SurfaceFormat::R8G8B8, aDstFormat)>)
+
+template <bool aSwapRB, bool aInverted>
+void SwizzleCmykRow_NEON(const uint8_t*, uint8_t*, int32_t);
+
+#  define SWIZZLE_CMYK_ROW_NEON(aSrcFormat, aDstFormat)                       \
+    FORMAT_CASE_ROW(aSrcFormat, aDstFormat,                                   \
+                    SwizzleCmykRow_NEON<ShouldSwapRB(aSrcFormat, aDstFormat), \
+                                        ShouldInvert(aSrcFormat)>)
 #endif
 
 /**
@@ -1155,6 +1179,83 @@ static void UnpackRowRGB24_To_ARGB(const uint8_t* aSrc, uint8_t* aDst,
 #define UNPACK_ROW_RGB_TO_ARGB(aDstFormat) \
   FORMAT_CASE_ROW(SurfaceFormat::R8G8B8, aDstFormat, UnpackRowRGB24_To_ARGB)
 
+// Fallback CMYK conversion implementation that uses splayed pixel math to
+// reduce the multiplications used. That is, the C and M components are isolated
+// from the Y and K components, which then can be multiplied as if they were two
+// 2-component vectors. Otherwise, an approximation of divide-by-255 is used
+// which is faster than an actual division. These optimizations are also used
+// for the xsimd implementations.
+template <bool aSwapRB, bool aInverted, uint32_t aDstRGBShift,
+          uint32_t aDstAShift>
+static void SwizzleCmykRowFallback(const uint8_t* aSrc, uint8_t* aDst,
+                                   int32_t aLength) {
+  // Source is 'Inverted CMYK', output is RGB.
+  // See: http://www.easyrgb.com/math.php?MATH=M12#text12
+  // Or:  http://www.ilkeratalay.com/colorspacesfaq.php#rgb
+
+  // From CMYK to CMY
+  // C = ( C * ( 1 - K ) + K )
+  // M = ( M * ( 1 - K ) + K )
+  // Y = ( Y * ( 1 - K ) + K )
+
+  // From Inverted CMYK to CMY is thus:
+  // C = ( (1-iC) * (1 - (1-iK)) + (1-iK) ) => 1 - iC*iK
+  // Same for M and Y
+
+  // Convert from CMY (0..1) to RGB (0..1)
+  // R = 1 - C => 1 - (1 - iC*iK) => iC*iK
+  // G = 1 - M => 1 - (1 - iM*iK) => iM*iK
+  // B = 1 - Y => 1 - (1 - iY*iK) => iY*iK
+  const uint8_t* end = aSrc + 4 * aLength;
+  do {
+    // Load and process 1 entire pixel at a time. The source is always CMYK with
+    // C, M, Y, K in bytes 0..3, so K is the high byte, C/Y form the even 16-bit
+    // lane pair and M/K form the odd pair.
+    uint32_t color = *reinterpret_cast<const uint32_t*>(aSrc);
+    if constexpr (aInverted) {
+      color = ~color;
+    }
+
+    uint32_t k = color >> 24;
+
+    // Isolate the C and Y components (the even lanes).
+    uint32_t cy = color & 0x00FF00FF;
+    // Swap the order of C and Y if necessary.
+    if constexpr (aSwapRB) {
+      cy = (cy >> 16) | (cy << 16);
+    }
+    // Approximate the multiply by alpha and divide by 255 which is
+    // essentially:
+    // c = c*k; c = (c + (c >> 8) + 1) >> 8;
+    // However, we omit the final >> 8 to fold it with the final shift into
+    // place depending on desired output format.
+    cy = cy * k;
+    cy = (cy + ((cy >> 8) & 0x00FF00FF) + 0x00010001) & 0xFF00FF00;
+
+    // Do the same for the M and K channels.
+    uint32_t mk = (color >> 8) & 0x00FF00FF;
+    mk = mk * k;
+    mk = (mk + ((mk >> 8) & 0x00FF00FF) + 0x00010001) & 0xFF00FF00;
+
+    // The above math leaves each channel shifted left by 8 bits. Shift the C/Y
+    // pair and the M channel into their destination positions and force
+    // the alpha opaque.
+    *reinterpret_cast<uint32_t*>(aDst) = (cy >> (8 - aDstRGBShift)) |
+                                         ((mk & 0x0000FF00) << aDstRGBShift) |
+                                         (0xFF << aDstAShift);
+
+    aSrc += 4;
+    aDst += 4;
+  } while (aSrc < end);
+}
+
+#define SWIZZLE_CMYK_ROW(aSrcFormat, aDstFormat)                          \
+  FORMAT_CASE_ROW(                                                        \
+      aSrcFormat, aDstFormat,                                             \
+      SwizzleCmykRowFallback<                                             \
+          ShouldSwapRB(aSrcFormat, aDstFormat), ShouldInvert(aSrcFormat), \
+          RGBBitShift(aDstFormat), AlphaBitShift(aDstFormat)>)
+
 bool SwizzleData(const uint8_t* aSrc, int32_t aSrcStride,
                  SurfaceFormat aSrcFormat, uint8_t* aDst, int32_t aDstStride,
                  SurfaceFormat aDstFormat, const IntSize& aSize,
@@ -1400,6 +1501,12 @@ SwizzleRowFn SwizzleRow(SurfaceFormat aSrcFormat, SurfaceFormat aDstFormat,
       UNPACK_ROW_RGB_AVX2(SurfaceFormat::R8G8B8A8)
       UNPACK_ROW_RGB_AVX2(SurfaceFormat::B8G8R8X8)
       UNPACK_ROW_RGB_AVX2(SurfaceFormat::B8G8R8A8)
+      SWIZZLE_CMYK_ROW_AVX2(SurfaceFormat::CMYK, SurfaceFormat::B8G8R8X8)
+      SWIZZLE_CMYK_ROW_AVX2(SurfaceFormat::CMYK, SurfaceFormat::B8G8R8A8)
+      SWIZZLE_CMYK_ROW_AVX2(SurfaceFormat::InvertedCMYK,
+                            SurfaceFormat::B8G8R8X8)
+      SWIZZLE_CMYK_ROW_AVX2(SurfaceFormat::InvertedCMYK,
+                            SurfaceFormat::B8G8R8A8)
       default:
         break;
     }
@@ -1432,6 +1539,12 @@ SwizzleRowFn SwizzleRow(SurfaceFormat aSrcFormat, SurfaceFormat aDstFormat,
       SWIZZLE_ROW_SSE2(SurfaceFormat::R8G8B8X8, SurfaceFormat::B8G8R8X8)
       SWIZZLE_ROW_SSE2(SurfaceFormat::R8G8B8A8, SurfaceFormat::B8G8R8X8)
       SWIZZLE_ROW_SSE2(SurfaceFormat::R8G8B8X8, SurfaceFormat::B8G8R8A8)
+      SWIZZLE_CMYK_ROW_SSE2(SurfaceFormat::CMYK, SurfaceFormat::B8G8R8X8)
+      SWIZZLE_CMYK_ROW_SSE2(SurfaceFormat::CMYK, SurfaceFormat::B8G8R8A8)
+      SWIZZLE_CMYK_ROW_SSE2(SurfaceFormat::InvertedCMYK,
+                            SurfaceFormat::B8G8R8X8)
+      SWIZZLE_CMYK_ROW_SSE2(SurfaceFormat::InvertedCMYK,
+                            SurfaceFormat::B8G8R8A8)
       default:
         break;
     }
@@ -1452,6 +1565,12 @@ SwizzleRowFn SwizzleRow(SurfaceFormat aSrcFormat, SurfaceFormat aDstFormat,
       SWIZZLE_ROW_NEON(SurfaceFormat::R8G8B8X8, SurfaceFormat::B8G8R8X8)
       SWIZZLE_ROW_NEON(SurfaceFormat::R8G8B8A8, SurfaceFormat::B8G8R8X8)
       SWIZZLE_ROW_NEON(SurfaceFormat::R8G8B8X8, SurfaceFormat::B8G8R8A8)
+      SWIZZLE_CMYK_ROW_NEON(SurfaceFormat::CMYK, SurfaceFormat::B8G8R8X8)
+      SWIZZLE_CMYK_ROW_NEON(SurfaceFormat::CMYK, SurfaceFormat::B8G8R8A8)
+      SWIZZLE_CMYK_ROW_NEON(SurfaceFormat::InvertedCMYK,
+                            SurfaceFormat::B8G8R8X8)
+      SWIZZLE_CMYK_ROW_NEON(SurfaceFormat::InvertedCMYK,
+                            SurfaceFormat::B8G8R8A8)
       default:
         break;
     }
@@ -1507,6 +1626,11 @@ SwizzleRowFn SwizzleRow(SurfaceFormat aSrcFormat, SurfaceFormat aDstFormat,
 
     PACK_ROW_RGB(SurfaceFormat::R8G8B8, PackRowToRGB24)
     PACK_ROW_RGB(SurfaceFormat::B8G8R8, PackRowToRGB24)
+
+    SWIZZLE_CMYK_ROW(SurfaceFormat::CMYK, SurfaceFormat::B8G8R8X8)
+    SWIZZLE_CMYK_ROW(SurfaceFormat::CMYK, SurfaceFormat::B8G8R8A8)
+    SWIZZLE_CMYK_ROW(SurfaceFormat::InvertedCMYK, SurfaceFormat::B8G8R8X8)
+    SWIZZLE_CMYK_ROW(SurfaceFormat::InvertedCMYK, SurfaceFormat::B8G8R8A8)
 
     default:
       break;

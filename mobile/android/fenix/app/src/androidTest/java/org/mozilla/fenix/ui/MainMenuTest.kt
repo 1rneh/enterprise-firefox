@@ -585,6 +585,11 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080119
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyThePrintSubMenuOptionTest"],
+        bug = 2057199,
+        since = "2026-07",
+    )
     @SmokeTest
     @Test
     fun verifyThePrintSubMenuOptionTest() {
@@ -727,6 +732,10 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080101
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.CustomTabsTest#verifyTheFindInPageMenuItemInACustomTabTest"],
+        since = "2026-07",
+    )
     @SmokeTest
     @Test
     fun verifyTheFindInPageMenuItemInACustomTabTest() {
@@ -1224,6 +1233,12 @@ class MainMenuTest {
         }
     }
 
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4245654
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyTheMainMenuBackButtonLongPressTest"],
+        bug = 2058469,
+        since = "2026-06",
+    )
     @SmokeTest
     @Test
     fun verifyTheMainMenuBackButtonLongPressTest() {
@@ -1274,6 +1289,12 @@ class MainMenuTest {
         }
     }
 
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4245662
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyTheMainMenuForwardButtonLongPressTest"],
+        bug = 2058469,
+        since = "2026-06",
+    )
     @SmokeTest
     @Test
     fun verifyTheMainMenuForwardButtonLongPressTest() {
@@ -1343,6 +1364,10 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080137
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyTheBookmarksMainMenuItemTest"],
+        since = "2026-07",
+    )
     @SmokeTest
     @Test
     fun verifyTheBookmarksMainMenuItemTest() {
@@ -1389,6 +1414,10 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080096
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.CustomTabsTest#verifyTheMainMenuBackButtonFromCustomTabTest"],
+        since = "2026-07",
+    )
     @SmokeTest
     @Test
     fun verifyTheMainMenuBackButtonFromCustomTabTest() {
@@ -1414,6 +1443,7 @@ class MainMenuTest {
         }
     }
 
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4245663
     @SmokeTest
     @Test
     fun verifyTheMainMenuBackButtonLongClickFromCustomTabTest() {
@@ -1443,6 +1473,10 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080097
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.CustomTabsTest#verifyTheMainMenuForwardButtonFromCustomTabTest"],
+        since = "2026-07",
+    )
     @SmokeTest
     @Test
     fun verifyTheMainMenuForwardButtonFromCustomTabTest() {

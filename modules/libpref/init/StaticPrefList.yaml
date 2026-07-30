@@ -263,11 +263,6 @@
   value: false
   mirror: always
 
-- name: accessibility.ARIAElementReflection.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Whether to enable automatic details relationships for
 # anchor positioned content.
 - name: accessibility.anchorPositionedAsDetails.enabled
@@ -5789,14 +5784,6 @@
 - name: dom.vr.autoactivate.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Minimum number of milliseconds that the browser will wait before
-# attempting to poll again for connected VR controllers.  The browser
-# will not attempt to poll for VR controllers until it needs to use them.
-- name: dom.vr.controller.enumerate.interval
-  type: RelaxedAtomicInt32
-  value: 1000
   mirror: always
 
 # The threshold value of trigger inputs for VR controllers.
@@ -15324,6 +15311,15 @@
   value: true
 #endif
 
+# When a protocol would be launched externally without a prompt (i.e. the
+# network.protocol-handler.external.<scheme> pref is set), require transient
+# user activation. Without activation we fall back to the external protocol
+# prompt instead of launching silently. See bug 299116.
+- name: network.protocol-handler.prompt-without-user-activation
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Whether we can send OnDataAvailable to content process directly.
 - name: network.send_ODA_to_content_directly
   type: RelaxedAtomicBool
@@ -18824,7 +18820,7 @@
 # Whether or not to enable the test trust anchor list when verifying PDF signatures
 - name: security.pdf_signature_verification.enable_test_trust_anchors
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 

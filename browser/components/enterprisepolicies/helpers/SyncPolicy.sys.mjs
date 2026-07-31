@@ -2,17 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import {
-  PREF_LOGLEVEL,
-  setAndLockPref,
-  unsetAndUnlockPref,
-  PoliciesUtils,
-} from "resource:///modules/policies/Policies.sys.mjs";
+import { PREF_LOGLEVEL } from "resource:///modules/policies/Policies.sys.mjs";
 
 import { STATUS_OK as SYNC_STATUS_OK } from "resource://services-sync/constants.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  PoliciesUtils: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   Weave: "resource://services-sync/main.sys.mjs",
 });
 
@@ -106,11 +102,11 @@ export const SyncPolicy = {
       const pref = ENGINE_PREFS[type];
       if (isIgnoringUserPreferences) {
         lazy.log.debug(`Setting and locking ${type}: ${pref} : ${value}`);
-        setAndLockPref(pref, value);
+        lazy.PoliciesUtils.setAndLockPref(pref, value);
         continue;
       }
       lazy.log.debug(`Setting ${type}: ${pref} : ${value}`);
-      PoliciesUtils.setDefaultPref(pref, value, false);
+      lazy.PoliciesUtils.setDefaultPref(pref, value, false);
     }
 
     // Only lock the Sync feature if 'Enabled' is configured
@@ -130,7 +126,7 @@ export const SyncPolicy = {
     }
     for (const pref of Object.values(ENGINE_PREFS)) {
       lazy.log.debug(`Unsetting ${pref}`);
-      unsetAndUnlockPref(pref);
+      lazy.PoliciesUtils.unsetAndUnlockPref(pref);
     }
     // We don't have a way yet to restore the pre-policy
     // sync state (Bug 2017719)

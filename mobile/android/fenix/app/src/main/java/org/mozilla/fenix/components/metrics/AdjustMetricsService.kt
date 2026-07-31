@@ -23,8 +23,10 @@ import org.mozilla.fenix.Config
 import org.mozilla.fenix.GleanMetrics.AdjustAttribution
 import org.mozilla.fenix.GleanMetrics.Pings
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.AURA_PARTNER_ID
+import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.DYNAMIC_CALLBACK_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.GOOGLE_PARTNER_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.META_PARTNER_ID
+import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.MOLOCO_PARTNER_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.REDDIT_PARTNER_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.TIKTOK_PARTNER_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.X_TWITTER_PARTNER_ID
@@ -178,6 +180,9 @@ class AdjustMetricsService(
             isUserTikTokAttributed = settings.isUserTikTokAttributed,
             isUserRedditAttributed = settings.isUserRedditAttributed,
             isUserXTwitterAttributed = settings.isUserXTwitterAttributed,
+            isUserMolocoAttributed = settings.isUserMolocoAttributed,
+            isUserRakutenAttributed = settings.isUserRakutenAttributed,
+            isUserSkyflagAttributed = settings.isUserSkyflagAttributed,
             controller = thirdPartySharingController,
         )
 
@@ -262,6 +267,7 @@ class AdjustMetricsService(
         /**
          * Sets third party sharing settings based on distribution and attribution.
          */
+        @Suppress("LongParameterList")
         @VisibleForTesting
         internal fun applyThirdPartySharingSettings(
             distribution: DistributionIdManager.Distribution,
@@ -269,6 +275,9 @@ class AdjustMetricsService(
             isUserTikTokAttributed: Boolean,
             isUserRedditAttributed: Boolean,
             isUserXTwitterAttributed: Boolean,
+            isUserMolocoAttributed: Boolean,
+            isUserRakutenAttributed: Boolean,
+            isUserSkyflagAttributed: Boolean,
             controller: ThirdPartySharingController = AdjustThirdPartySharingController(),
         ) {
             when (distribution) {
@@ -285,6 +294,13 @@ class AdjustMetricsService(
                             controller.enableThirdPartySharingForPartner(REDDIT_PARTNER_ID)
                         isUserXTwitterAttributed ->
                             controller.enableThirdPartySharingForPartner(X_TWITTER_PARTNER_ID)
+                        isUserMolocoAttributed ->
+                            controller.enableThirdPartySharingForPartner(MOLOCO_PARTNER_ID)
+                        isUserRakutenAttributed ->
+                            controller.enableThirdPartySharingForPartner(DYNAMIC_CALLBACK_ID)
+                        isUserSkyflagAttributed -> {
+                            // no-op
+                        }
                         else ->
                             controller.enableThirdPartySharingForPartner(GOOGLE_PARTNER_ID)
                     }

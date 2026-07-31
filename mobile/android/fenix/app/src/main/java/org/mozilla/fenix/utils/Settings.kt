@@ -475,6 +475,21 @@ class Settings(
         default = false,
     )
 
+    var isUserMolocoAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_moloco_attributed),
+        default = false,
+    )
+
+    var isUserRakutenAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_rakuten_attributed),
+        default = false,
+    )
+
+    var isUserSkyflagAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_skyflag_attributed),
+        default = false,
+    )
+
     var rtamoAddonDownloadUrl by stringPreference(
         appContext.getPreferenceKey(R.string.pref_key_rtamo_addon_download_url),
         default = "",

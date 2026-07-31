@@ -32,8 +32,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.AURA_PARTNER_ID
+import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.DYNAMIC_CALLBACK_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.GOOGLE_PARTNER_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.META_PARTNER_ID
+import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.MOLOCO_PARTNER_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.REDDIT_PARTNER_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.TIKTOK_PARTNER_ID
 import org.mozilla.fenix.components.metrics.AdjustThirdPartySharingController.Companion.X_TWITTER_PARTNER_ID
@@ -244,6 +246,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -251,13 +256,16 @@ internal class AdjustMetricsServiceTest {
     }
 
     @Test
-    fun `WHEN the distribution is DEFAULT AND the user has no Meta, TikTok, Reddit, or X attribution THEN sharing is enabled for Google`() {
+    fun `WHEN the distribution is DEFAULT AND the user has no Meta, TikTok, Reddit, X, or Rakuten attribution THEN sharing is enabled for Google`() {
         AdjustMetricsService.applyThirdPartySharingSettings(
             distribution = DistributionIdManager.Distribution.DEFAULT,
             isUserMetaAttributed = false,
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -272,6 +280,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = true,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -286,6 +297,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = true,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -300,10 +314,65 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = true,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
         verify { thirdPartySharingController.enableThirdPartySharingForPartner(X_TWITTER_PARTNER_ID) }
+    }
+
+    @Test
+    fun `WHEN the distribution is DEFAULT AND the user is Moloco attributed THEN sharing is enabled for Moloco`() {
+        AdjustMetricsService.applyThirdPartySharingSettings(
+            distribution = DistributionIdManager.Distribution.DEFAULT,
+            isUserMetaAttributed = false,
+            isUserTikTokAttributed = false,
+            isUserRedditAttributed = false,
+            isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = true,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
+            controller = thirdPartySharingController,
+        )
+
+        verify { thirdPartySharingController.enableThirdPartySharingForPartner(MOLOCO_PARTNER_ID) }
+    }
+
+    @Test
+    fun `WHEN the distribution is DEFAULT AND the user is Rakuten attributed THEN sharing is enabled for Rakuten`() {
+        AdjustMetricsService.applyThirdPartySharingSettings(
+            distribution = DistributionIdManager.Distribution.DEFAULT,
+            isUserMetaAttributed = false,
+            isUserTikTokAttributed = false,
+            isUserRedditAttributed = false,
+            isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = true,
+            isUserSkyflagAttributed = false,
+            controller = thirdPartySharingController,
+        )
+
+        verify { thirdPartySharingController.enableThirdPartySharingForPartner(DYNAMIC_CALLBACK_ID) }
+    }
+
+    @Test
+    fun `WHEN the distribution is DEFAULT AND the user is Skyflag attributed THEN all sharing is disabled and no partner is enabled`() {
+        AdjustMetricsService.applyThirdPartySharingSettings(
+            distribution = DistributionIdManager.Distribution.DEFAULT,
+            isUserMetaAttributed = false,
+            isUserTikTokAttributed = false,
+            isUserRedditAttributed = false,
+            isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = true,
+            controller = thirdPartySharingController,
+        )
+
+        verify { thirdPartySharingController.disableAllThirdPartySharing() }
+        verify(exactly = 0) { thirdPartySharingController.enableThirdPartySharingForPartner(any()) }
     }
 
     @Test
@@ -314,6 +383,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -328,6 +400,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -342,6 +417,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -356,6 +434,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -370,6 +451,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 
@@ -384,6 +468,9 @@ internal class AdjustMetricsServiceTest {
             isUserTikTokAttributed = false,
             isUserRedditAttributed = false,
             isUserXTwitterAttributed = false,
+            isUserMolocoAttributed = false,
+            isUserRakutenAttributed = false,
+            isUserSkyflagAttributed = false,
             controller = thirdPartySharingController,
         )
 

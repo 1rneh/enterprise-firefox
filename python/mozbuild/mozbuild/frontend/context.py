@@ -1789,6 +1789,18 @@ VARIABLES = {
         package-name.mk).
         """,
     ),
+    "MACOS_BUNDLES": (
+        TypedList(dict),
+        list,
+        """macOS application bundles to assemble from a skeleton directory.
+
+        Use the ``MACOS_BUNDLE`` template rather than appending to this
+        directly. Each entry describes one ``.app`` bundle: a skeleton
+        directory copied into ``Contents``, an optional generated
+        ``Info.plist`` and ``InfoPlist.strings``, and binaries to install
+        into ``Contents/MacOS``.
+        """,
+    ),
     "OBJDIR_FILES": (
         ContextDerivedTypedHierarchicalStringList(Path, allow_renames=True),
         list,
@@ -2467,6 +2479,7 @@ VARIABLES = {
             "no_unified": bool,
             "non_unified_sources": StrictOrderingOnAppendList,
             "action_overrides": dict,
+            "install_static_libs": list,
         }),
         list,
         """Defines a list of object directories handled by gyp configurations.
@@ -2491,6 +2504,10 @@ VARIABLES = {
               unification.
             - action_overrides, a dict of action_name to values of the `script`
               attribute to use for GENERATED_FILES for the specified action.
+            - install_static_libs, a list of gyp ``static_library`` target names
+              whose output should be installed to ``$(DIST)/lib``. Equivalent
+              to setting ``DIST_INSTALL = True`` on those targets, but selective
+              rather than affecting every target in the gyp directory.
 
         Typical use looks like:
             GYP_DIRS += ['foo', 'bar']

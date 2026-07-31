@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.ui.efficiency.tests
 
+import androidx.core.net.toUri
 import mozilla.components.support.ktx.util.PromptAbuserDetector
 import org.junit.After
 import org.junit.Before
@@ -294,7 +295,6 @@ class MainMenuTest : BaseTest(
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080111
     @SmokeTest
-    @Ignore("Failing: https://bugzilla.mozilla.org/show_bug.cgi?id=2056644")
     @Test
     fun verifyTheTranslatePageSubMenuOptionTest() {
         val testPage = mockWebServer.firstForeignWebPageAsset
@@ -303,6 +303,7 @@ class MainMenuTest : BaseTest(
             .openMainMenu()
             .mozClick(MainMenuSelectors.MORE_BUTTON)
             .mozClick(MainMenuSelectors.TRANSLATE_BUTTON)
+            .mozVerifyElementsByGroup("notTranslatedPageTranslationSheet")
             .mozClickIfPresent(BrowserPageSelectors.TRANSLATION_SHEET_TRANSLATE_BUTTON)
             .mozWaitUntilAbsent(BrowserPageSelectors.TRANSLATION_SHEET_TRANSLATE_BUTTON, TestAssetHelper.waitingTimeLong)
         on.browserPage
@@ -453,5 +454,19 @@ class MainMenuTest : BaseTest(
             .mozVerify(TabHistorySelectors.TAB_HISTORY_LIST)
             .mozVerify(TabHistorySelectors.TAB_HISTORY_ITEM(nextWebPage.url.toString()))
             .mozVerify(TabHistorySelectors.TAB_HISTORY_ITEM(firstWebPage.url.toString()))
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080117
+    @SmokeTest
+    @Test
+    fun verifyTheOpenInAppSubMenuOptionIsEnabledTest() {
+        val youtubeURL = "vnd.youtube://".toUri()
+
+        on.browserPage.navigateToPage(youtubeURL.toString())
+        on.mainMenu.navigateToPage()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozVerifyElementIsEnabled(MainMenuSelectors.OPEN_IN_APP_NAME_BUTTON("YouTube"))
+            .mozClick(MainMenuSelectors.OPEN_IN_APP_NAME_BUTTON("YouTube"))
+            .mozVerifyFileOpensInExternalApp(Constants.PackageName.YOUTUBE_APP)
     }
 }

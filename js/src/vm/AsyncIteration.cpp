@@ -7,7 +7,6 @@
 #include "builtin/Promise.h"  // js::PromiseHandler, js::CreatePromiseObjectForAsyncGenerator, js::AsyncFromSyncIteratorMethod, js::ResolvePromiseInternal, js::RejectPromiseInternal, js::InternalAsyncGeneratorAwait
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/PropertySpec.h"
-#include "vm/AsyncFunction.h"  // js::AutoAsyncResumeDepth
 #include "vm/CompletionKind.h"
 #include "vm/FunctionFlags.h"  // js::FunctionFlags
 #include "vm/GeneratorObject.h"
@@ -1220,8 +1219,6 @@ bool js::AsyncGeneratorThrow(JSContext* cx, unsigned argc, Value* vp) {
 [[nodiscard]] static bool AsyncGeneratorResume(
     JSContext* cx, Handle<AsyncGeneratorObject*> generator,
     CompletionKind completionKind, HandleValue argument) {
-  AutoAsyncResumeDepth autoDepth(cx);
-
   // Given that yield can resume again, we implement it as a loop.
   JS::Rooted<JS::Value> resumeArgument(cx, argument);
   while (true) {
@@ -1262,15 +1259,19 @@ bool js::AsyncGeneratorThrow(JSContext* cx, unsigned argc, Value* vp) {
     //       to be handled with the genContext.
     //       when the execution continues, we resume the generator with
     //       the corresponding completion value.
-    Handle<PropertyName*> funName = completionKind == CompletionKind::Normal
-                                        ? cx->names().AsyncGeneratorNext
-                                    : completionKind == CompletionKind::Throw
-                                        ? cx->names().AsyncGeneratorThrow
-                                        : cx->names().AsyncGeneratorReturn;
-    FixedInvokeArgs<1> args(cx);
-    args[0].set(resumeArgument);
+    GeneratorResumeKind resumeKind =
+        completionKind == CompletionKind::Normal  ? GeneratorResumeKind::Next
+        : completionKind == CompletionKind::Throw ? GeneratorResumeKind::Throw
+                                                  : GeneratorResumeKind::Return;
     RootedValue thisOrRval(cx, ObjectValue(*generator));
-    if (!CallSelfHostedFunction(cx, funName, thisOrRval, args, &thisOrRval)) {
+
+    bool resumeOk;
+    {
+      AutoRealm ar(cx, generator);
+      resumeOk = ResumeGenerator(cx, generator, resumeArgument, resumeKind,
+                                 &thisOrRval);
+    }
+    if (!resumeOk) {
       if (!generator->isClosed()) {
         generator->setClosed(cx);
       }

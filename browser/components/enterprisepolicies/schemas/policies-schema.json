@@ -917,6 +917,81 @@
       }
     },
 
+    "DataLossPrevention": {
+      "type": "object",
+      "x-category": "Cloud reporting",
+      "description": "Configure built-in Data Loss Prevention rules that warn on or block data actions (paste, copy, upload, download, print) per domain.",
+      "examples": [
+        {
+          "FallbackResult": "block",
+          "AllowUrlRegexList": "https://example.com/.* https://subdomain.example.com/.*",
+          "Rules": [
+            {
+              "Name": "warn-ai-paste",
+              "Enabled": true,
+              "Actions": ["TextPaste"],
+              "Domains": ["chatgpt.com", "claude.ai"],
+              "Type": "warn",
+              "Message": "Pasting work data into AI services may violate company policy."
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "FallbackResult": {
+          "type": "string",
+          "enum": ["block", "warn", "allow"]
+        },
+        "AllowUrlRegexList": {
+          "type": "string"
+        },
+        "Rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "Name": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,64}$"
+              },
+              "Enabled": {
+                "type": "boolean"
+              },
+              "Actions": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "enum": ["TextPaste", "FileUpload", "FileDownload", "Print"]
+                }
+              },
+              "Domains": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ContentPatterns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Type": {
+                "type": "string",
+                "enum": ["warn", "block"]
+              },
+              "Message": {
+                "type": "string"
+              }
+            },
+            "required": ["Name", "Actions", "Domains", "Type"]
+          }
+        }
+      }
+    },
+
     "DefaultBrowserSettingEnabled": {
       "type": "boolean",
       "x-category": "Startup",

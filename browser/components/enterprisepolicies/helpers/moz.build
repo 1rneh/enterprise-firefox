@@ -8,6 +8,7 @@ with Files("**"):
 EXTRA_JS_MODULES.policies += [
     "AIChatbotPolicies.sys.mjs",
     "BookmarksPolicies.sys.mjs",
+    "ContentAnalysisPolicies.sys.mjs",
     "ProxyPolicies.sys.mjs",
     "WebsiteFilter.sys.mjs",
 ]

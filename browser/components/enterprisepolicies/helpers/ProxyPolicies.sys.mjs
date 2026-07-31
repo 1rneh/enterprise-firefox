@@ -6,10 +6,6 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 
 const lazy = {};
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-});
-
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
     "resource://gre/modules/Console.sys.mjs"
@@ -144,29 +140,6 @@ export var ProxyPolicies = {
     }
   },
 
-  /**
-   * Keeps the enterprise console reachable on a direct connection whenever a
-   * proxy is configured, so a broken proxy can be recovered from via a remote
-   * policy update. Any admin-provided Passthrough value is preserved.
-   *
-   * @param {object} param The Proxy policy parameters.
-   * @param {Function} setPref A function to set a preference value.
-   * @returns {Promise<void>}
-   */
-  async excludeConsoleFromProxy(param, setPref) {
-    try {
-      const { hostname } = await lazy.ConsoleClient.consoleBaseURI;
-      if (!hostname) {
-        return;
-      }
-      const passthrough = param.Passthrough
-        ? `${param.Passthrough}, ${hostname}`
-        : hostname;
-      setPref("network.proxy.no_proxies_on", passthrough, param.Locked);
-    } catch (e) {
-      lazy.log.error("Failed to exclude enterprise console:", e);
-    }
-  },
   /**
    * Restores every proxy preference to the state it had before the policy was
    * applied.

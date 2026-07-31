@@ -5,25 +5,24 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = XPCOMUtils.declareLazy({
-  CONSOLE_ADDRESS_PREF:
-    "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  log: () => lazy.createEnterpriseLogger("ConsoleProxyBypass"),
+  log: () => lazy.createEnterpriseLogger("ConsoleProxyBypassFilter"),
   ProxyService: {
     service: "@mozilla.org/network/protocol-proxy-service;1",
     iid: Ci.nsIProtocolProxyService,
   },
 });
 
-// Run after other registered filters, so the console bypass takes precedence.
-const FILTER_POSITION = 100;
+// This filter always runs last and takes precedence over any other proxy filter.
+const MAX_UINT32 = 0xffffffff;
 
 /**
  * Forces traffic to the enterprise console host to use a direct connection,
  * regardless of how a proxy was configured, to prevent breaking the console connection.
  */
-export const ConsoleProxyBypass = {
+export const ConsoleProxyBypassFilter = {
   QueryInterface: ChromeUtils.generateQI([
     "nsIProtocolProxyFilter",
     "nsIObserver",
@@ -31,26 +30,25 @@ export const ConsoleProxyBypass = {
 
   /** @type {string} Hostname of the enterprise console, or null if unset. */
   _consoleHost: null,
-  /** @type {boolean} Whether the filter and observers have been initialized. */
+  /** @type {boolean} Whether the filter and observer have been initialized. */
   _initialized: false,
 
   /**
-   * Registers the proxy filter and the observers.
+   * Registers the proxy filter and the observer.
    */
-  init() {
+  async init() {
     if (this._initialized) {
       return;
     }
     this._initialized = true;
 
-    this._updateConsoleHost();
-    lazy.ProxyService.registerFilter(this, FILTER_POSITION);
-    Services.prefs.addObserver(lazy.CONSOLE_ADDRESS_PREF, this);
+    lazy.ProxyService.registerFilter(this, MAX_UINT32);
     Services.obs.addObserver(this, "xpcom-shutdown");
+    await this._updateConsoleHost();
   },
 
   /**
-   * Unregisters the proxy filter and observers.
+   * Unregisters the proxy filter and observer.
    */
   uninit() {
     if (!this._initialized) {
@@ -58,7 +56,6 @@ export const ConsoleProxyBypass = {
     }
     this._initialized = false;
 
-    Services.prefs.removeObserver(lazy.CONSOLE_ADDRESS_PREF, this);
     Services.obs.removeObserver(this, "xpcom-shutdown");
     try {
       lazy.ProxyService.unregisterFilter(this);
@@ -68,11 +65,16 @@ export const ConsoleProxyBypass = {
   },
 
   /**
-   * Parses and caches the console hostname from the console address pref.
+   * Gets the console hostname from ConsoleClient, falling back to null if unavailable.
    */
-  _updateConsoleHost() {
-    const address = Services.prefs.getStringPref(lazy.CONSOLE_ADDRESS_PREF, "");
-    this._consoleHost = URL.parse(address)?.hostname || null;
+  async _updateConsoleHost() {
+    try {
+      const url = await lazy.ConsoleClient.consoleBaseURI;
+      this._consoleHost = url.hostname;
+    } catch (e) {
+      lazy.log.warn("Console host unavailable, proxy bypass inactive:", e);
+      this._consoleHost = null;
+    }
   },
 
   /**
@@ -99,17 +101,12 @@ export const ConsoleProxyBypass = {
 
   /**
    * @see nsIObserver
-   * @param {nsISupports} _subject The pref branch or subject of the notification.
-   * @param {string} topic Either "nsPref:changed" or "xpcom-shutdown".
+   * @param {nsISupports} _subject The subject of the notification.
+   * @param {string} topic The "xpcom-shutdown" notification topic.
    */
   observe(_subject, topic) {
-    switch (topic) {
-      case "nsPref:changed":
-        this._updateConsoleHost();
-        break;
-      case "xpcom-shutdown":
-        this.uninit();
-        break;
+    if (topic === "xpcom-shutdown") {
+      this.uninit();
     }
   },
 };

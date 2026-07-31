@@ -4148,11 +4148,11 @@ export var Policies = {
   },
 
   Sync: {
-    async onBeforeAddons(manager, param) {
-      await lazy.SyncPolicy.applySettings(manager, param);
+    onBeforeAddons(manager, param) {
+      lazy.SyncPolicy.applySettings(manager, param).then(null, lazy.log.error);
     },
-    async onRemove(manager, _) {
-      await lazy.SyncPolicy.restoreSettings(manager);
+    onRemove(manager, _) {
+      lazy.SyncPolicy.restoreSettings(manager).then(null, lazy.log.error);
     },
   },
 

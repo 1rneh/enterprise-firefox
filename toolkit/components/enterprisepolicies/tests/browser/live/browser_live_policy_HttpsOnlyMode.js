@@ -103,19 +103,18 @@ add_task(async function test_https_only_mode_live_removal() {
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:blank" },
     async browser => {
+      // Start with a clean engine
+      await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+        { policies: {} },
+        null
+      );
+
       // The pref defaults to false and is unlocked; the http page loads.
       checkPref(false, false);
       await navigateAndCheckErrorPage(browser, false);
 
       info("Applying HttpsOnlyMode: force_enabled");
-      await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
-        {
-          policies: {
-            HttpsOnlyMode: "force_enabled",
-          },
-        },
-        null
-      );
+      await updatePoliciesLive({ HttpsOnlyMode: "force_enabled" });
 
       // "force_enabled" sets and locks the pref to true.
       checkPref(true, true);
@@ -135,19 +134,18 @@ add_task(async function test_https_only_mode_live_removal() {
 // must preserve the pref state
 add_task(
   async function test_https_only_mode_allowed_removal_preserves_pref_state() {
+    // Start with a clean engine
+    await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+      { policies: {} },
+      null
+    );
+
     // Simulate the pref being locked prior to applying the policy
     Services.prefs.lockPref(PREF_NAME);
     checkPref(true, false);
 
     info("Applying HttpsOnlyMode: allowed");
-    await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
-      {
-        policies: {
-          HttpsOnlyMode: "allowed",
-        },
-      },
-      null
-    );
+    await updatePoliciesLive({ HttpsOnlyMode: "allowed" });
 
     // "allowed" is a no-op on the pref.
     checkPref(true, false);

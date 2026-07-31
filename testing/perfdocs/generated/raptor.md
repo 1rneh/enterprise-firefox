@@ -4489,6 +4489,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - ❌
   - ❌
   - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-speedometer3-no-nv**
   - ❌
   - ❌
@@ -4508,6 +4518,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
   - ✅
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
   - ✅
   - ❌
   - ❌
@@ -4543,6 +4563,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - ✅
   - ❌
   - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-speedometer3-no-nv**
   - ✅
   - ✅
@@ -4561,6 +4591,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-release
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
   - ❌
   - ❌
   - ❌
@@ -4584,6 +4624,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
   - ✅
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
   - ✅
   - ❌
   - ❌
@@ -4614,6 +4664,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - ✅
   - ❌
   - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-speedometer3-no-nv**
   - ✅
   - ✅
@@ -4632,6 +4692,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-release
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
   - ❌
   - ❌
   - ❌
@@ -4655,6 +4725,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
   - ✅
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
   - ✅
   - ❌
   - ❌
@@ -4687,6 +4767,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - ❌
 * - **browsertime-benchmark-firefox-speedometer3**
   - ✅
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
   - ✅
   - ❌
   - ❌
@@ -5199,6 +5289,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - ❌
   - ❌
   - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-speedometer3-no-nv**
   - ❌
   - ❌
@@ -5218,6 +5318,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
   - ✅
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
   - ✅
   - ❌
   - ❌
@@ -5253,6 +5363,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - ✅
   - ❌
   - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-speedometer3-no-nv**
   - ✅
   - ✅
@@ -5271,6 +5391,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-release
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
   - ❌
   - ❌
   - ❌
@@ -5294,6 +5424,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
   - ✅
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
   - ✅
   - ❌
   - ❌
@@ -5324,6 +5464,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - ✅
   - ❌
   - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-speedometer3-no-nv**
   - ✅
   - ✅
@@ -5342,6 +5492,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-release
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
   - ❌
   - ❌
   - ❌
@@ -5365,6 +5525,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
   - ✅
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
   - ✅
   - ❌
   - ❌
@@ -5397,6 +5567,16 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - ❌
 * - **browsertime-benchmark-firefox-speedometer3**
   - ✅
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling**
+  - ❌
+  - ✅
+  - ❌
+  - ❌
+* - **browsertime-benchmark-firefox-speedometer3-native-profiling-no-nv**
+  - ❌
   - ✅
   - ❌
   - ❌
@@ -45776,7 +45956,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-amazon**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-amazon-nofis**
@@ -46124,7 +46304,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-bild-de**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-bild-de-nofis**
@@ -46288,7 +46468,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-bing**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-bing-nofis**
@@ -46452,7 +46632,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-bing-search-restaurants**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-bing-search-restaurants-nofis**
@@ -46616,7 +46796,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-booking**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-booking-nofis**
@@ -46780,7 +46960,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-cnn**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-cnn-nofis**
@@ -46944,7 +47124,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-cnn-ampstories**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-cnn-ampstories-nofis**
@@ -47108,7 +47288,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-dailymail**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-dailymail-nofis**
@@ -47272,7 +47452,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-ebay-kleinanzeigen**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-ebay-kleinanzeigen-nofis**
@@ -47436,7 +47616,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-ebay-kleinanzeigen-search**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-ebay-kleinanzeigen-search-nofis**
@@ -48138,7 +48318,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-google-maps**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-google-maps-nofis**
@@ -48303,7 +48483,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-google-search-restaurants**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-google-search-restaurants-nofis**
@@ -48467,7 +48647,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-imdb**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-imdb-nofis**
@@ -48632,7 +48812,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-instagram**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-instagram-nofis**
@@ -48960,7 +49140,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-reddit**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-reddit-nofis**
@@ -49124,7 +49304,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-sina**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-sina-nofis**
@@ -49243,7 +49423,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-stackoverflow**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-stackoverflow-nofis**
@@ -49407,7 +49587,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-wikipedia**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-wikipedia-nofis**
@@ -49571,7 +49751,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
   - ❌
 * - **browsertime-tp6m-fenix-youtube**
   - ✅
-  - ❌
+  - ✅
   - ❌
   - ❌
 * - **browsertime-tp6m-fenix-youtube-nofis**

@@ -6640,20 +6640,26 @@ bool BytecodeEmitter::emitAwaitInInnermostScope(UnaryNode* awaitNode) {
 }
 
 bool BytecodeEmitter::emitAwaitInScope(EmitterScope& currentScope) {
-  if (!emit1(JSOp::CanSkipAwait)) {
-    //              [stack] VALUE CANSKIP
-    return false;
-  }
+  // Emit the CanSkipAwait fast path if this is a function script. The await
+  // can't be skipped for modules: during InnerModuleEvaluation, we must yield
+  // execution so other modules in the same module graph can run.
+  mozilla::Maybe<InternalIfEmitter> ifCanSkip;
+  if (sc->isFunctionBox()) {
+    if (!emit1(JSOp::CanSkipAwait)) {
+      //            [stack] VALUE CANSKIP
+      return false;
+    }
 
-  if (!emit1(JSOp::MaybeExtractAwaitValue)) {
-    //              [stack] VALUE_OR_RESOLVED CANSKIP
-    return false;
-  }
+    if (!emit1(JSOp::MaybeExtractAwaitValue)) {
+      //            [stack] VALUE_OR_RESOLVED CANSKIP
+      return false;
+    }
 
-  InternalIfEmitter ifCanSkip(this);
-  if (!ifCanSkip.emitThen(IfEmitter::ConditionKind::Negative)) {
-    //              [stack] VALUE_OR_RESOLVED
-    return false;
+    ifCanSkip.emplace(this);
+    if (!ifCanSkip->emitThen(IfEmitter::ConditionKind::Negative)) {
+      //            [stack] VALUE_OR_RESOLVED
+      return false;
+    }
   }
 
   if (sc->asSuspendableContext()->needsPromiseResult()) {
@@ -6680,11 +6686,12 @@ bool BytecodeEmitter::emitAwaitInScope(EmitterScope& currentScope) {
     return false;
   }
 
-  if (!ifCanSkip.emitEnd()) {
-    return false;
+  if (ifCanSkip.isSome()) {
+    if (!ifCanSkip->emitEnd()) {
+      return false;
+    }
+    MOZ_ASSERT(ifCanSkip->popped() == 0);
   }
-
-  MOZ_ASSERT(ifCanSkip.popped() == 0);
 
   return true;
 }
@@ -7609,21 +7616,6 @@ bool BytecodeEmitter::emitSelfHostedResumeGenerator(CallNode* callNode) {
   return true;
 }
 
-bool BytecodeEmitter::emitSelfHostedForceInterpreter() {
-  // JSScript::hasForceInterpreterOp() relies on JSOp::ForceInterpreter being
-  // the first bytecode op in the script.
-  MOZ_ASSERT(bytecodeSection().code().empty());
-
-  if (!emit1(JSOp::ForceInterpreter)) {
-    return false;
-  }
-  if (!emit1(JSOp::Undefined)) {
-    return false;
-  }
-
-  return true;
-}
-
 bool BytecodeEmitter::emitSelfHostedAllowContentIter(CallNode* callNode) {
   ListNode* argsList = callNode->args();
 
@@ -8517,9 +8509,8 @@ bool BytecodeEmitter::emitCallOrNew(CallNode* callNode, ValueUsage valueUsage) {
 
   if (calleeNode->isKind(ParseNodeKind::Name) &&
       emitterMode == BytecodeEmitter::SelfHosting && op == JSOp::Call) {
-    // Calls to "forceInterpreter", "callFunction",
-    // "callContentFunction", or "resumeGenerator" in self-hosted
-    // code generate inline bytecode.
+    // Calls to "callFunction", "callContentFunction", or "resumeGenerator" in
+    // self-hosted code generate inline bytecode.
     //
     // NOTE: The list of special instruction names has to be kept in sync with
     // "js/src/builtin/.eslintrc.js".
@@ -8536,9 +8527,6 @@ bool BytecodeEmitter::emitCallOrNew(CallNode* callNode, ValueUsage valueUsage) {
     }
     if (calleeName == TaggedParserAtomIndex::WellKnown::resumeGenerator()) {
       return emitSelfHostedResumeGenerator(callNode);
-    }
-    if (calleeName == TaggedParserAtomIndex::WellKnown::forceInterpreter()) {
-      return emitSelfHostedForceInterpreter();
     }
     if (calleeName == TaggedParserAtomIndex::WellKnown::allowContentIter()) {
       return emitSelfHostedAllowContentIter(callNode);

@@ -1200,6 +1200,11 @@ pub struct Device {
     // count created/deleted textures to report in the profiler.
     pub textures_created: u32,
     pub textures_deleted: u32,
+
+    /// When true, the pixels of newly created color render targets are
+    /// initialized with an opaque pink color for debugging purposes.
+    /// Controlled by the `DebugFlags::COLOR_TARGET_INIT` debug flag.
+    initialize_color_targets_with_pink: bool,
 }
 
 /// Contains the parameters necessary to bind a draw target.
@@ -1595,8 +1600,11 @@ impl Device {
         }
         info!("GL context {:?} {}.{}", gl.get_type(), gl_version[0], gl_version[1]);
 
-        // We block texture storage on mac because it doesn't support BGRA
-        let supports_texture_storage = allow_texture_storage_support && !cfg!(target_os = "macos") &&
+        let is_macos_native_gl = cfg!(target_os = "macos") &&
+            !renderer_name.starts_with("ANGLE");
+
+        // We block texture storage on mac with native GL because it doesn't support BGRA
+        let supports_texture_storage = allow_texture_storage_support && !is_macos_native_gl &&
             match gl.get_type() {
                 gl::GlType::Gl => supports_extension(&extensions, "GL_ARB_texture_storage"),
                 gl::GlType::Gles => true,
@@ -1762,10 +1770,6 @@ impl Device {
         // from GL_TEXTURE_EXTERNAL_OES before binding another to GL_TEXTURE_2D. See bug 1636085.
         let requires_texture_external_unbind = is_emulator;
 
-        let is_macos = cfg!(target_os = "macos");
-             //  && renderer_name.starts_with("AMD");
-             //  (XXX: we apply this restriction to all GPUs to handle switching)
-
         let is_windows_angle = cfg!(target_os = "windows")
             && renderer_name.starts_with("ANGLE");
         let is_adreno_3xx = renderer_name.starts_with("Adreno (TM) 3");
@@ -1782,9 +1786,10 @@ impl Device {
             // hit the fast path, meaning value in bytes varies with the texture
             // format. This is purely an optimization.
             StrideAlignment::Pixels(NonZeroUsize::new(64).unwrap())
-        } else if is_macos {
-            // On AMD Mac, it must always be a multiple of 256 bytes.
-            // We apply this restriction to all GPUs to handle switching
+        } else if is_macos_native_gl {
+            // On AMD Mac, it must always be a multiple of 256 bytes. We apply
+            // this restriction to all GPUs when using native GL to handle
+            // switching.
             StrideAlignment::Bytes(NonZeroUsize::new(256).unwrap())
         } else if is_windows_angle {
             // On ANGLE-on-D3D, PBO texture uploads get incorrectly truncated
@@ -1797,8 +1802,10 @@ impl Device {
         };
 
         // On AMD Macs there is a driver bug which causes some texture uploads
-        // from a non-zero offset within a PBO to fail. See bug 1603783.
-        let supports_nonzero_pbo_offsets = !is_macos;
+        // from a non-zero offset within a PBO to fail. See bug 1603783. We
+        // apply this restriction to all GPUs when using native GL to handle
+        // switching.
+        let supports_nonzero_pbo_offsets = !is_macos_native_gl;
 
         // We have encountered several issues when only partially updating render targets on a
         // variety of Mali GPUs. As a precaution avoid doing so on all Midgard and Bifrost GPUs.
@@ -2004,11 +2011,19 @@ impl Device {
 
             textures_created: 0,
             textures_deleted: 0,
+
+            initialize_color_targets_with_pink: false,
         }
     }
 
     pub fn gl(&self) -> &dyn gl::Gl {
         &*self.gl
+    }
+
+    /// If enabled, initialize the pixels of newly created color render targets
+    /// with an opaque pink color for debugging purposes.
+    pub fn set_initialize_color_targets_with_pink(&mut self, enabled: bool) {
+        self.initialize_color_targets_with_pink = enabled;
     }
 
     pub fn rc_gl(&self) -> &Rc<dyn gl::Gl> {
@@ -2687,6 +2702,17 @@ impl Device {
         }
 
         self.textures_created += 1;
+
+        if self.initialize_color_targets_with_pink
+            && format == ImageFormat::BGRA8
+            && render_target.is_some()
+        {
+            self.bind_draw_target(DrawTarget::from_texture(
+                &texture,
+                false,
+            ));
+            self.clear_target(Some([1.0, 0.0, 1.0, 1.0]), None, None);
+        }
 
         texture
     }

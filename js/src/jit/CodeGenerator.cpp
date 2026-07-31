@@ -1178,9 +1178,6 @@ void CodeGenerator::visitFloat32ToInt32(LFloat32ToInt32* lir) {
 
 void CodeGenerator::visitInt32ToIntPtr(LInt32ToIntPtr* lir) {
 #ifdef JS_64BIT
-  // This LIR instruction is only used if the input can be negative.
-  MOZ_ASSERT(lir->mir()->canBeNegative());
-
   Register output = ToRegister(lir->output());
   const LAllocation* input = lir->input();
   if (input->isGeneralReg()) {
@@ -2251,6 +2248,7 @@ static void UpdateRegExpStatics(MacroAssembler& masm, Register regexp,
     masm.store8(Imm32(1), invalidatedAddress);
     masm.jump(&done);
     masm.bind(&legacyFeaturesEnabled);
+    masm.store8(Imm32(0), invalidatedAddress);
   }
 
   masm.guardedCallPreBarrier(pendingInputAddress, MIRType::String);
@@ -21788,11 +21786,23 @@ void CodeGenerator::visitAsyncAwait(LAsyncAwait* lir) {
 
 void CodeGenerator::visitCanSkipAwait(LCanSkipAwait* lir) {
   ValueOperand value = ToValue(lir->value());
+  Register scratch = ToRegister(lir->temp0());
+
+  // The await can only be skipped when this is the first frame of its
+  // activation. See js::CanSkipAwait.
+  Label notEntryFrame, done;
+  masm.branchIfNotActivationEntryFrame(scratch, &notEntryFrame);
 
   pushArg(value);
 
   using Fn = bool (*)(JSContext*, HandleValue, bool* canSkip);
   callVM<Fn, js::CanSkipAwait>(lir);
+  masm.jump(&done);
+
+  masm.bind(&notEntryFrame);
+  masm.move32(Imm32(0), ReturnReg);
+
+  masm.bind(&done);
 }
 
 void CodeGenerator::visitMaybeExtractAwaitValue(LMaybeExtractAwaitValue* lir) {

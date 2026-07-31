@@ -46,12 +46,7 @@
   MACRO_(Async, "Async")                                                       \
   MACRO_(async, "async")                                                       \
   MACRO_(Async_from_Sync_Iterator_, "Async-from-Sync Iterator")                \
-  MACRO_(AsyncFunctionNext, "AsyncFunctionNext")                               \
-  MACRO_(AsyncFunctionThrow, "AsyncFunctionThrow")                             \
   MACRO_(AsyncGenerator, "AsyncGenerator")                                     \
-  MACRO_(AsyncGeneratorNext, "AsyncGeneratorNext")                             \
-  MACRO_(AsyncGeneratorReturn, "AsyncGeneratorReturn")                         \
-  MACRO_(AsyncGeneratorThrow, "AsyncGeneratorThrow")                           \
   MACRO2(at, "at")                                                             \
   MACRO_(await, "await")                                                       \
   MACRO_(bound, "bound")                                                       \
@@ -181,7 +176,6 @@
   MACRO_(flatMap, "flatMap")                                                   \
   MACRO_(for_, "for")                                                          \
   MACRO_(formatMatcher, "formatMatcher")                                       \
-  MACRO_(forceInterpreter, "forceInterpreter")                                 \
   MACRO_(forEach, "forEach")                                                   \
   MACRO_(fraction, "fraction")                                                 \
   MACRO_(fractionalDigits, "fractionalDigits")                                 \
@@ -255,7 +249,6 @@
   MACRO_(instanceof, "instanceof")                                             \
   MACRO_(integer, "integer")                                                   \
   MACRO_(interface, "interface")                                               \
-  MACRO_(InterpretGeneratorResume, "InterpretGeneratorResume")                 \
   MACRO_(IntlLegacyConstructedSymbol, "IntlLegacyConstructedSymbol")           \
   MACRO_(Invalid_Date_, "Invalid Date")                                        \
   MACRO_(isBreakpoint, "isBreakpoint")                                         \

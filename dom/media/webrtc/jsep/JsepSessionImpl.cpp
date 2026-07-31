@@ -746,6 +746,37 @@ JsepSession::Result JsepSessionImpl::SetLocalDescription(
                           << "\nSDP=\n"
                           << sdp);
 
+  // Syntactic sugar for repeated sLD(offer)
+  if (type == kJsepSdpOffer && mState == kJsepStateHaveLocalOffer) {
+    // Rollback previous offer before applying the new one.
+    SetLocalDescription(kJsepSdpRollback, "");
+    MOZ_ASSERT(mState == kJsepStateStable);
+  }
+
+  // State checking
+  switch (type) {
+    case kJsepSdpOffer:
+      if (mState != kJsepStateStable) {
+        JSEP_SET_ERROR("Cannot set a local offer in " << mState);
+        return dom::PCError::InvalidStateError;
+      }
+      break;
+    case kJsepSdpAnswer:
+    case kJsepSdpPranswer:
+      if (mState != kJsepStateHaveRemoteOffer &&
+          mState != kJsepStateHaveLocalPranswer) {
+        JSEP_SET_ERROR("Cannot set a local answer in " << mState);
+        return dom::PCError::InvalidStateError;
+      }
+      break;
+    case kJsepSdpRollback:
+      if (mState != kJsepStateHaveLocalOffer) {
+        JSEP_SET_ERROR("Cannot rollback a local offer in " << mState);
+        return dom::PCError::InvalidStateError;
+      }
+  }
+
+  // The most basic of munging checking
   switch (type) {
     case kJsepSdpOffer:
       if (!mGeneratedOffer) {
@@ -755,11 +786,6 @@ JsepSession::Result JsepSessionImpl::SetLocalDescription(
       }
       if (sdp.empty()) {
         sdp = mGeneratedOffer->ToString();
-      }
-      if (mState == kJsepStateHaveLocalOffer) {
-        // Rollback previous offer before applying the new one.
-        SetLocalDescription(kJsepSdpRollback, "");
-        MOZ_ASSERT(mState == kJsepStateStable);
       }
       break;
     case kJsepSdpAnswer:
@@ -774,39 +800,14 @@ JsepSession::Result JsepSessionImpl::SetLocalDescription(
       }
       break;
     case kJsepSdpRollback:
-      if (mState != kJsepStateHaveLocalOffer) {
-        JSEP_SET_ERROR("Cannot rollback local description in "
-                       << GetStateStr(mState));
-        // Currently, spec allows this in any state except stable, and
-        // sRD(rollback) and sLD(rollback) do exactly the same thing.
-        return dom::PCError::InvalidStateError;
-      }
-
-      mPendingLocalDescription.reset();
-      SetState(kJsepStateStable);
-      RollbackLocalOffer();
-      return Result();
+      break;
   }
 
-  switch (mState) {
-    case kJsepStateStable:
-      if (type != kJsepSdpOffer) {
-        JSEP_SET_ERROR("Cannot set local answer in state "
-                       << GetStateStr(mState));
-        return dom::PCError::InvalidStateError;
-      }
-      break;
-    case kJsepStateHaveRemoteOffer:
-      if (type != kJsepSdpAnswer && type != kJsepSdpPranswer) {
-        JSEP_SET_ERROR("Cannot set local offer in state "
-                       << GetStateStr(mState));
-        return dom::PCError::InvalidStateError;
-      }
-      break;
-    default:
-      JSEP_SET_ERROR("Cannot set local offer or answer in state "
-                     << GetStateStr(mState));
-      return dom::PCError::InvalidStateError;
+  if (type == kJsepSdpRollback) {
+    mPendingLocalDescription.reset();
+    SetState(kJsepStateStable);
+    RollbackLocalOffer();
+    return Result();
   }
 
   UniquePtr<Sdp> parsed;
@@ -1496,10 +1497,7 @@ JsepSession::Result JsepSessionImpl::ParseSdp(const std::string& sdp,
 
     if (mediaAttrs.HasAttribute(SdpAttribute::kMidAttribute) &&
         mediaAttrs.GetMid().length() > 16) {
-      JSEP_SET_ERROR(
-          "Invalid description, mid length greater than 16 "
-          "unsupported until 2-byte rtp header extensions are "
-          "supported in webrtc.org");
+      JSEP_SET_ERROR("Invalid description, mid length greater than 16");
       return Result(dom::PCError::OperationError);
     }
 
@@ -1508,11 +1506,10 @@ JsepSession::Result JsepSessionImpl::ParseSdp(const std::string& sdp,
       for (const auto& ext : mediaAttrs.GetExtmap().mExtmaps) {
         uint16_t id = ext.entry;
 
-        if (id < 1 || id > 14) {
+        if (id < 1 || id > 255) {
           JSEP_SET_ERROR("Description contains invalid extension id "
                          << id << " on level " << i
-                         << " which is unsupported until 2-byte rtp"
-                            " header extensions are supported in webrtc.org");
+                         << " (valid range is 1-255)");
           return Result(dom::PCError::OperationError);
         }
 

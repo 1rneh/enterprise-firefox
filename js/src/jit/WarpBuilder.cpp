@@ -2427,7 +2427,7 @@ bool WarpBuilder::build_FinalYieldRval(BytecodeLocation loc) {
   };
 
   // Close the generator
-  setSlotNull(AbstractGeneratorObject::calleeSlot());
+  setSlotNull(AbstractGeneratorObject::calleeOrModuleSlot());
   setSlotNull(AbstractGeneratorObject::envChainSlot());
   setSlotNull(AbstractGeneratorObject::argsObjectSlot());
   setSlotNull(AbstractGeneratorObject::stackStorageSlot());
@@ -2481,6 +2481,10 @@ bool WarpBuilder::build_CheckResumeKind(BytecodeLocation loc) {
 }
 
 bool WarpBuilder::build_CanSkipAwait(BytecodeLocation loc) {
+  // LCanSkipAwait's frame descriptor check is not correct for inlined
+  // functions.
+  MOZ_ASSERT(!inlineCallInfo());
+
   MDefinition* val = current->pop();
 
   MCanSkipAwait* canSkip = MCanSkipAwait::New(alloc(), val);

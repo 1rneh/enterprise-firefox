@@ -7281,14 +7281,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   }
 #endif
 
-#if defined(MOZ_ENTERPRISE)
-  // Do not restart when running as Felt client (i.e. Enterprise browser)
-  if (!is_felt_browser()) {
-#endif
-    mozilla::AppShutdown::MaybeDoRestart();
-#if defined(MOZ_ENTERPRISE)
-  }
-#endif
+  mozilla::AppShutdown::MaybeDoRestart();
 
   XRE_DeinitCommandLine();
 

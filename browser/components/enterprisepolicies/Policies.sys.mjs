@@ -34,6 +34,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WatermarkPolicy: "resource:///modules/policies/WatermarkPolicy.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
   SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
+  WindowsLaunchOnLogin: "resource://gre/modules/WindowsLaunchOnLogin.sys.mjs",
 
   PoliciesUtils: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   addAllowDenyPermissions: "resource://gre/modules/PoliciesHelpers.sys.mjs",
@@ -1568,6 +1569,20 @@ export var Policies = {
   // The policy got applied by the policy engine when building the CombinedPoliciesProvider.
   // It skipped any local policy provider (policies.json, Windows GPO and macOS plist)
   DisableLocalPolicies: {},
+
+  DisableLaunchOnLogin: {
+    onBeforeAddons(manager, param) {
+      if (!param || AppConstants.platform !== "win") {
+        return;
+      }
+      manager.disallowFeature("launchOnLogin");
+      lazy.PoliciesUtils.setAndLockPref(
+        "browser.startup.windowsLaunchOnLogin.enabled",
+        false
+      );
+      lazy.WindowsLaunchOnLogin.removeLaunchOnLogin();
+    },
+  },
 
   DisableMasterPasswordCreation: {
     onBeforeUIStartup(manager, param) {

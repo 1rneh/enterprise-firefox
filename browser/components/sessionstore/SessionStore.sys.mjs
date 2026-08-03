@@ -1478,7 +1478,8 @@ var SessionStoreInternal = {
 
     if (
       ss.sessionType == ss.RESUME_SESSION &&
-      !this._prefBranch.getBoolPref("sessionstore.resume_session_once")
+      !this._prefBranch.getBoolPref("sessionstore.resume_session_once") &&
+      !ss.previousSessionCrashed
     ) {
       this._isUserConfiguredRestore = true;
     }
@@ -6689,6 +6690,9 @@ var SessionStoreInternal = {
       tabbrowser.showTab(tab);
     }
 
+    // Compare against browser.audioMuted even though the collected state comes
+    // from tab.muted, because toggleMuteAudio picks its direction from
+    // browser.audioMuted and would otherwise mute the wrong way.
     if (!!tabData.muted != browser.audioMuted) {
       tab.toggleMuteAudio(tabData.muteReason);
     }
@@ -7854,7 +7858,10 @@ var SessionStoreInternal = {
   },
 
   maybeOpenNewTabAfterRestore() {
+    this._log.debug("Possibly adding new tab after restore");
+
     if (!this._isUserConfiguredRestore) {
+      this._log.debug("Exiting early, restore is not user configured");
       return;
     }
 
@@ -7870,6 +7877,8 @@ var SessionStoreInternal = {
     );
 
     if (!newTabOnRestore || !showSetting) {
+      this._log.debug("Exiting early, this feature is disabled");
+
       Glean.sessionRestore.startupSessionAutoRestored.record({
         new_tab_action: "disabled",
       });
@@ -7877,6 +7886,10 @@ var SessionStoreInternal = {
     }
 
     if (this._cmdLineHadURLOnStartup) {
+      this._log.debug(
+        "Exiting early, this window was opened with a cmdline prompt"
+      );
+
       Glean.sessionRestore.startupSessionAutoRestored.record({
         new_tab_action: "preempted",
       });
@@ -7901,6 +7914,11 @@ var SessionStoreInternal = {
         Glean.sessionRestore.startupSessionAutoRestored.record({
           new_tab_action: "reused",
         });
+
+        this._log.debug(
+          "Exiting early, the user is already focused on a new tab"
+        );
+
         return;
       }
 
@@ -7910,6 +7928,9 @@ var SessionStoreInternal = {
         Glean.sessionRestore.startupSessionAutoRestored.record({
           new_tab_action: "reused",
         });
+
+        this._log.debug("Exiting early, the last tab is a new tab already");
+
         return;
       }
     }
@@ -7922,6 +7943,8 @@ var SessionStoreInternal = {
     Glean.sessionRestore.startupSessionAutoRestored.record({
       new_tab_action: "opened",
     });
+
+    this._log.debug("Successfully injected a new tab to the session");
   },
 
   /**

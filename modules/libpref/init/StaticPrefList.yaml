@@ -969,12 +969,6 @@
   value: 500
   mirror: always
 
-# Whether to use rounded external scroll offsets.
-- name: apz.rounded_external_scroll_offset
-  type: bool
-  value: false
-  mirror: always
-
 # Whether to async scroll CSS anchor pos.
 - name: apz.async_scroll_css_anchor_pos
   type: bool
@@ -2695,13 +2689,15 @@
 # https://w3c.github.io/audio-session/
 - name: dom.audio_session.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
-# Audio Session API: enables the state changes for Audio Session.
+# Audio Session API: enables the state changes for Audio Session. Separate from
+# the pref above so the state surface can be turned off on its own, without
+# withdrawing the whole API.
 - name: dom.audio_session.state_enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # While the platform has interrupted the tab's audio (an audio-focus loss that
@@ -2709,7 +2705,7 @@
 # (media element, Web Audio, Web Speech) on its own until the interrupt ends.
 - name: dom.audio_session.block_start_during_interrupt.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Checks if offscreen animation throttling is enabled.
@@ -7930,11 +7926,6 @@
     mirror: always
 #endif
 
-- name: gfx.font_rendering.colr_v1.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: gfx.font_rendering.opentype_svg.enabled
   type: RelaxedAtomicBool
   value: true
@@ -11014,34 +11005,6 @@
 #endif
   mirror: always
 
-# Is support for the @font-palette-values rule and font-palette property enabled?
-- name: layout.css.font-palette.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
-# Is support for variation fonts enabled?
-- name: layout.css.font-variations.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
-# Is support for the tech() function in the @font-face src descriptor enabled?
-- name: layout.css.font-tech.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
-# Is support for font-variant-emoji enabled?
-- name: layout.css.font-variant-emoji.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Visibility level of font families available to CSS font-matching:
 #   1 - only base system fonts
 #   2 - also fonts from optional language packs
@@ -11866,7 +11829,7 @@
 # Per-domain blocklist for ::-webkit-scrollbar pseudo element
 - name: layout.css.fake-webkit-scrollbar.disabled-domains
   type: DataMutexString
-  value: "discord.com,shitposter.world,gemini.google.com"
+  value: "discord.com,shitposter.world,gemini.google.com,content.powerapps.com"
   mirror: always
   rust: true
 
@@ -14097,7 +14060,7 @@
  # media-playback focus regardless of the type, preserving existing behaviour.
 - name: media.geckoview.audio_session_type.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: media.mediacontrol.testingevents.enabled

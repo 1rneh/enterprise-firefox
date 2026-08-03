@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::AU_PER_DEV_PX;
 use euclid::SideOffsets2D;
 use gleam::gl;
 use image::GenericImageView;
@@ -524,7 +525,7 @@ impl YamlFrameReader {
         self.spatial_id_stack.clear();
         self.spatial_id_stack.push(SpatialId::root_scroll_node(pipeline_id));
 
-        builder.begin();
+        builder.begin(AU_PER_DEV_PX);
 
         // Apply the requested device pixel scale to the root pipeline by
         // wrapping its content in a scale reference frame. In this architecture
@@ -1483,6 +1484,15 @@ impl YamlFrameReader {
             .unwrap_or_else(|| ColorF::WHITE);
         let stretch_size = item["stretch-size"].as_size();
         let tile_spacing = item["tile-spacing"].as_size();
+        // `sub-rect: [x y w h]`, in image pixels, restricts sampling the way a
+        // CSS sprite-sheet cell does.
+        let sub_rect = item["sub-rect"].as_vec_f32().map(|v| {
+            assert_eq!(v.len(), 4, "sub-rect must be [x y w h]");
+            DeviceIntRect::from_origin_and_size(
+                DeviceIntPoint::new(v[0] as i32, v[1] as i32),
+                DeviceIntSize::new(v[2] as i32, v[3] as i32),
+            )
+        });
         if stretch_size.is_none() && tile_spacing.is_none() {
             dl.push_image(
                 info,
@@ -1491,6 +1501,7 @@ impl YamlFrameReader {
                 alpha_type,
                 image_key,
                 color,
+                sub_rect,
            );
         } else {
             dl.push_repeating_image(

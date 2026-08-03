@@ -25,6 +25,8 @@ subsuite = "mozbuild"
 
 ["backend/test_ide.py"]
 
+["backend/test_l10n_manifest.py"]
+
 ["backend/test_partialconfigenvironment.py"]
 
 ["backend/test_recursivemake.py"]
@@ -74,6 +76,8 @@ subsuite = "mozbuild"
 ["frontend/test_emitter.py"]
 
 ["frontend/test_file_info_reviewers.py"]
+
+["frontend/test_l10n_manifest.py"]
 
 ["frontend/test_namespaces.py"]
 

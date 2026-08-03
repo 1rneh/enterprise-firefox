@@ -593,7 +593,15 @@ class DisplayListBuilder final {
              const Maybe<usize>& aEnd);
   void DumpSerializedDisplayList();
 
-  void Begin();
+  /// aAppUnitsPerDevPixel is the grid this display list's coordinates are
+  /// authored on (nsPresContext::AppUnitsPerDevPixel). WebRender normalizes
+  /// items by their accumulated external scroll offset in whole app units on
+  /// that grid, which is exact; doing it in floats lets positions drift with
+  /// the scroll offset and churn interning and invalidation (bug 2059570). It
+  /// is taken per display list because it changes with device scale and full
+  /// zoom, and differs between chrome and content within one WebRender
+  /// document.
+  void Begin(int32_t aAppUnitsPerDevPixel);
   void End(wr::BuiltDisplayList& aOutDisplayList);
   void End(layers::DisplayListData& aOutTransaction);
 
@@ -690,7 +698,11 @@ class DisplayListBuilder final {
                  bool aPremultipliedAlpha = true,
                  const wr::ColorF& aColor = wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
                  bool aPreferCompositorSurface = false,
-                 bool aSupportsExternalCompositing = false);
+                 bool aSupportsExternalCompositing = false,
+                 // Restricts sampling to this sub-rect of the image, in image
+                 // pixels; aBounds must map to it rather than to the whole
+                 // image. Used for CSS sprite sheets.
+                 const Maybe<wr::DeviceIntRect>& aSubRect = Nothing());
 
   void PushRepeatingImage(
       const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,

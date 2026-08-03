@@ -36,8 +36,8 @@ use moz2d_renderer::Moz2dBlobImageHandler;
 use nsstring::nsAString;
 use program_cache::{remove_disk_cache, WrProgramCache};
 use tracy_rs::register_thread_with_profiler;
-use webrender::sw_compositor::SwCompositor;
 use webrender::render_backend_pool::{PoolMemberSetup, RenderBackendPool};
+use webrender::sw_compositor::SwCompositor;
 use webrender::{
     api::units::*, api::*, create_webrender_instance, render_api::*, set_profiler_hooks, AsyncPropertySampler,
     AsyncScreenshotHandle, ClipRadius, Compositor, CompositorCapabilities, CompositorConfig, CompositorInputConfig,
@@ -2864,7 +2864,8 @@ pub unsafe extern "C" fn wr_transaction_clear_display_list(
     pipeline_id: WrPipelineId,
 ) {
     let mut frame_builder = WebRenderFrameBuilder::new(pipeline_id);
-    frame_builder.dl_builder.begin();
+    // An empty display list: it holds no coordinates, so the grid is irrelevant.
+    frame_builder.dl_builder.begin(60.0);
 
     txn.set_display_list(epoch, frame_builder.dl_builder.end());
 }
@@ -3713,8 +3714,11 @@ pub extern "C" fn wr_dp_push_image(
     color: ColorF,
     prefer_compositor_surface: bool,
     supports_external_compositing: bool,
+    sub_rect: *const DeviceIntRect,
 ) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
+
+    let sub_rect = unsafe { sub_rect.as_ref().cloned() };
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
 
@@ -3744,7 +3748,15 @@ pub extern "C" fn wr_dp_push_image(
     state
         .frame_builder
         .dl_builder
-        .push_image(&prim_info, bounds, image_rendering, alpha_type, key, color);
+        .push_image(
+            &prim_info,
+            bounds,
+            image_rendering,
+            alpha_type,
+            key,
+            color,
+            sub_rect,
+        );
 }
 
 #[no_mangle]
@@ -4591,8 +4603,8 @@ pub extern "C" fn wr_dump_serialized_display_list(state: &mut WrState) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wr_api_begin_builder(state: &mut WrState) {
-    state.frame_builder.dl_builder.begin();
+pub unsafe extern "C" fn wr_api_begin_builder(state: &mut WrState, au_per_dev_px: i32) {
+    state.frame_builder.dl_builder.begin(au_per_dev_px as f32);
 }
 
 #[no_mangle]

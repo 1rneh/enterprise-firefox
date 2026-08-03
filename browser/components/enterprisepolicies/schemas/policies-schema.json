@@ -606,7 +606,10 @@
     },
 
     "CNSA2KeyAgreementEnabled": {
-      "type": "boolean"
+      "type": "boolean",
+      "x-category": "Network security",
+      "description": "Enable the CNSA 2.0 ML-KEM-1024 key agreement for TLS.",
+      "examples": [true, false]
     },
 
     "Containers": {
@@ -1172,6 +1175,13 @@
       "x-category": "Local data storage",
       "description": "Turn off saving information on web forms and the search bar.",
       "examples": [true, false]
+    },
+
+    "DisableLaunchOnLogin": {
+      "type": "boolean",
+      "x-category": "Startup",
+      "description": "Prevent Firefox from launching automatically when the user logs in, and prevent the user from enabling this setting. This policy currently only has an effect on Windows.",
+      "examples": [true]
     },
     "DisableLocalPolicies": {
       "type": "boolean",

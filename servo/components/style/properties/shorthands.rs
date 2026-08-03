@@ -2692,21 +2692,17 @@ pub mod font {
                 CheckSystemResult::None => {},
             }
 
-            if let Some(v) = self.font_optical_sizing {
-                if v != &font_optical_sizing::get_initial_specified_value() {
-                    return Ok(());
-                }
+            if self.font_optical_sizing != &font_optical_sizing::get_initial_specified_value() {
+                return Ok(());
             }
-            if let Some(v) = self.font_variation_settings {
-                if v != &font_variation_settings::get_initial_specified_value() {
-                    return Ok(());
-                }
+            if self.font_variation_settings
+                != &font_variation_settings::get_initial_specified_value()
+            {
+                return Ok(());
             }
             #[cfg(feature = "gecko")]
-            if let Some(v) = self.font_variant_emoji {
-                if v != &font_variant_emoji::get_initial_specified_value() {
-                    return Ok(());
-                }
+            if self.font_variant_emoji != &font_variant_emoji::get_initial_specified_value() {
+                return Ok(());
             }
 
             if self.font_kerning != &font_kerning::get_initial_specified_value() {
@@ -2983,13 +2979,7 @@ pub mod font_variant {
             count_normal!(font_variant_east_asian);
             count_normal!(font_variant_position);
             #[cfg(feature = "gecko")]
-            if let Some(value) = self.font_variant_emoji {
-                if value == &font_variant_emoji::get_initial_specified_value() {
-                    nb_normals += 1;
-                }
-            } else {
-                nb_normals += 1;
-            }
+            count_normal!(font_variant_emoji);
 
             if nb_normals == TOTAL_SUBPROPS {
                 return dest.write_str("normal");
@@ -3021,9 +3011,7 @@ pub mod font_variant {
             write!(font_variant_east_asian);
             write!(font_variant_position);
             #[cfg(feature = "gecko")]
-            if let Some(v) = self.font_variant_emoji {
-                write!(v, font_variant_emoji);
-            }
+            write!(font_variant_emoji);
             Ok(())
         }
     }

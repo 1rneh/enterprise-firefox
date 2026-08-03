@@ -9324,7 +9324,7 @@ nsresult PresShell::EventHandler::DispatchEvent(
       const nsIContent* outEventTarget =
           boundaryEventTargets ? boundaryEventTargets->GetOutEventTarget()
                                : nullptr;
-      nsIContent* const deepestLeaveEventTarget =
+      nsCOMPtr<nsIContent> deepestLeaveEventTarget =
           boundaryEventTargets
               ? boundaryEventTargets->GetDeepestLeaveEventTarget()
               : nullptr;
@@ -11647,7 +11647,10 @@ void PresShell::AddAnchorPosAnchorImpl(const nsAtom* aName, nsIFrame* aFrame,
     nsIFrame* mFrame;
 
     int32_t operator()(nsIFrame* aOther) const {
-      return nsLayoutUtils::CompareTreePosition(mFrame, aOther, nullptr);
+      return nsLayoutUtils::CompareTreePosition(
+          mFrame, aOther, nullptr,
+          nsLayoutUtils::CompareTreePositionFlags::
+              FramesMayBeInDifferentOrIncompleteTrees);
     }
   };
 

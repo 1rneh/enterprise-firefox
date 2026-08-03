@@ -100,6 +100,7 @@ static const char* sEGLExtensionNames[] = {
     "EGL_ANGLE_iosurface_client_buffer",
     "EGL_ANGLE_metal_commands_scheduled_sync",
     "EGL_ANGLE_metal_shared_event_sync",
+    "EGL_ANGLE_wait_until_work_scheduled",
 };
 
 PRLibrary* LoadApitraceLibrary() {
@@ -727,9 +728,15 @@ bool GLLibraryEGL::Init(nsACString* const out_failureId) {
     (void)fnLoadSymbols(symbols);
   }
   {
+    // EGL_KHR_fence_sync
     const SymLoadStruct symbols[] = {
         SYMBOL(CreateSyncKHR), SYMBOL(DestroySyncKHR),
         SYMBOL(ClientWaitSyncKHR), SYMBOL(GetSyncAttribKHR), END_OF_SYMBOLS};
+    (void)fnLoadSymbols(symbols);
+  }
+  {
+    // Core EGL 1.5 version
+    const SymLoadStruct symbols[]{SYMBOL(CreateSync), END_OF_SYMBOLS};
     (void)fnLoadSymbols(symbols);
   }
   {
@@ -818,6 +825,11 @@ bool GLLibraryEGL::Init(nsACString* const out_failureId) {
   }
   {
     const SymLoadStruct symbols[] = {SYMBOL(CopyMetalSharedEventANGLE),
+                                     END_OF_SYMBOLS};
+    (void)fnLoadSymbols(symbols);
+  }
+  {
+    const SymLoadStruct symbols[] = {SYMBOL(WaitUntilWorkScheduledANGLE),
                                      END_OF_SYMBOLS};
     (void)fnLoadSymbols(symbols);
   }

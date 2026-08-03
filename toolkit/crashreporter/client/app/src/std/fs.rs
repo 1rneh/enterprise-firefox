@@ -602,6 +602,12 @@ pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String> {
     Ok(s)
 }
 
+pub fn read<P: AsRef<Path>>(path: P) -> Result<Vec<u8>> {
+    let mut buf = Vec::new();
+    File::open(path.as_ref())?.read_to_end(&mut buf)?;
+    Ok(buf)
+}
+
 pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<()> {
     File::create(path.as_ref())?.write_all(contents.as_ref())
 }

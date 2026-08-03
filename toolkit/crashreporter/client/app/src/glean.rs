@@ -4,11 +4,9 @@
 
 //! Glean telemetry integration.
 
-use crate::config::{buildid, installation_resource_path, Config};
+use crate::config::{buildid, Config};
 use crate::prefs_parser::find_bool_pref;
 use crate::std::path::Path;
-use ini::Ini;
-use url::Url;
 
 const APP_DISPLAY_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TELEMETRY_ENABLED_PREF_KEY: &str = "datareporting.healthreport.uploadEnabled";
@@ -18,6 +16,10 @@ pub struct InitOptions {
     pub data_dir: ::std::path::PathBuf,
     pub locale: Option<String>,
     pub upload_enabled: bool,
+    /// The crash submission endpoint (`ServerURL` annotation), used to recover
+    /// the enterprise console base without reading AutoConfig when available.
+    #[cfg(all(not(mock), feature = "enterprise"))]
+    pub server_url: Option<String>,
 }
 
 /// Parse the telemetry enablement pref from the prefs file.
@@ -78,10 +80,19 @@ impl InitOptions {
 
         let upload_enabled = determine_telemetry_enabled(cfg.profile_dir.as_deref());
 
+        #[cfg(all(not(mock), feature = "enterprise"))]
+        let server_url = cfg
+            .report_url
+            .as_ref()
+            .and_then(|s| s.to_str())
+            .map(str::to_owned);
+
         InitOptions {
             data_dir,
             locale,
             upload_enabled,
+            #[cfg(all(not(mock), feature = "enterprise"))]
+            server_url,
         }
     }
 
@@ -102,6 +113,8 @@ impl InitOptions {
     }
 
     fn init_glean(self) -> anyhow::Result<crashping::InitGlean> {
+        #[cfg(all(not(mock), feature = "enterprise"))]
+        let server_url = self.server_url;
         let mut data_dir = if cfg!(mock) {
             // Use a (non-mocked) temp directory since glean won't access our mocked API.
             ::std::env::temp_dir().join("crashreporter-mock")
@@ -130,32 +143,19 @@ impl InitOptions {
         init_glean.configuration.uploader = Some(Box::new(uploader::Uploader::new()));
         init_glean.configuration.upload_enabled = self.upload_enabled;
 
-        if cfg!(mock) {
+        #[cfg(mock)]
+        {
             init_glean.configuration.server_endpoint =
                 Some("https://incoming.glean.example.com".to_owned());
-        } else if cfg!(feature = "enterprise") {
-            let console_url = Self::construct_enterprise_console_endpoint()?;
-            init_glean.configuration.server_endpoint = Some(console_url);
+        }
+        #[cfg(all(not(mock), feature = "enterprise"))]
+        {
+            init_glean.configuration.server_endpoint = Some(
+                crate::enterprise_prefs::console_glean_url(server_url.as_deref())?,
+            );
         }
 
         Ok(init_glean)
-    }
-
-    fn construct_enterprise_console_endpoint() -> anyhow::Result<String> {
-        let ini_path = installation_resource_path()
-            .join("distribution")
-            .join("distribution.ini");
-        let mut ini_file = crate::std::fs::File::open(ini_path)?;
-        let conf = Ini::read_from(&mut ini_file)?;
-        let console_url = conf
-            .get_from(Some("Preferences"), "enterprise.console.address")
-            .ok_or(anyhow::anyhow!("Failed to find console address preference"))?;
-        let mut parsed_console_url = Url::parse(console_url)?;
-        parsed_console_url.set_path(&format!(
-            "{}/api/browser/telemetry",
-            parsed_console_url.path().trim_end_matches('/')
-        ));
-        Ok(parsed_console_url.to_string())
     }
 }
 
@@ -211,7 +211,6 @@ mod uploader {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::std::{fs::MockFS, fs::MockFiles, mock};
     use once_cell::sync::Lazy;
     use std::sync::{Mutex, MutexGuard};
 
@@ -246,70 +245,6 @@ mod test {
                 true,
             );
         }
-    }
-
-    #[cfg(feature = "enterprise")]
-    #[test]
-    fn build_expected_enterprise_glean_url() -> anyhow::Result<()> {
-        let mock_files = MockFiles::new();
-        mock_files.add_dir("work_dir/distribution");
-        mock_files.add_file(
-            "work_dir/distribution/distribution.ini",
-            "[Preferences]\n\
-        enterprise.console.address=https://console.example.com/foo/",
-        );
-
-        mock::builder()
-            .set(MockFS, mock_files.clone())
-            .set(
-                crate::std::env::MockCurrentExe,
-                "work_dir/crashreporter".into(),
-            )
-            .run(|| {
-                let path_result = InitOptions::construct_enterprise_console_endpoint();
-                assert_eq!(
-                    path_result?,
-                    "https://console.example.com/foo/api/browser/telemetry"
-                );
-                anyhow::Ok(())
-            })
-    }
-
-    #[cfg(feature = "enterprise")]
-    #[test]
-    fn error_when_distribution_ini_missing() {
-        let mock_files = MockFiles::new();
-        mock_files.add_dir("work_dir/distribution");
-
-        mock::builder()
-            .set(MockFS, mock_files.clone())
-            .set(
-                crate::std::env::MockCurrentExe,
-                "work_dir/crashreporter".into(),
-            )
-            .run(|| {
-                let path_result = InitOptions::construct_enterprise_console_endpoint();
-                assert!(path_result.is_err());
-            });
-    }
-
-    #[cfg(feature = "enterprise")]
-    #[test]
-    fn error_when_console_address_missing() {
-        let mock_files = MockFiles::new();
-        mock_files.add_dir("work_dir/distribution");
-        mock_files.add_file("work_dir/distribution/distribution.ini", "[Preferences]");
-
-        mock::builder()
-            .set(MockFS, mock_files.clone())
-            .set(
-                crate::std::env::MockCurrentExe,
-                "work_dir/crashreporter".into(),
-            )
-            .run(|| {
-                let path_result = InitOptions::construct_enterprise_console_endpoint();
-                assert!(path_result.is_err());
-            });
     }
 
     #[test]

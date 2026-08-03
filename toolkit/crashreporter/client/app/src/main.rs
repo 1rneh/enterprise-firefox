@@ -63,6 +63,8 @@ mod analyze;
 mod async_task;
 mod config;
 mod data;
+#[cfg(feature = "enterprise")]
+mod enterprise_prefs;
 mod glean;
 mod lang;
 mod logging;

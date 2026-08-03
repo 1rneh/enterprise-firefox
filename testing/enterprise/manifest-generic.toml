@@ -41,9 +41,9 @@ disabled = "Bug 1996558: scaffolding for the Felt UI scratch-reset flow; not run
 
 ["test_felt_updates_apply.py"]
 
-["test_felt_updates_basic.py"]
+["test_felt_updates_autoconfig.py"]
 
-["test_felt_updates_distIni.py"]
+["test_felt_updates_basic.py"]
 
 ["test_felt_updates_errors.py"]
 

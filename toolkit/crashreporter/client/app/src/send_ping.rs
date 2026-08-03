@@ -22,6 +22,10 @@ pub fn main() {
         locale: None,
         // Assume that this is only invoked to send a ping when upload is enabled.
         upload_enabled: true,
+        // No annotation available here; the console address is read from
+        // AutoConfig during init.
+        #[cfg(all(not(mock), feature = "enterprise"))]
+        server_url: None,
     }
     .init()
     .expect("failed to acquire Glean store");
@@ -54,6 +58,8 @@ pub fn cleanup_main() {
         data_dir: data_path.into(),
         locale: None,
         upload_enabled,
+        #[cfg(all(not(mock), feature = "enterprise"))]
+        server_url: None,
     }
     .init()
     .expect("failed to acquire Glean store");

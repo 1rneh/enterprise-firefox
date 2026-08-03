@@ -163,7 +163,6 @@
 #endif
 @RESPATH@/application.ini
 #ifdef MOZ_ENTERPRISE
-@RESPATH@/distribution/distribution.ini
 @RESPATH@/firefox.cfg
 #endif
 #ifdef MOZ_UPDATER

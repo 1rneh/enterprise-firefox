@@ -1434,7 +1434,6 @@ dependencies = [
  "phf",
  "phf_codegen",
  "rand",
- "rust-ini",
  "serde",
  "serde_json",
  "sha2",

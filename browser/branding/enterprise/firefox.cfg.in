@@ -1,0 +1,2 @@
+// Firefox enterprise AutoConfig. The first line is intentionally skipped by
+// the AutoConfig parser; managed preferences belong on the lines below.

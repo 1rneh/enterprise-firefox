@@ -235,6 +235,20 @@ moz-input-text::part(label) {
   padding: var(--space-medium) var(--space-large);
 }
 
+/* Overlay on .felt-login (position:relative) instead of a flex row item. */
+.felt-login__portal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  background: var(--background-color-box);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  padding: 10px;
+}
+
+.felt-login__portal > browser {
+  flex: 1 1 auto;
+}
+
 #felt-footer-content {
   display: flex;
   flex-direction: column;

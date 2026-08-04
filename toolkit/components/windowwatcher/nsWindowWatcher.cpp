@@ -474,11 +474,12 @@ static void MaybeDisablePersistence(const SizeSpec& aSizeSpec,
 }
 
 NS_IMETHODIMP
-nsWindowWatcher::OpenWindowWithRemoteTab(
-    nsIRemoteTab* aRemoteTab, const WindowFeatures& aFeatures,
-    const UserActivation::Modifiers& aModifiers, bool aCalledFromJS,
-    float aOpenerFullZoom, nsIOpenWindowInfo* aOpenWindowInfo,
-    nsIRemoteTab** aResult) {
+nsWindowWatcher::OpenWindowWithRemoteTab(nsIRemoteTab* aRemoteTab,
+                                         const WindowFeatures& aFeatures,
+                                         bool aCalledFromJS,
+                                         float aOpenerFullZoom,
+                                         nsIOpenWindowInfo* aOpenWindowInfo,
+                                         nsIRemoteTab** aResult) {
 #ifdef MOZ_GECKOVIEW
   MOZ_ASSERT(false, "GeckoView should use nsIBrowserDOMWindow instead");
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -552,8 +553,8 @@ nsWindowWatcher::OpenWindowWithRemoteTab(
   // don't need to propagate isPopupRequested out-parameter to the resulting
   // browsing context.
   bool unused = false;
-  uint32_t chromeFlags = CalculateChromeFlagsForContent(aFeatures, aModifiers,
-                                                        aCalledFromJS, &unused);
+  uint32_t chromeFlags =
+      CalculateChromeFlagsForContent(aFeatures, aCalledFromJS, &unused);
 
   if (isPrivateBrowsingWindow) {
     chromeFlags |= nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW;
@@ -817,8 +818,8 @@ nsresult nsWindowWatcher::OpenWindowInternal(
   } else {
     MOZ_DIAGNOSTIC_ASSERT(parentBC && parentBC->IsContent(),
                           "content caller must provide content parent");
-    chromeFlags = CalculateChromeFlagsForContent(
-        features, aModifiers, aCalledFromJS, &isPopupRequested);
+    chromeFlags = CalculateChromeFlagsForContent(features, aCalledFromJS,
+                                                 &isPopupRequested);
 
     if (aDialog) {
       MOZ_ASSERT(XRE_IsParentProcess());
@@ -1921,9 +1922,8 @@ bool nsWindowWatcher::ShouldOpenPopup(const WindowFeatures& aFeatures) {
  */
 // static
 uint32_t nsWindowWatcher::CalculateChromeFlagsForContent(
-    const WindowFeatures& aFeatures,
-    const mozilla::dom::UserActivation::Modifiers& aModifiers,
-    bool aCalledFromJS, bool* aIsPopupRequested) {
+    const WindowFeatures& aFeatures, bool aCalledFromJS,
+    bool* aIsPopupRequested) {
   if (!aCalledFromJS &&
       aFeatures.GetBoolWithDefault("pictureinpicture", false)) {
     return nsIWebBrowserChrome::CHROME_DOCUMENT_PICTURE_IN_PICTURE_FLAGS;
@@ -1967,8 +1967,6 @@ uint32_t nsWindowWatcher::CalculateChromeFlagsForSystem(
       chromeFlags |= nsIWebBrowserChrome::CHROME_OPENAS_DIALOG |
                      nsIWebBrowserChrome::CHROME_OPENAS_CHROME;
     }
-  } else {
-    chromeFlags = nsIWebBrowserChrome::CHROME_WINDOW_BORDERS;
   }
 
   /* This function has become complicated since browser windows and
@@ -2688,8 +2686,7 @@ int32_t nsWindowWatcher::GetWindowOpenLocation(
       uiChromeFlags &= ~(nsIWebBrowserChrome::CHROME_REMOTE_WINDOW |
                          nsIWebBrowserChrome::CHROME_FISSION_WINDOW |
                          nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW |
-                         nsIWebBrowserChrome::CHROME_NON_PRIVATE_WINDOW |
-                         nsIWebBrowserChrome::CHROME_PRIVATE_LIFETIME);
+                         nsIWebBrowserChrome::CHROME_NON_PRIVATE_WINDOW);
       if (uiChromeFlags != nsIWebBrowserChrome::CHROME_ALL) {
         return nsIBrowserDOMWindow::OPEN_NEWWINDOW;
       }

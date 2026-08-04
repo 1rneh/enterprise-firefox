@@ -1815,8 +1815,6 @@
     <string name="webcompat_reporter_preview_report">Preview Report</string>
     <!-- The title shown at the top of the WebCompat Report preview panel. This appears after the user taps the “Preview” button before sending a report. -->
     <string name="webcompat_reporter_preview_bottom_sheet_header">Report Preview</string>
-    <!-- Label for the “Send” button shown in the WebCompat Report preview panel, which the user taps to submit the report. -->
-    <string name="webcompat_reporter_preview_bottom_sheet_send">Send</string>
     <!-- Title for the Edit URL confirmation dialog in the WebCompatReporter-->
     <string name="webcompat_reporter_edit_url_dialog_title">Edit website URL</string>
     <!-- Text shown on the save button for the Edit URL confirmation dialog in the WebCompatReporter. -->
@@ -4068,6 +4066,16 @@
     <string name="lens_camera_mode_qr">QR scanner</string>
     <!-- Toast shown when the user picks an image from the gallery in QR mode but no QR code is found in it -->
     <string name="lens_camera_qr_no_code_found">No QR code found in image</string>
+    <!-- Title of the bottom sheet shown the first time the user opens the Google Lens camera screen -->
+    <string name="lens_opt_out_title">Find it with Google Lens</string>
+    <!-- Description of the bottom sheet shown the first time the user opens the Google Lens camera screen -->
+    <string name="lens_opt_out_description">Choose an image or use your camera to get results with Google Lens.</string>
+    <!-- Text of the link in the first-run Google Lens bottom sheet that opens the Search settings page -->
+    <string name="lens_opt_out_settings_link">Google Lens settings</string>
+    <!-- Button in the first-run Google Lens bottom sheet that dismisses it and starts the camera -->
+    <string name="lens_opt_out_try_it_now_button">Try it now</string>
+    <!-- Button in the first-run Google Lens bottom sheet that leaves Google Lens without using it -->
+    <string name="lens_opt_out_not_now_button">Not now</string>
 
     <!-- Firefox Labs -->
     <!-- Firefox Labs is the name of a screen in Settings to allow users to learn about

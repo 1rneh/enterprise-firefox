@@ -344,6 +344,7 @@ run-if = [
 ["browser_newtab_button_customizemode.js"]
 
 ["browser_novaHelpSwitchDevicePromo.js"]
+skip-if = ["enterprise"] # helpSwitchDevice menuitem is present in enterprise builds
 
 ["browser_open_from_popup.js"]
 

@@ -330,9 +330,6 @@ pref("browser.shell.setDefaultPDFHandler", true);
 // is a known browser, and not when existing handler is another PDF handler such
 // as Acrobat Reader or Nitro PDF.
 pref("browser.shell.setDefaultPDFHandler.onlyReplaceBrowsers", true);
-// Whether or not to we are allowed to prompt the user to set Firefox as their
-// default PDF handler.
-pref("browser.shell.checkDefaultPDF", true);
 // Will be set to `true` if the user indicates that they don't want to be asked
 // again about Firefox being their default PDF handler any more.
 pref("browser.shell.checkDefaultPDF.silencedByUser", false);
@@ -2315,7 +2312,6 @@ pref("sidebar.revamp", true);
 #else
 pref("sidebar.revamp", false);
 #endif
-pref("sidebar.revamp.round-content-area", true);
 pref("sidebar.animation.enabled", true);
 pref("sidebar.animation.duration-ms", 200);
 pref("sidebar.animation.expand-on-hover.duration-ms", 400);

@@ -4,8 +4,13 @@
 
 #include "ContentParent.h"
 
+#include <functional>
 #include <map>
 #include <utility>
+
+#ifdef MOZ_GECKOVIEW_HISTORY
+#  include "GeckoViewHistory.h"
+#endif
 
 #include "BrowserParent.h"
 #include "ContentProcessManager.h"
@@ -5386,8 +5391,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   // The content process should never be in charge of computing whether or
   // not a window should be private - the parent will do that.
   const uint32_t badFlags = nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW |
-                            nsIWebBrowserChrome::CHROME_NON_PRIVATE_WINDOW |
-                            nsIWebBrowserChrome::CHROME_PRIVATE_LIFETIME;
+                            nsIWebBrowserChrome::CHROME_NON_PRIVATE_WINDOW;
   if (!!(aChromeFlags & badFlags)) {
     return IPC_FAIL(this, "Forbidden aChromeFlags passed");
   }
@@ -5552,8 +5556,8 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   features.Tokenize(aFeatures);
 
   aResult = pwwatch->OpenWindowWithRemoteTab(
-      thisBrowserHost, features, aModifiers, aCalledFromJS, aParent.FullZoom(),
-      openInfo, getter_AddRefs(aNewRemoteTab));
+      thisBrowserHost, features, aCalledFromJS, aParent.FullZoom(), openInfo,
+      getter_AddRefs(aNewRemoteTab));
   if (NS_WARN_IF(NS_FAILED(aResult))) {
     return IPC_OK();
   }
@@ -6307,10 +6311,12 @@ static bool WebdriverRunning() {
   return false;
 }
 
+#ifndef MOZ_GECKOVIEW_HISTORY
 // Whether aDomain (an ETLD+1) was unvisited today, until aNavigationStartTime,
-// per browsing history. Returns false when history is unavailable.
-static bool IsFirstDailyLoad(const nsACString& aDomain,
-                             const TimeStamp& aNavigationStartTime) {
+// per the in-process Places history. Returns false when history is
+// unavailable. Desktop only; GeckoView history lives in the embedding app.
+static bool FirstDailyLoadFromPlaces(const nsACString& aDomain,
+                                     const TimeStamp& aNavigationStartTime) {
   if (aNavigationStartTime.IsNull()) {
     return false;
   }
@@ -6367,6 +6373,65 @@ static bool IsFirstDailyLoad(const nsACString& aDomain,
   root->SetContainerOpen(false);
 
   return NS_SUCCEEDED(rv) && visitCount == 0;
+}
+#endif
+
+#ifdef MOZ_GECKOVIEW_HISTORY
+// Local midnight (start of the current day in local time) as milliseconds since
+// the Unix epoch.
+static int64_t LocalMidnightEpochMillis() {
+  PRExplodedTime exploded;
+  PR_ExplodeTime(PR_Now(), PR_LocalTimeParameters, &exploded);
+  exploded.tm_hour = 0;
+  exploded.tm_min = 0;
+  exploded.tm_sec = 0;
+  exploded.tm_usec = 0;
+  return PR_ImplodeTime(&exploded) / PR_USEC_PER_MSEC;
+}
+#endif
+
+// Determines whether this is the first load of aDomain (an ETLD+1) today, up to
+// aNavigationStartTime, and invokes aCallback with the result. On desktop the
+// in-process Places history is queried synchronously and aCallback runs before
+// returning; on GeckoView the embedding app's history is queried asynchronously
+// and aCallback runs on completion (false when the answer is unavailable).
+static void QueryFirstDailyLoad(const nsACString& aDomain,
+                                const TimeStamp& aNavigationStartTime,
+                                const MaybeDiscarded<BrowsingContext>& aContext,
+                                std::function<void(bool)>&& aCallback) {
+#ifdef MOZ_GECKOVIEW_HISTORY
+  if (aNavigationStartTime.IsNull() || aContext.IsNullOrDiscarded()) {
+    aCallback(false);
+    return;
+  }
+
+  RefPtr<nsIWidget> widget =
+      aContext.get_canonical()->GetParentProcessWidgetContaining();
+  RefPtr<GeckoViewHistory> history = GeckoViewHistory::GetSingleton();
+  if (!widget || !history) {
+    aCallback(false);
+    return;
+  }
+
+  // Convert the monotonic navigation start to wall-clock epoch milliseconds to
+  // bound the lookup, excluding this load's own (and any later) visits.
+  int64_t beforeEpochMillis =
+      (PR_Now() -
+       static_cast<PRTime>(
+           (TimeStamp::Now() - aNavigationStartTime).ToMicroseconds())) /
+      PR_USEC_PER_MSEC;
+
+  // The delegate reports whether the domain was already visited today: this is
+  // the first daily load only if history is known and reports it was not. An
+  // unknown result (Nothing) must not be treated as a first load.
+  history->QueryHostVisitedSince(
+      widget, aDomain, LocalMidnightEpochMillis(), beforeEpochMillis,
+      [callback = std::move(aCallback)](mozilla::Maybe<bool> aVisitedToday) {
+        callback(aVisitedToday.isSome() && !*aVisitedToday);
+      });
+#else
+  aCallback(FirstDailyLoadFromPlaces(aDomain, aNavigationStartTime));
+#endif
 }
 
 #ifdef ANDROID
@@ -6477,9 +6542,13 @@ mozilla::ipc::IPCResult ContentParent::RecvRecordPageLoadEvent(
   // that can be used to fingerprint the client.  Otherwise, use the regular
   // pageload event ping.
   if (aPageloadEventData.HasDomain()) {
-    aPageloadEventData.SetIsFirstDailyLoad(
-        IsFirstDailyLoad(aPageloadEventData.GetDomain(), aNavigationStartTime));
-    aPageloadEventData.SendAsPageLoadDomainEvent();
+    nsCString domain(aPageloadEventData.GetDomain());
+    QueryFirstDailyLoad(
+        domain, aNavigationStartTime, aBrowsingContext,
+        [data = std::move(aPageloadEventData)](bool aIsFirstDailyLoad) mutable {
+          data.SetIsFirstDailyLoad(aIsFirstDailyLoad);
+          data.SendAsPageLoadDomainEvent();
+        });
   } else {
     aPageloadEventData.SendAsPageLoadEvent();
   }

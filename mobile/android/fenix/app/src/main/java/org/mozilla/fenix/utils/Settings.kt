@@ -2756,6 +2756,12 @@ class Settings(
         default = false,
     )
 
+    /** Forces GPI (Google Play Integrity) authentication for IPProtection, set through Secret Settings. */
+    var ipProtectionUseGpi by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_ip_protection_use_gpi),
+        default = false,
+    )
+
     /**
      * Indicates if the user has already toggled the VPN on.
      */
@@ -3239,6 +3245,15 @@ class Settings(
     var googleLensIntegrationUserEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_google_lens_integration_user_enabled),
         default = true,
+    )
+
+    /**
+     * Whether the user has acknowledged the Google Lens first-run bottom sheet by tapping
+     * "Try it now". Set only on that action, so declining re-shows the sheet on the next tap.
+     */
+    var hasAcceptedGoogleLensFirstRun by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_has_accepted_google_lens_first_run),
+        default = false,
     )
 
     /**

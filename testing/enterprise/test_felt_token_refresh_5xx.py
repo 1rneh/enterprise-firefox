@@ -51,14 +51,12 @@ class FeltTokenRefresh5xx(FeltTests):
         )
 
     def test_token_refresh_5xx_recovers_felt_ui(self):
-        """A 5xx on the token refresh brings FELT back and keeps the tokens.
+        """A 5xx on the token refresh brings FELT back and clears the tokens.
 
         A 401 on the policy poll makes the browser ask FELT to refresh the
         session; the refresh POST /sso/token then returns 5xx. After the
         browser is torn down, FELT must return to the foreground showing the
-        "session interrupted" notice (not a windowless process) and must still
-        hold the same, valid tokens it was issued, since a transient error does
-        not invalidate them.
+        "session interrupted" notice, and the tokens are cleared.
         """
         super().run_felt_base()
         self.connect_child_browser()
@@ -66,10 +64,10 @@ class FeltTokenRefresh5xx(FeltTests):
 
         browser_pid = self._child_driver.session_capabilities["moz:processID"]
 
-        # The tokens FELT currently holds are the ones the console issued.
-        expected_access = self.policy_access_token.value
-        expected_refresh = self.policy_refresh_token.value
-        assert expected_access and expected_refresh, "Session should have tokens"
+        # Precondition: the session holds the tokens the console issued.
+        assert self.policy_access_token.value and self.policy_refresh_token.value, (
+            "Session should have tokens"
+        )
 
         # The token endpoint returns 5xx, and the next policy poll gets a 401
         # (rotate the server access token so the browser's cached one no longer
@@ -88,8 +86,8 @@ class FeltTokenRefresh5xx(FeltTests):
         # It shows the "session interrupted" notice.
         self.get_elem(".felt-browser-error-session-interrupted")
 
-        # The tokens are unchanged: FELT still holds the same valid access and
-        # refresh tokens it was issued, not cleared or corrupted.
+        # The refresh-failure teardown clears the tokens: FELT no longer holds
+        # an access or refresh token, so the user must authenticate again.
         tokens = self._driver.execute_script(
             """
             return {
@@ -99,9 +97,7 @@ class FeltTokenRefresh5xx(FeltTests):
             """
         )
         self._driver.set_context("content")
-        assert tokens["access"] == expected_access, (
-            f"Access token changed: {tokens['access']} != {expected_access}"
-        )
-        assert tokens["refresh"] == expected_refresh, (
-            f"Refresh token changed: {tokens['refresh']} != {expected_refresh}"
+        assert not tokens["access"], f"Access token was not cleared: {tokens['access']}"
+        assert not tokens["refresh"], (
+            f"Refresh token was not cleared: {tokens['refresh']}"
         )

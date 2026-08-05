@@ -211,6 +211,7 @@ export class Felt {
     "FeltParent:FirefoxLogoutExit",
     "FeltParent:FirefoxAbnormalExit",
     "FeltParent:FirefoxLaunchFailure",
+    "FeltParent:FirefoxSessionInterrupted",
     "FeltParent:TransitionFeltToBackground",
     "FeltParent:ForceFeltFocus",
   ];
@@ -316,18 +317,24 @@ export class Felt {
 
       case "FeltParent:FirefoxLogoutExit": {
         Services.felt.makeBackgroundProcess(false);
+        this.showWindow();
+        break;
+      }
+
+      case "FeltParent:FirefoxSessionInterrupted": {
+        Services.felt.makeBackgroundProcess(false);
         switch (message.data?.reason) {
-          case "tokenRefreshFailed":
+          case "tokenRefreshExpired":
             // TODO: this is not 100% in line with the figma document around
             // informal messages on this screen.
             // We do not currently distinguish between normal session termination
             // because of a timeout or a forced signout triggered from the admin
             // console.
-            this.showWindow("felt-browser-error-token-refresh-failed");
+            this.showWindow("felt-browser-error-session-expired");
             break;
-          case "logout":
+          case "tokenRefreshFailed":
           default:
-            this.showWindow();
+            this.showWindow("felt-browser-error-session-interrupted");
             break;
         }
         break;

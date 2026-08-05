@@ -8,7 +8,7 @@ const PREF_NAME = "dom.security.https_only_mode";
 // Served over http, but has no valid certificate for https, so the HTTPS-Only
 // upgrade fails and the HTTPS-Only error page is shown when the policy is
 // active. Without the policy the http page loads normally.
-// eslint-disable-next-line @microsoft/sdl/no-insecure-url
+// eslint-disable-next-line sdl/no-insecure-url
 const TEST_URL = "http://nocert.example.com";
 
 function waitForPage(browser) {

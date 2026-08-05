@@ -51,9 +51,7 @@ class ApiLintPlugin : Plugin<Project> {
                 val jsonResultFileProvider =
                     outputDir.flatMap { dir -> extension.jsonResultFileName.map { dir.file(it) } }
                 val currentApiFileProvider = project.layout.projectDirectory.file(extension.currentApiRelativeFilePath)
-                val apiMapFileProvider = outputDir.flatMap { dir ->
-                    extension.apiOutputFileName.map { dir.file("${it}.map") }
-                }
+                val apiMapFileProvider = apiMapFileFor(project.layout, apiFileProvider)
 
                 // sources.java.all covers the static sources plus the AGP-generated BuildConfig/AIDL
                 // sources (replacing the legacy sourceSets/generateBuildConfig/aidlCompile accessors).
@@ -73,6 +71,7 @@ class ApiLintPlugin : Plugin<Project> {
 
                     task.rootDir.set(project.rootDir.absolutePath)
                     task.outputFile.set(apiFileProvider)
+                    task.apiMapFile.set(apiMapFileProvider)
                     task.packageFilter.set(extension.packageFilter)
                     task.skipClassesRegex.set(extension.skipClassesRegex)
                     task.javadocDestinationDir.set(project.layout.buildDirectory.dir("tmp/javadoc/${variantName}"))
@@ -87,6 +86,8 @@ class ApiLintPlugin : Plugin<Project> {
 
                     task.inputs.file(apiFileProvider).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
                     task.inputs.file(apiMapFileProvider).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
+                    task.declareLintFilterInputs(extension)
+                    task.declareDeprecationInputs(extension)
                     task.outputs.file(jsonResultFileProvider)
 
                     task.doFirst {
@@ -95,11 +96,17 @@ class ApiLintPlugin : Plugin<Project> {
                         val apiMapFile = apiMapFileProvider.get().asFile
 
                         task.args(apiFile, "--result-json", jsonResultFile)
-                        if (extension.lintFilters.isPresent) {
-                            task.args("--filter-errors", *extension.lintFilters.get().toTypedArray())
+                        // Gradle gives a ListProperty an empty value rather than no value, so these
+                        // have to be checked for emptiness: `isPresent` is true even when the
+                        // consumer never configured them, and passing either flag with no values
+                        // makes apilint.py restrict the API to nothing.
+                        val lintFilters = extension.lintFilters.get()
+                        if (lintFilters.isNotEmpty()) {
+                            task.args("--filter-errors", *lintFilters.toTypedArray())
                         }
-                        if (extension.allowedPackages.isPresent) {
-                            task.args("--allowed-packages", *extension.allowedPackages.get().toTypedArray())
+                        val allowedPackages = extension.allowedPackages.get()
+                        if (allowedPackages.isNotEmpty()) {
+                            task.args("--allowed-packages", *allowedPackages.toTypedArray())
                         }
                         if (extension.deprecationAnnotation.isPresent) {
                             task.args("--deprecation-annotation", extension.deprecationAnnotation.get())
@@ -138,6 +145,7 @@ class ApiLintPlugin : Plugin<Project> {
                     task.inputs.file(apiFileProvider).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
                     task.inputs.file(currentApiFileProvider).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
                     task.inputs.file(apiMapFileProvider).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
+                    task.declareDeprecationInputs(extension)
                     task.outputs.file(jsonResultFileProvider)
 
                     task.dependsOn(apiLintSingle)

@@ -2404,12 +2404,15 @@ pref("places.semanticHistory.smartwindow.featureGate", false);
 // TODO Bug 2053495: remove with mistral release pref
 pref("browser.smartwindow.mistralRelease", true);
 
+// Semantic distance threshold for Smart Window history search only.
+pref("places.semanticHistory.smartwindow.distanceThreshold", "0.6");
+
 // Smart Window: Auto Tab Grouping (bug 2054500).
 pref("browser.smartwindow.autoTabGrouping.enabled", false);
 pref("browser.smartwindow.autoTabGrouping.maxGroups", 3);
 pref("browser.smartwindow.autoTabGrouping.minTabsPerGroup", 2);
 pref("browser.smartwindow.autoTabGrouping.minCandidateTabs", 4);
-pref("browser.smartwindow.autoTabGrouping.minCohesion", "0.1");
+pref("browser.smartwindow.autoTabGrouping.minCohesion", "0.15");
 pref("browser.smartwindow.autoTabGrouping.timeoutMs", 8000);
 pref("browser.smartwindow.autoTabGrouping.loglevel", "Warn");
 
@@ -2572,6 +2575,7 @@ pref("media.gmp-gmpopenh264.enabled", true);
 
 pref("media.videocontrols.picture-in-picture.enabled", true);
 pref("media.videocontrols.picture-in-picture.audio-toggle.enabled", true);
+pref("media.videocontrols.picture-in-picture.playback-speed.enabled", false);
 pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.visibility-threshold", "1.0");
 pref("media.videocontrols.picture-in-picture.keyboard-controls.enabled", true);
@@ -3144,6 +3148,9 @@ pref("browser.toolbars.bookmarks.showOtherBookmarks", true);
 // available on the toolbar or in the customize section. Requires a
 // restart to reflect state changes.
 pref("browser.toolbars.share-button.enabled", true);
+
+// Visibility of the share button in the url bar.
+pref("browser.urlbar.share-button.enabled", false);
 
 pref("security.certerrors.felt-privacy-v1", true);
 
@@ -3828,8 +3835,9 @@ pref("browser.contentsharing.enabled", false);
 
 // Preferences for the Firefox Referral program #2051647).
 pref("browser.referrals.enabled", false);
-// Per-profile referral code, locked at runtime once generated.
-pref("browser.referrals.code", "");
+// "browser.referrals.code": Per-profile referral code, locked at runtime once
+// generated. The pref can't be defined here because locking the pref resets
+// the value to the default value and we need the default value to the genereated code.
 
 // When enabled, Firefox ignores the distribution.ini file if global.id is MozillaOnline.
 pref("distribution.mozillaonline.ignore", true);

@@ -551,16 +551,9 @@ pref("toolkit.telemetry.debugSlowSql", false);
 pref("toolkit.telemetry.unified", true);
 
 // DAP related preferences
-pref("toolkit.telemetry.dap_enabled", false);
 pref("toolkit.telemetry.dap.logLevel", "Warn");
-// Verification tasks
-pref("toolkit.telemetry.dap_task1_enabled", false);
-pref("toolkit.telemetry.dap_task1_taskid", "");
-// URL visit counting
-pref("toolkit.telemetry.dap_visit_counting_enabled", false);
 // Note: format of patterns is "<proto>://<host>/<path>"
 // See https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Match_patterns
-pref("toolkit.telemetry.dap_visit_counting_experiment_list", "[]");
 // DAP protocol Leader endpoint. Operated by DivviUp/ISRG.
 // - HPKE key is base64url-encoded response of the /hpke_config path on server.
 pref("toolkit.telemetry.dap.leader.url", "https://dap-09-3.api.divviup.org");
@@ -3930,6 +3923,13 @@ pref("services.common.log.logger.tokenserverclient", "Debug");
     pref("remote.experimental.enabled", true);
   #else
     pref("remote.experimental.enabled", false);
+  #endif
+
+  // Allow Marionette and the Remote Agent to be started dynamically at runtime.
+  #if defined(NIGHTLY_BUILD)
+    pref("remote.experimental.dynamicstart.enabled", true);
+  #else
+    pref("remote.experimental.dynamicstart.enabled", false);
   #endif
 
   // Defines the verbosity of the internal logger.

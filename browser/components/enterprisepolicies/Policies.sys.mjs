@@ -126,7 +126,7 @@ export var Policies = {
       );
     },
     onRemove() {
-      if (Cu.isInAutomation || isXpcshell) {
+      if (Cu.isInAutomation) {
         console.log("_cleanup from onRemove");
       }
     },

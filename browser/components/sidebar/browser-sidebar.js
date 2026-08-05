@@ -185,6 +185,16 @@ var SidebarController = {
       ],
     ]);
 
+    // Hide synced tabs when accounts or Sync are disabled by policy, rather
+    // than surfacing a panel that can only show an error.
+    const syncedTabsSidebar = this._sidebars.get("viewTabsSidebar");
+    Object.defineProperty(syncedTabsSidebar, "visible", {
+      get: () =>
+        Services.prefs.getBoolPref("identity.fxaccounts.enabled", false) &&
+        Services.policies.isAllowed("sync-tabs"),
+      configurable: true,
+    });
+
     this.registerPrefSidebar(
       "browser.ml.chat.enabled",
       "viewGenaiChatSidebar",
@@ -629,6 +639,17 @@ var SidebarController = {
       Services.obs.addObserver(this, "sessionstore-single-window-restored");
       this._windowRestoredObserverAdded = true;
     }
+    if (!this._policiesObserverAdded) {
+      Services.obs.addObserver(this, "EnterprisePolicies:PolicyUpdatesApplied");
+      this._policiesObserverAdded = true;
+    }
+    if (!this._syncedTabsPrefObserver) {
+      this._syncedTabsPrefObserver = () => this.updateSyncedTabsVisibility();
+      Services.prefs.addObserver(
+        "identity.fxaccounts.enabled",
+        this._syncedTabsPrefObserver
+      );
+    }
   },
 
   uninit() {
@@ -659,9 +680,23 @@ var SidebarController = {
     Services.obs.removeObserver(this, "tabstrip-orientation-change");
     Services.obs.removeObserver(this, "ai-window-state-changed");
     Services.obs.removeObserver(this, "sessionstore-single-window-restored");
+    if (this._policiesObserverAdded) {
+      Services.obs.removeObserver(
+        this,
+        "EnterprisePolicies:PolicyUpdatesApplied"
+      );
+    }
+    if (this._syncedTabsPrefObserver) {
+      Services.prefs.removeObserver(
+        "identity.fxaccounts.enabled",
+        this._syncedTabsPrefObserver
+      );
+      this._syncedTabsPrefObserver = null;
+    }
     delete this._tabstripOrientationObserverAdded;
     delete this._aiWindowObserverAdded;
     delete this._windowRestoredObserverAdded;
+    delete this._policiesObserverAdded;
 
     CustomizableUI.removeListener(this);
 
@@ -836,6 +871,10 @@ var SidebarController = {
             sidebar._updateMenus?.();
           }
         }
+        break;
+      }
+      case "EnterprisePolicies:PolicyUpdatesApplied": {
+        this.updateSyncedTabsVisibility();
         break;
       }
     }
@@ -1935,6 +1974,23 @@ var SidebarController = {
     if (!this.uninitializing) {
       this.updatePinnedTabsHeightOnResize();
     }
+  },
+
+  /**
+   * Refresh the synced tabs tool after its account/policy gating may have
+   * changed, closing an open panel that is no longer allowed to be shown.
+   */
+  updateSyncedTabsVisibility() {
+    const syncedTabsSidebar = this.sidebars.get("viewTabsSidebar");
+    if (
+      !syncedTabsSidebar?.visible &&
+      this._state?.command == "viewTabsSidebar"
+    ) {
+      this._state.command = "";
+      this.lastOpenedId = null;
+      this.hide();
+    }
+    window.dispatchEvent(new CustomEvent("SidebarItemChanged"));
   },
 
   /**

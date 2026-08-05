@@ -16,7 +16,7 @@ ChromeUtils.defineESModuleGetters(this, {
 });
 
 const TRACKING_PAGE =
-  // eslint-disable-next-line @microsoft/sdl/no-insecure-url
+  // eslint-disable-next-line sdl/no-insecure-url
   "http://tracking.example.org/browser/browser/base/content/test/protectionsUI/trackingPage.html";
 
 const TEST_BREACH = {
@@ -774,7 +774,7 @@ add_task(async function test_no_first_visit_class_on_return_visit() {
   // Add a visit to the tracking host from more than 20 seconds ago so that
   // #markFirstVisit treats this as a return visit.
   await PlacesTestUtils.addVisits({
-    // eslint-disable-next-line @microsoft/sdl/no-insecure-url
+    // eslint-disable-next-line sdl/no-insecure-url
     uri: "http://tracking.example.org/",
     visitDate: new Date(Date.now() - 60 * 1000),
   });
@@ -815,7 +815,7 @@ add_task(
     // Add a visit older than 20 seconds so #markFirstVisit would treat this as a
     // return visit based on history alone.
     await PlacesTestUtils.addVisits({
-      // eslint-disable-next-line @microsoft/sdl/no-insecure-url
+      // eslint-disable-next-line sdl/no-insecure-url
       uri: "http://tracking.example.org/",
       visitDate: new Date(Date.now() - 60 * 1000),
     });
@@ -851,3 +851,36 @@ add_task(
     }
   }
 );
+
+add_task(async function test_tab_switch_preserves_resolved_secure_icon() {
+  await PlacesUtils.history.clear();
+
+  const noTrackerTab = await BrowserTestUtils.openNewForegroundTab({
+    gBrowser,
+    opening: "https://example.com",
+    waitForLoad: true,
+  });
+  await waitForTrustIconClass("secure", "No-tracker tab resolves to secure");
+
+  const otherTab = await BrowserTestUtils.openNewForegroundTab({
+    gBrowser,
+    opening: "about:blank",
+    waitForLoad: true,
+  });
+
+  // Returning must keep the check-mark, not re-enter scanning. Assert
+  // synchronously: scanning self-resolves in seconds, so a polled wait would
+  // miss the flash of the shield the user actually sees.
+  await BrowserTestUtils.switchTab(gBrowser, noTrackerTab);
+  Assert.ok(
+    trustIconContainer().classList.contains("secure"),
+    "Tab switch preserves the check-mark"
+  );
+  Assert.ok(
+    !trustIconContainer().classList.contains("scanning"),
+    "Tab switch does not drop to the scanning shield"
+  );
+
+  await BrowserTestUtils.removeTab(otherTab);
+  await BrowserTestUtils.removeTab(noTrackerTab);
+});

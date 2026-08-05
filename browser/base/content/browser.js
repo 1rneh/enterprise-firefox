@@ -29,7 +29,7 @@ ChromeUtils.defineESModuleGetters(this, {
   ContentAnalysis:
     "moz-src:///browser/components/contentanalysis/content/ContentAnalysis.sys.mjs",
   ContentSharingUtils:
-    "moz-src:///browser/components/contentsharing/ContentSharingUtils.sys.mjs",
+    "moz-src:///browser/components/sharing/ContentSharingUtils.sys.mjs",
   ContextualIdentityService:
     "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   CustomizableUI:
@@ -77,6 +77,7 @@ ChromeUtils.defineESModuleGetters(this, {
     "moz-src:///toolkit/profile/ProfilesDatastoreService.sys.mjs",
   PromptUtils: "resource://gre/modules/PromptUtils.sys.mjs",
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
+  Referrals: "resource:///modules/referrals/Referrals.sys.mjs",
   ResetPBMPanel:
     "moz-src:///browser/components/privatebrowsing/ResetPBMPanel.sys.mjs",
   SafeBrowsing: "resource://gre/modules/SafeBrowsing.sys.mjs",
@@ -89,7 +90,7 @@ ChromeUtils.defineESModuleGetters(this, {
   SessionStartup: "resource:///modules/sessionstore/SessionStartup.sys.mjs",
   SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
   SessionWindowUI: "resource:///modules/sessionstore/SessionWindowUI.sys.mjs",
-  SharingUtils: "resource:///modules/SharingUtils.sys.mjs",
+  SharingUtils: "moz-src:///browser/components/sharing/SharingUtils.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   SiteDataManager: "resource:///modules/SiteDataManager.sys.mjs",
   SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
@@ -2253,10 +2254,11 @@ var XULBrowserWindow = {
     let isSameDocument =
       aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT;
 
-    // Also reset on location change if STATE_START didn't fire. Skip unless the
-    // trust panel is already loaded (see STATE_START above).
+    // Reset on real location changes if STATE_START didn't fire — but not on
+    // simulated ones (tab switches), which have no load to resolve scanning.
     if (
       !isSameDocument &&
+      !aIsSimulated &&
       !Object.getOwnPropertyDescriptor(window, "gTrustPanelHandler").get
     ) {
       gTrustPanelHandler.resetIconForNavigation(aLocationURI);

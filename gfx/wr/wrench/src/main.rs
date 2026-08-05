@@ -588,12 +588,16 @@ impl RenderNotifier for Notifier {
         Box::new(Notifier { tx: self.tx.clone() })
     }
 
+    // Both sends can race with teardown: subcommands that end with
+    // renderer.deinit() rather than Wrench::shut_down() drop the receiver
+    // before the render backend thread notifies its last events. A consumer
+    // that has gone away is not an error, so don't unwrap.
     fn wake_up(&self, composite_needed: bool) {
-        self.tx.send(NotifierEvent::WakeUp { composite_needed }).unwrap();
+        let _ = self.tx.send(NotifierEvent::WakeUp { composite_needed });
     }
 
     fn shut_down(&self) {
-        self.tx.send(NotifierEvent::ShutDown).unwrap();
+        let _ = self.tx.send(NotifierEvent::ShutDown);
     }
 
     fn new_frame_ready(&self, _: DocumentId, _: FramePublishId, params: &FrameReadyParams) {
@@ -900,8 +904,11 @@ impl ApplicationHandler for WrenchApp {
             }
             "png" => {
                 let reader = self.png_reader.take().unwrap();
-                png::png(&mut wrench, self.png_surface, &mut window, reader, rx.unwrap(), self.png_output_path.clone());
-                wrench.renderer.deinit();
+                let rx = rx.unwrap();
+                png::png(&mut wrench, self.png_surface, &mut window, reader, &rx, self.png_output_path.clone());
+                // shut_down() keeps the receiver alive until the render backend
+                // has acknowledged shutdown, which deinit() alone does not.
+                wrench.shut_down(rx);
                 event_loop.exit();
             }
             "reftest" => {
@@ -921,22 +928,24 @@ impl ApplicationHandler for WrenchApp {
             }
             "perf" => {
                 wrench.rebuild_display_lists = true;
+                let rx = rx.unwrap();
                 let harness = PerfHarness::new(
                     &mut wrench,
                     &mut window,
-                    rx.unwrap(),
+                    &rx,
                     self.perf_warmup_frames,
                     self.perf_sample_count,
                 );
                 let base_manifest = Path::new(&self.perf_benchmark);
                 harness.run(base_manifest, &self.perf_filename, self.perf_as_csv);
-                wrench.renderer.deinit();
+                wrench.shut_down(rx);
                 event_loop.exit();
             }
             "test_invalidation" => {
-                let harness = test_invalidation::TestHarness::new(&mut wrench, &mut window, rx.unwrap());
+                let rx = rx.unwrap();
+                let harness = test_invalidation::TestHarness::new(&mut wrench, &mut window, &rx);
                 let num_failures = harness.run();
-                wrench.renderer.deinit();
+                wrench.shut_down(rx);
                 self.exit_code = num_failures as i32;
                 event_loop.exit();
             }
@@ -1407,8 +1416,11 @@ fn run_headless(args: clap::ArgMatches) -> i32 {
     match app.subcommand.as_str() {
         "png" => {
             let reader = app.png_reader.take().unwrap();
-            png::png(&mut wrench, app.png_surface, &mut window, reader, rx.unwrap(), app.png_output_path.clone());
-            wrench.renderer.deinit();
+            let rx = rx.unwrap();
+            png::png(&mut wrench, app.png_surface, &mut window, reader, &rx, app.png_output_path.clone());
+            // shut_down() keeps the receiver alive until the render backend has
+            // acknowledged shutdown, which deinit() alone does not.
+            wrench.shut_down(rx);
             0
         }
         "reftest" => {
@@ -1428,22 +1440,24 @@ fn run_headless(args: clap::ArgMatches) -> i32 {
         }
         "perf" => {
             wrench.rebuild_display_lists = true;
+            let rx = rx.unwrap();
             let harness = PerfHarness::new(
                 &mut wrench,
                 &mut window,
-                rx.unwrap(),
+                &rx,
                 app.perf_warmup_frames,
                 app.perf_sample_count,
             );
             let base_manifest = Path::new(&app.perf_benchmark);
             harness.run(base_manifest, &app.perf_filename, app.perf_as_csv);
-            wrench.renderer.deinit();
+            wrench.shut_down(rx);
             0
         }
         "test_invalidation" => {
-            let harness = test_invalidation::TestHarness::new(&mut wrench, &mut window, rx.unwrap());
+            let rx = rx.unwrap();
+            let harness = test_invalidation::TestHarness::new(&mut wrench, &mut window, &rx);
             let num_failures = harness.run();
-            wrench.renderer.deinit();
+            wrench.shut_down(rx);
             num_failures as i32
         }
         "compare_perf" => {

@@ -5,6 +5,7 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AppInfo: "chrome://remote/content/shared/AppInfo.sys.mjs",
   Deferred: "chrome://remote/content/shared/Sync.sys.mjs",
   HttpServer: "chrome://remote/content/server/httpd.sys.mjs",
   Log: "chrome://remote/content/shared/Log.sys.mjs",
@@ -24,6 +25,8 @@ const DEFAULT_PORT = 9222;
 const ENV_ALLOW_SYSTEM_ACCESS = "MOZ_REMOTE_ALLOW_SYSTEM_ACCESS";
 
 const SHARED_DATA_ACTIVE_KEY = "RemoteAgent:Active";
+
+const PREF_DYNAMIC_START_ENABLED = "remote.experimental.dynamicstart.enabled";
 
 const isRemote =
   Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_CONTENT;
@@ -151,6 +154,18 @@ class RemoteAgentParentProcess {
 
   get webDriverBiDi() {
     return this.#webDriverBiDi;
+  }
+
+  #addShutdownObservers() {
+    Services.obs.addObserver(this, "quit-application");
+    Services.obs.addObserver(this, "xpcom-shutdown");
+    Services.obs.addObserver(this, "xpcom-shutdown-threads");
+  }
+
+  #removeShutdownObservers() {
+    Services.obs.removeObserver(this, "quit-application");
+    Services.obs.removeObserver(this, "xpcom-shutdown");
+    Services.obs.removeObserver(this, "xpcom-shutdown-threads");
   }
 
   /**
@@ -443,10 +458,8 @@ class RemoteAgentParentProcess {
           Services.obs.addObserver(this, "before-cancel-download-prompt");
           Services.obs.addObserver(this, "browser-idle-startup-tasks-finished");
           Services.obs.addObserver(this, "mail-idle-startup-tasks-finished");
-          Services.obs.addObserver(this, "quit-application");
 
-          Services.obs.addObserver(this, "xpcom-shutdown");
-          Services.obs.addObserver(this, "xpcom-shutdown-threads");
+          this.#addShutdownObservers();
 
           // Apply the common set of preferences for all supported protocols
           lazy.RecommendedPreferences.applyPreferences();
@@ -517,6 +530,79 @@ class RemoteAgentParentProcess {
         lazy.logger.warn("Unknown IPC message to parent process: " + name);
         return null;
     }
+  }
+
+  /**
+   * Start RemoteAgent at runtime, unless already running via command line
+   * arguments.
+   *
+   * @returns {number}
+   *     The port on which RemoteAgent started.
+   */
+  async startAtRuntime() {
+    if (!Services.prefs.getBoolPref(PREF_DYNAMIC_START_ENABLED, false)) {
+      lazy.logger.debug(
+        `Start aborted, ${PREF_DYNAMIC_START_ENABLED} is disabled`
+      );
+      return -1;
+    }
+
+    if (this.running) {
+      lazy.logger.debug(
+        `Start aborted, RemoteAgent already running (running=${this.running})`
+      );
+      return -1;
+    }
+
+    if (!lazy.AppInfo.isFirefox) {
+      throw new Error(
+        "RemoteAgent start is only supported for Firefox Desktop"
+      );
+    }
+
+    // Make sure the application window is ready.
+    const win = Services.wm.getMostRecentBrowserWindow();
+    if (win && win.gBrowserInit.idleTasksFinished) {
+      await win.gBrowserInit.idleTasksFinished;
+    } else {
+      throw new Error(
+        "Could not start remote agent dynamically with no window available"
+      );
+    }
+
+    if (Services.startup.startingUp) {
+      throw new Error(
+        "Could not start remote agent dynamically, application window still starting up"
+      );
+    }
+
+    // Explicitly resolve() browserStartupFinished because in most cases the
+    // startup should already be done at this point and we can't monitor the
+    // observer notification.
+    this.#browserStartupFinished.resolve();
+
+    // Start the RemoteAgent server.
+    this.#enabled = true;
+    this.#addShutdownObservers();
+    this.#webDriverBiDi = new lazy.WebDriverBiDi(this);
+
+    try {
+      await this.#listen(this.#port);
+    } catch (e) {
+      throw Error(`Unable to start remote agent: ${e}`);
+    }
+
+    return this.#port;
+  }
+
+  /**
+   * Stop remote agent during runtime. This entry point is only meant to be
+   * called if RemoteAgent was started via startAtRuntime.
+   */
+  async stopAtRuntime() {
+    await this.#stop();
+    this.#removeShutdownObservers();
+    this.#enabled = false;
   }
 
   // XPCOM

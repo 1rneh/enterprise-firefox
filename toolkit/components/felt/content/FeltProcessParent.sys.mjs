@@ -335,9 +335,10 @@ export class FeltProcessParent extends JSProcessActorParent {
                   Services.cpmm.sendAsyncMessage(
                     "FeltParent:FirefoxSessionInterrupted",
                     {
-                      reason: error.name === "ReauthRequiredError"
-                        ? "tokenRefreshExpired"
-                        : "tokenRefreshFailed",
+                      reason:
+                        error.name === "ReauthRequiredError"
+                          ? "tokenRefreshExpired"
+                          : "tokenRefreshFailed",
                     }
                   );
                 });

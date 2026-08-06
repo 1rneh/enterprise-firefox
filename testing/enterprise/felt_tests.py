@@ -283,7 +283,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             if not self.check_auth():
                 return
             if self.server.key_fail_request.value:
-                self.reply("", 500, "Internal Server Error", "application/json")
+                self.reply("", 500, "Internal Server Error")
                 return
             # The primarySecret for SQLite at-rest encryption. The Felt UI
             # process fetches it (ConsoleClient.getPrimarySecret ->
@@ -484,7 +484,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
             # Simulate a console that is transiently unavailable
             if self.server.token_fail_request.value:
-                self.reply("", 500, "Internal Server Error", "application/json")
+                self.reply("", 500, "Internal Server Error")
                 return
 
             if parsed_payload["grant_type"] != "refresh_token":
@@ -534,7 +534,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.server.device_posture_history = []
             self.server.device_posture_history.append(payload)
             if self.server.policies_fail_request.value:
-                self.reply("", 500, "Internal Server Error", "application/json")
+                self.reply("", 500, "Internal Server Error")
                 return
             m = self.build_policies_response()
 

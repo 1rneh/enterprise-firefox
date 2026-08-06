@@ -959,7 +959,7 @@ impl PictureInstance {
                         child.gpu_address,
                         transform_id,
                         src_task_id,
-                        child.anchor.local_rect,
+                        child.anchor.pattern_rect,
                     );
 
                     frame_state.push_prim(
@@ -993,7 +993,7 @@ impl PictureInstance {
         plane_split_anchor: PlaneSplitAnchor,
     ) -> bool {
         let plane_split_anchor = PlaneSplitAnchor {
-            local_rect: original_local_rect,
+            pattern_rect: original_local_rect,
             ..plane_split_anchor
         };
 
@@ -2749,8 +2749,8 @@ pub fn prepare_picture_primitive(
             quad::prepare_quad(
                 &shadow_pattern,
                 &QuadDescriptor {
-                    local_rect: shadow_rect,
-                    local_clip_rect,
+                    pattern_rect: shadow_rect,
+                    bounds: local_clip_rect.intersection_unchecked(&shadow_rect),
                     aligned_aa_edges: EdgeMask::empty(),
                     transformed_aa_edges: EdgeMask::all(),
                 },
@@ -2820,8 +2820,8 @@ pub fn prepare_picture_primitive(
     quad::prepare_quad(
         pattern,
         &QuadDescriptor {
-            local_rect: pic_local_rect,
-            local_clip_rect,
+            pattern_rect: pic_local_rect,
+            bounds: local_clip_rect.intersection_unchecked(&pic_local_rect),
             aligned_aa_edges: EdgeMask::empty(),
             transformed_aa_edges: EdgeMask::all(),
         },

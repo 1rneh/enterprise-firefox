@@ -2894,6 +2894,12 @@
             "Policies": {
               "DisableJit": true
             }
+          },
+          {
+            "Match": ["*.example.net"],
+            "Policies": {
+              "HttpsOnly": true
+            }
           }
         ]
       ],
@@ -2916,6 +2922,9 @@
             "type": "object",
             "properties": {
               "DisableJit": {
+                "type": "boolean"
+              },
+              "HttpsOnly": {
                 "type": "boolean"
               }
             }

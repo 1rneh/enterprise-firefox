@@ -18,6 +18,7 @@ import org.mozilla.fenix.ui.efficiency.pageObjects.HistoryPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.HomePage
 import org.mozilla.fenix.ui.efficiency.pageObjects.MainMenuPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.MicrosurveysPage
+import org.mozilla.fenix.ui.efficiency.pageObjects.NotificationPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.OnboardingPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.RecentlyClosedTabsPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.SearchBarComponent
@@ -54,6 +55,7 @@ import org.mozilla.fenix.ui.efficiency.pageObjects.TabDrawerPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.TabHistoryPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.ToolbarComponent
 import org.mozilla.fenix.ui.efficiency.pageObjects.UnifiedTrustPanelPage
+import org.mozilla.fenix.ui.efficiency.pageObjects.WebCompatReporterPage
 import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule, *>) {
@@ -70,6 +72,7 @@ class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTest
     val home = HomePage(composeRule)
     val mainMenu = MainMenuPage(composeRule)
     val microsurveys = MicrosurveysPage(composeRule)
+    val notification = NotificationPage(composeRule)
     val onboarding = OnboardingPage(composeRule)
     val recentlyClosedTabs = RecentlyClosedTabsPage(composeRule)
     val searchBar = SearchBarComponent(composeRule)
@@ -106,6 +109,7 @@ class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTest
     val tabHistory = TabHistoryPage(composeRule)
     val toolbar = ToolbarComponent(composeRule)
     val unifiedTrustPanel = UnifiedTrustPanelPage(composeRule)
+    val webCompatReporter = WebCompatReporterPage(composeRule)
 
     fun initTestRule(
         skipOnboarding: Boolean = true,

@@ -23,6 +23,7 @@ if CONFIG["MOZ_ENTERPRISE"]:
 # compilation artifacts with gkrust.
 RUST_TESTS = [
     "crashreporter",
+    "crash_helper_common",
     "firefox-on-glean",
     "l10nregistry",
     "rsclientcerts-util",

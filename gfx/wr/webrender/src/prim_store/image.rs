@@ -136,16 +136,13 @@ pub fn prepare_image_quads(
 
     let premultiplied = image_data.alpha_type == AlphaType::PremultipliedAlpha;
 
-    // Tighten the clip rect because decomposing the repeated image can
-    // produce primitives that are partially covering the original image
-    // rect and we want to clip these extra parts out.
-    // We also rely on having a tight clip rect in some cases other than
-    // tiled/repeated images, for example when rendering a snapshot image
-    // where the snapshot area is tighter than the rasterized area.
-    let tight_clip_rect = clip_chain
-        .local_clip_rect
-        .intersection(&prim_rect)
-        .unwrap();
+    // The coverage rect rather than the clip rect, because decomposing the
+    // repeated image can produce primitives that only partially cover the
+    // original image rect and we want to clip these extra parts out.
+    // We also rely on it being tight in some cases other than tiled/repeated
+    // images, for example when rendering a snapshot image where the snapshot
+    // area is tighter than the rasterized area.
+    let tight_clip_rect = clip_chain.local_coverage_rect;
 
     let request = ImageRequest {
         key: image_data.key,
@@ -253,8 +250,8 @@ pub fn prepare_image_quads(
             quad::prepare_repeatable_quad(
                 &image_pattern,
                 &QuadDescriptor {
-                    local_rect,
-                    local_clip_rect: tight_clip_rect,
+                    pattern_rect: local_rect,
+                    bounds: tight_clip_rect.intersection_unchecked(&local_rect),
                     aligned_aa_edges: common_data.aligned_aa_edges,
                     transformed_aa_edges: common_data.transformed_aa_edges,
                 },
@@ -290,7 +287,7 @@ pub fn prepare_image_quads(
 
             let repetitions = image_tiling::repetitions(
                 prim_rect,
-                &visible_rect,
+                &visible_rect.intersection_unchecked(&tight_clip_rect),
                 stride,
             );
 
@@ -337,8 +334,8 @@ pub fn prepare_image_quads(
                     quad::prepare_quad(
                         &image_pattern,
                         &QuadDescriptor {
-                            local_rect: tile.rect,
-                            local_clip_rect: tight_clip_rect,
+                            pattern_rect: tile.rect,
+                            bounds: tight_clip_rect.intersection_unchecked(&tile.rect),
                             aligned_aa_edges,
                             transformed_aa_edges,
                         },

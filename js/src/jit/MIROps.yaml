@@ -3624,6 +3624,17 @@
   alias_set: none
   generate_lir: true
 
+- name: IsSuspendedGenerator
+  operands:
+    object: Object
+  result_type: Boolean
+  alias_set:
+    load:
+      - ObjectFields
+      - FixedSlot
+  generate_lir: true
+  lir_temps: 1
+
 - name: IsNullOrUndefined
   operands:
     value: any
@@ -3720,6 +3731,17 @@
   result_type: Object
   possibly_calls: true
   generate_lir: true
+
+- name: GeneratorResume
+  operands:
+    generator: Object
+    value: Value
+  arguments:
+    resumeKind: int32_t
+  result_type: Value
+  possibly_calls: true
+  generate_lir: true
+  lir_temps: 2
 
 - name: CheckThisReinit
   operands:

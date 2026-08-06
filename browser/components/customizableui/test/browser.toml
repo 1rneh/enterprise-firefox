@@ -278,6 +278,8 @@ skip-if = [
 
 ["browser_bookmarks_empty_message.js"]
 
+["browser_bookmarks_sync_promo.js"]
+
 ["browser_bookmarks_toolbar_collapsed_restore_default.js"]
 
 ["browser_bookmarks_toolbar_shown_newtab.js"]
@@ -293,10 +295,6 @@ skip-if = [
 ["browser_currentset_post_reset.js"]
 
 ["browser_customization_context_menus.js"]
-skip-if = [
-  "nova", # Bug 2057926
-  "os == 'win' && standalone", # Bug 2028648
-]
 
 ["browser_customizemode_contextmenu_menubuttonstate.js"]
 
@@ -316,9 +314,6 @@ https_first_disabled = true
 ["browser_flexible_space_area.js"]
 
 ["browser_help_panel_cloning.js"]
-skip-if = [
-  "nova", # Bug 2057935
-]
 
 ["browser_hidden_widget_overflow.js"]
 
@@ -333,6 +328,8 @@ fail-if = [
 https_first_disabled = true
 
 ["browser_history_restore_session.js"]
+
+["browser_history_sync_promo.js"]
 
 ["browser_insert_before_moved_node.js"]
 

@@ -745,9 +745,6 @@
     <!-- Informs the user how to access the tabs when "Use screen lock to hide tabs in private browsing" is enabled -->
     <string name="preferences_pbm_lock_screen_summary_3">View tabs with your fingerprint, PIN, or face unlock. Turning this on also prevents screen capture and sharing.</string>
 
-    <!-- Preference for removing cookie/consent banners from sites automatically in private mode. See reduce_cookie_banner_summary for additional context. -->
-    <string name="preferences_cookie_banner_reduction_private_mode">Cookie Banner Blocker in private browsing</string>
-
     <!-- Description of the preference to enable "HTTPS-Only" mode. -->
     <string name="preferences_https_only_summary">Automatically attempts to connect to sites using HTTPS encryption protocol for increased security.</string>
     <!-- Summary of https only preference if https only is set to off -->
@@ -2877,7 +2874,7 @@
     <!-- Description for the card shown to the user when we are unable to fetch server locations -->
     <string name="ip_protection_locations_unavailable_description">Switched to the recommended location.</string>
     <!-- Title for the browser VPN location selection screen (displayed in the app bar) -->
-    <string name="ip_protection_locations_title">Choose VPN Location</string>
+    <string name="ip_protection_locations_title">Choose VPN location</string>
     <!-- Content description for the browser VPN location selection screen top bar back button -->
     <string name="ip_protection_locations_navigate_back_button_content_description">Navigate back</string>
 

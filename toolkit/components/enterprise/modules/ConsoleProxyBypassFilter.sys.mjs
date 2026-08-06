@@ -14,7 +14,6 @@ const lazy = XPCOMUtils.declareLazy({
   },
 });
 
-// This filter always runs last and takes precedence over any other proxy filter.
 const MAX_UINT32 = 0xffffffff;
 
 /**
@@ -37,10 +36,8 @@ export const ConsoleProxyBypassFilter = {
    */
   register(consoleHost) {
     this._consoleHost = consoleHost;
-    if (this._registered) {
-      return;
-    }
     this._registered = true;
+    // This filter is registered with the highest priority so it is applied any other filters.
     lazy.ProxyService.registerFilter(this, MAX_UINT32);
   },
 

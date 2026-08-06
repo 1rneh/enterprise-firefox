@@ -349,6 +349,7 @@ class SelectableProfileServiceClass extends EventEmitter {
     "browser.crashReports.unsubmittedCheck.autoSubmit2",
     "browser.discovery.enabled",
     "browser.shell.checkDefaultBrowser",
+    "browser.shell.customIcon.id",
     "browser.backup.enabled_on.profiles",
     DAU_GROUPID_PREF_NAME,
     "datareporting.healthreport.uploadEnabled",
@@ -1284,6 +1285,16 @@ class SelectableProfileServiceClass extends EventEmitter {
 
       Services.prefs.addObserver(name, this.prefObserver);
       this.#observedPrefs.add(name);
+    }
+
+    // Add shared prefs not already in the db to the db
+    const permanentSharedPrefsSet = new Set(
+      SelectableProfileServiceClass.permanentSharedPrefs
+    );
+    for (let prefName of permanentSharedPrefsSet.difference(
+      this.#observedPrefs
+    )) {
+      await this.flushSharedPrefToDatabase(prefName);
     }
   }
 

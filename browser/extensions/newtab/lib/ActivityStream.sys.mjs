@@ -380,6 +380,22 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "system.showWebNotifications",
+    {
+      title:
+        "System pref gating the web notifications feature. Off means the feature does not exist for this profile: no capture, no surfaces, and no toggle in the customize menu",
+      value: false,
+    },
+  ],
+  [
+    "showWebNotifications",
+    {
+      title:
+        "User pref for showing web notifications on newtab. Only consulted when system.showWebNotifications is set",
+      value: true,
+    },
+  ],
+  [
     "mobileDownloadModal.enabled",
     {
       title: "Boolean flag to show download Firefox for mobile QR code modal",
@@ -2157,6 +2173,13 @@ const FEEDS_DATA = [
     value: true,
   },
   {
+    name: "webnotificationsfeed",
+    factory: () => new lazy.WebNotificationsFeed(),
+    title:
+      "Captures web notifications (Service-Worker and page) for newtab surfaces",
+    value: true,
+  },
+  {
     name: "stocksfeed",
     factory: () => new lazy.StocksFeed(),
     title: "Handles fetching and caching stocks data",
@@ -2230,12 +2253,6 @@ const FEEDS_DATA = [
     factory: () => new lazy.ExternalComponentsFeed(),
     title: "Handles updating the registry of external components",
     value: true,
-  },
-  {
-    name: "webnotificationsfeed",
-    factory: () => new lazy.WebNotificationsFeed(),
-    title: "Handles snapshotting the platform NotificationDB",
-    value: false,
   },
 ];
 

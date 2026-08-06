@@ -694,8 +694,18 @@ export class UrlbarParentController {
    * @param {string} searchTerms
    * @param {string} where
    * @param {boolean} [inBackground]
+   * @param {number} [browserId]
+   *   The target browser's id. Only used if `where == current` and the call
+   *   isn't coming from a content process. If it's not specified and
+   *   `where == current`, the currently selected tab is used.
    */
-  openSERP(engineId, searchTerms, where, inBackground = false) {
+  openSERP(
+    engineId,
+    searchTerms,
+    where,
+    inBackground = false,
+    browserId = null
+  ) {
     let searchEngine = lazy.SearchService.getEngineById(engineId);
 
     let [url, postData] = lazy.UrlbarUtils.getSearchQueryUrl(
@@ -706,6 +716,8 @@ export class UrlbarParentController {
     this.browserWindow.openTrustedLinkIn(url, where, {
       inBackground,
       postData,
+      targetBrowser:
+        where == "current" ? this.resolveTargetBrowser(browserId) : null,
       globalHistoryOptions: {
         triggeringSource: this.sapName,
         triggeringSearchEngine: searchEngine.name,
@@ -720,18 +732,26 @@ export class UrlbarParentController {
    * @param {string} engineId
    * @param {string} where
    * @param {boolean} [inBackground]
+   * @param {number} [browserId]
+   *   The target browser's id. Only used if `where == current` and the call
+   *   isn't coming from a content process. If it's not specified and
+   *   `where == current`, the currently selected tab is used.
    */
-  openSearchForm(engineId, where, inBackground = false) {
+  openSearchForm(engineId, where, inBackground = false, browserId = null) {
     let searchEngine = lazy.SearchService.getEngineById(engineId);
     lazy.BrowserSearchTelemetry.recordSearchForm(searchEngine, this.sapName);
     let url = searchEngine.searchForm;
     this.browserWindow.openTrustedLinkIn(url, where, {
       inBackground,
+      targetBrowser:
+        where == "current" ? this.resolveTargetBrowser(browserId) : null,
     });
   }
 
   /**
-   * Returns the icon URL of the engine with the given id.
+   * Returns the icon URL of the engine with the given id. This can be a blob
+   * URL, which only resolves in this process, so UrlbarParent serializes it
+   * before handing it to another process.
    *
    * @param {string} engineId
    * @returns {Promise<?string>}
@@ -1659,6 +1679,34 @@ export class TelemetryEvent {
     }
     lazy.logger.info(`${metric} event:`, eventInfo);
     Glean.urlbar[metric].record(eventInfo);
+
+    if (metric === "engagement" && eventInfo.search_mode) {
+      this.#maybeRecordSearchModeUrlLikeQuery();
+    }
+  }
+
+  /**
+   * Records the `urlbar.searchmode.url_like_query` rate for a search-mode
+   * engagement. The denominator counts engagements whose heuristic result is a
+   * search result -- the only case where changing the behavior to navigate
+   * instead of search could take effect -- and the numerator counts those whose
+   * typed string parses as a URL per URIFixup. Local search modes have no search
+   * heuristic result and are therefore excluded.
+   */
+  #maybeRecordSearchModeUrlLikeQuery() {
+    let { queryContext } = this._controller._lastQueryContextWrapper || {};
+    let heuristicResult = queryContext?.heuristicResult;
+    if (
+      !heuristicResult?.heuristic ||
+      heuristicResult.type !== lazy.UrlbarShared.RESULT_TYPE.SEARCH
+    ) {
+      return;
+    }
+    Glean.urlbarSearchmode.urlLikeQuery.addToDenominator(1);
+    let { fixupInfo } = queryContext;
+    if (fixupInfo?.href && !fixupInfo.isSearch) {
+      Glean.urlbarSearchmode.urlLikeQuery.addToNumerator(1);
+    }
   }
 
   /**

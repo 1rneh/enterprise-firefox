@@ -108,5 +108,49 @@
             "win64-devedition"
         ],
         "revision": "d02e9a686ee0454f6bb41bf67fc09a16a14c9541"
+    },
+    "it": {
+        "pin": false,
+        "platforms": [
+            "linux64",
+            "linux64-enterprise",
+            "linux64-aarch64",
+            "linux64-aarch64-enterprise",
+            "linux64-aarch64-devedition",
+            "linux64-devedition",
+            "macosx64",
+            "macosx64-enterprise",
+            "macosx64-devedition",
+            "win32",
+            "win32-devedition",
+            "win64",
+            "win64-enterprise",
+            "win64-aarch64",
+            "win64-aarch64-devedition",
+            "win64-devedition"
+        ],
+        "revision": "d02e9a686ee0454f6bb41bf67fc09a16a14c9541"
+    },
+    "nl": {
+        "pin": false,
+        "platforms": [
+            "linux64",
+            "linux64-enterprise",
+            "linux64-aarch64",
+            "linux64-aarch64-enterprise",
+            "linux64-aarch64-devedition",
+            "linux64-devedition",
+            "macosx64",
+            "macosx64-enterprise",
+            "macosx64-devedition",
+            "win32",
+            "win32-devedition",
+            "win64",
+            "win64-enterprise",
+            "win64-aarch64",
+            "win64-aarch64-devedition",
+            "win64-devedition"
+        ],
+        "revision": "d02e9a686ee0454f6bb41bf67fc09a16a14c9541"
     }
 }

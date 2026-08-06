@@ -66,6 +66,8 @@ bitflags! {
         ///
         /// https://drafts.csswg.org/css-cascade/#legacy-shorthand
         const IS_LEGACY_SHORTHAND = 1 << 6;
+       /// This shorthand remains enabled even if some subproperties are pref-disabled.
+        const ALLOWS_DISABLED_SUBPROPERTIES = 1 << 7;
 
         /* The following flags are currently not used in Rust code, they
          * only need to be listed in corresponding properties so that
@@ -732,6 +734,13 @@ impl ShorthandId {
     pub fn is_legacy_shorthand(self) -> bool {
         self.flags().contains(PropertyFlags::IS_LEGACY_SHORTHAND)
     }
+
+    /// Returns whether this shorthand remains enabled even if some subproperties are pref-disabled.
+    #[inline]
+    pub fn allows_disabled_subproperties(self) -> bool {
+        self.flags()
+            .contains(PropertyFlags::ALLOWS_DISABLED_SUBPROPERTIES)
+    }
 }
 
 /// Return the names of arbitrary substitution functions that are enabled.
@@ -776,10 +785,14 @@ fn parse_non_custom_property_declaration_value_into<'i>(
     input.reset(&start);
     input.look_for_arbitrary_substitution_functions(enabled_arbitrary_substitution_functions());
 
+    let mut saw_arbitrary_substitution_functions = false;
     let err = match parse_entirely_into(declarations, input) {
         Ok(()) => {
-            input.seen_arbitrary_substitution_functions();
-            return Ok(());
+            saw_arbitrary_substitution_functions = input.seen_arbitrary_substitution_functions();
+            if !saw_arbitrary_substitution_functions {
+                return Ok(());
+            }
+            input.new_custom_error(style_traits::StyleParseErrorKind::UnspecifiedError)
         },
         Err(e) => e,
     };
@@ -800,7 +813,9 @@ fn parse_non_custom_property_declaration_value_into<'i>(
         }
         at_start = false;
     }
-    if !input.seen_arbitrary_substitution_functions() || invalid {
+    saw_arbitrary_substitution_functions =
+        saw_arbitrary_substitution_functions || input.seen_arbitrary_substitution_functions();
+    if !saw_arbitrary_substitution_functions || invalid {
         return Err(err);
     }
     input.reset(start);

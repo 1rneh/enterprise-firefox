@@ -4034,6 +4034,10 @@ export var Policies = {
         features.jit = !policies.DisableJit;
       }
 
+      if ("HttpsOnly" in policies) {
+        features.http = !policies.HttpsOnly;
+      }
+
       return features;
     },
 

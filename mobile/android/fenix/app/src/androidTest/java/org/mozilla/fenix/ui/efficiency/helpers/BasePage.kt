@@ -1457,6 +1457,18 @@ abstract class BasePage(
                 if (!obj.exists()) null else obj
             }
 
+            // Res-id used verbatim — no packageName prefix — for system-UI ids we do not own.
+            SelectorStrategy.UIAUTOMATOR_WITH_RAW_RES_ID_CONTAINING_TEXT -> {
+                val textToMatch = selector.secondaryValue ?: ""
+                val obj = mDevice.findObject(UiSelector().resourceId(selector.value).textContains(textToMatch))
+                if (!obj.exists()) null else obj
+            }
+
+            SelectorStrategy.UIAUTOMATOR_WITH_RAW_RES_ID -> {
+                val obj = mDevice.findObject(UiSelector().resourceId(selector.value))
+                if (!obj.exists()) null else obj
+            }
+
             SelectorStrategy.UIAUTOMATOR_WITH_WEB_ID_AND_TEXT -> {
                 val textToMatch = selector.secondaryValue ?: ""
                 // Raw web DOM id (no package prefix), matched together with exact text.

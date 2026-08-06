@@ -38,7 +38,11 @@ namespace mozilla::places {
 
 namespace {
 
+#ifdef MOZ_TSAN
+static const uint32_t kPlacesInitFallbackTimeoutMs = 120 * 1000;
+#else
 static const uint32_t kPlacesInitFallbackTimeoutMs = 10 * 1000;
+#endif
 
 // StaticDataMutex makes GetInstance() safe from any thread. StaticRefPtr
 // avoids a static destructor; the reference is released explicitly in
@@ -279,13 +283,11 @@ ConcurrentConnection::Complete(nsresult aRv, nsISupports* aData) {
     // The database file is not present or cannot be opened.
     // It's possible in the meanwhile Places was initialized, then we can try
     // again.
+    mIsOpening = false;
     if (mPlacesIsInitialized && mRetryOpening) {
-      // We only retry once. mIsOpening stays true for the new open.
       mRetryOpening = false;
       TryToOpenConnection();
-      return NS_OK;
     }
-    mIsOpening = false;
     return NS_OK;
   }
   // Assign and setup connection.

@@ -320,31 +320,25 @@ export class FeltProcessParent extends JSProcessActorParent {
                 Services.felt.sendAccessToken();
               })
               .catch(error => {
-                // Any non-ReauthRequired error is triggering a Firefox shutdown.
-                // These are non-20x-non-401/403 errors, networking issues
-                // and the like.
+                // A refresh failure tears the browser down.
                 // TODO: define a more refined behaviour for these conditions and implement.
                 // For example, an intermittent network or 5xx error can be handled more
                 // gracefully if the refresh request is still before the actual token expiration
                 // because the known old token still has some validity time left.
-                if (error.name !== "ReauthRequiredError") {
-                  lazy.log.error(
-                    "token refresh failed with non-reauth error, shutting down Firefox",
-                    error
-                  );
-                  gFeltProcessParentInstance.logoutReported = true;
-                  Services.felt.shutdownFirefox();
-                  return;
-                }
-                // At this point, we need to reauthenticate.
-                lazy.log.error("token refresh failed, reauthenticate", error);
+                lazy.log.error(
+                  `token refresh failed (${error.name}), shutting down Firefox`,
+                  error
+                );
                 Services.felt.clearTokens();
                 gFeltProcessParentInstance.logoutReported = true;
                 gFeltProcessParentInstance.proc.exitPromise.then(_ => {
                   Services.cpmm.sendAsyncMessage(
-                    "FeltParent:FirefoxLogoutExit",
+                    "FeltParent:FirefoxSessionInterrupted",
                     {
-                      reason: "tokenRefreshFailed",
+                      reason:
+                        error.name === "ReauthRequiredError"
+                          ? "tokenRefreshExpired"
+                          : "tokenRefreshFailed",
                     }
                   );
                 });

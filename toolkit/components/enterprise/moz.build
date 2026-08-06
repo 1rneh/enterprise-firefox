@@ -14,6 +14,7 @@ EXTRA_JS_MODULES.enterprise += [
     "modules/EnterpriseEndpoints.sys.mjs",
     "modules/EnterpriseHandler.sys.mjs",
     "modules/EnterpriseOSInfo.sys.mjs",
+    "modules/EnterpriseStorageEncryption.sys.mjs",
     "modules/Updates.sys.mjs",
 ]
 

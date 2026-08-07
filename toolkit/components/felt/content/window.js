@@ -488,6 +488,11 @@ function setupPopupNotifications() {
       const tx = -(r.width / 2);
       const ty = -(r.height / 2);
       anchor.style.transform = `translate(${tx}px, ${ty}px)`;
+      document.body.classList.add("notification-open");
+    });
+
+    panel.addEventListener("popuphidden", () => {
+      document.body.classList.remove("notification-open");
     });
 
     try {

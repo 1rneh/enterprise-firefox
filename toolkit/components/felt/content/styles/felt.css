@@ -314,7 +314,7 @@ moz-input-text::part(label) {
   left: 50%;
 }
 
-body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt) {
+body.notification-open .felt:not(#notification-popup-box .felt) {
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   opacity: 0.5;
   pointer-events: none;

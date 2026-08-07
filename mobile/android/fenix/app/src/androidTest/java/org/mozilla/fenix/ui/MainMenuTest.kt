@@ -744,6 +744,7 @@ class MainMenuTest {
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080101
     @Converted(
         replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.CustomTabsTest#verifyTheFindInPageMenuItemInACustomTabTest"],
+        bug = 2057409,
         since = "2026-07",
     )
     @SmokeTest
@@ -1374,7 +1375,6 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080135
-    @Ignore("Disabling to ease uplift. See bug 2049060.")
     @Test
     fun verifyTheMoreMainMenuListTest() {
         val firstTestPage = mockWebServer.firstForeignWebPageAsset
@@ -1390,6 +1390,7 @@ class MainMenuTest {
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080137
     @Converted(
         replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyTheBookmarksMainMenuItemTest"],
+        bug = 2057417,
         since = "2026-07",
     )
     @SmokeTest
@@ -1440,6 +1441,7 @@ class MainMenuTest {
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080096
     @Converted(
         replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.CustomTabsTest#verifyTheMainMenuBackButtonFromCustomTabTest"],
+        bug = 2057414,
         since = "2026-07",
     )
     @SmokeTest
@@ -1504,6 +1506,7 @@ class MainMenuTest {
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080097
     @Converted(
         replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.CustomTabsTest#verifyTheMainMenuForwardButtonFromCustomTabTest"],
+        bug = 2057414,
         since = "2026-07",
     )
     @SmokeTest
@@ -1604,7 +1607,6 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080110
-    @Ignore("Disabling to ease uplift. See bug 2049060.")
     @SmokeTest
     @Test
     fun verifyTheMoreMainMenuSubListTest() {
@@ -1619,7 +1621,7 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4036009
-    @Ignore("Disabling to ease uplift. See bug 2049060.")
+    @Ignore("Will be fixed in bug 2059592")
     @SmokeTest
     @Test
     fun verifyTheMoreMainMenuSummarizePageButtonTest() {
@@ -1640,7 +1642,7 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4036011
-    @Ignore("Disabling to ease uplift. See bug 2049060.")
+    @Ignore("Will be fixed in bug 2059592")
     @SmokeTest
     @Test
     fun verifyTheMoreMainMenuSummarizePageButtonFunctionalityTest() {

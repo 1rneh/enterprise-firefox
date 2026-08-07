@@ -117,6 +117,15 @@ export class UrlbarParent extends JSWindowActorParent {
       case "RecordAutofillBackspace":
         controller.recordAutofillBackspace(message.data.url);
         break;
+      case "RecordAutofillDeletion":
+        controller.recordAutofillDeletion();
+        break;
+      case "ClearAutofillBackspaceEntryForUrl":
+        controller.clearAutofillBackspaceEntryForUrl(message.data.url);
+        break;
+      case "HandleAutofillReintegration":
+        controller.handleAutofillReintegration(message.data.url);
+        break;
       case "RecordSearchMode":
         controller.recordSearchMode(message.data.searchMode);
         break;
@@ -154,6 +163,11 @@ export class UrlbarParent extends JSWindowActorParent {
           message.data.reason
         );
         break;
+      case "DismissAutofill":
+        return controller.dismissAutofill(
+          message.data.url,
+          message.data.action
+        );
       case "LoadURL":
         return controller.loadURL(message.data.loadData);
       case "FocusBrowser":

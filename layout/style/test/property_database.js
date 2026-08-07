@@ -2872,6 +2872,9 @@ var gCSSProperties = {
       "calc(2em / (4 / 3))",
       "calc(4 * (2em / 3))",
 
+      // Type checking of unit math
+      "calc(5em / 5em * 5em)",
+
       "min(5px)",
       "min(5px,2em)",
 
@@ -2924,7 +2927,6 @@ var gCSSProperties = {
       "calc(5 + 5)",
       "calc(5 * 5)",
       "calc(5em * 5em)",
-      "calc(5em / 5em * 5em)",
 
       "calc(4 * 3 / 2em)",
       "calc((4 * 3) / 2em)",
@@ -5689,7 +5691,7 @@ var gCSSProperties = {
       "font-size",
       "line-height",
       "font-family",
-      "font-stretch",
+      "font-width",
       "font-size-adjust",
       "font-feature-settings",
       "font-language-override",
@@ -5938,8 +5940,8 @@ var gCSSProperties = {
       "cap-height, 0.8",
     ],
   },
-  "font-stretch": {
-    domProp: "fontStretch",
+  "font-width": {
+    domProp: "fontWidth",
     inherited: true,
     type: CSS_TYPE_LONGHAND,
     applies_to_first_letter: true,
@@ -9364,6 +9366,10 @@ var gCSSProperties = {
       "calc(50%)",
       "calc(50px/2)",
       "calc(50px/(2 - 1))",
+      "calc((3em / 100%) * 3em)",
+      "calc(3em / 100% * 3em)",
+      "calc(3em * (3em / 100%))",
+      "calc(3em * 3em / 100%)",
       "calc(min(5px))",
       "calc(min(5px,2em))",
       "calc(max(5px))",
@@ -9392,16 +9398,6 @@ var gCSSProperties = {
       "-moz-max(5px)",
       "-moz-min(5px,2em)",
       "-moz-max(5px,2em)",
-      /* If we ever support division by values, which is
-       * complicated for the reasons described in
-       * http://lists.w3.org/Archives/Public/www-style/2010Jan/0007.html
-       * , we should support all 4 of these as described in
-       * http://lists.w3.org/Archives/Public/www-style/2009Dec/0296.html
-       */
-      "calc((3em / 100%) * 3em)",
-      "calc(3em / 100% * 3em)",
-      "calc(3em * (3em / 100%))",
-      "calc(3em * 3em / 100%)",
     ],
     quirks_values: { 5: "5px" },
   },
@@ -10710,6 +10706,10 @@ var gCSSProperties = {
       "calc(50%)",
       "calc(50px/2)",
       "calc(50px/(2 - 1))",
+      "calc((3em / 100%) * 3em)",
+      "calc(3em / 100% * 3em)",
+      "calc(3em * (3em / 100%))",
+      "calc(3em * 3em / 100%)",
       "calc(min(5px))",
       "calc(min(5px,2em))",
       "calc(max(5px))",
@@ -10734,15 +10734,6 @@ var gCSSProperties = {
       "-moz-max(5px)",
       "-moz-min(5px,2em)",
       "-moz-max(5px,2em)",
-      // If we ever support division by values, which is
-      // complicated for the reasons described in
-      // http://lists.w3.org/Archives/Public/www-style/2010Jan/0007.html
-      // , we should support all 4 of these as described in
-      // http://lists.w3.org/Archives/Public/www-style/2009Dec/0296.html
-      "calc((3em / 100%) * 3em)",
-      "calc(3em / 100% * 3em)",
-      "calc(3em * (3em / 100%))",
-      "calc(3em * 3em / 100%)",
       "anchor-size()",
       "anchor-size(--a width)",
       "anchor-size(--a width, 10px)",
@@ -10830,6 +10821,18 @@ var gCSSProperties = {
   },
 
   // Aliases
+  "font-stretch": {
+    domProp: "fontStretch",
+    inherited: true,
+    type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
+    alias_for: "font-width",
+    applies_to_first_letter: true,
+    applies_to_first_line: true,
+    applies_to_marker: true,
+    applies_to_placeholder: true,
+    applies_to_cue: true,
+    subproperties: ["font-width"],
+  },
   "word-wrap": {
     domProp: "wordWrap",
     inherited: true,

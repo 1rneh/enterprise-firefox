@@ -2,20 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import org.gradle.api.tasks.testing.Test
-
 plugins {
-    id("com.gradle.plugin-publish") version "1.3.1"
-    `java-gradle-plugin`
-    kotlin("jvm") version embeddedKotlinVersion
-    `maven-publish`
+    `kotlin-dsl`
+    alias(libs.plugins.spotless)
+}
+
+val mozconfig = gradle.extra["mozconfig"] as Map<*, *>
+val topsrcdir = mozconfig["topsrcdir"] as String
+
+spotless {
+    lineEndings = com.diffplug.spotless.LineEnding.UNIX
+    kotlin {
+        ktlint(libs.versions.ktlint.get())
+            .setEditorConfigPath("$topsrcdir/mobile/android/geckoview/.editorconfig")
+    }
 }
 
 sourceSets {
     main {
-        java {
-            srcDir("../buildSrc")
-        }
         resources {
             output.dir(mapOf("builtBy" to "copyDocletJar"), layout.buildDirectory.dir("docletJar"))
         }
@@ -23,14 +27,10 @@ sourceSets {
 }
 
 gradlePlugin {
-    website = "https://github.com/mozilla-mobile/gradle-apilint"
-    vcsUrl = "https://github.com/mozilla-mobile/gradle-apilint"
-
     plugins.register("apilintPlugin") {
         id = "org.mozilla.apilint"
         displayName = "API Lint plugin"
         description = "Tracks the API of an Android library and helps maintain backward compatibility."
-        tags.set(listOf("api", "lint", "mozilla", "compatibility"))
         implementationClass = "org.mozilla.apilint.ApiLintPlugin"
     }
 }
@@ -62,6 +62,7 @@ tasks.register<Exec>("integrationTestApiLint") {
 tasks.named<Test>("test") {
     useJUnitPlatform()
 
+    dependsOn("spotlessCheck")
     dependsOn("unittestApiLint")
     dependsOn("testApiLint")
     dependsOn("testChangelogCheck")
@@ -74,25 +75,19 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     }
 }
 
+// Arrange for the doclet jar to be included in Java resources, to be consumed
+// at runtime.
+val docletJar = configurations.create("docletJar")
+
 dependencies {
-    implementation(gradleApi())
     compileOnly(libs.android.gradle.plugin)
+    docletJar(project(path = ":apidoc-plugin", configuration = "docletJar"))
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
-// Arrange for the doclet jar to be included in Java resources, to be consumed
-// at runtime.
-val docletJar = configurations.create("docletJar")
-
-dependencies {
-    docletJar(project(path = ":apidoc-plugin", configuration = "docletJar"))
-}
-
-// It's probably possible to avoid this `Copy` task, but this approach is
-// standard.
 tasks.register<Sync>("copyDocletJar") {
     from(configurations.named("docletJar"))
     into(layout.buildDirectory.dir("docletJar"))

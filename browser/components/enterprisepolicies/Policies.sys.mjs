@@ -3440,17 +3440,10 @@ export var Policies = {
       if (param.Locked) {
         manager.disallowFeature("changeProxySettings");
       }
-      const setDefaultPref = lazy.PoliciesUtils.setDefaultPref.bind(
-        lazy.PoliciesUtils
+      lazy.ProxyPolicies.configureProxySettings(
+        param,
+        lazy.PoliciesUtils.setDefaultPref.bind(lazy.PoliciesUtils)
       );
-      lazy.ProxyPolicies.configureProxySettings(param, setDefaultPref);
-
-      if (AppConstants.MOZ_ENTERPRISE) {
-        lazy.ProxyPolicies.excludeConsoleFromProxy(param, setDefaultPref).then(
-          null,
-          lazy.log.error
-        );
-      }
     },
     onRemove(manager, oldParams) {
       if (oldParams.Locked) {

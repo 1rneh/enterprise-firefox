@@ -15,6 +15,8 @@ const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  ConsoleProxyBypassFilter:
+    "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
   MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
@@ -805,6 +807,11 @@ export const ConsoleClient = {
       Services.obs.addObserver(this, "xpcom-shutdown");
       Services.obs.addObserver(this, "felt-firefox-access-token-refreshed");
       Services.obs.addObserver(this, "felt-firefox-shutdown");
+
+      this.consoleBaseURI.then(
+        ({ hostname }) => lazy.ConsoleProxyBypassFilter.register(hostname),
+        e => lazy.log.error("Failed to register console proxy bypass:", e)
+      );
     }
     return this;
   },
@@ -819,6 +826,7 @@ export const ConsoleClient = {
           "felt-firefox-access-token-refreshed"
         );
         Services.obs.removeObserver(this, "felt-firefox-shutdown");
+        lazy.ConsoleProxyBypassFilter.unregister();
         this._refreshPromise = null;
         this._refreshResolve = null;
         break;
@@ -837,6 +845,13 @@ export const ConsoleClient = {
       case "nsPref:changed": {
         // Console pref was changed, make sure new callers gets a new promise
         this._consoleUriReadyPromise = null;
+        if (Services.felt.isFeltBrowser()) {
+          this.consoleBaseURI.then(
+            ({ hostname }) => lazy.ConsoleProxyBypassFilter.register(hostname),
+            e =>
+              lazy.log.error("Failed to re-register console proxy bypass:", e)
+          );
+        }
         break;
       }
     }

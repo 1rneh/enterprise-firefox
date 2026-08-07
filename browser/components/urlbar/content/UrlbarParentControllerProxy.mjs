@@ -143,6 +143,52 @@ export class UrlbarParentControllerProxy {
   }
 
   /**
+   * Ships an autofill deletion to the parent recorder. The counterpart to the
+   * controller's `recordAutofillDeletion()`.
+   */
+  recordAutofillDeletion() {
+    this.#actor.sendAsyncMessage("RecordAutofillDeletion", {
+      instanceId: this.#instanceId,
+    });
+  }
+
+  /** @type {UrlbarParentController["dismissAutofill"]} */
+  dismissAutofill(url, action) {
+    return this.#actor.sendQuery("DismissAutofill", {
+      instanceId: this.#instanceId,
+      url,
+      action,
+    });
+  }
+
+  /**
+   * Ships an accepted autofill to the parent, which clears its backspace
+   * bookkeeping. The counterpart to the controller's
+   * `clearAutofillBackspaceEntryForUrl()`.
+   *
+   * @param {string} url The accepted autofill result's URL.
+   */
+  clearAutofillBackspaceEntryForUrl(url) {
+    this.#actor.sendAsyncMessage("ClearAutofillBackspaceEntryForUrl", {
+      instanceId: this.#instanceId,
+      url,
+    });
+  }
+
+  /**
+   * Ships an autofill re-integration to the parent. The counterpart to the
+   * controller's `handleAutofillReintegration()`.
+   *
+   * @param {string} url The URL being re-integrated.
+   */
+  handleAutofillReintegration(url) {
+    this.#actor.sendAsyncMessage("HandleAutofillReintegration", {
+      instanceId: this.#instanceId,
+      url,
+    });
+  }
+
+  /**
    * Ships a search-form visit to the parent recorder, which resolves the engine
    * by name. The counterpart to the controller's `recordSearchForm()`.
    *
@@ -159,8 +205,7 @@ export class UrlbarParentControllerProxy {
    * Ships a search to the parent recorder, which resolves the engine by name
    * and the browser by id. The counterpart to the controller's `recordSearch()`.
    *
-   * @param {object} options
-   *   `{engineName, searchSource, browserId, details}`.
+   * @param {Parameters<UrlbarParentController["recordSearch"]>[0]} options
    */
   recordSearch(options) {
     this.#actor.sendAsyncMessage("RecordSearch", {

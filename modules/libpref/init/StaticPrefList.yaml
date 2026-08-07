@@ -9668,7 +9668,7 @@
   type: bool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
-  set_spidermonkey_pref: always
+  set_spidermonkey_pref: startup
 
   # Experimental support for import text in JavaScript.
 - name: javascript.options.experimental.import_text
@@ -9754,6 +9754,7 @@
   value: false
   mirror: always
   set_spidermonkey_pref: startup
+
 #endif  // NIGHTLY_BUILD
 
   # Capture stack traces for OOM
@@ -10634,7 +10635,7 @@
 # https://drafts.csswg.org/css-color-5/#relative-alpha
 - name: layout.css.alpha-color-function.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -10904,6 +10905,14 @@
 - name: layout.css.cross-fade.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+  rust: true
+
+# Is support for CSS calc() typed arithmetic (unit multiplication/division) enabled?
+# https://drafts.csswg.org/css-values-4/#calc-type-checking
+- name: layout.css.calc-typed-arithmetic.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 

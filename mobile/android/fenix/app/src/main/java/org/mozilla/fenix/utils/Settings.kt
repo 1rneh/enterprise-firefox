@@ -119,8 +119,9 @@ class Settings(
 
         /**
          * The minimum number a search groups should contain.
+         *
+         * Mutable so that tests can lower the threshold.
          */
-        @VisibleForTesting
         internal var searchGroupMinimumSites: Int = 2
 
         private fun Action.toInt() = when (this) {
@@ -3291,6 +3292,14 @@ class Settings(
     var uninstallSurveyFeatureFlagEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_uninstall_survey),
         default = { FxNimbus.features.uninstallSurvey.value().enabled },
+    )
+
+    /**
+     * Indicates if the OLED theme is enabled.
+     */
+    var enableOledTheme by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_oled_theme),
+        default = { FxNimbus.features.oledTheme.value().enabled },
     )
 
     /**

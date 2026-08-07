@@ -372,8 +372,8 @@ def get_decision_parameters(graph_config, options):
     parameters["release_eta"] = ""
     parameters["release_enable_partner_repack"] = False
     parameters["release_enable_partner_attribution"] = False
-    parameters["release_partners"] = get_release_partners(parameters)
-    parameters["release_partner_config"] = get_release_partner_config(parameters)
+    parameters["release_partners"] = []
+    parameters["release_partner_config"] = {}
     parameters["release_partner_build_number"] = 1
     parameters["release_enable_emefree"] = False
     parameters["release_product"] = None
@@ -403,6 +403,14 @@ def get_decision_parameters(graph_config, options):
             "for this project"
         )
         parameters.update(PER_PROJECT_PARAMETERS["default"])
+
+    if "enterprise" in project:
+        # They silently depend on release_type / release_product parameters
+        parameters["release_partner_config"] = get_release_partner_config(
+            parameters, graph_config
+        )
+        # Depends on the values from the previous call
+        parameters["release_partners"] = get_release_partners(parameters)
 
     if parameters.get("tasks_for", "").startswith("github-pull-request"):
         parameters["optimize_strategies"] = (

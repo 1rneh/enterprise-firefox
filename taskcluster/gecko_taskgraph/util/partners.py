@@ -157,8 +157,11 @@ def get_token(params):
     if os.environ.get("GITHUB_API_TOKEN"):
         return os.environ["GITHUB_API_TOKEN"]
 
+    if not "source" in params:
+        params["source"] = "releng/gecko/build"
+
     # The 'usual' method - via taskClusterProxy for decision tasks
-    url = "{secret_root}/project/releng/gecko/build/level-{level}/partner-github-api".format(
+    url = "{secret_root}/project/{source}/level-{level}/partner-github-api".format(
         secret_root=TASKCLUSTER_PROXY_SECRET_ROOT, **params
     )
     try:
@@ -203,7 +206,7 @@ def get_repo_params(repo):
         return repo.split(":")[-1].split("/")
 
 
-def get_partners(manifestRepo, token):
+def get_partners(manifestRepo, token, use_path_for_name=False):
     """Given the url to a manifest repository, retrieve the default.xml and parse it into a
     list of partner repos.
     """
@@ -237,15 +240,25 @@ def get_partners(manifestRepo, token):
                 "repo": child.attrib["name"],
                 "revision": child.attrib["revision"],
             }
-            partners[child.attrib["name"]] = partner_url
+            # on enterprise, the partner name is later used to build treeherder
+            # symbol that are limited to 25 chars. but "name" from the manifest
+            # is the name of the repository, which we do not want to change.
+            # however "path" is where the checkout happens and this can be more
+            # flexible, so make use of it
+            partner_name = (
+                child.attrib["path"].split("/")[-1]
+                if use_path_for_name
+                else child.attrib["name"]
+            )
+            partners[partner_name] = partner_url
             log.debug(
-                "Added partner %s at revision %s"
-                % (partner_url["repo"], partner_url["revision"])
+                "Added partner %s repo %s at revision %s"
+                % (partner_name, partner_url["repo"], partner_url["revision"])
             )
     return partners
 
 
-def parse_config(data):
+def parse_config(data, platform_mapping):
     """Parse a single repack.cfg file into a python dictionary.
     data is contents of the file, in "foo=bar\nbaz=buzz" style. We do some translation on
     locales and platforms data, otherwise passthrough
@@ -263,9 +276,9 @@ def parse_config(data):
             l = str(l)
             key, value = l.split("=", 1)
             value = value.strip("'\"").rstrip("'\"")
-            if key in TC_PLATFORM_PER_FTP.keys():
+            if key in platform_mapping.keys():
                 if value.lower() == "true":
-                    config["platforms"].append(TC_PLATFORM_PER_FTP[key])
+                    config["platforms"].append(platform_mapping[key])
                 continue
             if key not in ALLOWED_KEYS:
                 continue
@@ -276,7 +289,7 @@ def parse_config(data):
     return config
 
 
-def get_repack_configs(repackRepo, token):
+def get_repack_configs(repackRepo, token, platform_mapping):
     """For a partner repository, retrieve all the repack.cfg files and parse them into a dict"""
     log.debug("Querying for configs in %s", repackRepo)
     query = REPACK_CFG_QUERY % repackRepo
@@ -289,7 +302,7 @@ def get_repack_configs(repackRepo, token):
         for file in sub_config["object"].get("entries", []):
             if file["name"] != "repack.cfg":
                 continue
-            configs[name] = parse_config(file["object"]["text"])
+            configs[name] = parse_config(file["object"]["text"], platform_mapping)
     return configs
 
 
@@ -315,7 +328,14 @@ def get_attribution_config(manifestRepo, token):
     return yaml.safe_load(raw_manifest["data"]["repository"]["object"]["text"])
 
 
-def get_partner_config_by_url(manifest_url, kind, token, partner_subset=None):
+def get_partner_config_by_url(
+    manifest_url,
+    kind,
+    token,
+    partner_subset=None,
+    platform_mapping=TC_PLATFORM_PER_FTP,
+    use_path_for_name=False,
+):
     """Retrieve partner data starting from the manifest url, which points to a repository
     containing a default.xml that is intended to be drive the Google tool 'repo'. It
     descends into each partner repo to lookup and parse the repack.cfg file(s).
@@ -333,13 +353,15 @@ def get_partner_config_by_url(manifest_url, kind, token, partner_subset=None):
         if kind == "release-partner-attribution":
             partner_configs[kind] = get_attribution_config(manifest_url, token)
         else:
-            partners = get_partners(manifest_url, token)
+            partners = get_partners(manifest_url, token, use_path_for_name)
 
             partner_configs[kind] = {}
             for partner, partner_url in partners.items():
                 if partner_subset and partner not in partner_subset:
                     continue
-                partner_configs[kind][partner] = get_repack_configs(partner_url, token)
+                partner_configs[kind][partner] = get_repack_configs(
+                    partner_url, token, platform_mapping
+                )
 
     return partner_configs[kind]
 
@@ -621,32 +643,17 @@ def _pad_macos_attribution_code(attribution_string):
     return attribution_string
 
 
-ENTERPRISE_REPACKS = {
-    "moz": {
-        "stageGCP": {
-            "locales": ["en-US", "fr"],
-        },
-        "prodGCP": {
-            "locales": ["en-US", "fr"],
-        },
-    },
-    "hosted": {
-        "pilotStage": {
-            "locales": ["en-US", "fr"],
-        },
-        "pilotProd": {
-            "locales": ["en-US", "fr"],
-        },
-    },
-}
-
-
-def make_enterprise_repack(platforms):
-    repacks = deepcopy(ENTERPRISE_REPACKS)
-    for repack_repo in repacks.keys():
-        for repack_name in repacks[repack_repo]:
-            repacks[repack_repo][repack_name].update({"platforms": deepcopy(platforms)})
-    return repacks
+def make_enterprise_repack_from_url(parameters, graph_config, kind, platform_mapping):
+    token = get_token({"level": parameters["level"], "source": "enterprise"})
+    partner_url_config = get_partner_url_config(parameters, graph_config)
+    get_partner_config_by_url(
+        manifest_url=partner_url_config["enterprise-repack"],
+        kind=kind,
+        token=token,
+        platform_mapping=platform_mapping,
+        use_path_for_name=True,
+    )
+    return partner_configs[kind]
 
 
 def get_release_partners(parameters):
@@ -655,39 +662,61 @@ def get_release_partners(parameters):
     return get_enterprise_partner_subset(parameters)
 
 
-def get_release_partner_config(parameters):
+def get_release_partner_config(parameters, graph_config):
     if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
         return {}
-    return get_enterprise_partner_configs(parameters)
+    return get_enterprise_partner_configs(parameters, graph_config)
 
 
 def get_enterprise_partner_subset(parameters):
-    return list(ENTERPRISE_REPACKS.keys())
+    return list(dict.fromkeys(k for v in partner_configs.values() for k in v.keys()))
 
 
-def get_enterprise_partner_configs(parameters):
+def get_enterprise_partner_configs(parameters, graph_config):
     return {
-        "repackage-deb": make_enterprise_repack([
-            "linux64-enterprise-shippable",
-            "linux64-aarch64-enterprise-shippable",
-        ]),
-        "repackage-msi": make_enterprise_repack([
-            "win64-enterprise-shippable",
-        ]),
-        "repackage-msix": make_enterprise_repack([
-            "win64-aarch64-enterprise-shippable",
-        ]),
-        "enterprise-repack-repackage": make_enterprise_repack([
-            "linux64-enterprise-shippable",
-            "linux64-aarch64-enterprise-shippable",
-            "macosx64-enterprise-shippable",
-            "win64-enterprise-shippable",
-            "win64-aarch64-enterprise-shippable",
-        ]),
-        "enterprise-repack-mac-signing": make_enterprise_repack([
-            "macosx64-enterprise-shippable",
-        ]),
-        "enterprise-repack-mac-notarization": make_enterprise_repack([
-            "macosx64-enterprise-shippable",
-        ]),
+        "repackage-deb": make_enterprise_repack_from_url(
+            parameters,
+            graph_config,
+            "repackage-deb",
+            {
+                "linux-x86_64": "linux64-enterprise-shippable",
+                "linux-aarch64": "linux64-aarch64-enterprise-shippable",
+            },
+        ),
+        "repackage-msi": make_enterprise_repack_from_url(
+            parameters,
+            graph_config,
+            "repackage-msi",
+            {"win64": "win64-enterprise-shippable"},
+        ),
+        "repackage-msix": make_enterprise_repack_from_url(
+            parameters,
+            graph_config,
+            "repackage-msix",
+            {"win64-aarch64": "win64-aarch64-enterprise-shippable"},
+        ),
+        "enterprise-repack-repackage": make_enterprise_repack_from_url(
+            parameters,
+            graph_config,
+            "enterprise-repack-repackage",
+            {
+                "linux-x86_64": "linux64-enterprise-shippable",
+                "linux-aarch64": "linux64-aarch64-enterprise-shippable",
+                "mac": "macosx64-enterprise-shippable",
+                "win64": "win64-enterprise-shippable",
+                "win64-aarch64": "win64-aarch64-enterprise-shippable",
+            },
+        ),
+        "enterprise-repack-mac-signing": make_enterprise_repack_from_url(
+            parameters,
+            graph_config,
+            "enterprise-repack-mac-signing",
+            {"mac": "macosx64-enterprise-shippable"},
+        ),
+        "enterprise-repack-mac-notarization": make_enterprise_repack_from_url(
+            parameters,
+            graph_config,
+            "enterprise-repack-mac-notarization",
+            {"mac": "macosx64-enterprise-shippable"},
+        ),
     }

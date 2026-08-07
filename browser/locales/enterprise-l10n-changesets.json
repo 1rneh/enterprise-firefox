@@ -21,7 +21,7 @@
         ],
         "revision": "d02e9a686ee0454f6bb41bf67fc09a16a14c9541"
     },
-    "es": {
+    "es-ES": {
         "pin": false,
         "platforms": [
             "linux64",

@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setInterval: "resource://gre/modules/Timer.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
+  InternalPoliciesProvider: "resource://gre/modules/InternalPolicies.sys.mjs",
 });
 
 // This is the file that will be searched for in the
@@ -50,6 +51,10 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
 const PREF_REMOTE_POLICIES_ENABLED = "enterprise.policies.live.enabled";
+
+// Test-only pref to enable the internal policies provider outside of enterprise
+// builds. Only honored under automation. See _isInternalPoliciesSupported().
+const PREF_INTERNAL_TEST_ENABLED = "browser.policies.testEnableInternal";
 
 const POLICY_DISABLE_LOCAL_POLICIES = "DisableLocalPolicies";
 
@@ -153,6 +158,12 @@ EnterprisePoliciesManager.prototype = {
   // used to skip re-parsing individual unchanged policies on an update.
   _lastParamsHashes: new Map(),
 
+  // Names of the internal policies. They are applied like any other policy and
+  // are returned by getActivePolicies(), but are excluded from any surface
+  // that shows policies as active (engine status, telemetry, isEnterprise and
+  // about:policies).
+  _internalPolicyNames: new Set(),
+
   _cleanupPolicies() {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
@@ -174,6 +185,20 @@ EnterprisePoliciesManager.prototype = {
       AppConstants.MOZ_ENTERPRISE &&
       (Services.felt.isFeltBrowser() ||
         Services.prefs.getBoolPref(PREF_REMOTE_POLICIES_ENABLED, false))
+    );
+  },
+
+  /**
+   * Internal policies are enabled always when we are in felt launched browser
+   * or if the preference is set explicitly
+   *
+   * @returns {boolean} whether internal policies are supported
+   */
+  _isInternalPoliciesSupported() {
+    return (
+      AppConstants.MOZ_ENTERPRISE &&
+      (Services.felt.isFeltBrowser() ||
+        Services.prefs.getBoolPref(PREF_INTERNAL_TEST_ENABLED, false))
     );
   },
 
@@ -200,20 +225,32 @@ EnterprisePoliciesManager.prototype = {
 
     this._updateStatus();
 
-    if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
+    if (this.status === Ci.nsIEnterprisePolicies.FAILED) {
       return;
     }
 
-    // Make Web Serial support be opt-in for enterprise policies.
-    Services.prefs
-      .getDefaultBranch("")
-      .setBoolPref("dom.webserial.enabled", false);
+    if (this.status === Ci.nsIEnterprisePolicies.ACTIVE) {
+      // Make Web Serial support be opt-in for enterprise policies.
+      Services.prefs
+        .getDefaultBranch("")
+        .setBoolPref("dom.webserial.enabled", false);
+    } else if (isEmptyObject(this._effectivePolicies())) {
+      // The status is INACTIVE and there are no policies to apply, not even
+      // internal ones.
+      return;
+    }
 
+    // Internal policies are applied even when the engine status is INACTIVE, so
+    // that unsupported features are disabled without surfacing as active
+    // policies.
     this._activateStartupPolicies();
   },
 
   _reportEnterpriseTelemetry() {
-    Glean.policies.count.set(Object.keys(this._parsedPolicies || {}).length);
+    Glean.policies.count.set(
+      Object.keys(this._excludeInternalPolicies(this.getActivePolicies()))
+        .length
+    );
     Glean.policies.isEnterprise.set(this.isEnterprise);
   },
 
@@ -276,6 +313,21 @@ EnterprisePoliciesManager.prototype = {
       provider.push(remoteProvider);
     }
 
+    this._internalPolicyNames = new Set();
+
+    if (this._isInternalPoliciesSupported()) {
+      // Internal policies take precedence over every other source. They are
+      // added last and always, regardless of DisableLocalPolicies.
+      const internalProvider = new lazy.InternalPoliciesProvider();
+      if (internalProvider.hasPolicies) {
+        lazy.log.debug("Adding internal provider.");
+        this._internalPolicyNames = new Set(
+          Object.keys(internalProvider.policies)
+        );
+        provider.push(internalProvider);
+      }
+    }
+
     provider.mergePolicies();
     return provider;
   },
@@ -286,7 +338,12 @@ EnterprisePoliciesManager.prototype = {
   _updateStatus() {
     if (this._provider.failed) {
       this.status = Ci.nsIEnterprisePolicies.FAILED;
-    } else if (!isEmptyObject(this._effectivePolicies())) {
+    } else if (
+      !isEmptyObject(this._excludeInternalPolicies(this._effectivePolicies()))
+    ) {
+      // The status reflects only the policies that are surfaced as active.
+      // Internal policies are applied but must not make the engine appear
+      // active.
       this.status = Ci.nsIEnterprisePolicies.ACTIVE;
       Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, true);
     } else {
@@ -296,26 +353,58 @@ EnterprisePoliciesManager.prototype = {
 
   /**
    * The set of policies to apply both on initial activation
-   * and remote updates.
+   * and remote updates. This includes internal policies.
    *
    * @returns {object} policies to apply
    */
   _effectivePolicies() {
     const policies = this._provider.policies || {};
+
+    // The ImportEnterpriseRoots special case is evaluated against the
+    // non-internal policies only, so an internal policy present in every
+    // enterprise build does not defeat it.
+    const visiblePolicies = this._excludeInternalPolicies(policies);
+
     if (
-      Object.keys(policies).length === 1 &&
-      policies.Certificates &&
-      Object.keys(policies.Certificates).length === 1 &&
-      (policies.Certificates.ImportEnterpriseRoots === true ||
-        policies.Certificates.ImportEnterpriseRoots === 1)
+      Object.keys(visiblePolicies).length === 1 &&
+      visiblePolicies.Certificates &&
+      Object.keys(visiblePolicies.Certificates).length === 1 &&
+      (visiblePolicies.Certificates.ImportEnterpriseRoots === true ||
+        visiblePolicies.Certificates.ImportEnterpriseRoots === 1)
     ) {
-      // The ImportEnterpriseRoots certificate
-      // policy is ignored when it is the only policy present: it is already true
-      // by default, so this prevents e.g. antivirus software from activating the
-      // policy engine merely by setting it.
-      return {};
+      // The ImportEnterpriseRoots certificate policy is ignored when it is the
+      // only policy present: it is already true by default, so this prevents
+      // e.g. antivirus software from activating the policy engine merely by
+      // setting it. Certificates is the only non-internal policy here, so
+      // dropping it leaves exactly the internal policies, which still apply.
+      const effectivePolicies = { ...policies };
+      delete effectivePolicies.Certificates;
+      return effectivePolicies;
     }
+
     return policies;
+  },
+
+  /**
+   * Remove the internal policies from a policy set. Internal policies are
+   * applied like any other policy but must never be surfaced as active: they
+   * are excluded from the engine status, telemetry, isEnterprise and
+   * about:policies.
+   *
+   * @param {object} policies policy set to filter
+   * @returns {object} the policies with the internal ones removed
+   */
+  _excludeInternalPolicies(policies) {
+    if (!this._internalPolicyNames.size) {
+      return policies;
+    }
+    const surfaced = {};
+    for (const [name, params] of Object.entries(policies)) {
+      if (!this._internalPolicyNames.has(name)) {
+        surfaced[name] = params;
+      }
+    }
+    return surfaced;
   },
 
   /**
@@ -698,6 +787,7 @@ EnterprisePoliciesManager.prototype = {
     this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = {};
     this._lastParamsHashes = new Map();
+    this._internalPolicyNames = new Set();
     if (this._isRemotePoliciesSupported()) {
       RemotePoliciesProvider.dropInstance();
     }
@@ -868,6 +958,8 @@ EnterprisePoliciesManager.prototype = {
   },
 
   getActivePolicies() {
+    // Internal policies are included here so that components reading a policy
+    // value back at runtime see the true applied set.
     return this._parsedPolicies;
   },
 
@@ -1051,7 +1143,9 @@ EnterprisePoliciesManager.prototype = {
       .getDefaultBranch(null)
       .getCharPref("distribution.id", "");
 
-    let policiesLength = Object.keys(this._parsedPolicies || {}).length;
+    let policiesLength = Object.keys(
+      this._excludeInternalPolicies(this.getActivePolicies())
+    ).length;
 
     let isEnterprise =
       // As we migrate folks to ESR for other reasons (deprecating an OS),
@@ -1109,10 +1203,11 @@ let InstallSources = null;
 /**
  * Basic policies provider
  */
-class PoliciesProvider {
+export class PoliciesProvider {
   constructor() {
     this._policies = {};
     this._failed = false;
+    this.isInternal = false;
   }
 
   get policies() {
@@ -1516,7 +1611,11 @@ export class CombinedProvider extends PoliciesProvider {
   get failed() {
     // A failed provider only fails the engine if it left us without any
     // policies to apply. If any provider supplied policies we proceed
-    // and ignore the failed source.
-    return this._providers.some(p => p.failed) && !this.hasPolicies;
+    // and ignore the failed source. Internal policies are always present, so
+    // they are excluded here to avoid masking a failure of the other sources.
+    const hasNonInternalPolicies = this._providers.some(
+      p => !p.isInternal && p.hasPolicies
+    );
+    return this._providers.some(p => p.failed) && !hasNonInternalPolicies;
   }
 }

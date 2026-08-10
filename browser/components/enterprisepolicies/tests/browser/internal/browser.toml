@@ -1,0 +1,7 @@
+[DEFAULT]
+run-if = ["enterprise"]
+support-files = ["head.js"]
+
+["browser_policies_internal_BlockAboutProfiles.js"]
+
+["browser_policies_internal_not_surfaced.js"]

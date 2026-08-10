@@ -7,10 +7,19 @@
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 
 ChromeUtils.defineESModuleGetters(this, {
   schema: "resource:///modules/policies/schema.sys.mjs",
 });
+
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(this, {
+    INTERNAL_POLICIES: "resource://gre/modules/InternalPolicies.sys.mjs",
+  });
+}
 
 function col(text, className) {
   let column = document.createElement("td");
@@ -434,7 +443,14 @@ window.onload = function () {
   }
   gInited = true;
 
-  let data = Services.policies.getActivePolicies();
+  // Internal policies are applied but never surfaced to the user. Copy the
+  // active set before removing them so the engine's own state is not mutated.
+  let data = { ...Services.policies.getActivePolicies() };
+  if (AppConstants.MOZ_ENTERPRISE) {
+    for (let name of Object.keys(INTERNAL_POLICIES)) {
+      delete data[name];
+    }
+  }
   generateActivePolicies(data);
   generateErrors();
   generateDocumentation();

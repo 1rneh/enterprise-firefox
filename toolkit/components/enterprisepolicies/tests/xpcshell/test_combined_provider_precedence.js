@@ -7,10 +7,16 @@ const { CombinedProvider } = ChromeUtils.importESModule(
   "resource://gre/modules/EnterprisePoliciesParent.sys.mjs"
 );
 
-// A minimal stand-in for a real policies provider. CombinedProvider only
-// reads the `policies` and `failed` members of the providers it is given.
-function fakeProvider(policies, failed = false) {
-  return { policies, failed };
+// A minimal stand-in for a real combined policies provider (CombinedProvider)
+function fakeProvider(policies, failed = false, isInternal = false) {
+  return {
+    policies,
+    failed,
+    isInternal,
+    get hasPolicies() {
+      return policies != null && !!Object.keys(policies).length;
+    },
+  };
 }
 
 function combine(...providers) {
@@ -132,5 +138,23 @@ add_task(async function test_empty_providers_have_no_policies() {
   ok(
     !combined.hasPolicies,
     "Combining only empty providers yields no effective policies"
+  );
+});
+
+add_task(async function test_internal_policies_do_not_mask_a_failure() {
+  // A non-internal provider failed and produced no policies. The internal
+  // provider always supplies policies, but must not mask that failure - so the
+  // engine still surfaces it. This exercises the `!p.isInternal` clause in the
+  // `failed` getter; precedence itself is push-order only (see the tests above)
+  // and does not depend on isInternal.
+  let combined = combine(
+    fakeProvider(null, /* failed */ true),
+    fakeProvider({ InternalPolicy: true }, false, /* isInternal */ true)
+  );
+
+  ok(combined.hasPolicies, "The internal provider's policies are present");
+  ok(
+    combined.failed,
+    "A failed non-internal provider still fails the engine despite internal policies"
   );
 });

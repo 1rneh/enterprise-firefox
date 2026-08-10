@@ -17,4 +17,9 @@ BROWSER_CHROME_MANIFESTS += [
     "browser/trackingprotection2/browser.toml",
 ]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    BROWSER_CHROME_MANIFESTS += [
+        "browser/internal/browser.toml",
+    ]
+
 XPCSHELL_TESTS_MANIFESTS += ["xpcshell/xpcshell.toml"]

@@ -3,4 +3,6 @@ firefox-appdir = "browser"
 head = "head.js"
 run-if = ["enterprise"]
 
+["test_live_internal_policies.js"]
+
 ["test_live_policy_Proxy.js"]

@@ -337,6 +337,7 @@ pub struct OpenOptions {
     write: bool,
     truncate: bool,
     create: bool,
+    create_new: bool,
 }
 
 macro_rules! flag_setter {
@@ -355,6 +356,7 @@ impl OpenOptions {
             write: false,
             truncate: false,
             create: false,
+            create_new: false,
         }
     }
 
@@ -362,6 +364,7 @@ impl OpenOptions {
     flag_setter!(write);
     flag_setter!(truncate);
     flag_setter!(create);
+    flag_setter!(create_new);
 
     pub fn open(&self, path: impl AsRef<Path>) -> Result<File> {
         let path = path.as_ref();
@@ -370,13 +373,17 @@ impl OpenOptions {
             files
                 .parent_dir(path, move |d| -> Result<File> {
                     let content = if let Some(item) = d.get(name) {
-                        match &item.content {
-                            MockFSContent::File(result) => {
-                                result.as_ref().cloned().map_err(|e| e.kind())
+                        if self.create_new {
+                            Err(ErrorKind::AlreadyExists)
+                        } else {
+                            match &item.content {
+                                MockFSContent::File(result) => {
+                                    result.as_ref().cloned().map_err(|e| e.kind())
+                                }
+                                MockFSContent::Dir(_) => Err(ErrorKind::NotFound),
                             }
-                            MockFSContent::Dir(_) => Err(ErrorKind::NotFound),
                         }
-                    } else if !self.create {
+                    } else if !self.create && !self.create_new {
                         Err(ErrorKind::NotFound)
                     } else {
                         let content = MockFileContent::default();

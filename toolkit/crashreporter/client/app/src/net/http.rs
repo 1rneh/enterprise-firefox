@@ -19,8 +19,11 @@ use crate::std::{
     sync::atomic::{AtomicUsize, Ordering::Relaxed},
 };
 use anyhow::Context;
+pub use http::HeaderMap;
+use http::{header::AUTHORIZATION, HeaderName, HeaderValue};
 use once_cell::sync::Lazy;
 use serde::Serialize;
+use std::str::FromStr;
 
 #[cfg(mock)]
 use crate::std::mock::{mock_key, MockKey};
@@ -108,20 +111,70 @@ std::mock::mocked_static! {
 
 /*
  * IMPORTANT! Keep the serialized JSON format for RequestBuilder compatible with
- * toolkit/crashreporter/networking/BackgroundTask_crashNetwork.sys.mjs
+ * toolkit/crashreporter/networking/BackgroundTask_crashreporterNetworkBackend.sys.mjs
  */
 
 /// Types of requests that can be created.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type")]
 pub enum RequestBuilder<'a> {
     /// Send a POST with multiple mime parts.
-    MimePost { parts: Vec<MimePart<'a>> },
+    MimePost {
+        parts: Vec<MimePart<'a>>,
+        #[serde(serialize_with = "serialize_headers")]
+        headers: HeaderMap,
+    },
     /// Send a POST.
     Post {
         body: &'a [u8],
-        headers: &'a [(String, String)],
+        #[serde(serialize_with = "serialize_headers")]
+        headers: HeaderMap,
     },
+}
+
+/// Build a [`HeaderMap`] from name/value string pairs, dropping (with a warning)
+/// any entries that are not valid HTTP headers.
+///
+/// Using the typed [`HeaderName`]/[`HeaderValue`] here guarantees the header
+/// names and values cannot contain CR/LF, NUL, or other control characters, so
+/// they cannot inject additional headers or corrupt request framing when later
+/// formatted for curl/libcurl. The `Authorization` value is additionally marked
+/// sensitive so it is redacted from debug logging.
+pub fn header_map_from_pairs(pairs: impl IntoIterator<Item = (String, String)>) -> HeaderMap {
+    let mut map = HeaderMap::new();
+    for (name, value) in pairs {
+        match (HeaderName::from_str(&name), HeaderValue::from_str(&value)) {
+            (Ok(name), Ok(mut value)) => {
+                if name == AUTHORIZATION {
+                    value.set_sensitive(true);
+                }
+                map.append(name, value);
+            }
+            _ => log::warn!("dropping invalid crash upload header {name:?}"),
+        }
+    }
+    map
+}
+
+/// Format a header as a `name: value` line for curl/libcurl.
+/// We only construct HeaderValues with from_str so to_str is safe to unwrap.
+fn curl_header_line(name: &HeaderName, value: &HeaderValue) -> String {
+    format!("{}: {}", name.as_str(), value.to_str().unwrap())
+}
+
+/// Serialize a [`HeaderMap`] as an array of `[name, value]` pairs, matching the
+/// JSON format expected by `BackgroundTask_crashreporterNetworkBackend.sys.mjs`.
+fn serialize_headers<S>(headers: &HeaderMap, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::ser::SerializeSeq;
+    let mut seq = serializer.serialize_seq(Some(headers.len()))?;
+    for (name, value) in headers.iter() {
+        let value = value.to_str().map_err(serde::ser::Error::custom)?;
+        seq.serialize_element(&(name.as_str(), value))?;
+    }
+    seq.end()
 }
 
 /// A single mime part to send.
@@ -156,6 +209,7 @@ pub enum Request<'a> {
     CurlChild {
         child: Child,
         stdin: Option<Box<dyn Read + Send + 'static>>,
+        header_file: Option<TempRequestFile>,
     },
     LibCurl {
         easy: super::libcurl::Easy<'static>,
@@ -265,17 +319,23 @@ impl<'a> RequestBuilder<'a> {
         cmd.arg("--fail");
         cmd.args(["--user-agent", user_agent()]);
 
+        // Headers are passed in a (randomly named) file to avoid leaking `Authorization` bearer
+        // token in readable process arguments.
+        let header_file = self.curl_header_file()?;
+        if let Some(header_file) = &header_file {
+            cmd.arg("--header");
+            let mut arg = std::ffi::OsString::from("@");
+            arg.push(&header_file.path);
+            cmd.arg(arg);
+        }
+
         match self {
-            Self::MimePost { parts } => {
+            Self::MimePost { parts, .. } => {
                 for part in parts {
                     part.curl_command_args(&mut cmd, &mut stdin)?;
                 }
             }
-            Self::Post { body, headers } => {
-                for (k, v) in headers.iter() {
-                    cmd.args(["--header", &format!("{k}: {v}")]);
-                }
-
+            Self::Post { body, .. } => {
                 cmd.args(["--data-binary", "@-"]);
                 stdin = Some(Box::new(std::io::Cursor::new(body.to_vec())));
             }
@@ -287,8 +347,29 @@ impl<'a> RequestBuilder<'a> {
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
 
-        cmd.spawn()
-            .map(move |child| Request::CurlChild { child, stdin })
+        cmd.spawn().map(move |child| Request::CurlChild {
+            child,
+            stdin,
+            header_file,
+        })
+    }
+
+    /// Write the request headers to a temporary file, if there are any.
+    fn curl_header_file(&self) -> std::io::Result<Option<TempRequestFile>> {
+        use std::io::Write;
+
+        let headers = match self {
+            Self::MimePost { headers, .. } | Self::Post { headers, .. } => headers,
+        };
+        if headers.is_empty() {
+            return Ok(None);
+        }
+
+        let mut file = TempRequestFile::new_curl_headers()?;
+        for (name, value) in headers.iter() {
+            writeln!(&mut *file, "{}", curl_header_line(name, value))?;
+        }
+        Ok(Some(file))
     }
 
     /// Send the request with the `curl` library.
@@ -301,7 +382,15 @@ impl<'a> RequestBuilder<'a> {
         easy.set_max_redirs(30)?;
 
         match self {
-            Self::MimePost { parts } => {
+            Self::MimePost { parts, headers } => {
+                if !headers.is_empty() {
+                    let mut header_list = easy.slist();
+                    for (name, value) in headers.iter() {
+                        header_list.append(&curl_header_line(name, value))?;
+                    }
+                    easy.set_headers(header_list)?;
+                }
+
                 let mut mime = easy.mime()?;
 
                 for part in parts {
@@ -312,8 +401,8 @@ impl<'a> RequestBuilder<'a> {
             }
             Self::Post { body, headers } => {
                 let mut header_list = easy.slist();
-                for (k, v) in headers.iter() {
-                    header_list.append(&format!("{k}: {v}"))?;
+                for (name, value) in headers.iter() {
+                    header_list.append(&curl_header_line(name, value))?;
                 }
                 easy.set_headers(header_list)?;
 
@@ -345,26 +434,35 @@ pub struct TempRequestFile {
     file: ManuallyDrop<File>,
 }
 
-static REQUEST_NUM: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
 impl TempRequestFile {
     fn new() -> std::io::Result<Self> {
-        // Incorporate process id and a process-unique id to avoid runtime conflicts.
+        Self::create("request", "json")
+    }
+
+    /// Create a file containing curl headers rather than a serialized request.
+    fn new_curl_headers() -> std::io::Result<Self> {
+        Self::create("headers", "txt")
+    }
+
+    fn create(kind: &str, extension: &str) -> std::io::Result<Self> {
+        // Incorporate a random component to avoid conflicts and so that the path cannot be
+        // guessed by another process (the contents may include sensitive headers).
         let path = std::env::temp_dir().join(format!(
-            "{}{}-request{}.json",
-            env!("CARGO_PKG_NAME"),
-            std::process::id(),
-            REQUEST_NUM.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            "{kind}-{}.{extension}",
+            uuid::Uuid::new_v4().simple()
         ));
         if let Some(p) = path.parent() {
             std::fs::create_dir_all(p)?;
         }
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&path)?;
+        let mut options = OpenOptions::new();
+        // `create_new` guarantees we never write into a file (or symlink) that already exists.
+        options.read(true).write(true).create_new(true);
+        #[cfg(all(unix, not(mock)))]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let file = options.open(&path)?;
         Ok(TempRequestFile {
             path,
             file: ManuallyDrop::new(file),
@@ -501,7 +599,11 @@ impl Request<'_> {
                     builder.send_with_curl(url).context("curl error")?.send()
                 })?
             }
-            Self::CurlChild { mut child, stdin } => {
+            Self::CurlChild {
+                mut child,
+                stdin,
+                header_file,
+            } => {
                 if let Some(mut stdin) = stdin {
                     let mut child_stdin = child
                         .stdin
@@ -515,6 +617,8 @@ impl Request<'_> {
                 let output = child
                     .wait_with_output()
                     .context("failed to wait on curl process")?;
+                // Only delete the header file once curl has read it.
+                drop(header_file);
                 anyhow::ensure!(
                     output.status.success(),
                     "process failed (exit status {}) with stderr: {}",

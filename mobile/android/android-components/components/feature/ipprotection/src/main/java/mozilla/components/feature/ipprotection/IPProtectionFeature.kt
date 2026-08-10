@@ -123,7 +123,7 @@ class IPProtectionFeature(
                 .collect { state ->
                     when (state.accountState.status) {
                         AccountStatus.AuthFailed,
-                        AccountStatus.Uninitialized,
+                        AccountStatus.NoAccount,
                             -> {
                             handler?.notifyAccountStatus(false)
                         }
@@ -146,6 +146,7 @@ class IPProtectionFeature(
                             handler?.notifyAccountStatus(true)
                         }
 
+                        AccountStatus.Uninitialized,
                         AccountStatus.WarmingUp,
                         AccountStatus.NeedsAuthentication,
                         AccountStatus.RequestingAuthentication,
@@ -213,7 +214,7 @@ class IPProtectionFeature(
             .collect { activate ->
                 val onResult: (Throwable?) -> Unit = { err ->
                     if (err != null) {
-                        store.dispatch(IPProtectionAction.ToggleFailed)
+                        store.dispatch(IPProtectionAction.ToggleFailed(err))
                     }
                 }
                 if (activate) {

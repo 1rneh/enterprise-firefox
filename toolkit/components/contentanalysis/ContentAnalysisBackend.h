@@ -35,6 +35,12 @@ class ContentAnalysisBackend {
   using DiagnosticInfoPromise =
       MozPromise<RefPtr<ContentAnalysisDiagnosticInfo>, nsresult, true>;
 
+  // The concrete backend type. ContentAnalysis compares this against the
+  // policy-selected backend on a live policy update to decide whether it must
+  // swap mBackend to a different implementation.
+  enum class BackendKind { eExternalAgent, eWasmModule };
+  virtual BackendKind Kind() const = 0;
+
   // Kick off backend initialization if necessary (e.g. connect to an agent,
   // fetch and load a module). Returns synchronously when backend is ready to
   // receive requests, even if backend may continue further initialization

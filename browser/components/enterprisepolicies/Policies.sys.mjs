@@ -915,6 +915,9 @@ export var Policies = {
       // arbitrate consistently, including on live policy updates.
       lazy.ContentAnalysisPolicies.reconcileContentAnalysis(manager);
     },
+    onRemove(manager) {
+      lazy.ContentAnalysisPolicies.reconcileContentAnalysis(manager);
+    },
   },
 
   ContentAnalysisTelemetry: {
@@ -1218,6 +1221,9 @@ export var Policies = {
       ).errors) {
         lazy.log.error(error);
       }
+      lazy.ContentAnalysisPolicies.reconcileContentAnalysis(manager);
+    },
+    onRemove(manager) {
       lazy.ContentAnalysisPolicies.reconcileContentAnalysis(manager);
     },
   },

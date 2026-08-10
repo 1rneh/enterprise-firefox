@@ -53,11 +53,53 @@ const CA_PLAIN_TEXT_POINTS = [
   ["DragAndDrop", "drag_and_drop"],
 ];
 
+// Every browser.contentanalysis.* pref either provider may set, apart from the
+// per-interception-point ones handled alongside these below.
+const CA_SHARED_PREFS = [
+  "enabled",
+  "use_wasm_backend",
+  "wasm_module_extension_require_signature",
+  "default_result",
+  "timeout_result",
+  "dlp_rules",
+  "allow_url_regex_list",
+  "deny_url_regex_list",
+  "agent_timeout",
+  "show_blocked_result",
+  "bypass_for_same_tab_operations",
+  "agent_name",
+  "pipe_path_name",
+  "client_signature",
+  "max_connections",
+  "is_per_user",
+];
+
+// Return every shared pref to its built-in default, unlocked.
+function releaseContentAnalysisPrefs() {
+  for (let suffix of CA_SHARED_PREFS) {
+    lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName(suffix));
+  }
+  for (let [, suffix] of CA_INTERCEPTION_POINTS) {
+    lazy.PoliciesUtils.unsetAndUnlockPref(
+      caPrefName(`interception_point.${suffix}.enabled`)
+    );
+  }
+  for (let [, suffix] of CA_PLAIN_TEXT_POINTS) {
+    lazy.PoliciesUtils.unsetAndUnlockPref(
+      caPrefName(`interception_point.${suffix}.plain_text_only`)
+    );
+  }
+}
+
 export const ContentAnalysisPolicies = {
   reconcileContentAnalysis(manager) {
     let active = manager.getActivePolicies() ?? {};
     let caParam = active.ContentAnalysis;
     let dlpParam = active.DataLossPrevention;
+
+    // Release every shared pref before applying the winner's configuration.
+    // (Avoid stale prefs during a switch)
+    releaseContentAnalysisPrefs();
 
     // The external agent is authoritative only when it is actually enabled; a
     // ContentAnalysis block that does not enable an agent doesn't suppress
@@ -66,9 +108,14 @@ export const ContentAnalysisPolicies = {
       applyExternalContentAnalysis(caParam);
     } else if (dlpParam) {
       applyBuiltinDlp(dlpParam);
-    } else {
-      disableContentAnalysis(caParam);
+    } else if (caParam) {
+      // Match previous behavior of locking all prefs when policy present
+      // and Enabled=false
+      activelyDisableContentAnalysis(caParam);
     }
+    // Else, neither provider is configured: the release above is the whole job.
+
+    markContentAnalysisPolicyControlled(!!caParam || !!dlpParam);
   },
 
   // Validate DLP rules' ContentPatterns as regular expressions (a JS-regex
@@ -110,8 +157,6 @@ function applyExternalContentAnalysis(caParam) {
   );
 
   applyContentAnalysisConfig(caParam);
-  lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName("dlp_rules"));
-  markContentAnalysisPolicyControlled();
 }
 
 // Apply prefs for setting up the built-in DLP provider.
@@ -122,16 +167,6 @@ function applyBuiltinDlp(dlpParam) {
     caPrefName("wasm_module_extension_require_signature"),
     true
   );
-
-  // The external agent isn't running, so these prefs are released.
-  for (let suffix of [
-    "pipe_path_name",
-    "client_signature",
-    "max_connections",
-    "is_per_user",
-  ]) {
-    lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName(suffix));
-  }
 
   // Built-in DLP policy does not have an explicit deny list, but encodes
   // domain deny behavior in the DLP rules for processing by the engine.
@@ -209,47 +244,11 @@ function applyBuiltinDlp(dlpParam) {
     caPrefName("dlp_rules"),
     JSON.stringify({ DLPRules: { Rules: rules } })
   );
-
-  markContentAnalysisPolicyControlled();
 }
 
-// Turn both providers off. A still-present (disabled) ContentAnalysis policy
-// keeps its config locked with the service disabled to match previous behavior.
-function disableContentAnalysis(caParam) {
-  if (!caParam) {
-    for (let suffix of [
-      "enabled",
-      "use_wasm_backend",
-      "wasm_module_extension_require_signature",
-      "default_result",
-      "timeout_result",
-      "dlp_rules",
-      "allow_url_regex_list",
-      "deny_url_regex_list",
-      "agent_timeout",
-      "show_blocked_result",
-      "bypass_for_same_tab_operations",
-      "agent_name",
-      "pipe_path_name",
-      "client_signature",
-      "max_connections",
-      "is_per_user",
-    ]) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName(suffix));
-    }
-    for (let [, suffix] of CA_INTERCEPTION_POINTS) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        caPrefName(`interception_point.${suffix}.enabled`)
-      );
-    }
-    for (let [, suffix] of CA_PLAIN_TEXT_POINTS) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        caPrefName(`interception_point.${suffix}.plain_text_only`)
-      );
-    }
-    return;
-  }
-
+// A ContentAnalysis policy that is present but not enabled: keep its config
+// locked with the service disabled, to match previous behavior.
+function activelyDisableContentAnalysis(caParam) {
   lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), false);
   lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), false);
   lazy.PoliciesUtils.setAndLockPref(
@@ -257,10 +256,6 @@ function disableContentAnalysis(caParam) {
     true
   );
   applyContentAnalysisConfig(caParam);
-  lazy.PoliciesUtils.unsetAndUnlockPref(caPrefName("dlp_rules"));
-  if ("Enabled" in caParam) {
-    markContentAnalysisPolicyControlled();
-  }
 }
 
 // Set and lock the Content Analysis prefs for an active ContentAnalysis policy.
@@ -379,9 +374,9 @@ function applyContentAnalysisConfig(caParam) {
 
 // Ensure the Content Analysis service exists (so it can observe policy updates)
 // and mark it as controlled by enterprise policy.
-function markContentAnalysisPolicyControlled() {
+function markContentAnalysisPolicyControlled(isControlled) {
   let ca = Cc["@mozilla.org/contentanalysis;1"].getService(
     Ci.nsIContentAnalysis
   );
-  ca.isSetByEnterprisePolicy = true;
+  ca.isSetByEnterprisePolicy = isControlled;
 }

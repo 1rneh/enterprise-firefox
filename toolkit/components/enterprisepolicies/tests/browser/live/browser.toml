@@ -9,6 +9,10 @@ run-if = [
 
 ["browser_live_and_local_policies_merging.js"]
 
+["browser_live_content_analysis_activation.js"]
+
+["browser_live_content_analysis_dlp.js"]
+
 ["browser_live_disable_local_policies.js"]
 
 ["browser_live_policies_basic_tests.js"]

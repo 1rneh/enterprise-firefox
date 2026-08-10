@@ -38,6 +38,7 @@ class ExternalAgentBackend final : public ContentAnalysisBackend {
   ExternalAgentBackend(const ExternalAgentBackend&) = delete;
   ExternalAgentBackend& operator=(const ExternalAgentBackend&) = delete;
 
+  BackendKind Kind() const override { return BackendKind::eExternalAgent; }
   nsresult EnsureReady() override;
   nsresult Analyze(nsCOMPtr<nsIContentAnalysisRequest> aRequest,
                    bool aAutoAcknowledge) override;
@@ -144,6 +145,11 @@ class ExternalAgentBackend final : public ContentAnalysisBackend {
   bool mCreatingClient MOZ_GUARDED_BY(sMainThreadCapability) = false;
   bool mHaveResolvedClientPromise MOZ_GUARDED_BY(sMainThreadCapability) = false;
   int64_t mRequestCount MOZ_GUARDED_BY(sMainThreadCapability) = 0;
+
+  // Set once Shutdown() runs (e.g. when the service swaps this backend out on a
+  // live policy change). A response that arrives afterward is dropped so it
+  // can't deliver a stale verdict through the still-alive service.
+  bool mInert MOZ_GUARDED_BY(sMainThreadCapability) = false;
 };
 
 }  // namespace mozilla::contentanalysis

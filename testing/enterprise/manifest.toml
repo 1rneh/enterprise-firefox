@@ -102,7 +102,7 @@ run-if = [
 
 ["test_felt_browser_skeleton_ui.py"]
 run-if = [
-  "os == 'win'",
+  "os == 'win' && buildapp == 'browser'",
 ]
 
 ["test_felt_browser_starts.py"]

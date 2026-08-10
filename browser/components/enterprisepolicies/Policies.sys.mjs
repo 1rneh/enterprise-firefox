@@ -34,7 +34,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WatermarkPolicy: "resource:///modules/policies/WatermarkPolicy.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
   SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
-  LaunchOnLogin: "resource://gre/modules/LaunchOnLogin.sys.mjs",
+  WindowsLaunchOnLogin: "resource://gre/modules/WindowsLaunchOnLogin.sys.mjs",
 
   PoliciesUtils: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   addAllowDenyPermissions: "resource://gre/modules/PoliciesHelpers.sys.mjs",
@@ -1570,7 +1570,7 @@ export var Policies = {
 
   DisableLaunchOnLogin: {
     onBeforeAddons(manager, param) {
-      if (!param) {
+      if (!param || AppConstants.platform !== "win") {
         return;
       }
       manager.disallowFeature("launchOnLogin");
@@ -1578,7 +1578,7 @@ export var Policies = {
         "browser.startup.windowsLaunchOnLogin.enabled",
         false
       );
-      lazy.LaunchOnLogin.disable();
+      lazy.WindowsLaunchOnLogin.removeLaunchOnLogin();
     },
   },
 

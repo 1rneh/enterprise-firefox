@@ -101,6 +101,9 @@ skip-if = [
 ["browser_aiwindow_followup_tokens.js"]
 
 ["browser_aiwindow_group_tabs_button.js"]
+skip-if = [
+  "verify", # Bug 2060705
+]
 
 ["browser_aiwindow_grouped_chips.js"]
 
@@ -133,6 +136,8 @@ skip-if = [
 ["browser_aiwindow_smartbar_autofill.js"]
 
 ["browser_aiwindow_smartbar_chat_active_navigate.js"]
+
+["browser_aiwindow_smartbar_command_palette.js"]
 
 ["browser_aiwindow_smartbar_context_chips.js"]
 

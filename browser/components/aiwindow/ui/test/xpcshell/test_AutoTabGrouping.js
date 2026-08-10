@@ -16,6 +16,7 @@ function makeTab({
   hidden = false,
   busy = false,
   label = "Example Page",
+  iconUrl = null,
 } = {}) {
   return {
     pinned,
@@ -26,7 +27,9 @@ function makeTab({
     hasAttribute(attr) {
       return attr === "busy" && busy;
     },
-    linkedBrowser: url ? { currentURI: Services.io.newURI(url) } : null,
+    linkedBrowser: url
+      ? { currentURI: Services.io.newURI(url), mIconURL: iconUrl }
+      : null,
   };
 }
 
@@ -141,7 +144,7 @@ add_task(function test_selectClusters_filtersSortsAndCaps() {
 });
 
 add_task(function test_selectClusters_dropsLowCohesion() {
-  // A large but incohesive cluster (below the 0.1 threshold) is dropped even
+  // A large but incohesive cluster (below the 0.15 threshold) is dropped even
   // though it clears the size minimum, so weakly-related tabs aren't grouped.
   const clusters = [makeCluster(5, 0.05), makeCluster(3, 0.4)];
 
@@ -156,7 +159,7 @@ add_task(function test_selectClusters_dropsLowCohesion() {
 
 add_task(function test_selectClusters_minCohesionPrefTunesThreshold() {
   // Raising the pref to 0.5 now drops a 0.4-cohesion cluster that the default
-  // 0.1 threshold would have kept.
+  // 0.15 threshold would have kept.
   Services.prefs.setCharPref(
     "browser.smartwindow.autoTabGrouping.minCohesion",
     "0.5"
@@ -255,4 +258,46 @@ add_task(async function test_buildProposals_cachesLabelsBySourceTabs() {
     AutoTabGroupingSuggestions._manager = originalManager;
     AutoTabGroupingSuggestions._labelCache.clear();
   }
+});
+
+add_task(function test_tabInfo_resolvesFaviconAndTitle() {
+  const cached = AutoTabGroupingSuggestions._tabInfo(
+    makeTab({ url: "https://example.com/kids-bikes", label: "Kids Bikes" })
+  );
+  Assert.equal(
+    cached.iconUrl,
+    "page-icon:https://example.com/kids-bikes",
+    "A tab with no live icon falls back to the Places-cached icon"
+  );
+  Assert.equal(cached.title, "Kids Bikes", "The tab label is the title");
+
+  Assert.equal(
+    AutoTabGroupingSuggestions._tabInfo(
+      makeTab({ iconUrl: "https://example.com/favicon.ico" })
+    ).iconUrl,
+    "page-icon:https://example.com/",
+    "A web favicon is loaded through page-icon: rather than the network"
+  );
+
+  Assert.equal(
+    AutoTabGroupingSuggestions._tabInfo(
+      makeTab({ iconUrl: "data:image/png;base64,AAAA" })
+    ).iconUrl,
+    "data:image/png;base64,AAAA",
+    "A non-web icon is used as-is"
+  );
+
+  Assert.equal(
+    AutoTabGroupingSuggestions._tabInfo(makeTab({ url: null })).iconUrl,
+    "chrome://global/skin/icons/defaultFavicon.svg",
+    "A tab with no URI falls back to the default favicon"
+  );
+
+  Assert.equal(
+    AutoTabGroupingSuggestions._tabInfo(
+      makeTab({ url: "https://example.com/", label: "" })
+    ).title,
+    "example.com",
+    "A tab with no label falls back to its site name"
+  );
 });

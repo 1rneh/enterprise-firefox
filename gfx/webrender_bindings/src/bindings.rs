@@ -2252,6 +2252,9 @@ pub extern "C" fn wr_window_new(
         false
     };
 
+    let enable_shared_instance_buffer =
+        static_prefs::pref!("gfx.webrender.shared-instance-buffer");
+
     let opts = WebRenderOptions {
         enable_aa: true,
         enable_subpixel_aa,
@@ -2320,6 +2323,7 @@ pub extern "C" fn wr_window_new(
         low_quality_pinch_zoom,
         max_shared_surface_size,
         enable_dithering,
+        enable_shared_instance_buffer,
         ..Default::default()
     };
 
@@ -3721,11 +3725,8 @@ pub extern "C" fn wr_dp_push_image(
     color: ColorF,
     prefer_compositor_surface: bool,
     supports_external_compositing: bool,
-    sub_rect: *const DeviceIntRect,
 ) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
-
-    let sub_rect = unsafe { sub_rect.as_ref().cloned() };
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
 
@@ -3755,15 +3756,7 @@ pub extern "C" fn wr_dp_push_image(
     state
         .frame_builder
         .dl_builder
-        .push_image(
-            &prim_info,
-            bounds,
-            image_rendering,
-            alpha_type,
-            key,
-            color,
-            sub_rect,
-        );
+        .push_image(&prim_info, bounds, image_rendering, alpha_type, key, color);
 }
 
 #[no_mangle]

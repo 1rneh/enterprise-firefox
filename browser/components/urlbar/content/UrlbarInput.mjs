@@ -442,6 +442,8 @@ ${
       this.#init();
     }
 
+    this.searchModeSwitcher.connect();
+
     if (this.inOverflowPanel && this.view.isOpen) {
       this.view.close();
     }
@@ -561,6 +563,8 @@ ${
       // but we don't notice because the search service observer is inactive.
       this.searchMode = null;
     }
+
+    this.searchModeSwitcher.disconnect();
 
     if (this._copyCutController) {
       this.inputField.controllers.removeController(this._copyCutController);
@@ -3732,7 +3736,7 @@ ${
 
     let isRTL =
       this.getAttribute("domaindir") === "rtl" &&
-      lazy.UrlbarUtils.isTextDirectionRTL(this.value, this.window);
+      this.controller.isTextDirectionRTL(this.value);
 
     this.window.promiseDocumentFlushed(() => {
       // Check overflow again to ensure it didn't change in the meanwhile.
@@ -3994,7 +3998,7 @@ ${
       : val;
     // Only trim value if the directionality doesn't change to RTL and we're not
     // showing a strikeout https protocol.
-    return lazy.UrlbarUtils.isTextDirectionRTL(trimmedValue, this.window) ||
+    return this.controller.isTextDirectionRTL(trimmedValue) ||
       this.#lazy.valueFormatter.willShowFormattedMixedContentProtocol(val)
       ? val
       : trimmedValue;

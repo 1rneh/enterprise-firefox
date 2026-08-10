@@ -322,6 +322,7 @@ for (const type of [
   "WIDGETS_LISTS_USER_IMPRESSION",
   "WIDGETS_OPT_IN",
   "WIDGETS_PICTURE_SET_WALLPAPER",
+  "WIDGETS_PRIVACY_CTA",
   "WIDGETS_PRIVACY_UPDATE",
   "WIDGETS_SPORTS_CHANGE_FOLLOWED_ONLY",
   "WIDGETS_SPORTS_CHANGE_LIVE_INDEX",
@@ -770,6 +771,12 @@ const PREF_WIDGETS_PRIVACY_ENABLED = "widgets.privacy.enabled";
 const PREF_PRIVACY_SIZE = "widgets.privacy.size";
 const PREF_WIDGETS_SYSTEM_PRIVACY_ENABLED =
   "widgets.system.privacy.enabled";
+const PREF_PRIVACY_MAX_COUNT = "widgets.privacy.maxCount";
+const PREF_PRIVACY_MAX_DISPLAY_COUNT = "widgets.privacy.maxDisplayCount";
+const PREF_PRIVACY_BLANK_CHANCE = "widgets.privacy.blankChance";
+const PREF_PRIVACY_SHOW_VPN_MESSAGES = "widgets.privacy.showVpnMessages";
+const PREF_PRIVACY_FORCE_MESSAGE_ID = "widgets.privacy.forceMessageId";
+const PREF_PRIVACY_MESSAGE_STATE = "widgets.privacy.messageState";
 const PREF_WIDGETS_CROSSWORD_ENABLED = "widgets.crossword.enabled";
 const PREF_CROSSWORD_SIZE = "widgets.crossword.size";
 const PREF_WIDGETS_SYSTEM_CROSSWORD_ENABLED =
@@ -1129,6 +1136,98 @@ function resolveCrosswordEndpoint(prefs) {
     prefs.trainhopConfig?.widgets?.crosswordEndpoint ||
     prefs[PREF_CROSSWORD_ENDPOINT]
   );
+}
+
+/**
+ * Resolves the today-count at which the Privacy widget fires its "daily cap"
+ * celebration message. This is NOT the display ceiling — the readout keeps
+ * showing the real number past this point (see resolvePrivacyDisplayCount).
+ * Priority: trainhopConfig > pref > 100. Routed through this helper (never the
+ * raw pref) per the trainhop-gate convention.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {number}
+ */
+function resolvePrivacyMaxCount(prefs) {
+  return (
+    prefs.trainhopConfig?.widgets?.privacyMaxCount ||
+    prefs[PREF_PRIVACY_MAX_COUNT] ||
+    100
+  );
+}
+
+/**
+ * Resolves the ceiling for the tracker-count readout: above it the number
+ * shows as "{cap}+" so it stays a tidy few characters. Default 999 (three
+ * digits). Distinct from resolvePrivacyMaxCount (the daily-cap celebration
+ * threshold). Priority: trainhopConfig > pref > 999.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {number}
+ */
+function resolvePrivacyDisplayCount(prefs) {
+  return (
+    prefs.trainhopConfig?.widgets?.privacyMaxDisplayCount ||
+    prefs[PREF_PRIVACY_MAX_DISPLAY_COUNT] ||
+    999
+  );
+}
+
+/**
+ * Resolves the Privacy widget "blank chance" — the probability (0..1) that an
+ * eligible info message is suppressed to keep the experience calm. It's compared
+ * against Math.random(), so it MUST be a 0–1 fraction (0.4 = 40%), not a percent.
+ * A value > 1 (e.g. 40) would blank every message; guard against that by warning
+ * and falling back to the default. Priority: trainhopConfig > pref > 0.4.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {number}
+ */
+function resolvePrivacyBlankChance(prefs) {
+  const DEFAULT = 0.4;
+  const trainhop = prefs.trainhopConfig?.widgets?.privacyBlankChance;
+  // The pref is stored as a string ("0.4") because Firefox prefs have no float
+  // type — a numeric default would land as 0 and silently disable blanks.
+  // trainhopConfig comes from JSON, so it's already a number.
+  const rawPref = prefs[PREF_PRIVACY_BLANK_CHANCE];
+  const raw = typeof trainhop === "number" ? trainhop : parseFloat(rawPref);
+  if (Number.isNaN(raw)) {
+    // Warn on a present-but-unparseable value (a misconfig); stay quiet when
+    // the pref is simply unset.
+    if (rawPref !== undefined && rawPref !== "") {
+      console.warn(
+        `widgets.privacy.blankChance is ${JSON.stringify(
+          rawPref
+        )}; expected a 0-1 number. Using ${DEFAULT}.`
+      );
+    }
+    return DEFAULT;
+  }
+  if (raw < 0 || raw > 1) {
+    console.warn(
+      `widgets.privacy.blankChance is ${raw}; expected a 0-1 fraction (0.4 = 40%). Using ${DEFAULT}.`
+    );
+    return DEFAULT;
+  }
+  return raw;
+}
+
+/**
+ * Resolves whether the Privacy widget may show VPN promotional messages. Off by
+ * default: not all users are eligible for the built-in VPN (unsupported region,
+ * enterprise-managed, removed from the toolbar), and promoting an unavailable
+ * feature erodes trust. An experiment can enable them for eligible cohorts — or
+ * force them off. Priority: trainhopConfig > pref > false.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {boolean}
+ */
+function resolvePrivacyShowVpnMessages(prefs) {
+  const trainhop = prefs.trainhopConfig?.widgets?.privacyShowVpnMessages;
+  if (typeof trainhop === "boolean") {
+    return trainhop;
+  }
+  return !!prefs[PREF_PRIVACY_SHOW_VPN_MESSAGES];
 }
 
 /**
@@ -7637,6 +7736,20 @@ const INITIAL_STATE = {
     // "sites where we blocked something"; see PrivacyFeed).
     sitesToday: 0,
     lastUpdated: null,
+    // Secondary-message decision chosen by PrivacyFeed's selector
+    // (Bug 2050954). variant: empty | blank | streak | tip. `category` is the
+    // message family (CATEGORY) so the UI can tell a celebration from an
+    // ordinary tip; `icon` is an icon key (see Privacy.jsx); `countArg` is the
+    // l10n plural/var arg.
+    variant: null,
+    messageId: null,
+    category: null,
+    icon: null,
+    countArg: null,
+    // SpecialMessageAction for the message's CTA button (null → no button).
+    cta: null,
+    // When set, the count readout shows "{countCeiling}+" (the daily-cap render).
+    countCeiling: null,
   },
 };
 
@@ -8592,11 +8705,12 @@ const PictureOfTheDay = (prevState = INITIAL_STATE.PictureOfTheDay, action) => {
 function PrivacyWidget(prevState = INITIAL_STATE.PrivacyWidget, action) {
   switch (action.type) {
     case actionTypes.WIDGETS_PRIVACY_UPDATE:
+      // Merge whatever the feed sent: SYSTEM_TICK/INIT broadcast counts only
+      // (message fields absent → kept); NEW_TAB_INIT also carries the
+      // selector's message decision.
       return {
         ...prevState,
-        trackersToday: action.data.trackersToday,
-        sitesToday: action.data.sitesToday,
-        lastUpdated: action.data.lastUpdated,
+        ...action.data,
         initialized: true,
       };
     default:
@@ -22692,26 +22806,24 @@ const Privacy_USER_ACTION_TYPES = {
 const PRIVACY_ENTRY = WIDGET_REGISTRY.find(w => w.id === "privacy");
 const ICON_BASE_URL = "chrome://newtab/content/data/content/assets/";
 
-// Renders a widget icon by asset filename. The wrapper div is the alignment
-// hook. TEMP (Bug 2049390): callers pass a static filename for now; the
-// per-message icon mapping (shield/planet/star/bolt/kit) is a follow-up commit.
-const privacyImage = filename => /*#__PURE__*/external_React_default().createElement("div", {
+// Icon key (from the message decision / PrivacyMessages.sys.mjs) -> asset.
+const ICON_ASSETS = {
+  shield: "widget-privacy-shield.svg",
+  shieldCheck: "widget-privacy-shield-check.svg",
+  planet: "widget-privacy-planet.svg",
+  bolt: "widget-privacy-bolt.svg",
+  star: "widget-privacy-star.svg",
+  kit: "widget-privacy-kit.svg"
+};
+
+// Renders a widget icon by icon key. The wrapper div is the alignment hook.
+const privacyImage = iconKey => /*#__PURE__*/external_React_default().createElement("div", {
   className: "privacy-image"
 }, /*#__PURE__*/external_React_default().createElement("img", {
   className: "privacy-image-icon",
-  src: `${ICON_BASE_URL}${filename}`,
+  src: `${ICON_BASE_URL}${ICON_ASSETS[iconKey] || ICON_ASSETS.shieldCheck}`,
   alt: ""
 }));
-const PREF_PRIVACY_MAX_COUNT = "widgets.privacy.maxCount";
-const DEFAULT_PRIVACY_MAX_COUNT = 100;
-
-// Resolves the count at which the readout caps to "N+". trainhopConfig wins so
-// an experiment can override the pref's default; then the pref
-// (widgets.privacy.maxCount, default 100); then a defensive fallback. Routed
-// through a helper (never the raw pref) per the trainhop-gate convention.
-function resolvePrivacyMaxCount(prefs) {
-  return prefs.trainhopConfig?.widgets?.privacyMaxCount || prefs[PREF_PRIVACY_MAX_COUNT] || DEFAULT_PRIVACY_MAX_COUNT;
-}
 function Privacy({
   dispatch,
   widgetsMayBeMaximized,
@@ -22730,12 +22842,49 @@ function Privacy({
   // when it's skipped (e.g. the backward-compat guard in PrivacyFeed on older
   // platforms) — show no metric state rather than a misleading empty/zero one.
   const initialized = privacyData?.initialized ?? false;
-  // Ceiling the readout at "{maxCount}+" so the number stays a tidy single line.
-  const maxCount = resolvePrivacyMaxCount(prefs);
-  const displayCount = trackersToday > maxCount ? `${maxCount}+` : `${trackersToday}`;
-  const isEmptyState = trackersToday === 0;
-  const showTip = !isEmptyState;
+
+  // Message decision chosen by PrivacyFeed's selector (Bug 2050954).
+  const {
+    variant,
+    messageId,
+    icon,
+    countArg,
+    cta,
+    countCeiling
+  } = privacyData ?? {};
   const isLarge = widgetSize === "large";
+
+  // Normally show the real count, only ceiling the readout at "{cap}+"
+  // (default 999) so it stays a tidy few characters. On the daily-cap render
+  // the selector sets countCeiling (100), so that one load shows "100+"; the
+  // next load clears it and the real number returns.
+  const displayCap = resolvePrivacyDisplayCount(prefs);
+  let displayCount = `${trackersToday}`;
+  if (typeof countCeiling === "number") {
+    displayCount = `${countCeiling}+`;
+  } else if (trackersToday > displayCap) {
+    displayCount = `${displayCap}+`;
+  }
+
+  // trackersToday === 0 is the sole trigger for the empty layout. It must not
+  // also key off `variant === "empty"`: a SYSTEM_TICK refreshes the count
+  // without touching `variant`, so a tab opened at zero would stay empty even
+  // after its count climbs, until the next tab re-runs the selector.
+  const isEmptyState = trackersToday === 0;
+  // Streak and tip both use the count + divider + message layout; "blank"
+  // shows the count only (plus a CTA).
+  const isStreak = !isEmptyState && variant === "streak";
+  const isTip = !isEmptyState && variant === "tip";
+  const isBlank = !isEmptyState && variant === "blank";
+  const hasMessage = (isStreak || isTip) && messageId;
+  // Telemetry id for a CTA click. The blank state has no messageId, so give it
+  // a stable, distinguishable id — otherwise its clicks report null and the
+  // most-shown state can't be attributed (Dré).
+  const ctaMessageId = isBlank ? "newtab-privacy-blank" : messageId;
+  // The single icon sits beside the count, except in the large tip layout where
+  // it sits inside the tip.
+  const iconBesideCount = !isEmptyState && !(isTip && isLarge);
+  const iconInTip = isTip && isLarge;
   const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
     if (impressionFired.current) {
       return;
@@ -22811,8 +22960,61 @@ function Privacy({
       }));
     });
   }
+
+  // Runs the message's CTA. The SpecialMessageAction descriptor lives on the
+  // decision (`cta`); the parent (PrivacyFeed) executes it — content only
+  // forwards it and logs the interaction.
+  function handleCtaClick() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_PRIVACY_CTA,
+        data: {
+          action: cta,
+          message_id: ctaMessageId
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "privacy",
+          widget_source: "widget",
+          user_action: "message_cta",
+          action_value: ctaMessageId,
+          widget_size: widgetSize
+        }
+      }));
+    });
+  }
+
+  // The message resolves via its Fluent `messageId` (Bug 2048389); `countArg`
+  // feeds the plural/variable l10n args.
+  const messageEl = className => /*#__PURE__*/external_React_default().createElement("p", {
+    className: className,
+    "data-l10n-id": messageId,
+    "data-l10n-args": countArg ? JSON.stringify(countArg) : undefined
+  });
+
+  // CTA button for messages that carry one (`cta`); its label is the message's
+  // `-cta` companion Fluent id. Value-only messages render as moz-button text.
+  const ctaButton = cta && messageId ? /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "privacy-cta",
+    "data-l10n-id": `${messageId}-cta`,
+    onClick: handleCtaClick,
+    size: "small",
+    type: "primary"
+  }) : null;
+
+  // The blank state has no tip copy (messageId is null) but still shows a
+  // "View protections" CTA, borrowing info-1's companion label for now.
+  const blankCta = isBlank && cta ? /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "privacy-cta",
+    "data-l10n-id": "newtab-privacy-message-info-1-cta",
+    onClick: handleCtaClick,
+    size: "small",
+    type: "primary"
+  }) : null;
   return /*#__PURE__*/external_React_default().createElement("article", {
-    className: `privacy widget col-4 ${widgetSize}-widget${initialized && isEmptyState ? " is-empty" : ""}${initialized && showTip ? " has-tip-msg" : ""}`,
+    className: `privacy widget col-4 ${widgetSize}-widget${initialized && isEmptyState ? " is-empty" : ""}${initialized && isTip ? " has-tip-msg" : ""}${initialized && isStreak ? " has-streak" : ""}`,
     ref: el => {
       widgetRef.current = [el];
     }
@@ -22854,16 +23056,18 @@ function Privacy({
     className: "privacy-body"
   }, initialized && (isEmptyState ? /*#__PURE__*/external_React_default().createElement("div", {
     className: "privacy-empty"
-  }, privacyImage("widget-privacy-shield.svg"), /*#__PURE__*/external_React_default().createElement("p", {
+  }, privacyImage("shield"), /*#__PURE__*/external_React_default().createElement("p", {
     className: "privacy-empty-message",
     "data-l10n-id": "newtab-privacy-empty"
   })) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
     className: "privacy-count"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "privacy-count-number-wrapper"
-  }, !isLarge && privacyImage("widget-privacy-shield-check.svg"), /*#__PURE__*/external_React_default().createElement("span", {
+  }, iconBesideCount && privacyImage(icon || "shieldCheck"), /*#__PURE__*/external_React_default().createElement("span", {
     className: "privacy-count-number"
-  }, displayCount)), /*#__PURE__*/external_React_default().createElement("span", {
+  }, displayCount)), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "privacy-count-text"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
     className: "privacy-count-label",
     "data-l10n-id": "newtab-privacy-trackers-blocked-today",
     "data-l10n-args": JSON.stringify({
@@ -22875,14 +23079,17 @@ function Privacy({
     "data-l10n-args": JSON.stringify({
       count: sitesToday
     })
-  })), showTip && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("hr", {
+  }))), isStreak && hasMessage && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("hr", {
+    className: "privacy-divider"
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "privacy-streak"
+  }, messageEl("privacy-tip-message"), ctaButton)), isTip && hasMessage && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("hr", {
     className: "privacy-divider"
   }), /*#__PURE__*/external_React_default().createElement("div", {
     className: "privacy-tip"
-  }, isLarge && privacyImage("widget-privacy-shield-check.svg"), /*#__PURE__*/external_React_default().createElement("p", {
-    className: "privacy-tip-message",
-    "data-l10n-id": "newtab-privacy-message-informed-5"
-  })))))));
+  }, iconInTip && privacyImage(icon || "shieldCheck"), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "privacy-tip-content"
+  }, messageEl("privacy-tip-message"), ctaButton))), blankCta))));
 }
 
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/Crossword/Crossword.jsx
@@ -23396,13 +23603,11 @@ function StockTicker({
 
 
 
-
 // The Stocks widget's error box. It only mounts while there's an error, so the
-// intersection observer set up on mount reports WIDGETS_ERROR the first time the
-// message is actually on screen.
+// intersection observer set up on mount reports the load error the first time
+// the message is actually on screen.
 function StocksError({
-  widgetSize,
-  dispatch
+  recordError
 }) {
   const errorFired = (0,external_React_namespaceObject.useRef)(false);
   const handleErrorIntersection = (0,external_React_namespaceObject.useCallback)(() => {
@@ -23410,17 +23615,8 @@ function StocksError({
       return;
     }
     errorFired.current = true;
-    // Fire from content so the event ties to this tab's session, matching the
-    // other widgets' error telemetry.
-    dispatch(actionCreators.AlsoToMain({
-      type: actionTypes.WIDGETS_ERROR,
-      data: {
-        widget_name: "stocks",
-        widget_size: widgetSize,
-        error_type: "load_error"
-      }
-    }));
-  }, [dispatch, widgetSize]);
+    recordError("load_error");
+  }, [recordError]);
   const errorRef = useIntersectionObserver(handleErrorIntersection);
   return (
     /*#__PURE__*/
@@ -23457,11 +23653,6 @@ function StocksError({
 
 
 
-const Stocks_USER_ACTION_TYPES = {
-  CHANGE_SIZE: "change_size",
-  SEARCH_TICKERS: "search_tickers",
-  LEARN_MORE: "learn_more"
-};
 const STOCKS_ENTRY = WIDGET_REGISTRY.find(w => w.id === "stocks");
 const STOCKS_PLACEHOLDER_COUNT = 4;
 function Stocks_Stocks({
@@ -23480,25 +23671,23 @@ function Stocks_Stocks({
   // default can apply.
   const widgetSize = resolveWidgetSize(STOCKS_ENTRY, prefs);
   const showError = error && !tickers.length;
-  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
+
+  // Show the "New" badge until the user first interacts with the widget;
+  // handleInteraction flips widgets.stocks.interaction, which removes it.
+  const hasInteracted = prefs["widgets.stocks.interaction"];
+  const {
+    impressionRef,
+    recordUserAction,
+    recordError
+  } = useWidgetTelemetry({
+    dispatch,
+    widget: STOCKS_ENTRY,
+    widgetSize
+  });
 
   // Any user action flips widgets.stocks.interaction (idempotent, one-way),
   // matching the other widgets. Hiding the widget is not an interaction.
   const handleInteraction = (0,external_React_namespaceObject.useCallback)(() => handleUserInteraction("stocks"), [handleUserInteraction]);
-  const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
-    if (impressionFired.current) {
-      return;
-    }
-    impressionFired.current = true;
-    dispatch(actionCreators.AlsoToMain({
-      type: actionTypes.WIDGETS_IMPRESSION,
-      data: {
-        widget_name: "stocks",
-        widget_size: widgetSize
-      }
-    }));
-  }, [dispatch, widgetSize]);
-  const widgetRef = useIntersectionObserver(handleIntersection);
   const handleChangeSize = (0,external_React_namespaceObject.useCallback)(size => {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.OnlyToMain({
@@ -23508,59 +23697,45 @@ function Stocks_Stocks({
           value: size
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: {
-          widget_name: "stocks",
-          widget_source: "context_menu",
-          user_action: Stocks_USER_ACTION_TYPES.CHANGE_SIZE,
-          action_value: size,
-          widget_size: size
-        }
-      }));
+      recordUserAction("change_size", {
+        source: "context_menu",
+        value: size,
+        size
+      });
       handleInteraction();
     });
-  }, [dispatch, handleInteraction]);
+  }, [dispatch, recordUserAction, handleInteraction]);
 
   // Placeholder: a real ticker search will replace this telemetry-only stub in
   // a follow-up.
   function handleSearchTickers() {
-    dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.WIDGETS_USER_EVENT,
-      data: {
-        widget_name: "stocks",
-        widget_source: "context_menu",
-        user_action: Stocks_USER_ACTION_TYPES.SEARCH_TICKERS,
-        widget_size: widgetSize
-      }
-    }));
+    recordUserAction("search_tickers", {
+      source: "context_menu"
+    });
     handleInteraction();
   }
 
   // The shared footer opens the support link; here we only record the click.
   function handleLearnMore() {
-    dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.WIDGETS_USER_EVENT,
-      data: {
-        widget_name: "stocks",
-        widget_source: "context_menu",
-        user_action: Stocks_USER_ACTION_TYPES.LEARN_MORE,
-        widget_size: widgetSize
-      }
-    }));
+    recordUserAction("learn_more", {
+      source: "context_menu"
+    });
     handleInteraction();
   }
   return /*#__PURE__*/external_React_default().createElement("article", {
     className: `stocks widget col-4 ${widgetSize}-widget`,
-    ref: el => {
-      widgetRef.current = [el];
-    }
+    ref: impressionRef
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "stocks-title-wrapper"
-  }, /*#__PURE__*/external_React_default().createElement("span", {
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "stocks-badge-title-wrapper"
+  }, !hasInteracted && !!tickers.length && /*#__PURE__*/external_React_default().createElement("moz-badge", {
+    className: "stocks-new-badge",
+    "data-l10n-id": "newtab-widget-lists-label-new"
+  }), /*#__PURE__*/external_React_default().createElement("span", {
     className: "stocks-title",
     "data-l10n-id": "newtab-stocks-widget-title"
-  }), /*#__PURE__*/external_React_default().createElement("div", {
+  })), /*#__PURE__*/external_React_default().createElement("div", {
     className: "stocks-context-menu-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "stocks-context-menu-button",
@@ -23592,8 +23767,7 @@ function Stocks_Stocks({
   })))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "stocks-body"
   }, showError && /*#__PURE__*/external_React_default().createElement(StocksError, {
-    widgetSize: widgetSize,
-    dispatch: dispatch
+    recordError: recordError
   }), !showError && widgetSize === "medium" && /*#__PURE__*/external_React_default().createElement("ul", {
     className: `stocks-grid${tickers.length ? "" : " stocks-grid--loading"}`
   }, tickers.length ? tickers.map(t => /*#__PURE__*/external_React_default().createElement(StockTicker, {

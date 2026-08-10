@@ -374,14 +374,8 @@ pref("browser.startup.couldRestoreSession.count", 0);
 // users as it is not implemented anywhere else.
 #if defined(XP_WIN)
 pref("browser.startup.preXulSkeletonUI", true);
-#endif
 
-// These are called browser.startup.windowsLaunchOnLogin.* because they originated
-// on Windows, but they now operate on macOS as well.
-// They can't be changed until there are no experiments running that are using the
-// old name - https://bugzilla.mozilla.org/show_bug.cgi?id=2059749
-
-// Whether the checkbox to enable Launch on login is shown
+// Whether the checkbox to enable Windows launch on login is shown
 pref("browser.startup.windowsLaunchOnLogin.enabled", true);
 // Whether to show the launch on login infobar notification
 pref("browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt", false);
@@ -392,6 +386,7 @@ pref("browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt", false);
 // direction.
 pref("browser.startup.windowsLaunchOnLogin.defaultEnabled", false);
 pref("browser.startup.windowsLaunchOnLogin.alreadyApplied", false);
+#endif
 
 // Show an upgrade dialog on major upgrades.
 pref("browser.startup.upgradeDialog.enabled", false);
@@ -511,7 +506,6 @@ pref("browser.urlbar.suggest.quickactions",         true);
 pref("browser.urlbar.allowSearchSuggestionsForSimpleOrigins", true);
 
 pref("browser.urlbar.deduplication.enabled", true);
-pref("browser.urlbar.deduplication.thresholdDays", 0);
 
 pref("browser.urlbar.scotchBonnet.enableOverride", true);
 
@@ -1462,6 +1456,10 @@ pref("mousewheel.with_meta.action", 1);
 pref("browser.xul.error_pages.expert_bad_cert", false);
 pref("browser.xul.error_pages.show_safe_browsing_details_on_load", false);
 
+// Enable the one-click search call-to-action on the online dnsNotFound error
+// page. Disabled by default; consumers land in later bugs (meta bug 2055374).
+pref("browser.netError.searchCTA.enabled", false);
+
 // Enable captive portal detection.
 pref("network.captive-portal-service.enabled", true);
 
@@ -2252,7 +2250,7 @@ pref("browser.aboutwelcome.experimentsGate.maxDisplayMs", 8000);
 // Global Nova enabled pref
 #ifdef NIGHTLY_BUILD
   pref("browser.nova.enabled", true);
-#else 
+#else
   pref("browser.nova.enabled", false);
 #endif
 
@@ -2400,7 +2398,7 @@ pref("browser.ml.pageAssist.enabled", false);
 // Smart Window Feature
 pref("browser.smartwindow.enabled", false);
 // Default endpoint for preset models
-pref("browser.smartwindow.endpoint", "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net/v1");
+pref("browser.smartwindow.endpoint", "https://mlpa-prod-prod-mozilla.freetls.fastly.net/v1");
 pref("browser.smartwindow.memories.generateFromHistory", true);
 pref("browser.smartwindow.memories.generateFromConversation", true);
 pref("browser.smartwindow.memories.hasSeenMemories", false);
@@ -2434,6 +2432,8 @@ pref("browser.smartwindow.smartformfill.disallowedRegions", "FR");
 
 // Smart Window Agent
 pref("browser.smartwindow.agent.enabled", false);
+pref("browser.smartwindow.agent.supportedRegions", "US,CA");
+
 
 // Smart Window: Merino World Cup Soccer tool call (bug 2038266)
 pref("browser.smartwindow.worldcup.enabled", true);
@@ -2441,7 +2441,7 @@ pref("browser.smartwindow.worldcup.endpointURL", "https://merino.services.mozill
 pref("browser.smartwindow.worldcup.timeoutMs", 2000);
 
 // Smart Window: Exa search endpoint, used by the search_the_web agentic flow (bug 2037948)
-pref("browser.smartwindow.searchQuery.endpointURL", "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net/v1/search");
+pref("browser.smartwindow.searchQuery.endpointURL", "https://mlpa-prod-prod-mozilla.freetls.fastly.net/v1/search");
 pref("browser.smartwindow.searchQuery.apiKey", "");
 
 // Smart Window Logging
@@ -3778,6 +3778,8 @@ pref("browser.ipProtection.everOpenedPanel", false);
 pref("browser.ipProtection.openedPanelWithLocation", false);
 // Pref to enable support for site exceptions
 pref("browser.ipProtection.features.siteExceptions", true);
+// Pref to enable support for site inclusions
+pref("browser.ipProtection.features.siteInclusions", false);
 // Pref to show confirmation hints for site exceptions
 pref("browser.ipProtection.siteExceptionsHintsEnabled", true);
 pref("browser.ipProtection.log", false);

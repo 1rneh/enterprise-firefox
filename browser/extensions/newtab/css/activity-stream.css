@@ -10090,6 +10090,7 @@ dialog:dir(rtl)::after {
   }
 }
 .privacy.medium-widget {
+  padding-block-start: var(--space-small);
   grid-row: span 2;
 }
 .privacy.large-widget {
@@ -10124,25 +10125,28 @@ dialog:dir(rtl)::after {
   align-items: flex-start;
   justify-content: flex-end;
 }
-.medium-widget .privacy-body {
-  font-size: var(--font-size-xsmall);
-}
-.has-tip-msg.medium-widget .privacy-body {
-  justify-content: flex-end;
-  flex-direction: row;
-  align-items: stretch;
-  gap: var(--space-large);
-}
-.has-tip-msg.medium-widget .privacy-body .privacy-tip, .has-tip-msg.medium-widget .privacy-body .privacy-count {
-  flex: 1;
+.privacy-body .privacy-count-text {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+}
+.medium-widget .privacy-body .privacy-count-text {
+  margin-block-end: var(--space-medium);
+}
+.has-streak.medium-widget .privacy-body .privacy-count-text, .has-tip-msg.medium-widget .privacy-body .privacy-count-text {
+  margin-block-end: 0;
+}
+.has-streak.medium-widget .privacy-body .privacy-count, .has-tip-msg.medium-widget .privacy-body .privacy-count {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-small);
 }
 .large-widget .privacy-body {
   align-items: flex-start;
   justify-content: flex-end;
   gap: var(--space-large);
+}
+.has-streak .privacy-body {
+  gap: var(--space-small);
 }
 .is-empty .privacy-body {
   align-items: center;
@@ -10182,7 +10186,7 @@ dialog:dir(rtl)::after {
   gap: var(--space-small);
 }
 .privacy-count .privacy-count-number {
-  font-size: calc(var(--font-size-root) * 2.75);
+  font-size: calc(var(--font-size-root) * 2.5);
 }
 .large-widget .privacy-count .privacy-count-number {
   font-size: calc(var(--font-size-root) * 4.5);
@@ -10193,20 +10197,47 @@ dialog:dir(rtl)::after {
   margin: 0;
   border: 0;
   background-color: var(--border-color);
-}
-.medium-widget .privacy-divider {
-  inline-size: var(--border-width);
-}
-.large-widget .privacy-divider {
   block-size: var(--border-width);
 }
+.medium-widget .privacy-divider {
+  margin-block-end: var(--space-small);
+}
 
+.privacy-tip {
+  align-self: stretch;
+}
 .large-widget .privacy-tip {
   align-items: center;
   display: flex;
   gap: var(--space-small);
 }
 .privacy-tip .privacy-tip-message {
+  align-self: flex-start;
+  margin: 0;
+}
+
+.privacy-tip-content,
+.privacy-streak {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+}
+
+.privacy-tip-content {
+  align-items: flex-end;
+  gap: var(--space-xxsmall);
+}
+.large-widget .privacy-tip-content {
+  gap: var(--space-small);
+}
+
+.privacy-streak {
+  align-items: flex-end;
+  width: 100%;
+  gap: var(--space-small);
+}
+.privacy-streak .privacy-tip-message {
+  align-self: flex-start;
   margin: 0;
 }
 
@@ -10367,7 +10398,30 @@ dialog:dir(rtl)::after {
   display: flex;
   justify-content: space-between;
 }
+.stocks-title-wrapper .stocks-badge-title-wrapper {
+  align-items: center;
+  display: flex;
+  gap: var(--space-small);
+  min-inline-size: 0;
+}
 
+.stocks-new-badge {
+  flex: none;
+  background-color: var(--badge-background-color-filled);
+  border-radius: var(--badge-border-radius);
+  text-transform: uppercase;
+  --badge-padding-block: 1px;
+  --badge-padding-inline: var(--space-small);
+  --badge-background-color-filled: var(--color-green-40);
+  --badge-text-color: var(--badge-text-color-filled);
+  --badge-border-color: transparent;
+}
+
+@media (forced-colors: active) {
+  .stocks-new-badge {
+    --badge-background-color-filled: AccentColor;
+  }
+}
 .stocks-title {
   color: var(--text-color-deemphasized);
   font-size: var(--font-size-small);

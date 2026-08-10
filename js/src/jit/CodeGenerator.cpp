@@ -10138,21 +10138,9 @@ void CodeGenerator::visitArrayLength(LArrayLength* lir) {
   }
 }
 
-static void SetLengthFromIndex(MacroAssembler& masm, const LAllocation* index,
-                               const Address& length) {
-  if (index->isConstant()) {
-    masm.store32(Imm32(ToInt32(index) + 1), length);
-  } else {
-    Register newLength = ToRegister(index);
-    masm.add32(Imm32(1), newLength);
-    masm.store32(newLength, length);
-    masm.sub32(Imm32(1), newLength);
-  }
-}
-
 void CodeGenerator::visitSetArrayLength(LSetArrayLength* lir) {
   Address length(ToRegister(lir->elements()), ObjectElements::offsetOfLength());
-  SetLengthFromIndex(masm, lir->index(), length);
+  masm.store32(Imm32(lir->mir()->length()), length);
 }
 
 void CodeGenerator::visitFunctionLength(LFunctionLength* lir) {
@@ -15526,9 +15514,36 @@ void CodeGenerator::visitInitializedLength(LInitializedLength* lir) {
 }
 
 void CodeGenerator::visitSetInitializedLength(LSetInitializedLength* lir) {
-  Address initLength(ToRegister(lir->elements()),
-                     ObjectElements::offsetOfInitializedLength());
-  SetLengthFromIndex(masm, lir->index(), initLength);
+  Register elements = ToRegister(lir->elements());
+  uint32_t newLength = lir->mir()->length();
+  Address initLength(elements, ObjectElements::offsetOfInitializedLength());
+
+  if (lir->mir()->needsPreBarrier()) {
+    // The elements at or above the new initialized length are no longer part of
+    // the object, so we need a pre-barrier.
+    Register index = ToRegister(lir->temp0());
+    Label done;
+    masm.branchTestNeedsMarkingBarrier(Assembler::Zero, &done);
+    masm.load32(initLength, index);
+    Label loop;
+    masm.bind(&loop);
+    masm.branch32(Assembler::BelowOrEqual, index, Imm32(newLength), &done);
+    masm.sub32(Imm32(1), index);
+    masm.unguardedCallPreBarrier(BaseValueIndex(elements, index),
+                                 MIRType::Value);
+    masm.jump(&loop);
+    masm.bind(&done);
+  } else {
+#ifdef DEBUG
+    // Callers that don't need a barrier must not remove any elements.
+    Label ok;
+    masm.branch32(Assembler::BelowOrEqual, initLength, Imm32(newLength), &ok);
+    masm.assumeUnreachable("removing elements without a pre-barrier");
+    masm.bind(&ok);
+#endif
+  }
+
+  masm.store32(Imm32(newLength), initLength);
 }
 
 void CodeGenerator::visitNotI(LNotI* lir) {
@@ -19275,7 +19290,7 @@ void CodeGenerator::visitLoadElementV(LLoadElementV* load) {
   } else {
 #ifdef DEBUG
     Label ok;
-    masm.branchTestMagic(Assembler::NotEqual, out, &ok);
+    masm.branchTestMagicValue(Assembler::NotEqual, out, JS_ELEMENTS_HOLE, &ok);
     masm.assumeUnreachable("LoadElementV had incorrect needsHoleCheck");
     masm.bind(&ok);
 #endif

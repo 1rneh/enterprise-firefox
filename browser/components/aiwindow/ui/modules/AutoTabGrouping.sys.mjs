@@ -118,7 +118,8 @@ export const AutoTabGrouping = {
    *
    * recent holds the groups created from suggestions (newest first); the panel
    * lists them under "Just created" and the "Ungroup" button reverses all of
-   * them at once.
+   * them at once. It is emptied when the panel closes: a group is only "just
+   * created" while the panel that created it stays open.
    *
    * @type {WeakMap<ChromeWindow, {computed: boolean, computing: boolean,
    *   computeCount: number, computePromise: ?Promise<void>,
@@ -233,6 +234,7 @@ export const AutoTabGrouping = {
         win.removeEventListener("keydown", onKeyDown, true);
         this._cancelHideFlyout(panel);
         panel._flyoutPanel?.remove();
+        this._getState(win).recent = [];
         if (this._panels.get(win) === panel) {
           this._panels.delete(win);
         }
@@ -301,6 +303,9 @@ export const AutoTabGrouping = {
       this._showFlyoutById(win, panel, e.detail.id, e.detail.anchor);
     });
     card.addEventListener("preview-end", () => this._scheduleHideFlyout(panel));
+    card.addEventListener("mouseover", e =>
+      this._dismissPreviewOnRow(panel, e)
+    );
     card.addEventListener("preview-enter", e => {
       panel._dismissedRow = null;
       this._showFlyoutById(win, panel, e.detail.id, e.detail.anchor);
@@ -399,8 +404,6 @@ export const AutoTabGrouping = {
     card.computing = state.computing;
     card.suggestions = [...state.suggestions];
     card.recent = [...state.recent];
-    card.ungrouped =
-      lazy.AutoTabGroupingSuggestions.getCandidateTabs(win).length;
     card.duplicates = win.gBrowser.getAllDuplicateTabsToClose().length;
     return hidden;
   },
@@ -529,6 +532,24 @@ export const AutoTabGrouping = {
     return !!active && !!panel._flyoutPanel?.contains(active);
   },
 
+  _dismissPreviewOnRow(panel, event) {
+    if (!panel._activeRow || this._flyoutHasFocus(panel)) {
+      return;
+    }
+    // .swgt-row is every row the card makes actionable ("Create Groups", the
+    // suggestions, "Ungroup Tabs", "Close Duplicate Tabs"); .swgt-recent-row is
+    // a "Just created" entry, which is only there to be read. Another
+    // suggestion is left out because it repositions the flyout instead.
+    const row = event.target.closest(".swgt-row, .swgt-recent-row");
+    if (
+      row &&
+      row !== panel._activeRow &&
+      !row.classList.contains("swgt-suggestion")
+    ) {
+      this._hideFlyout(panel);
+    }
+  },
+
   _scheduleHideFlyout(panel) {
     this._cancelHideFlyout(panel);
     if (this._flyoutHasFocus(panel)) {
@@ -536,7 +557,6 @@ export const AutoTabGrouping = {
     }
     panel._hideTimer = lazy.setTimeout(() => {
       panel._hideTimer = 0;
-      panel._dismissedRow = panel._activeRow;
       this._hideFlyout(panel);
     }, FLYOUT_HIDE_DELAY_MS);
   },

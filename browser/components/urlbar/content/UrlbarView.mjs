@@ -1233,6 +1233,16 @@ export class UrlbarView {
       : null;
   }
 
+  /**
+   * Whether rows show action labels, e.g. "Search with Google". This doesn't
+   * apply to secondary action buttons.
+   *
+   * @returns {boolean}
+   */
+  get #showsActionLabels() {
+    return this.input.sapName != "searchbar";
+  }
+
   #createElement(tag) {
     return this.document.createElementNS("http://www.w3.org/1999/xhtml", tag);
   }
@@ -1796,7 +1806,10 @@ export class UrlbarView {
       item
     );
     item.toggleAttribute("has-url", classes.has("urlbarView-url"));
-    item.toggleAttribute("has-action", classes.has("urlbarView-action"));
+    item.toggleAttribute(
+      "has-action",
+      this.#showsActionLabels && classes.has("urlbarView-action")
+    );
     this.#setRowSelectable(item, item._content.hasAttribute("selectable"));
   }
 
@@ -2319,7 +2332,7 @@ export class UrlbarView {
         this.#createRowContentForBottomUrl(item, result);
       } else if (
         result.isRichSuggestion ||
-        Services.prefs.getBoolPref("browser.nova.enabled", false)
+        UrlbarPrefs.get("browser.nova.enabled")
       ) {
         this.#createRowContentForRichSuggestion(item, result);
       } else {
@@ -2615,10 +2628,7 @@ export class UrlbarView {
       };
     }
 
-    if (
-      result.isRichSuggestion ||
-      Services.prefs.getBoolPref("browser.nova.enabled", false)
-    ) {
+    if (result.isRichSuggestion || UrlbarPrefs.get("browser.nova.enabled")) {
       this.#updateRowForRichSuggestion(item, result);
     }
 
@@ -2656,16 +2666,18 @@ export class UrlbarView {
       };
     }
 
-    item.toggleAttribute("has-action", actionSetter);
-    if (actionSetter) {
-      actionSetter();
-      item._originalActionSetter = actionSetter;
-    } else {
-      item._originalActionSetter = () => {
-        this.#l10nCache.removeElementL10n(action);
-        action.textContent = "";
-      };
-      item._originalActionSetter();
+    if (this.#showsActionLabels) {
+      item.toggleAttribute("has-action", actionSetter);
+      if (actionSetter) {
+        actionSetter();
+        item._originalActionSetter = actionSetter;
+      } else {
+        item._originalActionSetter = () => {
+          this.#l10nCache.removeElementL10n(action);
+          action.textContent = "";
+        };
+        item._originalActionSetter();
+      }
     }
 
     if (!title.hasAttribute("is-url")) {
@@ -2817,7 +2829,7 @@ export class UrlbarView {
     // The "rich-suggestion" attribute isn't used in Nova.
     item.toggleAttribute(
       "rich-suggestion",
-      !Services.prefs.getBoolPref("browser.nova.enabled", false)
+      !UrlbarPrefs.get("browser.nova.enabled")
     );
 
     this.#setRowSelectable(item, result.type != UrlbarShared.RESULT_TYPE.TIP);
@@ -2880,7 +2892,7 @@ export class UrlbarView {
     // The "rich-suggestion" attribute isn't used in Nova.
     item.toggleAttribute(
       "rich-suggestion",
-      !Services.prefs.getBoolPref("browser.nova.enabled", false)
+      !UrlbarPrefs.get("browser.nova.enabled")
     );
 
     item.setAttribute(

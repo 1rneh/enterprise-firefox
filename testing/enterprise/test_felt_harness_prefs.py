@@ -96,9 +96,9 @@ class HarnessPrefs(BaseBrowserSignout):
             # captivedetect.canonicalURL and the connectivity-service URLs are
             # intentionally NOT console-routed: they must stay plaintext HTTP so a
             # captive portal can intercept them, so they keep their all.js values.
-            "captivedetect.canonicalURL": "http://detectportal.firefox.com/canonical.html",
-            "network.connectivity-service.IPv4.url": "http://detectportal.firefox.com/success.txt?ipv4",
-            "network.connectivity-service.IPv6.url": "http://detectportal.firefox.com/success.txt?ipv6",
+            "captivedetect.canonicalURL": "http://firefox-portal-detection.com/generate_204",
+            "network.connectivity-service.IPv4.url": "http://firefox-portal-detection.com/success.txt?ipv4",
+            "network.connectivity-service.IPv6.url": "http://firefox-portal-detection.com/success.txt?ipv6",
             "browser.ipProtection.guardian.endpoint": base,
             "identity.fxaccounts.remote.root": base,
             "enterprise.is_testing": True,

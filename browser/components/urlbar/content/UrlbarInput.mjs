@@ -130,7 +130,7 @@ export class UrlbarInput extends HTMLElement {
         <html:panel-list class="searchmode-switcher-panel-list">
           <html:div class="searchmode-switcher-panel-description" role="heading" />
 ${
-  Services.prefs.getBoolPref("browser.nova.enabled", false)
+  UrlbarPrefs.get("browser.nova.enabled")
     ? '<html:hr class="searchmode-switcher-panel-installed-engine-separator"/><html:hr class="searchmode-switcher-panel-footer-separator"/>'
     : '<html:hr/><html:hr class="searchmode-switcher-panel-installed-engine-separator searchmode-switcher-panel-footer-separator"/>'
 }
@@ -359,6 +359,7 @@ ${
     }
 
     this.controller = new UrlbarChildController({ input: this });
+    this.controller.addListener(this);
     this.view = new UrlbarView(this);
     this.searchModeSwitcher = new SearchModeSwitcher(this);
 
@@ -368,8 +369,7 @@ ${
 
     searchModeSwitcherDescription.setAttribute(
       "data-l10n-id",
-      this.#isAddressbar &&
-        !Services.prefs.getBoolPref("browser.nova.enabled", false)
+      this.#isAddressbar && !UrlbarPrefs.get("browser.nova.enabled")
         ? "urlbar-searchmode-popup-one-off-header"
         : "urlbar-searchmode-popup-header"
     );
@@ -2363,15 +2363,14 @@ ${
   }
 
   /**
-   * Invoked by the controller when the first result is received.
+   * Invoked by the controller when the first result changed.
    *
-   * @param {UrlbarResult} firstResult
-   *   The first result received.
-   * @returns {boolean}
-   *   True if this method canceled the query and started a new one.  False
-   *   otherwise.
+   * @param {UrlbarQueryContext} queryContext
+   *   The context of the query the result belongs to.
    */
-  onFirstResult(firstResult) {
+  onFirstResult(queryContext) {
+    let firstResult = queryContext.results[0];
+
     // If the heuristic result has a keyword but isn't a keyword offer, we may
     // need to enter search mode.
     if (
@@ -2384,7 +2383,9 @@ ${
         checkValue: false,
       })
     ) {
-      return true;
+      // Search mode restarts the query, so these results are obsolete.
+      this.controller.discardResults();
+      return;
     }
 
     // To prevent selection flickering, we apply autofill on input through a
@@ -2401,8 +2402,6 @@ ${
       this._autofillPlaceholder = null;
       this.setValue(this.userTypedValue);
     }
-
-    return false;
   }
 
   /**
@@ -4972,9 +4971,9 @@ ${
       return;
     }
 
-    let prefName =
-      "browser.urlbar.placeholderName" + (this.isPrivate ? ".private" : "");
-    let engineName = Services.prefs.getStringPref(prefName, "");
+    let engineName = UrlbarPrefs.get(
+      "placeholderName" + (this.isPrivate ? ".private" : "")
+    );
     if (engineName) {
       this._setPlaceholder(engineName);
     }

@@ -15,6 +15,10 @@ support-files = [
 
 ["test_addon_update.js"]
 
+["test_aichatbot.js"]
+# Only run in MOZ_ENTERPRISE builds
+run-if = ["enterprise"]
+
 ["test_appupdatepin.js"]
 
 ["test_appupdateurl.js"]

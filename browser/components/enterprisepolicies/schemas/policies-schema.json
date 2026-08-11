@@ -132,9 +132,7 @@
               "items": {
                 "type": "object",
                 "properties": {
-                  "url": {
-                    "type": "URL"
-                  },
+                  "url": { "$ref": "#/definitions/url" },
                   "name": {
                     "type": "string"
                   },

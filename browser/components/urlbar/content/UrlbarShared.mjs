@@ -31,6 +31,19 @@ import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs"
  *   Has a value and an accesskey attribute.
  */
 
+/**
+ * @typedef {object} URIFixupPrimitives
+ *   The parts of an `nsIURIFixupInfo` that survive the actor boundary, so a
+ *   content-realm consumer never holds an XPCOM object. Produced by
+ *   `UrlbarUtils.getFixupPrimitives()`.
+ *
+ * @property {string} keywordAsSent
+ *   The keyword the string was turned into, empty if it wasn't a keyword
+ *   search.
+ * @property {?string} preferredURIDisplaySpec
+ *   The display spec of the preferred URI, if there is one.
+ */
+
 // The userContextId used in the moz_openpages_temp table for tabs in private
 // windows. Real container ids are non-negative, so -1 is a safe sentinel.
 const PRIVATE_USER_CONTEXT_ID = -1;
@@ -200,6 +213,43 @@ export const UrlbarShared = {
     EXTENSION: 4,
   }),
 
+  // The tip types UrlbarProviderInterventions can show, i.e. the `type` in the
+  // payload of its results.
+  INTERVENTION_TIP_TYPE: Object.freeze({
+    NONE: "",
+    CLEAR: "intervention_clear",
+    REFRESH: "intervention_refresh",
+
+    // There's an update available, but the user's pref says we should ask them
+    // to download and apply it.
+    UPDATE_ASK: "intervention_update_ask",
+
+    // The updater is currently checking.  We don't actually show a tip for this,
+    // but we use it to tell whether we should wait for the check to complete in
+    // startQuery.  See startQuery for details.
+    UPDATE_CHECKING: "intervention_update_checking",
+
+    // The user's browser is up to date, but they triggered the update
+    // intervention. We show this special refresh intervention instead.
+    UPDATE_REFRESH: "intervention_update_refresh",
+
+    // There's an update and it's been downloaded and applied. The user needs to
+    // restart to finish.
+    UPDATE_RESTART: "intervention_update_restart",
+
+    // We can't update the browser or possibly even check for updates for some
+    // reason, so the user should download the latest version from the web.
+    UPDATE_WEB: "intervention_update_web",
+  }),
+
+  // The tip types UrlbarProviderSearchTips can show, i.e. the `type` in the
+  // payload of its results.
+  SEARCH_TIP_TYPE: Object.freeze({
+    NONE: "",
+    ONBOARD: "searchTip_onboard",
+    REDIRECT: "searchTip_redirect",
+  }),
+
   // Per-result exposure telemetry.
   EXPOSURE_TELEMETRY: {
     // Exposure telemetry will not be recorded for the result.
@@ -309,7 +359,7 @@ export const UrlbarShared = {
       {
         source: this.RESULT_SOURCE.TABS,
         restrict: this.RESTRICT_TOKENS.OPENPAGE,
-        icon: "chrome://browser/skin/tabs.svg",
+        icon: "chrome://browser/skin/open-tabs.svg",
         pref: "shortcuts.tabs",
         telemetryLabel: "tabs",
         uiLabel: "urlbar-searchmode-tabs3",
@@ -325,7 +375,7 @@ export const UrlbarShared = {
       {
         source: this.RESULT_SOURCE.ACTIONS,
         restrict: this.RESTRICT_TOKENS.ACTION,
-        icon: "chrome://browser/skin/quickactions.svg",
+        icon: "chrome://browser/skin/lightning-bolt.svg",
         pref: "shortcuts.actions",
         telemetryLabel: "actions",
         uiLabel: "urlbar-searchmode-actions3",
@@ -674,6 +724,60 @@ export const UrlbarShared = {
       (event.inputType.startsWith("insertFromPaste") ||
         event.inputType == "insertFromYank")
     );
+  },
+
+  /**
+   * Sanitize and process data retrieved from the clipboard
+   *
+   * @param {string} clipboardData
+   *   The original data retrieved from the clipboard.
+   * @param {?URIFixupPrimitives} fixupInfo
+   *   Fixup info for `clipboardData`, or null if it couldn't be fixed up. URI
+   *   fixup is parent-only, so the caller supplies it, either from
+   *   `UrlbarUtils.getFixupPrimitives()` or, from an input, from
+   *   `controller.getFixupPrimitives()`.
+   * @returns {string}
+   *   The sanitized paste data, ready to use.
+   */
+  sanitizeTextFromClipboard(clipboardData, fixupInfo) {
+    let url = URL.parse(clipboardData);
+    let pasteData;
+    if (fixupInfo?.keywordAsSent) {
+      // For performance reasons, we don't want to beautify a long string.
+      if (clipboardData.length < 500) {
+        // For only keywords, replace any white spaces including line break
+        // with white space.
+        pasteData = clipboardData.replace(/\s/g, " ");
+      } else {
+        pasteData = clipboardData;
+      }
+    } else if (
+      url?.protocol == "data:" &&
+      !url.href.match(/^data:.+;base64,/)
+    ) {
+      // For data url without base64, replace line break with white space.
+      pasteData = clipboardData.replace(/[\r\n]/g, " ");
+    } else {
+      // For normal url or data url having basic64, or if fixup failed, just
+      // remove line breaks.
+      pasteData = clipboardData.replace(/[\r\n]/g, "");
+    }
+
+    return this.stripUnsafeProtocolOnPaste(pasteData);
+  },
+
+  /**
+   * Used to filter out the javascript protocol from URIs, since we don't
+   * support LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL for those.
+   *
+   * @param {string} pasteData The data to check for javacript protocol.
+   * @returns {string} The modified paste data.
+   */
+  stripUnsafeProtocolOnPaste(pasteData) {
+    while (URL.parse(pasteData)?.protocol == "javascript:") {
+      pasteData = pasteData.substring(pasteData.indexOf(":") + 1);
+    }
+    return pasteData;
   },
 
   /**

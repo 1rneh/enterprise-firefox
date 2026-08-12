@@ -15,7 +15,7 @@ Services.scriptloader.loadSubScript(
 const { FX_RELAY_OAUTH_CLIENT_ID } = ChromeUtils.importESModule(
   "resource://gre/modules/FxAccountsCommon.sys.mjs"
 );
-const { SyncedTabs } = ChromeUtils.importESModule(
+const { SyncedTabs, SyncedTabsManagement } = ChromeUtils.importESModule(
   "resource://services-sync/SyncedTabs.sys.mjs"
 );
 
@@ -2233,6 +2233,119 @@ add_task(
     sandbox.restore();
   }
 );
+
+/**
+ * Regression test for bug 2057197 / bug 2058595: in the FxA menu's per-device
+ * recent tabs panel, each row is a toolbaritem holding the tab button and its
+ * sibling close/undo buttons. Closing a tab disables the tab button; because
+ * Undo is a sibling (not nested inside the disabled button), it stays reachable
+ * - both clickable and exposed via the accessibility API - so the close can be
+ * undone. This synthesizes real mouse events so that pointer-events are honored
+ * (element.click() would bypass them).
+ */
+add_task(async function test_recent_tabs_close_then_undo() {
+  const sandbox = sinon.createSandbox();
+  sandbox.stub(UIState, "get").returns({
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+  });
+  sandbox.stub(BrowserUtils, "getShareableURL").returnsArg(0);
+  sandbox
+    .stub(fxAccounts.commands.sendTab, "isDeviceCompatible")
+    .returns(false);
+  sandbox
+    .stub(fxAccounts.commands.closeTab, "isDeviceCompatible")
+    .returns(true);
+
+  // Avoid touching the real remote command store; just observe the calls.
+  let enqueueStub = sandbox
+    .stub(SyncedTabsManagement, "enqueueTabToClose")
+    .resolves();
+  let removeStub = sandbox
+    .stub(SyncedTabsManagement, "removePendingTabToClose")
+    .resolves();
+
+  gSync.updateAllUI({
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+    email: "foo@bar.com",
+  });
+  await openFxaPanel();
+
+  let panelview = PanelMultiView.getViewNode(document, "PanelUI-fxa");
+  let devicesListContainer = PanelMultiView.getViewNode(
+    document,
+    "PanelUI-fxa-menu-devices-list"
+  );
+  let mockDevice = {
+    id: "dev-1",
+    name: "Device 1",
+    availableCommands: {
+      "https://identity.mozilla.com/cmd/close-uri": "baz",
+    },
+  };
+  let mockClient = {
+    id: "client-1",
+    name: "Device 1",
+    lastModified: Date.now(),
+    tabs: [
+      {
+        title: "Tab 1",
+        url: "https://example.com/",
+        icon: "",
+        lastUsed: Date.now(),
+        inactive: false,
+      },
+    ],
+  };
+
+  let subviewShown = BrowserTestUtils.waitForEvent(
+    PanelMultiView.getViewNode(document, "PanelUI-fxa-device-recent-tabs"),
+    "ViewShown"
+  );
+  panelview.syncedTabsPanelList._showDeviceRecentTabs(
+    mockClient,
+    mockDevice,
+    devicesListContainer,
+    new PointerEvent("click")
+  );
+  await subviewShown;
+
+  let tabsList = PanelMultiView.getViewNode(
+    document,
+    "PanelUI-fxa-device-recent-tabs-list"
+  );
+  let tabItem = tabsList.querySelector("toolbaritem.all-tabs-item");
+  let tabButton = tabItem.querySelector(".all-tabs-button");
+  let closeBtn = tabItem.querySelector(".all-tabs-close-button");
+  let undoBtn = tabItem.querySelector(".remote-tabs-undo-button");
+  ok(closeBtn, "Close button is present");
+  ok(undoBtn, "Undo button is present");
+  ok(undoBtn.hidden, "Undo button is hidden before closing");
+
+  EventUtils.synthesizeMouseAtCenter(closeBtn, {}, window);
+
+  ok(enqueueStub.calledOnce, "Closing the tab queued a remote close");
+  ok(
+    tabButton.disabled,
+    "Tab button is disabled after closing (Undo stays reachable as a sibling)"
+  );
+  ok(closeBtn.hidden, "Close button is hidden after closing");
+  ok(!undoBtn.hidden, "Undo button is shown after closing");
+
+  EventUtils.synthesizeMouseAtCenter(undoBtn, {}, window);
+
+  ok(
+    removeStub.calledOnce,
+    "Clicking Undo removed the pending remote close (bug 2057197)"
+  );
+  ok(!tabButton.disabled, "Tab button is re-enabled after undo");
+  ok(undoBtn.hidden, "Undo button is hidden after undo");
+  ok(!closeBtn.hidden, "Close button is shown again after undo");
+
+  await closeFxaPanel();
+  sandbox.restore();
+});
 
 add_task(async function test_sync_status_button_visible_when_sync_on() {
   let state = {

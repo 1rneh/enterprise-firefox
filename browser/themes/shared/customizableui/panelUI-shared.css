@@ -1768,7 +1768,6 @@ toolbarbutton[itemtype="tab"].PanelUI-tabitem-container,
 #appMenu-fxa-label > .toolbarbutton-icon,
 #PanelUI-containersItems > .subviewbutton > .toolbarbutton-icon,
 .PanelUI-tabitem-container > toolbarbutton[itemtype="tab"] > .toolbarbutton-icon,
-toolbarbutton[itemtype="tab"].PanelUI-tabitem-container > .toolbarbutton-icon,
 .PanelUI-remotetabs-clientcontainer > toolbarbutton > .toolbarbutton-icon,
 #PanelUI-recentlyClosedWindows > toolbarbutton > .toolbarbutton-icon,
 #PanelUI-recentlyClosedTabs > toolbarbutton > .toolbarbutton-icon,
@@ -1796,8 +1795,7 @@ toolbarbutton[itemtype="tab"].PanelUI-tabitem-container > .toolbarbutton-icon,
     transform: translateY(-20px);
   }
 
-  > toolbarbutton[itemtype="tab"],
-  &[itemtype="tab"] {
+  > toolbarbutton[itemtype="tab"] {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -1823,7 +1821,6 @@ toolbarbutton[itemtype="showinactivebutton"] {
     /* To match the nav elements in the panel */
     -moz-context-properties: fill, fill-opacity;
     fill: currentColor;
-    fill-opacity: var(--opacity-deemphasized-strong);
     display: flex;
   }
 }

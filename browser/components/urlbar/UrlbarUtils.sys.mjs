@@ -8,6 +8,7 @@
  */
 
 /**
+ * @import {URIFixupPrimitives} from "chrome://browser/content/urlbar/UrlbarShared.mjs"
  * @import {Query} from "./UrlbarProvidersManager.sys.mjs"
  * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  * @import {SmartbarInput} from "chrome://browser/content/urlbar/SmartbarInput.mjs"
@@ -37,10 +38,6 @@ const lazy = XPCOMUtils.declareLazy({
   SearchSuggestionController:
     "moz-src:///toolkit/components/search/SearchSuggestionController.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarProviderInterventions:
-    "moz-src:///browser/components/urlbar/UrlbarProviderInterventions.sys.mjs",
-  UrlbarProviderSearchTips:
-    "moz-src:///browser/components/urlbar/UrlbarProviderSearchTips.sys.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
@@ -517,70 +514,25 @@ export var UrlbarUtils = {
   },
 
   /**
-   * Sanitize and process data retrieved from the clipboard
+   * Returns the parts of a string's URI fixup info that a consumer which can't
+   * hold an XPCOM object can use, notably the content realm, which is served
+   * across the `UrlbarChild` actor boundary.
    *
-   * @param {string} clipboardData
-   *   The original data retrieved from the clipboard.
-   * @returns {string}
-   *   The sanitized paste data, ready to use.
+   * @param {string} searchString
+   *   The string to fix up.
+   * @param {boolean} isPrivate
+   *   Whether the fixup runs for a private context.
+   * @returns {?URIFixupPrimitives}
+   *   The fixup primitives, or null if fixup threw.
    */
-  sanitizeTextFromClipboard(clipboardData) {
-    let fixedURI, keywordAsSent;
-    try {
-      ({ fixedURI, keywordAsSent } = Services.uriFixup.getFixupURIInfo(
-        clipboardData,
-        Ci.nsIURIFixup.FIXUP_FLAG_FIX_SCHEME_TYPOS |
-          Ci.nsIURIFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP
-      ));
-    } catch (e) {}
-
-    let pasteData;
-    if (keywordAsSent) {
-      // For performance reasons, we don't want to beautify a long string.
-      if (clipboardData.length < 500) {
-        // For only keywords, replace any white spaces including line break
-        // with white space.
-        pasteData = clipboardData.replace(/\s/g, " ");
-      } else {
-        pasteData = clipboardData;
-      }
-    } else if (
-      fixedURI?.scheme == "data" &&
-      !fixedURI.spec.match(/^data:.+;base64,/)
-    ) {
-      // For data url without base64, replace line break with white space.
-      pasteData = clipboardData.replace(/[\r\n]/g, " ");
-    } else {
-      // For normal url or data url having basic64, or if fixup failed, just
-      // remove line breaks.
-      pasteData = clipboardData.replace(/[\r\n]/g, "");
-    }
-
-    return this.stripUnsafeProtocolOnPaste(pasteData);
-  },
-
-  /**
-   * Used to filter out the javascript protocol from URIs, since we don't
-   * support LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL for those.
-   *
-   * @param {string} pasteData The data to check for javacript protocol.
-   * @returns {string} The modified paste data.
-   */
-  stripUnsafeProtocolOnPaste(pasteData) {
-    for (;;) {
-      let scheme = "";
-      try {
-        scheme = Services.io.extractScheme(pasteData);
-      } catch (ex) {
-        // If it throws, this is not a javascript scheme.
-      }
-      if (scheme != "javascript") {
-        break;
-      }
-
-      pasteData = pasteData.substring(pasteData.indexOf(":") + 1);
-    }
-    return pasteData;
+  getFixupPrimitives(searchString, isPrivate) {
+    let info = this.getURIFixupInfo(searchString, isPrivate);
+    return info
+      ? {
+          keywordAsSent: info.keywordAsSent,
+          preferredURIDisplaySpec: info.preferredURI?.displaySpec ?? null,
+        }
+      : null;
   },
 
   /**
@@ -1452,24 +1404,24 @@ export var UrlbarUtils = {
       case UrlbarShared.RESULT_TYPE.TIP:
         if (result.providerName === "UrlbarProviderInterventions") {
           switch (result.payload.type) {
-            case lazy.UrlbarProviderInterventions.TIP_TYPE.CLEAR:
+            case UrlbarShared.INTERVENTION_TIP_TYPE.CLEAR:
               return "intervention_clear";
-            case lazy.UrlbarProviderInterventions.TIP_TYPE.REFRESH:
+            case UrlbarShared.INTERVENTION_TIP_TYPE.REFRESH:
               return "intervention_refresh";
-            case lazy.UrlbarProviderInterventions.TIP_TYPE.UPDATE_ASK:
-            case lazy.UrlbarProviderInterventions.TIP_TYPE.UPDATE_CHECKING:
-            case lazy.UrlbarProviderInterventions.TIP_TYPE.UPDATE_REFRESH:
-            case lazy.UrlbarProviderInterventions.TIP_TYPE.UPDATE_RESTART:
-            case lazy.UrlbarProviderInterventions.TIP_TYPE.UPDATE_WEB:
+            case UrlbarShared.INTERVENTION_TIP_TYPE.UPDATE_ASK:
+            case UrlbarShared.INTERVENTION_TIP_TYPE.UPDATE_CHECKING:
+            case UrlbarShared.INTERVENTION_TIP_TYPE.UPDATE_REFRESH:
+            case UrlbarShared.INTERVENTION_TIP_TYPE.UPDATE_RESTART:
+            case UrlbarShared.INTERVENTION_TIP_TYPE.UPDATE_WEB:
               return "intervention_update";
             default:
               return "intervention_unknown";
           }
         }
         switch (result.payload.type) {
-          case lazy.UrlbarProviderSearchTips.TIP_TYPE.ONBOARD:
+          case UrlbarShared.SEARCH_TIP_TYPE.ONBOARD:
             return "tip_onboard";
-          case lazy.UrlbarProviderSearchTips.TIP_TYPE.REDIRECT:
+          case UrlbarShared.SEARCH_TIP_TYPE.REDIRECT:
             return "tip_redirect";
           case "dismissalAcknowledgment":
             return "tip_dismissal_acknowledgment";

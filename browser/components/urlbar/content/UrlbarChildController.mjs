@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 /**
+ * @import {URIFixupPrimitives} from "chrome://browser/content/urlbar/UrlbarShared.mjs"
  * @import {UrlbarChild} from "../../../actors/UrlbarChild.sys.mjs"
  * @import {UrlbarInput} from "chrome://browser/content/urlbar/UrlbarInput.mjs"
  * @import {UrlbarParentController} from "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs"
@@ -76,6 +77,18 @@ export class UrlbarChildController {
   // The id of the query whose results still have a consumer. Notifications
   // carrying an older id belong to a query nobody is waiting for anymore.
   #queryId = 0;
+
+  // The id of the last query started here, which a query has to be older than
+  // to count as superseded. Distinct from `#queryId`, which also moves when the
+  // input discards the running query's results: that query is still the one the
+  // listeners track, and its end has to reach them.
+  #startedQueryId = 0;
+
+  // Whether the query identified by `#queryId` was cancelled. Only meaningful
+  // while it's held back waiting for the engine store; a cancel can't be taken
+  // as a statement about in-flight results, since the view cancels for reasons
+  // of its own (freezing the list, closing on a stale query's completion).
+  #queryCancelled = false;
 
   // The content-side engagement-telemetry collector, created lazily on the
   // message path (where the parent stand-in has no `engagementEvent`).
@@ -204,7 +217,10 @@ export class UrlbarChildController {
   getHeuristicResult(queryContext) {
     return this.#parentController.getHeuristicResult(queryContext);
   }
-  resolveFallbackNavigation(details) {
+  async resolveFallbackNavigation(details) {
+    // The result this hands back is picked like a query's, and paste-and-go
+    // suppresses the query that would otherwise have waited for the store.
+    await this.#engineStoreReady();
     return this.#parentController.resolveFallbackNavigation(details);
   }
   addListener(listener) {
@@ -221,6 +237,17 @@ export class UrlbarChildController {
       (notification === UrlbarShared.NOTIFICATIONS.QUERY_FIRST_RESULT ||
         notification === UrlbarShared.NOTIFICATIONS.QUERY_RESULTS) &&
       params[0].id < this.#queryId
+    ) {
+      return;
+    }
+    // A superseded query's end would tell the view that the query produced
+    // nothing, since its results were dropped above, and the view would close
+    // -- cancelling the query that superseded it. The rest of the lifecycle
+    // still goes through: those notifications carry the per-query state the
+    // listeners reset, and the newer query resets it again when it starts.
+    if (
+      notification === UrlbarShared.NOTIFICATIONS.QUERY_FINISHED &&
+      params[0].id < this.#startedQueryId
     ) {
       return;
     }
@@ -290,11 +317,46 @@ export class UrlbarChildController {
    * Starts a query and returns the parent controller's promise so callers (the
    * input's `lastQueryContextPromise`, which tests await) can track completion.
    *
+   * A query that would run before the engine store is populated is held back
+   * until it is. Results are produced by the providers in the parent, which use
+   * the search service directly, so a query dispatched before the store is
+   * ready can deliver results to a UI that has no engines to look up. Holding
+   * the query back is what keeps every result-handling path downstream of a
+   * populated store.
+   *
    * @param {UrlbarQueryContext} queryContext
-   * @returns {Promise<UrlbarQueryContext>} Resolves with the finished context.
+   * @returns {Promise<UrlbarQueryContext>}
+   *   Resolves with the finished context, or with the untouched one if the
+   *   query was cancelled or superseded while waiting for the engine store.
    */
   startQuery(queryContext) {
     this.#queryId = queryContext.id;
+    this.#startedQueryId = queryContext.id;
+    this.#queryCancelled = false;
+
+    if (this.engineStore.initialized || this.engineStore.failed) {
+      return this.#dispatchQuery(queryContext);
+    }
+
+    // Arm the bufferer up front so an Enter typed during the wait is deferred
+    // too. Nothing can tear down the previous query in the meantime, which is
+    // the only thing #dispatchQuery's arm-after-dispatch ordering guards
+    // against.
+    this.#input.eventBufferer.queryStarting(queryContext);
+
+    return this.#engineStoreReady().then(() =>
+      this.#queryId == queryContext.id && !this.#queryCancelled
+        ? this.#dispatchQuery(queryContext)
+        : queryContext
+    );
+  }
+  /**
+   * Hands a query to the parent controller.
+   *
+   * @param {UrlbarQueryContext} queryContext
+   * @returns {Promise<UrlbarQueryContext>} Resolves with the finished context.
+   */
+  #dispatchQuery(queryContext) {
     let queryContextPromise = this.#parentController.startQuery(queryContext);
     // Arm the event bufferer as the query starts so a just-typed Enter is
     // deferred until results arrive; it can't wait for the QUERY_STARTED
@@ -304,7 +366,28 @@ export class UrlbarChildController {
     this.#input.eventBufferer.queryStarting(queryContext);
     return queryContextPromise;
   }
+  /**
+   * Waits for the engine store to be populated.
+   *
+   * @returns {Promise<void>}
+   *   Resolves once the store holds engines, or immediately if it never will
+   *   because the search service failed. It doesn't reject: waiting on a store
+   *   that can't be populated would keep the input from producing results at
+   *   all.
+   */
+  async #engineStoreReady() {
+    if (this.engineStore.initialized || this.engineStore.failed) {
+      return;
+    }
+    try {
+      await this.engineStore.init();
+    } catch {
+      // The search service failed.
+    }
+  }
   cancelQuery() {
+    // A query still waiting for the engine store must not be dispatched at all.
+    this.#queryCancelled = true;
     return this.#parentController.cancelQuery();
   }
   /**
@@ -754,14 +837,14 @@ export class UrlbarChildController {
   /**
    * Gets URI fixup primitives for a string. Runs through the actor since the
    * content-web input can't reach `Services.uriFixup` (see
-   * `UrlbarChild.getFixupInfo`).
+   * `UrlbarChild.getFixupPrimitives`).
    *
    * @param {string} searchString
    *   The string to fix up.
-   * @returns {?{keywordAsSent: boolean, preferredURIDisplaySpec: ?string}}
+   * @returns {?URIFixupPrimitives}
    */
-  getFixupInfo(searchString) {
-    return this.#actor.getFixupInfo(searchString, this.#input.isPrivate);
+  getFixupPrimitives(searchString) {
+    return this.#actor.getFixupPrimitives(searchString, this.#input.isPrivate);
   }
 
   /**

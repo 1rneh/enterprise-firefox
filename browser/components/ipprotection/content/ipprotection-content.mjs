@@ -13,9 +13,6 @@ import { formatRemainingBandwidth } from "chrome://browser/content/ipprotection/
 const { ERRORS } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
-const { AppConstants } = ChromeUtils.importESModule(
-  "resource://gre/modules/AppConstants.sys.mjs"
-);
 
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/ipprotection/ipprotection-message-bar.mjs";
@@ -287,6 +284,8 @@ export default class IPProtectionContentElement extends MozLitElement {
         .hasExclusion=${hasExclusion}
         .isActivating=${this.state.isActivating}
         .showLocationButtonBadge=${this.state.showLocationButtonBadge}
+        .isPremium=${ifDefined(this.state.isPremium)}
+        .hasUpgraded=${this.state.hasUpgraded}
       ></ipprotection-status-card>
     `;
   }
@@ -448,10 +447,7 @@ export default class IPProtectionContentElement extends MozLitElement {
             <div class="skeleton skeleton-title"></div>
             <div class="skeleton skeleton-line"></div>
           </span>
-          <img
-            role="presentation"
-            src="chrome://browser/content/ipprotection/assets/states/ipprotection-loading.svg"
-          />
+          <div class="skeleton skeleton-image"></div>
         </span>
         <div class="skeleton skeleton-line-thick"></div>
         <div class="skeleton skeleton-line-thick"></div>
@@ -485,37 +481,25 @@ export default class IPProtectionContentElement extends MozLitElement {
   }
 
   render() {
-    let content;
-    if (AppConstants.MOZ_ENTERPRISE) {
-      content =
-        (this.state?.siteData?.isInclusion ?? false)
-          ? html`<div
-              data-l10n-id="enterprise-access-connector-info-active"
-            ></div>`
-          : null;
-    } else {
-      if (
-        (this.state.onboardingMessage || this.state.bandwidthWarning) &&
-        !this._messageDismissed &&
-        !this.state.unauthenticated &&
-        !this.state.paused
-      ) {
-        this._showMessageBar = true;
-      } else if (
-        (!this.state.onboardingMessage && !this.state.bandwidthWarning) ||
-        this.state.paused
-      ) {
-        // Remove the message bar if we can no longer render messages before they were dismissed
-        // or when in the paused state.
-        this._showMessageBar = false;
-      }
-
-      const messageBar = this._showMessageBar
-        ? this.messageBarTemplate()
-        : null;
-
-      content = html`${messageBar}${this.mainContentTemplate()}`;
+    if (
+      (this.state.onboardingMessage || this.state.bandwidthWarning) &&
+      !this._messageDismissed &&
+      !this.state.unauthenticated &&
+      !this.state.paused
+    ) {
+      this._showMessageBar = true;
+    } else if (
+      (!this.state.onboardingMessage && !this.state.bandwidthWarning) ||
+      this.state.paused
+    ) {
+      // Remove the message bar if we can no longer render messages before they were dismissed
+      // or when in the paused state.
+      this._showMessageBar = false;
     }
+
+    const messageBar = this._showMessageBar ? this.messageBarTemplate() : null;
+
+    const content = html`${messageBar}${this.mainContentTemplate()}`;
 
     // TODO: Conditionally render post-upgrade subview within #ipprotection-content-wrapper - Bug 1973813
     return html`
@@ -523,9 +507,7 @@ export default class IPProtectionContentElement extends MozLitElement {
         rel="stylesheet"
         href="chrome://browser/content/ipprotection/ipprotection-content.css"
       />
-      ${content
-        ? html`<div id="ipprotection-content-wrapper">${content}</div>`
-        : null}
+      <div id="ipprotection-content-wrapper">${content}</div>
     `;
   }
 }

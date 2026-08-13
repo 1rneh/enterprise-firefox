@@ -98,6 +98,7 @@ XPIDL_SOURCES += [
     "nsISocketTransport.idl",
     "nsISocketTransportService.idl",
     "nsISpeculativeConnect.idl",
+    "nsISSLTokensCache.idl",
     "nsIStandardURL.idl",
     "nsIStreamListener.idl",
     "nsIStreamListenerTee.idl",
@@ -124,6 +125,9 @@ XPIDL_SOURCES += [
     "nsPISocketTransportService.idl",
 ]
 
+if CONFIG["ENABLE_TESTS"]:
+    XPIDL_SOURCES += ["nsISSLTokensCacheTest.idl"]
+
 XPIDL_MODULE = "necko"
 
 EXPORTS += [
@@ -148,6 +152,7 @@ EXPORTS += [
     "nsURLHelper.h",
     "nsURLParsers.h",
     "SimpleChannel.h",
+    "URIHasher.h",
 ]
 
 EXPORTS.mozilla += [
@@ -336,6 +341,11 @@ LOCAL_INCLUDES += [
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     LOCAL_INCLUDES += [
         "/xpcom/base",
+    ]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
+    LOCAL_INCLUDES += [
+        "/netwerk/system/android",
     ]
 
 GeneratedFile(

@@ -8,13 +8,11 @@ transforms:
     - taskgraph.transforms.from_deps
     - gecko_taskgraph.transforms.name_sanity
     - gecko_taskgraph.transforms.repackage_signing
+    - gecko_taskgraph.transforms.repackage_routes
     - gecko_taskgraph.transforms.task
 
 kind-dependencies:
     - repackage-msix
-
-task-defaults:
-    run-on-repo-type: [hg]
 
 tasks:
     repackage-signing-msix:

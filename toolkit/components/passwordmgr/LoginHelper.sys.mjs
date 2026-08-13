@@ -1751,11 +1751,11 @@ export const LoginHelper = {
     try {
       if (isEnterpriseManagedPrimaryPassword) {
         // Enterprise builds rely on the backend-provided secret rather than forcing a logout.
-        token.login();
+        await token.login();
       } else {
         // Force a logout and prompt even if the token had been unlocked earlier.
-        token.logout();
-        token.login();
+        await token.logout();
+        await token.login();
       }
       // clicking 'Cancel' or entering the correct password.
     } catch (e) {
@@ -1847,6 +1847,12 @@ export const LoginHelper = {
    *                    which could be in a different window.
    */
   getBrowserForPrompt(browser) {
+    // The browser may have been torn down (e.g. its tab was closed) while an
+    // async operation was in progress before we got here, in which case its
+    // browsingContext is null and there is no prompt target left.
+    if (!browser.browsingContext) {
+      return browser;
+    }
     let chromeWindow = browser.documentGlobal;
     let openerBrowsingContext = browser.browsingContext.opener;
     let openerBrowser = openerBrowsingContext

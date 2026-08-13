@@ -1,0 +1,300 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+@import url("chrome://global/skin/global.css");
+@import url("chrome://global/skin/design-system/text-and-typography.css");
+@import url("chrome://global/skin/design-system/tokens-brand.css");
+@import url("chrome://branding/content/felt-tokens.css");
+@import url("chrome://felt/content/styles/felt-tokens.css");
+
+:root {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  min-width: 727px;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  min-height: 744px;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-height: 100vh;
+}
+
+.felt {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 0;
+  overflow: hidden;
+  background-image: var(--felt-logo-background-gradient);
+}
+
+.felt-body {
+  display: flex;
+  flex: 1 0 0;
+}
+
+.felt-logo {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.felt-logo__container {
+  display: flex;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 310px;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  height: 602px;
+  justify-content: center;
+  align-items: center;
+  background-image: url("chrome://branding/content/enterprise-icon-cropped.svg");
+  background-repeat: no-repeat;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  background-size: contain;
+  background-position: center;
+}
+
+.felt-login,
+.felt-updates {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-color-box);
+  flex: 1 0 0;
+  justify-content: center;
+  position: relative;
+}
+
+.felt-login__email-pane,
+.felt-updates-pane {
+  display: flex;
+  flex-direction: column;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  padding: 128px 50px;
+  align-items: center;
+  align-self: stretch;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  gap: 36px;
+  flex: 1 0 0;
+}
+
+.enterprise-wordmark {
+  content: url("chrome://branding/content/enterprise-wordmark.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 265px;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  height: 117px;
+}
+
+.felt-form,
+.felt-updates__infos {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 265px;
+}
+
+.felt-form__title {
+  color: var(--text-color, #fbfbfe);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 42px;
+  font-style: normal;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-weight: 274;
+  line-height: normal;
+}
+
+.felt-updates {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.felt-updates__title {
+  color: var(--text-color, #15141a);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 28px;
+  font-style: normal;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-weight: 300;
+  line-height: normal;
+  align-self: stretch;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  margin-bottom: 64px;
+}
+
+.felt-updates-checking,
+.felt-updates-application-msg {
+  width: 100%;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--text-color, #15141a);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 16px;
+  font-style: normal;
+  font-weight: normal;
+  line-height: normal;
+}
+
+.felt-updates-checking {
+  display: flex;
+  gap: var(--space-small);
+}
+
+.felt-updates-spinner {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  height: 24px;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 24px;
+  animation: spinner 1s linear infinite;
+  content: var(--felt-update-spinner-img-url);
+  flex-shrink: 0;
+}
+
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.felt-updates-application {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  gap: 8px;
+  align-self: stretch;
+}
+
+.felt-updates-application progress {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  border-radius: 35px;
+  border: none;
+  display: flex;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  height: 8px;
+  align-items: center;
+  align-self: stretch;
+
+  background: var(--button-background-color);
+}
+
+.felt-updates-application progress::-moz-progress-bar {
+  background: var(--button-background-color-primary);
+}
+
+.felt-form__elements {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-large);
+  align-self: stretch;
+}
+
+moz-input-text::part(label) {
+  font-size: medium;
+}
+
+.fill-width {
+  width: 100%;
+}
+
+.felt-login__sso {
+  display: flex;
+  flex-grow: 1;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 400px;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  padding: 60px 5px;
+}
+
+.felt-login__sso > browser {
+  height: 100%;
+  width: 100%;
+  flex: 1 1 auto;
+}
+
+.felt-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--space-medium) var(--space-xsmall);
+}
+
+#felt-footer-content {
+  display: flex;
+  flex-direction: column;
+  font-size: small;
+  /* On the blue footer gradient in both themes; must stay white. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--color-white);
+}
+
+#felt-back-button {
+  padding: 0;
+  border: none;
+  background: none;
+  /* On the blue footer gradient in both themes; must stay white. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--color-white);
+  font-size: small;
+  text-decoration: underline;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+#notification-popup-box {
+  position: absolute;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  top: 50%;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  left: 50%;
+}
+
+body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt) {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.felt-browser-error {
+  position: absolute;
+  /* stylelint-disable-next-line */
+  top: 16px;
+  /* stylelint-disable-next-line */
+  right: 16px;
+  /* stylelint-disable-next-line */
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-small);
+}
+
+.felt-updates-message {
+  position: absolute;
+  align-self: center;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  bottom: 64px;
+}
+
+.felt-updates-uptodate {
+  width: 100%;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--badge-background-color-filled);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 16px;
+  font-style: normal;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-weight: 400;
+  line-height: normal;
+}
+
+.felt-updates-uptodate::before {
+  content: var(--felt-update-checkmark-img-url);
+  margin: 0 var(--space-small) 0 0;
+}

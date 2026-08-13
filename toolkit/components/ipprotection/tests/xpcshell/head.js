@@ -10,11 +10,17 @@ const { IPProtectionService, IPProtectionStates } = ChromeUtils.importESModule(
 const { ERRORS, IPPProxyManager, IPPProxyStates } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
+const { IPPExceptionsManager, IPPPrincipalRules } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs"
+);
 const { ProxyPass, ProxyUsage, Entitlement } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/GuardianTypes.sys.mjs"
 );
 const { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"
+);
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
 );
 const { IPProtectionActivator } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPProtectionActivator.sys.mjs"
@@ -22,9 +28,8 @@ const { IPProtectionActivator } = ChromeUtils.importESModule(
 const { IPPDummyAuthProvider } = ChromeUtils.importESModule(
   "resource://testing-common/ipprotection/IPPDummyAuthProvider.sys.mjs"
 );
-IPProtectionActivator.addHelpers(IPPDummyAuthProvider.helpers);
-IPProtectionActivator.setupHelpers();
 IPProtectionActivator.setAuthProvider(IPPDummyAuthProvider);
+IPProtectionActivator.setupHelpers();
 
 const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
@@ -41,6 +46,34 @@ function waitForEvent(target, eventName, callback = () => true) {
     target.addEventListener(eventName, listener);
   });
 }
+
+/**
+ * Initializes IPProtectionService and resolves once it reaches READY.
+ */
+async function initServiceToReady() {
+  const readyEvent = waitForEvent(
+    IPProtectionService,
+    "IPProtectionService:StateChanged",
+    () => IPProtectionService.state === IPProtectionStates.READY
+  );
+  IPProtectionService.init();
+  await readyEvent;
+}
+/* exported initServiceToReady */
+
+/**
+ * Resolves once IPPProxyManager reaches the given state.
+ *
+ * @param {string} state - One of IPPProxyStates.
+ */
+function waitForProxyState(state) {
+  return waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:StateChanged",
+    () => IPPProxyManager.state === state
+  );
+}
+/* exported waitForProxyState */
 
 async function putServerInRemoteSettings(
   server = {
@@ -64,8 +97,33 @@ async function putServerInRemoteSettings(
   await client.db.clear();
   await client.db.create(US);
   await client.db.importChanges({}, Date.now());
+
+  maybeSetEnterpriseServerlistOverride([US]);
 }
 /* exported putServerInRemoteSettings */
+
+/**
+ * Mirrors a serverlist into the pref read by PrefServerList on MOZ_ENTERPRISE
+ * builds, where the RemoteSettings-backed serverlist is not used. No-op on
+ * other builds.
+ *
+ * The value is set on the default branch so that per-test user-branch changes
+ * and clearUserPref() calls revert to this list rather than emptying it.
+ *
+ * @param {Array<object>} countries - Country entries, as stored in RemoteSettings.
+ */
+function maybeSetEnterpriseServerlistOverride(countries) {
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    return;
+  }
+  Services.prefs
+    .getDefaultBranch("")
+    .setStringPref(
+      "browser.ipProtection.override.serverlist",
+      JSON.stringify(countries)
+    );
+}
+/* exported maybeSetEnterpriseServerlistOverride */
 
 /* exported setupStubs */
 
@@ -107,6 +165,8 @@ function setupStubs(aOptions = {}) {
   });
   IPPDummyAuthProvider.setProxyUsage(options.proxyUsage);
   IPPDummyAuthProvider.setProxyPassError(null);
+  IPPDummyAuthProvider.setProxyPassHang(false);
+  IPPDummyAuthProvider.setProxyPassResolveOnAbort(null);
 }
 
 /**

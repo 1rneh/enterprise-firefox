@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import {
-  setAndLockPref,
-  unsetAndUnlockPref,
-  PoliciesUtils,
-} from "resource:///modules/policies/Policies.sys.mjs";
+import { PoliciesUtils } from "resource://gre/modules/PoliciesHelpers.sys.mjs";
 import {
   CHAT_PROVIDERS_DEFAULT,
   GenAI,
@@ -76,7 +72,7 @@ export const AIChatbotPolicies = {
 
     // If there are no providers, disable the chat sidebar
     if (!providerIds.length) {
-      setAndLockPref("browser.ml.chat.enabled", false);
+      PoliciesUtils.setAndLockPref("browser.ml.chat.enabled", false);
     }
   },
 
@@ -208,6 +204,6 @@ export const AIChatbotPolicies = {
     PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.2");
     PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.3");
     PoliciesUtils.unsetDefaultPref("browser.ml.chat.shortcuts");
-    unsetAndUnlockPref("browser.ml.chat.enabled");
+    PoliciesUtils.unsetAndUnlockPref("browser.ml.chat.enabled");
   },
 };

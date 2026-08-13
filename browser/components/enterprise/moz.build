@@ -8,15 +8,7 @@ with Files("**"):
     BUG_COMPONENT = ("Enterprise Products", "Firefox")
 
 EXTRA_JS_MODULES.enterprise += [
-    "EnterpriseCommon.sys.mjs",
-    "EnterpriseEndpoints.sys.mjs",
-    "EnterpriseHandler.sys.mjs",
-    "modules/ConsoleClient.sys.mjs",
-    "modules/EnterpriseAccountsStorage.sys.mjs",
-    "modules/EnterpriseOSInfo.sys.mjs",
-    "modules/Updates.sys.mjs",
+    "AccessConnectorButton.sys.mjs",
 ]
 
 JAR_MANIFESTS += ["jar.mn"]
-
-BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]

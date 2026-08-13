@@ -26,10 +26,18 @@ EXTRA_JS_MODULES += [
     "FxAccountsProfile.sys.mjs",
     "FxAccountsProfileClient.sys.mjs",
     "FxAccountsPush.sys.mjs",
-    "FxAccountsStorage.sys.mjs",
     "FxAccountsTelemetry.sys.mjs",
     "FxAccountsWebChannel.sys.mjs",
 ]
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    EXTRA_JS_MODULES += [
+        "EnterpriseAccountsStorage.sys.mjs",
+    ]
+else:
+    EXTRA_JS_MODULES += [
+        "FxAccountsStorage.sys.mjs",
+    ]
 
 XPCOM_MANIFESTS += [
     "components.conf",

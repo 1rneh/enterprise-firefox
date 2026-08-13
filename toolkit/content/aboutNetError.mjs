@@ -1314,6 +1314,16 @@ async function ensureCertErrorCode() {
   }
 }
 
+function maybeShowSSLKeyLoggingWarning() {
+  if (!RPMIsSSLKeyLoggingEnabled()) {
+    return;
+  }
+  const warning = document.getElementById("sslKeyLoggingWarning");
+  if (warning && RPMGetBoolPref("network.sslkeylog_warning")) {
+    warning.hidden = false;
+  }
+}
+
 async function main() {
   await ensureCertErrorCode();
   if (!NetErrorCard.isSupported()) {
@@ -1335,8 +1345,13 @@ async function main() {
   } else {
     customElements.define("net-error-card", NetErrorCard);
     document.body.classList.add("felt-privacy-body");
+    const warning = document.getElementById("sslKeyLoggingWarning");
     document.body.replaceChildren(document.createElement("net-error-card"));
+    if (warning) {
+      document.body.prepend(warning);
+    }
   }
+  maybeShowSSLKeyLoggingWarning();
 }
 
 main();

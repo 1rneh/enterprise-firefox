@@ -11,7 +11,4 @@ DIRS += [
     "newtab",
 ]
 
-if CONFIG["MOZ_ENTERPRISE"]:
-    DIRS += ["felt"]
-
 JAR_MANIFESTS += ["jar.mn"]

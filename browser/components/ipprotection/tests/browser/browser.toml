@@ -8,7 +8,6 @@ prefs = [
   "browser.ipProtection.features.siteExceptions=true",
   "dom.security.https_first=false",
   "browser.ipProtection.bandwidth.enabled=true",
-  "browser.ipProtection.fxa.useActivateFlow=false",
 ]
 
 ["browser_IPPChannelFilter.js"]
@@ -83,6 +82,9 @@ skip-if = [
 ]
 
 ["browser_ipprotection_locations_list.js"]
+skip-if = [
+  "enterprise", # Enterprise does not initialize the IP Protection panel, so getPanel() returns null.
+]
 
 ["browser_ipprotection_message_bar.js"]
 skip-if = [
@@ -95,6 +97,9 @@ skip-if = [
 ]
 
 ["browser_ipprotection_optout.js"]
+skip-if = [
+  "enterprise", # Enterprise does not initialize the IP Protection toolbar button or widget.
+]
 
 ["browser_ipprotection_panel.js"]
 skip-if = [
@@ -125,3 +130,5 @@ skip-if = [
 ]
 
 ["browser_ipprotection_utils.js"]
+
+["browser_ipprotection_viewer_site_exclusion.js"]

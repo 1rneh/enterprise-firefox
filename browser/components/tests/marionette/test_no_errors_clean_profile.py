@@ -64,12 +64,6 @@ known_errors = [
         # for sidebar.
         "message": "toggleSidebarKb",
     },
-    {
-        # Triggered as soon as anything tries to access window.fullScreen.
-        # Bug 1709294 to stop exposing window.fullScreen to the web content and
-        # the warning can be removed.
-        "message": 'JavaScript Warning: "Window.fullScreen attribute is deprecated and will be removed in the future."',
-    },
     # Enterprise specific errors due to running without FELT
     {
         "message": "ReauthRequiredError: No refresh token available",
@@ -86,7 +80,7 @@ known_errors = [
     {
         "message": "Error updating FxA account info:, InvalidAuthError: Unhandled reauthentication",
     },
-    {"message": "FeltExtension: _refreshSession()"},
+    {"message": "_refreshSession()"},
     {"message": "Unable to update user icon in badge without user information"},
     {"message": "enterprise.logo_url pref is not set, skipping logo update"},
 ]

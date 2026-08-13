@@ -8,12 +8,12 @@ Transform the repackage signing task into an actual task description.
 import os
 from typing import Optional
 
+from mozilla_taskgraph.util.attributes import copy_attributes_from_dependent_job
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.dependencies import get_primary_dependency
 from taskgraph.util.schema import Schema
 
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
-from gecko_taskgraph.util.attributes import copy_attributes_from_dependent_job
 from gecko_taskgraph.util.scriptworker import get_signing_type_per_platform
 
 
@@ -85,10 +85,21 @@ def make_repackage_signing_description(config, jobs):
             "repackage-signing-msix",
             "repackage-signing-shippable-l10n-msix",
         ):
-            # Like "MSIXs(Bs-multi)".
-            treeherder["symbol"] = "MSIXs({})".format(
-                dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol", "B")
-            )
+            if "enterprise-repack" in dep_job.label:
+                dep_symbol = dep_job.task.get("extra").get("treeherder").get("symbol")
+                group_symbol = "MSIXs-Ent"
+            else:
+                # Like "MSIXs(Bs-multi)".
+                dep_symbol = (
+                    dep_job.task
+                    .get("extra", {})
+                    .get("treeherder", {})
+                    .get("symbol", "B")
+                )
+                group_symbol = "MSIXs"
+            treeherder["symbol"] = f"{group_symbol}({dep_symbol})"
+            repack_label = dep_symbol.replace("/", "_")
+            attributes["repackage_type"] = f"{config.kind}-{repack_label}"
 
         if "enterprise-repack" in dep_job.label:
             repack_id = (
@@ -98,6 +109,7 @@ def make_repackage_signing_description(config, jobs):
                 .get("symbol")
                 .replace("/", "_")
             )
+
             job["label"] = job["label"].replace(
                 "repackage-signing", f"repackage-signing-enterprise-repack-{repack_id}"
             )

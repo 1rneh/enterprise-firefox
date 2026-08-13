@@ -17,6 +17,10 @@ release-branches:
         - release
         - esr140
         - esr153
+    enterprise-firefox:
+        - enterprise-main
+        - enterprise-beta
+        - enterprise-release
     mozilla-central: true
     mozilla-beta: true
     mozilla-release: true
@@ -233,6 +237,12 @@ treeherder:
         'l10n': 'Localization checks'
         'wc': 'webcompat'
         'Boot': 'Bootstrap'
+        'inst': 'Linux installer tests'
+        'inst-apt': 'Linux installer tests: apt'
+        'inst-rpm': 'Linux installer tests: rpm'
+        'inst-flatpak': 'Linux installer tests: flatpak'
+        'inst-tarball': 'Linux installer tests: tarball'
+        'inst-snap': 'Linux installer tests: snap'
         'Attr-L10n': 'Build Attribution'
         'android-l10n': 'Import strings from android-l10n repo'
         'updt-tst': 'Test updates to release from older firefox versions'
@@ -241,6 +251,8 @@ treeherder:
         'Rpk': 'Classic repacks'
         'MSI-Ent': "MSI Enterprise repacks"
         'MSIs-Ent': "MSI signed Enterprise repacks"
+        'MSIX-Ent': "MSIX Enterprise repacks"
+        'MSIXs-Ent': "MSIX signed Enterprise repacks"
         'DEB-Ent': "Debian Enterprise repacks"
         'BMS-Ent': "Mac signing for Enterprise repacks"
         'BMN-Ent': "Mac notarization for Enterprise repacks"
@@ -387,6 +399,7 @@ treeherder:
         'service-merino-manifest': 'service-merino-manifest'
         'service-nimbus': 'service-nimbus'
         'service-pocket': 'service-pocket'
+        'service-sync': 'service-sync'
         'service-sync-autofill': 'service-sync-autofill'
         'service-sync-logins': 'service-sync-logins'
         'support-android-test': 'support-android-test'
@@ -411,6 +424,7 @@ treeherder:
         'tooling-detekt': 'tooling-detekt'
         'tooling-fetch-tests': 'tooling-fetch-tests'
         'tooling-lint': 'tooling-lint'
+        'ui-animation': 'ui-animation'
         'ui-autocomplete': 'ui-autocomplete'
         'ui-colors': 'ui-colors'
         'ui-fonts': 'ui-fonts'
@@ -441,6 +455,7 @@ index:
         - 'static-analysis'
         - 'devedition'
         - 'source'
+        - 'test'
         - 'system-symbols'
         - 'geckodriver'
 
@@ -610,7 +625,7 @@ taskgraph:
 
 workers:
     aliases:
-        b-linux(|-docker(|-x?large)-amd|-medium|-aarch64|-xlarge|-kvm):
+        b-linux(|-docker(|-x?large|-updatebot)-amd|-medium|-aarch64|-xlarge|-kvm):
             provisioner: '{trust-domain}-{level}'
             implementation: docker-worker
             os: linux
@@ -620,12 +635,7 @@ workers:
             implementation: generic-worker
             os: windows
             worker-type: '{alias}-azure'
-        b-win2022:
-            provisioner: '{trust-domain}-{level}'
-            implementation: generic-worker
-            os: windows
-            worker-type: '{alias}'
-        b-win2022-xxlarge:
+        b-win2022(|-xxlarge|-updatebot):
             provisioner: '{trust-domain}-{level}'
             implementation: generic-worker
             os: windows
@@ -986,6 +996,7 @@ mac-signing:
                       - "/Contents/MacOS/updater.app"
                       - "/Contents/MacOS/gpu-helper.app"
                       - "/Contents/Library/LaunchServices/org.mozilla.updater"
+                      - "/Contents/Library/LaunchServices/org.mozilla.dmgInstallHelper"
                       - "/Contents/MacOS/XUL"
                       - "/Contents/MacOS/pingsender"
                       - "/Contents/MacOS/nmhproxy"
@@ -1041,6 +1052,7 @@ mac-signing:
                       - "/Contents/MacOS/updater.app"
                       - "/Contents/MacOS/gpu-helper.app"
                       - "/Contents/Library/LaunchServices/org.mozilla.updater"
+                      - "/Contents/Library/LaunchServices/org.mozilla.dmgInstallHelper"
                       - "/Contents/MacOS/pingsender"
                       - "/Contents/MacOS/nmhproxy"
                       - "/Contents/Frameworks/ChannelPrefs.framework"

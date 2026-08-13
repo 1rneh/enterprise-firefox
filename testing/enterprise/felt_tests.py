@@ -8,6 +8,7 @@ import ctypes
 import datetime
 import json
 import os
+import secrets
 import shutil
 import socket
 import sys
@@ -84,6 +85,13 @@ class ConsoleSSOHTTPServer(ConsoleSSOPortMixin, HTTPServer):
     pass
 
 
+# A fresh random primarySecret per test-run process, served at /api/browser/key.
+# Stable across the in-run browser restarts that reuse a profile (so the Password
+# KEK keeps unlocking the per-DB DEKs), but random across runs to avoid any
+# stale-cache reuse.
+TEST_PRIMARY_SECRET = secrets.token_hex(32)
+
+
 class LocalHttpRequestHandler(BaseHTTPRequestHandler):
     def reply(self, payload, code=200, status="Success", contentType=None):
         self.send_response(code, status)
@@ -92,18 +100,6 @@ class LocalHttpRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", len(payload))
         self.end_headers()
         self.wfile.write(bytes(payload, "utf8"))
-
-    def do_POST(self):
-        print("POST", self.path)
-
-        if self.path == "/:shutdown":
-            print("Shutting down as requested")
-            self.reply("OK")
-            setattr(self.server, "_BaseServer__shutdown_request", True)
-            self.server.server_close()
-            return json.dumps({})
-
-        return None
 
     def not_found(self, path=None):
         self.send_response(404, "Not Found")
@@ -165,6 +161,42 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
+    def build_policies_response(self):
+        policy_content = {}
+
+        # Reflect the states:
+        #  - "Unset" is -1, no value is pushed
+        #  - "False" is 0
+        #  - "True" is 1
+        if self.server.policy_block_about_config.value >= 0:
+            policy_content.update({
+                "BlockAboutConfig": self.server.policy_block_about_config.value == 1
+            })
+
+        if self.server.policy_access_connector.value == 1:
+            policy_content.update({
+                "AccessConnector": {
+                    "Host": "proxy",
+                    "MatchPatterns": [
+                        "https://*.mozilla.org",
+                    ],
+                    "Port": 18443,
+                }
+            })
+
+        if self.server.policy_extensions.value == 1:
+            policy_content.update({
+                "ExtensionSettings": {
+                    "treestyletab@piro.sakura.ne.jp": {
+                        "installation_mode": "force_installed",
+                        "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
+                        "updates_disabled": True,
+                    }
+                }
+            })
+
+        return json.dumps({"policies": policy_content})
+
     def check_auth(self):
         auth = self.headers.get("Authorization")
         if not auth:
@@ -229,46 +261,18 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "extra_prefs": [["marionette.port", 0]],
             })
 
-        elif path == "/api/browser/policies":
+        elif path == "/api/browser/key":
             if not self.check_auth():
                 return
-            if self.server.policies_fail_request.value:
+            if self.server.key_fail_request.value:
                 self.reply("", 500, "Internal Server Error", "application/json")
                 return
-            policy_content = {}
-
-            # Reflect the states:
-            #  - "Unset" is -1, no value is pushed
-            #  - "False" is 0
-            #  - "True" is 1
-            if self.server.policy_block_about_config.value >= 0:
-                policy_content.update({
-                    "BlockAboutConfig": self.server.policy_block_about_config.value == 1
-                })
-
-            if self.server.policy_access_connector.value == 1:
-                policy_content.update({
-                    "AccessConnector": {
-                        "Host": "proxy",
-                        "MatchPatterns": [
-                            "https://*.mozilla.org",
-                        ],
-                        "Port": 18443,
-                    }
-                })
-
-            if self.server.policy_extensions.value == 1:
-                policy_content.update({
-                    "ExtensionSettings": {
-                        "treestyletab@piro.sakura.ne.jp": {
-                            "installation_mode": "force_installed",
-                            "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
-                            "updates_disabled": True,
-                        }
-                    }
-                })
-
-            m = json.dumps({"policies": policy_content})
+            # The primarySecret for SQLite at-rest encryption. The Felt UI
+            # process fetches it (ConsoleClient.getPrimarySecret ->
+            # /api/browser/key) before spawning Firefox and forwards it as the
+            # Password KEK password; without it the spawned browser cannot open
+            # its encrypted profile databases.
+            m = json.dumps({"data": TEST_PRIMARY_SECRET})
             contentType = "application/json"
 
         elif path == "/api/browser/whoami":
@@ -409,6 +413,11 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             m = json.dumps(self.server.device_posture_payload)
             contentType = "application/json"
 
+        elif path == "/sso/get_device_posture_history":
+            history = getattr(self.server, "device_posture_history", [])
+            m = json.dumps(history)
+            contentType = "application/json"
+
         elif path.startswith("/downloads/"):
             filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
             if os.path.isfile(filename):
@@ -444,7 +453,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
     def do_POST(self):
         print("POST", self.path)
-        m = super().do_POST()
+        m = None
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -481,11 +490,30 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             })
 
         elif path == "/sso/device_posture":
-            self.server.device_posture_payload = json.loads(
+            payload = json.loads(
                 self.rfile.read(int(self.headers.get("Content-Length")))
             )
+            self.server.device_posture_payload = payload
+            if not hasattr(self.server, "device_posture_history"):
+                self.server.device_posture_history = []
+            self.server.device_posture_history.append(payload)
             self.server.device_posture_token = str(uuid.uuid4())
             m = json.dumps({"posture": self.server.device_posture_token})
+
+        elif path == "/api/browser/policies":
+            if not self.check_auth():
+                return
+            payload = json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length")))
+            )
+            self.server.device_posture_payload = payload
+            if not hasattr(self.server, "device_posture_history"):
+                self.server.device_posture_history = []
+            self.server.device_posture_history.append(payload)
+            if self.server.policies_fail_request.value:
+                self.reply("", 500, "Internal Server Error", "application/json")
+                return
+            m = self.build_policies_response()
 
         elif path == "/sso/logout":
             if not self.check_auth():
@@ -555,6 +583,7 @@ def serve(
     policy_refresh_token=None,
     policy_access_connector=None,
     policies_fail_request=None,
+    key_fail_request=None,
     signout_count=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
@@ -585,6 +614,9 @@ def serve(
         httpd.policy_refresh_token = policy_refresh_token
     httpd.policies_fail_request = (
         policies_fail_request if policies_fail_request is not None else Value("B", 0)
+    )
+    httpd.key_fail_request = (
+        key_fail_request if key_fail_request is not None else Value("B", 0)
     )
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
     httpd.serve_updates = False
@@ -695,6 +727,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
         self.policies_fail_request = Value("B", 0)
+        self.key_fail_request = Value("B", 0)
         """
         TODO: Behavior is not yet clearly defined
         self.device_posture_reply_forbidden = Value("B", 0)
@@ -718,6 +751,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policy_access_connector=self.policy_access_connector,
                 policy_refresh_token=self.policy_refresh_token,
                 policies_fail_request=self.policies_fail_request,
+                key_fail_request=self.key_fail_request,
                 signout_count=self.signout_count,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
@@ -810,13 +844,23 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
             self._logger.info("Browser was already manually closed.")
 
         self._logger.info("Shutting down console")
-        requests.post(f"http://localhost:{self.console_port}/:shutdown", timeout=2)
+        self.console_httpd.terminate()
+        self.console_httpd.join(timeout=5)
+        if self.console_httpd.is_alive():
+            self._logger.warning(
+                "Console process did not exit after terminate; sending SIGKILL"
+            )
+            self.console_httpd.kill()
+            self.console_httpd.join(timeout=2)
         self._logger.info("Shutting down SSO")
-        requests.post(f"http://localhost:{self.sso_port}/:shutdown", timeout=2)
-        self._logger.info("Stopping process console")
-        self.console_httpd.join()
-        self._logger.info("Stopping process SSO")
-        self.sso_httpd.join()
+        self.sso_httpd.terminate()
+        self.sso_httpd.join(timeout=5)
+        if self.sso_httpd.is_alive():
+            self._logger.warning(
+                "SSO process did not exit after terminate; sending SIGKILL"
+            )
+            self.sso_httpd.kill()
+            self.sso_httpd.join(timeout=2)
         self._logger.info("All stopped")
 
         # If the test never started a child browser, this would not exists

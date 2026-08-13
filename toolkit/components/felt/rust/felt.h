@@ -1,0 +1,42 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#ifndef felt_h
+#define felt_h
+
+#include "nsISupportsUtils.h"  // for nsresult, etc.
+
+extern "C" {
+
+void felt_init();
+
+bool is_felt_ui();
+
+#ifdef MOZ_WIDGET_GTK
+void felt_set_startup_token_or_timestamp(const char* aToken, uint32_t aTimestamp);
+void felt_get_startup_token_or_timestamp(const char** aOutToken, uint32_t* aOutTokenLen,
+                         uint32_t* aOutTimestamp);
+#endif
+
+#ifdef XP_MACOSX
+void felt_activate_app();
+#endif
+
+bool is_felt_browser();
+
+bool firefox_connect_to_felt(const char* server_name);
+
+void firefox_felt_connection_start_thread();
+
+bool firefox_felt_is_startup_complete();
+
+nsresult felt_constructor(REFNSIID iid, void** result);
+
+nsresult felt_restartforced_constructor(REFNSIID iid, void** result);
+
+nsresult edr_checker_constructor(REFNSIID iid, void** result);
+
+}  // extern "C"
+
+#endif  // felt_h

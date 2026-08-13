@@ -186,24 +186,32 @@ def inject_distribution_folder(source_dir, source_type, app_name):
         debian_ini = configparser.ConfigParser()
         debian_ini.read(distribution_ini_path)
 
-        for section in debian_ini.sections():
-            if "global" in section.lower():
-                continue
-
-            if "preferences" in section.lower():
-                if not section in existing_ini.sections():
-                    print(f"{distribution_ini_target} misses {section}")
-                    existing_ini[section] = {}
-
-                for pref in debian_ini[section]:
-                    if pref in existing_ini[section]:
-                        print(f"{distribution_ini_target} defines {pref}, skipping")
-                    else:
-                        print(f"{distribution_ini_target} adding {pref}")
-                        existing_ini[section][pref] = debian_ini[section][pref]
+        merge_distribution_ini(debian_ini, existing_ini, distribution_ini_target)
 
         with open(distribution_ini_target, "w") as distribution_ini_modified:
             existing_ini.write(distribution_ini_modified, space_around_delimiters=False)
+
+
+def merge_distribution_ini(package_ini, existing_ini, distribution_ini_target):
+    """
+    Merge two distribution.ini file, iterating on package_ini content
+    and replacing or adding with existing_ini content when appropriate
+    """
+    for section in package_ini.sections():
+        if "global" in section.lower():
+            continue
+
+        if "preferences" in section.lower():
+            if not section in existing_ini.sections():
+                print(f"{distribution_ini_target} misses {section}")
+                existing_ini[section] = {}
+
+            for pref in package_ini[section]:
+                if pref in existing_ini[section]:
+                    print(f"{distribution_ini_target} defines {pref}, skipping")
+                else:
+                    print(f"{distribution_ini_target} adding {pref}")
+                    existing_ini[section][pref] = package_ini[section][pref]
 
 
 def inject_prefs_file(source_dir, app_name, template_dir):

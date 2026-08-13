@@ -8,6 +8,7 @@ Transform the repackage task into an actual task description.
 import copy
 from typing import Optional, Union
 
+from mozilla_taskgraph.util.attributes import copy_attributes_from_dependent_job
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.copy import deepcopy
 from taskgraph.util.dependencies import get_primary_dependency
@@ -15,7 +16,6 @@ from taskgraph.util.schema import Schema, optionally_keyed_by, resolve_keyed_by
 from taskgraph.util.taskcluster import get_artifact_prefix
 
 from gecko_taskgraph.transforms.job import JobDescriptionSchema
-from gecko_taskgraph.util.attributes import copy_attributes_from_dependent_job
 from gecko_taskgraph.util.platforms import architecture, archive_format
 from gecko_taskgraph.util.workertypes import worker_type_implementation
 
@@ -449,6 +449,7 @@ def handle_keyed_by(config, jobs):
     fields = [
         "mozharness.config",
         "msi.display-name",
+        "msix.identity-name",
         "package-formats",
         "worker.max-run-time",
         "flatpak.name",
@@ -572,7 +573,10 @@ def make_job_description(config, jobs):
             elif "macosx64" in build_platform:
                 dep_th_platform = "osx-cross-enterprise/opt"
             elif "win64" in build_platform:
-                dep_th_platform = "windows2012-64-enterprise/opt"
+                if "aarch64" in build_platform:
+                    dep_th_platform = "windows2012-aarch64-enterprise/opt"
+                else:
+                    dep_th_platform = "windows2012-64-enterprise/opt"
             else:
                 raise ValueError(f"Unsupported {build_platform}")
 
@@ -580,7 +584,7 @@ def make_job_description(config, jobs):
         treeherder.setdefault("tier", 1)
         treeherder.setdefault("kind", "build")
 
-        # Search dependencies before adding langpack dependencies.
+        # Search dependencies before adding langpack dependencies
         signing_task = None
         repackage_signing_task = None
         for dependency in dependencies.keys():
@@ -609,10 +613,22 @@ def make_job_description(config, jobs):
         elif config.kind == "repackage-msix":
             assert not locale
 
-            # Like "MSIXs(Bs)".
-            treeherder["symbol"] = "MSIX({})".format(
-                dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol", "B")
-            )
+            if identity_name := job.get("msix", {}).get("identity-name"):
+                attributes["msix_identity_name"] = identity_name
+
+            if "enterprise-repack" in dep_job.label:
+                # Similar to DEB, populate later
+                # TODO: I cannot remember when ...
+                treeherder["symbol"] = "MSIX-Ent({repack_id})"
+            else:
+                # Like "MSIXs(Bs)".
+                msix_symbol = (
+                    dep_job.task
+                    .get("extra", {})
+                    .get("treeherder", {})
+                    .get("symbol", "B")
+                )
+                treeherder["symbol"] = f"MSIX({msix_symbol})"
 
         elif config.kind == "repackage-shippable-l10n-msix":
             assert not locale
@@ -925,6 +941,12 @@ def make_job_description(config, jobs):
                 locale=locale,
                 existing_fetch=task["fetches"],
                 enterprise_repack=repack,
+                msi_archive_format="target.installer.exe"
+                if "msi_display_name" in repack_task["attributes"]
+                else None,
+                msix_archive_format="target.zip"
+                if "msix_identity_name" in repack_task["attributes"]
+                else None,
             )
 
             yield repack_task
@@ -939,6 +961,8 @@ def _generate_download_config(
     locale=None,
     existing_fetch=None,
     enterprise_repack=None,
+    msi_archive_format=None,
+    msix_archive_format=None,
 ):
     locale_path = f"{locale}/" if locale else ""
     fetch = {}
@@ -948,11 +972,7 @@ def _generate_download_config(
     if enterprise_repack:
         locale_path = f"{enterprise_repack}/"
 
-    if repackage_signing_task and build_platform.startswith("win"):
-        fetch.update({
-            repackage_signing_task: [f"{locale_path}target.installer.exe"],
-        })
-    elif build_platform.startswith("linux") or build_platform.startswith("macosx"):
+    if build_platform.startswith("linux") or build_platform.startswith("macosx"):
         signing_fetch = [
             {
                 "artifact": f"{locale_path}target{archive_format(build_platform)}",
@@ -966,18 +986,36 @@ def _generate_download_config(
             })
         fetch.update({signing_task: signing_fetch})
     elif build_platform.startswith("win"):
-        fetch.update({
-            signing_task: [
-                {
-                    "artifact": f"{locale_path}target.zip",
-                    "extract": False,
-                },
-                f"{locale_path}setup.exe",
-            ],
-        })
+        if repackage_signing_task:
+            if msi_archive_format:
+                fetch.update({
+                    repackage_signing_task: [f"{locale_path}{msi_archive_format}"],
+                })
+            else:
+                raise NotImplementedError("repackage_signing_task with non -msi- task")
+        if signing_task:
+            if msix_archive_format:
+                fetch.update({
+                    signing_task: [
+                        {
+                            "artifact": f"{locale_path}{msix_archive_format}",
+                            "extract": False,
+                        }
+                    ],
+                })
+            else:
+                fetch.update({
+                    signing_task: [
+                        {
+                            "artifact": f"{locale_path}target.zip",
+                            "extract": False,
+                        },
+                        f"{locale_path}setup.exe",
+                    ],
+                })
 
         use_stub = task.attributes.get("stub-installer")
-        if use_stub:
+        if use_stub and signing_task:
             fetch[signing_task].append(f"{locale_path}setup-stub.exe")
 
     if fetch:

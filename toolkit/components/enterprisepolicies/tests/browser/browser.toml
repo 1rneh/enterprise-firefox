@@ -1,6 +1,9 @@
 [DEFAULT]
 head = "head.js"
 support-files = ["config_broken_json.json"]
+prefs = [
+  "enterprise.policies.live.enabled=false",
+]
 
 ["browser_policies_basic_tests.js"]
 
@@ -12,3 +15,5 @@ run-if = [
 ]
 
 ["browser_policies_mistyped_json.js"]
+
+["browser_policies_setAndLockPref_API.js"]

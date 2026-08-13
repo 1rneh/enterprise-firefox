@@ -3237,7 +3237,17 @@ def repackage_msi(
 @CommandArgument(
     "--channel",
     type=str,
-    choices=["official", "beta", "esr", "aurora", "nightly", "unofficial"],
+    choices=[
+        "official",
+        "beta",
+        "esr",
+        "aurora",
+        "nightly",
+        "unofficial",
+        "nightly-enterprise",
+        "beta-enterprise",
+        "release-enterprise",
+    ],
     help="Release channel.",
 )
 @CommandArgument(
@@ -3342,6 +3352,9 @@ def repackage_msix(
         "beta": "beta",
         "aurora": "aurora",
         "nightly": "nightly",
+        "nightly-enterprise": "nightly-enterprise",
+        "beta-enterprise": "beta-enterprise",
+        "release-enterprise": "release-enterprise",
     }
 
     if not input:

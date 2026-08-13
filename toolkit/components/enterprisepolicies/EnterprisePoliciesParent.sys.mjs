@@ -929,6 +929,8 @@ EnterprisePoliciesManager.prototype = {
       InstallSources = new MatchPatternSet(
         extensionSettings["*"].install_sources
       );
+    } else {
+      InstallSources = null;
     }
   },
 

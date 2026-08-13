@@ -23,6 +23,8 @@ run-if = [
 
 ["browser_live_policy_Cookies.js"]
 
+["browser_live_policy_ExtensionSettings.js"]
+
 ["browser_live_policy_HttpsOnlyMode.js"]
 
 ["browser_live_policy_SitePolicies.js"]

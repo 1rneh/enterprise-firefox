@@ -2375,6 +2375,60 @@ export var Policies = {
       // drops the blocked permission re-enables the addon automatically.
       lazy.AddonManagerPrivate.updateAddonAppDisabledStates();
     },
+    onRemove(manager, oldParam) {
+      // Revert to the no-policy baseline: clear the settings object and host
+      // guards, unlock the prefs, and release the feature locks it set.
+      // Note: It does not undo the policy's one-way actions. Uninstalled extensions are not
+      // reinstalled and permissions revoked under blocked_permissions are not
+      // re-granted.
+      manager.setExtensionSettings({});
+      try {
+        lazy.applyExtensionGuards({});
+      } catch (e) {
+        lazy.log.error(
+          `Could not clear ExtensionSettings guards: ${e.message}`
+        );
+      }
+
+      lazy.PoliciesUtils.unsetDefaultPref("extensions.getAddons.showPane");
+      lazy.PoliciesUtils.unsetDefaultPref(
+        "extensions.htmlaboutaddons.recommendations.enabled"
+      );
+      lazy.PoliciesUtils.unsetDefaultPref(
+        "extensions.webextensions.restrictedDomains"
+      );
+
+      let activePolicies = manager.getActivePolicies();
+
+      // Don't re-allow installTemporaryAddon if it's still
+      // disallowed by the InstallAddonsPermission policy.
+      if (
+        oldParam["*"]?.installation_mode == "blocked" &&
+        activePolicies?.InstallAddonsPermission?.Default !== false
+      ) {
+        manager.allowFeature("installTemporaryAddon");
+      }
+
+      // Don't re-allow uninstall-/disable-extension:<id> if it's
+      // still disallowed by the Extensions policy.
+      let lockedByExtensions = new Set(
+        activePolicies?.Extensions?.Locked ?? []
+      );
+      for (let extensionID in oldParam) {
+        if (extensionID == "*" || lockedByExtensions.has(extensionID)) {
+          continue;
+        }
+        let mode = oldParam[extensionID].installation_mode;
+        if (mode == "force_installed" || mode == "normal_installed") {
+          manager.allowFeature(`uninstall-extension:${extensionID}`);
+          if (mode == "force_installed") {
+            manager.allowFeature(`disable-extension:${extensionID}`);
+          }
+        }
+      }
+
+      lazy.AddonManagerPrivate.updateAddonAppDisabledStates();
+    },
   },
 
   ExtensionUpdate: {

@@ -156,7 +156,7 @@ pref("app.update.notifyDuringDownload", false);
 // (which is in a file in the update directory). Because of this, this pref
 // should no longer be used directly. Instead, getAppUpdateAutoEnabled and
 // getAppUpdateAutoEnabled from UpdateUtils.sys.mjs should be used.
-#if !defined(XP_WIN) || defined(MOZ_ENTERPRISE)
+#ifndef XP_WIN
   pref("app.update.auto", true);
 #endif
 

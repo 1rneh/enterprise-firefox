@@ -979,7 +979,8 @@
   num_temps: 1
 
 - name: Return
-  gen_boilerplate: false
+  operands:
+    value: BoxedValue
 
 - name: MinMaxI
   result_type: WordSized
@@ -2681,6 +2682,9 @@
   successors: [ifTrue, ifFalse]
   operands:
     input: BoxedValue
+
+- name: IsResumingGeneratorAndBranch
+  successors: [ifTrue, ifFalse]
 
 - name: CloseIterCache
   operands:

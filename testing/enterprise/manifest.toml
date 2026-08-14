@@ -8,6 +8,8 @@ run-if = [
   "buildapp == 'browser'",
 ]
 
+["test_felt_app_pipe.py"]
+
 ["test_felt_back_button.py"]
 
 ["test_felt_browser_about_config_blocked.py"]

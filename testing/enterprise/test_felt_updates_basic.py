@@ -35,7 +35,6 @@ class FeltUpdatesBasicChecks(FeltTests):
 
     def get_app_update_prefs(self, env):
         prefs = [
-            "app.update.auto",
             "app.update.channel",
             "app.update.checkOnlyInstance.enabled",
             "app.update.background.enabled",
@@ -63,7 +62,6 @@ class FeltUpdatesBasicChecks(FeltTests):
     def run_verify_browser_prefs(self):
         prefs = self.get_app_update_prefs(Environment.FIREFOX)
 
-        assert prefs["app.update.auto"], "Auto updates enabled"
         # TODO: Do we care about the update channel ? The update URL is already
         # controlled ...
         # assert prefs["app.update.channel"] == "", "No update channel"

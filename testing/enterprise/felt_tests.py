@@ -140,6 +140,16 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 </html>
             """
 
+        elif path == "/watermark_blank_page":
+            # Blank, full-viewport page used to verify the on-screen watermark
+            # is actually painted (its anonymous content isn't in the DOM).
+            m = (
+                "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+                "<style>html,body{margin:0;width:100vw;height:100vh;"
+                "overflow:hidden;background:#fff}</style>"
+                "</head><body></body></html>"
+            )
+
         elif path == "/auth":
             expires = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
             cookie_expiry = expires.strftime("%a, %d %b %Y %H:%M:%S GMT")
@@ -192,6 +202,14 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                         "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
                         "updates_disabled": True,
                     }
+                }
+            })
+
+        if self.server.policy_watermark.value == 1:
+            policy_content.update({
+                "Watermark": {
+                    "Match": ["http://localhost/*"],
+                    "Copy": "CONFIDENTIAL",
                 }
             })
 
@@ -265,7 +283,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             if not self.check_auth():
                 return
             if self.server.key_fail_request.value:
-                self.reply("", 500, "Internal Server Error", "application/json")
+                self.reply("", 500, "Internal Server Error")
                 return
             # The primarySecret for SQLite at-rest encryption. The Felt UI
             # process fetches it (ConsoleClient.getPrimarySecret ->
@@ -464,6 +482,11 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             )
             parsed_payload = json.loads(payload)
 
+            # Simulate a console that is transiently unavailable
+            if self.server.token_fail_request.value:
+                self.reply("", 500, "Internal Server Error")
+                return
+
             if parsed_payload["grant_type"] != "refresh_token":
                 self.reply("", 401, "Authorization required")
                 return
@@ -511,7 +534,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.server.device_posture_history = []
             self.server.device_posture_history.append(payload)
             if self.server.policies_fail_request.value:
-                self.reply("", 500, "Internal Server Error", "application/json")
+                self.reply("", 500, "Internal Server Error")
                 return
             m = self.build_policies_response()
 
@@ -579,11 +602,13 @@ def serve(
     login_location=None,
     policy_block_about_config=None,
     policy_extensions=None,
+    policy_watermark=None,
     policy_access_token=None,
     policy_refresh_token=None,
     policy_access_connector=None,
     policies_fail_request=None,
     key_fail_request=None,
+    token_fail_request=None,
     signout_count=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
@@ -606,6 +631,8 @@ def serve(
         httpd.policy_block_about_config = policy_block_about_config
     if policy_extensions is not None:
         httpd.policy_extensions = policy_extensions
+    if policy_watermark is not None:
+        httpd.policy_watermark = policy_watermark
     if policy_access_token:
         httpd.policy_access_token = policy_access_token
     if policy_access_connector:
@@ -617,6 +644,9 @@ def serve(
     )
     httpd.key_fail_request = (
         key_fail_request if key_fail_request is not None else Value("B", 0)
+    )
+    httpd.token_fail_request = (
+        token_fail_request if token_fail_request is not None else Value("B", 0)
     )
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
     httpd.serve_updates = False
@@ -726,8 +756,10 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_block_about_config = Value("b", 1)
         self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
+        self.policy_watermark = Value("b", 0)
         self.policies_fail_request = Value("B", 0)
         self.key_fail_request = Value("B", 0)
+        self.token_fail_request = Value("B", 0)
         """
         TODO: Behavior is not yet clearly defined
         self.device_posture_reply_forbidden = Value("B", 0)
@@ -747,11 +779,13 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 login_location=self.login_location,
                 policy_block_about_config=self.policy_block_about_config,
                 policy_extensions=self.policy_extensions,
+                policy_watermark=self.policy_watermark,
                 policy_access_token=self.policy_access_token,
                 policy_access_connector=self.policy_access_connector,
                 policy_refresh_token=self.policy_refresh_token,
                 policies_fail_request=self.policies_fail_request,
                 key_fail_request=self.key_fail_request,
+                token_fail_request=self.token_fail_request,
                 signout_count=self.signout_count,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,

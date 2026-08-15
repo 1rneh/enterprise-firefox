@@ -33,18 +33,9 @@ export const RELATIVE_CONSOLE_ENDPOINT_PREFS = [
     pref: "security.certerrors.mitm.priming.endpoint",
     path: "api/misc/mitm/",
   },
-  {
-    pref: "captivedetect.canonicalURL",
-    path: "api/misc/portal/canonical.html",
-  },
-  {
-    pref: "network.connectivity-service.IPv4.url",
-    path: "api/misc/connectivity?ipv4",
-  },
-  {
-    pref: "network.connectivity-service.IPv6.url",
-    path: "api/misc/connectivity?ipv6",
-  },
+  // captivedetect.canonicalURL and network.connectivity-service.IPv4/IPv6.url
+  // are intentionally not re-homed here: they must stay plaintext HTTP for
+  // captive-portal interception, which an HTTPS console endpoint breaks.
 ];
 
 export const BASE_CONSOLE_URI_PREFS = new Set([

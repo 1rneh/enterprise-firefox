@@ -8,6 +8,7 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
+import psutil
 from felt_tests import FeltTests
 from marionette_driver.errors import (
     NoSuchWindowException,
@@ -16,7 +17,7 @@ from marionette_driver.errors import (
 
 
 class AppRestartWorks(FeltTests):
-    def test_app_resart_works(self):
+    def test_app_restart_works(self):
         super().run_felt_base()
         self.run_felt_perform_restart()
         self.run_felt_restart_new_process()
@@ -61,8 +62,31 @@ class AppRestartWorks(FeltTests):
             f"PID changed from {self._browser_pid} to {new_browser_pid}"
         )
 
+        felt_ui_pid = self._driver.session_capabilities["moz:processID"]
+        target_exe = psutil.Process(felt_ui_pid).exe()
+        felt_browser_pids = set(self._get_felt_browser_pids(target_exe))
+        unexpected = felt_browser_pids - {new_browser_pid}
+        assert not unexpected, (
+            f"Extra FELT browser process(es) after restart (double relaunch?): {unexpected}"
+        )
+        assert new_browser_pid in felt_browser_pids, (
+            f"Relaunched browser PID {new_browser_pid} is not running"
+        )
+
         self._logger.info(f"Closing new browser with PID {new_browser_pid}")
         self._child_driver.set_context("chrome")
         self._child_driver.execute_script(
             "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
         )
+
+    def _get_felt_browser_pids(self, target_exe):
+        pids = []
+        for proc in psutil.process_iter(["pid", "exe", "cmdline"]):
+            try:
+                cmdline = proc.info["cmdline"] or []
+                # Check for FELT browser process with -felt.
+                if proc.info["exe"] == target_exe and "-felt" in cmdline:
+                    pids.append(proc.info["pid"])
+            except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied):
+                continue
+        return pids

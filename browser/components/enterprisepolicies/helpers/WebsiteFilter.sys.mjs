@@ -27,6 +27,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
  */
 
 const LIST_LENGTH_LIMIT = 1000;
+const CATEGORY = "content-policy";
 
 const PREF_LOGLEVEL = "browser.policies.loglevel";
 
@@ -47,6 +48,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 
 export let WebsiteFilter = {
   _observerAdded: false,
+  _registrar: null,
 
   init(blocklist, exceptionlist) {
     let blockArray = [],
@@ -86,10 +88,14 @@ export let WebsiteFilter = {
       this._exceptionsPatterns = new MatchPatternSet(exceptionArray);
     }
 
-    let registrar = Components.manager.QueryInterface(Ci.nsIComponentRegistrar);
+    if (!this._registrar) {
+      this._registrar = Components.manager.QueryInterface(
+        Ci.nsIComponentRegistrar
+      );
+    }
 
-    if (!registrar.isContractIDRegistered(this.contractID)) {
-      registrar.registerFactory(
+    if (!this._registrar.isContractIDRegistered(this.contractID)) {
+      this._registrar.registerFactory(
         this.classID,
         this.classDescription,
         this.contractID,
@@ -97,7 +103,7 @@ export let WebsiteFilter = {
       );
 
       Services.catMan.addCategoryEntry(
-        "content-policy",
+        CATEGORY,
         this.contractID,
         this.contractID,
         false,
@@ -229,7 +235,7 @@ export let WebsiteFilter = {
       }
     } catch (ex) {
       // Silently fail - telemetry errors should not break website filtering
-      console.error(
+      lazy.log.error(
         `[WebsiteFilter] Blocked domain browsed telemetry recording failed:`,
         ex
       );
@@ -282,5 +288,16 @@ export let WebsiteFilter = {
       parsed.hostname = parsed.hostname.replace(/\.+$/, "");
     }
     return parsed.href.toLowerCase();
+  },
+
+  uninit() {
+    this._registrar.unregisterFactory(this.classID, this);
+
+    Services.catMan.deleteCategoryEntry(CATEGORY, this.contractID, false);
+
+    Services.obs.removeObserver(this, "http-on-examine-response");
+    this._observerAdded = false;
+    this._blockPatterns = null;
+    this._exceptionsPatterns = null;
   },
 };

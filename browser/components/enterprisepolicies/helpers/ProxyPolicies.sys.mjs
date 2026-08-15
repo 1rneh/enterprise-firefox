@@ -139,17 +139,17 @@ export var ProxyPolicies = {
       }
     }
   },
-  resetProxySettings(oldParams, setPref) {
-    let newParams = structuredClone(oldParams);
-    for (let paramName of Object.keys(oldParams)) {
-      if (typeof oldParams[paramName] == "string") {
-        newParams[paramName] = "";
-      } else if (typeof oldParams[paramName] == "boolean") {
-        newParams[paramName] = !oldParams[paramName];
-      } else {
-        throw new Error(`Unhandled param type: ${typeof oldParams[paramName]}`);
-      }
+
+  /**
+   * Restores every proxy preference to the state it had before the policy was
+   * applied.
+   *
+   * @param {Function} unsetPref A function that restores a preference
+   *                             to its pre-policy state.
+   */
+  resetProxySettings(unsetPref) {
+    for (let preference of proxyPreferences) {
+      unsetPref(preference);
     }
-    ProxyPolicies.configureProxySettings(newParams, setPref);
   },
 };

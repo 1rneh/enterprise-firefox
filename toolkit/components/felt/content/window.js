@@ -8,6 +8,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
+  CaptivePortal: "resource://gre/modules/enterprise/CaptivePortal.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltErrorReport: "resource://gre/modules/enterprise/FeltErrorReport.sys.mjs",
@@ -28,6 +29,43 @@ Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
 
 let cancelActiveSso = null;
 
+// Email of a pending sign-in, so onConnectivityRestored resumes the exact
+// attempt the user submitted (not the field's current value). Kept across a
+// portal interrupt; cleared when the attempt terminally ends.
+let pendingSignInEmail = null;
+
+// True while a connectToConsole() attempt is running, to block a concurrent
+// second submit/resume. Distinct from pendingSignInEmail, which stays set while
+// parked behind a portal with nothing in flight.
+let signInInFlight = false;
+
+// Bumped per attempt; an attempt drops its result if its captured value no
+// longer matches. Abandons a sign-in left hanging behind a portal (its request
+// can't be aborted here) when we retry on portal clear, so its late timeout
+// doesn't surface.
+let signInGeneration = 0;
+
+const FeltStatusPanel = {
+  get _panel() {
+    return document.getElementById("felt-statuspanel");
+  },
+  get _label() {
+    return document.getElementById("felt-statuspanel-label");
+  },
+  update(text) {
+    if (text) {
+      this._label.textContent = text;
+      this._panel.classList.remove("is-hidden");
+    } else {
+      this._panel.classList.add("is-hidden");
+      this._label.textContent = "";
+    }
+  },
+  clear() {
+    this.update("");
+  },
+};
+
 function clearSsoSessionData() {
   return new Promise(resolve => {
     Services.clearData.deleteDataFromOriginAttributesPattern(
@@ -37,8 +75,20 @@ function clearSsoSessionData() {
   });
 }
 
-function resetToLoginPage() {
+function resetToLoginPage({ keepPendingSignIn = false } = {}) {
   cancelActiveSso?.();
+  // Whatever attempt was running is torn down here; a resume is a fresh call.
+  signInInFlight = false;
+  // The attempt is over; don't let onConnectivityRestored auto-resume a stale
+  // one when a portal clears later. The captive-portal path keeps it set so it
+  // can resume the same attempt once the portal clears.
+  if (!keepPendingSignIn) {
+    pendingSignInEmail = null;
+    // The attempt ended for good: run the update check we may have deferred to
+    // let it proceed (no-op unless it was suspended and we're connected).
+    lazy.CaptivePortal.maybeResumeUpdates();
+  }
+  FeltStatusPanel.clear();
   document.querySelector(".felt-login__sso").classList.add("is-hidden");
   document
     .querySelector(".felt-login__email-pane")
@@ -57,17 +107,41 @@ function resetToLoginPageWithError(errorType, details = null, cause = null) {
 }
 
 async function connectToConsole(email) {
+  // One attempt at a time: block a concurrent second submit or resume.
+  if (signInInFlight) {
+    return;
+  }
+  signInInFlight = true;
+  const attempt = ++signInGeneration;
+  pendingSignInEmail = email;
   let posture;
   try {
     posture = await lazy.ConsoleClient.sendDevicePosture();
   } catch (err) {
+    if (attempt !== signInGeneration) {
+      // Superseded (abandoned on a portal-clear retry); drop silently.
+      return;
+    }
     lazy.log.error(`Failed to send device posture: ${err}`);
+    signInInFlight = false;
+    pendingSignInEmail = null;
+    // Re-probe so a real portal surfaces as the banner, not a dead-end error.
+    lazy.CaptivePortal.recheck();
+    lazy.CaptivePortal.maybeResumeUpdates();
     await lazy.FeltErrorReport.handleXhrError(err);
+    return;
+  }
+
+  if (attempt !== signInGeneration) {
+    // Superseded while the posture request was in flight; drop it silently.
     return;
   }
 
   if (!posture) {
     // TODO: Currently we don't check the posture yet. In the future we need to handle rejected device posture
+    signInInFlight = false;
+    pendingSignInEmail = null;
+    lazy.CaptivePortal.maybeResumeUpdates();
     return;
   }
 
@@ -142,6 +216,9 @@ async function connectToConsole(email) {
         return;
       }
 
+      // Clear status panel. onStatusChange stops firing once the load stops.
+      FeltStatusPanel.clear();
+
       const uri = webProgress.browsingContext?.currentWindowGlobal?.documentURI;
       if (!uri || !callbackPattern.matches(uri.spec)) {
         return;
@@ -191,6 +268,14 @@ async function connectToConsole(email) {
       }
     },
 
+    onStatusChange(_webProgress, _request, _status, message) {
+      if (browser.webProgress.isLoadingDocument) {
+        FeltStatusPanel.update(message);
+      } else {
+        FeltStatusPanel.clear();
+      }
+    },
+
     onLocationChange(_webProgress, _request, _location, flags) {
       if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
         clearTimeout(ssoTimeout);
@@ -209,7 +294,9 @@ async function connectToConsole(email) {
   };
   browser.addProgressListener(
     progressListener,
-    Ci.nsIWebProgress.NOTIFY_STATE_NETWORK | Ci.nsIWebProgress.NOTIFY_LOCATION
+    Ci.nsIWebProgress.NOTIFY_STATE_NETWORK |
+      Ci.nsIWebProgress.NOTIFY_LOCATION |
+      Ci.nsIWebProgress.NOTIFY_STATUS
   );
 
   lazy.FeltErrorReport.reset();
@@ -218,7 +305,7 @@ async function connectToConsole(email) {
   document.querySelector(".felt-login__sso").classList.remove("is-hidden");
   document.getElementById("felt-back-button").classList.remove("is-hidden");
 
-  const ssoBrowsingContext = document.querySelector("browser");
+  const ssoBrowsingContext = document.getElementById("browser");
   ssoBrowsingContext.focus();
 }
 
@@ -260,6 +347,8 @@ function informAboutPotentialStartupFailure() {
 
 function setupMarionetteEnvironment() {
   window.fullScreen = false;
+
+  window.FeltStatusPanel = FeltStatusPanel;
 
   window.FullScreen = {
     exitDomFullScreen() {},
@@ -315,8 +404,23 @@ function setupMarionetteEnvironment() {
     },
   };
 
-  // Last notification required for marionette to work
-  Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
+  // Last notification required for marionette to work.
+  const observer = {
+    observe(_aSubject, _aTopic) {
+      Services.obs.removeObserver(observer, "final-ui-startup");
+      Services.tm.dispatchToMainThread(() =>
+        Services.obs.notifyObservers(
+          window,
+          "browser-idle-startup-tasks-finished"
+        )
+      );
+    },
+  };
+  if (Services.startup.startingUp) {
+    Services.obs.addObserver(observer, "final-ui-startup");
+  } else {
+    Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
+  }
 }
 
 function setupContextMenu() {
@@ -384,6 +488,11 @@ function setupPopupNotifications() {
       const tx = -(r.width / 2);
       const ty = -(r.height / 2);
       anchor.style.transform = `translate(${tx}px, ${ty}px)`;
+      document.body.classList.add("notification-open");
+    });
+
+    panel.addEventListener("popuphidden", () => {
+      document.body.classList.remove("notification-open");
     });
 
     try {
@@ -401,18 +510,28 @@ function setupPopupNotifications() {
 // so a direct focus() call at startup would fire while the pane is hidden.
 function focusEmailOnLoginVisible() {
   const loginPane = document.querySelector(".felt-login");
+  const emailPane = document.querySelector(".felt-login__email-pane");
+  const portalPane = document.querySelector(".felt-login__portal");
   const emailInput = document.getElementById("felt-form__email");
 
+  // Focus the email field only when it's the uncovered active surface, not when
+  // the SSO or captive-portal browser is up over the login area.
   function maybeFocusEmail() {
-    if (!loginPane.classList.contains("is-hidden")) {
+    const loginVisible = !loginPane.classList.contains("is-hidden");
+    const emailVisible = !emailPane.classList.contains("is-hidden");
+    const portalShown = !portalPane.classList.contains("is-hidden");
+    if (loginVisible && emailVisible && !portalShown) {
       emailInput?.focus();
     }
   }
 
+  // subtree: react to the email/sso/portal panes toggling, not just .felt-login.
   new MutationObserver(maybeFocusEmail).observe(loginPane, {
     attributeFilter: ["class"],
+    subtree: true,
   });
 
+  // Refocus on activation, for when login appears while the window is backgrounded.
   window.addEventListener("focus", maybeFocusEmail);
 
   maybeFocusEmail();
@@ -466,7 +585,6 @@ window.addEventListener(
   () => {
     setBuildVersion();
     lazy.FeltErrorReport.init(document);
-    lazy.Updates.init(document);
     setupMarionetteEnvironment();
     setupPopupNotifications();
     setupContextMenu();
@@ -475,6 +593,35 @@ window.addEventListener(
     focusEmailOnLoginVisible();
     informAboutPotentialStartupFailure();
     macosActivateApplication();
+
+    // Start the update check immediately so the login pane is hidden before it
+    // paints (no flash). If a captive portal turns up, CaptivePortal suspends
+    // the check and shows the banner, then resumes it once connectivity is back.
+    lazy.Updates.init(document);
+    lazy.CaptivePortal.init(document, {
+      // Flip the UI back to the login form when a portal interrupts SSO, keeping
+      // the pending attempt so it resumes once the portal clears.
+      resetLoginUi: () => resetToLoginPage({ keepPendingSignIn: true }),
+      onConnectivityRestored: () => {
+        // Resume the submitted attempt. Freeing the guard lets the retry bump the
+        // generation, abandoning a sign-in left hanging behind the portal so its
+        // stale timeout is dropped rather than shown.
+        if (pendingSignInEmail) {
+          signInInFlight = false;
+          connectToConsole(pendingSignInEmail);
+        }
+      },
+      suspendUpdates: () => lazy.Updates.suspend(),
+      resumeUpdates: () => {
+        // Defer to a resuming sign-in (it takes the window). Returning false keeps
+        // the check suspended so it's retried when the sign-in ends.
+        if (pendingSignInEmail) {
+          return false;
+        }
+        lazy.Updates.init(document);
+        return true;
+      },
+    });
   },
   true
 );

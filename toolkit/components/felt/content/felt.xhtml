@@ -115,155 +115,200 @@
     </xul:box>
 
     <div class="felt">
-      <div class="felt-body">
-        <div class="felt-logo">
-          <div class="felt-logo__container"></div>
-        </div>
-        <div class="felt-updates is-hidden">
-          <div class="felt-updates-pane">
-            <img class="enterprise-wordmark" />
-            <div class="felt-updates__infos">
-              <h1
-                class="felt-updates__title"
-                data-l10n-id="felt-updates-title"
-              ></h1>
-              <div class="felt-updates-checking is-hidden">
-                <img class="felt-updates-spinner" />
-                <span
-                  class="felt-updates-checking-msg"
-                  data-l10n-id="felt-updates-checking"
-                >
-                </span>
-              </div>
-              <div class="felt-updates-application is-hidden">
-                <label
-                  class="felt-updates-application-msg"
-                  for="felt-updates-progress"
-                  data-l10n-id="felt-updates-application"
-                ></label>
-                <progress
-                  id="felt-updates-progress"
-                  max="100"
-                  value="0"
-                ></progress>
+      <div class="felt-logo">
+        <div class="felt-logo__container"></div>
+      </div>
+      <div class="felt-main">
+        <div class="felt-card">
+          <div class="felt-updates is-hidden">
+            <div class="felt-updates-pane">
+              <img class="enterprise-wordmark" />
+              <div class="felt-updates__infos">
+                <h1
+                  class="felt-updates__title"
+                  data-l10n-id="felt-updates-title"
+                ></h1>
+                <div class="felt-updates-checking is-hidden">
+                  <img class="felt-updates-spinner" />
+                  <span
+                    class="felt-updates-checking-msg"
+                    data-l10n-id="felt-updates-checking"
+                  >
+                  </span>
+                </div>
+                <div class="felt-updates-application is-hidden">
+                  <label
+                    class="felt-updates-application-msg"
+                    for="felt-updates-progress"
+                    data-l10n-id="felt-updates-application"
+                  ></label>
+                  <progress
+                    id="felt-updates-progress"
+                    max="100"
+                    value="0"
+                  ></progress>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="felt-login">
-          <div class="felt-login__email-pane">
-            <img class="enterprise-wordmark" />
-            <form class="felt-form">
-              <h1 class="felt-form__title" data-l10n-id="felt-sso-title"></h1>
-              <div class="felt-form__elements">
-                <moz-input-text
-                  id="felt-form__email"
-                  data-l10n-id="felt-sso-input-email"
-                  class="fill-width"
-                ></moz-input-text>
-                <moz-button
-                  id="felt-form__sign-in-btn"
-                  data-l10n-id="felt-sso-continue-btn"
-                  type="primary"
-                  class="fill-width"
-                  disabled="true"
-                ></moz-button>
-              </div>
-            </form>
+          <div class="felt-login">
+            <div class="felt-login__email-pane">
+              <img class="enterprise-wordmark" />
+              <form class="felt-form">
+                <h1 class="felt-form__title" data-l10n-id="felt-sso-title"></h1>
+                <div class="felt-form__elements">
+                  <moz-input-text
+                    id="felt-form__email"
+                    data-l10n-id="felt-sso-input-email"
+                    class="fill-width"
+                  ></moz-input-text>
+                  <moz-button
+                    id="felt-form__sign-in-btn"
+                    data-l10n-id="felt-sso-continue-btn"
+                    type="primary"
+                    class="fill-width"
+                    disabled="true"
+                  ></moz-button>
+                </div>
+              </form>
+            </div>
+            <div class="felt-updates-message is-hidden">
+              <span
+                class="felt-updates-uptodate"
+                data-l10n-id="felt-updates-uptodate"
+              >
+              </span>
+            </div>
+            <div class="felt-login__sso is-hidden">
+              <browser
+                xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+                id="browser"
+                type="content"
+                disablehistory="true"
+                disableglobalhistory="true"
+                remote="true"
+                maychangeremoteness="true"
+              ></browser>
+            </div>
+            <div class="felt-login__portal is-hidden">
+              <!-- No remote="true": it would spin up a content process at every
+                   startup. Loading the portal URL switches it to one then
+                   (URL-driven, gated on maychangeremoteness here). -->
+              <browser
+                xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+                id="portal-browser"
+                type="content"
+                disablehistory="true"
+                disableglobalhistory="true"
+                maychangeremoteness="true"
+              ></browser>
+            </div>
           </div>
-          <div class="felt-updates-message is-hidden">
+          <div id="felt-statuspanel" class="is-hidden">
             <span
-              class="felt-updates-uptodate"
-              data-l10n-id="felt-updates-uptodate"
-            >
-            </span>
-          </div>
-          <div class="felt-browser-error">
-            <moz-message-bar
-              class="felt-browser-error-multiple-crashes is-hidden"
-              data-l10n-id="felt-browser-error-multiple-crashes2"
-              type="error"
-              dismissable="true"
-            ></moz-message-bar>
-            <moz-message-bar
-              class="felt-browser-error-token-refresh-failed is-hidden"
-              data-l10n-id="felt-browser-error-token-refresh-failed"
-              type="info"
-            ></moz-message-bar>
-            <moz-message-bar
-              class="felt-browser-error-launch-failure is-hidden"
-              data-l10n-id="felt-browser-error-launch-failure"
-              type="error"
-              dismissable="true"
-            ></moz-message-bar>
-            <moz-message-bar
-              class="felt-error-primary-secret is-hidden"
-              data-l10n-id="felt-error-primary-secret"
-              type="error"
-              dismissable="true"
-            ></moz-message-bar>
-            <moz-message-bar
-              class="felt-browser-error-no-network is-hidden"
-              data-l10n-id="felt-browser-error-no-network"
-              type="error"
-              dismissable="true"
-            >
-              <span slot="message" class="felt-browser-error-details"></span>
-            </moz-message-bar>
-            <moz-message-bar
-              class="felt-browser-error-connection is-hidden"
-              data-l10n-id="felt-browser-error-connection2"
-              type="error"
-              dismissable="true"
-            >
-              <span slot="message" class="felt-browser-error-details"></span>
-            </moz-message-bar>
-            <moz-message-bar
-              class="felt-browser-error-sso-timeout is-hidden"
-              data-l10n-id="felt-browser-error-sso-timeout2"
-              type="error"
-              dismissable="true"
-            ></moz-message-bar>
-            <moz-message-bar
-              class="felt-updates-error-messages is-hidden"
-              data-l10n-id="felt-error-updates"
-              type="error"
-              dismissable="true"
-            >
-              <span slot="message" class="felt-browser-error-details"></span>
-            </moz-message-bar>
-            <moz-message-bar
-              class="felt-updates-warning-messages is-hidden"
-              type="warning"
-              dismissable="true"
-            >
-              <span slot="message" class="felt-browser-error-details"></span>
-            </moz-message-bar>
-          </div>
-          <div class="felt-login__sso is-hidden">
-            <browser
-              xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-              id="browser"
-              type="content"
-              disablehistory="true"
-              disableglobalhistory="true"
-              remote="true"
-              maychangeremoteness="true"
-            ></browser>
+              id="felt-statuspanel-label"
+              role="status"
+              aria-live="off"
+            ></span>
           </div>
         </div>
-      </div>
-      <div class="felt-footer">
-        <div id="felt-footer-content">
-          <span class="felt-version"></span>
-          <span class="felt-powered-by" data-l10n-id="felt-powered-by"></span>
+        <div class="felt-footer">
+          <button
+            id="felt-back-button"
+            class="is-hidden"
+            data-l10n-id="felt-back-button"
+            type="button"
+          ></button>
+          <div id="felt-footer-content">
+            <span class="felt-version"></span>
+            <span class="felt-powered-by" data-l10n-id="felt-powered-by"></span>
+          </div>
         </div>
-        <button
-          id="felt-back-button"
-          class="is-hidden"
-          data-l10n-id="felt-back-button"
-          type="button"
-        ></button>
+        <div class="felt-browser-error">
+          <moz-message-bar
+            class="felt-browser-error-multiple-crashes is-hidden"
+            data-l10n-id="felt-browser-error-multiple-crashes2"
+            type="error"
+            dismissable="true"
+          ></moz-message-bar>
+          <moz-message-bar
+            class="felt-browser-error-session-expired is-hidden"
+            data-l10n-id="felt-browser-error-token-refresh-failed"
+            type="info"
+          ></moz-message-bar>
+          <moz-message-bar
+            class="felt-browser-error-session-interrupted is-hidden"
+            data-l10n-id="felt-browser-error-session-interrupted"
+            type="error"
+          ></moz-message-bar>
+          <moz-message-bar
+            class="felt-browser-error-launch-failure is-hidden"
+            data-l10n-id="felt-browser-error-launch-failure"
+            type="error"
+            dismissable="true"
+          ></moz-message-bar>
+          <moz-message-bar
+            class="felt-error-primary-secret is-hidden"
+            data-l10n-id="felt-error-primary-secret"
+            type="error"
+            dismissable="true"
+          ></moz-message-bar>
+          <moz-message-bar
+            class="felt-browser-error-no-network is-hidden"
+            data-l10n-id="felt-browser-error-no-network"
+            type="error"
+            dismissable="true"
+          >
+            <span slot="message" class="felt-browser-error-details"></span>
+          </moz-message-bar>
+          <moz-message-bar
+            class="felt-browser-error-captive-portal is-hidden"
+            data-l10n-id="felt-browser-error-captive-portal"
+            type="info"
+          >
+            <moz-button
+              slot="actions"
+              id="felt-open-network-login"
+              data-l10n-id="felt-captive-portal-open-login"
+              size="small"
+            ></moz-button>
+          </moz-message-bar>
+          <moz-message-bar
+            class="felt-browser-error-connection is-hidden"
+            data-l10n-id="felt-browser-error-connection2"
+            type="error"
+            dismissable="true"
+          >
+            <span slot="message" class="felt-browser-error-details"></span>
+          </moz-message-bar>
+          <moz-message-bar
+            class="felt-browser-error-sso-timeout is-hidden"
+            data-l10n-id="felt-browser-error-sso-timeout2"
+            type="error"
+            dismissable="true"
+          ></moz-message-bar>
+          <moz-message-bar
+            class="felt-updates-error-messages is-hidden"
+            data-l10n-id="felt-error-updates"
+            type="error"
+            dismissable="true"
+          >
+            <span slot="message" class="felt-browser-error-details"></span>
+          </moz-message-bar>
+          <moz-message-bar
+            class="felt-updates-warning-messages is-hidden"
+            type="warning"
+            dismissable="true"
+          >
+            <span slot="message" class="felt-browser-error-details"></span>
+          </moz-message-bar>
+          <moz-message-bar
+            class="felt-error-sdr-token-unlock-failed is-hidden"
+            data-l10n-id="felt-error-sdr-token-unlock-failed"
+            type="error"
+            dismissable="true"
+          ></moz-message-bar>
+        </div>
       </div>
     </div>
   </body>

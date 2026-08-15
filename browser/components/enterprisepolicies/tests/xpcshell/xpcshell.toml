@@ -15,6 +15,10 @@ support-files = [
 
 ["test_addon_update.js"]
 
+["test_aichatbot.js"]
+# Only run in MOZ_ENTERPRISE builds
+run-if = ["enterprise"]
+
 ["test_appupdatepin.js"]
 
 ["test_appupdateurl.js"]
@@ -54,6 +58,12 @@ run-if = [
 
 ["test_permissions.js"]
 
+["test_policies_schema.js"]
+support-files = [
+  "../../schemas/policies-schema.json",
+  "../../schemas/policies-schema.meta.json",
+]
+
 ["test_policy_descriptions.js"]
 
 ["test_policy_search_engine.js"]
@@ -78,6 +88,10 @@ support-files = ["config_popups_cookies_addons.json"]
 ["test_sorted_alphabetically.js"]
 
 ["test_telemetry.js"]
+
+["test_watermark.js"]
+# Only run in MOZ_ENTERPRISE builds
+run-if = ["enterprise"]
 
 ["test_webserial.js"]
 

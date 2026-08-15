@@ -21,7 +21,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   ContentBlockingPrefs:
     "moz-src:///browser/components/protections/ContentBlockingPrefs.sys.mjs",
   ContextualIdentityService:
@@ -257,9 +256,7 @@ BrowserGlue.prototype = {
         lazy.PlacesBrowserStartup.backendInitComplete();
         break;
       case "browser-glue-test": // used by tests
-        if (data == "force-ui-migration") {
-          this._migrateUI();
-        } else if (data == "places-browser-init-complete") {
+        if (data == "places-browser-init-complete") {
           lazy.PlacesBrowserStartup.notifyIfInitializationComplete();
         } else if (data == "add-breaches-sync-handler") {
           this._addBreachesSyncHandler();
@@ -409,8 +406,9 @@ BrowserGlue.prototype = {
     // check if we're in safe mode
     if (
       Services.appinfo.inSafeMode &&
-      Services.felt &&
-      !Services.felt.isFeltUI()
+      (!AppConstants.MOZ_ENTERPRISE ||
+        (Services.felt?.isFeltBrowser() &&
+          !Services.prefs.getBoolPref("enterprise.is_testing", false)))
     ) {
       Services.ww.openWindow(
         null,
@@ -1112,85 +1110,6 @@ BrowserGlue.prototype = {
           lazy.Discovery.update();
         },
       },
-
-      {
-        name: "EnterpriseStorageEncryption.load",
-        condition:
-          AppConstants.MOZ_ENTERPRISE &&
-          Services.prefs.getBoolPref(
-            "security.storage.encryption.enabled",
-            false
-          ),
-        task: async () => {
-          // Get the primary secret from the console backend
-          // The API returns { data: "secret_value" }
-          let primarySecret;
-          try {
-            const payload = await lazy.ConsoleClient.getPrimarySecret();
-            primarySecret = payload.data;
-            if (!primarySecret) {
-              console.error(
-                "EnterpriseStorageEncryption.load: No data field in payload:",
-                payload
-              );
-              return;
-            }
-          } catch (e) {
-            console.error(
-              "EnterpriseStorageEncryption.load: Failed to get primary secret:",
-              e
-            );
-            return;
-          }
-
-          // Load the PK11 token
-          let pk11token;
-          try {
-            pk11token = Cc[
-              "@mozilla.org/security/internalkeytoken;1"
-            ].createInstance(Ci.nsIPKCS11Token);
-          } catch (e) {
-            console.error(
-              "EnterpriseStorageEncryption.load: Error getting PK11 token: " + e
-            );
-            return;
-          }
-
-          // Check if the PK11 token needs initialization
-          if (!pk11token.hasPassword) {
-            // Token doesn't need login (empty password), set it to primarySecret
-            try {
-              await pk11token.changePassword("", primarySecret);
-            } catch (e) {
-              console.error(
-                "EnterpriseStorageEncryption.load: Failed to change password from empty to primarySecret: " +
-                  e
-              );
-            }
-          } else {
-            // Token needs login - verify the password matches primarySecret
-            let isPasswordValid;
-            try {
-              let sdr = Cc["@mozilla.org/security/sdr;1"].getService(
-                Ci.nsISecretDecoderRing
-              );
-              isPasswordValid = sdr.login(primarySecret);
-            } catch (e) {
-              console.error(
-                "EnterpriseStorageEncryption.load: Error logging into the Secret Decoder Ring with the primary secret: " +
-                  e
-              );
-              return;
-            }
-
-            if (!isPasswordValid) {
-              console.error(
-                "EnterpriseStorageEncryption.load: Password against the PK11 token is not valid"
-              );
-            }
-          }
-        },
-      },
     ];
 
     runIdleTasks(earlyTasks);
@@ -1367,7 +1286,7 @@ BrowserGlue.prototype = {
         task: () => {
           let loginDetection = Cc[
             "@mozilla.org/login-detection-service;1"
-          ].createInstance(Ci.nsILoginDetectionService);
+          ].getService(Ci.nsILoginDetectionService);
           loginDetection.init();
         },
       },
@@ -1777,7 +1696,7 @@ BrowserGlue.prototype = {
     // Use an increasing number to keep track of the current state of the user's
     // profile, so we can move data around as needed as the browser evolves.
     // Completely unrelated to the current Firefox release number.
-    const APP_DATA_VERSION = 177;
+    const APP_DATA_VERSION = 179;
     const PREF = "browser.migration.version";
 
     let profileDataVersion = Services.prefs.getIntPref(PREF, -1);

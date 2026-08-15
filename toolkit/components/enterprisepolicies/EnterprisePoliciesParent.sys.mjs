@@ -673,12 +673,15 @@ EnterprisePoliciesManager.prototype = {
   _runPoliciesCallbacks(timing) {
     let callbacks = this._callbacks[timing];
     while (callbacks.length) {
-      let { callback, impl, params } = callbacks.shift();
+      let { callback, impl, params, policyName } = callbacks.shift();
       const boundCallback = callback.bind(impl, this, params);
       try {
         boundCallback();
       } catch (ex) {
-        lazy.log.error("Error running ", boundCallback, `for ${timing}:`, ex);
+        lazy.log.error(
+          `Error running ${timing} callback for policy ${policyName}: ${ex}`,
+          ex
+        );
       }
     }
   },
@@ -926,6 +929,8 @@ EnterprisePoliciesManager.prototype = {
       InstallSources = new MatchPatternSet(
         extensionSettings["*"].install_sources
       );
+    } else {
+      InstallSources = null;
     }
   },
 
@@ -967,8 +972,15 @@ EnterprisePoliciesManager.prototype = {
     );
   },
 
-  // Note: addon parameter has different types (bug 2033101).
-  mayInstallAddon(addon) {
+  /**
+   * @param {object} addon
+   * @param {string} addon.id
+   * @param {string} addon.type
+   * @param {string[]} [addon.permissions]
+   *   Required permissions; omit when unavailable (treated as none).
+   * @returns {boolean} Whether policy permits installing the add-on.
+   */
+  mayInstallAddon({ id, type, permissions = [] }) {
     // See https://dev.chromium.org/administrators/policy-list-3/extension-settings-full
     if (!ExtensionSettings) {
       return true;
@@ -977,19 +989,14 @@ EnterprisePoliciesManager.prototype = {
     // effective list (which accounts for allowed_permissions) is resolved by
     // getExtensionSettings. Optional permissions are gated at
     // permissions.request time instead.
-    let blockedPerms =
-      this.getExtensionSettings(addon.id)?.blocked_permissions ?? [];
-    if (
-      blockedPerms.some(perm =>
-        addon.userPermissions?.permissions?.includes(perm)
-      )
-    ) {
+    let blockedPerms = this.getExtensionSettings(id)?.blocked_permissions ?? [];
+    if (blockedPerms.some(perm => permissions.includes(perm))) {
       return false;
     }
     // Match Chrome: any per-id ExtensionSettings entry (even empty) shadows
     // the "*" defaults entirely.
-    if (addon.id in ExtensionSettings) {
-      if (ExtensionSettings[addon.id].installation_mode === "blocked") {
+    if (id in ExtensionSettings) {
+      if (ExtensionSettings[id].installation_mode === "blocked") {
         return false;
       }
       return true;
@@ -1002,7 +1009,7 @@ EnterprisePoliciesManager.prototype = {
         return false;
       }
       if ("allowed_types" in ExtensionSettings["*"]) {
-        return ExtensionSettings["*"].allowed_types.includes(addon.type);
+        return ExtensionSettings["*"].allowed_types.includes(type);
       }
     }
     return true;

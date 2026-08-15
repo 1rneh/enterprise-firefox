@@ -19,6 +19,8 @@ let internalContentAnalysisService = undefined;
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  ContentAnalysisTelemetry:
+    "moz-src:///browser/components/contentanalysis/content/ContentAnalysisTelemetry.sys.mjs",
   PanelMultiView:
     "moz-src:///browser/components/customizableui/PanelMultiView.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -104,6 +106,14 @@ export const ContentAnalysis = {
   requestTokenToRequestInfo: new Map(),
 
   /**
+   * Whether we are resolving warn dialogs because the application is quitting,
+   * in which case the resolutions aren't choices the user made.
+   *
+   * @type {boolean}
+   */
+  _isRespondingToWarnDialogsForQuit: false,
+
+  /**
    * @type {Set<string>}
    */
   warnDialogRequestTokens: new Set(),
@@ -150,11 +160,11 @@ export const ContentAnalysis = {
    * @param {Window} window - The window to monitor
    */
   initialize(window) {
-    if (!this.contentAnalysis.isActive) {
-      this.uninitialize();
-      return;
-    }
-    let doc = window.document;
+    // Register unconditionally (not gated on isActive): Content Analysis can be
+    // turned on or off at runtime by an enterprise-policy update, so the
+    // observers must already be listening when a later update activates it. The
+    // observers are process-global and registered once; the handlers no-op when
+    // nothing is pending. Teardown happens on quit-application.
     if (!this.isInitialized) {
       this.isInitialized = true;
       this.initializeObservers();
@@ -167,22 +177,48 @@ export const ContentAnalysis = {
       });
     }
 
-    // Do this even if initialized so the icon shows up on new windows, not just the
-    // first one.
-    for (let indicator of doc.getElementsByClassName(
-      "content-analysis-indicator"
-    )) {
-      doc.l10n.setAttributes(indicator, "content-analysis-indicator-tooltip", {
-        agentName: lazy.agentName,
-      });
+    // Reflect the current active state in this window's indicator. Done for
+    // every window (not just the first) so the icon shows up on new windows,
+    // and re-run for all windows on a policy update (see observe()).
+    this.updateWindowContentAnalysisState(window);
+  },
+
+  /**
+   * Show or hide the Content Analysis indicator in a window to match the
+   * service's current active state.
+   *
+   * @param {Window} window - The window to update
+   */
+  updateWindowContentAnalysisState(window) {
+    let doc = window.document;
+    // Check the enabled pref before touching this.contentAnalysis so an
+    // unrelated policy update doesn't construct the service (and its backend)
+    // for a profile that never turns Content Analysis on. isActive still
+    // requires the pref, so this short-circuit changes nothing when active.
+    let isActive =
+      Services.prefs.getBoolPref("browser.contentanalysis.enabled", false) &&
+      this.contentAnalysis.isActive;
+    if (isActive) {
+      for (let indicator of doc.getElementsByClassName(
+        "content-analysis-indicator"
+      )) {
+        doc.l10n.setAttributes(
+          indicator,
+          "content-analysis-indicator-tooltip",
+          { agentName: lazy.agentName }
+        );
+      }
+      doc.documentElement.setAttribute("contentanalysisactive", "true");
+    } else {
+      doc.documentElement.removeAttribute("contentanalysisactive");
     }
-    doc.documentElement.setAttribute("contentanalysisactive", "true");
   },
 
   async uninitialize() {
     if (this.isInitialized) {
       this.isInitialized = false;
       this.requestTokenToRequestInfo.clear();
+      lazy.ContentAnalysisTelemetry.reset();
       this.userActionToBusyDialogMap.clear();
       this.uninitializeObservers();
     }
@@ -194,9 +230,11 @@ export const ContentAnalysis = {
   initializeObservers() {
     Services.obs.addObserver(this, "dlp-request-made");
     Services.obs.addObserver(this, "dlp-response");
+    Services.obs.addObserver(this, "dlp-warn-resolved");
     Services.obs.addObserver(this, "quit-application");
     Services.obs.addObserver(this, "quit-application-granted");
     Services.obs.addObserver(this, "quit-application-requested");
+    Services.obs.addObserver(this, "EnterprisePolicies:PolicyUpdatesApplied");
   },
 
   /**
@@ -205,13 +243,18 @@ export const ContentAnalysis = {
   uninitializeObservers() {
     Services.obs.removeObserver(this, "dlp-request-made");
     Services.obs.removeObserver(this, "dlp-response");
+    Services.obs.removeObserver(this, "dlp-warn-resolved");
     Services.obs.removeObserver(this, "quit-application");
     Services.obs.removeObserver(this, "quit-application-granted");
     Services.obs.removeObserver(this, "quit-application-requested");
+    Services.obs.removeObserver(
+      this,
+      "EnterprisePolicies:PolicyUpdatesApplied"
+    );
   },
 
   // nsIObserver
-  async observe(aSubj, aTopic, _aData) {
+  async observe(aSubj, aTopic, aData) {
     switch (aTopic) {
       case "quit-application-requested": {
         if (aSubj.data) {
@@ -277,16 +320,31 @@ export const ContentAnalysis = {
         // Clear this first so the handler showing the dialog will know not
         // to call respondToWarnDialog() again.
         this.warnDialogRequestTokens = new Set();
-        for (let warnDialogRequestToken of requestTokensToCancel) {
-          this.contentAnalysis.respondToWarnDialog(
-            warnDialogRequestToken,
-            false
-          );
+        // Tells ContentAnalysisTelemetry.recordWarnResolution() that these
+        // resolutions are not choices the user made.
+        this._isRespondingToWarnDialogsForQuit = true;
+        try {
+          for (let warnDialogRequestToken of requestTokensToCancel) {
+            this.contentAnalysis.respondToWarnDialog(
+              warnDialogRequestToken,
+              false
+            );
+          }
+        } finally {
+          this._isRespondingToWarnDialogsForQuit = false;
         }
         break;
       }
       case "quit-application": {
         this.uninitialize();
+        break;
+      }
+      // An enterprise-policy update may have activated or deactivated Content
+      // Analysis; refresh every window's indicator to match the new state.
+      case "EnterprisePolicies:PolicyUpdatesApplied": {
+        for (let window of lazy.BrowserWindowTracker.orderedWindows) {
+          this.updateWindowContentAnalysisState(window);
+        }
         break;
       }
       case "dlp-request-made":
@@ -316,6 +374,9 @@ export const ContentAnalysis = {
           this.requestTokenToRequestInfo.set(request.requestToken, {
             browsingContext,
             resourceNameOrOperationType,
+            url: request.url?.spec ?? "",
+            analysisType: request.analysisType,
+            reason: request.reason,
           });
           this._queueSlowCAMessage(
             request,
@@ -334,9 +395,10 @@ export const ContentAnalysis = {
           );
         }
 
-        let windowAndResourceNameOrOperationType =
-          this.requestTokenToRequestInfo.get(response.requestToken);
-        if (!windowAndResourceNameOrOperationType) {
+        let requestInfo = this.requestTokenToRequestInfo.get(
+          response.requestToken
+        );
+        if (!requestInfo) {
           // We may get multiple responses, for example, if we are blocked or
           // canceled after receiving our verdict because we were part of a
           // multipart transaction.  Just ignore that.
@@ -347,9 +409,10 @@ export const ContentAnalysis = {
         }
         this.requestTokenToRequestInfo.delete(response.requestToken);
         this._removeSlowCAMessage(response.userActionId, response.requestToken);
+        lazy.ContentAnalysisTelemetry.recordVerdict(requestInfo, response);
         if (
-          windowAndResourceNameOrOperationType.resourceNameOrOperationType
-            ?.operationType === Ci.nsIContentAnalysisRequest.eDownload
+          requestInfo.resourceNameOrOperationType?.operationType ===
+          Ci.nsIContentAnalysisRequest.eDownload
         ) {
           // Don't show warn/block/error dialogs for downloads; they're shown
           // inside the downloads panel.
@@ -360,8 +423,8 @@ export const ContentAnalysis = {
         // Don't show dialog if this is a cached response
         if (!response?.isCachedResponse) {
           await this._showCAResult(
-            windowAndResourceNameOrOperationType.resourceNameOrOperationType,
-            windowAndResourceNameOrOperationType.browsingContext,
+            requestInfo.resourceNameOrOperationType,
+            requestInfo.browsingContext,
             response.requestToken,
             response.userActionId,
             responseResult,
@@ -369,6 +432,20 @@ export const ContentAnalysis = {
             response.cancelError
           );
         }
+        break;
+      }
+      case "dlp-warn-resolved": {
+        const response = aSubj.QueryInterface(Ci.nsIContentAnalysisResponse);
+        if (!response) {
+          throw new Error(
+            "Got dlp-warn-resolved message but no response object was passed"
+          );
+        }
+        lazy.ContentAnalysisTelemetry.recordWarnResolution(
+          response,
+          aData,
+          this._isRespondingToWarnDialogsForQuit
+        );
         break;
       }
     }

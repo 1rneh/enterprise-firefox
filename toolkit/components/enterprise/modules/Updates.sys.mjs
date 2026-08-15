@@ -29,9 +29,20 @@ export const Updates = {
     // back the login UI in any circumstance
     this._document = doc;
 
+    // A prior suspend() (captive portal) may have stopped a check; init() is
+    // also how CaptivePortal resumes once connectivity is confirmed.
+    this._suspended = false;
+
     this.maybeShowUpdateSuccess();
     // Check this early to avoid re-downloading updates when it would fail
     await this.updateCheckingAllowed();
+
+    // A captive portal suspended us during the await above: show the login and
+    // bail, so we don't paint the update UI over the banner or check behind it.
+    if (this._suspended) {
+      this.displayLoginState();
+      return;
+    }
 
     if (this._initialized) {
       this.displayLoginState();
@@ -44,6 +55,7 @@ export const Updates = {
     // handling are registered as early as possible to avoid any risk of race
     // condition.
     this.prepareUpdateCheck();
+    this._observing = true;
 
     this._checkingTimeout = null;
     this._receivedStaging = false;
@@ -70,6 +82,27 @@ export const Updates = {
     this.cancelDelayedUpdateCheckUI();
     this._document = undefined;
     this._initialized = false;
+  },
+
+  // Stop an in-flight update check without tearing the module down: used when a
+  // captive portal is detected so we don't surface an update error over the
+  // portal banner. The check is re-run via init() once connectivity is back.
+  suspend() {
+    if (this._suspended) {
+      return;
+    }
+    this._suspended = true;
+    this.cancelDelayedUpdateCheckUI();
+    if (this._appUpdater) {
+      this._appUpdater.removeListener(this._updaterCallback);
+      // Abort the in-flight check so its network request doesn't linger behind
+      // the portal (and hang shutdown if we quit before it settles).
+      this._appUpdater.stop();
+    }
+    this.unobserve();
+    this._initialized = false;
+    // Show the login back so the captive-portal banner has somewhere to sit.
+    this.displayLoginState();
   },
 
   maybeShowUpdateSuccess() {
@@ -133,6 +166,7 @@ export const Updates = {
     this._appUpdater = new lazy.AppUpdater();
     this._updaterCallback = this.appUpdaterCallback.bind(this);
     this._appUpdater.addListener(this._updaterCallback);
+    Services.obs.addObserver(this, "felt-ready");
     Services.obs.addObserver(this, "update-staged");
     Services.obs.addObserver(this, "update-downloaded");
     Services.obs.addObserver(this, "update-error");
@@ -150,6 +184,9 @@ export const Updates = {
     this._appUpdater
       .check()
       .catch(err => {
+        if (this._suspended) {
+          return;
+        }
         lazy.log.error(
           `Felt: forceUpdateCheck(): AppUpdater failure: ${err}`,
           err
@@ -163,6 +200,9 @@ export const Updates = {
 
   // Similar to browser/base/content/aboutDialog-appUpdater.js:_onAppUpdateStatus
   appUpdaterCallback(status, downloadedBytes, totalBytes) {
+    if (this._suspended) {
+      return;
+    }
     lazy.log.warn(`FeltUpdates: appUpdaterCallback: status:${status}`);
     switch (status) {
       case lazy.AppUpdater.STATUS.CHECKING:
@@ -366,6 +406,13 @@ export const Updates = {
   },
 
   unobserve() {
+    // suspend() can run before init() has registered its observers (a portal
+    // detected during init's await), so only remove what we actually added.
+    if (!this._observing) {
+      return;
+    }
+    this._observing = false;
+    Services.obs.removeObserver(this, "felt-ready");
     Services.obs.removeObserver(this, "update-staged");
     Services.obs.removeObserver(this, "update-downloaded");
     Services.obs.removeObserver(this, "update-error");
@@ -375,7 +422,9 @@ export const Updates = {
   sendUpdateReady() {
     try {
       Services.felt?.sendUpdateReady();
+      this._pendingUpdateReady = false;
     } catch (ex) {
+      this._pendingUpdateReady = true;
       if (ex.result === Cr.NS_ERROR_NOT_CONNECTED) {
         lazy.log.warn(
           `FeltUpdates: sendUpdateReady() failed because not connected: no browser ?`
@@ -396,7 +445,18 @@ export const Updates = {
     lazy.log.warn(`FeltUpdates: observer: topic:${topic} state:${state}`);
     switch (topic) {
       case "xpcom-shutdown":
+        // Abort an in-flight check so its network request doesn't hang shutdown.
+        this._appUpdater?.stop();
         this.unobserve();
+        break;
+      case "felt-ready":
+        lazy.log.warn(
+          "Browser is ready checking for pending update notification"
+        );
+        if (this._pendingUpdateReady) {
+          lazy.log.warn("Informing browser of pending update");
+          this.sendUpdateReady();
+        }
         break;
       case "update-staged":
       case "update-downloaded":

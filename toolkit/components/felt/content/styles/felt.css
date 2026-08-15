@@ -23,22 +23,37 @@ body {
 
 .felt {
   display: flex;
-  flex-direction: column;
   flex: 1 0 0;
   overflow: hidden;
-  background-image: var(--felt-logo-background-gradient);
-}
-
-.felt-body {
-  display: flex;
-  flex: 1 0 0;
 }
 
 .felt-logo {
   display: flex;
+  background-image: var(--felt-logo-background-gradient);
   overflow: hidden;
   flex-direction: column;
+  flex-shrink: 0;
   justify-content: center;
+}
+
+.felt-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 0;
+  position: relative;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  background-color: var(--felt-background-color-tabstrip);
+}
+
+.felt-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 0;
+  overflow: hidden;
+  position: relative;
+  background: var(--background-color-box);
+  border-radius: var(--card-border-radius);
+  margin: var(--space-large) var(--space-large) 0 var(--space-large);
 }
 
 .felt-logo__container {
@@ -60,7 +75,6 @@ body {
 .felt-updates {
   display: flex;
   flex-direction: column;
-  background: var(--background-color-box);
   flex: 1 0 0;
   justify-content: center;
   position: relative;
@@ -206,8 +220,6 @@ moz-input-text::part(label) {
   display: flex;
   flex-grow: 1;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  width: 400px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   padding: 60px 5px;
 }
 
@@ -219,29 +231,75 @@ moz-input-text::part(label) {
 
 .felt-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 var(--space-medium) var(--space-xsmall);
+  padding: var(--space-medium) var(--space-large);
+}
+
+/* Overlay on .felt-login (position:relative) instead of a flex row item. */
+.felt-login__portal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  background: var(--background-color-box);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  padding: 10px;
+}
+
+.felt-login__portal > browser {
+  flex: 1 1 auto;
 }
 
 #felt-footer-content {
   display: flex;
   flex-direction: column;
+  align-items: end;
+  text-align: end;
+  margin-inline-start: auto;
   font-size: small;
-  /* On the blue footer gradient in both themes; must stay white. */
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  color: var(--color-white);
+  color: var(--text-color-deemphasized);
 }
 
 #felt-back-button {
   padding: 0;
   border: none;
   background: none;
-  /* On the blue footer gradient in both themes; must stay white. */
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  color: var(--color-white);
+  color: var(--link-color);
   font-size: small;
   text-decoration: underline;
+  cursor: pointer;
+}
+
+#felt-back-button::before {
+  content: "\2190";
+  display: inline-block;
+  margin-inline-end: var(--space-xsmall);
+}
+
+#felt-back-button:dir(rtl)::before {
+  content: "\2192";
+}
+
+#felt-statuspanel {
+  position: absolute;
+  bottom: 0;
+  inset-inline-start: 0;
+  max-width: 100%;
+  pointer-events: none;
+}
+
+#felt-statuspanel-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: var(--space-xxsmall) var(--space-xsmall);
+  font-size: small;
+  color: var(--text-color);
+  background-color: var(--background-color-box);
+  border: 1px solid var(--border-color);
+  border-block-end: none;
+  border-inline-start: none;
+  border-start-end-radius: var(--border-radius-small);
 }
 
 .is-hidden {
@@ -256,7 +314,7 @@ moz-input-text::part(label) {
   left: 50%;
 }
 
-body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt) {
+body.notification-open .felt:not(#notification-popup-box .felt) {
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   opacity: 0.5;
   pointer-events: none;

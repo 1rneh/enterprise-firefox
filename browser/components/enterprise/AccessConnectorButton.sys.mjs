@@ -31,6 +31,7 @@ export class AccessConnectorButton {
   #window = null;
   #progressListener = null;
   #onClick = null;
+  #lastErrorDomain = null;
 
   /**
    * @param {Window} window - The chrome window that owns the button.
@@ -149,19 +150,23 @@ export class AccessConnectorButton {
       const params = new URLSearchParams(principalURI.query);
       const errorCode = params.get("e");
       if (PROXY_ERROR_CODES.has(errorCode)) {
-        return { isProtected: true, isError: true };
+        let domain = "";
+        try {
+          domain = new URL(params.get("u") ?? "").hostname;
+        } catch {}
+        return { isProtected: true, isError: true, domain };
       }
     }
-    return { isProtected: false, isError: false };
+    return { isProtected: false, isError: false, domain: "" };
   }
 
   /**
    * Shows the button when the page is protected by the access connector, and
    * applies error styling when the proxy is unavailable.
    *
-   * @param {{ isProtected: boolean, isError: boolean }} status
+   * @param {{ isProtected: boolean, isError: boolean, domain: string }} status
    */
-  #applyStatus({ isProtected, isError }) {
+  #applyStatus({ isProtected, isError, domain }) {
     const button = this.#button;
     if (!button) {
       return;
@@ -199,6 +204,21 @@ export class AccessConnectorButton {
         );
       }
     }
+
+    if (isError && domain !== this.#lastErrorDomain) {
+      this.#recordProxyError(domain);
+    }
+    this.#lastErrorDomain = isError ? domain : null;
+  }
+
+  /**
+   * Submits a security event for a proxy error incident.
+   *
+   * @param {string} domain - The hostname that failed to load through the proxy.
+   */
+  #recordProxyError(domain) {
+    Glean.accessConnector.proxyError.record({ domain });
+    GleanPings.enterprise.submit();
   }
 
   /**

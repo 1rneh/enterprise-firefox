@@ -192,3 +192,94 @@ TEST(ContentAnalysisRuleParser, RejectsMalformedJSON)
   nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
   EXPECT_EQ(Parse("{ not valid json", rules), NS_ERROR_INVALID_ARG);
 }
+
+TEST(ContentAnalysisRuleParser, MapsTextCopyToDataCopied)
+{
+  constexpr const char* kJSON = R"JSON({
+    "DLPRules": { "Rules": [
+      { "Name": "copy", "Enabled": true, "Actions": ["TextCopy"], "Type": "warn" }
+    ] }
+  })JSON";
+
+  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
+  ASSERT_EQ(Parse(kJSON, rules), NS_OK);
+  ASSERT_EQ(rules.Length(), 1u);
+  nsTArray<uint32_t> ops;
+  ASSERT_EQ(rules[0]->GetOperations(ops), NS_OK);
+  ASSERT_EQ(ops.Length(), 1u);
+  EXPECT_EQ(ops[0], static_cast<uint32_t>(AnalysisType::eDataCopied));
+}
+
+// A rule with an unrecognized action is skipped, but the remaining valid rules
+// still take effect (rather than the whole config being rejected).
+TEST(ContentAnalysisRuleParser, SkipsRuleWithUnknownActionKeepsValid)
+{
+  constexpr const char* kJSON = R"JSON({
+    "DLPRules": { "Rules": [
+      { "Name": "bad", "Enabled": true, "Actions": ["Teleport"], "Type": "block" },
+      { "Name": "good", "Enabled": true, "Actions": ["Print"], "Type": "block" }
+    ] }
+  })JSON";
+
+  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
+  ASSERT_EQ(Parse(kJSON, rules), NS_OK);
+  ASSERT_EQ(rules.Length(), 1u);
+  nsString name;
+  ASSERT_EQ(rules[0]->GetName(name), NS_OK);
+  EXPECT_TRUE(name.EqualsLiteral("good"));
+}
+
+// Same, but the skipped rule has an unrecognized type.
+TEST(ContentAnalysisRuleParser, SkipsRuleWithUnknownTypeKeepsValid)
+{
+  constexpr const char* kJSON = R"JSON({
+    "DLPRules": { "Rules": [
+      { "Name": "bad", "Enabled": true, "Actions": ["Print"], "Type": "quarantine" },
+      { "Name": "good", "Enabled": true, "Actions": ["Print"], "Type": "warn" }
+    ] }
+  })JSON";
+
+  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
+  ASSERT_EQ(Parse(kJSON, rules), NS_OK);
+  ASSERT_EQ(rules.Length(), 1u);
+  nsString name;
+  ASSERT_EQ(rules[0]->GetName(name), NS_OK);
+  EXPECT_TRUE(name.EqualsLiteral("good"));
+}
+
+// When every enabled rule is invalid, parsing fails entirely so the caller can
+// fail closed rather than silently enforce nothing.
+TEST(ContentAnalysisRuleParser, RejectsWhenAllRulesInvalid)
+{
+  constexpr const char* kJSON = R"JSON({
+    "DLPRules": { "Rules": [
+      { "Name": "a", "Enabled": true, "Actions": ["Teleport"], "Type": "block" },
+      { "Name": "b", "Enabled": true, "Actions": ["Print"], "Type": "quarantine" }
+    ] }
+  })JSON";
+
+  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
+  EXPECT_EQ(Parse(kJSON, rules), NS_ERROR_INVALID_ARG);
+  EXPECT_EQ(rules.Length(), 0u);
+}
+
+// ContentPatterns are stored verbatim; regex validity is not checked here (that
+// happens at policy-load time in Policies.sys.mjs).
+TEST(ContentAnalysisRuleParser, ParsesContentPatterns)
+{
+  constexpr const char* kJSON = R"JSON({
+    "DLPRules": { "Rules": [
+      { "Name": "conf", "Enabled": true, "Actions": ["FileUpload"],
+        "Type": "block", "ContentPatterns": ["\\bCONFIDENTIAL\\b", "SECRET"] }
+    ] }
+  })JSON";
+
+  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
+  ASSERT_EQ(Parse(kJSON, rules), NS_OK);
+  ASSERT_EQ(rules.Length(), 1u);
+  nsTArray<nsString> patterns;
+  ASSERT_EQ(rules[0]->GetContentPatterns(patterns), NS_OK);
+  ASSERT_EQ(patterns.Length(), 2u);
+  EXPECT_TRUE(patterns[0].EqualsLiteral("\\bCONFIDENTIAL\\b"));
+  EXPECT_TRUE(patterns[1].EqualsLiteral("SECRET"));
+}

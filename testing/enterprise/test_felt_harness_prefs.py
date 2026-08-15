@@ -93,9 +93,12 @@ class HarnessPrefs(BaseBrowserSignout):
             "identity.fxaccounts.remote.profile.uri": f"{base}api/fxa/profile/v1",
             "identity.fxaccounts.auth.uri": f"{base}api/fxa/api/v1",
             "security.certerrors.mitm.priming.endpoint": f"{base}api/misc/mitm/",
-            "captivedetect.canonicalURL": f"{base}api/misc/portal/canonical.html",
-            "network.connectivity-service.IPv4.url": f"{base}api/misc/connectivity?ipv4",
-            "network.connectivity-service.IPv6.url": f"{base}api/misc/connectivity?ipv6",
+            # captivedetect.canonicalURL and the connectivity-service URLs are
+            # intentionally NOT console-routed: they must stay plaintext HTTP so a
+            # captive portal can intercept them, so they keep their all.js values.
+            "captivedetect.canonicalURL": "http://firefox-portal-detection.com/generate_204",
+            "network.connectivity-service.IPv4.url": "http://firefox-portal-detection.com/success.txt?ipv4",
+            "network.connectivity-service.IPv6.url": "http://firefox-portal-detection.com/success.txt?ipv6",
             "browser.ipProtection.guardian.endpoint": base,
             "identity.fxaccounts.remote.root": base,
             "enterprise.is_testing": True,

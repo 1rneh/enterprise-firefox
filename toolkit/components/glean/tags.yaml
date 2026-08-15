@@ -311,6 +311,8 @@ $schema: moz://mozilla.org/schemas/glean/tags/1-0-0
   description: The Bugzilla component which applies to this object.
 'Developer Infrastructure :: Try':
   description: The Bugzilla component which applies to this object.
+'Enterprise Products :: Firefox':
+  description: The Bugzilla component which applies to this object.
 'Firefox :: Address Bar':
   description: The Bugzilla component which applies to this object.
 'Firefox :: Bookmarks & History':

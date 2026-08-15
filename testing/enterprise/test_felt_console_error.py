@@ -13,6 +13,12 @@ from felt_tests import find_free_port
 
 
 class FeltConsoleError(FeltConsoleErrorBase):
+    # test_felt_error_insecure_certs navigates to an external host (badssl.com).
+    # Keep the connectivity service from probing detectportal.firefox.com (its
+    # real URLs are restored now), which is blocked on some CI and can mark the
+    # browser offline, breaking that external load.
+    EXTRA_PREFS = {"network.connectivity-service.enabled": False}
+
     def teardown(self):
         if not hasattr(self, "_child_driver"):
             self._manually_closed_child = True

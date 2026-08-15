@@ -1421,6 +1421,32 @@ const POLICIES_TESTS = [
       MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT: "",
     },
   },
+
+  // POLICY: ContentAnalysisTelemetry
+  {
+    policies: {
+      ContentAnalysisTelemetry: {
+        Enabled: true,
+        UrlLogging: "domain",
+      },
+    },
+    lockedPrefs: {
+      "browser.contentanalysis.enterprise.telemetry.enabled": true,
+      "browser.contentanalysis.enterprise.telemetry.urlLogging": "domain",
+    },
+  },
+  {
+    policies: {
+      ContentAnalysisTelemetry: {
+        Enabled: false,
+        UrlLogging: "none",
+      },
+    },
+    lockedPrefs: {
+      "browser.contentanalysis.enterprise.telemetry.enabled": false,
+      "browser.contentanalysis.enterprise.telemetry.urlLogging": "none",
+    },
+  },
 ];
 
 add_task(async function test_policy_simple_prefs() {

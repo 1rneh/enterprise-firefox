@@ -9,6 +9,10 @@ run-if = [
 
 ["browser_live_and_local_policies_merging.js"]
 
+["browser_live_content_analysis_activation.js"]
+
+["browser_live_content_analysis_dlp.js"]
+
 ["browser_live_disable_local_policies.js"]
 
 ["browser_live_policies_basic_tests.js"]
@@ -17,4 +21,12 @@ run-if = [
 
 ["browser_live_policies_restoring_preference_state.js"]
 
-["browser_live_policy_proxy.js"]
+["browser_live_policy_Cookies.js"]
+
+["browser_live_policy_ExtensionSettings.js"]
+
+["browser_live_policy_HttpsOnlyMode.js"]
+
+["browser_live_policy_SitePolicies.js"]
+
+["browser_live_policy_WebsiteFilter.js"]

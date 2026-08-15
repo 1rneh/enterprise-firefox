@@ -29,6 +29,9 @@
 #include "nsExceptionHandler.h"
 #include "nsICertStorage.h"
 #include "nsThreadUtils.h"
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/toolkit/components/felt/felt.h"
+#endif
 
 // TODO: understand why on Android we cannot include this and if we should
 #ifndef ANDROID
@@ -148,6 +151,13 @@ const char* AppShutdown::GetShutdownPhaseName(ShutdownPhase aPhase) {
 
 void AppShutdown::MaybeDoRestart() {
   if (sShutdownMode == AppShutdownMode::Restart) {
+#if defined(MOZ_ENTERPRISE)
+    // Do not restart when running as FELT client (i.e. Enterprise browser)
+    if (is_felt_browser()) {
+      return;
+    }
+#endif
+
     StopLateWriteChecks();
 
     // Since we'll be launching our child while we're still alive, make sure

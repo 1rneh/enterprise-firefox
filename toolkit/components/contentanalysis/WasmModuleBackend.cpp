@@ -35,45 +35,9 @@ extern LazyLogModule gContentAnalysisLog;
 
 namespace {
 
-// An example DLP rule set, in the same JSON format as the enterprise DLP
-// rules config. In the future, rules will come from enterprise policy, but
-// for now these rules are hard-coded to allow experimentation. Rule matching
-// (operation, domain, content) happens in the module.
-static constexpr auto kExampleRulesJSON = R"JSON({
-  "DLPRules": {
-    "Rules": [
-      {
-        "Name": "warn-ai-paste",
-        "Enabled": true,
-        "Actions": ["TextPaste", "FileUpload"],
-        "Domains": ["chatgpt.com", "claude.ai", "gemini.google.com"],
-        "Type": "warn",
-        "Message": "Pasting work data into AI services may violate company policy."
-      },
-      {
-        "Name": "block-cloud-uploads",
-        "Enabled": true,
-        "Actions": ["FileUpload"],
-        "Domains": ["drive.google.com", "dropbox.com", "wetransfer.com"],
-        "Type": "block"
-      },
-      {
-        "Name": "block-confidential-content",
-        "Enabled": true,
-        "ContentPatterns": ["\\bCONFIDENTIAL\\b"],
-        "Type": "block",
-        "Message": "Content marked CONFIDENTIAL may not leave the organization."
-      }
-    ]
-  }
-})JSON";
-
-static nsTArray<RefPtr<nsIContentAnalysisRule>> BuildExampleRules() {
-  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
-  MOZ_ALWAYS_SUCCEEDS(ParseContentAnalysisRules(
-      NS_ConvertUTF8toUTF16(kExampleRulesJSON), rules));
-  return rules;
-}
+// The pref carrying the built-in DLP rule set (the DLPRules JSON), set by the
+// DataLossPrevention enterprise policy.
+static constexpr char kDlpRulesPref[] = "browser.contentanalysis.dlp_rules";
 
 // Recover the nsresult from a rejected wasm-runner promise. The runner
 // rejects with a Components.Exception carrying the failure code in its
@@ -146,6 +110,28 @@ nsresult WasmModuleBackend::EnsureReady() {
   return runner ? NS_OK : NS_ERROR_NOT_AVAILABLE;
 }
 
+nsresult WasmModuleBackend::LoadDlpRules(
+    nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules) {
+  AssertIsOnMainThread();
+  nsAutoString rulesJSON;
+  nsresult rv = Preferences::GetString(kDlpRulesPref, rulesJSON);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (rulesJSON != mCachedRulesJSON) {
+    nsTArray<RefPtr<nsIContentAnalysisRule>> parsed;
+    // An empty pref means no rules are configured, so there is nothing to
+    // enforce and nothing to parse.
+    if (!rulesJSON.IsEmpty()) {
+      MOZ_TRY(ParseContentAnalysisRules(rulesJSON, parsed));
+    }
+    mCachedRules = std::move(parsed);
+    mCachedRulesJSON = rulesJSON;
+  }
+
+  aRules = mCachedRules.Clone();
+  return NS_OK;
+}
+
 nsresult WasmModuleBackend::Analyze(
     nsCOMPtr<nsIContentAnalysisRequest> aRequest, bool aAutoAcknowledge) {
   AssertIsOnMainThread();
@@ -168,7 +154,9 @@ nsresult WasmModuleBackend::Analyze(
     return NS_ERROR_FAILURE;
   }
 
-  nsTArray<RefPtr<nsIContentAnalysisRule>> rules = BuildExampleRules();
+  nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
+  rv = LoadDlpRules(rules);
+  NS_ENSURE_SUCCESS(rv, rv);
 
   nsIContentAnalysisRequest::AnalysisType type =
       nsIContentAnalysisRequest::AnalysisType::eUnspecified;
@@ -194,6 +182,11 @@ nsresult WasmModuleBackend::Analyze(
                            contentBytes = std::move(contentBytes),
                            rules = std::move(rules), userActionId,
                            aAutoAcknowledge]() mutable {
+                  AssertIsOnMainThread();
+                  if (self->mInert) {
+                    // Backend may be swapped out or shutting down
+                    return;
+                  }
                   RefPtr<ContentAnalysis> owner =
                       ContentAnalysis::GetContentAnalysisFromService();
                   if (!owner) {
@@ -254,6 +247,10 @@ void WasmModuleBackend::HandleWasmResponse(JSContext* aCx,
                                            bool aAutoAcknowledge) {
   AssertIsOnMainThread();
 
+  if (mInert) {
+    // Backend may be swapped out or shutting down
+    return;
+  }
   RefPtr<ContentAnalysis> owner =
       ContentAnalysis::GetContentAnalysisFromService();
   if (!owner) {
@@ -332,14 +329,20 @@ nsresult WasmModuleBackend::InvokeRunner(
       [self = RefPtr{this}, userActionId = nsCString(aUserActionId)](
           JSContext* aCx, JS::Handle<JS::Value> aValue, ErrorResult&) {
         AssertIsOnMainThread();
+        if (self->mInert) {
+          // Backend may be swapped out or shutting down
+          return;
+        }
+        RefPtr<ContentAnalysis> owner =
+            ContentAnalysis::GetContentAnalysisFromService();
+        if (!owner) {
+          // Shutting down.
+          return;
+        }
         nsresult rv = ExtractExceptionResult(aCx, aValue);
         self->mConnectedToAgent = false;
         self->mFailedSignatureVerification = rv == NS_ERROR_INVALID_SIGNATURE;
-        RefPtr<ContentAnalysis> owner =
-            ContentAnalysis::GetContentAnalysisFromService();
-        if (owner) {
-          owner->CancelWithError(nsCString(userActionId), rv);
-        }
+        owner->CancelWithError(nsCString(userActionId), rv);
       });
   return NS_OK;
 }
@@ -354,7 +357,11 @@ WasmModuleBackend::GetDiagnosticInfo() {
   return DiagnosticInfoPromise::CreateAndResolve(info, __func__);
 }
 
-void WasmModuleBackend::Shutdown() {}
+void WasmModuleBackend::Shutdown() {
+  AssertIsOnMainThread();
+  // Drop any runner promise that resolves after this point
+  mInert = true;
+}
 
 #undef WASM_RUNNER_CONTRACTID
 

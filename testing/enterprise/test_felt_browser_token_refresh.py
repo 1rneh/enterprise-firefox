@@ -128,7 +128,7 @@ class BrowserTokenRefresh(FeltTests):
         self.force_window()
 
         self._driver.set_context("chrome")
-        info_bar = self.get_elem(".felt-browser-error-token-refresh-failed")
+        info_bar = self.get_elem(".felt-browser-error-session-expired")
         heading = info_bar.get_attribute("heading").strip()
         assert "You’ve been signed out" in heading, (
             f"Unexpected info bar heading: {heading}"

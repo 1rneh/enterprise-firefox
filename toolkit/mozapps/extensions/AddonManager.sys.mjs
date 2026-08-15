@@ -5921,6 +5921,8 @@ AMTelemetry = {
           updated_from,
           install_origins,
           step: extraVars?.step,
+          // will be undefined for non-site permission addons
+          site_permission: install.newSitePerm,
         })
       );
       GleanPings.enterprise.submit();

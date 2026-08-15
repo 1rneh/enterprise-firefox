@@ -23,6 +23,7 @@ category browser-before-ui-startup resource:///modules/AccountsGlue.sys.mjs Acco
 category browser-before-ui-startup moz-src:///browser/modules/ObserverForwarder.sys.mjs ObserverForwarder.init
 #ifdef MOZ_ENTERPRISE
 category browser-before-ui-startup resource://gre/modules/enterprise/EnterpriseEndpoints.sys.mjs EnterpriseEndpoints.init
+category browser-before-ui-startup resource://gre/modules/enterprise/EnterpriseStorageEncryption.sys.mjs EnterpriseStorageEncryption.init
 #endif
 #ifdef XP_WIN
 category browser-before-ui-startup moz-src:///browser/components/shell/StartupOSIntegration.sys.mjs StartupOSIntegration.applyCustomIconOnStartup
@@ -72,6 +73,7 @@ category browser-window-delayed-startup resource:///modules/HomePage.sys.mjs Hom
 category browser-window-delayed-startup moz-src:///browser/components/genai/LinkPreview.sys.mjs LinkPreview.init
 category browser-window-delayed-startup moz-src:///browser/components/reportbrokensite/ReportBrokenSite.sys.mjs ReportBrokenSite.init
 category browser-window-delayed-startup moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchUIUtils.init
+category browser-window-delayed-startup moz-src:///browser/components/sharing/SharePageAction.sys.mjs SharePageAction.init
 category browser-window-delayed-startup resource:///modules/taskbartabs/TaskbarTabsPageAction.sys.mjs TaskbarTabsPageAction.init
 #ifdef XP_MACOSX
 category browser-window-delayed-startup resource://gre/modules/RosettaUtils.sys.mjs RosettaUtils.maybeWarnAboutRosetta
@@ -81,7 +83,6 @@ category browser-window-delayed-startup chrome://browser/content/browser.js#Brow
 category browser-window-delayed-startup chrome://browser/content/tabbrowser/browser-fullZoom.js FullZoom.init
 category browser-window-delayed-startup chrome://browser/content/customizableui/panelUI.js PanelUI.init
 category browser-window-delayed-startup chrome://browser/content/browser-places.js#BookmarkingUI BookmarkingUI.init
-category browser-window-delayed-startup chrome://browser/content/browser.js#gURLBar gURLBar.delayedStartupInit
 category browser-window-delayed-startup chrome://browser/content/browser-siteProtections.js gProtectionsHandler.init
 category browser-window-delayed-startup chrome://browser/content/browser-trustPanel.js gTrustPanelHandler.init
 category browser-window-delayed-startup chrome://browser/content/browser-places.js#PlacesToolbarHelper PlacesToolbarHelper.init

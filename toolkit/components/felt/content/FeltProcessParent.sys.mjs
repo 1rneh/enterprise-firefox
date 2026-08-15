@@ -16,6 +16,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 if (lazy.isBuildAppBrowser()) {
@@ -157,6 +159,12 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-restarting": {
+            if (gFeltProcessParentInstance) {
+              gFeltProcessParentInstance.restartReported = true;
+              gFeltProcessParentInstance.firefox = null;
+            }
+
+            const proc = gFeltProcessParentInstance?.proc;
             const restartDisabled = Services.prefs.getBoolPref(
               "enterprise.disable_restart",
               false
@@ -188,19 +196,31 @@ export class FeltProcessParent extends JSProcessActorParent {
                 lazy.log.debug(
                   `ParentProcess: restart notification, restartDisabled=${restartDisabled}`
                 );
-                // Kill Firefox directly instead of broadcasting to receiveMessage()
-                // since gFeltProcessParentInstance is accessible here
-                if (gFeltProcessParentInstance?.proc) {
-                  gFeltProcessParentInstance.restartReported = true;
-                  gFeltProcessParentInstance.firefox = null;
+                if (proc) {
                   lazy.log.debug(
-                    `ParentProcess: Killing Firefox PID=${gFeltProcessParentInstance.proc.pid}`
+                    `ParentProcess: Waiting for Firefox PID=${proc.pid} to exit for restart`
                   );
-                  gFeltProcessParentInstance.proc
-                    .kill()
+
+                  // exitPromise never rejects and has no timeout. kill after a timeout, set above the
+                  // toolkit.asyncshutdown.crash_timeout, to avoid hangs if the child is truly unresponsive.
+                  const restartShutdownTimeout = Services.prefs.getIntPref(
+                    "enterprise.browser.restart_shutdown_timeout",
+                    90000
+                  );
+                  const forceKillTimer = lazy.setTimeout(() => {
+                    if (proc.exitCode === null) {
+                      lazy.log.error(
+                        `ParentProcess: Firefox PID=${proc.pid} did not exit within ${restartShutdownTimeout}ms; killing for restart`
+                      );
+                      proc.kill();
+                    }
+                  }, restartShutdownTimeout);
+
+                  proc.exitPromise
                     .then(() => {
+                      lazy.clearTimeout(forceKillTimer);
                       lazy.log.debug(
-                        `ParentProcess: Killed Firefox, restartDisabled=${restartDisabled}`
+                        `ParentProcess: Firefox exited for restart, restartDisabled=${restartDisabled}`
                       );
 
                       if (!restartDisabled && !pendingUpdate) {
@@ -227,11 +247,28 @@ export class FeltProcessParent extends JSProcessActorParent {
                       }
                     })
                     .catch(err => {
-                      lazy.log.debug(`ParentProcess: Kill failed: ${err}`);
+                      lazy.clearTimeout(forceKillTimer);
+                      lazy.log.error(
+                        `ParentProcess: Restart continuation failed after exit: ${err}; sending normal exit`
+                      );
+                      Services.cpmm.sendAsyncMessage(
+                        "FeltParent:FirefoxNormalExit",
+                        {}
+                      );
                     });
                 } else {
-                  lazy.log.debug(`ParentProcess: No proc to kill!`);
+                  lazy.log.debug(`ParentProcess: No proc to wait for!`);
                 }
+              })
+              .catch(err => {
+                lazy.log.error(
+                  `ParentProcess: Restart failed: ${err}; killing proc and quitting via normal exit`
+                );
+                proc?.kill();
+                Services.cpmm.sendAsyncMessage(
+                  "FeltParent:FirefoxNormalExit",
+                  {}
+                );
               });
             break;
           }
@@ -283,31 +320,25 @@ export class FeltProcessParent extends JSProcessActorParent {
                 Services.felt.sendAccessToken();
               })
               .catch(error => {
-                // Any non-ReauthRequired error is triggering a Firefox shutdown.
-                // These are non-20x-non-401/403 errors, networking issues
-                // and the like.
+                // A refresh failure tears the browser down.
                 // TODO: define a more refined behaviour for these conditions and implement.
                 // For example, an intermittent network or 5xx error can be handled more
                 // gracefully if the refresh request is still before the actual token expiration
                 // because the known old token still has some validity time left.
-                if (error.name !== "ReauthRequiredError") {
-                  lazy.log.error(
-                    "token refresh failed with non-reauth error, shutting down Firefox",
-                    error
-                  );
-                  gFeltProcessParentInstance.logoutReported = true;
-                  Services.felt.shutdownFirefox();
-                  return;
-                }
-                // At this point, we need to reauthenticate.
-                lazy.log.error("token refresh failed, reauthenticate", error);
+                lazy.log.error(
+                  `token refresh failed (${error.name}), shutting down Firefox`,
+                  error
+                );
                 Services.felt.clearTokens();
                 gFeltProcessParentInstance.logoutReported = true;
                 gFeltProcessParentInstance.proc.exitPromise.then(_ => {
                   Services.cpmm.sendAsyncMessage(
-                    "FeltParent:FirefoxLogoutExit",
+                    "FeltParent:FirefoxSessionInterrupted",
                     {
-                      reason: "tokenRefreshFailed",
+                      reason:
+                        error.name === "ReauthRequiredError"
+                          ? "tokenRefreshExpired"
+                          : "tokenRefreshFailed",
                     }
                   );
                 });
@@ -572,6 +603,21 @@ export class FeltProcessParent extends JSProcessActorParent {
    * again or to inform the user of the set of crashes.
    */
   handleRestartAfterAbnormalExit() {
+    if (
+      this.proc.exitCode ===
+      Ci.nsIFelt.FeltEncryptionExitCode_SdrTokenUnlockFailed
+    ) {
+      // The profile could not be unlocked (missing or rejected primary secret).
+      // Restarting cannot fix a wrong or rotated secret, so surface a clear
+      // error instead of counting this as a crash (Bug 2021342).
+      this.abnormalExitCounter = 0;
+      this.abnormalExitFirstTime = 0;
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+        errorType: "sdrTokenUnlockFailed",
+      });
+      return;
+    }
+
     if (this.proc.exitCode === Ci.nsIFelt.FeltEncryptionExitCode_Delete) {
       // Firefox encryption explicitely reported to delete the profile folder
       // The profile service should do it but it may be incomplete depending

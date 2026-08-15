@@ -81,6 +81,11 @@ interface nsIContentAnalysisResponse : nsIContentAnalysisResult
   // or eUserInitiated if the user canceled it.
   [infallible] readonly attribute nsIContentAnalysisResponse_CancelError cancelError;
 
+  // The name of the rule that determined `action` (the rule's config "Name";
+  // see nsIContentAnalysisRule.name). Empty if nothing reported one,
+  // e.g. this is a synthetic response Firefox produced itself.
+  readonly attribute AString ruleName;
+
   // Identifier for the corresponding nsIContentAnalysisRequest
   readonly attribute ACString requestToken;
   readonly attribute ACString userActionId;
@@ -418,6 +423,12 @@ interface nsIContentAnalysis : nsISupports
   /**
    * Indicates that the user has responded to a WARN dialog. aAllowContent represents
    * whether the user wants to allow the request to go through.
+   *
+   * This fires a "dlp-warn-resolved" observer notification with the
+   * resolved nsIContentAnalysisResponse (action will be either eAllow or eBlock)
+   * as the subject, and "user" as the data. (cancelAllRequests() resolves any
+   * outstanding warn dialogs the same way, but passes "cancel" as the data,
+   * since the resolution does not represent a choice the user made.)
    */
   void respondToWarnDialog(in ACString aRequestToken, in boolean aAllowContent);
 
@@ -518,6 +529,20 @@ interface nsIContentAnalysis : nsISupports
    * Force the content analysis client to be recreated. For use in tests only.
    */
   void forceRecreateClientForTest();
+
+  /**
+   * Which backend currently services requests: "external-agent", "wasm-module",
+   * or "none" while Content Analysis is deactivated by policy. For use in
+   * tests only.
+   */
+  readonly attribute ACString backendKindForTest;
+
+  /**
+   * Incremented every time a fresh backend is built. Lets a test distinguish a
+   * live policy update that rebuilt the backend from one that only changed
+   * prefs the existing backend reads live. For use in tests only.
+   */
+  readonly attribute uint32_t backendGenerationForTest;
 };
 
 /**

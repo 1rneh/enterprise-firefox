@@ -308,6 +308,22 @@ SecretDecoderRing::Login(const nsACString& password, bool* success) {
   return NS_OK;
 }
 
+// The enterprise storage-encryption feature unlocks the internal token once at
+// startup with a console-supplied primarySecret the user does not know. While
+// that feature manages the primary password, the ClearData CLEAR_AUTH_TOKENS
+// path (LogoutAndTeardown, below) must not de-authenticate the internal token,
+// or later SDR use would prompt for a password the user cannot supply
+// (Bug 2021342). Non-token teardown (TLS cache, connection pruning) still runs.
+// The reauth path enforces the same invariant independently in
+// LoginHelper.sys.mjs, using the identical MOZ_ENTERPRISE + pref gate.
+static bool EnterpriseManagesPrimaryPassword() {
+#if defined(MOZ_ENTERPRISE)
+  return mozilla::StaticPrefs::security_storage_encryption_enabled();
+#else
+  return false;
+#endif
+}
+
 NS_IMETHODIMP
 SecretDecoderRing::Logout() {
   PK11_LogoutAll();
@@ -317,7 +333,9 @@ SecretDecoderRing::Logout() {
 
 NS_IMETHODIMP
 SecretDecoderRing::LogoutAndTeardown() {
-  PK11_LogoutAll();
+  if (!EnterpriseManagesPrimaryPassword()) {
+    PK11_LogoutAll();
+  }
   nsCOMPtr<nsINSSComponent> nssComponent(do_GetService(NS_NSSCOMPONENT_CID));
   if (!nssComponent) {
     return NS_ERROR_NOT_AVAILABLE;

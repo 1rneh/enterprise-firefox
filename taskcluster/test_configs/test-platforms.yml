@@ -68,6 +68,7 @@ linux2404-64-shippable/opt:
     build-platform: linux64-shippable/opt
     test-sets:
         - awsy
+        - devtools-compat
         - talos
         - talos-profiling
         - browsertime
@@ -583,6 +584,11 @@ android-em-14-x86_64/debug-isolated-process:
     build-platform: android-x86_64/debug-isolated-process
     test-sets:
         - android14-x86_64-tests
+
+android-em-14-arm64-shippable/opt:
+    build-platform: android-aarch64-shippable/opt
+    test-sets:
+        - android-em-arm64-speedometer-tests
 
 # android-hw test platforms execute on real devices attached to Autophone hosts.
 

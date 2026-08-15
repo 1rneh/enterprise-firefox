@@ -8,6 +8,7 @@ with Files("**"):
 EXTRA_JS_MODULES.policies += [
     "AIChatbotPolicies.sys.mjs",
     "BookmarksPolicies.sys.mjs",
+    "ContentAnalysisPolicies.sys.mjs",
     "ProxyPolicies.sys.mjs",
     "WebsiteFilter.sys.mjs",
 ]
@@ -15,4 +16,7 @@ EXTRA_JS_MODULES.policies += [
 if CONFIG["MOZ_ENTERPRISE"]:
     EXTRA_JS_MODULES.policies += [
         "SyncPolicy.sys.mjs",
+        "WatermarkChild.sys.mjs",
+        "WatermarkParent.sys.mjs",
+        "WatermarkPolicy.sys.mjs",
     ]

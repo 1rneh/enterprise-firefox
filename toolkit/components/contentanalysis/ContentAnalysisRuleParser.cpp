@@ -58,6 +58,8 @@ bool ActionToAnalysisType(const nsAString& aAction, uint32_t* aOut) {
     *aOut = static_cast<uint32_t>(AnalysisType::eFileAttached);
   } else if (aAction.LowerCaseEqualsLiteral("textpaste")) {
     *aOut = static_cast<uint32_t>(AnalysisType::eBulkDataEntry);
+  } else if (aAction.LowerCaseEqualsLiteral("textcopy")) {
+    *aOut = static_cast<uint32_t>(AnalysisType::eDataCopied);
   } else if (aAction.LowerCaseEqualsLiteral("print")) {
     *aOut = static_cast<uint32_t>(AnalysisType::ePrint);
   } else {
@@ -95,6 +97,10 @@ nsTArray<nsString> ToStringArray(const dom::Sequence<nsString>& aSeq) {
 
 }  // namespace
 
+// Errors here are unexpected because the rules are validated on policy
+// application. Just in case, any errors here are logged and offending rules are
+// skipped so the remaining valid rules still take effect. A total failure to
+// parse any rules is returned as an error.
 nsresult ParseContentAnalysisRules(
     const nsAString& aJSON,
     nsTArray<RefPtr<nsIContentAnalysisRule>>& aOutRules) {
@@ -106,28 +112,45 @@ nsresult ParseContentAnalysisRules(
   nsTArray<RefPtr<nsIContentAnalysisRule>> rules;
   // Most rules will probably be enabled, so set the capacity up front.
   rules.SetCapacity(config.mDLPRules.mRules.Length());
+  uint32_t enabledCount = 0;
   for (const auto& jsonRule : config.mDLPRules.mRules) {
     if (!jsonRule.mEnabled) {
       continue;
     }
+    ++enabledCount;
 
+    // A rule with an unrecognized action or type is skipped (the helpers log
+    // the offending value) so the remaining valid rules still take effect.
     nsTArray<uint32_t> operations;
+    bool operationsOk = true;
     for (const auto& action : jsonRule.mActions) {
       uint32_t op;
       if (!ActionToAnalysisType(action, &op)) {
-        return NS_ERROR_INVALID_ARG;
+        operationsOk = false;
+        break;
       }
       operations.AppendElement(op);
+    }
+    if (!operationsOk) {
+      continue;
     }
 
     uint8_t verdict;
     if (!TypeToVerdict(jsonRule.mType, &verdict)) {
-      return NS_ERROR_INVALID_ARG;
+      continue;
     }
 
     rules.AppendElement(MakeRefPtr<ContentAnalysisRule>(
         jsonRule.mName, std::move(operations), ToStringArray(jsonRule.mDomains),
         ToStringArray(jsonRule.mContentPatterns), verdict, jsonRule.mMessage));
+  }
+
+  // If every configured rule failed to parse, treat it as a total failure so
+  // the caller can fail closed rather than silently enforcing nothing.
+  if (enabledCount > 0 && rules.IsEmpty()) {
+    MOZ_LOG(gContentAnalysisLog, LogLevel::Error,
+            ("All %u enabled DLP rules failed to parse", enabledCount));
+    return NS_ERROR_INVALID_ARG;
   }
 
   aOutRules.AppendElements(std::move(rules));

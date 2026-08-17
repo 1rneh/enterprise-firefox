@@ -428,7 +428,7 @@ SVGBBox SVGGeometryFrame::GetBBoxContribution(const Matrix& aToBBoxUserspace,
         // the path commands, in which case we know nothing gets rendered.
         return bbox;
       }
-      bbox = pathBBoxExtents.value();
+      bbox = *pathBBoxExtents;
     }
 
     if (getStroke) {
@@ -448,9 +448,7 @@ SVGBBox SVGGeometryFrame::GetBBoxContribution(const Matrix& aToBBoxUserspace,
       if (StaticPrefs::svg_Moz2D_strokeBounds_enabled()) {
         if (userToOuterSVG) {
           Matrix m = ToMatrix(*userToOuterSVG);
-          Matrix outerSVGToUser = m;
-          outerSVGToUser.Invert();
-          Matrix outerSVGToBBox = aToBBoxUserspace * outerSVGToUser;
+          Matrix outerSVGToBBox = aToBBoxUserspace * m.Inverse();
           strokeBBoxExtents =
               element->GetStrokedBounds(strokeOptions, m, outerSVGToBBox);
         } else {
@@ -472,7 +470,7 @@ SVGBBox SVGGeometryFrame::GetBBoxContribution(const Matrix& aToBBoxUserspace,
           return bbox;
         }
         strokeBBoxExtents = Some(ToRect(SVGUtils::PathExtentsToMaxStrokeExtents(
-            ThebesRect(pathBBoxExtents.value()), this,
+            ThebesRect(*pathBBoxExtents), this,
             ThebesMatrix(aToBBoxUserspace))));
         if (!strokeBBoxExtents->IsFinite()) {
           return bbox;
@@ -609,9 +607,7 @@ void SVGGeometryFrame::Render(gfxContext* aContext,
       // We need to transform the path back into the appropriate ancestor
       // coordinate system, and paint it it that coordinate system, in order
       // for non-scaled stroke to paint correctly.
-      gfxMatrix outerSVGToUser = *userToOuterSVG;
-      outerSVGToUser.Invert();
-      aContext->Multiply(outerSVGToUser);
+      aContext->Multiply(userToOuterSVG->Inverse());
       Path::TransformAndSetFillRule(path, ToMatrix(*userToOuterSVG), fillRule);
     }
     GeneralPattern strokePattern;

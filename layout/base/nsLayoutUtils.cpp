@@ -9366,8 +9366,15 @@ CSSRect nsLayoutUtils::GetBoundingFrameRect(
 }
 
 /* static */
-bool nsLayoutUtils::IsTransformed(nsIFrame* aForFrame, nsIFrame* aTopFrame) {
-  for (nsIFrame* f = aForFrame; f != aTopFrame; f = f->GetParent()) {
+bool nsLayoutUtils::IsTransformed(const nsIFrame* aForFrame,
+                                  const nsIFrame* aTopFrame) {
+  MOZ_ASSERT(aForFrame);
+  MOZ_ASSERT(!aTopFrame || aForFrame == aTopFrame ||
+                 IsProperAncestorFrame(aTopFrame, aForFrame),
+             "aTopFrame should be either nullptr, same as aForFrame, or a "
+             "proper ancestor of aForFrame!");
+
+  for (const nsIFrame* f = aForFrame; f && f != aTopFrame; f = f->GetParent()) {
     if (f->IsTransformed()) {
       return true;
     }
@@ -10200,58 +10207,4 @@ CSSSize nsLayoutUtils::ExpandHeightForDynamicToolbar(
 nsSize nsLayoutUtils::ExpandHeightForDynamicToolbar(
     const nsPresContext* aPresContext, const nsSize& aSize) {
   return ExpandHeightForDynamicToolbarImpl(aPresContext, aSize);
-}
-
-auto nsLayoutUtils::GetCombinedFragmentRects(const nsIFrame* aFrame,
-                                             const nsIFrame* aContainingBlock)
-    -> CombinedFragments {
-  bool mustCheckCBFragment = false;
-  nsPoint offset{};
-  if (aContainingBlock) {
-    MOZ_ASSERT(nsLayoutUtils::IsProperAncestorFrame(aContainingBlock, aFrame));
-    mustCheckCBFragment = aContainingBlock->GetPrevContinuation() ||
-                          aContainingBlock->GetNextContinuation();
-    offset = aFrame->GetOffsetToIgnoringScrolling(aContainingBlock);
-  }
-  bool isPaginated = aFrame->PresContext()->IsPaginated();
-
-  // Lazy getter for aFrame's page-frame ancestor, if any.
-  Maybe<const nsIFrame*> maybePageFrame;
-  auto currPageFrame = [=, &maybePageFrame]() -> const nsIFrame* {
-    MOZ_ASSERT(isPaginated);
-    if (!maybePageFrame) {
-      maybePageFrame.emplace(nsLayoutUtils::GetPageFrame(aFrame));
-    }
-    return maybePageFrame.ref();
-  };
-
-  // A continuation is considered "on the same page" if the context is not
-  // paginated, or if it has the same page-frame ancestor.
-  auto onSamePage = [=](const nsIFrame* aContinuation) -> bool {
-    return !isPaginated ||
-           nsLayoutUtils::GetPageFrame(aContinuation) == currPageFrame();
-  };
-
-  auto inSameCBFragment = [&](const nsIFrame* aContinuation) {
-    return !mustCheckCBFragment || nsLayoutUtils::IsProperAncestorFrame(
-                                       aContainingBlock, aContinuation);
-  };
-
-  // Collect rects from our continuations (limited to those that are on the
-  // same page if the context is paginated).
-  nsRect rect = aFrame->GetRectRelativeToSelf();
-  const auto* next = aFrame->GetNextContinuation();
-  for (; next && onSamePage(next) && inSameCBFragment(next);
-       next = next->GetNextContinuation()) {
-    rect =
-        rect.Union(next->GetRectRelativeToSelf() + next->GetOffsetTo(aFrame));
-  }
-  const auto* prev = aFrame->GetPrevContinuation();
-  for (; prev && onSamePage(prev) && inSameCBFragment(prev);
-       prev = prev->GetPrevContinuation()) {
-    rect =
-        rect.Union(prev->GetRectRelativeToSelf() + prev->GetOffsetTo(aFrame));
-  }
-
-  return CombinedFragments{prev, next, rect + offset};
 }

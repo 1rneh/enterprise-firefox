@@ -1572,10 +1572,6 @@ export var Policies = {
     },
   },
 
-  // The policy got applied by the policy engine when building the CombinedPoliciesProvider.
-  // It skipped any local policy provider (policies.json, Windows GPO and macOS plist)
-  DisableLocalPolicies: {},
-
   DisableLaunchOnLogin: {
     onBeforeAddons(manager, param) {
       if (!param) {
@@ -1589,6 +1585,10 @@ export var Policies = {
       lazy.LaunchOnLogin.disable();
     },
   },
+
+  // The policy got applied by the policy engine when building the CombinedPoliciesProvider.
+  // It skipped any local policy provider (policies.json, Windows GPO and macOS plist)
+  DisableLocalPolicies: {},
 
   DisableMasterPasswordCreation: {
     onBeforeUIStartup(manager, param) {

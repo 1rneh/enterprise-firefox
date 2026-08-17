@@ -750,3 +750,54 @@ urlclassifier:
       - dlee@mozilla.com
       - safebrowsing-telemetry@mozilla.org
     expires: never
+
+#ifdef MOZ_ENTERPRISE
+safebrowsing:
+  site_visit:
+    type: event
+    data_sensitivity:
+      - highly_sensitive
+    description: >
+      Recorded when the URL classifier blocks a load (top-level, subframe, or
+      subresource) because it matched a Safe Browsing threat list. Only
+      collected when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      url:
+        description: >
+          The URL of the unsafe site that was blocked. Collection level is
+          configurable via the
+          browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging
+          pref: "full" (default), "domain", or "none". In "full" mode any
+          password in the URL is masked.
+        type: string
+      referrer:
+        description: >
+          The referrer of the blocked load, i.e. the page that embedded or
+          linked to the unsafe resource. Empty when there is no referrer.
+          Redacted with the same collection level as the url key, per the
+          browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging
+          pref.
+        type: string
+      threat_type:
+        description: >
+          The type of threat detected.
+        type: string
+      provider:
+        description: >
+          The Safe Browsing provider that flagged the site (e.g. "google4").
+        type: string
+      list:
+        description: >
+          The Safe Browsing list that matched the site.
+        type: string
+#endif

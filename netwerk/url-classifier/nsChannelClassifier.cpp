@@ -24,6 +24,13 @@
 #include "nsQueryObject.h"
 #include "nsXULAppAPI.h"
 
+#ifdef MOZ_ENTERPRISE
+#  include "mozilla/glean/GleanPings.h"
+#  include "mozilla/glean/UrlClassifierMetrics.h"
+#  include "nsIHttpChannel.h"
+#  include "nsIReferrerInfo.h"
+#endif
+
 namespace mozilla {
 namespace net {
 
@@ -380,6 +387,108 @@ nsresult nsChannelClassifier::SendThreatHitReport(nsIChannel* aChannel,
   return NS_OK;
 }
 
+#ifdef MOZ_ENTERPRISE
+
+// Redacts aURI according to the unsafe-site-visit urlLogging policy: "full"
+// (the default) yields the full spec with any password masked, "domain" the
+// host only, and "none" nothing. aProcessedUrl is cleared and left empty for
+// the "none" policy, a null aURI, or a URI retrieval failure.
+static void RedactUnsafeSiteVisitUrl(nsIURI* aURI, nsACString& aProcessedUrl) {
+  aProcessedUrl.Truncate();
+
+  constexpr auto kPrefUrlLogging =
+      "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging"_ns;
+
+  nsAutoCString policy;
+  Preferences::GetCString(kPrefUrlLogging.get(), policy);
+
+  if (!aURI || policy.EqualsLiteral("none")) {
+    return;
+  }
+
+  if (policy.EqualsLiteral("domain")) {
+    nsAutoCString host;
+    if (NS_SUCCEEDED(aURI->GetHost(host))) {
+      aProcessedUrl = host;
+    }
+  } else {
+    NS_GetSanitizedURIStringFromURI(aURI, aProcessedUrl);
+  }
+}
+
+// Records an enterprise security event for every Safe Browsing hit (top-level,
+// subframe, or subresource) and submits the enterprise ping so administrators
+// can monitor unsafe-site access.
+static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
+                                  const nsACString& aList,
+                                  const nsACString& aProvider) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  constexpr auto kPrefEnabled =
+      "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.enabled"_ns;
+  if (!Preferences::GetBool(kPrefEnabled.get(), true)) {
+    return;
+  }
+
+  nsCString threatType;
+  switch (aErrorCode) {
+    case NS_ERROR_MALWARE_URI:
+      threatType.AssignLiteral("malware");
+      break;
+    case NS_ERROR_PHISHING_URI:
+      threatType.AssignLiteral("phishing");
+      break;
+    case NS_ERROR_UNWANTED_URI:
+      threatType.AssignLiteral("unwanted");
+      break;
+    case NS_ERROR_HARMFUL_URI:
+      threatType.AssignLiteral("harmful");
+      break;
+    default:
+      // Not an unsafe-site threat; nothing to record.
+      return;
+  }
+
+  nsCOMPtr<nsIURI> uri;
+  if (aChannel) {
+    aChannel->GetURI(getter_AddRefs(uri));
+  }
+
+  nsAutoCString url;
+  RedactUnsafeSiteVisitUrl(uri, url);
+
+  // The referrer tells the administrator which page embedded or linked to the
+  // blocked resource, which is otherwise invisible for subframe and subresource
+  // hits. It is redacted with the same urlLogging policy as the url above.
+  nsCOMPtr<nsIURI> referrerUri;
+  if (nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aChannel)) {
+    if (nsCOMPtr<nsIReferrerInfo> referrerInfo =
+            httpChannel->GetReferrerInfo()) {
+      referrerUri = referrerInfo->GetOriginalReferrer();
+    }
+  }
+
+  nsAutoCString referrer;
+  RedactUnsafeSiteVisitUrl(referrerUri, referrer);
+
+  const glean::safebrowsing::SiteVisitExtra extra = {
+      .list = Some(nsCString(aList)),
+      .provider = Some(nsCString(aProvider)),
+      .referrer = Some(nsCString(referrer)),
+      .threatType = Some(threatType),
+      .url = Some(nsCString(url)),
+  };
+  glean::safebrowsing::site_visit.Record(Some(extra));
+
+  // Testing escape hatch: tests record events but never submit
+  if (!Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+          false)) {
+    glean_pings::Enterprise.Submit();
+  }
+}
+#endif
+
 NS_IMETHODIMP
 nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode,
                                         const nsACString& aList,
@@ -421,6 +530,9 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode,
           aErrorCode == NS_ERROR_UNWANTED_URI ||
           aErrorCode == NS_ERROR_HARMFUL_URI) {
         SendThreatHitReport(mChannel, aProvider, aList, aFullHash);
+#ifdef MOZ_ENTERPRISE
+        RecordUnsafeSiteVisit(mChannel, aErrorCode, aList, aProvider);
+#endif
       }
 
       mChannel->Cancel(aErrorCode);

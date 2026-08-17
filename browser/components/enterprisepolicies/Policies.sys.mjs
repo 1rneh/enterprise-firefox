@@ -1082,7 +1082,7 @@ export var Policies = {
       );
     },
     onRemove(manager, param) {
-      for (let origin of [
+      for (const origin of [
         ...(param.Allow ?? []),
         ...(param.Block ?? []),
         ...(param.AllowSession ?? []),
@@ -1218,7 +1218,7 @@ export var Policies = {
       // regexes) in about:policies#errors. Built-in DLP otherwise drives the
       // same Content Analysis service as the external ContentAnalysis policy;
       // reconcileContentAnalysis owns the shared prefs and the precedence.
-      for (let error of lazy.ContentAnalysisPolicies.validateDlpRules(
+      for (const error of lazy.ContentAnalysisPolicies.validateDlpRules(
         param.Rules ?? []
       ).errors) {
         lazy.log.error(error);
@@ -2400,7 +2400,7 @@ export var Policies = {
         "extensions.webextensions.restrictedDomains"
       );
 
-      let activePolicies = manager.getActivePolicies();
+      const activePolicies = manager.getActivePolicies();
 
       // Don't re-allow installTemporaryAddon if it's still
       // disallowed by the InstallAddonsPermission policy.
@@ -2413,14 +2413,14 @@ export var Policies = {
 
       // Don't re-allow uninstall-/disable-extension:<id> if it's
       // still disallowed by the Extensions policy.
-      let lockedByExtensions = new Set(
+      const lockedByExtensions = new Set(
         activePolicies?.Extensions?.Locked ?? []
       );
-      for (let extensionID in oldParam) {
+      for (const extensionID in oldParam) {
         if (extensionID == "*" || lockedByExtensions.has(extensionID)) {
           continue;
         }
-        let mode = oldParam[extensionID].installation_mode;
+        const mode = oldParam[extensionID].installation_mode;
         if (mode == "force_installed" || mode == "normal_installed") {
           manager.allowFeature(`uninstall-extension:${extensionID}`);
           if (mode == "force_installed") {

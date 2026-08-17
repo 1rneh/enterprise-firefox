@@ -90,7 +90,7 @@ export let RemotePageAccessManager = {
     "about:pdf": {
       RPMCanSetDefaultPDFHandler: ["*"],
       RPMGetBoolPref: ["browser.aboutpdf.promo.dismissed"],
-      RPMOpenPDFFile: ["*"],
+      RPMPickPDFFile: ["*"],
       RPMSetDefaultPDFHandler: ["*"],
       RPMSetPref: ["browser.aboutpdf.promo.dismissed"],
     },

@@ -2118,6 +2118,7 @@ var XULBrowserWindow = {
         aWebProgress.isTopLevel
       ) {
         this.busyUI = true;
+        StatusPanel.update();
 
         // Show the "scanning" shield at load start (the URI lets a same-site
         // nav keep the icon). Skip unless the trust panel is already loaded, to

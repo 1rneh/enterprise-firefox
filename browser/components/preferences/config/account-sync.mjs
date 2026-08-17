@@ -214,6 +214,7 @@ export var SyncHelpers = new (class SyncHelpers {
           return;
         }
         const url = await window.FxAccounts.config.promiseConnectAccountURI(
+          "sync",
           this.getEntryPoint()
         );
         this.replaceTabWithUrl(url);
@@ -230,6 +231,7 @@ export var SyncHelpers = new (class SyncHelpers {
       return;
     }
     const url = await window.FxAccounts.config.promiseConnectAccountURI(
+      "sync",
       this.getEntryPoint()
     );
     this.replaceTabWithUrl(url);
@@ -244,8 +246,10 @@ export var SyncHelpers = new (class SyncHelpers {
    *        different entrypoints to accounts
    */
   async reSignIn(entrypoint) {
-    const url =
-      await window.FxAccounts.config.promiseConnectAccountURI(entrypoint);
+    const url = await window.FxAccounts.config.promiseConnectAccountURI(
+      "sync",
+      entrypoint
+    );
     this.replaceTabWithUrl(url);
   }
 
@@ -683,7 +687,7 @@ Preferences.addSetting({
   },
   setup(emitChange) {
     window.FxAccounts.config
-      .promiseConnectDeviceURI(SyncHelpers.getEntryPoint())
+      .promiseConnectDeviceURI("sync", SyncHelpers.getEntryPoint())
       .then(connectURI => {
         SyncHelpers.connectAnotherDeviceHref = connectURI;
         emitChange();

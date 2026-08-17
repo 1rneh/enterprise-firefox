@@ -10660,6 +10660,14 @@
   mirror: always
   rust: true
 
+# Whether anchor positioning takes the anchor element's transforms into account.
+# https://drafts.csswg.org/css-anchor-position-1/#determining
+- name: layout.css.anchor-positioning.follows-transforms.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Whether to enable appearance: base for authors.
 - name: layout.css.appearance-base.enabled
   type: RelaxedAtomicBool
@@ -11815,7 +11823,7 @@
 # so an empty value disables it everywhere. "*" enables it on every domain.
 - name: layout.css.fake-webkit-scrollbar.enabled-domains
   type: DataMutexString
-  value: "mail.google.com"
+  value: "mail.google.com,docs.google.com"
   mirror: always
   rust: true
 
@@ -15500,6 +15508,17 @@
 - name: network.dns.max_high_priority_threads
   type: RelaxedAtomicUint32
   value: 40
+  mirror: always
+
+# How long a single unchanging holder may keep nsHostResolver's DB lock while
+# another thread waits, before we treat the lock as wedged and crash, naming the
+# thread and code site holding it. The lock is normally held for microseconds.
+# The timer restarts whenever the holder changes, so slow-but-progressing
+# contention never trips this. Only has an effect in builds where
+# MOZ_DIAGNOSTIC_ASSERT is fatal. 0 disables the check.
+- name: network.dns.db_lock_timeout_ms
+  type: RelaxedAtomicUint32
+  value: 3000
   mirror: always
 
 - name: network.dns.max_any_priority_threads
@@ -19405,6 +19424,12 @@
 - name: svg.Moz2D.strokeBounds.enabled
   type: bool
   value: true
+  mirror: always
+
+# Enable caching of bounds for SVG geometry elements
+- name: svg.bounds-caching.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether SVGImageElement loading is forced to be sync.

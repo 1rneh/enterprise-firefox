@@ -467,7 +467,7 @@ nsIFrame::~nsIFrame() {
   MOZ_COUNT_DTOR(nsIFrame);
 
   MOZ_ASSERT(GetVisibility() != Visibility::ApproximatelyVisible,
-             "Visible nsFrame is being destroyed");
+             "Visible nsIFrame is being destroyed");
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsIFrame)
@@ -5334,7 +5334,7 @@ nsresult nsIFrame::MoveCaretToEventPoint(nsPresContext* aPresContext,
     fc->SetDragState(true);
   }
 
-  // Do not touch any nsFrame members after this point without adding
+  // Do not touch any nsIFrame members after this point without adding
   // weakFrame checks.
   const nsFrameSelection::FocusMode focusMode = [&]() {
     // If "Shift" and "Ctrl" are both pressed, "Shift" is given precedence. This
@@ -5709,7 +5709,7 @@ NS_IMETHODIMP nsIFrame::HandleDrag(nsPresContext* aPresContext,
 
 /**
  * This static method handles part of the nsIFrame::HandleRelease in a way
- * which doesn't rely on the nsFrame object to stay alive.
+ * which doesn't rely on the nsIFrame object to stay alive.
  */
 MOZ_CAN_RUN_SCRIPT_BOUNDARY static nsresult HandleFrameSelection(
     nsFrameSelection* aFrameSelection, nsIFrame::ContentOffsets& aOffsets,
@@ -5812,7 +5812,7 @@ NS_IMETHODIMP nsIFrame::HandleRelease(nsPresContext* aPresContext,
 
   // We might be capturing in some other document and the event just happened to
   // trickle down here. Make sure that document's frame selection is notified.
-  // Note, this may cause the current nsFrame object to be deleted, bug 336592.
+  // Note, this may cause the current nsIFrame object to be deleted, bug 336592.
   RefPtr<nsFrameSelection> frameSelection;
   if (activeFrame != this &&
       activeFrame->ShouldHandleSelectionMovementEvents()) {
@@ -8235,6 +8235,12 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(
     nsIFrame** aOutAncestor, TransformMatrixFlags aFlags) const {
   MOZ_ASSERT(aOutAncestor, "Need a place to put the ancestor!");
 
+  auto GetPositionMaybeIgnoringScrolling = [aFlags](const nsIFrame* aFrame) {
+    return aFlags.contains(TransformMatrixFlag::IgnoreScrolling)
+               ? aFrame->GetPositionIgnoringScrolling()
+               : aFrame->GetPosition();
+  };
+
   /* If we're transformed, we want to hand back the combination
    * transform/translate matrix that will apply our current transform, then
    * shift us to our parent.
@@ -8269,7 +8275,7 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(
     // a canvas frame to a scroll frame) is in layout coordinates, so
     // apply it before applying any layout-to-visual transform.
     *aOutAncestor = GetParent();
-    nsPoint delta = GetPosition();
+    nsPoint delta = GetPositionMaybeIgnoringScrolling(this);
     /* Combine the raw transform with a translation to our parent. */
     result.PostTranslate(NSAppUnitsToFloatPixels(delta.x, scaleFactor),
                          NSAppUnitsToFloatPixels(delta.y, scaleFactor), 0.0f);
@@ -8331,7 +8337,7 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(
   // the same parent chain and compute the offset.
   const int32_t finalAPD = PresContext()->AppUnitsPerDevPixel();
   // offset accumulates the offset at finalAPD.
-  nsPoint offset = GetPosition();
+  nsPoint offset = GetPositionMaybeIgnoringScrolling(this);
 
   int32_t currAPD = (*aOutAncestor)->PresContext()->AppUnitsPerDevPixel();
   // docOffset accumulates the current offset at currAPD, and then flushes to
@@ -8341,7 +8347,7 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(
 
   while (*aOutAncestor != aStopAtAncestor.mFrame &&
          !shouldStopAt(current, aStopAtAncestor, *aOutAncestor, aFlags)) {
-    docOffset += (*aOutAncestor)->GetPosition();
+    docOffset += GetPositionMaybeIgnoringScrolling(*aOutAncestor);
 
     nsIFrame* parent = (*aOutAncestor)->GetParent();
     if (!parent) {

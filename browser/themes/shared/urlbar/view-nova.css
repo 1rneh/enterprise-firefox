@@ -139,7 +139,7 @@
     display: none !important;
   }
 
-  &[context-menu-trigger],
+  &[menu-trigger],
   &[row-selectable]:not([selected]):hover {
     background-color: var(--urlbarview-background-color-hover);
   }
@@ -199,7 +199,6 @@
 .urlbarView-row-body-top-no-wrap {
   display: flex;
   align-items: baseline;
-  min-width: 0;
   max-width: 100%;
 }
 

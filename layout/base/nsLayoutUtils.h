@@ -3096,7 +3096,8 @@ class nsLayoutUtils {
    * root of the frame tree if |aTopFrame| is nullptr, and returns true if
    * a transformed frame is encountered.
    */
-  static bool IsTransformed(nsIFrame* aForFrame, nsIFrame* aTopFrame = nullptr);
+  static bool IsTransformed(const nsIFrame* aForFrame,
+                            const nsIFrame* aTopFrame = nullptr);
 
   /**
    * Walk up from aFrame to the cross-doc root, accumulating all the APZ
@@ -3274,27 +3275,6 @@ class nsLayoutUtils {
    * Note: Must only be called from the main thread.
    */
   static void RecomputeSmoothScrollDefault();
-
-  struct CombinedFragments {
-    // Previous continuation, if exists, that got skipped due to being on a
-    // different page, or a different containing block continuation.
-    const nsIFrame* mSkippedPrevContinuation = nullptr;
-    // Same as above, but next continuation.
-    const nsIFrame* mSkippedNextContinuation = nullptr;
-    // The overall frame rect formed by unioning the frame's fragment rects.
-    nsRect mRect;
-  };
-  /**
-   * Get the union of the rects of aFrame and its continuations (but not if the
-   * context is paginated and they're on a different page, as it doesn't make
-   * sense to "merge" their rects in that case).
-   *
-   * @param aFrame The target frame whose combined fragments are wanted.
-   * @param aContainingBlock If provided, union fragments only up to its
-   * fragmentation boundary.
-   */
-  static CombinedFragments GetCombinedFragmentRects(
-      const nsIFrame* aFrame, const nsIFrame* aContainingBlock = nullptr);
 
  private:
   /**

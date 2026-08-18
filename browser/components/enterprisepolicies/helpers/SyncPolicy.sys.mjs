@@ -77,10 +77,6 @@ export const SyncPolicy = {
   async applySettings(manager, params) {
     lazy.log.debug("Apply Sync Settings");
 
-    // This might be an update to the Sync policy
-    // so restore previous sync settings
-    this.restoreSettings(manager);
-
     const {
       Enabled: shouldEnableSync,
       Locked: isIgnoringUserPreferences,
@@ -91,10 +87,10 @@ export const SyncPolicy = {
       const isSyncCurrentlyEnabled = this.isSyncCurrentlyEnabled();
       if (shouldEnableSync && !isSyncCurrentlyEnabled) {
         lazy.log.debug("Enable Sync");
-        await this.connectSync(manager);
+        await this.connectSync();
       } else if (shouldEnableSync === false && isSyncCurrentlyEnabled) {
         lazy.log.debug("Disable Sync");
-        await this.disconnectSync(manager);
+        await this.disconnectSync();
       }
     }
 

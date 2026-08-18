@@ -29,4 +29,6 @@ run-if = [
 
 ["browser_live_policy_SitePolicies.js"]
 
+["browser_live_policy_Sync.js"]
+
 ["browser_live_policy_WebsiteFilter.js"]

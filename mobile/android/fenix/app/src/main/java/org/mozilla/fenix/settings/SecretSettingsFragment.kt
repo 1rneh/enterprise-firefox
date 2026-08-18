@@ -204,11 +204,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_firefox_labs).apply {
-            isChecked = settings.enableFirefoxLabs
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_top_sites_pager).apply {
             isChecked = settings.topSitesPager
             onPreferenceChangeListener = SharedPreferenceUpdater()
@@ -457,12 +452,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_persistent_onboarding).apply {
             isChecked = settings.enablePersistentOnboarding
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_tab_groups).apply {
-            isVisible = Config.channel.isNightlyOrDebug
-            isChecked = settings.tabGroupsEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 

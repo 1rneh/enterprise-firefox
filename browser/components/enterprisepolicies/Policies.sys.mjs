@@ -2818,6 +2818,14 @@ export var Policies = {
             "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
             false
           );
+          lazy.PoliciesUtils.setAndLockPref(
+            "extensions.getAddons.showPane",
+            false
+          );
+          lazy.PoliciesUtils.setAndLockPref(
+            "extensions.htmlaboutaddons.recommendations.enabled",
+            false
+          );
           manager.disallowFeature("xpinstall");
         }
       }
@@ -4111,6 +4119,10 @@ export var Policies = {
 
       if ("HttpsOnly" in policies) {
         features.http = !policies.HttpsOnly;
+      }
+
+      if ("DisableServiceWorkers" in policies) {
+        features.serviceworkers = !policies.DisableServiceWorkers;
       }
 
       return features;

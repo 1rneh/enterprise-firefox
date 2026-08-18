@@ -516,6 +516,15 @@ pref("browser.urlbar.deduplication.enabled", true);
 
 pref("browser.urlbar.scotchBonnet.enableOverride", true);
 
+// Whether the search button declines to be the target of the toolbar tab stop
+// in front of the address bar and the search bar, so that Tab lands on the
+// input and the button is reached with Shift+Tab from there.
+#ifdef NIGHTLY_BUILD
+pref("browser.urlbar.searchModeSwitcher.skipTabStop", true);
+#else
+pref("browser.urlbar.searchModeSwitcher.skipTabStop", false);
+#endif
+
 pref("browser.urlbar.trackerCount.featureGate", true);
 pref("browser.urlbar.trackerCount.enabled", true);
 
@@ -2447,6 +2456,7 @@ pref("browser.smartwindow.aitab.viewerURL", "");
 
 // Smart Window: Auto Tab Grouping (bug 2054500).
 pref("browser.smartwindow.autoTabGrouping.enabled", true);
+pref("browser.smartwindow.autoTabGrouping.preloadModels", true);
 pref("browser.smartwindow.autoTabGrouping.maxGroups", 3);
 pref("browser.smartwindow.autoTabGrouping.minTabsPerGroup", 2);
 pref("browser.smartwindow.autoTabGrouping.minCandidateTabs", 4);

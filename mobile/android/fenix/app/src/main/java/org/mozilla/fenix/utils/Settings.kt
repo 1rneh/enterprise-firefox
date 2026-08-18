@@ -2377,6 +2377,13 @@ class Settings(
             default = -1L,
         )
 
+    /** The completion timestamp of the fifth day of continuous onboarding. */
+    var fifthDayOnboardingCompletedTimestamp by
+        longPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_day_five_completed_timestamp),
+            default = -1L,
+        )
+
     /** The completion timestamp of the seventh day of continuous onboarding. */
     var seventhDayOnboardingCompletedTimestamp by
         longPreference(
@@ -2526,13 +2533,6 @@ class Settings(
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_ads_client_for_stories),
             default = { FxNimbus.features.adsClientForStories.value().enabled },
-        )
-
-    /** Indicates if Firefox Labs is enabled. */
-    var enableFirefoxLabs by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_enable_firefox_labs),
-            default = FeatureFlags.FIREFOX_LABS,
         )
 
     /** Indicates if the top sites pager layout is enabled. */

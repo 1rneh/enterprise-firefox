@@ -483,11 +483,6 @@ gfxFontconfigFontEntry::~gfxFontconfigFontEntry() {
     auto* face = mFTFace.exchange(nullptr);
     NS_IF_RELEASE(face);
   }
-#ifdef MOZ_FONTATIONS
-  if (mozilla::gfx::SkrifaFontRef* font = mSkrifaFontFace) {
-    skrifa_font_delete(font);
-  }
-#endif
 }
 
 gfxFontconfigFontEntry::AutoHBFace gfxFontconfigFontEntry::GetHBFace() {
@@ -1116,16 +1111,7 @@ void gfxFontconfigFontEntry::InitSkrifaFont(FcPattern* aPattern) {
   const uint8_t* data = static_cast<const uint8_t*>(file.Data());
   const size_t size = file.Size();
   if (SkrifaFontRef* font = skrifa_font_new_from_index(data, size, index)) {
-    // If another thread came in and initialized the font face ahead of us,
-    // just delete the face this thread constructed.
-    if (mSkrifaFontFace.compareExchange(nullptr, font)) {
-      // If we won the race, store our file data to back the font.
-      mSkrifaFontFile = std::move(file);
-    } else {
-      // We lost the race, delete the font we just constructed and let the
-      // file mapping be destroyed normally.
-      skrifa_font_delete(font);
-    }
+    SetSkrifaFont(font, std::move(file));
   }
 }
 #endif
@@ -2200,15 +2186,14 @@ FontVisibility gfxFcPlatformFontList::GetVisibilityForFamily(
       return FontVisibility::User;
 
     case Device::Linux_Fedora_any:
+      // We have no font list for this Fedora version
+      return FontVisibility::Unknown;
+
     case Device::Linux_Fedora_39:
       if (FamilyInList(aName, kBaseFonts_Fedora_39)) {
         return FontVisibility::Base;
       }
-      if (sFontVisibilityDevice == Device::Linux_Fedora_39) {
-        return FontVisibility::User;
-      }
-      // For Fedora_any, fall through to also check Fedora 38 list.
-      [[fallthrough]];
+      return FontVisibility::User;
 
     case Device::Linux_Fedora_38:
       if (FamilyInList(aName, kBaseFonts_Fedora_38)) {
@@ -2246,11 +2231,13 @@ gfxFcPlatformFontList::GetFilteredPlatformFontLists() {
       break;
 
     case Device::Linux_Fedora_any:
+      // No font list for this Fedora version; see GetVisibilityForFamily().
+      break;
+
     case Device::Linux_Fedora_39:
       fontLists.AppendElement(std::make_pair(kBaseFonts_Fedora_39,
                                              std::size(kBaseFonts_Fedora_39)));
-      // For Fedora_any, fall through to also check Fedora 38 list.
-      [[fallthrough]];
+      break;
 
     case Device::Linux_Fedora_38:
       fontLists.AppendElement(std::make_pair(kBaseFonts_Fedora_38,

@@ -242,6 +242,13 @@ export var PoliciesPrefTracker = {
     );
     this._originalFunc = PoliciesUtils.setDefaultPref.bind(PoliciesUtils);
     PoliciesUtils.setDefaultPref = this.hoistedSetDefaultPref.bind(this);
+
+    // Web serial support is automatically disabled by default by enterprise policies, we want to
+    // reset that state at the end of the test to avoid the harness complaining about a changed
+    // preference.
+    this._webSerialState = Services.prefs
+      .getDefaultBranch("")
+      .getBoolPref("dom.webserial.enabled", true);
   },
 
   stop() {
@@ -252,6 +259,10 @@ export var PoliciesPrefTracker = {
     );
     PoliciesUtils.setDefaultPref = this._originalFunc;
     this._originalFunc = null;
+
+    Services.prefs
+      .getDefaultBranch("")
+      .setBoolPref("dom.webserial.enabled", this._webSerialState);
   },
 
   hoistedSetDefaultPref(prefName, prefValue, locked = false) {

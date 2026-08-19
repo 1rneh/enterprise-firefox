@@ -839,7 +839,8 @@ void SharedScreenCastStreamPrivate::ProcessBuffer(pw_buffer* buffer) {
     }
   }
 
-  if (spa_buffer->datas[0].chunk->flags & SPA_CHUNK_FLAG_CORRUPTED) {
+  if (spa_buffer->n_datas == 0 ||
+      spa_buffer->datas[0].chunk->flags & SPA_CHUNK_FLAG_CORRUPTED) {
     RTC_LOG(LS_INFO) << "Dropping buffer with corrupted or missing data";
     if (observer_) {
       observer_->OnBufferCorruptedData();
@@ -916,13 +917,13 @@ void SharedScreenCastStreamPrivate::ProcessBuffer(pw_buffer* buffer) {
   // that the position doesn't exceed the size of the stream itself.
   // NOTE: Currently it looks there is no implementation using this.
   uint32_t y_offset =
-      videocrop_metadata_use &&
+      videocrop_metadata_use && videocrop_metadata->region.position.y >= 0 &&
               (videocrop_metadata->region.position.y + frame_size_.height() <=
                stream_size_.height())
           ? videocrop_metadata->region.position.y
           : 0;
   uint32_t x_offset =
-      videocrop_metadata_use &&
+      videocrop_metadata_use && videocrop_metadata->region.position.x >= 0 &&
               (videocrop_metadata->region.position.x + frame_size_.width() <=
                stream_size_.width())
           ? videocrop_metadata->region.position.x

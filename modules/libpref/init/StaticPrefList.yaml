@@ -1845,6 +1845,15 @@
   value: false
   mirror: always
 
+# When set, the HWInference parent resolves model availability and install
+# requests from an in-process mock instead of the ModelHub (no network,
+# IndexedDB or downloads). The full content->utility->parent IPC chain is
+# still exercised. Used by tests.
+- name: browser.ml.modelHub.testing
+  type: bool
+  value: false
+  mirror: always
+
 - name: browser.navigation.requireUserInteraction
   type: bool
   value: true
@@ -9003,7 +9012,7 @@
 # intermediate image before the downscaling filter.
 - name: image.jpeg.dct-scaling.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Minimum remaining scale factor to leave for the downscaling filter (Lanczos3)
@@ -11831,7 +11840,7 @@
 # so an empty value disables it everywhere. "*" enables it on every domain.
 - name: layout.css.fake-webkit-scrollbar.enabled-domains
   type: DataMutexString
-  value: "mail.google.com,docs.google.com"
+  value: "mail.google.com,docs.google.com,play.google.com,polymarket.com,www.beterbed.nl,www.shazam.com,www.tiktok.com"
   mirror: always
   rust: true
 
@@ -16067,6 +16076,14 @@
   value: true
   mirror: never
 
+# On Android, we use a lower timeout to avoid waiting on a broken
+# DoH connection before we fallback to native. 250 ms is higher than 99th
+# percentile for DoH resolutions on Nightly.
+- name: network.android_doh.rollout_request_timeout_ms
+  type: RelaxedAtomicUint32
+  value: 250
+  mirror: always
+
 # Use GET (rather than POST)
 - name: network.trr.useGET
   type: RelaxedAtomicBool
@@ -19422,12 +19439,6 @@
 - name: svg.Moz2D.strokeBounds.enabled
   type: bool
   value: true
-  mirror: always
-
-# Enable caching of bounds for SVG geometry elements
-- name: svg.bounds-caching.enabled
-  type: bool
-  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether SVGImageElement loading is forced to be sync.

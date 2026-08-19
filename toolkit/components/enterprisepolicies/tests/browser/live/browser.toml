@@ -23,6 +23,8 @@ run-if = [
 
 ["browser_live_policy_BlockAboutConfig.js"]
 
+["browser_live_policy_BlockAboutSupport.js"]
+
 ["browser_live_policy_Cookies.js"]
 
 ["browser_live_policy_ExtensionSettings.js"]

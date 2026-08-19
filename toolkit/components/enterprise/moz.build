@@ -20,3 +20,5 @@ EXTRA_JS_MODULES.enterprise += [
 ]
 
 BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]
+
+JAR_MANIFESTS += ["jar.mn"]

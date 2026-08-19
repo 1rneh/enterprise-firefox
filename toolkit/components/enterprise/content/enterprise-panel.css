@@ -28,7 +28,7 @@
   fill: currentColor;
 
   #panelUI-enterprise[visible] & {
-    list-style-image: url(chrome://browser/content/enterprise/alert.svg);
+    list-style-image: url(chrome://enterprise/content/icons/alert.svg);
   }
 }
 

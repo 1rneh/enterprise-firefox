@@ -2,10 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarQueryContext: "chrome://browser/content/urlbar/UrlbarQueryContext.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
@@ -151,6 +154,10 @@ export class UrlbarChild extends JSWindowActorChild {
         getDisplaySpec: url => this.getDisplaySpec(url),
         unEscapeURIForUI: uri => this.unEscapeURIForUI(uri),
         getSupportUrl: topic => this.getSupportUrl(topic),
+        getPlatform: () => this.getPlatform(),
+        isWindowPrivate: lazy.PrivateBrowsingUtils.isContentWindowPrivate(
+          this.contentWindow
+        ),
         isTextDirectionRTL: (value, window) =>
           this.isTextDirectionRTL(value, window),
         getPref: name => Cu.cloneInto(lazy.UrlbarPrefs.get(name), win),
@@ -212,6 +219,16 @@ export class UrlbarChild extends JSWindowActorChild {
    */
   whereToOpenLink(event) {
     return lazy.BrowserUtils.whereToOpenLink(event, false, false);
+  }
+
+  /**
+   * Forwards `AppConstants.platform`, which a content-realm consumer can't read
+   * for itself: `AppConstants` is a system module.
+   *
+   * @returns {string} The platform name.
+   */
+  getPlatform() {
+    return AppConstants.platform;
   }
 
   /**

@@ -2,17 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-);
-
-const { AppConstants } = ChromeUtils.importESModule(
-  "resource://gre/modules/AppConstants.sys.mjs"
-);
-
 import { SearchModeSwitcher } from "chrome://browser/content/urlbar/SearchModeSwitcher.mjs";
 import { UrlbarChildController } from "chrome://browser/content/urlbar/UrlbarChildController.mjs";
 import { UrlbarEventBufferer } from "chrome://browser/content/urlbar/UrlbarEventBufferer.mjs";
+import {
+  getPlatform,
+  isWindowPrivate,
+} from "chrome://browser/content/urlbar/UrlbarContentUtils.mjs";
 import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
 import { UrlbarQueryContext } from "chrome://browser/content/urlbar/UrlbarQueryContext.mjs";
 import { UrlbarView } from "chrome://browser/content/urlbar/UrlbarView.mjs";
@@ -50,39 +46,47 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
  *   The untrimmed value including the protocol.
  */
 
-const lazy = XPCOMUtils.declareLazy({
-  AIWindow:
-    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
-  BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
-  CustomizableUI:
-    "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
-  ExtensionSearchHandler:
-    "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
-  ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
-  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
-  ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
-  SharingUtils: "moz-src:///browser/components/sharing/SharingUtils.sys.mjs",
-  SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
-  UrlbarTokenizer:
-    "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs",
-  UrlbarSearchUtils:
-    "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
-  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
-  UrlbarValueFormatter:
-    "moz-src:///browser/components/urlbar/UrlbarValueFormatter.sys.mjs",
-  UrlbarSearchTermsPersistence:
-    "moz-src:///browser/components/urlbar/UrlbarSearchTermsPersistence.sys.mjs",
-  UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
-  ClipboardHelper: {
-    service: "@mozilla.org/widget/clipboardhelper;1",
-    iid: Ci.nsIClipboardHelper,
-  },
-  QueryStringStripper: {
-    service: "@mozilla.org/url-query-string-stripper;1",
-    iid: Ci.nsIURLQueryStringStripper,
-  },
-});
+const lazy = typeof ChromeUtils != "undefined" ? {} : null;
+
+if (lazy) {
+  const { XPCOMUtils } = ChromeUtils.importESModule(
+    "resource://gre/modules/XPCOMUtils.sys.mjs"
+  );
+  ChromeUtils.defineESModuleGetters(lazy, {
+    AIWindow:
+      "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+    BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
+    CustomizableUI:
+      "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
+    ExtensionSearchHandler:
+      "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
+    ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
+    QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
+    ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
+    SharingUtils: "moz-src:///browser/components/sharing/SharingUtils.sys.mjs",
+    SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
+    UrlbarTokenizer:
+      "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs",
+    UrlbarSearchUtils:
+      "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
+    UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+    UrlbarValueFormatter:
+      "moz-src:///browser/components/urlbar/UrlbarValueFormatter.sys.mjs",
+    UrlbarSearchTermsPersistence:
+      "moz-src:///browser/components/urlbar/UrlbarSearchTermsPersistence.sys.mjs",
+    UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
+  });
+  XPCOMUtils.defineLazyServiceGetters(lazy, {
+    ClipboardHelper: [
+      "@mozilla.org/widget/clipboardhelper;1",
+      Ci.nsIClipboardHelper,
+    ],
+    QueryStringStripper: [
+      "@mozilla.org/url-query-string-stripper;1",
+      Ci.nsIURLQueryStringStripper,
+    ],
+  });
+}
 
 const logger = () => UrlbarShared.getLogger({ prefix: "Input" });
 
@@ -258,9 +262,9 @@ ${
   constructor() {
     super();
 
-    this.window = this.documentGlobal;
+    this.window = window;
     this.document = this.window.document;
-    this.isPrivate = lazy.PrivateBrowsingUtils.isWindowPrivate(this.window);
+    this.isPrivate = isWindowPrivate(this.window);
 
     UrlbarPrefs.addObserver(this);
     window.addEventListener("unload", () => {
@@ -485,7 +489,7 @@ ${
     this.window.addEventListener("keyup", this);
 
     this.window.addEventListener("mousedown", this);
-    if (AppConstants.platform == "win") {
+    if (getPlatform() == "win") {
       this.window.addEventListener("draggableregionleftmousedown", this);
     }
     this.addEventListener("mousedown", this);
@@ -579,7 +583,7 @@ ${
     this.window.removeEventListener("keyup", this);
 
     this.window.removeEventListener("mousedown", this);
-    if (AppConstants.platform == "win") {
+    if (getPlatform() == "win") {
       this.window.removeEventListener("draggableregionleftmousedown", this);
     }
     this.removeEventListener("mousedown", this);
@@ -655,7 +659,7 @@ ${
 
     this._initStripOnShare();
     this._initPasteAndGo();
-    if (this.#isAddressbar && AppConstants.platform == "macosx") {
+    if (this.#isAddressbar && getPlatform() == "macosx") {
       this.#initShareURL();
     }
     if (this.#isAddressbar) {
@@ -3330,16 +3334,18 @@ ${
     return result.payload.providesSearchMode;
   }
 
-  _observer = {
-    observe: this.observe,
-    QueryInterface: ChromeUtils.generateQI([
-      "nsIObserver",
-      "nsISupportsWeakReference",
-    ]),
-  };
+  // The observer service holds this weakly, so it has to outlive _addObservers.
+  _observer;
 
   _addObservers() {
     if (!this._observersAdded) {
+      this._observer = {
+        observe: this.observe,
+        QueryInterface: ChromeUtils.generateQI([
+          "nsIObserver",
+          "nsISupportsWeakReference",
+        ]),
+      };
       Services.obs.addObserver(this._observer, "ai-window-state-changed", true);
       this.controller.engineStore.addObserver(this.onSearchEngineUpdate);
       this._observersAdded = true;
@@ -3923,7 +3929,7 @@ ${
       event.keyCode == KeyEvent.DOM_VK_SHIFT ||
       event.keyCode == KeyEvent.DOM_VK_ALT ||
       event.keyCode ==
-        (AppConstants.platform == "macosx"
+        (getPlatform() == "macosx"
           ? KeyEvent.DOM_VK_META
           : KeyEvent.DOM_VK_CONTROL)
     ) {
@@ -5851,7 +5857,7 @@ ${
         this._keyDownEnterDeferred = Promise.withResolvers();
         this._keyDownEnterDeferred.inputEpoch = this.#inputEpoch;
         event._disableCanonization =
-          AppConstants.platform == "macosx"
+          getPlatform() == "macosx"
             ? this._isKeyDownWithMeta
             : this._isKeyDownWithCtrl;
       }
@@ -6207,7 +6213,7 @@ ${
    * @returns {boolean} Whether the even will act like the Home key.
    */
   #isHomeKeyUpEvent(event) {
-    let isMac = AppConstants.platform === "macosx";
+    let isMac = getPlatform() === "macosx";
     return (
       // On MacOS this can be generated with Fn + Left.
       event.keyCode == KeyEvent.DOM_VK_HOME ||

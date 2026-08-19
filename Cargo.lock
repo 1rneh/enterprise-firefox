@@ -2581,6 +2581,7 @@ version = "0.1.0"
 dependencies = [
  "nsstring",
  "skrifa",
+ "style",
  "thin-vec",
 ]
 

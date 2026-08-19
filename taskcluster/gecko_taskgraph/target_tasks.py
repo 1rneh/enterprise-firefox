@@ -522,6 +522,18 @@ def target_tasks_enterprise_firefox_with_tests(
         if task.attributes.get("shipping_product") not in (None, "firefox-enterprise"):
             return False
 
+        # Reduce the macOS worker pool load
+        if test_platform and "macos" in test_platform:
+            if "enterprise" in test_platform:
+                # For enterprise builds, keep what is green at least
+                if "test" in task.kind and (
+                    "browser-chrome" in task.label or "xpcshell" in task.label
+                ):
+                    return False
+            else:
+                # For non enterprise builds do not run macOS tests.
+                return False
+
         build_platform = task.attributes.get("build_platform")
         test_platform = task.attributes.get("test_platform")
         build_type = task.attributes.get("build_type")

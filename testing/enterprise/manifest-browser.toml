@@ -2,8 +2,8 @@
 
 subsuite = "enterprise"
 
-run-if = [
-  "buildapp == 'browser'",
+skip-if = [
+  "buildapp != 'browser'",
 ]
 
 ["test_browsing_child_encryption_mismatch.py"]

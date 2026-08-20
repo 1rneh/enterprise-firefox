@@ -1705,7 +1705,10 @@ export class Tabbrowser {
     // add the scheme and host to the title to prevent spoofing.
     // XXX https://bugzilla.mozilla.org/show_bug.cgi?id=22183#c239
     try {
-      if (docElement.getAttribute("chromehidden").includes("location")) {
+      if (
+        docElement.hasAttribute("web-extension-popup-window") ||
+        docElement.hasAttribute("chromeless-window")
+      ) {
         const uri = Services.io.createExposableURI(browser.currentURI);
         let prefix = uri.prePath;
         if (uri.scheme == "about") {
@@ -4549,6 +4552,11 @@ export class Tabbrowser {
    */
 
   /**
+   * @typedef {number} TabSplitViewId
+   *   Unique ID of a tab split view.
+   */
+
+  /**
    * @typedef {object} SplitViewWorkingData
    * @property {MozTabbrowserTab[]} tabs
    * @property {MozTabSplitViewWrapper|undefined} node
@@ -4574,9 +4582,9 @@ export class Tabbrowser {
     let tabsFragment = this.document.createDocumentFragment();
     let tabToSelect = null;
     let hiddenTabs = new Map();
-    /** @type {Map<TabGroupStateData['id'], TabGroupWorkingData>} */
+    /** @type {Map<TabGroupId, TabGroupWorkingData>} */
     let tabGroupWorkingData = new Map();
-    /** @type {Map<TabSplitViewStateData['id'], SplitViewWorkingData>} */
+    /** @type {Map<TabSplitViewId, SplitViewWorkingData>} */
     let splitViewWorkingData = new Map();
 
     for (const tabGroupData of tabGroupDataList) {
@@ -5450,7 +5458,7 @@ export class Tabbrowser {
     let tabsWithBeforeUnloadPrompt = [];
     /** @type {MozTabbrowserTab[]} */
     let tabsWithoutBeforeUnload = [];
-    /** @type {Promise<void>[]} */
+    /** @type {Array<Promise<void>>} */
     let beforeUnloadPromises = [];
     /** @type {MozTabbrowserTab|undefined} */
     let lastToClose;
@@ -6944,6 +6952,17 @@ export class Tabbrowser {
     browser.reload();
   }
 
+  /**
+   * Adds a listener for web progress notifications about the selected browser.
+   *
+   * The listener is a plain object whose methods mirror
+   * `nsIWebProgressListener`; implementing only the ones you need is normal.
+   * `docs/progress-listeners.md` covers what is delivered when, and what a tab
+   * switch replays.
+   *
+   * @param {object} aListener
+   *   The listener to add.
+   */
   addProgressListener(aListener) {
     if (arguments.length != 1) {
       console.error(
@@ -6958,16 +6977,37 @@ export class Tabbrowser {
     this.#progressListeners.push(aListener);
   }
 
+  /**
+   * Removes a listener added with `addProgressListener`.
+   *
+   * @param {object} aListener
+   *   The listener to remove.
+   */
   removeProgressListener(aListener) {
     this.#progressListeners = this.#progressListeners.filter(
       l => l != aListener
     );
   }
 
+  /**
+   * Adds a listener for web progress notifications about every tab.
+   *
+   * As `addProgressListener`, except that each method takes the browser the
+   * notification belongs to as an extra leading argument.
+   *
+   * @param {object} aListener
+   *   The listener to add.
+   */
   addTabsProgressListener(aListener) {
     this.#tabsProgressListeners.push(aListener);
   }
 
+  /**
+   * Removes a listener added with `addTabsProgressListener`.
+   *
+   * @param {object} aListener
+   *   The listener to remove.
+   */
   removeTabsProgressListener(aListener) {
     this.#tabsProgressListeners = this.#tabsProgressListeners.filter(
       l => l != aListener

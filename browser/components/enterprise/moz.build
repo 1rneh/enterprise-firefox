@@ -9,6 +9,7 @@ with Files("**"):
 
 EXTRA_JS_MODULES.enterprise += [
     "AccessConnectorButton.sys.mjs",
+    "EnterpriseHandler.sys.mjs",
 ]
 
 JAR_MANIFESTS += ["jar.mn"]

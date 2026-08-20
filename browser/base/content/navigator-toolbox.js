@@ -178,7 +178,7 @@ document.addEventListener(
 
         case "enterprise-badge-toolbar-button":
           if (AppConstants.MOZ_ENTERPRISE) {
-            EnterpriseHandler.openPanel(element, event);
+            EnterpriseBadge.openPanel(element, event);
           }
           break;
 
@@ -490,7 +490,7 @@ document.addEventListener(
           break;
         case "enterprise-badge-toolbar-button":
           if (AppConstants.MOZ_ENTERPRISE) {
-            EnterpriseHandler.openPanel(element, event);
+            EnterpriseBadge.openPanel(element, event);
           }
           break;
 

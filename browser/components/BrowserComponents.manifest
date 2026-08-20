@@ -46,7 +46,8 @@ category browser-window-domcontentloaded moz-src:///browser/components/customiza
 category browser-window-domcontentloaded chrome://browser/content/browser-addons.js gUnifiedExtensions.init
 category browser-window-domcontentloaded chrome://browser/content/browser.js FirefoxViewHandler.init
 #ifdef MOZ_ENTERPRISE
-category browser-window-domcontentloaded resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
+category browser-window-domcontentloaded resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.init
+category browser-window-domcontentloaded resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
 category browser-window-domcontentloaded resource:///modules/enterprise/AccessConnectorButton.sys.mjs AccessConnectorButtonHandler.init
 #endif
 
@@ -224,7 +225,7 @@ category browser-quit-application-granted moz-src:///browser/components/urlbar/U
 category browser-quit-application-granted moz-src:///browser/components/ipprotection/IPProtectionHelpers.sys.mjs IPProtectionActivator.uninit
 
 #ifdef MOZ_ENTERPRISE
-category browser-quit-application-granted resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.uninit
+category browser-quit-application-granted resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.uninit
 #endif
 
 category search-service-notification moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchUIUtils.showSearchServiceNotification

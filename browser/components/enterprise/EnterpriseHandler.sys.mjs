@@ -41,11 +41,12 @@ export const EnterpriseHandler = {
   /**
    * Handles the enterprise state for each new browser window.
    * On every call:
+   *    - Initializes the URL bar buttons on every call
    *    - Hide FxA toolbar button and FxA item in app menu (hamburger menu)
    *
    * @param {Window} window chrome window
    */
-  async init(window) {
+  init(window) {
     if (Services.felt.isFeltUI()) {
       // Nothing to setup for the felt window
       return;

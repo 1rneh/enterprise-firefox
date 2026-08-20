@@ -89,6 +89,27 @@ function validateDataUrl(url) {
   return parsedUrl;
 }
 
+/**
+ * Produce a data URL from an non data URL to hold the user picture
+ *
+ * @param {string} url - The URL to fetch the picture from
+ * @returns {Promise} Promise that performs the data URL conversion
+ */
+async function urlToDataUrl(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  }
+  const blob = await response.blob();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result); // "data:image/png;base64,...."
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export const EnterpriseBadge = {
   /**
    * @type {{name:string, email:string, pictureUrl:string} | null}
@@ -102,9 +123,8 @@ export const EnterpriseBadge = {
   _isInitialized: false,
 
   /**
-   * Handles the enterprise state for each new browser window.
-   * On first call:
-   *    - Make a request to the console to retrieve the user information of the signed in user.
+   * Initializes the enterprise badge: Fetches the information of the signed-in
+   * user and populates the badge with the user information.
    *
    * @param {Window} window chrome window
    */
@@ -115,8 +135,8 @@ export const EnterpriseBadge = {
     }
     if (!this._isInitialized) {
       lazy.log.debug("Initializing...");
-      await this.initUser();
       this._isInitialized = true;
+      await this.initUser();
     }
     this.updateBadge(window);
   },
@@ -125,8 +145,16 @@ export const EnterpriseBadge = {
     try {
       const { name, email, picture } =
         await lazy.ConsoleClient.getLoggedInUserInfo();
-
-      this._signedInUser = { name, email, pictureUrl: picture };
+      let pictureUrl = null;
+      if (picture) {
+        try {
+          pictureUrl =
+            validateDataUrl(await urlToDataUrl(picture))?.href ?? null;
+        } catch (e) {
+          lazy.log.warn("Unable to fetch user picture: ", e);
+        }
+      }
+      this._signedInUser = { name, email, pictureUrl };
     } catch (e) {
       // TODO: Bug 2000864 - Handle unsuccessful GET /WHOAMI
       lazy.log.warn("Unable to initialize enterprise user: ", e);
@@ -269,7 +297,7 @@ export const EnterpriseBadge = {
   },
 
   uninit() {
-    this._signedInUser = {};
+    this._signedInUser = null;
     this._isInitialized = false;
   },
 

@@ -29,7 +29,6 @@ export const BuiltInThemeConfig = new Map([
       version: "1.3.4",
       path: "resource://builtin-themes/light/",
       inApp: true,
-      nonNative: true,
     },
   ],
   [
@@ -38,7 +37,6 @@ export const BuiltInThemeConfig = new Map([
       version: "1.3.4",
       path: "resource://builtin-themes/dark/",
       inApp: true,
-      nonNative: true,
     },
   ],
   [

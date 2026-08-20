@@ -230,3 +230,4 @@ category browser-quit-application-granted resource://gre/modules/enterprise/Ente
 category search-service-notification moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchUIUtils.showSearchServiceNotification
 
 category browser-newtab-external-component moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchNewTabComponentsRegistrant
+category browser-newtab-external-component moz-src:///browser/components/urlbar/UrlbarNewTabComponentRegistrant.sys.mjs UrlbarNewTabComponentRegistrant

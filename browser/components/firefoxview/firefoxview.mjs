@@ -95,10 +95,9 @@ async function updateSearchKeyboardShortcut() {
 }
 
 function updateSyncVisibility() {
-  const syncEnabled = Services.prefs.getBoolPref(
-    "identity.fxaccounts.enabled",
-    false
-  );
+  const syncEnabled =
+    Services.prefs.getBoolPref("identity.fxaccounts.enabled", false) &&
+    Services.policies.isAllowed("sync-tabs");
   for (const el of document.querySelectorAll(".sync-ui-item")) {
     el.hidden = !syncEnabled;
   }

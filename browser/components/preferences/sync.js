@@ -304,7 +304,7 @@ var gSyncPane = {
     );
     connectAnotherDeviceLink.setAttribute("restricted-enterprise-view", true);
 
-    if (!Services.policies.isAllowed("change-sync-state")) {
+    if (!Services.policies.isAllowed("sync")) {
       // Hide info box and "Turn on syncing..." button (visible when Sync is disabled)
       const syncOffBox = document.getElementById("syncNotConfigured");
       syncOffBox.setAttribute("restricted-enterprise-view", true);

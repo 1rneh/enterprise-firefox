@@ -506,10 +506,7 @@ Preferences.addSetting({
   deps: ["uiStateUpdate"],
   visible() {
     return (
-      !(
-        AppConstants.MOZ_ENTERPRISE &&
-        !Services.policies.isAllowed("change-sync-state")
-      ) &&
+      !(AppConstants.MOZ_ENTERPRISE && !Services.policies.isAllowed("sync")) &&
       SyncHelpers.uiStateStatus === window.UIState.STATUS_SIGNED_IN &&
       !SyncHelpers.isSyncEnabled
     );
@@ -624,8 +621,7 @@ Preferences.addSetting({
   },
   visible: () => {
     return !(
-      AppConstants.MOZ_ENTERPRISE &&
-      !Services.policies.isAllowed("change-sync-state")
+      AppConstants.MOZ_ENTERPRISE && !Services.policies.isAllowed("sync")
     );
   },
 });

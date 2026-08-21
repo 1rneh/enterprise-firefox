@@ -26,7 +26,7 @@ const { getFxAccountsSingleton } = ChromeUtils.importESModule(
   "resource://gre/modules/FxAccounts.sys.mjs"
 );
 
-const SYNC_FEATURE = "change-sync-state";
+const SYNC_FEATURE = "sync";
 
 // Engine prefs the Sync policy drives, keyed by their policy property name.
 const ENGINE_PREFS = {
@@ -205,7 +205,7 @@ add_task(async function test_locked_disabled_disconnects_and_locks_feature() {
 });
 
 // An unlocked Sync policy only changes the engine setting's default values;
-// the preference stay unlocked and the sync feature stays allowed.
+// the preferences stay unlocked and the sync feature stays allowed.
 add_task(async function test_unlocked_engine_pref_sets_default() {
   const initialPasswords = Services.prefs.getBoolPref(ENGINE_PREFS.Passwords);
 

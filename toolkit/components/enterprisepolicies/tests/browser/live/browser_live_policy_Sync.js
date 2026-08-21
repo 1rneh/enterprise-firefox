@@ -4,7 +4,10 @@
 "use strict";
 
 // The feature the Sync policy disallows when it locks the sync state.
-const SYNC_FEATURE = "change-sync-state";
+const SYNC_FEATURE = "sync";
+
+// The feature the Sync policy disallows when it locks the open tabs engine state.
+const SYNC_FEATURE_TABS = "sync-tabs";
 
 function checkSyncFeatureAllowed(expectedAllowed) {
   Assert.equal(
@@ -14,10 +17,64 @@ function checkSyncFeatureAllowed(expectedAllowed) {
   );
 }
 
+function checkSyncTabsFeatureAllowed(expectedAllowed) {
+  Assert.equal(
+    Services.policies.isAllowed(SYNC_FEATURE_TABS),
+    expectedAllowed,
+    `${SYNC_FEATURE_TABS} feature is ${
+      expectedAllowed ? "allowed" : "disallowed"
+    }`
+  );
+}
+
 async function updatePolicies(policies) {
   const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
   EnterprisePolicyTesting.stubRemotePolicies(policies);
   await updateApplied;
+}
+
+function getSyncedTabsTool() {
+  return SidebarController.getTools().find(
+    tool => tool.commandID == "viewTabsSidebar"
+  );
+}
+
+// The synced tabs sidebar tool reflects its `visible` getter live, refreshed by
+// SidebarController's policy observer; wait for it to settle after a change.
+async function checkSyncedTabsTool(expectedHidden) {
+  await TestUtils.waitForCondition(
+    () => getSyncedTabsTool().hidden === expectedHidden,
+    `Synced tabs sidebar tool should be ${
+      expectedHidden ? "hidden" : "visible"
+    }`
+  );
+  is(
+    getSyncedTabsTool().hidden,
+    expectedHidden,
+    `Synced tabs sidebar tool hidden=${expectedHidden}`
+  );
+}
+
+// Firefox View reads the sync-tabs gating on load, so open a fresh tab to check
+// how the "Tabs from other devices" nav renders under the current policy.
+async function checkFirefoxViewSyncedTabsHidden(expectedHidden) {
+  await BrowserTestUtils.withNewTab("about:firefoxview", async browser => {
+    const doc = browser.contentDocument;
+    const navButton = await TestUtils.waitForCondition(() =>
+      doc.querySelector('moz-page-nav-button[view="syncedtabs"]')
+    );
+    await TestUtils.waitForCondition(
+      () => navButton.hidden === expectedHidden,
+      `Firefox View synced tabs nav should be ${
+        expectedHidden ? "hidden" : "visible"
+      }`
+    );
+    is(
+      navButton.hidden,
+      expectedHidden,
+      `Firefox View synced tabs nav hidden=${expectedHidden}`
+    );
+  });
 }
 
 const { UIState } = ChromeUtils.importESModule(
@@ -28,7 +85,7 @@ const { getFxAccountsSingleton } = ChromeUtils.importESModule(
 );
 
 // The sync pane renders from UIState, so we mock it to reach the signed-in
-// states that expose the controls gated on the change-sync-state feature.
+// states that expose the controls gated on the sync feature.
 const SIGNED_IN_SYNC_ON = {
   status: UIState.STATUS_SIGNED_IN,
   email: "test@example.com",
@@ -149,7 +206,7 @@ add_task(async function test_sync_controls_reflect_feature_lock() {
     // Enabling awaits connectSync before disallowFeature, so wait for the lock.
     await TestUtils.waitForCondition(
       () => !Services.policies.isAllowed(SYNC_FEATURE),
-      "the change-sync-state feature is locked"
+      "the sync feature is locked"
     );
     await checkDisconnect(true);
 
@@ -160,7 +217,7 @@ add_task(async function test_sync_controls_reflect_feature_lock() {
     // A prior connect means this may disconnect (async) before disallowFeature.
     await TestUtils.waitForCondition(
       () => !Services.policies.isAllowed(SYNC_FEATURE),
-      "the change-sync-state feature is locked"
+      "the sync feature is locked"
     );
     await checkTurnOn(true);
 
@@ -173,4 +230,54 @@ add_task(async function test_sync_controls_reflect_feature_lock() {
     restoreFxa();
     Services.prefs.clearUserPref("services.sync.username");
   }
+});
+
+// The synced tabs sidebar tool and the Firefox View "Tabs from other devices"
+// nav follow the sync-tabs feature the Sync policy gates. Driving the states
+// with live updates also proves the sidebar tool re-gates without a restart.
+add_task(async function test_synced_tabs_visibility_follows_sync_policy() {
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
+    { policies: {} },
+    null
+  );
+
+  info("No policy: the synced tabs surfaces are visible.");
+  checkSyncTabsFeatureAllowed(true);
+  await checkSyncedTabsTool(false);
+  await checkFirefoxViewSyncedTabsHidden(false);
+
+  info("Sync disabled and locked: the synced tabs surfaces are hidden.");
+  await updatePolicies({
+    policies: { Sync: { Enabled: false, Locked: true } },
+  });
+  checkSyncTabsFeatureAllowed(false);
+  await checkSyncedTabsTool(true);
+  await checkFirefoxViewSyncedTabsHidden(true);
+
+  info("Tabs engine disabled and locked: the synced tabs surfaces are hidden.");
+  await updatePolicies({
+    policies: { Sync: { Enabled: true, Locked: true, OpenTabs: false } },
+  });
+  checkSyncTabsFeatureAllowed(false);
+  await checkSyncedTabsTool(true);
+  await checkFirefoxViewSyncedTabsHidden(true);
+
+  info("Sync locked on with tabs: the synced tabs surfaces stay visible.");
+  await updatePolicies({
+    policies: { Sync: { Enabled: true, Locked: true, OpenTabs: true } },
+  });
+  // Locking Sync on awaits connectSync before disallowing sync.
+  await TestUtils.waitForCondition(
+    () => !Services.policies.isAllowed(SYNC_FEATURE),
+    "the sync feature is locked"
+  );
+  checkSyncTabsFeatureAllowed(true);
+  await checkSyncedTabsTool(false);
+  await checkFirefoxViewSyncedTabsHidden(false);
+
+  info("Policy removed: the synced tabs surfaces are visible again.");
+  await updatePolicies({ policies: {} });
+  checkSyncTabsFeatureAllowed(true);
+  await checkSyncedTabsTool(false);
+  await checkFirefoxViewSyncedTabsHidden(false);
 });

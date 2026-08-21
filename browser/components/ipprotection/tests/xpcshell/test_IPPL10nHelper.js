@@ -6,9 +6,6 @@ https://creativecommons.org/publicdomain/zero/1.0/ */
 const { IPPL10nHelper } = ChromeUtils.importESModule(
   "moz-src:///browser/components/ipprotection/IPPL10nHelper.sys.mjs"
 );
-const { AppConstants } = ChromeUtils.importESModule(
-  "resource://gre/modules/AppConstants.sys.mjs"
-);
 
 const HAS_SEEN_FEATURE_PREF = "browser.ipProtection.hasSeenFeature";
 const GATE_VERSION_PREF = "browser.ipProtection.l10nGateVersion";

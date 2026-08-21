@@ -214,7 +214,7 @@ function checkPayloadInfo(data, reason) {
   // Check for a valid revision.
   if (data.revision != "") {
     const revisionUrlRegEx =
-      /^http[s]?:\/\/hg.mozilla.org(\/[a-z\S]+)+(\/rev\/[0-9a-z]+)$/g;
+      /^http[s]?:\/\/(hg\.mozilla\.org(\/[\S]+)+(\/rev\/[0-9a-z]+)|github\.com\/mozilla\/enterprise-firefox(-try)?\/commit\/[0-9a-f]+)$/g;
     Assert.ok(revisionUrlRegEx.test(data.revision));
   }
 

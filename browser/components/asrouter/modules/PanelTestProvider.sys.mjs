@@ -1916,6 +1916,27 @@ const MESSAGES = () => [
     groups: [],
   },
   {
+    id: "TEST_ACTIVATION_WINDOW_FULL_BLEED_IMAGE",
+    template: "newtab_message",
+    content: {
+      messageType: "ActivationWindowMessage",
+      heading: "Welcome to your New Tab!",
+      message:
+        "To make changes, select the pencil icon in the bottom right corner.",
+      imageSrc: "chrome://browser/content/asrouter/assets/kit-peek.svg",
+      imageSrcResponsive:
+        "chrome://browser/content/asrouter/assets/kit-peek-bottom.svg",
+      primaryButton: {
+        label: "Got It",
+        action: { dismiss: true },
+      },
+    },
+    trigger: {
+      id: "newtabMessageCheck",
+    },
+    groups: [],
+  },
+  {
     id: "TEST_ASROUTER_NEWTAB_MESSAGE",
     template: "newtab_message",
     content: {
@@ -3378,6 +3399,46 @@ const MESSAGES = () => [
     trigger: {
       id: "sidebarToolOpened",
     },
+    frequency: {
+      lifetime: 3,
+    },
+  },
+  {
+    id: "SMARTWINDOW_NEWTAB_PROMO_DISMISSABLE_TEST",
+    template: "smart_window_newtab_promo",
+    content: {
+      type: "vibrant",
+      heading: "Smart Window Default Dismiss-able Test Message",
+      message: "Firefox will open in Smart Window every time.",
+      imageSrc:
+        "chrome://browser/content/aiwindow/assets/smart-window-promo-default.svg",
+      imageAlignment: "start",
+      imageWidth: "small",
+      imageDisplay: "padded",
+      dismissable: true,
+      primary_button: {
+        label: "Set as default",
+        action: {
+          type: "SET_PREF",
+          data: {
+            pref: {
+              name: "browser.smartwindow.isDefaultWindow",
+              value: true,
+            },
+          },
+        },
+      },
+      additional_button: {
+        label: "Not now",
+        action: {
+          type: "CANCEL",
+        },
+      },
+    },
+    trigger: {
+      id: "smartWindowNewTab",
+    },
+    targeting: "isAIWindow",
     frequency: {
       lifetime: 3,
     },

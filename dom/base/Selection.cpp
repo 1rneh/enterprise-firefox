@@ -2892,6 +2892,23 @@ void Selection::CollapseInternal(InLimiter aInLimiter,
     return;
   }
 
+  RefPtr<nsRange> range = nsRange::Create(aPoint.GetContainer());
+  result = range->CollapseTo(aPoint);
+  if (NS_FAILED(result)) {
+    aRv.Throw(result);
+    return;
+  }
+
+  // Register before Clear() drops the current ranges: if they share the new
+  // range's closest common inclusive ancestor, its range list never becomes
+  // empty, so neither UnmarkDescendants() nor the following MarkDescendants()
+  // walks its flattened subtree.
+  result = range->RegisterSelection(*this);
+  if (NS_FAILED(result)) {
+    aRv.Throw(result);
+    return;
+  }
+
   // Delete all of the current ranges
   Clear(presContext);
 
@@ -2901,13 +2918,6 @@ void Selection::CollapseInternal(InLimiter aInLimiter,
   // Hack to display the caret on the right line (bug 1237236).
   frameSelection->SetHint(ComputeCaretAssociationHint(
       frameSelection->GetHint(), frameSelection->GetCaretBidiLevel(), aPoint));
-
-  RefPtr<nsRange> range = nsRange::Create(aPoint.GetContainer());
-  result = range->CollapseTo(aPoint);
-  if (NS_FAILED(result)) {
-    aRv.Throw(result);
-    return;
-  }
 
 #ifdef DEBUG_SELECTION
   nsCOMPtr<nsIContent> content = do_QueryInterface(aPoint.GetContainer());
@@ -2922,8 +2932,16 @@ void Selection::CollapseInternal(InLimiter aInLimiter,
   result = AddRangesForSelectableNodes(range, &maybeRangeIndex,
                                        DispatchSelectstartEvent::Maybe);
   if (NS_FAILED(result)) {
+    range->UnregisterSelection(*this);
     aRv.Throw(result);
     return;
+  }
+  if (maybeRangeIndex.isNothing()) {
+    // Clear() left no ranges, so range would have taken index 0 had it been
+    // added.  AddRangesForUserSelectableNodes() adds nothing when no part of it
+    // is selectable, which would leave the registration above backed by no
+    // range of this selection.
+    range->UnregisterSelection(*this);
   }
   SetAnchorFocusRange(0);
   SelectFrames(presContext, *range, true);
@@ -2960,22 +2978,27 @@ void Selection::CollapseToStart(ErrorResult& aRv) {
   }
 
   // Get the first range
-  const AbstractRange* firstRange = mStyledRanges.GetAbstractRangeAt(0);
+  const RefPtr<AbstractRange> firstRange = mStyledRanges.GetAbstractRangeAt(0);
   if (!firstRange) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }
 
+  CollapseToStartOf(*firstRange, aRv);
+}
+
+void Selection::CollapseToStartOf(const AbstractRange& aRange,
+                                  ErrorResult& aRv) {
   if (mFrameSelection) {
     mFrameSelection->AddChangeReasons(
         nsISelectionListener::COLLAPSETOSTART_REASON);
   }
-  nsINode* container = firstRange->GetStartContainer();
+  nsINode* container = aRange.GetStartContainer();
   if (!container) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }
-  const uint32_t offset = firstRange->StartOffset();
+  const uint32_t offset = aRange.StartOffset();
   if (MOZ_UNLIKELY(!IsValidNodeAndOffsetForBoundary(*container, offset, aRv))) {
     return;
   }
@@ -4205,6 +4228,11 @@ void Selection::Modify(const nsAString& aAlter, const nsAString& aDirection,
     return;
   }
 
+  // If you need to make this API work on independent selection, you need to
+  // change the call of PresShell::CompleteMove() because independent selection
+  // should move complete in its limiter.
+  MOZ_ASSERT(!mFrameSelection->IsIndependentSelection());
+
   if (!GetAnchorFocusRange() || !GetFocusNode()) {
     return;
   }
@@ -4317,6 +4345,9 @@ void Selection::Modify(const nsAString& aAlter, const nsAString& aDirection,
     if (!presShell) {
       return;
     }
+    // XXX This won't move caret into non-selectable node by `user-select`
+    // style. However, it's for user's operation, not for Selection API. So, we
+    // may need to add an option to ignore `user-select` style.
     presShell->CompleteMove(forward, extend);
   }
 }

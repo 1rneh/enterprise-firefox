@@ -384,8 +384,6 @@ pref("browser.startup.preXulSkeletonUI", true);
 
 // Whether the checkbox to enable Launch on login is shown
 pref("browser.startup.windowsLaunchOnLogin.enabled", true);
-// Whether to show the launch on login infobar notification
-pref("browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt", false);
 // Whether new installs default to launching Firefox on Windows login when the
 // user is not enrolled in Nimbus for this feature. When false, launch-on-login
 // is enabled only by a Nimbus rollout or experiment; when true, it is enabled
@@ -529,8 +527,8 @@ pref("browser.urlbar.searchModeSwitcher.skipTabStop", true);
 pref("browser.urlbar.searchModeSwitcher.skipTabStop", false);
 #endif
 
-pref("browser.urlbar.trackerCount.featureGate", true);
-pref("browser.urlbar.trackerCount.enabled", true);
+pref("browser.urlbar.trackerCount.featureGate", false);
+pref("browser.urlbar.trackerCount.enabled", false);
 
 pref("browser.urlbar.trustPanel.featureGate", true);
 pref("browser.urlbar.trustPanel.breachAlerts.featureGate", true);
@@ -1482,8 +1480,12 @@ pref("browser.xul.error_pages.expert_bad_cert", false);
 pref("browser.xul.error_pages.show_safe_browsing_details_on_load", false);
 
 // Enable the one-click search call-to-action on the online dnsNotFound error
-// page. Disabled by default; consumers land in later bugs (meta bug 2055374).
+// page. On in Nightly, off elsewhere until a Nimbus rollout (bug 2055718).
+#ifdef NIGHTLY_BUILD
+pref("browser.netError.searchCTA.enabled", true);
+#else
 pref("browser.netError.searchCTA.enabled", false);
+#endif
 
 // Freshness window for the search CTA's connectivity signal. If the last
 // captive-portal check is older than this, an authoritative re-check runs
@@ -2474,7 +2476,7 @@ pref("browser.smartwindow.smartformfill.enabled", false);
 pref("browser.smartwindow.smartformfill.disallowedRegions", "FR");
 
 // Smart Window Agent
-pref("browser.smartwindow.agent.enabled", false);
+pref("browser.smartwindow.agent.enabled", true);
 pref("browser.smartwindow.agent.supportedRegions", "US,CA");
 
 
@@ -2549,6 +2551,9 @@ pref("identity.fxaccounts.pairing.enabled", false);
 #else
 pref("identity.fxaccounts.pairing.enabled", true);
 #endif
+
+// The version of the pairing flow to be used by FxA.
+pref("identity.fxaccounts.pairing.version", 1);
 
 // The remote URI of the FxA pairing server
 #ifdef MOZ_ENTERPRISE

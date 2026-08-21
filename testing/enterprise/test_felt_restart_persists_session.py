@@ -91,7 +91,7 @@ class AppRestartPersistsSession(FeltTests):
         return self._child_driver.execute_script(
             """
             const { SessionStore } = ChromeUtils.importESModule(
-              "resource:///modules/sessionstore/SessionStore.sys.mjs"
+              "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs"
             );
             const state = JSON.parse(SessionStore.getBrowserState());
             return state.windows.flatMap(w =>

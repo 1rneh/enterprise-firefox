@@ -35,8 +35,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs",
   resolveUrlsForMemories:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs",
-  DEFAULT_DISTANCE_THRESHOLD:
-    "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs",
   getConversationSourceIdsFromMemory:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesChatSource.sys.mjs",
   getConversationsById:
@@ -57,6 +55,8 @@ ChromeUtils.defineLazyGetter(lazy, "console", () =>
     maxLogLevelPref: "browser.smartwindow.conversation.logLevel",
   })
 );
+
+const RESUME_ACTIVITY_SUPPORTED_LOCALES = ["en"];
 
 let _savedLoadPromptDescriptor = null;
 export function _setLoadPromptForTesting(fn) {
@@ -748,10 +748,7 @@ async function generateUncachedResumeActivityConversationStarters() {
 
     const urlsByHash = await lazy.resolveUrlsForMemories(
       memoriesWithPlaceHashes,
-      {
-        filterBySummary: true,
-        distanceThreshold: lazy.DEFAULT_DISTANCE_THRESHOLD,
-      }
+      { filterBySummary: true }
     );
     const memoriesWithUrlsAndTitles = memoriesWithPlaceHashes
       .map(memory =>
@@ -835,14 +832,28 @@ async function generateUncachedResumeActivityConversationStarters() {
   }
 }
 
+function isResumeActivityLocaleSupported() {
+  const appLocale = Services.locale.appLocaleAsBCP47.toLowerCase();
+  return RESUME_ACTIVITY_SUPPORTED_LOCALES.some(
+    locale => appLocale === locale || appLocale.startsWith(`${locale}-`)
+  );
+}
+
 /**
  * Generates conversation starter prompts for suggestions to resume activity based
  * on user memories and associated browsing history.
+ *
+ * Only supported for English app locales; returns an empty list otherwise.
  *
  * @returns {Promise<Array<object>>} Array of objects containing memory and
  *   content with headline, status, and previewTabs
  */
 export async function generateResumeActivityConversationStarters() {
+  // Return an empty array for unsupported locales
+  if (!isResumeActivityLocaleSupported()) {
+    return [];
+  }
+
   const watermark = await MemoriesManager.getLastSessionMemoryTimestamp();
   const cached = _getCachedResumeActivity(watermark);
   if (cached !== undefined) {

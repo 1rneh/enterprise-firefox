@@ -26,8 +26,10 @@ ChromeUtils.defineESModuleGetters(this, {
     "moz-src:///browser/components/urlbar/SmartbarMentionsPanelSearch.sys.mjs",
   PlacesTestUtils: "resource://testing-common/PlacesTestUtils.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
-  SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
-  SessionWindowUI: "resource:///modules/sessionstore/SessionWindowUI.sys.mjs",
+  SessionStore:
+    "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  SessionWindowUI:
+    "moz-src:///browser/components/sessionstore/SessionWindowUI.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
 });
 
@@ -536,6 +538,11 @@ async function stubResumeActivityGeneration(sb) {
   }));
   sb.stub(openAIEngine, "getFxAccountToken").resolves(null);
 
+  const originalAvailableLocales = Services.locale.availableLocales;
+  const originalRequestedLocales = Services.locale.requestedLocales;
+  Services.locale.availableLocales = ["en-US"];
+  Services.locale.requestedLocales = ["en-US"];
+
   return {
     getMemoriesStub,
     memories,
@@ -547,6 +554,8 @@ async function stubResumeActivityGeneration(sb) {
       for (const { url } of urls) {
         await PlacesUtils.history.remove(url);
       }
+      Services.locale.availableLocales = originalAvailableLocales;
+      Services.locale.requestedLocales = originalRequestedLocales;
     },
   };
 }

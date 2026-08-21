@@ -45,7 +45,7 @@ const { PURPOSES, MODEL_FEATURES } = ChromeUtils.importESModule(
 const { MESSAGE_LENGTH_THRESHOLD } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/memories/MemoriesChatSource.sys.mjs"
 );
-const { resolveUrlsForMemories, DEFAULT_DISTANCE_THRESHOLD } =
+const { resolveUrlsForMemories, getDistanceThreshold } =
   ChromeUtils.importESModule(
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs"
   );
@@ -129,6 +129,10 @@ add_setup(async function setupResumeActivityConversationStarterTests() {
     set: [
       ["places.history.enabled", true],
       ["browser.privatebrowsing.autostart", false],
+      [
+        "browser.smartwindow.memories.resumeActivityUrlDistanceThreshold",
+        "0.9",
+      ],
     ],
   });
 
@@ -1209,6 +1213,69 @@ add_task(async function test_resumeActivity_emptyResultIsCached() {
   }
 });
 
+add_task(async function test_resumeActivity_nonEnglishLocaleReturnsNoCards() {
+  const originalAvailable = Services.locale.availableLocales;
+  const originalRequested = Services.locale.requestedLocales;
+  let addedMemories = [];
+  let getMemoriesSpy;
+  let mockEngineManager;
+
+  try {
+    addedMemories = await addResumeActivityTestMemories([
+      makeMemory("Locale gated memory", {
+        frecency: 10,
+        pages: [makePage("Locale gated page")],
+      }),
+    ]);
+    getMemoriesSpy = sinon.spy(MemoriesManager, "getMemoriesByAttribute");
+    mockEngineManager = new MockEngineManager();
+
+    Services.locale.availableLocales = ["en-US", "de"];
+    Services.locale.requestedLocales = ["de"];
+    Assert.equal(
+      Services.locale.appLocaleAsBCP47,
+      "de",
+      "The app locale should be German for this test"
+    );
+
+    let settled = false;
+    const suggestionsPromise =
+      generateResumeActivityConversationStarters().finally(() => {
+        settled = true;
+      });
+
+    // A correct call will return without any inference, but a failing call
+    // will try to call the LLM through the mocked engine.
+    await TestUtils.waitForCondition(
+      () => settled || mockEngineManager.engines.size,
+      "the gated call to settle without requesting an inference engine"
+    );
+    mockEngineManager.rejectAllRequests();
+
+    Assert.deepEqual(
+      await suggestionsPromise,
+      [],
+      "A non-English locale should produce no cards"
+    );
+    Assert.equal(
+      getMemoriesSpy.callCount,
+      0,
+      "A non-English locale should not query the memory store"
+    );
+    Assert.equal(
+      mockEngineManager.engines.size,
+      0,
+      "A non-English locale should not run inference"
+    );
+  } finally {
+    Services.locale.requestedLocales = originalRequested;
+    Services.locale.availableLocales = originalAvailable;
+    mockEngineManager?.cleanupMocks();
+    getMemoriesSpy?.restore();
+    await cleanupResumeActivityTestMemories(addedMemories);
+  }
+});
+
 add_task(async function test_constructConversationToResumeActivity() {
   const testMemories = [
     makeMemory("Test memory", {
@@ -1416,7 +1483,7 @@ add_task(async function test_filter_keeps_urls_close_to_own_summary() {
   );
   Assert.greater(entry.lastVisitDate, 0, "Resolved entry carries a visit date");
   Assert.ok(
-    entry.distance >= 0 && entry.distance <= DEFAULT_DISTANCE_THRESHOLD,
+    entry.distance >= 0 && entry.distance <= getDistanceThreshold(),
     `Resolved entry carries a distance within the threshold, got ${entry.distance}`
   );
 });

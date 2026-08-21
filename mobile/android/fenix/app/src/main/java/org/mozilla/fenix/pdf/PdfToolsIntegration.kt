@@ -20,6 +20,7 @@ import mozilla.components.compose.base.theme.layout.AcornWindowSize
 import mozilla.components.support.base.feature.LifecycleAwareFeature
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.PdfViewer
+import org.mozilla.fenix.components.share.createPdfShareAction
 import org.mozilla.fenix.pdf.ui.PdfTools
 import org.mozilla.fenix.theme.FirefoxTheme
 
@@ -44,7 +45,7 @@ class PdfToolsIntegration(
             return
         }
 
-        pdfTools =
+        val view =
             ComposeView(container.context).apply {
                 // The tools are positioned by their behavior, which insets them from the browser chrome.
                 layoutParams =
@@ -56,8 +57,14 @@ class PdfToolsIntegration(
 
                 setContent { PdfToolsHost() }
             }
+        pdfTools = view
 
-        container.addView(pdfTools)
+        // Add once the container has attached, since the chrome removes a sibling during that pass (Bug 2065098).
+        container.post {
+            if (pdfTools === view) {
+                container.addView(view)
+            }
+        }
     }
 
     override fun stop() {
@@ -73,6 +80,23 @@ class PdfToolsIntegration(
         }
     }
 
+    /** Prints the PDF the selected tab is displaying. */
+    internal fun handlePrintClick() {
+        PdfViewer.printTapped.record(NoExtras())
+        browserStore.state.selectedTabId?.let {
+            browserStore.dispatch(EngineAction.PrintContentAction(it))
+        }
+    }
+
+    /** Shares the PDF the selected tab is displaying. */
+    internal fun handleShareClick() {
+        PdfViewer.shareTapped.record(NoExtras())
+        val tab = browserStore.state.selectedTab ?: return
+        browserStore.createPdfShareAction(tabId = tab.id, url = tab.content.url)?.let {
+            browserStore.dispatch(it)
+        }
+    }
+
     @Composable
     private fun PdfToolsHost() {
         FirefoxTheme {
@@ -80,6 +104,8 @@ class PdfToolsIntegration(
                 browserStore = browserStore,
                 isLargeWindow = AcornWindowSize.isLargeWindow(),
                 onDownloadClick = ::handleDownloadClick,
+                onPrintClick = ::handlePrintClick,
+                onShareClick = ::handleShareClick,
             )
         }
     }
@@ -91,12 +117,16 @@ class PdfToolsIntegration(
  * @param browserStore Used to observe the PDF status of the selected tab.
  * @param isLargeWindow Used to determine if the device should be treated as a tablet.
  * @param onDownloadClick Invoked when the user activates the download PDF button.
+ * @param onPrintClick Invoked when the user activates the print PDF button.
+ * @param onShareClick Invoked when the user activates the share PDF button.
  */
 @Composable
 internal fun PdfToolsContent(
     browserStore: BrowserStore,
     isLargeWindow: Boolean,
     onDownloadClick: () -> Unit,
+    onPrintClick: () -> Unit,
+    onShareClick: () -> Unit,
 ) {
     val isPdf by remember {
         browserStore.stateFlow.map { it.isSelectedTabPdf }.distinctUntilChanged()
@@ -109,10 +139,8 @@ internal fun PdfToolsContent(
             // Bug 2054910
             onSignClick = {},
             onDownloadClick = onDownloadClick,
-            // Bug 2054917
-            onPrintClick = {},
-            // Bug 2054918
-            onShareClick = {},
+            onPrintClick = onPrintClick,
+            onShareClick = onShareClick,
         )
     }
 }

@@ -11,7 +11,7 @@ import {
   isAgentCommand,
 } from "chrome://browser/content/urlbar/SmartbarInputUtils.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
-import { getPlatform } from "chrome://browser/content/urlbar/UrlbarContentUtils.mjs";
+import * as UrlbarContentUtils from "chrome://browser/content/urlbar/UrlbarContentUtils.mjs";
 import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
 
 // eslint-disable-next-line import/no-unassigned-import
@@ -546,7 +546,7 @@ ${
     this.window.addEventListener("keyup", this);
 
     this.window.addEventListener("mousedown", this);
-    if (getPlatform() == "win") {
+    if (UrlbarContentUtils.getPlatform() == "win") {
       this.window.addEventListener("draggableregionleftmousedown", this);
     }
     this.addEventListener("mousedown", this);
@@ -639,7 +639,7 @@ ${
     this.window.removeEventListener("keyup", this);
 
     this.window.removeEventListener("mousedown", this);
-    if (getPlatform() == "win") {
+    if (UrlbarContentUtils.getPlatform() == "win") {
       this.window.removeEventListener("draggableregionleftmousedown", this);
     }
     this.removeEventListener("mousedown", this);
@@ -1569,12 +1569,20 @@ ${
   /**
    * Dispatches a smartbar-commit custom event.
    *
-   * @param {Event} event - The event that triggered the action.
+   * @param {Event} event - The event that triggered the actibrowser_aiwindow_smartbar_command_palette.json.
    * @param {string} value - The value to commit.
    * @param {SmartbarAction} [action] - The action to commit. Defaults to the
    *   current smartbar action.
+   * @param {string} [submitType] - How the value was submitted (e.g. "enter"
+   *   or "button"), forwarded for telemetry. Left unset when it should be
+   *   inferred by the consumer.
    */
-  #dispatchSmartbarCommitEvent(event, value, action = this.smartbarAction) {
+  #dispatchSmartbarCommitEvent(
+    event,
+    value,
+    action = this.smartbarAction,
+    submitType
+  ) {
     this.dispatchEvent(
       new CustomEvent("smartbar-commit", {
         bubbles: true,
@@ -1588,6 +1596,7 @@ ${
           event,
           location: this.sapLocation,
           searchProvider: this.controller.engineStore.default?.name,
+          submitType,
         },
       })
     );
@@ -1598,10 +1607,17 @@ ${
    *
    * @param {Event} event - The event that triggered the action.
    * @param {string} value - The value to commit.
+   * @param {string} [submitType] - How the value was submitted (e.g. "enter"
+   *   or "button").
    */
-  submitChat(event, value) {
+  submitChat(event, value, submitType) {
     this.smartbarAction = "chat";
-    this.#dispatchSmartbarCommitEvent(event, value);
+    this.#dispatchSmartbarCommitEvent(
+      event,
+      value,
+      this.smartbarAction,
+      submitType
+    );
   }
 
   /**
@@ -1976,13 +1992,13 @@ ${
 
   /**
    * Whether the current input is a known Agent command such as
-   * "/watch ...". Such input is submitted to chat so the
-   * agent router can handle it. Sidebar only for now.
+   * "/watch ...". The input is submitted to chat so the
+   * agent router can handle it
    *
    * @returns {boolean}
    */
   get #isAgentCommand() {
-    return this.#isSidebarMode && isAgentCommand(this.untrimmedValue);
+    return this.#isSmartbarMode && isAgentCommand(this.untrimmedValue);
   }
 
   /**
@@ -3132,7 +3148,11 @@ ${
     // close the suggestions view. The mentions/command plugin will handle querying
     // providers directly.
     const isHandlingMentions = this.inputField.isHandlingMentions;
-    if ((isHandlingMentions || this.#isAgentCommand) && event) {
+    const isHandlingCommands = this.inputField.isHandlingCommands;
+    if (
+      (isHandlingMentions || isHandlingCommands || this.#isAgentCommand) &&
+      event
+    ) {
       this.view.close();
       // no query runs so refresh the CTA state directly
       this.#updateSmartbarCTAButton();
@@ -3146,6 +3166,7 @@ ${
         this.getAttribute("pageproxystate") == "valid" ? "" : this.value;
     } else if (
       !isHandlingMentions &&
+      !isHandlingCommands &&
       !this.#isAgentCommand &&
       !this.value.startsWith(searchString)
     ) {
@@ -4464,8 +4485,10 @@ ${
     // use the unmodified url instead. Otherwise, if the user edits the url
     // and confirms the new value, we may transform the url into a search.
     let trimmedUrl = UrlbarShared.stripPrefixAndTrim(url, { stripHttp })[0];
-    let isSearch =
-      !!this.controller.getFixupPrimitives(trimmedUrl)?.keywordAsSent;
+    let isSearch = !!UrlbarContentUtils.getFixupPrimitives(
+      trimmedUrl,
+      this.isPrivate
+    )?.keywordAsSent;
     if (isSearch) {
       // Although https-first might not respect the shown protocol, converting
       // the result to a search would be more disruptive.
@@ -4594,7 +4617,7 @@ ${
 
     let isRTL =
       this.getAttribute("domaindir") === "rtl" &&
-      this.controller.isTextDirectionRTL(this.value);
+      UrlbarContentUtils.isTextDirectionRTL(this.value, window);
 
     this.window.promiseDocumentFlushed(() => {
       // Check overflow again to ensure it didn't change in the meanwhile.
@@ -4746,7 +4769,7 @@ ${
       event.keyCode == KeyEvent.DOM_VK_SHIFT ||
       event.keyCode == KeyEvent.DOM_VK_ALT ||
       event.keyCode ==
-        (getPlatform() == "macosx"
+        (UrlbarContentUtils.getPlatform() == "macosx"
           ? KeyEvent.DOM_VK_META
           : KeyEvent.DOM_VK_CONTROL)
     ) {
@@ -4845,7 +4868,7 @@ ${
       : val;
     // Only trim value if the directionality doesn't change to RTL and we're not
     // showing a strikeout https protocol.
-    return this.controller.isTextDirectionRTL(trimmedValue) ||
+    return UrlbarContentUtils.isTextDirectionRTL(trimmedValue, window) ||
       this.#getValueFormatter().willShowFormattedMixedContentProtocol(val)
       ? val
       : trimmedValue;
@@ -6208,11 +6231,12 @@ ${
     if (this._protocolIsTrimmed || this._wwwIsTrimmed) {
       let untrim = this._wwwIsTrimmed;
       if (!untrim) {
-        let fixedDisplaySpec = this.controller.getFixupPrimitives(
-          this.value
+        let fixedDisplaySpec = UrlbarContentUtils.getFixupPrimitives(
+          this.value,
+          this.isPrivate
         )?.preferredURIDisplaySpec;
         if (fixedDisplaySpec) {
-          let expectedDisplaySpec = this.controller.getDisplaySpec(
+          let expectedDisplaySpec = UrlbarContentUtils.getDisplaySpec(
             this._untrimmedValue
           );
           if (expectedDisplaySpec == null) {
@@ -6575,7 +6599,7 @@ ${
 
     const pasteData = UrlbarShared.sanitizeTextFromClipboard(
       originalPasteData,
-      this.controller.getFixupPrimitives(originalPasteData)
+      UrlbarContentUtils.getFixupPrimitives(originalPasteData, this.isPrivate)
     );
 
     if (originalPasteData != pasteData) {
@@ -6830,7 +6854,7 @@ ${
         this._keyDownEnterDeferred = Promise.withResolvers();
         this._keyDownEnterDeferred.inputEpoch = this.#inputEpoch;
         event._disableCanonization =
-          getPlatform() == "macosx"
+          UrlbarContentUtils.getPlatform() == "macosx"
             ? this._isKeyDownWithMeta
             : this._isKeyDownWithCtrl;
       }
@@ -7170,7 +7194,7 @@ ${
    * @returns {boolean} Whether the even will act like the Home key.
    */
   #isHomeKeyUpEvent(event) {
-    let isMac = getPlatform() === "macosx";
+    let isMac = UrlbarContentUtils.getPlatform() === "macosx";
     return (
       // On MacOS this can be generated with Fn + Left.
       event.keyCode == KeyEvent.DOM_VK_HOME ||

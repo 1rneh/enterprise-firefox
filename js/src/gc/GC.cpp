@@ -732,7 +732,10 @@ const char gc::ZealModeHelpText[] =
 "    25: (YieldWhileGrayMarking) Incremental GC in two slices that yields\n"
 "        during gray marking\n"
 "    26: (CheckHeapBeforeMinorGC) Check for invariant violations before every\n"
-"        minor GC\n";
+"        minor GC\n"
+"    27: (ConcurrentMarkingDelays) Add a short sleep at select points in the\n"
+"        mutator that could be risky under concurrent marking, to widen race\n"
+"        windows for testing\n";
 // clang-format on
 
 // The set of zeal modes that yield at specific points in collection.
@@ -3760,9 +3763,11 @@ GCRuntime::MarkQueueProgress GCRuntime::processTestMarkQueue() {
       bool hadDelayed = delayedMarkingWorkAdded;
       marker().markOneObjectForTest(obj);
       if (!hadDelayed && delayedMarkingWorkAdded) {
-        // If we overflowed the stack here and delayed marking, then we won't be
-        // testing what we think we're testing.
-        MOZ_ASSERT(obj->asTenured().arena()->onDelayedMarkingList());
+        // If we overflowed the stack here and delayed marking, then we won't
+        // be testing what we think we're testing. Note that
+        // markOneObjectForTest() can't guarantee that *only* that object will
+        // be marked, so it may be a different object's arena on the delayed
+        // marking list.
         printf_stderr(
             "Hit mark stack limit while marking test queue; test results may "
             "be invalid");

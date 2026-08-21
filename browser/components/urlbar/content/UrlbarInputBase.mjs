@@ -5,10 +5,7 @@
 import { SearchModeSwitcher } from "chrome://browser/content/urlbar/SearchModeSwitcher.mjs";
 import { UrlbarChildController } from "chrome://browser/content/urlbar/UrlbarChildController.mjs";
 import { UrlbarEventBufferer } from "chrome://browser/content/urlbar/UrlbarEventBufferer.mjs";
-import {
-  getPlatform,
-  isWindowPrivate,
-} from "chrome://browser/content/urlbar/UrlbarContentUtils.mjs";
+import * as UrlbarContentUtils from "chrome://browser/content/urlbar/UrlbarContentUtils.mjs";
 import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
 import { UrlbarQueryContext } from "chrome://browser/content/urlbar/UrlbarQueryContext.mjs";
 import { UrlbarView } from "chrome://browser/content/urlbar/UrlbarView.mjs";
@@ -92,8 +89,22 @@ const logger = () => UrlbarShared.getLogger({ prefix: "Input" });
 
 const UNLIMITED_MAX_RESULTS = 99;
 
-let getBoundsWithoutFlushing = element =>
-  element.documentGlobal.windowUtils.getBoundsWithoutFlushing(element);
+let getBoundsWithoutFlushing = UrlbarShared.getBoundsWithoutFlushing;
+
+// `promiseDocumentFlushed` is chrome-only. A frame does instead, since the
+// measurements it guards flush layout themselves in a content document.
+let promiseLayoutFlushed =
+  typeof ChromeUtils != "undefined"
+    ? win => win.promiseDocumentFlushed(() => {})
+    : win => new Promise(resolve => win.requestAnimationFrame(resolve));
+
+// `getBoxQuads` is gated on a pref for a content caller, and the transform it
+// ignores is the toolbar's.
+let getUntransformedTop =
+  typeof ChromeUtils != "undefined"
+    ? element =>
+        element.getBoxQuads({ ignoreTransforms: true, flush: false })[0].p1.y
+    : element => element.getBoundingClientRect().top;
 let px = number => number.toFixed(2) + "px";
 
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
@@ -186,8 +197,7 @@ ${
 
         <moz-urlbar-slot name="site-info" />
         <xul:moz-input-box tooltip="aHTMLTooltip"
-                           class="urlbar-input-box"
-                           flex="1">
+                           class="urlbar-input-box">
           <!-- In the addressbar, there will be an input with id="urlbar-scheme" here. -->
           <input class="urlbar-input textbox-input"
                  role="combobox"
@@ -309,7 +319,7 @@ ${
 
     this.window = window;
     this.document = this.window.document;
-    this.isPrivate = isWindowPrivate(this.window);
+    this.isPrivate = UrlbarContentUtils.isWindowPrivate(this.window);
 
     UrlbarPrefs.addObserver(this);
     window.addEventListener("unload", () => {
@@ -355,6 +365,24 @@ ${
   }
 
   /**
+   * Links the stylesheets a content document needs. A chrome window imports the
+   * same set through browser-shared.css.
+   */
+  #addStylesheet() {
+    const HREF = "chrome://browser/skin/urlbar.css";
+    if (
+      typeof ChromeUtils != "undefined" ||
+      document.querySelector(`link[href="${HREF}"]`)
+    ) {
+      return;
+    }
+    let link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = HREF;
+    document.head.appendChild(link);
+  }
+
+  /**
    * Initialization that happens once on the first connect.
    */
   #init() {
@@ -363,6 +391,8 @@ ${
         this.getAttribute("sap-name")
       );
     this.#isAddressbar = this.#sapName == "urlbar";
+
+    this.#addStylesheet();
 
     // This listener must be added before connecting the fragment
     // because the event could fire while or after connecting it.
@@ -535,7 +565,7 @@ ${
     this.window.addEventListener("keyup", this);
 
     this.window.addEventListener("mousedown", this);
-    if (getPlatform() == "win") {
+    if (UrlbarContentUtils.getPlatform() == "win") {
       this.window.addEventListener("draggableregionleftmousedown", this);
     }
     this.addEventListener("mousedown", this);
@@ -573,7 +603,11 @@ ${
     }
 
     this.#allowBreakout =
-      !!this.closest("toolbar") &&
+      // A content document has no toolbar to break out of, so there the popover
+      // attribute is what says the element can go in the top layer.
+      (typeof ChromeUtils == "undefined"
+        ? this.hasAttribute("popover")
+        : !!this.closest("toolbar")) &&
       !document.documentElement.hasAttribute("customizing");
     if (this.#allowBreakout) {
       // TODO(emilio): This could use CSS anchor positioning rather than this
@@ -629,7 +663,7 @@ ${
     this.window.removeEventListener("keyup", this);
 
     this.window.removeEventListener("mousedown", this);
-    if (getPlatform() == "win") {
+    if (UrlbarContentUtils.getPlatform() == "win") {
       this.window.removeEventListener("draggableregionleftmousedown", this);
     }
     this.removeEventListener("mousedown", this);
@@ -705,7 +739,7 @@ ${
 
     this._initStripOnShare();
     this._initPasteAndGo();
-    if (this.#isAddressbar && getPlatform() == "macosx") {
+    if (this.#isAddressbar && UrlbarContentUtils.getPlatform() == "macosx") {
       this.#initShareURL();
     }
     if (this.#isAddressbar) {
@@ -753,7 +787,7 @@ ${
     if (this.isPrivate) {
       return "private";
     }
-    return lazy.AIWindow.isAIWindowActive(this.window)
+    return lazy?.AIWindow.isAIWindowActive(this.window)
       ? "smartwindow"
       : "classic";
   }
@@ -1200,7 +1234,7 @@ ${
    * @param {Event} [event] The event triggering the open.
    */
   handleCommand(event = null) {
-    let isMouseEvent = MouseEvent.isInstance(event);
+    let isMouseEvent = UrlbarShared.isInstance(event, MouseEvent);
     if (isMouseEvent && event.button == 2) {
       // Do nothing for right clicks.
       return;
@@ -1372,7 +1406,7 @@ ${
     // been updated yet, because the input event happens after composition end.
     // We can't trust element nor _resultForCurrentValue targets in that case,
     // so we always generate a new heuristic to load.
-    let isComposing = this.editor.composing;
+    let isComposing = this.isComposing;
 
     // Use the selected element if we have one; this is usually the case
     // when the view is open.
@@ -1798,6 +1832,9 @@ ${
           openParams.userContextId = parseInt(
             element.getAttribute("data-usercontextid")
           );
+          openParams.eventDetail = {
+            containerSource: "urlbar_result_context_menu",
+          };
         }
       }
 
@@ -1812,7 +1849,10 @@ ${
       openParams.forceForeground = true;
     }
 
-    let keepViewOpen = this.controller.willLoadInBackground(where, openParams);
+    let keepViewOpen = UrlbarContentUtils.willLoadInBackground(
+      where,
+      openParams
+    );
     openParams.avoidBrowserFocus = keepViewOpen;
 
     if (!this.#providesSearchMode(result) && !keepViewOpen) {
@@ -3125,7 +3165,7 @@ ${
     // Enable the animation only after the first extend call to ensure it
     // doesn't run when opening a new window.
     if (!this.hasAttribute("breakout-extend-animate")) {
-      this.window.promiseDocumentFlushed(() => {
+      promiseLayoutFlushed(this.window).then(() => {
         this.window.requestAnimationFrame(() => {
           this.toggleAttribute("breakout-extend-animate", true);
         });
@@ -3457,12 +3497,7 @@ ${
       return;
     }
 
-    this.style.top = px(
-      this.parentNode.getBoxQuads({
-        ignoreTransforms: true,
-        flush: false,
-      })[0].p1.y
-    );
+    this.style.top = px(getUntransformedTop(this.parentNode));
   }
 
   #updateTextboxPositionNextFrame() {
@@ -3508,7 +3543,7 @@ ${
     // finishes, we need to disregard the first one.
     let updateKey = {};
     this._layoutBreakoutUpdateKey = updateKey;
-    await this.window.promiseDocumentFlushed(() => {});
+    await promiseLayoutFlushed(this.window);
     await new Promise(resolve => {
       this.window.requestAnimationFrame(() => {
         if (this._layoutBreakoutUpdateKey != updateKey || !this.isConnected) {
@@ -3691,8 +3726,10 @@ ${
     // use the unmodified url instead. Otherwise, if the user edits the url
     // and confirms the new value, we may transform the url into a search.
     let trimmedUrl = UrlbarShared.stripPrefixAndTrim(url, { stripHttp })[0];
-    let isSearch =
-      !!this.controller.getFixupPrimitives(trimmedUrl)?.keywordAsSent;
+    let isSearch = !!UrlbarContentUtils.getFixupPrimitives(
+      trimmedUrl,
+      this.isPrivate
+    )?.keywordAsSent;
     if (isSearch) {
       // Although https-first might not respect the shown protocol, converting
       // the result to a search would be more disruptive.
@@ -3820,7 +3857,7 @@ ${
 
     let isRTL =
       this.getAttribute("domaindir") === "rtl" &&
-      this.controller.isTextDirectionRTL(this.value);
+      UrlbarContentUtils.isTextDirectionRTL(this.value, window);
 
     this.window.promiseDocumentFlushed(() => {
       // Check overflow again to ensure it didn't change in the meanwhile.
@@ -3983,7 +4020,7 @@ ${
       event.keyCode == KeyEvent.DOM_VK_SHIFT ||
       event.keyCode == KeyEvent.DOM_VK_ALT ||
       event.keyCode ==
-        (getPlatform() == "macosx"
+        (UrlbarContentUtils.getPlatform() == "macosx"
           ? KeyEvent.DOM_VK_META
           : KeyEvent.DOM_VK_CONTROL)
     ) {
@@ -4082,7 +4119,7 @@ ${
       : val;
     // Only trim value if the directionality doesn't change to RTL and we're not
     // showing a strikeout https protocol.
-    return this.controller.isTextDirectionRTL(trimmedValue) ||
+    return UrlbarContentUtils.isTextDirectionRTL(trimmedValue, window) ||
       this.#getValueFormatter().willShowFormattedMixedContentProtocol(val)
       ? val
       : trimmedValue;
@@ -5297,7 +5334,7 @@ ${
 
     // The extension input sessions depends more on blur than on the fact we
     // actually cancel a running query, so we do it here.
-    if (lazy.ExtensionSearchHandler.hasActiveInputSession()) {
+    if (lazy?.ExtensionSearchHandler.hasActiveInputSession()) {
       lazy.ExtensionSearchHandler.handleInputCancelled();
     }
 
@@ -5325,7 +5362,9 @@ ${
     this._isKeyDownWithMeta = false;
     this._isKeyDownWithMetaAndLeft = false;
 
-    Services.obs.notifyObservers(null, "urlbar-blur");
+    if (typeof ChromeUtils != "undefined") {
+      Services.obs.notifyObservers(null, "urlbar-blur");
+    }
   }
 
   _on_click(event) {
@@ -5401,11 +5440,12 @@ ${
     if (this.#isAddressbar && (this._protocolIsTrimmed || this._wwwIsTrimmed)) {
       let untrim = this._wwwIsTrimmed;
       if (!untrim) {
-        let fixedDisplaySpec = this.controller.getFixupPrimitives(
-          this.value
+        let fixedDisplaySpec = UrlbarContentUtils.getFixupPrimitives(
+          this.value,
+          this.isPrivate
         )?.preferredURIDisplaySpec;
         if (fixedDisplaySpec) {
-          let expectedDisplaySpec = this.controller.getDisplaySpec(
+          let expectedDisplaySpec = UrlbarContentUtils.getDisplaySpec(
             this._untrimmedValue
           );
           if (expectedDisplaySpec == null) {
@@ -5453,7 +5493,11 @@ ${
       this.window.UpdatePopupNotificationsVisibility();
     }
 
-    Services.obs.notifyObservers(null, "urlbar-focus");
+    if (typeof ChromeUtils != "undefined") {
+      // The observer service is chrome-only, and its one consumer here is the
+      // macOS Touch Bar, which tracks a chrome window.
+      Services.obs.notifyObservers(null, "urlbar-focus");
+    }
   }
 
   _on_mouseover() {
@@ -5753,7 +5797,7 @@ ${
 
     const pasteData = UrlbarShared.sanitizeTextFromClipboard(
       originalPasteData,
-      this.controller.getFixupPrimitives(originalPasteData)
+      UrlbarContentUtils.getFixupPrimitives(originalPasteData, this.isPrivate)
     );
 
     if (originalPasteData != pasteData) {
@@ -5919,7 +5963,7 @@ ${
         this._keyDownEnterDeferred = Promise.withResolvers();
         this._keyDownEnterDeferred.inputEpoch = this.#inputEpoch;
         event._disableCanonization =
-          getPlatform() == "macosx"
+          UrlbarContentUtils.getPlatform() == "macosx"
             ? this._isKeyDownWithMeta
             : this._isKeyDownWithCtrl;
       }
@@ -6016,6 +6060,16 @@ ${
 
       this._keyDownEnterDeferred = null;
     }
+  }
+
+  /**
+   * Whether an IME composition is in progress. Mirrors chrome-only
+   * `editor.composing`.
+   *
+   * @returns {boolean}
+   */
+  get isComposing() {
+    return this.#compositionState == UrlbarShared.COMPOSITION.COMPOSING;
   }
 
   _on_compositionstart() {
@@ -6159,7 +6213,7 @@ ${
     if (!droppedData) {
       return;
     }
-    let droppedString = URL.isInstance(droppedData)
+    let droppedString = UrlbarShared.isInstance(droppedData, URL)
       ? droppedData.href
       : droppedData;
     if (droppedString == this.window.gBrowser.currentURI.spec) {
@@ -6275,7 +6329,7 @@ ${
    * @returns {boolean} Whether the even will act like the Home key.
    */
   #isHomeKeyUpEvent(event) {
-    let isMac = getPlatform() === "macosx";
+    let isMac = UrlbarContentUtils.getPlatform() === "macosx";
     return (
       // On MacOS this can be generated with Fn + Left.
       event.keyCode == KeyEvent.DOM_VK_HOME ||

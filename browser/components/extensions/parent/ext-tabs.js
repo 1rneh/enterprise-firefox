@@ -12,7 +12,8 @@ ChromeUtils.defineESModuleGetters(this, {
   ExtensionControlledPopup:
     "resource:///modules/ExtensionControlledPopup.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
+  SessionStore:
+    "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(this, "strBundle", function () {
@@ -902,7 +903,7 @@ this.tabs = class extends ExtensionAPIPersistent {
                 () => browser.fixupAndLoadURIString(url, options),
                 { once: true }
               );
-              tabbrowser._insertBrowser(nativeTab);
+              tabbrowser.insertBrowser(nativeTab);
             }
           }
 

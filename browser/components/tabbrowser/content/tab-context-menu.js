@@ -583,7 +583,7 @@ var TabContextMenu = {
     let openGroupsToMoveTo = [];
     let savedGroupsToMoveTo = [];
 
-    if (gBrowser._tabGroupsEnabled) {
+    if (gBrowser.tabGroupsEnabled) {
       let selectedGroupCount = new Set(
         // The filter removes the "null" group for ungrouped tabs.
         this.contextTabs.map(t => t.group).filter(g => g)
@@ -716,14 +716,14 @@ var TabContextMenu = {
     }
 
     this._updateMoveTabToFlattenedVisibility(
-      gBrowser._tabGroupsEnabled,
+      gBrowser.tabGroupsEnabled,
       !!openGroupsToMoveTo.length,
       !!savedGroupsToMoveTo.length
     );
 
     let contextAddNote = document.getElementById("context_addNote");
     let contextEditNote = document.getElementById("context_editNote");
-    if (gBrowser._tabNotesEnabled) {
+    if (this._tabNotesEnabled) {
       // Tab notes behaviour is disabled if a user has a selection of tabs that
       // contains more than one canonical URL.
       let multiselectingDiverseUrls =
@@ -797,7 +797,7 @@ var TabContextMenu = {
     document.getElementById("context_reloadSelectedTabs").hidden =
       !this.multiselected;
     let unloadTabItem = document.getElementById("context_unloadTab");
-    if (gBrowser._unloadTabInContextMenu) {
+    if (this._unloadTabInContextMenu) {
       // linkedPanel is false if the tab is already unloaded
       // Cannot unload about: pages, etc., so skip browsers that are not remote
       let unloadableTabs = this.contextTabs.filter(
@@ -1158,6 +1158,7 @@ var TabContextMenu = {
     createUserContextMenu(event, {
       isContextMenu: true,
       excludeUserContextId: this.contextTab.getAttribute("usercontextid"),
+      containerSource: "tab_context_menu",
     });
   },
   duplicateSelectedTabs() {
@@ -1221,6 +1222,7 @@ var TabContextMenu = {
         pinned: tab.pinned,
         tabIndex: tab._tPos + 1,
         triggeringPrincipal,
+        eventDetail: { containerSource: "tab_context_menu" },
       });
 
       Glean.containers.tabAssignedContainer.record({
@@ -1443,6 +1445,20 @@ var TabContextMenu = {
     menuItem.classList.remove("badge-new");
   },
 };
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  TabContextMenu,
+  "_tabNotesEnabled",
+  "browser.tabs.notes.enabled",
+  false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  TabContextMenu,
+  "_unloadTabInContextMenu",
+  "browser.tabs.unloadTabInContextMenu",
+  false
+);
 
 ChromeUtils.defineESModuleGetters(TabContextMenu, {
   GenAI: "resource:///modules/GenAI.sys.mjs",

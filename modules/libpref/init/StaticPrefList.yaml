@@ -3902,13 +3902,6 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
-# Media element pseudo-classes
-- name: dom.media.pseudo-classes.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # WebCodecs API
 - name: dom.media.webcodecs.enabled
   type: RelaxedAtomicBool
@@ -4693,7 +4686,7 @@
 # Whether Scoped Custom Element Registries are enabled
 - name: dom.scoped-custom-element-registries.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # A pref that is used to slow down database initialization for testing purposes.
@@ -5724,13 +5717,6 @@
   value: 128
   mirror: always
 
-# Is support for View Transitions Level 1 enabled?
-- name: dom.viewTransitions.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 - name: dom.viewTransitions.cross-document.enabled
   type: RelaxedAtomicBool
   value: false
@@ -6043,6 +6029,11 @@
 - name: dom.webkitBlink.dirPicker.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+- name: dom.range.cut_contents.use_flat_tree
+  type: bool
+  value: false
   mirror: always
 
 # If true, when user selects a range, `Selection` will split the range to
@@ -8679,7 +8670,7 @@
 #ifdef XP_MACOSX
 - name: gfx.webrender.enable-client-storage
   type: bool
-  value: true
+  value: false
   mirror: once
 #endif
 
@@ -11863,8 +11854,8 @@
   value: true
   mirror: always
 
-# Whether :-moz-broken is supported in content.
-- name: layout.css.moz-broken.content.enabled
+# Whether :-moz-placeholder is supported in content.
+- name: layout.css.moz-placeholder.content.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -20986,6 +20977,17 @@
 #  - 1: always
 #  - 2: auto (true for flatpak or GTK_USE_PORTAL=1, false otherwise)
 - name: widget.use-xdg-desktop-portal.open-uri
+  type: int32_t
+  value: 2
+  mirror: always
+
+# Whether to show notifications through the XDG Desktop Portal Notification
+# interface directly instead of going through libnotify.
+# https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Notification.html
+#  - 0: never
+#  - 1: always
+#  - 2: auto (currently false while the backend is not feature complete)
+- name: widget.use-xdg-desktop-portal.notification
   type: int32_t
   value: 2
   mirror: always

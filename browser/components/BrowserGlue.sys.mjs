@@ -63,8 +63,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchSERPTelemetry:
     "moz-src:///browser/components/search/SearchSERPTelemetry.sys.mjs",
-  SessionStartup: "resource:///modules/sessionstore/SessionStartup.sys.mjs",
-  SessionWindowUI: "resource:///modules/sessionstore/SessionWindowUI.sys.mjs",
+  SessionStartup:
+    "moz-src:///browser/components/sessionstore/SessionStartup.sys.mjs",
+  SessionWindowUI:
+    "moz-src:///browser/components/sessionstore/SessionWindowUI.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
@@ -713,7 +715,7 @@ BrowserGlue.prototype = {
     }
 
     let browserWindowFeatures =
-      "chrome,all,dialog=no,extrachrome,menubar,resizable,scrollbars,status," +
+      "chrome,all,dialog=no,extrachrome,menubar,resizable,status," +
       "location,toolbar,personalbar";
     // This needs to be set when opening the window to ensure that the AppUserModelID
     // is set correctly on Windows. Without it, initial launches with `-private-window`

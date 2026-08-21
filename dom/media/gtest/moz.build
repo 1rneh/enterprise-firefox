@@ -95,6 +95,7 @@ UNIFIED_SOURCES += [
     "TestWebMBuffered.cpp",
     "TestWebMDemuxer.cpp",
     "TestWebMWriter.cpp",
+    "TestYUVBufferGenerator.cpp",
     "YUVBufferGenerator.cpp",
 ]
 
@@ -116,6 +117,7 @@ if CONFIG["OS_TARGET"] != "Android":
     UNIFIED_SOURCES += [
         "TestCDMStorage.cpp",
         "TestGMPCrossOrigin.cpp",
+        "TestGMPPluginScan.cpp",
         "TestGMPRemoveAndDelete.cpp",
     ]
 

@@ -1,5 +1,11 @@
 "use strict";
 
+// Enterprise builds hide the FxA menu toolbar button,
+// so use the enterprise badge as the overflowed widget there instead.
+const OVERFLOW_WIDGET_ID = AppConstants.MOZ_ENTERPRISE
+  ? "enterprise-badge-toolbar-button"
+  : "fxa-toolbar-menu-button";
+
 var overflowPanel, originalWindowWidth;
 
 add_setup(function () {
@@ -18,15 +24,18 @@ registerCleanupFunction(function () {
 // show a context menu with options to move it.
 add_task(async function () {
   overflowPanel.setAttribute("animate", "false");
-  let fxaButton = document.getElementById("fxa-toolbar-menu-button");
-  if (BrowserTestUtils.isHidden(fxaButton)) {
-    // FxA button is likely hidden since the user is logged out.
+  let overflowWidget = document.getElementById(OVERFLOW_WIDGET_ID);
+  if (BrowserTestUtils.isHidden(overflowWidget)) {
+    // In regular builds the FxA button is hidden while signed out, so sign in to reveal it.
     let initialFxaStatus = document.documentElement.getAttribute("fxastatus");
     document.documentElement.setAttribute("fxastatus", "signed_in");
     registerCleanupFunction(() =>
       document.documentElement.setAttribute("fxastatus", initialFxaStatus)
     );
-    ok(BrowserTestUtils.isVisible(fxaButton), "FxA button is now visible");
+    ok(
+      BrowserTestUtils.isVisible(overflowWidget),
+      "Overflow widget is visible"
+    );
   }
 
   let navbar = document.getElementById(CustomizableUI.AREA_NAVBAR);
@@ -48,13 +57,13 @@ add_task(async function () {
     "customizationPanelItemContextMenu"
   );
   let shownContextPromise = popupShown(contextMenu);
-  ok(fxaButton, "fxa-toolbar-menu-button was found");
+  ok(overflowWidget, "Overflow widget was found");
   is(
-    fxaButton.getAttribute("overflowedItem"),
+    overflowWidget.getAttribute("overflowedItem"),
     "true",
-    "FxA button is overflowing"
+    "Overflow widget is overflowing"
   );
-  EventUtils.synthesizeMouseAtCenter(fxaButton, {
+  EventUtils.synthesizeMouseAtCenter(overflowWidget, {
     type: "contextmenu",
     button: 2,
   });
@@ -85,36 +94,34 @@ add_task(async function () {
   await hiddenContextPromise;
   await hiddenPromise;
 
-  let fxaButtonPlacement = CustomizableUI.getPlacementOfWidget(
-    "fxa-toolbar-menu-button"
-  );
-  ok(fxaButtonPlacement, "FxA button should still have a placement");
+  let overflowWidgetPlacement =
+    CustomizableUI.getPlacementOfWidget(OVERFLOW_WIDGET_ID);
+  ok(overflowWidgetPlacement, "Overflow widget should still have a placement");
   is(
-    fxaButtonPlacement && fxaButtonPlacement.area,
+    overflowWidgetPlacement && overflowWidgetPlacement.area,
     CustomizableUI.AREA_FIXED_OVERFLOW_PANEL,
-    "FxA button should be pinned now"
+    "Overflow widget should be pinned now"
   );
   CustomizableUI.reset();
   ensureToolbarOverflow(window, false);
 
   // In some cases, it can take a tick for the navbar to overflow again. Wait for it:
   await TestUtils.waitForCondition(() =>
-    fxaButton.hasAttribute("overflowedItem")
+    overflowWidget.hasAttribute("overflowedItem")
   );
   ok(navbar.hasAttribute("overflowing"), "Should have an overflowing toolbar.");
 
-  fxaButtonPlacement = CustomizableUI.getPlacementOfWidget(
-    "fxa-toolbar-menu-button"
-  );
-  ok(fxaButtonPlacement, "FxA button should still have a placement");
+  overflowWidgetPlacement =
+    CustomizableUI.getPlacementOfWidget(OVERFLOW_WIDGET_ID);
+  ok(overflowWidgetPlacement, "Overflow widget should still have a placement");
   is(
-    fxaButtonPlacement && fxaButtonPlacement.area,
+    overflowWidgetPlacement && overflowWidgetPlacement.area,
     "nav-bar",
     "FxA button should be back in the navbar now"
   );
 
   is(
-    fxaButton.getAttribute("overflowedItem"),
+    overflowWidget.getAttribute("overflowedItem"),
     "true",
     "FxA button should still be overflowed"
   );

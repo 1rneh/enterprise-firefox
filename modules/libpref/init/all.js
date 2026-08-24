@@ -3039,9 +3039,13 @@ pref("signon.signupDetection.confidenceThreshold",     "0.75");
 #else
   pref("signon.storage.rust.enabled", false);
 #endif
-// The following two prefs are managed by Fx internally:
+// Kill switch for restoring logins out of a deactivated Rust backend.
+pref("signon.storage.rust.restoreEnabled", true);
+// The following four prefs are managed by Fx internally:
 pref("signon.storage.rust.active", false);
 pref("signon.storage.rust.migrationAttempts", 0);
+pref("signon.storage.rust.restoreAttempts", 0);
+pref("signon.storage.rust.restoreDone", false);
 
 // Satchel (Form Manager) prefs
 pref("browser.formfill.debug",            false);
@@ -4055,7 +4059,11 @@ pref("security.storage.encryption.sqlite.enabled", true);
 pref("extensions.formautofill.available", "detect");
 
 #if !defined(ANDROID)
-pref("extensions.formautofill.addresses.supported", "on");
+  #if MOZ_UPDATE_CHANNEL != release && MOZ_UPDATE_CHANNEL != esr
+    pref("extensions.formautofill.addresses.supported", "on");
+  #else
+    pref("extensions.formautofill.addresses.supported", "detect");
+  #endif
 #else
 pref("extensions.formautofill.addresses.supported", "detect");
 #endif

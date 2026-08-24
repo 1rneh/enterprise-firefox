@@ -103,7 +103,9 @@ IPProtectionActivator.addHelpers([
   IPPUsageHelper,
   new UIHelper(),
   IPPOptOutHelper,
-  IPProtectionAlertManager,
+  // The alert manager's ERROR/PAUSED prompts are consumer VPN UX; in enterprise
+  // the proxy is policy-locked always-on and IPPAlwaysOn recovers from errors.
+  ...(AppConstants.MOZ_ENTERPRISE ? [] : [IPProtectionAlertManager]),
   IPProtectionInfobarManager,
   ...authProvider.helpers,
 ]);

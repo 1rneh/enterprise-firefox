@@ -7,10 +7,12 @@ const customSchema = {
   properties: {
     simple_policy0: {
       type: "string",
+      "x-restart-required": false,
     },
 
     simple_policy1: {
       type: "string",
+      "x-restart-required": false,
     },
   },
 };

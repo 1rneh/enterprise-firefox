@@ -63,18 +63,22 @@ add_task(async function test_simple_remote_policies() {
       properties: {
         simple_policy0: {
           type: "boolean",
+          "x-restart-required": false,
         },
 
         simple_policy1: {
           type: "boolean",
+          "x-restart-required": false,
         },
 
         simple_policy2: {
           type: "boolean",
+          "x-restart-required": false,
         },
 
         simple_policy3: {
           type: "boolean",
+          "x-restart-required": false,
         },
       },
     }

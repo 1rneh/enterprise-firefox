@@ -10961,13 +10961,6 @@
   mirror: always
   rust: true
 
-# Is support for light-dark() on images in content enabled?
-- name: layout.css.light-dark.images.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Is support for fit-content() enabled?
 - name: layout.css.fit-content-function.enabled
   type: RelaxedAtomicBool
@@ -11014,13 +11007,6 @@
   type: bool
   value: false
   mirror: always
-
-# Is support for (linear|radial|conic)-gradient color interpolation methods enabled?
-- name: layout.css.gradient-color-interpolation-method.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
 
 # Should we propagate baseline alignment information from a parent grid into
 # its subgrids?
@@ -11172,13 +11158,6 @@
 # Is support for the progress() function enabled?
 # https://drafts.csswg.org/css-values-5/#progress
 - name: layout.css.progress-function.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
-# Enable relative color syntax: https://drafts.csswg.org/css-color-5/#relative-colors
-- name: layout.css.relative-color-syntax.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -16561,7 +16540,7 @@
 # false to disable probing and usage without restarting Firefox.
 - name: network.http.http3.apple_fast_datapath
   type: RelaxedAtomicBool
-  value: true
+  value: false # Until https://bugzilla.mozilla.org/show_bug.cgi?id=2065491 is resolved.
   mirror: always
   rust: true
 
@@ -17328,6 +17307,18 @@
 - name: pdfjs.disabled
   type: bool
   value: false
+  mirror: always
+
+# Replace PDFs embedded with an object/embed element by a page offering to open
+# them, when the viewer is disabled. That page is only packaged on desktop, see
+# toolkit/components/pdfjs/jar.mn.
+- name: pdfjs.embedFallback
+  type: bool
+#if defined(ANDROID)
+  value: false
+#else
+  value: true
+#endif
   mirror: always
 
 #---------------------------------------------------------------------------

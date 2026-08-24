@@ -1712,11 +1712,7 @@ function toOpenWindowByType(inType, uri, features) {
   } else if (features) {
     window.open(uri, "_blank", features);
   } else {
-    window.open(
-      uri,
-      "_blank",
-      "chrome,extrachrome,menubar,resizable,status,toolbar"
-    );
+    window.open(uri, "_blank", "chrome,resizable,toolbar");
   }
 }
 /**

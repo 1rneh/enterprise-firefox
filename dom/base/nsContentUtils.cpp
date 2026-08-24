@@ -115,6 +115,7 @@
 #include "mozilla/StaticPrefs_clipboard.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_network.h"
+#include "mozilla/StaticPrefs_pdfjs.h"
 #include "mozilla/dom/ReportDeliver.h"
 #include "mozilla/extensions/WebExtensionPolicy.h"
 #include "nsIOService.h"
@@ -7432,38 +7433,35 @@ nsresult nsContentUtils::SetNodeTextContent(
   return rv.StealNSResult();
 }
 
+template <typename CharT>
 static bool AppendNodeTextContentsRecurse(const nsINode* aNode,
-                                          nsAString& aResult,
+                                          nsTSubstring<CharT>& aResult,
                                           const fallible_t& aFallible) {
   for (nsIContent* child = aNode->GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (child->IsElement()) {
-      bool ok = AppendNodeTextContentsRecurse(child, aResult, aFallible);
-      if (!ok) {
+      if (!AppendNodeTextContentsRecurse(child, aResult, aFallible)) {
         return false;
       }
     } else if (Text* text = child->GetAsText()) {
-      bool ok = text->AppendTextTo(aResult, aFallible);
-      if (!ok) {
+      if (!text->AppendTextTo(aResult, aFallible)) {
         return false;
       }
     }
   }
-
   return true;
 }
 
-/* static */
-bool nsContentUtils::AppendNodeTextContent(const nsINode* aNode, bool aDeep,
-                                           nsAString& aResult,
-                                           const fallible_t& aFallible) {
+template <typename CharT>
+static bool AppendNodeTextContent(const nsINode* aNode, bool aDeep,
+                                  nsTSubstring<CharT>& aResult,
+                                  const fallible_t& aFallible) {
   if (const Text* text = aNode->GetAsText()) {
     return text->AppendTextTo(aResult, aFallible);
   }
   if (aDeep) {
     return AppendNodeTextContentsRecurse(aNode, aResult, aFallible);
   }
-
   for (nsIContent* child = aNode->GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (Text* text = child->GetAsText()) {
@@ -7474,6 +7472,19 @@ bool nsContentUtils::AppendNodeTextContent(const nsINode* aNode, bool aDeep,
     }
   }
   return true;
+}
+
+/* static */
+bool nsContentUtils::AppendNodeTextContent(const nsINode* aNode, bool aDeep,
+                                           nsAString& aResult,
+                                           const fallible_t& aFallible) {
+  return ::AppendNodeTextContent(aNode, aDeep, aResult, aFallible);
+}
+
+bool nsContentUtils::AppendNodeTextContent(const nsINode* aNode, bool aDeep,
+                                           nsACString& aResult,
+                                           const fallible_t& aFallible) {
+  return ::AppendNodeTextContent(aNode, aDeep, aResult, aFallible);
 }
 
 bool nsContentUtils::HasNonEmptyTextContent(
@@ -8692,11 +8703,7 @@ bool nsContentUtils::AllowXULXBLForPrincipal(nsIPrincipal* aPrincipal) {
   return xpc::IsInAutomation() && IsSitePermAllow(aPrincipal, "allowXULXBL"_ns);
 }
 
-bool nsContentUtils::IsPDFJSEnabled() {
-  nsCOMPtr<nsIStreamConverter> conv = do_CreateInstance(
-      "@mozilla.org/streamconv;1?from=application/pdf&to=text/html");
-  return conv;
-}
+bool nsContentUtils::IsPDFJSEnabled() { return !StaticPrefs::pdfjs_disabled(); }
 
 bool nsContentUtils::IsPDFJS(nsIPrincipal* aPrincipal) {
   if (!aPrincipal || !aPrincipal->SchemeIs("resource")) {
@@ -9407,8 +9414,22 @@ bool nsContentUtils::GetNodeTextContent(const nsINode* aNode, bool aDeep,
   return AppendNodeTextContent(aNode, aDeep, aResult, aFallible);
 }
 
+bool nsContentUtils::GetNodeTextContent(const nsINode* aNode, bool aDeep,
+                                        nsACString& aResult,
+                                        const fallible_t& aFallible) {
+  aResult.Truncate();
+  return AppendNodeTextContent(aNode, aDeep, aResult, aFallible);
+}
+
 void nsContentUtils::GetNodeTextContent(const nsINode* aNode, bool aDeep,
                                         nsAString& aResult) {
+  if (!GetNodeTextContent(aNode, aDeep, aResult, fallible)) {
+    NS_ABORT_OOM(0);  // Unfortunately we don't know the allocation size
+  }
+}
+
+void nsContentUtils::GetNodeTextContent(const nsINode* aNode, bool aDeep,
+                                        nsACString& aResult) {
   if (!GetNodeTextContent(aNode, aDeep, aResult, fallible)) {
     NS_ABORT_OOM(0);  // Unfortunately we don't know the allocation size
   }
@@ -12939,9 +12960,10 @@ uint32_t nsContentUtils::HtmlObjectContentTypeForMIMEType(
     return nsIObjectLoadingContent::TYPE_DOCUMENT;
   }
 
-  // Faking support of the PDF content as a document for EMBED tags
-  // when internal PDF viewer is enabled.
-  if (aMIMEType.LowerCaseEqualsLiteral(APPLICATION_PDF) && IsPDFJSEnabled()) {
+  // Faking support of the PDF content as a document for EMBED tags when the
+  // internal PDF viewer or the embedded PDF fallback is enabled.
+  if (aMIMEType.LowerCaseEqualsLiteral(APPLICATION_PDF) &&
+      (IsPDFJSEnabled() || StaticPrefs::pdfjs_embedFallback())) {
     // Sandboxed iframes are just never allowed to display plugins. In the
     // modern world, this just means "application/pdf".
     return aIsSandboxed ? nsIObjectLoadingContent::TYPE_FALLBACK

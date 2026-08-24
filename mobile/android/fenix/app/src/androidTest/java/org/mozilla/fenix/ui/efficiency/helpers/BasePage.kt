@@ -16,6 +16,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.filter
 import androidx.compose.ui.test.hasAnyAncestor
@@ -151,7 +153,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             if (path == null) {
                 NavigationRegistry.logGraph()
                 rep?.endStep(success = false, message = "No navigation path found to '$pageName'")
-                throw AssertionError("No navigation path found from '$fromPage' to '$pageName'")
+                assertionFailure("No navigation path found from '$fromPage' to '$pageName'")
             } else {
                 Log.i("PageNavigation", "Navigation path found from '$fromPage' to '$pageName':")
                 path.forEachIndexed { i, step -> Log.i("PageNavigation", "   Step ${i + 1}: $step") }
@@ -179,7 +181,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
 
             if (!mozWaitForPageToLoad()) {
                 rep?.endStep(success = false, message = "'$pageName' did not load")
-                throw AssertionError("Failed to navigate to $pageName")
+                assertionFailure("Failed to navigate to $pageName")
             }
 
             PageStateTracker.currentPageName = pageName
@@ -200,6 +202,18 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
     // ------------------------------------------------------------
 
     private fun mozWaitForPageToLoad(timeout: Long = 10_000, interval: Long = 100): Boolean {
+        if (pollForPageReady(timeout, interval)) return true
+        // The destination may be covered by a known blocking overlay in its own window (e.g. the
+        // "Secure your saved passwords" system dialog) that the arrival poll cannot see past. Unlike a
+        // moz* verb, this poll has no built-in overlay handling, so dismiss any known overlay and poll
+        // once more before declaring navigation failed.
+        if (dismissKnownOverlaysIfPresent()) {
+            return pollForPageReady(timeout, interval)
+        }
+        return false
+    }
+
+    private fun pollForPageReady(timeout: Long, interval: Long): Boolean {
         val rep = rep()
         val requiredSelectors = mozGetSelectorsByGroup("requiredForPage")
         val deadline = System.currentTimeMillis() + timeout
@@ -297,7 +311,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             // per-selector log stops at the first miss (the check is an `all {}`), so without this there
             // is nothing to tell you whether the missing element is absent, renamed, or just off-screen.
             ScreenDump.dump(composeRule, "mozVerifyElementsByGroup failed: $pageName group '$group'")
-            throw AssertionError("Not all elements in group '$group' are present")
+            assertionFailure("Not all elements in group '$group' are present")
         }
         return this
     }
@@ -318,10 +332,13 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         rep?.endCmd(
             success = !present,
             message =
-                if (!present) "'${selector.description}' correctly absent"
-                else "'${selector.description}' unexpectedly present",
+                if (!present) {
+                    "'${selector.description}' correctly absent"
+                } else {
+                    "'${selector.description}' unexpectedly present"
+                },
         )
-        if (present) throw AssertionError("Element '${selector.description}' was expected to be absent but is visible")
+        if (present) assertionFailure("Element '${selector.description}' was expected to be absent but is visible")
         return this
     }
 
@@ -346,9 +363,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             SystemClock.sleep(interval)
         }
         rep?.endCmd(success = false, message = "'${selector.description}' still present after ${timeout}ms")
-        throw AssertionError(
-            "'${selector.description}' was expected to disappear but is still visible after ${timeout}ms"
-        )
+        assertionFailure("'${selector.description}' was expected to disappear but is still visible after ${timeout}ms")
     }
 
     /**
@@ -410,7 +425,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         }
         rep?.endCmd(success = false, message = "'${selector.description}' not found after ${timeout}ms")
         ScreenDump.dump(composeRule, "mozVerify failed: ${selector.description}")
-        throw AssertionError("'${selector.description}' not found on screen after ${timeout}ms")
+        assertionFailure("'${selector.description}' not found on screen after ${timeout}ms")
     }
 
     /**
@@ -474,7 +489,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         }
         rep?.endCmd(success = false, message = "Soft keyboard not visible after ${timeout}ms")
         ScreenDump.dump(composeRule, "mozVerifyKeyboardVisible failed")
-        throw AssertionError("Soft keyboard was expected to be visible but is not, after ${timeout}ms")
+        assertionFailure("Soft keyboard was expected to be visible but is not, after ${timeout}ms")
     }
 
     fun mozVerifyAnyContainsText(
@@ -507,7 +522,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             success = false,
             message = "No '${selector.description}' containing text '$text' after ${timeout}ms",
         )
-        throw AssertionError("No '${selector.description}' found containing text '$text' after ${timeout}ms")
+        assertionFailure("No '${selector.description}' found containing text '$text' after ${timeout}ms")
     }
 
     fun mozVerifyAnyHasChildWithText(
@@ -537,9 +552,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             success = false,
             message = "No '${selector.description}' with child text '$text' after ${timeout}ms",
         )
-        throw AssertionError(
-            "No '${selector.description}' found with a child containing text '$text' after ${timeout}ms"
-        )
+        assertionFailure("No '${selector.description}' found with a child containing text '$text' after ${timeout}ms")
     }
 
     fun mozVerifyNoneContainText(selector: Selector, text: String): BasePage {
@@ -553,7 +566,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         val result = mozGetAllElements(selector)
         if (result == null) {
             rep?.endCmd(success = false, message = "Selector strategy '${selector.strategy}' not supported")
-            throw AssertionError("Selector strategy '${selector.strategy}' not supported by mozVerifyNoneContainText")
+            assertionFailure("Selector strategy '${selector.strategy}' not supported by mozVerifyNoneContainText")
         }
         result.assertAll(hasText(text).not())
         rep?.endCmd(success = true, message = "No '${selector.description}' contains text '$text'")
@@ -620,7 +633,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "Click '${selector.description}' failed: element not found")
             ScreenDump.dump(composeRule, "mozClick target not found: ${selector.description}")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -744,7 +757,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "Long click '${selector.description}' failed: element not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         } else {
@@ -755,10 +768,12 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             when (element) {
                 is ViewInteraction -> element.perform(longClick())
                 is UiObject -> {
-                    if (!element.exists())
-                        throw AssertionError("UiObject does not exist for selector: ${selector.description}")
-                    if (!element.longClick())
-                        throw AssertionError("Failed to long click UiObject for selector: ${selector.description}")
+                    if (!element.exists()) {
+                        assertionFailure("UiObject does not exist for selector: ${selector.description}")
+                    }
+                    if (!element.longClick()) {
+                        assertionFailure("Failed to long click UiObject for selector: ${selector.description}")
+                    }
                 }
                 is UiObject2 -> element.longClick()
                 is SemanticsNodeInteraction -> {
@@ -776,7 +791,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                     }
                 }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -809,9 +824,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         val result = mozGetAllElements(selector)
         if (result == null) {
             rep?.endCmd(success = false, message = "Selector strategy '${selector.strategy}' not supported")
-            throw AssertionError(
-                "Selector strategy '${selector.strategy}' not supported by mozClickFirstWithParentText"
-            )
+            assertionFailure("Selector strategy '${selector.strategy}' not supported by mozClickFirstWithParentText")
         }
         try {
             result.filter(hasParent(hasText(parentText))).onFirst().performClick()
@@ -876,7 +889,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                     element.performClick()
                 }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -933,9 +946,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endCmd(success = false, message = "'${selector.description}' not enabled after ${timeout}ms")
             ScreenDump.dump(composeRule, "mozClickWhenEnabled: '${selector.description}' never became enabled")
-            throw AssertionError(
-                "'${selector.description}' was expected to become enabled but did not, after ${timeout}ms"
-            )
+            assertionFailure("'${selector.description}' was expected to become enabled but did not, after ${timeout}ms")
         }
 
         try {
@@ -949,7 +960,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                     element.performClick()
                 }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1025,7 +1036,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             success = false,
             message = "'${selector.description}' still present after $maxPresses back press(es)",
         )
-        throw AssertionError("'${selector.description}' still present after $maxPresses back press(es)")
+        assertionFailure("'${selector.description}' still present after $maxPresses back press(es)")
     }
 
     // A single back press. mozPressBackUntilGone cannot stand in when the thing being left has no selector
@@ -1155,7 +1166,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                 success = false,
                 message = "Swipe-to '${selector.description}' failed after $maxSwipes attempts",
             )
-            throw AssertionError("Element '${selector.description}' not found after $maxSwipes swipe(s)")
+            assertionFailure("Element '${selector.description}' not found after $maxSwipes swipe(s)")
         } catch (t: Throwable) {
             rep?.endCmd(
                 success = false,
@@ -1313,7 +1324,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
 
         rep?.endCmd(success = false, message = "'${selector.description}' still present after $maxSwipes swipe(s)")
         ScreenDump.dump(composeRule, "mozSwipeElementUntilAbsent failed: ${selector.description}")
-        throw AssertionError("'${selector.description}' still present after $maxSwipes swipe(s)")
+        assertionFailure("'${selector.description}' still present after $maxSwipes swipe(s)")
     }
 
     fun mozOpenNotificationsTray(): BasePage {
@@ -1369,7 +1380,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "Enter text failed: element not found ('${selector.description}')")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         } else {
@@ -1383,7 +1394,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                 is UiObject2 -> element.setText(text)
                 is SemanticsNodeInteraction -> element.performTextInput(text)
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1395,7 +1406,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                 success = false,
                 message = "Enter text failed for '${selector.description}': ${e.message ?: "exception"}",
             )
-            throw AssertionError("Failed to enter text for selector: ${selector.description}", e)
+            assertionFailure("Failed to enter text for selector: ${selector.description}", e)
         }
     }
 
@@ -1412,7 +1423,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "Press Enter failed: element not found ('${selector.description}')")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         } else {
@@ -1426,7 +1437,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                 is UiObject2 -> mDevice.pressEnter()
                 is SemanticsNodeInteraction -> element.performImeAction()
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1438,7 +1449,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                 success = false,
                 message = "Press Enter failed for '${selector.description}': ${e.message ?: "exception"}",
             )
-            throw AssertionError("Failed to press Enter for selector: ${selector.description}", e)
+            assertionFailure("Failed to press Enter for selector: ${selector.description}", e)
         }
     }
 
@@ -1480,7 +1491,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "'${selector.description}' not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -1489,16 +1500,14 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         try {
             when (element) {
                 is ViewInteraction -> element.check(matches(isSelected()))
-                is UiObject ->
-                    if (!element.isSelected) throw AssertionError("'${selector.description}' is not selected")
-                is UiObject2 ->
-                    if (!element.isSelected) throw AssertionError("'${selector.description}' is not selected")
+                is UiObject -> if (!element.isSelected) assertionFailure("'${selector.description}' is not selected")
+                is UiObject2 -> if (!element.isSelected) assertionFailure("'${selector.description}' is not selected")
                 is SemanticsNodeInteraction -> {
                     element.assertExists()
                     element.assertIsSelected()
                 }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1524,7 +1533,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "'${selector.description}' not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -1533,14 +1542,14 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         try {
             when (element) {
                 is ViewInteraction -> element.check(matches(isNotSelected()))
-                is UiObject -> if (element.isSelected) throw AssertionError("'${selector.description}' is selected")
-                is UiObject2 -> if (element.isSelected) throw AssertionError("'${selector.description}' is selected")
+                is UiObject -> if (element.isSelected) assertionFailure("'${selector.description}' is selected")
+                is UiObject2 -> if (element.isSelected) assertionFailure("'${selector.description}' is selected")
                 is SemanticsNodeInteraction -> {
                     element.assertExists()
                     element.assertIsNotSelected()
                 }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1566,7 +1575,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "'${selector.description}' not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -1575,14 +1584,14 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         try {
             when (element) {
                 is ViewInteraction -> element.check(matches(isEnabled()))
-                is UiObject -> if (!element.isEnabled) throw AssertionError("'${selector.description}' is not enabled")
-                is UiObject2 -> if (!element.isEnabled) throw AssertionError("'${selector.description}' is not enabled")
+                is UiObject -> if (!element.isEnabled) assertionFailure("'${selector.description}' is not enabled")
+                is UiObject2 -> if (!element.isEnabled) assertionFailure("'${selector.description}' is not enabled")
                 is SemanticsNodeInteraction -> {
                     element.assertExists()
                     element.assertIsEnabled()
                 }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1608,7 +1617,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "'${selector.description}' not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -1617,10 +1626,14 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         try {
             when (element) {
                 is ViewInteraction -> element.check(matches(isChecked()))
-                is UiObject -> if (!element.isChecked) throw AssertionError("'${selector.description}' is not checked")
-                is UiObject2 -> if (!element.isChecked) throw AssertionError("'${selector.description}' is not checked")
+                is UiObject -> if (!element.isChecked) assertionFailure("'${selector.description}' is not checked")
+                is UiObject2 -> if (!element.isChecked) assertionFailure("'${selector.description}' is not checked")
+                is SemanticsNodeInteraction -> {
+                    element.assertExists()
+                    element.assertIsOn()
+                }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1646,7 +1659,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "'${selector.description}' not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -1655,10 +1668,14 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         try {
             when (element) {
                 is ViewInteraction -> element.check(matches(isNotChecked()))
-                is UiObject -> if (element.isChecked) throw AssertionError("'${selector.description}' is checked")
-                is UiObject2 -> if (element.isChecked) throw AssertionError("'${selector.description}' is checked")
+                is UiObject -> if (element.isChecked) assertionFailure("'${selector.description}' is checked")
+                is UiObject2 -> if (element.isChecked) assertionFailure("'${selector.description}' is checked")
+                is SemanticsNodeInteraction -> {
+                    element.assertExists()
+                    element.assertIsOff()
+                }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1684,7 +1701,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "'${selector.description}' not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -1693,14 +1710,14 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         try {
             when (element) {
                 is ViewInteraction -> element.check(matches(not(isEnabled())))
-                is UiObject -> if (element.isEnabled) throw AssertionError("'${selector.description}' is enabled")
-                is UiObject2 -> if (element.isEnabled) throw AssertionError("'${selector.description}' is enabled")
+                is UiObject -> if (element.isEnabled) assertionFailure("'${selector.description}' is enabled")
+                is UiObject2 -> if (element.isEnabled) assertionFailure("'${selector.description}' is enabled")
                 is SemanticsNodeInteraction -> {
                     element.assertExists()
                     element.assertIsNotEnabled()
                 }
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -1726,7 +1743,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "'${selector.description}' not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -1745,7 +1762,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                     )
                 )
             else ->
-                throw AssertionError(
+                assertionFailure(
                     "mozVerifyElementHasCheckedSiblingByResName only supports Espresso selectors for: ${selector.description}"
                 )
         }
@@ -1771,7 +1788,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "'${selector.description}' not found")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         }
@@ -1782,16 +1799,18 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                 is ViewInteraction -> element.check(matches(hasSibling(withText(siblingText))))
                 is UiObject -> {
                     val sibling = element.getFromParent(UiSelector().text(siblingText))
-                    if (!sibling.exists())
-                        throw AssertionError("'${selector.description}' has no sibling with text '$siblingText'")
+                    if (!sibling.exists()) {
+                        assertionFailure("'${selector.description}' has no sibling with text '$siblingText'")
+                    }
                 }
                 is UiObject2 -> {
                     val sibling = element.parent?.findObject(By.text(siblingText))
-                    if (sibling == null)
-                        throw AssertionError("'${selector.description}' has no sibling with text '$siblingText'")
+                    if (sibling == null) {
+                        assertionFailure("'${selector.description}' has no sibling with text '$siblingText'")
+                    }
                 }
                 is SemanticsNodeInteraction -> element.assert(hasAnySibling(hasText(siblingText)))
-                else -> throw AssertionError("Unsupported element type for selector: ${selector.description}")
+                else -> assertionFailure("Unsupported element type for selector: ${selector.description}")
             }
         } catch (e: Throwable) {
             rep?.endCmd(success = false, message = "'${selector.description}' has no sibling with text '$siblingText'")
@@ -1866,8 +1885,8 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                     null
                 }
             }
-            // TODO: easier way to isolate parent/child/sibling elements, auto-selects sibilings or children on failure
-            // as a back-up
+            // There is no easier way yet to isolate parent/child/sibling elements: this auto-selects
+            // siblings or children on failure, as a back-up.
             SelectorStrategy.COMPOSE_ON_ALL_NODES_BY_TAG_ON_FIRST -> {
                 try {
                     composeRule.onAllNodesWithTag(selector.value).onFirst()
@@ -2181,7 +2200,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         if (element == null) {
             rep?.endLoc(success = false, message = notFound(selector.description))
             rep?.endCmd(success = false, message = "Clear text failed: element not found ('${selector.description}')")
-            throw AssertionError(
+            assertionFailure(
                 "Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})"
             )
         } else {
@@ -2195,7 +2214,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                 is UiObject -> element.clearTextField()
                 is UiObject2 -> element.clear()
                 else ->
-                    throw AssertionError(
+                    assertionFailure(
                         "Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}"
                     )
             }
@@ -2207,7 +2226,7 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
                 success = false,
                 message = "Clear text failed for '${selector.description}': ${e.message ?: "exception"}",
             )
-            throw AssertionError("Failed to clear text for selector: ${selector.description}", e)
+            assertionFailure("Failed to clear text for selector: ${selector.description}", e)
         }
     }
 
@@ -2293,3 +2312,9 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             .onFailure { Log.i("BasePage", "dismissSoftKeyboard: ignored ${it::class.java.simpleName}") }
     }
 }
+
+/**
+ * Fails the current test with [message]. Returning [Nothing] lets call sites use it in expression position, the way a
+ * bare `throw` would.
+ */
+private fun assertionFailure(message: String, cause: Throwable? = null): Nothing = throw AssertionError(message, cause)

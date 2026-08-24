@@ -25,8 +25,17 @@ registerCleanupFunction(function () {
 add_task(async function () {
   overflowPanel.setAttribute("animate", "false");
   let overflowWidget = document.getElementById(OVERFLOW_WIDGET_ID);
-  if (BrowserTestUtils.isHidden(overflowWidget)) {
-    // In regular builds the FxA button is hidden while signed out, so sign in to reveal it.
+  ok(overflowWidget, "Overflow widget was found");
+  if (!overflowWidget) {
+    return;
+  }
+  // In regular builds the FxA button is hidden while signed out, so sign in to
+  // reveal it. The enterprise badge is always visible, so this only applies to
+  // the FxA button.
+  if (
+    OVERFLOW_WIDGET_ID === "fxa-toolbar-menu-button" &&
+    BrowserTestUtils.isHidden(overflowWidget)
+  ) {
     let initialFxaStatus = document.documentElement.getAttribute("fxastatus");
     document.documentElement.setAttribute("fxastatus", "signed_in");
     registerCleanupFunction(() =>
@@ -57,7 +66,6 @@ add_task(async function () {
     "customizationPanelItemContextMenu"
   );
   let shownContextPromise = popupShown(contextMenu);
-  ok(overflowWidget, "Overflow widget was found");
   is(
     overflowWidget.getAttribute("overflowedItem"),
     "true",
@@ -117,12 +125,12 @@ add_task(async function () {
   is(
     overflowWidgetPlacement && overflowWidgetPlacement.area,
     "nav-bar",
-    "FxA button should be back in the navbar now"
+    "Overflow widget should be back in the navbar now"
   );
 
   is(
     overflowWidget.getAttribute("overflowedItem"),
     "true",
-    "FxA button should still be overflowed"
+    "Overflow widget should still be overflowed"
   );
 });

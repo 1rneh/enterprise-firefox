@@ -429,6 +429,18 @@ EnterprisePoliciesManager.prototype = {
     )) {
       const paramsHash = hashValue(policyParams);
 
+      if (this._isStartupPolicy(policyName)) {
+        // This policy cannot be updated as it needs to be applied during a startup.
+        lazy.log.warn(
+          `Policy ${policyName} requires a restart; the change will not be applied before the next restart.`
+        );
+        paramsHashes.set(policyName, paramsHash);
+        if (policyName in previousPolicies) {
+          parsedPolicies[policyName] = previousPolicies[policyName];
+        }
+        continue;
+      }
+
       if (
         this._lastParamsHashes.get(policyName) === paramsHash &&
         policyName in previousPolicies
@@ -487,6 +499,18 @@ EnterprisePoliciesManager.prototype = {
     for (const [policyName, policyParams] of Object.entries(previousPolicies)) {
       if (this._parsedPolicies[policyName] !== undefined) {
         // Policy remains active.
+        continue;
+      }
+
+      if (this._isStartupPolicy(policyName)) {
+        // A startup policy cannot be removed live any more than it can be
+        // applied live. Keep it applied until the next restart, which will
+        // re-read the policy set without it.
+        lazy.log.warn(
+          `Policy ${policyName} requires a restart; its removal will not take effect before the next restart.`
+        );
+        this._parsedPolicies[policyName] = policyParams;
+        this._lastParamsHashes.set(policyName, hashValue(policyParams));
         continue;
       }
 
@@ -573,6 +597,24 @@ EnterprisePoliciesManager.prototype = {
     }
 
     return { isValid, parsedParams };
+  },
+
+  /**
+   * Whether a policy can only take effect after a browser restart, as
+   * declared by "x-restart-required" in policies-schema.json. Such policies
+   * are applied at startup only: they are neither updated nor removed live.
+   *
+   * @param {string} policyName policy name
+   * @returns {boolean} whether policy requires a restart to be applied
+   */
+  _isStartupPolicy(policyName) {
+    const { schema } = ChromeUtils.importESModule(
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      "resource:///modules/policies/schema.sys.mjs"
+    );
+    const requiresRestart =
+      schema.properties[policyName]?.["x-restart-required"];
+    return requiresRestart ?? true;
   },
 
   /**

@@ -1,0 +1,10 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+toolkit.jar:
+% content enterprise %enterprise/content/
+  enterprise/content/enterprise-badge.css           (content/enterprise-badge.css)
+  enterprise/content/enterprise-panel.css           (content/enterprise-panel.css)
+  enterprise/content/icons/alert.svg                (content/icons/alert.svg)
+  enterprise/content/icons/user-avatar.svg          (content/icons/user-avatar.svg)

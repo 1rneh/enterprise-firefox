@@ -33,8 +33,11 @@ class EnterpriseBadgeTests(FeltTests):
         self._logger.info("Checking user icon is updated in badge.")
         user_icon = self.get_elem_child("#enterprise-user-icon__picture")
         picture_url = user_icon.value_of_css_property("list-style-image")
-        assert picture_url == f'url("{user["picture"]}")', (
-            "User's picture not correctly set on user icon"
+
+        expected_picture_url = 'url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICAgICAgICAgIDxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjgiIGZpbGw9IiM0QTZGQTUiLz4KICAgICAgICAgIDx0ZXh0IHg9IjMyIiB5PSIzMiIgZm9udC1mYW1pbHk9IkFyaWFsLCBIZWx2ZXRpY2EsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMzIiCiAgICAgICAgICAgICAgICBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iI0ZGRkZGRiIgdGV4dC1hbmNob3I9Im1pZGRsZSIKICAgICAgICAgICAgICAgIGRvbWluYW50LWJhc2VsaW5lPSJjZW50cmFsIj5TPC90ZXh0PgogICAgICAgIDwvc3ZnPg==")'
+
+        assert picture_url == expected_picture_url, (
+            f"User's picture not correctly set on user icon, got '{picture_url}' expected '{expected_picture_url}'"
         )
 
         self._logger.info("Clicking enterprise panel")

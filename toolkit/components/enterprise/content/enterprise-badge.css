@@ -100,7 +100,7 @@
   height: var(--icon-size-xsmall);
   -moz-context-properties: fill;
   fill: var(--button-icon-fill);
-  list-style-image: url(chrome://browser/content/enterprise/user-avatar.svg);
+  list-style-image: url(chrome://enterprise/content/icons/user-avatar.svg);
 }
 
 #enterprise-user-icon__initials {

@@ -136,8 +136,10 @@ ChromeUtils.defineLazyGetter(this, "fxAccounts", () => {
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(this, {
+    EnterpriseBadge:
+      "resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs",
     EnterpriseHandler:
-      "resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs",
+      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
   });
 }
 

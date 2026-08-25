@@ -8,8 +8,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   CanonicalJSON: "resource://gre/modules/CanonicalJSON.sys.mjs",
-  EnterpriseHandler:
-    "resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs",
+  initiateShutdown:
+    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   Policies: "resource:///modules/policies/Policies.sys.mjs",
   PolicySchemaValidator:
@@ -204,7 +204,7 @@ EnterprisePoliciesManager.prototype = {
         );
         // bug 2027006 will move the fetching of policies to felt
         // and no shutdown will be needed then
-        lazy.EnterpriseHandler.initiateShutdown();
+        lazy.initiateShutdown();
       } else {
         lazy.log.error(`Failed to build the policies provider: ${e}`);
       }

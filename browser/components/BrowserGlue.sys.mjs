@@ -86,7 +86,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
     EnterpriseHandler:
-      "resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs",
+      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
   });
 }
 

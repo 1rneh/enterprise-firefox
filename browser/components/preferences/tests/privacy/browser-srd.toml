@@ -30,6 +30,7 @@ tags = "os_integration"
 ["browser_privacy_history_search_l10n_ids.js"]
 
 ["browser_privacy_ipprotection.js"]
+skip-if = ["enterprise"] # Enterprise builds repurpose the VPN as the Access Connector and hide the VPN section in the privacy preferences.
 
 ["browser_privacy_passwordGenerationAndAutofill_srd.js"]
 

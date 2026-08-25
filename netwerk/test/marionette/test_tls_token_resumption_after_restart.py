@@ -235,11 +235,14 @@ class TLSTokenResumptionTestCase(SSLTokensCacheMixin, MarionetteTestCase):
         self.marionette.set_prefs(_BASE_PREFS)
 
         # 5. The cache file must contain the persisted token after shutdown.
-        self.assertGreaterEqual(
-            self.wait_for_cache_rows(self.cache_file, 1),
-            1,
-            "ssl_tokens_cache.sqlite must contain a row after shutdown",
-        )
+        #    When SQLite at-rest encryption is on the file is ciphertext and can't be parsed here,
+        #    so step 6 verifies the contents through the browser instead.
+        if not self.marionette.get_pref("security.storage.encryption.sqlite.enabled"):
+            self.assertGreaterEqual(
+                self.wait_for_cache_rows(self.cache_file, 1),
+                1,
+                "ssl_tokens_cache.sqlite must contain a row after shutdown",
+            )
 
         # 6. Wait for the async disk-load to finish.
         self.assertTrue(

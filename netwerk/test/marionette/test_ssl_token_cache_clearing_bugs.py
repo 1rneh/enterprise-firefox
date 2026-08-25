@@ -46,6 +46,9 @@ class SSLTokenCacheClearingBugsTestCase(SSLTokensCacheMixin, MarionetteTestCase)
     def setUp(self):
         super().setUp()
         self.marionette.set_context("chrome")
+        # Force SQLite at-rest encryption off so ssl_tokens_cache.sqlite is plaintext and parseable
+        # and can be read directly from disk.
+        self.marionette.set_pref("security.storage.encryption.sqlite.enabled", False)
         self.marionette.execute_script(
             "Cc['@mozilla.org/network/ssl-tokens-cache;1']"
             ".getService(Ci.nsISSLTokensCache)"

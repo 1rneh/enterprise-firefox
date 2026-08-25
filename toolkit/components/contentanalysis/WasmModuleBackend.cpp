@@ -257,10 +257,10 @@ void WasmModuleBackend::CancelUserAction(const nsACString& aUserActionId) {
            nsCString(aUserActionId).get()));
 }
 
-void WasmModuleBackend::HandleWasmResponse(JSContext* aCx,
-                                           JS::Handle<JS::Value> aValue,
-                                           const nsACString& aUserActionId,
-                                           bool aAutoAcknowledge) {
+void WasmModuleBackend::HandleWasmResponse(
+    JSContext* aCx, JS::Handle<JS::Value> aValue,
+    const nsACString& aUserActionId, bool aAutoAcknowledge,
+    const nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules) {
   AssertIsOnMainThread();
 
   if (mInert) {
@@ -297,6 +297,22 @@ void WasmModuleBackend::HandleWasmResponse(JSContext* aCx,
     mConnectedToAgent = false;
     owner->CancelWithError(nsCString(aUserActionId), NS_ERROR_FAILURE);
     return;
+  }
+
+  // The protobuf the module answers with carries only the winning rule's name,
+  // so recover that rule's admin-authored message from the rules we handed it.
+  nsString ruleName;
+  if (NS_SUCCEEDED(response->GetRuleName(ruleName)) && !ruleName.IsEmpty()) {
+    for (const auto& rule : aRules) {
+      nsString name;
+      if (NS_SUCCEEDED(rule->GetName(name)) && name.Equals(ruleName)) {
+        nsString message;
+        if (NS_SUCCEEDED(rule->GetMessage(message))) {
+          response->SetRuleMessage(message);
+        }
+        break;
+      }
+    }
   }
 
   // The module produced a real verdict, so it's genuinely connected.
@@ -336,9 +352,11 @@ nsresult WasmModuleBackend::InvokeRunner(
 
   promise->AddCallbacksWithCycleCollectedArgs(
       [self = RefPtr{this}, userActionId = nsCString(aUserActionId),
-       aAutoAcknowledge](JSContext* aCx, JS::Handle<JS::Value> aValue,
-                         ErrorResult&) {
-        self->HandleWasmResponse(aCx, aValue, userActionId, aAutoAcknowledge);
+       aAutoAcknowledge,
+       rules = CopyableTArray<RefPtr<nsIContentAnalysisRule>>(aRules)](
+          JSContext* aCx, JS::Handle<JS::Value> aValue, ErrorResult&) {
+        self->HandleWasmResponse(aCx, aValue, userActionId, aAutoAcknowledge,
+                                 rules);
       },
       [self = RefPtr{this}, userActionId = nsCString(aUserActionId)](
           JSContext* aCx, JS::Handle<JS::Value> aValue, ErrorResult&) {

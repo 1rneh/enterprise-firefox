@@ -486,6 +486,12 @@ ContentAnalysisResponse::GetRuleName(nsAString& aRuleName) {
 }
 
 NS_IMETHODIMP
+ContentAnalysisResponse::GetRuleMessage(nsAString& aRuleMessage) {
+  aRuleMessage = mRuleMessage;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 ContentAnalysisResponse::GetIsCachedResponse(bool* aIsCachedResponse) {
   *aIsCachedResponse = mIsCachedResponse;
   return NS_OK;

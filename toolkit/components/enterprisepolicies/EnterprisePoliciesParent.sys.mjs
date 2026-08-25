@@ -73,6 +73,13 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
   });
 });
 
+ChromeUtils.defineLazyGetter(lazy, "schemaModule", () =>
+  ChromeUtils.importESModule(
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    "resource:///modules/policies/schema.sys.mjs"
+  )
+);
+
 // Testing escapes in this file must key on Cu.isInAutomation.
 
 // On Nightly in automation, ignore real system/user policies so a developer's
@@ -603,11 +610,7 @@ EnterprisePoliciesManager.prototype = {
    * @returns {{ isValid: boolean, parsedParams: object|null}}
    */
   _validateAndParsePolicyParams(policyName, policyParams) {
-    const { schema } = ChromeUtils.importESModule(
-      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-      "resource:///modules/policies/schema.sys.mjs"
-    );
-    const policySchema = schema.properties[policyName];
+    const policySchema = lazy.schemaModule.schema.properties[policyName];
 
     if (!policySchema) {
       lazy.log.error(`Unknown policy: ${policyName}`);
@@ -656,12 +659,8 @@ EnterprisePoliciesManager.prototype = {
    * @returns {boolean} whether policy requires a restart to be applied
    */
   _isStartupPolicy(policyName) {
-    const { schema } = ChromeUtils.importESModule(
-      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-      "resource:///modules/policies/schema.sys.mjs"
-    );
     const requiresRestart =
-      schema.properties[policyName]?.["x-restart-required"];
+      lazy.schemaModule.schema.properties[policyName]["x-restart-required"];
     return requiresRestart ?? true;
   },
 

@@ -185,25 +185,4 @@ export const AIChatbotPolicies = {
       this.configurePrompts(param.Prompts);
     }
   },
-
-  /**
-   * Revert all prefs set by the AIChatbot policy back to their defaults.
-   *
-   * Called when the policy is removed or the browser is reset to an
-   * unenrolled state.
-   */
-  unapplyAIChatbotPolicy() {
-    // Can't use unsetDefaultPref for this one because it's empty by default.
-    PoliciesUtils.setDefaultPref(
-      "browser.ml.chat.providers",
-      CHAT_PROVIDERS_DEFAULT
-    );
-    PoliciesUtils.unsetDefaultPref("browser.ml.chat.provider");
-    PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.0");
-    PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.1");
-    PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.2");
-    PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.3");
-    PoliciesUtils.unsetDefaultPref("browser.ml.chat.shortcuts");
-    PoliciesUtils.unsetAndUnlockPref("browser.ml.chat.enabled");
-  },
 };

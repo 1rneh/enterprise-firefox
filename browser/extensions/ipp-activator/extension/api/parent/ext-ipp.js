@@ -90,6 +90,9 @@ this.ippActivator = class extends ExtensionAPI {
         isIPPActive() {
           return lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE;
         },
+        isEnterpriseAccessConnector() {
+          return !!Services.policies.getActivePolicies()?.AccessConnector;
+        },
         getRegion() {
           return lazy.Region.home;
         },

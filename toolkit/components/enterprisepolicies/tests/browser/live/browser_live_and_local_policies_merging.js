@@ -7,10 +7,12 @@ const customSchema = {
   properties: {
     simple_policy0: {
       type: "string",
+      "x-restart-required": false,
     },
 
     simple_policy1: {
       type: "string",
+      "x-restart-required": false,
     },
   },
 };
@@ -81,9 +83,7 @@ add_task(async function test_remote_policy_overrides_local_policy() {
     },
   };
 
-  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies(remotePolicies);
-  await updateApplied;
+  await waitForLivePolicyUpdate(remotePolicies.policies);
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
@@ -97,9 +97,7 @@ add_task(async function test_remote_policy_overrides_local_policy() {
   );
 
   // Remove remote policies, re-apply local policy
-  const removalApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
-  EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
-  await removalApplied;
+  await waitForLivePolicyUpdate({});
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),

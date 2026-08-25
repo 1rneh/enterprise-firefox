@@ -24,6 +24,20 @@ const POLICY_PARAM_STATE = {
   REMOVED: "removed",
 };
 
+/**
+ * Serve a new remote policy set and wait until the live poller has fetched and
+ * applied it, so callers can assert on the post-update state without a restart.
+ *
+ * @param {object} policies policy set served as the new remote policies
+ *                          and applied on the next poll
+ * @returns {Promise<void>} resolves once the update has been applied
+ */
+async function waitForLivePolicyUpdate(policies) {
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({ policies });
+  await updateApplied;
+}
+
 add_setup(async () => {
   PoliciesPrefTracker.start();
 

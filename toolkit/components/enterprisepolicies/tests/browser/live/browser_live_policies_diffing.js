@@ -7,6 +7,7 @@ const customSchema = {
   properties: {
     TestPolicy: {
       type: "string",
+      "x-restart-required": false,
     },
   },
 };

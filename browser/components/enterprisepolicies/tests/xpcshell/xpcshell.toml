@@ -64,7 +64,6 @@ support-files = [
   "../../schemas/policies-schema.json",
   "../../schemas/policies-schema.meta.json",
 ]
-skip-if = ["enterprise"] # Bug 2065476: skip tests for enterprise builds ; re-enable in bug 2065477
 
 ["test_policy_descriptions.js"]
 

@@ -158,6 +158,10 @@ class MOZ_STACK_CLASS EntryWrapper final {
     return mEntry.match([](const auto* e) { return e->GetFactory(); });
   }
 
+  bool IsSingleton() const {
+    return mEntry.match([](const auto* e) { return e->IsSingleton(); });
+  }
+
   /**
    * Creates an instance of the underlying component. This should be used in
    * preference to GetFactory()->CreateInstance() where appropriate, since it
@@ -690,6 +694,13 @@ nsComponentManagerImpl::CreateInstance(const nsCID& aClass, const nsIID& aIID,
     return NS_ERROR_FACTORY_NOT_REGISTERED;
   }
 
+  if (NS_WARN_IF(entry->IsSingleton())) {
+    MOZ_LOG(nsComponentManagerLog, LogLevel::Error,
+            ("Not allowed to CreateInstance for singleton %s",
+             AutoIDString(aClass).get()));
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+
 #ifdef SHOW_CI_ON_EXISTING_SERVICE
   if (entry->ServiceInstance()) {
     nsAutoCString message;
@@ -765,6 +776,13 @@ nsComponentManagerImpl::CreateInstanceByContractID(const char* aContractID,
 
   if (!entry) {
     return NS_ERROR_FACTORY_NOT_REGISTERED;
+  }
+
+  if (NS_WARN_IF(entry->IsSingleton())) {
+    MOZ_LOG(nsComponentManagerLog, LogLevel::Error,
+            ("Not allowed to CreateInstanceByContractID for singleton %s",
+             aContractID));
+    return NS_ERROR_NOT_IMPLEMENTED;
   }
 
 #ifdef SHOW_CI_ON_EXISTING_SERVICE

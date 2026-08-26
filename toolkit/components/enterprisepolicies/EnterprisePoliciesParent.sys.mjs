@@ -623,6 +623,7 @@ EnterprisePoliciesManager.prototype = {
       error: validationError,
     } = lazy.PolicySchemaValidator.validate(policyParams, policySchema, {
       allowAdditionalProperties: true,
+        policyName,
     });
 
     if (!isValid) {

@@ -189,6 +189,17 @@ export class UrlbarParentController {
   }
 
   /**
+   * Whether the view showing these results renders in a content process, which
+   * decodes what it displays itself. For an in-page urlbar that is the
+   * privileged about process.
+   *
+   * @type {boolean}
+   */
+  get rendersInContentProcess() {
+    return !!this.#actor?.browsingContext?.isContent;
+  }
+
+  /**
    * Resolves the `<browser>` a `browserId` refers to. A content sender always
    * targets its own tab, so its `browserId` is ignored; only a chrome sender
    * resolves a pinned id globally.
@@ -222,8 +233,11 @@ export class UrlbarParentController {
    * Notifies a result's provider that the result is about to be selected.
    * Mediates the view's access to the (parent-process) provider.
    *
-   * @param {UrlbarResult} result The result being selected.
-   * @param {Element} element The selected element.
+   * @param {UrlbarResult} result
+   *   The result being selected.
+   * @param {Element} [element]
+   *   The selected element. Undefined in the message path.
+   *   New providers should not use this parameter!
    */
   onBeforeSelection(result, element) {
     this.manager
@@ -236,12 +250,11 @@ export class UrlbarParentController {
    * view's access to the (parent-process) provider.
    *
    * @param {UrlbarResult} result The selected result.
-   * @param {Element} element The selected element.
    */
-  onSelection(result, element) {
+  onSelection(result) {
     this.manager
       .getProvider(result?.providerName)
-      ?.tryMethod("onSelection", result, element);
+      ?.tryMethod("onSelection", result);
   }
 
   /**

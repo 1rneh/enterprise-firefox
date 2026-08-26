@@ -126,6 +126,15 @@ const PRIVATE_PING_SURFACE_COUNTRY_MAP = {
 // Used as the missing value for timestamps in the session ping
 const TIMESTAMP_MISSING_VALUE = -1;
 
+// The scroll distance in pixels each newtab ping scroll metric reports on,
+// in ascending order. Must stay in sync with SCROLL_TELEMETRY_THRESHOLDS in
+// content-src/components/Base/Base.jsx.
+const SCROLL_THRESHOLD_METRICS = [
+  [50, "scroll"],
+  [100, "scroll100"],
+  [250, "scroll250"],
+];
+
 // Page filter for onboarding telemetry, any value other than these will
 // be set as "other"
 const ONBOARDING_ALLOWED_PAGE_VALUES = [
@@ -686,6 +695,7 @@ export class TelemetryFeed {
       session_id: String(Services.uuid.generateUUID()),
       // "unknown" will be overwritten when appropriate
       page: url ? url : "unknown",
+      max_scroll_threshold: 0,
       perf: {
         load_trigger_type,
         is_preloaded: false,
@@ -731,6 +741,12 @@ export class TelemetryFeed {
       const recordToContentPing =
         this.gleanSessionType === GleanSessionType.PrivateGleanSession;
       this.#clearEventBuffer(recordToContentPing, session.session_id);
+      for (const [threshold, metric] of SCROLL_THRESHOLD_METRICS) {
+        // The metric is undefined rather than registered if this add-on has
+        // train-hopped to a Firefox that predates it, in which case the rest
+        // of the ping should still be submitted.
+        Glean.newtab[metric]?.set(session.max_scroll_threshold >= threshold);
+      }
       GleanPings.newtab.submit("newtab_session_end");
       if (this.privatePingEnabled) {
         this.configureContentPing();
@@ -770,6 +786,23 @@ export class TelemetryFeed {
     );
     session.perf.is_preloaded =
       action.data.browser.getAttribute("preloadedState") === "preloaded";
+  }
+
+  /**
+   * Handle NEW_TAB_SCROLL, which records the deepest scroll threshold passed
+   * so far in a session. The scroll metrics are set from it in endSession.
+   *
+   * @param  {obj} action the Action object
+   */
+  handleNewTabScroll(action) {
+    const session = this.sessions.get(au.getPortIdOfSender(action));
+    if (!session) {
+      return;
+    }
+    session.max_scroll_threshold = Math.max(
+      session.max_scroll_threshold,
+      action.data.threshold
+    );
   }
 
   sovEnabled() {
@@ -1518,7 +1551,7 @@ export class TelemetryFeed {
         this.endSession(au.getPortIdOfSender(action));
         break;
       case at.NEW_TAB_SCROLL:
-        Glean.newtab.scroll.set(true);
+        this.handleNewTabScroll(action);
         break;
       case at.SAVE_SESSION_PERF_DATA:
         this.saveSessionPerfData(au.getPortIdOfSender(action), action.data);

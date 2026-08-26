@@ -1712,6 +1712,7 @@ class EsrBumpConfig(Schema):
     fetch_version_from: str
     version_files: list[VersionFileStrict]
     to_revision: str = ""
+    update_clobber_file: Optional[bool] = None
 
 
 class MainBumpConfig(Schema):
@@ -1722,6 +1723,7 @@ class MainBumpConfig(Schema):
     replacements: Optional[list[list[str]]] = None
     regex_replacements: Optional[list[list[str]]] = None
     end_tag: Optional[str] = None
+    update_clobber_file: Optional[bool] = None
 
 
 class UpliftConfig(Schema):
@@ -1735,6 +1737,7 @@ class UpliftConfig(Schema):
     base_tag: Optional[str] = None
     end_tag: Optional[str] = None
     l10n_bump_info: Optional[list[L10nBumpInfo]] = None
+    update_clobber_file: Optional[bool] = None
 
 
 class MergeDayConfig(Schema):

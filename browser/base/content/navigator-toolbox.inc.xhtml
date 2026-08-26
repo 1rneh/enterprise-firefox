@@ -7,7 +7,7 @@
 
   <!-- Menu -->
   <toolbar type="menubar" id="toolbar-menubar"
-           class="browser-toolbar chromeclass-menubar browser-titlebar"
+           class="browser-toolbar browser-titlebar"
            customizable="true"
            mode="icons"
            autohide="true"
@@ -107,7 +107,7 @@
   </toolbar>
 
   <toolbar id="nav-bar"
-           class="browser-toolbar chromeclass-location"
+           class="browser-toolbar"
            data-l10n-id="navbar-accessible"
            fullscreentoolbar="true" mode="icons" customizable="true"
            customizationtarget="nav-bar-customization-target"
@@ -490,7 +490,7 @@
       </toolbarbutton>
 
 #ifdef MOZ_ENTERPRISE
-#include ../../components/enterprise/content/enterprise-badge.inc.xhtml
+#include ../../../toolkit/components/enterprise/content/enterprise-badge.inc.xhtml
 #endif
 
       <toolbarbutton id="fxa-toolbar-menu-button" class="toolbarbutton-1 chromeclass-toolbar-additional subviewbutton-nav"
@@ -577,7 +577,7 @@
 
   <toolbar id="PersonalToolbar"
            mode="icons"
-           class="browser-toolbar chromeclass-directories"
+           class="browser-toolbar"
            context="toolbar-context-menu"
            data-l10n-id="bookmarks-toolbar"
            data-l10n-attrs="toolbarname"
@@ -740,13 +740,13 @@
                  persist="width">
       <toolbartabstop/>
       <searchbar id="searchbar" flex="1"/>
-      <html:moz-urlbar id="searchbar-new"
+      <html:moz-searchbar id="searchbar-new"
               class="urlbar"
               popover="manual"
               pageproxystate="invalid"
               unifiedsearchbutton-available=""
               sap-name="searchbar">
-      </html:moz-urlbar>
+      </html:moz-searchbar>
       <toolbartabstop/>
     </toolbaritem>
 

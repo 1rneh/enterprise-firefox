@@ -493,12 +493,12 @@ static void DestroyBlobFunc(void* aUserData) {
   delete ftr;
 }
 
-hb_blob_t* gfxDWriteFontEntry::GetFontTable(uint32_t aTag) {
+hb_blob_t* gfxDWriteFontEntry::GetFontTableInternal(uint32_t aTag) {
   // try to avoid potentially expensive DWrite call if we haven't actually
   // created the font face yet, by using the gfxFontEntry method that will
   // use CopyFontTable and then cache the data
   if (!mFontFace) {
-    return gfxFontEntry::GetFontTable(aTag);
+    return gfxFontEntry::GetFontTableInternal(aTag);
   }
 
   const void* data;
@@ -604,7 +604,7 @@ nsresult gfxDWriteFontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
   return rv;
 }
 
-bool gfxDWriteFontEntry::HasVariations() {
+bool gfxDWriteFontEntry::HasVariationsInternal() {
   if (mHasVariationsInitialized) {
     return mHasVariations;
   }
@@ -629,7 +629,7 @@ bool gfxDWriteFontEntry::HasVariations() {
   return mHasVariations;
 }
 
-void gfxDWriteFontEntry::GetVariationAxes(
+void gfxDWriteFontEntry::GetVariationAxesInternal(
     nsTArray<gfxFontVariationAxis>& aAxes) {
   if (!HasVariations()) {
     return;
@@ -677,7 +677,7 @@ void gfxDWriteFontEntry::GetVariationAxes(
   }
 }
 
-void gfxDWriteFontEntry::GetVariationInstances(
+void gfxDWriteFontEntry::GetVariationInstancesInternal(
     nsTArray<gfxFontVariationInstance>& aInstances) {
   gfxFontUtils::GetVariationData(this, nullptr, &aInstances);
 }

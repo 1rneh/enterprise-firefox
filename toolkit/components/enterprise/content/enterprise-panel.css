@@ -1,0 +1,37 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+.panelUI-enterprise__main-frame {
+  gap: var(--space-small);
+}
+
+.panelUI-enterprise__email {
+  padding: var(--space-small) 0 0 var(--space-large);
+}
+
+.panelUI-enterprise__info-frame {
+  padding: var(--space-small) var(--space-small) var(--space-small) var(--space-large);
+  gap: var(--space-small);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 270px;
+}
+
+.panelUI-enterprise__alert {
+  gap: var(--space-small);
+}
+
+.panelUI-enterprise__alert__icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  -moz-context-properties: fill;
+  fill: currentColor;
+
+  #panelUI-enterprise[visible] & {
+    list-style-image: url(chrome://enterprise/content/icons/alert.svg);
+  }
+}
+
+.panelUI-enterprise__alert__message {
+  font-weight: var(--font-weight-semibold);
+}

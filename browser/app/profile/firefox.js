@@ -255,8 +255,6 @@ pref("extensions.update.background.url", "https://versioncheck-bg.addons.mozilla
 pref("extensions.update.interval", 86400);  // Check for updates to Extensions and
                                             // Themes every day
 
-pref("lightweightThemes.getMoreURL", "https://addons.mozilla.org/%LOCALE%/firefox/themes");
-
 #if defined(MOZ_WIDEVINE_EME)
   pref("browser.eme.ui.enabled", true);
 #else
@@ -384,8 +382,6 @@ pref("browser.startup.preXulSkeletonUI", true);
 
 // Whether the checkbox to enable Launch on login is shown
 pref("browser.startup.windowsLaunchOnLogin.enabled", true);
-// Whether to show the launch on login infobar notification
-pref("browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt", false);
 // Whether new installs default to launching Firefox on Windows login when the
 // user is not enrolled in Nimbus for this feature. When false, launch-on-login
 // is enabled only by a Nimbus rollout or experiment; when true, it is enabled
@@ -483,6 +479,10 @@ pref("browser.urlbar.focusContentDocumentOnEsc", true);
 // pref-on CI variant and local testing of the actor path.
 pref("browser.urlbar.ipc.chromeMessagePassing", false);
 
+// Feature gate for the <moz-urlbar> on about:newtab and about:home. When
+// enabled, it supersedes New Tab's handoff search bar.
+pref("browser.urlbar.newtab.featureGate", false);
+
 // Enable a certain level of urlbar logging to the Browser Console. See
 // ConsoleInstance.webidl.
 pref("browser.urlbar.loglevel", "Error");
@@ -516,7 +516,16 @@ pref("browser.urlbar.deduplication.enabled", true);
 
 pref("browser.urlbar.scotchBonnet.enableOverride", true);
 
-pref("browser.urlbar.trackerCount.featureGate", true);
+// Whether the search button declines to be the target of the toolbar tab stop
+// in front of the address bar and the search bar, so that Tab lands on the
+// input and the button is reached with Shift+Tab from there.
+#ifdef NIGHTLY_BUILD
+pref("browser.urlbar.searchModeSwitcher.skipTabStop", true);
+#else
+pref("browser.urlbar.searchModeSwitcher.skipTabStop", false);
+#endif
+
+pref("browser.urlbar.trackerCount.featureGate", false);
 pref("browser.urlbar.trackerCount.enabled", true);
 
 pref("browser.urlbar.trustPanel.featureGate", true);
@@ -1207,7 +1216,7 @@ pref("browser.tabs.groups.smart.nearestNeighborThresholdInt", 275);
 pref("browser.tabs.groups.smart.clusterMethod", "AGGLOMERATIVE");
 // AGGLOMERATIVE cosine-distance cutoff in thousandths (825 -> 0.825). Lower is
 // stricter (more, smaller groups); higher is more lenient (fewer, larger).
-pref("browser.tabs.groups.smart.agglomerativeThresholdInt", 825);
+pref("browser.tabs.groups.smart.agglomerativeThresholdInt", 650);
 pref("browser.tabs.groups.smart.optin", false);
 
 pref("browser.tabs.dragDrop.createGroup.enabled", true);
@@ -1469,8 +1478,12 @@ pref("browser.xul.error_pages.expert_bad_cert", false);
 pref("browser.xul.error_pages.show_safe_browsing_details_on_load", false);
 
 // Enable the one-click search call-to-action on the online dnsNotFound error
-// page. Disabled by default; consumers land in later bugs (meta bug 2055374).
+// page. On in Nightly, off elsewhere until a Nimbus rollout (bug 2055718).
+#ifdef NIGHTLY_BUILD
+pref("browser.netError.searchCTA.enabled", true);
+#else
 pref("browser.netError.searchCTA.enabled", false);
+#endif
 
 // Freshness window for the search CTA's connectivity signal. If the last
 // captive-portal check is older than this, an authoritative re-check runs
@@ -2414,9 +2427,14 @@ pref("browser.ml.linkPreview.outputSentences", 3);
 pref("browser.ml.linkPreview.recentTypingMs", 1000);
 pref("browser.ml.linkPreview.shift", false);
 pref("browser.ml.linkPreview.shiftAlt", false);
+pref("browser.ml.linkPreview.smokeTest.lastBuildID", "");
 pref("browser.ml.linkPreview.supportedLocales", "en");
 
 pref("browser.ml.pageAssist.enabled", false);
+
+// Set once the native ONNX runtime availability has been reported to telemetry,
+// so that the one-off probe behind it runs at most once per profile.
+pref("browser.ml.onnxNativeAvailabilityReported", false);
 
 // Smart Window Feature
 pref("browser.smartwindow.enabled", false);
@@ -2447,6 +2465,7 @@ pref("browser.smartwindow.aitab.viewerURL", "");
 
 // Smart Window: Auto Tab Grouping (bug 2054500).
 pref("browser.smartwindow.autoTabGrouping.enabled", true);
+pref("browser.smartwindow.autoTabGrouping.preloadModels", true);
 pref("browser.smartwindow.autoTabGrouping.maxGroups", 3);
 pref("browser.smartwindow.autoTabGrouping.minTabsPerGroup", 2);
 pref("browser.smartwindow.autoTabGrouping.minCandidateTabs", 4);
@@ -2456,18 +2475,16 @@ pref("browser.smartwindow.autoTabGrouping.loglevel", "Warn");
 
 // Smart Window: Smart Form Fill (bug 2055009).
 pref("browser.smartwindow.smartformfill.enabled", false);
+
 // Comma-separated ISO 3166-1 region codes where the feature is unavailable.
 pref("browser.smartwindow.smartformfill.disallowedRegions", "FR");
 
 // Smart Window Agent
-pref("browser.smartwindow.agent.enabled", false);
+pref("browser.smartwindow.agent.enabled", true);
 pref("browser.smartwindow.agent.supportedRegions", "US,CA");
+// Toolbar button that opens the monitor creation panel (bug 2062113).
+pref("browser.smartwindow.agent.toolbar.enabled", false);
 
-
-// Smart Window: Merino World Cup Soccer tool call (bug 2038266)
-pref("browser.smartwindow.worldcup.enabled", false);
-pref("browser.smartwindow.worldcup.endpointURL", "https://merino.services.mozilla.com");
-pref("browser.smartwindow.worldcup.timeoutMs", 2000);
 
 // Smart Window: Exa search endpoint, used by the search_the_web agentic flow (bug 2037948)
 pref("browser.smartwindow.searchQuery.endpointURL", "https://mlpa-prod-prod-mozilla.freetls.fastly.net/v1/search");
@@ -2475,7 +2492,7 @@ pref("browser.smartwindow.searchQuery.apiKey", "");
 
 // Smart Window: when true, search_the_web returns Exa snippets straight to the
 // main assistant instead of generating an answer from background page reads.
-pref("browser.smartwindow.searchTheWebFast", false);
+pref("browser.smartwindow.searchTheWebFast", true);
 
 // Smart Window Logging
 pref("browser.smartwindow.chatHistory.loglevel", "Error");
@@ -2483,6 +2500,8 @@ pref("browser.smartwindow.chatStore.loglevel", "Error");
 pref("browser.smartwindow.conversation.logLevel", "Error");
 pref("browser.smartwindow.smartbarMentions.loglevel", "Error");
 pref("browser.smartwindow.telemetryLogLevel", "Error");
+pref("browser.smartwindow.aiTabHistory.logLevel", "Error");
+pref("browser.smartwindow.aiTabStore.logLevel", "Error");
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);
@@ -2536,6 +2555,9 @@ pref("identity.fxaccounts.pairing.enabled", false);
 pref("identity.fxaccounts.pairing.enabled", true);
 #endif
 
+// The version of the pairing flow to be used by FxA.
+pref("identity.fxaccounts.pairing.version", 1);
+
 // The remote URI of the FxA pairing server
 #ifdef MOZ_ENTERPRISE
 pref("identity.fxaccounts.remote.pairing.uri", "");
@@ -2581,6 +2603,9 @@ pref("identity.fxaccounts.commands.remoteTabManagement.enabled", true);
 // Controls whether or not the client association ping has values set on it
 // when the sync-ui-state:update notification fires.
 pref("identity.fxaccounts.telemetry.clientAssociationPing.enabled", true);
+
+// Controls whether the fxAccouintsClientInfo ping is submitted.
+pref("identity.fxaccounts.telemetry.clientInfoPing.enabled", true);
 
 // Note: when media.gmp-*.visible is true, provided we're running on a
 // supported platform/OS version, the corresponding CDM appears in the
@@ -2687,8 +2712,6 @@ pref("privacy.query_stripping.strip_on_share.enabled", true);
 
 pref("browser.contentblocking.cryptomining.preferences.ui.enabled", true);
 pref("browser.contentblocking.fingerprinting.preferences.ui.enabled", true);
-// Enable cookieBehavior = BEHAVIOR_PARTITION_FOREIGN as an option in the custom category ui
-pref("browser.contentblocking.reject-and-isolate-cookies.preferences.ui.enabled", true);
 
 // Possible values for browser.contentblocking.features.strict pref:
 //   Tracking Protection:
@@ -2798,6 +2821,9 @@ pref("browser.contentblocking.report.vpn_regions", "as,at,au,bd,be,bg,br,ca,ch,c
 
 // Default to enabling pin promos to be shown where allowed.
 pref("browser.promo.pin.enabled", true);
+
+// Default to enabling Relay promos to be shown where allowed.
+pref("browser.promo.relay.enabled", true);
 
 pref("browser.contentblocking.report.hide_vpn_banner", false);
 pref("browser.contentblocking.report.vpn_sub_id", "sub_HrfCZF7VPHzZkA");
@@ -3041,6 +3067,10 @@ pref("signon.relatedRealms.enabled", false);
 pref("signon.showAutoCompleteFooter", true);
 pref("signon.showAutoCompleteImport", "import");
 pref("signon.suggestImportCount", 3);
+
+// Whether the autocomplete dropdown lets users remove saved records
+// (logins, credit cards, and addresses) directly from the panel.
+pref("browser.autocomplete.removeRecords.enabled", false);
 
 // Whether or not the browser should scan for unsubmitted
 // crash reports, and then show a notification for submitting

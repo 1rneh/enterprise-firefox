@@ -29,6 +29,7 @@ import mozilla.components.feature.ipprotection.store.IPProtectionStore
 import mozilla.components.feature.ipprotection.store.InternalAction
 import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
+import mozilla.components.feature.ipprotection.store.state.PendingActivationRequest
 import mozilla.components.lib.state.ext.flow
 import mozilla.components.lib.state.ext.flowScoped
 import mozilla.components.service.fxa.manager.FxaAccountManager
@@ -130,6 +131,7 @@ class IPProtectionFeature(
                         }
 
                         AccountStatus.AwaitingEnrollment -> {
+                            handler?.notifyAccountStatus(true)
                             handler?.enroll { enrollInfo ->
                                 store.dispatch(
                                     InternalAction.FinishingEnrollment(success = enrollInfo.isEnrolledAndEntitled)
@@ -158,7 +160,7 @@ class IPProtectionFeature(
     }
 
     private suspend fun registerAndInit() =
-        withContext(Dispatchers.Main) {
+        withContext(mainDispatcher) {
             handler =
                 engine.registerIPProtectionDelegate(
                     object : IPProtectionDelegate {
@@ -209,27 +211,27 @@ class IPProtectionFeature(
         }
 
     private suspend fun uninit() =
-        withContext(Dispatchers.Main) {
+        withContext(mainDispatcher) {
             handler?.uninit()
         }
 
     private suspend fun observeToggle() =
-        withContext(Dispatchers.Main) {
+        withContext(mainDispatcher) {
             // Dedupe over the nullable so `true -> null -> true` reads as two edges, not one.
             store
                 .flow()
-                .map { it.activate }
+                .map { it.pendingActivationRequest }
                 .distinctUntilChanged()
                 .filterNotNull()
-                .collect { activate ->
+                .collect { activationState ->
                     val onResult: (Throwable?) -> Unit = { err ->
                         if (err != null) {
                             store.dispatch(IPProtectionAction.ToggleFailed(err))
                         }
                     }
-                    if (activate) {
+                    if (activationState is PendingActivationRequest.Activate) {
                         handler?.activate(
-                            countryCode = store.state.locationState.selectedLocation.countryCode,
+                            countryCode = activationState.selectedLocationCode,
                             onResult = onResult,
                         )
                     } else {

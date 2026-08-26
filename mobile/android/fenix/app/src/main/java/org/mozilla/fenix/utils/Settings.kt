@@ -264,6 +264,27 @@ class Settings(
             default = { FxNimbus.features.collectionsToTabGroupsMigration.value().hideCollectionsUi },
         )
 
+    /** Whether the Collections to Tab Groups migration should run. */
+    var migrateCollectionsToTabGroupsEnabled by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_migrate_collections_to_tab_groups),
+            default = { FxNimbus.features.collectionsToTabGroupsMigration.value().enabled },
+        )
+
+    /** Whether the Collections to Tab Groups has been migrated. */
+    var hasMigratedCollectionsToTabGroups by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_has_migrated_collections_to_tab_groups),
+            default = false,
+        )
+
+    /** The set of Collections IDs migrated to Tab Groups. */
+    var migratedCollectionIds by
+        stringSetPreference(
+            appContext.getPreferenceKey(R.string.pref_key_migrated_collection_ids),
+            default = setOf(),
+        )
+
     /** Indicates whether or not the Firefox Japan Guide default site should be shown. */
     val showFirefoxJpGuideDefaultSite: Boolean
         get() = FxNimbus.features.firefoxJpGuideDefaultSite.value().enabled
@@ -1237,6 +1258,12 @@ class Settings(
     var shouldUseDarkTheme by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_dark_theme),
+            default = false,
+        )
+
+    var shouldUseOledTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_oled_theme),
             default = false,
         )
 
@@ -2377,6 +2404,13 @@ class Settings(
             default = -1L,
         )
 
+    /** The completion timestamp of the fifth day of continuous onboarding. */
+    var fifthDayOnboardingCompletedTimestamp by
+        longPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_day_five_completed_timestamp),
+            default = -1L,
+        )
+
     /** The completion timestamp of the seventh day of continuous onboarding. */
     var seventhDayOnboardingCompletedTimestamp by
         longPreference(
@@ -2526,20 +2560,6 @@ class Settings(
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_ads_client_for_stories),
             default = { FxNimbus.features.adsClientForStories.value().enabled },
-        )
-
-    /** Indicates if Firefox Labs is enabled. */
-    var enableFirefoxLabs by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_enable_firefox_labs),
-            default = FeatureFlags.FIREFOX_LABS,
-        )
-
-    /** Indicates if the top sites pager layout is enabled. */
-    var topSitesPager by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_top_sites_pager),
-            default = false,
         )
 
     /** Indicates if Add Shortcuts improvement is enabled. */
@@ -2724,6 +2744,13 @@ class Settings(
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_shake_to_summarize),
             default = { FxNimbus.features.shakeToSummarize.value().enabled },
+        )
+
+    /** Nimbus controlled feature flag that indicates if the Listen to Page feature should be enabled */
+    var listenToPageFeatureFlagEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_listen_to_page),
+            default = { FxNimbus.features.listenToPage.value().enabled },
         )
 
     var aiControlsFeatureFlagEnabled by

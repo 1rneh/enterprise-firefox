@@ -33,6 +33,10 @@ var gProfiles = {
       document,
       "PanelUI-fxa-menu-profiles-header-label"
     );
+    this.fxaMenuProfilesSeparator = PanelMultiView.getViewNode(
+      document,
+      "PanelUI-fxa-menu-profiles-separator"
+    );
     this.fxaMenuAllProfilesPanel = PanelMultiView.getViewNode(
       document,
       "PanelUI-fxa-menu-all-profiles"
@@ -122,17 +126,25 @@ var gProfiles = {
     );
     profilesButton.setAttribute(
       "image",
-      await SelectableProfileService.currentProfile.getAvatarURL(24)
+      await SelectableProfileService.currentProfile.getAvatarURL(16)
     );
   },
 
   async _onFxaMenuPanelShowing() {
     const container = this.fxaMenuProfileButtonsContainer;
     const headerLabel = this.fxaMenuProfilesHeaderLabel;
+    const separator = this.fxaMenuProfilesSeparator;
 
     const hideProfilesSection = () => {
       container.hidden = true;
       headerLabel.hidden = true;
+      separator.hidden = true;
+    };
+
+    const showProfilesSection = () => {
+      container.hidden = false;
+      headerLabel.hidden = false;
+      separator.hidden = false;
     };
 
     if (!SelectableProfileService?.isEnabled) {
@@ -162,8 +174,7 @@ var gProfiles = {
       createBtn.setAttribute("data-l10n-id", "appmenu-create-profile2");
       container.appendChild(createBtn);
 
-      container.hidden = false;
-      headerLabel.hidden = false;
+      showProfilesSection();
       return;
     }
 
@@ -194,7 +205,7 @@ var gProfiles = {
       let { themeBg, themeFg } = profile.theme;
       btn.style.setProperty("--appmenu-profiles-theme-bg", themeBg);
       btn.style.setProperty("--appmenu-profiles-theme-fg", themeFg);
-      let avatarURL = await profile.getAvatarURL(24);
+      let avatarURL = await profile.getAvatarURL(16);
       btn.setAttribute("image", avatarURL);
       container.appendChild(btn);
     }
@@ -208,8 +219,7 @@ var gProfiles = {
       container.appendChild(allBtn);
     }
 
-    container.hidden = false;
-    headerLabel.hidden = false;
+    showProfilesSection();
   },
 
   async _populateAllProfilesPanel() {
@@ -255,7 +265,7 @@ var gProfiles = {
 
         let icon = document.createXULElement("image");
         icon.classList.add("toolbarbutton-icon");
-        icon.setAttribute("src", await profile.getAvatarURL(24));
+        icon.setAttribute("src", await profile.getAvatarURL(16));
         btn.appendChild(icon);
 
         let labelVbox = document.createXULElement("vbox");
@@ -282,7 +292,7 @@ var gProfiles = {
         btn.appendChild(checkIcon);
       } else {
         btn.setAttribute("label", profile.name);
-        btn.setAttribute("image", await profile.getAvatarURL(24));
+        btn.setAttribute("image", await profile.getAvatarURL(16));
       }
 
       list.appendChild(btn);
@@ -343,7 +353,7 @@ var gProfiles = {
       toOpenWindowByType(
         "about:profilemanager",
         "about:profilemanager",
-        "chrome,extrachrome,menubar,resizable,scrollbars,status,toolbar,centerscreen"
+        "chrome,resizable,toolbar,centerscreen"
       );
     });
   },

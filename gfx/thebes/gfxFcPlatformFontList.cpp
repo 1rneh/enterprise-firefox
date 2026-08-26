@@ -483,11 +483,6 @@ gfxFontconfigFontEntry::~gfxFontconfigFontEntry() {
     auto* face = mFTFace.exchange(nullptr);
     NS_IF_RELEASE(face);
   }
-#ifdef MOZ_FONTATIONS
-  if (mozilla::gfx::SkrifaFontRef* font = mSkrifaFontFace) {
-    skrifa_font_delete(font);
-  }
-#endif
 }
 
 gfxFontconfigFontEntry::AutoHBFace gfxFontconfigFontEntry::GetHBFace() {
@@ -644,7 +639,7 @@ bool gfxFontconfigFontEntry::TestCharacterMap(uint32_t aCh) {
   return HasChar(mFontPattern, aCh);
 }
 
-bool gfxFontconfigFontEntry::HasFontTable(uint32_t aTableTag) {
+bool gfxFontconfigFontEntry::HasFontTableInternal(uint32_t aTableTag) {
   if (FTUserFontData* ufd = GetUserFontData()) {
     if (const auto* data = ufd->GetData()) {
       return !!gfxFontUtils::FindTableDirEntry(data, aTableTag);
@@ -653,7 +648,7 @@ bool gfxFontconfigFontEntry::HasFontTable(uint32_t aTableTag) {
   return gfxFT2FontEntryBase::FaceHasTable(GetFTFace(), aTableTag);
 }
 
-hb_blob_t* gfxFontconfigFontEntry::GetFontTable(uint32_t aTableTag) {
+hb_blob_t* gfxFontconfigFontEntry::GetFontTableInternal(uint32_t aTableTag) {
   // for data fonts, read directly from the font data
   if (FTUserFontData* ufd = GetUserFontData()) {
     if (const auto* data = ufd->GetData()) {
@@ -663,7 +658,7 @@ hb_blob_t* gfxFontconfigFontEntry::GetFontTable(uint32_t aTableTag) {
 
   // Use the cache only if it has already been created.
   if (mFontTableCache) {
-    return gfxFontEntry::GetFontTable(aTableTag);
+    return gfxFontEntry::GetFontTableInternal(aTableTag);
   }
 
   auto* table = hb_face_reference_table(GetHBFace(), aTableTag);
@@ -1116,16 +1111,7 @@ void gfxFontconfigFontEntry::InitSkrifaFont(FcPattern* aPattern) {
   const uint8_t* data = static_cast<const uint8_t*>(file.Data());
   const size_t size = file.Size();
   if (SkrifaFontRef* font = skrifa_font_new_from_index(data, size, index)) {
-    // If another thread came in and initialized the font face ahead of us,
-    // just delete the face this thread constructed.
-    if (mSkrifaFontFace.compareExchange(nullptr, font)) {
-      // If we won the race, store our file data to back the font.
-      mSkrifaFontFile = std::move(file);
-    } else {
-      // We lost the race, delete the font we just constructed and let the
-      // file mapping be destroyed normally.
-      skrifa_font_delete(font);
-    }
+    SetSkrifaFont(font, std::move(file));
   }
 }
 #endif
@@ -1157,7 +1143,7 @@ FTUserFontData* gfxFontconfigFontEntry::GetUserFontData() {
   return nullptr;
 }
 
-bool gfxFontconfigFontEntry::HasVariations() {
+bool gfxFontconfigFontEntry::HasVariationsInternal() {
   // If the answer is already cached, just return it.
   switch (mHasVariations) {
     case HasVariationsState::No:
@@ -1225,7 +1211,7 @@ FT_MM_Var* gfxFontconfigFontEntry::GetMMVar() {
   return mMMVar;
 }
 
-void gfxFontconfigFontEntry::GetVariationAxes(
+void gfxFontconfigFontEntry::GetVariationAxesInternal(
     nsTArray<gfxFontVariationAxis>& aAxes) {
   if (!HasVariations()) {
     return;
@@ -1233,7 +1219,7 @@ void gfxFontconfigFontEntry::GetVariationAxes(
   gfxFT2Utils::GetVariationAxes(GetMMVar(), aAxes);
 }
 
-void gfxFontconfigFontEntry::GetVariationInstances(
+void gfxFontconfigFontEntry::GetVariationInstancesInternal(
     nsTArray<gfxFontVariationInstance>& aInstances) {
   if (!HasVariations()) {
     return;
@@ -2200,15 +2186,14 @@ FontVisibility gfxFcPlatformFontList::GetVisibilityForFamily(
       return FontVisibility::User;
 
     case Device::Linux_Fedora_any:
+      // We have no font list for this Fedora version
+      return FontVisibility::Unknown;
+
     case Device::Linux_Fedora_39:
       if (FamilyInList(aName, kBaseFonts_Fedora_39)) {
         return FontVisibility::Base;
       }
-      if (sFontVisibilityDevice == Device::Linux_Fedora_39) {
-        return FontVisibility::User;
-      }
-      // For Fedora_any, fall through to also check Fedora 38 list.
-      [[fallthrough]];
+      return FontVisibility::User;
 
     case Device::Linux_Fedora_38:
       if (FamilyInList(aName, kBaseFonts_Fedora_38)) {
@@ -2246,11 +2231,13 @@ gfxFcPlatformFontList::GetFilteredPlatformFontLists() {
       break;
 
     case Device::Linux_Fedora_any:
+      // No font list for this Fedora version; see GetVisibilityForFamily().
+      break;
+
     case Device::Linux_Fedora_39:
       fontLists.AppendElement(std::make_pair(kBaseFonts_Fedora_39,
                                              std::size(kBaseFonts_Fedora_39)));
-      // For Fedora_any, fall through to also check Fedora 38 list.
-      [[fallthrough]];
+      break;
 
     case Device::Linux_Fedora_38:
       fontLists.AppendElement(std::make_pair(kBaseFonts_Fedora_38,

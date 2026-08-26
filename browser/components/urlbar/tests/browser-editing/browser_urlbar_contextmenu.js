@@ -142,6 +142,14 @@ add_task(async function basic() {
             target.getAttribute("usercontextid"),
             expectedOption.userContextId
           );
+          let openedEvent = Glean.containers.containerTabOpened
+            .testGetValue()
+            .at(-1);
+          Assert.equal(
+            openedEvent.extra.source,
+            "urlbar_result_context_menu",
+            "container_tab_opened reports the urlbar source"
+          );
         } else {
           Assert.ok(!target.hasAttribute("usercontextid"));
         }
@@ -171,9 +179,6 @@ add_task(async function toolbar_context_menu() {
   ];
 
   await BrowserTestUtils.withNewTab("https://example.com/", async () => {
-    // Make search mode switcher visible.
-    document.querySelector(".searchmode-switcher").focus();
-
     for (let target of TEST_TARGETS) {
       info(`Test for ${target}`);
       let element = document.querySelector(target);

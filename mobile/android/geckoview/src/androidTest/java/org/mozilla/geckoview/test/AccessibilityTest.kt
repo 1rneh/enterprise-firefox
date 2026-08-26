@@ -262,6 +262,40 @@ class AccessibilityTest : BaseSessionTest() {
     }
 
     @Test
+    fun testForceEnabledByPrefSurvivesNewSessionAttach() {
+        // Force enable accessibility via the pref instead of the GeckoView
+        // API.
+        sessionRule.setPrefsUntilTestEnd(mapOf("accessibility.force_disabled" to -1))
+        // Confirm that accessibility is enabled.
+        assertThat(
+            "Root node should have WebView class name",
+            createNodeInfo(AccessibilityNodeProvider.HOST_VIEW_ID).className.toString(),
+            equalTo("android.webkit.WebView"),
+        )
+
+        // Clear the Android specific force enable set in @Before, so the pref
+        // is the only thing keeping accessibility on. This will be set to true
+        // for the next test via @Before.
+        sessionRule.runtime.settings.forceEnableAccessibility = false
+
+        // Open a new session and attach its accessibility to a view for the
+        // first time. This constructs a new native accessibility provider.
+        // We want to make sure that accessibility remains enabled when we do
+        // this, even if there is no assistive technology running.
+        val altSession = sessionRule.createOpenSession()
+        val altView = FrameLayout(InstrumentationRegistry.getInstrumentation().targetContext)
+        altSession.accessibility.view = altView
+
+        val altNode =
+            altView.accessibilityNodeProvider.createAccessibilityNodeInfo(AccessibilityNodeProvider.HOST_VIEW_ID)
+        assertThat(
+            "Accessibility still running after attaching new session",
+            altNode?.className?.toString(),
+            equalTo("android.webkit.WebView"),
+        )
+    }
+
+    @Test
     fun testPageLoad() {
         mainSession.loadTestPath(INPUTS_PATH)
 
@@ -745,6 +779,50 @@ class AccessibilityTest : BaseSessionTest() {
                     assertThat("text should be cut", event.text[0].toString(), equalTo(" cruel cruel cruel"))
                     assertThat("fromIndex is correct", event.fromIndex, equalTo(0))
                     assertThat("removedCount is correct", event.removedCount, equalTo(5))
+                }
+            }
+        )
+    }
+
+    @Test
+    fun testFieldset() {
+        mainSession.loadTestPath(FORMS2_HTML_PATH)
+        waitForInitialFocus()
+
+        val rootNode = createNodeInfo(View.NO_ID)
+        assertThat("Document has 2 children", rootNode.childCount, equalTo(2))
+
+        val formNode = createNodeInfo(rootNode.getChildId(0))
+        assertThat("Form has 1 child", formNode.childCount, equalTo(1))
+
+        val fieldsetNode = createNodeInfo(formNode.getChildId(0))
+        assertThat(
+            "Fieldset has correct containerTitle",
+            fieldsetNode.containerTitle.toString(),
+            equalTo("Create New Account"),
+        )
+    }
+
+    @Test
+    fun testMixedCheckbox() {
+        var nodeId = AccessibilityNodeProvider.HOST_VIEW_ID
+        mainSession.loadUri(
+            "data:text/html;charset=utf-8,<div tabindex='0' id='checkbox' role='checkbox' aria-label='Are you sure?' aria-checked='mixed'></div>"
+        )
+        waitForInitialFocus(true)
+
+        sessionRule.waitUntilCalled(
+            object : EventDelegate {
+                @AssertCalled(count = 1)
+                override fun onAccessibilityFocused(event: AccessibilityEvent) {
+                    nodeId = getSourceId(event)
+                    val node = createNodeInfo(nodeId)
+                    assertThat("Accessibility focus on first text leaf", node.text.toString(), equalTo("Are you sure?"))
+                    assertThat(
+                        "Accessibility focus on first text leaf",
+                        node.hintText.toString(),
+                        equalTo("partially checked"),
+                    )
                 }
             }
         )
@@ -1974,6 +2052,11 @@ class AccessibilityTest : BaseSessionTest() {
         val firstListFirstItem = createNodeInfo(firstList.getChildId(0))
         assertThat("Item has collectionItemInfo", firstListFirstItem.collectionItemInfo, notNullValue())
         assertThat("Item has correct rowIndex", firstListFirstItem.collectionItemInfo.rowIndex, equalTo(0))
+        assertThat(
+            "List item has a role description",
+            firstListFirstItem.extras.getCharSequence("AccessibilityNodeInfo.roleDescription")!!.toString(),
+            equalTo("list item"),
+        )
 
         val secondList = createNodeInfo(rootNode.getChildId(1))
         assertThat("Second list has 1 child", secondList.childCount, equalTo(1))

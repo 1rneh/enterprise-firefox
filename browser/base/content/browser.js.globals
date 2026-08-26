@@ -238,6 +238,7 @@
   "ProfilesDatastoreService",
   "gTrustPanelHandler",
   "ContentSharingUtils",
+  "EnterpriseBadge",
   "EnterpriseHandler",
   "Referrals"
 ]

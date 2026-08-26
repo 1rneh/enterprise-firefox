@@ -35,6 +35,11 @@
 #include "nsTArray.h"
 #include "nscore.h"
 
+#ifdef MOZ_FONTATIONS
+#  include "mozilla/MemoryMappedFile.h"
+#  include "mozilla/gfx/fontations_glue_generated.h"
+#endif
+
 class FontInfoData;
 class gfxContext;
 class gfxFont;
@@ -199,6 +204,9 @@ class gfxFontEntry {
   typedef mozilla::SlantStyleRange SlantStyleRange;
   typedef mozilla::WidthRange WidthRange;
   using imgDrawingParams = mozilla::image::imgDrawingParams;
+#if MOZ_FONTATIONS
+  using SkrifaFontRef = mozilla::gfx::SkrifaFontRef;
+#endif
 
   // Used by stylo
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(gfxFontEntry)
@@ -236,7 +244,7 @@ class gfxFontEntry {
 
   // The "real" name of the face, if available from the font resource;
   // returns Name() if nothing better is available.
-  virtual nsCString RealFaceName();
+  nsCString RealFaceName();
 
   WeightRange Weight() const { return mWeightRange; }
   WidthRange Width() const { return mWidthRange; }
@@ -278,7 +286,14 @@ class gfxFontEntry {
   const hb_set_t* InputsForOpenTypeFeature(Script aScript,
                                            uint32_t aFeatureTag);
 
-  virtual bool HasFontTable(uint32_t aTableTag);
+  bool HasFontTable(uint32_t aTableTag) {
+#if MOZ_FONTATIONS
+    if (const auto* skf = GetSkrifaFont()) {
+      return skrifa_font_has_table(skf, aTableTag);
+    }
+#endif
+    return HasFontTableInternal(aTableTag);
+  }
 
   inline bool HasGraphiteTables() {
     LazyFlag flag = mHasGraphiteTables;
@@ -368,20 +383,7 @@ class gfxFontEntry {
   // which will remain valid until the blob is destroyed.
   // The data MUST be treated as read-only; we may be getting a
   // reference to a shared system font cache.
-  //
-  // The default implementation uses CopyFontTable to get the data
-  // into a byte array, and maintains a cache of loaded tables.
-  //
-  // Subclasses should override this if they can provide more efficient
-  // access than copying table data into our own buffers.
-  //
-  // Get blob that encapsulates a specific font table, or nullptr if
-  // the table doesn't exist in the font.
-  //
-  // Caller is responsible to call hb_blob_destroy() on the returned blob
-  // (if non-nullptr) when no longer required. For transient access to a
-  // table, use of AutoTable (below) is generally preferred.
-  virtual hb_blob_t* GetFontTable(uint32_t aTag);
+  hb_blob_t* GetFontTable(uint32_t aTag);
 
   // Stack-based utility to return a specified table, automatically releasing
   // the blob when the AutoTable goes out of scope.
@@ -517,18 +519,12 @@ class gfxFontEntry {
   bool SupportsScriptInGSUB(const hb_tag_t* aScriptTags, uint32_t aNumTags);
 
   /**
-   * Font-variation query methods.
-   *
-   * Font backends that don't support variations should provide empty
-   * implementations.
+   * Font-variation query methods. These will call through to ...Internal()
+   * implementation methods if we don't have a Skrifa font to query.
    */
-  virtual bool HasVariations() = 0;
-
-  virtual void GetVariationAxes(
-      nsTArray<gfxFontVariationAxis>& aVariationAxes) = 0;
-
-  virtual void GetVariationInstances(
-      nsTArray<gfxFontVariationInstance>& aInstances) = 0;
+  bool HasVariations();
+  void GetVariationAxes(nsTArray<gfxFontVariationAxis>& aVariationAxes);
+  void GetVariationInstances(nsTArray<gfxFontVariationInstance>& aInstances);
 
   bool HasBoldVariableWeight();
   bool HasItalicVariation();
@@ -715,6 +711,13 @@ class gfxFontEntry {
   mozilla::Atomic<bool> mGrFaceInitialized;
   mozilla::Atomic<bool> mCheckedForColorGlyph;
   mozilla::Atomic<bool> mCheckedForVariationAxes;
+#if MOZ_FONTATIONS
+  // This is set to true when InitSkrifaFontFace() has been called, regardless
+  // of whether the initialization was successful. If we could not instantiate
+  // a SkrifaFontRef, the mSkrifaFontFace field will remain null even though
+  // this flag is true.
+  mozilla::Atomic<bool> mSkrifaFontInitialized;
+#endif
 
   // Atomic flags that are lazily evaluated - initially set to UNINITIALIZED,
   // changed to NO or YES once we determine the actual value.
@@ -736,6 +739,26 @@ class gfxFontEntry {
 
   std::atomic<SpaceFeatures> mHasSpaceFeatures;
 
+#if MOZ_FONTATIONS
+  // Get the Skrifa font for this resource, if available, creating it via
+  // (virtual) InitSkrifaFontFace() if necessary. The Init call is only
+  // attempted once; if it fails, no Skrifa font ref is available for this
+  // entry.
+  const SkrifaFontRef* GetSkrifaFont() {
+    if (const SkrifaFontRef* f = mSkrifaFontFace) {
+      return f;
+    }
+    if (!mSkrifaFontInitialized) {
+      mozilla::AutoWriteLock lock(mLock);
+      if (!mSkrifaFontInitialized) {
+        InitSkrifaFontFace();
+        mSkrifaFontInitialized = true;
+      }
+    }
+    return mSkrifaFontFace;
+  }
+#endif
+
  protected:
   friend class gfxPlatformFontList;
   friend class gfxFontFamily;
@@ -749,6 +772,31 @@ class gfxFontEntry {
   inline bool CheckForGraphiteTables() {
     return HasFontTable(TRUETYPE_TAG('S', 'i', 'l', 'f'));
   }
+
+  virtual bool HasVariationsInternal() { return false; };
+
+  virtual void GetVariationAxesInternal(
+      nsTArray<gfxFontVariationAxis>& aVariationAxes) {};
+
+  virtual void GetVariationInstancesInternal(
+      nsTArray<gfxFontVariationInstance>& aInstances) {};
+
+  // The default implementation uses CopyFontTable to get the data
+  // into a byte array, and maintains a cache of loaded tables.
+  //
+  // Subclasses should override this if they can provide more efficient
+  // access than copying table data into our own buffers.
+  //
+  // Get blob that encapsulates a specific font table, or nullptr if
+  // the table doesn't exist in the font.
+  //
+  // Caller is responsible to call hb_blob_destroy() on the returned blob
+  // (if non-nullptr) when no longer required. For transient access to a
+  // table, use of AutoTable (below) is generally preferred.
+  virtual hb_blob_t* GetFontTableInternal(uint32_t aTag);
+
+  // Check for presence of a given table.
+  virtual bool HasFontTableInternal(uint32_t aTableTag);
 
   // Copy a font table into aBuffer.
   // The caller will be responsible for ownership of the data.
@@ -781,6 +829,25 @@ class gfxFontEntry {
   // of the gfxFontEntry based on shared Face and Family records.
   void InitializeFrom(mozilla::fontlist::Face* aFace,
                       const mozilla::fontlist::Family* aFamily);
+
+#ifdef MOZ_FONTATIONS
+  // Set the Skrifa font ref and hold on to the memory mapping, unless the
+  // face has already been set, in which case the passed font and mapping
+  // are discarded.
+  void SetSkrifaFont(SkrifaFontRef* aSkrifaFont,
+                     mozilla::MemoryMappedFile&& aSkrifaFontFile);
+
+  // Set the Skrifa font ref with no memmap'd file. Used for webfonts when
+  // mIsDataUserFont is true.
+  void SetSkrifaFont(SkrifaFontRef* aSkrifaFont);
+
+  // Attempt to initialize a SkrifaFontRef for this resource, and record it
+  // via SetSkrifaFont.
+  virtual void InitSkrifaFontFace() {}
+
+  mozilla::Atomic<SkrifaFontRef*> mSkrifaFontFace;
+  mozilla::MemoryMappedFile mSkrifaFontFile;
+#endif
 
   // Shaper-specific face objects, shared by all instantiations of the same
   // physical font, regardless of size.

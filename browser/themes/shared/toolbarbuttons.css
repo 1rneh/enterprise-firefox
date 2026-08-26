@@ -476,9 +476,6 @@ toolbarbutton.bookmark-item:not(.subviewbutton) {
 
 /* This rule applies to bookmark menu items too */
 .bookmark-item > label {
-  /* Ensure we use the direction of the bookmarks label instead of the
-     browser locale. */
-  unicode-bidi: plaintext;
   /* Preserve whitespace in bookmark names. */
   white-space: pre;
 }
@@ -771,6 +768,11 @@ toolbar[keyNav]:not([collapsed], [customizing]) toolbartabstop,
   &[aria-expanded="true"] > .toolbarbutton-icon {
     background-color: var(--toolbarbutton-background-color-active);
   }
+}
+
+/* Smart Window monitor button */
+#smartwindow-monitor-button[aria-expanded="true"] > .toolbarbutton-icon {
+  background-color: var(--toolbarbutton-background-color-active);
 }
 
 /* Document Picture-in-Picture API window */

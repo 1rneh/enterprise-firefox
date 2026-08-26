@@ -204,16 +204,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_firefox_labs).apply {
-            isChecked = settings.enableFirefoxLabs
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_top_sites_pager).apply {
-            isChecked = settings.topSitesPager
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_add_shortcuts_improvement).apply {
             isChecked = settings.enableAddShortcutsImprovement
             onPreferenceChangeListener = SharedPreferenceUpdater()
@@ -351,6 +341,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_listen_to_page).apply {
+            isVisible = Config.channel.isNightlyOrDebug
+            isChecked = settings.listenToPageFeatureFlagEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_import_bookmarks).apply {
             isVisible = Config.channel.isDebug
             isChecked = settings.importBookmarksFeatureFlagEnabled
@@ -460,12 +456,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_tab_groups).apply {
-            isVisible = Config.channel.isNightlyOrDebug
-            isChecked = settings.tabGroupsEnabled
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_tab_groups_drag_and_drop).apply {
             isVisible = Config.channel.isNightlyOrDebug
             isChecked = settings.tabGroupsDragAndDropEnabled
@@ -481,6 +471,11 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_tab_groups_onboarding).apply {
             isVisible = Config.channel.isNightlyOrDebug
             isChecked = context.components.settings.tabGroupsOnboardingEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_migrate_collections_to_tab_groups).apply {
+            isChecked = settings.migrateCollectionsToTabGroupsEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 

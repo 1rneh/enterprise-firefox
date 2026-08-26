@@ -506,10 +506,7 @@ Preferences.addSetting({
   deps: ["uiStateUpdate"],
   visible() {
     return (
-      !(
-        AppConstants.MOZ_ENTERPRISE &&
-        !Services.policies.isAllowed("change-sync-state")
-      ) &&
+      !(AppConstants.MOZ_ENTERPRISE && !Services.policies.isAllowed("sync")) &&
       SyncHelpers.uiStateStatus === window.UIState.STATUS_SIGNED_IN &&
       !SyncHelpers.isSyncEnabled
     );
@@ -624,8 +621,7 @@ Preferences.addSetting({
   },
   visible: () => {
     return !(
-      AppConstants.MOZ_ENTERPRISE &&
-      !Services.policies.isAllowed("change-sync-state")
+      AppConstants.MOZ_ENTERPRISE && !Services.policies.isAllowed("sync")
     );
   },
 });
@@ -852,7 +848,7 @@ Preferences.addSetting({
     return Referrals.isEnabled;
   },
   onUserClick: () => {
-    Referrals.openReferralsTab(window);
+    Referrals.openReferralsTab(window, "preferences");
   },
 });
 
@@ -1163,14 +1159,14 @@ SettingGroupManager.registerGroups({
     ],
   },
   referrals: {
-    l10nId: "referrals-section-header",
+    l10nId: "referrals-section-header2",
     headingLevel: 2,
     hidden: !Referrals.isEnabled,
     items: [
       {
         id: "referrals-link",
         control: "moz-box-button",
-        l10nId: "referrals-link",
+        l10nId: "referrals-link2",
       },
     ],
   },

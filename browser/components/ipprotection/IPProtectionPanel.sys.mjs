@@ -252,8 +252,13 @@ export class IPProtectionPanel {
 
     const isOnListItemForFocus = listItems.includes(focused);
 
-    // Tab key handling
-    const tabOnlyElements = [backButton, listItems[0], promoButton].filter(
+    // Tab key handling. The list is a single tab stop: enter it on whichever
+    // item currently carries the roving tabindex (the selected option when the
+    // subview was shown, or the option focused since), falling back to the
+    // first item.
+    const listTabStop =
+      listItems.find(item => item.tabIndex === 0) ?? listItems[0];
+    const tabOnlyElements = [backButton, listTabStop, promoButton].filter(
       el => el != null
     );
 
@@ -524,7 +529,14 @@ export class IPProtectionPanel {
       inPrivateBrowsing,
       country
     );
-    if (error && error !== lazy.ERRORS.CANCELED) {
+    // Cancellation, an exhausted quota and a not-ready proxy are already
+    // represented elsewhere in the UI, so they must not raise an error message.
+    const handledElsewhere = [
+      lazy.ERRORS.CANCELED,
+      lazy.ERRORS.QUOTA_EXHAUSTED,
+      lazy.ERRORS.NOT_READY,
+    ];
+    if (error && !handledElsewhere.includes(error)) {
       const errorMessage = this.#errorMessage(error);
       this.setState({
         error: errorMessage,
@@ -829,9 +841,14 @@ export class IPProtectionPanel {
       el.dataset.capturesFocus = "true";
     }
 
-    // On keyboard activation, focus the first list item
+    // On keyboard activation, focus the list's tab stop. The roving tabindex is
+    // reset to the selected option when the subview is shown, so entry lands on
+    // the current selection.
     if (keyboardActivated) {
-      view.querySelector(".location-item:not([disabled])")?.focus();
+      const listTabStop =
+        view.querySelector('.location-item[tabindex="0"]') ??
+        view.querySelector(".location-item");
+      listTabStop?.focus();
     }
 
     view.addEventListener("keydown", this.#locationsKeyListener, {

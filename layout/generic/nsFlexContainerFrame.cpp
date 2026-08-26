@@ -144,7 +144,7 @@ static bool IsSingleLine(const nsIFrame* aFlexContainer,
     // These containers are always treated as single-line.
     return true;
   }
-  return aStylePos->mFlexWrap == StyleFlexWrap::Nowrap;
+  return aStylePos->mFlexWrap == StyleFlexWrap::NOWRAP;
 }
 
 // Encapsulates our flex container's main & cross axes. This class is backed by
@@ -1517,7 +1517,8 @@ void nsFlexContainerFrame::GenerateFlexItemForChild(
       IsSingleLine(aParentReflowInput.mFrame,
                    aParentReflowInput.mStylePosition) &&
       (aAxisTracker.IsColumnOriented() ||
-       aTentativeContentBoxCrossSize != NS_UNCONSTRAINEDSIZE) &&
+       (aTentativeContentBoxCrossSize != NS_UNCONSTRAINEDSIZE &&
+        !aParentReflowInput.mFlags.mTreatBSizeAsIndefinite)) &&
       ShouldStretchCrossSize(this, aChildFrame, flexWM,
                              aAxisTracker.CrossAxis());
   if (stretchCrossSize) {
@@ -4209,7 +4210,7 @@ void FlexboxAxisInfo::InitAxesFromModernProps(const nsIFrame* aFlexContainer) {
   }
 
   // "flex-wrap: wrap-reverse" reverses our cross axis.
-  mIsCrossAxisReversed = stylePos->mFlexWrap == StyleFlexWrap::WrapReverse;
+  mIsCrossAxisReversed = !!(stylePos->mFlexWrap & StyleFlexWrap::WRAP_REVERSE);
 }
 
 FlexboxAxisTracker::FlexboxAxisTracker(
@@ -4747,14 +4748,20 @@ void nsFlexContainerFrame::Reflow(nsPresContext* aPresContext,
     // Calculate gap sizes for main and cross axis. We only need them in
     // DoFlexLayout in the first-in-flow, so no need to worry about consumed
     // block-size.
+    //
+    // NOTE: tentativeContentBoxSize might be definite but gapPercentageBasis
+    // indefinite, due to e.g. mTreatBSizeAsIndefinite.
+    LogicalSize gapPercentageBasis = tentativeContentBoxSize;
+    gapPercentageBasis.BSize(wm) =
+        aReflowInput.ComputedBSizeAsPercentageBasis();
     const auto& mainGapStyle =
         axisTracker.IsRowOriented() ? stylePos->mColumnGap : stylePos->mRowGap;
     const auto& crossGapStyle =
         axisTracker.IsRowOriented() ? stylePos->mRowGap : stylePos->mColumnGap;
     const nscoord mainGapSize = nsLayoutUtils::ResolveGapToLength(
-        mainGapStyle, tentativeContentBoxMainSize);
+        mainGapStyle, axisTracker.MainComponent(gapPercentageBasis));
     const nscoord crossGapSize = nsLayoutUtils::ResolveGapToLength(
-        crossGapStyle, tentativeContentBoxCrossSize);
+        crossGapStyle, axisTracker.CrossComponent(gapPercentageBasis));
 
     // When fragmenting a flex container, we run the flex algorithm without
     // regards to pagination in order to compute the flex container's desired

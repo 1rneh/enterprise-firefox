@@ -291,6 +291,11 @@ pub struct VariableValue {
 
     /// var(), env(), attr() or non-custom property (e.g. through `em`) references.
     pub references: References,
+
+    /// Was this variable value attr tainted before. Used to keep attr tainting
+    /// information when uncomputing a style that needs to be put back into the
+    /// cascade.
+    pub explicitly_attr_tainted: bool,
 }
 
 trivial_to_computed_value!(VariableValue);
@@ -872,6 +877,7 @@ impl VariableValue {
             first_token_type: Default::default(),
             url_data: url_data.clone(),
             references: Default::default(),
+            explicitly_attr_tainted: false,
         }
     }
 
@@ -889,10 +895,11 @@ impl VariableValue {
             first_token_type,
             last_token_type,
             references: References::default(),
+            explicitly_attr_tainted: false,
         }
     }
 
-    fn push<'i>(
+    fn push(
         &mut self,
         css: &str,
         css_first_token_type: TokenSerializationType,
@@ -940,11 +947,11 @@ impl VariableValue {
     }
 
     /// Parse a custom property value.
-    pub fn parse<'i, 't>(
-        input: &mut Parser<'i, 't>,
+    pub fn parse(
+        input: &mut Parser,
         namespaces: Option<&FxHashMap<Prefix, Namespace>>,
         url_data: &UrlExtraData,
-    ) -> Result<Self, ParseError<'i>> {
+    ) -> Result<Self, ParseError> {
         let mut references = References::default();
         let mut missing_closing_characters = String::new();
         let start_position = input.position();
@@ -979,12 +986,13 @@ impl VariableValue {
             first_token_type,
             last_token_type,
             references,
+            explicitly_attr_tainted: false,
         })
     }
 
     /// Returns whether this value is tainted by `attr()`.
     pub fn is_attr_tainted(&self) -> bool {
-        self.references.flags.intersects(ReferenceFlags::ATTR)
+        self.references.flags.intersects(ReferenceFlags::ATTR) | self.explicitly_attr_tainted
     }
 
     /// Create VariableValue from an int.
@@ -1057,6 +1065,7 @@ impl VariableValue {
             first_token_type: token_type,
             last_token_type: token_type,
             references: Default::default(),
+            explicitly_attr_tainted: false,
         }
     }
 
@@ -1091,13 +1100,13 @@ impl VariableValue {
 }
 
 /// <https://drafts.csswg.org/css-syntax-3/#typedef-declaration-value>
-fn parse_declaration_value<'i, 't>(
-    input: &mut Parser<'i, 't>,
+fn parse_declaration_value(
+    input: &mut Parser,
     input_start: SourcePosition,
     namespaces: Option<&FxHashMap<Prefix, Namespace>>,
     references: &mut References,
     missing_closing_characters: &mut String,
-) -> Result<(TokenSerializationType, TokenSerializationType), ParseError<'i>> {
+) -> Result<(TokenSerializationType, TokenSerializationType), ParseError> {
     input.parse_until_before(Delimiter::Bang | Delimiter::Semicolon, |input| {
         parse_declaration_value_block(
             input,
@@ -1110,13 +1119,13 @@ fn parse_declaration_value<'i, 't>(
 }
 
 /// Like parse_declaration_value, but accept `!` and `;` since they are only invalid at the top level.
-fn parse_declaration_value_block<'i, 't>(
-    input: &mut Parser<'i, 't>,
+fn parse_declaration_value_block(
+    input: &mut Parser,
     input_start: SourcePosition,
     namespaces: Option<&FxHashMap<Prefix, Namespace>>,
     references: &mut References,
     missing_closing_characters: &mut String,
-) -> Result<(TokenSerializationType, TokenSerializationType), ParseError<'i>> {
+) -> Result<(TokenSerializationType, TokenSerializationType), ParseError> {
     let mut is_first = true;
     let mut first_token_type = TokenSerializationType::Nothing;
     let mut last_token_type = TokenSerializationType::Nothing;
@@ -1169,37 +1178,28 @@ fn parse_declaration_value_block<'i, 't>(
                     })
                 }
             },
-            Token::BadUrl(ref u) => {
-                let e = StyleParseErrorKind::BadUrlInDeclarationValueBlock(u.clone());
-                return Err(input.new_custom_error(e));
+            Token::BadUrl(..) => {
+                let e = StyleParseErrorKind::BadUrlInDeclarationValueBlock;
+                return Err(ParseError::custom(e));
             },
-            Token::BadString(ref s) => {
-                let e = StyleParseErrorKind::BadStringInDeclarationValueBlock(s.clone());
-                return Err(input.new_custom_error(e));
+            Token::BadString(..) => {
+                let e = StyleParseErrorKind::BadStringInDeclarationValueBlock;
+                return Err(ParseError::custom(e));
             },
             Token::CloseParenthesis => {
                 let e = StyleParseErrorKind::UnbalancedCloseParenthesisInDeclarationValueBlock;
-                return Err(input.new_custom_error(e));
+                return Err(ParseError::custom(e));
             },
             Token::CloseSquareBracket => {
                 let e = StyleParseErrorKind::UnbalancedCloseSquareBracketInDeclarationValueBlock;
-                return Err(input.new_custom_error(e));
+                return Err(ParseError::custom(e));
             },
             Token::CloseCurlyBracket => {
                 let e = StyleParseErrorKind::UnbalancedCloseCurlyBracketInDeclarationValueBlock;
-                return Err(input.new_custom_error(e));
+                return Err(ParseError::custom(e));
             },
             Token::Function(ref name) => {
-                let substitution_kind = match SubstitutionFunctionKind::from_ident(name).ok() {
-                    Some(SubstitutionFunctionKind::Attr) => {
-                        if static_prefs::pref!("layout.css.attr.enabled") {
-                            Some(SubstitutionFunctionKind::Attr)
-                        } else {
-                            None
-                        }
-                    },
-                    kind => kind,
-                };
+                let substitution_kind = SubstitutionFunctionKind::from_ident(name).ok();
                 if let Some(substitution_kind) = substitution_kind {
                     let our_ref_index = references.refs.len();
                     let mut input_end_position = None;
@@ -1214,9 +1214,7 @@ fn parse_declaration_value_block<'i, 't>(
                                     let prev = input.state();
                                     let next = match *input.next_including_whitespace()? {
                                         Token::Ident(_) => Ok(()),
-                                        ref t => Err(prev
-                                            .source_location()
-                                            .new_unexpected_token_error(t.clone())),
+                                        _ => Err(ParseError::unexpected_token()),
                                     };
                                     input.reset(&prev);
                                     next?;
@@ -1231,9 +1229,8 @@ fn parse_declaration_value_block<'i, 't>(
                                 match parse_name(name.as_ref()) {
                                     Ok(name) => name,
                                     Err(()) => {
-                                        let name = name.clone();
-                                        return Err(input.new_custom_error(
-                                            SelectorParseErrorKind::UnexpectedIdent(name),
+                                        return Err(ParseError::custom(
+                                            SelectorParseErrorKind::UnexpectedIdent,
                                         ));
                                     },
                                 }
@@ -1377,7 +1374,7 @@ fn parse_declaration_value_block<'i, 't>(
 
 /// Parse <attr-type> = type( <syntax> ) | raw-string | number | <attr-unit>.
 /// https://drafts.csswg.org/css-values-5/#attr-notation
-fn parse_attr_type<'i, 't>(input: &mut Parser<'i, 't>) -> AttributeType {
+fn parse_attr_type(input: &mut Parser) -> AttributeType {
     input
         .try_parse(|input| {
             Ok(match input.next()? {
@@ -1396,7 +1393,7 @@ fn parse_attr_type<'i, 't>(input: &mut Parser<'i, 't>) -> AttributeType {
                     }
                 },
                 Token::Delim('%') => AttributeType::Unit(AttrUnit::Percentage),
-                _ => return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError)),
+                _ => return Err(ParseError::custom(StyleParseErrorKind::UnspecifiedError)),
             })
         })
         .unwrap_or(AttributeType::None)

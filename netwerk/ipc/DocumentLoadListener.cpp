@@ -36,6 +36,7 @@
 #include "mozilla/dom/ProcessIsolation.h"
 #include "mozilla/dom/ReferrerInfo.h"
 #include "mozilla/dom/RemoteWebProgressRequest.h"
+#include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/SessionHistoryEntry.h"
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/dom/ipc/IdType.h"
@@ -61,6 +62,7 @@
 #include "nsIBrowserDOMWindow.h"
 #include "nsICachingChannel.h"
 #include "nsIClassifiedChannel.h"
+#include "nsIContentPolicy.h"
 #include "nsIHttpChannelInternal.h"
 #include "nsINetworkInterceptController.h"
 #include "nsISiteContainerService.h"
@@ -624,6 +626,9 @@ void DocumentLoadListener::TryActivateFromPrefetch(nsIURI* aURI) {
   if (mTiming) {
     mTiming->SetWasActivatedFromNavigationalPrefetch();
   }
+
+  nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
+  loadInfo->SetActivatedFromNavigationalPrefetch(true);
 
   LOG_SPECRULES(
       ("DocumentLoadListener::TryActivateFromPrefetch: [%p] activated from "
@@ -1284,6 +1289,15 @@ auto DocumentLoadListener::OpenObject(
        aLoadState->URI()->GetSpecOrDefault().get()));
 
   MOZ_ASSERT(!mIsDocumentLoad);
+
+  // The content policy type is child-controlled; object loads must only
+  // ever claim to be object or embed loads, as the parent bases
+  // type-keyed security decisions (cookies, third-party status) on it.
+  if (aContentPolicyType != nsIContentPolicy::TYPE_INTERNAL_OBJECT &&
+      aContentPolicyType != nsIContentPolicy::TYPE_INTERNAL_EMBED) {
+    *aRv = NS_ERROR_UNEXPECTED;
+    return nullptr;
+  }
 
   auto sandboxFlags = aLoadState->TriggeringSandboxFlags();
 
@@ -2696,6 +2710,17 @@ void DocumentLoadListener::TriggerRedirectToRealChannel(
            this));
       RedirectToRealChannelFinished(rv);
       return;
+    }
+
+    // Update the enterprise ServiceWorder policy on the destination
+    // BrowsingContext before sending the navigation to the content process.
+    // Since IPC messages from the parent to a given content process are
+    // ordered, the content process will see the correct
+    // ServiceWorkersDisabledByPolicy value before it begins loading the
+    // document, preventing scripts from observing a stale value.
+    if (aDestinationBrowsingContext->IsTopContent()) {
+      (void)aDestinationBrowsingContext->SetServiceWorkersDisabledByPolicy(
+          dom::IsServiceWorkersDisabledByPolicy(docURI));
     }
   }
 

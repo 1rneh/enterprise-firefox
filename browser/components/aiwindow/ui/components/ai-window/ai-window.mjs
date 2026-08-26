@@ -165,6 +165,9 @@ const TAB_FAVICON_CHAT =
   "chrome://browser/content/aiwindow/assets/ask-icon.svg";
 const PREF_CHAT_INTERACTION_COUNT = "browser.smartwindow.chat.interactionCount";
 const PREF_HIDE_TOP_SITES = "browser.smartwindow.hideTopSites";
+// Hide Top Sites if the user has turned Shortcuts off in the New Tab settings.
+const PREF_TOPSITES_FEED_ENABLED =
+  "browser.newtabpage.activity-stream.feeds.topsites";
 const PREF_AGENT_ENABLED = "browser.smartwindow.agent.enabled";
 const MAX_INTERACTION_COUNT = 1000;
 const HISTORY_MENU_MAX_RECENT_CHATS = 6;
@@ -180,6 +183,9 @@ const HISTORY_MENU_EVENTS = [
 const MAX_SIDEBAR_STARTER_CACHE_KEYS = 20;
 const MAX_TOP_SITES = 8;
 const MAX_PILL_COUNT = 3;
+// TEMP: English-only workaround. Remove once resume headlines support
+// localization - see Bug 2066263.
+const RESUME_HEADLINE_PREFIX_RE = /^\s*pick\s+up\b[\s:;,.—-]*/iu;
 
 // 1-6 are MLPA spec codes; 7 is set locally for Fastly-blocked 406s.
 const ERROR_TELEMETRY_NAME_BY_CODE = {
@@ -439,6 +445,13 @@ export class AIWindow extends MozLitElement {
       "hideTopSitesPref",
       PREF_HIDE_TOP_SITES,
       false,
+      () => this.#syncTopSites()
+    );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "topSitesFeedPref",
+      PREF_TOPSITES_FEED_ENABLED,
+      true,
       () => this.#syncTopSites()
     );
     XPCOMUtils.defineLazyPreferenceGetter(
@@ -1431,31 +1444,37 @@ export class AIWindow extends MozLitElement {
     }
 
     if (this.showStarters && recordTelemetry) {
-      this.onQuickPromptDisplayed(this.#starters.length);
+      const resumePrompts = this.#starters.filter(
+        starter => starter.type === "resume"
+      ).length;
+      this.onQuickPromptDisplayed(this.#starters.length, resumePrompts);
     }
     this.requestUpdate();
   }
 
   /**
-   * Loads the user's Top Sites and renders a single row of them below the
-   * Smartbar in fullpage mode. Sponsored sites are filtered out; we only keep
-   * the first MAX_TOP_SITES entries to fit a single row.
+   * Whether Top Sites should be shown: the user must not have hidden them in
+   * Smart Window, and Shortcuts must still be enabled in the New Tab settings.
    *
    * @private
    */
+  get #topSitesEnabled() {
+    return !this.hideTopSitesPref && this.topSitesFeedPref;
+  }
+
   /**
    * Loads or clears Top Sites based on the current mode and the
-   * hideTopSites pref. Invoked on connect and whenever the pref changes
+   * Top Sites prefs. Invoked on connect and whenever either pref changes
    * so every open AI window reflects the new value.
    *
    * @private
    */
   #syncTopSites() {
     if (this.mode === MODE.FULLPAGE) {
-      Glean.smartWindow.topsitesEnabled.set(!this.hideTopSitesPref);
+      Glean.smartWindow.topsitesEnabled.set(this.#topSitesEnabled);
     }
 
-    if (this.mode === MODE.FULLPAGE && !this.hideTopSitesPref) {
+    if (this.mode === MODE.FULLPAGE && this.#topSitesEnabled) {
       // Only the visible tab can exhibit the prompts-row layout shift, so gate
       // its Top Sites on starter resolution (see #renderStarterPrompts).
       // Background tabs are hidden and never reload starters on tab switch, so
@@ -1752,8 +1771,17 @@ export class AIWindow extends MozLitElement {
           contextPageUrl,
           conversation: this.#conversation,
           window: this.#topChromeWindow,
+          isFullPage: this.mode === MODE.FULLPAGE,
         })
       ) {
+        // This command renders the monitor chat UI, so switch to the chat
+        // layout as if communication has started
+        if (
+          this.mode === MODE.FULLPAGE &&
+          !this.classList.contains("chat-active")
+        ) {
+          this.#initActiveChatlayout();
+        }
         return;
       }
 
@@ -1969,12 +1997,7 @@ export class AIWindow extends MozLitElement {
       return;
     }
 
-    Glean.smartWindow.quickPromptClicked.record({
-      location: this.mode,
-      chat_id: this.conversationId,
-      message_seq: this.#conversation?.messageCount ?? 0,
-      starter: true,
-    });
+    this.#recordQuickPromptClicked("resume");
 
     this.#generateResumeActivityConversation(resumePrompt).catch(e =>
       lazy.log.error("[Prompts] Resume-activity generation failed:", e)
@@ -2043,12 +2066,17 @@ export class AIWindow extends MozLitElement {
         checked: false,
       })
     );
+    const strippedHeadline =
+      resumePrompt.text.replace(RESUME_HEADLINE_PREFIX_RE, "").trim() ||
+      resumePrompt.text.trim();
     await this.reloadAndGenerate(conversation, {
       uiType: "tab-group-confirmation",
       toolCallId: `resume-activity-${resumePrompt.memory.id}`,
+      isResumeActivity: true,
       properties: {
         actionType: "open_tabs",
-        tabGroupLabel: resumePrompt.text,
+        tabGroupLabel:
+          strippedHeadline.charAt(0).toUpperCase() + strippedHeadline.slice(1),
         tabs,
       },
     });
@@ -2085,15 +2113,34 @@ export class AIWindow extends MozLitElement {
    * Called for both conversation starters and follow-up suggestions.
    *
    * @param {number} prompts - Number of prompts shown
+   * @param {number} [resumePrompts] - Number of those prompts that were
+   *   resume pills
    */
-  onQuickPromptDisplayed = prompts => {
+  onQuickPromptDisplayed = (prompts, resumePrompts = 0) => {
     Glean.smartWindow.quickPromptDisplayed.record({
       location: this.mode,
       chat_id: this.conversationId,
       message_seq: this.#conversation?.messageCount ?? 0,
       prompts,
+      resume_prompts: resumePrompts,
     });
   };
+
+  /**
+   * Records a quick_prompt_clicked Glean event.
+   *
+   * @param {"default"|"resume"|"followup"} starterType - The type of prompt
+   *   that was clicked.
+   */
+  #recordQuickPromptClicked(starterType) {
+    Glean.smartWindow.quickPromptClicked.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+      starter: starterType !== "followup",
+      starter_type: starterType,
+    });
+  }
 
   /**
    * Records a quick_prompt_clicked Glean event and submits the prompt.
@@ -2105,12 +2152,7 @@ export class AIWindow extends MozLitElement {
    * supplied by the prompt
    */
   onQuickPromptClicked(text, starter, contextMentionsOverride) {
-    Glean.smartWindow.quickPromptClicked.record({
-      location: this.mode,
-      chat_id: this.conversationId,
-      message_seq: this.#conversation?.messageCount ?? 0,
-      starter,
-    });
+    this.#recordQuickPromptClicked(starter ? "default" : "followup");
 
     const { pageUrl: contextPageUrl, contextWebsites } =
       this.#smartbar.getCurrentContextData();
@@ -2243,6 +2285,12 @@ export class AIWindow extends MozLitElement {
     }
   }
 
+  #initActiveChatlayout() {
+    this.showStarters = false;
+    this.showFooter = false;
+    this.#setBrowserContainerActiveState(true);
+  }
+
   /**
    * Fetches an AI response based on the current user prompt.
    * Validates the prompt, updates conversation state, streams the response,
@@ -2326,6 +2374,11 @@ export class AIWindow extends MozLitElement {
     conversation.on("chat-conversation:message-update", onUpdate);
 
     try {
+      // Kicked off before the engine and prompt work, which it has no data
+      // dependency on, so a cold or expired token doesn't add a round-trip
+      // between the user hitting send and the request going out.
+      const fxAccountTokenPromise = lazy.openAIEngine.getFxAccountToken();
+
       const { engine, parameters } = await lazy.buildEngineForFeature(
         lazy.MODEL_FEATURES.CHAT,
         {
@@ -2371,6 +2424,7 @@ export class AIWindow extends MozLitElement {
         browsingContext,
         mode: this.mode,
         signal,
+        fxAccountTokenPromise,
       });
 
       ChromeUtils.addProfilerMarker(

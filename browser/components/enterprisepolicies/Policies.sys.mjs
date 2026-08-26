@@ -243,9 +243,6 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       lazy.AIChatbotPolicies.applyAIChatbotPolicy(param);
     },
-    onRemove(_manager, _oldParams) {
-      lazy.AIChatbotPolicies.unapplyAIChatbotPolicy();
-    },
   },
 
   AIControls: {
@@ -329,19 +326,7 @@ export var Policies = {
           true
         );
         manager.disallowFeature("filepickers");
-      } else {
-        lazy.PoliciesUtils.setAndLockPref("widget.disable_file_pickers", false);
-        lazy.PoliciesUtils.setAndLockPref(
-          "browser.download.useDownloadDir",
-          false
-        );
-        manager.allowFeature("filepickers");
       }
-    },
-    onRemove(manager, _oldParams) {
-      lazy.PoliciesUtils.unsetAndUnlockPref("widget.disable_file_pickers");
-      lazy.PoliciesUtils.unsetAndUnlockPref("browser.download.useDownloadDir");
-      manager.allowFeature("filepickers");
     },
   },
 
@@ -351,16 +336,9 @@ export var Policies = {
       // true, we disallow turning off auto updating, and visa versa.
       if (param) {
         manager.disallowFeature("app-auto-updates-off");
-        manager.allowFeature("app-auto-updates-on");
       } else {
         manager.disallowFeature("app-auto-updates-on");
-        manager.allowFeature("app-auto-updates-off");
       }
-    },
-    onRemove(manager, _oldParams) {
-      // In a default unpolicied state, it is allowed to turn auto updating on or off
-      manager.allowFeature("app-auto-updates-on");
-      manager.allowFeature("app-auto-updates-off");
     },
   },
 
@@ -541,22 +519,11 @@ export var Policies = {
         param
       );
     },
-    onRemove(_manager, _param) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "extensions.formautofill.addresses.enabled"
-      );
-    },
   },
 
   AutofillCreditCardEnabled: {
     onBeforeAddons(manager, param) {
       lazy.PoliciesUtils.setAndLockPref(
-        "extensions.formautofill.creditCards.enabled",
-        param
-      );
-    },
-    onRemove(manager, param) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(
         "extensions.formautofill.creditCards.enabled",
         param
       );
@@ -576,20 +543,11 @@ export var Policies = {
 
   BackgroundAppUpdate: {
     onBeforeAddons(manager, param) {
-      // Logic feels a bit reversed here, but it's correct. If BackgroundAppUpdate is
-      // true, we disallow turning off background updating, and visa versa.
       if (param) {
         manager.disallowFeature("app-background-update-off");
-        manager.allowFeature("app-background-update-on");
       } else {
         manager.disallowFeature("app-background-update-on");
-        manager.allowFeature("app-background-update-off");
       }
-    },
-    onRemove(manager, _oldParams) {
-      // In a default unpolicied state, it is allowed to turn background updating on or off
-      manager.allowFeature("app-background-update-on");
-      manager.allowFeature("app-background-update-off");
     },
   },
 
@@ -597,12 +555,7 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         lazy.blockAboutPage(manager, "about:addons", true);
-      } else {
-        lazy.unblockAboutPage(manager, "about:addons");
       }
-    },
-    onRemove(manager, _oldParams) {
-      lazy.unblockAboutPage(manager, "about:addons");
     },
   },
 
@@ -626,8 +579,6 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("profileManagement");
-      } else {
-        manager.allowFeature("profileManagement");
       }
     },
     onBeforeUIStartup(manager, param) {
@@ -637,21 +588,7 @@ export var Policies = {
         lazy.blockAboutPage(manager, "about:editprofile");
         lazy.blockAboutPage(manager, "about:deleteprofile");
         lazy.blockAboutPage(manager, "about:newprofile");
-      } else {
-        lazy.unblockAboutPage(manager, "about:profiles");
-        lazy.unblockAboutPage(manager, "about:profilemanager");
-        lazy.unblockAboutPage(manager, "about:editprofile");
-        lazy.unblockAboutPage(manager, "about:deleteprofile");
-        lazy.unblockAboutPage(manager, "about:newprofile");
       }
-    },
-    onRemove(manager, _oldParams) {
-      manager.allowFeature("profileManagement");
-      lazy.unblockAboutPage(manager, "about:profiles");
-      lazy.unblockAboutPage(manager, "about:profilemanager");
-      lazy.unblockAboutPage(manager, "about:editprofile");
-      lazy.unblockAboutPage(manager, "about:deleteprofile");
-      lazy.unblockAboutPage(manager, "about:newprofile");
     },
   },
 
@@ -778,11 +715,6 @@ export var Policies = {
       lazy.PoliciesUtils.setAndLockPref(
         "network.captive-portal-service.enabled",
         param
-      );
-    },
-    onRemove(_manager, _oldParams) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "network.captive-portal-service.enabled"
       );
     },
   },
@@ -1277,10 +1209,6 @@ export var Policies = {
         );
       }
     },
-    onRemove(_manager, _param) {
-      // Making sure WebSerial is always default opt-in when the policy engine is active
-      lazy.PoliciesUtils.unsetAndUnlockPref("dom.webserial.enabled");
-    },
   },
 
   DisableAccounts: {
@@ -1291,14 +1219,7 @@ export var Policies = {
           "browser.aboutwelcome.enabled",
           false
         );
-      } else {
-        lazy.PoliciesUtils.unsetAndUnlockPref("identity.fxaccounts.enabled");
-        lazy.PoliciesUtils.unsetAndUnlockPref("browser.aboutwelcome.enabled");
       }
-    },
-    onRemove(_manager, _oldParams) {
-      lazy.PoliciesUtils.unsetAndUnlockPref("identity.fxaccounts.enabled");
-      lazy.PoliciesUtils.unsetAndUnlockPref("browser.aboutwelcome.enabled");
     },
   },
 
@@ -1306,12 +1227,7 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("appUpdate");
-      } else {
-        manager.allowFeature("appUpdate");
       }
-    },
-    onRemove(manager, _oldParams) {
-      manager.allowFeature("appUpdate");
     },
   },
 
@@ -1438,18 +1354,7 @@ export var Policies = {
           "network.dns.http3_echconfig.enabled",
           false
         );
-      } else {
-        lazy.PoliciesUtils.unsetAndUnlockPref("network.dns.echconfig.enabled");
-        lazy.PoliciesUtils.unsetAndUnlockPref(
-          "network.dns.http3_echconfig.enabled"
-        );
       }
-    },
-    onRemove(_manager, _oldParams) {
-      lazy.PoliciesUtils.unsetAndUnlockPref("network.dns.echconfig.enabled");
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "network.dns.http3_echconfig.enabled"
-      );
     },
   },
 
@@ -1457,12 +1362,7 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("feedbackCommands");
-      } else {
-        manager.allowFeature("feedbackCommands");
       }
-    },
-    onRemove(manager, _oldParams) {
-      manager.allowFeature("feedbackCommands");
     },
   },
 
@@ -1479,20 +1379,7 @@ export var Policies = {
           "browser.aboutwelcome.enabled",
           false
         );
-      } else {
-        lazy.PoliciesUtils.setAndLockPref("identity.fxaccounts.enabled", true);
-        lazy.PoliciesUtils.setAndLockPref("browser.aboutwelcome.enabled", true);
       }
-    },
-    onRemove(manager, _oldParams) {
-      // If DisableAccounts is set, let it take precedence.
-      // TODO: true for onRemove as well?
-      if ("DisableAccounts" in manager.getActivePolicies()) {
-        return;
-      }
-
-      lazy.PoliciesUtils.unsetAndUnlockPref("identity.fxaccounts.enabled");
-      lazy.PoliciesUtils.unsetAndUnlockPref("browser.aboutwelcome.enabled");
     },
   },
 
@@ -1503,17 +1390,7 @@ export var Policies = {
           "screenshots.browser.component.enabled",
           false
         );
-      } else {
-        lazy.PoliciesUtils.setAndLockPref(
-          "screenshots.browser.component.enabled",
-          true
-        );
       }
-    },
-    onRemove(_manager, _oldParams) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "screenshots.browser.component.enabled"
-      );
     },
   },
 
@@ -1529,26 +1406,7 @@ export var Policies = {
           "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
           false
         );
-      } else {
-        manager.allowFeature("Shield");
-        lazy.PoliciesUtils.setAndLockPref(
-          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons",
-          true
-        );
-        lazy.PoliciesUtils.setAndLockPref(
-          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
-          true
-        );
       }
-    },
-    onRemove(manager, _oldParams) {
-      manager.allowFeature("Shield");
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons"
-      );
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features"
-      );
     },
   },
 
@@ -1556,8 +1414,6 @@ export var Policies = {
     onProfileAfterChange(manager, param) {
       if (param) {
         lazy.PoliciesUtils.setAndLockPref("privacy.panicButton.enabled", false);
-      } else {
-        lazy.PoliciesUtils.setAndLockPref("privacy.panicButton.enabled", true);
       }
     },
   },
@@ -1566,8 +1422,6 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         lazy.PoliciesUtils.setAndLockPref("browser.formfill.enable", false);
-      } else {
-        lazy.PoliciesUtils.setAndLockPref("browser.formfill.enable", true);
       }
     },
   },
@@ -1594,8 +1448,6 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("createMasterPassword");
-      } else {
-        manager.allowFeature("createMasterPassword");
       }
     },
   },
@@ -1604,8 +1456,6 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("passwordReveal");
-      } else {
-        manager.allowFeature("passwordReveal");
       }
     },
   },
@@ -1619,21 +1469,7 @@ export var Policies = {
           "browser.privatebrowsing.autostart",
           false
         );
-      } else {
-        manager.allowFeature("privatebrowsing");
-        lazy.unblockAboutPage(manager, "about:privatebrowsing");
-        lazy.PoliciesUtils.setAndLockPref(
-          "browser.privatebrowsing.autostart",
-          true
-        );
       }
-    },
-    onRemove(manager, _oldParams) {
-      manager.allowFeature("privatebrowsing");
-      lazy.unblockAboutPage(manager, "about:privatebrowsing");
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "browser.privatebrowsing.autostart"
-      );
     },
   },
 
@@ -1645,12 +1481,6 @@ export var Policies = {
           "browser.newtabpage.activity-stream.migrationExpired",
           true
         );
-      } else {
-        manager.allowFeature("profileImport");
-        lazy.PoliciesUtils.setAndLockPref(
-          "browser.newtabpage.activity-stream.migrationExpired",
-          false
-        );
       }
     },
   },
@@ -1660,9 +1490,6 @@ export var Policies = {
       if (param) {
         manager.disallowFeature("profileRefresh");
         lazy.PoliciesUtils.setAndLockPref("browser.disableResetPrompt", true);
-      } else {
-        manager.allowFeature("profileRefresh");
-        lazy.PoliciesUtils.setAndLockPref("browser.disableResetPrompt", false);
       }
     },
   },
@@ -1671,8 +1498,6 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("NimbusRollouts");
-      } else {
-        manager.allowFeature("NimbusRollouts");
       }
     },
   },
@@ -1689,8 +1514,6 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("safeMode");
-      } else {
-        manager.allowFeature("safeMode");
       }
     },
   },
@@ -1717,8 +1540,6 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("setDesktopBackground");
-      } else {
-        manager.allowFeature("setDesktopBackground");
       }
     },
   },
@@ -1727,8 +1548,6 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("SysAddonUpdate");
-      } else {
-        manager.allowFeature("SysAddonUpdate");
       }
     },
   },
@@ -1753,40 +1572,7 @@ export var Policies = {
           false
         );
         lazy.blockAboutPage(manager, "about:telemetry");
-      } else {
-        lazy.PoliciesUtils.setAndLockPref(
-          "datareporting.healthreport.uploadEnabled",
-          true
-        );
-        lazy.PoliciesUtils.setAndLockPref(
-          "datareporting.policy.dataSubmissionEnabled",
-          true
-        );
-        lazy.PoliciesUtils.setAndLockPref(
-          "toolkit.telemetry.archive.enabled",
-          true
-        );
-        lazy.PoliciesUtils.setAndLockPref(
-          "datareporting.usage.uploadEnabled",
-          true
-        );
-        lazy.unblockAboutPage(manager, "about:telemetry");
       }
-    },
-    onRemove(manager, _oldParams) {
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "datareporting.healthreport.uploadEnabled"
-      );
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "datareporting.policy.dataSubmissionEnabled"
-      );
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "toolkit.telemetry.archive.enabled"
-      );
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "datareporting.usage.uploadEnabled"
-      );
-      lazy.unblockAboutPage(manager, "about:telemetry");
     },
   },
 
@@ -1794,8 +1580,6 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         manager.disallowFeature("thirdPartyModuleBlocking");
-      } else {
-        manager.allowFeature("thirdPartyModuleBlocking");
       }
     },
   },
@@ -2435,7 +2219,9 @@ export var Policies = {
 
   ExtensionUpdate: {
     onBeforeAddons(manager, param) {
-      lazy.PoliciesUtils.setAndLockPref("extensions.update.enabled", param);
+      if (!param) {
+        lazy.PoliciesUtils.setAndLockPref("extensions.update.enabled", param);
+      }
     },
   },
 
@@ -2677,11 +2463,6 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (!param) {
         lazy.PoliciesUtils.setAndLockPref("layers.acceleration.disabled", true);
-      } else {
-        lazy.PoliciesUtils.setAndLockPref(
-          "layers.acceleration.disabled",
-          false
-        );
       }
     },
   },
@@ -2818,6 +2599,14 @@ export var Policies = {
             "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
             false
           );
+          lazy.PoliciesUtils.setAndLockPref(
+            "extensions.getAddons.showPane",
+            false
+          );
+          lazy.PoliciesUtils.setAndLockPref(
+            "extensions.htmlaboutaddons.recommendations.enabled",
+            false
+          );
           manager.disallowFeature("xpinstall");
         }
       }
@@ -2831,8 +2620,6 @@ export var Policies = {
           "browser.ipProtection.enabled",
           false
         );
-      } else {
-        lazy.PoliciesUtils.setAndLockPref("browser.ipProtection.enabled", true);
       }
     },
   },
@@ -2942,8 +2729,6 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("autoAppUpdateChecking");
-      } else {
-        manager.allowFeature("autoAppUpdateChecking");
       }
     },
   },
@@ -2977,8 +2762,6 @@ export var Policies = {
     onProfileAfterChange(manager, param) {
       if (param) {
         manager.disallowFeature("defaultBookmarks");
-      } else {
-        manager.allowFeature("defaultBookmarks");
       }
     },
   },
@@ -3037,28 +2820,8 @@ export var Policies = {
           "browser.contextual-password-manager.enabled",
           false
         );
-      } else {
-        lazy.unblockAboutPage(manager, "about:logins");
-        lazy.PoliciesUtils.setAndLockPref(
-          "pref.privacy.disable_button.view_passwords",
-          false
-        );
-        lazy.PoliciesUtils.setAndLockPref(
-          "browser.contextual-password-manager.enabled",
-          true
-        );
       }
       lazy.PoliciesUtils.setAndLockPref("signon.rememberSignons", param);
-    },
-    onRemove(manager, _oldParams) {
-      lazy.unblockAboutPage(manager, "about:logins");
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "pref.privacy.disable_button.view_passwords"
-      );
-      lazy.PoliciesUtils.unsetAndUnlockPref("signon.rememberSignons");
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "browser.contextual-password-manager.enabled"
-      );
     },
   },
 
@@ -3481,27 +3244,6 @@ export var Policies = {
           );
           break;
         // Private Browsing mode available
-        case 0:
-          break;
-      }
-    },
-    onRemove(manager, oldParams) {
-      switch (oldParams) {
-        // Private Browsing mode was disabled
-        case 1:
-          manager.allowFeature("privatebrowsing");
-          lazy.unblockAboutPage(manager, "about:privatebrowsing");
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.privatebrowsing.autostart"
-          );
-          break;
-        // Private Browsing mode was forced
-        case 2:
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.privatebrowsing.autostart"
-          );
-          break;
-        // Private Browsing mode was available
         case 0:
           break;
       }
@@ -4032,8 +3774,6 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       if (param) {
         manager.disallowFeature("removeHomeButtonByDefault");
-      } else {
-        manager.allowFeature("removeHomeButtonByDefault");
       }
     },
     onAllWindowsRestored(manager, param) {
@@ -4113,6 +3853,10 @@ export var Policies = {
         features.http = !policies.HttpsOnly;
       }
 
+      if ("DisableServiceWorkers" in policies) {
+        features.serviceworkers = !policies.DisableServiceWorkers;
+      }
+
       return features;
     },
 
@@ -4175,9 +3919,6 @@ export var Policies = {
           "termsofuse.acceptedDate",
           Date.now().toString()
         );
-      } else {
-        lazy.PoliciesUtils.unsetAndUnlockPref("termsofuse.acceptedVersion");
-        lazy.PoliciesUtils.unsetAndUnlockPref("termsofuse.acceptedDate");
       }
     },
   },
@@ -4378,7 +4119,3 @@ export var Policies = {
     },
   },
 };
-
-if (!AppConstants.MOZ_ENTERPRISE) {
-  delete Policies.Sync;
-}

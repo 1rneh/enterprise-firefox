@@ -975,10 +975,7 @@ Sync11Service.prototype = {
 
   // configures/enabled/turns-on sync. There must be an FxA user signed in.
   async configure() {
-    if (
-      AppConstants.MOZ_ENTERPRISE &&
-      !Services.policies.isAllowed("change-sync-state")
-    ) {
+    if (AppConstants.MOZ_ENTERPRISE && !Services.policies.isAllowed("sync")) {
       // This should never hit. If the Sync policy locks the sync state all calls to this method are guarded.
       this._log.error(
         "Sync is disabled and locked by the Sync policy and can only be enabled by a policy update."
@@ -1008,10 +1005,7 @@ Sync11Service.prototype = {
   async startOver() {
     this._log.trace("Invoking Service.startOver.");
 
-    if (
-      AppConstants.MOZ_ENTERPRISE &&
-      !Services.policies.isAllowed("change-sync-state")
-    ) {
+    if (AppConstants.MOZ_ENTERPRISE && !Services.policies.isAllowed("sync")) {
       // This should never hit. If the Sync policy locks the sync state all calls to this method are guarded.
       this._log.error(
         "Sync is enabled and locked by the Sync policy and can only be disabled by a policy update."

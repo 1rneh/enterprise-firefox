@@ -1374,7 +1374,7 @@ static int DoUpdate();
 
 class Action {
  public:
-  Action() : mProgressCost(1), mNext(nullptr) {}
+  Action() : mProgressCost(1), mNext(nullptr), mPrev(nullptr) {}
   virtual ~Action() = default;
 
   virtual int Parse(NS_tchar* line) = 0;
@@ -1401,6 +1401,7 @@ class Action {
 
  private:
   Action* mNext;
+  Action* mPrev;
 
   friend class ActionList;
 };
@@ -2272,7 +2273,17 @@ int PatchFile::ApplyPatchTo(PatchDest aDest) {
 
 #if defined(HAVE_POSIX_FALLOCATE)
   AutoFile ofile(ensure_open(destPath, NS_T("wb+"), destMode));
-  posix_fallocate(fileno((FILE*)ofile), 0, dlen);
+  if (ofile != nullptr) {
+    // Preallocation is only an anti-fragmentation optimization; a failure here
+    // is not fatal because writing the patched contents will fail below if
+    // there really is no space. posix_fallocate returns the error number
+    // instead of setting errno.
+    int fallocateRv = posix_fallocate(fileno((FILE*)ofile), 0, dlen);
+    if (fallocateRv != 0) {
+      LOG(("failed to preallocate space for new file: " LOG_S ", err: %d",
+           mFileRelPath.get(), fallocateRv));
+    }
+  }
 #elif defined(XP_WIN)
   bool shouldTruncate = true;
 
@@ -2299,18 +2310,21 @@ int PatchFile::ApplyPatchTo(PatchDest aDest) {
       destPath, shouldTruncate ? NS_T("wb+") : NS_T("rb+"), destMode));
 #elif defined(XP_MACOSX)
   AutoFile ofile(ensure_open(destPath, NS_T("wb+"), destMode));
-  // Modified code from FileUtils.cpp
-  fstore_t store = {F_ALLOCATECONTIG, F_PEOFPOSMODE, 0, dlen};
-  // Try to get a continous chunk of disk space
-  rv = fcntl(fileno((FILE*)ofile), F_PREALLOCATE, &store);
-  if (rv == -1) {
-    // OK, perhaps we are too fragmented, allocate non-continuous
-    store.fst_flags = F_ALLOCATEALL;
+  if (ofile != nullptr) {
+    // Modified code from FileUtils.cpp
+    fstore_t store = {F_ALLOCATECONTIG, F_PEOFPOSMODE, 0, dlen};
+    // Try to get a continous chunk of disk space
     rv = fcntl(fileno((FILE*)ofile), F_PREALLOCATE, &store);
-  }
+    if (rv == -1) {
+      // OK, perhaps we are too fragmented, allocate non-continuous
+      store.fst_flags = F_ALLOCATEALL;
+      rv = fcntl(fileno((FILE*)ofile), F_PREALLOCATE, &store);
+    }
 
-  if (rv != -1) {
-    ftruncate(fileno((FILE*)ofile), dlen);
+    if (rv != -1 && ftruncate(fileno((FILE*)ofile), dlen) != 0) {
+      LOG(("failed to set the size of the new file: " LOG_S ", err: %d",
+           mFileRelPath.get(), errno));
+    }
   }
 #else
   AutoFile ofile(ensure_open(destPath, NS_T("wb+"), destMode));
@@ -5047,6 +5061,7 @@ void ActionList::Append(Action* action) {
     mFirst = action;
   }
 
+  action->mPrev = mLast;
   mLast = action;
   mCount++;
 }
@@ -5131,7 +5146,13 @@ int ActionList::Execute() {
 }
 
 void ActionList::Finish(int status) {
-  Action* a = mFirst;
+  // On failure, rolling back requires unwinding the executed actions in
+  // reverse order to correctly handle multiple actions touching the same path.
+  // This is unsupported in the general case, but tolerated if the first action
+  // is a REMOVEFILE and the second an ADD like in non-staged complete updates.
+  // On success the order is preserved because RemoveDir removes directories
+  // here and needs to visit children before their parents.
+  Action* a = status == OK ? mFirst : mLast;
   int i = 0;
   while (a) {
     a->Finish(status);
@@ -5140,7 +5161,7 @@ void ActionList::Finish(int status) {
     UpdateProgressUI(PROGRESS_PREPARE_SIZE + PROGRESS_DRAFT_SIZE +
                      PROGRESS_EXECUTE_SIZE + PROGRESS_FINISH_SIZE * percent);
 
-    a = a->mNext;
+    a = status == OK ? a->mNext : a->mPrev;
   }
 
   if (status == OK) {

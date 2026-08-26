@@ -41,3 +41,14 @@ export function createEnterpriseLogger(logPrefix) {
     maxLogLevelPref: ENTERPRISE_LOG_LEVEL_PREF,
   });
 }
+
+export function initiateShutdown() {
+  // TODO: Bug 2001029 - Assert or force-enable session restore?
+  try {
+    Services.felt.performSignout();
+  } catch (e) {
+    console.error(`Unable to signout the user: ${e}`);
+    Services.obs.notifyObservers(null, "felt-firefox-shutdown");
+  }
+  // FELT will call shutdownFirefox() to quit us after handling the logout.
+}

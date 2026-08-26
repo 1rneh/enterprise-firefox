@@ -1323,7 +1323,7 @@ bool AppWindow::UpdateWindowStateFromMiscXULAttributes() {
     nsCOMPtr<mozIDOMWindowProxy> ourWindow;
     GetWindowDOMWindow(getter_AddRefs(ourWindow));
     auto* piWindow = nsPIDOMWindowOuter::From(ourWindow);
-    piWindow->SetFullScreen(true);
+    MOZ_KnownLive(piWindow)->SetFullScreen(true);
   } else {
     // For maximized windows, ignore the XUL size and position attributes,
     // as setting them would set the window back to normal sizemode.
@@ -2275,56 +2275,11 @@ void AppWindow::EnableParent(bool aEnable) {
   }
 }
 
-void AppWindow::SetContentScrollbarVisibility(bool aVisible) {
-  nsCOMPtr<nsPIDOMWindowOuter> contentWin(
-      do_GetInterface(mPrimaryContentShell));
-  if (!contentWin) {
-    return;
-  }
-
-  nsContentUtils::SetScrollbarsVisibility(contentWin->GetDocShell(), aVisible);
-}
-
 void AppWindow::ApplyChromeFlags() {
   nsCOMPtr<dom::Element> root = GetWindowDOMElement();
   if (!root) {
     return;
   }
-
-  if (mChromeLoaded) {
-    // The two calls in this block don't need to happen early because they
-    // don't cause a global restyle on the document.  Not only that, but the
-    // scrollbar stuff needs a content area to toggle the scrollbars on anyway.
-    // So just don't do these until mChromeLoaded is true.
-
-    // Scrollbars have their own special treatment.
-    SetContentScrollbarVisibility(mChromeFlags &
-                                  nsIWebBrowserChrome::CHROME_SCROLLBARS);
-  }
-
-  /* the other flags are handled together. we have style rules
-     in navigator.css that trigger visibility based on
-     the 'chromehidden' attribute of the <window> tag. */
-  nsAutoString newvalue;
-
-  if (!(mChromeFlags & nsIWebBrowserChrome::CHROME_MENUBAR))
-    newvalue.AppendLiteral("menubar ");
-
-  if (!(mChromeFlags & nsIWebBrowserChrome::CHROME_TOOLBAR))
-    newvalue.AppendLiteral("toolbar ");
-
-  if (!(mChromeFlags & nsIWebBrowserChrome::CHROME_LOCATIONBAR))
-    newvalue.AppendLiteral("location ");
-
-  if (!(mChromeFlags & nsIWebBrowserChrome::CHROME_PERSONAL_TOOLBAR))
-    newvalue.AppendLiteral("directories ");
-
-  if (!(mChromeFlags & nsIWebBrowserChrome::CHROME_EXTRA))
-    newvalue.AppendLiteral("extrachrome ");
-
-  // Note that if we're not actually changing the value this will be a no-op,
-  // so no need to compare to the old value.
-  root->SetAttribute(u"chromehidden"_ns, newvalue, IgnoreErrors());
 
   if (mChromeFlags & nsIWebBrowserChrome::CHROME_NO_PERSISTENCE) {
     root->SetAttribute(u"persist"_ns, u""_ns, IgnoreErrors());
@@ -2584,11 +2539,12 @@ void AppWindow::WindowMoved(nsIWidget*, const LayoutDeviceIntPoint&) {
 
   // Notify all tabs that the widget moved.
   if (mDocShell && mDocShell->GetWindow()) {
-    nsCOMPtr<EventTarget> eventTarget =
+    const nsCOMPtr<EventTarget> eventTarget =
         mDocShell->GetWindow()->GetTopWindowRoot();
+    const RefPtr<Document> doc = mDocShell->GetDocument();
     nsContentUtils::DispatchChromeEvent(
-        mDocShell->GetDocument(), eventTarget, u"MozUpdateWindowPos"_ns,
-        CanBubble::eNo, Cancelable::eNo, nullptr);
+        doc, eventTarget, u"MozUpdateWindowPos"_ns, CanBubble::eNo,
+        Cancelable::eNo, nullptr);
   }
 
   // Persist position, but not immediately, in case this OS is firing
@@ -2736,11 +2692,12 @@ void AppWindow::FullscreenChanged(bool aInFullscreen) {
     NS_DelayedDispatchToCurrentThread(
         NS_NewRunnableFunction(
             "AppWindow::FullscreenChanged",
-            [this, kungFuDeathGrip, newState, aInFullscreen]() {
-              if (mFullscreenChangeState == newState) {
-                FinishFullscreenChange(aInFullscreen);
-              }
-            }),
+            [this, kungFuDeathGrip, newState, aInFullscreen]()
+                MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA {
+                  if (mFullscreenChangeState == newState) {
+                    FinishFullscreenChange(aInFullscreen);
+                  }
+                }),
         80);
   }
 }

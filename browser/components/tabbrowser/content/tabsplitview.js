@@ -116,8 +116,6 @@
       this.#observeTabChanges();
       this.#restorePanelWidths();
 
-      this.toggleAttribute("hidden", !this.visible);
-
       if (this.hasActiveTab) {
         this.#activate();
       }
@@ -163,7 +161,6 @@
               tab.setAttribute("aria-setsize", this.tabs.length);
               tab.updateSplitViewAriaLabel(index);
             });
-            this.toggleAttribute("hidden", !this.visible);
             this.dispatchEvent(
               new CustomEvent("SplitViewTabChange", {
                 bubbles: true,
@@ -185,8 +182,6 @@
       }
       this.#tabChangeObserver.observe(this, {
         childList: true,
-        subtree: true,
-        attributeFilter: ["hidden"],
       });
     }
 
@@ -335,7 +330,7 @@
           this.documentGlobal === tab.documentGlobal
             ? tab
             : gBrowser.adoptTab(tab, {
-                tabIndex: gBrowser.tabs.at(-1)._tPos + 1,
+                tabIndex: gBrowser.tabs.at(-1).index + 1,
                 selectTab: tab.selected,
               });
         if (indexOfReplacedTab > -1 && indexOfReplacedTab < this.#tabs.length) {

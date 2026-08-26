@@ -39,7 +39,7 @@ export class ContextMenuParent extends JSWindowActorParent {
     win.goUpdateGlobalEditMenuItems();
 
     // Not yet implemented, bug 2012420
-    this.#showItem("textbox-contextmenu-reveal-password", false);
+    this.#showItem("edit-contextmenu-reveal-password", false);
 
     // We don't have access to the original event here, as that happened in
     // another process. Therefore we synthesize a new MouseEvent to propagate the

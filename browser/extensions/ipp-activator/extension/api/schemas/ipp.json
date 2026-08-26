@@ -61,6 +61,13 @@
         "parameters": []
       },
       {
+        "name": "isEnterpriseAccessConnector",
+        "type": "function",
+        "description": "Return whether the AccessConnector policy is active (enterprise always-on).",
+        "async": true,
+        "parameters": []
+      },
+      {
         "name": "getRegion",
         "type": "function",
         "description": "Return the user's home region as an ISO 3166-1 alpha-2 code (uppercase), or null if unknown.",

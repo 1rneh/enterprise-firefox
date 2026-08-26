@@ -10,8 +10,12 @@
 const { JsonSchema } = ChromeUtils.importESModule(
   "resource://gre/modules/JsonSchema.sys.mjs"
 );
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 
 let metaSchema;
+let policiesSchema;
 
 function readSupportJSON(name) {
   return IOUtils.readJSON(PathUtils.join(do_get_cwd().path, name));
@@ -19,11 +23,10 @@ function readSupportJSON(name) {
 
 add_setup(async function () {
   metaSchema = await readSupportJSON("policies-schema.meta.json");
+  policiesSchema = await readSupportJSON("policies-schema.json");
 });
 
 add_task(async function test_policies_schema_has_required_metadata() {
-  let policiesSchema = await readSupportJSON("policies-schema.json");
-
   let validator = new JsonSchema.Validator(metaSchema, { shortCircuit: false });
   let result = validator.validate(policiesSchema);
 
@@ -50,29 +53,34 @@ add_task(async function test_meta_schema_catches_violations() {
         "x-category": "Miscellaneous",
         "x-compatibility": compat,
         examples: ["example"],
+        "x-restart-required": true,
       },
       ShortDescription: {
         description: "Too short.",
         "x-category": "Miscellaneous",
         "x-compatibility": compat,
         examples: ["example"],
+        "x-restart-required": true,
       },
       EmptyCategory: {
         description,
         "x-category": "",
         "x-compatibility": compat,
         examples: ["example"],
+        "x-restart-required": true,
       },
       EmptyExamples: {
         description,
         "x-category": "Miscellaneous",
         "x-compatibility": compat,
         examples: [],
+        "x-restart-required": true,
       },
       MissingCompatibility: {
         description,
         "x-category": "Miscellaneous",
         examples: ["example"],
+        "x-restart-required": true,
       },
       MissingChannel: {
         description,
@@ -82,12 +90,14 @@ add_task(async function test_meta_schema_catches_violations() {
           firefox_enterprise: { version_added: false },
         },
         examples: ["example"],
+        "x-restart-required": true,
       },
       MissingVersionAdded: {
         description,
         "x-category": "Miscellaneous",
         "x-compatibility": { ...compat, firefox: {} },
         examples: ["example"],
+        "x-restart-required": true,
       },
       BadVersionString: {
         description,
@@ -97,6 +107,7 @@ add_task(async function test_meta_schema_catches_violations() {
           firefox: { version_added: "fifty" },
         },
         examples: ["example"],
+        "x-restart-required": true,
       },
       BadVersionType: {
         description,
@@ -106,6 +117,7 @@ add_task(async function test_meta_schema_catches_violations() {
           firefox: { version_added: 2 },
         },
         examples: ["example"],
+        "x-restart-required": true,
       },
       UnknownChannel: {
         description,
@@ -115,6 +127,20 @@ add_task(async function test_meta_schema_catches_violations() {
           firefox_galactic_edition: { version_added: "60" },
         },
         examples: ["example"],
+        "x-restart-required": true,
+      },
+      MissingRestartRequired: {
+        description,
+        "x-category": "Miscellaneous",
+        "x-compatibility": compat,
+        examples: ["example"],
+      },
+      BadRestartRequiredType: {
+        description,
+        "x-category": "Miscellaneous",
+        "x-compatibility": compat,
+        examples: ["example"],
+        "x-restart-required": "true",
       },
     },
   };
@@ -134,6 +160,8 @@ add_task(async function test_meta_schema_catches_violations() {
     ["BadVersionString", "pattern"],
     ["BadVersionType", "type"],
     ["UnknownChannel", "additionalProperties"],
+    ["MissingRestartRequired", "required"],
+    ["BadRestartRequiredType", "type"],
   ]) {
     Assert.ok(
       result.errors.some(
@@ -143,3 +171,30 @@ add_task(async function test_meta_schema_catches_violations() {
     );
   }
 });
+
+// A live policy (x-restart-required: false) requires an onRemove
+// callback implementation.
+add_task(
+  { skip_if: () => !AppConstants.MOZ_ENTERPRISE },
+  async function test_live_policies_define_onRemove() {
+    let { Policies } = ChromeUtils.importESModule(
+      "resource:///modules/policies/Policies.sys.mjs"
+    );
+
+    for (let [policyName, policySchema] of Object.entries(
+      policiesSchema.properties
+    )) {
+      if (policySchema["x-restart-required"] !== false) {
+        continue;
+      }
+
+      let impl = Policies[policyName];
+      Assert.ok(impl, `Live policy ${policyName} must be implemented.`);
+      Assert.equal(
+        typeof impl?.onRemove,
+        "function",
+        `Live policy ${policyName} (x-restart-required: false) must define an onRemove callback so it can be torn down when removed at runtime.`
+      );
+    }
+  }
+);

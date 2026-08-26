@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
-
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  MozAdsCacheConfig:
+    "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAdsClient.sys.mjs",
   MozAdsCallbackOptions:
     "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAdsClient.sys.mjs",
   MozAdsClientBuilder:
@@ -35,6 +35,8 @@ const PREF_OHTTP_RELAY_URL =
   "browser.newtabpage.activity-stream.discoverystream.ohttp.relayURL";
 const PREF_OHTTP_CONFIG_URL =
   "browser.newtabpage.activity-stream.discoverystream.ohttp.configURL";
+
+const CACHE_DB_NAME = "ads-client.sqlite";
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", function () {
   return console.createInstance({
@@ -73,6 +75,19 @@ export class _AdsClient {
       this.#client = this.#build();
     }
     return this.#client;
+  }
+
+  /**
+   * Configuration for the ads-client's SQLite HTTP response cache, kept in the
+   * local profile directory since it is regenerable. TTL and max size are left
+   * to the component's defaults.
+   *
+   * @returns {MozAdsCacheConfig}
+   */
+  get cacheConfig() {
+    return new lazy.MozAdsCacheConfig({
+      dbPath: PathUtils.join(PathUtils.localProfileDir, CACHE_DB_NAME),
+    });
   }
 
   /**
@@ -134,7 +149,7 @@ export class _AdsClient {
    * The Glean-backed MozAdsTelemetry the client reports through, mirroring the
    * Android wrapper in AdsClientTelemetry.kt. The class is declared inside the
    * method rather than at module scope so the lazily-loaded bindings are only
-   * touched once the version guard in #build has passed.
+   * touched when a client is actually built.
    *
    * Recording from JS through a callback interface is a workaround for the
    * component not being able to record its own metrics; bug 2012752 is adding
@@ -187,17 +202,10 @@ export class _AdsClient {
   }
 
   #build() {
-    // @backward-compat { version 154 }
-    // The ads-client bindings only exist on Fx154+, and the New Tab add-on can
-    // train-hop onto older Beta/Release builds. Bail out before touching the
-    // lazily-loaded lazy.MozAds* bindings. Remove once 154 reaches Release.
-    if (Services.vc.compare(AppConstants.MOZ_APP_VERSION, "154.0a1") < 0) {
-      return null;
-    }
-
     try {
       return lazy.MozAdsClientBuilder.init()
         .environment(lazy.MozAdsEnvironment.PROD)
+        .cacheConfig(this.cacheConfig)
         .telemetry(this.buildTelemetry())
         .build();
     } catch (error) {

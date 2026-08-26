@@ -57,6 +57,7 @@ run-if = [
 ]
 
 ["test_permissions.js"]
+skip-if = ["enterprise"] # Bug 2065476: skip tests for enterprise builds ; re-enable in bug 2065477
 
 ["test_policies_schema.js"]
 support-files = [
@@ -70,6 +71,7 @@ support-files = [
 
 ["test_popups_cookies_addons.js"]
 support-files = ["config_popups_cookies_addons.json"]
+skip-if = ["enterprise"] # Bug 2065476: skip tests for enterprise builds ; re-enable in bug 2065477
 
 ["test_preferences.js"]
 

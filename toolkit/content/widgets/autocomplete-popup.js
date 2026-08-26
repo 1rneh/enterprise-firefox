@@ -10,7 +10,7 @@
   const lazy = {};
 
   ChromeUtils.defineESModuleGetters(lazy, {
-    AutoCompleteParent: "resource://gre/actors/AutoCompleteParent.sys.mjs",
+    AutoCompleteParent: "moz-src:///toolkit/actors/AutoCompleteParent.sys.mjs",
   });
 
   if (!customElements.get("autocomplete-row-item")) {
@@ -535,6 +535,13 @@
                 }
               : null,
           };
+
+          row.type = parsedComment?.type ?? null;
+          row.sources = parsedComment?.sources ?? [];
+          row.sourcesLabel = parsedComment?.sourcesLabel ?? null;
+          row.loading = parsedComment?.loading ?? false;
+          row.loadingLabel = parsedComment?.loadingLabel ?? null;
+          row.emptySourcesLabel = parsedComment?.emptySourcesLabel ?? null;
         }
 
         item.setAttribute("dir", this.style.direction);

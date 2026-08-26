@@ -420,7 +420,6 @@ struct IntrinsicSize {
   }
 
   bool operator==(const IntrinsicSize&) const = default;
-  bool operator!=(const IntrinsicSize&) const = default;
 };
 
 // Pseudo bidi embedding level indicating nonexistence.
@@ -4702,11 +4701,14 @@ class nsIFrame : public nsQueryFrame {
    * @param  [in] aStart
    *         true  for getting the first possible caret position
    *         false for getting the last possible caret position
+   * @param  [in] aFlags
+   *         Flags supported by SelfIsSelectable(). E.g.,
+   *         IGNORE_NATIVE_ANONYMOUS_SUBTREE and SKIP_HIDDEN.
    * @return The caret position in a CaretPosition.
    *         the returned value is a 'best effort' in case errors
    *         are encountered rummaging through the frame.
    */
-  CaretPosition GetExtremeCaretPosition(bool aStart);
+  CaretPosition GetExtremeCaretPosition(bool aStart, uint32_t aFlags);
 
   /**
    * Query whether this frame supports getting a line iterator.
@@ -5334,7 +5336,6 @@ class nsIFrame : public nsQueryFrame {
     uint8_t mRight;
     uint8_t mBottom;
     bool operator==(const InkOverflowDeltas& aOther) const = default;
-    bool operator!=(const InkOverflowDeltas& aOther) const = default;
   };
   enum class OverflowStorageType : uint32_t {
     // No overflow area; code relies on this being an all-zero value.

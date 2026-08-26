@@ -2427,7 +2427,10 @@ PresShell::CompleteMove(bool aForward, bool aExtend) {
     if (!frame) [[unlikely]] {
       return Nothing{};
     }
-    return Some(frame->GetExtremeCaretPosition(!aForward));
+    // Don't return content in the native anonymous subtree because it's not
+    // managed by selection for the document.
+    return Some(frame->GetExtremeCaretPosition(
+        !aForward, nsIFrame::IGNORE_NATIVE_ANONYMOUS_SUBTREE));
   }();
   if (pos.isNothing()) [[unlikely]] {
     return NS_ERROR_FAILURE;
@@ -3740,7 +3743,7 @@ nsresult PresShell::ScrollContentIntoView(nsIContent* aContent,
                                           ScrollFlags aScrollFlags) {
   NS_ENSURE_TRUE(aContent, NS_ERROR_NULL_POINTER);
   RefPtr<Document> composedDoc = aContent->GetComposedDoc();
-  NS_ENSURE_STATE(composedDoc);
+  NS_ENSURE_STATE(composedDoc == mDocument);
 
   NS_ASSERTION(mDidInitialize, "should have done initial reflow by now");
 
@@ -3842,8 +3845,9 @@ void PresShell::DoScrollContentIntoView() {
 
   nsIFrame* frame = mContentToScrollTo->GetPrimaryFrame();
 
-  if (!frame || frame->IsHiddenByContentVisibilityOnAnyAncestor(
-                    nsIFrame::IncludeContentVisibility::Hidden)) {
+  if (mContentToScrollTo->OwnerDoc() != mDocument || !frame ||
+      frame->IsHiddenByContentVisibilityOnAnyAncestor(
+          nsIFrame::IncludeContentVisibility::Hidden)) {
     mContentToScrollTo->RemoveProperty(nsGkAtoms::scrolling);
     mContentToScrollTo = nullptr;
     return;
@@ -4585,21 +4589,23 @@ void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
     return;
   }
 
+  const RefPtr<Document> doc = mDocument;
+
   // We need to make sure external resource documents are flushed too (for
   // example, svg filters that reference a filter in an external document
   // need the frames in the external document to be constructed for the
   // filter to work). We only need external resources to be flushed when the
   // main document is flushing >= FlushType::Frames, so we flush external
   // resources here instead of Document::FlushPendingNotifications.
-  mDocument->FlushExternalResources(flushType);
+  doc->FlushExternalResources(flushType);
 
   // Force flushing of any pending content notifications that might have
   // queued up while our event was pending.  That will ensure that we don't
   // construct frames for content right now that's still waiting to be
   // notified on,
-  mDocument->FlushPendingNotifications(FlushType::ContentAndNotify);
+  doc->FlushPendingNotifications(FlushType::ContentAndNotify);
 
-  mDocument->UpdateSVGUseElementShadowTrees();
+  doc->UpdateSVGUseElementShadowTrees();
 
   // Process pending restyles, since any flush of the presshell wants
   // up-to-date style data.
@@ -4616,7 +4622,7 @@ void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
     // Flush any pending update of the user font set, since that could
     // cause style changes (for updating ex/ch units, and to cause a
     // reflow).
-    mDocument->FlushUserFontSet();
+    doc->FlushUserFontSet();
 
     mPresContext->FlushCounterStyles();
 
@@ -4625,8 +4631,8 @@ void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
     mPresContext->FlushFontPaletteValues();
 
     // Flush any requested SMIL samples.
-    if (mDocument->HasAnimationController()) {
-      mDocument->GetAnimationController()->FlushResampleRequests();
+    if (doc->HasAnimationController()) {
+      doc->GetAnimationController()->FlushResampleRequests();
     }
   }
 
@@ -4639,7 +4645,7 @@ void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
 
     nsAutoScriptBlocker scriptBlocker;
     Maybe<uint64_t> innerWindowID;
-    if (auto* window = mDocument->GetInnerWindow()) {
+    if (auto* window = doc->GetInnerWindow()) {
       innerWindowID = Some(window->WindowID());
     }
     AutoProfilerStyleMarker tracingStyleFlush(std::move(mStyleCause),
@@ -9613,7 +9619,8 @@ void PresShell::EventHandler::MaybeHandleKeyboardEventBeforeDispatch(
   Document* doc = mPresShell->GetCurrentEventContent()
                       ? mPresShell->mCurrentEventTarget.mContent->OwnerDoc()
                       : nullptr;
-  Document* root = nsContentUtils::GetInProcessSubtreeRootDocument(doc);
+  const RefPtr<Document> root =
+      nsContentUtils::GetInProcessSubtreeRootDocument(doc);
   if (root && root->GetFullscreenElement()) {
     Document* fullscreenLeaf = Document::GetFullscreenLeaf(root);
     if (fullscreenLeaf->HasFullscreenKeyboardLockEnabled()) {
@@ -11696,8 +11703,26 @@ void PresShell::AddAnchorPosAnchorImpl(const nsAtom* aName, nsIFrame* aFrame,
   entry.InsertElementAt(matchOrInsertionIdx, aFrame);
 }
 
-void PresShell::AddAnchorPosAnchor(const nsAtom* aName, nsIFrame* aFrame) {
-  AddAnchorPosAnchorImpl(aName, aFrame, /* aForMerge = */ false);
+void PresShell::AddAnchorPosAnchor(Span<const StyleAtom> aNames,
+                                   nsIFrame* aFrame) {
+  AutoTArray<const nsAtom*, 2> added;
+  for (const auto& styleName : aNames) {
+    const auto* name = styleName.AsAtom();
+    if (added.Contains(name)) {
+      // This could scale badly if authors specify a lot of anchor names -
+      // (Hopefully) unlikely.
+      continue;
+    }
+    AddAnchorPosAnchorImpl(name, aFrame, /* aForMerge = */ false);
+    added.AppendElement(name);
+  }
+}
+
+void PresShell::RemoveAnchorPosAnchor(Span<const StyleAtom> aNames,
+                                      nsIFrame* aFrame) {
+  for (const auto& name : aNames) {
+    RemoveAnchorPosAnchor(name.AsAtom(), aFrame);
+  }
 }
 
 void PresShell::RemoveAnchorPosAnchor(const nsAtom* aName, nsIFrame* aFrame) {

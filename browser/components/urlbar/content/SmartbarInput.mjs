@@ -11,6 +11,7 @@ import {
   isAgentCommand,
 } from "chrome://browser/content/urlbar/SmartbarInputUtils.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
+import * as UrlbarContentUtils from "chrome://browser/content/urlbar/UrlbarContentUtils.mjs";
 import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
 
 // eslint-disable-next-line import/no-unassigned-import
@@ -34,10 +35,6 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
-const { AppConstants } = ChromeUtils.importESModule(
-  "resource://gre/modules/AppConstants.sys.mjs"
-);
-
 /**
  * @import { UrlbarSearchOneOffs } from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
  * @import { SearchEngine } from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
@@ -48,6 +45,7 @@ const { AppConstants } = ChromeUtils.importESModule(
  * @import { AIWindow } from "moz-src:///browser/components/aiwindow/ui/components/ai-window/ai-window.mjs"
  * @import { SmartwindowSmartbarGlow } from "moz-src:///browser/components/aiwindow/ui/components/smartwindow-smartbar-glow/smartwindow-smartbar-glow.mjs"
  * @import { WindowMode } from "moz-src:///browser/components/urlbar/content/UrlbarInputBase.mjs"
+ * @import { UrlbarLoadRequest } from "chrome://browser/content/urlbar/UrlbarShared.mjs"
  */
 
 /**
@@ -80,14 +78,11 @@ const lazy = XPCOMUtils.declareLazy({
     service: "@mozilla.org/url-query-string-stripper;1",
     iid: Ci.nsIURLQueryStringStripper,
   },
-  QUERY_STRIPPING_STRIP_ON_SHARE: {
-    pref: "privacy.query_stripping.strip_on_share.enabled",
-    default: false,
-  },
-  logger: () => UrlbarShared.getLogger({ prefix: "SmartbarInput" }),
   getCurrentTabUrl:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatUtils.sys.mjs",
 });
+
+const logger = () => UrlbarShared.getLogger({ prefix: "SmartbarInput" });
 
 const UNLIMITED_MAX_RESULTS = 99;
 const MAX_INPUT_LENGTH = 32000;
@@ -135,11 +130,9 @@ export class SmartbarInput extends HTMLElement {
         <html:moz-button class="searchmode-switcher chromeclass-toolbar-additional"
                          type="muted"
                          iconsrc="chrome://global/skin/icons/search-glass.svg"
-                         title="More options"
-                         aria-label="More options"
                          data-l10n-id="urlbar-searchmode-default2"
                          tabindex="-1"
-                         role="combobox">
+                         role="presentation">
           <!-- This span has no purpose other than making the moz-button think
                it contains text even when searchmode-switcher-title is hidden. -->
           <html:span class="urlbar-visually-hidden" aria-hidden="true">a</html:span>
@@ -155,7 +148,8 @@ export class SmartbarInput extends HTMLElement {
           </html:span>
         </html:moz-button>
         <!-- In XUL windows, this will be wrapped in a panel with class="searchmode-switcher-panel". -->
-        <html:panel-list class="searchmode-switcher-panel-list">
+        <html:panel-list class="searchmode-switcher-panel-list"
+                         click-on-mouseup="">
           <html:span class="searchmode-switcher-panel-description" role="heading" />
 ${
   UrlbarPrefs.get("browser.nova.enabled")
@@ -265,7 +259,7 @@ ${
    * The search access point name of the SmartbarInput for use with telemetry or
    * logging, e.g. `urlbar`, `searchbar`.
    *
-   * @type {"searchbar"|"smartbar"|"urlbar"}
+   * @type {"newtab_searchbar"|"searchbar"|"smartbar"|"urlbar"}
    */
   #sapName;
   #scrollAnimationId = null;
@@ -326,7 +320,7 @@ ${
     // get the main browser window.
     this.window = this.documentGlobal;
     if (!this.window.gBrowser) {
-      lazy.logger.debug(`gBrowser not available, get the browser window.`);
+      logger().debug(`gBrowser not available, get the browser window.`);
       this.window = window.browsingContext.topChromeWindow;
     }
 
@@ -380,9 +374,10 @@ ${
    * Initialization that happens once on the first connect.
    */
   #initOnce() {
-    this.#sapName = /** @type {"searchbar"|"smartbar"|"urlbar"} */ (
-      this.getAttribute("sap-name")
-    );
+    this.#sapName =
+      /** @type {"newtab_searchbar"|"searchbar"|"smartbar"|"urlbar"} */ (
+        this.getAttribute("sap-name")
+      );
     this.#isAddressbar = this.#sapName == "urlbar";
     this.#isSmartbarMode = this.#sapName == "smartbar";
 
@@ -550,7 +545,7 @@ ${
     this.window.addEventListener("keyup", this);
 
     this.window.addEventListener("mousedown", this);
-    if (AppConstants.platform == "win") {
+    if (UrlbarContentUtils.getPlatform() == "win") {
       this.window.addEventListener("draggableregionleftmousedown", this);
     }
     this.addEventListener("mousedown", this);
@@ -643,7 +638,7 @@ ${
     this.window.removeEventListener("keyup", this);
 
     this.window.removeEventListener("mousedown", this);
-    if (AppConstants.platform == "win") {
+    if (UrlbarContentUtils.getPlatform() == "win") {
       this.window.removeEventListener("draggableregionleftmousedown", this);
     }
     this.removeEventListener("mousedown", this);
@@ -884,16 +879,19 @@ ${
     }
   }
 
-  #lazy = XPCOMUtils.declareLazy({
-    valueFormatter: () => new lazy.UrlbarValueFormatter(this),
-    addSearchEngineHelper: () => new AddSearchEngineHelper(this),
-  });
+  #addSearchEngineHelper;
+
+  #valueFormatter;
 
   /**
    * Manages the Add Search Engine contextual menu entries.
    */
   get addSearchEngineHelper() {
-    return this.#lazy.addSearchEngineHelper;
+    return (this.#addSearchEngineHelper ??= new AddSearchEngineHelper(this));
+  }
+
+  #getValueFormatter() {
+    return (this.#valueFormatter ??= new lazy.UrlbarValueFormatter(this));
   }
 
   get sapName() {
@@ -1121,7 +1119,7 @@ ${
   formatValue() {
     // The editor may not exist if the toolbar is not visible.
     if (this.#isAddressbar && this.editor) {
-      this.#lazy.valueFormatter.update();
+      this.#getValueFormatter().update();
     }
   }
 
@@ -1570,12 +1568,20 @@ ${
   /**
    * Dispatches a smartbar-commit custom event.
    *
-   * @param {Event} event - The event that triggered the action.
+   * @param {Event} event - The event that triggered the actibrowser_aiwindow_smartbar_command_palette.json.
    * @param {string} value - The value to commit.
    * @param {SmartbarAction} [action] - The action to commit. Defaults to the
    *   current smartbar action.
+   * @param {string} [submitType] - How the value was submitted (e.g. "enter"
+   *   or "button"), forwarded for telemetry. Left unset when it should be
+   *   inferred by the consumer.
    */
-  #dispatchSmartbarCommitEvent(event, value, action = this.smartbarAction) {
+  #dispatchSmartbarCommitEvent(
+    event,
+    value,
+    action = this.smartbarAction,
+    submitType
+  ) {
     this.dispatchEvent(
       new CustomEvent("smartbar-commit", {
         bubbles: true,
@@ -1589,6 +1595,7 @@ ${
           event,
           location: this.sapLocation,
           searchProvider: this.controller.engineStore.default?.name,
+          submitType,
         },
       })
     );
@@ -1599,10 +1606,17 @@ ${
    *
    * @param {Event} event - The event that triggered the action.
    * @param {string} value - The value to commit.
+   * @param {string} [submitType] - How the value was submitted (e.g. "enter"
+   *   or "button").
    */
-  submitChat(event, value) {
+  submitChat(event, value, submitType) {
     this.smartbarAction = "chat";
-    this.#dispatchSmartbarCommitEvent(event, value);
+    this.#dispatchSmartbarCommitEvent(
+      event,
+      value,
+      this.smartbarAction,
+      submitType
+    );
   }
 
   /**
@@ -1832,7 +1846,9 @@ ${
     });
     this.#dispatchSmartbarCommitEvent(event, value);
     this.#loadURL({
-      url: fixupInfo.preferredURI.spec,
+      loadRequest: {
+        urlLoad: { url: fixupInfo.preferredURI.spec, postData: null },
+      },
       event,
       where: this.controller.whereToOpen(event),
       params: {
@@ -1975,13 +1991,13 @@ ${
 
   /**
    * Whether the current input is a known Agent command such as
-   * "/watch ...". Such input is submitted to chat so the
-   * agent router can handle it. Sidebar only for now.
+   * "/watch ...". The input is submitted to chat so the
+   * agent router can handle it
    *
    * @returns {boolean}
    */
   get #isAgentCommand() {
-    return this.#isSidebarMode && isAgentCommand(this.untrimmedValue);
+    return this.#isSmartbarMode && isAgentCommand(this.untrimmedValue);
   }
 
   /**
@@ -2125,7 +2141,6 @@ ${
     // Use the current value if we don't have a UrlbarResult e.g. because the
     // view is closed.
     let url = this.untrimmedValue;
-    openParams.postData = null;
 
     if (!url) {
       return;
@@ -2177,7 +2192,13 @@ ${
       if (this.#isSmartbarMode) {
         this.#dispatchSmartbarCommitEvent(event, this.untrimmedValue);
       }
-      this.#loadURL({ url, event, where, params: openParams, browserId });
+      this.#loadURL({
+        loadRequest: { urlLoad: { url, postData: null } },
+        event,
+        where,
+        params: openParams,
+        browserId,
+      });
       return;
     }
 
@@ -2213,7 +2234,6 @@ ${
         if (heuristicResult) {
           this.pickResult({ result: heuristicResult, event, browserId });
         } else if (fixup) {
-          openParams.postData = fixup.postData;
           if (!fixup.keywordAsSent) {
             // `fixup.url` is not a search engine url, so we annotate if the
             // untrimmed value contained a scheme, to potentially be later
@@ -2223,7 +2243,9 @@ ${
             );
           }
           this.#loadURL({
-            url: fixup.url,
+            loadRequest: {
+              urlLoad: { url: fixup.url, postData: fixup.postData },
+            },
             event,
             where,
             params: openParams,
@@ -2297,7 +2319,7 @@ ${
    */
   pickElement(element, event) {
     let result = this.view.getResultFromElement(element);
-    lazy.logger.debug(
+    logger().debug(
       `pickElement ${element} with event ${event?.type}, result: ${result}`
     );
     if (!result) {
@@ -2421,7 +2443,9 @@ ${
         windowMode: this.windowMode,
       });
       this.#loadURL({
-        url: this._untrimmedValue,
+        loadRequest: {
+          urlLoad: { url: this._untrimmedValue, postData: null },
+        },
         event,
         where,
         params: openParams,
@@ -2430,10 +2454,9 @@ ${
       return;
     }
 
-    let { url, postData } = resultUrl
-      ? { url: resultUrl, postData: null }
-      : lazy.UrlbarUtils.getUrlFromResult(result, { element });
-    openParams.postData = postData;
+    let loadRequest = resultUrl
+      ? { urlLoad: { url: resultUrl, postData: null } }
+      : UrlbarShared.getLoadRequestFromResult(result, { element });
     let isSplitViewActive = this.window.gBrowser.selectedTab.splitview;
 
     switch (result.type) {
@@ -2461,7 +2484,7 @@ ${
             UrlbarPrefs.get("browser.fixup.dns_first_for_single_words") &&
             UrlbarShared.looksLikeSingleWordHost(originalUntrimmedValue)
           ) {
-            url = originalUntrimmedValue;
+            loadRequest.urlLoad.url = originalUntrimmedValue;
           }
           // Annotate if the untrimmed value contained a scheme, to later potentially
           // be upgraded by schemeless HTTPS-First.
@@ -2508,7 +2531,7 @@ ${
         });
 
         this.controller.switchToTab({
-          url,
+          url: result.payload.url,
           searchString,
           userContextId: result.payload.userContext?.id,
           tabGroup: result.payload.tabGroup,
@@ -2585,7 +2608,7 @@ ${
         break;
       }
       case UrlbarShared.RESULT_TYPE.TIP: {
-        if (url) {
+        if (loadRequest) {
           break;
         }
         this.handleRevert();
@@ -2601,8 +2624,8 @@ ${
         return;
       }
       case UrlbarShared.RESULT_TYPE.DYNAMIC: {
-        if (!url) {
-          // If we're not loading a URL, the engagement is done. First revert
+        if (!loadRequest) {
+          // If we're not loading anything, the engagement is done. First revert
           // and then record the engagement since providers expect the urlbar to
           // be reverted when they're notified of the engagement, but before
           // reverting, copy the search mode since it's nulled on revert.
@@ -2681,12 +2704,13 @@ ${
       }
     }
 
-    if (!url) {
-      throw new Error(`Invalid url for result ${JSON.stringify(result)}`);
+    if (!loadRequest) {
+      throw new Error(`No load request for result ${JSON.stringify(result)}`);
     }
 
-    // Record input history but only in non-private windows.
-    if (!this.isPrivate) {
+    // Record input history but only in non-private windows and for url loads.
+    if (!this.isPrivate && loadRequest.urlLoad) {
+      let url = loadRequest.urlLoad.url;
       let input;
       if (!result.heuristic) {
         input = this._lastSearchString;
@@ -2720,7 +2744,7 @@ ${
             windowMode: this.windowMode,
           }
         )
-        .catch(e => lazy.logger.error(e));
+        .catch(e => logger().error(e));
     }
 
     this.controller.engagementEvent.record(event, {
@@ -2753,14 +2777,13 @@ ${
       this.#dispatchSmartbarCommitEvent(event, this.untrimmedValue, action);
     }
     this.#loadURL({
-      url,
+      loadRequest,
       event,
       where,
       params: openParams,
       resultDetails: {
         source: result.source,
         type: result.type,
-        searchTerm: result.payload.suggestion ?? result.payload.query,
       },
       browserId,
     });
@@ -3124,7 +3147,11 @@ ${
     // close the suggestions view. The mentions/command plugin will handle querying
     // providers directly.
     const isHandlingMentions = this.inputField.isHandlingMentions;
-    if ((isHandlingMentions || this.#isAgentCommand) && event) {
+    const isHandlingCommands = this.inputField.isHandlingCommands;
+    if (
+      (isHandlingMentions || isHandlingCommands || this.#isAgentCommand) &&
+      event
+    ) {
       this.view.close();
       // no query runs so refresh the CTA state directly
       this.#updateSmartbarCTAButton();
@@ -3138,6 +3165,7 @@ ${
         this.getAttribute("pageproxystate") == "valid" ? "" : this.value;
     } else if (
       !isHandlingMentions &&
+      !isHandlingCommands &&
       !this.#isAgentCommand &&
       !this.value.startsWith(searchString)
     ) {
@@ -4456,8 +4484,10 @@ ${
     // use the unmodified url instead. Otherwise, if the user edits the url
     // and confirms the new value, we may transform the url into a search.
     let trimmedUrl = UrlbarShared.stripPrefixAndTrim(url, { stripHttp })[0];
-    let isSearch =
-      !!this.controller.getFixupPrimitives(trimmedUrl)?.keywordAsSent;
+    let isSearch = !!UrlbarContentUtils.getFixupPrimitives(
+      trimmedUrl,
+      this.isPrivate
+    )?.keywordAsSent;
     if (isSearch) {
       // Although https-first might not respect the shown protocol, converting
       // the result to a search would be more disruptive.
@@ -4586,7 +4616,7 @@ ${
 
     let isRTL =
       this.getAttribute("domaindir") === "rtl" &&
-      this.controller.isTextDirectionRTL(this.value);
+      UrlbarContentUtils.isTextDirectionRTL(this.value, window);
 
     this.window.promiseDocumentFlushed(() => {
       // Check overflow again to ensure it didn't change in the meanwhile.
@@ -4738,7 +4768,7 @@ ${
       event.keyCode == KeyEvent.DOM_VK_SHIFT ||
       event.keyCode == KeyEvent.DOM_VK_ALT ||
       event.keyCode ==
-        (AppConstants.platform == "macosx"
+        (UrlbarContentUtils.getPlatform() == "macosx"
           ? KeyEvent.DOM_VK_META
           : KeyEvent.DOM_VK_CONTROL)
     ) {
@@ -4837,8 +4867,8 @@ ${
       : val;
     // Only trim value if the directionality doesn't change to RTL and we're not
     // showing a strikeout https protocol.
-    return this.controller.isTextDirectionRTL(trimmedValue) ||
-      this.#lazy.valueFormatter.willShowFormattedMixedContentProtocol(val)
+    return UrlbarContentUtils.isTextDirectionRTL(trimmedValue, window) ||
+      this.#getValueFormatter().willShowFormattedMixedContentProtocol(val)
       ? val
       : trimmedValue;
   }
@@ -5003,7 +5033,7 @@ ${
     this.view.close({ elementPicked: true });
 
     this.#loadURL({
-      url,
+      loadRequest: { urlLoad: { url, postData: null } },
       event,
       where,
       params: {
@@ -5024,8 +5054,6 @@ ${
    *
    * @property {object} [triggeringPrincipal]
    *   The principal that the action was triggered from.
-   * @property {nsIInputStream} [postData]
-   *   The POST data associated with a search submission.
    * @property {boolean} [allowInheritPrincipal]
    *   Whether the principal can be inherited.
    * @property {nsILoadInfo.SchemelessInputType} [schemelessInput]
@@ -5038,8 +5066,6 @@ ${
    *
    * @property {Values<typeof UrlbarShared.RESULT_TYPE>} [type]
    *   Details of the result type, if any.
-   * @property {string} [searchTerm]
-   *   Search term of the result source, if any.
    * @property {Values<typeof UrlbarShared.RESULT_SOURCE>} [source]
    *   Details of the result source, if any.
    */
@@ -5048,8 +5074,8 @@ ${
    * Loads the url in the appropriate place.
    *
    * @param {object} options
-   * @param {string} options.url
-   *   The URL to open.
+   * @param {UrlbarLoadRequest} options.loadRequest
+   *   What to load.
    * @param {Event} options.event
    *   The event that triggered to load the url.
    * @param {string} options.where
@@ -5064,37 +5090,13 @@ ${
    *   load to the tab selected when it was committed.
    */
   async #loadURL({
-    url,
+    loadRequest,
     event,
     where,
     params,
     resultDetails = null,
     browserId = null,
   }) {
-    let userTypedValue;
-    if (this.#isAddressbar && where == "current") {
-      // Make sure URL is formatted properly (don't show punycode).
-      let formattedURL = url;
-      try {
-        formattedURL = losslessDecodeURI(new URL(url).URI);
-      } catch {}
-
-      this.value =
-        lazy.UrlbarUtils.isPersistedSearchTermsEnabled() &&
-        resultDetails?.searchTerm
-          ? resultDetails.searchTerm
-          : formattedURL;
-      userTypedValue = this.value;
-    }
-
-    params.allowThirdPartyFixup = true;
-
-    if (where == "current") {
-      params.indicateErrorPageLoad = true;
-      params.allowPinnedTabHostChange = true;
-      params.allowPopups = url.startsWith("javascript:");
-    }
-
     let keyDownEnterDeferred;
     if (
       this._keyDownEnterDeferred &&
@@ -5111,6 +5113,31 @@ ${
       params.avoidBrowserFocus = true;
       this._keyDownEnterDeferred.loadedContent = true;
       keyDownEnterDeferred = this._keyDownEnterDeferred;
+    }
+
+    let userTypedValue;
+    if (this.#isAddressbar && where == "current") {
+      if (loadRequest.engineSearch) {
+        this.value = loadRequest.engineSearch.query;
+      } else {
+        let { url } = loadRequest.urlLoad;
+        // Make sure URL is formatted properly (don't show punycode).
+        try {
+          this.value = losslessDecodeURI(new URL(url).URI);
+        } catch {
+          this.value = url;
+        }
+      }
+      userTypedValue = this.value;
+    }
+
+    params.allowThirdPartyFixup = true;
+
+    if (where == "current") {
+      params.indicateErrorPageLoad = true;
+      params.allowPinnedTabHostChange = true;
+      params.allowPopups =
+        loadRequest.urlLoad?.url.startsWith("javascript:") ?? false;
     }
 
     // Ensure the window gets the `private` feature if the current window
@@ -5133,17 +5160,13 @@ ${
     // Notify about the start of navigation.
     this.#notifyStartNavigation(resultDetails);
 
-    let loadStatus = this.controller.loadURL({
-      url,
+    let loadStatus = await this.controller.loadURL({
+      loadRequest,
       where,
       params,
       browserId,
       userTypedValue,
     });
-    // In the message-passing path, loadURL returns a promise.
-    if (loadStatus.then) {
-      loadStatus = await loadStatus;
-    }
     // Hand the loaded browser's id to the deferred-Enter key up handler so it
     // can focus it parent-side.
     keyDownEnterDeferred?.resolve(loadStatus.browserId);
@@ -5324,7 +5347,7 @@ ${
             .filter(Boolean)
             .join("@");
         } catch (ex) {
-          lazy.logger.error("Should only try to untrim valid URLs");
+          logger().error("Should only try to untrim valid URLs");
         }
         if (!this.#selectedText.startsWith(prePathMinusPort)) {
           selectionStart += offset;
@@ -5369,7 +5392,7 @@ ${
     // Register a listener that hides the menu item if there is nothing to copy.
     contextMenu.addEventListener("popupshowing", () => {
       // feature is not enabled
-      if (!lazy.QUERY_STRIPPING_STRIP_ON_SHARE) {
+      if (!UrlbarPrefs.get("privacy.query_stripping.strip_on_share.enabled")) {
         stripOnShare.setAttribute("hidden", true);
         return;
       }
@@ -6062,7 +6085,7 @@ ${
   }
 
   _on_blur(event) {
-    lazy.logger.debug("Blur Event");
+    logger().debug("Blur Event");
     // We cannot count every blur events after a missed engagement as abandoment
     // because the user may have clicked on some view element that executes
     // a command causing a focus change. For example opening preferences from
@@ -6181,7 +6204,7 @@ ${
 
   _on_contextmenu(event) {
     if (!this.#isSmartbarMode) {
-      this.#lazy.addSearchEngineHelper.refreshContextMenu();
+      this.addSearchEngineHelper.refreshContextMenu();
     }
 
     // Context menu opened via keyboard shortcut.
@@ -6193,7 +6216,7 @@ ${
   }
 
   _on_focus(event) {
-    lazy.logger.debug("Focus Event");
+    logger().debug("Focus Event");
     if (!this._hideFocus) {
       this.toggleAttribute("focused", true);
     }
@@ -6207,11 +6230,12 @@ ${
     if (this._protocolIsTrimmed || this._wwwIsTrimmed) {
       let untrim = this._wwwIsTrimmed;
       if (!untrim) {
-        let fixedDisplaySpec = this.controller.getFixupPrimitives(
-          this.value
+        let fixedDisplaySpec = UrlbarContentUtils.getFixupPrimitives(
+          this.value,
+          this.isPrivate
         )?.preferredURIDisplaySpec;
         if (fixedDisplaySpec) {
-          let expectedDisplaySpec = this.controller.getDisplaySpec(
+          let expectedDisplaySpec = UrlbarContentUtils.getDisplaySpec(
             this._untrimmedValue
           );
           if (expectedDisplaySpec == null) {
@@ -6574,7 +6598,7 @@ ${
 
     const pasteData = UrlbarShared.sanitizeTextFromClipboard(
       originalPasteData,
-      this.controller.getFixupPrimitives(originalPasteData)
+      UrlbarContentUtils.getFixupPrimitives(originalPasteData, this.isPrivate)
     );
 
     if (originalPasteData != pasteData) {
@@ -6829,7 +6853,7 @@ ${
         this._keyDownEnterDeferred = Promise.withResolvers();
         this._keyDownEnterDeferred.inputEpoch = this.#inputEpoch;
         event._disableCanonization =
-          AppConstants.platform == "macosx"
+          UrlbarContentUtils.getPlatform() == "macosx"
             ? this._isKeyDownWithMeta
             : this._isKeyDownWithCtrl;
       }
@@ -7169,7 +7193,7 @@ ${
    * @returns {boolean} Whether the even will act like the Home key.
    */
   #isHomeKeyUpEvent(event) {
-    let isMac = AppConstants.platform === "macosx";
+    let isMac = UrlbarContentUtils.getPlatform() === "macosx";
     return (
       // On MacOS this can be generated with Fn + Left.
       event.keyCode == KeyEvent.DOM_VK_HOME ||

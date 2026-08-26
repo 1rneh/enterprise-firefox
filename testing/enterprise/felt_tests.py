@@ -310,6 +310,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             })
             contentType = "application/json"
 
+        # Thunderbird needs a data: URL, so tests will fetch() the "picture" field from the
+        # above JSON
+        elif path == "/avatar/something":
+            m = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="8" fill="#4A6FA5"/>
+          <text x="32" y="32" font-family="Arial, Helvetica, sans-serif" font-size="32"
+                font-weight="bold" fill="#FFFFFF" text-anchor="middle"
+                dominant-baseline="central">S</text>
+        </svg>"""
+            contentType = "image/svg+xml"
+
         elif path == "/api/browser/forced_updates_count":
             """
             This is a test only endpoint to verify how many updates were served

@@ -31,15 +31,23 @@ class IPPAddonActivator {
     this.onRequest = this.#onRequest.bind(this);
     this.ippExceptionsChanged = this.#ippExceptionsChanged.bind(this);
 
-    this.#loadAndRebuildBreakages().then(() => {
-      browser.ippActivator.onDynamicTabBreakagesUpdated.addListener(() =>
-        this.#loadAndRebuildBreakages()
-      );
-      browser.ippActivator.onDynamicWebRequestBreakagesUpdated.addListener(() =>
-        this.#loadAndRebuildBreakages()
-      );
+    // Breakage bars are consumer VPN UX; under AccessConnector the proxy is
+    // policy-locked always-on, so the "turn VPN off" advice doesn't apply.
+    browser.ippActivator.isEnterpriseAccessConnector().then(isEnterprise => {
+      if (isEnterprise) {
+        return;
+      }
 
-      this.#init();
+      this.#loadAndRebuildBreakages().then(() => {
+        browser.ippActivator.onDynamicTabBreakagesUpdated.addListener(() =>
+          this.#loadAndRebuildBreakages()
+        );
+        browser.ippActivator.onDynamicWebRequestBreakagesUpdated.addListener(
+          () => this.#loadAndRebuildBreakages()
+        );
+
+        this.#init();
+      });
     });
   }
 

@@ -1222,6 +1222,16 @@ var gSync = {
     return targets.sort((a, b) => b.lastAccessTime - a.lastAccessTime);
   },
 
+  // Returns the clientType attribute value used for device icons for a send
+  // tab to device target, preferring the Sync client record when available.
+  getTargetClientType(target) {
+    if (target.clientRecord) {
+      return Weave.Service.clientsEngine.getClientType(target.clientRecord.id);
+    }
+    // For phones, FxA uses "mobile" and Sync clients uses "phone".
+    return target.type == "mobile" ? "phone" : target.type;
+  },
+
   hasOnlyMobileSendTabTargets(targets = this.getSendTabTargets()) {
     return (
       !targets.length ||
@@ -1383,9 +1393,12 @@ var gSync = {
     PanelMultiView.getViewNode(
       document,
       "PanelUI-fxa-menu-sync-status-off-button"
-    ).addEventListener("click", e =>
-      this.openPrefsFromFxaMenu("sync_settings", e.currentTarget)
-    );
+    ).addEventListener("click", e => {
+      // We can't use the onCommand handler as we need to be able to pass in
+      // the event currentTarget.
+      this.openPrefsFromFxaMenu("sync_settings", e.currentTarget);
+      CustomizableUI.hidePanelForNode(e.currentTarget);
+    });
     PanelMultiView.getViewNode(
       document,
       "PanelUI-fxa-menu-secure-sync-subpanel"
@@ -1495,9 +1508,30 @@ var gSync = {
     );
     signOutButtonEl.hidden = !this.isSignedIn;
 
-    panelview.syncedTabsPanelList = new FxAMenuDeviceList(
-      PanelMultiView.getViewNode(document, "PanelUI-fxa-menu-devices-list")
+    const devicesListEl = PanelMultiView.getViewNode(
+      document,
+      "PanelUI-fxa-menu-devices-list"
     );
+    const signOutSeparatorEl = PanelMultiView.getViewNode(
+      document,
+      "PanelUI-sign-out-separator"
+    );
+
+    // The FxA panelview is shared between the account (toolbar) menu and the
+    // app (hamburger) menu, so the sign-out button's position is set per show.
+    // In the app menu the sign-out button sits directly below the sync status
+    // section and above the connected devices list, with a separator either
+    // side. In the account menu it stays at the bottom, below the devices list.
+    const inAppMenu = document
+      .getElementById("appMenu-popup")
+      ?.contains(devicesListEl);
+    if (inAppMenu) {
+      signOutButtonEl.after(devicesListEl);
+    } else {
+      signOutSeparatorEl.before(devicesListEl);
+    }
+
+    panelview.syncedTabsPanelList = new FxAMenuDeviceList(devicesListEl);
 
     // Any variant on the CTA will have been applied inside of updateFxAPanel,
     // but now that the panel is showing, we record exposure.
@@ -1566,6 +1600,10 @@ var gSync = {
       document,
       "PanelUI-fxa-menu-sync-status-off-description"
     );
+    const onButtonEl = PanelMultiView.getViewNode(
+      document,
+      "PanelUI-fxa-menu-sync-status-off-button"
+    );
     const mobileBtn = PanelMultiView.getViewNode(
       document,
       "PanelUI-fxa-menu-get-firefox-mobile"
@@ -1580,14 +1618,21 @@ var gSync = {
 
     offCard.hidden = !syncOffCard;
     if (syncOffCard) {
-      btn.hidden = true;
-      offTitleEl.setAttribute(
-        "value",
-        this.fluentStrings.formatValueSync("fxa-menu-sync-status-off")
+      const offTitle = this.fluentStrings.formatValueSync(
+        "fxa-menu-sync-status-off"
       );
-      offDescEl.setAttribute(
-        "value",
-        this.fluentStrings.formatValueSync("fxa-menu-sync-off-data-description")
+      const offDesc = this.fluentStrings.formatValueSync(
+        "fxa-menu-sync-off-data-description"
+      );
+      const onText = this.fluentStrings.formatValueSync(
+        "fxa-menu-sync-status-turn-on-button-aria-label"
+      );
+      btn.hidden = true;
+      offTitleEl.setAttribute("value", offTitle);
+      offDescEl.setAttribute("value", offDesc);
+      onButtonEl.setAttribute(
+        "aria-label",
+        [offTitle, offDesc, onText].join(", ")
       );
       offCard.after(mobileBtn);
       mobileBtn.hidden = false;
@@ -2170,7 +2215,6 @@ var gSync = {
     profilesSeparator.remove();
     secureSyncHeader.remove();
 
-    profilesSeparator.hidden = false;
     secureSyncHeader.hidden = false;
 
     anchorEl.after(secureSyncHeader);
@@ -2781,15 +2825,11 @@ var gSync = {
     }
 
     for (let target of targets) {
-      let type, lastModified;
+      let type = this.getTargetClientType(target);
+      let lastModified;
       if (target.clientRecord) {
-        type = Weave.Service.clientsEngine.getClientType(
-          target.clientRecord.id
-        );
         lastModified = new Date(target.clientRecord.serverLastModified * 1000);
       } else {
-        // For phones, FxA uses "mobile" and Sync clients uses "phone".
-        type = target.type == "mobile" ? "phone" : target.type;
         lastModified = target.lastAccessTime
           ? new Date(target.lastAccessTime)
           : null;
@@ -3494,11 +3534,13 @@ var gSync = {
     openTrustedLinkIn("about:preferences#sync", "tab");
   },
 
-  async openPairDevice(sourceElement) {
-    const entryPoint =
-      this._getEntryPointForElement(sourceElement) === "fxa_app_menu"
-        ? "send-tab-app-menu"
-        : "send-tab-account-menu";
+  async openPairDevice(sourceElement, entryPoint) {
+    if (!entryPoint) {
+      entryPoint =
+        this._getEntryPointForElement(sourceElement) === "fxa_app_menu"
+          ? "send-tab-app-menu"
+          : "send-tab-account-menu";
+    }
     const url = await FxAccounts.config.promisePairingURI({
       entrypoint: entryPoint,
     });
@@ -3826,7 +3868,7 @@ var gSync = {
   },
 
   openShareFirefoxLink() {
-    Referrals.openReferralsTab(window);
+    Referrals.openReferralsTab(window, "accounts_menu");
     PanelUI.hide();
   },
 

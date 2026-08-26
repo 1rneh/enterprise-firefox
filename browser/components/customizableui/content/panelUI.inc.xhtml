@@ -100,8 +100,8 @@
 
           <vbox id="unified-extensions-empty-state" context="">
             <!-- Shown when no extensions are listed. -->
-            <html:img src="chrome://browser/skin/addons/extensions-panel-empty-illustration.svg" loading="lazy" />
-            <html:h2 class="subview-subheader" />
+            <html:img />
+            <html:h2 />
             <description />
           </vbox>
         </vbox>
@@ -340,7 +340,7 @@
 #ifdef MOZ_ENTERPRISE
 <!-- Loading enterprise-panel.css here, because the enterprise panel's markup lives in the appMenu-viewCache template,
  which is inert and cannot load its own stylesheet -->
-<html:link rel="stylesheet" href="chrome://browser/content/enterprise/enterprise-panel.css" />
+<html:link rel="stylesheet" href="chrome://enterprise/content/enterprise-panel.css" />
 
 <!-- Urlbar panels must live at the navbar DOM level to position correctly
      relative to their anchor. Do not move into appMenu-viewCache. -->

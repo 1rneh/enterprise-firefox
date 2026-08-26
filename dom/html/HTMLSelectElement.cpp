@@ -18,6 +18,7 @@
 #include "mozilla/PresState.h"
 #include "mozilla/StaticPrefs_ui.h"
 #include "mozilla/TextEvents.h"
+#include "mozilla/dom/AncestorIterator.h"
 #include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/ContentList.h"
 #include "mozilla/dom/Document.h"
@@ -1557,8 +1558,8 @@ void HTMLSelectElement::UserFinishedInteracting(bool aChanged) {
 
   // 5. Fire an event named change at element, with the bubbles attribute
   //    initialized to true.
-  nsContentUtils::DispatchTrustedEvent(OwnerDoc(), this, u"change"_ns,
-                                       CanBubble::eYes, Cancelable::eNo);
+  nsContentUtils::DispatchTrustedEvent(this, u"change"_ns, CanBubble::eYes,
+                                       Cancelable::eNo);
 }
 
 void HTMLSelectElement::AttributeChanged(dom::Element* aElement,
@@ -1917,8 +1918,8 @@ void HTMLSelectElement::FireDropDownEvent(bool aShow,
     }
     return u"mozhidedropdown"_ns;
   }();
-  nsContentUtils::DispatchChromeEvent(OwnerDoc(), this, eventName,
-                                      CanBubble::eYes, Cancelable::eNo);
+  nsContentUtils::DispatchChromeEvent(this, eventName, CanBubble::eYes,
+                                      Cancelable::eNo);
 }
 
 void HTMLSelectElement::PostHandleKeyEvent(int32_t aNewIndex,
@@ -2288,9 +2289,16 @@ nsresult HTMLSelectElement::HandleMouseDown(EventChainPostVisitor& aVisitor) {
   }
 
   if (IsCombobox()) {
-    if (OpenInParentProcess()) {
-      nsCOMPtr<nsIContent> target =
-          nsIContent::FromEventTargetOrNull(aVisitor.mEvent->mOriginalTarget);
+    nsCOMPtr<nsIContent> target =
+        nsIContent::FromEventTargetOrNull(aVisitor.mEvent->mOriginalTarget);
+    if (IsBaseSelectAppearance()) {
+      // Clicking an option in the base-appearance picker is handled on mouse
+      // up (where it commits that option and closes the picker). Don't let a
+      // mouse down on an option fall through and toggle the picker closed.
+      if (target && *target->InclusiveAncestorsOfType<HTMLOptionElement>()) {
+        return NS_OK;
+      }
+    } else if (OpenInParentProcess()) {
       if (target && target->IsHTMLElement(nsGkAtoms::option)) {
         return NS_OK;
       }
@@ -2331,6 +2339,29 @@ nsresult HTMLSelectElement::HandleMouseUp(EventChainPostVisitor& aVisitor) {
   CaptureMouseEvents(false);
 
   if (IsCombobox()) {
+    if (IsBaseSelectAppearance()) {
+      WidgetMouseEvent* mouseEvent = aVisitor.mEvent->AsMouseEvent();
+      if (mouseEvent && mouseEvent->mButton == MouseButton::ePrimary) {
+        // Clicking an option in the base-appearance picker commits that option
+        // and closes the picker, rather than merely toggling it closed.
+        nsCOMPtr<nsIContent> target =
+            nsIContent::FromEventTargetOrNull(aVisitor.mEvent->mOriginalTarget);
+        if (RefPtr<HTMLOptionElement> option =
+                target ? *target->InclusiveAncestorsOfType<HTMLOptionElement>()
+                       : nullptr) {
+          if (::IsOptionInteractivelySelectable(*this, *option)) {
+            if (!option->Selected()) {
+              option->SetSelected(true);
+              UserFinishedInteracting(/* aChanged = */ true);
+            }
+            if (RefPtr<nsGenericHTMLElement> picker = GetPickerElement()) {
+              IgnoredErrorResult ignored;
+              picker->HidePopover(ignored);
+            }
+          }
+        }
+      }
+    }
     return NS_OK;
   }
 

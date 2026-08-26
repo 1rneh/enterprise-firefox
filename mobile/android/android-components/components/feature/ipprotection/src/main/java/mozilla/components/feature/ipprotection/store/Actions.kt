@@ -32,6 +32,9 @@ sealed class IPProtectionAction : Action {
      */
     data class LocationChanged(val location: Location) : IPProtectionAction()
 
+    /** Reports a location reset, due to the previously selected location being unavailable. */
+    object LocationReset : IPProtectionAction()
+
     /** Reports a change in whether the user is signed in to a Firefox Account. */
     data class AccountStateChanged(val state: AccountStatus) : IPProtectionAction()
 
@@ -41,8 +44,12 @@ sealed class IPProtectionAction : Action {
      */
     object Toggle : IPProtectionAction()
 
-    /** Reports that the proxy-active status has been shown to the user. */
-    data object ProxyActiveShown : IPProtectionAction()
+    /**
+     * Clears the current [ProxyActivation] state.
+     *
+     * Resets [IPProtectionState.proxyActivation] to [ProxyActivation.Idle] after it has been handled.
+     */
+    data object ProxyActivationShown : IPProtectionAction()
 
     /**
      * Reports that the most recent activate or deactivate request failed.

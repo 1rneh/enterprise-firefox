@@ -62,6 +62,9 @@ skip-if = [
 ["browser_launcher_hidden_restore.js"]
 tags = "vertical-tabs"
 
+["browser_launcher_splitter_expand_on_hover.js"]
+tags = "vertical-tabs"
+
 ["browser_launcher_splitter_visibility.js"]
 tags = "vertical-tabs"
 
@@ -81,6 +84,8 @@ skip-if = [
 ["browser_sidebar_escape_collapse.js"]
 
 ["browser_sidebar_expand_on_hover.js"]
+
+["browser_sidebar_focus_ring.js"]
 
 ["browser_sidebar_macmenu.js"]
 run-if = [

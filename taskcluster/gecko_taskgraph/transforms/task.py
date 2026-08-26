@@ -1712,6 +1712,7 @@ class EsrBumpConfig(Schema):
     fetch_version_from: str
     version_files: list[VersionFileStrict]
     to_revision: str = ""
+    update_clobber_file: Optional[bool] = None
 
 
 class MainBumpConfig(Schema):
@@ -1722,6 +1723,7 @@ class MainBumpConfig(Schema):
     replacements: Optional[list[list[str]]] = None
     regex_replacements: Optional[list[list[str]]] = None
     end_tag: Optional[str] = None
+    update_clobber_file: Optional[bool] = None
 
 
 class UpliftConfig(Schema):
@@ -1735,6 +1737,7 @@ class UpliftConfig(Schema):
     base_tag: Optional[str] = None
     end_tag: Optional[str] = None
     l10n_bump_info: Optional[list[L10nBumpInfo]] = None
+    update_clobber_file: Optional[bool] = None
 
 
 class MergeDayConfig(Schema):
@@ -2386,7 +2389,18 @@ def try_task_config_env(config, tasks):
     }
     for task in tasks:
         if task["worker"]["implementation"] in implementations:
-            task["worker"]["env"].update(env)
+            task_env = task["worker"]["env"]
+            # A test task whose manifests were restricted to what try asked for
+            # holds the share of the request that its own chunk runs, which is
+            # narrower than the request itself. Every other task needs the
+            # request, as the harness is what filters the suite down for it.
+            attributes = task.get("attributes") or {}
+            keep_test_paths = attributes.get("test-manifests-restricted", False)
+            task_env.update({
+                name: value
+                for name, value in env.items()
+                if name != "MOZHARNESS_TEST_PATHS" or not keep_test_paths
+            })
         yield task
 
 

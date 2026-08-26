@@ -30,7 +30,8 @@ const ENGINE_PREFS = {
   Settings: "services.sync.engine.prefs",
 };
 
-const SYNC_FEATURE = "change-sync-state";
+const SYNC = "sync";
+const SYNC_TABS = "sync-tabs";
 
 /**
  * Customizes Sync settings (all settings are optional):
@@ -77,10 +78,6 @@ export const SyncPolicy = {
   async applySettings(manager, params) {
     lazy.log.debug("Apply Sync Settings");
 
-    // This might be an update to the Sync policy
-    // so restore previous sync settings
-    this.restoreSettings(manager);
-
     const {
       Enabled: shouldEnableSync,
       Locked: isIgnoringUserPreferences,
@@ -88,13 +85,18 @@ export const SyncPolicy = {
     } = params;
 
     if (isIgnoringUserPreferences) {
+      // "Tabs from other devices" needs both Sync and its tabs engine unlocked.
+      if (shouldEnableSync === false || typeSettings.OpenTabs === false) {
+        manager.disallowFeature(SYNC_TABS);
+      }
+
       const isSyncCurrentlyEnabled = this.isSyncCurrentlyEnabled();
       if (shouldEnableSync && !isSyncCurrentlyEnabled) {
         lazy.log.debug("Enable Sync");
-        await this.connectSync(manager);
+        await this.connectSync();
       } else if (shouldEnableSync === false && isSyncCurrentlyEnabled) {
         lazy.log.debug("Disable Sync");
-        await this.disconnectSync(manager);
+        await this.disconnectSync();
       }
     }
 
@@ -111,7 +113,7 @@ export const SyncPolicy = {
 
     // Only lock the Sync feature if 'Enabled' is configured
     if (isIgnoringUserPreferences && shouldEnableSync !== undefined) {
-      manager.disallowFeature(SYNC_FEATURE);
+      manager.disallowFeature(SYNC);
     }
   },
 
@@ -121,8 +123,11 @@ export const SyncPolicy = {
    * @param {EnterprisePoliciesManager} manager
    */
   async restoreSettings(manager) {
-    if (!Services.policies.isAllowed(SYNC_FEATURE)) {
-      manager.allowFeature(SYNC_FEATURE);
+    if (!Services.policies.isAllowed(SYNC)) {
+      manager.allowFeature(SYNC);
+    }
+    if (!Services.policies.isAllowed(SYNC_TABS)) {
+      manager.allowFeature(SYNC_TABS);
     }
     for (const pref of Object.values(ENGINE_PREFS)) {
       lazy.log.debug(`Unsetting ${pref}`);

@@ -12,12 +12,15 @@ category app-startup nsBrowserGlue @mozilla.org/browser/browserglue;1 applicatio
 category first-startup-new-profile resource:///modules/AboutNewTabResourceMapping.sys.mjs AboutNewTabResourceMapping.firstStartupNewProfile
 
 # Browser global components initializing before UI startup
-category browser-before-ui-startup resource:///modules/sessionstore/SessionStore.sys.mjs SessionStore.init
+category browser-before-ui-startup moz-src:///browser/components/sessionstore/SessionStore.sys.mjs SessionStore.init
 category browser-before-ui-startup resource:///modules/BuiltInThemes.sys.mjs BuiltInThemes.maybeInstallActiveBuiltInTheme
 #ifdef MOZ_NORMANDY
 category browser-before-ui-startup resource://normandy/Normandy.sys.mjs Normandy.init
 #endif
 category browser-before-ui-startup moz-src:///browser/components/privatebrowsing/ResetPBMPanel.sys.mjs ResetPBMPanel.init
+#ifdef NIGHTLY_BUILD
+category browser-before-ui-startup moz-src:///browser/components/remotecontrol/RemoteControlPanel.sys.mjs RemoteControlPanel.init
+#endif
 category browser-before-ui-startup resource:///modules/AboutHomeStartupCache.sys.mjs AboutHomeStartupCache.init
 category browser-before-ui-startup resource:///modules/AccountsGlue.sys.mjs AccountsGlue.init
 category browser-before-ui-startup moz-src:///browser/modules/ObserverForwarder.sys.mjs ObserverForwarder.init
@@ -39,14 +42,15 @@ category browser-window-before-initial-xul-layout chrome://browser/content/brows
 # The two categories below are specific to Tabbrowser creation. For consumers that need to initialize during
 # 'DOMContentLoaded', use 'browser-window-domcontentloaded' instead.
 category browser-window-domcontentloaded-before-tabbrowser resource:///modules/BrowserDOMWindow.sys.mjs BrowserDOMWindow.setupInWindow
-category browser-window-domcontentloaded-tabbrowser chrome://browser/content/tabbrowser/tabbrowser.js Tabbrowser.create
+category browser-window-domcontentloaded-tabbrowser moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs Tabbrowser.create
 
 category browser-window-domcontentloaded resource:///modules/BrowserWindowTracker.sys.mjs BrowserWindowTracker.track
 category browser-window-domcontentloaded moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs CustomizableUI.handleNewBrowserWindow
 category browser-window-domcontentloaded chrome://browser/content/browser-addons.js gUnifiedExtensions.init
 category browser-window-domcontentloaded chrome://browser/content/browser.js FirefoxViewHandler.init
 #ifdef MOZ_ENTERPRISE
-category browser-window-domcontentloaded resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
+category browser-window-domcontentloaded resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.init
+category browser-window-domcontentloaded resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
 category browser-window-domcontentloaded resource:///modules/enterprise/AccessConnectorButton.sys.mjs AccessConnectorButtonHandler.init
 #endif
 
@@ -149,7 +153,7 @@ category browser-window-unload-delayed-startup chrome://browser/content/customiz
 
 # The category below is specific to Tabbrowser destruction. For consumers that need to uninitialize during
 # window unload, use 'browser-window-unload' instead.
-category browser-window-unload-tabbrowser chrome://browser/content/tabbrowser/tabbrowser.js Tabbrowser.destroy
+category browser-window-unload-tabbrowser moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs Tabbrowser.destroy
 
 category browser-window-final-unload resource:///modules/BrowserDOMWindow.sys.mjs BrowserDOMWindow.teardownInWindow
 
@@ -187,6 +191,7 @@ category browser-idle-startup moz-src:///browser/components/urlbar/QuickSuggest.
 category browser-idle-startup moz-src:///browser/components/urlbar/UrlbarSearchTermsPersistence.sys.mjs UrlbarSearchTermsPersistence.init
 category browser-idle-startup moz-src:///browser/components/search/SERPCategorization.sys.mjs SERPCategorization.init
 category browser-idle-startup resource://gre/modules/ContentRelevancyManager.sys.mjs ContentRelevancyManager.init
+category browser-idle-startup chrome://global/content/ml/EngineProcess.sys.mjs EngineProcess.maybeReportNativeOnnxRuntimeAvailability
 category browser-idle-startup resource://gre/modules/ColorwayThemeMigration.sys.mjs ColorwayThemeMigration.maybeWarn
 category browser-idle-startup resource://gre/modules/AppServicesTracing.sys.mjs RustLogForwarder.init
 #ifdef MOZ_UPDATER
@@ -224,9 +229,10 @@ category browser-quit-application-granted moz-src:///browser/components/urlbar/U
 category browser-quit-application-granted moz-src:///browser/components/ipprotection/IPProtectionHelpers.sys.mjs IPProtectionActivator.uninit
 
 #ifdef MOZ_ENTERPRISE
-category browser-quit-application-granted resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.uninit
+category browser-quit-application-granted resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.uninit
 #endif
 
 category search-service-notification moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchUIUtils.showSearchServiceNotification
 
 category browser-newtab-external-component moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchNewTabComponentsRegistrant
+category browser-newtab-external-component moz-src:///browser/components/urlbar/UrlbarNewTabComponentRegistrant.sys.mjs UrlbarNewTabComponentRegistrant

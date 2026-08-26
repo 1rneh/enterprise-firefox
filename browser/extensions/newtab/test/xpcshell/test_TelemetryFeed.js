@@ -3328,6 +3328,47 @@ add_task(async function test_recordEnabledWidgets_partial() {
   );
 });
 
+add_task(async function test_recordEnabledWidgets_excludes_no_history() {
+  info(
+    "recordEnabledWidgets should drop the privacy widget when the profile records no history"
+  );
+  Services.fog.testResetFOG();
+
+  const values = {
+    "widgets.enabled": true,
+    "widgets.privacy.enabled": true,
+    "widgets.system.privacy.enabled": true,
+    "widgets.lists.enabled": true,
+    "widgets.system.lists.enabled": true,
+  };
+
+  let instance = new TelemetryFeed();
+  instance.store = {
+    getState: () => ({ Prefs: { values } }),
+  };
+
+  instance.recordEnabledWidgets();
+  Assert.deepEqual(
+    Glean.newtab.widgetsEnabledList.testGetValue().sort(),
+    ["lists", "privacy"],
+    "privacy is listed while the profile records history"
+  );
+
+  // Turning history off flips enablement without any widget toggle, so the
+  // PREF_CHANGED for the derived value has to re-record the list (Bug 2063207).
+  values.recordsHistory = false;
+  instance.onAction({
+    type: actionTypes.PREF_CHANGED,
+    data: { name: "recordsHistory", value: false },
+  });
+
+  Assert.deepEqual(
+    Glean.newtab.widgetsEnabledList.testGetValue(),
+    ["lists"],
+    "privacy drops out once the profile records no history"
+  );
+});
+
 add_task(async function test_recordEnabledWidgets_trainhop() {
   info(
     "recordEnabledWidgets should count a widget enabled via trainhopConfig when the system pref is off"
@@ -3430,6 +3471,50 @@ add_task(async function test_recordPageLayoutVariant_default() {
   );
 });
 
+add_task(async function test_handleSpacesUserEvent() {
+  info("handleSpacesUserEvent should record a spaces_switch event");
+  Services.fog.testResetFOG();
+
+  let instance = new TelemetryFeed();
+  const session = instance.addSession("foo", "about:newtab");
+
+  instance.handleSpacesUserEvent({
+    data: { space: "widgets", previous_space: "stories", method: "tab" },
+    meta: { fromTarget: "foo" },
+  });
+
+  const events = Glean.newtab.spacesSwitch.testGetValue();
+  Assert.equal(events.length, 1, "one spaces_switch event should be recorded");
+  Assert.deepEqual(
+    events[0].extra,
+    {
+      newtab_visit_id: session.session_id,
+      space: "widgets",
+      previous_space: "stories",
+      method: "tab",
+    },
+    "spaces_switch should carry the visit id and the switch it describes"
+  );
+});
+
+add_task(async function test_handleSpacesUserEvent_no_session() {
+  info("handleSpacesUserEvent should record nothing without a session");
+  Services.fog.testResetFOG();
+
+  let instance = new TelemetryFeed();
+
+  instance.handleSpacesUserEvent({
+    data: { space: "widgets", previous_space: "stories", method: "tab" },
+    meta: { fromTarget: "missing" },
+  });
+
+  Assert.equal(
+    Glean.newtab.spacesSwitch.testGetValue(),
+    null,
+    "no event should be recorded for an unknown port"
+  );
+});
+
 add_task(async function test_recordPageLayoutVariant_pref() {
   info("recordPageLayoutVariant should report the variant set by pref");
   Services.fog.testResetFOG();
@@ -3479,13 +3564,107 @@ add_task(async function test_recordPageLayoutVariant_trainhop() {
   );
 });
 
-add_task(async function test_onAction_NEW_TAB_SCROLL_records_scroll_metric() {
-  Services.fog.testResetFOG();
-  let instance = new TelemetryFeed();
-  instance.onAction({ type: actionTypes.NEW_TAB_SCROLL });
-  Assert.equal(
-    Glean.newtab.scroll.testGetValue(),
-    true,
-    "newtab.scroll should be true after NEW_TAB_SCROLL action"
+add_task(async function test_onAction_NEW_TAB_SCROLL_tracks_max_threshold() {
+  info(
+    "TelemetryFeed should track the deepest scroll threshold passed in a session"
   );
+  let instance = new TelemetryFeed();
+  instance.addSession("foo");
+
+  const scrollAction = threshold => ({
+    type: actionTypes.NEW_TAB_SCROLL,
+    data: { threshold },
+    meta: { fromTarget: "foo" },
+  });
+
+  instance.onAction(scrollAction(50));
+  Assert.equal(instance.sessions.get("foo").max_scroll_threshold, 50);
+
+  instance.onAction(scrollAction(250));
+  Assert.equal(instance.sessions.get("foo").max_scroll_threshold, 250);
+
+  info("A shallower threshold should not lower the recorded one");
+  instance.onAction(scrollAction(100));
+  Assert.equal(instance.sessions.get("foo").max_scroll_threshold, 250);
+});
+
+add_task(async function test_onAction_NEW_TAB_SCROLL_no_throw_on_bad_session() {
+  info("TelemetryFeed should ignore a scroll for an unknown session");
+  let instance = new TelemetryFeed();
+  try {
+    instance.onAction({
+      type: actionTypes.NEW_TAB_SCROLL,
+      data: { threshold: 50 },
+      meta: { fromTarget: "doesn't exist" },
+    });
+    Assert.ok(true, "Did not throw.");
+  } catch (e) {
+    Assert.ok(false, "Should not have thrown.");
+  }
+});
+
+add_task(async function test_endSession_records_scroll_metrics() {
+  info(
+    "TelemetryFeed.endSession should record a scroll metric for every " +
+      "threshold, true only for those the session passed"
+  );
+  Services.fog.testResetFOG();
+  Services.prefs.setBoolPref(PREF_TELEMETRY, true);
+  let sandbox = sinon.createSandbox();
+  let instance = new TelemetryFeed();
+  sandbox.stub(instance, "configureContentPing");
+
+  const session = instance.addSession("foo");
+  session.perf.visibility_event_rcvd_ts = 1000;
+  instance.onAction({
+    type: actionTypes.NEW_TAB_SCROLL,
+    data: { threshold: 100 },
+    meta: { fromTarget: "foo" },
+  });
+
+  // Ping lifetime metrics are cleared on submission, so assert before it.
+  let pingSubmitted = new Promise(resolve => {
+    GleanPings.newtab.testBeforeNextSubmit(() => {
+      Assert.equal(Glean.newtab.scroll.testGetValue(), true);
+      Assert.equal(Glean.newtab.scroll100.testGetValue(), true);
+      Assert.equal(Glean.newtab.scroll250.testGetValue(), false);
+      resolve();
+    });
+  });
+
+  await instance.endSession("foo");
+  await pingSubmitted;
+
+  Services.prefs.clearUserPref(PREF_TELEMETRY);
+  sandbox.restore();
+});
+
+add_task(async function test_endSession_records_false_scroll_metrics() {
+  info(
+    "TelemetryFeed.endSession should record false for every scroll metric " +
+      "when the session was never scrolled"
+  );
+  Services.fog.testResetFOG();
+  Services.prefs.setBoolPref(PREF_TELEMETRY, true);
+  let sandbox = sinon.createSandbox();
+  let instance = new TelemetryFeed();
+  sandbox.stub(instance, "configureContentPing");
+
+  const session = instance.addSession("foo");
+  session.perf.visibility_event_rcvd_ts = 1000;
+
+  let pingSubmitted = new Promise(resolve => {
+    GleanPings.newtab.testBeforeNextSubmit(() => {
+      Assert.equal(Glean.newtab.scroll.testGetValue(), false);
+      Assert.equal(Glean.newtab.scroll100.testGetValue(), false);
+      Assert.equal(Glean.newtab.scroll250.testGetValue(), false);
+      resolve();
+    });
+  });
+
+  await instance.endSession("foo");
+  await pingSubmitted;
+
+  Services.prefs.clearUserPref(PREF_TELEMETRY);
+  sandbox.restore();
 });

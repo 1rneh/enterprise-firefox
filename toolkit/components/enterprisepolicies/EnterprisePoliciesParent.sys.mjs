@@ -8,8 +8,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   CanonicalJSON: "resource://gre/modules/CanonicalJSON.sys.mjs",
-  EnterpriseHandler:
-    "resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs",
+  initiateShutdown:
+    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   Policies: "resource:///modules/policies/Policies.sys.mjs",
   PolicySchemaValidator:
@@ -72,6 +72,13 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
     maxLogLevelPref: PREF_LOGLEVEL,
   });
 });
+
+ChromeUtils.defineLazyGetter(lazy, "schemaModule", () =>
+  ChromeUtils.importESModule(
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    "resource:///modules/policies/schema.sys.mjs"
+  )
+);
 
 // Testing escapes in this file must key on Cu.isInAutomation.
 
@@ -149,9 +156,15 @@ EnterprisePoliciesManager.prototype = {
   // Caches latest set of parsed policies
   _parsedPolicies: {},
 
-  // Per-policy hash of the raw parameters last applied,
-  // used to skip re-parsing individual unchanged policies on an update.
-  _lastParamsHashes: new Map(),
+  // Per-policy hash of the raw parameters seen on the last update. Used to skip
+  // re-parsing and re-validating a policy whose parameters are unchanged since last poll.
+  _seenParamHashes: new Map(),
+
+  // Per-policy hash of the raw parameters currently in effect. Differs from
+  // _seenParamHashes when the latest parameters were ignored (startup policy)
+  // or rejected (invalid); used to avoid tearing down and re-applying a policy
+  // when its parameters revert to what is already applied.
+  _appliedParamHashes: new Map(),
 
   _cleanupPolicies() {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
@@ -191,7 +204,7 @@ EnterprisePoliciesManager.prototype = {
         );
         // bug 2027006 will move the fetching of policies to felt
         // and no shutdown will be needed then
-        lazy.EnterpriseHandler.initiateShutdown();
+        lazy.initiateShutdown();
       } else {
         lazy.log.error(`Failed to build the policies provider: ${e}`);
       }
@@ -343,8 +356,10 @@ EnterprisePoliciesManager.prototype = {
       }
 
       lazy.log.debug(`Parsed startup policy ${policyName}.`);
+      const paramsHash = hashValue(policyParams);
       this._parsedPolicies[policyName] = parsedParams;
-      this._lastParamsHashes.set(policyName, hashValue(policyParams));
+      this._seenParamHashes.set(policyName, paramsHash);
+      this._appliedParamHashes.set(policyName, paramsHash);
 
       const policyImpl = lazy.Policies[policyName];
       this._schedulePolicyActivations(policyName, policyImpl, parsedParams);
@@ -389,9 +404,16 @@ EnterprisePoliciesManager.prototype = {
       }
     }
 
+    const previousSeenParamHashes = this._seenParamHashes;
+    const previousAppliedParamHashes = this._appliedParamHashes;
+
     this._schedulePolicyUpdates(previousPolicies);
 
-    this._schedulePolicyRemovals(previousPolicies);
+    this._schedulePolicyRemovals(
+      previousPolicies,
+      previousSeenParamHashes,
+      previousAppliedParamHashes
+    );
 
     // Run removals first so that an updated policy is torn down (with its
     // previous parameters) before it is re-applied with the new ones.
@@ -422,22 +444,24 @@ EnterprisePoliciesManager.prototype = {
    */
   _schedulePolicyUpdates(previousPolicies) {
     const parsedPolicies = {};
-    const paramsHashes = new Map();
+    const seenHashes = new Map();
+    const appliedHashes = new Map();
 
     for (const [policyName, policyParams] of Object.entries(
       this._effectivePolicies()
     )) {
       const paramsHash = hashValue(policyParams);
+      seenHashes.set(policyName, paramsHash);
 
-      if (
-        this._lastParamsHashes.get(policyName) === paramsHash &&
-        policyName in previousPolicies
-      ) {
-        // Skip re-parsing a policy whose raw parameters are unchanged.
-        // Instead reuse the previously parsed value and leave it applied.
+      if (this._seenParamHashes.get(policyName) === paramsHash) {
         lazy.log.debug(`Policy ${policyName} unchanged.`);
-        parsedPolicies[policyName] = previousPolicies[policyName];
-        paramsHashes.set(policyName, paramsHash);
+        if (policyName in previousPolicies) {
+          parsedPolicies[policyName] = previousPolicies[policyName];
+          appliedHashes.set(
+            policyName,
+            this._appliedParamHashes.get(policyName)
+          );
+        }
         continue;
       }
 
@@ -451,16 +475,43 @@ EnterprisePoliciesManager.prototype = {
       if (!isValid) {
         lazy.log.debug(`Updated policy params for ${policyName} are invalid.`);
         if (policyName in previousPolicies) {
-          // The updated policy params are invalid. Keep the previously applied policy version.
+          // Keep the previously applied policy version in effect.
           parsedPolicies[policyName] = previousPolicies[policyName];
-          paramsHashes.set(policyName, this._lastParamsHashes.get(policyName));
+          appliedHashes.set(
+            policyName,
+            this._appliedParamHashes.get(policyName)
+          );
           lazy.log.debug(`Skipping policy update for ${policyName}.`);
         }
         continue;
       }
 
+      if (this._isStartupPolicy(policyName)) {
+        // This policy cannot be updated as it needs to be applied during a startup.
+        lazy.log.warn(
+          `Policy ${policyName} requires a restart; the change will not be applied before the next restart.`
+        );
+        if (policyName in previousPolicies) {
+          parsedPolicies[policyName] = previousPolicies[policyName];
+          appliedHashes.set(
+            policyName,
+            this._appliedParamHashes.get(policyName)
+          );
+        }
+        continue;
+      }
+
+      if (this._appliedParamHashes.get(policyName) === paramsHash) {
+        // The parameters reverted to what is already applied (e.g. after an
+        // ignored or rejected update). Leave the policy in place rather than
+        // tearing it down and re-applying the same value.
+        parsedPolicies[policyName] = previousPolicies[policyName];
+        appliedHashes.set(policyName, paramsHash);
+        continue;
+      }
+
       parsedPolicies[policyName] = parsedParams;
-      paramsHashes.set(policyName, paramsHash);
+      appliedHashes.set(policyName, paramsHash);
 
       if (policyName in previousPolicies) {
         // Parameters changed: remove the policy (with its previous
@@ -473,7 +524,8 @@ EnterprisePoliciesManager.prototype = {
     }
 
     this._parsedPolicies = parsedPolicies;
-    this._lastParamsHashes = paramsHashes;
+    this._seenParamHashes = seenHashes;
+    this._appliedParamHashes = appliedHashes;
   },
 
   /**
@@ -482,11 +534,38 @@ EnterprisePoliciesManager.prototype = {
    *
    * @param {object} previousPolicies the set of policies parsed and applied
    *   before this update
+   * @param {Map} previousSeenParamHashes seen-parameter hashes from before this
+   *   update
+   * @param {Map} previousAppliedParamHashes applied-parameter hashes from before this
+   *   update
    */
-  _schedulePolicyRemovals(previousPolicies) {
+  _schedulePolicyRemovals(
+    previousPolicies,
+    previousSeenParamHashes,
+    previousAppliedParamHashes
+  ) {
     for (const [policyName, policyParams] of Object.entries(previousPolicies)) {
       if (this._parsedPolicies[policyName] !== undefined) {
         // Policy remains active.
+        continue;
+      }
+
+      if (this._isStartupPolicy(policyName)) {
+        // A startup policy cannot be removed live any more than it can be
+        // applied live. Keep it applied until the next restart, which will
+        // re-read the policy set without it.
+        lazy.log.warn(
+          `Policy ${policyName} requires a restart; its removal will not take effect before the next restart.`
+        );
+        this._parsedPolicies[policyName] = policyParams;
+        this._seenParamHashes.set(
+          policyName,
+          previousSeenParamHashes.get(policyName)
+        );
+        this._appliedParamHashes.set(
+          policyName,
+          previousAppliedParamHashes.get(policyName)
+        );
         continue;
       }
 
@@ -531,11 +610,7 @@ EnterprisePoliciesManager.prototype = {
    * @returns {{ isValid: boolean, parsedParams: object|null}}
    */
   _validateAndParsePolicyParams(policyName, policyParams) {
-    const { schema } = ChromeUtils.importESModule(
-      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-      "resource:///modules/policies/schema.sys.mjs"
-    );
-    const policySchema = schema.properties[policyName];
+    const policySchema = lazy.schemaModule.schema.properties[policyName];
 
     if (!policySchema) {
       lazy.log.error(`Unknown policy: ${policyName}`);
@@ -548,6 +623,7 @@ EnterprisePoliciesManager.prototype = {
       error: validationError,
     } = lazy.PolicySchemaValidator.validate(policyParams, policySchema, {
       allowAdditionalProperties: true,
+      policyName,
     });
 
     if (!isValid) {
@@ -573,6 +649,20 @@ EnterprisePoliciesManager.prototype = {
     }
 
     return { isValid, parsedParams };
+  },
+
+  /**
+   * Whether a policy can only take effect after a browser restart, as
+   * declared by "x-restart-required" in policies-schema.json. Such policies
+   * are applied at startup only: they are neither updated nor removed live.
+   *
+   * @param {string} policyName policy name
+   * @returns {boolean} whether policy requires a restart to be applied
+   */
+  _isStartupPolicy(policyName) {
+    const requiresRestart =
+      lazy.schemaModule.schema.properties[policyName]["x-restart-required"];
+    return requiresRestart ?? true;
   },
 
   /**
@@ -697,7 +787,8 @@ EnterprisePoliciesManager.prototype = {
 
     this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = {};
-    this._lastParamsHashes = new Map();
+    this._seenParamHashes = new Map();
+    this._appliedParamHashes = new Map();
     if (this._isRemotePoliciesSupported()) {
       RemotePoliciesProvider.dropInstance();
     }

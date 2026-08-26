@@ -23,6 +23,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Allow WebExtensions to configure policy.",
       "examples": [
         {
@@ -66,6 +67,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Configures an Access Connector for proxying web traffic. Traffic is routed through the server by 'Host' and 'Port'. If 'MatchPatterns' is set, only URLs matching those patterns are routed through the connector.",
       "examples": [
         {
@@ -107,6 +109,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Controls access to AI chat services. Built-in providers can be enabled individually. For custom providers, add them to the 'Add' array. The 'Default' field specifies which provider is used by default.",
       "examples": [
         {
@@ -226,6 +229,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "149.0.2" }
       },
+      "x-restart-required": true,
       "description": "Controls access to AI features: Translations, PDF alt text generation, smart tab groups, display summaries in link previews, AI chatbot in the sidebar and smart windows. The `Default` value applies to all AI features, unless overridden by a specific feature.",
       "examples": [
         {
@@ -412,6 +416,7 @@
         "firefox_esr": { "version_added": "78.11.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Define domains allowed to access Google Workspace.",
       "examples": ["managedfirefox.com,example.com"]
     },
@@ -424,6 +429,7 @@
         "firefox_esr": { "version_added": "128" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable file selection dialogs.",
       "examples": [false]
     },
@@ -436,6 +442,7 @@
         "firefox_esr": { "version_added": "68.7.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable automatic application update.",
       "examples": [false]
     },
@@ -448,6 +455,7 @@
         "firefox_esr": { "version_added": "102" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Prevent Firefox from being updated beyond the specified version.",
       "examples": ["106."]
     },
@@ -459,6 +467,7 @@
         "firefox_esr": { "version_added": "60.2.0" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Change the URL for application update if you are providing Firefox updates from a custom update server.",
       "examples": ["https://yoursite.com"],
       "$ref": "#/definitions/url"
@@ -472,6 +481,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure sites that support integrated authentication.",
       "examples": [
         {
@@ -548,6 +558,7 @@
         "firefox_esr": { "version_added": "115.10.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enables or disables autofill for addresses.",
       "examples": [false]
     },
@@ -560,6 +571,7 @@
         "firefox_esr": { "version_added": "115.10.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enables or disables autofill for payment methods.",
       "examples": [false]
     },
@@ -572,6 +584,7 @@
         "firefox_esr": { "version_added": "78.12.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Define a list of external protocols that can be used from listed origins without prompting the user.",
       "examples": [
         [
@@ -605,6 +618,7 @@
         "firefox_esr": { "version_added": "91" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable automatic application update in the background, when the application is not running.",
       "examples": [false]
     },
@@ -617,6 +631,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Block access to the Add-ons Manager ('about:addons').",
       "examples": [true]
     },
@@ -629,6 +644,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Block access to 'about:config'.",
       "examples": [true]
     },
@@ -641,6 +657,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Block access to About Profiles ('about:profiles').",
       "examples": [true]
     },
@@ -653,6 +670,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Block access to Troubleshooting Information ('about:support').",
       "examples": [true]
     },
@@ -665,6 +683,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Enable and configure security logging when Firefox blocks a visit to a blocklisted domain.",
       "examples": [
         {
@@ -698,6 +717,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Add bookmarks in either the bookmarks toolbar or menu. Use 'ManagedBookmarks' instead.",
       "examples": [
         [
@@ -749,6 +769,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable backup or restore of profile data.",
       "examples": [
         {
@@ -774,6 +795,7 @@
         "firefox_esr": { "version_added": "60.7.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable the detection of captive portals.",
       "examples": [false]
     },
@@ -786,6 +808,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Install and manage certificates.",
       "examples": [
         {
@@ -814,6 +837,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "154" }
       },
+      "x-restart-required": true,
       "description": "Enable the CNSA 2.0 ML-KEM-1024 key agreement for TLS.",
       "examples": [true]
     },
@@ -826,6 +850,7 @@
         "firefox_esr": { "version_added": "115" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set policies related to Multi-Account Containers.",
       "examples": [
         {
@@ -895,6 +920,7 @@
         "firefox_esr": { "version_added": "128" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Configure Firefox to use an agent for Data Loss Prevention (DLP) that is compatible with the Google Chrome Content Analysis Connector Agent SDK.",
       "examples": [
         {
@@ -1034,6 +1060,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "155" }
       },
+      "x-restart-required": false,
       "description": "Enable and configure security logging when a DLP rule is triggered.",
       "examples": [
         {
@@ -1060,6 +1087,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Configure cookie preferences.",
       "examples": [
         {
@@ -1207,6 +1235,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "154" }
       },
+      "x-restart-required": false,
       "description": "Configure crash report submission settings.",
       "examples": [
         {
@@ -1231,6 +1260,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "155" }
       },
+      "x-restart-required": false,
       "description": "Configure built-in Data Loss Prevention rules that warn on or block data actions (paste, copy, upload, download, print) per domain.",
       "examples": [
         {
@@ -1308,9 +1338,10 @@
       "x-category": "Startup",
       "x-compatibility": {
         "firefox": { "version_added": "154" },
-        "firefox_esr": { "version_added": false },
+        "firefox_esr": { "version_added": "153.1" },
         "firefox_enterprise": { "version_added": "154" }
       },
+      "x-restart-required": true,
       "description": "Control whether the user can set Firefox as the default browser. If set to false, the default browser check is disabled and the controls for setting Firefox as the default browser are removed from the preferences.",
       "examples": [false]
     },
@@ -1323,6 +1354,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set the default download directory.",
       "examples": ["${home}/Downloads"]
     },
@@ -1335,6 +1367,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "151" }
       },
+      "x-restart-required": true,
       "description": "Set the default permission for websites requesting access to serial ports through the Web Serial API.",
       "examples": [2, 3],
       "oneOf": [
@@ -1359,6 +1392,7 @@
         "firefox_esr": { "version_added": "128" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Disable account-based services, including sync.",
       "examples": [true]
     },
@@ -1371,6 +1405,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Turn off application updates within Firefox.",
       "examples": [true]
     },
@@ -1383,6 +1418,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable the built in PDF viewer.",
       "examples": [true]
     },
@@ -1395,6 +1431,7 @@
         "firefox_esr": { "version_added": "68.8.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable specific cryptographic ciphers, listed below.",
       "examples": [
         {
@@ -1476,6 +1513,7 @@
         "firefox_esr": { "version_added": "68.7.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Prevent the default browser agent from taking any actions.",
       "examples": [true]
     },
@@ -1488,6 +1526,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Remove access to all developer tools.",
       "examples": [true]
     },
@@ -1500,6 +1539,7 @@
         "firefox_esr": { "version_added": "128" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable the TLS Feature for Encrypted Client Hello.",
       "examples": [true]
     },
@@ -1512,6 +1552,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable the menus for reporting sites (Submit Feedback, Report Deceptive Site).",
       "examples": [true]
     },
@@ -1524,6 +1565,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Disable Firefox Accounts integration (Sync).",
       "examples": [true]
     },
@@ -1536,6 +1578,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Remove access to Firefox Screenshots.",
       "examples": [true]
     },
@@ -1548,6 +1591,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Disable Firefox studies (Shield).",
       "examples": [true]
     },
@@ -1560,6 +1604,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable the \"Forget\" button.",
       "examples": [true]
     },
@@ -1572,6 +1617,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Turn off saving information on web forms and the search bar.",
       "examples": [true]
     },
@@ -1584,6 +1630,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "155" }
       },
+      "x-restart-required": true,
       "description": "Prevent Firefox from launching automatically when the user logs in, and prevent the user from enabling this setting. This policy currently only has an effect on Windows.",
       "examples": [true]
     },
@@ -1595,6 +1642,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "155" }
       },
+      "x-restart-required": true,
       "description": "Disable all local policy sources (policies.json, Windows GPO and macOS plist).",
       "examples": [true, false]
     },
@@ -1606,6 +1654,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Remove the master password functionality.",
       "examples": [true]
     },
@@ -1618,6 +1667,7 @@
         "firefox_esr": { "version_added": "68.3.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Do not allow passwords to be shown in saved logins.",
       "examples": [true]
     },
@@ -1630,6 +1680,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Remove Pocket in the Firefox UI.",
       "examples": [true]
     },
@@ -1642,6 +1693,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Remove access to private browsing.",
       "examples": [true]
     },
@@ -1654,6 +1706,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Remove the ability to import data from other browsers.",
       "examples": [true]
     },
@@ -1666,6 +1719,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable the Refresh Firefox button on 'about:support' and 'support.mozilla.org', as well as the prompt that displays offering to refresh Firefox when you haven't used it in a while.",
       "examples": [true]
     },
@@ -1678,6 +1732,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Prevent Firefox from applying performance, stability, and feature changes between updates.",
       "examples": [true]
     },
@@ -1690,6 +1745,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "153" }
       },
+      "x-restart-required": true,
       "description": "Disable Remote Settings updates, stopping Firefox from receiving updated data such as blocklists, and accept the resulting security consequences.",
       "examples": [true]
     },
@@ -1702,6 +1758,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable safe mode (Troubleshoot Mode) within the browser.",
       "examples": [true]
     },
@@ -1714,6 +1771,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Prevent the user from bypassing security in certain cases.",
       "examples": [
         {
@@ -1739,6 +1797,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Remove the \"Set As Desktop Background...\" menuitem when right clicking on an image.",
       "examples": [true]
     },
@@ -1751,6 +1810,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Prevent system add-ons from being installed or updated.",
       "examples": [true]
     },
@@ -1763,6 +1823,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Prevent the upload of telemetry data.",
       "examples": [true]
     },
@@ -1775,6 +1836,7 @@
         "firefox_esr": { "version_added": "115" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Do not allow blocking third-party modules from the 'about:third-party' page.",
       "examples": [true]
     },
@@ -1786,6 +1848,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set the initial state of the bookmarks toolbar.",
       "examples": ["always"],
       "anyOf": [
@@ -1820,6 +1883,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set the state of the menubar.",
       "examples": ["always"],
       "anyOf": [
@@ -1860,6 +1924,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure DNS over HTTPS (DoH).",
       "examples": [
         {
@@ -1898,6 +1963,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Don't check if Firefox is the default browser at startup.",
       "examples": [true]
     },
@@ -1910,6 +1976,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set and lock the download directory.",
       "examples": ["${home}/Downloads"]
     },
@@ -1922,6 +1989,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Enable and configure security logging when a download is triggered. 'UrlLogging' and 'FileLogging' control how much detail about the download source and the file is included in the log.",
       "examples": [
         {
@@ -1961,6 +2029,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure tracking protection.",
       "examples": [
         {
@@ -2031,6 +2100,7 @@
         "firefox_esr": { "version_added": "68.9.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable Encrypted Media Extensions and optionally lock it.",
       "examples": [
         {
@@ -2056,6 +2126,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable an enterprise-managed primary password so that stored credentials and other sensitive profile data are kept encrypted at rest.",
       "examples": [true]
     },
@@ -2068,6 +2139,7 @@
         "firefox_esr": { "version_added": "102" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable warnings based on file extension for specific file types on domains.",
       "examples": [
         [
@@ -2101,6 +2173,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Control the installation, uninstallation and locking of extensions.",
       "examples": [
         {
@@ -2142,6 +2215,7 @@
         "firefox_esr": { "version_added": "68.1.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Manage all aspects of extensions.",
       "examples": [
         {
@@ -2359,6 +2433,7 @@
         "firefox_esr": { "version_added": "60.7.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Control extension updates.",
       "examples": [false]
     },
@@ -2371,6 +2446,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Customize the Firefox Home page.",
       "examples": [
         {
@@ -2449,6 +2525,7 @@
         "firefox_esr": { "version_added": "115.3.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Customize Firefox Suggest (US only).",
       "examples": [
         {
@@ -2485,6 +2562,7 @@
         "firefox_esr": { "version_added": "140.4.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure generative AI features.",
       "examples": [
         {
@@ -2525,6 +2603,7 @@
         "firefox_esr": { "version_added": "102.2.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Whether to always go through the DNS server before sending a single word search string to a search engine.",
       "examples": [true]
     },
@@ -2537,6 +2616,7 @@
         "firefox_esr": { "version_added": "78" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure default application handlers.",
       "examples": [
         {
@@ -2635,6 +2715,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Control hardware acceleration.",
       "examples": [false]
     },
@@ -2647,6 +2728,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure the default homepage and how Firefox starts.",
       "examples": [
         {
@@ -2704,6 +2786,7 @@
         "firefox_esr": { "version_added": "128" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure sites that will not be upgraded to HTTPS.",
       "examples": [["http://example.org", "http://example.edu"]],
       "items": { "$ref": "#/definitions/origin" }
@@ -2717,6 +2800,7 @@
         "firefox_esr": { "version_added": "128" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Configure HTTPS-Only Mode.",
       "examples": ["allowed"],
       "oneOf": [
@@ -2751,6 +2835,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure the default extension install policy as well as origins for extension installs are allowed.",
       "examples": [
         {
@@ -2777,6 +2862,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Control whether Firefox's built-in IP Protection (VPN) is available to users. When disabled, the feature is turned off and cannot be used.",
       "examples": [false]
     },
@@ -2789,6 +2875,7 @@
         "firefox_esr": { "version_added": "68.2.0" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Disable the feature enforcing a separate profile for each installation.",
       "examples": [true]
     },
@@ -2801,6 +2888,7 @@
         "firefox_esr": { "version_added": "78" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable default legacy SameSite cookie behavior setting.",
       "examples": [true]
     },
@@ -2813,6 +2901,7 @@
         "firefox_esr": { "version_added": "78" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Revert to legacy SameSite behavior for cookies on specified sites.",
       "examples": [["example.org", "example.edu"]],
       "items": {
@@ -2828,6 +2917,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable linking to local files by origin.",
       "examples": [["http://example.org/", "http://example.edu/"]],
       "items": {
@@ -2843,6 +2933,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configure local network access security features.",
       "examples": [
         {
@@ -2882,6 +2973,7 @@
         "firefox_esr": { "version_added": "78.5.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Configures a list of bookmarks managed by an administrator that cannot be changed by the user.",
       "examples": [
         [
@@ -2959,6 +3051,7 @@
         "firefox_esr": { "version_added": "91" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Switch to manual updates only.",
       "examples": [true]
     },
@@ -2971,6 +3064,7 @@
         "firefox_esr": { "version_added": "128.5.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Allow single sign-on for Microsoft Entra accounts on macOS.",
       "examples": [true]
     },
@@ -2983,6 +3077,7 @@
         "firefox_esr": { "version_added": "60.7.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable network prediction (DNS prefetching).",
       "examples": [false]
     },
@@ -2995,6 +3090,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable the New Tab page.",
       "examples": [false]
     },
@@ -3007,6 +3103,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable the creation of default bookmarks.",
       "examples": [true]
     },
@@ -3019,6 +3116,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Control whether or not Firefox offers to save passwords.",
       "examples": [false]
     },
@@ -3031,6 +3129,7 @@
         "firefox_esr": { "version_added": "68.2.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Sets the default value of 'signon.rememberSignons' without locking it.",
       "examples": [false]
     },
@@ -3043,6 +3142,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Override the first run page.",
       "examples": ["https://example.org"]
     },
@@ -3054,6 +3154,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Override the upgrade page.",
       "examples": ["http://example.org"],
       "$ref": "#/definitions/urlOrEmpty"
@@ -3067,6 +3168,7 @@
         "firefox_esr": { "version_added": "68.2.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Remove access to the password manager via preferences and blocks about:logins on Firefox 70.",
       "examples": [false]
     },
@@ -3079,6 +3181,7 @@
         "firefox_esr": { "version_added": "91.10.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Prevent Firefox from saving passwords for specific sites.",
       "examples": [["https://example.org", "https://example.edu"]],
       "items": { "$ref": "#/definitions/origin" }
@@ -3092,6 +3195,7 @@
         "firefox_esr": { "version_added": "68.9.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Disable or configure PDF.js, the built-in PDF viewer.",
       "examples": [
         {
@@ -3117,6 +3221,7 @@
         "firefox_esr": { "version_added": "60.2.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set permissions associated with camera, microphone, location, notifications, autoplay, and virtual reality.",
       "examples": [
         {
@@ -3326,6 +3431,7 @@
         "firefox_esr": { "version_added": "78" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable Picture-in-Picture as well as prevent the user from enabling or disabling it (Locked).",
       "examples": [
         {
@@ -3351,6 +3457,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Allow certain websites to display popups and be redirected by third-party frames.",
       "examples": [
         {
@@ -3381,6 +3488,7 @@
         "firefox_esr": { "version_added": "128" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable post-quantum key agreement for TLS.",
       "examples": [false]
     },
@@ -3393,6 +3501,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set and lock preferences.",
       "examples": [
         {
@@ -3477,6 +3586,7 @@
         "firefox_esr": { "version_added": "78.1.0" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Require or prevent using a primary (formerly master) password.",
       "examples": [true]
     },
@@ -3489,6 +3599,7 @@
         "firefox_esr": { "version_added": "115.5.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable printing.",
       "examples": [false]
     },
@@ -3501,6 +3612,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Enable and configure security logging when a page is printed. 'UrlLogging' controls how much detail about the printed page's address is included in the log.",
       "examples": [
         {
@@ -3534,6 +3646,7 @@
         "firefox_esr": { "version_added": "128.3.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set availability of private browsing mode.",
       "examples": [0],
       "oneOf": [
@@ -3563,6 +3676,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Ask where to save each file before downloading.",
       "examples": [true]
     },
@@ -3575,6 +3689,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Configure proxy settings.",
       "examples": [
         {
@@ -3677,6 +3792,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "150" }
       },
+      "x-restart-required": true,
       "description": "Control relaunch behavior.",
       "examples": [
         {
@@ -3713,6 +3829,7 @@
         "firefox_esr": { "version_added": "60.4.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set the list of requested locales for the application in order of preference.",
       "examples": [["de", "en-US"]],
       "items": {
@@ -3728,6 +3845,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Clear specified data on shutdown, such as History, Cookies, Logins, Cache, Form History, Site Preferences and Offline Website Data.",
       "examples": [
         true,
@@ -3784,6 +3902,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set whether or not search bar is displayed.",
       "examples": ["unified"],
       "oneOf": [
@@ -3808,6 +3927,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "The following policies allow for configuring search engines in Firefox.",
       "examples": [
         {
@@ -3942,6 +4062,7 @@
         "firefox_esr": { "version_added": "68" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable search suggestions.",
       "examples": [false]
     },
@@ -3954,6 +4075,7 @@
         "firefox_esr": { "version_added": "60.4.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Install PKCS #11 modules.",
       "examples": [
         {
@@ -3996,6 +4118,7 @@
         "firefox_esr": { "version_added": "78.10.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Show the home button on the toolbar.",
       "examples": [true]
     },
@@ -4008,6 +4131,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "150" }
       },
+      "x-restart-required": false,
       "description": "Fine grained control over policies for specific sites.",
       "examples": [
         [
@@ -4054,6 +4178,9 @@
               },
               "HttpsOnly": {
                 "type": "boolean"
+              },
+              "DisableServiceWorkers": {
+                "type": "boolean"
               }
             }
           }
@@ -4070,6 +4197,7 @@
         "firefox_esr": { "version_added": "140" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Configure display settings for the Firefox Terms of Use and Privacy Notice on startup.",
       "examples": [true]
     },
@@ -4082,6 +4210,7 @@
         "firefox_esr": { "version_added": "60.6.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set and lock the maximum version of TLS.",
       "examples": ["tls1.3"],
       "oneOf": [
@@ -4100,6 +4229,7 @@
         "firefox_esr": { "version_added": "60.6.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Set and lock the minimum version of TLS.",
       "examples": ["tls1.2"],
       "oneOf": [
@@ -4118,6 +4248,7 @@
         "firefox_esr": { "version_added": "102" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Force downloads to start off in a local, temporary location rather than the default download directory.",
       "examples": [true]
     },
@@ -4130,6 +4261,7 @@
         "firefox_esr": { "version_added": "60.7.0" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Add a menuitem to the help menu for specifying support information.",
       "examples": [
         {
@@ -4157,6 +4289,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "150" }
       },
+      "x-restart-required": false,
       "description": "Enable or disable sync and define which data to include.",
       "examples": [
         {
@@ -4217,6 +4350,7 @@
         "firefox_esr": { "version_added": "128" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable webpage translation.",
       "examples": [false]
     },
@@ -4229,6 +4363,7 @@
         "firefox_esr": { "version_added": "68.7.0" },
         "firefox_enterprise": { "version_added": false }
       },
+      "x-restart-required": true,
       "description": "Prevent Firefox from messaging the user in certain situations.",
       "examples": [
         {
@@ -4277,6 +4412,7 @@
         "firefox_esr": { "version_added": "102" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Use the system print dialog instead of the print preview window.",
       "examples": [true]
     },
@@ -4289,6 +4425,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable visual search.",
       "examples": [false]
     },
@@ -4301,6 +4438,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "154" }
       },
+      "x-restart-required": false,
       "description": "Display a tiled, diagonal watermark over a list of websites.",
       "examples": [
         {
@@ -4357,6 +4495,7 @@
         "firefox_esr": { "version_added": "60" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": false,
       "description": "Block websites from being visited.",
       "examples": [
         {
@@ -4389,6 +4528,7 @@
         "firefox_esr": { "version_added": "91" },
         "firefox_enterprise": { "version_added": "149" }
       },
+      "x-restart-required": true,
       "description": "Allow Windows single sign-on for Microsoft, work, and school accounts.",
       "examples": [true]
     },
@@ -4401,6 +4541,7 @@
         "firefox_esr": { "version_added": "153" },
         "firefox_enterprise": { "version_added": "151" }
       },
+      "x-restart-required": true,
       "description": "Enable or disable support for the XSLTProcessor JavaScript API and the XSLT processing instruction.",
       "examples": [false]
     }

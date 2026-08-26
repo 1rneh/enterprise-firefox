@@ -202,6 +202,8 @@ struct nsFactoryEntry {
     mServiceObject = std::move(aInst);
   }
 
+  bool IsSingleton() const { return false; }
+
   const nsCID mCID;
 
   nsCOMPtr<nsIFactory> mFactory;

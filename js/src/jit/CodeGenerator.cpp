@@ -3941,8 +3941,15 @@ void CodeGenerator::visitGoto(LGoto* lir) {
   // CodeGenerator is (indirectly) a child class of CodeGeneratorShared.
   //
   // See CodeGeneratorShared::jumpToBlock(MBasicBlock*) as reference.
-  uint32_t numMoveGroupsCloned = 0;
+
+  // If we can fall through to the target, don't bother cloning MoveGroups
+  // because this would turn the fallthrough into an explicit jump.
   MBasicBlock* target = lir->target();
+  if (isNextBlock(target->lir())) {
+    return;
+  }
+
+  uint32_t numMoveGroupsCloned = 0;
   while (true) {
     LBlock* targetLBlock = target->lir();
     LBlock* nextLBlock = targetLBlock->isMoveGroupsThenGoto();
@@ -10628,12 +10635,14 @@ void CodeGenerator::visitWasmCall(LWasmCall* lir) {
   MOZ_ASSERT(lir->safepoint()->wasmSafepointKind() ==
              WasmSafepointKind::LirCall);
 
-  // Note the assembler offset and framePushed for use by the adjunct
-  // LSafePoint, see visitor for LWasmCallIndirectAdjunctSafepoint below.
+  // Indirect calls (WasmTable/FuncRef) emit two call instructions (fast and
+  // slow path) with two distinct return offsets. The two paths are mutually
+  // exclusive and rejoin with the same live references and frame layout, so a
+  // single stackmap serves both: register this call's LSafepoint a second time
+  // at the slow-path return offset.
   if (callee.which() == wasm::CalleeDesc::WasmTable ||
       callee.which() == wasm::CalleeDesc::FuncRef) {
-    lir->adjunctSafepoint()->recordSafepointInfo(secondRetOffset,
-                                                 framePushedAtStackMapBase);
+    markSafepointAt(secondRetOffset.offset(), lir);
   }
 
   if (reloadInstance) {
@@ -10677,12 +10686,10 @@ void CodeGenerator::visitWasmCall(LWasmCall* lir) {
       tryNote.setTryBodyEnd(masm.currentOffset());
     }
 
-    // This instruction or the adjunct safepoint must be the last instruction
-    // in the block. No other instructions may be inserted.
+    // This instruction must be the last instruction in the block. No other
+    // instructions may be inserted.
     LBlock* block = lir->block();
-    MOZ_RELEASE_ASSERT(*block->rbegin() == lir ||
-                       (block->rbegin()->isWasmCallIndirectAdjunctSafepoint() &&
-                        *(++block->rbegin()) == lir));
+    MOZ_RELEASE_ASSERT(*block->rbegin() == lir);
 
     // Jump to the fallthrough block
     jumpToBlock(lir->mirCatchable()->getSuccessor(
@@ -10849,13 +10856,6 @@ void CodeGenerator::visitWasmCallLandingPrePad(LWasmCallLandingPrePad* lir) {
   // block. The above assertions (and assertions in visitWasmCall) guarantee
   // that we are not skipping over instructions that should be executed.
   tryNote.setLandingPad(block->label()->offset(), masm.framePushed());
-}
-
-void CodeGenerator::visitWasmCallIndirectAdjunctSafepoint(
-    LWasmCallIndirectAdjunctSafepoint* lir) {
-  markSafepointAt(lir->safepointLocation().offset(), lir);
-  lir->safepoint()->setFramePushedAtStackMapBase(
-      lir->framePushedAtStackMapBase());
 }
 
 template <typename InstructionWithMaybeTrapSite>
@@ -20649,19 +20649,6 @@ void CodeGenerator::visitIsObject(LIsObject* ins) {
   masm.testObjectSet(Assembler::Equal, value, output);
 }
 
-void CodeGenerator::visitIsGenClosing(LIsGenClosing* lir) {
-  Register output = ToRegister(lir->output());
-  ValueOperand value = ToValue(lir->value());
-  Label isClosing, done;
-  masm.branchTestMagicValue(Assembler::Equal, value, JS_GENERATOR_CLOSING,
-                            &isClosing);
-  masm.move32(Imm32(0), output);
-  masm.jump(&done);
-  masm.bind(&isClosing);
-  masm.move32(Imm32(1), output);
-  masm.bind(&done);
-}
-
 void CodeGenerator::visitIsSuspendedGenerator(LIsSuspendedGenerator* lir) {
   Register obj = ToRegister(lir->object());
   Register output = ToRegister(lir->output());
@@ -21913,14 +21900,12 @@ void CodeGenerator::visitGeneratorResume(LGeneratorResume* lir) {
                             /* hasInlined = */ false,
                             /* isResumingGenerator = */ true));
 
-  // Load the code to call. Throw and Return currently always resume in
-  // Baseline; see MaybeEnterJit.
+  // Load the code to call. Throw currently always resumes in Baseline.
+  // See MaybeEnterJit.
   Register code = callee;
-  if (resumeKind == int32_t(GeneratorResumeKind::Next)) {
+  if (resumeKind != int32_t(GeneratorResumeKind::Throw)) {
     masm.loadJitCodeRaw(callee, code);
   } else {
-    MOZ_ASSERT(resumeKind == int32_t(GeneratorResumeKind::Throw) ||
-               resumeKind == int32_t(GeneratorResumeKind::Return));
     masm.loadJitCodeRawNoIon(callee, code, scratch);
   }
 
@@ -21971,23 +21956,6 @@ void CodeGenerator::visitResumeFrameArg(LResumeFrameArg* lir) {
   masm.loadValue(
       Address(FramePointer, OffsetOfResumeFrameArg(gen, lir->mir()->slot())),
       output);
-}
-
-void CodeGenerator::visitAssertResumeKindIsNext(LAssertResumeKindIsNext* lir) {
-#ifdef DEBUG
-  Register temp = ToRegister(lir->temp0());
-  Label ok;
-  Address resumeKindAddr(
-      FramePointer,
-      OffsetOfResumeFrameArg(gen, ResumeFrameArgs::ResumeKindSlot));
-  masm.unboxInt32(resumeKindAddr, temp);
-  masm.branch32(Assembler::Equal, temp,
-                Imm32(int32_t(GeneratorResumeKind::Next)), &ok);
-  masm.assumeUnreachable("Ion resumed with a resume kind other than Next");
-  masm.bind(&ok);
-#else
-  MOZ_CRASH("MAssertResumeKindIsNext is created in DEBUG builds only");
-#endif
 }
 
 void CodeGenerator::visitIsResumingGenerator(LIsResumingGenerator* lir) {

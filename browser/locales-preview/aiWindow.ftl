@@ -2,6 +2,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+## Monitor Toolbar Button
+
+# Toolbar button that opens the panel where the user creates a monitor
+smartwindow-monitor-button =
+    .label = Monitors
+    .tooltiptext = Monitors
+
 ## AI Tasks
 
 # Desktop notification shown when a AI Tasks fires. A "monitor" is
@@ -224,3 +231,23 @@ ai-tasks-alert-condition-not-met = No match
 # Title given to a generated page when the model returns no title of its own and
 # the user did not say what the page should focus on.
 ai-tab-default-page-title = Generated page
+
+## Smartbar command palette
+## Slash commands shown in the smartbar when the user types "/".
+
+# Group header for the agent task commands (for example, /watch).
+smartbar-command-tasks-header = Tasks
+# The /watch command creates a task that watches a page for changes.
+smartbar-command-watch-label = /watch
+smartbar-command-watch-description = Get notified when pages change
+# Footer note shown at the bottom of the command palette, hinting that more
+# task command types will be added later.
+smartbar-command-coming-soon = More types of tasks are coming soon
+
+## Smart Form Fill
+
+ai-smart-form-fill-autocomplete-label = Smart Form Fill
+ai-smart-form-fill-autocomplete-loading = Loading…
+ai-smart-form-fill-autocomplete-sources-label = Sources:
+ai-smart-form-fill-autocomplete-choose-tabs = You need to choose some relevant tabs
+ai-smart-form-fill-autocomplete-open-tabs = You need to open some tabs

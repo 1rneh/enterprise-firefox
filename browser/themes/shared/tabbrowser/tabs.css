@@ -15,6 +15,7 @@
   }
   --tab-group-label-size: var(--tab-min-height);
   &[uidensity="touch"] {
+    --tab-min-height: 41px;
     --tab-group-label-size: var(--tab-min-height);
   }
 
@@ -30,7 +31,6 @@
       --tab-min-height: 29px;
     }
     &[uidensity="touch"] {
-      --tab-min-height: 41px;
       --tab-group-label-size: 27px;
     }
   }
@@ -1353,10 +1353,6 @@ tab-group > tab-split-view-wrapper {
   .tabbrowser-tab {
     padding-inline: var(--split-view-tab-padding-inline);
 
-    .tab-background {
-      min-height: calc(var(--tab-min-height) - 4px); /* exclude the 4px padding normally added */
-    }
-
     tab-group & {
       overflow: visible;
     }
@@ -2226,12 +2222,21 @@ tab-group {
 
 .tab-group-editor-panel {
   --panel-width: 22em;
+  --panel-padding: 0;
   font: menu;
 
   @media -moz-pref("browser.nova.enabled") {
+    --panel-padding: var(--space-large) var(--space-small) 0;
+    --input-text-background-color: var(--background-color-box);
+    --panel-separator-padding: 0;
+    --panel-menuitem-padding-block: var(--space-xsmall);
+    --panel-width: 24em;
+
     > .panel-header {
       justify-content: start;
       text-align: start;
+      min-height: 0;
+      padding-block: var(--space-xsmall) var(--space-medium);
     }
 
     /* Clip the header in the edit modal for a11y. */
@@ -2245,14 +2250,10 @@ tab-group {
       pointer-events: none;
     }
 
-    /* Hide all toolbarseperators except the tab group suggestions one.
+    /* Hide all toolbarseparators except the tab group suggestions one.
      * Remove this rule and the toolbarseparators post-Nova (Bug 2056954). */
     toolbarseparator:not(#tab-group-suggestions-separator) {
       display: none;
-    }
-
-    &.tab-group-editor-mode-create .tab-group-editor-swatches {
-      padding-top: 0;
     }
 
     /* Clip the name label in the edit modal for a11y. */
@@ -2263,6 +2264,11 @@ tab-group {
       width: 0;
       height: 0;
       pointer-events: none;
+    }
+
+    .panel-footer {
+      margin-block-start: var(--space-small);
+      margin-inline: var(--panel-menuitem-margin-inline);
     }
   }
 
@@ -2299,6 +2305,10 @@ tab-group {
     justify-content: space-between;
     margin: var(--panel-menuitem-margin);
     padding-block: var(--panel-menuitem-padding-block);
+
+    @media -moz-pref("browser.nova.enabled") {
+      padding-block: 0 var(--space-large);
+    }
   }
 
   input[name="tab-group-color"] {
@@ -2670,15 +2680,14 @@ tab-group {
 
 #vertical-pinned-tabs-splitter {
   display: block;
-  border-top: var(--tabstrip-inner-border);
-  border-bottom: none;
+  border: none;
   background-color: transparent;
+  background-image: var(--sidebar-divider-image);
+  background-size: var(--sidebar-divider-size);
+  background-position: var(--sidebar-divider-position);
+  background-repeat: no-repeat;
   margin-inline: var(--tab-inner-inline-margin);
   min-height: 2px;
-  @media -moz-pref("browser.nova.enabled") {
-    min-height: 4px;
-  }
-
   @media -moz-pref("browser.nova.enabled") {
     min-height: 4px;
   }
@@ -2693,17 +2702,22 @@ tab-group {
 
   &:hover {
     background-color: var(--focus-outline-color);
+    background-image: none;
     border-radius: var(--border-radius-medium);
   }
 
-  @media not -moz-pref("sidebar.visibility", "expand-on-hover") {
-    /* We need these rules to apply at all times when the sidebar.visibility
-    pref is not set to "expand-on-hover" as opposed to when the "sidebar-expand-on-hover" attribute
-    has not been added to root. There are certain scenarios when that attribute is temporarily
-    removed from root such as when toggling the sidebar to expand with the toolbar button. */
-    #tabbrowser-tabs[expanded] > & {
-      border-top-color: transparent;
+  @media -moz-pref("sidebar.visibility", "expand-on-hover") {
+    #tabbrowser-tabs[expanded] > &:not(:hover) {
+      background-image: none;
+      border-top: var(--tabstrip-inner-border);
     }
+  }
+
+  /* Collapsing holds the launcher at its expanded width so that clip-path has
+  something to clip, so the divider would otherwise be drawn around the width
+  it is animating away from. Wait for the real width to be restored. */
+  #sidebar-container[sidebar-ongoing-animations] #tabbrowser-tabs:not([expanded]) > & {
+    background-image: none;
   }
 }
 
@@ -3286,6 +3300,9 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
 #tab-group-suggestions-container,
 #tab-group-suggestions-optin-container {
   margin: var(--panel-menuitem-margin);
+  @media -moz-pref("browser.nova.enabled") {
+    margin-block-start: var(--space-medium);
+  }
 }
 
 .tab-group-suggestions-loading-header,

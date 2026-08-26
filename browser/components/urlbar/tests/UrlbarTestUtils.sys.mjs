@@ -270,12 +270,7 @@ class UrlbarInputTestUtils {
     if (index >= container.children.length) {
       throw new Error("Not enough results");
     }
-    let row = container.children[index];
-    // A dynamic result's view update is applied asynchronously (and lands a
-    // round-trip later on the message path), so wait for it before returning
-    // the row. Undefined for non-dynamic rows, so this is a no-op for them.
-    await row._dynamicViewUpdatePromise;
-    return row;
+    return container.children[index];
   }
 
   /**
@@ -917,8 +912,7 @@ class UrlbarInputTestUtils {
    *   A task function to run. Gets the contextmenu popup as argument.
    */
   async withContextMenu(win, task) {
-    let textBox = this.#urlbar(win).querySelector("moz-input-box");
-    let cxmenu = textBox.menupopup;
+    let cxmenu = win.EditContextMenu.popup;
     let openPromise = lazy.BrowserTestUtils.waitForEvent(cxmenu, "popupshown");
     this.EventUtils.synthesizeMouseAtCenter(
       this.#urlbar(win).inputField,
@@ -959,12 +953,9 @@ class UrlbarInputTestUtils {
    */
   async activateContextMenuItem(win, anonid) {
     await this.withContextMenu(win, popup => {
-      let mozInputBox = popup.parentNode;
-      let menuitem = mozInputBox.getMenuItem(anonid);
-      this.Assert.ok(
-        lazy.BrowserTestUtils.isVisible(menuitem),
-        "Menu item is visible"
-      );
+      // The menu is shared between inputs and an item set outlives the input
+      // that added it (bug 2066238), so a hidden duplicate can come first.
+      let menuitem = popup.querySelector(`[anonid="${anonid}"]:not([hidden])`);
       this.Assert.ok(
         lazy.BrowserTestUtils.isVisible(menuitem),
         "Menu item is visible"
@@ -988,8 +979,7 @@ class UrlbarInputTestUtils {
   async getContextMenuItem(win, anonid) {
     let menuitem;
     await this.withContextMenu(win, popup => {
-      let mozInputBox = popup.parentNode;
-      menuitem = mozInputBox.getMenuItem(anonid);
+      menuitem = popup.querySelector(`[anonid="${anonid}"]:not([hidden])`);
     });
     return menuitem;
   }
@@ -2333,8 +2323,8 @@ class TestProvider extends UrlbarProvider {
     this._onCancel?.();
   }
 
-  onSelection(result, element) {
-    this._onSelection?.(result, element);
+  onSelection(result) {
+    this._onSelection?.(result);
   }
 }
 

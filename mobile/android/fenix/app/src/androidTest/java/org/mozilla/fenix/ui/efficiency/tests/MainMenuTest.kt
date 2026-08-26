@@ -38,7 +38,7 @@ import org.mozilla.fenix.ui.efficiency.selectors.SettingsSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.TabHistorySelectors
 import org.mozilla.fenix.ui.efficiency.selectors.WebCompatReporterSelectors
 
-class MainMenuTest : BaseTest(isPageLoadTranslationsPromptEnabled = false) {
+class MainMenuTest : BaseTest() {
 
     private val mockWebServer
         get() = fenixTestRule.mockWebServer
@@ -125,7 +125,7 @@ class MainMenuTest : BaseTest(isPageLoadTranslationsPromptEnabled = false) {
             .navigateToPage(testPage.url.toString())
             .mozClick(HomeSelectors.MAIN_MENU_BUTTON_UIAUTOMATOR)
             .mozClick(MainMenuSelectors.BOOKMARK_THIS_PAGE_BUTTON)
-            .mozClick(BrowserPageSelectors.SNACKBAR_EDIT_BUTTON)
+            .mozClick(BrowserPageSelectors.SNACKBAR_ACTION_BUTTON)
         on.bookmarks.mozVerifyElementsByGroup("bookmarkEdit").mozClick(BookmarksSelectors.DELETE_BOOKMARK_BUTTON)
         on.browserPage.mozClick(HomeSelectors.MAIN_MENU_BUTTON_UIAUTOMATOR)
         on.mainMenu.mozVerifyElementsByGroup("bookmarkActions")
@@ -611,5 +611,37 @@ class MainMenuTest : BaseTest(isPageLoadTranslationsPromptEnabled = false) {
             .mozVerifyElementIsEnabled(MainMenuSelectors.OPEN_IN_APP_NAME_BUTTON("YouTube"))
             .mozClick(MainMenuSelectors.OPEN_IN_APP_NAME_BUTTON("YouTube"))
             .mozVerifyFileOpensInExternalApp(Constants.PackageName.YOUTUBE_APP)
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4227146
+    @SmokeTest
+    @Test
+    fun verifyTheReportBrokenSiteURLIsSuccessfullyEditedTest() {
+        val defaultWebPage = mockWebServer.getGenericAsset(1)
+
+        on.browserPage.navigateToPage(defaultWebPage.url.toString())
+        on.webCompatReporter
+            .navigateToPage()
+            .mozClick(WebCompatReporterSelectors.REPORTED_SITE_URL(defaultWebPage.url.toString()))
+            .mozClear(WebCompatReporterSelectors.EDIT_SITE_URL_DIALOG_TEXT_FIELD)
+            .mozEnterText("https://www.example.com", WebCompatReporterSelectors.EDIT_SITE_URL_DIALOG_TEXT_FIELD)
+            .mozClick(WebCompatReporterSelectors.EDIT_SITE_URL_DIALOG_SAVE_BUTTON)
+            .mozVerify(WebCompatReporterSelectors.REPORTED_SITE_URL("https://www.example.com"))
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4227137
+    @SmokeTest
+    @Test
+    fun verifyTheReportBrokenSiteFormAfterSelectingReasonTest() {
+        val defaultWebPage = mockWebServer.getGenericAsset(1)
+
+        on.browserPage.navigateToPage(defaultWebPage.url.toString())
+        on.webCompatReporter
+            .navigateToPage()
+            .mozClick(WebCompatReporterSelectors.REPORTED_BROKEN_SITE_REASON("Site doesn’t load"))
+            .mozVerify(WebCompatReporterSelectors.REPORTED_SITE_URL(defaultWebPage.url.toString()))
+            .mozVerify(WebCompatReporterSelectors.REPORTED_BROKEN_SITE_REASON("Site doesn’t load"))
+            .mozVerifyElementIsNotChecked(WebCompatReporterSelectors.ITEMS_BLOCKED_BY_TRACKING_PROTECTION_CHECKBOX)
+            .mozVerifyElementsByGroup("reporterForm")
     }
 }

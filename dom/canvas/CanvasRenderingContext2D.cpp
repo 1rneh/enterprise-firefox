@@ -1092,8 +1092,6 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CanvasRenderingContext2D)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-CanvasRenderingContext2D::ContextState::ContextState() = default;
-
 CanvasRenderingContext2D::ContextState::ContextState(const ContextState& aOther)
     : fontGroup(aOther.fontGroup),
       fontFont(aOther.fontFont),
@@ -1114,6 +1112,8 @@ CanvasRenderingContext2D::ContextState::ContextState(const ContextState& aOther)
       wordSpacing(aOther.wordSpacing),
       letterSpacingStr(aOther.letterSpacingStr),
       wordSpacingStr(aOther.wordSpacingStr),
+      lang(aOther.lang),
+      resolvedFontLang(aOther.resolvedFontLang),
       shadowColor(aOther.shadowColor),
       transform(aOther.transform),
       shadowOffset(aOther.shadowOffset),
@@ -1133,9 +1133,8 @@ CanvasRenderingContext2D::ContextState::ContextState(const ContextState& aOther)
       filter(aOther.filter),
       filterAdditionalImages(aOther.filterAdditionalImages.Clone()),
       filterSourceGraphicTainted(aOther.filterSourceGraphicTainted),
-      imageSmoothingEnabled(aOther.imageSmoothingEnabled) {}
-
-CanvasRenderingContext2D::ContextState::~ContextState() = default;
+      imageSmoothingEnabled(aOther.imageSmoothingEnabled),
+      explicitLang(aOther.explicitLang) {}
 
 void CanvasRenderingContext2D::ContextState::SetColorStyle(Style aWhichStyle,
                                                            nscolor aColor) {
@@ -1416,7 +1415,8 @@ void CanvasRenderingContext2D::OnRemoteCanvasLost() {
   // We dispatch because it isn't safe to call into the script event handlers,
   // and we don't want to mutate our state in CanvasShutdownManager.
   NS_DispatchToCurrentThread(NS_NewCancelableRunnableFunction(
-      "CanvasRenderingContext2D::OnRemoteCanvasLost", [self = RefPtr{this}] {
+      "CanvasRenderingContext2D::OnRemoteCanvasLost",
+      [self = RefPtr{this}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA {
         // 4. Let shouldRestore be the result of firing an event named
         // contextlost at canvas, with the cancelable attribute initialized to
         // true.
@@ -1439,7 +1439,7 @@ void CanvasRenderingContext2D::OnRemoteCanvasRestored() {
   // and we don't want to mutate our state in CanvasShutdownManager.
   NS_DispatchToCurrentThread(NS_NewCancelableRunnableFunction(
       "CanvasRenderingContext2D::OnRemoteCanvasRestored",
-      [self = RefPtr{this}] {
+      [self = RefPtr{this}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA {
         // 5. If shouldRestore is false, then abort these steps.
         if (!self->mHasShutdown && self->mIsContextLost &&
             self->mAllowContextRestore) {
@@ -4183,7 +4183,6 @@ void CanvasRenderingContext2D::SetFont(const nsACString& aFont,
 
   if (ResolveFontLang()) {
     CurrentState().fontGroup = nullptr;
-    mFontGroupCache.reset(nullptr);
   }
 
   SetFontInternal(aFont, aError);
@@ -4222,7 +4221,6 @@ bool CanvasRenderingContext2D::SetFontInternal(const nsACString& aFont,
   }
 
   if (!mFontStyleCache) {
-    mFontGroupCache.reset(nullptr);
     mFontStyleCache = MakeUnique<FontStyleCache>();
   }
 
@@ -4454,13 +4452,14 @@ bool CanvasRenderingContext2D::SetFontInternalDisconnected(
 
   // Do we have a cached fontgroup that corresponds to this `font` value?
   if (!mFontGroupCache) {
-    mFontStyleCache.reset(nullptr);
     mFontGroupCache = MakeUnique<FontGroupCache>();
   }
 
   auto& state = CurrentState();
   FontGroupCacheKey key(
-      aFont, fontFaceSetImpl ? fontFaceSetImpl->GetRebuildGeneration() : 0);
+      aFont, state.resolvedFontLang, state.fontWidth, state.fontVariantCaps,
+      state.fontKerning,
+      fontFaceSetImpl ? fontFaceSetImpl->GetRebuildGeneration() : 0);
   auto entry = mFontGroupCache->Lookup(key);
   if (entry) {
     const auto& data = entry.Data();
@@ -5492,7 +5491,6 @@ gfxFontGroup* CanvasRenderingContext2D::GetCurrentFontStyle() {
   if (ResolveFontLang()) {
     // If lang has changed, any cached fontGroup needs to be replaced.
     CurrentState().fontGroup = nullptr;
-    mFontGroupCache.reset(nullptr);
   } else {
     // If there is a cached fontGroup, check if visibility setting matches;
     // if not, we can't use it and will have to re-create it.
@@ -6321,8 +6319,8 @@ void CanvasRenderingContext2D::DrawDirectlyToCanvas(
   uint32_t modifiedFlags = aImage.mDrawingFlags | imgIContainer::FLAG_CLAMP;
 
   // XXX hmm is scaledImageSize really in CSS pixels?
-  CSSIntSize sz(scaledImageSize.width, scaledImageSize.height);
-  SVGImageContext svgContext(Some(sz));
+  SVGImageContext svgContext(
+      Some(CSSSize(scaledImageSize.width, scaledImageSize.height)));
 
   if (mContextProperties != CanvasContextProperties::None &&
       aImage.mImgContainer->GetType() == imgIContainer::TYPE_VECTOR) {

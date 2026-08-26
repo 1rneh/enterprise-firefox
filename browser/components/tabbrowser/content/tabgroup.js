@@ -595,7 +595,7 @@
     /**
      * add tabs to the group
      *
-     * @param {MozTabbrowserTab[] | MozSplitViewWrapper} tabsOrSplitViews
+     * @param {(MozTabbrowserTab|MozTabSplitViewWrapper)[]} tabsOrSplitViews
      * @param {TabMetricsContext} [metricsContext]
      *   Optional context to record for metrics purposes.
      */
@@ -620,7 +620,7 @@
             this.documentGlobal === tabOrSplitView.documentGlobal
               ? tabOrSplitView
               : gBrowser.adoptSplitView(tabOrSplitView, {
-                  tabIndex: gBrowser.tabs.at(-1)._tPos + 1,
+                  tabIndex: gBrowser.tabs.at(-1).index + 1,
                 });
           gBrowser.moveSplitViewToExistingGroup(splitViewToMove, this, {
             metricsContext,
@@ -635,7 +635,7 @@
             this.documentGlobal === tabOrSplitView.documentGlobal
               ? tabOrSplitView
               : gBrowser.adoptTab(tabOrSplitView, {
-                  tabIndex: gBrowser.tabs.at(-1)._tPos + 1,
+                  tabIndex: gBrowser.tabs.at(-1).index + 1,
                   selectTab: tabOrSplitView.selected,
                 });
           gBrowser.moveTabToExistingGroup(tabToMove, this, { metricsContext });

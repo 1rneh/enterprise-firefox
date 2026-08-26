@@ -539,7 +539,7 @@ static bool IsFontSizeInflationContainer(nsIFrame* aFrame,
        frameType == LayoutFrameType::Letter) ||
       // Given multiple frames for the same node, only the
       // outer one should be considered a container.
-      // (Important, e.g., for nsSelectsAreaFrame.)
+      // (Important, e.g., for scrolled frames.)
       (aFrame->GetParent()->GetContent() == content) ||
       (content &&
        // Form controls shouldn't become inflation containers.
@@ -873,16 +873,10 @@ void nsIFrame::HandlePrimaryFrameStyleChange(ComputedStyle* aOldStyle) {
               : disp->HasAnchorName();
   if (handleAnchorPosAnchorNameChange &&
       !HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
-    // TODO: Add invalidation.
-    // TODO: Only remove/add the necessary names below.
     if (oldDisp && oldDisp->HasAnchorName()) {
-      for (const auto& name : oldDisp->mAnchorName.AsSpan()) {
-        PresShell()->RemoveAnchorPosAnchor(name.AsAtom(), this);
-      }
+      PresShell()->RemoveAnchorPosAnchor(oldDisp->mAnchorName.AsSpan(), this);
     }
-    for (const auto& name : disp->mAnchorName.AsSpan()) {
-      PresShell()->AddAnchorPosAnchor(name.AsAtom(), this);
-    }
+    PresShell()->AddAnchorPosAnchor(disp->mAnchorName.AsSpan(), this);
   }
 
   // According to the Anchor Positioning spec,
@@ -1029,9 +1023,7 @@ void nsIFrame::Destroy(DestroyContext& aContext) {
   }
 
   if (HasAnchorPosName()) {
-    for (const auto& name : disp->mAnchorName.AsSpan()) {
-      PresShell()->RemoveAnchorPosAnchor(name.AsAtom(), this);
-    }
+    PresShell()->RemoveAnchorPosAnchor(disp->mAnchorName.AsSpan(), this);
   }
 
   if (HasAnchorPosReference()) {
@@ -3068,6 +3060,14 @@ static void WrapSeparatorTransform(nsDisplayListBuilder* aBuilder,
 // that will be built for |aMaskedFrame|. If we're not able to compute
 // one, return an empty Maybe.
 // The returned clip rect, if there is one, is relative to |aMaskedFrame|.
+// Bug 1958124: If this is inlined in
+// nsIFrame::BuildDisplayListForStackingContext on Win32, its variables enlarge
+// that function's stack frame, which is on a deeply recursive path that is
+// already up against the stack limit. Only masked frames reach this code, so
+// never inlining it on Win32 costs us nothing.
+#if defined(XP_WIN) && !defined(_WIN64)
+MOZ_NEVER_INLINE
+#endif
 static Maybe<nsRect> ComputeClipForMaskItem(
     nsDisplayListBuilder* aBuilder, nsIFrame* aMaskedFrame,
     const SVGUtils::MaskUsage& aMaskUsage) {
@@ -5960,6 +5960,7 @@ static bool SelfIsSelectable(nsIFrame* aFrame, nsIFrame* aParentFrame,
   if (aFrame->IsGeneratedContentFrame()) {
     return false;
   }
+  // XXX Why do we ignore `aFlag & nsIFrame::IGNORE_SELECTION_STYLE`?
   if (aFrame->Style()->UserSelect() == StyleUserSelect::None) {
     return false;
   }
@@ -9757,10 +9758,11 @@ static nsresult GetNextPrevLineFromBlockFrame(PeekOffsetStruct* aPos,
   return NS_OK;
 }
 
-nsIFrame::CaretPosition nsIFrame::GetExtremeCaretPosition(bool aStart) {
+nsIFrame::CaretPosition nsIFrame::GetExtremeCaretPosition(bool aStart,
+                                                          uint32_t aFlags) {
   CaretPosition result;
 
-  FrameTarget targetFrame = DrillDownToSelectionFrame(this, !aStart, 0);
+  FrameTarget targetFrame = DrillDownToSelectionFrame(this, !aStart, aFlags);
   FrameContentRange range = GetRangeForFrame(targetFrame.frame);
   result.mResultContent = range.content;
   result.mContentOffset = aStart ? range.start : range.end;

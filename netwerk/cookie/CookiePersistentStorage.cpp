@@ -16,7 +16,6 @@
 #include "mozStorageHelper.h"
 #include "mozilla/AppShutdown.h"
 #include "mozilla/Components.h"
-#include "mozilla/ErrorNames.h"
 #include "mozilla/FileUtils.h"
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/ScopeExit.h"
@@ -1016,10 +1015,6 @@ CookiePersistentStorage::OpenDBResult CookiePersistentStorage::TryInitDB(
         mCookieFile, mozIStorageService::CONNECTION_DEFAULT,
         getter_AddRefs(mSyncConn));
     if (NS_FAILED(rv)) {
-      const char* errorName = mozilla::GetStaticErrorName(rv);
-      glean::network_cookies::open_error
-          .Get(nsDependentCString(errorName ? errorName : "unknown"))
-          .Add(1);
       if (rv == NS_ERROR_FILE_NO_DEVICE_SPACE ||
           rv == NS_ERROR_FILE_ACCESS_DENIED) {
         return RESULT_FAILURE;
@@ -2235,11 +2230,43 @@ nsresult CookiePersistentStorage::InitDBConnInternal() {
   // the database safe from corruption on crash or power loss, unlike OFF.
   mDBConn->ExecuteSimpleSQL("PRAGMA synchronous = NORMAL"_ns);
 
-  // Use write-ahead-logging for performance. We cap the autocheckpoint limit at
-  // 16 pages (around 500KB).
+  // Use write-ahead-logging for performance.
   mDBConn->ExecuteSimpleSQL(nsLiteralCString(MOZ_STORAGE_UNIQUIFY_QUERY_STR
                                              "PRAGMA journal_mode = WAL"));
-  mDBConn->ExecuteSimpleSQL("PRAGMA wal_autocheckpoint = 16"_ns);
+
+  // With synchronous = NORMAL every checkpoint costs two fsyncs, so the WAL is
+  // capped in bytes rather than in pages.
+  int32_t pageSize = 0;
+  {
+    nsCOMPtr<mozIStorageStatement> stmt;
+    rv = mDBConn->CreateStatement(
+        nsLiteralCString(MOZ_STORAGE_UNIQUIFY_QUERY_STR "PRAGMA page_size"),
+        getter_AddRefs(stmt));
+    if (NS_SUCCEEDED(rv)) {
+      bool hasResult = false;
+      if (NS_SUCCEEDED(stmt->ExecuteStep(&hasResult)) && hasResult) {
+        (void)stmt->GetInt32(0, &pageSize);
+      }
+    }
+  }
+
+  if (pageSize <= 0 && NS_FAILED(mDBConn->GetDefaultPageSize(&pageSize))) {
+    pageSize = 0;
+  }
+
+  uint32_t maxWalBytes = StaticPrefs::network_cookie_db_maxWalBytes();
+
+  if (pageSize > 0) {
+    nsAutoCString checkpointPragma("PRAGMA wal_autocheckpoint = ");
+    checkpointPragma.AppendInt(maxWalBytes / pageSize);
+    mDBConn->ExecuteSimpleSQL(checkpointPragma);
+  }
+
+  nsAutoCString journalSizePragma("PRAGMA journal_size_limit = ");
+  journalSizePragma.AppendInt(
+      uint64_t(maxWalBytes) +
+      StaticPrefs::network_cookie_db_journalOverheadBytes());
+  mDBConn->ExecuteSimpleSQL(journalSizePragma);
 
   // cache frequently used statements (for insertion, deletion, and updating)
   rv = mDBConn->CreateAsyncStatement(

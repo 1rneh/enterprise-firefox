@@ -7,18 +7,23 @@ package org.mozilla.fenix.ui.efficiency.selectors
 import mozilla.components.browser.toolbar.R as toolbarR
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.ADDRESSBAR_SEARCH_BOX
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.SEARCH_SELECTOR
+import mozilla.components.feature.qr.R as qrR
 import org.mozilla.fenix.R
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
 import org.mozilla.fenix.ui.efficiency.helpers.Selector
 import org.mozilla.fenix.ui.efficiency.helpers.SelectorStrategy
 
 object SearchBarSelectors {
+    // Page-identity anchor for the edit-mode search bar. Must be an EDIT-mode-only handle: the redesigned Home/browser
+    // display toolbar shows the SEARCH_SELECTOR chip too, so anchoring on that alone makes mozIsOnPageNow() (and thus
+    // navigateToPage) falsely believe edit mode is already open and skip the tap that opens it. ADDRESSBAR_SEARCH_BOX
+    // exists only in edit mode (display mode uses ADDRESSBAR_URL_BOX), so it disambiguates the two.
     val TOOLBAR_IN_EDIT_MODE =
         Selector(
             strategy = SelectorStrategy.COMPOSE_BY_TAG,
             value = ADDRESSBAR_SEARCH_BOX,
             description = "Toolbar in edit mode",
-            groups = listOf(),
+            groups = listOf("requiredForPage"),
         )
 
     val URL_TEXT =
@@ -73,6 +78,69 @@ object SearchBarSelectors {
             groups = listOf(),
         )
 
+    // A row in the search selector menu, keyed by engine/shortcut name ("Tabs", "Bookmarks", "History").
+    // Content-description is the handle the menu row exposes; the name is not rendered as a text node.
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun SEARCH_SHORTCUT(searchShortcutName: String = "") =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
+            value = searchShortcutName,
+            description = "'$searchShortcutName' search shortcut",
+            groups = listOf(),
+        )
+
+    // A group header in the awesomebar, keyed by its text ("TestSearchEngine search", "Firefox Suggest").
+    // Text is the only handle the header exposes; it carries no tag and no content description.
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun SUGGESTIONS_HEADER(headerText: String = "") =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+            value = headerText,
+            description = "'$headerText' suggestions header",
+            groups = listOf(),
+        )
+
+    val FIREFOX_SUGGEST_HEADER =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+            value = getStringResource(R.string.firefox_suggest_header),
+            description = "Firefox Suggest suggestions header",
+            groups = listOf(),
+        )
+
+    // One awesomebar suggestion row. The tag is an android-components literal with no exported constant,
+    // so it is duplicated here the same way the legacy robots duplicate it. Match rows with
+    // mozVerifyAnyContainsText / mozVerifyNoneContainText rather than adding a per-suggestion selector.
+    val SEARCH_SUGGESTION =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TAG,
+            value = "mozac.awesomebar.suggestion",
+            description = "Search suggestion",
+            groups = listOf(),
+        )
+
+    // The same suggestion rows, but addressable individually so one can be clicked. Tag AND text: the
+    // text alone is ambiguous because an open tab's URL also renders in the homepage "Jump back in" row
+    // behind the search overlay. The row's text lives on a descendant, so this only resolves on the
+    // merged tree — which resolveComposeNode reaches via its other-tree fallback.
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun SEARCH_SUGGESTION_WITH_TEXT(suggestionText: String = "") =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TAG_AND_TEXT,
+            value = "mozac.awesomebar.suggestion",
+            secondaryValue = suggestionText,
+            description = "Search suggestion '$suggestionText'",
+            groups = listOf(),
+        )
+
+    val SCAN_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
+            value = getStringResource(qrR.string.mozac_feature_qr_scanner),
+            description = "QR scan button",
+            groups = listOf(),
+        )
+
     // Clear (X) button in the edit-mode toolbar. Content-description "Clear", keyed off the string
     // resource so it survives localization (mirrors the legacy SearchRobot.clickClearButton).
     // UiObject2 (By.descContains) rather than UiObject: UiObject.click() returns false on this button
@@ -86,6 +154,20 @@ object SearchBarSelectors {
             groups = listOf(),
         )
 
+    // End-of-address-bar button in edit mode. The slot is mutually exclusive: the Google Lens button shows only when
+    // the Lens integration is enabled (Nimbus + user pref), the session is non-private, and Google is the selected
+    // engine; otherwise the QR scanner button takes the slot for general/custom engines. Both are Compose
+    // ActionButtonRes with a content-description and NO testTag
+    // (BrowserToolbarSearchMiddleware.updateSearchEndPageActions),
+    // so we match on the content-description string, keyed off the resource so it survives localization.
+    val GOOGLE_LENS_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
+            value = getStringResource(R.string.lens_search_content_description),
+            description = "Google Lens button (search with image)",
+            groups = listOf(),
+        )
+
     val all =
         listOf(
             TOOLBAR_IN_EDIT_MODE,
@@ -94,6 +176,13 @@ object SearchBarSelectors {
             SEARCH_SELECTOR_MENU_ENGINE(),
             AWESOMEBAR_SUGGESTION,
             SEARCH_BAR_PLACEHOLDER,
+            SEARCH_SHORTCUT(),
+            SUGGESTIONS_HEADER(),
+            FIREFOX_SUGGEST_HEADER,
+            SEARCH_SUGGESTION,
+            SEARCH_SUGGESTION_WITH_TEXT(),
+            SCAN_BUTTON,
             CLEAR_BUTTON,
+            GOOGLE_LENS_BUTTON,
         )
 }

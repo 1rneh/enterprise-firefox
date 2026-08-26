@@ -185,6 +185,16 @@ var SidebarController = {
       ],
     ]);
 
+    // Hide synced tabs when accounts or Sync are disabled by policy, rather
+    // than surfacing a panel that can only show an error.
+    const syncedTabsSidebar = this._sidebars.get("viewTabsSidebar");
+    Object.defineProperty(syncedTabsSidebar, "visible", {
+      get: () =>
+        Services.prefs.getBoolPref("identity.fxaccounts.enabled", false) &&
+        Services.policies.isAllowed("sync-tabs"),
+      configurable: true,
+    });
+
     this.registerPrefSidebar(
       "browser.ml.chat.enabled",
       "viewGenaiChatSidebar",
@@ -368,6 +378,7 @@ var SidebarController = {
   _windowRestoredObserverAdded: false,
   _mainResizeObserver: null,
   _ongoingAnimations: [],
+  _collapsedWidthMeasurementID: 0,
 
   /**
    * @type {MutationObserver | null}
@@ -628,6 +639,17 @@ var SidebarController = {
       Services.obs.addObserver(this, "sessionstore-single-window-restored");
       this._windowRestoredObserverAdded = true;
     }
+    if (!this._policiesObserverAdded) {
+      Services.obs.addObserver(this, "EnterprisePolicies:PolicyUpdatesApplied");
+      this._policiesObserverAdded = true;
+    }
+    if (!this._syncedTabsPrefObserver) {
+      this._syncedTabsPrefObserver = () => this.updateSyncedTabsVisibility();
+      Services.prefs.addObserver(
+        "identity.fxaccounts.enabled",
+        this._syncedTabsPrefObserver
+      );
+    }
   },
 
   uninit() {
@@ -658,9 +680,23 @@ var SidebarController = {
     Services.obs.removeObserver(this, "tabstrip-orientation-change");
     Services.obs.removeObserver(this, "ai-window-state-changed");
     Services.obs.removeObserver(this, "sessionstore-single-window-restored");
+    if (this._policiesObserverAdded) {
+      Services.obs.removeObserver(
+        this,
+        "EnterprisePolicies:PolicyUpdatesApplied"
+      );
+    }
+    if (this._syncedTabsPrefObserver) {
+      Services.prefs.removeObserver(
+        "identity.fxaccounts.enabled",
+        this._syncedTabsPrefObserver
+      );
+      this._syncedTabsPrefObserver = null;
+    }
     delete this._tabstripOrientationObserverAdded;
     delete this._aiWindowObserverAdded;
     delete this._windowRestoredObserverAdded;
+    delete this._policiesObserverAdded;
 
     CustomizableUI.removeListener(this);
 
@@ -710,8 +746,8 @@ var SidebarController = {
     if (this.isLauncherDragging) {
       this._state.launcherDragActive = true;
     }
-    if (this._state.visibilitySetting === "expand-on-hover") {
-      this.setLauncherCollapsedWidth();
+    if (this._launcherCollapsedWidthStale) {
+      this.refreshLauncherCollapsedWidth();
     }
   },
 
@@ -732,7 +768,14 @@ var SidebarController = {
   async _updateLauncherAndPanelMaxWidths() {
     const launcherEl = this.sidebarContainer;
     const panelEl = this._box;
-    if (!this._state.launcherExpanded || !this._state.panelOpen) {
+    const expandOnHoverEnabled = document.documentElement.hasAttribute(
+      "sidebar-expand-on-hover"
+    );
+    if (
+      expandOnHoverEnabled ||
+      !this._state.launcherExpanded ||
+      !this._state.panelOpen
+    ) {
       // We don't have both the launcher + panel open. Fallback to css max widths.
       launcherEl.style.removeProperty("max-width");
       panelEl.style.removeProperty("max-width");
@@ -835,6 +878,10 @@ var SidebarController = {
             sidebar._updateMenus?.();
           }
         }
+        break;
+      }
+      case "EnterprisePolicies:PolicyUpdatesApplied": {
+        this.updateSyncedTabsVisibility();
         break;
       }
     }
@@ -1937,6 +1984,23 @@ var SidebarController = {
   },
 
   /**
+   * Refresh the synced tabs tool after its account/policy gating may have
+   * changed, closing an open panel that is no longer allowed to be shown.
+   */
+  updateSyncedTabsVisibility() {
+    const syncedTabsSidebar = this.sidebars.get("viewTabsSidebar");
+    if (
+      !syncedTabsSidebar?.visible &&
+      this._state?.command == "viewTabsSidebar"
+    ) {
+      this._state.command = "";
+      this.lastOpenedId = null;
+      this.hide();
+    }
+    window.dispatchEvent(new CustomEvent("SidebarItemChanged"));
+  },
+
+  /**
    * Ensure tools reflect the current pref state
    */
   refreshTools() {
@@ -2696,17 +2760,53 @@ var SidebarController = {
     return this._mouseEnterDeferred?.promise || Promise.resolve();
   },
 
+  refreshLauncherCollapsedWidth() {
+    if (
+      !document.documentElement.hasAttribute("sidebar-expand-on-hover") ||
+      !this._state
+    ) {
+      this._launcherCollapsedWidthStale = false;
+      return;
+    }
+    if (this.getUIState()?.launcherExpanded) {
+      this._launcherCollapsedWidthStale = true;
+      return;
+    }
+    this._launcherCollapsedWidthStale = false;
+    this.setLauncherCollapsedWidth();
+  },
+
+  /**
+   * Record the launcher's collapsed width, which the content area's
+   * compensating margins are derived from while the launcher is expanded and
+   * therefore out of flow.
+   *
+   * The resize observer that drives this watches #sidebar-container, so a burst
+   * of resizes (e.g. a uidensity change) starts several overlapping
+   * runs, with each awaiting before measuring. Unless every run checks that
+   * it is still the most recent one, they can resolve out of order and leave a
+   * stale width recorded.
+   */
   async setLauncherCollapsedWidth() {
     let browserEl = document.getElementById("browser");
+    const measurementID = ++this._collapsedWidthMeasurementID;
     if (this.getUIState().launcherExpanded) {
       this._state.launcherExpanded = false;
     }
     await this.waitUntilStable();
-    let collapsedWidth = await new Promise(resolve => {
-      requestAnimationFrame(() => {
-        resolve(this._getRects([this.sidebarContainer])[0][1].width);
-      });
-    });
+    let collapsedWidth = await window.promiseDocumentFlushed(
+      () => this._getRects([this.sidebarContainer])[0][1].width
+    );
+
+    if (measurementID !== this._collapsedWidthMeasurementID) {
+      // A later run superseded us while we were waiting.
+      return;
+    }
+    if (this._state.launcherExpanded) {
+      // The launcher expanded again while we were waiting, so what we just
+      // measured isn't a collapsed width.
+      return;
+    }
 
     browserEl.style.setProperty(
       "--sidebar-launcher-collapsed-width",
@@ -2743,6 +2843,9 @@ var SidebarController = {
           this._reconcileHoverState();
         }
         break;
+      case "uidensitychanged":
+        this.refreshLauncherCollapsedWidth();
+        break;
       default:
         break;
     }
@@ -2764,6 +2867,7 @@ var SidebarController = {
       }
       document.addEventListener("popupshown", this);
       document.addEventListener("popuphidden", this);
+      window.addEventListener("uidensitychanged", this);
       // Reset user-preferred height
       this.sidebarMain.buttonsWrapper.style.height = this._state
         .launcherExpanded
@@ -2777,6 +2881,8 @@ var SidebarController = {
       }
       document.removeEventListener("popupshown", this);
       document.removeEventListener("popuphidden", this);
+      window.removeEventListener("uidensitychanged", this);
+      this._launcherCollapsedWidthStale = false;
       // Add back user-preferred height if defined
       if (
         this._state.launcherExpanded &&

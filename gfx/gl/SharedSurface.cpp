@@ -128,6 +128,7 @@ UniquePtr<SurfaceFactory> SurfaceFactory::Create(
       // in the process that will consume them.
       if ((XRE_IsParentProcess() && !gfx::gfxVars::GPUProcessEnabled()) ||
           XRE_IsGPUProcess()) {
+        MOZ_ASSERT(!gfx::gfxVars::UseWebRenderANGLE());
         return SurfaceFactory_EGLImage::Create(gl);
       }
 #endif

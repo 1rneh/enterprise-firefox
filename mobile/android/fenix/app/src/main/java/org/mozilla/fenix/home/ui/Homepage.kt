@@ -40,8 +40,11 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import kotlin.collections.mapNotNullTo
+import kotlin.collections.orEmpty
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import mozilla.components.feature.top.sites.TopSite
 import mozilla.components.support.ktx.android.net.hostWithoutCommonPrefixes
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.History
@@ -92,6 +95,7 @@ import org.mozilla.fenix.home.topsites.TopSiteState
 import org.mozilla.fenix.home.topsites.TopSites
 import org.mozilla.fenix.home.topsites.interactor.TopSiteInteractor
 import org.mozilla.fenix.home.topsites.store.DialogState
+import org.mozilla.fenix.home.topsites.store.PopularSite
 import org.mozilla.fenix.home.topsites.store.toPopularSite
 import org.mozilla.fenix.home.topsites.ui.AddShortcutBottomSheet
 import org.mozilla.fenix.home.topsites.ui.AddShortcutDialog
@@ -306,31 +310,10 @@ internal fun Homepage(
 
                             Spacer(Modifier.height(bottomPadding.dp))
 
+                            val popularSites = observePopularSites(topSites = topSiteState?.topSites)
+
                             when (shortcutsDialogState) {
                                 DialogState.AddShortcutBottomSheet -> {
-                                    val merinoManifestProvider = components.core.merinoManifestProvider
-                                    val popularSites by
-                                        produceState(
-                                            initialValue = emptyList(),
-                                            key1 = merinoManifestProvider,
-                                            key2 = topSiteState?.topSites,
-                                        ) {
-                                            value =
-                                                withContext(Dispatchers.IO) {
-                                                    merinoManifestProvider
-                                                        .getTopDomains(
-                                                            limit = POPULAR_SITES_TO_SHOW,
-                                                            excludedDomains =
-                                                                topSiteState?.topSites.orEmpty().mapNotNullTo(
-                                                                    mutableSetOf()
-                                                                ) {
-                                                                    it.url.toUri().hostWithoutCommonPrefixes
-                                                                },
-                                                        )
-                                                        .map { it.toPopularSite() }
-                                                }
-                                        }
-
                                     AddShortcutBottomSheet(
                                         popularSites = popularSites,
                                         onDismiss = { shortcutsDialogState = DialogState.Closed },
@@ -588,6 +571,31 @@ private fun CollectionsSection(
 
         CollectionsState.Gone -> {} // no-op. Nothing is shown where there are no collections.
     }
+}
+
+@Composable
+private fun observePopularSites(topSites: List<TopSite>?): List<PopularSite> {
+    val merinoManifestProvider = components.core.merinoManifestProvider
+    val popularSites by
+        produceState(
+            initialValue = emptyList(),
+            key1 = merinoManifestProvider,
+            key2 = topSites,
+        ) {
+            value =
+                withContext(Dispatchers.IO) {
+                    merinoManifestProvider
+                        .getTopDomains(
+                            limit = POPULAR_SITES_TO_SHOW,
+                            excludedDomains =
+                                topSites.orEmpty().mapNotNullTo(mutableSetOf()) {
+                                    it.url.toUri().hostWithoutCommonPrefixes
+                                },
+                        )
+                        .map { it.toPopularSite() }
+                }
+        }
+    return popularSites
 }
 
 @Composable

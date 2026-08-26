@@ -89,6 +89,11 @@ const logger = () => UrlbarShared.getLogger({ prefix: "Input" });
 
 const UNLIMITED_MAX_RESULTS = 99;
 
+// `nsILoadInfo.SchemelessInputTypeSchemeful` and `SchemelessInputTypeSchemeless`,
+// which a content realm has no `Ci` to read them from.
+const SCHEMELESS_INPUT_SCHEMEFUL = 1;
+const SCHEMELESS_INPUT_SCHEMELESS = 2;
+
 let getBoundsWithoutFlushing = UrlbarShared.getBoundsWithoutFlushing;
 
 // `promiseDocumentFlushed` is chrome-only. A frame does instead, since the
@@ -108,13 +113,10 @@ let getUntransformedTop =
 let px = number => number.toFixed(2) + "px";
 
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
-const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 
 /**
  * Parses an input's markup into a fragment. The markup is XML in the XHTML
- * namespace, with `xul:` for its one XUL element. A content document can hold no
- * XUL at all, so there that prefix resolves to HTML as well and the element
- * parses as an undefined custom element.
+ * namespace.
  *
  * @param {string} markup
  *   The markup to parse.
@@ -122,17 +124,10 @@ const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
  */
 function parseMarkupToFragment(markup) {
   let parser = new DOMParser();
-  let xulNS = XHTML_NS;
-  if (typeof ChromeUtils != "undefined") {
-    // A DOMParser constructed with the system principal gives its document a
-    // null principal, which disallows XUL like any other content principal.
-    parser.forceEnableXULXBL();
-    xulNS = XUL_NS;
-  }
 
   // A template's contents stay inert until they are imported into a document.
   let doc = parser.parseFromString(
-    `<template xmlns="${XHTML_NS}" xmlns:xul="${xulNS}">${markup}</template>`,
+    `<template xmlns="${XHTML_NS}">${markup}</template>`,
     "application/xml"
   );
   if (doc.documentElement.localName == "parsererror") {
@@ -166,8 +161,6 @@ export class UrlbarInputBase extends HTMLElement {
         <moz-button class="searchmode-switcher chromeclass-toolbar-additional"
                     type="muted"
                     iconsrc="chrome://global/skin/icons/search-glass.svg"
-                    title="More options"
-                    aria-label="More options"
                     data-l10n-id="urlbar-searchmode-default2"
                     tabindex="-1"
                     role="presentation">
@@ -197,8 +190,7 @@ ${
         </panel-list>
 
         <moz-urlbar-slot name="site-info" />
-        <xul:moz-input-box tooltip="aHTMLTooltip"
-                           class="urlbar-input-box">
+        <div class="urlbar-input-box">
           <!-- In the addressbar, there will be an input with id="urlbar-scheme" here. -->
           <input class="urlbar-input textbox-input"
                  role="combobox"
@@ -206,7 +198,7 @@ ${
                  aria-autocomplete="both"
                  inputmode="mozAwesomebar"
                  data-l10n-id="urlbar-placeholder"/>
-        </xul:moz-input-box>
+        </div>
         <moz-urlbar-slot name="revert-button" />
         <img class="urlbar-icon urlbar-go-button"
              role="button"
@@ -395,13 +387,6 @@ ${
 
     this.#addStylesheet();
 
-    // This listener must be added before connecting the fragment
-    // because the event could fire while or after connecting it.
-    this.addEventListener(
-      "moz-input-box-rebuilt",
-      this.#onContextMenuRebuilt.bind(this)
-    );
-
     this.appendChild(UrlbarInputBase.fragment);
 
     // Make sure all children have been parsed before calling #populateSlots.
@@ -442,6 +427,9 @@ ${
     this.controller.addListener(this);
     this.view = new UrlbarView(this);
     this.searchModeSwitcher = new SearchModeSwitcher(this);
+
+    // After the view, which AddSearchEngineHelper needs.
+    this.#initContextMenuItems();
 
     let searchModeSwitcherDescription = this.querySelector(
       ".searchmode-switcher-panel-description"
@@ -611,15 +599,18 @@ ${
         : !!this.closest("toolbar")) &&
       !document.documentElement.hasAttribute("customizing");
     if (this.#allowBreakout) {
-      // TODO(emilio): This could use CSS anchor positioning rather than this
-      // ResizeObserver, eventually.
-      this._resizeObserver = new this.window.ResizeObserver(([entry]) => {
-        this.style.setProperty(
-          "--urlbar-width",
-          px(entry.borderBoxSize[0].inlineSize)
-        );
-      });
-      this._resizeObserver.observe(this.parentNode);
+      if (!this.hasAttribute("in-page")) {
+        // TODO(emilio, bug 2065901): This could use CSS anchor positioning
+        // rather than this ResizeObserver, eventually, as an in-page element
+        // already does.
+        this._resizeObserver = new this.window.ResizeObserver(([entry]) => {
+          this.style.setProperty(
+            "--urlbar-width",
+            px(entry.borderBoxSize[0].inlineSize)
+          );
+        });
+        this._resizeObserver.observe(this.parentNode);
+      }
 
       this.#updateLayoutBreakout();
     } else {
@@ -699,44 +690,13 @@ ${
   }
 
   /**
-   * @type {((event: Event) => void)[]}
+   * Contributes this input's own items to the text context menu. A window
+   * without one, i.e. any but a chrome window, gets no items.
    */
-  #contextMenuListeners = [];
-
-  /**
-   * Adds a contextmenu event listener to the input box.
-   * Has to be re-added every time the context menu rebuilds.
-   *
-   * This is preferred over popupshowing listeners because ending
-   * breakout-extend in a popupshowing listener prevents the popup
-   * from showing due to bug 2037468.
-   *
-   * @param {(event: Event) => void} listener
-   *   The event listener to add.
-   */
-  #addContextMenuListener(listener) {
-    let inputBox = this.querySelector("moz-input-box");
-    inputBox.addEventListener("contextmenu", listener);
-    this.#contextMenuListeners.push(listener);
-  }
-
-  #removeContextMenuListeners() {
-    let inputBox = this.querySelector("moz-input-box");
-    for (let listener of this.#contextMenuListeners) {
-      inputBox.removeEventListener("contextmenu", listener);
+  #initContextMenuItems() {
+    if (!this.window.EditContextMenu) {
+      return;
     }
-    this.#contextMenuListeners.length = 0;
-  }
-
-  /**
-   * This method is used to attach new context menu options to the urlbar
-   * context menu, i.e. the context menu of the moz-input-box.
-   * It is called when the moz-input-box rebuilds its context menu.
-   *
-   * Note that it might be called before #init has finished.
-   */
-  #onContextMenuRebuilt() {
-    this.#removeContextMenuListeners();
 
     this._initStripOnShare();
     this._initPasteAndGo();
@@ -749,6 +709,40 @@ ${
     if (this.sapName == "searchbar") {
       this.#initClearSearchHistory();
     }
+    this.#initAddSearchEngines();
+  }
+
+  /**
+   * The engine items are rebuilt on every open, so the item set claims whatever
+   * AddSearchEngineHelper currently owns.
+   */
+  #initAddSearchEngines() {
+    this.#addContextMenuItems({
+      createItems: () => {
+        let fragment = this.document.createDocumentFragment();
+        fragment.appendChild(
+          this.addSearchEngineHelper.createContextSeparator()
+        );
+        return fragment;
+      },
+      onShowing: (input, items) => {
+        items.length = 0;
+        items.push(...this.addSearchEngineHelper.refreshContextMenu());
+      },
+    });
+  }
+
+  /**
+   * Registers an item set with the text context menu, scoped to this input.
+   *
+   * @param {object} itemSet
+   *   As passed to EditContextMenu.addItems(), minus `matches`.
+   */
+  #addContextMenuItems(itemSet) {
+    this.window.EditContextMenu.addItems({
+      ...itemSet,
+      matches: input => input == this.inputField,
+    });
   }
 
   addGBrowserListeners() {
@@ -1034,9 +1028,9 @@ ${
       } else {
         isInitialPageControlledByWebContent = true;
 
-        // We should deal with losslessDecodeURI throwing for exotic URIs
+        // We should deal with losslessDecodeDisplaySpec throwing for exotic URIs
         try {
-          value = losslessDecodeURI(uri);
+          value = losslessDecodeDisplaySpec(uri.displaySpec);
         } catch (ex) {
           value = "about:blank";
         }
@@ -3166,7 +3160,6 @@ ${
     }
 
     this.toggleAttribute("breakout-extend", true);
-    this.showPopover();
     this.#updateTextboxPosition();
 
     // Enable the animation only after the first extend call to ensure it
@@ -3192,7 +3185,6 @@ ${
       return;
     }
 
-    this.hidePopover();
     this.toggleAttribute("breakout-extend", false);
     this.#updateTextboxPosition();
   }
@@ -3499,6 +3491,10 @@ ${
   }
 
   #updateTextboxPosition() {
+    if (this.hasAttribute("in-page")) {
+      // An in-page element anchors its popover to its container in CSS.
+      return;
+    }
     if (!this.hasAttribute("breakout-extend")) {
       this.style.top = "";
       return;
@@ -3524,6 +3520,11 @@ ${
     this.removeAttribute("breakout");
     this.parentNode.removeAttribute("breakout");
     this.style.top = "";
+    try {
+      this.hidePopover();
+    } catch (ex) {
+      // No big deal if not a popover already.
+    }
     this._layoutBreakoutUpdateKey = {};
   }
 
@@ -3568,6 +3569,8 @@ ${
 
         this.setAttribute("breakout", "true");
         this.parentNode.setAttribute("breakout", "true");
+        this.showPopover();
+        this.#fixAddressbarSearchbarOrder();
         this.#updateTextboxPosition();
 
         resolve();
@@ -3708,7 +3711,7 @@ ${
       // This returns null for the empty string, allowing callers to clear the
       // input by passing an empty string as urlOverride.
       let url = URL.parse(urlOverride);
-      return url ? losslessDecodeURI(url.URI) : "";
+      return url ? losslessDecodeURL(url) : "";
     }
 
     let parsedUrl = URL.parse(result.payload.url);
@@ -3717,7 +3720,7 @@ ${
       return "";
     }
 
-    let url = losslessDecodeURI(parsedUrl.URI);
+    let url = losslessDecodeURL(parsedUrl);
     // If the user didn't originally type a protocol, and we generated one,
     // trim the http protocol from the input value, as https-first may upgrade
     // it to https, breaking user expectations.
@@ -3727,7 +3730,7 @@ ${
       result.payload.url.startsWith("http://") &&
       this.userTypedValue &&
       this.#getSchemelessInput(this.userTypedValue) ==
-        Ci.nsILoadInfo.SchemelessInputTypeSchemeless;
+        SCHEMELESS_INPUT_SCHEMELESS;
     if (!stripHttp) {
       return url;
     }
@@ -3914,6 +3917,52 @@ ${
         lazy.CustomizableUI.AREA_FIXED_OVERFLOW_PANEL ||
       this.parentElement.getAttribute("overflowedItem") == "true"
     );
+  }
+
+  /**
+   * Should be directly after every showPopover to fix the popover order
+   * among urlbar and searchbar.
+   * Since a moz-urlbar only extends downwards when focused, the moz-urlbar
+   * that's higher (along the y axis) should also be on top (along the z axis).
+   *
+   * Note: this is a hack necessary because of bug 2014481.
+   * Once that's fixed, we can simply always show the focused one on top.
+   */
+  #fixAddressbarSearchbarOrder() {
+    let addressbar = /** @type {?UrlbarInput} */ (
+      this.document.getElementById("urlbar")
+    );
+    let searchbar = /** @type {?UrlbarInput} */ (
+      this.document.getElementById("searchbar-new")
+    );
+    if (
+      !searchbar?.matches(":popover-open") ||
+      !addressbar?.matches(":popover-open")
+    ) {
+      return;
+    }
+
+    let searchbarArea =
+      lazy.CustomizableUI.getPlacementOfWidget("search-container")?.area;
+    if (!searchbarArea) {
+      return;
+    }
+
+    const areasAboveNavbar = [
+      lazy.CustomizableUI.AREA_MENUBAR,
+      lazy.CustomizableUI.AREA_TABSTRIP,
+    ];
+    const areasBelowNavbar = [lazy.CustomizableUI.AREA_BOOKMARKS];
+
+    // If `this` is higher than the other bar, we don't need to do anything since
+    // showPopover was just called (hence we're already on top of the other one).
+    if (areasAboveNavbar.includes(searchbarArea) && this != searchbar) {
+      searchbar.hidePopover();
+      searchbar.showPopover();
+    } else if (areasBelowNavbar.includes(searchbarArea) && this != addressbar) {
+      addressbar.hidePopover();
+      addressbar.showPopover();
+    }
   }
 
   _updateUrlTooltip() {
@@ -4354,7 +4403,7 @@ ${
         let { url } = loadRequest.urlLoad;
         // Make sure URL is formatted properly (don't show punycode).
         try {
-          this.value = losslessDecodeURI(new URL(url).URI);
+          this.value = losslessDecodeURL(new URL(url));
         } catch {
           this.value = url;
         }
@@ -4424,30 +4473,6 @@ ${
     }
     this._copyCutController = new CopyCutController(this);
     this.inputField.controllers.insertControllerAt(0, this._copyCutController);
-  }
-
-  /**
-   * Searches the context menu for the location of a specific command.
-   *
-   * @param {string} menuItemCommand
-   *    The command to search for.
-   * @returns {HTMLElement}
-   *    Html element that matches the command or
-   *    the last element if we could not find the command.
-   */
-  #findMenuItemLocation(menuItemCommand) {
-    let inputBox = this.querySelector("moz-input-box");
-    let contextMenu = inputBox.menupopup;
-    let insertLocation = contextMenu.firstElementChild;
-    // find the location of the command
-    while (
-      insertLocation.nextElementSibling &&
-      insertLocation.getAttribute("cmd") != menuItemCommand
-    ) {
-      insertLocation = insertLocation.nextElementSibling;
-    }
-
-    return insertLocation;
   }
 
   /**
@@ -4603,134 +4628,145 @@ ${
   // The strip-on-share feature will strip known tracking/decorational
   // query params from the URI and copy the stripped version to the clipboard.
   _initStripOnShare() {
-    let insertLocation = this.#findMenuItemLocation("cmd_copy");
-    // set up the menu item
-    let stripOnShare = this.document.createXULElement("menuitem");
-    this.document.l10n.setAttributes(
-      stripOnShare,
-      "text-action-copy-clean-link"
-    );
-    stripOnShare.setAttribute("anonid", "strip-on-share");
-    stripOnShare.id = "strip-on-share";
+    this.#addContextMenuItems({
+      after: "edit-contextmenu-copy",
+      createItems: () => {
+        let fragment = this.document.createDocumentFragment();
+        let stripOnShare = this.document.createXULElement("menuitem");
+        this.document.l10n.setAttributes(
+          stripOnShare,
+          "text-action-copy-clean-link"
+        );
+        stripOnShare.setAttribute("anonid", "strip-on-share");
+        stripOnShare.id = "strip-on-share";
 
-    insertLocation.insertAdjacentElement("afterend", stripOnShare);
+        // Register listener that returns the stripped url or falls back
+        // to the original url if nothing can be stripped.
+        stripOnShare.addEventListener("command", () => {
+          let strippedURI = this.#stripURI();
+          lazy.ClipboardHelper.copyString(strippedURI.displaySpec);
+        });
 
-    // Register listener that returns the stripped url or falls back
-    // to the original url if nothing can be stripped.
-    stripOnShare.addEventListener("command", () => {
-      let strippedURI = this.#stripURI();
-      lazy.ClipboardHelper.copyString(strippedURI.displaySpec);
-    });
-
-    // Register a listener that hides the menu item if there is nothing to copy.
-    this.#addContextMenuListener(() => {
-      // feature is not enabled
-      if (!UrlbarPrefs.get("privacy.query_stripping.strip_on_share.enabled")) {
-        stripOnShare.setAttribute("hidden", true);
-        return;
-      }
-      let controller =
-        this.document.commandDispatcher.getControllerForCommand("cmd_copy");
-      if (
-        !controller.isCommandEnabled("cmd_copy") ||
-        !this.#isClipboardURIValid()
-      ) {
-        stripOnShare.setAttribute("hidden", true);
-        return;
-      }
-      stripOnShare.removeAttribute("hidden");
-      if (!this.#canStrip()) {
-        stripOnShare.setAttribute("disabled", true);
-        return;
-      }
-      stripOnShare.removeAttribute("disabled");
+        fragment.appendChild(stripOnShare);
+        return fragment;
+      },
+      // Hide the menu item if there is nothing to copy.
+      onShowing: (input, [stripOnShare]) => {
+        // feature is not enabled
+        if (
+          !UrlbarPrefs.get("privacy.query_stripping.strip_on_share.enabled")
+        ) {
+          stripOnShare.setAttribute("hidden", true);
+          return;
+        }
+        let controller =
+          this.document.commandDispatcher.getControllerForCommand("cmd_copy");
+        if (
+          !controller.isCommandEnabled("cmd_copy") ||
+          !this.#isClipboardURIValid()
+        ) {
+          stripOnShare.setAttribute("hidden", true);
+          return;
+        }
+        stripOnShare.removeAttribute("hidden");
+        if (!this.#canStrip()) {
+          stripOnShare.setAttribute("disabled", true);
+          return;
+        }
+        stripOnShare.removeAttribute("disabled");
+      },
     });
   }
 
   _initPasteAndGo() {
-    let insertLocation = this.#findMenuItemLocation("cmd_paste");
-    if (!insertLocation) {
-      return;
-    }
+    this.#addContextMenuItems({
+      after: "edit-contextmenu-paste",
+      createItems: () => {
+        let fragment = this.document.createDocumentFragment();
+        let pasteAndGo = this.document.createXULElement("menuitem");
+        pasteAndGo.id = "paste-and-go";
+        let label = Services.strings
+          .createBundle("chrome://browser/locale/browser.properties")
+          .GetStringFromName("pasteAndGo.label");
+        pasteAndGo.setAttribute("label", label);
+        pasteAndGo.setAttribute("anonid", "paste-and-go");
+        pasteAndGo.addEventListener("command", () => {
+          this._suppressStartQuery = true;
 
-    let pasteAndGo = this.document.createXULElement("menuitem");
-    pasteAndGo.id = "paste-and-go";
-    let label = Services.strings
-      .createBundle("chrome://browser/locale/browser.properties")
-      .GetStringFromName("pasteAndGo.label");
-    pasteAndGo.setAttribute("label", label);
-    pasteAndGo.setAttribute("anonid", "paste-and-go");
-    pasteAndGo.addEventListener("command", () => {
-      this._suppressStartQuery = true;
+          this.select();
+          this.window.goDoCommand("cmd_paste");
+          this.setResultForCurrentValue(null);
+          this.handleCommand();
+          this.controller.clearLastQueryContextCache();
 
-      this.select();
-      this.window.goDoCommand("cmd_paste");
-      this.setResultForCurrentValue(null);
-      this.handleCommand();
-      this.controller.clearLastQueryContextCache();
+          this._suppressStartQuery = false;
+        });
 
-      this._suppressStartQuery = false;
+        fragment.appendChild(pasteAndGo);
+        return fragment;
+      },
+      onShowing: (input, [pasteAndGo]) => {
+        // Close the results pane, because paste and go doesn't want a result
+        // selection. This has to happen before the menu opens: ending
+        // breakout-extend once it's open keeps it from showing (bug 2037468).
+        this.view.close();
+
+        let controller =
+          this.document.commandDispatcher.getControllerForCommand("cmd_paste");
+        let enabled = controller.isCommandEnabled("cmd_paste");
+        if (enabled) {
+          pasteAndGo.removeAttribute("disabled");
+        } else {
+          pasteAndGo.setAttribute("disabled", "true");
+        }
+      },
     });
-
-    this.#addContextMenuListener(() => {
-      // Close the results pane when the input field contextual menu is open,
-      // because paste and go doesn't want a result selection.
-      this.view.close();
-      // Paste command will be disabled if focus is not on input field.
-      this.inputField.focus();
-
-      let controller =
-        this.document.commandDispatcher.getControllerForCommand("cmd_paste");
-      let enabled = controller.isCommandEnabled("cmd_paste");
-      if (enabled) {
-        pasteAndGo.removeAttribute("disabled");
-      } else {
-        pasteAndGo.setAttribute("disabled", "true");
-      }
-    });
-
-    insertLocation.insertAdjacentElement("afterend", pasteAndGo);
   }
 
   // Adds "Dismiss" and "Forget this site" entries to the urlbar input context
   // menu, both hidden unless the heuristic result is autofill.
   _initAutofillDismiss() {
-    let contextMenu = this.querySelector("moz-input-box").menupopup;
-    let insertLocation = this.#findMenuItemLocation("cmd_selectAll");
-    if (!insertLocation) {
-      return;
-    }
+    this.#addContextMenuItems({
+      after: "edit-contextmenu-select-all",
+      createItems: () => {
+        let fragment = this.document.createDocumentFragment();
 
-    let separator = this.document.createXULElement("menuseparator");
-    separator.setAttribute("anonid", "urlbar-input-autofill-dismiss-separator");
+        let separator = this.document.createXULElement("menuseparator");
+        separator.setAttribute(
+          "anonid",
+          "urlbar-input-autofill-dismiss-separator"
+        );
 
-    let dismiss = this.document.createXULElement("menuitem");
-    dismiss.setAttribute("anonid", "urlbar-input-dismiss-autofill");
-    this.document.l10n.setAttributes(dismiss, "urlbar-input-dismiss-autofill");
-    dismiss.addEventListener("command", () => {
-      this.#dismissAdaptiveAutofillFromContextMenu("dismiss");
-    });
+        let dismiss = this.document.createXULElement("menuitem");
+        dismiss.setAttribute("anonid", "urlbar-input-dismiss-autofill");
+        this.document.l10n.setAttributes(
+          dismiss,
+          "urlbar-input-dismiss-autofill"
+        );
+        dismiss.addEventListener("command", () => {
+          this.#dismissAdaptiveAutofillFromContextMenu("dismiss");
+        });
 
-    let forget = this.document.createXULElement("menuitem");
-    forget.setAttribute("anonid", "urlbar-input-remove-from-history");
-    this.document.l10n.setAttributes(
-      forget,
-      "urlbar-input-remove-from-history"
-    );
-    forget.addEventListener("command", () => {
-      this.#dismissAdaptiveAutofillFromContextMenu("forget");
-    });
+        let forget = this.document.createXULElement("menuitem");
+        forget.setAttribute("anonid", "urlbar-input-remove-from-history");
+        this.document.l10n.setAttributes(
+          forget,
+          "urlbar-input-remove-from-history"
+        );
+        forget.addEventListener("command", () => {
+          this.#dismissAdaptiveAutofillFromContextMenu("forget");
+        });
 
-    insertLocation.insertAdjacentElement("afterend", separator);
-    separator.insertAdjacentElement("afterend", dismiss);
-    dismiss.insertAdjacentElement("afterend", forget);
-
-    contextMenu.addEventListener("popupshowing", () => {
-      let { showDismiss, showForget } =
-        this.#autofillDismissContextMenuVisibility();
-      separator.hidden = !showDismiss && !showForget;
-      dismiss.hidden = !showDismiss;
-      forget.hidden = !showForget;
+        fragment.append(separator, dismiss, forget);
+        return fragment;
+      },
+      onShowing: (input, [separator, dismiss, forget]) => {
+        let { showDismiss, showForget } =
+          this.#autofillDismissContextMenuVisibility();
+        separator.hidden = !showDismiss && !showForget;
+        dismiss.hidden = !showDismiss;
+        forget.hidden = !showForget;
+      },
     });
   }
 
@@ -4804,15 +4840,20 @@ ${
    * This is only shown on the addressbar and only on macOS.
    */
   #initShareURL() {
-    let insertLocation = this.#findMenuItemLocation("cmd_selectAll");
-
-    let separator = this.document.createXULElement("menuseparator");
-    insertLocation.insertAdjacentElement("afterend", separator);
-
-    this.#addContextMenuListener(() => {
-      let gBrowser = this.window.gBrowser;
-      let browser = gBrowser?.selectedBrowser;
-      if (browser) {
+    this.#addContextMenuItems({
+      after: "edit-contextmenu-select-all",
+      createItems: () => {
+        let fragment = this.document.createDocumentFragment();
+        fragment.appendChild(this.document.createXULElement("menuseparator"));
+        return fragment;
+      },
+      onShowing: (input, items) => {
+        let [separator] = items;
+        let gBrowser = this.window.gBrowser;
+        let browser = gBrowser?.selectedBrowser;
+        if (!browser) {
+          return;
+        }
         lazy.SharingUtils.ensureShareMenu(
           browser,
           gBrowser.selectedTabs.length > 1
@@ -4820,7 +4861,11 @@ ${
             : null,
           separator
         );
-      }
+        // ensureShareMenu inserts the share menu after the separator. Claim it
+        // so it's hidden along with the separator when the menu opens on
+        // another input.
+        items[1] = separator.nextElementSibling;
+      },
     });
   }
 
@@ -4829,19 +4874,23 @@ ${
    * This is only shown on the searchbar.
    */
   #initClearSearchHistory() {
-    let insertLocation = this.#findMenuItemLocation("cmd_selectAll");
+    this.#addContextMenuItems({
+      after: "edit-contextmenu-select-all",
+      createItems: () => {
+        let fragment = this.document.createDocumentFragment();
+        let separator = this.document.createXULElement("menuseparator");
 
-    let separator = this.document.createXULElement("menuseparator");
-    insertLocation.after(separator);
+        let clearHistory = this.document.createXULElement("menuitem");
+        clearHistory.setAttribute("anonid", "clear-search-history");
+        this.document.l10n.setAttributes(clearHistory, "clear-search-history");
+        clearHistory.addEventListener("command", () => {
+          lazy.UrlbarUtils.clearFormHistory();
+          this.handleRevert();
+        });
 
-    let clearHistory = this.document.createXULElement("menuitem");
-    separator.after(clearHistory);
-
-    clearHistory.setAttribute("anonid", "clear-search-history");
-    this.document.l10n.setAttributes(clearHistory, "clear-search-history");
-    clearHistory.addEventListener("command", () => {
-      lazy.UrlbarUtils.clearFormHistory();
-      this.handleRevert();
+        fragment.append(separator, clearHistory);
+        return fragment;
+      },
     });
   }
 
@@ -5429,8 +5478,6 @@ ${
   }
 
   _on_contextmenu(event) {
-    this.addSearchEngineHelper.refreshContextMenu(event);
-
     // Context menu opened via keyboard shortcut.
     if (!event.button) {
       return;
@@ -6285,17 +6332,16 @@ ${
    * @param {string} value
    *   A untrimmed address bar input.
    * @returns {nsILoadInfo.SchemelessInputType}
-   *   Returns `Ci.nsILoadInfo.SchemelessInputTypeSchemeless` if the input
-   *   doesn't start with a scheme relevant for schemeless HTTPS-First
-   *   (http://, https:// and file://).
-   *   Returns `Ci.nsILoadInfo.SchemelessInputTypeSchemeful` if it does have a scheme.
+   *   Returns `SchemelessInputTypeSchemeless` if the input doesn't start with a
+   *   scheme relevant for schemeless HTTPS-First (http://, https:// and
+   *   file://). Returns `SchemelessInputTypeSchemeful` if it does have a scheme.
    */
   #getSchemelessInput(value) {
     return ["http://", "https://", "file://"].every(
       scheme => !value.trim().startsWith(scheme)
     )
-      ? Ci.nsILoadInfo.SchemelessInputTypeSchemeless
-      : Ci.nsILoadInfo.SchemelessInputTypeSchemeful;
+      ? SCHEMELESS_INPUT_SCHEMELESS
+      : SCHEMELESS_INPUT_SCHEMEFUL;
   }
 
   get #isOpenedPageInBlankTargetLoading() {
@@ -6437,14 +6483,14 @@ function getDroppableData(event) {
  * Decodes the given URI for displaying it in the address bar without losing
  * information, such that hitting Enter again will load the same URI.
  *
- * @param {nsIURI} aURI
- *   The URI to decode
+ * @param {string} displaySpec
+ *   The URI's display spec.
  * @returns {string}
  *   The decoded URI
  */
-function losslessDecodeURI(aURI) {
-  let scheme = aURI.scheme;
-  let value = aURI.displaySpec;
+function losslessDecodeDisplaySpec(displaySpec) {
+  let scheme = displaySpec.slice(0, displaySpec.indexOf(":"));
+  let value = displaySpec;
 
   // Try to decode as UTF-8 if there's no encoding sequence that we would break.
   if (!/%25(?:3B|2F|3F|3A|40|26|3D|2B|24|2C|23)/i.test(value)) {
@@ -6522,6 +6568,20 @@ function losslessDecodeURI(aURI) {
     encodeURIComponent
   );
   return value;
+}
+
+/**
+ * Decodes a URL for display, taking the Unicode form of a punycode host.
+ *
+ * @param {URL} url
+ *   The URL to decode.
+ * @returns {string}
+ *   The decoded URL
+ */
+function losslessDecodeURL(url) {
+  return losslessDecodeDisplaySpec(
+    UrlbarContentUtils.getDisplaySpec(url.href) ?? url.href
+  );
 }
 
 /**
@@ -6616,6 +6676,13 @@ class AddSearchEngineHelper {
   shortcutButtons;
 
   /**
+   * The engines the page offers, empty until OpenSearchManager reports any.
+   *
+   * @type {object[]}
+   */
+  engines = [];
+
+  /**
    * @param {UrlbarInputBase} input The parent UrlbarInputBase.
    */
   constructor(input) {
@@ -6694,29 +6761,46 @@ class AddSearchEngineHelper {
     return elt;
   }
 
+  /**
+   * The items this helper has put in the context menu, after its separator.
+   *
+   * @type {Element[]}
+   */
+  #contextItems = [];
+
+  /**
+   * Creates the separator the engine items go after. The context menu is shared
+   * with other inputs, so it's owned as part of this input's item set rather
+   * than looked up in the menu.
+   *
+   * @returns {Element}
+   *   The separator.
+   */
+  createContextSeparator() {
+    this.contextSeparator =
+      this.input.document.createXULElement("menuseparator");
+    this.contextSeparator.setAttribute("anonid", "add-engine-separator");
+    this.contextSeparator.classList.add("menuseparator-add-engine");
+    this.contextSeparator.collapsed = true;
+    return this.contextSeparator;
+  }
+
+  /**
+   * Rebuilds the engine items.
+   *
+   * @returns {Element[]}
+   *   The separator and the items, for the item set to claim.
+   */
   refreshContextMenu() {
     let engines = this.engines;
-    let contextMenu = this.input.querySelector("moz-input-box").menupopup;
-
-    // Certain operations, like customization, destroy and recreate widgets,
-    // so we cannot rely on cached elements.
-    if (!contextMenu.querySelector(".menuseparator-add-engine")) {
-      this.contextSeparator =
-        this.input.document.createXULElement("menuseparator");
-      this.contextSeparator.setAttribute("anonid", "add-engine-separator");
-      this.contextSeparator.classList.add("menuseparator-add-engine");
-      this.contextSeparator.collapsed = true;
-      contextMenu.appendChild(this.contextSeparator);
-    }
 
     this.contextSeparator.collapsed = !engines.length;
     let curElt = this.contextSeparator;
     // Remove the previous items, if any.
-    for (let elt = curElt.nextElementSibling; elt; ) {
-      let nextElementSibling = elt.nextElementSibling;
+    for (let elt of this.#contextItems) {
       elt.remove();
-      elt = nextElementSibling;
     }
+    this.#contextItems = [];
 
     // If the page provides too many engines, we only show a single menu entry
     // with engines in a submenu.
@@ -6726,6 +6810,7 @@ class AddSearchEngineHelper {
       // choice here.
       let elt = this._createMenu(engines[0]);
       this.contextSeparator.insertAdjacentElement("afterend", elt);
+      this.#contextItems.push(elt);
       curElt = elt.lastElementChild;
     }
 
@@ -6736,9 +6821,12 @@ class AddSearchEngineHelper {
         curElt.appendChild(elt);
       } else {
         curElt.insertAdjacentElement("afterend", elt);
+        this.#contextItems.push(elt);
       }
       curElt = elt;
     }
+
+    return [this.contextSeparator, ...this.#contextItems];
   }
 
   async _onCommand(event) {

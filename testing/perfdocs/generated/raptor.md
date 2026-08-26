@@ -1900,7 +1900,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
 **Owner**: :az and Media Team
 
 * **alert threshold**: 2.0
-* **apps**: firefox
+* **apps**: firefox, chrome
 * **browser cycles**: 5
 * **cold**: true
 * **expected**: pass
@@ -1962,6 +1962,11 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - autoland
   - mozilla-release
   - mozilla-beta
+* - **browsertime-benchmark-chrome-media-capabilities**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-media-capabilities**
   - ✅
   - ✅
@@ -2013,6 +2018,11 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - autoland
   - mozilla-release
   - mozilla-beta
+* - **browsertime-benchmark-chrome-media-capabilities**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-media-capabilities**
   - ✅
   - ✅
@@ -2081,6 +2091,11 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - autoland
   - mozilla-release
   - mozilla-beta
+* - **browsertime-benchmark-chrome-media-capabilities**
+  - ❌
+  - ❌
+  - ❌
+  - ❌
 * - **browsertime-benchmark-firefox-media-capabilities**
   - ❌
   - ❌

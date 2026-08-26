@@ -189,7 +189,7 @@ class HomeDeepLinkIntentProcessor(
             navigateToShareFragment = {
                 navController.navigate(
                     NavGraphDirections.actionGlobalShareFragment(
-                        data = arrayOf(ShareData(url = url, title = title, text = text)),
+                        data = arrayOf(ShareData(url = url, title = title, text = text, private = false)),
                         shareSubject = subject.ifEmpty { title },
                         showPage = false,
                         sessionId = null,

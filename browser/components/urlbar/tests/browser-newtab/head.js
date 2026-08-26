@@ -1,0 +1,133 @@
+/* Any copyright is dedicated to the Public Domain.
+   http://creativecommons.org/publicdomain/zero/1.0/ */
+
+"use strict";
+
+Services.scriptloader.loadSubScript(
+  "chrome://mochitests/content/browser/browser/components/urlbar/tests/browser/head-common.js",
+  this
+);
+
+/**
+ * Opens about:newtab and waits for its address bar to be in the document.
+ *
+ * @returns {Promise<MozTabbrowserTab>}
+ */
+async function openNewTabPage() {
+  // about:newtab is preloaded, so its load event may already have fired.
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:newtab",
+    false
+  );
+  await TestUtils.waitForCondition(
+    () =>
+      SpecialPowers.spawn(
+        tab.linkedBrowser,
+        [],
+        () => !!content.document.querySelector("moz-urlbar")
+      ),
+    "waiting for <moz-urlbar> on about:newtab"
+  );
+  return tab;
+}
+
+/**
+ * Types a search string into the newtab address bar.
+ *
+ * @param {MozBrowser} browser
+ * @param {string} value
+ */
+function searchInNewTabPage(browser, value) {
+  return SpecialPowers.spawn(browser, [value], searchString => {
+    let input = content.document.querySelector("moz-urlbar input.urlbar-input");
+    input.focus();
+    input.value = searchString;
+    input.dispatchEvent(
+      new content.InputEvent("input", {
+        bubbles: true,
+        data: searchString,
+        inputType: "insertText",
+      })
+    );
+  });
+}
+
+/**
+ * Reads the favicon of the newtab address bar row showing a given title, once
+ * the favicon's load has settled.
+ *
+ * @param {MozBrowser} browser
+ * @param {string} title
+ * @returns {Promise<?object>}
+ *   The favicon's `src`, and whether it `loaded`, or null if there is no such
+ *   row.
+ */
+function getRowIcon(browser, title) {
+  return SpecialPowers.spawn(browser, [title], async rowTitle => {
+    let row = [
+      ...content.document.querySelectorAll("moz-urlbar .urlbarView-row"),
+    ].find(r => r.textContent.includes(rowTitle));
+    let img = row?.querySelector("img.urlbarView-favicon");
+    if (!img) {
+      return null;
+    }
+    if (!img.complete) {
+      await new Promise(resolve => {
+        img.addEventListener("load", resolve, { once: true });
+        img.addEventListener("error", resolve, { once: true });
+      });
+    }
+    return { src: img.src, loaded: img.naturalWidth > 0 };
+  });
+}
+
+/**
+ * Waits for a newtab address bar row's favicon to satisfy a predicate.
+ *
+ * @param {MozBrowser} browser
+ * @param {string} title
+ * @param {Function} predicate
+ *   Called with the object {@link getRowIcon} returns.
+ * @returns {Promise<object>}
+ *   The favicon that satisfied the predicate.
+ */
+function waitForRowIcon(browser, title, predicate) {
+  return TestUtils.waitForCondition(async () => {
+    let icon = await getRowIcon(browser, title);
+    return icon && predicate(icon) ? icon : false;
+  }, `waiting for the icon of the row titled "${title}"`);
+}
+
+/**
+ * Reads what the newtab address bar is currently showing.
+ *
+ * @param {MozBrowser} browser
+ * @returns {Promise<{focused: boolean, value: string, viewOpen: boolean}>}
+ *   Whether the input has focus, the value it holds, and whether the results
+ *   view is open.
+ */
+function getBarState(browser) {
+  return SpecialPowers.spawn(browser, [], () => {
+    let bar = content.document.querySelector("moz-urlbar");
+    let input = bar.querySelector("input.urlbar-input");
+    return {
+      focused: content.document.activeElement == input,
+      value: input.value,
+      // An Xray hides the element's plain JS properties.
+      viewOpen: Cu.waiveXrays(bar).view.isOpen,
+    };
+  });
+}
+
+/**
+ * Waits for the newtab address bar's results view to open.
+ *
+ * @param {MozBrowser} browser
+ */
+function waitForResults(browser) {
+  return TestUtils.waitForCondition(
+    async () => (await getBarState(browser)).viewOpen,
+    "waiting for the results view to open"
+  );
+}

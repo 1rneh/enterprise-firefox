@@ -31,6 +31,7 @@ support-files = [
   "test_smartformfill_autocomplete.html",
   "test_smartwindow_promo_page.html",
   "test_smartwindow_promo.mjs",
+  "test_smartformfill_telemetry.html",
   "test_smartwindow_prompts_page.html",
   "test_smartwindow_prompts.mjs",
   "test_smartwindow_panel_list_page.html",
@@ -85,6 +86,9 @@ skip-if = [
 ["browser_aiwindow_ai_action_confirmation.js"]
 
 ["browser_aiwindow_ai_action_result.js"]
+skip-if = [
+  "verify", # Bug 2057151 - intermittent no-output timeout under test-verify (post-test focus race in CI); same class as bug 2060705
+]
 
 ["browser_aiwindow_aifeature_contract.js"]
 
@@ -126,6 +130,8 @@ skip-if = [
 ["browser_aiwindow_memories.js"]
 
 ["browser_aiwindow_memories_toggle_prefs.js"]
+
+["browser_aiwindow_monitor_button.js"]
 
 ["browser_aiwindow_monitor_create.js"]
 
@@ -323,6 +329,8 @@ skip-if = [
 ["browser_smartwindow_smartformfill_autocomplete.js"]
 
 ["browser_smartwindow_smartformfill_metadata_lifecycle.js"]
+
+["browser_smartwindow_smartformfill_telemetry.js"]
 
 ["browser_smartwindow_switcher_telemetry.js"]
 

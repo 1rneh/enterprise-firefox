@@ -179,8 +179,16 @@ For example, here is an example of a good commit message:
 during its own onclick handler. r=person"
 
 To {ref}`find a reviewer or a review group <Getting reviews>`, the easiest way is to run
-`git log <modified-file>` on the relevant files, and look who usually is
-reviewing the actual changes (ie not reformat, renaming of variables, etc).
+`mach file-info reviewers` on the files you modified:
+
+```shell
+./mach file-info reviewers dom/media/mediasink/AudioSink.cpp
+```
+
+It prints the reviewer groups covering those files, starting with the ones Phabricator
+would add on its own. Failing that, run `git log <modified-file>` on the relevant files,
+and look who usually is reviewing the actual changes (ie not reformat, renaming of
+variables, etc).
 
 To visualize your patch in the repository, run:
 

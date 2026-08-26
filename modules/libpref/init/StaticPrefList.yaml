@@ -1097,22 +1097,15 @@
   value: true
   mirror: always
 
-# Whether to encrypt HTTP disk cache data at rest with an in-memory key. The
-# decrypted cache content only ever lives in memory. Off by default; takes
-# effect on restart. Read via CacheCrypto::IsEnabled(), which caches the value
-# on first use so it is stable for the session.
+# Whether to encrypt HTTP disk cache data at rest. The key is a data encryption
+# key held by the profile keystore (security/lockstore); the decrypted cache
+# content only ever lives in memory. Off by default; takes effect on restart.
+# Read via CacheCrypto::IsEnabled(), which caches the value on first use so it
+# is stable for the session.
 - name: browser.cache.disk.encryption.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
-
-# Base64 of the 32-byte AES-256 key used for disk cache encryption. Empty means
-# "generate one on first use and store it here". This is a development scaffold;
-# the key will move to the OS keystore later.
-- name: browser.cache.disk.encryption.key
-  type: String
-  value: ""
-  mirror: never
 
 # Minimum number of unwritten changes before the disk cache index is written
 # back to disk. Lowering it (e.g. to 1) forces the index to be persisted
@@ -2760,6 +2753,12 @@
 # and compositionend events.
 - name: dom.compositionevent.allow_control_characters
   type: bool
+  value: false
+  mirror: always
+
+# Whether to enable large window for brotli on DecompressionStream.
+- name: dom.compression_streams.brotli.large_window.enabled
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -10906,13 +10905,6 @@
   mirror: always
   rust: true
 
-# Is support for the contrast-color() function enabled?
-- name: layout.css.contrast-color.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Whether alt text in content is enabled.
 - name: layout.css.content.alt-text.enabled
   type: RelaxedAtomicBool
@@ -14670,6 +14662,20 @@
   value: false
   mirror: always
 
+# Maximum size of the cookie database write-ahead log before sqlite
+# checkpoints it. Only read at database initialization.
+- name: network.cookie.db.maxWalBytes
+  type: uint32_t
+  value: 524288 # 512KiB
+  mirror: always
+
+# Extra amount the cookie database write-ahead log is allowed to grow past
+# network.cookie.db.maxWalBytes before being truncated back.
+- name: network.cookie.db.journalOverheadBytes
+  type: uint32_t
+  value: 524288 # 512KiB
+  mirror: always
+
 # The string to return to the server as the 'workstation' that the user is
 # using. Bug 1046421 notes that the previous default of the system hostname
 # could be used for user fingerprinting.
@@ -16195,16 +16201,6 @@
   value: 50
 #else
   value: 0
-#endif
-  mirror: always
-
-# The idle timeout for the HTTP/3 connection that is used for DoH
-- name: network.trr.idle_timeout_for_http3_conn
-  type: RelaxedAtomicUint32
-#ifdef EARLY_BETA_OR_EARLIER
-  value: 400
-#else
-  value: 30
 #endif
   mirror: always
 
@@ -21085,6 +21081,15 @@
 - name: widget.windows.fullscreen_marking_method
   type: RelaxedAtomicUint32
   value: 2
+  mirror: always
+
+# Whether to always set "NonRudeHWND" on non-fullscreen visible windows,
+# which seems to give us the benefit of using "NonRudeHWND" for the
+# fullscreen_marking_method without causing issues with the taskbar showing
+# when Firefox is fullscreen. (bug 1965699)
+- name: widget.windows.fullscreen_set_nonrudehwnd
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # Whether to open the Windows file and folder pickers "remotely" (in a utility

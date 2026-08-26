@@ -1505,6 +1505,9 @@ SettingGroupManager.registerGroups({
     l10nId: "ip-protection-description-1",
     headingLevel: 2,
     supportPage: "built-in-vpn",
+    get hidden() {
+      return lazy.AppConstants.MOZ_ENTERPRISE;
+    },
     items: [
       {
         id: "ipProtectionNotOptedInSection",

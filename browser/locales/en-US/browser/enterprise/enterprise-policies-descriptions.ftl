@@ -9,7 +9,6 @@ policy-ContentAnalysisTelemetry = Enable and configure security logging/telemetr
 policy-DataLossPrevention = Enable and configure built-in data loss prevention (DLP) engine.
 policy-DisableLocalPolicies = Disable all local policy sources (policies.json, Windows GPO and macOS plist).
 policy-DownloadTelemetry = Enable and configure security logging/telemetry when a download is triggered.
-policy-EnterpriseStorageEncryption = Enable enterprise-managed primary password for encrypted storage.
 policy-PrintPageTelemetry = Enable and configure security logging/telemetry when a page is printed.
 policy-Sync = Enable or disable sync and define which data to include.
 policy-CrashReportsSubmit = Configure crash report submission settings.

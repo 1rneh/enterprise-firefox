@@ -15,7 +15,7 @@ export const EnterpriseStorageEncryption = {
         "security.storage.encryption.enabled",
         false
       ) &&
-      !Services.felt?.isFeltUI()
+      Services.felt?.isFeltBrowser()
     ) {
       await this.load();
     }

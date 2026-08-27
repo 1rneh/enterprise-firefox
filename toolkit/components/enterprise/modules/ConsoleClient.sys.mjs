@@ -9,23 +9,18 @@ const FELT_REFRESH_TIMEOUT = 60000;
 // Bound a single console request so a stalled server can't wedge the poller.
 const XHR_TIMEOUT_MS = 60000;
 
-// XXX: hardcoded for now. The console does not yet expose which EDR agents to
-// probe for, so we limit detection to the agents we currently care about.
-const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
+// The login flow this client speaks, reported on the SSO login URL: a callback
+// carrying a one-time token that the token endpoint redeems with the posture.
+const SSO_LOGIN_VERSION = "v2";
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   ConsoleProxyBypassFilter:
     "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs",
-  EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
-  MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
-  TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
-  composeOSNames: "resource://gre/modules/enterprise/EnterpriseOSInfo.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -154,8 +149,7 @@ export const ConsoleClient = {
       CONFIG: "/api/browser/config",
       REMOTE_POLICIES: "/api/browser/policies",
       KEY: "/api/browser/key",
-      TOKEN: "/sso/token",
-      DEVICE_POSTURE: "/sso/device_posture",
+      TOKEN: "/api/browser/sso/token",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
       // Right now we always pass 0.0.0 as the current version
@@ -177,23 +171,79 @@ export const ConsoleClient = {
   },
 
   /**
+   * Checks that the configured console is reachable before starting the SSO flow.
+   * Any HTTP response means the host is reachable; only network-level failures
+   * reject, in the shape FeltErrorReport.handleXhrError expects.
+   *
+   * @throws {TypeError} On a network-level failure.
+   * @returns {Promise<void>}
+   */
+  async probeConsoleReachable() {
+    const url = await this.constructURI("");
+    await this._xhrFetch(url, { method: "GET" });
+  },
+
+  /**
    * Constructs the SSO login URL for the provided email.
    *
+   * Identifies the user, the device, and the login flow this client speaks, which
+   * selects the callback and the token grant the console answers with. It names no
+   * platform: the client selects its own list out of the posture configuration
+   * (see EdrAgents in DevicePosture.sys.mjs).
+   *
    * @param {string} email - Email address to prefill for SSO initiation.
-   * @param {string} devicePostureToken - Token received for device posture
-   * @returns {nsIURI}
+   * @returns {Promise<nsIURI>}
    */
-  async constructSsoLoginURI(email, devicePostureToken) {
+  async constructSsoLoginURI(email) {
     const deviceId = lazy.FeltStorage.getDeviceId();
     const url = await this.consoleBaseURI;
     url.pathname = this._paths.SSO;
     url.searchParams.set("target", "browser");
     url.searchParams.set("email", email);
-    url.searchParams.set("devicePostureToken", devicePostureToken);
     url.searchParams.set("deviceId", deviceId);
+    url.searchParams.set("version", SSO_LOGIN_VERSION);
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
     return uri;
+  },
+
+  /**
+   * Redeems the SSO one-time-token for the session tokens, reporting the device
+   * posture in the same request: the console mints no session without a posture to
+   * record against it, so this is the one call that starts a session.
+   *
+   * @param {string} oneTimeToken
+   * @param {DevicePosture|null} posture
+   * @returns {Promise<{access_token, refresh_token, expires_in}>}
+   * @throws {Error}
+   */
+  async redeemOneTimeToken(oneTimeToken, posture) {
+    const url = await this.constructURI(this._paths.TOKEN);
+    const res = await this._xhrFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        grant_type: "one_time_token",
+        one_time_token: oneTimeToken,
+        posture,
+      }),
+    });
+
+    if (res.ok) {
+      return res.json();
+    }
+
+    // The status tells a console that refused the request (4xx, e.g. a posture it
+    // will not accept) from one that could not answer.
+    const text = await res.text().catch(() => "");
+    const e = new Error(
+      `One-time-token redemption failed (${res.status}): ${text}`
+    );
+    e.status = res.status;
+    throw e;
   },
 
   /**
@@ -227,29 +277,15 @@ export const ConsoleClient = {
   },
 
   /**
-   * Fetches remote enterprise policies, including device posture in the body.
+   * Fetches remote enterprise policies.
    *
-   * The endpoint is POST-based; when posture is unavailable (either
-   * collection failed or is disabled) we POST an empty object rather than
-   * falling back to GET.
+   * A plain authenticated GET; posture is reported on the same cadence by the
+   * Felt posture monitor, not here.
    *
-   * @param {object} [options]
-   * @param {boolean} [options.isStartup=true] - Whether this is the initial
-   *   startup fetch, as opposed to a periodic poll.
    * @returns {Promise<{policies: Record<string, any>}>}
    */
-  async getRemotePolicies({ isStartup = true } = {}) {
-    // Device posture is supplementary; if collecting it fails, fall back to
-    // a plain policy fetch rather than failing the policy update.
-    let devicePosture = null;
-    try {
-      devicePosture = await this.collectDevicePosture({
-        waitForAddons: !isStartup,
-      });
-    } catch (e) {
-      lazy.log.error("Failed to collect device posture:", e);
-    }
-    return this._post(this._paths.REMOTE_POLICIES, devicePosture ?? {});
+  async getRemotePolicies() {
+    return this._get(this._paths.REMOTE_POLICIES);
   },
 
   /**
@@ -346,34 +382,6 @@ export const ConsoleClient = {
 
       xhr.send(body);
     });
-  },
-
-  /**
-   * Collect the device posture data and send them to the console.
-   *
-   * @param {object} [options]
-   * @param {boolean} [options.waitForAddons=false]
-   * @returns {Promise<{posture: string}>} Token reported by console.
-   */
-  async sendDevicePosture({ waitForAddons = false } = {}) {
-    const devicePosture = await this.collectDevicePosture({ waitForAddons });
-    const url = await this.constructURI(this._paths.DEVICE_POSTURE);
-
-    const res = await this._xhrFetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(devicePosture),
-    });
-
-    if (res.ok) {
-      return await res.json();
-    }
-
-    const text = await res.text().catch(() => "");
-    throw new Error(`Post failed (${res.status}): ${text}`);
   },
 
   /**
@@ -541,14 +549,20 @@ export const ConsoleClient = {
   },
 
   /**
-   * Refreshes the session using a refresh token.
+   * Refreshes the session using a refresh token, storing the rotated tokens.
    * Serializes concurrent refreshes via an internal promise.
    * This should only be called from the Felt context.
    *
+   * @param {object} [options]
+   * @param {DevicePosture|null} [options.posture=null] - Device posture to report
+   *   with the refresh, for the console to record.
    * @throws {ReauthRequiredError | Error} If unable to refresh session
-   * @returns {Promise<{ access_token, refresh_token, expires_at }>}
+   * @returns {Promise<{ access_token, refresh_token, expires_at, posture,
+   *   postureSubmitted }>} posture is the refreshed posture configuration (may be
+   *   undefined); postureSubmitted is false when this call joined an in-flight
+   *   refresh that did not carry the supplied posture.
    */
-  async refreshTokens() {
+  async refreshTokens({ posture = null } = {}) {
     // Assert we are in Felt context
     if (!Services.felt.isFeltUI()) {
       throw new Error(
@@ -556,9 +570,13 @@ export const ConsoleClient = {
       );
     }
 
-    // If a felt refresh is already underway, just return the promise.
+    // An in-flight refresh may not have carried this caller's posture, so it
+    // reports postureSubmitted=false and the next monitor tick retries.
     if (this._feltRefreshPromise) {
-      return this._feltRefreshPromise;
+      return this._feltRefreshPromise.then(result => ({
+        ...result,
+        postureSubmitted: false,
+      }));
     }
 
     // At this point, we are in the Felt UI context and no
@@ -575,6 +593,13 @@ export const ConsoleClient = {
       }
 
       const url = await this.constructURI(this._paths.TOKEN);
+      const body = {
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      };
+      if (posture) {
+        body.posture = posture;
+      }
       // We let any errors that are thrown here bubble up, these should
       // be lower level network errors, i.e. nothing on the HTTP level.
       const res = await this._xhrFetch(url, {
@@ -583,10 +608,7 @@ export const ConsoleClient = {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        }),
+        body: JSON.stringify(body),
       });
 
       // These are concrete HTTP errors that should trigger
@@ -606,9 +628,24 @@ export const ConsoleClient = {
         throw new Error(`Token refresh failed: ${text}, Status: ${res.status}`);
       }
 
-      const { access_token, refresh_token, expires_in } = await res.json();
+      const {
+        access_token,
+        refresh_token,
+        expires_in,
+        posture: postureConfig,
+      } = await res.json();
       const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
-      return { access_token, refresh_token, expires_at };
+      // Store the rotated tokens here rather than in the callers: this runs
+      // before the guard below clears, so a refresh starting as this one
+      // completes cannot read the refresh token this call just spent.
+      Services.felt.setTokens(access_token, refresh_token, expires_at);
+      return {
+        access_token,
+        refresh_token,
+        expires_at,
+        posture: postureConfig,
+        postureSubmitted: !!posture,
+      };
     })().finally(() => {
       // In any case, clear the felt refresh promise so that a new one can be started.
       this._feltRefreshPromise = null;
@@ -689,163 +726,6 @@ export const ConsoleClient = {
     Services.felt.refreshTokens();
 
     return this._refreshPromise;
-  },
-
-  /**
-   * @typedef {object} DeviceNetwork
-   * @property {null} ipv4 IPv4 address, TBD
-   * @property {null} ipv6 IPv6 address, TBD
-   */
-
-  /**
-   * @typedef {object} DeviceAddon
-   * @property {string} id Addon identifier.
-   * @property {string} name Human-readable display name.
-   * @property {string} type Addon type (extension, plugin, sitepermission, etc).
-   * @property {string} version Addon version string.
-   * @property {boolean} enabled Whether the addon is currently active.
-   */
-
-  /**
-   * @typedef {object} DeviceMachineId
-   * @property {string} id Raw platform machine identifier (e.g. device serial).
-   * @property {string|null} source Source tier the identifier was resolved from.
-   */
-
-  /**
-   * @typedef {object} DeviceEdr
-   * @property {string} name EDR agent identifier (e.g. "crowdstrike").
-   */
-
-  /**
-   * @typedef {object} DevicePosture
-   * @property {object} os Telemetry-reported os information.
-   * @property {object|undefined} security Telemetry-reported security software info (windows only)
-   * @property {object} build Telemetry-reported build info info
-   * @property {DeviceNetwork} network Network posture (placeholders for now).
-   * @property {DeviceAddon[]|null} extensions Installed browser addons, or null if not yet available.
-   * @property {DeviceMachineId|null} machineId Stable machine identifier, or null if unavailable.
-   * @property {boolean} secureBootEnabled Whether Secure Boot is enabled.
-   * @property {boolean} isDomainJoined Whether the machine is joined to a domain (Windows on-prem AD or Azure AD/Entra).
-   * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none).
-   */
-
-  /**
-   * Collects the device posture from TelemetryEnvironment.currentEnvironment
-   * and others data sources.
-   *
-   * @param {object} [options]
-   * @param {boolean} [options.waitForAddons=false] - Whether to block until
-   *   AddonManager is ready so extensions are always reported.
-   * @returns {Promise<DevicePosture>} devicePosture
-   */
-  async collectDevicePosture({ waitForAddons = false } = {}) {
-    const getImeiValue = async () => {
-      try {
-        return await Cc["@mozilla.org/imei/provider;1"]
-          .getService()
-          .QueryInterface(Ci.nsIImeiProvider).imei;
-      } catch {
-        return "";
-      }
-    };
-
-    // AddonManager is only available in the full browser process, not in
-    // the FELT login window. Returns null in the FELT UI. When
-    // waitForAddons is true (periodic poll), blocks until AddonManager is
-    // ready so extensions are always reported. When false (startup),
-    // returns null if AddonManager isn't ready yet to avoid blocking.
-    const getExtensions = async () => {
-      try {
-        if (Services.felt.isFeltUI()) {
-          return null;
-        }
-        if (!lazy.AddonManager.isReady) {
-          if (waitForAddons) {
-            await lazy.AddonManager.readyPromise;
-          } else {
-            return null;
-          }
-        }
-        const addons = await lazy.AddonManager.getAddonsByTypes([
-          "extension",
-          "sitepermission",
-          "siteperm_deprecated",
-          "plugin",
-          "mlmodel",
-        ]);
-        return addons.map(addon => ({
-          id: addon.id,
-          name: addon.name ?? "",
-          type: addon.type,
-          version: addon.version ?? "",
-          enabled: addon.isActive,
-        }));
-      } catch {
-        return null;
-      }
-    };
-
-    const getMachineId = async () => {
-      try {
-        const id = await lazy.MachineId.getRawId();
-        if (!id) {
-          return null;
-        }
-        return {
-          id,
-          source: await lazy.MachineId.getSource(),
-        };
-      } catch {
-        return null;
-      }
-    };
-
-    const networkInterfaces = Cc["@mozilla.org/network/network-link-service;1"]
-      .getService()
-      .QueryInterface(Ci.nsINetworkLinkService).networkInterfaces;
-
-    const baseOs = lazy.TelemetryEnvironment.currentEnvironment.system.os;
-    const { long: os_long_name, short: os_short_name } =
-      await lazy.composeOSNames(baseOs);
-    const os = {
-      ...baseOs,
-      ...(os_long_name != null && { os_long_name }),
-      ...(os_short_name != null && { os_short_name }),
-    };
-
-    const getPresentEDRs = async () =>
-      (await lazy.EdrDetection.getPresentEdrs(EDR_AGENTS_TO_PROBE)).map(
-        name => ({ name })
-      );
-
-    // These probes are independent, and some are slow (subprocess spawns, addon
-    // manager readiness, an `ioreg` shell-out), so run them concurrently rather
-    // than serializing the awaits.
-    const [mobileEquipmentId, extensions, machineId, presentEdrs] =
-      await Promise.all([
-        getImeiValue(),
-        getExtensions(),
-        getMachineId(),
-        getPresentEDRs(),
-      ]);
-
-    const devicePosturePayload = {
-      os,
-      security: lazy.TelemetryEnvironment.currentEnvironment.system.sec,
-      build: lazy.TelemetryEnvironment.currentEnvironment.build,
-      network: {
-        mobileEquipmentId,
-        interfaces: networkInterfaces,
-      },
-      extensions,
-      machineId,
-      secureBootEnabled:
-        Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
-      isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
-      presentEdrs,
-    };
-    return devicePosturePayload;
   },
 
   /**

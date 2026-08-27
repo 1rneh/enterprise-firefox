@@ -7,6 +7,10 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  EDR_AGENTS_PREF: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  EdrAgents: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  PostureMonitor: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
   CONSOLE_ADDRESS_PREF:
     "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   isBuildAppBrowser:
@@ -15,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -64,6 +69,17 @@ export function queueURL(payload) {
 }
 
 let gFeltProcessParentInstance = null;
+
+// The session a token refresh belongs to, bumped whenever one starts or is torn
+// down. A refresh that resolves after its session is gone must not set tokens,
+// hand one to the browser, or re-arm the posture record. Kept at module level
+// because this actor is re-created with the content process hosting the login
+// page, which a refresh can outlive.
+let gSessionGeneration = 0;
+
+// The browser-driven refresh in flight, for teardown to wait on: it is tracked
+// here rather than by PostureMonitor, which only owns the refreshes it starts.
+let gBrowserRefresh = null;
 
 function extractURLPayload(payload) {
   return {
@@ -290,7 +306,9 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-logout":
-            gFeltProcessParentInstance.logoutFirefox();
+            gFeltProcessParentInstance.logoutFirefox().catch(err => {
+              lazy.log.error(`Logout failed: ${err}`);
+            });
             break;
 
           case "felt-firefox-tokens": {
@@ -312,41 +330,42 @@ export class FeltProcessParent extends JSProcessActorParent {
               break;
             }
             const client = lazy.ConsoleClient;
-            client
-              .refreshTokens()
-              .then(({ access_token, refresh_token, expires_at }) => {
-                lazy.log.debug("refreshTokens successful");
-                Services.felt.setTokens(
-                  access_token,
-                  refresh_token,
-                  expires_at
-                );
-                Services.felt.sendAccessToken();
-              })
+            const generation = gSessionGeneration;
+            // The browser is blocked until a token comes back, so this reports the
+            // last posture rather than measuring a new one (see PostureMonitor).
+            gBrowserRefresh = lazy.PostureMonitor.postureForRefresh()
+              .then(({ posture, measuredAt }) =>
+                client.refreshTokens({ posture }).then(result => {
+                  const { posture: postureConfig, postureSubmitted } = result;
+                  // The tokens are stored by refreshTokens; a response that
+                  // outlived its session must not reach the dead browser or
+                  // the monitor's baseline.
+                  if (generation !== gSessionGeneration) {
+                    lazy.log.debug(
+                      "Session is over; dropping the token refresh response."
+                    );
+                    return;
+                  }
+                  lazy.log.debug("refreshTokens successful");
+                  Services.felt.sendAccessToken();
+                  gFeltProcessParentInstance._storeEdrAgents(
+                    postureConfig?.edr_agents
+                  );
+                  // Only a posture measured here is news to the console; a
+                  // replayed one is already recorded against the session.
+                  if (postureSubmitted && measuredAt) {
+                    lazy.PostureMonitor.record(posture, measuredAt);
+                  }
+                })
+              )
               .catch(error => {
-                // A refresh failure tears the browser down.
+                // A refresh the browser is blocked on tears it down whatever
+                // failed.
                 // TODO: define a more refined behaviour for these conditions and implement.
                 // For example, an intermittent network or 5xx error can be handled more
                 // gracefully if the refresh request is still before the actual token expiration
                 // because the known old token still has some validity time left.
-                lazy.log.error(
-                  `token refresh failed (${error.name}), shutting down Firefox`,
-                  error
-                );
-                Services.felt.clearTokens();
-                gFeltProcessParentInstance.logoutReported = true;
-                gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-                  Services.cpmm.sendAsyncMessage(
-                    "FeltParent:FirefoxSessionInterrupted",
-                    {
-                      reason:
-                        error.name === "ReauthRequiredError"
-                          ? "tokenRefreshExpired"
-                          : "tokenRefreshFailed",
-                    }
-                  );
-                });
-                Services.felt.shutdownFirefox();
+                gFeltProcessParentInstance.endSessionAfterRefreshFailure(error);
               });
             break;
           }
@@ -357,6 +376,36 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
       },
     };
+  }
+
+  /**
+   * Ends the session a token refresh failed for: the console will not answer for
+   * its tokens any more, so the browser cannot keep running on them.
+   *
+   * @param {Error} error - The failure, whose name picks the notice FELT shows.
+   */
+  endSessionAfterRefreshFailure(error) {
+    if (this.logoutReported) {
+      return;
+    }
+    lazy.log.error(
+      `token refresh failed (${error.name}), shutting down Firefox`,
+      error
+    );
+    Services.felt.clearTokens();
+    this.logoutReported = true;
+    gSessionGeneration += 1;
+    // Otherwise further ticks refresh against the cleared tokens.
+    lazy.PostureMonitor.stop();
+    this.proc.exitPromise.then(_ => {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxSessionInterrupted", {
+        reason:
+          error.name === "ReauthRequiredError"
+            ? "tokenRefreshExpired"
+            : "tokenRefreshFailed",
+      });
+    });
+    Services.felt.shutdownFirefox();
   }
 
   async sendPrefsToFirefox() {
@@ -405,6 +454,8 @@ export class FeltProcessParent extends JSProcessActorParent {
         polling_frequency
       );
     }
+    // Monitor device posture on the same cadence as the policy poll.
+    this._posturePollMs = polling_frequency;
 
     if (tokenserver_url === null) {
       lazy.log.error("No tokenserver_url in Firefox configuration");
@@ -433,6 +484,26 @@ export class FeltProcessParent extends JSProcessActorParent {
     extra_prefs.forEach(pref => {
       this._setPrefInFirefox(pref);
     });
+  }
+
+  /**
+   * Stores an EDR agent list received mid-session, in this process and in the
+   * browser, so both hold the same probe list. An absent list preserves the
+   * current value; only the SSO callback's clears it on omit (see
+   * receiveMessage).
+   *
+   * @param {string[]} [edrAgents]
+   */
+  _storeEdrAgents(edrAgents) {
+    if (!edrAgents) {
+      return;
+    }
+    const serialized = lazy.EdrAgents.write(edrAgents);
+    try {
+      Services.felt.sendStringPreference(lazy.EDR_AGENTS_PREF, serialized);
+    } catch (e) {
+      lazy.log.error("Could not send the EDR probe list to the browser:", e);
+    }
   }
 
   /**
@@ -552,6 +623,14 @@ export class FeltProcessParent extends JSProcessActorParent {
           return;
         }
         await this.sendPrefsToFirefox();
+
+        // Forward the probe list written from the SSO callback: the browser
+        // config does not carry one.
+        Services.felt.sendStringPreference(
+          lazy.EDR_AGENTS_PREF,
+          Services.prefs.getStringPref(lazy.EDR_AGENTS_PREF, "[]")
+        );
+
         Services.felt.sendAccessToken();
 
         await this._applyFirefoxConfigs();
@@ -565,6 +644,21 @@ export class FeltProcessParent extends JSProcessActorParent {
           await this.forwardPendingURLs();
         }
         notifyFirefoxReady();
+
+        // Monitor device posture on the policy-poll cadence.
+        lazy.PostureMonitor.start({
+          profileDir: this._profilePath,
+          intervalMs: this._posturePollMs,
+          onRefreshed: session => {
+            // The browser must switch to the rotated access token immediately;
+            // otherwise its next authenticated call 401s and forces a second,
+            // posture-less refresh.
+            Services.felt.sendAccessToken();
+            this._storeEdrAgents(session.posture?.edr_agents);
+          },
+          isSessionOver: () => this.logoutReported,
+          onRefreshRejected: error => this.endSessionAfterRefreshFailure(error),
+        });
       })
       .then(() => {
         lazy.log.debug(
@@ -573,6 +667,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         );
 
         this.proc.exitPromise.then(ev => {
+          lazy.PostureMonitor.stop();
           lazy.log.debug(`firefox exit: ev`, JSON.stringify(ev));
           lazy.log.debug(
             `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
@@ -708,44 +803,33 @@ export class FeltProcessParent extends JSProcessActorParent {
     return isExceedingCrashCounterLimit && isWithinCrashPeriod;
   }
 
+  /**
+   * Resolves (creating it if needed) the managed profile for the logged-in user
+   * and remembers it, so a relaunch reuses what login resolved. Keyed on the user
+   * it was resolved for: the next user to sign in through this actor must not be
+   * handed the profile of the last one.
+   *
+   * @returns {Promise<{profile: nsIToolkitProfile|null, path: string}>}
+   */
+  async _resolveProfile() {
+    const userId = this.loggedInUserInfo?.id ?? null;
+    if (!this._resolvedProfile || this._resolvedProfileUserId !== userId) {
+      this._resolvedProfile = await lazy.resolveManagedProfile(
+        this.loggedInUserInfo
+      );
+      this._resolvedProfileUserId = userId;
+      this._profilePath = this._resolvedProfile.path;
+    }
+    return this._resolvedProfile;
+  }
+
   async startFirefoxProcess() {
     let socket = Services.felt.oneShotIpcServer();
 
     const firefoxBin = Services.felt.binPath();
 
-    let profilePath = Services.prefs.getStringPref(
-      "enterprise.profile_path",
-      ""
-    );
-    let foundProfile = null;
-
-    if (!profilePath) {
-      let profileService = Cc[
-        "@mozilla.org/toolkit/profile-service;1"
-      ].getService(Ci.nsIToolkitProfileService);
-
-      let profileName = await this.profileName();
-
-      for (let profile of profileService.profiles) {
-        if (profile.name === profileName) {
-          foundProfile = profile;
-          break;
-        }
-      }
-
-      if (!foundProfile) {
-        lazy.log.debug(`creating new ${profileName} profile`);
-        foundProfile = profileService.createProfile(
-          null,
-          profileName,
-          "felt-firstrun"
-        );
-
-        await profileService.asyncFlush();
-      }
-    } else if (Services.appinfo.OS == "WINNT") {
-      profilePath = PathUtils.normalize(profilePath.replaceAll("/", "\\"));
-    }
+    const { profile: foundProfile, path: profilePath } =
+      await this._resolveProfile();
 
     let extraRunArgs = [];
     if (lazy.isTesting()) {
@@ -938,8 +1022,10 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   /**
    * Perform all the logout operations on FELT side.
+   *
+   * @returns {Promise<void>} Resolves once the browser shutdown was requested.
    */
-  logoutFirefox() {
+  async logoutFirefox() {
     if (!Services.felt.isFeltUI()) {
       throw new Error("Logout handling should only happen on FELT side.");
     }
@@ -954,23 +1040,32 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
     gFeltProcessParentInstance.logoutReported = true;
 
+    // Awaiting both refresh paths orders a mid-refresh decision to drop its
+    // response before the clearTokens() below. A browser-driven refresh that
+    // already rotated the tokens is applied rather than dropped, so the signout
+    // authenticates with the token the console now expects.
+    lazy.PostureMonitor.stop();
+    await lazy.PostureMonitor.idle();
+    await gBrowserRefresh;
+    gSessionGeneration += 1;
+
     // Send the logout request to the server.
     // Handle any errors that occur during signout gracefully,
     // i.e. report, but ignore them and proceed with the signout.
-    lazy.ConsoleClient.performServerSignout()
-      .catch(err => {
-        lazy.log.error(`Server signout failed: ${err}`);
-      })
-      .finally(() => {
-        // clear token data on the FELT side, then shut Firefox down
-        Services.felt.clearTokens();
-        Services.felt.shutdownFirefox();
-        gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-          Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
-            reason: "logout",
-          });
-        });
+    try {
+      await lazy.ConsoleClient.performServerSignout();
+    } catch (err) {
+      lazy.log.error(`Server signout failed: ${err}`);
+    }
+
+    // clear token data on the FELT side, then shut Firefox down
+    Services.felt.clearTokens();
+    Services.felt.shutdownFirefox();
+    gFeltProcessParentInstance.proc.exitPromise.then(_ => {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
+        reason: "logout",
       });
+    });
   }
 
   async receiveMessage(message) {
@@ -981,19 +1076,73 @@ export class FeltProcessParent extends JSProcessActorParent {
       case "FeltChild:StartFirefox":
         {
           const {
+            one_time_token = "",
+            user_id,
+            email,
+            posture: postureConfig,
+          } = message.data;
+
+          // The profile is derived from the user id, so without one the session
+          // would run in the profile shared by every user.
+          if (!user_id) {
+            lazy.log.error("SSO callback carried no user id");
+            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+              errorType: "loginFailed",
+            });
+            break;
+          }
+
+          this.loggedInUserInfo = { id: user_id, email };
+          lazy.FeltStorage.updateLastSignedInUserEmail(email);
+
+          // Login starts a fresh session, so an absent list clears the probe
+          // list of the previous one rather than preserving it.
+          lazy.EdrAgents.write(postureConfig?.edr_agents);
+
+          // Read the extension list from the profile on disk, before the browser
+          // is spawned and its AddonManager rewrites extensions.json.
+          const { path: profileDir } = await this._resolveProfile();
+          let posture;
+          const measuredAt = Date.now();
+          try {
+            posture = await lazy.DevicePosture.collect({ profileDir });
+          } catch (e) {
+            // The console mints no session without a posture, so there is
+            // nothing to redeem the one-time token with.
+            lazy.log.error("Failed to collect the initial device posture:", e);
+            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+              errorType: "loginFailed",
+            });
+            break;
+          }
+
+          let tokens;
+          try {
+            tokens = await lazy.ConsoleClient.redeemOneTimeToken(
+              one_time_token,
+              posture
+            );
+          } catch (e) {
+            lazy.log.error("One-time-token redemption failed:", e);
+            Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+              errorType: "loginFailed",
+            });
+            break;
+          }
+
+          const {
             access_token = "",
             refresh_token = "",
             expires_in = 0,
-          } = message.data;
+          } = tokens;
+
           const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
           Services.felt.setTokens(access_token, refresh_token, expires_at);
+          gSessionGeneration += 1;
 
-          // TODO: Bug 2003001 - Pass user info from Felt to Firefox to avoid network request on startup
-          this.loggedInUserInfo =
-            await lazy.ConsoleClient.getLoggedInUserInfo();
-          lazy.FeltStorage.updateLastSignedInUserEmail(
-            this.loggedInUserInfo?.email
-          );
+          // The console has this posture now: the baseline the monitor diffs
+          // against.
+          lazy.PostureMonitor.record(posture, measuredAt);
 
           const ssoCollectedCookies = this.getAllCookies();
           lazy.log.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
@@ -1025,22 +1174,4 @@ export class FeltProcessParent extends JSProcessActorParent {
       })
     );
   }
-
-  async profileName() {
-    if (this.loggedInUserInfo !== null) {
-      return `${lazy.FeltCommon.ENTERPRISE_PROFILE}-${await hashTo40bits(this.loggedInUserInfo.id)}`;
-    }
-    lazy.log.error(`loggedInUserInfo not set`);
-    return lazy.FeltCommon.ENTERPRISE_PROFILE;
-  }
-}
-
-async function hashTo40bits(s) {
-  const msgUint8 = new TextEncoder().encode(s);
-  const hashBuffer = await globalThis.crypto.subtle.digest("SHA-256", msgUint8);
-  const base64 = new Uint8Array(hashBuffer).slice(0, 5).toBase64({
-    omitPadding: true,
-    alphabet: "base64url",
-  });
-  return base64;
 }

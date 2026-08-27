@@ -383,7 +383,11 @@ var CustomizableUIInternal = {
         type: CustomizableUI.TYPE_TOOLBAR,
         overflowable: true,
         defaultPlacements: navbarPlacements,
-        verticalTabsDefaultPlacements: ["alltabs-button", "ai-window-toggle"],
+        verticalTabsDefaultPlacements: [
+          "alltabs-button",
+          "smartwindow-group-tabs-button",
+          "ai-window-toggle",
+        ],
         defaultCollapsed: false,
       },
       true
@@ -410,6 +414,7 @@ var CustomizableUIInternal = {
           "new-tab-button",
           "spring",
           "alltabs-button",
+          "smartwindow-group-tabs-button",
           "ai-window-toggle",
         ],
         verticalTabsDefaultPlacements: [],

@@ -428,9 +428,6 @@ ${
     this.view = new UrlbarView(this);
     this.searchModeSwitcher = new SearchModeSwitcher(this);
 
-    // After the view, which AddSearchEngineHelper needs.
-    this.#initContextMenuItems();
-
     let searchModeSwitcherDescription = this.querySelector(
       ".searchmode-switcher-panel-description"
     );
@@ -509,6 +506,9 @@ ${
     if (!this.controller) {
       this.#init();
     }
+
+    // After #init(), which creates the view AddSearchEngineHelper needs.
+    this.#initContextMenuItems();
 
     this.searchModeSwitcher.connect();
 
@@ -686,8 +686,17 @@ ${
 
     this._resizeObserver?.disconnect();
 
+    this.#removeContextMenuItems();
+
     this._removeObservers();
   }
+
+  /**
+   * The sets this input registered with the text context menu.
+   *
+   * @type {object[]}
+   */
+  #contextMenuItemSets = [];
 
   /**
    * Contributes this input's own items to the text context menu. A window
@@ -739,10 +748,23 @@ ${
    *   As passed to EditContextMenu.addItems(), minus `matches`.
    */
   #addContextMenuItems(itemSet) {
-    this.window.EditContextMenu.addItems({
-      ...itemSet,
-      matches: input => input == this.inputField,
-    });
+    this.#contextMenuItemSets.push(
+      this.window.EditContextMenu.addItems({
+        ...itemSet,
+        matches: input => input == this.inputField,
+      })
+    );
+  }
+
+  /**
+   * Unregisters the item sets, so a disconnected input stops contributing to
+   * the menu it shares with the other inputs of the window.
+   */
+  #removeContextMenuItems() {
+    for (let itemSet of this.#contextMenuItemSets) {
+      this.window.EditContextMenu.removeItems(itemSet);
+    }
+    this.#contextMenuItemSets = [];
   }
 
   addGBrowserListeners() {
@@ -771,6 +793,16 @@ ${
 
   get sapName() {
     return this.#sapName;
+  }
+
+  /**
+   * Whether this is a bar dedicated to search.
+   *
+   * @see {UrlbarShared.isSearchbarSAP}
+   * @type {boolean}
+   */
+  get isSearchbarSAP() {
+    return UrlbarShared.isSearchbarSAP(this.#sapName);
   }
 
   /**
@@ -2081,9 +2113,9 @@ ${
           // be reverted when they're notified of the engagement, but before
           // reverting, copy the search mode since it's nulled on revert.
           const { searchMode } = this;
-          if (this.sapName != "searchbar") {
-            // The searchbar is not reverted so providers enabled in
-            // the searchbar should be able to handle both cases.
+          if (!this.isSearchbarSAP) {
+            // A search bar is not reverted so providers enabled in a search bar
+            // should be able to handle both cases.
             this.handleRevert();
           }
           this.controller.engagementEvent.record(event, {
@@ -4433,7 +4465,7 @@ ${
       this.inputField.setSelectionRange(0, 0);
     }
 
-    if (where != "current" && this.sapName != "searchbar") {
+    if (where != "current" && !this.isSearchbarSAP) {
       this.handleRevert();
     }
 

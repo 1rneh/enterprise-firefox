@@ -114,41 +114,33 @@ async function connectToConsole(email) {
   signInInFlight = true;
   const attempt = ++signInGeneration;
   pendingSignInEmail = email;
-  let posture;
+
+  // Probe the console for reachability before starting SSO, so an unreachable or
+  // misconfigured console address surfaces a clear error here, at the point the
+  // user submitted.
   try {
-    posture = await lazy.ConsoleClient.sendDevicePosture();
+    await lazy.ConsoleClient.probeConsoleReachable();
   } catch (err) {
     if (attempt !== signInGeneration) {
       // Superseded (abandoned on a portal-clear retry); drop silently.
       return;
     }
-    lazy.log.error(`Failed to send device posture: ${err}`);
+    lazy.log.error(`Console not reachable: ${err}`);
     signInInFlight = false;
     pendingSignInEmail = null;
-    // Re-probe so a real portal surfaces as the banner, not a dead-end error.
+    // Re-probe so a real portal surfaces as the captive-portal banner.
     lazy.CaptivePortal.recheck();
     lazy.CaptivePortal.maybeResumeUpdates();
     await lazy.FeltErrorReport.handleXhrError(err);
     return;
   }
 
+  const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(email);
+
   if (attempt !== signInGeneration) {
-    // Superseded while the posture request was in flight; drop it silently.
+    // Superseded (abandoned on a portal-clear retry); drop silently.
     return;
   }
-
-  if (!posture) {
-    // TODO: Currently we don't check the posture yet. In the future we need to handle rejected device posture
-    signInInFlight = false;
-    pendingSignInEmail = null;
-    lazy.CaptivePortal.maybeResumeUpdates();
-    return;
-  }
-
-  const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(
-    email,
-    posture.posture
-  );
 
   const browser = document.getElementById("browser");
   browser.setAttribute("maychangeremoteness", "true");

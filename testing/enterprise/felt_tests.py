@@ -171,6 +171,17 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
+    def build_posture_response(self):
+        """Builds the posture configuration the console sends with the SSO
+        callback and with every token response. It carries an EDR agent list only
+        when the test asked for one."""
+        posture = {}
+        edr_agents = getattr(self.server, "posture_edr_agents", None)
+        raw = edr_agents.value if edr_agents is not None else ""
+        if raw:
+            posture["edr_agents"] = json.loads(raw)
+        return posture
+
     def build_policies_response(self):
         policy_content = {}
 
@@ -243,19 +254,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         if path == "/sso/login":
             query = urllib.parse.parse_qs(parsed.query)
-            if (
-                not "devicePostureToken" in query.keys()
-                or not "deviceId" in query.keys()
-            ):
+            if "deviceId" not in query.keys():
                 self.forbidden()
                 return
 
-            if query["devicePostureToken"][0] != self.server.device_posture_token:
-                print(
-                    f"Incorrect token. Expected '{self.server.device_posture_token}' received '{query['devicePostureToken'][0]}'"
-                )
+            if query.get("version") != ["v2"]:
                 self.forbidden()
                 return
+
+            # Record any osVersion the client sends, for the test assertion.
+            if "osVersion" in query.keys():
+                self.server.sso_os_version = query["osVersion"][0]
 
             location = f"http://localhost:{self.server.sso_port}/sso_url"
             if self.server.login_location.value != "":
@@ -267,7 +276,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             return
 
         elif path == "/api/browser/config":
-            m = json.dumps({
+            config = {
                 "learn_more_url": firefox_config["learn_more_url"]["pref_value"],
                 "company_logo_url": "",
                 "policies": {"polling_frequency": 500},
@@ -277,7 +286,9 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "tokenserver_url": "",
                 },
                 "extra_prefs": [["marionette.port", 0]],
-            })
+            }
+            m = json.dumps(config)
+            contentType = "application/json"
 
         elif path == "/api/browser/key":
             if not self.check_auth():
@@ -291,6 +302,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             # Password KEK password; without it the spawned browser cannot open
             # its encrypted profile databases.
             m = json.dumps({"data": TEST_PRIMARY_SECRET})
+            contentType = "application/json"
+
+        elif path == "/api/browser/policies":
+            # Policies are fetched with a plain authenticated GET; posture is
+            # reported separately via the posture-carrying token refresh.
+            if not self.check_auth():
+                return
+            if self.server.policies_fail_request.value:
+                self.reply("", 500, "Internal Server Error", "application/json")
+                return
+            m = self.build_policies_response()
             contentType = "application/json"
 
         elif path == "/api/browser/whoami":
@@ -392,24 +414,15 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             contentType = "application/json"
 
         elif path == "/sso/callback":
-            self.server.policy_access_token.value = str(uuid.uuid4())
-            self.server.policy_refresh_token.value = str(uuid.uuid4())
-            policy_access_token = self.server.policy_access_token.value
-            policy_refresh_token = self.server.policy_refresh_token.value
-
-            """
-            TODO: Behavior is not yet clearly defined
-            with self.server.device_posture_reply_forbidden.get_lock():
-                if self.server.device_posture_reply_forbidden.value == 1:
-                    policy_access_token = ""
-                    policy_refresh_token = ""
-            """
-
+            # The one-time token, plus the identity and the posture configuration
+            # the client needs to derive the profile and collect posture before it
+            # redeems the token.
+            self.server.one_time_token = str(uuid.uuid4())
             obj = json.dumps({
-                "access_token": f"{policy_access_token}",
-                "token_type": "bearer",
-                "expires_in": 71999,
-                "refresh_token": f"{policy_refresh_token}",
+                "one_time_token": self.server.one_time_token,
+                "user_id": "8f14e45f-ceea-467d-9a3e-000000000042",
+                "email": "nobody@mozilla.org",
+                "posture": self.build_posture_response(),
             })
 
             m = f"""
@@ -439,12 +452,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         # Not a real end point, just used for tests
         elif path == "/sso/get_device_posture":
-            m = json.dumps(self.server.device_posture_payload)
+            # null until the first submission, for tests that poll before it.
+            m = json.dumps(getattr(self.server, "device_posture_payload", None))
             contentType = "application/json"
 
         elif path == "/sso/get_device_posture_history":
             history = getattr(self.server, "device_posture_history", [])
             m = json.dumps(history)
+            contentType = "application/json"
+
+        elif path == "/sso/get_sso_os_version":
+            m = json.dumps(getattr(self.server, "sso_os_version", None))
             contentType = "application/json"
 
         elif path.startswith("/downloads/"):
@@ -487,7 +505,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         print("path: ", path)
-        if path == "/sso/token":
+        if path == "/api/browser/sso/token":
             payload = self.rfile.read(int(self.headers.get("Content-Length"))).decode(
                 "utf-8"
             )
@@ -498,14 +516,24 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.reply("", 500, "Internal Server Error")
                 return
 
-            if parsed_payload["grant_type"] != "refresh_token":
-                self.reply("", 401, "Authorization required")
-                return
-
-            if (
-                parsed_payload["refresh_token"]
-                != self.server.policy_refresh_token.value
-            ):
+            grant_type = parsed_payload["grant_type"]
+            if grant_type == "one_time_token":
+                # Starting a session: the one-time token from the SSO callback is
+                # redeemed here, and it is single use.
+                if parsed_payload["one_time_token"] != getattr(
+                    self.server, "one_time_token", None
+                ):
+                    self.reply("", 401, "Authorization required")
+                    return
+                self.server.one_time_token = None
+            elif grant_type == "refresh_token":
+                if (
+                    parsed_payload["refresh_token"]
+                    != self.server.policy_refresh_token.value
+                ):
+                    self.reply("", 401, "Authorization required")
+                    return
+            else:
                 self.reply("", 401, "Authorization required")
                 return
 
@@ -515,24 +543,23 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 f"Refreshed tokens: ({self.server.policy_access_token.value}, {self.server.policy_refresh_token.value})"
             )
 
-            # Sending back the same session
+            # Record the posture the client submitted, for the tests to read.
+            if parsed_payload.get("posture") is not None:
+                self.server.device_posture_payload = parsed_payload["posture"]
+                if not hasattr(self.server, "device_posture_history"):
+                    self.server.device_posture_history = []
+                self.server.device_posture_history.append(parsed_payload["posture"])
+
+            # The session, plus the posture configuration the console folds into
+            # every token response: the channel a mid-session descriptor arrives
+            # on.
             m = json.dumps({
                 "access_token": self.server.policy_access_token.value,
                 "token_type": "Bearer",
                 "expires_in": 71999,
                 "refresh_token": self.server.policy_refresh_token.value,
+                "posture": self.build_posture_response(),
             })
-
-        elif path == "/sso/device_posture":
-            payload = json.loads(
-                self.rfile.read(int(self.headers.get("Content-Length")))
-            )
-            self.server.device_posture_payload = payload
-            if not hasattr(self.server, "device_posture_history"):
-                self.server.device_posture_history = []
-            self.server.device_posture_history.append(payload)
-            self.server.device_posture_token = str(uuid.uuid4())
-            m = json.dumps({"posture": self.server.device_posture_token})
 
         elif path == "/api/browser/policies":
             if not self.check_auth():
@@ -621,6 +648,7 @@ def serve(
     key_fail_request=None,
     token_fail_request=None,
     signout_count=None,
+    posture_edr_agents=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
@@ -660,6 +688,8 @@ def serve(
         token_fail_request if token_fail_request is not None else Value("B", 0)
     )
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
+    if posture_edr_agents is not None:
+        httpd.posture_edr_agents = posture_edr_agents
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
     httpd.serve_forced_updates_count = 0
@@ -779,6 +809,9 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
+        # JSON string served as the posture configuration's "edr_agents". Empty
+        # omits the field entirely.
+        self.posture_edr_agents = SharedString("")
 
         self.console_httpd = Process(
             target=serve,
@@ -798,6 +831,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 key_fail_request=self.key_fail_request,
                 token_fail_request=self.token_fail_request,
                 signout_count=self.signout_count,
+                posture_edr_agents=self.posture_edr_agents,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
             ),

@@ -3451,11 +3451,12 @@ ContentAnalysis::GetURIForDropEvent(dom::DragEvent* aEvent, nsIURI** aURI) {
 
 NS_IMETHODIMP ContentAnalysis::MakeResponseForTest(
     nsIContentAnalysisResponse::Action aAction, const nsACString& aToken,
-    const nsACString& aUserActionId,
+    const nsACString& aUserActionId, const nsAString& aRuleMessage,
     nsIContentAnalysisResponse** aNewResponse) {
   // Not synthetic so dialogs will show in tests.
   auto response =
       MakeRefPtr<ContentAnalysisResponse>(aAction, aToken, aUserActionId);
+  response->SetRuleMessage(aRuleMessage);
   response.forget(aNewResponse);
   return NS_OK;
 }

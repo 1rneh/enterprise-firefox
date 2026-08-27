@@ -7,7 +7,9 @@ const { ConsoleClient } = ChromeUtils.importESModule(
   "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
 );
 
-// Name the wasm module has as a test support-file.
+// Name the wasm module has as a test support-file. This is a test double, not
+// the real policy engine; its source is in ../wasm/, and ../wasm/regenerate.py
+// rebuilds it after a change there.
 const WASM_PATH = "content_analysis_wasm.wasm";
 
 // The ContentAnalysisWasm process actor is normally registered at browser

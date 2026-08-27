@@ -516,11 +516,13 @@ interface nsIContentAnalysis : nsISupports
    * @param aAction        The response action
    * @param aToken         The request token
    * @param aUserActionID  The user action ID
+   * @param aRuleMessage   The matched rule's admin-authored message, if any
    */
   nsIContentAnalysisResponse makeResponseForTest(
       in nsIContentAnalysisResponse_Action aAction,
       in ACString aToken,
-      in ACString aUserActionId);
+      in ACString aUserActionId,
+      [optional] in AString aRuleMessage);
 
   /**
    * Send CancelRequests to agent on a background thread.

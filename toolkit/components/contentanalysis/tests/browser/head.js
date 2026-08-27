@@ -160,12 +160,16 @@ function makeMockContentAnalysis() {
      *                               test. Helpful for testing timing scenarios.
      * @param {boolean} showDialogs  If this is true, send the messages that will
      *                               cause dialogs to be shown.
+     * @param {string} ruleMessage   The admin-authored message to report on the
+     *                               response, as a matched rule with a
+     *                               configured "Message" would.
      */
-    setupForTest(shouldAllowRequest, waitForEvent, showDialogs) {
+    setupForTest(shouldAllowRequest, waitForEvent, showDialogs, ruleMessage) {
       this.shouldAllowRequest = shouldAllowRequest;
       this.errorValue = undefined;
       this.waitForEvent = !!waitForEvent;
       this.showDialogs = showDialogs;
+      this.ruleMessage = ruleMessage ?? "";
       this.clearCalls();
       // If showDialog is true, make sure this mock is called by
       // CA JS code. Otherwise remove the test-only
@@ -317,7 +321,8 @@ function makeMockContentAnalysis() {
         let response = this.realCAService.makeResponseForTest(
           this.getAction(),
           request.requestToken,
-          request.userActionId
+          request.userActionId,
+          this.ruleMessage
         );
         if (this.showDialogs) {
           Services.obs.notifyObservers(response, "dlp-response");

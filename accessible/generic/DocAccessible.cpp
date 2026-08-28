@@ -1498,6 +1498,12 @@ bool DocAccessible::PruneOrInsertSubtree(nsIContent* aRoot,
     nsIFrame* frame = acc->GetFrame();
     if (frame) {
       acc->MaybeQueueCacheUpdateForStyleChanges();
+      // If we got a new frame after being display:contents, we may have become
+      // focusable.
+      if (frame->IsFocusable()) {
+        auto event = MakeRefPtr<AccStateChangeEvent>(acc, states::FOCUSABLE);
+        FireDelayedEvent(event);
+      }
     }
 
     // LocalAccessible has no frame and it's not display:contents. Remove it.
@@ -1517,6 +1523,10 @@ bool DocAccessible::PruneOrInsertSubtree(nsIContent* aRoot,
       // notifications won't fire either. Therefore, queue cache updates for
       // both.
       QueueCacheUpdate(acc, CacheDomain::Style | CacheDomain::Bounds);
+      // If we became display: contents, we may have lost the focusable state.
+      auto event =
+          MakeRefPtr<AccStateChangeEvent>(acc, states::FOCUSABLE, false);
+      FireDelayedEvent(event);
     }
 
     // If the frame is hidden because its ancestor is specified with
@@ -1811,9 +1821,8 @@ void DocAccessible::DoInitialUpdate() {
         // In content processes, top level content documents are always
         // RootAccessibles.
         MOZ_ASSERT(IsRoot());
-        DocAccessibleChild* ipcDoc = IPCDoc();
-        if (!ipcDoc) {
-          ipcDoc = new DocAccessibleChild(this, wgc);
+        if (!IPCDoc()) {
+          RefPtr<DocAccessibleChild> ipcDoc = new DocAccessibleChild(this, wgc);
           MOZ_RELEASE_ASSERT(
               wgc->SendPDocAccessibleConstructor(ipcDoc, 0, IsPrintDoc()));
           // trying to recover from this failing is problematic
@@ -3382,7 +3391,8 @@ void DocAccessible::BindChildDocument(DocAccessible* aDocument) {
           dom::WindowGlobalChild* wgc =
               aDocument->DocumentNode()->GetWindowGlobalChild();
           MOZ_ASSERT(wgc);
-          DocAccessibleChild* ipcDoc = new DocAccessibleChild(aDocument, wgc);
+          RefPtr<DocAccessibleChild> ipcDoc =
+              new DocAccessibleChild(aDocument, wgc);
           aDocument->SetIPCDoc(ipcDoc);
           wgc->SendPDocAccessibleConstructor(ipcDoc, embedderAcc->ID(),
                                              aDocument->IsPrintDoc());

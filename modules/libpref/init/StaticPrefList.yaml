@@ -10026,6 +10026,18 @@
   mirror: always
   set_spidermonkey_pref: always
 
+# Read once per ContStackAllocator at first allocation; changes at runtime
+# do not take effect for an already-initialized allocator.
+- name: javascript.options.wasm_cont_stack_max_vmem
+  type: uint32_t
+#if defined(HAVE_64BIT_BUILD)
+  value: 2u * 1024 * 1024 * 1024
+#else
+  value: 128 * 1024 * 1024
+#endif
+  mirror: always
+  set_spidermonkey_pref: always
+
 -   name: javascript.options.wasm_js_promise_integration
     type: bool
     value: true
@@ -11477,7 +11489,7 @@
 # See https://github.com/w3c/csswg-drafts/issues/14190
 - name: layout.forms.button-input-align-content-block.enabled
   type: bool
-  value: true
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # If enabled, textareas won't include 'overflow:auto' scrollbars in their
@@ -12506,11 +12518,7 @@
 # for platform implemented codecs in the RDD or GPU process.
 - name: media.use-remote-encoder.video.platform
   type: RelaxedAtomicBool
-#ifdef NIGHTLY_BUILD
   value: @IS_NOT_ANDROID@
-#else
-  value: false
-#endif
   mirror: always
 
 # Specifies whether the PEMFactory can create PEMs for remote video encoding
@@ -12531,11 +12539,7 @@
 
 - name: media.gpu-process-encoder
   type: RelaxedAtomicBool
-#ifdef NIGHTLY_BUILD
   value: @IS_XP_WIN@
-#else
-  value: false
-#endif
   mirror: always
 
 - name: media.ffvpx-hw.enabled
@@ -13853,10 +13857,11 @@
 # Encoder creation strategy for WebRTC
 # 0: prefer builtin WebRTC encoder (including OpenH264 via GMP)
 # 1: prefer PlatformEncoderModule
+# 2: prefer PlatformEncoderModule for HW, then builtin WebRTC encoder for SW
 - name: media.webrtc.encoder_creation_strategy
   type: RelaxedAtomicUint32
 #ifdef ANDROID
-  value: 1
+  value: 2
 #else
   value: 0
 #endif
@@ -14106,11 +14111,7 @@
 # can be turned on for other platforms.
 - name: media.audio.reuse-stream-on-seek
   type: RelaxedAtomicBool
-#if defined(XP_MACOSX)
-  value: true
-#else
-  value: false
-#endif
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # The duration, in milliseconds, of decoded audio to keep around in the

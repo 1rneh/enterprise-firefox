@@ -235,8 +235,7 @@ document.addEventListener(
         #identity-permission-box,
         #translations-button,
         #split-view-button,
-        #smartwindow-ask-button,
-        #smartwindow-group-tabs-button
+        #smartwindow-ask-button
         `);
       if (!element) {
         return;
@@ -337,12 +336,6 @@ document.addEventListener(
           }
           break;
 
-        case "smartwindow-group-tabs-button":
-          if (isLeftClick) {
-            AIWindowUI.toggleGroupTabsPanel(window);
-          }
-          break;
-
         default:
           throw new Error(`Missing case for #${element.id}`);
       }
@@ -377,7 +370,6 @@ document.addEventListener(
         "#ipprotection-button",
         "#split-view-button",
         "#smartwindow-ask-button",
-        "#smartwindow-group-tabs-button",
       ];
 
       if (AppConstants.MOZ_ENTERPRISE) {
@@ -488,15 +480,10 @@ document.addEventListener(
             AIWindowUI.toggleSidebar(window);
           }
           break;
+
         case "enterprise-badge-toolbar-button":
           if (AppConstants.MOZ_ENTERPRISE) {
             EnterpriseBadge.openPanel(element, event);
-          }
-          break;
-
-        case "smartwindow-group-tabs-button":
-          if (isLikeLeftClick) {
-            AIWindowUI.toggleGroupTabsPanel(window);
           }
           break;
 

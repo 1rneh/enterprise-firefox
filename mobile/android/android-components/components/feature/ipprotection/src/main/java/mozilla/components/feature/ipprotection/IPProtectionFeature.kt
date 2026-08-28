@@ -224,19 +224,33 @@ class IPProtectionFeature(
                 .distinctUntilChanged()
                 .filterNotNull()
                 .collect { activationState ->
-                    val onResult: (Throwable?) -> Unit = { err ->
-                        if (err != null) {
-                            store.dispatch(IPProtectionAction.ToggleFailed(err))
+                    when (activationState) {
+                        is PendingActivationRequest.Activate -> {
+                            handler?.activate(
+                                countryCode = activationState.selectedLocationCode,
+                                onResult = { err ->
+                                    dispatchActivationFailure(err, activationState.isLocationSwitch)
+                                },
+                            )
                         }
-                    }
-                    if (activationState is PendingActivationRequest.Activate) {
-                        handler?.activate(
-                            countryCode = activationState.selectedLocationCode,
-                            onResult = onResult,
-                        )
-                    } else {
-                        handler?.deactivate(onResult)
+                        is PendingActivationRequest.Deactivate -> {
+                            handler?.deactivate { err -> dispatchActivationFailure(err, isLocationSwitch = false) }
+                        }
                     }
                 }
         }
+
+    private fun dispatchActivationFailure(error: Throwable?, isLocationSwitch: Boolean) {
+        if (error == null) {
+            return
+        }
+
+        store.dispatch(
+            if (isLocationSwitch) {
+                IPProtectionAction.LocationSwitchFailed(error)
+            } else {
+                IPProtectionAction.ToggleFailed(error)
+            }
+        )
+    }
 }

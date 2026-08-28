@@ -235,7 +235,7 @@ typescript:
         code-review: false
     treeherder:
         symbol: js(TSC)
-        tier: 3
+        tier: 2
     run:
         using: run-task
         cwd: '{checkout}'

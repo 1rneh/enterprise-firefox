@@ -137,6 +137,10 @@
     <string name="preferences_key_enable_shake_to_summarize" translatable="false">Enable Shake to Summarize Feature Flag</string>
     <!-- Label for enabling listen to page -->
     <string name="preferences_key_enable_listen_to_page" translatable="false">Enable Listen to Page Feature Flag</string>
+    <!-- Label for enabling the weekly privacy notification -->
+    <string name="preferences_debug_settings_privacy_report_notification" translatable="false">Enable Weekly Privacy Notification Feature</string>
+    <!-- Label for forcing the weekly privacy report notification to show, with a fixed count of blocked trackers -->
+    <string name="preferences_debug_settings_force_weekly_privacy_report_notification" translatable="false">Force weekly privacy report notification trackers over threshold</string>
     <!-- Label for enabling remote search configuration -->
     <string name="preferences_debug_settings_remote_search_configuration" translatable="false">Enable Remote Search Configuration (requires restart)</string>
     <!-- Label for enabling Address Sync -->
@@ -262,6 +266,7 @@
     <string name="debug_drawer_distribution_tools_title">Distribution Tools</string>
     <string name="debug_drawer_distribution_id" translatable="false">Distribution ID</string>
     <string name="debug_drawer_play_referrer" translatable="false">Play install referrer</string>
+    <string name="debug_drawer_referral" translatable="false">Install referral</string>
     <string name="debug_drawer_run_query_provider_test" translatable="false">Run query provider test</string>
 
     <!-- Debug drawer "contextual feature recommendation" (CFR) tools -->

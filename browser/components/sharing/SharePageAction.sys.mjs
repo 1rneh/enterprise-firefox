@@ -32,6 +32,10 @@ function shouldButtonBeVisible(buttonId, isShareable) {
       return true;
     }
     case OS_SHARE_BUTTON_ID: {
+      if (AppConstants.platform === "macosx") {
+        // Bug 2058695: Make this visible onces bug 2009747 lands.
+        return false;
+      }
       return AppConstants.platform !== "linux" && isShareable;
     }
     case MAIL_SHARE_BUTTON_ID: {
@@ -119,6 +123,7 @@ class SharePageActionClass {
       }
       case "popuphidden": {
         this.#recordActions(event.target.documentGlobal);
+        this.#setButtonExpanded(event.target, false);
         break;
       }
     }
@@ -261,6 +266,16 @@ class SharePageActionClass {
     }
 
     this.#startActions(panel.documentGlobal, isShareable);
+
+    let mainView = panel.querySelector("#share-panel-mainView");
+    lazy.PanelMultiView.forNode(mainView).focusWhenActive = true;
+
+    this.#setButtonExpanded(panel, true);
+  }
+
+  #setButtonExpanded(panel, expanded) {
+    let button = panel.documentGlobal?.document.getElementById(BUTTON_ID);
+    button?.setAttribute("aria-expanded", String(expanded));
   }
 
   togglePanel(event) {

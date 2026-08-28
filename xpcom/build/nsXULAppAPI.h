@@ -250,18 +250,16 @@ nsresult XRE_ParseAppData(nsIFile* aINIFile, mozilla::XREAppData& aAppData);
 
 #if defined(MOZ_ENTERPRISE)
 /**
- * Parse the distribution.ini file to read the enterprise console address. Use
- * the console address to build the crash report URL to set in an existing
- * nsXREAppData structure.
+ * Use the enterprise console address to build the crash report and update URLs
+ * to set in an existing nsXREAppData structure.
  *
  * @param aAppData The nsXREAppData structure on which to set the
  * crashReporterURL.
  *
- * @param aServerUrl Enterprise console address, if empty read from
- * distribution.ini
+ * @param aServerUrl Enterprise console address. Fails if empty.
  */
 nsresult XRE_ParseEnterpriseServerURL(mozilla::XREAppData& aAppData,
-                                      const char* aServerUrl = "");
+                                      const char* aServerUrl);
 #endif
 
 const char* XRE_GeckoProcessTypeToString(GeckoProcessType aProcessType);

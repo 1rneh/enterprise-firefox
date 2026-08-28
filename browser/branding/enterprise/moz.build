@@ -11,3 +11,13 @@ export("DIST_SUBDIR")
 
 include("../branding-common.mozbuild")
 FirefoxBranding()
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    # Ship the AutoConfig file (pointed at by general.config.filename). The
+    # readable source is byte shifted at build time rather than checked in
+    # obscured. Installed into dist/bin (the parent of this branding's
+    # "browser" DIST_SUBDIR), alongside the browser binary.
+    GENERATED_FILES += ["firefox.cfg"]
+    GENERATED_FILES["firefox.cfg"].script = "byteshift.py:generate"
+    GENERATED_FILES["firefox.cfg"].inputs = ["firefox.cfg.in"]
+    FINAL_TARGET_FILES[".."] += ["!firefox.cfg"]

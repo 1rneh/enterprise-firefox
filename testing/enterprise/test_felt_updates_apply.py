@@ -22,7 +22,6 @@ class FeltUpdatesApplyFromFelt(FeltTests):
         "app.update.disabledForTesting": False,
         "app.update.BITS.enabled": False,
         "enterprise.felt_tests.is_updates_testing": True,
-        "enterprise.felt_tests.read_update_url_from_prefs": True,
     }
 
     def setup(self):

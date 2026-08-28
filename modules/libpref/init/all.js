@@ -67,6 +67,12 @@ pref("security.crash_tracking.js_load_1.maxCrashes", 1);
 pref("general.useragent.compatMode.firefox", false);
 
 pref("general.config.obscure_value", 13); // for MCD .cfg files
+#ifdef MOZ_ENTERPRISE
+// Enterprise builds require an AutoConfig file; firefox.cfg is shipped by
+// browser/branding/enterprise. Set here rather than in a defaults/pref file so
+// that an AutoConfig dropped into the install directory still overrides it.
+pref("general.config.filename", "firefox.cfg");
+#endif
 
 // Whether middle button click with a modifier key starts to autoscroll or
 // does nothing.

@@ -81,29 +81,11 @@ nsresult XRE_ParseAppData(nsIFile* aINIFile, XREAppData& aAppData) {
 }
 
 #if defined(MOZ_ENTERPRISE)
-static nsresult ParseConsoleUrlFromDistribution(XREAppData& aAppData,
-                                                nsACString& consoleUrl) {
-  nsCOMPtr<nsIFile> distributionFile;
-  nsresult rv = aAppData.xreDirectory->Clone(getter_AddRefs(distributionFile));
-  NS_ENSURE_SUCCESS(rv, rv);
-  rv = distributionFile->Append(u"distribution"_ns);
-  NS_ENSURE_SUCCESS(rv, rv);
-  rv = distributionFile->Append(u"distribution.ini"_ns);
-  NS_ENSURE_SUCCESS(rv, rv);
-  nsINIParser parser;
-  rv = parser.Init(distributionFile);
-  NS_ENSURE_SUCCESS(rv, rv);
-  rv =
-      parser.GetString("Preferences", "enterprise.console.address", consoleUrl);
-  return rv;
-}
-
 nsresult XRE_ParseEnterpriseServerURL(XREAppData& aAppData,
                                       const char* aServerUrl) {
   nsCString serverUrl(aServerUrl);
-  if (!serverUrl.Length()) {
-    nsresult rv = ParseConsoleUrlFromDistribution(aAppData, serverUrl);
-    NS_ENSURE_SUCCESS(rv, rv);
+  if (serverUrl.IsEmpty()) {
+    return NS_ERROR_NOT_AVAILABLE;
   }
 
   if (serverUrl.Last() != '/') {

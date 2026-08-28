@@ -269,6 +269,22 @@ impl Config {
             }
         }
 
+        // Enterprise builds normally get the submission endpoint from the
+        // ServerURL annotation. Before the browser derives it from the console
+        // address (e.g. a startup crash) it is still the domainless placeholder
+        // from application.ini (`/submit?...`), so fall back to reading the
+        // console address from AutoConfig when the annotation isn't usable.
+        #[cfg(feature = "enterprise")]
+        {
+            let current = self.report_url.as_deref().and_then(OsStr::to_str);
+            match crate::enterprise_prefs::console_report_url(current) {
+                Ok(url) => self.report_url = Some(url.into()),
+                Err(e) => {
+                    log::warn!("could not resolve enterprise console report URL: {e:#}")
+                }
+            }
+        }
+
         // Set the data dir if not already set.
         // TODO bug 1910736: if we don't need to support VENDOR_KEY and PRODUCT_KEY in the extra
         // file, it'd simplify the data_dir logic and things like glean initialization (which

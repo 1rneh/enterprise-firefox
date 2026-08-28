@@ -90,9 +90,21 @@ NS_IMETHODIMP nsReadConfig::Observe(nsISupports* aSubject, const char* aTopic,
 
   if (!nsCRT::strcmp(aTopic, NS_PREFSERVICE_READ_TOPIC_ID)) {
     rv = readConfigFile();
-    // Don't show error alerts if the sandbox is enabled, just show
-    // sandbox warning.
     if (NS_FAILED(rv)) {
+#if defined(MOZ_ENTERPRISE)
+      // Enterprise builds require a valid AutoConfig file (firefox.cfg, named
+      // by general.config.filename). If it is missing or fails to evaluate,
+      // refuse to start regardless of the sandbox setting, matching the
+      // historical Netscape AutoConfig requirement.
+      DisplayError();
+      nsCOMPtr<nsIAppStartup> appStartup = components::AppStartup::Service();
+      if (appStartup) {
+        bool userAllowedQuit = true;
+        appStartup->Quit(nsIAppStartup::eForceQuit, 0, &userAllowedQuit);
+      }
+#else
+      // Don't show error alerts if the sandbox is enabled, just show
+      // sandbox warning.
       if (sandboxEnabled) {
         nsContentUtils::ReportToConsoleNonLocalized(
             u"Autoconfig is sandboxed by default. See "
@@ -110,6 +122,7 @@ NS_IMETHODIMP nsReadConfig::Observe(nsISupports* aSubject, const char* aTopic,
           }
         }
       }
+#endif
     }
   }
   return rv;

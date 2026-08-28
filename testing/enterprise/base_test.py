@@ -17,6 +17,22 @@ from marionette_driver.marionette import Marionette
 from marionette_driver.wait import Wait
 from marionette_harness import MarionetteTestCase
 
+AUTOCONFIG_FILENAME = "firefox.cfg"
+
+# Byte shift applied to AutoConfig files. Must match the value locked by
+# general.config.obscure_value in browser/branding/enterprise.
+AUTOCONFIG_OBSCURE_VALUE = 13
+
+
+def encode_autoconfig(text):
+    """Byte shift AutoConfig source the way the browser expects to read it."""
+    return bytes((b + AUTOCONFIG_OBSCURE_VALUE) & 0xFF for b in text.encode("utf-8"))
+
+
+def decode_autoconfig(data):
+    """Undo encode_autoconfig()."""
+    return bytes((b - AUTOCONFIG_OBSCURE_VALUE) & 0xFF for b in data).decode("utf-8")
+
 
 def patch_process_runner_args(instance):
     # It looks like on windows we are hitting bug 1906191, even after
@@ -75,7 +91,7 @@ class EnterpriseTestsBase(MarionetteTestCase):
         # All this needs to happen before process is started to avoid race
         # conditions, but requires self.marionette that is setup by
         # super().setUp() right above.
-        self.overwrite_distribution_ini(marionette)
+        self.overwrite_autoconfig(marionette)
 
         super().setUp()
 
@@ -117,61 +133,64 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         self.marionette.quit(in_app=False, clean=True)
 
-        self.restore_distribution_ini()
+        self.restore_autoconfig()
 
-    def overwrite_distribution_ini(self, marionette):
-        # Some test may need a non modified distribution.ini, so respect it and
-        # and do not overwrite it when requested.
+    def overwrite_autoconfig(self, marionette):
+        # Some tests may need the shipped AutoConfig file, so respect it and do
+        # not overwrite it when requested.
         # Also some tests may not define a console port, so skip this for them.
-        if hasattr(self, "console_port") and not hasattr(self, "KEEP_DISTRIBUTION_INI"):
-            self.distribution_ini_path = self.get_distribution_ini(marionette)
-            self.distribution_ini_orig_path = os.path.join(
-                os.path.dirname(self.distribution_ini_path), "distribution.ini.orig"
-            )
-            assert os.path.isfile(self.distribution_ini_path)
+        if hasattr(self, "console_port") and not hasattr(self, "KEEP_AUTOCONFIG"):
+            self.autoconfig_path = self.get_autoconfig(marionette)
+            self.autoconfig_orig_path = f"{self.autoconfig_path}.orig"
+            assert os.path.isfile(self.autoconfig_path)
             self._logger.info(
-                f"Backup {self.distribution_ini_path} as {self.distribution_ini_orig_path}"
+                f"Backup {self.autoconfig_path} as {self.autoconfig_orig_path}"
             )
-            shutil.copy(self.distribution_ini_path, self.distribution_ini_orig_path)
+            shutil.copy(self.autoconfig_path, self.autoconfig_orig_path)
 
-            self._logger.info(f"Writing console pref in {self.distribution_ini_path}")
-            with open(self.distribution_ini_path, "w") as dist_ini:
-                dist_ini.write(f"""# Test specific distribution.ini file
-[Global]
-id=enterprise-test
-version=1.0
-about=Mozilla Firefox Enterprise Test Build
+            self._logger.info(f"Writing console pref in {self.autoconfig_path}")
+            # The first line of an AutoConfig file is always skipped by the
+            # parser, so the comment is required rather than decorative.
+            #
+            # defaultPref, not lockPref as the shipped firefox.cfg uses: tests
+            # such as test_felt_console_error.py override the console address
+            # with using_prefs() to point at error-inducing hosts, and a locked
+            # pref cannot be overridden.
+            with open(self.autoconfig_path, "wb") as cfg:
+                cfg.write(
+                    encode_autoconfig(
+                        "// Test specific AutoConfig file\n"
+                        'defaultPref("enterprise.console.address", '
+                        f'"http://localhost:{self.console_port}");\n'
+                    )
+                )
 
-[Preferences]
-enterprise.console.address=http://localhost:{self.console_port}
-""")
+    def restore_autoconfig(self):
+        if hasattr(self, "console_port") and not hasattr(self, "KEEP_AUTOCONFIG"):
+            if os.path.isfile(self.autoconfig_path):
+                os.unlink(self.autoconfig_path)
 
-    def restore_distribution_ini(self):
-        if hasattr(self, "console_port") and not hasattr(self, "KEEP_DISTRIBUTION_INI"):
-            if os.path.isfile(self.distribution_ini_path):
-                os.unlink(self.distribution_ini_path)
+            if os.path.isfile(self.autoconfig_orig_path):
+                shutil.copy(self.autoconfig_orig_path, self.autoconfig_path)
+                os.unlink(self.autoconfig_orig_path)
 
-            if os.path.isfile(self.distribution_ini_orig_path):
-                shutil.copy(self.distribution_ini_orig_path, self.distribution_ini_path)
-                os.unlink(self.distribution_ini_orig_path)
-
-    def get_distribution_ini(self, driver):
-        dist_root = os.path.dirname(driver.instance.binary)
+    def get_gre_dir(self, driver):
+        # AutoConfig files are read from the GRE directory, which is alongside
+        # the binary except on macOS where it is Contents/Resources.
         if sys.platform == "darwin":
-            dist_root = os.path.join(
+            return os.path.join(
                 os.path.dirname(os.path.dirname(driver.instance.binary)),
                 "Resources",
             )
 
-        dist_ini = os.path.join(
-            dist_root,
-            "distribution",
-            "distribution.ini",
-        )
-        if not os.path.isfile(dist_ini):
-            raise ValueError(f"Missing {dist_ini}")
+        return os.path.dirname(driver.instance.binary)
 
-        return dist_ini
+    def get_autoconfig(self, driver):
+        cfg = os.path.join(self.get_gre_dir(driver), AUTOCONFIG_FILENAME)
+        if not os.path.isfile(cfg):
+            raise ValueError(f"Missing {cfg}")
+
+        return cfg
 
     def get_profile_path(self, name):
         return tempfile.mkdtemp(

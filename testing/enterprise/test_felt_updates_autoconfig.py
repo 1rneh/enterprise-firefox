@@ -3,30 +3,35 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import configparser
 import os
+import re
 import sys
 
 sys.path.append(os.path.dirname(__file__))
 
-from base_test import Environment
+from base_test import Environment, decode_autoconfig
 from felt_tests import FeltTests
 
 
-class FeltUpdatesDistIni(FeltTests):
-    KEEP_DISTRIBUTION_INI = True
+class FeltUpdatesAutoConfig(FeltTests):
+    KEEP_AUTOCONFIG = True
 
-    def test_felt_updates_dist_ini(self):
+    def test_felt_updates_autoconfig(self):
         self.run_verify_felt_app_update_url()
         # Browser is not being started in this test, so there is no need to
         # check for its proper close
         self._manually_closed_child = True
 
-    def get_distribution_ini_console_address(self):
-        dist_ini = self.get_distribution_ini(self._driver)
-        ini = configparser.ConfigParser()
-        ini.read(dist_ini)
-        return ini["Preferences"]["enterprise.console.address"]
+    def get_autoconfig_console_address(self):
+        with open(self.get_autoconfig(self._driver), "rb") as cfg:
+            source = decode_autoconfig(cfg.read())
+
+        match = re.search(
+            r'lockPref\(\s*"enterprise\.console\.address"\s*,\s*"([^"]*)"',
+            source,
+        )
+        assert match, f"No console address in AutoConfig file:\n{source}"
+        return match.group(1)
 
     def get_app_update_url(self, env):
         driver = self.get_driver(env)
@@ -36,11 +41,6 @@ class FeltUpdatesDistIni(FeltTests):
         return rv
 
     def run_verify_felt_app_update_url(self):
-        test_pref = self._driver.get_pref(
-            "enterprise.felt_tests.read_update_url_from_prefs"
-        )
-        assert not test_pref, "Test pref for update url is not set"
-
         update_url = self.get_app_update_url(Environment.FELT)
         update_url_end = "api/browser/updates/%PRODUCT%/%VERSION%/%BUILD_ID%/%BUILD_TARGET%/%LOCALE%/%CHANNEL%/%OS_VERSION%/%SYSTEM_CAPABILITIES%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%/update.xml"
 
@@ -51,12 +51,12 @@ class FeltUpdatesDistIni(FeltTests):
             f"FELT has Console-based update URL: {update_url} != {test_console_update_url}"
         )
 
-        dist_ini_console_addr = self.get_distribution_ini_console_address()
-        dist_ini_console_update_url = f"{dist_ini_console_addr}/{update_url_end}"
-        assert update_url == dist_ini_console_update_url, (
-            f"FELT has Console-based update URL read from distribution.ini: {update_url} == {dist_ini_console_update_url}"
+        autoconfig_console_addr = self.get_autoconfig_console_address()
+        autoconfig_console_update_url = f"{autoconfig_console_addr}/{update_url_end}"
+        assert update_url == autoconfig_console_update_url, (
+            f"FELT has Console-based update URL read from AutoConfig: {update_url} == {autoconfig_console_update_url}"
         )
 
         self._logger.info(
-            f"Verified updateURL being read from distribution ini: {update_url}"
+            f"Verified updateURL being read from AutoConfig: {update_url}"
         )

@@ -13,10 +13,6 @@ from felt_tests import FeltTests
 
 
 class FeltUpdatesErrorHandling(FeltTests):
-    EXTRA_PREFS = {
-        "enterprise.felt_tests.read_update_url_from_prefs": True,
-    }
-
     def trigger_appUpdater_error(self, error):
         self._driver.set_context("chrome")
         self._driver.execute_script(

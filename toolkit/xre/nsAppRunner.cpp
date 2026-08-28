@@ -4888,12 +4888,6 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
     }
   }
 
-#if defined(MOZ_ENTERPRISE)
-  XRE_ParseEnterpriseServerURL(*mAppData);
-  // Ignoring nsresult. If console url is not found in a release build, the
-  // default server url is empty and crash reports will fail to submit.
-#endif
-
   // Check sanity and correctness of app data.
 
   if (!mAppData->name) {
@@ -6629,18 +6623,19 @@ nsresult XREMain::XRE_mainRun() {
 
 #if defined(MOZ_ENTERPRISE)
     {
-      // When running tests we may override the appUpdateURL to a test value
-      bool readUpdateUrlFromPref = false;
-      rv = Preferences::GetBool(
-          "enterprise.felt_tests.read_update_url_from_prefs",
-          &readUpdateUrlFromPref);
-      if (NS_SUCCEEDED(rv) && readUpdateUrlFromPref) {
-        NS_WARNING("Setting appUpdateURL from pref value");
-        nsAutoCString consoleAddress;
-        rv = Preferences::GetCString("enterprise.console.address",
-                                     consoleAddress);
-        if (NS_SUCCEEDED(rv)) {
-          XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get());
+      // Derive the enterprise server URLs from enterprise.console.address,
+      // set by AutoConfig (evaluated by FinishInitializingUserPrefs above),
+      // and register the crash submission URL. This is the earliest point at
+      // which the address is known, so it is also where the update URL is
+      // built.
+      nsAutoCString consoleAddress;
+      rv =
+          Preferences::GetCString("enterprise.console.address", consoleAddress);
+      if (NS_SUCCEEDED(rv)) {
+        XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get());
+        if (mAppData->crashReporterURL) {
+          CrashReporter::SetServerURL(
+              nsDependentCString(mAppData->crashReporterURL));
         }
       }
     }

@@ -18,10 +18,17 @@
 /// assert_eq!(find_pref(input, "FOOBAR"), output);
 /// ```
 pub fn find_pref<'a>(prefs_content: &'a str, pref: &str) -> Option<&'a str> {
+    find_pref_call(prefs_content, "user_pref", pref)
+}
+
+/// Like [`find_pref`], but for an arbitrary pref-setting function such as
+/// `lockPref`, `defaultPref` or `pref` (used by AutoConfig `.cfg` files).
+pub fn find_pref_call<'a>(prefs_content: &'a str, func: &str, pref: &str) -> Option<&'a str> {
+    let opener = format!("{func}(");
     let mut search_content = prefs_content;
     loop {
         let (before, s) = search_content.split_once(&format!("\"{pref}\""))?;
-        if !before.trim().ends_with("user_pref(") {
+        if !before.trim().ends_with(&opener) {
             search_content = s;
             continue;
         }
@@ -34,6 +41,15 @@ pub fn find_pref<'a>(prefs_content: &'a str, pref: &str) -> Option<&'a str> {
 /// Find a single string pref (if any) from the prefs file contents.
 pub fn find_string_pref<'a>(prefs_content: &'a str, pref: &str) -> Option<&'a str> {
     find_pref(prefs_content, pref).and_then(|s| s.strip_prefix('"')?.strip_suffix('"'))
+}
+
+/// Like [`find_string_pref`], but for an arbitrary pref-setting function.
+pub fn find_string_pref_call<'a>(
+    prefs_content: &'a str,
+    func: &str,
+    pref: &str,
+) -> Option<&'a str> {
+    find_pref_call(prefs_content, func, pref).and_then(|s| s.strip_prefix('"')?.strip_suffix('"'))
 }
 
 /// Find a single bool pref (if any) from the prefs file contents.
@@ -82,5 +98,16 @@ mod test {
         assert_eq!(find_bool_pref(input, "FOOBAR"), Some(true));
         let input = r#"user_pref("FOOBAR", false);"#;
         assert_eq!(find_bool_pref(input, "FOOBAR"), Some(false));
+    }
+
+    #[test]
+    fn test_find_string_pref_call_lock_pref() {
+        let input = r#"lockPref("enterprise.console.address", "https://example.com/");"#;
+        assert_eq!(
+            find_string_pref_call(input, "lockPref", "enterprise.console.address"),
+            Some("https://example.com/")
+        );
+        // The standard user_pref finder must not match a lockPref call.
+        assert_eq!(find_string_pref(input, "enterprise.console.address"), None);
     }
 }

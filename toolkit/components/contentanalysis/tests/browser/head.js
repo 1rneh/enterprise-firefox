@@ -71,15 +71,20 @@ async function mockContentAnalysisService(mockCAServiceTemplate) {
   // Some of the C++ code that tests if CA is active checks this
   // pref (even though it would perhaps be better to just ask
   // nsIContentAnalysis)
-  await SpecialPowers.pushPrefEnv({
-    set: [["browser.contentanalysis.enabled", true]],
-  });
-  registerCleanupFunction(async function () {
-    SpecialPowers.popPrefEnv();
+  // Avoid pushPrefEnv to work around Bug 2067888 with unbalanced
+  // popPrefEnvs in PrintHelper.withTestPage.
+  Services.prefs.setBoolPref("browser.contentanalysis.enabled", true);
+  registerCleanupFunction(function () {
+    Services.prefs.clearUserPref("browser.contentanalysis.enabled");
   });
   let realCAService = SpecialPowers.Cc[
     "@mozilla.org/contentanalysis;1"
   ].getService(SpecialPowers.Ci.nsIContentAnalysis);
+  // Set command line arg property so CA can be active without policy.
+  realCAService.testOnlySetCACmdLineArg(true);
+  registerCleanupFunction(function () {
+    realCAService.testOnlySetCACmdLineArg(false);
+  });
   let mockCAService = mockService(
     ["nsIContentAnalysis"],
     "@mozilla.org/contentanalysis;1",

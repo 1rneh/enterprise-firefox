@@ -64,7 +64,7 @@ add_task(async function testUserId() {
 add_task(async function testDistribution() {
   // distribution id defaults to "default" for most builds,
   // "mozilla-MSIX" for MSIX builds, "mozilla-official" for
-  // official Mozilla builds, and "enterprise-local" for enterprise builds.
+  // official Mozilla builds
   let expectedDistribution = "default";
   if (
     AppConstants.platform === "win" &&

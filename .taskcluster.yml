@@ -661,7 +661,7 @@ tasks:
                                       - tasks_for: '${tasks_for}'
 
     # Second task: Comm (Thunderbird) decision task for git events.
-    - $if: 'tasks_for[:6] == "github" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git") || (tasks_for == "cron" && repository["type"] == "git")'
+    - $if: 'tasks_for[:11] == "github-push" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git") || (tasks_for == "cron" && repository["type"] == "git")'
       then:
           $let:
               $merge:

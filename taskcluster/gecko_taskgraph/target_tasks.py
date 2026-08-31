@@ -613,15 +613,15 @@ def target_tasks_enterprise_firefox_with_tests(
             if test_platform and "enterprise" not in test_platform:
                 return False
 
-        if "thunderbird" in parameters["project"] and level == "3":
-            if "shippable" not in task.label and not shippable:
-                return False
-
+        if "thunderbird" in parameters["project"] and level == 3:
             if build_platform and "enterprise" not in build_platform:
                 return False
 
             if test_platform and "enterprise" not in test_platform:
                 return False
+
+            if "shippable" in task.label or shippable:
+                return True
 
         if not build_platform or not build_type:
             return True

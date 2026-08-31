@@ -441,9 +441,9 @@ add_task(async function test_initOnStartupCompleted_refreshesStaleCache() {
 add_task(
   { skip_if: () => AppConstants.MOZ_ENTERPRISE },
   async function test_syncRespected() {
-  let { country, city } = IPProtectionServerlist.getLocation("US");
-  Assert.equal(country.code, "US", "getLocation('US') returns the US entry");
-  Assert.deepEqual(city, TEST_US_CITY, "The correct city should be returned");
+    let { country, city } = IPProtectionServerlist.getLocation("US");
+    Assert.equal(country.code, "US", "getLocation('US') returns the US entry");
+    Assert.deepEqual(city, TEST_US_CITY, "The correct city should be returned");
 
     // Now, update the server list: keep only an updated US entry.
     const updated_server = {

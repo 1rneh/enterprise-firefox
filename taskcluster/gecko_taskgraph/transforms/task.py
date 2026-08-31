@@ -281,6 +281,12 @@ def get_branch_rev(config):
     ]
 
 
+def get_root_branch_rev(config):
+    if "enterprise" in config.params["project"]:
+        return config.params["head_rev"]
+    return get_branch_rev(config)
+
+
 def get_branch_git_rev(config):
     return config.params[
         "{}head_git_rev".format(config.graph_config["project-repo-param-prefix"])
@@ -296,9 +302,28 @@ def get_branch_repo(config):
 
 
 def get_project_alias(config):
+    # --project from mach taskgraph decision
+    project = config.params["project"]
+
+    # When running "comm" decision task on "enterprise-firefox" project,
+    # the code calls decision.py --project=enterprise-thunderbird which is
+    # reflected as config.params["project"]. But there are parts like to report
+    # Treeherder status and others where "enterprise-firefox" needs to be used
+    # instead of the real --project given
+    trigger_project = config.params["base_repository"].split("/")[-1]
+
+    # If they do not match, e.g.,
+    # --project=enterprise-thunderbird and triger_project=enterprise-firefox
+    # then force use trigger_project
+    # this allows to run thunderbird decision task from enterprise-firefox repo
+    # and report its status and treeherder on the same enterprise-firefox push
+    if trigger_project != project:
+        project = trigger_project
+
     if config.params["tasks_for"].startswith("github-pull-request"):
-        return f"{config.params['project']}-pr"
-    return config.params["project"]
+        return f"{project}-pr"
+
+    return project
 
 
 def get_head_ref(config) -> tuple[str, Optional[str]]:
@@ -2566,10 +2591,10 @@ def build_task(config, tasks):
             treeherder["jobKind"] = task_th["kind"]
             treeherder["tier"] = task_th["tier"]
 
-            branch_rev = get_branch_rev(config)
+            root_branch_rev = get_root_branch_rev(config)
 
             routes.append(
-                f"{TREEHERDER_ROUTE_ROOT}.v2.{get_treeherder_project(config)}.{branch_rev}"
+                f"{TREEHERDER_ROUTE_ROOT}.v2.{get_treeherder_project(config)}.{root_branch_rev}"
             )
 
         if "deadline-after" not in task:
@@ -2714,6 +2739,26 @@ def build_task(config, tasks):
             "attributes": attributes,
             "optimization": task.get("optimization", None),
         }
+
+
+@transforms.add
+def update_treeherder_platform_comm(config, tasks):
+    for task in tasks:
+        if "comm_base_repository" in config.params:
+            task_th = task.get("task", {}).get("extra", {}).get("treeherder", {})
+            if task_th:
+                th_machine_platform = task_th.get("machine", {}).get("platform")
+                if th_machine_platform and "thunderbird" not in th_machine_platform:
+                    task["task"]["extra"]["treeherder"]["machine"]["platform"] = (
+                        f"{th_machine_platform}-thunderbird"
+                    )
+                th_platform = task_th.get("treeherder-platform")
+                if th_platform and "thunderbird" not in th_platform:
+                    th_platform_split = th_platform.split("/")
+                    task["task"]["extra"]["treeherder-platform"] = (
+                        f"{th_platform_split[0]}-thunderbird/{th_platform_split[1]}"
+                    )
+        yield task
 
 
 @transforms.add

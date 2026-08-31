@@ -731,7 +731,12 @@ tasks:
                           'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                           $default: "master"
                   commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
-                  commHeadRef: refs/heads/main
+                  commHeadRef:
+                      $switch:
+                          'baseRef == "enterprise-main" || baseRef == "refs/heads/enterprise-main"': "refs/heads/main"
+                          'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
+                          'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
+                          $default: "master"
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}

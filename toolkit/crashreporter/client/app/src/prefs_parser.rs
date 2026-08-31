@@ -44,6 +44,9 @@ pub fn find_string_pref<'a>(prefs_content: &'a str, pref: &str) -> Option<&'a st
 }
 
 /// Like [`find_string_pref`], but for an arbitrary pref-setting function.
+///
+/// Only used by `enterprise_prefs`, which is compiled under the same feature.
+#[cfg(feature = "enterprise")]
 pub fn find_string_pref_call<'a>(
     prefs_content: &'a str,
     func: &str,
@@ -100,6 +103,7 @@ mod test {
         assert_eq!(find_bool_pref(input, "FOOBAR"), Some(false));
     }
 
+    #[cfg(feature = "enterprise")]
     #[test]
     fn test_find_string_pref_call_lock_pref() {
         let input = r#"lockPref("enterprise.console.address", "https://example.com/");"#;
@@ -107,7 +111,12 @@ mod test {
             find_string_pref_call(input, "lockPref", "enterprise.console.address"),
             Some("https://example.com/")
         );
+    }
+
+    #[test]
+    fn test_find_string_pref_ignores_lock_pref() {
         // The standard user_pref finder must not match a lockPref call.
+        let input = r#"lockPref("enterprise.console.address", "https://example.com/");"#;
         assert_eq!(find_string_pref(input, "enterprise.console.address"), None);
     }
 }

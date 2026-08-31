@@ -559,6 +559,10 @@
   <string name="nova_onboarding_notifications_button">Уключыць апавяшчэнні</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Дадаць віджэт Firefox</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">Выберыце ўласны значок праграмы</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">Надайце свайму хатняму экрану асабісты штрых.</string>
   <!--
     Widget Picker
 
@@ -587,6 +591,12 @@
   <string name="preferences_category_general">Агульныя</string>
   <!-- Preference category for all links about Fenix -->
   <string name="preferences_category_about">Аб праграме</string>
+  <!-- Preference category for settings related to changing the default search engine -->
+  <string name="preferences_category_select_default_search_engine_2">Прадвызначаная пошукавая для звычайнага аглядання</string>
+  <!-- Preference category for settings related to changing the private browsing search engine -->
+  <string name="preferences_category_select_private_search_engine">Прадвызначаная пошукавая для прыватнага аглядання</string>
+  <!-- Option to set the private browsing mode to use the normal default search engine -->
+  <string name="search_engine_use_default">Ужываць тую ж пошукавую сістэму, што і для звычайнага аглядання</string>
   <!-- Preference for settings related to managing search shortcuts for the quick search menu -->
   <string name="preferences_manage_search_shortcuts_2">Кіраванне альтэрнатыўнымі пошукавымі сістэмамі</string>
   <!-- Summary for preference for settings related to managing search shortcuts for the quick search menu -->
@@ -599,6 +609,8 @@
   <string name="preferences_search">Пошук</string>
   <!-- Preference for settings related to Search engines -->
   <string name="preferences_search_engines">Пошукавыя сістэмы</string>
+  <!-- Settings item to add a search widget on the device's homescreen. -->
+  <string name="preferences_add_search_widget_from_settings">Віджэт хатняга экрана</string>
   <!-- Preference for settings related to Search engines suggestions -->
   <string name="preferences_search_engines_suggestions">Прапановы ад пошукавых сістэм</string>
   <!-- Preference Category for settings related to Search address bar -->
@@ -779,6 +791,8 @@
     The title of the origin permission option allowing a user to enable the extension to run on all sites
   -->
   <string name="addons_permissions_allow_for_all_sites">Дазволіць для ўсіх сайтаў</string>
+  <!-- The text shown when an extension does not require permissions -->
+  <string name="addons_does_not_require_permissions">Гэта пашырэнне не патрабуе якіх-небудзь дазволаў.</string>
   <!-- The description of data collection permissions listed in the addon's permissions screen.  %1$s is a formatted list of permissions. -->
   <string name="addons_permissions_required_data_collection_description_2">Распрацоўшчык сцвярджае, што гэта пашырэнне збірае: %1$s</string>
   <!-- The description of the "none" data collection permission, when the extension doesn't collect anything according to the developer. -->
@@ -1269,6 +1283,8 @@
   <string name="add_private_tab">Дадаць прыватную картку</string>
   <!-- Text shown in the menu to view recently closed tabs -->
   <string name="tab_tray_menu_recently_closed">Нядаўна закрытыя карткі</string>
+  <!-- Text shown in the menu to select all tabs. -->
+  <string name="tab_tray_menu_select_all_tabs">Вылучыць усё</string>
   <!-- Text shown in the menu to view account settings -->
   <string name="tab_tray_menu_account_settings">Налады ўліковага запісу</string>
   <!-- Text shown in the menu to view tab settings -->
@@ -1277,10 +1293,14 @@
   <string name="tab_tray_menu_item_close">Закрыць усе карткі</string>
   <!-- Text shown as the title of the Close all tabs confirmation dialog in Tab Manager -->
   <string name="tab_manager_close_all_tabs_dialog_title">Закрыць усе карткі?</string>
+  <!-- Text shown in the body of the Close all tabs confirmation dialog in Tab Manager -->
+  <string name="tab_manager_close_all_tabs_dialog_body">Гэта закрые ўсе адкрытыя карткі.</string>
   <!-- Text shown on the confirm button in the Close all tabs confirmation dialog -->
   <string name="tab_manager_close_all_tabs_dialog_confirm">Закрыць карткі</string>
   <!-- Text shown on the cancel button in the Close all tabs confirmation dialog -->
   <string name="tab_manager_close_all_tabs_dialog_cancel">Скасаваць</string>
+  <!-- Content description (not visible, for screen readers etc.): Bookmarks selected tabs. -->
+  <string name="tab_manager_multiselect_menu_item_bookmark_content_description">Закладкі на выбраныя карткі</string>
   <!-- Content description (not visible, for screen readers etc.): Closes selected tabs. -->
   <string name="tab_manager_multiselect_menu_item_close_content_description">Закрыць выбраныя карткі</string>
   <!-- Text shown in the multiselect menu for sharing selected tabs. -->
@@ -1295,6 +1315,10 @@
   <string name="remove_tab_from_collection">Выдаліць картку з калекцыі</string>
   <!-- Text for button to enter multiselect mode in tabs tray -->
   <string name="tabs_tray_select_tabs">Выбраць карткі</string>
+  <!-- Text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results">Супадзенні не знойдзены.</string>
+  <!-- Additional text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results_additional_text">Паспрабуйце іншы пошук!</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab button. Closes the current session when pressed -->
   <string name="close_tab">Закрыць картку</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab <title> button. %s is the tab title -->
@@ -1317,13 +1341,32 @@
   <string name="delete_from_history">Выдаліць з гісторыі</string>
   <!-- Postfix for private WebApp titles. %1$s is the name of the app (for example "Firefox"). -->
   <string name="pwa_site_controls_title_private">%1$s (Прыватны рэжым)</string>
+  <!-- Title for introducing tab groups via an onboarding card shown in the tab manager. -->
+  <string name="tab_group_onboarding_item_title">Стварыць групу картак</string>
+  <!-- Description for tab groups onboarding shown in the tab manager when in grid view. -->
+  <string name="tab_group_onboarding_grid_item_description">Перацягніце адну картку на другую, каб згрупаваць іх.</string>
+  <!-- Description for tab groups onboarding shown in the tab manager when in list view. -->
+  <string name="tab_group_onboarding_list_item_description">Абярыце некалькі картак, каб стварыць групу.</string>
+  <!-- Content description (accessibility label) for button to dismiss the tab group onboarding item. -->
+  <string name="tab_group_onboarding_item_dismiss_content_description">Закрыць знаёмства з групамі картак</string>
+  <!-- The header text displayed on the tab groups page when no tab groups are open -->
+  <string name="tab_manager_empty_tab_groups_page_header">Паспрабуйце групы картак, каб менш пракручваць, больш рабіць</string>
   <!-- Title for the edit tab group bottom sheet -->
   <string name="edit_tab_group_title">Рэдагаваць групу</string>
   <string name="create_tab_group_save_button">Захаваць</string>
+  <!--
+    Default tab group name when creating a tab group
+    %d is the number of existing tab groups + 1.
+  -->
+  <string name="create_tab_group_form_default_name">Група %d</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
   <string name="create_tab_group_name_label">Назва</string>
   <!-- Label for adding to a new tab group. -->
   <string name="add_to_new_tab_group_title">Новая група картак</string>
+  <!-- Title for the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_title">Выдаліць групу картак?</string>
+  <!-- Text shown in the body of the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_body">Гэта выдаліць групу назаўсёды.</string>
   <!-- Text shown on the confirm button in the Delete tab group confirmation dialog. -->
   <string name="delete_tab_group_confirmation_dialog_confirm">Выдаліць групу</string>
   <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->

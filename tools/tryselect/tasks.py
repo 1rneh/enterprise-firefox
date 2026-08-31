@@ -92,8 +92,16 @@ taskgraph cache in the background so `mach try` stays fast. Since watchman is
 already watching this checkout, enable it with:
 
     watchman -j < {watchman_json}
-
+{powershell}
 See https://firefox-source-docs.mozilla.org/tools/try/tasks.html for details.
+"""
+
+WATCHMAN_HINT_POWERSHELL = """\
+
+PowerShell on Windows does not support the `<` redirection operator. Run it
+through cmd instead:
+
+    cmd /d /c "watchman -j < {watchman_json}"
 """
 
 
@@ -128,8 +136,11 @@ def suggest_watchman_setup():
     if proc.returncode != 0 or WATCHMAN_TRIGGER_NAME in proc.stdout:
         return
 
-    watchman_json = os.path.join(here, "watchman.json")
-    print(WATCHMAN_HINT.format(watchman_json=watchman_json))
+    watchman_json = mozpath.normsep(os.path.join(here, "watchman.json"))
+    powershell = ""
+    if sys.platform == "win32":
+        powershell = WATCHMAN_HINT_POWERSHELL.format(watchman_json=watchman_json)
+    print(WATCHMAN_HINT.format(watchman_json=watchman_json, powershell=powershell))
 
 
 def cache_key(attr, params, disable_target_task_filter, target_tasks_method):

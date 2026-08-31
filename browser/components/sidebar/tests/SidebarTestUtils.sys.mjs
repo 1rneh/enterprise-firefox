@@ -75,6 +75,14 @@ class _SidebarTestUtils {
       win.SidebarController.lastOpenedId = null;
       // Restore sidebar launcher back to whatever state it was in initially.
       await win.SidebarController.updateUIState(state);
+      // getProperties() omits properties that were unset, and updateUIState()
+      // skips the ones it is not given, so a width a test stored would outlive
+      // it. Put those back to unset too.
+      for (const prop of ["launcherWidth", "expandedLauncherWidth"]) {
+        if (state[prop] === undefined) {
+          win.SidebarController._state[prop] = undefined;
+        }
+      }
       initialStates.delete(win);
     }
   }
@@ -188,6 +196,12 @@ class _SidebarTestUtils {
       () => win.gBrowser.tabContainer.getAttribute("orient") == toOrientation
     );
     await win.SidebarController.sidebarMain?.updateComplete;
+    // Same wait as waitForRepaint() in head.js. The theme change that carries
+    // -moz-pref() invalidation runs at the top of the next rendering update,
+    // and the dispatched runnable resumes only once that update has finished.
+    await new Promise(resolve =>
+      win.requestAnimationFrame(() => Services.tm.dispatchToMainThread(resolve))
+    );
   }
 }
 

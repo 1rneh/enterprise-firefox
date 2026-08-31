@@ -209,10 +209,12 @@
 
       if (prevSelectedItem) {
         prevSelectedItem.selected = false;
+        prevSelectedItem.pointerselected = false;
       }
 
       if (selectedItem) {
         selectedItem.selected = true;
+        selectedItem.pointerselected = pointer;
       }
 
       if (changed) {
@@ -346,6 +348,10 @@
         aInput.popup.hidden = false;
 
         this.mInput = aInput;
+        // The content path sets these from the input the popup drops out of;
+        // a chrome input takes them from the chrome document.
+        this.style.direction = "";
+        this.style.colorScheme = "";
         // clear any previous selection, see bugs 400671 and 488357
         this.selectedIndex = -1;
 

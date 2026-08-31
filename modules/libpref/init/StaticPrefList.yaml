@@ -7906,6 +7906,12 @@
     type: RelaxedAtomicUint32
     value: 3
     mirror: always
+
+# Whether to hide legacy font formats (Type 1 and PCF) from the font list.
+-   name: gfx.font_rendering.fontconfig.skip_legacy_fonts
+    type: RelaxedAtomicBool
+    value: @IS_NIGHTLY_BUILD@
+    mirror: always
 #endif
 
 #if defined(XP_WIN)
@@ -11291,7 +11297,7 @@
 # Is the at-rule() function in @supports enabled?
 - name: layout.css.supports.at-rule.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -12235,11 +12241,6 @@
   mirror: always
 
 # MediaCapabilities
-- name: media.mediacapabilities.drop-threshold
-  type: RelaxedAtomicInt32
-  value: 95
-  mirror: always
-
 - name: media.mediacapabilities.from-database
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
@@ -12518,7 +12519,11 @@
 # for platform implemented codecs in the RDD or GPU process.
 - name: media.use-remote-encoder.video.platform
   type: RelaxedAtomicBool
+#ifdef NIGHTLY_BUILD
   value: @IS_NOT_ANDROID@
+#else
+  value: false
+#endif
   mirror: always
 
 # Specifies whether the PEMFactory can create PEMs for remote video encoding
@@ -12539,7 +12544,11 @@
 
 - name: media.gpu-process-encoder
   type: RelaxedAtomicBool
+#ifdef NIGHTLY_BUILD
   value: @IS_XP_WIN@
+#else
+  value: false
+#endif
   mirror: always
 
 - name: media.ffvpx-hw.enabled

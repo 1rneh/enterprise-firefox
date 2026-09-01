@@ -619,6 +619,13 @@ EnterprisePoliciesManager.prototype = {
       return { isValid: false, parsedParams: null };
     }
 
+    const policyImpl = lazy.Policies[policyName];
+    // A few policies still accept an old syntax that the schema can't
+    // describe. Convert it before we validate.
+    if (policyImpl?.migrateLegacySyntax) {
+      policyParams = policyImpl.migrateLegacySyntax(policyParams);
+    }
+
     const {
       valid: isValid,
       parsedValue: parsedParams,
@@ -635,7 +642,6 @@ EnterprisePoliciesManager.prototype = {
       return { isValid: false, parsedParams: null };
     }
 
-    const policyImpl = lazy.Policies[policyName];
     if (!policyImpl) {
       // This means there is an entry in the schema, but no implementation.
       // We only do this when we deprecate policies.

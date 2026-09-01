@@ -661,7 +661,7 @@ tasks:
                                       - tasks_for: '${tasks_for}'
 
     # Second task: Comm (Thunderbird) decision task for git events.
-    - $if: 'tasks_for[:11] == "github-push" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git") || (tasks_for == "cron" && repository["type"] == "git")'
+    - $if: 'tasks_for[:11] == "github-push" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git")'
       then:
           $let:
               $merge:
@@ -672,12 +672,12 @@ tasks:
                     eventAction: null
                   - $switch:
                         'tasks_for[:6] == "github"':
-                            geckoTaskId: {$eval: as_slugid("gecko_decision_task")}
+                            ownTaskId: {$eval: as_slugid("gecko_decision_task")}
                             commTaskId: {$eval: as_slugid("comm_decision_task")}
                             eventType: '${tasks_for[7:]}'
                             eventAction: '${event["action"]}'
-                        'tasks_for in ["action", "cron", "pr-action"]':
-                            geckoTaskId: '${geckoTaskId}'
+                        'tasks_for in ["action", "pr-action"]':
+                            ownTaskId: '${ownTaskId}'
                             commTaskId: '${commTaskId}'
                             ownerEmail: '${tasks_for}@noreply.mozilla.org'
                             baseRepoUrl: '${repository.url}'

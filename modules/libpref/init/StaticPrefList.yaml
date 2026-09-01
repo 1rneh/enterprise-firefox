@@ -8408,7 +8408,7 @@
 
 - name: gfx.webrender.layer-compositor
   type: RelaxedAtomicBool
-#if defined(XP_WIN)
+#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
   value: true
 #else
   value: false
@@ -12330,12 +12330,6 @@
   value: false
   mirror: always
 
-# Whether to enable experimental requestVideoFrameCallback support
-- name: media.rvfc.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # true for talos tests so that VideoSink passes on the most recently decoded
 # frame to exercise the compositor even when the frame is out of date because
 # the decoder is stressed.
@@ -12365,17 +12359,6 @@
 #else
   value: true
 #endif
-  mirror: always
-
-# Whether we expose the functionality proposed in
-# https://w3c.github.io/encrypted-media/#ref-for-dom-mediakeysystemmediacapability-encryptionscheme-2
-# I.e. if true, apps calling navigator.requestMediaKeySystemAccess() can pass
-# an optional encryption scheme as part of MediaKeySystemMediaCapability
-# objects. If a scheme is present when we check for support, we must ensure we
-# support that scheme in order to provide key system access.
-- name: media.eme.encrypted-media-encryption-scheme.enabled
-  type: bool
-  value: true
   mirror: always
 
 # Do we need explicit approval from the application to allow access to EME?
@@ -14730,13 +14713,6 @@
   value: false
   mirror: always
 
-# Whether to respect the redirected-tainted origin flag
-# https://fetch.spec.whatwg.org/#concept-request-tainted-origin
-- name: network.http.origin.redirectTainted
-  type: bool
-  value: true
-  mirror: always
-
 # Bug 1965430: Use TriggeringPrincipal instead of LoadingPrincipal to
 # determine the request origin when computing redirect-taint. This fixes
 # top-level navigational POST redirects (e.g., form submissions) where
@@ -17058,11 +17034,7 @@
 
 - name: network.http.happy_eyeballs_enabled
   type: RelaxedAtomicBool
-#if defined(ANDROID)
   value: @IS_NIGHTLY_BUILD@
-#else
-  value: true
-#endif
   mirror: always
 
 # When true, Happy Eyeballs is also used for requests carrying an HTTP
@@ -19113,6 +19085,11 @@
 
 # Whether to enable the CNSA 2.0 ML-KEM-1024 key agreement in TLS.
 - name: security.tls.enable_mlkem1024
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.tls.enable_mldsa
   type: RelaxedAtomicBool
   value: false
   mirror: always

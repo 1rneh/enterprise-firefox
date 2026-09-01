@@ -417,6 +417,20 @@ features:
         type: Boolean
         default: false
 
+  addressbar-focus-mode:
+    description: >
+      When starting to edit the current URL show the website details in the awesomebar
+      instead of the addressbar.
+    variables:
+      enabled:
+        description: Whether the feature is enabled
+        type: Boolean
+        default: false
+    defaults:
+      - channel: developer
+        value:
+          enabled: true
+
   homescreen-edge-to-edge-background:
     description: >
       Feature that sets an edge to edge background on the Home Screen if the user hasn't selected
@@ -900,17 +914,7 @@ features:
         description: >
           Whether or not to enable the tab groups feature.
         type: Boolean
-        default: false
-    defaults:
-      - channel: release
-        value:
-          enabled: false
-      - channel: beta
-        value:
-          enabled: true
-      - channel: nightly
-        value:
-          enabled: true
+        default: true
   tab-groups-drag-and-drop:
     description: Control the visibility of drag and drop for tab groups.
     variables:

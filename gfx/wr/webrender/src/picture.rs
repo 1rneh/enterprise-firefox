@@ -118,7 +118,7 @@ use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureStat
 use plane_split::{Clipper, Polygon};
 use crate::prim_store::{PictureIndex, PrimitiveInstance, PrimitiveKind};
 use crate::prim_store::storage::Index as StorageIndex;
-use crate::visibility::{PrimitiveDrawHeader, PrimitiveDrawIndex};
+use crate::visibility::PrimitiveDrawHeader;
 use crate::prim_store::{PrimitiveScratchBuffer, ClipTaskIndex, ClipMaskKind};
 use crate::prim_store::storage;
 use crate::print_tree::PrintTreePrinter;
@@ -954,8 +954,18 @@ impl PictureInstance {
                         frame_context.spatial_tree,
                     );
 
+                    // The plane's footprint, bounded by the primitive's coverage
+                    // rect. `context.surface_index` is the surface this block
+                    // already resolves the plane's transform against.
+                    let device_rect = frame_state.surfaces[context.surface_index.0]
+                        .map_to_device_rect(
+                            &draw.clip_chain.pic_coverage_rect,
+                            frame_context.spatial_tree,
+                        );
+
                     let prim_cmd = PrimitiveCommand::split_composite(
                         child.anchor.draw_index,
+                        device_rect,
                         child.gpu_address,
                         transform_id,
                         src_task_id,
@@ -966,7 +976,7 @@ impl PictureInstance {
                         &prim_cmd,
                         child.anchor.spatial_node_index,
                         &cmd_buffer_targets,
-                    );
+                    );                        
                 }
             }
         }
@@ -1238,7 +1248,7 @@ impl PictureInstance {
                 // whether content rasterized into this surface should be snapped:
                 // false for a non-snapping raster root, where snapping against its
                 // own scaled node would collapse content (see `raster-root-huge-scale`).
-                let (device_pixel_scale, raster_spatial_node_index, surface_snaps, local_scale, world_scale_factors) = match composite_mode {
+                let (device_pixel_scale, raster_spatial_node_index, surface_snaps, local_scale, world_scale_factors, blur_scale_factors) = match composite_mode {
                     PictureCompositeMode::TileCache { slice_id } => {
                         let tile_cache = tile_caches.get_mut(&slice_id).unwrap();
 
@@ -1284,7 +1294,7 @@ impl PictureInstance {
                         let device_pixel_scale = Scale::new(scaling_factor);
 
                         // Tile caches snap against their own (scroll-stable) raster node.
-                        (device_pixel_scale, surface_spatial_node_index, true, (1.0, 1.0), world_scale_factors)
+                        (device_pixel_scale, surface_spatial_node_index, true, (1.0, 1.0), world_scale_factors, world_scale_factors)
                     }
                     _ => {
                         let surface_spatial_node = frame_context.spatial_tree.get_spatial_node(surface_spatial_node_index);
@@ -1305,7 +1315,16 @@ impl PictureInstance {
                             let local_scale = local_to_raster_transform.scale_factors();
 
                             // Root-snapping surface: raster node is root, content snaps.
-                            (Scale::new(1.0), raster_spatial_node_index, true, local_scale, (1.0, 1.0))
+                            //
+                            // `world_scale_factors` is what a child surface multiplies
+                            // its own child-to-parent scale by to obtain child-to-device,
+                            // and reporting (1, 1) there is only correct while root
+                            // raster space *is* device space. APZ breaks that when it
+                            // writes a pinch-zoom scale into a bound spatial node
+                            // transform, so a child establishing its own raster root lost
+                            // the zoom and rasterized its targets that many times too
+                            // small (bug 1899692).
+                            (Scale::new(1.0), raster_spatial_node_index, true, local_scale, local_scale, (1.0, 1.0))
                         } else {
                             // If client supplied a specific local scale, use that instead of
                             // estimating from parent transform
@@ -1321,7 +1340,7 @@ impl PictureInstance {
                             // Non-snapping raster root: its raster node is its own
                             // (scaled) node, so content is left unsnapped — snapping
                             // through the surface's local scale would collapse it.
-                            (device_pixel_scale, surface_spatial_node_index, false, (1.0, 1.0), world_scale_factors)
+                            (device_pixel_scale, surface_spatial_node_index, false, (1.0, 1.0), world_scale_factors, world_scale_factors)
                         }
                     }
                 };
@@ -1333,6 +1352,7 @@ impl PictureInstance {
                     &frame_context.spatial_tree,
                     device_pixel_scale,
                     world_scale_factors,
+                    blur_scale_factors,
                     local_scale,
                     surface_snaps,
                     force_scissor_rect,
@@ -2549,7 +2569,6 @@ pub fn prepare_picture_clips(
 pub fn prepare_picture_primitive(
     pic: &PictureInstance,
     raster_config: &RasterConfig,
-    draw_index: PrimitiveDrawIndex,
     prim_spatial_node_index: SpatialNodeIndex,
     _clip_chain: &ClipChainInstance,
     frame_context: &FrameBuildingContext,
@@ -2794,7 +2813,6 @@ pub fn prepare_picture_primitive(
                     aligned_aa_edges: EdgeMask::empty(),
                     transformed_aa_edges: EdgeMask::all(),
                 },
-                draw_index,
                 &None,
                 &composite_clip_chain,
                 transform,
@@ -2865,7 +2883,6 @@ pub fn prepare_picture_primitive(
             aligned_aa_edges: EdgeMask::empty(),
             transformed_aa_edges: EdgeMask::all(),
         },
-        draw_index,
         &None,
         &composite_clip_chain,
         transform,
@@ -2911,6 +2928,7 @@ fn test_large_surface_scale_1() {
             visibility_spatial_node_index: root_reference_frame_index,
             device_pixel_scale: DevicePixelScale::new(1.0),
             world_scale_factors: (1.0, 1.0),
+            blur_scale_factors: (1.0, 1.0),
             local_scale: (1.0, 1.0),
             allow_snapping: true,
             force_scissor_rect: false,
@@ -2931,6 +2949,7 @@ fn test_large_surface_scale_1() {
             visibility_spatial_node_index: root_reference_frame_index,
             device_pixel_scale: DevicePixelScale::new(43.82798767089844),
             world_scale_factors: (1.0, 1.0),
+            blur_scale_factors: (1.0, 1.0),
             local_scale: (1.0, 1.0),
             allow_snapping: true,
             force_scissor_rect: false,
@@ -3011,6 +3030,7 @@ fn test_drop_filter_dirty_region_outside_prim() {
             visibility_spatial_node_index: root_reference_frame_index,
             device_pixel_scale: DevicePixelScale::new(1.0),
             world_scale_factors: (1.0, 1.0),
+            blur_scale_factors: (1.0, 1.0),
             local_scale: (1.0, 1.0),
             allow_snapping: true,
             force_scissor_rect: false,
@@ -3034,6 +3054,7 @@ fn test_drop_filter_dirty_region_outside_prim() {
             visibility_spatial_node_index: root_reference_frame_index,
             device_pixel_scale: DevicePixelScale::new(1.0),
             world_scale_factors: (1.0, 1.0),
+            blur_scale_factors: (1.0, 1.0),
             local_scale: (1.0, 1.0),
             allow_snapping: true,
             force_scissor_rect: false,
@@ -3128,6 +3149,7 @@ fn test_drop_filter_partial_dirty_content_inflate() {
             visibility_spatial_node_index: root_reference_frame_index,
             device_pixel_scale: DevicePixelScale::new(1.0),
             world_scale_factors: (1.0, 1.0),
+            blur_scale_factors: (1.0, 1.0),
             local_scale: (1.0, 1.0),
             allow_snapping: true,
             force_scissor_rect: false,
@@ -3151,6 +3173,7 @@ fn test_drop_filter_partial_dirty_content_inflate() {
             visibility_spatial_node_index: root_reference_frame_index,
             device_pixel_scale: DevicePixelScale::new(1.0),
             world_scale_factors: (1.0, 1.0),
+            blur_scale_factors: (1.0, 1.0),
             local_scale: (1.0, 1.0),
             allow_snapping: true,
             force_scissor_rect: false,

@@ -1533,9 +1533,7 @@ SettingGroupManager.registerGroups({
       {
         id: "ipProtectionExceptions",
         control: "moz-fieldset",
-        controlAttrs: {
-          ".headingLevel": 3,
-        },
+        headingLevel: 3,
         items: [
           {
             id: "ipProtectionExceptionAllListButton",

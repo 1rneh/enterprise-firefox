@@ -1,0 +1,3 @@
+# Build output from regenerate.py. Only the copy it installs into
+# ../xpcshell/content_analysis_wasm.wasm is checked in.
+/target/

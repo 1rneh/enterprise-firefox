@@ -34,11 +34,34 @@ async function getElementValue(browser, elementId) {
   });
 }
 
+const RULE_MESSAGE =
+  "Pasting work data into AI services may violate company policy.";
+
+const l10n = new Localization(
+  [
+    "toolkit/contentanalysis/contentanalysis.ftl",
+    ...(AppConstants.MOZ_ENTERPRISE
+      ? ["toolkit/enterprise/enterprise.ftl"]
+      : []),
+  ],
+  true
+);
+
+const BASE_DESCRIPTION = l10n.formatValueSync(
+  "contentanalysis-block-dialog-body-clipboard"
+);
+
+// Lives in enterprise.ftl, so it only resolves in enterprise builds.
+const ADMIN_MESSAGE_LABEL = AppConstants.MOZ_ENTERPRISE
+  ? l10n.formatValueSync("contentanalysis-admin-message-label")
+  : null;
+
 async function testBlockDialog(options) {
   mockCA.setupForTest(
     !options.block,
     /* waitForEvent */ false,
-    /* showDialogs */ true
+    /* showDialogs */ true,
+    options.ruleMessage
   );
   let tab = BrowserTestUtils.addTab(gBrowser);
   let browser = gBrowser.getBrowserForTab(tab);
@@ -75,6 +98,26 @@ async function testBlockDialog(options) {
   is(dialogOpened, options.shouldShowDialog, "check if block dialog shown");
   if (options.shouldShowDialog) {
     let win = await blockDialogPromise;
+    let body = win.document.getElementById("infoBody").textContent;
+    ok(
+      body.includes(BASE_DESCRIPTION),
+      "block dialog keeps its built-in description"
+    );
+    if (options.ruleMessage) {
+      ok(
+        body.includes(options.ruleMessage),
+        "block dialog shows the rule's admin message"
+      );
+      ok(
+        body.includes(ADMIN_MESSAGE_LABEL),
+        "the admin message is labeled as such"
+      );
+    } else if (AppConstants.MOZ_ENTERPRISE) {
+      ok(
+        !body.includes(ADMIN_MESSAGE_LABEL),
+        "no admin message section when the rule supplied none"
+      );
+    }
     let dialog = win.document.querySelector("dialog");
     dialog.getButton("accept").click();
   }
@@ -106,3 +149,16 @@ add_task(async function testBlockedContentWithPrefOffDoesNotShowBlockDialog() {
 add_task(async function testAllowedContentDoesNotShowBlockDialog() {
   await testBlockDialog({ block: false, shouldShowDialog: false });
 });
+
+// Only the enterprise-only DataLossPrevention policy supplies a rule message,
+// and its label lives in enterprise.ftl.
+add_task(
+  { skip_if: () => !AppConstants.MOZ_ENTERPRISE },
+  async function testBlockDialogShowsRuleMessage() {
+    await testBlockDialog({
+      block: true,
+      shouldShowDialog: true,
+      ruleMessage: RULE_MESSAGE,
+    });
+  }
+);

@@ -102,6 +102,9 @@ skip-if = [
 ["browser_content_analysis_rule_triggered_telemetry.js"]
 skip-if = ["!enterprise"]
 
+["browser_content_analysis_warn_dialog.js"]
+skip-if = ["!enterprise"]
+
 ["browser_download_content_analysis.js"]
 support-files = [
   "file_to_download.unknownextension",

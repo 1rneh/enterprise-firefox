@@ -11,37 +11,60 @@
 // The wasm module is fetched from the enterprise console (ConsoleClient) and
 // read through the real production path, with ConsoleClient's fetch methods
 // stubbed to serve the module bundled as a test support-file (see
-// stubDlpWasmModule in head.js). The rules below are delivered the way
-// the DataLossPrevention policy delivers them in production, through the
-// browser.contentanalysis.dlp_rules pref that WasmModuleBackend reads (block
-// uploads to cloud-storage domains, warn on AI domains, block content marked
-// CONFIDENTIAL).
+// stubDlpWasmModule in head.js).
+//
+// That module is the test double built from tests/wasm/, not the real policy
+// engine: it does no matching, and instead reads a "ruleName=action;..." spec
+// out of the content under analysis and reports exactly those rules as
+// triggered. So a request's verdict is chosen by the content each test submits
+// (see the SPEC_* constants), and the domains and patterns on the rules below
+// are never consulted. Matching itself is covered by the real module's own
+// tests.
+//
+// The rules are still delivered the way the DataLossPrevention policy delivers
+// them in production, through the browser.contentanalysis.dlp_rules pref that
+// WasmModuleBackend reads, because the backend recovers a triggered rule's
+// admin-authored Message by looking its name up in that set.
+
+const WARN_RULE = "warn-ai-paste";
+const WARN_RULE_MESSAGE =
+  "Pasting work data into AI services may violate company policy.";
+const BLOCK_RULE = "block-confidential-content";
+const BLOCK_RULE_MESSAGE =
+  "Content marked CONFIDENTIAL may not leave the organization.";
+const BLOCK_RULE_NO_MESSAGE = "block-cloud-uploads";
+
+// Content that makes the test module report a given verdict.
+const SPEC_WARN = `${WARN_RULE}=warn`;
+const SPEC_BLOCK = `${BLOCK_RULE}=block`;
+const SPEC_BLOCK_NO_MESSAGE = `${BLOCK_RULE_NO_MESSAGE}=block`;
+// Content that triggers no rules at all, which Firefox reads as allow.
+const SPEC_ALLOW = "";
 
 const DLP_RULES = {
   DLPRules: {
     Rules: [
       {
-        Name: "warn-ai-paste",
+        Name: WARN_RULE,
         Enabled: true,
         Actions: ["TextPaste", "FileUpload"],
         Domains: ["chatgpt.com", "claude.ai", "gemini.google.com"],
         Type: "warn",
-        Message:
-          "Pasting work data into AI services may violate company policy.",
+        Message: WARN_RULE_MESSAGE,
       },
       {
-        Name: "block-cloud-uploads",
+        Name: BLOCK_RULE_NO_MESSAGE,
         Enabled: true,
         Actions: ["FileUpload"],
         Domains: ["drive.google.com", "dropbox.com", "wetransfer.com"],
         Type: "block",
       },
       {
-        Name: "block-confidential-content",
+        Name: BLOCK_RULE,
         Enabled: true,
         ContentPatterns: ["\\bCONFIDENTIAL\\b"],
         Type: "block",
-        Message: "Content marked CONFIDENTIAL may not leave the organization.",
+        Message: BLOCK_RULE_MESSAGE,
       },
     ],
   },
@@ -152,15 +175,12 @@ add_setup(async function () {
   });
 });
 
-// A file uploaded to a cloud-storage domain must be blocked. This exercises
-// reading the file's contents off the main thread before handing them to the
-// module.
-add_task(async function test_file_upload_to_blocked_domain_is_blocked() {
+// A file's contents are read off the main thread and passed to the module as
+// content bytes. Putting a blocking spec in the file proves those bytes
+// actually arrive: nothing else in the request could produce this verdict.
+add_task(async function test_file_upload_content_reaches_module() {
   await stubDlpWasmModule();
-  const filePath = await makeTempFile(
-    "dlp_blocked_upload.txt",
-    "contents of a file being uploaded to cloud storage"
-  );
+  const filePath = await makeTempFile("dlp_blocked_upload.txt", SPEC_BLOCK);
 
   const result = await contentAnalysis.analyzeContentRequests(
     [
@@ -169,7 +189,7 @@ add_task(async function test_file_upload_to_blocked_domain_is_blocked() {
         reason: Ci.nsIContentAnalysisRequest.eFilePickerDialog,
         operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eUpload,
         fileNameForDisplay: "dlp_blocked_upload.txt",
-        urlSpec: "https://drive.google.com/upload",
+        urlSpec: "https://example.com/upload",
         filePath,
       }),
     ],
@@ -178,18 +198,14 @@ add_task(async function test_file_upload_to_blocked_domain_is_blocked() {
 
   Assert.ok(
     !result.shouldAllowContent,
-    "file upload to drive.google.com is blocked"
+    "a file whose contents trigger a block rule is blocked"
   );
 });
 
-// The same file uploaded to an unlisted domain is allowed. This still reads the
-// file off the main thread and round-trips it through the module.
-add_task(async function test_file_upload_to_unlisted_domain_is_allowed() {
+// The same path with content that triggers nothing must come back allowed.
+add_task(async function test_file_upload_is_allowed_when_nothing_triggers() {
   await stubDlpWasmModule();
-  const filePath = await makeTempFile(
-    "dlp_allowed_upload.txt",
-    "contents of a file being uploaded to an ordinary site"
-  );
+  const filePath = await makeTempFile("dlp_allowed_upload.txt", SPEC_ALLOW);
 
   const result = await contentAnalysis.analyzeContentRequests(
     [
@@ -205,36 +221,15 @@ add_task(async function test_file_upload_to_unlisted_domain_is_allowed() {
     true
   );
 
-  Assert.ok(result.shouldAllowContent, "file upload to example.com is allowed");
-});
-
-// An empty file must still round-trip cleanly (the off-main-thread read handles
-// a zero-length file by passing empty content) and be allowed on an unlisted
-// domain.
-add_task(async function test_empty_file_upload_is_allowed() {
-  await stubDlpWasmModule();
-  const filePath = await makeTempFile("dlp_empty_upload.txt", "");
-
-  const result = await contentAnalysis.analyzeContentRequests(
-    [
-      makeRequest({
-        analysisType: Ci.nsIContentAnalysisRequest.eFileAttached,
-        reason: Ci.nsIContentAnalysisRequest.eFilePickerDialog,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eUpload,
-        fileNameForDisplay: "dlp_empty_upload.txt",
-        urlSpec: "https://example.com/upload",
-        filePath,
-      }),
-    ],
-    true
+  Assert.ok(
+    result.shouldAllowContent,
+    "a file upload triggering no rules is allowed"
   );
-
-  Assert.ok(result.shouldAllowContent, "empty file upload is allowed");
 });
 
 // Text (bulk data entry) requests take the synchronous, no-file path in the
 // backend; verify it still works alongside the file path.
-add_task(async function test_text_paste_to_unlisted_domain_is_allowed() {
+add_task(async function test_text_paste_is_allowed_when_nothing_triggers() {
   await stubDlpWasmModule();
 
   const result = await contentAnalysis.analyzeContentRequests(
@@ -244,22 +239,23 @@ add_task(async function test_text_paste_to_unlisted_domain_is_allowed() {
         reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
         operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
         urlSpec: "https://example.com/",
-        textContent: "some pasted text",
+        textContent: SPEC_ALLOW,
       }),
     ],
     true
   );
 
-  Assert.ok(result.shouldAllowContent, "text paste to example.com is allowed");
+  Assert.ok(
+    result.shouldAllowContent,
+    "a text paste triggering no rules is allowed"
+  );
 });
 
-// Pasted text is handed to the module as content bytes, separately from the
-// serialized request (see WasmModuleBackend::Analyze); the module's
-// block-confidential-content rule (the only example rule keyed on content
-// rather than domain) only triggers if those bytes actually reach it. The
-// destination domain here isn't covered by any domain-based rule, isolating
-// the content path from the domain path.
-add_task(async function test_text_paste_with_confidential_marker_is_blocked() {
+// Unlike files and print data, pasted text travels inline in the request proto
+// as text_content rather than as content bytes (WasmModuleBackend::Analyze
+// passes none for eBulkDataEntry). Putting the spec in the pasted text proves
+// that inline field reaches the module.
+add_task(async function test_text_paste_content_reaches_module() {
   await stubDlpWasmModule();
 
   const result = await contentAnalysis.analyzeContentRequests(
@@ -269,7 +265,7 @@ add_task(async function test_text_paste_with_confidential_marker_is_blocked() {
         reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
         operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
         urlSpec: "https://example.com/",
-        textContent: "top secret plan: CONFIDENTIAL launch details",
+        textContent: SPEC_BLOCK,
       }),
     ],
     true
@@ -277,37 +273,141 @@ add_task(async function test_text_paste_with_confidential_marker_is_blocked() {
 
   Assert.ok(
     !result.shouldAllowContent,
-    "text paste containing a CONFIDENTIAL marker is blocked"
+    "pasted text triggering a block rule is blocked"
   );
 });
 
-// Same content-pattern rule, but content resolved from a file instead of
-// inline text_content, to confirm the file-content path also reaches the
-// module's pattern matching.
-add_task(async function test_file_with_confidential_marker_is_blocked() {
+// Start an analysis and return the nsIContentAnalysisResponse it produces.
+//
+// The rule name and message live on the response, which is only published
+// through the "dlp-response" notification -- the same one ContentAnalysis.sys.mjs
+// listens on to decide which dialog to show. Awaiting analyzeContentRequests()
+// instead would not do: it resolves with an nsIContentAnalysisResult, which
+// carries neither, and on a warn verdict it stays pending until
+// respondToWarnDialog() is called, which no dialog is here to do.
+//
+// So the response is delivered out of band, and this waits for it: subscribe
+// first (a notification that fires before we are listening is lost), then let
+// aMakeRequest start the analysis. The observer unsubscribes itself before
+// resolving, so it can't go on to resolve a later caller's promise.
+//
+// @param {Function} aMakeRequest Starts one analysis. Must not await it, for
+//   the warn reason above.
+function observeResponse(aMakeRequest) {
+  return new Promise(resolve => {
+    const observer = subject => {
+      Services.obs.removeObserver(observer, "dlp-response");
+      resolve(subject.QueryInterface(Ci.nsIContentAnalysisResponse));
+    };
+    Services.obs.addObserver(observer, "dlp-response");
+    aMakeRequest();
+  });
+}
+
+function pasteAndGetResponse(textContent, urlSpec = "https://example.com/") {
+  return observeResponse(() => {
+    contentAnalysis.analyzeContentRequests(
+      [
+        makeRequest({
+          analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
+          reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
+          operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
+          urlSpec,
+          textContent,
+        }),
+      ],
+      true
+    );
+  });
+}
+
+add_task(async function test_block_verdict_reports_rule_message() {
   await stubDlpWasmModule();
-  const filePath = await makeTempFile(
-    "dlp_confidential.txt",
-    "top secret plan: CONFIDENTIAL launch details"
+
+  const response = await pasteAndGetResponse(SPEC_BLOCK);
+
+  Assert.equal(response.ruleName, BLOCK_RULE, "the block rule is reported");
+  Assert.equal(
+    response.ruleMessage,
+    BLOCK_RULE_MESSAGE,
+    "the triggered rule's admin message is reported on the response"
+  );
+});
+
+add_task(async function test_warn_verdict_reports_rule_message() {
+  await stubDlpWasmModule();
+
+  const response = await pasteAndGetResponse(SPEC_WARN);
+
+  Assert.equal(
+    response.action,
+    Ci.nsIContentAnalysisResponse.eWarn,
+    "a warn rule produces a warn verdict"
+  );
+  Assert.equal(
+    response.ruleMessage,
+    WARN_RULE_MESSAGE,
+    "the warn rule's admin message is reported too"
   );
 
-  const result = await contentAnalysis.analyzeContentRequests(
-    [
-      makeRequest({
-        analysisType: Ci.nsIContentAnalysisRequest.eFileAttached,
-        reason: Ci.nsIContentAnalysisRequest.eFilePickerDialog,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eUpload,
-        fileNameForDisplay: "dlp_confidential.txt",
-        urlSpec: "https://example.com/upload",
-        filePath,
-      }),
-    ],
-    true
-  );
+  // Clean up the pending warn dialog.
+  contentAnalysis.respondToWarnDialog(response.requestToken, false);
+});
 
-  Assert.ok(
-    !result.shouldAllowContent,
-    "file upload containing a CONFIDENTIAL marker is blocked"
+add_task(async function test_verdict_from_rule_without_message() {
+  await stubDlpWasmModule();
+
+  const response = await pasteAndGetResponse(SPEC_BLOCK_NO_MESSAGE);
+
+  Assert.equal(
+    response.ruleName,
+    BLOCK_RULE_NO_MESSAGE,
+    "the message-less rule produced the verdict"
+  );
+  Assert.equal(
+    response.ruleMessage,
+    "",
+    "ruleMessage is empty when the triggered rule configures no Message"
+  );
+});
+
+// A rule name the policy doesn't define must not be mistaken for a match, or a
+// stale rule set could attach the wrong administrator's message to a verdict.
+add_task(async function test_unknown_rule_name_reports_no_message() {
+  await stubDlpWasmModule();
+
+  const response = await pasteAndGetResponse("not-in-the-policy=block");
+
+  Assert.equal(
+    response.ruleName,
+    "not-in-the-policy",
+    "the reported rule name is whatever the module sent"
+  );
+  Assert.equal(
+    response.ruleMessage,
+    "",
+    "no message is attached when the name matches no configured rule"
+  );
+});
+
+// When several rules trigger, ConvertResponseFromProtobuf keeps the most severe
+// action, and the message must come from that same rule rather than whichever
+// one happened to be listed first.
+add_task(async function test_most_severe_rule_supplies_the_message() {
+  await stubDlpWasmModule();
+
+  const response = await pasteAndGetResponse(`${SPEC_WARN};${SPEC_BLOCK}`);
+
+  Assert.equal(
+    response.action,
+    Ci.nsIContentAnalysisResponse.eBlock,
+    "block outranks warn"
+  );
+  Assert.equal(response.ruleName, BLOCK_RULE, "the block rule is the winner");
+  Assert.equal(
+    response.ruleMessage,
+    BLOCK_RULE_MESSAGE,
+    "the message comes from the winning rule, not the first one listed"
   );
 });
 
@@ -316,14 +416,12 @@ add_task(async function test_file_with_confidential_marker_is_blocked() {
 // with the WASM backend) only knows how to ship print data via a Windows
 // shared-memory handle. Verify the WASM backend correctly hands print data to
 // the module on every platform.
-add_task(async function test_print_to_unlisted_domain_is_allowed() {
+add_task(async function test_print_data_reaches_module() {
   await stubDlpWasmModule();
 
   const before = await contentAnalysis.getDiagnosticInfo();
 
-  const printData = Array.from(
-    new TextEncoder().encode("%PDF-1.4 fake print content for wasm test")
-  );
+  const printData = Array.from(new TextEncoder().encode(SPEC_BLOCK));
   const result = await contentAnalysis.analyzeContentRequests(
     [
       makeRequest({
@@ -338,7 +436,10 @@ add_task(async function test_print_to_unlisted_domain_is_allowed() {
     true
   );
 
-  Assert.ok(result.shouldAllowContent, "print to example.com is allowed");
+  Assert.ok(
+    !result.shouldAllowContent,
+    "print data triggering a block rule is blocked, so the data arrived"
+  );
 
   const after = await contentAnalysis.getDiagnosticInfo();
   Assert.equal(
@@ -367,7 +468,7 @@ add_task(async function test_diagnostic_info_tracks_successful_analysis() {
         reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
         operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
         urlSpec: "https://example.com/",
-        textContent: "some more pasted text",
+        textContent: SPEC_ALLOW,
       }),
     ],
     true
@@ -386,12 +487,8 @@ add_task(async function test_diagnostic_info_tracks_successful_analysis() {
   );
 });
 
-// Upload the same file to the same domain repeatedly; only the rule set varies.
-async function uploadToExample() {
-  const filePath = await makeTempFile(
-    "dlp_rule_cache.txt",
-    "ordinary file contents"
-  );
+async function uploadToExample(contents = SPEC_ALLOW) {
+  const filePath = await makeTempFile("dlp_rule_cache.txt", contents);
   return contentAnalysis.analyzeContentRequests(
     [
       makeRequest({
@@ -420,42 +517,62 @@ async function uploadWasAllowed() {
 // WasmModuleBackend caches the parsed rules keyed on the dlp_rules pref string.
 // A policy-locked pref does not reliably notify observers, so that string
 // comparison is the only thing keeping the rules current after a live policy
-// update -- if it regressed, the first rule set would be enforced forever.
+// update -- if it regressed, the first rule set would be used forever.
+//
+// The test module ignores the rules, so what makes the cached set observable
+// here is the Message the backend recovers from it for the triggered rule.
 add_task(async function test_changed_rules_take_effect_without_invalidation() {
   await stubDlpWasmModule();
 
-  setDlpRules([
+  const ruleWithMessage = message => [
     {
-      Name: "block-example-uploads",
+      Name: "cached-rule",
       Enabled: true,
       Actions: ["FileUpload"],
       Domains: ["example.com"],
       Type: "block",
+      Message: message,
     },
-  ]);
-  Assert.ok(
-    !(await uploadWasAllowed()),
-    "the rule blocking example.com uploads is enforced"
-  );
+  ];
+  const uploadAndGetResponse = async () => {
+    const filePath = await makeTempFile(
+      "dlp_rule_cache.txt",
+      "cached-rule=block"
+    );
+    return observeResponse(() => {
+      contentAnalysis.analyzeContentRequests(
+        [
+          makeRequest({
+            analysisType: Ci.nsIContentAnalysisRequest.eFileAttached,
+            reason: Ci.nsIContentAnalysisRequest.eFilePickerDialog,
+            operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eUpload,
+            fileNameForDisplay: "dlp_rule_cache.txt",
+            urlSpec: "https://example.com/upload",
+            filePath,
+          }),
+        ],
+        true
+      );
+    });
+  };
+
+  setDlpRules(ruleWithMessage("first message"));
+  let response = await uploadAndGetResponse();
+  Assert.equal(response.ruleMessage, "first message", "the rule set is used");
 
   // Reuse the cached rules for an identical second request.
-  Assert.ok(
-    !(await uploadWasAllowed()),
-    "the cached rule set is still enforced on a repeat request"
+  response = await uploadAndGetResponse();
+  Assert.equal(
+    response.ruleMessage,
+    "first message",
+    "the cached rule set is still used on a repeat request"
   );
 
-  // Same request, but the rule set no longer covers example.com.
-  setDlpRules([
-    {
-      Name: "block-dropbox-uploads",
-      Enabled: true,
-      Actions: ["FileUpload"],
-      Domains: ["dropbox.com"],
-      Type: "block",
-    },
-  ]);
-  Assert.ok(
-    await uploadWasAllowed(),
+  setDlpRules(ruleWithMessage("second message"));
+  response = await uploadAndGetResponse();
+  Assert.equal(
+    response.ruleMessage,
+    "second message",
     "a replaced rule set is picked up instead of the cached one"
   );
 
@@ -476,7 +593,9 @@ add_task(async function test_unparsable_rules_are_not_cached_as_no_rules() {
     "it still fails closed on the next request rather than caching as no rules"
   );
 
-  // A valid rule set must still be adopted after the failures.
+  // A valid rule set must still be adopted after the failures. The upload is
+  // allowed now not because of the rule, but because parsing succeeded and the
+  // request reached the module at all, whose content triggers nothing.
   setDlpRules([
     {
       Name: "block-example-uploads",
@@ -487,7 +606,7 @@ add_task(async function test_unparsable_rules_are_not_cached_as_no_rules() {
     },
   ]);
   Assert.ok(
-    !(await uploadWasAllowed()),
+    await uploadWasAllowed(),
     "a valid rule set is parsed again after a failed parse"
   );
 

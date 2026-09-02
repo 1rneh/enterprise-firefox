@@ -141,6 +141,10 @@ nsresult SetServerURL(const nsACString& aServerURL) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
+nsresult SetAuthToken(const nsACString& aToken) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
 nsresult SetRestartArgs(int argc, char** argv) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }

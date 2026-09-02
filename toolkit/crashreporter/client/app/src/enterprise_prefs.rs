@@ -65,6 +65,29 @@ pub fn console_glean_url(server_url: Option<&str>) -> anyhow::Result<String> {
     Ok(url.to_string())
 }
 
+/// Whether `url` is on the configured enterprise console.
+///
+/// Unlike [`console_base`], the console address is only taken from AutoConfig:
+/// the URL being validated cannot vouch for itself.
+pub fn is_console_url(url: &str) -> bool {
+    match same_origin_as_console(url) {
+        Ok(result) => result,
+        Err(e) => {
+            log::warn!("could not check {url} against the enterprise console address: {e:#}");
+            false
+        }
+    }
+}
+
+fn same_origin_as_console(url: &str) -> anyhow::Result<bool> {
+    let url = Url::parse(url)?;
+    let console = Url::parse(&read_autoconfig_string_pref(CONSOLE_ADDRESS_PREF)?)?;
+    let origin = url.origin();
+    // Opaque origins (such as that of a `data:` URL) must never match, not even
+    // each other.
+    Ok(origin.is_tuple() && origin == console.origin())
+}
+
 /// Resolve the enterprise console base URL (without a trailing slash).
 ///
 /// Resolution order:
@@ -192,6 +215,44 @@ mod test {
             );
             anyhow::Ok(())
         })
+    }
+
+    #[test]
+    fn console_url_matches_console_origin() {
+        with_autoconfig(|| {
+            // Any path on the console origin is the console.
+            assert!(is_console_url(
+                "https://console.example.com/foo/api/browser/crash-reports/submit"
+            ));
+            assert!(is_console_url("https://console.example.com/"));
+        });
+    }
+
+    #[test]
+    fn console_url_rejects_other_urls() {
+        with_autoconfig(|| {
+            // A different host, scheme or port is not the console.
+            assert!(!is_console_url("https://evil.example.com/foo"));
+            assert!(!is_console_url("http://console.example.com/foo"));
+            assert!(!is_console_url("https://console.example.com:8443/foo"));
+            // Nor is a url with an opaque origin, or one we cannot parse.
+            assert!(!is_console_url("data:text/plain,hello"));
+            assert!(!is_console_url("/submit?id=x"));
+        });
+    }
+
+    #[test]
+    fn console_url_rejects_without_autoconfig() {
+        let mock_files = MockFiles::new();
+        mock::builder()
+            .set(MockFS, mock_files.clone())
+            .set(
+                crate::std::env::MockCurrentExe,
+                "work_dir/crashreporter".into(),
+            )
+            .run(|| {
+                assert!(!is_console_url("https://console.example.com/foo"));
+            });
     }
 
     #[test]

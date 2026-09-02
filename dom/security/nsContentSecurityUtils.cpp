@@ -1377,7 +1377,7 @@ static nsLiteralCString sImgSrcDataBlobAllowList[] = {
     "chrome://browser/content/sidebar/sidebar-opentabs.html"_ns,
     "chrome://browser/content/sidebar/sidebar-syncedtabs.html"_ns,
     "chrome://browser/content/spotlight.html"_ns,
-    "chrome://browser/content/syncedtabs/sidebar.xhtml"_ns,
+    "chrome://browser/content/syncedtabs/sidebar.html"_ns,
     "chrome://browser/content/webext-panels.xhtml"_ns,
     "chrome://devtools/content/application/index.html"_ns,
     "chrome://devtools/content/framework/browser-toolbox/window.html"_ns,
@@ -1423,7 +1423,7 @@ static nsLiteralCString sImgSrcAddonsAllowList[] = {
 //  UNSAFE! Allows loading everything.
 static nsLiteralCString sImgSrcWildcardAllowList[] = {
     "about:reader"_ns,
-    "chrome://browser/content/syncedtabs/sidebar.xhtml"_ns,
+    "chrome://browser/content/syncedtabs/sidebar.html"_ns,
     // STOP! Do not add anything to this list.
 };
 // img-src https://example.org

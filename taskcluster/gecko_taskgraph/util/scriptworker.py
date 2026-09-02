@@ -59,6 +59,7 @@ SIGNING_SCOPE_ALIAS_TO_PROJECT = [
             # bug 1988213: cypress project branch
             "cypress",
             ("enterprise-firefox", "refs/heads/enterprise-main"),
+            ("enterprise-thunderbird", "refs/heads/enterprise-main"),
         },
     ],
     [
@@ -75,6 +76,8 @@ SIGNING_SCOPE_ALIAS_TO_PROJECT = [
             "comm-esr153",
             ("enterprise-firefox", "refs/heads/enterprise-beta"),
             ("enterprise-firefox", "refs/heads/enterprise-release"),
+            ("enterprise-thunderbird", "refs/heads/enterprise-beta"),
+            ("enterprise-thunderbird", "refs/heads/enterprise-release"),
         },
     ],
 ]

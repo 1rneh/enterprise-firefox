@@ -5849,7 +5849,7 @@ AMTelemetry = {
       AppConstants.MOZ_ENTERPRISE &&
       Services.prefs.getBoolPref(
         "extensions.enterprise.telemetry.addonInstall.enabled",
-        true
+        false
       ) &&
       eventMethod === "install" &&
       extraVars?.step === "completed"

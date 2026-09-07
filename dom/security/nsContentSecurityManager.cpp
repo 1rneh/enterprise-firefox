@@ -116,7 +116,7 @@ class RecentBlockedUrlCache {
 static bool BlocklistDomainBrowsedTelemetryIsEnabled() {
   return Preferences::GetBool(
       "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
-      true);
+      false);
 }
 
 static nsCString BlocklistDomainBrowsedTelemetryUrlLoggingPolicy() {

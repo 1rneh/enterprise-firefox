@@ -58,7 +58,7 @@ export const DownloadsTelemetryEnterprise = {
   _isEnabled() {
     return Services.prefs.getBoolPref(
       "browser.download.enterprise.telemetry.enabled",
-      true
+      false
     );
   },
 

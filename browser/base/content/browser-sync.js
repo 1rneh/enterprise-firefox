@@ -2706,13 +2706,18 @@ var gSync = {
         ? "enterprise-badge-toolbar-button"
         : "fxa-toolbar-menu-button";
 
-      const preferredButton = CustomizableUI.getPlacementOfWidget(preferredButtonId)
+      const preferredButton = CustomizableUI.getPlacementOfWidget(
+        preferredButtonId
+      )
         ? document.getElementById(preferredButtonId)
         : null;
 
       const usePreferredButton =
         preferredButton?.parentNode?.id != "widget-overflow-list" &&
-        preferredButton?.checkVisibility({ checkVisibilityCSS: true, flush: false });
+        preferredButton?.checkVisibility({
+          checkVisibilityCSS: true,
+          flush: false,
+        });
 
       const anchorNode = usePreferredButton ? preferredButton : appMenuButton;
       ConfirmationHint.show(anchorNode, "confirmation-hint-send-to-device");

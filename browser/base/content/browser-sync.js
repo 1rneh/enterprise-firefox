@@ -2701,26 +2701,20 @@ var gSync = {
     );
     // Show the Sent! confirmation if any of the sends succeeded.
     if (results.includes(true)) {
-      let anchorNode;
-      if (AppConstants.MOZ_ENTERPRISE) {
-        // The FxA button is replaced by the enterprise badge, so anchor the
-        // hint there (falling back to the app menu button if it overflowed).
-        let badge = document.getElementById("enterprise-badge-toolbar-button");
-        anchorNode =
-          (badge?.parentNode?.id != "widget-overflow-list" && badge) ||
-          document.getElementById("PanelUI-menu-button");
-      } else {
-        // FxA button could be hidden with CSS since the user is logged out,
-        // although it seems likely this would only happen in testing...
-        let fxastatus = document.documentElement.getAttribute("fxastatus");
-        anchorNode =
-          (fxastatus &&
-            fxastatus != "not_configured" &&
-            document.getElementById("fxa-toolbar-menu-button")?.parentNode
-              ?.id != "widget-overflow-list" &&
-            document.getElementById("fxa-toolbar-menu-button")) ||
-          document.getElementById("PanelUI-menu-button");
-      }
+      const appMenuButton = document.getElementById("PanelUI-menu-button");
+      const preferredButtonId = AppConstants.MOZ_ENTERPRISE
+        ? "enterprise-badge-toolbar-button"
+        : "fxa-toolbar-menu-button";
+
+      const preferredButton = CustomizableUI.getPlacementOfWidget(preferredButtonId)
+        ? document.getElementById(preferredButtonId)
+        : null;
+
+      const usePreferredButton =
+        preferredButton?.parentNode?.id != "widget-overflow-list" &&
+        preferredButton?.checkVisibility({ checkVisibilityCSS: true, flush: false });
+
+      const anchorNode = usePreferredButton ? preferredButton : appMenuButton;
       ConfirmationHint.show(anchorNode, "confirmation-hint-send-to-device");
     }
     fxAccounts.flushLogFile();

@@ -10,6 +10,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
   MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
+  PDFJS_VERSION: "resource://pdf.js/PdfJsVersion.sys.mjs",
   PlacesDBUtils: "resource://gre/modules/PlacesDBUtils.sys.mjs",
 });
 
@@ -962,6 +963,20 @@ var dataProviders = {
       IgnoreDiskCache: startupInfo.IgnoreDiskCache,
       FoundDiskCacheOnInit: startupInfo.FoundDiskCacheOnInit,
       WroteToDiskCache: startupInfo.WroteToDiskCache,
+    });
+  },
+
+  pdfjs: function pdfjs(done) {
+    done({
+      version: lazy.PDFJS_VERSION,
+      enabled: !Services.prefs.getBoolPref("pdfjs.disabled", false),
+      annotationEditorEnabled:
+        Services.prefs.getIntPref("pdfjs.annotationEditorMode", 0) !== -1,
+      enableXfa: Services.prefs.getBoolPref("pdfjs.enableXfa", true),
+      openPdfAttachmentsInline: Services.prefs.getBoolPref(
+        "browser.download.open_pdf_attachments_inline",
+        false
+      ),
     });
   },
 

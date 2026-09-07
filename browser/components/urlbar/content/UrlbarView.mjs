@@ -724,14 +724,10 @@ export class UrlbarView {
       this.#blobUrlsByResultUrl.clear();
     }
 
-    // TODO(bug 2066165): These counters have no per-SAP dimension, so they only
-    // cover the address bar.
-    if (isShowingZeroPrefix && this.input.sapName == "urlbar") {
-      if (elementPicked) {
-        Glean.urlbarZeroprefix.engagement.add(1);
-      } else {
-        Glean.urlbarZeroprefix.abandonment.add(1);
-      }
+    if (isShowingZeroPrefix) {
+      this.controller.parentController.recordZeroPrefix(
+        elementPicked ? "engagement" : "abandonment"
+      );
     }
   }
 
@@ -883,11 +879,13 @@ export class UrlbarView {
     // their search rather than navigating to a website matching the search
     // term. If they do want to navigate directly, users can modify their
     // search, which resets persistence and re-enables autofill.
-    let state = this.input.getBrowserState(
-      this.chromeWindow.gBrowser.selectedBrowser
-    );
-    if (state.persist?.shouldPersist) {
-      queryOptions.allowAutofill = false;
+    if (this.input.sapName == "urlbar") {
+      let state = this.input.getBrowserState(
+        this.chromeWindow.gBrowser.selectedBrowser
+      );
+      if (state.persist?.shouldPersist) {
+        queryOptions.allowAutofill = false;
+      }
     }
 
     this.controller.engagementEvent.discard();
@@ -954,10 +952,9 @@ export class UrlbarView {
     }
 
     // Now that the view has finished updating for this query, record the
-    // exposure. TODO(bug 2066165): This counter has no per-SAP dimension, so it
-    // only covers the address bar.
-    if (!queryContext.searchString && this.input.sapName == "urlbar") {
-      Glean.urlbarZeroprefix.exposure.add(1);
+    // exposure.
+    if (!queryContext.searchString) {
+      this.controller.parentController.recordZeroPrefix("exposure");
     }
 
     // If the query returned results, we're done.

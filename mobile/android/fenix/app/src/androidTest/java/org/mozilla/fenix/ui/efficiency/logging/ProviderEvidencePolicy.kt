@@ -10,7 +10,7 @@ data class RedactedProviderEvent(
 )
 
 object ProviderEvidencePolicy {
-    const val VERSION = 1
+    const val VERSION = 3
 
     private val envelopeFields =
         setOf(
@@ -81,10 +81,36 @@ object ProviderEvidencePolicy {
                     "elapsedMs",
                     "stepId",
                     "verb",
+                    "selector",
+                    "selectorId",
                     "strategy",
+                    "backend",
+                    "tree",
+                    "semanticRoles",
                     "failure",
+                    "failureCategory",
+                    "failurePhase",
                     "page",
+                    "screen",
                     "attempts",
+                    "actionAttempts",
+                    "waitPolicy",
+                    "timeoutMs",
+                    "timedOut",
+                    "lastObservation",
+                    "resolution",
+                    "retryable",
+                    "navigationEdge",
+                    "navigationStepIndex",
+                    "navigationFacts",
+                    "incomingRoute",
+                    "outgoingRoute",
+                    "readinessProfile",
+                    "isWaypoint",
+                    "isDestination",
+                    "appliedRules",
+                    "skippedRules",
+                    "missingSelectors",
                 ),
             "dump" to setOf("layer"),
             "dumpNode" to setOf("layer"),
@@ -120,6 +146,9 @@ object ProviderEvidencePolicy {
                     "verified",
                     "elapsedMs",
                 ),
+            "environmentPreflight" to setOf("requirements", "before", "after"),
+            "environmentRestore" to setOf("requirements", "before", "after"),
+            "activityEnvironment" to setOf("phase", "requiredOrientation", "beforeOrientation", "afterOrientation"),
             "isolation" to setOf("phase", "verified", "violations"),
             "activityLifecycle" to
                 setOf(
@@ -144,7 +173,7 @@ object ProviderEvidencePolicy {
                     "voiceInputRequested",
                 ),
         )
-    private val launchFields =
+    private val launchConfigFields =
         setOf(
             "skipOnboarding",
             "isPageLoadTranslationsPromptEnabled",
@@ -153,6 +182,28 @@ object ProviderEvidencePolicy {
             "shouldUseExpandedToolbar",
             "isTabStripEnabled",
             "shakeToSummarizeFeatureFlagEnabled",
+        )
+    private val environmentRequirementFields =
+        setOf(
+            "requiredOrientation",
+            "requiredBackGestureNavigation",
+            "requiredDataSaver",
+            "requiredSystemUiClipboardAccess",
+            "requiredPostNotificationPermission",
+            "clearNotifications",
+            "clearSharedDownloads",
+            "mockWebServer",
+        )
+    private val launchFields = launchConfigFields + environmentRequirementFields
+    private val environmentFields =
+        setOf(
+            "orientation",
+            "backGestureLeft",
+            "backGestureRight",
+            "dataSaver",
+            "systemUiClipboardAccess",
+            "postNotificationPermission",
+            "foregroundWindow",
         )
     private val contributorFields =
         mapOf(
@@ -195,6 +246,9 @@ object ProviderEvidencePolicy {
                     when (key) {
                         "eventEnvelope" -> filterMap(value, envelopeFields, "eventEnvelope", removed)
                         "meta" -> filterMap(value, launchFields, "meta", removed)
+                        "requirements" -> filterMap(value, environmentRequirementFields, "requirements", removed)
+                        "before",
+                        "after" -> filterMap(value, environmentFields, key, removed)
                         "contributors" -> redactContributors(value, removed)
                         else -> value
                     }
@@ -247,6 +301,7 @@ object ProviderEvidencePolicy {
                     "sensitivity",
                     "includeInCompatibilityState",
                     "boundaryPolicy",
+                    "resourcePolicy",
                     "boundaryBaseline",
                     "controlDrivers",
                     "complete",

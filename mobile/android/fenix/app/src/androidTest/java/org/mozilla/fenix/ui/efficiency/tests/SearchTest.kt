@@ -48,21 +48,21 @@ class SearchTest : BaseTest(LaunchConfig(isPocketEnabled = false)) {
     private val openLinkInPrivateTab =
         getStringResource(contextMenuR.string.mozac_feature_contextmenu_open_link_in_private_tab)
 
-    // get() so it binds to the composeRule of the current retry attempt, which BaseTest re-creates. Not on
-    // PageContext by design — see HistorySearchGroupPage.
+    // get() so it binds to the composeRule of the current test invocation. Not on PageContext by design —
+    // see HistorySearchGroupPage.
     private val searchGroup
         get() = HistorySearchGroupPage(composeRule)
 
     // SystemSettingsPage is not on PageContext (nothing referenced it until now) and this flow reaches the
     // Android Settings app through Fenix's own "Go to settings" intent rather than a registered edge, so it is
-    // instantiated locally. get() binds it to the current retry attempt's composeRule.
+    // instantiated locally. get() binds it to the current test invocation's composeRule.
     private val systemSettings
         get() = SystemSettingsPage(composeRule)
 
     // Legacy SearchTest drives these URLs off SearchMockServerRule, whose dispatcher 404s everything
     // except searchResults.html. That is load-bearing for verifyTabsSearchWithOpenTabsTest: the tabs
     // never load, so they have no title and the awesomebar row shows the URL, which is what the
-    // suggestion assertions match on. fenixTestRule.mockWebServer serves the asset for real, the tab
+    // suggestion assertions match on. BaseTest's mockWebServer serves the asset for real, the tab
     // gets the title "Test_Page_1", and the same assertions cannot match. Keep this rule to preserve
     // the legacy environment rather than re-pointing the assertions at titles.
     @get:Rule val searchMockServerRule = SearchMockServerRule()
@@ -78,7 +78,7 @@ class SearchTest : BaseTest(LaunchConfig(isPocketEnabled = false)) {
         on.searchBar.navigateToPage()
 
         // Then: the toolbar elements should load
-        on.searchBar.mozVerifyElementsByGroup("requiredForPage")
+        on.searchBar.mozVerifyReadiness()
     }
 
     // TestRail link:
@@ -94,7 +94,7 @@ class SearchTest : BaseTest(LaunchConfig(isPocketEnabled = false)) {
         on.searchBar.navigateToPage()
 
         // Then: the search bar elements should load
-        on.searchBar.mozVerifyElementsByGroup("requiredForPage")
+        on.searchBar.mozVerifyReadiness()
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/235397

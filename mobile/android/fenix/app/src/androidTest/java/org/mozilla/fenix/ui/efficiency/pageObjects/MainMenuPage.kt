@@ -9,9 +9,10 @@ import org.mozilla.fenix.helpers.DataGenerationHelper.getRecommendedExtensionTit
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.ui.efficiency.helpers.BasePage
-import org.mozilla.fenix.ui.efficiency.helpers.Selector
+import org.mozilla.fenix.ui.efficiency.helpers.PageStateTracker
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationArrival
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationFacts
-import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationGraph
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationStep
 import org.mozilla.fenix.ui.efficiency.selectors.BrowserPageSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.HomeSelectors
@@ -22,34 +23,35 @@ import org.mozilla.fenix.ui.efficiency.selectors.SettingsSavedPasswordsSelectors
 class MainMenuPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule, *>) : BasePage(composeRule) {
     override val pageName = "MainMenuPage"
 
-    init {
-        NavigationRegistry.register(
+    internal override fun registerNavigation(builder: NavigationGraph.Builder) {
+        builder.register(
             from = "HomePage",
             to = pageName,
             steps = listOf(NavigationStep.Click(HomeSelectors.MAIN_MENU_BUTTON)),
         )
 
-        NavigationRegistry.register(
+        builder.register(
             from = "BrowserPage",
             to = pageName,
             steps = listOf(NavigationStep.Click(BrowserPageSelectors.MAIN_MENU_BUTTON)),
         )
 
-        NavigationRegistry.register(
+        builder.register(
             from = pageName,
             to = "BrowserPage",
             steps = listOf(),
+            arrival = NavigationArrival.EDGE_COMPLETION,
             requires = setOf(NavigationFacts.RETURN_SURFACE_BROWSER),
         )
 
-        NavigationRegistry.register(
+        builder.register(
             from = pageName,
             to = "HomePage",
             steps = listOf(NavigationStep.PressBack),
             requires = setOf(NavigationFacts.RETURN_SURFACE_HOME),
         )
 
-        NavigationRegistry.register(
+        builder.register(
             from = pageName,
             to = "SettingsPage",
             steps =
@@ -59,26 +61,27 @@ class MainMenuPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRul
                 ),
         )
 
-        NavigationRegistry.register(
+        builder.register(
             from = pageName,
             to = "DownloadsPage",
             steps = listOf(NavigationStep.Click(MainMenuSelectors.DOWNLOADS_BUTTON)),
         )
 
-        NavigationRegistry.register(
+        builder.register(
             from = pageName,
             to = "SettingsSavedPasswordsPage",
             steps =
                 listOf(
                     NavigationStep.Click(MainMenuSelectors.PASSWORDS_BUTTON),
-                    NavigationStep.ClickIfPresent(SettingsSavedPasswordsSelectors.LOGINS_SECURITY_DIALOG_LATER_BUTTON),
+                    NavigationStep.ClickIfPresent(
+                        SettingsSavedPasswordsSelectors.LOGINS_SECURITY_DIALOG_LATER_BUTTON,
+                        timeout = 5_000,
+                    ),
                 ),
         )
     }
 
-    override fun mozGetSelectorsByGroup(group: String): List<Selector> {
-        return MainMenuSelectors.all.filter { it.groups.contains(group) }
-    }
+    override val selectorCatalog = MainMenuSelectors
 
     /**
      * Installs the first recommended extension shown in the expanded Extensions submenu and returns its name. The
@@ -99,6 +102,7 @@ class MainMenuPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRul
         // already tore the dialog down, clicking OK is a no-op rather than a "Failed to click UiObject"
         // failure. Mirrors the legacy closeAddonInstallCompletePrompt, which ignored the click result.
         mozClickIfPresent(SettingsAddonsManagerSelectors.ADDON_INSTALL_COMPLETED_OK_BUTTON)
+        PageStateTracker.currentPageName = "BrowserPage"
         return addonTitle
     }
 }

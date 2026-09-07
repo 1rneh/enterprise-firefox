@@ -115,6 +115,8 @@ def add_provisioning_profile_config(config, jobs):
             elif config.params["project"] in (
                 "enterprise-firefox",
                 "enterprise-firefox-try",
+                "enterprise-thunderbird",
+                "enterprise-thunderbird-try",
             ):
                 # Enterprise
                 filename = PROVISIONING_PROFILE_FILENAMES["enterprise"]

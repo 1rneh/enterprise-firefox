@@ -100,6 +100,10 @@
 #include "nsThreadUtils.h"
 #include "nscore.h"
 
+#ifdef ACCESSIBILITY
+#  include "nsAccessibilityService.h"
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 
@@ -459,6 +463,11 @@ void nsGenericHTMLElement::SetEditContext(mozilla::dom::EditContext* aContext,
   int32_t delta = (aContext != nullptr) - (oldEditContext != nullptr);
   if (delta) {
     ChangeEditableState(delta);
+#ifdef ACCESSIBILITY
+    if (nsAccessibilityService* accService = GetAccService()) {
+      accService->NotifyOfEditContextAttachmentChange(this);
+    }
+#endif
   }
 }
 
@@ -1298,31 +1307,6 @@ bool nsGenericHTMLElement::ParseImageAttribute(nsAtom* aAttribute,
     return aResult.ParseNonNegativeIntValue(aString);
   }
   return false;
-}
-
-static constexpr nsAttrValue::EnumTableEntry kReferrerPolicyTable[] = {
-    {GetEnumString(ReferrerPolicy::No_referrer).get(),
-     static_cast<int16_t>(ReferrerPolicy::No_referrer)},
-    {GetEnumString(ReferrerPolicy::Origin).get(),
-     static_cast<int16_t>(ReferrerPolicy::Origin)},
-    {GetEnumString(ReferrerPolicy::Origin_when_cross_origin).get(),
-     static_cast<int16_t>(ReferrerPolicy::Origin_when_cross_origin)},
-    {GetEnumString(ReferrerPolicy::No_referrer_when_downgrade).get(),
-     static_cast<int16_t>(ReferrerPolicy::No_referrer_when_downgrade)},
-    {GetEnumString(ReferrerPolicy::Unsafe_url).get(),
-     static_cast<int16_t>(ReferrerPolicy::Unsafe_url)},
-    {GetEnumString(ReferrerPolicy::Strict_origin).get(),
-     static_cast<int16_t>(ReferrerPolicy::Strict_origin)},
-    {GetEnumString(ReferrerPolicy::Same_origin).get(),
-     static_cast<int16_t>(ReferrerPolicy::Same_origin)},
-    {GetEnumString(ReferrerPolicy::Strict_origin_when_cross_origin).get(),
-     static_cast<int16_t>(ReferrerPolicy::Strict_origin_when_cross_origin)},
-};
-
-bool nsGenericHTMLElement::ParseReferrerAttribute(const nsAString& aString,
-                                                  nsAttrValue& aResult) {
-  using mozilla::dom::ReferrerInfo;
-  return aResult.ParseEnumValue(aString, kReferrerPolicyTable, false);
 }
 
 bool nsGenericHTMLElement::ParseFrameborderValue(const nsAString& aString,

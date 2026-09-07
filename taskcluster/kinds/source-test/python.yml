@@ -402,7 +402,7 @@ update-packaging:
 mozbuild:
     run-on-projects: []  # Bug 2047287 - disable failing source-test-python tasks on enterprise builds
     matrix:
-        python: ['3.9', '3.11']
+        python: ['3.10', '3.11']
     description: mozbuild unit tests (python{matrix[python]})
     platform:
         - linux2404-64/opt

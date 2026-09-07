@@ -782,6 +782,7 @@ let JSWINDOWACTORS = {
         ThemePickerUpdateTheme: { wantUntrusted: true },
         ThemePickerUpdateAppearance: { wantUntrusted: true },
         ThemePickerUpdateNativeTheme: { wantUntrusted: true },
+        ThemePickerShown: { wantUntrusted: true },
       },
     },
     matches: [

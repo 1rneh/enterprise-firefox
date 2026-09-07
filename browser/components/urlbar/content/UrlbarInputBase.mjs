@@ -103,14 +103,10 @@ let promiseLayoutFlushed =
     ? win => win.promiseDocumentFlushed(() => {})
     : win => new Promise(resolve => win.requestAnimationFrame(resolve));
 
-// `getBoxQuads` is gated on a pref for a content caller, and the transform it
-// ignores is the toolbar's.
-let getUntransformedTop =
-  typeof ChromeUtils != "undefined"
-    ? element =>
-        element.getBoxQuads({ ignoreTransforms: true, flush: false })[0].p1.y
-    : element => element.getBoundingClientRect().top;
 let px = number => number.toFixed(2) + "px";
+
+// The name urlbar.css positions the popover against.
+const ANCHOR_NAME = "--urlbar-anchor";
 
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
 
@@ -584,12 +580,6 @@ ${
     // recording abandonment events when the command causes a blur event.
     this.view.panel.addEventListener("command", this, true);
 
-    this.window.addEventListener("toolbarvisibilitychange", this);
-    let menuToolbar = this.window.document.getElementById("toolbar-menubar");
-    if (menuToolbar) {
-      menuToolbar.addEventListener("DOMMenuBarInactive", this);
-      menuToolbar.addEventListener("DOMMenuBarActive", this);
-    }
     this.window.addEventListener("uidensitychanged", this);
 
     if (this.window.gBrowser) {
@@ -615,19 +605,6 @@ ${
         : !!this.closest("toolbar")) &&
       !document.documentElement.hasAttribute("customizing");
     if (this.#allowBreakout) {
-      if (!this.hasAttribute("in-page")) {
-        // TODO(emilio, bug 2065901): This could use CSS anchor positioning
-        // rather than this ResizeObserver, eventually, as an in-page element
-        // already does.
-        this._resizeObserver = new this.window.ResizeObserver(([entry]) => {
-          this.style.setProperty(
-            "--urlbar-width",
-            px(entry.borderBoxSize[0].inlineSize)
-          );
-        });
-        this._resizeObserver.observe(this.parentNode);
-      }
-
       this.#updateLayoutBreakout();
     } else {
       this.#stopBreakout();
@@ -685,12 +662,6 @@ ${
     // recording abandonment events when the command causes a blur event.
     this.view.panel.removeEventListener("command", this, true);
 
-    this.window.removeEventListener("toolbarvisibilitychange", this);
-    let menuToolbar = this.window.document.getElementById("toolbar-menubar");
-    if (menuToolbar) {
-      menuToolbar.removeEventListener("DOMMenuBarInactive", this);
-      menuToolbar.removeEventListener("DOMMenuBarActive", this);
-    }
     this.window.removeEventListener("uidensitychanged", this);
 
     if (this.#gBrowserListenersAdded) {
@@ -699,8 +670,6 @@ ${
       this.window.gBrowser.removeTabsProgressListener(this);
       this.#gBrowserListenersAdded = false;
     }
-
-    this._resizeObserver?.disconnect();
 
     this.#removeContextMenuItems();
 
@@ -3224,7 +3193,6 @@ ${
     if (this.hasAttribute("in-page")) {
       this.showPopover();
     }
-    this.#updateTextboxPosition();
 
     // Enable the animation only after the first extend call to ensure it
     // doesn't run when opening a new window.
@@ -3253,7 +3221,6 @@ ${
     if (this.hasAttribute("in-page")) {
       this.hidePopover();
     }
-    this.#updateTextboxPosition();
   }
 
   updateLayoutExtend() {
@@ -3557,41 +3524,16 @@ ${
     this.view.close();
   }
 
-  #updateTextboxPosition() {
-    if (this.hasAttribute("in-page")) {
-      // An in-page element anchors its popover to its container in CSS.
-      return;
-    }
-    if (!this.hasAttribute("breakout-extend")) {
-      this.style.top = "";
-      return;
-    }
-
-    this.style.top = px(getUntransformedTop(this.parentNode));
-  }
-
-  #updateTextboxPositionNextFrame() {
-    if (!this.hasAttribute("breakout")) {
-      return;
-    }
-    // Allow for any layout changes to take place (e.g. when the menubar becomes
-    // inactive) before re-measuring to position the textbox
-    this.window.requestAnimationFrame(() => {
-      this.window.requestAnimationFrame(() => {
-        this.#updateTextboxPosition();
-      });
-    });
-  }
-
   #stopBreakout() {
     this.removeAttribute("breakout");
     this.parentNode.removeAttribute("breakout");
-    this.style.top = "";
     try {
       this.hidePopover();
     } catch (ex) {
       // No big deal if not a popover already.
     }
+    this.parentNode.style.removeProperty("anchor-name");
+    this.parentNode.style.removeProperty("anchor-scope");
     this._layoutBreakoutUpdateKey = {};
   }
 
@@ -3636,18 +3578,20 @@ ${
 
         this.setAttribute("breakout", "true");
         this.parentNode.setAttribute("breakout", "true");
+        this.parentNode.style.setProperty("anchor-name", ANCHOR_NAME);
+        // Every input gives its container the same name, so scope it there too:
+        // an unscoped name resolves to whichever container comes last in the
+        // document, which would anchor the address bar to the search bar's.
+        this.parentNode.style.setProperty("anchor-scope", ANCHOR_NAME);
         // A toolbar element is a popover for as long as it has the `breakout`
         // attribute; an in-page one only while it also has `breakout-extend`,
         // so that a modal dialog the page opens covers the closed element: the
         // top layer paints in the order elements enter it, which z-index cannot
         // reorder.
-        // TODO(bug 2022527): Take the in-page approach for toolbar elements
-        // too, which makes #fixAddressbarSearchbarOrder unnecessary.
         if (!this.hasAttribute("in-page")) {
           this.showPopover();
           this.#fixAddressbarSearchbarOrder();
         }
-        this.#updateTextboxPosition();
 
         resolve();
       });
@@ -4505,7 +4449,7 @@ ${
     // Make sure the domain name stays visible for spoof protection and
     // usability. The browser itself is focused parent-side, where the load
     // runs against the chrome window.
-    if (!params.avoidBrowserFocus) {
+    if (this.#isAddressbar && !params.avoidBrowserFocus) {
       this.inputField.setSelectionRange(0, 0);
     }
 
@@ -6142,7 +6086,7 @@ ${
     });
   }
 
-  async _on_keyup(event) {
+  _on_keyup(event) {
     if (event.currentTarget == this.window) {
       this._untrimOnFocusAfterKeydown = false;
       return;
@@ -6171,9 +6115,24 @@ ${
     // Pressing Enter key while pressing Meta key, and next, even when releasing
     // Enter key before releasing Meta key, the keyup event is not fired.
     // Therefore, if Enter keydown is detecting, continue the post processing
-    // for Enter key when any keyup event is detected.
+    // for Enter key when any keyup event is detected. Keep this handler
+    // synchronous -- only the rare deferred-Enter path awaits, so it runs as a
+    // fire-and-forget task instead of allocating a microtask on every keyup.
+    if (this._keyDownEnterDeferred && !this._finishingDeferredEnter) {
+      this.#finishDeferredEnter();
+    }
+  }
+
+  /**
+   * Completes the deferred handling of an Enter keypress once a keyup arrives.
+   * Split out of `_on_keyup` so the common keyup path stays synchronous.
+   */
+  async #finishDeferredEnter() {
+    // Guard against a second keyup re-entering while the awaits below are
+    // pending; released in the finally along with the deferred.
+    this._finishingDeferredEnter = true;
     let keyDownEnterDeferred = this._keyDownEnterDeferred;
-    if (keyDownEnterDeferred) {
+    try {
       if (keyDownEnterDeferred.loadedContent) {
         try {
           const browserId = await keyDownEnterDeferred.promise;
@@ -6183,22 +6142,29 @@ ${
           // focusBrowser resolves asynchronously; if the user began a fresh
           // search since this Enter (a later input bumped the epoch), its
           // caret must be left alone -- only keep the domain visible for our load.
-          if (focused && keyDownEnterDeferred.inputEpoch === this.#inputEpoch) {
+          if (
+            this.#isAddressbar &&
+            focused &&
+            keyDownEnterDeferred.inputEpoch === this.#inputEpoch
+          ) {
             // Make sure the domain name stays visible for spoof protection and usability.
             this.inputField.setSelectionRange(0, 0);
           }
         } catch (ex) {
           // Not all the Enter actions in the urlbar will cause a navigation, then it
           // is normal for this to be rejected.
-          // If _keyDownEnterDeferred was rejected on keydown, we don't nullify it here
-          // to ensure not overwriting the new value created by keydown.
         }
       } else {
         // Discard the _keyDownEnterDeferred promise to receive any key inputs immediately.
         keyDownEnterDeferred.resolve();
       }
-
-      this._keyDownEnterDeferred = null;
+    } finally {
+      // Only clear if a newer Enter keydown hasn't already replaced it, so we
+      // don't overwrite that fresh deferred; then release the re-entry guard.
+      if (this._keyDownEnterDeferred === keyDownEnterDeferred) {
+        this._keyDownEnterDeferred = null;
+      }
+      this._finishingDeferredEnter = false;
     }
   }
 
@@ -6388,18 +6354,6 @@ ${
       return;
     }
     this.#updateLayoutBreakout();
-  }
-
-  _on_toolbarvisibilitychange() {
-    this.#updateTextboxPositionNextFrame();
-  }
-
-  _on_DOMMenuBarActive() {
-    this.#updateTextboxPositionNextFrame();
-  }
-
-  _on_DOMMenuBarInactive() {
-    this.#updateTextboxPositionNextFrame();
   }
 
   #allTextSelectedOnKeyDown = false;

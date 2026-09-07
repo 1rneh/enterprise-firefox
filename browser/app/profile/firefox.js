@@ -2151,16 +2151,8 @@ pref("browser.newtabpage.activity-stream.discoverystream.ctaButtonVariant", "");
 // Pref enabling content reporting
 pref("browser.newtabpage.activity-stream.discoverystream.reportAds.enabled", true);
 
-// List of regions that do not get stories, regardless of locale-list-config.
+// List of regions that do not get stories, regardless of stories-region-locale-config.
 pref("browser.newtabpage.activity-stream.discoverystream.region-stories-block", "");
-// List of locales that get stories, regardless of region-stories-config.
-#ifdef NIGHTLY_BUILD
-  pref("browser.newtabpage.activity-stream.discoverystream.locale-list-config", "en-US,en-CA,en-GB");
-#else
-  pref("browser.newtabpage.activity-stream.discoverystream.locale-list-config", "");
-#endif
-// List of regions that get stories by default.
-pref("browser.newtabpage.activity-stream.discoverystream.region-stories-config", "US,DE,CA,GB,IE,CH,AT,BE,IN,FR,IT,ES");
 
 // List of regions that get topics selection by default.
 pref("browser.newtabpage.activity-stream.discoverystream.topicSelection.region-topics-config", "");
@@ -2279,12 +2271,8 @@ pref("browser.aboutwelcome.experimentsGate.skipSplashIfLoaded", true);
 pref("browser.aboutwelcome.experimentsGate.minDisplayMs", 3000);
 pref("browser.aboutwelcome.experimentsGate.maxDisplayMs", 8000);
 
-// Global Nova enabled pref
-#ifdef NIGHTLY_BUILD
-  pref("browser.nova.enabled", true);
-#else
-  pref("browser.nova.enabled", false);
-#endif
+// Global Nova redesign enabled pref
+pref("browser.nova.enabled", true);
 
 // Disable singleProfile messaging mitigation (Bug 1963213) for multiProfile feature users
 pref("messaging-system.profile.singleProfileMessaging.disable", true);

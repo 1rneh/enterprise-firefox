@@ -117,7 +117,7 @@ async function testFileAccessAllPlatforms() {
   }
 
   if (AppConstants.MOZ_ENTERPRISE) {
-    if (AppConstants.platform != "win") {
+    if (AppConstants.platform !== "win") {
       // felt.json lives in UAppData, not the profile.
       // The Windows content sandbox does not deny access to
       // UAppData (bug 2069930), so there it is currently readable.

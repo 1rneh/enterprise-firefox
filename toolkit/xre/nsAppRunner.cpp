@@ -4628,6 +4628,16 @@ static void SetupConsoleForBackgroundTask(
 }
 #endif
 
+#if defined(MOZ_ENTERPRISE)
+// Whether this build can ever reach a user, and thus whether the enterprise
+// restrictions have anything to protect. A build with the "default" channel a
+// plain mozconfig produces, is a developer or automation build. Same criteria
+// as MOZ_BYPASS_FELT in felt_init().
+static bool IsNonShippingBuild() {
+  return !strcmp(MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL), "default");
+}
+#endif
+
 /*
  * XRE_mainInit - Initial setup and command line parameter processing.
  * Main() will exit early if either return value != 0 or if aExitFlag is
@@ -4688,9 +4698,9 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   bool allowHeadlessMode = true;
 #  ifdef MOZ_BACKGROUNDTASKS
   allowHeadlessMode =
-      BackgroundTasks::IsBackgroundTaskMode() || EnvHasValue("MOZ_AUTOMATION");
+      BackgroundTasks::IsBackgroundTaskMode() || IsNonShippingBuild();
 #  else
-  allowHeadlessMode = EnvHasValue("MOZ_AUTOMATION");
+  allowHeadlessMode = IsNonShippingBuild();
 #  endif
 #endif
 
@@ -4707,8 +4717,8 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 #  if defined(MOZ_ENTERPRISE)
     if (!allowHeadlessMode) {
       Output(true,
-             "Error: Headless mode is only supported when Firefox runs in "
-             "automation.\n");
+             "Error: Headless mode is only supported in non shippable Firefox "
+             "builds.\n");
       return 1;
     }
 #  endif
@@ -4746,8 +4756,8 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 #if defined(MOZ_ENTERPRISE)
   if (requestedHeadless && !allowHeadlessMode) {
     Output(true,
-           "Error: Headless mode is only supported when Firefox runs in "
-           "automation.\n");
+           "Error: Headless mode is only supported in non shippable Firefox "
+           "builds.\n");
     return 1;
   }
 #endif
@@ -4763,8 +4773,8 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 #if defined(MOZ_ENTERPRISE)
   if (PR_GetEnv("MOZ_HEADLESS") && !allowHeadlessMode) {
     Output(true,
-           "Error: Headless mode is only supported when Firefox runs in "
-           "automation.\n");
+           "Error: Headless mode is only supported in non shippable Firefox "
+           "builds.\n");
     return 1;
   }
 #endif
@@ -5134,7 +5144,7 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 
 #if defined(MOZ_ENTERPRISE)
   if (safeModeRequested.value() && is_felt_ui()) {
-    if (!EnvHasValue("MOZ_AUTOMATION")) {
+    if (!IsNonShippingBuild()) {
       Output(
           false,
           "Warning: Safe Mode is inhibited in Firefox Enterprise Launcher but "
@@ -6987,13 +6997,12 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     bool allowStandaloneLaunch = false;
 #  endif
 
-    const bool requestedHeadless = RequestedHeadlessMode();
-    // Allow standalone launch for automated testing and development
-    allowStandaloneLaunch =
-        allowStandaloneLaunch || EnvHasValue("MOZ_AUTOMATION") ||
-        PR_GetEnv("MOZ_RUN_GTEST") || requestedHeadless ||
-        CheckArgExists("marionette") ||
-        CheckArgExists("remote-debugging-port") || IsLaunchingBrowserDevtools();
+    // Allow standalone launch for automated testing and development. The ways
+    // of asking for it -- gtests, headless, -marionette,
+    // -remote-debugging-port, devtools -- are all developer and automation
+    // entry points, so the build itself is what decides: on anything that can
+    // reach a user, only background tasks may start without Felt.
+    allowStandaloneLaunch = allowStandaloneLaunch || IsNonShippingBuild();
 
     if (!allowStandaloneLaunch && !is_felt_ui() && !is_felt_browser()) {
       Output(true,

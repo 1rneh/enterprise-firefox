@@ -4392,9 +4392,11 @@ MediaTrackGraphImpl::OnDispatchedEvent() {
   MonitorAutoLock lock(mMonitor);
   GraphDriver* driver = CurrentDriver();
   if (!driver) {
-    // The ipc::BackgroundChild started by `UniqueMessagePortId()` destruction
-    // can queue messages on the thread used for the graph after graph
-    // shutdown.  See bug 1955768.
+    // After the graph thread enters shutdown mode, the main thread triggers
+    // shutdown of the ThreadedDriver and then sets the current driver to null.
+    // GraphRunner shutdown is currently synchronous, but OfflineAudioContext is
+    // asynchronous so there is a possibility of events queued on its thread
+    // while driver is null.
     //
     // Other threads may have already taken a reference to this graph as the
     // observer, so clearing the thread's observer (on the graph thread) would
@@ -4491,7 +4493,14 @@ nsresult MediaTrackGraphImpl::Dispatch(
   return QueueMessageForTailDispatch(event.forget());
 }
 
-bool MediaTrackGraphImpl::IsCurrentThreadIn() const { return OnGraphThread(); }
+bool MediaTrackGraphImpl::IsCurrentThreadIn() const {
+  // While the graph is not running, its state is owned by the main thread.
+  // Note that this must not use mDriver unconditionally, as OnGraphThread()
+  // does: mDriver is cleared on the main thread while consumers of the graph
+  // as an event target, e.g. an ipc::MessageChannel opened on the graph
+  // thread, may still be tearing down.
+  return OnGraphThreadOrNotRunning();
+}
 
 TaskDispatcher& MediaTrackGraphImpl::TailDispatcher() {
   MOZ_ASSERT(OnGraphThread());

@@ -27,6 +27,12 @@ class ProviderAttemptSpoolContractTest {
                     "scopeType" to "CMD",
                     "outcome" to "FAIL",
                     "verb" to "click",
+                    "selectorId" to "menu.open",
+                    "backend" to "COMPOSE",
+                    "timeoutMs" to 5_000,
+                    "attempts" to 3,
+                    "lastObservation" to "absent",
+                    "navigationEdge" to "HomePage->MainMenuPage",
                     "value" to "private input",
                     "cause" to "secret stack",
                 ),
@@ -52,6 +58,12 @@ class ProviderAttemptSpoolContractTest {
         val records = bytes.decodeToString().lineSequence().filter(String::isNotBlank).map(::JSONObject).toList()
         assertEquals(listOf("testStart", "stepEnd", "attemptEnd"), records.map { it.getString("type") })
         assertEquals("click", records[1].getString("verb"))
+        assertEquals("menu.open", records[1].getString("selectorId"))
+        assertEquals("COMPOSE", records[1].getString("backend"))
+        assertEquals(5_000, records[1].getInt("timeoutMs"))
+        assertEquals(3, records[1].getInt("attempts"))
+        assertEquals("absent", records[1].getString("lastObservation"))
+        assertEquals("HomePage->MainMenuPage", records[1].getString("navigationEdge"))
         assertFalse(records[1].has("value"))
         assertFalse(records[1].has("cause"))
         assertFalse(records[0].getJSONObject("meta").has("token"))
@@ -125,6 +137,39 @@ class ProviderAttemptSpoolContractTest {
         assertEquals(1, values["customEngineCount"])
         assertNull(values["defaultEngineId"])
         assertTrue("contributors.futureSensitiveState" in redacted.removedFields)
+    }
+
+    @Test
+    fun environmentEvidenceUsesExplicitNestedAllowlists() {
+        val redacted =
+            ProviderEvidencePolicy.redact(
+                event(
+                    1,
+                    "environmentPreflight",
+                    mapOf(
+                        "requirements" to
+                            mapOf(
+                                "requiredOrientation" to "PORTRAIT",
+                                "mockWebServer" to "AVAILABLE",
+                                "secret" to "removed",
+                            ),
+                        "before" to mapOf("orientation" to 2, "unknown" to "removed"),
+                        "after" to mapOf("orientation" to 1, "foregroundWindow" to "launcher"),
+                    ),
+                )
+            )
+
+        assertEquals(
+            mapOf("requiredOrientation" to "PORTRAIT", "mockWebServer" to "AVAILABLE"),
+            redacted.fields["requirements"],
+        )
+        assertEquals(mapOf("orientation" to 2), redacted.fields["before"])
+        assertEquals(
+            mapOf("orientation" to 1, "foregroundWindow" to "launcher"),
+            redacted.fields["after"],
+        )
+        assertTrue("requirements.secret" in redacted.removedFields)
+        assertTrue("before.unknown" in redacted.removedFields)
     }
 
     private fun event(

@@ -644,20 +644,6 @@ features:
         type: Int
         default: 300
 
-  firefox-jp-guide-default-site:
-    description: >
-      This feature is for managing the visibility of the Firefox Japanese Guide default suggested site shortcut
-    variables:
-      enabled:
-        description: >
-          Enables the feature.
-        type: Boolean
-        default: false
-    defaults:
-      - channel: developer
-        value:
-          enabled: true
-
   microsurveys:
     description: Feature for microsurveys.
     variables:
@@ -1157,6 +1143,13 @@ features:
         description: If true, Merino Client is enabled.
         type: Boolean
         default: false
+    defaults:
+      - channel: developer
+        value:
+          enabled: true
+      - channel: nightly
+        value:
+          enabled: true
 
   ads-client-for-stories:
     description: Feature to enable the Mozilla Ads Client support for Sponsored Stories for users on Firefox on Android.

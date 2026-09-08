@@ -7,7 +7,11 @@ package org.mozilla.fenix.ui.efficiency.helpers
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
-import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationGraph
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationNode
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationNodeId
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationNodeKind
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationNodes
 import org.mozilla.fenix.ui.efficiency.navigation.PageCatalog
 import org.mozilla.fenix.ui.efficiency.pageObjects.AddToHomeScreenComponent
 import org.mozilla.fenix.ui.efficiency.pageObjects.BookmarkSearchPage
@@ -65,6 +69,7 @@ import org.mozilla.fenix.ui.efficiency.pageObjects.ToolbarComponent
 import org.mozilla.fenix.ui.efficiency.pageObjects.UnifiedTrustPanelPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.WebCompatReporterPage
 
+/** Composes the page catalog, readiness oracles, and one isolated navigation graph for a running test. */
 class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule, *>) {
     // Let's make sure we have them in a lexicographic order
     val addToHomescreen = AddToHomeScreenComponent(composeRule)
@@ -128,11 +133,28 @@ class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTest
     val unifiedTrustPanel = UnifiedTrustPanelPage(composeRule)
     val webCompatReporter = WebCompatReporterPage(composeRule)
 
+    val navigationGraph: NavigationGraph
+
     init {
-        PageCatalog.discoverPages().forEach { pageRef ->
-            val page = pageRef.getter(this)
-            NavigationRegistry.registerCheckpointVerifier(page.pageName, page::waitForNavigationCheckpoint)
+        val pages =
+            PageCatalog.discoverNavigablePages().map { pageRef ->
+                val page = pageRef.getter(this)
+                check(page.declaredReadinessProfiles() == PageReadinessProfile.entries.toSet()) {
+                    "${page.pageName} must declare every page readiness profile"
+                }
+                page
+            }
+        val nodes =
+            pages.mapTo(mutableSetOf()) {
+                NavigationNode(NavigationNodeId(it.pageName), NavigationNodeKind.PAGE)
+            } + setOf(NavigationNodes.APP_ENTRY, NavigationNodes.GOOGLE_PLAY)
+        val builder = NavigationGraph.Builder(nodes)
+        pages.forEach { page ->
+            page.registerNavigation(builder)
+            builder.registerCheckpointVerifier(page.pageName, page::waitForNavigationCheckpoint)
         }
+        navigationGraph = builder.build()
+        pages.forEach { it.bindNavigationGraph(navigationGraph) }
     }
 
     fun initTestRule(

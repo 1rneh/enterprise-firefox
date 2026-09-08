@@ -8,9 +8,9 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.ui.efficiency.helpers.BasePage
-import org.mozilla.fenix.ui.efficiency.helpers.Selector
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationFacts
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationGraph
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationOptions
-import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationStep
 import org.mozilla.fenix.ui.efficiency.selectors.BrowserPageSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.HomeSelectors
@@ -21,8 +21,8 @@ class SettingsAddonsManagerPage(composeRule: AndroidComposeTestRule<HomeActivity
     BasePage(composeRule) {
     override val pageName = "SettingsAddonsManagerPage"
 
-    init {
-        NavigationRegistry.register(
+    internal override fun registerNavigation(builder: NavigationGraph.Builder) {
+        builder.register(
             from = "HomePage",
             to = pageName,
             steps =
@@ -32,10 +32,28 @@ class SettingsAddonsManagerPage(composeRule: AndroidComposeTestRule<HomeActivity
                 ),
         )
 
-        NavigationRegistry.register(
+        builder.register(
+            from = "MainMenuPage",
+            to = pageName,
+            steps =
+                listOf(
+                    NavigationStep.Click(MainMenuSelectors.EXTENSIONS_BUTTON_UIAUTOMATOR),
+                    NavigationStep.Click(MainMenuSelectors.MANAGE_EXTENSIONS_BUTTON),
+                ),
+        )
+
+        builder.register(
             from = pageName,
             to = "HomePage",
             steps = listOf(NavigationStep.Click(SettingsAddonsManagerSelectors.NAVIGATE_BACK_TOOLBAR_BUTTON)),
+            requires = setOf(NavigationFacts.RETURN_SURFACE_HOME),
+        )
+
+        builder.register(
+            from = pageName,
+            to = "BrowserPage",
+            steps = listOf(NavigationStep.Click(SettingsAddonsManagerSelectors.NAVIGATE_BACK_TOOLBAR_BUTTON)),
+            requires = setOf(NavigationFacts.RETURN_SURFACE_BROWSER),
         )
     }
 
@@ -48,9 +66,7 @@ class SettingsAddonsManagerPage(composeRule: AndroidComposeTestRule<HomeActivity
         return this
     }
 
-    override fun mozGetSelectorsByGroup(group: String): List<Selector> {
-        return SettingsAddonsManagerSelectors.all.filter { it.groups.contains(group) }
-    }
+    override val selectorCatalog = SettingsAddonsManagerSelectors
 
     /**
      * Installs [addonTitle] from the add-ons manager list, then closes the install-completed prompt. When

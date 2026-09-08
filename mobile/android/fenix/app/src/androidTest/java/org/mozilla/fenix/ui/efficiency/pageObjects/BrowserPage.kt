@@ -35,8 +35,8 @@ import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.helpers.ext.waitNotNull
 import org.mozilla.fenix.ui.efficiency.helpers.BasePage
 import org.mozilla.fenix.ui.efficiency.helpers.Selector
+import org.mozilla.fenix.ui.efficiency.navigation.NavigationGraph
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationOptions
-import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationStep
 import org.mozilla.fenix.ui.efficiency.selectors.BrowserPageSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.DownloadsSelectors
@@ -47,8 +47,8 @@ import org.mozilla.fenix.ui.efficiency.selectors.ToolbarSelectors
 class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule, *>) : BasePage(composeRule) {
     override val pageName = "BrowserPage"
 
-    init {
-        NavigationRegistry.register(
+    internal override fun registerNavigation(builder: NavigationGraph.Builder) {
+        builder.register(
             from = "HomePage",
             to = pageName,
             steps =
@@ -60,7 +60,7 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
         )
 
         // Use UIAutomator selector to avoid Compose sync hanging when GeckoView is active.
-        NavigationRegistry.register(
+        builder.register(
             from = pageName,
             to = pageName,
             steps =
@@ -71,7 +71,7 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
                 ),
         )
 
-        NavigationRegistry.register(
+        builder.register(
             from = "SearchBarComponent",
             to = pageName,
             steps =
@@ -82,7 +82,7 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
         )
 
         // Use UIAutomator selector to avoid Compose sync hanging when GeckoView is active.
-        NavigationRegistry.register(
+        builder.register(
             from = pageName,
             to = "HomePage",
             steps =
@@ -92,7 +92,7 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
                 ),
         )
 
-        NavigationRegistry.register(
+        builder.register(
             from = pageName,
             to = "AddToHomeScreenComponent",
             steps =
@@ -117,9 +117,7 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
         return this
     }
 
-    override fun mozGetSelectorsByGroup(group: String): List<Selector> {
-        return BrowserPageSelectors.all.filter { it.groups.contains(group) }
-    }
+    override val selectorCatalog = BrowserPageSelectors
 
     /**
      * Taps the Play control on a web media page (video or audio). The tap is confirmed by [verifyMediaPlaybackState],
@@ -184,7 +182,7 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
         // is a single-shot check, so firing it the instant the sheet animates in can miss the
         // dropdowns and fail spuriously. Gate on the last-rendered dropdown before the group check.
         mozVerify(BrowserPageSelectors.TRANSLATION_SHEET_TRANSLATE_TO, timeout = waitingTimeLong)
-        mozVerifyElementsByGroup("notTranslatedPageTranslationSheet")
+        mozVerifyElementsByGroup(BrowserPageSelectors.Group.NOT_TRANSLATED_PAGE_TRANSLATION_SHEET)
         return this
     }
 

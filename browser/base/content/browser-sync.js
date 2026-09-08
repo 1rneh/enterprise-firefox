@@ -2686,8 +2686,9 @@ var gSync = {
 
   /**
    * Sends the given tabs to the target devices and, if any send succeeds,
-   * shows the "Sent!" confirmation hint anchored to the FxA toolbar button
-   * (falling back to the app menu button when it isn't available).
+   * shows the "Sent!" confirmation hint anchored to the FxA toolbar button -
+   * in enterprise builds it's anchored to the enterprise badge. (falling back
+   * to the app menu button when it isn't available).
    *
    * @param {object[]} tabsToSend - tabs (as passed to sendTabToDevice) to send.
    * @param {object[]} targets - the devices to send the tabs to.
@@ -2700,16 +2701,25 @@ var gSync = {
     );
     // Show the Sent! confirmation if any of the sends succeeded.
     if (results.includes(true)) {
-      // FxA button could be hidden with CSS since the user is logged out,
-      // although it seems likely this would only happen in testing...
-      let fxastatus = document.documentElement.getAttribute("fxastatus");
-      let anchorNode =
-        (fxastatus &&
-          fxastatus != "not_configured" &&
-          document.getElementById("fxa-toolbar-menu-button")?.parentNode?.id !=
-            "widget-overflow-list" &&
-          document.getElementById("fxa-toolbar-menu-button")) ||
-        document.getElementById("PanelUI-menu-button");
+      const appMenuButton = document.getElementById("PanelUI-menu-button");
+      const preferredButtonId = AppConstants.MOZ_ENTERPRISE
+        ? "enterprise-badge-toolbar-button"
+        : "fxa-toolbar-menu-button";
+
+      const preferredButton = CustomizableUI.getPlacementOfWidget(
+        preferredButtonId
+      )
+        ? document.getElementById(preferredButtonId)
+        : null;
+
+      const usePreferredButton =
+        preferredButton?.parentNode?.id != "widget-overflow-list" &&
+        preferredButton?.checkVisibility({
+          checkVisibilityCSS: true,
+          flush: false,
+        });
+
+      const anchorNode = usePreferredButton ? preferredButton : appMenuButton;
       ConfirmationHint.show(anchorNode, "confirmation-hint-send-to-device");
     }
     fxAccounts.flushLogFile();

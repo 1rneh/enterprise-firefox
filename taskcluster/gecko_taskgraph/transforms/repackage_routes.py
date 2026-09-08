@@ -17,7 +17,10 @@ def add_indexes(config, jobs):
         if repackage_type and job["attributes"]["build_type"] != "debug":
             build_platform = job["attributes"]["build_platform"]
             job_name = f"{build_platform}-{repackage_type}"
-            if "thunderbird" in job.get("shipping-product", ""):
+            if (
+                "thunderbird" in job.get("shipping-product", "")
+                or "thunderbird" in config.params["project"]
+            ):
                 product = job.get("index", {}).get("product", "thunderbird")
             elif "firefox" in config.params["project"]:
                 product = job.get("index", {}).get("product", "firefox")

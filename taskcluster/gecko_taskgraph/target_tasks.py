@@ -625,6 +625,13 @@ def target_tasks_enterprise_firefox_with_tests(
 
             if test_platform and "enterprise" not in test_platform:
                 return False
+        # Reduce CI workload: do not schedule asan/tsan builds or tests
+        # for non enterprise builds on level 3 pushes
+        elif ("asan" in task.label or "tsan" in task.label) and (
+            (build_platform and "enterprise" not in build_platform)
+            or (test_platform and "enterprise" not in test_platform)
+        ):
+            return False
 
         if "thunderbird" in parameters["project"] and level == 3:
             if build_platform and "enterprise" not in build_platform:

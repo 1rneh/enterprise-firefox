@@ -687,6 +687,18 @@ tasks:
                                 $if: 'push.branch[:11] == "refs/heads/"'
                                 then: ${push.branch}
                                 else: 'refs/heads/${push.branch}'
+                            # `push.base_branch` is only set by the action hook payload when it
+                            # differs from `push.branch`, i.e. for pull request actions.
+                            baseRef:
+                                $if: '"base_branch" in push'
+                                then:
+                                    $if: 'push.base_branch[:11] == "refs/heads/"'
+                                    then: ${push.base_branch}
+                                    else: 'refs/heads/${push.base_branch}'
+                                else:
+                                    $if: 'push.branch[:11] == "refs/heads/"'
+                                    then: ${push.branch}
+                                    else: 'refs/heads/${push.branch}'
                             baseRev: '${push.revision}'
                             headRev: '${push.revision}'
                   - $switch:
@@ -726,21 +738,25 @@ tasks:
                   commBaseRepoUrl: https://github.com/thunderbird/thunderbird-desktop
                   # baseRef is from enterprise-firefox, it needs to be mapped to thunderbird-desktop
                   commBaseRef:
-                      $switch:
-                          'baseRef == "enterprise-main" || baseRef == "refs/heads/enterprise-main"': "refs/heads/main"
-                          'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
-                          'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
-                          'project == "enterprise-firefox-try"': "refs/heads/main"
-                          $default: "master"
+                      $if: 'project == "enterprise-firefox-try"'
+                      then: "refs/heads/main"
+                      else:
+                          $switch:
+                              'baseRef == "enterprise-main" || baseRef == "refs/heads/enterprise-main"': "refs/heads/main"
+                              'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
+                              'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
+                              $default: "master"
                   commBaseRev: 70b497821a95d05a8f19c55866671380e9939e9f
                   commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
                   commHeadRef:
-                      $switch:
-                          'baseRef == "enterprise-main" || baseRef == "refs/heads/enterprise-main"': "refs/heads/main"
-                          'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
-                          'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
-                          'project == "enterprise-firefox-try"': "refs/heads/main"
-                          $default: "master"
+                      $if: 'project == "enterprise-firefox-try"'
+                      then: "refs/heads/main"
+                      else:
+                          $switch:
+                              'baseRef == "enterprise-main" || baseRef == "refs/heads/enterprise-main"': "refs/heads/main"
+                              'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
+                              'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
+                              $default: "master"
                   commHeadRev: 70b497821a95d05a8f19c55866671380e9939e9f
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'

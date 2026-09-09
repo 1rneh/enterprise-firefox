@@ -124,6 +124,7 @@ imply_option(
 
 imply_option("MOZ_APP_UA_NAME", "Firefox", when=is_firefox_enterprise)
 
+
 @depends(
     moz_app_name,
     moz_app_displayname,

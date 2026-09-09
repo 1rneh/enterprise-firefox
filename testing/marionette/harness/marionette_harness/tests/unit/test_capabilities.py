@@ -113,8 +113,10 @@ class TestCapabilities(MarionetteTestCase):
 
         self.assertNotIn("moz:debuggerAddress", self.caps)
 
-        if (self.appinfo["browserFlavor"]):
-            self.assertEqual(self.caps["moz:browserFlavor"], self.appinfo["browserFlavor"])
+        if self.appinfo["browserFlavor"]:
+            self.assertEqual(
+                self.caps["moz:browserFlavor"], self.appinfo["browserFlavor"]
+            )
 
         self.assertIn("moz:platformVersion", self.caps)
         self.assertEqual(self.caps["moz:platformVersion"], self.os_version)

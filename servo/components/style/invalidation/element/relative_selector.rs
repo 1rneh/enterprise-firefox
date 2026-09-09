@@ -4,6 +4,7 @@
 
 //! Invalidation of element styles relative selectors.
 
+use crate::FxHashMap;
 use crate::data::ElementData;
 use crate::dom::{TElement, TNode};
 use crate::invalidation::element::element_wrapper::{ElementWrapper, Snapshots};
@@ -13,9 +14,9 @@ use crate::invalidation::element::invalidation_map::{
     ScopeDependencyInvalidationKind, TSStateForInvalidation,
 };
 use crate::invalidation::element::invalidator::{
-    note_scope_dependency_force_at_subject, DescendantInvalidationLists, Invalidation,
-    InvalidationProcessor, InvalidationResult, InvalidationVector, SiblingTraversalMap,
-    TreeStyleInvalidator,
+    DescendantInvalidationLists, Invalidation, InvalidationProcessor, InvalidationResult,
+    InvalidationVector, SiblingTraversalMap, TreeStyleInvalidator,
+    note_scope_dependency_force_at_subject,
 };
 use crate::invalidation::element::restyle_hints::RestyleHint;
 use crate::invalidation::element::state_and_attributes::{
@@ -23,16 +24,15 @@ use crate::invalidation::element::state_and_attributes::{
     invalidated_sibling, push_invalidation, should_process_descendants,
 };
 use crate::stylist::{CascadeData, Stylist};
-use crate::FxHashMap;
 use dom::ElementState;
+use selectors::OpaqueElement;
 use selectors::matching::{
-    early_reject_by_local_name, matches_selector, ElementSelectorFlags, MatchingContext,
-    MatchingForInvalidation, MatchingMode, NeedsSelectorFlags, QuirksMode, SelectorCaches,
-    VisitedHandlingMode,
+    ElementSelectorFlags, MatchingContext, MatchingForInvalidation, MatchingMode,
+    NeedsSelectorFlags, QuirksMode, SelectorCaches, VisitedHandlingMode,
+    early_reject_by_local_name, matches_selector,
 };
 use selectors::parser::SelectorKey;
-use selectors::OpaqueElement;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::ops::DerefMut;
 
 /// Kind of DOM mutation this relative selector invalidation is being carried out in.
@@ -519,16 +519,16 @@ where
                     unreachable!("Inner selector in invalidation?")
                 },
                 DependencyInvalidationKind::Relative(kind) => {
-                    if let Some(context) = self.optimization_context.as_ref() {
-                        if context.can_be_ignored(
+                    if let Some(context) = self.optimization_context.as_ref()
+                        && context.can_be_ignored(
                             invalidation.element != self.top,
                             invalidation.element,
                             invalidation.host,
                             invalidation.dependency,
                             invalidation.leftmost_collapse_offset,
-                        ) {
-                            continue;
-                        }
+                        )
+                    {
+                        continue;
                     }
                     let dependency = &invalidation.dependency.next.as_ref().unwrap().slice()[0];
                     result.invalidations.push(RelativeSelectorInvalidation {
@@ -1121,25 +1121,25 @@ where
 
                 let invalidation_kind = d.invalidation_kind();
 
-                if let DependencyInvalidationKind::Scope(scope_kind) = invalidation_kind {
-                    if d.selector.is_rightmost(d.selector_offset) {
-                        if scope_kind == ScopeDependencyInvalidationKind::ScopeEnd {
-                            let invalidations = note_scope_dependency_force_at_subject(
-                                d,
-                                self.matching_context.current_host,
-                                self.matching_context.scope_element,
-                                false,
-                            );
-                            descendant_invalidations
-                                .dom_descendants
-                                .extend(invalidations);
+                if let DependencyInvalidationKind::Scope(scope_kind) = invalidation_kind
+                    && d.selector.is_rightmost(d.selector_offset)
+                {
+                    if scope_kind == ScopeDependencyInvalidationKind::ScopeEnd {
+                        let invalidations = note_scope_dependency_force_at_subject(
+                            d,
+                            self.matching_context.current_host,
+                            self.matching_context.scope_element,
+                            false,
+                        );
+                        descendant_invalidations
+                            .dom_descendants
+                            .extend(invalidations);
 
-                            invalidated |= true;
-                        } else if let Some(ref next) = d.next {
-                            dependencies_to_invalidate.extend(next.as_ref().slice());
-                        }
-                        continue;
+                        invalidated |= true;
+                    } else if let Some(ref next) = d.next {
+                        dependencies_to_invalidate.extend(next.as_ref().slice());
                     }
+                    continue;
                 }
 
                 if matches!(

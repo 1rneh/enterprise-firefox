@@ -10,7 +10,9 @@
 gbrowser
 opening-tabs
 api
+tab-events
 progress-listeners
 async-tab-switcher
+lazy-browsers
 tab-unloading
 ```

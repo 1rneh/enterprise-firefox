@@ -207,6 +207,20 @@ async function handleDroppedLink(
  * modules that implement the tab strip. Nothing else may use those.
  */
 export class Tabbrowser {
+  /**
+   * The preferences the tab strip's other modules read.
+   */
+  static prefs = XPCOMUtils.declareLazy({
+    showPidAndActiveness: {
+      pref: "browser.tabs.tooltipsShowPidAndActiveness",
+      default: false,
+    },
+    tabGroupsEnabled: {
+      pref: "browser.tabs.groups.enabled",
+      default: false,
+    },
+  });
+
   static create(window) {
     window.gBrowser = new Tabbrowser(window);
     window.gBrowser.init();
@@ -227,19 +241,6 @@ export class Tabbrowser {
     );
     this.splitViewCommandSet =
       this.document.getElementById("splitViewCommands");
-
-    XPCOMUtils.defineLazyPreferenceGetter(
-      this,
-      "tabGroupsEnabled",
-      "browser.tabs.groups.enabled",
-      false
-    );
-    XPCOMUtils.defineLazyPreferenceGetter(
-      this,
-      "showPidAndActiveness",
-      "browser.tabs.tooltipsShowPidAndActiveness",
-      false
-    );
 
     Services.obs.addObserver(this, "contextual-identity-updated");
     Services.obs.addObserver(this, "intl:app-locales-changed");
@@ -267,12 +268,15 @@ export class Tabbrowser {
 
     this.tabContainer.init();
 
+    /**
+     * Invoked with `this` being the browser element on which the drop took
+     * place.
+     *
+     * @this {MozBrowser}
+     * @param {...any} args
+     */
     this.#defaultDropLinkHandler = function (...args) {
-      // The droppedLinkHandler gets invoked with `this` being the browser
-      // element on which the drop took place.
-      let browser = this;
-      let tabbrowser = browser.getTabBrowser();
-      handleDroppedLink(tabbrowser, browser, ...args);
+      handleDroppedLink(this.getTabBrowser(), this, ...args);
     };
     this.#setupInitialBrowserAndTab();
 
@@ -7220,10 +7224,6 @@ export class Tabbrowser {
     aOurTab.hasTabNote = aOtherTab.hasTabNote;
     aOurTab.canonicalUrl = aOtherTab.canonicalUrl;
 
-    if (otherBrowser.isDistinctProductPageVisit) {
-      ourBrowser.isDistinctProductPageVisit = true;
-    }
-
     let srcBrowserId = otherBrowser.browserId;
 
     // Add a reference to the original registeredOpenURI to the closing
@@ -9410,7 +9410,7 @@ export class Tabbrowser {
     if (includeLabel) {
       labelArray.push(tab._fullLabel || tab.getAttribute("label"));
     }
-    if (this.showPidAndActiveness) {
+    if (Tabbrowser.prefs.showPidAndActiveness) {
       const pids = this.getTabPids(tab);
       let debugStringArray = [];
       if (pids.length) {

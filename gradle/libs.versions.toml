@@ -5,7 +5,7 @@ android-lint = "32.4.0"
 
 # Kotlin
 coroutines = "1.11.0"
-kotlin = "2.4.10"
+kotlin = "2.4.20"
 serialization = "1.11.0"
 
 # AndroidX
@@ -75,7 +75,7 @@ kaml = "0.104.0"
 protobuf-plugin = "0.10.0"
 python-envs-plugin = "0.0.31"
 semanticdb-javac = "0.12.0"
-semanticdb-kotlinc = "0.10.0"
+semanticdb-kotlinc = "0.11.0"
 tomlj = "1.1.1"
 
 # Linters
@@ -108,13 +108,13 @@ robolectric = "4.16.1"
 adjust = "5.8.0"
 androidsvg = "1.4"
 disklrucache = "2.0.2"
-jetbrains-markdown = "0.7.11"
+jetbrains-markdown = "0.7.12"
 jna = "5.19.1"
 json = "20260814"
 jsoup = "1.23.2"
 lottie = "6.7.1"
 okhttp = "5.5.0"
-okio = "3.18.1"
+okio = "3.18.2"
 sentry = "8.55.0"
 zxing = "3.5.4"
 

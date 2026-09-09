@@ -270,14 +270,15 @@ pub fn update_prim_visibility(
             );
 
             if let Some(parent_surface_index) = parent_surface_index {
-                let parent_culling_rect = frame_state
-                    .surfaces[parent_surface_index.0]
-                    .culling_rect;
+                let parent_surface = &frame_state.surfaces[parent_surface_index.0];
+                let parent_culling_rect = parent_surface.culling_rect;
+                let parent_vis_spatial_node_index = parent_surface.visibility_spatial_node_index;
 
                 let surface = &mut frame_state
                     .surfaces[raster_config.surface_index.0 as usize];
 
                 surface.update_culling_rect(
+                    parent_vis_spatial_node_index,
                     parent_culling_rect,
                     &raster_config.composite_mode,
                     frame_context,
@@ -310,14 +311,18 @@ pub fn update_prim_visibility(
 
     let mut map_local_to_picture = surface.map_local_to_picture.clone();
 
+    let visibility_spatial_node_index = surface.visibility_spatial_node_index;
+
+    if surface.culling_rect_projection_failed {
+        frame_state.profile.add(profiler::VIS_CULLING_RECT_FALLBACKS, 1);
+    }
+
     let map_surface_to_vis = SpaceMapper::new_with_target(
-        // TODO: switch from root to raster space.
-        frame_context.root_spatial_node_index,
+        visibility_spatial_node_index,
         surface.surface_spatial_node_index,
         surface.culling_rect,
         frame_context.spatial_tree,
     );
-    let visibility_spatial_node_index = surface.visibility_spatial_node_index;
 
     // Snappers into this surface's raster space (the space its content is
     // rasterized in), reused across all clusters/prims in this surface (and a

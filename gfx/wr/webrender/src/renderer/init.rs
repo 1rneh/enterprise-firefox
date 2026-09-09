@@ -22,7 +22,6 @@ use glyph_rasterizer::{GlyphRasterThread, SharedFontResources};
 use crate::gpu_types::PrimitiveInstanceData;
 use crate::internal_types::{FastHashMap, FastHashSet};
 use crate::profiler::{self, Profiler, TransactionProfile};
-use crate::device::query::{GpuProfiler, GpuDebugMethod};
 use crate::render_backend::RenderBackend;
 use crate::texture_cache::TextureCacheConfig;
 use crate::renderer::{
@@ -359,7 +358,6 @@ pub fn create_webrender_instance(
     // `api_tx` is obtained from the render backend pool further down; only
     // the result channel is created here, since the renderer owns its rx end.
     let (result_tx, result_rx) = unbounded_channel();
-    let gl_type = gl.get_type();
 
     let mut device = Device::new(
         gl,
@@ -385,7 +383,7 @@ pub fn create_webrender_instance(
         options.allow_advanced_blend_equation &&
         device.get_capabilities().supports_advanced_blend_equation;
     let ext_blend_equation_advanced_coherent =
-        device.supports_extension("GL_KHR_blend_equation_advanced_coherent");
+        device.get_capabilities().supports_advanced_blend_equation_coherent;
 
     let enable_clear_scissor = options
         .enable_clear_scissor
@@ -423,7 +421,7 @@ pub fn create_webrender_instance(
     let shaders = match shaders {
         Some(shaders) => Rc::clone(shaders),
         None => {
-            let mut shaders = Shaders::new(&mut device, gl_type, &options)?;
+            let mut shaders = Shaders::new(&mut device, &options)?;
             if options.precache_flags.intersects(ShaderPrecacheFlags::ASYNC_COMPILE | ShaderPrecacheFlags::FULL_COMPILE) {
                 let mut pending_shaders = shaders.precache_all(options.precache_flags);
                 while shaders.resume_precache(&mut device, &mut pending_shaders)? {}
@@ -748,21 +746,7 @@ pub fn create_webrender_instance(
         ));
     }
 
-    let debug_method = if !options.enable_gpu_markers {
-        // The GPU markers are disabled.
-        GpuDebugMethod::None
-    } else if device.get_capabilities().supports_khr_debug {
-        GpuDebugMethod::KHR
-    } else if device.supports_extension("GL_EXT_debug_marker") {
-        GpuDebugMethod::MarkerEXT
-    } else {
-        warn!("asking to enable_gpu_markers but no supporting extension was found");
-        GpuDebugMethod::None
-    };
-
-    info!("using {:?}", debug_method);
-
-    let gpu_profiler = GpuProfiler::new(Rc::clone(device.rc_gl()), debug_method);
+    let gpu_profiler = device.create_gpu_profiler(options.enable_gpu_markers);
     #[cfg(feature = "capture")]
     let read_fbo = device.create_fbo();
 

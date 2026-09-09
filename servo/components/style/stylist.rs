@@ -4,13 +4,16 @@
 
 //! Selector matching.
 
+use crate::AllocErr;
+use crate::ArcSlice;
+use crate::FxHashMap;
 use crate::applicable_declarations::{
     ApplicableDeclarationBlock, ApplicableDeclarationList, CascadePriority, ScopeProximity,
 };
 use crate::computed_value_flags::ComputedValueFlags;
 use crate::context::{CascadeInputs, QuirksMode, TreeCountingCaches};
 use crate::custom_properties::ComputedCustomProperties;
-use crate::custom_properties::{parse_name, SpecifiedValue};
+use crate::custom_properties::{SpecifiedValue, parse_name};
 use crate::derives::*;
 use crate::device::Device;
 use crate::dom::TElement;
@@ -19,8 +22,8 @@ use crate::dom::TShadowRoot;
 #[cfg(feature = "gecko")]
 use crate::gecko_bindings::structs::{ServoStyleSetSizes, StyleRuleInclusion};
 use crate::invalidation::element::invalidation_map::{
-    note_selector_for_invalidation, AdditionalRelativeSelectorInvalidationMap, Dependency,
-    DependencyInvalidationKind, InvalidationMap, ScopeDependencyInvalidationKind,
+    AdditionalRelativeSelectorInvalidationMap, Dependency, DependencyInvalidationKind,
+    InvalidationMap, ScopeDependencyInvalidationKind, note_selector_for_invalidation,
 };
 use crate::invalidation::media_queries::{
     EffectiveMediaQueryResults, MediaListKey, ToMediaListKey,
@@ -53,15 +56,15 @@ use crate::shared_lock::{Locked, SharedRwLockReadGuard, StylesheetGuards};
 use crate::sharing::{RevalidationResult, ScopeRevalidationResult};
 use crate::stylesheet_set::{DataValidity, DocumentStylesheetSet, SheetRebuildKind};
 use crate::stylesheet_set::{DocumentStylesheetFlusher, SheetCollectionFlusher};
+use crate::stylesheets::UrlExtraData;
 use crate::stylesheets::container_rule::{ContainerAttributeDependencyKind, ContainerCondition};
 use crate::stylesheets::import_rule::ImportLayer;
 use crate::stylesheets::keyframes_rule::KeyframesAnimation;
 use crate::stylesheets::layer_rule::{LayerName, LayerOrder};
 use crate::stylesheets::scope_rule::{
-    collect_scope_roots, element_is_outside_of_scope, scope_selector_list_is_trivial,
-    ImplicitScopeRoot, ScopeRootCandidate, ScopeSubjectMap, ScopeTarget,
+    ImplicitScopeRoot, ScopeRootCandidate, ScopeSubjectMap, ScopeTarget, collect_scope_roots,
+    element_is_outside_of_scope, scope_selector_list_is_trivial,
 };
-use crate::stylesheets::UrlExtraData;
 use crate::stylesheets::{
     CounterStyleRule, CssRule, CssRuleRef, EffectiveRulesIterator, FontFaceRule,
     FontFeatureValuesRule, FontPaletteValuesRule, Origin, OriginSet, PagePseudoClassFlags,
@@ -72,10 +75,7 @@ use crate::stylesheets::{CustomMediaEvaluator, CustomMediaMap};
 #[cfg(feature = "gecko")]
 use crate::values::specified::position::PositionTryFallbacksItem;
 use crate::values::specified::position::PositionTryFallbacksTryTactic;
-use crate::values::{computed, AtomIdent, Parser, SourceLocation};
-use crate::AllocErr;
-use crate::ArcSlice;
-use crate::FxHashMap;
+use crate::values::{AtomIdent, Parser, SourceLocation, computed};
 use crate::{Atom, LocalName, Namespace, ShrinkIfNeeded, WeakAtom};
 use dom::{DocumentState, ElementState};
 #[cfg(feature = "gecko")]
@@ -84,8 +84,8 @@ use malloc_size_of::{MallocShallowSizeOf, MallocSizeOf, MallocSizeOfOps};
 use selectors::attr::{CaseSensitivity, NamespaceConstraint};
 use selectors::bloom::BloomFilter;
 use selectors::matching::{
-    matches_complex_selector, matches_selector, selector_may_match, MatchingContext, MatchingMode,
-    NeedsSelectorFlags, SelectorCaches, SubjectOrPseudoElement,
+    MatchingContext, MatchingMode, NeedsSelectorFlags, SelectorCaches, SubjectOrPseudoElement,
+    matches_complex_selector, matches_selector, selector_may_match,
 };
 use selectors::matching::{MatchingForInvalidation, VisitedHandlingMode};
 use selectors::parser::{
@@ -680,17 +680,12 @@ impl From<StyleRuleInclusion> for RuleInclusion {
 /// If used outside of `@scope`, it cannot possibly match the host.
 /// Even when inside of `@scope`, it's conditional if the selector will
 /// match the shadow host.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Default)]
 enum ScopeMatchesShadowHost {
+    #[default]
     NotApplicable,
     No,
     Yes,
-}
-
-impl Default for ScopeMatchesShadowHost {
-    fn default() -> Self {
-        Self::NotApplicable
-    }
 }
 
 impl ScopeMatchesShadowHost {
@@ -2220,13 +2215,13 @@ impl<T: 'static> LayerOrderedMap<T> {
     ) -> Result<(), AllocErr> {
         self.0.try_reserve(1)?;
         let vec = self.0.entry_ref(name).or_default();
-        if let Some(&mut (ref mut val, ref last_id)) = vec.last_mut() {
-            if *last_id == id {
-                if cmp(val, &v) != Ordering::Greater {
-                    *val = v;
-                }
-                return Ok(());
+        if let Some(&mut (ref mut val, ref last_id)) = vec.last_mut()
+            && *last_id == id
+        {
+            if cmp(val, &v) != Ordering::Greater {
+                *val = v;
             }
+            return Ok(());
         }
         vec.push((v, id));
         Ok(())
@@ -3178,11 +3173,11 @@ where
                 .zip(end.hashes.iter())
                 .all(|(selector, hashes)| {
                     // Like checking for scope-start, use the bloom filter here.
-                    if let Some(filter) = context.bloom_filter {
-                        if !selector_may_match(hashes, filter) {
-                            // Selector this hash belongs to won't cause us to be out of this scope.
-                            return true;
-                        }
+                    if let Some(filter) = context.bloom_filter
+                        && !selector_may_match(hashes, filter)
+                    {
+                        // Selector this hash belongs to won't cause us to be out of this scope.
+                        return true;
                     }
 
                     !element_is_outside_of_scope(
@@ -3880,9 +3875,11 @@ impl CascadeData {
                 }
             }
 
-            debug_assert!(!pseudo_elements
-                .iter()
-                .any(|p| p.is_precomputed() || p.is_unknown_webkit_pseudo_element()));
+            debug_assert!(
+                !pseudo_elements
+                    .iter()
+                    .any(|p| p.is_precomputed() || p.is_unknown_webkit_pseudo_element())
+            );
 
             let selector = match ancestor_selectors {
                 Some(s) => selector.replace_parent_selector(s),

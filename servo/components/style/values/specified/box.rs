@@ -9,6 +9,7 @@ pub use crate::logical_geometry::WritingModeProperty;
 use crate::parser::{Parse, ParserContext};
 use crate::properties::{LonghandId, PropertyDeclarationId, PropertyId};
 pub use crate::typed_om::{KeywordValue, ToTyped, TypedValue};
+use crate::values::CustomIdent;
 use crate::values::generics::box_::{
     BaselineShiftKeyword, BlockEllipsis, GenericBaselineShift, GenericContainIntrinsicSize,
     GenericLineClamp, GenericOverflowClipMargin, GenericPerspective, GenericScrollbarInset,
@@ -16,7 +17,6 @@ use crate::values::generics::box_::{
 };
 use crate::values::specified::length::{LengthPercentage, NonNegativeLength};
 use crate::values::specified::{AllowQuirks, NonNegativeNumberOrPercentage, PositiveInteger};
-use crate::values::CustomIdent;
 use cssparser::Parser;
 use num_traits::FromPrimitive;
 use std::fmt::{self, Write};
@@ -1424,11 +1424,11 @@ impl Parse for MaxLines<PositiveInteger> {
         let mut auto = false;
 
         loop {
-            if lines.is_none() {
-                if let Ok(value) = input.try_parse(|i| PositiveInteger::parse(context, i)) {
-                    lines = Some(value);
-                    continue;
-                }
+            if lines.is_none()
+                && let Ok(value) = input.try_parse(|i| PositiveInteger::parse(context, i))
+            {
+                lines = Some(value);
+                continue;
             }
 
             if !auto && input.try_parse(|i| i.expect_ident_matching("auto")).is_ok() {
@@ -1458,17 +1458,17 @@ impl Parse for LineClamp {
         let mut block_ellipsis = None;
 
         loop {
-            if max_lines.is_none() {
-                if let Ok(value) = input.try_parse(|i| MaxLines::parse(context, i)) {
-                    max_lines = Some(value);
-                    continue;
-                }
+            if max_lines.is_none()
+                && let Ok(value) = input.try_parse(|i| MaxLines::parse(context, i))
+            {
+                max_lines = Some(value);
+                continue;
             }
-            if block_ellipsis.is_none() {
-                if let Ok(value) = input.try_parse(|i| BlockEllipsis::parse(context, i)) {
-                    block_ellipsis = Some(value);
-                    continue;
-                }
+            if block_ellipsis.is_none()
+                && let Ok(value) = input.try_parse(|i| BlockEllipsis::parse(context, i))
+            {
+                block_ellipsis = Some(value);
+                continue;
             }
 
             break;
@@ -1609,9 +1609,7 @@ impl ContainerType {
         if self.contains(Self::SIZE | Self::INLINE_SIZE) {
             return false;
         }
-        if self.contains(Self::SCROLL_STATE)
-            && !crate::pref!("layout.css.scroll-state.enabled")
-        {
+        if self.contains(Self::SCROLL_STATE) && !crate::pref!("layout.css.scroll-state.enabled") {
             return false;
         }
         true

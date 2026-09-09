@@ -8,6 +8,8 @@
 use crate::computed_value_flags::ComputedValueFlags;
 use crate::dom::TElement;
 use crate::logical_geometry::PhysicalSide;
+#[cfg(feature = "gecko")]
+use crate::properties::LonghandId;
 use crate::properties::longhands::display::computed_value::T as Display;
 use crate::properties::longhands::float::computed_value::T as Float;
 use crate::properties::longhands::position::computed_value::T as Position;
@@ -16,8 +18,6 @@ use crate::properties::longhands::{
     contain::computed_value::T as Contain, container_type::computed_value::T as ContainerType,
     content_visibility::computed_value::T as ContentVisibility,
 };
-#[cfg(feature = "gecko")]
-use crate::properties::LonghandId;
 use crate::properties::{ComputedValues, LonghandIdSet, StyleBuilder};
 use crate::values::computed::position::{
     PositionTryFallbacksTryTactic, PositionTryFallbacksTryTacticKeyword, TryTacticAdjustment,
@@ -1030,18 +1030,17 @@ impl<'a, 'b: 'a> StyleAdjuster<'a, 'b> {
     ) where
         E: TElement,
     {
-        if cfg!(debug_assertions) {
-            if let Some(e) = element {
-                if let Some(p) = e.implemented_pseudo_element() {
-                    // It'd be nice to assert `self.style.pseudo == Some(&pseudo)`,
-                    // but we do resolve ::-moz-list pseudos on ::before / ::after
-                    // content, sigh.
-                    debug_assert!(
-                        self.style.pseudo.is_some(),
-                        "Someone really messed up (no pseudo style for {e:?}, {p:?})"
-                    );
-                }
-            }
+        if cfg!(debug_assertions)
+            && let Some(e) = element
+            && let Some(p) = e.implemented_pseudo_element()
+        {
+            // It'd be nice to assert `self.style.pseudo == Some(&pseudo)`,
+            // but we do resolve ::-moz-list pseudos on ::before / ::after
+            // content, sigh.
+            debug_assert!(
+                self.style.pseudo.is_some(),
+                "Someone really messed up (no pseudo style for {e:?}, {p:?})"
+            );
         }
         // FIXME(emilio): The apply_declarations callsite in Servo's
         // animation, and the font stuff for Gecko

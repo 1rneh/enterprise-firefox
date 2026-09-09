@@ -6,12 +6,13 @@
 //!
 //! TODO(emilio): Enhance docs.
 
+use super::CSSFloat;
 use super::computed::{Context, ToComputedValue};
 use super::generics::grid::ImplicitGridTracks as GenericImplicitGridTracks;
 use super::generics::grid::{GridLine as GenericGridLine, TrackBreadth as GenericTrackBreadth};
 use super::generics::grid::{TrackList as GenericTrackList, TrackSize as GenericTrackSize};
 use super::generics::{self, NonNegative};
-use super::CSSFloat;
+use crate::FxHashMap;
 use crate::context::QuirksMode;
 use crate::derives::*;
 use crate::parser::{Parse, ParserContext};
@@ -19,7 +20,6 @@ use crate::typed_om::NumericBaseType;
 use crate::values::computed;
 use crate::values::specified::calc::PercentageContext;
 use crate::values::specified::number::parse_number_with_clamping_mode;
-use crate::FxHashMap;
 use crate::{Namespace, Prefix};
 use cssparser::{Parser, Token};
 use style_traits::values::specified::AllowedNumericType;
@@ -344,9 +344,9 @@ impl ToComputedValue for Opacity {
     #[inline]
     fn to_computed_value(&self, context: &Context) -> CSSFloat {
         let value = self.0.to_computed_value(context).value();
-        if context.for_animation {
-            // Type <number> and <percentage> should be able to interpolate
-            // out-of-range opacity values which benefits additive animation
+        if context.for_smil_animation {
+            // SMIL expects to be able to interpolate between out-of-range
+            // opacity values.
             value
         } else {
             value.min(1.0).max(0.0)

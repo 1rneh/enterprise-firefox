@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::super::shader_source::{OPTIMIZED_SHADERS, UNOPTIMIZED_SHADERS};
+use super::query_gl::{GpuDebugMethod, GpuProfiler};
 use api::{ImageDescriptor, ImageFormat, Parameter, BoolParameter, IntParameter, ImageRendering};
 use api::{MixBlendMode, ImageBufferKind, VoidPtrToSizeFn};
 use api::{CrashAnnotator, CrashAnnotation, CrashAnnotatorGuard};
@@ -33,8 +34,9 @@ use std::{
     time::Duration,
 };
 use webrender_build::shader::{
-    ProgramSourceDigest, ShaderKind, ShaderVersion, build_shader_main_string,
-    build_shader_prefix_string, do_build_shader_string, shader_source_from_file,
+    ProgramSourceDigest, ShaderFeatureFlags, ShaderKind, ShaderSourceMap, ShaderVersion,
+    build_shader_main_string, build_shader_prefix_string, do_build_shader_string,
+    shader_source_from_file,
 };
 use malloc_size_of::MallocSizeOfOps;
 
@@ -760,12 +762,15 @@ impl ProgramSourceInfo {
                 let override_path = device.resource_override_path.as_ref();
                 let source_and_digest = UNOPTIMIZED_SHADERS.get(&name).expect("Shader not found");
 
+                let mut source_map = ShaderSourceMap::new();
+
                 // Hash the prefix string.
                 build_shader_prefix_string(
                     gl_version,
                     &features,
                     ShaderKind::Vertex,
                     &name,
+                    &mut source_map,
                     &mut |s| hasher.write(s.as_bytes()),
                 );
 
@@ -776,6 +781,7 @@ impl ProgramSourceInfo {
                     build_shader_main_string(
                         &name,
                         &|f| get_unoptimized_shader_source(f, override_path),
+                        &mut source_map,
                         &mut |s| h.write(s.as_bytes())
                     );
                     let d: ProgramSourceDigest = h.into();
@@ -976,6 +982,39 @@ impl UniformLocation {
     pub const INVALID: Self = UniformLocation(-1);
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum GraphicsApi {
+    OpenGL,
+}
+
+/// How a draw is blended with the contents of the bound draw target.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+pub enum BlendMode {
+    None,
+    Alpha,
+    PremultipliedAlpha,
+    PremultipliedDestOut,
+    /// Destination scaled by source, used to intersect clip masks.
+    Multiply,
+    SubpixelDualSource,
+    Advanced(MixBlendMode),
+    Screen,
+    Exclusion,
+    PlusLighter,
+    /// Debug visualisation that accumulates overdraw.
+    ShowOverdraw,
+}
+
+/// Describes the graphics API and driver a device is running on.
+#[derive(Clone, Debug)]
+pub struct GraphicsApiInfo {
+    pub kind: GraphicsApi,
+    pub renderer: String,
+    pub version: String,
+}
+
 #[derive(Debug)]
 pub struct Capabilities {
     /// Whether multisampled render targets are supported.
@@ -986,6 +1025,9 @@ pub struct Capabilities {
     pub supports_buffer_storage: bool,
     /// Whether advanced blend equations are supported.
     pub supports_advanced_blend_equation: bool,
+    /// Whether advanced blend equations are coherent, meaning no barrier is
+    /// required between overlapping draws.
+    pub supports_advanced_blend_equation_coherent: bool,
     /// Whether dual-source blending is supported.
     pub supports_dual_source_blending: bool,
     /// Whether KHR_debug is supported for getting debug messages from
@@ -1031,6 +1073,15 @@ pub struct Capabilities {
     /// textures can be used as normal. If false, external textures can only be rendered with
     /// certain shaders, and must first be copied in to regular textures for others.
     pub supports_image_external_essl3: bool,
+    /// Whether rectangle textures (GL_TEXTURE_RECTANGLE) can be sampled.
+    pub supports_texture_rect: bool,
+    /// Whether external textures (GL_TEXTURE_EXTERNAL_OES) can be sampled.
+    pub supports_texture_external: bool,
+    /// Whether external textures can be sampled as BT.709 YUV, via GL_EXT_YUV_target.
+    pub supports_texture_external_bt709: bool,
+    /// Whether pixels read back from the default framebuffer arrive with the
+    /// top row first.
+    pub readback_rows_top_down: bool,
     /// Whether the VAO must be rebound after an attached VBO has been orphaned.
     pub requires_vao_rebind_after_orphaning: bool,
     /// Whether glReadPixels can read back BGRA directly (e.g. on GLES this
@@ -1760,6 +1811,8 @@ impl Device {
         let supports_advanced_blend_equation =
             supports_extension(&extensions, "GL_KHR_blend_equation_advanced") &&
             !is_adreno;
+        let supports_advanced_blend_equation_coherent =
+            supports_extension(&extensions, "GL_KHR_blend_equation_advanced_coherent");
 
         let supports_dual_source_blending = match gl.get_type() {
             gl::GlType::Gl => supports_extension(&extensions,"GL_ARB_blend_func_extended") &&
@@ -1868,6 +1921,17 @@ impl Device {
             _ => supports_extension(&extensions, "GL_OES_EGL_image_external_essl3"),
         };
 
+        let (supports_texture_rect, supports_texture_external) = match gl.get_type() {
+            gl::GlType::Gl => (true, false),
+            gl::GlType::Gles => (false, true),
+        };
+        let supports_texture_external_bt709 =
+            supports_texture_external && supports_extension(&extensions, "GL_EXT_YUV_target");
+
+        // On Windows a GLES context is an ANGLE context, whose default framebuffer
+        // is a D3D surface with a top-left origin.
+        let readback_rows_top_down = cfg!(windows) && gl.get_type() == gl::GlType::Gles;
+
         let mut requires_batched_texture_uploads = None;
         if is_software_webrender {
             // No benefit to batching texture uploads with swgl.
@@ -1972,6 +2036,7 @@ impl Device {
                 supports_copy_image_sub_data,
                 supports_buffer_storage,
                 supports_advanced_blend_equation,
+                supports_advanced_blend_equation_coherent,
                 supports_dual_source_blending,
                 supports_khr_debug,
                 supports_texture_swizzle,
@@ -1989,6 +2054,10 @@ impl Device {
                 uses_native_clip_mask,
                 uses_native_antialiasing,
                 supports_image_external_essl3,
+                supports_texture_rect,
+                supports_texture_external,
+                supports_texture_external_bt709,
+                readback_rows_top_down,
                 requires_vao_rebind_after_orphaning,
                 supports_bgra_read,
                 supports_base_instance,
@@ -2048,8 +2117,23 @@ impl Device {
         self.initialize_color_targets_with_pink = enabled;
     }
 
-    pub fn rc_gl(&self) -> &Rc<dyn gl::Gl> {
-        &self.gl
+    /// Selects the best available means of annotating the command stream when
+    /// `enable_markers` is set.
+    pub fn create_gpu_profiler(&self, enable_markers: bool) -> GpuProfiler {
+        let debug_method = if !enable_markers {
+            GpuDebugMethod::None
+        } else if self.capabilities.supports_khr_debug {
+            GpuDebugMethod::KHR
+        } else if self.supports_extension("GL_EXT_debug_marker") {
+            GpuDebugMethod::MarkerEXT
+        } else {
+            warn!("asking to enable_gpu_markers but no supporting extension was found");
+            GpuDebugMethod::None
+        };
+
+        info!("using {:?}", debug_method);
+
+        GpuProfiler::new(Rc::clone(&self.gl), debug_method)
     }
 
     pub fn set_parameter(&mut self, param: &Parameter) {
@@ -2089,6 +2173,45 @@ impl Device {
 
     pub fn get_capabilities(&self) -> &Capabilities {
         &self.capabilities
+    }
+
+    pub fn api_info(&self) -> GraphicsApiInfo {
+        GraphicsApiInfo {
+            kind: GraphicsApi::OpenGL,
+            version: self.gl.get_string(gl::VERSION),
+            renderer: self.gl.get_string(gl::RENDERER),
+        }
+    }
+
+    /// Consumes any pending device error and reports whether it was an
+    /// out-of-memory condition.
+    pub fn take_out_of_memory_error(&self) -> bool {
+        // Probably should check for other errors?
+        self.gl.get_error() == gl::OUT_OF_MEMORY
+    }
+
+    /// Orders reads of the framebuffer by subsequent advanced blend draws
+    /// after preceding writes to the same pixels.
+    pub fn blend_barrier(&self) {
+        self.gl.blend_barrier_khr();
+    }
+
+    pub fn shader_feature_flags(&self) -> ShaderFeatureFlags {
+        match self.gl.get_type() {
+            gl::GlType::Gl => ShaderFeatureFlags::GL,
+            gl::GlType::Gles => {
+                let mut flags = ShaderFeatureFlags::GLES;
+                flags |= if self.capabilities.supports_image_external_essl3 {
+                    ShaderFeatureFlags::TEXTURE_EXTERNAL
+                } else {
+                    ShaderFeatureFlags::TEXTURE_EXTERNAL_ESSL1
+                };
+                if self.capabilities.supports_texture_external_bt709 {
+                    flags |= ShaderFeatureFlags::TEXTURE_EXTERNAL_BT709;
+                }
+                flags
+            }
+        }
     }
 
     pub fn preferred_color_formats(&self) -> TextureFormatPair<ImageFormat> {
@@ -3119,11 +3242,13 @@ impl Device {
         base_filename: &str,
         output: F,
     ) {
+        let mut source_map = ShaderSourceMap::new();
         do_build_shader_string(
             get_shader_version(&*self.gl),
             features,
             kind,
             base_filename,
+            &mut source_map,
             &|f| get_unoptimized_shader_source(f, self.resource_override_path.as_ref()),
             output,
         )
@@ -3845,23 +3970,24 @@ impl Device {
         }
     }
 
-    pub fn enable_depth(&self, depth_func: DepthFunction) {
-        assert!(self.depth_available, "Enabling depth test without depth target");
-        self.gl.enable(gl::DEPTH_TEST);
-        self.gl.depth_func(depth_func as gl::GLuint);
+    pub fn set_depth_test(&self, depth_func: Option<DepthFunction>) {
+        match depth_func {
+            Some(depth_func) => {
+                assert!(self.depth_available, "Enabling depth test without depth target");
+                self.gl.enable(gl::DEPTH_TEST);
+                self.gl.depth_func(depth_func as gl::GLuint);
+            }
+            None => {
+                self.gl.disable(gl::DEPTH_TEST);
+            }
+        }
     }
 
-    pub fn disable_depth(&self) {
-        self.gl.disable(gl::DEPTH_TEST);
-    }
-
-    pub fn enable_depth_write(&self) {
-        assert!(self.depth_available, "Enabling depth write without depth target");
-        self.gl.depth_mask(true);
-    }
-
-    pub fn disable_depth_write(&self) {
-        self.gl.depth_mask(false);
+    pub fn set_depth_write(&self, enable: bool) {
+        if enable {
+            assert!(self.depth_available, "Enabling depth write without depth target");
+        }
+        self.gl.depth_mask(enable);
     }
 
     pub fn disable_stencil(&self) {
@@ -3885,15 +4011,11 @@ impl Device {
         self.gl.disable(gl::SCISSOR_TEST);
     }
 
-    pub fn enable_color_write(&self) {
-        self.gl.color_mask(true, true, true, true);
+    pub fn set_color_write(&self, enable: bool) {
+        self.gl.color_mask(enable, enable, enable, enable);
     }
 
-    pub fn disable_color_write(&self) {
-        self.gl.color_mask(false, false, false, false);
-    }
-
-    pub fn set_blend(&mut self, enable: bool) {
+    fn set_blend(&mut self, enable: bool) {
         if enable {
             self.gl.enable(gl::BLEND);
         } else {
@@ -3902,6 +4024,27 @@ impl Device {
         #[cfg(debug_assertions)]
         {
             self.shader_is_ready = false;
+        }
+    }
+
+    pub fn set_blend_mode(&mut self, mode: BlendMode) {
+        if mode == BlendMode::None {
+            self.set_blend(false);
+            return;
+        }
+        self.set_blend(true);
+        match mode {
+            BlendMode::None => unreachable!(),
+            BlendMode::Alpha => self.set_blend_mode_alpha(),
+            BlendMode::PremultipliedAlpha => self.set_blend_mode_premultiplied_alpha(),
+            BlendMode::PremultipliedDestOut => self.set_blend_mode_premultiplied_dest_out(),
+            BlendMode::Multiply => self.set_blend_mode_multiply(),
+            BlendMode::SubpixelDualSource => self.set_blend_mode_subpixel_dual_source(),
+            BlendMode::Advanced(mix_mode) => self.set_blend_mode_advanced(mix_mode),
+            BlendMode::Screen => self.set_blend_mode_screen(),
+            BlendMode::Exclusion => self.set_blend_mode_exclusion(),
+            BlendMode::PlusLighter => self.set_blend_mode_plus_lighter(),
+            BlendMode::ShowOverdraw => self.set_blend_mode_show_overdraw(),
         }
     }
 
@@ -3922,65 +4065,65 @@ impl Device {
         }
     }
 
-    pub fn set_blend_mode_alpha(&mut self) {
+    fn set_blend_mode_alpha(&mut self) {
         self.set_blend_factors(
             (gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA),
             (gl::ONE, gl::ONE_MINUS_SRC_ALPHA),
         );
     }
 
-    pub fn set_blend_mode_premultiplied_alpha(&mut self) {
+    fn set_blend_mode_premultiplied_alpha(&mut self) {
         self.set_blend_factors(
             (gl::ONE, gl::ONE_MINUS_SRC_ALPHA),
             (gl::ONE, gl::ONE_MINUS_SRC_ALPHA),
         );
     }
 
-    pub fn set_blend_mode_premultiplied_dest_out(&mut self) {
+    fn set_blend_mode_premultiplied_dest_out(&mut self) {
         self.set_blend_factors(
             (gl::ZERO, gl::ONE_MINUS_SRC_ALPHA),
             (gl::ZERO, gl::ONE_MINUS_SRC_ALPHA),
         );
     }
 
-    pub fn set_blend_mode_multiply(&mut self) {
+    fn set_blend_mode_multiply(&mut self) {
         self.set_blend_factors(
             (gl::ZERO, gl::SRC_COLOR),
             (gl::ZERO, gl::SRC_ALPHA),
         );
     }
-    pub fn set_blend_mode_subpixel_dual_source(&mut self) {
+    fn set_blend_mode_subpixel_dual_source(&mut self) {
         self.set_blend_factors(
             (gl::ONE, gl::ONE_MINUS_SRC1_COLOR),
             (gl::ONE, gl::ONE_MINUS_SRC1_ALPHA),
         );
     }
-    pub fn set_blend_mode_screen(&mut self) {
+    fn set_blend_mode_screen(&mut self) {
         self.set_blend_factors(
             (gl::ONE, gl::ONE_MINUS_SRC_COLOR),
             (gl::ONE, gl::ONE_MINUS_SRC_ALPHA),
         );
     }
-    pub fn set_blend_mode_plus_lighter(&mut self) {
+    fn set_blend_mode_plus_lighter(&mut self) {
         self.set_blend_factors(
             (gl::ONE, gl::ONE),
             (gl::ONE, gl::ONE),
         );
     }
-    pub fn set_blend_mode_exclusion(&mut self) {
+    fn set_blend_mode_exclusion(&mut self) {
         self.set_blend_factors(
             (gl::ONE_MINUS_DST_COLOR, gl::ONE_MINUS_SRC_COLOR),
             (gl::ONE, gl::ONE_MINUS_SRC_ALPHA),
         );
     }
-    pub fn set_blend_mode_show_overdraw(&mut self) {
+    fn set_blend_mode_show_overdraw(&mut self) {
         self.set_blend_factors(
             (gl::ONE, gl::ONE_MINUS_SRC_ALPHA),
             (gl::ONE, gl::ONE_MINUS_SRC_ALPHA),
         );
     }
 
-    pub fn set_blend_mode_advanced(&mut self, mode: MixBlendMode) {
+    fn set_blend_mode_advanced(&mut self, mode: MixBlendMode) {
         self.gl.blend_equation(match mode {
             MixBlendMode::Normal => {
                 // blend factor only make sense for the normal mode
@@ -4012,7 +4155,7 @@ impl Device {
         }
     }
 
-    pub fn supports_extension(&self, extension: &str) -> bool {
+    fn supports_extension(&self, extension: &str) -> bool {
         supports_extension(&self.extensions, extension)
     }
 

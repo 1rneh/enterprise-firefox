@@ -7,17 +7,17 @@
 use std::fmt::Write;
 
 use super::{
+    AbsoluteColor, ColorFlags, ColorSpace,
     component::ColorComponent,
     convert::normalize_hue,
     parsing::{NumberOrAngleComponent, NumberOrPercentageComponent},
-    AbsoluteColor, ColorFlags, ColorSpace,
 };
 use crate::derives::*;
 use crate::values::{
     computed, computed::color::Color as ComputedColor, generics::Optional, normalize,
     specified::color::Color as SpecifiedColor,
 };
-use cssparser::color::{clamp_floor_256_f32, OPAQUE};
+use cssparser::color::{OPAQUE, clamp_floor_256_f32};
 
 /// Represents a specified color function.
 #[derive(Clone, Debug, MallocSizeOf, PartialEq, ToAnimatedValue, ToShmem)]
@@ -120,10 +120,8 @@ impl ColorFunction<SpecifiedColor> {
         let resolvable = origin.as_ref().is_none_or(|o| o.is_absolute());
 
         let computed = self.to_computed_value(context, origin);
-        if resolvable {
-            if let Ok(absolute) = computed.to_absolute_color() {
-                return Ok(ComputedColor::Absolute(absolute));
-            }
+        if resolvable && let Ok(absolute) = computed.to_absolute_color() {
+            return Ok(ComputedColor::Absolute(absolute));
         }
 
         Ok(ComputedColor::ColorFunction(Box::new(computed)))

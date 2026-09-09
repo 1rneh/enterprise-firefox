@@ -12,15 +12,15 @@ use crate::font_face::parse_font_face_block;
 use crate::media_queries::MediaList;
 use crate::parser::{Parse, ParserContext};
 use crate::properties::declaration_block::{
-    parse_property_declaration_list, DeclarationParserState, PropertyDeclarationBlock,
+    DeclarationParserState, PropertyDeclarationBlock, parse_property_declaration_list,
 };
-use crate::properties_and_values::rule::{parse_property_block, PropertyRuleName};
+use crate::properties_and_values::rule::{PropertyRuleName, parse_property_block};
 use crate::selector_parser::{SelectorImpl, SelectorParser};
 use crate::shared_lock::{Locked, SharedRwLock};
 use crate::stylesheets::container_rule::{ContainerCondition, ContainerConditions, ContainerRule};
 use crate::stylesheets::document_rule::DocumentCondition;
 use crate::stylesheets::font_feature_values_rule::{
-    parse_family_name_list, FontFeatureValuesBlockType,
+    FontFeatureValuesBlockType, parse_family_name_list,
 };
 use crate::stylesheets::import_rule::{ImportLayer, ImportRule, ImportSupportsCondition};
 use crate::stylesheets::keyframes_rule::parse_keyframe_list;
@@ -38,9 +38,9 @@ use crate::values::computed::font::FamilyName;
 use crate::values::{CssUrl, CustomIdent, DashedIdent, KeyframesName};
 use crate::{Atom, Namespace, Prefix};
 use cssparser::{
-    match_ignore_ascii_case, AtRuleParser, BasicParseError, BasicParseErrorKind, CowRcStr,
-    DeclarationParser, Parser, ParserState, QualifiedRuleParser, RuleBodyItemParser,
-    RuleBodyParser, SourcePosition,
+    AtRuleParser, BasicParseError, BasicParseErrorKind, CowRcStr, DeclarationParser, Parser,
+    ParserState, QualifiedRuleParser, RuleBodyItemParser, RuleBodyParser, SourcePosition,
+    match_ignore_ascii_case,
 };
 use selectors::parser::{ParseRelative, SelectorList};
 use servo_arc::Arc;
@@ -77,10 +77,10 @@ impl<'a> InsertRuleContext<'a> {
                 let next_non_layer_statement_rule = self.rule_list[index + 1..]
                     .iter()
                     .find(|r| !matches!(*r, CssRule::LayerStatement(..)));
-                if let Some(non_layer) = next_non_layer_statement_rule {
-                    if matches!(*non_layer, CssRule::Import(..) | CssRule::Namespace(..)) {
-                        return State::EarlyLayers;
-                    }
+                if let Some(non_layer) = next_non_layer_statement_rule
+                    && matches!(*non_layer, CssRule::Import(..) | CssRule::Namespace(..))
+                {
+                    return State::EarlyLayers;
                 }
                 State::Body
             },
@@ -300,11 +300,10 @@ impl AtRuleType {
             "view-transition" if crate::pref!("dom.viewTransitions.cross-document.enabled") => Self::ViewTransition,
             _ => {
                 // The margin at-rules supported within @page.
-                if cfg!(feature = "gecko") && crate::pref!("layout.css.margin-rules.enabled") {
-                    if let Some(rule_type) = MarginRuleType::from_name(name) {
+                if cfg!(feature = "gecko") && crate::pref!("layout.css.margin-rules.enabled")
+                    && let Some(rule_type) = MarginRuleType::from_name(name) {
                         return Some(Self::Margin(rule_type));
                     }
-                }
 
                 // The font feature value at-rules supported within @font-feature-values.
                 if cfg!(feature = "gecko") && FontFeatureValuesBlockType::from_name(name).is_some() {
@@ -453,7 +452,7 @@ impl<'a, 'i> AtRuleParser<'i> for TopLevelRuleParser<'a, 'i> {
                     }) => {
                         return Err(ParseError::custom(
                             StyleParseErrorKind::UnexpectedTokenWithinNamespace,
-                        ))
+                        ));
                     },
                     Err(e) => return Err(e.into()),
                 };
@@ -1016,7 +1015,7 @@ impl<'a, 'i> AtRuleParser<'i> for NestedRuleParser<'a, 'i> {
                     _ => {
                         return Err(ParseError::from_basic_kind(
                             BasicParseErrorKind::AtRuleBodyInvalid,
-                        ))
+                        ));
                     },
                 };
                 CssRule::LayerBlock(Arc::new(LayerBlockRule {

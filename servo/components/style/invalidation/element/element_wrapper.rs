@@ -138,7 +138,9 @@ where
         }
 
         let opaque = self.element.opaque();
-        if let Some((e, s)) = self.snapshots.last_snapshot.get() && e == opaque {
+        if let Some((e, s)) = self.snapshots.last_snapshot.get()
+            && e == opaque
+        {
             return Some(s);
         }
 
@@ -218,19 +220,19 @@ where
 
             #[cfg(feature = "gecko")]
             NonTSPseudoClass::MozTableBorderNonzero => {
-                if let Some(snapshot) = self.snapshot() {
-                    if snapshot.has_other_pseudo_class_state() {
-                        return snapshot.mIsTableBorderNonzero();
-                    }
+                if let Some(snapshot) = self.snapshot()
+                    && snapshot.has_other_pseudo_class_state()
+                {
+                    return snapshot.mIsTableBorderNonzero();
                 }
             },
 
             #[cfg(feature = "gecko")]
             NonTSPseudoClass::MozSelectListBox => {
-                if let Some(snapshot) = self.snapshot() {
-                    if snapshot.has_other_pseudo_class_state() {
-                        return snapshot.mIsSelectListBox();
-                    }
+                if let Some(snapshot) = self.snapshot()
+                    && snapshot.has_other_pseudo_class_state()
+                {
+                    return snapshot.mIsSelectListBox();
                 }
             },
 

@@ -1042,13 +1042,24 @@ impl PictureInstance {
                 // right space here, we should be able to find the dirty rect in this space
                 // that was built during the dirty rect propagation at the beginning of the
                 // frame.
-                let map_ancestor_to_vis = SpaceMapper::<LayoutPixel, VisPixel>::new_with_target(
-                    visibility_spatial_node_index,
+                // The 3D context's containing block is normally inside the
+                // surface the dirty rect belongs to, but if it is not there is
+                // no transform between the two to ask for, and "no lateral
+                // bounds" is the same conservative answer as a failed unmap.
+                let ancestor_dirty_rect = if spatial_tree.can_get_relative_transform(
                     ancestor_spatial_node_index,
-                    VisRect::max_rect(),
-                    spatial_tree,
-                );
-                let ancestor_dirty_rect = map_ancestor_to_vis.unmap(&dirty_rect);
+                    visibility_spatial_node_index,
+                ) {
+                    let map_ancestor_to_vis = SpaceMapper::<LayoutPixel, VisPixel>::new_with_target(
+                        visibility_spatial_node_index,
+                        ancestor_spatial_node_index,
+                        VisRect::max_rect(),
+                        spatial_tree,
+                    );
+                    map_ancestor_to_vis.unmap(&dirty_rect)
+                } else {
+                    None
+                };
 
                 let ancestor_bounds = ancestor_dirty_rect.map(|r| r.cast().to_rect().to_untyped());
 
@@ -2909,6 +2920,7 @@ fn test_large_surface_scale_1() {
             is_opaque: true,
             clipping_rect: PictureRect::max_rect(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
             map_local_to_picture: map_local_to_picture.clone(),
             raster_spatial_node_index: root_reference_frame_index,
             surface_spatial_node_index: root_reference_frame_index,
@@ -2930,6 +2942,7 @@ fn test_large_surface_scale_1() {
             is_opaque: true,
             clipping_rect: PictureRect::max_rect(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
             map_local_to_picture,
             raster_spatial_node_index: root_reference_frame_index,
             surface_spatial_node_index: root_reference_frame_index,
@@ -3024,6 +3037,7 @@ fn test_drop_filter_dirty_region_outside_prim() {
             force_scissor_rect: false,
             svgfe_source_map: ScaleOffset::identity(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
         },
         SurfaceInfo {
             unclipped_local_rect: PictureRect::new(
@@ -3048,6 +3062,7 @@ fn test_drop_filter_dirty_region_outside_prim() {
             force_scissor_rect: false,
             svgfe_source_map: ScaleOffset::identity(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
         },
     ];
 
@@ -3144,6 +3159,7 @@ fn test_drop_filter_partial_dirty_content_inflate() {
             force_scissor_rect: false,
             svgfe_source_map: ScaleOffset::identity(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
         },
         SurfaceInfo {
             unclipped_local_rect: PictureRect::new(
@@ -3168,6 +3184,7 @@ fn test_drop_filter_partial_dirty_content_inflate() {
             force_scissor_rect: false,
             svgfe_source_map: ScaleOffset::identity(),
             culling_rect: VisRect::max_rect(),
+            culling_rect_projection_failed: false,
         },
     ];
 

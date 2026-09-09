@@ -517,6 +517,12 @@ prefs = ["browser.cache.disk.encryption.enabled=true"]
 
 ["test_cache2-43-purge-residual-folder.js"]
 
+["test_cache2-44-no-rewrite-unchanged-metadata.js"]
+
+["test_cache2-44-clear-origin-context-evictor.js"]
+
+["test_cache2-45-clear-base-domain-context-evictor.js"]
+
 ["test_cache2_clear_with_principal.js"]
 run-sequentially = ["true"] # httpd server
 
@@ -1490,6 +1496,8 @@ run-if = [
 ]
 
 ["test_no_cookies_after_last_pb_exit.js"]
+
+["test_no_vary_search_memory_only.js"]
 
 ["test_no_vary_search_revalidation.js"]
 

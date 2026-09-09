@@ -4,20 +4,20 @@
 
 //! Specified types for text properties.
 
+use crate::Zero;
 use crate::derives::*;
 use crate::parser::{Parse, ParserContext};
 use crate::properties::longhands::writing_mode::computed_value::T as SpecifiedWritingMode;
 use crate::values::computed;
 use crate::values::computed::text::TextEmphasisStyle as ComputedTextEmphasisStyle;
 use crate::values::computed::{Context, ToComputedValue};
+use crate::values::generics::NumberOrAuto;
 use crate::values::generics::text::{
     GenericHyphenateLimitChars, GenericInitialLetter, GenericTextDecorationInset,
     GenericTextDecorationLength, GenericTextIndent,
 };
-use crate::values::generics::NumberOrAuto;
 use crate::values::specified::length::{Length, LengthPercentage};
 use crate::values::specified::{AllowQuirks, Integer, Number};
-use crate::Zero;
 use cssparser::Parser;
 use icu_segmenter::GraphemeClusterSegmenter;
 use std::fmt::{self, Write};
@@ -987,13 +987,12 @@ impl Parse for TextIndent {
         // The length-percentage and the two possible keywords can occur in any order.
         while !input.is_exhausted() {
             // If we haven't seen a length yet, try to parse one.
-            if length.is_none() {
-                if let Ok(len) = input
+            if length.is_none()
+                && let Ok(len) = input
                     .try_parse(|i| LengthPercentage::parse_quirky(context, i, AllowQuirks::Yes))
-                {
-                    length = Some(len);
-                    continue;
-                }
+            {
+                length = Some(len);
+                continue;
             }
 
             // Servo doesn't support the keywords, so just break and let the caller deal with it.

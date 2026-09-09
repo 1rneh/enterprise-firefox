@@ -225,7 +225,7 @@ export let WebsiteFilter = {
   _recordBlocklistDomainBrowsed(originalUrl, resolvedUrl, referrer) {
     const isEnabled = Services.prefs.getBoolPref(
       "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
-      true
+      false
     );
     if (!isEnabled) {
       return;

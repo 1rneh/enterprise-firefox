@@ -452,7 +452,7 @@ var PrintEventHandler = {
   _recordPagePrinted(aSettings) {
     const isEnabled = Services.prefs.getBoolPref(
       "print.enterprise.telemetry.printPage.enabled",
-      true
+      false
     );
     if (!isEnabled) {
       return;

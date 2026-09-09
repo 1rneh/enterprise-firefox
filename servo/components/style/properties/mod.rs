@@ -21,6 +21,7 @@ pub mod generated {
     include!(concat!(env!("OUT_DIR"), "/properties.rs"));
 }
 
+use crate::FxHashMap;
 use crate::applicable_declarations::RevertKind;
 use crate::custom_properties::{self, ComputedSubstitutionFunctions, SubstitutionResult};
 use crate::derives::*;
@@ -34,9 +35,8 @@ use crate::stylesheets::Origin;
 use crate::stylist::Stylist;
 use crate::typed_om::{ToTyped, TypedValue};
 use crate::values::{computed, serialize_atom_name};
-use crate::FxHashMap;
 use arrayvec::{ArrayVec, Drain as ArrayVecDrain};
-use cssparser::{match_ignore_ascii_case, Parser};
+use cssparser::{Parser, match_ignore_ascii_case};
 use servo_arc::Arc;
 use std::{
     borrow::Cow,
@@ -339,7 +339,7 @@ impl NonCustomPropertyId {
 
     /// Iterate over all non-custom properties in arbitrary order.
     pub fn iter() -> impl Iterator<Item = Self> {
-        (0..property_counts::NON_CUSTOM as u16).map(|index| Self(index))
+        (0..property_counts::NON_CUSTOM as u16).map(Self)
     }
 }
 
@@ -536,7 +536,7 @@ impl PropertyId {
                 return !context
                     .nesting_context
                     .rule_types
-                    .contains(CssRuleType::PositionTry)
+                    .contains(CssRuleType::PositionTry);
             },
             Some(id) => id,
         };
@@ -773,13 +773,13 @@ fn parse_non_custom_property_declaration_value_into(
     if let Ok(token) = input.next() {
         match token {
             cssparser::Token::Ident(ident) => {
-                if let Ok(wk) = CSSWideKeyword::from_ident(ident) {
-                    if input.expect_exhausted().is_ok() {
-                        return {
-                            parsed_wide_keyword(declarations, wk);
-                            Ok(())
-                        };
-                    }
+                if let Ok(wk) = CSSWideKeyword::from_ident(ident)
+                    && input.expect_exhausted().is_ok()
+                {
+                    return {
+                        parsed_wide_keyword(declarations, wk);
+                        Ok(())
+                    };
                 }
             },
             cssparser::Token::CurlyBracketBlock => {
@@ -1417,9 +1417,7 @@ impl<Id: IndexedId, const W: usize> IdSet<Id, W> {
     /// Clear all bits
     #[inline]
     pub fn clear(&mut self) {
-        for cell in &mut self.storage {
-            *cell = 0
-        }
+        self.storage.fill(0);
     }
 
     /// Returns whether the set is empty.
@@ -1666,7 +1664,7 @@ impl UnparsedValue {
                 {
                     Ok(decl) => Cow::Owned(decl),
                     Err(..) => invalid_at_computed_value_time(),
-                }
+                };
             },
             Some(shorthand) => shorthand,
         };
@@ -1711,19 +1709,15 @@ impl UnparsedValue {
     }
 }
 /// A parsed all-shorthand value.
+#[derive(Default)]
 pub enum AllShorthand {
     /// Not present.
+    #[default]
     NotSet,
     /// A CSS-wide keyword.
     CSSWideKeyword(CSSWideKeyword),
     /// An all shorthand with var() references that we can't resolve right now.
     WithVariables(Arc<UnparsedValue>),
-}
-
-impl Default for AllShorthand {
-    fn default() -> Self {
-        Self::NotSet
-    }
 }
 
 impl AllShorthand {
@@ -1851,7 +1845,7 @@ impl<'a> Iterator for TransitionPropertyIterator<'a> {
                     return Some(TransitionPropertyIteration {
                         property: OwnedPropertyDeclarationId::Custom(name),
                         index,
-                    })
+                    });
                 },
                 TransitionProperty::Unsupported(..) => {},
             }

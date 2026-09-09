@@ -22,10 +22,10 @@ use crate::properties_and_values::value::{
 use crate::stylesheets::container_rule::AttrReferenceSet;
 use crate::stylesheets::{CssRuleType, CustomMediaEvaluator, Origin, UrlExtraData};
 use crate::stylist::Stylist;
-use crate::values::{computed, AtomString, DashedIdent};
+use crate::values::{AtomString, DashedIdent, computed};
 use crate::{error_reporting::ContextualParseError, parser::Parse, parser::ParserContext};
 use cssparser::{
-    match_ignore_ascii_case, parse_important, Parser, SourceLocation, SourcePosition, Token,
+    Parser, SourceLocation, SourcePosition, Token, match_ignore_ascii_case, parse_important,
 };
 use selectors::kleene_value::KleeneValue;
 use servo_arc::Arc;
@@ -129,14 +129,14 @@ where
     input
         .try_parse(|input| {
             let result = input.parse_nested_block(parse);
-            if let Err(ref e) = result {
-                if context.error_reporting_enabled() {
-                    // We're about to swallow the error in a `<general-enclosed>` condition, so report
-                    // it while we can.
-                    let error =
-                        ContextualParseError::InvalidMediaRule(input.slice_from(start), e.clone());
-                    context.log_css_error(start_location, error);
-                }
+            if let Err(ref e) = result
+                && context.error_reporting_enabled()
+            {
+                // We're about to swallow the error in a `<general-enclosed>` condition, so report
+                // it while we can.
+                let error =
+                    ContextualParseError::InvalidMediaRule(input.slice_from(start), e.clone());
+                context.log_css_error(start_location, error);
             }
             result
         })
@@ -801,10 +801,10 @@ impl QueryCondition {
             Ok(expr) => return Ok(Self::Feature(expr)),
             Err(e) => e,
         };
-        if crate::pref!("layout.css.custom-media.enabled") {
-            if let Ok(custom) = input.try_parse(|input| DashedIdent::parse(context, input)) {
-                return Ok(Self::Custom(custom));
-            }
+        if crate::pref!("layout.css.custom-media.enabled")
+            && let Ok(custom) = input.try_parse(|input| DashedIdent::parse(context, input))
+        {
+            return Ok(Self::Custom(custom));
         }
         if let Ok(inner) = Self::parse(context, input, feature_type) {
             return Ok(Self::InParens(Box::new(inner)));
@@ -911,7 +911,8 @@ impl QueryCondition {
             /* use_counters = */ None,
             attr_taint,
         );
-        let result = match Self::parse(
+
+        match Self::parse(
             &parser_context,
             &mut Parser::new(&css),
             FeatureType::Container,
@@ -922,9 +923,7 @@ impl QueryCondition {
             },
             Ok(query) => query.matches(context, custom, attribute_tracker),
             Err(_) => KleeneValue::Unknown,
-        };
-
-        result
+        }
     }
 
     /// Collect the attribute references in this query condition, if any.

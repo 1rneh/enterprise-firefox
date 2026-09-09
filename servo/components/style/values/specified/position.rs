@@ -7,6 +7,7 @@
 //!
 //! [position]: https://drafts.csswg.org/css-backgrounds-3/#position
 
+use crate::Atom;
 use crate::derives::*;
 use crate::logical_geometry::{LogicalAxis, LogicalSide, PhysicalSide, WritingMode};
 use crate::parser::{Parse, ParserContext};
@@ -26,13 +27,12 @@ use crate::values::specified::align::AlignFlags;
 use crate::values::specified::percentage::NoCalcPercentage;
 use crate::values::specified::{AllowQuirks, Integer, LengthPercentage, NonNegativeNumber};
 use crate::values::{AtomIdent, DashedIdent};
-use crate::Atom;
-use cssparser::{match_ignore_ascii_case, Parser};
+use cssparser::{Parser, match_ignore_ascii_case};
 use hashbrown::hash_map::Entry;
 use num_traits::FromPrimitive;
 use selectors::parser::SelectorParseErrorKind;
 use servo_arc::Arc;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::fmt::{self, Write};
 use style_traits::arc_slice::ArcSlice;
 use style_traits::values::specified::AllowedNumericType;
@@ -653,19 +653,18 @@ impl Parse for DashedIdentAndOrTryTactic {
         };
 
         loop {
-            if result.ident.is_empty() {
-                if let Ok(ident) = input.try_parse(|i| DashedIdent::parse(context, i)) {
-                    result.ident = ident;
-                    continue;
-                }
+            if result.ident.is_empty()
+                && let Ok(ident) = input.try_parse(|i| DashedIdent::parse(context, i))
+            {
+                result.ident = ident;
+                continue;
             }
-            if result.try_tactic.is_empty() {
-                if let Ok(try_tactic) =
+            if result.try_tactic.is_empty()
+                && let Ok(try_tactic) =
                     input.try_parse(|i| PositionTryFallbacksTryTactic::parse(context, i))
-                {
-                    result.try_tactic = try_tactic;
-                    continue;
-                }
+            {
+                result.try_tactic = try_tactic;
+                continue;
             }
             break;
         }
@@ -1867,10 +1866,10 @@ impl TemplateAreasParser {
                 simplified_string.push_str(token);
                 Atom::from(token)
             } else {
-                if let Some(index) = current_area_index.take() {
-                    if self.areas[index].columns.end != column {
-                        return Err(());
-                    }
+                if let Some(index) = current_area_index.take()
+                    && self.areas[index].columns.end != column
+                {
+                    return Err(());
                 }
                 simplified_string.push('.');
                 continue;
@@ -1921,11 +1920,11 @@ impl TemplateAreasParser {
             // https://github.com/w3c/csswg-drafts/issues/5110
             return Err(());
         }
-        if let Some(index) = current_area_index {
-            if self.areas[index].columns.end != column + 1 {
-                debug_assert_ne!(self.areas[index].rows.start, self.row);
-                return Err(());
-            }
+        if let Some(index) = current_area_index
+            && self.areas[index].columns.end != column + 1
+        {
+            debug_assert_ne!(self.areas[index].rows.start, self.row);
+            return Err(());
         }
         if self.row == 1 {
             self.width = column;

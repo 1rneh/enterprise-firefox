@@ -170,7 +170,9 @@ class LoginAutocompleteItem extends AutocompleteItem {
       secondaryAction: lazy.removeRecordsEnabled
         ? {
             type: "menupopup",
-            label: lazy.l10n.formatValueSync("autocomplete-more-actions"),
+            label: lazy.l10n.formatValueSync("autocomplete-more-actions2", {
+              entry: username,
+            }),
             actions: [
               {
                 label: lazy.l10n.formatValueSync("autocomplete-edit-password"),
@@ -179,6 +181,10 @@ class LoginAutocompleteItem extends AutocompleteItem {
                 label: lazy.l10n.formatValueSync(
                   "autocomplete-delete-password"
                 ),
+                fillMessageName: "PasswordManager:DeleteLogin",
+                fillMessageData: {
+                  loginGuid: login.guid,
+                },
               },
             ],
           }

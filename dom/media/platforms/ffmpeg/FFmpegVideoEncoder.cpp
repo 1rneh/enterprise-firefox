@@ -430,6 +430,8 @@ MediaResult FFmpegVideoEncoder<LIBAV_VER>::InitEncoderInternal(bool aHardware) {
   MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
 
   FFMPEGV_LOG("FFmpegVideoEncoder::InitEncoder");
+  mLastFrameColorConfig.reset();
+  mCanChangeColorPerFrame = false;
 
   // Initialize the common members of the encoder instance
   auto r = AllocateCodecContext(aHardware);
@@ -488,6 +490,13 @@ MediaResult FFmpegVideoEncoder<LIBAV_VER>::InitEncoderInternal(bool aHardware) {
     mCodecContext->color_trc =
         ToAVColorTransfer(colors.mTransferFunction.ref());
   }
+  FFMPEGV_LOG(
+      "Configured encoder color metadata: {} -> FFmpeg [range={}, matrix={}, "
+      "primaries={}, transfer={}]",
+      colors.ToString().get(), static_cast<int>(mCodecContext->color_range),
+      static_cast<int>(mCodecContext->colorspace),
+      static_cast<int>(mCodecContext->color_primaries),
+      static_cast<int>(mCodecContext->color_trc));
 
   mCodecContext->width = static_cast<int>(mConfig.mSize.width);
   mCodecContext->height = static_cast<int>(mConfig.mSize.height);
@@ -535,19 +544,20 @@ MediaResult FFmpegVideoEncoder<LIBAV_VER>::InitEncoderInternal(bool aHardware) {
                                 : 10000;
   mCodecContext->keyint_min = 0;
 
+  const bool useLowLatency = mConfig.mUsage == Usage::Realtime || SvcEnabled();
   // When either real-time or SVC is enabled via config, the general settings of
   // the encoder are set to be more appropriate for real-time usage
-  if (mConfig.mUsage == Usage::Realtime || SvcEnabled()) {
+  if (useLowLatency) {
     if (mConfig.mUsage != Usage::Realtime) {
       FFMPEGV_LOG(
           "SVC enabled but low latency encoding mode not enabled, forcing low "
           "latency mode");
     }
     mLib->av_opt_set(mCodecContext->priv_data, "deadline", "realtime", 0);
-    // Explicitly ask encoder do not keep in flight at any one time for
-    // lookahead purposes.
-    mLib->av_opt_set(mCodecContext->priv_data, "lag-in-frames", "0", 0);
-
+    const int lagResult =
+        mLib->av_opt_set(mCodecContext->priv_data, "lag-in-frames", "0", 0);
+    mCanChangeColorPerFrame =
+        mCodecName.EqualsLiteral("libaom-av1") && lagResult == 0;
     if (mConfig.mCodec == CodecType::VP8 || mConfig.mCodec == CodecType::VP9) {
       mLib->av_opt_set(mCodecContext->priv_data, "error-resilient", "1", 0);
     }
@@ -726,6 +736,34 @@ Result<MediaDataEncoder::EncodedData, MediaResult> FFmpegVideoEncoder<
   mFrame->height = static_cast<int>(mConfig.mSize.height);
   mFrame->pict_type =
       sample->mKeyframe ? AV_PICTURE_TYPE_I : AV_PICTURE_TYPE_NONE;
+#  if LIBAVCODEC_VERSION_MAJOR > 58
+  mFrame->color_range = mCodecContext->color_range;
+  mFrame->colorspace = mCodecContext->colorspace;
+  mFrame->color_primaries = mCodecContext->color_primaries;
+  mFrame->color_trc = mCodecContext->color_trc;
+
+  const layers::PlanarYCbCrData* yuv = nullptr;
+  if (layers::PlanarYCbCrImage* image = sample->mImage->AsPlanarYCbCrImage()) {
+    yuv = image->GetData();
+  } else if (layers::NVImage* image = sample->mImage->AsNVImage()) {
+    yuv = image->GetData();
+  }
+  if (yuv) {
+    mFrame->color_range = ToAVColorRange(yuv->mColorRange);
+    mFrame->colorspace = ToAVColorSpace(yuv->mYUVColorSpace);
+    mFrame->color_primaries = ToAVColorPrimaries(yuv->mColorPrimaries);
+    mFrame->color_trc = ToAVColorTransfer(yuv->mTransferFunction);
+  }
+
+  if (mCanChangeColorPerFrame) {
+    FrameColorConfig color{mFrame->color_primaries, mFrame->color_trc,
+                           mFrame->colorspace, mFrame->color_range};
+    if (mLastFrameColorConfig && !mLastFrameColorConfig->Equals(color)) {
+      mFrame->pict_type = AV_PICTURE_TYPE_I;
+    }
+    mLastFrameColorConfig = Some(color);
+  }
+#  endif
 
   // Allocate AVFrame data.
   if (int ret = mLib->av_frame_get_buffer(mFrame, 0); ret < 0) {
@@ -793,8 +831,8 @@ Result<MediaDataEncoder::EncodedData, MediaResult> FFmpegVideoEncoder<
   // and don't require setting explicitly setting the metadata. Other codecs
   // such as AV1 via libaom however requires manual frame tagging.
   if (SvcEnabled() && !CodecManagesTemporalIds(mConfig.mCodec)) {
-    if (aSample->mKeyframe) {
-      FFMPEGV_LOG("Key frame requested, reseting temporal layer id");
+    if (mFrame->pict_type == AV_PICTURE_TYPE_I) {
+      FFMPEGV_LOG("Resetting temporal layer id for key frame");
       mSVCInfo->ResetTemporalLayerId();
     }
     nsFmtCString str("{}", mSVCInfo->CurrentTemporalLayerId());

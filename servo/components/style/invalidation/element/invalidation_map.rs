@@ -4,6 +4,7 @@
 
 //! Code for invalidations due to state or attribute changes.
 
+use crate::AllocErr;
 use crate::context::QuirksMode;
 use crate::derives::*;
 use crate::selector_map::{
@@ -11,7 +12,6 @@ use crate::selector_map::{
 };
 use crate::selector_parser::{NonTSPseudoClass, SelectorImpl};
 use crate::values::AtomIdent;
-use crate::AllocErr;
 use crate::{Atom, LocalName, Namespace, ShrinkIfNeeded};
 use dom::{DocumentState, ElementState};
 use selectors::attr::NamespaceConstraint;
@@ -1169,14 +1169,14 @@ impl<'a, 'b, 'c> SelectorVisitor for SelectorDependencyCollector<'a, 'b, 'c> {
     fn visit_simple_selector(&mut self, s: &Component<SelectorImpl>) -> bool {
         match on_simple_selector(s, self.quirks_mode, self) {
             Ok(result) => {
-                if let ComponentVisitResult::Handled(state) = result {
-                    if let Some(inner_collector_state) = self.relative_inner_collector.as_mut() {
-                        inner_collector_state.relative_compound_state.added_entry = true;
-                        inner_collector_state
-                            .relative_compound_state
-                            .ts_state
-                            .insert(state);
-                    }
+                if let ComponentVisitResult::Handled(state) = result
+                    && let Some(inner_collector_state) = self.relative_inner_collector.as_mut()
+                {
+                    inner_collector_state.relative_compound_state.added_entry = true;
+                    inner_collector_state
+                        .relative_compound_state
+                        .ts_state
+                        .insert(state);
                 }
                 true
             },

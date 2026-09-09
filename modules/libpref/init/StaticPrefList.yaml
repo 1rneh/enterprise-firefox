@@ -5146,6 +5146,13 @@
   value: false
   mirror: always
 
+# Sanitize during HTML parsing, rather than the reified tree.
+# (https://github.com/whatwg/html/pull/12756)
+- name: dom.security.sanitizer.while-parsing
+  type: bool
+  value: false
+  mirror: always
+
 # pref controls `digital` credentials being exposed
 - name: dom.security.credentialmanagement.digital.enabled
   type: bool
@@ -8936,11 +8943,6 @@
   value: 12
   mirror: always
 
-- name: idle_period.cross_process_scheduling
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 #---------------------------------------------------------------------------
 # Prefs starting with "image."
 #---------------------------------------------------------------------------
@@ -9786,6 +9788,13 @@
 
   # Experimental support for import bytes in JavaScript.
 - name: javascript.options.experimental.import_bytes
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: startup
+
+  # Experimental support for including default in export * declarations.
+- name: javascript.options.experimental.export_star_default
   type: bool
   value: false
   mirror: always
@@ -13141,6 +13150,13 @@
   value: @IS_ANDROID@
   mirror: always
 
+# Whether to preserve color metadata from decoded video frames. Disabled by
+# default until encoder color-space signaling is complete (Bug 1869825).
+- name: media.decoder.frame-color-metadata.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Should MFR try to skip to the next key frame?
 - name: media.decoder.skip-to-next-key-frame.enabled
   type: RelaxedAtomicBool
@@ -13629,6 +13645,21 @@
 # capabilities, while still capturing from VideoCaptureFake. Has no effect
 # unless `media.getusermedia.camera.fake.force` is also true.
 - name: media.getusermedia.camera.fake.no_capabilities
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Rotation in degrees (0/90/180/270) reported by fake video capture sources.
+# Allows mochitests to exercise camera rotation handling without real hardware.
+- name: media.getusermedia.camera.fake.rotation
+  type: RelaxedAtomicInt32
+  value: 0
+  mirror: always
+
+# When true, the fake video capture device generates a static test pattern
+# (red background with a blue bottom-right quadrant) instead of the animated
+# default. Lets mochitests verify pixel-level rotation.
+- name: media.getusermedia.camera.fake.rotation-test-pattern
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -14512,6 +14543,14 @@
   value: true
   mirror: always
 
+#ifdef XP_MACOSX
+# Whether the gssapi library is the one shipped with the OS.
+- name: network.negotiate-auth.using-native-gsslib
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+#endif
+
 # Chunk size for BackgroundFileSaver async copy operations. Should be a power
 # of 2 for optimal performance.
 - name: network.backgroundfilesaver.async_copy_chunk_size
@@ -14683,12 +14722,6 @@
 # last accessed time that is in the future will be fixed and the
 # timestamps will be set to the current time.
 - name: network.cookie.fixup_on_db_load
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# If true content types of multipart/x-mixed-replace cannot set a cookie
-- name: network.cookie.prevent_set_cookie_from_multipart
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -17344,8 +17377,8 @@
   value: false
   mirror: always
 
-# Replace PDFs embedded with an object/embed element by a page offering to open
-# them, when the viewer is disabled. That page is only packaged on desktop, see
+# Show an open-PDF fallback for PDF loads from object, embed, frame, and iframe
+# elements when the built-in viewer is disabled. Desktop only; see
 # toolkit/components/pdfjs/jar.mn.
 - name: pdfjs.embedFallback
   type: bool
@@ -17354,6 +17387,13 @@
 #else
   value: true
 #endif
+  mirror: always
+
+# Whether PDFs loaded from attributes of unsandboxed frame/iframe elements
+# bypass the configured handler, like object/embed loads.
+- name: pdfjs.handleFrameAttributeLoads
+  type: bool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------

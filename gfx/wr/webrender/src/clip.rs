@@ -1242,6 +1242,15 @@ pub enum ClipSpaceConversion {
     /// This Variant represents the transform from the clip's local space to
     /// the visibility space.
     Transform(LayoutToVisTransform),
+    /// The clip's space cannot be related to the visibility space, so whether
+    /// the clip affects the primitive can't be determined and a mask is assumed
+    /// to be needed.
+    ///
+    /// Reached when the clip sits outside the 3D context that established the
+    /// surface's raster root: relating the two would need a transform away from
+    /// the root, which the spatial tree does not provide because it is not
+    /// always invertible.
+    Indeterminate,
 }
 
 impl ClipSpaceConversion {
@@ -1264,13 +1273,18 @@ impl ClipSpaceConversion {
             let scale_offset = clip_spatial_node.content_transform
                 .then(&prim_spatial_node.content_transform.inverse());
             ClipSpaceConversion::ScaleOffset(scale_offset)
-        } else {
+        } else if spatial_tree.can_get_relative_transform(
+            clip_spatial_node_index,
+            visibility_spatial_node_index,
+        ) {
             ClipSpaceConversion::Transform(
                 spatial_tree.get_relative_transform(
                     clip_spatial_node_index,
                     visibility_spatial_node_index,
                 ).into_transform().cast_unit()
             )
+        } else {
+            ClipSpaceConversion::Indeterminate
         }
     }
 
@@ -1282,7 +1296,8 @@ impl ClipSpaceConversion {
             ClipSpaceConversion::ScaleOffset(..) => {
                 ClipNodeFlags::SAME_COORD_SYSTEM
             }
-            ClipSpaceConversion::Transform(..) => {
+            ClipSpaceConversion::Transform(..) |
+            ClipSpaceConversion::Indeterminate => {
                 ClipNodeFlags::empty()
             }
         }
@@ -1428,6 +1443,21 @@ pub struct ClipStore {
     active_clip_node_info: Vec<ClipNodeInfo>,
     active_local_clip_rect: Option<LayoutRect>,
     active_pic_coverage_rect: PictureRect,
+
+    /// Counts of what the visibility-space clip path did this frame, flushed to
+    /// the profiler by `end_frame`.
+    vis_stats: VisClipStats,
+}
+
+/// Instrumentation for the clip decisions that visibility space affects. See the
+/// `VIS_CLIP_*` profiler counters.
+#[derive(Clone, Default, MallocSizeOf)]
+#[cfg_attr(feature = "capture", derive(Serialize))]
+pub struct VisClipStats {
+    pub projections: usize,
+    pub projection_fails: usize,
+    pub rejects: usize,
+    pub indeterminate: usize,
 }
 
 // A clip chain instance is what gets built for a given clip
@@ -1485,6 +1515,7 @@ impl ClipStore {
             active_clip_node_info: Vec::new(),
             active_local_clip_rect: None,
             active_pic_coverage_rect: PictureRect::max_rect(),
+            vis_stats: VisClipStats::default(),
         }
     }
 
@@ -1679,13 +1710,22 @@ impl ClipStore {
                     has_non_local_clips = true;
                     node.item.kind.get_clip_result(&scale_offset.unmap_rect(&local_bounding_rect), node_info.clip_rect)
                 }
+                ClipSpaceConversion::Indeterminate => {
+                    // Can't tell whether the clip affects the primitive, so
+                    // assume it does. A mask is always a safe answer.
+                    has_non_local_clips = true;
+                    self.vis_stats.indeterminate += 1;
+                    ClipResult::Partial
+                }
                 ClipSpaceConversion::Transform(ref transform) => {
                     has_non_local_clips = true;
+                    self.vis_stats.projections += 1;
                     node.item.kind.get_clip_result_complex(
                         transform,
                         &vis_clip_rect,
                         culling_rect,
                         node_info.clip_rect,
+                        &mut self.vis_stats.projection_fails,
                     )
                 }
             };
@@ -1696,6 +1736,9 @@ impl ClipStore {
                 }
                 ClipResult::Reject => {
                     // Completely clips the supplied prim rect
+                    if matches!(node_info.conversion, ClipSpaceConversion::Transform(..)) {
+                        self.vis_stats.rejects += 1;
+                    }
                     return None;
                 }
                 ClipResult::Partial => {
@@ -1769,6 +1812,11 @@ impl ClipStore {
         mem::swap(&mut self.mask_tiles, &mut scratch.mask_tiles);
         self.clip_node_instances.clear();
         self.mask_tiles.clear();
+        self.vis_stats = VisClipStats::default();
+    }
+
+    pub fn vis_stats(&self) -> &VisClipStats {
+        &self.vis_stats
     }
 
     pub fn end_frame(&mut self, scratch: &mut ClipStoreScratchBuffer) {
@@ -1968,6 +2016,7 @@ impl ClipItemKind {
         prim_rect: &VisRect,
         culling_rect: &VisRect,
         clip_rect: LayoutRect,
+        projection_fails: &mut usize,
     ) -> ClipResult {
         let visible_rect = match prim_rect.intersection(culling_rect) {
             Some(rect) => rect,
@@ -2005,7 +2054,12 @@ impl ClipItemKind {
                     &culling_rect,
                 ) {
                     Some(outer_clip_rect) => outer_clip_rect,
-                    None => return ClipResult::Partial,
+                    None => {
+                        // No exact answer available, so a mask is required even
+                        // though the clip may well not affect the primitive.
+                        *projection_fails += 1;
+                        return ClipResult::Partial;
+                    }
                 };
 
                 match outer_clip_rect.intersection(prim_rect) {
@@ -2324,7 +2378,8 @@ fn add_clip_node_to_current_chain(
                     None => return false,
                 };
             }
-            ClipSpaceConversion::Transform(..) => {
+            ClipSpaceConversion::Transform(..) |
+            ClipSpaceConversion::Indeterminate => {
                 // Map the local clip rect directly into the same space as the picture
                 // surface. This will often be the same space as the clip itself, which
                 // results in a reduction in allocated clip mask size.

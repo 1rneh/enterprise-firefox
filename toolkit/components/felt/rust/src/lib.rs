@@ -53,13 +53,22 @@ fn has_env(target: &str) -> bool {
     }
 }
 
+/// MOZ_BYPASS_FELT starts the browser UI without Felt, which is only ever
+/// wanted for local development and automation. Restrict it to builds that
+/// cannot ship to users, i.e. those with the "default" channel a plain
+/// mozconfig produces.
+fn bypass_allowed() -> bool {
+    matches!(mozbuild::config::MOZ_UPDATE_CHANNEL, "default")
+}
+
 #[no_mangle]
 pub extern "C" fn felt_init() {
     trace!("felt_init()");
     env_logger::init();
 
     let found_felt_ui_env = has_env("MOZ_FELT_UI");
-    let bypass_env = has_env("MOZ_BYPASS_FELT");
+    let bypass_env = has_env("MOZ_BYPASS_FELT") && bypass_allowed();
+    trace!("felt_init(): bypass_env={}", bypass_env);
 
     // There may be a -chrome ... being passed on the CLI, e.g. for jsdebugger
     // in this case, it is not expected the FELT UI is shown, not the browser UI

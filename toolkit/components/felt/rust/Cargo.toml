@@ -10,6 +10,7 @@ xpcom = { path = "../../../../xpcom/rust/xpcom" }
 nserror = { path = "../../../../xpcom/rust/nserror" }
 cstr = "0.2"
 ipc-channel = "0.21.0"
+mozbuild = "0.1"
 moz_task = { path = "../../../../xpcom/rust/moz_task" }
 nsstring = { path = "../../../../xpcom/rust/nsstring" }
 thin-vec = "0.2.12"

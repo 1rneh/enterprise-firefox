@@ -2318,6 +2318,7 @@ dependencies = [
  "libc",
  "log",
  "moz_task",
+ "mozbuild",
  "nserror",
  "nsstring",
  "serde",

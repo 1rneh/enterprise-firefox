@@ -29,29 +29,41 @@ add_task(async function test_http() {
     },
   });
 
-  await checkBlockedPage(SUPPORT_FILES_PATH + BLOCKED_PAGE, true);
-  await checkBlockedPage(
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + BLOCKED_PAGE,
+    true
+  );
+  await EnterprisePolicyTesting.checkBlockedPage(
     "view-source:" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
     true
   );
-  await checkBlockedPage(
+  await EnterprisePolicyTesting.checkBlockedPage(
     "about:reader?url=" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
     true
   );
-  await checkBlockedPage(
+  await EnterprisePolicyTesting.checkBlockedPage(
     "about:READER?url=" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
     true
   );
-  await checkBlockedPage(
+  await EnterprisePolicyTesting.checkBlockedPage(
     "about:reader?e=1&url=" +
       encodeURIComponent(SUPPORT_FILES_PATH + BLOCKED_PAGE),
     true
   );
-  await checkBlockedPage(SUPPORT_FILES_PATH + EXCEPTION_PAGE, false);
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + EXCEPTION_PAGE,
+    false
+  );
 
-  await checkBlockedPage(SUPPORT_FILES_PATH + "301.sjs", true);
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + "301.sjs",
+    true
+  );
 
-  await checkBlockedPage(SUPPORT_FILES_PATH + "302.sjs", true);
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + "302.sjs",
+    true
+  );
   await clearWebsiteFilter();
 });
 
@@ -65,8 +77,11 @@ add_task(async function test_http_mixed_case() {
     },
   });
 
-  await checkBlockedPage(SUPPORT_FILES_PATH + BLOCKED_PAGE.toUpperCase(), true);
-  await checkBlockedPage(
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + BLOCKED_PAGE.toUpperCase(),
+    true
+  );
+  await EnterprisePolicyTesting.checkBlockedPage(
     SUPPORT_FILES_PATH + EXCEPTION_PAGE.toUpperCase(),
     false
   );
@@ -82,7 +97,10 @@ add_task(async function test_file() {
     },
   });
 
-  await checkBlockedPage("file:///this_should_be_blocked", true);
+  await EnterprisePolicyTesting.checkBlockedPage(
+    "file:///this_should_be_blocked",
+    true
+  );
   await clearWebsiteFilter();
 });
 
@@ -169,23 +187,35 @@ add_task(async function test_http_json_policy() {
     },
   });
 
-  await checkBlockedPage(SUPPORT_FILES_PATH + BLOCKED_PAGE, true);
-  await checkBlockedPage(
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + BLOCKED_PAGE,
+    true
+  );
+  await EnterprisePolicyTesting.checkBlockedPage(
     "view-source:" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
     true
   );
-  await checkBlockedPage(
+  await EnterprisePolicyTesting.checkBlockedPage(
     "about:reader?url=" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
     true
   );
-  await checkBlockedPage(
+  await EnterprisePolicyTesting.checkBlockedPage(
     "about:READER?url=" + SUPPORT_FILES_PATH + BLOCKED_PAGE,
     true
   );
-  await checkBlockedPage(SUPPORT_FILES_PATH + EXCEPTION_PAGE, false);
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + EXCEPTION_PAGE,
+    false
+  );
 
-  await checkBlockedPage(SUPPORT_FILES_PATH + "301.sjs", true);
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + "301.sjs",
+    true
+  );
 
-  await checkBlockedPage(SUPPORT_FILES_PATH + "302.sjs", true);
+  await EnterprisePolicyTesting.checkBlockedPage(
+    SUPPORT_FILES_PATH + "302.sjs",
+    true
+  );
   await clearWebsiteFilter();
 });

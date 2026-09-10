@@ -622,6 +622,14 @@ EnterprisePoliciesManager.prototype = {
       return { isValid: false, parsedParams: null };
     }
 
+    if (!this._isPolicyCompatible(policyName)) {
+      this._reportPolicyError(
+        policyName,
+        `Policy ${policyName} is not supported.`
+      );
+      return { isValid: false, parsedParams: null };
+    }
+
     const policyImpl = lazy.Policies[policyName];
     // A few policies still accept an old syntax that the schema can't
     // describe. Convert it before we validate.
@@ -673,9 +681,36 @@ EnterprisePoliciesManager.prototype = {
    * @returns {boolean} whether policy requires a restart to be applied
    */
   _isStartupPolicy(policyName) {
-    const requiresRestart =
-      lazy.schemaModule.schema.properties[policyName]["x-restart-required"];
-    return requiresRestart ?? true;
+    return lazy.schemaModule.schema.properties[policyName][
+      "x-restart-required"
+    ];
+  },
+
+  /**
+   * The build variant key used by "x-compatibility" in policies-schema.json.
+   *
+   * @returns {"firefox_enterprise"|"firefox_esr"|"firefox"} variant key
+   */
+  _currentBuildVariant() {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return "firefox_enterprise";
+    }
+    if (AppConstants.IS_ESR) {
+      return "firefox_esr";
+    }
+    return "firefox";
+  },
+
+  /**
+   * Whether a policy is supported by the running build
+   *
+   * @param {string} policyName policy name
+   * @returns {boolean} whether the policy applies to this build variant
+   */
+  _isPolicyCompatible(policyName) {
+    const compatibility =
+      lazy.schemaModule.schema.properties[policyName]["x-compatibility"];
+    return compatibility[this._currentBuildVariant()].version_added !== false;
   },
 
   /**

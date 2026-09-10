@@ -571,8 +571,8 @@ export var Policies = {
         lazy.blockAboutPage(manager, "about:config");
         lazy.PoliciesUtils.setAndLockPref("devtools.chrome.enabled", false);
       } else {
+        // Only unblocking about:config; not-force enabling devtools.chrome.enabled
         lazy.unblockAboutPage(manager, "about:config");
-        lazy.PoliciesUtils.setAndLockPref("devtools.chrome.enabled", true);
       }
     },
     onRemove(manager, _) {
@@ -1317,8 +1317,8 @@ export var Policies = {
         lazy.blockAboutPage(manager, "about:devtools-toolbox");
         lazy.blockAboutPage(manager, "about:profiling");
       } else {
+        // Only unblocking devtools; not-force enabling devtools.chrome.enabled
         lazy.PoliciesUtils.setAndLockPref("devtools.policy.disabled", false);
-        lazy.PoliciesUtils.setAndLockPref("devtools.chrome.enabled", true);
 
         manager.allowFeature("devtools");
         lazy.unblockAboutPage(manager, "about:debugging");

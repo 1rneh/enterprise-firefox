@@ -72,9 +72,9 @@ macosx64/debug:
             - onnxruntime-x86_64-apple-darwin
 
 macosx64-enterprise/debug:
-    description: "MacOS X x64 Enterprise Cross-compile"
+    description: "MacOS X aarch64 Enterprise Cross-compile"
     index:
-        job-name: macosx64-enterprise-debug
+        job-name: macosx64-aarch64-enterprise-debug
     attributes:
         enable-build-signing: true
         enable-full-crashsymbols: true

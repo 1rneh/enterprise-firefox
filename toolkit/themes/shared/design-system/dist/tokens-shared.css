@@ -755,7 +755,7 @@
 
       /** border **/
       --border-color-error: light-dark(var(--color-red-50), var(--color-red-20));
-      --border-color-interactive-hover: light-dark(var(--color-gray-45), var(--color-gray-20));
+      --border-color-interactive-hover: light-dark(var(--color-gray-50), var(--color-gray-20));
       --border-color-interactive-active: light-dark(var(--color-gray-50), var(--color-gray-15));
       --border-color-interactive-disabled: light-dark(var(--color-gray-25), var(--color-gray-55));
       --border-radius-xsmall: 4px;
@@ -810,7 +810,6 @@
       --button-border-radius: var(--border-radius-xlarge);
       --button-border-width-split: 0;
       --button-gap-split: 0;
-      --button-opacity-disabled: 0.7;
       --button-padding-inline-small: var(--space-medium);
       --button-split-separator-background-color: var(--button-border-color);
       --button-text-color: light-dark(var(--color-violet-90), var(--color-gray-0));
@@ -1095,7 +1094,6 @@
         --button-border-color-primary: ButtonFace;
         --button-border-color-primary-selected: var(--button-border-color-primary-active);
         --button-border-color-selected: var(--button-border-color-active);
-        --button-opacity-disabled: 1;
         --button-text-color: ButtonText;
         --button-text-color-destructive: var(--button-text-color-primary);
         --button-text-color-destructive-disabled: var(--button-text-color-primary);

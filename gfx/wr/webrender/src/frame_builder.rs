@@ -6,7 +6,7 @@ use api::{ColorF, DebugFlags, ExternalScrollId, FontRenderMode, ImageKey, Minima
 use api::units::*;
 use plane_split::BspSplitter;
 use crate::batch::{BatchBuilder, AlphaBatchBuilder, AlphaBatchContainer};
-use crate::clip::{ClipStore, ClipTree};
+use crate::clip::{ClipNodeId, ClipStore, ClipTree};
 use crate::command_buffer::{PrimitiveCommand, CommandBufferList, CommandBufferIndex};
 use crate::{debug_colors, ChunkPool};
 use crate::spatial_node::SpatialNodeType;
@@ -36,13 +36,14 @@ use crate::render_task_graph::{RenderPass, RenderTaskGraphBuilder};
 use crate::render_task::{RenderTaskKind, StaticRenderTaskSurface};
 use crate::resource_cache::ResourceCache;
 use crate::scene::{BuiltScene, SceneProperties};
+use crate::scene_debug::SceneDebugOverride;
 use crate::space::SpaceMapper;
 use crate::surface::{SubpixelMode, SurfaceBuilder, SurfaceIndex, SurfaceInfo};
 use crate::transform::{TransformPalette, TransformData};
 use std::sync::Arc;
 use std::{f32, mem};
 use crate::util::{MaxRect, VecHelper, Preallocator};
-use crate::visibility::{update_prim_visibility, FrameVisibilityState, FrameVisibilityContext};
+use crate::visibility::{new_clip_root_stack, update_prim_visibility, FrameVisibilityState, FrameVisibilityContext};
 use crate::internal_types::{FrameVec, FrameMemory};
 
 #[derive(Clone, Copy, Debug)]
@@ -77,6 +78,7 @@ pub struct FrameBuilderConfig {
 pub struct FrameScratchBuffer {
     dirty_region_stack: Vec<DirtyRegion>,
     surface_stack: Vec<(PictureIndex, SurfaceIndex)>,
+    clip_root_stack: Vec<ClipNodeId>,
 }
 
 impl Default for FrameScratchBuffer {
@@ -84,6 +86,7 @@ impl Default for FrameScratchBuffer {
         FrameScratchBuffer {
             dirty_region_stack: Vec::new(),
             surface_stack: Vec::new(),
+            clip_root_stack: Vec::new(),
         }
     }
 }
@@ -92,6 +95,7 @@ impl FrameScratchBuffer {
     pub fn begin_frame(&mut self) {
         self.dirty_region_stack.clear();
         self.surface_stack.clear();
+        self.clip_root_stack.clear();
     }
 }
 
@@ -112,6 +116,7 @@ pub struct FrameBuildingContext<'a> {
     pub spatial_tree: &'a SpatialTree,
     pub max_local_clip: LayoutRect,
     pub debug_flags: DebugFlags,
+    pub debug_override: &'a SceneDebugOverride,
     pub fb_config: &'a FrameBuilderConfig,
     pub root_spatial_node_index: SpatialNodeIndex,
 }
@@ -273,6 +278,7 @@ impl FrameBuilder {
         data_stores: &DataStores,
         scratch: &mut ScratchBuffer,
         debug_flags: DebugFlags,
+        debug_override: &SceneDebugOverride,
         composite_state: &mut CompositeState,
         tile_caches: &mut FastHashMap<SliceId, Box<TileCacheInstance>>,
         spatial_tree: &SpatialTree,
@@ -305,6 +311,7 @@ impl FrameBuilder {
                 max: LayoutPoint::new(MAX_CLIP_COORD, MAX_CLIP_COORD),
             },
             debug_flags,
+            debug_override,
             fb_config: &scene.config,
             root_spatial_node_index,
         };
@@ -377,6 +384,7 @@ impl FrameBuilder {
                 spatial_tree,
                 global_screen_device_rect,
                 debug_flags,
+                debug_override,
                 scene_properties,
                 config: scene.config,
                 root_spatial_node_index,
@@ -388,12 +396,13 @@ impl FrameBuilder {
                     resource_cache,
                     frame_gpu_data,
                     data_stores,
-                    clip_tree: &mut scene.clip_tree,
+                    clip_tree: &scene.clip_tree,
                     composite_state,
                     rg_builder,
                     prim_instances: &mut scene.prim_instances,
                     surfaces: &mut scene.surfaces,
                     surface_stack: scratch.frame.surface_stack.take(),
+                    clip_root_stack: new_clip_root_stack(scratch.frame.clip_root_stack.take()),
                     profile,
                     scratch,
                     visited_pictures: &mut visited_pictures,
@@ -404,7 +413,7 @@ impl FrameBuilder {
                 // the changes, we have to make sure that the image's
                 // generation counter is incremented early in the frame,
                 // before the main visibility pass visits the image items.
-                let pic = &scene.prim_store.pictures[pic_index.0];
+                let pic = &scene.prim_store.pictures[pic_index.0 as usize];
                 let snapshot = pic.snapshot
                     .unwrap();
                 let key = snapshot.key.as_image();
@@ -412,7 +421,7 @@ impl FrameBuilder {
                     .increment_image_generation(key);
 
                 if let Some(node) = pic.clip_root {
-                    visibility_state.clip_tree.push_clip_root_node(node);
+                    visibility_state.push_clip_root(node);
                 }
 
                 update_prim_visibility(
@@ -424,8 +433,8 @@ impl FrameBuilder {
                     &mut visibility_state,
                     &mut None,
                 );
-                if scene.prim_store.pictures[pic_index.0].clip_root.is_some() {
-                    visibility_state.clip_tree.pop_clip_root();
+                if scene.prim_store.pictures[pic_index.0 as usize].clip_root.is_some() {
+                    visibility_state.pop_clip_root();
                 }
             }
 
@@ -433,7 +442,7 @@ impl FrameBuilder {
                 if !render_picture_cache_slices {
                     break;
                 }
-                let pic = &mut scene.prim_store.pictures[pic_index.0];
+                let pic = &mut scene.prim_store.pictures[pic_index.0 as usize];
 
                 match pic.raster_config {
                     Some(RasterConfig { surface_index, composite_mode: PictureCompositeMode::TileCache { slice_id }, .. }) => {
@@ -446,12 +455,13 @@ impl FrameBuilder {
                             resource_cache,
                             frame_gpu_data,
                             data_stores,
-                            clip_tree: &mut scene.clip_tree,
+                            clip_tree: &scene.clip_tree,
                             composite_state,
                             rg_builder,
                             prim_instances: &mut scene.prim_instances,
                             surfaces: &mut scene.surfaces,
                             surface_stack: scratch.frame.surface_stack.take(),
+                            clip_root_stack: new_clip_root_stack(scratch.frame.clip_root_stack.take()),
                             profile,
                             scratch,
                             visited_pictures: &mut visited_pictures,
@@ -472,7 +482,7 @@ impl FrameBuilder {
                             *pic_index,
                             surface_index,
                         );
-                        visibility_state.clip_tree.push_clip_root_node(tile_cache.shared_clip_node_id);
+                        visibility_state.push_clip_root(tile_cache.shared_clip_node_id);
 
                         update_prim_visibility(
                             *pic_index,
@@ -493,9 +503,10 @@ impl FrameBuilder {
                             &mut visibility_state.scratch.primitive,
                         );
 
-                        visibility_state.clip_tree.pop_clip_root();
+                        visibility_state.pop_clip_root();
                         visibility_state.pop_surface();
                         visibility_state.scratch.frame.surface_stack = visibility_state.surface_stack.take();
+                        visibility_state.scratch.frame.clip_root_stack = visibility_state.clip_root_stack.take();
                     }
                     _ => {
                         panic!("bug: not a tile cache");
@@ -536,7 +547,7 @@ impl FrameBuilder {
             plane_splitters: &mut self.plane_splitters,
             surface_builder: SurfaceBuilder::new(),
             cmd_buffers,
-            clip_tree: &mut scene.clip_tree,
+            clip_tree: &scene.clip_tree,
             frame_gpu_data,
             image_dependencies: FastHashMap::default(),
             picture_scratch_handles: &mut picture_scratch_handles,
@@ -651,6 +662,7 @@ impl FrameBuilder {
         data_stores: &DataStores,
         scratch: &mut ScratchBuffer,
         debug_flags: DebugFlags,
+        debug_override: &SceneDebugOverride,
         tile_caches: &mut FastHashMap<SliceId, Box<TileCacheInstance>>,
         spatial_tree: &mut SpatialTree,
         dirty_rects_are_valid: bool,
@@ -708,6 +720,7 @@ impl FrameBuilder {
             data_stores,
             scratch,
             debug_flags,
+            debug_override,
             &mut composite_state,
             tile_caches,
             spatial_tree,
@@ -1003,7 +1016,7 @@ impl FrameBuilder {
         let mut current_opaque_clip = None;
 
         for pic_index in tile_cache_pictures.iter().rev() {
-            let pic = &mut pictures[pic_index.0];
+            let pic = &mut pictures[pic_index.0 as usize];
 
             match pic.raster_config {
                 Some(RasterConfig { composite_mode: PictureCompositeMode::TileCache { slice_id }, .. }) => {
@@ -1076,7 +1089,7 @@ impl FrameBuilder {
         composite_state: &mut CompositeState,
     ) {
         for pic_index in &scene.tile_cache_pictures {
-            let pic = &ctx.prim_store.pictures[pic_index.0];
+            let pic = &ctx.prim_store.pictures[pic_index.0 as usize];
 
             match pic.raster_config {
                 Some(RasterConfig { composite_mode: PictureCompositeMode::TileCache { slice_id }, .. }) => {

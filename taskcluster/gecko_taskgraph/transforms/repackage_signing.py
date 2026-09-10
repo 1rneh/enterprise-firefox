@@ -129,8 +129,7 @@ def make_repackage_signing_description(config, jobs):
         dependencies.update({
             k: v
             for k, v in signing_dependencies.items()
-            if k != "docker-image"
-            and not k.startswith("shippable-l10n-signing-linux64")
+            if k != "docker-image" and not k.startswith("l10n-signing-linux64")
         })
 
         description = (

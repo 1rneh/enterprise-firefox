@@ -46,6 +46,14 @@ import {
   spacesBandClasses,
 } from "common/PageLayoutVariants.mjs";
 
+const CLOSED_SUBPANELS = {
+  showSectionsMgmtPanel: false,
+  showWidgetsManagementPanel: false,
+  showThemesPanel: false,
+  showWallpapersPanel: false,
+  wallpapersPanelCategory: null,
+};
+
 const VISIBLE = "visible";
 const VISIBILITY_CHANGE_EVENT = "visibilitychange";
 // Scroll distances in pixels, in ascending order, that each record a scroll
@@ -142,6 +150,9 @@ export class BaseContent extends React.PureComponent {
     this.toggleWidgetsManagementPanel =
       this.toggleWidgetsManagementPanel.bind(this);
     this.toggleThemesPanel = this.toggleThemesPanel.bind(this);
+    this.openWallpapersPanel = this.openWallpapersPanel.bind(this);
+    this.closeWallpapersPanel = this.closeWallpapersPanel.bind(this);
+    this.closeSubpanels = this.closeSubpanels.bind(this);
     this.openWidgetsPanel = this.openWidgetsPanel.bind(this);
     this.attachSearchSentinel = this.attachSearchSentinel.bind(this);
     this.onSearchSentinelIntersect = this.onSearchSentinelIntersect.bind(this);
@@ -154,9 +165,7 @@ export class BaseContent extends React.PureComponent {
       wallpaperTheme: "",
       showDownloadHighlightOverride: null,
       visible: false,
-      showSectionsMgmtPanel: false,
-      showWidgetsManagementPanel: false,
-      showThemesPanel: false,
+      ...CLOSED_SUBPANELS,
     };
     this.spocPlaceholderStartTime = null;
   }
@@ -389,6 +398,10 @@ export class BaseContent extends React.PureComponent {
         prefs["newtabWallpapers.customWallpaper.theme"];
       const prevUploadedWallpaperTheme =
         prevPrefs["newtabWallpapers.customWallpaper.theme"];
+      const uploadedWallpaperPosition =
+        prefs["newtabWallpapers.customWallpaper.position"];
+      const prevUploadedWallpaperPosition =
+        prevPrefs["newtabWallpapers.customWallpaper.position"];
 
       // don't update wallpaper unless the wallpaper is being changed.
       if (
@@ -399,7 +412,8 @@ export class BaseContent extends React.PureComponent {
         wallpaperList !== prevWallpaperList || // remote settings wallpaper list updates
         this.props.App.isForStartupCache.Wallpaper !==
           prevProps.App.isForStartupCache.Wallpaper || // Startup cached page wallpaper is updating
-        uploadedWallpaperTheme !== prevUploadedWallpaperTheme
+        uploadedWallpaperTheme !== prevUploadedWallpaperTheme ||
+        uploadedWallpaperPosition !== prevUploadedWallpaperPosition
       ) {
         this.updateWallpaper();
       }
@@ -600,19 +614,33 @@ export class BaseContent extends React.PureComponent {
     }
   }
 
+  // The saved image the page is showing, used to read its attribution.
+  appliedSavedWallpaper() {
+    const { customWallpapers } = this.props.Wallpapers;
+    const filename =
+      this.props.Prefs.values["newtabWallpapers.customWallpaper.uuid"];
+    if (!filename) {
+      return null;
+    }
+    return customWallpapers?.find(wallpaper => wallpaper.filename === filename);
+  }
+
   renderWallpaperAttribution() {
     const { wallpaperList } = this.props.Wallpapers;
     const activeWallpaper =
       this.props.Prefs.values[`newtabWallpapers.wallpaper`] ||
       this.props.Prefs.values[`newtabWallpapers.initialWallpaper`];
-    const selected = wallpaperList.find(wp => wp.title === activeWallpaper);
+    const attribution =
+      activeWallpaper === "custom"
+        ? this.appliedSavedWallpaper()?.attribution
+        : wallpaperList.find(wp => wp.title === activeWallpaper)?.attribution;
     // make sure a wallpaper is selected and that the attribution also exists
-    if (!selected?.attribution) {
+    if (!attribution) {
       return null;
     }
 
-    const { name: authorDetails, webpage } = selected.attribution;
-    if (activeWallpaper && wallpaperList && authorDetails.url) {
+    const { name: authorDetails, webpage } = attribution;
+    if (activeWallpaper && authorDetails?.url && webpage?.url) {
       return (
         <p
           className={`wallpaper-attribution`}
@@ -682,8 +710,10 @@ export class BaseContent extends React.PureComponent {
     if (selectedWallpaper === "custom" && uploadedWallpaperUrl) {
       url = uploadedWallpaperUrl;
       color = "transparent";
-      // Note: There is no method to set a specific background position for custom wallpapers
-      backgroundPosition = "center";
+      // Nobody picks a position. An upload is centered, and a saved Firefox
+      // wallpaper keeps the crop it shipped with through this pref.
+      backgroundPosition =
+        prefs["newtabWallpapers.customWallpaper.position"] || "center";
       newTheme = uploadedWallpaperTheme || colorMode;
     } else if (wallpaperList) {
       const wallpaper = wallpaperList.find(
@@ -826,14 +856,30 @@ export class BaseContent extends React.PureComponent {
     }));
   }
 
+  openWallpapersPanel(categoryId) {
+    this.setState({
+      ...CLOSED_SUBPANELS,
+      showWallpapersPanel: true,
+      wallpapersPanelCategory: categoryId,
+    });
+  }
+
+  // Keeps wallpapersPanelCategory so the heading and wallpaper list stay
+  // populated while the subpanel slides out. The next open overwrites it.
+  closeWallpapersPanel() {
+    this.setState({ showWallpapersPanel: false });
+  }
+
+  closeSubpanels() {
+    this.setState(CLOSED_SUBPANELS);
+  }
+
   openWidgetsPanel() {
     this.openCustomizationMenu();
-    if (!this.state.showWidgetsManagementPanel) {
-      this.setState({
-        showWidgetsManagementPanel: true,
-        showSectionsMgmtPanel: false,
-      });
-    }
+    this.setState({
+      ...CLOSED_SUBPANELS,
+      showWidgetsManagementPanel: true,
+    });
   }
 
   shouldDisplayTopicSelectionModal() {
@@ -1338,6 +1384,11 @@ export class BaseContent extends React.PureComponent {
                 toggleWidgetsManagementPanel={this.toggleWidgetsManagementPanel}
                 toggleThemesPanel={this.toggleThemesPanel}
                 showThemesPanel={this.state.showThemesPanel}
+                showWallpapersPanel={this.state.showWallpapersPanel}
+                wallpapersPanelCategory={this.state.wallpapersPanelCategory}
+                openWallpapersPanel={this.openWallpapersPanel}
+                closeWallpapersPanel={this.closeWallpapersPanel}
+                closeSubpanels={this.closeSubpanels}
                 widgetsEnabled={widgetsEnabled}
                 dispatch={this.props.dispatch}
               />
@@ -1514,6 +1565,11 @@ export class BaseContent extends React.PureComponent {
               showSectionsMgmtPanel={this.state.showSectionsMgmtPanel}
               toggleThemesPanel={this.toggleThemesPanel}
               showThemesPanel={this.state.showThemesPanel}
+              showWallpapersPanel={this.state.showWallpapersPanel}
+              wallpapersPanelCategory={this.state.wallpapersPanelCategory}
+              openWallpapersPanel={this.openWallpapersPanel}
+              closeWallpapersPanel={this.closeWallpapersPanel}
+              closeSubpanels={this.closeSubpanels}
             />
             {shouldShowOMCHighlight(
               this.props.Messages,

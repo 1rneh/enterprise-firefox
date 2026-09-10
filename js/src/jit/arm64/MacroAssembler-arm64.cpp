@@ -179,7 +179,7 @@ void MacroAssemblerCompat::boxValue(Register type, Register src,
       Operand(ARMRegister(dest, 64), vixl::LSL, JSVAL_TAG_SHIFT));
 }
 
-#ifdef ENABLE_WASM_SIMD
+#ifdef ENABLE_JIT_SIMD
 bool MacroAssembler::MustMaskShiftCountSimd128(wasm::SimdOp op, int32_t* mask) {
   switch (op) {
     case wasm::SimdOp::I8x16Shl:
@@ -2295,10 +2295,17 @@ void MacroAssembler::wasmTruncateFloat32ToInt64(
 
 void MacroAssembler::oolWasmTruncateCheckF32ToI32(
     FloatRegister input, Register output, TruncFlags flags,
-    const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin) {
+    const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin,
+    wasm::StackMap* stackMapForTraps,
+    wasm::StackMapRegistry* stackMapRegistry) {
+  MOZ_ASSERT_IF(stackMapForTraps, stackMapRegistry);
   Label notNaN;
   branchFloat(Assembler::DoubleOrdered, input, input, &notNaN);
-  wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  FaultingCodeRange fcr1 =
+      wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr1));
+  }
   bind(&notNaN);
 
   Label isOverflow;
@@ -2318,15 +2325,25 @@ void MacroAssembler::oolWasmTruncateCheckF32ToI32(
     branchFloat(Assembler::DoubleGreaterThanOrEqual, input, fpscratch, rejoin);
   }
   bind(&isOverflow);
-  wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  FaultingCodeRange fcr2 = wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr2));
+  }
 }
 
 void MacroAssembler::oolWasmTruncateCheckF64ToI32(
     FloatRegister input, Register output, TruncFlags flags,
-    const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin) {
+    const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin,
+    wasm::StackMap* stackMapForTraps,
+    wasm::StackMapRegistry* stackMapRegistry) {
+  MOZ_ASSERT_IF(stackMapForTraps, stackMapRegistry);
   Label notNaN;
   branchDouble(Assembler::DoubleOrdered, input, input, &notNaN);
-  wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  FaultingCodeRange fcr1 =
+      wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr1));
+  }
   bind(&notNaN);
 
   Label isOverflow;
@@ -2346,15 +2363,25 @@ void MacroAssembler::oolWasmTruncateCheckF64ToI32(
     branchDouble(Assembler::DoubleGreaterThan, input, fpscratch, rejoin);
   }
   bind(&isOverflow);
-  wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  FaultingCodeRange fcr2 = wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr2));
+  }
 }
 
 void MacroAssembler::oolWasmTruncateCheckF32ToI64(
     FloatRegister input, Register64 output, TruncFlags flags,
-    const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin) {
+    const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin,
+    wasm::StackMap* stackMapForTraps,
+    wasm::StackMapRegistry* stackMapRegistry) {
+  MOZ_ASSERT_IF(stackMapForTraps, stackMapRegistry);
   Label notNaN;
   branchFloat(Assembler::DoubleOrdered, input, input, &notNaN);
-  wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  FaultingCodeRange fcr1 =
+      wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr1));
+  }
   bind(&notNaN);
 
   Label isOverflow;
@@ -2374,15 +2401,25 @@ void MacroAssembler::oolWasmTruncateCheckF32ToI64(
     branchFloat(Assembler::DoubleGreaterThanOrEqual, input, fpscratch, rejoin);
   }
   bind(&isOverflow);
-  wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  FaultingCodeRange fcr2 = wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr2));
+  }
 }
 
 void MacroAssembler::oolWasmTruncateCheckF64ToI64(
     FloatRegister input, Register64 output, TruncFlags flags,
-    const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin) {
+    const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin,
+    wasm::StackMap* stackMapForTraps,
+    wasm::StackMapRegistry* stackMapRegistry) {
+  MOZ_ASSERT_IF(stackMapForTraps, stackMapRegistry);
   Label notNaN;
   branchDouble(Assembler::DoubleOrdered, input, input, &notNaN);
-  wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  FaultingCodeRange fcr1 =
+      wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr1));
+  }
   bind(&notNaN);
 
   Label isOverflow;
@@ -2402,7 +2439,10 @@ void MacroAssembler::oolWasmTruncateCheckF64ToI64(
     branchDouble(Assembler::DoubleGreaterThanOrEqual, input, fpscratch, rejoin);
   }
   bind(&isOverflow);
-  wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  FaultingCodeRange fcr2 = wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr2));
+  }
 }
 
 void MacroAssembler::wasmLoad(const wasm::MemoryAccessDesc& access,
@@ -3129,6 +3169,22 @@ void MacroAssembler::wasmAtomicFetchOp(const wasm::MemoryAccessDesc& access,
                       op, mem, value, temp, output);
 }
 
+void MacroAssembler::atomicEffectOp(Scalar::Type arrayType,
+                                    Synchronization sync, AtomicOp op,
+                                    Register value, const BaseIndex& mem,
+                                    Register temp) {
+  AtomicFetchOp<false>(*this, nullptr, arrayType, Width::_32, sync, op, mem,
+                       value, temp, temp);
+}
+
+void MacroAssembler::atomicEffectOp(Scalar::Type arrayType,
+                                    Synchronization sync, AtomicOp op,
+                                    Register value, const Address& mem,
+                                    Register temp) {
+  AtomicFetchOp<false>(*this, nullptr, arrayType, Width::_32, sync, op, mem,
+                       value, temp, temp);
+}
+
 void MacroAssembler::wasmAtomicEffectOp(const wasm::MemoryAccessDesc& access,
                                         AtomicOp op, Register value,
                                         const Address& mem, Register temp) {
@@ -3202,106 +3258,10 @@ void MacroAssembler::wasmAtomicEffectOp64(const wasm::MemoryAccessDesc& access,
 // ========================================================================
 // JS atomic operations.
 
-template <typename T>
-static void CompareExchangeJS(MacroAssembler& masm, Scalar::Type arrayType,
-                              Synchronization sync, const T& mem,
-                              Register oldval, Register newval, Register temp,
-                              AnyRegister output) {
-  if (arrayType == Scalar::Uint32) {
-    masm.compareExchange(arrayType, sync, mem, oldval, newval, temp);
-    masm.convertUInt32ToDouble(temp, output.fpu());
-  } else {
-    masm.compareExchange(arrayType, sync, mem, oldval, newval, output.gpr());
-  }
-}
-
-void MacroAssembler::compareExchangeJS(Scalar::Type arrayType,
-                                       Synchronization sync, const Address& mem,
-                                       Register oldval, Register newval,
-                                       Register temp, AnyRegister output) {
-  CompareExchangeJS(*this, arrayType, sync, mem, oldval, newval, temp, output);
-}
-
-void MacroAssembler::compareExchangeJS(Scalar::Type arrayType,
-                                       Synchronization sync,
-                                       const BaseIndex& mem, Register oldval,
-                                       Register newval, Register temp,
-                                       AnyRegister output) {
-  CompareExchangeJS(*this, arrayType, sync, mem, oldval, newval, temp, output);
-}
-
-template <typename T>
-static void AtomicExchangeJS(MacroAssembler& masm, Scalar::Type arrayType,
-                             Synchronization sync, const T& mem, Register value,
-                             Register temp, AnyRegister output) {
-  if (arrayType == Scalar::Uint32) {
-    masm.atomicExchange(arrayType, sync, mem, value, temp);
-    masm.convertUInt32ToDouble(temp, output.fpu());
-  } else {
-    masm.atomicExchange(arrayType, sync, mem, value, output.gpr());
-  }
-}
-
-void MacroAssembler::atomicExchangeJS(Scalar::Type arrayType,
-                                      Synchronization sync, const Address& mem,
-                                      Register value, Register temp,
-                                      AnyRegister output) {
-  AtomicExchangeJS(*this, arrayType, sync, mem, value, temp, output);
-}
-
-void MacroAssembler::atomicExchangeJS(Scalar::Type arrayType,
-                                      Synchronization sync,
-                                      const BaseIndex& mem, Register value,
-                                      Register temp, AnyRegister output) {
-  AtomicExchangeJS(*this, arrayType, sync, mem, value, temp, output);
-}
-
-template <typename T>
-static void AtomicFetchOpJS(MacroAssembler& masm, Scalar::Type arrayType,
-                            Synchronization sync, AtomicOp op, Register value,
-                            const T& mem, Register temp1, Register temp2,
-                            AnyRegister output) {
-  if (arrayType == Scalar::Uint32) {
-    masm.atomicFetchOp(arrayType, sync, op, value, mem, temp2, temp1);
-    masm.convertUInt32ToDouble(temp1, output.fpu());
-  } else {
-    masm.atomicFetchOp(arrayType, sync, op, value, mem, temp1, output.gpr());
-  }
-}
-
-void MacroAssembler::atomicFetchOpJS(Scalar::Type arrayType,
-                                     Synchronization sync, AtomicOp op,
-                                     Register value, const Address& mem,
-                                     Register temp1, Register temp2,
-                                     AnyRegister output) {
-  AtomicFetchOpJS(*this, arrayType, sync, op, value, mem, temp1, temp2, output);
-}
-
-void MacroAssembler::atomicFetchOpJS(Scalar::Type arrayType,
-                                     Synchronization sync, AtomicOp op,
-                                     Register value, const BaseIndex& mem,
-                                     Register temp1, Register temp2,
-                                     AnyRegister output) {
-  AtomicFetchOpJS(*this, arrayType, sync, op, value, mem, temp1, temp2, output);
-}
-
-void MacroAssembler::atomicEffectOpJS(Scalar::Type arrayType,
-                                      Synchronization sync, AtomicOp op,
-                                      Register value, const BaseIndex& mem,
-                                      Register temp) {
-  AtomicFetchOp<false>(*this, nullptr, arrayType, Width::_32, sync, op, mem,
-                       value, temp, temp);
-}
-
-void MacroAssembler::atomicEffectOpJS(Scalar::Type arrayType,
-                                      Synchronization sync, AtomicOp op,
-                                      Register value, const Address& mem,
-                                      Register temp) {
-  AtomicFetchOp<false>(*this, nullptr, arrayType, Width::_32, sync, op, mem,
-                       value, temp, temp);
-}
-
 void MacroAssembler::atomicPause() { Isb(); }
+
+// ===============================================================
+// Arithmetic functions
 
 void MacroAssembler::flexibleQuotient32(Register lhs, Register rhs,
                                         Register dest, bool isUnsigned,

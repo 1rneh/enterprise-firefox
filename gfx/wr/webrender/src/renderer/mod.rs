@@ -39,7 +39,7 @@ use api::{DocumentId, Epoch, ExternalImageHandler, RenderReasons};
 use api::{PipelineId, Checkpoint, NotificationRequest, ImageBufferKind};
 use api::{FramePublishId, ImageFormat, RenderBackendId};
 #[cfg(any(feature = "capture", feature = "replay"))]
-use api::{ExternalImageSource, ExternalImageType};
+use api::{ExternalImageSource, ExternalImageType, ExternalTextureHandle};
 #[cfg(feature = "replay")]
 use api::{ExternalImage, ExternalImageId};
 use api::units::*;
@@ -59,11 +59,9 @@ use crate::composite::{CompositorConfig, NativeSurfaceOperationDetails, NativeSu
 #[cfg(feature = "debugger")]
 use api::debugger::{CompositorDebugInfo, DebuggerTextureContent};
 use crate::debug_colors;
-use crate::device::{DepthFunction, Device, DrawTarget, ExternalTexture, GpuFrameId, GraphicsApiInfo, UploadPBOPool};
-use crate::device::{ReadTarget, ShaderError, Texture, TextureFilter, TextureFlags, TextureSlot, Texel};
+use crate::device::{DepthFunction, Device, DrawTarget, ExternalTexture, GpuFrameId, GraphicsApiInfo, UploadBufferPool};
+use crate::device::{LoadOp, ReadTarget, RenderPassDescriptor, ShaderError, StoreOp, Texture, TextureFilter, TextureFlags, TextureSlot, Texel};
 use crate::device::query::{GpuSampler, GpuTimer};
-#[cfg(feature = "capture")]
-use crate::device::FBOId;
 use crate::debug_item::DebugItem;
 use crate::frame_builder::Frame;
 use glyph_rasterizer::GlyphFormat;
@@ -94,7 +92,6 @@ use upload::{upload_to_texture_cache, UploadTexturePool};
 use init::*;
 
 use euclid::{Transform3D, Scale, default};
-use gleam::gl;
 use malloc_size_of::MallocSizeOfOps;
 
 use std::sync::Arc;
@@ -742,7 +739,7 @@ pub struct Renderer {
     // Manages and resolves source textures IDs to real texture IDs.
     texture_resolver: TextureResolver,
 
-    texture_upload_pbo_pool: UploadPBOPool,
+    texture_upload_buffer_pool: UploadBufferPool,
     staging_texture_pool: UploadTexturePool,
 
     dither_matrix_texture: Option<Texture>,
@@ -784,8 +781,6 @@ pub struct Renderer {
     /// The set of documents which we've seen a publish for since last render.
     documents_seen: FastHashSet<DocumentId>,
 
-    #[cfg(feature = "capture")]
-    read_fbo: FBOId,
     #[cfg(feature = "replay")]
     owned_external_images: FastHashMap<(ExternalImageId, u8), ExternalTexture>,
 
@@ -890,7 +885,7 @@ impl Renderer {
     }
 
     pub fn required_texture_stride_alignment(&self, format: ImageFormat) -> usize {
-        self.device.required_pbo_stride().num_bytes(format).get()
+        self.device.required_transfer_stride().num_bytes(format).get()
     }
 
     pub fn set_clear_color(&mut self, color: ColorF) {
@@ -1140,9 +1135,14 @@ impl Renderer {
                 panic!("Should be handled by render backend");
             }
             #[cfg(feature = "debugger")]
+            DebugCommand::SetSceneDebugOverride(..) => {
+                panic!("Should be handled by render backend");
+            }
+            #[cfg(feature = "debugger")]
             DebugCommand::Query(ref query) => {
                 match query.kind {
-                    DebugQueryKind::SpatialTree { .. } => {
+                    DebugQueryKind::SpatialTree { .. } |
+                    DebugQueryKind::Scene { .. } => {
                         panic!("Should be handled by render backend");
                     }
                     DebugQueryKind::CompositorConfig { .. } => {
@@ -1172,7 +1172,6 @@ impl Renderer {
                         let mut texture_list = Vec::new();
 
                         self.device.begin_frame();
-                        self.device.bind_read_target_impl(self.read_fbo, DeviceIntPoint::zero());
 
                         for (id, item) in &self.texture_resolver.texture_cache_map {
                             if category.is_some() && category != Some(item.category) {
@@ -1258,7 +1257,7 @@ impl Renderer {
     }
 
     fn trim_upload_buffers(&mut self) {
-        self.texture_upload_pbo_pool.on_memory_pressure(&mut self.device);
+        self.texture_upload_buffer_pool.on_memory_pressure(&mut self.device);
         self.staging_texture_pool.delete_textures(&mut self.device);
         if let Some(texture) = self.gpu_buffer_texture_f.take() {
             self.device.delete_texture(texture);
@@ -1436,7 +1435,7 @@ impl Renderer {
                         self.compositor_config
                             .compositor()
                             .unwrap()
-                            .destroy_surface(&mut self.device, NativeSurfaceId::DEBUG_OVERLAY);
+                            .destroy_surface(NativeSurfaceId::DEBUG_OVERLAY);
                         self.debug_overlay_state.current_size = None;
                     }
                     false
@@ -1452,7 +1451,7 @@ impl Renderer {
             };
 
             if let Some(config) = self.compositor_config.compositor() {
-                config.enable_native_compositor(&mut self.device, enable);
+                config.enable_native_compositor(enable);
             }
             self.current_compositor_kind = compositor_kind;
         }
@@ -1497,13 +1496,12 @@ impl Renderer {
             // we can create debug overlays after drawing the main surfaces.
             if let CompositorKind::Native { .. } = self.current_compositor_kind {
                 let compositor = self.compositor_config.compositor().unwrap();
-                compositor.begin_frame(&mut self.device);
+                compositor.begin_frame();
             }
 
             // Update the state of the debug overlay surface, ensuring that
             // the compositor mode has a suitable surface to draw to, if required.
             debug::update_debug_overlay(
-                &mut self.device,
                 &mut self.compositor_config,
                 self.current_compositor_kind,
                 &mut self.debug_overlay_state,
@@ -1760,8 +1758,12 @@ impl Renderer {
             );
         }
 
+        if debug_overlay.is_some() {
+            self.device.end_render_pass(StoreOp::Store);
+        }
+
         self.staging_texture_pool.end_frame(&mut self.device);
-        self.texture_upload_pbo_pool.end_frame(&mut self.device);
+        self.texture_upload_buffer_pool.end_frame(&mut self.device);
         self.device.end_frame();
 
         if debug_overlay.is_some() {
@@ -1770,7 +1772,6 @@ impl Renderer {
             // Unbind the target for the debug overlay. No debug or profiler drawing
             // can occur afer this point.
             debug::unbind_debug_overlay(
-                &mut self.device,
                 &mut self.compositor_config,
                 self.current_compositor_kind,
                 &self.debug_overlay_state,
@@ -1789,7 +1790,7 @@ impl Renderer {
                 CompositorKind::Native { .. } => {
                     tracy_rs::profile_scope!("compositor.end_frame");
                     let compositor = self.compositor_config.compositor().unwrap();
-                    compositor.end_frame(&mut self.device);
+                    compositor.end_frame();
                 }
                 CompositorKind::Draw { .. } => {}
             }
@@ -1878,7 +1879,11 @@ impl Renderer {
                 }
 
                 let draw_target = DrawTarget::from_texture(dest_texture, false);
-                self.device.bind_draw_target(draw_target);
+                self.device.begin_render_pass(&RenderPassDescriptor {
+                    target: draw_target,
+                    render_area: None,
+                    color_load: LoadOp::Load,
+                });
 
                 self.shaders
                     .borrow_mut()
@@ -1900,6 +1905,8 @@ impl Renderer {
                     ),
                     &mut RendererStats::default(),
                 );
+
+                self.device.end_render_pass(StoreOp::Store);
             }
 
             // Find any textures that will need to be deleted in this group of allocations.
@@ -2244,11 +2251,6 @@ impl Renderer {
                 TextureFilter::Linear,
             );
         }
-
-        // Restore draw target to current pass render target, and reset
-        // the read target.
-        self.device.bind_draw_target(draw_target);
-        self.device.reset_read_target();
 
         if uses_scissor {
             self.device.enable_scissor();
@@ -2827,17 +2829,12 @@ impl Renderer {
 
         {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_SETUP_TARGET);
-            self.device.bind_draw_target(draw_target);
-
-            if self.device.get_capabilities().supports_qcom_tiled_rendering {
-                self.device.gl().start_tiling_qcom(
-                    target.dirty_rect.min.x.max(0) as _,
-                    target.dirty_rect.min.y.max(0) as _,
-                    target.dirty_rect.width() as _,
-                    target.dirty_rect.height() as _,
-                    0,
-                );
-            }
+            // The dirty rect is fully redrawn, so nothing needs loading.
+            self.device.begin_render_pass(&RenderPassDescriptor {
+                target: draw_target,
+                render_area: Some(target.dirty_rect),
+                color_load: LoadOp::DontCare,
+            });
 
             self.device.set_depth_write(true);
             self.set_blend_mode(BlendMode::None, framebuffer_kind);
@@ -2939,10 +2936,7 @@ impl Renderer {
             }
         }
 
-        self.device.invalidate_depth_target();
-        if self.device.get_capabilities().supports_qcom_tiled_rendering {
-            self.device.gl().end_tiling_qcom(gl::COLOR_BUFFER_BIT0_QCOM);
-        }
+        self.device.end_render_pass(StoreOp::Discard);
     }
 
     /// Draw an alpha batch container into a given draw target. This is used
@@ -3287,23 +3281,17 @@ impl Renderer {
             FramebufferKind::Other
         };
 
-        self.device.bind_draw_target(draw_target);
-
-        if self.device.get_capabilities().supports_qcom_tiled_rendering {
-            let preserve_mask = match target.clear_color {
-                Some(_) => 0,
-                None => gl::COLOR_BUFFER_BIT0_QCOM,
-            };
-            if let Some(used_rect) = target.used_rect {
-                self.device.gl().start_tiling_qcom(
-                    used_rect.min.x.max(0) as _,
-                    used_rect.min.y.max(0) as _,
-                    used_rect.width() as _,
-                    used_rect.height() as _,
-                    preserve_mask,
-                );
-            }
-        }
+        self.device.begin_render_pass(&RenderPassDescriptor {
+            target: draw_target,
+            render_area: target.used_rect,
+            // A target with a clear color is fully overwritten by the clear,
+            // so its previous contents need not be loaded.
+            color_load: if target.clear_color.is_some() {
+                LoadOp::DontCare
+            } else {
+                LoadOp::Load
+            },
+        });
 
         if needs_depth {
             self.device.set_depth_write(true);
@@ -3523,12 +3511,11 @@ impl Renderer {
             );
         }
 
-        if needs_depth {
-            self.device.invalidate_depth_target();
-        }
-        if self.device.get_capabilities().supports_qcom_tiled_rendering {
-            self.device.gl().end_tiling_qcom(gl::COLOR_BUFFER_BIT0_QCOM);
-        }
+        self.device.end_render_pass(if needs_depth {
+            StoreOp::Discard
+        } else {
+            StoreOp::Store
+        });
 
         if let Some(sampler) = sampler_query {
             self.gpu_profiler.finish_sampler(sampler);
@@ -3562,7 +3549,7 @@ impl Renderer {
 
         self.vertex_data_textures[self.current_vertex_data_textures].update(
             &mut self.device,
-            &mut self.texture_upload_pbo_pool,
+            &mut self.texture_upload_buffer_pool,
             frame,
         );
         self.current_vertex_data_textures =
@@ -3596,44 +3583,35 @@ impl Renderer {
                             let _inserted = self.allocated_native_surfaces.insert(id);
                             debug_assert!(_inserted, "bug: creating existing surface");
                             compositor.create_surface(
-                                    &mut self.device,
-                                    id,
-                                    virtual_offset,
-                                    tile_size,
-                                    is_opaque,
+                                id,
+                                virtual_offset,
+                                tile_size,
+                                is_opaque,
                             );
                         }
                         NativeSurfaceOperationDetails::CreateExternalSurface { id, is_opaque } => {
                             let _inserted = self.allocated_native_surfaces.insert(id);
                             debug_assert!(_inserted, "bug: creating existing surface");
-                            compositor.create_external_surface(
-                                &mut self.device,
-                                id,
-                                is_opaque,
-                            );
+                            compositor.create_external_surface(id, is_opaque);
                         }
                         NativeSurfaceOperationDetails::CreateBackdropSurface { id, color } => {
                             let _inserted = self.allocated_native_surfaces.insert(id);
                             debug_assert!(_inserted, "bug: creating existing surface");
-                            compositor.create_backdrop_surface(
-                                &mut self.device,
-                                id,
-                                color,
-                            );
+                            compositor.create_backdrop_surface(id, color);
                         }
                         NativeSurfaceOperationDetails::DestroySurface { id } => {
                             let _existed = self.allocated_native_surfaces.remove(&id);
                             debug_assert!(_existed, "bug: removing unknown surface");
-                            compositor.destroy_surface(&mut self.device, id);
+                            compositor.destroy_surface(id);
                         }
                         NativeSurfaceOperationDetails::CreateTile { id } => {
-                            compositor.create_tile(&mut self.device, id);
+                            compositor.create_tile(id);
                         }
                         NativeSurfaceOperationDetails::DestroyTile { id } => {
-                            compositor.destroy_tile(&mut self.device, id);
+                            compositor.destroy_tile(id);
                         }
                         NativeSurfaceOperationDetails::AttachExternalImage { id, external_image } => {
-                            compositor.attach_external_image(&mut self.device, id, external_image);
+                            compositor.attach_external_image(id, external_image);
                         }
                     }
                 }
@@ -3650,7 +3628,7 @@ impl Renderer {
         device: &mut Device,
         buffer: &GpuBuffer<T>,
         dst_texture: &mut Option<Texture>,
-        pbo_pool: &mut UploadPBOPool,
+        pbo_pool: &mut UploadBufferPool,
     ) {
         if buffer.is_empty() {
             return;
@@ -3745,13 +3723,13 @@ impl Renderer {
                 &mut self.device,
                 &frame.gpu_buffer_f,
                 &mut self.gpu_buffer_texture_f,
-                &mut self.texture_upload_pbo_pool,
+                &mut self.texture_upload_buffer_pool,
             );
             Self::update_gpu_buffer_texture(
                 &mut self.device,
                 &frame.gpu_buffer_i,
                 &mut self.gpu_buffer_texture_i,
-                &mut self.texture_upload_pbo_pool,
+                &mut self.texture_upload_buffer_pool,
             );
         }
 
@@ -3802,7 +3780,7 @@ impl Renderer {
                                 tile.transform_index,
                             ).to_i32();
 
-                            compositor.invalidate_tile(&mut self.device, id, valid_rect);
+                            compositor.invalidate_tile(id, valid_rect);
                         }
                     }
                 }
@@ -3814,7 +3792,7 @@ impl Renderer {
             for surface in &frame.composite_state.external_surfaces {
                 if let Some((native_surface_id, size)) = surface.update_params {
                     let surface_rect = size.into();
-                    compositor.invalidate_tile(&mut self.device, NativeTileId { surface_id: native_surface_id, x: 0, y: 0 }, surface_rect);
+                    compositor.invalidate_tile(NativeTileId { surface_id: native_surface_id, x: 0, y: 0 }, surface_rect);
                 }
             }
             // Finally queue native surfaces for early composition, if applicable. By now,
@@ -3825,7 +3803,6 @@ impl Renderer {
                 frame.composite_state.composite_native(
                     self.clear_color,
                     &results.dirty_rects,
-                    &mut self.device,
                     &mut **compositor,
                 );
             }
@@ -3874,7 +3851,6 @@ impl Renderer {
                                 CompositorKind::Native { .. } => {
                                     let compositor = self.compositor_config.compositor().unwrap();
                                     compositor.bind(
-                                        &mut self.device,
                                         id,
                                         picture_target.dirty_rect,
                                         picture_target.valid_rect,
@@ -3887,7 +3863,7 @@ impl Renderer {
 
                             DrawTarget::NativeSurface {
                                 offset: surface_info.origin,
-                                external_fbo_id: surface_info.fbo_id,
+                                handle: surface_info.handle,
                                 dimensions: size,
                             }
                         }
@@ -3915,7 +3891,7 @@ impl Renderer {
                         match self.current_compositor_kind {
                             CompositorKind::Native { .. } => {
                                 let compositor = self.compositor_config.compositor().unwrap();
-                                compositor.unbind(&mut self.device);
+                                compositor.unbind();
                             }
                             CompositorKind::Draw { .. } | CompositorKind::Layer { .. } => {
                                 unreachable!();
@@ -4034,13 +4010,13 @@ impl Renderer {
         // surfaces are freed.
         if let CompositorConfig::Native { mut compositor, .. } = self.compositor_config {
             for id in self.allocated_native_surfaces.drain() {
-                compositor.destroy_surface(&mut self.device, id);
+                compositor.destroy_surface(id);
             }
             // Destroy the debug overlay surface, if currently allocated.
             if self.debug_overlay_state.current_size.is_some() {
-                compositor.destroy_surface(&mut self.device, NativeSurfaceId::DEBUG_OVERLAY);
+                compositor.destroy_surface(NativeSurfaceId::DEBUG_OVERLAY);
             }
-            compositor.deinit(&mut self.device);
+            compositor.deinit();
         }
         if let Some(dither_matrix_texture) = self.dither_matrix_texture {
             self.device.delete_texture(dither_matrix_texture);
@@ -4057,7 +4033,7 @@ impl Renderer {
         for textures in self.vertex_data_textures.drain(..) {
             textures.deinit(&mut self.device);
         }
-        self.texture_upload_pbo_pool.deinit(&mut self.device);
+        self.texture_upload_buffer_pool.deinit(&mut self.device);
         self.staging_texture_pool.delete_textures(&mut self.device);
         self.texture_resolver.deinit(&mut self.device);
         self.vaos.deinit(&mut self.device);
@@ -4075,8 +4051,7 @@ impl Renderer {
             async_frame_recorder.deinit(&mut self.device);
         }
 
-        #[cfg(feature = "capture")]
-        self.device.delete_fbo(self.read_fbo);
+        self.device.deinit();
         #[cfg(feature = "replay")]
         for (_, ext) in self.owned_external_images {
             self.device.delete_external_texture(ext);
@@ -4105,8 +4080,8 @@ impl Renderer {
         // Texture cache and render target GPU memory.
         report += self.texture_resolver.report_memory();
 
-        // Texture upload PBO memory.
-        report += self.texture_upload_pbo_pool.report_memory();
+        // Texture upload buffer memory.
+        report += self.texture_upload_buffer_pool.report_memory();
 
         // Textures held internally within the device layer.
         report += self.device.report_memory(self.size_of_ops.as_ref().unwrap(), swgl);
@@ -4126,11 +4101,13 @@ impl Renderer {
 
     /// Clears the texture with a given color.
     fn clear_texture(&mut self, texture: &Texture, color: [f32; 4]) {
-        self.device.bind_draw_target(DrawTarget::from_texture(
-            &texture,
-            false,
-        ));
+        self.device.begin_render_pass(&RenderPassDescriptor {
+            target: DrawTarget::from_texture(&texture, false),
+            render_area: None,
+            color_load: LoadOp::DontCare,
+        });
         self.device.clear_target(Some(color), None, None);
+        self.device.end_render_pass(StoreOp::Store);
     }
 }
 
@@ -4268,7 +4245,7 @@ struct PlainExternalResources {
 
 #[cfg(feature = "replay")]
 enum CapturedExternalImageData {
-    NativeTexture(gl::GLuint),
+    NativeTexture(ExternalTextureHandle),
     Buffer(Arc<Vec<u8>>),
 }
 
@@ -4401,12 +4378,11 @@ impl Renderer {
 
         self.device.begin_frame();
         let _gm = self.gpu_profiler.start_marker("read GPU data");
-        self.device.bind_read_target_impl(self.read_fbo, DeviceIntPoint::zero());
 
         if config.bits.contains(CaptureBits::EXTERNAL_RESOURCES) && !deferred_images.is_empty() {
             info!("saving external images");
             let mut arc_map = FastHashMap::<*const u8, String>::default();
-            let mut tex_map = FastHashMap::<u32, String>::default();
+            let mut tex_map = FastHashMap::<ExternalTextureHandle, String>::default();
             let handler = self.external_image_handler
                 .as_mut()
                 .expect("Unable to lock the external image handler!");
@@ -4428,9 +4404,9 @@ impl Renderer {
                             }
                         }
                     }
-                    ExternalImageSource::NativeTexture(gl_id) => {
+                    ExternalImageSource::NativeTexture(handle) => {
                         let tex_id = tex_map.len() + 1;
-                        match tex_map.entry(gl_id) {
+                        match tex_map.entry(handle) {
                             Entry::Occupied(e) => {
                                 (None, e.get().clone())
                             }
@@ -4440,7 +4416,7 @@ impl Renderer {
                                     ExternalImageType::Buffer => unreachable!(),
                                 };
                                 info!("\t\tnative texture of target {:?}", target);
-                                self.device.attach_read_texture_external(gl_id, target);
+                                self.device.attach_read_texture_external(handle, target);
                                 let data = self.device.read_pixels(&def.descriptor);
                                 let short_path = format!("externals/t{}.raw", tex_id);
                                 (Some(data), e.insert(short_path).clone())
@@ -4560,7 +4536,7 @@ impl Renderer {
 
         if let Some(external_resources) = config.deserialize_for_resource::<PlainExternalResources, _>("external_resources") {
             info!("loading external texture-backed images");
-            let mut native_map = FastHashMap::<String, gl::GLuint>::default();
+            let mut native_map = FastHashMap::<String, ExternalTextureHandle>::default();
             for ExternalCaptureImage { short_path, external, descriptor } in external_resources.images {
                 let target = match external.image_type {
                     ExternalImageType::TextureHandle(target) => target,
@@ -4590,7 +4566,7 @@ impl Renderer {
                         );
                         let extex = t.0.into_external();
                         self.owned_external_images.insert(key, extex.clone());
-                        e.insert(extex.internal_id()).clone()
+                        e.insert(extex.handle()).clone()
                     }
                 };
 
@@ -4660,7 +4636,6 @@ impl CompositeState {
         &self,
         clear_color: ColorF,
         dirty_rects: &[DeviceIntRect],
-        device: &mut Device,
         compositor: &mut dyn Compositor,
     ) {
         // Add each surface to the visual tree. z-order is implicit based on
@@ -4668,7 +4643,6 @@ impl CompositeState {
         // surface.
         for surface in &self.descriptor.surfaces {
             compositor.add_surface(
-                device,
                 surface.surface_id.expect("bug: no native surface allocated"),
                 surface.transform,
                 surface.clip_rect.to_i32(),
@@ -4677,7 +4651,7 @@ impl CompositeState {
                 surface.rounded_clip_radii,
             );
         }
-        compositor.start_compositing(device, clear_color, dirty_rects, &[]);
+        compositor.start_compositing(clear_color, dirty_rects, &[]);
     }
 }
 

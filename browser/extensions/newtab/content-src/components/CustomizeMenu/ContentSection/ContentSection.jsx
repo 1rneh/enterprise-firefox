@@ -217,7 +217,7 @@ export class ContentSection extends React.PureComponent {
       setPref,
       mayHaveTopicSections,
       weatherDisplay,
-      exitEventFired,
+      panelShowing,
       onSubpanelToggle,
       toggleSectionsMgmtPanel,
       showSectionsMgmtPanel,
@@ -226,6 +226,10 @@ export class ContentSection extends React.PureComponent {
       browserNovaEnabled,
       toggleThemesPanel,
       showThemesPanel,
+      showWallpapersPanel,
+      wallpapersPanelCategory,
+      openWallpapersPanel,
+      closeWallpapersPanel,
       wallpapersEnabled,
       toggleWidgetsManagementPanel,
       showWidgetsManagementPanel,
@@ -298,7 +302,11 @@ export class ContentSection extends React.PureComponent {
                 <WallpaperCategories
                   setPref={setPref}
                   activeWallpaper={activeWallpaper}
-                  exitEventFired={exitEventFired}
+                  panelShowing={panelShowing}
+                  showPanel={showWallpapersPanel}
+                  activeCategory={wallpapersPanelCategory}
+                  openPanel={openWallpapersPanel}
+                  closePanel={closeWallpapersPanel}
                   onSubpanelToggle={onSubpanelToggle}
                 />
               </div>
@@ -632,7 +640,6 @@ export class ContentSection extends React.PureComponent {
                           )}
                           {mayHaveTopicSections && (
                             <SectionsMgmtPanel
-                              exitEventFired={exitEventFired}
                               pocketEnabled={pocketEnabled}
                               onSubpanelToggle={onSubpanelToggle}
                               togglePanel={toggleSectionsMgmtPanel}

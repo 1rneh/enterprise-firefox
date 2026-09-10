@@ -18,7 +18,7 @@ use std::collections::HashSet;
 use std::mem;
 use crate::debug_item::DebugItem;
 use crate::segment::EdgeMask;
-use crate::device::{BlendMode, DrawTarget};
+use crate::device::{BlendMode, DrawTarget, LoadOp, RenderPassDescriptor, StoreOp};
 use crate::gpu_types::{CompositeInstance, ZBufferId};
 use crate::internal_types::{FastHashMap, TextureSource};
 use crate::picture::ResolvedSurfaceTexture;
@@ -99,7 +99,6 @@ impl Renderer {
                 .compositor()
                 .unwrap()
                 .bind(
-                    &mut self.device,
                     NativeTileId {
                         surface_id: native_surface_id,
                         x: 0,
@@ -112,10 +111,14 @@ impl Renderer {
             // Bind the native surface to current FBO target
             let draw_target = DrawTarget::NativeSurface {
                 offset: surface_info.origin,
-                external_fbo_id: surface_info.fbo_id,
+                handle: surface_info.handle,
                 dimensions: surface_size,
             };
-            self.device.bind_draw_target(draw_target);
+            self.device.begin_render_pass(&RenderPassDescriptor {
+                target: draw_target,
+                render_area: None,
+                color_load: LoadOp::DontCare,
+            });
 
             let projection = Transform3D::ortho(
                 0.0,
@@ -218,10 +221,12 @@ impl Renderer {
                 &mut results.stats,
             );
 
+            self.device.end_render_pass(StoreOp::Store);
+
             self.compositor_config
                 .compositor()
                 .unwrap()
-                .unbind(&mut self.device);
+                .unbind();
         }
 
         self.gpu_profiler.finish_sampler(opaque_sampler);
@@ -447,7 +452,11 @@ impl Renderer {
         partial_present_mode: Option<PartialPresentMode>,
         layer: &SwapChainLayer,
     ) {
-        self.device.bind_draw_target(draw_target);
+        self.device.begin_render_pass(&RenderPassDescriptor {
+            target: draw_target,
+            render_area: None,
+            color_load: LoadOp::Load,
+        });
         self.device.set_depth_write(false);
         self.device.set_depth_test(None);
 
@@ -515,6 +524,8 @@ impl Renderer {
             );
             self.gpu_profiler.finish_sampler(transparent_sampler);
         }
+
+        self.device.end_render_pass(StoreOp::Store);
     }
 
     /// Composite picture cache tiles into the framebuffer. This is currently
@@ -1157,7 +1168,7 @@ impl Renderer {
 
                     DrawTarget::NativeSurface {
                         offset: -layer.offset,
-                        external_fbo_id: 0,
+                        handle: crate::composite::NativeSurfaceHandle::DEFAULT,
                         dimensions: frame_device_size,
                     }
                 }

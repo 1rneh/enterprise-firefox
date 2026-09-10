@@ -78,6 +78,7 @@
 #include "nsIXULRuntime.h"
 
 #include "mozilla/dom/WorkerCommon.h"
+#include "nsAboutProtocolUtils.h"
 #include "nsExternalHelperAppService.h"
 #include "nsDocShell.h"
 #include "nsDocShellLoadState.h"
@@ -893,6 +894,10 @@ const char* BrowsingContext::BrowsingContextCoherencyChecks(
 
   if (aOriginProcess && !IsContent()) {
     return "Content cannot create chrome BCs";
+  }
+
+  if (aOriginProcess && GetServiceWorkersTestingEnabled()) {
+    return "Content cannot enable ServiceWorkersTestingEnabled";
   }
 
   // LoadContext should generally match our opener or parent.
@@ -2330,6 +2335,31 @@ nsresult BrowsingContext::LoadURI(nsDocShellLoadState* aLoadState,
     MOZ_DIAGNOSTIC_ASSERT(!sourceBC,
                           "Should never see a cross-process javascript: load "
                           "triggered from content");
+  } else {
+    // We do the same check in the nsDocShellLoadState constructor when
+    // deserializing, but that check causes parent processes crashes for loads
+    // started in the parent with a remote effectiveRemoteType.
+    const RemoteType& effectiveRemoteType =
+        aLoadState->GetEffectiveTriggeringRemoteType();
+    if (!effectiveRemoteType.IsNotRemote() &&
+        !ContentTriggeredURILoadIsAllowed(aLoadState->URI(),
+                                          effectiveRemoteType)) {
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+      nsAutoCString aboutModuleOrScheme;
+      if (aLoadState->URI()->SchemeIs("about")) {
+        (void)NS_GetAboutModuleName(aLoadState->URI(), aboutModuleOrScheme);
+        aboutModuleOrScheme.InsertLiteral("about:", 0);
+      } else {
+        aLoadState->URI()->GetScheme(aboutModuleOrScheme);
+        aboutModuleOrScheme.AppendLiteral(":");
+      }
+      MOZ_CRASH_UNSAFE_PRINTF("Illegal load attempt of %s URL from %s",
+                              aboutModuleOrScheme.get(),
+                              effectiveRemoteType.StringifyKind().get());
+#endif
+
+      return NS_ERROR_UNEXPECTED;
+    }
   }
 
   // Note: We do this check both here and in `nsDocShell::InternalLoad`.
@@ -2587,15 +2617,6 @@ void BrowsingContext::Navigate(
     dom::NavigationAPIMethodTracker* aNavigationAPIMethodTracker) {
   MOZ_LOG_FMT(gNavigationAPILog, LogLevel::Debug, "Navigate to {} as {}", *aURI,
               aHistoryHandling);
-  CallerType callerType = aSubjectPrincipal.IsSystemPrincipal()
-                              ? CallerType::System
-                              : CallerType::NonSystem;
-
-  nsresult rv = CheckNavigationRateLimit(callerType);
-  if (NS_FAILED(rv)) {
-    aRv.Throw(rv);
-    return;
-  }
 
   RefPtr<nsDocShellLoadState> loadState =
       CheckURLAndCreateLoadState(aURI, aSubjectPrincipal, aSourceDocument, aRv);
@@ -2647,7 +2668,7 @@ void BrowsingContext::Navigate(
   loadState->SetNavigationAPIState(aNavigationAPIState);
   loadState->SetNavigationAPIMethodTracker(aNavigationAPIMethodTracker);
 
-  rv = LoadURI(loadState);
+  nsresult rv = LoadURI(loadState);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     if (rv == NS_ERROR_DOM_BAD_CROSS_ORIGIN_URI &&
         loadState->URI()->SchemeIs("javascript")) {
@@ -4608,10 +4629,10 @@ bool BrowsingContext::ShouldUpdateSessionHistory(uint32_t aLoadType) {
           (IsForceReloadType(aLoadType) && IsSubframe()));
 }
 
-nsresult BrowsingContext::CheckNavigationRateLimit(CallerType aCallerType) {
+bool BrowsingContext::CheckNavigationRateLimit(CallerType aCallerType) {
   // We only rate limit non system callers
   if (aCallerType == CallerType::System) {
-    return NS_OK;
+    return true;
   }
 
   // Fetch rate limiting preferences
@@ -4621,7 +4642,7 @@ nsresult BrowsingContext::CheckNavigationRateLimit(CallerType aCallerType) {
 
   // Disable throttling if either of the preferences is set to 0.
   if (limitCount == 0 || timeSpanSeconds == 0) {
-    return NS_OK;
+    return true;
   }
 
   TimeDuration throttleSpan = TimeDuration::FromSeconds(timeSpanSeconds);
@@ -4631,24 +4652,24 @@ nsresult BrowsingContext::CheckNavigationRateLimit(CallerType aCallerType) {
     // Initial call or timespan exceeded, reset counter and timespan.
     mNavigationRateLimitSpanStart = TimeStamp::Now();
     mNavigationRateLimitCount = 1;
-    return NS_OK;
+    return true;
   }
 
-  if (mNavigationRateLimitCount >= limitCount) {
+  if (NS_WARN_IF(mNavigationRateLimitCount >= limitCount)) {
     // Rate limit reached
-
     Document* doc = GetDocument();
     if (doc) {
       nsContentUtils::ReportToConsole(nsIScriptError::errorFlag, "DOM"_ns, doc,
                                       PropertiesFile::DOM_PROPERTIES,
-                                      "LocChangeFloodingPrevented");
+                                      "NavigationChangeFloodingPrevented");
     }
 
-    return NS_ERROR_DOM_SECURITY_ERR;
+    return false;
   }
 
   mNavigationRateLimitCount++;
-  return NS_OK;
+
+  return true;
 }
 
 void BrowsingContext::ResetNavigationRateLimit() {

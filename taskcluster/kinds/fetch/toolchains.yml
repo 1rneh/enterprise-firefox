@@ -105,7 +105,7 @@ sixgill:
     fetch:
         type: git
         repo: https://github.com/mozilla-spidermonkey/sixgill
-        revision: f8ace7cffffe9fd2b35a53a8260199c85f685336
+        revision: 71e44e994765d680ab51574871eac36f4b45097d
 
 gmp-6.1.0:
     description: GMP 6.1.0 source code
@@ -412,6 +412,13 @@ clang-22:
         type: git
         repo: https://github.com/llvm/llvm-project
         revision: ca7933e47d3a3451d81e72ac174dcb5aa28b59d1
+
+clang-23:
+    description: clang 23.1.1 source code
+    fetch:
+        type: git
+        repo: https://github.com/llvm/llvm-project
+        revision: 6dfe1677ab8dffbc6ec13d53a1e0215d75147689
 
 clang-trunk:
     description: clang main branch source code

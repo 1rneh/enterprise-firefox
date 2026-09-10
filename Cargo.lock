@@ -484,7 +484,6 @@ dependencies = [
  "thiserror 2.0.12",
  "types",
  "uniffi",
- "url",
 ]
 
 [[package]]
@@ -590,7 +589,7 @@ dependencies = [
  "quote",
  "regex",
  "rustc-hash 2.1.1",
- "shlex 2.0.1",
+ "shlex",
  "syn",
 ]
 
@@ -728,7 +727,6 @@ dependencies = [
  "sql-support",
  "thiserror 2.0.12",
  "uniffi",
- "url",
 ]
 
 [[package]]
@@ -899,13 +897,12 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deec109607ca693028562ed836a5f1c4b8bd77755c4e132fc5ce11b0b6211ae7"
+version = "1.4.5"
 dependencies = [
+ "find-msvc-tools",
  "jobserver",
  "libc",
- "shlex 1.3.999",
+ "shlex",
 ]
 
 [[package]]
@@ -2105,8 +2102,9 @@ dependencies = [
 
 [[package]]
 name = "encoding_rs"
-version = "0.8.35"
-source = "git+https://github.com/hsivonen/encoding_rs?rev=a4f2911cece3997c46da56785782b60dc0e5ab17#a4f2911cece3997c46da56785782b60dc0e5ab17"
+version = "0.8.40"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a7a45518d2863d18aa47f4a0cf9faec2aa4304cc09df5e41299f276b3ad135e"
 dependencies = [
  "any_all_workaround",
  "cfg-if",
@@ -2114,6 +2112,7 @@ dependencies = [
  "multiversion",
  "multiversion_no_op",
  "rustversion",
+ "scopeguard",
  "simdutf8",
 ]
 
@@ -2370,6 +2369,12 @@ dependencies = [
  "thiserror 2.0.12",
  "uniffi",
 ]
+
+[[package]]
+name = "find-msvc-tools"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e0f1c7c3a72c66fd80abe965175f7523475c0489a87d3ff9d6e8c87d87a9d2d"
 
 [[package]]
 name = "find-places-db"
@@ -4592,6 +4597,7 @@ dependencies = [
  "sync15",
  "tempfile",
  "thiserror 2.0.12",
+ "types",
  "uniffi",
  "url",
 ]
@@ -7598,13 +7604,6 @@ dependencies = [
 
 [[package]]
 name = "shlex"
-version = "1.3.999"
-dependencies = [
- "shlex 2.0.1",
-]
-
-[[package]]
-name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
@@ -7756,11 +7755,13 @@ dependencies = [
  "error-support",
  "interrupt-support",
  "lazy_static",
+ "libc",
  "parking_lot",
  "rusqlite 0.37.0",
  "tempfile",
  "text-table",
  "thiserror 2.0.12",
+ "url",
 ]
 
 [[package]]

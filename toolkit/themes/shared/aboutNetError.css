@@ -65,6 +65,7 @@ body.blocked .title::before {
   background:
     url("chrome://global/skin/icons/close-fill.svg") center / 53% no-repeat,
     radial-gradient(circle, var(--button-background-color) 60%, transparent 60%);
+  color: var(--button-text-color);
   -moz-context-properties: fill;
   fill: var(--text-color-error);
 }

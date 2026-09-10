@@ -194,10 +194,13 @@ body {
   align-self: stretch;
 
   background: var(--button-background-color);
+
+  color: var(--button-text-color);
 }
 
 .felt-updates-application progress::-moz-progress-bar {
   background: var(--button-background-color-primary);
+  color: var(--button-text-color-primary);
 }
 
 .felt-form__elements {

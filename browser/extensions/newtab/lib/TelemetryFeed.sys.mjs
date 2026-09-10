@@ -63,6 +63,17 @@ function isCardColumnSupported() {
   return Services.vc.compare(AppConstants.MOZ_APP_VERSION, "157.0a1") >= 0;
 }
 
+// @backward-compat { version 157 } is_ad_eligible_position was added as an
+// extra_key to the pocket and topsites impression events in 157. A train-hopped
+// XPI can run on older platform builds whose schema lacks it, and glean-core
+// drops the whole event when it sees an unknown extra key. Remove this guard,
+// and its call sites, once 157 reaches Release.
+export function isAdEligiblePositionSupported(
+  version = AppConstants.MOZ_APP_VERSION
+) {
+  return Services.vc.compare(version, "157.0a1") >= 0;
+}
+
 export const PREF_IMPRESSION_ID = "impressionId";
 export const TELEMETRY_PREF = "telemetry";
 export const PREF_UNIFIED_ADS_SPOCS_ENABLED = "unifiedAds.spocs.enabled";
@@ -186,6 +197,16 @@ const NEWTAB_PING_PREFS = {
 const TOP_SITES_BLOCKED_SPONSORS_PREF = "browser.topsites.blockedSponsors";
 const TOPIC_SELECTION_SELECTED_TOPICS_PREF =
   "browser.newtabpage.activity-stream.discoverystream.topicSelection.selectedTopics";
+const WALLPAPER_USER_EVENTS = new Set([
+  at.WALLPAPER_CATEGORY_CLICK,
+  at.WALLPAPER_CLICK,
+  at.WALLPAPERS_FEATURE_HIGHLIGHT_DISMISSED,
+  at.WALLPAPERS_FEATURE_HIGHLIGHT_CTA_CLICKED,
+  at.WALLPAPER_SAVED_ADDED,
+  at.WALLPAPER_SAVED_APPLIED,
+  at.WALLPAPER_SAVED_REMOVED,
+]);
+
 export class TelemetryFeed {
   /**
    * Queue for telemetry events when in NormalGleanSession mode.
@@ -992,6 +1013,7 @@ export class TelemetryFeed {
       tile_id,
       visible_topsites,
       frecency_boosted = false,
+      is_ad_eligible_position,
     } = data;
     // Legacy telemetry expects 1-based tile positions.
     const legacyTelemetryPosition = position + 1;
@@ -1012,6 +1034,9 @@ export class TelemetryFeed {
             visible_topsites,
             frecency_boosted,
             frecency_boosted_has_exposure: this.frecencyBoostedHasExposure(),
+            ...(is_ad_eligible_position && isAdEligiblePositionSupported()
+              ? { is_ad_eligible_position: true }
+              : {}),
           };
           this.recordOrQueueEvent(
             "topSitesImpression",
@@ -1026,6 +1051,9 @@ export class TelemetryFeed {
             is_sponsored: true,
             position,
             visible_topsites,
+            ...(is_ad_eligible_position && isAdEligiblePositionSupported()
+              ? { is_ad_eligible_position: true }
+              : {}),
           });
         }
       }
@@ -1095,6 +1123,10 @@ export class TelemetryFeed {
           visible_topsites,
           smart_scores: JSON.stringify(action.data.smartScores),
           smart_weights: JSON.stringify(action.data.smartWeights),
+          ...(action.data.is_ad_eligible_position &&
+          isAdEligiblePositionSupported()
+            ? { is_ad_eligible_position: true }
+            : {}),
         });
         break;
 
@@ -1720,6 +1752,13 @@ export class TelemetryFeed {
   }
 
   async onAction(action) {
+    // These all go to one place, so they are matched as a set rather than as
+    // a branch each in the switch below.
+    if (WALLPAPER_USER_EVENTS.has(action.type)) {
+      this.handleWallpaperUserEvent(action);
+      return;
+    }
+
     switch (action.type) {
       case at.INIT:
         this.init();
@@ -1766,13 +1805,6 @@ export class TelemetryFeed {
         break;
       case at.BLOCK_URL:
         this.handleBlockUrl(action);
-        break;
-      case at.WALLPAPER_CATEGORY_CLICK:
-      case at.WALLPAPER_CLICK:
-      case at.WALLPAPERS_FEATURE_HIGHLIGHT_DISMISSED:
-      case at.WALLPAPERS_FEATURE_HIGHLIGHT_CTA_CLICKED:
-      case at.WALLPAPER_UPLOAD:
-        this.handleWallpaperUserEvent(action);
         break;
       case at.SET_PREF:
         this.handleSetPref(action);
@@ -2479,10 +2511,38 @@ export class TelemetryFeed {
       return;
     }
 
-    const { data } = action;
+    const { data = {} } = action;
 
-    // Wallpaper specific telemtry events can be added and parsed here.
+    // Wallpaper specific telemetry events can be added and parsed here.
     switch (action.type) {
+      // Both of these come from the parent once the work actually happened,
+      // so neither is recorded for an operation the parent refused.
+      case "WALLPAPER_SAVED_REMOVED":
+        Glean.newtab.wallpaperSavedRemove.record({
+          newtab_visit_id: session.session_id,
+          saved_wallpaper_count: data.saved_wallpaper_count,
+          was_applied: data.was_applied,
+          wallpaper_source: data.wallpaper_source,
+        });
+        break;
+      case "WALLPAPER_SAVED_ADDED":
+        Glean.newtab.wallpaperSavedAdd.record({
+          newtab_visit_id: session.session_id,
+          wallpaper_source: data.wallpaper_source,
+          saved_wallpaper_count: data.saved_wallpaper_count,
+        });
+        break;
+      case "WALLPAPER_SAVED_APPLIED":
+        // wallpaperClick reports every saved image as "custom", so this is
+        // what tells them apart without recording the image's name. The picker
+        // still fires wallpaperClick for the same pick, so the two describe one
+        // selection and must not be added together.
+        Glean.newtab.wallpaperSavedClick.record({
+          newtab_visit_id: session.session_id,
+          saved_wallpaper_count: data.saved_wallpaper_count,
+          wallpaper_source: data.wallpaper_source,
+        });
+        break;
       case "WALLPAPER_CATEGORY_CLICK":
         Glean.newtab.wallpaperCategoryClick.record({
           newtab_visit_id: session.session_id,
@@ -2652,6 +2712,9 @@ export class TelemetryFeed {
         ...(tile.format ? { format: tile.format } : {}),
         ...(tile.card_column && isCardColumnSupported()
           ? { card_column: tile.card_column }
+          : {}),
+        ...(tile.is_ad_eligible_position && isAdEligiblePositionSupported()
+          ? { is_ad_eligible_position: true }
           : {}),
         ...(tile.section
           ? {

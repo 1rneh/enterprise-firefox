@@ -54,6 +54,8 @@ skip-if = [
   "enterprise", # Enterprise does not show the IP Protection toolbar button or panel containing the site exclusion UI.
 ]
 
+["browser_ipprotection_content_site_rules.js"]
+
 ["browser_ipprotection_content_unauthenticated.js"]
 skip-if = [
   "enterprise", # Enterprise is always authenticated; there is no unauthenticated panel UI.

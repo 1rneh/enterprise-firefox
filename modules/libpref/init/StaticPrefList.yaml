@@ -2223,7 +2223,7 @@
 - name: browser.opaqueResponseBlocking
   type: RelaxedAtomicBool
 #if defined(ANDROID)
-  value: false
+  value: @IS_NIGHTLY_BUILD@
 #else
   value: true
 #endif
@@ -4009,14 +4009,14 @@
   value: false
   mirror: always
 
-# Limit of location change caused by content scripts in a time span per
+# Limit of navigations initiated by content in a time span per
 # BrowsingContext. This includes calls to History and Location APIs.
 - name: dom.navigation.navigationRateLimit.count
   type: uint32_t
-  value: 1000
+  value: 200
   mirror: always
 
-# Time span in seconds for location change rate limit.
+# Time span in seconds for the navigation rate limit.
 - name: dom.navigation.navigationRateLimit.timespan
   type: uint32_t
   value: 10
@@ -6093,6 +6093,12 @@
 - name: dom.webcomponents.lift-adoptedstylesheets-restriction.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Whether ML-KEM key encapsulation in WebCrypto is enabled.
+- name: dom.webcrypto.encapsulation.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Is support for the WebGPU API enabled?
@@ -10038,7 +10044,7 @@
   set_spidermonkey_pref: always
   fuzzing_safe: false
 
-#if defined(ENABLE_WASM_SIMD)
+#if defined(ENABLE_JIT_SIMD)
 #if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
   # Enables AVX instructions support on X86/X64 platforms.
   # Changing these prefs requires a restart.
@@ -14766,6 +14772,13 @@
   value: 524288 # 512KiB
   mirror: always
 
+# How long changes to the cookie database are buffered in memory before being
+# written out as a single transaction.
+- name: network.cookie.db.flushIntervalMs
+  type: uint32_t
+  value: 500
+  mirror: always
+
 # The string to return to the server as the 'workstation' that the user is
 # using. Bug 1046421 notes that the previous default of the system hostname
 # could be used for user fingerprinting.
@@ -18049,14 +18062,6 @@
   value: false
   mirror: always
 
-# Controls whether or not GPC signals are sent. Meant to act as a third option
-# of 'undecided' by leaving the navigator property undefined and not attaching
-# the Sec-GPC HTTP header.
-- name: privacy.globalprivacycontrol.functionality.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # Lower the priority of network loads for resources on the tracking protection
 # list.  Note that this requires the
 # privacy.trackingprotection.annotate_channels pref to be on in order to have
@@ -20213,11 +20218,6 @@
   value: false
   mirror: always
 
-- name: webgl.can-lose-context-in-foreground
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: webgl.cgl.multithreaded
   type: RelaxedAtomicBool
   value: true
@@ -21014,6 +21014,16 @@
 #  - 1: always
 #  - 2: auto (true for snap and flatpak or GTK_USE_PORTAL=1, false otherwise)
 - name: widget.use-xdg-desktop-portal.native-messaging
+  type: int32_t
+  value: 0
+  mirror: always
+
+# Whether to use XDG proxy for native messaging.
+# https://github.com/flatpak/xdg-native-messaging-proxy
+#  - 0: never
+#  - 1: always
+#  - 2: auto (true for snap and flatpak or GTK_USE_PORTAL=1, false otherwise)
+- name: widget.use-xdg-desktop-portal.native-messaging-proxy
   type: int32_t
   value: 0
   mirror: always

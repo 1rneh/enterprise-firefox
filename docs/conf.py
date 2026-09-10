@@ -50,6 +50,7 @@ extensions = [
     "sphinx_design",
     "bzlink",
     "etp_matrix",
+    "staging_paths",
 ]
 
 myst_enable_extensions = [
@@ -59,6 +60,23 @@ myst_enable_extensions = [
     "html_admonition",
     "fieldlist",
 ]
+
+# sphinxcontrib-mermaid defaults to forcing every diagram into a 100% x 500px
+# box. Tall diagrams get scaled down to fit and their labels become unreadable,
+# while stretching to the full width blows short ones up. Sizing to the content
+# keeps each diagram at its natural size, still shrinking on narrow screens.
+mermaid_width = "fit-content"
+mermaid_height = "auto"
+
+# startOnLoad must stay off: the extension renders via mermaid.run() itself.
+# Only theme-neutral values belong here, as this config is shared by the light
+# and dark themes.
+mermaid_init_config = {
+    "startOnLoad": False,
+    "themeVariables": {
+        "fontSize": "18px",
+    },
+}
 
 # The paths are loaded from config.yml so they can be shared with a CI
 # optimization strategy that ensures the doc task runs when these files change.

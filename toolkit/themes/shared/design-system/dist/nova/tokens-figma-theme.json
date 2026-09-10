@@ -35,7 +35,7 @@
     "forcedColors": "transparent"
   },
   "border/color/interactive/hover": {
-    "light": "{Colors$color/gray/45}",
+    "light": "{Colors$color/gray/50}",
     "dark": "{Colors$color/gray/20}",
     "forcedColors": "{HCM Theme$SelectedItem}"
   },
@@ -60,7 +60,7 @@
     "forcedColors": "{HCM Theme$CanvasText}"
   },
   "border/color/interactive": {
-    "light": "{Colors$color/gray/35}",
+    "light": "{Colors$color/gray/45}",
     "dark": "{Colors$color/gray/40}",
     "forcedColors": "transparent"
   },
@@ -288,11 +288,6 @@
     "light": "{Theme$button/border/color}",
     "dark": "{Theme$button/border/color}",
     "forcedColors": "{Theme$button/border/color/active}"
-  },
-  "button/opacity/disabled": {
-    "light": 0.7,
-    "dark": 0.7,
-    "forcedColors": 1
   },
   "button/split/separator/background/color": {
     "light": "{Theme$button/border/color}",
@@ -636,7 +631,7 @@
   },
   "input-color/background/color/active": {
     "light": "{Theme$button/background/color/active}",
-    "dark": "{Theme$button/background/color/active}",
+    "dark": "{Colors$color/violet-desaturated/60}",
     "forcedColors": "{Theme$button/background/color/active}"
   },
   "input-color/background/color/hover": {

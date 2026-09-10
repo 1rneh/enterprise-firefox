@@ -357,6 +357,7 @@
       display: flex;
       position: absolute;
       background-color: var(--button-background-color);
+      color: var(--button-text-color);
       justify-content: center;
       align-items: center;
       border-radius: var(--border-radius-circle);
@@ -537,8 +538,7 @@
 
 /* This should be supported within panel-{item,list} rather than modifying it, to be fixed by
    https://bugzilla.mozilla.org/show_bug.cgi?id=1826841 */
-.urlbarView-result-menuitem::part(button),
-#urlbarView-context-menu panel-item::part(button) {
+.urlbarView-result-menuitem::part(button) {
   padding-inline-start: 12px;
 }
 
@@ -559,6 +559,7 @@
 
   &:not(:hover, [aria-expanded="true"]) {
     background-color: var(--button-background-color);
+    color: var(--button-text-color);
   }
 
   &:is([selected], [primary]) {
@@ -1263,6 +1264,7 @@
 
   @media not (prefers-contrast) {
     background-color: color-mix(in srgb, var(--button-background-color) 30%, transparent);
+    color: var(--button-text-color);
   }
 
   > .urlbarView-row-inner {

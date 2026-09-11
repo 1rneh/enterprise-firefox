@@ -51,6 +51,7 @@ run-if = [
 
 ["browser_policy_bookmarks.js"]
 support-files = "favicon.svg"
+skip-if = ["enterprise"] # Applies Bookmarks, unsupported in enterprise builds
 
 ["browser_policy_cookie_settings.js"]
 https_first_disabled = true
@@ -85,6 +86,7 @@ support-files = [
 ]
 
 ["browser_policy_disable_privatebrowsing.js"]
+skip-if = ["enterprise"] # Applies DisablePrivateBrowsing, unsupported in enterprise builds
 
 ["browser_policy_disable_profile_import.js"]
 

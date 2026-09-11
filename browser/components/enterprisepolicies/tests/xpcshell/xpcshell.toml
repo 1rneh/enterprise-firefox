@@ -20,10 +20,8 @@ support-files = [
 run-if = ["enterprise"]
 
 ["test_appupdatepin.js"]
-skip-if = ["enterprise"] # Applies AppUpdateURL, unsupported on enterprise (x-compatibility)
 
 ["test_appupdateurl.js"]
-skip-if = ["enterprise"] # Applies AppUpdateURL, unsupported on enterprise (x-compatibility)
 
 ["test_bug1658259.js"]
 

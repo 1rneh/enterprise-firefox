@@ -16,9 +16,12 @@ interface FeatureSettingsHelper {
     /** Whether the onboarding dialog for choosing wallpapers should be shown or not. */
     var isWallpaperOnboardingEnabled: Boolean
 
+    /** Whether the "Bookmarks" home screen section is enabled or not. It can show up to 8 bookmarks. */
+    var isBookmarksHomeFeatureEnabled: Boolean
+
     /**
-     * Whether the "Jump back in" homescreen section is enabled or not. It shows the last visited tab on this device and
-     * on other synced devices.
+     * Whether the "Continue" homescreen section is enabled or not. It shows the last visited tab on this device and on
+     * other synced devices.
      */
     var isRecentTabsFeatureEnabled: Boolean
 
@@ -93,6 +96,9 @@ interface FeatureSettingsHelper {
 
     /** Whether trending and recent searches are shown on the Homepage search. */
     var isHomepageTrendingRecentSearchEnabled: Boolean
+
+    /** Whether the current URL is shown separate from the addressbar when tapped. */
+    var showAddressBarInFocusMode: Boolean
 
     /** Enable or disable the translations prompt after a page that can be translated is loaded. */
     fun enableOrDisablePageLoadTranslationsPrompt(enableTranslationsPrompt: Boolean) {

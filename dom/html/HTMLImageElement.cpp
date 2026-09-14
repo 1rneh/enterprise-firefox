@@ -85,7 +85,7 @@ HTMLImageElement::~HTMLImageElement() {
 }
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLImageElement, nsGenericHTMLElement,
-                                   mResponsiveSelector)
+                                   mResponsiveSelector, mForm)
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLImageElement,
                                              nsGenericHTMLElement,
@@ -228,8 +228,7 @@ nsChangeHint HTMLImageElement::GetAttributeChangeHint(
   return retval;
 }
 
-NS_IMETHODIMP_(bool)
-HTMLImageElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+bool HTMLImageElement::IsNoNamespaceAttrMapped(const nsAtom* aAttribute) const {
   static const MappedAttributeEntry* const map[] = {
       sCommonAttributeMap, sImageMarginSizeAttributeMap,
       sImageBorderAttributeMap, sImageAlignAttributeMap};
@@ -619,9 +618,6 @@ void HTMLImageElement::SetForm(HTMLFormElement* aForm) {
 }
 
 void HTMLImageElement::ClearForm(bool aRemoveFromForm) {
-  NS_ASSERTION((mForm != nullptr) == HasFlag(ADDED_TO_FORM),
-               "Form control should have had flag set correctly");
-
   if (!mForm) {
     return;
   }

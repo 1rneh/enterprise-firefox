@@ -18,14 +18,13 @@ sysroot-i686-linux-gnu:
         local-toolchain: true
     worker:
         env:
-            PACKAGES_TASKS: {task-reference: '<gcc-10>'}
-            GCC_VERSION: '10'
+            PACKAGES_TASKS: {task-reference: '<gcc-11>'}
+            GCC_VERSION: '11'
     treeherder:
         symbol: TL32(sysroot)
     dependencies:
-        gcc-10: packages-deb8-32-gcc-10
+        gcc-11: packages-deb8-32-gcc-11
     run:
-        clone-with: hg
         toolchain-artifact: public/build/sysroot-i686-linux-gnu.tar.zst
         arguments:
             - i386
@@ -36,14 +35,13 @@ sysroot-x86_64-linux-gnu:
         local-toolchain: true
     worker:
         env:
-            PACKAGES_TASKS: {task-reference: '<gcc-10>'}
-            GCC_VERSION: '10'
+            PACKAGES_TASKS: {task-reference: '<gcc-11>'}
+            GCC_VERSION: '11'
     treeherder:
         symbol: TL(sysroot)
     dependencies:
-        gcc-10: packages-deb8-gcc-10
+        gcc-11: packages-deb8-gcc-11
     run:
-        clone-with: hg
         toolchain-artifact: public/build/sysroot-x86_64-linux-gnu.tar.zst
         arguments:
             - amd64
@@ -54,15 +52,14 @@ sysroot-x86_64-linux-gnu-x11:
         local-toolchain: true
     worker:
         env:
-            PACKAGES_TASKS: {task-reference: '<gcc-10> <gtk3>'}
-            GCC_VERSION: '10'
+            PACKAGES_TASKS: {task-reference: '<gcc-11> <gtk3>'}
+            GCC_VERSION: '11'
     treeherder:
         symbol: TL(sysroot-x11)
     dependencies:
-        gcc-10: packages-deb8-gcc-10
+        gcc-11: packages-deb8-gcc-11
         gtk3: packages-deb8-gtk3
     run:
-        clone-with: hg
         toolchain-artifact: public/build/sysroot-x86_64-linux-gnu.tar.zst
         arguments:
             - amd64
@@ -73,13 +70,16 @@ sysroot-wasm32-wasi-clang-19:
         local-toolchain: true
     treeherder:
         symbol: TL(sysroot-wasi-19)
+    worker:
+        docker-image: {in-tree: deb13-toolchain-build}
     run:
-        clone-with: hg
-        script: build-sysroot-wasi.sh
+        script: build-wasi-sdk.sh
         arguments:
-            - wasi-sdk.patch
+            - wasi-sdk-compat.patch
+            - wasi-sdk-no-llvm-patches.patch
         resources:
-            - taskcluster/scripts/misc/wasi-sdk.patch
+            - taskcluster/scripts/misc/wasi-sdk-compat.patch
+            - taskcluster/scripts/misc/wasi-sdk-no-llvm-patches.patch
         toolchain-alias: sysroot-wasm32-wasi-clang-base
         toolchain-artifact: public/build/sysroot-wasm32-wasi.tar.zst
     fetches:
@@ -88,33 +88,6 @@ sysroot-wasm32-wasi-clang-19:
             - wasi-sdk
         toolchain:
             - linux64-clang-19-raw
-            - wasm32-wasi-compiler-rt-19
-
-sysroot-wasm32-wasi-clang-21:
-    description: "Sysroot for wasi"
-    attributes:
-        local-toolchain: true
-    treeherder:
-        symbol: TL(sysroot-wasi-21)
-    run:
-        clone-with: hg
-        script: build-sysroot-wasi.sh
-        arguments:
-            - wasi-sdk.patch
-        resources:
-            - taskcluster/scripts/misc/wasi-sdk.patch
-        toolchain-alias:
-            by-project:
-                toolchains: null
-                default: sysroot-wasm32-wasi
-        toolchain-artifact: public/build/sysroot-wasm32-wasi.tar.zst
-    fetches:
-        fetch:
-            - clang-21
-            - wasi-sdk
-        toolchain:
-            - linux64-clang-21-stage1
-            - wasm32-wasi-compiler-rt-21
 
 sysroot-wasm32-wasi-clang-22:
     description: "Sysroot for wasi"
@@ -122,13 +95,20 @@ sysroot-wasm32-wasi-clang-22:
         local-toolchain: true
     treeherder:
         symbol: TL(sysroot-wasi-22)
+    worker:
+        docker-image: {in-tree: deb13-toolchain-build}
     run:
-        clone-with: hg
-        script: build-sysroot-wasi.sh
+        script: build-wasi-sdk.sh
         arguments:
-            - wasi-sdk.patch
+            - wasi-sdk-compat.patch
+            - wasi-sdk-no-llvm-patches.patch
         resources:
-            - taskcluster/scripts/misc/wasi-sdk.patch
+            - taskcluster/scripts/misc/wasi-sdk-compat.patch
+            - taskcluster/scripts/misc/wasi-sdk-no-llvm-patches.patch
+        toolchain-alias:
+            by-project:
+                toolchains: null
+                default: sysroot-wasm32-wasi
         toolchain-artifact: public/build/sysroot-wasm32-wasi.tar.zst
     fetches:
         fetch:
@@ -136,7 +116,28 @@ sysroot-wasm32-wasi-clang-22:
             - wasi-sdk
         toolchain:
             - linux64-clang-22-stage1
-            - wasm32-wasi-compiler-rt-22
+
+sysroot-wasm32-wasi-clang-23:
+    description: "Sysroot for wasi"
+    attributes:
+        local-toolchain: true
+    treeherder:
+        symbol: TL(sysroot-wasi-23)
+    worker:
+        docker-image: {in-tree: deb13-toolchain-build}
+    run:
+        script: build-wasi-sdk.sh
+        arguments:
+            - wasi-sdk-compat.patch
+        resources:
+            - taskcluster/scripts/misc/wasi-sdk-compat.patch
+        toolchain-artifact: public/build/sysroot-wasm32-wasi.tar.zst
+    fetches:
+        fetch:
+            - clang-23
+            - wasi-sdk
+        toolchain:
+            - linux64-clang-23-stage1
 
 sysroot-wasm32-wasi-clang-trunk:
     description: "Sysroot for wasi"
@@ -144,13 +145,14 @@ sysroot-wasm32-wasi-clang-trunk:
         cached_task: false
     treeherder:
         symbol: TL(sysroot-wasi-trunk)
+    worker:
+        docker-image: {in-tree: deb13-toolchain-build}
     run:
-        clone-with: hg
-        script: build-sysroot-wasi.sh
+        script: build-wasi-sdk.sh
         arguments:
-            - wasi-sdk.patch
+            - wasi-sdk-compat.patch
         resources:
-            - taskcluster/scripts/misc/wasi-sdk.patch
+            - taskcluster/scripts/misc/wasi-sdk-compat.patch
         toolchain-alias:
             by-project:
                 toolchains: sysroot-wasm32-wasi
@@ -162,7 +164,6 @@ sysroot-wasm32-wasi-clang-trunk:
             - wasi-sdk
         toolchain:
             - linux64-clang-trunk-stage1
-            - wasm32-wasi-compiler-rt-trunk
 
 sysroot-aarch64-linux-gnu:
     description: "Sysroot for linux64 aarch64 builds"
@@ -170,14 +171,13 @@ sysroot-aarch64-linux-gnu:
         local-toolchain: true
     worker:
         env:
-            PACKAGES_TASKS: {task-reference: '<gcc-10>'}
-            GCC_VERSION: '10'
+            PACKAGES_TASKS: {task-reference: '<gcc-11>'}
+            GCC_VERSION: '11'
     treeherder:
         symbol: TLA64(sysroot)
     dependencies:
-        gcc-10: packages-deb10-arm64-gcc-10
+        gcc-11: packages-deb10-arm64-gcc-11
     run:
-        clone-with: hg
         toolchain-artifact: public/build/sysroot-aarch64-linux-gnu.tar.zst
         arguments:
             - arm64
@@ -193,7 +193,6 @@ linux32-toolchain-sysroot:
     dependencies:
         gcc-8: packages-deb8-32-gcc-8
     run:
-        clone-with: hg
         arguments:
             - i386
             # For clang
@@ -211,7 +210,6 @@ linux64-toolchain-sysroot:
     dependencies:
         gcc-8: packages-deb8-gcc-8
     run:
-        clone-with: hg
         arguments:
             - amd64
             # For clang
@@ -230,24 +228,23 @@ linux64-toolchain-sysroot:
             # For socorro-cli
             - libdbus-1-dev
 
-linux64-toolchain-sysroot-gcc10:
+linux64-toolchain-sysroot-gcc11:
     description: "Sysroot for linux64 toolchain builds"
     worker:
         env:
-            PACKAGES_TASKS: {task-reference: '<gcc-10>'}
-            GCC_VERSION: '10'
+            PACKAGES_TASKS: {task-reference: '<gcc-11>'}
+            GCC_VERSION: '11'
     treeherder:
-        symbol: TL(sysroot-toolchain-gcc10)
+        symbol: TL(sysroot-toolchain-gcc11)
     dependencies:
-        gcc-10: packages-deb8-gcc-10
+        gcc-11: packages-deb8-gcc-11
     run:
-        clone-with: hg
         arguments:
             - amd64
             # For clang
             - binutils-dev
             - gcc-multilib
-            - lib32stdc++-10-dev
+            - lib32stdc++-11-dev
             - libxml2-dev
             # For minidump-stackwalk
             - libcurl4-openssl-dev
@@ -263,7 +260,6 @@ linux64-aarch64-toolchain-sysroot:
     treeherder:
         symbol: TLA64(sysroot-toolchain)
     run:
-        clone-with: hg
         arguments:
             - arm64
             # For clang

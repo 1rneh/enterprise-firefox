@@ -4,11 +4,9 @@
 
 //! Glean telemetry integration.
 
-use crate::config::{buildid, installation_resource_path, Config};
+use crate::config::{buildid, Config};
 use crate::prefs_parser::find_bool_pref;
 use crate::std::path::Path;
-use ini::Ini;
-use url::Url;
 
 const APP_DISPLAY_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TELEMETRY_ENABLED_PREF_KEY: &str = "datareporting.healthreport.uploadEnabled";
@@ -18,6 +16,12 @@ pub struct InitOptions {
     pub data_dir: ::std::path::PathBuf,
     pub locale: Option<String>,
     pub upload_enabled: bool,
+    /// The server to send telemetry to, overriding the default endpoint.
+    /// Set to the console telemetry endpoint (see
+    /// `enterprise_prefs::console_glean_url`); mock builds always use a fixed
+    /// example endpoint.
+    #[cfg(feature = "enterprise")]
+    pub server_url: Option<String>,
 }
 
 /// Parse the telemetry enablement pref from the prefs file.
@@ -82,7 +86,17 @@ impl InitOptions {
             data_dir,
             locale,
             upload_enabled,
+            #[cfg(feature = "enterprise")]
+            server_url: None,
         }
+    }
+
+    /// Set the server to which telemetry is sent, overriding the default
+    /// endpoint.
+    #[cfg(feature = "enterprise")]
+    #[cfg_attr(mock, allow(dead_code))]
+    pub fn set_server_url(&mut self, url: String) {
+        self.server_url = Some(url);
     }
 
     /// Initialize glean.
@@ -130,32 +144,17 @@ impl InitOptions {
         init_glean.configuration.uploader = Some(Box::new(uploader::Uploader::new()));
         init_glean.configuration.upload_enabled = self.upload_enabled;
 
-        if cfg!(mock) {
+        #[cfg(feature = "enterprise")]
+        if let Some(url) = self.server_url {
+            init_glean.configuration.server_endpoint = Some(url);
+        }
+        #[cfg(mock)]
+        {
             init_glean.configuration.server_endpoint =
                 Some("https://incoming.glean.example.com".to_owned());
-        } else if cfg!(feature = "enterprise") {
-            let console_url = Self::construct_enterprise_console_endpoint()?;
-            init_glean.configuration.server_endpoint = Some(console_url);
         }
 
         Ok(init_glean)
-    }
-
-    fn construct_enterprise_console_endpoint() -> anyhow::Result<String> {
-        let ini_path = installation_resource_path()
-            .join("distribution")
-            .join("distribution.ini");
-        let mut ini_file = crate::std::fs::File::open(ini_path)?;
-        let conf = Ini::read_from(&mut ini_file)?;
-        let console_url = conf
-            .get_from(Some("Preferences"), "enterprise.console.address")
-            .ok_or(anyhow::anyhow!("Failed to find console address preference"))?;
-        let mut parsed_console_url = Url::parse(console_url)?;
-        parsed_console_url.set_path(&format!(
-            "{}/api/browser/telemetry",
-            parsed_console_url.path().trim_end_matches('/')
-        ));
-        Ok(parsed_console_url.to_string())
     }
 }
 
@@ -181,23 +180,41 @@ mod uploader {
     impl PingUploader for Uploader {
         fn upload(&self, upload_request: CapablePingUploadRequest) -> UploadResult {
             let upload_request = upload_request.capable(|cap| cap.is_empty()).unwrap();
-            let request_builder = http::RequestBuilder::Post {
-                body: upload_request.body.as_slice(),
-                headers: upload_request.headers.as_slice(),
-            };
 
-            let do_send = move || match request_builder.build(upload_request.url.as_ref()) {
-                Err(e) => {
-                    log::error!("failed to build request for glean ping: {e}");
-                    UploadResult::unrecoverable_failure()
-                }
-                Ok(request) => match request.send() {
-                    Err(e) => {
-                        log::error!("failed to send glean ping: {e:#}");
-                        UploadResult::recoverable_failure()
+            let do_send = move || {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "enterprise")] {
+                        let mut pairs = upload_request.headers.clone();
+                        let auth = crate::net::auth::enterprise_authorization_header(
+                            upload_request.url.as_ref(),
+                        );
+                        if let Some(header) = auth {
+                            pairs.push(header);
+                        }
+                        let headers = http::header_map_from_pairs(pairs);
+                    } else {
+                        let headers = http::header_map_from_pairs(upload_request.headers.clone());
                     }
-                    Ok(_) => UploadResult::http_status(200),
-                },
+                }
+
+                let request_builder = http::RequestBuilder::Post {
+                    body: upload_request.body.as_slice(),
+                    headers,
+                };
+
+                match request_builder.build(upload_request.url.as_ref()) {
+                    Err(e) => {
+                        log::error!("failed to build request for glean ping: {e}");
+                        UploadResult::unrecoverable_failure()
+                    }
+                    Ok(request) => match request.send() {
+                        Err(e) => {
+                            log::error!("failed to send glean ping: {e:#}");
+                            UploadResult::recoverable_failure()
+                        }
+                        Ok(_) => UploadResult::http_status(200),
+                    },
+                }
             };
 
             #[cfg(mock)]
@@ -211,7 +228,6 @@ mod uploader {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::std::{fs::MockFS, fs::MockFiles, mock};
     use once_cell::sync::Lazy;
     use std::sync::{Mutex, MutexGuard};
 
@@ -246,70 +262,6 @@ mod test {
                 true,
             );
         }
-    }
-
-    #[cfg(feature = "enterprise")]
-    #[test]
-    fn build_expected_enterprise_glean_url() -> anyhow::Result<()> {
-        let mock_files = MockFiles::new();
-        mock_files.add_dir("work_dir/distribution");
-        mock_files.add_file(
-            "work_dir/distribution/distribution.ini",
-            "[Preferences]\n\
-        enterprise.console.address=https://console.example.com/foo/",
-        );
-
-        mock::builder()
-            .set(MockFS, mock_files.clone())
-            .set(
-                crate::std::env::MockCurrentExe,
-                "work_dir/crashreporter".into(),
-            )
-            .run(|| {
-                let path_result = InitOptions::construct_enterprise_console_endpoint();
-                assert_eq!(
-                    path_result?,
-                    "https://console.example.com/foo/api/browser/telemetry"
-                );
-                anyhow::Ok(())
-            })
-    }
-
-    #[cfg(feature = "enterprise")]
-    #[test]
-    fn error_when_distribution_ini_missing() {
-        let mock_files = MockFiles::new();
-        mock_files.add_dir("work_dir/distribution");
-
-        mock::builder()
-            .set(MockFS, mock_files.clone())
-            .set(
-                crate::std::env::MockCurrentExe,
-                "work_dir/crashreporter".into(),
-            )
-            .run(|| {
-                let path_result = InitOptions::construct_enterprise_console_endpoint();
-                assert!(path_result.is_err());
-            });
-    }
-
-    #[cfg(feature = "enterprise")]
-    #[test]
-    fn error_when_console_address_missing() {
-        let mock_files = MockFiles::new();
-        mock_files.add_dir("work_dir/distribution");
-        mock_files.add_file("work_dir/distribution/distribution.ini", "[Preferences]");
-
-        mock::builder()
-            .set(MockFS, mock_files.clone())
-            .set(
-                crate::std::env::MockCurrentExe,
-                "work_dir/crashreporter".into(),
-            )
-            .run(|| {
-                let path_result = InitOptions::construct_enterprise_console_endpoint();
-                assert!(path_result.is_err());
-            });
     }
 
     #[test]

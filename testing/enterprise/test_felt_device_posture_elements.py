@@ -512,11 +512,14 @@ class FeltDevicePostureElements(FeltTests):
         self.await_felt_auth_window()
         self.force_window()
 
-        felt_view = self._felt_addon_view()
-        assert felt_view, (
-            f"Felt reported the browser profile's add-ons, got {felt_view}"
-        )
-        self._assert_parser_agrees(felt_view, browser_view)
+        app_name = self._driver.session_capabilities.get("browserName")
+        # Thunderbird only has "theme", which are not reported
+        if app_name != "thunderbird":
+            felt_view = self._felt_addon_view()
+            assert felt_view, (
+                f"Felt reported the browser profile's add-ons, got {felt_view}"
+            )
+            self._assert_parser_agrees(felt_view, browser_view)
 
     def _quit_child_browser(self):
         self._child_driver.set_context("chrome")

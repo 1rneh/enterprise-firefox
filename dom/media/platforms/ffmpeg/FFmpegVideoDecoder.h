@@ -166,6 +166,7 @@ class FFmpegVideoDecoder<LIBAV_VER>
   gfx::ColorDepth GetColorDepth(const AVPixelFormat& aFormat) const;
   gfx::YUVColorSpace GetFrameColorSpace() const;
   gfx::ColorSpace2 GetFrameColorPrimaries() const;
+  Maybe<gfx::TransferFunction> GetFrameTransferFunction() const;
   gfx::ColorRange GetFrameColorRange() const;
   gfx::SurfaceFormat GetSurfaceFormat() const;
 
@@ -238,6 +239,7 @@ class FFmpegVideoDecoder<LIBAV_VER>
                                     MediaDataDecoder::DecodedData& aResults);
   bool ReleaseFrameMediaCodec(void* aKey, bool aRender);
   void ReleaseFramesMediaCodec();
+  void ReleaseSurfaceMediaCodec();
   int32_t mTextureAlignment;
   AVBufferRef* mMediaCodecDeviceContext = nullptr;
   // Only used for the SurfaceTexture case

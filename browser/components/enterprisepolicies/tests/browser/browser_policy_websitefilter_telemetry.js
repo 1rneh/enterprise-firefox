@@ -67,6 +67,38 @@ add_task(async function test_policy_enterprise_telemetry() {
   await clearWebsiteFilter();
 });
 
+add_task(async function test_no_telemetry_without_security_logging_policy() {
+  await setupPolicyEngineWithJson({
+    policies: {
+      WebsiteFilter: `{
+        "Block": ["*://mochi.test/*policy_websitefilter_block*"]
+      }`,
+    },
+  });
+
+  const newTab = BrowserTestUtils.addTab(gBrowser);
+  gBrowser.selectedTab = newTab;
+  try {
+    const browser = newTab.linkedBrowser;
+    const errorPage = BrowserTestUtils.waitForErrorPage(browser);
+    BrowserTestUtils.startLoadingURIString(
+      browser,
+      SUPPORT_FILES_PATH + BLOCKED_PAGE
+    );
+    await errorPage;
+
+    Assert.ok(
+      !Glean.contentPolicy.blocklistDomainBrowsed.testGetValue("enterprise")
+        ?.length,
+      "Blocking a domain records nothing without the SecurityLogging policy"
+    );
+  } finally {
+    BrowserTestUtils.removeTab(newTab);
+    Services.fog.testResetFOG();
+    await clearWebsiteFilter();
+  }
+});
+
 // Checks that a page was blocked by seeing if it was replaced with about:neterror
 async function checkBlockedPageTelemetry(
   url,

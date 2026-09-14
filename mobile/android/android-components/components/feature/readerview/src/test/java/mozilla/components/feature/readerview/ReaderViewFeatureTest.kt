@@ -740,7 +740,16 @@ class ReaderViewFeatureTest {
         }
         BuiltInWebExtensionController.installedBuiltInExtensions[READER_VIEW_EXTENSION_ID] = ext
 
-        val feature = ReaderViewFeature(testContext, engine, store, mock(), testDispatcher, createUUID)
+        val feature =
+            ReaderViewFeature(
+                testContext,
+                engine,
+                store,
+                mock(),
+                testDispatcher,
+                createUUID,
+            )
+        feature.start()
         if (controller != null) {
             feature.extensionController = controller
         }

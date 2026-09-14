@@ -16,12 +16,16 @@ import androidx.fragment.compose.content
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import mozilla.components.ExperimentalAndroidComponentsApi
+import mozilla.components.feature.ipprotection.IPProtectionWarningBinding
 import mozilla.components.feature.ipprotection.store.IPProtectionAction
+import mozilla.components.feature.ipprotection.store.state.isActivationInFlight
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
+import org.mozilla.fenix.GleanMetrics.Vpn
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.requireComponents
+import org.mozilla.fenix.home.HomeFragmentDirections
 import org.mozilla.fenix.ipprotection.ui.IPProtectionSnackbarBinding
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -30,6 +34,7 @@ import org.mozilla.fenix.theme.FirefoxTheme
 class IPProtectionLocationsFragment : Fragment(), SystemInsetsPaddedFragment {
 
     private val ipProtectionSnackbarBinding = ViewBoundFeatureWrapper<IPProtectionSnackbarBinding>()
+    private val ipProtectionWarningBinding = ViewBoundFeatureWrapper<IPProtectionWarningBinding>()
     private val snackbarHostState = SnackbarHostState()
 
     override fun onCreateView(
@@ -40,12 +45,14 @@ class IPProtectionLocationsFragment : Fragment(), SystemInsetsPaddedFragment {
         val selectedLocation =
             components.ipProtection.store.observeAsComposableState { it.locationState.selectedLocation }.value
         val locations = components.ipProtection.store.observeAsComposableState { it.locationState.locations }.value
+        val isActivating = components.ipProtection.store.observeAsComposableState { it.isActivationInFlight }.value
 
         FirefoxTheme {
             IPProtectionLocationsScreen(
                 selectedLocation = selectedLocation,
                 locations = locations,
                 snackbarHostState = snackbarHostState,
+                isActivating = isActivating,
                 onNavigateBack = { findNavController().popBackStack() },
                 onLocationSelected = { country ->
                     requireComponents.ipProtection.store.dispatch(IPProtectionAction.LocationChanged(country))
@@ -61,12 +68,27 @@ class IPProtectionLocationsFragment : Fragment(), SystemInsetsPaddedFragment {
             feature =
                 IPProtectionSnackbarBinding(
                     appStore = requireComponents.appStore,
+                    context = requireContext(),
+                    navController = findNavController(),
                     snackbarDelegate =
                         FenixSnackbarDelegate(
                             snackbarHostState = snackbarHostState,
                             scope = viewLifecycleOwner.lifecycleScope,
                             context = requireContext(),
                         ),
+                ),
+            owner = this,
+            view = view,
+        )
+
+        ipProtectionWarningBinding.set(
+            feature =
+                IPProtectionWarningBinding(
+                    store = requireComponents.ipProtection.store,
+                    proxyUnavailable = {
+                        Vpn.proxyUnavailable.record()
+                        findNavController().navigate(HomeFragmentDirections.actionGlobalIpProtectionUnavailableDialog())
+                    },
                 ),
             owner = this,
             view = view,

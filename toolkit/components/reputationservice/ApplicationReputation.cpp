@@ -1509,7 +1509,7 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
 
   constexpr auto kPrefEnabled =
       "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled"_ns;
-  if (!Preferences::GetBool(kPrefEnabled.get(), true)) {
+  if (!Preferences::GetBool(kPrefEnabled.get(), false)) {
     return;
   }
 

@@ -721,7 +721,11 @@ void MacroAssembler::bumpPointerAllocate(Register result, Register temp,
     Register site = allocSite.as<Register>();
     updateAllocSite(temp, result, zone, site);
     // See NurseryCellHeader::MakeValue.
-    orPtr(Imm32(int32_t(traceKind)), site);
+    static_assert(int32_t(JS::TraceKind::Object) == 0,
+                  "Object contributes no tag bits, making the OR a no-op");
+    if (traceKind != JS::TraceKind::Object) {
+      orPtr(Imm32(int32_t(traceKind)), site);
+    }
     storePtr(site, Address(result, -js::Nursery::nurseryCellHeaderSize()));
   }
 }
@@ -3399,6 +3403,26 @@ void MacroAssembler::emitMegamorphicCachedSetSlot(
   // if (scratch3->generation_ != scratch2) goto cacheMiss
   branch32(Assembler::NotEqual, scratch1, scratch2, &cacheMiss);
 
+  // Preserve the wrapper if necessary. In a world without x86 we would do this
+  // below in doAdd, letting us skip clearing the bit if it isn't set, but we
+  // do it here so we have enough scratch registers free.
+  Label skipPreserve;
+  Address afterShapePtr(
+      scratch3, MegamorphicSetPropCache::Entry::offsetOfTaggedAfterShape());
+  branchTestPtr(Assembler::Zero, afterShapePtr,
+                Imm32(MegamorphicSetPropCache::Entry::ShouldPreserveBit),
+                &skipPreserve);
+  {
+    // scratch1 and scratch2 are dead here. scratch3 is the cache entry.
+    LiveRegisterSet save;
+    save.set() = liveRegs.set();
+    save.takeUnchecked(scratch1);
+    save.takeUnchecked(scratch2);
+    preserveWrapper(obj, scratch1, scratch2, save);
+    branchIfFalseBool(scratch1, &cacheMiss);
+  }
+  bind(&skipPreserve);
+
   // scratch2 = entry->slotOffset()
   load32(
       Address(scratch3, MegamorphicSetPropCache::Entry::offsetOfSlotOffset()),
@@ -3406,9 +3430,6 @@ void MacroAssembler::emitMegamorphicCachedSetSlot(
 
   // scratch1 = slotOffset.offset()
   rshift32(Imm32(TaggedSlotOffset::OffsetShift), scratch2, scratch1);
-
-  Address afterShapePtr(scratch3,
-                        MegamorphicSetPropCache::Entry::offsetOfAfterShape());
 
   // if (!slotOffset.isFixedSlot()) goto dynamicSlot
   branchTest32(Assembler::Zero, scratch2,
@@ -3457,9 +3478,9 @@ void MacroAssembler::emitMegamorphicCachedSetSlot(
 
   bind(&doAdd);
   // scratch3 = entry->afterShape()
-  loadPtr(
-      Address(scratch3, MegamorphicSetPropCache::Entry::offsetOfAfterShape()),
-      scratch3);
+  loadPtr(afterShapePtr, scratch3);
+  andPtr(Imm32(~int32_t(MegamorphicSetPropCache::Entry::ShouldPreserveBit)),
+         scratch3);
 
   storeObjShape(scratch3, obj,
                 [emitPreBarrier](MacroAssembler& masm, const Address& addr) {
@@ -3840,6 +3861,64 @@ void MacroAssembler::timeClip(FloatRegister time, FloatRegister output,
   bind(&done);
 }
 
+void MacroAssembler::unpackTime(ValueOperand packedVal, Register dest,
+                                Register temp, uint32_t shiftImm,
+                                uint32_t maskImm) {
+  MOZ_ASSERT(maskImm <= INT32_MAX);
+
+#ifdef DEBUG
+  {
+    Label okValue;
+
+    branchTestDouble(Condition::Equal, packedVal, &okValue);
+    assumeUnreachable("packedTime is not a double");
+    bind(&okValue);
+  }
+#endif
+
+#ifdef JS_NUNBOX32
+  Register64 dest64(temp, dest);
+#else
+  MOZ_ASSERT(temp == InvalidReg);
+  Register64 dest64(dest);
+#endif
+
+  Register64 packedReg = packedVal.toRegister64();
+
+  if (shiftImm != 0) {
+    rshift64(Imm32(shiftImm), packedReg, dest64);
+  } else if (packedReg != dest64) {
+    move64(packedReg, dest64);
+  }
+
+  and32(Imm32(maskImm), dest);
+
+#ifdef JS_PUNBOX64
+  debugAssertCanonicalInt32(dest);
+#endif
+}
+
+void MacroAssembler::epochMilliseconds(FloatRegister seconds,
+                                       Register nanoseconds,
+                                       FloatRegister output, Register temp) {
+  // Inlined version of EpochNanoseconds::floorToMilliseconds. The
+  // C++ code uses integer arithmetic, but computing this with doubles
+  // gives identical results because all intermediate values are integers
+  // in the range ±8.64e15 and representable as doubles.
+  //
+  // |nanoseconds| is in the range [0, 999'999'999], so our unsigned division
+  // computes the same result as the signed division in the C++ code.
+
+  udiv32ByConstant(nanoseconds, 1'000'000, temp);
+
+  ScratchDoubleScope scratch(*this);
+  loadConstantDouble(1000.0, scratch);
+  mulDouble(seconds, scratch);
+
+  convertInt32ToDouble(temp, output);
+  addDouble(scratch, output);
+}
+
 void MacroAssembler::computeImplicitThis(Register env, ValueOperand output,
                                          Label* slowPath) {
   // Inline implementation of ComputeImplicitThis.
@@ -4171,10 +4250,8 @@ void MacroAssembler::loadJitCodeRawNoIon(Register func, Register dest,
 }
 
 void MacroAssembler::loadBaselineFramePtr(Register framePtr, Register dest) {
-  if (framePtr != dest) {
-    movePtr(framePtr, dest);
-  }
-  subPtr(Imm32(BaselineFrame::Size()), dest);
+  computeEffectiveAddress(Address(framePtr, -int32_t(BaselineFrame::Size())),
+                          dest);
 }
 
 void MacroAssembler::handleFailure() {
@@ -6163,7 +6240,6 @@ uint8_t MacroAssembler::getByteAtOffset(size_t offset) const {
 #endif
 }
 
-mozilla::Atomic<uint32_t> ctr(0);
 void MacroAssembler::appendAndVerify(wasm::Trap trap,
                                      wasm::TrapMachineInsn insn,
                                      FaultingCodeRange fcr,
@@ -6192,13 +6268,14 @@ void MacroAssembler::appendAndVerify(const wasm::MemoryAccessDesc& access,
   appendAndVerify(wasm::Trap::OutOfBounds, insn, fcr, access.trapDesc());
 }
 
-void MacroAssembler::wasmTrap(wasm::Trap trap,
-                              const wasm::TrapSiteDesc& trapSiteDesc) {
+FaultingCodeRange MacroAssembler::wasmTrap(
+    wasm::Trap trap, const wasm::TrapSiteDesc& trapSiteDesc) {
   FaultingCodeRange fcr = wasmTrapInstruction();
   MOZ_ASSERT_IF(!oom(),
                 currentOffset() - fcr.get() == WasmTrapInstructionLength);
 
   appendAndVerify(trap, wasm::TrapMachineInsn::OfficialUD, fcr, trapSiteDesc);
+  return fcr;
 }
 
 uint32_t MacroAssembler::wasmReserveStackChecked(uint32_t amount, Label* fail) {

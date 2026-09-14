@@ -7,7 +7,7 @@ loader: taskgraph.loader.transform:loader
 transforms:
     - taskgraph.transforms.from_deps
     - gecko_taskgraph.transforms.name_sanity
-    - gecko_taskgraph.transforms.shippable_l10n_signing
+    - gecko_taskgraph.transforms.l10n_signing
     - gecko_taskgraph.transforms.signing
     - gecko_taskgraph.transforms.hardened_signing
     - gecko_taskgraph.transforms.task
@@ -26,7 +26,6 @@ only-for-build-platforms:
     - macosx64-enterprise/opt
     - macosx64-enterprise/debug
     - macosx64-enterprise-shippable/opt
-    - macosx64-enterprise-shippable/debug
 
 tasks:
     shippable-l10n-mac-signing:

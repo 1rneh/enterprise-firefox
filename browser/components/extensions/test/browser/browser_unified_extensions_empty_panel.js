@@ -122,6 +122,11 @@ function getDiscoverButton(win) {
     "#unified-extensions-discover-extensions"
   );
 }
+function countDiscoverButtons(win) {
+  return win.gUnifiedExtensions.panel.querySelectorAll(
+    "#unified-extensions-discover-extensions"
+  ).length;
+}
 
 async function checkManageExtensionsText(elem) {
   const l10nId = elem.dataset.l10nId;
@@ -212,6 +217,80 @@ add_task(async function test_button_opens_discopane_when_no_extension() {
   await SpecialPowers.popPrefEnv();
 });
 
+// Regression test for https://bugzilla.mozilla.org/show_bug.cgi?id=2070281
+// gUnifiedExtensions.onPanelViewShowing in browser-addons.js asynchronously
+// updates the panel content, but should be no-op if the panel has closed
+// in the meantime. And definitely not show (multiple) discover buttons.
+add_task(async function test_discover_button_not_added_after_panel_close() {
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  const sandbox = sinon.createSandbox();
+  const deferred = Promise.withResolvers();
+  const fake = sandbox.fake.resolves(deferred.promise);
+  sandbox.replace(win.gUnifiedExtensions, "getDisabledExtensionsInfo", fake);
+
+  await openExtensionsPanel(win);
+  // The panel initially starts out empty, until getDisabledExtensionsInfo
+  // resolves with information that can optionally show empty state.
+  ok(
+    BrowserTestUtils.isHidden(getEmptyStateContainer(win)),
+    "Empty state is initially hidden"
+  );
+  await closeExtensionsPanel(win);
+  await openExtensionsPanel(win);
+  await closeExtensionsPanel(win);
+  await openExtensionsPanel(win);
+
+  // Sanity check:
+  is(fake.callCount, 3, "Called for each openExtensionsPanel call");
+
+  // Return value to trigger onboarding panel, the condition for bug 2070281.
+  deferred.resolve({ isAnyDisabled: false, isAnyEnableable: false });
+
+  // Because getDisabledExtensionsInfo() is handled asynchronously, we do not
+  // expect any change to the UI at first.
+  is(
+    countDiscoverButtons(win),
+    0,
+    "'Discover extensions' button should initially not be present"
+  );
+
+  // Yield to allow the fake getDisabledExtensionsInfo resolution to be handled
+  // by the caller in gUnifiedExtensions.onPanelViewShowing.
+  await new Promise(SimpleTest.executeSoon);
+
+  is(
+    countDiscoverButtons(win),
+    1,
+    "'Discover extensions' button should be shown exactly once"
+  );
+
+  await closeExtensionsPanel(win);
+
+  is(
+    countDiscoverButtons(win),
+    0,
+    "'Discover extensions' button should be gone upon close"
+  );
+  sandbox.restore();
+
+  info("Retry, now with value resolved *after* closing the panel");
+  const deferred2 = Promise.withResolvers();
+  const fake2 = sandbox.fake.resolves(deferred2.promise);
+  sandbox.replace(win.gUnifiedExtensions, "getDisabledExtensionsInfo", fake2);
+  await openExtensionsPanel(win);
+  await closeExtensionsPanel(win);
+  deferred2.resolve({ isAnyDisabled: false, isAnyEnableable: false });
+  await new Promise(SimpleTest.executeSoon);
+  is(
+    countDiscoverButtons(win),
+    0,
+    "'Discover extensions' button not be added after panel is hidden"
+  );
+
+  sandbox.restore();
+  await BrowserTestUtils.closeWindow(win);
+});
+
 add_task(async function test_button_opens_extlist_when_all_exts_pinned() {
   const extensions = createExtensions([
     {
@@ -298,34 +377,41 @@ add_task(
   }
 );
 
-add_task(async function test_button_click_in_pbm_without_any_extensions() {
-  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+add_task(
+  {
+    // Enterprise builds disable the discovery pane
+    // (extensions.getAddons.showPane=false)
+    skip_if: () => AppConstants.MOZ_ENTERPRISE,
+  },
+  async function test_button_click_in_pbm_without_any_extensions() {
+    const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
 
-  // This clicks on gUnifiedExtensions.button and waits for panel to show.
-  await openExtensionsPanel(win);
+    // This clicks on gUnifiedExtensions.button and waits for panel to show.
+    await openExtensionsPanel(win);
 
-  assertIsEmptyPanelOnboardingExtensions(win);
-  const discoverButton = getDiscoverButton(win);
+    assertIsEmptyPanelOnboardingExtensions(win);
+    const discoverButton = getDiscoverButton(win);
 
-  // Button click opens about:addons (reuses about:privatebrowsing tab).
-  // Primary click should open about:addons.
-  const tabLoadedPromise = BrowserTestUtils.browserStopped(
-    win.gBrowser.selectedBrowser,
-    "about:addons"
-  );
+    // Button click opens about:addons (reuses about:privatebrowsing tab).
+    // Primary click should open about:addons.
+    const tabLoadedPromise = BrowserTestUtils.browserStopped(
+      win.gBrowser.selectedBrowser,
+      "about:addons"
+    );
 
-  discoverButton.click();
+    discoverButton.click();
 
-  await tabLoadedPromise;
-  is(
-    win.gBrowser.currentURI.spec,
-    "about:addons",
-    "expected about:addons to be open"
-  );
+    await tabLoadedPromise;
+    is(
+      win.gBrowser.currentURI.spec,
+      "about:addons",
+      "expected about:addons to be open"
+    );
 
-  // This also closes the new tab.
-  await BrowserTestUtils.closeWindow(win);
-});
+    // This also closes the new tab.
+    await BrowserTestUtils.closeWindow(win);
+  }
+);
 
 // Tests behavior when the user has extensions installed, but without private
 // browsing access. Extensions without private browsing access are not shown,
@@ -513,50 +599,61 @@ add_task(async function test_empty_state_with_disabled_addon() {
 // This test shows that non-extension add-ons are ignored in evaluating whether
 // the empty panel should be shown, even if there is another reason that could
 // potentially match for extension types (e.g. add-on being disabled).
-add_task(async function test_no_empty_state_with_disabled_non_extension() {
-  const disabledDictAddon = await promiseInstallWebExtension({
-    manifest: {
-      name: "This is a dictionary (definitely not type 'extension') (disabled)",
-      dictionaries: {},
-      browser_specific_settings: { gecko: { id: "@dict-disabled" } },
-    },
-  });
-  const dictAddon = await promiseInstallWebExtension({
-    manifest: {
-      name: "This is a dictionary (definitely not type 'extension') (enabled)",
-      dictionaries: {},
-      browser_specific_settings: { gecko: { id: "@dict-not-disabled" } },
-    },
-  });
-  await disabledDictAddon.disable();
-  is(disabledDictAddon.isActive, false, "One of the dict add-ons was disabled");
+add_task(
+  {
+    // Enterprise builds disable the discovery pane
+    // (extensions.getAddons.showPane=false)
+    skip_if: () => AppConstants.MOZ_ENTERPRISE,
+  },
+  async function test_no_empty_state_with_disabled_non_extension() {
+    const disabledDictAddon = await promiseInstallWebExtension({
+      manifest: {
+        name: "This is a dictionary (definitely not type 'extension') (disabled)",
+        dictionaries: {},
+        browser_specific_settings: { gecko: { id: "@dict-disabled" } },
+      },
+    });
+    const dictAddon = await promiseInstallWebExtension({
+      manifest: {
+        name: "This is a dictionary (definitely not type 'extension') (enabled)",
+        dictionaries: {},
+        browser_specific_settings: { gecko: { id: "@dict-not-disabled" } },
+      },
+    });
+    await disabledDictAddon.disable();
+    is(
+      disabledDictAddon.isActive,
+      false,
+      "One of the dict add-ons was disabled"
+    );
 
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: "about:robots" },
-    async () => {
-      // This clicks on gUnifiedExtensions.button and waits for panel to show.
-      await openExtensionsPanel(window);
+    await BrowserTestUtils.withNewTab(
+      { gBrowser, url: "about:robots" },
+      async () => {
+        // This clicks on gUnifiedExtensions.button and waits for panel to show.
+        await openExtensionsPanel(window);
 
-      assertIsEmptyPanelOnboardingExtensions(window);
-      const discoverButton = getDiscoverButton(window);
+        assertIsEmptyPanelOnboardingExtensions(window);
+        const discoverButton = getDiscoverButton(window);
 
-      const tabPromise = BrowserTestUtils.waitForNewTab(
-        gBrowser,
-        "about:addons",
-        true
-      );
+        const tabPromise = BrowserTestUtils.waitForNewTab(
+          gBrowser,
+          "about:addons",
+          true
+        );
 
-      discoverButton.click();
+        discoverButton.click();
 
-      const tab = await tabPromise;
-      ok(true, "about:addons opened instead of panel about disabled add-ons");
-      BrowserTestUtils.removeTab(tab);
-    }
-  );
+        const tab = await tabPromise;
+        ok(true, "about:addons opened instead of panel about disabled add-ons");
+        BrowserTestUtils.removeTab(tab);
+      }
+    );
 
-  await disabledDictAddon.uninstall();
-  await dictAddon.uninstall();
-});
+    await disabledDictAddon.uninstall();
+    await dictAddon.uninstall();
+  }
+);
 
 // Verifies that if the only add-on is disabled by blocklisting, that we still
 // see a panel and that the blocklist message is visible.

@@ -164,6 +164,18 @@ fn test_config() -> Config {
     cfg
 }
 
+/// The contents of an enterprise AutoConfig file setting the console address.
+///
+/// Real files are byte-shifted, but plaintext is also supported (see
+/// `enterprise_prefs::read_autoconfig_string_pref`).
+#[cfg(feature = "enterprise")]
+pub fn enterprise_autoconfig(console_address: &str) -> String {
+    format!(
+        "// first line is ignored\n\
+         lockPref(\"enterprise.console.address\", \"{console_address}\");"
+    )
+}
+
 fn init_test_logger() {
     static INIT: std::sync::Once = std::sync::Once::new();
     INIT.call_once(|| {
@@ -208,6 +220,15 @@ impl GuiTest {
                 Ok(compact_json(MOCK_MINIDUMP_EXTRA).into()),
                 current_system_time(),
             );
+
+        // Enterprise builds read the console address from the installation's
+        // AutoConfig file to decide whether an upload may be authenticated;
+        // point it at the report url used by the mocked crash annotations.
+        #[cfg(feature = "enterprise")]
+        mock_files.add_dir("work_dir").add_file(
+            "work_dir/firefox.cfg",
+            enterprise_autoconfig("https://reports.example.com"),
+        );
 
         // Create a default mock environment which allows successful operation.
         let mut mock = mock::builder();
@@ -307,10 +328,15 @@ impl GuiTest {
 
     /// Get the file assertion helper.
     pub fn assert_files(&self) -> AssertFiles {
+        #[cfg_attr(not(feature = "enterprise"), allow(unused_mut))]
+        let mut inner = self.files.assert_files();
+        // Part of the test setup rather than of what the application wrote.
+        #[cfg(feature = "enterprise")]
+        inner.ignore("work_dir/firefox.cfg");
         AssertFiles {
             data_dir: "data_dir".into(),
             events_dir: "events_dir".into(),
-            inner: self.files.assert_files(),
+            inner,
         }
     }
 }
@@ -1378,7 +1404,8 @@ fn background_task_network_backend() {
                             "value": platform_path("data_dir/pending/minidump.memory.json.gz"),
                         },
                     }
-                ]
+                ],
+                "headers": []
             })
             .to_string();
 
@@ -1403,6 +1430,183 @@ fn background_task_network_backend() {
             Ok(crate::std::process::success_output())
         }),
     );
+    test.run(|interact| {
+        interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
+    });
+
+    ran_process.assert_one();
+
+    test.assert_files()
+        .saved_settings(Settings::default())
+        .submitted();
+}
+
+
+
+/// Test the interface to the primary network backend (Necko, through a background task)
+/// and that the invocation includes the authorization header
+///
+/// This doesn't yet test Glean pings because of reliability issues (see Bug 1937295).
+#[cfg(feature = "enterprise")]
+#[test]
+fn background_task_network_backend_with_authorization_header() {
+    let mut test = GuiTest::new();
+    test.files.add_file("minidump.memory.json.gz", "");
+    let ran_process = Counter::new();
+    let mock_ran_process = ran_process.clone();
+    test.mock
+        .set(
+            crate::std::env::MockEnv("MOZ_CRASHREPORTER_AUTH_TOKEN".into()),
+            "SomeToken".into()
+        )
+        .set(
+            Command::mock("work_dir/firefox"),
+            Box::new(move |cmd| {
+                if cmd.spawning {
+                    return Ok(crate::std::process::success_output());
+                }
+
+                mock_ran_process.inc();
+
+                let expected_args: Vec<OsString> = [
+                    "--backgroundtask",
+                    "crashreporterNetworkBackend",
+                    "https://reports.example.com",
+                    net::http::user_agent(),
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect();
+
+                assert_eq!(cmd.args.len(), 5);
+                assert_eq!(cmd.args[..4], expected_args);
+                let request_file = &cmd.args[4];
+
+                let expected_contents = serde_json::json!({
+                    "type": "MimePost",
+                    "parts": [
+                        {
+                            "name": "extra",
+                            "content": {
+                                "type": "String",
+                                "value": serde_json::json!({
+                                    "Vendor":"FooCorp",
+                                    "ProductName":"Bar",
+                                    "ReleaseChannel":"release",
+                                    "BuildID":"1234",
+                                    "AsyncShutdownTimeout":"{}",
+                                    "StackTraces":"{}",
+                                    "Version":"100.0",
+                                    "URL":"https://url.example.com",
+                                    "Throttleable":"1",
+                                    "CrashTime": current_unix_time().to_string(),
+                                    "MinidumpSha256Hash": MOCK_MINIDUMP_SHA256,
+                                    "SubmittedFrom":"Client",
+                                }).to_string(),
+                            },
+                            "filename": "extra.json",
+                            "mime_type": "application/json",
+                        },
+                        {
+                            "name": "upload_file_minidump",
+                            "content": {
+                                "type": "File",
+                                "value": platform_path("data_dir/pending/minidump.dmp"),
+                            },
+                        },
+                        {
+                            "name": "memory_report",
+                            "content": {
+                                "type": "File",
+                                "value": platform_path("data_dir/pending/minidump.memory.json.gz"),
+                            },
+                        }
+                    ],
+                    "headers": [["authorization", "Bearer SomeToken"]]
+                })
+                .to_string();
+
+                use ::std::io::{Read, Seek, Write};
+                let mut file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(request_file)
+                    .expect("cannot open request file");
+                {
+                    let mut contents = String::new();
+                    file.read_to_string(&mut contents)
+                        .expect("cannot read request file");
+                    assert_eq!(contents, expected_contents);
+                }
+
+                file.rewind().expect("cannot rewind file");
+                file.set_len(0).expect("cannot truncate file");
+                file.write_all(format!("CrashID={MOCK_REMOTE_CRASH_ID}").as_bytes())
+                    .expect("cannot write to request file");
+
+                Ok(crate::std::process::success_output())
+            }),
+        );
+    test.run(|interact| {
+        interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
+    });
+
+    ran_process.assert_one();
+
+    test.assert_files()
+        .saved_settings(Settings::default())
+        .submitted();
+}
+
+/// Test that the authorization header is not written to the background task's request
+/// file when the report url isn't the enterprise console. The request file is on disk, so
+/// the token must not reach it at all.
+#[cfg(feature = "enterprise")]
+#[test]
+fn background_task_network_backend_omits_authorization_header_for_other_url() {
+    let mut test = GuiTest::new();
+    test.config.report_url = Some("https://evil.example.com".into());
+    let ran_process = Counter::new();
+    let mock_ran_process = ran_process.clone();
+    test.mock
+        .set(
+            crate::std::env::MockEnv("MOZ_CRASHREPORTER_AUTH_TOKEN".into()),
+            "SomeToken".into(),
+        )
+        .set(
+            Command::mock("work_dir/firefox"),
+            Box::new(move |cmd| {
+                if cmd.spawning {
+                    return Ok(crate::std::process::success_output());
+                }
+
+                mock_ran_process.inc();
+
+                assert_eq!(cmd.args[2], OsString::from("https://evil.example.com"));
+                let request_file = &cmd.args[4];
+
+                use ::std::io::{Read, Seek, Write};
+                let mut file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(request_file)
+                    .expect("cannot open request file");
+                {
+                    let mut contents = String::new();
+                    file.read_to_string(&mut contents)
+                        .expect("cannot read request file");
+                    assert!(contents.contains(r#""headers":[]"#), "{contents}");
+                    assert!(!contents.contains("SomeToken"), "{contents}");
+                }
+
+                file.rewind().expect("cannot rewind file");
+                file.set_len(0).expect("cannot truncate file");
+                file.write_all(format!("CrashID={MOCK_REMOTE_CRASH_ID}").as_bytes())
+                    .expect("cannot write to request file");
+
+                Ok(crate::std::process::success_output())
+            }),
+        );
     test.run(|interact| {
         interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
     });
@@ -1462,6 +1666,136 @@ fn curl_binary() {
             Ok(output)
         }),
     );
+    test.run(|interact| {
+        interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
+    });
+
+    ran_process.assert_one();
+}
+
+/// Assert that the curl arguments pass a header file (`--header @file`) with the given contents,
+/// returning the arguments with the `--header` option removed.
+#[cfg(feature = "enterprise")]
+fn take_curl_header_file(args: &[OsString], expected_contents: &str) -> Vec<OsString> {
+    use ::std::io::Read;
+
+    let index = args
+        .iter()
+        .position(|a| a == "--header")
+        .expect("no --header argument");
+
+    let arg = args[index + 1].to_str().expect("invalid --header argument");
+    let path = arg.strip_prefix('@').expect("--header value is not a file");
+
+    let mut file = OpenOptions::new()
+        .read(true)
+        .open(path)
+        .expect("cannot open curl header file");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect("cannot read curl header file");
+    assert_eq!(contents, expected_contents);
+
+    let mut args = args.to_vec();
+    args.drain(index..index + 2);
+    args
+}
+
+#[cfg(feature = "enterprise")]
+#[test]
+fn curl_binary_with_authorization_header() {
+    let mut test = GuiTest::new();
+    test.files.add_file("minidump.memory.json.gz", "");
+    let ran_process = Counter::new();
+    let mock_ran_process = ran_process.clone();
+    test.mock
+        .set(
+            crate::std::env::MockEnv("MOZ_CRASHREPORTER_AUTH_TOKEN".into()),
+            "SomeToken".into()
+        )
+        .set(
+            Command::mock("curl"),
+            Box::new(move |cmd| {
+                if cmd.spawning {
+                    return Ok(crate::std::process::success_output());
+                }
+
+                // Curl strings need backslashes escaped.
+                let curl_escaped_separator = if std::path::MAIN_SEPARATOR == '\\' {
+                    "\\\\"
+                } else {
+                    std::path::MAIN_SEPARATOR_STR
+                };
+
+                let expected_args: Vec<OsString> = [
+                    "--fail",
+                    "--user-agent",
+                    net::http::user_agent(),
+                    "--form",
+                    "extra=@-;filename=extra.json;type=application/json",
+                    "--form",
+                    &format!(
+                        "upload_file_minidump=@\"data_dir{0}pending{0}minidump.dmp\"",
+                        curl_escaped_separator
+                    ),
+                    "--form",
+                    &format!(
+                        "memory_report=@\"data_dir{0}pending{0}minidump.memory.json.gz\"",
+                        curl_escaped_separator
+                    ),
+                    "https://reports.example.com",
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect();
+                let args =
+                    take_curl_header_file(&cmd.args, "authorization: Bearer SomeToken\n");
+                assert_eq!(args, expected_args);
+                let mut output = crate::std::process::success_output();
+                output.stdout = format!("CrashID={MOCK_REMOTE_CRASH_ID}").into();
+                mock_ran_process.inc();
+                Ok(output)
+            }),
+        );
+    test.run(|interact| {
+        interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
+    });
+
+    ran_process.assert_one();
+}
+
+/// Test that the authorization header is not attached when the report url isn't the
+/// enterprise console, since the url comes from the crash annotations or the environment.
+#[cfg(feature = "enterprise")]
+#[test]
+fn curl_binary_omits_authorization_header_for_other_url() {
+    let mut test = GuiTest::new();
+    test.config.report_url = Some("https://evil.example.com".into());
+    let ran_process = Counter::new();
+    let mock_ran_process = ran_process.clone();
+    test.mock
+        .set(
+            crate::std::env::MockEnv("MOZ_CRASHREPORTER_AUTH_TOKEN".into()),
+            "SomeToken".into(),
+        )
+        .set(
+            Command::mock("curl"),
+            Box::new(move |cmd| {
+                if cmd.spawning {
+                    return Ok(crate::std::process::success_output());
+                }
+
+                assert!(!cmd.args.contains(&OsString::from("--header")));
+                assert_eq!(
+                    cmd.args.last().unwrap(),
+                    &OsString::from("https://evil.example.com")
+                );
+                let mut output = crate::std::process::success_output();
+                output.stdout = format!("CrashID={MOCK_REMOTE_CRASH_ID}").into();
+                mock_ran_process.inc();
+                Ok(output)
+            }),
+        );
     test.run(|interact| {
         interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
     });
@@ -1537,7 +1871,8 @@ fn background_task_curl_fallback() {
                                 "value": platform_path("data_dir/pending/minidump.dmp"),
                             },
                         }
-                    ]
+                    ],
+                    "headers": []
                 })
                 .to_string();
 
@@ -1592,6 +1927,159 @@ fn background_task_curl_fallback() {
                 .map(Into::into)
                 .collect();
                 assert_eq!(cmd.args, expected_args);
+                let mut output = crate::std::process::success_output();
+                output.stdout = format!("CrashID={MOCK_REMOTE_CRASH_ID}").into();
+                mock_ran_curl.inc();
+                Ok(output)
+            }),
+        );
+    test.run(|interact| {
+        interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
+    });
+
+    ran_bgtask.assert_one();
+    ran_curl.assert_one();
+
+    // Verify that background tasks are still enabled.
+    assert!(background_task_attempts.should_attempt());
+
+    test.assert_files()
+        .saved_settings(Settings::default())
+        .submitted();
+}
+
+/// Test that the primary network backend (Necko) falls back to using curl if it fails,
+/// and that the invocation includes the authorization header
+#[cfg(feature = "enterprise")]
+#[test]
+fn background_task_curl_fallback_with_authorization_header() {
+    let mut test = GuiTest::new();
+    let ran_bgtask = Counter::new();
+    let mock_ran_bgtask = ran_bgtask.clone();
+    let ran_curl = Counter::new();
+    let mock_ran_curl = ran_curl.clone();
+    let background_task_attempts = Arc::new(net::http::BackgroundTaskAttempts::new(2));
+    test.mock
+        .set(
+            crate::std::env::MockEnv("MOZ_CRASHREPORTER_AUTH_TOKEN".into()),
+            "SomeToken".into()
+        )
+        .set(
+            net::http::BACKGROUND_TASK_ATTEMPTS,
+            background_task_attempts.clone(),
+        )
+        .set(
+            Command::mock("work_dir/firefox"),
+            Box::new(move |cmd| {
+                if cmd.spawning {
+                    return Ok(crate::std::process::success_output());
+                }
+                mock_ran_bgtask.inc();
+
+                let expected_args: Vec<OsString> = [
+                    "--backgroundtask",
+                    "crashreporterNetworkBackend",
+                    "https://reports.example.com",
+                    net::http::user_agent(),
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect();
+
+                assert_eq!(cmd.args.len(), 5);
+                assert_eq!(cmd.args[..4], expected_args);
+                let request_file = &cmd.args[4];
+
+                let expected_contents = serde_json::json!({
+                    "type": "MimePost",
+                    "parts": [
+                        {
+                            "name": "extra",
+                            "content": {
+                                "type": "String",
+                                "value": serde_json::json!({
+                                    "Vendor":"FooCorp",
+                                    "ProductName":"Bar",
+                                    "ReleaseChannel":"release",
+                                    "BuildID":"1234",
+                                    "AsyncShutdownTimeout":"{}",
+                                    "StackTraces": "{}",
+                                    "Version":"100.0",
+                                    "URL":"https://url.example.com",
+                                    "Throttleable":"1",
+                                    "CrashTime": current_unix_time().to_string(),
+                                    "MinidumpSha256Hash": MOCK_MINIDUMP_SHA256,
+                                    "SubmittedFrom":"Client",
+                                }).to_string(),
+                            },
+                            "filename": "extra.json",
+                            "mime_type": "application/json",
+                        },
+                        {
+                            "name": "upload_file_minidump",
+                            "content": {
+                                "type": "File",
+                                "value": platform_path("data_dir/pending/minidump.dmp"),
+                            },
+                        }
+                    ],
+                    "headers": [["authorization", "Bearer SomeToken"]]
+                })
+                .to_string();
+
+                use ::std::io::Read;
+                let mut file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(request_file)
+                    .expect("cannot open request file");
+                {
+                    let mut contents = String::new();
+                    file.read_to_string(&mut contents)
+                        .expect("cannot read request file");
+                    assert_eq!(contents, expected_contents);
+                }
+
+                Ok(crate::std::process::Output {
+                    status: crate::std::process::exit_status(3),
+                    stdout: vec![],
+                    stderr: vec![],
+                })
+            }),
+        )
+        .set(
+            Command::mock("curl"),
+            Box::new(move |cmd| {
+                if cmd.spawning {
+                    return Ok(crate::std::process::success_output());
+                }
+
+                // Curl strings need backslashes escaped.
+                let curl_escaped_separator = if std::path::MAIN_SEPARATOR == '\\' {
+                    "\\\\"
+                } else {
+                    std::path::MAIN_SEPARATOR_STR
+                };
+
+                let expected_args: Vec<OsString> = [
+                    "--fail",
+                    "--user-agent",
+                    net::http::user_agent(),
+                    "--form",
+                    "extra=@-;filename=extra.json;type=application/json",
+                    "--form",
+                    &format!(
+                        "upload_file_minidump=@\"data_dir{0}pending{0}minidump.dmp\"",
+                        curl_escaped_separator
+                    ),
+                    "https://reports.example.com",
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect();
+                let args =
+                    take_curl_header_file(&cmd.args, "authorization: Bearer SomeToken\n");
+                assert_eq!(args, expected_args);
                 let mut output = crate::std::process::success_output();
                 output.stdout = format!("CrashID={MOCK_REMOTE_CRASH_ID}").into();
                 mock_ran_curl.inc();

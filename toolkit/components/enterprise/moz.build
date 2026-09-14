@@ -17,6 +17,7 @@ EXTRA_JS_MODULES.enterprise += [
     "modules/EnterpriseEndpoints.sys.mjs",
     "modules/EnterpriseOSInfo.sys.mjs",
     "modules/EnterpriseStorageEncryption.sys.mjs",
+    "modules/RelaunchEnforcer.sys.mjs",
     "modules/Updates.sys.mjs",
 ]
 
@@ -25,3 +26,4 @@ BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]
 XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
 
 JAR_MANIFESTS += ["jar.mn"]
+XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]

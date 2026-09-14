@@ -72,6 +72,7 @@ describe("PrefsFeed", () => {
       ignore: sinon.spy(),
       ignoreBranch: sinon.spy(),
       reset: sinon.stub(),
+      locked: sinon.stub().returns(false),
       _branchStr: "branch.str.",
     };
     overrider.set({
@@ -221,6 +222,47 @@ describe("PrefsFeed", () => {
     const [{ data }] = feed.store.dispatch.firstCall.args;
     assert.deepEqual(data.featureConfig, {});
   });
+  describe("locked prefs", () => {
+    it("should dispatch PREFS_INITIAL_VALUES with the locked prefs", () => {
+      feed._prefs.locked = sinon.spy(name => name === "bar");
+      feed.onAction({ type: at.INIT });
+      assert.equal(
+        feed.store.dispatch.firstCall.args[0].type,
+        at.PREFS_INITIAL_VALUES
+      );
+      const [{ data }] = feed.store.dispatch.firstCall.args;
+      assert.deepEqual(data.lockedPrefs, ["bar"]);
+    });
+    it("should broadcast the locked prefs when a pref's lock state changes", () => {
+      feed.onAction({ type: at.INIT });
+      feed.store.dispatch.resetHistory();
+      feed._prefs.locked = sinon.spy(name => name === "foo");
+
+      feed.onPrefChanged("foo", 2);
+
+      const action = feed.store.dispatch
+        .getCalls()
+        .map(call => call.args[0])
+        .find(a => a.type === at.PREF_CHANGED && a.data.name === "lockedPrefs");
+      assert.deepEqual(action.data.value, ["foo"]);
+      assert.isTrue(au.isBroadcastToContent(action));
+    });
+    it("should not re-broadcast the locked prefs when nothing was locked or unlocked", () => {
+      feed.onAction({ type: at.INIT });
+      feed.store.dispatch.resetHistory();
+
+      feed.onPrefChanged("foo", 2);
+
+      assert.isUndefined(
+        feed.store.dispatch
+          .getCalls()
+          .map(call => call.args[0])
+          .find(
+            a => a.type === at.PREF_CHANGED && a.data.name === "lockedPrefs"
+          )
+      );
+    });
+  });
   it("should add one branch observer on init", () => {
     feed.onAction({ type: at.INIT });
     assert.calledOnce(feed._prefs.observeBranch);
@@ -292,6 +334,19 @@ describe("PrefsFeed", () => {
         data: { name: "browserNovaEnabled", value: false },
       })
     );
+  });
+  describe("supportsWidgetSearchSap", () => {
+    it("is true in the initial values on a host that knows the access point", () => {
+      feed.onAction({ type: at.INIT });
+      const [{ data }] = feed.store.dispatch.firstCall.args;
+      assert.isTrue(data.supportsWidgetSearchSap);
+    });
+    it("is false in the initial values on a host older than 157", () => {
+      ServicesStub.vc.compare = sinon.stub().returns(-1);
+      feed.onAction({ type: at.INIT });
+      const [{ data }] = feed.store.dispatch.firstCall.args;
+      assert.isFalse(data.supportsWidgetSearchSap);
+    });
   });
   describe("recordsHistory", () => {
     // The initial values are what the first new tab of a session reads, so the

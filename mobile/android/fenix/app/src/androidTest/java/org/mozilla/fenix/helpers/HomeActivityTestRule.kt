@@ -49,6 +49,7 @@ class HomeActivityTestRule(
         launchActivity: Boolean = true,
         skipOnboarding: Boolean = true,
         isPocketEnabled: Boolean = settings.showPocketRecommendationsFeature,
+        isBookmarksHomeFeatureEnabled: Boolean = settings.showBookmarksHomeFeature,
         isRecentTabsFeatureEnabled: Boolean = settings.showRecentTabsFeature,
         isRecentlyVisitedFeatureEnabled: Boolean = settings.historyMetadataUIFeature,
         isWallpaperOnboardingEnabled: Boolean = settings.showWallpaperOnboarding,
@@ -72,8 +73,10 @@ class HomeActivityTestRule(
         nativeShareSheetEnabled: Boolean = false,
         showVoiceSearchInDisplayToolbar: Boolean = false,
         isHomepageTrendingRecentSearchEnabled: Boolean = false,
+        showAddressBarInFocusMode: Boolean = false,
     ) : this(initialTouchMode, launchActivity, skipOnboarding) {
         this.isPocketEnabled = isPocketEnabled
+        this.isBookmarksHomeFeatureEnabled = isBookmarksHomeFeatureEnabled
         this.isRecentTabsFeatureEnabled = isRecentTabsFeatureEnabled
         this.isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled
         this.isWallpaperOnboardingEnabled = isWallpaperOnboardingEnabled
@@ -96,6 +99,7 @@ class HomeActivityTestRule(
         this.nativeShareSheetEnabled = nativeShareSheetEnabled
         this.showVoiceSearchInDisplayToolbar = showVoiceSearchInDisplayToolbar
         this.isHomepageTrendingRecentSearchEnabled = isHomepageTrendingRecentSearchEnabled
+        this.showAddressBarInFocusMode = showAddressBarInFocusMode
     }
 
     /** Update settings after the activity was created. */
@@ -188,6 +192,7 @@ internal constructor(
         launchActivity: Boolean = true,
         skipOnboarding: Boolean = true,
         isPocketEnabled: Boolean = settings.showPocketRecommendationsFeature,
+        isBookmarksHomeFeatureEnabled: Boolean = settings.showBookmarksHomeFeature,
         isRecentTabsFeatureEnabled: Boolean = settings.showRecentTabsFeature,
         isRecentlyVisitedFeatureEnabled: Boolean = settings.historyMetadataUIFeature,
         isWallpaperOnboardingEnabled: Boolean = settings.showWallpaperOnboarding,
@@ -213,8 +218,10 @@ internal constructor(
         nativeShareSheetEnabled: Boolean = false,
         showVoiceSearchInDisplayToolbar: Boolean = false,
         isHomepageTrendingRecentSearchEnabled: Boolean = false,
+        showAddressBarInFocusMode: Boolean = false,
     ) : this(initialTouchMode, launchActivity, skipOnboarding) {
         this.isPocketEnabled = isPocketEnabled
+        this.isBookmarksHomeFeatureEnabled = isBookmarksHomeFeatureEnabled
         this.isRecentTabsFeatureEnabled = isRecentTabsFeatureEnabled
         this.isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled
         this.isWallpaperOnboardingEnabled = isWallpaperOnboardingEnabled
@@ -239,6 +246,7 @@ internal constructor(
         this.nativeShareSheetEnabled = nativeShareSheetEnabled
         this.showVoiceSearchInDisplayToolbar = showVoiceSearchInDisplayToolbar
         this.isHomepageTrendingRecentSearchEnabled = isHomepageTrendingRecentSearchEnabled
+        this.showAddressBarInFocusMode = showAddressBarInFocusMode
     }
 
     private val longTapUserPreference = getLongPressTimeout()
@@ -294,6 +302,7 @@ internal constructor(
      */
     fun updateCachedSettings() {
         isPocketEnabled = settings.showPocketRecommendationsFeature
+        isBookmarksHomeFeatureEnabled = settings.showBookmarksHomeFeature
         isRecentTabsFeatureEnabled = settings.showRecentTabsFeature
         isRecentlyVisitedFeatureEnabled = settings.historyMetadataUIFeature
         isWallpaperOnboardingEnabled = settings.showWallpaperOnboarding
@@ -312,6 +321,7 @@ internal constructor(
         nativeShareSheetEnabled = settings.nativeShareSheetEnabled
         isHomepageTrendingRecentSearchEnabled = settings.enableHomepageTrendingRecentSearch
         isTabStripEnabled = settings.isTabStripEnabled
+        showAddressBarInFocusMode = settings.showAddressBarInFocusMode
     }
 
     companion object {
@@ -332,6 +342,8 @@ internal constructor(
                 initialTouchMode = initialTouchMode,
                 launchActivity = launchActivity,
                 skipOnboarding = skipOnboarding,
+                isBookmarksHomeFeatureEnabled = true,
+                isRecentlyVisitedFeatureEnabled = true,
                 isWallpaperOnboardingEnabled = false,
                 isOpenInAppBannerEnabled = false,
                 isMicrosurveyEnabled = false,

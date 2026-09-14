@@ -8,12 +8,13 @@ import {
 } from "moz-src:///browser/components/newtab/AboutNewTabComponents.sys.mjs";
 import { UrlbarPrefs } from "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs";
 
-const FEATURE_GATE_PREF = "newtab.featureGate";
+const FEATURE_GATE = "newtabFeatureGate";
+const NOVA_PREF = "browser.nova.enabled";
 
 /**
- * A registrant that adds `<moz-urlbar>` to about:newtab / about:home while
- * `browser.urlbar.newtab.featureGate` is enabled. It supersedes the handoff
- * search bar, which stands down for the same pref.
+ * A registrant that adds `<moz-urlbar>` to about:newtab / about:home while the
+ * urlbar's `newtabFeatureGate` Nimbus variable is enabled. It supersedes the
+ * handoff search bar, which stands down for the same gate.
  */
 export class UrlbarNewTabComponentRegistrant extends BaseAboutNewTabComponentRegistrant {
   constructor() {
@@ -27,31 +28,33 @@ export class UrlbarNewTabComponentRegistrant extends BaseAboutNewTabComponentReg
     UrlbarPrefs.removeObserver(this);
   }
 
+  onNimbusChanged(variable) {
+    if (variable == FEATURE_GATE) {
+      this.updated();
+    }
+  }
+
   onPrefChanged(pref) {
-    if (pref == FEATURE_GATE_PREF) {
+    if (pref == NOVA_PREF) {
       this.updated();
     }
   }
 
   getComponents() {
-    if (!UrlbarPrefs.get(FEATURE_GATE_PREF)) {
+    if (!UrlbarPrefs.get(FEATURE_GATE)) {
       return [];
     }
 
     return [
       {
         type: AboutNewTabComponentRegistry.TYPES.SEARCH,
-        l10nURLs: [
-          "browser/browser.ftl",
-          "browser/search.ftl",
-          "preview/enUS-searchFeatures.ftl",
-        ],
+        l10nURLs: ["browser/browser.ftl", "preview/enUS-searchFeatures.ftl"],
         componentURL: "chrome://browser/content/urlbar/UrlbarInput.mjs",
         tagName: "moz-urlbar",
         attributes: {
           class: "urlbar",
+          role: "group",
           pageproxystate: "invalid",
-          popover: "manual",
           "in-page": "",
           "sap-name": "newtab_searchbar",
           "unifiedsearchbutton-available": "",

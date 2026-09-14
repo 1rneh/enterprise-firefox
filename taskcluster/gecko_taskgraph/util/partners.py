@@ -643,17 +643,44 @@ def _pad_macos_attribution_code(attribution_string):
     return attribution_string
 
 
+# Cache key for the one enterprise manifest crawl every enterprise kind shares.
+# Deliberately not a kind name, so it can't be picked up by
+# get_partner_config_by_kind(). There is already caching handled by
+# get_partner_config_by_url() but it will still hit the network once for each
+# "kind" required to be populated, which can be reduced to only once for all
+# the kinds.
+ENTERPRISE_MANIFEST_FAKE_KIND = "enterprise-manifest"
+
+# The repack.cfg platform keys each enterprise kind turns into build platforms.
+ENTERPRISE_PLATFORM_MAPPINGS = {
+    "repackage-deb": {
+        "linux-x86_64": "linux64-enterprise-shippable",
+        "linux-aarch64": "linux64-aarch64-enterprise-shippable",
+    },
+    "repackage-msix": {"win64-aarch64": "win64-aarch64-enterprise-shippable"},
+    "repackage-msi": {"win64": "win64-enterprise-shippable"},
+    "enterprise-repack-repackage": {
+        "linux-x86_64": "linux64-enterprise-shippable",
+        "linux-aarch64": "linux64-aarch64-enterprise-shippable",
+        "mac": "macosx64-enterprise-shippable",
+        "win64": "win64-enterprise-shippable",
+        "win64-aarch64": "win64-aarch64-enterprise-shippable",
+    },
+    "enterprise-repack-mac-signing": {"mac": "macosx64-enterprise-shippable"},
+    "enterprise-repack-mac-notarization": {"mac": "macosx64-enterprise-shippable"},
+}
+
+
 def make_enterprise_repack_from_url(parameters, graph_config, kind, platform_mapping):
     token = get_token({"level": parameters["level"], "source": "enterprise"})
     partner_url_config = get_partner_url_config(parameters, graph_config)
-    get_partner_config_by_url(
+    return get_partner_config_by_url(
         manifest_url=partner_url_config["enterprise-repack"],
         kind=kind,
         token=token,
         platform_mapping=platform_mapping,
         use_path_for_name=True,
     )
-    return partner_configs[kind]
 
 
 def get_release_partners(parameters):
@@ -672,51 +699,35 @@ def get_enterprise_partner_subset(parameters):
     return list(dict.fromkeys(k for v in partner_configs.values() for k in v.keys()))
 
 
+def _select_platforms(partner_config, platform_mapping):
+    """Narrow a partner config to the build platforms a single kind cares about."""
+    wanted = set(platform_mapping.values())
+    config = deepcopy(partner_config)
+    for sub_configs in config.values():
+        for sub_config in sub_configs.values():
+            sub_config["platforms"] = [
+                platform for platform in sub_config["platforms"] if platform in wanted
+            ]
+    return config
+
+
 def get_enterprise_partner_configs(parameters, graph_config):
+    """Derive the per-kind enterprise partner configs from a single manifest crawl.
+
+    Every enterprise kind reads the same manifest and the same repack.cfg files;
+    they only disagree on which platforms to map them to. So crawl once -- that
+    is one Github query for the manifest plus one per partner -- with the union
+    of the platform mappings, then hand each kind a filtered view.
+    """
+    all_platforms = {
+        ftp_platform: build_platform
+        for platform_mapping in ENTERPRISE_PLATFORM_MAPPINGS.values()
+        for ftp_platform, build_platform in platform_mapping.items()
+    }
+    manifest_config = make_enterprise_repack_from_url(
+        parameters, graph_config, ENTERPRISE_MANIFEST_FAKE_KIND, all_platforms
+    )
     return {
-        "repackage-deb": make_enterprise_repack_from_url(
-            parameters,
-            graph_config,
-            "repackage-deb",
-            {
-                "linux-x86_64": "linux64-enterprise-shippable",
-                "linux-aarch64": "linux64-aarch64-enterprise-shippable",
-            },
-        ),
-        "repackage-msi": make_enterprise_repack_from_url(
-            parameters,
-            graph_config,
-            "repackage-msi",
-            {"win64": "win64-enterprise-shippable"},
-        ),
-        "repackage-msix": make_enterprise_repack_from_url(
-            parameters,
-            graph_config,
-            "repackage-msix",
-            {"win64-aarch64": "win64-aarch64-enterprise-shippable"},
-        ),
-        "enterprise-repack-repackage": make_enterprise_repack_from_url(
-            parameters,
-            graph_config,
-            "enterprise-repack-repackage",
-            {
-                "linux-x86_64": "linux64-enterprise-shippable",
-                "linux-aarch64": "linux64-aarch64-enterprise-shippable",
-                "mac": "macosx64-enterprise-shippable",
-                "win64": "win64-enterprise-shippable",
-                "win64-aarch64": "win64-aarch64-enterprise-shippable",
-            },
-        ),
-        "enterprise-repack-mac-signing": make_enterprise_repack_from_url(
-            parameters,
-            graph_config,
-            "enterprise-repack-mac-signing",
-            {"mac": "macosx64-enterprise-shippable"},
-        ),
-        "enterprise-repack-mac-notarization": make_enterprise_repack_from_url(
-            parameters,
-            graph_config,
-            "enterprise-repack-mac-notarization",
-            {"mac": "macosx64-enterprise-shippable"},
-        ),
+        kind: _select_platforms(manifest_config, platform_mapping)
+        for kind, platform_mapping in ENTERPRISE_PLATFORM_MAPPINGS.items()
     }

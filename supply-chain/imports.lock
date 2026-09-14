@@ -1,6 +1,10 @@
 
 # cargo-vet imports lock
 
+[[unpublished.cssparser]]
+version = "0.38.0"
+audited_as = "0.37.0"
+
 [[publisher.aho-corasick]]
 version = "1.1.0"
 when = "2023-09-18"
@@ -153,7 +157,7 @@ version = "0.1.1"
 when = "2020-09-15"
 user-id = 2396
 user-login = "jdm"
-user-name = "Josh Matthews"
+user-name = "Josh Bowman-Matthews"
 
 [[publisher.core-text]]
 version = "19.2.0"
@@ -212,8 +216,8 @@ user-login = "jrconlin"
 user-name = "JR Conlin"
 
 [[publisher.encoding_rs]]
-version = "0.8.35"
-when = "2024-10-24"
+version = "0.8.40"
+when = "2026-09-07"
 user-id = 4484
 user-login = "hsivonen"
 user-name = "Henri Sivonen"
@@ -239,6 +243,13 @@ user-id = 1281
 user-login = "nical"
 user-name = "Nicolas Silva"
 
+[[publisher.find-msvc-tools]]
+version = "0.1.0"
+when = "2025-08-29"
+user-id = 539
+user-login = "cuviper"
+user-name = "Josh Stone"
+
 [[publisher.framehop]]
 version = "0.15.0"
 when = "2025-08-05"
@@ -251,7 +262,7 @@ version = "0.7.0"
 when = "2020-07-14"
 user-id = 2396
 user-login = "jdm"
-user-name = "Josh Matthews"
+user-name = "Josh Bowman-Matthews"
 
 [[publisher.gleam]]
 version = "0.15.0"
@@ -398,6 +409,11 @@ user-id = 2915
 user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
 
+[[publisher.mach2]]
+version = "0.6.0"
+when = "2025-11-16"
+trusted-publisher = "github:JohnTitor/mach2"
+
 [[publisher.macho-unwind-info]]
 version = "0.5.0"
 when = "2024-12-06"
@@ -453,6 +469,13 @@ when = "2025-12-19"
 user-id = 83100
 user-login = "mxinden"
 user-name = "Max Inden"
+
+[[publisher.multiversion_no_op]]
+version = "1.0.0"
+when = "2026-07-30"
+user-id = 4484
+user-login = "hsivonen"
+user-name = "Henri Sivonen"
 
 [[publisher.num]]
 version = "0.4.3"
@@ -642,8 +665,8 @@ user-login = "BurntSushi"
 user-name = "Andrew Gallant"
 
 [[publisher.scopeguard]]
-version = "1.1.0"
-when = "2020-02-16"
+version = "1.2.0"
+when = "2023-07-17"
 user-id = 2915
 user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
@@ -1217,6 +1240,12 @@ criteria = "safe-to-deploy"
 delta = "0.18.1 -> 0.19.2"
 notes = "Dependency updates and minor changes, nothing suspicious."
 
+[[audits.bytecode-alliance.audits.cc]]
+who = "Alex Crichton <alex@alexcrichton.com>"
+criteria = "safe-to-deploy"
+delta = "1.2.30 -> 1.2.41"
+notes = "This is a trusted rust-lang/rust crate"
+
 [[audits.bytecode-alliance.audits.cfg-if]]
 who = "Alex Crichton <alex@alexcrichton.com>"
 criteria = "safe-to-deploy"
@@ -1308,6 +1337,12 @@ notes = """
 This update had a few doc updates but no otherwise-substantial source code
 updates.
 """
+
+[[audits.bytecode-alliance.audits.find-msvc-tools]]
+who = "Alex Crichton <alex@alexcrichton.com>"
+criteria = "safe-to-deploy"
+delta = "0.1.0 -> 0.1.4"
+notes = "Nothing out of the ordinary for a crate finding MSVC tooling."
 
 [[audits.bytecode-alliance.audits.flate2]]
 who = "Alex Crichton <alex@alexcrichton.com>"
@@ -3854,72 +3889,7 @@ who = "Ameer Ghani <inahga@letsencrypt.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.1 -> 0.5.2"
 
-[[audits.mozilla.wildcard-audits.uniffi]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2021-11-22"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_bindgen]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2021-11-22"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_build]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2021-11-22"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_core]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2023-11-20"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_macros]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2021-11-22"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_meta]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2023-11-20"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_pipeline]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2025-10-08"
-end = "2027-01-14"
-notes = "Maintained by the Glean and Application Services teams"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
 [[audits.mozilla.wildcard-audits.uniffi_testing]]
-who = "Jan-Erik Rediger <jrediger@mozilla.com>"
-criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
-start = "2023-11-20"
-end = "2027-01-08"
-aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
-
-[[audits.mozilla.wildcard-audits.uniffi_udl]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 111105 # Mark Hammond (mhammond)
@@ -3981,6 +3951,12 @@ who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "2.4.0 -> 2.4.1"
 notes = "Only allowing new clippy lints"
+aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
+
+[[audits.mozilla.audits.cc]]
+who = "Jan-Erik Rediger <jrediger@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "1.2.41 -> 1.2.53"
 aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
 
 [[audits.mozilla.audits.chrono]]
@@ -4047,6 +4023,12 @@ aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-c
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 version = "0.1.9"
+aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
+
+[[audits.mozilla.audits.find-msvc-tools]]
+who = "Jan-Erik Rediger <jrediger@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.1.4 -> 0.1.8"
 aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
 
 [[audits.mozilla.audits.lazy_static]]

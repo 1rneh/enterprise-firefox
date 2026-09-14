@@ -140,6 +140,25 @@ export const UrlbarShared = {
     PROVIDER_ENGAGEMENT: "onProviderEngagement",
   }),
 
+  /**
+   * The UrlbarChildController/UrlbarInput/UrlbarView methods the parent may
+   * invoke over the `UrlbarChild` actor as an `InvokeContentAction` message.
+   *
+   * The parameters of these functions MUST be structured-clonable.
+   */
+  INVOKABLE_CONTENT_ACTIONS: Object.freeze({
+    controller: /** @type {const} */ (["notifyFromWire", "updateEngineStore"]),
+    input: /** @type {const} */ (["search", "setValue", "startQuery"]),
+    view: /** @type {const} */ ([
+      "acknowledgeFeedback",
+      "clearL10nCache",
+      "clearTopSitesCache",
+      "close",
+      "startTail150",
+      "updateResultMenuCommands",
+    ]),
+  }),
+
   TOKEN_TYPE: Object.freeze({
     TEXT: 1,
     // `looksLikeOrigin()` returned a value for this token that was neither
@@ -647,6 +666,52 @@ export const UrlbarShared = {
     return (
       !!parsed && parsed.pathname === "/" && !parsed.search && !parsed.hash
     );
+  },
+
+  /**
+   * The SAPs that are inputs dedicated to querying a search engine -- the
+   * toolbar search bar and New Tab's -- as opposed to the address bar and its
+   * variants, whose search also covers history and bookmarks.
+   */
+  SEARCHBAR_SAPS: ["searchbar", "newtab_searchbar"],
+
+  /**
+   * Whether a SAP is one of SEARCHBAR_SAPS.
+   *
+   * @param {string} sapName
+   *   The SAP name to check.
+   * @returns {boolean}
+   *   Whether the SAP is dedicated to search-engine queries.
+   */
+  isSearchbarSAP(sapName) {
+    return this.SEARCHBAR_SAPS.includes(sapName);
+  },
+
+  /**
+   * Whether a string that isn't a URL may be searched for. `keyword.enabled`
+   * disambiguates input in a bar that also takes an address, so a search bar
+   * searches whatever the pref says.
+   *
+   * @param {string} sapName
+   *   The SAP name to check.
+   * @returns {boolean}
+   *   Whether a keyword search is enabled.
+   */
+  keywordEnabled(sapName) {
+    return this.isSearchbarSAP(sapName) || UrlbarPrefs.get("keyword.enabled");
+  },
+
+  /**
+   * Whether a string that is a URL may be navigated to. The toolbar search bar
+   * only searches; the address bar and New Tab's bar both navigate.
+   *
+   * @param {string} sapName
+   *   The SAP name to check.
+   * @returns {boolean}
+   *   Whether navigation is enabled.
+   */
+  navigationEnabled(sapName) {
+    return sapName != "searchbar";
   },
 
   /**

@@ -293,6 +293,24 @@ add_task(async function test_every_detection_submits_a_ping() {
   }
 });
 
+add_task(async function test_default_records_nothing() {
+  Services.prefs.clearUserPref(
+    "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled"
+  );
+  try {
+    let { shouldBlock } = await queryReputation({
+      sourceURI: blocklistedURI,
+      fileSize: 12,
+    });
+    Assert.ok(shouldBlock, "Download is still blocked without the policy");
+
+    let events = Glean.safebrowsing.download.testGetValue("enterprise");
+    Assert.ok(!events?.length, "Should not record without an enabling policy");
+  } finally {
+    Services.fog.testResetFOG();
+  }
+});
+
 add_task(async function test_disabled_records_nothing() {
   Services.prefs.setBoolPref(
     "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",

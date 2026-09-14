@@ -20,6 +20,7 @@ const toolsNameMap = {
   viewBookmarksSidebar: "bookmarks",
   viewOpenTabsSidebar: "opentabs",
   viewCPMSidebar: "passwords",
+  viewResourceMonitorSidebar: "resourcemonitor",
 };
 const EXPAND_ON_HOVER_DEBOUNCE_TIMEOUT_MS = 1000;
 const LAUNCHER_SPLITTER_WIDTH = 4;
@@ -148,7 +149,7 @@ var SidebarController = {
           elementId: "sidebar-switcher-tabs",
           url: this.sidebarRevampEnabled
             ? "chrome://browser/content/sidebar/sidebar-syncedtabs.html"
-            : "chrome://browser/content/syncedtabs/sidebar.xhtml",
+            : "chrome://browser/content/syncedtabs/sidebar.html",
           menuId: "menu_tabsSidebar",
           classAttribute: "sync-ui-item",
           menuL10nId: "menu-view-synced-tabs-sidebar",
@@ -243,6 +244,20 @@ var SidebarController = {
         gleanEvent: Glean.contextualManager.sidebarToggle,
         gleanClickEvent: Glean.sidebar.passwordsIconClick,
         recordSidebarVersion: true,
+      }
+    );
+
+    this.registerPrefSidebar(
+      "browser.resourceMonitor.enabled",
+      "viewResourceMonitorSidebar",
+      {
+        name: "resourcemonitor",
+        elementId: "sidebar-switcher-resourcemonitor",
+        url: "about:processes?groupby=tab",
+        menuId: "menu_resourceMonitorSidebar",
+        menuL10nId: "menu-view-resource-monitor",
+        revampL10nId: "sidebar-menu-resource-monitor-label",
+        iconUrl: "chrome://browser/skin/lightning-bolt.svg",
       }
     );
 
@@ -379,6 +394,7 @@ var SidebarController = {
   _mainResizeObserver: null,
   _ongoingAnimations: [],
   _collapsedWidthMeasurementID: 0,
+  _expandOnHoverToggleID: 0,
 
   /**
    * @type {MutationObserver | null}
@@ -1454,8 +1470,6 @@ var SidebarController = {
     let animations = [];
     let sidebarOnLeft = this._positionStart != RTL_UI;
     let sidebarShift = 0;
-    let novaTranslate = 0;
-    const novaMode = Services.prefs.getBoolPref("browser.nova.enabled", false);
     // In horizontal "hide sidebar" mode the launcher stays hidden, so the panel
     // box is the element that slides in/out and should drive the slide
     // animation in place of the (hidden) launcher.
@@ -1501,59 +1515,8 @@ var SidebarController = {
         el.style.display = "flex";
       }
 
-      // Before nova, the sidebar would "shrink" by sliding partly out of view,
-      // and only after this animation was done would the width actually
-      // change. With nova's floating chrome, this trick is visually apparent.
-      // In nova mode, we animate the sidebar's apparent width with clip-path
-      // which is a performant alternative to actually animating the width.
-      if (novaMode) {
-        if (isSidebar) {
-          novaTranslate = sidebarOnLeft
-            ? -(to.width - from.width)
-            : to.width - from.width;
-          // For collapsing, hold the sidebar at from-width so clip-path has
-          // content to clip. Negative margin keeps flex contribution at to-width.
-          if (widthGrowth < 0) {
-            el.style.minWidth = el.style.maxWidth = from.width + "px";
-            el.style["margin-" + (sidebarOnLeft ? "right" : "left")] =
-              widthGrowth + "px";
-          }
-          const clipAmount = Math.abs(widthGrowth);
-          const fromClip = sidebarOnLeft
-            ? `inset(0 ${widthGrowth > 0 ? clipAmount : 0}px 0 0)`
-            : `inset(0 0 0 ${widthGrowth > 0 ? clipAmount : 0}px)`;
-          const toClip = sidebarOnLeft
-            ? `inset(0 ${widthGrowth < 0 ? clipAmount : 0}px 0 0)`
-            : `inset(0 0 0 ${widthGrowth < 0 ? clipAmount : 0}px)`;
-          animations.push(
-            el.animate([{ clipPath: fromClip }, { clipPath: toClip }], options)
-          );
-
-          // When sidebar is on the right, content is left-aligned but the clip
-          // moves from the left. Counter-translate the inner element rightward to
-          // keep it in the visible area.
-          if (!sidebarOnLeft && clipAmount > 0) {
-            animations.push(
-              this.sidebarMain.animate(
-                [
-                  { translate: `${widthGrowth > 0 ? clipAmount : 0}px 0 0` },
-                  { translate: `${widthGrowth < 0 ? clipAmount : 0}px 0 0` },
-                ],
-                options
-              )
-            );
-          }
-        } else {
-          animations.push(
-            el.animate(
-              [{ translate: `${novaTranslate}px 0 0` }, { translate: "0" }],
-              options
-            )
-          );
-        }
-        continue;
-      }
-
+      // Only `translate` is animated, so every frame stays on the compositor.
+      // The widths and margins are set once, for the animation's duration.
       if (widthGrowth < 0) {
         el.style.minWidth = el.style.maxWidth = from.width + "px";
         el.style["margin-" + (sidebarOnLeft ? "right" : "left")] =
@@ -1586,8 +1549,8 @@ var SidebarController = {
       if (!isSidebar || !this._positionStart || launcherHidden) {
         continue;
       }
-      // We want to keep the buttons in place during the animation, for which
-      // we might need to compensate.
+      // We need to compensate to keep the buttons in place when the sidebar is
+      // on the left.
       if (!this._state.launcherExpanded) {
         animations.push(
           this.sidebarMain.animate(
@@ -2852,6 +2815,7 @@ var SidebarController = {
   },
 
   async toggleExpandOnHover(isEnabled, isDragEnded) {
+    const toggleID = ++this._expandOnHoverToggleID;
     document.documentElement.toggleAttribute(
       "sidebar-expand-on-hover",
       isEnabled
@@ -2861,9 +2825,18 @@ var SidebarController = {
         this._state = new this.SidebarState(this);
       }
       await this.waitUntilStable();
+      if (toggleID !== this._expandOnHoverToggleID) {
+        // A later call superseded us while we were awaiting. It has already put
+        // the attribute and the listeners into its own state, so stop rather
+        // than reinstating ours over it.
+        return;
+      }
       MousePosTracker.addListener(this);
       if (!isDragEnded) {
         await this.setLauncherCollapsedWidth();
+        if (toggleID !== this._expandOnHoverToggleID) {
+          return;
+        }
       }
       document.addEventListener("popupshown", this);
       document.addEventListener("popuphidden", this);
@@ -2883,22 +2856,7 @@ var SidebarController = {
       document.removeEventListener("popuphidden", this);
       window.removeEventListener("uidensitychanged", this);
       this._launcherCollapsedWidthStale = false;
-      // Add back user-preferred height if defined
-      if (
-        this._state.launcherExpanded &&
-        this._state.expandedToolsHeight !== undefined &&
-        this.sidebarMain.buttonGroup
-      ) {
-        this.sidebarMain.buttonGroup.style.height =
-          this._state.expandedToolsHeight;
-      } else if (
-        !this._state.launcherExpanded &&
-        this._state.collapsedToolsHeight !== undefined &&
-        this.sidebarMain.buttonGroup
-      ) {
-        this.sidebarMain.buttonGroup.style.height =
-          this._state.collapsedToolsHeight;
-      }
+      this._state.updateToolsHeight();
     }
 
     document.documentElement.toggleAttribute(

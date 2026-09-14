@@ -1,0 +1,30 @@
+# Its own workspace root: this crate builds for wasm32-unknown-unknown, not the
+# target the gecko workspace builds for, and is compiled by regenerate.py rather
+# than by the Firefox build.
+[workspace]
+
+[package]
+name = "content-analysis-test-wasm"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MPL-2.0"
+
+[lib]
+# `cdylib` for the wasm module the tests load; `rlib` so the spec-parsing unit
+# tests below can run on the host with `cargo test`.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+prost = "0.14"
+
+[build-dependencies]
+prost-build = "0.14"
+protox = "0.9"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

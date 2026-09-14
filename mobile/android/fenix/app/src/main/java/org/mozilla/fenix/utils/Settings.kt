@@ -180,7 +180,7 @@ class Settings(
     var showBookmarksHomeFeature by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_customization_bookmarks),
-            default = { homescreenSections[HomeScreenSection.BOOKMARKS] == true },
+            default = { false },
         )
 
     /** Indicates if the recent tabs functionality should be visible. */
@@ -246,7 +246,7 @@ class Settings(
     var historyMetadataUIFeature by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_history_metadata_feature),
-            default = { homescreenSections[HomeScreenSection.RECENT_EXPLORATIONS] == true },
+            default = { false },
         )
 
     /** Indicates whether or not the "Synced Tabs" section should be shown on the home screen. */
@@ -255,7 +255,9 @@ class Settings(
 
     /** Indicates whether or not the "Collections" section should be shown on the home screen. */
     val collections: Boolean
-        get() = FxNimbus.features.homescreen.value().sectionsEnabled[HomeScreenSection.COLLECTIONS] == true
+        get() =
+            !hideCollectionsUi &&
+                FxNimbus.features.homescreen.value().sectionsEnabled[HomeScreenSection.COLLECTIONS] == true
 
     /** Whether the Collections UI should be hidden. */
     var hideCollectionsUi by
@@ -285,9 +287,12 @@ class Settings(
             default = setOf(),
         )
 
-    /** Indicates whether or not the Firefox Japan Guide default site should be shown. */
-    val showFirefoxJpGuideDefaultSite: Boolean
-        get() = FxNimbus.features.firefoxJpGuideDefaultSite.value().enabled
+    /** Indicates whether the collections migration card should be shown. */
+    var shouldShowCollectionsMigrationCard by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_show_collections_migration_card),
+            default = false,
+        )
 
     /** Indicates whether or not top sites should be shown on the home screen. */
     var showTopSitesFeature by
@@ -526,6 +531,13 @@ class Settings(
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_referral_ping_submitted),
             default = false,
+        )
+
+    /** The referral code carried by the install referrer, recorded for display in the debug drawer only. */
+    var referralCode by
+        stringPreference(
+            appContext.getPreferenceKey(R.string.pref_key_referral_code),
+            default = "",
         )
 
     var rtamoAddonDownloadUrl by
@@ -2753,6 +2765,23 @@ class Settings(
             default = { FxNimbus.features.listenToPage.value().enabled },
         )
 
+    /** Nimbus controlled feature flag that indicates if the weekly privacy notification feature should be enabled. */
+    var weeklyPrivacyNotificationFeatureFlagEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_weekly_privacy_notification),
+            default = { FxNimbus.features.weeklyPrivacyNotification.value().enabled },
+        )
+
+    /**
+     * Debug-only switch to force the weekly privacy report notification to show, without needing real
+     * tracking-protection data to cross the notification's blocked-tracker threshold.
+     */
+    var debugForceWeeklyPrivacyReportNotification by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_debug_force_weekly_privacy_report_notification),
+            default = false,
+        )
+
     var aiControlsFeatureFlagEnabled by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_ai_controls),
@@ -2908,7 +2937,7 @@ class Settings(
     var importPasswordsFeatureFlagEnabled by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_import_passwords),
-            default = Config.channel.isDebug,
+            default = false,
         )
 
     /**
@@ -3223,6 +3252,13 @@ class Settings(
             default = { DefaultTabManagementFeatureHelper.tabGroupsOnboardingEnabled },
         )
 
+    /** Whether the Tab Groups strip is shown while the active tab is in a group. */
+    var tabGroupsStripEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_tab_groups_strip),
+            default = { DefaultTabManagementFeatureHelper.tabGroupsStripEnabled },
+        )
+
     /** Whether the Native Share Sheet feature is enabled. */
     var nativeShareSheetEnabled by
         booleanPreference(
@@ -3262,6 +3298,13 @@ class Settings(
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_show_voice_search_in_display_toolbar),
             default = { FxNimbus.features.voiceSearchInDisplayMode.value().enabled },
+        )
+
+    /** Whether the current URL should be shown separate from the addressbar when tapped. */
+    var showAddressBarInFocusMode by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_toolbar_focus_mode),
+            default = { FxNimbus.features.addressbarFocusMode.value().enabled },
         )
 
     /** Whether Longfox is enabled. */

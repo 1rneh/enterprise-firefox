@@ -119,6 +119,7 @@
 #include "nsPIDOMWindow.h"
 #include "nsPIWindowRoot.h"
 #include "nsPresContext.h"
+#include "nsRefreshObservers.h"
 #include "nsServiceManagerUtils.h"
 #include "nsSubDocumentFrame.h"
 #include "nsTArray.h"
@@ -805,7 +806,8 @@ NS_IMPL_CYCLE_COLLECTION_WEAK(
     mLastSecondaryButtonPressInfo.mDownContent,
     mLastSecondaryButtonPressInfo.mUpContent, mActiveContent, mHoverContent,
     mURLTargetContent, mPopoverPointerDownTarget, mMouseEnterLeaveHelper,
-    mPointersEnterLeaveHelper, mDocument, mIMEContentObserver, mAccessKeys)
+    mPointersEnterLeaveHelper, mDocument, mIMEContentObserver, mAccessKeys,
+    mPendingLeaveLinkElement)
 
 void EventStateManager::ReleaseCurrentIMEContentObserver() {
   if (mIMEContentObserver) {
@@ -2636,6 +2638,8 @@ void EventStateManager::BeginTrackingDragGesture(
     if (!mGestureDownFrameOwner) {
       mGestureDownFrameOwner = mGestureDownContent;
     }
+    mGestureDownTopLevelRemoteTarget =
+        BrowserParent::GetFrom(mGestureDownContent);
   }
   mGestureModifiers = aMouseDownOrTouchDragEvent.mModifiers;
   mGestureDownButtons = aMouseDownOrTouchDragEvent.mButtons;
@@ -2686,6 +2690,8 @@ void EventStateManager::StopTrackingDragGesture(bool aClearInChildProcesses) {
   if (!aClearInChildProcesses || !XRE_IsParentProcess()) {
     return;
   }
+
+  mGestureDownTopLevelRemoteTarget = nullptr;
 
   // Only notify if there is NOT a drag session active in the parent.
   RefPtr<nsIDragSession> dragSession =
@@ -4829,9 +4835,30 @@ void EventStateManager::ClearFrameRefs(nsIFrame* aFrame) {
   if (aFrame == mLinkOverFrame.GetFrame()) {
     nsIContent* content = aFrame->GetContent();
     if (content && content->IsElement()) {
-      content->AsElement()->LeaveLink(mPresContext);
+      nsPresContext* rootPc = mPresContext->GetRootPresContext();
+      if (rootPc) {
+        mPendingLeaveLinkElement = content->AsElement();
+        RefPtr<ManagedPostRefreshObserver> observer =
+            new ManagedPostRefreshObserver(
+                rootPc,
+                [esm = RefPtr<EventStateManager>(this)](bool aWasCanceled)
+                    -> ManagedPostRefreshObserver::Unregister {
+                  esm->MaybeLeavePendingLink(aWasCanceled);
+                  return ManagedPostRefreshObserver::Unregister::Yes;
+                });
+        rootPc->RegisterManagedPostRefreshObserver(observer);
+      }
     }
   }
+}
+
+void EventStateManager::MaybeLeavePendingLink(bool aWasCanceled) {
+  RefPtr<dom::Element> element = std::move(mPendingLeaveLinkElement);
+  if (aWasCanceled || !element || element->GetPrimaryFrame() ||
+      mLinkOverFrame.GetFrame()) {
+    return;
+  }
+  element->LeaveLink(mPresContext);
 }
 
 struct CursorImage {
@@ -7990,6 +8017,7 @@ bool EventStateManager::WheelPrefs::IsOverOnePageScrollAllowedY(
 void EventStateManager::UpdateGestureContent(nsIContent* aContent) {
   mGestureDownContent = aContent;
   mGestureDownFrameOwner = aContent;
+  mGestureDownTopLevelRemoteTarget = BrowserParent::GetFrom(aContent);
 }
 
 void EventStateManager::NotifyContentWillBeRemovedForGesture(

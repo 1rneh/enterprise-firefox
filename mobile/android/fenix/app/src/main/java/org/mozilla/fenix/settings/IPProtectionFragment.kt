@@ -87,6 +87,7 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
 
         LaunchedEffect(Unit) {
             requireComponents.ipProtection.store.dispatch(IPProtectionAction.CheckAccount)
+            requireComponents.ipProtection.store.dispatch(IPProtectionAction.CheckLocations)
         }
 
         FirefoxTheme {
@@ -173,6 +174,8 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
             feature =
                 IPProtectionSnackbarBinding(
                     appStore = requireComponents.appStore,
+                    context = requireContext(),
+                    navController = findNavController(),
                     snackbarDelegate =
                         FenixSnackbarDelegate(
                             snackbarHostState = snackbarHostState,

@@ -427,6 +427,24 @@ add_task(async function test_simultaneous_bursts_in_two_tabs() {
   }
 });
 
+add_task(async function test_default_records_nothing() {
+  await SpecialPowers.pushPrefEnv({
+    clear: [
+      ["browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.enabled"],
+    ],
+  });
+
+  let tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
+  try {
+    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
+    Assert.ok(!events?.length, "Should not record without an enabling policy");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    Services.fog.testResetFOG();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 add_task(async function test_disabled_records_nothing() {
   await SpecialPowers.pushPrefEnv({
     set: [

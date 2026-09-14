@@ -3,10 +3,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
 task-defaults:
-    run-on-repo-type: [hg]
     platform: linux2404-64/opt
     require-build:
         by-project:
+            enterprise-firefox:
+                linux2404-64/opt: build-linux64-enterprise/opt
+            enterprise-firefox-try:
+                linux2404-64/opt: build-linux64-enterprise/opt
             try:
                 linux2404-64/opt: build-linux64/opt
             default:
@@ -42,9 +45,9 @@ puppeteer-{this_chunk}:
     treeherder:
         symbol: Pup({this_chunk})
     run:  # Bug 1651542: Use screenshot feature to warm-up the font cache before the actual test
-        clone-with: hg
         using: run-task
         command: >
+            export MOZ_BYPASS_FELT=1 &&
             cd $GECKO_PATH/ &&
             cp -r $MOZ_FETCHES_DIR/puppeteer remote/test/ &&
             $MOZ_FETCHES_DIR/firefox/firefox --screenshot http://example.org &&

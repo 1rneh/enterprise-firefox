@@ -3037,17 +3037,50 @@ static bool ItemParticipatesIn3DContext(nsIFrame* aAncestor,
   return FrameParticipatesIn3DContext(aAncestor, transformFrame);
 }
 
-static void WrapSeparatorTransform(nsDisplayListBuilder* aBuilder,
-                                   nsIFrame* aFrame,
-                                   nsDisplayList* aNonParticipants,
-                                   nsDisplayList* aParticipants, int aIndex,
-                                   nsDisplayItem** aSeparator) {
+/**
+ * If the frame of aItem is, or descends from, a frame that participates in the
+ * 3D rendering context of aAncestor and has a hidden backface, returns that
+ * participant, else null.
+ *
+ * Combines3DTransformWithAncestors() counts a hidden backface as participating
+ * even without a transform, but such a frame never gets a transform item of its
+ * own, so ItemParticipatesIn3DContext() cannot see it. Reporting the
+ * participant lets the caller build the leaf that both the painting and the hit
+ * testing paths cull on. The frame is reported for descendants too, because
+ * backface-visibility is not inherited yet the whole subtree has to disappear
+ * with the participant.
+ */
+static nsIFrame* BackfaceHidden3DParticipantFor(nsIFrame* aAncestor,
+                                                nsDisplayItem* aItem) {
+  MOZ_ASSERT(aAncestor->Extend3DContext());
+
+  nsIFrame* ancestor = aAncestor->FirstContinuation();
+  for (nsIFrame* frame = aItem->Frame(); frame && frame != ancestor;
+       frame = frame->GetClosestFlattenedTreeAncestorPrimaryFrame()) {
+    if (frame->In3DContextAndBackfaceIsHidden()) {
+      return frame;
+    }
+  }
+  return nullptr;
+}
+
+/**
+ * Flushes the non-participants accumulated so far into a separator transform
+ * item on aFrame, and moves that item over to aParticipants. It does not touch
+ * anything already in aParticipants, and it is a no-op when nothing has
+ * accumulated. This should be called whenever there is a switch between
+ * the participants and non-participants.
+ */
+static void FlushNonParticipantsIntoSeparatorTransform(
+    nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
+    nsDisplayList* aNonParticipants, nsDisplayList* aParticipants, int& aIndex,
+    nsDisplayItem** aSeparator) {
   if (aNonParticipants->IsEmpty()) {
     return;
   }
 
   nsDisplayTransform* item = MakeDisplayItemWithIndex<nsDisplayTransform>(
-      aBuilder, aFrame, aIndex, aNonParticipants, aBuilder->GetVisibleRect());
+      aBuilder, aFrame, aIndex++, aNonParticipants, aBuilder->GetVisibleRect());
 
   if (*aSeparator == nullptr && item) {
     *aSeparator = item;
@@ -3893,10 +3926,26 @@ void nsIFrame::BuildDisplayListForStackingContext(
         if (ItemParticipatesIn3DContext(this, item) &&
             !item->GetClip().HasClip()) {
           // The frame of this item participates the same 3D context.
-          WrapSeparatorTransform(aBuilder, this, &nonparticipants,
-                                 &participants, index++, &separator);
+          FlushNonParticipantsIntoSeparatorTransform(
+              aBuilder, this, &nonparticipants, &participants, index,
+              &separator);
 
           participants.AppendToTop(item);
+        } else if (nsIFrame* backfaceHidden =
+                       BackfaceHidden3DParticipantFor(this, item)) {
+          // The item belongs to a participant with a hidden backface. Give it a
+          // leaf keyed on that participant rather than adding it to the shared
+          // separator below, which is keyed on us and so would be culled only
+          // when our own backface is turned away.
+          FlushNonParticipantsIntoSeparatorTransform(
+              aBuilder, this, &nonparticipants, &participants, index,
+              &separator);
+
+          nsDisplayList itemList(aBuilder);
+          itemList.AppendToTop(item);
+          participants.AppendToTop(MakeDisplayItemWithIndex<nsDisplayTransform>(
+              aBuilder, backfaceHidden, index++, &itemList,
+              aBuilder->GetVisibleRect()));
         } else {
           // The frame of the item doesn't participate the current
           // context, or has no transform.
@@ -3908,8 +3957,8 @@ void nsIFrame::BuildDisplayListForStackingContext(
           nonparticipants.AppendToTop(item);
         }
       }
-      WrapSeparatorTransform(aBuilder, this, &nonparticipants, &participants,
-                             index++, &separator);
+      FlushNonParticipantsIntoSeparatorTransform(
+          aBuilder, this, &nonparticipants, &participants, index, &separator);
 
       if (separator) {
         createdContainer = true;
@@ -3957,9 +4006,19 @@ void nsIFrame::BuildDisplayListForStackingContext(
       prerenderInfo.mDecision = nsDisplayTransform::PrerenderDecision::No;
     }
 
+    // A transform does not form a Backdrop Root, so if a descendant has a
+    // backdrop-filter this stacking context must not be used to resolve it,
+    // even though WebRender may give it a surface (e.g. to apply a clip it
+    // inherits). Unless we are forcing isolation, in which case we are the
+    // backdrop root that the descendant should resolve from.
+    const bool forceIsolation = ShouldForceIsolation();
+    const bool wrapsBackdropFilter =
+        usingBackdropFilter ||
+        (!forceIsolation && aBuilder->ContainsBackdropFilter());
+
     nsDisplayTransform* transformItem = MakeDisplayItem<nsDisplayTransform>(
         aBuilder, this, &resultList, visibleRect, prerenderInfo.mDecision,
-        usingBackdropFilter, ShouldForceIsolation());
+        wrapsBackdropFilter, forceIsolation);
     if (transformItem) {
       resultList.AppendToTop(transformItem);
       createdContainer = true;
@@ -4547,75 +4606,13 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
 
   if (savedOutOfFlowData) {
     aBuilder->SetBuildingInvisibleItems(false);
-
-    nsIFrame* scrollsWithAnchor = nullptr;
-    if (aBuilder->IsPaintingToWindow() &&
-        // If we are in view transition capture we get a null asr no matter
-        // what, so don't bother checking for async scrolling with a CSS anchor
-        // pos anchor.
-        !aBuilder->IsInViewTransitionCapture() &&
-        child->IsAbsolutelyPositioned(disp) &&
-        // If there is an active view transition in this document it is tricky
-        // to determine what will be an active scroll frame outside of that
-        // frame's BuildDisplayList, so don't bother to async scroll with an
-        // anchor in that case. Bug 2001861 tracks removing this check.
-        !PresContext()->Document()->GetActiveViewTransition()) {
-      scrollsWithAnchor = AnchorPositioningUtils::GetAnchorThatFrameScrollsWith(
-          child, aBuilder);
-
-      if (scrollsWithAnchor && aBuilder->IsRetainingDisplayList()) {
-        if (aBuilder->IsPartialUpdate()) {
-          aBuilder->SetPartialBuildFailed(true);
-        } else {
-          aBuilder->SetDisablePartialUpdates(true);
-        }
-      }
-    }
-
+#ifdef DEBUG
+    savedOutOfFlowData->CheckASR(aBuilder, child);
+#endif
     const ActiveScrolledRoot* asr =
         savedOutOfFlowData->mContainingBlockActiveScrolledRoot;
-
-#ifdef DEBUG
-    if (aBuilder->IsPaintingToWindow()) {
-      // Assert that the asr is as expected.
-      if (savedOutOfFlowData->mContainingBlockInViewTransitionCapture) {
-        MOZ_ASSERT(asr == nullptr);
-        MOZ_ASSERT(aBuilder->IsInViewTransitionCapture());
-      } else if ((asr ? FrameAndASRKind{asr->mFrame, asr->mKind}
-                      : FrameAndASRKind::default_value()) !=
-                 DisplayPortUtils::GetASRAncestorFrame(
-                     {child->GetParent(), ActiveScrolledRoot::ASRKind::Scroll},
-                     aBuilder)) {
-        // A weird case for native anonymous content in the custom content
-        // container when the root is captured by a view transition. This
-        // content is built outside of the view transition capture but the
-        // containing block (the canvas frame) was built inside the capture, so
-        // savedOutOfFlowData is saved as if we are inside the capture while we
-        // are outside it (bug 2002160).
-        MOZ_ASSERT(asr == nullptr);
-        MOZ_ASSERT(PresContext()->Document()->GetActiveViewTransition());
-        MOZ_ASSERT(
-            child->GetParent()->GetContent()->IsInNativeAnonymousSubtree());
-        bool inTopLayer = false;
-        nsIFrame* curr = child->GetParent();
-        while (curr) {
-          if (curr->StyleDisplay()->mTopLayer == StyleTopLayer::Auto) {
-            inTopLayer = true;
-            break;
-          }
-          curr = curr->GetParent();
-        }
-        MOZ_ASSERT(inTopLayer);
-      }
-    }
-#endif
-
-    if (scrollsWithAnchor) {
-      asr = DisplayPortUtils::ActivateDisplayportOnASRAncestors(
-          scrollsWithAnchor, child->GetParent(), asr, aBuilder);
-
-      // TODO should we set the scroll parent id too?
-      // https://github.com/w3c/csswg-drafts/issues/12042
+    if (child->IsAbsolutelyPositioned(disp)) {
+      asr = DisplayPortUtils::GetASRForAbsPosFrame(child, asr, aBuilder);
     }
 
     if (aBuilder->IsInViewTransitionCapture()) {
@@ -8972,9 +8969,13 @@ bool nsIFrame::IsImageFrameOrSubclass() const {
   return !!asImage;
 }
 
+// Unlike its neighbours this must not use do_QueryFrame(), because
+// IMPL_FAST_QUERYFRAME routes do_QueryFrame<ScrollContainerFrame> through here.
 bool nsIFrame::IsScrollContainerOrSubclass() const {
-  const ScrollContainerFrame* asScrollContainer = do_QueryFrame(this);
-  return !!asScrollContainer;
+  const bool result =
+      IsScrollContainerFrame() || IsListControlFrame() || IsTextInputFrame();
+  MOZ_ASSERT(result == !!QueryFrame(ScrollContainerFrame::kFrameIID));
+  return result;
 }
 
 bool nsIFrame::IsSubgrid() const {
@@ -11108,13 +11109,8 @@ bool nsIFrame::FinishAndStoreOverflow(OverflowAreas& aOverflowAreas,
   if (hasTransform || Combines3DTransformWithAncestors()) {
     if (!aOverflowAreas.InkOverflow().IsEqualEdges(bounds) ||
         !aOverflowAreas.ScrollableOverflow().IsEqualEdges(bounds)) {
-      OverflowAreas* initial = GetProperty(nsIFrame::InitialOverflowProperty());
-      if (!initial) {
-        AddProperty(nsIFrame::InitialOverflowProperty(),
-                    new OverflowAreas(aOverflowAreas));
-      } else if (initial != &aOverflowAreas) {
-        *initial = aOverflowAreas;
-      }
+      SetOrUpdateDeletableProperty(nsIFrame::InitialOverflowProperty(),
+                                   aOverflowAreas);
     } else {
       RemoveProperty(nsIFrame::InitialOverflowProperty());
     }

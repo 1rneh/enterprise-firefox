@@ -87,6 +87,7 @@ add_setup(async function () {
       canGetKeyForScope: async () => true,
     },
     device: {
+      getLocalName: () => "Test Device",
       recentDeviceList: null,
     },
   };

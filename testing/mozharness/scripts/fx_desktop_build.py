@@ -29,8 +29,8 @@ class FxDesktopBuild(BuildScript):
             "all_actions": [
                 "get-secrets",
                 "clobber",
+                "tbrust-vendor",
                 "build",
-                "static-analysis-autotest",
                 "valgrind-test",
                 "multi-l10n",
                 "package-source",

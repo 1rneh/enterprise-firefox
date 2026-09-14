@@ -82,6 +82,7 @@ class GeckoParametersSchema(Schema, kw_only=True, rename=None):
     release_partner_build_number: int
     release_type: str
     release_product: Optional[str]
+    shipping: bool
     test_manifest_loader: str
     try_mode: Optional[str]
     try_task_config: TryTaskConfig
@@ -109,7 +110,12 @@ def get_app_version(product_dir="browser"):
 
 
 def get_release_type(parameters):
-    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
+    if parameters["project"] not in (
+        "enterprise-firefox",
+        "enterprise-firefox-try",
+        "enterprise-thunderbird",
+        "enterprise-thunderbird-try",
+    ):
         return ""
 
     if parameters["head_ref"] == "refs/heads/enterprise-release":
@@ -149,6 +155,7 @@ def get_defaults(repo_root=None):
         # This refers to the upstream repo rather than the local checkout, so
         # should be hardcoded to 'hg' even with git-cinnabar.
         "repository_type": "hg",
+        "shipping": False,
         "test_manifest_loader": "default",
         "try_mode": None,
         "try_task_config": {},

@@ -53,10 +53,6 @@ function updateTabContextMenu(tab = gBrowser.selectedTab) {
 }
 
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({
-    set: [["test.wait300msAfterTabSwitch", true]],
-  });
-
   await promiseSyncReady();
   await SearchService.init();
   // gSync.init() is called in a requestIdleCallback. Force its initialization.
@@ -112,7 +108,11 @@ add_task(async function test_sendTabToDevice_showsConfirmationHint_fxa() {
     "FxA button is hidden"
   );
   document.documentElement.setAttribute("fxastatus", "foo");
-  await checkForConfirmationHint("fxa-toolbar-menu-button");
+  await checkForConfirmationHint(
+    AppConstants.MOZ_ENTERPRISE
+      ? "enterprise-badge-toolbar-button"
+      : "fxa-toolbar-menu-button"
+  );
   document.documentElement.setAttribute("fxastatus", "not_configured");
 });
 
@@ -403,6 +403,7 @@ add_task(async function test_tab_contextmenu_fxa_disabled() {
   );
 
   getter.restore();
+  document.documentElement.removeAttribute("fxadisabled");
   [...document.querySelectorAll(".sync-ui-item")].forEach(
     e => (e.hidden = false)
   );

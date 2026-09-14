@@ -3,131 +3,91 @@
 
 "use strict";
 
+// Globals of a `NewtabSearchbarTestUtils.spawn` task. The eslint rule that
+// declares the sandbox's own globals only fires on a literal
+// `SpecialPowers.spawn` call.
+/* global NewtabSearchbarContentTestUtils, ContentTaskUtils */
+
 Services.scriptloader.loadSubScript(
   "chrome://mochitests/content/browser/browser/components/urlbar/tests/browser/head-common.js",
   this
 );
 
+ChromeUtils.defineLazyGetter(this, "NewtabSearchbarTestUtils", () => {
+  const { NewtabSearchbarTestUtils: module } = ChromeUtils.importESModule(
+    "resource://testing-common/NewtabSearchbarTestUtils.sys.mjs"
+  );
+  module.init(this, window);
+  return module;
+});
+
+registerCleanupFunction(() => NewtabSearchbarTestUtils.formHistory.clear());
+
 /**
- * Opens about:newtab and waits for its address bar to be in the document.
- *
- * @returns {Promise<MozTabbrowserTab>}
+ * Replaces the default engine with one that serves no suggestions, for a test
+ * that has no use for them. The bar's SAP ignores the suggestion prefs the test
+ * profile turns off, so a test left on the app-provided engine can reach that
+ * engine's suggestion server for real.
  */
-async function openNewTabPage() {
-  // about:newtab is preloaded, so its load event may already have fired.
-  let tab = await BrowserTestUtils.openNewForegroundTab(
-    gBrowser,
-    "about:newtab",
-    false
-  );
-  await TestUtils.waitForCondition(
-    () =>
-      SpecialPowers.spawn(
-        tab.linkedBrowser,
-        [],
-        () => !!content.document.querySelector("moz-urlbar")
-      ),
-    "waiting for <moz-urlbar> on about:newtab"
-  );
-  return tab;
+function useEngineWithoutSuggestions() {
+  return SearchTestUtils.updateRemoteSettingsConfig([
+    { identifier: "engine1" },
+  ]);
 }
 
 /**
- * Types a search string into the newtab address bar.
+ * Adds a task that runs against about:newtab, with the telemetry, history and
+ * form history recorded so far cleared and the tab closed afterwards. The task
+ * takes the browser the page is in, and seeds the profile itself, after the
+ * page is open and before it queries.
  *
- * @param {MozBrowser} browser
- * @param {string} value
+ * @param {Function} taskFn
+ *   Called with the browser the page is in.
  */
-function searchInNewTabPage(browser, value) {
-  return SpecialPowers.spawn(browser, [value], searchString => {
-    let input = content.document.querySelector("moz-urlbar input.urlbar-input");
-    input.focus();
-    input.value = searchString;
-    input.dispatchEvent(
-      new content.InputEvent("input", {
-        bubbles: true,
-        data: searchString,
-        inputType: "insertText",
-      })
-    );
-  });
-}
+function add_telemetry_task(taskFn) {
+  let func = async () => {
+    await Services.fog.testFlushAllChildren();
+    Services.fog.testResetFOG();
+    await PlacesUtils.history.clear();
+    await NewtabSearchbarTestUtils.formHistory.clear();
 
-/**
- * Reads the favicon of the newtab address bar row showing a given title, once
- * the favicon's load has settled.
- *
- * @param {MozBrowser} browser
- * @param {string} title
- * @returns {Promise<?object>}
- *   The favicon's `src`, and whether it `loaded`, or null if there is no such
- *   row.
- */
-function getRowIcon(browser, title) {
-  return SpecialPowers.spawn(browser, [title], async rowTitle => {
-    let row = [
-      ...content.document.querySelectorAll("moz-urlbar .urlbarView-row"),
-    ].find(r => r.textContent.includes(rowTitle));
-    let img = row?.querySelector("img.urlbarView-favicon");
-    if (!img) {
-      return null;
+    let tab = await NewtabSearchbarTestUtils.openNewTabPage();
+    try {
+      await taskFn(tab.linkedBrowser);
+    } finally {
+      // A task closing the tab itself is what it set out to test.
+      if (tab.isConnected) {
+        BrowserTestUtils.removeTab(tab);
+      }
     }
-    if (!img.complete) {
-      await new Promise(resolve => {
-        img.addEventListener("load", resolve, { once: true });
-        img.addEventListener("error", resolve, { once: true });
-      });
-    }
-    return { src: img.src, loaded: img.naturalWidth > 0 };
+  };
+  Object.defineProperty(func, "name", { value: taskFn.name });
+  add_task(func);
+}
+
+/**
+ * Starts a session in the bar and waits for its results.
+ *
+ * @param {MozBrowser} browser
+ *   The browser the page is in.
+ * @param {string} [value]
+ *   The string to search for.
+ */
+function doSearch(browser, value = "x") {
+  return NewtabSearchbarTestUtils.promiseAutocompleteResultPopup({
+    browser,
+    value,
   });
 }
 
 /**
- * Waits for a newtab address bar row's favicon to satisfy a predicate.
+ * Picks the selected result with the keyboard and waits for the load it starts.
  *
  * @param {MozBrowser} browser
- * @param {string} title
- * @param {Function} predicate
- *   Called with the object {@link getRowIcon} returns.
- * @returns {Promise<object>}
- *   The favicon that satisfied the predicate.
+ *   The browser the page is in.
  */
-function waitForRowIcon(browser, title, predicate) {
-  return TestUtils.waitForCondition(async () => {
-    let icon = await getRowIcon(browser, title);
-    return icon && predicate(icon) ? icon : false;
-  }, `waiting for the icon of the row titled "${title}"`);
-}
-
-/**
- * Reads what the newtab address bar is currently showing.
- *
- * @param {MozBrowser} browser
- * @returns {Promise<{focused: boolean, value: string, viewOpen: boolean}>}
- *   Whether the input has focus, the value it holds, and whether the results
- *   view is open.
- */
-function getBarState(browser) {
-  return SpecialPowers.spawn(browser, [], () => {
-    let bar = content.document.querySelector("moz-urlbar");
-    let input = bar.querySelector("input.urlbar-input");
-    return {
-      focused: content.document.activeElement == input,
-      value: input.value,
-      // An Xray hides the element's plain JS properties.
-      viewOpen: Cu.waiveXrays(bar).view.isOpen,
-    };
-  });
-}
-
-/**
- * Waits for the newtab address bar's results view to open.
- *
- * @param {MozBrowser} browser
- */
-function waitForResults(browser) {
-  return TestUtils.waitForCondition(
-    async () => (await getBarState(browser)).viewOpen,
-    "waiting for the results view to open"
-  );
+async function doEnter(browser) {
+  let loaded = BrowserTestUtils.browserLoaded(browser);
+  await BrowserTestUtils.synthesizeKey("KEY_Enter", {}, browser);
+  await loaded;
 }

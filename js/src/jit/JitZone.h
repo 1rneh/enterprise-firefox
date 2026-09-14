@@ -70,17 +70,23 @@ enum class ICStubEngine : uint8_t {
 
 struct CacheIRStubKey : public DefaultHasher<CacheIRStubKey> {
   struct Lookup {
-    CacheKind kind;
-    ICStubEngine engine;
     const uint8_t* code;
     uint32_t length;
+    HashNumber hash;
+    CacheKind kind;
+    ICStubEngine engine;
 
     Lookup(CacheKind kind, ICStubEngine engine, const uint8_t* code,
            uint32_t length)
-        : kind(kind), engine(engine), code(code), length(length) {}
+        : code(code),
+          length(length),
+          hash(mozilla::AddToHash(mozilla::HashBytes(code, length),
+                                  uint32_t(kind), uint32_t(engine))),
+          kind(kind),
+          engine(engine) {}
   };
 
-  static HashNumber hash(const Lookup& l);
+  static HashNumber hash(const Lookup& l) { return l.hash; }
   static bool match(const CacheIRStubKey& entry, const Lookup& l);
 
   UniquePtr<CacheIRStubInfo, JS::FreePolicy> stubInfo;
@@ -175,6 +181,10 @@ class JitZone {
   bool incompleteAOTICs_ = false;
 
   gc::Heap initialStringHeap = gc::Heap::Tenured;
+
+  // If we are interrupted while executing a regexp, we disable discarding
+  // regexp code until we're done executing the regexp.
+  uint32_t regExpInterruptDepth_ = 0;
 
   JitCode* generateStringConcatStub(JSContext* cx);
   JitCode* generateRegExpMatcherStub(JSContext* cx);
@@ -392,6 +402,26 @@ class JitZone {
     return offsetof(JitZone, stubs_) +
            size_t(StubKind::RegExpExecTest) * sizeof(uintptr_t);
   }
+
+  bool keepRegExpJitCode() const { return regExpInterruptDepth_ > 0; }
+  void incRegExpInterruptDepth() {
+    MOZ_RELEASE_ASSERT(regExpInterruptDepth_ < UINT32_MAX);
+    regExpInterruptDepth_++;
+  }
+  void decRegExpInterruptDepth() {
+    MOZ_RELEASE_ASSERT(regExpInterruptDepth_ > 0);
+    regExpInterruptDepth_--;
+  }
+};
+
+class MOZ_RAII AutoInterruptingRegExp {
+  JitZone* jitZone_;
+
+ public:
+  explicit AutoInterruptingRegExp(JitZone* jitZone) : jitZone_(jitZone) {
+    jitZone_->incRegExpInterruptDepth();
+  }
+  ~AutoInterruptingRegExp() { jitZone_->decRegExpInterruptDepth(); }
 };
 
 }  // namespace jit

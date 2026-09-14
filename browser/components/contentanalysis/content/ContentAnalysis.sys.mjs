@@ -11,6 +11,7 @@
  * use nsIContentAnalysis to talk to the external CA system.
  */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
@@ -171,7 +172,13 @@ export const ContentAnalysis = {
 
       ChromeUtils.defineLazyGetter(this, "l10n", function () {
         return new Localization(
-          ["branding/brand.ftl", "toolkit/contentanalysis/contentanalysis.ftl"],
+          [
+            "branding/brand.ftl",
+            "toolkit/contentanalysis/contentanalysis.ftl",
+            ...(AppConstants.MOZ_ENTERPRISE
+              ? ["toolkit/enterprise/enterprise.ftl"]
+              : []),
+          ],
           true
         );
       });
@@ -429,7 +436,8 @@ export const ContentAnalysis = {
             response.userActionId,
             responseResult,
             response.isSyntheticResponse,
-            response.cancelError
+            response.cancelError,
+            response.ruleMessage
           );
         }
         break;
@@ -923,6 +931,9 @@ export const ContentAnalysis = {
    * @param {number} aCAResult
    * @param {boolean} aIsSyntheticResponse
    * @param {number} aRequestCancelError
+   * @param {string} aRuleMessage
+   *   Admin-authored message from the rule that produced this verdict, or "" if
+   *   it supplied none.
    * @returns {Promise<NotificationInfo?>} a notification object (if shown)
    */
   async _showCAResult(
@@ -932,7 +943,8 @@ export const ContentAnalysis = {
     aUserActionId,
     aCAResult,
     aIsSyntheticResponse,
-    aRequestCancelError
+    aRequestCancelError,
+    aRuleMessage
   ) {
     let message = null;
     let timeoutMs = 0;
@@ -961,7 +973,10 @@ export const ContentAnalysis = {
             aBrowsingContext,
             Ci.nsIPromptService.MODAL_TYPE_TAB,
             await this.l10n.formatValue("contentanalysis-warndialogtitle"),
-            await this._warnDialogText(aResourceNameOrOperationType),
+            this._appendRuleMessage(
+              await this._warnDialogText(aResourceNameOrOperationType),
+              aRuleMessage
+            ),
             Ci.nsIPromptService.BUTTON_POS_0 *
               Ci.nsIPromptService.BUTTON_TITLE_IS_STRING +
               Ci.nsIPromptService.BUTTON_POS_1 *
@@ -1080,7 +1095,7 @@ export const ContentAnalysis = {
           alertBrowsingContext,
           Ci.nsIPromptService.MODAL_TYPE_TAB,
           this.l10n.formatValueSync(titleId),
-          body
+          this._appendRuleMessage(body, aRuleMessage)
         );
         return null;
       }
@@ -1183,5 +1198,26 @@ export const ContentAnalysis = {
       "contentanalysis-no-agent-connected-message-content",
       { agent: lazy.agentName, content: "" }
     );
+  },
+
+  /**
+   * Appends the admin-authored message from the matched DLP rule, under a label
+   * identifying it as such, to a dialog body. Returns aBody unchanged when the
+   * rule supplied no message. Only rules from the enterprise-only
+   * DataLossPrevention policy carry one, so the label lives in enterprise.ftl
+   * and is unavailable in other builds.
+   *
+   * @param {string} aBody
+   * @param {string} aRuleMessage
+   */
+  _appendRuleMessage(aBody, aRuleMessage) {
+    const ruleMessage = aRuleMessage?.trim();
+    if (!ruleMessage || !AppConstants.MOZ_ENTERPRISE) {
+      return aBody;
+    }
+    const label = this.l10n.formatValueSync(
+      "contentanalysis-admin-message-label"
+    );
+    return `${aBody}\n\n${label}\n${ruleMessage}`;
   },
 };

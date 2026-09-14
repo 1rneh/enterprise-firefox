@@ -21,6 +21,7 @@ Standard library only, the base image has neither jq nor curl.
 """
 
 import base64
+import calendar
 import json
 import os
 import subprocess
@@ -57,6 +58,13 @@ REPORT_PRIORITY = "highest"
 # Days before a report task gives up waiting, and before its artifacts expire.
 REPORT_DEADLINE_DAYS = 3
 REPORT_EXPIRES_DAYS = 28
+# The queue refuses a task whose deadline sits after the expiration of one of
+# its dependencies, and a try push holds tasks that expire within the day, so
+# the deadline of a report is capped by what it waits on. Below this much time
+# left, there is nothing worth reporting on anymore.
+MIN_REPORT_DEADLINE = 600
+# Task ids per call to the batched status end-point.
+STATUS_BATCH = 200
 
 
 def log(message):
@@ -81,6 +89,12 @@ def request(url, method="GET", body=None, raw=False):
                 return json.loads(payload) if payload else {}
         except urllib.error.HTTPError as error:
             if 400 <= error.code < 500 and error.code != 429:
+                # The body says what the queue did not like, and it is gone
+                # once this propagates: a bare `HTTP Error 400: Bad Request`
+                # says nothing at all.
+                if error.code != 404:
+                    log(f"{method} {url} -> {error.code}")
+                    log(error.read().decode("utf-8", "replace"))
                 raise
             last_error = error
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
@@ -99,6 +113,13 @@ def slugid():
 def stamp(days=0, seconds=0):
     moment = time.gmtime(time.time() + days * 86400 + seconds)
     return time.strftime("%Y-%m-%dT%H:%M:%S.000Z", moment)
+
+
+def epoch(timestamp):
+    """The epoch seconds of an ISO 8601 UTC timestamp, as the queue writes them."""
+    return calendar.timegm(
+        time.strptime(timestamp.partition(".")[0].rstrip("Z"), "%Y-%m-%dT%H:%M:%S")
+    )
 
 
 def branch_refs(remote, branch):
@@ -224,8 +245,78 @@ def published_task_graph(root_url, task_id):
     return json.loads(request(url, raw=True))
 
 
+def is_reportable(monitored):
+    """Whether this task shows up on Treeherder at all.
+
+    A report inherits the treeherder placement of the task it mirrors, and a
+    task graph holds tasks that have none, the eager-index ones among them:
+    those would land on a row of their own, with no symbol to read.
+    """
+    return bool(monitored["task"].get("extra", {}).get("treeherder"))
+
+
+def report_dependencies(template, monitored_id):
+    """What a report waits on: the task it monitors, and the image it runs.
+
+    The image of an in-tree docker task is an artifact of the task that built
+    it, which the worker mounts, and it will not mount an artifact of a task it
+    does not depend on.
+    """
+    dependencies = [monitored_id]
+    image = template["payload"]["image"]
+    if isinstance(image, dict) and image.get("taskId"):
+        dependencies.append(image["taskId"])
+    return dependencies
+
+
+def report_deadline(expirations, dependencies):
+    """The deadline of a report, or None if there is no point in creating it.
+
+    The queue rejects a task whose deadline sits after the expiration of one of
+    its dependencies, and a try push holds tasks that expire within the day,
+    eager-index tasks among them, so this caps the deadline to the earliest of
+    them.
+    """
+    unknown = [task_id for task_id in dependencies if task_id not in expirations]
+    if unknown:
+        log(f"  {', '.join(unknown)} does not exist, skipping")
+        return None
+
+    seconds = min(
+        [REPORT_DEADLINE_DAYS * 86400]
+        + [expirations[task_id] - time.time() for task_id in dependencies]
+    )
+    if seconds < MIN_REPORT_DEADLINE:
+        log(f"  {dependencies[0]} expires in {int(seconds)}s, skipping")
+        return None
+    return stamp(seconds=seconds)
+
+
+def task_expirations(root_url, task_ids):
+    """When each of these tasks expires, in epoch seconds, the unknown left out."""
+    expirations = {}
+    unique = sorted(set(task_ids))
+    for start in range(0, len(unique), STATUS_BATCH):
+        batch = unique[start : start + STATUS_BATCH]
+        payload = request(
+            f"{root_url}/api/queue/v1/tasks/status?limit={STATUS_BATCH}",
+            method="POST",
+            body={"taskIds": batch},
+        )
+        for entry in payload.get("statuses", []):
+            expirations[entry["taskId"]] = epoch(entry["status"]["expires"])
+    return expirations
+
+
 def report_task(
-    template, monitored, monitored_id, script, treeherder_url, project, revision
+    template,
+    monitored,
+    monitored_id,
+    script,
+    treeherder_url,
+    project,
+    revision,
+    deadline,
 ):
     """Build the task that monitors one task of the try push.
 
@@ -255,14 +346,6 @@ def report_task(
         "MOZ_UPLOAD_DIR": "/builds/worker/artifacts",
     }
 
-    # The image of an in-tree docker task is an artifact of the task that built
-    # it, which the worker mounts, and it will not mount an artifact of a task it
-    # does not depend on.
-    dependencies = [monitored_id]
-    image = template["payload"]["image"]
-    if isinstance(image, dict) and image.get("taskId"):
-        dependencies.append(image["taskId"])
-
     routes = ["checks"] + [
         route
         for route in template.get("routes", [])
@@ -278,10 +361,10 @@ def report_task(
         "priority": REPORT_PRIORITY,
         # The point of the whole thing: hold this task until the task it
         # monitors has resolved, whatever it resolved to.
-        "dependencies": dependencies,
+        "dependencies": report_dependencies(template, monitored_id),
         "requires": "all-resolved",
         "created": stamp(),
-        "deadline": stamp(days=REPORT_DEADLINE_DAYS),
+        "deadline": deadline,
         "expires": stamp(days=REPORT_EXPIRES_DAYS),
         "scopes": [],
         "routes": routes,
@@ -359,13 +442,36 @@ def main():
     graph = published_task_graph(root_url, decision_id)
     log(f"The try push generated {len(graph)} task(s)")
 
+    reportable = [item for item in sorted(graph.items()) if is_reportable(item[1])]
+    if len(reportable) < len(graph):
+        log(f"{len(graph) - len(reportable)} of them are not on treeherder, skipping")
+
+    monitored_tasks = reportable[:MAX_REPORTS]
+    if len(reportable) > MAX_REPORTS:
+        log(f"Stopping at {MAX_REPORTS} report tasks, {len(reportable)} were found")
+
+    dependencies = {
+        monitored_id: report_dependencies(template, monitored_id)
+        for monitored_id, _ in monitored_tasks
+    }
+    expirations = task_expirations(
+        root_url, [task for group in dependencies.values() for task in group]
+    )
+
     created = []
-    for monitored_id, monitored in sorted(graph.items()):
-        if len(created) >= MAX_REPORTS:
-            log(f"Stopping at {MAX_REPORTS} report tasks, {len(graph)} were found")
-            break
+    for monitored_id, monitored in monitored_tasks:
+        deadline = report_deadline(expirations, dependencies[monitored_id])
+        if deadline is None:
+            continue
         definition = report_task(
-            template, monitored, monitored_id, script, treeherder_url, project, revision
+            template,
+            monitored,
+            monitored_id,
+            script,
+            treeherder_url,
+            project,
+            revision,
+            deadline,
         )
         task_id = slugid()
         request(f"{proxy_url}/queue/v1/task/{task_id}", method="PUT", body=definition)

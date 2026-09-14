@@ -57,6 +57,11 @@ suites:
             "Service Worker Registration": ""
             "Service Worker Update": ""
 
+    dom/media/webspeech/recognition/test:
+        description: "Performance tests for on-device speech recognition"
+        tests:
+            "browser_speech_recognition_perf.js": ""
+
     toolkit/components/ml/tests/browser:
         description: "Performance tests running through Mochitest for ML Models"
         tests:
@@ -70,7 +75,6 @@ suites:
             "browser_ml_smart_tab_perf.js": ""
             "browser_ml_llama_smollm2_smoke.js": ""
             "browser_ml_llama_summarizer_perf.js": ""
-            "ML Security Orchestrator Performance Tests": ""
 
     intl/benchmarks/test/xpcshell:
         description: "Performance tests running through XPCShell for Intl code"
@@ -100,8 +104,14 @@ suites:
             "browser_reflowPseudoelements.js": ""
             "browser_removeManySpellingErrors.js": ""
             "browser_implicitRoleARIAExpanded.js": ""
+            "browser_panManySVGShapes.js": ""
 
     toolkit/components/places/tests/browser/performance:
         description: "Performance tests for Toolkit: Places"
         tests:
             "Calculate Frecency Speed": ""
+
+    browser/components/aiwindow/ui/test/browser_perf:
+        description: "Performance tests for Smart Window on Firefox Desktop"
+        tests:
+            "browser_smartwindow_perf.js": ""

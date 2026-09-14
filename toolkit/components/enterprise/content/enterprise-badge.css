@@ -91,6 +91,7 @@
 #enterprise-user-icon__initials,
 #enterprise-user-icon__avatar-wrapper {
   background: var(--button-background-color);
+  color: var(--button-text-color);
   align-items: center;
   justify-content: center;
 }

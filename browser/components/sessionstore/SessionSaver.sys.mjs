@@ -11,9 +11,7 @@ import {
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
-const lazy = {};
-
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   PrivacyFilter: "resource://gre/modules/sessionstore/PrivacyFilter.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   RunState: "moz-src:///browser/components/sessionstore/RunState.sys.mjs",
@@ -278,7 +276,7 @@ var SessionSaverInternal = {
       // We want to restore closed windows that are marked with _shouldRestore.
       // We're doing this here because we want to control this only when saving
       // the file.
-      if (lazy.sessionStoreLogger.isDebug) {
+      if (lazy.sessionStoreLogger.debugEnabled) {
         lazy.sessionStoreLogger.debug(
           "SessionSaver._saveState, closed windows:"
         );

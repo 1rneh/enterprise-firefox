@@ -181,11 +181,9 @@ add_task(async function test_security_logging_applied_updated_removed_live() {
   );
   EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_URL_PREF, undefined, false);
   EnterprisePolicyTesting.checkPolicyPref(DOWNLOAD_FILE_PREF, undefined, false);
-  Assert.ok(DownloadsTelemetryEnterprise._isEnabled());
-  Assert.equal(
-    DownloadsTelemetryEnterprise._processSourceUrl(TEST_URL),
-    TEST_URL,
-    "the download recorder returns to its default after policy removal"
+  Assert.ok(
+    !DownloadsTelemetryEnterprise._isEnabled(),
+    "the download recorder returns to its disabled default after policy removal"
   );
 });
 

@@ -523,6 +523,15 @@ def setup_autoland_retriggers(config, tasks):
 
 
 @task_transforms.add
+def set_task_label_env(config, tasks):
+    """Tell the harness which task it is running as."""
+    for task in tasks:
+        env = task.setdefault("worker", {}).setdefault("env", {})
+        env["RAPTOR_TASK_LABEL"] = task["label"]
+        yield task
+
+
+@task_transforms.add
 def setup_internal_artifacts(config, tasks):
     for task in tasks:
         if (
@@ -552,7 +561,7 @@ def select_tasks_to_lambda(config, tasks):
     all youtube-playback tests (including power)
     all vpl (video-playback-latency) tests
     all pageload tests (ideally fenix/CaR/ChR)
-    jetstream2/jetstream3 benchmarks
+    jetstream3 benchmarks
     background/foreground resource tests (browsertime-power idle/idle-bg)
     trr-* performance tests
 
@@ -570,7 +579,6 @@ def select_tasks_to_lambda(config, tasks):
         "youtube-playback-h264-720p60",
         "youtube-playback-vp9-720p60",
         "tp6m",
-        "jetstream2",
         "jetstream3",
         "browsertime-power",
         "browsertime-trr-performance",
@@ -581,7 +589,6 @@ def select_tasks_to_lambda(config, tasks):
         "youtube-playback-h264-sfr",
         "youtube-playback-h264-720p60",
         "youtube-playback-vp9-720p60",
-        "jetstream2",
         "jetstream3",
         "browsertime-power",
         "browsertime-trr-performance",

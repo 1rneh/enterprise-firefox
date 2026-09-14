@@ -27,6 +27,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     private val initialFeatureFlags =
         FeatureFlags(
             isPocketEnabled = settings.showPocketRecommendationsFeature,
+            isBookmarksHomeFeatureEnabled = settings.showBookmarksHomeFeature,
             isRecentTabsFeatureEnabled = settings.showRecentTabsFeature,
             isRecentlyVisitedFeatureEnabled = settings.historyMetadataUIFeature,
             isWallpaperOnboardingEnabled = settings.showWallpaperOnboarding,
@@ -49,12 +50,14 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
             nativeShareSheetEnabled = settings.nativeShareSheetEnabled,
             showVoiceSearchInDisplayToolbar = settings.showVoiceSearchInDisplayToolbar,
             isHomepageTrendingRecentSearchEnabled = settings.enableHomepageTrendingRecentSearch,
+            showAddressBarInFocusMode = settings.showAddressBarInFocusMode,
         )
 
     /** The current feature flags updated in tests. */
     private var updatedFeatureFlags = initialFeatureFlags.copy()
 
     override var isPocketEnabled: Boolean by updatedFeatureFlags::isPocketEnabled
+    override var isBookmarksHomeFeatureEnabled: Boolean by updatedFeatureFlags::isBookmarksHomeFeatureEnabled
     override var isWallpaperOnboardingEnabled: Boolean by updatedFeatureFlags::isWallpaperOnboardingEnabled
     override var isRecentTabsFeatureEnabled: Boolean by updatedFeatureFlags::isRecentTabsFeatureEnabled
     override var isRecentlyVisitedFeatureEnabled: Boolean by updatedFeatureFlags::isRecentlyVisitedFeatureEnabled
@@ -79,6 +82,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     override var showVoiceSearchInDisplayToolbar: Boolean by updatedFeatureFlags::showVoiceSearchInDisplayToolbar
     override var isHomepageTrendingRecentSearchEnabled: Boolean by
         updatedFeatureFlags::isHomepageTrendingRecentSearchEnabled
+    override var showAddressBarInFocusMode: Boolean by updatedFeatureFlags::showAddressBarInFocusMode
 
     override fun applyFlagUpdates() {
         Log.i(TAG, "applyFlagUpdates: Trying to apply the updated feature flags: $updatedFeatureFlags")
@@ -96,6 +100,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
 
     private fun applyFeatureFlags(featureFlags: FeatureFlags) {
         settings.showPocketRecommendationsFeature = featureFlags.isPocketEnabled
+        settings.showBookmarksHomeFeature = featureFlags.isBookmarksHomeFeatureEnabled
         settings.showRecentTabsFeature = featureFlags.isRecentTabsFeatureEnabled
         settings.historyMetadataUIFeature = featureFlags.isRecentlyVisitedFeatureEnabled
         settings.showWallpaperOnboarding = featureFlags.isWallpaperOnboardingEnabled
@@ -118,11 +123,13 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         settings.nativeShareSheetEnabled = featureFlags.nativeShareSheetEnabled
         settings.showVoiceSearchInDisplayToolbar = featureFlags.showVoiceSearchInDisplayToolbar
         settings.enableHomepageTrendingRecentSearch = featureFlags.isHomepageTrendingRecentSearchEnabled
+        settings.showAddressBarInFocusMode = featureFlags.showAddressBarInFocusMode
     }
 }
 
 private data class FeatureFlags(
     var isPocketEnabled: Boolean,
+    var isBookmarksHomeFeatureEnabled: Boolean,
     var isRecentTabsFeatureEnabled: Boolean,
     var isRecentlyVisitedFeatureEnabled: Boolean,
     var isWallpaperOnboardingEnabled: Boolean,
@@ -145,6 +152,7 @@ private data class FeatureFlags(
     var nativeShareSheetEnabled: Boolean,
     var showVoiceSearchInDisplayToolbar: Boolean,
     var isHomepageTrendingRecentSearchEnabled: Boolean,
+    var showAddressBarInFocusMode: Boolean,
 )
 
 internal fun getETPPolicy(settings: Settings): ETPPolicy {

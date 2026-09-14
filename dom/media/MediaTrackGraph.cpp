@@ -2083,18 +2083,29 @@ void MediaTrackGraphImpl::RunInStableState(bool aSourceIsMTG) {
 
     if (LifecycleState() == LIFECYCLE_WAITING_FOR_MAIN_THREAD_CLEANUP &&
         mForceShutDownReceived) {
+      // The main thread is taking over the graph thread's messages. Messages
+      // queued after the tail dispatcher last fired, e.g. from a microtask,
+      // are still held by it, so hand them over too rather than leave them to
+      // a dispatcher that may not fire again before the graph is gone.
+      if (AbstractThread* current = AbstractThread::GetCurrent()) {
+        // Unlock here because TailDispatchMessage grabs the monitor. State
+        // mutated under the monitor above is mainly mUpdateRunnables and
+        // mTrackUpdates. But we've entered forced shutdown. The graph won't
+        // iterate again, and cannot mutate those members while we're unlocked.
+        MonitorAutoUnlock unlock(mMonitor);
+        MOZ_ALWAYS_SUCCEEDS(current->TailDispatchTasksFor(this));
+      }
+      // Lifecycle state does not change while the monitor is dropped, because
+      // the graph thread is not running and TailDispatchTasksFor() does not
+      // spin nested event loops.
+      MOZ_ASSERT(LifecycleState() == LIFECYCLE_WAITING_FOR_MAIN_THREAD_CLEANUP);
+      MOZ_ASSERT(mForceShutDownReceived);
       // Defer calls to RunDuringShutdown() to happen while mMonitor is not
       // held.
       for (auto& message : mBackMessageQueue) {
         runnablesToRunDuringShutdown.AppendElement(std::move(message));
       }
       mBackMessageQueue.Clear();
-      // The tail dispatcher must have fired before stable state to drain the
-      // tail tasks. There's a theoretical possibility that another, later,
-      // main thread observer than XPCOMThreadWrapper adds a tail task after the
-      // tail dispatcher fired in XPCOMThreadWrapper::AfterProcessNextEvent.
-      // This assert prohibits that.
-      MOZ_ASSERT(!AbstractThread::GetCurrent()->HasTailTasksFor(this));
       // Stop MediaTrackGraph threads.
       mLifecycleState = LIFECYCLE_WAITING_FOR_THREAD_SHUTDOWN;
       nsCOMPtr<nsIRunnable> event = new MediaTrackGraphShutDownRunnable(this);
@@ -4381,9 +4392,11 @@ MediaTrackGraphImpl::OnDispatchedEvent() {
   MonitorAutoLock lock(mMonitor);
   GraphDriver* driver = CurrentDriver();
   if (!driver) {
-    // The ipc::BackgroundChild started by `UniqueMessagePortId()` destruction
-    // can queue messages on the thread used for the graph after graph
-    // shutdown.  See bug 1955768.
+    // After the graph thread enters shutdown mode, the main thread triggers
+    // shutdown of the ThreadedDriver and then sets the current driver to null.
+    // GraphRunner shutdown is currently synchronous, but OfflineAudioContext is
+    // asynchronous so there is a possibility of events queued on its thread
+    // while driver is null.
     //
     // Other threads may have already taken a reference to this graph as the
     // observer, so clearing the thread's observer (on the graph thread) would
@@ -4443,6 +4456,14 @@ MediaTrackGraphImpl::HaveDirectTasks(bool* aResult) {
 
 // AbstractThread methods
 
+/* Whether the caller is running on the IPC I/O thread, which dispatches to the
+ * graph on behalf of ipc::MessageChannels opened on the graph thread. */
+[[maybe_unused]] static bool OnIPCIOThread() {
+  ipc::IOThread* ioThread = ipc::IOThread::Get();
+  return ioThread &&
+         ioThread->GetEventTarget() == GetCurrentSerialEventTarget();
+}
+
 nsresult MediaTrackGraphImpl::Dispatch(
     already_AddRefed<nsIRunnable> aEvent,
     DispatchReason aReason /*= NormalDispatch*/) {
@@ -4470,9 +4491,7 @@ nsresult MediaTrackGraphImpl::Dispatch(
 
   // Enforce tail-dispatch. The IOThread is exempt as it dispatches messages to
   // AudioWorklet from JS.
-  MOZ_ASSERT_IF(
-      ipc::IOThread::Get()->GetEventTarget() != GetCurrentSerialEventTarget(),
-      RequiresTailDispatchFromCurrentThread());
+  MOZ_ASSERT_IF(!OnIPCIOThread(), RequiresTailDispatchFromCurrentThread());
 
   if (aReason == TailDispatch || !RequiresTailDispatchFromCurrentThread()) {
     return TailDispatchMessage(event.forget());
@@ -4480,7 +4499,14 @@ nsresult MediaTrackGraphImpl::Dispatch(
   return QueueMessageForTailDispatch(event.forget());
 }
 
-bool MediaTrackGraphImpl::IsCurrentThreadIn() const { return OnGraphThread(); }
+bool MediaTrackGraphImpl::IsCurrentThreadIn() const {
+  // While the graph is not running, its state is owned by the main thread.
+  // Note that this must not use mDriver unconditionally, as OnGraphThread()
+  // does: mDriver is cleared on the main thread while consumers of the graph
+  // as an event target, e.g. an ipc::MessageChannel opened on the graph
+  // thread, may still be tearing down.
+  return OnGraphThreadOrNotRunning();
+}
 
 TaskDispatcher& MediaTrackGraphImpl::TailDispatcher() {
   MOZ_ASSERT(OnGraphThread());
@@ -4527,8 +4553,15 @@ nsresult MediaTrackGraphImpl::TailDispatchMessage(
 
   MonitorAutoLock lock(mMonitor);
   if (!NS_IsMainThread()) {
+    // The IPC I/O thread is exempt. An ipc::MessageChannel opened on the graph
+    // thread holds a strong reference to the graph as its worker thread, so
+    // the graph outlives these dispatches. The channel is closed when the
+    // graph shuts down, which is necessarily after the main-thread track and
+    // port counts have reached zero. Its runnables are cancelable, so they are
+    // discarded below once the graph no longer processes messages.
     MOZ_DIAGNOSTIC_ASSERT(
-        mMainThreadTrackCount > 0 || mMainThreadPortCount > 0,
+        mMainThreadTrackCount > 0 || mMainThreadPortCount > 0 ||
+            OnIPCIOThread(),
         "Clients must guarantee that any non-main thread tail dispatches to "
         "the graph are outlived by a main-thread controlled track or port");
   }

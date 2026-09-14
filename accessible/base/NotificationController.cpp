@@ -341,6 +341,7 @@ void NotificationController::DropMutationEvent(AccTreeMutationEvent* aEvent) {
     MOZ_ASSERT(hideEvent);
 
     if (hideEvent->NeedsShutdown()) {
+      mDocument->UncacheChildrenInSubtree(aEvent->GetAccessible());
       mDocument->ShutdownChildrenInSubtree(aEvent->GetAccessible());
     }
   } else {
@@ -1084,9 +1085,11 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
 
       if (WindowGlobalChild* wgc =
               childDoc->DocumentNode()->GetWindowGlobalChild()) {
-        ipcDoc = new DocAccessibleChild(childDoc, wgc);
-        childDoc->SetIPCDoc(ipcDoc);
-        wgc->SendPDocAccessibleConstructor(ipcDoc, id, childDoc->IsPrintDoc());
+        RefPtr<DocAccessibleChild> newIpcDoc =
+            new DocAccessibleChild(childDoc, wgc);
+        childDoc->SetIPCDoc(newIpcDoc);
+        wgc->SendPDocAccessibleConstructor(newIpcDoc, id,
+                                           childDoc->IsPrintDoc());
       }
     }
   }

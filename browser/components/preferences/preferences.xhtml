@@ -45,6 +45,9 @@
   <link rel="localization" href="browser/preferences/fonts.ftl"/>
   <link rel="localization" href="browser/preferences/moreFromMozilla.ftl"/>
   <link rel="localization" href="browser/preferences/preferences.ftl"/>
+#ifdef MOZ_ENTERPRISE
+  <link rel="localization" href="toolkit/enterprise/enterprise.ftl"/>
+#endif
   <link rel="localization" href="toolkit/branding/brandings.ftl"/>
   <link rel="localization" href="toolkit/firefoxlabs/features.ftl"/>
   <link rel="localization" href="toolkit/global/mozPageHeader.ftl"/>
@@ -236,6 +239,13 @@
             href="about:policies"
             iconsrc="chrome://global/skin/icons/organizational-unit.svg"
             data-l10n-id="managed-notice-nav"
+          />
+          <html:nav-notice
+            id="tls-key-logging-container-content"
+            hidden="true"
+            iconsrc="chrome://global/skin/icons/security-custom-root.svg"
+            data-l10n-id="tls-key-logging-notice-nav"
+            support-page="sslkeylogfile-warning"
           />
           <html:moz-input-search
             id="searchInput"

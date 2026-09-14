@@ -46,10 +46,13 @@ class WasmModuleBackend final : public ContentAnalysisBackend {
   ~WasmModuleBackend() override = default;
 
  private:
-  // Feed the module's verdict back into ContentAnalysis.
+  // Feed the module's verdict back into ContentAnalysis. aRules is the rule set
+  // this request was analyzed against, used to recover the matched rule's
+  // admin-authored message.
   void HandleWasmResponse(JSContext* aCx, JS::Handle<JS::Value> aValue,
                           const nsACString& aUserActionId,
-                          bool aAutoAcknowledge);
+                          bool aAutoAcknowledge,
+                          const nsTArray<RefPtr<nsIContentAnalysisRule>>& aRules);
 
   // Hand the request/content/rules to the wasm runner and wire its promise
   // back into ContentAnalysis.

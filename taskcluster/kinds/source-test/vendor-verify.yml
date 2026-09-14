@@ -167,7 +167,6 @@ misc:
         symbol: vendor(misc)
     members:
         - ipc/chromium/src/third_party/libevent/moz.yaml
-        - mobile/android/android-components/plugins/dependencies/src/main/java/moz.yaml
         - third_party/application-services/moz.yaml
         - third_party/content_analysis_sdk/moz.yaml
         - third_party/cups/moz.yaml
@@ -176,6 +175,7 @@ misc:
         - third_party/llama.cpp/moz.yaml
         - third_party/opentelemetry-cpp/moz.yaml
         - third_party/opentelemetry-cpp/third_party/opentelemetry-proto/moz.yaml
+        - third_party/parakeet.cpp/moz.yaml
         - third_party/perfetto/moz.yaml
         - third_party/python/vsdownload/moz.yaml
         - toolkit/components/ml/vendor/openai/moz.yaml

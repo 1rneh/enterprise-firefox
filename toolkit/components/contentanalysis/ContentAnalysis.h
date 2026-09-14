@@ -502,6 +502,9 @@ class ContentAnalysisResponse final : public nsIContentAnalysisResponse,
   void DoNotAcknowledge() { mDoNotAcknowledge = true; }
   void SetCancelError(CancelError aCancelError);
   void SetIsCachedResponse() { mIsCachedResponse = true; }
+  void SetRuleMessage(const nsAString& aRuleMessage) {
+    mRuleMessage = aRuleMessage;
+  }
   // Remove unneeded copy constructor/assignment
   ContentAnalysisResponse(const ContentAnalysisResponse&) = delete;
   ContentAnalysisResponse& operator=(ContentAnalysisResponse&) = delete;
@@ -532,6 +535,10 @@ class ContentAnalysisResponse final : public nsIContentAnalysisResponse,
 
   // The name of the rule that determined mAction, or empty if none did.
   nsString mRuleName;
+
+  // The admin-authored message from the rule named by mRuleName, or empty if
+  // it supplied none.
+  nsString mRuleMessage;
 
   // ContentAnalysis (or, more precisely, its Client object) must outlive
   // the transaction.

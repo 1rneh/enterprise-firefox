@@ -100,6 +100,18 @@ export class PanelList extends HTMLElement {
     this.toggleAttribute("click-on-mouseup", val);
   }
 
+  /**
+   * The panel-item this list is the submenu of, if any.
+   * `setSubmenuContents()` moves a submenu into its item's shadow root, so
+   * that item is the list's shadow host.
+   *
+   * @type {?Element}
+   */
+  get anchorItem() {
+    let host = this.getRootNode()?.host;
+    return host?.localName == "panel-item" ? host : null;
+  }
+
   getTargetForEvent(event) {
     if (!event) {
       return null;
@@ -249,8 +261,14 @@ export class PanelList extends HTMLElement {
     // Set the showing attribute to hide the panel until its alignment is set.
     this.setAttribute("showing", "true");
     // Tell the host element to hide any overflow in case the panel extends off
-    // the page before the alignment is set.
-    hostElement.style.overflow = "hidden";
+    // the page before the alignment is set. A popover skips it: mutating the
+    // host's overflow reconstructs its frame, which makes every scrollable
+    // descendant dispatch a `scroll` event it never scrolled for (bug 2066409),
+    // and `addHideListeners()` reads that as the anchor moving away.
+    const hideHostOverflow = !this.supportsPopover();
+    if (hideHostOverflow) {
+      hostElement.style.overflow = "hidden";
+    }
 
     // Wait for a layout flush, then find the bounds.
     let {
@@ -371,22 +389,48 @@ export class PanelList extends HTMLElement {
       // Set the alignments and show the panel.
       this.setAttribute("align", align);
       this.setAttribute("valign", valign);
-      hostElement.style.overflow = "";
+      if (hideHostOverflow) {
+        hostElement.style.overflow = "";
+      }
       // Decide positioning based on where this panel will be rendered
       const offsetParentIsBody =
         this.supportsPopover() ||
         this.offsetParent === document?.body ||
         !this.offsetParent;
-      if (offsetParentIsBody) {
-        // viewport-based
-        this.style.left = `${Math.round(leftOffset + winScrollX)}px`;
-        this.style.top = `${Math.round(topOffset + winScrollY)}px`;
-      } else {
-        // container-relative
-        const offsetParentRect = this.offsetParent.getBoundingClientRect();
-        this.style.left = `${Math.round(leftOffset - offsetParentRect.left)}px`;
-        this.style.top = `${Math.round(topOffset - offsetParentRect.top)}px`;
+
+      let left = leftOffset;
+      let top = topOffset;
+
+      if (this.triggeringEvent?.type === "contextmenu") {
+        const { clientX, clientY } = this.triggeringEvent;
+        const inlineStart = this.isDocumentRTL()
+          ? clientX - effectivePanelWidth
+          : clientX;
+        left = Math.max(
+          VIEWPORT_PANEL_MIN_MARGIN,
+          Math.min(
+            inlineStart,
+            clientWidth - effectivePanelWidth - VIEWPORT_PANEL_MIN_MARGIN
+          )
+        );
+
+        top = Math.max(
+          VIEWPORT_PANEL_MIN_MARGIN,
+          Math.min(clientY, winHeight - panelHeight - VIEWPORT_PANEL_MIN_MARGIN)
+        );
       }
+
+      if (offsetParentIsBody) {
+        left += winScrollX;
+        top += winScrollY;
+      } else {
+        const rect = this.offsetParent.getBoundingClientRect();
+        left -= rect.left;
+        top -= rect.top;
+      }
+
+      this.style.left = `${Math.round(left)}px`;
+      this.style.top = `${Math.round(top)}px`;
     }
 
     this.style.minWidth = this.hasAttribute("min-width-from-anchor")
@@ -403,6 +447,10 @@ export class PanelList extends HTMLElement {
     }
     // Hide when a panel-item is clicked in the list.
     this.addEventListener("click", this);
+    // Prevent contextmenus when `suppress-contextmenu` is present.
+    if (this.hasAttribute("suppress-contextmenu")) {
+      this.addEventListener("contextmenu", this);
+    }
     // Allows submenus to stopPropagation when focus is already in the menu
     this.addEventListener("keydown", this);
     // We need Escape/Tab/ArrowDown to work when opened with the mouse.
@@ -424,6 +472,7 @@ export class PanelList extends HTMLElement {
 
   removeHideListeners() {
     this.removeEventListener("click", this);
+    this.removeEventListener("contextmenu", this);
     this.removeEventListener("keydown", this);
     document.removeEventListener("keydown", this);
     document.removeEventListener("mousedown", this);
@@ -458,17 +507,29 @@ export class PanelList extends HTMLElement {
       case "popuphidden":
         this.hide();
         break;
-      case "click":
-        if (inPanelList) {
-          this.hide(undefined, { force: true });
-        } else {
+      case "click": {
+        if (!inPanelList) {
           // Avoid falling through to the default click handler of the parent.
           e.stopPropagation();
+          break;
         }
+        // Open the submenu if user selects submenu parent.
+        const item = e.composedPath().find(el => el.localName == "panel-item");
+        if (item?.hasSubmenu) {
+          if (item.submenuPanel && !item.submenuPanel.open) {
+            item.submenuPanel.show(e, item);
+          }
+          break;
+        }
+        this.hide(undefined, { force: true });
+        break;
+      }
+      case "contextmenu":
+        e.preventDefault();
         break;
       case "mousedown":
-        // Close if there's a click started outside the panel.
-        if (!inPanelList) {
+        // Close if there's a click started outside the panel or its parent.
+        if (!inPanelList && !e.composedPath().includes(this.anchorItem)) {
           this.hide();
         }
         break;
@@ -993,8 +1054,10 @@ export class PanelItem extends HTMLElement {
         }
         break;
       case "mouseenter":
+        this.submenuPanel.show(e);
+        break;
       case "mouseleave":
-        this.submenuPanel.toggle(e);
+        this.submenuPanel.hide(e, { force: true });
         break;
       case "keydown": {
         let [arrowOpenKey, arrowCloseKey] = this.setArrowKeyRTL();

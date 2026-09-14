@@ -6,6 +6,7 @@ import {
   html,
   keyed,
   nothing,
+  styleMap,
 } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 // eslint-disable-next-line import/no-unassigned-import
@@ -14,10 +15,8 @@ import "chrome://browser/content/tabbrowser/tab-groups-list.mjs";
 const HEADING_ID = "smartwindow-group-tabs-heading";
 const DEFAULT_FAVICON_URL = "chrome://global/skin/icons/defaultFavicon.svg";
 const ROW_SELECTOR = ".swgt-flyout-tab, .tab-group-row";
-
-function colorVar(colorName) {
-  return `var(--tab-group-${colorName})`;
-}
+const GROUP_ICON_URL =
+  "chrome://browser/skin/tabbrowser/tab-group-chicklet.svg";
 
 function favicon(info) {
   return html`<img
@@ -138,22 +137,17 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     this.#emitPreview(event, detail, "focus");
   }
 
-  #onRowKeyDown(event, detail = null) {
+  #onRowKeyDown(event, detail) {
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
-
-      if (detail) {
-        this.#emit("preview-enter", { ...detail, anchor: event.currentTarget });
-      } else {
-        this.#emit("view-tab-groups", { anchor: event.currentTarget });
-      }
+      this.#emit("preview-enter", { ...detail, anchor: event.currentTarget });
     }
   }
 
   #suggestionRow(suggestion) {
     return html`<button
       type="button"
-      class="swgt-row swgt-suggestion"
+      class="swgt-row swgt-flyout-row swgt-suggestion"
       aria-expanded="false"
       data-l10n-id="smartwindow-group-tabs-suggestion"
       data-l10n-args=${JSON.stringify({
@@ -167,20 +161,29 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
       @keydown=${e => this.#onRowKeyDown(e, { id: suggestion.id })}
       @click=${() => this.#emit("create-one", { id: suggestion.id })}
     >
-      ${this.#favicons(suggestion.tabInfos)}
       <span class="swgt-row-label">${suggestion.label}</span>
+      ${this.#favicons(suggestion.tabInfos)}
     </button>`;
   }
 
   #recentRow(entry) {
-    return html`<div class="swgt-recent-row">
-      <span
-        class="swgt-swatch"
-        aria-hidden="true"
-        style="--swgt-swatch-color:${colorVar(entry.color)}"
-      ></span>
+    return html`<button
+      type="button"
+      class="swgt-row swgt-recent-row"
+      @click=${() => this.#emit("select-group", { id: entry.id })}
+    >
+      <img
+        class="swgt-group-icon"
+        src=${GROUP_ICON_URL}
+        alt=""
+        style=${styleMap({
+          "--tab-group-color": `var(--tab-group-${entry.color})`,
+          "--tab-group-color-invert": `var(--tab-group-${entry.color}-invert)`,
+          "--tab-group-background-color": `var(--tab-group-${entry.color})`,
+        })}
+      />
       <span class="swgt-row-label">${entry.label}</span>
-    </div>`;
+    </button>`;
   }
 
   render() {
@@ -217,12 +220,19 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
               class="swgt-section"
               data-l10n-id="smartwindow-group-tabs-suggested-heading"
             ></h2>
-            <button
-              type="button"
-              class="swgt-row swgt-create-all"
-              data-l10n-id="smartwindow-group-tabs-create-all"
-              @click=${() => this.#emit("create-all")}
-            ></button>
+            ${this.suggestions.length > 1
+              ? html`<button
+                  type="button"
+                  class="swgt-row swgt-create-all"
+                  @click=${() => this.#emit("create-all")}
+                >
+                  <span class="swgt-create-all-icon" aria-hidden="true"></span>
+                  <span
+                    class="swgt-row-label"
+                    data-l10n-id="smartwindow-group-tabs-create-all"
+                  ></span>
+                </button>`
+              : nothing}
             ${this.suggestions.map(s => this.#suggestionRow(s))}`
         : nothing,
       hasRecent
@@ -248,11 +258,19 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
             ${this.tabGroups
               ? html`<button
                   type="button"
-                  class="swgt-row swgt-view-tab-groups"
+                  class="swgt-row swgt-flyout-row swgt-view-tab-groups"
                   aria-expanded="false"
+                  @mouseenter=${e =>
+                    this.#emitPreview(e, { groups: true }, "hover")}
+                  @focus=${e => this.#onRowFocus(e, { groups: true })}
+                  @mouseleave=${() => this.#emit("preview-end")}
+                  @blur=${() => this.#emit("preview-end")}
+                  @keydown=${e => this.#onRowKeyDown(e, { groups: true })}
                   @click=${e =>
-                    this.#emit("view-tab-groups", { anchor: e.currentTarget })}
-                  @keydown=${e => this.#onRowKeyDown(e)}
+                    this.#emit("preview-enter", {
+                      groups: true,
+                      anchor: e.currentTarget,
+                    })}
                 >
                   <span
                     class="swgt-row-label"
@@ -263,7 +281,7 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
             ${this.duplicates
               ? html`<button
                   type="button"
-                  class="swgt-row swgt-close-duplicates"
+                  class="swgt-row swgt-flyout-row swgt-close-duplicates"
                   aria-expanded="false"
                   data-l10n-id="smartwindow-group-tabs-close-duplicates"
                   data-l10n-args=${JSON.stringify({

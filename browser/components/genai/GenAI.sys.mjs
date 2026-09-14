@@ -81,7 +81,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   null,
   (_pref, _old, val) => onChatProviderChange(val)
 );
-export const CHAT_PROVIDERS_DEFAULT = "claude,chatgpt,copilot,gemini,lechat";
+export const CHAT_PROVIDERS_DEFAULT = "claude,chatgpt,gemini,lechat";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,

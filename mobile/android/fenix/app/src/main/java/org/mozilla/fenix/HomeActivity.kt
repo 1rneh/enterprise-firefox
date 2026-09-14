@@ -161,7 +161,9 @@ import org.mozilla.fenix.home.TopSitesRefresher
 import org.mozilla.fenix.home.intent.AssistIntentProcessor
 import org.mozilla.fenix.home.intent.CrashReporterIntentProcessor
 import org.mozilla.fenix.home.intent.HomeDeepLinkIntentProcessor
+import org.mozilla.fenix.home.intent.LensResultIntentProcessor
 import org.mozilla.fenix.home.intent.OpenBrowserIntentProcessor
+import org.mozilla.fenix.home.intent.OpenHomeIntentProcessor
 import org.mozilla.fenix.home.intent.OpenPasswordManagerIntentProcessor
 import org.mozilla.fenix.home.intent.OpenRecentlyClosedIntentProcessor
 import org.mozilla.fenix.home.intent.OpenSpecificTabIntentProcessor
@@ -183,6 +185,7 @@ import org.mozilla.fenix.perf.ProfilerMarkers
 import org.mozilla.fenix.perf.StartupPathProvider
 import org.mozilla.fenix.perf.StartupTimeline
 import org.mozilla.fenix.perf.StartupTypeTelemetry
+import org.mozilla.fenix.privacyreport.PrivacyReportNotificationScheduler
 import org.mozilla.fenix.session.PrivateNotificationService
 import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.shortcut.NewTabShortcutIntentProcessor.Companion.ACTION_OPEN_PRIVATE_TAB
@@ -301,6 +304,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
     private val homepageTabBinding by lazy {
         HomepageTabBinding(
             browserStore = components.core.store,
+            appStore = components.appStore,
             browsingModeManager = browsingModeManager,
             fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
             repository = DefaultHomepageAsANewTabPreferenceRepository(components.settings),
@@ -380,7 +384,16 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             ),
             SpeechProcessingIntentProcessor(this, components.core.store),
             AssistIntentProcessor(),
-            StartSearchIntentProcessor { components.fenixOnboarding.userHasBeenOnboarded() },
+            StartSearchIntentProcessor(
+                fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
+                browsingModeManager = browsingModeManager,
+                userHasBeenOnboarded = { components.fenixOnboarding.userHasBeenOnboarded() },
+            ),
+            LensResultIntentProcessor(this),
+            OpenHomeIntentProcessor(
+                fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
+                browsingModeManager = browsingModeManager,
+            ),
             OpenBrowserIntentProcessor(this, ::getIntentSessionId),
             OpenSpecificTabIntentProcessor(this),
             OpenPasswordManagerIntentProcessor(),
@@ -390,6 +403,13 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
 
     private val uninstallSurveyManager by lazy {
         UninstallSurveyManager(this, DefaultShortcutManagerCompatWrapper())
+    }
+
+    private val privacyReportNotificationScheduler by lazy {
+        PrivacyReportNotificationScheduler(
+            applicationContext = applicationContext,
+            settings = components.settings,
+        )
     }
 
     // See onKeyDown for why this is necessary
@@ -540,6 +560,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
                                 inactiveTabsEnabled = components.settings.inactiveTabsAreEnabled,
                                 loginsStorage = components.core.passwordsStorage,
                                 tabGroupRepository = components.core.tabGroupRepository,
+                                listenStore = components.listenToPage.store,
                             )
                         }
                     } else {
@@ -628,6 +649,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             components.core.summarizationSettingsBinding,
             translationsAIControllableFeatureRegistrar,
             ipProtectionPrompter,
+            privacyReportNotificationScheduler,
         )
 
         addAboutHomeBinding(lifecycle)
@@ -647,9 +669,14 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         startupTelemetryOnCreateCalled(intent.toSafeIntent())
         startupPathProvider.attachOnActivityOnCreate(lifecycle, intent)
         startupTypeTelemetry =
-            StartupTypeTelemetry(components.startupStateProvider, startupPathProvider).apply {
-                attachOnHomeActivityOnCreate(lifecycle)
-            }
+            StartupTypeTelemetry(
+                    components.startupStateProvider,
+                    startupPathProvider,
+                    components.applicationScope,
+                )
+                .apply {
+                    attachOnHomeActivityOnCreate(lifecycle)
+                }
 
         components.core.requestInterceptor.setNavigationController(navHost.navController)
 
@@ -1789,8 +1816,10 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
     }
 
     companion object {
+        const val OPEN_TO_HOME = "open_to_home"
         const val OPEN_TO_BROWSER = "open_to_browser"
         const val OPEN_TO_BROWSER_AND_LOAD = "open_to_browser_and_load"
+        const val LENS_RESULT_URL = "lens_result_url"
         const val OPEN_TO_SEARCH = "open_to_search"
         const val PRIVATE_BROWSING_MODE = "private_browsing_mode"
         const val START_IN_RECENTS_SCREEN = "start_in_recents_screen"

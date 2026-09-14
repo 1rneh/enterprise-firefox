@@ -927,9 +927,7 @@ SettingGroupManager.registerGroups({
         id: "additionalProtectionsGroup",
         l10nId: "forms-additional-protections-header",
         control: "moz-fieldset",
-        controlAttrs: {
-          headingLevel: 2,
-        },
+        headingLevel: 2,
         items: [
           {
             id: "primaryPasswordNotSet",

@@ -270,7 +270,7 @@ class WindowGlobalParent final : public WindowContext,
   void AddSecurityState(uint32_t aStateFlags);
   uint32_t GetSecurityFlags() { return mSecurityState; }
 
-  const nsACString& GetRemoteType() const override;
+  const RemoteType& GetRemoteType() const override;
   void GetRemoteType(nsACString& aRemoteType) const;
 
   void NotifySessionStoreUpdatesComplete(Element* aEmbedder);
@@ -430,9 +430,8 @@ class WindowGlobalParent final : public WindowContext,
   AllocPDigitalCredentialParent();
 
 #ifdef ACCESSIBILITY
-  a11y::PDocAccessibleParent* AllocPDocAccessibleParent(const uint64_t&,
-                                                        const bool&);
-  bool DeallocPDocAccessibleParent(a11y::PDocAccessibleParent*);
+  already_AddRefed<a11y::PDocAccessibleParent> AllocPDocAccessibleParent(
+      const uint64_t&, const bool&);
   mozilla::ipc::IPCResult RecvPDocAccessibleConstructor(
       a11y::PDocAccessibleParent* aDoc, const uint64_t& aParentID,
       const bool& aIsPrintDoc) override;

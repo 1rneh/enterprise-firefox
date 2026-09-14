@@ -23,6 +23,7 @@
 #include "mozilla/FStream.h"
 #include "mozilla/GetKnownFolderPath.h"
 #include "mozilla/HashFunctions.h"
+#include "mozilla/HelperMacros.h"
 #include "mozilla/glue/Debug.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/mscom/ProcessRuntime.h"
@@ -1501,6 +1502,12 @@ static bool EnvHasValue(const char* name) {
   return (val && *val);
 }
 
+#if defined(MOZ_ENTERPRISE)
+static bool FeltBypassAllowed() {
+  return !strcmp(MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL), "default");
+}
+#endif
+
 // Ensures that we only see arguments in the command line which are acceptable.
 // This is based on manual inspection of the list of arguments listed in the MDN
 // page for Gecko/Firefox commandline options:
@@ -1661,8 +1668,9 @@ static Result<Ok, PreXULSkeletonUIError> ValidateCmdlineArguments(
   // executing and thus no `-felt <socket>` argument can be found to verify if
   // this is running a browser. By essence of that variable it is known the
   // browser is running and not Felt UI so explicitely use the PreSkeletonUI
-  // in this case.
-  if (EnvHasValue("MOZ_BYPASS_FELT")) {
+  // in this case. Like felt_init(), only trust it on builds that cannot ship
+  // to users, since libxul ignores it everywhere else.
+  if (FeltBypassAllowed() && EnvHasValue("MOZ_BYPASS_FELT")) {
     return Ok();
   }
 

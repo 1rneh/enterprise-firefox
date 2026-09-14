@@ -28,7 +28,6 @@ include PrefsTypes;
 
 include "mozilla/ipc/ByteBufUtils.h";
 
-using mozilla::dom::NativeThreadId from "mozilla/dom/NativeThreadId.h";
 using mozilla::dom::TabId from "mozilla/dom/ipc/IdType.h";
 using mozilla::Telemetry::HistogramAccumulation from "mozilla/TelemetryComms.h";
 using mozilla::Telemetry::KeyedHistogramAccumulation from "mozilla/TelemetryComms.h";
@@ -128,7 +127,8 @@ parent:
                             nsCString aExtraStringData);
   async InitSocketBackground(Endpoint<PSocketProcessBackgroundParent> aEndpoint);
   async PAltService();
-  async PProxyConfigLookup(nullable nsIURI aUri, uint32_t aFlags);
+  async PProxyConfigLookup(nullable nsIURI aUri, uint32_t aFlags,
+                           bool aIsTRRServiceChannel);
 
   async ExcludeHttp2OrHttp3(HttpConnectionInfoCloneArgs aArgs);
 

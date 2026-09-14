@@ -6,6 +6,7 @@
 
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_fission.h"
+#include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/PolicyContainer.h"
 #include "mozilla/dom/RemoteType.h"
@@ -229,6 +230,8 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
   LOG(("DocumentChannelChild RecvRedirectToRealChannel [this=%p, uri=%s]", this,
        aArgs.uri()->GetSpecOrDefault().get()));
 
+  ContentChild::MaybeBecomeUntrusted();
+
   // The document that created the cspToInherit.
   // This is used when deserializing LoadInfo from the parent
   // process, since we can't serialize Documents directly.
@@ -243,9 +246,9 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
     cspToInheritLoadingDocument = do_QueryReferent(ctx);
   }
   nsCOMPtr<nsILoadInfo> loadInfo;
-  MOZ_ALWAYS_SUCCEEDS(LoadInfoArgsToLoadInfo(aArgs.loadInfo(), NOT_REMOTE_TYPE,
-                                             cspToInheritLoadingDocument,
-                                             getter_AddRefs(loadInfo)));
+  MOZ_ALWAYS_SUCCEEDS(LoadInfoArgsToLoadInfo(
+      aArgs.loadInfo(), RemoteType::NotRemote(), cspToInheritLoadingDocument,
+      getter_AddRefs(loadInfo)));
 
   mRedirectResolver = std::move(aResolve);
 

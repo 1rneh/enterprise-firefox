@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   Policies: "resource:///modules/policies/Policies.sys.mjs",
+  PolicyFailures: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   PolicySchemaValidator:
     "resource://gre/modules/policies/PolicySchemaValidator.sys.mjs",
   WindowsGPOParser: "resource://gre/modules/policies/WindowsGPOParser.sys.mjs",
@@ -20,6 +21,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
   ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  RelaunchEnforcer:
+    "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs",
   SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
 });
 
@@ -170,7 +173,7 @@ EnterprisePoliciesManager.prototype = {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
         let policyImpl = lazy.Policies._cleanup;
-        this._schedulePolicyActivations("_cleanup", policyImpl);
+        this._schedulePolicyActivations(null, policyImpl);
       }
       Services.prefs.clearUserPref(PREF_POLICIES_APPLIED);
     }
@@ -581,6 +584,8 @@ EnterprisePoliciesManager.prototype = {
    * @param {object} params parameters the policy was last applied with
    */
   _schedulePolicyRemoval(policyName, params) {
+    lazy.PolicyFailures.clear(policyName);
+
     const policyImpl = lazy.Policies[policyName];
     if (!policyImpl) {
       // This means there is an entry in the schema, but no implementation.
@@ -613,8 +618,23 @@ EnterprisePoliciesManager.prototype = {
     const policySchema = lazy.schemaModule.schema.properties[policyName];
 
     if (!policySchema) {
-      lazy.log.error(`Unknown policy: ${policyName}`);
+      this._reportPolicyError(policyName, `Unknown policy: ${policyName}`);
       return { isValid: false, parsedParams: null };
+    }
+
+    if (!this._isPolicyCompatible(policyName)) {
+      this._reportPolicyError(
+        policyName,
+        `Policy ${policyName} is not supported.`
+      );
+      return { isValid: false, parsedParams: null };
+    }
+
+    const policyImpl = lazy.Policies[policyName];
+    // A few policies still accept an old syntax that the schema can't
+    // describe. Convert it before we validate.
+    if (policyImpl?.migrateLegacySyntax) {
+      policyParams = policyImpl.migrateLegacySyntax(policyParams);
     }
 
     const {
@@ -627,13 +647,13 @@ EnterprisePoliciesManager.prototype = {
     });
 
     if (!isValid) {
-      lazy.log.error(
+      this._reportPolicyError(
+        policyName,
         `Invalid parameters specified for ${policyName}: ${validationError.message}`
       );
       return { isValid: false, parsedParams: null };
     }
 
-    const policyImpl = lazy.Policies[policyName];
     if (!policyImpl) {
       // This means there is an entry in the schema, but no implementation.
       // We only do this when we deprecate policies.
@@ -642,7 +662,8 @@ EnterprisePoliciesManager.prototype = {
     }
 
     if (policyImpl.validate && !policyImpl.validate(parsedParams)) {
-      lazy.log.error(
+      this._reportPolicyError(
+        policyName,
         `Parameters for ${policyName} did not validate successfully.`
       );
       return { isValid: false, parsedParams: null };
@@ -660,9 +681,41 @@ EnterprisePoliciesManager.prototype = {
    * @returns {boolean} whether policy requires a restart to be applied
    */
   _isStartupPolicy(policyName) {
-    const requiresRestart =
-      lazy.schemaModule.schema.properties[policyName]["x-restart-required"];
-    return requiresRestart ?? true;
+    return lazy.schemaModule.schema.properties[policyName][
+      "x-restart-required"
+    ];
+  },
+
+  /**
+   * The build variant key used by "x-compatibility" in policies-schema.json.
+   *
+   * @returns {"firefox_enterprise"|"firefox_esr"|"firefox"|"thunderbird_enterprise"|"thunderbird_esr"|"thunderbird"} variant key
+   */
+  _currentBuildVariant() {
+    let variant = "firefox";
+    if (AppConstants.MOZ_BUILD_APP != "browser") {
+      variant = "thunderbird";
+    }
+
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return `${variant}_enterprise`;
+    }
+    if (AppConstants.IS_ESR) {
+      return `${variant}_esr`;
+    }
+    return variant;
+  },
+
+  /**
+   * Whether a policy is supported by the running build
+   *
+   * @param {string} policyName policy name
+   * @returns {boolean} whether the policy applies to this build variant
+   */
+  _isPolicyCompatible(policyName) {
+    const compatibility =
+      lazy.schemaModule.schema.properties[policyName]["x-compatibility"];
+    return compatibility[this._currentBuildVariant()].version_added !== false;
   },
 
   /**
@@ -680,11 +733,15 @@ EnterprisePoliciesManager.prototype = {
    * Schedule all "activating" callbacks, meaning any
    * "onRemove" callbacks are skipped
    *
-   * @param {string} policyName policy name
+   * @param {?string} policyName policy name, or null for the callbacks that
+   *   do not belong to a policy an administrator configured, so that no
+   *   failure of theirs is reported against one
    * @param {PolicyImpl} policyImpl policy implementation
    * @param {object} [parsedParams] parsed policy parameters
    */
   _schedulePolicyActivations(policyName, policyImpl, parsedParams = undefined) {
+    lazy.PolicyFailures.clear(policyName);
+
     for (let timing of Object.keys(this._callbacks)) {
       if (timing === "onRemove") {
         // Callbacks that remove policies are explicitly scheduled.
@@ -766,13 +823,32 @@ EnterprisePoliciesManager.prototype = {
       let { callback, impl, params, policyName } = callbacks.shift();
       const boundCallback = callback.bind(impl, this, params);
       try {
-        boundCallback();
+        const result = boundCallback();
+        // An async callback rejects long after it returned, so its failure
+        // can only be recorded when it happens.
+        if (typeof result?.then == "function") {
+          result.then(null, ex =>
+            this._reportCallbackFailure(policyName, timing, ex)
+          );
+        }
       } catch (ex) {
-        lazy.log.error(
-          `Error running ${timing} callback for policy ${policyName}: ${ex}`,
-          ex
-        );
+        this._reportCallbackFailure(policyName, timing, ex);
       }
+    }
+  },
+
+  _reportPolicyError(policyName, message) {
+    lazy.log.error(message);
+    lazy.PolicyFailures.report(policyName, message);
+  },
+
+  _reportCallbackFailure(policyName, timing, ex) {
+    const message = policyName
+      ? `Error running ${timing} callback for policy ${policyName}: ${ex}`
+      : `Error running ${timing} callback: ${ex}`;
+    lazy.log.error(message, ex);
+    if (policyName) {
+      lazy.PolicyFailures.report(policyName, message);
     }
   },
 
@@ -787,6 +863,7 @@ EnterprisePoliciesManager.prototype = {
 
     this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = {};
+    lazy.PolicyFailures.clearAll();
     this._seenParamHashes = new Map();
     this._appliedParamHashes = new Map();
     if (this._isRemotePoliciesSupported()) {
@@ -1507,6 +1584,17 @@ class RemotePoliciesProvider extends PoliciesProvider {
       lazy.log.warn(
         "RemotePoliciesProvider recovered after a previous failure."
       );
+    }
+
+    // The console re-states the restart deadline on every poll, so only a
+    // well-formed response updates it: a failed poll leaves an armed deadline
+    // standing. The policies are stored above and errors here are logged rather
+    // than thrown, so a failure while applying the deadline does not throw away
+    // the policies we just fetched.
+    try {
+      lazy.RelaunchEnforcer.onConsolePoll(res.relaunch ?? null);
+    } catch (e) {
+      lazy.log.error("Failed to apply the restart deadline", e);
     }
 
     // The console returns byte-identical JSON when the remote policy set is

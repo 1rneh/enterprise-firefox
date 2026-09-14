@@ -86,6 +86,12 @@ interface nsIContentAnalysisResponse : nsIContentAnalysisResult
   // e.g. this is a synthetic response Firefox produced itself.
   readonly attribute AString ruleName;
 
+  // The admin-authored message from the rule that determined `action` (see
+  // nsIContentAnalysisRule.message). Empty if that rule supplied no message,
+  // or if the verdict came from a backend that has no rule configuration to
+  // draw one from (e.g. an external agent).
+  readonly attribute AString ruleMessage;
+
   // Identifier for the corresponding nsIContentAnalysisRequest
   readonly attribute ACString requestToken;
   readonly attribute ACString userActionId;
@@ -510,11 +516,13 @@ interface nsIContentAnalysis : nsISupports
    * @param aAction        The response action
    * @param aToken         The request token
    * @param aUserActionID  The user action ID
+   * @param aRuleMessage   The matched rule's admin-authored message, if any
    */
   nsIContentAnalysisResponse makeResponseForTest(
       in nsIContentAnalysisResponse_Action aAction,
       in ACString aToken,
-      in ACString aUserActionId);
+      in ACString aUserActionId,
+      [optional] in AString aRuleMessage);
 
   /**
    * Send CancelRequests to agent on a background thread.

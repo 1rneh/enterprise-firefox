@@ -24,6 +24,8 @@ const PREF_NOVA_THEMES_PICKER = "browser.aboutaddons.novaThemesPickerEnabled";
 const PREF_ACTIVE_THEME_ID = "extensions.activeThemeID";
 
 const DEFAULT_THEME_ID = "default-theme@mozilla.org";
+const LIGHT_THEME_ID = "firefox-compact-light@mozilla.org";
+const DARK_THEME_ID = "firefox-compact-dark@mozilla.org";
 const NOVA_SUN_ID = "nova-sun@mozilla.org";
 const DEFAULT_THEME_ID_PREFIX = "default-theme";
 const NOVA_SUN_ID_PREFIX = "nova-sun";
@@ -54,10 +56,14 @@ function getThemeButton(card) {
   return card.querySelector(".theme-card-footer moz-button");
 }
 
-async function getThemePreviewSrc(card) {
+async function getThemePreviewImage(card) {
   const themePreview = card.querySelector("theme-preview");
   await themePreview.updateComplete;
-  return card.querySelector(".card-heading-image")?.src;
+  return card.querySelector(".card-heading-image");
+}
+
+async function getThemePreviewSrc(card) {
+  return (await getThemePreviewImage(card))?.src;
 }
 
 async function waitForThemesPickerReady(picker) {
@@ -251,6 +257,44 @@ add_task(async function test_picker_renders_all_known_themes() {
 
   await closeView(win);
   await SpecialPowers.popPrefEnv();
+});
+
+// Verifies that the built-in Light and Dark themes reuse the default theme
+// Nova preview image, forced to the matching color scheme, when Nova is
+// enabled, and keep their own preview images otherwise.
+add_task(async function test_light_dark_themes_preview() {
+  for (const novaEnabled of [true, false]) {
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        [PREF_NOVA_ENABLED, novaEnabled],
+        [PREF_NOVA_THEMES_PICKER, true],
+      ],
+    });
+
+    const win = await loadInitialView("theme");
+
+    for (const [themeId, colorScheme] of [
+      [LIGHT_THEME_ID, "light"],
+      [DARK_THEME_ID, "dark"],
+    ]) {
+      const img = await getThemePreviewImage(getAddonCard(win, themeId));
+      Assert.equal(
+        img.src,
+        novaEnabled
+          ? DEFAULT_THEME_PREVIEW_NOVA_URL
+          : `resource://builtin-themes/${colorScheme}/preview.svg`,
+        `${themeId} uses the expected preview image (nova enabled: ${novaEnabled})`
+      );
+      Assert.equal(
+        img.style.colorScheme,
+        novaEnabled ? colorScheme : "",
+        `${themeId} preview image has the expected forced color scheme (nova enabled: ${novaEnabled})`
+      );
+    }
+
+    await closeView(win);
+    await SpecialPowers.popPrefEnv();
+  }
 });
 
 // Verifies that the Nova themes picker can be expanded and collapsed as
@@ -478,6 +522,9 @@ add_task(async function test_picker_button_click_updates_active_theme() {
   const sunCard = getThemeCard(picker, NOVA_SUN_ID_PREFIX);
   const defaultCard = getThemeCard(picker, DEFAULT_THEME_ID_PREFIX);
 
+  await Services.fog.testFlushAllChildren();
+  Services.fog.testResetFOG();
+
   let promiseActiveThemePrefChanged = TestUtils.waitForPrefChange(
     PREF_ACTIVE_THEME_ID,
     value => value === NOVA_SUN_ID
@@ -491,6 +538,12 @@ add_task(async function test_picker_button_click_updates_active_theme() {
   await promiseActiveThemePrefChanged;
 
   await picker.updateComplete;
+  await Services.fog.testFlushAllChildren();
+  const events = Glean.themePicker.change.testGetValue();
+  Assert.equal(events?.length, 1, "theme_picker.change is recorded once");
+  Assert.equal(events[0].extra.property, "theme", "property is theme");
+  Assert.equal(events[0].extra.layout, "full", "layout is full");
+
   Assert.equal(
     getThemeButton(sunCard).getAttribute("data-l10n-id"),
     "aboutaddons-themes-picker-disable-button",
@@ -766,4 +819,89 @@ add_task(async function test_theme_preview_svgs_ignore_aspect_ratio() {
       `0 0 ${svgRoot.getAttribute("width")} ${svgRoot.getAttribute("height")}`
     );
   }
+});
+
+// Verifies that opening the Nova themes picker records a theme_picker.shown
+// event, and that navigating away and back to the Themes view records it
+// again.
+add_task(async function test_picker_shown_recorded_on_each_theme_view_load() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [PREF_NOVA_ENABLED, true],
+      [PREF_NOVA_THEMES_PICKER, true],
+    ],
+  });
+
+  Services.fog.testResetFOG();
+
+  const win = await loadInitialView("extension");
+
+  // Sanity check: until the theme view is loaded, the theme_picker.shown
+  // event should not have been recorded yet.
+  let events = Glean.themePicker.shown.testGetValue();
+  Assert.equal(events, undefined, "theme_picker.shown is NOT recorded yet");
+
+  await switchView(win, "theme");
+  let picker = getThemesPicker(win.document);
+  await waitForThemesPickerReady(picker);
+
+  events = Glean.themePicker.shown.testGetValue();
+  Assert.equal(events?.length, 1, "theme_picker.shown is recorded once");
+  Assert.deepEqual(
+    {
+      source: events[0].extra.source,
+      layout: events[0].extra.layout,
+    },
+    { source: "about:addons", layout: "full" },
+    "theme_picker.shown event has the expected source and layout"
+  );
+
+  await switchView(win, "extension");
+  await switchView(win, "theme");
+  picker = getThemesPicker(win.document);
+  await waitForThemesPickerReady(picker);
+
+  events = Glean.themePicker.shown.testGetValue();
+  Assert.equal(
+    events?.length,
+    2,
+    "theme_picker.shown is recorded again when navigating back to the theme view"
+  );
+  Assert.deepEqual(
+    {
+      source: events[1].extra.source,
+      layout: events[1].extra.layout,
+    },
+    { source: "about:addons", layout: "full" },
+    "second theme_picker.shown event has the expected source and layout"
+  );
+
+  await closeView(win);
+  await SpecialPowers.popPrefEnv();
+});
+
+// Verifies that theme_picker.shown is not recorded when the Nova themes
+// picker doesn't render any visible content.
+add_task(async function test_picker_shown_not_recorded_when_pref_disabled() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [PREF_NOVA_ENABLED, true],
+      [PREF_NOVA_THEMES_PICKER, false],
+    ],
+  });
+
+  Services.fog.testResetFOG();
+
+  const win = await loadInitialView("theme");
+  const picker = getThemesPicker(win.document);
+  await picker.updateComplete;
+
+  Assert.equal(
+    Glean.themePicker.shown.testGetValue(),
+    undefined,
+    "theme_picker.shown is not recorded when the picker isn't shown"
+  );
+
+  await closeView(win);
+  await SpecialPowers.popPrefEnv();
 });

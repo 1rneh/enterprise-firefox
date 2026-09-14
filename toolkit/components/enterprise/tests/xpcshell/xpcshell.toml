@@ -1,4 +1,15 @@
 [DEFAULT]
+environment = ["MOZ_BYPASS_FELT=1"]
+firefox-appdir = "browser"
+skip-if = [
+  "os == 'android'",
+]
+
+["test_console_client_console_address.js"]
+
+["test_felt_storage_console_address.js"]
+
+["test_relaunch_enforcer.js"]
 
 ["test_storage_encryption.js"]
 run-if = ["buildapp == 'browser'"]

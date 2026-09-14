@@ -137,9 +137,12 @@ describe("<ImpressionStats>", () => {
         corpus_item_id: undefined,
         recommended_at: undefined,
         received_rank: undefined,
+        variant_id: undefined,
+        source_section_id: undefined,
         topic: undefined,
         features: undefined,
         attribution: undefined,
+        is_ad_eligible_position: undefined,
         format: "medium-card",
       },
       {
@@ -150,9 +153,12 @@ describe("<ImpressionStats>", () => {
         corpus_item_id: undefined,
         recommended_at: undefined,
         received_rank: undefined,
+        variant_id: undefined,
+        source_section_id: undefined,
         topic: undefined,
         features: undefined,
         attribution: undefined,
+        is_ad_eligible_position: undefined,
         format: "medium-card",
       },
       {
@@ -163,9 +169,12 @@ describe("<ImpressionStats>", () => {
         corpus_item_id: undefined,
         recommended_at: undefined,
         received_rank: undefined,
+        variant_id: undefined,
+        source_section_id: undefined,
         topic: undefined,
         features: undefined,
         attribution: undefined,
+        is_ad_eligible_position: undefined,
         format: "medium-card",
       },
     ]);
@@ -252,9 +261,12 @@ describe("<ImpressionStats>", () => {
         corpus_item_id: undefined,
         recommended_at: undefined,
         received_rank: undefined,
+        variant_id: undefined,
+        source_section_id: undefined,
         topic: undefined,
         features: undefined,
         attribution: undefined,
+        is_ad_eligible_position: undefined,
         format: "medium-card",
       },
       {
@@ -265,9 +277,12 @@ describe("<ImpressionStats>", () => {
         corpus_item_id: undefined,
         recommended_at: undefined,
         received_rank: undefined,
+        variant_id: undefined,
+        source_section_id: undefined,
         topic: undefined,
         features: undefined,
         attribution: undefined,
+        is_ad_eligible_position: undefined,
         format: "medium-card",
       },
       {
@@ -278,9 +293,12 @@ describe("<ImpressionStats>", () => {
         corpus_item_id: undefined,
         recommended_at: undefined,
         received_rank: undefined,
+        variant_id: undefined,
+        source_section_id: undefined,
         topic: undefined,
         features: undefined,
         attribution: undefined,
+        is_ad_eligible_position: undefined,
         format: "medium-card",
       },
     ]);
@@ -346,5 +364,71 @@ describe("<ImpressionStats>", () => {
     assert.calledTwice(props.dispatch);
     const [action] = props.dispatch.firstCall.args;
     assert.deepEqual(action.data.tiles, [{ id: 2432, pos: 5 }]);
+  });
+
+  function impressionCount(dispatch) {
+    return dispatch
+      .getCalls()
+      .filter(
+        call => call.args[0].type === at.DISCOVERY_STREAM_IMPRESSION_STATS
+      ).length;
+  }
+
+  it("should not send an impression while isActive is false", () => {
+    const dispatch = sinon.spy();
+
+    renderImpressionStats({ dispatch, isActive: false });
+
+    assert.equal(impressionCount(dispatch), 0);
+  });
+
+  it("should send one impression however often isActive is toggled", () => {
+    const dispatch = sinon.spy();
+    const wrapper = renderImpressionStats({ dispatch, isActive: true });
+
+    assert.equal(impressionCount(dispatch), 1);
+
+    // A caller that hides and reshows the same item, such as a carousel
+    // rotating through its slides, still reports a single impression.
+    wrapper.setProps({ isActive: false });
+    wrapper.setProps({ isActive: true });
+    wrapper.setProps({ isActive: false });
+    wrapper.setProps({ isActive: true });
+
+    assert.equal(impressionCount(dispatch), 1);
+  });
+
+  it("should stop observing when isActive becomes false", () => {
+    // eslint-disable-next-line no-shadow
+    const IntersectionObserver =
+      buildIntersectionObserver(ZeroIntersectEntries);
+    const spy = sinon.spy(IntersectionObserver.prototype, "unobserve");
+    const wrapper = renderImpressionStats({
+      dispatch: sinon.spy(),
+      IntersectionObserver,
+    });
+
+    // A carousel slide below the fold rotates away before it is ever seen. It
+    // must not stay armed, or every slide would report at once on scroll.
+    wrapper.setProps({ isActive: false });
+
+    assert.calledOnce(spy);
+    assert.isNull(wrapper.instance().impressionObserver);
+  });
+
+  it("should still report after being reactivated", () => {
+    const dispatch = sinon.spy();
+    const wrapper = renderImpressionStats({
+      dispatch,
+      IntersectionObserver: buildIntersectionObserver(ZeroIntersectEntries),
+    });
+
+    // A slide that rotates out before it was ever seen still owes an
+    // impression the next time it comes around and is visible.
+    wrapper.setProps({ isActive: false });
+    wrapper.setProps({ isActive: true });
+    wrapper.instance().impressionObserver.callback(FullIntersectEntries);
+
+    assert.equal(impressionCount(dispatch), 1);
   });
 });

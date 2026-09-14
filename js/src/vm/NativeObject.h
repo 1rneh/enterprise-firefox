@@ -593,7 +593,6 @@ class TaggedSlotOffset {
   bool isFixedSlot() const { return bits_ & IsFixedSlotFlag; }
 
   bool operator==(const TaggedSlotOffset& other) const = default;
-  bool operator!=(const TaggedSlotOffset& other) const = default;
 };
 
 enum class CanReuseShape {
@@ -2186,6 +2185,8 @@ inline void TraceBufferSlot(JSTracer* trc, NativeObject* obj, uint32_t slot,
     obj->setSlot(slot, PrivateValue(buffer));
   }
 }
+
+bool PreserveAnyUnpreservedWrapper(JSContext* cx, Handle<NativeObject*> obj);
 
 }  // namespace js
 

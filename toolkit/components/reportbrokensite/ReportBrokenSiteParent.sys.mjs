@@ -116,6 +116,11 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
           value: antitracking.btpHasPurgedSite,
           glean: "tabInfo.antitracking",
         },
+        btpPurgeHistory: {
+          isTabSpecific: true,
+          value: antitracking.btpPurgeHistory,
+          glean: "tabInfo.antitracking",
+        },
         etpCategory: {
           value: antitracking.etpCategory,
           glean: "tabInfo.antitracking",
@@ -393,6 +398,7 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
     // Ask BounceTrackingProtection whether it has recently purged state for the
     // site in the current top level context.
     let btpHasPurgedSite = false;
+    let btpPurgeHistory = [];
     let { currentWindowGlobal } = browsingContext;
     if (
       Services.prefs.getIntPref("privacy.bounceTrackingProtection.mode") !=
@@ -407,6 +413,21 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
         let { baseDomain } = documentPrincipal;
         btpHasPurgedSite =
           bounceTrackingProtection.hasRecentlyPurgedSite(baseDomain);
+
+        let purgeEntries =
+          bounceTrackingProtection.getRecentPurgedChainEntriesForSite(
+            baseDomain
+          );
+        for (let entry of purgeEntries) {
+          let historyEntry = { purgedHost: entry.siteHost };
+          let record = entry.bounceTrackingRecord;
+          if (record) {
+            historyEntry.initialHost = record.initialHost;
+            historyEntry.finalHost = record.finalHost;
+            historyEntry.bounceHosts = Array.from(record.bounceHosts);
+          }
+          btpPurgeHistory.push(historyEntry);
+        }
       }
     }
 
@@ -429,6 +450,7 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
         Ci.nsIWebProgressListener.STATE_BLOCKED_MIXED_DISPLAY_CONTENT
       ),
       btpHasPurgedSite,
+      btpPurgeHistory,
       etpCategory: this.#getETPCategory(),
     };
   }
@@ -618,9 +640,14 @@ export class ReportBrokenSiteParent extends JSWindowActorParent {
   #getSecurityInfo(troubleshootingInfo) {
     const result = {};
     for (const [k, v] of Object.entries(troubleshootingInfo.securitySoftware)) {
-      result[k.replace("registered", "").toLowerCase()] = v
-        ? v.split(";")
-        : null;
+      const key = k.replace("registered", "").toLowerCase();
+      if (Array.isArray(v)) {
+        result[key] = v;
+      } else if (v) {
+        result[key] = v.split(";");
+      } else {
+        result[key] = null;
+      }
     }
 
     // Right now, security data is only available for Windows builds, and

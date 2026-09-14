@@ -15,14 +15,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  * @licend The above is the entire license notice for the
  * JavaScript code in this page
  */
 
 /**
- * pdfjsVersion = 6.3.237
- * pdfjsBuild = 9aea8e2df
+ * pdfjsVersion = 6.3.351
+ * pdfjsBuild = 716aff9d5
  */
 
 ;// ./web/ui_utils.js
@@ -899,7 +898,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "0dbae0d4-6a6c-42d9-90aa-b76687a77787";
+const INTERNAL_EVT = "b17e9a2f-7526-4489-adb9-d4e93d0cb8c5";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -1530,7 +1529,7 @@ class L10n {
   getDirection() {
     return this.#dir;
   }
-  async get(ids, args = null, fallback) {
+  async get(ids, args = null) {
     if (Array.isArray(ids)) {
       ids = ids.map(id => ({
         id
@@ -1542,7 +1541,7 @@ class L10n {
       id: ids,
       args
     }]);
-    return messages[0]?.value || fallback;
+    return messages[0]?.value;
   }
   async translate(element) {
     (this.#elements ||= new Set()).add(element);
@@ -3980,6 +3979,7 @@ class CommentDialog {
   #textInput;
   #title;
   #saveButton;
+  #saveButtonLabel;
   #uiManager;
   #prevDragX = 0;
   #prevDragY = 0;
@@ -4000,6 +4000,7 @@ class CommentDialog {
     this.#overlayManager = overlayManager;
     this.#eventBus = eventBus;
     this.#saveButton = saveButton;
+    this.#saveButtonLabel = saveButton.firstElementChild;
     this.#title = title;
     this.#isLTR = ltr;
     const finishBound = this.#finish.bind(this);
@@ -4101,10 +4102,10 @@ class CommentDialog {
     textInput.value = this.#previousText = this.#commentText;
     if (str) {
       this.#title.setAttribute("data-l10n-id", "pdfjs-editor-edit-comment-dialog-title-when-editing");
-      this.#saveButton.setAttribute("data-l10n-id", "pdfjs-editor-edit-comment-dialog-save-button-when-editing");
+      this.#saveButtonLabel.setAttribute("data-l10n-id", "pdfjs-editor-edit-comment-dialog-save-button-when-editing");
     } else {
       this.#title.setAttribute("data-l10n-id", "pdfjs-editor-edit-comment-dialog-title-when-adding");
-      this.#saveButton.setAttribute("data-l10n-id", "pdfjs-editor-edit-comment-dialog-save-button-when-adding");
+      this.#saveButtonLabel.setAttribute("data-l10n-id", "pdfjs-editor-edit-comment-dialog-save-button-when-adding");
     }
     if (options?.height) {
       textInput.style.height = `${options.height}px`;
@@ -5333,10 +5334,15 @@ class PDFDocumentProperties {
         }
       }
     }
-    const [{
+    const {
       width,
       height
-    }, unit, name, orientation] = await Promise.all([nonMetric ? sizeInches : sizeMillimeters, this.l10n.get(nonMetric ? "pdfjs-document-properties-page-size-unit-inches" : "pdfjs-document-properties-page-size-unit-millimeters"), nameId && this.l10n.get(nameId), this.l10n.get(isPortrait ? "pdfjs-document-properties-page-size-orientation-portrait" : "pdfjs-document-properties-page-size-orientation-landscape")]);
+    } = nonMetric ? sizeInches : sizeMillimeters;
+    const ids = [nonMetric ? "pdfjs-document-properties-page-size-unit-inches" : "pdfjs-document-properties-page-size-unit-millimeters", isPortrait ? "pdfjs-document-properties-page-size-orientation-portrait" : "pdfjs-document-properties-page-size-orientation-landscape"];
+    if (nameId) {
+      ids.push(nameId);
+    }
+    const [unit, orientation, name] = await this.l10n.get(ids);
     return this.l10n.get(name ? "pdfjs-document-properties-page-size-dimension-name-string" : "pdfjs-document-properties-page-size-dimension-string", {
       width,
       height,
@@ -13323,7 +13329,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.3.237";
+    const viewerVersion = "6.3.351";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -17764,12 +17770,12 @@ const PDFViewerApplication = {
       const {
         featuresNotification
       } = appConfig;
-      customElements.whenDefined("pdf-features-notification").then(() => {
+      customElements.whenDefined("moz-message-bar").then(() => {
         if (AppOptions.get("featuresNotificationDismissed")) {
           return;
         }
         featuresNotification.addEventListener("click", event => {
-          if (!event.target.closest(".cta")) {
+          if (!event.target.closest("a")) {
             return;
           }
           event.preventDefault();
@@ -17788,7 +17794,10 @@ const PDFViewerApplication = {
           docStyle.setProperty("--pfn-bar-height", "0px");
           featuresNotification.hidden = true;
         };
-        featuresNotification.addEventListener("pdf-features-notification:dismissed", () => {
+        featuresNotification.addEventListener("message-bar:user-dismissed", () => {
+          if (featuresNotification.matches(":focus-within")) {
+            container.focus();
+          }
           hideBar();
           this.preferences.set("featuresNotificationDismissed", true);
         }, {
@@ -17804,7 +17813,7 @@ const PDFViewerApplication = {
           signal: abortSignal,
           ...internalOpt
         });
-        featuresNotification.show();
+        featuresNotification.hidden = false;
       });
     }
     const signatureManager = AppOptions.get("enableSignatureEditor") && appConfig.addSignatureDialog ? new SignatureManager(appConfig.addSignatureDialog, appConfig.editSignatureDialog, appConfig.annotationEditorParams?.editorSignatureAddSignature || null, overlayManager, l10n, externalServices.createSignatureStorage(eventBus, abortSignal), eventBus) : null;

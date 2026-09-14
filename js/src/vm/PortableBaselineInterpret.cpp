@@ -1233,6 +1233,11 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
           case GuardClassKind::Map:
           case GuardClassKind::BoundFunction:
           case GuardClassKind::Date:
+          case GuardClassKind::Duration:
+          case GuardClassKind::PlainTime:
+          case GuardClassKind::PlainDateTime:
+          case GuardClassKind::Instant:
+          case GuardClassKind::ZonedDateTime:
           case GuardClassKind::WeakMap:
           case GuardClassKind::WeakSet:
             if (object->getClass() != jit::ClassFor(kind)) {
@@ -3870,11 +3875,8 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
       CACHEOP_CASE(Int32MinMaxArrayResult) {
         ObjOperandId arrayId = cacheIRReader.objOperandId();
         bool isMax = cacheIRReader.readBool();
-        // ICs that use this opcode depend on implicit unboxing due to
-        // type-overload on ObjOperandId when a value is loaded
-        // directly from an argument slot. We explicitly unbox here.
-        NativeObject* nobj = reinterpret_cast<NativeObject*>(
-            &READ_VALUE_REG(arrayId.id()).toObject());
+        NativeObject* nobj =
+            reinterpret_cast<NativeObject*>(READ_REG(arrayId.id()));
         uint32_t len = nobj->getDenseInitializedLength();
         if (len == 0) {
           FAIL_IC();
@@ -3903,11 +3905,8 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
       CACHEOP_CASE(NumberMinMaxArrayResult) {
         ObjOperandId arrayId = cacheIRReader.objOperandId();
         bool isMax = cacheIRReader.readBool();
-        // ICs that use this opcode depend on implicit unboxing due to
-        // type-overload on ObjOperandId when a value is loaded
-        // directly from an argument slot. We explicitly unbox here.
-        NativeObject* nobj = reinterpret_cast<NativeObject*>(
-            &READ_VALUE_REG(arrayId.id()).toObject());
+        NativeObject* nobj =
+            reinterpret_cast<NativeObject*>(READ_REG(arrayId.id()));
         uint32_t len = nobj->getDenseInitializedLength();
         if (len == 0) {
           FAIL_IC();

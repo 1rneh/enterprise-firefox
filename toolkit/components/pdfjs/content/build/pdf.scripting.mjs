@@ -15,14 +15,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  * @licend The above is the entire license notice for the
  * JavaScript code in this page
  */
 
 /**
- * pdfjsVersion = 6.3.237
- * pdfjsBuild = 9aea8e2df
+ * pdfjsVersion = 6.3.351
+ * pdfjsBuild = 716aff9d5
  */
 
 ;// ./src/scripting_api/constants.js
@@ -3475,9 +3474,7 @@ class Util extends PDFObject {
       seconds: oDate.getSeconds()
     };
     const patterns = /(mmmm|mmm|mm|m|dddd|ddd|dd|d|yyyy|yy|HH|H|hh|h|MM|M|ss|s|tt|t|\\.)/g;
-    return cFormat.replaceAll(patterns, function (_, pattern) {
-      return pattern in handlers ? handlers[pattern](data) : pattern.charCodeAt(1);
-    });
+    return cFormat.replaceAll(patterns, (_, pattern) => pattern in handlers ? handlers[pattern](data) : pattern.charCodeAt(1));
   }
   printx(cFormat, cSource) {
     cSource = (cSource ?? "").toString();

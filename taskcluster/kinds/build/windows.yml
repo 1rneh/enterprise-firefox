@@ -28,7 +28,6 @@ win32/debug:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
         script: mozharness/scripts/fx_desktop_build.py
@@ -79,7 +78,6 @@ win32/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
         script: mozharness/scripts/fx_desktop_build.py
@@ -130,7 +128,6 @@ win32-fuzzing/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: fuzzing
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -185,7 +182,6 @@ win64/debug:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
         script: mozharness/scripts/fx_desktop_build.py
@@ -294,7 +290,6 @@ win64-non-unified/plain:
             MOZ_AUTOMATION_BUILD_SYMBOLS: '0'
             PERFHERDER_EXTRA_OPTIONS: non-unified
     run:
-        clone-with: hg
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
         script: mozharness/scripts/fx_desktop_build.py
@@ -347,7 +342,6 @@ win64-fuzzing/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: fuzzing
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -400,7 +394,6 @@ win64-plain/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: plain
     run:
-        clone-with: hg
         actions: [build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -450,7 +443,6 @@ win64/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
         script: mozharness/scripts/fx_desktop_build.py
@@ -785,7 +777,6 @@ win64-plain/opt:
         env:
             PERFHERDER_EXTRA_OPTIONS: plain
     run:
-        clone-with: hg
         actions: [build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -851,7 +842,6 @@ win32-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -906,7 +896,6 @@ win64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -958,7 +947,6 @@ win64-nightlyasrelease/opt:
             PERFHERDER_EXTRA_OPTIONS: "nightly-as-release"
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1006,7 +994,6 @@ win32-add-on-devel/opt:
     worker:
         max-run-time: 10800
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: "mozharness/scripts/fx_desktop_build.py"
@@ -1053,7 +1040,6 @@ win64-add-on-devel/opt:
     worker:
         max-run-time: 10800
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: "mozharness/scripts/fx_desktop_build.py"
@@ -1101,7 +1087,6 @@ win64-noopt/debug:
     worker:
         max-run-time: 7200
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1149,7 +1134,6 @@ win32-noopt/debug:
     worker:
         max-run-time: 7200
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1199,7 +1183,6 @@ win32-rusttests/opt:
         env:
             PERFHERDER_EXTRA_OPTIONS: rusttests
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1244,7 +1227,6 @@ win32-rusttests/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: rusttests
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1289,7 +1271,6 @@ win64-rusttests/opt:
         env:
             PERFHERDER_EXTRA_OPTIONS: rusttests
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1332,7 +1313,6 @@ win64-rusttests/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: rusttests
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1382,7 +1362,6 @@ win64-ccov/opt:
             RUSTC_BOOTSTRAP: '1'
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
         secrets: true
@@ -1435,7 +1414,6 @@ win64-fuzzing-ccov/opt:
             RUSTC_BOOTSTRAP: '1'
             PERFHERDER_EXTRA_OPTIONS: "fuzzing-ccov"
     run:
-        clone-with: hg
         using: mozharness
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
@@ -1486,7 +1464,6 @@ win64-asan/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: "debug asan"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1539,7 +1516,6 @@ win64-asan/opt:
             PERFHERDER_EXTRA_OPTIONS: "opt asan"
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1588,7 +1564,6 @@ win64-asan-fuzzing/opt:
         env:
             PERFHERDER_EXTRA_OPTIONS: fuzzing-asan
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1657,7 +1632,6 @@ win32-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         script: mozharness/scripts/fx_desktop_build.py
         secrets: true
@@ -1713,7 +1687,6 @@ win64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1766,7 +1739,6 @@ win64-aarch64/debug:
             PERFHERDER_EXTRA_OPTIONS: aarch64
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1819,7 +1791,6 @@ win64-aarch64/opt:
             PERFHERDER_EXTRA_OPTIONS: aarch64
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1877,7 +1848,6 @@ win64-aarch64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
@@ -1931,7 +1901,6 @@ win64-aarch64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
-        clone-with: hg
         actions: [get-secrets, build]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py

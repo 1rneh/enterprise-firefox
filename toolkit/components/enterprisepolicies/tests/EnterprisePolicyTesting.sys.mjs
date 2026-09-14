@@ -6,8 +6,11 @@ import { Preferences } from "resource://gre/modules/Preferences.sys.mjs";
 
 import { Assert } from "resource://testing-common/Assert.sys.mjs";
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserTestUtils: "resource://testing-common/BrowserTestUtils.sys.mjs",
   FileTestUtils: "resource://testing-common/FileTestUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchTestUtils: "resource://testing-common/SearchTestUtils.sys.mjs",
@@ -208,6 +211,50 @@ export var EnterprisePolicyTesting = {
       expectedValue,
       `Pref ${prefName} has the correct value`
     );
+  },
+
+  /**
+   * Load a URL in a new tab of the most recent browser window and assert
+   * whether the policy engine blocked it, i.e. replaced the page with
+   * about:neterror?e=blockedByPolicy. Browser-chrome only.
+   *
+   * @param {string} url page to load
+   * @param {boolean} expectedBlocked whether the load is expected to be blocked
+   * @returns {Promise<void>} resolves once the assertion has been made
+   */
+  async checkBlockedPage(url, expectedBlocked) {
+    let gBrowser =
+      Services.wm.getMostRecentWindow("navigator:browser").gBrowser;
+    let newTab = lazy.BrowserTestUtils.addTab(gBrowser);
+    gBrowser.selectedTab = newTab;
+
+    if (expectedBlocked) {
+      let promise = lazy.BrowserTestUtils.waitForErrorPage(
+        gBrowser.selectedBrowser
+      );
+      lazy.BrowserTestUtils.startLoadingURIString(gBrowser, url);
+      await promise;
+
+      const errorPage = AppConstants.MOZ_ENTERPRISE
+        ? "blockedByPolicyEnterprise"
+        : "blockedByPolicy";
+      Assert.ok(
+        newTab.linkedBrowser.documentURI.spec.startsWith(
+          `about:neterror?e=${errorPage}`
+        ),
+        "Should be blocked by policy"
+      );
+    } else {
+      let promise = lazy.BrowserTestUtils.browserStopped(gBrowser, url);
+      lazy.BrowserTestUtils.startLoadingURIString(gBrowser, url);
+      await promise;
+      Assert.equal(
+        newTab.linkedBrowser.documentURI.spec,
+        url,
+        "Should not be blocked by policy"
+      );
+    }
+    lazy.BrowserTestUtils.removeTab(newTab);
   },
 
   resetRunOnceState: function resetRunOnceState() {

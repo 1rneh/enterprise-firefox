@@ -505,7 +505,7 @@ export var UITour = {
           );
         }
 
-        lazy.AIWindow.launchWindow(browser).then(success => {
+        lazy.AIWindow.launchWindow(browser, false, "bedrock").then(success => {
           if (!success) {
             lazy.log.warn(
               "showFirefoxAccountsForAIWindow: Failed to launch Smart Window"
@@ -567,6 +567,14 @@ export var UITour = {
         if (shell) {
           shell.pinToTaskbar().catch(console.error);
         }
+        break;
+      }
+
+      case "setNewtabWallpaper": {
+        let prefix = "browser.newtabpage.activity-stream.newtabWallpapers.";
+        Services.prefs.setStringPref(prefix + "wallpaper", data.wallpaper);
+        Services.prefs.setStringPref(prefix + "initialWallpaper", "");
+        Services.prefs.setBoolPref(prefix + "user.enabled", true);
         break;
       }
 
@@ -1671,6 +1679,10 @@ export var UITour = {
           ),
           smartWindow: Services.prefs.getStringPref(
             "browser.ai.control.smartWindow",
+            "default"
+          ),
+          speechRecognition: Services.prefs.getStringPref(
+            "browser.ai.control.speechRecognition",
             "default"
           ),
         });

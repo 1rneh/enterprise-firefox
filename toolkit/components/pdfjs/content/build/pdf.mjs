@@ -15,14 +15,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  * @licend The above is the entire license notice for the
  * JavaScript code in this page
  */
 
 /**
- * pdfjsVersion = 6.3.237
- * pdfjsBuild = 9aea8e2df
+ * pdfjsVersion = 6.3.351
+ * pdfjsBuild = 716aff9d5
  */
 
 ;// ./src/shared/util.js
@@ -2065,7 +2064,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "0dbae0d4-6a6c-42d9-90aa-b76687a77787";
+const INTERNAL_EVT = "b17e9a2f-7526-4489-adb9-d4e93d0cb8c5";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -9741,15 +9740,12 @@ class TilingPattern {
     return nXLast <= nXFirst && nYLast <= nYFirst ? [nXFirst, nYFirst] : null;
   }
   updatePatternDims(clippedBBox, dims) {
-    const inv = Util.inverseTransform(this.patternBaseMatrix);
-    const c1 = [clippedBBox[0], clippedBBox[1]];
-    const c2 = [clippedBBox[2], clippedBBox[3]];
-    Util.applyTransform(c1, inv);
-    Util.applyTransform(c2, inv);
-    dims[0] = Math.abs(c2[0] - c1[0]);
-    dims[1] = Math.abs(c2[1] - c1[1]);
-    dims[2] = Math.min(c1[0], c2[0]);
-    dims[3] = Math.min(c1[1], c2[1]);
+    const bbox = [Infinity, Infinity, -Infinity, -Infinity];
+    Util.axialAlignedBoundingBox(clippedBBox, Util.inverseTransform(this.patternBaseMatrix), bbox);
+    dims[0] = bbox[2] - bbox[0];
+    dims[1] = bbox[3] - bbox[1];
+    dims[2] = bbox[0];
+    dims[3] = bbox[1];
   }
   _renderTileCanvas(owner, opIdx, dimx, dimy) {
     const [x0, y0, x1, y1] = this.bbox;
@@ -10262,7 +10258,6 @@ class CanvasGraphics {
     this.outputScaleY = 1;
     this.pageColors = pageColors;
     this._cachedScaleForStroking = [-1, 0];
-    this._cachedGetSinglePixelWidth = null;
     this._cachedBitmapsMap = new Map();
     this.dependencyTracker = dependencyTracker ?? null;
     this.imagesTracker = imagesTracker ?? null;
@@ -10334,7 +10329,7 @@ class CanvasGraphics {
           continue;
         }
       }
-      if (!operationsFilter || operationsFilter(i)) {
+      if (!operationsFilter || operationsFilter(i, operatorList)) {
         fnId = fnArray[i];
         fnArgs = argsArray[i] ?? null;
         if (fnId !== OPS.dependency) {
@@ -11138,13 +11133,11 @@ class CanvasGraphics {
     this.checkSMaskState(opIdx);
     this.pendingClip = null;
     this._cachedScaleForStroking[0] = -1;
-    this._cachedGetSinglePixelWidth = null;
   }
   transform(opIdx, a, b, c, d, e, f) {
     this.dependencyTracker?.recordIncrementalData("transform", opIdx);
     this.ctx.transform(a, b, c, d, e, f);
     this._cachedScaleForStroking[0] = -1;
-    this._cachedGetSinglePixelWidth = null;
   }
   constructPath(opIdx, op, data, minMax) {
     let [path] = data;
@@ -11697,7 +11690,6 @@ class CanvasGraphics {
       return;
     }
     this._cachedScaleForStroking[0] = -1;
-    this._cachedGetSinglePixelWidth = null;
     ctx.save();
     if (current.textMatrix) {
       ctx.transform(...current.textMatrix);
@@ -12489,18 +12481,14 @@ class CanvasGraphics {
     this.current.startNewPathAndClipBox(this.current.clipBox);
   }
   getSinglePixelWidth() {
-    if (!this._cachedGetSinglePixelWidth) {
-      const m = getCurrentTransform(this.ctx);
-      if (m[1] === 0 && m[2] === 0) {
-        this._cachedGetSinglePixelWidth = 1 / Math.min(Math.abs(m[0]), Math.abs(m[3]));
-      } else {
-        const absDet = Math.abs(m[0] * m[3] - m[2] * m[1]);
-        const normX = Math.hypot(m[0], m[2]);
-        const normY = Math.hypot(m[1], m[3]);
-        this._cachedGetSinglePixelWidth = Math.max(normX, normY) / absDet;
-      }
+    const m = getCurrentTransform(this.ctx);
+    if (m[1] === 0 && m[2] === 0) {
+      return 1 / Math.min(Math.abs(m[0]), Math.abs(m[3]));
     }
-    return this._cachedGetSinglePixelWidth;
+    const absDet = Math.abs(m[0] * m[3] - m[2] * m[1]);
+    const normX = Math.hypot(m[0], m[2]);
+    const normY = Math.hypot(m[1], m[3]);
+    return Math.max(normX, normY) / absDet;
   }
   getScaleForStroking() {
     if (this._cachedScaleForStroking[0] === -1) {
@@ -12833,11 +12821,9 @@ class DOMFilterFactory extends BaseFilterFactory {
     if (fgColor === "#000000" && bgColor === "#ffffff" || fgColor === bgColor) {
       return info.url;
     }
-    const map = new Array(256);
-    for (let i = 0; i <= 255; i++) {
-      const x = i / 255;
-      map[i] = x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
-    }
+    const map = Array.from({
+      length: 256
+    }, (_, i) => computeLuminance(i / 255));
     const table = map.join(",");
     const id = `g_${this.#docId}_hcm_filter`;
     const filter = info.filter = this.#createFilter(id);
@@ -14050,6 +14036,7 @@ class TextLayer {
   #layoutTextParams = null;
   #pageHeight = 0;
   #pageWidth = 0;
+  #pixelRatio = OutputScale.pixelRatio;
   #reader = null;
   #rootContainer = null;
   #rotation = 0;
@@ -14078,7 +14065,7 @@ class TextLayer {
     }
     this.#container = this.#rootContainer = container;
     this.#imagesHandler = images;
-    this.#scale = viewport.scale * OutputScale.pixelRatio;
+    this.#scale = viewport.scale * this.#pixelRatio;
     this.#rotation = viewport.rotation;
     this.#layoutTextParams = {
       div: null,
@@ -14150,6 +14137,7 @@ class TextLayer {
     if (scale !== this.#scale) {
       onBefore?.();
       this.#scale = scale;
+      this.#pixelRatio = OutputScale.pixelRatio;
       const params = {
         div: null,
         properties: null,
@@ -14239,9 +14227,10 @@ class TextLayer {
     const divStyle = textDiv.style;
     divStyle.left = `${(100 * left / this.#pageWidth).toFixed(2)}%`;
     divStyle.top = `${(100 * top / this.#pageHeight).toFixed(2)}%`;
-    divStyle.setProperty("--font-height", `${fontHeight.toFixed(2)}px`);
+    const roundedFontHeight = Math.round(fontHeight * 100) / 100;
+    divStyle.setProperty("--font-height", `${roundedFontHeight}px`);
     divStyle.fontFamily = fontFamily;
-    textDivProperties.fontSize = fontHeight;
+    textDivProperties.fontSize = roundedFontHeight;
     textDiv.setAttribute("role", "presentation");
     textDiv.textContent = geom.str;
     textDiv.dir = geom.dir;
@@ -14286,20 +14275,22 @@ class TextLayer {
     const {
       style
     } = div;
-    if (properties.canvasWidth !== 0 && properties.hasText) {
+    const {
+      canvasWidth,
+      fontSize
+    } = properties;
+    if (canvasWidth !== 0 && fontSize !== 0 && properties.hasText) {
       const {
         fontFamily
       } = style;
-      const {
-        canvasWidth,
-        fontSize
-      } = properties;
-      TextLayer.#ensureCtxFont(ctx, fontSize * this.#scale, fontFamily);
+      const pixelRatio = this.#pixelRatio;
+      const measuredSize = TextLayer.#quantizeFontSize(fontSize * this.#scale / pixelRatio) * pixelRatio;
+      TextLayer.#ensureCtxFont(ctx, measuredSize, fontFamily);
       const {
         width
       } = ctx.measureText(div.textContent);
       if (width > 0) {
-        style.setProperty("--scale-x", canvasWidth * this.#scale / width);
+        style.setProperty("--scale-x", canvasWidth * measuredSize / (width * fontSize));
       }
     }
     if (properties.angle !== 0) {
@@ -14336,6 +14327,11 @@ class TextLayer {
       });
     }
     return ctx;
+  }
+  static #quantizeFontSize(size) {
+    size = Math.fround(size);
+    const d = Math.fround(size * ((1 << 17) + 1));
+    return Math.fround(d - Math.fround(d - size));
   }
   static #ensureCtxFont(ctx, size, family) {
     const cached = this.#canvasCtxFonts.get(ctx);
@@ -14480,7 +14476,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.3.237",
+    apiVersion: "6.3.351",
     data,
     password,
     disableAutoFetch,
@@ -16032,7 +16028,7 @@ class InternalRenderTask {
     this._operationsFilter = operationsFilter;
   }
   get completed() {
-    return this.capability.promise.catch(function () {});
+    return this.capability.promise.catch(() => {});
   }
   initializeGraphics({
     transparency = false,
@@ -16137,8 +16133,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.3.237";
-const build = "9aea8e2df";
+const version = "6.3.351";
+const build = "716aff9d5";
 
 ;// ./src/display/editor/color_picker.js
 

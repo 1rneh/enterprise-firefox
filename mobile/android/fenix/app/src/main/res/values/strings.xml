@@ -134,12 +134,10 @@
     <string name="home_screen_shortcut_uninstall_survey">Uninstall, why?</string>
 
     <!-- Recent Tabs -->
-    <!-- Header text for jumping back into the recent tab in the home screen -->
-    <string name="recent_tabs_header">Jump back in</string>
+    <!-- Header text on the homescreen for continuing to browse the most recent browser tab -->
+    <string name="recent_tabs_header_2">Continue</string>
     <!-- Button text for showing all the tabs in the tabs tray -->
     <string name="recent_tabs_show_all">Show all</string>
-    <!-- Content description for the button which navigates the user to show all recent tabs in the tabs tray. -->
-    <string name="recent_tabs_show_all_content_description_2">Show all recent tabs button</string>
     <!-- Text for button in synced tab card that opens synced tabs tray -->
     <string name="recent_tabs_see_all_synced_tabs_button_text">See all synced tabs</string>
     <!-- Accessibility description for device icon used for recent synced tab -->
@@ -576,7 +574,7 @@
     <string name="nova_onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources" >Share how you discovered Firefox, and that you use it, with Mozilla’s marketing partners. This data is never sold. %1$s</string>
 
     <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
-    <string name="nova_onboarding_marketing_body_2" tools:ignore="BrandUsage">Share how you discovered Firefox, and that you use it, with Mozilla’s marketing partners. This data is never sold.</string>
+    <string name="nova_onboarding_marketing_body_2" tools:ignore="BrandUsage,UnusedResources">Share how you discovered Firefox, and that you use it, with Mozilla’s marketing partners. This data is never sold.</string>
 
     <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
     <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage,UnusedResources">You can help us reach more people by allowing Mozilla to inform the channels where we promote Firefox that you’re a Firefox user.</string>
@@ -870,6 +868,8 @@
     <string name="preference_downloads_folder_permission_lost" tools:ignore="UnusedResources">You don’t have permission to use this folder. Try choosing a different one.</string>
     <!-- Preference title for choosing an app to handle downloads -->
     <string name="preferences_choose_app_for_downloads">Manage downloads with another app</string>
+    <!-- Message shown when no app is available to let the user pick a download folder. -->
+    <string name="preferences_downloads_no_folder_picker_available">Unable to open the folder picker on this device.</string>
 
     <!-- Preference category for deleting or removing downloads -->
     <string name="preferences_category_delete_or_remove_downloads">Delete or remove downloads</string>
@@ -941,8 +941,8 @@
     <!-- Customize Home -->
     <!-- Title for the customize home screen section with privacy report. -->
     <string name="customize_toggle_privacy_report">Privacy report</string>
-    <!-- Header text for jumping back into the recent tab in customize the home screen -->
-    <string name="customize_toggle_jump_back_in">Jump back in</string>
+    <!-- Title for a customize home screen section. Continue is a section that displays the most recent browser tab, so users can continue browsing where they left off. -->
+    <string name="customize_toggle_continue">Continue</string>
     <!-- Title for the customize home screen section with bookmarks. -->
     <string name="customize_toggle_bookmarks">Bookmarks</string>
     <!-- Title for the customize home screen section with recently visited. Recently visited is
@@ -1616,16 +1616,6 @@
     <!-- History multi select title in app bar
     %1$d is the number of bookmarks selected -->
     <string name="history_multi_select_title">%1$d selected</string>
-    <!-- Text for the header that groups the history for today -->
-    <string name="history_today">Today</string>
-    <!-- Text for the header that groups the history for yesterday -->
-    <string name="history_yesterday">Yesterday</string>
-    <!-- Text for the header that groups the history the past 7 days -->
-    <string name="history_7_days">Last 7 days</string>
-    <!-- Text for the header that groups the history the past 30 days -->
-    <string name="history_30_days">Last 30 days</string>
-    <!-- Text for the header that groups the history older than the last month -->
-    <string name="history_older">Older</string>
     <!-- Text shown when no history exists -->
     <string name="history_empty_message">No history here</string>
 
@@ -2199,10 +2189,6 @@
     <string name="sync_sign_in">Sign in to Sync</string>
     <!-- An option from the share dialog to send link to all other sync devices -->
     <string name="sync_send_to_all">Send to all devices</string>
-  <!-- Text displayed when no other sync devices are available for link sharing -->
-  <string name="sync_no_devices_available">No devices available</string>
-  <!-- Text displayed when no other sync devices are available for link sharing. -->
-  <string name="sync_no_devices_available_description">Any devices signed in and syncing to this account will appear here.</string>
     <!-- An option from the share dialog to reconnect to sync -->
     <string name="sync_reconnect">Reconnect to Sync</string>
     <!-- Text displayed when sync is offline and cannot be accessed -->
@@ -2227,6 +2213,20 @@
     <string name="sent_from_firefox_template" tools:ignore="UnusedResources">%1$s\n\nSent from %2$s 🦊 Try the mobile browser: %3$s</string>
     <!-- A short message template for the shared link with a footer. %1$s is the shared link, %2$s is the app name (e.g. Firefox) and %3$s is a download link for the app. -->
     <string name="sent_from_firefox_template_short" tools:ignore="UnusedResources">%1$s\n\nSent from %2$s 🦊 %3$s</string>
+    <!-- Send tab to synced devices: Authentication error title - Message asking the user to re-authenticate -->
+    <string name="sync_send_tab_error_auth_title">Sign back in to send tabs between devices</string>
+    <!-- Send tab to synced devices: Authentication error button - Allows user to re-authenticate-->
+    <string name="sync_send_tab_error_auth_button">Sign in</string>
+    <!-- Send tab to synced devices: Authentication error button - Allows user to remove the currently connected account -->
+    <string name="sync_send_tab_error_auth_remove_account">Remove account</string>
+    <!-- Send tab to synced devices: Empty state title - Displayed when the user has no synced devices -->
+    <string name="sync_send_tab_empty_state_title">No devices connected</string>
+    <!-- Send tab to synced devices: Empty state message - Displayed when the user has no synced devices -->
+    <string name="sync_send_tab_empty_state_description" tools:ignore="BrandUsage">To send a tab, sign in to Firefox on at least one other device.</string>
+    <!-- Send tab to synced devices: Connectivity Error title -->
+    <string name="sync_send_tab_error_connection_title">Check your internet connection</string>
+    <!-- Send tab to synced devices: Connectivity Error message - Suggested user action after internet connection has been established -->
+    <string name="sync_send_tab_error_connection_text">Then try resending your tab.</string>
 
     <!-- Notifications -->
     <!-- Text shown in the notification that pops up to remind the user that a private browsing session is active. -->
@@ -2244,6 +2244,16 @@
     <!-- Text shown in the notification that pops up to remind the user to set fenix as default browser.
     The app name is in the text, due to limitations with localizing Nimbus experiments -->
     <string name="nimbus_notification_default_browser_text" tools:ignore="BrandUsage,UnusedResources">Make Firefox your default browser</string>
+
+    <!-- Privacy report notification -->
+    <!-- Name of the weekly privacy report notification channel. Displayed in the "App notifications" system settings for the app. -->
+    <string name="notification_privacy_report_channel_name">Privacy report</string>
+    <!-- Description of the weekly privacy report notification channel. Displayed in the "App notifications" system settings for the app. %1$s is the app name (e.g. Firefox) -->
+    <string name="notification_privacy_report_channel_description">%1$s shows how many trackers were blocked while you browsed.</string>
+    <!-- Body text for the weekly privacy report notification for when trackers have been blocked. %1$s is the app name (e.g. Firefox) -->
+    <string name="notification_privacy_report_body_has_trackers">Keep browsing. %1$s will keep blocking.</string>
+    <!-- Headline text of the weekly privacy report notification for when no trackers have been blocked. %1$s is the app name (e.g. Firefox) -->
+    <string name="notification_privacy_report_headline_no_trackers">%1$s blocks trackers as you browse. You’ll see them here.</string>
 
     <!-- Survey -->
     <!-- Text shown in the fullscreen message that pops up to ask user to take a short survey.
@@ -2789,14 +2799,14 @@
     <!-- Label for the BETA badge for the browser VPN entry in the settings list -->
     <string name="preferences_ip_protection_beta_badge_label">BETA</string>
     <!-- Title for the browser VPN settings screen (displayed in the app bar) -->
-    <string name="ip_protection_title">VPN</string>
+    <string name="ip_protection_settings_title">Built-in VPN</string>
     <!-- Label for the browser VPN toggle on the settings screen -->
     <string name="ip_protection_toggle_label">VPN</string>
     <!-- Content description for the browser VPN settings screen top bar back button -->
     <string name="ip_protection_navigate_back_button_content_description">Navigate back</string>
   <!-- Headline for the browser VPN promo card. %s is the name of the app (for example "Firefox"). -->
     <string name="ip_protection_promo_headline">%s’s built-in VPN</string>
-    <!-- Body text for the browser VPN promo card . %s is a learn more link using ip_protection_learn_more as text.-->
+    <!-- Body text for the browser VPN settings header, shown when no promo is running. %s is a learn more link using ip_protection_learn_more as text.-->
     <string name="ip_protection_promo_body_2">Browse with extra protection by hiding your location, even on public Wi-Fi. %s</string>
     <!-- Link text that opens additional information about the browser VPN -->
     <string name="ip_protection_learn_more">Learn more</string>
@@ -2869,7 +2879,7 @@
         %1$d is the total monthly allowance in GB (for example "50"). -->
     <string name="ip_protection_data_limit_reached_snackbar">%1$d GB of VPN data used. Access will reset next month.</string>
     <!-- Snackbar (in-app pop-up notification) action button text that takes the user to the VPN settings screen. -->
-    <string name="ip_protection_data_limit_reached_snackbar_action">Settings</string>
+    <string name="ip_protection_open_settings_snackbar_action">Settings</string>
     <!-- Description shown on the browser VPN settings screen prompting the user to turn the VPN on. -->
     <string name="ip_protection_settings_description" tools:ignore="UnusedResources">Turn VPN on to make your browsing more private and harder to trace.</string>
     <!-- Title shown on the browser VPN settings screen for location selection section. -->
@@ -4160,4 +4170,16 @@
     <string name="pdf_tools_print_content_description">Print PDF</string>
     <!-- Content description for accessibility (used by screen readers): Description for the button that opens the sharing options for the PDF being displayed on the screen. -->
     <string name="pdf_tools_share_content_description">Share PDF</string>
+
+    <!-- PDF viewer add a signature dialog -->
+    <!-- The title of the dialog for adding a signature to a PDF. -->
+    <string name="pdf_tools_signature_title">Add a signature</string>
+    <!-- Content description for accessibility (used by screen readers): Description for the button that closes the dialog for adding a signature to a PDF. -->
+    <string name="pdf_tools_signature_close_content_description">Close PDF signature panel</string>
+    <!-- The placeholder text shown in the empty text input field where users can enter the signature they wish to add to a PDF. -->
+    <string name="pdf_tools_signature_placeholder">Type signature</string>
+    <!-- The text for the button that erases the text the user entered in the "add a signature" field. -->
+    <string name="pdf_tools_signature_clear_button">Clear</string>
+    <!-- The text for the button that adds the signature the user has typed to the PDF. -->
+    <string name="pdf_tools_signature_add_button">Add</string>
 </resources>

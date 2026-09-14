@@ -11,6 +11,9 @@ import { WallpaperCategories } from "../../WallpaperCategories/WallpaperCategori
 // @nova-cleanup(move-directory): Update import path after WidgetsManagementPanel moves to components/CustomizeMenu/
 import { WidgetsManagementPanel } from "content-src/components/Nova/CustomizeMenu/WidgetsManagementPanel/WidgetsManagementPanel";
 
+const PREF_INFERRED_PERSONALIZATION =
+  "discoverystream.sections.personalization.inferred.user.enabled";
+
 // `theme-picker` is imported lazily, so it may still be an undefined custom element
 // when React renders it. In that state React sets props as attributes, and the lit
 // `showLabels` boolean (default true) can't be turned off via an attribute — so set the
@@ -214,8 +217,7 @@ export class ContentSection extends React.PureComponent {
       setPref,
       mayHaveTopicSections,
       weatherDisplay,
-      exitEventFired,
-      onSubpanelToggle,
+      panelShowing,
       toggleSectionsMgmtPanel,
       showSectionsMgmtPanel,
       // @nova-cleanup(remove-conditional): Remove novaEnabled
@@ -223,10 +225,15 @@ export class ContentSection extends React.PureComponent {
       browserNovaEnabled,
       toggleThemesPanel,
       showThemesPanel,
+      showWallpapersPanel,
+      wallpapersPanelCategory,
+      openWallpapersPanel,
+      closeWallpapersPanel,
       wallpapersEnabled,
       toggleWidgetsManagementPanel,
       showWidgetsManagementPanel,
       widgetsEnabled,
+      lockedPrefs = [],
     } = this.props;
     const {
       topSitesEnabled,
@@ -270,7 +277,6 @@ export class ContentSection extends React.PureComponent {
                 installsource="about:newtab"
               ></theme-picker>
               <ThemesManagementPanel
-                onSubpanelToggle={onSubpanelToggle}
                 togglePanel={toggleThemesPanel}
                 showPanel={showThemesPanel}
               />
@@ -294,8 +300,11 @@ export class ContentSection extends React.PureComponent {
                 <WallpaperCategories
                   setPref={setPref}
                   activeWallpaper={activeWallpaper}
-                  exitEventFired={exitEventFired}
-                  onSubpanelToggle={onSubpanelToggle}
+                  panelShowing={panelShowing}
+                  showPanel={showWallpapersPanel}
+                  activeCategory={wallpapersPanelCategory}
+                  openPanel={openWallpapersPanel}
+                  closePanel={closeWallpapersPanel}
                 />
               </div>
             </>
@@ -567,7 +576,6 @@ export class ContentSection extends React.PureComponent {
                             mayHaveWeatherForecast={mayHaveWeatherForecast}
                             weatherDisplay={weatherDisplay}
                             setPref={setPref}
-                            onSubpanelToggle={onSubpanelToggle}
                             togglePanel={toggleWidgetsManagementPanel}
                             showPanel={showWidgetsManagementPanel}
                           />
@@ -609,19 +617,26 @@ export class ContentSection extends React.PureComponent {
                             <moz-checkbox
                               id="inferred-personalization"
                               className="customize-menu-checkbox"
-                              disabled={!pocketEnabled}
+                              disabled={
+                                !pocketEnabled ||
+                                lockedPrefs.includes(
+                                  PREF_INFERRED_PERSONALIZATION
+                                )
+                              }
+                              // Renders its own `disabled`, so it opts out of
+                              // CustomizeMenu's lock sweep and applies the lock
+                              // itself.
+                              data-lock-managed=""
                               checked={showInferredPersonalizationEnabled}
                               onChange={this.onPreferenceSelect}
-                              data-preference="discoverystream.sections.personalization.inferred.user.enabled"
+                              data-preference={PREF_INFERRED_PERSONALIZATION}
                               data-event-source="INFERRED_PERSONALIZATION"
                               data-l10n-id="newtab-custom-stories-personalized-checkbox"
                             />
                           )}
                           {mayHaveTopicSections && (
                             <SectionsMgmtPanel
-                              exitEventFired={exitEventFired}
                               pocketEnabled={pocketEnabled}
-                              onSubpanelToggle={onSubpanelToggle}
                               togglePanel={toggleSectionsMgmtPanel}
                               showPanel={showSectionsMgmtPanel}
                               novaEnabled={novaEnabled}

@@ -426,7 +426,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
 
   constexpr auto kPrefEnabled =
       "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.enabled"_ns;
-  if (!Preferences::GetBool(kPrefEnabled.get(), true)) {
+  if (!Preferences::GetBool(kPrefEnabled.get(), false)) {
     return;
   }
 

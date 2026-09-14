@@ -34,6 +34,7 @@ const lazy = XPCOMUtils.declareLazy({
   Progress: "chrome://global/content/ml/Utils.sys.mjs",
   OPFS: "chrome://global/content/ml/OPFS.sys.mjs",
   BACKENDS: "chrome://global/content/ml/EngineProcess.sys.mjs",
+  EngineProcess: "chrome://global/content/ml/EngineProcess.sys.mjs",
   stringifyForLog: "chrome://global/content/ml/Utils.sys.mjs",
   console: () =>
     console.createInstance({
@@ -412,6 +413,11 @@ export class MLEngineParent extends JSProcessActorParent {
 
       case "MLEngine:GetWorkerConfig":
         return MLEngineParent.getWorkerConfig();
+
+      case "MLEngine:GetNativeOnnxRuntimeAvailability":
+        // Routed through EngineProcess so the child shares the parent's single
+        // cached probe result instead of running its own.
+        return lazy.EngineProcess.requestIsNativeOnnxRuntimeAvailable();
 
       case "MLEngine:DestroyEngineProcess":
         if (this.processKeepAlive) {
@@ -1135,27 +1141,6 @@ export class MLEngine {
   }
 
   /**
-   * Validates an inference request before sending to child process.
-   *
-   * @param {object} request - The request to validate
-   * @returns {object|null} The validated request, or null if blocked
-   */
-  #validateRequest(request) {
-    return request;
-  }
-
-  /**
-   * Validates an inference response after receiving from child process.
-   *
-   * @param {object} response - The response to validate
-   * @returns {object|null} The validated response, or null if blocked
-   */
-  #validateResponse(response) {
-    lazy.console.debug("[MLSecurity] Validating response:", response);
-    return response;
-  }
-
-  /**
    * Observes shutdown events from the child process.
    *
    * When the inference process is shutdown, we want to set the port to null and throw an error.
@@ -1418,21 +1403,14 @@ export class MLEngine {
             this.telemetry.recordRunInferenceFailure(error);
             request.reject(error);
           } else if (response) {
-            // Validate response before returning to caller
-            /** @type {any} */
-            const validatedResponse = this.#validateResponse(response);
-            if (!validatedResponse) {
-              request.reject(new Error("Response failed security validation"));
-            } else {
-              this.telemetry.recordRunInferenceSuccessFlow(
-                this.engineId,
-                validatedResponse.metrics
-              );
-              // Attach resource metrics from the child process
-              validatedResponse.resourcesBefore = resourcesBefore;
-              validatedResponse.resourcesAfter = resourcesAfter;
-              request.resolve(validatedResponse);
-            }
+            this.telemetry.recordRunInferenceSuccessFlow(
+              this.engineId,
+              response.metrics
+            );
+            // Attach resource metrics from the child process
+            response.resourcesBefore = resourcesBefore;
+            response.resourcesAfter = resourcesAfter;
+            request.resolve(response);
           }
         } else {
           lazy.console.error(
@@ -1581,19 +1559,13 @@ export class MLEngine {
       throw new Error("Port does not exist");
     }
 
-    // Validate request before sending to child process
-    const validatedRequest = this.#validateRequest(request);
-    if (!validatedRequest) {
-      throw new Error("Request failed security validation");
-    }
-
     const beforeRun = ChromeUtils.now();
 
     this.#port.postMessage(
       {
         type: "EnginePort:Run",
         requestId,
-        request: validatedRequest,
+        request,
         engineRunOptions: { enableInferenceProgress: false },
       },
       transferables
@@ -1661,18 +1633,12 @@ export class MLEngine {
       throw new Error("The port is null");
     }
 
-    // Validate request before sending to child process
-    const validatedRequest = this.#validateRequest(request);
-    if (!validatedRequest) {
-      throw new Error("Request failed security validation");
-    }
-
     // Send the request to the engine via postMessage with optional transferables
     this.#port.postMessage(
       {
         type: "EnginePort:Run",
         requestId,
-        request: validatedRequest,
+        request,
         engineRunOptions: { enableInferenceProgress: true },
       },
       transferables

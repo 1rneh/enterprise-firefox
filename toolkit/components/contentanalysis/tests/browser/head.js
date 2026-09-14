@@ -49,11 +49,7 @@ function mockService(serviceNames, contractId, interfaceObj, mockService) {
   const { MockRegistrar } = ChromeUtils.importESModule(
     "resource://testing-common/MockRegistrar.sys.mjs"
   );
-  let cid = MockRegistrar.registerEx(
-    contractId,
-    { shouldCreateInstance: false },
-    o
-  );
+  let cid = MockRegistrar.register(contractId, o);
   registerCleanupFunction(() => {
     MockRegistrar.unregister(cid);
   });
@@ -71,15 +67,20 @@ async function mockContentAnalysisService(mockCAServiceTemplate) {
   // Some of the C++ code that tests if CA is active checks this
   // pref (even though it would perhaps be better to just ask
   // nsIContentAnalysis)
-  await SpecialPowers.pushPrefEnv({
-    set: [["browser.contentanalysis.enabled", true]],
-  });
-  registerCleanupFunction(async function () {
-    SpecialPowers.popPrefEnv();
+  // Avoid pushPrefEnv to work around Bug 2067888 with unbalanced
+  // popPrefEnvs in PrintHelper.withTestPage.
+  Services.prefs.setBoolPref("browser.contentanalysis.enabled", true);
+  registerCleanupFunction(function () {
+    Services.prefs.clearUserPref("browser.contentanalysis.enabled");
   });
   let realCAService = SpecialPowers.Cc[
     "@mozilla.org/contentanalysis;1"
   ].getService(SpecialPowers.Ci.nsIContentAnalysis);
+  // Set command line arg property so CA can be active without policy.
+  realCAService.testOnlySetCACmdLineArg(true);
+  registerCleanupFunction(function () {
+    realCAService.testOnlySetCACmdLineArg(false);
+  });
   let mockCAService = mockService(
     ["nsIContentAnalysis"],
     "@mozilla.org/contentanalysis;1",
@@ -155,12 +156,16 @@ function makeMockContentAnalysis() {
      *                               test. Helpful for testing timing scenarios.
      * @param {boolean} showDialogs  If this is true, send the messages that will
      *                               cause dialogs to be shown.
+     * @param {string} ruleMessage   The admin-authored message to report on the
+     *                               response, as a matched rule with a
+     *                               configured "Message" would.
      */
-    setupForTest(shouldAllowRequest, waitForEvent, showDialogs) {
+    setupForTest(shouldAllowRequest, waitForEvent, showDialogs, ruleMessage) {
       this.shouldAllowRequest = shouldAllowRequest;
       this.errorValue = undefined;
       this.waitForEvent = !!waitForEvent;
       this.showDialogs = showDialogs;
+      this.ruleMessage = ruleMessage ?? "";
       this.clearCalls();
       // If showDialog is true, make sure this mock is called by
       // CA JS code. Otherwise remove the test-only
@@ -312,7 +317,8 @@ function makeMockContentAnalysis() {
         let response = this.realCAService.makeResponseForTest(
           this.getAction(),
           request.requestToken,
-          request.userActionId
+          request.userActionId,
+          this.ruleMessage
         );
         if (this.showDialogs) {
           Services.obs.notifyObservers(response, "dlp-response");

@@ -26,7 +26,6 @@ try-browsertime:
     treeherder:
         symbol: perftest(bt)
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -47,7 +46,6 @@ browsertime-sample:
         cron: false
     run-on-projects: [mozilla-central]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -70,7 +68,6 @@ service-worker:
         cron: false
     run-on-projects: [autoland, mozilla-central]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -103,7 +100,6 @@ domcount:
         batch: false
         cron: false
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -204,7 +200,6 @@ livesites:
             default:
                 - [null, browsertime.waitTime=1000]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -230,7 +225,6 @@ controlled:
         batch: false
         cron: false
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -256,7 +250,6 @@ perfstats:
         batch: false
         cron: false
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -283,7 +276,6 @@ record-websites:
         - secrets:get:project/releng/gecko/build/level-{level}/conditioned-profiles
         - secrets:get:project/perftest/gecko/level-{level}/perftest-login
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -314,7 +306,6 @@ ml-perf-wasm: &ml-perf
         env:
             MOZ_ML_BACKENDS: onnx
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -335,6 +326,29 @@ ml-perf-native:
         env:
             MOZ_ML_BACKENDS: onnx-native
 
+speech-recognition-perf:
+    fetches:
+        fetch:
+            - parakeet-eou-120m
+            - parakeet-nemotron-0.6b
+    description: Latency, real-time factor and memory of on-device speech recognition
+    treeherder:
+        symbol: perftest(sr-perf)
+        tier: 2
+    attributes:
+        batch: false
+        cron: false
+    run-on-projects: [mozilla-central]
+    run:
+        command: >-
+            mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
+            cd $MOZ_FETCHES_DIR &&
+            python3 python/mozperftest/mozperftest/runner.py
+            --mochitest-binary ${MOZ_FETCHES_DIR}/firefox/firefox.exe
+            --flavor mochitest
+            --output $MOZ_FETCHES_DIR/../artifacts
+            dom/media/webspeech/recognition/test/browser_speech_recognition_perf.js
+
 ml-llama-summarizer-perf:
     fetches:
         fetch:
@@ -349,7 +363,6 @@ ml-llama-summarizer-perf:
         cron: false
     run-on-projects: [mozilla-central]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -384,31 +397,6 @@ ml-llama-smollm2-smoke:
             toolkit/components/ml/tests/browser/browser_ml_llama_smollm2_smoke.js
 
 
-ml-security-perf:
-    fetches:
-        fetch:
-            - smollm2-360-instruct-gguf
-    description: Run ML Security Performance Tests
-    treeherder:
-        symbol: perftest(ml-security-perf)
-        tier: 2
-    attributes:
-        batch: false
-        cron: false
-    run-on-projects: [mozilla-central]
-    run:
-        clone-with: hg
-        command: >-
-            mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
-            cd $MOZ_FETCHES_DIR &&
-            python3 python/mozperftest/mozperftest/runner.py
-            --mochitest-binary ${MOZ_FETCHES_DIR}/firefox/firefox.exe
-            --flavor mochitest
-            --mochitest-name-change
-            --output $MOZ_FETCHES_DIR/../artifacts
-            --hooks toolkit/components/ml/tests/tools/hooks_local_hub.py
-            toolkit/components/ml/tests/browser/browser_ml_security_perf.js
-
 ml-multi-perf-wasm: &ml-multi-perf
     fetches:
         fetch:
@@ -416,6 +404,7 @@ ml-multi-perf-wasm: &ml-multi-perf
             - xenova-all-minilm-l6-v2
             - mozilla-ner
             - mozilla-intent
+            - mozilla-smart-intent
     description: Run ML Models Perf Tests (wasm onnx backend)
     treeherder:
         symbol: perftest(ml-multi-perf-w)
@@ -428,7 +417,6 @@ ml-multi-perf-wasm: &ml-multi-perf
         env:
             MOZ_ML_BACKENDS: onnx
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -463,7 +451,6 @@ ml-perf-semantic-ft-wasm: &ml-perf-semantic-ft
         env:
             MOZ_ML_BACKENDS: onnx
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -504,7 +491,6 @@ ml-perf-suggest-ft-wasm: &ml-perf-suggest-ft
         env:
             MOZ_ML_BACKENDS: onnx
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -543,7 +529,6 @@ ml-perf-suggest-inf-wasm: &ml-perf-suggest-inf
         env:
             MOZ_ML_BACKENDS: onnx
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -583,7 +568,6 @@ ml-perf-autofill-wasm: &ml-perf-autofill
         env:
             MOZ_ML_BACKENDS: onnx
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -620,7 +604,6 @@ tr8ns-perf-tiny:
         cron: false
     run-on-projects: [autoland, mozilla-central]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -646,7 +629,6 @@ tr8ns-perf-basememory:
         cron: false
     run-on-projects: [autoland, mozilla-central]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -672,7 +654,6 @@ tr8ns-perf-base:
         cron: false
     run-on-projects: [autoland, mozilla-central]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -700,7 +681,6 @@ ml-perf-smart-tab-wasm: &ml-perf-smart-tab
         env:
             MOZ_ML_BACKENDS: onnx
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -740,7 +720,6 @@ ml-perf-smart-tab-cluster-wasm: &ml-perf-smart-tab-cluster
         cron: false
     run-on-projects: [mozilla-central]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -774,7 +753,6 @@ perftest-accessibility:
         cron: false
     run-on-projects: [autoland, mozilla-central]
     run:
-        clone-with: hg
         command: >-
             mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
             cd $MOZ_FETCHES_DIR &&
@@ -813,3 +791,34 @@ perftest-accessibility:
             --flavor mochitest
             --output $MOZ_FETCHES_DIR/../artifacts
             accessible/tests/browser/performance/browser_displayContentsBounds.js
+            && python3 python/mozperftest/mozperftest/runner.py
+            --mochitest-binary ${MOZ_FETCHES_DIR}/firefox/firefox.exe
+            --flavor mochitest
+            --output $MOZ_FETCHES_DIR/../artifacts
+            accessible/tests/browser/performance/browser_panManySVGShapes.js
+
+smartwindow-perf:
+    fetches:
+        fetch:
+            - ort.jsep.wasm
+            - xenova-all-minilm-l6-v2
+            - mozilla-query-intent
+    description: Run Smart Window end-to-end responsiveness performance tests
+    treeherder:
+        symbol: perftest(smartwindow)
+        tier: 2
+    attributes:
+        batch: false
+        cron: false
+    run-on-projects: [mozilla-central]
+    run:
+        clone-with: hg
+        command: >-
+            mkdir -p $MOZ_FETCHES_DIR/../artifacts &&
+            cd $MOZ_FETCHES_DIR &&
+            python3 python/mozperftest/mozperftest/runner.py
+            --mochitest-binary ${MOZ_FETCHES_DIR}/firefox/firefox.exe
+            --flavor mochitest
+            --output $MOZ_FETCHES_DIR/../artifacts
+            --hooks toolkit/components/ml/tests/tools/hooks_local_hub.py
+            browser/components/aiwindow/ui/test/browser_perf/browser_smartwindow_perf.js

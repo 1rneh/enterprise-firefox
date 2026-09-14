@@ -6,9 +6,10 @@
 -enterprise-feature-access-connector = Access Connector
 
 # Shown in the about:support "Application Basics" table on enterprise builds.
-app-basics-machine-id = Machine ID
+app-basics-device-id = Device ID
 
 # Shown in the about:support "Security Software" section on enterprise builds.
+# Endpoint Detection and Response is an industry term and must remain in English.
 security-software-edr = Endpoint Detection and Response
 
 enterprise-toolbar-button =
@@ -70,6 +71,20 @@ window-restoration-info = Your windows and tabs will be quickly restored, except
 
 restart-button-label = Restart { -brand-short-name }
 
+# Variables:
+#   $datetime (number) - Timestamp of the time the browser will be restarted at.
+enterprise-relaunch-warning-message = <strong>Your administrator requires { -brand-short-name } to restart.</strong> It will restart at { DATETIME($datetime, dateStyle: "short", timeStyle: "short") }. Tabs will reopen.
+
+# Variables:
+#   $minutes (number) - How many minutes are left before the browser restarts.
+enterprise-relaunch-imminent-message =
+    { $minutes ->
+        [one] <strong>{ -brand-short-name } will restart in { $minutes } minute.</strong> Save your work now. Tabs will reopen.
+       *[other] <strong>{ -brand-short-name } will restart in { $minutes } minutes.</strong> Save your work now. Tabs will reopen.
+    }
+
+enterprise-relaunch-restart-now = Restart now
+
 extension-firefox-enterprise-light-name = Firefox Enterprise Light
 extension-firefox-enterprise-light-description = A soft pastel theme with a touch of morning sunlight in the corner.
 
@@ -104,3 +119,20 @@ crashed-policy-auto-submit-message = Your administrator has configured { -brand-
 fp-neterror-access-connector-error-title = This website can’t be reached
 fp-neterror-access-connector-error-description = Your organization routes this website through a secure connection service, but that service is currently unavailable.
 fp-neterror-access-connector-error-contact-admin = Try again later, or contact your administrator if you need access.
+
+# Labels the message an administrator wrote for the data protection rule that
+# was matched, shown in the warn and block dialogs above that message.
+contentanalysis-admin-message-label = Message from your administrator
+
+# Shown in the about:preferences data collection section.
+# Variant of data-collection (preferences.ftl) without the description.
+data-collection-enterprise =
+    .label = { -brand-short-name } data collection and use
+    .searchkeywords = telemetry
+
+# Shown in the about:preferences data collection section.
+# Variant of data-collection-backlogged-crash-reports (preferences.ftl).
+data-collection-backlogged-crash-reports-enterprise =
+    .label = Automatically send crash reports
+    .description = Crash reports help your organization diagnose and fix issues with the browser. Reports may include personal or sensitive data.
+    .accesskey = c

@@ -4,9 +4,6 @@
 
 #include "mozilla/dom/WindowGlobalChild.h"
 
-#ifdef ACCESSIBILITY
-#  include "mozilla/a11y/DocAccessibleChild.h"
-#endif
 #include "GeckoProfiler.h"
 #include "Navigator.h"
 #include "mozilla/AntiTrackingUtils.h"
@@ -628,20 +625,6 @@ bool WindowGlobalChild::IsProcessRoot() {
   return !BrowsingContext()->GetEmbedderElement();
 }
 
-#ifdef ACCESSIBILITY
-a11y::PDocAccessibleChild* WindowGlobalChild::AllocPDocAccessibleChild(
-    const uint64_t&, const bool&) {
-  MOZ_ASSERT_UNREACHABLE("should never call this!");
-  return nullptr;
-}
-
-bool WindowGlobalChild::DeallocPDocAccessibleChild(
-    a11y::PDocAccessibleChild* aActor) {
-  delete static_cast<mozilla::a11y::DocAccessibleChild*>(aActor);
-  return true;
-}
-#endif
-
 // When a "beforeunload" handler is added, it's recorded to be able to know when
 // dispatching "beforeunload" is needed.
 void WindowGlobalChild::BeforeUnloadAdded() {
@@ -729,7 +712,7 @@ mozilla::ipc::IPCResult WindowGlobalChild::RecvMakeFrameLocal(
 
   // Trigger a process switch into the current process.
   RemotenessOptions options;
-  options.mRemoteType = NOT_REMOTE_TYPE;
+  options.mRemoteType = dom::RemoteType::NotRemote().Stringify();
   options.mPendingSwitchID.Construct(aPendingSwitchId);
   options.mSwitchingInProgressLoad = true;
   flo->ChangeRemoteness(options, IgnoreErrors());
@@ -1100,12 +1083,12 @@ void WindowGlobalChild::SetDocumentURI(nsIURI* aDocumentURI) {
   SendUpdateDocumentURI(WrapNotNull(aDocumentURI));
 }
 
-const nsACString& WindowGlobalChild::GetRemoteType() const {
+const RemoteType& WindowGlobalChild::GetRemoteType() const {
   if (XRE_IsContentProcess()) {
     return ContentChild::GetSingleton()->GetRemoteType();
   }
 
-  return NOT_REMOTE_TYPE;
+  return RemoteType::NotRemote();
 }
 
 already_AddRefed<JSWindowActorChild> WindowGlobalChild::GetActor(

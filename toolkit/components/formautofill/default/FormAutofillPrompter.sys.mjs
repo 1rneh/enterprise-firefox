@@ -1393,7 +1393,6 @@ CONTENT = {
       ],
     },
     options: {
-      autofocus: true,
       persistWhileVisible: true,
       hideClose: true,
 
@@ -1448,7 +1447,6 @@ CONTENT = {
       ],
     },
     options: {
-      autofocus: true,
       persistWhileVisible: true,
       hideClose: true,
     },
@@ -1720,7 +1718,7 @@ export let FormAutofillPrompter = {
     } else {
       changedGUID = await storage.add(newRecord);
     }
-    storage.notifyUsed(changedGUID);
+    await storage.notifyUsed(changedGUID);
 
     showConfirmation(
       browser,

@@ -79,5 +79,8 @@ add_task(async function test_addon_install_telemetry_policy() {
     "the preference is unlocked"
   );
   events = await installExtension("default@example.com");
-  Assert.equal(events?.length, 1, "removing the policy restores collection");
+  Assert.ok(
+    !events?.length,
+    "removing the policy restores the disabled-by-default collection"
+  );
 });

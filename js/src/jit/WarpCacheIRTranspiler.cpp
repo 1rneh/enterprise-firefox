@@ -22,6 +22,7 @@
 #include "jit/WarpBuilderShared.h"
 #include "jit/WarpSnapshot.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
+#include "vm/BoundFunctionObject.h"
 #include "vm/BytecodeLocation.h"
 #include "vm/ObjectFuse.h"
 #include "vm/TypeofEqOperand.h"  // TypeofEqOperand
@@ -287,6 +288,10 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   enum class CallKind { Native, DOM, Scripted };
 
   [[nodiscard]] bool updateCallInfo(MDefinition* callee, CallFlags flags);
+  [[nodiscard]] bool updateCallInfoForInlinedBoundCall(MDefinition* callee,
+                                                       MDefinition* target,
+                                                       CallFlags flags,
+                                                       uint32_t numBoundArgs);
 
   [[nodiscard]] bool emitCallFunction(
       ObjOperandId calleeId, Int32OperandId argcId,
@@ -366,9 +371,12 @@ bool WarpCacheIRTranspiler::transpile(
   // number of exceptions:
   // - MIonToWasmCall: Resumes after MInt64ToBigInt
   // - MLoadUnboxedScalar: Resumes after MInt64ToBigInt
-  // - MAtomicTypedArrayElementBinop: Resumes after MInt64ToBigInt
-  // - MAtomicExchangeTypedArrayElement: Resumes after MInt64ToBigInt
-  // - MCompareExchangeTypedArrayElement: Resumes after MInt64ToBigInt
+  // - MAtomicTypedArrayElementBinop: Resumes after
+  //   MInt64ToBigInt or MUnsignedToDouble
+  // - MAtomicExchangeTypedArrayElement: Resumes after
+  //   MInt64ToBigInt or MUnsignedToDouble
+  // - MCompareExchangeTypedArrayElement: Resumes after
+  //   MInt64ToBigInt or MUnsignedToDouble
   // - MResizableTypedArrayLength: Resumes after MPostIntPtrConversion
   // - MResizableDataViewByteLength: Resumes after MPostIntPtrConversion
   // - MGrowableSharedArrayBufferByteLength: Resumes after MPostIntPtrConversion
@@ -435,6 +443,11 @@ const JSClass* WarpCacheIRTranspiler::classForGuardClassKind(
     case GuardClassKind::Map:
     case GuardClassKind::BoundFunction:
     case GuardClassKind::Date:
+    case GuardClassKind::Duration:
+    case GuardClassKind::PlainTime:
+    case GuardClassKind::PlainDateTime:
+    case GuardClassKind::Instant:
+    case GuardClassKind::ZonedDateTime:
     case GuardClassKind::WeakMap:
     case GuardClassKind::WeakSet:
       return ClassFor(kind);
@@ -5236,7 +5249,7 @@ bool WarpCacheIRTranspiler::emitAtomicsCompareExchangeResult(
   auto* elements = MArrayBufferViewElements::New(alloc(), obj);
   add(elements);
 
-  bool forceDoubleForUint32 = true;
+  bool forceDoubleForUint32 = false;
   MIRType knownType =
       MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32);
 
@@ -5249,7 +5262,10 @@ bool WarpCacheIRTranspiler::emitAtomicsCompareExchangeResult(
   if (Scalar::isBigIntType(elementType)) {
     result =
         MInt64ToBigInt::New(alloc(), cas, Scalar::isSignedIntType(elementType));
-
+  } else if (elementType == Scalar::Uint32) {
+    result = MUnsignedToDouble::New(alloc(), cas);
+  }
+  if (result != cas) {
     // Make non-movable so we can attach a resume point.
     result->setNotMovable();
 
@@ -5274,7 +5290,7 @@ bool WarpCacheIRTranspiler::emitAtomicsExchangeResult(
   auto* elements = MArrayBufferViewElements::New(alloc(), obj);
   add(elements);
 
-  bool forceDoubleForUint32 = true;
+  bool forceDoubleForUint32 = false;
   MIRType knownType =
       MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32);
 
@@ -5287,7 +5303,10 @@ bool WarpCacheIRTranspiler::emitAtomicsExchangeResult(
   if (Scalar::isBigIntType(elementType)) {
     result = MInt64ToBigInt::New(alloc(), exchange,
                                  Scalar::isSignedIntType(elementType));
-
+  } else if (elementType == Scalar::Uint32) {
+    result = MUnsignedToDouble::New(alloc(), exchange);
+  }
+  if (result != exchange) {
     // Make non-movable so we can attach a resume point.
     result->setNotMovable();
 
@@ -5313,7 +5332,7 @@ bool WarpCacheIRTranspiler::emitAtomicsBinaryOp(
   auto* elements = MArrayBufferViewElements::New(alloc(), obj);
   add(elements);
 
-  bool forceDoubleForUint32 = true;
+  bool forceDoubleForUint32 = false;
   MIRType knownType =
       MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32);
 
@@ -5333,7 +5352,10 @@ bool WarpCacheIRTranspiler::emitAtomicsBinaryOp(
   if (Scalar::isBigIntType(elementType)) {
     result = MInt64ToBigInt::New(alloc(), binop,
                                  Scalar::isSignedIntType(elementType));
-
+  } else if (elementType == Scalar::Uint32) {
+    result = MUnsignedToDouble::New(alloc(), binop);
+  }
+  if (result != binop) {
     // Make non-movable so we can attach a resume point.
     result->setNotMovable();
 
@@ -5994,6 +6016,40 @@ bool WarpCacheIRTranspiler::emitNewDateObjectResult(
   add(obj);
 
   pushResult(obj);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitUnpackTimeResult(ValOperandId packedValId,
+                                                 uint32_t shiftImm,
+                                                 uint32_t maskImm) {
+  MDefinition* packedVal = getOperand(packedValId);
+
+  auto* ins = MUnpackTime::New(alloc(), packedVal, shiftImm, maskImm);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitEpochMillisecondsResult(
+    ObjOperandId objId, uint32_t secondsOffset, uint32_t nanosecondsOffset) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* seconds = MLoadFixedSlot::New(
+      alloc(), obj, NativeObject::getFixedSlotIndexFromOffset(secondsOffset));
+  seconds->setResultType(MIRType::Double);
+  add(seconds);
+
+  auto* nanoseconds = MLoadFixedSlot::New(
+      alloc(), obj,
+      NativeObject::getFixedSlotIndexFromOffset(nanosecondsOffset));
+  nanoseconds->setResultType(MIRType::Int32);
+  add(nanoseconds);
+
+  auto* ins = MEpochMilliseconds::New(alloc(), seconds, nanoseconds);
+  add(ins);
+
+  pushResult(ins);
   return true;
 }
 
@@ -6687,6 +6743,38 @@ bool WarpCacheIRTranspiler::emitCallClassHook(ObjOperandId calleeId,
   return resumeAfter(call);
 }
 
+// Update the CallInfo for a bound function call that will be inlined by
+// WarpBuilder::buildInlinedCall instead of becoming an MCall. With no bound
+// arguments the outer frame is the same shape as a direct call to the target,
+// so we can use ResumeMode::InlinedStandardCall.
+bool WarpCacheIRTranspiler::updateCallInfoForInlinedBoundCall(
+    MDefinition* callee, MDefinition* target, CallFlags flags,
+    uint32_t numBoundArgs) {
+  MOZ_ASSERT(callInfo_->isInlined());
+  MOZ_ASSERT(numBoundArgs == 0);
+  MOZ_ASSERT(!flags.isConstructing());
+  MOZ_ASSERT(callInfo_->argFormat() == CallInfo::ArgFormat::Standard);
+
+  callInfo_->setCallee(target);
+  updateArgumentsFromOperands();
+
+  auto* thisv = MLoadFixedSlot::New(alloc(), callee,
+                                    BoundFunctionObject::boundThisSlot());
+  add(thisv);
+  callInfo_->thisArg()->setImplicitlyUsedUnchecked();
+  callInfo_->setThis(thisv);
+
+  callInfo_->setInliningResumeMode(ResumeMode::InlinedStandardCall);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitCallInlinedBoundFunction(
+    ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
+    CallFlags flags, uint32_t icScriptOffset, uint32_t numBoundArgs) {
+  return emitCallBoundScriptedFunction(calleeId, targetId, argcId, flags,
+                                       numBoundArgs);
+}
+
 bool WarpCacheIRTranspiler::emitCallBoundScriptedFunction(
     ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
     CallFlags flags, uint32_t numBoundArgs) {
@@ -6695,6 +6783,14 @@ bool WarpCacheIRTranspiler::emitCallBoundScriptedFunction(
 
   MOZ_ASSERT(callInfo_->argFormat() == CallInfo::ArgFormat::Standard);
   MOZ_ASSERT(callInfo_->constructing() == flags.isConstructing());
+
+  // We are transpiling to generate the correct guards. We also update the
+  // CallInfo to use the correct arguments. Code for the inlined function itself
+  // will be generated in WarpBuilder::buildInlinedCall.
+  if (callInfo_->isInlined()) {
+    return updateCallInfoForInlinedBoundCall(callee, target, flags,
+                                             numBoundArgs);
+  }
 
   callInfo_->setCallee(target);
   updateArgumentsFromOperands();
@@ -6793,7 +6889,8 @@ bool WarpCacheIRTranspiler::emitSpecializedBindFunctionResult(
   MOZ_ASSERT_IF(callInfo_, callInfo_->argc() == argc);
   MOZ_ASSERT_IF(!callInfo_, argc == 0);
 
-  auto* bound = MNewBoundFunction::New(alloc(), templateObj);
+  auto* templateConst = constant(ObjectValue(*templateObj));
+  auto* bound = MNewBoundFunction::New(alloc(), templateConst);
   add(bound);
 
   size_t numBoundArgs = argc > 0 ? argc - 1 : 0;

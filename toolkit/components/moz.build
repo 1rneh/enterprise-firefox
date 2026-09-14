@@ -165,6 +165,9 @@ if CONFIG["NIGHTLY_BUILD"]:
 if CONFIG["MOZ_ENTERPRISE"]:
     DIRS += ["felt", "enterprise"]
 
+if CONFIG["OS_ARCH"] == "WINNT":
+    DIRS += ["push"]
+
 UNIFIED_SOURCES += [
     "/toolkit/components/antitracking/ContentBlockingAllowList.cpp",
 ]

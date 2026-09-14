@@ -68,6 +68,9 @@
 #  include "MacApplicationDelegate.h"
 #  include "MacAutoreleasePool.h"
 #  include "MacRunFromDmgUtils.h"
+#  ifdef NIGHTLY_BUILD
+#    include "ASWebAuthSessionHandler.h"
+#  endif
 // these are needed for sysctl
 #  include <sys/types.h>
 #  include <sys/sysctl.h>
@@ -403,15 +406,6 @@ using mozilla::dom::ContentParent;
 using mozilla::dom::quota::QuotaManager;
 using mozilla::intl::LocaleService;
 using mozilla::scache::StartupCache;
-
-struct AppRunnerTelemFlags {
-  uint8_t isBackgroundTaskModeRequested : 1;
-  uint8_t isBackgroundTaskMode : 1;
-  uint8_t hasRestartPidParameter : 1;
-  uint8_t isRestartPidNotInteger : 1;
-  uint8_t isRestartPidWaitTimeout : 1;
-  uint8_t isRestartPidFailure : 1;
-};
 
 #ifndef XP_WIN
 // Save the given word to the specified environment variable.
@@ -1290,9 +1284,9 @@ nsXULAppInfo::GetUniqueProcessID(uint64_t* aResult) {
 NS_IMETHODIMP
 nsXULAppInfo::GetRemoteType(nsACString& aRemoteType) {
   if (XRE_IsContentProcess()) {
-    aRemoteType = ContentChild::GetSingleton()->GetRemoteType();
+    aRemoteType = ContentChild::GetSingleton()->GetRemoteType().Stringify();
   } else {
-    aRemoteType = NOT_REMOTE_TYPE;
+    aRemoteType = dom::RemoteType::NotRemote().Stringify();
   }
 
   return NS_OK;
@@ -1852,6 +1846,11 @@ nsXULAppInfo::SetServerURL(nsIURL* aServerURL) {
   NS_ENSURE_SUCCESS(rv, rv);
 
   return CrashReporter::SetServerURL(spec);
+}
+
+NS_IMETHODIMP
+nsXULAppInfo::SetAuthToken(const nsACString& aToken) {
+  return CrashReporter::SetAuthToken(aToken);
 }
 
 NS_IMETHODIMP
@@ -3368,7 +3367,7 @@ static ReturnAbortOnError ShowProfileDialog(
       }
       nsCOMPtr<mozIDOMWindowProxy> newWindow;
       rv = windowWatcher->OpenWindow(nullptr, nsDependentCString(aDialogURL),
-                                     "_blank"_ns, features, ioParamBlock,
+                                     u"_blank"_ns, features, ioParamBlock,
                                      getter_AddRefs(newWindow));
 
       NS_ENSURE_SUCCESS_LOG(rv, rv);
@@ -3459,6 +3458,69 @@ static ReturnAbortOnError ShowProfileSelector(
   return ShowProfileDialog(aProfileSvc, aNative, kProfileSelectorURL,
                            kTelemetryEnv);
 }
+
+#if defined(MOZ_ENTERPRISE)
+// Modal pre-profile dialog asking for the enterprise console address on
+// generic builds (the AutoConfig file holds the generic console placeholder
+// and nothing is persisted yet). The dialog stores the address in felt.json,
+// then this relaunches so the very early startup consumers (crash reporter URL,
+// update URL, FELT connection) see the configured value from the start.
+// Modeled on ShowProfileDialog.
+static ReturnAbortOnError ShowEnterpriseConsoleSetup(
+    nsINativeAppSupport* aNative) {
+  nsresult rv;
+  int32_t dialogReturn = 0;
+
+  // We aren't going to start this instance so we can unblock other instances
+  // from starting up.
+#  if defined(MOZ_HAS_REMOTE)
+  gStartupLock = nullptr;
+#  endif
+
+  {
+    ScopedXPCOMStartup xpcom;
+    rv = xpcom.Initialize();
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    rv = xpcom.SetWindowCreator(aNative);
+    NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
+
+#  ifdef XP_MACOSX
+    InitializeMacApp();
+    CommandLineServiceMac::SetupMacCommandLine(gRestartArgc, gRestartArgv,
+                                               true);
+#  endif
+
+    {  // extra scoping is needed so we release these components before xpcom
+       // shutdown
+      nsCOMPtr<nsIWindowWatcher> windowWatcher(
+          do_GetService(NS_WINDOWWATCHER_CONTRACTID));
+      nsCOMPtr<nsIDialogParamBlock> ioParamBlock(
+          do_CreateInstance(NS_DIALOGPARAMBLOCK_CONTRACTID));
+      NS_ENSURE_TRUE(windowWatcher && ioParamBlock, NS_ERROR_FAILURE);
+
+      nsCOMPtr<nsIAppStartup> appStartup(components::AppStartup::Service());
+      NS_ENSURE_TRUE(appStartup, NS_ERROR_FAILURE);
+
+      nsCOMPtr<mozIDOMWindowProxy> newWindow;
+      // Same size as the FELT window (Felt.sys.mjs showWindow), which this
+      // dialog visually mirrors.
+      rv = windowWatcher->OpenWindow(
+          nullptr, "chrome://felt/content/consoleSetup.xhtml"_ns, u"_blank"_ns,
+          "centerscreen,chrome,modal,titlebar,resizable,width=727,height=744"_ns,
+          ioParamBlock, getter_AddRefs(newWindow));
+      NS_ENSURE_SUCCESS_LOG(rv, rv);
+
+      rv = ioParamBlock->GetInt(0, &dialogReturn);
+      if (NS_FAILED(rv) || dialogReturn != 1) {
+        return NS_ERROR_ABORT;
+      }
+    }
+  }
+
+  return LaunchChild(false, true);
+}
+#endif
 
 static bool gDoMigration = false;
 static bool gDoProfileReset = false;
@@ -3654,8 +3716,7 @@ struct FileWriteFunc final : public JSONWriteFunc {
 };
 
 static void SubmitDowngradeTelemetry(const nsCString& aLastVersion,
-                                     bool aHasSync, int32_t aButton,
-                                     AppRunnerTelemFlags appRunnerTelemFlags) {
+                                     bool aHasSync, int32_t aButton) {
   nsCOMPtr<nsIPrefService> prefSvc =
       do_GetService("@mozilla.org/preferences-service;1");
   NS_ENSURE_TRUE_VOID(prefSvc);
@@ -3807,18 +3868,6 @@ static void SubmitDowngradeTelemetry(const nsCString& aLastVersion,
       w.BoolProperty("hasSync", aHasSync);
       w.IntProperty("button", aButton);
       w.BoolProperty("isMSIX", isMSIX);
-      w.BoolProperty("isBackgroundTaskModeRequested",
-                     appRunnerTelemFlags.isBackgroundTaskModeRequested);
-      w.BoolProperty("isBackgroundTaskMode",
-                     appRunnerTelemFlags.isBackgroundTaskMode);
-      w.BoolProperty("hasRestartPidParameter",
-                     appRunnerTelemFlags.hasRestartPidParameter);
-      w.BoolProperty("isRestartPidNotInteger",
-                     appRunnerTelemFlags.isRestartPidNotInteger);
-      w.BoolProperty("isRestartPidWaitTimeout",
-                     appRunnerTelemFlags.isRestartPidWaitTimeout);
-      w.BoolProperty("isRestartPidFailure",
-                     appRunnerTelemFlags.isRestartPidFailure);
     }
     w.EndObject();
   }
@@ -3855,8 +3904,7 @@ static const char kProfileDowngradeURL[] =
 
 static ReturnAbortOnError HandleDetectedDowngrade(
     nsIFile* aProfileDir, nsINativeAppSupport* aNative,
-    nsIToolkitProfileService* aProfileSvc, const nsCString& aLastVersion,
-    AppRunnerTelemFlags appRunnerTelemFlags) {
+    nsIToolkitProfileService* aProfileSvc, const nsCString& aLastVersion) {
   int32_t result = 0;
   nsresult rv;
 
@@ -3929,14 +3977,13 @@ static ReturnAbortOnError HandleDetectedDowngrade(
       }
       nsCOMPtr<mozIDOMWindowProxy> newWindow;
       rv = windowWatcher->OpenWindow(
-          nullptr, nsDependentCString(kProfileDowngradeURL), "_blank"_ns,
+          nullptr, nsDependentCString(kProfileDowngradeURL), u"_blank"_ns,
           features, paramBlock, getter_AddRefs(newWindow));
       NS_ENSURE_SUCCESS(rv, rv);
 
       paramBlock->GetInt(1, &result);
 
-      SubmitDowngradeTelemetry(aLastVersion, hasSync, result,
-                               appRunnerTelemFlags);
+      SubmitDowngradeTelemetry(aLastVersion, hasSync, result);
     }
   }
 
@@ -4361,6 +4408,13 @@ static void MakeOrSetMinidumpPath(nsIFile* profD) {
 
 const XREAppData* gAppData = nullptr;
 
+#if defined(MOZ_ENTERPRISE)
+// Set when the AutoConfig file holds the generic console placeholder and no
+// console address has been persisted yet; XRE_mainStartup then runs the
+// console setup dialog (FELT UI only).
+static bool gEnterpriseConsoleSetupNeeded = false;
+#endif
+
 /**
  * NSPR will search for the "nspr_use_zone_allocator" symbol throughout
  * the process and use it to determine whether the application defines its own
@@ -4444,9 +4498,8 @@ class XREMain {
   }
 
   int XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig);
-  int XRE_mainInit(bool* aExitFlag, AppRunnerTelemFlags& appRunnerTelemFlags);
-  int XRE_mainStartup(bool* aExitFlag,
-                      AppRunnerTelemFlags& appRunnerTelemFlags);
+  int XRE_mainInit(bool* aExitFlag);
+  int XRE_mainStartup(bool* aExitFlag);
   MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult XRE_mainRun();
 
   bool CheckLastStartupWasCrash();
@@ -4645,13 +4698,22 @@ static void SetupConsoleForBackgroundTask(
 }
 #endif
 
+#if defined(MOZ_ENTERPRISE)
+// Whether this build can ever reach a user, and thus whether the enterprise
+// restrictions have anything to protect. A build with the "default" channel a
+// plain mozconfig produces, is a developer or automation build. Same criteria
+// as MOZ_BYPASS_FELT in felt_init().
+static bool IsNonShippingBuild() {
+  return !strcmp(MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL), "default");
+}
+#endif
+
 /*
  * XRE_mainInit - Initial setup and command line parameter processing.
  * Main() will exit early if either return value != 0 or if aExitFlag is
  * true.
  */
-int XREMain::XRE_mainInit(bool* aExitFlag,
-                          AppRunnerTelemFlags& appRunnerTelemFlags) {
+int XREMain::XRE_mainInit(bool* aExitFlag) {
   if (!aExitFlag) return 1;
   *aExitFlag = false;
 
@@ -4696,7 +4758,6 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   if (ARG_FOUND ==
       CheckArg("backgroundtask", &backgroundTaskName, CheckArgFlag::None)) {
     backgroundTask = Some(backgroundTaskName);
-    appRunnerTelemFlags.isBackgroundTaskModeRequested = 1;
     SetupConsoleForBackgroundTask(backgroundTask.ref());
   }
 
@@ -4707,9 +4768,9 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   bool allowHeadlessMode = true;
 #  ifdef MOZ_BACKGROUNDTASKS
   allowHeadlessMode =
-      BackgroundTasks::IsBackgroundTaskMode() || EnvHasValue("MOZ_AUTOMATION");
+      BackgroundTasks::IsBackgroundTaskMode() || IsNonShippingBuild();
 #  else
-  allowHeadlessMode = EnvHasValue("MOZ_AUTOMATION");
+  allowHeadlessMode = IsNonShippingBuild();
 #  endif
 #endif
 
@@ -4726,8 +4787,8 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
 #  if defined(MOZ_ENTERPRISE)
     if (!allowHeadlessMode) {
       Output(true,
-             "Error: Headless mode is only supported when Firefox runs in "
-             "automation.\n");
+             "Error: Headless mode is only supported in non shippable Firefox "
+             "builds.\n");
       return 1;
     }
 #  endif
@@ -4765,21 +4826,25 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
 #if defined(MOZ_ENTERPRISE)
   if (requestedHeadless && !allowHeadlessMode) {
     Output(true,
-           "Error: Headless mode is only supported when Firefox runs in "
-           "automation.\n");
+           "Error: Headless mode is only supported in non shippable Firefox "
+           "builds.\n");
     return 1;
   }
 #endif
 
   if (requestedHeadless) {
+    // Upstream uses CheckArg() directly that consumes the argument, but
+    // we have RequestedHeadlessMode() that does not, so let's make sure it
+    // is consumed to avoid leaking it.
+    CheckArg("headless");
     PR_SetEnv("MOZ_HEADLESS=1");
   }
 
 #if defined(MOZ_ENTERPRISE)
   if (PR_GetEnv("MOZ_HEADLESS") && !allowHeadlessMode) {
     Output(true,
-           "Error: Headless mode is only supported when Firefox runs in "
-           "automation.\n");
+           "Error: Headless mode is only supported in non shippable Firefox "
+           "builds.\n");
     return 1;
   }
 #endif
@@ -4889,9 +4954,43 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   }
 
 #if defined(MOZ_ENTERPRISE)
-  XRE_ParseEnterpriseServerURL(*mAppData);
-  // Ignoring nsresult. If console url is not found in a release build, the
-  // default server url is empty and crash reports will fail to submit.
+  // The flag allows to trigger again the dialog, if autoconfig file contains
+  // the placeholder value. It should be safe enough on shippable builds where
+  // the autoconfig file is part of the distribution and thus should be immune
+  // to any change.
+  if (CheckArg("reset-console-url") == ARG_FOUND) {
+    // Forget the address entered in the console setup dialog. On generic
+    // builds the dialog then runs again below. CheckArg removes the flag from
+    // gArgv before gRestartArgv is derived from it, so the post-dialog
+    // relaunch does not clear the freshly saved address again.
+    if (NS_FAILED(XRE_ClearStoredEnterpriseConsoleUrl())) {
+      // The user asked for the reset explicitly, so failing to perform it
+      // must be visible: the stored address stays in effect and the setup
+      // dialog will not run again.
+      Output(true,
+             "Could not reset the console address; the stored address remains "
+             "in effect.\n");
+    }
+  }
+  {
+    // AutoConfig only evaluates firefox.cfg once the pref service is up in
+    // XRE_mainRun, where the server URLs are derived from the
+    // enterprise.console.address pref. Read the file directly here to learn
+    // before profile selection whether it holds the generic console
+    // placeholder with no resolvable address, in which case XRE_mainStartup
+    // shows the console setup dialog. A read failure only warns: XRE_mainRun
+    // derives the URLs from the evaluated pref either way.
+    nsAutoCString consoleAddress;
+    rv = XRE_ReadEnterpriseConsoleAddress(*mAppData, consoleAddress);
+    if (NS_FAILED(rv)) {
+      NS_WARNING(
+          "Could not read the enterprise console address from the AutoConfig "
+          "file; enterprise server URLs may stay unset");
+    } else if (XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get()) ==
+               NS_ERROR_NOT_AVAILABLE) {
+      gEnterpriseConsoleSetupNeeded = true;
+    }
+  }
 #endif
 
   // Check sanity and correctness of app data.
@@ -5155,7 +5254,7 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
 
 #if defined(MOZ_ENTERPRISE)
   if (safeModeRequested.value() && is_felt_ui()) {
-    if (!EnvHasValue("MOZ_AUTOMATION")) {
+    if (!IsNonShippingBuild()) {
       Output(
           false,
           "Warning: Safe Mode is inhibited in Firefox Enterprise Launcher but "
@@ -5462,8 +5561,7 @@ bool XREMain::CheckLastStartupWasCrash() {
  * Main() will exit early if either return value != 0 or if aExitFlag is
  * true.
  */
-int XREMain::XRE_mainStartup(bool* aExitFlag,
-                             AppRunnerTelemFlags& appRunnerTelemFlags) {
+int XREMain::XRE_mainStartup(bool* aExitFlag) {
   nsresult rv;
 
   if (!aExitFlag) return 1;
@@ -5592,9 +5690,6 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
   bool isBackgroundTaskMode = false;
 #ifdef MOZ_BACKGROUNDTASKS
   isBackgroundTaskMode = BackgroundTasks::IsBackgroundTaskMode();
-  if (isBackgroundTaskMode) {
-    appRunnerTelemFlags.isBackgroundTaskMode = 1;
-  }
 #endif
 
 #ifdef MOZ_HAS_REMOTE
@@ -5902,7 +5997,6 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
     // Ensure we keep -restart-pid if we are running tests
     if (ARG_FOUND == CheckArgExists("restart-pid") &&
         !CheckArg("test-only-automatic-restart-no-wait")) {
-      appRunnerTelemFlags.hasRestartPidParameter = 1;
       // We're not testing and can safely remove it now and read the pid.
       const char* restartPidString = nullptr;
       CheckArg("restart-pid", &restartPidString, CheckArgFlag::RemoveArg);
@@ -5915,16 +6009,9 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
         rv = updater->WaitForProcessExit(pid, MAYBE_WAIT_TIMEOUT_MS);
         if (NS_FAILED(rv)) {
           NS_WARNING("Failure in nsUpdateProcessor::WaitForProcessExit.");
-          // Is this a timeout?
-          if (rv == NS_ERROR_ABORT) {
-            appRunnerTelemFlags.isRestartPidWaitTimeout = 1;
-          } else {
-            appRunnerTelemFlags.isRestartPidFailure = 1;
-          }
         }
       } else {
         NS_WARNING("Failed to parse pid from -restart-pid.");
-        appRunnerTelemFlags.isRestartPidNotInteger = 1;
       }
     }
   }
@@ -5992,6 +6079,30 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
 #endif
 
   // We now know there is no existing instance using the selected profile.
+
+#if defined(MOZ_ENTERPRISE)
+  // Test harnesses provide a console address via
+  // MOZ_ENTERPRISE_CONSOLE_URL (mozrunner test_environment and
+  // Marionette's GeckoInstance), so setup should never be needed under
+  // automation. Keep a backstop for harnesses that miss it: the modal
+  // pre-profile dialog would otherwise hang the task until timeout.
+  const bool enterpriseConsoleSetupAllowed = !EnvHasValue("MOZ_AUTOMATION");
+  if (gEnterpriseConsoleSetupNeeded && enterpriseConsoleSetupAllowed &&
+      is_felt_ui()
+#  ifdef MOZ_BACKGROUNDTASKS
+      && !BackgroundTasks::IsBackgroundTaskMode()
+#  endif
+  ) {
+    rv = ShowEnterpriseConsoleSetup(mNativeApp);
+    if (rv == NS_ERROR_LAUNCHED_CHILD_PROCESS || rv == NS_ERROR_ABORT) {
+      *aExitFlag = true;
+      return 0;
+    }
+    if (NS_FAILED(rv)) {
+      return 1;
+    }
+  }
+#endif
 
   // We only ever show the profile selector if a specific profile wasn't chosen
   // via command line arguments or environment variables.
@@ -6224,8 +6335,7 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
 #  ifdef XP_MACOSX
     InitializeMacApp();
 #  endif
-    rv = HandleDetectedDowngrade(mProfD, mNativeApp, mProfileSvc, lastVersion,
-                                 appRunnerTelemFlags);
+    rv = HandleDetectedDowngrade(mProfD, mNativeApp, mProfileSvc, lastVersion);
     if (rv == NS_ERROR_LAUNCHED_CHILD_PROCESS || rv == NS_ERROR_ABORT) {
       *aExitFlag = true;
       return 0;
@@ -6629,19 +6739,30 @@ nsresult XREMain::XRE_mainRun() {
 
 #if defined(MOZ_ENTERPRISE)
     {
-      // When running tests we may override the appUpdateURL to a test value
-      bool readUpdateUrlFromPref = false;
-      rv = Preferences::GetBool(
-          "enterprise.felt_tests.read_update_url_from_prefs",
-          &readUpdateUrlFromPref);
-      if (NS_SUCCEEDED(rv) && readUpdateUrlFromPref) {
-        NS_WARNING("Setting appUpdateURL from pref value");
-        nsAutoCString consoleAddress;
-        rv = Preferences::GetCString("enterprise.console.address",
-                                     consoleAddress);
-        if (NS_SUCCEEDED(rv)) {
-          XRE_ParseEnterpriseServerURL(*mAppData, consoleAddress.get());
-        }
+      // Derive the enterprise server URLs from enterprise.console.address,
+      // set by AutoConfig (evaluated by FinishInitializingUserPrefs above),
+      // and register the crash submission URL. This is the earliest point at
+      // which the address is known, so it is also where the update URL is
+      // built.
+      nsAutoCString consoleAddress;
+      rv =
+          Preferences::GetCString("enterprise.console.address", consoleAddress);
+      if (NS_FAILED(rv)) {
+        NS_WARNING(
+            "enterprise.console.address is not set; enterprise server URLs "
+            "stay unset");
+      } else if (NS_FAILED(XRE_ParseEnterpriseServerURL(
+                     *mAppData, consoleAddress.get()))) {
+        // Reachable when the pref holds the generic build placeholder and
+        // the setup dialog was skipped (e.g. under MOZ_AUTOMATION without
+        // MOZ_ENTERPRISE_CONSOLE_URL): crash reports and updates have no
+        // endpoint to go to.
+        NS_WARNING(
+            "Could not derive the enterprise server URLs from the console "
+            "address");
+      } else if (mAppData->crashReporterURL) {
+        CrashReporter::SetServerURL(
+            nsDependentCString(mAppData->crashReporterURL));
       }
     }
 #endif
@@ -6840,6 +6961,10 @@ nsresult XREMain::XRE_mainRun() {
 #  endif
 #endif
 
+#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
+      RegisterASWebAuthSessionObservers();
+#endif
+
       nsCOMPtr<nsIObserverService> obsService =
           mozilla::services::GetObserverService();
       if (obsService)
@@ -6980,8 +7105,6 @@ static already_AddRefed<nsIFile> GreOmniPath(int argc, char** argv) {
 int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   gArgc = argc;
   gArgv = argv;
-  AppRunnerTelemFlags appRunnerTelemFlags{};
-
   ScopedLogging log;
 
   mozilla::LogModule::Init(gArgc, gArgv);
@@ -7018,13 +7141,12 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     bool allowStandaloneLaunch = false;
 #  endif
 
-    const bool requestedHeadless = RequestedHeadlessMode();
-    // Allow standalone launch for automated testing and development
-    allowStandaloneLaunch =
-        allowStandaloneLaunch || EnvHasValue("MOZ_AUTOMATION") ||
-        PR_GetEnv("MOZ_RUN_GTEST") || requestedHeadless ||
-        CheckArgExists("marionette") ||
-        CheckArgExists("remote-debugging-port") || IsLaunchingBrowserDevtools();
+    // Allow standalone launch for automated testing and development. The ways
+    // of asking for it -- gtests, headless, -marionette,
+    // -remote-debugging-port, devtools -- are all developer and automation
+    // entry points, so the build itself is what decides: on anything that can
+    // reach a user, only background tasks may start without Felt.
+    allowStandaloneLaunch = allowStandaloneLaunch || IsNonShippingBuild();
 
     if (!allowStandaloneLaunch && !is_felt_ui() && !is_felt_browser()) {
       Output(true,
@@ -7213,7 +7335,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 
   // init
   bool exit = false;
-  int result = XRE_mainInit(&exit, appRunnerTelemFlags);
+  int result = XRE_mainInit(&exit);
   if (result != 0 || exit) return result;
 
   // If we exit gracefully, remove the startup crash canary file.
@@ -7226,7 +7348,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   });
 
   // startup
-  result = XRE_mainStartup(&exit, appRunnerTelemFlags);
+  result = XRE_mainStartup(&exit);
   if (result != 0 || exit) return result;
 
   // Start the real application. We use |aInitJSContext = false| because

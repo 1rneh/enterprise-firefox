@@ -2688,6 +2688,22 @@ function setupAppFiles({ requiresOmnijar = false } = {}) {
         inDir: DIR_RESOURCES,
       });
     }
+
+    if (AppConstants.MOZ_ENTERPRISE) {
+      // Enterprise builds require the AutoConfig file named by
+      // general.config.filename to be present next to the binary, otherwise
+      // startup fails.
+      let configFileName = Services.prefs
+        .getDefaultBranch(null)
+        .getCharPref("general.config.filename", "");
+      if (configFileName) {
+        let configFile = gGREDirOrig.clone();
+        configFile.append(configFileName);
+        if (configFile.exists()) {
+          appFiles.push({ relPath: configFileName, inDir: DIR_RESOURCES });
+        }
+      }
+    }
   }
 
   // On Linux the updater.png must also be copied and libsoftokn3.so must be

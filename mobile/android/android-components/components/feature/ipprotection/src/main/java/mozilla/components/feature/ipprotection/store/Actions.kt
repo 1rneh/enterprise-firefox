@@ -12,6 +12,7 @@ import mozilla.components.concept.engine.ipprotection.ServiceState
 import mozilla.components.feature.ipprotection.store.state.AccountStatus
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
 import mozilla.components.feature.ipprotection.store.state.Location
+import mozilla.components.feature.ipprotection.store.state.PendingActivationRequest
 import mozilla.components.lib.state.Action
 
 /** Actions that can be dispatched to [IPProtectionStore]. */
@@ -54,15 +55,43 @@ sealed class IPProtectionAction : Action {
     /**
      * Reports that the most recent activate or deactivate request failed.
      *
+     * @property operation Which of the two engine requests failed.
      * @property error The [Throwable] the engine rejected the request with, or null when the engine gave no reason.
      */
-    data class ToggleFailed(val error: Throwable? = null) : IPProtectionAction()
+    data class ToggleFailed(
+        val operation: ActivationOperation,
+        val error: Throwable? = null,
+    ) : IPProtectionAction()
+
+    /**
+     * Reports that switching to a new location failed.
+     *
+     * @property error The [Throwable] the engine rejected the request with, or null when the engine gave no reason.
+     */
+    data class LocationSwitchFailed(val error: Throwable? = null) : IPProtectionAction()
+
+    /**
+     * Reports that the engine accepted a queued activation request.
+     *
+     * @property request The request the engine accepted, so that a request queued after it is not cleared by mistake.
+     */
+    data class ActivationRequestCompleted(val request: PendingActivationRequest.Activate) : IPProtectionAction()
+
+    /**
+     * Reports that a location list update has failed.
+     *
+     * @property error The [Throwable] the engine rejected the request with.
+     */
+    data class LocationUpdateFailed(val error: Throwable) : IPProtectionAction()
 
     /**
      * Checks if an account has already been entitled. If so, this will lead to a token exchange that gives us a new
      * refresh token with increased scopes. If not, we do nothing.
      */
     object CheckAccount : IPProtectionAction()
+
+    /** Checks if the list of available locations needs to be updated due to a previously failed attempt. */
+    object CheckLocations : IPProtectionAction()
 }
 
 /** Internal actions that can be dispatched to [IPProtectionStore]. */
@@ -95,4 +124,13 @@ internal sealed class InternalAction : IPProtectionAction() {
 
     /** Puts the auth flow into an intermediary state while an incomplete authentication is occurring. */
     data class AwaitingAuth(val status: AccountStatus) : InternalAction()
+}
+
+/** Which engine request an [IPProtectionAction.ToggleFailed] is reporting on. */
+enum class ActivationOperation {
+    /** An `activate` request. */
+    Activate,
+
+    /** A `deactivate` request. */
+    Deactivate,
 }

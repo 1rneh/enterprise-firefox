@@ -14,6 +14,7 @@
 #include "nsIDUtils.h"
 #include "nsIFileStreams.h"
 #include "nsNetUtil.h"
+#include "nsReadableUtils.h"
 #include "nsString.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/GeckoArgs.h"
@@ -30,6 +31,7 @@
 
 #include "nsPrintfCString.h"
 #include "nsSystemInfo.h"
+#include "prsystem.h"
 #include "nsThreadUtils.h"
 #include "nsThread.h"
 #include "jsfriendapi.h"
@@ -41,6 +43,10 @@
 
 #ifdef MOZ_BACKGROUNDTASKS
 #  include "mozilla/BackgroundTasks.h"
+#endif
+
+#if defined(XP_LINUX) && !defined(ANDROID)
+#  include "mozilla/widget/LSBUtils.h"
 #endif
 
 #if defined(XP_WIN)
@@ -230,6 +236,11 @@ static CrashHelperClient* gCrashHelperClient
 static google_breakpad::ExceptionHandler* gExceptionHandler = nullptr;
 static mozilla::Atomic<bool> gEncounteredChildException(false);
 constinit static nsCString gServerURL;
+// Full "KEY=VALUE" environment entry for the enterprise auth token, passed only
+// to the crash reporter child process (never set in our own environment).
+// Empty when there is no token. Pre-formatted so the crash path only has to
+// read it, without any allocation.
+constinit static nsCString gAuthTokenEnvEntry;
 
 static MOZ_GLIBCXX_CONSTINIT xpstring pendingDirectory;
 static MOZ_GLIBCXX_CONSTINIT xpstring crashReporterPath;
@@ -264,14 +275,6 @@ static bool isGarbageCollecting;
 static uint32_t eventloopNestingLevel = 0;
 static time_t inactiveStateStart = 0;
 
-static
-#if defined(XP_UNIX)
-    pthread_t
-#elif defined(XP_WIN)  // defined(XP_UNIX)
-    DWORD
-#endif                 // defined(XP_WIN)
-        gMainThreadId;
-
 // Avoid a race during application termination.
 static Mutex* dumpSafetyLock;
 static bool isSafeToDump = false;
@@ -292,32 +295,6 @@ static int serverSocketFd = -1;
 static int crashHelperClientFd = -1;
 #  endif
 #endif
-
-void RecordMainThreadId() {
-  gMainThreadId =
-#if defined(XP_UNIX)
-      pthread_self()
-#elif defined(XP_WIN)  // defined(XP_UNIX)
-      GetCurrentThreadId()
-#endif                 // defined(XP_WIN)
-      ;
-}
-
-bool SignalSafeIsMainThread() {
-  // We can't rely on NS_IsMainThread() because we are in a signal handler, and
-  // sTLSIsMainThread is a thread local variable and it can be lazy allocated
-  // i.e., we could hit code path where this variable has not been accessed
-  // before and needs to be allocated right now, which will lead to spinlock
-  // deadlock effectively hanging the process, as in bug 1756407.
-
-#if defined(XP_UNIX)
-  pthread_t th = pthread_self();
-  return pthread_equal(th, gMainThreadId);
-#elif defined(XP_WIN)  // defined(XP_UNIX)
-  DWORD th = GetCurrentThreadId();
-  return th == gMainThreadId;
-#endif                 // defined(XP_WIN)
-}
 
 #if defined(XP_WIN)
 // the following are used to prevent other DLLs reverting the last chance
@@ -1190,6 +1167,72 @@ static void AnnotateMemoryStatus(AnnotationTable&) {
  * @param aMinidumpPath The path of the minidump file, passed as an argument
  *        to the launched program
  */
+#  if !defined(XP_WIN) && !defined(XP_MACOSX)
+// Used to build a child-only environment for the crash reporter on Linux.
+extern "C" char** environ;
+#  endif
+
+// The following helpers build a child-only environment for the crash reporter
+// containing the enterprise auth token, so the token is handed to the crash
+// reporter alone rather than living in our own environment (where every child
+// process would inherit it). They leave the environment untouched when there is
+// no token.
+#  ifdef XP_WIN
+// Append a custom environment block (a copy of ours plus the auth token) to
+// `aBlock`, for passing to CreateProcess. Leaves `aBlock` empty when there is
+// no token, so the caller inherits our environment.
+static void BuildChildEnvBlock(nsAString& aBlock) {
+  if (gAuthTokenEnvEntry.IsEmpty()) {
+    return;
+  }
+  LPWCH curEnv = GetEnvironmentStringsW();
+  if (!curEnv) {
+    return;
+  }
+  for (LPWCH v = curEnv; *v; v += wcslen(v) + 1) {
+    aBlock.Append(nsDependentString(reinterpret_cast<const char16_t*>(v)));
+    aBlock.Append(char16_t(0));
+  }
+  FreeEnvironmentStringsW(curEnv);
+  AppendUTF8toUTF16(gAuthTokenEnvEntry, aBlock);
+  aBlock.Append(char16_t(0));  // terminate the token entry
+  aBlock.Append(char16_t(0));  // terminate the block
+}
+#  else
+// Number of slots (including the token entry and the null terminator) in the
+// stack buffer used to build the crash reporter's environment.
+static const size_t kChildEnvCapacity = 512;
+
+// Copy the null-terminated environment `aSource` into `aBuffer` (which has
+// `aCapacity` slots) and append the auth token. Returns the null-terminated
+// `aBuffer`, or nullptr when there is no token or the environment did not fit,
+// in which case the caller launches with the inherited environment.
+//
+// The caller supplies the buffer so the result lives on the caller's stack: on
+// Linux this runs post-fork in a signal-handler context, where heap allocation
+// is unsafe. macOS and Linux share this logic and differ only in how `aSource`
+// is obtained.
+static char** CopyEnvWithAuthToken(char** aSource, char** aBuffer,
+                                   size_t aCapacity) {
+  if (gAuthTokenEnvEntry.IsEmpty() || !aSource) {
+    return nullptr;
+  }
+  size_t n = 0;
+  // Leave room for the token entry and the null terminator.
+  while (aSource[n] && n < aCapacity - 2) {
+    aBuffer[n] = aSource[n];
+    ++n;
+  }
+  if (aSource[n]) {
+    // The environment did not fit within aCapacity.
+    return nullptr;
+  }
+  aBuffer[n++] = const_cast<char*>(gAuthTokenEnvEntry.get());
+  aBuffer[n] = nullptr;
+  return aBuffer;
+}
+#  endif  // XP_WIN
+
 static bool LaunchProgram(const XP_CHAR* aProgramPath,
                           const XP_CHAR* aMinidumpPath) {
 #  ifdef XP_WIN
@@ -1207,13 +1250,25 @@ static bool LaunchProgram(const XP_CHAR* aProgramPath,
   STARTUPINFO si = {};
   si.cb = sizeof(si);
 
+  DWORD creationFlags =
+      NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB;
+  LPVOID envBlock = nullptr;  // null => inherit our environment
+  // Storage for a custom environment block; must outlive the CreateProcess
+  // call. A plain nsString (not nsAutoString) since the block is far larger
+  // than any inline buffer and will be heap-allocated regardless.
+  nsString childEnv;
+  BuildChildEnvBlock(childEnv);
+  if (!childEnv.IsEmpty()) {
+    envBlock = reinterpret_cast<LPVOID>(childEnv.BeginWriting());
+    creationFlags |= CREATE_UNICODE_ENVIRONMENT;
+  }
+
   // If CreateProcess() fails don't do anything.
   if (CreateProcess(
           /* lpApplicationName */ nullptr, (LPWSTR)cmdLine,
           /* lpProcessAttributes */ nullptr, /* lpThreadAttributes */ nullptr,
-          /* bInheritHandles */ FALSE,
-          NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB,
-          /* lpEnvironment */ nullptr, /* lpCurrentDirectory */ nullptr, &si,
+          /* bInheritHandles */ FALSE, creationFlags,
+          /* lpEnvironment */ envBlock, /* lpCurrentDirectory */ nullptr, &si,
           &pi)) {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
@@ -1229,6 +1284,12 @@ static bool LaunchProgram(const XP_CHAR* aProgramPath,
     env = *nsEnv;
   }
 
+  char* childEnvBuf[kChildEnvCapacity];
+  if (char** childEnv =
+          CopyEnvWithAuthToken(env, childEnvBuf, kChildEnvCapacity)) {
+    env = childEnv;
+  }
+
   int rv = posix_spawnp(&pid, my_argv[0], nullptr, nullptr, my_argv, env);
 
   if (rv != 0) {
@@ -1240,6 +1301,15 @@ static bool LaunchProgram(const XP_CHAR* aProgramPath,
   if (pid == -1) {
     return false;
   } else if (pid == 0) {
+    // Build the replacement environment on the stack: we are post-fork in a
+    // signal-handler context, where heap allocation is unsafe.
+    char* childEnvBuf[kChildEnvCapacity];
+    if (char** childEnv =
+            CopyEnvWithAuthToken(environ, childEnvBuf, kChildEnvCapacity)) {
+      (void)execle(aProgramPath, aProgramPath, aMinidumpPath, nullptr,
+                   childEnv);
+      // If execle() failed, fall through to the plain execl() below.
+    }
     (void)execl(aProgramPath, aProgramPath, aMinidumpPath, nullptr);
     _exit(1);
   }
@@ -1302,6 +1372,10 @@ static bool LaunchCrashHandlerService(const XP_CHAR* aProgramPath,
 #endif
 
 nsresult RecordPlatformAnnotations() {
+  if (!GetEnabled()) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
   // CPU architecture values corresponding to `system_info.cpu_arch` values in
   // https://github.com/rust-minidump/rust-minidump/blob/main/minidump-processor/json-schema.md,
   // which is the format expected by Socorro.
@@ -1347,6 +1421,39 @@ nsresult RecordPlatformAnnotations() {
 #endif
                                   ));
 
+  // These values are read straight from NSPR and LSBUtils rather than through
+  // @mozilla.org/system-info;1, so that recording them neither instantiates
+  // that service nor requires XPCOM to be initialized.
+#if !defined(ANDROID)
+  // nsSystemInfo reports the Android SDK version rather than the release here,
+  // and lib-crash records OSVersion for Android itself.
+  char sysRelease[SYS_INFO_BUFFER_LENGTH];
+  if (PR_GetSystemInfo(PR_SI_RELEASE, sysRelease, sizeof(sysRelease)) ==
+      PR_SUCCESS) {
+    nsAutoCString osVersion(sysRelease);
+    char sysBuild[SYS_INFO_BUFFER_LENGTH];
+    if (PR_GetSystemInfo(PR_SI_RELEASE_BUILD, sysBuild, sizeof(sysBuild)) ==
+        PR_SUCCESS) {
+      osVersion.Append(
+#  if defined(XP_WIN)
+          '.'
+#  else
+          ' '
+#  endif
+      );
+      osVersion.Append(sysBuild);
+    }
+    MOZ_TRY(RecordAnnotationNSCString(Annotation::OSVersion, osVersion));
+  }
+#endif
+
+#if defined(XP_LINUX) && !defined(ANDROID)
+  nsAutoCString dist, desc, release, codename;
+  if (widget::lsb::GetLSBRelease(dist, desc, release, codename)) {
+    MOZ_TRY(RecordAnnotationNSCString(Annotation::LinuxLSBDescription, desc));
+  }
+#endif
+
   return NS_OK;
 }
 
@@ -1366,41 +1473,11 @@ static nsresult RecordCPUInfoAnnotation() {
 }
 
 nsresult RecordXPCOMPlatformAnnotations() {
-  nsCOMPtr<nsIPropertyBag2> sysInfo = do_GetService(NS_SYSTEMINFO_CONTRACTID);
-  if (!sysInfo) {
-    NS_WARNING(
-        "expected nsSystemInfo to be available for platform crash annotations");
+  if (!GetEnabled()) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  nsCString osVersion;
-  if (NS_SUCCEEDED(sysInfo->GetPropertyAsACString(u"version"_ns, osVersion))) {
-    nsCString build;
-    if (NS_SUCCEEDED(sysInfo->GetPropertyAsACString(u"build"_ns, build))) {
-      osVersion.Append(
-#if defined(XP_WIN)
-          '.'
-#else
-          ' '
-#endif
-      );
-      osVersion.Append(build);
-    }
-    MOZ_TRY(
-        RecordAnnotationNSCString(Annotation::OSVersion, std::move(osVersion)));
-  }
-
-#if defined(XP_LINUX)
-  nsCString lsbDesc;
-  if (NS_SUCCEEDED(sysInfo->GetPropertyAsACString(u"distroDesc"_ns, lsbDesc))) {
-    MOZ_TRY(RecordAnnotationNSCString(
-        CrashReporter::Annotation::LinuxLSBDescription, std::move(lsbDesc)));
-  }
-#endif
-
-  MOZ_TRY(RecordCPUInfoAnnotation());
-
-  return NS_OK;
+  return RecordCPUInfoAnnotation();
 }
 
 static void WriteAnnotations(AnnotationWriter& aWriter,
@@ -2119,8 +2196,6 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   SetJitExceptionHandler();
 #  endif
 
-  RecordMainThreadId();
-
   // protect the crash reporter from being unloaded
   gBlockUnhandledExceptionFilter = true;
   gKernel32Intercept.Init("kernel32.dll");
@@ -2404,6 +2479,7 @@ nsresult UnsetExceptionHandler() {
   delete gExceptionHandler;
 
   gServerURL = "";
+  gAuthTokenEnvEntry.Truncate();
   TeardownAppNotes();
 
   if (!gExceptionHandler) return NS_ERROR_NOT_INITIALIZED;
@@ -2724,6 +2800,19 @@ nsresult SetServerURL(const nsACString& aServerURL) {
   // Store the server URL as an annotation, the crash reporter client knows how
   // to handle this specially.
   gServerURL = aServerURL;
+  return NS_OK;
+}
+
+nsresult SetAuthToken(const nsACString& aToken) {
+  if (aToken.IsEmpty() || aToken.FindChar('\0') != kNotFound) {
+    gAuthTokenEnvEntry.Truncate();
+    return aToken.IsEmpty() ? NS_OK : NS_ERROR_INVALID_ARG;
+  }
+
+  // Pre-format the full environment entry so that LaunchProgram (which runs on
+  // the crash path) only has to reference it without allocating.
+  gAuthTokenEnvEntry.AssignLiteral("MOZ_CRASHREPORTER_AUTH_TOKEN=");
+  gAuthTokenEnvEntry.Append(aToken);
   return NS_OK;
 }
 
@@ -3533,8 +3622,6 @@ bool SetRemoteExceptionHandler(int& aArgc, char** aArgv) {
                                             crash_pipe);
 #endif
 
-  RecordMainThreadId();
-
   oldTerminateHandler = std::set_terminate(&TerminateHandler);
 
   // If we didn't fail earlier because of a missing IPC channel then all of the
@@ -3691,39 +3778,14 @@ ThreadId CurrentThreadId() {
   return ::GetCurrentThreadId();
 #elif defined(XP_LINUX)
   return sys_gettid();
-#elif defined(XP_MACOSX)
-  // Just return an index, since Mach ports can't be directly serialized
-  thread_act_port_array_t threads_for_task;
-  mach_msg_type_number_t thread_count;
-
-  if (task_threads(mach_task_self(), &threads_for_task, &thread_count))
-    return -1;
-
-  for (unsigned int i = 0; i < thread_count; ++i) {
-    if (threads_for_task[i] == mach_thread_self()) return i;
-  }
-  abort();
+#elif defined(XP_DARWIN)
+  // Note that this will leak the mach port unless it's explicitly closed or
+  // assigned to a RAII type such as `UniqueMachSendRight`.
+  return mach_thread_self();
 #else
 #  error "Unsupported platform"
 #endif
 }
-
-#ifdef XP_MACOSX
-static mach_port_t GetChildThread(ProcessHandle childPid,
-                                  ThreadId childBlamedThread) {
-  mach_port_t childThread = MACH_PORT_NULL;
-  thread_act_port_array_t threads_for_task;
-  mach_msg_type_number_t thread_count;
-
-  if (task_threads(childPid, &threads_for_task, &thread_count) ==
-          KERN_SUCCESS &&
-      childBlamedThread < thread_count) {
-    childThread = threads_for_task[childBlamedThread];
-  }
-
-  return childThread;
-}
-#endif
 
 bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
                             ThreadId aTargetBlamedThread,
@@ -3735,12 +3797,6 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
   }
 
   AutoIOInterposerDisable disableIOInterposition;
-
-#ifdef XP_MACOSX
-  mach_port_t targetThread = GetChildThread(aTargetHandle, aTargetBlamedThread);
-#else
-  ThreadId targetThread = aTargetBlamedThread;
-#endif
 
   xpstring dump_path;
 #ifndef XP_LINUX
@@ -3755,7 +3811,7 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
 
   // dump the target
   if (!google_breakpad::ExceptionHandler::WriteMinidumpForChild(
-          aTargetHandle, targetThread,
+          aTargetHandle, aTargetBlamedThread,
 #if defined(XP_LINUX) && defined(MOZ_OXIDIZED_BREAKPAD)
           /* auxvInfo */ nullptr,
 #endif  // defined(XP_LINUX) && defined(MOZ_OXIDIZED_BREAKPAD)
@@ -3822,6 +3878,7 @@ bool UnsetRemoteExceptionHandler(bool wasSet) {
   }
 #endif
   gServerURL = "";
+  gAuthTokenEnvEntry.Truncate();
   TeardownAppNotes();
 
   return true;

@@ -10,8 +10,10 @@
 
   display: block;
   position: relative;
+  /* Keep descendant z-indexes within this component. */
+  isolation: isolate;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  max-width: 315px;
+  max-width: min(100%, var(--size-layout-large));
 }
 
 .ai-website-confirmation-wrapper {

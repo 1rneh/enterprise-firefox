@@ -16,7 +16,6 @@ from marionette_driver.by import By
 class EnterpriseTests(EnterpriseTestsBase):
     EXTRA_ENV = {
         "MOZ_BYPASS_FELT": "1",
-        "MOZ_AUTOMATION": "1",
     }
 
     def test_firefox_start(self):

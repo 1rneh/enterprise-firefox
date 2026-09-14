@@ -407,6 +407,45 @@ class TabGroupCardTest {
         assertEquals("Undragged item opacity is 100%", 1f, undraggedAlpha)
     }
 
+    @Test
+    fun verifyMediaIndicatorVisible() {
+        composeTestRule.setContent {
+            FirefoxTheme {
+                ComposableUnderTest(
+                    group =
+                        TabsTrayItem.TabGroup(
+                            title = "Group 1",
+                            theme = TabGroupTheme.Yellow,
+                            tabs = mutableListOf(createTab(url = ABOUT_HOME_URL, isMediaActive = true)),
+                        )
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag(
+                TabsTrayTestTag.TAB_ITEM_MEDIA_INDICATOR,
+                useUnmergedTree = true,
+            )
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun verifyMediaIndicatorNotVisible() {
+        composeTestRule.setContent {
+            FirefoxTheme {
+                ComposableUnderTest(
+                    group =
+                        TabsTrayItem.TabGroup(
+                            title = "Group 1",
+                            theme = TabGroupTheme.Yellow,
+                            tabs = mutableListOf(createTab(url = ABOUT_HOME_URL, isMediaActive = false)),
+                        )
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.TAB_ITEM_MEDIA_INDICATOR).assertDoesNotExist()
+    }
+
     @Composable
     private fun ComposableUnderTest(
         modifier: Modifier = Modifier,

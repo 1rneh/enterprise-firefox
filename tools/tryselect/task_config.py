@@ -777,7 +777,7 @@ class BuildCar(ParameterConfig):
     CUSTOM_CAR_LABELS = [
         "toolchain-linux64-custom-car",
         "toolchain-win64-custom-car",
-        "toolchain-macosx-arm64-custom-car",
+        "toolchain-macosx64-aarch64-custom-car",
         "toolchain-android-custom-car",
     ]
 

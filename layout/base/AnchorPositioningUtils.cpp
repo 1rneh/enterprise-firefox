@@ -783,42 +783,18 @@ nsPoint AnchorPositioningUtils::GetScrollOffsetFor(
     PhysicalAxes aAxes, const nsIFrame* aPositioned,
     const AnchorPosDefaultAnchorCache& aDefaultAnchorCache) {
   MOZ_ASSERT(aPositioned);
-  if (!aDefaultAnchorCache.mAnchor || aAxes.isEmpty()) {
+  const nsIFrame* anchor = aDefaultAnchorCache.mAnchor;
+  if (!anchor || aAxes.isEmpty()) {
     return nsPoint{};
   }
-  nsPoint offset;
-  const bool trackHorizontal = aAxes.contains(PhysicalAxis::Horizontal);
-  const bool trackVertical = aAxes.contains(PhysicalAxis::Vertical);
 
-  // The anchor and aPositioned may be under different continuations or IB-split
-  // siblings of the absolute containing block. Compare the first continuation
-  // on each side so that the walk below stops correctly instead of running past
-  // the containing block and accumulating scroll containers above it.
-  const auto* absoluteContainingBlock =
-      nsLayoutUtils::FirstContinuationOrIBSplitSibling(
-          aPositioned->GetParent());
-  if (GetNearestScrollFrame(aPositioned).mScrollContainer ==
-      aDefaultAnchorCache.mScrollContainer) {
-    // Would scroll together anyway, skip.
-    return nsPoint{};
-  }
-  // Grab the accumulated offset up to, but not including, the abspos
-  // container.
-  for (const auto* f = aDefaultAnchorCache.mScrollContainer;
-       f && nsLayoutUtils::FirstContinuationOrIBSplitSibling(f) !=
-                absoluteContainingBlock;
-       f = f->GetParent()) {
-    if (const ScrollContainerFrame* scrollFrame = do_QueryFrame(f)) {
-      const auto o = scrollFrame->GetScrollPosition();
-      if (trackHorizontal) {
-        offset.x += o.x;
-      }
-      if (trackVertical) {
-        offset.y += o.y;
-      }
-    }
-  }
-  return offset;
+  // aPositioned was placed against the anchor's scroll-ignored position, so the
+  // scroll offset is how far the anchor has since scrolled relative to the
+  // absolute containing block.
+  const auto* absCB = aPositioned->GetParent();
+  const nsPoint offset = anchor->GetScrollOffsetTo(absCB);
+  return nsPoint(aAxes.contains(PhysicalAxis::Horizontal) ? offset.x : 0,
+                 aAxes.contains(PhysicalAxis::Vertical) ? offset.y : 0);
 }
 
 // Out of line to avoid having to include AnchorPosReferenceData from nsIFrame.h
@@ -1397,7 +1373,8 @@ auto AnchorPositioningUtils::GetCombinedFragmentRects(
           TransformMatrixFlag::IgnoreScrolling);
     }
     return aContinuation->GetRectRelativeToSelf() +
-           aContinuation->GetOffsetToIgnoringScrolling(aContainingBlock);
+           aContinuation->GetOffsetToIgnoringScrollingAndSticky(
+               aContainingBlock);
   };
 
   // Collect rects from our continuations and IB-split siblings (limited to
@@ -1441,7 +1418,7 @@ nsRect AnchorPositioningUtils::ReassembleAnchorRect(
     // fragRect.mRect is in matching containing block's coordinate space.
     // Translate the rect back to aContainingBlock's coordinate space.
     return fragRect.mRect +
-           matchingCB->GetOffsetToIgnoringScrolling(aContainingBlock);
+           matchingCB->GetOffsetToIgnoringScrollingAndSticky(aContainingBlock);
   }
   // Ok, we need to reassemble the unfragmented size and position of the anchor,
   // by stacking up the containing block in block direction.

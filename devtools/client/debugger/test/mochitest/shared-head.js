@@ -971,14 +971,15 @@ async function stepOver(dbg, pauseOptions) {
  *
  * @memberof mochitest/actions
  * @param {object} dbg
+ * @param {object} pauseOptions
  * @return {Promise}
  * @static
  */
-async function stepIn(dbg) {
+async function stepIn(dbg, pauseOptions) {
   const pauseLine = getVisibleSelectedFrameLine(dbg);
   info(`Stepping in from ${pauseLine}`);
   await dbg.actions.stepIn();
-  return waitForPaused(dbg);
+  return waitForPaused(dbg, null, pauseOptions);
 }
 
 /**
@@ -2275,17 +2276,10 @@ function toggleObjectInspectorNode(node) {
   );
 }
 
+// Only opens the context menu; callers wait for it with waitForContextMenu.
 function rightClickObjectInspectorNode(dbg, node) {
-  const objectInspector = node.closest(".object-inspector");
-  const properties = objectInspector.querySelectorAll(".node").length;
-
   info(`Right clicking node ${node.innerText}`);
   rightClickEl(dbg, node);
-
-  info(`Waiting for object inspector properties update`);
-  return waitUntil(
-    () => objectInspector.querySelectorAll(".node").length !== properties
-  );
 }
 
 /*******************************************

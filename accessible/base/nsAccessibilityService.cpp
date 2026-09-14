@@ -481,7 +481,7 @@ nsAccessibilityService::ListenersChanged(nsIArray* aEventChanges) {
     RefPtr<EventTarget> target;
     change->GetTarget(getter_AddRefs(target));
     nsIContent* content(nsIContent::FromEventTargetOrNull(target));
-    if (!content || !content->IsHTMLElement()) {
+    if (!content || !content->IsElement()) {
       continue;
     }
 
@@ -518,7 +518,8 @@ nsAccessibilityService::ListenersChanged(nsIArray* aEventChanges) {
         } else if (acc) {
           if ((acc->IsHTMLLink() && !acc->AsHTMLLink()->IsLinked()) ||
               (content->IsElement() &&
-               content->AsElement()->IsHTMLElement(nsGkAtoms::a) &&
+               (content->AsElement()->IsHTMLElement(nsGkAtoms::a) ||
+                content->AsElement()->IsMathMLElement(nsGkAtoms::a)) &&
                !acc->IsHTMLLink())) {
             // An HTML link without an href attribute should have a generic
             // role, unless it has a click listener. Since we might have gained

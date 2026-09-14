@@ -762,9 +762,13 @@ export class PanelList extends HTMLElement {
         // hidePopover may throw if the popover was already hidden or was never shown
       }
     }
+
+    // Hold lastAnchorNode, since show() can point it at another anchor before the next
+    // animation frame.
+    let lastAnchorNode = this.lastAnchorNode;
     requestAnimationFrame(() => {
       this.sendEvent("hidden");
-      this.lastAnchorNode?.setAttribute("aria-expanded", "false");
+      lastAnchorNode?.setAttribute("aria-expanded", "false");
     });
     this.removeHideListeners();
   }

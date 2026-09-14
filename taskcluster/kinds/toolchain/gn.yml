@@ -42,7 +42,7 @@ macosx64-gn:
 
 macosx64-aarch64-gn:
     treeherder:
-        symbol: TM(gn-aarch64)
+        symbol: TMA64(gn)
     run:
         script: build-gn-macosx.sh
         arguments:

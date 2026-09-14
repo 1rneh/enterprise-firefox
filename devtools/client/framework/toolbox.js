@@ -1158,6 +1158,10 @@ class Toolbox extends EventEmitter {
         await lazy.LocalModeMappings.setup(this);
       }
 
+      // The requestIdleCallback in this method may not have run yet, and
+      // consumers expect a usable toolbar once the toolbox is open.
+      this.component?.setCanRender();
+
       this.emit("ready");
       this.#resolveIsOpen();
     } catch (exception) {
@@ -4746,7 +4750,7 @@ class Toolbox extends EventEmitter {
       Glean.devtoolsDebuggerStylesheets.linksOpenedInDebuggerCount.add(1);
       return viewSource.viewSourceInDebugger(this, url, line, column, null);
     }
-
+    Glean.devtoolsStyleeditorStylesheets.linksOpenedInStyleEditorCount.add(1);
     return viewSource.viewSourceInStyleEditor(this, url, line, column);
   }
 
@@ -4782,7 +4786,7 @@ class Toolbox extends EventEmitter {
         stylesheetResource.resourceId
       );
     }
-
+    Glean.devtoolsStyleeditorStylesheets.linksOpenedInStyleEditorCount.add(1);
     return viewSource.viewSourceInStyleEditor(
       this,
       stylesheetResource,

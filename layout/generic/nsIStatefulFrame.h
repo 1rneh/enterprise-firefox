@@ -10,11 +10,20 @@
 #ifndef _nsIStatefulFrame_h
 #define _nsIStatefulFrame_h
 
+#include "mozilla/EnumSet.h"
 #include "nsContentUtils.h"
 #include "nsQueryFrame.h"
 
 namespace mozilla {
 class PresState;
+
+enum class CaptureStateFlag : uint8_t {
+  // Whether we're capturing frame state for session history, rather than for
+  // frame reconstruction within the same PresShell.
+  ForSessionHistory,
+};
+using CaptureStateFlags = EnumSet<CaptureStateFlag>;
+
 }  // namespace mozilla
 
 class nsIStatefulFrame {
@@ -22,7 +31,8 @@ class nsIStatefulFrame {
   NS_DECL_QUERYFRAME_TARGET(nsIStatefulFrame)
 
   // Save the state for this frame.
-  virtual mozilla::UniquePtr<mozilla::PresState> SaveState() = 0;
+  virtual mozilla::UniquePtr<mozilla::PresState> SaveState(
+      mozilla::CaptureStateFlags aFlags) = 0;
 
   // Restore the state for this frame from aState
   NS_IMETHOD RestoreState(mozilla::PresState* aState) = 0;

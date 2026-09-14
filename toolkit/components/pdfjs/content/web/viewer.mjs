@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.3.351
- * pdfjsBuild = 716aff9d5
+ * pdfjsVersion = 6.4.123
+ * pdfjsBuild = 0ce03b5a0
  */
 
 ;// ./web/ui_utils.js
@@ -898,7 +898,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "b17e9a2f-7526-4489-adb9-d4e93d0cb8c5";
+const INTERNAL_EVT = "da1002a6-179a-43d8-9ce5-95a565db676c";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -1444,6 +1444,7 @@ class BaseExternalServices {
   createSignatureVerifier() {
     return null;
   }
+  printToPDF = null;
   updateEditorStates(data) {
     throw new Error("Not implemented: updateEditorStates");
   }
@@ -1615,10 +1616,20 @@ let viewerApp = {
 function initCom(app) {
   viewerApp = app;
 }
+const PRINT_TO_PDF_BASE_DELAY = 4_500;
+const PRINT_TO_PDF_PER_ENTRY_DELAY = 50;
+const PRINT_TO_PDF_MIN_TIMEOUT = 10_000;
+function getPrintToPDFTimeout(entries) {
+  return Math.max(PRINT_TO_PDF_MIN_TIMEOUT, 2 * (PRINT_TO_PDF_BASE_DELAY + PRINT_TO_PDF_PER_ENTRY_DELAY * entries));
+}
 class FirefoxCom {
-  static requestAsync(action, data) {
-    return new Promise(resolve => {
-      this.request(action, data, resolve);
+  static requestAsync(action, data, timeout = 0) {
+    return new Promise((resolve, reject) => {
+      const timeoutId = timeout ? setTimeout(reject, timeout, new Error(`"${action}" timed out.`)) : 0;
+      this.request(action, data, response => {
+        clearTimeout(timeoutId);
+        resolve(response);
+      });
     });
   }
   static request(action, data, callback = null) {
@@ -2140,6 +2151,10 @@ class SignatureVerifier {
   }
 }
 class ExternalServices extends BaseExternalServices {
+  printToPDF = async data => {
+    const buffer = await FirefoxCom.requestAsync("printToPDF", data, getPrintToPDFTimeout(data.length));
+    return buffer ? new Uint8Array(buffer) : null;
+  };
   updateFindControlState(data) {
     FirefoxCom.request("updateFindControlState", data);
   }
@@ -5218,26 +5233,25 @@ class PDFDocumentProperties {
       info,
       metadata,
       contentLength
-    }, pdfPage] = await Promise.all([this.pdfDocument.getMetadata(), this.pdfDocument.getPage(currentPageNumber).catch(reason => {
+    }, pageSize] = await Promise.all([this.pdfDocument.getMetadata(), this.pdfDocument.getPage(currentPageNumber).then(pdfPage => this.#parsePageSize(pdfPage, pagesRotation), reason => {
       console.error(`PDFDocumentProperties - unable to get page ${currentPageNumber}.`, reason);
-      return null;
+      return undefined;
     })]);
-    const [fileName, fileSize, title, creationDate, modificationDate, pageSize, isLinearized] = await Promise.all([this._fileNameLookup(), this.#parseFileSize(contentLength), this._titleLookup(), this.#parseDate(metadata?.get("xmp:createdate"), info.CreationDate), this.#parseDate(metadata?.get("xmp:modifydate"), info.ModDate), this.#parsePageSize(pdfPage, pagesRotation), this.#parseLinearization(info.IsLinearized)]);
     this.#fieldData = Object.freeze({
-      fileName,
-      fileSize,
-      title,
+      fileName: this._fileNameLookup(),
+      fileSize: this.#parseFileSize(contentLength),
+      title: this._titleLookup(),
       author: metadata?.get("dc:creator")?.join("\n") || info.Author,
       subject: metadata?.get("dc:subject")?.join("\n") || info.Subject,
       keywords: metadata?.get("pdf:keywords") || info.Keywords,
-      creationDate,
-      modificationDate,
+      creationDate: this.#parseDate(metadata?.get("xmp:createdate"), info.CreationDate),
+      modificationDate: this.#parseDate(metadata?.get("xmp:modifydate"), info.ModDate),
       creator: metadata?.get("xmp:creatortool") || info.Creator,
       producer: metadata?.get("pdf:producer") || info.Producer,
       version: info.PDFFormatVersion,
       pageCount: this.pdfDocument.numPages,
       pageSize,
-      linearized: isLinearized,
+      linearized: this.#parseLinearization(info.IsLinearized),
       _currentPageNumber: currentPageNumber,
       _pagesRotation: pagesRotation
     });
@@ -5249,7 +5263,7 @@ class PDFDocumentProperties {
       return;
     }
     const data = Object.assign(Object.create(null), this.#fieldData);
-    data.fileSize = await this.#parseFileSize(length);
+    data.fileSize = this.#parseFileSize(length);
     this.#fieldData = Object.freeze(data);
     this.#updateUI();
   }
@@ -5279,23 +5293,33 @@ class PDFDocumentProperties {
       return;
     }
     for (const id in this.fields) {
-      const content = this.#fieldData?.[id];
-      this.fields[id].textContent = content || content === 0 ? content : "-";
+      const field = this.fields[id],
+        data = this.#fieldData?.[id];
+      if (data?.id) {
+        field.setAttribute("data-l10n-id", data.id);
+        if (data.args) {
+          field.setAttribute("data-l10n-args", JSON.stringify(data.args));
+        }
+      } else {
+        field.removeAttribute("data-l10n-id");
+        field.removeAttribute("data-l10n-args");
+        field.textContent = data || data === 0 ? data : "-";
+      }
     }
   }
-  async #parseFileSize(b = 0) {
+  #parseFileSize(b = 0) {
     const kb = b / 1024,
       mb = kb / 1024;
-    return kb ? this.l10n.get(mb >= 1 ? "pdfjs-document-properties-size-mb" : "pdfjs-document-properties-size-kb", {
-      mb,
-      kb,
-      b
-    }) : undefined;
+    return kb ? {
+      id: mb >= 1 ? "pdfjs-document-properties-size-mb" : "pdfjs-document-properties-size-kb",
+      args: {
+        mb,
+        kb,
+        b
+      }
+    } : undefined;
   }
   async #parsePageSize(pdfPage, pagesRotation) {
-    if (!pdfPage) {
-      return undefined;
-    }
     let pageSizeInches = getPageSizeInches(pdfPage);
     if (pagesRotation % 180 !== 0) {
       pageSizeInches = {
@@ -5343,22 +5367,30 @@ class PDFDocumentProperties {
       ids.push(nameId);
     }
     const [unit, orientation, name] = await this.l10n.get(ids);
-    return this.l10n.get(name ? "pdfjs-document-properties-page-size-dimension-name-string" : "pdfjs-document-properties-page-size-dimension-string", {
-      width,
-      height,
-      unit,
-      name,
-      orientation
-    });
+    return {
+      id: name ? "pdfjs-document-properties-page-size-dimension-name-string" : "pdfjs-document-properties-page-size-dimension-string",
+      args: {
+        width,
+        height,
+        unit,
+        name,
+        orientation
+      }
+    };
   }
-  async #parseDate(metadataDate, infoDate) {
+  #parseDate(metadataDate, infoDate) {
     const dateObj = Date.parse(metadataDate) || PDFDateString.toDateObject(infoDate);
-    return dateObj ? this.l10n.get("pdfjs-document-properties-date-time-string", {
-      dateObj: dateObj.valueOf()
-    }) : undefined;
+    return dateObj ? {
+      id: "pdfjs-document-properties-date-time-string",
+      args: {
+        dateObj: dateObj.valueOf()
+      }
+    } : undefined;
   }
   #parseLinearization(isLinearized) {
-    return this.l10n.get(isLinearized ? "pdfjs-document-properties-linearized-yes" : "pdfjs-document-properties-linearized-no");
+    return {
+      id: isLinearized ? "pdfjs-document-properties-linearized-yes" : "pdfjs-document-properties-linearized-no"
+    };
   }
 }
 
@@ -13329,7 +13361,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.3.351";
+    const viewerVersion = "6.4.123";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -13715,7 +13747,9 @@ class PDFViewer {
       this._scriptingManager?.setDocument(null);
       this.#annotationEditorUIManager?.destroy();
       this.#annotationEditorUIManager = null;
-      this.#annotationEditorMode = AnnotationEditorType.NONE;
+      if (this.#annotationEditorMode !== AnnotationEditorType.DISABLE) {
+        this.#annotationEditorMode = AnnotationEditorType.NONE;
+      }
       this.#printingAllowed = true;
     }
     this.pdfDocument = pdfDocument;
@@ -17116,22 +17150,12 @@ class ViewHistory {
   async _readFromStorage() {
     return sessionStorage.getItem("pdfjs.history");
   }
-  async set(name, val) {
-    await this._initializedPromise;
-    this.file[name] = val;
-    return this._writeToStorage();
-  }
   async setMultiple(properties) {
     await this._initializedPromise;
     for (const name in properties) {
       this.file[name] = properties[name];
     }
     return this._writeToStorage();
-  }
-  async get(name, defaultValue) {
-    await this._initializedPromise;
-    const val = this.file[name];
-    return val !== undefined ? val : defaultValue;
   }
   async getMultiple(properties) {
     await this._initializedPromise;
@@ -17816,7 +17840,12 @@ const PDFViewerApplication = {
         featuresNotification.hidden = false;
       });
     }
-    const signatureManager = AppOptions.get("enableSignatureEditor") && appConfig.addSignatureDialog ? new SignatureManager(appConfig.addSignatureDialog, appConfig.editSignatureDialog, appConfig.annotationEditorParams?.editorSignatureAddSignature || null, overlayManager, l10n, externalServices.createSignatureStorage(eventBus, abortSignal), eventBus) : null;
+    let signatureManager = null;
+    if (AppOptions.get("enableSignatureEditor")) {
+      if (appConfig.addSignatureDialog) {
+        signatureManager = new SignatureManager(appConfig.addSignatureDialog, appConfig.editSignatureDialog, appConfig.annotationEditorParams?.editorSignatureAddSignature || null, overlayManager, l10n, externalServices.createSignatureStorage(eventBus, abortSignal), eventBus);
+      }
+    }
     const commentManager = AppOptions.get("enableComment") && appConfig.editCommentDialog ? new CommentManager(appConfig.editCommentDialog, {
       learnMoreUrl: AppOptions.get("commentLearnMoreUrl"),
       sidebar: appConfig.annotationEditorParams?.editorCommentsSidebar || null,
@@ -18292,7 +18321,7 @@ const PDFViewerApplication = {
     this._saveInProgress = true;
     await this.pdfScriptingManager.dispatchWillSave();
     try {
-      const data = await this.pdfDocument.saveDocument();
+      const data = await this.pdfDocument.saveDocument(this.externalServices.printToPDF);
       this.downloadManager.download(data, this._downloadUrl, this._docFilename);
     } catch (reason) {
       console.error(`Error when saving the document:`, reason);
@@ -19190,7 +19219,9 @@ function onSidebarViewChanged({
 }) {
   this.pdfRenderingQueue.isThumbnailViewEnabled = view === SidebarView.THUMBS;
   if (this.isInitialViewSet) {
-    this.store?.set("sidebarView", view).catch(() => {});
+    this.store?.setMultiple({
+      sidebarView: view
+    }).catch(() => {});
   }
 }
 function onUpdateViewarea({
@@ -19211,7 +19242,9 @@ function onUpdateViewarea({
 }
 function onViewerModesChanged(name, evt) {
   if (this.isInitialViewSet && !this.pdfViewer.isInPresentationMode) {
-    this.store?.set(name, evt.mode).catch(() => {});
+    this.store?.setMultiple({
+      [name]: evt.mode
+    }).catch(() => {});
   }
 }
 function onResize() {

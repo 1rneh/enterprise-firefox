@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.3.351
- * pdfjsBuild = 716aff9d5
+ * pdfjsVersion = 6.4.123
+ * pdfjsBuild = 0ce03b5a0
  */
 
 ;// ./web/ui_utils.js
@@ -895,7 +895,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "b17e9a2f-7526-4489-adb9-d4e93d0cb8c5";
+const INTERNAL_EVT = "da1002a6-179a-43d8-9ce5-95a565db676c";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -1441,6 +1441,7 @@ class BaseExternalServices {
   createSignatureVerifier() {
     return null;
   }
+  printToPDF = null;
   updateEditorStates(data) {
     throw new Error("Not implemented: updateEditorStates");
   }
@@ -1612,10 +1613,20 @@ let viewerApp = {
 function initCom(app) {
   viewerApp = app;
 }
+const PRINT_TO_PDF_BASE_DELAY = 4_500;
+const PRINT_TO_PDF_PER_ENTRY_DELAY = 50;
+const PRINT_TO_PDF_MIN_TIMEOUT = 10_000;
+function getPrintToPDFTimeout(entries) {
+  return Math.max(PRINT_TO_PDF_MIN_TIMEOUT, 2 * (PRINT_TO_PDF_BASE_DELAY + PRINT_TO_PDF_PER_ENTRY_DELAY * entries));
+}
 class FirefoxCom {
-  static requestAsync(action, data) {
-    return new Promise(resolve => {
-      this.request(action, data, resolve);
+  static requestAsync(action, data, timeout = 0) {
+    return new Promise((resolve, reject) => {
+      const timeoutId = timeout ? setTimeout(reject, timeout, new Error(`"${action}" timed out.`)) : 0;
+      this.request(action, data, response => {
+        clearTimeout(timeoutId);
+        resolve(response);
+      });
     });
   }
   static request(action, data, callback = null) {
@@ -1779,6 +1790,20 @@ class Preferences extends BasePreferences {
         }
       }));
     });
+  })();
+  (function listenAddSignatureEvent() {
+    const handleEvent = function ({
+      detail
+    }) {
+      if (!viewerApp.initialized) {
+        return;
+      }
+      viewerApp.eventBus.dispatch("addsignature", {
+        source: window,
+        text: detail?.text
+      });
+    };
+    window.addEventListener("addsignature", handleEvent);
   })();
 }
 class FirefoxComDataRangeTransport extends PDFDataRangeTransport {
@@ -2172,6 +2197,10 @@ class SignatureVerifier {
   }
 }
 class ExternalServices extends BaseExternalServices {
+  printToPDF = async data => {
+    const buffer = await FirefoxCom.requestAsync("printToPDF", data, getPrintToPDFTimeout(data.length));
+    return buffer ? new Uint8Array(buffer) : null;
+  };
   updateFindControlState(data) {
     FirefoxCom.request("updateFindControlState", data);
   }
@@ -8801,7 +8830,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.3.351";
+    const viewerVersion = "6.4.123";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -9187,7 +9216,9 @@ class PDFViewer {
       this._scriptingManager?.setDocument(null);
       this.#annotationEditorUIManager?.destroy();
       this.#annotationEditorUIManager = null;
-      this.#annotationEditorMode = AnnotationEditorType.NONE;
+      if (this.#annotationEditorMode !== AnnotationEditorType.DISABLE) {
+        this.#annotationEditorMode = AnnotationEditorType.NONE;
+      }
       this.#printingAllowed = true;
     }
     this.pdfDocument = pdfDocument;
@@ -10510,6 +10541,106 @@ class PDFViewer {
   }
 }
 
+;// ./web/signature_manager-geckoview.js
+
+
+const DEFAULT_HEIGHT_IN_PAGE = 40;
+const SIGNATURE_FONT = Object.freeze({
+  fontFamily: "cursive",
+  fontStyle: "normal",
+  fontWeight: "400"
+});
+class SignatureManager {
+  #eventBus;
+  #mode = AnnotationEditorType.NONE;
+  #pendingSignatures = [];
+  constructor(eventBus, signal) {
+    this.#eventBus = eventBus;
+    const opts = {
+      signal,
+      ...internalOpt
+    };
+    eventBus.on("addsignature", this.#onAddSignature.bind(this), opts);
+    eventBus.on("annotationeditormodechanged", this.#onModeChanged.bind(this), opts);
+  }
+  #onAddSignature({
+    text
+  }) {
+    const signatureData = SignatureManager.#getSignatureData(text);
+    if (!signatureData) {
+      return;
+    }
+    if (this.#mode === AnnotationEditorType.SIGNATURE) {
+      this.#createEditor(signatureData);
+      return;
+    }
+    this.#pendingSignatures.push(signatureData);
+    this.#eventBus.dispatch("switchannotationeditormode", {
+      source: this,
+      mode: AnnotationEditorType.SIGNATURE
+    });
+  }
+  #onModeChanged({
+    mode
+  }) {
+    this.#mode = mode;
+    if (mode !== AnnotationEditorType.SIGNATURE) {
+      return;
+    }
+    const pendingSignatures = this.#pendingSignatures;
+    this.#pendingSignatures = [];
+    for (const signatureData of pendingSignatures) {
+      this.#createEditor(signatureData);
+    }
+  }
+  #createEditor(signatureData) {
+    this.#eventBus.dispatch("switchannotationeditorparams", {
+      source: this,
+      type: AnnotationEditorParamsType.CREATE,
+      value: {
+        signatureData
+      }
+    });
+  }
+  static #getSignatureData(text) {
+    text = typeof text === "string" ? text.trim() : "";
+    if (!text) {
+      return null;
+    }
+    const data = SignatureExtractor.extractContoursFromText(text, SIGNATURE_FONT, 1, 1, 0, 0);
+    if (!data) {
+      return null;
+    }
+    const {
+      newCurves,
+      width,
+      height
+    } = data;
+    return {
+      lines: {
+        curves: newCurves.map(points => ({
+          points
+        })),
+        width,
+        height
+      },
+      mustSmooth: false,
+      areContours: true,
+      description: text,
+      uuid: null,
+      heightInPage: DEFAULT_HEIGHT_IN_PAGE
+    };
+  }
+  getSignature() {}
+  loadSignatures() {}
+  renderEditButton() {
+    return null;
+  }
+  destroy() {
+    this.#pendingSignatures.length = 0;
+  }
+}
+
 ;// ./web/toolbar-geckoview.js
 class Toolbar {
   #buttons;
@@ -10605,22 +10736,12 @@ class ViewHistory {
   async _readFromStorage() {
     return sessionStorage.getItem("pdfjs.history");
   }
-  async set(name, val) {
-    await this._initializedPromise;
-    this.file[name] = val;
-    return this._writeToStorage();
-  }
   async setMultiple(properties) {
     await this._initializedPromise;
     for (const name in properties) {
       this.file[name] = properties[name];
     }
     return this._writeToStorage();
-  }
-  async get(name, defaultValue) {
-    await this._initializedPromise;
-    const val = this.file[name];
-    return val !== undefined ? val : defaultValue;
   }
   async getMultiple(properties) {
     await this._initializedPromise;
@@ -10924,7 +11045,12 @@ const PDFViewerApplication = {
     if (appConfig.editorUndoBar) {
       this.editorUndoBar = new EditorUndoBar(appConfig.editorUndoBar, eventBus);
     }
-    const signatureManager = AppOptions.get("enableSignatureEditor") && appConfig.addSignatureDialog ? new (/* inlined export .SignatureManager */null)(appConfig.addSignatureDialog, appConfig.editSignatureDialog, appConfig.annotationEditorParams?.editorSignatureAddSignature || null, overlayManager, l10n, externalServices.createSignatureStorage(eventBus, abortSignal), eventBus) : null;
+    let signatureManager = null;
+    if (AppOptions.get("enableSignatureEditor")) {
+      if (annotationEditorMode !== AnnotationEditorType.DISABLE) {
+        signatureManager = new SignatureManager(eventBus, abortSignal);
+      }
+    }
     const commentManager = AppOptions.get("enableComment") && appConfig.editCommentDialog ? new CommentManager(appConfig.editCommentDialog, {
       learnMoreUrl: AppOptions.get("commentLearnMoreUrl"),
       sidebar: appConfig.annotationEditorParams?.editorCommentsSidebar || null,
@@ -11401,7 +11527,7 @@ const PDFViewerApplication = {
     this._saveInProgress = true;
     await this.pdfScriptingManager.dispatchWillSave();
     try {
-      const data = await this.pdfDocument.saveDocument();
+      const data = await this.pdfDocument.saveDocument(this.externalServices.printToPDF);
       this.downloadManager.download(data, this._downloadUrl, this._docFilename);
     } catch (reason) {
       console.error(`Error when saving the document:`, reason);
@@ -12266,7 +12392,9 @@ function onSidebarViewChanged({
 }) {
   this.pdfRenderingQueue.isThumbnailViewEnabled = view === SidebarView.THUMBS;
   if (this.isInitialViewSet) {
-    this.store?.set("sidebarView", view).catch(() => {});
+    this.store?.setMultiple({
+      sidebarView: view
+    }).catch(() => {});
   }
 }
 function onUpdateViewarea({
@@ -12287,7 +12415,9 @@ function onUpdateViewarea({
 }
 function onViewerModesChanged(name, evt) {
   if (this.isInitialViewSet && !this.pdfViewer.isInPresentationMode) {
-    this.store?.set(name, evt.mode).catch(() => {});
+    this.store?.setMultiple({
+      [name]: evt.mode
+    }).catch(() => {});
   }
 }
 function onResize() {

@@ -211,10 +211,14 @@ private fun TabContent(
                         ),
                     shape = thumbnailShape,
                 ) {
-                    Thumbnail(
-                        tab = tab,
-                        size = thumbnailSize,
-                    )
+                    Box {
+                        Thumbnail(
+                            tab = tab,
+                            size = thumbnailSize,
+                        )
+
+                        MediaPlaybackIndicator(isMediaActive = tab.isMediaActive)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static50))
@@ -468,6 +472,31 @@ private fun TabGridItemPreview(
             clickHandler = TabsTrayItemClickHandler(onClick = {}, onCloseClick = {}),
             onCloseTabClick = {},
             interactionState = tabGridItemState.value.interactionState,
+        )
+    }
+}
+
+@Composable
+@PreviewLightDark
+private fun TabGridItemMediaPreview() {
+    FirefoxTheme {
+        TabContent(
+            tab =
+                createTab(
+                    url = "www.mozilla.org",
+                    title = "Mozilla Domain",
+                    isMediaActive = true,
+                ),
+            selectionState =
+                TabsTrayItemSelectionState(
+                    isSelected = false,
+                    isFocused = false,
+                    multiSelectEnabled = false,
+                ),
+            thumbnailSize = 108,
+            clickHandler = TabsTrayItemClickHandler(onClick = {}, onCloseClick = {}),
+            onCloseTabClick = {},
+            interactionState = TabItemInteractionState(),
         )
     }
 }

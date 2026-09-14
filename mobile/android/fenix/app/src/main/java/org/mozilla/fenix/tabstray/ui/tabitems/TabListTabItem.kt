@@ -5,8 +5,10 @@
 package org.mozilla.fenix.tabstray.ui.tabitems
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -205,19 +207,24 @@ private fun TabListIcon(
 private fun Thumbnail(tab: TabsTrayItem.Tab) {
     val density = LocalDensity.current
     val thumbnailSize = with(density) { ThumbnailWidth.toPx() }.toInt()
-    TabThumbnail(
-        tabThumbnailImageData = tab.toThumbnailImageData(),
-        thumbnailSizePx = thumbnailSize,
+    Box(
         modifier =
             Modifier.size(
-                    width = ThumbnailWidth,
-                    height = ThumbnailHeight,
-                )
-                .testTag(TabsTrayTestTag.TAB_ITEM_THUMBNAIL),
-        shape = MaterialTheme.shapes.extraSmall,
-        border = tablistItemThumbnailBorder,
-        contentDescription = stringResource(id = tabstrayR.string.mozac_browser_tabstray_open_tab),
-    )
+                width = ThumbnailWidth,
+                height = ThumbnailHeight,
+            )
+    ) {
+        TabThumbnail(
+            tabThumbnailImageData = tab.toThumbnailImageData(),
+            thumbnailSizePx = thumbnailSize,
+            modifier = Modifier.fillMaxSize().testTag(TabsTrayTestTag.TAB_ITEM_THUMBNAIL),
+            shape = MaterialTheme.shapes.extraSmall,
+            border = tablistItemThumbnailBorder,
+            contentDescription = stringResource(id = tabstrayR.string.mozac_browser_tabstray_open_tab),
+        )
+
+        MediaPlaybackIndicator(isMediaActive = tab.isMediaActive)
+    }
 }
 
 private data class TabListItemPreviewState(
@@ -367,6 +374,23 @@ private fun TabListTabItemPreview(
             onClick = {},
             selectionState = tabListItemState.tabItemSelectionState,
             interactionState = tabListItemState.tabItemInteractionState,
+        )
+    }
+}
+
+@Composable
+@PreviewLightDark
+private fun TabListTabItemMediaPreview() {
+    FirefoxTheme {
+        TabListTabItem(
+            tab =
+                createTab(
+                    url = "www.mozilla.org",
+                    title = "Mozilla Domain",
+                    isMediaActive = true,
+                ),
+            onCloseClick = {},
+            onClick = {},
         )
     }
 }

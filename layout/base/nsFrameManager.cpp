@@ -125,7 +125,8 @@ void nsFrameManager::RemoveFrame(DestroyContext& aContext,
 // Accept a content id here, in some cases we may not have content (scroll
 // position)
 void nsFrameManager::CaptureFrameStateFor(nsIFrame* aFrame,
-                                          nsILayoutHistoryState* aState) {
+                                          nsILayoutHistoryState* aState,
+                                          CaptureStateFlags aFlags) {
   if (!aFrame || !aState) {
     NS_WARNING("null frame, or state");
     return;
@@ -138,7 +139,7 @@ void nsFrameManager::CaptureFrameStateFor(nsIFrame* aFrame,
   }
 
   // Capture the state, exit early if we get null (nothing to save)
-  UniquePtr<PresState> frameState = statefulFrame->SaveState();
+  UniquePtr<PresState> frameState = statefulFrame->SaveState(aFlags);
   if (!frameState) {
     return;
   }
@@ -158,11 +159,12 @@ void nsFrameManager::CaptureFrameStateFor(nsIFrame* aFrame,
 }
 
 void nsFrameManager::CaptureFrameState(nsIFrame* aFrame,
-                                       nsILayoutHistoryState* aState) {
+                                       nsILayoutHistoryState* aState,
+                                       CaptureStateFlags aFlags) {
   MOZ_ASSERT(nullptr != aFrame && nullptr != aState,
              "null parameters passed in");
 
-  CaptureFrameStateFor(aFrame, aState);
+  CaptureFrameStateFor(aFrame, aState, aFlags);
 
   // Now capture state recursively for the frame hierarchy rooted at aFrame
   for (const auto& childList : aFrame->ChildLists()) {
@@ -182,7 +184,7 @@ void nsFrameManager::CaptureFrameState(nsIFrame* aFrame,
       // out-of-flows and fragmentation. We handle that unexpected situation by
       // silently skipping this frame, rather than crashing.
       if (MOZ_LIKELY(realChild)) {
-        CaptureFrameState(realChild, aState);
+        CaptureFrameState(realChild, aState, aFlags);
       }
     }
   }

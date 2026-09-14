@@ -331,6 +331,15 @@ constexpr bool ValueTypeIsGCThing(JSValueType type) {
 #define JSVAL_TYPE_TO_TAG(type) (JS::detail::ValueTypeToTag(type))
 
 enum JSWhyMagic {
+  /**
+   * uninitialized lexical bindings that produce ReferenceError on touch.
+   *
+   * Kept first so its payload is zero: the JITs materialize this Value at
+   * every TDZ check and lexical slot initialization, and a zero payload takes
+   * one instruction fewer on ARM64.
+   */
+  JS_UNINITIALIZED_LEXICAL,
+
   /** a hole in a native object's elements */
   JS_ELEMENTS_HOLE,
 
@@ -357,9 +366,6 @@ enum JSWhyMagic {
 
   /** optimized out slot */
   JS_OPTIMIZED_OUT,
-
-  /** uninitialized lexical bindings that produce ReferenceError on touch. */
-  JS_UNINITIALIZED_LEXICAL,
 
   /** arguments object can't be created because environment is dead. */
   JS_MISSING_ARGUMENTS,

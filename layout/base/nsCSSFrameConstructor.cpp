@@ -7621,7 +7621,7 @@ void nsCSSFrameConstructor::CaptureStateForFramesOf(
   }
   for (; frame;
        frame = nsLayoutUtils::GetNextContinuationOrIBSplitSibling(frame)) {
-    CaptureFrameState(frame, aHistoryState);
+    CaptureFrameState(frame, aHistoryState, {});
   }
 }
 

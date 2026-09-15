@@ -25,4 +25,5 @@
 
 :root {
   --felt-background-color-tabstrip: light-dark(var(--color-gray-20), var(--color-gray-90));
+  --felt-logo-background-gradient: linear-gradient(101deg, #1a3560 0%, #0c66b4 98.12%);
 }

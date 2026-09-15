@@ -5,7 +5,6 @@
 @import url("chrome://global/skin/global.css");
 @import url("chrome://global/skin/design-system/text-and-typography.css");
 @import url("chrome://global/skin/design-system/tokens-brand.css");
-@import url("chrome://branding/content/felt-tokens.css");
 @import url("chrome://felt/content/styles/felt-tokens.css");
 
 :root {
@@ -64,7 +63,7 @@ body {
   height: 602px;
   justify-content: center;
   align-items: center;
-  background-image: url("chrome://branding/content/enterprise-icon-cropped.svg");
+  background-image: url("chrome://felt/content/assets/enterprise-icon-cropped.svg");
   background-repeat: no-repeat;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   background-size: contain;
@@ -94,7 +93,7 @@ body {
 }
 
 .enterprise-wordmark {
-  content: url("chrome://branding/content/enterprise-wordmark.svg");
+  content: url("chrome://felt/content/assets/enterprise-wordmark.svg");
   -moz-context-properties: fill;
   fill: currentColor;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */

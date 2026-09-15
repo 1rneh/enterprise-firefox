@@ -75,6 +75,136 @@ add_task(async function () {
   );
 });
 
+add_task(
+  { skip_if: () => !AppConstants.MOZ_ENTERPRISE },
+  async function test_disk_encryption_row() {
+    // XPCOM registrations are process-local.
+    const CASES = [
+      {
+        status: "full",
+        method: "filevault",
+        displayMethod: "FileVault",
+        text: "Enabled (FileVault)",
+      },
+      {
+        status: "full",
+        method: "zfs",
+        displayMethod: "ZFS",
+        text: "Enabled (ZFS)",
+      },
+      {
+        status: "enabled",
+        method: "dm-crypt",
+        text: "Enabled (dm-crypt); inspection incomplete",
+      },
+      {
+        status: "partial",
+        method: "bitlocker",
+        displayMethod: "BitLocker",
+        text: "Partial (BitLocker); some storage areas are not encrypted",
+      },
+      {
+        status: "disabled",
+        method: "dm-crypt",
+        text: "Disabled",
+      },
+      {
+        status: "in-progress",
+        method: "bitlocker",
+        displayMethod: "BitLocker",
+        text: "Encryption or decryption in progress",
+      },
+      {
+        // The wrapper normalizes an empty method to null.
+        status: "unknown",
+        method: "",
+        text: "Unknown",
+      },
+    ];
+
+    await BrowserTestUtils.withNewTab(
+      { gBrowser, url: "about:support" },
+      async browser => {
+        for (const testCase of CASES) {
+          const [l10nArgs, hidden] = await SpecialPowers.spawn(
+            browser,
+            [testCase],
+            async expected => {
+              const { MockRegistrar } = ChromeUtils.importESModule(
+                "resource://testing-common/MockRegistrar.sys.mjs"
+              );
+              const { Troubleshoot } = ChromeUtils.importESModule(
+                "resource://gre/modules/Troubleshoot.sys.mjs"
+              );
+
+              const cid = MockRegistrar.register(
+                "@mozilla.org/enterprise/disk-encryption-checker;1",
+                {
+                  QueryInterface: ChromeUtils.generateQI([
+                    Ci.nsIDiskEncryptionChecker,
+                  ]),
+                  getDiskEncryption(callback) {
+                    callback.onComplete(expected.status, expected.method);
+                  },
+                }
+              );
+
+              const edrCid = MockRegistrar.register(
+                "@mozilla.org/enterprise/edr-checker;1",
+                {
+                  QueryInterface: ChromeUtils.generateQI([Ci.nsIEdrChecker]),
+                  getPresentEdrs(requestedIds, callback) {
+                    callback.onComplete([]);
+                  },
+                }
+              );
+
+              const doc = content.document;
+              let id = `security-software-disk-encryption-${expected.status}`;
+              if (["full", "enabled", "partial"].includes(expected.status)) {
+                id += "-with-method";
+              }
+              try {
+                const snapshot = await Troubleshoot.snapshot();
+                content.wrappedJSObject.snapshotFormatters.securitySoftware(
+                  Cu.cloneInto(snapshot.securitySoftware, content)
+                );
+
+                const cell = doc.getElementById(
+                  "security-software-disk-encryption"
+                );
+                // Wait for Fluent to replace the previous case's text.
+                await ContentTaskUtils.waitForCondition(
+                  () =>
+                    doc.l10n.getAttributes(cell).id === id &&
+                    cell.textContent.replace(/[\u2068\u2069]/g, "").trim() ===
+                      expected.text,
+                  `${id} rendered as "${expected.text}", got "${cell.textContent.trim()}"`
+                );
+                return [
+                  doc.l10n.getAttributes(cell).args,
+                  doc.getElementById("security-software-disk-encryption-row")
+                    .hidden,
+                ];
+              } finally {
+                MockRegistrar.unregister(edrCid);
+                MockRegistrar.unregister(cid);
+              }
+            }
+          );
+
+          Assert.equal(
+            l10nArgs.method,
+            testCase.displayMethod ?? testCase.method,
+            "The method reaches Fluent, empty when there is none"
+          );
+          Assert.ok(!hidden, "The disk encryption row is shown");
+        }
+      }
+    );
+  }
+);
+
 add_task(async function test_nimbus_experiments() {
   await ExperimentAPI.ready();
   let doExperimentCleanup = await NimbusTestUtils.enrollWithFeatureConfig({

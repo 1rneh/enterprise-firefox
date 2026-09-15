@@ -25,3 +25,12 @@ BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]
 
 JAR_MANIFESTS += ["jar.mn"]
 XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    # Ship the AutoConfig file (pointed at by general.config.filename). The
+    # readable source is byte shifted at build time rather than checked in
+    # obscured. Installed into dist/bin, alongside the browser binary.
+    GENERATED_FILES += ["firefox.cfg"]
+    GENERATED_FILES["firefox.cfg"].script = "byteshift.py:generate"
+    GENERATED_FILES["firefox.cfg"].inputs = ["firefox.cfg.in"]
+    FINAL_TARGET_FILES += ["!firefox.cfg"]

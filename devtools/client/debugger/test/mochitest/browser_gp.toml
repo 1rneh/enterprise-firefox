@@ -179,9 +179,6 @@ fail-if = [
 ["browser_dbg-preview-multiple-frames.js"]
 
 ["browser_dbg-preview-multiple-threads.js"]
-fail-if = [
-  "a11y_checks", # Bug 1849028 .threads-pane .thread is not accessible
-]
 
 ["browser_dbg-preview-source-maps.js"]
 

@@ -32,6 +32,9 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/Result.h"
 #include "mozilla/RustCell.h"
+// FIXME: ScrollState is only needed for older libstdc++ versions, remove,
+// eventually...
+#include "mozilla/ScrollState.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/AtomAttributes.h"
 #include "mozilla/dom/BorrowedAttrInfo.h"
@@ -1888,6 +1891,16 @@ class Element : public FragmentOrElement {
       slots->mVisibleForContentVisibility.reset();
       slots->mTemporarilyVisibleForScrolledIntoViewDescendant = false;
     }
+  }
+
+  // Scroll state saved from a scroll container frame of this element that got
+  // destroyed for reconstruction, to be restored by the new frame.
+  void SetSavedScrollState(UniquePtr<ScrollState> aState);
+  UniquePtr<ScrollState> TakeSavedScrollState() {
+    if (auto* slots = GetExistingExtendedDOMSlots()) {
+      return std::move(slots->mSavedScrollState);
+    }
+    return nullptr;
   }
 
   bool TemporarilyVisibleForScrolledIntoViewDescendant() const {

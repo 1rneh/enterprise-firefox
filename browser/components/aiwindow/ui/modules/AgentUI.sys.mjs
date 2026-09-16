@@ -244,13 +244,15 @@ export class AgentUI {
     const watchUrlTitles = await lazy.MonitorUIUtils.resolveWatchUrlTitles(
       args.watchUrls
     );
-    message.content.body = "";
-    message.content.l10nId = "smartwindow-agent-monitor-watching";
-    message.content.l10nArgs = {
-      monitorName,
-      schedule: this.#formatScheduleSummary(updateData?.schedule),
-    };
-    message.content.link = { l10nName: "tasks", href: TASKS_PAGE_URL };
+    this.#setMessageL10n(
+      message,
+      "smartwindow-agent-monitor-watching",
+      {
+        monitorName,
+        schedule: this.#formatScheduleSummary(updateData?.schedule),
+      },
+      { l10nName: "tasks", href: TASKS_PAGE_URL }
+    );
     message.toolUIDraft = null;
     message.toolUIData = {
       ...message.toolUIData,
@@ -294,13 +296,16 @@ export class AgentUI {
   }
 
   /**
-   * Dismisses the "create" card without persisting anything
+   * Dismisses the "create" card without persisting anything, replacing the
+   * setup prompt with a cancellation acknowledgement
    *
    * @param {AgentHandlerContext} context
    * @returns {Promise<boolean>}
    */
   static async #handleCancelMonitor({ message, conversation }) {
+    // TODO - https://bugzilla.mozilla.org/show_bug.cgi?id=2071986 update model with status
     message.toolUIDraft = null;
+    this.#setMessageL10n(message, "smartwindow-agent-monitor-canceled");
     await conversation.updateToolUI(message, null, null);
     return true;
   }
@@ -412,10 +417,9 @@ export class AgentUI {
     const monitorName =
       agent.monitorName ||
       lazy.l10n.formatValueSync("smartwindow-agent-monitor-default-name");
-    message.content.body = "";
-    message.content.l10nId = "smartwindow-agent-monitor-deleted";
-    message.content.l10nArgs = { monitorName };
-    message.content.link = null;
+    this.#setMessageL10n(message, "smartwindow-agent-monitor-deleted", {
+      monitorName,
+    });
 
     // User confirmed and deletion succeeded, remove the card
     await conversation.updateToolUI(message, null, null);
@@ -593,6 +597,22 @@ export class AgentUI {
       };
       conversation.emit("chat-conversation:message-update", message);
     }
+  }
+
+  /**
+   * Replaces a message's rendered text with a localized agent message
+   *
+   * @param {object} message - The message whose text is being replaced
+   * @param {string} l10nId - Fluent id of the replacement text
+   * @param {?object} [l10nArgs] - Fluent args for the replacement text
+   * @param {?{l10nName: string, href: string}} [link] - Link embedded in the text
+   * @private
+   */
+  static #setMessageL10n(message, l10nId, l10nArgs = null, link = null) {
+    message.content.body = "";
+    message.content.l10nId = l10nId;
+    message.content.l10nArgs = l10nArgs;
+    message.content.link = link;
   }
 
   /**

@@ -1062,7 +1062,7 @@ child:
      */
     async DispatchToDropTargetAndResumeEndDragSession(bool aShouldDrop, StringHashSet aAllowedFilePaths);
 
-#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+#ifdef ACCESSIBILITY
     async RequestDocAccessibleForPrint();
 #endif
 

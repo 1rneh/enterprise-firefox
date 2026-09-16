@@ -30,7 +30,7 @@
        from the shared base styles rather than being set here. */
     border-inline: var(--border-width) solid var(--button-border-color);
     border-block-end: var(--border-width) solid var(--button-border-color);
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/no-background-without-text-color */
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-paired-color-tokens */
     background-color: var(--button-background-color);
   }
 

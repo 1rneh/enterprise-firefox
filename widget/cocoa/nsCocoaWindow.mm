@@ -2432,11 +2432,7 @@ NSEvent* gLastDragMouseDownEvent = nil;  // [strong]
         ([[self window] isZoomed] != mZoomStateAtLastSingleClick);
 
     if (!zoomStateAlreadyChanged) {
-      if (nsCocoaUtils::ShouldZoomOnTitlebarDoubleClick()) {
-        [[self window] performZoom:nil];
-      } else if (nsCocoaUtils::ShouldMinimizeOnTitlebarDoubleClick()) {
-        [[self window] performMiniaturize:nil];
-      }
+      nsCocoaUtils::PerformTitlebarDoubleClickAction([self window]);
     }
   }
 

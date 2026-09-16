@@ -267,7 +267,7 @@ toolbar[inactive="true"] .urlbar,
   --urlbar-background-color-focus: var(--input-text-background-color);
   --toolbar-field-text-color: var(--input-text-color);
   --toolbar-field-text-color-focus: var(--input-text-color);
-  --toolbar-field-border-color: var(--input-text-border-color);
+  --toolbar-field-border-color: var(--border-color-deemphasized);
 
   /* The selected row's background and text have to stay a pair, so both come
      from the list item tokens. The action text follows the input. */
@@ -284,6 +284,10 @@ toolbar[inactive="true"] .urlbar,
   background-clip: border-box;
   border-radius: var(--urlbar-background-border-radius);
   border: var(--urlbar-background-border);
+
+  .urlbar[in-page]:not([popover-open]) > & {
+    background-clip: padding-box;
+  }
 
   .urlbar:is([focused], [open]) > & {
     background-color: var(--urlbar-background-color-focus);

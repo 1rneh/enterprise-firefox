@@ -4321,7 +4321,6 @@ export class UrlbarView {
       let menuitem = this.document.createElement("panel-item");
       menuitem.dataset.usercontextid = String(container.userContextId);
       if (container.l10nId) {
-        menuitem.setAttribute("data-l10n-attrs", "accesskey");
         this.document.l10n.setAttributes(
           menuitem,
           `${container.l10nId}-panel-item`
@@ -4340,7 +4339,7 @@ export class UrlbarView {
     panel.appendChild(this.document.createElement("hr"));
     panel.appendChild(
       this.#createContainerMenuItem(
-        "user-context-add-container-panel-item",
+        "user-context-add-container2-panel-item",
         () =>
           this.controller.parentController.openContainerCreationPanel(
             CONTAINER_SOURCE
@@ -4349,7 +4348,7 @@ export class UrlbarView {
     );
     panel.appendChild(
       this.#createContainerMenuItem(
-        "user-context-manage-containers-panel-item",
+        "user-context-manage-containers2-panel-item",
         () =>
           this.controller.parentController.openPreferences("paneContainers", {
             urlParams: { entrypoint: CONTAINER_SOURCE },
@@ -4362,7 +4361,7 @@ export class UrlbarView {
    * Builds one of the container submenu's items that don't pick the result.
    *
    * @param {string} l10nId
-   *   The l10n id of the item's label, which also carries its accesskey.
+   *   The l10n id of the item's label.
    * @param {Function} onPick
    *   Called when the item is picked.
    * @returns {Element}
@@ -4370,7 +4369,6 @@ export class UrlbarView {
    */
   #createContainerMenuItem(l10nId, onPick) {
     let menuitem = this.document.createElement("panel-item");
-    menuitem.setAttribute("data-l10n-attrs", "accesskey");
     this.document.l10n.setAttributes(menuitem, l10nId);
     menuitem.addEventListener("click", onPick);
     return menuitem;

@@ -20,7 +20,7 @@ use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use crate::display_item as di;
 use crate::{APZScrollGeneration, HasScrollLinkedEffect, PipelineId, PropertyBinding};
 use crate::gradient_builder::GradientBuilder;
-use crate::color::ColorF;
+use crate::color::{ColorF, ColorU};
 use crate::font::{FontInstanceKey, GlyphInstance, GlyphOptions};
 use crate::image::{ColorDepth, ImageKey};
 use crate::key_types::EdgeMask;
@@ -35,6 +35,22 @@ use crate::units::*;
 // We don't want to push a long text-run. If a text-run is too long, split it into several parts.
 // This needs to be set to (renderer::MAX_VERTEX_TEXTURE_WIDTH - VECS_PER_TEXT_RUN) * 2
 pub const MAX_TEXT_RUN_LENGTH: usize = 2040;
+
+/// Whether an item of this colour draws anything. Tested on the quantized
+/// colour, which is what the scene builder's primitive data holds, so this
+/// is the same predicate it applies.
+fn color_is_visible(color: ColorF) -> bool {
+    ColorU::from(color).a > 0
+}
+
+/// A rectangle with an animated colour is taken to be visible, since the
+/// binding resolves at frame time.
+fn rect_is_visible(color: &PropertyBinding<ColorF>) -> bool {
+    match *color {
+        PropertyBinding::Value(color) => color_is_visible(color),
+        PropertyBinding::Binding(..) => true,
+    }
+}
 
 // See ROOT_REFERENCE_FRAME_SPATIAL_ID and ROOT_SCROLL_NODE_SPATIAL_ID
 // TODO(mrobinson): It would be a good idea to eliminate the root scroll frame which is only
@@ -921,10 +937,16 @@ pub enum DisplayListSection {
 ///
 /// Hence `AuOffset`: accumulated offsets are carried as whole app units and added
 /// to app-unit coordinates, never as f32 layout pixels. See bug 2059570.
+///
+/// Held as i64 rather than nscoord's i32: a single sticky frame's unconstrained
+/// sticky range edge is `nscoord_MIN / 2` app units, and nesting sticky frames
+/// accumulates that with one sign, so four levels exceed i32 (bug 2072044).
+/// Accumulated offsets that large are far past `MAX_EXACT_AU` and so carry no
+/// exactness to preserve; they only have to not overflow.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct AuOffset {
-    x: i32,
-    y: i32,
+    x: i64,
+    y: i64,
 }
 
 impl AuOffset {
@@ -1004,7 +1026,7 @@ impl AuGrid {
     /// that is off-grid on an axis that *is* shifted is still rounded, and
     /// `off_grid_coords` counts it; embedders that intern the rect must keep
     /// that counter at zero.
-    fn add(&self, v: f32, off_au: i32, off_grid: &mut u32) -> f32 {
+    fn add(&self, v: f32, off_au: i64, off_grid: &mut u32) -> f32 {
         if off_au == 0 {
             return v;
         }
@@ -1025,8 +1047,8 @@ impl AuGrid {
     /// Convert a vector Gecko supplied (a scroll offset) to whole app units.
     fn vec_to_au(&self, v: LayoutVector2D, off_grid: &mut u32) -> AuOffset {
         AuOffset {
-            x: self.to_au(v.x, off_grid) as i32,
-            y: self.to_au(v.y, off_grid) as i32,
+            x: self.to_au(v.x, off_grid) as i64,
+            y: self.to_au(v.y, off_grid) as i64,
         }
     }
 }
@@ -1364,14 +1386,7 @@ impl DisplayListBuilder {
         bounds: LayoutRect,
         color: ColorF,
     ) {
-        let (common, offset) = self.normalize_common(common);
-        let item = di::DisplayItem::Rectangle(di::RectangleDisplayItem {
-            common,
-            color: PropertyBinding::Value(color),
-            bounds: self.shift_rect(bounds, offset),
-            transformed_aa_edges: EdgeMask::all(),
-        });
-        self.push_item(&item);
+        self.push_rect_with_animation(common, bounds, PropertyBinding::Value(color));
     }
 
     pub fn push_rect_with_animation(
@@ -1380,6 +1395,19 @@ impl DisplayListBuilder {
         bounds: LayoutRect,
         color: PropertyBinding<ColorF>,
     ) {
+        // A fully transparent rectangle draws nothing, so drop it here rather
+        // than have the scene builder discover it. Two exceptions: inside a
+        // shadow scope it is still captured so `pop_all_shadows` can copy it
+        // in the shadow's colour (the original re-emission drops it again), and
+        // a checkerboard background still marks a tile cache barrier whatever
+        // its colour.
+        if !rect_is_visible(&color)
+            && self.pending_shadows.is_empty()
+            && !common.flags.contains(di::PrimitiveFlags::CHECKERBOARD_BACKGROUND)
+        {
+            return;
+        }
+
         let (common, offset) = self.normalize_common(common);
         let item = di::DisplayItem::Rectangle(di::RectangleDisplayItem {
             common,
@@ -1417,6 +1445,11 @@ impl DisplayListBuilder {
         color: &ColorF,
         style: di::LineStyle,
     ) {
+        // Same shadow-scope exception as `push_text`.
+        if !color_is_visible(*color) && self.pending_shadows.is_empty() {
+            return;
+        }
+
         let (common, offset) = self.normalize_common(common);
         let area = self.shift_rect(*area, offset);
 
@@ -1513,6 +1546,15 @@ impl DisplayListBuilder {
         color: ColorF,
         glyph_options: Option<GlyphOptions>,
     ) {
+        // Fully transparent text draws nothing. The exception is a shadow
+        // scope: an invisible original can still cast a visible shadow (CSS
+        // `color: transparent` with a `text-shadow`), so the item is still
+        // captured for `pop_all_shadows` to copy; the original re-emission
+        // there drops it.
+        if !color_is_visible(color) && self.pending_shadows.is_empty() {
+            return;
+        }
+
         let (common, offset) = self.normalize_common(common);
         let item = di::DisplayItem::Text(di::TextDisplayItem {
             common,
@@ -2714,8 +2756,23 @@ impl DisplayListBuilder {
                 None,
             );
 
+            // A transparent shadow colour makes every text, rectangle and
+            // line copy invisible; images and borders take it as a tint and
+            // still draw.
+            let copies_visible = color_is_visible(s.color);
+
             for p in &parsed {
                 if let Parsed::Draw(entry) = p {
+                    if !copies_visible
+                        && matches!(
+                            entry.item,
+                            di::DisplayItem::Text(..)
+                                | di::DisplayItem::Rectangle(..)
+                                | di::DisplayItem::Line(..)
+                        )
+                    {
+                        continue;
+                    }
                     if let Some(copy) = Self::shadow_copy_of_item(
                         &entry.item,
                         s.offset,
@@ -2734,8 +2791,19 @@ impl DisplayListBuilder {
         }
 
         // 3. The original (unshadowed) content, drawn on top of the shadows.
+        //    An invisible original was captured only so it could cast a shadow.
         for p in &parsed {
             if let Parsed::Draw(entry) = p {
+                let visible = match entry.item {
+                    di::DisplayItem::Text(ref info) => color_is_visible(info.color),
+                    di::DisplayItem::Rectangle(ref info) => rect_is_visible(&info.color),
+                    di::DisplayItem::Line(ref info) => color_is_visible(info.color),
+                    _ => true,
+                };
+                if !visible {
+                    continue;
+                }
+
                 self.push_item(&entry.item);
                 if matches!(entry.item, di::DisplayItem::Text(..)) {
                     self.push_iter(&entry.glyphs);

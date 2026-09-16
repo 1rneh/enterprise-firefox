@@ -55,8 +55,8 @@
     "forcedColors": "transparent"
   },
   "border/color/deemphasized": {
-    "light": "{Colors$color/gray/20}",
-    "dark": "{Colors$color/gray/50}",
+    "light": "color-mix(in srgb, currentColor 24%, transparent)",
+    "dark": "color-mix(in srgb, currentColor 24%, transparent)",
     "forcedColors": "{HCM Theme$CanvasText}"
   },
   "border/color/interactive": {
@@ -458,6 +458,11 @@
     "light": "{Colors$color/red/50}",
     "dark": "{Colors$color/red/20}",
     "forcedColors": "transparent"
+  },
+  "info-bar/border/color": {
+    "light": "{Colors$color/violet-desaturated/20}",
+    "dark": "{Colors$color/gray/60}",
+    "forcedColors": "{HCM Theme$CanvasText}"
   },
   "input/text/background/color": {
     "light": "{Theme$background/color/box}",

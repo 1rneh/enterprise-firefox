@@ -374,6 +374,42 @@ add_task(async function keep_view_open_on_context_menu_mousedown() {
   gURLBar.view.close();
 });
 
+// No container item carries an accesskey, so the initial of a name the user
+// chose selects it, cycling among every container that shares the letter.
+add_task(async function container_first_letter_selection() {
+  let custom = ["Bakery", "Bagels"].map(name =>
+    ContextualIdentityService.create(name, "circle", "purple")
+  );
+  registerCleanupFunction(() => {
+    for (let { userContextId } of custom) {
+      ContextualIdentityService.remove(userContextId);
+    }
+  });
+
+  let menu = await openContextMenuOnFirstResult();
+  let subMenu = await openContainerSubMenu(
+    menu.querySelector('[data-open-in="container-tab"]')
+  );
+  await TestUtils.waitForCondition(
+    () => subMenu.querySelector("[data-usercontextid]")?.textContent,
+    "Waiting for the container items to be labeled"
+  );
+
+  // First-letter selection needs focus inside the panel, where opening the
+  // submenu by keyboard puts it.
+  subMenu.querySelector("panel-item").focus();
+  let focusedLabel = () =>
+    subMenu.getRootNode().activeElement?.textContent.trim();
+
+  for (let expected of ["Banking", "Bakery", "Bagels", "Banking"]) {
+    EventUtils.synthesizeKey("b", {});
+    Assert.equal(focusedLabel(), expected, `B selected ${expected}`);
+  }
+
+  menu.hide(undefined, { force: true });
+  gURLBar.view.close();
+});
+
 // Returns the menu's items as the command or open-in target each one picks, in
 // the order they are shown, separators included.
 async function promiseMenuDescription() {
@@ -465,8 +501,8 @@ async function openContainerSubMenuItem(menuItem, userContextId) {
     "Waiting for the container item to be labeled"
   );
   Assert.ok(
-    subMenuItem.hasAttribute("accesskey"),
-    `The container item for ${userContextId} has an accesskey`
+    !subMenuItem.hasAttribute("accesskey"),
+    `The container item for ${userContextId} should have no access key`
   );
   return subMenuItem;
 }

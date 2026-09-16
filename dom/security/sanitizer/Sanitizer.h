@@ -95,6 +95,7 @@ class Sanitizer final : public nsISupports, public nsWrapperCache {
   bool RemoveAttribute(const StringOrSanitizerAttributeNamespace& aAttribute);
   bool SetComments(bool aAllow);
   bool SetDataAttributes(bool aAllow);
+  bool SetJavascriptURLs(bool aAllow);
   bool RemoveUnsafe();
 
   /**
@@ -142,13 +143,12 @@ class Sanitizer final : public nsISupports, public nsWrapperCache {
   ~Sanitizer() = default;
 
   void CanonicalizeConfiguration(const SanitizerConfig& aConfig,
-                                 bool aAllowCommentsPIsAndDataAttributes,
-                                 ErrorResult& aRv);
+                                 bool aPermissiveDefaults, ErrorResult& aRv);
   void IsValid(ErrorResult& aRv) const;
 
   void SetDefaultConfig();
-  void SetConfig(const SanitizerConfig& aConfig,
-                 bool aAllowCommentsPIsAndDataAttributes, ErrorResult& aRv);
+  void SetConfig(const SanitizerConfig& aConfig, bool aPermissiveDefaults,
+                 ErrorResult& aRv);
 
   void MaybeMaterializeDefaultConfig();
 
@@ -217,6 +217,8 @@ class Sanitizer final : public nsISupports, public nsWrapperCache {
   // mDataAttributes always exists when mAttributes exists after
   // canonicalization. It never exists at the same time as mRemoveAttributes.
   Maybe<bool> mDataAttributes;
+
+  bool mJavascriptURLs = false;
 
   // Optimization: This sanitizer has a lazy default config. None
   // of the element lists will be used, however mComments and mDataAttributes

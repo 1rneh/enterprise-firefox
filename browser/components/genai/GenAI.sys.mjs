@@ -111,7 +111,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "chatShortcutsIgnoreFields",
   "browser.ml.chat.shortcuts.ignoreFields",
-  "input",
+  "input,moz-multiline-editor",
   updateIgnoredInputs
 );
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -641,6 +641,7 @@ export const GenAI = {
    * @param {string} name of message
    * @param {{
    *   inputType: string,
+   *   host?: string,
    *   selection: string,
    *   delay: number,
    *   x: number,
@@ -657,6 +658,7 @@ export const GenAI = {
       !isInBrowserStack ||
       !browser ||
       this.ignoredInputs.has(data.inputType) ||
+      this.ignoredInputs.has(data.host) ||
       (isSmartWindow
         ? !lazy.chatShortcutsSmartWindow
         : !lazy.chatShortcuts || !this.canShowChatEntrypoint)

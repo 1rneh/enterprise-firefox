@@ -791,7 +791,11 @@ class MarkerSchema {
     String,
 
     // Show a string from a UniqueStringArray given an index in the profile.
-    // e.g. 1, given string table ["hello", "world"] will show "world"
+    // e.g. 1, given string table ["hello", "world"] will show "world".
+    // URLs are sanitized, because the front-end scrubs the whole string table,
+    // so unlike `String` this format is safe for strings that may contain one.
+    // Nothing else is sanitized: file paths, host names and other PII are kept
+    // as-is.
     UniqueString,
 
     // ----------------------------------------------------

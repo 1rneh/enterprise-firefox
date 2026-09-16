@@ -359,7 +359,6 @@ export class SmartFormFillParent extends JSWindowActorParent {
     }
 
     this.#startFormMetadataRequests(metadata);
-
     await Promise.all([
       metadata.relevantTabsPromise,
       metadata.classificationPromise,
@@ -1551,11 +1550,12 @@ export class SmartFormFillParent extends JSWindowActorParent {
    */
   #getRequestObserver() {
     return {
-      onRelevantTabsDispatched: (formId, request, modelInfo) =>
+      onRelevantTabsDispatched: (formId, request, modelInfo, threshold) =>
         this.#telemetry.startRelevantTabsRequest(
           this.#getFlowId(formId),
           request,
-          modelInfo
+          modelInfo,
+          threshold
         ),
 
       onRelevantTabsAnswered: (flow, response, tabsUsed) =>

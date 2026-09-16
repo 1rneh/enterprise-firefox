@@ -94,6 +94,15 @@ sequenceDiagram
     Bob-->>John: Jolly good!
 ```
 
+## Size and alignment
+
+Diagrams render at their intrinsic size, centered horizontally within the page.
+Their caption is centered automatically as well, so the `:align:` option isn't
+needed.
+
+A diagram wider than the page scrolls horizontally within its container, and
+fades at the edges to indicate it overflows.
+
 ## Colors
 
 A diagram follows the page's color scheme. A node you do not style takes the

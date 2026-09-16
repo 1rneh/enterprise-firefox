@@ -11601,8 +11601,6 @@ interface nsILoadInfo extends nsISupports, Enums<typeof nsILoadInfo_StoragePermi
   triggeringSandboxFlags: u32;
   /** <!-- binding_to(idl, attribute, XPIDL_nsILoadInfo_triggeringWindowId) --> */
   triggeringWindowId: u64;
-  /** <!-- binding_to(idl, attribute, XPIDL_nsILoadInfo_triggeringStorageAccess) --> */
-  triggeringStorageAccess: boolean;
   /** <!-- binding_to(idl, attribute, XPIDL_nsILoadInfo_triggeringFirstPartyClassificationFlags) --> */
   triggeringFirstPartyClassificationFlags: u32;
   /** <!-- binding_to(idl, attribute, XPIDL_nsILoadInfo_triggeringThirdPartyClassificationFlags) --> */

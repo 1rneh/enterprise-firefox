@@ -1277,13 +1277,16 @@ class SdpFmtpAttributeList : public SdpAttribute {
   };
 
   struct Av1Parameters : public Parameters {
-    // https://aomediacodec.github.io/av1-rtp-spec/#722-rid-restrictions-mapping-for-av1
+    // https://aomediacodec.github.io/av1-rtp-spec/#rid
     Maybe<uint8_t> profile;
     static constexpr uint8_t kDefaultProfile = 0;
+    static constexpr uint8_t kMaxProfile = 2;
     Maybe<uint8_t> levelIdx;
     static constexpr uint8_t kDefaultLevelIdx = 5;
+    static constexpr uint8_t kMaxLevelIdx = 31;
     Maybe<uint8_t> tier;
     static constexpr uint8_t kDefaultTier = 0;
+    static constexpr uint8_t kMaxTier = 1;
 
     Av1Parameters() : Parameters(SdpRtpmapAttributeList::kAV1) {}
     Av1Parameters(const Av1Parameters&) = default;

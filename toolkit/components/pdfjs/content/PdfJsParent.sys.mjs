@@ -25,6 +25,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   IndexedDB: "resource://gre/modules/IndexedDB.sys.mjs",
   MLUninstallService: "chrome://global/content/ml/Utils.sys.mjs",
   MultiProgressAggregator: "chrome://global/content/ml/Utils.sys.mjs",
+  PdfJsFeaturesNotification:
+    "resource://pdf.js/PdfJsFeaturesNotification.sys.mjs",
   PdfJsGuessAltTextFeature: "resource://pdf.js/PdfJsAIFeature.sys.mjs",
   PdfJsPrint: "resource://pdf.js/PdfJsPrint.sys.mjs",
   Progress: "chrome://global/content/ml/Utils.sys.mjs",
@@ -204,8 +206,31 @@ export class PdfJsParent extends JSWindowActorParent {
           aMsg.data.height
         );
       }
+      case "PDFJS:Parent:openAboutPdfFeatures":
+        return this._openAboutPdfFeatures();
+      case "PDFJS:Parent:claimFeaturesNotification":
+        return this._claimFeaturesNotification();
     }
     return undefined;
+  }
+
+  _openAboutPdfFeatures() {
+    // Do not let an embedded viewer navigate the top-level tab.
+    if (this.browsingContext !== this.browsingContext.top) {
+      return;
+    }
+    const browser = this.browser;
+    browser?.documentGlobal.openTrustedLinkIn("about:pdf#features", "current", {
+      targetBrowser: browser,
+    });
+  }
+
+  _claimFeaturesNotification() {
+    if (!lazy.PdfJsFeaturesNotification.isEligible()) {
+      return false;
+    }
+    lazy.PdfJsFeaturesNotification.recordImpression();
+    return true;
   }
 
   _viewPdfCertificate({ data }) {
@@ -478,6 +503,10 @@ export class PdfJsParent extends JSWindowActorParent {
   _setPreferences({ data }) {
     if (!data || typeof data !== "object") {
       return;
+    }
+    // Map the viewer's dismissal flag to the shared impression state.
+    if (data.featuresNotificationDismissed === true) {
+      lazy.PdfJsFeaturesNotification.consume();
     }
     const branch = Services.prefs.getBranch("pdfjs.");
     for (const [key, value] of Object.entries(data)) {

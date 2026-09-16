@@ -165,14 +165,26 @@ describe("Smart Form Fill initialization", () => {
         await promiseNavigateAndLoad(browser, SUPPORTED_FIELDS_URL);
         await waitForSmartFormFillProvider(browser, "#search");
 
-        for (const selector of ["#search", "#number", "#month", "#notes"]) {
+        for (const selector of [
+          "#search",
+          "#number",
+          "#month",
+          "#notes",
+          "#city",
+          "#address",
+        ]) {
           Assert.ok(
             await hasSmartFormFillProvider(browser, selector),
             `${selector} should register Smart Form Fill`
           );
         }
 
-        for (const selector of ["#password", "#checkbox", "#date"]) {
+        for (const selector of [
+          "#password",
+          "#checkbox",
+          "#date",
+          "#location-filter",
+        ]) {
           Assert.ok(
             !(await hasSmartFormFillProvider(browser, selector)),
             `${selector} should not register Smart Form Fill`
@@ -187,7 +199,7 @@ describe("Smart Form Fill initialization", () => {
 
         Assert.deepEqual(
           request.fields.map(field => field.name),
-          ["search", "number", "month", "notes"],
+          ["search", "number", "month", "notes", "city", "address"],
           "Only supported fields should be classified"
         );
       });

@@ -4863,15 +4863,16 @@ void nsHttpChannel::MaybeGenerateNELReport() {
 
   nsAutoCString endpointURL;
   ReportingHeader::GetEndpointForReportIncludeSubdomains(
-      group, channelPrincipal, /* includeSubdomains */ true, endpointURL);
+      NS_ConvertUTF16toUTF8(group), channelPrincipal,
+      /* includeSubdomains */ true, endpointURL);
   if (endpointURL.IsEmpty()) {
     return;
   }
 
   ReportDeliver::ReportData data;
-  data.mType = u"network-error"_ns;
-  data.mGroupName = std::move(group);
-  data.mURL = std::move(url);
+  data.mType = "network-error"_ns;
+  data.mGroupName = NS_ConvertUTF16toUTF8(group);
+  data.mURL = NS_ConvertUTF16toUTF8(url);
   data.mFailures = 0;
   data.mCreationTime = TimeStamp::Now();
 
@@ -4882,7 +4883,7 @@ void nsHttpChannel::MaybeGenerateNELReport() {
   // XXX(valentin): Should this be the potentially user set value of the header
   // or the current value of user_agent from http handler?
   (void)mRequestHead.GetHeader(nsHttp::User_Agent, userAgent);
-  data.mUserAgent = NS_ConvertUTF8toUTF16(userAgent);
+  data.mUserAgent = std::move(userAgent);
 
   // Enqueue the report to be delivered by the reporting API
   ReportDeliver::Fetch(data);

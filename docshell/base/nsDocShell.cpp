@@ -258,10 +258,8 @@
 #  include "mozIPlacesPendingOperation.h"
 #endif
 
-#ifdef NS_PRINTING
-#  include "nsIDocumentViewerPrint.h"
-#  include "nsIWebBrowserPrint.h"
-#endif
+#include "nsIDocumentViewerPrint.h"
+#include "nsIWebBrowserPrint.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -2299,13 +2297,13 @@ nsDocShell::NameEquals(const nsAString& aName, bool* aResult) {
 }
 
 NS_IMETHODIMP
-nsDocShell::GetCustomUserAgent(nsAString& aCustomUserAgent) {
+nsDocShell::GetCustomUserAgent(nsACString& aCustomUserAgent) {
   mBrowsingContext->GetCustomUserAgent(aCustomUserAgent);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsDocShell::SetCustomUserAgent(const nsAString& aCustomUserAgent) {
+nsDocShell::SetCustomUserAgent(const nsACString& aCustomUserAgent) {
   if (mWillChangeProcess) {
     NS_WARNING("SetCustomUserAgent: Process is changing. Ignoring set");
     return NS_ERROR_FAILURE;
@@ -3928,10 +3926,6 @@ nsresult nsDocShell::LoadErrorPage(nsIURI* aErrorURI, nsIURI* aFailedURI,
     loadState->SetTriggeringSandboxFlags(mBrowsingContext->GetSandboxFlags());
     loadState->SetTriggeringWindowId(
         mBrowsingContext->GetCurrentInnerWindowId());
-    nsPIDOMWindowInner* innerWin = mScriptGlobal->GetCurrentInnerWindow();
-    if (innerWin) {
-      loadState->SetTriggeringStorageAccess(innerWin->UsingStorageAccess());
-    }
   }
   loadState->SetLoadType(LOAD_ERROR_PAGE);
   loadState->SetFirstParty(true);
@@ -4171,7 +4165,6 @@ nsresult nsDocShell::ReloadDocument(nsDocShell* aDocShell, Document* aDocument,
       aDocument->GetPolicyContainer();
   uint32_t triggeringSandboxFlags = aDocument->GetSandboxFlags();
   uint64_t triggeringWindowId = aDocument->InnerWindowID();
-  bool triggeringStorageAccess = aDocument->UsingStorageAccess();
   net::ClassificationFlags triggeringClassificationFlags =
       aDocument->GetScriptTrackingFlags();
 
@@ -4221,7 +4214,6 @@ nsresult nsDocShell::ReloadDocument(nsDocShell* aDocShell, Document* aDocument,
   loadState->SetTriggeringPrincipal(triggeringPrincipal);
   loadState->SetTriggeringSandboxFlags(triggeringSandboxFlags);
   loadState->SetTriggeringWindowId(triggeringWindowId);
-  loadState->SetTriggeringStorageAccess(triggeringStorageAccess);
   loadState->SetTriggeringClassificationFlags(triggeringClassificationFlags);
   loadState->SetPrincipalToInherit(triggeringPrincipal);
   loadState->SetPolicyContainer(policyContainer);
@@ -5098,7 +5090,6 @@ nsDocShell::ForceRefreshURI(nsIURI* aURI, nsIPrincipal* aPrincipal,
       loadState->HasValidUserGestureActivation());
   loadState->SetTriggeringSandboxFlags(doc->GetSandboxFlags());
   loadState->SetTriggeringWindowId(doc->InnerWindowID());
-  loadState->SetTriggeringStorageAccess(doc->UsingStorageAccess());
   loadState->SetTriggeringClassificationFlags(doc->GetScriptTrackingFlags());
 
   loadState->SetPrincipalIsExplicit(true);
@@ -7730,8 +7721,6 @@ nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
       loadState->SetTriggeringSandboxFlags(
           aLoadState->TriggeringSandboxFlags());
       loadState->SetTriggeringWindowId(aLoadState->TriggeringWindowId());
-      loadState->SetTriggeringStorageAccess(
-          aLoadState->TriggeringStorageAccess());
       loadState->SetTriggeringClassificationFlags(
           aLoadState->TriggeringClassificationFlags());
       loadState->SetPolicyContainer(aLoadState->PolicyContainer());
@@ -10083,13 +10072,6 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
     if (!aLoadState->TriggeringWindowId()) {
       aLoadState->SetTriggeringWindowId(context->Id());
     }
-    if (!aLoadState->TriggeringStorageAccess()) {
-      Document* contextDoc = context->GetExtantDoc();
-      if (contextDoc) {
-        aLoadState->SetTriggeringStorageAccess(
-            contextDoc->UsingStorageAccess());
-      }
-    }
   }
 
   // in case this docshell load was triggered by a valid transient user gesture,
@@ -10105,7 +10087,6 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
       aLoadState->GetTextDirectiveUserActivation());
 
   loadInfo->SetTriggeringWindowId(aLoadState->TriggeringWindowId());
-  loadInfo->SetTriggeringStorageAccess(aLoadState->TriggeringStorageAccess());
   loadInfo->SetTriggeringSandboxFlags(aLoadState->TriggeringSandboxFlags());
   net::ClassificationFlags flags = aLoadState->TriggeringClassificationFlags();
   loadInfo->SetTriggeringFirstPartyClassificationFlags(flags.firstPartyFlags);
@@ -10781,8 +10762,8 @@ bool nsDocShell::OnNewURI(nsIURI* aURI, nsIChannel* aChannel,
 
   // We don't update session history on reload unless we're loading
   // an iframe in shift-reload case.
-  [[maybe_unused]]
-  bool updateSHistory = mBrowsingContext->ShouldUpdateSessionHistory(mLoadType);
+  [[maybe_unused]] bool updateSHistory =
+      mBrowsingContext->ShouldUpdateSessionHistory(mLoadType);
 
   // Create SH Entry (mLSHE) only if there is a SessionHistory object in the
   // root browsing context.
@@ -12503,11 +12484,9 @@ nsresult nsDocShell::OnLinkClickSync(nsIContent* aContent,
   }
   uint32_t triggeringSandboxFlags = 0;
   uint64_t triggeringWindowId = 0;
-  bool triggeringStorageAccess = false;
   if (mBrowsingContext) {
     triggeringSandboxFlags = aContent->OwnerDoc()->GetSandboxFlags();
     triggeringWindowId = aContent->OwnerDoc()->InnerWindowID();
-    triggeringStorageAccess = aContent->OwnerDoc()->UsingStorageAccess();
   }
 
   uint32_t flags = INTERNAL_LOAD_FLAGS_NONE;
@@ -12604,7 +12583,6 @@ nsresult nsDocShell::OnLinkClickSync(nsIContent* aContent,
 
   aLoadState->SetTriggeringSandboxFlags(triggeringSandboxFlags);
   aLoadState->SetTriggeringWindowId(triggeringWindowId);
-  aLoadState->SetTriggeringStorageAccess(triggeringStorageAccess);
   aLoadState->SetReferrerInfo(referrerInfo);
   aLoadState->SetInternalLoadFlags(flags);
   aLoadState->SetLoadType(loadType);
@@ -12725,10 +12703,8 @@ nsresult nsDocShell::CharsetChangeStopDocumentLoad() {
 }
 
 NS_IMETHODIMP nsDocShell::ExitPrintPreview() {
-#ifdef NS_PRINTING
   nsCOMPtr<nsIWebBrowserPrint> viewer = do_QueryInterface(mDocumentViewer);
   MOZ_TRY(viewer->ExitPrintPreview());
-#endif
   return NS_OK;
 }
 

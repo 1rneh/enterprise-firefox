@@ -16,6 +16,7 @@ dependencies = [
     "colorama==0.4.6",
     "compare-locales~=9.0",
     "cookies==2.2.1",
+    "cyclonedx-python-lib==11.11.0",
     "distro~=1.8",
     "ecdsa==0.19.1",
     "esprima==4.0.1",

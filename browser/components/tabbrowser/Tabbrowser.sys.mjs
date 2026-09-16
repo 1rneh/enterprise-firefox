@@ -7041,13 +7041,14 @@ export class Tabbrowser {
       tab => !excludeTabs.has(tab)
     );
 
-    // Filter out pending tabs if there are loaded tabs left
-    const loadedTabs = Array.prototype.filter.call(
+    // Filter out tabs the user explicitly unloaded if there are other
+    // tabs left
+    const nonDiscardedTabs = Array.prototype.filter.call(
       remainingTabs,
-      tab => !tab.hasAttribute("pending")
+      tab => !tab.hasAttribute("discarded")
     );
-    if (loadedTabs.length) {
-      remainingTabs = loadedTabs;
+    if (nonDiscardedTabs.length) {
+      remainingTabs = nonDiscardedTabs;
     }
 
     if (Services.prefs.getBoolPref("browser.tabs.selectMRUOnClose", false)) {

@@ -471,6 +471,12 @@ most important fields are:
 - Label: Prefix to display to label the field.
 - Format: How to format the data element value, see [MarkerSchema::Format for details](https://searchfox.org/mozilla-central/define?q=T_mozilla%3A%3AMarkerSchema%3A%3AFormat).
 
+Be careful with the formats that carry PII. `Url`, `FilePath` and
+`SanitizedString` are sanitized by the front-end, and `String` is not sanitized
+at all. `UniqueString` sits in between: the front-end scrubs URLs out of the
+whole string table, so a unique string may hold a URL, but any other PII it
+contains (file paths, host names, preference values) is kept.
+
 ```cpp
 // …
   // This will be used repeatedly and is done for convenience.

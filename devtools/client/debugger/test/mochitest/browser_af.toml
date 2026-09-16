@@ -135,14 +135,8 @@ fail-if = [
 ["browser_dbg-debugger-buttons.js"]
 
 ["browser_dbg-dom-mutation-breakpoints-fission.js"]
-fail-if = [
-  "a11y_checks", # Bug 1849028 clicked element may not be focusable and/or labeled
-]
 
 ["browser_dbg-dom-mutation-breakpoints.js"]
-fail-if = [
-  "a11y_checks", # Bug 1849028 clicked element may not be focusable and/or labeled
-]
 
 ["browser_dbg-eager-eval-skip-pause.js"]
 
@@ -190,9 +184,6 @@ fail-if = [
 ["browser_dbg-expressions-focus.js"]
 
 ["browser_dbg-expressions-thread.js"]
-fail-if = [
-  "a11y_checks", # Bug 1849028 clicked element may not be focusable and/or labeled
-]
 
 ["browser_dbg-expressions-watch.js"]
 

@@ -126,10 +126,8 @@
 #include "nsWindowSizes.h"
 
 #ifdef ACCESSIBILITY
-#  include "nsAccessibilityService.h"
-#endif
-#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
 #  include "mozilla/a11y/PdfStructTreeBuilder.h"
+#  include "nsAccessibilityService.h"
 #endif
 
 #include "ActiveLayerTracker.h"
@@ -949,9 +947,10 @@ void nsIFrame::HandlePrimaryFrameStyleChange(ComputedStyle* aOldStyle) {
                  (disp->mPosition == StylePositionProperty::Sticky ||
                   oldDisp->mPosition == StylePositionProperty::Sticky))
               : disp->mPosition == StylePositionProperty::Sticky;
-  if (handleStickyChange && !HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
+  if (handleStickyChange &&
+      !HasAnyStateBits(NS_FRAME_IS_NONDISPLAY | NS_FRAME_SVG_LAYOUT)) {
     if (auto* ssc = StickyScrollContainer::GetOrCreateForFrame(this)) {
-      if (disp->mPosition == StylePositionProperty::Sticky) {
+      if (IsStickyPositioned()) {
         ssc->AddFrame(this);
       } else {
         ssc->RemoveFrame(this);
@@ -974,9 +973,8 @@ void nsIFrame::Destroy(DestroyContext& aContext) {
   SVGObserverUtils::InvalidateDirectRenderingObservers(
       this, SVGObserverUtils::InvalidationFlag::FrameBeingDestroyed);
 
-  const auto* disp = StyleDisplay();
-  if (disp->mPosition == StylePositionProperty::Sticky) {
-    if (auto* ssc = StickyScrollContainer::GetOrCreateForFrame(this)) {
+  if (IsStickyPositioned()) {
+    if (auto* ssc = StickyScrollContainer::GetForFrame(this)) {
       ssc->RemoveFrame(this);
     }
   }
@@ -989,6 +987,7 @@ void nsIFrame::Destroy(DestroyContext& aContext) {
 
   nsPresContext* pc = PresContext();
   mozilla::PresShell* ps = pc->GetPresShell();
+  const auto* disp = StyleDisplay();
   if (IsPrimaryFrame()) {
     if (disp->IsQueryContainer()) {
       pc->UnregisterContainerQueryFrame(this);
@@ -4316,7 +4315,7 @@ static bool ShouldSkipFrame(nsDisplayListBuilder* aBuilder,
          aFrame->StyleUIReset()->mMozSubtreeHiddenOnlyVisually;
 }
 
-#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+#ifdef ACCESSIBILITY
 // Bug 2025119: If this is inlined in nsIFrame::BuildDisplayListForChild on
 // Win32, we end up with crashes when there is deep recursion due to the
 // increased stack size caused by the additional variables here. Work around
@@ -4377,7 +4376,7 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
       linkifier.emplace(aBuilder, childOrOutOfFlow, aLists.Content());
       linkifier->MaybeAppendLink(aBuilder, childOrOutOfFlow);
     }
-#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+#ifdef ACCESSIBILITY
     MaybeAddAccId(childOrOutOfFlow, aBuilder, aLists);
 #endif
   }
@@ -8659,12 +8658,7 @@ void nsIFrame::MovePositionBy(const nsPoint& aTranslation) {
 }
 
 nsRect nsIFrame::GetNormalRect() const {
-  bool hasProperty;
-  nsPoint normalPosition = GetProperty(NormalPositionProperty(), &hasProperty);
-  if (hasProperty) {
-    return nsRect(normalPosition, GetSize());
-  }
-  return GetRect();
+  return nsRect(GetNormalPosition(), GetSize());
 }
 
 nsRect nsIFrame::GetBoundingClientRect() {

@@ -358,6 +358,9 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
 }
 
 BrowserParent::~BrowserParent() {
+  if (mRemoteLayerTreeOwner.IsInitialized()) {
+    RemoveBrowserParentFromTable(mRemoteLayerTreeOwner.GetLayersId());
+  }
   RequestingAccessKeyEventData::OnBrowserParentDestroyed();
 }
 
@@ -393,12 +396,17 @@ BrowserParent* BrowserParent::GetFrom(nsIContent* aContent) {
 }
 
 /* static */
-BrowserParent* BrowserParent::GetBrowserParentFromLayersId(
+already_AddRefed<BrowserParent> BrowserParent::GetBrowserParentFromLayersId(
     layers::LayersId aLayersId) {
   if (!sLayerToBrowserParentTable) {
     return nullptr;
   }
-  return sLayerToBrowserParentTable->Get(uint64_t(aLayersId));
+  nsWeakPtr weak = sLayerToBrowserParentTable->Get(uint64_t(aLayersId));
+  if (!weak) {
+    return nullptr;
+  }
+  RefPtr<BrowserParent> browserParent = do_QueryReferent(weak);
+  return browserParent.forget();
 }
 
 /*static*/
@@ -419,8 +427,8 @@ void BrowserParent::AddBrowserParentToTable(layers::LayersId aLayersId,
   if (!sLayerToBrowserParentTable) {
     sLayerToBrowserParentTable = new LayerToBrowserParentTable();
   }
-  sLayerToBrowserParentTable->InsertOrUpdate(uint64_t(aLayersId),
-                                             aBrowserParent);
+  sLayerToBrowserParentTable->InsertOrUpdate(
+      uint64_t(aLayersId), do_GetWeakReference(aBrowserParent));
 }
 
 void BrowserParent::RemoveBrowserParentFromTable(layers::LayersId aLayersId) {
@@ -787,6 +795,13 @@ mozilla::ipc::IPCResult BrowserParent::RecvEnsureLayersConnected(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult BrowserParent::Recv__delete__() {
+  if (!mIsDestroyed) {
+    return IPC_FAIL(this, "BrowserParent delete was initiated by the child");
+  }
+  return IPC_OK();
+}
+
 void BrowserParent::ActorDestroy(ActorDestroyReason why) {
   // Need to close undeleted ContentPermissionRequestParents before tab is
   // closed.
@@ -982,6 +997,9 @@ void BrowserParent::ResumeLoad(uint64_t aPendingSwitchID) {
 }
 
 void BrowserParent::InitRendering() {
+  if (!CanSend()) {
+    return;
+  }
   if (mRemoteLayerTreeOwner.IsInitialized()) {
     return;
   }

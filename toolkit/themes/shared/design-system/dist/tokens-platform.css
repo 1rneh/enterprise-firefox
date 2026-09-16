@@ -19,7 +19,6 @@
 
     /** border **/
     --border-color: color-mix(in srgb, currentColor 50%, transparent);
-    --border-color-deemphasized: color-mix(in srgb, currentColor 24%, transparent);
     --border-color-interactive: color-mix(in srgb, currentColor 15%, var(--color-gray-60));
 
     /** button **/
@@ -45,9 +44,6 @@
     --font-size-root: unset;
     /* 13px in-content, unset in platform (we want to avoid going too small when the root font size is already quite small) */
     --font-size-small: 1rem;
-
-    /** info-bar **/
-    --info-bar-border-color: var(--toolbarseparator-color);
 
     /** input **/
     --input-text-background-color: Field;
@@ -122,6 +118,9 @@
       --color-accent-primary-active: color-mix(in srgb, black 20%, var(--color-accent-primary));
       --color-accent-primary-selected: SelectedItem;
 
+      /** info-bar **/
+      --info-bar-border-color: var(--border-color-deemphasized);
+
       /** input **/
       --input-text-background-color: Field;
 
@@ -192,9 +191,6 @@
       --color-accent-primary-active: light-dark(var(--color-blue-80), var(--color-cyan-10));
       --color-accent-primary-selected: light-dark(var(--color-blue-60), var(--color-cyan-30));
 
-      /** info-bar **/
-      --info-bar-border-color: light-dark(var(--color-violet-desaturated-20), var(--color-gray-60));
-
       /** input **/
       --input-text-background-color: light-dark(var(--color-white), #42414d);
       --input-text-color: light-dark(rgb(21, 20, 26), rgb(251, 251, 254));
@@ -260,6 +256,9 @@
         --color-accent-primary-hover: light-dark(var(--color-violet-60), var(--color-violet-20));
         --color-accent-primary-active: light-dark(var(--color-violet-70), var(--color-violet-10));
         --color-accent-primary-selected: var(--button-background-color-primary-active);
+
+        /** info-bar **/
+        --info-bar-border-color: light-dark(var(--color-violet-desaturated-20), var(--color-gray-60));
 
         /** input **/
         --input-text-background-color: var(--background-color-box);

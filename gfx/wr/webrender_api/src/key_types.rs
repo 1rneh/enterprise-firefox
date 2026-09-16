@@ -80,7 +80,7 @@ impl EdgeMask {
 }
 
 /// Fields common to every interned primitive key.
-#[derive(Debug, Clone, Eq, MallocSizeOf, PartialEq, Hash, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, Eq, MallocSizeOf, PartialEq, Hash, Deserialize, Serialize)]
 pub struct PrimKeyCommonData {
     pub flags: PrimitiveFlags,
     pub aligned_aa_edges: EdgeMask,
@@ -489,6 +489,16 @@ impl StretchSizeKey {
             fills_width: true,
             fills_height: true,
         }
+    }
+
+    /// The tile size against `prim_rect`: a filling axis takes the rect's
+    /// extent, the other keeps the stored size.
+    pub fn resolve(&self, prim_rect: &LayoutRect) -> LayoutSize {
+        let stored: LayoutSize = self.size.into();
+        LayoutSize::new(
+            if self.fills_width { prim_rect.width() } else { stored.width },
+            if self.fills_height { prim_rect.height() } else { stored.height },
+        )
     }
 }
 

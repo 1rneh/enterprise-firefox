@@ -514,14 +514,17 @@ add_task(async function test_plain_clicks() {
  * Check that input selection can show shortcuts
  */
 add_task(async function test_input_selection() {
-  Assert.equal(GenAI.ignoredInputs.size, 1, "Default ignore 1 type of field");
+  Assert.equal(GenAI.ignoredInputs.size, 2, "Default ignore 2 types of fields");
   Assert.ok(GenAI.ignoredInputs.has("input"), "Default ignore inputs");
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.ml.chat.shortcuts.ignoreFields", "contenteditable,textarea"],
+      [
+        "browser.ml.chat.shortcuts.ignoreFields",
+        "contenteditable,textarea,moz-multiline-editor",
+      ],
     ],
   });
-  Assert.equal(GenAI.ignoredInputs.size, 2, "Ignoring other fields not input");
+  Assert.equal(GenAI.ignoredInputs.size, 3, "Ignoring other fields not input");
   Assert.ok(GenAI.ignoredInputs.has("textarea"), "Now ignore textarea");
   Assert.ok(!GenAI.ignoredInputs.has("input"), "Not ignoring input for test");
 

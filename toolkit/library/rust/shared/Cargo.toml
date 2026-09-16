@@ -50,7 +50,7 @@ buildid_reader_ffi = { path = "../../buildid_reader/ffi" }
 felt = { path = "../../../../toolkit/components/felt/rust", optional = true }
 chardetng_c = "1.0.0"
 audio_thread_priority = { version = "0.37", default-features = false }
-mdns_service = { path="../../../../dom/media/webrtc/transport/mdns_service", optional = true }
+mdns_service = { path="../../../../dom/media/webrtc/transport/mdns_service", features = ["profiler"], optional = true }
 neqo_glue = { path = "../../../../netwerk/socket/neqo_glue" }
 wgpu_bindings = { path = "../../../../gfx/wgpu_bindings" }
 fontations_glue = { path = "../../../../gfx/fontations_glue", optional = true }
@@ -76,6 +76,7 @@ gecko-profiler = { path = "../../../../tools/profiler/rust-api"}
 midir_impl = { path = "../../../../dom/midi/midir_impl", optional = true }
 dom = { path = "../../../../dom/base/rust" }
 dom_fragmentdirectives = { path="../../../../dom/base/fragmentdirectives" }
+dom_push = { path = "../../../../dom/push/rust" }
 dom_speculationrules = { path="../../../../dom/base/speculationrules" }
 origin-trials-ffi = { path = "../../../../dom/origin-trials/ffi" }
 jog = { path = "../../../components/glean/bindings/jog" }
@@ -146,7 +147,7 @@ webext-storage = "0.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 backgroundtaskregistrar = { path = "../../../../toolkit/components/taskscheduler/rust", optional = true }
-detect_win32k_conflicts = { path = "../../../xre/detect_win32k_conflicts" }
+win32_process_mitigations = { path = "../../../crashreporter/win32_process_mitigations" }
 widget_windows = { path = "../../../../widget/windows/rust" }
 shell_windows = { path = "../../../../browser/components/shell/rust/shell_windows", optional = true }
 

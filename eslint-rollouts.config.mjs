@@ -793,7 +793,6 @@ export default [
       "browser/components/preferences/tests/etp/browser_contentblocking.js",
       "browser/components/preferences/tests/etp/browser_cookie_exceptions_addRemove.js",
       "browser/components/preferences/tests/etp/browser_cookies_exceptions.js",
-      "browser/components/preferences/tests/home/browser_homepages_use_bookmark.js",
       "browser/components/preferences/tests/networking/browser_https_only_exceptions.js",
       "browser/components/preferences/tests/permissions/browser_permissions_checkPermissionsWereAdded.js",
       "browser/components/preferences/tests/permissions/browser_permissions_dialog.js",

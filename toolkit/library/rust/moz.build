@@ -37,11 +37,27 @@ RUST_TESTS = [
 
 if CONFIG["TARGET_OS"] in ("WINNT", "OSX"):
     RUST_TESTS += ["nmhproxy"]
+if CONFIG["TARGET_OS"] == "WINNT":
+    RUST_TESTS += ["win32_process_mitigations"]
+else:
+    # Windows linker pulls in FFI symbols despite them not being relevant for the tests.
+    RUST_TESTS += ["crash_helper_server"]
+
+if CONFIG["TARGET_OS"] == "WINNT":
+    RUST_TESTS += ["pushnotificationhelper"]
 
 if CONFIG["MOZ_ENTERPRISE"]:
     RUST_TESTS += ["felt"]
 
 RUST_TEST_FEATURES.append("crashreporter/mock")
+RUST_TEST_FEATURES.append("crashping/gecko_tests")
+RUST_TEST_FEATURES.append("firefox-on-glean/gecko_tests")
+
+# Glean requires SQLite, which is available either through nss or mozsqlite3
+if CONFIG["MOZ_FOLD_LIBS"]:
+    USE_LIBS += ["nss"]
+else:
+    USE_LIBS += ["sqlite"]
 
 # Code coverage builds link a bunch of Gecko bindings code from the style
 # crate, which is not used by our tests but would cause link errors.

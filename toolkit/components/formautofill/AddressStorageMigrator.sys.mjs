@@ -279,8 +279,10 @@ export class AddressStorageMigrator {
       // `_data` for a store that keeps one: it is the only read that carries
       // the hidden `_sync` metadata the copy has to take across, and the only
       // one that includes the tombstones, both of which getAll() drops. A store
-      // without one answers reads instead and has no tombstones to give.
-      const raw = source._data ?? (await source.getAll());
+      // without one answers a raw read instead and has no tombstones to give --
+      // raw because a store may hide a stored field on read, and copying from
+      // the filtered read would write that field out of existence here.
+      const raw = source._data ?? (await source.getAll({ rawData: true }));
       const records = raw.filter(record => !record.deleted);
       const tombstones = raw
         .filter(record => record.deleted)

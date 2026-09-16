@@ -332,7 +332,7 @@ static inline void EmitETWMarker(const mozilla::ProfilerString8View& aName,
   if constexpr (!MarkerSupportsETW<MarkerType>::value) {
     return EmitETWMarker(aName, aCategory, aOptions, SimpleMarkerType{});
   } else {
-    if (!(gETWCollectionMask & uint64_t(MarkerType::Group))) {
+    if (!IsProfilingGroup(MarkerType::Group)) {
       return;
     }
 

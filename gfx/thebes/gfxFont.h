@@ -2060,7 +2060,7 @@ class gfxFont {
   bool HasColorGlyphFor(uint32_t aCh, uint32_t aNextCh);
 
  protected:
-  virtual const Metrics& GetHorizontalMetrics() const = 0;
+  const Metrics& GetHorizontalMetrics() const { return mMetrics; }
 
   void CreateVerticalMetrics();
   void CreateVerticalBaselines();
@@ -2227,6 +2227,8 @@ class gfxFont {
   // used when analyzing whether a font has space contextual lookups
   static mozilla::Atomic<nsTHashMap<nsUint32HashKey, Script>*> sScriptTagToCode;
   static mozilla::Atomic<nsTHashSet<uint32_t>*> sDefaultFeatures;
+
+  Metrics mMetrics;
 
   RefPtr<gfxFontEntry> mFontEntry;
   mutable mozilla::RWLock mLock;

@@ -960,14 +960,7 @@ export const tokensTable = {
     },
     {
       value: {
-        brand: {
-          light: "var(--color-gray-30)",
-          dark: "var(--color-gray-70)",
-          default: "light-dark(var(--color-gray-30), var(--color-gray-70))",
-        },
-        platform: {
-          default: "color-mix(in srgb, currentColor 24%, transparent)",
-        },
+        default: "color-mix(in srgb, currentColor 24%, transparent)",
         prefersContrast: "currentColor",
         forcedColors: "ButtonText",
       },
@@ -1233,23 +1226,7 @@ export const tokensTable = {
       name: "--card-header-border-color-active",
     },
     {
-      value: {
-        light: "var(--color-violet-desaturated-20)",
-        dark: "var(--color-gray-60)",
-        nativeTheme: "var(--toolbarseparator-color)",
-        prefersContrast: "CanvasText",
-        default:
-          "light-dark(var(--color-violet-desaturated-20), var(--color-gray-60))",
-        platform: {
-          default: "var(--toolbarseparator-color)",
-          browserTheme: {
-            light: "var(--color-violet-desaturated-20)",
-            dark: "var(--color-gray-60)",
-            default:
-              "light-dark(var(--color-violet-desaturated-20), var(--color-gray-60))",
-          },
-        },
-      },
+      value: { default: "var(--border-color-deemphasized)" },
       name: "--info-bar-border-color",
     },
     { value: "var(--border-color-interactive)", name: "--input-border-color" },
@@ -3701,12 +3678,7 @@ export const variableLookupTable = {
     prefersContrast: "CanvasText",
   },
   "border-color-deemphasized": {
-    brand: {
-      light: "var(--color-gray-30)",
-      dark: "var(--color-gray-70)",
-      default: "light-dark(var(--color-gray-30), var(--color-gray-70))",
-    },
-    platform: { default: "color-mix(in srgb, currentColor 24%, transparent)" },
+    default: "color-mix(in srgb, currentColor 24%, transparent)",
     prefersContrast: "currentColor",
     forcedColors: "ButtonText",
   },
@@ -4598,23 +4570,7 @@ export const variableLookupTable = {
   "icon-size-large": "24px",
   "icon-size-xlarge": "32px",
   "icon-size-xxlarge": "var(--size-item-xlarge)",
-  "info-bar-border-color": {
-    light: "var(--color-violet-desaturated-20)",
-    dark: "var(--color-gray-60)",
-    nativeTheme: "var(--toolbarseparator-color)",
-    prefersContrast: "CanvasText",
-    default:
-      "light-dark(var(--color-violet-desaturated-20), var(--color-gray-60))",
-    platform: {
-      default: "var(--toolbarseparator-color)",
-      browserTheme: {
-        light: "var(--color-violet-desaturated-20)",
-        dark: "var(--color-gray-60)",
-        default:
-          "light-dark(var(--color-violet-desaturated-20), var(--color-gray-60))",
-      },
-    },
-  },
+  "info-bar-border-color": { default: "var(--border-color-deemphasized)" },
   "info-bar-margin": { default: "4px" },
   "input-border-color": "var(--border-color-interactive)",
   "input-folder-gap": "var(--space-medium)",

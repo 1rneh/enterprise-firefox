@@ -25,6 +25,15 @@ struct H264FmtpParams {
       Err(H264FmtpParseError::NotPresent);
   Result<uint32_t, H264FmtpParseError> mPacketizationMode =
       Err(H264FmtpParseError::NotPresent);
+
+  // Whether any parameter was present but invalid.
+  bool HasInvalidParam() const {
+    const auto invalid = [](const auto& aResult) {
+      return aResult.isErr() &&
+             aResult.inspectErr() == H264FmtpParseError::Invalid;
+    };
+    return invalid(mProfileLevel) || invalid(mPacketizationMode);
+  }
 };
 
 #ifdef MOZ_WEBRTC

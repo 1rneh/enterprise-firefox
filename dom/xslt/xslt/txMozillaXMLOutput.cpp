@@ -194,21 +194,9 @@ nsresult txMozillaXMLOutput::endDocument(nsresult aResult)
     MOZ_CAN_RUN_SCRIPT_BOUNDARY {
   TX_ENSURE_CURRENTNODE;
 
-  if (NS_FAILED(aResult)) {
-    if (mNotifier) {
-      mNotifier->OnTransformEnd(aResult);
-    }
-
-    return NS_OK;
-  }
-
-  nsresult rv = closePrevious(true);
-  if (NS_FAILED(rv)) {
-    if (mNotifier) {
-      mNotifier->OnTransformEnd(rv);
-    }
-
-    return rv;
+  nsresult rv = NS_OK;
+  if (NS_SUCCEEDED(aResult)) {
+    rv = closePrevious(true);
   }
 
   if (mCreatingNewDocument) {
@@ -222,10 +210,10 @@ nsresult txMozillaXMLOutput::endDocument(nsresult aResult)
   }
 
   if (mNotifier) {
-    mNotifier->OnTransformEnd();
+    mNotifier->OnTransformEnd(NS_FAILED(aResult) ? aResult : rv);
   }
 
-  return NS_OK;
+  return rv;
 }
 
 nsresult txMozillaXMLOutput::endElement() MOZ_CAN_RUN_SCRIPT_BOUNDARY {

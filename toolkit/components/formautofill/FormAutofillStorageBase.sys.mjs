@@ -1511,10 +1511,7 @@ export class AddressesBase extends AutofillRecords {
   }
 
   _recordReadProcessor(address) {
-    if (address.country && !FormAutofill.countries.has(address.country)) {
-      delete address.country;
-      delete address["country-name"];
-    }
+    AddressRecord.hideCountryWithoutMetaData(address);
   }
 
   _isMigrationNeeded(record) {

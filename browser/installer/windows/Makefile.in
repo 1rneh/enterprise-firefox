@@ -47,13 +47,21 @@ endif
 BRANDING_FILES = \
 	branding.nsi \
 	firefox64.ico \
-	stubinstaller/bgstub.jpg \
-	stubinstaller/installing_page.css \
-	stubinstaller/profile_cleanup_page.css \
 	wizHeader.bmp \
 	wizHeaderRTL.bmp \
 	wizWatermark.bmp \
 	$(NULL)
+
+# The stub installer assets are only consumed by the stub (stub.nsh), so only
+# require them from the branding directory when the stub is actually built.
+# Enterprise builds don't ship a stub and omit these files.
+ifdef MOZ_STUB_INSTALLER
+BRANDING_FILES += \
+	stubinstaller/bgstub.jpg \
+	stubinstaller/installing_page.css \
+	stubinstaller/profile_cleanup_page.css \
+	$(NULL)
+endif
 
 include $(topsrcdir)/config/config.mk
 

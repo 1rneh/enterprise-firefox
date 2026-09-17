@@ -38,9 +38,6 @@ prefs = [
 ["browser_dbg-inline-exceptions.js"]
 
 ["browser_dbg-inline-preview.js"]
-skip-if = [
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan", # Bug 1607636
-]
 
 ["browser_dbg-inline-script-offset.js"]
 
@@ -169,9 +166,6 @@ fail-if = [
 ]
 
 ["browser_dbg-preview-invalid-tokens.js"]
-skip-if = [
-  "debug", # Bug 1958748 intermittent toolbox documents leaks
-]
 
 ["browser_dbg-preview-jump-to-definition.js"]
 fail-if = [
@@ -185,9 +179,6 @@ fail-if = [
 ["browser_dbg-preview-multiple-frames.js"]
 
 ["browser_dbg-preview-multiple-threads.js"]
-fail-if = [
-  "a11y_checks", # Bug 1849028 .threads-pane .thread is not accessible
-]
 
 ["browser_dbg-preview-source-maps.js"]
 
@@ -197,10 +188,9 @@ skip-if = [
 ]
 
 ["browser_dbg-preview-wrapped-lines.js"]
-skip-if = [
-  "true", # Bug 1985564 the test is flaky
+fail-if = [
+  "a11y_checks", # Bug 1860733 splitter element is not focusable
 ]
-# fail-if = ["a11y_checks"] # Bug 1860733 splitter element is not focusable
 
 ["browser_dbg-preview.js"]
 fail-if = [

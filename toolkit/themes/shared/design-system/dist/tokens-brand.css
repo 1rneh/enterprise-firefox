@@ -17,7 +17,6 @@
 
     /** border **/
     --border-color: light-dark(var(--color-gray-50), var(--color-gray-70));
-    --border-color-deemphasized: light-dark(var(--color-gray-30), var(--color-gray-70));
     --border-color-interactive: light-dark(var(--color-gray-60), var(--color-gray-50));
 
     /** button **/
@@ -32,6 +31,9 @@
     --font-size-root: 15px;
     /* 13px in-content, unset in platform (we want to avoid going too small when the root font size is already quite small) */
     --font-size-small: 0.867rem;
+
+    /** input **/
+    --input-text-color: var(--text-color);
 
     /** page **/
     --page-main-content-width: 664px;
@@ -50,7 +52,6 @@
   @layer tokens-prefers-contrast {
     @media (prefers-contrast) {
       /** button **/
-      --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-disabled: var(--button-text-color-disabled);
     }
   }
@@ -60,7 +61,6 @@
       /** button **/
       --button-background-color-ghost: ButtonFace;
       --button-background-color-ghost-disabled: var(--button-background-color-disabled);
-      --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-disabled: var(--button-text-color-disabled);
     }
   }
@@ -74,8 +74,6 @@
 
       /** border **/
       --border-color: light-dark(var(--color-gray-30), var(--color-gray-40));
-      --border-color-deemphasized: light-dark(var(--color-gray-20), var(--color-gray-50));
-      --border-color-interactive: light-dark(var(--color-gray-45), var(--color-gray-40));
 
       /** button **/
       --button-text-color-ghost: var(--button-text-color);

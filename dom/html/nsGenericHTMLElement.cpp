@@ -206,6 +206,8 @@ static const nsAttrValue::EnumTableEntry* kPopoverTableInvalidValueDefault =
     &kPopoverTable[3];
 }  // namespace
 
+static void MakeContentDescendantsEditable(nsIContent* aContent);
+
 void nsGenericHTMLElement::GetFetchPriority(nsAString& aFetchPriority) const {
   // <https://html.spec.whatwg.org/multipage/urls-and-fetching.html#fetch-priority-attributes>.
   GetEnumAttr(nsGkAtoms::fetchpriority, kFetchPriorityAttributeValueAuto,
@@ -453,16 +455,37 @@ void nsGenericHTMLElement::SetEditContext(mozilla::dom::EditContext* aContext,
   }
   EditContext::SetForElement(*this, aContext);
 
-  // Update the active EditContext since it might have changed.
-  // It's important to do this before ChangeEditableState, since
-  // we want the active EditContext to be up-to-date for
-  // HTMLEditor::NotifyEditingHostMaybeChanged.
-  RefPtr doc = OwnerDoc();
-  doc->UpdateTextEditContext();
-
   int32_t delta = (aContext != nullptr) - (oldEditContext != nullptr);
+  RefPtr doc = OwnerDoc();
+  // First, update the editable state of this element and its descendants.
+  // Computing the active EditContext depends on having the right editable
+  // state, so this needs to happen first.
   if (delta) {
-    ChangeEditableState(delta);
+    nsAutoScriptBlocker scriptBlocker;
+    MakeContentDescendantsEditable(this);
+  }
+  if (MOZ_UNLIKELY(GetEditContext() != aContext)) {
+    // A script that ran above detached the EditContext.
+    return;
+  }
+  // Update active EditContext.
+  doc->UpdateTextEditContext();
+  if (MOZ_UNLIKELY(GetEditContext() != aContext)) {
+    // A script that ran above detached the EditContext.
+    return;
+  }
+  if (delta) {
+    // Change content editable count for document.
+    // This needs to happen after updating active EditContext, since this may
+    // call HTMLEditor::FocusedElementOrDocumentBecomesEditable which needs to
+    // know the correct active EditContext.
+    doc->ChangeContentEditableCount(this, delta);
+    // Inform HTMLEditor that the editing host might have changed due to
+    // attaching/detaching EditContext. This also needs to have the correct
+    // active EditContext.
+    if (RefPtr<HTMLEditor> editor = doc->GetHTMLEditor()) {
+      editor->NotifyEditingHostMaybeChanged();
+    }
 #ifdef ACCESSIBILITY
     if (nsAccessibilityService* accService = GetAccService()) {
       accService->NotifyOfEditContextAttachmentChange(this);
@@ -2672,8 +2695,15 @@ nsGenericHTMLFormControlElement::~nsGenericHTMLFormControlElement() {
   NS_ASSERTION(!mForm, "mForm should be null at this point!");
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(nsGenericHTMLFormControlElement,
-                                   nsGenericHTMLFormElement, mForm)
+NS_IMPL_CYCLE_COLLECTION_CLASS(nsGenericHTMLFormControlElement)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsGenericHTMLFormControlElement,
+                                                nsGenericHTMLFormElement)
+  tmp->ClearForm(true, true);
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(
+    nsGenericHTMLFormControlElement, nsGenericHTMLFormElement)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mForm)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(nsGenericHTMLFormControlElement,
                                              nsGenericHTMLFormElement,

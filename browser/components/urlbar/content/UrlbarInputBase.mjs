@@ -180,7 +180,7 @@ ${
           <input class="urlbar-input textbox-input"
                  role="combobox"
                  aria-autocomplete="both"
-                 inputmode="mozAwesomebar"
+                 inputmode="search"
                  preserveundohistory=""
                  data-l10n-id="urlbar-placeholder"/>
         </div>
@@ -409,6 +409,9 @@ ${
       // out. Elsewhere the field holds free-form text and takes the locale's
       // direction like any other text input.
       this.inputField.dir = "auto";
+      // A chrome-only input mode: it offers the on-screen keyboard's URL keys
+      // without the IME-closing effect that "url" has.
+      this.inputField.inputMode = "mozAwesomebar";
 
       let schemeField = document.createElement("input");
       schemeField.id = "urlbar-scheme";
@@ -1719,13 +1722,12 @@ ${
 
   /**
    * Whether pickResult() implements the result menu's commands for opening a
-   * result in a new tab or window. The container-tab submenu is built by a
-   * chrome window helper, so a bar hosted in a content page can't offer them.
+   * result in a new tab or window.
    *
    * @returns {boolean}
    */
   get handlesOpenInCommands() {
-    return typeof this.window.createUserContextMenu == "function";
+    return true;
   }
 
   /**
@@ -4024,7 +4026,6 @@ ${
     }
 
     let suffix = Services.locale.urlFixupSuffix;
-    Glean.urlfixup.suffix.get("urlbar", suffix).add(1);
     if (!suffix.endsWith("/")) {
       suffix += "/";
     }

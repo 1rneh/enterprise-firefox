@@ -32,22 +32,6 @@ import:
               "ampMobile": false,
               "wikipedia": true,
             }
-  - path: ../../android-components/components/feature/media/media.fml.yaml
-    channel: default
-    features:
-      media-notification-improvements:
-        - channel: developer
-          value:
-            enabled: true
-        - channel: nightly
-          value:
-            enabled: true
-        - channel: beta
-          value:
-            enabled: true
-        - channel: release
-          value:
-            enabled: true
 
 features:
   homescreen:
@@ -692,6 +676,13 @@ features:
           Whether or not to enable homepage as a new tab
         type: Boolean
         default: false
+    defaults:
+      - channel: nightly
+        value:
+          enabled: true
+      - channel: developer
+        value:
+          enabled: true
 
   universal-edge-to-edge-wallpapers:
     description: >

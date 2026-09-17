@@ -2030,6 +2030,15 @@ TEST_F(JsepTrackTest, VideoSdpFmtpLine) {
       "profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1",
       codec->mSdpFmtpLine.valueOr("nothing"));
 
+  EXPECT_TRUE((codec = GetVideoCodec(mSendOff, 5, 2)));
+  EXPECT_EQ("AV1", codec->mName);
+  EXPECT_EQ("profile=0;level-idx=9;tier=0",
+            codec->mSdpFmtpLine.valueOr("nothing"));
+  EXPECT_TRUE((codec = GetVideoCodec(mSendAns, 5, 2)));
+  EXPECT_EQ("AV1", codec->mName);
+  EXPECT_EQ("profile=0;level-idx=9;tier=0",
+            codec->mSdpFmtpLine.valueOr("nothing"));
+
   EXPECT_TRUE((codec = GetVideoCodec(mSendOff, 5, 3)));
   EXPECT_EQ("red", codec->mName);
   EXPECT_EQ("nothing", codec->mSdpFmtpLine.valueOr("nothing"));
@@ -2043,6 +2052,66 @@ TEST_F(JsepTrackTest, VideoSdpFmtpLine) {
   EXPECT_TRUE((codec = GetVideoCodec(mSendAns, 5, 4)));
   EXPECT_EQ("ulpfec", codec->mName);
   EXPECT_EQ("nothing", codec->mSdpFmtpLine.valueOr("nothing"));
+}
+
+TEST_F(JsepTrackTest, NonDefaultAv1SdpFmtpLine) {
+  mOffCodecs = MakeCodecs(
+      {.mAddFecCodecs = true, .mPreferRed = true, .mAddDtmfCodec = true});
+  mAnsCodecs = MakeCodecs(
+      {.mAddFecCodecs = true, .mPreferRed = true, .mAddDtmfCodec = true});
+
+  for (auto& codec : mOffCodecs) {
+    if (codec->mName == "AV1") {
+      auto* video = static_cast<JsepVideoCodecDescription*>(codec.get());
+      video->mAv1Config.mLevelIdx = Some(uint8_t(13));  // Level 5.1
+    }
+  }
+
+  for (auto& codec : mAnsCodecs) {
+    if (codec->mName == "AV1") {
+      auto* video = static_cast<JsepVideoCodecDescription*>(codec.get());
+      video->mAv1Config.mLevelIdx = Some(uint8_t(5));  // Level 3.1
+    }
+  }
+
+  // AV1's profile/level-idx/tier are receiver-declared and asymmetric (see
+  // https://aomediacodec.github.io/av1-rtp-spec/#sdp-offer-answer), so the
+  // offerer's and answerer's senders each adopt what the other declared for
+  // receiving, and their sdpFmtpLine legitimately differs.
+  mExpectDifferingFmtp = true;
+
+  InitTracks(SdpMediaSection::kVideo);
+  InitSdp(SdpMediaSection::kVideo);
+  OfferAnswer();
+
+  UniquePtr<JsepVideoCodecDescription> codec;
+  EXPECT_TRUE((codec = GetVideoCodec(mSendOff, 5, 2)));
+  EXPECT_EQ("AV1", codec->mName);
+  // Adopts the answerer's declared receive level.
+  EXPECT_EQ("profile=0;level-idx=5;tier=0",
+            codec->mSdpFmtpLine.valueOr("nothing"));
+
+  EXPECT_TRUE((codec = GetVideoCodec(mSendAns, 5, 2)));
+  EXPECT_EQ("AV1", codec->mName);
+  // Adopts the offerer's declared receive level.
+  EXPECT_EQ("profile=0;level-idx=13;tier=0",
+            codec->mSdpFmtpLine.valueOr("nothing"));
+}
+
+TEST_F(JsepTrackTest, Av1ApplyConfigToFmtpWithNullInput) {
+  // RTCRtpTransceiver's getCapabilities() and SetCodecPreferences() call
+  // ApplyConfigToFmtp() with a null starting point (no fmtp parsed from any
+  // SDP), unlike offer/answer negotiation. Verify our declared AV1 config is
+  // still applied in that case.
+  MockJsepCodecPreferences prefs;
+  UniquePtr<JsepVideoCodecDescription> codec =
+      JsepVideoCodecDescription::CreateDefaultAV1(prefs);
+  UniquePtr<SdpFmtpAttributeList::Parameters> params;
+  codec->ApplyConfigToFmtp(params);
+  ASSERT_TRUE(params);
+  std::ostringstream os;
+  params->Serialize(os);
+  EXPECT_EQ("profile=0;level-idx=9;tier=0", os.str());
 }
 
 TEST_F(JsepTrackTest, NonDefaultVideoSdpFmtpLine) {

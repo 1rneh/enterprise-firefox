@@ -760,7 +760,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   mozilla::ipc::IPCResult RecvReleasePointerLock();
 
-#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+#ifdef ACCESSIBILITY
   mozilla::ipc::IPCResult RecvRequestDocAccessibleForPrint();
 #endif
 

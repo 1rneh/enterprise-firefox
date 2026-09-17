@@ -711,7 +711,7 @@ LoadInfo::LoadInfo(const LoadInfo& rhs)
       mChannelCreationOriginalURI(rhs.mChannelCreationOriginalURI),
       mCookieJarSettings(rhs.mCookieJarSettings),
       mPolicyContainerToInherit(rhs.mPolicyContainerToInherit),
-      mContainerFeaturePolicyInfo(rhs.mContainerFeaturePolicyInfo),
+      mContainerPermissionsPolicyInfo(rhs.mContainerPermissionsPolicyInfo),
       mTriggeringRemoteType(rhs.mTriggeringRemoteType),
       mSandboxedNullPrincipalID(rhs.mSandboxedNullPrincipalID),
       mClientInfo(rhs.mClientInfo),
@@ -729,6 +729,7 @@ LoadInfo::LoadInfo(const LoadInfo& rhs)
       // mServiceWorkerTaintingSynthesized must be handled specially during
       // redirect
       mTainting(rhs.mTainting),
+      mTrustedPrincipalToInherit(rhs.mTrustedPrincipalToInherit),
 #define DEFINE_INIT(_t, name, _n, _d) m##name(rhs.m##name),
       LOADINFO_FOR_EACH_FIELD(DEFINE_INIT, LOADINFO_DUMMY_SETTER)
 #undef DEFINE_INIT
@@ -762,7 +763,7 @@ LoadInfo::LoadInfo(
     nsIPrincipal* aPrincipalToInherit, nsIPrincipal* aTopLevelPrincipal,
     nsIURI* aResultPrincipalURI, nsICookieJarSettings* aCookieJarSettings,
     nsIPolicyContainer* aPolicyContainerToInherit,
-    const Maybe<dom::FeaturePolicyInfo>& aContainerFeaturePolicyInfo,
+    const Maybe<dom::PermissionsPolicyInfo>& aContainerPermissionsPolicyInfo,
     const RemoteType& aTriggeringRemoteType,
     const nsID& aSandboxedNullPrincipalID, const Maybe<ClientInfo>& aClientInfo,
     const Maybe<ClientInfo>& aReservedClientInfo,
@@ -798,7 +799,7 @@ LoadInfo::LoadInfo(
       mResultPrincipalURI(aResultPrincipalURI),
       mCookieJarSettings(aCookieJarSettings),
       mPolicyContainerToInherit(aPolicyContainerToInherit),
-      mContainerFeaturePolicyInfo(aContainerFeaturePolicyInfo),
+      mContainerPermissionsPolicyInfo(aContainerPermissionsPolicyInfo),
       mTriggeringRemoteType(aTriggeringRemoteType),
       mSandboxedNullPrincipalID(aSandboxedNullPrincipalID),
       mClientInfo(aClientInfo),
@@ -954,6 +955,7 @@ NS_IMETHODIMP
 LoadInfo::SetPrincipalToInherit(nsIPrincipal* aPrincipalToInherit) {
   MOZ_ASSERT(aPrincipalToInherit, "must be a valid principal to inherit");
   mPrincipalToInherit = aPrincipalToInherit;
+  mTrustedPrincipalToInherit = false;
   return NS_OK;
 }
 
@@ -971,6 +973,17 @@ nsIPrincipal* LoadInfo::FindPrincipalToInherit(nsIChannel* aChannel) {
 
   auto* prin = BasePrincipal::Cast(mTriggeringPrincipal);
   return prin->PrincipalToInherit(uri);
+}
+
+NS_IMETHODIMP
+LoadInfo::SetTrustedPrincipalToInherit(nsIPrincipal* aPrincipal) {
+  MOZ_ALWAYS_SUCCEEDS(SetPrincipalToInherit(aPrincipal));
+  mTrustedPrincipalToInherit = true;
+  return NS_OK;
+}
+
+bool LoadInfo::IsPrincipalToInheritTrusted() {
+  return mTrustedPrincipalToInherit;
 }
 
 const nsID& LoadInfo::GetSandboxedNullPrincipalID() {
@@ -2041,13 +2054,13 @@ already_AddRefed<nsIPolicyContainer> LoadInfo::GetPolicyContainerToInherit() {
   return policyContainerToInherit.forget();
 }
 
-Maybe<FeaturePolicyInfo> LoadInfo::GetContainerFeaturePolicyInfo() {
-  return mContainerFeaturePolicyInfo;
+Maybe<PermissionsPolicyInfo> LoadInfo::GetContainerPermissionsPolicyInfo() {
+  return mContainerPermissionsPolicyInfo;
 }
 
-void LoadInfo::SetContainerFeaturePolicyInfo(
-    const FeaturePolicyInfo& aContainerFeaturePolicyInfo) {
-  mContainerFeaturePolicyInfo = Some(aContainerFeaturePolicyInfo);
+void LoadInfo::SetContainerPermissionsPolicyInfo(
+    const PermissionsPolicyInfo& aContainerPermissionsPolicyInfo) {
+  mContainerPermissionsPolicyInfo = Some(aContainerPermissionsPolicyInfo);
 }
 
 nsIInterceptionInfo* LoadInfo::InterceptionInfo() { return mInterceptionInfo; }

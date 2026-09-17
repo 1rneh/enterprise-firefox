@@ -54,6 +54,11 @@ bitflags! {
         const ANTIALISED = 1 << 4;
         /// If true, this primitive is used as a background for checkerboarding
         const CHECKERBOARD_BACKGROUND = 1 << 5;
+        /// For an image primitive: the texture was rasterized at the device
+        /// size of the primitive rect. If the rect's snapped extent disagrees
+        /// with the texture by a device pixel, the texture is drawn 1:1 from
+        /// the snapped origin instead of being stretched to fit.
+        const RASTERIZED_FOR_RECT = 1 << 6;
     }
 }
 
@@ -2078,6 +2083,19 @@ pub enum YuvData {
 }
 
 impl YuvData {
+    /// The planes actually referenced, padded with `ImageKey::DUMMY` to the
+    /// three a yuv primitive holds.
+    pub fn planes(&self) -> [ImageKey; 3] {
+        match *self {
+            YuvData::NV12(p0, p1)
+            | YuvData::P010(p0, p1)
+            | YuvData::NV16(p0, p1)
+            | YuvData::P210(p0, p1) => [p0, p1, ImageKey::DUMMY],
+            YuvData::PlanarYCbCr(p0, p1, p2) => [p0, p1, p2],
+            YuvData::InterleavedYCbCr(p0) => [p0, ImageKey::DUMMY, ImageKey::DUMMY],
+        }
+    }
+
     pub fn get_format(&self) -> YuvFormat {
         match *self {
             YuvData::NV12(..) => YuvFormat::NV12,

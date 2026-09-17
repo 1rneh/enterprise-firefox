@@ -327,11 +327,6 @@ pref("media.videocontrols.keyboard-tab-to-all-controls", true);
   pref("media.peerconnection.ice.proxy_only_if_pbmode", false);
   pref("media.peerconnection.turn.disable", false);
   pref("media.peerconnection.treat_warnings_as_errors", false);
-  #ifdef NIGHTLY_BUILD
-    pref("media.peerconnection.description.legacy.enabled", false);
-  #else
-    pref("media.peerconnection.description.legacy.enabled", true);
-  #endif
 
   // 770 = DTLS 1.0, 771 = DTLS 1.2, 772 = DTLS 1.3
   pref("media.peerconnection.dtls.version.min", 771);
@@ -3712,7 +3707,7 @@ pref("browser.ml.pageExtractor.headlessTimeoutMs", 15000);
 
 // Extract video metadata and the transcript from YouTube watch pages during
 // page extraction.
-pref("browser.pageextractor.youtube.enabled", false);
+pref("browser.pageextractor.youtube.enabled", true);
 
 // How long, in milliseconds, to wait for the YouTube transcript panel to render
 // after it is opened before giving up and returning metadata alone.

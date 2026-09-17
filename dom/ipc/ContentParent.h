@@ -1275,7 +1275,7 @@ class ContentParent final : public PContentParent,
 
 #if defined(XP_WIN)
   mozilla::ipc::IPCResult RecvGetModulesTrust(
-      ModulePaths&& aModPaths, bool aRunAtNormalPriority,
+      ModuleIdentifiers&& aModIdents, bool aRunAtNormalPriority,
       GetModulesTrustResolver&& aResolver);
 #endif  // defined(XP_WIN)
 
@@ -1390,9 +1390,9 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvGeckoTraceExport(ByteBuf&& aBuf);
 
-  mozilla::ipc::IPCResult RecvSetContainerFeaturePolicy(
+  mozilla::ipc::IPCResult RecvSetContainerPermissionsPolicy(
       const MaybeDiscardedBrowsingContext& aContainerContext,
-      MaybeFeaturePolicyInfo&& aContainerFeaturePolicyInfo);
+      MaybePermissionsPolicyInfo&& aContainerPermissionsPolicyInfo);
 
   mozilla::ipc::IPCResult RecvUpdateAncestorOriginsList(
       const MaybeDiscardedBrowsingContext& aContext);

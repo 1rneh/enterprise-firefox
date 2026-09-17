@@ -332,7 +332,7 @@ macosx64-rust-1.95:
 
 mingw32-rust-1.95:
     treeherder:
-        symbol: TMW(rust)
+        symbol: TWM(rust)
     run:
         arguments: [
             '--channel', '1.95.0',
@@ -600,7 +600,7 @@ mingw32-rust-nightly:
     attributes:
         cached_task: false
     treeherder:
-        symbol: TMW(rust-nightly)
+        symbol: TWM(rust-nightly)
     run:
         arguments: [
             '--channel', 'nightly', '--allow-generic-channel',

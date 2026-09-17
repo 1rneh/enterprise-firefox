@@ -380,6 +380,9 @@ newtab-wallpaper-add-an-image = Add an image
 newtab-wallpaper-custom-color = Choose a color
 newtab-wallpaper-toggle-title =
     .label = Wallpapers
+# Label for the grid of wallpaper categories in the customize panel
+newtab-wallpaper-category-list =
+    .aria-label = Wallpaper categories
 # Variables
 #   $file_size (number) - The number of the maximum image file size (in MB) that may be uploaded
 newtab-wallpaper-error-max-file-size = The image exceeded the file size limit of { $file_size }MB. Please try uploading a smaller file.
@@ -1286,6 +1289,16 @@ newtab-activation-window-message-customization-focus-primary-button =
 newtab-activation-window-message-values-focus-header = This space plays by your rules
 newtab-activation-window-message-values-focus-message = { -brand-product-name } lets you browse the way you like, with a more personal way to start your day online. Make { -brand-product-name } your own.
 
+## Strings for the New Tab customization callout shown at the Nova launch.
+
+# "Put your finishing touch on" means to add the last, personal detail that
+# makes something yours. The call to action is to open the New Tab
+# customization panel and pick a theme or wallpaper.
+newtab-nova-customization-callout-header = Put your finishing touch on { -brand-product-name }
+newtab-nova-customization-callout-message = Explore light or dark themes and wallpapers that make the new { -brand-product-name } feel more like yours.
+newtab-nova-customization-callout-primary-button =
+    .label = Choose your look
+
 ## Strings for the Clock widget
 
 newtab-clock-widget-menu-learn-more = Learn more
@@ -1529,9 +1542,10 @@ home-prefs-stocks-header =
 home-prefs-picture-header =
     .label = Picture of the day
 
-# Recent searches is a widget on New Tab that shows the user's recent searches.
-home-prefs-recent-searches-header =
-    .label = Recent searches
+# Search is a widget on New Tab that shows the user's recent and trending
+# searches.
+home-prefs-search-widget-header =
+    .label = Search
 
 home-prefs-mission-message2 =
     .message = Our sponsors support our mission to build a better web.
@@ -1946,14 +1960,14 @@ newtab-picture-check-back = Check back tomorrow for a new picture
 # provides no localized description.
 newtab-picture-image-alt = Wikimedia Commons picture of the day
 
-## Strings for the Recent Searches widget
+## Strings for the Search widget
 
 # Widget heading; also the widget's accessible name.
-newtab-recent-searches-widget-title = Recent searches
+newtab-search-widget-title = Search
 
 # Screen reader label for the widget's icon-only menu button.
-newtab-recent-searches-widget-menu-button =
-    .aria-label = Recent searches options
+newtab-search-widget-menu-button =
+    .aria-label = Search options
 
 # Context menu item linking to more information about the widget.
 newtab-recent-searches-menu-learn-more = Learn more

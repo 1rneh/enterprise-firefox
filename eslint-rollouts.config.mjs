@@ -664,7 +664,7 @@ export default [
       // Files that test https and http already
       "browser/base/content/test/general/browser_remoteTroubleshoot.js",
       "browser/base/content/test/favicons/browser_mixed_content.js",
-      "browser/base/content/test/sanitize/browser_sanitize-history.js",
+      "browser/base/content/test/browser-sanitize/browser_sanitize-history.js",
       "devtools/client/shared/test/shared-head.js",
       "devtools/client/shared/test/head.js",
       // uses new HttpServer which doesn't support https
@@ -793,7 +793,6 @@ export default [
       "browser/components/preferences/tests/etp/browser_contentblocking.js",
       "browser/components/preferences/tests/etp/browser_cookie_exceptions_addRemove.js",
       "browser/components/preferences/tests/etp/browser_cookies_exceptions.js",
-      "browser/components/preferences/tests/home/browser_homepages_use_bookmark.js",
       "browser/components/preferences/tests/networking/browser_https_only_exceptions.js",
       "browser/components/preferences/tests/permissions/browser_permissions_checkPermissionsWereAdded.js",
       "browser/components/preferences/tests/permissions/browser_permissions_dialog.js",

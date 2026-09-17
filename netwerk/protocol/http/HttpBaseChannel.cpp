@@ -541,15 +541,14 @@ HttpBaseChannel::SetDocshellUserAgentOverride() {
     return NS_OK;
   }
 
-  nsAutoString customUserAgent;
+  nsAutoCString customUserAgent;
   bc->GetCustomUserAgent(customUserAgent);
   if (customUserAgent.IsEmpty() || customUserAgent.IsVoid()) {
     return NS_OK;
   }
 
-  NS_ConvertUTF16toUTF8 utf8CustomUserAgent(customUserAgent);
   nsresult rv = SetRequestHeaderInternal(
-      "User-Agent"_ns, utf8CustomUserAgent, false,
+      "User-Agent"_ns, customUserAgent, false,
       nsHttpHeaderArray::eVarietyRequestEnforceDefault);
   if (NS_FAILED(rv)) {
     return rv;
@@ -4580,7 +4579,7 @@ already_AddRefed<nsILoadInfo> HttpBaseChannel::CloneLoadInfoForRedirect(
         this, getter_AddRefs(redirectPrincipal));
     nsCOMPtr<nsIPrincipal> nullPrincipalToInherit =
         NullPrincipal::CreateWithInheritedAttributes(redirectPrincipal);
-    newLoadInfo->SetPrincipalToInherit(nullPrincipalToInherit);
+    newLoadInfo->SetTrustedPrincipalToInherit(nullPrincipalToInherit);
   }
 
   bool isTopLevelDoc = newLoadInfo->GetExternalContentPolicyType() ==

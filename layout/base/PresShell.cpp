@@ -1924,7 +1924,7 @@ bool PresShell::CanHandleUserInputEvents(WidgetGUIEvent* aGUIEvent) {
   return true;
 }
 
-void PresShell::PostScrollEvent(Runnable* aEvent) {
+uint32_t PresShell::PostScrollEvent(Runnable* aEvent) {
   MOZ_ASSERT(aEvent);
   mPendingScrollEvents.AppendElement(aEvent);
 
@@ -1938,6 +1938,7 @@ void PresShell::PostScrollEvent(Runnable* aEvent) {
   mPresContext->RefreshDriver()->ScheduleRenderingPhases(
       {RenderingPhase::ScrollSteps, RenderingPhase::Layout,
        RenderingPhase::UpdateIntersectionObservations});
+  return mScrollEventGeneration;
 }
 
 void PresShell::ScheduleResizeEventIfNeeded(ResizeEventKind aKind) {
@@ -2123,6 +2124,11 @@ void PresShell::RunScrollSteps() {
   // events to be posted, so we move the initial set into a temporary array
   // first. (Newly posted scroll events will be dispatched on the next tick.)
   auto events = std::move(mPendingScrollEvents);
+  // Bump the scroll event generation before events fire. Any event queued from
+  // now will fire next frame.
+  if (++mScrollEventGeneration == 0) {
+    ++mScrollEventGeneration;
+  }
   for (auto& event : events) {
     event->Run();
   }
@@ -4267,7 +4273,7 @@ void PresShell::ClearMouseCapture(nsIFrame* aFrame) {
 }
 
 nsresult PresShell::CaptureHistoryState(nsILayoutHistoryState** aState) {
-  MOZ_ASSERT(nullptr != aState, "null state pointer");
+  MOZ_ASSERT(aState, "null state pointer");
 
   // We actually have to mess with the docshell here, since we want to
   // store the state back in it.
@@ -4291,14 +4297,10 @@ nsresult PresShell::CaptureHistoryState(nsILayoutHistoryState** aState) {
   *aState = historyState;
   NS_IF_ADDREF(*aState);
 
-  // Capture frame state for the entire frame hierarchy
-  nsIFrame* rootFrame = mFrameConstructor->GetRootFrame();
-  if (!rootFrame) {
-    return NS_OK;
+  // Capture the root scroll state.
+  if (auto* sf = GetRootScrollContainerFrame()) {
+    sf->SaveState(historyState);
   }
-
-  mFrameConstructor->CaptureFrameState(rootFrame, historyState);
-
   return NS_OK;
 }
 

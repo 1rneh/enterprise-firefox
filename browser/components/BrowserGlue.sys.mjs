@@ -751,14 +751,16 @@ BrowserGlue.prototype = {
         let { Troubleshoot } = ChromeUtils.importESModule(
           "resource://gre/modules/Troubleshoot.sys.mjs"
         );
-        Troubleshoot.snapshot().then(snapshotData => {
-          // for privacy we remove crash IDs and all preferences (but bug 1091944
-          // exists to expose prefs once we are confident of privacy implications)
-          delete snapshotData.crashes;
-          delete snapshotData.modifiedPreferences;
-          delete snapshotData.printingPreferences;
-          channel.send(snapshotData, target);
-        });
+        Troubleshoot.snapshot({ includeEnterpriseSecurity: false }).then(
+          snapshotData => {
+            // for privacy we remove crash IDs and all preferences (but bug 1091944
+            // exists to expose prefs once we are confident of privacy implications)
+            delete snapshotData.crashes;
+            delete snapshotData.modifiedPreferences;
+            delete snapshotData.printingPreferences;
+            channel.send(snapshotData, target);
+          }
+        );
       }
     });
 
@@ -1321,11 +1323,7 @@ BrowserGlue.prototype = {
         false
       )
     ) {
-      lazy
-        .RemoteSettings(lazy.LoginBreaches.REMOTE_SETTINGS_COLLECTION)
-        .on("sync", async event => {
-          await lazy.LoginBreaches.update(event.data.current);
-        });
+      lazy.LoginBreaches.subscribeToBreachUpdates();
     }
   },
 
@@ -1581,7 +1579,7 @@ BrowserGlue.prototype = {
     // Use an increasing number to keep track of the current state of the user's
     // profile, so we can move data around as needed as the browser evolves.
     // Completely unrelated to the current Firefox release number.
-    const APP_DATA_VERSION = 182;
+    const APP_DATA_VERSION = 183;
     const PREF = "browser.migration.version";
 
     let profileDataVersion = Services.prefs.getIntPref(PREF, -1);

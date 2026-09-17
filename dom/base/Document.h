@@ -51,6 +51,7 @@
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/dom/LargestContentfulPaint.h"
 #include "mozilla/dom/Nullable.h"
+#include "mozilla/dom/PermissionsPolicy.h"
 #include "mozilla/dom/RadioGroupContainer.h"
 #include "mozilla/dom/TreeOrderedArray.h"
 #include "mozilla/dom/UserActivation.h"
@@ -242,7 +243,7 @@ class EditContext;
 class Event;
 class EventListener;
 struct FailedCertSecurityInfo;
-class FeaturePolicy;
+class PermissionsPolicy;
 class FontFaceSet;
 class FragmentDirective;
 class FrameRequestCallback;
@@ -1640,9 +1641,10 @@ class Document : public nsINode,
 
   MOZ_CAN_RUN_SCRIPT void DoNotifyPossibleTitleChange();
 
-  void InitFeaturePolicy(const Variant<Nothing, FeaturePolicyInfo, Element*>&
-                             aContainerFeaturePolicy);
-  nsresult InitFeaturePolicy(nsIChannel* aChannel);
+  void InitPermissionsPolicy(
+      const Variant<Nothing, PermissionsPolicyInfo, Element*>&
+          aContainerPermissionsPolicy);
+  nsresult InitPermissionsPolicy(nsIChannel* aChannel);
 
   void EnsureNotEnteringAndExitFullscreen();
 
@@ -2137,8 +2139,11 @@ class Document : public nsINode,
       UniquePtr<FullscreenExit>);
 
   /**
-   * Returns true if this document is a fullscreen leaf document, i.e. it
-   * is in fullscreen mode and has no fullscreen children.
+   * Returns true if this document is a fullscreen leaf document, i.e. it is
+   * in fullscreen mode and its current fullscreen element does not embed
+   * another in-process fullscreen document. Note that this document may still
+   * have other fullscreen subdocuments which are not part of the current
+   * fullscreen document chain.
    */
   bool IsFullscreenLeaf();
 
@@ -4416,9 +4421,11 @@ class Document : public nsINode,
   // mScaleMinFloat, mScaleMaxFloat and mScaleFloat respectively.
   void ParseScalesInViewportMetaData(const ViewportMetaData& aViewportMetaData);
 
-  // Get parent FeaturePolicy from container. The parent FeaturePolicy is
-  // stored in parent iframe or container's browsingContext (cross process)
-  already_AddRefed<mozilla::dom::FeaturePolicy> GetParentFeaturePolicy();
+  // Get the parent PermissionsPolicy from the container. The parent
+  // PermissionsPolicy is stored in parent iframe or container's browsingContext
+  // (cross process)
+  already_AddRefed<mozilla::dom::PermissionsPolicy>
+  GetParentPermissionsPolicy();
 
  public:
   const OriginTrials& Trials() const { return mTrials; }
@@ -4491,7 +4498,7 @@ class Document : public nsINode,
     --mIgnoreOpensDuringUnloadCounter;
   }
 
-  mozilla::dom::FeaturePolicy* FeaturePolicy() const;
+  mozilla::dom::PermissionsPolicy* PermissionsPolicy() const;
 
   /**
    * Find the (non-anonymous) content in this document for aFrame. It will
@@ -5076,8 +5083,8 @@ class Document : public nsINode,
 
   RefPtr<Promise> mReadyForIdle;
 
-  // Lazily created in FeaturePolicy().
-  mutable RefPtr<mozilla::dom::FeaturePolicy> mFeaturePolicy;
+  // Lazily created in PermissionsPolicy().
+  mutable RefPtr<mozilla::dom::PermissionsPolicy> mPermissionsPolicy;
 
   // Permission Delegate Handler, lazily-initialized in
   // GetPermissionDelegateHandler

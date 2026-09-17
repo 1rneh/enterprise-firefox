@@ -27,6 +27,7 @@ extern crate cubeb_coreaudio;
 extern crate cubeb_pulse;
 extern crate data_storage;
 extern crate dom_fragmentdirectives;
+extern crate dom_push;
 extern crate dom_speculationrules;
 extern crate encoding_glue;
 #[cfg(feature = "felt")]
@@ -139,12 +140,12 @@ extern crate midir_impl;
 
 #[cfg(all(target_os = "windows", feature = "backgroundtaskregistrar"))]
 extern crate backgroundtaskregistrar;
-#[cfg(target_os = "windows")]
-extern crate detect_win32k_conflicts;
 #[cfg(all(target_os = "windows", feature = "shell_windows"))]
 extern crate shell_windows;
 #[cfg(target_os = "windows")]
 extern crate widget_windows;
+#[cfg(target_os = "windows")]
+extern crate win32_process_mitigations;
 
 extern crate origin_trials_ffi;
 

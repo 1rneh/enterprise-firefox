@@ -7161,7 +7161,7 @@ pub unsafe extern "C" fn Servo_CSSSupports(
 
     // NOTE(emilio): The supports API is not associated to any stylesheet,
     // so the fact that there is no namespace map here is fine.
-    let context = ParserContext::new(
+    let mut context = ParserContext::new(
         params.origin,
         url_data,
         Some(CssRuleType::Style),
@@ -7173,7 +7173,7 @@ pub unsafe extern "C" fn Servo_CSSSupports(
         /* attr_taint */ Default::default(),
     );
 
-    cond.eval(&context)
+    cond.eval(&mut context)
 }
 
 #[unsafe(no_mangle)]
@@ -10768,6 +10768,9 @@ pub unsafe extern "C" fn Servo_Value_Matches_Syntax(
         None,
         AllowComputationallyDependent::Yes,
         /* attr_taint */ Default::default(),
+        // TODO(Bug 2071366) - Thread the custom property name through InspectorUtils so that
+        // declarations using random() are not immediately flagged as non-matching.
+        None,
     )
     .is_ok()
 }
@@ -11614,6 +11617,9 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
 
         let Ok(result) = custom_properties::substitute(
             &variable_value,
+            // TODO(Bug 2071366) - Thread the property being explained through InspectorUtils so
+            // that random() resolves the same way it does in the cascade.
+            None,
             &substitution_functions,
             stylist,
             &context,

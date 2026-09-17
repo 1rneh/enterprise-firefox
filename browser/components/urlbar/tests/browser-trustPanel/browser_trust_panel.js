@@ -61,10 +61,9 @@ const INSECURE_ICON = 'url("chrome://browser/skin/trust-icon-insecure.svg")';
 const TEST_ORIGIN = "https://example.com";
 
 add_setup(async function setup() {
-  const db = RemoteSettings("fxmonitor-breaches").db;
-  await db.clear();
-  await db.create(TEST_BREACH, { useRecordId: true });
-  await db.importChanges({}, Date.now());
+  await RemoteSettings("fxmonitor-breaches").emit("sync", {
+    data: { current: [TEST_BREACH] },
+  });
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.urlbar.trustPanel.breachAlerts", true],
@@ -74,8 +73,9 @@ add_setup(async function setup() {
   });
   registerCleanupFunction(async () => {
     await PlacesUtils.history.clear();
-    await db.clear();
-    await db.importChanges({}, Date.now());
+    await RemoteSettings("fxmonitor-breaches").emit("sync", {
+      data: { current: [] },
+    });
     const storage = new BreachAlertStorage();
     await storage.initialize();
     await storage.clearAllBreachAlertDismissals();
@@ -573,13 +573,12 @@ add_task(async function test_breach_dismissal_via_dismiss_button() {
     Name: "UndismissedBreachForDismissalViaDismissButton",
   };
 
-  const db = RemoteSettings("fxmonitor-breaches").db;
   let tab;
 
   try {
-    await db.clear();
-    await db.create(undismissedBreach, { useRecordId: true });
-    await db.importChanges({}, Date.now());
+    await RemoteSettings("fxmonitor-breaches").emit("sync", {
+      data: { current: [undismissedBreach] },
+    });
     tab = await BrowserTestUtils.openNewForegroundTab({
       gBrowser,
       opening: "https://example.org",
@@ -633,9 +632,9 @@ add_task(async function test_breach_dismissal_via_dismiss_button() {
       await BrowserTestUtils.removeTab(tab);
     }
 
-    await db.clear();
-    await db.create(TEST_BREACH, { useRecordId: true });
-    await db.importChanges({}, Date.now());
+    await RemoteSettings("fxmonitor-breaches").emit("sync", {
+      data: { current: [TEST_BREACH] },
+    });
   }
 });
 
@@ -645,13 +644,12 @@ add_task(async function test_breach_dismissal_via_check_button() {
     Name: "UndismissedBreachForDismissalViaCheckButton",
   };
 
-  const db = RemoteSettings("fxmonitor-breaches").db;
   let tab;
 
   try {
-    await db.clear();
-    await db.create(undismissedBreach, { useRecordId: true });
-    await db.importChanges({}, Date.now());
+    await RemoteSettings("fxmonitor-breaches").emit("sync", {
+      data: { current: [undismissedBreach] },
+    });
     tab = await BrowserTestUtils.openNewForegroundTab({
       gBrowser,
       opening: "https://example.org",
@@ -715,9 +713,9 @@ add_task(async function test_breach_dismissal_via_check_button() {
       await BrowserTestUtils.removeTab(tab);
     }
 
-    await db.clear();
-    await db.create(TEST_BREACH, { useRecordId: true });
-    await db.importChanges({}, Date.now());
+    await RemoteSettings("fxmonitor-breaches").emit("sync", {
+      data: { current: [TEST_BREACH] },
+    });
   }
 });
 

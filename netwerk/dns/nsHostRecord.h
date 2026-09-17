@@ -238,7 +238,7 @@ class nsHostRecord : public mozilla::LinkedListElement<RefPtr<nsHostRecord>>,
   // (past-TTL, grace-period) cache entry. Captured at serve time: true only
   // when a grace-period cache hit is returned, and cleared on every fresh
   // resolution.
-  bool mFromStaleCache = false;
+  mozilla::Atomic<bool, mozilla::Relaxed> mFromStaleCache{false};
 
   // Explicitly expired
   bool mDoomed = false;

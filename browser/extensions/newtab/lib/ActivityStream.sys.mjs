@@ -846,10 +846,12 @@ export const PREFS_CONFIG = new Map([
     {
       title:
         "Group pinned Top Sites into a contiguous block with restricted drag-and-drop reordering",
-      // Channel-derived (resolves on the host), so it's on in Nightly but stays
-      // dark after the XPI train-hops to Beta/Release. A literal true would ride
-      // inside the XPI and wrongly activate.
-      value: AppConstants.NIGHTLY_BUILD,
+      // Channel-derived (resolves on the host), so it's on in Nightly and Beta
+      // but stays dark after the XPI train-hops to Release. A literal true would
+      // ride inside the XPI and wrongly activate.
+      value:
+        AppConstants.NIGHTLY_BUILD ||
+        AppConstants.MOZ_UPDATE_CHANNEL === "beta",
     },
   ],
   [
@@ -2050,7 +2052,7 @@ export const PREFS_CONFIG = new Map([
       title:
         "Endpoint prefixes (comma-separated) that are allowed to be requested",
       value:
-        "https://getpocket.cdn.mozilla.net/,https://firefox-api-proxy.cdn.mozilla.net/,https://spocs.getpocket.com/,https://merino.services.mozilla.com/,https://ads.mozilla.org/",
+        "https://getpocket.cdn.mozilla.net/,https://firefox-api-proxy.cdn.mozilla.net/,https://merino.services.mozilla.com/,https://ads.mozilla.org/",
     },
   ],
   [
@@ -2081,14 +2083,6 @@ export const PREFS_CONFIG = new Map([
       title: "Track spoc impressions",
       skipBroadcast: true,
       value: "{}",
-    },
-  ],
-  [
-    "discoverystream.endpointSpocsClear",
-    {
-      title:
-        "Endpoint for when a user opts-out of sponsored content to delete the user's data from the ad server.",
-      value: "https://spocs.getpocket.com/user",
     },
   ],
   [

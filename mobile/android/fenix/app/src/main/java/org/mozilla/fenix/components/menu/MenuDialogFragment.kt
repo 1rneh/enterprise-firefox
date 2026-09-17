@@ -44,7 +44,9 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.R as materialR
@@ -55,7 +57,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import mozilla.components.browser.state.selector.findCustomTab
 import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.SessionState
@@ -97,6 +98,7 @@ import org.mozilla.fenix.components.menu.store.IPProtectionMenuStatus
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
 import org.mozilla.fenix.components.menu.store.MenuStore
+import org.mozilla.fenix.components.menu.store.NavigationEvent
 import org.mozilla.fenix.components.menu.store.SummarizationMenuState
 import org.mozilla.fenix.components.menu.store.TranslationInfo
 import org.mozilla.fenix.components.menu.store.WebExtensionMenuItem
@@ -581,7 +583,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                             menuStore.dispatch(MenuAction.AddBookmark)
                                         },
                                         onEditBookmarkButtonClick = {
-                                            menuStore.dispatch(MenuAction.Navigate.EditBookmark)
+                                            menuStore.dispatch(MenuAction.Navigate.EditBookmark())
                                         },
                                         onSwitchToDesktopSiteMenuClick = {
                                             if (isDesktopMode) {
@@ -802,7 +804,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                             menuStore.dispatch(MenuAction.AddBookmark)
                                         },
                                         onEditBookmarkMenuClick = {
-                                            menuStore.dispatch(MenuAction.Navigate.EditBookmark)
+                                            menuStore.dispatch(MenuAction.Navigate.EditBookmark())
                                         },
                                         onFindInPageMenuClick = {
                                             menuStore.dispatch(MenuAction.FindInPage)
@@ -918,6 +920,12 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
             owner = this,
             view = view,
         )
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                menuStore.navigationEvents.collect(::handleNavigationEvent)
+            }
+        }
     }
 
     private fun createInitialMenuState(): MenuState {
@@ -972,7 +980,14 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
             migratePrivateTabUseCase = components.useCases.tabsUseCases.migratePrivateTabUseCase,
             materialAlertDialogBuilder = MaterialAlertDialogBuilder(requireContext()),
             topSitesMaxLimit = components.settings.topSitesMaxLimit,
-            onDeleteAndQuit = {
+            mainDispatcher = Dispatchers.Main,
+        )
+    }
+
+    private fun handleNavigationEvent(event: NavigationEvent) {
+        when (event) {
+            is NavigationEvent.Dismiss -> dismiss()
+            is NavigationEvent.DeleteBrowsingDataAndQuit ->
                 activity?.let { activity ->
                     activity.lifecycleScope.launch {
                         deleteBrowsingDataController.clearBrowsingDataOnQuit {
@@ -980,15 +995,12 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                         }
                     }
                 }
-            },
-            onDismiss = {
-                withContext(Dispatchers.Main) {
-                    this@MenuDialogFragment.dismiss()
-                }
-            },
-            onSendPendingIntentWithUrl = ::sendPendingIntentWithUrl,
-            mainDispatcher = Dispatchers.Main,
-        )
+            is NavigationEvent.SendPendingIntentWithUrl -> {
+                sendPendingIntentWithUrl(event.intent, event.url)
+                dismiss()
+            }
+            is NavigationEvent.OpenToBrowser -> openToBrowser(event.params)
+        }
     }
 
     private fun createMenuNavigationMiddleware(): MenuNavigationMiddleware {
@@ -1007,22 +1019,16 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
         return MenuNavigationMiddleware(
             browserStore = browserStore,
             navController = findNavController(),
-            openToBrowser = ::openToBrowser,
             sessionUseCases = components.useCases.sessionUseCases,
             webAppUseCases = webAppUseCases,
             shareUseCases = components.useCases.shareUseCases,
             settings = settings,
-            onDismiss = {
-                withContext(Dispatchers.Main) {
-                    this@MenuDialogFragment.dismiss()
-                }
-            },
             scope = coroutineScope,
             webCompatReporterMoreInfoSender = webCompatReporterMoreInfoSender,
         )
     }
 
-    private fun createMenuTelemetryMiddleware(): MenuTelemetryMiddleware {
+    private fun createMenuTelemetryMiddleware(): MenuTelemetryMiddleware<MenuState, MenuAction> {
         return MenuTelemetryMiddleware(accessPoint = args.accesspoint)
     }
 

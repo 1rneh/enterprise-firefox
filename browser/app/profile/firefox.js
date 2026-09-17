@@ -485,9 +485,8 @@ pref("browser.urlbar.focusContentDocumentOnEsc", true);
 pref("browser.urlbar.ipc.chromeMessagePassing", false);
 
 // Feature gate for the <moz-urlbar> on about:newtab and about:home. When
-// enabled, it supersedes New Tab's handoff search bar. Disabled in debug
-// because of bug 2065180.
-#if defined(NIGHTLY_BUILD) && !defined(DEBUG)
+// enabled, it supersedes New Tab's handoff search bar.
+#ifdef NIGHTLY_BUILD
 pref("browser.urlbar.newtab.featureGate", true);
 #else
 pref("browser.urlbar.newtab.featureGate", false);
@@ -1076,6 +1075,12 @@ pref("browser.theme.forced-colors-override.enabled", true);
 // as separate icons in the Windows taskbar.
 pref("browser.privateWindowSeparation.enabled", true);
 
+// Private browsing window redesign experiment; enabled via Nimbus.
+pref("browser.privateWindowRedesign.enabled", false);
+
+// Whether the private-browsing first-run intro animation has been shown.
+pref("browser.privatebrowsing.introAnimationShown", false);
+
 // Controls visibility of the privacy segmentation preferences section.
 pref("browser.privacySegmentation.preferences.show", false);
 
@@ -1484,6 +1489,9 @@ pref("mousewheel.with_meta.action", 1);
 
 pref("browser.xul.error_pages.expert_bad_cert", false);
 pref("browser.xul.error_pages.show_safe_browsing_details_on_load", false);
+
+// Deployments that do not want the artwork on error pages can turn this off
+pref("browser.netError.illustration.enabled", true);
 
 // Enable the one-click search call-to-action on the online dnsNotFound error
 // page. On in Nightly, off elsewhere until a Nimbus rollout (bug 2055718).
@@ -2364,11 +2372,7 @@ pref("pdfjs.handleOctetStream", true);
 
 // Is the sidebar positioned ahead of the content browser
 pref("sidebar.position_start", true);
-#ifdef NIGHTLY_BUILD
 pref("sidebar.revamp", true);
-#else
-pref("sidebar.revamp", false);
-#endif
 pref("sidebar.animation.enabled", true);
 pref("sidebar.animation.duration-ms", 200);
 pref("sidebar.animation.expand-on-hover.duration-ms", 400);
@@ -2433,6 +2437,7 @@ pref("browser.ml.chat.shortcuts", true);
 pref("browser.ml.chat.shortcuts.custom", true);
 pref("browser.ml.chat.shortcuts.smartwindow", true);
 pref("browser.ml.chat.shortcuts.longPress", 60000);
+pref("browser.ml.chat.shortcuts.debounce", 200);
 pref("browser.ml.chat.shortcut.onboardingMouseoverCount", 0);
 pref("browser.ml.chat.sidebar", true);
 
@@ -2466,6 +2471,8 @@ pref("browser.smartwindow.memories.generateFromHistory", true);
 pref("browser.smartwindow.memories.generateFromConversation", true);
 pref("browser.smartwindow.memories.hasSeenMemories", false);
 pref("browser.smartwindow.memoriesLogLevel", "Warn");
+// TODO Bug 2067871: remove once journey store is available.
+pref("browser.smartwindow.resumeCards.enabled", false);
 pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
 pref("browser.smartwindow.showThemesNotice", true);
@@ -3694,6 +3701,10 @@ pref("first-startup.category-tasks-enabled", true);
   // Timeouts used to receive push messages with --receive-push-messages
   pref("app.backgroundNotifications.receivePushMessages.perMessageTimeoutMs", 5000);
   pref("app.backgroundNotifications.receivePushMessages.totalTimeoutMs", 60000);
+
+  // Whether the push notification helper process should run.
+  pref("app.backgroundNotifications.helper.enabled", false);
+  pref("app.backgroundNotifications.helper.loglevel", "Error");
 #endif
 
 // Shows 'View Image Info' item in the image context menu

@@ -2531,8 +2531,7 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
 
   mHangMonitorActor = ProcessHangMonitor::AddProcess(this);
 
-  // Set a reply timeout for CPOWs.
-  SetReplyTimeoutMs(StaticPrefs::dom_ipc_cpow_timeout());
+  SetReplyTimeoutMs(StaticPrefs::dom_ipc_reply_timeout());
 
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
@@ -6064,9 +6063,7 @@ ContentParent::AboutToLoadOrigin(nsIPrincipal* aPrincipal) {
 
   MOZ_ASSERT_DEBUG_OR_FUZZING(!aPrincipal->GetIsExpandedPrincipal());
 
-  LoadedOriginSet::Level prev =
-      LoadedOrigins()->AddInternal(aPrincipal, /* aTentative */ false);
-  if (prev < LoadedOriginSet::Level::Full) {
+  if (LoadedOrigins()->AddInternal(aPrincipal, /* aTentative */ false)) {
     // Transmit Blob URLs for the newly loaded origin.
     // Skip broadcast principals as they'll already have been sent.
     if (!BlobURLProtocolHandler::IsBlobURLBroadcastPrincipal(aPrincipal)) {
@@ -6889,10 +6886,10 @@ mozilla::ipc::IPCResult ContentParent::RecvAddOrRemovePageAwakeRequest(
 
 #if defined(XP_WIN)
 mozilla::ipc::IPCResult ContentParent::RecvGetModulesTrust(
-    ModulePaths&& aModPaths, bool aRunAtNormalPriority,
+    ModuleIdentifiers&& aModIdents, bool aRunAtNormalPriority,
     GetModulesTrustResolver&& aResolver) {
   RefPtr<DllServices> dllSvc(DllServices::Get());
-  dllSvc->GetModulesTrust(std::move(aModPaths), aRunAtNormalPriority)
+  dllSvc->GetModulesTrust(std::move(aModIdents), aRunAtNormalPriority)
       ->Then(
           GetMainThreadSerialEventTarget(), __func__,
           [aResolver](ModulesMapResult&& aResult) {
@@ -8010,15 +8007,16 @@ mozilla::ipc::IPCResult ContentParent::RecvGeckoTraceExport(ByteBuf&& aBuf) {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentParent::RecvSetContainerFeaturePolicy(
+mozilla::ipc::IPCResult ContentParent::RecvSetContainerPermissionsPolicy(
     const MaybeDiscardedBrowsingContext& aContainerContext,
-    MaybeFeaturePolicyInfo&& aContainerFeaturePolicyInfo) {
+    MaybePermissionsPolicyInfo&& aContainerPermissionsPolicyInfo) {
   if (aContainerContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
 
   auto* context = aContainerContext.get_canonical();
-  context->SetContainerFeaturePolicy(std::move(aContainerFeaturePolicyInfo));
+  context->SetContainerPermissionsPolicy(
+      std::move(aContainerPermissionsPolicyInfo));
 
   return IPC_OK();
 }

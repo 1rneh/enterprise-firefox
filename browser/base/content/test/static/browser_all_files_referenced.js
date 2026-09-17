@@ -202,11 +202,6 @@ var allowlist = [
   // SpiderMonkey parser API, currently unused in browser/ and toolkit/
   { file: "moz-src:///toolkit/components/reflect/reflect.sys.mjs" },
 
-  // TODO Bug 2064553: Integrate ConversationStore into the Conversation model
-  {
-    file: "moz-src:///browser/components/aiwindow/ui/modules/ConversationStore.sys.mjs",
-  },
-
   // extensions/pref/autoconfig/src/nsReadConfig.cpp
   { file: "resource://gre/defaults/autoconfig/prefcalls.js" },
 
@@ -352,11 +347,6 @@ var allowlist = [
   {
     file: "resource://app/modules/backup/CookiesBackupResource.sys.mjs",
   },
-
-  // Referenced dynamically in newtab components via template literals:
-  // `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`
-  { file: "chrome://global/skin/icons/shaft-arrow-left.svg" },
-  { file: "chrome://global/skin/icons/shaft-arrow-right.svg" },
 ];
 
 if (AppConstants.NIGHTLY_BUILD) {

@@ -438,13 +438,20 @@ In addition you must add a description of your marker in a special static data m
   static constexpr const char* Description = "This is my marker!";
 ```
 
-If you expect users to be passing unique names for individual instances of the marker,
-you may want to add the following to ensure those names get stored when using ETW:
+The name passed to an individual marker call is always recorded by the profiler
+itself, but it is only written to ETW if the marker type asks for it with
+`ETWStoreName`:
 
 ```cpp
 // …
-  static constexpr bool StoreName = true;
+  static constexpr bool ETWStoreName = true;
 ```
+
+`ETWStoreName` is false by default, so opt out by leaving it unset when the name
+is always the same for every marker of the type, since the ETW event is already
+identified by the marker type's `Name`, or when the cost of storing the names, a
+copy of the string in every ETW event recorded for this marker type, would not
+bring more value to an ETW trace.
 
 ### Marker Type Data
 
@@ -463,6 +470,12 @@ most important fields are:
 - Type: An enum value describing the C++ type specified to PROFILER_MARKER/profiler_add_marker.
 - Label: Prefix to display to label the field.
 - Format: How to format the data element value, see [MarkerSchema::Format for details](https://searchfox.org/mozilla-central/define?q=T_mozilla%3A%3AMarkerSchema%3A%3AFormat).
+
+Be careful with the formats that carry PII. `Url`, `FilePath` and
+`SanitizedString` are sanitized by the front-end, and `String` is not sanitized
+at all. `UniqueString` sits in between: the front-end scrubs URLs out of the
+whole string table, so a unique string may hold a URL, but any other PII it
+contains (file paths, host names, preference values) is kept.
 
 ```cpp
 // …

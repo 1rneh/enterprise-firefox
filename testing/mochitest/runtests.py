@@ -914,10 +914,10 @@ def checkAndConfigureV4l2loopback(device):
     class v4l2_control(ctypes.Structure):
         _fields_ = [("id", ctypes.c_uint32), ("value", ctypes.c_int32)]
 
-    # These are private v4l2 control IDs, see:
-    # https://github.com/umlaeute/v4l2loopback/blob/fd822cf0faaccdf5f548cddd9a5a3dcebb6d584d/v4l2loopback.c#L131
-    KEEP_FORMAT = 0x8000000
-    SUSTAIN_FRAMERATE = 0x8000001
+    # These are v4l2loopback control IDs, see:
+    # https://github.com/v4l2loopback/v4l2loopback/blob/v0.15.4/v4l2loopback.c#L260-L262
+    KEEP_FORMAT = 0x0098F900
+    SUSTAIN_FRAMERATE = 0x0098F901
     VIDIOC_S_CTRL = 0xC008561C
 
     control = v4l2_control()
@@ -961,7 +961,7 @@ def findTestMediaDevices(log):
         log.error("Couldn't find a v4l2loopback video device")
         return None
 
-    # Feed it a frame of output so it has something to display
+    # Repeat a single frame for the duration of the tests.
     gst01 = which("gst-launch-0.1")
     gst010 = which("gst-launch-0.10")
     gst10 = which("gst-launch-1.0")
@@ -977,6 +977,8 @@ def findTestMediaDevices(log):
         "videotestsrc",
         "pattern=green",
         "num-buffers=1",
+        "!",
+        "imagefreeze",
         "!",
         "v4l2sink",
         f"device={device}",
@@ -1035,6 +1037,12 @@ class MochitestDesktop:
     # XXX use automation.py for test name to avoid breaking legacy
     # TODO: replace this with 'runtests.py' or 'mochitest' or the like
     test_name = "automation.py"
+
+    # The test currently running, and whether it has already reported a result.
+    # Tracked apart from each other so crash and leak attribution get a test
+    # path, not a status marker.
+    lastTestSeen = None
+    lastTestFinished = False
 
     def __init__(self, flavor, logger_options, staged_addons=None, quiet=False):
         update_mozinfo()
@@ -3061,6 +3069,7 @@ toolbar#nav-bar {
 
             # create mozrunner instance and start the system under test process
             self.lastTestSeen = self.test_name
+            self.lastTestFinished = False
             self.lastManifest = currentManifest
             startTime = datetime.now()
 
@@ -3218,9 +3227,7 @@ toolbar#nav-bar {
                     # this requires a custom message vs log.error/log.warning/etc.
                     self.message_logger.process_message(message)
             else:
-                self.lastTestSeen = (
-                    currentManifest or "Main app process exited normally"
-                )
+                self.log.info("runtests.py | Main app process exited normally")
 
             self.log.info(
                 f"runtests.py | Application ran for: {str(datetime.now() - startTime)}"
@@ -4576,8 +4583,10 @@ toolbar#nav-bar {
             """record last test on harness"""
             if message["action"] == "test_start":
                 self.harness.lastTestSeen = message["test"]
+                self.harness.lastTestFinished = False
             elif message["action"] == "test_end":
-                self.harness.lastTestSeen = "{} (finished)".format(message["test"])
+                self.harness.lastTestSeen = message["test"]
+                self.harness.lastTestFinished = True
             return message
 
         def dumpScreenOnTimeout(self, message):
@@ -4608,7 +4617,7 @@ toolbar#nav-bar {
                     if message["action"] == "log"
                     else message["data"]
                 )
-                if "(finished)" in self.harness.lastTestSeen:
+                if self.harness.lastTestFinished:
                     self.lsanLeaks.log(line, self.harness.lastManifest)
                 else:
                     self.lsanLeaks.log(line, self.harness.lastTestSeen)
@@ -4622,7 +4631,7 @@ toolbar#nav-bar {
                     else message["data"]
                 )
                 pid = message.get("process")
-                if "(finished)" in self.harness.lastTestSeen:
+                if self.harness.lastTestFinished:
                     scope = self.harness.lastManifest
                 else:
                     scope = self.harness.lastTestSeen

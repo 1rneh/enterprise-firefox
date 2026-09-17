@@ -992,6 +992,12 @@ async function isVideoMuted(browser, videoID) {
   });
 }
 
+async function getVideoCurrentTime(browser, videoID) {
+  return SpecialPowers.spawn(browser, [videoID], async videoID => {
+    return content.document.getElementById(videoID).currentTime;
+  });
+}
+
 /**
  * Initializes videos and text tracks for the current test case.
  * First track is the default track to be loaded onto the video.

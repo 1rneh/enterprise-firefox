@@ -54,6 +54,10 @@ notes = "Upstream not yet published changes"
 audit-as-crates-io = true
 notes = "Upstream not yet published changes"
 
+[policy.felt]
+dependency-criteria = { plist = "safe-to-run" }
+notes = "plist is used only through Value::from_reader_xml to parse stdout from the absolute, SIP-protected /usr/sbin/diskutil binary. Callers cannot supply plist syntax or structure; diskutil emits no namespaces, internal DTD subset, custom entities, or caller-controlled attributes. The binary and serde entry points are unused."
+
 [policy.firefox-on-glean]
 audit-as-crates-io = false
 notes = "The crates.io version of this is just a placeholder to allow public crates to depend on firefox-on-glean."
@@ -78,10 +82,6 @@ notes = "This is upstream plus a build fix from rust-windowing/gl-rs#566. Can be
 [policy."gleam:0.15.1@git:68ca4e5cc31135b843af07ff213a94b9ddce64cf"]
 audit-as-crates-io = true
 notes = "This is upstream plus servo/gleam#235. Can be removed once PR is merged upstream."
-
-[policy.glean-sym]
-audit-as-crates-io = false
-notes = "crates.io release is a placeholder for the moment. glean-sym is consumed via git"
 
 [policy.gluesmith]
 criteria = "safe-to-run"
@@ -145,7 +145,7 @@ notes = "Patched version to build with gecko deps"
 
 [policy.jxl_simd]
 audit-as-crates-io = true
-notes = "Upstream 0.6.0 with a local Mac/x86_64 workaround patched in (see bug 2043090) and path-sourced via a [patch.crates-io] entry in the root Cargo.toml."
+notes = "Upstream 0.7.3 with a local Mac/x86_64 workaround patched in (see bug 2043090) and path-sourced via a [patch.crates-io] entry in the root Cargo.toml."
 
 [policy."khronos_api:3.1.0@git:71c792dbfe0ec5caeb242fc90937e19098386342"]
 audit-as-crates-io = true

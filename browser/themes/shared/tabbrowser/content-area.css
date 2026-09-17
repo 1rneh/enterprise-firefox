@@ -345,6 +345,15 @@
   flex: 1;
 }
 
+/* Used to position .dialogStack on top of the <browser> showing the dialog, for
+   browsers in #tabbrowser-tabpanels (so it doesn't overlap the DevTools toolbox) as
+   well as for browsers elements that belong to the extension popup panelss and the
+   AI chat sidebar. */
+:is(#tabbrowser-tabpanels, .sidebar-browser-stack, .webextension-popup-stack) browser[tabDialogShowing] {
+  -moz-user-focus: none !important;
+  anchor-name: --browser-with-dialog;
+}
+
 .browserStack {
   flex: 10000 10000;
   /* Prevent shrinking the page content to 0 height and width */
@@ -373,13 +382,6 @@
      color-scheme from chrome to follow the browser theme */
   browser[type="content"]:not([smartwindow-content]) {
     color-scheme: env(-moz-content-preferred-color-scheme);
-  }
-
-  browser[tabDialogShowing] {
-    -moz-user-focus: none !important;
-    /* Used to position .dialogStack on top of this <browser> element so it doesn't overlap
-       the DevTools toolbox */
-    anchor-name: --browser-with-dialog;
   }
 
   .split-view-panel {
@@ -927,6 +929,40 @@ split-view-footer {
 .dialogOverlay[topmost="true"],
 #window-modal-dialog::backdrop {
   background-color: var(--background-color-overlay);
+}
+
+@media -moz-pref("browser.nova.enabled") {
+  #tabbrowser-tabpanels > :not(.split-view-panel) .dialogOverlay[topmost="true"] {
+    border-radius: 0;
+  }
+
+  :root:not([inDOMFullscreen], [inFullscreen]) {
+    #tabbrowser-tabbox:is([sidebar-shown], [sidebar-panel-open]):not([sidebar-positionend])
+      #tabbrowser-tabpanels
+      > :not(.split-view-panel)
+      .dialogOverlay[topmost="true"] {
+      border-start-start-radius: calc(var(--border-radius-medium) - var(--border-width));
+    }
+
+    #tabbrowser-tabbox:is([sidebar-positionend]:is([sidebar-shown], [sidebar-panel-open]), [ai-window-open])
+      #tabbrowser-tabpanels
+      > :not(.split-view-panel)
+      .dialogOverlay[topmost="true"] {
+      border-start-end-radius: calc(var(--border-radius-medium) - var(--border-width));
+    }
+
+    #tabbrowser-tabpanels[splitview] .split-view-panel .dialogOverlay[topmost="true"] {
+      border-radius: calc(var(--border-radius-medium) - var(--border-width));
+    }
+
+    #tabbrowser-tabpanels[splitview] .split-view-panel.deck-selected .dialogOverlay[topmost="true"] {
+      border-radius: var(--border-radius-medium);
+    }
+  }
+
+  :root:is([inDOMFullscreen], [inFullscreen]) .dialogOverlay[topmost="true"] {
+    border-radius: 0;
+  }
 }
 
 .dialogOverlay[hideContent="true"][topmost="true"] {

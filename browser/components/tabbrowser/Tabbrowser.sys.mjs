@@ -231,6 +231,7 @@ export class Tabbrowser {
   }
 
   init() {
+    /** @type {MozTabbrowserTabs} */
     this.tabContainer = this.document.getElementById("tabbrowser-tabs");
     this.tabGroupMenu = this.document.getElementById("tab-group-editor");
     this.tabNoteMenu = this.document.getElementById("tab-note-menu");
@@ -4982,7 +4983,7 @@ export class Tabbrowser {
 
       // Re-use existing selected tab if possible to avoid the overhead of
       // selecting a new tab. For now, we only do this for horizontal tabs;
-      // we'll let tabs.js handle pinning for vertical tabs until we unify
+      // we'll let tabs.mjs handle pinning for vertical tabs until we unify
       // the logic for both horizontal and vertical tabs in bug 1910097.
       if (
         select &&
@@ -7040,6 +7041,16 @@ export class Tabbrowser {
       tab => !excludeTabs.has(tab)
     );
 
+    // Filter out tabs the user explicitly unloaded if there are other
+    // tabs left
+    const nonDiscardedTabs = Array.prototype.filter.call(
+      remainingTabs,
+      tab => !tab.hasAttribute("discarded")
+    );
+    if (nonDiscardedTabs.length) {
+      remainingTabs = nonDiscardedTabs;
+    }
+
     if (Services.prefs.getBoolPref("browser.tabs.selectMRUOnClose", false)) {
       let mruTab = remainingTabs
         .filter(t => t !== aTab)
@@ -7816,9 +7827,10 @@ export class Tabbrowser {
   }
 
   /**
+   * Whether the element is the `<label>` in a `<tab-group>`.
+   *
    * @param {Element} element
-   * @returns {boolean}
-   *   `true` if element is the `<label>` in a `<tab-group>`
+   * @returns {element is MozTabbrowserTabGroupLabel}
    */
   isTabGroupLabel(element) {
     return !!element?.classList?.contains("tab-group-label");

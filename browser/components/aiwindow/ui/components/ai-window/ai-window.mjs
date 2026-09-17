@@ -12,6 +12,8 @@ import "chrome://browser/content/aiwindow/components/smartwindow-promo.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-topsites.mjs";
 // eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/smartwindow-resume-section.mjs";
+// eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/kit-mention.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-history-menu.mjs";
@@ -138,7 +140,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", function () {
  */
 
 /**
- * @typedef {"button" | "enter" | "follow-up" | "resume" | "retry" | "shortcuts" | "starter" | "suggestion"} ChatSubmitType
+ * @typedef {"button" | "enter" | "follow-up" | "menu" | "resume" | "retry" | "shortcuts" | "starter" | "suggestion"} ChatSubmitType
  */
 
 const MODE = {
@@ -171,6 +173,7 @@ const PREF_HIDE_TOP_SITES = "browser.smartwindow.hideTopSites";
 const PREF_TOPSITES_FEED_ENABLED =
   "browser.newtabpage.activity-stream.feeds.topsites";
 const PREF_AGENT_ENABLED = "browser.smartwindow.agent.enabled";
+const PREF_RESUME_CARDS = "browser.smartwindow.resumeCards.enabled";
 const MAX_INTERACTION_COUNT = 1000;
 const HISTORY_MENU_MAX_RECENT_CHATS = 6;
 
@@ -188,6 +191,8 @@ const MAX_TOP_SITES = 8;
 const MAX_PILL_COUNT = 6;
 // Show 3 undismissed candidates from the larger generated pool.
 const MAX_RESUME_PILLS_DISPLAYED = 3;
+// Show up to 4 cards from the generated pool.
+const MAX_RESUME_CARDS_DISPLAYED = 4;
 // TEMP: English-only workaround. Remove once resume headlines support
 // localization - see Bug 2066263.
 const RESUME_HEADLINE_PREFIX_RE = /^\s*pick\s+up\b[\s:;,.—-]*/iu;
@@ -244,6 +249,7 @@ export class AIWindow extends MozLitElement {
     availableModels: { type: Object, state: true },
     selectedModelId: { type: String, state: true },
     topSites: { type: Array, state: true },
+    resumeCards: { type: Array, state: true },
     startersResolved: { type: Boolean, state: true },
     recentChats: { type: Array, state: true },
   };
@@ -476,6 +482,13 @@ export class AIWindow extends MozLitElement {
       PREF_AGENT_ENABLED,
       false
     );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "resumeCardsPref",
+      PREF_RESUME_CARDS,
+      false,
+      () => this.requestUpdate()
+    );
     // TODO Bug 2053495: remove with mistral release pref
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
@@ -499,6 +512,7 @@ export class AIWindow extends MozLitElement {
     this.mode = this.#detectModeFromContext();
     this.showStarters = false;
     this.topSites = [];
+    this.resumeCards = [];
     this.startersResolved = false;
     this.recentChats = [];
     this.showFooter = this.mode === MODE.FULLPAGE;
@@ -1390,11 +1404,26 @@ export class AIWindow extends MozLitElement {
           starters = sidebarStarters;
         }
       } else if (resumeStartersPromise) {
-        const resumeStarters = this.#resumeActivitiesToStarterPrompts(
+        const resumeActivities = this.#filterResumeActivities(
           await resumeStartersPromise
-        ).slice(0, MAX_RESUME_PILLS_DISPLAYED);
+        );
 
-        if (selectedTab === this.#getCurrentTab()) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        // TODO Bug 2067871: this is already the permanent path; drop the
+        // pill fallback below once cards ship for real.
+        this.resumeCards = resumeActivities.slice(
+          0,
+          MAX_RESUME_CARDS_DISPLAYED
+        );
+
+        // The temporary pref replaces resume pills with cards.
+        if (!this.resumeCardsPref && selectedTab === this.#getCurrentTab()) {
+          const resumeStarters = this.#resumeActivitiesToStarterPrompts(
+            resumeActivities
+          ).slice(0, MAX_RESUME_PILLS_DISPLAYED);
           starters = [...resumeStarters, ...starters].slice(0, MAX_PILL_COUNT);
         }
       }
@@ -1409,27 +1438,24 @@ export class AIWindow extends MozLitElement {
     }
   }
 
-  #resumeActivitiesToStarterPrompts(resumeActivities) {
-    return resumeActivities.flatMap(({ memory, content }) => {
-      if (
-        !content.headline.trim() ||
-        lazy.isResumeActivityMemoryDismissed(memory.id)
-      ) {
-        return [];
-      }
+  #filterResumeActivities(resumeActivities) {
+    return resumeActivities.filter(
+      ({ memory, content }) =>
+        content.headline.trim() &&
+        !lazy.isResumeActivityMemoryDismissed(memory.id)
+    );
+  }
 
-      return [
-        {
-          text: content.headline,
-          type: "resume",
-          previewIcons: content.previewTabs.map(({ url }) => ({
-            iconSrc: `page-icon:${url}`,
-          })),
-          memory,
-          content,
-        },
-      ];
-    });
+  #resumeActivitiesToStarterPrompts(resumeActivities) {
+    return resumeActivities.map(({ memory, content }) => ({
+      text: content.headline,
+      type: "resume",
+      previewIcons: content.previewTabs.map(({ url }) => ({
+        iconSrc: `page-icon:${url}`,
+      })),
+      memory,
+      content,
+    }));
   }
 
   /**
@@ -3602,6 +3628,13 @@ export class AIWindow extends MozLitElement {
                     @SmartWindowTopSites:site-selected=${this
                       .#handleTopSiteSelected}
                   ></smartwindow-topsites>
+                `
+              : ""}
+            ${this.resumeCardsPref
+              ? html`
+                  <smartwindow-resume-section
+                    .cards=${this.resumeCards}
+                  ></smartwindow-resume-section>
                 `
               : ""}
           `}

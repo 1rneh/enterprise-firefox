@@ -56,6 +56,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
+  "AITAB_ENABLED",
+  "browser.smartwindow.aitab.enabled",
+  false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
   "STRIP_ON_SHARE_ENABLED",
   "privacy.query_stripping.strip_on_share.enabled",
   false
@@ -930,6 +937,12 @@ export class nsContextMenu {
       showItem: this.showItem.bind(this),
       source: "page",
     });
+    this.showItem(
+      "context-create-aitab",
+      lazy.AITAB_ENABLED &&
+        lazy.AIWindow.isAIWindowActiveAndEnabled(this.window) &&
+        ["http", "https"].includes(this.browser.currentURI.scheme)
+    );
 
     // srcdoc cannot be opened separately due to concerns about web
     // content with about:srcdoc in location bar masquerading as trusted
@@ -2651,6 +2664,10 @@ export class nsContextMenu {
       dest = "tab";
     }
     this.window.openTrustedLinkIn(drmInfoURL, dest);
+  }
+
+  createAITab() {
+    lazy.AIWindow.createAITab(this.window, [this.browser.currentURI.spec]);
   }
 
   /**

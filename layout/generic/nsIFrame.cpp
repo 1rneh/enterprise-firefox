@@ -9,6 +9,7 @@
 #include <stdarg.h>
 
 #include <algorithm>
+#include <type_traits>
 
 #include "AnchorPositioningUtils.h"
 #include "LayoutLogging.h"
@@ -125,10 +126,8 @@
 #include "nsWindowSizes.h"
 
 #ifdef ACCESSIBILITY
-#  include "nsAccessibilityService.h"
-#endif
-#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
 #  include "mozilla/a11y/PdfStructTreeBuilder.h"
+#  include "nsAccessibilityService.h"
 #endif
 
 #include "ActiveLayerTracker.h"
@@ -948,9 +947,10 @@ void nsIFrame::HandlePrimaryFrameStyleChange(ComputedStyle* aOldStyle) {
                  (disp->mPosition == StylePositionProperty::Sticky ||
                   oldDisp->mPosition == StylePositionProperty::Sticky))
               : disp->mPosition == StylePositionProperty::Sticky;
-  if (handleStickyChange && !HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
+  if (handleStickyChange &&
+      !HasAnyStateBits(NS_FRAME_IS_NONDISPLAY | NS_FRAME_SVG_LAYOUT)) {
     if (auto* ssc = StickyScrollContainer::GetOrCreateForFrame(this)) {
-      if (disp->mPosition == StylePositionProperty::Sticky) {
+      if (IsStickyPositioned()) {
         ssc->AddFrame(this);
       } else {
         ssc->RemoveFrame(this);
@@ -973,9 +973,8 @@ void nsIFrame::Destroy(DestroyContext& aContext) {
   SVGObserverUtils::InvalidateDirectRenderingObservers(
       this, SVGObserverUtils::InvalidationFlag::FrameBeingDestroyed);
 
-  const auto* disp = StyleDisplay();
-  if (disp->mPosition == StylePositionProperty::Sticky) {
-    if (auto* ssc = StickyScrollContainer::GetOrCreateForFrame(this)) {
+  if (IsStickyPositioned()) {
+    if (auto* ssc = StickyScrollContainer::GetForFrame(this)) {
       ssc->RemoveFrame(this);
     }
   }
@@ -988,6 +987,7 @@ void nsIFrame::Destroy(DestroyContext& aContext) {
 
   nsPresContext* pc = PresContext();
   mozilla::PresShell* ps = pc->GetPresShell();
+  const auto* disp = StyleDisplay();
   if (IsPrimaryFrame()) {
     if (disp->IsQueryContainer()) {
       pc->UnregisterContainerQueryFrame(this);
@@ -3037,50 +3037,17 @@ static bool ItemParticipatesIn3DContext(nsIFrame* aAncestor,
   return FrameParticipatesIn3DContext(aAncestor, transformFrame);
 }
 
-/**
- * If the frame of aItem is, or descends from, a frame that participates in the
- * 3D rendering context of aAncestor and has a hidden backface, returns that
- * participant, else null.
- *
- * Combines3DTransformWithAncestors() counts a hidden backface as participating
- * even without a transform, but such a frame never gets a transform item of its
- * own, so ItemParticipatesIn3DContext() cannot see it. Reporting the
- * participant lets the caller build the leaf that both the painting and the hit
- * testing paths cull on. The frame is reported for descendants too, because
- * backface-visibility is not inherited yet the whole subtree has to disappear
- * with the participant.
- */
-static nsIFrame* BackfaceHidden3DParticipantFor(nsIFrame* aAncestor,
-                                                nsDisplayItem* aItem) {
-  MOZ_ASSERT(aAncestor->Extend3DContext());
-
-  nsIFrame* ancestor = aAncestor->FirstContinuation();
-  for (nsIFrame* frame = aItem->Frame(); frame && frame != ancestor;
-       frame = frame->GetClosestFlattenedTreeAncestorPrimaryFrame()) {
-    if (frame->In3DContextAndBackfaceIsHidden()) {
-      return frame;
-    }
-  }
-  return nullptr;
-}
-
-/**
- * Flushes the non-participants accumulated so far into a separator transform
- * item on aFrame, and moves that item over to aParticipants. It does not touch
- * anything already in aParticipants, and it is a no-op when nothing has
- * accumulated. This should be called whenever there is a switch between
- * the participants and non-participants.
- */
-static void FlushNonParticipantsIntoSeparatorTransform(
-    nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
-    nsDisplayList* aNonParticipants, nsDisplayList* aParticipants, int& aIndex,
-    nsDisplayItem** aSeparator) {
+static void WrapSeparatorTransform(nsDisplayListBuilder* aBuilder,
+                                   nsIFrame* aFrame,
+                                   nsDisplayList* aNonParticipants,
+                                   nsDisplayList* aParticipants, int aIndex,
+                                   nsDisplayItem** aSeparator) {
   if (aNonParticipants->IsEmpty()) {
     return;
   }
 
   nsDisplayTransform* item = MakeDisplayItemWithIndex<nsDisplayTransform>(
-      aBuilder, aFrame, aIndex++, aNonParticipants, aBuilder->GetVisibleRect());
+      aBuilder, aFrame, aIndex, aNonParticipants, aBuilder->GetVisibleRect());
 
   if (*aSeparator == nullptr && item) {
     *aSeparator = item;
@@ -3747,9 +3714,6 @@ void nsIFrame::BuildDisplayListForStackingContext(
         hasViewTransitionName || usingMask) {
       reasons |= StackingContextBits::ContainsBackdropFilter;
     }
-    if (!combines3DTransformWithAncestors) {
-      reasons |= StackingContextBits::MayContainNonIsolated3DTransform;
-    }
     return reasons;
   }();
 
@@ -3926,26 +3890,10 @@ void nsIFrame::BuildDisplayListForStackingContext(
         if (ItemParticipatesIn3DContext(this, item) &&
             !item->GetClip().HasClip()) {
           // The frame of this item participates the same 3D context.
-          FlushNonParticipantsIntoSeparatorTransform(
-              aBuilder, this, &nonparticipants, &participants, index,
-              &separator);
+          WrapSeparatorTransform(aBuilder, this, &nonparticipants,
+                                 &participants, index++, &separator);
 
           participants.AppendToTop(item);
-        } else if (nsIFrame* backfaceHidden =
-                       BackfaceHidden3DParticipantFor(this, item)) {
-          // The item belongs to a participant with a hidden backface. Give it a
-          // leaf keyed on that participant rather than adding it to the shared
-          // separator below, which is keyed on us and so would be culled only
-          // when our own backface is turned away.
-          FlushNonParticipantsIntoSeparatorTransform(
-              aBuilder, this, &nonparticipants, &participants, index,
-              &separator);
-
-          nsDisplayList itemList(aBuilder);
-          itemList.AppendToTop(item);
-          participants.AppendToTop(MakeDisplayItemWithIndex<nsDisplayTransform>(
-              aBuilder, backfaceHidden, index++, &itemList,
-              aBuilder->GetVisibleRect()));
         } else {
           // The frame of the item doesn't participate the current
           // context, or has no transform.
@@ -3957,8 +3905,8 @@ void nsIFrame::BuildDisplayListForStackingContext(
           nonparticipants.AppendToTop(item);
         }
       }
-      FlushNonParticipantsIntoSeparatorTransform(
-          aBuilder, this, &nonparticipants, &participants, index, &separator);
+      WrapSeparatorTransform(aBuilder, this, &nonparticipants, &participants,
+                             index++, &separator);
 
       if (separator) {
         createdContainer = true;
@@ -4037,16 +3985,6 @@ void nsIFrame::BuildDisplayListForStackingContext(
         resultList.AppendNewToTop<nsDisplayPerspective>(aBuilder, this,
                                                         &resultList);
         createdContainer = true;
-      }
-
-      // TODO(emilio): Ideally should also isolate when the transform is
-      // potentially animated (prerenderInfo.mHasAnimations), but that causes a
-      // lot of fuzz on Windows due to text antialiasing.
-      const bool hasMaybe3dTransform =
-          hasPerspective || !transformItem->GetTransform().Is2D();
-      if (hasMaybe3dTransform) {
-        stackingContextTracker.AddToParent(
-            StackingContextBits::MayContainNonIsolated3DTransform);
       }
     }
     if (clipCapturedBy ==
@@ -4142,11 +4080,6 @@ void nsIFrame::BuildDisplayListForStackingContext(
         nsDisplayItem::ContainerASRType::AncestorOfContained,
         ShouldForceIsolation()));
     createdContainer = true;
-  }
-
-  if (!isolated && aBuilder->MayContainNonIsolated3DTransform()) {
-    stackingContextTracker.AddToParent(
-        StackingContextBits::MayContainNonIsolated3DTransform);
   }
 
   if (aBuilder->IsReusingStackingContextItems()) {
@@ -4382,7 +4315,7 @@ static bool ShouldSkipFrame(nsDisplayListBuilder* aBuilder,
          aFrame->StyleUIReset()->mMozSubtreeHiddenOnlyVisually;
 }
 
-#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+#ifdef ACCESSIBILITY
 // Bug 2025119: If this is inlined in nsIFrame::BuildDisplayListForChild on
 // Win32, we end up with crashes when there is deep recursion due to the
 // increased stack size caused by the additional variables here. Work around
@@ -4443,7 +4376,7 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
       linkifier.emplace(aBuilder, childOrOutOfFlow, aLists.Content());
       linkifier->MaybeAppendLink(aBuilder, childOrOutOfFlow);
     }
-#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+#ifdef ACCESSIBILITY
     MaybeAddAccId(childOrOutOfFlow, aBuilder, aLists);
 #endif
   }
@@ -8071,8 +8004,14 @@ nsIWidget* nsIFrame::GetOwnWidget() const {
   return nullptr;
 }
 
-template <nsPoint (nsIFrame::*PositionGetter)() const>
-static nsPoint OffsetCalculator(const nsIFrame* aThis, const nsIFrame* aOther) {
+// aPosition should be a function that returns the position of a frame relative
+// to its parent.
+template <typename PositionGetter>
+static nsPoint OffsetCalculator(const nsIFrame* aThis, const nsIFrame* aOther,
+                                PositionGetter&& aPosition) {
+  static_assert(std::is_invocable_r_v<nsPoint, PositionGetter, const nsIFrame*>,
+                "aPosition must be callable as nsPoint(const nsIFrame*)");
+
   MOZ_ASSERT(aOther, "Must have frame for destination coordinate system!");
 
   NS_ASSERTION(aThis->PresContext() == aOther->PresContext(),
@@ -8081,7 +8020,7 @@ static nsPoint OffsetCalculator(const nsIFrame* aThis, const nsIFrame* aOther) {
   nsPoint offset(0, 0);
   const nsIFrame* f;
   for (f = aThis; f != aOther && f; f = f->GetParent()) {
-    offset += (f->*PositionGetter)();
+    offset += aPosition(f);
   }
 
   if (f != aOther) {
@@ -8089,7 +8028,7 @@ static nsPoint OffsetCalculator(const nsIFrame* aThis, const nsIFrame* aOther) {
     // the root-frame-relative position of |this| in |offset|.  Convert back
     // to the coordinates of aOther
     while (aOther) {
-      offset -= (aOther->*PositionGetter)();
+      offset -= aPosition(aOther);
       aOther = aOther->GetParent();
     }
   }
@@ -8098,7 +8037,9 @@ static nsPoint OffsetCalculator(const nsIFrame* aThis, const nsIFrame* aOther) {
 }
 
 nsPoint nsIFrame::GetOffsetTo(const nsIFrame* aOther) const {
-  return OffsetCalculator<&nsIFrame::GetPosition>(this, aOther);
+  return OffsetCalculator(this, aOther, [](const nsIFrame* aFrame) {
+    return aFrame->GetPosition();
+  });
 }
 
 nsPoint nsIFrame::GetOffsetToRootFrame() const {
@@ -8106,8 +8047,23 @@ nsPoint nsIFrame::GetOffsetToRootFrame() const {
 }
 
 nsPoint nsIFrame::GetOffsetToIgnoringScrolling(const nsIFrame* aOther) const {
-  return OffsetCalculator<&nsIFrame::GetPositionIgnoringScrolling>(this,
-                                                                   aOther);
+  return OffsetCalculator(this, aOther, [](const nsIFrame* aFrame) {
+    return aFrame->GetPositionIgnoringScrolling();
+  });
+}
+
+nsPoint nsIFrame::GetOffsetToIgnoringScrollingAndSticky(
+    const nsIFrame* aOther) const {
+  return OffsetCalculator(this, aOther, [](const nsIFrame* aFrame) {
+    return aFrame->GetPositionIgnoringScrollingAndSticky();
+  });
+}
+
+nsPoint nsIFrame::GetScrollOffsetTo(const nsIFrame* aOther) const {
+  return OffsetCalculator(this, aOther, [](const nsIFrame* aFrame) {
+    return aFrame->GetPositionIgnoringScrollingAndSticky() -
+           aFrame->GetPosition();
+  });
 }
 
 nsPoint nsIFrame::GetOffsetToCrossDoc(const nsIFrame* aOther) const {
@@ -8235,7 +8191,7 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(
 
   auto GetPositionMaybeIgnoringScrolling = [aFlags](const nsIFrame* aFrame) {
     return aFlags.contains(TransformMatrixFlag::IgnoreScrolling)
-               ? aFrame->GetPositionIgnoringScrolling()
+               ? aFrame->GetPositionIgnoringScrollingAndSticky()
                : aFrame->GetPosition();
   };
 
@@ -8702,12 +8658,7 @@ void nsIFrame::MovePositionBy(const nsPoint& aTranslation) {
 }
 
 nsRect nsIFrame::GetNormalRect() const {
-  bool hasProperty;
-  nsPoint normalPosition = GetProperty(NormalPositionProperty(), &hasProperty);
-  if (hasProperty) {
-    return nsRect(normalPosition, GetSize());
-  }
-  return GetRect();
+  return nsRect(GetNormalPosition(), GetSize());
 }
 
 nsRect nsIFrame::GetBoundingClientRect() {
@@ -8719,6 +8670,16 @@ nsRect nsIFrame::GetBoundingClientRect() {
 nsPoint nsIFrame::GetPositionIgnoringScrolling() const {
   return GetParent() ? GetParent()->GetPositionOfChildIgnoringScrolling(this)
                      : GetPosition();
+}
+
+nsPoint nsIFrame::GetPositionIgnoringScrollingAndSticky() const {
+  if (IsStickyPositioned()) {
+    if (const auto* ssc = StickyScrollContainer::GetForFrame(this)) {
+      return GetNormalPosition() +
+             ssc->ComputeTranslationIgnoringScrolling(this);
+    }
+  }
+  return GetPositionIgnoringScrolling();
 }
 
 nsRect nsIFrame::GetOverflowRect(OverflowType aType) const {

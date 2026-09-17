@@ -82,10 +82,6 @@ class nsComponentManagerImpl final : public nsIComponentManager,
 
   nsresult FreeServices();
 
-  already_AddRefed<nsIFactory> FindFactory(const nsCID& aClass);
-  already_AddRefed<nsIFactory> FindFactory(const char* aContractID,
-                                           uint32_t aContractIDLen);
-
   already_AddRefed<nsIFactory> LoadFactory(nsFactoryEntry* aEntry);
 
   nsTHashMap<nsIDPointerHashKey, nsFactoryEntry*> mFactories;

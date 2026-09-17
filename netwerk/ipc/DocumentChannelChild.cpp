@@ -250,6 +250,13 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
       aArgs.loadInfo(), RemoteType::NotRemote(), cspToInheritLoadingDocument,
       getter_AddRefs(loadInfo)));
 
+  // The parent process has already validated this PrincipalToInherit.
+  if (nsCOMPtr<nsIPrincipal> principalToInherit =
+          loadInfo->PrincipalToInherit()) {
+    MOZ_ALWAYS_SUCCEEDS(
+        loadInfo->SetTrustedPrincipalToInherit(principalToInherit));
+  }
+
   mRedirectResolver = std::move(aResolve);
 
   nsCOMPtr<nsIChannel> newChannel;
@@ -324,6 +331,13 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
   if (docShell && aArgs.loadingSessionHistoryInfo().isSome()) {
     docShell->SetLoadingSessionHistoryInfo(
         aArgs.loadingSessionHistoryInfo().ref());
+  }
+
+  // The parent only hands its timing back on a process switch.
+  if (docShell && loadInfo->GetActivatedFromNavigationalPrefetch()) {
+    if (nsDOMNavigationTiming* timing = docShell->GetNavigationTiming()) {
+      timing->SetWasActivatedFromNavigationalPrefetch();
+    }
   }
 
   // transfer any properties. This appears to be entirely a content-side

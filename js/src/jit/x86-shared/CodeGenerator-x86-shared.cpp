@@ -3610,7 +3610,7 @@ void CodeGenerator::visitWasmReduceAndBranchSimd128(
       // Compare all lanes to zero, set the zero flag if none of the lanes are
       // zero, and branch on that.
       ScratchSimd128Scope tmp(masm);
-      masm.vpxor(tmp, tmp, tmp);
+      masm.vxorps(tmp, tmp, tmp);
       switch (ins->simdOp()) {
         case wasm::SimdOp::I8x16AllTrue:
           masm.vpcmpeqb(Operand(src), tmp, tmp);

@@ -1125,11 +1125,9 @@ void ReflowInput::ApplyRelativePositioning(nsIFrame* aFrame,
                                            const nsMargin& aComputedOffsets,
                                            nsPoint* aPosition) {
   if (!aFrame->IsRelativelyOrStickyPositioned()) {
-    NS_ASSERTION(!aFrame->HasProperty(nsIFrame::NormalPositionProperty()),
-                 "We assume that changing the 'position' property causes "
-                 "frame reconstruction.  If that ever changes, this code "
-                 "should call "
-                 "aFrame->RemoveProperty(nsIFrame::NormalPositionProperty())");
+    MOZ_ASSERT(!aFrame->HasProperty(nsIFrame::NormalPositionProperty()),
+               "Only a relatively or sticky positioned frame should have a "
+               "stored normal position.");
     return;
   }
 

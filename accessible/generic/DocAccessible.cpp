@@ -33,6 +33,7 @@
 #include "mozilla/dom/HTMLSelectElement.h"
 #include "mozilla/dom/UserActivation.h"
 #include "mozilla/dom/WindowGlobalChild.h"
+#include "mozilla/ipc/ProtocolUtils.h"
 #include "nsAccUtils.h"
 #include "nsAccessibilityService.h"
 #include "nsEventShell.h"
@@ -528,6 +529,20 @@ void DocAccessible::Init() {
     logging::DocCreate("document initialize", mDocumentNode, this);
   }
 #endif
+
+  // Our WindowGlobal might already be managing a PDocAccessible for a
+  // document that hasn't been shut down yet; e.g. the initial about:blank. Shut
+  // that one down now so we don't end up with two DocAccessibles alive for the
+  // same WindowGlobal.
+  if (dom::WindowGlobalChild* wgc = mDocumentNode->GetWindowGlobalChild()) {
+    if (auto* actor =
+            LoneManagedOrNullAsserts(wgc->ManagedPDocAccessibleChild())) {
+      if (DocAccessible* prevDocAcc =
+              static_cast<DocAccessibleChild*>(actor)->GetDocAccessible()) {
+        prevDocAcc->Shutdown();
+      }
+    }
+  }
 
   // Initialize notification controller.
   mNotificationController =
@@ -2148,7 +2163,7 @@ bool DocAccessible::UpdateAccessibleOnAttrChange(dom::Element* aElement,
     if (mContent == aElement) {
       SetRoleMapEntryForDoc(aElement);
       if (mIPCDoc) {
-        mIPCDoc->SendRoleChangedEvent(Role(), mRoleMapEntryIndex);
+        mIPCDoc->SendRoleChangedEvent(mRoleMapEntryIndex);
       }
 
       return true;
@@ -2195,7 +2210,8 @@ bool DocAccessible::UpdateAccessibleOnAttrChange(dom::Element* aElement,
     // listeners, we need to recreate the accessible since the role might have
     // changed. Without an href or click listener, the accessible must be a
     // generic.
-    if (aElement->IsHTMLElement(nsGkAtoms::a)) {
+    if (aElement->IsHTMLElement(nsGkAtoms::a) ||
+        aElement->IsMathMLElement(nsGkAtoms::a)) {
       LocalAccessible* acc = GetAccessible(aElement);
       if (!acc) {
         return false;
@@ -2249,7 +2265,7 @@ void DocAccessible::UpdateRootElIfNeeded() {
     mContent = rootEl;
     SetRoleMapEntryForDoc(rootEl);
     if (mIPCDoc) {
-      mIPCDoc->SendRoleChangedEvent(Role(), mRoleMapEntryIndex);
+      mIPCDoc->SendRoleChangedEvent(mRoleMapEntryIndex);
     }
   }
 }
@@ -3203,8 +3219,7 @@ void DocAccessible::ARIAActiveDescendantIDMaybeMoved(
 
 void DocAccessible::SetRoleMapEntryForDoc(dom::Element* aElement) {
   const nsRoleMapEntry* entry = aria::GetRoleMap(aElement);
-  if (!entry || entry->role == roles::APPLICATION ||
-      entry->role == roles::DIALOG ||
+  if (!entry || nsAccUtils::IsARIARoleAllowedOnContentDoc(entry->role) ||
       // Role alert isn't valid on the body element according to the ARIA spec,
       // but it's useful for our UI; e.g. the WebRTC sharing indicator.
       (entry->role == roles::ALERT && !mDocumentNode->IsContentDocument())) {

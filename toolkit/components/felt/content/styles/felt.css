@@ -91,8 +91,7 @@ body {
   fill: currentColor;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: 265px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  height: 117px;
+  height: auto;
 }
 
 .felt-form,

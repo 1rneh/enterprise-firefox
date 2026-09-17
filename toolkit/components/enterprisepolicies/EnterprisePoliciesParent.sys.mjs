@@ -30,8 +30,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // ${InstallDir}/distribution folder.
 const POLICIES_FILENAME = "policies.json";
 
-// For testing, load browser policy per-user from
-// /run/user/$UID/appname so this is only honored in automation.
+// Load browser policy per-user from /run/user/$UID/appname for
+// testing only.
 const PREF_PER_USER_DIR = "toolkit.policies.perUserDir";
 // For easy testing, modify the helpers/sample.json file,
 // and set PREF_ALTERNATE_PATH in firefox.js as:

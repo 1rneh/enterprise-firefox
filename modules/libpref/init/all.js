@@ -4191,9 +4191,15 @@ pref("extensions.formautofill.creditCards.supported", "on");
 pref("extensions.formautofill.creditCards.enabled", true);
 pref("extensions.formautofill.creditCards.ignoreAutocompleteOff", true);
 
-// Temporary pref for the in-progress CVV/CSC autofill work. When true, the CVV
-// (cc-csc) field participates in autofill and autocomplete.
-pref("extensions.formautofill.creditCards.cvv.enabled", false);
+// Whether the CVV/CSC feature has been rolled out to this user, using the same
+// "on"/"off" values as the other supported prefs above. Nothing about the CVV
+// (cc-csc) field is offered while this is "off", including the setting that
+// lets the user turn capture on or off.
+pref("extensions.formautofill.creditCards.cvv.supported", "off");
+// The user's own choice, exposed as a setting once the feature is supported.
+// CVVs are only captured and stored when both prefs are true; see
+// FormAutofill.isAutofillCreditCardCVVEnabled.
+pref("extensions.formautofill.creditCards.cvv.enabled", true);
 
 // Supported countries need to follow ISO 3166-1 to align with "browser.search.region"
 pref("extensions.formautofill.creditCards.supportedCountries", "US,CA,GB,FR,DE,IT,ES,AT,BE,PL");

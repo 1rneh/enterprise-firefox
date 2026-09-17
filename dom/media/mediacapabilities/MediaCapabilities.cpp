@@ -266,9 +266,24 @@ static InfoType UnsupportedInfo() {
   return info;
 }
 
+// Whether aMime signals AV1 tier=1 with an explicit level below 4.0
+// (level-idx 8), for which Annex A.3 defines no high tier parameters.
+// Present-but-invalid parameters have already been rejected by
+// WebrtcCodecInfo during the support check, so only well-formed or absent
+// ones reach here. With an absent level-idx the level is inferred from the
+// requested resolution, which is only a lower bound, so tier can't be judged.
+static bool WebrtcVideoTierUndefined(const MediaExtendedMIMEType& aMime) {
+  if (WebrtcMimeToCodecType(aMime) != CodecType::AV1) {
+    return false;
+  }
+  const auto fmtp = ParseAV1Fmtp(aMime.OriginalString());
+  MOZ_ASSERT(!fmtp.HasInvalidParam());
+  return fmtp.mTier.isOk() && fmtp.mTier.inspect() == 1 &&
+         fmtp.mLevelIdx.isOk() && fmtp.mLevelIdx.inspect() < 8;
+}
+
 // Whether aVideo's resolution and framerate exceed the caps of the H264/AV1
-// level signaled in aMime's fmtp parameters, or the signaled AV1 tier is not
-// defined for that level. Present-but-invalid parameters
+// level signaled in aMime's fmtp parameters. Present-but-invalid parameters
 // have already been rejected by WebrtcCodecInfo during the support check, so
 // only well-formed or absent ones reach here. An absent level is deliberately
 // not defaulted (to level 1.0 for H264, 3.1 for AV1, per their RTP payload
@@ -288,16 +303,9 @@ static bool WebrtcVideoExceedsLevel(const MediaExtendedMIMEType& aMime,
     case CodecType::AV1: {
       const auto fmtp = ParseAV1Fmtp(aMime.OriginalString());
       MOZ_ASSERT(!fmtp.HasInvalidParam());
-      if (fmtp.mLevelIdx.isErr()) {
-        return false;
-      }
-      const uint8_t levelIdx = fmtp.mLevelIdx.inspect();
-      // Annex A.3 defines no high tier parameters below level 4.0 (level-idx
-      // 8).
-      if (fmtp.mTier.isOk() && fmtp.mTier.inspect() == 1 && levelIdx < 8) {
-        return true;
-      }
-      return !AV1LevelFits(levelIdx, aVideo.mWidth, aVideo.mHeight, framerate);
+      return fmtp.mLevelIdx.isOk() &&
+             !AV1LevelFits(fmtp.mLevelIdx.inspect(), aVideo.mWidth,
+                           aVideo.mHeight, framerate);
     }
     default:
       return false;
@@ -734,7 +742,8 @@ void MediaCapabilities::CreateWebRTCDecodingInfo(
 
         const auto& v = aConfiguration.mVideo.Value();
         const auto& mime = videoContainer->ExtendedType();
-        if (WebrtcVideoExceedsLevel(mime, v)) {
+        if (WebrtcVideoTierUndefined(mime) ||
+            WebrtcVideoExceedsLevel(mime, v)) {
           auto unsupported = UnsupportedInfo<MediaCapabilitiesDecodingInfo>();
           LOG("{} -> {}", aConfiguration, unsupported);
           return PromiseType::CreateAndResolve(
@@ -1489,7 +1498,11 @@ already_AddRefed<Promise> MediaCapabilities::EncodingInfo(
 
         MOZ_ASSERT(aConfiguration.mVideo.WasPassed());
         const auto& v = aConfiguration.mVideo.Value();
-        if (WebrtcVideoExceedsLevel(*videoMime, v)) {
+        // Unlike DecodingInfo, a resolution/framerate that exceeds the
+        // negotiated level isn't rejected here: the encoder downscales
+        // and decimates to fit the level instead (see bug 2013936). An
+        // undefined tier can't be fixed that way though.
+        if (WebrtcVideoTierUndefined(*videoMime)) {
           auto unsupported = UnsupportedInfo<MediaCapabilitiesInfo>();
           LOG("{} -> {}", aConfiguration, unsupported);
           return PromiseType::CreateAndResolve(

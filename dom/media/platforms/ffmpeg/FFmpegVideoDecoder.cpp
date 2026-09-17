@@ -717,6 +717,7 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitVulkanDecoder() {
           mLib->av_buffer_unref(&mVulkanDeviceContext);
         }
         ReleaseCodecContext();
+        VulkanDeviceHolder::Drop(mVulkanDeviceHolder);
       });
 
   nsAutoCString rendererNode(gfx::gfxVars::DrmRenderDevice());
@@ -1010,6 +1011,9 @@ FFmpegVideoDecoder<LIBAV_VER>::~FFmpegVideoDecoder() {
   // to FFmpegVideoDecoder in their CompositorListener, so it keeps it alive
   // long enough to present the frames in the compositor.
   ReleaseSurfaceMediaCodec();
+#endif
+#ifdef MOZ_USE_HWDECODE_VULKAN
+  VulkanDeviceHolder::Drop(mVulkanDeviceHolder);
 #endif
 #ifdef CUSTOMIZED_BUFFER_ALLOCATION_ASSERT_ENABLED
   // ffmpeg should have cleared all of its strong references to the decoded data
@@ -2642,14 +2646,14 @@ void FFmpegVideoDecoder<LIBAV_VER>::ProcessShutdown() {
   mVideoFramePool = nullptr;
 #endif
   // Shutdown order for Vulkan hw decode:
-  // 1. avcodec_free_context() via ProcessShutdown() — FFmpeg created the
-  //    VkDevice (av_hwdevice_ctx_create) and must finish its own teardown
-  //    (ff_vk_uninit) before we touch Firefox-owned Vulkan objects.
+  // 1. avcodec_free_context() via ProcessShutdown() — FFmpeg must finish
+  //    ff_vk_uninit before we touch Firefox-owned Vulkan objects.
   // 2. mVulkanDecoder.Cleanup() — uses mDeviceWaitIdle and destroys our
   //    command pools/fences; must run while mVulkanDeviceContext still keeps
   //    the AVHWDeviceContext alive.
-  // 3. av_buffer_unref(&mVulkanDeviceContext) — may be the last ref and call
-  //    vkDestroyDevice, so it must come after Cleanup().
+  // 3. av_buffer_unref(&mVulkanDeviceContext) — extra refs from this decoder.
+  // 4. VulkanDeviceHolder::Drop — always (no-op if already nullptr); last
+  //    process-wide client may vkDestroyDevice under sDeviceHolders.
   FFmpegDataDecoder<LIBAV_VER>::ProcessShutdown();
 #if defined(MOZ_USE_HWDECODE) && defined(MOZ_WIDGET_GTK)
   if (IsHardwareAccelerated()) {
@@ -2661,6 +2665,9 @@ void FFmpegVideoDecoder<LIBAV_VER>::ProcessShutdown() {
     mLib->av_buffer_unref(&mVAAPIDeviceContext);
     mLib->av_buffer_unref(&mVulkanDeviceContext);
   }
+#  ifdef MOZ_USE_HWDECODE_VULKAN
+  VulkanDeviceHolder::Drop(mVulkanDeviceHolder);
+#  endif
 #endif
 #ifdef MOZ_ENABLE_D3D11VA
   if (IsHardwareAccelerated()) {

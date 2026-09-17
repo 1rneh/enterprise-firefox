@@ -138,4 +138,12 @@ object WebCompatReporterSelectors : SelectorContainer {
             description = "Report broken site send report button",
             groups = setOf(Group.REPORTER_FORM),
         )
+
+    val CLOSE_REPORT_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
+            value = "Close",
+            description = "Report broken site close report button",
+            groups = setOf(Group.REPORTER_FORM),
+        )
 }

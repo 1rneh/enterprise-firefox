@@ -2071,10 +2071,10 @@ void nsStyleImageLayers::Layer::Initialize(
   mPosition = Position::FromPercentage(0.);
 
   if (aType == LayerType::Background) {
-    mOrigin = StyleGeometryBox::PaddingBox;
+    mOrigin = StyleBackgroundOrigin::PaddingBox;
   } else {
     MOZ_ASSERT(aType == LayerType::Mask, "unsupported layer type.");
-    mOrigin = StyleGeometryBox::BorderBox;
+    mOrigin = StyleBackgroundOrigin::BorderBox;
   }
 }
 

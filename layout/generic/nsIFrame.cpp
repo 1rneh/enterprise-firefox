@@ -427,14 +427,14 @@ void AutoWeakFrame::Clear(mozilla::PresShell* aPresShell) {
 }
 
 AutoWeakFrame::~AutoWeakFrame() {
-  Clear(mFrame ? mFrame->PresContext()->GetPresShell() : nullptr);
+  Clear(mFrame ? mFrame->PresShell() : nullptr);
 }
 
 void AutoWeakFrame::Init(nsIFrame* aFrame) {
-  Clear(mFrame ? mFrame->PresContext()->GetPresShell() : nullptr);
+  Clear(mFrame ? mFrame->PresShell() : nullptr);
   mFrame = aFrame;
   if (mFrame) {
-    mozilla::PresShell* presShell = mFrame->PresContext()->GetPresShell();
+    mozilla::PresShell* presShell = mFrame->PresShell();
     NS_WARNING_ASSERTION(presShell, "Null PresShell in AutoWeakFrame!");
     if (presShell) {
       presShell->AddAutoWeakFrame(this);
@@ -445,10 +445,10 @@ void AutoWeakFrame::Init(nsIFrame* aFrame) {
 }
 
 void WeakFrame::Init(nsIFrame* aFrame) {
-  Clear(mFrame ? mFrame->PresContext()->GetPresShell() : nullptr);
+  Clear(mFrame ? mFrame->PresShell() : nullptr);
   mFrame = aFrame;
   if (mFrame) {
-    mozilla::PresShell* presShell = mFrame->PresContext()->GetPresShell();
+    mozilla::PresShell* presShell = mFrame->PresShell();
     MOZ_ASSERT(presShell, "Null PresShell in WeakFrame!");
     if (presShell) {
       presShell->AddWeakFrame(this);
@@ -456,6 +456,14 @@ void WeakFrame::Init(nsIFrame* aFrame) {
       mFrame = nullptr;
     }
   }
+}
+
+WeakFrame& WeakFrame::operator=(WeakFrame&& aOther) {
+  if (this != &aOther) {
+    Init(aOther.mFrame);
+    aOther.Clear(aOther.mFrame ? aOther.mFrame->PresShell() : nullptr);
+  }
+  return *this;
 }
 
 nsIFrame* NS_NewEmptyFrame(PresShell* aPresShell, ComputedStyle* aStyle) {

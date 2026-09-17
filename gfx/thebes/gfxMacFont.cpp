@@ -236,7 +236,6 @@ void gfxMacFont::InitMetricsByGlyphMeasurement(CFDataRef aCmap,
 
 void gfxMacFont::InitMetrics() {
   mIsValid = false;
-  ::memset(&mMetrics, 0, sizeof(mMetrics));
 
   uint32_t upem = 0;
 
@@ -289,9 +288,9 @@ void gfxMacFont::InitMetrics() {
   // platform APIs. The InitMetrics...() functions will set mIsValid on success.
   if (
 #if MOZ_FONTATIONS
-      !InitMetricsFromSkrifa(mMetrics) &&
+      !InitMetricsFromSkrifa() &&
 #endif
-      !InitMetricsFromSfntTables(mMetrics) &&
+      !InitMetricsFromSfntTables() &&
       (!mFontEntry->IsUserFont() || mFontEntry->IsLocalUserFont())) {
     InitMetricsFromPlatform();
   }
@@ -371,9 +370,9 @@ void gfxMacFont::InitMetrics() {
       mMetrics.xHeight = 0.0;
       if (
 #if MOZ_FONTATIONS
-          !InitMetricsFromSkrifa(mMetrics) &&
+          !InitMetricsFromSkrifa() &&
 #endif
-          !InitMetricsFromSfntTables(mMetrics) &&
+          !InitMetricsFromSfntTables() &&
           (!mFontEntry->IsUserFont() || mFontEntry->IsLocalUserFont())) {
         InitMetricsFromPlatform();
       }
@@ -407,9 +406,9 @@ void gfxMacFont::InitMetrics() {
     InitMetricsByGlyphMeasurement(cmap, cgConvFactor);
   }
 
-  CalculateDerivedMetrics(mMetrics);
+  CalculateDerivedMetrics();
 
-  SanitizeMetrics(&mMetrics, mFontEntry->mIsBadUnderlineFont);
+  SanitizeMetrics(mFontEntry->mIsBadUnderlineFont);
 
   if (ApplySyntheticBold()) {
     auto delta = GetSyntheticBoldOffset();

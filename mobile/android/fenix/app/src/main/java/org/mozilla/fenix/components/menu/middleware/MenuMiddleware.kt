@@ -6,6 +6,7 @@ package org.mozilla.fenix.components.menu.middleware
 
 import androidx.navigation.NavController
 import androidx.navigation.NavDirections
+import androidx.navigation.NavOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -104,12 +105,28 @@ class MenuMiddleware(
 
             is RequestMobileSite -> requestSiteMode(enableDesktopMode = false)
 
+            is Navigate.Back -> handleBackNavigation(action)
+
             else -> {
                 // no-op
             }
         }
 
         next(action)
+    }
+
+    private fun handleBackNavigation(action: Navigate.Back) {
+        val tabId = browserStore.state.selectedTab?.id ?: return
+        if (action.viewHistory) {
+            val navOptions = NavOptions.Builder().setPopUpTo(R.id.browserFragment, false).build()
+            navigate(
+                NavGraphDirections.actionGlobalTabHistoryDialogFragment(activeSessionId = null),
+                navOptions,
+            )
+        } else {
+            dismissMenu()
+            useCases.sessionUseCases.goBack(tabId = tabId)
+        }
     }
 
     /** The menu is deliberately left open while connecting, so that the user can see the status change. */
@@ -186,8 +203,8 @@ class MenuMiddleware(
         browserMenuBuilder.menuStructure.collect { store.dispatch(Update(it)) }
     }
 
-    private fun navigate(directions: NavDirections) {
-        navController.nav(R.id.menuFragment, directions)
+    private fun navigate(directions: NavDirections, navOptions: NavOptions? = null) {
+        navController.nav(R.id.menuFragment, directions, navOptions)
     }
 
     private fun dismissMenu() {

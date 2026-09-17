@@ -137,9 +137,6 @@ skip-if = [
 ]
 
 ["browser_copy_canvas_image.js"]
-skip-if = [
-  "headless", # HeadlessClipboard only supports text/plain and text/html
-]
 
 ["browser_copy_image_link.js"]
 support-files = [

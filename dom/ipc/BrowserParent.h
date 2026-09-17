@@ -188,6 +188,10 @@ class BrowserParent final : public PBrowserParent,
   // and nullptr otherwise.
   BrowserHost* GetBrowserHost() const;
 
+  bool IsEmbedded() const {
+    return mBrowserHost || mBrowserBridgeParent || mFrameElement;
+  }
+
   ParentShowInfo GetShowInfo();
 
   // Get the content principal from the owner element.
@@ -887,14 +891,14 @@ class BrowserParent final : public PBrowserParent,
   uint32_t mChromeFlags;
 
   // Pointer back to BrowserBridgeParent if there is one associated with
-  // this BrowserParent. This is non-owning to avoid cycles and is managed
-  // by the BrowserBridgeParent instance, which has the strong reference
-  // to this BrowserParent.
-  BrowserBridgeParent* mBrowserBridgeParent;
+  // this BrowserParent. This is weak to avoid cycles, as the
+  // BrowserBridgeParent holds the strong reference to this BrowserParent.
+  // It is normally cleared by BrowserBridgeParent::Destroy().
+  WeakPtr<BrowserBridgeParent> mBrowserBridgeParent;
   // Pointer to the BrowserHost that owns us, if any. This is mutually
   // exclusive with mBrowserBridgeParent, and one is guaranteed to be
   // non-null.
-  BrowserHost* mBrowserHost;
+  RefPtr<BrowserHost> mBrowserHost;
 
   // KeepAlive for the containing process.
   // NOTE: While this is a strong reference to ContentParent, which is

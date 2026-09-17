@@ -4186,6 +4186,7 @@ export class UrlbarView {
     return (
       UrlbarPrefs.get("contextMenu.featureGate") &&
       this.input.handlesOpenInCommands &&
+      result.type != UrlbarShared.RESULT_TYPE.TAB_SWITCH &&
       !!UrlbarShared.getLoadRequestFromResult(result)
     );
   }
@@ -4339,7 +4340,7 @@ export class UrlbarView {
     panel.appendChild(this.document.createElement("hr"));
     panel.appendChild(
       this.#createContainerMenuItem(
-        "user-context-add-container2-panel-item",
+        "user-context-add-container-panel-item",
         () =>
           this.controller.parentController.openContainerCreationPanel(
             CONTAINER_SOURCE
@@ -4348,7 +4349,7 @@ export class UrlbarView {
     );
     panel.appendChild(
       this.#createContainerMenuItem(
-        "user-context-manage-containers2-panel-item",
+        "user-context-manage-containers-panel-item",
         () =>
           this.controller.parentController.openPreferences("paneContainers", {
             urlParams: { entrypoint: CONTAINER_SOURCE },

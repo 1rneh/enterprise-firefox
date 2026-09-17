@@ -7,13 +7,13 @@ use api::{
 };
 use api::units::*;
 use euclid::point2;
-use crate::clip::{ClipChainInstance, ClipIntern};
 use crate::command_buffer::CommandBufferIndex;
 use crate::pattern::image::ImagePattern;
 use crate::quad::{QuadDescriptor, QuadTransformState};
+use crate::quad_clip::QuadClipStack;
 use crate::scene_building::{IsVisible};
 use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureContext};
-use crate::intern::{DataStore, Handle as InternHandle, InternDebug, Internable};
+use crate::intern::{Handle as InternHandle, InternDebug, Internable};
 use crate::internal_types::LayoutPrimitiveInfo;
 use crate::prim_store::{
     EdgeMask, InternablePrimitive, PrimTemplate, PrimTemplateCommonData, PrimitiveKind, PrimitiveScratchBuffer, PrimitiveStore
@@ -170,12 +170,12 @@ pub fn prepare_image_quads(
     prim_rect: &LayoutRect,
     common_data: &PrimTemplateCommonData,
     image_data: &ImageData,
-    clip_chain: &ClipChainInstance,
+    coverage_rect: &LayoutRect,
+    clips: &QuadClipStack,
     quad_transform: &mut QuadTransformState,
     frame_context: &FrameBuildingContext,
     pic_context: &PictureContext,
     targets: &[CommandBufferIndex],
-    interned_clips: &DataStore<ClipIntern>,
     frame_state: &mut FrameBuildingState,
     scratch: &mut PrimitiveScratchBuffer,
 ) {
@@ -198,7 +198,7 @@ pub fn prepare_image_quads(
     // We also rely on it being tight in some cases other than tiled/repeated
     // images, for example when rendering a snapshot image where the snapshot
     // area is tighter than the rasterized area.
-    let tight_clip_rect = clip_chain.local_coverage_rect;
+    let tight_clip_rect = *coverage_rect;
 
     let request = ImageRequest {
         key: image_data.key,
@@ -211,6 +211,13 @@ pub fn prepare_image_quads(
         sampler_kind = kind;
     }
 
+
+    if let Some(&snapshot_task_id) = frame_state.image_dependencies.get(&request.key) {
+        frame_state.surface_builder.add_child_render_task(
+            snapshot_task_id,
+            frame_state.rg_builder,
+        );
+    }
 
     match image_properties.tiling {
         // Non-tiled (most common) path.
@@ -289,12 +296,11 @@ pub fn prepare_image_quads(
                         transformed_aa_edges: common_data.transformed_aa_edges,
                     },
                     &None,
-                    clip_chain,
+                    clips,
                     quad_transform,
                     frame_context,
                     pic_context,
                     targets,
-                    interned_clips,
                     frame_state,
                     scratch,
                 );
@@ -312,12 +318,11 @@ pub fn prepare_image_quads(
                 stretch_size,
                 image_data.tile_spacing,
                 &None,
-                clip_chain,
+                clips,
                 quad_transform,
                 frame_context,
                 pic_context,
                 targets,
-                interned_clips,
                 frame_state,
                 scratch,
             );
@@ -329,7 +334,7 @@ pub fn prepare_image_quads(
             let active_rect = image_properties.visible_rect;
             let visible_rect = compute_surface_visible_rect(
                 &frame_state.surfaces[pic_context.surface_index.0],
-                clip_chain,
+                clips.coverage_rect(),
                 quad_transform.prim_spatial_node_index(),
                 &tight_clip_rect,
                 frame_context.spatial_tree,
@@ -389,12 +394,11 @@ pub fn prepare_image_quads(
                             transformed_aa_edges,
                         },
                         &None,
-                        clip_chain,
+                        clips,
                         quad_transform,
                         frame_context,
                         pic_context,
                         targets,
-                        interned_clips,
                         frame_state,
                         scratch,
                     );

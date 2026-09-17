@@ -845,7 +845,7 @@ struct MOZ_RAII AutoHandleWasmTruncateToIntErrors {
     masm.bind(&inputIsNaN);
     FaultingCodeRange fcr2 =
         masm.wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
-    if (stackMapForTraps) {
+    if (stackMapRegistry) {
       masm.propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr2));
     }
   }

@@ -2340,7 +2340,7 @@ nsresult BrowsingContext::LoadURI(nsDocShellLoadState* aLoadState,
     if (!effectiveRemoteType.IsNotRemote() &&
         !ContentTriggeredURILoadIsAllowed(aLoadState->URI(),
                                           effectiveRemoteType)) {
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+#ifdef DEBUG
       nsAutoCString aboutModuleOrScheme;
       if (aLoadState->URI()->SchemeIs("about")) {
         (void)NS_GetAboutModuleName(aLoadState->URI(), aboutModuleOrScheme);
@@ -3849,20 +3849,14 @@ bool BrowsingContext::WatchedByDevTools() {
   return Top()->GetWatchedByDevToolsInternal();
 }
 
-auto BrowsingContext::CanSet(FieldIndex<IDX_WatchedByDevToolsInternal>,
+bool BrowsingContext::CanSet(FieldIndex<IDX_WatchedByDevToolsInternal>,
                              const bool& aWatchedByDevTools,
-                             ContentParent* aSource) -> CanSetResult {
-  // Enforce that the watchedByDevTools BC field can only be set on the top
-  // level Browsing Context.
-  if (!IsTop()) {
-    return CanSetResult::Deny;
-  }
-  // Check, only in the parent process, if any DevTools are actually opened
-  // before enabling this flag.
-  if (aWatchedByDevTools && aSource && !ChromeUtils::IsDevToolsOpened()) {
-    return CanSetResult::Revert;
-  }
-  return CanSetResult::Allow;
+                             ContentParent* aSource) {
+  // Can only be enabled or disabled from the Parent Process and only on top
+  // level BC. Also can only be enabled when at least one DevTools is currently
+  // active.
+  return XRE_IsParentProcess() && !aSource && IsTop() &&
+         (!aWatchedByDevTools || ChromeUtils::IsDevToolsOpened());
 }
 void BrowsingContext::SetWatchedByDevTools(bool aWatchedByDevTools,
                                            ErrorResult& aRv) {
@@ -3873,8 +3867,12 @@ void BrowsingContext::SetWatchedByDevTools(bool aWatchedByDevTools,
   }
   // The check is `CanSet` isn't enough to block modifications done from the
   // parent process
-  if (aWatchedByDevTools && XRE_IsParentProcess() &&
-      !ChromeUtils::IsDevToolsOpened()) {
+  if (!XRE_IsParentProcess()) {
+    aRv.ThrowInvalidModificationError(
+        "watchedByDevTools can only be set from the parent process");
+    return;
+  }
+  if (aWatchedByDevTools && !ChromeUtils::IsDevToolsOpened()) {
     aRv.ThrowInvalidModificationError(
         "watchedByDevTools can only be set when DevTools are opened");
     return;

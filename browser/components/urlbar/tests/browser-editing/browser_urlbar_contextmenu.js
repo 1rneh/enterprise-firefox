@@ -374,40 +374,54 @@ add_task(async function keep_view_open_on_context_menu_mousedown() {
   gURLBar.view.close();
 });
 
-// No container item carries an accesskey, so the initial of a name the user
-// chose selects it, cycling among every container that shares the letter.
-add_task(async function container_first_letter_selection() {
-  let custom = ["Bakery", "Bagels"].map(name =>
-    ContextualIdentityService.create(name, "circle", "purple")
+add_task(async function on_switch_to_tab() {
+  let firstTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "https://example.com/"
   );
-  registerCleanupFunction(() => {
-    for (let { userContextId } of custom) {
-      ContextualIdentityService.remove(userContextId);
-    }
+  let secondTab = await BrowserTestUtils.openNewForegroundTab(gBrowser);
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    value: "example",
+    window,
+    fireInputEvent: true,
   });
 
-  let menu = await openContextMenuOnFirstResult();
-  let subMenu = await openContainerSubMenu(
-    menu.querySelector('[data-open-in="container-tab"]')
-  );
-  await TestUtils.waitForCondition(
-    () => subMenu.querySelector("[data-usercontextid]")?.textContent,
-    "Waiting for the container items to be labeled"
-  );
-
-  // First-letter selection needs focus inside the panel, where opening the
-  // submenu by keyboard puts it.
-  subMenu.querySelector("panel-item").focus();
-  let focusedLabel = () =>
-    subMenu.getRootNode().activeElement?.textContent.trim();
-
-  for (let expected of ["Banking", "Bakery", "Bagels", "Banking"]) {
-    EventUtils.synthesizeKey("b", {});
-    Assert.equal(focusedLabel(), expected, `B selected ${expected}`);
+  let targetElement;
+  for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+    let { element, result } = await UrlbarTestUtils.getDetailsOfResultAt(
+      window,
+      i
+    );
+    if (result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH) {
+      targetElement = element;
+      break;
+    }
   }
+  Assert.ok(targetElement, "Switch-to-tab suggestion is found");
+  Assert.ok(
+    !targetElement.row.hasAttribute("has-menu-button"),
+    "The switch-to-tab has no menu button"
+  );
 
-  menu.hide(undefined, { force: true });
+  let onContextMenu = BrowserTestUtils.waitForEvent(window, "contextmenu");
+  let menuShown = false;
+  let menuListener = () => {
+    menuShown = true;
+  };
+  window.addEventListener("showing", menuListener, true);
+  EventUtils.synthesizeMouseAtCenter(targetElement.row, {
+    type: "contextmenu",
+    button: 2,
+  });
+  await onContextMenu;
+  Assert.ok(!menuShown, "A right-click on the switch-to-tab row opens no menu");
+  window.removeEventListener("showing", menuListener, true);
+
   gURLBar.view.close();
+  BrowserTestUtils.removeTab(firstTab);
+  BrowserTestUtils.removeTab(secondTab);
+  await PlacesUtils.history.clear();
 });
 
 // Returns the menu's items as the command or open-in target each one picks, in

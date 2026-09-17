@@ -60,6 +60,7 @@ algorithms:
         - modules/xz-embedded/moz.yaml
         - modules/zlib/moz.yaml
         - nsprpub/moz.yaml
+        - other-licenses/snappy/moz.yaml
         - security/nss/moz.yaml
         - third_party/gemmology/moz.yaml
         - third_party/js/PKI.js/moz.yaml

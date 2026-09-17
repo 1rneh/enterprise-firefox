@@ -15600,11 +15600,11 @@ interface nsIWebSocketEventListener extends nsISupports {
   /** <!-- binding_to(idl, method, XPIDL_nsIWebSocketEventListener_webSocketMessageAvailable) --> */
   webSocketMessageAvailable(aWebSocketSerialID: u32, aMessage: string, aType: u16): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIWebSocketEventListener_webSocketClosed) --> */
-  webSocketClosed(aWebSocketSerialID: u32, aWasClean: boolean, aCode: u16, aReason: string): void;
+  webSocketClosed(aWebSocketSerialID: u32, aHttpChannelId: u64, aWasClean: boolean, aCode: u16, aReason: string): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIWebSocketEventListener_frameReceived) --> */
-  frameReceived(aWebSocketSerialID: u32, aFrame: nsIWebSocketFrame): void;
+  frameReceived(aWebSocketSerialID: u32, aHttpChannelId: u64, aFrame: nsIWebSocketFrame): void;
   /** <!-- binding_to(idl, method, XPIDL_nsIWebSocketEventListener_frameSent) --> */
-  frameSent(aWebSocketSerialID: u32, aFrame: nsIWebSocketFrame): void;
+  frameSent(aWebSocketSerialID: u32, aHttpChannelId: u64, aFrame: nsIWebSocketFrame): void;
 }
 
 /** <!-- binding_to(idl, interface_name, XPIDL_nsIWebSocketEventService) --> */

@@ -11,10 +11,12 @@
 #include "libyuv/scale_argb.h"
 #include "mozilla/PodOperations.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/ToString.h"
 #include "mozilla/dom/ImageBitmapBinding.h"
 #include "mozilla/dom/ImageUtils.h"
 #include "mozilla/gfx/Point.h"
 #include "mozilla/gfx/Swizzle.h"
+#include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
 #include "skia/include/core/SkBitmap.h"
 #include "skia/include/core/SkColorSpace.h"
@@ -28,10 +30,12 @@ using mozilla::Nothing;
 using mozilla::Some;
 using mozilla::dom::ImageBitmapFormat;
 using mozilla::dom::ImageUtils;
+using mozilla::gfx::ColorRange;
 using mozilla::gfx::DataSourceSurface;
 using mozilla::gfx::IntSize;
 using mozilla::gfx::SourceSurface;
 using mozilla::gfx::SurfaceFormat;
+using mozilla::gfx::YUVColorSpace;
 using mozilla::layers::Image;
 using mozilla::layers::PlanarYCbCrData;
 using mozilla::layers::PlanarYCbCrImage;
@@ -122,6 +126,55 @@ static bool DataSurfaceCoversSize(DataSourceSurface* aSurface,
   return surfaceSize.width >= aSize.width && surfaceSize.height >= aSize.height;
 }
 
+// libyuv's RGB-to-YUV matrices for one YUV color space and range. libyuv names
+// them after the pixel read as a little-endian word, so kArgb* is for BGRA in
+// memory and kAbgr* for RGBA in memory.
+struct RGBToYUVMatrices {
+  YUVColorSpace mColorSpace;
+  ColorRange mColorRange;
+  const libyuv::ArgbConstants* mBGRA;
+  const libyuv::ArgbConstants* mRGBA;
+};
+
+static constexpr RGBToYUVMatrices kRGBToYUVMatrices[] = {
+    {YUVColorSpace::BT601, ColorRange::LIMITED, &libyuv::kArgbI601Constants,
+     &libyuv::kAbgrI601Constants},
+    {YUVColorSpace::BT601, ColorRange::FULL, &libyuv::kArgbJPEGConstants,
+     &libyuv::kAbgrJPEGConstants},
+    {YUVColorSpace::BT709, ColorRange::LIMITED, &libyuv::kArgbH709Constants,
+     &libyuv::kAbgrH709Constants},
+    {YUVColorSpace::BT709, ColorRange::FULL, &libyuv::kArgbF709Constants,
+     &libyuv::kAbgrF709Constants},
+    {YUVColorSpace::BT2020, ColorRange::LIMITED, &libyuv::kArgbU2020Constants,
+     &libyuv::kAbgrU2020Constants},
+    {YUVColorSpace::BT2020, ColorRange::FULL, &libyuv::kArgbV2020Constants,
+     &libyuv::kAbgrV2020Constants},
+};
+
+// The libyuv matrix converting a 32-bit RGB surface of aFormat to YUV in
+// aYUVColorSpace and aColorRange, or nullptr if libyuv has none.
+static const libyuv::ArgbConstants* RGBToYUVMatrix(SurfaceFormat aFormat,
+                                                   YUVColorSpace aYUVColorSpace,
+                                                   ColorRange aColorRange) {
+  for (const RGBToYUVMatrices& matrices : kRGBToYUVMatrices) {
+    if (matrices.mColorSpace != aYUVColorSpace ||
+        matrices.mColorRange != aColorRange) {
+      continue;
+    }
+    switch (aFormat) {
+      case SurfaceFormat::B8G8R8A8:
+      case SurfaceFormat::B8G8R8X8:
+        return matrices.mBGRA;
+      case SurfaceFormat::R8G8B8A8:
+      case SurfaceFormat::R8G8B8X8:
+        return matrices.mRGBA;
+      default:
+        return nullptr;
+    }
+  }
+  return nullptr;
+}
+
 namespace mozilla {
 
 already_AddRefed<SourceSurface> GetSourceSurface(Image* aImage) {
@@ -148,7 +201,9 @@ static int32_t CeilingOfHalf(int32_t aValue) {
 
 nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
                        uint8_t* aDestU, int aDestStrideU, uint8_t* aDestV,
-                       int aDestStrideV, const IntSize& aDestSize) {
+                       int aDestStrideV, const IntSize& aDestSize,
+                       YUVColorSpace aDestYUVColorSpace,
+                       ColorRange aDestColorRange) {
   if (!aImage->IsValid()) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -182,6 +237,7 @@ nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
 
   Maybe<DataSourceSurface::ScopedMap> surfaceMap;
   SurfaceFormat surfaceFormat = SurfaceFormat::UNKNOWN;
+  const libyuv::ArgbConstants* rgbToYuvMatrix = nullptr;
 
   const PlanarYCbCrData* data = GetPlanarYCbCrData(aImage);
 
@@ -286,25 +342,41 @@ nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
     switch (surfaceFormat) {
       case SurfaceFormat::B8G8R8A8:
       case SurfaceFormat::B8G8R8X8:
-        if (!needsScale) {
-          return MapRv(
-              libyuv::ARGBToI420(static_cast<uint8_t*>(surfaceMap->GetData()),
-                                 surfaceMap->GetStride(), aDestY, aDestStrideY,
-                                 aDestU, aDestStrideU, aDestV, aDestStrideV,
-                                 aDestSize.width, aDestSize.height));
-        }
-        break;
       case SurfaceFormat::R8G8B8A8:
       case SurfaceFormat::R8G8B8X8:
+        rgbToYuvMatrix =
+            RGBToYUVMatrix(surfaceFormat, aDestYUVColorSpace, aDestColorRange);
+        if (!rgbToYuvMatrix) {
+          NS_WARNING(
+              nsPrintfCString(
+                  "ConvertToI420: no RGB-to-YUV matrix for %s %s from %s",
+                  ToString(aDestYUVColorSpace).c_str(),
+                  ToString(aDestColorRange).c_str(),
+                  ToString(surfaceFormat).c_str())
+                  .get());
+          return NS_ERROR_NOT_IMPLEMENTED;
+        }
         if (!needsScale) {
-          return MapRv(
-              libyuv::ABGRToI420(static_cast<uint8_t*>(surfaceMap->GetData()),
-                                 surfaceMap->GetStride(), aDestY, aDestStrideY,
-                                 aDestU, aDestStrideU, aDestV, aDestStrideV,
-                                 aDestSize.width, aDestSize.height));
+          return MapRv(libyuv::ARGBToI420Matrix(
+              static_cast<uint8_t*>(surfaceMap->GetData()),
+              surfaceMap->GetStride(), aDestY, aDestStrideY, aDestU,
+              aDestStrideU, aDestV, aDestStrideV, rgbToYuvMatrix,
+              aDestSize.width, aDestSize.height));
         }
         break;
       case SurfaceFormat::R5G6B5_UINT16:
+        // libyuv converts RGB565 with BT.601 limited range only.
+        if (aDestYUVColorSpace != YUVColorSpace::BT601 ||
+            aDestColorRange != ColorRange::LIMITED) {
+          NS_WARNING(
+              nsPrintfCString(
+                  "ConvertToI420: no RGB-to-YUV matrix for %s %s from %s",
+                  ToString(aDestYUVColorSpace).c_str(),
+                  ToString(aDestColorRange).c_str(),
+                  ToString(surfaceFormat).c_str())
+                  .get());
+          return NS_ERROR_NOT_IMPLEMENTED;
+        }
         if (!needsScale) {
           return MapRv(libyuv::RGB565ToI420(
               static_cast<uint8_t*>(surfaceMap->GetData()),
@@ -426,19 +498,13 @@ nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
       switch (surfaceFormat) {
         case SurfaceFormat::B8G8R8A8:
         case SurfaceFormat::B8G8R8X8:
-          rv = MapRv(libyuv::ARGBToI420(
-              static_cast<uint8_t*>(surfaceMap->GetData()),
-              surfaceMap->GetStride(), tempBufY, tempBufSize.width, tempBufU,
-              tempBufCbCrSize.width, tempBufV, tempBufCbCrSize.width,
-              tempBufSize.width, tempBufSize.height));
-          break;
         case SurfaceFormat::R8G8B8A8:
         case SurfaceFormat::R8G8B8X8:
-          rv = MapRv(libyuv::ABGRToI420(
+          rv = MapRv(libyuv::ARGBToI420Matrix(
               static_cast<uint8_t*>(surfaceMap->GetData()),
               surfaceMap->GetStride(), tempBufY, tempBufSize.width, tempBufU,
               tempBufCbCrSize.width, tempBufV, tempBufCbCrSize.width,
-              tempBufSize.width, tempBufSize.height));
+              rgbToYuvMatrix, tempBufSize.width, tempBufSize.height));
           break;
         case SurfaceFormat::R5G6B5_UINT16:
           rv = MapRv(libyuv::RGB565ToI420(
@@ -536,21 +602,15 @@ nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
   }
 
   // Now convert the scale result to I420.
-  if (surfaceFormat == SurfaceFormat::B8G8R8A8 ||
-      surfaceFormat == SurfaceFormat::B8G8R8X8) {
-    return MapRv(libyuv::ARGBToI420(
-        tempBuf, tempRgbStride, aDestY, aDestStrideY, aDestU, aDestStrideU,
-        aDestV, aDestStrideV, aDestSize.width, aDestSize.height));
-  }
-
-  return MapRv(libyuv::ABGRToI420(tempBuf, tempRgbStride, aDestY, aDestStrideY,
-                                  aDestU, aDestStrideU, aDestV, aDestStrideV,
-                                  aDestSize.width, aDestSize.height));
+  return MapRv(libyuv::ARGBToI420Matrix(
+      tempBuf, tempRgbStride, aDestY, aDestStrideY, aDestU, aDestStrideU,
+      aDestV, aDestStrideV, rgbToYuvMatrix, aDestSize.width, aDestSize.height));
 }
 
 nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
                        uint8_t* aDestUV, int aDestStrideUV,
-                       gfx::IntSize aDestSize) {
+                       gfx::IntSize aDestSize, YUVColorSpace aDestYUVColorSpace,
+                       ColorRange aDestColorRange) {
   if (!aImage->IsValid()) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -688,6 +748,18 @@ nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
+  const libyuv::ArgbConstants* rgbToYuvMatrix =
+      RGBToYUVMatrix(surf->GetFormat(), aDestYUVColorSpace, aDestColorRange);
+  if (!rgbToYuvMatrix) {
+    NS_WARNING(
+        nsPrintfCString("ConvertToNV12: no RGB-to-YUV matrix for %s %s from %s",
+                        ToString(aDestYUVColorSpace).c_str(),
+                        ToString(aDestColorRange).c_str(),
+                        ToString(surf->GetFormat()).c_str())
+            .get());
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+
   struct RgbSource {
     uint8_t* mBuffer;
     int32_t mStride;
@@ -730,9 +802,9 @@ nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
     rgbSource.mStride = rgbaStride.value();
   }
 
-  return MapRv(libyuv::ARGBToNV12(rgbSource.mBuffer, rgbSource.mStride, aDestY,
-                                  aDestStrideY, aDestUV, aDestStrideUV,
-                                  aDestSize.width, aDestSize.height));
+  return MapRv(libyuv::ARGBToNV12Matrix(
+      rgbSource.mBuffer, rgbSource.mStride, aDestY, aDestStrideY, aDestUV,
+      aDestStrideUV, rgbToYuvMatrix, aDestSize.width, aDestSize.height));
 }
 
 static bool IsRGBX(const SurfaceFormat& aFormat) {

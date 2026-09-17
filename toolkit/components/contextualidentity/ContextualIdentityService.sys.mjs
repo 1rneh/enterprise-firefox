@@ -177,22 +177,22 @@ _ContextualIdentityService.prototype = {
     {
       icon: "fingerprint",
       color: "blue",
-      l10nId: "user-context-personal2",
+      l10nId: "user-context-personal",
     },
     {
       icon: "briefcase",
       color: "orange",
-      l10nId: "user-context-work2",
+      l10nId: "user-context-work",
     },
     {
       icon: "dollar",
       color: "green",
-      l10nId: "user-context-banking2",
+      l10nId: "user-context-banking",
     },
     {
       icon: "cart",
       color: "pink",
-      l10nId: "user-context-shopping2",
+      l10nId: "user-context-shopping",
     },
   ],
   _systemIdentities: [
@@ -431,6 +431,57 @@ _ContextualIdentityService.prototype = {
     return Cu.cloneInto(identity, {});
   },
 
+  createForPolicy(policyId) {
+    this.ensureDataReady();
+
+    let userContextId = ++this._lastUserContextId;
+
+    if (userContextId >= MAX_USER_CONTEXT_ID) {
+      throw new Error(
+        `Unable to create a new userContext with id '${userContextId}'`
+      );
+    }
+
+    let identity = {
+      userContextId,
+      public: false,
+      name: policyId,
+      policy: true,
+      policyId,
+    };
+
+    this._identities.push(identity);
+    this.saveSoon();
+
+    return Cu.cloneInto(identity, {});
+  },
+
+  removePolicyIdentity(userContextId) {
+    this.ensureDataReady();
+
+    let index = this._identities.findIndex(
+      i => i.userContextId == userContextId && i.policy
+    );
+    if (index == -1) {
+      return false;
+    }
+
+    Services.clearData.deleteDataFromOriginAttributesPattern({ userContextId });
+    this._identities.splice(index, 1);
+    this.saveSoon();
+
+    return true;
+  },
+
+  getPolicyIdentities() {
+    this.ensureDataReady();
+
+    return Cu.cloneInto(
+      this._identities.filter(info => info.policy),
+      {}
+    );
+  },
+
   update(userContextId, name, icon, color) {
     this.ensureDataReady();
 
@@ -631,7 +682,20 @@ _ContextualIdentityService.prototype = {
     } catch (e) {
       return baselineUserContextId;
     }
-    return this.getSiteAssociation(host) || baselineUserContextId;
+
+    try {
+      let policyContainer = Services.policies?.getContainerForURI(uri);
+      if (policyContainer) {
+        return policyContainer;
+      }
+    } catch (e) {}
+
+    let result = this.getSiteAssociation(host);
+    if (result) {
+      return result;
+    }
+
+    return baselineUserContextId;
   },
 
   getIdentityObserverOutput(identity) {
@@ -1020,16 +1084,16 @@ _ContextualIdentityService.prototype = {
     for (let identity of data.identities) {
       switch (identity.l10nID) {
         case "userContextPersonal.label":
-          identity.l10nId = "user-context-personal2";
+          identity.l10nId = "user-context-personal";
           break;
         case "userContextWork.label":
-          identity.l10nId = "user-context-work2";
+          identity.l10nId = "user-context-work";
           break;
         case "userContextBanking.label":
-          identity.l10nId = "user-context-banking2";
+          identity.l10nId = "user-context-banking";
           break;
         case "userContextShopping.label":
-          identity.l10nId = "user-context-shopping2";
+          identity.l10nId = "user-context-shopping";
           break;
       }
       delete identity.l10nID;

@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # NSIS branding defines for enterprise builds.
-# Note: Stub installer urls are emptry because enterprise builds don't support stub installers.
+# Note: Stub installer urls are empty because enterprise builds don't support stub installers.
 
 # BrandFullNameInternal is used for some registry and file system values
 # instead of BrandFullName and typically should not be modified.

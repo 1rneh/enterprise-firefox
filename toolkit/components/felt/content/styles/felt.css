@@ -30,10 +30,11 @@ body {
 .felt-logo {
   display: flex;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  width: 310px;
+  flex: 310 0 0;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  min-width: 310px;
   overflow: hidden;
   flex-direction: column;
-  flex-shrink: 0;
   justify-content: center;
   background-image: var(--felt-background);
   background-repeat: no-repeat;
@@ -44,7 +45,8 @@ body {
 .felt-main {
   display: flex;
   flex-direction: column;
-  flex: 1 0 0;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  flex: 417 0 0;
   position: relative;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   background: var(--background-color-canvas, #f7f6fb);

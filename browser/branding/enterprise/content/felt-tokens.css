@@ -4,18 +4,18 @@
 
 @media (prefers-color-scheme: light) {
   :root {
-    --felt-background: url("chrome://branding/content/felt-background-light.svg");
+    --felt-background: image-set(url("chrome://branding/content/felt-background-light@2x.png") 2x);
   }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --felt-background: url("chrome://branding/content/felt-background-dark.svg");
+    --felt-background: image-set(url("chrome://branding/content/felt-background-dark@2x.png") 2x);
   }
 }
 
 @media (forced-colors: active) {
   :root {
-    --felt-background: url("chrome://branding/content/felt-background-dark.svg");
+    --felt-background: image-set(url("chrome://branding/content/felt-background-dark@2x.png") 2x);
   }
 }

@@ -978,6 +978,7 @@ SettingGroupManager.registerGroups({
     headingLevel: 2,
     iconSrc: "chrome://browser/skin/sync.svg",
     hidden: !accountsEnabled,
+    subcategory: "sync",
     items: [
       {
         id: "syncNoFxaSignIn",

@@ -162,12 +162,13 @@ bool HttpChannelParent::Init(const HttpChannelCreationArgs& aArgs) {
       return DoAsyncOpen(
           a.uri(), a.original(), a.doc(), a.referrerInfo(), a.apiRedirectTo(),
           a.topWindowURI(), a.loadFlags(), a.requestHeaders(),
-          a.requestMethod(), a.uploadStream(), a.priority(), a.classOfService(),
-          a.redirectionLimit(), a.allowSTS(), a.thirdPartyFlags(), a.resumeAt(),
-          a.startPos(), a.entityID(), a.allowSpdy(), a.allowHttp3(),
-          a.allowAltSvc(), a.beConservative(), a.bypassProxy(), a.tlsFlags(),
-          a.loadInfo(), a.cacheKey(), a.requestContextID(), a.preflightArgs(),
-          a.initialRwin(), a.blockAuthPrompt(), a.allowStaleCacheContent(),
+          a.requestMethod(), a.uploadStream(), a.uploadStreamIsStreaming(),
+          a.priority(), a.classOfService(), a.redirectionLimit(), a.allowSTS(),
+          a.thirdPartyFlags(), a.resumeAt(), a.startPos(), a.entityID(),
+          a.allowSpdy(), a.allowHttp3(), a.allowAltSvc(), a.beConservative(),
+          a.bypassProxy(), a.tlsFlags(), a.loadInfo(), a.cacheKey(),
+          a.requestContextID(), a.preflightArgs(), a.initialRwin(),
+          a.blockAuthPrompt(), a.allowStaleCacheContent(),
           a.preferCacheLoadOverBypass(), a.contentTypeHint(), a.requestMode(),
           a.redirectMode(), a.channelId(), a.contentWindowId(),
           a.preferredAlternativeTypes(), a.browserId(),
@@ -424,14 +425,15 @@ bool HttpChannelParent::DoAsyncOpen(
     nsIReferrerInfo* aReferrerInfo, nsIURI* aAPIRedirectToURI,
     nsIURI* aTopWindowURI, const uint32_t& aLoadFlags,
     const RequestHeaderTuples& requestHeaders, const nsCString& requestMethod,
-    const Maybe<IPCStream>& uploadStream, const int16_t& priority,
-    const ClassOfService& classOfService, const uint8_t& redirectionLimit,
-    const bool& allowSTS, const uint32_t& thirdPartyFlags,
-    const bool& doResumeAt, const uint64_t& startPos, const nsCString& entityID,
-    const bool& allowSpdy, const bool& allowHttp3, const bool& allowAltSvc,
-    const bool& beConservative, const bool& bypassProxy,
-    const uint32_t& tlsFlags, const LoadInfoArgs& aLoadInfoArgs,
-    const uint32_t& aCacheKey, const uint64_t& aRequestContextID,
+    const Maybe<IPCStream>& uploadStream, const bool& uploadStreamIsStreaming,
+    const int16_t& priority, const ClassOfService& classOfService,
+    const uint8_t& redirectionLimit, const bool& allowSTS,
+    const uint32_t& thirdPartyFlags, const bool& doResumeAt,
+    const uint64_t& startPos, const nsCString& entityID, const bool& allowSpdy,
+    const bool& allowHttp3, const bool& allowAltSvc, const bool& beConservative,
+    const bool& bypassProxy, const uint32_t& tlsFlags,
+    const LoadInfoArgs& aLoadInfoArgs, const uint32_t& aCacheKey,
+    const uint64_t& aRequestContextID,
     const Maybe<CorsPreflightArgs>& aCorsPreflightArgs,
     const uint32_t& aInitialRwin, const bool& aBlockAuthPrompt,
     const bool& aAllowStaleCacheContent, const bool& aPreferCacheLoadOverBypass,
@@ -595,6 +597,9 @@ bool HttpChannelParent::DoAsyncOpen(
 
   nsCOMPtr<nsIInputStream> stream = DeserializeIPCStream(uploadStream);
   if (stream) {
+    if (uploadStreamIsStreaming) {
+      httpChannel->SetUploadStreamIsStreaming(true);
+    }
     rv = httpChannel->InternalSetUploadStream(stream);
     if (NS_FAILED(rv)) {
       return SendFailedAsyncOpen(rv);

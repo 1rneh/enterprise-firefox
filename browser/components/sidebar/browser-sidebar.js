@@ -13,12 +13,12 @@ const { DeferredTask } = ChromeUtils.importESModule(
 );
 
 const toolsNameMap = {
+  viewOpenTabsSidebar: "opentabs",
+  viewBookmarksSidebar: "bookmarks",
   viewGenaiChatSidebar: "aichat",
   viewGenaiPageAssistSidebar: "aipageassist",
-  viewTabsSidebar: "syncedtabs",
   viewHistorySidebar: "history",
-  viewBookmarksSidebar: "bookmarks",
-  viewOpenTabsSidebar: "opentabs",
+  viewTabsSidebar: "syncedtabs",
   viewCPMSidebar: "passwords",
   viewResourceMonitorSidebar: "resourcemonitor",
 };
@@ -1050,6 +1050,8 @@ var SidebarController = {
     // Indicate we've switched ordering to the box
     this._box.toggleAttribute("sidebar-positionend", !this._positionStart);
     sidebarMain.toggleAttribute("sidebar-positionend", !this._positionStart);
+    // The launcher reads the position to place the Customize button.
+    sidebarMain.requestUpdate?.();
     contentArea.toggleAttribute("sidebar-positionend", !this._positionStart);
     sidebarContainer.toggleAttribute(
       "sidebar-positionend",

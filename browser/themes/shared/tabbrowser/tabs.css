@@ -2919,6 +2919,7 @@ tab-group {
         width: var(--icon-size);
         height: var(--icon-size);
         padding: 2px;
+        top: -2px;
         box-shadow: var(--box-shadow-level-1);
       }
 

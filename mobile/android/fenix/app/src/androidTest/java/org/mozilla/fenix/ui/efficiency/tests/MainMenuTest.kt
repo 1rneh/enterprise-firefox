@@ -9,6 +9,7 @@ import mozilla.components.support.ktx.util.PromptAbuserDetector
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import org.mozilla.fenix.customannotations.Critical
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.Constants
 import org.mozilla.fenix.helpers.Constants.PackageName.PRINT_SPOOLER
@@ -636,5 +637,22 @@ class MainMenuTest : BaseTest() {
             .mozVerify(WebCompatReporterSelectors.REPORTED_BROKEN_SITE_REASON("Site doesn’t load"))
             .mozVerifyElementIsNotChecked(WebCompatReporterSelectors.ITEMS_BLOCKED_BY_TRACKING_PROTECTION_CHECKBOX)
             .mozVerifyElementsByGroup(WebCompatReporterSelectors.Group.REPORTER_FORM)
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4227141
+    @Critical
+    @Test
+    fun verifyThatTheBrokenSiteFormSubmissionCanBeCanceledTest() {
+        val defaultWebPage = mockWebServer.getGenericAsset(1)
+
+        on.browserPage.navigateToPage(defaultWebPage.url.toString())
+        on.webCompatReporter
+            .navigateToPage()
+            .mozClick(WebCompatReporterSelectors.REPORTED_BROKEN_SITE_REASON("Site doesn’t load"))
+            .mozClick(WebCompatReporterSelectors.CLOSE_REPORT_BUTTON)
+        on.browserPage.navigateToPage()
+        on.webCompatReporter
+            .navigateToPage()
+            .mozVerifyElementsByGroup(WebCompatReporterSelectors.Group.REPORTER_VIEW_ITEMS)
     }
 }

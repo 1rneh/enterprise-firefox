@@ -136,6 +136,48 @@ add_task(async function test_cta_navigates_to_features() {
     async browser => {
       await waitForPdfJS(browser, TESTROOT + "file_pdfjs_test.pdf");
 
+      await SpecialPowers.spawn(browser, [], async () => {
+        const bar = content.document.getElementById("pdfFeaturesNotification");
+        const cta = bar.querySelector("a");
+        await ContentTaskUtils.waitForCondition(
+          () => !bar.hidden && cta.textContent.trim(),
+          "notification CTA is ready"
+        );
+        Assert.ok(
+          !cta.hasAttribute("href"),
+          "the CTA exposes no about:pdf URL for content-triggered loads"
+        );
+        Assert.equal(
+          cta.getAttribute("role"),
+          "link",
+          "the CTA keeps link semantics"
+        );
+      });
+
+      // Keep link-opening commands off the CTA (bug 2071624).
+      const contextMenu = document.getElementById("contentAreaContextMenu");
+      const popupShown = BrowserTestUtils.waitForEvent(
+        contextMenu,
+        "popupshown"
+      );
+      await BrowserTestUtils.synthesizeMouseAtCenter(
+        "#pdfFeaturesNotification a",
+        { type: "contextmenu", button: 2 },
+        browser
+      );
+      await popupShown;
+      Assert.ok(!gContextMenu.onLink, "the context menu does not see a link");
+      Assert.ok(
+        document.getElementById("context-openlinkintab").hidden,
+        "Open Link in New Tab is not offered for the CTA"
+      );
+      const popupHidden = BrowserTestUtils.waitForEvent(
+        contextMenu,
+        "popuphidden"
+      );
+      contextMenu.hidePopup();
+      await popupHidden;
+
       const locationChanged = BrowserTestUtils.waitForLocationChange(
         gBrowser,
         "about:pdf#features"
@@ -143,31 +185,22 @@ add_task(async function test_cta_navigates_to_features() {
       const loaded = BrowserTestUtils.browserLoaded(browser, false, url =>
         url.startsWith("about:pdf")
       );
-      const clickHandled = await SpecialPowers.spawn(browser, [], async () => {
-        const bar = content.document.getElementById("pdfFeaturesNotification");
-        const cta = bar.querySelector("a");
-        await ContentTaskUtils.waitForCondition(
-          () => !bar.hidden && cta.textContent.trim(),
-          "notification CTA is ready"
+      await SpecialPowers.spawn(browser, [], () => {
+        const cta = content.document.querySelector(
+          "#pdfFeaturesNotification a"
         );
-        const handled = new Promise(resolve => {
-          bar.addEventListener(
-            "click",
-            event => resolve(event.defaultPrevented),
-            {
-              once: true,
-            }
-          );
-        });
         cta.focus();
+        Assert.equal(
+          content.document.activeElement,
+          cta,
+          "the CTA is keyboard focusable"
+        );
         ContentTaskUtils.getEventUtils(content).synthesizeKey(
           "KEY_Enter",
           {},
           content
         );
-        return handled;
       });
-      Assert.ok(clickHandled, "viewer handles the CTA activation");
       await Promise.all([locationChanged, loaded]);
 
       await SpecialPowers.spawn(browser, [], async () => {

@@ -2257,6 +2257,23 @@ creditcards-autofill-enabled:
         branch: default
         pref: extensions.formautofill.creditCards.supported
 
+creditcards-cvv-capture:
+  description: Capturing and storing credit card security codes (CVV/CSC)
+  owner: mtigley@mozilla.com
+  hasExposure: false
+  variables:
+    cvvSupported:
+      description: >-
+        When "on", the CVV feature is rolled out to this user: the security code
+        field takes part in autofill and the setting that turns capture on or
+        off is offered. Users can still decline capture through
+        extensions.formautofill.creditCards.cvv.enabled, which is their own
+        choice and is deliberately not controlled here.
+      type: string
+      setPref:
+        branch: default
+        pref: extensions.formautofill.creditCards.cvv.supported
+
 autofill-ml:
   description: Machine-learning based form field detection for autofill
   owner: dlee@mozilla.com
@@ -3321,6 +3338,12 @@ networking:
       setPref:
         branch: default
         pref: "network.dnsCacheExpirationGracePeriod"
+    dnsNegativeCacheExpiration:
+      description: Lifetime (in seconds) of a negative (failed/empty) DNS cache entry.
+      type: int
+      setPref:
+        branch: default
+        pref: "network.dnsNegativeCacheExpiration"
     http3UseNSPRForIO:
       description: true by default using legacy UDP IO via NSPR. When set to false, uses new UDP IO via Fast UDP for Firefox project.
       type: boolean

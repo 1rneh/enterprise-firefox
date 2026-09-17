@@ -20,6 +20,9 @@ sealed interface FenixMenuItem {
 
     /** A menu item allowing to switch the current page between the desktop and the mobile version. */
     data object DesktopSite : FenixMenuItem
+
+    /** A menu item allowing to navigate back. */
+    data object Back : FenixMenuItem
 }
 
 /**
@@ -28,11 +31,13 @@ sealed interface FenixMenuItem {
  * @property id A unique identifier for this section.
  * @property presentationMode How the items in this section should be shown.
  * @property items The items to show in this section.
+ * @property isSticky Whether this section should be sticky at the top or bottom of the menu.
  */
 data class MenuSectionConfiguration(
     val id: String,
     val presentationMode: MenuPresentationMode,
     val items: List<FenixMenuItem>,
+    val isSticky: Boolean = false,
 )
 
 /** How the [FenixMenuItem] should be shown inside a menu section. */

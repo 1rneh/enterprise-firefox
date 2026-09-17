@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.4.146
- * pdfjsBuild = 88f604494
+ * pdfjsVersion = 6.4.160
+ * pdfjsBuild = ee470d5db
  */
 
 ;// ./web/ui_utils.js
@@ -898,7 +898,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "1b22cca6-f489-40ef-a515-757613ee907d";
+const INTERNAL_EVT = "5960813a-aafe-44ce-a1a2-18a81975929e";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -13361,7 +13361,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.4.146";
+    const viewerVersion = "6.4.160";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -17798,12 +17798,18 @@ const PDFViewerApplication = {
         if (AppOptions.get("featuresNotificationDismissed")) {
           return;
         }
-        featuresNotification.addEventListener("click", event => {
-          if (!event.target.closest("a")) {
-            return;
+        const openFeatures = event => {
+          if (event.target.closest("a")) {
+            externalServices.openAboutPdfFeatures();
           }
-          event.preventDefault();
-          externalServices.openAboutPdfFeatures();
+        };
+        featuresNotification.addEventListener("click", openFeatures, {
+          signal: abortSignal
+        });
+        featuresNotification.addEventListener("keydown", event => {
+          if (event.key === "Enter") {
+            openFeatures(event);
+          }
         }, {
           signal: abortSignal
         });

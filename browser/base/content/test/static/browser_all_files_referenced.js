@@ -80,7 +80,6 @@ var gExceptionPaths = [
   // Points to theme preview images, which are defined in browser/ but only used
   // in toolkit/mozapps/extensions/content/aboutaddons.js.
   "resource://builtin-themes/",
-  "resource://extra-themes-previews/",
 
   // Page data schemas are referenced programmatically.
   "chrome://browser/content/pagedata/schemas/",

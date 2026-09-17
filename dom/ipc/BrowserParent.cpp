@@ -278,6 +278,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(BrowserParent)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowsingContext)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFrameElement)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowserDOMWindow)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowserHost)
   tmp->UnlinkManager();
   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -287,6 +288,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(BrowserParent)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowsingContext)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFrameElement)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowserDOMWindow)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowserHost)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_RAWPTR(Manager())
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
@@ -304,8 +306,6 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
       mBrowserDOMWindow(nullptr),
       mFrameLoader(nullptr),
       mChromeFlags(aChromeFlags),
-      mBrowserBridgeParent(nullptr),
-      mBrowserHost(nullptr),
       mContentCache(*this),
       mRect(0, 0, 0, 0),
       mDimensions(0, 0),
@@ -572,7 +572,7 @@ LayersId BrowserParent::GetLayersId() const {
 }
 
 BrowserBridgeParent* BrowserParent::GetBrowserBridgeParent() const {
-  return mBrowserBridgeParent;
+  return mBrowserBridgeParent.get();
 }
 
 BrowserHost* BrowserParent::GetBrowserHost() const { return mBrowserHost; }
@@ -893,6 +893,10 @@ void BrowserParent::ActorDestroy(ActorDestroyReason why) {
   // and it may confuse the frontend.
   mBrowsingContext->BrowserParentDestroyed(
       this, why == AbnormalShutdown || why == ManagedEndpointDropped);
+
+  // BrowserHost::DestroyComplete() has usually cleared this already, but it is
+  // never reached if we had no frame loader.
+  mBrowserHost = nullptr;
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvMoveFocus(
@@ -4183,16 +4187,14 @@ void BrowserParent::LiveResizeStopped() { SuppressDisplayport(false); }
 void BrowserParent::SetBrowserBridgeParent(BrowserBridgeParent* aBrowser) {
   // We should either be clearing out our reference to a browser bridge, or not
   // have either a browser bridge, browser host, or owner content yet.
-  MOZ_ASSERT(!aBrowser ||
-             (!mBrowserBridgeParent && !mBrowserHost && !mFrameElement));
+  MOZ_RELEASE_ASSERT(!aBrowser || !IsEmbedded());
   mBrowserBridgeParent = aBrowser;
 }
 
 void BrowserParent::SetBrowserHost(BrowserHost* aBrowser) {
   // We should either be clearing out our reference to a browser host, or not
   // have either a browser bridge, browser host, or owner content yet.
-  MOZ_ASSERT(!aBrowser ||
-             (!mBrowserBridgeParent && !mBrowserHost && !mFrameElement));
+  MOZ_RELEASE_ASSERT(!aBrowser || !IsEmbedded());
   mBrowserHost = aBrowser;
 }
 

@@ -2029,7 +2029,7 @@ html {
   padding: 1.5px 37.5px;
   margin: auto;
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .secondary-cta .secondary {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .secondary-cta .secondary {
   background: none;
   border: none;
   text-decoration: underline;
@@ -2039,24 +2039,24 @@ html {
   font-weight: normal;
   line-height: 20px;
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .secondary-cta .secondary:hover {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .secondary-cta .secondary:hover {
   color: var(--link-color-hover);
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .secondary-cta .secondary:active {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .secondary-cta .secondary:active {
   color: var(--link-color-active);
 }
 @media (prefers-contrast) {
-  .onboardingContainer .screen:not([pos=split], [pos=center-large]) .secondary-cta .secondary:active {
+  .onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .secondary-cta .secondary:active {
     text-decoration: none;
   }
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .secondary-cta.top button {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .secondary-cta.top button {
   color: white;
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .secondary-cta.top button:hover {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .secondary-cta.top button:hover {
   color: #E0E0E6;
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .additional-cta.cta-link {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .additional-cta.cta-link {
   background: none;
   padding: 0;
   font-weight: normal;
@@ -2066,28 +2066,104 @@ html {
   cursor: pointer;
   color: var(--link-color);
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .additional-cta.cta-link:hover {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .additional-cta.cta-link:hover {
   color: var(--link-color-hover);
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .additional-cta.cta-link:active {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .additional-cta.cta-link:active {
   color: var(--link-color-active);
 }
 @media (prefers-contrast) {
-  .onboardingContainer .screen:not([pos=split], [pos=center-large]) .additional-cta.cta-link:active {
+  .onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .additional-cta.cta-link:active {
     text-decoration: none;
   }
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) migration-wizard {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) migration-wizard {
   padding: 5px 60px;
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) migration-wizard::part(header) {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) migration-wizard::part(header) {
   text-align: center;
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) migration-wizard::part(buttons) {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) migration-wizard::part(buttons) {
   margin: var(--space-xxlarge) auto 0;
 }
-.onboardingContainer .screen:not([pos=split], [pos=center-large]) .welcome-text:empty {
+.onboardingContainer .screen:not([pos=split], [pos=center-large], [pos=card-stack]) .welcome-text:empty {
   margin: 0;
+}
+.onboardingContainer .screen[pos=card-stack] {
+  border-radius: var(--border-radius-xlarge, 8px);
+  height: 204px; /* stylelint-disable-line stylelint-plugin-mozilla/use-design-tokens */
+  min-height: 204px; /* stylelint-disable-line stylelint-plugin-mozilla/use-design-tokens */
+  overflow: hidden;
+}
+.onboardingContainer .screen[pos=card-stack] .section-secondary,
+.onboardingContainer .screen[pos=card-stack] .section-main {
+  height: 100%;
+}
+.onboardingContainer .screen[pos=card-stack] .section-secondary {
+  flex: 0 0 auto;
+  width: 318px; /* stylelint-disable-line stylelint-plugin-mozilla/use-design-tokens */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background-color-box) !important;
+  border-radius: 0;
+}
+.onboardingContainer .screen[pos=card-stack] .section-main {
+  flex: 1;
+  flex-direction: row;
+  display: block;
+  margin: 0;
+}
+.onboardingContainer .screen[pos=card-stack] .section-main .main-content {
+  background-color: var(--background-color-box);
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-inline-start: var(--space-xxlarge);
+  padding-inline-end: var(--space-xxlarge);
+  padding-block: var(--space-xxlarge);
+  width: auto;
+}
+.onboardingContainer .screen[pos=card-stack] .section-main .main-content .main-content-inner {
+  justify-content: center;
+}
+.onboardingContainer .screen[pos=card-stack] .welcome-text {
+  align-items: flex-start;
+  text-align: start;
+  margin: 0;
+  gap: var(--space-small);
+}
+.onboardingContainer .screen[pos=card-stack] .welcome-text h1,
+.onboardingContainer .screen[pos=card-stack] .welcome-text h2 {
+  margin: 0;
+  line-height: 1;
+  letter-spacing: normal;
+}
+.onboardingContainer .screen[pos=card-stack] .welcome-text h1 {
+  font-size: var(--font-size-heading-medium);
+  font-weight: var(--font-weight-semibold);
+}
+.onboardingContainer .screen[pos=card-stack] .welcome-text h2 {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight);
+}
+.onboardingContainer .screen[pos=card-stack] .action-buttons {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: var(--space-small);
+  padding: 0;
+  margin-block-start: var(--space-xlarge);
+}
+.onboardingContainer .screen[pos=card-stack] .action-buttons .primary,
+.onboardingContainer .screen[pos=card-stack] .action-buttons .secondary,
+.onboardingContainer .screen[pos=card-stack] .action-buttons .additional-cta {
+  font-size: var(--font-size-root);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
 }
 .onboardingContainer .screen[pos=split]:where(:not([fullscreen])) {
   margin: auto;
@@ -5235,6 +5311,11 @@ html {
   max-width: 904px; /* stylelint-disable-line stylelint-plugin-mozilla/use-design-tokens */
   min-width: var(--size-layout-large);
   margin-inline: auto;
+}
+.multistage-newtab-wrapper:has(.screen[pos=card-stack]) {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
 }
 .multistage-newtab-wrapper > moz-button {
   position: absolute;

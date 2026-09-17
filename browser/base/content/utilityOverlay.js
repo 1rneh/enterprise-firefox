@@ -186,6 +186,7 @@ function createUserContextMenu(
     isPanelList = false,
     excludeUserContextId = 0,
     showDefaultTab = false,
+    useAccessKeys = true,
     showAddContainer = true,
     showManageContainers = true,
     containerSource = "unknown",
@@ -212,14 +213,14 @@ function createUserContextMenu(
   // panel-item takes its label from the message value, so the container labels
   // have their own messages rather than the menuitem `.label` attribute ones.
   let panelItemL10nIds = {
-    "user-context-new-tab2": "user-context-new-tab2-panel-item",
-    "user-context-personal2": "user-context-personal2-panel-item",
-    "user-context-work2": "user-context-work2-panel-item",
-    "user-context-banking2": "user-context-banking2-panel-item",
-    "user-context-shopping2": "user-context-shopping2-panel-item",
-    "user-context-add-container2": "user-context-add-container2-panel-item",
-    "user-context-manage-containers2":
-      "user-context-manage-containers2-panel-item",
+    "user-context-new-tab": "user-context-new-tab-panel-item",
+    "user-context-personal": "user-context-personal-panel-item",
+    "user-context-work": "user-context-work-panel-item",
+    "user-context-banking": "user-context-banking-panel-item",
+    "user-context-shopping": "user-context-shopping-panel-item",
+    "user-context-add-container": "user-context-add-container-panel-item",
+    "user-context-manage-containers":
+      "user-context-manage-containers-panel-item",
   };
   let panelListReplacements = l10nId =>
     (isPanelList && panelItemL10nIds[l10nId]) || l10nId;
@@ -238,8 +239,17 @@ function createUserContextMenu(
 
     if (name) {
       setLabel(name);
-    } else {
+    } else if (useAccessKeys) {
+      if (isPanelList) {
+        item.setAttribute("data-l10n-attrs", "accesskey");
+      }
       document.l10n.setAttributes(item, panelListReplacements(l10nId));
+    } else {
+      setLabel(
+        ContextualIdentityService.formatContextLabel(
+          panelListReplacements(l10nId)
+        )
+      );
     }
 
     return item;
@@ -247,7 +257,7 @@ function createUserContextMenu(
 
   // Add an item for a tab without a container, labeled "New Tab".
   if (excludeUserContextId || showDefaultTab) {
-    let menuitem = createMenuItem({ l10nId: "user-context-new-tab2" });
+    let menuitem = createMenuItem({ l10nId: "user-context-new-tab" });
     menuitem.setAttribute("data-usercontextid", "0");
     if (!isContextMenu) {
       menuitem.setAttribute("command", "Browser:NewUserContextTab");
@@ -297,7 +307,7 @@ function createUserContextMenu(
   }
 
   if (showAddContainer) {
-    let menuitem = createMenuItem({ l10nId: "user-context-add-container2" });
+    let menuitem = createMenuItem({ l10nId: "user-context-add-container" });
     onActivate(menuitem, () =>
       ContainerCreationPanel.open(window, containerSource)
     );
@@ -306,7 +316,7 @@ function createUserContextMenu(
 
   if (showManageContainers) {
     let menuitem = createMenuItem({
-      l10nId: "user-context-manage-containers2",
+      l10nId: "user-context-manage-containers",
     });
     onActivate(menuitem, () =>
       openPreferences("paneContainers", {

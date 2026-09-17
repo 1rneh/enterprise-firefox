@@ -196,6 +196,11 @@ EnterprisePoliciesManager.prototype = {
   },
 
   async _initialize() {
+    const previouslyApplied = Services.prefs.getBoolPref(
+      PREF_POLICIES_APPLIED,
+      false
+    );
+
     this._cleanupPolicies();
 
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
@@ -220,6 +225,9 @@ EnterprisePoliciesManager.prototype = {
       this._updateStatus();
 
       if (this.status !== Ci.nsIEnterprisePolicies.ACTIVE) {
+        if (previouslyApplied) {
+          this._runMissingPolicyCallbacks();
+        }
         return;
       }
 
@@ -228,7 +236,7 @@ EnterprisePoliciesManager.prototype = {
         .getDefaultBranch("")
         .setBoolPref("dom.webserial.enabled", false);
 
-      this._activateStartupPolicies();
+      this._activateStartupPolicies(previouslyApplied);
     } catch (e) {
       // Initialization failed after status may have been set, the provider
       // built and some startup callbacks scheduled. Discard that partial state
@@ -238,6 +246,10 @@ EnterprisePoliciesManager.prototype = {
       this._discardPolicies();
       for (const timing of Object.keys(this._callbacks)) {
         this._callbacks[timing] = callbacksBeforeInit[timing];
+      }
+
+      if (previouslyApplied) {
+        this._runMissingPolicyCallbacks();
       }
 
       // about:policies lists the first logged argument only, so the error
@@ -373,9 +385,24 @@ EnterprisePoliciesManager.prototype = {
   /**
    * Activates the startup policies that are provided during
    * the initialization of the policy engine.
+   *
+   * @param {boolean} previouslyApplied whether policies were applied during
+   *   the previous session; if so, a policy that is now missing from the set
+   *   is activated with its onMissing() defaults so it can clean up state it
+   *   left behind
    */
-  _activateStartupPolicies() {
-    const effectivePolicies = this._effectivePolicies();
+  _activateStartupPolicies(previouslyApplied) {
+    const effectivePolicies = { ...this._effectivePolicies() };
+
+    if (previouslyApplied) {
+      // Allow a policy to provide a default for when the provider did not set a policy.
+      for (const policyName of Object.keys(lazy.Policies)) {
+        const policyImpl = lazy.Policies[policyName];
+        if (policyImpl.onMissing && !(policyName in effectivePolicies)) {
+          effectivePolicies[policyName] = policyImpl.onMissing();
+        }
+      }
+    }
 
     lazy.log.debug(
       `Parsing ${Object.keys(effectivePolicies).length} startup policies.`
@@ -796,6 +823,20 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
+  _runMissingPolicyCallbacks() {
+    for (const policyName of Object.keys(lazy.Policies)) {
+      const policyImpl = lazy.Policies[policyName];
+      if (!policyImpl.onMissing) {
+        continue;
+      }
+      this._schedulePolicyActivations(
+        policyName,
+        policyImpl,
+        policyImpl.onMissing()
+      );
+    }
+  },
+
   _callbacks: {
     // The earliest that a policy callback can run. This will
     // happen right after the Policy Engine itself has started,
@@ -1077,6 +1118,26 @@ EnterprisePoliciesManager.prototype = {
 
   hasSitePoliciesForURI(uri) {
     return lazy.SitePolicyUtils.hasSitePoliciesForURI(SitePolicies, uri);
+  },
+
+  getContainerForURI(uri) {
+    for (let policies of SitePolicies) {
+      if (
+        policies.exceptions.matches(uri) ||
+        policies.exceptions.matchesAllWebUrls
+      ) {
+        continue;
+      }
+
+      if (!policies.match.matches(uri) && !policies.match.matchesAllWebUrls) {
+        continue;
+      }
+
+      if ("container" in policies.features) {
+        return policies.features.container;
+      }
+    }
+    return 0;
   },
 
   getActivePolicies() {

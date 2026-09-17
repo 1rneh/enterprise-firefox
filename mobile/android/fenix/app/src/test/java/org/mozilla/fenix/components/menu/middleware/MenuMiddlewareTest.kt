@@ -82,9 +82,14 @@ class MenuMiddlewareTest {
         )
     private val addBookmarkUseCase: BookmarksUseCase.AddBookmarksUseCase = mockk()
     private val requestDesktopSiteUseCase: SessionUseCases.RequestDesktopSiteUseCase = mockk(relaxed = true)
+    private val goBackUseCase: SessionUseCases.GoBackUseCase = mockk(relaxed = true)
     private val useCases: UseCases = mockk {
         every { bookmarksUseCases } returns mockk { every { addBookmark } returns addBookmarkUseCase }
-        every { sessionUseCases } returns mockk { every { requestDesktopSite } returns requestDesktopSiteUseCase }
+        every { sessionUseCases } returns
+            mockk {
+                every { requestDesktopSite } returns requestDesktopSiteUseCase
+                every { goBack } returns goBackUseCase
+            }
     }
     // Navigating away is guarded on still being on the menu, so the mock has to report that as the current
     // destination. A relaxed mock would otherwise report an id of 0 and every navigation would be skipped.
@@ -275,6 +280,45 @@ class MenuMiddlewareTest {
         }
     }
 
+    @Test
+    fun `WHEN handling back navigation THEN dismiss the menu and navigate back in the current tab`() {
+        val store = createStore()
+
+        store.dispatch(Navigate.Back(viewHistory = false))
+
+        verify {
+            navController.popBackStack(R.id.menuFragment, true)
+            goBackUseCase(tabId = TAB_ID)
+        }
+    }
+
+    @Test
+    fun `WHEN handling back navigation with history THEN dismiss the menu and show the tab history`() {
+        val store = createStore()
+
+        store.dispatch(Navigate.Back(viewHistory = true))
+
+        verify {
+            navController.navigate(
+                NavGraphDirections.actionGlobalTabHistoryDialogFragment(activeSessionId = null),
+                any<NavOptions>(),
+            )
+        }
+    }
+
+    @Test
+    fun `GIVEN there is no selected tab WHEN handling back navigation THEN do nothing`() {
+        val emptyBrowserStore = BrowserStore(BrowserState(tabs = emptyList()))
+        val store = createStore(browserStore = emptyBrowserStore)
+
+        store.dispatch(Navigate.Back(viewHistory = false))
+
+        verify(exactly = 0) {
+            navController.popBackStack(R.id.menuFragment, true)
+            goBackUseCase(any())
+        }
+    }
+
     private fun ipProtectionStore(proxyStatus: ProxyStatus): IPProtectionStore = mockk {
         every { state } returns IPProtectionState(proxyStatus = proxyStatus)
         every { dispatch(any()) } just Runs
@@ -283,6 +327,7 @@ class MenuMiddlewareTest {
     private fun createStore(
         provided: StateFlow<MenuItem?> = MutableStateFlow(readerViewItem),
         ipProtectionStore: IPProtectionStore = ipProtectionStore(Authorized.Idle),
+        browserStore: BrowserStore = this.browserStore,
     ) =
         MenuStore(
             initialState = MenuState(emptyList()),

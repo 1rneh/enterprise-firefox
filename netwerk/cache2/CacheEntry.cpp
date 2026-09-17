@@ -1864,13 +1864,13 @@ void CacheEntry::DoomAlreadyRemoved() {
   // Remove from DictionaryCache immediately, to ensure the removal is
   // synchronous
   LOG(("DoomAlreadyRemoved [entry=%p removed]", this));
-  // These are keyed on the same ascii spec the entry itself is keyed on.
   nsAutoCString uriSpec;
   mURI->GetAsciiSpec(uriSpec);
+  nsCOMPtr<nsILoadContextInfo> lci = CacheFileUtils::ParseKey(mStorageID);
   if (mEnhanceID.EqualsLiteral("dict:")) {
-    DictionaryCache::RemoveOriginFor(uriSpec);
+    DictionaryCache::RemoveOriginFor(uriSpec, lci);
   } else {
-    DictionaryCache::RemoveDictionaryOMT(uriSpec);
+    DictionaryCache::RemoveDictionaryOMT(uriSpec, lci);
   }
 
   // Pretend pinning is know.  This entry is now doomed for good, so don't

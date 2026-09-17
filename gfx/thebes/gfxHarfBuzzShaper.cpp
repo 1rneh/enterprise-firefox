@@ -1381,10 +1381,10 @@ bool gfxHarfBuzzShaper::ShapeText(const char16_t* aText, uint32_t aOffset,
 
   // determine whether petite-caps falls back to small-caps
   bool addSmallCaps = false;
-  if (style->variantCaps != NS_FONT_VARIANT_CAPS_NORMAL) {
+  if (style->variantCaps != StyleFontVariantCaps::Normal) {
     switch (style->variantCaps) {
-      case NS_FONT_VARIANT_CAPS_ALL_PETITE_CAPS:
-      case NS_FONT_VARIANT_CAPS_PETITE_CAPS:
+      case StyleFontVariantCaps::AllPetiteCaps:
+      case StyleFontVariantCaps::PetiteCaps:
         bool synLower, synUpper;
         mFont->SupportsVariantCaps(aScript, style->variantCaps, addSmallCaps,
                                    synLower, synUpper);

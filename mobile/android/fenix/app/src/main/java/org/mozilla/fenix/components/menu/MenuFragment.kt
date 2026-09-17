@@ -44,6 +44,7 @@ import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.R
 import org.mozilla.fenix.bookmarks.BookmarkMenuItemProvider
+import org.mozilla.fenix.browser.BackMenuItemProvider
 import org.mozilla.fenix.browser.DesktopSiteMenuItemProvider
 import org.mozilla.fenix.browser.readermode.ReaderViewMenuItemProvider
 import org.mozilla.fenix.components.FindInPageMenuItemProvider
@@ -51,6 +52,8 @@ import org.mozilla.fenix.components.menu.compose.MenuDialogBottomSheet
 import org.mozilla.fenix.components.menu.compose.MenuHandleState
 import org.mozilla.fenix.components.menu.middleware.MenuMiddleware
 import org.mozilla.fenix.components.menu.middleware.MenuTelemetryMiddleware
+import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.ext.isToolbarAtBottom
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ipprotection.VpnMenuItemProvider
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -215,6 +218,11 @@ class MenuFragment : BottomSheetDialogFragment() {
                     bookmarksStorage = requireComponents.core.bookmarksStorage,
                     applicationScope = requireComponents.applicationScope,
                 ),
+            FenixMenuItem.Back to
+                BackMenuItemProvider(
+                    browserStore = requireComponents.core.store,
+                    scope = viewLifecycleOwner.lifecycle.coroutineScope,
+                ),
             FenixMenuItem.FindInPage to FindInPageMenuItemProvider(),
             FenixMenuItem.DesktopSite to
                 DesktopSiteMenuItemProvider(
@@ -233,7 +241,13 @@ class MenuFragment : BottomSheetDialogFragment() {
                         browserStore = requireComponents.core.store,
                         ipProtectionStore = requireComponents.ipProtection.store,
                         useCases = requireComponents.useCases,
-                        browserMenuBuilder = BrowserMenuBuilder(providers = buildMenuItemProviders()),
+                        browserMenuBuilder =
+                            BrowserMenuBuilder(
+                                providers = buildMenuItemProviders(),
+                                isToolbarAtBottom = requireContext().isToolbarAtBottom(),
+                                isExpandedToolbarEnabled =
+                                    requireContext().components.settings.shouldUseExpandedToolbar,
+                            ),
                         navController = findNavController(),
                         scope = viewLifecycleOwner.lifecycle.coroutineScope,
                         applicationScope = requireComponents.applicationScope,

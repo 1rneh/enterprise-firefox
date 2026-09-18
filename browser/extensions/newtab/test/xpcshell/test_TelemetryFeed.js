@@ -39,6 +39,8 @@ const PREF_UNIFIED_ADS_TILES_ENABLED =
   "browser.newtabpage.activity-stream.unifiedAds.tiles.enabled";
 const PREF_UNIFIED_ADS_SPOCS_ENABLED =
   "browser.newtabpage.activity-stream.unifiedAds.spocs.enabled";
+const PREF_SHOW_SPONSORED_TOP_SITES =
+  "browser.newtabpage.activity-stream.showSponsoredTopSites";
 
 add_setup(async function setup() {
   do_get_profile();
@@ -60,6 +62,26 @@ add_setup(async function setup() {
   registerCleanupFunction(() => {
     sandbox.restore();
   });
+
+  // Enterprise builds lock this pref off in browser/app/profile/firefox.js.
+  if (AppConstants.MOZ_ENTERPRISE) {
+    Assert.ok(
+      Services.prefs.prefIsLocked(PREF_SHOW_SPONSORED_TOP_SITES),
+      "showSponsoredTopSites should be locked on enterprise builds"
+    );
+    Assert.equal(
+      Services.prefs.getBoolPref(PREF_SHOW_SPONSORED_TOP_SITES),
+      false,
+      "showSponsoredTopSites should be locked off on enterprise builds"
+    );
+
+    Services.prefs.unlockPref(PREF_SHOW_SPONSORED_TOP_SITES);
+
+    registerCleanupFunction(() => {
+      Services.prefs.clearUserPref(PREF_SHOW_SPONSORED_TOP_SITES);
+      Services.prefs.lockPref(PREF_SHOW_SPONSORED_TOP_SITES);
+    });
+  }
 });
 
 add_task(async function test_construction() {

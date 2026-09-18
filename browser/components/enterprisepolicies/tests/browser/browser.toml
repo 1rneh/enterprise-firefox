@@ -168,6 +168,8 @@ support-files = [
 
 ["browser_policy_set_startpage.js"]
 
+["browser_policy_sitepolicies_container.js"]
+
 ["browser_policy_sitepolicies_https.js"]
 https_first_disabled = true
 support-files = [

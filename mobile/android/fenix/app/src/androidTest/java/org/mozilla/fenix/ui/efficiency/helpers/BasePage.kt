@@ -588,6 +588,29 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
             predicate = { Relations.hasCheckedSiblingNamed(it, siblingResName) },
         )
 
+    /**
+     * Assert the switch belonging to a preference row is on/off. [optionSelector] must name the row's title (unique by
+     * text); the row's switch is reached as its cousin, so this addresses one row's toggle even though every row shares
+     * the `switchWidget` id. Toggle a row by clicking the same title selector.
+     */
+    fun mozVerifyOptionSwitchIsChecked(optionSelector: Selector) =
+        require(
+            verb = "verify_option_switch_checked",
+            selector = optionSelector,
+            expectation = "has a checked switch",
+            dumpOnFailure = false,
+            predicate = { Relations.hasCousinSwitch(it, checked = true) },
+        )
+
+    fun mozVerifyOptionSwitchIsNotChecked(optionSelector: Selector) =
+        require(
+            verb = "verify_option_switch_not_checked",
+            selector = optionSelector,
+            expectation = "has an unchecked switch",
+            dumpOnFailure = false,
+            predicate = { Relations.hasCousinSwitch(it, checked = false) },
+        )
+
     // --- Verbs: all the matches at once ------------------------------------------
 
     fun mozVerifyElementCount(

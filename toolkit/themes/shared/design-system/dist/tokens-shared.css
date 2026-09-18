@@ -843,7 +843,7 @@
       --card-header-border-color: transparent;
 
       /** color **/
-      --color-accent-attention: light-dark(var(--color-green-40), var(--color-green-30));
+      --color-accent-attention: light-dark(var(--color-green-50), var(--color-green-20));
       --color-accent-primary: light-dark(var(--color-violet-50), var(--color-violet-30));
       --color-accent-primary-hover: light-dark(var(--color-violet-60), var(--color-violet-20));
       --color-accent-primary-active: light-dark(var(--color-violet-70), var(--color-violet-10));

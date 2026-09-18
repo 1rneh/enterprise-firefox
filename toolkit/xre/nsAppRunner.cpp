@@ -2767,8 +2767,8 @@ nsresult LaunchChild(bool aBlankCommandLine, bool aTryExec) {
   // immediately returns non-zero then we may mask that by returning a zero
   // exit status.
 
-#    endif  // WP_WIN
-#  endif    // WP_MACOSX
+#    endif  // XP_WIN
+#  endif    // XP_MACOSX
 #endif      // MOZ_WIDGET_ANDROID
 
   return NS_ERROR_LAUNCHED_CHILD_PROCESS;

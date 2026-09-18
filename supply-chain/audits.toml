@@ -7080,6 +7080,12 @@ criteria = "safe-to-deploy"
 delta = "0.2.14 -> 0.2.16"
 notes = "All patches either authored or reviewed by me."
 
+[[audits.thin-vec]]
+who = "Emilio Cobos Álvarez <emilio@crisal.io>"
+criteria = "safe-to-deploy"
+delta = "0.2.16 -> 0.2.20"
+notes = "Authored or reviewed all changes."
+
 [[audits.thiserror]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"

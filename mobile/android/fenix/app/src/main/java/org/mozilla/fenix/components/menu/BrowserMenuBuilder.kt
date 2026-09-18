@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import mozilla.components.compose.menu.data.MenuItem
 import mozilla.components.compose.menu.data.MenuItemsGroup
+import org.mozilla.fenix.components.menu.FenixMenuItem.Back
 import org.mozilla.fenix.components.menu.FenixMenuItem.Bookmark
 import org.mozilla.fenix.components.menu.FenixMenuItem.CustomizeReaderView
 import org.mozilla.fenix.components.menu.FenixMenuItem.DesktopSite
@@ -30,8 +31,17 @@ import org.mozilla.fenix.components.menu.MenuPresentationMode.Row
  */
 class BrowserMenuBuilder(
     private val providers: Map<FenixMenuItem, MenuItemProvider>,
-    private val configuration: List<MenuSectionConfiguration> = DEFAULT,
+    private val configuration: List<MenuSectionConfiguration>,
 ) {
+    constructor(
+        providers: Map<FenixMenuItem, MenuItemProvider>,
+        isToolbarAtBottom: Boolean = false,
+        isExpandedToolbarEnabled: Boolean = false,
+    ) : this(
+        providers = providers,
+        configuration = buildDefaultConfiguration(isToolbarAtBottom, isExpandedToolbarEnabled),
+    )
+
     private val orderedItems = configuration.flatMap { it.items }
 
     /** The menu to show, re-emitted whenever any of the items in it changes. */
@@ -57,34 +67,51 @@ class BrowserMenuBuilder(
 
     private fun MenuSectionConfiguration.toGroup(shownItems: List<MenuItem>) =
         when (presentationMode) {
-            Row -> MenuItemsGroup.Row(id = id, items = shownItems)
-            Grid -> MenuItemsGroup.Grid(id = id, items = shownItems)
+            Row -> MenuItemsGroup.Row(id = id, items = shownItems, isSticky = isSticky)
+            Grid -> MenuItemsGroup.Grid(id = id, items = shownItems, isSticky = isSticky)
         }
 
     companion object {
+        @VisibleForTesting internal val BROWSER_MENU_NAVIGATION_ID = "browser_navigation"
         @VisibleForTesting internal val BROWSER_MENU_GROUP_1_ID = "browser_group_1"
         @VisibleForTesting internal val BROWSER_MENU_GROUP_2_ID = "browser_group_2"
         @VisibleForTesting internal val BROWSER_MENU_GROUP_3_ID = "browser_group_3"
 
-        /** The items shown in the browser menu, and how they are laid out. */
         @VisibleForTesting
-        internal val DEFAULT =
-            listOf(
+        internal fun buildDefaultConfiguration(
+            isToolbarAtBottom: Boolean,
+            isExpandedToolbarEnabled: Boolean,
+        ): List<MenuSectionConfiguration> {
+            val navSection =
                 MenuSectionConfiguration(
-                    id = BROWSER_MENU_GROUP_1_ID,
-                    presentationMode = Row,
-                    items = listOf(CustomizeReaderView),
-                ),
-                MenuSectionConfiguration(
-                    id = BROWSER_MENU_GROUP_2_ID,
-                    presentationMode = Row,
-                    items = listOf(IPProtection),
-                ),
-                MenuSectionConfiguration(
-                    id = BROWSER_MENU_GROUP_3_ID,
-                    presentationMode = Row,
-                    items = listOf(Bookmark, FindInPage, DesktopSite),
-                ),
-            )
+                    id = BROWSER_MENU_NAVIGATION_ID,
+                    presentationMode = Grid,
+                    items = listOf(Back),
+                    isSticky = true,
+                )
+            val rest =
+                listOf(
+                    MenuSectionConfiguration(
+                        id = BROWSER_MENU_GROUP_1_ID,
+                        presentationMode = Row,
+                        items = listOf(CustomizeReaderView),
+                    ),
+                    MenuSectionConfiguration(
+                        id = BROWSER_MENU_GROUP_2_ID,
+                        presentationMode = Row,
+                        items = listOf(IPProtection),
+                    ),
+                    MenuSectionConfiguration(
+                        id = BROWSER_MENU_GROUP_3_ID,
+                        presentationMode = Row,
+                        items = listOf(Bookmark, FindInPage, DesktopSite),
+                    ),
+                )
+            return if (isToolbarAtBottom || isExpandedToolbarEnabled) rest + navSection else listOf(navSection) + rest
+        }
+
+        /** The default menu structure. */
+        @VisibleForTesting
+        internal val DEFAULT = buildDefaultConfiguration(isToolbarAtBottom = false, isExpandedToolbarEnabled = false)
     }
 }

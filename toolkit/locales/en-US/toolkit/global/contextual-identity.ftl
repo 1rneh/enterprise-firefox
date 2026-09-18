@@ -5,34 +5,48 @@
 ## Names of the default containers in Firefox.
 ## See https://support.mozilla.org/kb/how-use-firefox-containers
 
-user-context-personal2 =
+user-context-personal =
     .label = Personal
-user-context-work2 =
+    .accesskey = P
+user-context-work =
     .label = Work
-user-context-banking2 =
+    .accesskey = W
+user-context-banking =
     .label = Banking
-user-context-shopping2 =
+    .accesskey = B
+user-context-shopping =
     .label = Shopping
+    .accesskey = S
 
 ##
 
-user-context-new-tab2 =
+user-context-new-tab =
     .label = New Tab
-user-context-add-container2 =
+    .accesskey = N
+user-context-add-container =
     .label = Add new container
-user-context-manage-containers2 =
+    .accesskey = A
+user-context-manage-containers =
     .label = Manage containers
+    .accesskey = o
 
 # The below strings need separate messages for use in panel-list implementations,
 # which take their label from the message value rather than a .label attribute.
 
-user-context-personal2-panel-item = Personal
-user-context-work2-panel-item = Work
-user-context-banking2-panel-item = Banking
-user-context-shopping2-panel-item = Shopping
-user-context-new-tab2-panel-item = New Tab
-user-context-add-container2-panel-item = Add new container
-user-context-manage-containers2-panel-item = Manage containers
+user-context-personal-panel-item = Personal
+    .accesskey = P
+user-context-work-panel-item = Work
+    .accesskey = W
+user-context-banking-panel-item = Banking
+    .accesskey = B
+user-context-shopping-panel-item = Shopping
+    .accesskey = S
+user-context-new-tab-panel-item = New Tab
+    .accesskey = N
+user-context-add-container-panel-item = Add new container
+    .accesskey = A
+user-context-manage-containers-panel-item = Manage containers
+    .accesskey = o
 
 ## Container colors, shown as selectable swatches in the container creation/edit dialog.
 

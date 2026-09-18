@@ -464,13 +464,11 @@ class ArenaCollection {
 
     // We must hold the arena collection lock while updating the status
     // globally AND on each arena.
-    bool previous;
     {
       MutexAutoLock lock(mLock);
-      previous = mIsDeferredPurgeEnabled;
-      if (previous == aEnable) {
+      if (mIsDeferredPurgeEnabled == aEnable) {
         // There's nothing more to do.
-        return previous;
+        return aEnable;
       }
 
       mIsDeferredPurgeEnabled = aEnable;
@@ -482,7 +480,7 @@ class ArenaCollection {
 
     MayPurgeAll(PurgeIfThreshold, __func__);
 
-    return previous;
+    return aEnable;
   }
 
   bool IsDeferredPurgeEnabled() MOZ_REQUIRES(mLock) {

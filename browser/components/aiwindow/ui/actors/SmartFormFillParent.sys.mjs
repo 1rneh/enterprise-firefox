@@ -1294,7 +1294,11 @@ export class SmartFormFillParent extends JSWindowActorParent {
    */
   async searchAutoCompleteEntries(_searchString, options) {
     const focusedForm = await this.#getFocusedForm();
-    if (!focusedForm) {
+
+    // Every provider that injects the Smart Form Fill entry funnels through
+    // here, so this is where the entry is kept out of a field the user has
+    // already put a value in, or is typing in.
+    if (!focusedForm?.emptyFieldIds.has(focusedForm.focusedFieldId)) {
       return null;
     }
 

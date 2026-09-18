@@ -103,6 +103,7 @@ use crate::ellipse::Ellipse;
 use crate::intern;
 use crate::internal_types::{FastHashMap, FastHashSet};
 use crate::prim_store::{VisibleMaskImageTile};
+use crate::quad_clip::{QuadClipStack, QuadMaskTile};
 use crate::prim_store::{ClipSnap, RectKey, PolygonKey};
 use crate::render_task::RenderTask;
 use crate::render_task_graph::RenderTaskGraphBuilder;
@@ -1369,6 +1370,88 @@ impl ClipStore {
         index: u32,
     ) -> &ClipNodeInstance {
         &self.clip_node_instances[(node_range.first + index) as usize]
+    }
+
+    /// Resolve a clip chain instance into a `QuadClipStack`, which the quad path
+    /// consumes without reaching back into the clip store or the interner.
+    ///
+    /// `device_coverage_rect` is `clip_chain.pic_coverage_rect` mapped through
+    /// the surface the primitive is drawn into. The caller maps it because the
+    /// clip store has no way to pick that surface: it is the destination
+    /// surface, not the one the primitive's own picture belongs to.
+    pub fn fill_quad_clips(
+        &self,
+        dest: &mut QuadClipStack,
+        clip_chain: &ClipChainInstance,
+        device_coverage_rect: DeviceRect,
+        interned_clips: &ClipDataStore,
+    ) {
+        self.fill_quad_clips_from_range(dest, clip_chain.clips_range, interned_clips);
+
+        dest.set_bounds(
+            clip_chain.local_clip_rect,
+            device_coverage_rect,
+            clip_chain.needs_mask,
+        );
+    }
+
+    /// Resolve a range of clip node instances into a `QuadClipStack`, leaving the
+    /// stack's bounds alone. For the mask paths that assemble an ad-hoc range
+    /// rather than consuming a whole clip chain.
+    pub fn fill_quad_clips_from_range(
+        &self,
+        dest: &mut QuadClipStack,
+        range: ClipNodeRange,
+        interned_clips: &ClipDataStore,
+    ) {
+        dest.clear();
+
+        for instance in &self.clip_node_instances[range.to_range()] {
+            self.push_quad_clip(dest, instance, interned_clips);
+        }
+    }
+
+    /// Resolve a single clip node instance and append it to a `QuadClipStack`.
+    /// For the mask paths that pick out a subset of a clip chain.
+    pub fn push_quad_clip(
+        &self,
+        dest: &mut QuadClipStack,
+        instance: &ClipNodeInstance,
+        interned_clips: &ClipDataStore,
+    ) {
+        let uid = instance.handle.uid().get_uid();
+
+        match interned_clips[instance.handle].item.kind {
+            ClipItemKind::Rectangle { mode } => {
+                dest.push_rect(
+                    instance.clip_rect,
+                    mode,
+                    instance.spatial_node_index,
+                    uid,
+                );
+            }
+            ClipItemKind::RoundedRectangle { radius, inset, mode } => {
+                dest.push_rounded_rect(
+                    instance.clip_rect,
+                    radius,
+                    inset,
+                    mode,
+                    instance.spatial_node_index,
+                    uid,
+                );
+            }
+            ClipItemKind::Image { .. } => {
+                dest.push_mask(
+                    instance.clip_rect,
+                    instance.spatial_node_index,
+                    uid,
+                    self.visible_mask_tiles(instance).iter().map(|tile| QuadMaskTile {
+                        rect: tile.tile_rect,
+                        task_id: tile.task_id,
+                    }),
+                );
+            }
+        }
     }
 
     /// Setup the active clip chains for building a clip chain instance.

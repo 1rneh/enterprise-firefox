@@ -21477,7 +21477,8 @@ already_AddRefed<Document> Document::ParseHTMLUnsafe(
   // config from options with compliantOptions and false.
   RefPtr<Sanitizer> sanitizer;
   if (sanitize) {
-    sanitizer = Sanitizer::GetInstance(global, aOptions.mSanitizer.Value(),
+    sanitizer = Sanitizer::GetInstance(global->GetAsInnerWindow(),
+                                       aOptions.mSanitizer.Value(),
                                        /* aSafe */ false, aError);
     if (aError.Failed()) {
       return nullptr;
@@ -21524,9 +21525,10 @@ already_AddRefed<Document> Document::ParseHTML(GlobalObject& aGlobal,
 
   // Step 3. Let sanitizerConfig be the result of calling get a sanitizer
   // config from options with options and true.
-  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<Sanitizer> sanitizer = Sanitizer::GetInstance(
-      global, aOptions.mSanitizer, /* aSafe */ true, aError);
+      window, aOptions.mSanitizer, /* aSafe */ true, aError);
   if (aError.Failed()) {
     return nullptr;
   }

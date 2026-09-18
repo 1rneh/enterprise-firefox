@@ -3829,8 +3829,11 @@ nsPrefOverrideMap::GetEntry(const nsACString& aPrefName, JSContext* aCx,
           return JS::Int32Value(it->value()->GetPrefValue().Get<int32_t>());
         case PrefType::String: {
           auto str = it->value()->GetPrefValue().Get<nsDependentCString>();
-          return JS::StringValue(
-              JS_NewStringCopyN(aCx, str.get(), str.Length()));
+          JSString* jsStr = JS_NewStringCopyN(aCx, str.get(), str.Length());
+          if (NS_WARN_IF(!jsStr)) {
+            return Err(NS_ERROR_OUT_OF_MEMORY);
+          }
+          return JS::StringValue(jsStr);
         }
         default:
           // Do not expect type NONE

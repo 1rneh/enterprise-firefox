@@ -372,6 +372,10 @@ with modules["NETWORK"]:
     # error means the connect itself never had a chance to succeed, so it
     # must not be routed through that (unrelated) content-permission flow.
     errors["NS_ERROR_OS_LOCAL_NETWORK_ACCESS_DENIED"] = FAILURE(95)
+    # The request body can only be sent once, so the request cannot be
+    # retried, resubmitted with credentials, or carried on a connection that
+    # would need its length up front.
+    errors["NS_ERROR_NET_BODY_NOT_REPLAYABLE"] = FAILURE(96)
 
     # XXX really need to better rationalize these error codes.  are consumers of
     # necko really expected to know how to discern the meaning of these??

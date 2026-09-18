@@ -302,7 +302,7 @@
 
 - name: accessibility.tagged_pdf_output.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether to enable support for the UI Automation API on Windows. Values:
@@ -3224,6 +3224,11 @@
   value: 256
   mirror: always
 
+- name: dom.fetch.streaming_upload
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Whether to validate that a fetch request's principal is compatible with the
 # remote type of the process it originates from.
 - name: dom.fetch.validatePrincipalForRemoteType
@@ -4194,13 +4199,10 @@
   mirror: always
 
 # Is support for PerformanceResourceTiming/PerformanceNavigationTiming's
-# deliveryType enabled? Independent of dom.speculation_rules.enabled: this
-# only implements the "navigational-prefetch" value, not "cache" (bug
-# 1914120), so it must stay off even once speculation rules ships, until
-# "cache" support lands too.
+# deliveryType enabled? Independent of dom.speculation_rules.enabled.
 - name: dom.performance.deliverytype.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Whether the interactionId will be computed and returned by performance observer*
@@ -13369,7 +13371,11 @@
 
 - name: media.webspeech.recognition.enable
   type: bool
+#ifndef ANDROID
+  value: @IS_NIGHTLY_BUILD@
+#else
   value: false
+#endif
   mirror: always
 
 # Whether start() offers to download the on-device model for its language when
@@ -15730,6 +15736,16 @@
 - name: network.dnsCacheExpiration
   type: RelaxedAtomicUint32
   value: 60
+  mirror: always
+
+# Lifetime (in seconds) of a negative DNS cache entry.
+- name: network.dnsNegativeCacheExpiration
+  type: RelaxedAtomicUint32
+#if defined(NIGHTLY_BUILD)
+  value: 300
+#else
+  value: 60
+#endif
   mirror: always
 
 # Get TTL; not supported on all platforms; nop on the unsupported ones.

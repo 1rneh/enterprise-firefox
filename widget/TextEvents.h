@@ -1073,7 +1073,7 @@ class WidgetQueryContentEvent final : public WidgetGUIEvent {
   }
 
   struct Options final {
-    explicit Options() {}  // XXX Cannot use `= default` here
+    explicit Options() {}  // NOLINT(modernize-use-equals-default)
     explicit Options(const WidgetQueryContentEvent& aEvent)
         : mRelativeToInsertionPoint(aEvent.mInput.mRelativeToInsertionPoint) {}
 

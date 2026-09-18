@@ -89,8 +89,11 @@ class EditContext final : public DOMEventTargetHelper, public SupportsWeakPtr {
   // Get writing mode of associated element.
   mozilla::WritingMode WritingMode() const;
 
-  // https://w3c.github.io/edit-context/#dfn-deactivate-an-editcontext
-  MOZ_CAN_RUN_SCRIPT void Deactivate();
+  // Notify the EditContext that it's being deactivated. Note that unlike
+  // https://w3c.github.io/edit-context/#dfn-deactivate-an-editcontext,
+  // it doesn't fire compositionend (that is instead done before this in
+  // Document::DeactivateEditContextAndEndComposition).
+  void Deactivate();
 
   IMPL_EVENT_HANDLER(characterboundsupdate);
   IMPL_EVENT_HANDLER(compositionstart);

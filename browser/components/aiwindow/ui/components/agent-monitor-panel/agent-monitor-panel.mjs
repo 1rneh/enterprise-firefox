@@ -216,7 +216,9 @@ export class AgentMonitorPanel extends MozLitElement {
   }
 
   #renderFooter() {
-    const atLimit = this.monitors.length >= this.maxMonitors;
+    // Paused monitors don't count toward the limit.
+    const activeCount = this.monitors.filter(monitor => monitor.enabled).length;
+    const atLimit = activeCount >= this.maxMonitors;
     return html`
       <div class="monitor-footer">
         <button
@@ -235,7 +237,7 @@ export class AgentMonitorPanel extends MozLitElement {
             class="monitor-footer-count"
             data-l10n-id="smartwindow-monitor-panel-count"
             data-l10n-args=${JSON.stringify({
-              used: this.monitors.length,
+              used: activeCount,
               max: this.maxMonitors,
             })}
           ></span>

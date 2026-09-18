@@ -429,19 +429,6 @@ class Longhand(Property):
     # the Gecko style struct can only produce them by value.
     NO_BORROWED_GETTER = {
         "font-size",
-        "-x-lang",
-        "font-feature-settings",
-        "font-variation-settings",
-        # Stored as a plain float rather than NonNegative<f32>.
-        "flex-grow",
-        "flex-shrink",
-        "stroke-miterlimit",
-        "-moz-box-flex",
-        # Stored as the underlying slice rather than the List wrapper.
-        "backdrop-filter",
-        "box-shadow",
-        "filter",
-        "text-shadow",
     }
 
     def has_borrowed_getter(self):

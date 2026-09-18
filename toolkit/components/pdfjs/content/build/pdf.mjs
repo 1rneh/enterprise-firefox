@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.4.160
- * pdfjsBuild = ee470d5db
+ * pdfjsVersion = 6.4.168
+ * pdfjsBuild = 51fc21d1f
  */
 
 ;// ./src/shared/util.js
@@ -2067,7 +2067,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "5960813a-aafe-44ce-a1a2-18a81975929e";
+const INTERNAL_EVT = "2ca07d41-1e0b-4841-b7c0-1c41f6f2ac81";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -14550,7 +14550,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.4.160",
+    apiVersion: "6.4.168",
     data,
     password,
     disableAutoFetch,
@@ -16212,8 +16212,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.4.160";
-const build = "ee470d5db";
+const version = "6.4.168";
+const build = "51fc21d1f";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -19789,11 +19789,15 @@ class MediaAnnotationElement extends AnnotationElement {
     const {
       signal
     } = this.#abortController;
-    const url = URL.createObjectURL(new Blob([content], {
+    const blob = new Blob([content], {
       type: contentType
-    }));
+    });
+    if (!/^(?:video|audio)\//.test(blob.type)) {
+      return;
+    }
+    const url = URL.createObjectURL(blob);
     this.#contentUrl = url;
-    const isAudio = contentType.startsWith("audio/");
+    const isAudio = blob.type.startsWith("audio/");
     const media = document.createElement(isAudio ? "audio" : "video");
     this.#media = media;
     media.className = "mediaContent";

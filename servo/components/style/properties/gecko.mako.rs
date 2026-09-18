@@ -7,7 +7,6 @@
 <%! from data import to_camel_case, to_camel_case_lower, SYSTEM_FONT_LONGHANDS %>
 <%namespace name="helpers" file="/helpers.mako.rs" />
 
-use crate::Atom;
 use crate::logical_geometry::PhysicalSide;
 use crate::computed_value_flags::*;
 use crate::custom_properties::ComputedCustomProperties;
@@ -19,8 +18,6 @@ use crate::gecko_bindings::bindings::Gecko_CopyConstruct_${style_struct.gecko_ff
 use crate::gecko_bindings::bindings::Gecko_Destroy_${style_struct.gecko_ffi_name};
 % endfor
 use crate::gecko_bindings::bindings::Gecko_EnsureImageLayersLength;
-use crate::gecko_bindings::bindings::Gecko_nsStyleFont_SetLang;
-use crate::gecko_bindings::bindings::Gecko_nsStyleFont_CopyLangFrom;
 use crate::gecko_bindings::structs::{self, PseudoStyleType};
 use crate::gecko::data::PerDocumentStyleData;
 use crate::logical_geometry::WritingMode;
@@ -306,42 +303,6 @@ impl ComputedValuesInner {
     % endfor
 }
 
-<%def name="impl_simple_setter(ident, gecko_ffi_name)">
-    #[allow(non_snake_case, clippy::useless_conversion)]
-    pub fn set_${ident}(&mut self, v: longhands::${ident}::computed_value::T) {
-        ${set_gecko_property(gecko_ffi_name, "From::from(v)")}
-    }
-</%def>
-
-<%def name="impl_simple_eq(ident, gecko_ffi_name)">
-    #[allow(non_snake_case)]
-    pub fn ${ident}_equals(&self, other: &Self) -> bool {
-        self.${gecko_ffi_name} == other.${gecko_ffi_name}
-    }
-</%def>
-
-<%def name="impl_simple_clone(ident, gecko_ffi_name, borrowed)">
-    % if borrowed:
-    #[allow(non_snake_case)]
-    #[inline]
-    pub fn get_${ident}(&self) -> &longhands::${ident}::computed_value::T {
-        &self.${gecko_ffi_name}
-    }
-
-    #[allow(non_snake_case, clippy::clone_on_copy)]
-    #[inline]
-    pub fn slow_clone_${ident}(&self) -> longhands::${ident}::computed_value::T {
-        self.get_${ident}().clone()
-    }
-    % else:
-    #[allow(non_snake_case, clippy::useless_conversion, clippy::clone_on_copy)]
-    #[inline]
-    pub fn slow_clone_${ident}(&self) -> longhands::${ident}::computed_value::T {
-        From::from(self.${gecko_ffi_name}.clone())
-    }
-    % endif
-</%def>
-
 <%def name="impl_physical_sides(ident, props)">
     pub fn get_${ident}(&self, s: PhysicalSide) -> &longhands::${data.longhands_by_name[props[0]].ident}::computed_value::T {
         match s {
@@ -361,28 +322,50 @@ impl ComputedValuesInner {
     }
 </%def>
 
-<%def name="impl_simple_copy(ident, gecko_ffi_name, *kwargs)">
-    #[allow(non_snake_case, clippy::clone_on_copy)]
-    pub fn copy_${ident}_from(&mut self, other: &Self) {
-        self.${gecko_ffi_name} = other.${gecko_ffi_name}.clone();
+<%def name="impl_simple(lh, set=True)">
+    % if set:
+    #[allow(non_snake_case, clippy::useless_conversion)]
+    pub fn set_${lh.ident}(&mut self, v: longhands::${lh.ident}::computed_value::T) {
+        self.${lh.gecko_ffi_name} = From::from(v);
+    }
+    % endif
+
+    #[allow(non_snake_case)]
+    pub fn copy_${lh.ident}_from(&mut self, other: &Self) {
+        self.set_${lh.ident}(other.slow_clone_${lh.ident}());
     }
 
     #[allow(non_snake_case)]
-    pub fn reset_${ident}(&mut self, other: &Self) {
-        self.copy_${ident}_from(other)
+    pub fn reset_${lh.ident}(&mut self, other: &Self) {
+        self.copy_${lh.ident}_from(other)
     }
-</%def>
 
-<%!
-def set_gecko_property(ffi_name, expr):
-    return "self.%s = %s;" % (ffi_name, expr)
-%>
+    % if lh.has_borrowed_getter():
+    % if lh.vector and lh.vector.simple_bindings:
+    #[allow(non_snake_case)]
+    #[inline]
+    pub fn get_${lh.ident}(&self) -> &[longhands::${lh.ident}::computed_value::single_value::T] {
+        &self.${lh.gecko_ffi_name}
+    }
+    % else:
+    #[allow(non_snake_case)]
+    #[inline]
+    pub fn get_${lh.ident}(&self) -> &longhands::${lh.ident}::computed_value::T {
+        &self.${lh.gecko_ffi_name}
+    }
+    % endif
+    % endif
 
-<%def name="impl_simple(ident, gecko_ffi_name, borrowed=True)">
-<%call expr="impl_simple_setter(ident, gecko_ffi_name)"></%call>
-<%call expr="impl_simple_copy(ident, gecko_ffi_name)"></%call>
-<%call expr="impl_simple_clone(ident, gecko_ffi_name, borrowed)"></%call>
-<%call expr="impl_simple_eq(ident, gecko_ffi_name)"></%call>
+    #[allow(non_snake_case, clippy::useless_conversion, clippy::clone_on_copy)]
+    #[inline]
+    pub fn slow_clone_${lh.ident}(&self) -> longhands::${lh.ident}::computed_value::T {
+        From::from(self.${lh.gecko_ffi_name}.clone())
+    }
+
+    #[allow(non_snake_case)]
+    pub fn ${lh.ident}_equals(&self, other: &Self) -> bool {
+        self.${lh.gecko_ffi_name} == other.${lh.gecko_ffi_name}
+    }
 </%def>
 
 <%def name="impl_style_struct(style_struct)">
@@ -455,41 +438,6 @@ impl Clone for ${style_struct.gecko_struct_name} {
 }
 </%def>
 
-<%def name="impl_font_settings(ident, gecko_type, tag_type, value_type, gecko_value_type)">
-    <% gecko_ffi_name = to_camel_case_lower(ident) %>
-
-    pub fn set_${ident}(&mut self, v: longhands::${ident}::computed_value::T) {
-        let iter = v.0.iter().map(|other| structs::${gecko_type} {
-            mTag: other.tag.0,
-            mValue: other.value as ${gecko_value_type},
-        });
-        self.mFont.${gecko_ffi_name}.clear();
-        self.mFont.${gecko_ffi_name}.extend(iter);
-    }
-
-    ${impl_simple_copy(ident, "mFont." + gecko_ffi_name)}
-
-    pub fn ${ident}_equals(&self, other: &Self) -> bool {
-        let ours = &self.mFont.${gecko_ffi_name};
-        let theirs = &other.mFont.${gecko_ffi_name};
-        ours.len() == theirs.len() &&
-            ours.iter().zip(theirs.iter()).all(|(a, b)| a.mTag == b.mTag && a.mValue == b.mValue)
-    }
-
-    pub fn slow_clone_${ident}(&self) -> longhands::${ident}::computed_value::T {
-        use crate::values::generics::font::{FontSettings, FontTag, ${tag_type}};
-
-        FontSettings(
-            self.mFont.${gecko_ffi_name}.iter().map(|gecko_font_setting| {
-                ${tag_type} {
-                    tag: FontTag(gecko_font_setting.mTag),
-                    value: gecko_font_setting.mValue as ${value_type},
-                }
-            }).collect()
-        )
-    }
-</%def>
-
 <%def name="impl_trait(style_struct_name, skip_longhands='')">
 <%
     style_struct = next(x for x in data.style_structs if x.name == style_struct_name)
@@ -499,11 +447,7 @@ impl Clone for ${style_struct.gecko_struct_name} {
     def longhand_method(longhand):
         if longhand.logical:
             return
-        impl_simple(
-            ident=longhand.ident,
-            gecko_ffi_name=longhand.gecko_ffi_name,
-            borrowed=longhand.has_borrowed_getter(),
-        )
+        impl_simple(longhand)
 %>
 impl ${style_struct.gecko_struct_name} {
     /*
@@ -560,14 +504,9 @@ fn static_assert() {
 <%self:impl_trait style_struct_name="Outline">
 </%self:impl_trait>
 
-<% skip_font_longhands = """font-size -x-lang font-feature-settings font-variation-settings""" %>
+<% skip_font_longhands = """font-size -x-lang""" %>
 <%self:impl_trait style_struct_name="Font"
     skip_longhands="${skip_font_longhands}">
-
-    // Negative numbers are invalid at parse time, but <integer> is still an
-    // i32.
-    <% impl_font_settings("font_feature_settings", "gfxFontFeature", "FeatureTagValue", "i32", "u32") %>
-    <% impl_font_settings("font_variation_settings", "gfxFontVariation", "VariationValue", "f32", "f32") %>
 
     pub fn unzoom_fonts(&mut self, device: &Device) {
         use crate::values::generics::NonNegative;
@@ -627,37 +566,12 @@ fn static_assert() {
         }
     }
 
+    ${impl_simple(data.longhands_by_name["-x-lang"], set=False)}
+
     #[allow(non_snake_case)]
     pub fn set__x_lang(&mut self, v: longhands::_x_lang::computed_value::T) {
-        let ptr = v.0.as_ptr();
-        forget(v);
-        unsafe {
-            Gecko_nsStyleFont_SetLang(&mut **self, ptr);
-        }
-    }
-
-    #[allow(non_snake_case)]
-    pub fn copy__x_lang_from(&mut self, other: &Self) {
-        unsafe {
-            Gecko_nsStyleFont_CopyLangFrom(&mut **self, &**other);
-        }
-    }
-
-    #[allow(non_snake_case)]
-    pub fn reset__x_lang(&mut self, other: &Self) {
-        self.copy__x_lang_from(other)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn slow_clone__x_lang(&self) -> longhands::_x_lang::computed_value::T {
-        longhands::_x_lang::computed_value::T(unsafe {
-            Atom::from_raw(self.mLanguage.mRawPtr)
-        })
-    }
-
-    #[allow(non_snake_case)]
-    pub fn _x_lang_equals(&self, other: &Self) -> bool {
-        self.mLanguage.mRawPtr == other.mLanguage.mRawPtr
+        self.mLanguage = v;
+        self.mExplicitLanguage = true;
     }
 </%self:impl_trait>
 
@@ -725,25 +639,15 @@ fn static_assert() {
     }
 </%def>
 
-<% skip_box_longhands= """display contain""" %>
-<%self:impl_trait style_struct_name="Box" skip_longhands="${skip_box_longhands}">
+<%self:impl_trait style_struct_name="Box" skip_longhands="display contain">
+    ${impl_simple(data.longhands_by_name["display"], set=False)}
+
     #[inline]
     pub fn set_display(&mut self, v: longhands::display::computed_value::T) {
         self.mDisplay = v;
         self.mOriginalDisplay = v;
     }
 
-    #[inline]
-    pub fn copy_display_from(&mut self, other: &Self) {
-        self.set_display(other.mDisplay);
-    }
-
-    #[inline]
-    pub fn reset_display(&mut self, other: &Self) {
-        self.copy_display_from(other)
-    }
-
-    #[inline]
     pub fn set_adjusted_display(
         &mut self,
         v: longhands::display::computed_value::T,
@@ -752,20 +656,7 @@ fn static_assert() {
         self.mDisplay = v;
     }
 
-    #[inline]
-    pub fn get_display(&self) -> &longhands::display::computed_value::T {
-        &self.mDisplay
-    }
-
-    #[inline]
-    pub fn slow_clone_display(&self) -> longhands::display::computed_value::T {
-        self.mDisplay
-    }
-
-    #[inline]
-    pub fn display_equals(&self, other: &Self) -> bool {
-        self.mDisplay == other.mDisplay
-    }
+    ${impl_simple(data.longhands_by_name["contain"], set=False)}
 
     #[inline]
     pub fn set_contain(&mut self, v: longhands::contain::computed_value::T) {
@@ -773,47 +664,13 @@ fn static_assert() {
         self.mEffectiveContainment = v;
     }
 
-    #[inline]
-    pub fn copy_contain_from(&mut self, other: &Self) {
-        self.set_contain(other.mContain);
-    }
-
-    #[inline]
-    pub fn reset_contain(&mut self, other: &Self) {
-        self.copy_contain_from(other)
-    }
-
-    #[inline]
-    pub fn get_contain(&self) -> &longhands::contain::computed_value::T {
-        &self.mContain
-    }
-
-    #[inline]
-    pub fn slow_clone_contain(&self) -> longhands::contain::computed_value::T {
-        self.mContain
-    }
-
-    #[inline]
-    pub fn contain_equals(&self, other: &Self) -> bool {
-        self.mContain == other.mContain
-    }
-
-    #[inline]
-    pub fn set_effective_containment(
-        &mut self,
-        v: longhands::contain::computed_value::T
-    ) {
+    pub fn set_effective_containment(&mut self, v: longhands::contain::computed_value::T) {
         self.mEffectiveContainment = v;
     }
 
     #[inline]
     pub fn get_effective_containment(&self) -> &longhands::contain::computed_value::T {
         &self.mEffectiveContainment
-    }
-
-    #[inline]
-    pub fn slow_clone_effective_containment(&self) -> longhands::contain::computed_value::T {
-        self.mEffectiveContainment
     }
 </%self:impl_trait>
 

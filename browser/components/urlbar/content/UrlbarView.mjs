@@ -4321,14 +4321,7 @@ export class UrlbarView {
     for (let container of containers) {
       let menuitem = this.document.createElement("panel-item");
       menuitem.dataset.usercontextid = String(container.userContextId);
-      if (container.l10nId) {
-        this.document.l10n.setAttributes(
-          menuitem,
-          `${container.l10nId}-panel-item`
-        );
-      } else {
-        menuitem.textContent = container.name;
-      }
+      menuitem.textContent = container.name;
       menuitem.style.setProperty(
         "--panel-item-icon",
         `url("${container.iconURL}")`
@@ -4340,7 +4333,7 @@ export class UrlbarView {
     panel.appendChild(this.document.createElement("hr"));
     panel.appendChild(
       this.#createContainerMenuItem(
-        "user-context-add-container-panel-item",
+        "user-context-add-container2-panel-item",
         () =>
           this.controller.parentController.openContainerCreationPanel(
             CONTAINER_SOURCE
@@ -4349,7 +4342,7 @@ export class UrlbarView {
     );
     panel.appendChild(
       this.#createContainerMenuItem(
-        "user-context-manage-containers-panel-item",
+        "user-context-manage-containers2-panel-item",
         () =>
           this.controller.parentController.openPreferences("paneContainers", {
             urlParams: { entrypoint: CONTAINER_SOURCE },

@@ -48,6 +48,20 @@ class DWPNotificationCallbacks final : public NotificationCallbacksCommon {
   virtual ~DWPNotificationCallbacks() = default;
 };
 
+static NotificationDirection ConvertNotificationDirection(
+    DeclarativePushDir aDir) {
+  switch (aDir) {
+    case DeclarativePushDir::Ltr:
+      return NotificationDirection::Ltr;
+    case DeclarativePushDir::Rtl:
+      return NotificationDirection::Rtl;
+    case DeclarativePushDir::Auto:
+      return NotificationDirection::Auto;
+  }
+  MOZ_CRASH("Invalid DeclarativePushDir.");
+  return NotificationDirection::Auto;
+}
+
 bool ParseDeclarativePushAndShowNotification(Span<const uint8_t> aData,
                                              nsIPrincipal* aPrincipal,
                                              const nsACString& aScope) {
@@ -60,8 +74,8 @@ bool ParseDeclarativePushAndShowNotification(Span<const uint8_t> aData,
   if (NS_FAILED(NS_NewURI(getter_AddRefs(baseURI), aScope))) {
     return false;
   }
-  RefPtr<nsIURI> uri;
-  nsresult rv = NS_NewURI(getter_AddRefs(uri), declarativePush.navigate,
+  RefPtr<nsIURI> navigateURI;
+  nsresult rv = NS_NewURI(getter_AddRefs(navigateURI), declarativePush.navigate,
                           nullptr, baseURI);
   // https://w3c.github.io/push-api/#dfn-declarative-push-message-parser
   // Step 27: If notification's navigation URL is null, then return failure.
@@ -73,9 +87,9 @@ bool ParseDeclarativePushAndShowNotification(Span<const uint8_t> aData,
   permissionPromise->Then(
       GetCurrentSerialEventTarget(), __func__,
       [data = std::move(declarativePush), scope = NS_ConvertUTF8toUTF16(aScope),
-       principal = RefPtr(aPrincipal), navigateURI = RefPtr(uri)](
-          const notification::NotificationPermissionPromise::
-              ResolveOrRejectValue& aResult) {
+       principal = RefPtr(aPrincipal), navigateURI,
+       baseURI](const notification::NotificationPermissionPromise::
+                    ResolveOrRejectValue& aResult) mutable {
         if (aResult.IsReject()) {
           // Don't have permission
           return;
@@ -83,6 +97,19 @@ bool ParseDeclarativePushAndShowNotification(Span<const uint8_t> aData,
         IPCNotificationOptions options;
         options.title() = std::move(data.title);
         options.navigate() = navigateURI;
+        options.body() = std::move(data.body);
+        options.dir() = ConvertNotificationDirection(data.dir);
+        options.silent() = data.silent;
+        if (StaticPrefs::dom_webnotifications_requireinteraction_enabled()) {
+          options.requireInteraction() = data.require_interaction;
+        }
+        options.tag() = std::move(data.tag);
+        options.lang() = std::move(data.lang);
+        nsCOMPtr<nsIURI> icon;
+        if (NS_SUCCEEDED(
+                NS_NewURI(getter_AddRefs(icon), data.icon, nullptr, baseURI))) {
+          options.icon() = icon.forget();
+        }
         auto result = notification::CreateAlertForNotification(
             options, *principal, Nothing());
         if (result.isErr()) {

@@ -122,21 +122,11 @@ void EditContext::SetForElement(const Element& aElement,
 }
 
 void EditContext::Deactivate() {
-  // https://w3c.github.io/edit-context/#dfn-deactivate-an-editcontext
   MOZ_LOG_FMT(gEditContextLog, LogLevel::Info, "[{}] Deactivate EditContext",
               static_cast<void*>(this));
-
+  MOZ_ASSERT(!mIsComposing,
+             "Should have committed the composition before calling this.");
   UnsuppressNotifyingIME();
-
-  // https://github.com/w3c/edit-context/pull/123
-  if (!mIsComposing) {
-    return;
-  }
-
-  // 1. Set editContext's is composing to false.
-  // 2. Fire an event named compositionend at editContext using
-  //    CompositionEvent.
-  // TODO
 }
 
 bool EditContext::IsActive() const {

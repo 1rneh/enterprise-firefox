@@ -46,6 +46,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.bookmarks.BookmarkMenuItemProvider
 import org.mozilla.fenix.browser.BackMenuItemProvider
 import org.mozilla.fenix.browser.DesktopSiteMenuItemProvider
+import org.mozilla.fenix.browser.ForwardMenuItemProvider
 import org.mozilla.fenix.browser.readermode.ReaderViewMenuItemProvider
 import org.mozilla.fenix.components.FindInPageMenuItemProvider
 import org.mozilla.fenix.components.menu.compose.MenuDialogBottomSheet
@@ -217,6 +218,11 @@ class MenuFragment : BottomSheetDialogFragment() {
                     browserStore = requireComponents.core.store,
                     bookmarksStorage = requireComponents.core.bookmarksStorage,
                     applicationScope = requireComponents.applicationScope,
+                ),
+            FenixMenuItem.Forward to
+                ForwardMenuItemProvider(
+                    browserStore = requireComponents.core.store,
+                    scope = viewLifecycleOwner.lifecycle.coroutineScope,
                 ),
             FenixMenuItem.Back to
                 BackMenuItemProvider(

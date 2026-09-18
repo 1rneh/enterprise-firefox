@@ -652,7 +652,7 @@ void FallbackICCodeCompiler::emitBailoutStub(BailoutReturnKind kind) {
   // The bailoutTail jumps here when performing bailout stack
   // reconstruction. The BaselineStub frame has been rebuilt.
   // Only the return address remains to be pushed.
-  code.initBailoutReturnOffset(kind, masm.call(BailoutStubHandlerReg).offset());
+  masm.call(BailoutStubHandlerReg);
 }
 
 void FallbackICCodeCompiler::assumeStubFrame() {

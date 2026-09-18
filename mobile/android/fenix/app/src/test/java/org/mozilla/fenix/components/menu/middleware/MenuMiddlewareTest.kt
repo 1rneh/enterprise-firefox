@@ -82,12 +82,14 @@ class MenuMiddlewareTest {
         )
     private val addBookmarkUseCase: BookmarksUseCase.AddBookmarksUseCase = mockk()
     private val requestDesktopSiteUseCase: SessionUseCases.RequestDesktopSiteUseCase = mockk(relaxed = true)
+    private val goForwardUseCase: SessionUseCases.GoForwardUseCase = mockk(relaxed = true)
     private val goBackUseCase: SessionUseCases.GoBackUseCase = mockk(relaxed = true)
     private val useCases: UseCases = mockk {
         every { bookmarksUseCases } returns mockk { every { addBookmark } returns addBookmarkUseCase }
         every { sessionUseCases } returns
             mockk {
                 every { requestDesktopSite } returns requestDesktopSiteUseCase
+                every { goForward } returns goForwardUseCase
                 every { goBack } returns goBackUseCase
             }
     }
@@ -316,6 +318,45 @@ class MenuMiddlewareTest {
         verify(exactly = 0) {
             navController.popBackStack(R.id.menuFragment, true)
             goBackUseCase(any())
+        }
+    }
+
+    @Test
+    fun `WHEN handling showing tab history from the forward button THEN dismiss the menu and show the tab history`() {
+        val store = createStore()
+
+        store.dispatch(Navigate.Forward(viewHistory = false))
+
+        verify {
+            navController.popBackStack(R.id.menuFragment, true)
+            goForwardUseCase(tabId = TAB_ID)
+        }
+    }
+
+    @Test
+    fun `WHEN handling forward navigation with history THEN dismiss the menu and show the tab history`() {
+        val store = createStore()
+
+        store.dispatch(Navigate.Forward(viewHistory = true))
+
+        verify {
+            navController.navigate(
+                NavGraphDirections.actionGlobalTabHistoryDialogFragment(activeSessionId = null),
+                any<NavOptions>(),
+            )
+        }
+    }
+
+    @Test
+    fun `GIVEN there is no selected tab WHEN handling forward navigation THEN do nothing`() {
+        val emptyBrowserStore = BrowserStore(BrowserState(tabs = emptyList()))
+        val store = createStore(browserStore = emptyBrowserStore)
+
+        store.dispatch(Navigate.Forward(viewHistory = false))
+
+        verify(exactly = 0) {
+            navController.popBackStack(R.id.menuFragment, true)
+            goForwardUseCase(any())
         }
     }
 

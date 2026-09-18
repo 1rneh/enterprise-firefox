@@ -838,20 +838,7 @@ gfxRect SVGUtils::GetBBox(nsIFrame* aFrame, SVGBBoxFlags aFlags,
         return gfxRect();
       }
 
-      gfxRect rec = text->TransformFrameRectFromTextChild(
-          aFrame->GetRectRelativeToSelf(), aFrame);
-
-      // Should also add the |x|, |y| of the SVGTextFrame itself, since
-      // the result obtained by TransformFrameRectFromTextChild doesn't
-      // include them.
-      rec += ThebesPoint(
-          CSSPoint::FromAppUnits(text->GetPosition()).ToUnknownPoint());
-
-      if (aFlags.contains(SVGBBoxFlag::DisregardCSSZoom)) {
-        rec.Scale(1 / aFrame->Style()->EffectiveZoom().ToFloat());
-      }
-
-      return rec;
+      return ThebesRect(text->GetSubtreeBBox(aFrame, {}, aFlags));
     }
   }
 

@@ -8,8 +8,8 @@ support-files = [
   "subtst_contextmenu_add_search_engine.html",
   "subtst_contextmenu_xul.xhtml",
   "ctxmenu-image.png",
-  "../general/head.js",
-  "../general/audio.ogg",
+  "../browser-general/head.js",
+  "../browser-general/audio.ogg",
   "../../../../../toolkit/components/pdfjs/test/file_pdfjs_test.pdf",
   "contextmenu_common.js",
   "file_bug1798178.html",
@@ -20,7 +20,7 @@ tags = "os_integration"
 ["browser_bug1798178.js"]
 
 ["browser_contextmenu.js"]
-support-files = [ "../general/video.webm"  ]
+support-files = [ "../browser-general/video.webm"  ]
 tags = "fullscreen"
 skip-if = [
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64'", # Bug 2057831

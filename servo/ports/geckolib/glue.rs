@@ -152,6 +152,7 @@ use style::values::distance::{ComputeSquaredDistance, SquaredDistance};
 use style::values::generics::Optional;
 use style::values::generics::color::ColorMixFlags;
 use style::values::generics::easing::BeforeFlag;
+use style::values::generics::font::{FeatureTagValue, VariationValue};
 use style::values::generics::length::GenericAnchorSizeFunction;
 use style::values::resolved;
 use style::values::resolved::ToResolvedValue;
@@ -4018,7 +4019,7 @@ pub unsafe extern "C" fn Servo_FontFaceRule_GetSources(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn Servo_FontFaceRule_GetVariationSettings(
     rule: &LockedFontFaceRule,
-    variations: &mut nsTArray<structs::gfxFontVariation>,
+    variations: &mut nsTArray<VariationValue<f32>>,
 ) {
     read_locked_arc_worker(rule, |rule: &FontFaceRule| {
         let source_variations = match rule.descriptors.font_variation_settings {
@@ -4026,24 +4027,19 @@ pub unsafe extern "C" fn Servo_FontFaceRule_GetVariationSettings(
             None => return,
         };
 
-        variations.extend(
-            source_variations
-                .0
-                .iter()
-                .map(|source| structs::gfxFontVariation {
-                    mTag: source.tag.0,
-                    // The value is enforced to be resolvable at parse time
-                    // (see FontVariationSettings::parse_for_font_face_rule).
-                    mValue: source.value.resolve().unwrap(),
-                }),
-        );
+        variations.extend(source_variations.0.iter().map(|source| VariationValue {
+            tag: source.tag,
+            // The value is enforced to be resolvable at parse time
+            // (see FontVariationSettings::parse_for_font_face_rule).
+            value: source.value.resolve().unwrap(),
+        }));
     });
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn Servo_FontFaceRule_GetFeatureSettings(
     rule: &LockedFontFaceRule,
-    features: &mut nsTArray<structs::gfxFontFeature>,
+    features: &mut nsTArray<FeatureTagValue<i32>>,
 ) {
     read_locked_arc_worker(rule, |rule: &FontFaceRule| {
         let source_features = match rule.descriptors.font_feature_settings {
@@ -4051,17 +4047,12 @@ pub unsafe extern "C" fn Servo_FontFaceRule_GetFeatureSettings(
             None => return,
         };
 
-        features.extend(
-            source_features
-                .0
-                .iter()
-                .map(|source| structs::gfxFontFeature {
-                    mTag: source.tag.0,
-                    // The value is enforced to be resolvable at parse time
-                    // (see FontFeatureSettings::parse_for_font_face_rule).
-                    mValue: source.value.resolve().unwrap() as u32,
-                }),
-        );
+        features.extend(source_features.0.iter().map(|source| FeatureTagValue {
+            tag: source.tag,
+            // The value is enforced to be resolvable at parse time
+            // (see FontFeatureSettings::parse_for_font_face_rule).
+            value: source.value.resolve().unwrap(),
+        }));
     });
 }
 
@@ -11639,16 +11630,11 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
 
     // At the moment, we're only supporting top-level Math function
     // TODO: we should handle simple values too.
-    let math_func = match parser.next() {
-        Ok(Token::Function(name)) => match CalcNode::math_function(&parser_context, name) {
-            Ok(f) => f,
-            Err(_) => {
-                return;
-            },
-        },
-        _ => {
-            return;
-        },
+    let Ok(Token::Function(name)) = parser.next() else {
+        return;
+    };
+    let Ok(math_func) = CalcNode::math_function(&parser_context, name) else {
+        return;
     };
 
     let flags = CalcParseFlags {

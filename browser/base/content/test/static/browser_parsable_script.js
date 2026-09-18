@@ -87,7 +87,7 @@ add_task(async function checkAllTheJS() {
         true,
         "Test disabled on debug build. To run, execute: ./mach" +
           " mochitest-browser --setpref parse=<case_sensitive_filter>" +
-          " browser/base/content/test/general/browser_parsable_script.js"
+          " browser/base/content/test/static/browser_parsable_script.js"
       );
       return;
     }

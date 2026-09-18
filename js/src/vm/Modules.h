@@ -65,7 +65,7 @@ bool LoadRequestedModules(JSContext* cx, Handle<ModuleObject*> module,
                           MutableHandle<JSObject*> promiseOut);
 
 bool HostLoadImportedModule(
-    JSContext* cx, Handle<JSScript*> referrer, Handle<JSObject*> moduleRequest,
+    JSContext* cx, Handle<Value> referrer, Handle<JSObject*> moduleRequest,
     Handle<Value> hostDefined, Handle<Value> payload, uint32_t lineNumber = 0,
     JS::ColumnNumberOneOrigin columnNumber = JS::ColumnNumberOneOrigin());
 

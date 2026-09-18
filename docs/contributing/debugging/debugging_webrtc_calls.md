@@ -770,7 +770,7 @@ as shown below:
      - :code:`gtest`
    * - WebRTC (gUM / gDDM)
      - Browser Chrome Test (mochitest)
-     - browser/base/content/test/webrtc
+     - browser/base/content/test/browser-webrtc
      - browser-chrome
      - :code:`bc`, :code:`M(bc)`
    * - WebRTC Transport
@@ -1053,7 +1053,7 @@ provided below to help one navigate.
      - Signalling
      - WebRTC signaling implementation and GTests
      -
-   * - :searchfox:`browser/base/content/test/webrtc`
+   * - :searchfox:`browser/base/content/test/browser-webrtc`
      - Tests
      - Browser chrome tests for WebRTC getUserMedia and getDisplayMedia
      -

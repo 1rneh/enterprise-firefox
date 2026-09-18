@@ -14,7 +14,6 @@ use api::{ExtendMode, GradientStop};
 use api::units::*;
 use crate::pattern::gradient::linear_gradient_pattern;
 use crate::pattern::{Pattern, PatternBuilder, PatternBuilderContext, PatternBuilderState};
-use crate::scene_building::IsVisible;
 use crate::intern::{Internable, InternDebug, Handle as InternHandle};
 use crate::internal_types::LayoutPrimitiveInfo;
 use crate::prim_store::{PrimitiveKind, PrimitiveOpacity};
@@ -261,17 +260,23 @@ pub fn decompose_axis_aligned_gradient(
         // Segment_start and segment_end are in the gradient's pre-flip space
         // (relative to the prim's origin); the adjust_* helpers below restore
         // axis orientation when emitting.
-        let segment_start = start.x + prev_offset * length;
-        let segment_end = start.x + offset * length;
+        let segment_start = prev_offset * length;
+        let segment_end = offset * length;
         let segment_length = segment_end - segment_start;
 
         if segment_length <= 0.0 {
             continue;
         }
 
+        let rect_start = prim_rect.min.x + start.x + segment_start;
+        let rect_end = prim_rect.min.x + start.x + segment_end;
+        if rect_end <= rect_start {
+            continue;
+        }
+
         let mut segment_rect = prim_rect;
-        segment_rect.min.x += segment_start;
-        segment_rect.max.x = segment_rect.min.x + segment_length;
+        segment_rect.min.x = rect_start;
+        segment_rect.max.x = rect_end;
 
         let mut seg_start = point2(0.0, 0.0);
         let mut seg_end = point2(segment_length, 0.0);
@@ -368,12 +373,6 @@ impl InternablePrimitive for LinearGradient {
         PrimitiveKind::LinearGradient {
             data_handle,
         }
-    }
-}
-
-impl IsVisible for LinearGradient {
-    fn is_visible(&self) -> bool {
-        true
     }
 }
 

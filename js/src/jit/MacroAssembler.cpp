@@ -7142,7 +7142,10 @@ void MacroAssembler::wasmReturnCallIndirect(
 void MacroAssembler::wasmCallRef(const wasm::CallSiteDesc& desc,
                                  const wasm::CalleeDesc& callee,
                                  CodeOffset* fastCallOffset,
-                                 CodeOffset* slowCallOffset) {
+                                 CodeOffset* slowCallOffset,
+                                 wasm::StackMap* stackMapForTraps,
+                                 wasm::StackMapRegistry* stackMapRegistry) {
+  MOZ_ASSERT_IF(stackMapForTraps, stackMapRegistry);
   MOZ_ASSERT(callee.which() == wasm::CalleeDesc::FuncRef);
   const Register calleeScratch = WasmCallRefCallScratchReg0;
   const Register calleeFnObj = WasmCallRefReg;
@@ -7162,6 +7165,10 @@ void MacroAssembler::wasmCallRef(const wasm::CallSiteDesc& desc,
   appendAndVerify(wasm::Trap::NullPointerDereference,
                   wasm::TrapMachineInsnForLoadWord(), fcr,
                   desc.toTrapSiteDesc());
+  if (stackMapForTraps) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr));
+  }
+
   branchPtr(Assembler::Equal, InstanceReg, newInstanceTemp, &fastCall);
 
   storePtr(InstanceReg,
@@ -7208,7 +7215,10 @@ void MacroAssembler::wasmCallRef(const wasm::CallSiteDesc& desc,
 
 void MacroAssembler::wasmReturnCallRef(
     const wasm::CallSiteDesc& desc, const wasm::CalleeDesc& callee,
-    const ReturnCallAdjustmentInfo& retCallInfo) {
+    const ReturnCallAdjustmentInfo& retCallInfo,
+    wasm::StackMap* stackMapForTraps,
+    wasm::StackMapRegistry* stackMapRegistry) {
+  MOZ_ASSERT_IF(stackMapForTraps, stackMapRegistry);
   MOZ_ASSERT(callee.which() == wasm::CalleeDesc::FuncRef);
   const Register calleeScratch = WasmCallRefCallScratchReg0;
   const Register calleeFnObj = WasmCallRefReg;
@@ -7228,6 +7238,10 @@ void MacroAssembler::wasmReturnCallRef(
   appendAndVerify(wasm::Trap::NullPointerDereference,
                   wasm::TrapMachineInsnForLoadWord(), fcr,
                   desc.toTrapSiteDesc());
+  if (stackMapForTraps) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr));
+  }
+
   branchPtr(Assembler::Equal, InstanceReg, newInstanceTemp, &fastCall);
 
   storePtr(InstanceReg,

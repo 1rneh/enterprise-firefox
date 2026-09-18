@@ -3288,9 +3288,8 @@ void CanvasRenderingContext2D::UpdateFilter(bool aFlushIfNeeded) {
   auto lineHeight = currentFontStyle
                         ? currentFontStyle->StyleFont()->mLineHeight
                         : StyleLineHeight::Normal();
-  auto* language = currentFontStyle
-                       ? currentFontStyle->StyleFont()->mLanguage.get()
-                       : nullptr;
+  auto* language =
+      currentFontStyle ? currentFontStyle->StyleFont()->GetLangAtom() : nullptr;
   bool explicitLanguage =
       state.fontComputedStyle &&
       state.fontComputedStyle->StyleFont()->mExplicitLanguage;
@@ -4613,11 +4612,11 @@ bool CanvasRenderingContext2D::SetFontInternalDisconnected(
   gfxFontFeature setting{TRUETYPE_TAG('k', 'e', 'r', 'n'), 0};
   switch (state.fontKerning) {
     case CanvasFontKerning::None:
-      setting.mValue = 0;
+      setting.value = 0;
       fontStyle.featureSettings.AppendElement(setting);
       break;
     case CanvasFontKerning::Normal:
-      setting.mValue = 1;
+      setting.value = 1;
       fontStyle.featureSettings.AppendElement(setting);
       break;
     default:

@@ -166,8 +166,8 @@ extern crate uritemplate_glue;
 extern crate urlpattern;
 extern crate urlpattern_glue;
 
-extern crate adblock;
 extern crate content_classifier_engine;
+extern crate etp_engine;
 
 #[cfg(feature = "libz-rs-sys")]
 extern crate libz_rs_sys;

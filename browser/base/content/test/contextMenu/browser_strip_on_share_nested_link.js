@@ -6,7 +6,7 @@
 let listService;
 
 const TEST_URL =
-  "https://example.com/browser/browser/base/content/test/general/dummy_page.html";
+  "https://example.com/browser/browser/base/content/test/browser-general/dummy_page.html";
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({

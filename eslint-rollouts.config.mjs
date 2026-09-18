@@ -662,7 +662,7 @@ export default [
       // No .(s)js or html test files Bug 1780024
       "services/sync/tests/tps/**",
       // Files that test https and http already
-      "browser/base/content/test/general/browser_remoteTroubleshoot.js",
+      "browser/base/content/test/browser-general/browser_remoteTroubleshoot.js",
       "browser/base/content/test/favicons/browser_mixed_content.js",
       "browser/base/content/test/browser-sanitize/browser_sanitize-history.js",
       "devtools/client/shared/test/shared-head.js",

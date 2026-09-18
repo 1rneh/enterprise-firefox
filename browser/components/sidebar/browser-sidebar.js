@@ -2350,12 +2350,12 @@ var SidebarController = {
       this._box.setAttribute("checked", "true");
       this._state.command = commandID;
 
-      let { icon, url, title, sourceL10nEl, contextMenuId } =
+      let { iconUrl, url, title, sourceL10nEl, contextMenuId } =
         this.sidebars.get(commandID);
-      if (icon) {
+      if (iconUrl) {
         this._switcherTarget.style.setProperty(
           "--webextension-menuitem-image",
-          icon
+          `url("${iconUrl}")`
         );
       } else {
         this._switcherTarget.style.removeProperty(

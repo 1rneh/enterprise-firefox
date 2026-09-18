@@ -148,7 +148,7 @@ enterprise-relaunch-imminent-message =
 
 enterprise-relaunch-restart-now = Restart now
 
-extension-firefox-enterprise-auto-name = { -brand-short-name } Auto
+extension-firefox-enterprise-auto-name = { -brand-short-name } theme – auto
 extension-firefox-enterprise-auto-description = Warm blush and apricot in light mode, deep violet and indigo in dark mode.
 
 lockdown-mode-button =

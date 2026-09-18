@@ -3,74 +3,120 @@
 
 "use strict";
 
+const { AddonManager } = ChromeUtils.importESModule(
+  "resource://gre/modules/AddonManager.sys.mjs"
+);
+const { AddonTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/AddonTestUtils.sys.mjs"
+);
+const { BuiltInThemeConfig } = ChromeUtils.importESModule(
+  "resource:///modules/BuiltInThemeConfig.sys.mjs"
+);
 const { EnterpriseThemeMigration } = ChromeUtils.importESModule(
   "resource:///modules/enterprise/EnterpriseThemeMigration.sys.mjs"
-);
-const { BuiltInThemes } = ChromeUtils.importESModule(
-  "resource:///modules/BuiltInThemes.sys.mjs"
 );
 
 const ACTIVE_THEME_PREF = "extensions.activeThemeID";
 const AUTO_THEME_ID = "firefox-enterprise-auto@mozilla.org";
+const LIGHT_THEME_ID = "firefox-enterprise-light@mozilla.org";
 
-// Isolate the pref remap from the real add-on machinery.
-let installCount = 0;
-BuiltInThemes.maybeInstallActiveBuiltInTheme = async () => {
-  installCount++;
+const AUTO_THEME_MANIFEST = {
+  manifest_version: 2,
+  name: "Firefox Enterprise Auto",
+  version: "1.0.0",
+  browser_specific_settings: { gecko: { id: AUTO_THEME_ID } },
+  theme: { colors: { toolbar: "#ffffff" } },
+  dark_theme: { colors: { toolbar: "#1f2026" } },
 };
 
-function setup(themeId) {
-  installCount = 0;
-  if (themeId === undefined) {
-    Services.prefs.clearUserPref(ACTIVE_THEME_PREF);
-  } else {
-    Services.prefs.setStringPref(ACTIVE_THEME_PREF, themeId);
-  }
-}
+AddonTestUtils.init(this);
+AddonTestUtils.createAppInfo(
+  "xpcshell@tests.mozilla.org",
+  "XPCShell",
+  "1",
+  "1"
+);
 
-add_task(async function test_migrates_removed_light_theme() {
-  setup("firefox-enterprise-light@mozilla.org");
-  await EnterpriseThemeMigration.migrate();
-  Assert.equal(
-    Services.prefs.getStringPref(ACTIVE_THEME_PREF),
-    AUTO_THEME_ID,
-    "light theme is remapped to the auto theme"
+add_setup(async function () {
+  // Enable the built-in (application) scope so maybeInstallBuiltinAddon installs.
+  Services.prefs.setIntPref(
+    "extensions.enabledScopes",
+    AddonManager.SCOPE_PROFILE | AddonManager.SCOPE_APPLICATION
   );
-  Assert.equal(installCount, 1, "the auto theme is activated");
+
+  // Simulate a profile upgrading from a build that had the (now removed) light
+  // theme selected, so XPIProvider caches lastSelectedTheme = light when the
+  // default theme is installed during startup.
+  Services.prefs.setStringPref(ACTIVE_THEME_PREF, LIGHT_THEME_ID);
+  await AddonTestUtils.promiseStartupManager();
+
+  // Make the auto theme installable as a built-in from a temp resource, and
+  // point the (test) BuiltInThemeConfig entry at it.
+  let xpi = await AddonTestUtils.createTempWebExtensionFile({
+    manifest: AUTO_THEME_MANIFEST,
+  });
+  let resProto = Services.io
+    .getProtocolHandler("resource")
+    .QueryInterface(Ci.nsIResProtocolHandler);
+  resProto.setSubstitution(
+    "enterprise-auto-test",
+    Services.io.newURI(`jar:file:${xpi.path}!/`)
+  );
+  BuiltInThemeConfig.set(AUTO_THEME_ID, {
+    version: "1.0.0",
+    path: "resource://enterprise-auto-test/",
+  });
+
+  registerCleanupFunction(() => {
+    Services.prefs.clearUserPref("extensions.enabledScopes");
+    Services.prefs.clearUserPref(ACTIVE_THEME_PREF);
+    BuiltInThemeConfig.delete(AUTO_THEME_ID);
+    resProto.setSubstitution("enterprise-auto-test", null);
+  });
 });
 
-add_task(async function test_migrates_removed_dark_theme() {
-  setup("firefox-enterprise-dark@mozilla.org");
+add_task(async function test_migrates_and_activates_auto() {
+  Assert.equal(
+    Services.prefs.getStringPref(ACTIVE_THEME_PREF),
+    LIGHT_THEME_ID,
+    "starts with the removed light theme selected"
+  );
+
   await EnterpriseThemeMigration.migrate();
+
   Assert.equal(
     Services.prefs.getStringPref(ACTIVE_THEME_PREF),
     AUTO_THEME_ID,
-    "dark theme is remapped to the auto theme"
+    "activeThemeID is remapped to the auto theme"
   );
-  Assert.equal(installCount, 1, "the auto theme is activated");
+
+  let addon = await AddonManager.getAddonByID(AUTO_THEME_ID);
+  Assert.ok(addon, "the auto theme is installed");
+  // The key regression: because lastSelectedTheme was cached as the removed id,
+  // the auto theme installs disabled and must be explicitly enabled.
+  Assert.ok(addon.isActive, "the auto theme is active, not left disabled");
 });
 
 add_task(async function test_leaves_unrelated_theme_untouched() {
-  setup("firefox-compact-dark@mozilla.org");
+  const OTHER = "firefox-compact-dark@mozilla.org";
+  Services.prefs.setStringPref(ACTIVE_THEME_PREF, OTHER);
+
   await EnterpriseThemeMigration.migrate();
+
   Assert.equal(
     Services.prefs.getStringPref(ACTIVE_THEME_PREF),
-    "firefox-compact-dark@mozilla.org",
+    OTHER,
     "an unrelated selected theme is left untouched"
-  );
-  Assert.equal(
-    installCount,
-    0,
-    "no theme is activated for unrelated selections"
   );
 });
 
 add_task(async function test_no_user_selection() {
-  setup(undefined);
+  Services.prefs.clearUserPref(ACTIVE_THEME_PREF);
+
   await EnterpriseThemeMigration.migrate();
+
   Assert.ok(
     !Services.prefs.prefHasUserValue(ACTIVE_THEME_PREF),
-    "no active theme is set when the user never selected one"
+    "no theme is forced when the user never selected one"
   );
-  Assert.equal(installCount, 0, "no theme is activated");
 });

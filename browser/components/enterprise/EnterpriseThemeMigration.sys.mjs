@@ -5,7 +5,8 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  BuiltInThemeConfig: "resource:///modules/BuiltInThemeConfig.sys.mjs",
 });
 
 const ACTIVE_THEME_PREF = "extensions.activeThemeID";
@@ -19,11 +20,9 @@ const REMOVED_THEME_IDS = [
 
 export const EnterpriseThemeMigration = {
   /**
-   * Repoint profiles whose selected theme is one of the removed enterprise
-   * light/dark themes at the auto theme, and activate it. Without this, an
-   * upgrade leaves `extensions.activeThemeID` pointing at a theme that no
-   * longer exists, so no enterprise theme is applied. Self-guards on the pref
-   * value, so it is safe to run on every startup.
+   * Move profiles still on a removed enterprise light/dark theme to the auto
+   * theme. The old id is cached before this runs, so we install and explicitly
+   * enable the auto theme rather than only rewriting the pref.
    */
   async migrate() {
     if (!Services.prefs.prefHasUserValue(ACTIVE_THEME_PREF)) {
@@ -38,6 +37,14 @@ export const EnterpriseThemeMigration = {
     }
 
     Services.prefs.setStringPref(ACTIVE_THEME_PREF, AUTO_THEME_ID);
-    await lazy.BuiltInThemes.maybeInstallActiveBuiltInTheme();
+
+    let themeInfo = lazy.BuiltInThemeConfig.get(AUTO_THEME_ID);
+    await lazy.AddonManager.maybeInstallBuiltinAddon(
+      AUTO_THEME_ID,
+      themeInfo.version,
+      themeInfo.path
+    );
+    let addon = await lazy.AddonManager.getAddonByID(AUTO_THEME_ID);
+    await addon?.enable();
   },
 };

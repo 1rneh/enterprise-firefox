@@ -396,7 +396,7 @@ export class Felt {
   showWindow(errorMessage = "") {
     // Height and width are for now set to fit the sso.mozilla.com without the need to resize the window
     let flags =
-      "chrome,private,resizable,centerscreen,titlebar,width=727,height=744";
+      "chrome,private,centerscreen,titlebar,resizable,width=727,height=744";
     const queryString = errorMessage
       ? `?error=${encodeURIComponent(errorMessage)}`
       : "";

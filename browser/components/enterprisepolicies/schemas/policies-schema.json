@@ -4236,6 +4236,54 @@
       "examples": [true]
     },
 
+    "SignOut": {
+      "type": "object",
+      "x-category": "Authentication",
+      "x-compatibility": {
+        "firefox": {
+          "version_added": false
+        },
+        "firefox_esr": {
+          "version_added": false
+        },
+        "firefox_enterprise": {
+          "version_added": "158"
+        }
+      },
+      "x-restart-required": false,
+      "description": "Configure sign-out behavior for enterprise users.",
+      "examples": [
+        {
+          "Shutdown": {
+            "Action": "lock"
+          }
+        }
+      ],
+      "properties": {
+        "Shutdown": {
+          "type": "object",
+          "properties": {
+            "Action": {
+              "type": "string",
+              "oneOf": [
+                {
+                  "const": "signout",
+                  "title": "Sign out",
+                  "description": "Sign the session out when the browser shuts down, so the next launch requires a full sign-in. This is what happens when the policy is not set."
+                },
+                {
+                  "const": "lock",
+                  "title": "Lock",
+                  "description": "Lock the session when the browser shuts down, so the next launch only requires the user to unlock."
+                }
+              ]
+            }
+          },
+          "required": ["Action"]
+        }
+      }
+    },
+
     "SitePolicies": {
       "type": "array",
       "x-category": "Browsing restrictions",

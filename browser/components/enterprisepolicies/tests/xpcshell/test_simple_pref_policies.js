@@ -1511,6 +1511,33 @@ const POLICIES_TESTS = [
       "browser.contentanalysis.enterprise.telemetry.urlLogging": "none",
     },
   },
+
+  // POLICY: SignOut
+  {
+    policies: {
+      SignOut: {
+        Shutdown: {
+          Action: "lock",
+        },
+      },
+    },
+    // Locking on shutdown persists the session behind OS auth instead of signing out.
+    lockedPrefs: {
+      "enterprise.locking.shutdown": true,
+    },
+  },
+  {
+    policies: {
+      SignOut: {
+        Shutdown: {
+          Action: "signout",
+        },
+      },
+    },
+    lockedPrefs: {
+      "enterprise.locking.shutdown": false,
+    },
+  },
 ];
 
 add_task(async function test_policy_simple_prefs() {

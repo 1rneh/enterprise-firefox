@@ -243,6 +243,10 @@ class nsHostRecord : public mozilla::LinkedListElement<RefPtr<nsHostRecord>>,
   // Explicitly expired
   bool mDoomed = false;
 
+  // Whether this record is currently linked into HostRecordQueue::mEvictionQ
+  // (as opposed to a pending queue, or no queue).
+  bool mInEvictionQueue = false;
+
   // Whether this is resolved by TRR successfully or not.
   bool mTRRSuccess = false;
 

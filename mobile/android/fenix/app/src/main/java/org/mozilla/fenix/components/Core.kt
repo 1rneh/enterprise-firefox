@@ -599,7 +599,6 @@ class Core(
                 ContentRecommendationsRequestConfig(
                     locale = LocaleManager.getSelectedLocale(context),
                     userAgent = engine.settings.userAgentString.orEmpty(),
-                    useMerinoClient = context.components.settings.enableMerinoClient,
                 ),
             marsSponsoredContentsParams =
                 MarsSpocsRequestConfig(

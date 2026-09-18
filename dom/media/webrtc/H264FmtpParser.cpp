@@ -4,7 +4,9 @@
 
 #include "H264FmtpParser.h"
 
+#include "api/rtp_parameters.h"
 #include "api/video_codecs/h264_profile_level_id.h"
+#include "media/base/media_constants.h"
 #include "mozilla/CheckedInt.h"
 #include "nsContentTypeParser.h"
 
@@ -67,6 +69,21 @@ static Maybe<H264_LEVEL> MapWebrtcLevel(webrtc::H264Level aLevel) {
   return Nothing();
 }
 
+static Result<H264ProfileLevel, H264FmtpParseError>
+ParseH264ProfileLevelIdValue(const std::string& aValue) {
+  auto parsed = webrtc::ParseH264ProfileLevelId(aValue.c_str());
+  Maybe<H264_PROFILE> profile;
+  Maybe<H264_LEVEL> level;
+  if (parsed) {
+    profile = MapWebrtcProfile(parsed->profile);
+    level = MapWebrtcLevel(parsed->level);
+  }
+  if (profile && level) {
+    return H264ProfileLevel{*profile, *level};
+  }
+  return Err(H264FmtpParseError::Invalid);
+}
+
 H264FmtpParams ParseH264Fmtp(const nsACString& aMimeString) {
   H264FmtpParams out;
   nsContentTypeParser parser((NS_ConvertUTF8toUTF16(aMimeString)));
@@ -74,18 +91,7 @@ H264FmtpParams ParseH264Fmtp(const nsACString& aMimeString) {
   nsAutoString profileLevelId;
   if (NS_SUCCEEDED(parser.GetParameter("profile-level-id", profileLevelId))) {
     NS_ConvertUTF16toUTF8 narrow(profileLevelId);
-    auto parsed = webrtc::ParseH264ProfileLevelId(narrow.get());
-    Maybe<H264_PROFILE> profile;
-    Maybe<H264_LEVEL> level;
-    if (parsed) {
-      profile = MapWebrtcProfile(parsed->profile);
-      level = MapWebrtcLevel(parsed->level);
-    }
-    if (profile && level) {
-      out.mProfileLevel = H264ProfileLevel{*profile, *level};
-    } else {
-      out.mProfileLevel = Err(H264FmtpParseError::Invalid);
-    }
+    out.mProfileLevel = ParseH264ProfileLevelIdValue(narrow.get());
   }
 
   nsAutoString packetizationMode;
@@ -101,6 +107,17 @@ H264FmtpParams ParseH264Fmtp(const nsACString& aMimeString) {
   }
 
   return out;
+}
+
+Result<H264ProfileLevel, H264FmtpParseError>
+ParseH264ProfileLevelFromParameters(
+    const webrtc::CodecParameterMap& aParameters) {
+  const auto it =
+      aParameters.find(std::string(webrtc::kH264FmtpProfileLevelId));
+  if (it == aParameters.end()) {
+    return Err(H264FmtpParseError::NotPresent);
+  }
+  return ParseH264ProfileLevelIdValue(it->second);
 }
 
 namespace {
@@ -160,6 +177,17 @@ bool H264LevelFits(H264_LEVEL aLevel, uint32_t aWidth, uint32_t aHeight,
     return false;
   }
   return true;
+}
+
+Maybe<H264_LEVEL> H264SmallestConformingLevel(uint32_t aWidth, uint32_t aHeight,
+                                              double aFramerate) {
+  // kH264LevelConstraints is in ascending level order.
+  for (const auto& c : kH264LevelConstraints) {
+    if (H264LevelFits(c.mLevel, aWidth, aHeight, aFramerate)) {
+      return Some(c.mLevel);
+    }
+  }
+  return Nothing();
 }
 
 }  // namespace mozilla

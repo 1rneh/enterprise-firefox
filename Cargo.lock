@@ -27,31 +27,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "adblock"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "698c1e831aaee3d583efe775790acc7d59fd99d8060e7385b99d2d369a5cdca8"
-dependencies = [
- "arrayvec",
- "base64 0.22.1",
- "bitflags 2.10.0",
- "flatbuffers",
- "idna",
- "itertools 0.13.0",
- "memchr",
- "once_cell",
- "percent-encoding",
- "precomputed-hash",
- "regex",
- "rustc-hash 1.999.999",
- "seahash",
- "serde",
- "serde_json",
- "thiserror 1.999.999",
- "url",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1150,8 +1125,8 @@ dependencies = [
 name = "content_classifier_engine"
 version = "0.0.1"
 dependencies = [
- "adblock",
  "cstr",
+ "etp_engine",
  "nserror",
  "nsstring",
  "thin-vec",
@@ -2247,6 +2222,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "etp_engine"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "base64 0.22.1",
+ "bitflags 2.10.0",
+ "flatbuffers",
+ "idna",
+ "itertools 0.13.0",
+ "memchr",
+ "once_cell",
+ "percent-encoding",
+ "precomputed-hash",
+ "regex",
+ "rustc-hash 1.999.999",
+ "seahash",
+ "serde",
+ "serde_json",
+ "thiserror 1.999.999",
+ "url",
+]
+
+[[package]]
 name = "euclid"
 version = "0.22.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3015,7 +3013,6 @@ version = "0.1.0"
 dependencies = [
  "aa-stroke",
  "abridged_certs",
- "adblock",
  "app_collator_glue",
  "audio_thread_priority",
  "audioipc2-client",
@@ -3045,6 +3042,7 @@ dependencies = [
  "dom_speculationrules",
  "encoding_glue",
  "etagere",
+ "etp_engine",
  "felt",
  "fluent",
  "fluent-fallback",
@@ -6777,6 +6775,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "fnv",
+ "mozbuild",
  "mozilla-central-workspace-hack",
  "windows-sys",
 ]

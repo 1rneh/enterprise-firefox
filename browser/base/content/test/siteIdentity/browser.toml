@@ -151,7 +151,7 @@ support-files = ["test-mixedcontent-securityerrors.html"]
 ["browser_no_mcb_for_loopback.js"]
 tags = "mcb"
 support-files = [
-  "../general/moz.png",
+  "../browser-general/moz.png",
   "test_no_mcb_for_loopback.html",
 ]
 

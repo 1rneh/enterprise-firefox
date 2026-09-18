@@ -147,15 +147,15 @@ void nsFont::AddFontFeaturesToStyle(gfxFontStyle* aStyle,
   gfxFontFeature setting;
 
   // -- kerning
-  setting.mTag = aVertical ? TRUETYPE_TAG('v', 'k', 'r', 'n')
-                           : TRUETYPE_TAG('k', 'e', 'r', 'n');
+  setting.tag = aVertical ? TRUETYPE_TAG('v', 'k', 'r', 'n')
+                          : TRUETYPE_TAG('k', 'e', 'r', 'n');
   switch (kerning) {
     case StyleFontKerning::None:
-      setting.mValue = 0;
+      setting.value = 0;
       aStyle->featureSettings.AppendElement(setting);
       break;
     case StyleFontKerning::Normal:
-      setting.mValue = 1;
+      setting.value = 1;
       aStyle->featureSettings.AppendElement(setting);
       break;
     default:
@@ -170,8 +170,8 @@ void nsFont::AddFontFeaturesToStyle(gfxFontStyle* aStyle,
   // than after font-matching.
   for (auto& alternate : variantAlternates.AsSpan()) {
     if (alternate.IsHistoricalForms()) {
-      setting.mValue = 1;
-      setting.mTag = TRUETYPE_TAG('h', 'i', 's', 't');
+      setting.value = 1;
+      setting.tag = TRUETYPE_TAG('h', 'i', 's', 't');
       aStyle->featureSettings.AppendElement(setting);
       break;
     }
@@ -199,25 +199,25 @@ void nsFont::AddFontFeaturesToStyle(gfxFontStyle* aStyle,
 
     if (variantLigatures & StyleFontVariantLigatures::COMMON_LIGATURES) {
       // liga already enabled, need to enable clig also
-      setting.mTag = TRUETYPE_TAG('c', 'l', 'i', 'g');
-      setting.mValue = 1;
+      setting.tag = TRUETYPE_TAG('c', 'l', 'i', 'g');
+      setting.value = 1;
       aStyle->featureSettings.AppendElement(setting);
     } else if (variantLigatures &
                StyleFontVariantLigatures::NO_COMMON_LIGATURES) {
       // liga already disabled, need to disable clig also
-      setting.mTag = TRUETYPE_TAG('c', 'l', 'i', 'g');
-      setting.mValue = 0;
+      setting.tag = TRUETYPE_TAG('c', 'l', 'i', 'g');
+      setting.value = 0;
       aStyle->featureSettings.AppendElement(setting);
     } else if (variantLigatures & StyleFontVariantLigatures::NONE) {
       // liga already disabled, need to disable dlig, hlig, calt, clig
-      setting.mValue = 0;
-      setting.mTag = TRUETYPE_TAG('d', 'l', 'i', 'g');
+      setting.value = 0;
+      setting.tag = TRUETYPE_TAG('d', 'l', 'i', 'g');
       aStyle->featureSettings.AppendElement(setting);
-      setting.mTag = TRUETYPE_TAG('h', 'l', 'i', 'g');
+      setting.tag = TRUETYPE_TAG('h', 'l', 'i', 'g');
       aStyle->featureSettings.AppendElement(setting);
-      setting.mTag = TRUETYPE_TAG('c', 'a', 'l', 't');
+      setting.tag = TRUETYPE_TAG('c', 'a', 'l', 't');
       aStyle->featureSettings.AppendElement(setting);
-      setting.mTag = TRUETYPE_TAG('c', 'l', 'i', 'g');
+      setting.tag = TRUETYPE_TAG('c', 'l', 'i', 'g');
       aStyle->featureSettings.AppendElement(setting);
     }
   }
@@ -233,9 +233,9 @@ void nsFont::AddFontFeaturesToStyle(gfxFontStyle* aStyle,
   aStyle->variantSubSuper = variantPosition;
 
   // -- width
-  setting.mTag = FontFeatureTagForVariantWidth(variantWidth);
-  if (setting.mTag) {
-    setting.mValue = 1;
+  setting.tag = FontFeatureTagForVariantWidth(variantWidth);
+  if (setting.tag) {
+    setting.value = 1;
     aStyle->featureSettings.AppendElement(setting);
   }
 
@@ -269,7 +269,7 @@ void nsFont::AddFontVariationsToStyle(gfxFontStyle* aStyle) const {
   class VariationTagComparator {
    public:
     bool Equals(const gfxFontVariation& aVariation, uint32_t aTag) const {
-      return aVariation.mTag == aTag;
+      return aVariation.tag == aTag;
     }
   };
   const uint32_t kTagOpsz = TRUETYPE_TAG('o', 'p', 's', 'z');

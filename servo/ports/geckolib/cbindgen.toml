@@ -124,6 +124,8 @@ include = [
   "CaptionSide",
   "ColorGamut",
   "DominantBaseline",
+  "FontFeatureSettings",
+  "FontVariationSettings",
   "FontSizeAdjust",
   "FontPalette",
   "FontLanguageOverride",
@@ -432,6 +434,7 @@ include = [
   "FontVariantCaps",
   "WhiteSpaceCollapse",
   "BackgroundOrigin",
+  "XLang",
 ]
 item_types = [
   "enums",
@@ -480,11 +483,9 @@ renaming_overrides_prefixing = true
 "FontFaceDescriptorId" = "FontFaceDescriptorId"
 "CounterStyleDescriptorId" = "CounterStyleDescriptorId"
 "nsresult" = "nsresult"
-"gfxFontFeature" = "gfxFontFeature"
 "gfxFontFeatureValueSet" = "gfxFontFeatureValueSet"
 "GeckoFontMetrics" = "GeckoFontMetrics"
 "SeenPtrs" = "SeenPtrs"
-"gfxFontVariation" = "gfxFontVariation"
 "URLExtraData" = "URLExtraData"
 "Keyframe" = "Keyframe"
 "nsChangeHint" = "nsChangeHint"
@@ -494,6 +495,7 @@ renaming_overrides_prefixing = true
 "ServoTraversalFlags" = "ServoTraversalFlags"
 "ServoStyleSetSizes" = "ServoStyleSetSizes"
 "BeforeFlag" = "StyleEasingBeforeFlag"
+"Leaf" = "StyleSpecifiedLeaf"
 "FontPaletteValueSet" = "gfx::FontPaletteValueSet"
 "PaletteValues" = "gfx::FontPaletteValueSet::PaletteValues"
 "ThinVec" = "CopyableTArray"

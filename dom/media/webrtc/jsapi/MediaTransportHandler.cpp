@@ -1961,22 +1961,27 @@ void MediaTransportHandlerSTS::OnCandidateError(NrIceMediaStream* aStream,
   OnCandidateError(std::move(info));
 }
 
-dom::RTCErrorParams GetErrorInfo(const TransportLayerDtls& aDtlsLayer) {
+// Returns Nothing unless the error originated in DTLS itself; an error in the
+// layer below us (ie; ICE) is not a DTLS error, and webrtc-pc does not want us
+// to fire an error event on RTCDtlsTransport for it.
+Maybe<dom::RTCErrorParams> GetErrorInfo(const TransportLayerDtls& aDtlsLayer) {
   dom::RTCErrorInit error;
   if (aDtlsLayer.HasFingerprintError()) {
     // We might have sent an alert for this, but webrtc-pc says sendAlert is
     // only set when the error detail is "dtls-failure".
     error.mErrorDetail = dom::RTCErrorDetailType::Fingerprint_failure;
-  } else {
+  } else if (aDtlsLayer.HasDtlsFailureError()) {
     error.mErrorDetail = dom::RTCErrorDetailType::Dtls_failure;
     // Spec says these cannot be set in the "fingerprint-failure" case
     aDtlsLayer.GetSentAlert().apply(
         [&](auto value) { error.mSentAlert.Construct(value); });
     aDtlsLayer.GetReceivedAlert().apply(
         [&](auto value) { error.mReceivedAlert.Construct(value); });
+  } else {
+    return Nothing();
   }
 
-  return dom::RTCErrorParams{error, aDtlsLayer.GetErrorDescription()};
+  return Some(dom::RTCErrorParams{error, aDtlsLayer.GetErrorDescription()});
 }
 
 void MediaTransportHandlerSTS::OnStateChange(TransportLayer* aLayer,
@@ -2040,7 +2045,7 @@ void MediaTransportHandlerSTS::UpdateReportedState(
     if (NS_WARN_IF(!dtlsLayer)) {
       MOZ_ASSERT(false);
     } else {
-      error = Some(GetErrorInfo(*dtlsLayer));
+      error = GetErrorInfo(*dtlsLayer);
     }
   }
 

@@ -2542,7 +2542,6 @@ nsresult HttpChannelChild::ContinueAsyncOpen() {
   openArgs.priority() = mPriority;
   openArgs.classOfService() = mClassOfService;
   openArgs.redirectionLimit() = mRedirectionLimit;
-  openArgs.allowSTS() = LoadAllowSTS();
   openArgs.thirdPartyFlags() = LoadThirdPartyFlags();
   openArgs.resumeAt() = mSendResumeAt;
   openArgs.startPos() = mStartPos;

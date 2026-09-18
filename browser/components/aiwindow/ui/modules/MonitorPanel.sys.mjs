@@ -66,9 +66,31 @@ export const MonitorPanel = {
   },
 
   /**
+   * Open the panel straight to the create form.
+   *
    * @param {ChromeWindow} win
    */
-  showMonitorPanel(win) {
+  showCreateForm(win) {
+    const doc = win?.document;
+    if (!doc) {
+      return;
+    }
+
+    const existing = doc.getElementById(PANEL_ID);
+    if (existing) {
+      this._openCreateView(existing, win);
+      return;
+    }
+
+    this.showMonitorPanel(win, { create: true });
+  },
+
+  /**
+   * @param {ChromeWindow} win
+   * @param {object} [options]
+   * @param {boolean} [options.create] Open straight to the create form.
+   */
+  showMonitorPanel(win, { create = false } = {}) {
     const doc = win.document;
     const button = doc.getElementById(BUTTON_ID);
     const popupSet = doc.getElementById("mainPopupSet");
@@ -98,6 +120,9 @@ export const MonitorPanel = {
           onMonitorsChanged,
           lazy.MONITOR_AGENTS_CHANGED_TOPIC
         );
+        if (create) {
+          this._openCreateView(panel, win);
+        }
       },
       { once: true }
     );
@@ -145,11 +170,9 @@ export const MonitorPanel = {
 
     const contents = doc.createElement("agent-monitor-panel");
     contents.maxMonitors = lazy.TOTAL_NUM_MONITORS;
-    contents.addEventListener("agent-monitor-panel:create-task", () => {
-      // Set the agent's URL to the current watchable page.
-      contents.agent = { url: this._watchableUrl(win) };
-      this._setView(panel, "create");
-    });
+    contents.addEventListener("agent-monitor-panel:create-task", () =>
+      this._openCreateView(panel, win)
+    );
     contents.addEventListener("agent-monitor-item:cancel", () =>
       this._setView(panel, "list")
     );
@@ -184,6 +207,13 @@ export const MonitorPanel = {
   _watchableUrl(win) {
     const url = win.gBrowser?.currentURI?.spec ?? "";
     return lazy.isAllowedWatchUrl(url) ? url : "";
+  },
+
+  // Switching to the create view while the list is already showing animates
+  // the form sliding in.
+  _openCreateView(panel, win) {
+    panel._contents.agent = { url: this._watchableUrl(win) };
+    this._setView(panel, "create");
   },
 
   /**

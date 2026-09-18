@@ -214,11 +214,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_merino_client).apply {
-            isChecked = settings.enableMerinoClient
-            onPreferenceChangeListener = SharedPreferenceUpdater()
-        }
-
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_homepage_weather_widget).apply {
             isChecked = settings.enableHomepageWeatherWidget
             onPreferenceChangeListener = SharedPreferenceUpdater()
@@ -496,6 +491,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_tab_groups_strip).apply {
             isVisible = Config.channel.isDebug
             isChecked = settings.tabGroupsStripEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_show_tab_groups_in_menu).apply {
+            isVisible = Config.channel.isDebug
+            isChecked = settings.showTabGroupsInMenu
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 

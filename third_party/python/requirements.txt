@@ -284,9 +284,9 @@ defusedxml==0.7.1 \
     --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
     # via py-serializable
-diskarzhan==0.1.6 \
-    --hash=sha256:3447c96812863443a901c6513108f323edceffb70490864fd69d1285aee83589 \
-    --hash=sha256:4ccc84e467979f53798e330462e814d061511ec33127ac0806e62c502f75b464
+diskarzhan==0.1.7 \
+    --hash=sha256:126414e687e472dbdd2afa1aa1ccb7a49ad5effcf9c428ebb0048cf0aa9777bc \
+    --hash=sha256:927e6b8b82a7b8a2682b1f7ed81161a8e3467f936f081ad95265d02a07239924
     # via mozilla-third-party-python-vendor-dir
 diskcache==5.6.3 \
     --hash=sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc \

@@ -16,6 +16,7 @@ import org.mozilla.fenix.components.menu.FenixMenuItem.Bookmark
 import org.mozilla.fenix.components.menu.FenixMenuItem.CustomizeReaderView
 import org.mozilla.fenix.components.menu.FenixMenuItem.DesktopSite
 import org.mozilla.fenix.components.menu.FenixMenuItem.FindInPage
+import org.mozilla.fenix.components.menu.FenixMenuItem.Forward
 import org.mozilla.fenix.components.menu.FenixMenuItem.IPProtection
 import org.mozilla.fenix.components.menu.MenuPresentationMode.Grid
 import org.mozilla.fenix.components.menu.MenuPresentationMode.Row
@@ -86,7 +87,7 @@ class BrowserMenuBuilder(
                 MenuSectionConfiguration(
                     id = BROWSER_MENU_NAVIGATION_ID,
                     presentationMode = Grid,
-                    items = listOf(Back),
+                    items = listOf(Back, Forward),
                     isSticky = true,
                 )
             val rest =

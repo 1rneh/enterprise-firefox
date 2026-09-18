@@ -8,17 +8,35 @@
 
 mod lifecycle;
 
-use std::io::ErrorKind;
+use std::env;
+use std::fs::File;
+use std::io::{self, BufRead, ErrorKind};
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
+use std::str::FromStr;
+use std::thread;
+use std::time;
 
 use clap::Parser;
 
+use mozbuild::config::MOZ_APP_NAME;
+
 const PROGRAM: &str = env!("CARGO_BIN_NAME");
 
+const COMPATIBILITY_FILENAME: &str = "compatibility.ini";
 /// File that every Firefox profile directory carries, used to tell a profile
-/// apart from an arbitrary directory.
-const PROFILE_MARKER: &str = "compatibility.ini";
+/// apart from an arbitrary directory. Currently this is compatibility.ini
+const PROFILE_MARKER: &str = COMPATIBILITY_FILENAME;
+
+/// File that indicates a profile is currently in use.
+const PROFILE_LOCK_NAME: &str = "parent.lock";
+
+/// Default length of time between checking to see if we should launch Firefox
+/// Can be overwritten by setting the FX_NOTIFICATION_HELPER_LAUNCH_TIMEOUT_SECS
+/// environment variable
+const DEFAULT_LAUNCH_TIMEOUT_SECS: u64 = 5 * 60;
+const LAUNCH_TIMEOUT_ENV_NAME: &str = "FX_NOTIFICATION_HELPER_LAUNCH_TIMEOUT_SECS";
+const LAST_PLATFORM_DIR_STR: &str = "LastPlatformDir=";
 
 #[derive(Parser)]
 #[command(name = PROGRAM, about, disable_version_flag = true)]
@@ -45,6 +63,9 @@ fn check_profile(path: &Path) -> Result<(), String> {
         Err(error) => return Err(format!("cannot read {}: {error}", path.display())),
     }
 
+    // This will fail for a profile that has never been launched, but that's ok
+    // because a profile that has never been launched doesn't need to check for
+    // push notifications
     if !path.join(PROFILE_MARKER).is_file() {
         return Err(format!("not a Firefox profile: {}", path.display()));
     }
@@ -52,9 +73,116 @@ fn check_profile(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn get_firefox_path_from_executable(path: &Path) -> Option<PathBuf> {
+    if let Some(parent_path) = path.parent() {
+        return Some(parent_path.to_owned());
+    }
+
+    return None;
+}
+
+fn get_firefox_path_from_profile(profile_path: &Path) -> Option<PathBuf> {
+    let compat_path = profile_path.join(COMPATIBILITY_FILENAME);
+
+    if !compat_path.is_file() {
+        return None;
+    }
+
+    let file = File::open(compat_path).ok()?;
+
+    let line_reader = io::BufReader::new(file).lines();
+    for line in line_reader.map_while(Result::ok) {
+        if !line.starts_with(LAST_PLATFORM_DIR_STR) {
+            continue;
+        }
+
+        let slice = &line[LAST_PLATFORM_DIR_STR.len()..];
+        let mut exe_path = PathBuf::new();
+        exe_path.push(slice.trim_end_matches(&['\r', '\n']));
+
+        return Some(exe_path);
+    }
+
+    return None;
+}
+
+/// Tries to get a path for the Firefox executable using the profile,
+/// and falling back to the current executable path.
+fn get_firefox_path(profile_path: &Path, executable_path: &Path) -> Option<PathBuf> {
+    let mut firefox_path = get_firefox_path_from_profile(profile_path)
+        .or_else(|| get_firefox_path_from_executable(executable_path))
+        .or_else(|| {
+            eprintln!("Couldn't determine the Firefox installation path");
+            None
+        })?;
+
+    firefox_path.push(MOZ_APP_NAME.to_owned() + ".exe");
+
+    return if firefox_path.exists() {
+        Some(firefox_path)
+    } else {
+        return None;
+    };
+}
+
+/// Launches <firefox_path> if <profile_path> is not currently in use by a running process
+fn maybe_launch_fx(profile_path: &Path, firefox_path: &Path) {
+    let lock_path = profile_path.join(PROFILE_LOCK_NAME);
+    if lock_path.is_file() {
+        #[cfg(not(windows))]
+        compile_error!("This method for checking the lock only works on Windows");
+        let result = File::open(lock_path.as_path());
+        let firefox_running = match result {
+            Ok(_file) => {
+                println!("Firefox is not running");
+                false
+            }
+            Err(error) => {
+                println!("Firefox is running: {error}");
+                true
+            }
+        };
+
+        if firefox_running {
+            // This profile is currently in use, so we don't need to check it
+            println!("Firefox is running");
+            return;
+        }
+    } else {
+        println!("No lock file found at {}", lock_path.display());
+    }
+
+    println!("Launching firefox");
+    let result = Command::new(firefox_path)
+        .arg("--receive-push-messages")
+        .arg("--profile")
+        .arg(profile_path)
+        .spawn();
+
+    if let Err(message) = result {
+        eprintln!("Error launching Firefox: {message}");
+        return;
+    }
+}
+
+fn get_interval_time() -> u64 {
+    if let Ok(env_str) = env::var(LAUNCH_TIMEOUT_ENV_NAME) {
+        return match u64::from_str(&env_str) {
+            Ok(interval) => {
+                if interval > 0 {
+                    interval
+                } else {
+                    DEFAULT_LAUNCH_TIMEOUT_SECS
+                }
+            }
+            Err(_) => DEFAULT_LAUNCH_TIMEOUT_SECS,
+        };
+    }
+    return DEFAULT_LAUNCH_TIMEOUT_SECS;
+}
 /// Starts the notification work for `profile`, parks until another process asks
 /// it to stop, then tears the work down.
-fn run(profile: &Path) -> ExitCode {
+fn run(profile: &Path, firefox_path: &Path) -> ExitCode {
     // Ensure that only one helper exists per profile. Held until the process exits.
     let _guard = match lifecycle::ProfileGuard::acquire(profile) {
         Ok(Some(guard)) => guard,
@@ -79,15 +207,33 @@ fn run(profile: &Path) -> ExitCode {
     println!("Starting to fetch notifications 🦀 🦊");
     println!("profile: {}", profile.display());
 
-    let worker = std::thread::spawn(|| {
+
+    // let mut task_profile_path = PathBuf::new();
+    // task_profile_path.push(profile);
+    // let mut task_firefox_path = PathBuf::new();
+    // task_firefox_path.push(firefox_path);
+
+    let task_profile_path = profile.to_owned();
+    let task_firefox_path = firefox_path.to_owned();
+
+    let worker = thread::spawn(move || {
         // TODO: all of the websocket work goes here. Connect to the push
         // service and keep reading notifications until the connection is
         // closed out from under this thread.
+        let interval_time_ms = get_interval_time() * 1000;
+        let duration = time::Duration::from_millis(interval_time_ms);
+
+        println!("Starting check loop");
         loop {
-            std::thread::park();
+            println!("Waiting for {interval_time_ms}");
+            thread::sleep(duration);
+
+            println!("Checking for Firefox");
+            maybe_launch_fx(&task_profile_path, &task_firefox_path);
         }
     });
 
+    println!("Waiting for stop signal");
     if let Err(message) = stop.wait() {
         eprintln!("{PROGRAM}: {message}");
         return ExitCode::FAILURE;
@@ -103,6 +249,11 @@ fn run(profile: &Path) -> ExitCode {
 
 fn main() -> ExitCode {
     let args = Args::parse();
+
+    let Ok(executable) = std::env::current_exe() else {
+        eprintln!("Missing executable name");
+        return ExitCode::FAILURE;
+    };
 
     if args.stop {
         return match lifecycle::send_stop_signal(args.profile.as_deref()) {
@@ -124,7 +275,19 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    run(profile)
+    let Some(firefox_path) = get_firefox_path(profile, &executable) else {
+        eprintln!("Could not find Firefox");
+        return ExitCode::FAILURE;
+    };
+
+    if firefox_path.is_file() {
+        println!("Found Firefox at: {:?}", firefox_path);
+    } else {
+        eprintln!("Found Firefox path {:?} but it is not a file", firefox_path);
+        return ExitCode::FAILURE;
+    }
+
+    run(profile, &firefox_path)
 }
 
 #[cfg(test)]
@@ -205,9 +368,10 @@ mod tests {
     #[test]
     fn run_declines_quietly_when_a_helper_already_has_the_profile() {
         let profile = Path::new(r"c:\profiles\run-declines");
+        let firefox_path = Path::new(r"c:\fakepath\firefox.exe");
 
         let _held = lifecycle::ProfileGuard::acquire(profile).unwrap().unwrap();
 
-        assert_eq!(run(profile), ExitCode::SUCCESS);
+        assert_eq!(run(profile, firefox_path), ExitCode::SUCCESS);
     }
 }

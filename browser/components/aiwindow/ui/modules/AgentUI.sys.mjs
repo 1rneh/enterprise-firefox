@@ -189,7 +189,8 @@ export class AgentUI {
     }
 
     const monitors = await lazy.MonitorAgent.listMonitors();
-    if (monitors.length >= lazy.TOTAL_NUM_MONITORS) {
+    const activeCount = monitors.filter(monitor => monitor.enabled).length;
+    if (activeCount >= lazy.TOTAL_NUM_MONITORS) {
       conversation.addAssistantWithL10nMessage(
         "smartwindow-agent-monitor-limit-reached",
         { count: lazy.TOTAL_NUM_MONITORS },

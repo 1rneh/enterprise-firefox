@@ -40,6 +40,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/IntentionalCrash.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/MemoryChecking.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/SpinEventLoopUntil.h"
@@ -231,16 +232,8 @@ void RunWatchdog(void*) {
 
     // Arrived here we know we will crash in a way or another.
 
-    // If the sampler thread is mid-write on a scheduled profile dump, let it
-    // finish (and, since it exits the process on completion, we never reach the
-    // crash below) rather than crashing over a half-written profile.
-    profiler_wait_for_scheduled_dump();
-
-    NoteIntentionalCrash(XRE_GetProcessTypeString());
-
-    CollectShutdownHangAnnotations();
-
-    MaybeSaveShutdownHangProfile();
+    // Gather our diagnosis before anything that can end the process: the
+    // scheduled-dump wait below exits on completion and never returns.
 
     // Until we have general log output for crash annotations in treeherder
     // (bug 1728721) we manually spit out our nested event loop stack.
@@ -264,20 +257,40 @@ void RunWatchdog(void*) {
       }
     }
 
+    printf_stderr("RunWatchdog: Shutdown hanging at step %s.\n",
+                  mozilla::AppShutdown::GetShutdownPhaseName(lastPhase));
+
+    // Collect running workers, if worker shutdown started and is incomplete.
+    mozilla::Maybe<nsCString> workersMsg;
+    if (mozilla::dom::workerinternals::RuntimeService* runtimeService =
+            mozilla::dom::workerinternals::RuntimeService::GetService()) {
+      workersMsg = runtimeService->GetHangingWorkersInfo();
+    }
+    if (workersMsg) {
+      printf_stderr("RunWatchdog: %s\n", workersMsg->get());
+    }
+
+    // If the sampler thread is mid-write on a scheduled profile dump, let it
+    // finish (and, since it exits the process on completion, we never reach the
+    // crash below) rather than crashing over a half-written profile.
+    profiler_wait_for_scheduled_dump();
+
+    NoteIntentionalCrash(XRE_GetProcessTypeString());
+
+    CollectShutdownHangAnnotations();
+
+    MaybeSaveShutdownHangProfile();
+
     if (lastPhase == mozilla::ShutdownPhase::NotInShutdown) {
       // This is not something we expect to ever happen, but still.
       CrashReporter::SetMinidumpAnalysisAllThreads();
       MOZ_CRASH("Shutdown hanging before starting any known phase.");
     }
 
-    // First check if worker shutdown started and is incomplete, in case
-    // report running workers.
-    mozilla::dom::workerinternals::RuntimeService* runtimeService =
-        mozilla::dom::workerinternals::RuntimeService::GetService();
-    if (runtimeService) {
-      // CrashIfHanging will check if we actually ever asked for worker
-      // shutdown, so calling it before is a no-op.
-      runtimeService->CrashIfHanging();
+    if (workersMsg) {
+      CrashReporter::SetMinidumpAnalysisAllThreads();
+      // This string will be leaked.
+      MOZ_CRASH_UNSAFE(strdup(workersMsg->get()));
     }
 
     // Otherwise just report our shutdown phase.

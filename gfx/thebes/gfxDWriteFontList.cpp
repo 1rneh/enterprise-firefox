@@ -903,8 +903,8 @@ nsresult gfxDWriteFontEntry::CreateFontFace(
           if (SUCCEEDED(hr) && resource) {
             AutoTArray<DWRITE_FONT_AXIS_VALUE, 4> fontAxisValues;
             for (const auto& v : mVariationSettings) {
-              DWRITE_FONT_AXIS_VALUE axisValue = {makeDWriteAxisTag(v.mTag),
-                                                  v.mValue};
+              DWRITE_FONT_AXIS_VALUE axisValue = {makeDWriteAxisTag(v.tag),
+                                                  v.value};
               fontAxisValues.AppendElement(axisValue);
             }
             resource->CreateFontFace(
@@ -931,8 +931,8 @@ nsresult gfxDWriteFontEntry::CreateFontFace(
         // Copy variation settings to DWrite's type.
         if (aVariations) {
           for (const auto& v : *aVariations) {
-            DWRITE_FONT_AXIS_VALUE axisValue = {makeDWriteAxisTag(v.mTag),
-                                                v.mValue};
+            DWRITE_FONT_AXIS_VALUE axisValue = {makeDWriteAxisTag(v.tag),
+                                                v.value};
             fontAxisValues.AppendElement(axisValue);
           }
         }

@@ -42,6 +42,19 @@ ai-tasks-monitor-notification-body = Found what you’re watching for.
 ai-tasks-monitor-notification-snooze = Snooze
 ai-tasks-monitor-notification-dismiss = Dismiss
 
+# Desktop notification shown right after the user creates a monitor, so they
+# know a match will be announced the same way. The notification title is the
+# monitor's name.
+# Variables:
+#   $site (String) - Hostname of the first page the monitor watches, e.g. "example.com"
+#   $extraCount (Number) - How many more pages the monitor watches besides $site
+ai-tasks-monitor-created-notification-body =
+    { $extraCount ->
+        [0] Now watching { $site }. You’ll get a notification like this one when there’s a match.
+        [one] Now watching { $site } and { $extraCount } other page. You’ll get a notification like this one when there’s a match.
+       *[other] Now watching { $site } and { $extraCount } other pages. You’ll get a notification like this one when there’s a match.
+    }
+
 # Smart Window Alerts
 # This file contains localized strings for the Smart Window alerts feature,
 # which allows users to create alerts to monitor webpages for changes.
@@ -148,6 +161,9 @@ ai-tasks-alert-error-no-pages = Add at least one page to watch.
 ai-tasks-alert-error-max-urls = { $maxUrls ->
  *[other] You can watch up to { $maxUrls } pages. Delete one to add another.
 }
+# Shown when creating or resuming a task is refused because the limit of
+# active tasks has been reached. Paused tasks don’t count toward the limit.
+ai-tasks-alert-error-active-limit = You’ve reached the limit of active tasks. Pause or delete one to add or resume another.
 
 ## Accessibility - ARIA labels and accessibility text
 

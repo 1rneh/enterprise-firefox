@@ -858,8 +858,8 @@ void gfxFT2FontBase::SetupVarCoords(
   for (unsigned i = 0; i < aMMVar->num_axis; ++i) {
     coords.AppendElement(aMMVar->axis[i].def);
     for (const auto& v : aVariations) {
-      if (aMMVar->axis[i].tag == v.mTag) {
-        FT_Fixed val = v.mValue * 0x10000;
+      if (aMMVar->axis[i].tag == v.tag) {
+        FT_Fixed val = v.value * 0x10000;
         val = std::min(val, aMMVar->axis[i].maximum);
         val = std::max(val, aMMVar->axis[i].minimum);
         coords[i] = val;

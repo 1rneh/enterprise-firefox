@@ -668,6 +668,7 @@ export class AutoCompleteParent extends JSWindowActorParent {
     const prefixToActor = [
       { prefix: "PasswordManager", actor: "LoginManager" },
       { prefix: "FormAutofill", actor: "FormAutofill" },
+      { prefix: "FormHistory", actor: "FormHistory" },
       { prefix: "SmartFormFill", actor: "SmartFormFill" },
     ];
 

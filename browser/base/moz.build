@@ -15,8 +15,8 @@ MOCHITEST_CHROME_MANIFESTS += [
 ]
 
 BROWSER_CHROME_MANIFESTS += [
-    "content/test/about/browser.toml",
-    "content/test/about/sslkeylogging/browser.toml",
+    "content/test/browser-about/browser.toml",
+    "content/test/browser-about/sslkeylogging/browser.toml",
     "content/test/browser-alerts/browser.toml",
     "content/test/browser-backforward/browser.toml",
     "content/test/browser-caps/browser.toml",
@@ -25,6 +25,7 @@ BROWSER_CHROME_MANIFESTS += [
     "content/test/browser-contentTheme/browser.toml",
     "content/test/browser-framebusting/browser.toml",
     "content/test/browser-fullscreen/browser.toml",
+    "content/test/browser-general/browser.toml",
     "content/test/browser-gesture/browser.toml",
     "content/test/browser-historySwipeAnimation/browser.toml",
     "content/test/browser-keyboard/browser.toml",
@@ -42,6 +43,7 @@ BROWSER_CHROME_MANIFESTS += [
     "content/test/browser-pageStyle/browser.toml",
     "content/test/browser-plugins/browser.toml",
     "content/test/browser-popupNotifications/browser.toml",
+    "content/test/browser-popups/browser.toml",
     "content/test/browser-referrer/browser.toml",
     "content/test/browser-sanitize/browser.toml",
     "content/test/browser-scroll-to-text-fragment/browser.toml",
@@ -50,23 +52,21 @@ BROWSER_CHROME_MANIFESTS += [
     "content/test/browser-tabcrashed/browser_aboutRestartRequired.toml",
     "content/test/browser-tabcrashed/browser_aboutRestartRequired_noForkServer.toml",
     "content/test/browser-tabdialogs/browser.toml",
+    "content/test/browser-tabPrompts/browser.toml",
     "content/test/browser-touch/browser.toml",
     "content/test/browser-utilityOverlay/browser.toml",
+    "content/test/browser-webrtc/browser.toml",
+    "content/test/browser-webrtc/gracePeriod/browser.toml",
     "content/test/browser-zoom/browser.toml",
     "content/test/contextMenu/browser.toml",
     "content/test/favicons/browser.toml",
     "content/test/forms/browser.toml",
-    "content/test/general/browser.toml",
     "content/test/permissions/browser.toml",
-    "content/test/popups/browser.toml",
     "content/test/protectionsUI/browser.toml",
     "content/test/siteIdentity/browser.toml",
     "content/test/static/browser.toml",
     "content/test/sync/browser.toml",
-    "content/test/tabPrompts/browser.toml",
     "content/test/webextensions/browser.toml",
-    "content/test/webrtc/browser.toml",
-    "content/test/webrtc/gracePeriod/browser.toml",
 ]
 
 DIRS += [

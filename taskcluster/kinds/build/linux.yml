@@ -1768,6 +1768,7 @@ linux64-aarch64/opt:
             - sysroot-aarch64-linux-gnu
             - sysroot-x86_64-linux-gnu
             - sysroot-wasm32-wasi
+            - onnxruntime-aarch64-linux-gnu
 
 linux64-aarch64/debug:
     description: "Linux AArch64 (a.k.a. ARM64) Debug"
@@ -1813,6 +1814,7 @@ linux64-aarch64/debug:
             - sysroot-aarch64-linux-gnu
             - sysroot-x86_64-linux-gnu
             - sysroot-wasm32-wasi
+            - onnxruntime-aarch64-linux-gnu
 
 linux64-aarch64-shippable/opt:
     description: "Linux AArch64 (a.k.a. ARM64) Shippable"
@@ -1865,6 +1867,7 @@ linux64-aarch64-shippable/opt:
             - sysroot-aarch64-linux-gnu
             - sysroot-x86_64-linux-gnu
             - sysroot-wasm32-wasi
+            - onnxruntime-aarch64-linux-gnu
 
 linux64-aarch64-enterprise-shippable/opt:
     description: "Linux AArch64 (a.k.a. ARM64) Shippable Enterprise"
@@ -1975,3 +1978,4 @@ linux64-aarch64-devedition/opt:
             - sysroot-aarch64-linux-gnu
             - sysroot-x86_64-linux-gnu
             - sysroot-wasm32-wasi
+            - onnxruntime-aarch64-linux-gnu

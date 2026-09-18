@@ -19,6 +19,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   EveryWindow: "resource:///modules/EveryWindow.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   PrefUtils: "moz-src:///toolkit/modules/PrefUtils.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SidebarManager:
     "moz-src:///browser/components/sidebar/SidebarManager.sys.mjs",
 });
@@ -429,14 +431,68 @@ export const GenAI = {
     }
     panel.initialized = true;
 
+    // Set the icons here rather than in markup, because the panel lives in the
+    // popupset and an iconsrc there loads the image during startup while the
+    // action is still hidden.
+    for (const [id, src] of [
+      ["#search-action-button", "chrome://global/skin/icons/search-glass.svg"],
+      ["#copy-action-button", "chrome://global/skin/icons/edit-copy.svg"],
+      ["#more-actions-button", "chrome://global/skin/icons/more.svg"],
+    ]) {
+      panel.querySelector(id).iconSrc = src;
+    }
+
     const setAIButtonAriaLabel = (chatProviderName = "localhost") => {
-      document.l10n.setAttributes(aiActionButton, "genai-shortcut-button", {
+      document.l10n.setAttributes(aiActionButton, "genai-shortcut-button-2", {
         provider: chatProviderName,
       });
     };
 
     const initialChatProvider = this.chatProviders.get(lazy.chatProvider);
     setAIButtonAriaLabel(initialChatProvider?.name);
+
+    const searchActionButton = panel.querySelector("#search-action-button");
+
+    // Matches the context menu's "Search <engine> for <selection>" label.
+    const truncateSelection = selection => {
+      const collapsed = selection.replace(/\s+/g, " ").trim();
+      if (collapsed.length <= 15) {
+        return collapsed;
+      }
+      let truncLength = 15;
+      const truncChar = collapsed[15].charCodeAt(0);
+      // Handle surrogate pairs.
+      if (truncChar >= 0xdc00 && truncChar <= 0xdfff) {
+        truncLength++;
+      }
+      return collapsed.substring(0, truncLength) + Services.locale.ellipsis;
+    };
+
+    panel.setSearchButtonLabel = (selection, browser) => {
+      // The default engine getters throw rather than return null until the
+      // search service has initialized, and throwing here would stop the panel
+      // from opening at all, so hide the action like nsContextMenu does.
+      let engine = null;
+      if (lazy.SearchService.hasSuccessfullyInitialized) {
+        engine = lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)
+          ? lazy.SearchService.defaultPrivateEngine
+          : lazy.SearchService.defaultEngine;
+      }
+      if (!engine) {
+        searchActionButton.hidden = true;
+        return;
+      }
+      // No matching unhide: the action stays hidden until bug 2069167 gives it
+      // behavior, so showing it here would offer a control that does nothing.
+      document.l10n.setAttributes(
+        searchActionButton,
+        "genai-shortcut-search-button",
+        {
+          engine: engine.name,
+          selection: truncateSelection(selection),
+        }
+      );
+    };
     const buttonActiveState = "icon";
     const buttonDefaultState = "icon ghost";
     const chatShortcutsOptionsPanel = document.getElementById(
@@ -695,6 +751,7 @@ export const GenAI = {
       case "GenAI:ShowShortcuts": {
         // Save the latest selection so it can be used by popup
         shortcutPanel.selectionData = data;
+        shortcutPanel.setSearchButtonLabel(data.selection, browser);
 
         // Clear any CSS hide from a prior selectionchange so the panel
         // is visible when it opens for the new selection.

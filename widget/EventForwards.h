@@ -61,7 +61,7 @@ enum EventMessage : EventMessageType {
 #define NS_EVENT_MESSAGE_FIRST_LAST(aMessage, aFirst, aLast) \
   aMessage##First = aFirst, aMessage##Last = aLast,
 
-#include "mozilla/EventMessageList.h"
+#include "mozilla/EventMessageList.inc"
 
 #undef NS_EVENT_MESSAGE
 #undef NS_EVENT_MESSAGE_FIRST_LAST

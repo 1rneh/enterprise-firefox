@@ -11,6 +11,8 @@
 #include "nsWeakReference.h"        // for nsSupportsWeakReference, etc
 #include "nscore.h"                 // for nsresult
 
+#include "nsPIDOMWindow.h"
+
 #ifndef __gen_nsIWebProgressListener_h__
 #  include "nsIWebProgressListener.h"
 #endif

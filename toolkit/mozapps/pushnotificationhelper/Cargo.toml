@@ -22,6 +22,7 @@ clap = { version = "4", default-features = false, features = [
   "usage",
 ] }
 fnv = "1"
+mozbuild = "0.1"
 mozilla-central-workspace-hack = { version = "0.1", features = [
   "pushnotificationhelper",
 ], optional = true }

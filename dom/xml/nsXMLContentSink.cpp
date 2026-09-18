@@ -306,6 +306,7 @@ nsXMLContentSink::DidBuildModel(bool aTerminated) {
     mDocument->RemoveObserver(this);
     mIsDocumentObserver = false;
 
+    const RefPtr<nsXMLContentSink> kungFuDeathGrip(this);
     RefPtr<Document> doc = mDocument;
     if (!mDeferredLayoutStart && doc->IsBeingUsedAsImage()) {
       // Eagerly layout image documents, so that layout-triggered loads have a
@@ -313,7 +314,7 @@ nsXMLContentSink::DidBuildModel(bool aTerminated) {
       doc->FlushPendingNotifications(FlushType::Layout);
     }
 
-    doc->EndLoad();
+    doc->EndLoad(/* aFireDOMContentLoadedSync = */ !aTerminated);
 
     DropParserAndPerfHint();
   }
@@ -407,7 +408,8 @@ nsresult nsXMLContentSink::OnTransformDone(Document* aSourceDocument,
     ScrollToRef();
   }
 
-  originalDocument->EndLoad();
+  const RefPtr<nsXMLContentSink> kungFuDeathGrip(this);
+  originalDocument->EndLoad(/* aFireDOMContentLoadedSync = */ true);
   if (blockingOnload) {
     // This UnblockOnload call corresponds to the BlockOnload call in
     // nsContentSink::WillBuildModelImpl.
@@ -415,7 +417,7 @@ nsresult nsXMLContentSink::OnTransformDone(Document* aSourceDocument,
   }
   // On failure, aResultDocument is a separate error document.
   if (transformedDocument && transformedDocument->IsExpectingEndLoad()) {
-    transformedDocument->EndLoad();
+    transformedDocument->EndLoad(/* aFireDOMContentLoadedSync = */ true);
   }
 
   DropParserAndPerfHint();

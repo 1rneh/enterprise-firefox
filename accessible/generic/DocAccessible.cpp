@@ -3380,8 +3380,8 @@ void DocAccessible::RefreshAnchorRelationCacheForTarget(
       frame->GetProperty(nsIFrame::AnchorPosReferences());
   for (auto& entry : *referencedAnchors) {
     const auto& anchorName = entry.GetKey();
-    if (const nsIFrame* anchorFrame =
-            mPresShell->GetAnchorPosAnchor(anchorName, frame)) {
+    if (const nsIFrame* anchorFrame = mPresShell->GetAnchorPosAnchor(
+            anchorName, frame, referencedAnchors->mFrameTreeDepth)) {
       if (LocalAccessible* anchorAcc =
               GetAccessible(anchorFrame->GetContent())) {
         if (!mInsertedAccessibles.Contains(anchorAcc)) {

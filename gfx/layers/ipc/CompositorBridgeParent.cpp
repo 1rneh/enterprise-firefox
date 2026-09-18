@@ -1481,23 +1481,20 @@ already_AddRefed<IAPZCTreeManager> CompositorBridgeParent::GetAPZCTreeManager(
   return apzctm.forget();
 }
 
+struct VsyncMarker : public BaseMarkerType<VsyncMarker> {
+  static constexpr const char* Name = "VsyncTimestamp";
+  static constexpr const char* Description =
+      "Tracks when a vsync occurs according to the HardwareComposer";
+  using MS = MarkerSchema;
+  static constexpr MS::Location Locations[] = {
+      MS::Location::MarkerChart,
+      MS::Location::MarkerTable,
+  };
+};
+
 static void InsertVsyncProfilerMarker(TimeStamp aVsyncTimestamp) {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   if (profiler_thread_is_being_profiled_for_markers()) {
-    // Tracks when a vsync occurs according to the HardwareComposer.
-    struct VsyncMarker {
-      static constexpr mozilla::Span<const char> MarkerTypeName() {
-        return mozilla::MakeStringSpan("VsyncTimestamp");
-      }
-      static void StreamJSONMarkerData(
-          baseprofiler::SpliceableJSONWriter& aWriter) {}
-      static MarkerSchema MarkerTypeDisplay() {
-        using MS = MarkerSchema;
-        MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
-        // Nothing outside the defaults.
-        return schema;
-      }
-    };
     profiler_add_marker("VsyncTimestamp", geckoprofiler::category::GRAPHICS,
                         MarkerTiming::InstantAt(aVsyncTimestamp),
                         VsyncMarker{});
@@ -1828,6 +1825,15 @@ bool CompositorBridgeParent::IsSameProcess() const {
   return OtherPid() == base::GetCurrentProcId();
 }
 
+struct ContentFrameMarker : public BaseMarkerType<ContentFrameMarker> {
+  static constexpr const char* Name = "CONTENT_FRAME_TIME";
+  using MS = MarkerSchema;
+  static constexpr MS::Location Locations[] = {
+      MS::Location::MarkerChart,
+      MS::Location::MarkerTable,
+  };
+};
+
 int32_t RecordContentFrameTime(
     const VsyncId& aTxnId, const TimeStamp& aVsyncStart,
     const TimeStamp& aTxnStart, const VsyncId& aCompositeId,
@@ -1839,20 +1845,6 @@ int32_t RecordContentFrameTime(
   int32_t fracLatencyNorm = lround(latencyNorm * 100.0);
 
   if (profiler_thread_is_being_profiled_for_markers()) {
-    struct ContentFrameMarker {
-      static constexpr Span<const char> MarkerTypeName() {
-        return MakeStringSpan("CONTENT_FRAME_TIME");
-      }
-      static void StreamJSONMarkerData(
-          baseprofiler::SpliceableJSONWriter& aWriter) {}
-      static MarkerSchema MarkerTypeDisplay() {
-        using MS = MarkerSchema;
-        MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
-        // Nothing outside the defaults.
-        return schema;
-      }
-    };
-
     profiler_add_marker("CONTENT_FRAME_TIME", geckoprofiler::category::GRAPHICS,
                         MarkerTiming::Interval(aTxnStart, aCompositeEnd),
                         ContentFrameMarker{});

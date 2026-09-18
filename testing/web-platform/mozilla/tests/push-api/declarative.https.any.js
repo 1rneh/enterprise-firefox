@@ -38,11 +38,15 @@ async function sendPush(t, message) {
     assert_equals(swrNotifications.length, 1,
                   "ServiceWorkerRegistration.getNotifications() should return exactly 1 notification.");
     const swrNotification = swrNotifications[0];
-    assert_equals(swrNotification.title, notificationData.title,
-                  "title given in ServiceWorkerRegistration.getNotifications() should be correct.");
-    // Navigate URL is not stored in the AlertNotification
-    notificationData.navigate = swrNotification.navigate;
-    resolve({dwp: notificationData});
+    // (Not checking tag here since it's not exposed to nsIAlertNotification.
+    //  There's a separate test that tag does the expected thing below.)
+    for (let property of ["title", "dir", "lang", "silent", "requireInteraction", "body"]) {
+      let got = swrNotification[property];
+      let expected = notificationData[property];
+      assert_equals(got, expected,
+                    `${property} given in ServiceWorkerRegistration.getNotifications() should be consistent with alert data.`);
+    }
+    resolve({dwp: swrNotification});
   }, {signal});
   navigator.serviceWorker.addEventListener("message", e => {
     if (e.data.data) {
@@ -69,6 +73,16 @@ async function testNonDWP(t, message) {
   assert_true(result.swPush, "Should receive a service worker push event.");
 }
 
+// Array of [option name, expected default value, value for testing]
+const kNotificationOptions = [
+  ["silent", false, true],
+  ["requireInteraction", false, true],
+  ["lang", "", "pt"],
+  ["dir", "auto", "rtl"],
+  ["body", "", "Body text"],
+  ["tag", "", "test-tag"],
+];
+
 async function testDWP(t, pushData) {
   const result = await sendPush(t, JSON.stringify(pushData));
   assert_true(!!result.dwp, "Should be interpreted as a DWP.");
@@ -76,6 +90,15 @@ async function testDWP(t, pushData) {
                 "Notification title should be set correctly.");
   assert_equals(result.dwp.navigate, new URL(pushData.notification.navigate, location).href,
                 "Notification navigate should be set correctly.");
+  for (let [option, defaultValue] of kNotificationOptions) {
+    let expected = pushData.notification[option];
+    // If option is not set or has the wrong type, the default value should be used.
+    if (expected === undefined || typeof expected !== typeof defaultValue) {
+      expected = defaultValue;
+    }
+    assert_equals(result.dwp[option], expected,
+                  `Notification ${option} should be set correctly.`);
+  }
 }
 
 const SIMPLE_DWP = { "web_push": 8030, notification: { title: "test title", navigate: OPEN_URI } };
@@ -97,6 +120,30 @@ promise_test(async t => {
   assert_equals(result.dwp.title, "\uFFFDest title",
                 "Invalid UTF-8 should be replaced with U+FFFD replacement character in title.");
 }, "DWP accepts invalid UTF-8 and uses replacement character");
+
+promise_test(async t => {
+  const pushData = structuredClone(SIMPLE_DWP);
+  for (let [option, _, testValue] of kNotificationOptions) {
+    pushData.notification[option] = testValue;
+  }
+  await testDWP(t, pushData);
+}, "DWP accepts various Notification options.");
+
+promise_test(async t => {
+  const pushData = structuredClone(SIMPLE_DWP);
+  for (let [option, defaultValue] of kNotificationOptions) {
+    pushData.notification[option] = typeof defaultValue === "string" ? 3 : "hello";
+  }
+  await testDWP(t, pushData);
+}, "DWP ignores Notification options if they're the wrong type.");
+
+promise_test(async t => {
+  registration.showNotification("hello", {tag: "test-tag"});
+  const pushData = structuredClone(SIMPLE_DWP);
+  pushData.notification.tag = "test-tag";
+  // This will assert that there's only 1 notification.
+  await testDWP(t, pushData);
+}, "DWP with same tag replaces old notification.");
 
 promise_test(async t => {
   await testNonDWP(t, JSON.stringify(SIMPLE_DWP).slice(1));

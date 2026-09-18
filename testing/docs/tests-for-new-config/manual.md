@@ -108,7 +108,7 @@ timeout, crash, failure, etc. In the end you might end up with:
 dom/html/test/test_fullscreen-api.html, scrollbar
 gfx/layers/apz/test/mochitest/test_group_hittest.html, scrollbar
 image/test/mochitest/test_animSVGImage.html, timeout
-browser/base/content/test/general/browser_restore_isAppTab.js, crashed
+browser/base/content/test/browser-general/browser_restore_isAppTab.js, crashed
 ```
 
 ## Disable Tests in the Manifest Files

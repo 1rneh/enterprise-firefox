@@ -3333,6 +3333,8 @@ static bool malloc_init_hard() {
   gPageSize = page_size;
 #endif
 
+  opt_dirty_max = DIRTY_MAX_DEFAULT_BYTES / gPageSize;
+
   // Get runtime configuration.
   if ((opts = getenv("MALLOC_OPTIONS"))) {
     for (i = 0; opts[i] != '\0'; i++) {
@@ -3359,9 +3361,9 @@ static bool malloc_init_hard() {
           opt_dirty_max <<= prefix_arg;
           if (opt_dirty_max == 0) {
             // If the shift above overflowed all the bits then clamp the result
-            // instead.  If we started with DIRTY_MAX_DEFAULT then this will
-            // always be a power of two so choose the maximum power of two that
-            // fits in a size_t.
+            // instead.  If we started with the default then this will always
+            // be a power of two so choose the maximum power of two that fits
+            // in a size_t.
             opt_dirty_max = size_t(1) << (sizeof(size_t) * CHAR_BIT - 1);
           }
           break;

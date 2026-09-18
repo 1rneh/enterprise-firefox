@@ -50,7 +50,7 @@ support-files = [
   "blobPartitionPage.html",
   "raptor.jpg",
   "!/browser/modules/test/browser/head.js",
-  "!/browser/base/content/test/general/head.js",
+  "!/browser/base/content/test/browser-general/head.js",
   "!/browser/base/content/test/protectionsUI/cookieServer.sjs",
   "!/browser/base/content/test/protectionsUI/trackingPage.html",
   "!/browser/base/content/test/protectionsUI/trackingAPI.js",

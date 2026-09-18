@@ -733,16 +733,6 @@ criteria = "safe-to-deploy"
 version = "0.1.0"
 notes = "Written and maintained by Gfx team at Mozilla."
 
-[[audits.adblock]]
-who = "Benjamin VanderSloot <bvandersloot@mozilla.com>"
-criteria = "safe-to-deploy"
-version = "0.12.1"
-notes = """
-Most of the logic is safe and unsafe is added to the appropriate Send interfaces.
-From safe functions, unsafe code is used to read into a flatbuffer that was constructed
-safely. By the invariants of the flatbuffer crate, this is okay to do.
-"""
-
 [[audits.adler2]]
 who = "Erich Gubler <erichdongubler@gmail.com>"
 criteria = "safe-to-deploy"

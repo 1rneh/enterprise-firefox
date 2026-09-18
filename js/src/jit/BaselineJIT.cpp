@@ -1353,7 +1353,7 @@ void BaselineInterpreter::init(
     uint32_t profilerExitToggleOffset, uint32_t debugTrapHandlerOffset,
     CodeOffsetVector&& debugInstrumentationOffsets,
     CodeOffsetVector&& debugTrapOffsets, CodeOffsetVector&& codeCoverageOffsets,
-    ICReturnOffsetVector&& icReturnOffsets,
+    ICBailoutStubOffsetVector&& icBailoutStubOffsets,
     const CallVMOffsets& callVMOffsets) {
   code_ = code;
   interpretOpOffset_ = interpretOpOffset;
@@ -1366,23 +1366,14 @@ void BaselineInterpreter::init(
   debugInstrumentationOffsets_ = std::move(debugInstrumentationOffsets);
   debugTrapOffsets_ = std::move(debugTrapOffsets);
   codeCoverageOffsets_ = std::move(codeCoverageOffsets);
-  icReturnOffsets_ = std::move(icReturnOffsets);
+  icBailoutStubOffsets_ = std::move(icBailoutStubOffsets);
   callVMOffsets_ = callVMOffsets;
 }
 
-uint8_t* BaselineInterpreter::retAddrForIC(JSOp op) const {
-  for (const ICReturnOffset& entry : icReturnOffsets_) {
+uint8_t* BaselineInterpreter::bailoutStubAddrForIC(JSOp op) const {
+  for (const ICBailoutStubOffset& entry : icBailoutStubOffsets_) {
     if (entry.op == op) {
       return codeAtOffset(entry.offset);
-    }
-  }
-  MOZ_CRASH("Unexpected op");
-}
-
-uint8_t* BaselineInterpreter::bailoutStubAddrForIC(JSOp op) const {
-  for (const ICReturnOffset& entry : icReturnOffsets_) {
-    if (entry.op == op) {
-      return codeAtOffset(entry.bailoutStubOffset);
     }
   }
   MOZ_CRASH("Unexpected op");

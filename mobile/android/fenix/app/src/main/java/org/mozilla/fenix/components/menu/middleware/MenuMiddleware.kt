@@ -104,6 +104,7 @@ class MenuMiddleware(
             is RequestDesktopSite -> requestSiteMode(enableDesktopMode = true)
 
             is RequestMobileSite -> requestSiteMode(enableDesktopMode = false)
+            is Navigate.Forward -> handleForwardNavigation(action)
 
             is Navigate.Back -> handleBackNavigation(action)
 
@@ -113,6 +114,20 @@ class MenuMiddleware(
         }
 
         next(action)
+    }
+
+    private fun handleForwardNavigation(action: Navigate.Forward) {
+        val tabId = browserStore.state.selectedTab?.id ?: return
+        if (action.viewHistory) {
+            val navOptions = NavOptions.Builder().setPopUpTo(R.id.browserFragment, false).build()
+            navigate(
+                NavGraphDirections.actionGlobalTabHistoryDialogFragment(activeSessionId = null),
+                navOptions,
+            )
+        } else {
+            dismissMenu()
+            useCases.sessionUseCases.goForward(tabId = tabId)
+        }
     }
 
     private fun handleBackNavigation(action: Navigate.Back) {

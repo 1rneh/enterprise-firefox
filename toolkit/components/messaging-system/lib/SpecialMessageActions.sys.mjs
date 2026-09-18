@@ -392,6 +392,7 @@ export const SpecialMessageActions = {
     const allowedPrefs = [
       "browser.aboutwelcome.didSeeFinalScreen",
       "browser.sessionstore.newTabOnRestore",
+      "browser.smartwindow.agent.monitorAnnouncement",
       "browser.smartwindow.enabled",
       "browser.smartwindow.firstrun.hasCompleted",
       "browser.smartwindow.firstrun.modelChoice",
@@ -1064,6 +1065,9 @@ export const SpecialMessageActions = {
           false,
           action.data?.source ?? "asrouter"
         );
+      case "OPEN_SMARTWINDOW_MONITOR_CREATE":
+        lazy.AIWindowUI.showMonitorCreateForm(window);
+        break;
       case "OPEN_PROTECTION_PANEL": {
         let { gProtectionsHandler } = window;
         gProtectionsHandler.showProtectionsPopup({});

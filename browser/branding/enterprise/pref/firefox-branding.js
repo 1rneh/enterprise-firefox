@@ -11,9 +11,9 @@ pref("startup.homepage_welcome_url.additional", "");
 pref("app.update.interval", 21600); // 6 hours
 // Give the user x seconds to react before showing the big UI. default=192 hours
 pref("app.update.promptWaitTime", 691200);
-// The update urls are empty because enterprise updates are managed by the console.
-pref("app.update.url.manual", "");
-pref("app.update.url.details", "");
+// We don't have a page for manual updates yet (Bug 2073413), so default to the support page.
+pref("app.update.url.manual", "https://support.mozilla.org/en-US/products/firefox-enterprise");
+pref("app.update.url.details", "https://www.firefox.com/%LOCALE%/firefox/enterprise/%VERSION%/releasenotes/");
 pref("app.releaseNotesURL", "https://www.firefox.com/%LOCALE%/firefox/enterprise/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=whatsnew");
 pref("app.releaseNotesURL.aboutDialog", "https://www.firefox.com/%LOCALE%/firefox/enterprise/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=about-dialog");
 pref("app.releaseNotesURL.prompt", "https://www.firefox.com/%LOCALE%/firefox/enterprise/%VERSION%/releasenotes/?utm_source=firefox-browser&utm_medium=firefox-desktop&utm_campaign=updateprompt");

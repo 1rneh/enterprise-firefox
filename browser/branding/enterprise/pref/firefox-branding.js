@@ -48,4 +48,4 @@ pref("app.update.badgeWaitTime", 345600);
 pref("devtools.selfxss.count", 0);
 
 // Default enterprise theme
-pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");
+pref("extensions.activeThemeID", "firefox-enterprise-auto@mozilla.org");

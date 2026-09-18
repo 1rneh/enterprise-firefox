@@ -148,11 +148,8 @@ enterprise-relaunch-imminent-message =
 
 enterprise-relaunch-restart-now = Restart now
 
-extension-firefox-enterprise-light-name = Firefox Enterprise Light
-extension-firefox-enterprise-light-description = A soft pastel theme with a touch of morning sunlight in the corner.
-
-extension-firefox-enterprise-dark-name = Firefox Enterprise Dark
-extension-firefox-enterprise-dark-description = A deep midnight theme with dark petrol blues and subtle, lighter blue gradients.
+extension-firefox-enterprise-auto-name = { -brand-short-name } Auto
+extension-firefox-enterprise-auto-description = Warm blush and apricot in light mode, deep violet and indigo in dark mode.
 
 lockdown-mode-button =
     .aria-label = Viewing with restrictions

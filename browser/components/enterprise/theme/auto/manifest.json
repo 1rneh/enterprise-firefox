@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "name": "Firefox Enterprise Auto",
+  "name": "Firefox Enterprise theme — auto",
   "version": "1.0.0",
   "browser_specific_settings": {
     "gecko": {

@@ -515,6 +515,7 @@ PathRecording::PathRecording(BackendType aBackend, FillRule aFillRule,
       mBackendType(aBackend),
       mPathOps(aPathOps) {}
 
+// Ensure any state referring to the path's identity is cleared before reuse.
 void PathRecording::ResetCachedState() {
   if (!mStoredRecorders.empty()) {
     for (size_t i = 0; i < mStoredRecorders.size(); i++) {
@@ -549,9 +550,12 @@ already_AddRefed<PathBuilder> PathRecording::MoveToBuilder(
     FillRule aFillRule, already_AddRefed<PathBuilder> aBuilder) {
   RefPtr builder(aBuilder.downcast<PathBuilderRecording>());
   if (builder) {
+    ResetCachedState();
     builder->mBackendType = mBackendType;
     builder->mFillRule = aFillRule;
     builder->mPath = do_AddRef(this);
+    builder->mCurrentPoint = mCurrentPoint;
+    builder->mBeginPoint = mBeginPoint;
   } else {
     builder = MakeRefPtr<PathBuilderRecording>(mBackendType, aFillRule,
                                                do_AddRef(this));

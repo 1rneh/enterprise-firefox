@@ -208,7 +208,7 @@ add_task(async function testDisableRolloutPolicyCausesUnenrollments() {
   });
 });
 
-add_task(async function testNimbusDisabled() {
+add_task(skipEnterprise(), async function testNimbusDisabled() {
   await doTest({
     policies: {
       DisableRemoteImprovements: true,

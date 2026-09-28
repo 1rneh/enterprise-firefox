@@ -1869,6 +1869,14 @@
   value: 3
   mirror: always
 
+# How long the HWInference process the browser's own features run in outlives
+# its last consumer, in milliseconds, so that the next one skips the launch.
+# Zero shuts it down at once.
+- name: browser.ml.hwinference.browser_idle_shutdown_grace_ms
+  type: uint32_t
+  value: 120000
+  mirror: always
+
 - name: browser.navigation.requireUserInteraction
   type: bool
   value: true
@@ -4715,7 +4723,7 @@
 # Whether Scoped Custom Element Registries are enabled
 - name: dom.scoped-custom-element-registries.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # A pref that is used to slow down database initialization for testing purposes.
@@ -5189,7 +5197,7 @@
 # (https://github.com/whatwg/html/pull/12756)
 - name: dom.security.sanitizer.while-parsing
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # pref controls `digital` credentials being exposed
@@ -11135,6 +11143,7 @@
   mirror: always
 
 # Whether grid intrinsic sizing measures bsize contributions.
+# FIXME: Enable once bug 2075214 is solved.
 - name: layout.css.grid-intrinsic-sizing.measure-bsize
   type: bool
   value: false
@@ -11154,6 +11163,19 @@
   value: true
 #else
   value: false
+#endif
+  mirror: always
+  rust: true
+
+# Enable the new css-grid-3 specification of grid-lanes. Always disabled for
+# Thunderbird, because it is using an older syntax.
+# https://drafts.csswg.org/css-grid-3/
+- name: layout.css.display-grid-lanes.enabled
+  type: RelaxedAtomicBool
+#if defined(MOZ_THUNDERBIRD)
+  value: false
+#else
+  value: @IS_NIGHTLY_BUILD@
 #endif
   mirror: always
   rust: true
@@ -19745,6 +19767,12 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+
+- name: telemetry.fog.test.decelerate_early_events
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 #---------------------------------------------------------------------------
 # Prefs starting with "test."

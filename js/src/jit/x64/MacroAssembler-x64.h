@@ -276,8 +276,8 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared {
   }
   Condition testPrimitive(Condition cond, Register tag) {
     MOZ_ASSERT(cond == Equal || cond == NotEqual);
-    cmp32(tag, ImmTag(JS::detail::ValueUpperExclPrimitiveTag));
-    return cond == Equal ? Below : AboveOrEqual;
+    cmp32(tag, ImmTag(JSVAL_TAG_OBJECT));
+    return cond == Equal ? NotEqual : Equal;
   }
 
   Condition testUndefined(Condition cond, const ValueOperand& src) {

@@ -2097,11 +2097,28 @@ def validate_shipping_product(config, product):
         raise Exception(UNSUPPORTED_SHIPPING_PRODUCT_ERROR.format(product=product))
 
 
+@functools.cache
+def _get_worker_validation_schema(implementation):
+    worker_schema = payload_builders[implementation].schema
+    if isinstance(worker_schema, dict):
+        from voluptuous import ALLOW_EXTRA
+
+        worker_schema = LegacySchema(worker_schema, extra=ALLOW_EXTRA)
+    elif isinstance(worker_schema, type) and issubclass(worker_schema, msgspec.Struct):
+        worker_schema = type(
+            worker_schema.__name__,
+            (worker_schema,),
+            {},
+            forbid_unknown_fields=False,
+            kw_only=True,
+        )
+    return worker_schema
+
+
 @transforms.add
 def validate(config, tasks):
     # Schema validation is a no-op in fast mode (see validate_schema), so skip
-    # this whole transform, including the costly per-task worker schema
-    # construction whose result would only be discarded.
+    # this whole transform.
     if taskgraph.fast:
         yield from tasks
         return
@@ -2112,21 +2129,7 @@ def validate(config, tasks):
             task,
             "In task {!r}:".format(task.get("label", "?no-label?")),
         )
-        worker_schema = payload_builders[task["worker"]["implementation"]].schema
-        if isinstance(worker_schema, dict):
-            from voluptuous import ALLOW_EXTRA
-
-            worker_schema = LegacySchema(worker_schema, extra=ALLOW_EXTRA)
-        elif isinstance(worker_schema, type) and issubclass(
-            worker_schema, msgspec.Struct
-        ):
-            worker_schema = type(
-                worker_schema.__name__,
-                (worker_schema,),
-                {},
-                forbid_unknown_fields=False,
-                kw_only=True,
-            )
+        worker_schema = _get_worker_validation_schema(task["worker"]["implementation"])
         validate_schema(
             worker_schema,
             task["worker"],

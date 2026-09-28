@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.4.195
- * pdfjsBuild = d54c193bd
+ * pdfjsVersion = 6.4.224
+ * pdfjsBuild = d52fdf411
  */
 
 ;// ./src/scripting_api/constants.js
@@ -3447,7 +3447,7 @@ class Util extends PDFObject {
       seconds: oDate.getSeconds()
     };
     const patterns = /(mmmm|mmm|mm|m|dddd|ddd|dd|d|yyyy|yy|HH|H|hh|h|MM|M|ss|s|tt|t|\\.)/g;
-    return cFormat.replaceAll(patterns, (_, pattern) => pattern in handlers ? handlers[pattern](data) : pattern.charCodeAt(1));
+    return cFormat.replaceAll(patterns, (_, pattern) => pattern in handlers ? handlers[pattern](data) : pattern.charAt(1));
   }
   printx(cFormat, cSource) {
     cSource = (cSource ?? "").toString();

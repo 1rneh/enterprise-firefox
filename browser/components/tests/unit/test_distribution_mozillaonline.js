@@ -16,10 +16,7 @@ distribution.test.mozillaonline=true
 async function setupDistributionDir(iniContent) {
   Services.prefs.setBoolPref("distribution.testing.loadFromProfile", true);
 
-  let distroDir = gProfD.clone();
-  distroDir.leafName = "distribution";
-  await IOUtils.makeDirectory(distroDir.path, { ignoreExisting: true });
-
+  let distroDir = ensureDistributionDir();
   let iniFile = distroDir.clone();
   iniFile.append("distribution.ini");
   await IOUtils.writeUTF8(iniFile.path, iniContent);

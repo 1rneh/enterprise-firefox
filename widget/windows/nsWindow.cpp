@@ -908,12 +908,8 @@ void nsWindow::SendAnAPZEvent(InputData& aEvent) {
   if (aEvent.mInputType == PANGESTURE_INPUT) {
     PanGestureInput& panInput = aEvent.AsPanGestureInput();
     WidgetWheelEvent event = panInput.ToWidgetEvent(this);
-    if (!mAPZC) {
-      if (MayStartSwipeForNonAPZ(panInput)) {
-        return;
-      }
-    } else {
-      event = MayStartSwipeForAPZ(panInput, result);
+    if (mAPZC) {
+      event = MayStartSwipe(panInput, result);
     }
 
     ProcessUntransformedAPZEvent(&event, result);

@@ -1123,7 +1123,7 @@ async function runUrlbarTest(
     }
 
     let overflow = calculateShadowOverflow(shadow);
-    const FUZZ_FACTOR = 4;
+    const FUZZ_FACTOR = 6;
     // The blur/spread/offset of the box shadow, plus fudge factors depending on platform.
     SHADOW_OVERFLOW_LEFT = overflow.left + FUZZ_FACTOR;
     SHADOW_OVERFLOW_RIGHT = overflow.right + FUZZ_FACTOR;

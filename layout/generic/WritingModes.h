@@ -2176,6 +2176,18 @@ inline bool StyleMaxSize::BehavesLikeInitialValue(LogicalAxis aAxis) const {
                                       : BehavesLikeInitialValueOnBlockAxis();
 }
 
+template <>
+inline bool StyleSize::BehavesLikeStretch(LogicalAxis aAxis) const {
+  return aAxis == LogicalAxis::Inline ? BehavesLikeStretchOnInlineAxis()
+                                      : BehavesLikeStretchOnBlockAxis();
+}
+
+template <>
+inline bool StyleMaxSize::BehavesLikeStretch(LogicalAxis aAxis) const {
+  return aAxis == LogicalAxis::Inline ? BehavesLikeStretchOnInlineAxis()
+                                      : BehavesLikeStretchOnBlockAxis();
+}
+
 }  // namespace mozilla
 
 // Definitions of inline methods for nsStylePosition, declared in

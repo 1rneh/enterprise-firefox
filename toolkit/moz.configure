@@ -4652,6 +4652,7 @@ with only_when(target_is_windows):
 
 option(
     "--enable-appservices-in-tree",
+    env="MOZ_APPSERVICES_IN_TREE",
     help="Enables building from an in-tree app-services",
 )
 

@@ -8798,7 +8798,6 @@ nscoord nsGridContainerFrame::MasonryLayout(GridReflowInput& aGridRI,
   // Collect our grid items and sort them in grid order.
   nsTArray<GridItemInfo*> sortedItems(aGridRI.mGridItems.Length());
   aGridRI.mIter.Reset(CSSOrderAwareFrameIterator::ChildFilter::IncludeAll);
-  size_t absposIndex = 0;
   const LogicalAxis masonryAxis =
       IsMasonry(LogicalAxis::Block) ? LogicalAxis::Block : LogicalAxis::Inline;
   const auto wm = aGridRI.mWM;
@@ -8814,8 +8813,16 @@ nscoord nsGridContainerFrame::MasonryLayout(GridReflowInput& aGridRI,
       auto* ph = static_cast<nsPlaceholderFrame*>(child);
       auto* oof = ph->GetOutOfFlowFrame();
       if (oof && oof->GetParent() == this) {
-        item = &aGridRI.mAbsPosItems[absposIndex++];
-        MOZ_RELEASE_ASSERT(item->mFrame == oof);
+        // mAbsPosItems can include descendants whose placeholders are nested
+        // inside grid items and aren't visited by mIter. Search by frame since
+        // the array indices need not match the order of placeholders we visit.
+        for (auto& absPosItem : aGridRI.mAbsPosItems) {
+          if (absPosItem.mFrame == oof) {
+            item = &absPosItem;
+            break;
+          }
+        }
+        MOZ_RELEASE_ASSERT(item);
         auto masonryStart = item->mArea.LineRangeForAxis(masonryAxis).mStart;
         // If the item was placed by the author at line 1 (masonryStart == 0)
         // then include it to be placed at the masonry-box start.  If it's
@@ -10089,8 +10096,17 @@ nsFrameState nsGridContainerFrame::ComputeSelfSubgridMasonryBits() const {
   nsFrameState bits = NS_FRAME_STATE_NONE;
   const auto* pos = StylePosition();
 
-  // We can only have masonry layout in one axis.
-  if (pos->mGridTemplateRows.IsMasonry()) {
+  if (StyleDisplay()->DisplayInside() == StyleDisplayInside::GridLanes) {
+    // If rows are defined and columns are none → row tracks;
+    // otherwise (columns defined, both defined, or neither defined) → column
+    // tracks.
+    if (!pos->mGridTemplateRows.IsNone()) {
+      bits |= NS_STATE_GRID_IS_COL_MASONRY;
+    } else {
+      bits |= NS_STATE_GRID_IS_ROW_MASONRY;
+    }
+  } else if (pos->mGridTemplateRows.IsMasonry()) {
+    // We can only have masonry layout in one axis.
     bits |= NS_STATE_GRID_IS_ROW_MASONRY;
   } else if (pos->mGridTemplateColumns.IsMasonry()) {
     bits |= NS_STATE_GRID_IS_COL_MASONRY;
@@ -10259,6 +10275,20 @@ nscoord nsGridContainerFrame::ComputeIntrinsicISize(
 
   gridRI.CalculateTrackSizesForAxis(LogicalAxis::Inline, grid,
                                     NS_UNCONSTRAINEDSIZE, constraint);
+
+  if (IsRowSubgrid()) {
+    // Our rows are the parent grid's rows. If the parent hasn't resolved them
+    // yet, we're being measured as part of its column sizing, and resolving the
+    // rows here would recurse back into the parent's column sizing.
+    const auto* subgrid = GetProperty(Subgrid::Prop());
+    const auto parentAxis =
+        subgrid->mIsOrthogonal ? LogicalAxis::Inline : LogicalAxis::Block;
+    const auto* parentSizes =
+        ParentGridContainerForSubgrid()->GetUsedTrackSizes();
+    if (!parentSizes || !parentSizes->mCanResolveLineRangeSize[parentAxis]) {
+      return gridRI.mCols.TotalTrackSizeWithoutAlignment(this);
+    }
+  }
 
   const nscoord contentBoxBSize =
       aInput.mPercentageBasisForChildren

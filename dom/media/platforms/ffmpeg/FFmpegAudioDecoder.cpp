@@ -260,10 +260,49 @@ static AlignedAudioBuffer CopyAndPackAudio(AVFrame* aFrame,
 
 using ChannelLayout = AudioConfig::ChannelLayout;
 
+RefPtr<MediaDataDecoder::FlushPromise>
+FFmpegAudioDecoder<LIBAV_VER>::ProcessFlush() {
+  MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
+  mInputTimes.Clear();
+  return FFmpegDataDecoder::ProcessFlush();
+}
+
+TimeUnit FFmpegAudioDecoder<LIBAV_VER>::ExtractFramePts(
+    MediaRawData* aSample, const media::NullableTimeUnit& aPreviousEnd) {
+  // For software decoders implemented within ffvpx, the frame pts and the
+  // sample pts will always be the same. For platform decoders wrapped by ffvpx,
+  // for example on Android, the frame for a sample may be delayed, and will be
+  // yielded in a subsequent call. As such, we should prefer the frame pts if
+  // given, the previous frame pts plus its duration if not given, and finally
+  // the sample time if we have neither. This avoids mismatching the wrong time
+  // on a given frame.
+  const int64_t framePts = GetFramePts(mFrame);
+  if (framePts != int64_t(AV_NOPTS_VALUE)) {
+    // Try to recover original timestamp to keep sub-microsecond precision.
+    // If missing from the map, there must be a reporting error and future
+    // frames are unlikely to be correct either, so clear the map.
+    if (Maybe<TimeUnit> submitted = mInputTimes.Take(framePts)) {
+      return submitted.extract();
+    } else {
+      FFMPEG_LOG("No matching sample for pts {}, clearing input map", framePts);
+      mInputTimes.Clear();
+    }
+    return TimeUnit::FromMicroseconds(framePts);
+  }
+  if (aPreviousEnd) {
+    // ffmpeg may only stamp the first frame decoded from a packet.
+    return *aPreviousEnd;
+  }
+  FFMPEG_LOGV("Frame has no pts, using sample time and clearing input map");
+  mInputTimes.Clear();
+  return aSample->mTime;
+}
+
 MediaResult FFmpegAudioDecoder<LIBAV_VER>::PostProcessOutput(
     bool aDecoded, MediaRawData* aSample, DecodedData& aResults,
-    bool* aGotFrame, int32_t aSubmitted) {
-  media::TimeUnit pts = aSample->mTime;
+    bool* aGotFrame, int32_t aSubmitted,
+    media::NullableTimeUnit& aPreviousEnd) {
+  TimeUnit pts = ExtractFramePts(aSample, aPreviousEnd);
 
   if (mFrame->format != AV_SAMPLE_FMT_FLT &&
       mFrame->format != AV_SAMPLE_FMT_FLTP &&
@@ -281,12 +320,6 @@ MediaResult FFmpegAudioDecoder<LIBAV_VER>::PostProcessOutput(
   if (aSubmitted < 0) {
     FFMPEG_LOG("Got {} more frame from packet", mFrame->nb_samples);
   }
-
-  FFMPEG_LOG("FFmpegAudioDecoder decoded: [{},{}] (Duration: {}) [{}]",
-             aSample->mTime.ToString().get(),
-             aSample->GetEndTime().ToString().get(),
-             aSample->mDuration.ToString().get(),
-             mLib->av_get_sample_fmt_name(mFrame->format));
 
   uint32_t numChannels = ChannelCount(mCodecContext);
   uint32_t samplingRate = mCodecContext->sample_rate;
@@ -328,13 +361,18 @@ MediaResult FFmpegAudioDecoder<LIBAV_VER>::PostProcessOutput(
         RESULT_DETAIL("Invalid count of accumulated audio samples"));
   }
 
+  FFMPEG_LOG("FFmpegAudioDecoder decoded: [{},{}] (Duration: {}) [{}]",
+             pts.ToString().get(), newpts.ToString().get(),
+             duration.ToString().get(),
+             mLib->av_get_sample_fmt_name(mFrame->format));
+
   RefPtr<AudioData> data =
       new AudioData(aSample->mOffset, pts, std::move(audio), numChannels,
                     samplingRate, mAudioInfo.mChannelMap);
   MOZ_ASSERT(duration == data->mDuration, "must be equal");
   aResults.AppendElement(std::move(data));
 
-  pts = newpts;
+  aPreviousEnd = Some(newpts);
 
   if (aGotFrame) {
     *aGotFrame = true;
@@ -355,7 +393,8 @@ MediaResult FFmpegAudioDecoder<LIBAV_VER>::DecodeUsingFFmpeg(
     return MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
                        RESULT_DETAIL("FFmpeg audio error"));
   }
-  PostProcessOutput(decoded, aSample, aResults, aGotFrame, 0);
+  media::NullableTimeUnit previousEnd;
+  PostProcessOutput(decoded, aSample, aResults, aGotFrame, 0, previousEnd);
   return NS_OK;
 }
 #else
@@ -390,6 +429,7 @@ MediaResult FFmpegAudioDecoder<LIBAV_VER>::DecodeUsingFFmpeg(
   }
 
   MediaResult rv;
+  media::NullableTimeUnit previousEnd;
 
   while (ret == 0) {
     aDecoded = false;
@@ -427,7 +467,8 @@ MediaResult FFmpegAudioDecoder<LIBAV_VER>::DecodeUsingFFmpeg(
                          RESULT_DETAIL("FFmpeg audio error"));
     }
     if (aDecoded) {
-      PostProcessOutput(aDecoded, aSample, aResults, aGotFrame, submitted);
+      PostProcessOutput(aDecoded, aSample, aResults, aGotFrame, submitted,
+                        previousEnd);
     }
   }
 
@@ -466,6 +507,9 @@ MediaResult FFmpegAudioDecoder<LIBAV_VER>::DoDecode(MediaRawData* aSample,
   packet->data = const_cast<uint8_t*>(aData);
   packet->size = aSize;
   packet->pts = aSample->mTime.ToMicroseconds();
+  if (aSize > 0) {
+    mInputTimes.Insert(aSample->mTime.ToMicroseconds(), aSample->mTime);
+  }
 
   if (aGotFrame) {
     *aGotFrame = false;

@@ -88,6 +88,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/SmartWindowTelemetry.sys.mjs",
   ResumeActivity:
     "moz-src:///browser/components/aiwindow/ui/modules/ResumeActivity.sys.mjs",
+  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
@@ -171,6 +172,8 @@ const PREF_TOPSITES_FEED_ENABLED =
   "browser.newtabpage.activity-stream.feeds.topsites";
 const PREF_AGENT_ENABLED = "browser.smartwindow.agent.enabled";
 const PREF_RESUME_CARDS = "browser.smartwindow.resumeCards.enabled";
+const NIMBUS_FEATURE_SMART_WINDOW = "smartWindow";
+const NIMBUS_VARIABLE_RESUME_ACTIVITY = "resumeActivity";
 const MAX_INTERACTION_COUNT = 1000;
 const HISTORY_MENU_MAX_RECENT_CHATS = 6;
 
@@ -291,6 +294,16 @@ export class AIWindow extends MozLitElement {
       this.memoriesConversationPref ||
       this.memoriesHistoryPref ||
       this.#hasMemories
+    );
+  }
+
+  // Falls back to the pref when there is no enrollment, which includes the
+  // window or two before the enrollment store finishes loading at startup.
+  get #resumeActivityEnabled() {
+    return (
+      lazy.NimbusFeatures[NIMBUS_FEATURE_SMART_WINDOW].getVariable(
+        NIMBUS_VARIABLE_RESUME_ACTIVITY
+      ) ?? true
     );
   }
 
@@ -1362,7 +1375,9 @@ export class AIWindow extends MozLitElement {
 
       let resumeStartersPromise = null;
       const shouldLoadResumeStarters =
-        this.mode === MODE.FULLPAGE && this.#canLoadResumeStarters;
+        this.mode === MODE.FULLPAGE &&
+        this.#canLoadResumeStarters &&
+        this.#resumeActivityEnabled;
 
       if (shouldLoadResumeStarters) {
         this.#canLoadResumeStarters = false;
@@ -1894,6 +1909,12 @@ export class AIWindow extends MozLitElement {
         ? this.#calculateCurrentMentions(contextMentions)
         : null;
     this.#smartbar.clearSmartbarInput();
+    // clearSmartbarInput() doesn't fire an input event, so explicitly clear the
+    // persisted draft to prevent committed text from reappearing on navigation.
+    this.#dispatchChromeEvent(
+      "ai-window:smartbar-input",
+      this.#getAIWindowEventOptions(lazy.EMPTY_SMARTBAR_INPUT_STATE, true)
+    );
 
     if (action === ACTION.CHAT) {
       if (
@@ -2080,10 +2101,6 @@ export class AIWindow extends MozLitElement {
       skipSystemPromptRefresh,
       assistantToolUIData,
     });
-    this.#dispatchChromeEvent(
-      "ai-window:smartbar-input",
-      this.#getAIWindowEventOptions(lazy.EMPTY_SMARTBAR_INPUT_STATE, true)
-    );
   }
 
   #handleMemoriesToggle = async event => {
@@ -2150,6 +2167,28 @@ export class AIWindow extends MozLitElement {
       lazy.log.error("[Prompts] Resume-activity generation failed:", e)
     );
   }
+
+  /**
+   * Handles a resume card's click (whether on the card itself or its
+   * Resume button): resumes the chat conversation the card belongs to and
+   * attaches an open-tabs confirmation card built from its preview tabs.
+   *
+   * @param {CustomEvent} event - The resume event
+   * @private
+   */
+  #handleResumeCardResume = event => {
+    const { journeyId } = event.detail;
+    const card = this.resumeCards.find(({ memory }) => memory.id === journeyId);
+    if (!card) {
+      return;
+    }
+
+    this.#handleResumePromptSelected({
+      memory: card.memory,
+      content: card.content,
+      text: card.content.headline,
+    });
+  };
 
   /**
    * Dismisses the memory for the session and removes its pill from this tab.
@@ -3733,6 +3772,8 @@ export class AIWindow extends MozLitElement {
                     .cards=${this.resumeCards}
                     .emptyReason=${this.resumeCardsEmptyReason}
                     .loading=${this.resumeCardsLoading}
+                    @smartwindow-resume-card:resume=${this
+                      .#handleResumeCardResume}
                     @smartwindow-resume-card:menu-item-selected=${this
                       .#handleResumeCardMenuItemSelected}
                     @smartwindow-resume-section:hide=${this

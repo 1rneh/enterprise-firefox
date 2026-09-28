@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.4.195
- * pdfjsBuild = d54c193bd
+ * pdfjsVersion = 6.4.224
+ * pdfjsBuild = d52fdf411
  */
 
 ;// ./src/shared/util.js
@@ -5107,9 +5107,7 @@ class JpegImage {
       scaleY = this.height / height;
     let component, componentScaleX, componentScaleY, blocksPerScanline;
     let x, y, i, j, k;
-    let index;
     let offset = 0;
-    let output;
     const numComponents = this.components.length;
     const dataLength = width * height * numComponents;
     const data = new Uint8ClampedArray(dataLength);
@@ -5121,7 +5119,7 @@ class JpegImage {
       componentScaleX = component.scaleX * scaleX;
       componentScaleY = component.scaleY * scaleY;
       offset = i;
-      output = component.output;
+      const output = component.output;
       blocksPerScanline = component.blocksPerLine + 1 << 3;
       if (componentScaleX !== lastComponentScaleX) {
         for (x = 0; x < width; x++) {
@@ -5132,7 +5130,7 @@ class JpegImage {
       }
       for (y = 0; y < height; y++) {
         j = 0 | y * componentScaleY;
-        index = blocksPerScanline * (j & mask3LSB) | (j & 7) << 3;
+        const index = blocksPerScanline * (j & mask3LSB) | (j & 7) << 3;
         for (x = 0; x < width; x++) {
           data[offset] = output[index + xScaleBlockOffset[x]];
           offset += numComponents;
@@ -5229,10 +5227,10 @@ class JpegImage {
     if (this.numComponents === 1 && (forceRGBA || forceRGB)) {
       const len = data.length * (forceRGBA ? 4 : 3);
       const rgbaData = new Uint8ClampedArray(len);
-      let offset = 0;
       if (forceRGBA) {
         grayToRGBA(data, new Uint32Array(rgbaData.buffer));
       } else {
+        let offset = 0;
         for (const grayColor of data) {
           rgbaData[offset++] = grayColor;
           rgbaData[offset++] = grayColor;
@@ -12170,14 +12168,14 @@ class Linearization {
 
 
 
-const BUILT_IN_CMAPS = ["Adobe-GB1-UCS2", "Adobe-CNS1-UCS2", "Adobe-Japan1-UCS2", "Adobe-Korea1-UCS2", "78-EUC-H", "78-EUC-V", "78-H", "78-RKSJ-H", "78-RKSJ-V", "78-V", "78ms-RKSJ-H", "78ms-RKSJ-V", "83pv-RKSJ-H", "90ms-RKSJ-H", "90ms-RKSJ-V", "90msp-RKSJ-H", "90msp-RKSJ-V", "90pv-RKSJ-H", "90pv-RKSJ-V", "Add-H", "Add-RKSJ-H", "Add-RKSJ-V", "Add-V", "Adobe-CNS1-0", "Adobe-CNS1-1", "Adobe-CNS1-2", "Adobe-CNS1-3", "Adobe-CNS1-4", "Adobe-CNS1-5", "Adobe-CNS1-6", "Adobe-GB1-0", "Adobe-GB1-1", "Adobe-GB1-2", "Adobe-GB1-3", "Adobe-GB1-4", "Adobe-GB1-5", "Adobe-Japan1-0", "Adobe-Japan1-1", "Adobe-Japan1-2", "Adobe-Japan1-3", "Adobe-Japan1-4", "Adobe-Japan1-5", "Adobe-Japan1-6", "Adobe-Korea1-0", "Adobe-Korea1-1", "Adobe-Korea1-2", "B5-H", "B5-V", "B5pc-H", "B5pc-V", "CNS-EUC-H", "CNS-EUC-V", "CNS1-H", "CNS1-V", "CNS2-H", "CNS2-V", "ETHK-B5-H", "ETHK-B5-V", "ETen-B5-H", "ETen-B5-V", "ETenms-B5-H", "ETenms-B5-V", "EUC-H", "EUC-V", "Ext-H", "Ext-RKSJ-H", "Ext-RKSJ-V", "Ext-V", "GB-EUC-H", "GB-EUC-V", "GB-H", "GB-V", "GBK-EUC-H", "GBK-EUC-V", "GBK2K-H", "GBK2K-V", "GBKp-EUC-H", "GBKp-EUC-V", "GBT-EUC-H", "GBT-EUC-V", "GBT-H", "GBT-V", "GBTpc-EUC-H", "GBTpc-EUC-V", "GBpc-EUC-H", "GBpc-EUC-V", "H", "HKdla-B5-H", "HKdla-B5-V", "HKdlb-B5-H", "HKdlb-B5-V", "HKgccs-B5-H", "HKgccs-B5-V", "HKm314-B5-H", "HKm314-B5-V", "HKm471-B5-H", "HKm471-B5-V", "HKscs-B5-H", "HKscs-B5-V", "Hankaku", "Hiragana", "KSC-EUC-H", "KSC-EUC-V", "KSC-H", "KSC-Johab-H", "KSC-Johab-V", "KSC-V", "KSCms-UHC-H", "KSCms-UHC-HW-H", "KSCms-UHC-HW-V", "KSCms-UHC-V", "KSCpc-EUC-H", "KSCpc-EUC-V", "Katakana", "NWP-H", "NWP-V", "RKSJ-H", "RKSJ-V", "Roman", "UniCNS-UCS2-H", "UniCNS-UCS2-V", "UniCNS-UTF16-H", "UniCNS-UTF16-V", "UniCNS-UTF32-H", "UniCNS-UTF32-V", "UniCNS-UTF8-H", "UniCNS-UTF8-V", "UniGB-UCS2-H", "UniGB-UCS2-V", "UniGB-UTF16-H", "UniGB-UTF16-V", "UniGB-UTF32-H", "UniGB-UTF32-V", "UniGB-UTF8-H", "UniGB-UTF8-V", "UniJIS-UCS2-H", "UniJIS-UCS2-HW-H", "UniJIS-UCS2-HW-V", "UniJIS-UCS2-V", "UniJIS-UTF16-H", "UniJIS-UTF16-V", "UniJIS-UTF32-H", "UniJIS-UTF32-V", "UniJIS-UTF8-H", "UniJIS-UTF8-V", "UniJIS2004-UTF16-H", "UniJIS2004-UTF16-V", "UniJIS2004-UTF32-H", "UniJIS2004-UTF32-V", "UniJIS2004-UTF8-H", "UniJIS2004-UTF8-V", "UniJISPro-UCS2-HW-V", "UniJISPro-UCS2-V", "UniJISPro-UTF8-V", "UniJISX0213-UTF32-H", "UniJISX0213-UTF32-V", "UniJISX02132004-UTF32-H", "UniJISX02132004-UTF32-V", "UniKS-UCS2-H", "UniKS-UCS2-V", "UniKS-UTF16-H", "UniKS-UTF16-V", "UniKS-UTF32-H", "UniKS-UTF32-V", "UniKS-UTF8-H", "UniKS-UTF8-V", "V", "WP-Symbol"];
+const BUILT_IN_CMAPS = new Set(["Adobe-GB1-UCS2", "Adobe-CNS1-UCS2", "Adobe-Japan1-UCS2", "Adobe-Korea1-UCS2", "78-EUC-H", "78-EUC-V", "78-H", "78-RKSJ-H", "78-RKSJ-V", "78-V", "78ms-RKSJ-H", "78ms-RKSJ-V", "83pv-RKSJ-H", "90ms-RKSJ-H", "90ms-RKSJ-V", "90msp-RKSJ-H", "90msp-RKSJ-V", "90pv-RKSJ-H", "90pv-RKSJ-V", "Add-H", "Add-RKSJ-H", "Add-RKSJ-V", "Add-V", "Adobe-CNS1-0", "Adobe-CNS1-1", "Adobe-CNS1-2", "Adobe-CNS1-3", "Adobe-CNS1-4", "Adobe-CNS1-5", "Adobe-CNS1-6", "Adobe-GB1-0", "Adobe-GB1-1", "Adobe-GB1-2", "Adobe-GB1-3", "Adobe-GB1-4", "Adobe-GB1-5", "Adobe-Japan1-0", "Adobe-Japan1-1", "Adobe-Japan1-2", "Adobe-Japan1-3", "Adobe-Japan1-4", "Adobe-Japan1-5", "Adobe-Japan1-6", "Adobe-Korea1-0", "Adobe-Korea1-1", "Adobe-Korea1-2", "B5-H", "B5-V", "B5pc-H", "B5pc-V", "CNS-EUC-H", "CNS-EUC-V", "CNS1-H", "CNS1-V", "CNS2-H", "CNS2-V", "ETHK-B5-H", "ETHK-B5-V", "ETen-B5-H", "ETen-B5-V", "ETenms-B5-H", "ETenms-B5-V", "EUC-H", "EUC-V", "Ext-H", "Ext-RKSJ-H", "Ext-RKSJ-V", "Ext-V", "GB-EUC-H", "GB-EUC-V", "GB-H", "GB-V", "GBK-EUC-H", "GBK-EUC-V", "GBK2K-H", "GBK2K-V", "GBKp-EUC-H", "GBKp-EUC-V", "GBT-EUC-H", "GBT-EUC-V", "GBT-H", "GBT-V", "GBTpc-EUC-H", "GBTpc-EUC-V", "GBpc-EUC-H", "GBpc-EUC-V", "H", "HKdla-B5-H", "HKdla-B5-V", "HKdlb-B5-H", "HKdlb-B5-V", "HKgccs-B5-H", "HKgccs-B5-V", "HKm314-B5-H", "HKm314-B5-V", "HKm471-B5-H", "HKm471-B5-V", "HKscs-B5-H", "HKscs-B5-V", "Hankaku", "Hiragana", "KSC-EUC-H", "KSC-EUC-V", "KSC-H", "KSC-Johab-H", "KSC-Johab-V", "KSC-V", "KSCms-UHC-H", "KSCms-UHC-HW-H", "KSCms-UHC-HW-V", "KSCms-UHC-V", "KSCpc-EUC-H", "KSCpc-EUC-V", "Katakana", "NWP-H", "NWP-V", "RKSJ-H", "RKSJ-V", "Roman", "UniCNS-UCS2-H", "UniCNS-UCS2-V", "UniCNS-UTF16-H", "UniCNS-UTF16-V", "UniCNS-UTF32-H", "UniCNS-UTF32-V", "UniCNS-UTF8-H", "UniCNS-UTF8-V", "UniGB-UCS2-H", "UniGB-UCS2-V", "UniGB-UTF16-H", "UniGB-UTF16-V", "UniGB-UTF32-H", "UniGB-UTF32-V", "UniGB-UTF8-H", "UniGB-UTF8-V", "UniJIS-UCS2-H", "UniJIS-UCS2-HW-H", "UniJIS-UCS2-HW-V", "UniJIS-UCS2-V", "UniJIS-UTF16-H", "UniJIS-UTF16-V", "UniJIS-UTF32-H", "UniJIS-UTF32-V", "UniJIS-UTF8-H", "UniJIS-UTF8-V", "UniJIS2004-UTF16-H", "UniJIS2004-UTF16-V", "UniJIS2004-UTF32-H", "UniJIS2004-UTF32-V", "UniJIS2004-UTF8-H", "UniJIS2004-UTF8-V", "UniJISPro-UCS2-HW-V", "UniJISPro-UCS2-V", "UniJISPro-UTF8-V", "UniJISX0213-UTF32-H", "UniJISX0213-UTF32-V", "UniJISX02132004-UTF32-H", "UniJISX02132004-UTF32-V", "UniKS-UCS2-H", "UniKS-UCS2-V", "UniKS-UTF16-H", "UniKS-UTF16-V", "UniKS-UTF32-H", "UniKS-UTF32-V", "UniKS-UTF8-H", "UniKS-UTF8-V", "V", "WP-Symbol"]);
 const MAX_MAP_RANGE = 2 ** 24 - 1;
 class CMap {
+  #map = new Map();
   #mappedEntries = 0;
   constructor(builtInCMap = false) {
     this.codespaceRanges = [[], [], [], []];
     this.numCodespaceRanges = 0;
-    this._map = [];
     this.name = "";
     this.vertical = false;
     this.useCMap = null;
@@ -12199,14 +12197,14 @@ class CMap {
   mapCidRange(low, high, dstLow) {
     this.#consumeBudget(high - low + 1, "mapCidRange");
     while (low <= high) {
-      this._map[low++] = dstLow++;
+      this.#map.set(low++, dstLow++);
     }
   }
   mapBfRange(low, high, dstLow) {
     this.#consumeBudget(high - low + 1, "mapBfRange");
     const lastByte = dstLow.length - 1;
     while (low <= high) {
-      this._map[low++] = dstLow;
+      this.#map.set(low++, dstLow);
       const nextCharCode = dstLow.charCodeAt(lastByte) + 1;
       if (nextCharCode > 0xff) {
         dstLow = dstLow.substring(0, lastByte - 1) + String.fromCharCode(dstLow.charCodeAt(lastByte - 1) + 1) + "\x00";
@@ -12220,48 +12218,33 @@ class CMap {
     this.#consumeBudget(Math.min(high - low + 1, ii), "mapBfRangeToArray");
     let i = 0;
     while (low <= high && i < ii) {
-      this._map[low] = array[i++];
-      ++low;
+      this.#map.set(low++, array[i++]);
     }
   }
   mapOne(src, dst) {
-    this._map[src] = dst;
+    this.#map.set(src, dst);
   }
   lookup(code) {
-    return this._map[code];
+    return this.#map.get(code);
   }
   contains(code) {
-    return this._map[code] !== undefined;
+    return this.#map.has(code);
   }
   forEach(callback) {
-    const map = this._map;
-    const length = map.length;
-    if (length <= 0x10000) {
-      for (let i = 0; i < length; i++) {
-        if (map[i] !== undefined) {
-          callback(i, map[i]);
-        }
-      }
-    } else {
-      for (const i in map) {
-        callback(+i, map[i]);
-      }
+    for (const [charCode, entry] of this.#map) {
+      callback(charCode, entry);
     }
   }
   charCodeOf(value) {
-    const map = this._map;
-    if (map.length <= 0x10000) {
-      return map.indexOf(value);
-    }
-    for (const charCode in map) {
-      if (map[charCode] === value) {
-        return charCode | 0;
+    for (const [charCode, entry] of this.#map) {
+      if (entry === value) {
+        return charCode;
       }
     }
     return -1;
   }
   getMap() {
-    return this._map;
+    return new Map(this.#map);
   }
   readCharCode(str, offset, out) {
     let c = 0;
@@ -12296,18 +12279,18 @@ class CMap {
     }
     return 1;
   }
-  get length() {
-    return this._map.length;
+  get size() {
+    return this.#map.size;
   }
   get isIdentityCMap() {
     if (!(this.name === "Identity-H" || this.name === "Identity-V")) {
       return false;
     }
-    if (this._map.length !== 0x10000) {
+    if (this.#map.size !== 0x10000) {
       return false;
     }
     for (let i = 0; i < 0x10000; i++) {
-      if (this._map[i] !== i) {
+      if (this.#map.get(i) !== i) {
         return false;
       }
     }
@@ -12349,7 +12332,7 @@ class IdentityCMap extends CMap {
   getMap() {
     unreachable("should not call getMap");
   }
-  get length() {
+  get size() {
     return 0x10000;
   }
   get isIdentityCMap() {
@@ -12568,7 +12551,7 @@ async function createBuiltInCMap(name, fetchBuiltInCMap) {
   } else if (name === "Identity-V") {
     return new IdentityCMap(true, 2);
   }
-  if (!BUILT_IN_CMAPS.includes(name)) {
+  if (!BUILT_IN_CMAPS.has(name)) {
     throw new Error("Unknown CMap name: " + name);
   }
   if (!fetchBuiltInCMap) {
@@ -20756,38 +20739,35 @@ function pruneCompositeGlyphCycles(glyfTable, locaEntries, numGlyphs) {
 ;// ./src/core/to_unicode_map.js
 
 class ToUnicodeMap {
-  constructor(cmap = []) {
-    this._map = cmap;
+  #map;
+  constructor(cmap) {
+    this.#map = cmap;
   }
-  get length() {
-    return this._map.length;
+  get size() {
+    return this.#map.size;
   }
   forEach(callback) {
-    for (const charCode in this._map) {
-      callback(+charCode, this._map[charCode].codePointAt(0));
+    for (const [charCode, entry] of this.#map) {
+      callback(charCode, entry.codePointAt(0));
     }
   }
   has(i) {
-    return this._map[i] !== undefined;
+    return this.#map.has(i);
   }
   get(i) {
-    return this._map[i];
+    return this.#map.get(i);
   }
   charCodeOf(value) {
-    const map = this._map;
-    if (map.length <= 0x10000) {
-      return map.indexOf(value);
-    }
-    for (const charCode in map) {
-      if (map[charCode] === value) {
-        return charCode | 0;
+    for (const [charCode, entry] of this.#map) {
+      if (entry === value) {
+        return charCode;
       }
     }
     return -1;
   }
   amend(map) {
-    for (const charCode in map) {
-      this._map[charCode] = map[charCode];
+    for (const [charCode, entry] of map) {
+      this.#map.set(charCode, entry);
     }
   }
 }
@@ -20796,7 +20776,7 @@ class IdentityToUnicodeMap {
     this.firstChar = firstChar;
     this.lastChar = lastChar;
   }
-  get length() {
+  get size() {
     return this.lastChar + 1 - this.firstChar;
   }
   forEach(callback) {
@@ -20855,13 +20835,10 @@ class CFFFont {
     const charsets = cff.charset.charset;
     if (properties.composite) {
       let invCidToGidMap;
-      if (cidToGidMap?.length > 0) {
+      if (cidToGidMap?.size) {
         invCidToGidMap = new Map();
-        for (let i = 0, ii = cidToGidMap.length; i < ii; i++) {
-          const gid = cidToGidMap[i];
-          if (gid !== undefined) {
-            invCidToGidMap.set(gid, i);
-          }
+        for (const [i, gid] of cidToGidMap) {
+          invCidToGidMap.set(gid, i);
         }
       }
       const charCodeToGlyphId = new Map();
@@ -26207,7 +26184,7 @@ class Type1Font {
 const PRIVATE_USE_AREAS = [[0xe000, 0xf8ff], [0x100000, 0x10fffd]];
 const PDF_GLYPH_SPACE_UNITS = 1000;
 const EXPORT_DATA_PROPERTIES = ["ascent", "bbox", "black", "bold", "cssFontInfo", "data", "defaultVMetrics", "defaultWidth", "descent", "disableFontFace", "fallbackName", "fontExtraProperties", "fontMatrix", "isInvalidPDFjsFont", "isType3Font", "italic", "loadedName", "mimetype", "missingFile", "name", "remeasure", "systemFontInfo", "vertical"];
-const EXPORT_DATA_EXTRA_PROPERTIES = ["cMap", "composite", "defaultEncoding", "differences", "isMonospace", "isSerifFont", "isSymbolicFont", "seacMap", "subtype", "toFontChar", "toUnicode", "type", "vmetrics", "widths"];
+const EXPORT_DATA_EXTRA_PROPERTIES = ["composite", "defaultEncoding", "differences", "isMonospace", "isSerifFont", "isSymbolicFont", "seacMap", "subtype", "toFontChar", "type", "vmetrics", "widths"];
 function adjustWidths(properties) {
   if (!properties.fontMatrix || properties.fontMatrix[0] === FONT_IDENTITY_MATRIX[0]) {
     return;
@@ -26247,7 +26224,7 @@ function adjustTrueTypeToUnicode(properties, isSymbolicFont, nameRecords) {
     }
   }
   const encoding = WinAnsiEncoding;
-  const toUnicode = [],
+  const toUnicode = new Map(),
     glyphsUnicodeMap = getGlyphsUnicode();
   for (const charCode in encoding) {
     const glyphName = encoding[charCode];
@@ -26258,11 +26235,9 @@ function adjustTrueTypeToUnicode(properties, isSymbolicFont, nameRecords) {
     if (unicode === undefined) {
       continue;
     }
-    toUnicode[charCode] = String.fromCharCode(unicode);
+    toUnicode.set(+charCode, String.fromCharCode(unicode));
   }
-  if (toUnicode.length > 0) {
-    properties.toUnicode.amend(toUnicode);
-  }
+  properties.toUnicode.amend(toUnicode);
 }
 function adjustType1ToUnicode(properties, builtInEncoding) {
   if (properties.isInternalFont) {
@@ -26277,7 +26252,7 @@ function adjustType1ToUnicode(properties, builtInEncoding) {
   if (properties.toUnicode instanceof IdentityToUnicodeMap) {
     return;
   }
-  const toUnicode = [],
+  const toUnicode = new Map(),
     glyphsUnicodeMap = getGlyphsUnicode();
   for (const charCode in builtInEncoding) {
     if (properties.hasEncoding) {
@@ -26288,27 +26263,23 @@ function adjustType1ToUnicode(properties, builtInEncoding) {
     const glyphName = builtInEncoding[charCode];
     const unicode = getUnicodeForGlyph(glyphName, glyphsUnicodeMap);
     if (unicode !== -1) {
-      toUnicode[charCode] = String.fromCharCode(unicode);
+      toUnicode.set(+charCode, String.fromCharCode(unicode));
     }
   }
-  if (toUnicode.length > 0) {
-    properties.toUnicode.amend(toUnicode);
-  }
+  properties.toUnicode.amend(toUnicode);
 }
 function amendFallbackToUnicode(properties) {
   if (!properties.fallbackToUnicode || properties.toUnicode instanceof IdentityToUnicodeMap) {
     return;
   }
-  const toUnicode = [];
-  for (const charCode in properties.fallbackToUnicode) {
+  const toUnicode = new Map();
+  for (const [charCode, entry] of properties.fallbackToUnicode) {
     if (properties.toUnicode.has(charCode)) {
       continue;
     }
-    toUnicode[charCode] = properties.fallbackToUnicode[charCode];
+    toUnicode.set(charCode, entry);
   }
-  if (toUnicode.length > 0) {
-    properties.toUnicode.amend(toUnicode);
-  }
+  properties.toUnicode.amend(toUnicode);
 }
 class fonts_Glyph {
   constructor(originalCharCode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont) {
@@ -26562,7 +26533,7 @@ function getRanges(charCodeToGlyphId, toUnicodeExtraMap, numGlyphs) {
 function createCmapTable(charCodeToGlyphId, toUnicodeExtraMap, numGlyphs) {
   const ranges = getRanges(charCodeToGlyphId, toUnicodeExtraMap, numGlyphs);
   const hasNonBmp = ranges.at(-1)[1] > 0xffff;
-  let i, ii, j, jj;
+  let i, j, jj;
   for (i = ranges.length - 1; i >= 0; --i) {
     if (ranges[i][0] <= 0xffff) {
       break;
@@ -26591,7 +26562,7 @@ function createCmapTable(charCodeToGlyphId, toUnicodeExtraMap, numGlyphs) {
     glyphsIds = new DataBuilder({});
   let bias = 0;
   let format4Overflow = false;
-  for (i = 0, ii = bmpLength; i < ii; i++) {
+  for (i = 0; i < bmpLength; i++) {
     const [start, end, codes] = ranges[i];
     startCount.setInt16(start);
     endCount.setInt16(end);
@@ -27097,15 +27068,15 @@ class Font {
       }
       if (cidToGidMap) {
         for (const [charCode, cid] of map) {
-          if (cidToGidMap[cid] !== undefined) {
-            map.set(charCode, cidToGidMap[cid]);
+          if (cidToGidMap.has(cid)) {
+            map.set(charCode, cidToGidMap.get(cid));
           }
         }
-        if (cidToGidMap.length !== this.toUnicode.length && properties.hasIncludedToUnicodeMap && this.toUnicode instanceof IdentityToUnicodeMap) {
+        if (cidToGidMap.size !== this.toUnicode.size && properties.hasIncludedToUnicodeMap && this.toUnicode instanceof IdentityToUnicodeMap) {
           this.toUnicode.forEach((charCode, unicodeCharCode) => {
             const cid = map.get(charCode);
-            if (cidToGidMap[cid] === undefined) {
-              map.set(charCode, unicodeCharCode);
+            if (!cidToGidMap.has(cid)) {
+              map.delete(charCode);
             }
           });
         }
@@ -27116,11 +27087,7 @@ class Font {
         });
       }
       this.toFontChar = map;
-      const arr = [];
-      for (const [charCode, cid] of map) {
-        arr[charCode] = cid;
-      }
-      this.toUnicode = new ToUnicodeMap(arr);
+      this.toUnicode = new ToUnicodeMap(new Map(map));
     } else if (/Symbol/i.test(fontName)) {
       const isCidKeyed = this.composite && this.cidEncoding.startsWith("Identity-");
       this.toFontChar = buildToFontChar(isCidKeyed ? getSymbolGlyphIdEncoding() : SymbolSetEncoding, getGlyphsUnicode(), this.differences);
@@ -28381,9 +28348,12 @@ class Font {
       return !missingGlyphs.has(glyphId);
     }
     if (properties.composite) {
-      const cidToGidMap = properties.cidToGidMap || [];
-      const isCidToGidMapEmpty = cidToGidMap.length === 0;
-      properties.cMap.forEach((charCode, cid) => {
+      const {
+        cidToGidMap,
+        cMap
+      } = properties;
+      const isCidToGidMapEmpty = !cidToGidMap?.size;
+      cMap.forEach((charCode, cid) => {
         if (typeof cid === "string") {
           cid = convertCidString(charCode, cid, true);
         }
@@ -28393,8 +28363,8 @@ class Font {
         let glyphId = -1;
         if (isCidToGidMapEmpty) {
           glyphId = cid;
-        } else if (cidToGidMap[cid] !== undefined) {
-          glyphId = cidToGidMap[cid];
+        } else if (cidToGidMap.has(cid)) {
+          glyphId = cidToGidMap.get(cid);
         }
         if (glyphId >= 0 && glyphId < numGlyphs && hasGlyph(glyphId)) {
           charCodeToGlyphId.set(charCode, glyphId);
@@ -28647,7 +28617,7 @@ class Font {
         exactLength: numGlyphs * 4
       });
       hmtx.skip(4);
-      for (let i = 1, ii = numGlyphs; i < ii; i++) {
+      for (let i = 1; i < numGlyphs; i++) {
         let width = 0;
         if (charstrings) {
           width = charstrings[i - 1].width || 0;
@@ -33421,7 +33391,6 @@ class PDFImage {
     const rowComps = width * numComps;
     const max = (1 << bpc) - 1;
     let i = 0,
-      ii,
       buf;
     if (bpc === 1) {
       let mask, loop1End, loop2End;
@@ -33452,7 +33421,7 @@ class PDFImage {
     } else {
       let bits = 0;
       buf = 0;
-      for (i = 0, ii = length; i < ii; ++i) {
+      for (i = 0; i < length; ++i) {
         if (i % rowComps === 0) {
           buf = 0;
           bits = 0;
@@ -34019,6 +33988,7 @@ class PartialEvaluator {
     xref,
     handler,
     pageIndex,
+    pageProxyId = null,
     idFactory,
     fontCache,
     builtInCMapCache,
@@ -34031,6 +34001,7 @@ class PartialEvaluator {
     this.xref = xref;
     this.handler = handler;
     this.pageIndex = pageIndex;
+    this.pageProxyId = pageProxyId;
     this.idFactory = idFactory;
     this.fontCache = fontCache;
     this.builtInCMapCache = builtInCMapCache;
@@ -34273,7 +34244,7 @@ class PartialEvaluator {
     if (this.parsingType3Font || cacheGlobally) {
       return this.handler.send("commonobj", [objId, "Image", imgData], transfers);
     }
-    return this.handler.send("obj", [objId, this.pageIndex, "Image", imgData], transfers);
+    return this.handler.send("obj", [objId, this.pageProxyId, "Image", imgData], transfers);
   }
   async buildPaintImageXObject({
     resources,
@@ -34947,7 +34918,7 @@ class PartialEvaluator {
       const buffer = compilePatternInfo(patternIR);
       this.handler.send("commonobj", [id, "Pattern", buffer], [buffer]);
     } else {
-      this.handler.send("obj", [id, this.pageIndex, "Pattern", patternIR]);
+      this.handler.send("obj", [id, this.pageProxyId, "Pattern", patternIR]);
     }
     return id;
   }
@@ -36540,7 +36511,7 @@ class PartialEvaluator {
   }
   _simpleFontToUnicode(properties, forceGlyphs = false) {
     assert(!properties.composite, "Must be a simple font.");
-    const toUnicode = [];
+    const toUnicode = new Map();
     const encoding = properties.defaultEncoding.slice();
     const baseEncodingName = properties.baseEncodingName;
     for (const [charCode, glyphName] of properties.differences) {
@@ -36557,7 +36528,7 @@ class PartialEvaluator {
       }
       let unicode = glyphsUnicodeMap[glyphName];
       if (unicode !== undefined) {
-        toUnicode[charcode] = String.fromCharCode(unicode);
+        toUnicode.set(+charcode, String.fromCharCode(unicode));
         continue;
       }
       let code = 0;
@@ -36597,7 +36568,7 @@ class PartialEvaluator {
             case "f_h":
             case "f_t":
             case "T_h":
-              toUnicode[charcode] = glyphName.replaceAll("_", "");
+              toUnicode.set(+charcode, glyphName.replaceAll("_", ""));
               continue;
           }
           break;
@@ -36606,17 +36577,17 @@ class PartialEvaluator {
         if (baseEncodingName && code === +charcode) {
           const baseEncoding = getEncoding(baseEncodingName);
           if (baseEncoding && (glyphName = baseEncoding[charcode])) {
-            toUnicode[charcode] = String.fromCharCode(glyphsUnicodeMap[glyphName]);
+            toUnicode.set(+charcode, String.fromCharCode(glyphsUnicodeMap[glyphName]));
             continue;
           }
         }
-        toUnicode[charcode] = String.fromCodePoint(code);
+        toUnicode.set(+charcode, String.fromCodePoint(code));
       }
     }
     return toUnicode;
   }
   async buildToUnicode(properties) {
-    properties.hasIncludedToUnicodeMap = properties.toUnicode?.length > 0;
+    properties.hasIncludedToUnicodeMap = !!properties.toUnicode?.size;
     if (properties.hasIncludedToUnicodeMap) {
       if (!properties.composite && properties.hasEncoding) {
         properties.fallbackToUnicode = this._simpleFontToUnicode(properties);
@@ -36626,7 +36597,7 @@ class PartialEvaluator {
     if (!properties.composite) {
       return new ToUnicodeMap(this._simpleFontToUnicode(properties));
     }
-    if (properties.composite && (properties.cMap.builtInCMap && !(properties.cMap instanceof IdentityCMap) || properties.cidSystemInfo?.registry === "Adobe" && (properties.cidSystemInfo.ordering === "GB1" || properties.cidSystemInfo.ordering === "CNS1" || properties.cidSystemInfo.ordering === "Japan1" || properties.cidSystemInfo.ordering === "Korea1"))) {
+    if (properties.cMap.builtInCMap && !(properties.cMap instanceof IdentityCMap) || properties.cidSystemInfo?.registry === "Adobe" && (properties.cidSystemInfo.ordering === "GB1" || properties.cidSystemInfo.ordering === "CNS1" || properties.cidSystemInfo.ordering === "Japan1" || properties.cidSystemInfo.ordering === "Korea1")) {
       const {
         registry,
         ordering
@@ -36637,7 +36608,7 @@ class PartialEvaluator {
         fetchBuiltInCMap: this._fetchBuiltInCMapBound,
         useCMap: null
       });
-      const toUnicode = [],
+      const toUnicode = new Map(),
         buf = [];
       properties.cMap.forEach((charcode, cid) => {
         if (cid > 0xffff) {
@@ -36649,7 +36620,7 @@ class PartialEvaluator {
           for (let i = 0, ii = ucs2.length; i < ii; i += 2) {
             buf.push((ucs2.charCodeAt(i) << 8) + ucs2.charCodeAt(i + 1));
           }
-          toUnicode[charcode] = String.fromCharCode(...buf);
+          toUnicode.set(charcode, String.fromCharCode(...buf));
         }
       });
       return new ToUnicodeMap(toUnicode);
@@ -36678,10 +36649,10 @@ class PartialEvaluator {
         if (cmap instanceof IdentityCMap) {
           return new IdentityToUnicodeMap(0, 0xffff);
         }
-        const map = new Array(cmap.length);
+        const map = new Map();
         cmap.forEach((charCode, token) => {
           if (typeof token === "number") {
-            map[charCode] = String.fromCodePoint(token);
+            map.set(charCode, String.fromCodePoint(token));
             return;
           }
           if (token.length % 2 !== 0) {
@@ -36698,7 +36669,7 @@ class PartialEvaluator {
             const w2 = token.charCodeAt(k) << 8 | token.charCodeAt(k + 1);
             str.push(((w1 & 0x3ff) << 10) + (w2 & 0x3ff) + 0x10000);
           }
-          map[charCode] = String.fromCodePoint(...str);
+          map.set(charCode, String.fromCodePoint(...str));
         });
         return new ToUnicodeMap(map);
       } catch (reason) {
@@ -36715,16 +36686,16 @@ class PartialEvaluator {
     return null;
   }
   readCidToGidMap(glyphsData, toUnicode) {
-    const result = [];
+    const map = new Map();
     for (let j = 0, jj = glyphsData.length; j < jj; j++) {
       const glyphID = glyphsData[j++] << 8 | glyphsData[j];
       const code = j >> 1;
       if (glyphID === 0 && !toUnicode.has(code)) {
         continue;
       }
-      result[code] = glyphID;
+      map.set(code, glyphID);
     }
-    return result;
+    return map;
   }
   extractWidths(dict, descriptor, properties) {
     const xref = this.xref;
@@ -46628,9 +46599,8 @@ class Field extends XFAObject {
     }
     if (!this.ui.imageEdit && ui.children?.[0] && this.h) {
       borderDims ||= getBorderDims(this.ui[$getExtra]());
-      let captionHeight = 0;
       if (this.caption && ["top", "bottom"].includes(this.caption.placement)) {
-        captionHeight = this.caption.reserve;
+        let captionHeight = this.caption.reserve;
         if (captionHeight <= 0) {
           captionHeight = this.caption[$getExtra](availableSpace).h;
         }
@@ -58883,11 +58853,12 @@ class Page {
       }
     };
   }
-  _createPartialEvaluator(handler, pageIndex = this.pageIndex) {
+  _createPartialEvaluator(handler, pageIndex = this.pageIndex, pageProxyId = null) {
     return new PartialEvaluator({
       xref: this.xref,
       handler,
       pageIndex,
+      pageProxyId,
       idFactory: this._localIdFactory,
       fontCache: this.fontCache,
       builtInCMapCache: this.builtInCMapCache,
@@ -59114,12 +59085,13 @@ class Page {
     intent,
     cacheKey,
     pageIndex = this.pageIndex,
+    pageProxyId = null,
     annotationStorage = null,
     modifiedIds = null
   }) {
     const contentStreamPromise = this.getContentStream();
     const resourcesPromise = this.loadResources(RESOURCES_KEYS_OPERATOR_LIST);
-    const partialEvaluator = this._createPartialEvaluator(handler, pageIndex);
+    const partialEvaluator = this._createPartialEvaluator(handler, pageIndex, pageProxyId);
     const newAnnotsByPage = !this.xfaFactory ? getNewAnnotationsMap(annotationStorage) : null;
     const newAnnots = newAnnotsByPage?.get(this.pageIndex);
     let newAnnotationsPromise = Promise.resolve(null);
@@ -59166,7 +59138,7 @@ class Page {
       const opList = new OperatorList(intent, sink);
       handler.send("StartRenderPage", {
         transparency: partialEvaluator.hasBlendModes(resources, this.nonBlendModesSet),
-        pageIndex,
+        pageProxyId,
         cacheKey
       });
       await partialEvaluator.getOperatorList({
@@ -64215,7 +64187,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.4.195";
+    const workerVersion = "6.4.224";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -64489,7 +64461,7 @@ class WorkerMessageHandler {
       const annotationPromises = [];
       let task = null;
       try {
-        for (let i = 0, ii = numPages; i < ii; i++) {
+        for (let i = 0; i < numPages; i++) {
           if (pageIndexesToSkip?.has(i)) {
             continue;
           }
@@ -64838,6 +64810,7 @@ class WorkerMessageHandler {
     handler.on("GetOperatorList", function ({
       pageId,
       pageIndex,
+      pageProxyId,
       intent,
       cacheKey,
       annotationStorage,
@@ -64854,7 +64827,8 @@ class WorkerMessageHandler {
           cacheKey,
           annotationStorage,
           modifiedIds,
-          pageIndex
+          pageIndex,
+          pageProxyId
         }).then(() => {
           sink.close();
         }, reason => {

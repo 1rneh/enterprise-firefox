@@ -37,10 +37,8 @@ struct MOZ_EMPTY_BASES IntMarginTyped
   typedef IntCoordTyped<Units> Coord;
   typedef BaseMargin<int32_t, IntMarginTyped<Units>, Coord> Super;
 
-  IntMarginTyped() : Super() {
-    static_assert(sizeof(IntMarginTyped) == sizeof(int32_t) * 4,
-                  "Would be unfortunate otherwise!");
-  }
+  IntMarginTyped() = default;
+
   constexpr IntMarginTyped(Coord aTop, Coord aRight, Coord aBottom, Coord aLeft)
       : Super(aTop, aRight, aBottom, aLeft) {}
 
@@ -59,6 +57,8 @@ struct MOZ_EMPTY_BASES IntMarginTyped
   }
 };
 typedef IntMarginTyped<UnknownUnits> IntMargin;
+static_assert(sizeof(IntMargin) == sizeof(int32_t) * 4,
+              "Would be unfortunate otherwise!");
 
 template <class Units, class F = Float>
 struct MOZ_EMPTY_BASES MarginTyped
@@ -70,7 +70,7 @@ struct MOZ_EMPTY_BASES MarginTyped
   typedef CoordTyped<Units, F> Coord;
   typedef BaseMargin<F, MarginTyped<Units, F>, Coord> Super;
 
-  MarginTyped() : Super() {}
+  MarginTyped() = default;
   MarginTyped(Coord aTop, Coord aRight, Coord aBottom, Coord aLeft)
       : Super(aTop, aRight, aBottom, aLeft) {}
   explicit MarginTyped(const IntMarginTyped<Units>& aMargin)
@@ -118,10 +118,8 @@ struct MOZ_EMPTY_BASES IntRectTyped
   typedef IntRectTyped<Units> Self;
   typedef IntParam<int32_t> ToInt;
 
-  IntRectTyped() : Super() {
-    static_assert(sizeof(IntRectTyped) == sizeof(int32_t) * 4,
-                  "Would be unfortunate otherwise!");
-  }
+  IntRectTyped() = default;
+
   IntRectTyped(const IntPointTyped<Units>& aPos,
                const IntSizeTyped<Units>& aSize)
       : Super(aPos, aSize) {}
@@ -261,6 +259,8 @@ struct MOZ_EMPTY_BASES IntRectTyped
   }
 };
 typedef IntRectTyped<UnknownUnits> IntRect;
+static_assert(sizeof(IntRect) == sizeof(int32_t) * 4,
+              "Would be unfortunate otherwise!");
 
 template <class Units, class F = Float>
 struct MOZ_EMPTY_BASES RectTyped
@@ -274,10 +274,8 @@ struct MOZ_EMPTY_BASES RectTyped
                    SizeTyped<Units, F>, MarginTyped<Units, F> >
       Super;
 
-  RectTyped() : Super() {
-    static_assert(sizeof(RectTyped) == sizeof(F) * 4,
-                  "Would be unfortunate otherwise!");
-  }
+  RectTyped() = default;
+
   RectTyped(const PointTyped<Units, F>& aPos, const SizeTyped<Units, F>& aSize)
       : Super(aPos, aSize) {}
   RectTyped(F _x, F _y, F _width, F _height) : Super(_x, _y, _width, _height) {}
@@ -327,6 +325,10 @@ struct MOZ_EMPTY_BASES RectTyped
 };
 typedef RectTyped<UnknownUnits> Rect;
 typedef RectTyped<UnknownUnits, double> RectDouble;
+static_assert(sizeof(Rect) == sizeof(float) * 4,
+              "Would be unfortunate otherwise!");
+static_assert(sizeof(RectDouble) == sizeof(double) * 4,
+              "Would be unfortunate otherwise!");
 
 template <class Units, class D>
 RectTyped<Units> NarrowToFloat(const RectTyped<Units, D>& aRect) {

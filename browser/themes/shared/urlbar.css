@@ -95,21 +95,15 @@
    other teams. Each should be removed after its token has been imported. */
 .urlbar,
 #searchbar {
-  --chrome-box-shadow: rgba(89, 57, 168, 0.15);
-
-  @media (prefers-color-scheme: dark) {
-    --chrome-box-shadow: rgba(152, 113, 255, 0.15);
-  }
-
-  @media not -moz-pref("browser.nova.enabled") {
-    --chrome-box-shadow: rgba(0, 0, 0, 0.13);
-  }
-
-  /* In high contrast mode, align the urlbar buttons (page actions, identity
-     block, go/clear buttons, result menu/action buttons) with the toolbar
-     buttons by borrowing the ghost-button hover/active colors. */
+  --chrome-box-shadow: rgba(0, 0, 0, 0.13);
   @media -moz-pref("browser.nova.enabled") {
-    @media (prefers-contrast) {
+    @media not ((-moz-native-theme) or (forced-colors)) {
+      --chrome-box-shadow: light-dark(rgba(89, 57, 168, 0.15), rgba(152, 113, 255, 0.15));
+    }
+    /* In high contrast mode, align the urlbar buttons (page actions, identity
+       block, go/clear buttons, result menu/action buttons) with the toolbar
+       buttons by borrowing the ghost-button hover/active colors. */
+    @media (forced-colors) {
       --urlbar-box-background-color-hover: var(--button-background-color-ghost-hover);
       --urlbar-box-background-color-active: var(--button-background-color-ghost-active);
       --urlbar-box-text-color-hover: var(--button-text-color-ghost-hover);

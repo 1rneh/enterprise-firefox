@@ -171,7 +171,10 @@ nsresult ConnectionAllowlists::ParseHeaders(const nsACString& aHeader,
   return NS_OK;
 }
 
-void ConnectionAllowlists::SetResponseURI(nsIURI* aURI) { mResponseURI = aURI; }
+void ConnectionAllowlists::SetResponseURI(nsIURI* aURI) {
+  MOZ_ASSERT(!mFrozen);
+  mResponseURI = aURI;
+}
 
 bool ConnectionAllowlists::ShouldLoad(nsIURI* aURI,
                                       nsILoadInfo* aLoadInfo) const {

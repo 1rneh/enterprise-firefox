@@ -1795,9 +1795,6 @@
       "resource:///modules/profiles/SelectableProfileService.sys.mjs": [
         "../../../browser/components/profiles/SelectableProfileService.sys.mjs"
       ],
-      "resource:///modules/referrals/Referrals.sys.mjs": [
-        "../../../browser/components/referrals/Referrals.sys.mjs"
-      ],
       "resource:///modules/taskbartabs/TaskbarTabs.sys.mjs": [
         "../../../browser/components/taskbartabs/TaskbarTabs.sys.mjs"
       ],

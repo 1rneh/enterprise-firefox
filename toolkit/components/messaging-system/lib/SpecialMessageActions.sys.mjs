@@ -64,7 +64,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PushNotificationHelper:
     "resource://gre/modules/PushNotificationHelper.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-  Referrals: "resource:///modules/referrals/Referrals.sys.mjs",
+  Referrals: "moz-src:///browser/components/referrals/Referrals.sys.mjs",
   ResetProfile: "resource://gre/modules/ResetProfile.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   SelectableProfileService:

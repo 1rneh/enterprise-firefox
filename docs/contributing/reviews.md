@@ -230,6 +230,9 @@ For more information about the review process, see the {ref}`Code Review FAQ`.
    * - #media-playback-reviewers
      - `Media playback <https://wiki.mozilla.org/Modules/All#Media_Playback>`__
      - `Member list <https://phabricator.services.mozilla.com/project/profile/159/>`__
+   * - #mobiletest-reviewers
+     - Android UI test/framework and UI test infra code
+     - `Member list <https://phabricator.services.mozilla.com/project/members/201/>`__
    * - #mozbase
      - Mozbase
      - `Member list <https://phabricator.services.mozilla.com/project/members/113/>`__

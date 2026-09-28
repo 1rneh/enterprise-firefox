@@ -1749,9 +1749,9 @@ class nsLayoutUtils {
    *   StyleBoxSizing::ContentBox to this function, or to just use the
    *   convenience-wrapper that has "ContentBox" in the function name.
    */
-  static inline nscoord ComputeStretchBSize(
-      nscoord aSizeToFill, nscoord aMargin, nscoord aBorderPadding,
-      mozilla::StyleBoxSizing aBoxSizing) {
+  static inline nscoord ComputeStretchSize(nscoord aSizeToFill, nscoord aMargin,
+                                           nscoord aBorderPadding,
+                                           mozilla::StyleBoxSizing aBoxSizing) {
     NS_ASSERTION(aSizeToFill != NS_UNCONSTRAINEDSIZE,
                  "We don't handle situations with unconstrained "
                  "aSizeToFill; caller should handle that!");
@@ -1765,16 +1765,15 @@ class nsLayoutUtils {
   static inline nscoord ComputeStretchContentBoxBSize(nscoord aSizeToFill,
                                                       nscoord aMargin,
                                                       nscoord aBorderPadding) {
-    return ComputeStretchBSize(aSizeToFill, aMargin, aBorderPadding,
-                               mozilla::StyleBoxSizing::ContentBox);
+    return ComputeStretchSize(aSizeToFill, aMargin, aBorderPadding,
+                              mozilla::StyleBoxSizing::ContentBox);
   }
   // Similar to the above convenience-wrapper, but now for inline-axis.
-  // TODO(dholbert): would it be useful to add a box-sizing-aware version of
-  // this API for the inline axis too, like we've got for the block axis?
   static inline nscoord ComputeStretchContentBoxISize(nscoord aSizeToFill,
                                                       nscoord aMargin,
                                                       nscoord aBorderPadding) {
-    return std::max(0, aSizeToFill - aMargin - aBorderPadding);
+    return ComputeStretchSize(aSizeToFill, aMargin, aBorderPadding,
+                              mozilla::StyleBoxSizing::ContentBox);
   }
 
   /**

@@ -599,7 +599,10 @@ export class SearchModeSwitcher {
       if (browser != this.#input.window.gBrowser?.selectedBrowser) {
         return;
       }
-      let show = count < MAX_ADD_ENGINES_BADGE_SHOWN;
+      // Don't hide already shown badges.
+      let show =
+        this.#countedBadgeFor.get(browser) == spec ||
+        count < MAX_ADD_ENGINES_BADGE_SHOWN;
       this.#button.toggleAttribute("addengines", show);
       if (show) {
         this.#countBadgeShown(browser, spec, count);

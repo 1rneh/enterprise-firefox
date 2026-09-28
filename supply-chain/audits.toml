@@ -499,7 +499,7 @@ notes = "All code written or reviewed by Manish"
 [[wildcard-audits.uniffi]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2021-11-22"
 end = "2027-07-31"
 notes = "Maintained by the Glean and Application Services teams"
@@ -523,7 +523,7 @@ notes = "Maintained by the Glean and Application Services teams"
 [[wildcard-audits.uniffi_bindgen]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2021-11-22"
 end = "2027-07-31"
 notes = "Maintained by the Glean and Application Services teams"
@@ -547,7 +547,7 @@ notes = "Maintained by the Glean and Application Services teams"
 [[wildcard-audits.uniffi_build]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2021-11-22"
 end = "2027-07-31"
 notes = "Maintained by the Glean and Application Services teams"
@@ -587,7 +587,7 @@ notes = "Maintained by the Glean and Application Services teams"
 [[wildcard-audits.uniffi_core]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2023-11-20"
 end = "2027-07-31"
 notes = "Maintained by the Glean and Application Services teams"
@@ -611,14 +611,14 @@ notes = "Maintained by the Glean and Application Services teams"
 [[wildcard-audits.uniffi_internal_macros]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2025-03-18"
 end = "2027-04-23"
 
 [[wildcard-audits.uniffi_macros]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2021-11-22"
 end = "2027-07-31"
 notes = "Maintained by the Glean and Application Services teams"
@@ -642,7 +642,7 @@ notes = "Maintained by the Glean and Application Services teams"
 [[wildcard-audits.uniffi_meta]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2023-11-20"
 end = "2027-07-31"
 notes = "Maintained by the Glean and Application Services teams"
@@ -666,7 +666,7 @@ notes = "Maintained by the Glean and Application Services teams"
 [[wildcard-audits.uniffi_pipeline]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2025-10-08"
 end = "2027-07-31"
 notes = "Maintained by the Glean and Application Services teams"
@@ -698,7 +698,7 @@ notes = "Maintained by the Glean and Application Services teams"
 [[wildcard-audits.uniffi_udl]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
-user-id = 111105 # Mark Hammond (mhammond)
+user-id = 111105
 start = "2023-11-20"
 end = "2027-07-31"
 notes = "Maintained by the Glean and Application Services teams"

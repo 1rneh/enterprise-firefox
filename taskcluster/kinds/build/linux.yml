@@ -52,7 +52,6 @@ linux64/opt:
             - sysroot-wasm32-wasi
             - onnxruntime-x86_64-linux-gnu
 
-<<<<<<< HEAD
 linux64-enterprise-shippable/opt:
     description: "Linux64 Enterprise Shippable Opt"
     use-pgo: linux64-shippable/opt

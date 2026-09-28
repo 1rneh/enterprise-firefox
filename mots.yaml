@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-09-23T09:10:54.393862+00:00'
+updated_at: '2026-09-24T23:31:55.030847+00:00'
 export:
   path: ./docs/mots/index.md
   format: md
@@ -1535,9 +1535,13 @@ modules:
           group: dev-builds
           components:
             - Core::Build Config
+          owners_emeritus:
+            - *nalexander
         owners:
+          - *ahochheiden
+        peers:
           - *nalexander
-        peers: []
+          - *tcampbell
         machine_name: core_build_config_fennec
 
       - name: 'Core: Build Config - Taskgraph'
@@ -2703,10 +2707,11 @@ modules:
       components:
         - 'Core::DOM: Notifications'
         - Toolkit::Alerts Service
+      peers_emeritus:
+        - *nalexander
     owners:
       - *saschanaz
     peers:
-      - *nalexander
       - *nrishel
     machine_name: core_notifications
 
@@ -4253,11 +4258,12 @@ modules:
           review_group: browser-installer-reviewers
           owners_emeritus:
             - Molly Howell
+          peers_emeritus:
+            - *agashlin
+            - *nalexander
         owners:
           - *cdupuis
-        peers:
-          - *agashlin
-          - *nalexander
+        peers: []
         machine_name: windows_installer
     machine_name: desktop_firefox
 
@@ -4423,6 +4429,29 @@ modules:
         - Tom Prince
       components:
         - 'Release Engineering :: Applications: MozharnessCore'
+
+  - machine_name: platform_geolocation
+    name: 'Core: Platform Geolocation'
+    description: Platform-specific geolocation layer
+    includes:
+      - dom/system/*ocationProvider*
+      - dom/system/windows/location/**/*
+      - dom/system/windows/*WindowsUtils*
+      - dom/system/mac/*LocationProvider*
+      - dom/system/linux/*LocationProvider*
+      - toolkit/components/geolocation/*
+    excludes: []
+    owners:
+      - *handyman
+    peers:
+      - *thinker
+      - *spohl
+      - *saschanaz
+      - *jjaschke
+    meta:
+      components:
+        - 'Toolkit :: Geolocation Provider'
+      review_group: geoprovider-reviewers
 
   - machine_name: python_usage
     name: Python usage, tools, and style
@@ -4980,5 +5009,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: 709aa84b20ef7a977fdce2b23542c4cfc8276ca1
-  export: 7fbc7acbdeaabfcdccbe43fd58c82ccabfbe8df3
+  config: 301028ba3a86d477e25bd8ca9382119cd246ab55
+  export: 6119f37ff12ea467dd34f2ff629887cafd9a4b1e

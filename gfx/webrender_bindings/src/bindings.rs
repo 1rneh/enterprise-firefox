@@ -2552,10 +2552,12 @@ pub extern "C" fn wr_transaction_set_display_list(
     dl_descriptor: BuiltDisplayListDescriptor,
     dl_items_data: &mut WrVecU8,
     dl_spatial_tree_data: &mut WrVecU8,
+    dl_interner_delta: &mut WrVecU8,
 ) {
     let payload = DisplayListPayload {
         items_data: dl_items_data.flush_into_vec(),
         spatial_tree: dl_spatial_tree_data.flush_into_vec(),
+        interner_delta: dl_interner_delta.flush_into_vec(),
     };
 
     let dl = BuiltDisplayList::from_data(payload, dl_descriptor);
@@ -4653,11 +4655,13 @@ pub unsafe extern "C" fn wr_api_end_builder(
     dl_descriptor: &mut BuiltDisplayListDescriptor,
     dl_items_data: &mut WrVecU8,
     dl_spatial_tree: &mut WrVecU8,
+    dl_interner_delta: &mut WrVecU8,
 ) {
     let (_, dl) = state.frame_builder.dl_builder.end();
     let (payload, descriptor) = dl.into_data();
     *dl_items_data = WrVecU8::from_vec(payload.items_data);
     *dl_spatial_tree = WrVecU8::from_vec(payload.spatial_tree);
+    *dl_interner_delta = WrVecU8::from_vec(payload.interner_delta);
     *dl_descriptor = descriptor;
 }
 

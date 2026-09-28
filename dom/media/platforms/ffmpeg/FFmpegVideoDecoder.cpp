@@ -1547,14 +1547,6 @@ void FFmpegVideoDecoder<LIBAV_VER>::InitHWCodecContext(ContextType aType) {
 }
 #endif
 
-static int64_t GetFramePts(const AVFrame* aFrame) {
-#if LIBAVCODEC_VERSION_MAJOR > 57
-  return aFrame->pts;
-#else
-  return aFrame->pkt_pts;
-#endif
-}
-
 static bool IsKeyFrame(const AVFrame* aFrame) {
 #if LIBAVCODEC_VERSION_MAJOR > 61
   return !!(aFrame->flags & AV_FRAME_FLAG_KEY);

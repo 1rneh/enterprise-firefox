@@ -295,17 +295,46 @@ const uint8x16_t ZERO_CR = {0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, '\r', 1, 1};
 const uint8x16_t ZERO_CR_LF = {0, 2, 1,    1, 1, 1,    1, 1,
                                1, 1, '\n', 1, 1, '\r', 1, 1};
 
-/// Compute a 16-lane mask for for 16 UTF-16 code units, where a lane
-/// is 0x00 if OK to skip and 0xFF in not OK to skip.
-MOZ_ALWAYS_INLINE_EVEN_DEBUG uint8x16_t
-StrideToMask(const char16_t* aArr /* len = 16 */, uint8x16_t aTable,
-             bool aAllowSurrogates = true, bool aAllowHyphen = true,
-             bool aAllowRightSquareBracket = true) {
+/// 16 UTF-16 code units as loaded into SIMD registers.
+struct Utf16Stride {
   uint8x16_t first;
   uint8x16_t second;
+};
+
+/// 16 Latin1 code units as loaded into a SIMD register.
+struct Latin1Stride {
+  uint8x16_t units;
+};
+
+MOZ_ALWAYS_INLINE_EVEN_DEBUG Utf16Stride
+LoadStride(const char16_t* aArr /* len = 16 */) {
+  Utf16Stride stride;
   // memcpy generates a single unaligned load instruction with both ISAs.
-  memcpy(&first, aArr, 16);
-  memcpy(&second, aArr + 8, 16);
+  memcpy(&stride.first, aArr, 16);
+  memcpy(&stride.second, aArr + 8, 16);
+  return stride;
+}
+
+MOZ_ALWAYS_INLINE_EVEN_DEBUG Latin1Stride
+LoadStride(const char* aArr /* len = 16 */) {
+  Latin1Stride stride;
+  // memcpy generates a single unaligned load instruction with both ISAs.
+  memcpy(&stride.units, aArr, 16);
+  return stride;
+}
+
+MOZ_ALWAYS_INLINE_EVEN_DEBUG void StoreStride(char16_t* aOut /* len = 16 */,
+                                              const Utf16Stride& aStride) {
+  // memcpy generates a single unaligned store instruction with both ISAs.
+  memcpy(aOut, &aStride.first, 16);
+  memcpy(aOut + 8, &aStride.second, 16);
+}
+
+/// Compute a 16-lane mask for for 16 UTF-16 code units, where a lane
+/// is 0x00 if OK to skip and 0xFF in not OK to skip.
+MOZ_ALWAYS_INLINE_EVEN_DEBUG uint8x16_t StrideToMask(
+    const Utf16Stride& aStride, uint8x16_t aTable, bool aAllowSurrogates = true,
+    bool aAllowHyphen = true, bool aAllowRightSquareBracket = true) {
   // Each shuffle maps to a single instruction on aarch64.
   // On x86/x86_64, how efficiently these shuffles maps to instructions
   // depends on the level of instruction set extensions chosen, which
@@ -313,10 +342,12 @@ StrideToMask(const char16_t* aArr /* len = 16 */, uint8x16_t aTable,
   // level than the minimum SSSE3 (and the main reason why this file
   // uses GNU C portable SIMD instead of sticking to what's in the
   // Intel-defined headers).
-  uint8x16_t low_halves = __builtin_shufflevector(
-      first, second, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30);
-  uint8x16_t high_halves = __builtin_shufflevector(
-      first, second, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31);
+  uint8x16_t low_halves =
+      __builtin_shufflevector(aStride.first, aStride.second, 0, 2, 4, 6, 8, 10,
+                              12, 14, 16, 18, 20, 22, 24, 26, 28, 30);
+  uint8x16_t high_halves =
+      __builtin_shufflevector(aStride.first, aStride.second, 1, 3, 5, 7, 9, 11,
+                              13, 15, 17, 19, 21, 23, 25, 27, 29, 31);
   uint8x16_t high_half_matches = high_halves == ALL_ZEROS;
   uint8x16_t low_half_matches =
       low_halves == TableLookup(aTable, low_halves & NIBBLE_MASK);
@@ -338,24 +369,36 @@ StrideToMask(const char16_t* aArr /* len = 16 */, uint8x16_t aTable,
 /// The boolean arguments exist for signature compatibility with the UTF-16
 /// case and are unused in the Latin1 case.
 MOZ_ALWAYS_INLINE_EVEN_DEBUG uint8x16_t
-StrideToMask(const char* aArr /* len = 16 */, uint8x16_t aTable,
+StrideToMask(const Latin1Stride& aStride, uint8x16_t aTable,
              bool aAllowSurrogates = true, bool aAllowHyphen = true,
              bool aAllowRightSquareBracket = true) {
-  uint8x16_t stride;
-  // memcpy generates a single unaligned load instruction with both ISAs.
-  memcpy(&stride, aArr, 16);
   // == compares lane-wise and returns a mask vector.
-  return stride == TableLookup(aTable, stride & NIBBLE_MASK);
+  return aStride.units == TableLookup(aTable, aStride.units & NIBBLE_MASK);
 }
 
 template <typename CharT>
-MOZ_ALWAYS_INLINE_EVEN_DEBUG size_t
-AccelerateTextNode(const CharT* aInput, const CharT* aEnd, uint8x16_t aTable,
-                   bool aAllowSurrogates = true, bool aAllowHyphen = true,
-                   bool aAllowRightSquareBracket = true) {
+MOZ_ALWAYS_INLINE_EVEN_DEBUG uint8x16_t
+StrideToMask(const CharT* aArr /* len = 16 */, uint8x16_t aTable,
+             bool aAllowSurrogates = true, bool aAllowHyphen = true,
+             bool aAllowRightSquareBracket = true) {
+  return StrideToMask(LoadStride(aArr), aTable, aAllowSurrogates, aAllowHyphen,
+                      aAllowRightSquareBracket);
+}
+
+template <bool kWriteThrough, typename CharT>
+MOZ_ALWAYS_INLINE_EVEN_DEBUG size_t AccelerateTextNodeImpl(
+    const CharT* aInput, const CharT* aEnd, CharT* aOut, uint8x16_t aTable,
+    bool aAllowSurrogates, bool aAllowHyphen, bool aAllowRightSquareBracket) {
   const CharT* current = aInput;
+  CharT* out = aOut;
   while (aEnd - current >= 16) {
-    uint8x16_t mask = StrideToMask(current, aTable, aAllowSurrogates,
+    auto stride = LoadStride(current);
+    if constexpr (kWriteThrough) {
+      // The entire stride fits, even if the scan stops within it.
+      StoreStride(out, stride);
+      out += 16;
+    }
+    uint8x16_t mask = StrideToMask(stride, aTable, aAllowSurrogates,
                                    aAllowHyphen, aAllowRightSquareBracket);
 #if defined(__aarch64__)
     uint8_t max = vmaxvq_u8(mask & INVERTED_ADVANCES);
@@ -375,6 +418,25 @@ AccelerateTextNode(const CharT* aInput, const CharT* aEnd, uint8x16_t aTable,
     current += 16;
   }
   return size_t(current - aInput);
+}
+
+template <typename CharT>
+MOZ_ALWAYS_INLINE_EVEN_DEBUG size_t
+AccelerateTextNode(const CharT* aInput, const CharT* aEnd, uint8x16_t aTable,
+                   bool aAllowSurrogates = true, bool aAllowHyphen = true,
+                   bool aAllowRightSquareBracket = true) {
+  return AccelerateTextNodeImpl<false>(
+      aInput, aEnd, static_cast<CharT*>(nullptr), aTable, aAllowSurrogates,
+      aAllowHyphen, aAllowRightSquareBracket);
+}
+
+MOZ_ALWAYS_INLINE_EVEN_DEBUG size_t AccelerateTextNode(
+    const char16_t* aInput, const char16_t* aEnd, char16_t* aOut,
+    uint8x16_t aTable, bool aAllowSurrogates = true, bool aAllowHyphen = true,
+    bool aAllowRightSquareBracket = true) {
+  return AccelerateTextNodeImpl<true>(aInput, aEnd, aOut, aTable,
+                                      aAllowSurrogates, aAllowHyphen,
+                                      aAllowRightSquareBracket);
 }
 
 template <typename CharT>

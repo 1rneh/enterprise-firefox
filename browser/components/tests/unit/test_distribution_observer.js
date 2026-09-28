@@ -14,8 +14,7 @@ function run_test() {
   Services.prefs.setBoolPref("distribution.testing.loadFromProfile", true);
 
   // Copy distribution.ini file to the profile dir.
-  let distroDir = gProfD.clone();
-  distroDir.leafName = "distribution";
+  let distroDir = ensureDistributionDir();
   let iniFile = distroDir.clone();
   iniFile.append("distribution.ini");
   if (iniFile.exists()) {
@@ -32,10 +31,8 @@ function run_test() {
 }
 
 registerCleanupFunction(function () {
-  // Remove the distribution file, even if the test failed, otherwise all
-  // next tests will import it.
   let iniFile = gProfD.clone();
-  iniFile.leafName = "distribution";
+  iniFile.append("distribution");
   iniFile.append("distribution.ini");
   if (iniFile.exists()) {
     iniFile.remove(false);

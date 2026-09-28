@@ -213,7 +213,10 @@ inline static void GetAngleAndPointAtDistance(
   } else {
     Point tangent;  // Unit vector tangent to the point we find.
     aPoint = aPath->ComputePointAtLength(aDistance, &tangent);
-    float tangentAngle = atan2(tangent.y, tangent.x);
+    // The tangent of a zero-length path is undefined, so rotate="auto" must not
+    // fall back to the angle of the position vector.
+    float tangentAngle =
+        aPath->ComputeLength() == 0.f ? 0.f : atan2(tangent.y, tangent.x);
     if (aRotateType == RotateType::Auto) {
       aRotateAngle = tangentAngle;
     } else {

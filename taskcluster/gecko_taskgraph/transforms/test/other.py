@@ -655,6 +655,11 @@ def handle_tier(config, tasks):
     """Set the tier based on policy for all test descriptions that do not
     specify a tier otherwise."""
     for task in tasks:
+        if "-appservices/" in task["test-platform"]:
+            task["tier"] = 3
+            yield task
+            continue
+
         if "tier" in task:
             resolve_keyed_by(
                 task,
@@ -1133,10 +1138,11 @@ def add_gecko_profile_symbolication_deps(config, tasks):
 
     for task in tasks:
         extra_options = task.get("mozharness", {}).get("extra-options", [])
-        has_gecko_profile_option = any(
-            "--gecko-profile" in option for option in extra_options
+        has_profiling_option = any(
+            "--gecko-profile" in option or "--extra-profiler-run" in option
+            for option in extra_options
         )
-        gecko_profile = gecko_profile_from_try or has_gecko_profile_option
+        gecko_profile = gecko_profile_from_try or has_profiling_option
 
         if gecko_profile and task["suite"] in ["talos", "raptor"]:
             fetches = task.setdefault("fetches", {})
@@ -1145,10 +1151,12 @@ def add_gecko_profile_symbolication_deps(config, tasks):
             if "profiler-node-tools" not in fetch_toolchains:
                 fetch_toolchains.append("profiler-node-tools")
 
-            symbols_zip = "target.crashreporter-symbols.zip"
-            fetch_builds = fetches.setdefault("build", [])
-            if not any(f.get("artifact") == symbols_zip for f in fetch_builds):
-                fetch_builds.append({"artifact": symbols_zip, "extract": False})
+            # Unless we're running an "external browser" (e.g. Chrome), fetch Firefox symbols.
+            if not is_external_browser(task["try-name"]):
+                symbols_zip = "target.crashreporter-symbols.zip"
+                fetch_builds = fetches.setdefault("build", [])
+                if not any(f.get("artifact") == symbols_zip for f in fetch_builds):
+                    fetch_builds.append({"artifact": symbols_zip, "extract": False})
 
             test_platform = task["test-platform"]
 

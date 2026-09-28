@@ -1284,6 +1284,18 @@ def target_tasks_nightly_all(full_task_graph, parameters, graph_config):
     )
 
 
+@register_target_task("appservices")
+def target_tasks_appservices(full_task_graph, parameters, graph_config):
+    """Select the tasks that build app-services in tree and their tests"""
+    return [
+        l
+        for l, t in full_task_graph.tasks.items()
+        if t.attributes.get("build_platform", "").endswith("-appservices")
+        or "-appservices/" in t.attributes.get("test_platform", "")
+        or t.kind.endswith("-appservices")
+    ]
+
+
 # Run Searchfox analysis once daily.
 @register_target_task("searchfox_index")
 def target_tasks_searchfox(full_task_graph, parameters, graph_config):
@@ -1517,6 +1529,19 @@ def target_tasks_codereview(full_task_graph, parameters, graph_config):
 
         # Analyzer tasks
         if task.attributes.get("code-review") is True:
+            return True
+
+        return False
+
+    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+
+
+@register_target_task("codereview-build-test")
+def target_tasks_codereview_build_test(full_task_graph, parameters, graph_config):
+    """Select all build and test tasks that should run as part of code review pushes."""
+
+    def filter(task):
+        if task.attributes.get("code-review-build-test") is True:
             return True
 
         return False

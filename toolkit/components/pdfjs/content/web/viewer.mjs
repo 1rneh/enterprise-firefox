@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.4.195
- * pdfjsBuild = d54c193bd
+ * pdfjsVersion = 6.4.224
+ * pdfjsBuild = d52fdf411
  */
 
 ;// ./web/ui_utils.js
@@ -895,7 +895,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "6059afab-e34a-4dff-9dfa-3909d4d805dc";
+const INTERNAL_EVT = "90973740-0b99-49c5-aacb-ae9e20f4bdce";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -3710,7 +3710,7 @@ class CommentSidebar extends Sidebar {
     if (ids.length === 0 || !this.#idsToElements) {
       return;
     }
-    if (new Set(this.#idsToElements.keys()).difference(new Set(ids)).size === 0) {
+    if (new Set(this.#idsToElements.keys()).isSubsetOf(new Set(ids))) {
       this.#removeAll();
       return;
     }
@@ -13338,7 +13338,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.4.195";
+    const viewerVersion = "6.4.224";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -14825,7 +14825,7 @@ class PDFViewer {
                 }
               }
             } else {
-              for (let i = currentIndex + 1, ii = numPages; i < ii; i++) {
+              for (let i = currentIndex + 1; i < numPages; i++) {
                 const currentId = yArray[i],
                   expectedId = yArray[i - 1] + 1;
                 if (currentId > expectedId) {

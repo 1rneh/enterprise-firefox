@@ -26,7 +26,7 @@ const XPCOMUtils = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 ).XPCOMUtils;
 const { Referrals } = ChromeUtils.importESModule(
-  "resource:///modules/referrals/Referrals.sys.mjs"
+  "moz-src:///browser/components/referrals/Referrals.sys.mjs"
 );
 const lazy = XPCOMUtils.declareLazy({
   BackupService: "moz-src:///browser/components/backup/BackupService.sys.mjs",

@@ -612,6 +612,30 @@ abstract class BasePage(protected val composeRule: AndroidComposeTestRule<HomeAc
         )
 
     /**
+     * Assert the check box belonging to a preference row is on/off. [optionSelector] must name the row's title (unique
+     * by text); the check box is reached as the title's sibling's child. Use for a `CheckBoxPreference` row (e.g. "Show
+     * in private sessions"), where the control is a check box rather than the switch [mozVerifyOptionSwitchIsChecked]
+     * expects.
+     */
+    fun mozVerifyOptionCheckBoxIsChecked(optionSelector: Selector) =
+        require(
+            verb = "verify_option_checkbox_checked",
+            selector = optionSelector,
+            expectation = "has a checked check box",
+            dumpOnFailure = false,
+            predicate = { Relations.hasSiblingCheckBox(it, checked = true) },
+        )
+
+    fun mozVerifyOptionCheckBoxIsNotChecked(optionSelector: Selector) =
+        require(
+            verb = "verify_option_checkbox_not_checked",
+            selector = optionSelector,
+            expectation = "has an unchecked check box",
+            dumpOnFailure = false,
+            predicate = { Relations.hasSiblingCheckBox(it, checked = false) },
+        )
+
+    /**
      * Assert [upper] renders above [lower] on screen, comparing their vertical positions. For ordered lists whose rows
      * are not one queryable collection - the History screen's UiAutomator RecyclerView - where the collection verbs
      * cannot express "A comes before B". Both elements must be present first; this waits for each before comparing.

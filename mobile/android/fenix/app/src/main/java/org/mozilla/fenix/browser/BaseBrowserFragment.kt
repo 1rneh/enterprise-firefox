@@ -56,7 +56,6 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import mozilla.components.browser.state.action.ContentAction
 import mozilla.components.browser.state.action.SystemPermissionRequestAction
 import mozilla.components.browser.state.selector.findCustomTab
@@ -1122,28 +1121,28 @@ abstract class BaseBrowserFragment :
                                 requireComponents.emailMasksRepository.dismissCfr()
                             }
 
-                            override suspend fun onEmailMaskClick(generatedFor: String) =
-                                withContext(Dispatchers.IO) {
-                                    EmailMask.promptClicked.record()
+                            override suspend fun onEmailMaskClick(generatedFor: String): String? {
 
-                                    val relay = requireComponents.relayFeatureIntegration
-                                    // For this phase, we'll also use the generatedFor value for the description.
-                                    val created = relay.getOrCreateNewMask(generatedFor, generatedFor)
+                                EmailMask.promptClicked.record()
 
-                                    if (created == null) {
-                                        // Record failure telemetry
-                                        EmailMask.getOrCreateFailed.record()
-                                        // Log failure
-                                        val errorMessage = getString(R.string.email_masks_error_retrieving_masks)
+                                val relay = requireComponents.relayFeatureIntegration
+                                // For this phase, we'll also use the generatedFor value for the description.
+                                val created = relay.getOrCreateNewMask(generatedFor, generatedFor)
 
-                                        appStore.dispatch(AppAction.SnackbarAction.ShowSnackbar(errorMessage))
-                                        return@withContext null
-                                    }
+                                if (created == null) {
+                                    // Record failure telemetry
+                                    EmailMask.getOrCreateFailed.record()
+                                    // Log failure
+                                    val errorMessage = getString(R.string.email_masks_error_retrieving_masks)
 
-                                    EmailMask.autofillSuccess.record()
-
-                                    created.fullAddress
+                                    appStore.dispatch(AppAction.SnackbarAction.ShowSnackbar(errorMessage))
+                                    return null
                                 }
+
+                                EmailMask.autofillSuccess.record()
+
+                                return created.fullAddress
+                            }
                         },
                     isEmailMaskFeatureEnabled = { context.components.settings.isEmailMaskFeatureEnabled },
                     isSuggestEmailMaskEnabled = { requireComponents.emailMasksRepository.isSuggestionEnabled() },

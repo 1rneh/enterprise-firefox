@@ -129,6 +129,12 @@ LICENSES += ["expat"]
 LICENSES["expat"].title = "Expat License"
 ```
 
+The manifest is found by walking up from the declaring `moz.build`'s
+directory, so this only works when the `moz.build` sits in the library's
+directory or below it. A `moz.build` that builds libraries vendored into its
+subdirectories sits above their manifests, so it sets `text` to each library's
+license file instead.
+
 The linter reports a `text` naming the file that manifest already names. Where
 `moz.yaml` has no `license-file`, add it rather than copying the text into a
 `LICENSE-NOTICE.txt` next to the `moz.build`: the manifest is what `mach vendor`

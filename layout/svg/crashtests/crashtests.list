@@ -275,7 +275,7 @@ load 1840195-1.html
 load 1848851.html
 load 1882921-1.html
 load 1932954.html
-asserts(5-20) load 1941838.html
+asserts(5-28) load 1941838.html # Large sizes
 load 1953296.html
 load 1982067-1.html
 skip-if(isDebugBuild&&Android) load 1993379-1.html # bug 1467887

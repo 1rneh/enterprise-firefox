@@ -2534,7 +2534,7 @@ DXGI_FORMAT DCSurfaceVideo::GetSwapChainFormat(bool aUseVpAutoHDR,
                                                bool aUseRGB10A2,
                                                bool aUseRGBA16F) {
   if (aUseVpAutoHDR) {
-    return DXGI_FORMAT_R16G16B16A16_FLOAT;
+    return DXGI_FORMAT_R10G10B10A2_UNORM;
   }
   if (aUseRGB10A2) {
     return DXGI_FORMAT_R10G10B10A2_UNORM;
@@ -2741,8 +2741,7 @@ static Maybe<DXGI_COLOR_SPACE_TYPE> GetSourceDXGIColorSpace(
 }
 
 static Maybe<DXGI_COLOR_SPACE_TYPE> GetOutputDXGIColorSpace(
-    DXGI_FORMAT aSwapChainFormat, DXGI_COLOR_SPACE_TYPE aInputColorSpace,
-    bool aUseVpAutoHDR) {
+    DXGI_FORMAT aSwapChainFormat, DXGI_COLOR_SPACE_TYPE aInputColorSpace) {
   switch (aSwapChainFormat) {
     case DXGI_FORMAT_NV12:
     case DXGI_FORMAT_YUY2:
@@ -2769,11 +2768,6 @@ static Maybe<DXGI_COLOR_SPACE_TYPE> GetOutputDXGIColorSpace(
     case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
     case DXGI_FORMAT_B8G8R8X8_UNORM:
     case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
-      // Refactor note - not sure if mUseVpAutoHDR is ever true here,
-      // it may only ever use DXGI_FORMAT_R16G16B16A16_FLOAT.
-      if (aUseVpAutoHDR) {
-        return Some(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
-      }
       return Some(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709);
     default:
       return Nothing();
@@ -3721,7 +3715,7 @@ bool DCSurfaceVideo::CallVideoProcessorBlt() {
                                                     inputColorSpace);
 
   Maybe<DXGI_COLOR_SPACE_TYPE> outputColorSpaceRef =
-      GetOutputDXGIColorSpace(mSwapChainFormat, inputColorSpace, mUseVpAutoHDR);
+      GetOutputDXGIColorSpace(mSwapChainFormat, inputColorSpace);
   if (outputColorSpaceRef.isNothing()) {
     gfxCriticalNoteOnce << "Unrecognized DXGI mSwapChainFormat, unsure of "
                            "correct DXGI colorspace: "
@@ -3729,8 +3723,12 @@ bool DCSurfaceVideo::CallVideoProcessorBlt() {
     return false;
   }
   DXGI_COLOR_SPACE_TYPE outputColorSpace = outputColorSpaceRef.ref();
+  DXGI_COLOR_SPACE_TYPE swapChainColorSpace = outputColorSpace;
+  if (mUseVpAutoHDR) {
+    swapChainColorSpace = DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
+  }
 
-  hr = swapChain3->SetColorSpace1(outputColorSpace);
+  hr = swapChain3->SetColorSpace1(swapChainColorSpace);
   if (FAILED(hr)) {
     gfxCriticalNoteOnce << "SetColorSpace1 failed: " << gfx::hexa(hr);
     RenderThread::Get()->NotifyWebRenderError(

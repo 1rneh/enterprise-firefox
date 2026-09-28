@@ -3499,7 +3499,15 @@ void nsIFrame::BuildDisplayListForStackingContext(
               ->IsMaybeAsynchronouslyScrolled()) {
         shouldFlattenStickyItem = false;
       }
-      stickyScrollContainer->SetShouldFlatten(shouldFlattenStickyItem);
+      // The flattening decision stored on the StickyScrollContainer is shared
+      // by every sticky frame that it scrolls, so only store decisions which
+      // apply to all of them. Being inside a view transition capture flattens
+      // just the captured frame (which gets no display item at all), so
+      // storing that decision would incorrectly flatten the container's other
+      // sticky frames as well.
+      if (!aBuilder->IsInViewTransitionCapture()) {
+        stickyScrollContainer->SetShouldFlatten(shouldFlattenStickyItem);
+      }
     }
 
     if (shouldFlattenStickyItem) {
@@ -6800,10 +6808,6 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   const auto boxSizingAdjust = stylePos->mBoxSizing == StyleBoxSizing::BorderBox
                                    ? aBorderPadding
                                    : LogicalSize(aWM);
-  nscoord boxSizingToMarginEdgeISize = aMargin.ISize(aWM) +
-                                       aBorderPadding.ISize(aWM) -
-                                       boxSizingAdjust.ISize(aWM);
-
   const auto& aspectRatio = aSizeOverrides.mAspectRatio
                                 ? *aSizeOverrides.mAspectRatio
                                 : GetAspectRatio();
@@ -6822,7 +6826,7 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
     if (styleBSizeConsideringOverrides->BehavesLikeStretchOnBlockAxis() &&
         aCBSize.BSize(aWM) != NS_UNCONSTRAINEDSIZE) {
       // We've got a 'stretch' BSize; resolve it to a length:
-      nscoord stretchBSize = nsLayoutUtils::ComputeStretchBSize(
+      nscoord stretchBSize = nsLayoutUtils::ComputeStretchSize(
           aCBSize.BSize(aWM), aMargin.BSize(aWM), aBorderPadding.BSize(aWM),
           stylePos->mBoxSizing);
       // Note(dshin): This allocates.
@@ -6880,10 +6884,9 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   // fill the CB.
   const bool shouldComputeISize = !isAutoISize && !isSubgriddedInInlineAxis;
   if (shouldComputeISize) {
-    auto iSizeResult =
-        ComputeISizeValue(aSizingInput.mRenderingContext, aWM, aCBSize,
-                          boxSizingAdjust, boxSizingToMarginEdgeISize,
-                          *styleISize, *styleBSize, aspectRatio, aFlags);
+    auto iSizeResult = ComputeISizeValue(
+        aSizingInput.mRenderingContext, aWM, aCBSize, aMargin, aBorderPadding,
+        *styleISize, *styleBSize, aspectRatio, aFlags);
     result.ISize(aWM) = iSizeResult.mISize;
     aspectRatioUsage = iSizeResult.mAspectRatioUsage;
   } else if (MOZ_UNLIKELY(isGridItem) && !IsTrueOverflowContainer()) {
@@ -7011,17 +7014,17 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   const auto maxISizeCoord = stylePos->MaxISize(aWM, anchorResolutionParams);
   nscoord maxISize = NS_UNCONSTRAINEDSIZE;
   if (!maxISizeCoord->IsNone() && !shouldIgnoreMinMaxISize) {
-    maxISize =
-        ComputeISizeValue(aSizingInput.mRenderingContext, aWM, aCBSize,
-                          boxSizingAdjust, boxSizingToMarginEdgeISize,
-                          *maxISizeCoord, *styleBSize, aspectRatio, aFlags)
-            .mISize;
+    maxISize = ComputeISizeValue(aSizingInput.mRenderingContext, aWM, aCBSize,
+                                 aMargin, aBorderPadding, *maxISizeCoord,
+                                 *styleBSize, aspectRatio, aFlags)
+                   .mISize;
     result.ISize(aWM) = std::min(maxISize, result.ISize(aWM));
   }
 
   const nscoord bSizeAsPercentageBasis = ComputeBSizeValueAsPercentageBasis(
       *styleBSize, *minBSizeCoord, *maxBSizeCoord, aCBSize.BSize(aWM),
-      boxSizingAdjust.BSize(aWM));
+      boxSizingAdjust.BSize(aWM), aMargin.BSize(aWM),
+      aBorderPadding.BSize(aWM));
   const IntrinsicSizeInput input(
       aSizingInput.mRenderingContext,
       Some(aCBSize.ConvertTo(GetWritingMode(), aWM)),
@@ -7030,11 +7033,10 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   const auto minISizeCoord = stylePos->MinISize(aWM, anchorResolutionParams);
   nscoord minISize;
   if (!minISizeCoord->IsAuto() && !shouldIgnoreMinMaxISize) {
-    minISize =
-        ComputeISizeValue(aSizingInput.mRenderingContext, aWM, aCBSize,
-                          boxSizingAdjust, boxSizingToMarginEdgeISize,
-                          *minISizeCoord, *styleBSize, aspectRatio, aFlags)
-            .mISize;
+    minISize = ComputeISizeValue(aSizingInput.mRenderingContext, aWM, aCBSize,
+                                 aMargin, aBorderPadding, *minISizeCoord,
+                                 *styleBSize, aspectRatio, aFlags)
+                   .mISize;
   } else if (MOZ_UNLIKELY(
                  aFlags.contains(ComputeSizeFlag::IApplyAutoMinSize))) {
     // This implements "Implied Minimum Size of Grid Items".
@@ -7200,37 +7202,29 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
 nscoord nsIFrame::ComputeBSizeValueAsPercentageBasis(
     const StyleSize& aStyleBSize, const StyleSize& aStyleMinBSize,
     const StyleMaxSize& aStyleMaxBSize, nscoord aCBBSize,
-    nscoord aContentEdgeToBoxSizingBSize) {
+    nscoord aContentEdgeToBoxSizingBSize, nscoord aMargin,
+    nscoord aBorderPadding) {
   if (nsLayoutUtils::IsAutoBSize(aStyleBSize, aCBBSize)) {
     return NS_UNCONSTRAINEDSIZE;
   }
 
-  // TODO(dholbert): This is a temporary hack, to be fixed up in bug 1933604.
-  // We don't know have aMargin or aBorderPadding args available,
-  // so we use these dummy zero-valued variables as placeholders in
-  // our call to ComputeBSizeValueHandlingStretch. (This might mean we
-  // end up resolving 'stretch' to something slighlty-too-large for the
-  // purposes of this call, if there's actually nonzero margin/border/padding).
-  const nscoord dummyMargin = 0;
-  const nscoord dummyBorderPadding = 0;
-
   const nscoord bSize = nsLayoutUtils::ComputeBSizeValueHandlingStretch(
-      aCBBSize, dummyMargin, dummyBorderPadding, aContentEdgeToBoxSizingBSize,
+      aCBBSize, aMargin, aBorderPadding, aContentEdgeToBoxSizingBSize,
       aStyleBSize);
 
   const nscoord minBSize =
       nsLayoutUtils::IsAutoBSize(aStyleMinBSize, aCBBSize)
           ? 0
           : nsLayoutUtils::ComputeBSizeValueHandlingStretch(
-                aCBBSize, dummyMargin, dummyBorderPadding,
-                aContentEdgeToBoxSizingBSize, aStyleMinBSize);
+                aCBBSize, aMargin, aBorderPadding, aContentEdgeToBoxSizingBSize,
+                aStyleMinBSize);
 
   const nscoord maxBSize =
       nsLayoutUtils::IsAutoBSize(aStyleMaxBSize, aCBBSize)
           ? NS_UNCONSTRAINEDSIZE
           : nsLayoutUtils::ComputeBSizeValueHandlingStretch(
-                aCBBSize, dummyMargin, dummyBorderPadding,
-                aContentEdgeToBoxSizingBSize, aStyleMaxBSize);
+                aCBBSize, aMargin, aBorderPadding, aContentEdgeToBoxSizingBSize,
+                aStyleMaxBSize);
 
   return CSSMinMax(bSize, minBSize, maxBSize);
 }
@@ -7281,7 +7275,8 @@ LogicalSize nsIFrame::ComputeAutoSize(
     const nscoord bSize = ComputeBSizeValueAsPercentageBasis(
         *styleBSize, *stylePos->MinBSize(aWM, anchorResolutionParams),
         *stylePos->MaxBSize(aWM, anchorResolutionParams), aCBSize.BSize(aWM),
-        contentEdgeToBoxSizing.BSize(aWM));
+        contentEdgeToBoxSizing.BSize(aWM), aMargin.BSize(aWM),
+        aBorderPadding.BSize(aWM));
     const IntrinsicSizeInput input(
         aSizingInput.mRenderingContext,
         Some(aCBSize.ConvertTo(GetWritingMode(), aWM)),
@@ -7433,7 +7428,8 @@ LogicalSize nsIFrame::ComputeAbsolutePosAutoSize(
               : *styleBSize,
           *stylePos->MinBSize(aWM, anchorResolutionParams.mBaseParams),
           *stylePos->MaxBSize(aWM, anchorResolutionParams.mBaseParams),
-          aCBSize.BSize(aWM), boxSizingAdjust.BSize(aWM));
+          aCBSize.BSize(aWM), boxSizingAdjust.BSize(aWM), aMargin.BSize(aWM),
+          aBorderPadding.BSize(aWM));
 
       const IntrinsicSizeInput input(
           aSizingInput.mRenderingContext,
@@ -7541,13 +7537,16 @@ nscoord nsIFrame::ComputeISizeValueFromAspectRatio(
 
 nsIFrame::ISizeComputationResult nsIFrame::ComputeISizeValue(
     gfxContext* aRenderingContext, const WritingMode aWM,
-    const LogicalSize& aCBSize, const LogicalSize& aContentEdgeToBoxSizing,
-    nscoord aBoxSizingToMarginEdge, ExtremumLength aSize,
+    const LogicalSize& aCBSize, const LogicalSize& aMargin,
+    const LogicalSize& aBorderPadding, ExtremumLength aSize,
     Maybe<nscoord> aAvailableISizeOverride, const StyleSize& aStyleBSize,
     const AspectRatio& aAspectRatio, ComputeSizeFlags aFlags) {
+  const auto* stylePos = StylePosition();
+  const LogicalSize contentEdgeToBoxSizing =
+      stylePos->mBoxSizing == StyleBoxSizing::BorderBox ? aBorderPadding
+                                                        : LogicalSize(aWM);
   auto GetAvailableISize = [&]() {
-    return aCBSize.ISize(aWM) - aBoxSizingToMarginEdge -
-           aContentEdgeToBoxSizing.ISize(aWM);
+    return aCBSize.ISize(aWM) - aMargin.ISize(aWM) - aBorderPadding.ISize(aWM);
   };
 
   // If 'this' is a container for font size inflation, then shrink
@@ -7567,50 +7566,19 @@ nsIFrame::ISizeComputationResult nsIFrame::ComputeISizeValue(
     if (nsLayoutUtils::IsAutoBSize(aStyleBSize, aCBSize.BSize(aWM))) {
       return Nothing();
     }
-
-    // Helper used below to resolve aStyleBSize if it's 'stretch' or an alias.
-    // XXXdholbert Really we should be resolving 'stretch' and its aliases
-    // sooner; see bug 2000035.
-    auto ResolveStretchBSize = [&]() {
-      MOZ_ASSERT(aStyleBSize.BehavesLikeStretchOnBlockAxis(),
-                 "Only call me for 'stretch'-like BSizes");
-      MOZ_ASSERT(aCBSize.BSize(aWM) != NS_UNCONSTRAINEDSIZE,
-                 "If aStyleBSize is stretch-like, then unconstrained "
-                 "aCBSize.BSize should make us return via the IsAutoBSize "
-                 "check above");
-
-      // NOTE: the borderPadding and margin variables might be zero-filled
-      // instead of having the true values, if those values haven't been
-      // stashed in our property-table yet (e.g. if we're in the midst of
-      // setting up a ReflowInput for our first reflow). So ideally, we should
-      // be resolving 'stretch' **in our callers** rather than here, if those
-      // callers have more up-to-date resolved margin/border/padding values.
-      // We'll still make a best-effort attempt to resolve 'stretch' here,
-      // though, for the benefit of callers that might not have handled it, to
-      // be sure we don't abort in aStyleBSize.AsLengthPercentage(). Ultimately
-      // this all can be removed when we fix bug 2000035.
-      const auto borderPadding = GetLogicalUsedBorderAndPadding(aWM);
-      const auto margin = GetLogicalUsedMargin(aWM);
-      nscoord stretchBSize = nsLayoutUtils::ComputeStretchBSize(
-          aCBSize.BSize(aWM), margin.BStartEnd(aWM),
-          borderPadding.BStartEnd(aWM), StylePosition()->mBoxSizing);
-      return LengthPercentage::FromAppUnits(stretchBSize);
-    };
-
-    return Some(ComputeISizeValueFromAspectRatio(
-        aWM, aCBSize, aContentEdgeToBoxSizing,
-        aStyleBSize.BehavesLikeStretchOnBlockAxis()
-            ? ResolveStretchBSize()
-            : aStyleBSize.AsLengthPercentage(),
-        aAspectRatio));
+    const nscoord bSize = nsLayoutUtils::ComputeBSizeValueHandlingStretch(
+        aCBSize.BSize(aWM), aMargin.BSize(aWM), aBorderPadding.BSize(aWM),
+        contentEdgeToBoxSizing.BSize(aWM), aStyleBSize);
+    return Some(aAspectRatio.ComputeRatioDependentSize(
+        LogicalAxis::Inline, aWM, bSize, contentEdgeToBoxSizing));
   }();
 
-  const auto* stylePos = StylePosition();
   const auto anchorResolutionParams = AnchorPosResolutionParams::From(this);
   const nscoord bSize = ComputeBSizeValueAsPercentageBasis(
       aStyleBSize, *stylePos->MinBSize(aWM, anchorResolutionParams),
       *stylePos->MaxBSize(aWM, anchorResolutionParams), aCBSize.BSize(aWM),
-      aContentEdgeToBoxSizing.BSize(aWM));
+      contentEdgeToBoxSizing.BSize(aWM), aMargin.BSize(aWM),
+      aBorderPadding.BSize(aWM));
   const IntrinsicSizeInput input(
       aRenderingContext, Some(aCBSize.ConvertTo(GetWritingMode(), aWM)),
       Some(LogicalSize(aWM, NS_UNCONSTRAINEDSIZE, bSize)
@@ -11321,8 +11289,6 @@ void nsIFrame::ComputePreserve3DChildrenOverflow(
   // included in the normal overflow calculation. Any children that don't
   // participate have normal overflow, so will have been included already.
 
-  nsRect childVisual;
-  nsRect childScrollable;
   for (const auto& childList : ChildLists()) {
     for (nsIFrame* child : childList.mList) {
       // If this child participates in the 3d context, then take the

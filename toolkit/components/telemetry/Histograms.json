@@ -1708,19 +1708,6 @@
     "bug_numbers": [1600335],
     "description": "Firefox: Time in ms spent selecting and matching messages to user profile."
   },
-  "SECURITY_UI": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": [
-      "seceng-telemetry@mozilla.com",
-      "fxprivacyandsecurity@mozilla.com"
-    ],
-    "bug_numbers": [767676],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 100,
-    "description": "Security-related UI events (addons, form submission, TLS certs, Safe Browsing, updates and geolocation). See /security/manager/ssl/nsISecurityUITelemetry.idl for the specific values."
-  },
   "SEARCH_COUNTS": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],

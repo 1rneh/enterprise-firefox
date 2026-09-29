@@ -129,13 +129,23 @@ mozilla::ipc::RandomAccessStreamParams FileRandomAccessStream::Serialize(
     nsIInterfaceRequestor* aCallbacks) {
   MOZ_RELEASE_ASSERT(XRE_IsParentProcess());
   MOZ_RELEASE_ASSERT(!mDeserialized);
-  MOZ_ASSERT(mOpenParams.localFile);
 
-  QuotaManager* quotaManager = QuotaManager::Get();
-  MOZ_ASSERT(quotaManager);
+  // The quota object is looked up using |mOpenParams.localFile|, which is
+  // nulled out as soon as the file is opened. So if this stream has already
+  // been opened, we can't look up the quota object. In that case, the quota
+  // object acquired by |DoOpen()| back then has to be reused. Such a case
+  // happens, for example, because |EncryptedRandomAccessStream::Create()|
+  // opens the file to read the final block of the file this stream wraps.
+  RefPtr<QuotaObject> quotaObject = mQuotaObject;
+  if (!quotaObject) {
+    MOZ_ASSERT(mOpenParams.localFile);
 
-  RefPtr<QuotaObject> quotaObject = quotaManager->GetQuotaObject(
-      mPersistenceType, mOriginMetadata, mClientType, mOpenParams.localFile);
+    QuotaManager* quotaManager = QuotaManager::Get();
+    MOZ_ASSERT(quotaManager);
+
+    quotaObject = quotaManager->GetQuotaObject(
+        mPersistenceType, mOriginMetadata, mClientType, mOpenParams.localFile);
+  }
   MOZ_ASSERT(quotaObject);
 
   IPCQuotaObject ipcQuotaObject = quotaObject->Serialize(aCallbacks);

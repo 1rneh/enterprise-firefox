@@ -99,10 +99,11 @@ ChromeUtils.defineESModuleGetters(this, {
   SubDialog: "resource://gre/modules/SubDialog.sys.mjs",
   SubDialogManager: "resource://gre/modules/SubDialog.sys.mjs",
   TabCrashHandler: "resource:///modules/ContentCrashHandlers.sys.mjs",
+  Tabbrowser: "moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs",
   TabsSetupFlowManager:
     "resource:///modules/firefox-view-tabs-setup-manager.sys.mjs",
   TaskbarTabsChrome:
-    "resource:///modules/taskbartabs/TaskbarTabsChrome.sys.mjs",
+    "moz-src:///browser/components/taskbartabs/TaskbarTabsChrome.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   ToolbarContextMenu:
     "moz-src:///browser/components/customizableui/ToolbarContextMenu.sys.mjs",
@@ -3968,7 +3969,7 @@ function WindowIsClosing(event) {
     "resource:///modules/asrouter/ASRouter.sys.mjs"
   );
   const { TaskbarTabsUtils } = ChromeUtils.importESModule(
-    "resource:///modules/taskbartabs/TaskbarTabsUtils.sys.mjs"
+    "moz-src:///browser/components/taskbartabs/TaskbarTabsUtils.sys.mjs"
   );
   if (gLastWindowCloseTriggerHandled) {
     // The user is closing this window again while a message from a previous
@@ -4040,7 +4041,7 @@ function warnAboutClosingWindow() {
   if (!isPBWindow && !toolbar.visible) {
     return gBrowser.warnAboutClosingTabs(
       gBrowser.openTabs.length,
-      gBrowser.closingTabsEnum.ALL
+      Tabbrowser.closingTabsEnum.ALL
     );
   }
 
@@ -4080,7 +4081,7 @@ function warnAboutClosingWindow() {
       isPBWindow ||
       gBrowser.warnAboutClosingTabs(
         gBrowser.openTabs.length,
-        gBrowser.closingTabsEnum.ALL
+        Tabbrowser.closingTabsEnum.ALL
       )
     );
   }
@@ -4105,7 +4106,7 @@ function warnAboutClosingWindow() {
     isPBWindow ||
     gBrowser.warnAboutClosingTabs(
       gBrowser.openTabs.length,
-      gBrowser.closingTabsEnum.ALL
+      Tabbrowser.closingTabsEnum.ALL
     )
   );
 }

@@ -4,6 +4,9 @@
 
 /* global gBrowser, MozXULElement, SessionStore, XPCOMUtils */
 
+const { Tabbrowser } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs"
+);
 const { TabMetrics } = ChromeUtils.importESModule(
   "moz-src:///browser/components/tabbrowser/TabMetrics.sys.mjs"
 );
@@ -227,18 +230,18 @@ export class MozTabbrowserTabGroup extends MozXULElement {
         }
         for (const mutation of mutations) {
           for (const addedNode of mutation.addedNodes) {
-            if (gBrowser.isTab(addedNode)) {
+            if (Tabbrowser.isTab(addedNode)) {
               this.#updateTabAriaHidden(addedNode);
-            } else if (gBrowser.isSplitViewWrapper(addedNode)) {
+            } else if (Tabbrowser.isSplitViewWrapper(addedNode)) {
               for (const splitViewTab of addedNode.tabs) {
                 this.#updateTabAriaHidden(splitViewTab);
               }
             }
           }
           for (const removedNode of mutation.removedNodes) {
-            if (gBrowser.isTab(removedNode)) {
+            if (Tabbrowser.isTab(removedNode)) {
               this.#updateTabAriaHidden(removedNode);
-            } else if (gBrowser.isSplitViewWrapper(removedNode)) {
+            } else if (Tabbrowser.isSplitViewWrapper(removedNode)) {
               for (const splitViewTab of removedNode.tabs) {
                 this.#updateTabAriaHidden(splitViewTab);
               }
@@ -635,7 +638,7 @@ export class MozTabbrowserTabGroup extends MozXULElement {
     if (metricsContext?.isUserTriggered) {
       let tabCount = tabsOrSplitViews.reduce(
         (n, item) =>
-          n + (gBrowser.isSplitViewWrapper(item) ? item.tabs.length : 1),
+          n + (Tabbrowser.isSplitViewWrapper(item) ? item.tabs.length : 1),
         0
       );
       gBrowser.recordTabMetrics(
@@ -647,7 +650,7 @@ export class MozTabbrowserTabGroup extends MozXULElement {
     }
 
     for (let tabOrSplitView of tabsOrSplitViews) {
-      if (gBrowser.isSplitViewWrapper(tabOrSplitView)) {
+      if (Tabbrowser.isSplitViewWrapper(tabOrSplitView)) {
         let splitViewToMove =
           this.documentGlobal === tabOrSplitView.documentGlobal
             ? tabOrSplitView
@@ -690,9 +693,9 @@ export class MozTabbrowserTabGroup extends MozXULElement {
       })
     );
     for (let i = this.tabsAndSplitViews.length - 1; i >= 0; i--) {
-      if (gBrowser.isSplitViewWrapper(this.tabsAndSplitViews[i])) {
+      if (Tabbrowser.isSplitViewWrapper(this.tabsAndSplitViews[i])) {
         gBrowser.ungroupSplitView(this.tabsAndSplitViews[i]);
-      } else if (gBrowser.isTab(this.tabsAndSplitViews[i])) {
+      } else if (Tabbrowser.isTab(this.tabsAndSplitViews[i])) {
         gBrowser.ungroupTab(this.tabsAndSplitViews[i]);
       }
     }

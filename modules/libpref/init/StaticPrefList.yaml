@@ -5471,6 +5471,14 @@
   value: 0
   mirror: always
 
+# Whether OPFS is enabled in Private Browsing Mode.
+# TODO: Before enabling, please handle crash safety in
+# EncryptedRandomAccessStream::SetEOF, see bug 2072949 for details.
+- name: dom.fs.privateBrowsing.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # LocalStorage data limit as determined by summing up the lengths of all string
 # keys and values. This is consistent with the legacy implementation and other
 # browser engines. This value should really only ever change in unit testing

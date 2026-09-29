@@ -14,6 +14,7 @@ ChromeUtils.defineESModuleGetters(this, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore:
     "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  Tabbrowser: "moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(this, "strBundle", function () {
@@ -1822,7 +1823,7 @@ this.tabs = class extends ExtensionAPIPersistent {
             tabs.sort((a, b) => a.index - b.index);
             tabs = getNativeTabsOrSplitViews(tabs);
             let firstTab = tabs[0];
-            if (group.documentGlobal.gBrowser.isSplitViewWrapper(firstTab)) {
+            if (Tabbrowser.isSplitViewWrapper(firstTab)) {
               firstTab = firstTab.tabs[0];
             }
             if (firstTab === group.tabs[0]) {

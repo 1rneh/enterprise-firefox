@@ -58,11 +58,29 @@
       "chrome://browser/content/aiwindow/components/ai-window/ai-window.mjs": [
         "../../../browser/components/aiwindow/ui/components/ai-window/ai-window.mjs"
       ],
+      "chrome://browser/content/aiwindow/components/aitab-error.mjs": [
+        "../../../browser/components/aiwindow/ui/components/aitab-page/aitab-error/aitab-error.mjs"
+      ],
       "chrome://browser/content/aiwindow/components/aitab-header.mjs": [
         "../../../browser/components/aiwindow/ui/components/aitab-page/aitab-header/aitab-header.mjs"
       ],
+      "chrome://browser/content/aiwindow/components/aitab-highlights.mjs": [
+        "../../../browser/components/aiwindow/ui/components/aitab-highlights/aitab-highlights.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/aitab-list.mjs": [
+        "../../../browser/components/aiwindow/ui/components/aitab-page/aitab-list/aitab-list.mjs"
+      ],
       "chrome://browser/content/aiwindow/components/aitab-page-actions.mjs": [
         "../../../browser/components/aiwindow/ui/components/aitab-page/aitab-page-actions/aitab-page-actions.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/aitab-table.mjs": [
+        "../../../browser/components/aiwindow/ui/components/aitab-table/aitab-table.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/aitab-text-block.mjs": [
+        "../../../browser/components/aiwindow/ui/components/aitab-page/aitab-text-block/aitab-text-block.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/aitab-timeline.mjs": [
+        "../../../browser/components/aiwindow/ui/components/aitab-page/aitab-timeline/aitab-timeline.mjs"
       ],
       "chrome://browser/content/aiwindow/components/applied-memories-button.mjs": [
         "../../../browser/components/aiwindow/ui/components/ai-chat-content/chat-assistant-footer/applied-memories-button.mjs"
@@ -138,6 +156,9 @@
       ],
       "chrome://browser/content/aiwindow/components/website-chip-container.mjs": [
         "../../../browser/components/aiwindow/ui/components/website-chip-container/website-chip-container.mjs"
+      ],
+      "chrome://browser/content/aiwindow/modules/AITabUtils.mjs": [
+        "../../../browser/components/aiwindow/ui/modules/AITabUtils.mjs"
       ],
       "chrome://browser/content/aiwindow/modules/AgentCommands.mjs": [
         "../../../browser/components/aiwindow/ui/modules/AgentCommands.mjs"
@@ -409,6 +430,9 @@
       "chrome://browser/content/tabbrowser/tab-hover-preview.mjs": [
         "../../../browser/components/tabbrowser/content/tab-hover-preview.mjs"
       ],
+      "chrome://browser/content/tabbrowser/tab.mjs": [
+        "../../../browser/components/tabbrowser/content/tab.mjs"
+      ],
       "chrome://browser/content/tabbrowser/tabgroup.mjs": [
         "../../../browser/components/tabbrowser/content/tabgroup.mjs"
       ],
@@ -555,6 +579,9 @@
       ],
       "chrome://global/content/certviewer/components/utils.mjs": [
         "../../../toolkit/components/certviewer/content/components/utils.mjs"
+      ],
+      "chrome://global/content/elements/accesskey-check.mjs": [
+        "../../../toolkit/content/widgets/panel-list/accesskey-check.mjs"
       ],
       "chrome://global/content/elements/browser-custom-element.mjs": [
         "../../../toolkit/content/widgets/browser-custom-element.mjs"
@@ -1600,9 +1627,6 @@
       "resource:///modules/PageActions.sys.mjs": [
         "../../../browser/modules/PageActions.sys.mjs"
       ],
-      "resource:///modules/PartnerLinkAttribution.sys.mjs": [
-        "../../../browser/modules/PartnerLinkAttribution.sys.mjs"
-      ],
       "resource:///modules/PermissionPromptTargeting.sys.mjs": [
         "../../../browser/modules/PermissionPromptTargeting.sys.mjs"
       ],
@@ -1794,27 +1818,6 @@
       ],
       "resource:///modules/profiles/SelectableProfileService.sys.mjs": [
         "../../../browser/components/profiles/SelectableProfileService.sys.mjs"
-      ],
-      "resource:///modules/taskbartabs/TaskbarTabs.sys.mjs": [
-        "../../../browser/components/taskbartabs/TaskbarTabs.sys.mjs"
-      ],
-      "resource:///modules/taskbartabs/TaskbarTabsChrome.sys.mjs": [
-        "../../../browser/components/taskbartabs/TaskbarTabsChrome.sys.mjs"
-      ],
-      "resource:///modules/taskbartabs/TaskbarTabsPageAction.sys.mjs": [
-        "../../../browser/components/taskbartabs/TaskbarTabsPageAction.sys.mjs"
-      ],
-      "resource:///modules/taskbartabs/TaskbarTabsPin.sys.mjs": [
-        "../../../browser/components/taskbartabs/TaskbarTabsPin.sys.mjs"
-      ],
-      "resource:///modules/taskbartabs/TaskbarTabsRegistry.sys.mjs": [
-        "../../../browser/components/taskbartabs/TaskbarTabsRegistry.sys.mjs"
-      ],
-      "resource:///modules/taskbartabs/TaskbarTabsUtils.sys.mjs": [
-        "../../../browser/components/taskbartabs/TaskbarTabsUtils.sys.mjs"
-      ],
-      "resource:///modules/taskbartabs/TaskbarTabsWindowManager.sys.mjs": [
-        "../../../browser/components/taskbartabs/TaskbarTabsWindowManager.sys.mjs"
       ],
       "resource:///modules/topsites/TippyTopProvider.sys.mjs": [
         "../../../browser/components/topsites/TippyTopProvider.sys.mjs"
@@ -3970,6 +3973,9 @@
       "resource://devtools/client/responsive/utils/window.js": [
         "../../../devtools/client/responsive/utils/window.js"
       ],
+      "resource://devtools/client/settings/panel.js": [
+        "../../../devtools/client/settings/panel.js"
+      ],
       "resource://devtools/client/shared/WeakMapMap.js": [
         "../../../devtools/client/shared/WeakMapMap.js"
       ],
@@ -4194,6 +4200,9 @@
       ],
       "resource://devtools/client/shared/inplace-editor-utils/autocomplete-linear-gradient-function.mjs": [
         "../../../devtools/client/shared/inplace-editor-utils/autocomplete-linear-gradient-function.mjs"
+      ],
+      "resource://devtools/client/shared/inplace-editor-utils/autocomplete-random-function.mjs": [
+        "../../../devtools/client/shared/inplace-editor-utils/autocomplete-random-function.mjs"
       ],
       "resource://devtools/client/shared/inplace-editor-utils/constants.mjs": [
         "../../../devtools/client/shared/inplace-editor-utils/constants.mjs"
@@ -6396,6 +6405,9 @@
       ],
       "resource://gre/modules/PushNotificationHelper.sys.mjs": [
         "../../../toolkit/mozapps/pushnotificationhelper/PushNotificationHelper.sys.mjs"
+      ],
+      "resource://gre/modules/PushNotificationHelperRegistry.sys.mjs": [
+        "../../../toolkit/mozapps/pushnotificationhelper/PushNotificationHelperRegistry.sys.mjs"
       ],
       "resource://gre/modules/PushRecord.sys.mjs": [
         "../../../dom/push/PushRecord.sys.mjs"

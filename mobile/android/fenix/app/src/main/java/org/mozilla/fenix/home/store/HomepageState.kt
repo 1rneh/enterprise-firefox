@@ -207,7 +207,9 @@ internal sealed class HomepageState {
                             showCollections = settings.collections,
                             shouldShowCollectionsMigrationCard = collectionsMigrationCardState.visible,
                         ),
-                    showTopSitesHeader = !(settings.privateModeAndStoriesEntryPointEnabled && topSites.size < 8),
+                    showTopSitesHeader =
+                        !(settings.privateModeAndStoriesEntryPointEnabled && topSites.size < 8) &&
+                            !settings.showMoreShortcuts,
                     showPrivacyReport = settings.showPrivacyReportFeature,
                     longfoxEnabled = settings.longfoxEnabled,
                     showLongfoxAnimation = settings.longfoxEnabled && longfoxEntryPointReady,

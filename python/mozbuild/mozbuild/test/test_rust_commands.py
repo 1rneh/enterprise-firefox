@@ -6,6 +6,7 @@ import json
 import unittest
 
 import mozunit
+from mozshellutil import split as shell_split
 
 from mozbuild.rust_commands import (
     CARGO_CONFIG_KEYS,
@@ -681,6 +682,13 @@ class TestComposeEnv(unittest.TestCase):
         substs = {"MOZ_LTO_LDFLAGS": ["-flto"], "RUST_PGO_LDFLAGS": ["-Cpgo-ld"]}
         env = _env(_cmd(link_flags=("-Wl,-z,relro",)), substs)
         self.assertEqual(env["MOZ_CARGO_WRAP_LDFLAGS"], "-flto -Wl,-z,relro -Cpgo-ld")
+
+    def test_wrap_ldflags_quotes_link_flags(self):
+        lib = r"C:\clang\lib\windows\clang_rt.profile-x86_64.lib"
+        env = _env(_cmd(link_flags=(lib, "-Wl,-z,relro")), {})
+        self.assertEqual(
+            shell_split(env["MOZ_CARGO_WRAP_LDFLAGS"]), [lib, "-Wl,-z,relro"]
+        )
 
     def test_program_keeps_fsanitize_without_a_configured_filter(self):
         cmd = _cmd(kind="program", link_flags=("-fsanitize=address",))

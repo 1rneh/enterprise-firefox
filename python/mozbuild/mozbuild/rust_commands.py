@@ -6,6 +6,7 @@
 
 from dataclasses import asdict, dataclass, fields
 
+from mozshellutil import quote as shell_quote
 from mozshellutil import split as shell_split
 
 
@@ -465,7 +466,7 @@ def _cargo_wrap_ldflags(cmd, substs):
         )
         ldflags += substs.get("MOZ_RUST_PROGRAM_LDFLAGS")
 
-    return " ".join(ldflags)
+    return shell_quote(*ldflags)
 
 
 def compose_env(

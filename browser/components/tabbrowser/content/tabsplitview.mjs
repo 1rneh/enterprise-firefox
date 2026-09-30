@@ -4,6 +4,9 @@
 
 /* global gBrowser, isBlankPageURL, MozXULElement, XPCOMUtils */
 
+const { Tabbrowser } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs"
+);
 const { DeferredTask } = ChromeUtils.importESModule(
   "resource://gre/modules/DeferredTask.sys.mjs"
 );
@@ -69,7 +72,9 @@ export class MozTabSplitViewWrapper extends MozXULElement {
    * @returns {MozTabbrowserTabGroup}
    */
   get group() {
-    return gBrowser.isTabGroup(this.parentElement) ? this.parentElement : null;
+    return Tabbrowser.isTabGroup(this.parentElement)
+      ? this.parentElement
+      : null;
   }
 
   /**

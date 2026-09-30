@@ -90,8 +90,8 @@ export default class TabHoverPanelSet {
       const target = event.target.closest?.("tab, .tab-group-label");
       if (
         target &&
-        (this.#win.gBrowser.isTab(target) ||
-          this.#win.gBrowser.isTabGroupLabel(target))
+        (lazy.Tabbrowser.isTab(target) ||
+          lazy.Tabbrowser.isTabGroupLabel(target))
       ) {
         this.deactivate(null, { force: true });
       }
@@ -113,14 +113,14 @@ export default class TabHoverPanelSet {
       return;
     }
 
-    if (this.#win.gBrowser.isTab(tabOrGroup)) {
+    if (lazy.Tabbrowser.isTab(tabOrGroup)) {
       // Don't activate tab preview if hovering over the note icon
       if (tabOrGroup._noteIconHover) {
         return;
       }
       this.#setActivePanel(this.tabPanel);
       this.tabPanel.activate(tabOrGroup);
-    } else if (this.#win.gBrowser.isTabGroup(tabOrGroup)) {
+    } else if (lazy.Tabbrowser.isTabGroup(tabOrGroup)) {
       if (!tabOrGroup.collapsed) {
         return;
       }
@@ -150,12 +150,12 @@ export default class TabHoverPanelSet {
       return;
     }
 
-    if (this.#win.gBrowser.isTab(tabOrGroup) || !tabOrGroup) {
+    if (lazy.Tabbrowser.isTab(tabOrGroup) || !tabOrGroup) {
       this.tabPanel.deactivate(tabOrGroup, { force });
       this.tabNotePanel.deactivate(tabOrGroup, { force });
     }
 
-    if (this.#win.gBrowser.isTabGroup(tabOrGroup) || !tabOrGroup) {
+    if (lazy.Tabbrowser.isTabGroup(tabOrGroup) || !tabOrGroup) {
       this.tabGroupPanel.deactivate({ force });
     }
   }

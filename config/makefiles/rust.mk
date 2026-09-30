@@ -152,6 +152,7 @@ export PKG_CONFIG_LIBDIR
 endif
 export RUST_BACKTRACE=full
 export MOZ_TOPOBJDIR=$(topobjdir)
+export MOZ_TOPSRCDIR=$(topsrcdir)
 export MOZ_FOLD_LIBS
 GLEAN_PYTHON_VENV_DIR = $(GLEAN_PARSER_VENV)
 export GLEAN_PYTHON_VENV_DIR

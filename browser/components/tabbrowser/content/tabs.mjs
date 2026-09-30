@@ -5,10 +5,7 @@
 const DIRECTION_BACKWARD = -1;
 const DIRECTION_FORWARD = 1;
 
-const isTab = element => gBrowser.isTab(element);
-const isTabGroup = element => gBrowser.isTabGroup(element);
-const isTabGroupLabel = element => gBrowser.isTabGroupLabel(element);
-const isSplitViewWrapper = element => gBrowser.isSplitViewWrapper(element);
+const { isTab, isTabGroup, isTabGroupLabel, isSplitViewWrapper } = Tabbrowser;
 
 export class MozTabbrowserTabs extends MozElements.TabsBase {
   static observedAttributes = ["orient"];

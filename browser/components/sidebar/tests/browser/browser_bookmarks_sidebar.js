@@ -7,6 +7,9 @@ const { PlacesTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/PlacesTestUtils.sys.mjs"
 );
 
+const { openFolder, openToolbarFolder, findBookmarkItemByGuid } =
+  SidebarTestUtils.bookmarks;
+
 const TEST_URL = "https://example.com/";
 const TEST_URL_2 = "https://example.org/";
 const UPDATED_BOOKMARKS_PREF = "sidebar.updatedBookmarks.enabled";
@@ -18,20 +21,6 @@ add_setup(async () => {
     set: [[UPDATED_BOOKMARKS_PREF, true]],
   });
 });
-
-async function showBookmarksSidebar() {
-  if (SidebarController.currentID !== "viewBookmarksSidebar") {
-    await SidebarTestUtils.showPanel(window, "viewBookmarksSidebar");
-  }
-  const { contentDocument, contentWindow } = SidebarController.browser;
-  await TestUtils.waitForCondition(
-    () => contentDocument.querySelector("sidebar-bookmarks"),
-    "Wait for sidebar-bookmarks element"
-  );
-  const component = contentDocument.querySelector("sidebar-bookmarks");
-  await component.updateComplete;
-  return { component, contentWindow };
-}
 
 async function addBookmark({
   url = TEST_URL,
@@ -108,38 +97,6 @@ async function addBookmarkViaContextMenu(triggerEl, url) {
 }
 
 /**
- * Opens a bookmarks folder and waits for its contents to render.
- *
- * @param {HTMLDetailsElement} folderDetails - The folder's details element.
- */
-async function openFolder(folderDetails) {
-  if (!folderDetails.open) {
-    folderDetails.querySelector("summary").click();
-    await BrowserTestUtils.waitForMutationCondition(
-      folderDetails,
-      { attributes: true },
-      () => folderDetails.open
-    );
-  }
-}
-
-/**
- * Opens the Bookmarks Toolbar folder in the supplied list.
- *
- * @param {SidebarBookmarkList} tabList - The list containing the toolbar folder.
- * @returns {HTMLDetailsElement} The opened toolbar folder.
- */
-async function openToolbarFolder(tabList) {
-  const toolbarFolder = await findBookmarkItemByGuid(
-    tabList,
-    "folderEls",
-    PlacesUtils.bookmarks.toolbarGuid
-  );
-  await openFolder(toolbarFolder);
-  return toolbarFolder;
-}
-
-/**
  * Finds a bookmark row, expanding its ancestor folders as needed.
  *
  * @param {SidebarBookmarkList} tabList - The sidebar's root bookmark list.
@@ -184,22 +141,6 @@ async function getBookmarkList(tabList, parentGuid) {
     list = folder.querySelector("sidebar-bookmark-list");
   }
   return list;
-}
-
-/**
- * Waits for a bookmark row or folder with a given GUID.
- *
- * @param {SidebarBookmarkList} list - The list to search.
- * @param {string} query - The node list from `SidebarBookmarkList.queries`.
- * @param {string} guid - The Places GUID to match.
- * @returns {HTMLDetailsElement | SidebarBookmarkRow} The matching rendered element.
- */
-async function findBookmarkItemByGuid(list, query, guid) {
-  return BrowserTestUtils.waitForMutationCondition(
-    list.shadowRoot,
-    { childList: true, subtree: true },
-    () => [...list[query]].find(element => element.guid === guid)
-  );
 }
 
 /**

@@ -11,6 +11,7 @@
 /**
  * @import { ChatConversation } from "moz-src:///browser/components/aiwindow/ui/modules/ChatConversation.sys.mjs"
  * @import { TraceId } from "moz-src:///toolkit/components/pageextractor/PageExtractorEvents.sys.mjs"
+ * @import { AITabContext, AITabResult } from "moz-src:///browser/components/aiwindow/models/aitab/AITab.sys.mjs"
  */
 
 import { getSkillPrompt } from "moz-src:///browser/components/aiwindow/models/PromptLoader.sys.mjs";
@@ -43,6 +44,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   AITab: "moz-src:///browser/components/aiwindow/models/aitab/AITab.sys.mjs",
+  AITabStore:
+    "moz-src:///browser/components/aiwindow/ui/modules/AITabStore.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
@@ -988,42 +991,50 @@ export class GetPageContent {
   static MAX_CHARACTERS = 10000;
 
   /**
-   * Tool entrypoint for get_page_content.
+   * getPageContent's results as plain text. A failed read contributes the
+   * sentence explaining it, so callers that must tell the two apart want
+   * getPageContent itself.
    *
    * @param {object} toolParams
    * @param {string[]} toolParams.url_list
-   * @param {AbortSignal} [toolParams.signal] - Cancels in-flight extractions
-   *   (and tears down any headless browser) when it aborts.
+   * @param {AbortSignal} [toolParams.signal]
    * @param {ChatConversation} conversation
    * @returns {Promise<Array<string>>}
-   *  A promise resolving to a string containing the extracted page content
-   *  with a descriptive header, or an error message if extraction fails.
    */
-  static async getPageContent({ url_list, signal }, conversation) {
-    // Sanitize the inputs from the language model:
-    if (!Array.isArray(url_list)) {
-      return "Error: the url_list argument must be an array of strings.";
-    }
-
-    const results = await GetPageContent.getPageContentResults(
-      { url_list, signal },
+  static async getPageContentText(toolParams, conversation) {
+    const results = await GetPageContent.getPageContent(
+      toolParams,
       conversation
     );
     return results.map(result => result.content);
   }
 
   /**
-   * Like getPageContent, but returns one structured result per URL so callers
-   * can tell failed extractions apart from actual page content. Used by the
-   * monitor agent to report "couldn't check" instead of "no match".
+   * Tool entrypoint for get_page_content.
+   *
+   * One result per requested URL, in the order requested. `content` is the
+   * extracted text on success and a sentence explaining what went wrong
+   * otherwise, so `ok` is the only way to tell the two apart: callers that
+   * feed this to a model must not let a failure reach it as page text.
    *
    * @param {object} toolParams
    * @param {string[]} toolParams.url_list
-   * @param {AbortSignal} [toolParams.signal]
+   * @param {AbortSignal} [toolParams.signal] - Cancels in-flight extractions
+   *   (and tears down any headless browser) when it aborts.
    * @param {ChatConversation} conversation
-   * @returns {Promise<Array<{url: string, ok: boolean, content: string}>>}
+   * @returns {Promise<Array<{url: ?string, ok: boolean, content: string}>>}
    */
-  static async getPageContentResults({ url_list, signal }, conversation) {
+  static async getPageContent({ url_list, signal }, conversation) {
+    // Sanitize the inputs from the language model:
+    if (!Array.isArray(url_list)) {
+      return [
+        {
+          url: null,
+          ok: false,
+          content: "Error: the url_list argument must be an array of strings.",
+        },
+      ];
+    }
     // This is a decision table for allowing and blocking fetches on the configuration of the
     // SecurityProperties and the URLs. Tab URLs don't do any new page loads. Mention urls
     // have been added by the user so they should be allowed. SERP urls came from a
@@ -1405,17 +1416,48 @@ export async function addMemory(
 }
 
 /**
+ * Stores a generated page as a new AITab.
+ *
+ * Every generate_aitab call asks for a page, so this only ever creates one.
+ * Treating a second call as a revision of the first, because the chat already
+ * had a page, filed it under the first page's slug and left that page's URL
+ * serving the new content. Appending a version belongs to a modify flow,
+ * which names the page it revises by slug.
+ *
+ * @param {AITabResult} result - From AITab.generateAITab.
+ * @param {ChatConversation} conversation - The chat that asked for the page.
+ * @returns {Promise<{uuid: string, convId: string, slug: string,
+ *   version: number, title: string, createdAt: number, updatedAt: number,
+ *   context: AITabContext, components: AITabResult, localState: ?object}>}
+ *   The row that was written: `uuid` identifies this one version, `slug` the
+ *   page across every version of it.
+ */
+async function persistAITabPage({ metadata, surface }, conversation) {
+  const { context, ...pageMetadata } = metadata;
+
+  return lazy.AITabStore.create({
+    convId: conversation.id,
+    slug: metadata.id,
+    title: metadata.title,
+    context,
+    components: { metadata: pageMetadata, surface },
+  });
+}
+
+/**
  * @param {object} toolParams
  * @param {string[]} [toolParams.url_list]
  * @param {string} [toolParams.focus]
  * @param {ChatConversation} conversation
  * @param {AbortSignal} [signal] - Cancels in-flight page extractions.
+ * @returns {Promise<{message: string, aiTab: {slug: string}}|string>} The
+ *   text for the model plus the stored page's slug, or a string describing a
+ *   failure.
  */
 export async function createAITab({ url_list, focus }, conversation, signal) {
   lazy.console.log("[Tool] aiTab", JSON.stringify({ url_list, focus }));
-  // Generate the page from the requested URLs. Nothing is persisted; the chat
-  // tool returns a link to the external viewer with the page config in the URL
-  // hash, so the page data never reaches the viewer host.
+  // The returned link points at the external viewer with the page config in
+  // the URL hash, so the page data never reaches the viewer host.
   const viewerBase = lazy.AITab.getViewerBaseURL();
   if (!viewerBase) {
     return (
@@ -1430,6 +1472,17 @@ export async function createAITab({ url_list, focus }, conversation, signal) {
   if (result.error) {
     return `The page could not be created: ${result.error}.`;
   }
+
+  // The UI opens the page from its stored slug, so a page that never reached
+  // the database would leave the user with a link that resolves to nothing.
+  let stored;
+  try {
+    stored = await persistAITabPage(result, conversation);
+  } catch (e) {
+    lazy.console.error("[Tool] aiTab failed to persist page", e.message);
+    return "The page could not be created: it could not be saved.";
+  }
+
   const viewerURL = lazy.AITab.buildViewerURL(viewerBase, result.surface);
 
   // Mark the viewer URL as seen so the chat renders it as a trusted, labeled
@@ -1440,9 +1493,16 @@ export async function createAITab({ url_list, focus }, conversation, signal) {
   // long URL (which it would otherwise truncate); expandUrlTokens restores the
   // exact URL when rendering the assistant's reply.
   const token = conversation.convertUrlToToken(viewerURL);
-  // Strip characters that would break the markdown link text and expose the URL.
-  const title = (result.metadata?.title || "the page").replace(/[[\]]/g, "");
-  return `The page was created. Link the user to it as [${title}](§url_token: ${token}§).`;
+  // Model output re-entering the prompt, so cap the length. Brackets would
+  // break out of the markdown link text and expose the URL.
+  const title = sanitizeUntrustedContent(
+    result.metadata?.title || "the page",
+    true // truncateOnly: the link label must stay readable.
+  ).replace(/[[\]]/g, "");
+  return {
+    message: `The page was created. Link the user to it as [${title}](§url_token: ${token}§).`,
+    aiTab: { slug: stored.slug },
+  };
 }
 
 // No securityProperties / trust flags: skill prompts are Remote Settings

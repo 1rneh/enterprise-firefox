@@ -1400,9 +1400,7 @@ impl Renderer {
                             let format = item.texture.get_format();
                             let buffer_size = (size.area() * format.bytes_per_pixel()) as usize;
                             let mut data = vec![0u8; buffer_size];
-                            let rect = size.cast_unit().into();
-                            self.device.attach_read_texture(&item.texture);
-                            self.device.read_pixels_into(rect, format, &mut data);
+                            self.device.read_texture(&item.texture, format, &mut data);
 
                             let category_str = match item.category {
                                 TextureCacheCategory::Atlas => "atlas",
@@ -1421,7 +1419,6 @@ impl Renderer {
                             };
                             texture_list.push(texture_msg);
                         }
-                        self.device.reset_read_target();
                         self.device.end_frame();
 
                         query.result.send(serde_json::to_string(&texture_list).unwrap()).ok();
@@ -1436,7 +1433,6 @@ impl Renderer {
             }
             DebugCommand::ClearCaches(_)
             | DebugCommand::SimulateLongSceneBuild(_)
-            | DebugCommand::EnableNativeCompositor(_)
             | DebugCommand::SetBatchingLookback(_) => {}
             DebugCommand::SetFlags(flags) => {
                 self.set_debug_flags(flags);
@@ -1670,36 +1666,6 @@ impl Renderer {
         }
 
         self.staging_texture_pool.begin_frame();
-
-        let compositor_kind = active_doc.frame.composite_state.compositor_kind;
-        // CompositorKind is updated
-        if self.current_compositor_kind != compositor_kind {
-            let enable = match (self.current_compositor_kind, compositor_kind) {
-                (CompositorKind::Native { .. }, CompositorKind::Draw { .. }) => {
-                    if self.debug_overlay_state.current_size.is_some() {
-                        self.compositor_config
-                            .compositor()
-                            .unwrap()
-                            .destroy_surface(NativeSurfaceId::DEBUG_OVERLAY);
-                        self.debug_overlay_state.current_size = None;
-                    }
-                    false
-                }
-                (CompositorKind::Draw { .. }, CompositorKind::Native { .. }) => {
-                    true
-                }
-                (current_compositor_kind, active_doc_compositor_kind) => {
-                    warn!("Compositor mismatch, assuming this is Wrench running. Current {:?}, active {:?}",
-                        current_compositor_kind, active_doc_compositor_kind);
-                    false
-                }
-            };
-
-            if let Some(config) = self.compositor_config.compositor() {
-                config.enable_native_compositor(enable);
-            }
-            self.current_compositor_kind = compositor_kind;
-        }
 
         // The texture resolver scope should be outside of any rendering, including
         // debug rendering. This ensures that when we return render targets to the
@@ -2362,13 +2328,14 @@ impl Renderer {
         debug_assert!(!data.is_empty());
 
         let vao = &self.vaos[vertex_array_kind];
-        self.device.bind_vao(vao);
+        self.device.bind_vertex_array(vao);
+        let instance_stride = vao.instance_stride();
 
         let chunk_size = if self.debug_flags.contains(DebugFlags::DISABLE_BATCHING) {
             1
         } else if self.use_shared_instance_buffer {
             // Ensure each chunk will fit within the fixed size instance buffer.
-            vertex::SHARED_INSTANCE_BUFFER_SIZE / vao.instance_stride()
+            vertex::SHARED_INSTANCE_BUFFER_SIZE / instance_stride
         } else if vertex_array_kind == VertexArrayKind::Primitive {
             self.max_primitive_instance_count
         } else {
@@ -2376,7 +2343,6 @@ impl Renderer {
         };
 
         if self.use_shared_instance_buffer {
-            let instance_stride = vao.instance_stride();
             for chunk in data.chunks(chunk_size) {
                 let offset = self
                     .vaos
@@ -2395,14 +2361,15 @@ impl Renderer {
             }
         } else {
             for chunk in data.chunks(chunk_size) {
+                let instances = self.vaos.instance_buffer_mut(vertex_array_kind);
                 if self.enable_instancing {
                     self.device
-                        .update_vao_instances(vao, chunk, ONE_TIME_USAGE_HINT, None);
+                        .write_buffer(instances, chunk, ONE_TIME_USAGE_HINT);
                     self.device
                         .draw_indexed_triangles_instanced_u16(6, chunk.len() as i32);
                 } else {
                     self.device
-                        .update_vao_instances(vao, chunk, ONE_TIME_USAGE_HINT, NonZeroUsize::new(4));
+                        .write_buffer_repeated(instances, chunk, NonZeroUsize::new(4).unwrap(), ONE_TIME_USAGE_HINT);
                     self.device
                         .draw_indexed_triangles(6 * chunk.len() as i32);
                 }
@@ -2533,8 +2500,6 @@ impl Renderer {
                 draw_target,
             );
         }
-
-        self.device.reset_read_target();
     }
 
     fn handle_prims(
@@ -3862,12 +3827,11 @@ impl Renderer {
             CompositorConfig::Native { ref mut compositor, .. } => {
                 for op in self.pending_native_surface_updates.drain(..) {
                     match op.details {
-                        NativeSurfaceOperationDetails::CreateSurface { id, virtual_offset, tile_size, is_opaque } => {
+                        NativeSurfaceOperationDetails::CreateSurface { id, tile_size, is_opaque } => {
                             let _inserted = self.allocated_native_surfaces.insert(id);
                             debug_assert!(_inserted, "bug: creating existing surface");
                             compositor.create_surface(
                                 id,
-                                virtual_offset,
                                 tile_size,
                                 is_opaque,
                             );
@@ -4273,14 +4237,14 @@ impl Renderer {
         self.profiler.set_ui(ui_str);
     }
 
-    /// Pass-through to `Device::read_pixels_into`, used by Gecko's WR bindings.
+    /// Reads back the presented frame; used by Gecko's WR bindings.
     pub fn read_pixels_into(&mut self, rect: FramebufferIntRect, format: ImageFormat, output: &mut [u8]) {
-        self.device.read_pixels_into(rect, format, output);
+        self.device.read_pixels_into(ReadTarget::Default, rect, format, output);
     }
 
     pub fn read_pixels_rgba8(&mut self, rect: FramebufferIntRect) -> Vec<u8> {
         let mut pixels = vec![0; (rect.area() * 4) as usize];
-        self.device.read_pixels_into(rect, ImageFormat::RGBA8, &mut pixels);
+        self.device.read_pixels_into(ReadTarget::Default, rect, ImageFormat::RGBA8, &mut pixels);
         pixels
     }
 
@@ -4366,7 +4330,15 @@ impl Renderer {
         report += self.texture_upload_buffer_pool.report_memory();
 
         // Textures held internally within the device layer.
-        report += self.device.report_memory(self.size_of_ops.as_ref().unwrap(), swgl);
+        report += self.device.report_memory();
+
+        #[cfg(feature = "sw_compositor")]
+        if !swgl.is_null() {
+            let size_of_op = self.size_of_ops.as_ref().unwrap().size_of_op;
+            report.swgl += swgl::Context::from(swgl).report_memory(size_of_op);
+        }
+        #[cfg(not(feature = "sw_compositor"))]
+        let _ = swgl;
 
         report
     }
@@ -4576,19 +4548,13 @@ impl Renderer {
         let bytes_per_texture = (rect_size.width * rect_size.height * bytes_per_pixel) as usize;
         let mut data = vec![0; bytes_per_texture];
 
-        //TODO: instead of reading from an FBO with `read_pixels*`, we could
-        // read from textures directly with `get_tex_image*`.
-
-        let rect = device_size_as_framebuffer_size(rect_size).into();
-
-        device.attach_read_texture(texture);
         #[cfg(feature = "png")]
         {
             let mut png_data;
             let (data_ref, format) = match texture.get_format() {
                 ImageFormat::RGBAF32 => {
                     png_data = vec![0; (rect_size.width * rect_size.height * 4) as usize];
-                    device.read_pixels_into(rect, ImageFormat::RGBA8, &mut png_data);
+                    device.read_texture(texture, ImageFormat::RGBA8, &mut png_data);
                     (&png_data, ImageFormat::RGBA8)
                 }
                 fm => (&data, fm),
@@ -4600,7 +4566,7 @@ impl Renderer {
                 data_ref,
             );
         }
-        device.read_pixels_into(rect, read_format, &mut data);
+        device.read_texture(texture, read_format, &mut data);
         file.write_all(&data)
             .unwrap();
 
@@ -4698,8 +4664,7 @@ impl Renderer {
                                     ExternalImageType::Buffer => unreachable!(),
                                 };
                                 info!("\t\tnative texture of target {:?}", target);
-                                self.device.attach_read_texture_external(handle, target);
-                                let data = self.device.read_pixels(&def.descriptor);
+                                let data = self.device.read_external_texture(handle, target, &def.descriptor);
                                 let short_path = format!("externals/t{}.raw", tex_id);
                                 (Some(data), e.insert(short_path).clone())
                             }
@@ -4762,7 +4727,6 @@ impl Renderer {
             config.serialize_for_resource(&plain_self, "renderer");
         }
 
-        self.device.reset_read_target();
         self.device.end_frame();
 
         let mut stats_file = fs::File::create(config.root.join("profiler-stats.txt"))

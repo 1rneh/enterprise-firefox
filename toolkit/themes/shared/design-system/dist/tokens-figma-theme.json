@@ -934,6 +934,16 @@
     "dark": "rgb(251, 251, 254)",
     "forcedColors": "MenuText"
   },
+  "panel/text/color/dimmed": {
+    "light": "{Theme$panel/text/color}",
+    "dark": "{Theme$panel/text/color}",
+    "forcedColors": "{Theme$panel/text/color}"
+  },
+  "panel/text/color/dimmed/further": {
+    "light": "{Theme$panel/text/color}",
+    "dark": "{Theme$panel/text/color}",
+    "forcedColors": "{Theme$panel/text/color}"
+  },
   "popup/background/color": {
     "light": "{Theme$background/color/box}",
     "dark": "{Theme$background/color/box}",
@@ -1371,6 +1381,21 @@
     "forcedColors": "{Primitives$message-bar/icon/container/padding}"
   },
   "message-bar/text/color": {
+    "light": "{Theme$text/color}",
+    "dark": "{Theme$text/color}",
+    "forcedColors": "{Theme$text/color}"
+  },
+  "message-bar/text/color/warning": {
+    "light": "{Theme$text/color}",
+    "dark": "{Theme$text/color}",
+    "forcedColors": "{Theme$text/color}"
+  },
+  "message-bar/text/color/success": {
+    "light": "{Theme$text/color}",
+    "dark": "{Theme$text/color}",
+    "forcedColors": "{Theme$text/color}"
+  },
+  "message-bar/text/color/critical": {
     "light": "{Theme$text/color}",
     "dark": "{Theme$text/color}",
     "forcedColors": "{Theme$text/color}"

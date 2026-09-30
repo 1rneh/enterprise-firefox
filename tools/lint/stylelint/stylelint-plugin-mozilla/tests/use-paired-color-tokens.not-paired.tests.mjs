@@ -50,11 +50,6 @@ testRule({
         "The global background color tokens pair with any text color.",
     },
     {
-      code: ".a { background-color: var(--urlbar-box-background-color-focus); color: var(--urlbar-box-text-color); }",
-      description:
-        "A variant with no text token of its own falls back to the family's base one.",
-    },
-    {
       code: ".a { background-color: var(--color-accent-primary); color: var(--button-text-color-primary); }",
       description:
         "A base color is not a background token, so it makes no pairing claim.",
@@ -132,19 +127,6 @@ testRule({
       description: "The background shorthand is checked as well.",
       line: 1,
       column: 59,
-    },
-    {
-      code: ".a { background-color: var(--urlbar-box-background-color-focus); color: var(--urlbar-box-text-color-hover); }",
-      message: messages.noPairedTokenUseBase(
-        "--urlbar-box-background-color-focus",
-        "--urlbar-box-text-color-hover",
-        "--urlbar-box-text-color-focus",
-        "--urlbar-box-text-color"
-      ),
-      description:
-        "Two variants of one family where the background's text token does not exist, but the family's base one does.",
-      line: 1,
-      column: 66,
     },
     {
       code: ".a { background-color: var(--urlbarview-background-color-hover); color: var(--urlbarview-text-color-selected); }",
@@ -264,18 +246,6 @@ testRule({
       ),
       description:
         "An unpaired text token is replaced with the background's counterpart.",
-    },
-    {
-      code: ".a { background-color: var(--urlbar-box-background-color-focus); color: var(--urlbar-box-text-color-hover); }",
-      unfixable: true,
-      message: messages.noPairedTokenUseBase(
-        "--urlbar-box-background-color-focus",
-        "--urlbar-box-text-color-hover",
-        "--urlbar-box-text-color-focus",
-        "--urlbar-box-text-color"
-      ),
-      description:
-        "Falling back to the family's base text color is left to the author.",
     },
     {
       code: ".a { background-color: var(--urlbarview-background-color-hover); color: var(--urlbarview-text-color-selected); }",

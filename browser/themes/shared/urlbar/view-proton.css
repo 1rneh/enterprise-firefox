@@ -801,7 +801,7 @@
     }
 
     @media not -moz-pref("browser.urlbar.scotchBonnet.enableOverride") {
-      color: var(--urlbar-box-text-color);
+      color: var(--urlbar-box-text-color-focus);
       background-color: var(--urlbar-box-background-color-focus);
 
       &.urlbarView-userContext {
@@ -1106,6 +1106,7 @@
 .urlbarView-row[type$="_amo"][icon-size="24"] > .urlbarView-row-inner > .urlbarView-favicon {
   padding: calc((var(--urlbarView-top-pick-large-icon-box-size) - 24px) / 2);
   background-color: var(--urlbar-box-background-color-focus);
+  color: var(--urlbar-box-text-color-focus);
   border-radius: var(--border-radius-xsmall);
 }
 
@@ -1615,6 +1616,7 @@
 
     border-color: color-mix(in srgb, currentColor 10%, transparent);
     background-color: var(--urlbar-box-background-color-focus);
+    color: var(--urlbar-box-text-color-focus);
 
     &[backgroundImageId] {
       background-position: center;

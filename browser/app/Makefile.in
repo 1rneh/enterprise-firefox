@@ -2,11 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-dist_dest   = $(DIST)/$(MOZ_MACBUNDLE_NAME)
-
-# hardcode en-US for the moment
-AB_CD = en-US
-
 # Build a binary bootstrapping with XRE_main
 
 include $(topsrcdir)/config/config.mk
@@ -17,8 +12,5 @@ ifdef MOZ_LINUX_32_SSE2_STARTUP_ERROR
 CXX := $(filter-out -march=% -msse -msse2 -mfpmath=sse,$(CXX))
 CXX += -march=pentiumpro
 endif
-
-PROGRAMS_DEST = $(DIST)/bin
-objdir = $(topobjdir)/browser/app
 
 include $(topsrcdir)/config/rules.mk

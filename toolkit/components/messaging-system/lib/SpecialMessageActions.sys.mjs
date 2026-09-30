@@ -53,7 +53,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
   MessagingSystemAllowlists:
     "resource://messaging-system/lib/MessagingSystemAllowlists.sys.mjs",
-  MigrationUtils: "resource:///modules/MigrationUtils.sys.mjs",
+  MigrationUtils:
+    "moz-src:///browser/components/migration/MigrationUtils.sys.mjs",
   ON_SERVICE_ENABLED_NOTIFICATION:
     "resource://gre/modules/FxAccountsCommon.sys.mjs",
   PlacesTransactions: "resource://gre/modules/PlacesTransactions.sys.mjs",

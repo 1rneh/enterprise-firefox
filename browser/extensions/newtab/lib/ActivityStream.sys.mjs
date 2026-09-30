@@ -80,6 +80,7 @@ import {
   actionTypes as at,
 } from "resource://newtab/common/Actions.mjs";
 import { RegionLocaleMap } from "moz-src:///toolkit/modules/RegionLocaleMap.sys.mjs";
+import { WIDGET_REGISTRY } from "resource://newtab/common/WidgetsRegistry.mjs";
 
 const REGION_INFERRED_PERSONALIZATION_CONFIG =
   "browser.newtabpage.activity-stream.discoverystream.sections.personalization.inferred.region-config";
@@ -166,6 +167,8 @@ const REGION_SECTIONS_CONFIG =
   "browser.newtabpage.activity-stream.discoverystream.sections.region-content-config";
 const LOCALE_SECTIONS_CONFIG =
   "browser.newtabpage.activity-stream.discoverystream.sections.locale-content-config";
+
+const ACTIVITY_STREAM_PREF_BRANCH = "browser.newtabpage.activity-stream.";
 
 const PREF_SHOULD_AS_INITIALIZE_FEEDS =
   "browser.newtabpage.activity-stream.testing.shouldInitializeFeeds";
@@ -447,6 +450,121 @@ function showSectionLayout({ geo, locale }) {
     csvPrefHasValue(REGION_SECTIONS_CONFIG, geo) &&
     csvPrefHasValue(LOCALE_SECTIONS_CONFIG, locale)
   );
+}
+
+/**
+ * Whether a market passes one axis of a widget gate. An empty allow list means
+ * no restriction, so a widget that ships everywhere declares no prefs at all.
+ * The block list wins, matching discoverystream.region-stories-block.
+ *
+ * @param {string} allowPref - full name of the `-config` pref
+ * @param {string} blockPref - full name of the `-block` pref
+ * @param {string} value - the profile's region or locale
+ * @returns {boolean}
+ */
+/**
+ * @backward-compat { version 158 }
+ * Mirrors the widget market prefs in firefox.js. A train-hopped newtab on an
+ * older host has none of them, and a missing list means no restriction, which
+ * would make every widget available and on everywhere. Used only when the pref
+ * does not exist, so firefox.js and about:config still win. Remove once 158
+ * reaches Release, and keep in sync with firefox.js until then.
+ */
+export const MARKET_PREF_FALLBACKS = new Map(
+  Object.entries({
+    "widgets.system.region-block": "",
+    "widgets.system.lists.region-block": "PL",
+    "widgets.lists.region-block": "DE,FR,PL,US",
+    "widgets.system.focusTimer.region-block": "PL",
+    "widgets.focusTimer.region-block": "DE,FR,PL,US",
+    "widgets.system.clocks.region-block": "PL",
+    "widgets.clocks.region-block": "DE,FR,PL,US",
+    "widgets.system.pictureOfTheDay.region-block": "PL",
+    "widgets.pictureOfTheDay.region-block": "DE,FR,PL,US",
+    "widgets.system.crossword.locale-config": "en-CA,en-GB,en-US",
+    "widgets.system.crossword.region-block": "PL",
+  }).map(([name, value]) => [ACTIVITY_STREAM_PREF_BRANCH + name, value])
+);
+
+/**
+ * @backward-compat { version 158 }
+ * Once MARKET_PREF_FALLBACKS is removed, inline this as getStringPref(name, "").
+ */
+function marketPref(prefName) {
+  return (
+    Services.prefs.getStringPref(
+      prefName,
+      MARKET_PREF_FALLBACKS.get(prefName) ?? ""
+    ) || ""
+  );
+}
+
+function marketAllows(allowPref, blockPref, value) {
+  if (csvHasValue(marketPref(blockPref), value)) {
+    return false;
+  }
+  const allowed = marketPref(allowPref);
+  return !allowed.trim() || csvHasValue(allowed, value);
+}
+
+function prefIsSet(prefName) {
+  return Boolean(marketPref(prefName).trim());
+}
+
+/**
+ * Whether a widget opts out of being on everywhere in Nightly, declared as
+ * `skipNightlyDefault` on its WIDGET_REGISTRY entry. The container prefs match
+ * no entry and so never opt out.
+ *
+ * @param {string} prefKey - PREFS_CONFIG key, ending in ".enabled"
+ * @returns {boolean}
+ */
+function skipsNightlyDefault(prefKey) {
+  return WIDGET_REGISTRY.some(
+    widget =>
+      widget.skipNightlyDefault &&
+      (widget.enabledPref === prefKey || widget.systemEnabledPref === prefKey)
+  );
+}
+
+/**
+ * Gates a pref's default on the `.region-config`, `.region-block`,
+ * `.locale-config` and `.locale-block` prefs sitting alongside it, e.g.
+ * widgets.system.lists.enabled reads widgets.system.lists.region-block.
+ *
+ * @param {string} prefKey - PREFS_CONFIG key, ending in ".enabled"
+ * @returns {function({geo: string, locale: string}): boolean}
+ */
+function marketGate(prefKey) {
+  const base = ACTIVITY_STREAM_PREF_BRANCH + prefKey.replace(/\.enabled$/, "");
+  return ({ geo, locale }) => {
+    // Nightly gets every widget in every market so the team sees the whole
+    // feature, which is why no widget pref carries an #ifdef in firefox.js.
+    if (
+      AppConstants.NIGHTLY_BUILD &&
+      !skipsNightlyDefault(prefKey) &&
+      !Services.prefs.getBoolPref(
+        `${ACTIVITY_STREAM_PREF_BRANCH}widgets.marketGate.enforceOnNightly`,
+        false
+      )
+    ) {
+      return true;
+    }
+    // With nothing restricting the region, geo cannot change the answer, so a
+    // profile whose region never resolves still gets the widget. Where a list
+    // does restrict it, wait for geo rather than showing the widget and then
+    // taking it away (see bug 2063361).
+    if (
+      !geo &&
+      (prefIsSet(`${base}.region-config`) || prefIsSet(`${base}.region-block`))
+    ) {
+      return false;
+    }
+    return (
+      marketAllows(`${base}.region-config`, `${base}.region-block`, geo) &&
+      marketAllows(`${base}.locale-config`, `${base}.locale-block`, locale)
+    );
+  };
 }
 
 // Configure default Activity Stream prefs with a plain `value` or a `getValue`
@@ -1497,24 +1615,35 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.marketGate.enforceOnNightly",
+    {
+      title:
+        "Applies widget region and locale gating on Nightly, for debugging. Restart to apply",
+      value: false,
+    },
+  ],
+  [
     "widgets.system.enabled",
     {
-      title: "Enables visibility of all widgets and controls to enable them",
-      value: false,
+      title: "Makes widgets available: shows the controls that turn them on",
+      // pref is dynamic
+      getValue: marketGate("widgets.system.enabled"),
     },
   ],
   [
     "widgets.enabled",
     {
       title: "Allows users to toggle all widgets on and off at once",
-      value: true,
+      // pref is dynamic
+      getValue: marketGate("widgets.enabled"),
     },
   ],
   [
     "widgets.lists.enabled",
     {
       title: "Enables the to-do lists widget",
-      value: true,
+      // pref is dynamic
+      getValue: marketGate("widgets.lists.enabled"),
     },
   ],
   [
@@ -1535,8 +1664,9 @@ export const PREFS_CONFIG = new Map([
   [
     "widgets.system.lists.enabled",
     {
-      title: "Enables the to-do lists widget experiment in Nimbus",
-      value: false,
+      title: "Makes the to-do lists widget available",
+      // pref is dynamic
+      getValue: marketGate("widgets.system.lists.enabled"),
     },
   ],
   [
@@ -1597,14 +1727,16 @@ export const PREFS_CONFIG = new Map([
     "widgets.focusTimer.enabled",
     {
       title: "Enables the focus timer widget",
-      value: true,
+      // pref is dynamic
+      getValue: marketGate("widgets.focusTimer.enabled"),
     },
   ],
   [
     "widgets.system.focusTimer.enabled",
     {
-      title: "Enables the focus timer widget experiment in Nimbus",
-      value: false,
+      title: "Makes the focus timer widget available",
+      // pref is dynamic
+      getValue: marketGate("widgets.system.focusTimer.enabled"),
     },
   ],
   [
@@ -1669,14 +1801,16 @@ export const PREFS_CONFIG = new Map([
     "widgets.clocks.enabled",
     {
       title: "Enables the clock widget",
-      value: true,
+      // pref is dynamic
+      getValue: marketGate("widgets.clocks.enabled"),
     },
   ],
   [
     "widgets.system.clocks.enabled",
     {
-      title: "Enables the clock widget experiment in Nimbus",
-      value: false,
+      title: "Makes the clock widget available",
+      // pref is dynamic
+      getValue: marketGate("widgets.system.clocks.enabled"),
     },
   ],
   [
@@ -1794,14 +1928,15 @@ export const PREFS_CONFIG = new Map([
     "widgets.privacy.enabled",
     {
       title: "Enables the privacy widget",
-      value: true,
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
+      value: false,
     },
   ],
   [
     "widgets.crossword.enabled",
     {
       title: "Enables the crossword widget",
-      value: true,
+      value: false,
     },
   ],
   [
@@ -1816,7 +1951,8 @@ export const PREFS_CONFIG = new Map([
     "widgets.stocks.enabled",
     {
       title: "Enables the stocks widget",
-      value: true,
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
+      value: false,
     },
   ],
   [
@@ -1831,7 +1967,8 @@ export const PREFS_CONFIG = new Map([
     "widgets.recentSearches.enabled",
     {
       title: "Enables the recent searches widget",
-      value: true,
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
+      value: false,
     },
   ],
   [
@@ -1846,27 +1983,31 @@ export const PREFS_CONFIG = new Map([
     "widgets.pictureOfTheDay.enabled",
     {
       title: "Enables the picture of the day widget",
-      value: true,
+      // pref is dynamic
+      getValue: marketGate("widgets.pictureOfTheDay.enabled"),
     },
   ],
   [
     "widgets.system.privacy.enabled",
     {
       title: "Enables the privacy widget experiment in Nimbus",
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
       value: false,
     },
   ],
   [
     "widgets.system.crossword.enabled",
     {
-      title: "Enables the crossword widget experiment in Nimbus",
-      value: false,
+      title: "Makes the crossword widget available",
+      // pref is dynamic
+      getValue: marketGate("widgets.system.crossword.enabled"),
     },
   ],
   [
     "widgets.system.recentSearches.enabled",
     {
       title: "Enables the recent searches widget experiment in Nimbus",
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
       value: false,
     },
   ],
@@ -1874,14 +2015,16 @@ export const PREFS_CONFIG = new Map([
     "widgets.system.stocks.enabled",
     {
       title: "Enables the stocks widget experiment in Nimbus",
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
       value: false,
     },
   ],
   [
     "widgets.system.pictureOfTheDay.enabled",
     {
-      title: "Enables the picture of the day widget experiment in Nimbus",
-      value: false,
+      title: "Makes the picture of the day widget available",
+      // pref is dynamic
+      getValue: marketGate("widgets.system.pictureOfTheDay.enabled"),
     },
   ],
   [

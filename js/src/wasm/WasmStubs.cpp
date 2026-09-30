@@ -3165,6 +3165,16 @@ static bool GenerateThrowStub(MacroAssembler& masm, Label* throwLabel,
 
   // Allocate space for exception or regular resume information.
   masm.reserveStack(sizeof(jit::ResumeFromException));
+#ifdef JS_HW_SHADOW_STACK
+  // Read the shadow stack pointer on entry to HandleThrow so
+  // that the exception handling logic knows the shadow stack entry
+  // corresponding to where JIT/WASM frame iteration begins.
+  masm.moveShadowStackPtrTo(scratch1);
+  masm.storePtr(
+      scratch1,
+      Address(masm.getStackPointer(),
+              jit::ResumeFromException::offsetOfShadowStackPointer()));
+#endif
   masm.moveStackPtrTo(scratch1);
 
   MIRTypeVector handleThrowTypes;

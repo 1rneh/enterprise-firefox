@@ -105,8 +105,6 @@ ifdef XPI_NAME
 ACDEFINES += -DXPI_NAME=$(XPI_NAME)
 endif
 
-CC := $(CC_WRAPPER) $(CC)
-CXX := $(CXX_WRAPPER) $(CXX)
 MKDIR ?= mkdir
 SLEEP ?= sleep
 TOUCH ?= touch
@@ -281,9 +279,6 @@ endif
 ######################################################################
 
 ifeq ($(OS_ARCH),Darwin)
-ifndef NSDISTMODE
-NSDISTMODE=absolute_symlink
-endif
 PWD := $(CURDIR)
 endif
 
@@ -298,13 +293,13 @@ endif # WINNT
 ifeq (,$(CROSS_COMPILE)$(filter-out WINNT, $(OS_ARCH)))
 INSTALL = $(NSINSTALL) -t
 
+else ifeq ($(OS_ARCH),Darwin)
+INSTALL = $(NSINSTALL) -L $(PWD)
+
 else
+INSTALL = $(NSINSTALL) -R
 
-# This isn't laid out as conditional directives so that NSDISTMODE can be
-# target-specific.
-INSTALL         = $(if $(filter copy, $(NSDISTMODE)), $(NSINSTALL) -t, $(if $(filter absolute_symlink, $(NSDISTMODE)), $(NSINSTALL) -L $(PWD), $(NSINSTALL) -R))
-
-endif # WINNT
+endif
 
 # The default for install_cmd is simply INSTALL
 install_cmd ?= $(INSTALL) $(1)

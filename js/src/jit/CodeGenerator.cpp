@@ -10,6 +10,7 @@
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/EnumSet.h"
+#include "mozilla/FloatingPoint.h"
 #include "mozilla/IntegerTypeTraits.h"
 #include "mozilla/Latin1.h"
 #include "mozilla/MathAlgorithms.h"
@@ -1692,10 +1693,13 @@ void CodeGenerator::visitStrictConstantCompareInt32AndBranch(
   masm.branch64(Assembler::Equal, value.toRegister64(),
                 Imm64(Int32Value(constantVal).asRawBits()), onEqual);
   if (constantVal == 0) {
-    masm.branch64(Assembler::Equal, value.toRegister64(),
-                  Imm64(DoubleValue(0.0).asRawBits()), onEqual);
-    masm.branch64(cond, value.toRegister64(),
-                  Imm64(DoubleValue(-0.0).asRawBits()), trueLabel, falseLabel);
+    // +0.0 and -0.0 are the only Values whose bits are zero outside the sign
+    // bit.
+    masm.branchTest64(
+        cond == Assembler::Equal ? Assembler::Zero : Assembler::NonZero,
+        value.toRegister64(),
+        Imm64(~mozilla::SpecificFloatingPointBits<double, 1, 0, 0>::value),
+        trueLabel, falseLabel);
   } else {
     masm.branch64(cond, value.toRegister64(),
                   Imm64(DoubleValue(constantVal).asRawBits()), trueLabel,

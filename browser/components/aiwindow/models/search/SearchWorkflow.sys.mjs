@@ -808,7 +808,7 @@ async function runGroundedSearch(toolParams, conversation, signal) {
         }, readTimeoutMs);
       });
       try {
-        const fetchPromise = GetPageContent.getPageContent(
+        const fetchPromise = GetPageContent.getPageContentText(
           { url_list: [url], signal: controller.signal },
           conversation
         );

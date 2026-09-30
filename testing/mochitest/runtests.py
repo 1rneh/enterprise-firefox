@@ -3021,7 +3021,7 @@ toolbar#nav-bar {
             # Enable Marionette and allow system access to execute the mochitest
             # init script in the chrome scope of the application
             args.append("-marionette")
-            args.append("-remote-allow-system-access")
+            env["MOZ_REMOTE_ALLOW_SYSTEM_ACCESS"] = "1"
 
             # TODO: mozrunner should use -foreground at least for mac
             # https://bugzilla.mozilla.org/show_bug.cgi?id=916512

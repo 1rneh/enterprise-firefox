@@ -1411,6 +1411,10 @@ sync-syncing-across-devices-empty-state2 =
     .label = Manage synced data
     .description = You aren’t syncing anything… yet. Start syncing to get all of your data on all your devices.
 
+sync-syncing-across-devices-empty-state3 =
+    .label = Manage synced data
+    .description = You aren’t syncing anything… yet. Choose what to sync on this device.
+
 sync-currently-syncing-bookmarks = Bookmarks
 sync-currently-syncing-history = History
 sync-currently-syncing-tabs = Open tabs

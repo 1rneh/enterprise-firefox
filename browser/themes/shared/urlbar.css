@@ -814,6 +814,7 @@ toolbar[inactive="true"] .urlbar,
 
   #urlbar[focused] > .urlbar-input-container > & {
     background-color: var(--urlbar-box-background-color-focus);
+    color: var(--urlbar-box-text-color-focus);
   }
 
   #urlbar[searchmode] > .urlbar-input-container > & {
@@ -1178,6 +1179,7 @@ toolbar[inactive="true"] .urlbar,
 
   :where(#urlbar[focused]) & {
     background-color: var(--urlbar-box-background-color-focus);
+    color: var(--urlbar-box-text-color-focus);
   }
 
   &:hover {

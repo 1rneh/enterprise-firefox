@@ -8639,11 +8639,6 @@
     type: bool
     value: true
     mirror: once
-  # Whether to use virtual surfaces, as opposed to each tile owning a surface.
--   name: gfx.webrender.dcomp-use-virtual-surfaces
-    type: bool
-    value: true
-    mirror: once
   # Whether to use an overlay of software decoded video with DirectComposition
 -   name: gfx.webrender.dcomp-video-sw-overlay-win
     type: bool

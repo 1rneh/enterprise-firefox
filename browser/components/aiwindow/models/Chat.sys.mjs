@@ -57,7 +57,10 @@ export async function executeToolByName(
   switch (toolName) {
     case GET_PAGE_CONTENT: {
       const startTime = new Date();
-      result = await GetPageContent.getPageContent(toolParams, conversation);
+      result = await GetPageContent.getPageContentText(
+        toolParams,
+        conversation
+      );
       Glean.smartWindow.getPageContent.record({
         location: mode,
         chat_id: conversation.id,

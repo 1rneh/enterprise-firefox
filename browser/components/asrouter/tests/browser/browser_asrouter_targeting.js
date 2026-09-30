@@ -8,7 +8,7 @@ ChromeUtils.defineESModuleGetters(this, {
   ASRouterTargeting: "resource:///modules/asrouter/ASRouterTargeting.sys.mjs",
   AttributionCode:
     "moz-src:///browser/components/attribution/AttributionCode.sys.mjs",
-  BrowserInitState: "resource:///modules/BrowserGlue.sys.mjs",
+  BrowserInitState: "moz-src:///browser/components/BrowserGlue.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
   ClientID: "resource://gre/modules/ClientID.sys.mjs",

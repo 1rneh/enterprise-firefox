@@ -5,8 +5,7 @@
 var { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   ContextualIdentityService:
     "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   PageWireframes:

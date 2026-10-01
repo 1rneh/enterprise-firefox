@@ -255,7 +255,7 @@ interface GleanImpl {
 
   smartWindow: {
     addTabsClick: GleanEventWithExtras<{ chat_id?: string, location?: string, message_seq?: string|number, tabs_available?: string|number, tabs_preselected?: string|number }>;
-    addTabsSelection: GleanEventWithExtras<{ chat_id?: string, location?: string, message_seq?: string|number, tabs_available?: string|number, tabs_preselected?: string|number, tabs_selected?: string|number }>;
+    addTabsSelection: GleanEventWithExtras<{ chat_id?: string, location?: string, mention_type?: string, message_seq?: string|number, tabs_available?: string|number, tabs_preselected?: string|number, tabs_selected?: string|number }>;
     agentActiveActions: Record<"monitor", GleanQuantity>;
     agentCommandRemove: GleanEventWithExtras<{ agent?: string, chat_id?: string, location?: string, message_seq?: string|number, source?: string }>;
     agentCommandSelect: GleanEventWithExtras<{ agent?: string, chat_id?: string, commands_available?: string|number, location?: string, message_seq?: string|number, source?: string }>;
@@ -328,7 +328,7 @@ interface GleanImpl {
     memoryAppliedClick: GleanEventWithExtras<{ chat_id?: string, location?: string, message_seq?: string|number }>;
     memoryRemovedPanel: GleanEventWithExtras<{ in_use?: string|number, memories?: string|number, trigger?: string }>;
     mentionRemove: GleanEventWithExtras<{ chat_id?: string, location?: string, mentions?: string|number, message_seq?: string|number }>;
-    mentionSelect: GleanEventWithExtras<{ chat_id?: string, length?: string|number, location?: string, mentions_available?: string|number, message_seq?: string|number }>;
+    mentionSelect: GleanEventWithExtras<{ chat_id?: string, length?: string|number, location?: string, mention_type?: string, mentions_available?: string|number, message_seq?: string|number }>;
     mentionStart: GleanEventWithExtras<{ chat_id?: string, location?: string, mentions_available?: string|number, message_seq?: string|number }>;
     model: GleanString;
     modelRequest: GleanEventWithExtras<{ chat_id?: string, detected_intent?: string, intent?: string, location?: string, memories?: string|number, message_seq?: string|number, request_id?: string, tokens?: string|number }>;

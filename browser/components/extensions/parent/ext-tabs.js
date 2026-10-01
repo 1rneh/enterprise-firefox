@@ -349,7 +349,7 @@ this.tabs = class extends ExtensionAPIPersistent {
         // Ignore any events prior to TabOpen
         // and events that are triggered while tabs are swapped between windows.
         if (
-          updatedTab.initializingTab ||
+          updatedTab.initializing ||
           updatedTab.documentGlobal.gBrowserInit?.isAdoptingTab()
         ) {
           return;
@@ -425,7 +425,7 @@ this.tabs = class extends ExtensionAPIPersistent {
             // Ignore all TabMove events except when the splitViewId changes.
             return;
           }
-          if (updatedTab.removedByAdoption || updatedTab.addedByAdoption) {
+          if (event.detail.adoptingSplitView) {
             // Ignore TabMove events that were fired while adopting a split
             // view and its tabs across windows. When a split view is adopted,
             // it continues to exist in the new window, so despite the multiple
@@ -1602,7 +1602,10 @@ this.tabs = class extends ExtensionAPIPersistent {
           if (append) {
             previousTab = referenceTab;
             lastSuccessor =
-              (insert && referenceTab && referenceTab.successor) || null;
+              (insert &&
+                referenceTab &&
+                referenceWindow.gBrowser.getSuccessor(referenceTab)) ||
+              null;
           } else {
             lastSuccessor = referenceTab;
           }
@@ -1621,9 +1624,12 @@ this.tabs = class extends ExtensionAPIPersistent {
             } else if (tab.documentGlobal !== referenceWindow) {
               continue;
             }
-            referenceWindow.gBrowser.replaceInSuccession(tab, tab.successor);
+            referenceWindow.gBrowser.replaceInSuccession(
+              tab,
+              referenceWindow.gBrowser.getSuccessor(tab)
+            );
             if (append && tab === lastSuccessor) {
-              lastSuccessor = tab.successor;
+              lastSuccessor = referenceWindow.gBrowser.getSuccessor(tab);
             }
             if (previousTab) {
               referenceWindow.gBrowser.setSuccessor(previousTab, tab);

@@ -889,18 +889,19 @@ export const tokensTable = {
     },
     {
       value: {
-        nativeTheme: "var(--background-color-dimmed)",
+        nativeTheme: "var(--background-color-list-item-hover)",
         light: "rgb(240, 240, 244)",
-        dark: "var(--background-color-dimmed)",
+        dark: "var(--background-color-list-item-hover)",
+        prefersContrast: "color-mix(in srgb, currentColor 20%, transparent)",
         default:
-          "light-dark(rgb(240, 240, 244), var(--background-color-dimmed))",
+          "light-dark(rgb(240, 240, 244), var(--background-color-list-item-hover))",
         platform: {
-          default: "var(--background-color-dimmed)",
+          default: "var(--background-color-list-item-hover)",
           browserTheme: {
             light: "rgb(240, 240, 244)",
-            dark: "var(--background-color-dimmed)",
+            dark: "var(--background-color-list-item-hover)",
             default:
-              "light-dark(rgb(240, 240, 244), var(--background-color-dimmed))",
+              "light-dark(rgb(240, 240, 244), var(--background-color-list-item-hover))",
           },
         },
       },
@@ -911,6 +912,7 @@ export const tokensTable = {
         nativeTheme: "SelectedItem",
         light: "#e0e0e6",
         dark: "rgb(43, 42, 51)",
+        prefersContrast: "var(--background-color-list-item-hover)",
         default: "light-dark(#e0e0e6, rgb(43, 42, 51))",
         platform: {
           default: "SelectedItem",
@@ -924,12 +926,41 @@ export const tokensTable = {
       name: "--urlbarview-background-color-selected",
     },
     {
-      value:
-        "color-mix(in srgb, var(--urlbarview-background-color-hover) 50%, transparent)",
+      value: {
+        nativeTheme: "color-mix(in srgb, currentColor 8.5%, transparent)",
+        light: "color-mix(in srgb, var(--color-gray-20) 50%, transparent)",
+        dark: "color-mix(in srgb, currentColor 8.5%, transparent)",
+        default:
+          "light-dark(color-mix(in srgb, var(--color-gray-20) 50%, transparent), color-mix(in srgb, currentColor 8.5%, transparent))",
+        platform: {
+          default: "color-mix(in srgb, currentColor 8.5%, transparent)",
+          browserTheme: {
+            light: "color-mix(in srgb, var(--color-gray-20) 50%, transparent)",
+            dark: "color-mix(in srgb, currentColor 8.5%, transparent)",
+            default:
+              "light-dark(color-mix(in srgb, var(--color-gray-20) 50%, transparent), color-mix(in srgb, currentColor 8.5%, transparent))",
+          },
+        },
+      },
       name: "--urlbarview-action-button-background-color",
     },
     {
-      value: "var(--urlbarview-background-color-hover)",
+      value: {
+        nativeTheme: "color-mix(in srgb, currentColor 17%, transparent)",
+        light: "var(--color-gray-20)",
+        dark: "color-mix(in srgb, currentColor 17%, transparent)",
+        default:
+          "light-dark(var(--color-gray-20), color-mix(in srgb, currentColor 17%, transparent))",
+        platform: {
+          default: "color-mix(in srgb, currentColor 17%, transparent)",
+          browserTheme: {
+            light: "var(--color-gray-20)",
+            dark: "color-mix(in srgb, currentColor 17%, transparent)",
+            default:
+              "light-dark(var(--color-gray-20), color-mix(in srgb, currentColor 17%, transparent))",
+          },
+        },
+      },
       name: "--urlbarview-action-button-background-color-hover",
     },
   ],
@@ -2884,13 +2915,13 @@ export const tokensTable = {
       },
       name: "--tab-text-color-selected",
     },
-    { value: "inherit", name: "--urlbar-box-text-color" },
+    { value: { default: "inherit" }, name: "--urlbar-box-text-color" },
     {
-      value: "var(--urlbar-box-text-color)",
+      value: { default: "var(--urlbar-box-text-color)" },
       name: "--urlbar-box-text-color-hover",
     },
     {
-      value: "var(--urlbar-box-text-color)",
+      value: { default: "var(--urlbar-box-text-color)" },
       name: "--urlbar-box-text-color-active",
     },
     {
@@ -2914,6 +2945,7 @@ export const tokensTable = {
       },
       name: "--urlbarview-text-color-action",
     },
+    { value: "currentColor", name: "--urlbarview-text-color-hover" },
     {
       value: {
         nativeTheme: "color-mix(in srgb, currentColor 73%, transparent)",
@@ -2933,6 +2965,7 @@ export const tokensTable = {
         light: "rgb(21, 20, 26)",
         dark: "rgb(251, 251, 254)",
         nativeTheme: "SelectedItemText",
+        prefersContrast: "var(--text-color-list-item-hover)",
         default: "light-dark(rgb(21, 20, 26), rgb(251, 251, 254))",
         platform: {
           default: "SelectedItemText",
@@ -5750,9 +5783,9 @@ export const variableLookupTable = {
     default:
       "light-dark(var(--button-background-color), color-mix(in srgb, currentColor 16%, transparent))",
   },
-  "urlbar-box-text-color": "inherit",
-  "urlbar-box-text-color-hover": "var(--urlbar-box-text-color)",
-  "urlbar-box-text-color-active": "var(--urlbar-box-text-color)",
+  "urlbar-box-text-color": { default: "inherit" },
+  "urlbar-box-text-color-hover": { default: "var(--urlbar-box-text-color)" },
+  "urlbar-box-text-color-active": { default: "var(--urlbar-box-text-color)" },
   "urlbar-box-text-color-focus": "var(--urlbar-box-text-color)",
   "urlbar-icon-fill-opacity": {
     default: "0.72",
@@ -5763,17 +5796,19 @@ export const variableLookupTable = {
   "urlbar-margin-inline": "5px",
   "urlbar-padding-block": "4px",
   "urlbarview-background-color-hover": {
-    nativeTheme: "var(--background-color-dimmed)",
+    nativeTheme: "var(--background-color-list-item-hover)",
     light: "rgb(240, 240, 244)",
-    dark: "var(--background-color-dimmed)",
-    default: "light-dark(rgb(240, 240, 244), var(--background-color-dimmed))",
+    dark: "var(--background-color-list-item-hover)",
+    prefersContrast: "color-mix(in srgb, currentColor 20%, transparent)",
+    default:
+      "light-dark(rgb(240, 240, 244), var(--background-color-list-item-hover))",
     platform: {
-      default: "var(--background-color-dimmed)",
+      default: "var(--background-color-list-item-hover)",
       browserTheme: {
         light: "rgb(240, 240, 244)",
-        dark: "var(--background-color-dimmed)",
+        dark: "var(--background-color-list-item-hover)",
         default:
-          "light-dark(rgb(240, 240, 244), var(--background-color-dimmed))",
+          "light-dark(rgb(240, 240, 244), var(--background-color-list-item-hover))",
       },
     },
   },
@@ -5781,6 +5816,7 @@ export const variableLookupTable = {
     nativeTheme: "SelectedItem",
     light: "#e0e0e6",
     dark: "rgb(43, 42, 51)",
+    prefersContrast: "var(--background-color-list-item-hover)",
     default: "light-dark(#e0e0e6, rgb(43, 42, 51))",
     platform: {
       default: "SelectedItem",
@@ -5807,10 +5843,38 @@ export const variableLookupTable = {
       },
     },
   },
-  "urlbarview-action-button-background-color":
-    "color-mix(in srgb, var(--urlbarview-background-color-hover) 50%, transparent)",
-  "urlbarview-action-button-background-color-hover":
-    "var(--urlbarview-background-color-hover)",
+  "urlbarview-action-button-background-color": {
+    nativeTheme: "color-mix(in srgb, currentColor 8.5%, transparent)",
+    light: "color-mix(in srgb, var(--color-gray-20) 50%, transparent)",
+    dark: "color-mix(in srgb, currentColor 8.5%, transparent)",
+    default:
+      "light-dark(color-mix(in srgb, var(--color-gray-20) 50%, transparent), color-mix(in srgb, currentColor 8.5%, transparent))",
+    platform: {
+      default: "color-mix(in srgb, currentColor 8.5%, transparent)",
+      browserTheme: {
+        light: "color-mix(in srgb, var(--color-gray-20) 50%, transparent)",
+        dark: "color-mix(in srgb, currentColor 8.5%, transparent)",
+        default:
+          "light-dark(color-mix(in srgb, var(--color-gray-20) 50%, transparent), color-mix(in srgb, currentColor 8.5%, transparent))",
+      },
+    },
+  },
+  "urlbarview-action-button-background-color-hover": {
+    nativeTheme: "color-mix(in srgb, currentColor 17%, transparent)",
+    light: "var(--color-gray-20)",
+    dark: "color-mix(in srgb, currentColor 17%, transparent)",
+    default:
+      "light-dark(var(--color-gray-20), color-mix(in srgb, currentColor 17%, transparent))",
+    platform: {
+      default: "color-mix(in srgb, currentColor 17%, transparent)",
+      browserTheme: {
+        light: "var(--color-gray-20)",
+        dark: "color-mix(in srgb, currentColor 17%, transparent)",
+        default:
+          "light-dark(var(--color-gray-20), color-mix(in srgb, currentColor 17%, transparent))",
+      },
+    },
+  },
   "urlbarview-favicon-size": "var(--icon-size)",
   "urlbarview-row-min-height": "var(--size-item-large)",
   "urlbarview-row-padding-block": "var(--space-small)",
@@ -5828,6 +5892,7 @@ export const variableLookupTable = {
       },
     },
   },
+  "urlbarview-text-color-hover": "currentColor",
   "urlbarview-text-color-secondary": {
     nativeTheme: "color-mix(in srgb, currentColor 73%, transparent)",
     default: "color-mix(in srgb, currentColor 73%, transparent)",
@@ -5843,6 +5908,7 @@ export const variableLookupTable = {
     light: "rgb(21, 20, 26)",
     dark: "rgb(251, 251, 254)",
     nativeTheme: "SelectedItemText",
+    prefersContrast: "var(--text-color-list-item-hover)",
     default: "light-dark(rgb(21, 20, 26), rgb(251, 251, 254))",
     platform: {
       default: "SelectedItemText",

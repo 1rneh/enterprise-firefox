@@ -109,8 +109,6 @@ CARGO_CONFIG_KEYS = {
     "MOZ_RUST_COREAUDIO_SDK_PATH": _as_str,
     "MOZ_RUST_DEFAULT_FLAGS": _as_list,
     "MOZ_RUST_LIBRARY_RUSTCFLAGS": _as_list,
-    "MOZ_RUST_PROGRAM_LDFLAGS": _as_list,
-    "MOZ_RUST_PROGRAM_RUSTCFLAGS": _as_list,
     "MOZ_RUST_SANITIZER_OPTION_VARS": _as_list,
     "PKG_CONFIG": _as_str,
     "PKG_CONFIG_LIBDIR": _as_str,
@@ -423,9 +421,6 @@ def _rustc_flags(cmd, substs, invocation):
     if applies_library_lto(cmd.kind, cmd.lto, substs):
         flags.append("-Clto")
 
-    if cmd.kind == "program":
-        flags += substs.get("MOZ_RUST_PROGRAM_RUSTCFLAGS")
-
     flags += invocation.cargo_rustcflags
 
     return flags
@@ -464,7 +459,6 @@ def _cargo_wrap_ldflags(cmd, substs):
         ldflags = _filter_out(
             ldflags, substs.get("MOZ_CARGO_PROGRAM_LDFLAGS_FILTER_OUT")
         )
-        ldflags += substs.get("MOZ_RUST_PROGRAM_LDFLAGS")
 
     return shell_quote(*ldflags)
 

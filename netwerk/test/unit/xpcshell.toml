@@ -1611,6 +1611,9 @@ skip-if = [
 ["test_protocolproxyservice-async-filters.js"]
 
 ["test_protocolproxyservice.js"]
+skip-if = [
+  "macos_vm", # Bug 2076510
+]
 
 ["test_proxy-failover_canceled.js"]
 

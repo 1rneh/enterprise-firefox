@@ -909,7 +909,7 @@ class Tab extends TabBase {
   }
 
   get successorTabId() {
-    const { successor } = this.nativeTab;
+    const successor = this.window.gBrowser.getSuccessor(this.nativeTab);
     return successor ? tabTracker.getId(successor) : -1;
   }
 

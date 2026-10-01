@@ -218,6 +218,9 @@ run-if = [
   "os == 'mac'",
   "os == 'win'",
 ]
+skip-if = [
+  "macos_vm", # Bug 2076510
+]
 
 ["test_ev_certs.js"]
 tags = "blocklist psm"

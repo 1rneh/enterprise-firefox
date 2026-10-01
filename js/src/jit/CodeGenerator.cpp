@@ -6443,6 +6443,19 @@ static void LoadDOMPrivate(MacroAssembler& masm, Register obj, Register priv,
   }
 }
 
+void CodeGenerator::maybeEmitSetInPureCall(MInstruction* mir, bool value,
+                                           Register scratch) {
+  AliasSet aliasSet = mir->getAliasSet();
+  if (aliasSet.isStore() && (aliasSet.flags() & AliasSet::ObjectFields) != 0) {
+    // If the alias set already indicates that this can reallocate slots, the
+    // flag is unnecessary.
+    return;
+  }
+  const void* addr = gen->jitRuntime()->addressOfInPureCall();
+  masm.move32(Imm32(value), scratch);
+  masm.store32(scratch, AbsoluteAddress(addr));
+}
+
 void CodeGenerator::visitCallDOMNative(LCallDOMNative* call) {
   WrappedFunction* target = call->getSingleTarget();
   MOZ_ASSERT(target);
@@ -6530,6 +6543,8 @@ void CodeGenerator::visitCallDOMNative(LCallDOMNative* call) {
 
   markSafepointAt(safepointOffset, call);
 
+  maybeEmitSetInPureCall(call->mir(), true, /*scratch =*/argJSContext);
+
   // Construct and execute call.
   masm.setupAlignedABICall();
   masm.loadJSContext(argJSContext);
@@ -6541,6 +6556,9 @@ void CodeGenerator::visitCallDOMNative(LCallDOMNative* call) {
   masm.callWithABI(DynamicFunction<JSJitMethodOp>(target->jitInfo()->method),
                    ABIType::General,
                    CheckUnsafeCallWithABI::DontCheckHasExitFrame);
+
+  Register notReturnReg = argJSContext == ReturnReg ? argObj : argJSContext;
+  maybeEmitSetInPureCall(call->mir(), false, /*scratch =*/notReturnReg);
 
   if (target->jitInfo()->isInfallible) {
     masm.loadValue(Address(masm.getStackPointer(),
@@ -14006,8 +14024,16 @@ static void ConcatInlineString(MacroAssembler& masm, Register lhs, Register rhs,
 
 #if defined(JS_64BIT) && defined(ENABLE_JIT_SIMD)
   Label fastPath, done;
-  masm.branchTest32(Assembler::NonZero, andedFlags,
-                    Imm32(StringFlags::INLINE_CHARS_BIT), &fastPath);
+
+  bool useVectorizedCopy = true;
+#  if defined(JS_CODEGEN_LOONG64)
+  useVectorizedCopy = Assembler::HasLSX();
+#  endif
+
+  if (useVectorizedCopy) {
+    masm.branchTest32(Assembler::NonZero, andedFlags,
+                      Imm32(StringFlags::INLINE_CHARS_BIT), &fastPath);
+  }
 #endif
 
   Register temp1 = andedFlags;
@@ -16898,29 +16924,25 @@ void CodeGenerator::visitRest(LRest* lir) {
   constexpr uint32_t arrayCapacity = 6;
   static_assert(GuessArrayGCKind(0) == GuessArrayGCKind(arrayCapacity));
 
-  if (Shape* shape = lir->mir()->shape()) {
-    uint32_t arrayLength = 0;
-    gc::AllocKind allocKind = GuessArrayGCKind(arrayCapacity);
-    MOZ_ASSERT(gc::GetObjectFinalizeKind(&ArrayObject::class_) ==
-               gc::FinalizeKind::None);
-    MOZ_ASSERT(!IsFinalizedKind(allocKind));
-    MOZ_ASSERT(GetGCKindSlots(allocKind) ==
-               arrayCapacity + ObjectElements::VALUES_PER_HEADER);
+  uint32_t arrayLength = 0;
+  gc::AllocKind allocKind = GuessArrayGCKind(arrayCapacity);
+  MOZ_ASSERT(gc::GetObjectFinalizeKind(&ArrayObject::class_) ==
+             gc::FinalizeKind::None);
+  MOZ_ASSERT(!IsFinalizedKind(allocKind));
+  MOZ_ASSERT(GetGCKindSlots(allocKind) ==
+             arrayCapacity + ObjectElements::VALUES_PER_HEADER);
 
-    Label joinAlloc, failAlloc;
-    masm.movePtr(ImmGCPtr(shape), temp0);
-    masm.createArrayWithFixedElements(temp2, temp0, temp1, InvalidReg,
-                                      arrayLength, arrayCapacity, 0, 0,
-                                      allocKind, gc::Heap::Default, &failAlloc);
-    masm.jump(&joinAlloc);
-    {
-      masm.bind(&failAlloc);
-      masm.movePtr(ImmPtr(nullptr), temp2);
-    }
-    masm.bind(&joinAlloc);
-  } else {
+  Label joinAlloc, failAlloc;
+  masm.movePtr(ImmGCPtr(lir->mir()->shape()), temp0);
+  masm.createArrayWithFixedElements(temp2, temp0, temp1, InvalidReg,
+                                    arrayLength, arrayCapacity, 0, 0, allocKind,
+                                    gc::Heap::Default, &failAlloc);
+  masm.jump(&joinAlloc);
+  {
+    masm.bind(&failAlloc);
     masm.movePtr(ImmPtr(nullptr), temp2);
   }
+  masm.bind(&joinAlloc);
 
   // Set temp1 to the address of the first actual argument.
   size_t actualsOffset = JitFrameLayout::offsetOfActualArgs();
@@ -16960,55 +16982,53 @@ void CodeGenerator::visitRest(LRest* lir) {
   }
 
   // Try to initialize the array elements.
+  //
+  // Call into C++ if we failed to allocate an array or if there are more than
+  // |arrayCapacity| elements.
   Label vmCall, done;
-  if (lir->mir()->shape()) {
-    // Call into C++ if we failed to allocate an array or there are more than
-    // |arrayCapacity| elements.
-    masm.branchTestPtr(Assembler::Zero, temp2, temp2, &vmCall);
-    masm.branch32(Assembler::Above, lengthReg, Imm32(arrayCapacity), &vmCall);
+  masm.branchTestPtr(Assembler::Zero, temp2, temp2, &vmCall);
+  masm.branch32(Assembler::Above, lengthReg, Imm32(arrayCapacity), &vmCall);
 
-    // The array must be nursery allocated so no post barrier is needed.
+  // The array must be nursery allocated so no post barrier is needed.
 #ifdef DEBUG
-    Label ok;
-    masm.branchPtrInNurseryChunk(Assembler::Equal, temp2, temp3, &ok);
-    masm.assumeUnreachable("Unexpected tenured object for LRest");
-    masm.bind(&ok);
+  Label ok;
+  masm.branchPtrInNurseryChunk(Assembler::Equal, temp2, temp3, &ok);
+  masm.assumeUnreachable("Unexpected tenured object for LRest");
+  masm.bind(&ok);
 #endif
 
-    Label nonZeroLength;
-    masm.branch32(Assembler::NotEqual, lengthReg, Imm32(0), &nonZeroLength);
-    masm.movePtr(temp2, ReturnReg);
-    masm.jump(&done);
-    masm.bind(&nonZeroLength);
+  Label nonZeroLength;
+  masm.branch32(Assembler::NotEqual, lengthReg, Imm32(0), &nonZeroLength);
+  masm.movePtr(temp2, ReturnReg);
+  masm.jump(&done);
+  masm.bind(&nonZeroLength);
 
-    // Store length and initializedLength.
-    Register elements = temp3;
-    masm.loadPtr(Address(temp2, NativeObject::offsetOfElements()), elements);
-    Address lengthAddr(elements, ObjectElements::offsetOfLength());
-    Address initLengthAddr(elements,
-                           ObjectElements::offsetOfInitializedLength());
-    masm.store32(lengthReg, lengthAddr);
-    masm.store32(lengthReg, initLengthAddr);
+  // Store length and initializedLength.
+  Register elements = temp3;
+  masm.loadPtr(Address(temp2, NativeObject::offsetOfElements()), elements);
+  Address lengthAddr(elements, ObjectElements::offsetOfLength());
+  Address initLengthAddr(elements, ObjectElements::offsetOfInitializedLength());
+  masm.store32(lengthReg, lengthAddr);
+  masm.store32(lengthReg, initLengthAddr);
 
-    masm.push(temp2);  // Spill result to free up register.
+  masm.push(temp2);  // Spill result to free up register.
 
-    Register end = temp0;
-    Register args = temp1;
-    Register scratch = temp2;
-    masm.computeEffectiveAddress(BaseObjectElementIndex(elements, lengthReg),
-                                 end);
+  Register end = temp0;
+  Register args = temp1;
+  Register scratch = temp2;
+  masm.computeEffectiveAddress(BaseObjectElementIndex(elements, lengthReg),
+                               end);
 
-    Label loop;
-    masm.bind(&loop);
-    masm.storeValue(Address(args, 0), Address(elements, 0), scratch);
-    masm.addPtr(Imm32(sizeof(Value)), args);
-    masm.addPtr(Imm32(sizeof(Value)), elements);
-    masm.branchPtr(Assembler::Below, elements, end, &loop);
+  Label loop;
+  masm.bind(&loop);
+  masm.storeValue(Address(args, 0), Address(elements, 0), scratch);
+  masm.addPtr(Imm32(sizeof(Value)), args);
+  masm.addPtr(Imm32(sizeof(Value)), elements);
+  masm.branchPtr(Assembler::Below, elements, end, &loop);
 
-    // Pop result
-    masm.pop(ReturnReg);
-    masm.jump(&done);
-  }
+  // Pop result
+  masm.pop(ReturnReg);
+  masm.jump(&done);
 
   masm.bind(&vmCall);
 
@@ -20360,6 +20380,8 @@ void CodeGenerator::visitGetDOMProperty(LGetDOMProperty* ins) {
 
   markSafepointAt(safepointOffset, ins);
 
+  maybeEmitSetInPureCall(ins->mir(), true, /*scratch =*/JSContextReg);
+
   masm.setupAlignedABICall();
   masm.loadJSContext(JSContextReg);
   masm.passABIArg(JSContextReg);
@@ -20370,6 +20392,9 @@ void CodeGenerator::visitGetDOMProperty(LGetDOMProperty* ins) {
   masm.callWithABI(DynamicFunction<JSJitGetterOp>(ins->mir()->fun()),
                    ABIType::General,
                    CheckUnsafeCallWithABI::DontCheckHasExitFrame);
+
+  Register notReturnReg = JSContextReg == ReturnReg ? ObjectReg : JSContextReg;
+  maybeEmitSetInPureCall(ins->mir(), false, /*scratch =*/notReturnReg);
 
   if (ins->mir()->isInfallible()) {
     masm.loadValue(Address(masm.getStackPointer(),

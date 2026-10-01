@@ -1,6 +1,7 @@
 ---
 name: profiler-analysis
-description: Analyze Firefox performance profiles using the profiler-cli CLI tool. Trigger when given a profiler.firefox.com or share.firefox.dev link, a local profile path, or when the user wants to investigate an issue in a Firefox profile. Always use this skill instead of WebFetch for Firefox profiler URLs; WebFetch only retrieves the profiler UI's HTML shell and cannot access profile data, whereas profiler-cli downloads and parses the actual profile into a local daemon that supports structured queries over stacks, markers, threads, and samples. Not for capturing a new profile: if no profile exists yet and one has to be recorded use profile-capture instead.
+description: |
+  Analyze Firefox performance profiles using the profiler-cli CLI tool. Trigger when given a profiler.firefox.com or share.firefox.dev link, a local profile path, or when the user wants to investigate an issue in a Firefox profile. Always use this skill instead of WebFetch for Firefox profiler URLs; WebFetch only retrieves the profiler UI's HTML shell and cannot access profile data, whereas profiler-cli downloads and parses the actual profile into a local daemon that supports structured queries over stacks, markers, threads, and samples. Not for capturing a new profile: if no profile exists yet and one has to be recorded use profile-capture instead.
 argument-hint: "[profile path or URL]"
 allowed-tools:
   - Bash(profiler-cli:*)

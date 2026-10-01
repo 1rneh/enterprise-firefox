@@ -460,6 +460,11 @@ macosx1500-64-enterprise/debug:
     test-sets:
         - macosx1500-64-tests-enterprise
 
+macosx2700-aarch64-shippable/opt:
+    build-platform: macosx64-shippable/opt
+    test-sets:
+        - macosx2700-aarch64-perftests
+
 macosx1470-64-shippable/opt:
     build-platform: macosx64-shippable/opt
     test-sets:

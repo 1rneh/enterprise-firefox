@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, # You can obtain one at http://mozilla.org/MPL/2.0/.
-import concurrent.futures
 import contextlib
 import functools
 import glob
@@ -25,7 +24,7 @@ from mozversioncontrol import get_repository_object
 
 from mozbuild import build_commands
 from mozbuild.controller.clobber import Clobberer
-from mozbuild.util import construct_log_filename, cpu_count
+from mozbuild.util import construct_log_filename
 
 
 # FIXME: use itertools.batched when moving to python 3.12
@@ -375,36 +374,15 @@ def _check(
 
     abs_files = get_abspath_files(command_context, files)
 
-    def to_source(filename):
-        basename, ext = os.path.splitext(filename)
-        if ext != ".h":
-            return filename
-        for src_ext in [".cpp", ".c", ".mm", ".cc", ".cxx"]:
-            if os.path.exists(basename + src_ext):
-                return basename + src_ext
-        return filename
-
     sources = {}
-    header_sources = {}
     compile_db_files = {f["file"] for f in compile_db}
     for candidate in abs_files:
-        associated_entry = to_source(candidate)
-        if associated_entry in compile_db_files:
-            if candidate != associated_entry:
-                header_sources[associated_entry] = candidate
+        if candidate in compile_db_files:
             # Check we're not erasing an existing entry
-            elif associated_entry not in sources:
-                sources[associated_entry] = None
+            if candidate not in sources:
+                sources[candidate] = None
 
-    # Filter source to remove excluded files
-    header_sources = _generate_path_list(
-        command_context, header_sources, verbose=verbose
-    )
     sources = _generate_path_list(command_context, sources, verbose=verbose)
-
-    # Do not process files already in header_sources again in sources
-    for header_src in header_sources:
-        sources.pop(header_src, None)
 
     cwd = command_context.topobjdir
 
@@ -412,7 +390,7 @@ def _check(
         command_context.topsrcdir,
         command_context.topobjdir,
         get_clang_tidy_config(command_context).checks_with_data,
-        len(sources) + len(header_sources),
+        len(sources),
     )
 
     footer = StaticAnalysisFooter(monitor)
@@ -445,41 +423,6 @@ def _check(
                     cwd=cwd,
                 )
 
-        with _timed_phase(
-            command_context, f"Running clang-tidy on {len(header_sources)} headers"
-        ):
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=jobs or cpu_count()
-            ) as executor:
-                futures = []
-                # process header independently, because we need per-instance
-                # header-filter for it to work
-                for header_src, header_hdr in header_sources.items():
-                    args = _get_clang_tidy_command(
-                        command_context,
-                        clang_paths,
-                        compilation_commands_path,
-                        checks=checks,
-                        header_filter=header_filter,
-                        sources={header_src: header_hdr},
-                        jobs=1,
-                        fix=fix,
-                        warnings_as_errors=True,
-                        verbose=verbose,
-                    )
-                    futures.append(
-                        executor.submit(
-                            command_context.run_process,
-                            args=args,
-                            ensure_exit_code=False,
-                            line_handler=output_manager.on_line,
-                            cwd=cwd,
-                        )
-                    )
-                for future in concurrent.futures.as_completed(futures):
-                    # Wait for every task to finish
-                    rc |= future.result()
-
         command_context.log(
             logging.WARNING,
             "warning_summary",
@@ -491,13 +434,13 @@ def _check(
         if output is not None:
             output_manager.write(output, format)
 
-    if not sources and not header_sources:
+    if not sources:
         command_context.log(
             logging.WARNING,
             "static-analysis",
             {},
-            "There are no files eligible for analysis. Please note that 'header' files "
-            "cannot be used for analysis since they do not consist compilation units.",
+            "There are no files eligible for analysis.\n"
+            "Note that only non-generated headers listed in SOURCE_HEADERS or EXPORT are analyzed.",
         )
         return 0
 
@@ -1075,6 +1018,10 @@ def _generate_path_list(command_context, paths, verbose=True):
         # Make sure that the file exists and it has a supported extension
         elif os.path.isfile(f) and f.endswith(extensions):
             path_entries[f] = h
+
+    if header_skiplist := get_clang_tidy_config(command_context).header_skiplist:
+        for header in header_skiplist:
+            path_entries.pop(header, None)
 
     return path_entries
 

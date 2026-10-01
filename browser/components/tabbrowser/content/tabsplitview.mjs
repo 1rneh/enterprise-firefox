@@ -491,10 +491,8 @@ export class MozTabSplitViewWrapper extends MozXULElement {
       this.#activate();
       // This check ensures we don't call suspend for every tab selection
       // or for a selected tab in a splitview that is being dragged to another window,
-      // as this event fires as part of updateCurrentBrowser; we
-      // utilize this temporary property - removedByAdoption -
-      // that is added in adoptSplitView.
-    } else if (wasActive && !event.detail.previousTab?.removedByAdoption) {
+      // as this event fires as part of updateCurrentBrowser.
+    } else if (wasActive && !event.detail.previousTabInAdoptedSplitView) {
       this.#suspend();
     }
   }

@@ -5,6 +5,7 @@
 package org.mozilla.fenix.utils
 
 import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import androidx.core.content.edit
 import io.mockk.every
 import io.mockk.spyk
@@ -38,6 +39,7 @@ import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.settings.deletebrowsingdata.DeleteBrowsingDataOnQuitType
 import org.mozilla.fenix.wallpapers.Wallpaper
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
 private const val TOU_VERSION = 5
 
@@ -329,6 +331,18 @@ class SettingsTest {
 
         // Then
         assertFalse(settings.shouldAutofillLogins)
+    }
+
+    @Test
+    fun `GIVEN Android Automotive WHEN reading the autofill settings THEN they are all disabled by default`() {
+        shadowOf(testContext.packageManager).setSystemFeature(PackageManager.FEATURE_AUTOMOTIVE, true)
+        val automotiveSettings = Settings(testContext)
+
+        assertFalse(automotiveSettings.isAutofillSupported)
+        assertFalse(automotiveSettings.shouldPromptToSaveLogins)
+        assertFalse(automotiveSettings.shouldAutofillLogins)
+        assertFalse(automotiveSettings.shouldAutofillCreditCardDetails)
+        assertFalse(automotiveSettings.shouldAutofillAddressDetails)
     }
 
     @Test

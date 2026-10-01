@@ -7,6 +7,15 @@ const SUPPORT_FILES_PATH =
 const BLOCKED_PAGE = "policy_websitefilter_block.html";
 const SAVELINKAS_PAGE = "policy_websitefilter_savelink.html";
 
+// A BlocklistDomainBrowsed event is only recorded once
+// within a 1000ms window for a specific event url
+const DEDUPE_WINDOW_MS = 1000;
+
+function waitOutDedupeWindow() {
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  return new Promise(r => setTimeout(r, DEDUPE_WINDOW_MS + 100));
+}
+
 async function clearWebsiteFilter() {
   await setupPolicyEngineWithJson({
     policies: {
@@ -38,6 +47,9 @@ add_task(async function test_policy_enterprise_telemetry() {
   const referrerURL = SUPPORT_FILES_PATH + SAVELINKAS_PAGE;
   const resolvedURL = SUPPORT_FILES_PATH + BLOCKED_PAGE;
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + BLOCKED_PAGE);
+
+  await waitOutDedupeWindow();
+
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + BLOCKED_PAGE, {
     referrerURL,
   });
@@ -51,14 +63,22 @@ add_task(async function test_policy_enterprise_telemetry() {
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "301.sjs", {
     resolvedURL,
   });
+
+  await waitOutDedupeWindow();
+
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "301.sjs", {
     resolvedURL,
     referrerURL,
   });
 
+  await waitOutDedupeWindow();
+
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "302.sjs", {
     resolvedURL,
   });
+
+  await waitOutDedupeWindow();
+
   await checkBlockedPageTelemetry(SUPPORT_FILES_PATH + "302.sjs", {
     resolvedURL,
     referrerURL,

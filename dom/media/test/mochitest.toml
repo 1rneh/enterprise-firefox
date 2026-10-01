@@ -858,6 +858,9 @@ skip-if = [
 ["test_imagecapture.html"]
 scheme = "https"
 
+["test_invalid_content_range.html"]
+scheme = "https"
+
 ["test_invalid_reject_play.html"]
 
 ["test_live_duration.html"]

@@ -15,6 +15,7 @@
  */
 
 import { getSkillPrompt } from "moz-src:///browser/components/aiwindow/models/PromptLoader.sys.mjs";
+import { openAIEngine } from "moz-src:///browser/components/aiwindow/models/openAIEngine.sys.mjs";
 import { searchBrowsingHistory as implSearchBrowsingHistory } from "moz-src:///browser/components/aiwindow/models/SearchBrowsingHistory.sys.mjs";
 import {
   manageTabsAction,
@@ -29,6 +30,7 @@ import {
   sanitizeUntrustedContent,
   isNewPageUrl,
 } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
+import { isAllowedURLProtocol } from "moz-src:///browser/components/aiwindow/models/SecurityProperties.sys.mjs";
 
 import {
   CountVectorizer,
@@ -79,26 +81,12 @@ ChromeUtils.defineLazyGetter(lazy, "console", () =>
 export const MAX_TABS = 30;
 // Max number of tabs to rank by semantic similarity to topic (safeguard to avoid embedding hundreds of tabs)
 export const MAX_RANK_TABS = 5 * MAX_TABS;
-
-// Allow list of URL protocols for tabs and pages exposed to the LLM. Only http/https are
-// permitted; internal (about:, chrome:, moz-extension:, file:, data:, etc.)
-const ALLOWED_URL_PROTOCOLS = new Set(["http:", "https:"]);
+// Max number of tabs the mentioned tab groups expand to in total.
+export const MAX_TAB_GROUP_MEMBERS = MAX_TABS;
 
 const KEYWORD_WEIGHT = 0.3; // 0 = pure embedding, 1 = pure lexical
 
 const tokenizer = new CountVectorizer();
-
-/**
- * @param {string} url
- * @returns {boolean}
- */
-function isAllowedURL(url) {
-  try {
-    return ALLOWED_URL_PROTOCOLS.has(new URL(url).protocol);
-  } catch {
-    return false;
-  }
-}
 
 let _embeddingsGenerator = null;
 function getEmbeddingsGenerator() {
@@ -167,6 +155,47 @@ export const SEARCH_QUERY_APIKEY_PREF =
 // assistant. When false, it runs the answer-generation flow with page reads.
 // The two paths return different shapes and so need different tool configs.
 export const SEARCH_THE_WEB_FAST_PREF = "browser.smartwindow.searchTheWebFast";
+
+// When true, search_the_web asks Exa's /answers service for a written answer
+// and its citations in a single call. Takes precedence over
+// SEARCH_THE_WEB_FAST_PREF, which only selects between the other two paths, but
+// is ignored on a custom endpoint — see selectSearchTheWebPath.
+export const SEARCH_THE_WEB_ANSWERS_PREF =
+  "browser.smartwindow.searchTheWebAnswers";
+
+/**
+ * The paths search_the_web can take. Each returns a different shape, so the
+ * tool config offered to the model has to match the one that will run.
+ *
+ * @enum {string}
+ */
+export const SEARCH_THE_WEB_PATH = Object.freeze({
+  ANSWERS: "answers",
+  FAST: "fast",
+  GROUNDED: "grounded",
+});
+
+/**
+ * Which path search_the_web takes for the current profile. The single source of
+ * truth for the precedence: SearchWorkflow dispatches on it and Chat picks the
+ * matching tool config from it, so the two cannot drift apart.
+ *
+ * The answers path is only available on Mozilla MLPA endpoint - custom endpoints
+ * must use search_the_web_fast or grounded
+ *
+ * @returns {SEARCH_THE_WEB_PATH}
+ */
+export function selectSearchTheWebPath() {
+  if (
+    Services.prefs.getBoolPref(SEARCH_THE_WEB_ANSWERS_PREF, false) &&
+    !openAIEngine.usesCustomEndpoint()
+  ) {
+    return SEARCH_THE_WEB_PATH.ANSWERS;
+  }
+  return Services.prefs.getBoolPref(SEARCH_THE_WEB_FAST_PREF, true)
+    ? SEARCH_THE_WEB_PATH.FAST
+    : SEARCH_THE_WEB_PATH.GROUNDED;
+}
 
 export const TOOLS = [
   GET_OPEN_TABS,
@@ -263,8 +292,36 @@ const SEARCH_THE_WEB_TOOL_CONFIG = {
   },
 };
 
-// Fast-path variant, selected in Chat.sys.mjs when SEARCH_THE_WEB_FAST_PREF is
-// on. No `context` parameter: the fast path has no sub-agent prompt to feed it.
+export const SEARCH_THE_WEB_ANSWERS_DESCRIPTION =
+  "Answer a question using the web. Searches and reads web content in the " +
+  "background and returns an answer together with the URLs it cites. Use this " +
+  "whenever the user asks an informational question that needs fresh or " +
+  "external knowledge. Pass a clear, self-contained query; you may rewrite the " +
+  "user's phrasing (for example resolve 'near me' to a place).";
+
+// Answers-path variant. No `context` parameter: only the query is sent to the
+// /answers service.
+export const SEARCH_THE_WEB_TOOL_CONFIG_ANSWERS = {
+  type: "function",
+  function: {
+    name: SEARCH_THE_WEB,
+    description: SEARCH_THE_WEB_ANSWERS_DESCRIPTION,
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "The self-contained question or query to answer from the web.",
+        },
+      },
+      required: ["query"],
+    },
+  },
+};
+
+// Fast-path variant. No `context` parameter: the fast path has no sub-agent
+// prompt to feed it.
 export const SEARCH_THE_WEB_TOOL_CONFIG_FAST = {
   type: "function",
   function: {
@@ -283,6 +340,23 @@ export const SEARCH_THE_WEB_TOOL_CONFIG_FAST = {
     },
   },
 };
+
+/**
+ * The search_the_web config for the path that will run, or null for the
+ * grounded path, whose config is the one already in `toolsConfig`.
+ *
+ * @returns {object|null}
+ */
+export function searchTheWebToolConfig() {
+  switch (selectSearchTheWebPath()) {
+    case SEARCH_THE_WEB_PATH.ANSWERS:
+      return SEARCH_THE_WEB_TOOL_CONFIG_ANSWERS;
+    case SEARCH_THE_WEB_PATH.FAST:
+      return SEARCH_THE_WEB_TOOL_CONFIG_FAST;
+    default:
+      return null;
+  }
+}
 
 export const toolsConfig = [
   {
@@ -552,7 +626,7 @@ export function getTabList(amount = MAX_TABS) {
         const url = browser?.currentURI?.spec;
         const title = tab.label;
 
-        if (isAllowedURL(url) && !isNewPageUrl(url)) {
+        if (isAllowedURLProtocol(url) && !isNewPageUrl(url)) {
           tabs.push({
             url,
             title: sanitizeUntrustedContent(title),
@@ -1053,7 +1127,7 @@ export class GetPageContent {
 
     const results = await Promise.all(
       url_list.map(async (url, index) => {
-        if (!isAllowedURL(url)) {
+        if (!isAllowedURLProtocol(url)) {
           return { url, ok: false, content: "This URL is not allowed: " + url };
         }
         const startTime = ChromeUtils.now();
@@ -1119,7 +1193,7 @@ export class GetPageContent {
    * @returns {boolean}
    */
   static isContentAllowed(url, conversation) {
-    if (!isAllowedURL(url)) {
+    if (!isAllowedURLProtocol(url)) {
       // Only http/https pages may be exposed to the LLM at all; internal
       // schemes (about:, chrome:, file:, ...) stay out regardless of
       // conversation state.
@@ -1525,7 +1599,7 @@ function countOpenAIWindowTabs() {
     }
     for (const tab of win.gBrowser.tabs) {
       const url = tab.linkedBrowser?.currentURI?.spec;
-      if (isAllowedURL(url) && !isNewPageUrl(url)) {
+      if (isAllowedURLProtocol(url) && !isNewPageUrl(url)) {
         count += 1;
       }
     }
@@ -1627,7 +1701,7 @@ export async function manageTabs(
   }
 
   const validUrls = new Set(
-    url_tokens.filter(u => typeof u === "string" && isAllowedURL(u))
+    url_tokens.filter(u => typeof u === "string" && isAllowedURLProtocol(u))
   );
 
   if (!validUrls.size) {

@@ -1914,11 +1914,14 @@ let gFileMenu = {
    * when applicable.
    */
   updateTabCloseCountState() {
-    document.l10n.setAttributes(
-      document.getElementById("menu_close"),
-      "menu-file-close-tab",
-      { tabCount: gBrowser.selectedTabs.length }
-    );
+    let closeTab = document.getElementById("menu_close");
+    if (document.getElementById("menu_closeWindow").hidden) {
+      document.l10n.setAttributes(closeTab, "menu-file-close");
+    } else {
+      document.l10n.setAttributes(closeTab, "menu-file-close-tab", {
+        tabCount: gBrowser.selectedTabs.length,
+      });
+    }
   },
 
   onPopupShowing(event) {

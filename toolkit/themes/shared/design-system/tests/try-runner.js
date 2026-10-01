@@ -147,9 +147,10 @@ const tests = {
     return errors.length === 0;
   },
 
-  // A component family that declares a base text color (e.g.
-  // --panel-text-color) must declare one for every background color variant it
-  // has, so that each background has a text color to pair with.
+  // A component family that declares any text color (e.g. --panel-text-color
+  // or --urlbarview-text-color-selected) must declare one for every background
+  // color variant it has, so that each background has a text color to pair
+  // with.
   async pairedTextColors() {
     logStart("paired text colors");
 
@@ -160,12 +161,16 @@ const tests = {
         .map(token => token.name)
     );
 
+    let familiesWithText = new Set(
+      [...tokenNames].map(name => name.match(/^--(.+?)text-color/)?.[1])
+    );
+
     let errors = [];
     for (let tokenName of tokenNames) {
       let match = tokenName.match(
         /^--(?<family>.+?)background-color(?<variant>.*)$/
       );
-      if (!match || !tokenNames.has(`--${match.groups.family}text-color`)) {
+      if (!match || !familiesWithText.has(match.groups.family)) {
         continue;
       }
       let counterpart = `--${match.groups.family}text-color${match.groups.variant}`;

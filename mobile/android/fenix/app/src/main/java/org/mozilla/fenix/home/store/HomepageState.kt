@@ -7,6 +7,7 @@ package org.mozilla.fenix.home.store
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.appstate.AppState
@@ -23,6 +24,9 @@ import org.mozilla.fenix.home.recentsyncedtabs.RecentSyncedTabState
 import org.mozilla.fenix.home.recenttabs.RecentTab
 import org.mozilla.fenix.home.recentvisits.RecentlyVisitedItem
 import org.mozilla.fenix.home.topsites.TopSiteState
+import org.mozilla.fenix.home.topsites.calculateTopSitesRowLayout
+import org.mozilla.fenix.home.topsites.collapsedTopSitesCount
+import org.mozilla.fenix.home.ui.horizontalMargin
 import org.mozilla.fenix.termsofuse.store.PrivacyNoticeBannerState
 import org.mozilla.fenix.utils.Settings
 
@@ -208,8 +212,8 @@ internal sealed class HomepageState {
                             shouldShowCollectionsMigrationCard = collectionsMigrationCardState.visible,
                         ),
                     showTopSitesHeader =
-                        !(settings.privateModeAndStoriesEntryPointEnabled && topSites.size < 8) &&
-                            !settings.showMoreShortcuts,
+                        !(settings.privateModeAndStoriesEntryPointEnabled &&
+                            topSites.size < collapsedTopSitesCount(topSitesColumns())) && !settings.showMoreShortcuts,
                     showPrivacyReport = settings.showPrivacyReportFeature,
                     longfoxEnabled = settings.longfoxEnabled,
                     showLongfoxAnimation = settings.longfoxEnabled && longfoxEntryPointReady,
@@ -235,6 +239,13 @@ internal sealed class HomepageState {
                 )
             }
     }
+}
+
+/** Returns the number of shortcut columns the homepage lays out for the current screen width. */
+@Composable
+private fun topSitesColumns(): Int {
+    val availableWidth = LocalWindowInfo.current.containerDpSize.width - horizontalMargin * 2
+    return calculateTopSitesRowLayout(availableWidth).columns
 }
 
 private fun buildHeaderState(settings: Settings): HeaderState {

@@ -129,18 +129,6 @@ testRule({
       column: 59,
     },
     {
-      code: ".a { background-color: var(--urlbarview-background-color-hover); color: var(--urlbarview-text-color-selected); }",
-      message: messages.noPairedToken(
-        "--urlbarview-background-color-hover",
-        "--urlbarview-text-color-selected",
-        "--urlbarview-text-color-hover"
-      ),
-      description:
-        "Two variants of one family where neither the counterpart nor the family's base text token exists.",
-      line: 1,
-      column: 66,
-    },
-    {
       code: ".a { background-color: var(--button-background-color); color: var(--button-text-color-hover); &:hover { background-color: var(--button-background-color-hover); color: var(--button-text-color-hover); } }",
       message: messages.notPaired(
         "--button-background-color",
@@ -246,16 +234,6 @@ testRule({
       ),
       description:
         "An unpaired text token is replaced with the background's counterpart.",
-    },
-    {
-      code: ".a { background-color: var(--urlbarview-background-color-hover); color: var(--urlbarview-text-color-selected); }",
-      unfixable: true,
-      message: messages.noPairedToken(
-        "--urlbarview-background-color-hover",
-        "--urlbarview-text-color-selected",
-        "--urlbarview-text-color-hover"
-      ),
-      description: "A token that does not exist cannot be filled in.",
     },
   ],
 });

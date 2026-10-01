@@ -57,6 +57,9 @@ export class MozTabbrowserTabGroup extends MozXULElement {
   /** @type {boolean} */
   #wasCreatedByAdoption = false;
 
+  /** @type {boolean} */
+  #removedByAdoption = false;
+
   /**
    * Whether a drag collapsed this tab group, as opposed to the user, and it
    * therefore has to be expanded again when the drag ends. Stays true until
@@ -66,15 +69,6 @@ export class MozTabbrowserTabGroup extends MozXULElement {
    * @type {boolean}
    */
   collapsedByDrag = false;
-
-  /**
-   * Whether the group is leaving this window for another one rather than being
-   * closed. `Tabbrowser.adoptTabGroup` sets it on the group it takes the tabs
-   * from, which is discarded once they have moved.
-   *
-   * @type {boolean}
-   */
-  removedByAdoption;
 
   #observerRemoved = false;
 
@@ -154,13 +148,10 @@ export class MozTabbrowserTabGroup extends MozXULElement {
       ".tab-group-overflow-count"
     );
 
-    let tabGroupCreateDetail = this.#wasCreatedByAdoption
-      ? { isAdoptingGroup: true }
-      : {};
     this.dispatchEvent(
       new CustomEvent("TabGroupCreate", {
         bubbles: true,
-        detail: tabGroupCreateDetail,
+        detail: { adopting: this.#wasCreatedByAdoption },
       })
     );
     // Reset `wasCreatedByAdoption` to default of false so that we only
@@ -203,7 +194,10 @@ export class MozTabbrowserTabGroup extends MozXULElement {
       this.#tabChangeObserver = new window.MutationObserver(mutations => {
         if (!this.tabs.length) {
           this.dispatchEvent(
-            new CustomEvent("TabGroupRemoved", { bubbles: true })
+            new CustomEvent("TabGroupRemoved", {
+              bubbles: true,
+              detail: { adopting: this.#removedByAdoption },
+            })
           );
           this.remove();
           Services.obs.notifyObservers(
@@ -596,6 +590,17 @@ export class MozTabbrowserTabGroup extends MozXULElement {
    */
   set wasCreatedByAdoption(value) {
     this.#wasCreatedByAdoption = value;
+  }
+
+  /**
+   * Whether the group is leaving this window for another one rather than being
+   * closed. `Tabbrowser.adoptTabGroup` sets it on the group it takes the tabs
+   * from, which is discarded once they have moved.
+   *
+   * @param {boolean} value
+   */
+  set removedByAdoption(value) {
+    this.#removedByAdoption = value;
   }
 
   /**

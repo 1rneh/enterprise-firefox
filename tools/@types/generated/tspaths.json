@@ -49,6 +49,9 @@
       "chrome://browser/content/aiwindow/components/ai-website-chip.mjs": [
         "../../../browser/components/aiwindow/ui/components/ai-website-chip/ai-website-chip.mjs"
       ],
+      "chrome://browser/content/aiwindow/components/tab-group-icon.mjs": [
+        "../../../browser/components/aiwindow/ui/components/tab-group-icon/tab-group-icon.mjs"
+      ],
       "chrome://browser/content/aiwindow/components/ai-website-confirmation.mjs": [
         "../../../browser/components/aiwindow/ui/components/ai-website-confirmation/ai-website-confirmation.mjs"
       ],
@@ -465,6 +468,9 @@
       ],
       "chrome://browser/content/urlbar/SmartbarInputUtils.mjs": [
         "../../../browser/components/urlbar/content/SmartbarInputUtils.mjs"
+      ],
+      "chrome://browser/content/urlbar/SmartbarMentionUtils.mjs": [
+        "../../../browser/components/urlbar/content/SmartbarMentionUtils.mjs"
       ],
       "chrome://browser/content/urlbar/UrlbarChildController.mjs": [
         "../../../browser/components/urlbar/content/UrlbarChildController.mjs"
@@ -6124,9 +6130,6 @@
       "resource://gre/modules/IndexedDB.sys.mjs": [
         "../../../toolkit/modules/IndexedDB.sys.mjs"
       ],
-      "resource://gre/modules/IndexedDBHelper.sys.mjs": [
-        "../../../dom/base/IndexedDBHelper.sys.mjs"
-      ],
       "resource://gre/modules/InlineSpellChecker.sys.mjs": [
         "../../../toolkit/modules/InlineSpellChecker.sys.mjs"
       ],
@@ -6162,9 +6165,6 @@
       ],
       "resource://gre/modules/LoadURIDelegate.sys.mjs": [
         "../../../mobile/shared/modules/geckoview/LoadURIDelegate.sys.mjs"
-      ],
-      "resource://gre/modules/LocationHelper.sys.mjs": [
-        "../../../dom/base/LocationHelper.sys.mjs"
       ],
       "resource://gre/modules/Log.sys.mjs": [
         "../../../toolkit/modules/Log.sys.mjs"
@@ -7047,9 +7047,6 @@
       ],
       "resource://newtab/lib/Widgets/RecentSearchesFeed.sys.mjs": [
         "../../../browser/extensions/newtab/lib/Widgets/RecentSearchesFeed.sys.mjs"
-      ],
-      "resource://newtab/lib/Widgets/SportsFeed.sys.mjs": [
-        "../../../browser/extensions/newtab/lib/Widgets/SportsFeed.sys.mjs"
       ],
       "resource://newtab/lib/Widgets/StocksFeed.sys.mjs": [
         "../../../browser/extensions/newtab/lib/Widgets/StocksFeed.sys.mjs"

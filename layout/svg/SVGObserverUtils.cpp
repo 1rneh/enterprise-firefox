@@ -992,8 +992,8 @@ class SVGFilterObserverListForCSSProp final : public SVGFilterObserverList {
   }
 
  protected:
-  SVGFilterObserverListForCSSProp(const SVGFilterObserverListForCSSProp& aOther)
-      : SVGFilterObserverList(aOther) {}
+  SVGFilterObserverListForCSSProp(const SVGFilterObserverListForCSSProp&) =
+      default;
 
   void OnRenderingChange(Element* aObservingElement) override;
 };
@@ -1039,10 +1039,7 @@ class SVGFilterObserverListForCanvasContext final
 
  private:
   SVGFilterObserverListForCanvasContext(
-      const SVGFilterObserverListForCanvasContext& aOther)
-      : SVGFilterObserverList(aOther),
-        mContext(aOther.mContext),
-        mActive(aOther.mActive) {}
+      const SVGFilterObserverListForCanvasContext&) = default;
 
   CanvasRenderingContext2D* mContext;
   bool mActive = true;

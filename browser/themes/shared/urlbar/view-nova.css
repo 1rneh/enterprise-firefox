@@ -167,6 +167,7 @@
   &[menu-trigger],
   &[row-selectable]:not([selected]):hover {
     background-color: var(--urlbarview-background-color-hover);
+    color: var(--urlbarview-text-color-hover);
   }
 
   &[selected] {
@@ -538,12 +539,6 @@
       font-size: 0;
     }
   }
-}
-
-/* This should be supported within panel-{item,list} rather than modifying it, to be fixed by
-   https://bugzilla.mozilla.org/show_bug.cgi?id=1826841 */
-.urlbarView-result-menuitem::part(button) {
-  padding-inline-start: 12px;
 }
 
 /* Button with label, e.g. tip button */
@@ -1368,6 +1363,7 @@
 
     .urlbarView-realtime-root:not([selectable]) > &:not([selected]):hover {
       background-color: var(--urlbarview-background-color-hover);
+      color: var(--urlbarview-text-color-hover);
     }
 
     &[selected] {

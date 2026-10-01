@@ -40,6 +40,7 @@ from ..frontend.data import (
     FinalTargetFiles,
     FinalTargetPreprocessedFiles,
     GeneratedFile,
+    Headers,
     HostDefines,
     HostLibrary,
     HostProgram,
@@ -612,6 +613,10 @@ class RecursiveMakeBackend(MakeBackend):
             self._process_program(obj, backend_file)
             self._process_linked_libraries(obj, backend_file)
             self._no_skip["syms"].add(backend_file.relobjdir)
+
+        elif isinstance(obj, Headers):
+            # nothing to do
+            ...
 
         elif isinstance(obj, HostProgram):
             self._process_host_program(obj, backend_file)

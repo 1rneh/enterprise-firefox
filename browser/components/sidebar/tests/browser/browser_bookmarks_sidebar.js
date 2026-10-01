@@ -7,8 +7,12 @@ const { PlacesTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/PlacesTestUtils.sys.mjs"
 );
 
-const { openFolder, openToolbarFolder, findBookmarkItemByGuid } =
-  SidebarTestUtils.bookmarks;
+const {
+  showBookmarksSidebar,
+  openFolder,
+  openToolbarFolder,
+  findBookmarkItemByGuid,
+} = SidebarTestUtils.bookmarks;
 
 const TEST_URL = "https://example.com/";
 const TEST_URL_2 = "https://example.org/";
@@ -252,7 +256,7 @@ add_setup(async function () {
 });
 
 add_task(async function test_bookmarks_panel_opens() {
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   ok(component, "Bookmarks panel component is present.");
 
   ok(component.panelHeader, "Panel header is rendered.");
@@ -264,7 +268,7 @@ add_task(async function test_bookmarks_panel_opens() {
 add_task(async function test_bookmarks_shows_toolbar_folder() {
   const bookmark = await addBookmark();
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   await BrowserTestUtils.waitForMutationCondition(
     tabList.shadowRoot,
@@ -290,7 +294,7 @@ add_task(async function test_bookmarks_shows_toolbar_folder() {
 async function testBookmarkTitleRendering(bookmarkInfo, title, message) {
   const bookmark = await addBookmark(bookmarkInfo);
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const row = await getBookmarkRow(component.bookmarkList, bookmark);
   Assert.equal(row.title, title, message);
 
@@ -326,7 +330,7 @@ add_task(async function test_bookmarks_search_filters_results() {
     url: "https://example.org/",
   });
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
   ok(component.searchInput, "Search input is present.");
 
   info("Search for 'Apple'.");
@@ -366,7 +370,7 @@ add_task(async function test_bookmarks_search_filters_results() {
 add_task(async function test_bookmarks_search_results_show_tab_list() {
   const bm = await addBookmark({ title: "SearchTarget", url: TEST_URL });
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
 
   EventUtils.synthesizeMouseAtCenter(component.searchInput, {}, contentWindow);
   EventUtils.sendString("SearchTarget", contentWindow);
@@ -389,7 +393,7 @@ add_task(async function test_bookmarks_search_results_show_tab_list() {
 });
 
 add_task(async function test_bookmarks_searchbox_focus_and_context_menu() {
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
   const { searchInput } = component;
 
   ok(component.shadowRoot.activeElement, "check activeElement is present");
@@ -423,7 +427,7 @@ add_task(async function test_bookmarks_folder_expand_collapse() {
   const folder = await addFolder("ExpandableFolder");
   await addBookmark({ title: "Inside Folder", parentGuid: folder.guid });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const toolbarDetails = await openToolbarFolder(tabList);
@@ -460,7 +464,7 @@ add_task(async function test_bookmarks_folder_expand_collapse() {
 });
 
 add_task(async function test_bookmarks_panel_updates_on_places_event() {
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
 
   const bm = await addBookmark({ title: "Dynamic Bookmark" });
 
@@ -496,7 +500,7 @@ add_task(async function test_bookmarks_panel_updates_on_places_event() {
 add_task(async function test_bookmarks_context_menu_bookmark() {
   const bm = await addBookmark({ title: "Context Menu Bookmark" });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const toolbarDetails = await openToolbarFolder(tabList);
@@ -552,7 +556,7 @@ add_task(async function test_bookmarks_search_context_menu_show_in_folder() {
     parentGuid: folder.guid,
   });
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
 
   info("Search for the nested bookmark.");
   EventUtils.synthesizeMouseAtCenter(component.searchInput, {}, contentWindow);
@@ -659,7 +663,7 @@ add_task(async function test_bookmarks_context_menu_folder() {
   const folder = await addFolder("Context Menu Folder");
   await addBookmark({ title: "In Folder", parentGuid: folder.guid });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const toolbarDetails = await openToolbarFolder(tabList);
@@ -710,7 +714,7 @@ add_task(
     const folder = await addFolder("Subfolders Only");
     await addFolder("Nested Folder", folder.guid);
 
-    const { component } = await showBookmarksSidebar();
+    const { component } = await showBookmarksSidebar(window);
     const tabList = component.bookmarkList;
 
     const toolbarDetails = await openToolbarFolder(tabList);
@@ -753,7 +757,7 @@ add_task(async function test_add_folder_before_right_clicked_bookmark() {
   });
   await addBookmark({ title: "Gamma", url: "https://example.com/c" });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   const rowB = await getBookmarkRow(tabList, bmB);
   const { index: indexB } = await PlacesUtils.bookmarks.fetch(bmB.guid);
@@ -797,7 +801,7 @@ add_task(async function test_add_folder_into_right_clicked_folder() {
     parentGuid: folder.guid,
   });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   const folderDetails = await getBookmarkFolder(tabList, folder);
   const summary = folderDetails.querySelector("summary");
@@ -828,7 +832,7 @@ add_task(async function test_add_bookmark_before_right_clicked_bookmark() {
   });
   await addBookmark({ title: "Gamma", url: "https://example.com/c" });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   const rowB = await getBookmarkRow(tabList, bmB);
   const { index: indexB } = await PlacesUtils.bookmarks.fetch(bmB.guid);
@@ -873,7 +877,7 @@ add_task(async function test_add_bookmark_into_right_clicked_folder() {
     parentGuid: folder.guid,
   });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   const folderDetails = await getBookmarkFolder(tabList, folder);
   const summary = folderDetails.querySelector("summary");
@@ -905,7 +909,7 @@ add_task(async function test_bookmarks_copy_writes_all_flavors() {
     url: "https://example.com/copy",
   });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const row = await getBookmarkRow(component.bookmarkList, bookmark);
   await activateContextMenuItem(row.mainEl, "sidebar-bookmarks-context-copy");
 
@@ -955,7 +959,7 @@ add_task(async function test_bookmarks_copy_paste_into_folder() {
     parentGuid: folder.guid,
   });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   const row = await getBookmarkRow(tabList, bm);
   await activateContextMenuItem(row.mainEl, "sidebar-bookmarks-context-copy");
@@ -1000,7 +1004,7 @@ add_task(async function test_bookmarks_cut_moves_after_paste() {
     parentGuid: folder.guid,
   });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   const row = await getBookmarkRow(tabList, bm);
   await activateContextMenuItem(row.mainEl, "sidebar-bookmarks-context-cut");
@@ -1034,7 +1038,7 @@ add_task(async function test_bookmarks_cut_moves_after_paste() {
 add_task(async function test_bookmarks_delete_via_context_menu() {
   const bookmark = await addBookmark({ title: "Delete Me" });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const row = await getBookmarkRow(tabList, bookmark);
@@ -1061,7 +1065,7 @@ add_task(async function test_bookmarks_delete_via_context_menu() {
 add_task(async function test_bookmarks_empty_folder_shows_label() {
   const folder = await addFolder("Empty Folder");
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const toolbarDetails = await openToolbarFolder(tabList);
@@ -1104,7 +1108,7 @@ add_task(async function test_bookmarks_drag_reorders_items() {
     url: "https://example.com/b",
   });
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const rowA = await getBookmarkRow(tabList, bmA);
@@ -1152,7 +1156,7 @@ add_task(async function test_bookmarks_drag_into_folder() {
     url: "https://example.com/drag",
   });
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const bookmarkRow = await getBookmarkRow(tabList, bm);
@@ -1199,7 +1203,7 @@ add_task(async function test_bookmarks_drag_hover_expands_folder() {
     url: "https://example.com/hover-drag",
   });
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const bookmarkRow = await getBookmarkRow(tabList, bm);
@@ -1255,7 +1259,7 @@ add_task(async function test_bookmarks_drag_url_to_panel() {
     parentGuid: folder.guid,
   });
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const folderSummary = (
@@ -1312,7 +1316,7 @@ add_task(async function test_bookmarks_drag_tab_to_panel() {
     "https://example.com/tab-page"
   );
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const targetRow = await getBookmarkRow(tabList, bm);
@@ -1358,7 +1362,7 @@ add_task(async function test_bookmarks_smart_bookmark_renders_as_folder() {
   const smartBookmarks = await createSmartBookmarks(url, tag);
   const { recentSmart, tagsSmart } = smartBookmarks;
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const toolbarDetails = await openToolbarFolder(tabList);
@@ -1443,7 +1447,7 @@ add_task(async function test_bookmarks_smart_bookmark_uses_bookmark_guid() {
     url: `place:parent=${folder.guid}`,
   });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const toolbarDetails = await openToolbarFolder(tabList);
@@ -1518,7 +1522,7 @@ add_task(async function test_bookmarks_folder_shortcut_uses_folder_icon() {
     url: "place:tag=icon-test-tag",
   });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   const toolbarDetails = await openToolbarFolder(tabList);
   const toolbarList = toolbarDetails.querySelector("sidebar-bookmark-list");
@@ -1574,7 +1578,7 @@ add_task(async function test_bookmarks_smart_bookmark_drag_disabled() {
     url: "https://example.com/drag-source-smart",
   });
 
-  const { component, contentWindow } = await showBookmarksSidebar();
+  const { component, contentWindow } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const toolbarDetails = await openToolbarFolder(tabList);
@@ -1701,7 +1705,7 @@ add_task(async function test_bookmarks_smart_bookmark_context_menu() {
   const smartBookmarks = await createSmartBookmarks(url, tag);
   const { recentSmart, tagsSmart } = smartBookmarks;
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
 
   const toolbarDetails = await openToolbarFolder(tabList);
@@ -1863,7 +1867,7 @@ add_task(async function test_long_bookmark_title_is_truncated() {
     url: "https://example.com/long-title-bookmark",
   });
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const tabList = component.bookmarkList;
   const nestedList = await getBookmarkList(tabList, bookmark.parentGuid);
   const row = await getBookmarkRow(tabList, bookmark);
@@ -1901,7 +1905,7 @@ add_task(async function test_long_bookmark_title_is_truncated() {
 add_task(async function test_long_bookmark_folder_title_is_truncated_empty() {
   const folder = await addFolder(LONG_FOLDER_TITLE);
 
-  const { component } = await showBookmarksSidebar();
+  const { component } = await showBookmarksSidebar(window);
   const list = await getBookmarkList(component.bookmarkList, folder.parentGuid);
   await BrowserTestUtils.waitForMutationCondition(
     list.shadowRoot,
@@ -1923,7 +1927,7 @@ add_task(
       parentGuid: folder.guid,
     });
 
-    const { component } = await showBookmarksSidebar();
+    const { component } = await showBookmarksSidebar(window);
     const list = await getBookmarkList(
       component.bookmarkList,
       folder.parentGuid

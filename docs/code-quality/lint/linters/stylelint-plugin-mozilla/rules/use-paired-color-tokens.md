@@ -30,15 +30,12 @@ counterpart is meant to combine with whatever the surface inherits, so it makes
 no claim to report.
 
 **A background and text color that are not counterparts.** Where the block sets
-both halves, the rule reports:
-
-- Two paired tokens that are not each other's counterpart, whether they come
-  from different components (`--sidebar-background-color` with
-  `--panel-text-color`) or from different variants of one component
-  (`--button-background-color-menu` with `--button-text-color`).
-- Two tokens of one component whose variants differ where the counterpart does
-  not exist as a token at all, e.g. `--urlbarview-background-color-hover` with
-  `--urlbarview-text-color-selected`. File a bug for the missing token.
+both halves, the rule reports two tokens that are not each other's counterpart,
+whether they come from different components (`--sidebar-background-color` with
+`--panel-text-color`) or from different variants of one component
+(`--button-background-color-menu` with `--button-text-color`). A component with
+any text color token has one for every background variant, which the design
+system's tests enforce, so the message can always name the counterpart.
 
 **A state variant that inherits the wrong text color.** A block selected by a
 state that repaints the background and sets no `color` takes its text color

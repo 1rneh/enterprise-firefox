@@ -10110,10 +10110,13 @@ nsFrameState nsGridContainerFrame::ComputeSelfSubgridMasonryBits() const {
   const auto* pos = StylePosition();
 
   if (StyleDisplay()->DisplayInside() == StyleDisplayInside::GridLanes) {
-    // If rows are defined and columns are none → row tracks;
-    // otherwise (columns defined, both defined, or neither defined) → column
-    // tracks.
-    if (!pos->mGridTemplateRows.IsNone()) {
+    // If rows are defined and columns are none → row tracks (with inline axis
+    // being the stacking axis, i.e. there are no columns)
+    //
+    // Otherwise (columns defined, both defined, or neither defined) → column
+    // tracks (with block axis being the stacking axis, i.e. there are no rows)
+    if (!pos->mGridTemplateRows.IsNone() &&
+        pos->mGridTemplateColumns.IsNone()) {
       bits |= NS_STATE_GRID_IS_COL_MASONRY;
     } else {
       bits |= NS_STATE_GRID_IS_ROW_MASONRY;

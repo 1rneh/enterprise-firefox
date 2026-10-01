@@ -47,7 +47,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   RemoteRenderer: "resource://newtab/lib/RemoteRenderer.sys.mjs",
   SectionsFeed: "resource://newtab/lib/SectionsManager.sys.mjs",
   SectionsLayoutFeed: "resource://newtab/lib/SectionsLayoutFeed.sys.mjs",
-  SportsFeed: "resource://newtab/lib/Widgets/SportsFeed.sys.mjs",
   StocksFeed: "resource://newtab/lib/Widgets/StocksFeed.sys.mjs",
   PrivacyFeed: "resource://newtab/lib/Widgets/PrivacyFeed.sys.mjs",
   RecentSearchesFeed:
@@ -821,13 +820,6 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "discoverystream.optIn-region-weather-config",
-    {
-      title: "Regions for weather opt-in.",
-      value: "DE,GB,FR,ES,IT,CH,AT,BE,IE,NL,PL,CZ,SE,SG,HU,SK,FI,DK,NO,PT",
-    },
-  ],
-  [
     "weather.optInDisplayed",
     {
       title:
@@ -881,35 +873,6 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "sports.worldCup.teamsEndpoint",
-    {
-      title: "The Merino endpoint for fetching available World Cup teams data",
-      value: "https://merino.services.mozilla.com/api/v1/wcs/teams",
-    },
-  ],
-  [
-    "sports.worldCup.matchesEndpoint",
-    {
-      title: "The Merino endpoint for fetching World Cup match data",
-      value: "https://merino.services.mozilla.com/api/v1/wcs/matches",
-    },
-  ],
-  [
-    "sports.worldCup.liveEndpoint",
-    {
-      title: "The Merino endpoint for fetching live World Cup match data",
-      value: "https://merino.services.mozilla.com/api/v1/wcs/live",
-    },
-  ],
-  [
-    "sports.worldCup.watchLiveEndpoint",
-    {
-      title:
-        "The Merino endpoint for fetching World Cup watch-live broadcaster data",
-      value: "https://merino.services.mozilla.com/api/v1/wcs/watch-links",
-    },
-  ],
-  [
     "widgets.pictureOfTheDay.endpoint",
     {
       title: "The Merino endpoint for fetching the daily Picture of the day",
@@ -946,37 +909,6 @@ export const PREFS_CONFIG = new Map([
       title:
         "Boolean flag for determining if a user has interacted with the Picture of the day widget",
       value: false,
-    },
-  ],
-  [
-    "widgets.sportsWidget.pollIdleMs",
-    {
-      title:
-        "Sports widget: poll interval when no games are imminent (milliseconds)",
-      value: 21600000, // 6 hours
-    },
-  ],
-  [
-    "widgets.sportsWidget.pollMatchDayMs",
-    {
-      title:
-        "Sports widget: poll interval on a match day pre-kickoff (milliseconds)",
-      value: 1800000, // 30 minutes
-    },
-  ],
-  [
-    "widgets.sportsWidget.pollLiveMs",
-    {
-      title: "Sports widget: poll interval during live play (milliseconds)",
-      value: 180000, // 3 minutes
-    },
-  ],
-  [
-    "widgets.sportsWidget.pollPregameLeadMs",
-    {
-      title:
-        "Sports widget: how early to enter LIVE polling before kickoff (milliseconds)",
-      value: 600000, // 10 minutes
     },
   ],
   [
@@ -1047,17 +979,6 @@ export const PREFS_CONFIG = new Map([
       value_local_dev: false,
     },
   ],
-  ...(!AppConstants.MOZ_ENTERPRISE
-    ? [
-        [
-          "telemetry.structuredIngestion.endpoint",
-          {
-            title: "Structured Ingestion telemetry server endpoint",
-            value: "https://incoming.telemetry.mozilla.org/submit",
-          },
-        ],
-      ]
-    : []),
   [
     "telemetry.privatePing.enabled",
     {
@@ -1832,66 +1753,6 @@ export const PREFS_CONFIG = new Map([
     {
       title: "Size of the focus timer widget (medium or large)",
       value: "",
-    },
-  ],
-  [
-    "widgets.sportsWidget.enabled",
-    {
-      title: "Enables the sports widget",
-      value: true,
-    },
-  ],
-  [
-    "widgets.system.sportsWidget.enabled",
-    {
-      title: "Enables the sports widget experiment in Nimbus",
-      value: false,
-    },
-  ],
-  [
-    "widgets.sportsWidget.size",
-    {
-      title: "Size of the sports widget (medium or large)",
-      value: "",
-    },
-  ],
-  [
-    "widgets.sportsWidget.live.enabled",
-    {
-      title: "Enables live scores in the sports widget",
-      value: false,
-    },
-  ],
-  [
-    "widgets.sportsWidget.celebrations.enabled",
-    {
-      title:
-        "Enables end-of-match celebration animations in the sports widget. Off by default; can also be turned on via the dedicated trainhopConfig.sportsCelebrations.enabled namespace (canonical), or the trainhopConfig.widgets.sportsWidgetCelebrationsEnabled / legacy trainhopConfig.sports.celebrationsEnabled fallbacks.",
-      value: false,
-    },
-  ],
-  [
-    "widgets.sportsWidget.celebrations.windowMs",
-    {
-      title:
-        "How recently (in ms) a match must have ended to still trigger a celebration. Default 24h; can also be set via the dedicated trainhopConfig.sportsCelebrations.windowMs namespace (canonical), or the trainhopConfig.widgets.sportsWidgetCelebrationsWindowMs / legacy trainhopConfig.sports.celebrationsWindowMs fallbacks.",
-      value: 86400000,
-    },
-  ],
-  [
-    "widgets.sports.forceLiveDataTrustable",
-    {
-      title:
-        "Dev/QA only: bypass the pre-kickoff guard and treat /live data as trustable",
-      value: false,
-    },
-  ],
-  [
-    "widgets.sportsWidget.interaction",
-    {
-      title:
-        "Boolean flag for determining if a user has interacted with the sports widget",
-      value: false,
     },
   ],
   [
@@ -2744,13 +2605,6 @@ const FEEDS_DATA = [
     factory: () => new lazy.ListsFeed(),
     title: "Handles the data for the Todo list widget",
     value: true,
-  },
-  {
-    name: "sportsfeed",
-    factory: () => new lazy.SportsFeed(),
-    title: "Handles persistent state for the Sports widget",
-    // Bug 2063657: the sports widget is retired; removed in bug 2063656.
-    value: false,
   },
   {
     name: "privacyfeed",

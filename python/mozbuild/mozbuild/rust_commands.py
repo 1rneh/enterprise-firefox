@@ -540,6 +540,7 @@ def compose_env(
     if "PKG_CONFIG_LIBDIR" in substs:
         env["PKG_CONFIG_LIBDIR"] = substs["PKG_CONFIG_LIBDIR"]
     env["RUST_BACKTRACE"] = "full"
+    env["MOZ_TOPSRCDIR"] = topsrcdir
     env["MOZ_TOPOBJDIR"] = topobjdir
     env["MOZ_FOLD_LIBS"] = substs.get("MOZ_FOLD_LIBS")
     env["GLEAN_PYTHON_VENV_DIR"] = substs.get("GLEAN_PARSER_VENV")

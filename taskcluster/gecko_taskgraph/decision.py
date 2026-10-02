@@ -216,6 +216,27 @@ def full_task_graph_to_manifests_by_task(full_task_json):
     return manifests_by_task
 
 
+def build_decision_perfherder_data(trust_domain, params_time, taskgraph_time):
+    suite = {
+        "name": "decision",
+        "value": params_time + taskgraph_time,
+        "lowerIsBetter": True,
+        "subtests": [
+            {"name": "parameters", "value": params_time, "lowerIsBetter": True},
+            {"name": "taskgraph", "value": taskgraph_time, "lowerIsBetter": True},
+        ],
+    }
+    if trust_domain == "gecko":
+        suite["monitor"] = True
+        suite["alertNotifyEmails"] = ["release+gecko-decision-alerts@mozilla.com"]
+    else:
+        suite["shouldAlert"] = False
+    return {
+        "framework": {"name": "build_metrics"},
+        "suites": [suite],
+    }
+
+
 def taskgraph_decision(options, parameters):
     """
     Run the decision task.  This function implements `mach taskgraph decision`,

@@ -34,6 +34,13 @@ of August 2026.
     in this case), and other information about the state of the Urlbar. A new
     *UrlbarQueryContext* is created every time the text in the input changes.
 
+    On the [message path](overview.md#direct-path-and-message-path), this is
+    where the query crosses the {doc}`process boundary <process-boundary>`: the
+    *UrlbarChildController* sends the query context to the parent as a message,
+    and the *UrlbarParentController* runs the query on its own copy of it. The
+    results reach the view only through the notifications in step 10, and the
+    query context the input created never receives them.
+
 03. *UrlbarParentController* {searchfox}`tells ProvidersManager <firefox-main/rev/8e42adb00f0d301d1b74f71d5f7d49228eb712c9:browser/components/urlbar/UrlbarParentController.sys.mjs#415>`
     that the providers should fetch results.
 
@@ -88,6 +95,13 @@ of August 2026.
     for each *UrlbarResult* and {searchfox}`inserts them <firefox-main/rev/8e42adb00f0d301d1b74f71d5f7d49228eb712c9:browser/components/urlbar/content/UrlbarView.mjs#1527>`
     into the view's DOM element.
 
+    On the message path, this is where the results cross back. Each query
+    notification is a message with the query context in its wire form, and the
+    *UrlbarChildController* builds a new *UrlbarQueryContext* from it before
+    any listener reads it. The view therefore receives the notification
+    asynchronously, and gets a different query context object with every
+    update.
+
     As described above, we may reach this step multiple times per search. That
     means we may be updating the view multiple times per keystroke. A view that
     visibly changes many times after a single keystroke is perceived as
@@ -99,7 +113,9 @@ of August 2026.
 The blue rounded boxes are the UI modules, which run wherever the input
 lives; the amber rectangles always run in the parent process. The solid
 lines show a query traveling to the providers. The dotted lines show its
-results coming back to the view.
+results coming back to the view. The two thick red lines between
+*UrlbarChildController* and *UrlbarParentController* cross the process boundary
+on the message path.
 
 ```{mermaid}
 :align: center
@@ -143,4 +159,5 @@ flowchart TD
     class input,child,view uiModule;
     class parent,manager,providers,muxer parentModule;
     class dom domNode;
+    linkStyle 2,9 stroke:#b91c1c,stroke-width:3px;
 ```

@@ -729,145 +729,236 @@ class _SessionStore {
     let state;
     let ss = lazy.SessionStartup;
     let willRestore = ss.willRestore();
-    if (willRestore || ss.sessionType == ss.DEFER_SESSION) {
-      state = ss.state;
-    }
-    this.#log.debug(
-      `initSession willRestore: ${willRestore}, SessionStartup.sessionType: ${ss.sessionType}`
+    // Snapshot this before we clear it further down, so we can still report
+    // why we resumed.
+    let resumeSessionOnce = this.#prefBranch.getBoolPref(
+      "sessionstore.resume_session_once"
     );
+    let decision = { action: "nothing" };
 
-    if (state) {
-      // Initialize the splitViewId counter and migrate any string-based splitViewIds
-      this.#initSplitViewIds(state);
+    try {
+      if (willRestore || ss.sessionType == ss.DEFER_SESSION) {
+        state = ss.state;
+      }
+      this.#log.debug(
+        `initSession willRestore: ${willRestore}, SessionStartup.sessionType: ${ss.sessionType}`
+      );
 
-      try {
-        // If we're doing a DEFERRED session, then we want to pull pinned tabs
-        // out so they can be restored, and save any open groups so they are
-        // available to the user.
-        if (ss.sessionType == ss.DEFER_SESSION) {
-          let [iniState, remainingState] =
-            this.#prepDataForDeferredRestore(state);
-          // If we have an iniState with windows, that means that we have windows
-          // with pinned tabs to restore. If we have an iniState with saved
-          // groups, we need to preserve those in the new state.
-          if (iniState.windows.length || iniState.savedGroups) {
-            state = iniState;
-          } else {
-            state = null;
-          }
-          this.#log.debug(
-            `initSession deferred restore with ${iniState.windows.length} initial windows, ${remainingState.windows.length} remaining windows`
-          );
+      if (state) {
+        // Initialize the splitViewId counter and migrate any string-based splitViewIds
+        this.#initSplitViewIds(state);
 
-          if (remainingState.windows.length) {
-            LastSession.setState(remainingState);
-          }
-          Glean.browserEngagement.sessionrestoreInterstitial.deferred_restore.add(
-            1
-          );
-        } else {
-          // Get the last deferred session in case the user still wants to
-          // restore it
-          LastSession.setState(state.lastSessionState);
-
-          let restoreAsCrashed = ss.willRestoreAsCrashed();
-          if (restoreAsCrashed) {
-            this.#recentCrashes =
-              ((state.session && state.session.recentCrashes) || 0) + 1;
+        try {
+          // If we're doing a DEFERRED session, then we want to pull pinned tabs
+          // out so they can be restored, and save any open groups so they are
+          // available to the user.
+          if (ss.sessionType == ss.DEFER_SESSION) {
+            let [iniState, remainingState] =
+              this.#prepDataForDeferredRestore(state);
+            // Should null out state when iniState carries nothing to restore
+            // now, but savedGroups is always an array, so this is always true
+            // and the else never runs. TODO (Bug 2076441).
+            if (iniState.windows.length || iniState.savedGroups) {
+              state = iniState;
+            } else {
+              state = null;
+            }
+            // #prepDataForDeferredRestore only puts pinned tabs in a window's
+            // `tabs`; everything else it carries over is parked rather than
+            // opened. Ordinary tabs are turned into closed tabs so they show
+            // up in recently-closed, and grouped tabs become saved groups, in
+            // both cases flagged removeAfterRestore so an explicit restore
+            // later doesn't duplicate them. So a window here does not imply
+            // anything will be opened.
+            if (iniState.windows.some(win => win.tabs.length)) {
+              decision.action = "pinned_only";
+            } else if (iniState.windows.length || iniState.savedGroups.length) {
+              decision.action = "deferred_only";
+            }
             this.#log.debug(
-              `initSession, restoreAsCrashed, crashes: ${this.#recentCrashes}`
+              `initSession deferred restore with ${iniState.windows.length} initial windows, ${remainingState.windows.length} remaining windows`
             );
 
-            // #needsRestorePage will record sessionrestore_interstitial,
-            // including the specific reason we decided we needed to show
-            // about:sessionrestore, if that's what we do.
-            if (this.#needsRestorePage(state, this.#recentCrashes)) {
-              // replace the crashed session with a restore-page-only session
-              let url = "about:sessionrestore";
-              let formdata = { id: { sessionData: state }, url };
-              let entry = {
-                url,
-                triggeringPrincipal_base64:
-                  lazy.E10SUtils.SERIALIZED_SYSTEMPRINCIPAL,
-              };
-              state = {
-                windows: [{ tabs: [{ entries: [entry], formdata }] }],
-                savedGroups: state.savedGroups,
-              };
-              this.#log.debug("initSession, will show about:sessionrestore");
-            } else if (
-              this.#hasSingleTabWithURL(state.windows, "about:welcomeback")
-            ) {
-              this.#log.debug("initSession, will show about:welcomeback");
-              Glean.browserEngagement.sessionrestoreInterstitial.shown_only_about_welcomeback.add(
-                1
-              );
-              // On a single about:welcomeback URL that crashed, replace about:welcomeback
-              // with about:sessionrestore, to make clear to the user that we crashed.
-              state.windows[0].tabs[0].entries[0].url = "about:sessionrestore";
-              state.windows[0].tabs[0].entries[0].triggeringPrincipal_base64 =
-                lazy.E10SUtils.SERIALIZED_SYSTEMPRINCIPAL;
-            } else {
-              restoreAsCrashed = false;
+            if (remainingState.windows.length) {
+              LastSession.setState(remainingState);
             }
-          }
-
-          // If we didn't use about:sessionrestore, record that:
-          if (!restoreAsCrashed) {
-            Glean.browserEngagement.sessionrestoreInterstitial.autorestore.add(
+            Glean.browserEngagement.sessionrestoreInterstitial.deferred_restore.add(
               1
             );
-            this.#log.debug("initSession, will autorestore");
-            this.#removeExplicitlyClosedTabs(state);
-          }
+          } else {
+            // Get the last deferred session in case the user still wants to
+            // restore it
+            LastSession.setState(state.lastSessionState);
 
-          // Update the session start time using the restored session state.
-          this.#updateSessionStartTime(state);
+            let restoreAsCrashed = ss.willRestoreAsCrashed();
+            if (restoreAsCrashed) {
+              this.#recentCrashes =
+                ((state.session && state.session.recentCrashes) || 0) + 1;
+              this.#log.debug(
+                `initSession, restoreAsCrashed, crashes: ${this.#recentCrashes}`
+              );
 
-          if (state.windows.length) {
-            // We don't want to minimize and then open a window at startup.
-            if (state.windows[0].sizemode == "minimized") {
-              state.windows[0].sizemode = "normal";
+              decision.interstitialReason = this.#needsRestorePage(
+                state,
+                this.#recentCrashes
+              );
+              if (decision.interstitialReason) {
+                Glean.browserEngagement.sessionrestoreInterstitial[
+                  `shown_${decision.interstitialReason}`
+                ].add(1);
+                decision.action = "interstitial";
+                // replace the crashed session with a restore-page-only session
+                let url = "about:sessionrestore";
+                let formdata = { id: { sessionData: state }, url };
+                let entry = {
+                  url,
+                  triggeringPrincipal_base64:
+                    lazy.E10SUtils.SERIALIZED_SYSTEMPRINCIPAL,
+                };
+                state = {
+                  windows: [{ tabs: [{ entries: [entry], formdata }] }],
+                  savedGroups: state.savedGroups,
+                };
+                this.#log.debug("initSession, will show about:sessionrestore");
+              } else if (
+                this.#hasSingleTabWithURL(state.windows, "about:welcomeback")
+              ) {
+                this.#log.debug("initSession, will show about:welcomeback");
+                decision.action = "welcomeback";
+                Glean.browserEngagement.sessionrestoreInterstitial.shown_only_about_welcomeback.add(
+                  1
+                );
+                // On a single about:welcomeback URL that crashed, replace about:welcomeback
+                // with about:sessionrestore, to make clear to the user that we crashed.
+                state.windows[0].tabs[0].entries[0].url =
+                  "about:sessionrestore";
+                state.windows[0].tabs[0].entries[0].triggeringPrincipal_base64 =
+                  lazy.E10SUtils.SERIALIZED_SYSTEMPRINCIPAL;
+              } else {
+                restoreAsCrashed = false;
+              }
             }
+
+            // If we didn't use about:sessionrestore, record that:
+            if (!restoreAsCrashed) {
+              Glean.browserEngagement.sessionrestoreInterstitial.autorestore.add(
+                1
+              );
+              this.#log.debug("initSession, will autorestore");
+              decision.action = "restore";
+              this.#removeExplicitlyClosedTabs(state);
+            }
+
+            // Update the session start time using the restored session state.
+            this.#updateSessionStartTime(state);
+
+            if (state.windows.length) {
+              // We don't want to minimize and then open a window at startup.
+              if (state.windows[0].sizemode == "minimized") {
+                state.windows[0].sizemode = "normal";
+              }
+            }
+
+            // clear any lastSessionWindowID attributes since those don't matter
+            // during normal restore
+            state.windows.forEach(function (aWindow) {
+              delete aWindow.__lastSessionWindowID;
+            });
           }
 
-          // clear any lastSessionWindowID attributes since those don't matter
-          // during normal restore
-          state.windows.forEach(function (aWindow) {
-            delete aWindow.__lastSessionWindowID;
-          });
+          // clear _maybeDontRestoreTabs because we have restored (or not)
+          // windows and so they don't matter
+          state?.windows?.forEach(win => delete win._maybeDontRestoreTabs);
+          state?._closedWindows?.forEach(
+            win => delete win._maybeDontRestoreTabs
+          );
+
+          this.#savedGroups = state?.savedGroups ?? [];
+        } catch (ex) {
+          decision.initError = ex.name;
+          this.#log.error("The session file is invalid: ", ex);
         }
+      }
 
-        // clear _maybeDontRestoreTabs because we have restored (or not)
-        // windows and so they don't matter
-        state?.windows?.forEach(win => delete win._maybeDontRestoreTabs);
-        state?._closedWindows?.forEach(win => delete win._maybeDontRestoreTabs);
+      if (
+        ss.sessionType == ss.RESUME_SESSION &&
+        !this.#prefBranch.getBoolPref("sessionstore.resume_session_once") &&
+        !ss.previousSessionCrashed
+      ) {
+        this.#isUserConfiguredRestore = true;
+      }
 
-        this.#savedGroups = state?.savedGroups ?? [];
-      } catch (ex) {
-        this.#log.error("The session file is invalid: ", ex);
+      // at this point, we've as good as resumed the session, so we can
+      // clear the resume_session_once flag, if it's set
+      if (
+        !lazy.RunState.isQuitting &&
+        this.#prefBranch.getBoolPref("sessionstore.resume_session_once")
+      ) {
+        this.#prefBranch.setBoolPref("sessionstore.resume_session_once", false);
+      }
+
+      Glean.sessionRestore.startupInitSession.stopAndAccumulate(timerId);
+      return state;
+    } catch (ex) {
+      decision.initError = ex.name;
+      throw ex;
+    } finally {
+      this.#recordSessionDecision(ss, decision, resumeSessionOnce);
+    }
+  }
+
+  /**
+   * Report what Session Restore decided to do with the session it found. This
+   * covers the decision only; whether the restore that followed succeeded is
+   * not known yet at this point.
+   *
+   * @param {object} ss
+   *        The SessionStartup module.
+   * @param {object} decision
+   *        What #initSession settled on: `action`, and optionally
+   *        `interstitialReason` and `initError`.
+   * @param {boolean} resumeSessionOnce
+   *        Whether a one-off resume was pending, as found at startup.
+   */
+  #recordSessionDecision(ss, decision, resumeSessionOnce) {
+    const SESSION_TYPES = {
+      [ss.NO_SESSION]: "no_session",
+      [ss.RECOVER_SESSION]: "recover",
+      [ss.RESUME_SESSION]: "resume",
+      [ss.DEFER_SESSION]: "defer",
+    };
+    let sessionType = SESSION_TYPES[ss.sessionType];
+
+    let extra = {
+      session_type: sessionType,
+      action: decision.action,
+      permanent_private: PrivateBrowsingUtils.permanentPrivateBrowsing,
+    };
+
+    if (sessionType == "resume") {
+      if (resumeSessionOnce) {
+        // A resume armed before an OS restart is only honoured if the OS
+        // really did restart us; SessionStartup withdraws it otherwise.
+        extra.resume_reason = Services.appinfo.restartedByOS
+          ? "os_restart"
+          : "resume_session_once";
+      } else {
+        extra.resume_reason = "startup_page";
       }
     }
-
-    if (
-      ss.sessionType == ss.RESUME_SESSION &&
-      !this.#prefBranch.getBoolPref("sessionstore.resume_session_once") &&
-      !ss.previousSessionCrashed
-    ) {
-      this.#isUserConfiguredRestore = true;
+    // Null when we never got as far as checking for a crash.
+    if (ss.previousSessionCrashed != null) {
+      extra.previous_session_crashed = ss.previousSessionCrashed;
+    }
+    if (decision.interstitialReason) {
+      extra.interstitial_reason = decision.interstitialReason;
+    }
+    if (decision.initError) {
+      extra.init_error = decision.initError;
     }
 
-    // at this point, we've as good as resumed the session, so we can
-    // clear the resume_session_once flag, if it's set
-    if (
-      !lazy.RunState.isQuitting &&
-      this.#prefBranch.getBoolPref("sessionstore.resume_session_once")
-    ) {
-      this.#prefBranch.setBoolPref("sessionstore.resume_session_once", false);
-    }
-
-    Glean.sessionRestore.startupInitSession.stopAndAccumulate(timerId);
-    return state;
+    Glean.sessionRestore.startupSessionDecision.record(extra);
+    this.#log.debug("Session decision", extra);
   }
 
   /**
@@ -1444,7 +1535,7 @@ class _SessionStore {
         } else if (!detail.skipSessionStore) {
           // `skipSessionStore` is set by tab close callers to indicate that we
           // shouldn't record the closed tab.
-          this.#onTabClose(win, tab);
+          this.#onTabClose(win, tab, detail.inMultiselection);
         }
         this.#onTabRemove(win, tab);
         this.#notifyOfClosedObjectsChange();
@@ -2897,8 +2988,10 @@ class _SessionStore {
    *        Window reference
    * @param {MozTabbrowserTab} aTab
    *        Tab reference
+   * @param {boolean} [inMultiselection]
+   *        Whether the tab closed as one of a set of tabs closed together.
    */
-  #onTabClose(aWindow, aTab) {
+  #onTabClose(aWindow, aTab, inMultiselection) {
     // don't update our internal state if we don't have to
     if (this.#max_tabs_undo == 0) {
       return;
@@ -2908,7 +3001,7 @@ class _SessionStore {
     let tabState = lazy.TabState.collect(aTab, TAB_CUSTOM_VALUES.get(aTab));
 
     // Store closed-tab data for undo.
-    this.#maybeSaveClosedTab(aWindow, aTab, tabState);
+    this.#maybeSaveClosedTab(aWindow, aTab, tabState, { inMultiselection });
   }
 
   /**
@@ -3031,14 +3124,16 @@ class _SessionStore {
    *        The array of closed tabs to save to. This could be a
    *        window's _closedTabs array or the tab list of a
    *        closed tab group.
-   * @param {boolean} [options.closedInTabGroup=false]
+   * @param {boolean} [options.closedInTabGroup]
    *        If this tab was closed due to the closing of a tab group.
+   * @param {boolean} [options.inMultiselection]
+   *        If this tab was closed as one of a set of tabs closed together.
    */
   #maybeSaveClosedTab(
     aWindow,
     aTab,
     tabState,
-    { closedTabsArray, closedInTabGroup = false } = {}
+    { closedTabsArray, closedInTabGroup, inMultiselection } = {}
   ) {
     // Don't save private tabs
     let isPrivateWindow = PrivateBrowsingUtils.isWindowPrivate(aWindow);
@@ -3058,7 +3153,7 @@ class _SessionStore {
       image: aWindow.gBrowser.getIcon(aTab),
       pos: aTab.index,
       closedAt: Date.now(),
-      closedInGroup: aTab._closedInMultiselection,
+      closedInGroup: inMultiselection,
       closedInTabGroupId: closedInTabGroup ? tabState.groupId : null,
       sourceWindowId: aWindow.__SSi,
     };
@@ -4570,10 +4665,19 @@ class _SessionStore {
     }
 
     let savedGroup = this.#savedGroups[savedGroupIndex];
-    for (let i = 0; i < savedGroup.tabs.length; i++) {
-      this.#removeClosedTabData({}, savedGroup.tabs, i);
+    while (savedGroup.tabs.length) {
+      this.#removeClosedTabData({}, savedGroup.tabs, 0);
     }
     this.#savedGroups.splice(savedGroupIndex, 1);
+    for (let winData of [
+      ...Object.values(this.#windows),
+      ...this.#closedWindows,
+    ]) {
+      if (winData.lastClosedTabGroupId == savedTabGroupId) {
+        winData.lastClosedTabGroupId = null;
+        winData._lastClosedTabGroupCount = -1;
+      }
+    }
     this.#notifyOfSavedTabGroupsChange();
 
     // Notify of changes to closed objects.
@@ -7484,8 +7588,10 @@ class _SessionStore {
    *        A session state
    * @param {number} aRecentCrashes
    *        The number of consecutive crashes
-   * @returns {boolean}
-   *          Whether a restore page will be needed for the session state
+   * @returns {?string}
+   *          Why a restore page is needed for the session state, or null if
+   *          it isn't. One of "safe_mode", "many_crashes_old_session",
+   *          "many_crashes" or "old_session".
    */
   #needsRestorePage(aState, aRecentCrashes) {
     const SIX_HOURS_IN_MS = 6 * 60 * 60 * 1000;
@@ -7493,7 +7599,7 @@ class _SessionStore {
     // don't display the page when there's nothing to restore
     let winData = aState.windows || null;
     if (!winData || !winData.length) {
-      return false;
+      return null;
     }
 
     // don't wrap a single about:sessionrestore page
@@ -7501,12 +7607,12 @@ class _SessionStore {
       this.#hasSingleTabWithURL(winData, "about:sessionrestore") ||
       this.#hasSingleTabWithURL(winData, "about:welcomeback")
     ) {
-      return false;
+      return null;
     }
 
     // don't automatically restore in Safe Mode
     if (Services.appinfo.inSafeMode) {
-      return true;
+      return "safe_mode";
     }
 
     let max_resumed_crashes = this.#prefBranch.getIntPref(
@@ -7521,20 +7627,16 @@ class _SessionStore {
       max_resumed_crashes != -1 &&
       (aRecentCrashes > max_resumed_crashes ||
         (sessionAge && sessionAge >= SIX_HOURS_IN_MS));
-    if (decision) {
-      let key;
-      if (aRecentCrashes > max_resumed_crashes) {
-        if (sessionAge && sessionAge >= SIX_HOURS_IN_MS) {
-          key = "shown_many_crashes_old_session";
-        } else {
-          key = "shown_many_crashes";
-        }
-      } else {
-        key = "shown_old_session";
-      }
-      Glean.browserEngagement.sessionrestoreInterstitial[key].add(1);
+    if (!decision) {
+      return null;
     }
-    return decision;
+    if (aRecentCrashes > max_resumed_crashes) {
+      if (sessionAge && sessionAge >= SIX_HOURS_IN_MS) {
+        return "many_crashes_old_session";
+      }
+      return "many_crashes";
+    }
+    return "old_session";
   }
 
   /**

@@ -11134,27 +11134,12 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
-# Is support for CSS masonry layout enabled?
-- name: layout.css.grid-template-masonry-value.enabled
-  type: RelaxedAtomicBool
-#if defined(NIGHTLY_BUILD) || defined(MOZ_THUNDERBIRD)
-  value: true
-#else
-  value: false
-#endif
-  mirror: always
-  rust: true
-
 # Enable the new css-grid-3 specification of grid-lanes. Always disabled for
 # Thunderbird, because it is using an older syntax.
 # https://drafts.csswg.org/css-grid-3/
 - name: layout.css.display-grid-lanes.enabled
   type: RelaxedAtomicBool
-#if defined(MOZ_THUNDERBIRD)
-  value: false
-#else
   value: @IS_NIGHTLY_BUILD@
-#endif
   mirror: always
   rust: true
 
@@ -16765,6 +16750,13 @@
   value: true
   mirror: always
 
+# Retry requests without HTTP/3 when the server closes an established HTTP/3
+# connection with an error before any part of the response was received.
+- name: network.http.http3.fallback_to_h2_on_protocol_error
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Maximum number of UDP segments in a single UDP GSO send. Noop if
 # network.http.http3.use_nspr_for_io is true.
 - name: network.http.http3.max_gso_segments
@@ -19765,6 +19757,12 @@
   mirror: always
 
 - name: telemetry.fog.test.decelerate_early_events
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
+- name: telemetry.fog.enable_store_submitted_pings
   type: RelaxedAtomicBool
   value: false
   mirror: always

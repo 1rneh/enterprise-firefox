@@ -30,6 +30,7 @@ The address bar code lives in {searchfox}`browser/components/urlbar <browser/com
 nontechnical-overview
 overview
 lifetime
+process-boundary
 utilities
 telemetry
 firefox-suggest-telemetry

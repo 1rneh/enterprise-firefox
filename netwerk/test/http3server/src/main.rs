@@ -327,6 +327,20 @@ impl HttpServer for Http3TestServer {
                         Header::new("x-http3-conn-hash", connection_hash.to_string()),
                     ];
 
+                    // Mimic a server that rejects a raw non-ASCII cookie by
+                    // closing the whole connection with H3_FRAME_ERROR.
+                    if headers
+                        .iter()
+                        .any(|h| h.name() == "cookie" && !h.value().is_ascii())
+                    {
+                        stream.conn.borrow_mut().close(
+                            now,
+                            0x0106,
+                            "http3.invalid_header_field",
+                        );
+                        continue;
+                    }
+
                     let path_hdr = headers.iter().find(|&h| h.name() == ":path");
                     match path_hdr {
                         Some(ph) if !ph.value().is_empty() => {

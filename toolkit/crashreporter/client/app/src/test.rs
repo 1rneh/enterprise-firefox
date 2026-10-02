@@ -574,7 +574,6 @@ fn prepare_restart_test() -> (GuiTest, Counter) {
     (test, ran_process)
 }
 
-#[cfg(not(feature = "enterprise"))]
 fn customize_extra_file(test: &mut GuiTest, extra_fields: &[(&str, &str)]) -> String {
     let extra_fields_json = extra_fields
         .iter()
@@ -616,6 +615,11 @@ fn customize_extra_file(test: &mut GuiTest, extra_fields: &[(&str, &str)]) -> St
                 Ok(minidump_extra_contents.as_str().into()),
                 current_system_time(),
             );
+        #[cfg(feature = "enterprise")]
+        mock_files.add_dir("work_dir").add_file(
+            format!("work_dir/{}.cfg", MOZ_APP_NAME),
+            enterprise_autoconfig("https://reports.example.com"),
+        );
         test.mock.set(MockFS, mock_files.clone());
         mock_files
     };

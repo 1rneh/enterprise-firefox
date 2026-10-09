@@ -6,7 +6,15 @@ import unittest
 
 from mozunit import main
 
-from gecko_taskgraph.util.partners import parse_config, parse_registry_reference
+from gecko_taskgraph.util.attributes import (
+    lacks_release_promotion_support,
+    repacks_on_release_promotion,
+)
+from gecko_taskgraph.util.partners import (
+    check_if_partners_enabled,
+    parse_config,
+    parse_registry_reference,
+)
 
 PLATFORM_MAPPING = {
     "linux-x86_64": "linux64-enterprise-shippable",
@@ -71,6 +79,64 @@ class TestParseConfig(unittest.TestCase):
     def test_without_registry_reference(self):
         config = parse_config('locales="en-US"\nwin64=true\n', PLATFORM_MAPPING)
         self.assertNotIn("registry_reference", config)
+
+
+class TestEnterpriseRepackGating(unittest.TestCase):
+    """Which products build their enterprise repacks, and when.
+
+    Firefox Enterprise waits for a release promotion. Thunderbird Enterprise
+    cannot, so it repacks on every push. Every other graph builds none: it has
+    no partner config, so the repack tasks would be indistinguishable.
+    """
+
+    def params(self, product, enabled=False):
+        return {
+            "release_product": product,
+            "release_enable_enterprise_repack": enabled,
+            "release_enable_partner_repack": False,
+            "release_enable_partner_attribution": False,
+            "release_enable_emefree": False,
+        }
+
+    def enabled_kinds(self, params):
+        config = type("Config", (), {"kind": "enterprise-repack", "params": params})
+        return list(check_if_partners_enabled(config, [{"task": 1}]))
+
+    def test_firefox_enterprise_repacks_on_release_promotion(self):
+        self.assertTrue(repacks_on_release_promotion(self.params("firefox-enterprise")))
+        self.assertFalse(
+            lacks_release_promotion_support(self.params("firefox-enterprise"))
+        )
+
+    def test_thunderbird_enterprise_lacks_release_promotion_support(self):
+        self.assertTrue(
+            lacks_release_promotion_support(self.params("thunderbird-enterprise"))
+        )
+        self.assertFalse(
+            repacks_on_release_promotion(self.params("thunderbird-enterprise"))
+        )
+
+    def test_firefox_enterprise_needs_the_flag(self):
+        self.assertEqual(self.enabled_kinds(self.params("firefox-enterprise")), [])
+        self.assertEqual(
+            len(self.enabled_kinds(self.params("firefox-enterprise", enabled=True))), 1
+        )
+
+    def test_thunderbird_enterprise_ignores_the_flag(self):
+        self.assertEqual(
+            len(self.enabled_kinds(self.params("thunderbird-enterprise"))), 1
+        )
+
+    def test_a_graph_with_no_release_product_builds_no_repack(self):
+        """`mach perfdocs` and friends generate the full task set with the
+        default parameters, where `release_product` is unset. Letting the
+        repack kinds through there builds them with an empty partner config,
+        so they carry no repack config and collide on their labels."""
+        for product in (None, "firefox", "thunderbird"):
+            self.assertFalse(
+                lacks_release_promotion_support(self.params(product)), product
+            )
+            self.assertEqual(self.enabled_kinds(self.params(product)), [], product)
 
 
 if __name__ == "__main__":

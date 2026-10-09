@@ -68,6 +68,29 @@ ENTERPRISE_PROMOTION_PROJECTS = {
     "enterprise-firefox",
     "enterprise-thunderbird",
 } | ENTERPRISE_TRY_PROJECTS
+
+
+def repacks_on_release_promotion(params):
+    """Whether this product only builds repacks during a release promotion.
+
+    Firefox Enterprise does, so a push builds no repack and no shippable
+    build.
+    """
+    return params["release_product"] == "firefox-enterprise"
+
+
+def lacks_release_promotion_support(params):
+    """Whether this product cannot ask for its enterprise repacks.
+
+    Temporary: the Comm decision task has no release promotion actions, so
+    nothing sets `release_enable_enterprise_repack` on a Thunderbird push and
+    it would get no repack at all. Comm will set it once this lands, and then
+    this goes away. Name the product here: "not Firefox Enterprise" would also
+    catch plain Firefox graphs, which have no partner config.
+    """
+    return params["release_product"] == "thunderbird-enterprise"
+
+
 RELEASE_PROMOTION_PROJECTS = (
     {
         "jamun",

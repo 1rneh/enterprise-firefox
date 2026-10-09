@@ -16,7 +16,10 @@ from taskgraph.util import json
 from taskgraph.util.copy import deepcopy
 from taskgraph.util.schema import resolve_keyed_by
 
-from gecko_taskgraph.util.attributes import ENTERPRISE_PROMOTION_PROJECTS
+from gecko_taskgraph.util.attributes import (
+    ENTERPRISE_PROMOTION_PROJECTS,
+    lacks_release_promotion_support,
+)
 
 # Suppress chatty requests logging
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -391,7 +394,11 @@ def get_partner_config_by_url(
 def check_if_partners_enabled(config, tasks):
     if (
         (
-            config.params["release_enable_enterprise_repack"]
+            (
+                # The second test is temporary, see the function.
+                config.params["release_enable_enterprise_repack"]
+                or lacks_release_promotion_support(config.params)
+            )
             and config.kind.startswith("enterprise-repack")
         )
         or (

@@ -75,10 +75,16 @@ def make_repackage_signing_description(config, jobs):
         # paths, so this task covers the same locales.
         repack_config = dep_job.task.get("extra", {}).get("repack_config")
 
+        # Thunderbird Enterprise carries no repack config: its repack id is
+        # the upstream's treeherder symbol, as it has always been.
+        repack = repack_config
+        if repack is None and "enterprise-repack" in dep_job.label:
+            repack = dep_job.task["extra"]["treeherder"]["symbol"]
+
         if config.kind == "repackage-signing-msi":
-            if repack_config:
-                treeherder["symbol"] = f"MSIs-Ent({repack_config})"
-                repack_label = repack_config.replace("/", "_")
+            if repack:
+                treeherder["symbol"] = f"MSIs-Ent({repack})"
+                repack_label = repack.replace("/", "_")
                 attributes["repackage_type"] = f"{config.kind}-{repack_label}"
             else:
                 treeherder["symbol"] = "MSIs({})".format(locale or "N")
@@ -88,8 +94,8 @@ def make_repackage_signing_description(config, jobs):
             "repackage-signing-msix",
             "repackage-signing-shippable-l10n-msix",
         ):
-            if repack_config:
-                dep_symbol = repack_config
+            if repack:
+                dep_symbol = repack
                 group_symbol = "MSIXs-Ent"
             else:
                 # Like "MSIXs(Bs-multi)".
@@ -104,11 +110,11 @@ def make_repackage_signing_description(config, jobs):
             repack_label = dep_symbol.replace("/", "_")
             attributes["repackage_type"] = f"{config.kind}-{repack_label}"
 
-        if repack_config:
+        if repack:
             job["label"] = job["label"].replace(
                 "repackage-signing",
                 "repackage-signing-enterprise-repack-{}".format(
-                    repack_config.replace("/", "_")
+                    repack.replace("/", "_")
                 ),
             )
 

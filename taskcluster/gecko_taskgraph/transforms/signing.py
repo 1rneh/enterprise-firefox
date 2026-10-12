@@ -145,15 +145,25 @@ def make_task_description(config, jobs):
             th_symbol = None
 
             if "enterprise-repack-mac" in config.kind:
-                repack_config = job["extra"]["repack_config"]
+                extra = job["extra"]
+                # Firefox Enterprise has one task per repack config.
+                # Thunderbird Enterprise has one per repack id and no repack
+                # config at all, see `chunk_partners`.
+                repack = extra.get("repack_config")
+                per_config = repack is not None
+                if not per_config:
+                    repack_ids = extra["repack_ids"]
+                    assert len(repack_ids) == 1
+                    repack = repack_ids[0]
 
                 th_group = "BMS-Ent" if "signing" in config.kind else "BMN-Ent"
-                th_symbol = f"{th_group}({repack_config})"
+                th_symbol = f"{th_group}({repack})"
 
-                repack_label = "enterprise-repack-" + repack_config.replace("/", "_")
+                repack_label = "enterprise-repack-" + repack.replace("/", "_")
                 # Notarization inherits the signing task's label, which
-                # already names the repack. Don't name it twice.
-                if repack_label not in job["label"]:
+                # already names the repack. Don't name it twice. Thunderbird
+                # keeps the doubled name it has today.
+                if not per_config or repack_label not in job["label"]:
                     job["label"] = job["label"].replace(
                         "enterprise-repack", repack_label
                     )

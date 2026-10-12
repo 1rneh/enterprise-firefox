@@ -27,3 +27,7 @@ tasks:
             copy-attributes: true
         shipping-product: firefox-enterprise
         shipping-phase: promote
+        # Copies `repack_ids` off the signing task, which `partner_signing`
+        # then reads. Only Thunderbird Enterprise needs it: Firefox Enterprise
+        # carries a repack config instead.
+        copy-repack-ids: true

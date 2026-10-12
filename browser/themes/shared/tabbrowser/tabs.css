@@ -82,6 +82,10 @@
 
     &[uidensity="compact"] {
       --tab-margin-block: 4px;
+
+      @media -moz-pref("sidebar.verticalTabs") {
+        --tab-margin-block: 2px;
+      }
     }
   }
 
@@ -1811,18 +1815,6 @@ tab-group > tab-split-view-wrapper {
   }
 }
 
-/* During expand-on-hover collapse animation, keep split-tab icons
-   constrained to the collapsed pill geometry to avoid mid-transition drifting. */
-:root[sidebar-expand-on-hover]
-  #tabbrowser-tabbox[sidebar-ongoing-animations]
-  #tabbrowser-tabs[orient="vertical"]
-  tab-split-view-wrapper
-  .tabbrowser-tab
-  .tab-content {
-  width: var(--tab-collapsed-background-width);
-  justify-content: center;
-}
-
 /* Drag/drop of split-view-wrapped tabs */
 #tabbrowser-tabs[orient="vertical"] tab-split-view-wrapper {
   &[small-stack] {
@@ -2864,13 +2856,6 @@ tab-group {
       }
     }
   }
-
-  /* Collapsing holds the launcher at its expanded width so that clip-path has
-  something to clip, so the divider would otherwise be drawn around the width
-  it is animating away from. Wait for the real width to be restored. */
-  #sidebar-container[sidebar-ongoing-animations] #tabbrowser-tabs:not([expanded]) > & {
-    background-image: none;
-  }
 }
 
 #tabbrowser-tabs[orient="vertical"] {
@@ -2883,6 +2868,13 @@ tab-group {
    */
   --tab-padding-block-start: 3px;
   --tab-padding-block-end: 2px;
+
+  @media -moz-pref("browser.nova.enabled") {
+    :root[uidensity="compact"] & {
+      --tab-padding-block-start: 0px;
+      --tab-padding-block-end: 0px;
+    }
+  }
 
   min-height: 0;
   display: flex;
@@ -3161,12 +3153,6 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
 
 #alltabs-button {
   list-style-image: url("chrome://browser/skin/search-tabs.svg");
-
-  @media (-moz-platform: windows) {
-    #TabsToolbar & {
-      list-style-image: url("chrome://global/skin/icons/arrow-down.svg");
-    }
-  }
 
   #tabbrowser-tabs[hiddensoundplaying] ~ & > .toolbarbutton-badge-stack > .toolbarbutton-badge {
     background: transparent url(chrome://browser/skin/tabbrowser/tab-audio-playing-small.svg);

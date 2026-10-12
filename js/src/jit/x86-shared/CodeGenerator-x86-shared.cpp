@@ -410,26 +410,6 @@ bool CodeGeneratorX86Shared::generateOutOfLineCode() {
   return !masm.oom();
 }
 
-void CodeGeneratorX86Shared::emitBailoutOOL(LSnapshot* snapshot) {
-  masm.push(Imm32(snapshot->snapshotOffset()));
-  jumpToDeoptLabel();
-}
-
-void CodeGeneratorX86Shared::bailoutIf(Assembler::Condition condition,
-                                       LSnapshot* snapshot) {
-  encode(snapshot);
-
-  // All bailout code is associated with the bytecodeSite of the block we are
-  // bailing out from.
-  InlineScriptTree* tree = snapshot->mir()->block()->trackedTree();
-  auto* ool = new (alloc()) LambdaOutOfLineCode(
-      [=, this](OutOfLineCode& ool) { emitBailoutOOL(snapshot); });
-  addOutOfLineCode(ool,
-                   new (alloc()) BytecodeSite(tree, tree->script()->code()));
-
-  masm.j(condition, ool->entry());
-}
-
 void CodeGeneratorX86Shared::bailoutIf(Assembler::DoubleCondition condition,
                                        LSnapshot* snapshot) {
   MOZ_ASSERT(Assembler::NaNCondFromDoubleCondition(condition) ==

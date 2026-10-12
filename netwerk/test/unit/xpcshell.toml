@@ -1418,6 +1418,21 @@ skip-if = [
 
 ["test_multipart_streamconv_missing_lead_boundary.js"]
 
+["test_negotiate_auth_cancel_during_init.js"]
+# Needs the http-on-transaction-suspended-authentication notification, which is
+# only sent in debug builds. nsAuthSSPI is the only nsIAuthModule implementing
+# initAsync, so there is nothing to cancel mid-init off Windows.
+run-if = [
+  "os == 'win' && debug",
+]
+
+["test_negotiate_auth_canonical_name.js"]
+# nsAuthSSPI is the only nsIAuthModule implementing initAsync, so the canonical
+# name lookup this covers only happens on Windows.
+run-if = [
+  "os == 'win'",
+]
+
 ["test_nestedabout_serialize.js"]
 
 ["test_net_addr.js"]
@@ -1453,9 +1468,38 @@ usesNPM = true
 
 ["test_ntlm_authentication.js"]
 
+["test_ntlm_cancel_async_creds.js"]
+# Needs the http-on-transaction-suspended-authentication notification, which is
+# only sent in debug builds.
+run-if = [
+  "debug",
+]
+
+["test_ntlm_native_proxy_and_web_auth.js"]
+# Deliberately does not set network.auth.force-generic-ntlm, so it needs a
+# platform where "sys-ntlm" resolves to a real native module. That is nsAuthSSPI
+# on Windows; elsewhere it is either absent or needs an ntlm_auth helper, and
+# nsHttpNTLMAuth silently falls back to the internal implementation.
+run-if = [
+  "os == 'win'",
+]
+
+["test_ntlm_native_server_validation.js"]
+# Needs "sys-ntlm" to resolve to a real native module, which is nsAuthSSPI on
+# Windows; elsewhere nsHttpNTLMAuth silently falls back to the internal one.
+run-if = [
+  "os == 'win'",
+]
+
 ["test_ntlm_proxy_and_web_auth.js"]
+# Without this the Windows SSPI module handles the proxy challenge using the
+# logged-in user's credentials, which the test has no control over.
+prefs = ["network.auth.force-generic-ntlm=true"]
 
 ["test_ntlm_proxy_auth.js"]
+# Without this the Windows SSPI module handles the proxy challenge using the
+# logged-in user's credentials, which the test has no control over.
+prefs = ["network.auth.force-generic-ntlm=true"]
 
 ["test_ntlm_web_auth.js"]
 

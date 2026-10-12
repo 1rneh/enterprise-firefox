@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 with Files("**"):
-    BUG_COMPONENT = ("Core", "Security")
+    BUG_COMPONENT = ("Core", "Security: Keystore")
 
 XPIDL_SOURCES += [
     "nsILockstore.idl",
@@ -31,6 +31,10 @@ UNIFIED_SOURCES += [
 if CONFIG["MOZ_ENTERPRISE"]:
     UNIFIED_SOURCES += [
         "ProfileKekStartup.cpp",
+    ]
+
+    SOURCE_HEADERS += [
+        "ProfileKekStartup.h",
     ]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":

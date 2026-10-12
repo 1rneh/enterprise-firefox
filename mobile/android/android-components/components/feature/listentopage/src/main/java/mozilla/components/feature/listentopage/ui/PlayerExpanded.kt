@@ -59,7 +59,7 @@ internal fun PlayerExpanded(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
-                onClick = { onAction(ListenAction.Session.StopRequested) },
+                onClick = { onAction(ListenAction.Session.StopRequested()) },
                 contentDescription = stringResource(R.string.mozac_feature_listentopage_close),
             ) {
                 Icon(
@@ -67,7 +67,7 @@ internal fun PlayerExpanded(
                     contentDescription = null,
                 )
             }
-            ArticleHeading(article = article)
+            ArticleHeading(article = article, shouldScrollTitle = playing)
         }
 
         AudioProgress(articleProgressState = articleProgressState)
@@ -78,7 +78,13 @@ internal fun PlayerExpanded(
             remember(speed, locale, labelPattern, onAction) {
                 speed.toSpeedState(locale, labelPattern) { onAction(ListenAction.Controls.PlaybackSpeedSelected(it)) }
             }
-        PlaybackControls(playing = playing, voiceState = voiceState, speedState = speedState, onAction = onAction)
+        PlaybackControls(
+            articleProgressState = articleProgressState,
+            playing = playing,
+            voiceState = voiceState,
+            speedState = speedState,
+            onAction = onAction,
+        )
     }
 }
 

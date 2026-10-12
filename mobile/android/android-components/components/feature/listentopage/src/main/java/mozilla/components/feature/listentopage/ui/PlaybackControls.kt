@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.theme.AcornTheme
+import mozilla.components.feature.listentopage.ArticleProgress
 import mozilla.components.feature.listentopage.ListenAction
 import mozilla.components.feature.listentopage.PlaybackSpeed
 import mozilla.components.feature.listentopage.R
@@ -34,6 +37,7 @@ import mozilla.components.ui.icons.R as iconsR
 /** Listen to page audio player controls */
 @Composable
 internal fun PlaybackControls(
+    articleProgressState: State<ArticleProgress>,
     playing: Boolean,
     voiceState: VoiceState,
     speedState: SpeedState,
@@ -78,16 +82,22 @@ internal fun PlaybackControls(
                     voicesExpanded = false
                     onAction(ListenAction.Voices.VoiceSelected(it))
                 },
-                onDismissRequest = { voicesExpanded = false },
+                onDismissRequest = {
+                    voicesExpanded = false
+                    onAction(ListenAction.Controls.VoicesDismissed)
+                },
             )
         }
 
-        CenterControls(playing = playing, onAction = onAction)
+        CenterControls(articleProgressState = articleProgressState, playing = playing, onAction = onAction)
 
         // Speed
         Box {
             IconButton(
-                onClick = { speedsExpanded = true },
+                onClick = {
+                    onAction(ListenAction.Controls.PlaybackSpeedClicked)
+                    speedsExpanded = true
+                },
                 contentDescription = stringResource(speedState.contentDescription),
             ) {
                 Icon(
@@ -99,7 +109,10 @@ internal fun PlaybackControls(
             PlaybackSpeedMenu(
                 speedList = speedState.menuItems,
                 expanded = speedsExpanded,
-                onDismissRequest = { speedsExpanded = false },
+                onDismissRequest = {
+                    speedsExpanded = false
+                    onAction(ListenAction.Controls.PlaybackSpeedDismissed)
+                },
             )
         }
     }
@@ -107,22 +120,17 @@ internal fun PlaybackControls(
 
 @Composable
 private fun CenterControls(
+    articleProgressState: State<ArticleProgress>,
     playing: Boolean,
     onAction: (ListenAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        // Rewind
-        IconButton(
-            onClick = { onAction(ListenAction.Controls.RewindClicked) },
-            contentDescription = stringResource(R.string.mozac_feature_listentopage_back_10_sec),
-        ) {
-            Icon(
-                painter = painterResource(iconsR.drawable.mozac_ic_playback_rewind_24),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static150),
+        modifier = modifier,
+    ) {
+        RewindButton(articleProgressState = articleProgressState, onAction = onAction)
         // Play/Pause
         PlayPauseButton(
             playing,
@@ -144,11 +152,30 @@ private fun CenterControls(
     }
 }
 
+@Composable
+internal fun RewindButton(articleProgressState: State<ArticleProgress>, onAction: (ListenAction) -> Unit) {
+    val hasPlayed by remember {
+        // at least one second has played
+        derivedStateOf { articleProgressState.value.positionMs >= 1000L }
+    }
+    IconButton(
+        onClick = { onAction(ListenAction.Controls.RewindClicked) },
+        contentDescription = stringResource(R.string.mozac_feature_listentopage_back_10_sec),
+    ) {
+        Icon(
+            painter = painterResource(iconsR.drawable.mozac_ic_playback_rewind_24),
+            contentDescription = null,
+            tint = if (hasPlayed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @PreviewLightDark
 @Composable
 private fun PlaybackControlsPreview() {
     AcornTheme {
         PlaybackControls(
+            articleProgressState = remember { mutableStateOf(ArticleProgress()) },
             playing = false,
             voiceState = VoiceState(),
             speedState =

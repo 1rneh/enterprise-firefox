@@ -16,7 +16,6 @@ from taskgraph.util.schema import Schema, optionally_keyed_by, resolve_keyed_by
 from taskgraph.util.taskcluster import get_artifact_prefix
 
 from gecko_taskgraph.transforms.job import JobDescriptionSchema
-from gecko_taskgraph.util.attributes import repacks_on_release_promotion
 from gecko_taskgraph.util.platforms import architecture, archive_format
 from gecko_taskgraph.util.workertypes import worker_type_implementation
 
@@ -403,17 +402,6 @@ PACKAGE_FORMATS = {
     },
 }
 
-
-def _dependency_repack(dep_job):
-    """The repack a dependency belongs to, or ``None``.
-
-    Firefox Enterprise names a repack config, Thunderbird Enterprise a repack
-    id, which already includes the locale.
-    """
-    extra = dep_job.task.get("extra", {})
-    return extra.get("repack_config") or extra.get("repack_id")
-
-
 # Langpacks are platform independent, so the multi-locale MSIX takes all of
 # them from a single build platform. Which one depends on the product: each
 # ships its own locale set, signed by its own `l10n-signing` tasks, so reading
@@ -558,7 +546,7 @@ def make_job_description(config, jobs):
 
             family = "Rpk"
 
-            repack_config = _dependency_repack(dep_job)
+            repack_config = dep_job.task.get("extra", {}).get("repack_config")
             if repack_config:
                 family = "Rpk-Ent"
                 variant = f"{repack_config}"
@@ -632,7 +620,8 @@ def make_job_description(config, jobs):
 
         if config.kind == "repackage-msi":
             if "enterprise-repack" in dep_job.label:
-                treeherder["symbol"] = f"MSI-Ent({_dependency_repack(dep_job)})"
+                repack_config = dep_job.task.get("extra", {}).get("repack_config")
+                treeherder["symbol"] = f"MSI-Ent({repack_config})"
             else:
                 treeherder["symbol"] = "MSI({})".format(locale or "N")
 
@@ -935,30 +924,19 @@ def make_job_description(config, jobs):
                 # The upstream already fanned out (the windows installer
                 # chain), so reuse its config.
                 repacks[inherited] = dep_extra["repack_locales"]
-            elif repack_id := dep_extra.get("repack_id"):
-                # Thunderbird Enterprise fans out per repack id, so the
-                # upstream picked the locale too and there is one task for it.
-                # `None` locales means "the name already includes the locale".
-                repacks[repack_id] = None
             else:
                 release_partner_config = (
                     config.params.get("release_partner_config") or {}
                 )
-                per_config = repacks_on_release_promotion(config.params)
                 for enterprise_name, entries in release_partner_config.get(
                     config.kind, {}
                 ).items():
                     for repack_name, entry in entries.items():
                         if build_platform not in entry["platforms"]:
                             continue
-                        name = f"{enterprise_name}/{repack_name}"
-                        locales = sorted(entry["locales"])
-                        if per_config:
-                            repacks[name] = locales
-                        else:
-                            # Thunderbird Enterprise is one task per locale.
-                            for repack_locale in locales:
-                                repacks[f"{name}/{repack_locale}"] = None
+                        repacks[f"{enterprise_name}/{repack_name}"] = sorted(
+                            entry["locales"]
+                        )
 
         for repack_config, repack_locales in (repacks or {None: None}).items():
             repack_task = copy.deepcopy(task)
@@ -987,11 +965,10 @@ def make_job_description(config, jobs):
                 repack_task["label"] = repack_task["label"].replace(
                     build_platform, build_platform_with_repack
                 )
-                if repack_locales is not None:
-                    repack_task["extra"].update({
-                        "repack_config": repack_config,
-                        "repack_locales": repack_locales,
-                    })
+                repack_task["extra"].update({
+                    "repack_config": repack_config,
+                    "repack_locales": repack_locales,
+                })
 
                 if "{repack_config}" in repack_task["treeherder"]["symbol"]:
                     repack_task["treeherder"]["symbol"] = repack_task["treeherder"][
@@ -999,14 +976,10 @@ def make_job_description(config, jobs):
                     ].replace("{repack_config}", repack_config)
                     repack_task["attributes"]["repackage_type"] += f"-{repack_label}"
 
-                # With no locales the name already includes the one locale,
-                # so the commands and the artifact paths stay as they are.
-                per_locale = repackage_config
-                if repack_locales is not None:
-                    per_locale = expand_repackage_config_per_locale(
-                        repackage_config, repack_locales, repack_task["fetches"]
-                    )
-                    repack_task["run"]["extra-config"]["repackage_config"] = per_locale
+                per_locale = expand_repackage_config_per_locale(
+                    repackage_config, repack_locales, repack_task["fetches"]
+                )
+                repack_task["run"]["extra-config"]["repackage_config"] = per_locale
                 repack_task["worker"]["artifacts"] = _generate_task_output_files(
                     dep_job,
                     worker_type_implementation(
@@ -1077,12 +1050,7 @@ def _generate_download_config(
     # locales of its repack config, so it takes one set of inputs per locale,
     # each in its own directory.
     if enterprise_repack:
-        if enterprise_locales is None:
-            sources = [(f"{enterprise_repack}/", None)]
-        else:
-            sources = [
-                (f"{enterprise_repack}/{loc}/", loc) for loc in enterprise_locales
-            ]
+        sources = [(f"{enterprise_repack}/{loc}/", loc) for loc in enterprise_locales]
     else:
         sources = [(f"{locale}/" if locale else "", None)]
 

@@ -592,6 +592,9 @@ static void MaybeScheduleReflowSVGNonDisplayText(nsIFrame* aFrame) {
       svgTextFrame->HasAnyStateBits(NS_STATE_SVG_TEXT_IN_REFLOW)) {
     return;
   }
+  if (SVGUtils::AnyOuterSVGIsCallingReflowSVG(svgTextFrame)) {
+    return;
+  }
 
   svgTextFrame->ScheduleReflowSVGNonDisplayText(
       IntrinsicDirty::FrameAncestorsAndDescendants);
@@ -12300,6 +12303,12 @@ gfx::Matrix nsIFrame::ComputeWidgetTransform() const {
   gfx::Matrix4x4 matrix = nsStyleTransformMatrix::ReadTransforms(
       uiReset->mMozWindowTransform, refBox, float(appUnitsPerDevPixel),
       nsStyleTransformMatrix::Zoomed::Yes);
+
+  // Apply the transform-origin translation to the matrix.
+  const StyleTransformOrigin& origin = StyleDisplay()->mTransformOrigin;
+  Point transformOrigin = nsStyleTransformMatrix::Convert2DPosition(
+      origin.horizontal, origin.vertical, refBox, appUnitsPerDevPixel);
+  matrix.ChangeBasis(Point3D(transformOrigin.x, transformOrigin.y, 0));
 
   gfx::Matrix result2d;
   if (!matrix.CanDraw2D(&result2d)) {

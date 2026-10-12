@@ -12601,7 +12601,7 @@
   # Does the GMPlugin process run as an Android isolated process
 -   name: media.gmp.android.isolated-process
     type: RelaxedAtomicBool
-    value: false
+    value: @IS_NIGHTLY_BUILD@
     mirror: always
 #endif
 
@@ -14456,20 +14456,6 @@
   value: true
   mirror: always
 
-# If lazy purge is enabled, the maximum delay we wait for idle time in MS.
-- name: memory.lazypurge.maximum_delay
-  type: uint32_t
-  value: 5000
-  mirror: always
-
-# If lazy purge is enabled, the minimum idle budget we wait for in MS.
-# This is higher than GC (5ms) and CC (2ms) so that purge defers to
-# GC/CC for idle time, preserving the dirty page reuse window.
-- name: memory.lazypurge.minimum_idle_budget
-  type: uint32_t
-  value: 10
-  mirror: always
-
 # If lazy purge is enabled, the minimum time we wait with purge after some
 # memory was reused (tracked per arena).
 - name: memory.lazypurge.reuse_grace_period
@@ -14684,6 +14670,14 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+
+# Default to using the SSPI instead of GSSAPI on Windows.
+#if defined(XP_WIN)
+- name: network.auth.use-sspi
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+#endif
 
 # When true, the hashing of the certificate will be done with the hashing
 # algorithm specified in the cert instead of SHA256.
@@ -17952,6 +17946,19 @@
   value: 101
   mirror: always
 
+# Whether to print on Windows using Skia's GDI backend rather than cairo.
+- name: print.windows.skia-gdi.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Resolution of the bitmaps used by the Skia GDI print backend for content that
+# GDI can't draw natively, in dots per inch.
+- name: print.windows.skia-gdi.raster-dpi
+  type: RelaxedAtomicUint32
+  value: 300
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "privacy."
 #---------------------------------------------------------------------------
@@ -20478,9 +20485,7 @@
 
 - name: webgl.disable-angle
   type: RelaxedAtomicBool
-#if defined(XP_WIN)
-  value: false
-#elif defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
+#if defined(XP_WIN) || defined(XP_MACOSX)
   value: false
 #else
   value: true

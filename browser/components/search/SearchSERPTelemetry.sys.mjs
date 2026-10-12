@@ -1554,6 +1554,7 @@ class ContentHandler {
    */
   overrideSearchTelemetryForTests(providerInfo) {
     Services.ppmm.sharedData.set("SearchTelemetry:ProviderInfo", providerInfo);
+    Services.ppmm.sharedData.flush();
   }
 
   observe(aSubject, aTopic) {

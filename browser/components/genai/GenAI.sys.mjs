@@ -84,7 +84,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   null,
   (_pref, _old, val) => onChatProviderChange(val)
 );
-export const CHAT_PROVIDERS_DEFAULT = "claude,chatgpt,gemini,lechat";
+export const CHAT_PROVIDERS_DEFAULT = "claude,chatgpt,gemini,huggingchat,lechat";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -256,6 +256,19 @@ export const GenAI = {
         linksId: "genai-settings-chat-localhost-links",
         maxLength: 8192,
         name: "localhost",
+      },
+    ],
+    [
+      "https://scout.yahoo.com",
+      {
+        iconUrl: "chrome://browser/content/genai/assets/brands/scout.svg",
+        id: "scout",
+        link1: "https://guce.yahoo.com/terms",
+        link2: "https://guce.yahoo.com/privacy-policy",
+        linksId: "genai-settings-chat-scout-links",
+        maxLength: 11500,
+        name: "Yahoo Scout",
+        tooltipId: "genai-onboarding-scout-tooltip",
       },
     ],
   ]),

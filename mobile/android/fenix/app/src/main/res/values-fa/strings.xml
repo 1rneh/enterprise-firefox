@@ -313,8 +313,6 @@
   <string name="browser_menu_default_banner_title">‏%1$s را مرورگر پیش‌فرض خود کنید</string>
   <!-- Label text within the set as default banner -->
   <string name="browser_menu_default_banner_subtitle_2">سریع، خصوصی و ساخته‌شده برای شما.</string>
-  <!-- Content description (not visible, for screen readers etc.) for the button that dismisses the set as default banner in the menu -->
-  <string name="browser_menu_default_banner_dismiss_promotion">رد کردن تبلیغ</string>
   <!-- Content description (not visible, for screen readers etc.) for recommended extensions in main menu -->
   <string name="browser_menu_recommended_extensions_content_description">اطلاعات بیشتر</string>
   <!--
@@ -1286,8 +1284,6 @@
   <string name="preference_simple_toolbar">ساده</string>
   <!-- Preference for using expanded toolbar -->
   <string name="preference_expanded_toolbar">گسترش‌یافته</string>
-  <!-- Preference description indicating the toolbar location preference is disabled when the tab strip is enabled -->
-  <string name="preference_toolbar_pref_disabled_explanation">هنگام نمایش نوار زبانه‌ها، نوار نشانی باید در بالا قرار گیرد.</string>
   <!-- New tab shortcut in toolbar customization -->
   <string name="toolbar_customize_shortcut_new_tab">باز کردن زبانهٔ جدید</string>
   <!-- Share shortcut in toolbar customization -->
@@ -1369,6 +1365,8 @@
   <string name="library_desktop_bookmarks_unfiled">سایر نشانک‌ها</string>
   <!-- Option in Library to open History page -->
   <string name="library_history">تاریخچه</string>
+  <!-- Content description (not visible, for screen readers etc.) for the check mark that replaces a site's icon in History and Recently closed tabs when the item is selected -->
+  <string name="library_item_selected_content_description">انتخاب‌شده</string>
   <!-- Settings Page Title -->
   <string name="settings_title">تنظیمات</string>
   <!-- Content description (not visible, for screen readers etc.): "Close button for library settings" -->
@@ -1421,8 +1419,6 @@
   <string name="preferences_tabs">زبانه‌ها</string>
   <!-- Title of preference that allows a user to specify the tab layout -->
   <string name="preferences_tab_layout">چیدمان زبانه‌ها</string>
-  <!-- Title of preference that allows a user to specify the tab view -->
-  <string name="preferences_tab_view">نمای زبانه‌ها</string>
   <!-- Option for a list tab view -->
   <string name="tab_view_list">فهرست</string>
   <!-- Option for a grid tab view -->
@@ -1477,20 +1473,12 @@
   <string name="preferences_tab_organization">سازمان‌دهی زبانه‌ها</string>
   <!-- Title of the preference that allows a user to enable or disable the inactive tabs feature -->
   <string name="preferences_inactive_tabs_toggle_title">زبانه‌های ازکار افتاده</string>
-  <!--
-    Inactive tabs
-
-    Category header of a preference that allows a user to enable or disable the inactive tabs feature
-  -->
-  <string name="preferences_inactive_tabs">انتقال زبانه‌های قدیمی به بخش غیرفعال</string>
   <!-- Summary of the preference that allows a user to enable or disable the inactive tabs feature. -->
   <string name="preferences_inactive_tabs_title">زبانه‌هایی که دو هفته مشاهده نشده‌اند به بخش غیرفعال منتقل می‌شوند.</string>
   <!-- Title of the preference that allows a user to enable or disable the tab groups feature -->
   <string name="preferences_tab_groups_title">گروه‌های زبانه</string>
   <!-- Summary of the preference that allows a user to enable or disable the tab groups feature -->
   <string name="preferences_tab_groups_description">زبانه‌هایتان را در گروه‌هایی که می‌توانید نام‌گذاری و ذخیره کنید سازمان‌دهی کنید.</string>
-  <!-- Title for the preference to enable or disable the tab groups feature -->
-  <string name="preferences_tab_groups_feature">فعال‌سازی گروه‌های زبانه</string>
   <!--
     Privacy report
 
@@ -3050,7 +3038,7 @@
 
     Title for the browser VPN entry in the settings list
   -->
-  <string name="preferences_ip_protection_title_2">VPN توکار</string>
+  <string name="preferences_ip_protection_title_2">VPN داخلی</string>
   <!-- Label for the BETA badge for the browser VPN entry in the settings list -->
   <string name="preferences_ip_protection_beta_badge_label">BETA</string>
   <!-- Title for the browser VPN settings screen (displayed in the app bar) -->
@@ -3060,7 +3048,7 @@
   <!-- Content description for the browser VPN settings screen top bar back button -->
   <string name="ip_protection_navigate_back_button_content_description">بازگشت به عقب</string>
   <!-- Headline for the browser VPN promo card. %s is the name of the app (for example "Firefox"). -->
-  <string name="ip_protection_promo_headline">‏VPN توکار %s</string>
+  <string name="ip_protection_promo_headline">‏VPN داخلی %s</string>
   <!-- Body text for the browser VPN settings header, shown when no promo is running. %s is a learn more link using ip_protection_learn_more as text. -->
   <string name="ip_protection_promo_body_2">با پنهان کردن موقعیت مکانی خود، حتی روی شبکه‌های Wi-Fi عمومی، با محافظت بیشتری وب‌گردی کنید. %s</string>
   <!-- Link text that opens additional information about the browser VPN -->
@@ -3119,7 +3107,7 @@
   <!-- Label for the "connecting" state of the button that starts the browser VPN authentication or authorization flow on the settings screen -->
   <string name="ip_protection_connecting">در حال اتصال…</string>
   <!-- Headline for the browser VPN onboarding card. %s is the name of the app (for example "Firefox"). -->
-  <string name="ip_protection_onboarding_card_headline">‏VPN توکار %s را امتحان کنید</string>
+  <string name="ip_protection_onboarding_card_headline">‏VPN داخلی %s را امتحان کنید</string>
   <!--
     The body of the VPN onboarding card.
     %1$s is a link using ip_protection_onboarding_body_link (“Browse with extra protection”) as text. It links to a support article about VPN on Firefox.

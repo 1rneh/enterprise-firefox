@@ -71,27 +71,6 @@ bool CodeGeneratorARM::generateOutOfLineCode() {
   return !masm.oom();
 }
 
-void CodeGeneratorARM::emitBailoutOOL(LSnapshot* snapshot) {
-  masm.push(Imm32(snapshot->snapshotOffset()));
-  jumpToDeoptLabel();
-}
-
-void CodeGeneratorARM::bailoutIf(Assembler::Condition condition,
-                                 LSnapshot* snapshot) {
-  encode(snapshot);
-
-  InlineScriptTree* tree = snapshot->mir()->block()->trackedTree();
-  auto* ool = new (alloc()) LambdaOutOfLineCode(
-      [=, this](OutOfLineCode& ool) { emitBailoutOOL(snapshot); });
-
-  // All bailout code is associated with the bytecodeSite of the block we are
-  // bailing out from.
-  addOutOfLineCode(ool,
-                   new (alloc()) BytecodeSite(tree, tree->script()->code()));
-
-  masm.ma_b(ool->entry(), condition);
-}
-
 void CodeGenerator::visitMinMaxD(LMinMaxD* ins) {
   FloatRegister first = ToFloatRegister(ins->first());
   FloatRegister second = ToFloatRegister(ins->second());

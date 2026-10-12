@@ -33,7 +33,7 @@ UNIFIED_SOURCES += [
     "ConsoleUtils.cpp",
 ]
 
-EXTRA_JS_MODULES += [
+MOZ_SRC_FILES += [
     "ConsoleAPIStorage.sys.mjs",
 ]
 

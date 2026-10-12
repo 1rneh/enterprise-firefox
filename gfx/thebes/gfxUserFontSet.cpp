@@ -731,6 +731,13 @@ bool gfxUserFontEntry::LoadPlatformFont(uint32_t aSrcIndex,
                                         const uint8_t*&& aSanitizedFontData,
                                         uint32_t aSanitizedLength,
                                         nsTArray<OTSMessage>&& aMessages) {
+  // Only URL and buffer sources are loaded here (local sources are resolved
+  // directly in DoLoadNextSrc).
+  MOZ_ASSERT(
+      mSrcList[aSrcIndex].mSourceType == gfxFontFaceSrc::eSourceType_URL ||
+          mSrcList[aSrcIndex].mSourceType == gfxFontFaceSrc::eSourceType_Buffer,
+      "unexpected source type reaching LoadPlatformFont");
+
   // This function consumes aOriginalFontData.
   auto atExit = MakeScopeExit([=]() { free((void*)aOriginalFontData); });
 
@@ -795,7 +802,10 @@ bool gfxUserFontEntry::LoadPlatformFont(uint32_t aSrcIndex,
         ("userfonts (%p) [src %d] failed uri: (%s) for (%s)"
          " error making platform font\n",
          fontSet.get(), aSrcIndex,
-         mSrcList[aSrcIndex].mURI->GetSpecOrDefault().get(),
+         // Local fonts don't reach this function, so null mURI => buffer-type.
+         mSrcList[aSrcIndex].mURI
+             ? mSrcList[aSrcIndex].mURI->GetSpecOrDefault().get()
+             : "(buffer)",
          FamilyName().get()));
     return false;
   }
@@ -850,8 +860,12 @@ bool gfxUserFontEntry::LoadPlatformFont(uint32_t aSrcIndex,
       ("userfonts (%p) [src %d] loaded uri: (%s) for (%s) "
        "(%p) gen: %8.8x compress: %d%%\n",
        fontSet.get(), aSrcIndex,
-       mSrcList[aSrcIndex].mURI->GetSpecOrDefault().get(), FamilyName().get(),
-       this, uint32_t(fontSet->GetGeneration()), fontCompressionRatio));
+       // Local fonts don't reach this function, so null mURI => buffer-type.
+       mSrcList[aSrcIndex].mURI
+           ? mSrcList[aSrcIndex].mURI->GetSpecOrDefault().get()
+           : "(buffer)",
+       FamilyName().get(), this, uint32_t(fontSet->GetGeneration()),
+       fontCompressionRatio));
 
   if (NS_IsMainThread()) {
     // UserFontCache::CacheFont is not currently safe to call off-main-thread,

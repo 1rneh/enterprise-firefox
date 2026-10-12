@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/** @import {RegionLocaleEntries} from "moz-src:///toolkit/modules/RegionLocaleMap.sys.mjs" */
+
 // We use importESModule here instead of static import so that
 // the Karma test environment won't choke on this module. This
 // is because the Karma test environment already stubs out
@@ -113,10 +115,13 @@ const STORIES_REGION_LOCALE_CONFIG =
 // see RegionLocaleMap for the format. Shipped default, overridden by the
 // stories-region-locale-config pref or a newtabTrainhop storiesRegionLocale
 // payload.
+/** @type {RegionLocaleEntries} */
 const STORIES_REGION_LOCALE_DEFAULT = [
   // Nightly also gets a global English feed, standing in for the reach
   // locale-list-config used to provide until one is configured remotely.
-  ...(AppConstants.NIGHTLY_BUILD ? [["*", ["en-*"]]] : []),
+  ...(AppConstants.NIGHTLY_BUILD
+    ? /** @type {RegionLocaleEntries} */ ([["*", ["en-*"]]])
+    : []),
   ["US", ["en-*"]],
   ["CA", ["en-*"]],
   ["GB", ["en-*"]],
@@ -169,6 +174,7 @@ const LOCALE_SECTIONS_CONFIG =
 
 const ACTIVITY_STREAM_PREF_BRANCH = "browser.newtabpage.activity-stream.";
 const PREF_MARKET_GATE_ENABLED = `${ACTIVITY_STREAM_PREF_BRANCH}widgets.marketGate.enabled`;
+const PREF_MARKET_GATE_ENFORCE_ON_NIGHTLY = `${ACTIVITY_STREAM_PREF_BRANCH}widgets.marketGate.enforceOnNightly`;
 
 const PREF_SHOULD_AS_INITIALIZE_FEEDS =
   "browser.newtabpage.activity-stream.testing.shouldInitializeFeeds";
@@ -527,8 +533,30 @@ function skipsNightlyDefault(prefKey) {
   );
 }
 
+// These read their defaults from PREFS_CONFIG, which exists by the time they run.
 function marketGateEnabled() {
-  return Services.prefs.getBoolPref(PREF_MARKET_GATE_ENABLED, false);
+  return Services.prefs.getBoolPref(
+    PREF_MARKET_GATE_ENABLED,
+    // eslint-disable-next-line no-use-before-define
+    PREFS_CONFIG.get("widgets.marketGate.enabled").value
+  );
+}
+
+function showsEveryWidgetOnNightly(prefKey) {
+  return (
+    AppConstants.NIGHTLY_BUILD &&
+    !skipsNightlyDefault(prefKey) &&
+    !Services.prefs.getBoolPref(
+      PREF_MARKET_GATE_ENFORCE_ON_NIGHTLY,
+      // eslint-disable-next-line no-use-before-define
+      PREFS_CONFIG.get("widgets.marketGate.enforceOnNightly").value
+    )
+  );
+}
+
+// Off by default once gating is on, except on Nightly, which shows every widget.
+function offByDefault(prefKey) {
+  return () => !marketGateEnabled() || showsEveryWidgetOnNightly(prefKey);
 }
 
 /**
@@ -548,14 +576,7 @@ function marketGate(prefKey) {
     }
     // Nightly gets every widget in every market so the team sees the whole
     // feature, which is why no widget pref carries an #ifdef in firefox.js.
-    if (
-      AppConstants.NIGHTLY_BUILD &&
-      !skipsNightlyDefault(prefKey) &&
-      !Services.prefs.getBoolPref(
-        `${ACTIVITY_STREAM_PREF_BRANCH}widgets.marketGate.enforceOnNightly`,
-        false
-      )
-    ) {
+    if (showsEveryWidgetOnNightly(prefKey)) {
       return true;
     }
     // With nothing restricting the region, geo cannot change the answer, so a
@@ -1541,7 +1562,7 @@ export const PREFS_CONFIG = new Map([
     {
       title:
         "Applies widget region and locale gating. When false, widgets keep the defaults from before gating",
-      value: false,
+      value: true,
     },
   ],
   [
@@ -1572,8 +1593,7 @@ export const PREFS_CONFIG = new Map([
     "widgets.lists.enabled",
     {
       title: "Enables the to-do lists widget",
-      // pref is dynamic
-      getValue: marketGate("widgets.lists.enabled"),
+      getValue: offByDefault("widgets.lists.enabled"),
     },
   ],
   [
@@ -1657,8 +1677,7 @@ export const PREFS_CONFIG = new Map([
     "widgets.focusTimer.enabled",
     {
       title: "Enables the focus timer widget",
-      // pref is dynamic
-      getValue: marketGate("widgets.focusTimer.enabled"),
+      getValue: offByDefault("widgets.focusTimer.enabled"),
     },
   ],
   [
@@ -1731,8 +1750,7 @@ export const PREFS_CONFIG = new Map([
     "widgets.clocks.enabled",
     {
       title: "Enables the clock widget",
-      // pref is dynamic
-      getValue: marketGate("widgets.clocks.enabled"),
+      getValue: offByDefault("widgets.clocks.enabled"),
     },
   ],
   [
@@ -1806,7 +1824,7 @@ export const PREFS_CONFIG = new Map([
     "widgets.crossword.enabled",
     {
       title: "Enables the crossword widget",
-      getValue: () => !marketGateEnabled(),
+      getValue: offByDefault("widgets.crossword.enabled"),
     },
   ],
   [
@@ -1850,11 +1868,26 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.horoscopes.enabled",
+    {
+      title: "Enables the horoscopes widget",
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
+      getValue: () => !marketGateEnabled(),
+    },
+  ],
+  [
+    "widgets.horoscopes.interaction",
+    {
+      title:
+        "Boolean flag for determining if a user has interacted with the horoscopes widget",
+      value: false,
+    },
+  ],
+  [
     "widgets.pictureOfTheDay.enabled",
     {
       title: "Enables the picture of the day widget",
-      // pref is dynamic
-      getValue: marketGate("widgets.pictureOfTheDay.enabled"),
+      getValue: offByDefault("widgets.pictureOfTheDay.enabled"),
     },
   ],
   [
@@ -1877,6 +1910,14 @@ export const PREFS_CONFIG = new Map([
     "widgets.system.recentSearches.enabled",
     {
       title: "Enables the recent searches widget experiment in Nimbus",
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
+      value: false,
+    },
+  ],
+  [
+    "widgets.system.horoscopes.enabled",
+    {
+      title: "Enables the horoscopes widget experiment in Nimbus",
       // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
       value: false,
     },
@@ -2005,6 +2046,13 @@ export const PREFS_CONFIG = new Map([
     "widgets.recentSearches.size",
     {
       title: "Size of the recent searches widget (medium or large)",
+      value: "",
+    },
+  ],
+  [
+    "widgets.horoscopes.size",
+    {
+      title: "Size of the horoscopes widget (medium or large)",
       value: "",
     },
   ],

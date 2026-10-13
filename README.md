@@ -34,29 +34,39 @@ Firefox Enterprise is built to help organizations meet regulatory requirements s
 
 ## Developing
 
+You should work from the `enterprise-main` branch, which is the repository default.
+The `main` branch tracks upstream Firefox and will build without Enterprise features.
+
+To get started, follow the [Firefox build setup instructions](https://firefox-source-docs.mozilla.org/setup/index.html) for your platform, and install the dependencies:
+
+```bash
+./mach bootstrap
+```
+
 ### Build
 
-Add the following line to your `.mozconfig` depending on the platform you're developing for
+Add the following line to your `.mozconfig` based on the platform you're developing for:
 
-- macos: `. "$topsrcdir/build/macosx/mozconfig.enterprise"`
+- macos (Apple Silicon): `. "$topsrcdir/build/macosx/mozconfig.enterprise"`
+- macos (Intel): `. "$topsrcdir/build/mozconfig.common.enterprise"`
 - unix: `. "$topsrcdir/build/unix/mozconfig.enterprise"`
 - win64: `. "$topsrcdir/build/win64/mozconfig.enterprise"`
 
+The platform files source `build/mozconfig.common.enterprise`, which enables `--enable-enterprise` and the reporting used for security logging.
+Now you can run a build:
+
+```bash
+./mach build
+```
+
 ### Run
 
-```bash
-./mach run
-```
-
-### Tests
+Firefox Enterprise signs in through an Admin Console.
+To run a local build without one, set `MOZ_BYPASS_FELT=1`, which starts the browser UI without console sign-in:
 
 ```bash
-./mach marionette-test testing/enterprise/
+MOZ_BYPASS_FELT=1 ./mach run
 ```
 
-You can also specify a test file, by default the manifest from the directory will be used.
-Or run:
-
-```bash
-./mach test marionette-enterprise
-```
+The bypass only works on local development builds.
+If you have access to an Admin Console, run `./mach run` and enter its address when prompted, or set it with `MOZ_ENTERPRISE_CONSOLE_URL`.

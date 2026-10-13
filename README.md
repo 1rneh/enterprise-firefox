@@ -48,7 +48,7 @@ To get started, follow the [Firefox build setup instructions](https://firefox-so
 Add the following line to your `.mozconfig`:
 
 ```bash
-ac_add_options --enable-enterprise
+. "$topsrcdir/build/mozconfig.common.enterprise"
 ```
 
 Now you can run a build:

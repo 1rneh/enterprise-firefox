@@ -608,6 +608,10 @@ def target_tasks_enterprise_firefox_with_tests(
         ):
             return False
 
+        # No scopes for proj-autophone workers
+        if task.task.get("provisionerId") == "proj-autophone":
+            return False
+
         # Only keep builds that have been explicitely flagged
         if task.kind == "build" and not parameters["project"] in task.attributes.get(
             "run_on_projects"

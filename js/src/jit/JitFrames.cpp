@@ -1308,6 +1308,7 @@ static void TraceJitExitFrame(JSTracer* trc, const JSJitFrameIter& frame) {
     size_t len = native->argc() + 2;
     Value* vp = native->vp();
     TraceRootRange(trc, len, vp, "ion-native-args");
+    TraceRoot(trc, native->savedCallee(), "ion-native-saved-callee");
     if (frame.isExitFrameLayout<ConstructNativeExitFrameLayout>()) {
       TraceRoot(trc, vp + len, "ion-native-new-target");
     }
@@ -1319,6 +1320,7 @@ static void TraceJitExitFrame(JSTracer* trc, const JSJitFrameIter& frame) {
         frame.exitFrame()->as<IonOOLNativeExitFrameLayout>();
     TraceRoot(trc, oolnative->stubCode(), "ion-ool-native-code");
     TraceRoot(trc, oolnative->vp(), "iol-ool-native-vp");
+    TraceRoot(trc, oolnative->savedCallee(), "ion-ool-native-saved-callee");
     size_t len = oolnative->argc() + 1;
     TraceRootRange(trc, len, oolnative->thisp(), "ion-ool-native-thisargs");
     return;
@@ -1487,10 +1489,6 @@ void TraceJitFrames(JSTracer* trc, JitActivation* activation) {
   uintptr_t highestByteVisitedInPrevWasmFrame = 0;
 
   for (JitFrameIter frames(activation); !frames.done(); ++frames) {
-    if (wasm::Instance* exitInstance = frames.wasmExitInstance()) {
-      // Exit instance of a wasm segment a return_call left with no frame.
-      wasm::TraceInstanceEdge(trc, exitInstance, "JitFrameIter exit instance");
-    }
     if (frames.isJSJit()) {
       const JSJitFrameIter& jitFrame = frames.asJSJit();
       switch (jitFrame.type()) {

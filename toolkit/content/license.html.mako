@@ -15,8 +15,13 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src chrome:; img-src chrome:; object-src 'none'">
     <meta charset="utf-8">
     <meta name="color-scheme" content="light dark">
+    <meta name="viewport" content="width=device-width">
     <title>Licenses</title>
+## Android packages neither info-pages.css nor the design tokens it imports;
+## its aboutLicense.css stands alone.
+% if config.get("MOZ_BUILD_APP") != "mobile/android":
     <link rel="stylesheet" href="chrome://global/skin/in-content/info-pages.css">
+% endif
     <link rel="stylesheet" href="chrome://global/skin/aboutLicense.css">
   </head>
 

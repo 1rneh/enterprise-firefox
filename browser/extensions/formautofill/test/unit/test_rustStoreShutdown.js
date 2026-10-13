@@ -1,16 +1,19 @@
 /*
- * Unit tests for RustAutofillStore: opening the profile's store, and the
- * shutdown handling around it -- finalize() and the profile-teardown blocker
- * registered by _registerShutdownBlocker().
+ * Unit tests for RustAutofillStore: opening the profile's store, the shutdown
+ * handling around it -- finalize() and the profile-teardown blocker registered
+ * by _registerShutdownBlocker() -- and when its authenticator prompts for the
+ * primary password.
  *
  * The shutdown tests exercise the logic in isolation with a fake store and a
- * fake AsyncShutdown phase. Only the first test opens a real store.
+ * fake AsyncShutdown phase. Only one test opens a real store.
  */
 
 "use strict";
 
-const { RustAutofillStore } = ChromeUtils.importESModule(
-  "resource://autofill/RustAutofillStore.sys.mjs"
+const { RustAutofillStore, RustAutofillStorageAuthenticator } =
+  ChromeUtils.importESModule("resource://autofill/RustAutofillStore.sys.mjs");
+const { AuthenticationCanceled } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustDbCrypto.sys.mjs"
 );
 const { UpdatableCreditCardFields } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAutofill.sys.mjs"
@@ -144,4 +147,56 @@ add_task(async function ensure_open_yields_a_store_that_holds_a_key() {
 
   await store.deleteCreditCard(guid);
   await handler.finalize();
+});
+
+/**
+ * An authenticator whose dialog answers from `answers` in turn, null being a
+ * decline, and counts how often it was shown.
+ *
+ * @param {Array<?string>} answers
+ */
+function makeAuthenticator(answers) {
+  const authenticator = new RustAutofillStorageAuthenticator();
+  authenticator.shown = 0;
+  authenticator._prompt = async () => {
+    authenticator.shown++;
+    return answers.shift() ?? null;
+  };
+  return authenticator;
+}
+
+add_task(async function a_read_nothing_asked_for_is_never_prompted() {
+  // The store decrypts every card it reads and asks for the key for each, so
+  // being asked says nothing about whether anyone wants a number.
+  const authenticator = makeAuthenticator(["secret"]);
+  await Assert.rejects(
+    authenticator.getPrimaryPassword(),
+    e => e instanceof AuthenticationCanceled,
+    "a request outside allowingPrompt() is declined"
+  );
+  Assert.equal(authenticator.shown, 0, "without showing the dialog");
+});
+
+add_task(async function one_decline_answers_for_the_whole_operation() {
+  const authenticator = makeAuthenticator([null, "secret"]);
+
+  // As a read of several cards asks, once per card, while the token stays
+  // locked: the first decline has to answer for the rest.
+  await authenticator.allowingPrompt(async () => {
+    for (let card = 0; card < 3; card++) {
+      await Assert.rejects(
+        authenticator.getPrimaryPassword(),
+        e => e instanceof AuthenticationCanceled,
+        `card ${card} is declined`
+      );
+    }
+  });
+  Assert.equal(authenticator.shown, 1, "and the dialog was shown once");
+
+  // The next operation is a new request, and is asked again.
+  const password = await authenticator.allowingPrompt(() =>
+    authenticator.getPrimaryPassword()
+  );
+  Assert.equal(password, "secret", "a later operation prompts afresh");
+  Assert.equal(authenticator.shown, 2, "showing the dialog once more");
 });

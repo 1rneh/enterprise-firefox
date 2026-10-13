@@ -4334,11 +4334,16 @@ uint64_t Assembler::ExtractLoad64Value(Instruction* inst0) {
   InstImm* i2 = (InstImm*)i1->next();
   InstImm* i3 = (InstImm*)i2->next();
 
-  MOZ_ASSERT((i0->extractBitField(31, 25)) == ((uint32_t)op_lu12i_w >> 25));
-  MOZ_ASSERT((i1->extractBitField(31, 22)) == ((uint32_t)op_ori >> 22));
-  MOZ_ASSERT((i2->extractBitField(31, 25)) == ((uint32_t)op_lu32i_d >> 25));
+  const uint32_t rd_code = i0->extractRD();
 
-  if ((i3->extractBitField(31, 22)) == ((uint32_t)op_lu52i_d >> 22)) {
+  MOZ_ASSERT((i0->extractBitField(31, 25)) == ((uint32_t)op_lu12i_w >> 25));
+  MOZ_ASSERT((i1->extractBitField(31, 22)) == ((uint32_t)op_ori >> 22) &&
+             i1->extractRJ() == rd_code && i1->extractRD() == rd_code);
+  MOZ_ASSERT((i2->extractBitField(31, 25)) == ((uint32_t)op_lu32i_d >> 25) &&
+             i2->extractRD() == rd_code);
+
+  if ((i3->extractBitField(31, 22)) == ((uint32_t)op_lu52i_d >> 22) &&
+      i3->extractRJ() == rd_code && i3->extractRD() == rd_code) {
     // Li64
     uint64_t value =
         (uint64_t(i0->extractBitField(Imm20Bits + Imm20Shift - 1, Imm20Shift))
@@ -4365,17 +4370,22 @@ uint64_t Assembler::ExtractLoad64Value(Instruction* inst0) {
 }
 
 void Assembler::UpdateLoad64Value(Instruction* inst0, uint64_t value) {
-  // Todo: with ma_liPatchable
+  // Sync with ma_liPatchable()
   InstImm* i0 = (InstImm*)inst0;
   InstImm* i1 = (InstImm*)i0->next();
   InstImm* i2 = (InstImm*)i1->next();
   InstImm* i3 = (InstImm*)i2->next();
 
-  MOZ_ASSERT((i0->extractBitField(31, 25)) == ((uint32_t)op_lu12i_w >> 25));
-  MOZ_ASSERT((i1->extractBitField(31, 22)) == ((uint32_t)op_ori >> 22));
-  MOZ_ASSERT((i2->extractBitField(31, 25)) == ((uint32_t)op_lu32i_d >> 25));
+  const uint32_t rd_code = i0->extractRD();
 
-  if ((i3->extractBitField(31, 22)) == ((uint32_t)op_lu52i_d >> 22)) {
+  MOZ_ASSERT((i0->extractBitField(31, 25)) == ((uint32_t)op_lu12i_w >> 25));
+  MOZ_ASSERT((i1->extractBitField(31, 22)) == ((uint32_t)op_ori >> 22) &&
+             i1->extractRJ() == rd_code && i1->extractRD() == rd_code);
+  MOZ_ASSERT((i2->extractBitField(31, 25)) == ((uint32_t)op_lu32i_d >> 25) &&
+             i2->extractRD() == rd_code);
+
+  if ((i3->extractBitField(31, 22)) == ((uint32_t)op_lu52i_d >> 22) &&
+      i3->extractRJ() == rd_code && i3->extractRD() == rd_code) {
     // Li64
     *i0 = InstImm(op_lu12i_w, (int32_t)((value >> 12) & 0xfffff),
                   Register::FromCode(i0->extractRD()), false);

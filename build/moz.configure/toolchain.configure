@@ -3152,6 +3152,10 @@ def coverage_cflags(target, c_compiler, build_env):
             "-coverage-no-function-names-in-data",
         ]
 
+    # We only apply the patch adding -fprofile-abs-path starting with Clang 22
+    if c_compiler.type in ("clang", "clang-cl") and c_compiler.version >= "22.0.0":
+        cflags += ["-fprofile-abs-path"]
+
     exclude = []
     if target.os == "WINNT" and c_compiler.type == "clang-cl":
         # VS files

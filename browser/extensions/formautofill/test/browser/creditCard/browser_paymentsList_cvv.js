@@ -32,6 +32,10 @@ add_setup(async function () {
 });
 
 add_task(async function test_indicationShownForSavedSecurityCode() {
+  if (RUST_CREDIT_CARD_STORE) {
+    info("The Rust store does not hold a security code");
+    return;
+  }
   await SpecialPowers.pushPrefEnv({ set: [[CVV_PREF, true]] });
   await setStorage(Object.assign({}, TEST_CREDIT_CARD_1, { "cc-csc": "123" }));
 
@@ -98,6 +102,10 @@ add_task(async function test_noIndicationForEmptySecurityCode() {
 // TEST_CREDIT_CARD_4 carries only a number, so cc-exp is absent and there is no
 // expiry to join the indicator onto.
 add_task(async function test_indicationWithoutExpiryDate() {
+  if (RUST_CREDIT_CARD_STORE) {
+    info("The Rust store does not hold a security code");
+    return;
+  }
   await SpecialPowers.pushPrefEnv({ set: [[CVV_PREF, true]] });
   await setStorage(Object.assign({}, TEST_CREDIT_CARD_4, { "cc-csc": "123" }));
 

@@ -64,6 +64,7 @@ void InterceptedHttpChannel::ReleaseListeners() {
   mBodyReader = nullptr;
   mReleaseHandle = nullptr;
   mProgressSink = nullptr;
+  mHasProgressSink = false;
   mBodyCallback = nullptr;
   mPump = nullptr;
 
@@ -1152,6 +1153,7 @@ InterceptedHttpChannel::OnStartRequest(nsIRequest* aRequest) {
   if (!mProgressSink) {
     GetCallback(mProgressSink);
   }
+  mHasProgressSink = !!mProgressSink;
 
   MOZ_ASSERT_IF(!mLoadInfo->GetServiceWorkerTaintingSynthesized(),
                 mLoadInfo->GetLoadingPrincipal());
@@ -1275,7 +1277,7 @@ InterceptedHttpChannel::OnDataAvailable(nsIRequest* aRequest,
     aInputStream->ReadSegments(NS_DiscardSegment, nullptr, aCount, &unused);
     return mStatus;
   }
-  if (mProgressSink) {
+  if (mHasProgressSink) {
     if (!(mLoadFlags & HttpBaseChannel::LOAD_BACKGROUND)) {
       mProgress = aOffset + aCount;
       MaybeCallStatusAndProgress();

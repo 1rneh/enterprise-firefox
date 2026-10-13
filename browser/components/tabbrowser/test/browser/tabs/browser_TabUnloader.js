@@ -88,6 +88,13 @@ async function addWebRTCTab(win = window) {
   win.PopupNotifications.panel.firstElementChild.button.click();
   await recordingPromise;
 
+  let principal = tab.linkedBrowser.contentPrincipal;
+  registerCleanupFunction(() => {
+    for (let type of ["camera", "microphone", "MediaManagerVideo"]) {
+      Services.perms.removeFromPrincipal(principal, type);
+    }
+  });
+
   return tab;
 }
 

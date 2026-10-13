@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.57
- * pdfjsBuild = 89b500f5e
+ * pdfjsVersion = 6.5.128
+ * pdfjsBuild = e1412d3a5
  */
 
 ;// ./src/shared/util.js
@@ -493,6 +493,9 @@ class FeatureTest {
   static get isImageDecoderSupported() {
     return shadow(this, "isImageDecoderSupported", typeof ImageDecoder !== "undefined");
   }
+  static get isVideoFrameSupported() {
+    return shadow(this, "isVideoFrameSupported", typeof VideoFrame !== "undefined");
+  }
   static get isFloat16ArraySupported() {
     return shadow(this, "isFloat16ArraySupported", typeof Float16Array !== "undefined");
   }
@@ -732,7 +735,12 @@ function normalizeUnicode(str) {
   return str.replaceAll(NormalizeRegex, (_, p1, p2) => p1 ? p1.normalize("NFKC") : NormalizationMap.get(p2));
 }
 function getUuid() {
-  return crypto.randomUUID();
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const buf = new Uint8Array(32);
+  crypto.getRandomValues(buf);
+  return bytesToString(buf);
 }
 function _isValidExplicitDest(validRef, validName, dest) {
   if (!Array.isArray(dest) || dest.length < 2) {
@@ -794,6 +802,270 @@ if (typeof Iterator.prototype.join !== "function") {
 ;// ./src/shared/math_clamp.js
 function MathClamp(v, min, max) {
   return Math.min(Math.max(v, min), max);
+}
+
+;// ./src/display/display_utils.js
+
+
+class PixelsPerInch {
+  static CSS = 96.0;
+  static PDF = 72.0;
+  static PDF_TO_CSS_UNITS = this.CSS / this.PDF;
+}
+class RenderingCancelledException extends BaseException {
+  constructor(msg, extraDelay = 0) {
+    super(msg, "RenderingCancelledException");
+    this.extraDelay = extraDelay;
+  }
+}
+function getRGBA(color) {
+  if (color.startsWith("#")) {
+    const hex = color.slice(1);
+    return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16), hex.length >= 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1];
+  }
+  if (color.startsWith("rgb(")) {
+    const [r, g, b] = color.slice(4, -1).split(",").map(x => parseInt(x, 10));
+    return [r, g, b, 1];
+  }
+  if (color.startsWith("rgba(")) {
+    const parts = color.slice(5, -1).split(",");
+    return [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10), parseFloat(parts[3])];
+  }
+  const m = color.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+|none))?\)$/);
+  if (m) {
+    return [Math.round(parseFloat(m[1]) * 255), Math.round(parseFloat(m[2]) * 255), Math.round(parseFloat(m[3]) * 255), m[4] !== undefined && m[4] !== "none" ? parseFloat(m[4]) : 1];
+  }
+  return null;
+}
+function getRGB(color) {
+  const rgba = getRGBA(color);
+  if (!rgba) {
+    warn(`Not a valid color format: "${color}"`);
+    return [0, 0, 0];
+  }
+  return rgba.slice(0, 3);
+}
+function getCurrentTransform(ctx) {
+  const {
+    a,
+    b,
+    c,
+    d,
+    e,
+    f
+  } = ctx.getTransform();
+  return [a, b, c, d, e, f];
+}
+function getCurrentTransformInverse(ctx) {
+  const {
+    a,
+    b,
+    c,
+    d,
+    e,
+    f
+  } = ctx.getTransform().invertSelf();
+  return [a, b, c, d, e, f];
+}
+class OutputScale {
+  constructor() {
+    const {
+      pixelRatio
+    } = OutputScale;
+    this.sx = pixelRatio;
+    this.sy = pixelRatio;
+  }
+  get scaled() {
+    return this.sx !== 1 || this.sy !== 1;
+  }
+  get symmetric() {
+    return this.sx === this.sy;
+  }
+  limitCanvas(width, height, maxPixels, maxDim, capAreaFactor = -1) {
+    let maxAreaScale = Infinity,
+      maxWidthScale = Infinity,
+      maxHeightScale = Infinity;
+    maxPixels = OutputScale.capPixels(maxPixels, capAreaFactor);
+    if (maxPixels > 0) {
+      maxAreaScale = Math.sqrt(maxPixels / (width * height));
+    }
+    if (maxDim !== -1) {
+      maxWidthScale = maxDim / width;
+      maxHeightScale = maxDim / height;
+    }
+    const maxScale = Math.min(maxAreaScale, maxWidthScale, maxHeightScale);
+    if (this.sx > maxScale || this.sy > maxScale) {
+      this.sx = maxScale;
+      this.sy = maxScale;
+      return true;
+    }
+    return false;
+  }
+  static get pixelRatio() {
+    return globalThis.devicePixelRatio || 1;
+  }
+  static capPixels(maxPixels, capAreaFactor) {
+    if (capAreaFactor >= 0) {
+      const winPixels = Math.ceil(window.screen.availWidth * window.screen.availHeight * this.pixelRatio ** 2 * (1 + capAreaFactor / 100));
+      return maxPixels > 0 ? Math.min(maxPixels, winPixels) : winPixels;
+    }
+    return maxPixels;
+  }
+}
+const SupportedImageMimeTypes = new Set(["image/apng", "image/avif", "image/bmp", "image/gif", "image/jpeg", "image/png", "image/svg+xml", "image/webp", "image/x-icon"]);
+function applyOpacity(color, opacity) {
+  opacity = MathClamp(opacity ?? 1, 0, 1);
+  const white = 255 * (1 - opacity);
+  return color.map(c => Math.round(c * opacity + white));
+}
+function RGBToHSL(rgb, output) {
+  const r = rgb[0] / 255;
+  const g = rgb[1] / 255;
+  const b = rgb[2] / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) {
+    output[0] = output[1] = 0;
+  } else {
+    const d = max - min;
+    output[1] = l < 0.5 ? d / (max + min) : d / (2 - max - min);
+    switch (max) {
+      case r:
+        output[0] = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+        break;
+      case g:
+        output[0] = ((b - r) / d + 2) * 60;
+        break;
+      case b:
+        output[0] = ((r - g) / d + 4) * 60;
+        break;
+    }
+  }
+  output[2] = l;
+}
+function HSLToRGB(hsl, output) {
+  const h = hsl[0];
+  const s = hsl[1];
+  const l = hsl[2];
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(h / 60 % 2 - 1));
+  const m = l - c / 2;
+  switch (Math.floor(h / 60)) {
+    case 0:
+      output[0] = c + m;
+      output[1] = x + m;
+      output[2] = m;
+      break;
+    case 1:
+      output[0] = x + m;
+      output[1] = c + m;
+      output[2] = m;
+      break;
+    case 2:
+      output[0] = m;
+      output[1] = c + m;
+      output[2] = x + m;
+      break;
+    case 3:
+      output[0] = m;
+      output[1] = x + m;
+      output[2] = c + m;
+      break;
+    case 4:
+      output[0] = x + m;
+      output[1] = m;
+      output[2] = c + m;
+      break;
+    case 5:
+    case 6:
+      output[0] = c + m;
+      output[1] = m;
+      output[2] = x + m;
+      break;
+  }
+}
+function computeLuminance(x) {
+  return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+}
+function contrastRatio(hsl1, hsl2, output) {
+  HSLToRGB(hsl1, output);
+  output.map(computeLuminance);
+  const lum1 = 0.2126 * output[0] + 0.7152 * output[1] + 0.0722 * output[2];
+  HSLToRGB(hsl2, output);
+  output.map(computeLuminance);
+  const lum2 = 0.2126 * output[0] + 0.7152 * output[1] + 0.0722 * output[2];
+  return lum1 > lum2 ? (lum1 + 0.05) / (lum2 + 0.05) : (lum2 + 0.05) / (lum1 + 0.05);
+}
+const contrastCache = new Map();
+function findContrastColor(baseColor, fixedColor) {
+  const key = baseColor[0] + baseColor[1] * 0x100 + baseColor[2] * 0x10000 + fixedColor[0] * 0x1000000 + fixedColor[1] * 0x100000000 + fixedColor[2] * 0x10000000000;
+  let cachedValue = contrastCache.get(key);
+  if (cachedValue) {
+    return cachedValue;
+  }
+  const array = new Float32Array(9);
+  const output = array.subarray(0, 3);
+  const baseHSL = array.subarray(3, 6);
+  RGBToHSL(baseColor, baseHSL);
+  const fixedHSL = array.subarray(6, 9);
+  RGBToHSL(fixedColor, fixedHSL);
+  const isFixedColorDark = fixedHSL[2] < 0.5;
+  const minContrast = isFixedColorDark ? 12 : 4.5;
+  baseHSL[2] = isFixedColorDark ? Math.sqrt(baseHSL[2]) : 1 - Math.sqrt(1 - baseHSL[2]);
+  if (contrastRatio(baseHSL, fixedHSL, output) < minContrast) {
+    let start, end;
+    if (isFixedColorDark) {
+      start = baseHSL[2];
+      end = 1;
+    } else {
+      start = 0;
+      end = baseHSL[2];
+    }
+    const PRECISION = 0.005;
+    while (end - start > PRECISION) {
+      const mid = baseHSL[2] = (start + end) / 2;
+      if (isFixedColorDark === contrastRatio(baseHSL, fixedHSL, output) < minContrast) {
+        start = mid;
+      } else {
+        end = mid;
+      }
+    }
+    baseHSL[2] = isFixedColorDark ? end : start;
+  }
+  HSLToRGB(baseHSL, output);
+  cachedValue = Util.makeHexColor(Math.round(output[0] * 255), Math.round(output[1] * 255), Math.round(output[2] * 255));
+  contrastCache.set(key, cachedValue);
+  return cachedValue;
+}
+function makePathFromDrawOPS(data) {
+  const path = new Path2D();
+  if (!data) {
+    return path;
+  }
+  for (let i = 0, ii = data.length; i < ii;) {
+    switch (data[i++]) {
+      case DrawOPS.moveTo:
+        path.moveTo(data[i++], data[i++]);
+        break;
+      case DrawOPS.lineTo:
+        path.lineTo(data[i++], data[i++]);
+        break;
+      case DrawOPS.curveTo:
+        path.bezierCurveTo(data[i++], data[i++], data[i++], data[i++], data[i++], data[i++]);
+        break;
+      case DrawOPS.quadraticCurveTo:
+        path.quadraticCurveTo(data[i++], data[i++], data[i++], data[i++]);
+        break;
+      case DrawOPS.closePath:
+        path.closePath();
+        break;
+      default:
+        warn(`Unrecognized drawing path operator: ${data[i - 1]}`);
+        break;
+    }
+  }
+  return path;
 }
 
 ;// ./src/display/page_viewport.js
@@ -1221,16 +1493,11 @@ class XfaLayer {
   }
 }
 
-;// ./src/display/display_utils.js
+;// ./src/display/dom_utils.js
 
 
 
 
-class PixelsPerInch {
-  static CSS = 96.0;
-  static PDF = 72.0;
-  static PDF_TO_CSS_UNITS = this.CSS / this.PDF;
-}
 async function fetchData(url, type = "text") {
   const response = await fetch(url);
   if (!response.ok) {
@@ -1245,12 +1512,6 @@ async function fetchData(url, type = "text") {
       return response.json();
   }
   return response.text();
-}
-class RenderingCancelledException extends BaseException {
-  constructor(msg, extraDelay = 0) {
-    super(msg, "RenderingCancelledException");
-    this.extraDelay = extraDelay;
-  }
 }
 function isDataScheme(url) {
   const ii = url.length;
@@ -1342,31 +1603,6 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
   }
   return defaultFilename;
 }
-class StatTimer {
-  #started = new Map();
-  times = [];
-  time(name) {
-    if (this.#started.has(name)) {
-      warn(`Timer is already running for ${name}`);
-    }
-    this.#started.set(name, Date.now());
-  }
-  timeEnd(name) {
-    if (!this.#started.has(name)) {
-      warn(`Timer has not been started for ${name}`);
-    }
-    this.times.push({
-      name,
-      start: this.#started.get(name),
-      end: Date.now()
-    });
-    this.#started.delete(name);
-  }
-  toString() {
-    const longest = Math.max(...this.times.map(t => t.name.length));
-    return this.times.map(t => `${t.name.padEnd(longest)} ${t.end - t.start}ms\n`).join("");
-  }
-}
 function isValidFetchUrl(url, baseUrl) {
   throw new Error("Not implemented: isValidFetchUrl");
 }
@@ -1376,9 +1612,6 @@ function noContextMenu(e) {
 function stopEvent(e) {
   e.preventDefault();
   e.stopPropagation();
-}
-function deprecated(details) {
-  console.log("Deprecated API usage: " + details);
 }
 class PDFDateString {
   static #regex;
@@ -1420,33 +1653,6 @@ class PDFDateString {
     return new Date(Date.UTC(year, month, day, hour, minute, second));
   }
 }
-function getRGBA(color) {
-  if (color.startsWith("#")) {
-    const hex = color.slice(1);
-    return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16), hex.length >= 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1];
-  }
-  if (color.startsWith("rgb(")) {
-    const [r, g, b] = color.slice(4, -1).split(",").map(x => parseInt(x, 10));
-    return [r, g, b, 1];
-  }
-  if (color.startsWith("rgba(")) {
-    const parts = color.slice(5, -1).split(",");
-    return [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10), parseFloat(parts[3])];
-  }
-  const m = color.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+|none))?\)$/);
-  if (m) {
-    return [Math.round(parseFloat(m[1]) * 255), Math.round(parseFloat(m[2]) * 255), Math.round(parseFloat(m[3]) * 255), m[4] !== undefined && m[4] !== "none" ? parseFloat(m[4]) : 1];
-  }
-  return null;
-}
-function getRGB(color) {
-  const rgba = getRGBA(color);
-  if (!rgba) {
-    warn(`Not a valid color format: "${color}"`);
-    return [0, 0, 0];
-  }
-  return rgba.slice(0, 3);
-}
 function getColorValues(colors) {
   const span = document.createElement("span");
   span.style.visibility = "hidden";
@@ -1458,28 +1664,6 @@ function getColorValues(colors) {
     colors.set(name, getRGB(computedColor));
   }
   span.remove();
-}
-function getCurrentTransform(ctx) {
-  const {
-    a,
-    b,
-    c,
-    d,
-    e,
-    f
-  } = ctx.getTransform();
-  return [a, b, c, d, e, f];
-}
-function getCurrentTransformInverse(ctx) {
-  const {
-    a,
-    b,
-    c,
-    d,
-    e,
-    f
-  } = ctx.getTransform().invertSelf();
-  return [a, b, c, d, e, f];
 }
 function setLayerDimensions(div, viewport, mustFlip = false, mustRotate = true) {
   if (viewport instanceof PageViewport) {
@@ -1504,52 +1688,6 @@ function setLayerDimensions(div, viewport, mustFlip = false, mustRotate = true) 
     div.setAttribute("data-main-rotation", viewport.rotation);
   }
 }
-class OutputScale {
-  constructor() {
-    const {
-      pixelRatio
-    } = OutputScale;
-    this.sx = pixelRatio;
-    this.sy = pixelRatio;
-  }
-  get scaled() {
-    return this.sx !== 1 || this.sy !== 1;
-  }
-  get symmetric() {
-    return this.sx === this.sy;
-  }
-  limitCanvas(width, height, maxPixels, maxDim, capAreaFactor = -1) {
-    let maxAreaScale = Infinity,
-      maxWidthScale = Infinity,
-      maxHeightScale = Infinity;
-    maxPixels = OutputScale.capPixels(maxPixels, capAreaFactor);
-    if (maxPixels > 0) {
-      maxAreaScale = Math.sqrt(maxPixels / (width * height));
-    }
-    if (maxDim !== -1) {
-      maxWidthScale = maxDim / width;
-      maxHeightScale = maxDim / height;
-    }
-    const maxScale = Math.min(maxAreaScale, maxWidthScale, maxHeightScale);
-    if (this.sx > maxScale || this.sy > maxScale) {
-      this.sx = maxScale;
-      this.sy = maxScale;
-      return true;
-    }
-    return false;
-  }
-  static get pixelRatio() {
-    return globalThis.devicePixelRatio || 1;
-  }
-  static capPixels(maxPixels, capAreaFactor) {
-    if (capAreaFactor >= 0) {
-      const winPixels = Math.ceil(window.screen.availWidth * window.screen.availHeight * this.pixelRatio ** 2 * (1 + capAreaFactor / 100));
-      return maxPixels > 0 ? Math.min(maxPixels, winPixels) : winPixels;
-    }
-    return maxPixels;
-  }
-}
-const SupportedImageMimeTypes = new Set(["image/apng", "image/avif", "image/bmp", "image/gif", "image/jpeg", "image/png", "image/svg+xml", "image/webp", "image/x-icon"]);
 class ColorScheme {
   static get isDarkMode() {
     return shadow(this, "isDarkMode", !!window?.matchMedia?.("(prefers-color-scheme: dark)").matches);
@@ -1572,131 +1710,6 @@ class CSSConstants {
     element.remove();
     return shadow(this, "commentForegroundColor", getRGB(color));
   }
-}
-function applyOpacity(color, opacity) {
-  opacity = MathClamp(opacity ?? 1, 0, 1);
-  const white = 255 * (1 - opacity);
-  return color.map(c => Math.round(c * opacity + white));
-}
-function RGBToHSL(rgb, output) {
-  const r = rgb[0] / 255;
-  const g = rgb[1] / 255;
-  const b = rgb[2] / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) {
-    output[0] = output[1] = 0;
-  } else {
-    const d = max - min;
-    output[1] = l < 0.5 ? d / (max + min) : d / (2 - max - min);
-    switch (max) {
-      case r:
-        output[0] = ((g - b) / d + (g < b ? 6 : 0)) * 60;
-        break;
-      case g:
-        output[0] = ((b - r) / d + 2) * 60;
-        break;
-      case b:
-        output[0] = ((r - g) / d + 4) * 60;
-        break;
-    }
-  }
-  output[2] = l;
-}
-function HSLToRGB(hsl, output) {
-  const h = hsl[0];
-  const s = hsl[1];
-  const l = hsl[2];
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(h / 60 % 2 - 1));
-  const m = l - c / 2;
-  switch (Math.floor(h / 60)) {
-    case 0:
-      output[0] = c + m;
-      output[1] = x + m;
-      output[2] = m;
-      break;
-    case 1:
-      output[0] = x + m;
-      output[1] = c + m;
-      output[2] = m;
-      break;
-    case 2:
-      output[0] = m;
-      output[1] = c + m;
-      output[2] = x + m;
-      break;
-    case 3:
-      output[0] = m;
-      output[1] = x + m;
-      output[2] = c + m;
-      break;
-    case 4:
-      output[0] = x + m;
-      output[1] = m;
-      output[2] = c + m;
-      break;
-    case 5:
-    case 6:
-      output[0] = c + m;
-      output[1] = m;
-      output[2] = x + m;
-      break;
-  }
-}
-function computeLuminance(x) {
-  return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
-}
-function contrastRatio(hsl1, hsl2, output) {
-  HSLToRGB(hsl1, output);
-  output.map(computeLuminance);
-  const lum1 = 0.2126 * output[0] + 0.7152 * output[1] + 0.0722 * output[2];
-  HSLToRGB(hsl2, output);
-  output.map(computeLuminance);
-  const lum2 = 0.2126 * output[0] + 0.7152 * output[1] + 0.0722 * output[2];
-  return lum1 > lum2 ? (lum1 + 0.05) / (lum2 + 0.05) : (lum2 + 0.05) / (lum1 + 0.05);
-}
-const contrastCache = new Map();
-function findContrastColor(baseColor, fixedColor) {
-  const key = baseColor[0] + baseColor[1] * 0x100 + baseColor[2] * 0x10000 + fixedColor[0] * 0x1000000 + fixedColor[1] * 0x100000000 + fixedColor[2] * 0x10000000000;
-  let cachedValue = contrastCache.get(key);
-  if (cachedValue) {
-    return cachedValue;
-  }
-  const array = new Float32Array(9);
-  const output = array.subarray(0, 3);
-  const baseHSL = array.subarray(3, 6);
-  RGBToHSL(baseColor, baseHSL);
-  const fixedHSL = array.subarray(6, 9);
-  RGBToHSL(fixedColor, fixedHSL);
-  const isFixedColorDark = fixedHSL[2] < 0.5;
-  const minContrast = isFixedColorDark ? 12 : 4.5;
-  baseHSL[2] = isFixedColorDark ? Math.sqrt(baseHSL[2]) : 1 - Math.sqrt(1 - baseHSL[2]);
-  if (contrastRatio(baseHSL, fixedHSL, output) < minContrast) {
-    let start, end;
-    if (isFixedColorDark) {
-      start = baseHSL[2];
-      end = 1;
-    } else {
-      start = 0;
-      end = baseHSL[2];
-    }
-    const PRECISION = 0.005;
-    while (end - start > PRECISION) {
-      const mid = baseHSL[2] = (start + end) / 2;
-      if (isFixedColorDark === contrastRatio(baseHSL, fixedHSL, output) < minContrast) {
-        start = mid;
-      } else {
-        end = mid;
-      }
-    }
-    baseHSL[2] = isFixedColorDark ? end : start;
-  }
-  HSLToRGB(baseHSL, output);
-  cachedValue = Util.makeHexColor(Math.round(output[0] * 255), Math.round(output[1] * 255), Math.round(output[2] * 255));
-  contrastCache.set(key, cachedValue);
-  return cachedValue;
 }
 function renderRichText({
   html,
@@ -1725,35 +1738,6 @@ function renderRichText({
   }
   fragment.firstElementChild.classList.add("richText", className);
   container.append(fragment);
-}
-function makePathFromDrawOPS(data) {
-  const path = new Path2D();
-  if (!data) {
-    return path;
-  }
-  for (let i = 0, ii = data.length; i < ii;) {
-    switch (data[i++]) {
-      case DrawOPS.moveTo:
-        path.moveTo(data[i++], data[i++]);
-        break;
-      case DrawOPS.lineTo:
-        path.lineTo(data[i++], data[i++]);
-        break;
-      case DrawOPS.curveTo:
-        path.bezierCurveTo(data[i++], data[i++], data[i++], data[i++], data[i++], data[i++]);
-        break;
-      case DrawOPS.quadraticCurveTo:
-        path.quadraticCurveTo(data[i++], data[i++], data[i++], data[i++]);
-        break;
-      case DrawOPS.closePath:
-        path.closePath();
-        break;
-      default:
-        warn(`Unrecognized drawing path operator: ${data[i - 1]}`);
-        break;
-    }
-  }
-  return path;
 }
 
 ;// ./src/display/editor/toolbar.js
@@ -2061,12 +2045,13 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "c186cc9a-35f2-4903-bae3-54472b008de3";
+const INTERNAL_EVT = "01ffb4ab-d90d-4ca8-8b3b-0b6d879e32ec";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
 
 ;// ./src/display/editor/tools.js
+
 
 
 
@@ -3864,7 +3849,7 @@ class AnnotationEditorUIManager {
     this.#commandManager.undo();
     this.#dispatchUpdateStates({
       hasSomethingToUndo: this.#commandManager.hasSomethingToUndo(),
-      hasSomethingToRedo: true,
+      hasSomethingToRedo: this.#commandManager.hasSomethingToRedo(),
       isEmpty: this.#isEmpty()
     });
     this._editorUndoBar?.hide();
@@ -3872,7 +3857,7 @@ class AnnotationEditorUIManager {
   redo() {
     this.#commandManager.redo();
     this.#dispatchUpdateStates({
-      hasSomethingToUndo: true,
+      hasSomethingToUndo: this.#commandManager.hasSomethingToUndo(),
       hasSomethingToRedo: this.#commandManager.hasSomethingToRedo(),
       isEmpty: this.#isEmpty()
     });
@@ -4771,6 +4756,7 @@ class Comment {
 }
 
 ;// ./src/display/touch_manager.js
+
 
 function preventDefault(evt) {
   evt.preventDefault();
@@ -7082,6 +7068,521 @@ class PrintAnnotationStorage extends AnnotationStorage {
   }
 }
 
+;// ./src/display/api_utils.js
+
+function deprecated(details) {
+  console.log("Deprecated API usage: " + details);
+}
+function getUrlProp(val) {
+  return null;
+}
+function getDataProp(val) {
+  if (val instanceof Uint8Array && val.byteLength === val.buffer.byteLength) {
+    return val;
+  }
+  if (typeof val === "string") {
+    return stringToBytes(val);
+  }
+  if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) || typeof val === "object" && !isNaN(val?.length)) {
+    return new Uint8Array(val);
+  }
+  throw new Error("Invalid PDF binary data: either TypedArray, " + "string, or array-like object is expected in the data property.");
+}
+function getFactoryUrlProp(val) {
+  if (typeof val !== "string") {
+    return null;
+  }
+  if (val.endsWith("/")) {
+    return val;
+  }
+  throw new Error(`Invalid factory url: "${val}" must include trailing slash.`);
+}
+const isRefProxy = v => typeof v === "object" && Number.isInteger(v?.num) && v.num >= 0 && Number.isInteger(v?.gen) && v.gen >= 0;
+const isNameProxy = v => typeof v === "object" && typeof v?.name === "string";
+const isValidExplicitDest = _isValidExplicitDest.bind(null, isRefProxy, isNameProxy);
+function isSameOrigin(baseUrl, otherUrl) {
+  return false;
+}
+function getWorkerSrc(src) {
+  return src;
+}
+class LoopbackPort {
+  #listeners = new Map();
+  #deferred = Promise.resolve();
+  postMessage(obj, transfer) {
+    const event = {
+      data: structuredClone(obj, transfer ? {
+        transfer
+      } : null)
+    };
+    this.#deferred.then(() => {
+      for (const [listener] of this.#listeners) {
+        listener.call(this, event);
+      }
+    });
+  }
+  addEventListener(name, listener, options = null) {
+    let rmAbort = null;
+    if (options?.signal instanceof AbortSignal) {
+      const {
+        signal
+      } = options;
+      if (signal.aborted) {
+        warn("LoopbackPort - cannot use an `aborted` signal.");
+        return;
+      }
+      const onAbort = () => this.removeEventListener(name, listener);
+      rmAbort = () => signal.removeEventListener("abort", onAbort);
+      signal.addEventListener("abort", onAbort);
+    }
+    this.#listeners.set(listener, rmAbort);
+  }
+  removeEventListener(name, listener) {
+    const rmAbort = this.#listeners.get(listener);
+    rmAbort?.();
+    this.#listeners.delete(listener);
+  }
+  terminate() {
+    for (const [, rmAbort] of this.#listeners) {
+      rmAbort?.();
+    }
+    this.#listeners.clear();
+  }
+}
+class StatTimer {
+  #started = new Map();
+  times = [];
+  time(name) {
+    if (this.#started.has(name)) {
+      warn(`Timer is already running for ${name}`);
+    }
+    this.#started.set(name, Date.now());
+  }
+  timeEnd(name) {
+    if (!this.#started.has(name)) {
+      warn(`Timer has not been started for ${name}`);
+    }
+    this.times.push({
+      name,
+      start: this.#started.get(name),
+      end: Date.now()
+    });
+    this.#started.delete(name);
+  }
+  toString() {
+    const longest = Math.max(...this.times.map(t => t.name.length));
+    return this.times.map(t => `${t.name.padEnd(longest)} ${t.end - t.start}ms\n`).join("");
+  }
+}
+
+;// ./src/shared/message_handler.js
+
+const CallbackKind = {
+  DATA: 1,
+  ERROR: 2
+};
+const StreamKind = {
+  CANCEL: 1,
+  CANCEL_COMPLETE: 2,
+  CLOSE: 3,
+  ENQUEUE: 4,
+  ERROR: 5,
+  PULL: 6,
+  PULL_COMPLETE: 7,
+  START_COMPLETE: 8
+};
+function onFn() {}
+function wrapReason(ex) {
+  if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
+    return ex;
+  }
+  if (typeof ex !== "object" || ex === null) {
+    return new UnknownErrorException(String(ex), String(ex));
+  }
+  switch (ex.name) {
+    case "AbortException":
+      return new AbortException(ex.message);
+    case "InvalidPDFException":
+      return new InvalidPDFException(ex.message);
+    case "PasswordException":
+      return new PasswordException(ex.message, ex.code);
+    case "ResponseException":
+      return new ResponseException(ex.message, ex.status, ex.missing);
+    case "UnknownErrorException":
+      return new UnknownErrorException(ex.message, ex.details);
+  }
+  return new UnknownErrorException(ex.message, ex.toString());
+}
+class MessageHandler {
+  #actions = new Map();
+  #callbackCapabilities = new Map();
+  #callbackId = 1;
+  #comObj;
+  #messageAC = new AbortController();
+  #sourceName;
+  #streamControllers = new Map();
+  #streamId = 1;
+  #streamSinks = new Map();
+  #targetName;
+  constructor(sourceName, targetName, comObj) {
+    this.#sourceName = sourceName;
+    this.#targetName = targetName;
+    this.#comObj = comObj;
+    comObj.addEventListener("message", this.#onMessage.bind(this), {
+      signal: this.#messageAC.signal
+    });
+  }
+  #onMessage({
+    data
+  }) {
+    if (data.targetName !== this.#sourceName) {
+      return;
+    }
+    if (data.stream) {
+      this.#processStreamMessage(data);
+      return;
+    }
+    if (data.callback) {
+      const {
+        callbackId,
+        callback
+      } = data;
+      const capability = this.#callbackCapabilities.get(callbackId);
+      if (!capability) {
+        throw new Error(`Cannot resolve callback ${callbackId}`);
+      }
+      this.#callbackCapabilities.delete(callbackId);
+      if (callback === CallbackKind.DATA) {
+        capability.resolve(data.data);
+      } else if (callback === CallbackKind.ERROR) {
+        capability.reject(wrapReason(data.reason));
+      } else {
+        throw new Error("Unexpected callback case");
+      }
+      return;
+    }
+    const action = this.#actions.get(data.action);
+    if (!action) {
+      throw new Error(`Unknown action from worker: ${data.action}`);
+    }
+    if (data.callbackId) {
+      const sourceName = this.#sourceName,
+        targetName = data.sourceName,
+        comObj = this.#comObj;
+      Promise.try(action, data.data).then(result => {
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          callback: CallbackKind.DATA,
+          callbackId: data.callbackId,
+          data: result
+        });
+      }).catch(reason => {
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          callback: CallbackKind.ERROR,
+          callbackId: data.callbackId,
+          reason: wrapReason(reason)
+        });
+      });
+      return;
+    }
+    if (data.streamId) {
+      this.#createStreamSink(data);
+      return;
+    }
+    action(data.data);
+  }
+  on(actionName, handler) {
+    const ah = this.#actions;
+    if (ah.has(actionName)) {
+      throw new Error(`There is already a "${actionName}" handler.`);
+    }
+    ah.set(actionName, handler);
+  }
+  send(actionName, data, transfers) {
+    this.#comObj.postMessage({
+      sourceName: this.#sourceName,
+      targetName: this.#targetName,
+      action: actionName,
+      data
+    }, transfers);
+  }
+  sendWithPromise(actionName, data, transfers) {
+    const callbackId = this.#callbackId++,
+      capability = Promise.withResolvers();
+    this.#callbackCapabilities.set(callbackId, capability);
+    try {
+      this.#comObj.postMessage({
+        sourceName: this.#sourceName,
+        targetName: this.#targetName,
+        action: actionName,
+        callbackId,
+        data
+      }, transfers);
+    } catch (ex) {
+      capability.reject(ex);
+    }
+    return capability.promise;
+  }
+  sendWithStream(actionName, data, queueingStrategy, transfers) {
+    const streamId = this.#streamId++,
+      sourceName = this.#sourceName,
+      targetName = this.#targetName,
+      comObj = this.#comObj;
+    return new ReadableStream({
+      start: controller => {
+        const startCapability = Promise.withResolvers();
+        this.#streamControllers.set(streamId, {
+          controller,
+          startCall: startCapability,
+          pullCall: null,
+          cancelCall: null,
+          isClosed: false
+        });
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          action: actionName,
+          streamId,
+          data,
+          desiredSize: controller.desiredSize
+        }, transfers);
+        return startCapability.promise;
+      },
+      pull: controller => {
+        const pullCapability = Promise.withResolvers();
+        this.#streamControllers.get(streamId).pullCall = pullCapability;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.PULL,
+          streamId,
+          desiredSize: controller.desiredSize
+        });
+        return pullCapability.promise;
+      },
+      cancel: reason => {
+        assert(reason instanceof Error, "cancel must have a valid reason");
+        const cancelCapability = Promise.withResolvers();
+        this.#streamControllers.get(streamId).cancelCall = cancelCapability;
+        this.#streamControllers.get(streamId).isClosed = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.CANCEL,
+          streamId,
+          reason: wrapReason(reason)
+        });
+        return cancelCapability.promise;
+      }
+    }, queueingStrategy);
+  }
+  #createStreamSink(data) {
+    const streamId = data.streamId,
+      sourceName = this.#sourceName,
+      targetName = data.sourceName,
+      comObj = this.#comObj;
+    const streamSinks = this.#streamSinks,
+      action = this.#actions.get(data.action);
+    const streamSink = {
+      enqueue(chunk, size = 1, transfers) {
+        if (this.isCancelled) {
+          return;
+        }
+        const lastDesiredSize = this.desiredSize;
+        this.desiredSize -= size;
+        if (lastDesiredSize > 0 && this.desiredSize <= 0) {
+          this.sinkCapability = Promise.withResolvers();
+          this.ready = this.sinkCapability.promise;
+        }
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.ENQUEUE,
+          streamId,
+          chunk
+        }, transfers);
+      },
+      close() {
+        if (this.isCancelled) {
+          return;
+        }
+        this.isCancelled = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.CLOSE,
+          streamId
+        });
+        streamSinks.delete(streamId);
+      },
+      error(reason) {
+        if (this.isCancelled) {
+          return;
+        }
+        this.isCancelled = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.ERROR,
+          streamId,
+          reason: wrapReason(reason)
+        });
+      },
+      sinkCapability: Promise.withResolvers(),
+      onPull: null,
+      onCancel: null,
+      isCancelled: false,
+      desiredSize: data.desiredSize,
+      ready: null
+    };
+    streamSink.sinkCapability.resolve();
+    streamSink.ready = streamSink.sinkCapability.promise;
+    streamSinks.set(streamId, streamSink);
+    Promise.try(action, data.data, streamSink).then(() => {
+      comObj.postMessage({
+        sourceName,
+        targetName,
+        stream: StreamKind.START_COMPLETE,
+        streamId,
+        success: true
+      });
+    }, reason => {
+      comObj.postMessage({
+        sourceName,
+        targetName,
+        stream: StreamKind.START_COMPLETE,
+        streamId,
+        reason: wrapReason(reason)
+      });
+    });
+  }
+  #processStreamMessage(data) {
+    const streamId = data.streamId,
+      sourceName = this.#sourceName,
+      targetName = data.sourceName,
+      comObj = this.#comObj;
+    const streamController = this.#streamControllers.get(streamId),
+      streamSink = this.#streamSinks.get(streamId);
+    switch (data.stream) {
+      case StreamKind.START_COMPLETE:
+        if (data.success) {
+          streamController.startCall.resolve();
+        } else {
+          streamController.startCall.reject(wrapReason(data.reason));
+        }
+        break;
+      case StreamKind.PULL_COMPLETE:
+        if (data.success) {
+          streamController.pullCall.resolve();
+        } else {
+          streamController.pullCall.reject(wrapReason(data.reason));
+        }
+        break;
+      case StreamKind.PULL:
+        if (!streamSink) {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            success: true
+          });
+          break;
+        }
+        if (streamSink.desiredSize <= 0 && data.desiredSize > 0) {
+          streamSink.sinkCapability.resolve();
+        }
+        streamSink.desiredSize = data.desiredSize;
+        Promise.try(streamSink.onPull || onFn).then(() => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            success: true
+          });
+        }, reason => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            reason: wrapReason(reason)
+          });
+        });
+        break;
+      case StreamKind.ENQUEUE:
+        assert(streamController, "enqueue should have stream controller");
+        if (streamController.isClosed) {
+          break;
+        }
+        streamController.controller.enqueue(data.chunk);
+        break;
+      case StreamKind.CLOSE:
+        assert(streamController, "close should have stream controller");
+        if (streamController.isClosed) {
+          break;
+        }
+        streamController.isClosed = true;
+        streamController.controller.close();
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.ERROR:
+        assert(streamController, "error should have stream controller");
+        streamController.controller.error(wrapReason(data.reason));
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.CANCEL_COMPLETE:
+        if (data.success) {
+          streamController.cancelCall.resolve();
+        } else {
+          streamController.cancelCall.reject(wrapReason(data.reason));
+        }
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.CANCEL:
+        if (!streamSink) {
+          break;
+        }
+        const dataReason = wrapReason(data.reason);
+        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.CANCEL_COMPLETE,
+            streamId,
+            success: true
+          });
+        }, reason => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.CANCEL_COMPLETE,
+            streamId,
+            reason: wrapReason(reason)
+          });
+        });
+        streamSink.sinkCapability.reject(dataReason);
+        streamSink.isCancelled = true;
+        this.#streamSinks.delete(streamId);
+        break;
+      default:
+        throw new Error("Unexpected stream case");
+    }
+  }
+  async #deleteStreamController(streamController, streamId) {
+    await Promise.allSettled([streamController.startCall?.promise, streamController.pullCall?.promise, streamController.cancelCall?.promise]);
+    this.#streamControllers.delete(streamId);
+  }
+  destroy() {
+    this.#messageAC?.abort();
+    this.#messageAC = null;
+  }
+}
+
 ;// ./src/display/canvas_dependency_tracker.js
 
 
@@ -7843,6 +8344,17 @@ class CanvasImagesTracker {
   take() {
     return this.#coords.subarray(0, this.#count * 6);
   }
+}
+function createCanvasTrackers(canvas, operationsCount, {
+  recordOperations = false,
+  recordImages = false,
+  recordDebugMetadata = false
+}) {
+  const bboxTracker = recordOperations || recordImages ? new CanvasBBoxTracker(canvas, operationsCount) : null;
+  return {
+    dependencyTracker: recordOperations ? new CanvasDependencyTracker(bboxTracker, recordDebugMetadata) : bboxTracker,
+    imagesTracker: recordImages ? new CanvasImagesTracker(canvas) : null
+  };
 }
 
 ;// ./src/shared/image_utils.js
@@ -8617,34 +9129,37 @@ class TilingPattern {
     if (dependencyTracker) {
       owner.dependencyTracker = new CanvasNestedDependencyTracker(dependencyTracker, opIdx);
     }
-    owner.save();
-    if (useEOFill) {
-      owner.ctx.clip(path, "evenodd");
-    } else {
-      owner.ctx.clip(path);
-    }
-    owner.ctx.setTransform(...this.patternBaseMatrix);
-    owner.ctx.translate(n * this.xstep, m * this.ystep);
-    if (this.needsIsolation || owner.ctx.globalAlpha !== 1 || owner.ctx.globalCompositeOperation !== "source-over" || owner.inSMaskMode) {
-      const bboxWidth = x1 - x0;
-      const bboxHeight = y1 - y0;
-      const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
-      const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
-      const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
-      const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
-      owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
-      owner.canvasFactory.destroy(tmpCanvas);
-    } else {
-      this.setFillAndStrokeStyleToContext(owner, this.paintType, this.color);
-      this.clipBbox(owner, x0, y0, x1, y1);
-      owner.baseTransformStack.push(owner.baseTransform);
-      owner.baseTransform = getCurrentTransform(owner.ctx);
-      owner.executeOperatorList(this.operatorList);
-      owner.baseTransform = owner.baseTransformStack.pop();
-    }
-    owner.restore();
-    if (dependencyTracker) {
-      owner.dependencyTracker = dependencyTracker;
+    try {
+      owner.save();
+      if (useEOFill) {
+        owner.ctx.clip(path, "evenodd");
+      } else {
+        owner.ctx.clip(path);
+      }
+      owner.ctx.setTransform(...this.patternBaseMatrix);
+      owner.ctx.translate(n * this.xstep, m * this.ystep);
+      if (this.needsIsolation || owner.ctx.globalAlpha !== 1 || owner.ctx.globalCompositeOperation !== "source-over" || owner.inSMaskMode) {
+        const bboxWidth = x1 - x0;
+        const bboxHeight = y1 - y0;
+        const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
+        const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
+        const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
+        const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
+        owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
+        owner.canvasFactory.destroy(tmpCanvas);
+      } else {
+        this.setFillAndStrokeStyleToContext(owner, this.paintType, this.color);
+        this.clipBbox(owner, x0, y0, x1, y1);
+        owner.baseTransformStack.push(owner.baseTransform);
+        owner.baseTransform = getCurrentTransform(owner.ctx);
+        owner.executeOperatorList(this.operatorList);
+        owner.baseTransform = owner.baseTransformStack.pop();
+      }
+      owner.restore();
+    } finally {
+      if (dependencyTracker) {
+        owner.dependencyTracker = dependencyTracker;
+      }
     }
   }
   createPatternCanvas(owner, opIdx) {
@@ -9094,12 +9609,12 @@ class TransferMapsFallback {
     ctx.putImageData(imgData, 0, 0);
   }
 }
-function getImageSmoothingEnabled(transform, interpolate) {
+function getImageSmoothingEnabled(transform, interpolate, pixelRatio) {
   if (interpolate) {
     return true;
   }
   Util.singularValueDecompose2dScale(transform, XY);
-  const actualScale = Math.fround(OutputScale.pixelRatio * PixelsPerInch.PDF_TO_CSS_UNITS);
+  const actualScale = Math.fround(pixelRatio * PixelsPerInch.PDF_TO_CSS_UNITS);
   return XY[0] <= actualScale && XY[1] <= actualScale;
 }
 const LINE_CAP_STYLES = ["butt", "round", "square"];
@@ -9108,6 +9623,7 @@ const NORMAL_CLIP = {};
 const EO_CLIP = {};
 class CanvasGraphics {
   static #SCALE_MATRIX = null;
+  static #pathCaches = new WeakMap();
   #knockoutGroupLevel = 0;
   #knockoutElementDepth = 0;
   #knockoutTempCanvasEntry = null;
@@ -9120,7 +9636,8 @@ class CanvasGraphics {
   #groupStackMeta = [];
   constructor(canvasCtx, commonObjs, objs, canvasFactory, filterFactory, {
     optionalContentConfig,
-    markedContentStack = null
+    markedContentStack = null,
+    pixelRatio = OutputScale.pixelRatio
   }, annotationCanvasMap, pageColors, dependencyTracker, imagesTracker) {
     this.ctx = canvasCtx;
     this.current = new CanvasExtraState(this.ctx.canvas.width, this.ctx.canvas.height);
@@ -9147,6 +9664,7 @@ class CanvasGraphics {
     this.contentVisible = true;
     this.markedContentStack = markedContentStack || [];
     this.optionalContentConfig = optionalContentConfig;
+    this.pixelRatio = pixelRatio;
     this.cachedPatterns = new Map();
     this.annotationCanvasMap = annotationCanvasMap;
     this.viewportScale = 1;
@@ -9202,7 +9720,7 @@ class CanvasGraphics {
     const argsArray = operatorList.argsArray;
     const fnArray = operatorList.fnArray;
     const prevPathCache = this._pathCache;
-    this._pathCache = operatorList.pathCache ||= new Map();
+    this._pathCache = operatorList.pathCache ?? CanvasGraphics.#pathCaches.getOrInsertComputed(operatorList, makeMap);
     try {
       let i = executionStartIdx || 0;
       const argsArrayLen = argsArray.length;
@@ -9458,7 +9976,7 @@ class CanvasGraphics {
         maskCanvas = null;
       }
     }
-    fillCtx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(fillCtx), img.interpolate);
+    fillCtx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(fillCtx), img.interpolate, this.pixelRatio);
     drawImageAtIntegerCoords(fillCtx, scaled, 0, 0, scaled.width, scaled.height, 0, 0, width, height);
     if (scaledEntry) {
       this.canvasFactory.destroy(scaledEntry);
@@ -10621,39 +11139,42 @@ class CanvasGraphics {
     ctx.scale(textHScale, fontDirection);
     const dependencyTracker = this.dependencyTracker;
     this.dependencyTracker = dependencyTracker ? new CanvasNestedDependencyTracker(dependencyTracker, opIdx) : null;
-    for (i = 0; i < glyphsLength; ++i) {
-      glyph = glyphs[i];
-      if (typeof glyph === "number") {
-        spacingLength = spacingDir * glyph * fontSize / 1000;
-        this.ctx.translate(spacingLength, 0);
-        current.x += spacingLength * textHScale;
-        continue;
-      }
-      const spacing = (glyph.isSpace ? wordSpacing : 0) + charSpacing;
-      const operatorList = font.charProcOperatorList.get(glyph.operatorListId);
-      if (!operatorList) {
-        warn(`Type3 character "${glyph.operatorListId}" is not available.`);
-      } else if (this.contentVisible) {
-        this.save();
-        if (operatorList.fnArray[0] === OPS.setCharWidth) {
-          current.fillAlpha = current.strokeAlpha = 1;
-          ctx.globalAlpha = 1;
+    try {
+      for (i = 0; i < glyphsLength; ++i) {
+        glyph = glyphs[i];
+        if (typeof glyph === "number") {
+          spacingLength = spacingDir * glyph * fontSize / 1000;
+          this.ctx.translate(spacingLength, 0);
+          current.x += spacingLength * textHScale;
+          continue;
         }
-        ctx.scale(fontSize, fontSize);
-        ctx.transform(...fontMatrix);
-        this.executeOperatorList(operatorList);
-        this.restore();
+        const spacing = (glyph.isSpace ? wordSpacing : 0) + charSpacing;
+        const operatorList = font.charProcOperatorList.get(glyph.operatorListId);
+        if (!operatorList) {
+          warn(`Type3 character "${glyph.operatorListId}" is not available.`);
+        } else if (this.contentVisible) {
+          this.save();
+          if (operatorList.fnArray[0] === OPS.setCharWidth) {
+            current.fillAlpha = current.strokeAlpha = 1;
+            ctx.globalAlpha = 1;
+          }
+          ctx.scale(fontSize, fontSize);
+          ctx.transform(...fontMatrix);
+          this.executeOperatorList(operatorList);
+          this.restore();
+        }
+        const p = [glyph.width, 0];
+        Util.applyTransform(p, fontMatrix);
+        width = p[0] * fontSize + spacing;
+        ctx.translate(width, 0);
+        current.x += width * textHScale;
       }
-      const p = [glyph.width, 0];
-      Util.applyTransform(p, fontMatrix);
-      width = p[0] * fontSize + spacing;
-      ctx.translate(width, 0);
-      current.x += width * textHScale;
+    } finally {
+      if (dependencyTracker) {
+        this.dependencyTracker = dependencyTracker;
+      }
     }
     ctx.restore();
-    if (dependencyTracker) {
-      this.dependencyTracker = dependencyTracker;
-    }
   }
   setCharWidth(opIdx, xWidth, yWidth) {}
   setCharWidthAndBounds(opIdx, xWidth, yWidth, llx, lly, urx, ury) {
@@ -10670,7 +11191,8 @@ class CanvasGraphics {
       const canvasGraphicsFactory = {
         createCanvasGraphics: (ctx, renderingOpIdx) => new CanvasGraphics(ctx, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
           optionalContentConfig: this.optionalContentConfig,
-          markedContentStack: this.markedContentStack
+          markedContentStack: this.markedContentStack,
+          pixelRatio: this.pixelRatio
         }, undefined, undefined, this.dependencyTracker ? new CanvasNestedDependencyTracker(this.dependencyTracker, renderingOpIdx, true) : null)
       };
       pattern = new TilingPattern(IR, this.ctx, canvasGraphicsFactory, baseTransform);
@@ -11304,7 +11826,7 @@ class CanvasGraphics {
       inlineImgCanvas = tmpCanvas;
     }
     const scaled = this._scaleImage(imgToPaint, getCurrentTransformInverse(ctx));
-    ctx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(ctx), imgData.interpolate);
+    ctx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(ctx), imgData.interpolate, this.pixelRatio);
     if (this.dependencyTracker) {
       this.dependencyTracker.resetBBox(opIdx).recordBBox(opIdx, ctx, 0, width, -height, 0).recordDependencies(opIdx, Dependencies.imageXObject).recordOperation(opIdx);
       this.imagesTracker?.record(ctx, width, height, this.dependencyTracker.clipBox);
@@ -11529,488 +12051,6 @@ for (const op in OPS) {
   }
 }
 
-;// ./src/display/api_utils.js
-
-function getUrlProp(val) {
-  return null;
-}
-function getDataProp(val) {
-  if (val instanceof Uint8Array && val.byteLength === val.buffer.byteLength) {
-    return val;
-  }
-  if (typeof val === "string") {
-    return stringToBytes(val);
-  }
-  if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) || typeof val === "object" && !isNaN(val?.length)) {
-    return new Uint8Array(val);
-  }
-  throw new Error("Invalid PDF binary data: either TypedArray, " + "string, or array-like object is expected in the data property.");
-}
-function getFactoryUrlProp(val) {
-  if (typeof val !== "string") {
-    return null;
-  }
-  if (val.endsWith("/")) {
-    return val;
-  }
-  throw new Error(`Invalid factory url: "${val}" must include trailing slash.`);
-}
-const isRefProxy = v => typeof v === "object" && Number.isInteger(v?.num) && v.num >= 0 && Number.isInteger(v?.gen) && v.gen >= 0;
-const isNameProxy = v => typeof v === "object" && typeof v?.name === "string";
-const isValidExplicitDest = _isValidExplicitDest.bind(null, isRefProxy, isNameProxy);
-class LoopbackPort {
-  #listeners = new Map();
-  #deferred = Promise.resolve();
-  postMessage(obj, transfer) {
-    const event = {
-      data: structuredClone(obj, transfer ? {
-        transfer
-      } : null)
-    };
-    this.#deferred.then(() => {
-      for (const [listener] of this.#listeners) {
-        listener.call(this, event);
-      }
-    });
-  }
-  addEventListener(name, listener, options = null) {
-    let rmAbort = null;
-    if (options?.signal instanceof AbortSignal) {
-      const {
-        signal
-      } = options;
-      if (signal.aborted) {
-        warn("LoopbackPort - cannot use an `aborted` signal.");
-        return;
-      }
-      const onAbort = () => this.removeEventListener(name, listener);
-      rmAbort = () => signal.removeEventListener("abort", onAbort);
-      signal.addEventListener("abort", onAbort);
-    }
-    this.#listeners.set(listener, rmAbort);
-  }
-  removeEventListener(name, listener) {
-    const rmAbort = this.#listeners.get(listener);
-    rmAbort?.();
-    this.#listeners.delete(listener);
-  }
-  terminate() {
-    for (const [, rmAbort] of this.#listeners) {
-      rmAbort?.();
-    }
-    this.#listeners.clear();
-  }
-}
-
-;// ./src/shared/message_handler.js
-
-const CallbackKind = {
-  DATA: 1,
-  ERROR: 2
-};
-const StreamKind = {
-  CANCEL: 1,
-  CANCEL_COMPLETE: 2,
-  CLOSE: 3,
-  ENQUEUE: 4,
-  ERROR: 5,
-  PULL: 6,
-  PULL_COMPLETE: 7,
-  START_COMPLETE: 8
-};
-function onFn() {}
-function wrapReason(ex) {
-  if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
-    return ex;
-  }
-  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
-    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
-  }
-  switch (ex.name) {
-    case "AbortException":
-      return new AbortException(ex.message);
-    case "InvalidPDFException":
-      return new InvalidPDFException(ex.message);
-    case "PasswordException":
-      return new PasswordException(ex.message, ex.code);
-    case "ResponseException":
-      return new ResponseException(ex.message, ex.status, ex.missing);
-    case "UnknownErrorException":
-      return new UnknownErrorException(ex.message, ex.details);
-  }
-  return new UnknownErrorException(ex.message, ex.toString());
-}
-class MessageHandler {
-  #actions = new Map();
-  #callbackCapabilities = new Map();
-  #callbackId = 1;
-  #comObj;
-  #messageAC = new AbortController();
-  #sourceName;
-  #streamControllers = new Map();
-  #streamId = 1;
-  #streamSinks = new Map();
-  #targetName;
-  constructor(sourceName, targetName, comObj) {
-    this.#sourceName = sourceName;
-    this.#targetName = targetName;
-    this.#comObj = comObj;
-    comObj.addEventListener("message", this.#onMessage.bind(this), {
-      signal: this.#messageAC.signal
-    });
-  }
-  #onMessage({
-    data
-  }) {
-    if (data.targetName !== this.#sourceName) {
-      return;
-    }
-    if (data.stream) {
-      this.#processStreamMessage(data);
-      return;
-    }
-    if (data.callback) {
-      const {
-        callbackId,
-        callback
-      } = data;
-      const capability = this.#callbackCapabilities.get(callbackId);
-      if (!capability) {
-        throw new Error(`Cannot resolve callback ${callbackId}`);
-      }
-      this.#callbackCapabilities.delete(callbackId);
-      if (callback === CallbackKind.DATA) {
-        capability.resolve(data.data);
-      } else if (callback === CallbackKind.ERROR) {
-        capability.reject(wrapReason(data.reason));
-      } else {
-        throw new Error("Unexpected callback case");
-      }
-      return;
-    }
-    const action = this.#actions.get(data.action);
-    if (!action) {
-      throw new Error(`Unknown action from worker: ${data.action}`);
-    }
-    if (data.callbackId) {
-      const sourceName = this.#sourceName,
-        targetName = data.sourceName,
-        comObj = this.#comObj;
-      Promise.try(action, data.data).then(result => {
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          callback: CallbackKind.DATA,
-          callbackId: data.callbackId,
-          data: result
-        });
-      }).catch(reason => {
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          callback: CallbackKind.ERROR,
-          callbackId: data.callbackId,
-          reason: wrapReason(reason)
-        });
-      });
-      return;
-    }
-    if (data.streamId) {
-      this.#createStreamSink(data);
-      return;
-    }
-    action(data.data);
-  }
-  on(actionName, handler) {
-    const ah = this.#actions;
-    if (ah.has(actionName)) {
-      throw new Error(`There is already a "${actionName}" handler.`);
-    }
-    ah.set(actionName, handler);
-  }
-  send(actionName, data, transfers) {
-    this.#comObj.postMessage({
-      sourceName: this.#sourceName,
-      targetName: this.#targetName,
-      action: actionName,
-      data
-    }, transfers);
-  }
-  sendWithPromise(actionName, data, transfers) {
-    const callbackId = this.#callbackId++,
-      capability = Promise.withResolvers();
-    this.#callbackCapabilities.set(callbackId, capability);
-    try {
-      this.#comObj.postMessage({
-        sourceName: this.#sourceName,
-        targetName: this.#targetName,
-        action: actionName,
-        callbackId,
-        data
-      }, transfers);
-    } catch (ex) {
-      capability.reject(ex);
-    }
-    return capability.promise;
-  }
-  sendWithStream(actionName, data, queueingStrategy, transfers) {
-    const streamId = this.#streamId++,
-      sourceName = this.#sourceName,
-      targetName = this.#targetName,
-      comObj = this.#comObj;
-    return new ReadableStream({
-      start: controller => {
-        const startCapability = Promise.withResolvers();
-        this.#streamControllers.set(streamId, {
-          controller,
-          startCall: startCapability,
-          pullCall: null,
-          cancelCall: null,
-          isClosed: false
-        });
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          action: actionName,
-          streamId,
-          data,
-          desiredSize: controller.desiredSize
-        }, transfers);
-        return startCapability.promise;
-      },
-      pull: controller => {
-        const pullCapability = Promise.withResolvers();
-        this.#streamControllers.get(streamId).pullCall = pullCapability;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.PULL,
-          streamId,
-          desiredSize: controller.desiredSize
-        });
-        return pullCapability.promise;
-      },
-      cancel: reason => {
-        assert(reason instanceof Error, "cancel must have a valid reason");
-        const cancelCapability = Promise.withResolvers();
-        this.#streamControllers.get(streamId).cancelCall = cancelCapability;
-        this.#streamControllers.get(streamId).isClosed = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.CANCEL,
-          streamId,
-          reason: wrapReason(reason)
-        });
-        return cancelCapability.promise;
-      }
-    }, queueingStrategy);
-  }
-  #createStreamSink(data) {
-    const streamId = data.streamId,
-      sourceName = this.#sourceName,
-      targetName = data.sourceName,
-      comObj = this.#comObj;
-    const streamSinks = this.#streamSinks,
-      action = this.#actions.get(data.action);
-    const streamSink = {
-      enqueue(chunk, size = 1, transfers) {
-        if (this.isCancelled) {
-          return;
-        }
-        const lastDesiredSize = this.desiredSize;
-        this.desiredSize -= size;
-        if (lastDesiredSize > 0 && this.desiredSize <= 0) {
-          this.sinkCapability = Promise.withResolvers();
-          this.ready = this.sinkCapability.promise;
-        }
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.ENQUEUE,
-          streamId,
-          chunk
-        }, transfers);
-      },
-      close() {
-        if (this.isCancelled) {
-          return;
-        }
-        this.isCancelled = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.CLOSE,
-          streamId
-        });
-        streamSinks.delete(streamId);
-      },
-      error(reason) {
-        assert(reason instanceof Error, "error must have a valid reason");
-        if (this.isCancelled) {
-          return;
-        }
-        this.isCancelled = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.ERROR,
-          streamId,
-          reason: wrapReason(reason)
-        });
-      },
-      sinkCapability: Promise.withResolvers(),
-      onPull: null,
-      onCancel: null,
-      isCancelled: false,
-      desiredSize: data.desiredSize,
-      ready: null
-    };
-    streamSink.sinkCapability.resolve();
-    streamSink.ready = streamSink.sinkCapability.promise;
-    streamSinks.set(streamId, streamSink);
-    Promise.try(action, data.data, streamSink).then(() => {
-      comObj.postMessage({
-        sourceName,
-        targetName,
-        stream: StreamKind.START_COMPLETE,
-        streamId,
-        success: true
-      });
-    }, reason => {
-      comObj.postMessage({
-        sourceName,
-        targetName,
-        stream: StreamKind.START_COMPLETE,
-        streamId,
-        reason: wrapReason(reason)
-      });
-    });
-  }
-  #processStreamMessage(data) {
-    const streamId = data.streamId,
-      sourceName = this.#sourceName,
-      targetName = data.sourceName,
-      comObj = this.#comObj;
-    const streamController = this.#streamControllers.get(streamId),
-      streamSink = this.#streamSinks.get(streamId);
-    switch (data.stream) {
-      case StreamKind.START_COMPLETE:
-        if (data.success) {
-          streamController.startCall.resolve();
-        } else {
-          streamController.startCall.reject(wrapReason(data.reason));
-        }
-        break;
-      case StreamKind.PULL_COMPLETE:
-        if (data.success) {
-          streamController.pullCall.resolve();
-        } else {
-          streamController.pullCall.reject(wrapReason(data.reason));
-        }
-        break;
-      case StreamKind.PULL:
-        if (!streamSink) {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            success: true
-          });
-          break;
-        }
-        if (streamSink.desiredSize <= 0 && data.desiredSize > 0) {
-          streamSink.sinkCapability.resolve();
-        }
-        streamSink.desiredSize = data.desiredSize;
-        Promise.try(streamSink.onPull || onFn).then(() => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            success: true
-          });
-        }, reason => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            reason: wrapReason(reason)
-          });
-        });
-        break;
-      case StreamKind.ENQUEUE:
-        assert(streamController, "enqueue should have stream controller");
-        if (streamController.isClosed) {
-          break;
-        }
-        streamController.controller.enqueue(data.chunk);
-        break;
-      case StreamKind.CLOSE:
-        assert(streamController, "close should have stream controller");
-        if (streamController.isClosed) {
-          break;
-        }
-        streamController.isClosed = true;
-        streamController.controller.close();
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.ERROR:
-        assert(streamController, "error should have stream controller");
-        streamController.controller.error(wrapReason(data.reason));
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.CANCEL_COMPLETE:
-        if (data.success) {
-          streamController.cancelCall.resolve();
-        } else {
-          streamController.cancelCall.reject(wrapReason(data.reason));
-        }
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.CANCEL:
-        if (!streamSink) {
-          break;
-        }
-        const dataReason = wrapReason(data.reason);
-        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.CANCEL_COMPLETE,
-            streamId,
-            success: true
-          });
-        }, reason => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.CANCEL_COMPLETE,
-            streamId,
-            reason: wrapReason(reason)
-          });
-        });
-        streamSink.sinkCapability.reject(dataReason);
-        streamSink.isCancelled = true;
-        this.#streamSinks.delete(streamId);
-        break;
-      default:
-        throw new Error("Unexpected stream case");
-    }
-  }
-  async #deleteStreamController(streamController, streamId) {
-    await Promise.allSettled([streamController.startCall?.promise, streamController.pullCall?.promise, streamController.cancelCall?.promise]);
-    this.#streamControllers.delete(streamId);
-  }
-  destroy() {
-    this.#messageAC?.abort();
-    this.#messageAC = null;
-  }
-}
-
 ;// ./src/display/canvas_factory.js
 
 class BaseCanvasFactory {
@@ -12054,6 +12094,12 @@ class BaseCanvasFactory {
     canvas.width = canvas.height = 0;
     canvasAndContext.canvas = null;
     canvasAndContext.context = null;
+  }
+  getNoAlphaContext(canvas) {
+    return canvas.getContext("2d", {
+      alpha: false,
+      willReadFrequently: !this.#enableHWA
+    });
   }
   _createCanvas(width, height) {
     unreachable("Abstract method `_createCanvas` called.");
@@ -12114,6 +12160,7 @@ class BaseFilterFactory {
 }
 
 ;// ./src/display/dom_filter_factory.js
+
 
 
 
@@ -13250,26 +13297,6 @@ class ObjectHandler {
           this.commonObjs.resolve(id, font);
         });
         break;
-      case "CopyLocalImage":
-        const {
-          imageRef
-        } = exportedData;
-        assert(imageRef, "The imageRef must be defined.");
-        for (const pageOrObjs of this.pageCache.values()) {
-          const objs = pageOrObjs.objs || pageOrObjs;
-          for (const [, data] of objs) {
-            if (data?.ref !== imageRef) {
-              continue;
-            }
-            if (!data.dataLen) {
-              return null;
-            }
-            const copy = structuredClone(data);
-            this.commonObjs.resolve(id, copy);
-            return data.dataLen;
-          }
-        }
-        break;
       case "FontPath":
         this.commonObjs.resolve(id, new FontPathInfo(exportedData));
         break;
@@ -13289,24 +13316,24 @@ class ObjectHandler {
     let pageOrObjs = this.pageCache.get(pageProxyId);
     if (!pageOrObjs) {
       if (!this.shouldCreatePageObjs) {
-        return;
+        return false;
       }
       pageOrObjs = new PDFObjects();
       this.pageCache.set(pageProxyId, pageOrObjs);
     }
     const objs = pageOrObjs.objs || pageOrObjs;
     if (objs.has(id)) {
-      return;
+      return false;
     }
     if (pageOrObjs._intentStates?.size === 0) {
       exportedData?.bitmap?.close();
-      return;
+      return false;
     }
     switch (type) {
       case "Image":
       case "Pattern":
         objs.resolve(id, exportedData);
-        break;
+        return true;
       default:
         throw new Error(`Got unknown object type ${type}`);
     }
@@ -13615,6 +13642,7 @@ class PagesMapper {
   #pageNumberToId = null;
   #prevPageNumbers = null;
   #pagesNumber = 0;
+  #initialPagesNumber = 0;
   #clipboard = null;
   #savedData = null;
   get pagesNumber() {
@@ -13624,7 +13652,7 @@ class PagesMapper {
     if (this.#pagesNumber === n) {
       return;
     }
-    this.#pagesNumber = n;
+    this.#pagesNumber = this.#initialPagesNumber = n;
     this.#pageNumberToId = null;
     this.#prevPageNumbers = null;
   }
@@ -13681,7 +13709,7 @@ class PagesMapper {
     prevPageNumbers.copyWithin(adjustedTarget + movedCount, adjustedTarget, remainingLen);
     prevPageNumbers.set(pagesToMove, adjustedTarget);
     this.#prevPageNumbers = prevPageNumbers;
-    if (pageNumberToId.every((id, i) => id === i + 1)) {
+    if (pagesNumber === this.#initialPagesNumber && pageNumberToId.every((id, i) => id === i + 1)) {
       this.#pageNumberToId = null;
     }
   }
@@ -14168,7 +14196,361 @@ class PDFDataTransportStreamRangeReader extends BasePDFStreamRangeReader {
   }
 }
 
+;// ./src/display/renderer_worker_proxy.js
+
+
+
+
+
+
+
+function closeFrame({
+  bitmap,
+  annotationBitmaps
+}) {
+  bitmap?.close();
+  if (annotationBitmaps) {
+    for (const [,, annotationBitmap] of annotationBitmaps) {
+      annotationBitmap.close();
+    }
+  }
+}
+class WorkerRenderTask {
+  #annotationCanvasMap;
+  #cancelled = false;
+  #canvas;
+  #canvasFactory;
+  #filteredLength = 0;
+  #id;
+  #initParams;
+  #onError;
+  #onFrame;
+  #operatorListState;
+  #rendererWorker;
+  #renderTasks;
+  imageCoordinates = null;
+  recordedBBoxes = null;
+  constructor({
+    rendererWorker,
+    renderTasks,
+    canvas,
+    canvasFactory,
+    annotationCanvasMap,
+    operatorListState,
+    initParams,
+    onFrame,
+    onError
+  }) {
+    this.#rendererWorker = rendererWorker;
+    this.#renderTasks = renderTasks;
+    this.#canvas = canvas;
+    this.#canvasFactory = canvasFactory;
+    this.#annotationCanvasMap = annotationCanvasMap;
+    this.#operatorListState = operatorListState;
+    this.#initParams = initParams;
+    this.#id = initParams.renderTaskId;
+    this.#onFrame = onFrame;
+    this.#onError = onError;
+  }
+  async initialize(transparency, optionalContentConfig) {
+    const handler = this.#rendererWorker.messageHandler;
+    if (!handler) {
+      return false;
+    }
+    try {
+      await handler.sendWithPromise("InitializeGraphics", {
+        ...this.#initParams,
+        width: this.#canvas.width,
+        height: this.#canvas.height,
+        transparency,
+        optionalContentConfig: optionalContentConfig.serializable
+      });
+    } catch (ex) {
+      warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
+      return false;
+    }
+    if (!this.#cancelled) {
+      this.#renderTasks.set(this.#id, this);
+    }
+    return true;
+  }
+  async executeOperatorList(operatorList, operatorListIdx, operationsFilter) {
+    const handler = this.#rendererWorker.messageHandler;
+    if (!handler) {
+      throw new Error("Renderer worker was destroyed during rendering.");
+    }
+    const {
+      lastChunk
+    } = operatorList;
+    const end = operatorList.argsArray.length;
+    const operatorListState = this.#operatorListState;
+    if (operatorListState.sentLength < end) {
+      const start = operatorListState.sentLength;
+      handler.send("AppendOperatorList", {
+        pageProxyId: this.#initParams.pageProxyId,
+        operatorListId: operatorListState.id,
+        fnArray: operatorList.fnArray.slice(start, end),
+        argsArray: operatorList.argsArray.slice(start, end)
+      });
+      operatorListState.sentLength = end;
+    }
+    let operationsFilterMask = null;
+    if (operationsFilter && this.#filteredLength < end) {
+      const start = this.#filteredLength;
+      operationsFilterMask = new Uint8Array(end - start);
+      for (let i = start; i < end; i++) {
+        operationsFilterMask[i - start] = operationsFilter(i, operatorList) ? 1 : 0;
+      }
+      this.#filteredLength = end;
+    }
+    const response = await handler.sendWithPromise("ExecuteOperatorList", {
+      renderTaskId: this.#id,
+      operatorListIdx,
+      operatorListLength: end,
+      operationsFilterMask,
+      lastChunk
+    });
+    if (response.aborted && !this.#cancelled) {
+      throw new Error("Render task was aborted in the renderer worker.");
+    }
+    if (lastChunk && response.operatorListIdx === end) {
+      this.#renderTasks.delete(this.#id);
+      const {
+        recordedBBoxesBuffer,
+        imageCoordinates
+      } = response;
+      if (recordedBBoxesBuffer) {
+        this.recordedBBoxes = BBoxReader.fromBuffer(recordedBBoxesBuffer);
+      }
+      this.imageCoordinates = imageCoordinates ?? null;
+    }
+    return response.operatorListIdx;
+  }
+  cancel() {
+    this.#cancelled = true;
+    this.#renderTasks.delete(this.#id);
+    this.#rendererWorker.messageHandler?.send("CleanupRenderTask", {
+      renderTaskId: this.#id
+    });
+  }
+  drawFrame(frame) {
+    try {
+      if (frame.bitmap) {
+        const ctx = this.#canvasFactory.getNoAlphaContext(this.#canvas);
+        ctx.drawImage(frame.bitmap, 0, 0);
+      }
+      if (frame.annotationBitmaps) {
+        this.#drawAnnotationCanvases(frame.annotationBitmaps);
+      }
+    } catch (ex) {
+      this.#onError(ex);
+      return;
+    } finally {
+      closeFrame(frame);
+    }
+    this.#onFrame();
+  }
+  #drawAnnotationCanvases(annotationBitmaps) {
+    const annotationCanvasMap = this.#annotationCanvasMap;
+    const seen = new Set();
+    for (const [id, canvasName, bitmap] of annotationBitmaps) {
+      const {
+        canvas,
+        context
+      } = this.#canvasFactory.create(bitmap.width, bitmap.height);
+      context.drawImage(bitmap, 0, 0);
+      if (!canvasName) {
+        annotationCanvasMap.set(id, canvas);
+        continue;
+      }
+      setAnnotationCanvasName(canvas, canvasName);
+      if (seen.has(id)) {
+        annotationCanvasMap.get(id).push(canvas);
+      } else {
+        seen.add(id);
+        annotationCanvasMap.set(id, [canvas]);
+      }
+    }
+  }
+}
+class RendererWorker {
+  #capability = Promise.withResolvers();
+  #enableHWA;
+  #enableWebGPU;
+  #messageHandler = null;
+  #operatorListId = 0;
+  #operatorLists = new WeakMap();
+  #renderTaskId = 0;
+  #renderTasks = new Map();
+  #webWorker = null;
+  destroyed = false;
+  constructor({
+    verbosity = getVerbosityLevel(),
+    enableHWA = false,
+    enableWebGPU = false
+  } = {}) {
+    this.verbosity = verbosity;
+    this.#enableHWA = enableHWA;
+    this.#enableWebGPU = enableWebGPU;
+    this.#initialize();
+  }
+  static get isAvailable() {
+    return !!GlobalWorkerOptions.rendererSrc && typeof Worker !== "undefined" && FeatureTest.isOffscreenCanvasSupported && !!globalThis.document?.fonts;
+  }
+  get promise() {
+    return this.#capability.promise;
+  }
+  get messageHandler() {
+    return this.#messageHandler;
+  }
+  #resolve() {
+    this.#messageHandler.on("RenderFrame", frame => {
+      const renderTask = this.#renderTasks.get(frame.renderTaskId);
+      if (renderTask) {
+        renderTask.drawFrame(frame);
+      } else {
+        closeFrame(frame);
+      }
+    });
+    this.#capability.resolve();
+    this.#messageHandler.send("configure", {
+      verbosity: this.verbosity,
+      enableHWA: this.#enableHWA,
+      enableWebGPU: this.#enableWebGPU
+    });
+  }
+  #initialize() {
+    try {
+      const worker = new Worker(getWorkerSrc(GlobalWorkerOptions.rendererSrc), {
+        type: "module"
+      });
+      const messageHandler = new MessageHandler("main", "renderer", worker);
+      const terminateEarly = reason => {
+        ac.abort();
+        messageHandler.destroy();
+        worker.terminate();
+        this.#capability.reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
+      };
+      const ac = new AbortController();
+      worker.addEventListener("error", event => {
+        if (!this.#webWorker) {
+          terminateEarly(event.error || event.message);
+        }
+      }, {
+        signal: ac.signal
+      });
+      messageHandler.on("ready", data => {
+        ac.abort();
+        if (this.destroyed) {
+          terminateEarly("Worker was destroyed.");
+          return;
+        }
+        if (!(data?.testObj instanceof Uint8Array)) {
+          terminateEarly("TypedArray transfer test failed.");
+          return;
+        }
+        const apiVersion = "6.5.128";
+        if (apiVersion !== data.workerVersion) {
+          terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
+          return;
+        }
+        this.#messageHandler = messageHandler;
+        this.#webWorker = worker;
+        this.#resolve();
+      });
+    } catch (reason) {
+      this.#capability.reject(reason);
+    }
+  }
+  destroy() {
+    this.destroyed = true;
+    this.#webWorker?.terminate();
+    this.#webWorker = null;
+    this.#messageHandler?.destroy();
+    this.#messageHandler = null;
+  }
+  #sendObj(action, data, id, pageProxyId) {
+    const handler = this.#messageHandler;
+    if (!handler) {
+      return;
+    }
+    try {
+      handler.send(action, data);
+    } catch (reason) {
+      warn(`RendererWorker - failed to send "${action}": ${reason}`);
+      handler.send("objFailed", {
+        id,
+        pageProxyId,
+        reason: reason.message
+      });
+    }
+  }
+  sendCommonObj(id, type, data) {
+    this.#sendObj("commonobj", [id, type, data], id, null);
+  }
+  sendObj(id, pageProxyId, type, data) {
+    this.#sendObj("obj", [id, pageProxyId, type, data], id, pageProxyId);
+  }
+  cleanup(keepLoadedFonts) {
+    this.#messageHandler?.send("Cleanup", {
+      keepLoadedFonts
+    });
+  }
+  cleanupPage(pageProxyId) {
+    this.#messageHandler?.send("cleanupPage", {
+      pageProxyId
+    });
+  }
+  createRenderTask({
+    pageProxyId,
+    operatorList,
+    params,
+    pageColors,
+    canvasFactory,
+    annotationCanvasMap,
+    onFrame,
+    onError
+  }) {
+    const {
+      canvas,
+      canvasContext,
+      background
+    } = params;
+    if (!this.#messageHandler || canvasContext || background && typeof background !== "string" || pageColors || params.recordForDebugger) {
+      return null;
+    }
+    const operatorListState = this.#operatorLists.getOrInsertComputed(operatorList, () => ({
+      id: this.#operatorListId++,
+      sentLength: 0
+    }));
+    return new WorkerRenderTask({
+      rendererWorker: this,
+      renderTasks: this.#renderTasks,
+      canvas,
+      canvasFactory,
+      annotationCanvasMap,
+      operatorListState,
+      initParams: {
+        pageProxyId,
+        operatorListId: operatorListState.id,
+        renderTaskId: this.#renderTaskId++,
+        hasAnnotationCanvasMap: !!annotationCanvasMap,
+        recordOperations: params.recordOperations,
+        recordImages: params.recordImages,
+        partialFrames: params.partialFrames,
+        transform: params.transform,
+        viewport: params.viewport,
+        background,
+        pixelRatio: OutputScale.pixelRatio
+      },
+      onFrame,
+      onError
+    });
+  }
+}
+
 ;// ./src/display/text_layer.js
+
 
 
 const MAX_TEXT_DIVS_TO_RENDER = 100000;
@@ -14540,6 +14922,8 @@ class TextLayer {
 
 
 
+
+
 const RENDERING_CANCELLED_TIMEOUT = 100;
 function getDocument(src = {}) {
   const task = new PDFDocumentLoadingTask();
@@ -14585,7 +14969,7 @@ function getDocument(src = {}) {
   const styleElement = null;
   const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !(/* inlined export .isNodeJS */false) && !disableFontFace;
   const useWorkerFetch = typeof src.useWorkerFetch === "boolean" ? src.useWorkerFetch : true;
-  const disableWorkerRendering = src.disableWorkerRendering === true || !GlobalWorkerOptions.rendererSrc || typeof Worker === "undefined" || !isOffscreenCanvasSupported || !FeatureTest.isOffscreenCanvasSupported || ownerDocument !== globalThis.document || !ownerDocument?.fonts || !!styleElement;
+  const disableWorkerRendering = src.disableWorkerRendering === true || !isOffscreenCanvasSupported || ownerDocument !== globalThis.document || !!styleElement || !RendererWorker.isAvailable;
   setVerbosityLevel(verbosity);
   const transportFactory = {
     canvasFactory: new CanvasFactory({
@@ -14607,12 +14991,14 @@ function getDocument(src = {}) {
   }
   if (!disableWorkerRendering) {
     task._rendererWorker = new RendererWorker({
-      verbosity
+      verbosity,
+      enableHWA,
+      enableWebGPU
     });
   }
   const docParams = {
     docId,
-    apiVersion: "6.5.57",
+    apiVersion: "6.5.128",
     data,
     password,
     disableAutoFetch,
@@ -14642,23 +15028,18 @@ function getDocument(src = {}) {
     ownerDocument,
     pdfBug,
     styleElement,
-    enableHWA,
-    enableWebGPU,
     rendererWorker: null,
     loadingParams: {
       disableAutoFetch,
       enableXfa
     }
   };
-  const workerPromises = [worker.promise, gpuPromise];
-  if (task._rendererWorker) {
-    workerPromises.push(task._rendererWorker.promise.catch(reason => {
-      warn(`Renderer worker disabled: ${reason.message}`);
-      task._rendererWorker.destroy();
-      task._rendererWorker = null;
-    }));
-  }
-  Promise.all(workerPromises).then(function ([, hasGPU]) {
+  const rendererWorkerPromise = task._rendererWorker?.promise.catch(reason => {
+    warn(`Renderer worker disabled: ${reason.message}`);
+    task._rendererWorker.destroy();
+    task._rendererWorker = null;
+  });
+  Promise.all([worker.promise, gpuPromise, rendererWorkerPromise]).then(function ([, hasGPU]) {
     if (worker.destroyed) {
       throw new Error("Worker was destroyed");
     }
@@ -15028,22 +15409,12 @@ class PDFPageProxy {
     const shouldRecordImages = !!canvas && !this.imageCoordinates && recordImages;
     const complete = error => {
       intentState.renderTasks.delete(internalRenderTask);
-      if (internalRenderTask.gfx) {
-        const {
-          dependencyTracker,
-          imagesTracker
-        } = internalRenderTask.gfx;
-        internalRenderTask.recordedBBoxes = dependencyTracker?.take() ?? null;
-        internalRenderTask.debugMetadata = recordForDebugger ? dependencyTracker?.takeDebugMetadata() ?? null : null;
-        internalRenderTask.imageCoordinates = imagesTracker?.take() ?? null;
-      }
       if (shouldRecordOperations) {
         const {
-          recordedBBoxes,
-          debugMetadata
+          recordedBBoxes
         } = internalRenderTask;
         if (recordedBBoxes) {
-          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, debugMetadata);
+          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, internalRenderTask.debugMetadata);
           if (recordOperations) {
             this.recordedBBoxes = recordedBBoxes;
           }
@@ -15097,8 +15468,6 @@ class PDFPageProxy {
       useRequestAnimationFrame: !intentPrint,
       pdfBug: this._pdfBug,
       pageColors,
-      enableHWA: this._transport.enableHWA,
-      enableWebGPU: this._transport.enableWebGPU,
       operationsFilter,
       rendererWorker: this._transport.rendererWorker
     });
@@ -15182,9 +15551,7 @@ class PDFPageProxy {
       }
     }
     this.objs.clear();
-    this._transport.rendererHandler?.send("cleanupPage", {
-      pageProxyId: this._id
-    });
+    this._transport.cleanupPage(this._id);
     this.#pendingCleanup = false;
     return Promise.all(waitOn);
   }
@@ -15210,9 +15577,7 @@ class PDFPageProxy {
     }
     this._intentStates.clear();
     this.objs.clear();
-    this._transport.rendererHandler?.send("cleanupPage", {
-      pageProxyId: this._id
-    });
+    this._transport.cleanupPage(this._id);
     this.#pendingCleanup = false;
     return true;
   }
@@ -15248,9 +15613,6 @@ class PDFPageProxy {
       map,
       transfer
     } = annotationStorageSerializable;
-    this._transport.rendererHandler?.send("restorePage", {
-      pageProxyId: this._id
-    });
     const readableStream = this._transport.messageHandler.sendWithStream("GetOperatorList", {
       pageId: this.#pagesMapper.getPageId(this._pageIndex + 1) - 1,
       pageIndex: this._pageIndex,
@@ -15349,89 +15711,6 @@ class PDFPageProxy {
     return this._stats;
   }
 }
-class RendererWorker {
-  #capability = Promise.withResolvers();
-  #messageHandler = null;
-  #webWorker = null;
-  destroyed = false;
-  constructor({
-    verbosity = getVerbosityLevel()
-  } = {}) {
-    this.verbosity = verbosity;
-    this.#initialize();
-  }
-  get promise() {
-    return this.#capability.promise;
-  }
-  get messageHandler() {
-    return this.#messageHandler;
-  }
-  #resolve() {
-    this.#capability.resolve();
-    this.#messageHandler.send("configure", {
-      verbosity: this.verbosity
-    });
-  }
-  #initialize() {
-    try {
-      let {
-        rendererSrc
-      } = RendererWorker;
-      const worker = new Worker(rendererSrc, {
-        type: "module"
-      });
-      const messageHandler = new MessageHandler("main", "renderer", worker);
-      const terminateEarly = reason => {
-        ac.abort();
-        messageHandler.destroy();
-        worker.terminate();
-        this.#capability.reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
-      };
-      const ac = new AbortController();
-      worker.addEventListener("error", event => {
-        if (!this.#webWorker) {
-          terminateEarly(event.error || event.message);
-        }
-      }, {
-        signal: ac.signal
-      });
-      messageHandler.on("ready", data => {
-        ac.abort();
-        if (this.destroyed) {
-          terminateEarly("Worker was destroyed.");
-          return;
-        }
-        if (!(data?.testObj instanceof Uint8Array)) {
-          terminateEarly("TypedArray transfer test failed.");
-          return;
-        }
-        const apiVersion = "6.5.57";
-        if (apiVersion !== data.workerVersion) {
-          terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
-          return;
-        }
-        this.#messageHandler = messageHandler;
-        this.#webWorker = worker;
-        this.#resolve();
-      });
-    } catch (reason) {
-      this.#capability.reject(reason);
-    }
-  }
-  destroy() {
-    this.destroyed = true;
-    this.#webWorker?.terminate();
-    this.#webWorker = null;
-    this.#messageHandler?.destroy();
-    this.#messageHandler = null;
-  }
-  static get rendererSrc() {
-    if (GlobalWorkerOptions.rendererSrc) {
-      return GlobalWorkerOptions.rendererSrc;
-    }
-    throw new Error('No "GlobalWorkerOptions.rendererSrc" specified.');
-  }
-}
 class PDFWorker {
   #capability = Promise.withResolvers();
   #messageHandler = null;
@@ -15484,11 +15763,11 @@ class PDFWorker {
       this.#setupFakeWorker();
       return;
     }
-    let {
+    const {
       workerSrc
     } = PDFWorker;
     try {
-      const worker = new Worker(workerSrc, {
+      const worker = new Worker(getWorkerSrc(workerSrc), {
         type: "module"
       });
       const messageHandler = new MessageHandler("main", "worker", worker);
@@ -15612,8 +15891,6 @@ class WorkerTransport {
       ownerDocument: params.ownerDocument,
       styleElement: params.styleElement
     });
-    this.enableHWA = params.enableHWA;
-    this.enableWebGPU = params.enableWebGPU;
     this.rendererWorker = params.rendererWorker;
     this.loadingParams = params.loadingParams;
     this._params = params;
@@ -15643,9 +15920,6 @@ class WorkerTransport {
   }
   get annotationStorage() {
     return shadow(this, "annotationStorage", new AnnotationStorage());
-  }
-  get rendererHandler() {
-    return this.rendererWorker?.messageHandler ?? null;
   }
   getRenderingIntent(intent, annotationMode = AnnotationMode.ENABLE, printAnnotationStorage = null, isEditing = false, isOpList = false) {
     let renderingIntent = RenderingIntentFlag.DISPLAY;
@@ -15866,54 +16140,27 @@ class WorkerTransport {
       pageCache: this.#pageCache,
       pdfBug: this._params.pdfBug
     });
-    this.rendererHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
-    this.rendererHandler?.on("RenderFrame", InternalRenderTask.handleRenderFrame);
-    const forwardToRenderer = (action, data) => {
-      const {
-        rendererHandler
-      } = this;
-      if (!rendererHandler) {
-        return;
-      }
-      try {
-        rendererHandler.send(action, data);
-      } catch (reason) {
-        warn(`forwardToRenderer("${action}") failed: ${reason}`);
-        rendererHandler.send("objFailed", {
-          id: data[0],
-          pageProxyId: action === "obj" ? data[1] : null,
-          reason: reason.message
-        });
-      }
-    };
+    this.rendererWorker?.messageHandler.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
       }
-      if (type === "CopyLocalImage") {
-        const dataLen = this.commonObjs.has(id) ? null : objectHandler.resolveCommonObject(id, type, exportedData);
-        const {
-          rendererHandler
-        } = this;
-        if (!dataLen || !rendererHandler) {
-          return dataLen;
-        }
-        return rendererHandler.sendWithPromise("commonobj", [id, type, exportedData]).catch(() => null).then(rendererDataLen => {
-          if (!rendererDataLen) {
-            forwardToRenderer("commonobj", [id, "Image", this.commonObjs.get(id)]);
-          }
-          return dataLen;
-        });
+      const {
+        rendererWorker
+      } = this;
+      rendererWorker?.sendCommonObj(id, type, exportedData);
+      if (!this.commonObjs.has(id)) {
+        objectHandler.resolveCommonObject(id, type, exportedData);
       }
-      forwardToRenderer("commonobj", [id, type, exportedData]);
-      return this.commonObjs.has(id) ? null : objectHandler.resolveCommonObject(id, type, exportedData);
+      return null;
     });
     messageHandler.on("obj", ([id, pageProxyId, type, imageData]) => {
       if (this.destroyed) {
         return;
       }
-      forwardToRenderer("obj", [id, pageProxyId, type, imageData]);
-      objectHandler.resolveObject(id, pageProxyId, type, imageData);
+      if (objectHandler.resolveObject(id, pageProxyId, type, imageData)) {
+        this.rendererWorker?.sendObj(id, pageProxyId, type, imageData);
+      }
     });
     messageHandler.on("DocProgress", data => {
       if (this.destroyed) {
@@ -16148,12 +16395,18 @@ class WorkerTransport {
     if (!keepLoadedFonts) {
       this.fontLoader.clear();
     }
-    this.rendererHandler?.send("Cleanup", {
-      keepLoadedFonts
-    });
+    this.rendererWorker?.cleanup(keepLoadedFonts);
     this.#methodPromises.clear();
     this.filterFactory.destroy(true);
     TextLayer.cleanup();
+  }
+  cleanupPage(pageProxyId) {
+    if (!this.destroyed) {
+      this.messageHandler.send("CleanupPage", {
+        pageProxyId
+      });
+    }
+    this.rendererWorker?.cleanupPage(pageProxyId);
   }
   cachedPageNumber(ref) {
     if (!isRefProxy(ref)) {
@@ -16200,33 +16453,15 @@ class RenderTask {
     return this._internalRenderTask.imageCoordinates || null;
   }
   get isWorkerRendering() {
-    return !!this._internalRenderTask.rendererHandler;
+    return this._internalRenderTask.isWorkerRendering;
   }
 }
 class InternalRenderTask {
+  #dependencyTracker = null;
+  #imagesTracker = null;
   #rAF = null;
+  #rendererTask = null;
   static #canvasInUse = new WeakSet();
-  static #activeRenderTasks = new Map();
-  static #renderTaskId = 0;
-  static handleRenderFrame(frame) {
-    const internalTask = InternalRenderTask.#activeRenderTasks.get(frame.renderTaskId);
-    if (!internalTask) {
-      frame.bitmap.close();
-      if (frame.annotationBitmaps) {
-        for (const [,, annotationBitmap] of frame.annotationBitmaps) {
-          annotationBitmap.close();
-        }
-      }
-      return;
-    }
-    try {
-      internalTask.#drawFrame(frame);
-    } catch (ex) {
-      internalTask.cancel(ex);
-      return;
-    }
-    internalTask.task.onFrame?.();
-  }
   constructor({
     callback,
     params,
@@ -16241,8 +16476,6 @@ class InternalRenderTask {
     useRequestAnimationFrame = false,
     pdfBug = false,
     pageColors = null,
-    enableHWA = false,
-    enableWebGPU = false,
     operationsFilter = null,
     rendererWorker = null
   }) {
@@ -16254,7 +16487,6 @@ class InternalRenderTask {
     this.operatorListIdx = null;
     this.operatorList = operatorList;
     this._pageIndex = pageIndex;
-    this._pageProxyId = pageProxyId;
     this.canvasFactory = canvasFactory;
     this.filterFactory = filterFactory;
     this._pdfBug = pdfBug;
@@ -16272,75 +16504,32 @@ class InternalRenderTask {
     this._nextBound = this._next.bind(this);
     this._canvas = params.canvas;
     this._canvasContext = params.canvas ? null : params.canvasContext;
-    this._enableHWA = enableHWA;
-    this._enableWebGPU = enableWebGPU;
-    this._recordOperations = !!params.recordOperations;
-    this._recordImages = !!params.recordImages;
-    this._recordForDebugger = !!params.recordForDebugger;
-    this._partialFrames = !!params.partialFrames;
     this._operationsFilter = operationsFilter;
-    this._rendererWorker = rendererWorker;
-    this._renderTaskId = InternalRenderTask.#renderTaskId++;
-    this._sentOperatorListLength = 0;
-    this.recordedBBoxes = null;
-    this.debugMetadata = null;
-    this.imageCoordinates = null;
+    this.#rendererTask = rendererWorker?.createRenderTask({
+      pageProxyId,
+      operatorList,
+      params,
+      pageColors,
+      canvasFactory,
+      annotationCanvasMap,
+      onFrame: () => this.task.onFrame?.(),
+      onError: reason => this.cancel(reason)
+    }) ?? null;
   }
   get completed() {
     return this.capability.promise.catch(() => {});
   }
-  get rendererHandler() {
-    return this._rendererWorker?.messageHandler ?? null;
+  get isWorkerRendering() {
+    return !!this.#rendererTask;
   }
-  #drawAnnotationFrames(annotationBitmaps) {
-    const {
-      ownerDocument
-    } = this._canvas;
-    if (typeof ownerDocument?.createElement !== "function") {
-      return;
-    }
-    const seen = new Set();
-    for (const [id, canvasName, bitmap] of annotationBitmaps) {
-      const canvas = ownerDocument.createElement("canvas");
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-      canvas.getContext("2d").drawImage(bitmap, 0, 0);
-      if (!canvasName) {
-        this.annotationCanvasMap.set(id, canvas);
-        continue;
-      }
-      setAnnotationCanvasName(canvas, canvasName);
-      if (seen.has(id)) {
-        this.annotationCanvasMap.get(id).push(canvas);
-      } else {
-        seen.add(id);
-        this.annotationCanvasMap.set(id, [canvas]);
-      }
-    }
+  get imageCoordinates() {
+    return this.#rendererTask ? this.#rendererTask.imageCoordinates : this.#imagesTracker?.take();
   }
-  #drawFrame({
-    bitmap,
-    annotationBitmaps
-  }) {
-    try {
-      if (this.cancelled) {
-        return;
-      }
-      const ctx = this._canvas.getContext("2d", {
-        alpha: false
-      });
-      ctx.drawImage(bitmap, 0, 0);
-      if (annotationBitmaps) {
-        this.#drawAnnotationFrames(annotationBitmaps);
-      }
-    } finally {
-      bitmap.close();
-      if (annotationBitmaps) {
-        for (const [,, annotationBitmap] of annotationBitmaps) {
-          annotationBitmap.close();
-        }
-      }
-    }
+  get recordedBBoxes() {
+    return this.#rendererTask ? this.#rendererTask.recordedBBoxes : this.#dependencyTracker?.take();
+  }
+  get debugMetadata() {
+    return this.#dependencyTracker?.takeDebugMetadata() ?? null;
   }
   async initializeGraphics({
     transparency = false,
@@ -16360,65 +16549,38 @@ class InternalRenderTask {
       this.stepper.init(this.operatorList);
       this.stepper.nextBreakPoint = this.stepper.getNextBreakPoint();
     }
-    const {
-      viewport,
-      transform,
-      background
-    } = this.params;
-    let useWorkerRendering = this.rendererHandler && !this.params.canvasContext && (!background || typeof background === "string") && !this.pageColors && !this._recordForDebugger;
-    if (!useWorkerRendering && this._rendererWorker) {
-      this._rendererWorker = null;
-    }
-    if (useWorkerRendering) {
-      try {
-        const initParams = {
-          width: this._canvas.width,
-          height: this._canvas.height,
-          pageProxyId: this._pageProxyId,
-          renderTaskId: this._renderTaskId,
-          enableHWA: this._enableHWA,
-          enableWebGPU: this._enableWebGPU,
-          hasAnnotationCanvasMap: !!this.annotationCanvasMap,
-          recordOperations: this._recordOperations,
-          recordImages: this._recordImages,
-          partialFrames: this._partialFrames,
-          optionalContentConfig: optionalContentConfig.serializable,
-          transform,
-          viewport,
-          transparency,
-          background
-        };
-        await this.rendererHandler.sendWithPromise("InitializeGraphics", initParams);
-        if (this.cancelled) {
-          return;
-        }
-        InternalRenderTask.#activeRenderTasks.set(this._renderTaskId, this);
-      } catch (ex) {
-        warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
-        this._rendererWorker = null;
-        useWorkerRendering = false;
+    if (this.#rendererTask) {
+      const initialized = await this.#rendererTask.initialize(transparency, optionalContentConfig);
+      if (this.cancelled) {
+        return;
+      }
+      if (!initialized) {
+        this.#rendererTask = null;
       }
     }
-    if (!useWorkerRendering) {
-      const canvasContext = this._canvasContext || this._canvas.getContext("2d", {
-        alpha: false,
-        willReadFrequently: !this._enableHWA
+    if (!this.#rendererTask) {
+      const {
+        viewport,
+        transform,
+        background,
+        recordOperations,
+        recordImages,
+        recordForDebugger
+      } = this.params;
+      const canvasContext = this._canvasContext || this.canvasFactory.getNoAlphaContext(this._canvas);
+      const {
+        dependencyTracker,
+        imagesTracker
+      } = createCanvasTrackers(this._canvas, this.operatorList.fnArray.length, {
+        recordOperations,
+        recordImages,
+        recordDebugMetadata: recordForDebugger
       });
-      let bboxTracker = null;
-      let dependencyTracker = null;
-      let imagesTracker = null;
-      if (this._recordOperations || this._recordImages) {
-        bboxTracker = new CanvasBBoxTracker(this._canvas, this.operatorList.fnArray.length);
-      }
-      if (this._recordOperations) {
-        dependencyTracker = new CanvasDependencyTracker(bboxTracker, this._recordForDebugger);
-      }
-      if (this._recordImages) {
-        imagesTracker = new CanvasImagesTracker(this._canvas);
-      }
+      this.#dependencyTracker = dependencyTracker;
+      this.#imagesTracker = imagesTracker;
       this.gfx = new CanvasGraphics(canvasContext, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
         optionalContentConfig
-      }, this.annotationCanvasMap, this.pageColors, dependencyTracker ?? bboxTracker, imagesTracker);
+      }, this.annotationCanvasMap, this.pageColors, dependencyTracker, imagesTracker);
       this.gfx.beginDrawing({
         transform,
         viewport,
@@ -16433,10 +16595,7 @@ class InternalRenderTask {
   cancel(error = null, extraDelay = 0) {
     this.running = false;
     this.cancelled = true;
-    this.rendererHandler?.send("CleanupRenderTask", {
-      renderTaskId: this._renderTaskId
-    });
-    InternalRenderTask.#activeRenderTasks.delete(this._renderTaskId);
+    this.#rendererTask?.cancel();
     this.gfx?.endDrawing();
     if (this.#rAF) {
       window.cancelAnimationFrame(this.#rAF);
@@ -16452,10 +16611,8 @@ class InternalRenderTask {
       this.graphicsReadyCallback ||= this._continueBound;
       return;
     }
-    if (!this._rendererWorker) {
-      this.gfx.dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
-      this.stepper?.updateOperatorList(this.operatorList);
-    }
+    this.#dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
+    this.stepper?.updateOperatorList(this.operatorList);
     if (this.running) {
       return;
     }
@@ -16486,82 +16643,39 @@ class InternalRenderTask {
     if (this.cancelled) {
       return;
     }
-    if (this._rendererWorker) {
-      await this.#executeOperatorListInWorker();
-      return;
-    }
-    this.operatorListIdx = this.gfx.executeOperatorList(this.operatorList, this.operatorListIdx, this._continueBound, null, this.stepper, this._operationsFilter);
-    if (this.operatorListIdx === this.operatorList.argsArray.length) {
-      this.running = false;
-      if (this.operatorList.lastChunk) {
-        this.gfx.endDrawing();
-        InternalRenderTask.#canvasInUse.delete(this._canvas);
-        this.callback();
-      }
-    }
-  }
-  async #executeOperatorListInWorker() {
     const {
-      rendererHandler,
-      operatorList,
-      operatorListIdx
+      operatorList
     } = this;
-    if (!rendererHandler) {
-      throw new Error("Renderer worker was destroyed during rendering.");
-    }
-    const operatorListArgsArrayLen = operatorList.argsArray.length;
-    const sentLength = this._sentOperatorListLength;
-    const hasNewOps = sentLength < operatorListArgsArrayLen;
-    const fnArray = hasNewOps ? operatorList.fnArray.slice(sentLength, operatorListArgsArrayLen) : null;
-    const argsArray = hasNewOps ? operatorList.argsArray.slice(sentLength, operatorListArgsArrayLen) : null;
-    let operationsFilterMask = null;
-    if (fnArray && this._operationsFilter) {
-      operationsFilterMask = new Uint8Array(fnArray.length);
-      for (let i = 0, ii = fnArray.length; i < ii; i++) {
-        operationsFilterMask[i] = this._operationsFilter(sentLength + i, operatorList) ? 1 : 0;
+    const {
+      lastChunk
+    } = operatorList;
+    if (this.#rendererTask) {
+      this.operatorListIdx = await this.#rendererTask.executeOperatorList(operatorList, this.operatorListIdx, this._operationsFilter);
+      if (this.cancelled) {
+        return;
       }
-    }
-    const sentLastChunk = operatorList.lastChunk;
-    const response = await rendererHandler.sendWithPromise("ExecuteOperatorList", {
-      renderTaskId: this._renderTaskId,
-      fnArray,
-      argsArray,
-      operatorListIdx,
-      operationsFilterMask,
-      lastChunk: sentLastChunk
-    });
-    this.operatorListIdx = response.operatorListIdx;
-    if (response.recordedBBoxesBuffer) {
-      this.recordedBBoxes = BBoxReader.fromBuffer(response.recordedBBoxesBuffer);
-    }
-    if (response.imageCoordinates) {
-      this.imageCoordinates = response.imageCoordinates;
-    }
-    this._sentOperatorListLength = operatorListArgsArrayLen;
-    if (this.cancelled) {
-      return;
-    }
-    if (response.aborted) {
-      throw new Error("Render task was aborted in the renderer worker.");
+      if (this.operatorListIdx !== operatorList.argsArray.length || lastChunk !== operatorList.lastChunk) {
+        this._continue();
+        return;
+      }
+    } else {
+      this.operatorListIdx = this.gfx.executeOperatorList(operatorList, this.operatorListIdx, this._continueBound, null, this.stepper, this._operationsFilter);
     }
     if (this.operatorListIdx === operatorList.argsArray.length) {
       this.running = false;
-      if (sentLastChunk) {
-        InternalRenderTask.#activeRenderTasks.delete(this._renderTaskId);
+      if (lastChunk) {
+        this.gfx?.endDrawing();
         InternalRenderTask.#canvasInUse.delete(this._canvas);
         this.callback();
-      } else if (operatorList.lastChunk) {
-        this._continue();
       }
-    } else {
-      this._continue();
     }
   }
 }
-const version = "6.5.57";
-const build = "89b500f5e";
+const version = "6.5.128";
+const build = "e1412d3a5";
 
 ;// ./src/display/editor/color_picker.js
+
 
 
 
@@ -21555,7 +21669,7 @@ class DrawingEditor extends AnnotationEditor {
     return true;
   }
   onceAdded(focus) {
-    if (!this.annotationElementId) {
+    if (!this.annotationElementId && this._drawId !== null) {
       this.parent.addUndoableEditor(this);
     }
     this._isDraggable = true;
@@ -25082,6 +25196,7 @@ class SignatureEditor extends DrawingEditor {
   #description = null;
   #signatureData = null;
   #signatureUUID = null;
+  #isWaitingForSignature = false;
   static _type = "signature";
   static _editorType = AnnotationEditorType.SIGNATURE;
   static _defaultDrawingOptions = null;
@@ -25130,6 +25245,10 @@ class SignatureEditor extends DrawingEditor {
   }
   get isResizable() {
     return true;
+  }
+  onceAdded(focus) {
+    this.#isWaitingForSignature = this._drawId === null;
+    super.onceAdded(focus);
   }
   onScaleChanging() {
     if (this._drawId === null) {
@@ -25300,6 +25419,10 @@ class SignatureEditor extends DrawingEditor {
       }
     });
     this.div.hidden = false;
+    if (this.#isWaitingForSignature) {
+      this.#isWaitingForSignature = false;
+      this.parent.addUndoableEditor(this);
+    }
   }
   getFromImage(bitmap) {
     const {
@@ -25406,6 +25529,7 @@ class SignatureEditor extends DrawingEditor {
 }
 
 ;// ./src/display/editor/stamp.js
+
 
 
 
@@ -26043,7 +26167,16 @@ class StampEditor extends AnnotationEditor {
       if (changes.isSameAltText) {
         delete serialized.accessibilityData;
       } else {
-        serialized.accessibilityData.structParent = this._initialData.structParent ?? -1;
+        const structParent = this._initialData.structParent ?? -1;
+        if (serialized.accessibilityData) {
+          serialized.accessibilityData.structParent = structParent;
+        } else if (structParent >= 0) {
+          serialized.accessibilityData = {
+            type: "Figure",
+            alt: "",
+            structParent
+          };
+        }
       }
       serialized.id = this.annotationElementId;
       delete serialized.bitmapId;
@@ -27529,6 +27662,7 @@ class TextLayerImages {
 
 
 
+
 globalThis.pdfjsLib = {
   AbortException: AbortException,
   AnnotationEditorLayer: AnnotationEditorLayer,
@@ -27590,9 +27724,8 @@ globalThis.pdfjsLib = {
   updateUrlHash: updateUrlHash,
   Util: Util,
   VerbosityLevel: VerbosityLevel,
-  version: (/* inlined export .version */"6.5.57"),
+  version: version,
   XfaLayer: XfaLayer
 };
 
-const __webpack_exports__version = (/* inlined export .version */"6.5.57");
-export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, __webpack_exports__version as version };
+export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, version };

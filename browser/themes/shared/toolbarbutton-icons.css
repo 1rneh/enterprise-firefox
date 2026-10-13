@@ -130,6 +130,11 @@
   list-style-image: url("chrome://global/skin/icons/developer.svg");
 }
 
+#profiler-button-button {
+  --profiler-button-image-fill-active: var(--toolbarbutton-icon-fill-attention);
+  --profiler-button-image-opacity-paused: var(--toolbarbutton-opacity-disabled);
+}
+
 #profiler-button-button > .toolbarbutton-icon {
   list-style-image: url("chrome://devtools/skin/images/tool-profiler.svg");
 }
@@ -139,17 +144,17 @@
 }
 
 #profiler-button-button.profiler-active > image {
-  fill: #0060df;
+  fill: var(--profiler-button-image-fill-active);
   fill-opacity: 1;
-  background-color: #0060df33;
+  background-color: color-mix(in srgb, var(--profiler-button-image-fill-active) 20%, transparent);
 }
 
 #profiler-button-button.profiler-active:hover > image {
-  background-color: #0060df22;
+  background-color: color-mix(in srgb, var(--profiler-button-image-fill-active) 13%, transparent);
 }
 
 #profiler-button-button.profiler-paused > image {
-  opacity: 0.4;
+  opacity: var(--profiler-button-image-opacity-paused);
 }
 
 #preferences-button {
@@ -215,14 +220,16 @@
      * toolbarbuttons.css, duplicated here because this badge is keyed off an
      * attribute rather than a class. Keep both in sync. */
     > .toolbarbutton-badge-stack > .toolbarbutton-badge {
-      width: 14px;
-      height: 14px;
+      width: var(--toolbarbutton-badge-size);
+      height: var(--toolbarbutton-badge-size);
       min-width: auto;
       box-shadow: none;
       border: none;
       padding: 0;
       display: block;
+      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
       margin: -7px 0 0 !important;
+      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
       margin-inline-end: -6px !important;
       background: url("chrome://global/skin/icons/badge-blue.svg");
     }
@@ -294,7 +301,7 @@
 }
 
 #panic-button[open] {
-  fill: light-dark(rgb(213, 32, 20), #ff848b);
+  fill: var(--icon-color-critical);
 }
 
 #library-button {
@@ -473,7 +480,7 @@
 }
 
 #taskbar-tabs-favicon {
-  margin: auto 8px;
+  margin: auto var(--space-small);
   height: var(--icon-size);
   width: var(--icon-size);
 
@@ -533,7 +540,7 @@
 #smartwindow-monitor-button {
   list-style-image: url("chrome://browser/content/aiwindow/assets/agent-watch.svg");
 
-  /* A monitor matched its condition. Same badge dot as #PanelUI-button and
+  /* A monitor matched its condition. Same badge dot as #PanelUI-menu-button and
      #downloads-button, tinted to say the watched condition was met rather than
      the attention blue those two use to ask for a decision. */
   &[monitor-attention] > .toolbarbutton-badge-stack > .toolbarbutton-badge {
@@ -546,7 +553,7 @@
     min-width: var(--icon-size-xsmall);
     min-height: var(--icon-size-xsmall);
     -moz-context-properties: fill;
-    fill: var(--tab-attention-dot-color);
+    fill: var(--color-accent-attention);
     background: url("chrome://browser/skin/notification-fill-12.svg") no-repeat center;
     background-size: var(--icon-size-xsmall);
   }

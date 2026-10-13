@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-09-30T03:51:55.689170+00:00'
+updated_at: '2026-10-09T17:53:49.266884+00:00'
 export:
   path: ./docs/mots/index.md
   format: md
@@ -1689,6 +1689,7 @@ modules:
       url: '{doc}`/toolkit/crashreporter/crashreporter/index`'
       components:
         - Toolkit::Crash Reporting
+      review_group: crashreporting-reviewers
     owners:
       - *gsvelto
     peers:
@@ -1836,7 +1837,7 @@ modules:
         - Core::DOM
         - 'Core::DOM: Core & HTML'
         - Core::XSLT
-      review_group: dom-core
+      review_group: dom-reviewers
     owners:
       - *mccr8
     peers:
@@ -5008,5 +5009,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: c6c8a7e944ae57eed39b210e9d3136a74b2e677c
-  export: 90aa36cae66b6598fb72581f2c4b0f018e621e82
+  config: 27cf159e5c40fed2ed23d3aca9fc9e91f6c093ab
+  export: bbbe48a0e437e0fa7b5dd1a4ca511f773a4e82f9

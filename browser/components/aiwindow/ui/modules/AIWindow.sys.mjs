@@ -28,6 +28,8 @@ const PREF_MEMORIES_HISTORY =
 const PREF_SEMANTIC_HISTORY_SMARTWINDOW_FEATURE_GATE =
   "places.semanticHistory.smartwindow.featureGate";
 const PREF_AUTO_TAB_GROUPING = "browser.smartwindow.autoTabGrouping.enabled";
+const PREF_AUTO_TAB_GROUPING_LOCALES =
+  "browser.smartwindow.autoTabGrouping.supportedLocales";
 const PREF_FIRSTRUN_HAS_COMPLETED = "browser.smartwindow.firstrun.hasCompleted";
 const PREF_AGENT = "browser.smartwindow.agent.enabled";
 const PREF_AGENT_TOOLBAR = "browser.smartwindow.agent.toolbar.enabled";
@@ -212,6 +214,7 @@ export const AIWindow = {
     Services.obs.addObserver(this, "tabstrip-orientation-change");
     Services.obs.addObserver(this, "browser-region-updated");
     Services.prefs.addObserver(PREF_AGENT_SUPPORTED_REGIONS, this);
+    Services.prefs.addObserver(PREF_AUTO_TAB_GROUPING_LOCALES, this);
     lazy.SmartWindowTelemetry.init();
     lazy.getAllModelsData(); // loads model data into cache for about:preferences
     lazy.NimbusFeatures.smartWindow.onUpdate(this.onNimbusUpdate);
@@ -255,6 +258,7 @@ export const AIWindow = {
     Services.obs.removeObserver(this, "tabstrip-orientation-change");
     Services.obs.removeObserver(this, "browser-region-updated");
     Services.prefs.removeObserver(PREF_AGENT_SUPPORTED_REGIONS, this);
+    Services.prefs.removeObserver(PREF_AUTO_TAB_GROUPING_LOCALES, this);
 
     lazy.PlacesUtils.observers.removeListener(
       ["page-removed", "history-cleared"],
@@ -277,6 +281,13 @@ export const AIWindow = {
       this._onAccountLogout();
     } else if (topic === "tabstrip-orientation-change") {
       this._onTabstripOrientationChange();
+    } else if (
+      topic === "nsPref:changed" &&
+      data === PREF_AUTO_TAB_GROUPING_LOCALES
+    ) {
+      // Nimbus applies this pref after session restore, so windows that built
+      // the button before then have to catch up.
+      this._updateGroupTabsButtons();
     } else if (
       topic === "browser-region-updated" ||
       topic === "nsPref:changed"
@@ -457,6 +468,13 @@ export const AIWindow = {
     );
     if (!node.hidden) {
       lazy.AutoTabGroupingSuggestions.preloadModels();
+    }
+  },
+
+  _updateGroupTabsButtons() {
+    const widget = lazy.CustomizableUI.getWidget(GROUP_TABS_BUTTON_ID);
+    for (const { node } of widget?.instances ?? []) {
+      this._updateGroupTabsButtonVisibility(node);
     }
   },
 

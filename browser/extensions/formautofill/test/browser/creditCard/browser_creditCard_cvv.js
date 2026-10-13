@@ -22,6 +22,13 @@ async function getFieldValues(browser, properties) {
 }
 
 add_setup(async function () {
+  // The Rust credit card schema has no column for the security code, so a card
+  // saved while that store serves comes back without one and there is nothing
+  // below to test. rustCreditCard/browser.toml includes this directory
+  // wholesale, so the skip lives here rather than in a manifest.
+  if (RUST_CREDIT_CARD_STORE) {
+    return;
+  }
   // head.js force-enables OS auth for this directory, which would make filling
   // the card number block on a reauth prompt. Reauth is not what this file
   // tests, so revert the stub and turn it off.
@@ -43,6 +50,10 @@ add_setup(async function () {
 });
 
 add_task(async function test_csc_round_trips_through_storage() {
+  if (RUST_CREDIT_CARD_STORE) {
+    info("The Rust store does not hold a security code");
+    return;
+  }
   const cards = await getCreditCards();
   is(cards.length, 1, "One credit card is saved");
   is(cards[0]["cc-csc"], "123", "cc-csc survives the storage round trip");
@@ -57,6 +68,10 @@ add_task(async function test_csc_round_trips_through_storage() {
 });
 
 add_task(async function test_no_cvv_when_pref_disabled() {
+  if (RUST_CREDIT_CARD_STORE) {
+    info("The Rust store does not hold a security code");
+    return;
+  }
   await SpecialPowers.pushPrefEnv({
     set: [["extensions.formautofill.creditCards.cvv.enabled", false]],
   });
@@ -105,6 +120,10 @@ add_task(async function test_no_cvv_when_pref_disabled() {
 });
 
 add_task(async function test_cvv_autofills_when_pref_enabled() {
+  if (RUST_CREDIT_CARD_STORE) {
+    info("The Rust store does not hold a security code");
+    return;
+  }
   await SpecialPowers.pushPrefEnv({
     set: [["extensions.formautofill.creditCards.cvv.enabled", true]],
   });
@@ -147,6 +166,10 @@ add_task(async function test_cvv_autofills_when_pref_enabled() {
 });
 
 add_task(async function test_cvv_entry_is_named_after_the_field() {
+  if (RUST_CREDIT_CARD_STORE) {
+    info("The Rust store does not hold a security code");
+    return;
+  }
   await SpecialPowers.pushPrefEnv({
     set: [["extensions.formautofill.creditCards.cvv.enabled", true]],
   });

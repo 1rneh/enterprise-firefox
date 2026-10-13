@@ -665,6 +665,7 @@ export class Tabbrowser {
 
   #selectedTab = null;
 
+  /** @type {MozBrowser} */
   #selectedBrowser = null;
 
   set selectedTab(val) {

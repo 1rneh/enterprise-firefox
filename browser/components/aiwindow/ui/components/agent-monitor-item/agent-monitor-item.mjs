@@ -375,6 +375,10 @@ export class AgentMonitorItem extends MozLitElement {
     return this.#draftName ?? this.agent?.monitorName ?? "";
   }
 
+  get #isAtMaxUrls() {
+    return this.pageUrls.length >= this.maxWatchUrls;
+  }
+
   focusName() {
     this.shadowRoot?.querySelector(".monitor-name-input")?.focus();
   }
@@ -397,8 +401,11 @@ export class AgentMonitorItem extends MozLitElement {
   // focused. Returns the keys that failed.
   #validateForm() {
     // A URL left in the input has to be committed before submit, so a valid one
-    // isn't silently dropped and an invalid one sets pendingUrlError.
-    if (this.pendingUrl.trim()) {
+    // isn't silently dropped and an invalid one sets pendingUrlError. Once the
+    // cap is reached there's no room for it, so it's ignored instead.
+    if (this.#isAtMaxUrls) {
+      this.pendingUrlError = null;
+    } else if (this.pendingUrl.trim()) {
       this.#addUrl();
     }
     const errors = { name: null, condition: null, pages: null };
@@ -534,7 +541,7 @@ export class AgentMonitorItem extends MozLitElement {
       this.pendingUrlError = { id: "ai-tasks-alert-error-duplicate-url" };
       return;
     }
-    if (this.pageUrls.length >= this.maxWatchUrls) {
+    if (this.#isAtMaxUrls) {
       this.pendingUrlError = {
         id: "ai-tasks-alert-error-max-urls",
         args: { maxUrls: this.maxWatchUrls },
@@ -546,6 +553,15 @@ export class AgentMonitorItem extends MozLitElement {
     this.pendingUrlError = null;
     this.#clearFieldError("pages");
     this.#persistDraft();
+  }
+
+  async #handleAddUrl() {
+    this.#addUrl();
+    if (this.#isAtMaxUrls) {
+      await this.updateComplete;
+      // Give a fallback focus to the pages field if the add button is removed
+      this.#focusField("pages");
+    }
   }
 
   #removeUrl(url) {
@@ -701,15 +717,17 @@ export class AgentMonitorItem extends MozLitElement {
               @input=${this.#onPendingUrlInput}
               @keydown=${this.#onPendingUrlKeydown}
             ></moz-input-url>
-            <moz-button
-              size="small"
-              type="icon ghost"
-              class="add-page-btn"
-              iconsrc="chrome://global/skin/icons/plus.svg"
-              data-l10n-id="ai-tasks-alert-add-url"
-              data-l10n-attrs="aria-label"
-              @click=${() => this.#addUrl()}
-            ></moz-button>
+            ${this.#isAtMaxUrls
+              ? nothing
+              : html`<moz-button
+                  size="small"
+                  type="icon ghost"
+                  class="add-page-btn"
+                  iconsrc="chrome://global/skin/icons/plus.svg"
+                  data-l10n-id="ai-tasks-alert-add-url"
+                  data-l10n-attrs="aria-label"
+                  @click=${() => this.#handleAddUrl()}
+                ></moz-button>`}
           </div>
           ${this.#renderFieldError(
             this.pendingUrlError ?? this.fieldErrors.pages

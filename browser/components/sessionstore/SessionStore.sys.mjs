@@ -868,7 +868,13 @@ class _SessionStore {
                 decision.action = "interstitial";
                 // replace the crashed session with a restore-page-only session
                 let url = "about:sessionrestore";
-                let formdata = { id: { sessionData: state }, url };
+                let formdata = {
+                  id: {
+                    sessionData: state,
+                    showReason: decision.interstitialReason,
+                  },
+                  url,
+                };
                 let entry = {
                   url,
                   triggeringPrincipal_base64:

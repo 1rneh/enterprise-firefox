@@ -1797,7 +1797,8 @@ void nsHttpHandler::PrefsChanged(const char* pref) {
                                &ratio);
     if (NS_SUCCEEDED(rv)) {
       if (ratio > 0 && ratio < 1) {
-        mFocusedWindowTransactionRatio = ratio;
+        auto lockedRatio = mFocusedWindowTransactionRatio.Lock();
+        *lockedRatio = ratio;
       } else {
         NS_WARNING("Wrong value for focused_window_transaction_ratio");
       }

@@ -3070,6 +3070,17 @@ static void WrapSeparatorTransform(nsDisplayListBuilder* aBuilder,
   aParticipants->AppendToTop(item);
 }
 
+static bool HitTestsCapturedElementsAtLivePosition(nsPresContext* aPc) {
+  switch (StaticPrefs::dom_viewTransitions_hit_testing()) {
+    case 0:
+      return false;
+    case 1:
+      return true;
+    default:
+      return aPc->IsChrome();
+  }
+}
+
 // Try to compute a clip rect to bound the contents of the mask item
 // that will be built for |aMaskedFrame|. If we're not able to compute
 // one, return an empty Maybe.
@@ -3284,7 +3295,13 @@ void nsIFrame::BuildDisplayListForStackingContext(
   // the building of the display list for these frames, and then these APIs,
   // e.g. elementFromPoint(), will skip these frames as well.
   // https://drafts.csswg.org/css-view-transitions-1/#view-transition-stacking-layer
-  if (capturedByViewTransition && aBuilder->IsForEventDelivery()) {
+  //
+  // dom.viewTransitions.hit-testing can make us hit-test them at their live
+  // position instead, which chrome documents do by default so the browser UI
+  // stays interactive while it animates. See
+  // https://github.com/w3c/csswg-drafts/issues/10930
+  if (capturedByViewTransition && aBuilder->IsForEventDelivery() &&
+      !HitTestsCapturedElementsAtLivePosition(PresContext())) {
     return;
   }
 

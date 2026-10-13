@@ -1257,48 +1257,14 @@ home-prefs-stories-header2 =
 home-prefs-widgets-header =
     .label = Widgets
 
-# Lists is a widget on New Tab, similar to a to-do widget
-home-prefs-lists-header =
-    .label = Lists
-
-# Timer is a widget on New Tab, similar to the Pomodoro timer.
-home-prefs-timer-header =
-    .label = Timer
-
-# Clock is a widget on New Tab that displays time zones around the world.
-home-prefs-clocks-header =
-    .label = Clock
-
-# Privacy is a widget on New Tab that shows tracking protection activity.
-home-prefs-privacy-header =
-    .label = Privacy
-
-# Crossword is a widget on New Tab that shows a daily crossword puzzle.
-home-prefs-crossword-widget-header =
-    .label = Crossword
-
-# Finance is a widget on New Tab that shows stock ticker prices.
-home-prefs-stocks-header2 =
-    .label = Finance
-
-# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
-home-prefs-picture-header =
-    .label = Picture of the day
-
-# Search is a widget on New Tab that shows the user's recent and trending
-# searches.
-home-prefs-search-widget-header =
-    .label = Search
-
-# Horoscopes is a widget on New Tab that shows daily horoscopes.
-home-prefs-horoscopes-header =
-    .label = Horoscopes
-
 home-prefs-mission-message2 =
     .message = Our sponsors support our mission to build a better web.
 
 home-prefs-manage-topics-link2 =
     .label = Manage topics
+
+home-prefs-manage-widgets-link =
+    .label = Manage widgets
 
 home-prefs-choose-wallpaper-link2 =
     .label = Choose a wallpaper

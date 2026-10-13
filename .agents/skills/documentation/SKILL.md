@@ -30,6 +30,9 @@ Source Docs**.
 -   Prefer **small targeted builds** while debugging.
 -   Ensure new documentation is **reachable through a toctree**.
 -   Keep documentation **close to the code it describes** when possible.
+-   Check **what the page claims against the code**: look up each name it
+    cites with `searchfox-cli -q` and confirm the code still does what the
+    text says.
 
 ## Recommended Workflow
 

@@ -1344,6 +1344,7 @@ interface GleanImpl {
     numberOfTabsRestored: GleanCustomDistribution;
     numberOfWindowsRestored: GleanCustomDistribution;
     readFile: GleanTimingDistribution;
+    restorePageOutcome: GleanEventWithExtras<{ outcome?: string, show_reason?: string, single_tabs_restored?: string|number, tabs_offered?: string|number, tabs_selected?: string|number, windows_offered?: string|number, windows_selected?: string|number }>;
     restoreWindow: GleanTimingDistribution;
     shutdownFlushAllOutcomes: Record<"abnormal_content_shutdown"|"complete"|"oop_frameloader_crashed"|"timed_out", GleanCounter>;
     shutdownOk: Record<"false"|"true", GleanCounter>;

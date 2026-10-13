@@ -152,11 +152,12 @@
   accent-color: var(--smartwindow-assistant-accent-color-focus);
 }
 
-:host([mode="fullpage"]) #ai-window-smartbar {
+/* Keep the input from moving when the suggestions list opens. */
+#ai-window-smartbar[suggestions-position="bottom"] {
   top: 0;
 }
 
-:host([mode="sidebar"]) #ai-window-smartbar {
+#ai-window-smartbar[suggestions-position="top"] {
   bottom: 0;
 }
 

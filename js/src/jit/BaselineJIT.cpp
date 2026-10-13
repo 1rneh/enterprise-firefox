@@ -779,6 +779,7 @@ JSScript* BaselineCompileQueue::pop() {
   assertInvariants();
   return result;
 }
+
 bool BaselineCompileQueue::enqueue(JSScript* script) {
   if (numQueued_ >= JitOptions.baselineQueueCapacity) {
     return false;  // Queue is full

@@ -35,6 +35,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAutofill.sys.mjs",
   CreditCardTombstone:
     "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAutofill.sys.mjs",
+  CryptoError:
+    "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAutofill.sys.mjs",
   UpdatableCreditCardFieldsWithMeta:
     "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAutofill.sys.mjs",
   FormAutofill: "resource://autofill/FormAutofill.sys.mjs",
@@ -158,6 +160,24 @@ const MASK_CHARACTER = "•";
 // it.
 const isMasked = value => String(value ?? "").includes(MASK_CHARACTER);
 
+// The fields creditCardToJsRecord derives with CreditCardRecord.computeFields.
+const COMPUTED_FIELDS = [
+  "cc-given-name",
+  "cc-additional-name",
+  "cc-family-name",
+  "cc-exp",
+];
+
+/**
+ * The error a caller owes for a key NSS will not hand over: what crypto-SDR
+ * and the JSON store report, and what tells a caller to try again later rather
+ * than treat one record as lost.
+ *
+ * @returns {Error}
+ */
+const primaryPasswordLockedError = () =>
+  Components.Exception("Primary password locked", Cr.NS_ERROR_ABORT);
+
 /**
  * Convert a JS credit card record to the Rust `UpdatableCreditCardFields`.
  *
@@ -275,11 +295,11 @@ export class RustAutofillCreditCardsAdapter extends RustAutofillAdapterBase {
   }
 
   _get(store, guid) {
-    return store.getCreditCard(guid);
+    return this.#read(() => store.getCreditCard(guid));
   }
 
   _getAll(store) {
-    return store.getAllCreditCards();
+    return this.#read(() => store.getAllCreditCards());
   }
 
   _delete(store, guid) {
@@ -294,15 +314,15 @@ export class RustAutofillCreditCardsAdapter extends RustAutofillAdapterBase {
     return store.touchCreditCard(guid);
   }
 
+  // Writing needs the key as much as reading does, so a save can be declined.
   _add(store, record) {
-    return store.addCreditCard(jsRecordToUpdatableCreditCardFields(record));
+    const fields = jsRecordToUpdatableCreditCardFields(record);
+    return this.#withKey(() => store.addCreditCard(fields));
   }
 
   _update(store, guid, record) {
-    return store.updateCreditCard(
-      guid,
-      jsRecordToUpdatableCreditCardFields(record)
-    );
+    const fields = jsRecordToUpdatableCreditCardFields(record);
+    return this.#withKey(() => store.updateCreditCard(guid, fields));
   }
 
   _addManyWithMeta(store, entries) {
@@ -340,6 +360,54 @@ export class RustAutofillCreditCardsAdapter extends RustAutofillAdapterBase {
   // ---- Credit card specifics --------------------------------------------
 
   /**
+   * Reading a card decrypts its number, so with the token locked a read shows
+   * the primary password prompt.
+   *
+   * @param {string} guid
+   * @param {object} [options]
+   * @param {boolean} [options.prompt=true] Whether the read may prompt. A read
+   *   nobody asked for passes false, and rejects with NS_ERROR_ABORT while the
+   *   token is locked.
+   */
+  get(guid, { prompt = true } = {}) {
+    return prompt
+      ? this._allowingPrompt(() => super.get(guid))
+      : super.get(guid);
+  }
+
+  /**
+   * @see get
+   * @param {object} [options]
+   * @param {boolean} [options.rawData=false]
+   * @param {boolean} [options.prompt=true]
+   */
+  getAll({ rawData = false, prompt = true } = {}) {
+    return prompt
+      ? this._allowingPrompt(() => super.getAll({ rawData }))
+      : super.getAll({ rawData });
+  }
+
+  /**
+   * Runs at startup and on every change, so it never prompts. With the token
+   * locked no card can be read, and every field is reported as saved for as
+   * long as there are cards: a form is then still offered autofill, and opening
+   * it is what asks for the primary password.
+   */
+  async getSavedFieldNames() {
+    try {
+      return await super.getSavedFieldNames();
+    } catch (e) {
+      if (e.result != Cr.NS_ERROR_ABORT) {
+        throw e;
+      }
+      if (!(await this.refreshCount())) {
+        return new Set();
+      }
+      return new Set([...this._validFields, ...COMPUTED_FIELDS]);
+    }
+  }
+
+  /**
    * The stored cards holding the number this record carries.
    *
    * The counterpart of CreditCardsBase.getDuplicateRecords, comparing what it
@@ -348,18 +416,23 @@ export class RustAutofillCreditCardsAdapter extends RustAutofillAdapterBase {
    * the store as it hands them over rather than through getAll().
    *
    * A card the store hands over without a number is passed over: it never had
-   * one, scrubEncryptedData() blanked it, or the store's key could not read it.
-   * This runs on every credit card submission, and one unreadable card must not
-   * cost the user the save prompt for a different one.
+   * one, or it was scrubbed. This runs on every credit card submission, and one
+   * card without a number must not cost the user the save prompt for a
+   * different one. A key that is unavailable stops the search: it is not one
+   * card that cannot be read, it is all of them.
    *
    * @param {object} record A normalised credit card record.
    * @yields {object} Each stored record holding the same number.
+   * @throws NS_ERROR_ABORT if the user declined to unlock the key.
    */
   async *getDuplicateRecords(record) {
     if (!record["cc-number"]) {
       return;
     }
-    for (const card of await this._getAll(await this._store())) {
+    const cards = await this.#withKey(async () =>
+      this._getAll(await this._store())
+    );
+    for (const card of cards) {
       if (card.ccNumber && card.ccNumber == record["cc-number"]) {
         yield this._recordFromRust(card);
       }
@@ -403,19 +476,64 @@ export class RustAutofillCreditCardsAdapter extends RustAutofillAdapterBase {
   }
 
   /**
+   * Run a store read, telling a locked key from a lost one when it fails.
+   *
+   * The store decrypts every number it hands over, and fails the whole read on
+   * one it cannot decrypt. With the token locked that is every card, and the
+   * caller owes NS_ERROR_ABORT. Otherwise the key cannot read what another key
+   * wrote -- the token was reset, or key4.db replaced -- and the CryptoError is
+   * passed on. The stored numbers are left as they are, as passwordmgr leaves
+   * logins it cannot decrypt.
+   *
+   * @param {Function} operation An async function making the store call.
+   * @returns {Promise<*>} What `operation` resolves to.
+   * @throws NS_ERROR_ABORT if the token is locked, or the store's CryptoError
+   *   if a number cannot be decrypted with it unlocked.
+   */
+  async #read(operation) {
+    try {
+      return await operation();
+    } catch (e) {
+      if (e instanceof lazy.CryptoError && this._primaryPasswordLocked()) {
+        throw primaryPasswordLockedError();
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Run a store operation that needs the key, allowing the primary password
+   * prompt for it.
+   *
+   * @param {Function} operation An async function making the store call.
+   * @returns {Promise<*>} What `operation` resolves to.
+   * @throws NS_ERROR_ABORT if the operation failed on a locked key.
+   */
+  async #withKey(operation) {
+    try {
+      return await this._allowingPrompt(operation);
+    } catch (e) {
+      throw this._primaryPasswordLocked() ? primaryPasswordLockedError() : e;
+    }
+  }
+
+  /**
    * The number of a stored card, in the clear.
    *
-   * The only place this adapter reads a number. The store decrypts every card
-   * it hands over, and every record built from one carries a mask instead, so
-   * the number goes no further than the caller that asked for it.
+   * With getDuplicateRecords, the only place this adapter reads a number. The
+   * store decrypts every card it hands over, and every record built from one
+   * carries a mask instead, so the number goes no further than the caller that
+   * asked for it.
    *
    * @param {string} guid
    * @returns {Promise<?string>} The number, or null if the store handed the
-   *   card over without one: it never had one, scrubEncryptedData() blanked it,
-   *   or the store's key could not read it.
+   *   card over without one: it never had one, or it was scrubbed.
+   * @throws NS_ERROR_ABORT if the user declined to unlock the key.
    */
   async #numberOf(guid) {
-    const card = await this._get(await this._store(), guid);
+    const card = await this.#withKey(async () =>
+      this._get(await this._store(), guid)
+    );
     return card.ccNumber || null;
   }
 
@@ -482,6 +600,7 @@ export class RustAutofillCreditCardsAdapter extends RustAutofillAdapterBase {
    * the caller supplies a new number.
    *
    * @param {object} record The record, modified in place.
+   * @throws NS_ERROR_ABORT if the user declined to unlock the key.
    */
   async _prepareStoredForMerge(record) {
     const masked = record["cc-number"];

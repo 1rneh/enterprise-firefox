@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.57
- * pdfjsBuild = 89b500f5e
+ * pdfjsVersion = 6.5.128
+ * pdfjsBuild = e1412d3a5
  */
 
 ;// ./src/shared/util.js
@@ -493,6 +493,9 @@ class FeatureTest {
   static get isImageDecoderSupported() {
     return shadow(this, "isImageDecoderSupported", typeof ImageDecoder !== "undefined");
   }
+  static get isVideoFrameSupported() {
+    return shadow(this, "isVideoFrameSupported", typeof VideoFrame !== "undefined");
+  }
   static get isFloat16ArraySupported() {
     return shadow(this, "isFloat16ArraySupported", typeof Float16Array !== "undefined");
   }
@@ -723,7 +726,12 @@ function normalizeUnicode(str) {
   return str.replaceAll(NormalizeRegex, (_, p1, p2) => p1 ? p1.normalize("NFKC") : NormalizationMap.get(p2));
 }
 function getUuid() {
-  return crypto.randomUUID();
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const buf = new Uint8Array(32);
+  crypto.getRandomValues(buf);
+  return bytesToString(buf);
 }
 function _isValidExplicitDest(validRef, validName, dest) {
   if (!Array.isArray(dest) || dest.length < 2) {
@@ -1048,6 +1056,9 @@ class RefMap {
   }
   putAlias(ref, aliasRef) {
     this.#map.set(ref.toString(), this.get(aliasRef));
+  }
+  remove(ref) {
+    this.#map.delete(ref.toString());
   }
   getOrPutComputed(ref, callback) {
     const map = this.#map,
@@ -9665,7 +9676,7 @@ async function JBig2(moduleArg = {}) {
 
 
 class WasmImage {
-  static #handler = null;
+  static #getHandler = null;
   static #instances = new Set();
   static #useWasm = true;
   static #useWorkerFetch = true;
@@ -9675,7 +9686,7 @@ class WasmImage {
   _filename = null;
   _noWasmFilename = null;
   static setOptions({
-    handler,
+    getHandler,
     useWasm,
     useWorkerFetch,
     wasmUrl
@@ -9684,7 +9695,7 @@ class WasmImage {
     WasmImage.#useWorkerFetch = useWorkerFetch;
     WasmImage.#wasmUrl = wasmUrl;
     if (!useWorkerFetch) {
-      WasmImage.#handler = handler;
+      WasmImage.#getHandler = getHandler;
     }
   }
   static get instance() {
@@ -17348,37 +17359,34 @@ function recoverGlyphName(name, glyphsUnicodeMap) {
   info("Unable to recover a standard glyph name for: " + name);
   return name;
 }
+function buildMapping(baseEncoding, glyphNames) {
+  const map = new Map();
+  const {
+    length
+  } = baseEncoding;
+  for (let charCode = 0; charCode < length; charCode++) {
+    const glyphId = glyphNames.indexOf(baseEncoding[charCode]);
+    map.set(charCode, glyphId >= 0 ? glyphId : 0);
+  }
+  return map;
+}
 function type1FontGlyphMapping(properties, builtInEncoding, glyphNames) {
-  const charCodeToGlyphId = new Map();
-  let glyphId, baseEncoding;
-  const isSymbolicFont = !!(properties.flags & FontFlags.Symbolic);
+  let charCodeToGlyphId, glyphsUnicodeMap;
   if (properties.isInternalFont) {
-    baseEncoding = builtInEncoding;
-    for (let charCode = 0; charCode < baseEncoding.length; charCode++) {
-      glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
-    }
+    charCodeToGlyphId = buildMapping(builtInEncoding, glyphNames);
   } else if (properties.baseEncodingName) {
-    baseEncoding = getEncoding(properties.baseEncodingName);
-    for (let charCode = 0; charCode < baseEncoding.length; charCode++) {
-      glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
-    }
-  } else if (isSymbolicFont) {
+    charCodeToGlyphId = buildMapping(getEncoding(properties.baseEncodingName), glyphNames);
+  } else if (properties.flags & FontFlags.Symbolic) {
+    charCodeToGlyphId = new Map();
     for (const charCode in builtInEncoding) {
       charCodeToGlyphId.set(+charCode, builtInEncoding[charCode]);
     }
   } else {
-    baseEncoding = StandardEncoding;
-    for (let charCode = 0; charCode < baseEncoding.length; charCode++) {
-      glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
-    }
+    charCodeToGlyphId = buildMapping(StandardEncoding, glyphNames);
   }
-  let glyphsUnicodeMap;
   if (properties.differences) {
     for (const [charCode, glyphName] of properties.differences) {
-      glyphId = glyphNames.indexOf(glyphName);
+      let glyphId = glyphNames.indexOf(glyphName);
       if (glyphId === -1) {
         glyphsUnicodeMap ??= getGlyphsUnicode();
         const standardGlyphName = recoverGlyphName(glyphName, glyphsUnicodeMap);
@@ -31866,6 +31874,7 @@ class GlobalImageCache {
   static MIN_IMAGES_TO_CACHE = 10;
   static MAX_BYTE_SIZE = 5e7;
   #decodeFailedSet = new RefSet();
+  #decodedImages = new RefMap();
   constructor() {
     this._refCache = new RefMap();
     this._imageCache = new RefMap();
@@ -31896,6 +31905,61 @@ class GlobalImageCache {
   }
   hasDecodeFailed(ref) {
     return this.#decodeFailedSet.has(ref);
+  }
+  startDecodedImage(ref, pageProxyId) {
+    if (!FeatureTest.isVideoFrameSupported) {
+      return;
+    }
+    this.#decodedImages.get(ref)?.imgData?.bitmap.close();
+    this.#decodedImages.put(ref, {
+      pageProxyId,
+      imgData: null
+    });
+  }
+  setDecodedImage(ref, imgData) {
+    const entry = this.#decodedImages.get(ref);
+    if (!entry || entry.imgData) {
+      return;
+    }
+    const {
+      bitmap
+    } = imgData;
+    try {
+      if (bitmap instanceof ImageBitmap) {
+        entry.imgData = {
+          ...imgData,
+          bitmap: new VideoFrame(bitmap, {
+            timestamp: 0
+          })
+        };
+      } else if (bitmap instanceof VideoFrame) {
+        entry.imgData = {
+          ...imgData,
+          bitmap: bitmap.clone()
+        };
+      }
+    } catch (reason) {
+      warn(`GlobalImageCache.setDecodedImage - "${reason}".`);
+    }
+    if (!entry.imgData) {
+      this.#decodedImages.remove(ref);
+    }
+  }
+  takeDecodedImage(ref) {
+    const imgData = this.#decodedImages.get(ref)?.imgData;
+    if (!imgData) {
+      return null;
+    }
+    this.#decodedImages.remove(ref);
+    return imgData;
+  }
+  cleanupPage(pageProxyId) {
+    for (const [ref, entry] of this.#decodedImages.items()) {
+      if (entry.pageProxyId === pageProxyId) {
+        entry.imgData?.bitmap.close();
+        this.#decodedImages.remove(ref);
+      }
+    }
   }
   addByteSize(ref, byteSize) {
     const imageData = this._imageCache.get(ref);
@@ -31938,6 +32002,12 @@ class GlobalImageCache {
       this._refCache.clear();
     }
     this._imageCache.clear();
+    for (const {
+      imgData
+    } of this.#decodedImages.values()) {
+      imgData?.bitmap.close();
+    }
+    this.#decodedImages.clear();
   }
 }
 
@@ -34634,6 +34704,7 @@ class PartialEvaluator {
     }
     let objId = `img_${this.idFactory.createObjId()}`,
       cacheGlobally = false,
+      keepDecodedImage = false,
       globalCacheData = null;
     if (this.parsingType3Font) {
       objId = `${this.idFactory.getDocId()}_type3_${objId}`;
@@ -34642,6 +34713,9 @@ class PartialEvaluator {
       if (cacheGlobally) {
         assert(!isInline, "Cannot cache an inline image globally.");
         objId = `${this.idFactory.getDocId()}_${objId}`;
+      } else if (this.pageProxyId !== null) {
+        this.globalImageCache.startDecodedImage(imageRef, this.pageProxyId);
+        keepDecodedImage = true;
       }
     }
     operatorList.addDependency(objId);
@@ -34662,15 +34736,12 @@ class PartialEvaluator {
         this._sendImgData(objId, null, cacheGlobally);
         return;
       }
-      if (w * h > 250000 || hasMask) {
-        const localLength = await this.handler.sendWithPromise("commonobj", [objId, "CopyLocalImage", {
-          imageRef
-        }]);
-        if (localLength) {
-          this.globalImageCache.setData(imageRef, globalCacheData);
-          this.globalImageCache.addByteSize(imageRef, localLength);
-          return;
-        }
+      const decodedImgData = this.globalImageCache.takeDecodedImage(imageRef);
+      if (decodedImgData) {
+        this.globalImageCache.setData(imageRef, globalCacheData);
+        this.globalImageCache.addByteSize(imageRef, decodedImgData.dataLen);
+        this._sendImgData(objId, decodedImgData, cacheGlobally);
+        return;
       }
     }
     PDFImage.buildImage({
@@ -34687,6 +34758,8 @@ class PartialEvaluator {
       imgData.ref = imageRef;
       if (cacheGlobally) {
         this.globalImageCache.addByteSize(imageRef, imgData.dataLen);
+      } else if (keepDecodedImage) {
+        this.globalImageCache.setDecodedImage(imageRef, imgData);
       }
       return this._sendImgData(objId, imgData, cacheGlobally);
     }).catch(reason => {
@@ -39541,6 +39614,7 @@ class StructTreeRoot {
   parentTree = null;
   roleMap = new Map();
   structParentIds = null;
+  #elementsByPage = null;
   constructor(xref, rootDict, rootRef) {
     this.xref = xref;
     this.dict = rootDict;
@@ -39578,6 +39652,54 @@ class StructTreeRoot {
       }
     }
     return this.kidRefToPosition ? this.kidRefToPosition.get(kidRef) ?? NaN : -1;
+  }
+  getElementsForPage(pageRef) {
+    if (!this.#elementsByPage) {
+      const elementsByPage = new RefMap();
+      const visited = new Set();
+      const walk = (dict, level) => {
+        if (!(dict instanceof Dict) || visited.has(dict)) {
+          return;
+        }
+        if (level > MAX_DEPTH) {
+          warn("StructTree MAX_DEPTH reached.");
+          return;
+        }
+        visited.add(dict);
+        const elementPageRef = dict.getRaw("Pg");
+        const kids = dict.get("K");
+        for (let kid of Array.isArray(kids) ? kids : [kids]) {
+          kid = this.xref.fetchIfRef(kid);
+          let contentPageRef = elementPageRef;
+          if (kid instanceof Dict) {
+            const type = kid.get("Type");
+            if (!isName(type, "MCR") && !isName(type, "OBJR")) {
+              walk(kid, level + 1);
+              continue;
+            }
+            const kidPageRef = kid.getRaw("Pg");
+            if (kidPageRef instanceof Ref) {
+              contentPageRef = kidPageRef;
+            }
+          } else if (!Number.isInteger(kid)) {
+            continue;
+          }
+          if (!(contentPageRef instanceof Ref)) {
+            continue;
+          }
+          const elements = elementsByPage.getOrPutComputed(contentPageRef, makeArr);
+          if (elements.at(-1) !== dict) {
+            elements.push(dict);
+          }
+        }
+      };
+      const kids = this.dict.get("K");
+      for (const kid of Array.isArray(kids) ? kids : [kids]) {
+        walk(this.xref.fetchIfRef(kid), 0);
+      }
+      this.#elementsByPage = elementsByPage;
+    }
+    return this.#elementsByPage.get(pageRef);
   }
   #addIdToPage(pageRef, id, type, objId) {
     if (!(pageRef instanceof Ref) || id < 0) {
@@ -39834,6 +39956,12 @@ class StructTreeRoot {
           if (objRef) {
             const tagDict = xref.fetch(objRef).clone();
             StructTreeRoot.#writeProperties(tagDict, accessibilityData);
+            if (!accessibilityData.alt) {
+              tagDict.delete("Alt");
+              if (!accessibilityData.actualText) {
+                tagDict.delete("ActualText");
+              }
+            }
             changes.put(objRef, {
               data: tagDict
             });
@@ -40266,6 +40394,7 @@ class StructTreePage {
       parentTree
     } = this.root;
     if (!parentTree) {
+      this.#parseWithoutParentTree(pageRef);
       return;
     }
     const id = this.pageDict.get("StructParents");
@@ -40365,6 +40494,33 @@ class StructTreePage {
       this.nodes[index] = element;
     }
     return true;
+  }
+  #parseWithoutParentTree(pageRef) {
+    const elements = this.root.getElementsForPage(pageRef);
+    if (!elements) {
+      return;
+    }
+    const annotationRefs = new RefSet();
+    const annots = this.pageDict.get("Annots");
+    if (Array.isArray(annots)) {
+      for (const ref of annots) {
+        if (ref instanceof Ref) {
+          annotationRefs.put(ref);
+        }
+      }
+    }
+    const map = new Map();
+    for (const dict of elements) {
+      const elem = this.addNode(dict, map);
+      if (!elem) {
+        continue;
+      }
+      for (const kid of elem.kids) {
+        if (kid.type === StructElementType.OBJECT && kid.refObjId && annotationRefs.has(kid.refObjId)) {
+          kid.type = StructElementType.ANNOTATION;
+        }
+      }
+    }
   }
   get serializable() {
     function nodeToSerializable(node, parent, level = 0) {
@@ -53548,7 +53704,7 @@ class Annotation {
     } = this.data;
     let appearance = this.appearance;
     const isUsingOwnCanvas = !!(hasOwnCanvas && intent & RenderingIntentFlag.DISPLAY && (!this._ownCanvasRequiresForms || intent & RenderingIntentFlag.ANNOTATIONS_FORMS));
-    if (isUsingOwnCanvas && (this.width === 0 || this.height === 0)) {
+    if (isUsingOwnCanvas && !this._hasCanvasSize) {
       this.data.hasOwnCanvas = false;
       return this._getOperatorListNoAppearance();
     }
@@ -53728,6 +53884,13 @@ class Annotation {
   }
   get height() {
     return this.data.rect[3] - this.data.rect[1];
+  }
+  get _hasCanvasSize() {
+    const {
+      width,
+      height
+    } = this;
+    return width > 0 && height > 0 && Number.isFinite(width + height);
   }
 }
 class AnnotationBorderStyle {
@@ -54114,7 +54277,7 @@ class WidgetAnnotation extends Annotation {
       return super.getOperatorList(evaluator, task, intent, annotationStorage);
     }
     const isUsingOwnCanvas = !!(this.data.hasOwnCanvas && intent & RenderingIntentFlag.DISPLAY);
-    if (isUsingOwnCanvas && (this.width === 0 || this.height === 0)) {
+    if (isUsingOwnCanvas && !this._hasCanvasSize) {
       this.data.hasOwnCanvas = false;
       return this._getOperatorListNoAppearance();
     }
@@ -60657,6 +60820,8 @@ function parseDocBaseUrl(url) {
   return null;
 }
 class BasePdfManager {
+  static #handlers = new Set();
+  #handler = null;
   constructor({
     docBaseUrl,
     docId,
@@ -60667,8 +60832,10 @@ class BasePdfManager {
   }) {
     this._docBaseUrl = parseDocBaseUrl(docBaseUrl);
     this._docId = docId;
+    this.#handler = handler;
     this._password = password;
     this.enableXfa = enableXfa;
+    BasePdfManager.#handlers.add(handler);
     evaluatorOptions.isOffscreenCanvasSupported &&= FeatureTest.isOffscreenCanvasSupported;
     evaluatorOptions.isImageDecoderSupported &&= FeatureTest.isImageDecoderSupported;
     this.evaluatorOptions = Object.freeze(evaluatorOptions);
@@ -60677,7 +60844,7 @@ class BasePdfManager {
     OperatorList.setOptions(evaluatorOptions);
     const options = {
       ...evaluatorOptions,
-      handler
+      getHandler: () => this.#handler ?? BasePdfManager.#handlers.keys().next().value
     };
     IccColorSpace.setOptions(options);
     CmykICCBasedCS.setOptions(options);
@@ -60733,7 +60900,8 @@ class BasePdfManager {
     this.pdfDocument.xref.encrypt?.setPassword(password);
   }
   terminate(reason) {
-    unreachable("Abstract method `terminate` called");
+    BasePdfManager.#handlers.delete(this.#handler);
+    this.#handler = null;
   }
 }
 class LocalPdfManager extends BasePdfManager {
@@ -60750,7 +60918,6 @@ class LocalPdfManager extends BasePdfManager {
   requestLoadedStream(noFetch = false) {
     return this._loadedStreamPromise;
   }
-  terminate(reason) {}
 }
 class NetworkPdfManager extends BasePdfManager {
   constructor(args) {
@@ -60787,6 +60954,7 @@ class NetworkPdfManager extends BasePdfManager {
     });
   }
   terminate(reason) {
+    super.terminate(reason);
     this.streamManager.abort(reason);
   }
 }
@@ -60812,8 +60980,8 @@ function wrapReason(ex) {
   if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
     return ex;
   }
-  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
-    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
+  if (typeof ex !== "object" || ex === null) {
+    return new UnknownErrorException(String(ex), String(ex));
   }
   switch (ex.name) {
     case "AbortException":
@@ -61035,7 +61203,6 @@ class MessageHandler {
         streamSinks.delete(streamId);
       },
       error(reason) {
-        assert(reason instanceof Error, "error must have a valid reason");
         if (this.isCancelled) {
           return;
         }
@@ -64450,7 +64617,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.5.57";
+    const workerVersion = "6.5.128";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match the Worker version "${workerVersion}".`);
     }
@@ -65140,6 +65307,12 @@ class WorkerMessageHandler {
     });
     handler.on("Cleanup", function () {
       return pdfManager.cleanup(true);
+    });
+    handler.on("CleanupPage", async function ({
+      pageProxyId
+    }) {
+      const globalImageCache = await pdfManager.ensureCatalog("globalImageCache");
+      globalImageCache.cleanupPage(pageProxyId);
     });
     handler.on("Terminate", async function () {
       terminated = true;

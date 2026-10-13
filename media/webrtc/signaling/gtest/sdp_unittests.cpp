@@ -119,7 +119,7 @@ class SdpTest : public ::testing::Test {
   }
 
   // Returns "level" for new media section
-  int AddNewMedia(sdp_media_e type) {
+  int AddNewMedia(sdp_media_e /*type*/) {
     final_level_++;
     EXPECT_EQ(sdp_insert_media_line(sdp_ptr_, final_level_), SDP_SUCCESS);
     EXPECT_EQ(sdp_set_conn_nettype(sdp_ptr_, final_level_, SDP_NT_INTERNET),

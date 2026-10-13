@@ -82,6 +82,10 @@ add_task(async function test_noIndicationWhenPrefDisabled() {
 });
 
 add_task(async function test_indicationShownForSavedSecurityCode() {
+  if (RUST_CREDIT_CARD_STORE) {
+    info("The Rust store does not hold a security code");
+    return;
+  }
   await SpecialPowers.pushPrefEnv({ set: [[CVV_PREF, true]] });
   await setStorage(TEST_CARD_WITH_CSC);
 

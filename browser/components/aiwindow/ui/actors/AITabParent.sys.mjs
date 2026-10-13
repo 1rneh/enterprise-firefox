@@ -13,6 +13,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AIWINDOW_URL:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  AITab: "moz-src:///browser/components/aiwindow/models/aitab/AITab.sys.mjs",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
 });
 
@@ -81,30 +83,43 @@ export class AITabParent extends JSWindowActorParent {
   }
 
   /**
-   * The page this tab is showing, read from the tab's own URL rather than
-   * taken from the child. Content is a lower-trust process, so a page name it
-   * supplied could name a page other than the one on screen; anything
-   * destructive would then act on the wrong one.
+   * The slug and URL of the page this tab is showing, read from the tab's URL.
+   * The URL is kept so deleting the page also removes that exact URL from
+   * history.
    *
-   * @returns {?string} Null when the URL carries no usable page name.
+   * Read this as soon as a message from the page arrives. The tab can close
+   * while a store call is pending, and reading browsingContext after that
+   * throws.
+   *
+   * @returns {?{pageName: string, url: string}} Null when the URL carries no
+   *   usable page name.
    */
-  get #pageName() {
-    const spec = this.browsingContext?.currentURI?.spec;
-    if (!spec) {
-      return null;
-    }
-
-    return getSmartPageName(URL.parse(spec));
+  get #currentPage() {
+    const url = this.browsingContext?.currentURI?.spec;
+    const pageName = url && getSmartPageName(URL.parse(url));
+    return pageName ? { pageName, url } : null;
   }
 
   async #handleGetPage() {
-    const pageName = this.#pageName;
-    if (!pageName) {
+    const currentPage = this.#currentPage;
+    if (!currentPage) {
       return { success: false, error: "Invalid page name" };
     }
+    const { pageName, url } = currentPage;
 
     try {
       const pageData = await AITabStore.getBySlug(pageName);
+      if (!pageData) {
+        // Leftover slugs from deleted pages should not keep coming back as a
+        // history or address bar result.
+        this.#removeFromHistory(pageName, url).catch(error => {
+          console.error(
+            "Could not remove a missing AI Tab page from history",
+            error
+          );
+        });
+      }
+
       const surface = pageData?.components?.surface;
       if (!surface) {
         return { success: true, page: null };
@@ -156,10 +171,11 @@ export class AITabParent extends JSWindowActorParent {
    * @returns {Promise<object>}
    */
   async #handleDeletePage() {
-    const pageName = this.#pageName;
-    if (!pageName) {
+    const currentPage = this.#currentPage;
+    if (!currentPage) {
       return { success: false, error: "Invalid page name" };
     }
+    const { pageName, url } = currentPage;
 
     try {
       const page = await AITabStore.getBySlug(pageName);
@@ -188,6 +204,15 @@ export class AITabParent extends JSWindowActorParent {
             );
           }
         }
+
+        try {
+          await this.#removeFromHistory(page.slug, url);
+        } catch (error) {
+          console.error(
+            "Deleted an AI Tab page but could not remove it from history",
+            error
+          );
+        }
       }
 
       // Deferred so the reply reaches content before the tab navigates away.
@@ -198,6 +223,18 @@ export class AITabParent extends JSWindowActorParent {
       console.error("Could not delete an AI Tab page", error);
       return { success: false, error: "Could not delete the page" };
     }
+  }
+
+  /**
+   * Removes the history entry for a generated page, plus the tab's own URL
+   * when it names the same page under a different spelling.
+   *
+   * @param {string} slug
+   * @param {string} tabURL - The tab URL the slug was read from.
+   */
+  async #removeFromHistory(slug, tabURL) {
+    const urls = new Set([lazy.AITab.buildViewerURL(slug), tabURL]);
+    await lazy.PlacesUtils.history.remove([...urls]);
   }
 
   /**

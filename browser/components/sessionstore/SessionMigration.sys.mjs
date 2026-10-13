@@ -89,7 +89,10 @@ export class SessionMigration {
       return win;
     });
     let url = "about:welcomeback";
-    let formdata = { id: { sessionData: state }, url };
+    let formdata = {
+      id: { sessionData: state, showReason: "profile_refresh" },
+      url,
+    };
     let entry = {
       url,
       triggeringPrincipal_base64: lazy.E10SUtils.SERIALIZED_SYSTEMPRINCIPAL,

@@ -14,14 +14,7 @@ import { UrlbarResult } from "chrome://browser/content/urlbar/UrlbarResult.mjs";
 
 /**
  * @import {UrlbarSearchStringTokenData} from "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs"
- */
-
-/**
- * @typedef UrlbarSearchModeData
- * @property {Values<typeof UrlbarShared.RESULT_SOURCE>} source
- *   The source from which search mode was entered.
- * @property {string} [engineName]
- *   The search engine name associated with the search mode.
+ * @import {SearchMode} from "moz-src:///browser/components/urlbar/content/UrlbarInputBase.mjs"
  */
 
 // Source of the per-context `id`. Ids only have to be unique among the queries
@@ -301,7 +294,7 @@ export class UrlbarQueryContext {
   }
 
   /**
-   * @type {UrlbarSearchModeData}
+   * @type {SearchMode}
    *   Details about the search mode associated with this context.
    */
   searchMode;

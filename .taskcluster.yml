@@ -247,7 +247,7 @@ tasks:
                       # exist in tree so we must hard code the hash
                       image: 'mozillareleases/gecko_decision:5.1.0@sha256:8879ecb7f859e1001b0aa67de440a18c3a896446bfd0e2e87688bb367e590667'
 
-                      maxRunTime: 3600
+                      maxRunTime: 1800
 
                       command:
                           - /builds/worker/bin/run-task-hg
@@ -746,7 +746,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commBaseRev: 30cdf5a03b41253e744bc058a699c1947a2b8123
+                  commBaseRev: 6b50863ea7820fa5f978bbb0cc85d54cb87894b2
                   commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
                   commHeadRef:
                       $if: 'project == "enterprise-firefox-try"'
@@ -757,7 +757,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commHeadRev: 30cdf5a03b41253e744bc058a699c1947a2b8123
+                  commHeadRev: 6b50863ea7820fa5f978bbb0cc85d54cb87894b2
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}

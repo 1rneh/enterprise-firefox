@@ -412,6 +412,20 @@ describe("<WidgetsManagementPanel>", () => {
       );
     });
 
+    it("disables the toggle of a widget whose pref is locked", async () => {
+      const { container } = await renderPanel(
+        {},
+        allWidgetsVisible({ lockedPrefs: ["widgets.lists.enabled"] })
+      );
+
+      expect(container.querySelector("#lists-toggle")).toHaveAttribute(
+        "disabled"
+      );
+      expect(container.querySelector("#clocks-toggle")).not.toHaveAttribute(
+        "disabled"
+      );
+    });
+
     it.each(WIDGETS)(
       "labels the $id toggle with $l10nId and points it at $preference",
       async ({ id, l10nId, preference }) => {

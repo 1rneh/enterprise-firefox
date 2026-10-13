@@ -1031,87 +1031,88 @@ bool nsDocShell::MaybeHandleSubframeHistory(
   uint32_t parentLoadType;
   parentDS->GetLoadType(&parentLoadType);
 
-  if (!aContinueHandlingSubframeHistory) {
-    if (nsDocShell::Cast(parentDS.get())->IsLoadingFromSessionHistory() &&
-        !GetCreatedDynamically()) {
-      if (XRE_IsContentProcess()) {
-        dom::ContentChild* contentChild = dom::ContentChild::GetSingleton();
-        nsCOMPtr<nsILoadGroup> loadGroup;
-        GetLoadGroup(getter_AddRefs(loadGroup));
-        if (contentChild && loadGroup && !GetIsAttemptingToNavigate()) {
-          RefPtr<Document> parentDoc = parentDS->GetDocument();
-          parentDoc->BlockOnload();
-          RefPtr<BrowsingContext> browsingContext = mBrowsingContext;
-          Maybe<uint64_t> currentLoadIdentifier =
-              mBrowsingContext->GetCurrentLoadIdentifier();
-          RefPtr<nsDocShellLoadState> loadState = aLoadState;
-          bool isNavigating = mIsNavigating;
-          RefPtr stopDetector = MakeRefPtr<StopDetector>();
-          loadGroup->AddRequest(stopDetector, nullptr);
-          // Need to set mCheckingSessionHistory so that
-          // GetIsAttemptingToNavigate() returns true.
-          mCheckingSessionHistory = true;
+  // If parent is loading from history and we're loading the original src for a
+  // parser-inserted iframe, instead restore it from SH.
+  if (!aContinueHandlingSubframeHistory &&
+      nsDocShell::Cast(parentDS.get())->IsLoadingFromSessionHistory() &&
+      !GetCreatedDynamically() && aLoadState->OriginalFrameSrc()) {
+    if (XRE_IsContentProcess()) {
+      dom::ContentChild* contentChild = dom::ContentChild::GetSingleton();
+      nsCOMPtr<nsILoadGroup> loadGroup;
+      GetLoadGroup(getter_AddRefs(loadGroup));
+      if (contentChild && loadGroup && !GetIsAttemptingToNavigate()) {
+        RefPtr<Document> parentDoc = parentDS->GetDocument();
+        parentDoc->BlockOnload();
+        RefPtr<BrowsingContext> browsingContext = mBrowsingContext;
+        Maybe<uint64_t> currentLoadIdentifier =
+            mBrowsingContext->GetCurrentLoadIdentifier();
+        RefPtr<nsDocShellLoadState> loadState = aLoadState;
+        bool isNavigating = mIsNavigating;
+        RefPtr stopDetector = MakeRefPtr<StopDetector>();
+        loadGroup->AddRequest(stopDetector, nullptr);
+        // Need to set mCheckingSessionHistory so that
+        // GetIsAttemptingToNavigate() returns true.
+        mCheckingSessionHistory = true;
 
-          auto resolve =
-              [currentLoadIdentifier, browsingContext, parentDoc, loadState,
-               isNavigating, loadGroup, stopDetector](
-                  mozilla::Maybe<LoadingSessionHistoryInfo>&& aResult)
-                  MOZ_CAN_RUN_SCRIPT {
-                    RefPtr<nsDocShell> docShell = static_cast<nsDocShell*>(
-                        browsingContext->GetDocShell());
-                    auto unblockParent = MakeScopeExit([loadGroup, stopDetector,
-                                                        parentDoc, docShell]() {
-                      if (docShell) {
-                        docShell->mCheckingSessionHistory = false;
-                      }
-                      loadGroup->RemoveRequest(stopDetector, nullptr, NS_OK);
-                      parentDoc->UnblockOnload(false);
-                    });
+        auto resolve =
+            [currentLoadIdentifier, browsingContext, parentDoc, loadState,
+             isNavigating, loadGroup,
+             stopDetector](mozilla::Maybe<LoadingSessionHistoryInfo>&& aResult)
+                MOZ_CAN_RUN_SCRIPT {
+                  RefPtr<nsDocShell> docShell =
+                      static_cast<nsDocShell*>(browsingContext->GetDocShell());
+                  auto unblockParent = MakeScopeExit(
+                      [loadGroup, stopDetector, parentDoc, docShell]() {
+                        if (docShell) {
+                          docShell->mCheckingSessionHistory = false;
+                        }
+                        loadGroup->RemoveRequest(stopDetector, nullptr, NS_OK);
+                        parentDoc->UnblockOnload(false);
+                      });
 
-                    if (!docShell || !docShell->mCheckingSessionHistory) {
-                      return;
-                    }
+                  if (!docShell || !docShell->mCheckingSessionHistory) {
+                    return;
+                  }
 
-                    if (stopDetector->Canceled()) {
-                      return;
-                    }
-                    if (currentLoadIdentifier ==
-                            browsingContext->GetCurrentLoadIdentifier() &&
-                        aResult.isSome()) {
-                      loadState->SetLoadingSessionHistoryInfo(aResult.value());
-                      // This is an initial subframe load from the session
-                      // history, index doesn't need to be updated.
-                      loadState->SetLoadIsFromSessionHistory(0, false);
-                    }
+                  if (stopDetector->Canceled()) {
+                    return;
+                  }
+                  if (currentLoadIdentifier ==
+                          browsingContext->GetCurrentLoadIdentifier() &&
+                      aResult.isSome()) {
+                    loadState->SetLoadingSessionHistoryInfo(aResult.value());
+                    // This is an initial subframe load from the session
+                    // history, index doesn't need to be updated.
+                    loadState->SetLoadIsFromSessionHistory(0, false);
+                  }
 
-                    // We got the results back from the parent process, call
-                    // LoadURI again with the possibly updated data.
-                    docShell->LoadURI(loadState, isNavigating, true);
-                  };
-          auto reject = [loadGroup, stopDetector, browsingContext,
-                         parentDoc](mozilla::ipc::ResponseRejectReason) {
-            RefPtr<nsDocShell> docShell =
-                static_cast<nsDocShell*>(browsingContext->GetDocShell());
-            if (docShell) {
-              docShell->mCheckingSessionHistory = false;
-            }
-            // In practise reject shouldn't be called ever.
-            loadGroup->RemoveRequest(stopDetector, nullptr, NS_OK);
-            parentDoc->UnblockOnload(false);
-          };
-          contentChild->SendAdoptChildSHEntry(
-              mBrowsingContext, std::move(resolve), std::move(reject));
-          return true;
-        }
-      } else {
-        Maybe<LoadingSessionHistoryInfo> info;
-        mBrowsingContext->Canonical()->AdoptChildSHEntry(info);
-        if (info.isSome()) {
-          aLoadState->SetLoadingSessionHistoryInfo(info.value());
-          // This is an initial subframe load from the session
-          // history, index doesn't need to be updated.
-          aLoadState->SetLoadIsFromSessionHistory(0, false);
-        }
+                  // We got the results back from the parent process, call
+                  // LoadURI again with the possibly updated data.
+                  docShell->LoadURI(loadState, isNavigating, true);
+                };
+        auto reject = [loadGroup, stopDetector, browsingContext,
+                       parentDoc](mozilla::ipc::ResponseRejectReason) {
+          RefPtr<nsDocShell> docShell =
+              static_cast<nsDocShell*>(browsingContext->GetDocShell());
+          if (docShell) {
+            docShell->mCheckingSessionHistory = false;
+          }
+          // In practise reject shouldn't be called ever.
+          loadGroup->RemoveRequest(stopDetector, nullptr, NS_OK);
+          parentDoc->UnblockOnload(false);
+        };
+        contentChild->SendAdoptChildSHEntry(
+            mBrowsingContext, std::move(resolve), std::move(reject));
+        return true;
+      }
+    } else {
+      Maybe<LoadingSessionHistoryInfo> info;
+      mBrowsingContext->Canonical()->AdoptChildSHEntry(info);
+      if (info.isSome()) {
+        aLoadState->SetLoadingSessionHistoryInfo(info.value());
+        // This is an initial subframe load from the session
+        // history, index doesn't need to be updated.
+        aLoadState->SetLoadIsFromSessionHistory(0, false);
       }
     }
   }

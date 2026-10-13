@@ -36,6 +36,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PolicyFailures: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
+  SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -337,9 +338,7 @@ export let WebsiteFilter = {
     if (!parsed) {
       return null;
     }
-    if (parsed.hostname.endsWith(".")) {
-      parsed.hostname = parsed.hostname.replace(/\.+$/, "");
-    }
+    parsed.hostname = lazy.SitePolicyUtils.stripTrailingDots(parsed.hostname);
     return parsed.href.toLowerCase();
   },
 

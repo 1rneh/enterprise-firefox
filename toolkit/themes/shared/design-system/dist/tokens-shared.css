@@ -534,6 +534,7 @@
     --toolbarbutton-badge-min-width: 14px;
     --toolbarbutton-badge-padding-block-end: 1px;
     --toolbarbutton-badge-padding-inline: 2px;
+    --toolbarbutton-badge-size: 14px;
     --toolbarbutton-border-radius: var(--button-border-radius);
     --toolbarbutton-icon-fill: light-dark(var(--color-gray-70), var(--color-gray-0));
     --toolbarbutton-icon-fill-hover: var(--toolbarbutton-icon-fill);

@@ -425,6 +425,7 @@ module.exports = {
         "browser/fxr/**",
         // Android does not use design tokens
         "mobile/android/**",
+        "toolkit/themes/mobile/global/aboutLicense.css",
         // Docs do not use design tokens
         "docs/**",
         // DOM does not use design tokens

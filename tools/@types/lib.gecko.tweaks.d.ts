@@ -6,6 +6,8 @@
 interface CanonicalBrowsingContext extends LoadContextMixin {
   embedderElement: MozBrowser;
   currentWindowContext: WindowGlobalParent;
+  // Set by tabbrowser.
+  nonWebControlledLoadingURI?: nsIURI;
   parent: CanonicalBrowsingContext;
   parentWindowContext: WindowGlobalParent;
   top: CanonicalBrowsingContext;

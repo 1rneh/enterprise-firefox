@@ -19,6 +19,7 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
  * @import { BrowserSearchTelemetry } from "moz-src:///browser/components/search/BrowserSearchTelemetry.sys.mjs"
  * @import { UrlbarLoadRequest, LoadURLParams } from "chrome://browser/content/urlbar/UrlbarShared.mjs"
  * @import { UrlbarAutofillData } from "chrome://browser/content/urlbar/UrlbarResult.mjs"
+ * @import { Tabbrowser } from "moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs"
  */
 
 /**
@@ -78,47 +79,43 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
  * @typedef {Partial<Omit<SearchMode, "isGeneralPurposeEngine">>} SearchModeInput
  */
 
-const lazy = typeof ChromeUtils != "undefined" ? {} : null;
+const { XPCOMUtils } =
+  typeof ChromeUtils == "undefined"
+    ? { XPCOMUtils: null }
+    : ChromeUtils.importESModule("resource://gre/modules/XPCOMUtils.sys.mjs");
 
-if (lazy) {
-  const { XPCOMUtils } = ChromeUtils.importESModule(
-    "resource://gre/modules/XPCOMUtils.sys.mjs"
-  );
-  ChromeUtils.defineESModuleGetters(lazy, {
-    AIWindow:
-      "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
-    BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
-    CustomizableUI:
-      "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
-    ExtensionSearchHandler:
-      "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
-    ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
-    handleBounceEventTrigger:
-      "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
-    QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
-    ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
-    SharingUtils: "moz-src:///browser/components/sharing/SharingUtils.sys.mjs",
-    SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
-    UrlbarTokenizer:
-      "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs",
-    UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
-    UrlbarValueFormatter:
-      "moz-src:///browser/components/urlbar/UrlbarValueFormatter.sys.mjs",
-    UrlbarSearchTermsPersistence:
-      "moz-src:///browser/components/urlbar/UrlbarSearchTermsPersistence.sys.mjs",
-    UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
-  });
-  XPCOMUtils.defineLazyServiceGetters(lazy, {
-    ClipboardHelper: [
-      "@mozilla.org/widget/clipboardhelper;1",
-      Ci.nsIClipboardHelper,
-    ],
-    QueryStringStripper: [
-      "@mozilla.org/url-query-string-stripper;1",
-      Ci.nsIURLQueryStringStripper,
-    ],
-  });
-}
+const lazy = XPCOMUtils?.declareLazy({
+  AIWindow:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
+  CustomizableUI:
+    "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
+  ExtensionSearchHandler:
+    "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
+  ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
+  handleBounceEventTrigger:
+    "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
+  QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
+  ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
+  SharingUtils: "moz-src:///browser/components/sharing/SharingUtils.sys.mjs",
+  SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
+  UrlbarTokenizer:
+    "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs",
+  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+  UrlbarValueFormatter:
+    "moz-src:///browser/components/urlbar/UrlbarValueFormatter.sys.mjs",
+  UrlbarSearchTermsPersistence:
+    "moz-src:///browser/components/urlbar/UrlbarSearchTermsPersistence.sys.mjs",
+  UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
+  ClipboardHelper: {
+    service: "@mozilla.org/widget/clipboardhelper;1",
+    iid: Ci.nsIClipboardHelper,
+  },
+  QueryStringStripper: {
+    service: "@mozilla.org/url-query-string-stripper;1",
+    iid: Ci.nsIURLQueryStringStripper,
+  },
+});
 
 const logger = () => UrlbarShared.getLogger({ prefix: "Input" });
 
@@ -345,13 +342,17 @@ ${
   _enableAutofillPlaceholder = true;
 
   /**
+   * @typedef {ChromeWindow & {gBrowser: Tabbrowser}} BrowserWindow
+   */
+
+  /**
    * The browser window or null in a child process.
    *
    * For the addressbar and searchbar, this is the same as the global `window`.
    * For the smartbar, this is the browser window containing its content window.
    * For the newtab search bar, this is null.
    *
-   * @type {?ChromeWindow}
+   * @type {?BrowserWindow}
    */
   // @ts-expect-error bug 1957626
   browserWindow = window.browsingContext?.topChromeWindow ?? null;
@@ -977,6 +978,9 @@ ${
     this._suppressPrimaryAdjustment = false;
   }
 
+  /**
+   * @param {MozBrowser} browser
+   */
   saveSelectionStateForBrowser(browser) {
     let state = this.getBrowserState(browser);
     state.selection = {
@@ -991,6 +995,9 @@ ${
     };
   }
 
+  /**
+   * @param {MozBrowser} browser
+   */
   restoreSelectionStateForBrowser(browser) {
     // Address bar must be focused to untrim and for selection to make sense.
     this.focus();
@@ -1254,7 +1261,7 @@ ${
   /**
    * Function for tabs progress listener.
    *
-   * @param {nsIBrowser} browser
+   * @param {MozBrowser} browser
    * @param {nsIWebProgress} webProgress
    *   The nsIWebProgress instance that fired the notification.
    * @param {nsIRequest} request
@@ -3198,6 +3205,9 @@ ${
       ?.markAsUsed();
   }
 
+  /**
+   * @param {MozBrowser} browser
+   */
   getBrowserState(browser) {
     let state = this.#browserStates.get(browser);
     if (!state) {
@@ -4993,7 +5003,6 @@ ${
     let shouldPersist =
       !hideSearchTerms &&
       lazy.UrlbarSearchTermsPersistence.shouldPersist(state, {
-        dueToTabSwitch,
         isSameDocument,
         uri: uri ?? this.browserWindow.gBrowser.currentURI,
         userTypedValue: this.userTypedValue,
@@ -5823,7 +5832,7 @@ ${
       options.userContextId = parseInt(
         this.browserWindow.gBrowser.selectedBrowser?.getAttribute(
           "usercontextid"
-        ) ?? 0
+        ) ?? "0"
       );
       options.tabGroup =
         this.browserWindow.gBrowser.selectedTab.group?.id ?? null;
@@ -6266,6 +6275,8 @@ ${
 
   /**
    * Tracks a state object per browser.
+   *
+   * @type {WeakMap<MozBrowser, object>}
    */
   #browserStates = new WeakMap();
 

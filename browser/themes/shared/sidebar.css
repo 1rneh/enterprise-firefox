@@ -324,6 +324,13 @@ menuseparator + #sidebar-extensions-separator {
   display: none;
 }
 
+/* When the launcher doesn't change, such as when a panel opens or closes, its
+ * snapshots match. As they don't cross-fade, showing both would double up its
+ * translucent backgrounds, making pinned tabs flash as if hovered. */
+:root:not(:active-view-transition-type(launcher-enter, launcher-exit))::view-transition-old(sidebar-launcher) {
+  display: none;
+}
+
 /* Expanding and collapsing show only the launcher's new state, pinned to the
  * window edge so its icons stay put, while the content area slides over or off
  * the labels. Otherwise the old snapshot slides along with it and lingers until

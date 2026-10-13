@@ -12,14 +12,15 @@ import { UrlbarResult } from "chrome://browser/content/urlbar/UrlbarResult.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 import { L10nCache } from "chrome://browser/content/urlbar/L10nCache.mjs";
 
-const lazy = typeof ChromeUtils != "undefined" ? {} : null;
+const { XPCOMUtils } =
+  typeof ChromeUtils == "undefined"
+    ? { XPCOMUtils: null }
+    : ChromeUtils.importESModule("resource://gre/modules/XPCOMUtils.sys.mjs");
 
-if (lazy) {
-  ChromeUtils.defineESModuleGetters(lazy, {
-    UrlbarSearchOneOffs:
-      "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs",
-  });
-}
+const lazy = XPCOMUtils?.declareLazy({
+  UrlbarSearchOneOffs:
+    "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs",
+});
 
 // Query selector for selectable elements in results.
 const SELECTABLE_ELEMENT_SELECTOR = "[role=button], [selectable], a";

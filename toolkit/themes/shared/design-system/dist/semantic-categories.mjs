@@ -2048,6 +2048,7 @@ export const tokensTable = {
     { value: "initial", name: "--panel-width" },
     { value: "14px", name: "--toolbarbutton-badge-min-width" },
     { value: "20px", name: "--toolbarbutton-badge-max-width" },
+    { value: "14px", name: "--toolbarbutton-badge-size" },
     { value: "var(--size-item-medium)", name: "--input-color-swatch-size" },
     {
       value: "var(--size-item-large)",
@@ -4880,6 +4881,7 @@ export const variableLookupTable = {
   "toolbarbutton-badge-max-width": "20px",
   "toolbarbutton-badge-padding-inline": "2px",
   "toolbarbutton-badge-padding-block-end": "1px",
+  "toolbarbutton-badge-size": "14px",
   "toolbarbutton-padding-outer": "2px",
   "toolbarbutton-padding-outer-narrow": "1px",
   "toolbarbutton-padding-inner": "8px",

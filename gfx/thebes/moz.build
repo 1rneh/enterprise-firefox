@@ -69,12 +69,11 @@ EXPORTS.mozilla.gfx += [
     "FontPaletteCache.h",
     "PrintPromise.h",
     "PrintTarget.h",
+    "PrintTargetRecording.h",
     "PrintTargetSkPDF.h",
-    "PrintTargetThebes.h",
+    "SkMemoryReporter.h",
     "ThebesRLBox.h",
 ]
-
-EXPORTS.mozilla.gfx += ["SkMemoryReporter.h"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
     EXPORTS += [
@@ -82,16 +81,12 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
         "gfxFT2FontBase.h",
         "gfxFT2Fonts.h",
     ]
-    EXPORTS.mozilla.gfx += [
-        "PrintTargetPDF.h",
-    ]
     SOURCES += [
         "gfxAndroidPlatform.cpp",
         "gfxFT2FontBase.cpp",
         "gfxFT2FontList.cpp",
         "gfxFT2Fonts.cpp",
         "gfxFT2Utils.cpp",
-        "PrintTargetPDF.cpp",
     ]
 
     SOURCE_HEADERS += [
@@ -139,15 +134,11 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
         "gfxFT2FontBase.h",
         "gfxPlatformGtk.h",
     ]
-    EXPORTS.mozilla.gfx += [
-        "PrintTargetPDF.h",
-    ]
     SOURCES += [
         "gfxFcPlatformFontList.cpp",
         "gfxFT2FontBase.cpp",
         "gfxFT2Utils.cpp",
         "gfxPlatformGtk.cpp",
-        "PrintTargetPDF.cpp",
     ]
 
     SOURCE_HEADERS += [
@@ -178,7 +169,6 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
     EXPORTS.mozilla.gfx += [
         "DeviceManagerDx.h",
         "DisplayConfigWindows.h",
-        "PrintTargetPDF.h",
         "PrintTargetWindows.h",
     ]
     SOURCES += [
@@ -187,7 +177,6 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
         "gfxDWriteFonts.cpp",
         "gfxWindowsPlatform.cpp",
         "gfxWindowsSurface.cpp",
-        "PrintTargetPDF.cpp",
         "PrintTargetWindows.cpp",
     ]
     UNIFIED_SOURCES += [
@@ -210,7 +199,6 @@ SOURCES += [
     "gfxFontUtils.cpp",
     "gfxPlatform.cpp",
     "PrintTarget.cpp",
-    "PrintTargetThebes.cpp",
 ]
 
 UNIFIED_SOURCES += [
@@ -241,6 +229,7 @@ UNIFIED_SOURCES += [
     "gfxTextRun.cpp",
     "gfxUserFontSet.cpp",
     "gfxUtils.cpp",
+    "PrintTargetRecording.cpp",
     "PrintTargetSkPDF.cpp",
     "SharedFontList.cpp",
     "SkMemoryReporter.cpp",
@@ -335,6 +324,5 @@ SOURCE_HEADERS += [
     "gfxGlyphExtents.h",
     "gfxGraphiteShaper.h",
     "gfxHarfBuzzShaper.h",
-    "PrintTargetRecording.h",
     "SharedFontList-impl.h",
 ]

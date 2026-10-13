@@ -991,7 +991,7 @@ class JsepSessionTest : public JsepSessionTestBase,
    public:
     CandidateSet() {}
 
-    void Gather(JsepSession& session, ComponentType maxComponent = RTCP) {
+    void Gather(JsepSession& session, ComponentType /*maxComponent*/ = RTCP) {
       for (const auto& transceiver : GetTransceivers(session)) {
         if (transceiver.HasOwnTransport()) {
           Gather(session, transceiver.mTransport.mTransportId, RTP);

@@ -25,7 +25,7 @@ linux64-searchfox-cli:
         toolchain:
             - linux64-clang-toolchain
             - linux64-rust-toolchain
-            - linux64-toolchain-sysroot
+            - sysroot-x86_64-linux-gnu
 
 linux64-aarch64-searchfox-cli:
     treeherder:
@@ -36,7 +36,7 @@ linux64-aarch64-searchfox-cli:
         toolchain:
             - linux64-clang-toolchain
             - linux64-rust-toolchain
-            - linux64-aarch64-toolchain-sysroot
+            - sysroot-aarch64-linux-gnu
 
 macosx64-searchfox-cli:
     treeherder:

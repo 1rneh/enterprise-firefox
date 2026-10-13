@@ -1956,11 +1956,6 @@ nsXULAppInfo::AppendAppNotesToCrashReport(const nsACString& data) {
 }
 
 NS_IMETHODIMP
-nsXULAppInfo::RegisterAppMemory(uint64_t pointer, uint64_t len) {
-  return CrashReporter::RegisterAppMemory((void*)pointer, len);
-}
-
-NS_IMETHODIMP
 nsXULAppInfo::WriteMinidumpForException(void* aExceptionInfo) {
 #ifdef XP_WIN
   return CrashReporter::WriteMinidumpForException(

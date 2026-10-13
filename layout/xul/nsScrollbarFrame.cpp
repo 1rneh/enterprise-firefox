@@ -95,11 +95,11 @@ void nsScrollbarFrame::InvalidateForHoverChange(bool aIsNowHovered) {
 }
 
 void nsScrollbarFrame::ActivityChanged(bool aIsNowActive) {
-  if (ScrollContainerFrame* sc = do_QueryFrame(GetParent())) {
+  if (nsIScrollbarMediator* mediator = GetScrollbarMediator()) {
     if (aIsNowActive) {
-      sc->ScrollbarActivityStarted();
+      mediator->ScrollbarActivityStarted();
     } else {
-      sc->ScrollbarActivityStopped();
+      mediator->ScrollbarActivityStopped();
     }
   }
 }

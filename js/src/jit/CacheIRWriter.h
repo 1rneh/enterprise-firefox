@@ -198,7 +198,7 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
             stubFields_.append(StubField(0, StubField::Type::RawInt32)));
       }
 #endif
-      buffer_.propagateOOM(stubFields_.append(StubField(value, fieldType)));
+      buffer_.propagateOOM(stubFields_.emplaceBack(value, fieldType));
       MOZ_ASSERT((fieldOffset % sizeof(uintptr_t)) == 0);
       buffer_.writeByte(fieldOffset / sizeof(uintptr_t));
       stubDataSize_ = newStubDataSize;

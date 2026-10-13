@@ -18,7 +18,6 @@
  *
  *   id                — unique string key used in prefs and the order pref
  *   telemetryName     — the name sent in Glean events (snake_case; may differ from id)
- *   prefsL10nId       — Fluent id of the toggle label in about:preferences (Firefox Home > Widgets)
  *   customizeL10nId   — Fluent id of the toggle label in the New Tab customize panel
  *   customizeEventSource — source sent with the PREF_CHANGED event when the customize panel toggle flips
  *   order             — default render position (0-indexed); used when widgets.order is empty
@@ -67,20 +66,18 @@
  * 4. Add the component to WIDGET_ROW_COMPONENTS in WidgetsComponentRegistry.jsx.
  * 5. If it has a sidebar variant, set hasSidebar: true and add its component
  *    to WIDGET_SIDEBAR_COMPONENTS in WidgetsComponentRegistry.jsx.
- * 6. Add its two labels to browser/locales/en-US/browser/newtab/newtab.ftl as
- *    attribute-only messages (.label = ...): an about:preferences one alongside
- *    the other widget settings labels, and a customize panel one alongside the
- *    other newtab-custom-widget-*-toggle strings. Then set prefsL10nId and
- *    customizeL10nId.
+ * 6. Add its Customize panel label to
+ *    browser/locales/en-US/browser/newtab/newtab.ftl as an attribute-only
+ *    message (.label = ...), alongside the other newtab-custom-widget-*-toggle
+ *    strings, then set customizeL10nId.
  *
  *    Set customizeEventSource to WIDGET_ plus telemetryName in upper case
  *    (WIDGET_PICTURE_OF_THE_DAY). It ships as the PREF_CHANGED telemetry
  *    source, so pick it once. Weather (WEATHER) and the timer (WIDGET_TIMER)
  *    predate this rule.
  *
- *    Both the toggle under Firefox Home > Widgets and the customize panel
- *    toggle are generated from the entry, so lib/AboutPreferences.sys.mjs and
- *    WidgetsManagementPanel.jsx need no edit.
+ *    The customize panel toggle is generated from the entry, so
+ *    WidgetsManagementPanel.jsx needs no edit.
  *
  * RETIRING A WIDGET
  * Set retired: true on its entry. Turn its feed off separately in
@@ -182,7 +179,6 @@ export const PREF_WIDGETS_SYSTEM_HOROSCOPES_ENABLED =
  * @typedef {object} WidgetRegistryEntry
  * @property {string} id - Unique key used in prefs and the order pref.
  * @property {string} telemetryName - Snake_case name sent in Glean events. May differ from id (e.g. "focus_timer" for id "focusTimer").
- * @property {string} [prefsL10nId] - Fluent id of the widget's toggle label in about:preferences (Firefox Home > Widgets). The message carries a .label attribute. Required unless the entry is retired.
  * @property {string} [customizeL10nId] - Fluent id of the widget's customize panel toggle label. The message carries a .label attribute. Required unless the entry is retired.
  * @property {string} [customizeEventSource] - Source sent with the PREF_CHANGED user event when the widget's customize panel toggle flips. Required unless the entry is retired.
  * @property {number} order - Default render position (0-indexed).
@@ -192,10 +188,10 @@ export const PREF_WIDGETS_SYSTEM_HOROSCOPES_ENABLED =
  * @property {string[]} validSizes - Sizes this widget supports.
  * @property {boolean} hasSidebar - When true, the widget moves to the sidebar at size "small".
  * @property {string} systemEnabledPref - Operator pref that gates the widget independently of the user pref.
- * @property {string} trainhopEnabledKey - Key in trainhopConfig.widgets.* for the enabled override. Also the id of the generated about:preferences system-pref setting.
+ * @property {string} trainhopEnabledKey - Key in trainhopConfig.widgets.* for the enabled override. For Weather it is also the id of its about:preferences system-pref setting.
  * @property {string|null} trainhopSizeKey - Key in trainhopConfig.widgets.* for the size default suggestion.
  * @property {string|null} trainhopSidebarKey - Key in trainhopConfig.widgets.* for the hasSidebar override.
- * @property {string} widgetsSettingsVisibleKey - Key in trainhopConfig.widgetsSettings.* that additively reveals this widget's toggle in the settings UIs (does not enable the widget).
+ * @property {string} widgetsSettingsVisibleKey - Key in trainhopConfig.widgetsSettings.* that additively reveals this widget's toggle in the Customize menu, and Weather's standalone row in about:preferences#home (does not enable the widget).
  * @property {string} widgetsSettingsEnabledKey - Key in trainhopConfig.widgetsSettings.* that overrides this widget's default enabled value (written to the pref default branch; an explicit user toggle still wins).
  * @property {boolean} [requiresHistory] - When true, the widget is hidden entirely on profiles that record no history. See isWidgetDataUnavailable.
  * @property {boolean} [requiresWidgetSearchSap] - When true, the widget is hidden entirely on hosts whose search code is too old to generate accurate partner codes. See isWidgetDataUnavailable.
@@ -212,7 +208,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "pictureOfTheDay",
     telemetryName: "picture_of_the_day",
-    prefsL10nId: "home-prefs-picture-header",
     customizeL10nId: "newtab-custom-widget-picture-toggle",
     customizeEventSource: "WIDGET_PICTURE_OF_THE_DAY",
     order: 0,
@@ -232,7 +227,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "clocks",
     telemetryName: "clocks",
-    prefsL10nId: "home-prefs-clocks-header",
     customizeL10nId: "newtab-custom-widget-clock-toggle",
     customizeEventSource: "WIDGET_CLOCKS",
     order: 1,
@@ -251,7 +245,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "lists",
     telemetryName: "lists",
-    prefsL10nId: "home-prefs-lists-header",
     customizeL10nId: "newtab-custom-widget-lists-toggle",
     customizeEventSource: "WIDGET_LISTS",
     order: 2,
@@ -270,7 +263,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "focusTimer",
     telemetryName: "focus_timer",
-    prefsL10nId: "home-prefs-timer-header",
     customizeL10nId: "newtab-custom-widget-timer-toggle",
     customizeEventSource: "WIDGET_TIMER",
     order: 3,
@@ -289,7 +281,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "weather",
     telemetryName: "weather",
-    prefsL10nId: "home-prefs-weather-header-srd",
     customizeL10nId: "newtab-custom-widget-weather-toggle",
     customizeEventSource: "WEATHER",
     order: 4,
@@ -308,7 +299,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "privacy",
     telemetryName: "privacy",
-    prefsL10nId: "home-prefs-privacy-header",
     customizeL10nId: "newtab-custom-widget-privacy-toggle",
     customizeEventSource: "WIDGET_PRIVACY",
     order: 5,
@@ -329,7 +319,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "crossword",
     telemetryName: "crossword",
-    prefsL10nId: "home-prefs-crossword-widget-header",
     customizeL10nId: "newtab-custom-widget-crossword-toggle",
     customizeEventSource: "WIDGET_CROSSWORD",
     order: 6,
@@ -349,7 +338,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "stocks",
     telemetryName: "stocks",
-    prefsL10nId: "home-prefs-stocks-header2",
     customizeL10nId: "newtab-custom-widget-stocks-toggle2",
     customizeEventSource: "WIDGET_STOCKS",
     order: 7,
@@ -368,7 +356,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "recentSearches",
     telemetryName: "recent_searches",
-    prefsL10nId: "home-prefs-search-widget-header",
     customizeL10nId: "newtab-custom-widget-search-toggle",
     customizeEventSource: "WIDGET_RECENT_SEARCHES",
     order: 8,
@@ -391,7 +378,6 @@ export const WIDGET_REGISTRY = [
   {
     id: "horoscopes",
     telemetryName: "horoscopes",
-    prefsL10nId: "home-prefs-horoscopes-header",
     customizeL10nId: "newtab-custom-widget-horoscopes-toggle",
     customizeEventSource: "WIDGET_HOROSCOPES",
     order: 9,
@@ -500,12 +486,13 @@ export function isWidgetAddable(widget, prefs) {
 }
 
 /**
- * Returns true if this widget's toggle should be shown in the settings UIs
- * (about:preferences#home and the Customize menu). A widget is shown when it is
- * addable (system pref, trainhopConfig.widgets, or widgetsSettings.*Visible) or
- * when the legacy `widgetsConfig` Nimbus variable enables it. Showing a toggle
- * does NOT enable the widget — enablement is the widget's own enabled pref,
- * whose default can be overridden via widgetsSettings.*Enabled.
+ * Returns true if this widget's toggle should be shown in the Customize menu.
+ * For Weather it also decides whether its standalone row in
+ * about:preferences#home is shown. A widget is shown when it is addable
+ * (system pref, trainhopConfig.widgets, or widgetsSettings.*Visible) or when
+ * the legacy `widgetsConfig` Nimbus variable enables it. Showing a toggle does NOT enable the widget — enablement is the
+ * widget's own enabled pref, whose default can be overridden via
+ * widgetsSettings.*Enabled.
  *
  * A retired widget gets no toggle, and neither does one with no data source;
  * both checked here too, to beat widgetsConfig.

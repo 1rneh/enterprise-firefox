@@ -151,8 +151,6 @@ class VideoFramePool<LIBAV_VER> {
       AVDRMFrameDescriptor& aDesc, int aWidth, int aHeight,
       AVCodecContext* aAVCodecContext, AVFrame* aAVFrame,
       const FFmpegLibWrapper* aLib);
-  RefPtr<VideoFrameSurface<LIBAV_VER>> GetVideoFrameSurface(
-      const layers::PlanarYCbCrData& aData, AVCodecContext* aAVCodecContext);
 
   void ReleaseUnusedVAAPIFrames();
   void FlushFFmpegFrames();

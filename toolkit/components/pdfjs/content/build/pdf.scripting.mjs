@@ -20,9 +20,11 @@
  */
 
 /**
- * pdfjsVersion = 6.5.57
- * pdfjsBuild = 89b500f5e
+ * pdfjsVersion = 6.5.128
+ * pdfjsBuild = e1412d3a5
  */
+/******/ (() => { // webpackBootstrap
+/******/ 	"use strict";
 
 ;// ./src/scripting_api/constants.js
 const Border = Object.freeze({
@@ -450,17 +452,14 @@ class Field extends PDFObject {
     if (!indices.every(i => Number.isInteger(i) && i >= 0 && i < this.numItems)) {
       return;
     }
-    indices.sort();
+    indices.sort((a, b) => a - b);
     if (this.multipleSelection) {
       this._currentValueIndices = indices;
-      this._value = [];
-      indices.forEach(i => {
-        this._value.push(this._items[i].displayValue);
-      });
+      this._value = indices.map(i => this._items[i].exportValue);
     } else if (indices.length > 0) {
-      indices = indices.splice(1, indices.length - 1);
+      indices = [indices[0]];
       this._currentValueIndices = indices[0];
-      this._value = this._items[this._currentValueIndices];
+      this._value = this._items[indices[0]].exportValue;
     }
     this._send({
       id: this._id,
@@ -840,7 +839,7 @@ class RadioButtonField extends Field {
       this.exportValues.push(radioData.exportValues);
       this._radioIds.push(radioData.id);
       this._radioActions.push(createMap(radioData.actions));
-      if (this._value === radioData.exportValues) {
+      if (data.value === radioData.exportValues) {
         this._id = radioData.id;
       }
     }
@@ -2425,7 +2424,6 @@ class Doc extends PDFObject {
         this._runActions(actionName);
       }
     }
-    this._runActions("OpenAction");
     this._disableSaving = false;
   }
   _dispatchDocEvent(name) {
@@ -3756,7 +3754,7 @@ class Util extends PDFObject {
       actions.push(action);
       return pattern.includes(",") ? `(?=${pattern})\\${actions.length}` : pattern;
     });
-    return [new RegExp(`^${re}$`, "g"), actions];
+    return [new RegExp(`^${re}$`), actions];
   }
   _scand(cFormat, cDate, strict = false) {
     if (typeof cDate !== "string") {
@@ -3976,3 +3974,5 @@ function initSandbox(params) {
 globalThis.pdfjsScripting = {
   initSandbox: initSandbox
 };
+/******/ })()
+;

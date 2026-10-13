@@ -540,7 +540,7 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   bool mConnected{false};
   bool mActivated{false};
   bool mHaveStatusLine{false};
-  bool mHaveAllHeaders{false};
+  Atomic<bool, ReleaseAcquire> mHaveAllHeaders{false};
   bool mTransactionDone{false};
   bool mDidContentStart{false};
   bool mNoContent{false};  // expecting an empty entity body
@@ -549,7 +549,7 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   bool mStatusEventPending{false};
   bool mHasRequestBody{false};
   bool mRequestBodyIsStreaming{false};
-  bool mProxyConnectFailed{false};
+  Atomic<bool, Relaxed> mProxyConnectFailed{false};
   bool mHttpResponseMatched{false};
   bool mPreserveStream{false};
   bool mDispatchedAsBlocking{false};
@@ -710,7 +710,7 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   };
   nsTHashMap<nsUint32HashKey, uint32_t> mEchRetryCounterMap;
 
-  bool mSupportsHTTP3 = false;
+  Atomic<bool, Relaxed> mSupportsHTTP3{false};
   Atomic<bool, Relaxed> mIsForWebTransport{false};
   bool mIsResettingForTunnelConn = false;
   Maybe<bool> mIsWebsocketUpgrade;

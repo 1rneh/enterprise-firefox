@@ -7777,7 +7777,7 @@ static bool ShortestPaths(JSContext* cx, unsigned argc, Value* vp) {
 
     for (size_t i = 0; i < length; i++) {
       if (!values.append(GCVector<GCVector<Value>>(cx)) ||
-          !names.append(Vector<Vector<JS::ubi::EdgeName>>(cx))) {
+          !names.emplaceBack(cx)) {
         return false;
       }
 

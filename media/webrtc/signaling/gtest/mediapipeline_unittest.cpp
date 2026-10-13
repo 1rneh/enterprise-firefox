@@ -68,7 +68,7 @@ class MainAsCurrent : public webrtc::TaskQueueBase {
   void Delete() override { delete this; }
 
   void PostTaskImpl(absl::AnyInvocable<void() &&> task,
-                    const PostTaskTraits& traits,
+                    const PostTaskTraits& /*traits*/,
                     const webrtc::Location& location) override {
     mWebrtcTaskQueue->PostTask(std::move(task), location);
   }
@@ -139,7 +139,7 @@ class FakeAudioTrack : public ProcessedMediaTrack {
 
   static const int AUDIO_BUFFER_SIZE = 1600;
   static const int NUM_CHANNELS = 2;
-  static void FakeAudioTrackGenerateData(nsITimer* timer, void* closure) {
+  static void FakeAudioTrackGenerateData(nsITimer* /*timer*/, void* closure) {
     auto t = static_cast<FakeAudioTrack*>(closure);
     MutexAutoLock lock(t->mMutex);
     if (t->mMainThreadDestroyed) {
@@ -195,7 +195,7 @@ class LoopbackTransport : public MediaTransportHandler {
 
   void Shutdown() { peer_ = nullptr; }
 
-  RefPtr<IceLogPromise> GetIceLog(const nsCString& aPattern) override {
+  RefPtr<IceLogPromise> GetIceLog(const nsCString& /*aPattern*/) override {
     return nullptr;
   }
 
@@ -205,8 +205,8 @@ class LoopbackTransport : public MediaTransportHandler {
 
   void CreateIceCtx(const std::string& aName) override {}
 
-  nsresult SetIceConfig(const nsTArray<dom::RTCIceServer>& aIceServers,
-                        dom::RTCIceTransportPolicy aIcePolicy) override {
+  nsresult SetIceConfig(const nsTArray<dom::RTCIceServer>& /*aIceServers*/,
+                        dom::RTCIceTransportPolicy /*aIcePolicy*/) override {
     return NS_OK;
   }
 
@@ -251,8 +251,9 @@ class LoopbackTransport : public MediaTransportHandler {
 
   void UpdateNetworkState(bool aOnline) override {}
 
-  RefPtr<dom::RTCStatsPromise> GetIceStats(const std::string& aTransportId,
-                                           DOMHighResTimeStamp aNow) override {
+  RefPtr<dom::RTCStatsPromise> GetIceStats(
+      const std::string& /*aTransportId*/,
+      DOMHighResTimeStamp /*aNow*/) override {
     return nullptr;
   }
 
@@ -406,7 +407,7 @@ class TestAgentSend : public TestAgent {
   }
 
   virtual void CreatePipeline(const std::string& aTransportId,
-                              const MediaPipelineTestOptions& aOptions) {
+                              const MediaPipelineTestOptions& /*aOptions*/) {
     std::string test_pc;
 
     RefPtr<MediaPipelineTransmit> audio_pipeline =

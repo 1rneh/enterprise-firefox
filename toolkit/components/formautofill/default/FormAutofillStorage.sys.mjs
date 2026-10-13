@@ -309,11 +309,6 @@ export class FormAutofillStorage extends FormAutofillStorageBase {
     const migrated = await migrator.maybeRun({ dryRun: runMigrationDryRun });
 
     if (runMigrationDryRun) {
-      // Measured, not read: put the store back the way it was found. Safe to
-      // empty because nothing is serving from it -- the dry run only runs while
-      // rust.enabled is off -- and the dry run recorded itself on its own pref,
-      // so a later real migration still does its own copy.
-      await migrator.wipe();
       return;
     }
 
@@ -354,10 +349,9 @@ export class FormAutofillStorage extends FormAutofillStorageBase {
    * complete. The address version documents the reasoning; it is the same here.
    *
    * One thing differs. The copy reads each card's number in the clear so the
-   * receiving store can encrypt it itself, which means it needs the source's
-   * key readable -- the OS key store's in one direction, the Rust store's in
-   * the other. #creditCardNumbersReadable settles that before any copying
-   * starts, and a profile whose numbers cannot be read is left where it is.
+   * receiving store can encrypt it itself, which means it needs a key at each
+   * end. CreditCardStorageMigrator settles both before any copying starts, and
+   * a profile whose numbers cannot be read is left where it is.
    */
   async #migrateToEnabledCreditCardStorage() {
     const enabled = Services.prefs.getBoolPref(
@@ -371,10 +365,6 @@ export class FormAutofillStorage extends FormAutofillStorageBase {
     const json = this.#jsonCreditCards();
     const rust = lazy.RustAutofillCreditCardsAdapter.getInstance();
     const [source, target] = enabled ? [json, rust] : [rust, json];
-
-    if (!(await this.#creditCardNumbersReadable(source))) {
-      return;
-    }
 
     const migrator = new lazy.CreditCardStorageMigrator(source, target);
     if (
@@ -403,48 +393,6 @@ export class FormAutofillStorage extends FormAutofillStorageBase {
   }
 
   /**
-   * Whether the source's card numbers can be read, so the copy can hand them
-   * over in the clear.
-   *
-   * The source is asked rather than a particular key store, because each store
-   * holds its own: decrypting one record is what answers it either way. The OS
-   * key store cannot be asked directly in any case -- ensureLoggedIn() without
-   * a reauth prompt reports success unconditionally, and generates a key as a
-   * side effect, which would create an entry for every profile that has never
-   * saved a card.
-   *
-   * A profile with no cards is not asked at all: there is nothing to decrypt,
-   * so the common case never touches either key, and an empty profile still
-   * moves to the other store.
-   *
-   * Settled once, before anything is copied, rather than discovered per record.
-   * A copy that stops halfway leaves the profile split across two stores, and a
-   * key that is merely locked would otherwise spend the retry budget --
-   * a deferral costs a launch, three failed attempts cost the migration for
-   * good. LoginStorageMigrator settles the primary password up front for the
-   * same reason.
-   *
-   * @param {object} source The store being copied from.
-   * @returns {Promise<boolean>}
-   */
-  async #creditCardNumbersReadable(source) {
-    const [canary] = await source.getAll();
-    if (!canary) {
-      return true;
-    }
-    try {
-      await source._recordForMigrationExport(canary);
-      return true;
-    } catch (e) {
-      lazy.logger.log(
-        "Deferring the credit card migration: a number could not be read.",
-        e
-      );
-      return false;
-    }
-  }
-
-  /**
    * Settle which store serves credit cards at startup. The address version
    * documents the four combinations; this is the same, on its own prefs.
    */
@@ -469,10 +417,6 @@ export class FormAutofillStorage extends FormAutofillStorageBase {
       return;
     }
 
-    if (!(await this.#creditCardNumbersReadable(this.#jsonCreditCards()))) {
-      return;
-    }
-
     const migrator = new lazy.CreditCardStorageMigrator(
       this.#jsonCreditCards(),
       lazy.RustAutofillCreditCardsAdapter.getInstance()
@@ -480,7 +424,6 @@ export class FormAutofillStorage extends FormAutofillStorageBase {
     const migrated = await migrator.maybeRun({ dryRun: runMigrationDryRun });
 
     if (runMigrationDryRun) {
-      await migrator.wipe();
       return;
     }
 

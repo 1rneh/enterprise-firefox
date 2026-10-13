@@ -114,6 +114,31 @@ export class RustAutofillAdapterBase {
   }
 
   /**
+   * Whether NSS is withholding the store's key; see
+   * RustAutofillStore.primaryPasswordLocked.
+   *
+   * Underscore-named because a test store's key is its own and never NSS's, so
+   * a test that has to answer for the token replaces this.
+   *
+   * @returns {boolean}
+   */
+  _primaryPasswordLocked() {
+    return lazy.RustAutofillStore.primaryPasswordLocked;
+  }
+
+  /**
+   * Run `operation` with the primary password prompt allowed; see
+   * RustAutofillStore.allowingPrompt. Underscore-named for the same reason as
+   * _primaryPasswordLocked.
+   *
+   * @param {Function} operation An async function.
+   * @returns {Promise<*>} What `operation` resolves to.
+   */
+  _allowingPrompt(operation) {
+    return new lazy.RustAutofillStore().allowingPrompt(operation);
+  }
+
+  /**
    * Fire storage-changed and refresh the saved-profile count.
    *
    * AutofillRecords.observe() handles the same topic and records the count from
@@ -403,7 +428,7 @@ export class RustAutofillAdapterBase {
     // Every non-empty field that is not internal metadata, computed fields
     // included: autofill decides which form fields it can offer from this set.
     const fieldNames = new Set();
-    for (const record of await this.getAll()) {
+    for (const record of await this.getAll({ prompt: false })) {
       for (const [key, value] of Object.entries(record)) {
         if (value && !INTERNAL_FIELDS.has(key)) {
           fieldNames.add(key);

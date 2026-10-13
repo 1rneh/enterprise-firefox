@@ -53,6 +53,8 @@ prefs = [
 
 ["browser_aboutSessionRestore.js"]
 
+["browser_aboutSessionRestore_telemetry.js"]
+
 ["browser_async_duplicate_tab.js"]
 support-files = ["file_async_duplicate_tab.html"]
 

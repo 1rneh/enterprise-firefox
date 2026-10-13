@@ -156,7 +156,9 @@ export class UrlbarProviderGlobalActions extends UrlbarProvider {
       );
     }
     for (let provider of globalActionsProviders) {
-      provider.onSearchSessionEnd?.(queryContext, controller, details);
+      if ("onSearchSessionEnd" in provider) {
+        provider.onSearchSessionEnd(queryContext, controller, details);
+      }
     }
   }
 

@@ -145,6 +145,7 @@
   "toolbarbutton/badge/max/width": 20,
   "toolbarbutton/badge/padding/inline": 2,
   "toolbarbutton/badge/padding/block/end": 1,
+  "toolbarbutton/badge/size": 14,
   "toolbarbutton/padding/outer": 2,
   "toolbarbutton/padding/outer/narrow": 1,
   "toolbarbutton/padding/inner": 8,

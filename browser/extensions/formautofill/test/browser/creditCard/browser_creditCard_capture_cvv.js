@@ -49,6 +49,10 @@ async function captureCard(securityCode = "123") {
 }
 
 add_task(async function test_security_code_saved_with_the_card() {
+  if (RUST_CREDIT_CARD_STORE) {
+    info("The Rust store does not hold a security code");
+    return;
+  }
   await SpecialPowers.pushPrefEnv({ set: [[ENABLED_PREF, true]] });
 
   const creditCard = await captureCard();

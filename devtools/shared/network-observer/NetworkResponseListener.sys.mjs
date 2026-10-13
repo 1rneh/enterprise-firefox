@@ -37,6 +37,9 @@ ChromeUtils.defineESModuleGetters(
  *        HttpActivity object associated with this request. See NetworkObserver
  *        more information.
  * @param {object} options
+ * @param {boolean} options.collectSecurityInfo
+ *        Whether the security information of the request should be parsed and
+ *        reported to the owner.
  * @param {Map} options.decodedCertificateCache
  *        A Map of certificate fingerprints to decoded certificates, to avoid
  *        repeatedly decoding previously-seen certificates.
@@ -68,6 +71,12 @@ export class NetworkResponseListener {
    * @type {Map}
    */
   #decodedCertificateCache;
+  /**
+   * See constructor argument of the same name.
+   *
+   * @type {boolean}
+   */
+  #collectSecurityInfo;
   /**
    * See constructor argument of the same name.
    *
@@ -183,6 +192,7 @@ export class NetworkResponseListener {
 
   constructor(httpActivity, options) {
     const {
+      collectSecurityInfo,
       decodedCertificateCache,
       decodeResponseBody,
       fromServiceWorker,
@@ -190,6 +200,7 @@ export class NetworkResponseListener {
     } = options;
 
     this.#httpActivity = httpActivity;
+    this.#collectSecurityInfo = collectSecurityInfo;
     this.#decodedCertificateCache = decodedCertificateCache;
     this.#decodeResponseBody = decodeResponseBody;
     this.#fromServiceWorker = fromServiceWorker;
@@ -442,7 +453,10 @@ export class NetworkResponseListener {
     // status) are not available in the content process and can't be even touched safely,
     // because their C++ getters trigger assertions. This function is called in content
     // process for synthesized responses from service workers, in the parent otherwise.
-    if (Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_CONTENT) {
+    if (
+      !this.#collectSecurityInfo ||
+      Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_CONTENT
+    ) {
       return;
     }
 

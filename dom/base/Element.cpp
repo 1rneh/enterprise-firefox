@@ -3054,7 +3054,7 @@ nsresult Element::BindToTree(BindContext& aContext, nsINode& aParent) {
   // recursing into kids, so each can read it from us. Only document-tree
   // content contributes to container timing.
   if (aContext.OwnerDoc().MayHaveContainerTimingAttributes() &&
-      aContext.InUncomposedDoc()) {
+      aContext.InUncomposedDoc() && !IsInNativeAnonymousSubtree()) {
     UpdateContainerTimingRootFromParent(&aParent);
   }
 

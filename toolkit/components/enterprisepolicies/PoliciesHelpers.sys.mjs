@@ -20,6 +20,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/addons/AddonUpdateChecker.sys.mjs",
   setEnterpriseGuards: "resource://gre/modules/ExtensionPermissions.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
+  SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
 });
 
 const PREF_LOGLEVEL = "browser.policies.loglevel";
@@ -637,7 +638,7 @@ function trailingDotPrincipal(aPrincipal) {
     return null;
   }
 
-  let bareHost = host.replace(/\.+$/, "");
+  let bareHost = lazy.SitePolicyUtils.stripTrailingDots(host);
   let otherHost = bareHost == host ? `${host}.` : bareHost;
 
   try {

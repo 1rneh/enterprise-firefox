@@ -777,9 +777,8 @@ JS::ColumnNumberUnsignedOffset TokenStreamAnyChars::computeColumnOffsetForUTF8(
     // The vector always begins with the column of the line start, i.e. zero,
     // with chunk units pessimally assumed not single-unit.
     if (entriesLen == 0) {
-      lastChunkVectorForLine_->infallibleAppend(
-          ChunkInfo(JS::ColumnNumberUnsignedOffset::zero(),
-                    UnitsType::PossiblyMultiUnit));
+      lastChunkVectorForLine_->infallibleEmplaceBack(
+          JS::ColumnNumberUnsignedOffset::zero(), UnitsType::PossiblyMultiUnit);
       entriesLen++;
     }
 

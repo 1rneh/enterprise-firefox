@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.57
- * pdfjsBuild = 89b500f5e
+ * pdfjsVersion = 6.5.128
+ * pdfjsBuild = e1412d3a5
  */
 
 ;// ./web/ui_utils.js
@@ -901,7 +901,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "c186cc9a-35f2-4903-bae3-54472b008de3";
+const INTERNAL_EVT = "01ffb4ab-d90d-4ca8-8b3b-0b6d879e32ec";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -1388,7 +1388,7 @@ class FirefoxEventBus extends EventBus {
 
 class BaseDownloadManager {
   #openBlobUrls = new WeakMap();
-  _triggerDownload(blobUrl, originalUrl, filename, isAttachment = false) {
+  _triggerDownload(blobUrl, originalUrl, filename, isAttachment = false, isModified = false) {
     throw new Error("Not implemented: _triggerDownload");
   }
   _getOpenDataUrl(blobUrl, filename, dest = null) {
@@ -1420,11 +1420,11 @@ class BaseDownloadManager {
     this.downloadData(data, filename, contentType);
     return false;
   }
-  download(data, url, filename) {
+  download(data, url, filename, isModified = false) {
     const blobUrl = data ? URL.createObjectURL(new Blob([data], {
       type: "application/pdf"
     })) : null;
-    this._triggerDownload(blobUrl, url, filename);
+    this._triggerDownload(blobUrl, url, filename, false, isModified);
   }
 }
 
@@ -1660,12 +1660,13 @@ class FirefoxCom {
   }
 }
 class DownloadManager extends BaseDownloadManager {
-  _triggerDownload(blobUrl, originalUrl, filename, isAttachment = false) {
+  _triggerDownload(blobUrl, originalUrl, filename, isAttachment = false, isModified = false) {
     FirefoxCom.request("download", {
       blobUrl,
       originalUrl,
       filename,
-      isAttachment
+      isAttachment,
+      isModified
     });
   }
   _getOpenDataUrl(blobUrl, filename, dest = null) {
@@ -9053,11 +9054,14 @@ class PDFThumbnailViewer {
   #isInPasteMode = false;
   #hasUndoBarVisible = false;
   #newBadge = null;
+  #l10n = null;
+  #toggleBarId = 0;
   constructor({
     container,
     eventBus,
     linkService,
     renderingQueue,
+    l10n,
     maxCanvasPixels,
     maxCanvasDim,
     pageColors,
@@ -9076,6 +9080,7 @@ class PDFThumbnailViewer {
     this.eventBus = eventBus;
     this.linkService = linkService;
     this.renderingQueue = renderingQueue;
+    this.#l10n = l10n;
     this.maxCanvasPixels = maxCanvasPixels;
     this.maxCanvasDim = maxCanvasDim;
     this.pageColors = pageColors || null;
@@ -9737,9 +9742,7 @@ class PDFThumbnailViewer {
     return size > 0 && size < this._thumbnails.length;
   }
   #toggleBar(type, message, args) {
-    this.#statusBar.classList.toggle("hidden", type !== "status");
-    this.#waitingBar.container.classList.toggle("hidden", type !== "waiting");
-    this.#undoBar.classList.toggle("hidden", type !== "undo");
+    const id = ++this.#toggleBarId;
     this.#hasUndoBarVisible = type === "undo";
     switch (type) {
       case "waiting":
@@ -9752,14 +9755,36 @@ class PDFThumbnailViewer {
         }
         break;
       case "status":
-        if (args) {
-          this.#statusLabel.setAttribute("data-l10n-args", JSON.stringify(args));
-        } else {
-          this.#statusLabel.removeAttribute("data-l10n-args");
+        {
+          const label = this.#statusLabel;
+          message ||= label.getAttribute("data-l10n-id");
+          this.#l10n.get(message, args).then(text => {
+            if (id !== this.#toggleBarId) {
+              return;
+            }
+            this.#l10n.pause();
+            label.setAttribute("data-l10n-id", message);
+            if (args) {
+              label.setAttribute("data-l10n-args", JSON.stringify(args));
+            } else {
+              label.removeAttribute("data-l10n-args");
+            }
+            label.textContent = text;
+            this.#l10n.resume();
+            this.#showBar(type, !!args);
+          });
+          return;
         }
-        this.#newBadge?.classList.toggle("hidden", !!args);
-        this.#deselectButton.classList.toggle("hidden", !args);
-        break;
+    }
+    this.#showBar(type);
+  }
+  #showBar(type, hasSelection = false) {
+    this.#statusBar.classList.toggle("hidden", type !== "status");
+    this.#waitingBar.container.classList.toggle("hidden", type !== "waiting");
+    this.#undoBar.classList.toggle("hidden", type !== "undo");
+    if (type === "status") {
+      this.#newBadge?.classList.toggle("hidden", hasSelection);
+      this.#deselectButton.classList.toggle("hidden", !hasSelection);
     }
   }
   #togglePasteMode(enable) {
@@ -9897,8 +9922,7 @@ class PDFThumbnailViewer {
     }
     const count = this.#selectedPages?.size || 0;
     if (type === "select") {
-      this.#statusLabel.setAttribute("data-l10n-id", count ? "pdfjs-views-manager-pages-status-action-label" : "pdfjs-views-manager-pages-status-none-action-label");
-      this.#toggleBar("status", "", count ? {
+      this.#toggleBar("status", count ? "pdfjs-views-manager-pages-status-action-label" : "pdfjs-views-manager-pages-status-none-action-label", count ? {
         count
       } : null);
       return;
@@ -12384,6 +12408,9 @@ class TextLayerBuilder {
       const activeTextLayers = new Set();
       for (let i = 0; i < selection.rangeCount; i++) {
         const range = selection.getRangeAt(i);
+        if (range.collapsed && !isPointerDown) {
+          continue;
+        }
         for (const textLayerDiv of this.#textLayers.keys()) {
           if (!activeTextLayers.has(textLayerDiv) && range.intersectsNode(textLayerDiv)) {
             activeTextLayers.add(textLayerDiv);
@@ -13347,7 +13374,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.5.57";
+    const viewerVersion = "6.5.128";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -17569,6 +17596,7 @@ const PDFViewerApplication = {
   baseUrl: "",
   mlManager: null,
   _downloadUrl: "",
+  _isMergedDocument: false,
   _eventBusAC: null,
   _windowAC: null,
   _globalAbortController: new AbortController(),
@@ -17924,6 +17952,7 @@ const PDFViewerApplication = {
         eventBus,
         renderingQueue,
         linkService,
+        l10n,
         maxCanvasPixels,
         maxCanvasDim,
         pageColors,
@@ -18250,6 +18279,7 @@ const PDFViewerApplication = {
     this.url = "";
     this.baseUrl = "";
     this._downloadUrl = "";
+    this._isMergedDocument = false;
     this.documentInfo = null;
     this.metadata = null;
     this._contentDispositionFilename = null;
@@ -18323,7 +18353,7 @@ const PDFViewerApplication = {
     try {
       data = await (this.pdfDocument ? this.pdfDocument.getData() : this.pdfLoadingTask.getData());
     } catch {}
-    this.downloadManager.download(data, this._downloadUrl, this._docFilename);
+    this.downloadManager.download(data, this._downloadUrl, this._docFilename, this._isMergedDocument);
   },
   async save() {
     if (!this.downloadManager) {
@@ -18336,7 +18366,7 @@ const PDFViewerApplication = {
     await this.pdfScriptingManager.dispatchWillSave();
     try {
       const data = await this.pdfDocument.saveDocument(this.externalServices.printToPDF);
-      this.downloadManager.download(data, this._downloadUrl, this._docFilename);
+      this.downloadManager.download(data, this._downloadUrl, this._docFilename, true);
     } catch (reason) {
       console.error(`Error when saving the document:`, reason);
       await this.download();
@@ -19121,7 +19151,7 @@ const PDFViewerApplication = {
       console.error("Something wrong happened when saving the edited PDF.\nPlease file a bug.");
       return;
     }
-    this.downloadManager.download(modifiedPdfBytes, this._downloadUrl, this._docFilename);
+    this.downloadManager.download(modifiedPdfBytes, this._downloadUrl, this._docFilename, true);
   },
   async onSaveAndLoad({
     data: {
@@ -19138,10 +19168,13 @@ const PDFViewerApplication = {
       return;
     }
     this._mergedDocumentNeedsSaving = true;
-    this.open({
+    const downloadUrl = this._downloadUrl;
+    await this.open({
       data: modifiedPdfBytes,
       filename: this._docFilename
     });
+    this._downloadUrl = downloadUrl;
+    this._isMergedDocument = true;
   },
   _accumulateTicks(ticks, prop) {
     if (this[prop] > 0 && ticks < 0 || this[prop] < 0 && ticks > 0) {

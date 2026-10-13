@@ -113,8 +113,14 @@ function WidgetsManagementPanel({ togglePanel, showPanel, setPref }) {
                   key={widget.id}
                   id={`${widget.id}-toggle`}
                   pressed={prefs[widget.enabledPref] || null}
+                  // The toggles render once their labels resolve, which can be
+                  // after CustomizeMenu's locked-pref sweep when a link opens
+                  // this subpanel on load, so each one applies the lock itself.
+                  disabled={
+                    prefs.lockedPrefs?.includes(widget.enabledPref) || null
+                  }
+                  data-lock-managed=""
                   ontoggle={e => onToggleWidget(widget, e)}
-                  // data-preference is read by CustomizeMenu's locked-pref sweep.
                   data-preference={widget.enabledPref}
                   data-l10n-id={widget.customizeL10nId}
                 />

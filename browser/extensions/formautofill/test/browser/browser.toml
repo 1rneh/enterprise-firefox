@@ -76,6 +76,10 @@ skip-if = [
 
 ["browser_collectFormFields.js"]
 
+["browser_creditCard_migration.js"]
+
+["browser_creditCard_primaryPassword.js"]
+
 ["browser_dropdown_layout.js"]
 
 ["browser_dynamic_form_autocompletion.js"]

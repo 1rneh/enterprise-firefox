@@ -10,14 +10,15 @@ import { UrlbarContentUtils } from "chrome://browser/content/urlbar/UrlbarConten
 import UrlbarPrefs from "chrome://browser/content/urlbar/UrlbarContentPrefs.mjs";
 import { SearchEngineStore } from "chrome://browser/content/urlbar/SearchEngineStore.mjs";
 
-const lazy = typeof ChromeUtils != "undefined" ? {} : null;
+const { XPCOMUtils } =
+  typeof ChromeUtils == "undefined"
+    ? { XPCOMUtils: null }
+    : ChromeUtils.importESModule("resource://gre/modules/XPCOMUtils.sys.mjs");
 
-if (lazy) {
-  ChromeUtils.defineESModuleGetters(lazy, {
-    UrlbarParentController:
-      "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
-  });
-}
+const lazy = XPCOMUtils?.declareLazy({
+  UrlbarParentController:
+    "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
+});
 
 /**
  * @import {TelemetryEvent} from "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs"

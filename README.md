@@ -45,14 +45,12 @@ To get started, follow the [Firefox build setup instructions](https://firefox-so
 
 ### Build
 
-Add the following line to your `.mozconfig` based on the platform you're developing for:
+Add the following line to your `.mozconfig`:
 
-- macos (Apple Silicon): `. "$topsrcdir/build/macosx/mozconfig.enterprise"`
-- macos (Intel): `. "$topsrcdir/build/mozconfig.common.enterprise"`
-- unix: `. "$topsrcdir/build/unix/mozconfig.enterprise"`
-- win64: `. "$topsrcdir/build/win64/mozconfig.enterprise"`
+```bash
+ac_add_options --enable-enterprise
+```
 
-The platform files source `build/mozconfig.common.enterprise`, which enables `--enable-enterprise` and the reporting used for security logging.
 Now you can run a build:
 
 ```bash
@@ -61,12 +59,11 @@ Now you can run a build:
 
 ### Run
 
-Firefox Enterprise signs in through an Admin Console.
-To run a local build without one, set `MOZ_BYPASS_FELT=1`, which starts the browser UI without console sign-in:
+Firefox Enterprise depends on an Admin Console for its policies and settings.
+Point the build at your console:
 
 ```bash
-MOZ_BYPASS_FELT=1 ./mach run
+MOZ_ENTERPRISE_CONSOLE_URL=https://console.example.com ./mach run
 ```
 
-The bypass only works on local development builds.
-If you have access to an Admin Console, run `./mach run` and enter its address when prompted, or set it with `MOZ_ENTERPRISE_CONSOLE_URL`.
+If you leave `MOZ_ENTERPRISE_CONSOLE_URL` unset, the first run asks for the address and remembers it.

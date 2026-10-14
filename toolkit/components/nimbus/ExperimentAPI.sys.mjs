@@ -505,7 +505,10 @@ export const ExperimentAPI = new (class {
   }
 
   get labsEnabled() {
-    return Services.policies.isAllowed("FirefoxLabs");
+    // Firefox Labs is disabled on Firefox Enterprise.
+    return (
+      !AppConstants.MOZ_ENTERPRISE && Services.policies.isAllowed("FirefoxLabs")
+    );
   }
 
   get rolloutsEnabled() {

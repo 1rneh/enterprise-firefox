@@ -1363,10 +1363,9 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
         return isDialogFinished;
       }
       final PrintManager printManager =
-          (PrintManager)
-              mActivityDelegate.getActivityContext().getSystemService(Context.PRINT_SERVICE);
+          (PrintManager) printContext.getSystemService(Context.PRINT_SERVICE);
       final PrintDocumentAdapter pda =
-          new GeckoViewPrintDocumentAdapter(pdfStream, getContext(), isDialogFinished);
+          new GeckoViewPrintDocumentAdapter(pdfStream, printContext, isDialogFinished);
       printManager.print("Firefox", pda, null);
       return isDialogFinished;
     }

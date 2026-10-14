@@ -620,11 +620,13 @@ export const ExperimentAPI = new (class {
       aiFeaturesPreviouslyEnabled !== this.aiFeaturesEnabled;
 
     if (studiesEnabledChanged || rolloutsEnabledChanged) {
-      if (!this.studiesEnabled) {
+      if (studiesEnabledChanged && !this.studiesEnabled) {
+        Glean.nimbusEvents.studiesOptOut.record();
         this.manager._handleStudiesOptOut();
       }
 
-      if (!this.rolloutsEnabled) {
+      if (rolloutsEnabledChanged && !this.rolloutsEnabled) {
+        Glean.nimbusEvents.rolloutsOptOut.record();
         this.manager._handleRolloutsOptOut();
       }
 

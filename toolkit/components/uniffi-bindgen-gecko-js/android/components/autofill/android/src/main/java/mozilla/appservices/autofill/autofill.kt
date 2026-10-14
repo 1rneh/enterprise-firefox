@@ -33,10 +33,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import mozilla.appservices.db_crypto.EncryptorDecryptor
 import mozilla.appservices.db_crypto.FfiConverterTypeEncryptorDecryptor
-import mozilla.appservices.db_crypto.FfiConverterTypeKeyManager
-import mozilla.appservices.db_crypto.KeyManager
 import mozilla.appservices.db_crypto.RustBuffer as RustBufferEncryptorDecryptor
-import mozilla.appservices.db_crypto.RustBuffer as RustBufferKeyManager
 
 // This is a helper for safely working with byte buffers returned from the Rust code.
 // A rust-owned buffer is represented by its capacity, its current length, and a
@@ -684,10 +681,6 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_autofill_checksum_func_create_autofill_store_with_static_key_manager(
     ): Int
-    external fun uniffi_autofill_checksum_func_create_managed_encdec(
-    ): Int
-    external fun uniffi_autofill_checksum_func_create_static_key_manager(
-    ): Int
     external fun uniffi_autofill_checksum_method_addressesbridgedengine_apply(
     ): Int
     external fun uniffi_autofill_checksum_method_addressesbridgedengine_ensure_current_sync_id(
@@ -916,10 +909,6 @@ internal object UniffiLib {
     external fun uniffi_autofill_fn_func_create_autofill_key(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_autofill_fn_func_create_autofill_store_with_static_key_manager(`path`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Long
-    external fun uniffi_autofill_fn_func_create_managed_encdec(`keyManager`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Long
-    external fun uniffi_autofill_fn_func_create_static_key_manager(`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     external fun ffi_autofill_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -4394,8 +4383,6 @@ public object FfiConverterSequenceTypeCreditCardBulkTombstoneResultEntry: FfiCon
 }
 
 
-
-
         /**
          * Create a new, random, encryption key.
          */
@@ -4421,38 +4408,6 @@ public object FfiConverterSequenceTypeCreditCardBulkTombstoneResultEntry: FfiCon
     
         
         FfiConverterString.lower(`path`),
-        FfiConverterString.lower(`key`),_status)
-}
-    )
-    }
-    
-
-        /**
-         * Similar to create_static_key_manager above, create a
-         * ManagedEncryptorDecryptor by passing in a KeyManager
-         */ fun `createManagedEncdec`(`keyManager`: KeyManager): EncryptorDecryptor {
-            return FfiConverterTypeEncryptorDecryptor.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_autofill_fn_func_create_managed_encdec(
-    
-        
-        FfiConverterTypeKeyManager.lower(`keyManager`),_status)
-}
-    )
-    }
-    
-
-        /**
-         * Utility function to create a StaticKeyManager to be used for the time
-         * being until support lands for [trait implementation of an UniFFI
-         * interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
-         * in UniFFI.
-         */ fun `createStaticKeyManager`(`key`: kotlin.String): KeyManager {
-            return FfiConverterTypeKeyManager.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_autofill_fn_func_create_static_key_manager(
-    
-        
         FfiConverterString.lower(`key`),_status)
 }
     )

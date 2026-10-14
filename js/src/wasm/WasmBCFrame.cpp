@@ -178,6 +178,9 @@ bool BaseCompiler::createStackMap(
 bool BaseCompiler::createStackMap(
     Maybe<Trap> reason, FaultingCodeRange insnRange,
     HasDebugFrameWithLiveRefs debugFrameWithLiveRefs) {
+  if (!checkStackHeight()) {
+    return false;
+  }
   const ExitStubMapVector noExtras;
   StackMap* stackMap;
   return stackMapGenerator_.createStackMap(

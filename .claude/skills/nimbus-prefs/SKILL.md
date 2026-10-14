@@ -10,6 +10,8 @@ description: >
   feature gate", "run an experiment on this", "setPref vs fallbackPref".
 ---
 
+# Nimbus-controllable prefs
+
 For background on Nimbus itself — experiment design, the Experimenter console, analysis — see
 [experimenter.info](https://experimenter.info/). This skill covers the in-tree side.
 

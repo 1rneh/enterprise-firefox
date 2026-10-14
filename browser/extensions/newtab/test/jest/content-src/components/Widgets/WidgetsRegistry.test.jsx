@@ -1078,6 +1078,14 @@ describe("isWeatherAvailable", () => {
     ).toBe(true);
   });
 
+  it("is true via trainhopConfig.widgetWeather.visible", () => {
+    expect(
+      isWeatherAvailable({
+        trainhopConfig: { widgetWeather: { visible: true } },
+      })
+    ).toBe(true);
+  });
+
   it("is true via the widgetsSettings.weatherVisible override", () => {
     expect(
       isWeatherAvailable({

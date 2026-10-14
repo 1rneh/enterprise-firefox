@@ -17173,6 +17173,10 @@ class CGDescriptor(CGThing):
 
         self.name = descriptor.interface.getClassName()
         self._deps = descriptor.interface.getDeps()
+        self._isIteratorInterface = (
+            descriptor.interface.isIteratorInterface()
+            or descriptor.interface.isAsyncIteratorInterface()
+        )
 
         iteratorCGThings = None
         if (
@@ -17203,11 +17207,7 @@ class CGDescriptor(CGThing):
 
         cgThings = []
 
-        isIteratorInterface = (
-            descriptor.interface.isIteratorInterface()
-            or descriptor.interface.isAsyncIteratorInterface()
-        )
-        if not isIteratorInterface:
+        if not self._isIteratorInterface:
             cgThings.append(
                 CGGeneric(declare="typedef %s NativeType;\n" % descriptor.nativeType)
             )
@@ -17465,7 +17465,7 @@ class CGDescriptor(CGThing):
         # want to export it for the iterator interfaces, or if we don't need it
         # for child interfaces or for the named properties object.
         protoObjectHandleGetterIsStatic = descriptor.concrete and (
-            isIteratorInterface
+            self._isIteratorInterface
             or (
                 descriptor.interface.hasInterfacePrototypeObject()
                 and not descriptor.interface.hasChildInterfaces()
@@ -17501,7 +17501,9 @@ class CGDescriptor(CGThing):
                 cgThings.append(CGWrapMethod(descriptor))
             else:
                 cgThings.append(
-                    CGWrapNonWrapperCacheMethod(descriptor, static=isIteratorInterface)
+                    CGWrapNonWrapperCacheMethod(
+                        descriptor, static=self._isIteratorInterface
+                    )
                 )
 
         # If we're not wrappercached, we don't know how to clear our
@@ -17566,7 +17568,7 @@ class CGDescriptor(CGThing):
                     properties,
                     haveUnscopables,
                     haveLegacyWindowAliases,
-                    static=isIteratorInterface,
+                    static=self._isIteratorInterface,
                 )
             )
 
@@ -17579,7 +17581,7 @@ class CGDescriptor(CGThing):
                     )
                 )
                 if descriptor.interface.hasChildInterfaces():
-                    assert not isIteratorInterface
+                    assert not self._isIteratorInterface
                     cgThings.append(CGGetProtoObjectMethod(descriptor))
             if descriptor.interface.hasInterfaceObject():
                 cgThings.append(CGGetConstructorObjectHandleMethod(descriptor))
@@ -17607,6 +17609,10 @@ class CGDescriptor(CGThing):
         return self.cgRoot.define()
 
     def forward_declare(self):
+        # If this is a generated iterator interface, we only create these
+        # in the generated bindings, and don't need to forward declare.
+        if self._isIteratorInterface:
+            return ""
         return f"class {self.name};"
 
     def deps(self):

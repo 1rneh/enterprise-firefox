@@ -292,10 +292,16 @@ bool BaseCompiler::addInterruptCheck() {
   masm.branch32(Assembler::Equal,
                 Address(tmp, wasm::Instance::offsetOfInterrupt()), Imm32(0),
                 &ok);
-  trap(wasm::Trap::CheckInterrupt);
+  FaultingCodeRange fcr = trap(wasm::Trap::CheckInterrupt);
   masm.bind(&ok);
+
+  if (!fcr.isValid()) {
+    return false;
+  }
+
   // stackmap for: interrupt check
-  return createStackMap(Some(wasm::Trap::CheckInterrupt));
+  return createStackMap(Some(wasm::Trap::CheckInterrupt),
+                        CodeOffset(fcr.resumeOffset()));
 }
 
 void BaseCompiler::checkDivideByZero(RegI32 rhs) {
@@ -3993,8 +3999,13 @@ void BaseCompiler::emitBranchSetup(BranchState* b) {
           break;
         }
         case ValType::I64: {
-          pop2xI64(&b->i64.lhs, &b->i64.rhs);
-          b->i64.rhsImm = false;
+          if (popConst(&b->i64.imm)) {
+            b->i64.lhs = popI64();
+            b->i64.rhsImm = true;
+          } else {
+            pop2xI64(&b->i64.lhs, &b->i64.rhs);
+            b->i64.rhsImm = false;
+          }
           break;
         }
         case ValType::F32: {
@@ -6659,10 +6670,20 @@ void BaseCompiler::emitCompareI64(Assembler::Condition compareOp,
     return;
   }
 
+  int64_t c;
+  if (popConst(&c)) {
+    RegI64 rs0 = popI64();
+    RegI32 rd(fromI64(rs0));
+    masm.cmp64Set(compareOp, rs0, Imm64(c), rd);
+    freeI64Except(rs0, rd);
+    pushI32(rd);
+    return;
+  }
+
   RegI64 rs0, rs1;
   pop2xI64(&rs0, &rs1);
   RegI32 rd(fromI64(rs0));
-  cmp64Set(compareOp, rs0, rs1, rd);
+  masm.cmp64Set(compareOp, rs0, rs1, rd);
   freeI64(rs1);
   freeI64Except(rs0, rd);
   pushI32(rd);

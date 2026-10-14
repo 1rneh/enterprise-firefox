@@ -870,12 +870,12 @@ treeherder-cli:
         add-prefix: treeherder-cli/
 
 webspec-index:
-    description: webspec-index 0.13.1 source code
+    description: webspec-index 0.14.0 source code
     fetch:
         type: static-url
-        url: https://crates.io/api/v1/crates/webspec-index/0.13.1/download
-        sha256: 81d89d3a2db260f224dd617c9b36ec804fa145c84a8cc9a23a42f05170219fc1
-        size: 206446
+        url: https://crates.io/api/v1/crates/webspec-index/0.14.0/download
+        sha256: fb284978424cd61eca5b3343056353d362354d0088c08dcaec2878028ab00555
+        size: 1249963
         artifact-name: webspec-index.tar.zst
         strip-components: 1
         add-prefix: webspec-index/

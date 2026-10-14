@@ -66,6 +66,7 @@
   "panel-item/button/padding/inline/start": 24,
   "panel-item/button/padding/inline/start/offset": "{Primitives$space/small}",
   "panel-list/box/shadow": "{Primitives$panel/box/shadow}",
+  "panel-list/padding/block": "{Primitives$space/small}",
   "tab/box/shadow/selected": "none",
   "tab/margin/block": 6,
   "tab/outline/offset": -1,

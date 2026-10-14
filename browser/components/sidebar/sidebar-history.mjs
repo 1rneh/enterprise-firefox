@@ -7,6 +7,7 @@ const lazy = {};
 import {
   classMap,
   html,
+  ifDefined,
   when,
   nothing,
 } from "chrome://global/content/vendor/lit.all.mjs";
@@ -16,6 +17,8 @@ import { SidebarPage } from "./sidebar-page.mjs";
 
 ChromeUtils.defineESModuleGetters(lazy, {
   HistoryController: "resource:///modules/HistoryController.sys.mjs",
+  MigrationUtils:
+    "moz-src:///browser/components/migration/MigrationUtils.sys.mjs",
   Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
   SidebarTreeView:
     "moz-src:///browser/components/sidebar/SidebarTreeView.sys.mjs",
@@ -369,20 +372,36 @@ export class SidebarHistory extends SidebarPage {
     return this.#emptyMessageTemplate();
   }
 
+  get #hasAccordionCards() {
+    return (
+      !this.controller.searchResults &&
+      !this.controller.isHistoryPending &&
+      !this.controller.isHistoryEmpty &&
+      ["date", "site", "datesite"].includes(this.controller.sortOption)
+    );
+  }
+
   #historyCardsTemplate() {
     const { historyVisits } = this.controller;
     switch (this.controller.sortOption) {
       case "date":
         return historyVisits.map(({ l10nId, items }, i) =>
-          this.#dateCardTemplate(l10nId, i, items)
+          this.#dateCardTemplate(l10nId, i, items, {
+            setSize: historyVisits.length,
+          })
         );
       case "site":
         return historyVisits.map(({ domain, items }, i) =>
-          this.#siteCardTemplate(domain, i, items)
+          this.#siteCardTemplate(domain, i, items, {
+            setSize: historyVisits.length,
+          })
         );
       case "datesite":
         return historyVisits.map(({ l10nId, items }, i) =>
-          this.#dateCardTemplate(l10nId, i, items, true)
+          this.#dateCardTemplate(l10nId, i, items, {
+            isDateSite: true,
+            setSize: historyVisits.length,
+          })
         );
       case "lastvisited":
       case "mostvisited":
@@ -397,10 +416,14 @@ export class SidebarHistory extends SidebarPage {
     }
   }
 
-  #dateCardTemplate(l10nId, index, items, isDateSite = false) {
+  #dateCardTemplate(l10nId, index, items, { isDateSite = false, setSize }) {
     return html` <moz-card
       type="accordion"
       class="date-card"
+      treeItem
+      aria-level="1"
+      aria-posinset=${index + 1}
+      aria-setsize=${setSize}
       ?expanded=${index < DAYS_EXPANDED_INITIALLY}
       data-l10n-id=${l10nId}
       data-l10n-args=${JSON.stringify({
@@ -410,16 +433,16 @@ export class SidebarHistory extends SidebarPage {
       @toggle=${this.#onCardToggle}
     >
       ${isDateSite
-        ? items.map(([domain, visits], i) =>
-            this.#siteCardTemplate(
-              domain,
-              i,
-              visits,
-              true,
-              i == items.length - 1
-            )
-          )
-        : this.#tabListTemplate(this.getTabItems(items))}
+        ? html`<div role="group">
+            ${items.map(([domain, visits], i) =>
+              this.#siteCardTemplate(domain, i, visits, {
+                isDateSite: true,
+                isLastCard: i == items.length - 1,
+                setSize: items.length,
+              })
+            )}
+          </div>`
+        : this.#tabListTemplate(this.getTabItems(items), { treeLevel: 2 })}
     </moz-card>`;
   }
 
@@ -427,8 +450,7 @@ export class SidebarHistory extends SidebarPage {
     domain,
     index,
     items,
-    isDateSite = false,
-    isLastCard = false
+    { isDateSite = false, isLastCard = false, setSize }
   ) {
     return html` <moz-card
       class=${classMap({
@@ -437,6 +459,10 @@ export class SidebarHistory extends SidebarPage {
         "site-card": true,
       })}
       type="accordion"
+      treeItem
+      aria-level=${isDateSite ? 2 : 1}
+      aria-posinset=${index + 1}
+      aria-setsize=${setSize}
       ?expanded=${!isDateSite}
       heading=${domain}
       @keydown=${this.keydownHandler}
@@ -444,12 +470,43 @@ export class SidebarHistory extends SidebarPage {
       data-l10n-id=${domain ? nothing : "sidebar-history-site-localhost"}
       data-l10n-attrs=${domain ? nothing : "heading"}
     >
-      ${this.#tabListTemplate(this.getTabItems(items))}
+      ${this.#tabListTemplate(this.getTabItems(items), {
+        treeLevel: isDateSite ? 3 : 2,
+      })}
     </moz-card>`;
   }
 
   #onCardToggle() {
     this.dispatchEvent(new CustomEvent("folder-toggle"));
+  }
+
+  #importHistoryPromoTemplate() {
+    return html`<moz-promo
+      class="import-history-promo"
+      type="vibrant"
+      imageSrc="chrome://browser/skin/sidebar/kit-history-import.svg"
+      dismissable
+      data-l10n-id="sidebar-history-import-promo"
+      @promo:user-dismissed=${this.#onImportHistoryPromoDismissed}
+    >
+      <moz-button
+        slot="actions"
+        type="primary"
+        data-l10n-id="sidebar-history-import-promo-button"
+        @click=${this.#openMigrationWizard}
+      ></moz-button>
+    </moz-promo>`;
+  }
+
+  #onImportHistoryPromoDismissed(e) {
+    // Let the pref change re-render without the promo rather than having
+    // moz-promo remove itself from a Lit-managed tree.
+    e.preventDefault();
+    this.controller.dismissImportHistory();
+  }
+
+  #openMigrationWizard() {
+    lazy.MigrationUtils.showMigrationWizard(this.topWindow, {});
   }
 
   #emptyMessageTemplate() {
@@ -527,15 +584,17 @@ export class SidebarHistory extends SidebarPage {
         )}
         ${this.#tabListTemplate(
           this.getTabItems(this.controller.searchResults),
-          this.controller.searchQuery
+          { searchQuery: this.controller.searchQuery }
         )}
       </div>
     </moz-card>`;
   }
 
-  #tabListTemplate(tabItems, searchQuery) {
+  #tabListTemplate(tabItems, { searchQuery, treeLevel = 1 } = {}) {
     return html`<sidebar-tab-list
       .handleFocusElementToCard=${this.handleFocusElementToCard}
+      inTree
+      .level=${treeLevel}
       maxTabsLength="-1"
       .searchQuery=${searchQuery}
       secondaryActionClass="delete-button"
@@ -626,7 +685,14 @@ export class SidebarHistory extends SidebarPage {
             </moz-button>
           </div>
         </sidebar-panel-header>
-        <div class="sidebar-panel-scrollable-content" tabindex="-1">
+        <div
+          class="sidebar-panel-scrollable-content"
+          role=${ifDefined(this.#hasAccordionCards ? "tree" : undefined)}
+          tabindex="-1"
+        >
+          ${when(this.controller.shouldShowImportBanner, () =>
+            this.#importHistoryPromoTemplate()
+          )}
           ${this.cardsTemplate}
         </div>
       </div>

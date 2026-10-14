@@ -8,10 +8,6 @@ let schemas = [
   ["search-config-v3-schema.json", "search-config-v3-ui-schema.json"],
   ["search-config-icons-schema.json", "search-config-icons-ui-schema.json"],
   [
-    "search-config-overrides-v2-schema.json",
-    "search-config-overrides-v2-ui-schema.json",
-  ],
-  [
     "search-default-override-allowlist-schema.json",
     "search-default-override-allowlist-ui-schema.json",
   ],

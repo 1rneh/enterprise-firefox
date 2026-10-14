@@ -1520,6 +1520,9 @@ creditcard:
           What triggered the OS Keystore Popup.
           "edit" - when editing credit cards
           "autofill" - when autofilling credit cards
+          "formautofill_migration" - when copying credit cards from the JSON
+          store into the Rust store, which does not ask for
+          re-authentication
         type: string
 
 passport:

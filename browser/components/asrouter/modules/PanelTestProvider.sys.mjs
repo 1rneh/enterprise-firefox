@@ -2924,6 +2924,8 @@ const MESSAGES = () => [
       screens: [
         {
           id: "CARD_STACK_SCREEN_1",
+          targeting:
+            "('messaging-system-action.hnt-card-stack.screen'|preferenceValue(1)) <= 1",
           force_hide_steps_indicator: true,
           content: {
             position: "card-stack",
@@ -2935,16 +2937,36 @@ const MESSAGES = () => [
             },
             primary_button: {
               label: { raw: "Primary action" },
-              action: { navigate: true },
+              action: {
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "messaging-system-action.hnt-card-stack.screen",
+                    value: 2,
+                  },
+                },
+                navigate: true,
+              },
             },
             secondary_button: {
               label: { raw: "Dismiss" },
-              action: { navigate: true },
+              action: {
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "messaging-system-action.hnt-card-stack.screen",
+                    value: 2,
+                  },
+                },
+                navigate: true,
+              },
             },
           },
         },
         {
           id: "CARD_STACK_SCREEN_2",
+          targeting:
+            "('messaging-system-action.hnt-card-stack.screen'|preferenceValue(1)) <= 2",
           force_hide_steps_indicator: true,
           content: {
             position: "card-stack",
@@ -2958,17 +2980,37 @@ const MESSAGES = () => [
             },
             primary_button: {
               label: { raw: "Primary action" },
-              action: { navigate: true },
+              action: {
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "messaging-system-action.hnt-card-stack.screen",
+                    value: 3,
+                  },
+                },
+                navigate: true,
+              },
             },
             secondary_button: {
               label: { raw: "Dismiss" },
-              action: { dismiss: true },
+              action: {
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "messaging-system-action.hnt-card-stack.screen",
+                    value: 3,
+                  },
+                },
+                navigate: true,
+              },
             },
           },
         },
         // The unique "last card" layout (bug 2069997).
         {
           id: "CARD_STACK_SCREEN_3",
+          targeting:
+            "('messaging-system-action.hnt-card-stack.screen'|preferenceValue(1)) <= 3",
           force_hide_steps_indicator: true,
           content: {
             position: "card-stack",

@@ -36,6 +36,8 @@ skip-if = [
   "condprof", # Bug 1769154
 ]
 
+["test_restore_session_suggestion_count.js"]
+
 ["test_session_availability.js"]
 
 ["test_session_migration_encryption.js"]

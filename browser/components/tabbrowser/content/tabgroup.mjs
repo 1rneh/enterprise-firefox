@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* global gBrowser, MozXULElement, SessionStore, XPCOMUtils */
+/* global CustomizableUI, gBrowser, MozXULElement, SessionStore, XPCOMUtils */
 
 const { Tabbrowser } = ChromeUtils.importESModule(
   "moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs"
@@ -17,6 +17,65 @@ const lazy = XPCOMUtils.declareLazy({
     default: false,
   },
 });
+const MAX_SAVE_HINT_SHOWN_COUNT = 3;
+
+/**
+ * Finds the anchor for the "Tab group saved" confirmation hint. This is the
+ * Tab Groups button when the alternate menu is enabled (falling back to the
+ * application menu button if it isn't visible), otherwise the List All Tabs
+ * button. Customizable buttons resolve to their anchor, so one in the
+ * overflow panel anchors to the overflow button. Without the alternate menu
+ * the application menu doesn't list tab groups, so there is no fallback.
+ *
+ * @param {Window} win
+ * @returns {Element|null} The anchor, or null if it isn't visible.
+ */
+function getSaveHintAnchor(win) {
+  let isVisible = el => el?.checkVisibility({ visibilityProperty: true });
+  let alternateMenu = Services.prefs.getBoolPref(
+    "browser.tabs.groups.alternateMenu",
+    false
+  );
+  let widgetId = alternateMenu ? "tab-groups-button" : "alltabs-button";
+  let anchor = CustomizableUI.getPlacementOfWidget(widgetId)
+    ? CustomizableUI.getWidget(widgetId)?.forWindow(win)?.anchor
+    : null;
+  if (alternateMenu && !isVisible(anchor)) {
+    anchor = win.document.getElementById("PanelUI-menu-button");
+  }
+  return isVisible(anchor) ? anchor : null;
+}
+
+/**
+ * Shows the "Tab group saved" confirmation hint the first
+ * MAX_SAVE_HINT_SHOWN_COUNT times a tab group is explicitly saved and
+ * closed by the user.
+ *
+ * @param {Window} win
+ */
+function maybeShowSaveHint(win) {
+  if (win.closed) {
+    return;
+  }
+  let shownCount = Services.prefs.getIntPref(
+    "browser.tabs.groups.saveHintShownCount",
+    0
+  );
+  if (shownCount >= MAX_SAVE_HINT_SHOWN_COUNT) {
+    return;
+  }
+  let anchor = getSaveHintAnchor(win);
+  if (!anchor) {
+    return;
+  }
+  win.ConfirmationHint.show(anchor, "confirmation-hint-tab-group-saved", {
+    position: "bottomright topright",
+  });
+  Services.prefs.setIntPref(
+    "browser.tabs.groups.saveHintShownCount",
+    shownCount + 1
+  );
+}
 
 /**
  * Supported tab group colors.
@@ -724,9 +783,16 @@ export class MozTabbrowserTabGroup extends MozXULElement {
     );
   }
 
-  saveAndClose(metricsContext = TabMetrics.UNKNOWN_CONTEXT) {
+  async saveAndClose(metricsContext = TabMetrics.UNKNOWN_CONTEXT) {
     this.save(metricsContext);
-    gBrowser.removeTabGroup(this, { metricsContext });
+    let win = this.documentGlobal;
+    let groupId = this.id;
+    await gBrowser.removeTabGroup(this, { metricsContext });
+    // make sure the tab group was actually saved before showing the hint
+    if (!SessionStore.getSavedTabGroup(groupId)) {
+      return;
+    }
+    maybeShowSaveHint(win);
   }
 
   /**

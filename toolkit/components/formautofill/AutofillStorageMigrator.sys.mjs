@@ -94,25 +94,6 @@ export class AutofillStorageMigrator {
   }
 
   /**
-   * The store being copied from, for a subclass that has to ask it something.
-   */
-  get _source() {
-    return this.#source;
-  }
-
-  /**
-   * Whether the keys this copy needs can be unwrapped, asked before anything
-   * is copied and before any attempt is spent.
-   *
-   * A collection whose records are not encrypted needs no key and answers yes.
-   *
-   * @returns {Promise<boolean>}
-   */
-  async _keysAvailable() {
-    return true;
-  }
-
-  /**
    * Whether this profile still owes a dry run of the current generation.
    *
    * Static so a caller can ask before it builds the stores: reaching the
@@ -148,9 +129,6 @@ export class AutofillStorageMigrator {
         if (!this.constructor.dryRunPending) {
           return false;
         }
-        if (!(await this._keysAvailable())) {
-          return false;
-        }
         await this.#migrateAndReport({ wipe });
         // Measured, not read: put the target back the way it was found. Safe to
         // empty because nothing is serving from it -- the dry run only runs
@@ -168,10 +146,6 @@ export class AutofillStorageMigrator {
         this.logger.warn(
           `Not migrating: ${this.#attempt} attempts already failed.`
         );
-        return false;
-      }
-
-      if (!(await this._keysAvailable())) {
         return false;
       }
 
@@ -658,79 +632,5 @@ export class CreditCardStorageMigrator extends AutofillStorageMigrator {
   // two fields compares as a string.
   fieldDiffers(field, a, b) {
     return lazy.creditCardFieldDiffers(field, a, b);
-  }
-
-  /**
-   * @see AutofillStorageMigrator._keysAvailable
-   *
-   * Two keys are in play, and neither side's is this class's own: the source's,
-   * to read the numbers out, and the Rust store's, which is one side of the
-   * copy in either direction.
-   *
-   * The source is asked rather than a particular key store, because each store
-   * holds its own: decrypting one record is what answers it either way. The OS
-   * key store cannot be asked directly in any case -- ensureLoggedIn() without
-   * a reauth prompt reports success unconditionally, and generates a key as a
-   * side effect, which would create an entry for every profile that has never
-   * saved a card.
-   *
-   * The Rust store's key is NSS's, so the token is asked whether it will hand
-   * that key over -- not made to, which would mean a dialog. Reading the source
-   * does not cover it: copying to the Rust store encrypts with a key the source
-   * never touches. A locked token defers the copy to whichever launch or unlock
-   * finds the key there.
-   *
-   * A profile with no cards is not asked at all: there is nothing to copy, so
-   * the common case never touches either key and an empty profile still moves
-   * to the other store.
-   */
-  async _keysAvailable() {
-    let canary;
-    try {
-      [canary] = await this._source.getAll({ prompt: false });
-    } catch (e) {
-      // Reading the Rust store decrypts every card, so a locked token fails
-      // the read rather than answering whether there is anything to copy.
-      if (e.result == Cr.NS_ERROR_ABORT) {
-        this.logger.log("Deferring: the primary password is locked.");
-        return false;
-      }
-      throw e;
-    }
-    if (!canary) {
-      return true;
-    }
-    // The Rust store is one side of the copy whichever direction this runs in,
-    // so its key is needed either way, and asked for before the source is read
-    // because reading the Rust store needs it too.
-    if (!CreditCardStorageMigrator.primaryPasswordUnlocked) {
-      this.logger.log("Deferring: the primary password is locked.");
-      return false;
-    }
-    try {
-      await this._source._recordForMigrationExport(canary);
-      return true;
-    } catch (e) {
-      this.logger.log("Deferring: a number could not be read.", e);
-      return false;
-    }
-  }
-
-  /**
-   * Whether NSS will hand the Rust store's key over without asking. Nothing
-   * here logs the token in: a copy that needs the key and cannot have it
-   * defers instead, so it never puts a dialog up -- one held inside a switch
-   * would queue every later flip behind it, the flip that turns the pref back
-   * off included.
-   *
-   * Static so a caller can ask before it builds the stores.
-   *
-   * @returns {boolean}
-   */
-  static get primaryPasswordUnlocked() {
-    const token = Cc["@mozilla.org/security/internalkeytoken;1"].createInstance(
-      Ci.nsIPKCS11Token
-    );
-    return !token.hasPassword || token.isLoggedIn;
   }
 }

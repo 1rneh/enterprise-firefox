@@ -132,6 +132,7 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
 
   const weatherOptIn = prefs["system.showWeatherOptIn"];
   const nimbusWeatherOptInEnabled =
+    prefs.trainhopConfig?.widgetWeather?.weatherOptInEnabled ??
     prefs.trainhopConfig?.weather?.weatherOptInEnabled;
   const isOptInEnabled = weatherOptIn || nimbusWeatherOptInEnabled;
   const optInUserChoice = prefs["weather.optInAccepted"];

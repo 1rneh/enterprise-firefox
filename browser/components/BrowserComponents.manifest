@@ -255,6 +255,7 @@ category browser-quit-application-granted resource://gre/modules/UpdateListener.
 #endif
 category browser-quit-application-granted moz-src:///browser/components/urlbar/UrlbarSearchTermsPersistence.sys.mjs UrlbarSearchTermsPersistence.uninit
 category browser-quit-application-granted moz-src:///browser/components/ipprotection/IPProtectionHelpers.sys.mjs IPProtectionActivator.uninit
+category browser-quit-application-granted moz-src:///browser/components/sessionstore/SessionWindowUI.sys.mjs SessionWindowUI.maybeIncrementRestoreSessionSuggestionCount
 
 #ifdef MOZ_ENTERPRISE
 category browser-quit-application-granted resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.uninit

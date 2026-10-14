@@ -2289,6 +2289,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(HTMLMediaElement,
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIncomingMediaKeys)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSelectedVideoStreamTrack)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPendingPlayPromises)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPendingPlayPromisesRunners)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSeekDOMPromise)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSetMediaKeysDOMPromise)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mEventBlocker)
@@ -2343,6 +2344,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(HTMLMediaElement,
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mIncomingMediaKeys)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSelectedVideoStreamTrack)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingPlayPromises)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingPlayPromisesRunners)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSeekDOMPromise)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSetMediaKeysDOMPromise)
   if (tmp->mMediaControlKeyListener) {
@@ -3800,6 +3802,7 @@ void HTMLMediaElement::Pause(ErrorResult& aRv) {
 }
 
 void HTMLMediaElement::PauseInternal() {
+  RefPtr<HTMLMediaElement> kungFuDeathGrip(this);
   if (mDecoder && mNetworkState != NETWORK_EMPTY) {
     mDecoder->Pause();
   }
@@ -6914,6 +6917,8 @@ void HTMLMediaElement::ChangeReadyState(nsMediaReadyState aState) {
     return;
   }
 
+  RefPtr<HTMLMediaElement> kungFuDeathGrip(this);
+
   nsMediaReadyState oldState = mReadyState;
   mReadyState = aState;
   LOG(LogLevel::Debug, ("{} Ready state changed to {}", fmt::ptr(this),
@@ -7789,6 +7794,7 @@ bool HTMLMediaElement::ShouldQueueTimeupdateAsyncTask(
 
 void HTMLMediaElement::FireTimeUpdate(TimeupdateType aType) {
   NS_ASSERTION(NS_IsMainThread(), "Should be on main thread.");
+  RefPtr<HTMLMediaElement> kungFuDeathGrip(this);
 
   if (ShouldQueueTimeupdateAsyncTask(aType)) {
     RefPtr<nsMediaEventRunner> runner =

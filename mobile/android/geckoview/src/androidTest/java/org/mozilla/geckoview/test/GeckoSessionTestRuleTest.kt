@@ -279,6 +279,31 @@ class GeckoSessionTestRuleTest : BaseSessionTest(noErrorCollector = true) {
         assertThat("Callback count should be correct", counter, equalTo(2))
     }
 
+    private interface OverloadedDelegate {
+        fun onDelegate(): Int
+
+        fun onDelegate(foo: String): Int
+    }
+
+    @Test
+    fun waitUntilCalled_anyOverload() {
+        lateinit var delegate: OverloadedDelegate
+
+        sessionRule.addExternalDelegateUntilTestEnd(
+            OverloadedDelegate::class,
+            { newDelegate -> delegate = newDelegate },
+            {},
+            object : OverloadedDelegate {
+                override fun onDelegate(): Int = 24
+
+                @AssertCalled(count = 1) override fun onDelegate(foo: String): Int = 42
+            },
+        )
+
+        delegate.onDelegate("foo")
+        sessionRule.waitUntilCalled(OverloadedDelegate::class, "onDelegate")
+    }
+
     @Test
     fun waitUntilCalled_shouldContinue() {
         mainSession.loadTestPath(HELLO_HTML_PATH)

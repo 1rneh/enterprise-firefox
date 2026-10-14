@@ -15,6 +15,16 @@
 
 const ENABLED_PREF = "extensions.formautofill.creditCards.storage.rust.enabled";
 const ACTIVE_PREF = "extensions.formautofill.creditCards.storage.rust.active";
+const TEST_MODE_PREF =
+  "extensions.formautofill.creditCards.storage.rust.runMigrationTest";
+const TEST_VERSION_PREF =
+  "extensions.formautofill.creditCards.storage.rust.migrationTestVersion";
+
+const { RustAutofillCreditCardsAdapter } = ChromeUtils.importESModule(
+  "resource://autofill/RustAutofillCreditCardStorage.sys.mjs"
+);
+
+const rustActive = () => Services.prefs.getBoolPref(ACTIVE_PREF, false);
 
 const TEST_FORM = `<form id="form">
   <input id="cc-name" autocomplete="cc-name">
@@ -315,6 +325,373 @@ add_task(async function test_a_declined_os_prompt_aborts_the_fill() {
     events.at(-1).extra.result,
     "fail_user_canceled",
     "as a decline, which is what the user did, not an error"
+  );
+
+  await removeAllRecords();
+});
+
+// As a session starts: nothing has used the OS key store yet, so reading a
+// number through it might put up a dialog of the OS's own.
+function lockOSKeyStore() {
+  OSKeyStore._isLocked = true;
+}
+
+// Windows reads its key store without UI, so nothing waits for it there.
+const KEY_STORE_WAITS = AppConstants.platform != "win";
+
+add_task(
+  { skip_if: () => !KEY_STORE_WAITS },
+  async function test_a_switch_waits_for_the_first_fill() {
+    await switchTo(false);
+    await setStorage(TEST_CARD);
+
+    // The pref asks for Rust before anything has used the OS key store. Copying
+    // would mean being the first to read it, so the switch waits instead.
+    lockOSKeyStore();
+    Services.prefs.setBoolPref(ENABLED_PREF, true);
+    await formAutofillStorage._creditCardSwitch;
+    Assert.ok(!rustActive(), "the switch waits for the key store");
+
+    // Filling the card is what unlocks it, and the switch follows on its own.
+    Assert.deepEqual(
+      await fillFromStorage(),
+      EXPECTED_FILL,
+      "the first fill is served by JSON"
+    );
+    await formAutofillStorage._creditCardSwitch;
+    Assert.ok(rustActive(), "and then the profile moves to Rust");
+    Assert.deepEqual(
+      await fillFromStorage(),
+      EXPECTED_FILL,
+      "whose copy of the card fills the next form"
+    );
+
+    await removeAllRecords();
+  }
+);
+
+add_task(async function test_a_copy_back_does_not_wait_for_the_key_store() {
+  await switchTo(false);
+  await setStorage(TEST_CARD);
+  await switchTo(true);
+
+  // Filling from Rust reads NSS's key, so a profile Rust serves may never
+  // unlock the OS key store. Turning the pref off still returns it to JSON.
+  lockOSKeyStore();
+  Assert.deepEqual(
+    await fillFromStorage(),
+    EXPECTED_FILL,
+    "the card fills from Rust"
+  );
+  Assert.ok(!OSKeyStore.isLoggedIn, "without unlocking the OS key store");
+  const dialogs = watchDialogs();
+  try {
+    await switchTo(false);
+  } finally {
+    dialogs.stop();
+  }
+  Assert.equal(dialogs.count, 0, "without the user being asked anything");
+  Assert.equal(
+    [...Services.obs.enumerateObservers(OSKeyStore.UNLOCKED_TOPIC)].length,
+    0,
+    "the copy back did not wait for an unlock"
+  );
+  Assert.deepEqual(
+    await fillFromStorage(),
+    EXPECTED_FILL,
+    "and the card fills from JSON"
+  );
+
+  await removeAllRecords();
+});
+
+add_task(
+  { skip_if: () => !KEY_STORE_WAITS },
+  async function test_the_dry_run_waits_for_the_first_fill() {
+    await switchTo(false);
+    await setStorage(TEST_CARD);
+    await SpecialPowers.pushPrefEnv({ set: [[TEST_MODE_PREF, true]] });
+    Services.prefs.clearUserPref(TEST_VERSION_PREF);
+    Services.fog.testResetFOG();
+
+    // Asked for Rust and taken back before anything used the key store, which
+    // leaves the dry run owed and the store locked.
+    lockOSKeyStore();
+    Services.prefs.setBoolPref(ENABLED_PREF, true);
+    await formAutofillStorage._creditCardSwitch;
+    Services.prefs.setBoolPref(ENABLED_PREF, false);
+    await formAutofillStorage._creditCardSwitch;
+    Assert.equal(
+      (Glean.formautofillCreditcards.migrateToRust.testGetValue() ?? []).length,
+      0,
+      "nothing is measured while the key store is locked"
+    );
+
+    Assert.deepEqual(
+      await fillFromStorage(),
+      EXPECTED_FILL,
+      "the fill that unlocks it is served by JSON"
+    );
+    await formAutofillStorage._creditCardSwitch;
+    Assert.equal(
+      Glean.formautofillCreditcards.migrateToRust.testGetValue()?.length,
+      1,
+      "and the dry run then measures the profile"
+    );
+    Assert.ok(!rustActive(), "without moving it");
+    Assert.equal(
+      (await RustAutofillCreditCardsAdapter.getInstance().getAll()).length,
+      0,
+      "and empties the Rust store again"
+    );
+
+    await SpecialPowers.popPrefEnv();
+    await removeAllRecords();
+  }
+);
+
+add_task(
+  { skip_if: () => KEY_STORE_WAITS },
+  async function test_windows_switches_without_waiting_for_an_unlock() {
+    await switchTo(false);
+    await setStorage(TEST_CARD);
+
+    lockOSKeyStore();
+    const dialogs = watchDialogs();
+    try {
+      await switchTo(true);
+    } finally {
+      dialogs.stop();
+    }
+    Assert.equal(dialogs.count, 0, "without the user being asked anything");
+    Assert.equal(
+      [...Services.obs.enumerateObservers(OSKeyStore.UNLOCKED_TOPIC)].length,
+      0,
+      "the switch did not wait for an unlock"
+    );
+    Assert.deepEqual(
+      await fillFromStorage(),
+      EXPECTED_FILL,
+      "and the card fills from Rust"
+    );
+
+    await removeAllRecords();
+  }
+);
+
+add_task(async function test_a_switch_waits_behind_a_busy_key_store() {
+  await switchTo(false);
+  await setStorage(TEST_CARD);
+
+  // Another key store operation is in flight on the unlocked store -- a reauth
+  // dialog of the user's, say. The switch waits for it rather than sharing it.
+  let settle;
+  OSKeyStore._pendingUnlockPromise = new Promise(resolve => (settle = resolve));
+  try {
+    Services.prefs.setBoolPref(ENABLED_PREF, true);
+    await formAutofillStorage._creditCardSwitch;
+    Assert.ok(!rustActive(), "the switch waits for the operation");
+  } finally {
+    // Settled the way OSKeyStore settles one.
+    OSKeyStore._pendingUnlockPromise = null;
+    settle({ authenticated: true });
+  }
+
+  await TestUtils.waitForCondition(rustActive, "then switches on its own");
+  await formAutofillStorage._creditCardSwitch;
+  Assert.deepEqual(
+    await fillFromStorage(),
+    EXPECTED_FILL,
+    "and the card fills from Rust"
+  );
+
+  await removeAllRecords();
+});
+
+add_task(async function test_an_empty_profile_switches_without_the_key_store() {
+  await switchTo(false);
+  await removeAllRecords();
+
+  // Nothing to decrypt, so nothing waits on the key store or reaches it --
+  // asking it anything would create a key store entry for every profile that
+  // never saved a card.
+  lockOSKeyStore();
+  const realDecrypt = OSKeyStore.decrypt;
+  const realEnsure = OSKeyStore.ensureLoggedIn;
+  let touched = 0;
+  OSKeyStore.decrypt = async function (...args) {
+    touched++;
+    return realDecrypt.apply(this, args);
+  };
+  OSKeyStore.ensureLoggedIn = async function (...args) {
+    touched++;
+    return realEnsure.apply(this, args);
+  };
+  try {
+    await switchTo(true);
+  } finally {
+    OSKeyStore.decrypt = realDecrypt;
+    OSKeyStore.ensureLoggedIn = realEnsure;
+  }
+  Assert.equal(touched, 0, "the key store was not consulted");
+  Assert.equal(
+    [...Services.obs.enumerateObservers(OSKeyStore.UNLOCKED_TOPIC)].length,
+    0,
+    "nor is its unlock waited for"
+  );
+});
+
+const PRIMARY_PASSWORD = "omgsecret!";
+const token = Cc["@mozilla.org/security/internalkeytoken;1"].createInstance(
+  Ci.nsIPKCS11Token
+);
+
+/**
+ * Count the prompts shown until `stop()`: the dialogs a primary password
+ * prompt would reach the user through, and the OS key store's requests to
+ * re-authenticate the user, which ask for a prompt message rather than false.
+ */
+function watchDialogs() {
+  let count = 0;
+  const observer = () => count++;
+  Services.obs.addObserver(observer, "common-dialog-loaded");
+  const realEnsure = OSKeyStore.ensureLoggedIn;
+  OSKeyStore.ensureLoggedIn = function (reauth, ...rest) {
+    if (reauth !== false) {
+      count++;
+    }
+    return realEnsure.call(this, reauth, ...rest);
+  };
+  return {
+    get count() {
+      return count;
+    },
+    stop() {
+      Services.obs.removeObserver(observer, "common-dialog-loaded");
+      OSKeyStore.ensureLoggedIn = realEnsure;
+    },
+  };
+}
+
+add_task(async function test_a_primary_password_keeps_the_profile_on_json() {
+  await switchTo(false);
+  await setStorage(TEST_CARD);
+
+  // The Rust store's key is NSS's, which the password guards, so the pref is
+  // not acted on, with the token unlocked or locked, and nothing is asked.
+  await token.changePassword("", PRIMARY_PASSWORD);
+  const dialogs = watchDialogs();
+  try {
+    for (const locked of [false, true]) {
+      if (locked) {
+        await token.logout();
+      }
+      Services.prefs.setBoolPref(ENABLED_PREF, true);
+      await formAutofillStorage._creditCardSwitch;
+      Assert.ok(!rustActive(), `the profile stays on JSON, locked: ${locked}`);
+      Services.prefs.setBoolPref(ENABLED_PREF, false);
+      await formAutofillStorage._creditCardSwitch;
+    }
+    Assert.deepEqual(
+      await fillFromStorage(),
+      EXPECTED_FILL,
+      "and its card still fills"
+    );
+    Assert.equal(dialogs.count, 0, "without the user being asked anything");
+  } finally {
+    dialogs.stop();
+    await token.changePassword(PRIMARY_PASSWORD, "");
+  }
+
+  await removeAllRecords();
+});
+
+add_task(async function test_a_copy_back_waits_for_the_token() {
+  // Moved to Rust before the password was set.
+  await switchTo(false);
+  await setStorage(TEST_CARD);
+  await switchTo(true);
+
+  await token.changePassword("", PRIMARY_PASSWORD);
+  const dialogs = watchDialogs();
+  try {
+    // Locked, the Rust store would read the card back without its number, so
+    // the copy back waits, asking nothing.
+    await token.logout();
+    Services.prefs.setBoolPref(ENABLED_PREF, false);
+    await formAutofillStorage._creditCardSwitch;
+    Assert.ok(
+      rustActive(),
+      "the profile stays on Rust while the token is locked"
+    );
+    Assert.equal(dialogs.count, 0, "asking nothing");
+
+    // Unlocked for a reason of the user's own: they answer the token's prompt.
+    const answer = subject => {
+      const dialog = subject.Dialog;
+      SpecialPowers.wrap(dialog.ui.password1Textbox).setUserInput(
+        PRIMARY_PASSWORD
+      );
+      dialog.ui.button0.click();
+    };
+    Services.obs.addObserver(answer, "common-dialog-loaded");
+    try {
+      await token.login(false);
+    } finally {
+      Services.obs.removeObserver(answer, "common-dialog-loaded");
+    }
+    Assert.ok(token.isLoggedIn, "the user unlocked the token");
+    const shown = dialogs.count;
+
+    // The next flip then copies it back.
+    Services.prefs.setBoolPref(ENABLED_PREF, true);
+    await formAutofillStorage._creditCardSwitch;
+    Services.prefs.setBoolPref(ENABLED_PREF, false);
+    await formAutofillStorage._creditCardSwitch;
+    Assert.ok(!rustActive(), "and then the copy back runs");
+    Assert.equal(dialogs.count, shown, "without asking anything more");
+  } finally {
+    dialogs.stop();
+    await token.changePassword(PRIMARY_PASSWORD, "");
+  }
+
+  Assert.deepEqual(
+    await fillFromStorage(),
+    EXPECTED_FILL,
+    "and the card fills from JSON"
+  );
+
+  await removeAllRecords();
+});
+
+add_task(async function test_removing_the_password_lets_the_profile_migrate() {
+  await switchTo(false);
+  await setStorage(TEST_CARD);
+
+  const dialogs = watchDialogs();
+  try {
+    await token.changePassword("", PRIMARY_PASSWORD);
+    Services.prefs.setBoolPref(ENABLED_PREF, true);
+    await formAutofillStorage._creditCardSwitch;
+    Assert.ok(!rustActive(), "with the password set, the profile stays");
+
+    // Removed, the next flip is free to move it.
+    await token.changePassword(PRIMARY_PASSWORD, "");
+    Services.prefs.setBoolPref(ENABLED_PREF, false);
+    await formAutofillStorage._creditCardSwitch;
+    await switchTo(true);
+    Assert.equal(dialogs.count, 0, "without the user being asked anything");
+  } finally {
+    dialogs.stop();
+    if (token.hasPassword) {
+      await token.changePassword(PRIMARY_PASSWORD, "");
+    }
+  }
+
+  Assert.deepEqual(
+    await fillFromStorage(),
+    EXPECTED_FILL,
+    "and the card fills from Rust"
   );
 
   await removeAllRecords();

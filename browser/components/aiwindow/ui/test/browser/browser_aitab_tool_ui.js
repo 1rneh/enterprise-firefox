@@ -438,6 +438,7 @@ describe("AITab ToolUI", () => {
   });
 
   it("keeps the complete state after returning to the chat tab", async () => {
+    Services.fog.testResetFOG();
     const generationRequest = await startAITabGeneration(win, mockEngine);
     generationRequest.respond(JSON.stringify(SURFACE));
     const chatTab = win.gBrowser.selectedTab;
@@ -461,6 +462,32 @@ describe("AITab ToolUI", () => {
     const newTab = win.gBrowser.selectedTab;
     win.gBrowser.selectedTab = chatTab;
     await waitForAITabCardState(chatTab.linkedBrowser, "complete");
+    const opened = Glean.smartWindow.aitabOpen.testGetValue();
+    Assert.equal(
+      opened?.length,
+      1,
+      "Opening the page from the card is recorded"
+    );
+    Assert.equal(opened[0].extra.open_target, "new");
+    Assert.equal(opened[0].extra.card_state, "choose");
+    Assert.ok(opened[0].extra.chat_id, "The open shares the chat id");
+
+    const selected = BrowserTestUtils.waitForEvent(
+      win.gBrowser.tabContainer,
+      "TabSelect",
+      false,
+      event => event.target === newTab
+    );
+    await clickCompletedAITabTitle(chatTab.linkedBrowser);
+    await selected;
+    const revisited = Glean.smartWindow.aitabOpen.testGetValue();
+    Assert.equal(
+      revisited.length,
+      2,
+      "A later open from the finished card is recorded"
+    );
+    Assert.equal(revisited[1].extra.card_state, "complete");
+    Assert.equal(revisited[1].extra.open_target, "new");
     BrowserTestUtils.removeTab(newTab);
   });
 });

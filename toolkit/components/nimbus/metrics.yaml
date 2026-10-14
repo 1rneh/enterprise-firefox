@@ -1339,6 +1339,40 @@ nimbus_events:
       - project-nimbus@mozilla.com
     expires: never
 
+  rollouts_opt_out:
+    type: event
+    description: >
+      Emitted when a user opts out of rollouts (remote improvements).
+
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2081293
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2081293
+
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - beth@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: never
+
+  studies_opt_out:
+    type: event
+    description: >
+      Emitted when a user opts out of studies (experiments).
+
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2081293
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2081293
+
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - beth@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: never
+
 normandy:
   expose_nimbus_experiment:
     type: event

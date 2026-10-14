@@ -197,7 +197,7 @@ export const PREF_WIDGETS_SYSTEM_HOROSCOPES_ENABLED =
  * @property {boolean} [requiresWidgetSearchSap] - When true, the widget is hidden entirely on hosts whose search code is too old to generate accurate partner codes. See isWidgetDataUnavailable.
  * @property {boolean} [retired] - When true the widget never renders and gets no settings or devtools toggle, whatever its prefs and trainhopConfig say.
  * @property {boolean} [skipNightlyDefault] - When true, the widget opts out of being on everywhere in Nightly. See skipsNightlyDefault in lib/ActivityStream.sys.mjs.
- * @property {string|null} [trainhopNamespace] - When set, the widget ships its whole config in one dedicated object at trainhopConfig.<namespace>. Its `enabled` overrides the default value of enabledPref on the default branch (user toggle still wins, like widgetsSettings.*Enabled); `visible` reveals the widget (isWidgetAddable) without writing a pref; `size` is read by resolveWidgetSize. Picture of the Day, Crossword, Privacy, Recent Searches and Horoscopes use this today.
+ * @property {string|null} [trainhopNamespace] - When set, the widget ships its whole config in one dedicated object at trainhopConfig.<namespace>. Its `enabled` overrides the default value of enabledPref on the default branch (user toggle still wins, like widgetsSettings.*Enabled); `visible` reveals the widget (isWidgetAddable) without writing a pref; `size` is read by resolveWidgetSize. All widgets define this today.
  */
 
 // If you add a widget market pref to firefox.js that older hosts don't have,
@@ -241,6 +241,7 @@ export const WIDGET_REGISTRY = [
     trainhopSidebarKey: null,
     widgetsSettingsVisibleKey: "clocksVisible",
     widgetsSettingsEnabledKey: "clocksEnabled",
+    trainhopNamespace: "widgetClocks",
   },
   {
     id: "lists",
@@ -259,6 +260,7 @@ export const WIDGET_REGISTRY = [
     trainhopSidebarKey: null,
     widgetsSettingsVisibleKey: "listsVisible",
     widgetsSettingsEnabledKey: "listsEnabled",
+    trainhopNamespace: "widgetLists",
   },
   {
     id: "focusTimer",
@@ -277,6 +279,7 @@ export const WIDGET_REGISTRY = [
     trainhopSidebarKey: null,
     widgetsSettingsVisibleKey: "focusTimerVisible",
     widgetsSettingsEnabledKey: "focusTimerEnabled",
+    trainhopNamespace: "widgetFocusTimer",
   },
   {
     id: "weather",
@@ -295,6 +298,7 @@ export const WIDGET_REGISTRY = [
     trainhopSidebarKey: "weatherSidebar",
     widgetsSettingsVisibleKey: "weatherVisible",
     widgetsSettingsEnabledKey: "weatherEnabled",
+    trainhopNamespace: "widgetWeather",
   },
   {
     id: "privacy",
@@ -352,6 +356,7 @@ export const WIDGET_REGISTRY = [
     trainhopSidebarKey: null,
     widgetsSettingsVisibleKey: "stocksVisible",
     widgetsSettingsEnabledKey: "stocksEnabled",
+    trainhopNamespace: "widgetStocks",
   },
   {
     id: "recentSearches",
@@ -512,8 +517,9 @@ export function isWidgetToggleVisible(widget, prefs) {
 }
 
 /**
- * Returns true if Weather may be shown at all: when system.showWeather or
- * trainhopConfig.weather.enabled is set, or when widgetsSettings.weatherVisible
+ * Returns true if Weather may be shown at all: when system.showWeather,
+ * trainhopConfig.widgetWeather.visible or trainhopConfig.weather.enabled is
+ * set, or when widgetsSettings.weatherVisible
  * overrides both. Base.jsx uses it for the customize menu's Weather row and
  * the page-level Weather styling; the widgets panel uses it for its Weather
  * toggle.
@@ -524,6 +530,7 @@ export function isWidgetToggleVisible(widget, prefs) {
 export function isWeatherAvailable(prefs) {
   return Boolean(
     prefs["system.showWeather"] ||
+    prefs.trainhopConfig?.widgetWeather?.visible ||
     prefs.trainhopConfig?.weather?.enabled ||
     prefs.trainhopConfig?.widgetsSettings?.weatherVisible
   );

@@ -61,10 +61,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   generateConversationStartersSidebar:
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
-  generateResumeActivityConversationStarters:
-    "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
-  constructConversationToResumeActivity:
-    "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
+  JourneyManager:
+    "moz-src:///browser/components/aiwindow/models/memories/journeys/JourneyManager.sys.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
   getAllModelsData:
@@ -1416,8 +1414,7 @@ export class AIWindow extends MozLitElement {
         await this.#refreshHasMemories();
 
         if (this.#resumeActivityMemoriesEnabled) {
-          resumeStartersPromise =
-            lazy.generateResumeActivityConversationStarters();
+          resumeStartersPromise = lazy.JourneyManager.suggestJourneysToResume();
 
           if (this.resumeCardsPref) {
             this.resumeCardsLoading = true;
@@ -2419,13 +2416,14 @@ export class AIWindow extends MozLitElement {
     try {
       if (this.#resumeActivityMemoriesEnabled) {
         try {
-          conversation = await lazy.constructConversationToResumeActivity(
-            {
-              memory: resumePrompt.memory,
-              content: resumePrompt.content,
-            },
-            conversationAtClick?.id
-          );
+          conversation =
+            await lazy.JourneyManager.constructConversationToResumeJourney(
+              {
+                memory: resumePrompt.memory,
+                content: resumePrompt.content,
+              },
+              conversationAtClick?.id
+            );
           hasBespokeSystemPrompt = !!conversation;
         } catch (e) {
           lazy.log.error(

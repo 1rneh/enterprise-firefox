@@ -123,9 +123,3 @@
 
 ```{js:autofunction} RustAutofill.sys.createAutofillStoreWithStaticKeyManager
 ```
-
-```{js:autofunction} RustAutofill.sys.createManagedEncdec
-```
-
-```{js:autofunction} RustAutofill.sys.createStaticKeyManager
-```

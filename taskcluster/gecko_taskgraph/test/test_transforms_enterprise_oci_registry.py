@@ -4,6 +4,7 @@
 
 import pytest
 from mozunit import main
+from taskgraph.task import Task
 
 from gecko_taskgraph.test.conftest import FakeParameters
 from gecko_taskgraph.transforms import enterprise_oci_registry as oci
@@ -82,7 +83,7 @@ def test_the_tag_kind_is_left_alone(run_transform):
     result = run_transform(
         oci.drop_repacks_without_a_registry,
         tasks(),
-        kind="enterprise-oci-tag",
+        kind=oci.TAG_KIND,
         params=params(),
     )
     assert repacks(result) == list(REPACK_CONFIGS)
@@ -112,6 +113,45 @@ def test_a_non_production_release_keeps_the_dev_registry(run_transform):
         graph_config={"release-branches": {"enterprise-firefox": True}},
     )
     assert [t["worker"]["env"]["REGISTRY_REFERENCE"] for t in result] == [DEV_REFERENCE]
+
+
+@pytest.mark.parametrize("level", ("1", "3"))
+def test_the_tag_task_uses_the_registry_of_its_upload_task(run_transform, level):
+    """Whatever registry the upload staged the release in, the tag moves the
+    tag there, with that registry's credentials."""
+    upload = Task(
+        kind=oci.UPLOAD_KIND,
+        label="enterprise-oci-upload-smp-prodGCP",
+        attributes={},
+        task={
+            "extra": {"repack_config": "smp/prodGCP"},
+            "payload": {"env": {"REGISTRY_REFERENCE": PARTNER_REFERENCE}},
+        },
+    )
+    tag = {
+        "name": "smp-prodGCP",
+        "attributes": {"primary-dependency-label": upload.label},
+        "worker": {"env": {}},
+        "scopes": ["secrets:get:project/enterprise/level-{level}/oci-registry/{name}"],
+    }
+    extra_config = {
+        "kind": oci.TAG_KIND,
+        "params": params(level=level),
+        "graph_config": {"release-branches": {"enterprise-firefox": True}},
+        "kind_dependencies_tasks": {upload.label: upload},
+    }
+    result = run_transform(
+        oci.set_registry_secret,
+        run_transform(oci.set_registry_reference, [tag], **extra_config),
+        **extra_config,
+    )
+    [env] = [t["worker"]["env"] for t in result]
+    assert env == {
+        "REGISTRY_REFERENCE": PARTNER_REFERENCE,
+        "REGISTRY_SECRET": (
+            f"project/enterprise/level-{level}/oci-registry/firefox_enterprise"
+        ),
+    }
 
 
 def test_a_registry_naming_no_repository_is_refused(run_transform):

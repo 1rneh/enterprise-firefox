@@ -14,10 +14,10 @@ verb (``upload``/``tag``) taken from the kind name.
 The upload task also gets the registry to publish to. Its kind defaults
 ``REGISTRY_REFERENCE`` to the dev registry, and only a production release
 replaces it with the ``registry_reference`` the partner declares in repack.cfg.
-A repack whose repack.cfg declares none is not published at all. The
-credentials secret follows whichever reference the task ended up with. Tagging
-needs no lookup: it reads the reference back from the upload task's
-``release-index.json``.
+A repack whose repack.cfg declares none is not published at all. The tag task
+takes its reference from the upload task it depends on, so both always talk to
+the same registry. The credentials secret follows whichever reference the task
+ended up with.
 """
 
 from urllib.parse import urlparse
@@ -29,6 +29,7 @@ from taskgraph.util.dependencies import get_primary_dependency
 transforms = TransformSequence()
 
 UPLOAD_KIND = "enterprise-oci-upload"
+TAG_KIND = "enterprise-oci-tag"
 
 
 @transforms.add
@@ -106,7 +107,18 @@ def set_registry_reference(config, tasks):
     partner declares in repack.cfg. It is stored there as an https url (see
     ``partners.parse_config``) and cut down here to the bare ``registry/repo``
     reference ``moa push release`` takes.
+
+    The tag kind copies the reference of the upload task it depends on.
     """
+    if config.kind == TAG_KIND:
+        for task in tasks:
+            dep = get_primary_dependency(config, task)
+            assert dep
+            env = task.setdefault("worker", {}).setdefault("env", {})
+            env["REGISTRY_REFERENCE"] = dep.task["payload"]["env"]["REGISTRY_REFERENCE"]
+            yield task
+        return
+
     is_production = (
         release_level(config.graph_config["release-branches"], config.params)
         == "production"

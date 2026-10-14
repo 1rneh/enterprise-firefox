@@ -51,14 +51,8 @@ const { _setRemoteClientForTesting, _clearRemoteClientForTesting } =
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
   );
 
-// Aliased to avoid colliding with ChatConversation.sys.mjs's own _setLoadPromptForTesting above.
-const {
-  _setLoadPromptForTesting: _setConversationSuggestionsLoadPromptForTesting,
-  _setBuildConversationForTesting,
-  _setGetConversationsByIdForTesting,
-  _clearResumeActivityCacheForTesting,
-} = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs"
+const { JourneyManager } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/memories/journeys/JourneyManager.sys.mjs"
 );
 
 const {
@@ -567,13 +561,13 @@ async function _stubResumeActivityGenerationCore(
   // Keep cached results from being filtered as deleted.
   sb.stub(MemoriesManager, "getAllMemories").resolves(memories);
   // Prevent cached results and dismissals from leaking between tests.
-  _clearResumeActivityCacheForTesting();
+  JourneyManager._clearResumeActivityCacheForTesting();
   _clearDismissedResumeMemoriesForTesting();
-  _setGetConversationsByIdForTesting(async () => []);
-  _setConversationSuggestionsLoadPromptForTesting(async () => ({
+  JourneyManager._setGetConversationsByIdForTesting(async () => []);
+  JourneyManager._setLoadPromptForTesting(async () => ({
     prompt: "Test prompt",
   }));
-  _setBuildConversationForTesting(async () => ({
+  JourneyManager._setBuildConversationForTesting(async () => ({
     setSystemMessage() {},
     addUserMessage() {},
     securityProperties: {
@@ -594,10 +588,10 @@ async function _stubResumeActivityGenerationCore(
     getMemoriesStub,
     memories,
     async cleanup() {
-      _setGetConversationsByIdForTesting(null);
-      _setConversationSuggestionsLoadPromptForTesting(null);
-      _setBuildConversationForTesting(null);
-      _clearResumeActivityCacheForTesting();
+      JourneyManager._setGetConversationsByIdForTesting(null);
+      JourneyManager._setLoadPromptForTesting(null);
+      JourneyManager._setBuildConversationForTesting(null);
+      JourneyManager._clearResumeActivityCacheForTesting();
       _clearDismissedResumeMemoriesForTesting();
       for (const { url } of urls) {
         await PlacesUtils.history.remove(url);

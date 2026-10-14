@@ -1,4 +1,4 @@
-// |jit-test| --enable-arraybuffer-immutable
+// |jit-test| --enable-arraybuffer-immutable; skip-if: !ArrayBuffer.prototype.transferToImmutable
 
 const handler = {get() { return 71; }};
 function read(receiver) { return receiver[0]; }

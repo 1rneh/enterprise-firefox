@@ -40,6 +40,8 @@ skip-if = [
 
 ["browser_autocomplete_unrecognized_attribute.js"]
 
+["browser_autocomplete_unrecognized_attribute_dynamic.js"]
+
 ["browser_autofill_address_housenumber.js"]
 
 ["browser_autofill_address_level.js"]

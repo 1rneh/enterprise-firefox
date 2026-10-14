@@ -10915,7 +10915,7 @@
 # https://drafts.csswg.org/css-anchor-position-1/#determining
 - name: layout.css.anchor-positioning.follows-transforms.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -19243,10 +19243,7 @@
   mirror: always
 
 # This is checked at startup to see if NSS should be initialized without the
-# user's certificate and key databases. `always`-mirrored (not `once`) because
-# NSS can be initialized before user prefs are read (at-rest SQLite encryption
-# brings NSS up early to avoid a worker-thread deadlock); a `once` read there
-# would prematurely snapshot every once-mirrored pref at its default.
+# user's certificate and key databases.
 - name: security.nocertdb
   type: RelaxedAtomicBool
   value: false
@@ -19286,12 +19283,10 @@
   mirror: always
 
 # If true, load PKCS#11 third-party modules in a dedicated utility process
-# rather than the main process. (Well, that's the long-term goal for the code
-# paths behind this pref, but right now this is still work in progress!)
-# `always`-mirrored (not `once`) because psm::InitializeNSS reads it, and NSS
-# can be initialized before user prefs are read (at-rest SQLite encryption
-# brings NSS up early to avoid a worker-thread deadlock); a `once` read there
-# would prematurely snapshot every once-mirrored pref at its default.
+# rather than the main process.
+# Don't use directly in C++. Use PKCS11ModuleDB::UtilityProcessEnabled().
+# (A custom mirror-once-like mechanism is used to avoid use of this pref
+# causing all mirror-once prefs to cache their values too early in startup.)
 - name: security.utility_pkcs11_module_process.enabled
   type: RelaxedAtomicBool
   value: false

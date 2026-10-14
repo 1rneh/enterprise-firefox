@@ -19,3 +19,9 @@ export interface BooleanSetting extends BaseSetting {
 }
 
 export type Setting = BooleanSetting;
+
+export interface SettingSection {
+  id: string;
+  l10nId: string;
+  settings: ReadonlyArray<Setting>;
+}

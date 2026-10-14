@@ -413,7 +413,9 @@ export class PageExtractorChild extends JSWindowActorChild {
             async youtubeEvent => {
               const result = await lazy.getYouTubeContent(document, {
                 timeoutMs: lazy.youtubeTimeoutMs,
-                sufficientLength: options.sufficientLength,
+                sufficientLength:
+                  options.sufficientTranscriptLength ??
+                  options.sufficientLength,
                 currentVideoId: sourceUrl.searchParams.get("v"),
               });
               youtubeEvent.finish({

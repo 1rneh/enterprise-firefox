@@ -1013,6 +1013,23 @@ function add_cert_override_test(aHost, aExpectedError) {
   });
 }
 
+// The asynchronous version of `add_cert_override_test`. Preferred for new
+// code or for substantial changes to existing tests.
+async function certOverrideTest(aHost, aExpectedError) {
+  await asyncConnectTo(
+    aHost,
+    aExpectedError,
+    add_cert_override.bind(this, aHost)
+  );
+  await asyncConnectTo(aHost, PRErrorCodeSuccess, aSecurityInfo => {
+    Assert.ok(
+      aSecurityInfo.securityState &
+        Ci.nsIWebProgressListener.STATE_CERT_USER_OVERRIDDEN,
+      "Cert override flag should be set on the security state"
+    );
+  });
+}
+
 // Helper function for add_prevented_cert_override_test. This is much like
 // add_cert_override except it may not be the case that the connection has an
 // SecInfo set on it. In this case, the error was not overridable anyway, so
@@ -1041,6 +1058,17 @@ function add_prevented_cert_override_test(aHost, aExpectedError) {
     attempt_adding_cert_override.bind(this, aHost)
   );
   add_connection_test(aHost, aExpectedError);
+}
+
+// The asynchronous version of `add_prevented_cert_override_test`. Preferred
+// for new code or for substantial changes to existing tests.
+async function preventedCertOverrideTest(aHost, aExpectedError) {
+  await asyncConnectTo(
+    aHost,
+    aExpectedError,
+    attempt_adding_cert_override.bind(this, aHost)
+  );
+  await asyncConnectTo(aHost, aExpectedError);
 }
 
 // Helper for asyncTestCertificateUsages.
@@ -1374,7 +1402,7 @@ const CT_MODE_DISABLE = 0;
 const CT_MODE_COLLECT_TELEMETRY = 1;
 const CT_MODE_ENFORCE = 2;
 
-// Helper function for add_ct_test. Returns a function that checks that the
+// Helper function for ctTest. Returns a function that checks that the
 // nsITransportSecurityInfo of the connection has the expected CT and resumed
 // statuses.
 function expectCT(expectedCTValue, expectedResumed) {
@@ -1392,27 +1420,25 @@ function expectCT(expectedCTValue, expectedResumed) {
   };
 }
 
-// Helper function to add a certificate transparency test. The connection is
+// Helper function to run a certificate transparency test. The connection is
 // expected to succeed with the given CT status (see nsITransportSecurityInfo).
 // Additionally, if an additional connection is made, it is expected that TLS
 // resumption is used and that the CT status is the same with the resumed
 // connection.
-function add_ct_test(host, expectedCTValue, expectConnectionSuccess) {
-  add_connection_test(
+async function ctTest(host, expectedCTValue, expectConnectionSuccess) {
+  await asyncConnectTo(
     host,
     expectConnectionSuccess
       ? PRErrorCodeSuccess
       : MOZILLA_PKIX_ERROR_INSUFFICIENT_CERTIFICATE_TRANSPARENCY,
-    null,
     expectCT(expectedCTValue, false)
   );
   // Test that session resumption results in the same expected CT status for
   // successful connections.
   if (expectConnectionSuccess) {
-    add_connection_test(
+    await asyncConnectTo(
       host,
       PRErrorCodeSuccess,
-      null,
       expectCT(expectedCTValue, true)
     );
   }

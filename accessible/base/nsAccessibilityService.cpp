@@ -615,12 +615,15 @@ void nsAccessibilityService::NotifyOfComputedStyleChange(
   LocalAccessible* accessible = document->GetAccessibleOrDocument(aContent);
 
   if (!accessible && aContent && aContent->HasChildren() &&
-      !aContent->IsInNativeAnonymousSubtree()) {
+      !aContent->IsInNativeAnonymousSubtree() && !aContent->IsXULElement()) {
     // If the content has children and its frame has a transform, create an
     // Accessible so that we can account for the transform when calculating
     // the Accessible's bounds using the parent process cache. Ditto for
     // position: fixed/sticky and content with overflow styling (hidden, auto,
     // scroll)
+    // However, don't do this for XUL widgets, as this breaks XUL a11y code
+    // expectations in some cases. XUL widgets are only used in the parent
+    // process and can't be cached anyway.
     if (const nsIFrame* frame = aContent->GetPrimaryFrame()) {
       const auto& disp = *frame->StyleDisplay();
       if (disp.HasTransform(frame) ||

@@ -1278,6 +1278,11 @@ export class ToolUI {
         chat_id: conversation.id,
         message_seq: conversation.messageCount,
       });
+      Glean.smartWindow.aitabOpen.record({
+        chat_id: conversation.id,
+        open_target: openTarget,
+        card_state: message.toolUIData.properties.state,
+      });
       lazy.SmartWindowTelemetry.recordUriLoad();
       conversation.updateToolUI(
         message,

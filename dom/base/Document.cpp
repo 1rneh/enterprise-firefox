@@ -15214,12 +15214,9 @@ already_AddRefed<nsDOMCaretPosition> Document::CaretPositionFromPoint(
     float aX, float aY, const CaretPositionFromPointOptions& aOptions) {
   using FrameForPointOption = nsLayoutUtils::FrameForPointOption;
 
-  nscoord x = nsPresContext::CSSPixelsToAppUnits(aX);
-  nscoord y = nsPresContext::CSSPixelsToAppUnits(aY);
-  nsPoint pt(x, y);
-
   FlushPendingNotifications(FlushType::Layout);
 
+  const nsPoint pt(CSSPixel::ToAppUnits(CSSPoint(aX, aY)));
   PresShell* presShell = GetPresShell();
   if (!presShell) {
     return nullptr;
@@ -15227,7 +15224,7 @@ already_AddRefed<nsDOMCaretPosition> Document::CaretPositionFromPoint(
 
   nsIFrame* rootFrame = presShell->GetRootFrame();
 
-  // XUL docs, unlike HTML, have no frame tree until everything's done loading
+  // XUL docs, unlike HTML, have no frame tree until everything's done loading.
   if (!rootFrame) {
     return nullptr;
   }
@@ -15267,8 +15264,11 @@ already_AddRefed<nsDOMCaretPosition> Document::CaretPositionFromPoint(
     // If the anonymous content node has a child, then we need to make sure
     // that we get the appropriate child, as otherwise the offset may not be
     // correct when we construct a range for it.
+    // TODO(emilio): The code here only works if `anonNode` is either the text
+    // or the editor root, should probably deal with other cases, or bail out...
     if (nsINode* firstChild = anonNode->GetFirstChild()) {
       anonNode = firstChild;
+      offset = offset == 0 ? 0 : firstChild->Length();
     }
     node = nonChrome;
   }

@@ -161,3 +161,8 @@ SOURCE_HEADERS += [
 	"hb-vector.h",
 	"hb-wasm-api.h",
 ]
+
+# The text is upstream's COPYING, which lists the current copyright holders.
+LICENSES += ['harfbuzz']
+LICENSES['harfbuzz'].title = 'HarfBuzz License'
+LICENSES['harfbuzz'].paths = ['gfx/harfbuzz']

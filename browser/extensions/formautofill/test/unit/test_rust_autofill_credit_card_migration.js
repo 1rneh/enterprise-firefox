@@ -102,7 +102,7 @@ const rustNumber = async guid =>
 
 async function setupStorageWithCards(fileName, names) {
   Services.prefs.setBoolPref(ENABLED_PREF, false);
-  Services.prefs.clearUserPref(TEST_MODE_PREF);
+  Services.prefs.setBoolPref(TEST_MODE_PREF, false);
   Services.prefs.clearUserPref(ACTIVE_PREF);
   Services.prefs.clearUserPref(TEST_VERSION_PREF);
   Services.prefs.clearUserPref(ATTEMPTS_PREF);
@@ -236,17 +236,16 @@ add_task(async function test_a_decrypt_failure_refuses_rather_than_copies() {
   const before = await Promise.all(guids.map(g => s.creditCards.get(g)));
 
   // The source is the Rust store here, so it is its key that stops answering.
-  // It answers for the first card -- so the copy is allowed to start -- and
-  // then fails the read of the second. That number cannot be recovered, so the
-  // card must not be copied at all: writing it with a re-derived number would
-  // encrypt the mask in place of the card, and that damage is permanent where
-  // the failure was not.
+  // It answers for the first card and then fails the read of the second. That
+  // number cannot be recovered, so the card must not be copied at all: writing
+  // it with a re-derived number would encrypt the mask in place of the card,
+  // and that damage is permanent where the failure was not.
   const store = await rustStore();
   const realGet = store.getCreditCard.bind(store);
   let calls = 0;
   store.getCreditCard = async function (guid) {
-    // One for the readability check, one for the first record's export.
-    if (++calls > 2) {
+    // The first record's export.
+    if (++calls > 1) {
       throw new CryptoError("decryption failed");
     }
     return realGet(guid);
@@ -277,13 +276,13 @@ add_task(async function test_a_decrypt_failure_refuses_rather_than_copies() {
   await s._finalize();
 });
 
-add_task(async function test_unreadable_numbers_defer_the_migration() {
+add_task(async function test_unreadable_numbers_fail_the_attempt() {
   let { s } = await setupStorageWithCards("cc-mig-locked.json", ["Ann One"]);
 
-  // Nothing can be decrypted at all, so nothing is attempted: a copy that
-  // stopped halfway would leave the profile split across two stores, and
-  // spending the retry budget on a key store that is merely locked would cost
-  // the migration permanently after three launches.
+  // The OS key store is unlocked, so nothing defers the copy, but no number
+  // decrypts. The copy fails rather than carrying the card without its number:
+  // reported, counted against the retry budget, and the profile left on JSON.
+  // A key store that is merely locked defers instead, without spending one.
   const realDecrypt = OSKeyStore.decrypt;
   OSKeyStore.decrypt = async function () {
     const e = new Error("keystore unavailable");
@@ -297,11 +296,13 @@ add_task(async function test_unreadable_numbers_defer_the_migration() {
   }
 
   Assert.ok(!getBool(ACTIVE_PREF), "the migration did not happen");
-  Assert.equal(migrationEvents().length, 0, "and nothing was reported");
+  const [event] = migrationEvents();
+  Assert.equal(event?.extra.result, "error", "and was reported as a failure");
+  Assert.equal(event.extra.failed, "1", "with the unreadable card failed");
   Assert.equal(
     Services.prefs.getIntPref(ATTEMPTS_PREF, 0),
-    0,
-    "a deferral is not a failed attempt"
+    1,
+    "spending an attempt"
   );
 
   // Readable again, the next launch migrates normally.
@@ -313,6 +314,10 @@ add_task(async function test_unreadable_numbers_defer_the_migration() {
 
 add_task(async function test_an_empty_profile_never_touches_the_key_store() {
   let { s } = await setupStorageWithCards("cc-mig-empty.json", []);
+  // As a session starts, before anything has used the key store: were the
+  // no-records shortcut gone, the copy would wait on an unlock that no card
+  // is there to cause.
+  OSKeyStore._isLocked = true;
 
   // Most profiles have no cards. Asking the key store whether it can decrypt
   // nothing would create a key store entry for all of them, so it is not asked.
@@ -336,6 +341,7 @@ add_task(async function test_an_empty_profile_never_touches_the_key_store() {
 
   Assert.equal(touched, 0, "the key store was not consulted");
   Assert.ok(getBool(ACTIVE_PREF), "and an empty profile still migrates");
+  Assert.ok(!observesUnlock(), "without waiting on an unlock");
 
   await s._finalize();
 });
@@ -401,6 +407,40 @@ add_task(async function test_flipping_the_pref_back_copies_to_json() {
   await s._finalize();
 });
 
+add_task(async function test_an_unreadable_store_starts_without_copying_back() {
+  let { s, guids } = await setupStorageWithCards("cc-mig-unreadable.json", [
+    "Ann One",
+  ]);
+  s = await enableRust(s);
+  const before = migrationEvents().length;
+
+  // As a store whose key can no longer decrypt its cards answers a read.
+  const store = await rustStore();
+  store.getAllCreditCards = async () => {
+    throw new CryptoError("decryption failed");
+  };
+  try {
+    s = await disableRust(s);
+  } finally {
+    delete store.getAllCreditCards;
+  }
+
+  Assert.ok(getBool(ACTIVE_PREF), "the profile is left on the Rust store");
+  Assert.equal(migrationEvents().length, before, "and nothing was copied");
+  Assert.equal(
+    Services.prefs.getIntPref(ATTEMPTS_PREF, 0),
+    0,
+    "without spending an attempt"
+  );
+
+  // Readable again, the next launch copies it back.
+  s = await restart(s);
+  Assert.ok(!getBool(ACTIVE_PREF), "and the next launch copies it back");
+  Assert.ok(await s.creditCards.get(guids[0]), "with the card");
+
+  await s._finalize();
+});
+
 add_task(async function test_no_migration_while_disabled() {
   const { s } = await setupStorageWithCards("cc-mig-none.json", ["Ann One"]);
 
@@ -432,6 +472,11 @@ add_task(async function test_dry_run_measures_and_then_undoes_itself() {
 
   await s._finalize();
 });
+
+// Only a storage's credit card migration observes this topic, and only while
+// a copy waits on it.
+const observesUnlock = () =>
+  !![...Services.obs.enumerateObservers(OSKeyStore.UNLOCKED_TOPIC)].length;
 
 add_task(async function test_a_changed_number_is_reported_as_divergence() {
   let { s } = await setupStorageWithCards("cc-mig-diverge.json", ["Ann One"]);
@@ -500,7 +545,7 @@ add_task(async function test_what_each_store_derives_is_not_a_divergence() {
   await s._finalize();
 });
 
-add_task(async function test_a_scrubbed_store_defers_the_copy_back() {
+add_task(async function test_a_scrubbed_store_fails_the_copy_back() {
   let { s, guids } = await setupStorageWithCards("cc-mig-scrubbed.json", [
     "Ann One",
     "Bob Two",
@@ -511,22 +556,20 @@ add_task(async function test_a_scrubbed_store_defers_the_copy_back() {
   // scrubEncryptedData() blanks the ciphertext and keeps the last four digits,
   // so every record reads back as a mask with no number behind it. Handing
   // that over would have the receiving store encrypt the mask in place of the
-  // card, so the copy is not attempted at all.
+  // card, so each card fails its export and the copy fails with them.
   const store = await rustStore();
   await store.scrubEncryptedData();
 
   s = await disableRust(s);
 
   Assert.ok(getBool(ACTIVE_PREF), "the profile is left on the Rust store");
-  Assert.equal(
-    migrationEvents().length,
-    before,
-    "and the copy was deferred rather than run and reported"
-  );
+  const event = migrationEvents()[before];
+  Assert.equal(event?.extra.result, "error", "and the copy reported a failure");
+  Assert.equal(event.extra.failed, "2", "with both cards failed");
   Assert.equal(
     Services.prefs.getIntPref(ATTEMPTS_PREF, 0),
-    0,
-    "a deferral is not a failed attempt"
+    1,
+    "spending an attempt"
   );
 
   for (const guid of guids) {

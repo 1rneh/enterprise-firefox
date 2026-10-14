@@ -8,7 +8,7 @@ import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { inventory } from "../inventory.mjs";
 
 /**
- * @import { Setting } from "../types/inventory.d.ts"
+ * @import { Setting, SettingSection } from "../types/inventory.d.ts"
  */
 
 /** Renders the settings inventory as nested binding elements and controls. */
@@ -33,8 +33,17 @@ export class DevToolsSettings extends MozLitElement {
     }
   }
 
+  /** @param {SettingSection} section */
+  #renderSection(section) {
+    return html`
+      <moz-fieldset id=${section.id} data-l10n-id=${section.l10nId}>
+        ${section.settings.map(setting => this.#renderSetting(setting))}
+      </moz-fieldset>
+    `;
+  }
+
   render() {
-    return inventory.map(setting => this.#renderSetting(setting));
+    return inventory.map(section => this.#renderSection(section));
   }
 }
 

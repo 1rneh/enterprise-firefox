@@ -71,9 +71,6 @@ support-files = [
 
 ["browser_private_search_perwindowpb.js"]
 
-["browser_remote_override.js"]
-tags = "urlbar"
-
 ["browser_rich_suggestions.js"]
 tags = "urlbar"
 support-files = ["trendingSuggestionEngine.sjs"]

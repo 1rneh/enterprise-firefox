@@ -448,6 +448,7 @@ export const SpecialMessageActions = {
     const allowedSetOnImpressionPrefs = [
       "termsofuse.firstAcceptedDate",
       "termsofuse.acceptedDate",
+      "browser.startup.couldRestoreSession.count",
     ];
 
     // allowedPrefs above is the in-tree baseline. It can be extended off-train
@@ -1203,6 +1204,9 @@ export const SpecialMessageActions = {
         await window.PanelUI.showSubView(panel_id, anchor);
         break;
       }
+      case "SELECT_AND_MARK_MENU_ITEM":
+        await window.PanelUI.selectAndMarkItem([...action.data.itemIds]);
+        break;
       case "CREATE_TASKBAR_TAB": {
         let currentTab = window.gBrowser.selectedTab;
         await lazy.TaskbarTabs.moveTabIntoTaskbarTab(currentTab);

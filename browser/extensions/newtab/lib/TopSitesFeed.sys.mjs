@@ -167,6 +167,7 @@ function getTopSitesCount(prefValues) {
 // Smart shortcuts
 import { RankShortcutsProvider } from "resource://newtab/lib/SmartShortcutsRanker/RankShortcuts.mjs";
 import { FrecencyBoostProvider } from "resource://newtab/lib/FrecencyBoostProvider/FrecencyBoostProvider.mjs";
+import { SponsoredTopSitesScoreProvider } from "resource://newtab/lib/SponsoredTopSitesScoreProvider/SponsoredTopSitesScoreProvider.mjs";
 
 const PREF_SYSTEM_SHORTCUTS_PERSONALIZATION =
   "discoverystream.shortcuts.personalization.enabled";
@@ -1049,6 +1050,9 @@ export class TopSitesFeed {
     Services.prefs.addObserver(DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH, this);
     lazy.NimbusFeatures.newtab.onUpdate(this._nimbusChangeListener);
     this.frecencyBoostProvider.init();
+    SponsoredTopSitesScoreProvider.init(
+      () => this.store.getState().Prefs.values.adsBackendConfig
+    );
   }
 
   uninit() {
@@ -1061,6 +1065,7 @@ export class TopSitesFeed {
     Services.prefs.removeObserver(DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH, this);
     lazy.NimbusFeatures.newtab.offUpdate(this._nimbusChangeListener);
     this.frecencyBoostProvider.uninit();
+    SponsoredTopSitesScoreProvider.uninit();
   }
 
   observe(subj, topic, data) {

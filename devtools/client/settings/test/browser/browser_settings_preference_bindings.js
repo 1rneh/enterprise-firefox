@@ -13,8 +13,10 @@ async function test_independent_preference_bindings() {
   await pushPref(RULERS_PREF, true);
   await pushPref(SCREENSHOT_PREF, false);
   const { toolbox, root } = await openSettings();
-  const rulers = root.shadowRoot.querySelector("#rulers-setting");
-  const screenshot = root.shadowRoot.querySelector("#screenshot-setting");
+  const rulers = root.shadowRoot.querySelector("#settings-toolbox-rulers");
+  const screenshot = root.shadowRoot.querySelector(
+    "#settings-toolbox-screenshot"
+  );
   await Promise.all([
     rulers.closest("devtools-settings-pref").updateComplete,
     screenshot.closest("devtools-settings-pref").updateComplete,

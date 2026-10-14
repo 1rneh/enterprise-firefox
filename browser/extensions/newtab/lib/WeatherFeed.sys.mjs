@@ -78,7 +78,10 @@ export class WeatherFeed {
       ? values[PREF_WIDGETS_WEATHER_ENABLED]
       : values[PREF_SHOW_WEATHER];
     const systemValue = values[PREF_SYSTEM_SHOW_WEATHER];
-    const experimentValue = values.trainhopConfig?.weather?.enabled || false;
+    const experimentValue =
+      values.trainhopConfig?.widgetWeather?.visible ||
+      values.trainhopConfig?.weather?.enabled ||
+      false;
     return userValue && (systemValue || experimentValue);
   }
 
@@ -345,7 +348,8 @@ export class WeatherFeed {
           const { values: prefValues } = this.store.getState().Prefs;
           const optInRequired =
             prefValues["system.showWeatherOptIn"] ||
-            prefValues.trainhopConfig?.weather?.weatherOptInEnabled;
+            (prefValues.trainhopConfig?.widgetWeather?.weatherOptInEnabled ??
+              prefValues.trainhopConfig?.weather?.weatherOptInEnabled);
           // @nova-cleanup(remove-conditional): Remove the PREF_NOVA_ENABLED guard
           // once the legacy widget is gone; the opt-in fetch gate should then apply
           // unconditionally. The guard exists because the legacy widget renders its
@@ -387,7 +391,8 @@ export class WeatherFeed {
             (values["widgets.system.weatherForecast.enabled"] ||
               values.trainhopConfig?.widgets?.weatherForecastEnabled)) ||
             values["widgets.system.weather.enabled"] ||
-            values.trainhopConfig?.widgets?.weatherEnabled);
+            values.trainhopConfig?.widgets?.weatherEnabled ||
+            values.trainhopConfig?.widgetWeather?.visible);
 
         const [reportResult, hourlyResult] = await Promise.all([
           this.merino.fetchWeatherReport({

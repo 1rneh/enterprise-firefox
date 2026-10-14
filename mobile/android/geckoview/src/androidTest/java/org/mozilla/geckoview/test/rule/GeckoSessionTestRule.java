@@ -1455,8 +1455,14 @@ public class GeckoSessionTestRule implements TestRule {
 
   /** Internal method to perform callback checks at the end of a test. */
   public void performTestEndCheck() {
-    mWaitScopeDelegates.clearAndAssert();
-    mTestScopeDelegates.clearAndAssert();
+    final ErrorCollector errorCollector = mErrorCollector;
+    mErrorCollector = null;
+    try {
+      mWaitScopeDelegates.clearAndAssert();
+      mTestScopeDelegates.clearAndAssert();
+    } finally {
+      mErrorCollector = errorCollector;
+    }
   }
 
   protected void cleanupRuntime(final GeckoRuntime runtime) {
@@ -1645,7 +1651,7 @@ public class GeckoSessionTestRule implements TestRule {
     methodCalls.add(
         new MethodCall(session, sOnPageStop, new CallRequirement(/* allowed */ true, count, null)));
 
-    waitUntilCalled(session, GeckoSession.ProgressDelegate.class, methodCalls, null);
+    waitUntilCalled(session, GeckoSession.ProgressDelegate.class, methodCalls, null, false);
   }
 
   /**
@@ -1653,7 +1659,8 @@ public class GeckoSessionTestRule implements TestRule {
    * session. If no methods are specified, wait until any method has been called.
    *
    * @param callback Target callback interface; must be an interface under GeckoSession.
-   * @param methods List of methods to wait on; use empty or null or wait on any method.
+   * @param methods Names of methods to wait on, each satisfied by a call to any of its overloads;
+   *     use empty or null to wait on any method.
    */
   public void waitUntilCalled(
       final @NonNull KClass<?> callback, final @Nullable String... methods) {
@@ -1666,7 +1673,8 @@ public class GeckoSessionTestRule implements TestRule {
    *
    * @param session Session to wait on, or null to wait on any session.
    * @param callback Target callback interface; must be an interface under GeckoSession.
-   * @param methods List of methods to wait on; use empty or null or wait on any method.
+   * @param methods Names of methods to wait on, each satisfied by a call to any of its overloads;
+   *     use empty or null to wait on any method.
    */
   public void waitUntilCalled(
       final @Nullable GeckoSession session,
@@ -1680,7 +1688,8 @@ public class GeckoSessionTestRule implements TestRule {
    * session. If no methods are specified, wait until any method has been called.
    *
    * @param callback Target callback interface; must be an interface under GeckoSession.
-   * @param methods List of methods to wait on; use empty or null or wait on any method.
+   * @param methods Names of methods to wait on, each satisfied by a call to any of its overloads;
+   *     use empty or null to wait on any method.
    */
   public void waitUntilCalled(final @NonNull Class<?> callback, final @Nullable String... methods) {
     waitUntilCalled(/* session */ null, callback, methods);
@@ -1692,7 +1701,8 @@ public class GeckoSessionTestRule implements TestRule {
    *
    * @param session Session to wait on, or null to wait on any session.
    * @param callback Target callback interface; must be an interface under GeckoSession.
-   * @param methods List of methods to wait on; use empty or null or wait on any method.
+   * @param methods Names of methods to wait on, each satisfied by a call to any of its overloads;
+   *     use empty or null to wait on any method.
    */
   public void waitUntilCalled(
       final @Nullable GeckoSession session,
@@ -1728,7 +1738,7 @@ public class GeckoSessionTestRule implements TestRule {
         isSessionCallback,
         equalTo(true));
 
-    waitUntilCalled(session, callback, waitMethods, null);
+    waitUntilCalled(session, callback, waitMethods, null, true);
   }
 
   /**
@@ -1736,6 +1746,11 @@ public class GeckoSessionTestRule implements TestRule {
    * specified by any {@link AssertCalled @AssertCalled} annotations. If no {@link
    * AssertCalled @AssertCalled} annotations are found, wait until any method has been called. Only
    * methods belonging to a GeckoSession callback are supported.
+   *
+   * <p>An {@link AssertCalled#count} is the number of calls to wait for, not an upper bound: the
+   * wait returns once it is reached, and later calls are not checked against it. To fail on extra
+   * calls, register the delegate with {@link #delegateUntilTestEnd} and wait with {@link
+   * #waitUntilCalled(KClass, String...)}.
    *
    * @param callback Target callback object; must implement an interface under GeckoSession.
    */
@@ -1747,7 +1762,8 @@ public class GeckoSessionTestRule implements TestRule {
    * Wait until the specified methods have been called on the specified object, as specified by any
    * {@link AssertCalled @AssertCalled} annotations. If no {@link AssertCalled @AssertCalled}
    * annotations are found, wait until any method has been called. Only methods belonging to a
-   * GeckoSession callback are supported.
+   * GeckoSession callback are supported. See {@link #waitUntilCalled(Object)} for how {@link
+   * AssertCalled#count} is applied.
    *
    * @param session Session to wait on, or null to wait on any session.
    * @param callback Target callback object; must implement an interface under GeckoSession.
@@ -1786,7 +1802,7 @@ public class GeckoSessionTestRule implements TestRule {
         isSessionCallback,
         equalTo(true));
 
-    waitUntilCalled(session, callback.getClass(), methodCalls, callback);
+    waitUntilCalled(session, callback.getClass(), methodCalls, callback, false);
   }
 
   /**
@@ -1808,7 +1824,8 @@ public class GeckoSessionTestRule implements TestRule {
       final @Nullable GeckoSession session,
       final @NonNull Class<?> delegate,
       final @NonNull List<MethodCall> methodCalls,
-      final @Nullable Object callback) {
+      final @Nullable Object callback,
+      final boolean anyOverload) {
     ThreadUtils.assertOnUiThread();
 
     if (session != null && !session.equals(mMainSession)) {
@@ -1917,6 +1934,10 @@ public class GeckoSessionTestRule implements TestRule {
 
       if (methodCall.allowUnlimitedCalls() || !methodCall.allowMoreCalls()) {
         pendingMethodCalls.remove(methodCall);
+        if (anyOverload) {
+          pendingMethodCalls.removeIf(
+              mc -> mc.method.getName().equals(methodCall.method.getName()));
+        }
       }
 
       if (isDelegate && callback != null) {

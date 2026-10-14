@@ -184,14 +184,6 @@ export var SearchUtils = {
   },
 
   /**
-   * This is the Remote Settings key that we use to get the search engine
-   * configuration overrides.
-   *
-   * @readonly
-   */
-  SETTINGS_OVERRIDES_KEY: "search-config-overrides-v2",
-
-  /**
    * Topic used for observer events involving the service itself.
    *
    * @readonly

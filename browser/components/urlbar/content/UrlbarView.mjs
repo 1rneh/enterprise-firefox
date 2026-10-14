@@ -2738,12 +2738,12 @@ export class UrlbarView {
         break;
       case UrlbarShared.RESULT_TYPE.URL:
         if (result.providerName == "UrlbarProviderClipboard") {
+          isVisitAction = true;
           actionSetter = () => {
             this.#l10nCache.setElementL10n(action, {
               id: "urlbar-result-action-visit-from-clipboard",
             });
           };
-          title.toggleAttribute("is-url", true);
 
           let label = { id: "urlbar-result-action-visit-from-clipboard" };
           this.#l10nCache.ensure(label).then(() => {
@@ -2828,7 +2828,7 @@ export class UrlbarView {
     this.#updateExplanation(item, result, setURL);
 
     title.toggleAttribute("is-url", isVisitAction);
-    if (isVisitAction) {
+    if (isVisitAction && !actionSetter) {
       actionSetter = () => {
         this.#l10nCache.setElementL10n(action, {
           id: "urlbar-result-action-visit",

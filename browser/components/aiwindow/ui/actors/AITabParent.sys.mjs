@@ -76,6 +76,9 @@ export class AITabParent extends JSWindowActorParent {
       case "AITab:OpenLink":
         this.#handleOpenLink(data);
         return null;
+      case "AITab:RecordView":
+        this.#recordView(data);
+        return null;
       default:
         console.warn(`AITabParent received unknown message: ${name}`);
         return null;
@@ -185,6 +188,7 @@ export class AITabParent extends JSWindowActorParent {
       // stranded on the unavailable state with nowhere to go.
       if (page) {
         await AITabStore.deleteBySlug(page.slug);
+        Glean.smartWindow.aitabDelete.record();
 
         // The page is gone from here on. If clearing the conversation fails,
         // the delete the reader asked for still happened, so say so and log
@@ -240,13 +244,16 @@ export class AITabParent extends JSWindowActorParent {
   /**
    * Opens a link from anywhere on a generated page. Kept separate from
    * AIChatContentParent's handler so AI Tab clicks stay out of chat's
-   * recordUriLoad() metric.
+   * recordUriLoad() metric. The click is recorded after the attempt, with
+   * a result of "switch", "new", or "error".
    *
    * @param {object} data
    * @param {string} data.url
    * @param {boolean} [data.preferSwitchToTab]
+   * @param {string} [data.component_type] - Catalog component the link was
+   *   in, the same name creation telemetry records, or "unknown".
    */
-  #handleOpenLink({ url, preferSwitchToTab } = {}) {
+  #handleOpenLink({ url, preferSwitchToTab, component_type } = {}) {
     // Links come from model output, so only http and https are opened.
     // file:, data: and javascript: URLs are dropped, as is a missing or
     // unparseable url: URL.parse returns null for those.
@@ -260,22 +267,49 @@ export class AITabParent extends JSWindowActorParent {
       return;
     }
 
-    if (
-      preferSwitchToTab &&
-      lazy.URILoadingHelper.switchToTabHavingURI(window, url, false, {})
-    ) {
-      return;
+    // The click is the user's choice to open the link, so it is recorded
+    // whether the tab switch or the new load succeeds.
+    let result = "new";
+    try {
+      if (
+        preferSwitchToTab &&
+        lazy.URILoadingHelper.switchToTabHavingURI(window, url, false, {})
+      ) {
+        result = "switch";
+      } else {
+        const { userContextId } =
+          window.gBrowser.selectedBrowser.browsingContext.originAttributes;
+        lazy.URILoadingHelper.openWebLinkIn(window, url, "tab", {
+          triggeringPrincipal:
+            Services.scriptSecurityManager.createNullPrincipal({
+              userContextId,
+            }),
+          userContextId,
+          forceForeground: false,
+        });
+      }
+    } catch (error) {
+      console.error("Could not open an AI Tab link", error);
+      result = "error";
     }
 
-    const { userContextId } =
-      window.gBrowser.selectedBrowser.browsingContext.originAttributes;
-    lazy.URILoadingHelper.openWebLinkIn(window, url, "tab", {
-      triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({
-        userContextId,
-      }),
-      userContextId,
-      forceForeground: false,
-    });
+    Glean.smartWindow.aitabLinkClick.record({ component_type, result });
+  }
+
+  /**
+   * Records the status the page settled on, and whether the heading font
+   * installed. Content is untrusted, so anything other than the three
+   * statuses the page sets is recorded as an error.
+   *
+   * @param {object} data
+   * @param {string} [data.outcome]
+   * @param {string} [data.font]
+   */
+  #recordView(data) {
+    const known = ["ready", "unavailable", "error"];
+    const outcome = known.includes(data?.outcome) ? data.outcome : "error";
+    const font = known.includes(data?.font) ? data.font : "error";
+    Glean.smartWindow.aitabView.record({ outcome, font });
   }
 
   /**

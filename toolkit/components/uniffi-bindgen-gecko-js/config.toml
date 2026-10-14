@@ -23,8 +23,6 @@ Store = "AsyncWrapped"
 # The crypto helpers are pure in-memory CPU work (key passed in, no I/O), so they
 # run synchronously (cf. logins EncryptorDecryptor.encrypt/decrypt, create_key).
 "create_autofill_key" = "Sync"
-"create_static_key_manager" = "Sync"
-"create_managed_encdec" = "Sync"
 # Both store constructors do the same DB work as Store's own constructor.
 "create_autofill_store_with_nss_keymanager" = "AsyncWrapped"
 "create_autofill_store_with_static_key_manager" = "AsyncWrapped"
@@ -226,6 +224,9 @@ StaticKeyManager = "AsyncWrapped"
 "check_canary" = "AsyncWrapped"
 "create_canary" = "AsyncWrapped"
 "create_key" = "AsyncWrapped"
+# Constructing the key manager and the encryptor/decryptor is in-memory work.
+"create_managed_encdec" = "Sync"
+"create_static_key_manager" = "Sync"
 # Trait interfaces, whose vtable methods cannot be async-wrapped. Both are pure
 # in-memory work with the key passed in, so running them on the caller's thread
 # is fine (cf. autofill's crypto helpers).
@@ -240,8 +241,6 @@ LoginStore = "AsyncWrapped"
 LoginsBridgedEngine = "AsyncWrapped"
 "create_login_store_with_nss_keymanager" = "AsyncWrapped"
 "create_login_store_with_static_key_manager" = "AsyncWrapped"
-"create_managed_encdec" = "AsyncWrapped"
-"create_static_key_manager" = "AsyncWrapped"
 
 [breach_alerts.async_wrappers]
 BreachAlertsStore = "AsyncWrapped"

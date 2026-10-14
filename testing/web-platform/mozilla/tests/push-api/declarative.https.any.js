@@ -19,6 +19,7 @@ promise_setup(async () => {
   await trySettingPermission("granted");
   registration = await prepareActiveServiceWorker("push-sw.js", {scope: "/"});
   subscription = await registration.pushManager.subscribe();
+  add_completion_callback(() => subscription.unsubscribe());
 });
 
 async function sendPush(t, message, actionToClick) {

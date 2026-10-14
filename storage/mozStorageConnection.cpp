@@ -1189,6 +1189,7 @@ nsresult Connection::initialize(nsIFile* aDatabaseFile) {
       rv = initializeInternal();
       RecordOpenStatus(rv);
       NS_ENSURE_SUCCESS(rv, rv);
+      failGuard.release();
       return NS_OK;
     }
     // Plaintext (out-of-profile), or a read-only open of a missing database:

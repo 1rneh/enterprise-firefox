@@ -746,7 +746,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commBaseRev: b60e362233df59ef2999a13f470b7985b2c559b3
+                  commBaseRev: 92bd91235864b5788b1da8d55e09df9f521f93c0
                   commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
                   commHeadRef:
                       $if: 'project == "enterprise-firefox-try"'
@@ -757,7 +757,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commHeadRev: b60e362233df59ef2999a13f470b7985b2c559b3
+                  commHeadRev: 92bd91235864b5788b1da8d55e09df9f521f93c0
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}

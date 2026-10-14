@@ -1404,18 +1404,6 @@ def target_tasks_enterprise_any(
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
 
 
-def filter_out_enterprise_oci_tag(full_task_graph, selected_tasks_labels):
-    """
-    Apply filtering to selected_tasks_labels to ensure no enterprise-oci-tag tasks
-    gets scheduled.
-    """
-    return [
-        label
-        for label, task in full_task_graph.tasks.items()
-        if label in selected_tasks_labels and not task.kind == "enterprise-oci-tag"
-    ]
-
-
 def target_tasks_nightly_enterprise_stage(full_task_graph, parameters, graph_config):
     """
     Select the set of tasks required for a nightly build of firefox enterprise
@@ -1443,15 +1431,10 @@ def target_tasks_nightly_enterprise_try(full_task_graph, parameters, graph_confi
 def target_tasks_nightly_enterprise_prod(full_task_graph, parameters, graph_config):
     """
     Select the set of tasks required for a nightly build of firefox enterprise
-    Tailored for nightly prod builds: build will be uploaded to console but
-    make sure it is not tagged ; this justifies the call to
-    filter_out_enterprise_oci_tag()
+    Tailored for nightly prod builds
     """
-    return filter_out_enterprise_oci_tag(
-        full_task_graph,
-        target_tasks_enterprise_any(
-            full_task_graph, parameters, graph_config, {"moz": ["prodGCP"]}
-        ),
+    return target_tasks_enterprise_any(
+        full_task_graph, parameters, graph_config, {"moz": ["prodGCP"]}
     )
 
 

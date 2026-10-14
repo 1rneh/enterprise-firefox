@@ -87,6 +87,7 @@ def test_nightly_schedules_upload_and_tag(graph):
         "smp/stageGCP",
     ]
     assert repacks_of(labels, "enterprise-oci-tag") == [
+        "moz/prodGCP",
         "moz/stageGCP",
         "smp/prodGCP",
         "smp/stageGCP",
@@ -103,9 +104,9 @@ def test_smp_is_tagged_on_both_gcp_targets(graph):
     assert repacks_of(labels, "enterprise-oci-tag") == ["smp/prodGCP", "smp/stageGCP"]
 
 
-def test_moz_is_tagged_on_stage_only(graph):
-    """`moz/prodGCP` reaches the registry but must not be tagged there: the
-    prod variant exists to upload without moving the tag users follow."""
+def test_moz_is_tagged_on_stage_and_prod(graph):
+    """The console only imports tagged builds; serving them to users is gated
+    by the console's own approval setting, not by the tag."""
     stage = target_tasks.target_tasks_nightly_enterprise_stage(graph, PARAMETERS, {})
     prod = target_tasks.target_tasks_nightly_enterprise_prod(graph, PARAMETERS, {})
 
@@ -113,7 +114,7 @@ def test_moz_is_tagged_on_stage_only(graph):
     assert repacks_of(stage, "enterprise-oci-tag") == ["moz/stageGCP"]
 
     assert repacks_of(prod, "enterprise-oci-upload") == ["moz/prodGCP"]
-    assert repacks_of(prod, "enterprise-oci-tag") == []
+    assert repacks_of(prod, "enterprise-oci-tag") == ["moz/prodGCP"]
 
 
 @pytest.mark.parametrize("kind", ("enterprise-oci-upload", "enterprise-oci-tag"))

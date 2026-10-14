@@ -1568,7 +1568,12 @@ pref("accessibility.typeaheadfind.flashBar", 1);
 // Whether we had to hide the "Firefox Labs" section because it would be empty.
 pref("browser.preferences.experimental.hidden", false);
 // Whether we show the "More from Mozilla" section.
+#ifdef MOZ_ENTERPRISE
+// "More from Mozilla" is disabled on Firefox Enterprise
+pref("browser.preferences.moreFromMozilla", false, locked);
+#else
 pref("browser.preferences.moreFromMozilla", true);
+#endif
 // Whether we show the "AI Controls" pane.
 pref("browser.preferences.aiControls", true);
 // Whether to show unavailable AI controls regardless of region/locale
@@ -2334,7 +2339,12 @@ pref("browser.newtabpage.trainhopAddon.xpiBaseURL", "https://archive.mozilla.org
 pref("browser.newtabpage.sponsor-protection.enabled", true);
 
 // Separate about welcome
+#ifdef MOZ_ENTERPRISE
+// Onboarding is disabled on Firefox Enterprise
+pref("browser.aboutwelcome.enabled", false, locked);
+#else
 pref("browser.aboutwelcome.enabled", true);
+#endif
 // Used to set multistage welcome UX
 pref("browser.aboutwelcome.screens", "");
 // Whether to gate loading about:welcome on Nimbus experiments having loaded.

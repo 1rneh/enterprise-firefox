@@ -33,6 +33,7 @@ support-files = ["../schemas/*.schema.json"]
 ["test_PinnableSitesProvider.js"]
 
 ["test_PreonboardingSplash.js"]
+skip-if = ["enterprise"] # Onboarding is disabled on Firefox Enterprise
 
 ["test_reach_experiments.js"]
 

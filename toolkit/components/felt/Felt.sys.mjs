@@ -263,6 +263,12 @@ export class Felt {
   }
 
   receiveMessage(message) {
+    // These are only sent by parent-process code through the Services.cpmm
+    // loopback, so anything from a content process is untrusted.
+    if (!message.target.isInProcess) {
+      lazy.log.error(`Ignoring ${message.name} from a content process`);
+      return;
+    }
     lazy.log.debug(`${message.name} handling ...`);
     switch (message.name) {
       case "FeltParent:FirefoxNormalExit": {

@@ -325,6 +325,13 @@ add_task(async function check_canCreateSelectableProfiles() {
     ok(true, "Skipping because !AppConstants.MOZ_SELECTABLE_PROFILES");
     return;
   }
+  if (AppConstants.MOZ_ENTERPRISE) {
+    ok(
+      true,
+      "Skipping because selectable profiles are inapplicable for enterprise builds"
+    );
+    return;
+  }
 
   // Reset profiles prefs
   await pushPrefs(
@@ -2947,6 +2954,14 @@ add_task(async function check_currentProfileIdTargeting() {
 });
 
 add_task(async function check_profileGroupProfileCountTargeting() {
+  if (AppConstants.MOZ_ENTERPRISE) {
+    ok(
+      true,
+      "Skipping because selectable profiles are inapplicable for enterprise builds"
+    );
+    return;
+  }
+
   await pushPrefs(
     ["browser.profiles.enabled", false],
     ["browser.profiles.created", false]

@@ -2,6 +2,7 @@
 run-if = [
   "os != 'android'",
 ]
+skip-if = ["enterprise"] # Profile management is disabled on Firefox Enterprise
 head = "../../../../../toolkit/profile/test/xpcshell/head.js head.js"
 firefox-appdir = "browser"
 

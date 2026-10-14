@@ -84,6 +84,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
+    blockAboutPage: "resource://gre/modules/PoliciesHelpers.sys.mjs",
     EnterpriseHandler:
       "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
     isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
@@ -423,6 +424,19 @@ BrowserGlue.prototype = {
         "chrome,centerscreen,modal,resizable=no",
         null
       );
+    }
+
+    // Profile management is disabled on Firefox Enterprise.
+    if (AppConstants.MOZ_ENTERPRISE) {
+      for (const page of [
+        "about:profiles",
+        "about:profilemanager",
+        "about:editprofile",
+        "about:deleteprofile",
+        "about:newprofile",
+      ]) {
+        lazy.blockAboutPage(null, page);
+      }
     }
 
     // apply distribution customizations

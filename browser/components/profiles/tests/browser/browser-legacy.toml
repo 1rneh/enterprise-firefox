@@ -1,5 +1,6 @@
 [DEFAULT]
 support-files = ["head.js"]
+skip-if = ["enterprise"] # Profile management is disabled on Firefox Enterprise
 dupe-manifest = true
 prefs = ["browser.profiles.enabled=true","browser.profiles.created=false","browser.nova.enabled=false",]
 
@@ -34,7 +35,6 @@ run-if = [
 ["browser_empty_name_beforeunload_test.js"]
 
 ["browser_fxa_menu_profiles.js"]
-skip-if = ["enterprise"] # Enterprise builds do not support the FxA menu.
 
 ["browser_icon_avatar_test.js"]
 

@@ -186,8 +186,11 @@ async function withoutExposingTitle(aTestCase) {
 
 add_task(test_defaultCase);
 add_task(test_container);
-add_task(test_profile);
-add_task(test_profileAndContainer);
+// Profile management is disabled on Firefox Enterprise.
+const SKIP_PROFILE_TASKS = { skip_if: () => AppConstants.MOZ_ENTERPRISE };
+
+add_task(SKIP_PROFILE_TASKS, test_profile);
+add_task(SKIP_PROFILE_TASKS, test_profileAndContainer);
 
 add_task(async function test_defaultCase_privacy() {
   return withoutExposingTitle(test_defaultCase);
@@ -197,10 +200,10 @@ add_task(async function test_container_privacy() {
   return withoutExposingTitle(test_container);
 });
 
-add_task(async function test_profile_privacy() {
+add_task(SKIP_PROFILE_TASKS, async function test_profile_privacy() {
   return withoutExposingTitle(test_profile);
 });
 
-add_task(async function test_profileAndContainer_privacy() {
+add_task(SKIP_PROFILE_TASKS, async function test_profileAndContainer_privacy() {
   return withoutExposingTitle(test_profileAndContainer);
 });

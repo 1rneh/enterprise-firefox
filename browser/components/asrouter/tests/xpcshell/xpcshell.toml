@@ -11,6 +11,7 @@ prefs = [
 ]
 
 ["test_ASRouterPreferences_maybeSetMessagingProfileID.js"]
+skip-if = ["enterprise"] # Selectable profiles are inapplicable for enterprise builds
 
 ["test_ASRouterTargeting_attribution.js"]
 run-if = [
@@ -25,6 +26,7 @@ support-files = ["../schemas/*.schema.json"]
 ["test_ASRouter_getTargetingParameters.js"]
 
 ["test_ASRouter_shouldShowMessagesToProfile.js"]
+skip-if = ["enterprise"] # Selectable profiles are inapplicable for enterprise builds
 
 ["test_OnboardingMessageProvider.js"]
 

@@ -3920,7 +3920,8 @@ pref("browser.backup.enabled_on.profiles", "[]");
 
 // Pref to enable the new profiles
 #ifdef MOZ_ENTERPRISE
-pref("browser.profiles.enabled", false);
+// Profile management is disabled on Firefox Enterprise
+pref("browser.profiles.enabled", false, locked);
 #else
 pref("browser.profiles.enabled", true);
 #endif

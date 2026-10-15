@@ -84,10 +84,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
-    blockAboutPage: "resource://gre/modules/PoliciesHelpers.sys.mjs",
     EnterpriseHandler:
       "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
     isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    permanentlyBlockAboutPage: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   });
 }
 
@@ -435,7 +435,7 @@ BrowserGlue.prototype = {
         "about:deleteprofile",
         "about:newprofile",
       ]) {
-        lazy.blockAboutPage(null, page);
+        lazy.permanentlyBlockAboutPage(page);
       }
     }
 

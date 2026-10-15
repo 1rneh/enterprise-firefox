@@ -85,6 +85,7 @@ if (AppConstants.MOZ_ENTERPRISE) {
     EnterpriseHandler:
       "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
     isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    permanentlyBlockAboutPage: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   });
 }
 
@@ -421,6 +422,19 @@ BrowserGlue.prototype = {
         "chrome,centerscreen,modal,resizable=no",
         null
       );
+    }
+
+    // Profile management is disabled on Firefox Enterprise.
+    if (AppConstants.MOZ_ENTERPRISE) {
+      for (const page of [
+        "about:profiles",
+        "about:profilemanager",
+        "about:editprofile",
+        "about:deleteprofile",
+        "about:newprofile",
+      ]) {
+        lazy.permanentlyBlockAboutPage(page);
+      }
     }
 
     // apply distribution customizations

@@ -1225,14 +1225,18 @@ export async function uninstallListedAddons(ids, installList = []) {
 
 let gBlockedAboutPages = [];
 
+// About pages blocked for the whole build rather than by a policy. Policy
+// changes and policy engine restarts never remove them.
+let gPermanentlyBlockedAboutPages = [];
+
 export function clearBlockedAboutPages() {
   gBlockedAboutPages = [];
 }
 
-export function blockAboutPage(manager, feature) {
+function addBlockedAboutPage(blockedPages, feature) {
   addChromeURLBlocker();
-  if (!gBlockedAboutPages.includes(feature)) {
-    gBlockedAboutPages.push(feature);
+  if (!blockedPages.includes(feature)) {
+    blockedPages.push(feature);
   }
 
   try {
@@ -1240,12 +1244,20 @@ export function blockAboutPage(manager, feature) {
       Ci.nsIAboutModule
     );
     let chromeURL = aboutModule.getChromeURI(Services.io.newURI(feature)).spec;
-    if (!gBlockedAboutPages.includes(chromeURL)) {
-      gBlockedAboutPages.push(chromeURL);
+    if (!blockedPages.includes(chromeURL)) {
+      blockedPages.push(chromeURL);
     }
   } catch (e) {
     // Some about pages don't have chrome URLS (compat)
   }
+}
+
+export function blockAboutPage(manager, feature) {
+  addBlockedAboutPage(gBlockedAboutPages, feature);
+}
+
+export function permanentlyBlockAboutPage(feature) {
+  addBlockedAboutPage(gPermanentlyBlockedAboutPages, feature);
 }
 
 export function unblockAboutPage(manager, feature) {
@@ -1282,9 +1294,11 @@ let ChromeURLBlockPolicy = {
     }
     let contentLocationSpec = contentLocation.spec.toLowerCase();
     if (
-      gBlockedAboutPages.some(function (aboutPage) {
-        return contentLocationSpec.startsWith(aboutPage.toLowerCase());
-      })
+      [...gPermanentlyBlockedAboutPages, ...gBlockedAboutPages].some(
+        function (aboutPage) {
+          return contentLocationSpec.startsWith(aboutPage.toLowerCase());
+        }
+      )
     ) {
       return Ci.nsIContentPolicy.REJECT_POLICY;
     }

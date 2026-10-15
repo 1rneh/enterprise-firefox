@@ -1,6 +1,6 @@
 [DEFAULT]
 run-if = [
-  "os != 'android'",
+  "os != 'android' && !enterprise", # Profile management is disabled on enterprise builds
 ]
 head = "../../../../../toolkit/profile/test/xpcshell/head.js head.js"
 firefox-appdir = "browser"

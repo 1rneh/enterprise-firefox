@@ -49,4 +49,5 @@ support-files = [
   "compat-files/backups/v2_selectable_backup.html"]
 skip-if = [
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland'", # 1924781: Gnome keyring not unlocked
+  "enterprise", # Selectable profiles are inapplicable for enterprise builds
 ]

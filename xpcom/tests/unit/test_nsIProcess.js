@@ -89,16 +89,13 @@ function test_unicode_arguments() {
 
 function rename_and_test(asciiName, unicodeName, args, argsAreASCII) {
   var asciiFile = get_test_program(asciiName);
-  var asciiLeaf = asciiFile.leafName;
-  var unicodeLeaf = asciiLeaf.replace(asciiName, unicodeName);
+  var unicodeLeaf = asciiFile.leafName.replace(asciiName, unicodeName);
 
-  asciiFile.moveTo(null, unicodeLeaf);
-
-  var unicodeFile = get_test_program(unicodeName);
+  var unicodeFile = do_get_tempdir();
+  asciiFile.copyTo(unicodeFile, unicodeLeaf);
+  unicodeFile.append(unicodeLeaf);
 
   test_args(unicodeFile, args, argsAreASCII);
-
-  unicodeFile.moveTo(null, asciiLeaf);
 }
 
 // test passing ASCII and Unicode arguments to an application with a Unicode name

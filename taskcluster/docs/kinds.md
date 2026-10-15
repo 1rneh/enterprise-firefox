@@ -540,7 +540,7 @@ Sets up bouncer products for partners.
 
 ## release-early-tagging
 
-Utilises treescript to perform tagging that should happen near the start of a release.
+Utilises landoscript to perform tagging that should happen near the start of a release.
 
 ## release-eme-free-repack
 

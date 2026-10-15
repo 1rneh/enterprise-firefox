@@ -3495,6 +3495,12 @@
   value: true
   mirror: always
 
+# Whether links perform same document fragment navigations synchronously
+- name: dom.links.sync_fragment_navigation
+  type: bool
+  value: true
+  mirror: always
+
 # Enable indexedDB in private browsing mode with encryption
 - name: dom.indexedDB.privateBrowsing.enabled
   type: RelaxedAtomicBool
@@ -8232,14 +8238,6 @@
   mirror: once
 #endif
 
-#ifdef MOZ_WIDGET_ANDROID
-# Use SurfaceTextures as preferred backend for TextureClient/Host.
-- name: gfx.use-surfacetexture-textures
-  type: bool
-  value: false
-  mirror: once
-#endif
-
 - name: gfx.vsync.compositor.unobserve-count
   type: int32_t
   value: 10
@@ -8794,7 +8792,7 @@
 #endif
 
 #if defined(MOZ_WIDGET_ANDROID)
-- name: gfx.video.aimage-reader-gpu-process-android
+- name: gfx.video.force-aimage-reader-android
   type: bool
   value: false
   mirror: once
@@ -12031,7 +12029,7 @@
 # See bug 1934547.
 - name: layout.css.webkit-line-clamp.skip-paint
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Whether we refer ::-webkit-scrollbar's width/height properties to disable
@@ -18024,14 +18022,6 @@
   value: 2
   mirror: always
 
-#ifdef XP_MACOSX
-# Whether we should use skpdf for all print destinations on macOS.
-- name: print.skpdf.all-destinations
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-#endif
-
 # Encoding quality for images. 101 means lossless, otherwise they get
 # jpeg-encoded with a particular quality.
 - name: print.skpdf.image-encoding-quality
@@ -18122,7 +18112,7 @@
 
 # Annotate channels based on the tracking protection list in all modes
 - name: privacy.trackingprotection.annotate_channels
-  type: bool
+  type: RelaxedAtomicBool
   value: true
   mirror: always
 
@@ -20651,11 +20641,6 @@
   value: true
   mirror: always
 
-- name: webgl.enable-surface-texture
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: webgl.enable-webgl2
   type: RelaxedAtomicBool
   value: true
@@ -21631,6 +21616,12 @@
 
 # Whether to disable SwipeTracker (e.g. swipe-to-nav).
 - name: widget.disable-swipe-tracker
+  type: bool
+  value: false
+  mirror: always
+
+# Whether to provide haptic feedback when crossing the swipe navigation threshold.
+- name: widget.swipe.haptic-feedback.enabled
   type: bool
   value: false
   mirror: always

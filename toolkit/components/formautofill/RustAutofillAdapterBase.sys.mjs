@@ -342,7 +342,7 @@ export class RustAutofillAdapterBase {
    *   guid was not present.
    */
   async remove(guid, { sourceSync = false, action = "remove" } = {}) {
-    const removed = await this._delete(await this._store(), guid);
+    const removed = guid && (await this._delete(await this._store(), guid));
     // Nothing changed, so nothing to announce. The JSON collection returns
     // without notifying for a guid it does not hold, and an event here would
     // put every observer -- including the saved-field-names recompute -- to
@@ -369,6 +369,10 @@ export class RustAutofillAdapterBase {
   }
 
   async get(guid) {
+    // The UniFFI binding throws for a missing guid.
+    if (!guid) {
+      return null;
+    }
     let found;
     try {
       found = await this._get(await this._store(), guid);

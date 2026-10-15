@@ -32,6 +32,15 @@ class BackupCompatibilityTest(BackupTestBase):
 
     def test_recover_v1_backup_selectable(self):
         """Test that a v1 backup can be recovered into a selectable profile environment."""
+        if self.run_code(
+            """
+            const { AppConstants } = ChromeUtils.importESModule(
+                "resource://gre/modules/AppConstants.sys.mjs"
+            );
+            return AppConstants.MOZ_ENTERPRISE;
+            """
+        ):
+            self.skipTest("Selectable profiles are inapplicable for enterprise builds")
         self.logger.info("=== Test: V1 Backup -> Selectable ===")
         self._test_recover_backup_selectable(1)
 

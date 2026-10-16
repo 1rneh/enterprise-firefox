@@ -3,14 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const { LoginHelper } = ChromeUtils.importESModule(
-  "resource://gre/modules/LoginHelper.sys.mjs"
-);
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
+});
 
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
@@ -228,7 +229,7 @@ function enableButtons() {
       // user configurable.
       if (
         selected_token.isInternalKeyToken &&
-        LoginHelper.isEnterpriseManagedPrimaryPassword()
+        lazy.LoginHelper.isEnterpriseManagedPrimaryPassword()
       ) {
         login_toggle = true;
         logout_toggle = true;

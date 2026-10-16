@@ -3280,14 +3280,6 @@ pref("gfx.vr.osvr.clientKitLibPath", "");
 // actions when the fifo is written to.  Disable this in general.
 pref("memory_info_dumper.watch_fifo.enabled", false);
 
-// If minInterval is 0, the check will only happen
-// when the service has a strong suspicion we are in a captive portal
-pref("network.captive-portal-service.minInterval", 60000); // 60 seconds
-pref("network.captive-portal-service.maxInterval", 1500000); // 25 minutes
-// Every 10 checks, the delay is increased by a factor of 5
-pref("network.captive-portal-service.backoffFactor", "5.0");
-pref("network.captive-portal-service.enabled", false);
-
 pref("network.connectivity-service.enabled", true);
 pref("network.connectivity-service.DNSv4.domain", "example.org");
 pref("network.connectivity-service.DNSv6.domain", "example.org");

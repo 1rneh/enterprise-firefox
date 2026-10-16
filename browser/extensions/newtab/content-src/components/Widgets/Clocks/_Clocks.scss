@@ -226,6 +226,11 @@
     flex: 1 1 0;
     min-block-size: 0;
     gap: 0;
+
+    // Focused only programmatically on open (tabindex -1), never by Tab.
+    &:focus {
+      outline: none;
+    }
   }
 
   .clocks-edit-item {
@@ -239,7 +244,7 @@
     // room for the future drag handle per the Figma layout.
     padding-inline-start: var(--space-xlarge);
     padding-inline-end: calc(var(--space-medium) * 4);
-    border-radius: var(--button-border-radius);
+    border-radius: var(--border-radius-small);
     transition: background-color 180ms ease;
 
     // Tall enough for a nicknamed row, so plain and nicknamed rows match.

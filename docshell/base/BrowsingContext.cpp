@@ -3879,7 +3879,7 @@ void BrowsingContext::SetGeolocationServiceOverride(
   if (aGeolocationOverride.WasPassed()) {
     if (!mGeolocationServiceOverride) {
       mGeolocationServiceOverride = MakeRefPtr<GeolocationService>();
-      mGeolocationServiceOverride->Init();
+      mGeolocationServiceOverride->Init(/* aIsOverride = */ true);
     }
     mGeolocationServiceOverride->Update(aGeolocationOverride.Value());
   } else if (RefPtr<GeolocationService> serviceOverride =

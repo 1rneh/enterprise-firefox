@@ -436,8 +436,13 @@ tasks:
             - webrender-sw+no-fission
             - webrender-sw
             - draw-snapshot
+            - geckoview-isolated-process
         run-on-projects:
             by-variant:
+                geckoview-isolated-process:
+                    by-test-platform:
+                        android-em.*/debug: built-projects
+                        default: []
                 webrender-sw:
                     by-test-platform:
                         .*-32.*: []
@@ -479,7 +484,6 @@ tasks:
                         linux.*: 2
                         default: default
                 draw-snapshot: 2
-                geckoview-isolated-process: 2
                 default: default
         mozharness:
             extra-options:
@@ -537,6 +541,7 @@ tasks:
                 - --exclude-tag=webcodecs
                 - --exclude-tag=webrtc
                 - --timeout-multiplier=5.0
+                - --skip-upstream-tests-extraction
         worker-type:
             by-test-platform:
                 .*windows.*: win11-64-25h2-webgpu
@@ -564,6 +569,7 @@ tasks:
                 - --skip-implementation-status=backlog
                 - --skip-implementation-status=not-implementing
                 - --timeout-multiplier=5.0
+                - --skip-upstream-tests-extraction
         worker-type:
             by-test-platform:
                 .*windows.*: win11-64-25h2-webgpu
@@ -607,6 +613,7 @@ tasks:
                 - --skip-implementation-status=not-implementing
                 - --backlog
                 - --timeout-multiplier=5.0
+                - --skip-upstream-tests-extraction
         worker-type:
             by-test-platform:
                 .*windows.*: win11-64-25h2-webgpu
@@ -636,6 +643,7 @@ tasks:
                 - --skip-implementation-status=not-implementing
                 - --backlog
                 - --timeout-multiplier=5.0
+                - --skip-upstream-tests-extraction
         worker-type:
             by-test-platform:
                 .*windows.*: win11-64-25h2-webgpu
@@ -911,8 +919,13 @@ tasks:
             - no-fission
             - webrender-sw
             - webrender-sw+no-fission
+            - geckoview-isolated-process
         run-on-projects:
             by-variant:
+                geckoview-isolated-process:
+                    by-test-platform:
+                        android-em.*/debug: built-projects
+                        default: []
                 webrender-sw:
                     by-test-platform:
                         android-em.*/debug: built-projects

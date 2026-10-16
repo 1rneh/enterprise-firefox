@@ -486,6 +486,9 @@ class nsHttpHandler final : public nsIHttpProtocolHandler,
   nsresult CompleteUpgrade(HttpTransactionShell* aTrans,
                            nsIHttpUpgradeListener* aUpgradeListener);
 
+  // Used for force-reloads: closes idle persistent connections and prevents
+  // reuse of active ones whose origin attributes match aCI, then resets aCI's
+  // Happy Eyeballs IP family preference.
   nsresult DoShiftReloadConnectionCleanupWithConnInfo(
       nsHttpConnectionInfo* aCI);
 

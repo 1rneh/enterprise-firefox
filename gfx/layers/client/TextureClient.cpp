@@ -970,6 +970,35 @@ void TextureData::ReturnSnapshot(
   RefPtr<gfx::SourceSurface> snapshot(aSnapshot);
 }
 
+already_AddRefed<gfx::SourceSurface> TextureClient::GetBufferSnapshot() {
+  MutexAutoLock lock(mMutex);
+  if (!mData) {
+    return nullptr;
+  }
+  auto* bufferData = mData->AsBufferTextureData();
+  if (!bufferData) {
+    return nullptr;
+  }
+
+  RefPtr<gfx::DrawTarget> drawTarget = bufferData->BorrowDrawTarget();
+  if (!drawTarget) {
+    return nullptr;
+  }
+  RefPtr<gfx::SourceSurface> surface = drawTarget->Snapshot();
+  if (!surface) {
+    return nullptr;
+  }
+
+  static gfx::UserDataKey sShmemHolderKey;
+  RefPtr<ShmemHolder> shmemHolder = bufferData->GetShmemHolder();
+  if (shmemHolder && !surface->GetUserData(&sShmemHolderKey)) {
+    surface->AddUserData(
+        &sShmemHolderKey, shmemHolder.forget().take(),
+        [](void* aData) { static_cast<ShmemHolder*>(aData)->Release(); });
+  }
+  return surface.forget();
+}
+
 void TextureClient::ReturnSnapshot(
     already_AddRefed<gfx::SourceSurface> aSnapshot) {
   RefPtr<gfx::SourceSurface> snapshot = aSnapshot;
@@ -996,6 +1025,22 @@ bool TextureClient::BorrowMappedYCbCrData(MappedYCbCrTextureData& aMap) {
   MOZ_ASSERT(IsValid());
 
   return mData ? mData->BorrowMappedYCbCrData(aMap) : false;
+}
+
+bool TextureClient::BorrowMappedYCbCrData(MappedYCbCrTextureData& aMap,
+                                          RefPtr<ShmemHolder>& aShmemHolder) {
+  MOZ_ASSERT(IsLocked());
+  // Acquire the mapping and its owner together, before Destroy() can detach
+  // mData. Do not return borrowed shmem pointers without their keep-alive.
+  MutexAutoLock lock(mMutex);
+  aShmemHolder = nullptr;
+  if (!mData || !mData->BorrowMappedYCbCrData(aMap)) {
+    return false;
+  }
+  if (auto* bufferData = mData->AsBufferTextureData()) {
+    aShmemHolder = bufferData->GetShmemHolder();
+  }
+  return true;
 }
 
 bool TextureClient::ToSurfaceDescriptor(SurfaceDescriptor& aOutDescriptor) {

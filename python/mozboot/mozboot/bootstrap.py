@@ -169,6 +169,7 @@ class Bootstrapper:
         git_configure=False,
         sccache_configure=False,
         no_system_changes=False,
+        no_agentic_tools=False,
         exclude=[],
         mach_context=None,
     ):
@@ -177,6 +178,7 @@ class Bootstrapper:
         self.git_configure = git_configure
         self.sccache_configure = sccache_configure
         self.no_system_changes = no_system_changes
+        self.no_agentic_tools = no_agentic_tools
         self.exclude = exclude
         self.mach_context = mach_context
         cls = None
@@ -287,10 +289,13 @@ class Bootstrapper:
             mozconfig_builder.append("ac_add_options --with-ccache=sccache")
 
     def check_agentic_tools(self):
-        if self.instance.no_interactive:
+        if self.no_agentic_tools:
             return
 
-        if not self.instance.cargo_tools_installed():
+        if (
+            not self.instance.no_interactive
+            and not self.instance.cargo_tools_installed()
+        ):
             if not self.instance.prompt_yesno(
                 "Will you be using agentic coding tools to work on Firefox?"
             ):

@@ -114,6 +114,23 @@ export class UrlbarContentUtils {
   }
 
   /**
+   * Unwraps an about:reader URL.
+   *
+   * @param {string} url
+   * @returns {string|null}
+   *   The display spec, or null if `url` isn't a well-formed about:reader URL.
+   */
+  static getReaderOriginalDisplaySpec(url) {
+    if (!port()) {
+      let uri = ChromeUtils.importESModule(
+        "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs"
+      ).ReaderMode.getOriginalUrlObjectForDisplay(url);
+      return uri ? uri.displaySpec : null;
+    }
+    return port().getReaderOriginalDisplaySpec(url);
+  }
+
+  /**
    * Unescapes a URI's percent-encoding for display, applying the spoofing
    * protections `decodeURIComponent` doesn't.
    *

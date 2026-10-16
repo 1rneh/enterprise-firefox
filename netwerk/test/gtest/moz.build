@@ -63,6 +63,7 @@ SOURCES += [
     "TestHappyEyeballsConnectionAttempt.cpp",
     "TestHappyEyeballsNetAddrArray.cpp",
     "TestHttpAtom.cpp",
+    "TestSOCKSProxyLookup.cpp",
 ]
 
 if CONFIG["OS_TARGET"] == "WINNT":

@@ -186,6 +186,8 @@ export class UrlbarChild extends JSWindowActorChild {
           win
         ),
       getDisplaySpec: UrlbarContentUtils.getDisplaySpec,
+      getReaderOriginalDisplaySpec:
+        UrlbarContentUtils.getReaderOriginalDisplaySpec,
       unEscapeURIForUI: UrlbarContentUtils.unEscapeURIForUI,
       getSupportUrl: UrlbarContentUtils.getSupportUrl,
       getPlatform: UrlbarContentUtils.getPlatform,

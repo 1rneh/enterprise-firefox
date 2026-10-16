@@ -7267,7 +7267,6 @@ void PresShell::RecordModifiers(WidgetGUIEvent* aEvent) {
     case eMouseTouchDrag:
     case eMouseLongTap:
     case eMouseRawUpdate:
-    case eMouseExploreByTouch:
     case ePointerCancel:
     case eContextMenu:
     case eTouchStart:

@@ -1,5 +1,6 @@
 [DEFAULT]
 head = "head_setprefs.js"
+skip-if = ["os == 'android'"] # The captive detector is not built on Android
 
 ["test_abort.js"]
 

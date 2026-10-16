@@ -490,6 +490,7 @@ let JSWINDOWACTORS = {
       "moz-extension://*",
       "data:text/html,*",
       "about:reader?*",
+      "about:smartpage?*",
     ],
     messageManagerGroups: ["browsers", "headless-browsers"],
     safeForUntrustedWebProcess: true,

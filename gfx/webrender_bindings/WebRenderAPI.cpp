@@ -108,6 +108,17 @@ void TransactionBuilder::RemovePipeline(PipelineId aPipelineId) {
   wr_transaction_remove_pipeline(mTxn, aPipelineId);
 }
 
+void TransactionBuilder::SetEmbedPolicy(
+    PipelineId aPipelineId, const Maybe<nsTArray<uint32_t>>& aNamespaces) {
+  if (aNamespaces) {
+    wr_transaction_set_embed_policy(mTxn, aPipelineId, true,
+                                    aNamespaces->Elements(),
+                                    aNamespaces->Length());
+  } else {
+    wr_transaction_set_embed_policy(mTxn, aPipelineId, false, nullptr, 0);
+  }
+}
+
 void TransactionBuilder::SetDisplayList(
     Epoch aEpoch, wr::IdNamespace aIdNamespace, wr::WrPipelineId pipeline_id,
     wr::BuiltDisplayListDescriptor dl_descriptor,
@@ -1551,11 +1562,11 @@ void DisplayListBuilder::PushLinearGradient(
     const wr::LayoutVector2D& aEndPoint,
     const nsTArray<wr::GradientStop>& aStops, wr::ExtendMode aExtendMode,
     const wr::LayoutSize aTileSize, const wr::LayoutSize aTileSpacing,
-    bool aForceAntiAliasing) {
+    bool aForceAntiAliasing, wr::AlphaMode aAlphaMode) {
   wr_dp_push_linear_gradient(
       mWrState, aBounds, aClip, aIsBackfaceVisible, aForceAntiAliasing,
       &mCurrentSpaceAndClipChain, aStartPoint, aEndPoint, aStops.Elements(),
-      aStops.Length(), aExtendMode, aTileSize, aTileSpacing);
+      aStops.Length(), aExtendMode, aAlphaMode, aTileSize, aTileSpacing);
 }
 
 void DisplayListBuilder::PushRadialGradient(
@@ -1563,11 +1574,12 @@ void DisplayListBuilder::PushRadialGradient(
     bool aIsBackfaceVisible, const wr::LayoutVector2D& aCenter,
     const wr::LayoutSize& aRadius, const nsTArray<wr::GradientStop>& aStops,
     wr::ExtendMode aExtendMode, const wr::LayoutSize aTileSize,
-    const wr::LayoutSize aTileSpacing, bool aForceAntiAliasing) {
+    const wr::LayoutSize aTileSpacing, bool aForceAntiAliasing,
+    wr::AlphaMode aAlphaMode) {
   wr_dp_push_radial_gradient(
       mWrState, aBounds, aClip, aIsBackfaceVisible, aForceAntiAliasing,
       &mCurrentSpaceAndClipChain, aCenter, aRadius, aStops.Elements(),
-      aStops.Length(), aExtendMode, aTileSize, aTileSpacing);
+      aStops.Length(), aExtendMode, aAlphaMode, aTileSize, aTileSpacing);
 }
 
 void DisplayListBuilder::PushConicGradient(
@@ -1575,11 +1587,11 @@ void DisplayListBuilder::PushConicGradient(
     bool aIsBackfaceVisible, const wr::LayoutVector2D& aCenter,
     const float aAngle, const nsTArray<wr::GradientStop>& aStops,
     wr::ExtendMode aExtendMode, const wr::LayoutSize aTileSize,
-    const wr::LayoutSize aTileSpacing) {
+    const wr::LayoutSize aTileSpacing, wr::AlphaMode aAlphaMode) {
   wr_dp_push_conic_gradient(mWrState, aBounds, aClip, aIsBackfaceVisible,
                             &mCurrentSpaceAndClipChain, aCenter, aAngle,
                             aStops.Elements(), aStops.Length(), aExtendMode,
-                            aTileSize, aTileSpacing);
+                            aAlphaMode, aTileSize, aTileSpacing);
 }
 
 void DisplayListBuilder::PushImage(

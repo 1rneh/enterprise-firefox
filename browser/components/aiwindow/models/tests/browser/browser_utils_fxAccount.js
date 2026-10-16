@@ -3,8 +3,9 @@
 
 "use strict";
 
-const { OAUTH_CLIENT_ID, SCOPE_PROFILE_UID, SCOPE_SMART_WINDOW } =
-  ChromeUtils.importESModule("resource://gre/modules/FxAccountsCommon.sys.mjs");
+const { OAUTH_CLIENT_ID } = ChromeUtils.importESModule(
+  "resource://gre/modules/FxAccountsCommon.sys.mjs"
+);
 
 const { getFxAccountsSingleton } = ChromeUtils.importESModule(
   "resource://gre/modules/FxAccounts.sys.mjs"
@@ -16,7 +17,7 @@ const { MODEL_FEATURES, SERVICE_TYPES, PURPOSES } = ChromeUtils.importESModule(
 
 const TEST_MODEL = "test-model";
 
-add_task(async function test_getFxAccountToken_passes_correct_scope() {
+add_task(async function test_getFxAccountToken_passes_correct_service() {
   const fakeToken = "fake-oauth-token";
   const fxAccounts = getFxAccountsSingleton();
 
@@ -34,10 +35,10 @@ add_task(async function test_getFxAccountToken_passes_correct_scope() {
 
     const callArgs = getOAuthTokenStub.getCall(0).args[0];
     Assert.ok(callArgs, "getOAuthToken should be called with arguments");
-    Assert.deepEqual(
-      callArgs.scope,
-      [SCOPE_SMART_WINDOW, SCOPE_PROFILE_UID],
-      "getOAuthToken should be called with correct scope array"
+    Assert.equal(
+      callArgs.service,
+      "smartwindow",
+      "getOAuthToken should be called for the smartwindow service"
     );
     Assert.equal(
       callArgs.client_id,

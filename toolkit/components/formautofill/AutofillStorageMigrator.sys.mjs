@@ -511,6 +511,9 @@ export class AutofillStorageMigrator {
    * those differ whenever the derivation has changed -- most often with the app
    * locale -- and a field neither has a column for was never carried at all.
    *
+   * cc-number is handed out as a mask, which each store builds its own way, so
+   * it is compared by the number each store decrypts for the record instead.
+   *
    * @param {object} source The store copied from.
    * @param {object} target The store copied into.
    * @param {Array<object>} stored What the target holds after the copy.
@@ -522,11 +525,25 @@ export class AutofillStorageMigrator {
     const byGUID = new Map(stored.map(record => [record.guid, record]));
     const divergences = [];
 
-    for (const record of await source.getAll({ prompt: false })) {
-      const copy = byGUID.get(record.guid);
+    for (let record of await source.getAll({ prompt: false })) {
+      let copy = byGUID.get(record.guid);
       if (!copy) {
         // A record that never arrived is a count mismatch, not a divergence.
         continue;
+      }
+      // Only a credit card store holds cc-number, so this is what keeps the
+      // other collections from being asked to decrypt one.
+      if (this.isStoredField("cc-number")) {
+        // Shallow copies, so the cleartext does not outlive this iteration. A
+        // source that cannot read its own number has nothing to check the
+        // copy's against, so neither side is compared.
+        const sent = await this.#numberOf(source, record);
+        let kept;
+        if (sent !== undefined) {
+          kept = await this.#numberOf(target, copy);
+        }
+        record = { ...record, "cc-number": sent };
+        copy = { ...copy, "cc-number": kept };
       }
       // The union of both key sets, so a field the copy dropped and one it
       // invented are both caught, and only the fields the target is answerable
@@ -563,6 +580,27 @@ export class AutofillStorageMigrator {
       );
     }
     return divergences;
+  }
+
+  /**
+   * The cleartext card number a store holds for one of its records.
+   *
+   * @param {object} store
+   * @param {object} record A record the store handed out.
+   * @returns {Promise<?string|undefined>} The number, null if the record has
+   *   none, or undefined if it cannot be read.
+   */
+  async #numberOf(store, record) {
+    try {
+      return (
+        (await store.decryptField(record, "cc-number", {
+          trigger: "formautofill_migration",
+        })) || null
+      );
+    } catch (e) {
+      this.logger.error("Could not read back a card number", e);
+      return undefined;
+    }
   }
 }
 
@@ -628,8 +666,7 @@ export class CreditCardStorageMigrator extends AutofillStorageMigrator {
     return lazy.isStoredCreditCardField(field);
   }
 
-  // The number is masked on one side and encrypted on both, so neither of its
-  // two fields compares as a string.
+  // An absent expiry is 0 on one side and missing on the other.
   fieldDiffers(field, a, b) {
     return lazy.creditCardFieldDiffers(field, a, b);
   }

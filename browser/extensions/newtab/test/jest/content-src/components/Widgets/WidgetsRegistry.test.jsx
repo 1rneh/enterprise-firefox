@@ -5,6 +5,7 @@
 import {
   WIDGET_REGISTRY,
   getWidgetOrder,
+  getWidgets,
   isWeatherAvailable,
   isWidgetAddable,
   isWidgetEnabled,
@@ -14,6 +15,7 @@ import {
   resolveWidgetOrder,
   resolveWidgetHasSidebar,
   resolveCrosswordEndpoint,
+  resolveWidgetSrc,
   resolvePrivacyBlankChance,
   resolvePrivacyMaxCount,
   resolvePrivacyDisplayCount,
@@ -748,6 +750,61 @@ describe("resolveCrosswordEndpoint", () => {
     expect(
       resolveCrosswordEndpoint({ "widgets.crossword.endpoint": prefEndpoint })
     ).toBe(prefEndpoint);
+  });
+});
+
+const testWidget = {
+  id: "testWidget",
+  src: "https://static.example.com/widget.html",
+  trainhopNamespace: "widgetTest",
+};
+
+describe("resolveWidgetSrc", () => {
+  it("prefers the trainhop namespace src over the static src", () => {
+    const trainhopSrc = "https://trainhop.example.com/widget.html";
+    expect(
+      resolveWidgetSrc(testWidget, {
+        trainhopConfig: { widgetTest: { src: trainhopSrc } },
+      })
+    ).toBe(trainhopSrc);
+  });
+
+  it("falls back to the static entry src", () => {
+    expect(resolveWidgetSrc(testWidget, {})).toBe(testWidget.src);
+  });
+});
+
+describe("getWidgets", () => {
+  const extensionWidget = {
+    id: "extensionWidget",
+    extensionID: "test-widget@mozilla.org",
+    customizeL10nId: "registry-label",
+  };
+
+  it("keeps an entry without an extensionID", () => {
+    expect(getWidgets([listsWidget], {})).toEqual([listsWidget]);
+  });
+
+  it("drops an extension entry the ExtensionWidgets state lacks", () => {
+    expect(getWidgets([extensionWidget], {})).toEqual([]);
+  });
+
+  it("merges the ExtensionWidgets entry under the registry fields", () => {
+    const src = "moz-extension://test/w.html";
+    expect(
+      getWidgets([extensionWidget], {
+        [extensionWidget.extensionID]: {
+          src,
+          customizeL10nId: "extension-label",
+        },
+      })
+    ).toEqual([{ ...extensionWidget, src }]);
+  });
+
+  it("treats an undefined ExtensionWidgets state as empty", () => {
+    expect(getWidgets([listsWidget, extensionWidget], undefined)).toEqual([
+      listsWidget,
+    ]);
   });
 });
 

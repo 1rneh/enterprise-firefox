@@ -141,6 +141,9 @@ export const ATTRIBUTE_TRANSFORMS = Object.freeze({
       branchSlug,
     })),
   firefoxVersion: typeAssertions.quantity,
+  // forgetButtonAreaType is nullable, with the null value coerced to the string "none".
+  forgetButtonAreaType: forgetButtonAreaType =>
+    typeAssertions.string(forgetButtonAreaType ?? "none"),
   hasActiveEnterprisePolicies: typeAssertions.boolean,
   hasPinnedTabs: typeAssertions.boolean,
   homePageSettings: pick("isCustomUrl", "isDefault", "isLocked", "isWebExt"),

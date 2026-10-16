@@ -38,6 +38,12 @@ var { getAppInfo, newAppInfo, updateAppInfo } = ChromeUtils.importESModule(
 );
 updateAppInfo();
 
+// The tests read browser data from temporary folders, which the OS does not
+// block, so reading them must not wait for the user to select a folder.
+ChromeUtils.importESModule(
+  "moz-src:///browser/components/migration/MigratorBase.sys.mjs"
+).MigratorBase.needsFolderSelectionToReadData = () => false;
+
 /**
  * Migrates the requested resource and waits for the migration to be complete.
  *

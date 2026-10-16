@@ -198,6 +198,8 @@ skip-if = [
 
 ["test_ext_contentscript_structured_clone.js"]
 
+["test_ext_contentscript_sync_xhr.js"]
+
 ["test_ext_contentscript_teardown.js"]
 
 ["test_ext_contentscript_trustedtypes.js"]
@@ -855,6 +857,8 @@ skip-if = [
 ]
 
 ["test_ext_webRequest_redirect_mozextension.js"]
+
+["test_ext_webRequest_redirect_resource_timing.js"]
 
 ["test_ext_webRequest_requestSize.js"]
 

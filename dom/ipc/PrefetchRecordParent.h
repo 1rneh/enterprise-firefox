@@ -20,6 +20,7 @@
 #include "nsIReferrerInfo.h"
 #include "nsIRequestObserver.h"
 #include "nsIStreamListener.h"
+#include "nsITimer.h"
 #include "nsIURI.h"
 #include "nsString.h"
 #include "nsTArray.h"
@@ -107,6 +108,7 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   void FillResponseOnLastEntry(nsIChannel* aChannel);
   nsString ComputePartitionKeyForChannel(nsIChannel* aChannel) const;
   bool IsReferrerPolicySufficientlyStrict() const;
+  void ReleaseCacheToken();
 
   // Prefetch record fields:
   // https://wicg.github.io/nav-speculation/prefetch.html#prefetch-record
@@ -118,6 +120,11 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   PrefetchSource mSource = PrefetchSource::SpeculationRules;
   PrefetchState mState = PrefetchState::Ongoing;
   nsCOMPtr<nsIChannel> mChannel;
+  // Keeps the response's HTTP cache entry alive so activation can be served
+  // from it; no-store responses would otherwise be purged as expired.
+  nsCOMPtr<nsISupports> mCacheToken;
+  // Releases mCacheToken once the record expires.
+  nsCOMPtr<nsITimer> mExpiryTimer;
   nsTArray<ExchangeRecord> mRedirectChain;
   TimeStamp mStartTime;
   TimeStamp mExpiryTime;

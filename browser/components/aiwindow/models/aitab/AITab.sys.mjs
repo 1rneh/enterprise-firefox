@@ -13,7 +13,10 @@ import {
 } from "moz-src:///browser/components/aiwindow/ui/modules/UrlTokenizer.sys.mjs";
 import { componentTypeName } from "chrome://browser/content/aiwindow/modules/AITabUtils.mjs";
 
-import { isSmartPageURL } from "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs";
+import {
+  getSmartPageName,
+  isSmartPageURL,
+} from "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs";
 
 const lazy = {};
 
@@ -314,6 +317,9 @@ const HISTORY_LIMIT_ERROR = "No more modifications are supported";
  * @typedef {object} AITabMetadata
  * @property {string} id - Slug of `title` (see `#slugify`), or the slug being
  *   revised when this generation modified an existing page.
+ * @property {string} [convId] - Id of the chat that owns the page being
+ *   revised, which keeps it whichever chat asked for the revision. Absent for
+ *   a new page, which belongs to the chat that asked for it.
  * @property {string} toolConvId - Id of the conversation the surface was
  *   composed in, in the ConversationStore. Stored alongside the page so a
  *   later modification can continue that exchange, and so deleting the page
@@ -1073,6 +1079,7 @@ export class AITab {
     /** @type {AITabMetadata} */
     const metadata = {
       id: prior ? prior.page.slug : AITab.#slugify(title),
+      convId: prior?.page.convId,
       toolConvId: toolConversation.id,
       title,
       howCreated: "chat",
@@ -1203,13 +1210,16 @@ export class AITab {
    * composed it. The stored conversation carries its messages, URL ledgers and
    * security flags but no engine; #resolvePromptSet attaches one.
    *
-   * Only a page belonging to `conversation` can be loaded: slugs are visible in
-   * page URLs, so without that check a model could be talked into rewriting a
-   * page from an unrelated chat. Keying the lookup on the chat conversation
-   * would also file the new version under the wrong slug.
+   * Only a page belonging to `conversation`, or one the user referenced in it
+   * (the current tab or an @mention), can be loaded: slugs are visible in page
+   * URLs, so without that check a model could be talked into rewriting a page
+   * from an unrelated chat. URLs the conversation merely came across, such as
+   * open tabs or links in fetched pages, do not count. Keying the lookup on
+   * the chat conversation would also file the new version under the wrong
+   * slug.
    *
    * @param {string} slug
-   * @param {ChatConversation} conversation - The chat that owns the page.
+   * @param {ChatConversation} conversation - The chat asking for the revision.
    * @returns {Promise<{page: object, conversation: Conversation}
    *   |{error: string}>}
    */
@@ -1231,7 +1241,10 @@ export class AITab {
       };
     }
 
-    if (!page || page.convId !== conversation?.id) {
+    const referencedByUser = [
+      ...(conversation?.getAllMentionURLs() ?? []),
+    ].some(url => getSmartPageName(URL.parse(url)) === slug);
+    if (!page || (page.convId !== conversation?.id && !referencedByUser)) {
       return {
         error: `this conversation has no page with the slug "${slug}"`,
         code: "page_not_found",

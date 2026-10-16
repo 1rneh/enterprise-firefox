@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import { createStore, combineReducers } from "redux";
 import { INITIAL_STATE, reducers } from "common/Reducers.sys.mjs";
 import { actionTypes as at } from "common/Actions.mjs";
+import { WIDGET_REGISTRY } from "common/WidgetsRegistry.mjs";
 import {
   Widgets,
   resetTimerToDefaults,
@@ -1094,6 +1095,57 @@ describe("<Widgets> overflow detection", () => {
     // Sizes don't affect the count.
     expect(section.hasAttribute("data-overflow-3")).toBe(true);
     expect(section.hasAttribute("data-overflow-4")).toBe(false);
+  });
+});
+
+describe("<Widgets> extension widget", () => {
+  const EXTENSION_ID = "fixture-widget@mozilla.org";
+  const EXTENSION_SRC = "moz-extension://uuid/widget.html";
+  const EXTENSION_WIDGET = {
+    id: "extensionWidget",
+    enabledPref: "widgets.extensionWidget.enabled",
+    systemEnabledPref: "widgets.system.extensionWidget.enabled",
+    defaultSize: "large",
+    extensionID: EXTENSION_ID,
+  };
+
+  beforeAll(() => {
+    WIDGET_REGISTRY.push(EXTENSION_WIDGET);
+  });
+
+  afterAll(() => {
+    WIDGET_REGISTRY.splice(WIDGET_REGISTRY.indexOf(EXTENSION_WIDGET), 1);
+  });
+
+  function extensionWidgetState(extensionWidgets) {
+    return {
+      ...makeNovaWidgetState([["lists", "medium"]], {
+        "widgets.extensionWidget.enabled": true,
+        "widgets.system.extensionWidget.enabled": true,
+      }),
+      ExtensionWidgets: extensionWidgets,
+    };
+  }
+
+  it("renders a padded moz-widget card carrying its extension's widget src and size", () => {
+    const { container } = renderWidgets(
+      extensionWidgetState({
+        [EXTENSION_ID]: { src: EXTENSION_SRC, name: "Tally" },
+      })
+    );
+    const card = container.querySelector(
+      'moz-widget[widget-id="extensionWidget"]'
+    );
+    expect(card.getAttribute("src")).toBe(EXTENSION_SRC);
+    expect(card.getAttribute("size")).toBe("large");
+    expect(card.hasAttribute("padded")).toBe(true);
+  });
+
+  it("renders nothing while ExtensionWidgets has no entry for its extension", () => {
+    const { container } = renderWidgets(extensionWidgetState({}));
+    expect(
+      container.querySelector('[data-widget-id="extensionWidget"]')
+    ).not.toBeInTheDocument();
   });
 });
 

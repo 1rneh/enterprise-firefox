@@ -14,6 +14,7 @@ import {
   FormAutofillStorageBase,
 } from "resource://autofill/FormAutofillStorageBase.sys.mjs";
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+import { FormAutofill } from "resource://autofill/FormAutofill.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
@@ -70,7 +71,7 @@ const CREDIT_CARD_RUST_ENABLED_PREF =
   "extensions.formautofill.creditCards.storage.rust.enabled";
 
 const CREDIT_CARD_RUST_ACTIVE_PREF =
-  "extensions.formautofill.creditCards.storage.rust.active";
+  FormAutofill.CREDITCARDS_RUST_STORAGE_ACTIVE_PREF;
 
 const CREDIT_CARD_RUST_MIGRATION_TEST_PREF =
   "extensions.formautofill.creditCards.storage.rust.runMigrationTest";

@@ -132,6 +132,7 @@ pub use gpu_buffer::{GpuBuffer, GpuBufferF, GpuBufferBuilderF, GpuBufferI, GpuBu
 pub use gpu_buffer::{GpuBufferHandle, GpuBufferAddress, GpuBufferBuilder, GpuBufferWriterF};
 pub use gpu_buffer::{GpuBufferDataF, GpuBufferDataI, GpuBufferWriterI};
 use gpu_buffer::{GpuBufferBlockF, GpuBufferBlockI};
+pub use gpu_buffer::{GpuBufferBlockEdge, GpuBufferEdges, PathEdgeBufferBuilder};
 
 /// The size of the array of each type of vertex data texture that
 /// is round-robin-ed each frame during bind_frame_data. Doing this
@@ -317,6 +318,7 @@ pub(crate) enum TextureSampler {
     ClipMask,
     GpuBufferF,
     GpuBufferI,
+    PathEdges,
 }
 
 impl TextureSampler {
@@ -346,6 +348,7 @@ impl Into<TextureSlot> for TextureSampler {
             TextureSampler::ClipMask => TextureSlot(8),
             TextureSampler::GpuBufferF => TextureSlot(9),
             TextureSampler::GpuBufferI => TextureSlot(10),
+            TextureSampler::PathEdges => TextureSlot(11),
         }
     }
 }
@@ -758,6 +761,9 @@ pub struct Renderer {
     gpu_buffer_texture_i: Option<Texture>,
     gpu_buffer_texture_i_too_large: i32,
     gpu_buffer_last_data_i: Vec<GpuBufferBlockI>,
+    gpu_buffer_texture_edges: Option<Texture>,
+    gpu_buffer_texture_edges_too_large: i32,
+    gpu_buffer_last_data_edges: Vec<GpuBufferBlockEdge>,
     vertex_data: vertex::VertexDataRing,
 
     pipeline_info: PipelineInfo,
@@ -1497,6 +1503,10 @@ impl Renderer {
             self.device.delete_texture(texture);
         }
         self.gpu_buffer_last_data_i = Vec::new();
+        if let Some(texture) = self.gpu_buffer_texture_edges.take() {
+            self.device.delete_texture(texture);
+        }
+        self.gpu_buffer_last_data_edges = Vec::new();
     }
 
     /// Set a callback for handling external images.
@@ -2604,6 +2614,7 @@ impl Renderer {
     fn handle_clips(
         &mut self,
         draw_target: &DrawTarget,
+        target_kind: RenderTargetKind,
         masks: &ClipMaskInstanceList,
         projection: &default::Transform3D<f32>,
         stats: &mut RendererStats,
@@ -2783,6 +2794,33 @@ impl Renderer {
                 }
 
                 self.device.set_scissor(None);
+            }
+
+            // Path tiles cover the outside of the path. Both blend modes
+            // multiply the destination by the coverage of the path (see
+            // cs_path_tile), so like the masks above, the order of the clips
+            // does not matter. Alpha targets have no alpha channel to drive
+            // dest-out with in SWGL, so they keep the multiply blend mode.
+            if !masks.path_tiles.is_empty() {
+                if target_kind == RenderTargetKind::Color {
+                    self.set_blend_mode(BlendMode::PremultipliedDestOut, FramebufferKind::Other);
+                }
+
+                self.shaders.borrow_mut().cs_path_tile().bind(
+                    &mut self.device,
+                    projection,
+                    None,
+                    &mut self.renderer_errors,
+                    &mut self.profile,
+                    &mut self.command_log,
+                );
+
+                self.draw_instanced_batch(
+                    &masks.path_tiles,
+                    VertexArrayKind::PathTile,
+                    &BatchTextures::empty(),
+                    stats,
+                );
             }
         }
     }
@@ -3766,6 +3804,7 @@ impl Renderer {
 
             self.handle_clips(
                 &draw_target,
+                target.target_kind,
                 &target.clip_masks,
                 &projection,
                 stats,
@@ -3827,6 +3866,14 @@ impl Renderer {
         if let Some(texture) = &self.gpu_buffer_texture_i {
             self.device.bind_texture(
                 TextureSampler::GpuBufferI,
+                &texture,
+                Swizzle::default(),
+            );
+        }
+
+        if let Some(texture) = &self.gpu_buffer_texture_edges {
+            self.device.bind_texture(
+                TextureSampler::PathEdges,
                 &texture,
                 Swizzle::default(),
             );
@@ -4013,6 +4060,13 @@ impl Renderer {
                 &mut self.gpu_buffer_last_data_i,
                 &mut self.texture_upload_buffer_pool,
             );
+            Self::update_gpu_buffer_texture(
+                &mut self.device,
+                &frame.gpu_buffer_edges,
+                &mut self.gpu_buffer_texture_edges,
+                &mut self.gpu_buffer_last_data_edges,
+                &mut self.texture_upload_buffer_pool,
+            );
         }
 
         self.device.set_depth_write(false);
@@ -4023,7 +4077,8 @@ impl Renderer {
         let bytes_to_mb = 1.0 / 1000000.0;
         let gpu_buffer_bytes_f = frame.gpu_buffer_f.size.to_f32().area() * 16.0;
         let gpu_buffer_bytes_i = frame.gpu_buffer_i.size.to_f32().area() * 16.0;
-        let gpu_buffer_mb = (gpu_buffer_bytes_f + gpu_buffer_bytes_i) as f32 * bytes_to_mb;
+        let gpu_buffer_bytes_edges = frame.gpu_buffer_edges.size.to_f32().area() * 4.0;
+        let gpu_buffer_mb = (gpu_buffer_bytes_f + gpu_buffer_bytes_i + gpu_buffer_bytes_edges) as f32 * bytes_to_mb;
         self.profile.set(profiler::GPU_BUFFER_MEM, gpu_buffer_mb);
 
         // Determine the present mode and dirty rects, if device_size
@@ -4237,6 +4292,14 @@ impl Renderer {
             &mut self.gpu_buffer_texture_i_too_large,
             &mut self.gpu_buffer_last_data_i,
         );
+
+        Self::maybe_evict_gpu_buffer_texture(
+            &mut self.device,
+            frame.gpu_buffer_edges.size.height,
+            &mut self.gpu_buffer_texture_edges,
+            &mut self.gpu_buffer_texture_edges_too_large,
+            &mut self.gpu_buffer_last_data_edges,
+        );
     }
 
     pub fn debug_renderer(&mut self) -> Option<&mut DebugRenderer> {
@@ -4311,6 +4374,9 @@ impl Renderer {
             self.device.delete_texture(texture);
         }
         if let Some(texture) = self.gpu_buffer_texture_i {
+            self.device.delete_texture(texture);
+        }
+        if let Some(texture) = self.gpu_buffer_texture_edges {
             self.device.delete_texture(texture);
         }
         self.vertex_data.deinit(&mut self.device);

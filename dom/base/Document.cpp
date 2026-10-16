@@ -43,6 +43,7 @@
 #include "mozAutoDocUpdate.h"
 #include "mozIDOMWindow.h"
 #include "mozIThirdPartyUtil.h"
+#include "mozilla/AntiTrackingOpenerHeuristics.h"
 #include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/ArrayIterator.h"
 #include "mozilla/AsyncEventDispatcher.h"
@@ -2743,9 +2744,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
     cb.NoteXPCOMChild(registry);
   }
 
-  if (tmp->mRadioGroupContainer) {
-    RadioGroupContainer::Traverse(tmp->mRadioGroupContainer.get(), cb);
-  }
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRadioGroupContainer)
 
   for (auto& sheets : tmp->mAdditionalSheets) {
     tmp->TraverseStyleSheets(sheets, "mAdditionalSheets[<origin>][i]", cb);
@@ -2957,7 +2956,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   DocumentOrShadowRoot::Unlink(tmp);
   CustomElementRegistry::RemoveScopedRegistry(*tmp);
 
-  tmp->mRadioGroupContainer = nullptr;
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mRadioGroupContainer)
 
   // Document has a pretty complex destructor, so we're going to
   // assume that *most* cycles you actually want to break somewhere
@@ -15371,12 +15370,7 @@ already_AddRefed<Range> Document::CaretRangeFromPoint(int32_t aX, int32_t aY) {
   return range.forget();
 }
 
-bool Document::IsPotentiallyScrollableImpl(HTMLBodyElement* aBody,
-                                           Flush aFlush) {
-  if (aFlush == Flush::Yes) {
-    FlushPendingNotifications(FlushType::Frames);
-  }
-
+bool Document::IsPotentiallyScrollableImpl(HTMLBodyElement* aBody) {
   // An element that is the HTML body element is potentially scrollable if all
   // of the following conditions are true:
 
@@ -15405,15 +15399,21 @@ Element* Document::GetScrollingElementImpl(Flush aFlush) {
   if (GetCompatibilityMode() != eCompatibility_NavQuirks) {
     return GetRootElement();
   }
+
+  if (aFlush == Flush::Yes) {
+    FlushPendingNotifications(FlushType::Frames);
+  }
+  // Get the body element after we flush to make sure it is up-to-date.
   RefPtr<HTMLBodyElement> body = GetBodyElement();
-  if (body && !IsPotentiallyScrollableImpl(body, aFlush)) {
+  if (body && !IsPotentiallyScrollableImpl(body)) {
     return body;
   }
   return nullptr;
 }
 
 bool Document::IsPotentiallyScrollable(HTMLBodyElement* aBody) {
-  return IsPotentiallyScrollableImpl(aBody, Flush::Yes);
+  FlushPendingNotifications(FlushType::Frames);
+  return IsPotentiallyScrollableImpl(aBody);
 }
 
 Element* Document::GetScrollingElement() {
@@ -16286,7 +16286,7 @@ void Document::RestorePreviousFullscreenState(UniquePtr<FullscreenExit> aExit) {
   }
 
   nsCOMPtr<Document> fullScreenDoc = GetFullscreenLeaf(this);
-  AutoTArray<Element*, 8> exitElements;
+  AutoTArray<RefPtr<Element>, 8> exitElements;
 
   Document* doc = fullScreenDoc;
   // Collect all subdocuments.
@@ -16329,8 +16329,6 @@ void Document::RestorePreviousFullscreenState(UniquePtr<FullscreenExit> aExit) {
     return;
   }
 
-  // If fullscreen mode is updated the pointer should be unlocked
-  PointerLockManager::Unlock("Document::RestorePreviousFullscreenState");
   // All documents listed in the array except the last one are going to
   // completely exit from the fullscreen state.
   for (auto i : IntegerRange(exitElements.Length() - 1)) {
@@ -16352,7 +16350,13 @@ void Document::RestorePreviousFullscreenState(UniquePtr<FullscreenExit> aExit) {
   // that the loop order is reversed so that events are dispatched in
   // the tree order as indicated in the spec.
   for (Element* e : Reversed(exitElements)) {
-    DispatchFullscreenChange(*e->OwnerDoc(), e);
+    Document* exitDoc = e->OwnerDoc();
+    DispatchFullscreenChange(*exitDoc, e);
+    if (!exitDoc->Fullscreen()) {
+      // The document may have other fullscreen subdocuments which are not part
+      // of the current fullscreen document chain, reset them as well.
+      exitDoc->EnumerateSubDocuments(ResetFullscreen);
+    }
   }
   aExit->MayResolvePromise();
 
@@ -16368,6 +16372,9 @@ void Document::RestorePreviousFullscreenState(UniquePtr<FullscreenExit> aExit) {
     // the warning UI.
     DispatchFullscreenNewOriginEvent(newFullscreenDoc);
   }
+
+  // If fullscreen mode is updated the pointer should be unlocked
+  PointerLockManager::Unlock("Document::RestorePreviousFullscreenState");
 }
 
 static void UpdateViewportScrollbarOverrideForFullscreen(Document* aDoc) {
@@ -19199,7 +19206,7 @@ void Document::SetUserHasInteracted() {
     wgc->SendUpdateDocumentHasUserInteracted(true);
   }
 
-  MaybeAllowStorageForOpenerAfterUserInteraction(hadPriorUserInteraction);
+  MaybeAllowStorageForOpenerAfterUserInteraction(this, hadPriorUserInteraction);
 }
 
 BrowsingContext* Document::GetBrowsingContext() const {
@@ -19374,104 +19381,6 @@ void Document::SetDocTreeHadMedia() {
   if (topWc && !topWc->IsDiscarded() && !topWc->GetDocTreeHadMedia()) {
     MOZ_ALWAYS_SUCCEEDS(topWc->SetDocTreeHadMedia(true));
   }
-}
-
-void Document::MaybeAllowStorageForOpenerAfterUserInteraction(
-    bool aHadPriorUserInteraction) {
-  if (!CookieJarSettings()->GetRejectThirdPartyContexts()) {
-    return;
-  }
-
-  // This will probably change for project fission, but currently this document
-  // and the opener are on the same process. In the future, we should make this
-  // part async.
-  nsPIDOMWindowInner* inner = GetInnerWindow();
-  if (NS_WARN_IF(!inner)) {
-    return;
-  }
-
-  // Don't trigger navigation heuristic for first-party trackers if the pref
-  // says so.
-  if (StaticPrefs::
-          privacy_restrict3rdpartystorage_heuristic_exclude_third_party_trackers() &&
-      nsContentUtils::IsFirstPartyTrackingResourceWindow(inner)) {
-    return;
-  }
-
-  auto* outer = nsGlobalWindowOuter::Cast(inner->GetOuterWindow());
-  if (NS_WARN_IF(!outer)) {
-    return;
-  }
-
-  RefPtr<BrowsingContext> openerBC = outer->GetOpenerBrowsingContext();
-  if (!openerBC) {
-    // No opener.
-    return;
-  }
-
-  // We want to ensure the following check works for both fission mode and
-  // non-fission mode:
-  // "If the opener is not a 3rd party and if this window is not a 3rd party
-  // with respect to the opener, we should not continue."
-  //
-  // In non-fission mode, the opener and the opened window are in the same
-  // process, we can use AntiTrackingUtils::IsThirdPartyWindow to do the check.
-  // In fission mode, if this window is not a 3rd party with respect to the
-  // opener, they must be in the same process, so we can still use
-  // IsThirdPartyWindow(openerInner) to continue to check if the opener is a 3rd
-  // party.
-  if (openerBC->IsInProcess()) {
-    nsCOMPtr<nsPIDOMWindowOuter> outerOpener = openerBC->GetDOMWindow();
-    if (NS_WARN_IF(!outerOpener)) {
-      return;
-    }
-
-    nsCOMPtr<nsPIDOMWindowInner> openerInner =
-        outerOpener->GetCurrentInnerWindow();
-    if (NS_WARN_IF(!openerInner)) {
-      return;
-    }
-
-    RefPtr<Document> openerDocument = openerInner->GetExtantDoc();
-    if (NS_WARN_IF(!openerDocument)) {
-      return;
-    }
-
-    nsCOMPtr<nsIURI> openerURI = openerDocument->GetDocumentURI();
-    if (NS_WARN_IF(!openerURI)) {
-      return;
-    }
-
-    // If the opener is not a 3rd party and if this window is not
-    // a 3rd party with respect to the opener, we should not continue.
-    if (!AntiTrackingUtils::IsThirdPartyWindow(inner, openerURI) &&
-        !AntiTrackingUtils::IsThirdPartyWindow(openerInner, nullptr)) {
-      return;
-    }
-  }
-
-  RefPtr<Document> self(this);
-  WebIdentityHandler* identityHandler = inner->GetOrCreateWebIdentityHandler();
-  MOZ_ASSERT(identityHandler);
-  identityHandler->IsContinuationWindow()->Then(
-      GetCurrentSerialEventTarget(), __func__,
-      [self, openerBC, aHadPriorUserInteraction](
-          const MozPromise<bool, nsresult, true>::ResolveOrRejectValue&
-              result) {
-        if (!result.IsResolve() || !result.ResolveValue()) {
-          if (XRE_IsParentProcess()) {
-            (void)StorageAccessAPIHelper::AllowAccessForOnParentProcess(
-                self->NodePrincipal(), openerBC,
-                ContentBlockingNotifier::eOpenerAfterUserInteraction, nullptr,
-                Some(aHadPriorUserInteraction));
-          } else {
-            (void)StorageAccessAPIHelper::AllowAccessForOnChildProcess(
-                self->NodePrincipal(), openerBC,
-                ContentBlockingNotifier::eOpenerAfterUserInteraction, nullptr,
-                Some(aHadPriorUserInteraction));
-          }
-        }
-      });
 }
 
 namespace {
@@ -21545,7 +21454,7 @@ FragmentDirective* Document::FragmentDirective() {
 
 RadioGroupContainer& Document::OwnedRadioGroupContainer() {
   if (!mRadioGroupContainer) {
-    mRadioGroupContainer = MakeUnique<RadioGroupContainer>();
+    mRadioGroupContainer = MakeRefPtr<RadioGroupContainer>();
   }
   return *mRadioGroupContainer;
 }

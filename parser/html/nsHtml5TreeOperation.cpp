@@ -582,7 +582,7 @@ nsresult nsHtml5TreeOperation::AddAttributes(nsIContent* aNode,
 }
 
 void nsHtml5TreeOperation::SetHTMLElementAttributes(
-    Element* aElement, nsHtml5HtmlAttributes* aAttributes) {
+    Element* aElement, nsHtml5HtmlAttributes* aAttributes, bool aNotify) {
   int32_t len = aAttributes->getLength();
   if (!len) {
     return;
@@ -594,7 +594,7 @@ void nsHtml5TreeOperation::SetHTMLElementAttributes(
   for (nsHtml5AttributeEntry& entry : *aAttributes) {
     nsHtml5String& val = entry.ValueRef();
     nsAtom* localName = entry.NameHTML();
-    if (localName == nsGkAtoms::_class) {
+    if (localName == nsGkAtoms::_class && !aNotify) {
       nsAtom* klass = val.MaybeAsAtom();
       if (klass) {
         aElement->SetClassAttrFromParser(klass);
@@ -606,14 +606,14 @@ void nsHtml5TreeOperation::SetHTMLElementAttributes(
     nsAtom* valAtom = val.MaybeAsAtom();
     if (valAtom) {
       aElement->SetAttr(kNameSpaceID_None, localName, nullptr, valAtom, nullptr,
-                        false);
+                        aNotify);
     } else {
       nsString value;  // Not Auto, because using it to hold nsStringBuffer*
       // Safety: OK to call, because val is a reference into the attribute
       // holder, so a call on `val` is a call on an owning instance of
       // `nsHtml5String`.
       val.MoveToString(value);
-      aElement->SetAttr(kNameSpaceID_None, localName, nullptr, value, false);
+      aElement->SetAttr(kNameSpaceID_None, localName, nullptr, value, aNotify);
     }
   }
 #ifdef DEBUG
@@ -792,7 +792,7 @@ nsIContent* nsHtml5TreeOperation::CreateHTMLElement(
     if (aCreator) {
       SetHTMLElementAttributesFast(element, aAttributes);
     } else {
-      SetHTMLElementAttributes(element, aAttributes);
+      SetHTMLElementAttributes(element, aAttributes, willExecuteScript);
     }
     return element;
   };

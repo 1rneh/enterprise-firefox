@@ -274,7 +274,8 @@
 .nova-enabled .widgets-container:has([data-dragging]) {
   user-select: none;
 
-  iframe {
+  iframe,
+  moz-widget {
     pointer-events: none;
   }
 }

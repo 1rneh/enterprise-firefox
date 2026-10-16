@@ -43,6 +43,7 @@
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   max-width: 1170px;
   margin: 0 auto;
+  width: 100%;
 }
 
 aitab-footer {

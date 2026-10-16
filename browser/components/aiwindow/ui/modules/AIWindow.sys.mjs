@@ -88,8 +88,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/MonitorAttention.sys.mjs",
   MonitorUIUtils:
     "moz-src:///browser/components/aiwindow/ui/modules/MonitorUIUtils.sys.mjs",
-  SmartWindowLocation:
-    "moz-src:///browser/components/aiwindow/models/SmartWindowLocation.sys.mjs",
   SmartWindowTelemetry:
     "moz-src:///browser/components/aiwindow/ui/modules/SmartWindowTelemetry.sys.mjs",
   TelemetryScheduler:
@@ -230,7 +228,6 @@ export const AIWindow = {
   _startSchedulers() {
     lazy.MemoriesSchedulers.maybeRunAndSchedule();
     lazy.TelemetryScheduler.maybeInit();
-    lazy.SmartWindowLocation.refreshIfStale();
   },
 
   handlePlacesEvents(events) {

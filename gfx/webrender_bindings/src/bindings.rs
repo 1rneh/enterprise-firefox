@@ -185,12 +185,17 @@ pub struct DocumentHandle {
 
 impl DocumentHandle {
     pub fn new(
-        api: RenderApi,
+        mut api: RenderApi,
         hit_tester: Option<Arc<dyn ApiHitTester>>,
         size: DeviceIntSize,
         id: u32,
     ) -> DocumentHandle {
         let doc = api.add_document_with_id(size, id);
+        if static_prefs::pref!("gfx.webrender.enforce-embed-policy") {
+            let mut txn = Transaction::new();
+            txn.set_embed_policy_enforcement(true);
+            api.send_transaction(doc, txn);
+        }
         let hit_tester_request = if hit_tester.is_none() {
             // Request the hit tester early to reduce the likelihood of blocking on the
             // first hit testing query.
@@ -1098,6 +1103,15 @@ impl SceneBuilderHooks for APZCallbacks {
 
     fn deregister(&self) {
         unsafe { apz_deregister_updater(self.window_id) }
+    }
+
+    fn embed_policy_violation(&self, _document_id: DocumentId, embedder: PipelineId, child: PipelineId) {
+        let msg = CString::new(format!(
+            "WebRender ignored an iframe of pipeline {:?} in pipeline {:?}",
+            child, embedder
+        ))
+        .unwrap();
+        unsafe { gfx_critical_note(msg.as_ptr()) };
     }
 }
 
@@ -2534,6 +2548,22 @@ pub extern "C" fn wr_transaction_set_root_pipeline(txn: &mut Transaction, pipeli
 #[no_mangle]
 pub extern "C" fn wr_transaction_remove_pipeline(txn: &mut Transaction, pipeline_id: WrPipelineId) {
     txn.remove_pipeline(pipeline_id);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wr_transaction_set_embed_policy(
+    txn: &mut Transaction,
+    pipeline_id: WrPipelineId,
+    restricted: bool,
+    namespaces: *const u32,
+    namespace_count: usize,
+) {
+    let policy = if restricted {
+        webrender::api::EmbedPolicy::Restricted(make_slice(namespaces, namespace_count).to_vec())
+    } else {
+        webrender::api::EmbedPolicy::Unrestricted
+    };
+    txn.set_embed_policy(pipeline_id, policy);
 }
 
 #[no_mangle]
@@ -4313,7 +4343,7 @@ pub extern "C" fn wr_dp_push_border_gradient(
         state
             .frame_builder
             .dl_builder
-            .create_gradient(start_point, end_point, stops_vector, extend_mode);
+            .create_gradient(start_point, end_point, stops_vector, extend_mode, AlphaMode::Premultiplied);
 
     let border_details = BorderDetails::NinePatch(NinePatchBorder {
         source: NinePatchBorderSource::Gradient(gradient),
@@ -4371,7 +4401,7 @@ pub extern "C" fn wr_dp_push_border_radial_gradient(
         state
             .frame_builder
             .dl_builder
-            .create_radial_gradient(center, radius, stops_vector, extend_mode);
+            .create_radial_gradient(center, radius, stops_vector, extend_mode, AlphaMode::Premultiplied);
 
     let border_details = BorderDetails::NinePatch(NinePatchBorder {
         source: NinePatchBorderSource::RadialGradient(gradient),
@@ -4429,7 +4459,7 @@ pub extern "C" fn wr_dp_push_border_conic_gradient(
         state
             .frame_builder
             .dl_builder
-            .create_conic_gradient(center, angle, stops_vector, extend_mode);
+            .create_conic_gradient(center, angle, stops_vector, extend_mode, AlphaMode::Premultiplied);
 
     let border_details = BorderDetails::NinePatch(NinePatchBorder {
         source: NinePatchBorderSource::ConicGradient(gradient),
@@ -4469,6 +4499,7 @@ pub extern "C" fn wr_dp_push_linear_gradient(
     stops: *const GradientStop,
     stops_count: usize,
     extend_mode: ExtendMode,
+    alpha_mode: AlphaMode,
     tile_size: LayoutSize,
     tile_spacing: LayoutSize,
 ) {
@@ -4481,7 +4512,7 @@ pub extern "C" fn wr_dp_push_linear_gradient(
         state
             .frame_builder
             .dl_builder
-            .create_gradient(start, end, stops_vector, extend_mode);
+            .create_gradient(start, end, stops_vector, extend_mode, alpha_mode);
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
 
@@ -4514,6 +4545,7 @@ pub extern "C" fn wr_dp_push_radial_gradient(
     stops: *const GradientStop,
     stops_count: usize,
     extend_mode: ExtendMode,
+    alpha_mode: AlphaMode,
     tile_size: LayoutSize,
     tile_spacing: LayoutSize,
 ) {
@@ -4526,7 +4558,7 @@ pub extern "C" fn wr_dp_push_radial_gradient(
         state
             .frame_builder
             .dl_builder
-            .create_radial_gradient(center, radius, stops_vector, extend_mode);
+            .create_radial_gradient(center, radius, stops_vector, extend_mode, alpha_mode);
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
 
@@ -4562,6 +4594,7 @@ pub extern "C" fn wr_dp_push_conic_gradient(
     stops: *const GradientStop,
     stops_count: usize,
     extend_mode: ExtendMode,
+    alpha_mode: AlphaMode,
     tile_size: LayoutSize,
     tile_spacing: LayoutSize,
 ) {
@@ -4574,7 +4607,7 @@ pub extern "C" fn wr_dp_push_conic_gradient(
         state
             .frame_builder
             .dl_builder
-            .create_conic_gradient(center, angle, stops_vector, extend_mode);
+            .create_conic_gradient(center, angle, stops_vector, extend_mode, alpha_mode);
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
 

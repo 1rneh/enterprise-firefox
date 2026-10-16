@@ -955,8 +955,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   nsresult GetInterfaceInternal(const nsIID& aIID, void** aSink);
 
-  void MaybeAllowStorageForOpenedWindow(nsIURI* aURI);
-
   void MaybeResetWindowName(Document* aNewDocument);
 
  public:
@@ -1131,6 +1129,11 @@ inline void nsGlobalWindowOuter::MaybeClearInnerWindow(
     nsPIDOMWindowInner* aExpectedInner) {
   if (mInnerWindow == aExpectedInner) {
     mInnerWindow = nullptr;
+
+    if (mBrowsingContext && mBrowsingContext->GetUnbarrieredWindowProxy() ==
+                                GetWrapperMaybeDead()) {
+      mBrowsingContext->ClearWindowProxy();
+    }
   }
 }
 

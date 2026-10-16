@@ -320,10 +320,13 @@ tasks:
                         android-em.*/debug: built-projects
                         default: []
                 default:
-                    by-test-platform:
-                        .*-wayland.*: []
-                        windows1.*: []
-                        default: built-projects
+                    by-project:
+                        enterprise-.*: []
+                        default:
+                            by-test-platform:
+                                .*-wayland.*: []
+                                windows1.*: []
+                                default: built-projects
         mozharness:
             requires-signed-builds:
                 by-variant:

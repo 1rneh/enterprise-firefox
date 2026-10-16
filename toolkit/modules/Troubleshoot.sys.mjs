@@ -1050,6 +1050,7 @@ var dataProviders = {
       agentPath: info.agentPath,
       failedSignatureVerification: info.failedSignatureVerification,
       requestCount: info.requestCount,
+      isBuiltInAgent: info.isBuiltInAgent,
     });
   },
 

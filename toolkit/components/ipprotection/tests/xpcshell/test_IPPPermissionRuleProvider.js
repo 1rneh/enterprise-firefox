@@ -10,6 +10,9 @@ const { IPPPermissionRuleProvider } = ChromeUtils.importESModule(
 
 const PERM_NAME = "ipp-vpn";
 
+do_get_profile();
+Services.fog.initializeFOG();
+
 const makePrincipal = origin =>
   Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin);
 
@@ -225,8 +228,6 @@ add_task(async function test_uninit_stops_observing() {
  * and kept current as rules are added, swapped and removed.
  */
 add_task(async function test_counts_are_recorded() {
-  do_get_profile();
-  Services.fog.initializeFOG();
   Services.fog.testResetFOG();
   Services.perms.removeByType(PERM_NAME);
   Services.perms.addFromPrincipal(

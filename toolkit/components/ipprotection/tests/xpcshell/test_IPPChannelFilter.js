@@ -16,6 +16,9 @@ const { MasqueProtocol, ConnectProtocol, Server } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs"
 );
 
+do_get_profile();
+Services.fog.initializeFOG();
+
 add_task(async function test_constructProxyInfo_masque_protocol() {
   const authToken = "Bearer test-token";
   const isolationKey = "test-isolation-key";
@@ -975,8 +978,6 @@ add_task(async function test_shouldProxy() {
  * built-in exclusions.
  */
 add_task(async function test_shouldProxy_records_rule_applied() {
-  do_get_profile();
-  Services.fog.initializeFOG();
   Services.fog.testResetFOG();
   IPPSiteRuleManager.init();
 

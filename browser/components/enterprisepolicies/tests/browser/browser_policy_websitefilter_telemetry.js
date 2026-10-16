@@ -41,7 +41,7 @@ add_task(async function test_policy_enterprise_telemetry() {
 
   // A directly blocked URL is only recorded once per RecentBlockedUrlCache
   // That cache gets emptied when the time window kLookbackWindow passes, so
-  // await we are waiting it out (1000ms).
+  // wait out that window (1000ms).
   const DEDUPE_WINDOW_MS = 1000;
   // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
   await new Promise(r => setTimeout(r, DEDUPE_WINDOW_MS + 100));

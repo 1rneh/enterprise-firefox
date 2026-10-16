@@ -1,4 +1,5 @@
 [DEFAULT]
+skip-if = ["enterprise"] # Onboarding is disabled on Firefox Enterprise
 support-files = [
   "head.js",
 ]

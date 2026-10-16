@@ -591,6 +591,8 @@ ${
       this.view.close();
     }
 
+    this._initCopyCutController();
+
     // Don't attach event listeners if the urlbar is readonly.
     if (this.readOnly) {
       this.#popoverAllowed = false;
@@ -600,8 +602,6 @@ ${
       return;
     }
     this.toggleAttribute("focused", this.focused);
-
-    this._initCopyCutController();
 
     for (let event of UrlbarInputBase.#inputFieldEvents) {
       this.inputField.addEventListener(event, this);

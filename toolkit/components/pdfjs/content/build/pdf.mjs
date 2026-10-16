@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.128
- * pdfjsBuild = e1412d3a5
+ * pdfjsVersion = 6.5.140
+ * pdfjsBuild = 288892aad
  */
 
 ;// ./src/shared/util.js
@@ -2045,7 +2045,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "01ffb4ab-d90d-4ca8-8b3b-0b6d879e32ec";
+const INTERNAL_EVT = "ec61024f-acae-43d8-a821-e5fa3cc60670";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -14253,12 +14253,11 @@ class WorkerRenderTask {
     this.#onError = onError;
   }
   async initialize(transparency, optionalContentConfig) {
-    const handler = this.#rendererWorker.messageHandler;
-    if (!handler) {
+    if (!this.#rendererWorker.messageHandler) {
       return false;
     }
     try {
-      await handler.sendWithPromise("InitializeGraphics", {
+      await this.#rendererWorker.sendWithPromise("InitializeGraphics", {
         ...this.#initParams,
         width: this.#canvas.width,
         height: this.#canvas.height,
@@ -14266,7 +14265,9 @@ class WorkerRenderTask {
         optionalContentConfig: optionalContentConfig.serializable
       });
     } catch (ex) {
-      warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
+      if (!this.#cancelled) {
+        warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
+      }
       return false;
     }
     if (!this.#cancelled) {
@@ -14303,12 +14304,20 @@ class WorkerRenderTask {
       }
       this.#filteredLength = end;
     }
-    const response = await handler.sendWithPromise("ExecuteOperatorList", {
+    const response = await this.#rendererWorker.sendWithPromise("ExecuteOperatorList", {
       renderTaskId: this.#id,
       operatorListIdx,
       operatorListLength: end,
       operationsFilterMask,
       lastChunk
+    }).catch(reason => {
+      if (!this.#cancelled) {
+        throw reason;
+      }
+      return {
+        operatorListIdx,
+        aborted: true
+      };
     });
     if (response.aborted && !this.#cancelled) {
       throw new Error("Render task was aborted in the renderer worker.");
@@ -14380,9 +14389,11 @@ class RendererWorker {
   #messageHandler = null;
   #operatorListId = 0;
   #operatorLists = new WeakMap();
+  #pendingRequests = new Set();
   #renderTaskId = 0;
   #renderTasks = new Map();
   #webWorker = null;
+  #workerAC = null;
   destroyed = false;
   constructor({
     verbosity = getVerbosityLevel(),
@@ -14432,15 +14443,22 @@ class RendererWorker {
         this.#capability.reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
       };
       const ac = new AbortController();
-      worker.addEventListener("error", event => {
+      const onError = (event, reason) => {
         if (!this.#webWorker) {
-          terminateEarly(event.error || event.message);
+          terminateEarly(reason);
+          return;
         }
-      }, {
+        event.preventDefault();
+        warn(`Renderer worker failed: "${reason}". ` + "Falling back to main-thread rendering.");
+        this.destroy();
+      };
+      worker.addEventListener("error", event => onError(event, event.error?.message ?? event.message), {
+        signal: ac.signal
+      });
+      worker.addEventListener("messageerror", event => onError(event, "Cannot deserialize a message."), {
         signal: ac.signal
       });
       messageHandler.on("ready", data => {
-        ac.abort();
         if (this.destroyed) {
           terminateEarly("Worker was destroyed.");
           return;
@@ -14449,13 +14467,14 @@ class RendererWorker {
           terminateEarly("TypedArray transfer test failed.");
           return;
         }
-        const apiVersion = "6.5.128";
+        const apiVersion = "6.5.140";
         if (apiVersion !== data.workerVersion) {
           terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
           return;
         }
         this.#messageHandler = messageHandler;
         this.#webWorker = worker;
+        this.#workerAC = ac;
         this.#resolve();
       });
     } catch (reason) {
@@ -14464,10 +14483,32 @@ class RendererWorker {
   }
   destroy() {
     this.destroyed = true;
+    this.#workerAC?.abort();
+    this.#workerAC = null;
     this.#webWorker?.terminate();
     this.#webWorker = null;
     this.#messageHandler?.destroy();
     this.#messageHandler = null;
+    for (const reject of this.#pendingRequests) {
+      reject(new Error("Renderer worker was destroyed."));
+    }
+    this.#pendingRequests.clear();
+  }
+  sendWithPromise(action, data) {
+    const handler = this.#messageHandler;
+    if (!handler) {
+      return Promise.reject(new Error("Renderer worker was destroyed."));
+    }
+    const {
+      promise,
+      resolve,
+      reject
+    } = Promise.withResolvers();
+    this.#pendingRequests.add(reject);
+    handler.sendWithPromise(action, data).then(resolve, reject);
+    return promise.finally(() => {
+      this.#pendingRequests.delete(reject);
+    });
   }
   #sendObj(action, data, id, pageProxyId) {
     const handler = this.#messageHandler;
@@ -14998,7 +15039,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.5.128",
+    apiVersion: "6.5.140",
     data,
     password,
     disableAutoFetch,
@@ -16140,7 +16181,7 @@ class WorkerTransport {
       pageCache: this.#pageCache,
       pdfBug: this._params.pdfBug
     });
-    this.rendererWorker?.messageHandler.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
+    this.rendererWorker?.messageHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
@@ -16671,8 +16712,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.5.128";
-const build = "e1412d3a5";
+const version = "6.5.140";
+const build = "288892aad";
 
 ;// ./src/display/editor/color_picker.js
 

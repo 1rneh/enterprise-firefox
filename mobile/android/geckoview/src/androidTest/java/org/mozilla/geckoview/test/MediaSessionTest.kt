@@ -1024,12 +1024,12 @@ class MediaSessionTest : BaseSessionTest() {
 
         val path = VIDEO_WEBM_PATH
         val session = sessionRule.createOpenSession()
-        val resultFullscreen = GeckoResult<Void>()
         session.loadTestPath(path)
         sessionRule.waitForPageStop()
 
         session.delegateDuringNextWait(
             object : MediaSession.Delegate {
+                @AssertCalled(count = 1)
                 override fun onFullscreen(
                     session: GeckoSession,
                     mediaSession: MediaSession,
@@ -1046,13 +1046,12 @@ class MediaSessionTest : BaseSessionTest() {
                         meta,
                         notNullValue(),
                     )
-                    resultFullscreen.complete(null)
                 }
             }
         )
 
         session.evaluateJS("document.querySelector('video').requestFullscreen()")
-        sessionRule.waitForResult(resultFullscreen)
+        session.waitUntilCalled(MediaSession.Delegate::class, "onFullscreen")
     }
 
     @Ignore("https://bugzilla.mozilla.org/show_bug.cgi?id=1988041")
@@ -1066,20 +1065,17 @@ class MediaSessionTest : BaseSessionTest() {
         mainSession.loadTestPath(VIDEO_WEBM_PATH)
         sessionRule.waitForPageStop()
 
-        val onPlayCalled = GeckoResult<Void>()
         mainSession.delegateUntilTestEnd(
             object : MediaSession.Delegate {
                 @AssertCalled(count = 1)
                 override fun onPlay(
                     session: GeckoSession,
                     mediaSession: MediaSession,
-                ) {
-                    onPlayCalled.complete(null)
-                }
+                ) {}
             }
         )
 
         mainSession.evaluateJS("document.querySelector('video').play()")
-        sessionRule.waitForResult(onPlayCalled)
+        mainSession.waitUntilCalled(MediaSession.Delegate::class, "onPlay")
     }
 }

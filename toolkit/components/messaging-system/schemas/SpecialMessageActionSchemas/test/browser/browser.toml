@@ -97,6 +97,8 @@ run-if = [
 
 ["browser_sma_restore_session.js"]
 
+["browser_sma_select_and_mark_menu_item.js"]
+
 ["browser_sma_set_bookmarks_toolbar_visibility.js"]
 
 ["browser_sma_set_browser_icon.js"]

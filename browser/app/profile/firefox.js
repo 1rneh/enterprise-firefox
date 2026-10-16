@@ -773,10 +773,6 @@ pref("browser.urlbar.shortcuts.bookmarks", true);
 pref("browser.urlbar.shortcuts.tabs", true);
 pref("browser.urlbar.shortcuts.history", true);
 
-// When we send events to Urlbar extensions, we wait this amount of time in
-// milliseconds for them to respond before timing out.
-pref("browser.urlbar.extension.timeout", 400);
-
 // Controls when to DNS resolve single word search strings, after they were
 // searched for. If the string is resolved as a valid host, show a
 // "Did you mean to go to 'host'" prompt.
@@ -1234,6 +1230,8 @@ pref("browser.tabs.groups.hoverPreview.enabled", true);
 pref("browser.tabs.groups.alternateMenu", false);
 // Bug 2052293: temporarily disabled while tab groups move away from the list all tabs menu.
 pref("browser.tabs.groups.onboardingCallouts.enabled", false);
+// Number of times the "Tab group saved" confirmation hint has been shown
+pref("browser.tabs.groups.saveHintShownCount", 0);
 
 pref("browser.tabs.groups.smart.enabled", true);
 
@@ -1568,7 +1566,12 @@ pref("accessibility.typeaheadfind.flashBar", 1);
 // Whether we had to hide the "Firefox Labs" section because it would be empty.
 pref("browser.preferences.experimental.hidden", false);
 // Whether we show the "More from Mozilla" section.
+#ifdef MOZ_ENTERPRISE
+// "More from Mozilla" is disabled on Firefox Enterprise
+pref("browser.preferences.moreFromMozilla", false, locked);
+#else
 pref("browser.preferences.moreFromMozilla", true);
+#endif
 // Whether we show the "AI Controls" pane.
 pref("browser.preferences.aiControls", true);
 // Whether to show unavailable AI controls regardless of region/locale
@@ -2353,7 +2356,12 @@ pref("browser.newtabpage.trainhopAddon.xpiBaseURL", "https://archive.mozilla.org
 pref("browser.newtabpage.sponsor-protection.enabled", true);
 
 // Separate about welcome
+#ifdef MOZ_ENTERPRISE
+// Onboarding is disabled on Firefox Enterprise
+pref("browser.aboutwelcome.enabled", false, locked);
+#else
 pref("browser.aboutwelcome.enabled", true);
+#endif
 // Used to set multistage welcome UX
 pref("browser.aboutwelcome.screens", "");
 // Whether to gate loading about:welcome on Nimbus experiments having loaded.
@@ -2564,6 +2572,7 @@ pref("browser.smartwindow.autoTabGrouping.preloadModels", true);
 pref("browser.smartwindow.autoTabGrouping.maxGroups", 3);
 pref("browser.smartwindow.autoTabGrouping.minTabsPerGroup", 2);
 pref("browser.smartwindow.autoTabGrouping.minCandidateTabs", 2);
+pref("browser.smartwindow.autoTabGrouping.maxCandidateTabs", 200);
 pref("browser.smartwindow.autoTabGrouping.minCohesion", "0.15");
 pref("browser.smartwindow.autoTabGrouping.timeoutMs", 8000);
 pref("browser.smartwindow.autoTabGrouping.supportedLocales", "en,fr");
@@ -2609,6 +2618,12 @@ pref("browser.smartwindow.searchTheWebFast", true);
 // written answer and its citations in one call. Takes precedence over
 // browser.smartwindow.searchTheWebFast.
 pref("browser.smartwindow.searchTheWebAnswers", false);
+
+// Smart Window: approximate location (city, region, country) from Merino
+// geolocation, cached in prefs.
+pref("browser.smartwindow.location.enabled", false);
+pref("browser.smartwindow.location.data", "");
+pref("browser.smartwindow.location.lastCheckSeconds", 0);
 
 // Smart Window Logging
 pref("browser.smartwindow.aiTabHistory.logLevel", "Error");
@@ -2762,7 +2777,7 @@ pref("media.gmp-gmpopenh264.enabled", true);
 
 pref("media.videocontrols.picture-in-picture.enabled", true);
 pref("media.videocontrols.picture-in-picture.audio-toggle.enabled", true);
-pref("media.videocontrols.picture-in-picture.playback-speed.enabled", false);
+pref("media.videocontrols.picture-in-picture.playback-speed.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.visibility-threshold", "1.0");
 pref("media.videocontrols.picture-in-picture.keyboard-controls.enabled", true);
@@ -3352,6 +3367,10 @@ pref("browser.toolbars.share-button.enabled", true);
 pref("browser.urlbar.share-button.enabled", false);
 
 pref("security.certerrors.felt-privacy-v1", true);
+
+#ifdef NIGHTLY_BUILD
+  pref("security.utility_pkcs11_module_process.enabled", true);
+#endif
 
 
 // Prefs to control the Firefox Account toolbar menu.
@@ -3948,7 +3967,8 @@ pref("browser.backup.enabled_on.profiles", "[]");
 
 // Pref to enable the new profiles
 #ifdef MOZ_ENTERPRISE
-pref("browser.profiles.enabled", false);
+// Profile management is disabled on Firefox Enterprise
+pref("browser.profiles.enabled", false, locked);
 #else
 pref("browser.profiles.enabled", true);
 #endif

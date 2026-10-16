@@ -111,12 +111,6 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   // time stamp (if now is false)
   void SetPendingTime(bool now = true) {
     mozilla::MutexAutoLock lock(mLock);
-    if (!now && !mTimings.transactionPending.IsNull()) {
-      // Remember how long it took. We will use this value to record
-      // TRANSACTION_WAIT_TIME_HTTP2_SUP_HTTP3 telemetry, but we need to wait
-      // for the response headers.
-      mPendingDurationTime = TimeStamp::Now() - mTimings.transactionPending;
-    }
     // Note that the transaction could be added in to a pending queue multiple
     // times (when the transaction is restarted or moved to a new conn entry due
     // to HTTPS RR), so we should only set the pending time once.
@@ -466,7 +460,10 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   // 2. If only some records have echConfig and some not, we always fallback to
   // this origin conn info.
   RefPtr<nsHttpConnectionInfo> mOrigConnInfo;
-  nsHttpRequestHead* mRequestHead{nullptr};    // weak ref
+  // nsHttpRequestHead has its own lock.  The channel outlives this
+  // transaction because the pump reading mPipeIn holds it until
+  // Close() closes the pipe.
+  nsHttpRequestHead* mRequestHead{nullptr};
   nsHttpResponseHead* mResponseHead{nullptr};  // owning pointer
 
   nsAHttpSegmentReader* mReader{nullptr};
@@ -573,17 +570,14 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   bool mReportedStart{false};
   bool mReportedResponseHeader{false};
 
-  // protected by nsHttp::GetLock()
-  bool mResponseHeadTaken{false};
-  UniquePtr<nsHttpHeaderArray> mForTakeResponseTrailers;
-  bool mResponseTrailersTaken{false};
+  // protected by mLock
+  bool mResponseHeadTaken MOZ_GUARDED_BY(mLock){false};
+  UniquePtr<nsHttpHeaderArray> mForTakeResponseTrailers MOZ_GUARDED_BY(mLock);
+  bool mResponseTrailersTaken MOZ_GUARDED_BY(mLock){false};
 
   // Set when this transaction was restarted by call to Restart().  Used to tell
   // the http channel to reset proxy authentication.
   Atomic<bool> mRestarted{false};
-
-  // The time when the transaction was submitted to the Connection Manager
-  TimeDuration mPendingDurationTime;
 
   uint64_t mBrowserId{0};
 

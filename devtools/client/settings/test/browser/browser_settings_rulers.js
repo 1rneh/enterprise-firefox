@@ -12,7 +12,9 @@ add_task(async function () {
   const toolbox = await openToolboxForTab(tab, "options");
   const panel = toolbox.getCurrentPanel();
   await panel.element.updateComplete;
-  const checkbox = panel.element.shadowRoot.querySelector("#rulers-setting");
+  const checkbox = panel.element.shadowRoot.querySelector(
+    "#settings-toolbox-rulers"
+  );
   ok(checkbox, "The checkbox exists");
   await checkbox.updateComplete;
   is(checkbox.checked, true, "The checkbox reads the existing preference");

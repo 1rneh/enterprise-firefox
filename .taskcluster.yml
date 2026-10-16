@@ -501,6 +501,9 @@ tasks:
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}-pr.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                                             'eventType == "cron"':
+                                                - $switch:
+                                                      'project == "enterprise-firefox"': "tc-treeherder.v2.${shortRef}.${headRev}"
+                                                      $default: "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.branch.${shortRef}.latest.taskgraph.decision-${cron.job_name}"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision-${cron.job_name}"
                                                 # list each cron task on this revision, so actions can find them
@@ -746,7 +749,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commBaseRev: 6b50863ea7820fa5f978bbb0cc85d54cb87894b2
+                  commBaseRev: f91c7c46764342a886b8c66fa708ff6b92ae05e1
                   commHeadRepoUrl: https://github.com/thunderbird/thunderbird-desktop
                   commHeadRef:
                       $if: 'project == "enterprise-firefox-try"'
@@ -757,7 +760,7 @@ tasks:
                               'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
                               'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
                               $default: "master"
-                  commHeadRev: 6b50863ea7820fa5f978bbb0cc85d54cb87894b2
+                  commHeadRev: f91c7c46764342a886b8c66fa708ff6b92ae05e1
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}

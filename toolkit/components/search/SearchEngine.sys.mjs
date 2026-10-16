@@ -649,12 +649,6 @@ export class SearchEngine {
    * @type {string}
    */
   #id;
-  /**
-   * The URL to report the search to.
-   *
-   * @type {?string}
-   */
-  clickUrl = null;
 
   /** @type {string} */
   isNewUntil;

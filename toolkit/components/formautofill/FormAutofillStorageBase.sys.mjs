@@ -1838,7 +1838,8 @@ export class CreditCardsBase extends AutofillRecords {
     }
     exported["cc-number"] = await lazy.OSKeyStore.decrypt(
       exported["cc-number-encrypted"],
-      "formautofill_cc"
+      // Not a user reading a card, so kept apart from their reads.
+      "formautofill_migration"
     );
     delete exported["cc-number-encrypted"];
     return exported;

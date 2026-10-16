@@ -1144,7 +1144,7 @@ browsertime-nav-bench:
                     windows11-64-24h2-nightlyasrelease.*: [autoland]
                     default: []
             default: []
-    tier: 3
+    tier: 2
     treeherder-symbol: Btime(nav-bench)
     mozharness:
         extra-options:

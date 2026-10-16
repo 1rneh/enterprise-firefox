@@ -36,7 +36,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ExtensionsUI: "resource:///modules/ExtensionsUI.sys.mjs",
   FormAutofillUtils: "resource://gre/modules/shared/FormAutofillUtils.sys.mjs",
   Interactions: "moz-src:///browser/components/places/Interactions.sys.mjs",
-  LaunchOnLogin: "resource://gre/modules/LaunchOnLogin.sys.mjs",
   LoginBreaches:
     "moz-src:///browser/components/aboutlogins/LoginBreaches.sys.mjs",
   LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
@@ -65,8 +64,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/search/SearchSERPTelemetry.sys.mjs",
   SessionStartup:
     "moz-src:///browser/components/sessionstore/SessionStartup.sys.mjs",
-  SessionWindowUI:
-    "moz-src:///browser/components/sessionstore/SessionWindowUI.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
@@ -87,6 +84,7 @@ if (AppConstants.MOZ_ENTERPRISE) {
     EnterpriseHandler:
       "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
     isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    permanentlyBlockAboutPage: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   });
 }
 
@@ -347,9 +345,6 @@ BrowserGlue.prototype = {
           "os-autostart",
           false
         );
-        if (lazy.LaunchOnLogin.isSupported()) {
-          lazy.StartupOSIntegration.checkForLaunchOnLogin();
-        }
         break;
       }
     }
@@ -423,6 +418,19 @@ BrowserGlue.prototype = {
         "chrome,centerscreen,modal,resizable=no",
         null
       );
+    }
+
+    // Profile management is disabled on Firefox Enterprise.
+    if (AppConstants.MOZ_ENTERPRISE) {
+      for (const page of [
+        "about:profiles",
+        "about:profilemanager",
+        "about:editprofile",
+        "about:deleteprofile",
+        "about:newprofile",
+      ]) {
+        lazy.permanentlyBlockAboutPage(page);
+      }
     }
 
     // apply distribution customizations
@@ -908,7 +916,6 @@ BrowserGlue.prototype = {
     }
 
     lazy.Sanitizer.onStartup();
-    lazy.SessionWindowUI.maybeShowRestoreSessionInfoBar();
     this._scheduleStartupIdleTasks();
     this._lateTasksIdleObserver = (idleService, topic) => {
       if (topic == "idle") {

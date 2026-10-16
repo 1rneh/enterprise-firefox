@@ -814,10 +814,9 @@ class _SessionStore {
           if (ss.sessionType == ss.DEFER_SESSION) {
             let [iniState, remainingState] =
               this.#prepDataForDeferredRestore(state);
-            // Should null out state when iniState carries nothing to restore
-            // now, but savedGroups is always an array, so this is always true
-            // and the else never runs. TODO (Bug 2076441).
-            if (iniState.windows.length || iniState.savedGroups) {
+            // iniState carries windows with pinned tabs to open or closed tabs
+            // and groups to carry over, and/or saved groups to preserve.
+            if (iniState.windows.length || iniState.savedGroups.length) {
               state = iniState;
             } else {
               state = null;
@@ -9168,6 +9167,8 @@ class _SessionStore {
       Glean.tabgroup.groupInteractions.open_suggest.add(1);
     } else if (source == TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU) {
       Glean.tabgroup.groupInteractions.open_tabmenu.add(1);
+    } else if (source == TabMetrics.METRIC_SOURCE.APP_MENU_GROUP_LIST) {
+      Glean.tabgroup.groupInteractions.open_appmenu_list.add(1);
     } else if (source == TabMetrics.METRIC_SOURCE.RECENT_TABS) {
       Glean.tabgroup.groupInteractions.open_recent.add(1);
     }

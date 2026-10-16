@@ -200,7 +200,12 @@ FormAutofillUtils = {
    *
    * Called at field detection time (FormAutofillHeuristics.inferFieldInfo),
    * which leaves such a field unclassified so that it takes no part in
-   * autofill at all.
+   * autofill at all. Also called against the live element right before the
+   * dropdown would be offered on it directly
+   * (FormAutofillChild.shouldSearchForAutoComplete), to catch an attribute
+   * the site changes after detection (Bug 2078883). The field stays
+   * fillable from a sibling's dropdown either way -- only its own popup is
+   * withheld.
    *
    * @param {HTMLElement} element
    * @param {?AutocompleteInfo} autocompleteInfo

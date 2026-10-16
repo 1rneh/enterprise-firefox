@@ -21,6 +21,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
 });
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 ChromeUtils.defineLazyGetter(lazy, "appUpdater", () => new lazy.AppUpdater());
 
 const EN_LOCALE_MATCH = /^en(-.*)$/;
@@ -449,6 +451,8 @@ export class UrlbarProviderInterventions extends UrlbarProvider {
       queryContext.searchString.length > UrlbarShared.MAX_TEXT_LENGTH ||
       lazy.UrlUtils.REGEXP_LIKE_PROTOCOL.test(queryContext.searchString) ||
       !EN_LOCALE_MATCH.test(Services.locale.appLocaleAsBCP47) ||
+      // Urlbar interventions are disabled on Firefox Enterprise.
+      AppConstants.MOZ_ENTERPRISE ||
       !Services.policies.isAllowed("urlbarinterventions") ||
       (await this.queryInstance
         .getProvider(lazy.UrlbarProviderGlobalActions.name)

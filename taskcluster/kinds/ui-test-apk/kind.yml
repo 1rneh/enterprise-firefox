@@ -302,7 +302,7 @@ tasks:
                   extract: false
         optimization:
             skip-unless-backstop: null
-        run-on-projects: [trunk]
+        run-on-projects: [trunk, mozilla-beta, mozilla-release]
         flank-config: fenix/arm-tae-tests.yml
         artifact-type: memory_leaks
         treeherder:

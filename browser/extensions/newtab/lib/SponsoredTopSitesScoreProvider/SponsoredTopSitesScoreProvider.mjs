@@ -13,14 +13,22 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
-  clearInterval: "resource://gre/modules/Timer.sys.mjs",
-  setInterval: "resource://gre/modules/Timer.sys.mjs",
+});
+
+const PREF_LOG =
+  "browser.newtabpage.activity-stream.sponsoredTopSitesScoring.log";
+
+ChromeUtils.defineLazyGetter(lazy, "logConsole", function () {
+  return console.createInstance({
+    prefix: "SponsoredTopSitesScoreProvider",
+    maxLogLevel: Services.prefs.getBoolPref(PREF_LOG, false) ? "Debug" : "Warn",
+  });
 });
 
 // Microseconds per day to match on visit_date
 const US_PER_DAY = 24 * 60 * 60 * 1000 * 1000;
 
-// How often scores are recomputed in milliseconds (24 hours).
+// The minimum time between score recomputes in milliseconds (24 hours).
 const RELEASE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const REMOTE_SETTINGS_COLLECTION = "newtab-sponsored-topsites-scoring";
 
@@ -31,9 +39,16 @@ const FLAG_PREFIX = "sponsored_top_site_scoring";
 const MAX_PRIVACY_PARAMETER = 1;
 const CACHE_KEY = "sponsored_topsites_scoring_cache";
 const SCORES_CACHE_KEY = "scores";
+const HISTORY_CACHE_KEY = "scoreHistory";
+
+// The number of daily private scores stored for post-processing.
+const HISTORY_SIZE = 30;
 
 const PREF_LAST_RELEASE_TIME =
   "browser.newtabpage.activity-stream.sponsoredTopSitesScoring.lastReleaseTime";
+
+// Places events that indicate browsing history was removed.
+const PLACES_EVENTS = ["history-cleared", "page-removed"];
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -42,52 +57,56 @@ XPCOMUtils.defineLazyPreferenceGetter(
   0
 );
 
-export class SponsoredTopSitesScoreProvider {
-  /**
-   * @param {Function} getFlags Returns the current adsBackend flags for selecting
-   *  a configuration record through remote settings.
-   */
-  constructor(getFlags) {
-    this._getFlags = getFlags;
-    this._refreshTimer = null;
-    this._rs = null;
-    this._cache = new lazy.PersistentCache(CACHE_KEY, false);
-  }
+export class _SponsoredTopSitesScoreProvider {
+  _getFlags = null;
+  _rs = null;
+  _cache = null;
+  _refreshPromise = null;
+  _placesListener = null;
 
   /**
-   * Starts the scoring. This creates the Remote Settings client, schedules a
-   * periodic refresh, and loads the first set of scores.
+   * Starts the scoring. This creates the cache and Remote Settings client.
    *
-   * @returns {Promise<void>} Resolves once the initial refresh completes.
+   * @param {Function} getFlags Returns the current adsBackend flags for
+   *  selecting a configuration record through remote settings.
    */
-  async init() {
+  init(getFlags) {
+    this._getFlags = getFlags;
+    if (!this._cache) {
+      this._cache = new lazy.PersistentCache(CACHE_KEY, false);
+    }
     if (!this._rs) {
       this._rs = lazy.RemoteSettings(REMOTE_SETTINGS_COLLECTION);
     }
-    if (!this._refreshTimer) {
-      this._refreshTimer = lazy.setInterval(
-        () => this._refreshScores(),
-        RELEASE_INTERVAL_MS
+    if (!this._placesListener) {
+      this._placesListener = events => this._onPlacesEvent(events);
+      lazy.PlacesUtils.observers.addListener(
+        PLACES_EVENTS,
+        this._placesListener
       );
     }
-    await this._refreshScores();
   }
 
   /**
-   * Stops the scoring. This cancels the refresh timer and clears any calculated
-   * scores. Invoke this when scoring is disabled or the consumer is uninitializing.
+   * Stops the scoring. This releases the Remote Settings client. Persisted
+   * scores stay in the cache for the next init.
+   * Invoke this when scoring is disabled or the consumer is uninitializing.
    */
   uninit() {
-    if (this._refreshTimer) {
-      lazy.clearInterval(this._refreshTimer);
-      this._refreshTimer = null;
+    if (this._placesListener) {
+      lazy.PlacesUtils.observers.removeListener(
+        PLACES_EVENTS,
+        this._placesListener
+      );
+      this._placesListener = null;
     }
     this._rs = null;
+    this._getFlags = null;
   }
 
   /**
-   * Load any active config and update the cached scores. Resets the scores when
-   * no config exists.
+   * Load any active config and update the cached scores. Clears existing
+   * scores when no config exists.
    *
    * @returns {Promise<void>} Resolves once the cached scores are updated.
    */
@@ -100,16 +119,21 @@ export class SponsoredTopSitesScoreProvider {
 
     const config = await this._loadConfig();
     if (!config) {
-      await this._setScores({});
+      const cachedScores = await this._cache.get(SCORES_CACHE_KEY);
+      if (cachedScores && Object.keys(cachedScores).length) {
+        await this._setScores({});
+      }
       return;
     }
 
+    const todayDay = Math.floor((Date.now() * 1000) / US_PER_DAY);
     const domainDayCounts = await this._getDomainDayCounts(config);
     const scores = this._sponsoredScores(config, domainDayCounts);
-    // TODO: post-process the private scores before they are sent to the server.
     const scoresWithDP = this._differentiallyPrivateScores(scores, config);
-    await this._setScores(scoresWithDP);
-    Services.prefs.setIntPref(PREF_LAST_RELEASE_TIME, now);
+    await this._appendScoreHistory(todayDay, scoresWithDP);
+    const scoreHistory = await this._getScoreHistory(todayDay);
+    await this._setScores(this._postProcessScores(scoreHistory, config));
+    this._setLastReleaseTime(now);
   }
 
   /**
@@ -119,6 +143,15 @@ export class SponsoredTopSitesScoreProvider {
    */
   _getLastReleaseTime() {
     return lazy.LAST_RELEASE_TIME_PREF_VALUE;
+  }
+
+  /**
+   * Record the time of the last release.
+   *
+   * @param {number} seconds The release time in seconds since the epoch.
+   */
+  _setLastReleaseTime(seconds) {
+    Services.prefs.setIntPref(PREF_LAST_RELEASE_TIME, seconds);
   }
 
   /**
@@ -203,12 +236,71 @@ export class SponsoredTopSitesScoreProvider {
   }
 
   /**
-   * Get the currently calculated scores from the cache.
+   * Returns the currently calculated scores from the cache and starts a
+   * background refresh to recompute the scores once a release interval has elapsed.
    *
    * @returns {Promise<object>} A map of scores.
    */
   async getScores() {
-    return (await this._cache.get(SCORES_CACHE_KEY)) ?? {};
+    const scores = (await this._cache?.get(SCORES_CACHE_KEY)) ?? {};
+    if (this._rs && !this._refreshPromise) {
+      this._refreshPromise = this._refreshScores()
+        .catch(e => lazy.logConsole.debug("Refresh failed", e))
+        .finally(() => {
+          this._refreshPromise = null;
+        });
+    }
+    return scores;
+  }
+
+  /**
+   * Clear the stored scores and score history, and restart the release
+   * interval so that no scores are released until a full interval has passed.
+   * Nothing is written when no scores have been stored or released.
+   *
+   * @returns {Promise<void>} Resolves once the data is cleared.
+   */
+  async clearData() {
+    if (!this._cache) {
+      return;
+    }
+    // Let a running refresh finish first so that it cannot write its scores
+    // back after they are cleared.
+    await this._refreshPromise;
+    const data = await this._cache.get();
+    const hasData =
+      Object.keys(data[SCORES_CACHE_KEY] ?? {}).length ||
+      data[HISTORY_CACHE_KEY]?.length;
+    if (!hasData && !this._getLastReleaseTime()) {
+      return;
+    }
+
+    this._setLastReleaseTime(Math.round(Date.now() / 1000));
+    await this._cache.set(SCORES_CACHE_KEY, {});
+    await this._cache.set(HISTORY_CACHE_KEY, []);
+  }
+
+  /**
+   * Clear the data when all history is cleared or the user removes any
+   * history. Removals from periodic history expiration are ignored since the
+   * user did not request them.
+   *
+   * @param {Array<PlacesHistoryCleared|PlacesVisitRemoved>} events The batched
+   *  Places events.
+   */
+  _onPlacesEvent(events) {
+    const historyRemoved = events.some(
+      event =>
+        event.type === "history-cleared" ||
+        (event.type === "page-removed" &&
+          /** @type {PlacesVisitRemoved} */ (event).reason ===
+            PlacesVisitRemoved.REASON_DELETED)
+    );
+    if (historyRemoved) {
+      this.clearData().catch(e =>
+        lazy.logConsole.error("Clearing data failed", e)
+      );
+    }
   }
 
   /**
@@ -375,6 +467,112 @@ export class SponsoredTopSitesScoreProvider {
   }
 
   /**
+   * Persist a day's private scores, keeping only the most recent HISTORY_SIZE
+   * days. A day that is not newer than the latest stored day is ignored so
+   * that a single day never gets more than one noise draw.
+   *
+   * @param {number} todayDay Today's day number.
+   * @param {object} privateScores The scores from _differentiallyPrivateScores.
+   * @returns {Promise<void>} Resolves once the history is persisted.
+   */
+  async _appendScoreHistory(todayDay, privateScores) {
+    const scoreHistory = (await this._cache.get(HISTORY_CACHE_KEY)) ?? [];
+    if (scoreHistory.at(-1)?.day >= todayDay) {
+      return;
+    }
+    scoreHistory.push({ day: todayDay, scores: privateScores });
+    await this._cache.set(HISTORY_CACHE_KEY, scoreHistory.slice(-HISTORY_SIZE));
+  }
+
+  /**
+   * Get the stored private scores keyed by day offset.
+   *
+   * @param {number} todayDay Today's day number.
+   * @returns {Promise<Map<number, object>>} The private scores keyed by day
+   *  offset relative to today (0 is today, -1 is yesterday, ...).
+   */
+  async _getScoreHistory(todayDay) {
+    const scoreHistory = (await this._cache.get(HISTORY_CACHE_KEY)) ?? [];
+    return new Map(
+      scoreHistory.map(({ day, scores }) => [day - todayDay, scores])
+    );
+  }
+
+  /**
+   * Fit today's score for each target to the trend from a least-squares linear
+   * fit of its private scores over the last config.trend_days.
+   *
+   * @param {Map<number, object>} scoreHistory The private scores keyed by day
+   *  offset, from _getScoreHistory.
+   * @param {object} config The active Remote Settings config.
+   * @returns {object} The predicted score keyed by target.
+   */
+  _trendFitting(scoreHistory, config) {
+    const trendScores = {};
+    for (const target of Object.keys(config.targets ?? {})) {
+      /** @type {Array<[number, number]>} */
+      const points = [];
+      for (const [day, scores] of scoreHistory) {
+        if (day > -config.trend_days && target in scores) {
+          points.push([day, scores[target]]);
+        }
+      }
+      if (points.length) {
+        trendScores[target] = this._linearFitAtZero(points);
+      }
+    }
+    return trendScores;
+  }
+
+  /**
+   * Fit a least-squares line through the points and evaluate it at x = 0.
+   *
+   * @param {Array<[number, number]>} points Non-empty list of [x, y] pairs.
+   * @returns {number} The fitted value at x = 0.
+   */
+  _linearFitAtZero(points) {
+    const n = points.length;
+    const meanX = points.reduce((sum, [x]) => sum + x, 0) / n;
+    const meanY = points.reduce((sum, [, y]) => sum + y, 0) / n;
+
+    let covariance = 0;
+    let varianceX = 0;
+    for (const [x, y] of points) {
+      covariance += (x - meanX) * (y - meanY);
+      varianceX += (x - meanX) ** 2;
+    }
+    if (!varianceX) {
+      return meanY;
+    }
+
+    const slope = covariance / varianceX;
+    return meanY - slope * meanX;
+  }
+
+  /**
+   * Fit the trend for today's score, keep the config.allowed_targets highest
+   * scoring targets, then clamp their scores to [0, 1] and round them down
+   * to config.decimals decimal places.
+   *
+   * @param {Map<number, object>} scoreHistory The private scores keyed by day
+   *  offset, from _getScoreHistory.
+   * @param {object} config The active Remote Settings config.
+   * @returns {object} The rounded score keyed by target, highest first.
+   */
+  _postProcessScores(scoreHistory, config) {
+    const factor = 10 ** config.decimals;
+    return Object.fromEntries(
+      Object.entries(this._trendFitting(scoreHistory, config))
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, config.allowed_targets)
+        .map(([target, score]) => [
+          target,
+          Math.floor(Math.min(Math.max(score, 0), 1) * factor) / factor,
+        ])
+    );
+  }
+
+  /**
    * Build a map of rev_host prefix to configured domain.
    *
    * @param {object} config The active Remote Settings config.
@@ -415,3 +613,6 @@ export class SponsoredTopSitesScoreProvider {
     return match;
   }
 }
+
+export const SponsoredTopSitesScoreProvider =
+  new _SponsoredTopSitesScoreProvider();

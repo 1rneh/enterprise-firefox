@@ -747,12 +747,12 @@ abstract class BaseBrowserFragment :
                         shouldWidthMatchParent = true,
                         positiveButtonBackgroundColor =
                             ThemeManager.resolveAttribute(
-                                R.attr.accent,
+                                materialR.attr.colorTertiary,
                                 context,
                             ),
                         positiveButtonTextColor =
                             ThemeManager.resolveAttribute(
-                                R.attr.textOnColorPrimary,
+                                materialR.attr.colorOnTertiary,
                                 context,
                             ),
                         positiveButtonRadius = pixelSizeFor(R.dimen.tab_corner_radius).toFloat(),

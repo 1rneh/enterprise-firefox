@@ -16,7 +16,14 @@ const ENTITLEMENT_CACHE_PREF = "browser.ipProtection.entitlementCache";
 const IPPROTECTION_CACHE_DISABLED_PREF = "browser.ipProtection.cacheDisabled";
 const IPPROTECTION_ADDED_PREF = "browser.ipProtection.added";
 const IPPROTECTION_STATE_CACHE_PREF = "browser.ipProtection.stateCache";
+const IPPROTECTION_USAGE_CACHE_PREF = "browser.ipProtection.usageCache";
+const ONBOARDING_MESSAGE_MASK_PREF =
+  "browser.ipProtection.onboardingMessageMask";
 const IPP_VPN_PERMISSION = "ipp-vpn";
+
+// The site rules sub-pane, shared by every task that works with the list so
+// that settings only has to load once.
+let siteRulesTab;
 
 add_setup(async function ippSiteRulesSetup() {
   await SpecialPowers.pushPrefEnv({
@@ -29,9 +36,18 @@ add_setup(async function ippSiteRulesSetup() {
     ],
   });
 
+  Services.perms.removeByType(IPP_VPN_PERMISSION);
+  siteRulesTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:preferences#vpnSiteRules"
+  );
+
   registerCleanupFunction(() => {
+    BrowserTestUtils.removeTab(siteRulesTab);
     Services.prefs.clearUserPref(IPPROTECTION_ADDED_PREF);
     Services.prefs.clearUserPref(IPPROTECTION_STATE_CACHE_PREF);
+    Services.prefs.clearUserPref(IPPROTECTION_USAGE_CACHE_PREF);
+    Services.prefs.clearUserPref(ONBOARDING_MESSAGE_MASK_PREF);
     Services.perms.removeByType(IPP_VPN_PERMISSION);
   });
 });
@@ -58,18 +74,20 @@ function storedRules() {
 }
 
 /**
- * Opens the site rules sub-pane and runs a task against its list element,
- * starting from a store with no rules in it.
+ * Runs a task against the list in the shared site rules sub-pane, starting
+ * from a store with no rules in it.
  */
 async function withSiteRulesList(task) {
+  gBrowser.selectedTab = siteRulesTab;
+  let browser = siteRulesTab.linkedBrowser;
+  let list = await getSiteRulesList(browser);
   Services.perms.removeByType(IPP_VPN_PERMISSION);
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: "about:preferences#vpnSiteRules" },
-    async function (browser) {
-      await task(await getSiteRulesList(browser), browser);
-    }
-  );
-  Services.perms.removeByType(IPP_VPN_PERMISSION);
+  await awaitRows(list, []);
+  try {
+    await task(list, browser);
+  } finally {
+    Services.perms.removeByType(IPP_VPN_PERMISSION);
+  }
 }
 
 async function getSiteRulesList(browser) {
@@ -110,12 +128,15 @@ async function awaitRows(list, expectedOrigins) {
 }
 
 // Test the site rules section replaces the site exceptions section when the
-// site inclusions feature is on.
-add_task(async function test_site_rules_replaces_site_exceptions() {
+// site inclusions feature is on, and that its button opens the vpnSiteRules
+// sub-pane.
+add_task(async function test_site_rules_button_opens_sub_pane() {
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:preferences#privacy" },
     async function (browser) {
-      let settingGroup = browser.contentDocument.querySelector(
+      let doc = browser.contentDocument;
+      let win = browser.contentWindow;
+      let settingGroup = doc.querySelector(
         `setting-group[groupid="ipprotection"]`
       );
 
@@ -133,22 +154,6 @@ add_task(async function test_site_rules_replaces_site_exceptions() {
         "ip-protection-site-rules-button-1",
         "Site rules button uses the site rules string"
       );
-    }
-  );
-});
-
-// Test clicking the site rules button opens the vpnSiteRules sub-pane.
-add_task(async function test_site_rules_opens_sub_pane() {
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: "about:preferences#privacy" },
-    async function (browser) {
-      let doc = browser.contentDocument;
-      let win = browser.contentWindow;
-
-      let siteRulesButton = doc.querySelector(
-        `setting-group[groupid="ipprotection"] #ipProtectionSiteRules`
-      );
-      is_element_visible(siteRulesButton, "Site rules button is shown");
 
       let paneLoaded = waitForPaneChange("vpnSiteRules", win);
       siteRulesButton.scrollIntoView();
@@ -164,8 +169,16 @@ add_task(async function test_site_rules_opens_sub_pane() {
   );
 });
 
-// Test the sub-pane can be linked to directly, e.g. from the VPN panel.
+// Test the sub-pane can be linked to directly, e.g. from the VPN panel, and
+// lists the rules that were stored before it opened.
 add_task(async function test_site_rules_sub_pane_direct_link() {
+  Services.perms.removeByType(IPP_VPN_PERMISSION);
+  setSiteRule(
+    "https://zebra.example.com",
+    Ci.nsIPermissionManager.ALLOW_ACTION
+  );
+  setSiteRule("https://ant.example.com", Ci.nsIPermissionManager.DENY_ACTION);
+
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:preferences#privacy-vpnsiterules" },
     async function (browser) {
@@ -191,12 +204,21 @@ add_task(async function test_site_rules_sub_pane_direct_link() {
         "Legacy hash resolves to sub-pane"
       );
       is_element_visible(getPane(), "Site rules sub-pane is shown");
+
+      await awaitRows(await getSiteRulesList(browser), [
+        "https://ant.example.com",
+        "https://zebra.example.com",
+      ]);
     }
   );
+
+  Services.perms.removeByType(IPP_VPN_PERMISSION);
 });
 
-// Test the empty state stands in for the list when no site has a rule.
-add_task(async function test_site_rules_list_empty() {
+// Test the empty state stands in for the list when no site has a rule, and
+// that rules set elsewhere, e.g. from the VPN panel, each get a row sorted by
+// origin and labelled with the rule the permission holds.
+add_task(async function test_site_rules_list() {
   await withSiteRulesList(async list => {
     is_element_visible(list.emptyStateEl, "Empty state is shown");
     is_element_visible(
@@ -206,72 +228,66 @@ add_task(async function test_site_rules_list_empty() {
     is_element_visible(list.addButtonEl, "Set rule button is shown");
     ok(!list.listEl, "No rules are listed");
     ok(!list.deleteAllButtonEl, "Delete all rules button is not shown");
-  });
-});
 
-// Test each stored rule gets a row, sorted by origin and labelled with the
-// rule the permission holds.
-add_task(async function test_site_rules_list_rows() {
-  setSiteRule(
-    "https://zebra.example.com",
-    Ci.nsIPermissionManager.ALLOW_ACTION
-  );
-  setSiteRule("https://ant.example.com", Ci.nsIPermissionManager.DENY_ACTION);
-
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: "about:preferences#vpnSiteRules" },
-    async function (browser) {
-      let list = await getSiteRulesList(browser);
-      let rows = await awaitRows(list, [
-        "https://ant.example.com",
-        "https://zebra.example.com",
-      ]);
-
-      ok(!list.emptyStateEl, "Empty state is not shown");
-      is_element_visible(list.deleteAllButtonEl, "Delete all rules is shown");
-
-      is(rows[0].label, "https://ant.example.com", "Row is labelled by origin");
-      is(
-        rows[0].querySelector("[slot=description]").dataset.l10nId,
-        "ip-protection-site-rules-rule-excluded",
-        "A DENY rule reads as the VPN being off"
-      );
-      is(
-        rows[1].querySelector("[slot=description]").dataset.l10nId,
-        "ip-protection-site-rules-rule-included",
-        "An ALLOW rule reads as the VPN being on"
-      );
-
-      for (let row of rows) {
-        ok(row.querySelector(".vpn-site-rule-edit"), "Row has an edit button");
-        ok(
-          row.querySelector(".vpn-site-rule-delete"),
-          "Row has a delete button"
-        );
-      }
-    }
-  );
-
-  Services.perms.removeByType(IPP_VPN_PERMISSION);
-});
-
-// Test a rule set elsewhere, e.g. from the VPN panel, reaches an open list.
-add_task(async function test_site_rules_list_updates_live() {
-  await withSiteRulesList(async list => {
     setSiteRule(
-      "https://added.example.com",
+      "https://zebra.example.com",
       Ci.nsIPermissionManager.ALLOW_ACTION
     );
-    await awaitRows(list, ["https://added.example.com"]);
-    ok(!list.emptyStateEl, "Empty state is replaced by the new rule");
+    setSiteRule("https://ant.example.com", Ci.nsIPermissionManager.DENY_ACTION);
+    let rows = await awaitRows(list, [
+      "https://ant.example.com",
+      "https://zebra.example.com",
+    ]);
+
+    ok(!list.emptyStateEl, "Empty state is replaced by the new rules");
+    is_element_visible(list.deleteAllButtonEl, "Delete all rules is shown");
+
+    is(rows[0].label, "https://ant.example.com", "Row is labelled by origin");
+    is(
+      rows[0].querySelector("[slot=description]").dataset.l10nId,
+      "ip-protection-site-rules-rule-excluded",
+      "A DENY rule reads as the VPN being off"
+    );
+    is(
+      rows[1].querySelector("[slot=description]").dataset.l10nId,
+      "ip-protection-site-rules-rule-included",
+      "An ALLOW rule reads as the VPN being on"
+    );
+
+    for (let row of rows) {
+      ok(row.querySelector(".vpn-site-rule-edit"), "Row has an edit button");
+      ok(row.querySelector(".vpn-site-rule-delete"), "Row has a delete button");
+    }
   });
 });
 
 /**
- * Stores two rules, clicks the delete all button, and runs a task once the
- * confirmation dialog is showing.
+ * Clicks a button in the list that asks for a deletion to be confirmed, and
+ * resolves once the confirmation dialog is showing.
  */
-async function withDeleteAllRulesDialog(task) {
+async function openDeleteDialog(list, browser, button) {
+  button.scrollIntoView();
+  EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
+  await BrowserTestUtils.waitForMutationCondition(
+    list.deleteDialogEl,
+    { attributes: true, attributeFilter: ["open"] },
+    () => list.deleteDialogEl.open,
+    { msg: "Delete confirmation is shown" }
+  );
+}
+
+/**
+ * Clicks a button in the delete confirmation and waits for it to close.
+ */
+async function clickDeleteDialogButton(list, button) {
+  let closed = BrowserTestUtils.waitForEvent(list.deleteDialogEl, "close");
+  button.click();
+  await closed;
+}
+
+// Test the delete all button asks for confirmation, keeps every rule when
+// cancelled, and otherwise clears every rule and brings the empty state back.
+add_task(async function test_site_rules_list_delete_all() {
   await withSiteRulesList(async (list, browser) => {
     setSiteRule(
       "https://one.example.com",
@@ -283,27 +299,7 @@ async function withDeleteAllRulesDialog(task) {
       "https://two.example.com",
     ]);
 
-    list.deleteAllButtonEl.scrollIntoView();
-    EventUtils.synthesizeMouseAtCenter(
-      list.deleteAllButtonEl,
-      {},
-      browser.contentWindow
-    );
-    await BrowserTestUtils.waitForMutationCondition(
-      list.deleteDialogEl,
-      { attributes: true, attributeFilter: ["open"] },
-      () => list.deleteDialogEl.open,
-      { msg: "Delete all confirmation is shown" }
-    );
-
-    await task(list, browser);
-  });
-}
-
-// Test the delete all button asks for confirmation, then clears every rule and
-// brings the empty state back.
-add_task(async function test_site_rules_list_delete_all() {
-  await withDeleteAllRulesDialog(async list => {
+    await openDeleteDialog(list, browser, list.deleteAllButtonEl);
     Assert.deepEqual(
       list.ownerDocument.l10n.getAttributes(list.deleteMessageEl),
       { id: "ip-protection-delete-all-site-rules-message", args: null },
@@ -325,19 +321,7 @@ add_task(async function test_site_rules_list_delete_all() {
       "Nothing is deleted before the user confirms"
     );
 
-    await clickDeleteDialogButton(list, list.deleteConfirmButtonEl);
-
-    await awaitRows(list, []);
-    Assert.deepEqual(storedRules(), [], "Every rule is gone from the store");
-    is_element_visible(list.emptyStateEl, "Empty state is shown again");
-  });
-});
-
-// Test cancelling the delete all confirmation keeps every rule.
-add_task(async function test_site_rules_list_delete_all_cancel() {
-  await withDeleteAllRulesDialog(async list => {
     await clickDeleteDialogButton(list, list.deleteCancelButtonEl);
-
     Assert.deepEqual(
       storedRules(),
       ["https://one.example.com", "https://two.example.com"],
@@ -347,6 +331,13 @@ add_task(async function test_site_rules_list_delete_all_cancel() {
       "https://one.example.com",
       "https://two.example.com",
     ]);
+
+    await openDeleteDialog(list, browser, list.deleteAllButtonEl);
+    await clickDeleteDialogButton(list, list.deleteConfirmButtonEl);
+
+    await awaitRows(list, []);
+    Assert.deepEqual(storedRules(), [], "Every rule is gone from the store");
+    is_element_visible(list.emptyStateEl, "Empty state is shown again");
   });
 });
 
@@ -364,6 +355,19 @@ async function openSetRuleDialog(list, browser) {
     {},
     browser.contentWindow
   );
+  return getRuleDialogElements(await dialogPromise);
+}
+
+/**
+ * Clicks the edit button on the row for an origin and resolves once its dialog
+ * has loaded.
+ */
+async function openEditRuleDialog(list, browser, origin) {
+  let row = list.querySelector(`.vpn-site-rule[data-origin="${origin}"]`);
+  let editButton = row.querySelector(".vpn-site-rule-edit");
+  let dialogPromise = promiseLoadSubDialog(SITE_RULE_DIALOG_URL);
+  editButton.scrollIntoView();
+  EventUtils.synthesizeMouseAtCenter(editButton, {}, browser.contentWindow);
   return getRuleDialogElements(await dialogPromise);
 }
 
@@ -391,28 +395,23 @@ function typeWebsite(dialogWin, input, value) {
 }
 
 /**
- * Opens the set rule dialog, runs a task against it, and closes it if the task
- * left it open.
+ * Clicks a button in the rule dialog and waits for the dialog to close.
  */
-async function withSetRuleDialog(task) {
-  await withSiteRulesList(async (list, browser) => {
-    let dialog = await openSetRuleDialog(list, browser);
-    await task(dialog, list, browser);
-    if (browser.contentWindow.gSubDialog._dialogs.length) {
-      let closed = BrowserTestUtils.waitForEvent(
-        browser.contentWindow.gSubDialog._dialogStack,
-        "dialogclose"
-      );
-      dialog.cancelButton.click();
-      await closed;
-    }
-  });
+async function closeRuleDialog(browser, button) {
+  let closed = BrowserTestUtils.waitForEvent(
+    browser.contentWindow.gSubDialog._dialogStack,
+    "dialogclose"
+  );
+  button.click();
+  await closed;
 }
 
-// Test the dialog offers a website field and a VPN status dropdown, and that
-// it cannot be accepted until a website has been typed.
+// Test the dialog offers a website field and a VPN status dropdown, that it
+// cannot be accepted until a website has been typed, and that cancelling
+// dismisses it without storing anything.
 add_task(async function test_set_rule_dialog_contents() {
-  await withSetRuleDialog(async dialog => {
+  await withSiteRulesList(async (list, browser) => {
+    let dialog = await openSetRuleDialog(list, browser);
     let { doc, websiteInput, statusSelect, acceptButton } = dialog;
 
     is(
@@ -450,115 +449,71 @@ add_task(async function test_set_rule_dialog_contents() {
 
     typeWebsite(dialog.dialogWin, websiteInput, "   ");
     ok(acceptButton.disabled, "A blank website disables Set again");
-  });
-});
 
-// Test accepting with Always on stores an ALLOW permission for the https
-// origin of a scheme-less website, and lists it.
-add_task(async function test_set_rule_dialog_saves_inclusion() {
-  await withSetRuleDialog(async (dialog, list, browser) => {
-    typeWebsite(dialog.dialogWin, dialog.websiteInput, "acme.com");
-
-    let closed = BrowserTestUtils.waitForEvent(
-      browser.contentWindow.gSubDialog._dialogStack,
-      "dialogclose"
-    );
-    dialog.acceptButton.click();
-    await closed;
-
-    is(
-      capabilityFor("https://acme.com"),
-      Ci.nsIPermissionManager.ALLOW_ACTION,
-      "Always on stores an inclusion for the https origin"
-    );
-    await awaitRows(list, ["https://acme.com"]);
-  });
-});
-
-// Test accepting with Always off stores a DENY permission for the https origin.
-add_task(async function test_set_rule_dialog_saves_exclusion() {
-  await withSetRuleDialog(async (dialog, list, browser) => {
-    typeWebsite(dialog.dialogWin, dialog.websiteInput, "acme.com");
-    dialog.statusSelect.value = "off";
-
-    let closed = BrowserTestUtils.waitForEvent(
-      browser.contentWindow.gSubDialog._dialogStack,
-      "dialogclose"
-    );
-    dialog.acceptButton.click();
-    await closed;
-
-    is(
-      capabilityFor("https://acme.com"),
-      Ci.nsIPermissionManager.DENY_ACTION,
-      "Always off stores an exclusion for the https origin"
-    );
-    await awaitRows(list, ["https://acme.com"]);
-  });
-});
-
-// Test a pasted https URL is reduced to its origin.
-add_task(async function test_set_rule_dialog_accepts_pasted_url() {
-  await withSetRuleDialog(async (dialog, list, browser) => {
-    typeWebsite(
-      dialog.dialogWin,
-      dialog.websiteInput,
-      "https://acme.com/pricing?plan=pro"
-    );
-
-    let closed = BrowserTestUtils.waitForEvent(
-      browser.contentWindow.gSubDialog._dialogStack,
-      "dialogclose"
-    );
-    dialog.acceptButton.click();
-    await closed;
-
-    await awaitRows(list, ["https://acme.com"]);
-  });
-});
-
-// Test an http website is converted to its https origin.
-add_task(async function test_set_rule_dialog_converts_http_to_https() {
-  await withSetRuleDialog(async (dialog, list, browser) => {
-    // eslint-disable-next-line sdl/no-insecure-url
-    typeWebsite(dialog.dialogWin, dialog.websiteInput, "http://acme.com/page");
-
-    let closed = BrowserTestUtils.waitForEvent(
-      browser.contentWindow.gSubDialog._dialogStack,
-      "dialogclose"
-    );
-    dialog.acceptButton.click();
-    await closed;
-
-    Assert.deepEqual(
-      storedRules(),
-      ["https://acme.com"],
-      "Only the https origin is stored"
-    );
-    await awaitRows(list, ["https://acme.com"]);
-  });
-});
-
-// Test cancelling dismisses the dialog without storing anything.
-add_task(async function test_set_rule_dialog_cancel() {
-  await withSetRuleDialog(async (dialog, list, browser) => {
-    typeWebsite(dialog.dialogWin, dialog.websiteInput, "acme.com");
-
-    let closed = BrowserTestUtils.waitForEvent(
-      browser.contentWindow.gSubDialog._dialogStack,
-      "dialogclose"
-    );
-    dialog.cancelButton.click();
-    await closed;
+    typeWebsite(dialog.dialogWin, websiteInput, "acme.com");
+    await closeRuleDialog(browser, dialog.cancelButton);
 
     Assert.deepEqual(storedRules(), [], "Cancelling stores no rule");
     is_element_visible(list.emptyStateEl, "List is still empty");
   });
 });
 
-// Test an entry that cannot be a website keeps the dialog open and reports it.
+// Test accepting stores a permission for the https origin of whatever was
+// typed, with the capability matching the chosen status, and lists it.
+add_task(async function test_set_rule_dialog_saves_rule() {
+  const { ALLOW_ACTION, DENY_ACTION } = Ci.nsIPermissionManager;
+  const cases = [
+    {
+      website: "acme.com",
+      capability: ALLOW_ACTION,
+      msg: "Always on stores an inclusion for a scheme-less website",
+    },
+    {
+      website: "acme.com",
+      status: "off",
+      capability: DENY_ACTION,
+      msg: "Always off stores an exclusion",
+    },
+    {
+      website: "https://acme.com/pricing?plan=pro",
+      capability: ALLOW_ACTION,
+      msg: "A pasted https URL is reduced to its origin",
+    },
+    {
+      // eslint-disable-next-line sdl/no-insecure-url
+      website: "http://acme.com/page",
+      capability: ALLOW_ACTION,
+      msg: "An http website is converted to its https origin",
+    },
+  ];
+
+  await withSiteRulesList(async (list, browser) => {
+    for (let { website, status, capability, msg } of cases) {
+      let dialog = await openSetRuleDialog(list, browser);
+      typeWebsite(dialog.dialogWin, dialog.websiteInput, website);
+      if (status) {
+        dialog.statusSelect.value = status;
+      }
+      await closeRuleDialog(browser, dialog.acceptButton);
+
+      Assert.deepEqual(storedRules(), ["https://acme.com"], msg);
+      is(capabilityFor("https://acme.com"), capability, msg);
+      await awaitRows(list, ["https://acme.com"]);
+
+      Services.perms.removeByType(IPP_VPN_PERMISSION);
+      await awaitRows(list, []);
+    }
+  });
+});
+
+// Test an entry that cannot be a website, or a website that already has a
+// rule, keeps the dialog open and reports it rather than storing anything.
 add_task(async function test_set_rule_dialog_invalid_website() {
-  await withSetRuleDialog(async dialog => {
+  await withSiteRulesList(async (list, browser) => {
+    setSiteRule("https://acme.com", Ci.nsIPermissionManager.ALLOW_ACTION);
+    await awaitRows(list, ["https://acme.com"]);
+
+    let dialog = await openSetRuleDialog(list, browser);
     let { dialogWin, websiteInput, errorEl, acceptButton } = dialog;
 
     let submit = value => {
@@ -599,7 +554,7 @@ add_task(async function test_set_rule_dialog_invalid_website() {
       "A wildcard host is reported"
     );
 
-    Assert.deepEqual(storedRules(), [], "Nothing was stored");
+    Assert.deepEqual(storedRules(), ["https://acme.com"], "Nothing was stored");
 
     typeWebsite(dialogWin, websiteInput, "acme.com");
     ok(
@@ -615,36 +570,16 @@ add_task(async function test_set_rule_dialog_invalid_website() {
       "description",
       "Typing restores the input's own description"
     );
-  });
-});
 
-// Test a website that already has a rule keeps the dialog open and reports it,
-// rather than silently replacing the rule.
-add_task(async function test_set_rule_dialog_duplicate_website() {
-  await withSiteRulesList(async (list, browser) => {
-    setSiteRule("https://acme.com", Ci.nsIPermissionManager.ALLOW_ACTION);
-    await awaitRows(list, ["https://acme.com"]);
-
-    let dialog = await openSetRuleDialog(list, browser);
-    typeWebsite(dialog.dialogWin, dialog.websiteInput, "acme.com");
-    dialog.acceptButton.click();
-
+    acceptButton.click();
     is(
-      dialog.errorEl.getAttribute("data-l10n-id"),
+      errorEl.getAttribute("data-l10n-id"),
       "ip-protection-site-rule-duplicate-error",
       "A website that already has a rule is reported"
     );
-    ok(
-      dialog.websiteInput.hasAttribute("invalid"),
-      "Website field is marked invalid"
-    );
+    ok(websiteInput.hasAttribute("invalid"), "Website field is marked invalid");
 
-    let closed = BrowserTestUtils.waitForEvent(
-      browser.contentWindow.gSubDialog._dialogStack,
-      "dialogclose"
-    );
-    dialog.cancelButton.click();
-    await closed;
+    await closeRuleDialog(browser, dialog.cancelButton);
   });
 });
 
@@ -659,7 +594,8 @@ add_task(async function test_set_rule_dialog_save_error() {
   };
 
   try {
-    await withSetRuleDialog(async dialog => {
+    await withSiteRulesList(async (list, browser) => {
+      let dialog = await openSetRuleDialog(list, browser);
       ok(dialog.saveErrorEl.hidden, "Dialog opens with no save error");
 
       typeWebsite(dialog.dialogWin, dialog.websiteInput, "acme.com");
@@ -685,195 +621,133 @@ add_task(async function test_set_rule_dialog_save_error() {
 
       typeWebsite(dialog.dialogWin, dialog.websiteInput, "acme.co");
       ok(dialog.saveErrorEl.hidden, "Typing clears the save error");
+
+      await closeRuleDialog(browser, dialog.cancelButton);
     });
   } finally {
     delete IPPPermissionRules.setRule;
   }
 });
 
-/**
- * Clicks the edit button on the row for an origin and resolves once its dialog
- * has loaded.
- */
-async function openEditRuleDialog(list, browser, origin) {
-  let row = list.querySelector(`.vpn-site-rule[data-origin="${origin}"]`);
-  let editButton = row.querySelector(".vpn-site-rule-edit");
-  let dialogPromise = promiseLoadSubDialog(SITE_RULE_DIALOG_URL);
-  editButton.scrollIntoView();
-  EventUtils.synthesizeMouseAtCenter(editButton, {}, browser.contentWindow);
-  return getRuleDialogElements(await dialogPromise);
-}
-
-/**
- * Stores a rule, opens the edit dialog for it, runs a task against the dialog,
- * and closes it if the task left it open.
- */
-async function withEditRuleDialog(origin, capability, task) {
-  await withSiteRulesList(async (list, browser) => {
-    setSiteRule(origin, capability);
-    await awaitRows(list, [origin]);
-
-    let dialog = await openEditRuleDialog(list, browser, origin);
-    await task(dialog, list, browser);
-    if (browser.contentWindow.gSubDialog._dialogs.length) {
-      let closed = BrowserTestUtils.waitForEvent(
-        browser.contentWindow.gSubDialog._dialogStack,
-        "dialogclose"
-      );
-      dialog.cancelButton.click();
-      await closed;
-    }
-  });
-}
-
-async function acceptRuleDialog(dialog, browser) {
-  let closed = BrowserTestUtils.waitForEvent(
-    browser.contentWindow.gSubDialog._dialogStack,
-    "dialogclose"
-  );
-  dialog.acceptButton.click();
-  await closed;
-}
-
-// Test the edit dialog is titled and labelled for editing, and opens prefilled
-// with the rule it was opened for.
-add_task(async function test_edit_rule_dialog_prefilled_inclusion() {
-  await withEditRuleDialog(
-    "https://acme.com",
-    Ci.nsIPermissionManager.ALLOW_ACTION,
-    async dialog => {
-      let { doc, websiteInput, statusSelect, acceptButton } = dialog;
-
-      is(
-        doc.documentElement.getAttribute("data-l10n-id"),
-        "ip-protection-edit-site-rule-window",
-        "Window uses the edit title"
-      );
-      is(
-        doc.querySelector("dialog").getAttribute("data-l10n-id"),
-        "ip-protection-edit-site-rule-dialog",
-        "Dialog uses the Save button label"
-      );
-      let [saveMessage] = await doc.l10n.formatMessages([
-        "ip-protection-edit-site-rule-dialog",
-      ]);
-      let saveLabel = saveMessage.attributes.find(
-        attr => attr.name == "buttonlabelaccept"
-      ).value;
-      await BrowserTestUtils.waitForMutationCondition(
-        acceptButton,
-        { attributes: true, attributeFilter: ["label"] },
-        () => acceptButton.label == saveLabel,
-        { msg: "Primary button reads Save" }
-      );
-      is_element_hidden(
-        doc.getElementById("vpnSiteRuleIntro"),
-        "Intro is hidden when editing"
-      );
-      is(websiteInput.value, "https://acme.com", "Website is prefilled");
-      is(statusSelect.value, "on", "An inclusion prefills Always on");
-      ok(!acceptButton.disabled, "Save is enabled straight away");
-    }
-  );
-});
-
-// Test saving without changes keeps the rule as it was, rather than reporting
-// the website as a duplicate of itself.
-add_task(async function test_edit_rule_dialog_save_unchanged() {
-  await withEditRuleDialog(
-    "https://acme.com",
-    Ci.nsIPermissionManager.ALLOW_ACTION,
-    async (dialog, list, browser) => {
-      await acceptRuleDialog(dialog, browser);
-
-      Assert.deepEqual(
-        storedRules(),
-        ["https://acme.com"],
-        "The rule is still stored"
-      );
-      is(
-        capabilityFor("https://acme.com"),
-        Ci.nsIPermissionManager.ALLOW_ACTION,
-        "The rule is unchanged"
-      );
-    }
-  );
-});
-
-// Test changing only the VPN status replaces the rule for the same website.
-add_task(async function test_edit_rule_dialog_save_status() {
-  await withEditRuleDialog(
-    "https://acme.com",
-    Ci.nsIPermissionManager.ALLOW_ACTION,
-    async (dialog, list, browser) => {
-      dialog.statusSelect.value = "off";
-      await acceptRuleDialog(dialog, browser);
-
-      Assert.deepEqual(
-        storedRules(),
-        ["https://acme.com"],
-        "The website still has one rule"
-      );
-      is(
-        capabilityFor("https://acme.com"),
-        Ci.nsIPermissionManager.DENY_ACTION,
-        "The rule now turns the VPN off"
-      );
-      await BrowserTestUtils.waitForMutationCondition(
-        list,
-        {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ["data-l10n-id"],
-        },
-        () =>
-          list.querySelector(".vpn-site-rule [slot=description]")?.dataset
-            .l10nId == "ip-protection-site-rules-rule-excluded",
-        { msg: "The row reads as the VPN being off" }
-      );
-    }
-  );
-});
-
-// Test changing the website deletes the old website's rule and stores the new
-// one with the chosen status.
-add_task(async function test_edit_rule_dialog_save_website() {
-  await withEditRuleDialog(
-    "https://acme.com",
-    Ci.nsIPermissionManager.ALLOW_ACTION,
-    async (dialog, list, browser) => {
-      typeWebsite(dialog.dialogWin, dialog.websiteInput, "example.org");
-      dialog.statusSelect.value = "off";
-      await acceptRuleDialog(dialog, browser);
-
-      Assert.deepEqual(
-        storedRules(),
-        ["https://example.org"],
-        "The old website's rule is replaced by the new one"
-      );
-      is(
-        capabilityFor("https://example.org"),
-        Ci.nsIPermissionManager.DENY_ACTION,
-        "The new rule has the chosen status"
-      );
-      await awaitRows(list, ["https://example.org"]);
-    }
-  );
-});
-
-// Test changing the website to one that already has a rule replaces that rule
-// instead of reporting a duplicate.
-add_task(async function test_edit_rule_dialog_save_onto_existing_rule() {
+// Test the edit dialog is titled and labelled for editing, opens prefilled
+// with the rule it was opened for, and that saving without changes keeps the
+// rule as it was rather than reporting the website as a duplicate of itself.
+add_task(async function test_edit_rule_dialog_prefilled() {
   await withSiteRulesList(async (list, browser) => {
     setSiteRule("https://acme.com", Ci.nsIPermissionManager.ALLOW_ACTION);
-    setSiteRule("https://example.org", Ci.nsIPermissionManager.ALLOW_ACTION);
-    await awaitRows(list, ["https://acme.com", "https://example.org"]);
+    await awaitRows(list, ["https://acme.com"]);
 
     let dialog = await openEditRuleDialog(list, browser, "https://acme.com");
+    let { doc, websiteInput, statusSelect, acceptButton } = dialog;
+
+    is(
+      doc.documentElement.getAttribute("data-l10n-id"),
+      "ip-protection-edit-site-rule-window",
+      "Window uses the edit title"
+    );
+    is(
+      doc.querySelector("dialog").getAttribute("data-l10n-id"),
+      "ip-protection-edit-site-rule-dialog",
+      "Dialog uses the Save button label"
+    );
+    let [saveMessage] = await doc.l10n.formatMessages([
+      "ip-protection-edit-site-rule-dialog",
+    ]);
+    let saveLabel = saveMessage.attributes.find(
+      attr => attr.name == "buttonlabelaccept"
+    ).value;
+    await BrowserTestUtils.waitForMutationCondition(
+      acceptButton,
+      { attributes: true, attributeFilter: ["label"] },
+      () => acceptButton.label == saveLabel,
+      { msg: "Primary button reads Save" }
+    );
+    is_element_hidden(
+      doc.getElementById("vpnSiteRuleIntro"),
+      "Intro is hidden when editing"
+    );
+    is(websiteInput.value, "https://acme.com", "Website is prefilled");
+    is(statusSelect.value, "on", "An inclusion prefills Always on");
+    ok(!acceptButton.disabled, "Save is enabled straight away");
+
+    await closeRuleDialog(browser, acceptButton);
+
+    Assert.deepEqual(
+      storedRules(),
+      ["https://acme.com"],
+      "The rule is still stored"
+    );
+    is(
+      capabilityFor("https://acme.com"),
+      Ci.nsIPermissionManager.ALLOW_ACTION,
+      "The rule is unchanged"
+    );
+  });
+});
+
+// Test saving edits: changing only the VPN status replaces the rule for the
+// same website, changing the website deletes the old website's rule, and
+// changing it to a website that already has a rule replaces that rule instead
+// of reporting a duplicate.
+add_task(async function test_edit_rule_dialog_saves_changes() {
+  const { ALLOW_ACTION, DENY_ACTION } = Ci.nsIPermissionManager;
+
+  await withSiteRulesList(async (list, browser) => {
+    setSiteRule("https://acme.com", ALLOW_ACTION);
+    await awaitRows(list, ["https://acme.com"]);
+
+    let dialog = await openEditRuleDialog(list, browser, "https://acme.com");
+    dialog.statusSelect.value = "off";
+    await closeRuleDialog(browser, dialog.acceptButton);
+
+    Assert.deepEqual(
+      storedRules(),
+      ["https://acme.com"],
+      "The website still has one rule"
+    );
+    is(
+      capabilityFor("https://acme.com"),
+      DENY_ACTION,
+      "The rule now turns the VPN off"
+    );
+    await BrowserTestUtils.waitForMutationCondition(
+      list,
+      {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-l10n-id"],
+      },
+      () =>
+        list.querySelector(".vpn-site-rule [slot=description]")?.dataset
+          .l10nId == "ip-protection-site-rules-rule-excluded",
+      { msg: "The row reads as the VPN being off" }
+    );
+
+    dialog = await openEditRuleDialog(list, browser, "https://acme.com");
+    typeWebsite(dialog.dialogWin, dialog.websiteInput, "example.org");
+    dialog.statusSelect.value = "on";
+    await closeRuleDialog(browser, dialog.acceptButton);
+
+    Assert.deepEqual(
+      storedRules(),
+      ["https://example.org"],
+      "The old website's rule is replaced by the new one"
+    );
+    is(
+      capabilityFor("https://example.org"),
+      ALLOW_ACTION,
+      "The new rule has the chosen status"
+    );
+    await awaitRows(list, ["https://example.org"]);
+
+    setSiteRule("https://acme.com", ALLOW_ACTION);
+    await awaitRows(list, ["https://acme.com", "https://example.org"]);
+
+    dialog = await openEditRuleDialog(list, browser, "https://acme.com");
     typeWebsite(dialog.dialogWin, dialog.websiteInput, "example.org");
     dialog.statusSelect.value = "off";
-    await acceptRuleDialog(dialog, browser);
+    await closeRuleDialog(browser, dialog.acceptButton);
 
     Assert.deepEqual(
       storedRules(),
@@ -882,17 +756,17 @@ add_task(async function test_edit_rule_dialog_save_onto_existing_rule() {
     );
     is(
       capabilityFor("https://example.org"),
-      Ci.nsIPermissionManager.DENY_ACTION,
+      DENY_ACTION,
       "The edited rule replaced the existing one"
     );
+    await awaitRows(list, ["https://example.org"]);
   });
 });
 
-/**
- * Stores two rules, clicks the delete button on the first, and runs a task
- * once the confirmation dialog is showing.
- */
-async function withDeleteRuleDialog(task) {
+// Test deleting a rule asks for confirmation in a modal dialog that names the
+// website, shows the delete icon, and offers Delete and Cancel. Cancelling
+// keeps every rule, and confirming deletes only that site's rule.
+add_task(async function test_delete_rule_dialog() {
   await withSiteRulesList(async (list, browser) => {
     setSiteRule(
       "https://kept.example.com",
@@ -902,38 +776,16 @@ async function withDeleteRuleDialog(task) {
       "https://gone.example.com",
       Ci.nsIPermissionManager.DENY_ACTION
     );
-    let rows = await awaitRows(list, [
+    await awaitRows(list, [
       "https://gone.example.com",
       "https://kept.example.com",
     ]);
+    let getDeleteButton = () =>
+      list.querySelector(
+        `.vpn-site-rule[data-origin="https://gone.example.com"] .vpn-site-rule-delete`
+      );
 
-    let deleteButton = rows[0].querySelector(".vpn-site-rule-delete");
-    deleteButton.scrollIntoView();
-    EventUtils.synthesizeMouseAtCenter(deleteButton, {}, browser.contentWindow);
-    await BrowserTestUtils.waitForMutationCondition(
-      list.deleteDialogEl,
-      { attributes: true, attributeFilter: ["open"] },
-      () => list.deleteDialogEl.open,
-      { msg: "Delete confirmation is shown" }
-    );
-
-    await task(list, browser);
-  });
-}
-
-/**
- * Clicks a button in the delete confirmation and waits for it to close.
- */
-async function clickDeleteDialogButton(list, button) {
-  let closed = BrowserTestUtils.waitForEvent(list.deleteDialogEl, "close");
-  button.click();
-  await closed;
-}
-
-// Test the confirmation is a modal dialog that names the website, shows the
-// delete icon, and offers Delete and Cancel, without touching any rule.
-add_task(async function test_delete_rule_dialog_contents() {
-  await withDeleteRuleDialog(async list => {
+    await openDeleteDialog(list, browser, getDeleteButton());
     let dialog = list.deleteDialogEl;
     ok(dialog.matches(":modal"), "Confirmation is modal");
     is(
@@ -976,12 +828,13 @@ add_task(async function test_delete_rule_dialog_contents() {
     );
 
     await clickDeleteDialogButton(list, list.deleteCancelButtonEl);
-  });
-});
+    Assert.deepEqual(
+      storedRules(),
+      ["https://gone.example.com", "https://kept.example.com"],
+      "Cancelling keeps every rule"
+    );
 
-// Test confirming deletes that site's rule and leaves the other rules alone.
-add_task(async function test_delete_rule_dialog_confirm() {
-  await withDeleteRuleDialog(async list => {
+    await openDeleteDialog(list, browser, getDeleteButton());
     await clickDeleteDialogButton(list, list.deleteConfirmButtonEl);
 
     await awaitRows(list, ["https://kept.example.com"]);

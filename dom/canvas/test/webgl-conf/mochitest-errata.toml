@@ -169,12 +169,6 @@ fail-if = [
 # Complicated
 
 
-["generated/test_2_conformance2__glsl3__switch-case.html"]
-# https://bugzilla.mozilla.org/show_bug.cgi?id=1725442
-fail-if = [
-  "os == 'win' && os_version == '11.26200'",
-]
-
 ["generated/test_2_conformance2__glsl3__texture-bias.html"]
 # should be: 3,3,3,3
 # should be: 13,13,13,13

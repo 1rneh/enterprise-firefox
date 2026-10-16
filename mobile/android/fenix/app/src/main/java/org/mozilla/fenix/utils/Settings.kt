@@ -528,6 +528,12 @@ class Settings(
             default = false,
         )
 
+    var isUserQuoraAttributed by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_is_user_quora_attributed),
+            default = false,
+        )
+
     var isUserPairingCampaignAttributed by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_is_user_pairing_campaign_attributed),
@@ -2022,6 +2028,13 @@ class Settings(
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_search_widget_installed_2),
             default = false,
+        )
+
+    /** The app version code that last published the generated search bar widget previews. */
+    var searchBarWidgetPreviewsVersion by
+        intPreference(
+            appContext.getPreferenceKey(R.string.pref_key_search_bar_widget_previews_version),
+            default = 0,
         )
 
     /** Indicates if the "pocket_recommendations" database has been deleted. */

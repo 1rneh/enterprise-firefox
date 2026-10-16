@@ -48791,9 +48791,10 @@ A composite benchmark that measures page loading and sub-navigation performance 
 * **cold**: true
 * **custom data**: true
 * **expected**: pass
+* **expose browser profiler**: true
 * **gecko profile interval**: 1
 * **interactive**: true
-* **link searchfox**: {searchfox}`testing/raptor/raptor/tests/nav-bench/browsertime-nav-bench.toml#59`
+* **link searchfox**: {searchfox}`testing/raptor/raptor/tests/nav-bench/browsertime-nav-bench.toml#60`
 * **lower is better**: false
 * **measure**: SpeedIndex
 * **page cycles**: 1

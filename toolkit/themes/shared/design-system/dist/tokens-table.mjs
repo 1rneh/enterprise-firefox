@@ -2249,6 +2249,10 @@ export const tokensTable = {
       value: { default: "0px" },
       name: "--panel-item-button-padding-inline-start-offset",
     },
+    {
+      value: { default: "var(--panel-padding-block)" },
+      name: "--panel-list-padding-block",
+    },
     { value: "6px", name: "--tab-close-button-padding" },
     {
       value: { default: "var(--space-small)" },
@@ -5367,6 +5371,7 @@ export const variableLookupTable = {
   "panel-list-border-color": { default: "var(--border-color-deemphasized)" },
   "panel-list-border-radius": "var(--panel-border-radius)",
   "panel-list-box-shadow": { default: "var(--popup-box-shadow)" },
+  "panel-list-padding-block": { default: "var(--panel-padding-block)" },
   "panel-list-text-color": "var(--text-color)",
   "tab-attention-dot-color": "var(--color-accent-attention)",
   "tab-background-color": {

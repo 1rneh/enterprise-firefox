@@ -46,14 +46,6 @@ export class SearchEngineSelector {
 
     this.#remoteConfig = lazy.RemoteSettings(lazy.SearchUtils.SETTINGS_KEY);
     this.#boundOnConfigurationUpdated = this._onConfigurationUpdated.bind(this);
-
-    // Although this is not used for search-config-v3, we still set it up to allow
-    // dynamic switching between v2 and v3.
-    this.#remoteConfigOverrides = lazy.RemoteSettings(
-      lazy.SearchUtils.SETTINGS_OVERRIDES_KEY
-    );
-    this.#boundOnConfigurationOverridesUpdated =
-      this._onConfigurationOverridesUpdated.bind(this);
   }
 
   /**
@@ -65,10 +57,6 @@ export class SearchEngineSelector {
      */
     if (this.#listenerAdded) {
       this.#remoteConfig.off("sync", this.#boundOnConfigurationUpdated);
-      this.#remoteConfigOverrides.off(
-        "sync",
-        this.#boundOnConfigurationOverridesUpdated
-      );
       /**
        * Records whether the listeners have been added or not.
        */
@@ -95,20 +83,8 @@ export class SearchEngineSelector {
       return this.#getConfigurationPromise;
     }
 
-    if (lazy.SearchUtils.configV3FeatureGate) {
-      this.#getConfigurationPromise = Promise.all([
-        this.#getConfiguration(),
-        // Return an empty list for the overrides as they aren't in use for v3.
-        Promise.resolve([]),
-      ]);
-    } else {
-      this.#getConfigurationPromise = Promise.all([
-        this.#getConfiguration(),
-        this.#getConfigurationOverrides(),
-      ]);
-    }
-    let remoteSettingsData = await this.#getConfigurationPromise;
-    this.#configuration = remoteSettingsData[0];
+    this.#getConfigurationPromise = this.#getConfiguration();
+    this.#configuration = await this.#getConfigurationPromise;
     this.#getConfigurationPromise = null;
 
     if (!this.#configuration?.length) {
@@ -120,10 +96,6 @@ export class SearchEngineSelector {
      */
     if (!this.#listenerAdded) {
       this.#remoteConfig.on("sync", this.#boundOnConfigurationUpdated);
-      this.#remoteConfigOverrides.on(
-        "sync",
-        this.#boundOnConfigurationOverridesUpdated
-      );
       /**
        * Records whether the listeners have been added or not.
        */
@@ -134,9 +106,7 @@ export class SearchEngineSelector {
       JSON.stringify({ data: this.#configuration })
     );
     if (!lazy.SearchUtils.configV3FeatureGate) {
-      this.#selector.setConfigOverrides(
-        JSON.stringify({ data: remoteSettingsData[1] })
-      );
+      this.#selector.setConfigOverrides(JSON.stringify({ data: [] }));
     }
     return this.#configuration;
   }
@@ -280,14 +250,6 @@ export class SearchEngineSelector {
   #remoteConfig;
 
   /**
-   * The remote settings client for handling the search configuration overrides
-   * collection.
-   *
-   * @type {?ReturnType<typeof lazy.RemoteSettings>}
-   */
-  #remoteConfigOverrides;
-
-  /**
    * The currently cached configuration. This is cached so that
    * `findContextualSearchEngineByHost` and `findContextualSearchEngineById`
    * do not need to get the configuration from remote settings every time
@@ -301,11 +263,6 @@ export class SearchEngineSelector {
    * The bound version of the configuration updated listener.
    */
   #boundOnConfigurationUpdated;
-
-  /**
-   * The bound version of the configuration overrides updated listener.
-   */
-  #boundOnConfigurationOverridesUpdated;
 
   /**
    * Records whether the listeners have been added or not.
@@ -322,7 +279,7 @@ export class SearchEngineSelector {
    * A promise that is used to de-bounce getting the configuration, it is
    * resolved once the has been completed.
    *
-   * @type {Promise<[object[], object[]]>}
+   * @type {?Promise<object[]>}
    */
   #getConfigurationPromise;
 
@@ -391,46 +348,6 @@ export class SearchEngineSelector {
     if (this.#changeListener) {
       this.#changeListener();
     }
-  }
-
-  /**
-   * Handles updating of the configuration. Note that the search service is
-   * only updated after a period where the user is observed to be idle.
-   *
-   * This is exposed so that searchengine-devtools can easily change the
-   * configuration within its instance of the class object.
-   *
-   * @param {object} options
-   *   The options object
-   * @param {object} options.data
-   *   The data to update
-   * @param {Array} options.data.current
-   *   The new configuration object
-   */
-  _onConfigurationOverridesUpdated({ data: { current } }) {
-    this.#selector.setConfigOverrides(JSON.stringify({ data: current }));
-
-    lazy.logConsole.debug("Search configuration overrides updated remotely");
-    if (this.#changeListener) {
-      this.#changeListener();
-    }
-  }
-
-  /**
-   * Obtains the configuration overrides from remote settings.
-   *
-   * @returns {Promise<object[]>}
-   *   An array of objects in the database, or an empty array if none
-   *   could be obtained.
-   */
-  async #getConfigurationOverrides() {
-    let result = [];
-    try {
-      result = await this.#remoteConfigOverrides.get();
-    } catch (ex) {
-      // This data is remote only, so we just return an empty array if it fails.
-    }
-    return result;
   }
 
   /**

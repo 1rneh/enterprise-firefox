@@ -45,6 +45,7 @@ const PREF_MONITOR_ANNOUNCEMENT =
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AITab: "moz-src:///browser/components/aiwindow/models/aitab/AITab.sys.mjs",
   getAllModelsData:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   AIWindowTabStatesManager:
@@ -87,6 +88,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/MonitorAttention.sys.mjs",
   MonitorUIUtils:
     "moz-src:///browser/components/aiwindow/ui/modules/MonitorUIUtils.sys.mjs",
+  SmartWindowLocation:
+    "moz-src:///browser/components/aiwindow/models/SmartWindowLocation.sys.mjs",
   SmartWindowTelemetry:
     "moz-src:///browser/components/aiwindow/ui/modules/SmartWindowTelemetry.sys.mjs",
   TelemetryScheduler:
@@ -227,6 +230,7 @@ export const AIWindow = {
   _startSchedulers() {
     lazy.MemoriesSchedulers.maybeRunAndSchedule();
     lazy.TelemetryScheduler.maybeInit();
+    lazy.SmartWindowLocation.refreshIfStale();
   },
 
   handlePlacesEvents(events) {
@@ -1058,9 +1062,7 @@ export const AIWindow = {
    *   from, for telemetry.
    */
   createAITab(win, urls, source) {
-    const pageUrls = urls.filter(url =>
-      ["http:", "https:"].includes(URL.parse(url)?.protocol)
-    );
+    const pageUrls = lazy.AITab.selectContextUrls(urls);
     if (!pageUrls.length) {
       return;
     }
@@ -1502,6 +1504,7 @@ export const AIWindow = {
       removable: true,
       showInPrivateBrowsing: false,
       onCreated: node => {
+        node.setAttribute("badged", "true");
         node.classList.add("subviewbutton-nav");
         node.setAttribute("aria-haspopup", "true");
         this._updateButtonVisibility(node);

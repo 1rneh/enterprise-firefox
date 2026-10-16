@@ -1689,6 +1689,9 @@ nsresult nsHttpChannel::DispatchTransaction(
 
   rv = mTransaction->AsyncRead(this, getter_AddRefs(mTransactionPump));
   if (NS_FAILED(rv)) {
+    // The transaction is already on the socket thread and points at our
+    // request head; don't let it outlive us.
+    (void)gHttpHandler->CancelTransaction(mTransaction, rv);
     return rv;
   }
 

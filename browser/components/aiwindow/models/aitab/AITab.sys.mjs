@@ -11,16 +11,24 @@ import {
   stripUnresolvedUrlTokens,
   UrlTokenizer,
 } from "moz-src:///browser/components/aiwindow/ui/modules/UrlTokenizer.sys.mjs";
+import { componentTypeName } from "chrome://browser/content/aiwindow/modules/AITabUtils.mjs";
+
+import { isSmartPageURL } from "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs";
 
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AIWindow:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   AITabStore:
     "moz-src:///browser/components/aiwindow/ui/modules/AITabStore.sys.mjs",
   ConversationStore:
     "moz-src:///browser/components/aiwindow/ui/modules/ConversationStore.sys.mjs",
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   JsonSchema: "resource://gre/modules/JsonSchema.sys.mjs",
   GetPageContent: "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs",
+  isAllowedURLProtocol:
+    "moz-src:///browser/components/aiwindow/models/SecurityProperties.sys.mjs",
   buildConversation:
     "moz-src:///browser/components/aiwindow/models/PromptLoader.sys.mjs",
   buildEngineForFeature:
@@ -100,7 +108,7 @@ const SOURCE_TEXT_BUDGET = 10000;
 // Separator inserted between each page's text in the model prompt.
 const PAGE_BREAK = "\n\n<----- PAGE BREAK ---->\n\n";
 
-const MAX_AITAB_URLS = 20;
+export const MAX_AITAB_CONTEXT_TABS = 10;
 
 // Surface properties the browser navigates to or loads. The model may only
 // fill them with URL tokens it was given (see expandSurfaceUrlTokens).
@@ -799,6 +807,38 @@ export class AITab {
   }
 
   /**
+   * Selects up to MAX_AITAB_CONTEXT_TABS unique context urls (http, https
+   * or a smartpage) to build an AITab. Prioritizes candidate urls from
+   * open tabs (sorted by lastAccessed), followed by the remaining
+   * candidates as urls/mentions from the chat conversation.
+   *
+   * @param {string[]} candidateUrls - Candidate context urls.
+   * @returns {string[]}
+   */
+  static selectContextUrls(candidateUrls) {
+    if (!Array.isArray(candidateUrls)) {
+      return [];
+    }
+    const candidates = new Set(
+      candidateUrls.filter(
+        url => lazy.isAllowedURLProtocol(url) || isSmartPageURL(URL.parse(url))
+      )
+    );
+    const openTabUrls = new Set(
+      lazy.BrowserWindowTracker.orderedWindows
+        .filter(win => !win.closed && lazy.AIWindow.isAIWindowActive(win))
+        .flatMap(win => win.gBrowser.tabs)
+        .filter(tab => candidates.has(tab.linkedBrowser.currentURI.spec))
+        .sort((a, b) => b.lastAccessed - a.lastAccessed)
+        .map(tab => tab.linkedBrowser.currentURI.spec)
+    );
+    return Array.from(openTabUrls.union(candidates)).slice(
+      0,
+      MAX_AITAB_CONTEXT_TABS
+    );
+  }
+
+  /**
    * Generate an AITab from a list of URLs, content handed over inline, or both.
    * Each URL's readable content is pulled via get_page_content, then an LLM
    * composes a structured A2UI surface that is validated against the packaged
@@ -845,7 +885,9 @@ export class AITab {
     conversation
   ) {
     const urls = Array.isArray(urlList)
-      ? urlList.filter(url => typeof url == "string").slice(0, MAX_AITAB_URLS)
+      ? urlList
+          .filter(url => typeof url == "string")
+          .slice(0, MAX_AITAB_CONTEXT_TABS)
       : [];
     const rawText = typeof rawContent == "string" ? rawContent.trim() : "";
     const slug = typeof modifySlug == "string" ? modifySlug.trim() : "";
@@ -1274,11 +1316,7 @@ export class AITab {
         return;
       }
       visited.add(id);
-      used.push(
-        typeof comp.layout == "string"
-          ? `${comp.component}_${comp.layout}`
-          : comp.component
-      );
+      used.push(componentTypeName(comp));
       for (const ref of [comp.header, comp.children].flat()) {
         visit(typeof ref == "string" ? ref : ref?.componentId);
       }
@@ -1782,17 +1820,19 @@ export class AITab {
   }
 
   /**
-   * Turn a title into a lowercase snake_case slug.
+   * Turn a title into a lowercase kebab-case slug.
    *
    * @param {string} title
    * @returns {string}
    */
   static #slugify(title) {
     const slug = title
+      .slice(0, 60)
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 60);
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
     // A title with no ASCII alphanumerics at all (e.g. one written in Japanese)
     // slugs to the empty string, which is not a usable identifier.
     return slug || "aitab";

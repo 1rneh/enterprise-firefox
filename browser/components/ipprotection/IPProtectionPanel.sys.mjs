@@ -17,6 +17,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/ipprotection/IPPSiteRuleManager.sys.mjs",
   IPPOnboardingMessage:
     "moz-src:///browser/components/ipprotection/IPPOnboardingMessageHelper.sys.mjs",
+  IPPMode:
+    "moz-src:///toolkit/components/ipprotection/IPPChannelFilter.sys.mjs",
   ERRORS: "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPProxyManager:
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
@@ -56,8 +58,6 @@ const BANDWIDTH_WARNING_DISMISSED_PREF =
 const BANDWIDTH_RESET_DATE_PREF = "browser.ipProtection.bandwidthResetDate";
 const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocation";
 const USER_OPENED_PREF = "browser.ipProtection.everOpenedPanel";
-const LOCATION_BADGE_DISMISSED_PREF =
-  "browser.ipProtection.locationButtonBadgeDismissed";
 const UPGRADE_NOT_AVAILABLE_PREF = "browser.ipProtection.upgradeNotAvailable";
 
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -149,10 +149,9 @@ export class IPProtectionPanel {
    *  An object containing the current and max usage
    * @property {boolean} isActivating
    *  True if the VPN service is in the process of connecting, else false.
-   * @property {boolean} showLocationButtonBadge
-   *  True if the "new" badge on the location selection button should be visible.
    * @property {boolean} isPremium
    * True if the current device has Firefox set as the default browser or the user has a Mozilla VPN subscription and/or unlimited bandwidth
+   * Initially false; recomputed asynchronously before the panel is shown.
    */
 
   /**
@@ -163,6 +162,7 @@ export class IPProtectionPanel {
   components = new WeakSet();
   initiatedUpgrade = false;
   #window = null;
+  #showToken = null;
   #panelView = null;
   #headerButtons = [];
   #locationsClosedByKeyboard = false;
@@ -378,16 +378,15 @@ export class IPProtectionPanel {
     );
   }
 
-  get isDefaultBrowser() {
-    let isDefaultBrowser = lazy.ShellService.isDefaultBrowser();
-    return isDefaultBrowser;
+  async isDefaultBrowser() {
+    return lazy.ShellService.isDefaultBrowserAsync();
   }
 
-  get isPremium() {
+  async isPremium() {
     let isPremium =
       !this.#getBandwidthUsage() ||
       lazy.IPProtectionService.authProvider.hasUpgraded ||
-      this.isDefaultBrowser;
+      (await this.isDefaultBrowser());
     return isPremium;
   }
 
@@ -409,8 +408,7 @@ export class IPProtectionPanel {
       unauthenticated:
         lazy.IPProtectionService.state ===
         lazy.IPProtectionStates.UNAUTHENTICATED,
-      isProtectionEnabled:
-        lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
+      isProtectionEnabled: lazy.IPPProxyManager.isDefaultModeActive,
       location: lazy.EGRESS_LOCATION || null,
       locationsList: lazy.IPProtectionServerlist.countries,
       error: "",
@@ -426,11 +424,7 @@ export class IPProtectionPanel {
       isActivating:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
       isEnrolling: lazy.IPProtectionService.authProvider.isEnrolling,
-      showLocationButtonBadge: !Services.prefs.getBoolPref(
-        LOCATION_BADGE_DISMISSED_PREF,
-        false
-      ),
-      isPremium: this.isPremium,
+      isPremium: false,
     };
 
     // The progress listener to listen for page navigations.
@@ -531,11 +525,20 @@ export class IPProtectionPanel {
       !!win && lazy.PrivateBrowsingUtils.isWindowPrivate(win);
 
     let country = this.state.location;
-    if (!this.isPremium && country) {
+    if (!(await this.isPremium()) && country) {
       const location = lazy.IPProtectionServerlist.getLocation(country);
       if (location?.country.locked) {
         country = undefined;
       }
+    }
+
+    // A connection kept up for the always-on sites is widened, not restarted.
+    if (lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE) {
+      if (country) {
+        lazy.IPPProxyManager.switch(country);
+      }
+      lazy.IPPProxyManager.setMode(lazy.IPPMode.getDefault());
+      return;
     }
 
     const { error } = await lazy.IPPProxyManager.start(
@@ -607,7 +610,15 @@ export class IPProtectionPanel {
    * @param {XULElement} panelView
    *   The panelView element from the CustomizableUI widget callback.
    */
-  showing(panelView) {
+  async showing(panelView) {
+    const token = (this.#showToken = {});
+
+    const isPremium = await this.isPremium();
+
+    if (this.#showToken !== token) {
+      return;
+    }
+
     if (this.initiatedUpgrade) {
       lazy.IPProtectionService.authProvider.checkForUpgrade();
       this.initiatedUpgrade = false;
@@ -620,7 +631,7 @@ export class IPProtectionPanel {
     }
 
     this.setState({
-      isPremium: this.isPremium,
+      isPremium,
       isSiteExceptionsEnabled: this.isExceptionsFeatureEnabled,
       isSiteInclusionsEnabled: this.isInclusionsFeatureEnabled,
       bandwidthWarning: this.#shouldShowBandwidthWarning(),
@@ -652,6 +663,11 @@ export class IPProtectionPanel {
     if (!hasUserEverOpenedPanel) {
       Services.prefs.setBoolPref(USER_OPENED_PREF, true);
     }
+
+    // The function has fully completed, until now hiding() treats the panel
+    // as never shown. Keep this last, there must be no early return or await
+    // between the premium check and here.
+    this.#showToken = null;
   }
 
   /**
@@ -660,9 +676,11 @@ export class IPProtectionPanel {
    * Disables updates to the panel.
    */
   hiding() {
-    if (this.state.showLocationButtonBadge) {
-      Services.prefs.setBoolPref(LOCATION_BADGE_DISMISSED_PREF, true);
-      this.state.showLocationButtonBadge = false;
+    if (this.#showToken) {
+      // Hidden or cancelled before showing() completed, the panel was never
+      // shown, so only clean up.
+      this.destroy();
+      return;
     }
 
     const mask = lazy.IPPOnboardingMessage.readPrefMask();
@@ -866,6 +884,8 @@ export class IPProtectionPanel {
    * Remove added elements and listeners.
    */
   destroy() {
+    this.#showToken = null;
+
     if (!this.panel) {
       return;
     }
@@ -963,6 +983,10 @@ export class IPProtectionPanel {
       this.handleEvent
     );
     lazy.IPPProxyManager.addEventListener(
+      "IPPProxyManager:ModeChanged",
+      this.handleEvent
+    );
+    lazy.IPPProxyManager.addEventListener(
       "IPPProxyManager:UsageChanged",
       this.handleEvent
     );
@@ -991,6 +1015,10 @@ export class IPProtectionPanel {
     );
     lazy.IPPProxyManager.removeEventListener(
       "IPPProxyManager:StateChanged",
+      this.handleEvent
+    );
+    lazy.IPPProxyManager.removeEventListener(
+      "IPPProxyManager:ModeChanged",
       this.handleEvent
     );
     lazy.IPPProxyManager.removeEventListener(
@@ -1179,6 +1207,7 @@ export class IPProtectionPanel {
       this.enroll({ entrypoint: "vpn_integration_panel" });
     } else if (
       event.type == "IPPProxyManager:StateChanged" ||
+      event.type == "IPPProxyManager:ModeChanged" ||
       event.type == "IPProtectionService:StateChanged" ||
       event.type === "IPPAuthProvider:StateChanged"
     ) {
@@ -1191,8 +1220,7 @@ export class IPProtectionPanel {
         unauthenticated:
           lazy.IPProtectionService.state ===
           lazy.IPProtectionStates.UNAUTHENTICATED,
-        isProtectionEnabled:
-          lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
+        isProtectionEnabled: lazy.IPPProxyManager.isDefaultModeActive,
         hasUpgraded: lazy.IPProtectionService.authProvider.hasUpgraded,
         error: errorType,
         isActivating:
@@ -1320,10 +1348,6 @@ export class IPProtectionPanel {
     } else if (event.type == "IPPUsageHelper:StateChanged") {
       this.setState({ bandwidthWarning: this.#shouldShowBandwidthWarning() });
     } else if (event.type == "IPProtection:UserShowLocations") {
-      if (this.state.showLocationButtonBadge) {
-        Services.prefs.setBoolPref(LOCATION_BADGE_DISMISSED_PREF, true);
-        this.setState({ showLocationButtonBadge: false });
-      }
       Glean.ipprotection.locationSelectorButtonClicked.record();
       this.showLocationSelector(
         event.detail?.keyboardActivated,

@@ -15,7 +15,6 @@
  */
 
 import { getSkillPrompt } from "moz-src:///browser/components/aiwindow/models/PromptLoader.sys.mjs";
-import { openAIEngine } from "moz-src:///browser/components/aiwindow/models/openAIEngine.sys.mjs";
 import { searchBrowsingHistory as implSearchBrowsingHistory } from "moz-src:///browser/components/aiwindow/models/SearchBrowsingHistory.sys.mjs";
 import {
   manageTabsAction,
@@ -184,12 +183,13 @@ export const SEARCH_THE_WEB_PATH = Object.freeze({
  * The answers path is only available on Mozilla MLPA endpoint - custom endpoints
  * must use search_the_web_fast or grounded
  *
+ * @param {ChatConversation} conversation
  * @returns {SEARCH_THE_WEB_PATH}
  */
-export function selectSearchTheWebPath() {
+export function selectSearchTheWebPath(conversation) {
   if (
     Services.prefs.getBoolPref(SEARCH_THE_WEB_ANSWERS_PREF, false) &&
-    !openAIEngine.usesCustomEndpoint()
+    conversation.engine?.isDefaultEndpoint
   ) {
     return SEARCH_THE_WEB_PATH.ANSWERS;
   }
@@ -346,10 +346,11 @@ export const SEARCH_THE_WEB_TOOL_CONFIG_FAST = {
  * The search_the_web config for the path that will run, or null for the
  * grounded path, whose config is the one already in `toolsConfig`.
  *
+ * @param {ChatConversation} conversation
  * @returns {object|null}
  */
-export function searchTheWebToolConfig() {
-  switch (selectSearchTheWebPath()) {
+export function searchTheWebToolConfig(conversation) {
+  switch (selectSearchTheWebPath(conversation)) {
     case SEARCH_THE_WEB_PATH.ANSWERS:
       return SEARCH_THE_WEB_TOOL_CONFIG_ANSWERS;
     case SEARCH_THE_WEB_PATH.FAST:
@@ -1088,6 +1089,13 @@ export class GetPageContent {
   static MAX_CHARACTERS = 10000;
 
   /**
+   * Generous until telemetry shows real transcript lengths. 2^16
+   * because `text_length` is rounded down to a power of two, so its 65536
+   * bucket counts exactly the truncated transcripts.
+   */
+  static MAX_TRANSCRIPT_CHARACTERS = 65536;
+
+  /**
    * getPageContent's results as plain text. A failed read contributes the
    * sentence explaining it, so callers that must tell the two apart want
    * getPageContent itself.
@@ -1118,10 +1126,14 @@ export class GetPageContent {
    * @param {string[]} toolParams.url_list
    * @param {AbortSignal} [toolParams.signal] - Cancels in-flight extractions
    *   (and tears down any headless browser) when it aborts.
+   * @param {number} [toolParams.settleDelayMs] - Extra wait for headless loads.
    * @param {ChatConversation} conversation
    * @returns {Promise<Array<{url: ?string, ok: boolean, content: string}>>}
    */
-  static async getPageContent({ url_list, signal }, conversation) {
+  static async getPageContent(
+    { url_list, signal, settleDelayMs },
+    conversation
+  ) {
     // Sanitize the inputs from the language model:
     if (!Array.isArray(url_list)) {
       return [
@@ -1160,7 +1172,8 @@ export class GetPageContent {
               url,
               mentionedUrls,
               conversation,
-              signal
+              signal,
+              settleDelayMs
             );
           ChromeUtils.addProfilerMarker(
             "SmartWindow",
@@ -1278,6 +1291,7 @@ export class GetPageContent {
    * @param {ChatConversation} conversation
    * @param {AbortSignal} [signal] - Cancels the extraction (and tears down any
    *   headless browser) when it aborts.
+   * @param {number} [settleDelayMs] - Extra wait for headless loads.
    *
    * @returns {Promise<{ok: boolean, content: string}>}
    *   ok is false when content is a failure description rather than page text.
@@ -1286,7 +1300,8 @@ export class GetPageContent {
     url,
     mentionedUrls,
     conversation,
-    signal
+    signal,
+    settleDelayMs
   ) {
     if (signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");
@@ -1345,6 +1360,8 @@ export class GetPageContent {
               traceId
             ),
           anonymousFetch: true,
+          settleDelayMs,
+          signal,
         });
       }
       return {
@@ -1366,6 +1383,8 @@ export class GetPageContent {
           signal,
           traceId
         ),
+      settleDelayMs,
+      signal,
     });
   }
 
@@ -1398,6 +1417,7 @@ export class GetPageContent {
       pageExtractor.getText(
         {
           sufficientLength: GetPageContent.MAX_CHARACTERS,
+          sufficientTranscriptLength: GetPageContent.MAX_TRANSCRIPT_CHARACTERS,
           cleanWhitespace: true,
           removeBoilerplate: true,
           sourceUrl,
@@ -1608,7 +1628,7 @@ export async function createAITab(
   const action = isModification ? "updated" : "created";
   const result = await lazy.AITab.generateAITab(
     {
-      urlList: url_list,
+      urlList: lazy.AITab.selectContextUrls(url_list),
       focus,
       rawContent: raw_content,
       modifySlug: modify_slug,

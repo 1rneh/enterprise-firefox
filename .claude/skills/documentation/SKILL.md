@@ -6,6 +6,8 @@ description: Use this skill when working with Firefox documentation,
   documentation, or adding new docs.
 ---
 
+# Firefox documentation
+
 ## Overview
 
 Firefox documentation is built using **Sphinx**
@@ -47,7 +49,7 @@ Common commands:
 
 -   `./mach doc --no-serve --no-open` -- build entire tree
 -   `./mach doc <path> --no-serve --no-open` -- build a specific component (much faster)
--   `./mach doc <path>` -- build and serve with livereload for iterative writing
+-   `./mach doc <path>` -- build and serve with livereload, to preview the pages locally while writing
 
 Useful flags:
 
@@ -177,6 +179,11 @@ A `{doc}` role with no link text renders the target page's *title*, so a noun
 after it reads twice: ``in the {doc}`api` reference`` comes out as "in the
 SessionStore API reference reference". Give the role its own text where the
 sentence already names the thing.
+
+An incremental build keeps a retitled page's old title in the `{doc}` links on
+other pages. Check a retitle with
+`./mach doc --no-serve --no-open --outdir <dir>` into a directory that doesn't
+exist yet.
 
 A `{doc}` target is the same path *without* the extension -- the opposite of
 the markdown form -- and a directory needs its `/index` spelled out.
@@ -355,3 +362,6 @@ Worth knowing:
 -   Use `--no-autodoc` for faster iteration when not working on API docs.
 -   If a new warning appears that is expected/acceptable, add a pattern
     to `allowed_warnings` in `docs/config.yml`.
+-   For the user to preview the rendered pages after a push, Reviewbot's
+    comment on the revision links a preview of every documentation file the
+    diff touches, kept for one week.

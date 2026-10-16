@@ -2795,9 +2795,6 @@ void MergeCrashAnnotations(AnnotationTable& aDst, const AnnotationTable& aSrc) {
 // Adds crash time, uptime, and last interaction duration annotations
 static void AddCommonAnnotations(AnnotationTable& aAnnotations) {
   const time_t crashTime = time(nullptr);
-  nsAutoCString crashTimeStr;
-  crashTimeStr.AppendInt(static_cast<uint64_t>(crashTime));
-  aAnnotations[Annotation::CrashTime] = std::move(crashTimeStr);
 
   if (inactiveStateStart) {
     nsAutoCString inactiveDuration;

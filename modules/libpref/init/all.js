@@ -786,7 +786,6 @@ pref("dom.allow_scripts_to_close_windows",          false);
 
 pref("dom.popup_allowed_events", "change click dblclick auxclick mousedown mouseup pointerdown pointerup notificationclick reset submit touchend contextmenu");
 
-pref("dom.storage.shadow_writes", false);
 pref("dom.storage.snapshot_prefill", 16384);
 pref("dom.storage.snapshot_gradual_prefill", 4096);
 pref("dom.storage.snapshot_reusing", true);
@@ -4189,14 +4188,9 @@ pref("extensions.formautofill.addresses.storage.rust.enabled", false);
 // reading from where its addresses are.
 pref("extensions.formautofill.addresses.storage.rust.active", false);
 // Run the migration purely to measure it, while the pref above is still off.
-// The copy is reported through migrate_to_rust and then wiped. Nightly only,
-// and once per profile per generation: it is what says whether the real move is
-// safe to make.
-#ifdef NIGHTLY_BUILD
-  pref("extensions.formautofill.addresses.storage.rust.runMigrationTest", true);
-#else
-  pref("extensions.formautofill.addresses.storage.rust.runMigrationTest", false);
-#endif
+// The copy is reported through migrate_to_rust and then wiped, once per profile
+// per generation: it is what says whether the real move is safe to make.
+pref("extensions.formautofill.addresses.storage.rust.runMigrationTest", false);
 // Which generation of the dry run above this profile has done, so a build that
 // fixes a migration bug can bump it and measure the same profiles again.
 pref("extensions.formautofill.addresses.storage.rust.migrationTestVersion", 0);
@@ -4213,8 +4207,14 @@ pref("extensions.formautofill.creditCards.storage.rust.enabled", false);
 // reading from where its cards are.
 pref("extensions.formautofill.creditCards.storage.rust.active", false);
 // Run the migration purely to measure it, while the pref above is still off.
-// The copy is reported through migrate_to_rust and then wiped.
-pref("extensions.formautofill.creditCards.storage.rust.runMigrationTest", false);
+// The copy is reported through migrate_to_rust and then wiped. Nightly only,
+// and once per profile per generation: it is what says whether the real move is
+// safe to make.
+#ifdef NIGHTLY_BUILD
+  pref("extensions.formautofill.creditCards.storage.rust.runMigrationTest", true);
+#else
+  pref("extensions.formautofill.creditCards.storage.rust.runMigrationTest", false);
+#endif
 // Which generation of the dry run above this profile has done, so a build that
 // fixes a migration bug can bump it and measure the same profiles again.
 pref("extensions.formautofill.creditCards.storage.rust.migrationTestVersion", 0);

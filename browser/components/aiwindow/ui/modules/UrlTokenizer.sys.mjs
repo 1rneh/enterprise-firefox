@@ -93,9 +93,18 @@ export class UrlTokenizer {
         // Go ahead and handle URL tokens for more complicated URLs that
         // aren't probably supported in the chat interface, but would be useful
         // to disambiguate from the HTTP(s) varieties.
-        baseToken +=
-          // e.g. "ftp:" -> "FTP"
-          parsedUrl.protocol.toUpperCase().replace(":", "");
+
+        if (
+          parsedUrl.protocol == "about:" &&
+          parsedUrl.pathname == "smartpage"
+        ) {
+          // Give smart pages better looking URL to better hint the LLM
+          baseToken = "SAVED_PAGE";
+        } else {
+          baseToken +=
+            // e.g. "ftp:" -> "FTP"
+            parsedUrl.protocol.toUpperCase().replace(":", "");
+        }
       }
 
       // Convert the hostname into a token.

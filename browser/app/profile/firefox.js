@@ -595,6 +595,13 @@ pref("browser.urlbar.suggest.weather", true);
 // trending suggestions are turned on.
 pref("browser.urlbar.suggest.trending", true);
 
+// Feature gate pref for temporal search suggestions in the urlbar.
+pref("browser.urlbar.temporal.featureGate", false);
+
+// If `browser.urlbar.temporal.featureGate` is true, this controls whether
+// temporal search suggestions are turned on.
+pref("browser.urlbar.suggest.temporal", true);
+
 // Whether results that are part of the Firefox Suggest brand are shown in the
 // urlbar. This pref is exposed to the user in the UI, and it's sticky so that
 // its user-branch value persists regardless of whatever Firefox Suggest
@@ -1112,6 +1119,7 @@ pref("permissions.default.local-network", 0);
 pref("permissions.default.xr", 0);
 pref("permissions.default.desktop-notification", 0);
 pref("permissions.default.shortcuts", 0);
+pref("permissions.default.register-protocol-handler", 0);
 
 pref("permissions.desktop-notification.postPrompt.enabled", true);
 
@@ -2619,12 +2627,6 @@ pref("browser.smartwindow.searchTheWebFast", true);
 // browser.smartwindow.searchTheWebFast.
 pref("browser.smartwindow.searchTheWebAnswers", false);
 
-// Smart Window: approximate location (city, region, country) from Merino
-// geolocation, cached in prefs.
-pref("browser.smartwindow.location.enabled", false);
-pref("browser.smartwindow.location.data", "");
-pref("browser.smartwindow.location.lastCheckSeconds", 0);
-
 // Smart Window Logging
 pref("browser.smartwindow.aiTabHistory.logLevel", "Error");
 pref("browser.smartwindow.aiTabStore.logLevel", "Error");
@@ -3368,11 +3370,6 @@ pref("browser.urlbar.share-button.enabled", false);
 
 pref("security.certerrors.felt-privacy-v1", true);
 
-#ifdef NIGHTLY_BUILD
-  pref("security.utility_pkcs11_module_process.enabled", true);
-#endif
-
-
 // Prefs to control the Firefox Account toolbar menu.
 // This pref will surface existing Firefox Account information
 // as a button next to the hamburger menu. It allows
@@ -3920,6 +3917,15 @@ pref("browser.privatebrowsing.resetPBM.enabled", true);
 // performing the clear action.
 pref("browser.privatebrowsing.resetPBM.showConfirmationDialog", true);
 
+// Whether the fire button, which clears the current browsing session and
+// replaces all open windows with a fresh one, is registered as a navbar
+// widget. Read once at startup, so a change only takes effect on restart.
+pref("browser.fireButton.enabled", false);
+
+// Which flow the fire button starts. "panel" shows the confirmation panel;
+// "direct" skips it and opens the clear browsing data dialog straight away.
+pref("browser.fireButton.flow", "panel");
+
 // the preferences related to the Nimbus experiment, to activate and deactivate
 // the the entire rollout (see: bug 1864216 - two prompts, 1877500 - set two in one prompt)
 pref("browser.mailto.dualPrompt", false);
@@ -4030,6 +4036,8 @@ pref("browser.ipProtection.l10nGateVersion", 0);
 pref("browser.ipProtection.features.siteExceptions", true);
 // Pref to enable support for site inclusions
 pref("browser.ipProtection.features.siteInclusions", false);
+// Pref to track if the site inclusion prompt has been shown in the VPN panel
+pref("browser.ipProtection.siteInclusionPromptShown", false);
 // Pref to show confirmation hints for site exceptions
 pref("browser.ipProtection.siteExceptionsHintsEnabled", true);
 pref("browser.ipProtection.log", false);
@@ -4054,8 +4062,6 @@ pref("browser.ipProtection.bandwidthThreshold", 0);
 // Tracks the highest bandwidth warning threshold (75 or 90) dismissed per surface.
 // Stored as JSON: { infobar: <number>, panel: <number> }. Reset when bandwidth resets.
 pref("browser.ipProtection.bandwidthWarningDismissedThreshold", "");
-// Pref to track if the "NEW" badge on the location selection button should be visible.
-pref("browser.ipProtection.locationButtonBadgeDismissed", false);
 
 // Pref to enable aboug:glean redesign.
 pref("about.glean.redesign.enabled", false);

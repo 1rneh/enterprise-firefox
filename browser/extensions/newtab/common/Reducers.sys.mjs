@@ -217,6 +217,7 @@ export const INITIAL_STATE = {
     author: "",
     licenseLabel: "",
     licenseUrl: "",
+    previous: null,
     error: null,
   },
   ListsWidget: {
@@ -255,6 +256,7 @@ export const INITIAL_STATE = {
   ExternalComponents: {
     components: [],
   },
+  ExtensionWidgets: {},
   PrivacyWidget: {
     initialized: false,
     // Count of trackers blocked today, fetched by PrivacyFeed.
@@ -1257,6 +1259,7 @@ const PictureOfTheDay = (prevState = INITIAL_STATE.PictureOfTheDay, action) => {
         author: action.data.author ?? "",
         licenseLabel: action.data.licenseLabel ?? "",
         licenseUrl: action.data.licenseUrl ?? "",
+        previous: action.data.previous ?? null,
         lastUpdated: action.data.lastUpdated ?? null,
         error: action.data.error ?? null,
         initialized: true,
@@ -1477,6 +1480,15 @@ function ExternalComponents(
   }
 }
 
+function ExtensionWidgets(prevState = INITIAL_STATE.ExtensionWidgets, action) {
+  switch (action.type) {
+    case at.WIDGETS_EXTENSIONS_UPDATE:
+      return action.data;
+    default:
+      return prevState;
+  }
+}
+
 export const reducers = {
   TopSites,
   App,
@@ -1498,6 +1510,7 @@ export const reducers = {
   Weather,
   Stocks,
   ExternalComponents,
+  ExtensionWidgets,
   PrivacyWidget,
   PictureOfTheDay,
   RecentSearches,

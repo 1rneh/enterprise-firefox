@@ -400,7 +400,7 @@ dependencies = [
 
 [[package]]
 name = "authenticator"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "base64 0.21.999",
  "bitflags 1.999.999",
@@ -1312,7 +1312,7 @@ dependencies = [
 [[package]]
 name = "crash-context"
 version = "0.8.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=6744feee58804a78730d176cdcc31bb4f3021107#6744feee58804a78730d176cdcc31bb4f3021107"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7#3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
 dependencies = [
  "cfg-if",
  "libc",
@@ -2213,6 +2213,9 @@ dependencies = [
  "backtrace",
  "env_logger",
  "error-support-macros",
+ "glean",
+ "glean-build",
+ "glean-sym",
  "lazy_static",
  "log",
  "parking_lot",
@@ -3238,7 +3241,7 @@ dependencies = [
 [[package]]
 name = "glean-build"
 version = "20.1.0"
-source = "git+https://github.com/mozilla/glean?tag=v70.0.0#915e1a5842103b90ac20cac25b3c97f7d424dd0c"
+source = "git+https://github.com/mozilla/glean?tag=v70.2.0#9d987fd33e1dc3f2a89e5f5c4565ae696245f6eb"
 dependencies = [
  "xshell-venv",
 ]
@@ -5003,7 +5006,7 @@ dependencies = [
 [[package]]
 name = "minidump-writer"
 version = "0.13.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=6744feee58804a78730d176cdcc31bb4f3021107#6744feee58804a78730d176cdcc31bb4f3021107"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7#3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
 dependencies = [
  "bitflags 2.10.0",
  "byteorder",
@@ -6654,9 +6657,10 @@ dependencies = [
 [[package]]
 name = "process-backend"
 version = "0.1.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=6744feee58804a78730d176cdcc31bb4f3021107#6744feee58804a78730d176cdcc31bb4f3021107"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7#3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
 dependencies = [
  "libc",
+ "postcard",
  "process-reader",
  "serde",
  "thiserror 2.0.12",
@@ -6665,7 +6669,7 @@ dependencies = [
 [[package]]
 name = "process-reader"
 version = "0.1.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=6744feee58804a78730d176cdcc31bb4f3021107#6744feee58804a78730d176cdcc31bb4f3021107"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=3ab1604f91db05ec3f3a84d779a2871df7d9afd7#3ab1604f91db05ec3f3a84d779a2871df7d9afd7"
 dependencies = [
  "libc",
  "serde",

@@ -1326,12 +1326,6 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
   list-style-image: url(chrome://browser/content/logos/relay-monochrome.svg);
 }
 
-.PanelUI-fxa-menu-share-firefox-button {
-  list-style-image: url(chrome://browser/content/logos/share-firefox.svg);
-  -moz-context-properties: fill;
-  fill: currentColor;
-}
-
 #PanelUI-fxa-menu-vpn-button {
   list-style-image: url("chrome://browser/skin/preferences/vpn-logo.svg");
   -moz-context-properties: fill;
@@ -2567,28 +2561,44 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   position: relative;
 }
 
-/* Reset/Restart Private Browsing Panel */
+/* Reset/Restart Private Browsing Panel, and the fire button panel */
 
-#reset-pbm-panel {
+#reset-pbm-panel,
+#fire-button-panel {
   max-width: var(--menu-panel-width-wide);
 }
 
-#reset-pbm-panel-container {
+#reset-pbm-panel-container,
+#fire-button-panel-container {
   padding: var(--space-large) var(--space-large) 0;
   gap: var(--space-small);
 }
 
-#reset-pbm-panel-header > description {
+#reset-pbm-panel-header > description,
+#fire-button-panel-header > description {
   margin-bottom: 0;
 }
 
 #reset-pbm-panel-header > description,
 #reset-pbm-panel-description,
-#reset-pbm-panel-footer {
+#reset-pbm-panel-footer,
+#fire-button-panel-header > description,
+#fire-button-panel-description,
+#fire-button-panel-choose-description,
+#fire-button-panel-footer-row {
   margin-inline: 0;
 }
 
-#reset-pbm-panel-header > description {
+/* The "Choose…" link sits on the same row as the buttons, pushed to the
+   opposite end. moz-button-group right-aligns its own contents. */
+#fire-button-panel-footer-row {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-small);
+}
+
+#reset-pbm-panel-header > description,
+#fire-button-panel-header > description {
   font-weight: var(--font-weight-heading);
 }
 

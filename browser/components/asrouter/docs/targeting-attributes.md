@@ -1221,7 +1221,7 @@ declare const userId: string;
 ### `profileRestartCount`
 
 A session counter that shows how many times the browser was started.
-More info about the details in [the telemetry docs](https://firefox-source-docs.mozilla.org/toolkit/components/telemetry/concepts/sessions.html).
+More info about the details in {doc}`the telemetry docs </toolkit/components/telemetry/concepts/sessions>`.
 
 #### Definition
 
@@ -1435,6 +1435,10 @@ A string of the name of the container where the Firefox View button is shown, nu
 ### `alltabsButtonAreaType`
 
 A string of the name of the container where the Tab Overflow button (or All Tabs button) is shown, null if the button has been removed.
+
+### `forgetButtonAreaType`
+
+A string of the name of the container where the Forget button is shown, null if the button is not in the toolbar or overflow menu (it is in the customization palette by default).
 
 ### `hasMigratedBookmarks`
 

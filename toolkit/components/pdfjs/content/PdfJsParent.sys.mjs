@@ -950,6 +950,13 @@ export class PdfJsParent extends JSWindowActorParent {
         "FindEventManager was not bound for the current browser."
       );
     }
+    // Open and focus the findbar so Escape can clear PDF highlights.
+    const findbar = aEvent.currentTarget;
+    if (type === "findagain" && findbar.hidden) {
+      findbar.open(findbar.FIND_NORMAL);
+      findbar._findField.select();
+      findbar._findField.focus();
+    }
     browser.sendMessageToActor(
       "PDFJS:Child:handleEvent",
       { type, detail },

@@ -618,8 +618,7 @@ class nsIContent : public nsINode {
 
   /**
    * Whenever a HeadingReset or HeadingOffset attribute changes on an ancestor,
-   * or a node is slotted/unslotted, all descendant heading elements (including
-   * those in shadow trees and assigned to slots) should be updated.
+   * all shadow-including descendant heading elements should be updated.
    */
   void UpdateHeadingElementsOffsetChange();
 

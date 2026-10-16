@@ -296,9 +296,9 @@ ${
   #navigationEnabled = false;
   /**
    * The search access point name of the UrlbarInput for use with telemetry or
-   * logging, e.g. `urlbar`, `searchbar`.
+   * logging.
    *
-   * @type {"newtab_searchbar"|"searchbar"|"smartbar"|"urlbar"}
+   * @type {UrlbarSapName}
    */
   #sapName;
   _userTypedValue = "";
@@ -427,10 +427,9 @@ ${
    * Initialization that happens once on the first connect.
    */
   #init() {
-    this.#sapName =
-      /** @type {"newtab_searchbar"|"searchbar"|"smartbar"|"urlbar"} */ (
-        this.getAttribute("sap-name")
-      );
+    this.#sapName = /** @type {UrlbarSapName} */ (
+      this.getAttribute("sap-name")
+    );
     this.#isAddressbar = this.#sapName == "urlbar";
     this.#navigationEnabled = UrlbarShared.navigationEnabled(this.#sapName);
 
@@ -2811,7 +2810,7 @@ ${
    * @param {string} value
    *   The search term or empty string to open homepage.
    * @param {object} options
-   * @param {PartialSearchEngine} options.searchEngine
+   * @param {PartialSearchEngine|SearchEngine} options.searchEngine
    * @param {Event} options.event
    * @param {string} options.where
    * @param {boolean} [options.inBackground]
@@ -3530,12 +3529,8 @@ ${
       actionType = undefined,
     } = {}
   ) {
-    // Don't expose internal about:reader URLs to the user. `ReaderMode` is
-    // chrome-only, so a content realm shows such a URL as it is (bug 2064583).
-    let originalUrl = lazy?.ReaderMode.getOriginalUrlObjectForDisplay(val);
-    if (originalUrl) {
-      val = originalUrl.displaySpec;
-    }
+    // Don't expose internal about:reader URLs to the user.
+    val = UrlbarContentUtils.getReaderOriginalDisplaySpec(val) ?? val;
     this._untrimmedValue = untrimmedValue ?? val;
     this._protocolIsTrimmed = false;
     this._wwwIsTrimmed = false;

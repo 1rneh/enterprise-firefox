@@ -98,7 +98,9 @@
   --chrome-box-shadow: rgba(0, 0, 0, 0.13);
   @media -moz-pref("browser.nova.enabled") {
     @media not ((-moz-native-theme) or (forced-colors)) {
-      --chrome-box-shadow: light-dark(rgba(89, 57, 168, 0.15), rgba(152, 113, 255, 0.15));
+      :root:is([theme-in-app], :not([lwtheme])) & {
+        --chrome-box-shadow: light-dark(rgba(89, 57, 168, 0.15), rgba(152, 113, 255, 0.15));
+      }
     }
   }
 }

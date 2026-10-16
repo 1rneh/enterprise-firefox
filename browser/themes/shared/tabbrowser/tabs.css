@@ -300,6 +300,12 @@ tab-split-view-wrapper[dragtarget] {
     max-width: var(--tab-max-width);
     transition: var(--tab-width-transition);
 
+    @media (prefers-reduced-motion: no-preference) {
+      &[tabdrop-samewindow] {
+        transition: var(--tab-width-transition), var(--tab-dragover-transition);
+      }
+    }
+
     &:not([fadein]) {
       max-width: 0.1px;
       min-width: 0.1px;
@@ -325,10 +331,15 @@ tab-split-view-wrapper[dragtarget] {
 
     @media (prefers-reduced-motion: no-preference) {
       :not(tab-group:active) > &[fadein]:not(:active, [multiselected]),
-      &[multiselected-move-together],
-      &[tabdrop-samewindow] {
+      &[multiselected-move-together] {
         transition: var(--tab-dragover-transition);
       }
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    &[tabdrop-samewindow] {
+      transition: var(--tab-dragover-transition);
     }
   }
 
@@ -1544,7 +1555,8 @@ tab-group > tab-split-view-wrapper {
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    #tabbrowser-tabs[movingtab] &:not(:active) {
+    #tabbrowser-tabs[movingtab] &:not(:active),
+    &[tabdrop-samewindow] {
       transition: var(--tab-dragover-transition);
     }
   }
@@ -2053,7 +2065,8 @@ tab-group {
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    #tabbrowser-tabs[movingtab] &:not(:active) {
+    #tabbrowser-tabs[movingtab] &:not(:active),
+    &[tabdrop-samewindow] {
       transition: var(--tab-dragover-transition);
     }
   }

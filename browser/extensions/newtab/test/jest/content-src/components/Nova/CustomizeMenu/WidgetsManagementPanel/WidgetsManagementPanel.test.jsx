@@ -313,9 +313,10 @@ describe("<WidgetsManagementPanel>", () => {
     return { ...prefs, ...extra };
   }
 
-  async function renderPanel(overrides = {}, prefValues = {}) {
+  async function renderPanel(overrides = {}, prefValues = {}, state = {}) {
     const store = createStore(combineReducers(reducers), {
       ...INITIAL_STATE,
+      ...state,
       Prefs: {
         ...INITIAL_STATE.Prefs,
         values: { ...INITIAL_STATE.Prefs.values, ...prefValues },
@@ -512,6 +513,45 @@ describe("<WidgetsManagementPanel>", () => {
       );
       expect(toggleIds(container)).toEqual(
         EN_US_ORDER_WITH_FIXTURE.map(id => `${id}-toggle`)
+      );
+    });
+
+    it("labels an extension widget's toggle with its extension's name", async () => {
+      withFixtureWidget({
+        extensionID: "fixture-widget@mozilla.org",
+        customizeL10nId: undefined,
+      });
+
+      const { container } = await renderPanel({}, allWidgetsVisible(), {
+        ExtensionWidgets: {
+          "fixture-widget@mozilla.org": { src: "", name: "Tally" },
+        },
+      });
+
+      expect(container.querySelector("#fixtureWidget-toggle")).toHaveAttribute(
+        "label",
+        "Tally"
+      );
+    });
+
+    it("labels an extension widget's toggle with its extension's Fluent id", async () => {
+      const fixture = withFixtureWidget({
+        extensionID: "fixture-widget@mozilla.org",
+      });
+      delete fixture.customizeL10nId;
+
+      const { container } = await renderPanel({}, allWidgetsVisible(), {
+        ExtensionWidgets: {
+          "fixture-widget@mozilla.org": {
+            src: "",
+            customizeL10nId: "fixture-widget-name",
+          },
+        },
+      });
+
+      expect(container.querySelector("#fixtureWidget-toggle")).toHaveAttribute(
+        "data-l10n-id",
+        "fixture-widget-name"
       );
     });
 

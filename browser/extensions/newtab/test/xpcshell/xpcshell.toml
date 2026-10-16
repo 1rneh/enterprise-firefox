@@ -19,6 +19,8 @@ support-files = ["topstories.json"]
 
 ["test_AdsFeed.js"]
 
+["test_ExtensionWidgetsFeed.js"]
+
 ["test_ExternalComponentsFeed.js"]
 
 ["test_HighlightsFeed.js"]

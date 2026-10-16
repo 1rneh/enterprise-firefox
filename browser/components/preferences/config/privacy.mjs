@@ -2368,14 +2368,13 @@ function openIPPSiteRuleDialog(params) {
  * @param {HTMLElement} button The delete button that was clicked.
  * @param {string} website
  */
-async function deleteIPPSiteRule(button, website) {
+function deleteIPPSiteRule(button, website) {
   let list = /** @type {any} */ (button.closest("vpn-site-rules-list"));
-  if (!(await list.confirmDelete(website))) {
-    return;
-  }
-  lazy.IPPPermissionRules.setRule(
-    Services.scriptSecurityManager.createContentPrincipalFromOrigin(website),
-    lazy.IPPPrincipalRules.DEFAULT
+  list.confirmDelete(website, () =>
+    lazy.IPPPermissionRules.setRule(
+      Services.scriptSecurityManager.createContentPrincipalFromOrigin(website),
+      lazy.IPPPrincipalRules.DEFAULT
+    )
   );
 }
 
@@ -2384,12 +2383,9 @@ async function deleteIPPSiteRule(button, website) {
  *
  * @param {HTMLElement} button The delete all button that was clicked.
  */
-async function deleteAllIPPSiteRules(button) {
+function deleteAllIPPSiteRules(button) {
   let list = /** @type {any} */ (button.closest("vpn-site-rules-list"));
-  if (!(await list.confirmDeleteAll())) {
-    return;
-  }
-  Services.perms.removeByType(IPP_VPN_PERMISSION);
+  list.confirmDeleteAll(() => Services.perms.removeByType(IPP_VPN_PERMISSION));
 }
 
 Preferences.addSetting({

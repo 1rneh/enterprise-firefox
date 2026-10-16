@@ -136,6 +136,11 @@ class TransactionBuilder final {
 
   void RemovePipeline(PipelineId aPipelineId);
 
+  // Sets the namespaces of the pipelines that aPipelineId may embed with
+  // iframe items. Nothing() lets it embed any pipeline.
+  void SetEmbedPolicy(PipelineId aPipelineId,
+                      const Maybe<nsTArray<uint32_t>>& aNamespaces);
+
   // aIdNamespace is the namespace whose resources the display list is allowed
   // to reference. It must be supplied by the compositor-side owner of the
   // pipeline.
@@ -687,30 +692,30 @@ class DisplayListBuilder final {
                           const nsTArray<wr::WrFilterData>& aFilterDatas,
                           bool aIsBackfaceVisible);
 
-  void PushLinearGradient(const wr::LayoutRect& aBounds,
-                          const wr::LayoutRect& aClip, bool aIsBackfaceVisible,
-                          const wr::LayoutVector2D& aStartPoint,
-                          const wr::LayoutVector2D& aEndPoint,
-                          const nsTArray<wr::GradientStop>& aStops,
-                          wr::ExtendMode aExtendMode,
-                          const wr::LayoutSize aTileSize,
-                          const wr::LayoutSize aTileSpacing,
-                          bool aForceAntiAliasing = false);
+  void PushLinearGradient(
+      const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
+      bool aIsBackfaceVisible, const wr::LayoutVector2D& aStartPoint,
+      const wr::LayoutVector2D& aEndPoint,
+      const nsTArray<wr::GradientStop>& aStops, wr::ExtendMode aExtendMode,
+      const wr::LayoutSize aTileSize, const wr::LayoutSize aTileSpacing,
+      bool aForceAntiAliasing = false,
+      wr::AlphaMode aAlphaMode = wr::AlphaMode::Premultiplied);
 
   void PushRadialGradient(
       const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
       bool aIsBackfaceVisible, const wr::LayoutVector2D& aCenter,
       const wr::LayoutSize& aRadius, const nsTArray<wr::GradientStop>& aStops,
       wr::ExtendMode aExtendMode, const wr::LayoutSize aTileSize,
-      const wr::LayoutSize aTileSpacing, bool aForceAntiAliasing = false);
+      const wr::LayoutSize aTileSpacing, bool aForceAntiAliasing = false,
+      wr::AlphaMode aAlphaMode = wr::AlphaMode::Premultiplied);
 
-  void PushConicGradient(const wr::LayoutRect& aBounds,
-                         const wr::LayoutRect& aClip, bool aIsBackfaceVisible,
-                         const wr::LayoutVector2D& aCenter, const float aAngle,
-                         const nsTArray<wr::GradientStop>& aStops,
-                         wr::ExtendMode aExtendMode,
-                         const wr::LayoutSize aTileSize,
-                         const wr::LayoutSize aTileSpacing);
+  void PushConicGradient(
+      const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
+      bool aIsBackfaceVisible, const wr::LayoutVector2D& aCenter,
+      const float aAngle, const nsTArray<wr::GradientStop>& aStops,
+      wr::ExtendMode aExtendMode, const wr::LayoutSize aTileSize,
+      const wr::LayoutSize aTileSpacing,
+      wr::AlphaMode aAlphaMode = wr::AlphaMode::Premultiplied);
 
   void PushImage(const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
                  bool aIsBackfaceVisible, bool aForceAntiAliasing,

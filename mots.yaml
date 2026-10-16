@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-10-13T09:01:31.708770+00:00'
+updated_at: '2026-10-14T17:42:52.947811+00:00'
 export:
   path: ./docs/mots/index.md
   format: md
@@ -2459,6 +2459,7 @@ modules:
           - toolkit/components/aboutinference/
           - toolkit/components/ml/
           - toolkit/components/pageextractor/
+          - taskcluster/kinds/toolchain-symbols-upload/kind.yml
         meta:
           components:
             - 'Core::Machine Learning: On Device'
@@ -3303,7 +3304,7 @@ modules:
       - dom/webidl/WebGPU.webidl
       - dom/webgpu/**/*
       - gfx/wgpu_bindings/**/*
-      - taskcluster/kinds/toolchain-dxc-upload/kind.yml
+      - taskcluster/kinds/toolchain-symbols-upload/kind.yml
       - taskcluster/kinds/toolchain/dxc.yml
       - third_party/rust/naga/**/*
       - third_party/rust/wgpu-*/**/*
@@ -5037,5 +5038,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: a1cc9ff3b871f4a273184e7721673bc28f1ac9ab
-  export: 681c158f99022d91dce53b25564842b1412083ca
+  config: caa741da2eb91b2457aba10835d7832f4207065f
+  export: 0a52272df62ea96be695e0921d087c6da5b0bfc6

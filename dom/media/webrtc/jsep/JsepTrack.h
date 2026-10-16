@@ -206,6 +206,8 @@ class JsepTrack {
     std::for_each(mEarlyRecvCodecs.begin(), mEarlyRecvCodecs.end(), func);
   }
 
+  bool HasEarlyRecvCodecs() const { return !mEarlyRecvCodecs.empty(); }
+
   // For a receive track, the recv-usable RTP header extensions from the
   // local m-section last passed to RecvTrackSetLocal(). Used for early
   // media (bug 2019381) instead of GetNegotiatedDetails(), which is stale

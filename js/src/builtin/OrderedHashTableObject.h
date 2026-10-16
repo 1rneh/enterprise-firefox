@@ -249,12 +249,12 @@ class TableIteratorObject : public NativeObject {
   // the last iterator in the list.
   //
   // Invariant: *getPrevPtr() == this.
-  TableIteratorObject** getPrevPtr() const {
+  GCPtr<TableIteratorObject*>* getPrevPtr() const {
     MOZ_ASSERT(isActive());
     Value v = getReservedSlot(PrevPtrSlot);
-    return static_cast<TableIteratorObject**>(v.toPrivate());
+    return static_cast<GCPtr<TableIteratorObject*>*>(v.toPrivate());
   }
-  void setPrevPtr(TableIteratorObject** p) {
+  void setPrevPtr(GCPtr<TableIteratorObject*>* p) {
     MOZ_ASSERT(isActive());
     setReservedSlotPrivateUnbarriered(PrevPtrSlot, p);
   }
@@ -263,7 +263,7 @@ class TableIteratorObject : public NativeObject {
     Value v = getReservedSlot(NextSlot);
     return static_cast<TableIteratorObject*>(v.toPrivate());
   }
-  TableIteratorObject** addressOfNext() {
+  GCPtr<TableIteratorObject*>* addressOfNext() {
     MOZ_ASSERT(isActive());
     return addressOfFixedSlotPrivatePtr<TableIteratorObject>(NextSlot);
   }
@@ -272,7 +272,7 @@ class TableIteratorObject : public NativeObject {
     setReservedSlotPrivateUnbarriered(NextSlot, p);
   }
 
-  void link(TableIteratorObject** listp) {
+  void link(GCPtr<TableIteratorObject*>* listp) {
     MOZ_ASSERT(isActive());
     TableIteratorObject* next = *listp;
     setPrevPtr(listp);
@@ -284,7 +284,7 @@ class TableIteratorObject : public NativeObject {
   }
 
   void init(detail::OrderedHashTableObject* target, Kind kind,
-            TableIteratorObject** listp) {
+            GCPtr<TableIteratorObject*>* listp) {
     initReservedSlot(TargetSlot, ObjectValue(*target));
     setReservedSlotPrivateUint32Unbarriered(KindSlot, uint32_t(kind));
     setReservedSlotPrivateUint32Unbarriered(IndexSlot, 0);
@@ -309,7 +309,7 @@ class TableIteratorObject : public NativeObject {
   }
   void unlink() {
     MOZ_ASSERT(isActive());
-    TableIteratorObject** prevp = getPrevPtr();
+    GCPtr<TableIteratorObject*>* prevp = getPrevPtr();
     TableIteratorObject* next = getNext();
     *prevp = next;
     if (next) {
@@ -325,7 +325,7 @@ class TableIteratorObject : public NativeObject {
     MOZ_ASSERT(isActive());
     MOZ_ASSERT(old != this);
 
-    TableIteratorObject** prevp = getPrevPtr();
+    GCPtr<TableIteratorObject*>* prevp = getPrevPtr();
     MOZ_ASSERT(*prevp == old);
     *prevp = this;
 
@@ -476,7 +476,7 @@ class MOZ_STACK_CLASS OrderedHashTableImpl {
   void setTenuredIterators(TableIteratorObject* iter) {
     obj->setReservedSlotPrivateUnbarriered(Slots::TenuredIteratorsSlot, iter);
   }
-  TableIteratorObject** addressOfTenuredIterators() const {
+  GCPtr<TableIteratorObject*>* addressOfTenuredIterators() const {
     static constexpr size_t slot = Slots::TenuredIteratorsSlot;
     return obj->addressOfFixedSlotPrivatePtr<TableIteratorObject>(slot);
   }
@@ -491,14 +491,14 @@ class MOZ_STACK_CLASS OrderedHashTableImpl {
   void setNurseryIterators(TableIteratorObject* iter) {
     obj->setReservedSlotPrivateUnbarriered(Slots::NurseryIteratorsSlot, iter);
   }
-  TableIteratorObject** addressOfNurseryIterators() const {
+  GCPtr<TableIteratorObject*>* addressOfNurseryIterators() const {
     static constexpr size_t slot = Slots::NurseryIteratorsSlot;
     return obj->addressOfFixedSlotPrivatePtr<TableIteratorObject>(slot);
   }
 
   // Returns a pointer to the list of tenured or nursery iterators depending on
   // where |iter| is allocated.
-  TableIteratorObject** addressOfIterators(TableIteratorObject* iter) {
+  GCPtr<TableIteratorObject*>* addressOfIterators(TableIteratorObject* iter) {
     return IsInsideNursery(iter) ? addressOfNurseryIterators()
                                  : addressOfTenuredIterators();
   }
@@ -931,7 +931,7 @@ class MOZ_STACK_CLASS OrderedHashTableImpl {
 
     static void init(OrderedHashTableObject* table, TableIteratorObject* iter,
                      TableIteratorObject::Kind kind) {
-      auto** listp = OrderedHashTableImpl(table).addressOfIterators(iter);
+      auto* listp = OrderedHashTableImpl(table).addressOfIterators(iter);
       iter->init(table, kind, listp);
       seek(table, iter);
     }
@@ -1095,7 +1095,7 @@ class MOZ_STACK_CLASS OrderedHashTableImpl {
     setNurseryIterators(nullptr);
   }
   void relinkNurseryIterator(TableIteratorObject* iter) {
-    auto** listp = addressOfIterators(iter);
+    auto* listp = addressOfIterators(iter);
     iter->link(listp);
   }
 

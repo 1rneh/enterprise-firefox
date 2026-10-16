@@ -5,11 +5,7 @@
  */
 
 import { createEngine } from "chrome://global/content/ml/EngineProcess.sys.mjs";
-import {
-  OAUTH_CLIENT_ID,
-  SCOPE_PROFILE_UID,
-  SCOPE_SMART_WINDOW,
-} from "resource://gre/modules/FxAccountsCommon.sys.mjs";
+import { OAUTH_CLIENT_ID } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = XPCOMUtils.declareLazy({
@@ -197,7 +193,7 @@ export class openAIEngine {
     try {
       const fxAccounts = lazy.getFxAccountsSingleton();
       return await fxAccounts.getOAuthToken({
-        scope: [SCOPE_SMART_WINDOW, SCOPE_PROFILE_UID],
+        service: "smartwindow",
         client_id: OAUTH_CLIENT_ID,
       });
     } catch (error) {

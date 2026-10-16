@@ -1648,15 +1648,15 @@ class NativeObject : public JSObject {
   }
 
   // Returns the address of a reserved fixed slot that stores a T* as
-  // PrivateValue. Be very careful when using this because the object might be
-  // moved in memory!
+  // PrivateValue. Be extremely careful when using this because the object might
+  // be moved in memory!
   template <typename T>
-  T** addressOfFixedSlotPrivatePtr(size_t slot) {
+  GCPtr<T*>* addressOfFixedSlotPrivatePtr(size_t slot) {
     MOZ_ASSERT(slot < JSCLASS_RESERVED_SLOTS(getClass()));
     MOZ_ASSERT(slotIsFixed(slot));
     MOZ_ASSERT(getReservedSlot(slot).isDouble());
     void* addr = &getFixedSlotRef(slot);
-    return reinterpret_cast<T**>(addr);
+    return reinterpret_cast<GCPtr<T*>*>(addr);
   }
 
   /*
@@ -1905,7 +1905,8 @@ class NativeObject : public JSObject {
    */
   static DenseElementResult maybeDensifySparseElements(
       JSContext* cx, Handle<NativeObject*> obj);
-  static bool densifySparseElements(JSContext* cx, Handle<NativeObject*> obj);
+  static bool densifySparseElements(JSContext* cx, Handle<NativeObject*> obj,
+                                    uint32_t newInitializedLength);
 
   inline HeapSlot* fixedElements() const {
     static_assert(2 * sizeof(Value) == sizeof(ObjectElements),

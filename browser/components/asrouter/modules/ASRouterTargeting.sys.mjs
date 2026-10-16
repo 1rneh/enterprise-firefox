@@ -1399,6 +1399,11 @@ const TargetingGetters = {
     return button.areaType;
   },
 
+  get forgetButtonAreaType() {
+    let button = lazy.CustomizableUI.getWidget("panic-button");
+    return button.areaType;
+  },
+
   isDefaultHandler: {
     get html() {
       return QueryCache.getters.isDefaultHTMLHandler.get();

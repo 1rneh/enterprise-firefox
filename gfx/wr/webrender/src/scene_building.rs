@@ -503,6 +503,10 @@ pub struct SceneBuilder<'a> {
     /// pop from this stack (see StackingContextInfo::needs_extra_stacking_context)
     extra_stacking_context_stack: Vec<StackingContextInfo>,
 
+    /// The (embedder, child) pairs of the iframe items that the embedder's
+    /// embed policy rejected.
+    embed_policy_violations: Vec<(PipelineId, PipelineId)>,
+
     /// Debug flags for the current scene build. Consulted e.g. to optionally
     /// disable promoting rounded-rect clips to compositor clips.
     debug_flags: DebugFlags,
@@ -561,6 +565,7 @@ impl<'a> SceneBuilder<'a> {
             surfaces: mem::take(&mut recycler.surfaces),
             clip_tree_builder: recycler.clip_tree_builder.take().unwrap_or_else(|| ClipTreeBuilder::new()),
             extra_stacking_context_stack: Vec::new(),
+            embed_policy_violations: Vec::new(),
             debug_flags,
         };
 
@@ -642,6 +647,7 @@ impl<'a> SceneBuilder<'a> {
             prim_instances: builder.prim_instances,
             surfaces: builder.surfaces,
             clip_tree,
+            embed_policy_violations: builder.embed_policy_violations,
             recycler_tx: Some(recycler.tx.clone()),
         }
     }
@@ -991,13 +997,12 @@ impl<'a> SceneBuilder<'a> {
                             continue;
                         }
 
+                        if !self.scene.may_embed(bc.pipeline_id, info.pipeline_id) {
+                            self.embed_policy_violations.push((bc.pipeline_id, info.pipeline_id));
+                            continue;
+                        }
+
                         let space = self.get_space(info.space_and_clip.spatial_id);
-                        // Note: the referenced pipeline is not checked against the
-                        // parent pipeline's namespace. Nesting pipelines across
-                        // namespaces is legitimate (a content process embeds the
-                        // pipelines of its out-of-process iframes and of its async
-                        // image pipelines), so validating iframe references needs
-                        // ownership information webrender doesn't have.
                         let (namespace, subtraversal) = match self.push_iframe(info, space) {
                             Some(pair) => pair,
                             None => continue,
@@ -1528,6 +1533,7 @@ impl<'a> SceneBuilder<'a> {
                     info.gradient.end,
                     read_gradient_stops(item.gradient_stops()),
                     info.gradient.extend_mode,
+                    info.gradient.alpha_mode,
                     info.tile_size,
                     info.tile_spacing,
                     None,
@@ -1558,6 +1564,7 @@ impl<'a> SceneBuilder<'a> {
                     info.gradient.radius.width / info.gradient.radius.height,
                     read_gradient_stops(item.gradient_stops()),
                     info.gradient.extend_mode,
+                    info.gradient.alpha_mode,
                     info.tile_size,
                     info.tile_spacing,
                     None,
@@ -1586,6 +1593,7 @@ impl<'a> SceneBuilder<'a> {
                     info.gradient.end_offset,
                     read_gradient_stops(item.gradient_stops()),
                     info.gradient.extend_mode,
+                    info.gradient.alpha_mode,
                     info.tile_size,
                     info.tile_spacing,
                     None,
@@ -2793,6 +2801,7 @@ impl<'a> SceneBuilder<'a> {
                             gradient.end,
                             read_gradient_stops(gradient_stops),
                             gradient.extend_mode,
+                            gradient.alpha_mode,
                             LayoutSize::new(border.height as f32, border.width as f32),
                             LayoutSize::zero(),
                             Some(Box::new(nine_patch)),
@@ -2817,6 +2826,7 @@ impl<'a> SceneBuilder<'a> {
                             gradient.radius.width / gradient.radius.height,
                             read_gradient_stops(gradient_stops),
                             gradient.extend_mode,
+                            gradient.alpha_mode,
                             LayoutSize::new(border.height as f32, border.width as f32),
                             LayoutSize::zero(),
                             Some(Box::new(nine_patch)),
@@ -2838,6 +2848,7 @@ impl<'a> SceneBuilder<'a> {
                             gradient.end_offset,
                             read_gradient_stops(gradient_stops),
                             gradient.extend_mode,
+                            gradient.alpha_mode,
                             LayoutSize::new(border.height as f32, border.width as f32),
                             LayoutSize::zero(),
                             Some(Box::new(nine_patch)),

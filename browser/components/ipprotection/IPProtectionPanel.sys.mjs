@@ -59,6 +59,8 @@ const BANDWIDTH_RESET_DATE_PREF = "browser.ipProtection.bandwidthResetDate";
 const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocation";
 const USER_OPENED_PREF = "browser.ipProtection.everOpenedPanel";
 const UPGRADE_NOT_AVAILABLE_PREF = "browser.ipProtection.upgradeNotAvailable";
+const SITE_INCLUSION_PROMPT_SHOWN_PREF =
+  "browser.ipProtection.siteInclusionPromptShown";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -152,6 +154,9 @@ export class IPProtectionPanel {
    * @property {boolean} isPremium
    * True if the current device has Firefox set as the default browser or the user has a Mozilla VPN subscription and/or unlimited bandwidth
    * Initially false; recomputed asynchronously before the panel is shown.
+   * @property {boolean} showSiteInclusionPrompt
+   * True if the prompt offering to always turn on VPN for the current site
+   * should be shown, else false.
    */
 
   /**
@@ -425,6 +430,7 @@ export class IPProtectionPanel {
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
       isEnrolling: lazy.IPProtectionService.authProvider.isEnrolling,
       isPremium: false,
+      showSiteInclusionPrompt: false,
     };
 
     // The progress listener to listen for page navigations.
@@ -557,6 +563,7 @@ export class IPProtectionPanel {
       const errorMessage = this.#errorMessage(error);
       this.setState({
         error: errorMessage,
+        showSiteInclusionPrompt: false,
       });
       this.toolbarButton?.updateState(null, { error: errorMessage });
     }
@@ -945,6 +952,10 @@ export class IPProtectionPanel {
     );
     doc.addEventListener("IPProtection:UserShowLocations", this.handleEvent);
     doc.addEventListener("IPProtection:UserSelectLocation", this.handleEvent);
+    doc.addEventListener(
+      "IPProtection:DismissSiteInclusionPrompt",
+      this.handleEvent
+    );
   }
 
   #removePanelListeners(doc) {
@@ -969,6 +980,10 @@ export class IPProtectionPanel {
     doc.removeEventListener("IPProtection:UserShowLocations", this.handleEvent);
     doc.removeEventListener(
       "IPProtection:UserSelectLocation",
+      this.handleEvent
+    );
+    doc.removeEventListener(
+      "IPProtection:DismissSiteInclusionPrompt",
       this.handleEvent
     );
   }
@@ -1119,8 +1134,8 @@ export class IPProtectionPanel {
    * Gets siteData by reading the current URL bar's URI.
    *
    * @returns {object|null}
-   *  An object with data relevant to a site (eg. isExclusion, hasSiteRule),
-   *  or null otherwise if invalid.
+   *  An object with data relevant to a site (eg. isExclusion, hasSiteRule,
+   *  host without a leading "www."), or null otherwise if invalid.
    *
    * @see State.siteData
    */
@@ -1134,7 +1149,8 @@ export class IPProtectionPanel {
     const isExclusion = rule === lazy.IPPPrincipalRules.EXCLUDED;
     const isInclusion = rule === lazy.IPPPrincipalRules.INCLUDED;
     const hasSiteRule = rule !== lazy.IPPPrincipalRules.DEFAULT;
-    return { isExclusion, isInclusion, hasSiteRule };
+    const host = principal.host.replace(/^www\./, "");
+    return { isExclusion, isInclusion, hasSiteRule, host };
   }
 
   /**
@@ -1171,6 +1187,24 @@ export class IPProtectionPanel {
   }
 
   /**
+   * Whether the site inclusion prompt should be shown when the user turns on
+   * the VPN: only the first time, and only on a site that isn't already
+   * included.
+   *
+   * @returns {boolean}
+   */
+  #shouldShowSiteInclusionPrompt() {
+    if (
+      !this.isInclusionsFeatureEnabled ||
+      Services.prefs.getBoolPref(SITE_INCLUSION_PROMPT_SHOWN_PREF, false)
+    ) {
+      return false;
+    }
+    const siteData = this.#getSiteData();
+    return !!siteData && !siteData.isInclusion;
+  }
+
+  /**
    * Updates the siteData state property.
    */
   #updateSiteData() {
@@ -1196,9 +1230,16 @@ export class IPProtectionPanel {
           userEnableCount + 1
         );
       }
+      if (this.#shouldShowSiteInclusionPrompt()) {
+        Services.prefs.setBoolPref(SITE_INCLUSION_PROMPT_SHOWN_PREF, true);
+        this.setState({ showSiteInclusionPrompt: true });
+      }
     } else if (event.type == "IPProtection:UserDisable") {
       this.#stopProxy();
       Services.prefs.setBoolPref("browser.ipProtection.userEnabled", false);
+      this.setState({ showSiteInclusionPrompt: false });
+    } else if (event.type == "IPProtection:DismissSiteInclusionPrompt") {
+      this.setState({ showSiteInclusionPrompt: false });
     } else if (event.type == "IPProtection:ClickUpgrade") {
       // Let the service know that we tried upgrading at least once
       this.initiatedUpgrade = true;
@@ -1215,6 +1256,7 @@ export class IPProtectionPanel {
       if (lazy.IPPProxyManager.state === lazy.IPPProxyStates.ERROR) {
         errorType = lazy.ERRORS.GENERIC;
       }
+      const paused = lazy.IPPProxyManager.state === lazy.IPPProxyStates.PAUSED;
 
       this.setState({
         unauthenticated:
@@ -1231,7 +1273,9 @@ export class IPProtectionPanel {
           lazy.IPProtectionService.state === lazy.IPProtectionStates.READY
             ? this.#shouldShowBandwidthWarning()
             : false,
-        paused: lazy.IPPProxyManager.state === lazy.IPPProxyStates.PAUSED,
+        paused,
+        showSiteInclusionPrompt:
+          this.state.showSiteInclusionPrompt && !errorType && !paused,
       });
     } else if (event.type == "SiteRuleManager:RuleChanged") {
       this.#updateSiteData();

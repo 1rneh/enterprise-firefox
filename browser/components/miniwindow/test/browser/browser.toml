@@ -46,3 +46,5 @@ skip-if = [
 ["browser_toolbar.js"]
 
 ["browser_toolbar_button.js"]
+
+["browser_zoom.js"]

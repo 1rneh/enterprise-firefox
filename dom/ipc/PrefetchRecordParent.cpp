@@ -14,6 +14,7 @@
 #include "mozilla/net/NoVarySearchUtils.h"
 #include "nsContentPolicyUtils.h"
 #include "nsIAsyncVerifyRedirectCallback.h"
+#include "nsICachingChannel.h"
 #include "nsIHttpChannel.h"
 #include "nsILoadInfo.h"
 #include "nsMixedContentBlocker.h"
@@ -325,6 +326,9 @@ NS_IMETHODIMP
 PrefetchRecordParent::OnStartRequest(nsIRequest* aRequest) {
   nsCOMPtr<nsIChannel> ch = do_QueryInterface(aRequest);
   FillResponseOnLastEntry(ch);
+  if (nsCOMPtr<nsICachingChannel> caching = do_QueryInterface(aRequest)) {
+    (void)caching->GetCacheToken(getter_AddRefs(mCacheToken));
+  }
 
   if (LOG_SPECRULES_ENABLED()) {
     nsCOMPtr<nsIHttpChannel> http = do_QueryInterface(aRequest);
@@ -406,6 +410,11 @@ PrefetchRecordParent::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
   mExpiryTime = TimeStamp::Now() +
                 TimeDuration::FromMilliseconds(
                     StaticPrefs::dom_speculation_rules_record_expiry_ms());
+  NS_NewTimerWithCallback(
+      getter_AddRefs(mExpiryTimer),
+      [self = RefPtr{this}](nsITimer*) { self->ReleaseCacheToken(); },
+      StaticPrefs::dom_speculation_rules_record_expiry_ms(),
+      nsITimer::TYPE_ONE_SHOT, "PrefetchRecordParent::Expiry"_ns);
 
   // Step 4: remove prior completed records with the same URL.
   wgp->DedupePrefetchRecords(this);
@@ -485,6 +494,14 @@ void PrefetchRecordParent::FirePrefetchStatusUpdated(bool aSuccess) {
   // https://wicg.github.io/nav-speculation/prefetch.html#trigger-a-prefetch-status-updated-event
 }
 
+void PrefetchRecordParent::ReleaseCacheToken() {
+  mCacheToken = nullptr;
+  if (mExpiryTimer) {
+    mExpiryTimer->Cancel();
+    mExpiryTimer = nullptr;
+  }
+}
+
 void PrefetchRecordParent::MarkCanceled() {
   // Implements "cancel and discard a prefetch record".
   // Spec:
@@ -497,6 +514,7 @@ void PrefetchRecordParent::MarkCanceled() {
   LOG_SPECRULES(("PrefetchRecordParent::MarkCanceled: this=%p", this));
 
   mState = PrefetchState::Canceled;  // Step 3: set state to "canceled"
+  ReleaseCacheToken();
 
   if (mChannel) {  // Step 4: abort the fetch controller
     mChannel->Cancel(NS_BINDING_ABORTED);
@@ -531,6 +549,7 @@ void PrefetchRecordParent::ActorDestroy(ActorDestroyReason aReason) {
     mChannel->Cancel(NS_BINDING_ABORTED);
     mChannel = nullptr;
   }
+  ReleaseCacheToken();
 }
 
 }  // namespace mozilla::dom

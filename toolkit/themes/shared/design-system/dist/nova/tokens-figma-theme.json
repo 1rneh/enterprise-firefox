@@ -499,11 +499,6 @@
     "dark": "{Colors$color/gray/60}",
     "forcedColors": "{HCM Theme$ButtonText}"
   },
-  "toolbar/field/background/color": {
-    "light": "{Theme$toolbar/background/color}",
-    "dark": "{Theme$toolbar/background/color}",
-    "forcedColors": "{Theme$toolbar/background/color}"
-  },
   "toolbar/field/background/color/focus": {
     "light": "{Theme$background/color/box}",
     "dark": "{Theme$background/color/box}",
@@ -523,6 +518,11 @@
     "light": "{Theme$focus/outline/color}",
     "dark": "{Theme$focus/outline/color}",
     "forcedColors": "{Theme$focus/outline/color}"
+  },
+  "toolbar/field/background/color": {
+    "light": "{Colors$color/white/alpha/40}",
+    "dark": "{Colors$color/black/alpha/20}",
+    "forcedColors": "{HCM Theme$Field}"
   },
   "toolbar/background/color": {
     "light": "rgba(255, 255, 255, 0.4)",

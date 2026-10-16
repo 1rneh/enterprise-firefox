@@ -635,6 +635,10 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // Whether results will include realtime sports suggestions.
   ["suggest.sports", true],
 
+  // If `browser.urlbar.temporal.featureGate` is true, this controls whether
+  // temporal search suggestions are turned on.
+  ["suggest.temporal", true],
+
   // Whether results will include top sites and the view will open on focus.
   ["suggest.topsites", true],
 
@@ -675,6 +679,12 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // The number of remaining times the user can interact with tab-to-search
   // onboarding results before we stop showing them.
   ["tabToSearch.onboard.interactionsLeft", 3],
+
+  // Feature gate pref for temporal search suggestions in the zero prefix view.
+  ["temporal.featureGate", false],
+
+  // The maximum number of temporal search suggestions to show.
+  ["temporal.rowCount", 3],
 
   // The number of times the user has been shown the onboarding search tip.
   ["tipShownCount.searchTip_onboard", 0],

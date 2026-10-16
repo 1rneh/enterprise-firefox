@@ -2119,7 +2119,7 @@
 # request. Read from C++ on the load and history paths, so it is static.
 - name: browser.smartwindow.aitab.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether to show an about:blank window as early as possible for quick startup feedback.
@@ -2936,6 +2936,16 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+
+- name: dom.template-for.enabled
+  type: RelaxedAtomicBool
+#ifdef FUZZING
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
+
 
 # Whether the commandfor "toggle" and "open" details commands are enabled
 - name: dom.element.commandfor.on_details.enabled
@@ -4352,6 +4362,13 @@
 - name: dom.push.window_pushmanager.enabled
   type: bool
   value: false
+  mirror: always
+
+# Whether QuotaExceededError is a DOMException derived interface carrying
+# `quota` and `requested`, rather than a plain DOMException.
+- name: dom.quota_exceeded_error.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Preference that is primarily used for testing of problematic file paths.
@@ -6709,11 +6726,6 @@
   value: false
   mirror: always
 
-- name: extensions.web_accessible_workers.deprecated_behavior
-  type: bool
-  value: false
-  mirror: always
-
 # Whether the InstallTrigger global should be enabled (kept for compatibility,
 # as it is still used in the wild as an improper UA detection method)
 - name: extensions.InstallTrigger.enabled
@@ -7537,6 +7549,12 @@
 
 # Draws an indicator if acceleration is used.
 - name: gfx.canvas.accelerated.debug
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Support for partial colorspace handling in Canvas
+- name: gfx.canvas.colorspace.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -9052,6 +9070,14 @@
   value: true
   mirror: once
 
+# Whether WebRender only lets a pipeline embed the pipelines that the GPU
+# process allows it to embed.
+- name: gfx.webrender.enforce-embed-policy
+  type: bool
+  rust: true
+  value: true
+  mirror: once
+
 - name: gfx.webrender.shared-instance-buffer
   type: bool
   rust: true
@@ -9228,6 +9254,22 @@
 # IDCT factors allow; 2.0 means only take an IDCT step if at least 2x of
 # downscaling remains for Lanczos. Values below 1.0 are clamped.
 - name: image.jpeg.dct-scaling.min-factor
+  type: AtomicFloat
+  value: 2.5f
+  mirror: always
+
+# Whether to use libwebp's rescaler to produce a reduced-size intermediate
+# image before the downscaling filter.
+- name: image.webp.scaled-decoding.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Minimum remaining scale factor to leave for the downscaling filter (Lanczos3)
+# after libwebp scaling. 1.0 means scale all the way to the target size in
+# libwebp; 2.0 means only scale in libwebp if at least 2x of downscaling
+# remains for Lanczos. Values below 1.0 are clamped.
+- name: image.webp.scaled-decoding.min-factor
   type: AtomicFloat
   value: 2.5f
   mirror: always
@@ -10893,6 +10935,13 @@
   value: false
   mirror: always
 
+# Whether transitions override ua !important declarations.
+- name: layout.css.transitions-override-ua
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Whether to enable CSS tree-counting functions (sibling-index(), sibling-count()).
 # https://drafts.csswg.org/css-values-5/#tree-counting
 - name: layout.css.tree-counting-functions.enabled
@@ -12011,12 +12060,6 @@
   mirror: always
   rust: true
 
-# Is support for -webkit-line-clamp on regular blocks enabled?
-- name: layout.css.webkit-line-clamp.block.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # TODO(Bug 1540681): Merge with the prefixed version.
 # Is support for the unprefixed 'line-clamp' property enabled?
 - name: layout.css.line-clamp.enabled
@@ -12432,6 +12475,12 @@
   type: RelaxedAtomicUint32
   mirror: always
   value: 0
+
+# Enable lazy loading for media elements (video and audio)
+- name: media.lazy_loading.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 # If a resource is known to be smaller than this size (in kilobytes), a
 # memory-backed MediaCache may be used; otherwise the (single shared global)
@@ -14528,7 +14577,7 @@
 # metadata. PHC allocations are "oversized" to the system page size.
 - name: memory.phc.size_kb
   type: uint32_t
-#ifdef EARLY_BETA_OR_EARLIER
+#ifdef NIGHTLY_BUILD
   value: 16 * 1024
 #else
 # Before Bug 1867191 PHC used aproximately 1.1MB since it was set to a round
@@ -14803,6 +14852,31 @@
 - name: network.buffer.default_size
   type: RelaxedAtomicUint32
   value: 65536
+  mirror: always
+
+# Controls if captive portal checks are performed.
+- name: network.captive-portal-service.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# Interval in ms between captive portal checks. If minInterval is 0, the check
+# will only happen when the service has a strong suspicion we are in a captive
+# portal.
+- name: network.captive-portal-service.minInterval
+  type: uint32_t
+  value: 60000
+  mirror: always
+
+- name: network.captive-portal-service.maxInterval
+  type: uint32_t
+  value: 1500000
+  mirror: always
+
+# Every 10 checks, the delay is increased by this factor.
+- name: network.captive-portal-service.backoffFactor
+  type: float
+  value: 5.0f
   mirror: always
 
 # See the full list of values in nsICookieService.idl.
@@ -15884,11 +15958,7 @@
 # This is the number of dns cache entries allowed
 - name: network.dnsCacheEntries
   type: RelaxedAtomicUint32
-#if defined(NIGHTLY_BUILD)
   value: 3200
-#else
-  value: 1600
-#endif
   mirror: always
 
 # In the absence of OS TTLs, the DNS cache TTL value
@@ -17318,6 +17388,13 @@
   value: 10
   mirror: always
 
+# Validate that the principal used to bind child-written alt-data could have
+# been loaded by the content process that wrote it.
+- name: network.cache.alt_data.validate_binding_principal
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 - name: network.cache.persist_permanent_redirects_http
   type: bool
   value: false
@@ -17585,6 +17662,7 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+  rust: true
 
 # When true, the socket transport service will have an additional queue for
 # runnables with increased priority.

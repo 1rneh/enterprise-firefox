@@ -4,7 +4,7 @@
 
 use api::{BlobImageHandler, ColorF, CrashAnnotator, DocumentId, IdNamespace};
 use api::{RenderBackendId, VoidPtrToSizeFn, FontRenderMode, ImageFormat};
-use api::{RenderNotifier, ImageBufferKind};
+use api::{RenderNotifier, ImageBufferKind, PipelineId};
 use api::units::*;
 use api::channel::unbounded_channel;
 pub use api::DebugFlags;
@@ -101,6 +101,9 @@ pub trait SceneBuilderHooks {
     /// This is called exactly once, when the scene builder thread is about to
     /// terminate.
     fn deregister(&self);
+    /// This is called when the embed policy of `embedder` rejects an iframe
+    /// item that references `child`, once per pair and document.
+    fn embed_policy_violation(&self, _document_id: DocumentId, _embedder: PipelineId, _child: PipelineId) {}
 }
 
 /// Allows callers to hook into the main render_backend loop and provide
@@ -777,6 +780,9 @@ pub fn create_webrender_instance(
         gpu_buffer_texture_i: None,
         gpu_buffer_texture_i_too_large: 0,
         gpu_buffer_last_data_i: Vec::new(),
+        gpu_buffer_texture_edges: None,
+        gpu_buffer_texture_edges_too_large: 0,
+        gpu_buffer_last_data_edges: Vec::new(),
         vertex_data: vertex::VertexDataRing::new(),
         pipeline_info: PipelineInfo::default(),
         dither_matrix_texture,

@@ -1,4 +1,5 @@
 [DEFAULT]
+skip-if = ["enterprise"] # Normandy is disabled on Firefox Enterprise
 tags = "addons"
 support-files = ["action_server.sjs"]
 head = "head.js"
@@ -25,9 +26,6 @@ head = "head.js"
 tags = "remote-settings"
 
 ["browser_about_preferences.js"]
-# Enterprise builds hide the studies checkbox this test targets and lock
-# datareporting.healthreport.uploadEnabled on.
-skip-if = ["enterprise"]
 
 ["browser_about_studies.js"]
 https_first_disabled = true

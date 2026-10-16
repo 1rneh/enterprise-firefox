@@ -68,6 +68,7 @@ fail-if = [
 ["browser_aboutwelcome_navigation.js"]
 
 ["browser_aboutwelcome_nimbus_gate.js"]
+skip-if = ["enterprise"] # Nimbus is disabled on Firefox Enterprise
 
 ["browser_aboutwelcome_observer.js"]
 https_first_disabled = true

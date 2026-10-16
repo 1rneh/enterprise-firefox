@@ -1857,7 +1857,11 @@ pref("services.sync.prefs.sync.accessibility.browsewithcaret", true);
 pref("services.sync.prefs.sync.accessibility.typeaheadfind", true);
 pref("services.sync.prefs.sync.accessibility.typeaheadfind.linksonly", true);
 pref("services.sync.prefs.sync.addons.ignoreUserEnabledChanges", true);
+#ifdef MOZ_ENTERPRISE
+pref("services.sync.prefs.sync.app.shield.optoutstudies.enabled", false, locked);
+#else
 pref("services.sync.prefs.sync.app.shield.optoutstudies.enabled", true);
+#endif
 // The addons prefs related to repository verification are intentionally
 // not synced for security reasons. If a system is compromised, a user
 // could weaken the pref locally, install an add-on from an untrusted
@@ -1872,8 +1876,13 @@ pref("services.sync.prefs.sync.browser.firefox-view.feature-tour", true);
 pref("services.sync.prefs.sync.browser.formfill.enable", true);
 pref("services.sync.prefs.sync.browser.link.open_newwindow", true);
 pref("services.sync.prefs.sync.browser.menu.showViewImageInfo", true);
+#ifdef MOZ_ENTERPRISE
+pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", false, locked);
+pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", false, locked);
+#else
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", true);
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", true);
+#endif
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.showSearch", true);
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.showSponsored", true);
 pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.showSponsoredTopSites", true);
@@ -1939,7 +1948,11 @@ pref("services.sync.prefs.sync.media.eme.enabled", true);
 pref("services.sync.prefs.sync-seen.media.eme.enabled", false);
 pref("services.sync.prefs.sync.media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 pref("services.sync.prefs.sync.network.cookie.cookieBehavior", true);
+#ifdef MOZ_ENTERPRISE
+pref("services.sync.prefs.sync.nimbus.rollouts.enabled", false, locked);
+#else
 pref("services.sync.prefs.sync.nimbus.rollouts.enabled", true);
+#endif
 pref("services.sync.prefs.sync.permissions.default.image", true);
 pref("services.sync.prefs.sync.pref.downloads.disable_button.edit_actions", true);
 pref("services.sync.prefs.sync.pref.privacy.disable_button.cookie_exceptions", true);
@@ -2174,8 +2187,14 @@ pref("browser.newtabpage.activity-stream.asrouter.providers.cfr", "{\"id\":\"cfr
 pref("browser.newtabpage.activity-stream.asrouter.providers.messaging-experiments", "{\"id\":\"messaging-experiments\",\"enabled\":true,\"type\":\"remote-experiments\",\"updateCycleInMs\":3600000}");
 
 // ASRouter user prefs
+#ifdef MOZ_ENTERPRISE
+// Contextual feature and add-on recommendations are disabled on Firefox Enterprise
+pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", false, locked);
+pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", false, locked);
+#else
 pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", true);
 pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", true);
+#endif
 pref("messaging-system.askForFeedback", true);
 
 // The pref that controls if ASRouter uses the remote fluent files.
@@ -2397,7 +2416,8 @@ pref("nimbus.profilesdatastoreservice.sync.enabled", true);
 
 // Enable Rollouts by default.
 #ifdef MOZ_ENTERPRISE
-pref("nimbus.rollouts.enabled", false);
+// Nimbus rollouts are disabled on Firefox Enterprise
+pref("nimbus.rollouts.enabled", false, locked);
 #else
 pref("nimbus.rollouts.enabled", true);
 #endif
@@ -3257,7 +3277,12 @@ pref("app.normandy.api_url", "");
 pref("app.normandy.api_url", "https://normandy.cdn.mozilla.net/api/v1");
 #endif
 pref("app.normandy.dev_mode", false);
+#ifdef MOZ_ENTERPRISE
+// Normandy is disabled on Firefox Enterprise
+pref("app.normandy.enabled", false, locked);
+#else
 pref("app.normandy.enabled", true);
+#endif
 pref("app.normandy.first_run", true);
 pref("app.normandy.logging.level", 50); // Warn
 pref("app.normandy.run_interval_seconds", 21600); // 6 hours
@@ -3268,7 +3293,10 @@ pref("app.normandy.shieldLearnMoreUrl", "https://support.mozilla.org/1/firefox/%
 #endif
 pref("app.normandy.last_seen_buildid", "");
 pref("app.normandy.onsync_skew_sec", 600);
-#if defined(MOZ_DATA_REPORTING) && !defined(MOZ_ENTERPRISE)
+#if defined(MOZ_ENTERPRISE)
+  // Nimbus studies are disabled on Firefox Enterprise
+  pref("app.shield.optoutstudies.enabled", false, locked);
+#elif defined(MOZ_DATA_REPORTING)
   pref("app.shield.optoutstudies.enabled", true);
 #else
   pref("app.shield.optoutstudies.enabled", false);

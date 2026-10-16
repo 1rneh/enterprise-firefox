@@ -14,7 +14,6 @@ const REDESIGN_ENABLED = Services.prefs.getBoolPref(
 );
 
 const PRIMARY_PASSWORD_CONTROL_IDS = [
-  "primaryPasswordBox",
   "masterPasswordRow",
   "useMasterPassword",
   "primaryPasswordLearnMoreLink",
@@ -57,6 +56,12 @@ add_task(async function test_managed_primary_password_controls_hidden() {
   for (let id of PRIMARY_PASSWORD_CONTROL_IDS) {
     ok(!isShown(doc, id), `#${id} should be hidden`);
   }
+  ok(
+    ![
+      ...doc.querySelectorAll('[data-l10n-id="forms-primary-pw-former-name"]'),
+    ].some(el => BrowserTestUtils.isVisible(el)),
+    "The former name note should be hidden"
+  );
 
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });

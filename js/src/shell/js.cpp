@@ -9016,6 +9016,13 @@ static bool AddMarkObservers(JSContext* cx, unsigned argc, Value* vp) {
       cx->runtime()->gc.evictNursery();
     }
 
+    if (value.isSymbol()) {
+      JS::Symbol* symbol = value.toSymbol();
+      if (symbol->isLocal()) {
+        value.setSymbol(symbol->sharedSymbol());
+      }
+    }
+
     if (!markObservers->get().append(value)) {
       ReportOutOfMemory(cx);
       return false;
@@ -9277,9 +9284,9 @@ static bool CopyExpandoProperties(JSContext* cx, HandleObject target,
     MOZ_ASSERT(desc.isSome());
 
     JSAutoRealm dstRealm(cx, target);
-    cx->recordRefToId(id);
     RootedId wrappedId(cx, id);
-    if (!cx->compartment()->wrap(cx, &desc)) {
+    if (!cx->wrapOrRecordRefToId(&wrappedId) ||
+        !cx->compartment()->wrap(cx, &desc)) {
       return false;
     }
     Rooted<PropertyDescriptor> desc_(cx, *desc);

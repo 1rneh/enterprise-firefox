@@ -79,6 +79,8 @@ prefs = ["network.xhr.block_sync_system_requests=false"] # Bug 721336
 
 ["test_alt-data_closeWithStatus.js"]
 
+["test_alt-data_failed_write.js"]
+
 ["test_alt-data_overwrite.js"]
 
 ["test_alt-data_simple.js"]
@@ -1156,6 +1158,16 @@ skip-if = [
   "os == 'android' && os_version == '14' && arch == 'x86_64'",
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix", # Bug 1807931
   "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix", # Bug 1807931
+]
+
+["test_http3_ipv6_send_would_block.js"]
+run-sequentially = ["true"] # http3server + node server
+run-if = [
+  "!socketprocess_networking",
+]
+skip-if = [
+  "os == 'android'",
+  "os == 'win'",
 ]
 
 ["test_http3_kyber.js"]
